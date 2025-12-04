@@ -11,12 +11,12 @@ function getMenu()
             'subItems' => [
                 [
                     'label' => 'Estados de Cuenta',
-                    'url' => '/EstadoCuenta/Consulta',
+                    'url' => '/estadocuenta/consulta',
                     'permisos' => [3, 26, 27, 28, 90, 30, 50]
                 ],
                 [
                     'label' => 'Documentación',
-                    'url' => '/EstadoCuenta/Documentacion',
+                    'url' => '/estadocuenta/documentacion',
                     'permisos' => [3, 26, 27, 28, 90, 30, 50]
                 ]
             ]
@@ -51,17 +51,17 @@ function getMenu()
             'subItems' => [
                 [
                     'label' => 'Resumen Call Center',
-                    'url' => 'app-viaticos-dashboard.html',
+                    'url' => '/reporteria/resumencallcenter',
                     'permisos' => [3, 26, 90]
                 ],
                 [
                     'label' => 'Layout Legacy',
-                    'url' => 'app-viaticos-dashboard.html',
+                    'url' => '/reporteria/layoutlegacy',
                     'permisos' => [3, 26, 90]
                 ],
                 [
                     'label' => 'Bonos Cobranza',
-                    'url' => 'app-viaticos-dashboard.html',
+                    'url' => '/reporteria/bonoscobranza',
                     'permisos' => [3, 26, 90]
                 ]
             ]
