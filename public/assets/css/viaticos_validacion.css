@@ -1,0 +1,169 @@
+.cursor-not-allowed {
+    cursor: not-allowed !important;
+}
+
+.w-80 {
+    width: 80% !important;
+}
+
+.h-0 {
+    height: 0 !important;
+}
+
+#solicitudes {
+    position: relative;
+    overflow: hidden;
+    block-size: calc(100vh - 12rem);
+}
+
+#solicitudDetalles {
+    position: absolute;
+    z-index: -1;
+    block-size: calc(100vh - 12rem);
+    inline-size: 100%;
+    inset-block-start: 0;
+    inset-inline-end: -100%;
+    -webkit-transition: all 0.5s ease;
+    transition: all 0.5s ease;
+}
+
+#solicitudDetalles.show {
+    z-index: 4;
+    inset-inline-end: -1px;
+}
+
+/* Visor de archivos - Base */
+#visorArchivos {
+    transition: all 0.3s ease;
+    position: relative;
+}
+
+/* Visor de archivos - Modo pantalla completa */
+#visorArchivos.fullscreen {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    margin: 0 !important;
+    z-index: 99999 !important;
+    background: #1a1a1a;
+    border-radius: 0 !important;
+}
+
+/* Ocultar sombra del navbar en fullscreen */
+body:has(#visorArchivos.fullscreen) .layout-page::before {
+    z-index: -1 !important;
+}
+
+body:has(#visorArchivos.fullscreen) .layout-navbar {
+    box-shadow: none !important;
+}
+
+/* Contenedor del visor con overflow para pan */
+#visor {
+    position: relative;
+    overflow: auto;
+    cursor: default;
+}
+
+#visor.draggable {
+    cursor: grab;
+}
+
+#visor.dragging {
+    cursor: grabbing;
+    user-select: none;
+}
+
+/* Contenedor para imágenes y PDFs */
+#visor .content-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-width: 100%;
+    min-height: 100%;
+    padding: 1rem;
+}
+
+/* Imágenes dentro del visor */
+#visor img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    transition: transform 0.3s ease;
+    display: block;
+}
+
+/* Canvas para PDFs */
+#visor canvas {
+    display: block;
+    margin: 0 auto;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+}
+
+/* Controles del visor */
+.controlesPDF {
+    background: #f8f9fa;
+    border-top: 1px solid #dee2e6;
+    border-bottom: 1px solid #dee2e6;
+    min-height: 50px;
+}
+
+#visorArchivos.fullscreen .controlesPDF {
+    background: #2d2d2d;
+    border-color: #404040;
+}
+
+#visorArchivos.fullscreen .controlesPDF span {
+    color: #ffffff;
+}
+
+/* Botones en modo fullscreen */
+#visorArchivos.fullscreen .btn-primary {
+    background-color: #4a5568;
+    border-color: #4a5568;
+}
+
+#visorArchivos.fullscreen .btn-primary:hover {
+    background-color: #5a6778;
+    border-color: #5a6778;
+}
+
+/* Estados de carga */
+.loading-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.9);
+    z-index: 1000;
+}
+
+.loading-image {
+    width: 100px;
+    height: 100px;
+}
+
+.loading-text {
+    margin-top: 1rem;
+    color: #6c757d;
+}
+
+/* Botón fullscreen */
+#btnFullscreen {
+    z-index: 10;
+    transition: all 0.3s ease;
+}
+
+#visorArchivos.fullscreen #btnFullscreen {
+    background-color: #dc3545;
+    border-color: #dc3545;
+}
+
+#visorArchivos.fullscreen #btnFullscreen i::before {
+    content: "\f066"; /* fa-compress */
+}

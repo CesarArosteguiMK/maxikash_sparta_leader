@@ -1,0 +1,189 @@
+/* Wizard RH Styles */
+.wizard-icons-example .bs-stepper-header {
+    padding: 1.5rem 0;
+    background: #ffffff;
+    border-radius: 0.5rem 0.5rem 0 0;
+}
+
+.wizard-icons-example .bs-stepper-header .step {
+    flex: 1;
+}
+
+.wizard-icons-example .bs-stepper-header .step-trigger {
+    background: transparent;
+    border: none;
+    color: rgba(255, 255, 255, 0.7);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 1rem;
+    border-radius: 0.5rem;
+    transition: all 0.3s ease;
+    width: 100%;
+}
+
+.bs-stepper-label {
+    text-align: center !important;
+}
+
+.wizard-icons-example .bs-stepper-header .step-trigger:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.wizard-icons-example .bs-stepper-header .step.active .step-trigger,
+.wizard-icons-example .bs-stepper-header .step.active .step-trigger:hover {
+    background: rgba(255, 255, 255, 0.2);
+    color: #fff;
+    box-shadow: 0 4px 15px rgba(255, 255, 255, 0.2);
+}
+
+.wizard-icons-example .bs-stepper-circle {
+    width: 3rem;
+    height: 3rem;
+    background: rgba(255, 255, 255, 0.1);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 0.5rem;
+    transition: all 0.3s ease;
+}
+
+.wizard-icons-example .bs-stepper-circle i {
+    font-size: 1.25rem;
+}
+
+.wizard-icons-example .step.active .bs-stepper-circle {
+    background: #fff;
+    border-color: #fff;
+    color: #667eea;
+    box-shadow: 0 4px 15px rgba(255, 255, 255, 0.3);
+}
+
+.wizard-icons-example .bs-stepper-title {
+    font-weight: 600;
+    font-size: 0.875rem;
+    margin-bottom: 0.25rem;
+}
+
+.wizard-icons-example .bs-stepper-subtitle {
+    font-size: 0.75rem;
+    opacity: 0.8;
+}
+
+.wizard-icons-example .line {
+    flex: 1;
+    height: 2px;
+    background: rgba(255, 255, 255, 0.2);
+    margin: 0 1rem;
+    align-self: center;
+    position: relative;
+    top: -1rem;
+}
+
+.wizard-icons-example .bs-stepper-content {
+    padding: 2rem;
+    background: #fff;
+    border-radius: 0 0 0.5rem 0.5rem;
+    min-height: 400px;
+}
+
+.wizard-icons-example .content-header h6 {
+    color: #667eea;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+}
+
+.wizard-icons-example .content-header small {
+    color: #6c757d;
+}
+
+/* Estilos para la sección de confirmación */
+.wizard-icons-example #confirmacion .card {
+    border: 1px solid #e3f2fd;
+    box-shadow: 0 2px 10px rgba(102, 126, 234, 0.1);
+}
+
+.wizard-icons-example #confirmacion .card-header {
+    background: #fff;
+    color: #fff;
+    border-bottom: none;
+}
+
+.wizard-icons-example #confirmacion .alert-info {
+    background: #f3e5f5;
+    border: 1px solid #667eea;
+    color: #495057;
+}
+
+.wizard-icons-example #confirmacion .alert-info .alert-heading {
+    color: #000000;
+}
+
+/* Estilos para la foto de resumen */
+.wizard-icons-example #resumenFoto {
+    border: 3px solid #667eea;
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.2);
+}
+
+/* Estilos para los botones del wizard */
+.wizard-icons-example .btn-next,
+.wizard-icons-example .btn-prev {
+    min-width: 120px;
+}
+
+.wizard-icons-example .btn-submit {
+    background: #20c997;
+    border: none;
+    box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
+    min-width: 160px;
+}
+
+.wizard-icons-example .btn-submit:hover {
+    background: linear-gradient(135deg, #218838 0%, #1e7e34 100%);
+    box-shadow: 0 6px 20px rgba(40, 167, 69, 0.4);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .wizard-icons-example .bs-stepper-header {
+        flex-direction: column;
+    }
+
+    .wizard-icons-example .line {
+        display: none;
+    }
+
+    .wizard-icons-example .bs-stepper-content {
+        padding: 1rem;
+    }
+}
+
+/* Animaciones */
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.wizard-icons-example .content {
+    animation: fadeInUp 0.3s ease;
+}
+
+/* Validación */
+.wizard-icons-example .is-invalid {
+    border-color: #dc3545;
+}
+
+.wizard-icons-example .fv-message {
+    color: #dc3545;
+    font-size: 0.875rem;
+    margin-top: 0.25rem;
+}
