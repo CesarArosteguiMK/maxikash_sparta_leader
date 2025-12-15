@@ -1,29 +1,34 @@
-# Usa una imagen base ligera de Python
-FROM python:3.11-slim
+FROM php:8.2-apache
 
-# Establecer directorio de trabajo
-WORKDIR /app
+# Habilitar mod_rewrite (Laravel / rutas amigables)
+RUN a2enmod rewrite
 
-# Instalar dependencias del sistema necesarias para compilar y usar librerías como matplotlib y graphviz
-RUN apt-get update && apt-get install -y \
-    graphviz \
-    libgraphviz-dev \
-    pkg-config \
-    build-essential \
-    && rm -rf /var/lib/apt/lists/*
+# Instalar extensiones comunes
+RUN docker-php-ext-install pdo pdo_mysql mysqli
 
-# Copiar requerimientos e instalarlos
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Cambiar DocumentRoot a /public
+ENV APACHE_DOCUMENT_ROOT=/var/www/html/public
 
-# Copiar el resto del proyecto
-COPY . .
+RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' \
+    /etc/apache2/sites-available/*.conf \
+    /etc/apache2/apache2.conf \
+    /etc/apache2/conf-available/*.conf
 
-# Establecer variable de entorno para Cloud Run
-ENV PORT=8080
+# Copiar proyecto
+COPY . /var/www/html
 
-# Exponer el puerto
+# Instalar Composer
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+
+# Instalar dependencias PHP
+RUN composer install --no-dev --optimize-autoloader
+
+# Permisos (MUY importante)
+RUN chown -R www-data:www-data /var/www/html \
+    && chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
+
+# Puerto que usa Cloud Run
 EXPOSE 8080
 
-# Comando para correr Flask en modo producción
-CMD ["gunicorn", "-b", ":8080", "app:app"]
+# Apache debe escuchar en 8080 (Cloud Run)
+RUN sed -i 's/80/8080/g' /etc/apache2/ports.conf /etc/apache2/sites-available/000-default.conf
