@@ -66,6 +66,8 @@
                         </div>
                     </div>
 
+                    <div id="listaResultados" class="list-group position-absolute w-100" style="z-index: 999;"></div>
+
                     <!-- Fecha Corte oculta -->
                     <input type="hidden" name="fechaCorte" id="fechaCorte" value="<?= $fecha_actual_iso ?>">
 

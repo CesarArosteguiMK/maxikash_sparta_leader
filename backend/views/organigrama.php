@@ -28,8 +28,6 @@
         <!-- Organigrama -->
         <div id="chart" class="mt-4"></div>
 
-        <!-- Tabla subordinados -->
-        <div id="subordinados" class="mt-4"></div>
     </div>
 </div>
 
@@ -107,6 +105,26 @@
                 <button type="button" id="cancelaSolicitud" class="btn btn-secondary" data-bs-dismiss="modal" aria-label="Close">Cancelar</button>
                 <button type="button" id="registraSolicitud" class="btn btn-primary">Guardar</button>
             </div>
+
+            <div class="modal fade" id="modalRFC" tabindex="-1" aria-labelledby="modalRFCLabel" aria-hidden="true">
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="modalRFCLabel">Referencias del cliente</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                        </div>
+                        <div class="modal-body">
+                            <!-- Contenido dinámico: p. ej. RFC -->
+                            <p><strong>RFC:</strong> <?= htmlspecialchars($dataCliente["rfc"] ?? '—') ?></p>
+                            <!-- agrega aquí lo que necesites -->
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
         </div>
     </div>
 </div>
@@ -122,14 +140,10 @@
 
         document.getElementById("resultado").innerHTML = "";
         document.getElementById("countPuestos").innerHTML = "";
-        document.getElementById("subordinados").innerHTML = "";
 
         if (!dep_id) return;
-
-
-
         const getSolicitudes = () => {
-            consultaServidor("/CapHum/getPuestosPorDepartamento", { idDepartamento: dep_id }, (respuesta) => {
+            consultaServidor("/CapHum/getObtenerPersonasPorDepartamento", { idDepartamento: dep_id }, (respuesta) => {
                 const personaSelect = document.getElementById('personaSelect');
 
                 // Limpiar combo
@@ -145,6 +159,8 @@
                 // Asegurarnos que datos es un array
                 const personas = Array.isArray(respuesta.datos) ? respuesta.datos : Object.values(respuesta.datos);
 
+
+
                 if (personas.length === 0) {
                     personaSelect.innerHTML = "<option>No hay personas</option>";
                     personaSelect.disabled = true;
@@ -152,7 +168,7 @@
                 }
 
                 // Llenar combo
-                personaSelect.innerHTML = '<option value="">Selecciona una opción --</option>';
+                personaSelect.innerHTML = '<option value="">Selecciona una persona </option>';
                 personas.forEach(p => {
                     personaSelect.innerHTML += `<option value="${p.id}">${p.nombre}</option>`;
                 });
@@ -165,36 +181,6 @@
             getSolicitudes()
         });
         return; // termina la función
-
-
-
-        // Conteo por puesto
-        fetch("/nivel_jerarquico/count/" + dep_id)
-            .then(res => res.json())
-            .then(data => {
-                if (!data || data.length === 0) {
-                    document.getElementById("countPuestos").innerHTML =
-                        "<p class='text-muted'>No hay información de puestos.</p>";
-                    return;
-                }
-                let html = `
-                <h5 class="mt-4">Resumen por Puesto</h5>
-                <div class="table-responsive">
-                    <table class="table table-bordered table-sm mt-2">
-                        <thead class="table-light">
-                            <tr>
-                                <th>Puesto</th>
-                                <th>Total</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-            `;
-                data.forEach(row => {
-                    html += `<tr><td>${row.puesto}</td><td><strong>${row.total_empleados}</strong></td></tr>`;
-                });
-                html += `</tbody></table></div>`;
-                document.getElementById("countPuestos").innerHTML = html;
-            });
     });
 
     document.getElementById("personaSelect").addEventListener("change", function() {

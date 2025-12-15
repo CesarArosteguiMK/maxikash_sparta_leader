@@ -18,7 +18,8 @@ class CapHum extends Controller
             </script>
         HTML;
 
-        $departamentos = EmpresasDAO::getConsultaDepartamentos();
+        $departamentos = EmpresasDAO::getConsultaDepartamentoGestor($_SESSION['departamento']);
+
         $getDepartamentos = '<option disabled selected>Seleeccione una opción</option>';
 
         if (!empty($departamentos['datos'])) {
@@ -38,13 +39,13 @@ class CapHum extends Controller
         self::respuestaJSON(EmpresasDAO::getConsultaDepartamentos($_POST));
     }
 
-    public function getPuestosPorDepartamento()
+    public function getObtenerPersonasPorDepartamento()
     {
         // Obtener parámetro enviado por POST (o GET según tu setup)
         $idDepartamento = $_POST['idDepartamento'] ?? null;
 
         // Pasar el parámetro a DAO
-        $puestos = CapHumDAO::getPersonasMayorRangoPorDepartamento($idDepartamento);
+        $puestos = CapHumDAO::getPersonasMayorRangoPorDepartamento($idDepartamento, 0, $_SESSION['usuario_id']);
 
         self::respuestaJSON($puestos);
     }
@@ -94,5 +95,78 @@ class CapHum extends Controller
         exit;
     }
 
+    public function Gestion()
+    {
+        $script = <<<HTML
+            <script>
+               function darbaja(id) {
+                console.log("ID seleccionado:", id);
+                // Abrir modal
+                $("#modalRFC").modal("show");
+                
+            }
+            
+            function editar(id) {
+                console.log("ID seleccionado:", id);
+                // Abrir modal
+                $("#modalPersonaEdita").modal("show");
+                
+            }
+            
+           
+            </script>
+        HTML;
+
+        $gestores = CapHumDAO::getConsultaGestores($_SESSION['usuario_id']);
+
+        $tablaGestores = "";
+
+
+        // Validar que existan datos
+        if (!empty($gestores["datos"]) && is_array($gestores["datos"])) {
+
+            foreach ($gestores["datos"] as $value) {
+
+                $nombreCompleto = "{$value['nombres']} {$value['apellidop']} {$value['apellidom']}";
+
+                $estatus = ($value["estatus"] === "Activo")
+                    ? '<span class="badge bg-label-success">Activo</span>'
+                    : '<span class="badge bg-label-danger">Inactivo</span>';
+
+                $acciones = <<<HTML
+            <button class="btn btn-sm btn-primary me-1" onclick="editar({$value['id']})">
+                <i class="fa fa-edit"></i>
+            </button>
+            <button class="btn btn-sm btn-info me-1" onclick="editar({$value['id']})">
+                <i class="fa fa-file"></i>
+            </button>
+            <button class="btn btn-sm btn-warning" onclick="eliminar({$value['id']})">
+                <i class="fa fa-person-circle-minus"></i>
+            </button>
+            <button class="btn btn-sm btn-danger" onclick="darbaja({$value['id']})">
+                <i class="fa fa-user-slash"></i>
+            </button>
+
+        HTML;
+
+                $tablaGestores .= <<<HTML
+            <tr>
+                <td>{$nombreCompleto}</td>
+                <td>{$value['nombre_departamento']}</td>
+                <td>{$value['nombre_puesto']}</td>
+                <td>{$estatus}</td>
+                <td>{$acciones}</td>
+            </tr>
+        HTML;
+            }
+        }
+
+
+
+        self::set("titulo", "Organigrama");
+        self::set("script", $script);
+        self::set('tablaGestores', $tablaGestores);
+        self::render("AllGestores");
+    }
 
 }

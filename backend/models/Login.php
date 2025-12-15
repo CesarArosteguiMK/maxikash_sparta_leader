@@ -10,7 +10,7 @@ class Login extends Model
     public static function validaUsuario($datos)
     {
         $query = <<<SQL
-             SELECT p.nombres, p.apellidop, p.apellidom , p.numero_empleado, p.user_name, p.password, pp.id as id_puesto, pp.nombre as nombre_puesto
+             SELECT p.id, p.nombres, p.apellidop, p.apellidom , p.numero_empleado, p.user_name, p.password, pp.id as id_puesto, pp.nombre as nombre_puesto, pp.departamento_id
             FROM
                 persona p
                 inner join asigna_puesto a on a.id_persona = p.id

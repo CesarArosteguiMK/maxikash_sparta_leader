@@ -32,7 +32,12 @@
                                         <h5 class="text-primary mb-2">Disponible para descarga diaria</h5>
                                         <p class="text-body w-sm-80 app-academy-xl-100">El ultimo corte es: Reporte_Corte_Jueves_13_30</p>
                                     </div>
-                                    <div class="mb-0"><button class="btn btn-sm btn-primary">UULTIMO CORTE SEGUNDOMETRO</button></div>
+                                    <form id="form-descarga" method="GET" action="/Reporteria/ProcesarDescargarCorte">
+                                        <input type="hidden" name="columna" id="input-columna" value="">
+                                        <button type="submit" id="btn-ultimo-corte" class="btn btn-primary">
+                                            Descargar Último Corte
+                                        </button>
+                                    </form>
                                 </div>
                                 <div class="w-100 app-academy-sm-40 d-flex justify-content-center justify-content-sm-end h-px-150 mb-4 mb-sm-0">
                                     <img class="img-fluid scaleX-n1-rtl" src="https://cdn-icons-png.freepik.com/512/11053/11053297.png?ga=GA1.1.191732613.1764875703" alt="boy illustration">

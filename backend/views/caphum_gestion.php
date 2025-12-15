@@ -670,3 +670,4 @@
     </div>
 </div>
 <!-- / Modal para registrar/editar persona -->
+

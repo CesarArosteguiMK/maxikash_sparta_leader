@@ -36,12 +36,12 @@ function getMenu()
             'subItems' => [
                 [
                     'label' => 'Gestión',
-                    'url' => '/CapHum/GestionCapHum',
+                    'url' => '/capHum/gestion',
                     'permisos' => [3, 26, 27, 28]
                 ],
                 [
-                    'label' => 'Organigrama',
-                    'url' => '/CapHum/Organigrama',
+                    'label' => 'organigrama',
+                    'url' => '/capHum/organigrama',
                     'permisos' => [3, 26, 27, 28]
                 ]
             ]

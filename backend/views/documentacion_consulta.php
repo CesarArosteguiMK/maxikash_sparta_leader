@@ -3,7 +3,7 @@
     <!-- Título -->
     <div class="row mb-3">
         <div class="col-12">
-            <h4 class="mb-0">Consulta las gestiones de los creditos </h4>
+            <h4 class="mb-0">Documentación Clientes Entrega</h4>
             <p class="text-muted small">Busca por nombre o por ID de crédito</p>
         </div>
     </div>
@@ -24,7 +24,7 @@
                         <label class="form-check-label" for="modoID">ID de crédito</label>
                     </div>
 
-                    <div class="form-check form-check-inline" style="display:none">
+                    <div class="form-check form-check-inline" style="display: none">
                         <input class="form-check-input" type="radio" name="modoBusqueda" id="modoNombre" value="nombre"
                             <?= (isset($_POST['modoBusqueda']) && $_POST['modoBusqueda'] === 'nombre') ? 'checked' : '' ?>>
                         <label class="form-check-label" for="modoNombre">Nombre del cliente</label>
