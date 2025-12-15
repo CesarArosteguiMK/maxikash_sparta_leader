@@ -70,7 +70,7 @@ spl_autoload_register(function ($archivo) {
 
 // Si no se ha iniciado sesión o se solicita el login, se llama al controlador de login y se finaliza la ejecución
 if (!isset($_SESSION['login']) || strtolower($urlSolicitada[0]) === strtolower(LOGIN)) {
-    $login = 'Controllers\\' . LOGIN;
+    $login = 'controllers\\' . LOGIN;
     $login = new $login;
     $metodo = isset($urlSolicitada[1]) ? $urlSolicitada[1] : METODO_DEFECTO;
     $metodo = strtolower($urlSolicitada[0]) === strtolower(LOGIN) ? $metodo : METODO_DEFECTO;
@@ -81,7 +81,7 @@ if (!isset($_SESSION['login']) || strtolower($urlSolicitada[0]) === strtolower(L
 // Se valida que el archivo del controlador solicitado exista
 if ($urlSolicitada[0] === '' || !file_exists(CONTROLADORES . "/$urlSolicitada[0].php")) recursoNoDisponible();
 
-$controlador = 'Controllers\\' . ucfirst($urlSolicitada[0]);
+$controlador = 'controllers\\' . ucfirst($urlSolicitada[0]);
 unset($urlSolicitada[0]);
 
 // Se valida que la clase del controlador exista
