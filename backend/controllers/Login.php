@@ -8,7 +8,7 @@ use Models\Login as LoginDao;
 class Login extends Controller
 {
     public function index()
-    {
+    { 
         $script = <<<HTML
             <script>
                 const validaUsuario = (btn) => {
