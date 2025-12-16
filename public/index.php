@@ -15,6 +15,12 @@ $validaHV = new DateTime('now', new DateTimeZone('America/Mexico_City'));
 if ($validaHV->format('I')) date_default_timezone_set('America/Mazatlan');
 else date_default_timezone_set('America/Mexico_City');
 
+// Se registra el autoload
+spl_autoload_register(function ($archivo) {
+    $archivo = str_replace('\\', '/', $archivo);
+    require_once RAIZ . "/$archivo.php";
+});
+
 // Se definen las constantes de la aplicación
 define('RAIZ', dirname(__DIR__) . '/backend');
 define('CONFIGURACION', parse_ini_file(RAIZ . '/config/config.ini'));
@@ -62,11 +68,7 @@ if ($extension !== '' && strtolower($extension) !== 'php') {
     exit;
 }
 
-// Se registra el autoload
-spl_autoload_register(function ($archivo) {
-    $archivo = str_replace('\\', '/', $archivo);
-    require_once RAIZ . "/$archivo.php";
-});
+
 
 // Si no se ha iniciado sesión o se solicita el login, se llama al controlador de login y se finaliza la ejecución
 if (!isset($_SESSION['login']) || strtolower($urlSolicitada[0]) === strtolower(LOGIN)) {
