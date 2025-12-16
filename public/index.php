@@ -30,6 +30,11 @@ define('METODO_DEFECTO', 'index');
 | CONFIGURACIÓN GENERAL
 |--------------------------------------------------------------------------
 */
+spl_autoload_register(function ($archivo) {
+    $archivo = str_replace('\\', '/', $archivo);
+    require_once RAIZ . "/$archivo.php";
+});
+
 require_once RAIZ . '/config/config.php';
 
 // Configuración de la zona horaria para contemplar horario de verano
@@ -42,10 +47,6 @@ else date_default_timezone_set('America/Mexico_City');
 | AUTOLOAD
 |--------------------------------------------------------------------------
 */
-spl_autoload_register(function ($archivo) {
-    $archivo = str_replace('\\', '/', $archivo);
-    require_once RAIZ . "/$archivo.php";
-});
 
 /*
 |--------------------------------------------------------------------------
