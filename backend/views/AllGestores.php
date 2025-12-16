@@ -221,7 +221,7 @@
                     <label for="edit_id_puesto" class="form-label">Puestos *</label>
                     <select id="edit_id_puesto" name="edit_id_puesto" class="form-select">
                         <option value="">Seleccione un puesto</option>
-                        
+
                     </select>
                 </div>
 
