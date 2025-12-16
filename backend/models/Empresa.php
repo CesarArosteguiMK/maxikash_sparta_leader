@@ -289,6 +289,35 @@ class Empresa extends Model
     }
 
 
+    public static function getPersonasDetalle($idPersona)
+    {
+        try {
+            $db = new Database();
+
+            $query = <<<SQL
+            SELECT 
+                p.*,
+                ap.id_puesto, dd.nombre as departamento, dd.id as id_departamento
+            FROM persona p
+            INNER JOIN asigna_puesto ap ON ap.id_persona = p.id
+            INNER JOIN puesto pu ON pu.id = ap.id_puesto
+            INNER JOIN departamento dd ON dd.id = pu.departamento_id
+            WHERE p.id = $idPersona
+              AND p.estatus != 'Baja'
+            LIMIT 1
+        SQL;
+
+            $persona = $db->queryOne($query);
+
+            return self::resultado(true, 'Persona encontrada.', $persona);
+
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al procesar la solicitud.', null, $e->getMessage());
+        }
+    }
+
+
+
 
 
 

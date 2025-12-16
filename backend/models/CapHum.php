@@ -268,6 +268,56 @@ class CapHum extends Model
         }
     }
 
+    public static function insertPersona($data)
+    {
+        // 🔹 Escapamos valores
+        $nombres = addslashes($data['nombres']);
+        $apellidop = addslashes($data['apellidop']);
+        $apellidom = addslashes($data['apellidom']);
+        $numero_empleado = addslashes($data['numero_empleado']);
+        $correo = addslashes($data['correo'] ?? '');
+        $telefono_uno = addslashes($data['telefono_uno'] ?? '');
+        $telefono_dos = addslashes($data['telefono_dos'] ?? '');
+        $estatus = addslashes($data['estatus'] ?? 'Activo');
+        $id_puesto = addslashes($data['id_puesto']);
+        $user_name = addslashes($data['usuario']);
+        $password = addslashes($data['contrasena']);
+
+
+        try {
+            $db = new Database();
+
+            // 1️⃣ Ejecutamos INSERT con queryOne() aunque no devuelve filas
+            $db->queryOne("
+            INSERT INTO __SPARTA_SECRET_REDACTED__.persona
+            (nombres, apellidop, apellidom, numero_empleado, correo, telefono_uno, telefono_dos, estatus, user_name, password)
+            VALUES
+            ('$nombres', '$apellidop', '$apellidom', '$numero_empleado', '$correo', '$telefono_uno', '$telefono_dos', '$estatus', '$user_name', '$password')
+        ");
+
+            // 2️⃣ Obtenemos el ID insertado con queryOne()
+            $result = $db->queryOne("SELECT LAST_INSERT_ID() AS id");
+
+            $id_persona = isset($result['id']) ? intval($result['id']) : null;
+
+           if($result)
+            {
+                $db->queryOne("
+                   INSERT INTO __SPARTA_SECRET_REDACTED__.asigna_puesto
+                                (id, id_persona, id_puesto, fecha_asignacion, activo)
+                    VALUES
+                    (DEFAULT, $id_persona, $id_puesto, NOW(), 1)
+                ");
+            }
+
+            return self::resultado(true, 'Persona insertada correctamente.', $result);
+
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al insertar persona.', null, $e->getMessage());
+        }
+    }
+
+
 
 
 }
