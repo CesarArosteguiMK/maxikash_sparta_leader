@@ -59,20 +59,22 @@ class CapHum extends Controller
     public function getPuestosDepartamento()
     {
         $input = json_decode(file_get_contents("php://input"), true);
-        $id = 3;
+        $id = $input['id_departamento'] ?? null;
 
-        if (!$id) {
+        if (empty($id)) {
             self::respuestaJSON([
                 'success' => false,
-                'mensaje' => 'Tipo de departamento requerido'
+                'mensaje' => 'Id de departamento requerido'
             ]);
             return;
         }
 
-        self::respuestaJSON(
-            EmpresasDAO::getConsultaDepartamentoGestor($id)
-        );
+        // EL DAO YA REGRESA success, mensaje y datos
+        $resultado = EmpresasDAO::getConsultaPuestos($id);
+
+        self::respuestaJSON($resultado);
     }
+
 
 
     public function getObtenerPersonasPorDepartamento()
@@ -166,11 +168,11 @@ class CapHum extends Controller
                     });
                 }
                 
-                function cargarPuestosPorDepartamentos(id, seleccionado = null) {
+                function cargarPuestosPorDepartamentos(id_departamento, seleccionado = null) {
                     fetch('/CapHum/getPuestosDepartamento', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ id })
+                        body: JSON.stringify({ id_departamento })
                     })
                     .then(res => res.json())
                     .then(data => {
@@ -183,12 +185,12 @@ class CapHum extends Controller
                         const select = document.getElementById('edit_id_puesto');
                         select.innerHTML = '<option value="">Seleccione un puesto</option>';
                 
-                        data.datos.forEach(dep => {
+                        data.datos.forEach(puesto => {
                             const option = document.createElement('option');
-                            option.value = dep.id;
-                            option.textContent = dep.nombre;
+                            option.value = puesto.id;
+                            option.textContent = puesto.nombre;
                 
-                            if (String(dep.id) === String(seleccionado)) {
+                            if (String(puesto.id) === String(seleccionado)) {
                                 option.selected = true;
                             }
                 
@@ -196,9 +198,40 @@ class CapHum extends Controller
                         });
                     });
                 }
-
-
                 
+                
+                
+                function cargarJefeDirecto(id_departamento, seleccionado = null) {
+                    fetch('/CapHum/getJefeDirecto', 
+                    {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id_departamento })
+                    })
+                    .then(res => res.json())
+                    .then(data => {
+                
+                        if (!data.success) {
+                            Swal.fire("Error", data.mensaje, "error");
+                            return;
+                        }
+                
+                        const select = $('#edit_id_jefe');
+                        select.empty().append(new Option('Seleccione un jefe', '', false, false));
+                
+                        data.datos.forEach(jefe => {
+                            select.append(new Option(
+                                jefe.nombre_completo,
+                                jefe.id,
+                                false,
+                                String(jefe.id) === String(seleccionado)
+                            ));
+                        });
+                
+                        select.trigger('change'); // 🔥 clave para Select2
+                    });
+                }
+
             
                 function editar(id) {
                     console.log("ID recibido:", id);
@@ -227,6 +260,7 @@ class CapHum extends Controller
                                         
                         cargarDepartamentosPorTipo(persona.id_departamento, persona.id_departamento);
                         cargarPuestosPorDepartamentos(persona.id_departamento, persona.id_puesto);
+                        cargarJefeDirecto(persona.id_departamento, persona.id_jefe);
                 
                         // CAMPOS TEXTO
                         document.getElementById("edit_num_empleado").value = persona.numero_empleado;
@@ -236,6 +270,7 @@ class CapHum extends Controller
                         document.getElementById("edit_apellidom").value = persona.apellidom ?? '';
                         document.getElementById("edit_telefono").value = persona.telefono ?? '';
                         document.getElementById("edit_usuario").value = persona.user_name ?? '';
+                        document.getElementById("edit_contrasena").value = persona.password ?? '';
                 
                        // SELECTS
                         document.getElementById("edit_departamento_id").value = persona.id_departamento;
@@ -270,7 +305,7 @@ class CapHum extends Controller
                         contrasena: document.getElementById("edit_contrasena").value
                     };
                 
-                    fetch('/CapHum/updateGestor', {
+                    fetch('/CapHum/updateGestorF', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(payload)
@@ -406,7 +441,8 @@ class CapHum extends Controller
                     Swal.fire('Error', 'No se pudo registrar el gestor', 'error');
                 });
             }
-          
+            
+               
             </script>
         HTML;
 
@@ -482,6 +518,24 @@ class CapHum extends Controller
         self::respuestaJSON($detalles);
     }
 
+    public function getJefeDirecto()
+    {
+        $input = json_decode(file_get_contents("php://input"), true);
+        $idDepartamento = $input['id_departamento'] ?? null;
+
+        if (!$idDepartamento) {
+            self::respuestaJSON([
+                'success' => false,
+                'mensaje' => 'ID de persona no recibido'
+            ]);
+            return;
+        }
+
+        $detalles = CapHumDAO::getConsultaGestoresDepartamento($idDepartamento);
+
+        self::respuestaJSON($detalles);
+    }
+
     public function getInsertarGestor()
     {
         // Obtener el JSON enviado desde fetch
@@ -489,7 +543,7 @@ class CapHum extends Controller
         $data = json_decode($inputJSON, true);
 
         // Validaciones básicas
-        $requiredFields = ['nombres', 'apellidop', 'apellidom', 'telefono', 'id_puesto', 'departamento_id', 'usuario', 'contrasena'];
+        $requiredFields = ['nombres', 'apellidop', 'apellidom', 'telefono', 'puesto_id', 'jefe_id', 'departamento_id', 'usuario', 'contrasena'];
         foreach ($requiredFields as $field) {
             if (empty($data[$field])) {
                 echo json_encode([
@@ -501,7 +555,7 @@ class CapHum extends Controller
         }
 
         // Preparar datos
-        $data['contrasena'] = password_hash($data['contrasena'], PASSWORD_DEFAULT); // hash de seguridad
+        $data['contrasena'] =$data['contrasena']; // hash de seguridad
         $data['id_jefe'] = isset($data['id_jefe']) ? $data['id_jefe'] : null;
 
         // Llamar al DAO
@@ -513,6 +567,39 @@ class CapHum extends Controller
             echo json_encode(['success' => false, 'mensaje' => 'Error al insertar gestor', 'error' => $inserted['error']]);
         }
     }
+
+    public function updateGestorF()
+    {
+        $inputJSON = file_get_contents('php://input');
+        $data = json_decode($inputJSON, true);
+
+        // Validaciones básicas
+        $requiredFields = ['nombres', 'apellidop', 'apellidom', 'puesto_id', 'departamento_id', 'jefe_id','usuario'];
+        foreach ($requiredFields as $field) {
+            if (empty($data[$field])) {
+                echo json_encode(['success' => false, 'mensaje' => "El campo $field es obligatorio"]);
+                return;
+            }
+        }
+
+        // Solo hash si se envía contraseña
+        if (!empty($data['contrasena'])) {
+            $data['contrasena'] = $data['contrasena'];
+        }
+
+        $data['id_jefe'] = $data['id_jefe'] ?? null;
+
+        // Llamada al DAO
+        $updated = CapHumDAO::UpdatePersona($data);
+
+        if ($updated['success']) {
+            echo json_encode(['success' => true, 'mensaje' => 'Gestor actualizado correctamente']);
+        } else {
+            echo json_encode(['success' => false, 'mensaje' => 'Error al actualizar gestor', 'error' => $updated['error']]);
+        }
+    }
+
+
 
 
 }

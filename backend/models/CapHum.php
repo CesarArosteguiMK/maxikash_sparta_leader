@@ -268,6 +268,39 @@ class CapHum extends Model
         }
     }
 
+    public static function getConsultaGestoresDepartamento($id_departamento)
+    {
+        if(1 == 'admin')
+        {
+            $add = '';
+        }
+        else
+        {
+            $add = ' AND aj.id_jefe = ';
+        }
+        $query = <<<SQL
+          SELECT
+        per.id,
+        CONCAT(per.nombres, ' ', per.apellidop) AS nombre_completo,
+        pu.nombre AS nombre_puesto
+        FROM asigna_puesto ap
+        INNER JOIN persona per 
+            ON per.id = ap.id_persona
+        INNER JOIN puesto pu 
+            ON pu.id = ap.id_puesto
+        WHERE pu.departamento_id = $id_departamento
+          AND pu.es_jefe = 1;
+        SQL;
+
+        try {
+            $db = new Database();
+            $r = $db->queryAll($query);
+            return self::resultado(true, 'Personas encontradas.', $r);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al procesar la solicitud.', null, $e->getMessage());
+        }
+    }
+
     public static function insertPersona($data)
     {
         // 🔹 Escapamos valores
@@ -314,6 +347,57 @@ class CapHum extends Model
 
         } catch (\Exception $e) {
             return self::resultado(false, 'Error al insertar persona.', null, $e->getMessage());
+        }
+    }
+
+    public static function UpdatePersona($data)
+    {
+        $id_persona = (int)$data['id'];
+        $nombres = addslashes($data['nombres']);
+        $apellidop = addslashes($data['apellidop']);
+        $apellidom = addslashes($data['apellidom']);
+        $numero_empleado = addslashes($data['numero_empleado']);
+        $correo = addslashes($data['correo'] ?? '');
+        $telefono_uno = addslashes($data['telefono_uno'] ?? '');
+        $id_jefe = (int)$data['jefe_id'];
+        $id_puesto = (int)$data['puesto_id'];
+        $id_departamento = (int)$data['departamento_id'];
+        $user_name = addslashes($data['usuario']);
+        $password = addslashes($data['contrasena']);
+
+        try {
+            $db = new Database();
+
+            $db->queryOne("
+            UPDATE __SPARTA_SECRET_REDACTED__.persona
+            SET 
+                nombres = '$nombres',
+                apellidop = '$apellidop',
+                apellidom = '$apellidom',
+                numero_empleado = '$numero_empleado',
+                correo = '$correo',
+                telefono_uno = '$telefono_uno',
+                user_name = '$user_name',
+                password = '$password'
+            WHERE id = $id_persona
+        ");
+
+            $db->queryOne("
+            UPDATE asigna_jefe 
+            SET id_jefe = $id_jefe 
+            WHERE id_persona = $id_persona
+        ");
+
+            $db->queryOne("
+            UPDATE asigna_puesto 
+            SET id_puesto = $id_puesto
+            WHERE id_persona = $id_persona
+        ");
+
+            return self::resultado(true, 'Persona actualizada correctamente.', null);
+
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al actualizar persona.', null, $e->getMessage());
         }
     }
 

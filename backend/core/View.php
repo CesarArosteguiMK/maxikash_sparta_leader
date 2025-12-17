@@ -12,12 +12,12 @@ function getMenu()
                 [
                     'label' => 'Estados de Cuenta',
                     'url' => '/estadocuenta/consulta',
-                    'permisos' => [3, 26, 27, 28, 90, 30, 50]
+                    'permisos' => [1, 4,26, 27, 28, 90, 30, 50]
                 ],
                 [
                     'label' => 'Documentación',
                     'url' => '/estadocuenta/documentacion',
-                    'permisos' => [3, 26, 27, 28, 90, 30, 50]
+                    'permisos' => [1, 4,26, 27, 28, 90, 30, 50]
                 ]
             ]
         ],
@@ -27,7 +27,7 @@ function getMenu()
                 [
                     'label' => 'Historico Gestiones',
                     'url' => '/gestiones/seguimiento',
-                    'permisos' => [3, 26, 90]
+                    'permisos' => [1, 4,26, 90]
                 ]
             ]
         ],
@@ -37,12 +37,12 @@ function getMenu()
                 [
                     'label' => 'Gestión',
                     'url' => '/capHum/gestion',
-                    'permisos' => [3, 26, 27, 28]
+                    'permisos' => [1, 4 ,26, 27, 28]
                 ],
                 [
-                    'label' => 'organigrama',
+                    'label' => 'Organigrama',
                     'url' => '/capHum/organigrama',
-                    'permisos' => [3, 26, 27, 28]
+                    'permisos' => [1, 4,26, 27, 28]
                 ]
             ]
         ],
@@ -52,17 +52,17 @@ function getMenu()
                 [
                     'label' => 'Resumen Call Center',
                     'url' => '/reporteria/resumencallcenter',
-                    'permisos' => [3, 26, 90]
+                    'permisos' => [1,4,26, 90]
                 ],
                 [
                     'label' => 'Layout Legacy',
                     'url' => '/reporteria/layoutlegacy',
-                    'permisos' => [3, 26, 90]
+                    'permisos' => [1, 4,26, 90]
                 ],
                 [
                     'label' => 'Bonos Cobranza',
                     'url' => '/reporteria/bonoscobranza',
-                    'permisos' => [3, 26, 90]
+                    'permisos' => [1, 4,26, 90]
                 ]
             ]
         ],
@@ -72,17 +72,17 @@ function getMenu()
                 [
                     'label' => 'Departamentos',
                     'url' => '/departamentos/consulta/',
-                    'permisos' => [3, 26]
+                    'permisos' => [1,4,26]
                 ],
                 [
                     'label' => 'Puestos',
                     'url' => '/puestos/consulta/',
-                    'permisos' => [3, 26]
+                    'permisos' => [1,4,26]
                 ],
                 [
                     'label' => 'Perfiles',
                     'url' => '/sucursales/existentes/',
-                    'permisos' => [3, 26]
+                    'permisos' => [1,4,26]
                 ]
             ]
         ]

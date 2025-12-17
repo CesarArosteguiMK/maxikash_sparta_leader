@@ -234,7 +234,7 @@
 
                 <div class="mb-2">
                     <label class="form-label">Usuario *</label>
-                    <input type="text" id="edit_usuario" class="form-control" placeholder="Ej. Soto">
+                    <input type="text" id="edit_usuario" class="form-control" placeholder="Ej. Soto" readonly>
                 </div>
 
 

@@ -297,11 +297,12 @@ class Empresa extends Model
             $query = <<<SQL
             SELECT 
                 p.*,
-                ap.id_puesto, dd.nombre as departamento, dd.id as id_departamento
+                ap.id_puesto, dd.nombre as departamento, dd.id as id_departamento, aj.id_jefe, p.password
             FROM persona p
             INNER JOIN asigna_puesto ap ON ap.id_persona = p.id
             INNER JOIN puesto pu ON pu.id = ap.id_puesto
             INNER JOIN departamento dd ON dd.id = pu.departamento_id
+            INNER JOIN asigna_jefe aj ON aj.id_persona = p.id
             WHERE p.id = $idPersona
               AND p.estatus != 'Baja'
             LIMIT 1
