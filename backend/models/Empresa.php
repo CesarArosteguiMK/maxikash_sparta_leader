@@ -51,27 +51,7 @@ class Empresa extends Model
         }
     }
 
-    public static function getConsultaDepartamentoGestor($perfil_id)
-    {
-        $query = <<<SQL
-           SELECT DISTINCT d.*
-            FROM privilegios_departamento pd
-            INNER JOIN puesto p
-                    ON p.id = pd.idPuesto
-            INNER JOIN departamento d
-                    ON d.id = p.departamento_id
-            WHERE pd.idPersona = $perfil_id
-            ORDER BY d.nombre ASC
-        SQL;
 
-        try {
-            $db = new Database();
-            $r = $db->queryAll($query);
-            return self::resultado(true, 'Departamentos encontrados.', $r);
-        } catch (\Exception $e) {
-            return self::resultado(false, 'Error al procesar la solicitud.', null, $e->getMessage());
-        }
-    }
 
     public static function getConsultaPorNombre($nombre)
     {

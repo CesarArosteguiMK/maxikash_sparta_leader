@@ -7,7 +7,9 @@ use Core\Database;
 
 class CapHum extends Model
 {
-    //////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////// VALIDADO AL 100
+    ////////////////////////////////////////////////////////////////////// VALIDADO AL 100
+    ////////////////////////////////////////////////////////////////////// VALIDADO AL 100
     public static function getConsultaGestoresPorPuesto($id_puesto)
     {
         $query = <<<SQL
@@ -41,22 +43,31 @@ class CapHum extends Model
             return self::resultado(false, 'Error al obtener jefes.', null, $e->getMessage());
         }
     }
+    public static function getConsultaDepartamentoGestor($perfil_id)
+    {
+        $query = <<<SQL
+           SELECT DISTINCT d.*
+            FROM privilegios_departamento pd
+            INNER JOIN puesto p
+                    ON p.id = pd.idPuesto
+            INNER JOIN departamento d
+                    ON d.id = p.departamento_id
+            WHERE pd.idPersona = $perfil_id
+            ORDER BY d.nombre ASC
+        SQL;
 
-
-
-
-
-
-
-    ////////////////////////////////////////
-
-
-    public static function getPersonasMayorRangoPorDepartamento($departamento, $permiso_todos, $id_persona)
+        try {
+            $db = new Database();
+            $r = $db->queryAll($query);
+            return self::resultado(true, 'Departamentos encontrados.', $r);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al procesar la solicitud.', null, $e->getMessage());
+        }
+    }
+    public static function getPersonasOrganigrama($departamento, $id_persona)
     {
         try {
             $db = new Database();
-
-
             // -------------------------------------------------------
             // 1) Puestos activos del departamento
             // -------------------------------------------------------
@@ -83,12 +94,9 @@ class CapHum extends Model
             // -------------------------------------------------------
             $nivelMax = max(array_column($puestos, 'nivel'));
 
-
-
             $puestosTop = array_filter($puestos, function ($p) use ($nivelMax) {
                 return $p['nivel'] == $nivelMax;
             });
-
             $puestosTopIds = array_column($puestosTop, 'id');
 
             // -------------------------------------------------------
@@ -109,22 +117,6 @@ class CapHum extends Model
             // 4) Personas por puestos top
             // -------------------------------------------------------
 
-            if($permiso_todos == 0)
-            {
-                $queryPersonas = <<<SQL
-                SELECT 
-                    p.id,
-                    CONCAT(p.apellidop, ' ', p.apellidom, ' ', p.nombres) AS nombre,
-                    ap.id_puesto
-                FROM persona p
-                INNER JOIN asigna_puesto ap ON ap.id_persona = p.id
-                WHERE p.id = $id_persona
-                  AND p.estatus != 'Baja'
-        SQL;
-
-                $personas = $db->queryAll($queryPersonas);
-            }
-            else{
                 $queryPersonas = <<<SQL
                 SELECT 
                     p.id,
@@ -137,7 +129,7 @@ class CapHum extends Model
         SQL;
 
                 $personas = $db->queryAll($queryPersonas, $params);
-            }
+
 
 
 
@@ -147,7 +139,6 @@ class CapHum extends Model
             return self::resultado(false, 'Error al procesar la solicitud.', null, $e->getMessage());
         }
     }
-
     public static function getConsultaPersonasJerarquia($id_persona)
     {
         $query = <<<SQL
@@ -192,6 +183,11 @@ class CapHum extends Model
         -- Convertir jerarquía en JSON anidado
         SELECT JSON_OBJECT(
             'id_jefe', $id_persona,
+            'nombre_jefe', (
+                SELECT CONCAT(nombres, ' ', apellidop, ' ', apellidom)
+                FROM persona
+                WHERE id = $id_persona
+            ),
             'subordinados', (
                 SELECT JSON_ARRAYAGG(
                     JSON_OBJECT(
@@ -235,6 +231,28 @@ class CapHum extends Model
             return self::resultado(false, 'Error al procesar la solicitud.', null, $e->getMessage());
         }
     }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    ////////////////////////////////////////
+
 
     public static function getConsultaGestoresAll($id_gestor_sesion)
     {

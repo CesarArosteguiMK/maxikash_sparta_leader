@@ -440,7 +440,7 @@ class CapHum extends Controller
 
             </script>
         HTML;
-        $departamento = EmpresasDAO::getConsultaDepartamentoGestor($_SESSION['usuario_id']);
+        $departamento = CapHumDAO::getConsultaDepartamentoGestor($_SESSION['usuario_id']);
         $gestores = CapHumDAO::getConsultaGestoresAll($_SESSION['usuario_id']);
         $tablaGestores = "";
 
@@ -497,7 +497,7 @@ HTML;
             </script>
         HTML;
 
-        $departamentos = EmpresasDAO::getConsultaDepartamentoGestor($_SESSION['departamento']);
+        $departamentos = CapHumDAO::getConsultaDepartamentoGestor($_SESSION['usuario_id']);
 
         $getDepartamentos = '<option disabled selected>Seleeccione una opción</option>';
 
@@ -513,50 +513,11 @@ HTML;
         self::render("organigrama");
     }
 
-    private function recorrerArbol($nodo, &$rows, $jefeNombre = null) {
-        $nombre = $nodo["nombre"];
 
-        $rows[] = [$nombre, $jefeNombre];
 
-        if (isset($nodo["subordinados"]) && is_array($nodo["subordinados"])) {
-            foreach ($nodo["subordinados"] as $sub) {
-                $this->recorrerArbol($sub, $rows, $nombre);
-            }
-        }
-    }
 
-    public function nivelJerarquicoColaborador($persona_id)
-    {
-        // 1️⃣ Obtener el organigrama desde la DAO
-        $personas = CapHumDAO::getConsultaPersonasJerarquia($persona_id);
-        $organigramaJson = $personas["datos"][0]["organigrama_json"];
-        $organigrama = json_decode($organigramaJson, true);
 
-        // 2️⃣ Construir filas para el OrgChart
-        $rows = [];
 
-        // Recorrer los subordinados del nodo raíz
-        if (!empty($organigrama["subordinados"])) {
-            foreach ($organigrama["subordinados"] as $sub) {
-                // Llamada a función recursiva que llena $rows
-                $this->recorrerArbol($sub, $rows, "JEFE " . $organigrama["id_jefe"]);
-            }
-        }
-
-        // Agregar la raíz del organigrama al inicio
-        array_unshift($rows, [
-            "JEFE " . $organigrama["id_jefe"], // Nombre del jefe raíz
-            null                                // La raíz no tiene jefe
-        ]);
-
-        // 3️⃣ Devolver JSON para que el JS lo procese
-        header('Content-Type: application/json');
-        echo json_encode([
-            "success" => true,
-            "rows"    => $rows
-        ]);
-        exit;
-    }
 
     public static function getPuestosCascadaDepartamento()
     {
@@ -701,7 +662,7 @@ HTML;
         }
 
         self::respuestaJSON(
-            EmpresasDAO::getConsultaDepartamentoGestor($id)
+            CapHumDAO::getConsultaDepartamentoGestor($id)
         );
     }
 
@@ -724,16 +685,7 @@ HTML;
         self::respuestaJSON($resultado);
     }
 
-    public function getObtenerPersonasPorDepartamento()
-    {
-        // Obtener parámetro enviado por POST (o GET según tu setup)
-        $idDepartamento = $_POST['idDepartamento'] ?? null;
 
-        // Pasar el parámetro a DAO
-        $puestos = CapHumDAO::getPersonasMayorRangoPorDepartamento($idDepartamento, 0, $_SESSION['usuario_id']);
-
-        self::respuestaJSON($puestos);
-    }
 
 
 
@@ -766,6 +718,66 @@ HTML;
             'datos'   => $resp['datos']
         ]);
     }
+    public function getPersonasOrganigrama()
+    {
+        // Obtener parámetro enviado por POST (o GET según tu setup)
+        $idDepartamento = $_POST['idDepartamento'] ?? null;
+
+        // Pasar el parámetro a DAO
+        $puestos = CapHumDAO::getPersonasOrganigrama($idDepartamento, $_SESSION['usuario_id']);
+
+        self::respuestaJSON($puestos);
+    }
+    public function nivelJerarquicoColaborador($persona_id)
+    {
+        // 1️⃣ Obtener organigrama desde la DAO
+        $personas = CapHumDAO::getConsultaPersonasJerarquia($persona_id);
+        $organigramaJson = $personas["datos"][0]["organigrama_json"];
+        $organigrama = json_decode($organigramaJson, true);
+
+        // 2️⃣ Construir filas para el OrgChart
+        $rows = [];
+
+        // Raíz del organigrama
+        $rows[] = [
+            "id"     => (string)$organigrama["id_jefe"],    // ID como string
+            "nombre" => $organigrama["nombre_jefe"],        // Nombre
+            "jefe"   => null                                // Sin jefe
+        ];
+
+        // Subordinados de la raíz
+        if (!empty($organigrama["subordinados"])) {
+            foreach ($organigrama["subordinados"] as $sub) {
+                $this->recorrerArbol($sub, $rows, (string)$organigrama["id_jefe"]);
+            }
+        }
+
+        // 3️⃣ Devolver JSON
+        header('Content-Type: application/json');
+        echo json_encode([
+            "success" => true,
+            "rows"    => $rows
+        ]);
+        exit;
+    }
+
+// Función recursiva
+    private function recorrerArbol($nodo, &$rows, $jefeId = null) {
+        $rows[] = [
+            "id"     => (string)$nodo["id"],
+            "nombre" => $nodo["nombre"],
+            "jefe"   => $jefeId
+        ];
+
+        if (!empty($nodo["subordinados"])) {
+            foreach ($nodo["subordinados"] as $sub) {
+                $this->recorrerArbol($sub, $rows, (string)$nodo["id"]);
+            }
+        }
+    }
+
+
+
 
 
 
