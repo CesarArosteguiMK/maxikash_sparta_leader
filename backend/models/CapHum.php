@@ -7,6 +7,50 @@ use Core\Database;
 
 class CapHum extends Model
 {
+    //////////////////////////////////////////
+    public static function getConsultaGestoresPorPuesto($id_puesto)
+    {
+        $query = <<<SQL
+        SELECT DISTINCT
+            p.id,
+            CONCAT(p.nombres, ' ', p.apellidop, ' ', p.apellidom) AS nombre_completo,
+            pp.nombre AS puesto,
+            pp.nivel
+        FROM persona p
+        INNER JOIN asigna_puesto ap ON ap.id_persona = p.id
+        INNER JOIN puesto pp ON pp.id = ap.id_puesto
+        WHERE p.estatus != 'Baja'
+          AND pp.nivel > (
+                SELECT nivel
+                FROM puesto
+                WHERE id = $id_puesto
+            )
+          AND pp.departamento_id = (
+                SELECT departamento_id
+                FROM puesto
+                WHERE id = $id_puesto
+            )
+        ORDER BY pp.nivel ASC, nombre_completo
+    SQL;
+
+        try {
+            $db = new Database();
+            $r = $db->queryAll($query);
+            return self::resultado(true, 'Jefes encontrados.', $r);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al obtener jefes.', null, $e->getMessage());
+        }
+    }
+
+
+
+
+
+
+
+    ////////////////////////////////////////
+
+
     public static function getPersonasMayorRangoPorDepartamento($departamento, $permiso_todos, $id_persona)
     {
         try {
@@ -192,7 +236,7 @@ class CapHum extends Model
         }
     }
 
-    public static function getConsultaGestores($id_gestor_sesion)
+    public static function getConsultaGestoresAll($id_gestor_sesion)
     {
         if(in_array($id_gestor_sesion, [1, 2, 3]))
         {
@@ -387,7 +431,6 @@ class CapHum extends Model
         $nombres = addslashes($data['nombres']);
         $apellidop = addslashes($data['apellidop']);
         $apellidom = addslashes($data['apellidom']);
-        $numero_empleado = addslashes($data['numero_empleado']);
         $correo = addslashes($data['correo'] ?? '');
         $telefono_uno = addslashes($data['telefono_uno'] ?? '');
         $id_jefe = (int)$data['jefe_id'];
@@ -405,7 +448,6 @@ class CapHum extends Model
                 nombres = '$nombres',
                 apellidop = '$apellidop',
                 apellidom = '$apellidom',
-                numero_empleado = '$numero_empleado',
                 correo = '$correo',
                 telefono_uno = '$telefono_uno',
                 user_name = '$user_name',

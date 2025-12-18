@@ -51,11 +51,17 @@ class Empresa extends Model
         }
     }
 
-    public static function getConsultaDepartamentoGestor($id_departamento)
+    public static function getConsultaDepartamentoGestor($perfil_id)
     {
         $query = <<<SQL
-           SELECT *
-            FROM departamento where id = $id_departamento
+           SELECT DISTINCT d.*
+            FROM privilegios_departamento pd
+            INNER JOIN puesto p
+                    ON p.id = pd.idPuesto
+            INNER JOIN departamento d
+                    ON d.id = p.departamento_id
+            WHERE pd.idPersona = $perfil_id
+            ORDER BY d.nombre ASC
         SQL;
 
         try {

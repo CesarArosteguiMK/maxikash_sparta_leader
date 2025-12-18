@@ -8,129 +8,6 @@ use Models\Empresa as EmpresasDAO;
 
 class CapHum extends Controller
 {
-
-    public function Organigrama()
-    {
-        $script = <<<HTML
-            <script>
-               
-            </script>
-        HTML;
-
-        $departamentos = EmpresasDAO::getConsultaDepartamentoGestor($_SESSION['departamento']);
-
-        $getDepartamentos = '<option disabled selected>Seleeccione una opción</option>';
-
-        if (!empty($departamentos['datos'])) {
-            foreach ($departamentos['datos'] as $val2) {
-                $getDepartamentos .= '<option value="' . $val2['id'] . '">' . htmlspecialchars($val2['nombre'], ENT_QUOTES, 'UTF-8') . '</option>';
-            }
-        }
-
-        self::set("titulo", "Organigrama");
-        self::set("script", $script);
-        self::set("Departamentos", $getDepartamentos);
-        self::render("organigrama");
-    }
-
-    public function getDepartamentos()
-    {
-        self::respuestaJSON(EmpresasDAO::getConsultaDepartamentos($_POST));
-    }
-
-    public function getDepartamentosGestor()
-    {
-        $input = json_decode(file_get_contents("php://input"), true);
-        $id = 3;
-
-        if (!$id) {
-            self::respuestaJSON([
-                'success' => false,
-                'mensaje' => 'Tipo de departamento requerido'
-            ]);
-            return;
-        }
-
-        self::respuestaJSON(
-            EmpresasDAO::getConsultaDepartamentoGestor($id)
-        );
-    }
-
-    public function getPuestosDepartamento()
-    {
-        $input = json_decode(file_get_contents("php://input"), true);
-        $id = $input['id_departamento'] ?? null;
-
-        if (empty($id)) {
-            self::respuestaJSON([
-                'success' => false,
-                'mensaje' => 'Id de departamento requerido'
-            ]);
-            return;
-        }
-
-        // EL DAO YA REGRESA success, mensaje y datos
-        $resultado = EmpresasDAO::getConsultaPuestos($id);
-
-        self::respuestaJSON($resultado);
-    }
-
-    public function getObtenerPersonasPorDepartamento()
-    {
-        // Obtener parámetro enviado por POST (o GET según tu setup)
-        $idDepartamento = $_POST['idDepartamento'] ?? null;
-
-        // Pasar el parámetro a DAO
-        $puestos = CapHumDAO::getPersonasMayorRangoPorDepartamento($idDepartamento, 0, $_SESSION['usuario_id']);
-
-        self::respuestaJSON($puestos);
-    }
-
-    private function recorrerArbol($nodo, &$rows, $jefeNombre = null) {
-        $nombre = $nodo["nombre"];
-
-        $rows[] = [$nombre, $jefeNombre];
-
-        if (isset($nodo["subordinados"]) && is_array($nodo["subordinados"])) {
-            foreach ($nodo["subordinados"] as $sub) {
-                $this->recorrerArbol($sub, $rows, $nombre);
-            }
-        }
-    }
-
-    public function nivelJerarquicoColaborador($persona_id)
-    {
-        // 1️⃣ Obtener el organigrama desde la DAO
-        $personas = CapHumDAO::getConsultaPersonasJerarquia($persona_id);
-        $organigramaJson = $personas["datos"][0]["organigrama_json"];
-        $organigrama = json_decode($organigramaJson, true);
-
-        // 2️⃣ Construir filas para el OrgChart
-        $rows = [];
-
-        // Recorrer los subordinados del nodo raíz
-        if (!empty($organigrama["subordinados"])) {
-            foreach ($organigrama["subordinados"] as $sub) {
-                // Llamada a función recursiva que llena $rows
-                $this->recorrerArbol($sub, $rows, "JEFE " . $organigrama["id_jefe"]);
-            }
-        }
-
-        // Agregar la raíz del organigrama al inicio
-        array_unshift($rows, [
-            "JEFE " . $organigrama["id_jefe"], // Nombre del jefe raíz
-            null                                // La raíz no tiene jefe
-        ]);
-
-        // 3️⃣ Devolver JSON para que el JS lo procese
-        header('Content-Type: application/json');
-        echo json_encode([
-            "success" => true,
-            "rows"    => $rows
-        ]);
-        exit;
-    }
-
     public function Gestion()
     {
         $script = <<<HTML
@@ -399,7 +276,7 @@ class CapHum extends Controller
         
                 function guardarGestor() {
                 
-                const num_empleado = document.getElementById('add_num_telefono').value.trim();
+               
                 const nombres = document.getElementById('add_nombres').value.trim();
                 const apellidop = document.getElementById('add_apellidop').value.trim();
                 const apellidom = document.getElementById('add_apellidom').value.trim();
@@ -413,7 +290,6 @@ class CapHum extends Controller
                 
             
                 // 🔴 Validaciones obligatorias
-                if (!num_empleado) return Swal.fire('Error', 'El número de empleado es obligatorios', 'error');
                 if (!nombres) return Swal.fire('Error', 'Los nombres son obligatorios', 'error');
                 if (!apellidop) return Swal.fire('Error', 'El apellido paterno es obligatorio', 'error');
                 if (!apellidom) return Swal.fire('Error', 'El apellido paterno es obligatorio', 'error');
@@ -469,14 +345,104 @@ class CapHum extends Controller
                 });
             }
             
-               
+            
+            
+            
+            ///////////////////////////////////////////////////////////////////////////////////////////////////////
+            //////////////////////////////////////////////////////////////////////////////////////////////////////
+            ////////////////////////////////////////////////////////////////////////////////////// VALIDADO AL 100
+            
+                document.getElementById('add_departamento_id').addEventListener('change', function () {
+
+                const idDepartamento = this.value;
+                const selectPuesto = document.getElementById('add_id_puesto');
+                const selectJefe   = document.getElementById('add_id_jefe');
+                // Reset
+                selectPuesto.innerHTML = '<option value="">Seleccione un puesto</option>';
+                selectPuesto.disabled = true;
+                
+                selectJefe.innerHTML = '<option value="">Seleccione un jefe</option>';
+                selectJefe.disabled = true;
+            
+                if (!idDepartamento) return;
+            
+                fetch('/CapHum/getPuestosCascadaDepartamento', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        id_departamento: idDepartamento
+                    })
+                })
+                .then(res => res.json())
+                .then(data => {
+            
+                    if (!data.success) {
+                        Swal.fire("Error", data.mensaje, "error");
+                        return;
+                    }
+            
+                    data.datos.forEach(puesto => {
+                        const option = document.createElement('option');
+                        option.value = puesto.id;
+                        option.textContent = puesto.nombre;
+                        selectPuesto.appendChild(option);
+                    });
+            
+                    selectPuesto.disabled = false;
+                })
+                .catch(() => {
+                    Swal.fire("Error", "No se pudieron cargar los puestos", "error");
+                });
+            });
+                
+                document.getElementById('add_id_puesto').addEventListener('change', function () {
+                    const idPuesto = this.value;
+                    const selectJefe = document.getElementById('add_id_jefe');
+                
+                    // Reset
+                    selectJefe.innerHTML = '<option value="">Seleccione un jefe</option>';
+                    selectJefe.disabled = true;
+                
+                    if (!idPuesto) return;
+                
+                    fetch('/CapHum/getGestoresPorPuesto', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            id_puesto: idPuesto
+                        })
+                    })
+                    .then(res => res.json())
+                    .then(data => {
+                
+                        if (!data.success) {
+                            Swal.fire("Error", data.mensaje, "error");
+                            return;
+                        }
+                
+                        data.datos.forEach(jefe => {
+                            const option = document.createElement('option');
+                            option.value = jefe.id;
+                            option.textContent = jefe.nombre_completo;
+                            selectJefe.appendChild(option);
+                        });
+                
+                        selectJefe.disabled = false;
+                    })
+                    .catch(() => {
+                        Swal.fire("Error", "No se pudieron cargar los jefes", "error");
+                    });
+                });
+
             </script>
         HTML;
-
-        $gestores = CapHumDAO::getConsultaGestores($_SESSION['usuario_id']);
+        $departamento = EmpresasDAO::getConsultaDepartamentoGestor($_SESSION['usuario_id']);
+        $gestores = CapHumDAO::getConsultaGestoresAll($_SESSION['usuario_id']);
         $tablaGestores = "";
-        $departamento = EmpresasDAO::getConsultaDepartamentoGestor($_SESSION['departamento']);
-        $puestos = EmpresasDAO::getConsultaPuestos($_SESSION['departamento']);
 
         // Validar que existan datos
         if (!empty($gestores["datos"]) && is_array($gestores["datos"])) {
@@ -490,30 +456,29 @@ class CapHum extends Controller
                     : '<span class="badge bg-label-danger">Inactivo</span>';
 
                 $acciones = <<<HTML
-            <button class="btn btn-sm btn-primary me-1" onclick="editar({$value['id']})">
-                <i class="fa fa-edit"></i>
-            </button>
-            <button class="btn btn-sm btn-info me-1" onclick="editar({$value['id']})">
-                <i class="fa fa-file"></i>
-            </button>
-            <button class="btn btn-sm btn-warning" onclick="eliminar({$value['id']})">
-                <i class="fa fa-person-circle-minus"></i>
-            </button>
-            <button class="btn btn-sm btn-danger" onclick="baja_gestor({$value['id']})">
-                <i class="fa fa-user-slash"></i>
-            </button>
-
-        HTML;
+                    <button class="btn btn-sm btn-primary me-1" onclick="editar({$value['id']})">
+                        <i class="fa fa-edit"></i>
+                    </button>
+                    <button class="btn btn-sm btn-info me-1" onclick="editar({$value['id']})">
+                        <i class="fa fa-file"></i>
+                    </button>
+                    <button class="btn btn-sm btn-warning" onclick="eliminar({$value['id']})">
+                        <i class="fa fa-person-circle-minus"></i>
+                    </button>
+                    <button class="btn btn-sm btn-danger" onclick="baja_gestor({$value['id']})">
+                        <i class="fa fa-user-slash"></i>
+                    </button>
+HTML;
 
                 $tablaGestores .= <<<HTML
-            <tr>
-                <td>{$nombreCompleto}</td>
-                <td>{$value['nombre_departamento']}</td>
-                <td>{$value['nombre_puesto']}</td>
-                <td>{$estatus}</td>
-                <td>{$acciones}</td>
-            </tr>
-        HTML;
+                    <tr>
+                        <td>{$nombreCompleto}</td>
+                        <td>{$value['nombre_departamento']}</td>
+                        <td>{$value['nombre_puesto']}</td>
+                        <td>{$estatus}</td>
+                        <td>{$acciones}</td>
+                    </tr>
+HTML;
             }
         }
 
@@ -524,6 +489,102 @@ class CapHum extends Controller
         self::set('tablaGestores', $tablaGestores);
         self::render("AllGestores");
     }
+    public function Organigrama()
+    {
+        $script = <<<HTML
+            <script>
+               
+            </script>
+        HTML;
+
+        $departamentos = EmpresasDAO::getConsultaDepartamentoGestor($_SESSION['departamento']);
+
+        $getDepartamentos = '<option disabled selected>Seleeccione una opción</option>';
+
+        if (!empty($departamentos['datos'])) {
+            foreach ($departamentos['datos'] as $val2) {
+                $getDepartamentos .= '<option value="' . $val2['id'] . '">' . htmlspecialchars($val2['nombre'], ENT_QUOTES, 'UTF-8') . '</option>';
+            }
+        }
+
+        self::set("titulo", "Organigrama");
+        self::set("script", $script);
+        self::set("Departamentos", $getDepartamentos);
+        self::render("organigrama");
+    }
+
+    private function recorrerArbol($nodo, &$rows, $jefeNombre = null) {
+        $nombre = $nodo["nombre"];
+
+        $rows[] = [$nombre, $jefeNombre];
+
+        if (isset($nodo["subordinados"]) && is_array($nodo["subordinados"])) {
+            foreach ($nodo["subordinados"] as $sub) {
+                $this->recorrerArbol($sub, $rows, $nombre);
+            }
+        }
+    }
+
+    public function nivelJerarquicoColaborador($persona_id)
+    {
+        // 1️⃣ Obtener el organigrama desde la DAO
+        $personas = CapHumDAO::getConsultaPersonasJerarquia($persona_id);
+        $organigramaJson = $personas["datos"][0]["organigrama_json"];
+        $organigrama = json_decode($organigramaJson, true);
+
+        // 2️⃣ Construir filas para el OrgChart
+        $rows = [];
+
+        // Recorrer los subordinados del nodo raíz
+        if (!empty($organigrama["subordinados"])) {
+            foreach ($organigrama["subordinados"] as $sub) {
+                // Llamada a función recursiva que llena $rows
+                $this->recorrerArbol($sub, $rows, "JEFE " . $organigrama["id_jefe"]);
+            }
+        }
+
+        // Agregar la raíz del organigrama al inicio
+        array_unshift($rows, [
+            "JEFE " . $organigrama["id_jefe"], // Nombre del jefe raíz
+            null                                // La raíz no tiene jefe
+        ]);
+
+        // 3️⃣ Devolver JSON para que el JS lo procese
+        header('Content-Type: application/json');
+        echo json_encode([
+            "success" => true,
+            "rows"    => $rows
+        ]);
+        exit;
+    }
+
+    public static function getPuestosCascadaDepartamento()
+    {
+        $data = json_decode(file_get_contents("php://input"), true);
+
+        if (empty($data['id_departamento'])) {
+            echo json_encode([
+                'success' => false,
+                'mensaje' => 'Departamento inválido'
+            ]);
+            return;
+        }
+
+        $puestos = EmpresasDAO::getConsultaPuestos($data['id_departamento']);
+
+        echo json_encode([
+            'success' => true,
+            'datos' => $puestos['datos']
+        ]);
+    }
+    public function getDepartamentos()
+    {
+        self::respuestaJSON(EmpresasDAO::getConsultaDepartamentos($_POST));
+    }
+
+
+
+
 
     public function getDetalles()
     {
@@ -543,12 +604,13 @@ class CapHum extends Controller
         self::respuestaJSON($detalles);
     }
 
+
     public function getJefeDirecto()
     {
         $input = json_decode(file_get_contents("php://input"), true);
-        $idDepartamento = $input['id_departamento'] ?? null;
+        $idPuesto = $input['id_departamento'] ?? null;
 
-        if (!$idDepartamento) {
+        if (!$idPuesto) {
             self::respuestaJSON([
                 'success' => false,
                 'mensaje' => 'ID de persona no recibido'
@@ -556,7 +618,7 @@ class CapHum extends Controller
             return;
         }
 
-        $detalles = CapHumDAO::getConsultaGestoresDepartamento($idDepartamento);
+        $detalles = CapHumDAO::getConsultaGestoresDepartamento($idPuesto);
 
         self::respuestaJSON($detalles);
     }
@@ -623,4 +685,88 @@ class CapHum extends Controller
             echo json_encode(['success' => false, 'mensaje' => 'Error al actualizar gestor', 'error' => $updated['error']]);
         }
     }
+
+
+    public function getDepartamentosGestor()
+    {
+        $input = json_decode(file_get_contents("php://input"), true);
+        $id = 3;
+
+        if (!$id) {
+            self::respuestaJSON([
+                'success' => false,
+                'mensaje' => 'Tipo de departamento requerido'
+            ]);
+            return;
+        }
+
+        self::respuestaJSON(
+            EmpresasDAO::getConsultaDepartamentoGestor($id)
+        );
+    }
+
+    public function getPuestosDepartamento()
+    {
+        $input = json_decode(file_get_contents("php://input"), true);
+        $id = $input['id_departamento'] ?? null;
+
+        if (empty($id)) {
+            self::respuestaJSON([
+                'success' => false,
+                'mensaje' => 'Id de departamento requerido'
+            ]);
+            return;
+        }
+
+        // EL DAO YA REGRESA success, mensaje y datos
+        $resultado = EmpresasDAO::getConsultaPuestos($id);
+
+        self::respuestaJSON($resultado);
+    }
+
+    public function getObtenerPersonasPorDepartamento()
+    {
+        // Obtener parámetro enviado por POST (o GET según tu setup)
+        $idDepartamento = $_POST['idDepartamento'] ?? null;
+
+        // Pasar el parámetro a DAO
+        $puestos = CapHumDAO::getPersonasMayorRangoPorDepartamento($idDepartamento, 0, $_SESSION['usuario_id']);
+
+        self::respuestaJSON($puestos);
+    }
+
+
+
+
+    ////////////////////////////////////////////////////////////////////// VALIDADO AL 100
+    ////////////////////////////////////////////////////////////////////// VALIDADO AL 100
+    ////////////////////////////////////////////////////////////////////// VALIDADO AL 100
+    public static function getGestoresPorPuesto()
+    {
+        $data = json_decode(file_get_contents("php://input"), true);
+
+        if (empty($data['id_puesto'])) {
+            echo json_encode([
+                'success' => false,
+                'mensaje' => 'Puesto inválido'
+            ]);
+            return;
+        }
+
+        $resp = CapHumDAO::getConsultaGestoresPorPuesto($data['id_puesto']);
+
+        // 👇 OJO AQUÍ
+        if (!$resp['success']) {
+            echo json_encode($resp);
+            return;
+        }
+
+        echo json_encode([
+            'success' => true,
+            'datos'   => $resp['datos']
+        ]);
+    }
+
+
+
 }
