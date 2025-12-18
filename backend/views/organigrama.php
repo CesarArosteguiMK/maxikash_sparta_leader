@@ -189,19 +189,62 @@
     /* ============================= */
     /*   MODAL / CANVAS EDITAR       */
     /* ============================= */
-    window.abrirModal = function (valor) {
-        console.log("Valor recibido:", valor);
+    window.abrirModal = function (id) {
+        console.log("ID recibido:", id);
 
-        // Abrir el offcanvas
-        const offcanvasEl = document.getElementById("offcanvasEditUser");
-        if (!offcanvasEl) {
-            console.error("El offcanvas #offcanvasEditUser no existe en el DOM");
+        if (!id) {
+            Swal.fire("Error", "ID inválido", "error");
             return;
         }
-        const offcanvas = new bootstrap.Offcanvas(offcanvasEl);
-        offcanvas.show();
 
+        fetch('/CapHum/getDetalles', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify({ idPersona: id })
+        })
+            .then(res => res.json())
+            .then(data => {
+                if (!data.success) {
+                    Swal.fire("Error", data.mensaje, "error");
+                    return;
+                }
+
+                const persona = data.datos;
+
+                // Cargar selects dependientes
+                //cargarDepartamentosPorTipo(persona.id_departamento, persona.id_departamento);
+                //cargarPuestosPorDepartamentos(persona.id_departamento, persona.id_puesto);
+                //cargarJefeDirecto(persona.id_departamento, persona.id_jefe);
+
+                // CAMPOS TEXTO
+                document.getElementById("edit_num_empleado").value = persona.numero_empleado ?? '';
+                document.getElementById("edit_id").value = persona.id ?? '';
+                document.getElementById("edit_nombres").value = persona.nombres ?? '';
+                document.getElementById("edit_apellidop").value = persona.apellidop ?? '';
+                document.getElementById("edit_apellidom").value = persona.apellidom ?? '';
+                document.getElementById("edit_telefono").value = persona.telefono ?? '';
+                document.getElementById("edit_usuario").value = persona.user_name ?? '';
+                document.getElementById("edit_contrasena").value = persona.password ?? '';
+
+                // SELECTS
+                document.getElementById("edit_departamento_id").value = persona.id_departamento ?? '';
+                document.getElementById("edit_id_puesto").value = persona.id_puesto ?? '';
+
+                // MOSTRAR OFFCANVAS
+                const offcanvas = new bootstrap.Offcanvas(
+                    document.getElementById('offcanvasEditUser')
+                );
+                offcanvas.show();
+            })
+            .catch(err => {
+                console.error('FETCH ERROR:', err);
+                Swal.fire("Error", "No se pudo cargar la información", "error");
+            });
     };
+
 
 
     /* ============================= */
