@@ -194,15 +194,44 @@ class CapHum extends Model
 
     public static function getConsultaGestores($id_gestor_sesion)
     {
-        if($id_gestor_sesion == 'admin')
+        if(in_array($id_gestor_sesion, [1, 2, 3]))
         {
             $add = '';
+            $query = <<<SQL
+                SELECT
+                p.id,
+                p.nombres,
+                p.apellidop,
+                p.apellidom,
+                pp.id        AS id_puesto,
+                pp.nombre    AS nombre_puesto,
+                pp.nivel     AS nivel_puesto,
+                d.nombre     AS nombre_departamento,
+                aj.id_jefe,
+                p.estatus
+            FROM persona p
+            INNER JOIN asigna_puesto ap 
+                    ON p.id = ap.id_persona
+            INNER JOIN puesto pp 
+                    ON pp.id = ap.id_puesto
+            INNER JOIN departamento d 
+                    ON d.id = pp.departamento_id
+            LEFT JOIN asigna_jefe aj 
+                   ON p.id = aj.id_persona
+                  AND (aj.fecha_fin IS NULL OR aj.fecha_fin >= CURDATE())
+            WHERE p.estatus != 'Baja'
+              AND EXISTS (
+                    SELECT 1
+                    FROM __SPARTA_SECRET_REDACTED__.privilegios_departamento pd
+                    WHERE pd.idPersona = $id_gestor_sesion           -- usuario en sesión
+                      AND pd.idPuesto  = pp.id       -- ← correlación CORRECTA
+              )
+            ORDER BY pp.nivel ASC
+        SQL;
         }
         else
         {
-            $add = ' AND aj.id_jefe = '. $id_gestor_sesion;
-        }
-        $query = <<<SQL
+            $query = <<<SQL
           WITH RECURSIVE Jerarquia AS (
             -- Nivel raíz (jefe inicial)
             SELECT 
@@ -258,6 +287,8 @@ class CapHum extends Model
         ORDER BY nivel_puesto ASC;
 
         SQL;
+            $add = ' AND aj.id_jefe = '. $id_gestor_sesion;
+        }
 
         try {
             $db = new Database();

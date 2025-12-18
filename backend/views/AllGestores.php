@@ -12,31 +12,19 @@
                 <div class="row pt-4 g-6">
                     <div class="col-md-4">
                         <select id="UserRole" class="form-select text-capitalize">
-                            <option value="">Selecciona Puesto</option>
-                            <option value="Admin">Admin</option>
-                            <option value="Author">Author</option>
-                            <option value="Editor">Editor</option>
-                            <option value="Maintainer">Maintainer</option>
-                            <option value="Subscriber">Subscriber</option>
+                            <option value="">Selecciona Departamento</option>
                         </select>
                     </div>
 
                     <div class="col-md-4">
                         <select id="UserPlan" class="form-select text-capitalize">
-                            <option value="">Select Plan</option>
-                            <option value="Basic">Basic</option>
-                            <option value="Company">Company</option>
-                            <option value="Enterprise">Enterprise</option>
-                            <option value="Team">Team</option>
+                            <option value="">Selecciona Puesto</option>
                         </select>
                     </div>
 
                     <div class="col-md-4">
                         <select id="FilterTransaction" class="form-select text-capitalize">
-                            <option value="">Select Status</option>
-                            <option value="Pending">Pending</option>
-                            <option value="Active">Active</option>
-                            <option value="Inactive">Inactive</option>
+                            <option value="">Selecciona Estatus</option>
                         </select>
                     </div>
                 </div>
@@ -96,7 +84,7 @@
 
                 <form id="addNewUserForm" onsubmit="return false">
 
-                        <div class="col-md-5">
+                        <div class="col-md-5" style="display: none;">
                             <div class="mb-2">
                                 <label class="form-label">Número de Empleado *</label>
                                 <input type="text" id="add_num_telefono" class="form-control phone-mask" placeholder="Ej. 5500">
@@ -354,49 +342,85 @@
 <script>
     document.addEventListener("DOMContentLoaded", function () {
 
-        // Inicializar DataTable
         let tabla = $('.datatables-users').DataTable({
             responsive: true,
             pageLength: 10,
             lengthMenu: [10, 25, 50, 100],
             language: {
                 url: "https://cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json"
+            },
+
+            /* =====================================
+               🔑 AQUÍ ESTÁ LA CLAVE
+            ===================================== */
+            initComplete: function () {
+
+                const filtroDepartamento = document.getElementById("UserRole");
+                const filtroPuesto       = document.getElementById("UserPlan");
+                const filtroStatus       = document.getElementById("FilterTransaction");
+
+                // Limpiar selects (deja solo la primera opción)
+                function limpiarSelect(select) {
+                    while (select.options.length > 1) {
+                        select.remove(1);
+                    }
+                }
+
+                limpiarSelect(filtroDepartamento);
+                limpiarSelect(filtroPuesto);
+                limpiarSelect(filtroStatus);
+
+                // Llenar selects desde columnas (extraer TEXTO)
+                function llenarSelect(colIndex, select) {
+                    let valores = new Set();
+
+                    tabla.column(colIndex).nodes().each(function (cell) {
+                        let texto = cell.innerText.trim();
+                        if (texto !== '') {
+                            valores.add(texto);
+                        }
+                    });
+
+                    [...valores].sort().forEach(valor => {
+                        let option = document.createElement("option");
+                        option.value = valor;
+                        option.textContent = valor;
+                        select.appendChild(option);
+                    });
+                }
+
+                // Índices reales
+                llenarSelect(1, filtroDepartamento); // Departamento
+                llenarSelect(2, filtroPuesto);       // Puesto
+                llenarSelect(3, filtroStatus);       // Estatus
+
+                // Aplicar filtros
+                function aplicarFiltros() {
+                    tabla
+                        .column(1).search(
+                        filtroDepartamento.value ? '^' + filtroDepartamento.value + '$' : '',
+                        true, false
+                    )
+                        .column(2).search(
+                        filtroPuesto.value ? '^' + filtroPuesto.value + '$' : '',
+                        true, false
+                    )
+                        .column(3).search(
+                        filtroStatus.value ? '^' + filtroStatus.value + '$' : '',
+                        true, false
+                    )
+                        .draw();
+                }
+
+                filtroDepartamento.addEventListener("change", aplicarFiltros);
+                filtroPuesto.addEventListener("change", aplicarFiltros);
+                filtroStatus.addEventListener("change", aplicarFiltros);
             }
         });
 
-        // --- Filtros ---
-        const filtroDepartamento = document.getElementById("UserRole");
-        const filtroPuesto = document.getElementById("UserPlan");
-        const filtroStatus = document.getElementById("FilterTransaction");
-
-        function aplicarFiltros() {
-            let departamento = filtroDepartamento.value.toLowerCase();
-            let puesto = filtroPuesto.value.toLowerCase();
-            let status = filtroStatus.value.toLowerCase();
-
-            tabla
-                .column(1).search(departamento) // Departamento
-                .column(2).search(puesto)       // Puesto
-                .column(3).search(status)       // Estatus
-                .draw();
-        }
-
-        filtroDepartamento.addEventListener("change", aplicarFiltros);
-        filtroPuesto.addEventListener("change", aplicarFiltros);
-        filtroStatus.addEventListener("change", aplicarFiltros);
-
-        // Reset al cargar
-        //aplicarFiltros();
-
-        // --- Pie de página automático ---
-        const currentYear = new Date().getFullYear();
-        const footer = document.querySelector("footer .footer-text");
-
-        if (footer) {
-            footer.innerHTML = `© ${currentYear} Todos los derechos reservados`;
-        }
-
     });
-
 </script>
+
+
+
 

@@ -12,12 +12,12 @@ function getMenu()
                 [
                     'label' => 'Estados de Cuenta',
                     'url' => '/estadocuenta/consulta',
-                    'permisos' => [1, 4,26, 27, 28, 90, 30, 50]
+                    'permisos' => [1,4,26, 27, 28, 90, 30, 50]
                 ],
                 [
                     'label' => 'Documentación',
                     'url' => '/estadocuenta/documentacion',
-                    'permisos' => [1, 4,26, 27, 28, 90, 30, 50]
+                    'permisos' => [1,4,26, 27, 28, 90, 30, 50]
                 ]
             ]
         ],
@@ -27,7 +27,7 @@ function getMenu()
                 [
                     'label' => 'Historico Gestiones',
                     'url' => '/gestiones/seguimiento',
-                    'permisos' => [1, 4,26, 90]
+                    'permisos' => [1,4,26, 90]
                 ]
             ]
         ],
@@ -37,12 +37,12 @@ function getMenu()
                 [
                     'label' => 'Gestión',
                     'url' => '/capHum/gestion',
-                    'permisos' => [1, 4 ,26, 27, 28]
+                    'permisos' => [1,4,26, 27, 28]
                 ],
                 [
                     'label' => 'Organigrama',
                     'url' => '/capHum/organigrama',
-                    'permisos' => [1, 4,26, 27, 28]
+                    'permisos' => [1,4,26, 27, 28]
                 ]
             ]
         ],
@@ -57,12 +57,12 @@ function getMenu()
                 [
                     'label' => 'Layout Legacy',
                     'url' => '/reporteria/layoutlegacy',
-                    'permisos' => [1, 4,26, 90]
+                    'permisos' => [1,4,26, 90]
                 ],
                 [
                     'label' => 'Bonos Cobranza',
                     'url' => '/reporteria/bonoscobranza',
-                    'permisos' => [1, 4,26, 90]
+                    'permisos' => [1,4,26, 90]
                 ]
             ]
         ],

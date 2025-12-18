@@ -75,8 +75,6 @@ class CapHum extends Controller
         self::respuestaJSON($resultado);
     }
 
-
-
     public function getObtenerPersonasPorDepartamento()
     {
         // Obtener parámetro enviado por POST (o GET según tu setup)
@@ -168,6 +166,38 @@ class CapHum extends Controller
                     });
                 }
                 
+                function cargarJefesPorPuesto(idPuesto, seleccionado = null) {
+                    fetch('/CapHum/getJefesPorPuesto', {  // Endpoint que devuelve jefes
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ id: idPuesto })
+                    })
+                    .then(res => res.json())
+                    .then(data => {
+                
+                        if (!data.success) {
+                            Swal.fire("Error", data.mensaje, "error");
+                            return;
+                        }
+                
+                        const select = document.getElementById('add_id_jefe');
+                        select.innerHTML = '<option value="">Seleccione un jefe</option>';
+                
+                        data.datos.forEach(jefe => {
+                            const option = document.createElement('option');
+                            option.value = jefe.id;
+                            option.textContent = jefe.nombre;
+                
+                            if (String(jefe.id) === String(seleccionado)) {
+                                option.selected = true;
+                            }
+                
+                            select.appendChild(option);
+                        });
+                    })
+                    .catch(err => console.error('Error al cargar jefes:', err));
+                }
+                
                 function cargarPuestosPorDepartamentos(id_departamento, seleccionado = null) {
                     fetch('/CapHum/getPuestosDepartamento', {
                         method: 'POST',
@@ -198,9 +228,7 @@ class CapHum extends Controller
                         });
                     });
                 }
-                
-                
-                
+                                
                 function cargarJefeDirecto(id_departamento, seleccionado = null) {
                     fetch('/CapHum/getJefeDirecto', 
                     {
@@ -232,7 +260,6 @@ class CapHum extends Controller
                     });
                 }
 
-            
                 function editar(id) {
                     console.log("ID recibido:", id);
                 
@@ -490,8 +517,6 @@ class CapHum extends Controller
             }
         }
 
-
-
         self::set("titulo", "Organigrama");
         self::set("script", $script);
         self::set("departamento", $departamento);
@@ -598,8 +623,4 @@ class CapHum extends Controller
             echo json_encode(['success' => false, 'mensaje' => 'Error al actualizar gestor', 'error' => $updated['error']]);
         }
     }
-
-
-
-
 }
