@@ -1,5 +1,8 @@
 <?php
 
+define('RAIZ', dirname(__DIR__) . '/backend');
+var_dump(RAIZ);
+
 echo "
 ";
 echo RAIZ . PHP_EOL;
@@ -24,7 +27,7 @@ header_remove('Server');
 | DEFINICIÓN DE CONSTANTES (ANTES DE AUTOLOAD Y CONFIG)
 |--------------------------------------------------------------------------
 */
-define('RAIZ', dirname(__DIR__) . '/backend');
+
 define('CONFIGURACION', parse_ini_file(RAIZ . '/config/config.ini'));
 define('CONTROLADORES', RAIZ . '/Controllers');
 define('LIBRERIAS', RAIZ . '/libs');
