@@ -29,10 +29,10 @@ header_remove('Server');
 */
 
 define('CONFIGURACION', parse_ini_file(RAIZ . '/config/config.ini'));
-define('CONTROLADORES', RAIZ . '/Controllers');
+define('CONTROLADORES', RAIZ . '/controllers');
 define('LIBRERIAS', RAIZ . '/libs');
-define('MODELOS', RAIZ . '/Models');
-define('VISTAS', RAIZ . '/Views');
+define('MODELOS', RAIZ . '/models');
+define('VISTAS', RAIZ . '/views');
 define('COMPONENTES', RAIZ . '/components');
 define('LOGIN', 'Login');
 define('VISTA_DEFECTO', 'Inicio');
@@ -45,9 +45,16 @@ define('METODO_DEFECTO', 'index');
 */
 spl_autoload_register(function ($archivo) {
     $archivo = str_replace('\\', '/', $archivo);
-    require_once RAIZ . "/$archivo.php";
-});
+    $archivo = strtolower($archivo);
+    $ruta = RAIZ . "/$archivo.php";
 
+    if (!file_exists($ruta)) {
+        http_response_code(500);
+        die("Autoload no encontró: $ruta");
+    }
+
+    require_once $ruta;
+});
 require_once RAIZ . '/config/config.php';
 
 // Configuración de la zona horaria para contemplar horario de verano
