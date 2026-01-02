@@ -1,15 +1,5 @@
 <?php
 
-define('RAIZ', dirname(__DIR__) . '/backend');
-var_dump(RAIZ);
-
-echo "
-";
-echo RAIZ . PHP_EOL;
-var_dump(scandir(RAIZ));
-var_dump(scandir(RAIZ . '/Controllers'));
-echo "
-"; exit;
 
 
 // Solo se reportan los errores y se ignoran las advertencias
@@ -27,7 +17,7 @@ header_remove('Server');
 | DEFINICIÓN DE CONSTANTES (ANTES DE AUTOLOAD Y CONFIG)
 |--------------------------------------------------------------------------
 */
-
+define('RAIZ', dirname(__DIR__) . '/backend');
 define('CONFIGURACION', parse_ini_file(RAIZ . '/config/config.ini'));
 define('CONTROLADORES', RAIZ . '/controllers');
 define('LIBRERIAS', RAIZ . '/libs');
