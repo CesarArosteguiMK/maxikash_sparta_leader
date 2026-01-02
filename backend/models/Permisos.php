@@ -122,7 +122,7 @@ class Permisos extends Model
 
             return self::resultado(
                 true,
-                'Permisos guardados correctamente.',
+                'permisos guardados correctamente.',
                 null
             );
         } catch (\Exception $e) {

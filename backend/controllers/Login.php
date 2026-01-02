@@ -5,7 +5,7 @@ namespace Controllers;
 use Core\Controller;
 use Models\Login as LoginDao;
 
-class Login extends Controller
+class login extends Controller
 {
     public function index()
     {

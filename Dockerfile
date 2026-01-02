@@ -17,7 +17,7 @@ RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' \
 # Copiar proyecto
 COPY . /var/www/html
 
-# Permisos
+# permisos
 RUN chown -R www-data:www-data /var/www/html
 
 # Cloud Run usa 8080

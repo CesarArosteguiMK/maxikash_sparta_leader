@@ -21,7 +21,7 @@ define('LIBRERIAS', RAIZ . '/libs');
 define('MODELOS', RAIZ . '/Models');
 define('VISTAS', RAIZ . '/Views');
 define('COMPONENTES', RAIZ . '/components');
-define('LOGIN', 'Login');
+define('LOGIN', 'login');
 define('VISTA_DEFECTO', 'Inicio');
 define('METODO_DEFECTO', 'index');
 

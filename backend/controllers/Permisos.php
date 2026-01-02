@@ -5,7 +5,7 @@ namespace Controllers;
 use Core\Controller;
 use Models\Permisos as PermisosDAO;
 
-class Permisos extends Controller
+class permisos extends Controller
 {
     public function consulta()
     {
@@ -114,7 +114,7 @@ document.addEventListener("submit", (e) => {
 </script>
 HTML;
 
-        self::set("titulo", "Permisos por Puesto");
+        self::set("titulo", "permisos por Puesto");
         self::set("script", $script);
         self::render("permisos");
     }
@@ -154,7 +154,7 @@ HTML;
 
         self::respuestaJSON([
             "success" => true,
-            "mensaje" => "Permisos actualizados correctamente"
+            "mensaje" => "permisos actualizados correctamente"
         ]);
     }
 }

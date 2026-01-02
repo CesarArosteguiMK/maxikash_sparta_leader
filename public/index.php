@@ -1,10 +1,5 @@
 <?php
 
-
-
-// Solo se reportan los errores y se ignoran las advertencias
-error_reporting(E_ERROR | E_PARSE);
-
 // Se reportan todos los errores y advertencias
 // error_reporting(E_ALL);
 
@@ -24,9 +19,12 @@ define('LIBRERIAS', RAIZ . '/libs');
 define('MODELOS', RAIZ . '/models');
 define('VISTAS', RAIZ . '/views');
 define('COMPONENTES', RAIZ . '/components');
-define('LOGIN', 'Login');
+define('LOGIN', 'login');
 define('VISTA_DEFECTO', 'Inicio');
 define('METODO_DEFECTO', 'index');
+
+// Solo se reportan los errores y se ignoran las advertencias
+error_reporting(E_ERROR | E_PARSE);
 
 /*
 |--------------------------------------------------------------------------
@@ -40,7 +38,7 @@ spl_autoload_register(function ($archivo) {
 
     if (!file_exists($ruta)) {
         http_response_code(500);
-        die("Autoload no encontró: $ruta");
+        throw new Exception("Autoload no encontró: $ruta");
     }
 
     require_once $ruta;
@@ -127,7 +125,9 @@ if (!isset($_SESSION['login']) || strtolower($urlSolicitada[0]) === strtolower(L
 | CONTROLADOR NORMAL
 |--------------------------------------------------------------------------
 */
-if ($urlSolicitada[0] === '' || !file_exists(CONTROLADORES . "/$urlSolicitada[0].php")) {
+$controladorArchivo = strtolower($urlSolicitada[0]);
+
+if ($controladorArchivo === '' || !file_exists(CONTROLADORES . "/$controladorArchivo.php")) {
     recursoNoDisponible();
 }
 
