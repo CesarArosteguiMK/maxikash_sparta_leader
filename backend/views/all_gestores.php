@@ -52,7 +52,7 @@
                         data-bs-target="#offcanvasAddUser"
                 >
                     <i class="icon-base bx bx-plus icon-sm me-2"></i>
-                    <span class="d-none d-sm-inline-block">Agregar Gestor</span>
+                    <span class="d-none d-sm-inline-block">Agregar Usuario</span>
                 </button>
             </div>
         </div>
@@ -60,20 +60,19 @@
         <!-- =======================
              TABLA
         ======================== -->
-        <div class="card-datatable p-2">
-            <table class="table datatables-users border-top">
-                <thead class="table-dark">
+        <div class="card-datatable table-responsive">
+            <table id="historialUsuarios" class="dt-responsive table border-top">
+                <thead>
                 <tr>
-                    <th>Nombre Completo</th>
+                    <th></th> <!-- control responsive -->
+                    <th>Nombre</th>
                     <th>Departamento</th>
                     <th>Puesto</th>
                     <th>Estatus</th>
                     <th>Acciones</th>
                 </tr>
                 </thead>
-                <tbody>
-                <?= $tablaGestores ?>
-                </tbody>
+                <tbody></tbody>
             </table>
         </div>
 
@@ -282,98 +281,3 @@
 <!-- =========================
      JS
 ========================== -->
-
-<script>
-    document.addEventListener("DOMContentLoaded", function () {
-
-        let tabla = $('.datatables-users').DataTable({
-            responsive: true,
-            pageLength: 10,
-            lengthMenu: [10, 25, 50, 100],
-            language: {
-                url: "https://cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json"
-            },
-
-            initComplete: function () {
-
-                const filtroDepartamento = document.getElementById("UserRole");
-                const filtroPuesto       = document.getElementById("UserPlan");
-                const filtroStatus       = document.getElementById("FilterTransaction");
-
-                function limpiarSelect(select, placeholder) {
-                    select.innerHTML = `<option value="">${placeholder}</option>`;
-                    select.disabled = true;
-                }
-
-                function llenarSelect(colIndex, select, placeholder) {
-                    let valores = new Set();
-
-                    tabla
-                        .column(colIndex, { search: 'applied' })
-                        .nodes()
-                        .each(function (cell) {
-                            let texto = cell.innerText.trim();
-                            if (texto !== '') valores.add(texto);
-                        });
-
-                    limpiarSelect(select, placeholder);
-
-                    [...valores].sort().forEach(valor => {
-                        const option = document.createElement("option");
-                        option.value = valor;
-                        option.textContent = valor;
-                        select.appendChild(option);
-                    });
-
-                    select.disabled = false;
-                }
-
-                // 🔹 Inicial
-                llenarSelect(1, filtroDepartamento, 'Selecciona Departamento');
-                limpiarSelect(filtroPuesto, 'Selecciona Puesto');
-                limpiarSelect(filtroStatus, 'Selecciona Estatus');
-
-                // 🔹 Departamento → Puesto
-                filtroDepartamento.addEventListener("change", function () {
-
-                    tabla
-                        .column(1)
-                        .search(this.value ? '^' + this.value + '$' : '', true, false)
-                        .draw();
-
-                    if (this.value) {
-                        llenarSelect(2, filtroPuesto, 'Selecciona Puesto');
-                    } else {
-                        limpiarSelect(filtroPuesto, 'Selecciona Puesto');
-                    }
-
-                    limpiarSelect(filtroStatus, 'Selecciona Estatus');
-                });
-
-                // 🔹 Puesto → Estatus
-                filtroPuesto.addEventListener("change", function () {
-
-                    tabla
-                        .column(2)
-                        .search(this.value ? '^' + this.value + '$' : '', true, false)
-                        .draw();
-
-                    if (this.value) {
-                        llenarSelect(3, filtroStatus, 'Selecciona Estatus');
-                    } else {
-                        limpiarSelect(filtroStatus, 'Selecciona Estatus');
-                    }
-                });
-
-                // 🔹 Estatus
-                filtroStatus.addEventListener("change", function () {
-                    tabla
-                        .column(3)
-                        .search(this.value ? '^' + this.value + '$' : '', true, false)
-                        .draw();
-                });
-            }
-        });
-    });
-</script>
-

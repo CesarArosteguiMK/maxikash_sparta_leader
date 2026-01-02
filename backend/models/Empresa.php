@@ -35,35 +35,21 @@ class Empresa extends Model
         }
     }
 
-    public static function getConsultaDepartamentos()
-    {
-        $query = <<<SQL
-           SELECT *
-            FROM departamento
-        SQL;
 
-        try {
-            $db = new Database();
-            $r = $db->queryAll($query);
-            return self::resultado(true, 'Departamentos encontrados.', $r);
-        } catch (\Exception $e) {
-            return self::resultado(false, 'Error al procesar la solicitud.', null, $e->getMessage());
-        }
-    }
 
 
 
     public static function getConsultaPorNombre($nombre)
     {
         $query = <<<SQL
-           SELECT idCredito, nombre 
-            FROM clientes 
-            WHERE nombre LIKE '%$nombre%'
+           SELECT Id_credito, Nombre_cliente 
+            FROM tbl_segundometro_semana 
+            WHERE Nombre_cliente LIKE '%$nombre%'
             LIMIT 10
         SQL;
 
         try {
-            $db = new Database();
+            $db = new DatabaseSegundometro();
             $r = $db->queryAll($query);
             return self::resultado(true, 'Nombres encontrados.', $r);
         } catch (\Exception $e) {

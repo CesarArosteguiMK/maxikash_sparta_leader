@@ -21,11 +21,11 @@ function getMenu()
                 ]
             ]
         ],
-        'Gestiones SKY' => [
+        'Gestiones Campo' => [
             'icono' => 'fa-solid fa-screwdriver-wrench',
             'subItems' => [
                 [
-                    'label' => 'Historico Gestiones',
+                    'label' => 'Histórico Gestiones',
                     'url' => '/gestiones/seguimiento',
                     'permisos' => [1,4,26, 90]
                 ]
@@ -36,12 +36,12 @@ function getMenu()
             'subItems' => [
                 [
                     'label' => 'Gestión',
-                    'url' => '/capHum/gestion',
+                    'url' => '/caphum/gestion',
                     'permisos' => [1,4,26, 27, 28]
                 ],
                 [
                     'label' => 'Organigrama',
-                    'url' => '/capHum/organigrama',
+                    'url' => '/caphum/organigrama',
                     'permisos' => [1,4,26, 27, 28]
                 ]
             ]
@@ -72,11 +72,6 @@ function getMenu()
                 [
                     'label' => 'Departamentos',
                     'url' => '/departamentos/consulta/',
-                    'permisos' => [1,4,26]
-                ],
-                [
-                    'label' => 'Puestos',
-                    'url' => '/puestos/consulta/',
                     'permisos' => [1,4,26]
                 ],
                 [

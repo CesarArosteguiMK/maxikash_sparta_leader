@@ -4,8 +4,8 @@ namespace Controllers;
 
 use Core\Controller;
 use Models\Empresa as EmpresasDAO;
-use Models\Gestiones as GestionesDAO;
-use Models\Gestiones as ViaticosDAO;
+use Models\EstadoCuenta as EstadoCuentaDAO;
+
 
 class EstadoCuenta extends Controller
 {
@@ -50,7 +50,6 @@ class EstadoCuenta extends Controller
         }
         return null;
     }
-
     public function Consulta()
     {
         // --- JS COMPLETO EN EL CONTROLADOR ---
@@ -81,19 +80,61 @@ class EstadoCuenta extends Controller
         
             // Validación antes de enviar
             document.getElementById("formBusqueda").addEventListener("submit", e => {
-                const idCredito = document.getElementById("idCredito").value.trim();
+                
                 const modo = document.querySelector('input[name="modoBusqueda"]:checked')?.value;
+                const idCredito       = document.getElementById("idCredito").value.trim();
+                const nombre          = document.getElementById("nombre").value.trim();
+                const idCreditoLista  = document.getElementById("idCreditoLista").value.trim();
         
-                if (modo === "id" && idCredito === "") {
-                    e.preventDefault();
-                    return Swal.fire({
-                        icon: "warning",
-                        title: "Falta el ID Crédito",
-                        text: "Por favor ingresa el ID del crédito."
-                    });
+                // =========================
+                // MODO ID
+                // =========================
+                if (modo === "id") {
+            
+                    if (idCredito === "") {
+                        e.preventDefault();
+                        return Swal.fire({
+                            icon: "warning",
+                            title: "Falta el ID de crédito",
+                            text: "Por favor ingresa el ID del crédito."
+                        });
+                    }
+            
+                    // Limpieza defensiva
+                    document.getElementById("idCreditoLista").value = "";
+                    document.getElementById("nombre").value = "";
                 }
-        
-                // Loading
+            
+                // =========================
+                // MODO NOMBRE
+                // =========================
+                if (modo === "nombre") {
+            
+                    if (nombre === "") {
+                        e.preventDefault();
+                        return Swal.fire({
+                            icon: "warning",
+                            title: "Falta el nombre",
+                            text: "Escribe y selecciona un cliente de la lista."
+                        });
+                    }
+            
+                    if (idCreditoLista === "") {
+                        e.preventDefault();
+                        return Swal.fire({
+                            icon: "warning",
+                            title: "Cliente no seleccionado",
+                            text: "Debes seleccionar un cliente del listado, no solo escribirlo."
+                        });
+                    }
+            
+                    // Limpieza defensiva
+                    document.getElementById("idCredito").value = "";
+                }
+            
+                // =========================
+                // LOADING
+                // =========================
                 Swal.fire({
                     title: "Procesando solicitud...",
                     text: "Espere un momento por favor.",
@@ -121,20 +162,22 @@ JS;
 
             $idCredito = $_POST['idCredito'] ?? null;
             $nombre = $_POST['nombre'] ?? null;
+            $idCreditoLista = $_POST['idCreditoLista'] ?? null;
+            $fechaHoy = date('Y-m-d');
 
-            if($nombre != null)
+            if($nombre != null && $idCreditoLista != null)
             {
-                $this->$getclientesEstadoCuenta($nombre);
+                $resultado = $this->api___SPARTA_SECRET_REDACTED__($idCreditoLista, $fechaHoy);
             }
             else
             {
-
+                $resultado =  $this->api___SPARTA_SECRET_REDACTED__($idCredito, $fechaHoy);
             }
 
 
 
             //$GestionesAll = GestionesDao::getAllGestiones($idCredito, $nombre);
-            $resultado =  $this->api___SPARTA_SECRET_REDACTED__(1600, "2025-12-04");
+            //$resultado =  $this->api___SPARTA_SECRET_REDACTED__($idCredito, "2025-12-04");
             // variables para guardar por bloques los arrreglos
             // ---------------------------------------------------------------
             // 1. Extraemos las secciones del JSON original
@@ -315,29 +358,38 @@ JS;
         self::set("script", $script);
         return self::render("__SPARTA_SECRET_REDACTED___consulta");
     }
-
-    public function nombre() {
-
-        header('Content-Type: application/json');
-
-        $q = $_GET['q'] ?? '';
-
-        if (strlen($q) < 2) {
-            echo json_encode([]);
-            return;
-        }
-
-        $resultados = self::respuestaJSON(EmpresasDAO::getConsultaPorNombre($_POST));
-
-        echo json_encode($resultados);
-
-    }
-
     public function getclientesEstadoCuenta()
     {
         self::respuestaJSON(EmpresasDAO::getConsultaDepartamentos($_POST));
     }
+    public static function getclientesEstadoCuentaNombre()
+    {
+        // Leer JSON del POST
+        $input = json_decode(file_get_contents('php://input'), true);
+        $nombre = trim($input['nombre'] ?? '');
 
+        // Llamada al DAO usando el término real
+        $respDAO = EmpresasDAO::getConsultaPorNombre($nombre);
+
+        $datos = [];
+
+        // Normalizar respuesta del DAO al formato del autocomplete
+        if (!empty($respDAO['datos'])) {
+            foreach ($respDAO['datos'] as $row) {
+                $datos[] = [
+                    'id' => $row['Id_credito'],
+                    'nombre_completo' => $row['Nombre_cliente']
+                ];
+            }
+        }
+
+        // Respuesta final para el frontend
+        header('Content-Type: application/json');
+        echo json_encode([
+            'resultado' => !empty($datos),
+            'datos' => $datos
+        ]);
+    }
     function api___SPARTA_SECRET_REDACTED__($idCredito, $fechaCorte) {
 
         $url = "https://servicios.s2movil.net/s2__SPARTA_SECRET_REDACTED__/estadocuenta";
@@ -427,99 +479,64 @@ JS;
 
     public function documentacion()
     {
-        // --- JS COMPLETO EN EL CONTROLADOR ---
         $script = <<<JS
         <script>
-        
-        document.addEventListener("DOMContentLoaded", () => {
-        
-            // Cambiar entre ID y Nombre
-            function actualizarInputs() {
-                    const modo = document.querySelector('input[name="modoBusqueda"]:checked')?.value;
-                    document.getElementById('divNombre').style.display = modo === 'nombre' ? 'block' : 'none';
-                    document.getElementById('divID').style.display = modo === 'id' ? 'block' : 'none';
-            }
-        
-            document.querySelectorAll('input[name="modoBusqueda"]').forEach(el =>
-                el.addEventListener('change', actualizarInputs)
-            );
-            actualizarInputs();
-        
-            // Botón limpiar filtros
-            document.getElementById("btnResetFiltros").addEventListener("click", () => {
-                document.getElementById("idCredito").value = "";
-                document.getElementById("nombre").value = "";
-                document.getElementById("modoID").checked = true;
-                actualizarInputs();
-            });
-        
-            // Validación antes de enviar
-            document.getElementById("formBusqueda").addEventListener("submit", e => {
-                const idCredito = document.getElementById("idCredito").value.trim();
-                const modo = document.querySelector('input[name="modoBusqueda"]:checked')?.value;
-        
-                if (modo === "id" && idCredito === "") {
+            document.addEventListener('DOMContentLoaded', () => {
+            
+                const form = document.getElementById('formBusqueda');
+            
+                form.addEventListener('submit', e => {
                     e.preventDefault();
-                    return Swal.fire({
-                        icon: "warning",
-                        title: "Falta el ID Crédito",
-                        text: "Por favor ingresa el ID del crédito."
+            
+                    const id   = document.getElementById('idCredito').value.trim();
+                    const tipo = document.getElementById('tipoDocumento').value;
+            
+                    if (!id || !tipo) {
+                        Swal.fire('Error', 'Datos incompletos', 'error');
+                        return;
+                    }
+            
+                    Swal.fire({
+                        title: 'Procesando',
+                        allowOutsideClick: false,
+                        didOpen: () => Swal.showLoading()
                     });
-                }
-        
-                // Loading
-                Swal.fire({
-                    title: "Procesando solicitud...",
-                    text: "Espere un momento por favor.",
-                    allowOutsideClick: false,
-                    allowEscapeKey: false,
-                    didOpen: () => Swal.showLoading()
+            
+                    fetch('/estadocuenta/descargar', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ id, tipo })
+                    })
+                    .then(res => res.json())
+                    .then(data => {
+                        Swal.close();
+            
+                        if (!data.success) {
+                            Swal.fire('Error', data.mensaje, 'error');
+                            return;
+                        }
+            
+                        document.getElementById('visorDocumento').src = data.url;
+            
+                        new bootstrap.Modal(
+                            document.getElementById('modalDocumento')
+                        ).show();
+                    })
+                    .catch(err => {
+                        console.error(err);
+                        Swal.fire('Error', 'Error de comunicación', 'error');
+                    });
                 });
+            
             });
-        
-        });
-        
+            </script>
 
-        </script>
-JS;
-        $script_error = <<<JS
-        <script>
-                document.addEventListener('DOMContentLoaded',()=>mostrarMensajeAll({tipo:'error',titulo:'Error de busqueda',mensaje:'No se encontraron resultados'}));
-        </script>
+
+
 JS;
 
-        # -----------------------------
-        # PETICIÓN POST
-        # -----------------------------
-        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-
-            $idCredito = $_POST['idCredito'] ?? null;
-            $nombre = $_POST['nombre'] ?? null;
 
 
-
-            //$GestionesAll = GestionesDao::getAllGestiones($idCredito, $nombre);
-            $resultado =  $this->api___SPARTA_SECRET_REDACTED__($idCredito, "2025-12-04");
-
-
-            if (empty($resultado["data"]["idCredito"])) {
-                self::set("titulo", "Sin resultados para solicitud");
-                self::set("errorGestiones", "No se encontraron resultados");
-                $script_completo = $script . "\n" . $script_error;
-                self::set("script", $script_completo);
-                return self::render("documentacion_consulta");
-            }
-            else
-            {
-
-
-                self::set("titulo", "Resultado de la solicitud");
-                self::set("script", $script);
-                return self::render("documentacion_consulta");
-            }
-
-
-        }
 
         # -----------------------------
         # GET NORMAL
@@ -529,6 +546,176 @@ JS;
         return self::render("documentacion_consulta");
     }
 
+    public static function contentDispositionInline(string $filename): string
+    {
+        $q = rawurlencode($filename);
+        return "inline; filename=\"$filename\"; filename*=UTF-8''$q";
+    }
+
+    public static function httpGet(string $url, int $timeout = 10)
+    {
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT => $timeout,
+            CURLOPT_FOLLOWLOCATION => true
+        ]);
+
+        $data = curl_exec($ch);
+        $status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        return [$status, $data];
+    }
+
+    public static function httpPostJson(string $url, array $payload, array $headers = [])
+    {
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_POST => true,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_HTTPHEADER => array_merge([
+                'Content-Type: application/json'
+            ], $headers),
+            CURLOPT_POSTFIELDS => json_encode($payload),
+            CURLOPT_TIMEOUT => 10
+        ]);
+
+        $response = curl_exec($ch);
+        $status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        return [$status, json_decode($response, true)];
+    }
+
+    public function descargar()
+    {
+        try {
+
+            header('Content-Type: application/json; charset=utf-8');
+
+            $raw = file_get_contents('php://input');
+            if (!$raw) {
+                echo json_encode([
+                    'success' => false,
+                    'mensaje' => 'Body vacío'
+                ]);
+                exit;
+            }
+
+            $input = json_decode($raw, true);
+
+            if (!$input) {
+                echo json_encode([
+                    'success' => false,
+                    'mensaje' => 'JSON inválido'
+                ]);
+                exit;
+            }
+
+            $id   = $input['id']   ?? null;
+            $tipo = strtoupper($input['tipo'] ?? '');
+
+            if (!$id || !$tipo) {
+                echo json_encode([
+                    'success' => false,
+                    'mensaje' => 'Parámetros incompletos'
+                ]);
+                exit;
+            }
+
+            // ---------------- FACTURA ----------------
+            if ($tipo === 'FACTURA') {
+                $fileUrl = "http://98.90.194.116/audit-app-0.0.1-SNAPSHOT_1/s3/downloadS3File?fileName=FACTURA/{$id}_factura.pdf";
+            }
+
+            // ---------------- CONTRATO ----------------
+            elseif ($tipo === 'CONTRATO') {
+                $fileUrl = "http://98.90.194.116/audit-app-0.0.1-SNAPSHOT_1/s3/downloadS3File?fileName=VALIDACIONES/{$id}_validaciones.pdf";
+            }
+            // ---------------- INE ----------------
+            elseif ($tipo === 'INE') {
+
+                $endpoint = "https://servicios.s2movil.net/s2__SPARTA_SECRET_REDACTED__/estadocuenta";
+                $token    = "__SPARTA_TOKEN_REDACTED__";
+
+                $payload = json_encode([
+                    "idCredito"  => (int)$id,
+                    "fechaCorte" => date("Y-m-d")
+                ]);
+
+                $ch = curl_init($endpoint);
+                curl_setopt_array($ch, [
+                    CURLOPT_RETURNTRANSFER => true,
+                    CURLOPT_POST           => true,
+                    CURLOPT_HTTPHEADER     => [
+                        "Content-Type: application/json",
+                        "Token: {$token}"
+                    ],
+                    CURLOPT_POSTFIELDS     => $payload,
+                    CURLOPT_TIMEOUT        => 10
+                ]);
+
+                $response = curl_exec($ch);
+                curl_close($ch);
+
+                $data = json_decode($response, true);
+
+                if (
+                    !$data ||
+                    !isset($data['estadoCuenta']['datosCliente']['idCliente'])
+                ) {
+                    echo json_encode([
+                        'success' => false,
+                        'mensaje' => 'No se pudo obtener idCliente desde estado de cuenta'
+                    ]);
+                    exit;
+                }
+
+                $idCliente = $data['estadoCuenta']['datosCliente']['idCliente'];
+
+                // ⚠️ Aquí puedes decidir si generas PDF o solo apuntas al frente
+                $fileUrl = "http://98.90.194.116/audit-app-0.0.1-SNAPSHOT_1/s3/downloadS3File?fileName=INE/{$idCliente}_frente.jpeg";
+            }
+
+
+            // ----------------  FAD / EVIDENCIA ----------------
+            else {
+                $res = EstadoCuentaDAO::obtenerDocumentoOferta($id, $tipo);
+
+                if (!$res['success']) {
+                    echo json_encode([
+                        'success' => false,
+                        'mensaje' => $res['mensaje']
+                    ]);
+                    exit;
+                }
+
+                $archivo = basename($res['datos']['nombre_archivo']);
+                $carpeta = $tipo === 'FAD_DOC' ? 'FAD' : 'EVIDENCIA';
+
+                $fileUrl = "http://98.90.194.116/audit-app-0.0.1-SNAPSHOT_1/s3/downloadS3File?fileName={$carpeta}/{$archivo}";
+            }
+
+            // 🔥 GOOGLE VIEWER
+            $viewer = "https://docs.google.com/gview?url=" . urlencode($fileUrl) . "&embedded=true";
+
+            echo json_encode([
+                'success' => true,
+                'url' => $viewer
+            ]);
+            exit;
+
+        } catch (\Throwable $e) {
+
+            echo json_encode([
+                'success' => false,
+                'mensaje' => 'Error interno',
+                'debug'   => $e->getMessage()
+            ]);
+            exit;
+        }
+    }
 
 
 

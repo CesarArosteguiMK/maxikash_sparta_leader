@@ -48,9 +48,7 @@
                     <div class="col-md-6" id="divID">
                         <label for="idCredito" class="form-label">ID de crédito</label>
                         <div class="input-group input-group-merge">
-                            <input type="number" class="form-control" id="idCredito" name="idCredito"
-                                   value="<?= $_POST['idCredito'] ?? '' ?>"
-                                   placeholder="Ej.: 12345">
+                            <input type="number" class="form-control" id="idCredito" name="idCredito" value="" placeholder="Ej.: 12345">
                             <span class="input-group-text"><i class="fa fa-hashtag"></i></span>
                         </div>
                     </div>
@@ -59,15 +57,30 @@
                     <div class="col-md-6" id="divNombre" style="display: none;">
                         <label for="nombre" class="form-label">Nombre del Cliente</label>
                         <div class="input-group input-group-merge">
-                            <input type="text" class="form-control" name="nombre" id="nombre"
-                                   value="<?= $_POST['nombre'] ?? '' ?>"
-                                   placeholder="Nombre completo o parcial">
+                            <input type="text" class="form-control" name="nombre" id="nombre" value="" placeholder="Nombre completo o parcial">
                             <span class="input-group-text"><i class="fa fa-user"></i></span>
                         </div>
                     </div>
 
-                    <!-- Fecha Corte oculta -->
-                    <input type="hidden" name="fechaCorte" id="fechaCorte" value="<?= $fecha_actual_iso ?>">
+                    <!-- Tipo de Documento -->
+                    <div class="col-md-6">
+                        <label for="tipoDocumento" class="form-label">Tipo de documento</label>
+                        <div class="input-group input-group-merge">
+                            <select class="form-select" id="tipoDocumento" name="tipoDocumento">
+                                <option value="">Selecciona un documento</option>
+                                <option value="INE">INE</option>
+                                <option value="FACTURA">FACTURA OK</option>
+                                <option value="CONTRATO">VALIDACIONES OK</option>
+                                <option value="FAD_DOC">FAD_DOC</option>
+                                <option value="EVIDENCIA">EVIDENCIA</option>
+                            </select>
+                            <span class="input-group-text">
+                                <i class="fa fa-file"></i>
+                            </span>
+                        </div>
+                    </div>
+
+
 
                     <div class="col-12">
                         <button type="submit" class="btn btn-outline-primary w-100" id="btnBuscar">Buscar</button>
@@ -80,7 +93,33 @@
 
 
     </div>
+
+    <!-- MODAL VISOR DE DOCUMENTOS -->
+    <div class="modal fade" id="modalDocumento" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content">
+
+                <!-- HEADER -->
+                <div class="modal-header">
+                    <h5 class="modal-title">Documento</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+
+                <!-- BODY -->
+                <div class="modal-body p-0" style="height:80vh">
+                    <iframe
+                            id="visorDocumento"
+                            src=""
+                            style="width:100%;height:100%;border:0;"
+                            loading="lazy">
+                    </iframe>
+                </div>
+
+
+            </div>
+        </div>
+    </div>
+
 </div>
-<?= $script ?? '' ?>
 
 

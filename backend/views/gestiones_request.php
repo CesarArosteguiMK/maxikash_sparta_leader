@@ -1,11 +1,35 @@
-<body>
+<style>
+    .badge-app {
+        color: #fff;
+        font-size: 0.7rem;
+        padding: 4px 8px;
+        border-radius: 10px;
+        font-weight: 700;
+        margin-right: 8px;
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
+        box-shadow: 0 0 4px rgba(0,0,0,0.15);
+        display: inline-block;
+    }
+
+    /* SKY LOGIC → VERDE */
+    .badge-app.sky-logic {
+        background-color: #d2d755;
+    }
+
+    /* LEGACY → AZUL */
+    .badge-app.legacy {
+        background-color: #0047BB;
+    }
+</style>
+
 
 <div class="container py-4">
 
     <!-- Título -->
     <div class="row mb-3">
         <div class="col-12">
-            <h4 class="mb-0">Consulta de gestiones Sky</h4>
+            <h4 class="mb-0">Consulta de gestiones Campo</h4>
             <p class="text-muted small">Resultados de la búsqueda</p>
         </div>
     </div>
@@ -69,6 +93,9 @@
                             <button class="accordion-button collapsed" type="button"
                                     data-bs-toggle="collapse"
                                     data-bs-target="#collapse<?= $i ?>">
+                               <span class="badge-app <?= ($g['app'] === 'LEGACY') ? 'legacy' : 'sky-logic' ?>">
+                                    <?= $g["app"] ?>
+                                </span> -
                                 <?= $g["nombre_cliente"] ?> —
                                 <?= $g["dictamen_ccc"] ?> —
                                 <?= $g["fecha_dispositivo"] ?> —
@@ -199,5 +226,3 @@
 
 
 </div>
-
-</body>

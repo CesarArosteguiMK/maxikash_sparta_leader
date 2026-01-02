@@ -87,7 +87,6 @@ HTML;
         self::set("script", $script);
         self::render("reporteria_call_center");
     }
-
     public function layoutlegacy()
     {
         $script = <<<HTML
@@ -131,7 +130,6 @@ HTML;
         self::set("script", $script);
         self::render("layout_legacy");
     }
-
     public function bonoscobranza()
     {
         $script = <<<HTML
@@ -175,7 +173,6 @@ HTML;
         self::set("script", $script);
         self::render("layout_legacy");
     }
-
     public function getUltimoCorte()
     {
         self::respuestaJSON(EmpresasDAO::getObtenerUltimoCorte());
@@ -240,10 +237,5 @@ HTML;
         // Terminar ejecución para que no se agregue nada extra
         exit;
     }
-
-
-
-
-
 
 }

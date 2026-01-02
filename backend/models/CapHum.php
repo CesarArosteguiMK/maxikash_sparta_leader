@@ -10,6 +10,231 @@ class CapHum extends Model
     ////////////////////////////////////////////////////////////////////// VALIDADO AL 100
     ////////////////////////////////////////////////////////////////////// VALIDADO AL 100
     ////////////////////////////////////////////////////////////////////// VALIDADO AL 100
+    ///
+    ///
+
+    public static function getConsultaGestoresAll($id_gestor_sesion)
+    {
+        if(in_array($id_gestor_sesion, [1, 2, 3]))
+        {
+            $add = '';
+            $query = <<<SQL
+                SELECT
+                p.id,
+                p.nombres,
+                p.apellidop,
+                p.apellidom,
+                pp.id        AS id_puesto,
+                pp.nombre    AS nombre_puesto,
+                pp.nivel     AS nivel_puesto,
+                d.nombre     AS nombre_departamento,
+                aj.id_jefe,
+                p.estatus
+            FROM persona p
+            INNER JOIN asigna_puesto ap 
+                    ON p.id = ap.id_persona
+            INNER JOIN puesto pp 
+                    ON pp.id = ap.id_puesto
+            INNER JOIN departamento d 
+                    ON d.id = pp.departamento_id
+            LEFT JOIN asigna_jefe aj 
+                   ON p.id = aj.id_persona
+                  AND (aj.fecha_fin IS NULL OR aj.fecha_fin >= CURDATE())
+            WHERE p.estatus != 'Baja'
+              AND EXISTS (
+                    SELECT 1
+                    FROM __SPARTA_SECRET_REDACTED__.privilegios_departamento pd
+                    WHERE pd.idPersona = $id_gestor_sesion           -- usuario en sesión
+                      AND pd.idPuesto  = pp.id       -- ← correlación CORRECTA
+              )
+            ORDER BY pp.nivel ASC
+        SQL;
+        }
+        else
+        {
+            $query = <<<SQL
+          WITH RECURSIVE Jerarquia AS (
+            -- Nivel raíz (jefe inicial)
+            SELECT 
+                p.id,
+                p.nombres,
+                p.apellidop,
+                p.apellidom,
+                pp.id AS id_puesto,
+                pp.nombre AS nombre_puesto,
+                d.nombre AS nombre_departamento,
+                aj.id_jefe,
+                p.estatus,
+                1 AS nivel,
+                 pp.nivel AS nivel_puesto
+            FROM persona p
+            JOIN asigna_puesto ap ON p.id = ap.id_persona
+            JOIN puesto pp ON pp.id = ap.id_puesto
+            JOIN departamento d ON d.id = pp.departamento_id
+            LEFT JOIN asigna_jefe aj 
+                   ON p.id = aj.id_persona 
+                  AND (aj.fecha_fin IS NULL OR aj.fecha_fin >= CURDATE())
+            WHERE p.estatus != 'Baja'
+              $add -- opcional filtro extra
+        
+            UNION ALL
+        
+            -- Subordinados recursivos
+            SELECT 
+                p2.id,
+                p2.nombres,
+                p2.apellidop,
+                p2.apellidom,
+                pp2.id AS id_puesto,
+                pp2.nombre AS nombre_puesto,
+                d2.nombre AS nombre_departamento,
+                aj2.id_jefe,
+                p2.estatus,
+                j.nivel + 1 AS nivel,
+                 pp2.nivel AS nivel_puesto
+            FROM persona p2
+            JOIN asigna_puesto ap2 ON p2.id = ap2.id_persona
+            JOIN puesto pp2 ON pp2.id = ap2.id_puesto
+            JOIN departamento d2 ON d2.id = pp2.departamento_id
+            LEFT JOIN asigna_jefe aj2 
+                   ON p2.id = aj2.id_persona 
+                  AND (aj2.fecha_fin IS NULL OR aj2.fecha_fin >= CURDATE())
+            JOIN Jerarquia j ON aj2.id_jefe = j.id
+            WHERE p2.estatus != 'Baja'
+        )
+        
+        SELECT *
+        FROM Jerarquia
+        ORDER BY nivel_puesto ASC;
+
+        SQL;
+            $add = ' AND aj.id_jefe = '. $id_gestor_sesion;
+        }
+
+        try {
+            $db = new Database();
+            $r = $db->queryAll($query);
+            return self::resultado(true, 'Departamentos encontrados.', $r);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al procesar la solicitud.', null, $e->getMessage());
+        }
+    }
+    public static function getPersonaDetalle($idPersona)
+    {
+        try {
+            $db = new Database();
+
+            $query = <<<SQL
+            SELECT 
+                p.*,
+                ap.id_puesto, dd.nombre as departamento, dd.id as id_departamento, aj.id_jefe, p.password
+            FROM persona p
+            INNER JOIN asigna_puesto ap ON ap.id_persona = p.id
+            INNER JOIN puesto pu ON pu.id = ap.id_puesto
+            INNER JOIN departamento dd ON dd.id = pu.departamento_id
+            INNER JOIN asigna_jefe aj ON aj.id_persona = p.id
+            WHERE p.id = $idPersona
+              AND p.estatus != 'Baja'
+            LIMIT 1
+        SQL;
+
+            $persona = $db->queryOne($query);
+
+            return self::resultado(true, 'Persona encontrada.', $persona);
+
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al procesar la solicitud.', null, $e->getMessage());
+        }
+    }
+    public static function getComboDepartamentos($perfil_id)
+    {
+        $query = <<<SQL
+           SELECT DISTINCT d.*
+            FROM privilegios_departamento pd
+            INNER JOIN puesto p
+                    ON p.id = pd.idPuesto
+            INNER JOIN departamento d
+                    ON d.id = p.departamento_id
+            WHERE d.id = $perfil_id
+            ORDER BY d.nombre ASC
+        SQL;
+
+        try {
+            $db = new Database();
+            $r = $db->queryAll($query);
+            return self::resultado(true, 'Departamentos encontrados.', $r);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al procesar la solicitud.', null, $e->getMessage());
+        }
+    }
+    public static function getConsultaPuestos($departamento)
+    {
+        // Query base
+        $query = <<<SQL
+        SELECT
+            p.id, p.nombre, p.nivel, d.nombre as departamento
+        FROM puesto p
+        INNER JOIN departamento d ON d.id = p.departamento_id
+    SQL;
+
+        $params = [];
+
+        // Agregar filtro si se envió un departamento
+        if ($departamento != null) {
+            $query .= " WHERE d.id = :departamento";
+            $params['departamento'] = $departamento;
+        }
+
+        try {
+            $db = new Database();
+            // Pasar parámetros si existen
+            $r = $db->queryAll($query, $params);
+
+            return self::resultado(true, 'Puestos encontrados.', $r);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al procesar la solicitud.', null, $e->getMessage());
+        }
+    }
+    public static function getConsultaJefe($id_departamento)
+    {
+        if(1 == 'admin')
+        {
+            $add = '';
+        }
+        else
+        {
+            $add = ' AND aj.id_jefe = ';
+        }
+        $query = <<<SQL
+          SELECT
+        per.id,
+        CONCAT(per.nombres, ' ', per.apellidop) AS nombre_completo,
+        pu.nombre AS nombre_puesto
+        FROM asigna_puesto ap
+        INNER JOIN persona per 
+            ON per.id = ap.id_persona
+        INNER JOIN puesto pu 
+            ON pu.id = ap.id_puesto
+        WHERE pu.departamento_id = $id_departamento
+          AND pu.es_jefe = 1;
+        SQL;
+
+        try {
+            $db = new Database();
+            $r = $db->queryAll($query);
+            return self::resultado(true, 'Personas encontradas.', $r);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al procesar la solicitud.', null, $e->getMessage());
+        }
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////// VALIDADO AL 100
+    ////////////////////////////////////////////////////////////////////// VALIDADO AL 100
+    ////////////////////////////////////////////////////////////////////// VALIDADO AL 100
     public static function getConsultaGestoresPorPuesto($id_puesto)
     {
         $query = <<<SQL
@@ -43,27 +268,7 @@ class CapHum extends Model
             return self::resultado(false, 'Error al obtener jefes.', null, $e->getMessage());
         }
     }
-    public static function getConsultaDepartamentoGestor($perfil_id)
-    {
-        $query = <<<SQL
-           SELECT DISTINCT d.*
-            FROM privilegios_departamento pd
-            INNER JOIN puesto p
-                    ON p.id = pd.idPuesto
-            INNER JOIN departamento d
-                    ON d.id = p.departamento_id
-            WHERE pd.idPersona = $perfil_id
-            ORDER BY d.nombre ASC
-        SQL;
 
-        try {
-            $db = new Database();
-            $r = $db->queryAll($query);
-            return self::resultado(true, 'Departamentos encontrados.', $r);
-        } catch (\Exception $e) {
-            return self::resultado(false, 'Error al procesar la solicitud.', null, $e->getMessage());
-        }
-    }
     public static function getPersonasOrganigrama($departamento, $id_persona)
     {
         try {
@@ -232,125 +437,18 @@ class CapHum extends Model
         }
     }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    ////////////////////////////////////////
-
-
-    public static function getConsultaGestoresAll($id_gestor_sesion)
+    public static function getConsultaDepartamentoGestor($perfil_id)
     {
-        if(in_array($id_gestor_sesion, [1, 2, 3]))
-        {
-            $add = '';
-            $query = <<<SQL
-                SELECT
-                p.id,
-                p.nombres,
-                p.apellidop,
-                p.apellidom,
-                pp.id        AS id_puesto,
-                pp.nombre    AS nombre_puesto,
-                pp.nivel     AS nivel_puesto,
-                d.nombre     AS nombre_departamento,
-                aj.id_jefe,
-                p.estatus
-            FROM persona p
-            INNER JOIN asigna_puesto ap 
-                    ON p.id = ap.id_persona
-            INNER JOIN puesto pp 
-                    ON pp.id = ap.id_puesto
-            INNER JOIN departamento d 
-                    ON d.id = pp.departamento_id
-            LEFT JOIN asigna_jefe aj 
-                   ON p.id = aj.id_persona
-                  AND (aj.fecha_fin IS NULL OR aj.fecha_fin >= CURDATE())
-            WHERE p.estatus != 'Baja'
-              AND EXISTS (
-                    SELECT 1
-                    FROM __SPARTA_SECRET_REDACTED__.privilegios_departamento pd
-                    WHERE pd.idPersona = $id_gestor_sesion           -- usuario en sesión
-                      AND pd.idPuesto  = pp.id       -- ← correlación CORRECTA
-              )
-            ORDER BY pp.nivel ASC
+        $query = <<<SQL
+           SELECT DISTINCT d.*
+            FROM privilegios_departamento pd
+            INNER JOIN puesto p
+                    ON p.id = pd.idPuesto
+            INNER JOIN departamento d
+                    ON d.id = p.departamento_id
+            WHERE pd.idPersona = $perfil_id
+            ORDER BY d.nombre ASC
         SQL;
-        }
-        else
-        {
-            $query = <<<SQL
-          WITH RECURSIVE Jerarquia AS (
-            -- Nivel raíz (jefe inicial)
-            SELECT 
-                p.id,
-                p.nombres,
-                p.apellidop,
-                p.apellidom,
-                pp.id AS id_puesto,
-                pp.nombre AS nombre_puesto,
-                d.nombre AS nombre_departamento,
-                aj.id_jefe,
-                p.estatus,
-                1 AS nivel,
-                 pp.nivel AS nivel_puesto
-            FROM persona p
-            JOIN asigna_puesto ap ON p.id = ap.id_persona
-            JOIN puesto pp ON pp.id = ap.id_puesto
-            JOIN departamento d ON d.id = pp.departamento_id
-            LEFT JOIN asigna_jefe aj 
-                   ON p.id = aj.id_persona 
-                  AND (aj.fecha_fin IS NULL OR aj.fecha_fin >= CURDATE())
-            WHERE p.estatus != 'Baja'
-              $add -- opcional filtro extra
-        
-            UNION ALL
-        
-            -- Subordinados recursivos
-            SELECT 
-                p2.id,
-                p2.nombres,
-                p2.apellidop,
-                p2.apellidom,
-                pp2.id AS id_puesto,
-                pp2.nombre AS nombre_puesto,
-                d2.nombre AS nombre_departamento,
-                aj2.id_jefe,
-                p2.estatus,
-                j.nivel + 1 AS nivel,
-                 pp2.nivel AS nivel_puesto
-            FROM persona p2
-            JOIN asigna_puesto ap2 ON p2.id = ap2.id_persona
-            JOIN puesto pp2 ON pp2.id = ap2.id_puesto
-            JOIN departamento d2 ON d2.id = pp2.departamento_id
-            LEFT JOIN asigna_jefe aj2 
-                   ON p2.id = aj2.id_persona 
-                  AND (aj2.fecha_fin IS NULL OR aj2.fecha_fin >= CURDATE())
-            JOIN Jerarquia j ON aj2.id_jefe = j.id
-            WHERE p2.estatus != 'Baja'
-        )
-        
-        SELECT *
-        FROM Jerarquia
-        ORDER BY nivel_puesto ASC;
-
-        SQL;
-            $add = ' AND aj.id_jefe = '. $id_gestor_sesion;
-        }
 
         try {
             $db = new Database();
@@ -360,39 +458,12 @@ class CapHum extends Model
             return self::resultado(false, 'Error al procesar la solicitud.', null, $e->getMessage());
         }
     }
+    ////////////////////////////////////////
 
-    public static function getConsultaGestoresDepartamento($id_departamento)
-    {
-        if(1 == 'admin')
-        {
-            $add = '';
-        }
-        else
-        {
-            $add = ' AND aj.id_jefe = ';
-        }
-        $query = <<<SQL
-          SELECT
-        per.id,
-        CONCAT(per.nombres, ' ', per.apellidop) AS nombre_completo,
-        pu.nombre AS nombre_puesto
-        FROM asigna_puesto ap
-        INNER JOIN persona per 
-            ON per.id = ap.id_persona
-        INNER JOIN puesto pu 
-            ON pu.id = ap.id_puesto
-        WHERE pu.departamento_id = $id_departamento
-          AND pu.es_jefe = 1;
-        SQL;
 
-        try {
-            $db = new Database();
-            $r = $db->queryAll($query);
-            return self::resultado(true, 'Personas encontradas.', $r);
-        } catch (\Exception $e) {
-            return self::resultado(false, 'Error al procesar la solicitud.', null, $e->getMessage());
-        }
-    }
+
+
+
 
     public static function insertPersona($data)
     {

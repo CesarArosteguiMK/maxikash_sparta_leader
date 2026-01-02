@@ -1,18 +1,282 @@
-/* Catalogos
+/*
+ * Configuraciones globales JON
+ */
+const HTTP_CONFIG = {
+    baseURL: "",
+
+    apis: {
+        interna: {
+            baseURL: "",
+            auth: null
+        },
+
+        externa: {
+            baseURL: "https://api.externa.com/v1",
+            auth: {
+                type: "bearer",
+                getToken: () => localStorage.getItem("api_token"),
+                refresh: async () => {
+                    const resp = await fetch("/auth/refresh-token")
+                    const data = await resp.json()
+                    if (!data?.token) throw new Error("No token")
+                    localStorage.setItem("api_token", data.token)
+                    return data.token
+                }
+            }
+        }
+    },
+
+    timeout: 30000,
+    retry: 1
+}
+
+const http = (() => {
+
+    const buildURL = (endpoint, api) => {
+        if (endpoint.startsWith("http")) return endpoint;
+        if (api && HTTP_CONFIG.apis[api]) return HTTP_CONFIG.apis[api].baseURL + endpoint;
+        return HTTP_CONFIG.baseURL + endpoint;
+    };
+
+    const buildHeaders = (api, customHeaders = {}) => {
+        const cfg = HTTP_CONFIG.apis[api];
+        let headers = { "Front-Request": "true", ...customHeaders };
+        if (cfg?.auth?.type === "bearer") {
+            const token = cfg.auth.getToken();
+            if (token) headers.Authorization = `Bearer ${token}`;
+        }
+        if (cfg?.auth?.type === "apikey") {
+            headers["X-API-KEY"] = cfg.auth.key;
+        }
+        return headers;
+    };
+
+    const handleUnauthorized = async (api, originalAjaxConfig) => {
+        const auth = HTTP_CONFIG.apis[api]?.auth;
+        if (!auth?.refresh) return false;
+        try {
+            const newToken = await auth.refresh();
+            originalAjaxConfig.headers.Authorization = `Bearer ${newToken}`;
+            $.ajax(originalAjaxConfig);
+            return true;
+        } catch {
+            return false;
+        }
+    };
+
+    const request = ({
+                         endpoint,
+                         api = "interna",
+                         metodo = "POST",
+                         data = {},
+                         headers = {},
+                         tipoEsperado = "json",
+                         contentType = "application/x-www-form-urlencoded; charset=UTF-8",
+                         processData = true,
+                         showLoader = true,
+                         timeout = HTTP_CONFIG.timeout,
+                         retry = HTTP_CONFIG.retry,
+                         onSuccess,
+                         onError,
+                         onAlways
+                     }) => {
+
+        if (typeof onSuccess !== "function") {
+            console.error("onSuccess es obligatorio");
+            return null;
+        }
+
+        let intento = 0;
+        let xhr = null;
+
+        const ejecutar = () => {
+            if (showLoader) showWait();
+
+            const ajaxConfig = {
+                url: buildURL(endpoint, api),
+                type: metodo,
+                data,
+                dataType: tipoEsperado,
+                contentType,
+                processData,
+                timeout,
+                headers: buildHeaders(api, headers),
+
+                success: (resp, status, jqXHR) => {
+                    try {
+                        if (typeof resp === "string" && tipoEsperado !== "blob") {
+                            resp = JSON.parse(resp);
+                        }
+
+                        if (tipoEsperado === "blob") {
+                            const ct = jqXHR.getResponseHeader("Content-Type");
+                            resp = new Blob([resp], { type: ct });
+                        }
+
+                        // Solo error si success === false
+                        if (resp?.success === false) throw resp;
+
+                        // Llamar onSuccess siempre que sea success true
+                        onSuccess(resp);
+
+                    } catch (err) {
+                        // Solo llamar manejarError si realmente hay fallo
+                        if (err?.success === false || err instanceof Error) {
+                            manejarError(err, jqXHR);
+                        }
+                        // NO llamar onError si success !== false
+                    }
+                },
+
+                    error: async (jqXHR, textStatus) => {
+                        if (jqXHR.status === 401) {
+                            const retryOk = await handleUnauthorized(api, ajaxConfig);
+                            if (retryOk) return;
+                        }
+
+                        if (textStatus === "timeout" && intento < retry) {
+                            intento++;
+                            ejecutar();
+                            return;
+                        }
+
+                        // Aquí sí hay fallo HTTP real
+                        const mensaje = jqXHR.responseJSON?.mensaje || "Error inesperado del servidor";
+                        if (typeof onError === "function") onError(mensaje, jqXHR);
+                        else showError(mensaje);
+                    },
+
+                complete: () => {
+                    if (showLoader) Swal.close();
+                    if (typeof onAlways === "function") onAlways();
+                }
+            };
+
+            xhr = $.ajax(ajaxConfig);
+        };
+
+        const manejarError = (logicError, jqXHR) => {
+            const mensaje =
+                logicError?.mensaje ||
+                jqXHR?.responseJSON?.mensaje ||
+                jqXHR?.responseText ||
+                "Error inesperado del servidor";
+
+            console.warn("HTTP INFO", { endpoint, api, status: jqXHR?.status, mensaje });
+
+            if (typeof onError === "function") {
+                onError(mensaje, jqXHR);
+            } else {
+                showError(mensaje);
+            }
+        };
+
+        ejecutar();
+        return xhr;
+    };
+
+    return { request };
+})();
+
+
+const actualizaDatosTabla = (selector, datos, mantenerPagina = false) => {
+    const tabla = $(selector).DataTable();
+    let paginaActual = null;
+    if (mantenerPagina) paginaActual = tabla.page.info().page;
+
+    tabla.clear();
+
+    if (Array.isArray(datos)) {
+        datos.forEach(item => {
+            if (Array.isArray(item)) tabla.row.add(item);
+            else tabla.row.add(Object.values(item));
+        });
+    }
+
+    if (paginaActual !== null) tabla.page(paginaActual);
+
+    tabla.draw(); // solo UNA vez al final
+};
+
+const configuraTabla = (
+    selector,
+    {
+        regXvista = true,
+        buscar = true,
+        footerInfo = true,
+        paginacion = true,
+        ordenar = true,
+        responsive = true,
+        registrosPorPagina = 10,
+        columns = null // <-- columnas personalizadas
+    } = {}
+) => {
+
+    // Si no se pasan columnas, las detectamos del <thead>
+    if (!columns) {
+        const ths = $(`${selector} thead th`);
+        columns = [];
+        ths.each(function(index) {
+            const title = $(this).text().trim();
+            if (index === 0 && responsive) {
+                // Primera columna para control responsive
+                columns.push({ data: null, defaultContent: '', className: 'control', orderable: false });
+            } else {
+                columns.push({ data: title.toLowerCase().replace(/\s+/g, '_'), title: title });
+            }
+        });
+    }
+
+    const configuracion = {
+        lengthMenu: [
+            [10, 40, -1],
+            [10, 40, "Todos"]
+        ],
+        pageLength: registrosPorPagina,
+        order: [],
+        autoWidth: false,
+        columns: columns,
+        language: {
+            emptyTable: "No hay datos disponibles",
+            info: "Mostrando de _START_ a _END_ de _TOTAL_ registros",
+            infoEmpty: "Sin registros para mostrar",
+            zeroRecords: "No se encontraron registros",
+            lengthMenu: "Mostrar _MENU_ registros",
+            search: "Buscar:"
+        },
+        lengthChange: regXvista,
+        searching: buscar,
+        info: footerInfo,
+        paging: paginacion,
+        ordering: ordenar,
+        destroy: true
+    };
+
+    if (responsive) {
+        configuracion.responsive = {
+            details: {
+                type: "inline",
+                target: "tr"
+            }
+        };
+    }
+
+    return $(selector).DataTable(configuracion);
+};
+
+
+window.http = http
+
+
+/*
+ * Fin Configuraciones globales JON
+ *
+ *
+ *
  *
  */
 
-const catEstatus_VG = {
-    solicitada: "SOLICITADA",
-    autorizada: "AUTORIZADA",
-    entregada: "ENTREGADA",
-    comprobada: "COMPROBADA",
-    aceptada: "ACEPTADA",
-    validada: "VALIDADA",
-    finalizada: "FINALIZADA",
-    cancelada: "CANCELADA",
-    rechazada: "RECHAZADA"
-}
+
 
 /*
  * Configuraciones globales
@@ -129,128 +393,69 @@ const confirmarMovimiento = async (mensaje, titulo = "Confirmación") => {
  * Librerias:
  * jQuery -> https://jquery.com/
  */
-const consultaServidor = (
-    url,
-    datos,
-    fncOK,
-    { metodo = "POST", tipoEsperado = "JSON", procesar = null, tipoContenido = null } = {}
-) => {
-    showWait()
-
-    const configuracion = {
+    const consultaServidor = (
         url,
-        data: datos,
-        type: metodo,
-        headers: { "Front-Request": "true" },
-        success: (respuesta, textStatus, jqXHR) => {
-            if (typeof respuesta === "string" && respuesta !== "") {
-                let tipoContenido = jqXHR.getResponseHeader("Content-Type")
-                try {
-                    switch (tipoEsperado) {
-                        case "JSON":
-                            respuesta = JSON.parse(respuesta)
-                            break
-                        case "blob":
-                            respuesta = new Blob([respuesta], { type: tipoContenido })
-                            break
-                        default:
-                            console.warn("Tipo de respuesta no manejado:", tipoEsperado)
-                            break
-                    }
-                } catch (e) {
-                    console.error("Error al procesar la respuesta del servidor:", e)
-                    Swal.close()
-                    return {
-                        success: false,
-                        mensaje: "Error al procesar la respuesta del servidor."
-                    }
-                }
-            }
-
-            Swal.close()
-            fncOK(respuesta)
-        },
-        error: () => {
-            showError("El servidor responde con un error.\nIntente más tarde.")
+        datos,
+        fncOK,
+        {
+            metodo = "POST",
+            tipoEsperado = "JSON",
+            procesar = null,
+            tipoContenido = null
+        } = {}
+    ) => {
+        if (typeof fncOK !== "function") {
+            console.error("fncOK no es una función")
+            return
         }
+
+        showWait()
+
+        const configuracion = {
+            url,
+            data: datos,
+            type: metodo,
+            headers: { "Front-Request": "true" },
+            dataType: tipoEsperado === "JSON" ? "json" : undefined,
+
+            success: (respuesta, textStatus, jqXHR) => {
+                try {
+                    if (tipoEsperado === "blob") {
+                        const contentTypeResp = jqXHR.getResponseHeader("Content-Type")
+                        respuesta = new Blob([respuesta], { type: contentTypeResp })
+                    }
+
+                    Swal.close()
+                    fncOK(respuesta)
+
+                } catch (e) {
+                    console.error("Error procesando respuesta:", e)
+                    Swal.close()
+                    showError("Error al procesar la respuesta del servidor.")
+                }
+            },
+
+            error: (jqXHR) => {
+                Swal.close()
+                const msg = jqXHR.responseJSON?.mensaje
+                    || jqXHR.responseText
+                    || "El servidor respondió con un error."
+                showError(msg)
+            }
+        }
+
+        if (tipoContenido !== null) configuracion.contentType = tipoContenido
+        if (procesar !== null) configuracion.processData = procesar
+
+        $.ajax(configuracion)
     }
-
-    if (tipoContenido != null) configuracion.contentType = tipoContenido
-    if (procesar != null) configuracion.processData = procesar
-
-    $.ajax(configuracion)
-}
 
 /*
  * Funciones para configruación y uso de tablas
  * Librerias:
  * DataTables -> https://datatables.net/
  */
-const configuraTabla = (
-    selector,
-    { regXvista = true, buscar = true, footerInfo = true, paginacion = true, ordenar = true } = {}
-) => {
-    const configuracion = {
-        lengthMenu: [
-            [10, 40, -1],
-            [10, 40, "Todos"]
-        ],
-        order: [],
-        autoWidth: false,
-        language: {
-            emptyTable: "No hay datos disponibles",
-            info: "Mostrando de _START_ a _END_ de _TOTAL_ registros",
-            infoEmpty: "Sin registros para mostrar",
-            zeroRecords: "No se encontraron registros",
-            lengthMenu: "Mostrar _MENU_ registros",
-            search: "Buscar:"
-        },
-        columnDefs: [
-            {
-                className: "control",
-                orderable: false,
-                searchable: false,
-                responsivePriority: 2,
-                targets: 0,
-                render: function (data, type, full, meta) {
-                    return ""
-                }
-            }
-        ],
-        responsive: {
-            details: {
-                type: "inline",
-                target: "tr"
-            }
-        }
-    }
 
-    configuracion.lengthChange = regXvista
-    configuracion.searching = buscar
-    configuracion.info = footerInfo
-    configuracion.paging = paginacion
-    configuracion.ordering = ordenar
-
-    $(selector).DataTable(configuracion)
-}
-
-const actualizaDatosTabla = (selector, datos, mantenerPagina = false) => {
-    let paginaActual = null
-    const tabla = $(selector).DataTable()
-
-    if (mantenerPagina) paginaActual = tabla.page.info().page
-
-    tabla.clear()
-    if (Array.isArray(datos)) {
-        datos.forEach((item) => {
-            if (Array.isArray(item)) tabla.row.add(item).draw(false)
-            else tabla.row.add(Object.values(item)).draw(false)
-        })
-    }
-
-    if (paginaActual !== null) tabla.page(paginaActual).draw(false)
-    tabla.draw()
-}
 
 const buscarEnTabla = (selector, columna, texto) => {
     const tabla = $(selector).DataTable()
