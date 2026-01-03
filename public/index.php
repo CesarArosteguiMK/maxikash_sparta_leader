@@ -13,13 +13,16 @@ header_remove('Server');
 |--------------------------------------------------------------------------
 */
 define('RAIZ', dirname(__DIR__) . '/backend');
+
+
+
 define('CONFIGURACION', parse_ini_file(RAIZ . '/config/config.ini'));
 define('CONTROLADORES', RAIZ . '/controllers');
-define('LIBRERIAS', RAIZ . '/libs');
+define('LIBRERIAS', RAIZ . '/Libs');
 define('MODELOS', RAIZ . '/models');
 define('VISTAS', RAIZ . '/views');
 define('COMPONENTES', RAIZ . '/components');
-define('LOGIN', 'login');
+define('LOGIN', 'Login');
 define('VISTA_DEFECTO', 'Inicio');
 define('METODO_DEFECTO', 'index');
 
@@ -33,11 +36,9 @@ error_reporting(E_ERROR | E_PARSE);
 */
 spl_autoload_register(function ($archivo) {
     $archivo = str_replace('\\', '/', $archivo);
-    $archivo = strtolower($archivo);
     $ruta = RAIZ . "/$archivo.php";
 
     if (!file_exists($ruta)) {
-        http_response_code(500);
         throw new Exception("Autoload no encontró: $ruta");
     }
 
@@ -125,13 +126,13 @@ if (!isset($_SESSION['login']) || strtolower($urlSolicitada[0]) === strtolower(L
 | CONTROLADOR NORMAL
 |--------------------------------------------------------------------------
 */
-$controladorArchivo = strtolower($urlSolicitada[0]);
+$controladorArchivo = $urlSolicitada[0];
 
 if ($controladorArchivo === '' || !file_exists(CONTROLADORES . "/$controladorArchivo.php")) {
     recursoNoDisponible();
 }
 
-$controlador = 'Controllers\\' . ucfirst($urlSolicitada[0]);
+$controlador = 'Controllers\\' . ucfirst($controladorArchivo);
 unset($urlSolicitada[0]);
 
 if (!class_exists($controlador)) recursoNoDisponible();
