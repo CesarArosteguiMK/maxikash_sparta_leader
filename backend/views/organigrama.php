@@ -132,6 +132,97 @@
 <script>
     document.addEventListener("DOMContentLoaded", function () {
 
+        function cargarDepartamentosPorTipo(id, seleccionado = null) {
+            fetch('/CapHum/getDepartamento', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id })
+            })
+                .then(res => res.json())
+                .then(data => {
+
+                    if (!data.success) {
+                        Swal.fire("Error", data.mensaje, "error");
+                        return;
+                    }
+
+                    const select = document.getElementById('edit_departamento_id');
+                    select.innerHTML = '<option value="">Seleccione un departamento</option>';
+
+                    data.datos.forEach(dep => {
+                        const option = document.createElement('option');
+                        option.value = dep.id;
+                        option.textContent = dep.nombre;
+
+                        if (String(dep.id) === String(seleccionado)) {
+                            option.selected = true;
+                        }
+
+                        select.appendChild(option);
+                    });
+                });
+        }
+        function cargarPuestosPorDepartamentos(id_departamento, seleccionado = null) {
+            fetch('/CapHum/getPuestosDepartamento', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id_departamento })
+            })
+                .then(res => res.json())
+                .then(data => {
+
+                    if (!data.success) {
+                        Swal.fire("Error", data.mensaje, "error");
+                        return;
+                    }
+
+                    const select = document.getElementById('edit_id_puesto');
+                    select.innerHTML = '<option value="">Seleccione un puesto</option>';
+
+                    data.datos.forEach(puesto => {
+                        const option = document.createElement('option');
+                        option.value = puesto.id;
+                        option.textContent = puesto.nombre;
+
+                        if (String(puesto.id) === String(seleccionado)) {
+                            option.selected = true;
+                        }
+
+                        select.appendChild(option);
+                    });
+                });
+        }
+        function cargarJefeDirecto(id_departamento, seleccionado = null) {
+            fetch('/CapHum/getJefeDirecto',
+                {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id_departamento })
+                })
+                .then(res => res.json())
+                .then(data => {
+
+                    if (!data.success) {
+                        Swal.fire("Error", data.mensaje, "error");
+                        return;
+                    }
+
+                    const select = $('#edit_id_jefe');
+                    select.empty().append(new Option('Seleccione un jefe', '', false, false));
+
+                    data.datos.forEach(jefe => {
+                        select.append(new Option(
+                            jefe.nombre_completo,
+                            jefe.id,
+                            false,
+                            String(jefe.id) === String(seleccionado)
+                        ));
+                    });
+
+                    select.trigger('change'); // 🔥 clave para Select2
+                });
+        }
+
         /* ============================= */
         /*   SELECT DEPARTAMENTO          */
         /* ============================= */
@@ -230,9 +321,9 @@
 
                     const persona = data.datos;
 
-                    //cargarDepartamentosPorTipo(persona.id_departamento, persona.id_departamento);
-                    //cargarPuestosPorDepartamentos(persona.id_departamento, persona.id_puesto);
-                    //cargarJefeDirecto(persona.id_departamento, persona.id_jefe);
+                    cargarDepartamentosPorTipo(persona.id_departamento, persona.id_departamento);
+                    cargarPuestosPorDepartamentos(persona.id_departamento, persona.id_puesto);
+                    cargarJefeDirecto(persona.id_departamento, persona.id_jefe);
 
                     document.getElementById("edit_num_empleado").value = persona.numero_empleado ?? '';
                     document.getElementById("edit_id").value = persona.id ?? '';

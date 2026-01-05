@@ -513,6 +513,7 @@ class CapHum extends Controller
 
         $departamentos = CapHumDAO::getConsultaDepartamentoGestor($_SESSION['usuario_id']);
 
+
         $getDepartamentos = '<option disabled selected>Seleeccione una opción</option>';
 
         if (!empty($departamentos['datos'])) {
@@ -568,7 +569,6 @@ class CapHum extends Controller
         ]);
         exit;
     }
-
     private function recorrerArbol($nodo, &$rows, $jefeId = null) {
         $rows[] = [
             "id"     => (string)$nodo["id"],
@@ -582,7 +582,6 @@ class CapHum extends Controller
             }
         }
     }
-
     public static function getGestoresPorPuesto()
     {
         $data = json_decode(file_get_contents("php://input"), true);
@@ -607,7 +606,6 @@ class CapHum extends Controller
             'datos'   => $resp['datos']
         ]);
     }
-    ////////
     public function getInsertarGestor()
     {
         // Obtener el JSON enviado desde fetch
@@ -639,8 +637,24 @@ class CapHum extends Controller
             echo json_encode(['success' => false, 'mensaje' => 'Error al insertar gestor', 'error' => $inserted['error']]);
         }
     }
+    public function getPuestosDepartamento()
+    {
+        $input = json_decode(file_get_contents("php://input"), true);
+        $id = $input['id_departamento'] ?? null;
 
-        ///
+        if (!$id) {
+            self::respuestaJSON([
+                'success' => false,
+                'mensaje' => 'Tipo de departamento requerido'
+            ]);
+            return;
+        }
+
+        self::respuestaJSON(
+            CapHumDAO::getConsultaDepartamentoGestorOrganigrama($id)
+        );
+    }
+
 
 
 

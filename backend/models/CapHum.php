@@ -436,7 +436,7 @@ class CapHum extends Model
             return self::resultado(false, 'Error al procesar la solicitud.', null, $e->getMessage());
         }
     }
-
+    ////////////////////////////////////////ES EL DE ADMIN
     public static function getConsultaDepartamentoGestor($perfil_id)
     {
         if($perfil_id == 1 OR $perfil_id == 2 OR $perfil_id == 3){
@@ -466,6 +466,24 @@ class CapHum extends Model
         }
     }
     ////////////////////////////////////////
+    public static function getConsultaDepartamentoGestorOrganigrama($departamento)
+    {
+
+        $query = <<<SQL
+           SELECT *
+            FROM  puesto p
+            WHERE p.departamento_id  = $departamento
+            ORDER BY p.nombre ASC
+        SQL;
+
+        try {
+            $db = new Database();
+            $r = $db->queryAll($query);
+            return self::resultado(true, 'Departamentos encontrados.', $r);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al procesar la solicitud.', null, $e->getMessage());
+        }
+    }
 
 
 
