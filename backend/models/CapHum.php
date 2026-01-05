@@ -439,6 +439,13 @@ class CapHum extends Model
 
     public static function getConsultaDepartamentoGestor($perfil_id)
     {
+        if($perfil_id == 1 OR $perfil_id == 2 OR $perfil_id == 3){
+            $complet = '';
+        }
+        else
+        {
+            $complet = 'WHERE pd.idPersona =' + $perfil_id;
+        }
         $query = <<<SQL
            SELECT DISTINCT d.*
             FROM privilegios_departamento pd
@@ -446,7 +453,7 @@ class CapHum extends Model
                     ON p.id = pd.idPuesto
             INNER JOIN departamento d
                     ON d.id = p.departamento_id
-            WHERE pd.idPersona = $perfil_id
+            $complet
             ORDER BY d.nombre ASC
         SQL;
 

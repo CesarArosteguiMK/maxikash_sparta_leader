@@ -12,7 +12,7 @@ function getMenu()
                 [
                     'label' => 'Estados de Cuenta',
                     'url' => '/estadocuenta/consulta',
-                    'permisos' => [1,4,26, 27, 28, 90, 30, 50]
+                    'permisos' => [1,611,26, 27, 28, 90, 30, 50]
                 ],
                 [
                     'label' => 'Documentación',

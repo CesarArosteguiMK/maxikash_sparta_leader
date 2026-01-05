@@ -228,7 +228,162 @@ class CapHum extends Controller
                 }
                 
                 
+                document.getElementById('add_departamento_id').addEventListener('change', function () {
+
+                const idDepartamento = this.value;
+                const selectPuesto = document.getElementById('add_id_puesto');
+                const selectJefe   = document.getElementById('add_id_jefe');
+                // Reset
+                selectPuesto.innerHTML = '<option value="">Seleccione un puesto</option>';
+                selectPuesto.disabled = true;
                 
+                selectJefe.innerHTML = '<option value="">Seleccione un jefe</option>';
+                selectJefe.disabled = true;
+            
+                if (!idDepartamento) return;
+            
+                fetch('/CapHum/getPuestos', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        id_departamento: idDepartamento
+                    })
+                })
+                .then(res => res.json())
+                .then(data => {
+            
+                    if (!data.success) {
+                        Swal.fire("Error", data.mensaje, "error");
+                        return;
+                    }
+            
+                    data.datos.forEach(puesto => {
+                        const option = document.createElement('option');
+                        option.value = puesto.id;
+                        option.textContent = puesto.nombre;
+                        selectPuesto.appendChild(option);
+                    });
+            
+                    selectPuesto.disabled = false;
+                })
+                .catch(() => {
+                    Swal.fire("Error", "No se pudieron cargar los puestos", "error");
+                });
+            });
+            
+            document.getElementById('add_id_puesto').addEventListener('change', function () {
+                    const idPuesto = this.value;
+                    const selectJefe = document.getElementById('add_id_jefe');
+                
+                    // Reset
+                    selectJefe.innerHTML = '<option value="">Seleccione un jefe</option>';
+                    selectJefe.disabled = true;
+                
+                    if (!idPuesto) return;
+                
+                    fetch('/CapHum/getGestoresPorPuesto', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            id_puesto: idPuesto
+                        })
+                    })
+                    .then(res => res.json())
+                    .then(data => {
+                
+                        if (!data.success) {
+                            Swal.fire("Error", data.mensaje, "error");
+                            return;
+                        }
+                
+                        data.datos.forEach(jefe => {
+                            const option = document.createElement('option');
+                            option.value = jefe.id;
+                            option.textContent = jefe.nombre_completo;
+                            selectJefe.appendChild(option);
+                        });
+                
+                        selectJefe.disabled = false;
+                    })
+                    .catch(() => {
+                        Swal.fire("Error", "No se pudieron cargar los jefes", "error");
+                    });
+                });
+                
+                function guardarGestor() {
+                
+               
+                const nombres = document.getElementById('add_nombres').value.trim();
+                const apellidop = document.getElementById('add_apellidop').value.trim();
+                const apellidom = document.getElementById('add_apellidom').value.trim();
+                const telefono = document.getElementById('add_telefono').value.trim();
+                const id_puesto = document.getElementById('add_id_puesto').value;
+                const departamento_id = document.getElementById('add_departamento_id').value;
+                const id_jefe = document.getElementById('add_id_jefe').value;
+                
+                const usuario = document.getElementById('add_usuario').value.trim();
+                const contrasena = document.getElementById('add_contrasena').value.trim();
+                
+            
+                // 🔴 Validaciones obligatorias
+                if (!nombres) return Swal.fire('Error', 'Los nombres son obligatorios', 'error');
+                if (!apellidop) return Swal.fire('Error', 'El apellido paterno es obligatorio', 'error');
+                if (!apellidom) return Swal.fire('Error', 'El apellido paterno es obligatorio', 'error');
+            
+            
+                // 🔴 Validar relaciones
+                if (!id_puesto) return Swal.fire('Error', 'Debe seleccionar un puesto', 'error');
+                if (!departamento_id) return Swal.fire('Error', 'Debe seleccionar un departamento', 'error');
+            
+                // ⚠️ jefe puede ser null, solo valida si viene
+                if (id_jefe && isNaN(id_jefe)) {
+                    return Swal.fire('Error', 'Jefe inválido', 'error');
+                }
+                
+                if (!usuario) return Swal.fire('Error', 'Usuario obligatorio', 'error');
+                if (!contrasena) return Swal.fire('Error', 'Ingresa una contraseña', 'error');
+            
+            
+                fetch('/CapHum/getInsertarGestor', {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        
+                        nombres,
+                        apellidop,
+                        apellidom,
+                        telefono,
+                        id_puesto,
+                        departamento_id,
+                        id_jefe: id_jefe || null,
+                        usuario,
+                        contrasena
+                    })
+                })
+                .then(res => {
+                    if (!res.ok) throw new Error('Error HTTP');
+                    return res.json();
+                })
+                .then(data => {
+                    if (!data.success) {
+                        return Swal.fire('Error', data.mensaje, 'error');
+                    }
+            
+                    Swal.fire('Éxito', data.mensaje, 'success')
+                        .then(() => location.reload());
+                })
+                .catch(err => {
+                    console.error(err);
+                    Swal.fire('Error', 'No se pudo registrar el gestor', 'error');
+                });
+            }
             
             
             $(document).ready(() => {
@@ -245,9 +400,11 @@ class CapHum extends Controller
 
         </script>
         HTML;
+        $departamento = CapHumDAO::getConsultaDepartamentoGestor($_SESSION['usuario_id']);
 
         self::set("titulo", "Consulta Usuarios");
         self::set("script", $script);
+        self::set("departamento", $departamento);
         self::render("all_gestores");
     }
     public function getUsuarios()
@@ -425,6 +582,65 @@ class CapHum extends Controller
             }
         }
     }
+
+    public static function getGestoresPorPuesto()
+    {
+        $data = json_decode(file_get_contents("php://input"), true);
+
+        if (empty($data['id_puesto'])) {
+            echo json_encode([
+                'success' => false,
+                'mensaje' => 'Puesto inválido'
+            ]);
+            return;
+        }
+
+        $resp = CapHumDAO::getConsultaGestoresPorPuesto($data['id_puesto']);
+
+        if (!$resp['success']) {
+            echo json_encode($resp);
+            return;
+        }
+
+        echo json_encode([
+            'success' => true,
+            'datos'   => $resp['datos']
+        ]);
+    }
+    ////////
+    public function getInsertarGestor()
+    {
+        // Obtener el JSON enviado desde fetch
+        $inputJSON = file_get_contents('php://input');
+        $data = json_decode($inputJSON, true);
+
+        // Validaciones básicas
+        $requiredFields = ['nombres', 'apellidop', 'apellidom', 'telefono', 'id_puesto', 'departamento_id', 'usuario', 'contrasena'];
+        foreach ($requiredFields as $field) {
+            if (empty($data[$field])) {
+                echo json_encode([
+                    'success' => false,
+                    'mensaje' => "El campo $field es obligatorio"
+                ]);
+                return;
+            }
+        }
+
+        // Preparar datos
+        $data['contrasena'] = $data['contrasena'];
+        $data['id_jefe'] = isset($data['id_jefe']) ? $data['id_jefe'] : null;
+
+        // Llamar al DAO
+        $inserted = CapHumDAO::insertPersona($data);
+
+        if ($inserted['success']) {
+            echo json_encode(['success' => true, 'mensaje' => 'Gestor insertado correctamente']);
+        } else {
+            echo json_encode(['success' => false, 'mensaje' => 'Error al insertar gestor', 'error' => $inserted['error']]);
+        }
+    }
+
+        ///
 
 
 

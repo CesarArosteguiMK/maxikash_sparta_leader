@@ -11,8 +11,6 @@
         transform-origin: top left; /* El zoom se hace desde la esquina superior izquierda */
         transition: transform 0.2s;  /* Suaviza el zoom */
     }
-
-
 </style>
 
 <h4 class="mb-4">Organigrama por Departamento</h4>
