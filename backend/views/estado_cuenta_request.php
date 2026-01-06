@@ -21,6 +21,35 @@ function safe($v, $default = null) {
 
 /* Asegurar que $tabla exista */
 if (!isset($tabla) || !is_array($tabla)) $tabla = [];
+
+$fechaUltimoPagoCompleto = null;
+
+foreach ($tabla as $fila) {
+    $pendiente = safe($fila['pendiente'], 0.0);
+    $aplicados = safe($fila['aplicados'], []);
+
+    if ($pendiente <= 0 && !empty($aplicados)) {
+        $lastPagoDate = null;
+
+        foreach ($aplicados as $a) {
+            if (!empty($a['fechaRegistro'])) {
+                $ts = strtotime($a['fechaRegistro']);
+                if ($ts && (!$lastPagoDate || $ts > strtotime($lastPagoDate))) {
+                    $lastPagoDate = $a['fechaRegistro'];
+                }
+            }
+        }
+
+        if ($lastPagoDate) {
+            if (
+                    !$fechaUltimoPagoCompleto ||
+                    strtotime($lastPagoDate) > strtotime($fechaUltimoPagoCompleto)
+            ) {
+                $fechaUltimoPagoCompleto = $lastPagoDate;
+            }
+        }
+    }
+}
 ?>
 
 <style>
@@ -390,8 +419,13 @@ if (!isset($tabla) || !is_array($tabla)) $tabla = [];
                         </div>
                     </div>
                     <div>
-                        <h5 class="mb-0"><?= htmlspecialchars($dataEstadoCuenta["ultimoPagoCompleto"] ?? '—') ?></h5>
-                        <span>Último Pago Completo</span>
+                        <h5 class="mb-0">
+                            <?= $fechaUltimoPagoCompleto
+                                    ? format_date($fechaUltimoPagoCompleto)
+                                    : '—'
+                            ?>
+                        </h5>
+                        <span>Último Pago</span>
                     </div>
                 </div>
 
