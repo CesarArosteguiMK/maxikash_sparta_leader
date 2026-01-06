@@ -226,6 +226,64 @@ if ($cuotasContratadas > 0) {
         width: 100%;
     }
 
+    /* ===== Reference WOW Card ===== */
+    .reference-card {
+        background: #fff;
+        border-radius: 14px;
+        padding: 1.25rem 1.25rem 1.4rem;
+        position: relative;
+        border: 1px solid rgba(0,0,0,.06);
+        box-shadow: 0 6px 18px rgba(0,0,0,.08);
+        transition: transform .25s ease, box-shadow .25s ease;
+    }
+
+    .reference-card:hover {
+        transform: translateY(-6px);
+        box-shadow: 0 14px 34px rgba(0,0,0,.18);
+    }
+
+    /* Header */
+    .reference-header {
+        display: flex;
+        align-items: center;
+        gap: .6rem;
+        font-weight: 600;
+        font-size: .95rem;
+        margin-bottom: .5rem;
+    }
+
+    /* Divider line */
+    .reference-divider {
+        border-top: 1px dashed rgba(0,0,0,.15);
+        margin: .6rem 0 .8rem;
+    }
+
+    /* Info rows */
+    .info-line {
+        display: flex;
+        justify-content: space-between;
+        font-size: .82rem;
+        padding: .25rem 0;
+    }
+
+    .info-line span {
+        color: #6c757d;
+    }
+
+    .info-line strong {
+        font-weight: 600;
+        color: #212529;
+    }
+
+    /* Badge top-right */
+    .reference-badge {
+        position: absolute;
+        top: 12px;
+        right: 14px;
+        font-size: .65rem;
+    }
+
+
 
 
 </style>
@@ -431,10 +489,8 @@ if ($cuotasContratadas > 0) {
             <h5 class="mb-0">Resumen general de pagos del cliente</h5>
 
             <div class="d-flex gap-2">
-                <a href="/estadocuenta/consulta" class="btn btn-outline-secondary d-flex align-items-center gap-1">
-                    <i class="fa fa-headset"></i>
-                    <span>Call Center</span>
-                </a>
+                <button type="button" class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalCallCenter"><i class="fa fa-headset me-1"></i>Call Center</button>
+
 
                 <a href="/estadocuenta/consulta" class="btn btn-outline-secondary d-flex align-items-center gap-1">
                     <i class="fa fa-search"></i>
@@ -605,22 +661,246 @@ if ($cuotasContratadas > 0) {
 
     <!-- Modal RFC -->
     <div class="modal fade" id="modalRFC" tabindex="-1" aria-labelledby="modalRFCLabel" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
             <div class="modal-content">
+
+                <!-- Header -->
                 <div class="modal-header">
-                    <h5 class="modal-title" id="modalRFCLabel">Referencias del cliente</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                    <h5 class="modal-title" id="modalRFCLabel">
+                        <i class="fa fa-id-card text-primary me-2"></i>
+                        Referencias del Cliente
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
+
+                <!-- Body -->
                 <div class="modal-body">
-                    <!-- Contenido dinámico: p. ej. RFC -->
-                    <p><strong>RFC:</strong> <?= htmlspecialchars($dataCliente["rfc"] ?? '—') ?></p>
-                    <!-- agrega aquí lo que necesites -->
+                    <div class="row g-4">
+
+                        <!-- Referencia 1 -->
+                        <div class="col-md-4">
+                            <div class="reference-card">
+                                <span class="badge bg-success reference-badge">Principal</span>
+
+                                <div class="reference-header">
+                                    <i class="fa fa-user text-success"></i>
+                                    Referencia 1
+                                </div>
+
+                                <div class="reference-divider"></div>
+
+                                <div class="info-line">
+                                    <span>Nombre</span>
+                                    <strong><?= htmlspecialchars($dataCliente["nombreReferencia1"] ?? '—') ?></strong>
+                                </div>
+
+                                <div class="info-line">
+                                    <span>Teléfono</span>
+                                    <strong><?= htmlspecialchars($dataCliente["telefonoReferencia1"] ?? '—') ?></strong>
+                                </div>
+
+                                <div class="info-line">
+                                    <span>RFC</span>
+                                    <strong><?= htmlspecialchars($dataCliente["rfc"] ?? '—') ?></strong>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Referencia 2 -->
+                        <div class="col-md-4">
+                            <div class="reference-card">
+
+                                <div class="reference-header">
+                                    <i class="fa fa-user-friends text-primary"></i>
+                                    Referencia 2
+                                </div>
+
+                                <div class="reference-divider"></div>
+
+                                <div class="info-line">
+                                    <span>Nombre</span>
+                                    <strong><?= htmlspecialchars($dataCliente["nombreReferencia2"] ?? '—') ?></strong>
+                                </div>
+
+                                <div class="info-line">
+                                    <span>Teléfono</span>
+                                    <strong><?= htmlspecialchars($dataCliente["telefonoReferencia2"] ?? '—') ?></strong>
+                                </div>
+
+                                <div class="info-line">
+                                    <span>RFC</span>
+                                    <strong><?= htmlspecialchars($dataCliente["rfc"] ?? '—') ?></strong>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Referencia 3 -->
+                        <div class="col-md-4">
+                            <div class="reference-card">
+
+                                <div class="reference-header">
+                                    <i class="fa fa-user-tie text-warning"></i>
+                                    Referencia 3
+                                </div>
+
+                                <div class="reference-divider"></div>
+
+                                <div class="info-line">
+                                    <span>Nombre</span>
+                                    <strong><?= htmlspecialchars($dataCliente["nombreReferencia3"] ?? '—') ?></strong>
+                                </div>
+
+                                <div class="info-line">
+                                    <span>Teléfono</span>
+                                    <strong><?= htmlspecialchars($dataCliente["telefonoReferencia3"] ?? '—') ?></strong>
+                                </div>
+
+                                <div class="info-line">
+                                    <span>RFC</span>
+                                    <strong><?= htmlspecialchars($dataCliente["rfc"] ?? '—') ?></strong>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
                 </div>
+
+                <!-- Footer -->
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        Cerrar
+                    </button>
                 </div>
+
             </div>
         </div>
     </div>
 
+
+
 </div>
+
+<div class="modal fade" id="modalCallCenter" tabindex="-1" aria-labelledby="modalCallCenterLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalCallCenterLabel">
+                    <i class="fa fa-headset me-2"></i>
+                    Call Center
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+
+            <div class="modal-body text-center py-4">
+                <i class="fa fa-tools fa-3x text-warning mb-3"></i>
+                <h6 class="mb-2">Funcionalidad en mantenimiento</h6>
+                <p class="text-muted mb-0">
+                    Se encuentra temporalmente en mantenimiento.
+                    <br>
+                    Por favor, intenta más tarde.
+                </p>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    Cerrar
+                </button>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+
+<div class="modal fade" id="modalDirecciones" tabindex="-1" aria-labelledby="modalDireccionesLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+
+            <!-- Header -->
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalDireccionesLabel">
+                    <i class="fa fa-map-marker-alt me-2 text-primary"></i>
+                    Direcciones del Cliente
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+
+            <!-- Body -->
+            <div class="modal-body">
+
+                <div class="row g-3">
+
+                    <!-- Dirección 1 -->
+                    <div class="col-md-6">
+                        <div class="card h-100 border border-1 shadow-sm">
+                            <div class="card-body">
+
+                                <div class="d-flex align-items-center mb-2">
+                                    <i class="fa fa-home text-success me-2"></i>
+                                    <h6 class="mb-0">Domicilio Particular</h6>
+                                </div>
+
+                                <p class="mb-1">
+                                    <strong>Calle:</strong> Av. Reforma 123
+                                </p>
+                                <p class="mb-1">
+                                    <strong>Colonia:</strong> Centro
+                                </p>
+                                <p class="mb-1">
+                                    <strong>Ciudad:</strong> Ciudad de México
+                                </p>
+                                <p class="mb-1">
+                                    <strong>C.P.:</strong> 06000
+                                </p>
+
+                                <span class="badge bg-success mt-2">Principal</span>
+
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Dirección 2 -->
+                    <div class="col-md-6">
+                        <div class="card h-100 border border-1 shadow-sm">
+                            <div class="card-body">
+
+                                <div class="d-flex align-items-center mb-2">
+                                    <i class="fa fa-briefcase text-primary me-2"></i>
+                                    <h6 class="mb-0">Domicilio Laboral</h6>
+                                </div>
+
+                                <p class="mb-1">
+                                    <strong>Calle:</strong> Insurgentes Sur 456
+                                </p>
+                                <p class="mb-1">
+                                    <strong>Colonia:</strong> Del Valle
+                                </p>
+                                <p class="mb-1">
+                                    <strong>Ciudad:</strong> Ciudad de México
+                                </p>
+                                <p class="mb-1">
+                                    <strong>C.P.:</strong> 03100
+                                </p>
+
+                                <span class="badge bg-primary mt-2">Secundaria</span>
+
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+            </div>
+
+            <!-- Footer -->
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    Cerrar
+                </button>
+            </div>
+
+        </div>
+    </div>
+</div>
+
