@@ -83,7 +83,7 @@
     ======================== -->
     <div class="offcanvas offcanvas-end" id="offcanvasAddUser">
         <div class="offcanvas-header border-bottom">
-            <h5 class="offcanvas-title">Registrar Nuevo Usuario</h5>
+            <h5 class="offcanvas-title">Registrar Nuevo Usuario</h5> 
             <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
         </div>
 
