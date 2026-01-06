@@ -640,7 +640,7 @@ class CapHum extends Controller
     public function getPuestosDepartamento()
     {
         $input = json_decode(file_get_contents("php://input"), true);
-        
+        $id = $input['id_departamento'] ?? null;
 
         if (!$id) {
             self::respuestaJSON([
