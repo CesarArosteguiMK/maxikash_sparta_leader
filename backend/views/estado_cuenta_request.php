@@ -25,72 +25,170 @@ if (!isset($tabla) || !is_array($tabla)) $tabla = [];
 
 <style>
 
+    /* ==========================
+   GLOBAL
+   ========================== */
     html, body {
-        overflow-y: hidden;
+        overflow-y: auto;
     }
 
-    .sidebar-cliente {
-        position: sticky;
-        top: 100px; /* deja espacio para tu navbar */
-        height: max-content;
-        z-index: 8;
+    /* ==========================
+       SIDEBAR
+       ========================== */
+    @media (min-width: 992px) {
+        .sidebar-cliente {
+            position: sticky;
+            top: 100px;
+            height: max-content;
+            z-index: 8;
+        }
     }
 
-    /* Texto en negro */
+    @media (max-width: 991px) {
+        .sidebar-cliente {
+            position: static !important;
+        }
+    }
+
+    /* ==========================
+       TABLA ESTILOS
+       ========================== */
     .cuotas-table,
     .cuotas-table td,
     .cuotas-table th {
         color: #000 !important;
     }
 
-    /* Tamaño de fuente más pequeño */
     .cuotas-table td,
     .cuotas-table th {
         font-size: 0.80rem !important;
         line-height: 1.1rem;
     }
 
-    /* Lista de pagos */
-    .cuotas-table ul li {
-        font-size: 0.75rem !important;
-        color: #000 !important;
-    }
-
-    /* Fechas y badges */
+    .cuotas-table ul li,
     .cuotas-table .fecha-pago,
-    .cuotas-table .fecha-cuota,
-    .cuotas-table .dias-mora span {
+    .cuotas-table .fecha-cuota {
         font-size: 0.75rem !important;
-        color: #000 !important;
     }
 
-    /* Badge de mora/pago */
     .cuotas-table .badge {
         font-size: 0.70rem !important;
         padding: 0.35em 0.5em !important;
         border-radius: 6px;
     }
 
-    .tabla-scrollable {
-        max-height: calc(97.5vh - 240px); /* Ajuste para que no lo tape el navbar */
-        overflow-y: auto;
-        overflow-x: hidden;
-        position: sticky;
-        top: 120px; /* Altura del navbar */
-        z-index: 5;
-        background: #fff;
-        scrollbar-gutter: stable both-edges;
-        overflow-y: auto;
+    /* ==========================
+       TABLA SCROLL DESKTOP
+       ========================== */
+    @media (min-width: 992px) {
+        .tabla-scrollable {
+            max-height: calc(97.5vh - 240px);
+            overflow-y: auto;
+            overflow-x: hidden;
+            position: sticky;
+            top: 120px;
+            z-index: 5;
+            background: #fff;
+            scrollbar-gutter: stable both-edges;
+        }
+
+        .tabla-scrollable thead th {
+            position: sticky;
+            top: 0;
+            background: #fff;
+            z-index: 8;
+        }
+    }
+
+    /* ==========================
+       MOBILE / TABLET (ANTI-LAG)
+       ========================== */
+    @media (max-width: 991px) {
+
+        /* quitar sticky */
+        .tabla-scrollable,
+        .tabla-scrollable thead th {
+            position: static !important;
+            top: auto !important;
+        }
+
+        .tabla-scrollable {
+            max-height: none;
+            overflow-x: auto;
+            overflow-y: visible;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .cuotas-table {
+            min-width: 780px;
+        }
+    }
+
+    /* ==========================
+       MOBILE COMPACT
+       ========================== */
+    @media (max-width: 768px) {
+        .cuotas-table td,
+        .cuotas-table th {
+            font-size: 0.65rem !important;
+            padding: 0.35rem 0.4rem !important;
+        }
+
+        .cuotas-table ul li {
+            font-size: 0.6rem !important;
+            line-height: 0.9rem;
+        }
+
+        .cuotas-table .badge {
+            font-size: 0.6rem !important;
+            padding: 0.25em 0.4em !important;
+        }
+    }
+
+    /* ==========================
+   LAPTOP GRANDE (1536 x 864 aprox)
+   ========================== */
+    @media (min-width: 1400px) and (max-height: 900px) {
+
+        .sidebar-cliente {
+            top: 110px;
+        }
+
+        .tabla-scrollable {
+            top: 110px;
+            max-height: calc(100vh - 220px);
+        }
 
     }
 
-    /* Fijar el encabezado de la tabla */
-    .tabla-scrollable thead th {
-        position: sticky;
-        top: 0;
-        background: #fff;
-        z-index: 8;
+    @media (min-width: 1400px) and (max-width: 1599px) and (max-height: 900px) {
+
+        .sidebar-cliente .info-compact,
+        .sidebar-cliente .info-compact span,
+        .sidebar-cliente .info-compact li {
+            font-size: 0.72rem !important;
+            line-height: 1.1rem;
+        }
+
+        .sidebar-cliente .info-compact i {
+            font-size: 0.85rem !important;
+        }
+
     }
+
+    @media (max-width: 991px) {
+        .cuotas-table {
+            min-width: 900px;
+        }
+    }
+
+    .cuotas-table {
+        table-layout: fixed;
+        width: 100%;
+    }
+
+
+
 </style>
 
 <div class="row">
@@ -101,30 +199,31 @@ if (!isset($tabla) || !is_array($tabla)) $tabla = [];
             <div class="card-body">
 
                 <div class="user-avatar-section">
-                    <div class="card mb-6 border border-2 border-primary rounded primary-shadow">
+                    <div class="card mb-3 border border-2 border-primary rounded primary-shadow">
                         <div class="card-body">
 
                             <div class="d-flex justify-content-between align-items-start">
-                                <span class="badge bg-label-primary">ID Crédito: <?= htmlspecialchars($dataEstadoCuenta["idCredito"] ?? '') ?> </span>
+                                <span class="badge bg-label-primary">ID Crédito: <?= htmlspecialchars($dataEstadoCuenta["idCredito"] ?? '') ?> </span><span class="badge bg-label-secondary">ID Cliente: <?= htmlspecialchars($dataCliente["idCliente"] ?? '') ?> </span>
                             </div>
 
                             <div class="d-flex justify-content-between align-items-center mb-1">
-                                <span class="h6 mb-0"><?= htmlspecialchars($dataCliente["nombreCliente"] ?? '') ?></span>
-                                <span class="h6 mb-0">* <?= htmlspecialchars($dataCliente["idCliente"] ?? '') ?> </span>
+                                <span class="h6 mb-0"> <?= htmlspecialchars($dataCliente["nombreCliente"] ?? '') ?></span>
                             </div>
 
                             <div class="progress mb-1">
                                 <div class="progress-bar" role="progressbar" style="width: 65%;"></div>
                             </div>
 
-                            <small>
+                            <small class="d-flex align-items-center gap-2">
+                                <i class="fa fa-phone text-primary"></i>
                                 <?php
                                 $cel = preg_replace('/\D/', '', $dataCliente["celular"] ?? '');
                                 if (strlen($cel) === 10) {
-                                    $cel = sprintf("(%s) %s-%s",
-                                        substr($cel, 0, 2),
-                                        substr($cel, 2, 4),
-                                        substr($cel, 6, 4)
+                                    $cel = sprintf(
+                                            "(%s) %s-%s",
+                                            substr($cel, 0, 2),
+                                            substr($cel, 2, 4),
+                                            substr($cel, 6, 4)
                                     );
                                 }
                                 echo htmlspecialchars($cel);
@@ -136,83 +235,89 @@ if (!isset($tabla) || !is_array($tabla)) $tabla = [];
                 </div>
 
                 <!-- MÉTRICAS -->
-                <div class="d-flex justify-content-around flex-wrap my-6 gap-0 gap-md-3">
-                    <div class="d-flex align-items-center me-5 gap-4">
+                <div class="d-flex justify-content-between flex-nowrap my-3 gap-1 gap-md-1">
+
+                    <div class="d-flex align-items-center gap-3">
                         <div class="avatar">
                             <div class="avatar-initial bg-label-info rounded w-px-40 h-px-40">
                                 <i class="fa fa-dollar"></i>
                             </div>
                         </div>
-                        <div>
-                            <h5 class="mb-0"><?= htmlspecialchars($dataEstadoCuenta["statusCredito"] ?? '') ?></h5>
-                            <span>Estatus Crédito</span>
+                        <div class="text-truncate">
+                            <h5 class="mb-0 text-truncate">
+                                <?= htmlspecialchars($dataEstadoCuenta["statusCredito"] ?? '') ?>
+                            </h5>
+                            <span class="small">Estatus Crédito</span>
                         </div>
                     </div>
 
-                    <div class="d-flex align-items-center gap-4">
+                    <div class="d-flex align-items-center gap-3">
                         <div class="avatar">
                             <div class="avatar-initial bg-label-danger rounded w-px-40 h-px-40">
                                 <i class="fa fa-dollar"></i>
                             </div>
                         </div>
-                        <div>
-                            <h5 class="mb-0"><?= format_currency($dataOtrosDatos["saldoTotalVencido"] ?? 0) ?></h5>
-                            <span>Saldo Total Vencido</span>
+                        <div class="text-end text-truncate">
+                            <h5 class="mb-0 text-truncate">
+                                <?= format_currency($dataOtrosDatos["saldoTotalVencido"] ?? 0) ?>
+                            </h5>
+                            <span class="small">Saldo Total Vencido</span>
                         </div>
                     </div>
+
                 </div>
 
-                <!-- DATOS E INFO -->
+                <!-- DATOS E INFO
                 <hr class="my-2 w-100">
                 <small class="card-text text-uppercase text-body-secondary small">Identificación del Cliente</small>
-                <ul class="list-unstyled my-3">
+                <ul class="list-unstyled my-1 info-compact">
                     <li class="d-flex align-items-center mb-4">
                         <i class="fa fa-id-card fa-lg"></i>
                         <span class="fw-medium mx-2">RFC:</span>
                         <span><?= htmlspecialchars($dataCliente["rfc"] ?? '') ?></span>
                     </li>
-                </ul>
+                </ul>-->
 
                 <hr class="my-2 w-100">
                 <small class="card-text text-uppercase text-body-secondary small">Información del Crédito</small>
-                <ul class="list-unstyled my-3 py-1">
-                    <li class="d-flex align-items-center mb-4">
+                <ul class="list-unstyled my-1 py-1 info-compact">
+                    <li class="d-flex align-items-center mb-2">
                         <i class="fa fa-money-bill fa-lg"></i>
                         <span class="fw-medium mx-2">Monto Otorgado:</span>
                         <span>$37,759.20</span>
                     </li>
 
-                    <li class="d-flex align-items-center mb-4">
+                    <li class="d-flex align-items-center mb-2">
                         <i class="fa fa-list-ol fa-lg"></i>
                         <span class="fw-medium mx-2">Cuotas Contratadas:</span>
                         <span><?= htmlspecialchars($dataOtrosDatos["cuotasContratadas"] ?? '') ?> cuotas</span>
                     </li>
 
-                    <li class="d-flex align-items-center mb-4">
+                    <li class="d-flex align-items-center mb-2">
                         <i class="fa fa-check-circle fa-lg"></i>
                         <span class="fw-medium mx-2">Cuotas Pagadas:</span>
                         <span><?= htmlspecialchars($dataOtrosDatos["cuotasPagadas"] ?? '') ?> cuotas</span>
                     </li>
 
-                    <li class="d-flex align-items-center mb-4">
+                    <li class="d-flex align-items-center mb-2">
                         <i class="fa fa-credit-card fa-lg"></i>
                         <span class="fw-medium mx-2">Saldo para Liquidar:</span>
                         <span><?= format_currency($dataOtrosDatos["saldoParaLiquidarV2"] ?? 0) ?></span>
                     </li>
 
-                    <li class="d-flex align-items-center mb-4">
+                    <li class="d-flex align-items-center mb-2">
                         <i class="fa fa-exclamation-triangle fa-lg"></i>
                         <span class="fw-medium mx-2">Mora Máximo:</span>
                         <span><?= htmlspecialchars($dataOtrosDatos["diasMoraMaximo"] ?? 0) ?> días</span>
                     </li>
 
-                    <li class="d-flex align-items-center mb-4">
+                    <li class="d-flex align-items-center mb-2">
                         <i class="fa fa-clock fa-lg"></i>
                         <span class="fw-medium mx-2">Mora:</span>
                         <span><?= htmlspecialchars($dataOtrosDatos["diasMora"] ?? 0) ?> días</span>
                     </li>
 
-                    <li class="d-flex align-items-center mb-4">
+                    <li class="d-flex align-items-center mb-2">
                         <i class="fa fa-calendar-alt fa-lg"></i>
                         <span class="fw-medium mx-2">Fecha Inicio:</span>
                         <span><?= format_date($dataEstadoCuenta["fechaInicio"] ?? null) ?></span>
@@ -306,14 +411,21 @@ if (!isset($tabla) || !is_array($tabla)) $tabla = [];
             <!-- TABLA DINÁMICA -->
             <div class="table-responsive tabla-scrollable">
                 <table class="table table-hover table-striped cuotas-table">
+                    <colgroup>
+                        <col style="width: 9%">
+                        <col style="width: 18%">
+                        <col style="width: 20"> <!-- 👈 PAGOS DEL CLIENTE (énfasis) -->
+                        <col style="width: 12%">
+                        <col style="width: 18%">
+                    </colgroup>
+
                     <thead class="border-top">
                     <tr>
-                        <th class="text-nowrap">Cuota</th>
-                        <th class="text-nowrap">Fecha</th>
-                        <th class="text-nowrap">Esperado</th>
-                        <th class="text-nowrap">Pagos del Cliente</th>
-                        <th class="text-nowrap">Total Aplicado</th>
-                        <th class="text-nowrap">Días de Mora</th>
+                        <th class="text-nowrap text-center">Cuota</th>
+                        <th class="text-nowrap text-center">Fecha</th>
+                        <th class="text-nowrap text-center">Pagos del Cliente</th>
+                        <th class="text-nowrap text-center">Aplicado</th>
+                        <th class="text-nowrap text-center">Estatus</th>
                     </tr>
                     </thead>
 
@@ -377,8 +489,8 @@ if (!isset($tabla) || !is_array($tabla)) $tabla = [];
                         ?>
                         <tr>
                             <td><?= htmlspecialchars($cuota) ?></td>
-                            <td class="fecha-cuota"><?= htmlspecialchars(format_date($fecha)) ?></td>
-                            <td><?= format_currency($monto_cargo) ?></td>
+                            <td class="fecha-cuota"><span class="fa fa-calendar"></span> <?= htmlspecialchars(format_date($fecha)) ?> <br> <u><?= format_currency($monto_cargo) ?></u></td>
+
                             <td>
                                 <ul class="ps-3 mb-0">
                                     <?php if (!empty($aplicados)): ?>
