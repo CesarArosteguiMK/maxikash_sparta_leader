@@ -399,6 +399,47 @@ class CapHumCopia extends Controller
                 });
             });
                 
+                document.getElementById('add_id_puesto').addEventListener('change', function () {
+                    const idPuesto = this.value;
+                    const selectJefe = document.getElementById('add_id_jefe');
+                
+                    // Reset
+                    selectJefe.innerHTML = '<option value="">Seleccione un jefe</option>';
+                    selectJefe.disabled = true;
+                
+                    if (!idPuesto) return;
+                
+                    fetch('/CapHum/getGestoresPorPuesto', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            id_puesto: idPuesto
+                        })
+                    })
+                    .then(res => res.json())
+                    .then(data => {
+                
+                        if (!data.success) {
+                            Swal.fire("Error", data.mensaje, "error");
+                            return;
+                        }
+                
+                        data.datos.forEach(jefe => {
+                            const option = document.createElement('option');
+                            option.value = jefe.id;
+                            option.textContent = jefe.nombre_completo;
+                            selectJefe.appendChild(option);
+                        });
+                
+                        selectJefe.disabled = false;
+                    })
+                    .catch(() => {
+                        Swal.fire("Error", "No se pudieron cargar los jefes", "error");
+                    });
+                });
+                
                 
                  ///////////////////////////////////////////////////////////////////////////////////////////////////////
             //////////////////////////////////////////////////////////////////////////////////////////////////////

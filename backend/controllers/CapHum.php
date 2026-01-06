@@ -216,7 +216,7 @@ class CapHum extends Controller
                             return;
                         }
                 
-                        Swal.fire("Éxito", "Usuario actualizado correctamente", "success");
+                        Swal.fire("Éxito", "Gestor actualizado correctamente", "success");
                 
                         bootstrap.Offcanvas.getInstance(
                             document.getElementById('offcanvasEditUser')
@@ -381,7 +381,7 @@ class CapHum extends Controller
                 })
                 .catch(err => {
                     console.error(err);
-                    Swal.fire('Error', 'No se pudo registrar el usuario', 'error');
+                    Swal.fire('Error', 'No se pudo registrar el gestor', 'error');
                 });
             }
             
@@ -640,7 +640,7 @@ class CapHum extends Controller
     public function getPuestosDepartamento()
     {
         $input = json_decode(file_get_contents("php://input"), true);
-        $id = $input['id_departamento'] ?? null;
+        
 
         if (!$id) {
             self::respuestaJSON([
@@ -651,7 +651,7 @@ class CapHum extends Controller
         }
 
         self::respuestaJSON(
-            CapHumDAO::getConsultaDepartamentoGestorOrganigrama($id)
+            CapHumDAO::getConsultaDepartamentoGestor($id)
         );
     }
 
