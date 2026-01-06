@@ -487,9 +487,9 @@ class CapHum extends Controller
     public function getJefeDirecto()
     {
         $input = json_decode(file_get_contents("php://input"), true);
-        $idPuesto = $input['id_departamento'] ?? null;
+        $idDepartamento = $input['id_departamento'] ?? null;
 
-        if (!$idPuesto) {
+        if (!$idDepartamento) {
             self::respuestaJSON([
                 'success' => false,
                 'mensaje' => 'ID de persona no recibido'
@@ -497,7 +497,7 @@ class CapHum extends Controller
             return;
         }
 
-        $detalles = CapHumDAO::getConsultaJefe($idPuesto);
+        $detalles = CapHumDAO::getConsultaJefe($idDepartamento);
 
         self::respuestaJSON($detalles);
     }
@@ -651,7 +651,7 @@ class CapHum extends Controller
         }
 
         self::respuestaJSON(
-            CapHumDAO::getConsultaDepartamentoGestor($id)
+            CapHumDAO::getConsultaDepartamentoGestorOrganigrama($id)
         );
     }
 
