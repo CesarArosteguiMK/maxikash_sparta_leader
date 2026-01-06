@@ -216,7 +216,7 @@ class CapHum extends Controller
                             return;
                         }
                 
-                        Swal.fire("Éxito", "Gestor actualizado correctamente", "success");
+                        Swal.fire("Éxito", "Usuario actualizado correctamente", "success");
                 
                         bootstrap.Offcanvas.getInstance(
                             document.getElementById('offcanvasEditUser')
@@ -381,7 +381,7 @@ class CapHum extends Controller
                 })
                 .catch(err => {
                     console.error(err);
-                    Swal.fire('Error', 'No se pudo registrar el gestor', 'error');
+                    Swal.fire('Error', 'No se pudo registrar el usuario', 'error');
                 });
             }
             
