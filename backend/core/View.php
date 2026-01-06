@@ -12,7 +12,7 @@ function getMenu()
                 [
                     'label' => 'Estados de Cuenta',
                     'url' => '/estadocuenta/consulta',
-                    'permisos' => [1,611,26, 27, 28, 90, 30, 50]
+                    'permisos' => [1,611,396, 27, 28, 90, 30, 50]
                 ],
                 [
                     'label' => 'Documentación',
@@ -37,7 +37,7 @@ function getMenu()
                 [
                     'label' => 'Gestión',
                     'url' => '/caphum/gestion',
-                    'permisos' => [1,4,26, 27, 28]
+                    'permisos' => [1,4,396, 27, 28]
                 ],
                 [
                     'label' => 'Organigrama',
