@@ -42,7 +42,7 @@ function getMenu()
                 [
                     'label' => 'Organigrama',
                     'url' => '/caphum/organigrama',
-                    'permisos' => [1,4,396, 27, 28]
+                    'permisos' => [1,4,26, 27, 28]
                 ]
             ]
         ],
