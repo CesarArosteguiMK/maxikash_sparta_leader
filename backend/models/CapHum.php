@@ -15,7 +15,7 @@ class CapHum extends Model
 
     public static function getConsultaGestoresAll($id_gestor_sesion)
     {
-        if(in_array($id_gestor_sesion, [1, 2, 3]))
+        if(in_array($id_gestor_sesion, [1, 2, 3, 396]))
         {
             $add = '';
             $query = <<<SQL
@@ -439,12 +439,13 @@ class CapHum extends Model
     ////////////////////////////////////////ES EL DE ADMIN
     public static function getConsultaDepartamentoGestor($perfil_id)
     {
-        if($perfil_id == 1 OR $perfil_id == 2 OR $perfil_id == 3){
+        if($perfil_id == 1 OR $perfil_id == 2 OR $perfil_id == 3 OR $perfil_id == 396){
             $complet = '';
         }
         else
         {
-            $complet = 'WHERE pd.idPersona =' + $perfil_id;
+            $complet = 'WHERE pd.idPersona = ' . $perfil_id;
+
         }
         $query = <<<SQL
            SELECT DISTINCT d.*
