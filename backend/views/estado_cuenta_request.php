@@ -274,7 +274,19 @@ if ($cuotasContratadas > 0) {
                                 }
                                 echo htmlspecialchars($cel);
                                 ?>
+
+                                <i class="fa fa-location text-primary"></i>
+
+                                <a href="#"
+                                   class="text-primary text-decoration-underline"
+                                   data-bs-toggle="modal"
+                                   data-bs-target="#modalDirecciones">
+                                    Direcciones
+                                </a>
                             </small>
+
+
+
 
                         </div>
                     </div>
@@ -417,8 +429,20 @@ if ($cuotasContratadas > 0) {
     <div class="col-xl-8 col-lg-7 order-0 order-md-1">
         <div class="d-flex justify-content-between align-items-center mb-3">
             <h5 class="mb-0">Resumen general de pagos del cliente</h5>
-            <a href="/estadocuenta/consulta" class="btn btn-outline-secondary">Nueva consulta</a>
+
+            <div class="d-flex gap-2">
+                <a href="/estadocuenta/consulta" class="btn btn-outline-secondary d-flex align-items-center gap-1">
+                    <i class="fa fa-headset"></i>
+                    <span>Call Center</span>
+                </a>
+
+                <a href="/estadocuenta/consulta" class="btn btn-outline-secondary d-flex align-items-center gap-1">
+                    <i class="fa fa-search"></i>
+                    <span>Nueva consulta</span>
+                </a>
+            </div>
         </div>
+
 
         <div class="card mb-6">
             <div class="d-flex justify-content-around flex-wrap my-6 gap-0 gap-md-3">
