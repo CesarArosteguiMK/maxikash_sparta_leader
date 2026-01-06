@@ -50,6 +50,16 @@ foreach ($tabla as $fila) {
         }
     }
 }
+
+
+$cuotasContratadas = (int)($dataOtrosDatos["cuotasContratadas"] ?? 0);
+$cuotasPagadas     = (int)($dataOtrosDatos["cuotasPagadas"] ?? 0);
+$cuotasFaltantes = $cuotasContratadas - $cuotasPagadas;
+
+$porcentajeAvance = 0;
+if ($cuotasContratadas > 0) {
+    $porcentajeAvance = min(100, round(($cuotasPagadas / $cuotasContratadas) * 100));
+}
 ?>
 
 <style>
@@ -239,8 +249,15 @@ foreach ($tabla as $fila) {
                                 <span class="h6 mb-0"> <?= htmlspecialchars($dataCliente["nombreCliente"] ?? '') ?></span>
                             </div>
 
-                            <div class="progress mb-1">
-                                <div class="progress-bar" role="progressbar" style="width: 65%;"></div>
+                            <div class="progress mb-1" title="<?= $porcentajeAvance ?>%">
+                                <div
+                                        class="progress-bar bg-primary"
+                                        role="progressbar"
+                                        style="width: <?= $porcentajeAvance ?>%;"
+                                        aria-valuenow="<?= $porcentajeAvance ?>"
+                                        aria-valuemin="0"
+                                        aria-valuemax="100">
+                                </div>
                             </div>
 
                             <small class="d-flex align-items-center gap-2">
@@ -326,6 +343,12 @@ foreach ($tabla as $fila) {
                         <i class="fa fa-check-circle fa-lg"></i>
                         <span class="fw-medium mx-2">Cuotas Pagadas:</span>
                         <span><?= htmlspecialchars($dataOtrosDatos["cuotasPagadas"] ?? '') ?> cuotas</span>
+                    </li>
+
+                    <li class="d-flex align-items-center mb-2">
+                        <i class="fa fa-hourglass fa-lg"></i>
+                        <span class="fw-medium mx-2">Cuotas Faltantes:</span>
+                        <span><?= $cuotasFaltantes ?> cuotas</span>
                     </li>
 
                     <li class="d-flex align-items-center mb-2">
