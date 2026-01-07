@@ -276,6 +276,40 @@
         </div>
     </div>
 
+    <!-- =======================
+      OFFCANVAS - EDITAR PERFIL PERMISOS
+ ======================== -->
+    <div class="offcanvas offcanvas-end" id="offcanvasEditPerfil">
+        <div class="offcanvas-header border-bottom">
+            <h5 class="offcanvas-title">Editar Perfil</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
+        </div>
+
+        <div class="offcanvas-body p-6">
+            <form id="editNewUserFormPerfil" onsubmit="return false">
+
+                <div class="mb-2" style="display: none">
+                    <label class="form-label">Id Empleado *</label>
+                    <input ype="text" id="edit_perfil_id" class="form-control phone-mask"disabled>
+                </div>
+
+
+                <div class="mb-2">
+                    <label class="form-label">Nombres *</label>
+                    <input type="text" id="edit_perfil_nombres" class="form-control" readonly>
+                </div>
+
+                <div id="modulos-container">
+                    <label class="form-label">Selleciona los accesos *</label>
+                    <div id="modulos-form">
+                        <!-- Los checkboxes se generarán aquí con JS -->
+                    </div>
+                </div>
+                <br>
+            </form>
+        </div>
+    </div>
+
 </div>
 
 <!-- =========================

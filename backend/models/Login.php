@@ -10,16 +10,22 @@ class Login extends Model
     public static function validaUsuario($datos)
     {
         $query = <<<SQL
-             SELECT p.id, p.nombres, p.apellidop, p.apellidom , p.numero_empleado, p.user_name, p.password, pp.id as id_puesto, pp.nombre as nombre_puesto, pp.departamento_id
-            FROM
-                persona p
-                inner join asigna_puesto a on a.id_persona = p.id
-                inner join puesto pp on pp.id = a.id_puesto
-            WHERE
-                estatus = 'Activo'
-                AND user_name = :usuario
-                AND password = :password
-        SQL;
+        SELECT 
+            p.id, p.nombres, p.apellidop, p.apellidom,
+            p.numero_empleado, p.user_name, p.password,
+            pp.id AS id_puesto,
+            pp.nombre AS nombre_puesto,
+            pp.departamento_id,
+            p.session_version,
+            p.force_logout
+        FROM persona p
+        INNER JOIN asigna_puesto a ON a.id_persona = p.id
+        INNER JOIN puesto pp ON pp.id = a.id_puesto
+        WHERE p.estatus = 'Activo'
+          AND p.user_name = :usuario
+          AND p.password = :password
+        LIMIT 1
+    SQL;
 
         $params = [
             'usuario' => $datos['usuario'],
@@ -29,10 +35,44 @@ class Login extends Model
         try {
             $db = new Database();
             $r = $db->queryOne($query, $params);
-            if ($r === null) return self::resultado(false, 'Credenciales incorrectas.');
+
+            // ❌ Credenciales inválidas
+            if (!$r) {
+                return self::resultado(false, 'Credenciales incorrectas.');
+            }
+
+            // 🔐 Si estaba forzado, limpiamos el logout
+            if ((int)$r['force_logout'] === 1) {
+                $db->query(
+                    "UPDATE persona SET force_logout = 0 WHERE id = :id",
+                    ['id' => $r['id']]
+                );
+            }
+
             return self::resultado(true, 'Credenciales correctas.', $r);
+
         } catch (\Exception $e) {
-            return self::resultado(false, 'Error al procesar la solicitud.', null, $e->getMessage());
+            return self::resultado(
+                false,
+                'Error al procesar la solicitud.',
+                null,
+                $e->getMessage()
+            );
         }
+    }
+
+
+    public static function getModulosUsuario($idPersona)
+    {
+        $query = <<<SQL
+        SELECT modulo_web_id
+        FROM asigna_modulo_web
+        WHERE usuario_id = :idPersona
+    SQL;
+
+        $db = new Database();
+        $rows = $db->queryAll($query, ['idPersona' => $idPersona]);
+
+        return array_column($rows, 'modulo_web_id');
     }
 }

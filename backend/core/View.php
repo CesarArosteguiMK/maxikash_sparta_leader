@@ -5,111 +5,117 @@ $usuario = $_SESSION['nombre'] ?? 'Usuario';
 
 function getMenu()
 {
+    if (!isset($_SESSION['modulos'])) {
+        return '';
+    }
+
     $menuItems = [
-        'Créditos' => [
-            'icono' => 'fa-solid fa-usd',
-            'subItems' => [
-                [
-                    'label' => 'Estados de Cuenta',
-                    'url' => '/estadocuenta/consulta',
-                    'permisos' => [1,611,396, 27, 28, 90, 30, 50]
-                ],
-                [
-                    'label' => 'Documentación',
-                    'url' => '/estadocuenta/documentacion',
-                    'permisos' => [1,4,26, 27, 28, 90, 30, 50]
-                ]
+            'Créditos' => [
+                    'icono' => 'fa-solid fa-usd',
+                    'subItems' => [
+                            [
+                                    'label' => 'Estados de Cuenta',
+                                    'url' => '/estadocuenta/consulta',
+                                    'modulos' => [1]
+                            ],
+                            [
+                                    'label' => 'Documentación',
+                                    'url' => '/estadocuenta/documentacion',
+                                    'modulos' => [2]
+                            ]
+                    ]
+            ],
+            'Gestiones Campo' => [
+                    'icono' => 'fa-solid fa-screwdriver-wrench',
+                    'subItems' => [
+                            [
+                                    'label' => 'Histórico Gestiones',
+                                    'url' => '/gestiones/seguimiento',
+                                    'modulos' => [3]
+                            ]
+                    ]
+            ],
+            'Capital Humano' => [
+                    'icono' => 'fa-solid fa-users',
+                    'subItems' => [
+                            [
+                                    'label' => 'Gestión',
+                                    'url' => '/caphum/gestion',
+                                    'modulos' => [4]
+                            ],
+                            [
+                                    'label' => 'Organigrama',
+                                    'url' => '/caphum/organigrama',
+                                    'modulos' => [5]
+                            ]
+                    ]
+            ],
+            'Reportería' => [
+                    'icono' => 'fa-solid fa-file',
+                    'subItems' => [
+                            [
+                                    'label' => 'Resumen Call Center',
+                                    'url' => '/reporteria/resumencallcenter',
+                                    'modulos' => [6]
+                            ],
+                            [
+                                    'label' => 'Layout Legacy',
+                                    'url' => '/reporteria/layoutlegacy',
+                                    'modulos' => [7]
+                            ],
+                            [
+                                    'label' => 'Bonos Cobranza',
+                                    'url' => '/reporteria/bonoscobranza',
+                                    'modulos' => [8]
+                            ]
+                    ]
+            ],
+            'Configuración' => [
+                    'icono' => 'fa-solid fa-cog',
+                    'subItems' => [
+                            [
+                                    'label' => 'Departamentos',
+                                    'url' => '/departamentos/consulta/',
+                                    'modulos' => [10]
+                            ]
+                    ]
             ]
-        ],
-        'Gestiones Campo' => [
-            'icono' => 'fa-solid fa-screwdriver-wrench',
-            'subItems' => [
-                [
-                    'label' => 'Histórico Gestiones',
-                    'url' => '/gestiones/seguimiento',
-                    'permisos' => [1,4,26, 90]
-                ]
-            ]
-        ],
-        'Capital Humano' => [
-            'icono' => 'fa-solid fa-users',
-            'subItems' => [
-                [
-                    'label' => 'Gestión',
-                    'url' => '/caphum/gestion',
-                    'permisos' => [1,4,396, 27, 28]
-                ],
-                [
-                    'label' => 'Organigrama',
-                    'url' => '/caphum/organigrama',
-                    'permisos' => [1,4,396, 27, 28]
-                ]
-            ]
-        ],
-        'Reportería' => [
-            'icono' => 'fa-solid fa-file',
-            'subItems' => [
-                [
-                    'label' => 'Resumen Call Center',
-                    'url' => '/reporteria/resumencallcenter',
-                    'permisos' => [1,4,26, 90]
-                ],
-                [
-                    'label' => 'Layout Legacy',
-                    'url' => '/reporteria/layoutlegacy',
-                    'permisos' => [1,4,26, 90]
-                ],
-                [
-                    'label' => 'Bonos Cobranza',
-                    'url' => '/reporteria/bonoscobranza',
-                    'permisos' => [1,4,26, 90]
-                ]
-            ]
-        ],
-        'Configuración' => [
-            'icono' => 'fa-solid fa-cog',
-            'subItems' => [
-                [
-                    'label' => 'Departamentos',
-                    'url' => '/departamentos/consulta/',
-                    'permisos' => [1,4,26]
-                ],
-                [
-                    'label' => 'Perfiles',
-                    'url' => '/sucursales/existentes/',
-                    'permisos' => [1,4,26]
-                ]
-            ]
-        ]
     ];
-    $menu = '';
 
     $menu = '';
+
     foreach ($menuItems as $key => $item) {
+
         $submenu = '';
+
         foreach ($item['subItems'] as $subItem) {
-            if (in_array($_SESSION['perfil_id'], $subItem['permisos'])) {
-                if ($_SESSION['perfil_id'] != 25 && isset($subItem['soloJefes']) && $subItem['soloJefes'] === true) {
-                    if (!isset($_SESSION['es_jefe']) || $_SESSION['es_jefe'] != 1) continue;
-                }
-                $activo = strtolower($subItem['url']) == strtolower($_SERVER['REQUEST_URI']) ? 'active' : '';
-                $submenu .= <<<HTML
-                    <li class="menu-item $activo">
-                        <a href="{$subItem['url']}" class="menu-link">
-                            <div>{$subItem['label']}</div>
-                        </a>
-                    </li>
-                HTML;
+
+            // ✅ VALIDACIÓN POR MÓDULOS
+            if (!array_intersect($subItem['modulos'], $_SESSION['modulos'])) {
+                continue;
             }
+
+            $activo = strtolower($subItem['url']) == strtolower($_SERVER['REQUEST_URI'])
+                    ? 'active'
+                    : '';
+
+            $submenu .= <<<HTML
+                <li class="menu-item $activo">
+                    <a href="{$subItem['url']}" class="menu-link">
+                        <div>{$subItem['label']}</div>
+                    </a>
+                </li>
+            HTML;
         }
 
-        if (empty($submenu)) continue;
+        if ($submenu === '') continue;
+
         $abierto = strpos($submenu, 'active') !== false ? 'active open' : '';
 
         $menu .= <<<HTML
             <li class="menu-item $abierto">
                 <a href="javascript:void(0);" class="menu-link menu-toggle">
-                    <i class="{$item['icono']}">&nbsp;</i>
+                    <i class="{$item['icono']}"></i>
                     <div>$key</div>
                 </a>
                 <ul class="menu-sub">
@@ -117,10 +123,11 @@ function getMenu()
                 </ul>
             </li>
         HTML;
-    };
+    }
 
     return $menu;
 }
+
 ?>
 
 <!doctype html>
@@ -375,6 +382,8 @@ function getMenu()
     <!-- Page JS -->
     <script src="/assets/js/comunes.js"></script>
     <script src="/assets/js/componentes.js"></script>
+
+
     <?= $script ?? ''; ?>
 </body>
 

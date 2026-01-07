@@ -71,6 +71,11 @@ session_set_cookie_params([
 ]);
 session_start();
 
+use Core\SessionGuard;
+
+SessionGuard::validar();
+
+
 // Verifica si la sesión de usuario está activa y si el navegador es compatible
 if (!isset($_SESSION['login'])) {
     require_once LIBRERIAS . '/BrowserDetection/BrowserDetection.php';

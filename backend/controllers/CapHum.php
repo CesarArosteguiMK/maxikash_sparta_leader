@@ -22,18 +22,21 @@ class CapHum extends Controller
                         departamento: p.nombre_departamento,
                         puesto: p.nombre_puesto,
                         estatus: p.estatus,
-                        acciones: `
-                        <button class="btn btn-sm btn-primary me-1" onclick="editar(${p.id})">
+                       acciones: `
+                        <button class="btn btn-sm btn-primary me-1" onclick="editar(${p.id})" title="Editar">
                             <i class="fa fa-edit"></i>
                         </button>
-                        <button class="btn btn-sm btn-info me-1" onclick="verArchivo(${p.id})">
+                        <button class="btn btn-sm btn-info me-1" onclick="verArchivo(${p.id})" title="Ver archivo">
                             <i class="fa fa-file"></i>
                         </button>
-                        <button class="btn btn-sm btn-warning me-1" onclick="eliminar(${p.id})">
+                        <button class="btn btn-sm btn-warning me-1" onclick="eliminar(${p.id})" title="Eliminar">
                             <i class="fa fa-person-circle-minus"></i>
                         </button>
-                        <button class="btn btn-sm btn-danger" onclick="baja_gestor(${p.id})">
+                        <button class="btn btn-sm btn-danger" onclick="baja_gestor(${p.id})" title="Dar de baja">
                             <i class="fa fa-user-slash"></i>
+                        </button>
+                        <button class="btn btn-sm me-1" style="background-color: #D2D755; color: white;" onclick="edit_perfil(${p.id})" title="Permisos">
+                            <i class="fa fa-lock" style="color: #007bff;"></i>
                         </button>`
                     }));
         
@@ -100,6 +103,210 @@ class CapHum extends Controller
                         Swal.fire("Error", "No se pudo cargar la información", "error");
                     });
                 }
+                
+            function edit_perfil(id) {
+                console.log("ID recibido:", id);
+                
+                 currentPersonaId = id; 
+            
+                if (!id) {
+                    Swal.fire("Error", "ID inválido", "error");
+                    return;
+                }
+            
+                fetch('/CapHum/getDetallesPerfil', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({ idPersona: id })
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (!data.success) {
+                        Swal.fire("Error", data.mensaje, "error");
+                        return;
+                    }
+            
+                    if (!data.datos) {
+                        Swal.fire("Error", "No se encontraron datos de la persona.", "error");
+                        return;
+                    }
+            
+                    const persona = data.datos.persona || {};
+                    const perfiles = data.datos.perfiles || [];
+            
+                    // CAMPOS TEXTO
+                    const inputId = document.getElementById("edit_perfil_id");
+                    const inputNombres = document.getElementById("edit_perfil_nombres");
+                    if (inputId) inputId.value = persona.id ?? '';
+                    if (inputNombres) inputNombres.value = persona.nombres ?? '';
+            
+                    // SELECTS
+                    const selectDepartamento = document.getElementById("edit_departamento_id");
+                    const selectPuesto = document.getElementById("edit_id_puesto");
+                    if (selectDepartamento) selectDepartamento.value = persona.id_departamento ?? '';
+                    if (selectPuesto) selectPuesto.value = persona.id_puesto ?? '';
+            
+                    // Contenedor de módulos
+                    const container = document.getElementById('modulos-form');
+                    if (!container) {
+                        console.error('No se encontró el contenedor modulos-form');
+                        return;
+                    }
+            
+                    container.innerHTML = ''; // Limpiamos
+            
+                    // Agrupar módulos por pestana
+                    const modulosPorPestana = {};
+                    perfiles.forEach(mod => {
+                        if (!modulosPorPestana[mod.pestana]) modulosPorPestana[mod.pestana] = [];
+                        modulosPorPestana[mod.pestana].push(mod);
+                    });
+            
+                    // Crear tabla
+                    const table = document.createElement('table');
+                    table.classList.add('table', 'table-flush-spacing', 'mb-0', 'border-top');
+            
+                    const tbody = document.createElement('tbody');
+            
+                    Object.keys(modulosPorPestana).forEach(pestana => {
+                        const mods = modulosPorPestana[pestana];
+            
+                        mods.forEach(mod => {
+                            const tr = document.createElement('tr');
+            
+                            // Columna con nombre del módulo + descripción
+                            const tdName = document.createElement('td');
+                            tdName.classList.add('text-nowrap', 'fw-medium', 'text-heading');
+            
+                            const nombreDiv = document.createElement('div');
+                            nombreDiv.innerText = mod.modulo_nombre;
+            
+                            const descSmall = document.createElement('small');
+                            descSmall.classList.add('text-muted', 'd-block', 'fs-7'); // letra más pequeña
+                            descSmall.innerText = mod.descripcion ?? '';
+            
+                            tdName.appendChild(nombreDiv);
+                            tdName.appendChild(descSmall);
+            
+                            // Columna con checkbox
+                            const tdCheck = document.createElement('td');
+                            const divFlex = document.createElement('div');
+                            divFlex.classList.add('d-flex', 'justify-content-end');
+            
+                            const divCheck = document.createElement('div');
+                            divCheck.classList.add('form-check', 'mb-0');
+            
+                            const checkbox = document.createElement('input');
+                            checkbox.type = 'checkbox';
+                            checkbox.classList.add('form-check-input');
+                            checkbox.id = `modulo_${mod.modulo_id}`;
+                            checkbox.name = 'modulos[]';
+                            checkbox.value = mod.modulo_id;
+                            checkbox.checked = Number(mod.asignado_flag) === 1;
+                            
+                            // EVENTO NUEVO
+                            checkbox.addEventListener('change', function () {
+                                onModuloChange(this);
+                            });
+            
+                            const label = document.createElement('label');
+                            label.classList.add('form-check-label');
+                            label.htmlFor = checkbox.id;
+                            label.innerText = 'Asignar';
+            
+                            divCheck.appendChild(checkbox);
+                            divCheck.appendChild(label);
+                            divFlex.appendChild(divCheck);
+                            tdCheck.appendChild(divFlex);
+            
+                            tr.appendChild(tdName);
+                            tr.appendChild(tdCheck);
+                            tbody.appendChild(tr);
+                        });
+                    });
+            
+                    table.appendChild(tbody);
+                    container.appendChild(table);
+            
+                    // Inicializar tooltips de Bootstrap (opcional)
+                    const tooltipTriggerList = [].slice.call(container.querySelectorAll('[data-bs-toggle="tooltip"]'));
+                    tooltipTriggerList.map(function (tooltipTriggerEl) {
+                        return new bootstrap.Tooltip(tooltipTriggerEl);
+                    });
+            
+                    // MOSTRAR OFFCANVAS
+                    const offcanvasEl = document.getElementById('offcanvasEditPerfil');
+                    if (offcanvasEl) {
+                        const offcanvas = new bootstrap.Offcanvas(offcanvasEl);
+                        offcanvas.show();
+                    }
+                })
+                .catch(err => {
+                    console.error('FETCH ERROR:', err);
+                    Swal.fire("Error", "No se pudo cargar la información", "error");
+                });
+            }
+            
+            let currentPersonaId = null;
+            function onModuloChange(checkbox) {
+                if (!checkbox || currentPersonaId === null) return;
+            
+                const payload = {
+                    idPersona: currentPersonaId,
+                    modulo_id: checkbox.value,
+                    asignado: checkbox.checked ? 1 : 0
+                };
+            
+                fetch('/CapHum/PerfilCheckBoxEstado', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                })
+                .then(res => res.json())
+                .then(data => {
+            
+                    if (!data.success) {
+                        // Revertimos el checkbox si falla
+                        checkbox.checked = !checkbox.checked;
+            
+                        Swal.fire("Error", data.mensaje || "No se pudo actualizar", "error");
+                        return;
+                    }
+            
+                    // ALERTA SEGÚN ACCIÓN
+                    Swal.fire({
+                        icon: 'success',
+                        title: checkbox.checked 
+                            ? 'Asignación correcta'
+                            : 'Asignación eliminada',
+                        text: checkbox.checked
+                            ? 'El módulo fue asignado correctamente'
+                            : 'El módulo fue desasignado correctamente',
+                        timer: 1600,
+                        showConfirmButton: false
+                    });
+                })
+                .catch(err => {
+                    console.error(err);
+            
+                    // Revertimos el checkbox si hay error
+                    checkbox.checked = !checkbox.checked;
+            
+                    Swal.fire("Error", "Error de comunicación con el servidor", "error");
+                });
+            }
+
+
+
+
+
+
             function cargarDepartamentosCombo(id, seleccionado = null) {
                     fetch('/CapHum/getDepartamento', {
                         method: 'POST',
@@ -228,7 +435,7 @@ class CapHum extends Controller
                 }
                 
                 
-                document.getElementById('add_departamento_id').addEventListener('change', function () {
+            document.getElementById('add_departamento_id').addEventListener('change', function () {
 
                 const idDepartamento = this.value;
                 const selectPuesto = document.getElementById('add_id_puesto');
@@ -314,7 +521,7 @@ class CapHum extends Controller
                     });
                 });
                 
-                function guardarGestor() {
+            function guardarGestor() {
                 
                
                 const nombres = document.getElementById('add_nombres').value.trim();
@@ -449,6 +656,24 @@ class CapHum extends Controller
 
         self::respuestaJSON($detalles);
     }
+
+    public function getDetallesPerfil()
+    {
+        $input = json_decode(file_get_contents("php://input"), true);
+        $idPersona = $input['idPersona'] ?? null;
+
+        if (!$idPersona) {
+            self::respuestaJSON([
+                'success' => false,
+                'mensaje' => 'ID de persona no recibido'
+            ]);
+            return;
+        }
+
+        $detalles = CapHumDAO::getPersonaDetallePerfil($idPersona);
+
+        self::respuestaJSON($detalles);
+    }
     public function getDepartamento()
     {
         $input = json_decode(file_get_contents("php://input"), true);
@@ -466,6 +691,33 @@ class CapHum extends Controller
             CapHumDAO::getComboDepartamentos($id)
         );
     }
+
+    public function PerfilCheckBoxEstado()
+    {
+        $input = json_decode(file_get_contents("php://input"), true);
+
+        $idPersona = $input['idPersona'] ?? null;
+        $moduloId  = $input['modulo_id'] ?? null;
+        $asignado  = $input['asignado'] ?? null;
+
+        if (!$idPersona || !$moduloId || $asignado === null) {
+            self::respuestaJSON([
+                'success' => false,
+                'mensaje' => 'Datos incompletos'
+            ]);
+            return;
+        }
+
+        $resultado = CapHumDAO::actualizarModuloPerfil(
+            (int)$idPersona,
+            (int)$moduloId,
+            (int)$asignado
+        );
+
+        self::respuestaJSON($resultado);
+    }
+
+
     public function getPuestos()
     {
         $input = json_decode(file_get_contents("php://input"), true);

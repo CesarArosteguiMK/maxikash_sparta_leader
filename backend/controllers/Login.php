@@ -118,25 +118,29 @@ class login extends Controller
         $respuesta = self::respuesta(false, 'Credenciales incorrectas.');
         $validacion = LoginDao::validaUsuario($_POST);
 
-        if ($validacion['success'] && count($validacion['datos']) > 0) {
+        if ($validacion['success'] && !empty($validacion['datos'])) {
+
             $datos = $validacion['datos'];
 
             $_SESSION['login'] = true;
-            $_SESSION['usuario_id'] = $datos['id'];
+            $_SESSION['usuario_id'] = (int)$datos['id'];
             $_SESSION['usuario'] = $datos['user_name'];
             $_SESSION['usuario_nombre'] = $datos['nombres'];
-            $_SESSION['perfil_id'] = $datos['id'];
+
             $_SESSION['nivel_puesto'] = $datos['id_puesto'];
             $_SESSION['nombre_puesto'] = $datos['nombre_puesto'];
             $_SESSION['departamento'] = $datos['departamento_id'];
-            //$_SESSION['persona_id'] = $datos['PERSONA_ID'];
-            //$_SESSION['persona_nombre'] = $datos['PERSONA_NOMBRE'];
-            //$_SESSION['sucursal_id'] = $datos['SUCURSAL_ID'];
-            //$_SESSION['sucursal_nombre'] = $datos['SUCURSAL_NOMBRE'];
-            //$_SESSION['region_id'] = $datos['REGION_ID'];
-            //$_SESSION['region_nombre'] = $datos['REGION_NOMBRE'];
-            $_SESSION['foto_perfil'] = $datos['FOTO'] > 0 ? "/CapHum/getFotoPersona?personaId={$datos['FOTO']}" : "/assets/img/misc/user.svg";
 
+            // 🔐 CONTROL DE SESIÓN
+            $_SESSION['session_version'] = (int)($datos['session_version'] ?? 1);
+            $_SESSION['last_session_check'] = time();
+
+            // 🔐 MÓDULOS PERMITIDOS
+            $_SESSION['modulos'] = LoginDao::getModulosUsuario($datos['id']);
+
+            $_SESSION['foto_perfil'] = !empty($datos['FOTO'])
+                ? "/CapHum/getFotoPersona?personaId={$datos['FOTO']}"
+                : "/assets/img/misc/user.svg";
 
             $respuesta = self::respuesta(true, 'Bienvenido', [
                 'url' => '/' . VISTA_DEFECTO
@@ -145,6 +149,7 @@ class login extends Controller
 
         self::respuestaJSON($respuesta);
     }
+
 
     public function cerrarSesion()
     {

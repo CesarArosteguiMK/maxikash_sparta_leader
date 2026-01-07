@@ -15,46 +15,58 @@ class CapHum extends Model
 
     public static function getConsultaGestoresAll($id_gestor_sesion)
     {
-        if(in_array($id_gestor_sesion, [1, 2, 3, 396]))
-        {
-            $add = '';
+        // =========================
+        // USUARIOS ADMIN / ESPECIALES
+        // =========================
+        if (in_array($id_gestor_sesion, [1, 2, 3, 396])) {
+
             $query = <<<SQL
-                SELECT
-                p.id,
-                p.nombres,
-                p.apellidop,
-                p.apellidom,
-                pp.id        AS id_puesto,
-                pp.nombre    AS nombre_puesto,
-                pp.nivel     AS nivel_puesto,
-                d.nombre     AS nombre_departamento,
-                aj.id_jefe,
-                p.estatus
-            FROM persona p
-            INNER JOIN asigna_puesto ap 
-                    ON p.id = ap.id_persona
-            INNER JOIN puesto pp 
-                    ON pp.id = ap.id_puesto
-            INNER JOIN departamento d 
-                    ON d.id = pp.departamento_id
-            LEFT JOIN asigna_jefe aj 
-                   ON p.id = aj.id_persona
-                  AND (aj.fecha_fin IS NULL OR aj.fecha_fin >= CURDATE())
-            WHERE p.estatus != 'Baja'
-              AND EXISTS (
+        SELECT
+            p.id,
+            p.nombres,
+            p.apellidop,
+            p.apellidom,
+            pp.id        AS id_puesto,
+            pp.nombre    AS nombre_puesto,
+            pp.nivel     AS nivel_puesto,
+            d.nombre     AS nombre_departamento,
+            aj.id_jefe,
+            p.estatus
+        FROM persona p
+        LEFT JOIN asigna_puesto ap 
+               ON p.id = ap.id_persona
+        LEFT JOIN puesto pp 
+               ON pp.id = ap.id_puesto
+        LEFT JOIN departamento d 
+               ON d.id = pp.departamento_id
+        LEFT JOIN asigna_jefe aj 
+               ON p.id = aj.id_persona
+              AND (aj.fecha_fin IS NULL OR aj.fecha_fin >= CURDATE())
+        WHERE p.estatus != 'Baja'
+          AND (
+                pp.id IS NULL
+                OR EXISTS (
                     SELECT 1
                     FROM __SPARTA_SECRET_REDACTED__.privilegios_departamento pd
-                    WHERE pd.idPersona = $id_gestor_sesion           -- usuario en sesión
-                      AND pd.idPuesto  = pp.id       -- ← correlación CORRECTA
-              )
-            ORDER BY pp.nivel ASC
+                    WHERE pd.idPersona = $id_gestor_sesion
+                      AND pd.idPuesto  = pp.id
+                )
+          )
+        ORDER BY pp.nivel ASC
         SQL;
+
         }
-        else
-        {
+        // =========================
+        // USUARIOS NORMALES (JERARQUÍA)
+        // =========================
+        else {
+
             $query = <<<SQL
-          WITH RECURSIVE Jerarquia AS (
-            -- Nivel raíz (jefe inicial)
+        WITH RECURSIVE Jerarquia AS (
+
+            -- =====================
+            -- NIVEL RAÍZ
+            -- =====================
             SELECT 
                 p.id,
                 p.nombres,
@@ -62,24 +74,29 @@ class CapHum extends Model
                 p.apellidom,
                 pp.id AS id_puesto,
                 pp.nombre AS nombre_puesto,
+                pp.nivel AS nivel_puesto,
                 d.nombre AS nombre_departamento,
                 aj.id_jefe,
                 p.estatus,
-                1 AS nivel,
-                 pp.nivel AS nivel_puesto
+                1 AS nivel
             FROM persona p
-            JOIN asigna_puesto ap ON p.id = ap.id_persona
-            JOIN puesto pp ON pp.id = ap.id_puesto
-            JOIN departamento d ON d.id = pp.departamento_id
+            LEFT JOIN asigna_puesto ap ON p.id = ap.id_persona
+            LEFT JOIN puesto pp ON pp.id = ap.id_puesto
+            LEFT JOIN departamento d ON d.id = pp.departamento_id
             LEFT JOIN asigna_jefe aj 
-                   ON p.id = aj.id_persona 
+                   ON p.id = aj.id_persona
                   AND (aj.fecha_fin IS NULL OR aj.fecha_fin >= CURDATE())
             WHERE p.estatus != 'Baja'
-              $add -- opcional filtro extra
-        
+              AND (
+                    aj.id_jefe = $id_gestor_sesion
+                    OR aj.id_jefe IS NULL
+                  )
+
             UNION ALL
-        
-            -- Subordinados recursivos
+
+            -- =====================
+            -- SUBORDINADOS
+            -- =====================
             SELECT 
                 p2.id,
                 p2.nombres,
@@ -87,28 +104,27 @@ class CapHum extends Model
                 p2.apellidom,
                 pp2.id AS id_puesto,
                 pp2.nombre AS nombre_puesto,
+                pp2.nivel AS nivel_puesto,
                 d2.nombre AS nombre_departamento,
                 aj2.id_jefe,
                 p2.estatus,
-                j.nivel + 1 AS nivel,
-                 pp2.nivel AS nivel_puesto
+                j.nivel + 1 AS nivel
             FROM persona p2
-            JOIN asigna_puesto ap2 ON p2.id = ap2.id_persona
-            JOIN puesto pp2 ON pp2.id = ap2.id_puesto
-            JOIN departamento d2 ON d2.id = pp2.departamento_id
+            LEFT JOIN asigna_puesto ap2 ON p2.id = ap2.id_persona
+            LEFT JOIN puesto pp2 ON pp2.id = ap2.id_puesto
+            LEFT JOIN departamento d2 ON d2.id = pp2.departamento_id
             LEFT JOIN asigna_jefe aj2 
-                   ON p2.id = aj2.id_persona 
+                   ON p2.id = aj2.id_persona
                   AND (aj2.fecha_fin IS NULL OR aj2.fecha_fin >= CURDATE())
-            JOIN Jerarquia j ON aj2.id_jefe = j.id
+            JOIN Jerarquia j 
+                 ON aj2.id_jefe = j.id
             WHERE p2.estatus != 'Baja'
         )
-        
+
         SELECT *
         FROM Jerarquia
-        ORDER BY nivel_puesto ASC;
-
+        ORDER BY nivel_puesto ASC, nivel ASC;
         SQL;
-            $add = ' AND aj.id_jefe = '. $id_gestor_sesion;
         }
 
         try {
@@ -119,6 +135,7 @@ class CapHum extends Model
             return self::resultado(false, 'Error al procesar la solicitud.', null, $e->getMessage());
         }
     }
+
     public static function getPersonaDetalle($idPersona)
     {
         try {
@@ -141,6 +158,118 @@ class CapHum extends Model
             $persona = $db->queryOne($query);
 
             return self::resultado(true, 'Persona encontrada.', $persona);
+
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al procesar la solicitud.', null, $e->getMessage());
+        }
+    }
+
+    public static function actualizarModuloPerfil($idPersona, $moduloId, $asignado)
+    {
+        try {
+            $db = new Database();
+
+            if ($asignado === 1) {
+
+                // 1️⃣ Validar si ya existe
+                $queryExiste = <<<SQL
+                SELECT id
+                FROM asigna_modulo_web
+                WHERE usuario_id = $idPersona
+                  AND modulo_web_id = $moduloId
+                LIMIT 1
+            SQL;
+
+                $existe = $db->queryOne($queryExiste);
+
+                if (!$existe) {
+                    // 2️⃣ Insertar si no existe
+                    $queryInsert = <<<SQL
+                    INSERT INTO asigna_modulo_web (usuario_id, modulo_web_id)
+                    VALUES ($idPersona, $moduloId)
+                SQL;
+
+                    $db->queryOne($queryInsert);
+                }
+
+                return self::resultado(
+                    true,
+                    'Módulo asignado correctamente'
+                );
+
+            } else {
+
+                // 3️⃣ Eliminar asignación
+                $queryDelete = <<<SQL
+                DELETE FROM asigna_modulo_web
+                WHERE usuario_id = $idPersona
+                  AND modulo_web_id = $moduloId
+            SQL;
+
+                $db->queryOne($queryDelete);
+
+                return self::resultado(
+                    true,
+                    'Módulo eliminado correctamente'
+                );
+            }
+
+        } catch (\Exception $e) {
+            return self::resultado(
+                false,
+                'Error al actualizar el módulo',
+                null,
+                $e->getMessage()
+            );
+        }
+    }
+
+
+    public static function getPersonaDetallePerfil($idPersona)
+    {
+        try {
+            $db = new Database();
+
+            $query = <<<SQL
+            SELECT 
+                p.*
+            FROM persona p
+            WHERE p.id = $idPersona
+              AND p.estatus != 'Baja'
+            LIMIT 1
+        SQL;
+
+            $query_perfiles = <<<SQL
+            SELECT 
+                $idPersona AS usuario_id,
+                m.id AS modulo_id,
+                m.nombre AS modulo_nombre,
+                m.pestana,
+                m.descripcion,
+                m.activo,
+                CASE 
+                    WHEN a.usuario_id IS NOT NULL THEN 'Asignado'
+                    ELSE 'No asignado'
+                END AS estado,
+                CASE 
+                    WHEN a.usuario_id IS NOT NULL THEN 1
+                    ELSE 0
+                END AS asignado_flag
+            FROM modulos_web m
+            LEFT JOIN asigna_modulo_web a
+                ON m.id = a.modulo_web_id
+                AND a.usuario_id = $idPersona
+            WHERE m.activo = 1
+            ORDER BY m.id;
+        SQL;
+
+            $persona = $db->queryOne($query);
+            $perfiles = $db->queryAll($query_perfiles);
+
+            return self::resultado(true, 'Persona encontrada.', [
+                'persona' => $persona,
+                'perfiles' => $perfiles
+            ]);
 
         } catch (\Exception $e) {
             return self::resultado(false, 'Error al procesar la solicitud.', null, $e->getMessage());
