@@ -58,7 +58,7 @@ class Empresa extends Model
     }
 
 
-    public static function getConsultaDireccion($id_credito)
+    public static function getConsultaDireccionEstadoCuenta($id_credito)
     {
         $query = <<<SQL
            SELECT Domicilio_Completo from tbl_segundometro_semana where Id_credito = $id_credito;
@@ -72,6 +72,43 @@ class Empresa extends Model
             return self::resultado(false, 'Error al procesar la solicitud.', null, $e->getMessage());
         }
     }
+
+    public static function getConsultaReferenciasEstadoCuenta($id_credito)
+    {
+        $query = <<<SQL
+               SELECT 
+            o.id_oferta AS id_credito,
+            CONCAT(p.primer_nombre, ' ', p.apellido_paterno, ' ', p.apellido_materno) AS nombre_completo,
+            CONCAT(
+                COALESCE(p2.nombre_referencia1,''), ' ',
+                COALESCE(p2.apellido_paterno_referencia1,''), ' ',
+                COALESCE(p2.apellido_materno_referencia1,'')
+            ) AS nombre_completo_referencia1,
+            COALESCE(p2.telefono_referencia1,'') AS telefono_referencia1,
+            CONCAT(
+                COALESCE(p2.nombre_referencia2,''), ' ',
+                COALESCE(p2.apellido_paterno_referencia2,''), ' ',
+                COALESCE(p2.apellido_materno_referencia2,'')
+            ) AS nombre_completo_referencia2,
+            COALESCE(p2.telefono_referencia2,'') AS telefono_referencia2,
+            '' AS nombre_referencia_3,
+            '' AS telefono_referencia_3
+        FROM oferta o
+        INNER JOIN persona p ON o.fk_persona = p.id_persona
+        LEFT JOIN persona_adicionales p2 ON p2.fk_persona = p.id_persona
+        WHERE o.id_oferta = $id_credito
+        SQL;
+
+        try {
+            $db = new DatabaseAWS();
+            $r = $db->queryAll($query);
+            return self::resultado(true, 'Dirección encontrada.', $r);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al procesar la solicitud.', null, $e->getMessage());
+        }
+    }
+
+
 
     public static function getConsultaPuestos($departamento)
     {

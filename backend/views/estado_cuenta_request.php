@@ -659,6 +659,29 @@ if ($cuotasContratadas > 0) {
         </div>
     </div>
 
+    <?php
+    // Preparar referencias dinámicamente
+    $datosRef = $referencias['datos'][0] ?? [];
+    $referenciasList = [];
+
+    for ($i = 1; $i <= 3; $i++) {
+        $nombreKey = "nombre_completo_referencia{$i}";
+        $telefonoKey = "telefono_referencia{$i}";
+
+        if (!empty($datosRef[$nombreKey])) {
+            $referenciasList[] = [
+                    'nombre' => $datosRef[$nombreKey],
+                    'telefono' => $datosRef[$telefonoKey] ?? '—',
+                    'tipo' => $i === 1 ? 'Principal' : "Referencia {$i}",
+                    'icono' => $i === 1 ? 'fa-user text-success' : ($i === 2 ? 'fa-user-friends text-primary' : 'fa-user-tie text-warning')
+            ];
+        }
+    }
+
+    // RFC global
+    $rfcCliente = $datosRef["rfc"] ?? '—';
+    ?>
+
     <!-- Modal RFC -->
     <div class="modal fade" id="modalRFC" tabindex="-1" aria-labelledby="modalRFCLabel" aria-hidden="true">
         <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
@@ -677,90 +700,33 @@ if ($cuotasContratadas > 0) {
                 <div class="modal-body">
                     <div class="row g-4">
 
-                        <!-- Referencia 1 -->
-                        <div class="col-md-4">
-                            <div class="reference-card">
-                                <span class="badge bg-success reference-badge">Principal</span>
+                        <?php foreach ($referenciasList as $index => $r): ?>
+                            <div class="col-md-<?= 12 / max(count($referenciasList), 1) ?>">
+                                <div class="reference-card">
+                                    <?php if($index === 0): ?>
+                                        <span class="badge bg-success reference-badge"><?= htmlspecialchars($r['tipo']) ?></span>
+                                    <?php endif; ?>
 
-                                <div class="reference-header">
-                                    <i class="fa fa-user text-success"></i>
-                                    Referencia 1
-                                </div>
+                                    <div class="reference-header">
+                                        <i class="fa <?= $r['icono'] ?>"></i>
+                                        <?= htmlspecialchars($r['tipo']) ?>
+                                    </div>
 
-                                <div class="reference-divider"></div>
+                                    <div class="reference-divider"></div>
 
-                                <div class="info-line">
-                                    <span>Nombre</span>
-                                    <strong><?= htmlspecialchars($dataCliente["nombreReferencia1"] ?? '—') ?></strong>
-                                </div>
+                                    <div class="info-line">
+                                        <span>Nombre: </span>
+                                        <strong><?= htmlspecialchars($r['nombre']) ?></strong>
+                                    </div>
 
-                                <div class="info-line">
-                                    <span>Teléfono</span>
-                                    <strong><?= htmlspecialchars($dataCliente["telefonoReferencia1"] ?? '—') ?></strong>
-                                </div>
-
-                                <div class="info-line">
-                                    <span>RFC</span>
-                                    <strong><?= htmlspecialchars($dataCliente["rfc"] ?? '—') ?></strong>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Referencia 2 -->
-                        <div class="col-md-4">
-                            <div class="reference-card">
-
-                                <div class="reference-header">
-                                    <i class="fa fa-user-friends text-primary"></i>
-                                    Referencia 2
-                                </div>
-
-                                <div class="reference-divider"></div>
-
-                                <div class="info-line">
-                                    <span>Nombre</span>
-                                    <strong><?= htmlspecialchars($dataCliente["nombreReferencia2"] ?? '—') ?></strong>
-                                </div>
-
-                                <div class="info-line">
-                                    <span>Teléfono</span>
-                                    <strong><?= htmlspecialchars($dataCliente["telefonoReferencia2"] ?? '—') ?></strong>
-                                </div>
-
-                                <div class="info-line">
-                                    <span>RFC</span>
-                                    <strong><?= htmlspecialchars($dataCliente["rfc"] ?? '—') ?></strong>
+                                    <div class="info-line">
+                                        <span>Teléfono: </span>
+                                        <strong><?= htmlspecialchars($r['telefono']) ?></strong>
+                                    </div>
+                                    
                                 </div>
                             </div>
-                        </div>
-
-                        <!-- Referencia 3 -->
-                        <div class="col-md-4">
-                            <div class="reference-card">
-
-                                <div class="reference-header">
-                                    <i class="fa fa-user-tie text-warning"></i>
-                                    Referencia 3
-                                </div>
-
-                                <div class="reference-divider"></div>
-
-                                <div class="info-line">
-                                    <span>Nombre</span>
-                                    <strong><?= htmlspecialchars($dataCliente["nombreReferencia3"] ?? '—') ?></strong>
-                                </div>
-
-                                <div class="info-line">
-                                    <span>Teléfono</span>
-                                    <strong><?= htmlspecialchars($dataCliente["telefonoReferencia3"] ?? '—') ?></strong>
-                                </div>
-
-                                <div class="info-line">
-                                    <span>RFC</span>
-                                    <strong><?= htmlspecialchars($dataCliente["rfc"] ?? '—') ?></strong>
-                                </div>
-                            </div>
-                        </div>
+                        <?php endforeach; ?>
 
                     </div>
                 </div>
@@ -775,7 +741,6 @@ if ($cuotasContratadas > 0) {
             </div>
         </div>
     </div>
-
 
 
 </div>
@@ -896,4 +861,6 @@ if ($cuotasContratadas > 0) {
         </div>
     </div>
 </div>
+
+
 

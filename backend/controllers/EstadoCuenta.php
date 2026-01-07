@@ -168,15 +168,15 @@ JS;
             if($nombre != null && $idCreditoLista != null)
             {
                 $resultado = $this->api___SPARTA_SECRET_REDACTED__($idCreditoLista, $fechaHoy);
-                $respDAO = EmpresasDAO::getConsultaDireccion($idCreditoLista);
+                $respDAO = EmpresasDAO::getConsultaDireccionEstadoCuenta($idCreditoLista);
+                $referencias = EmpresasDAO::getConsultaReferenciasEstadoCuenta($idCreditoLista);
             }
             else
             {
                 $resultado =  $this->api___SPARTA_SECRET_REDACTED__($idCredito, $fechaHoy);
-                $respDAO = EmpresasDAO::getConsultaDireccion($idCredito);
+                $respDAO = EmpresasDAO::getConsultaDireccionEstadoCuenta($idCredito);
+                $referencias = EmpresasDAO::getConsultaReferenciasEstadoCuenta($idCredito);
             }
-
-
 
 
 
@@ -346,6 +346,7 @@ JS;
                 self::set("dataEstadoCuenta", $estadoCuenta);
                 self::set("dataOtrosDatos", $otrosDatos);
                 self::set("direcciones", $respDAO);
+                self::set("referencias", $referencias);
 
 
 
