@@ -19,8 +19,8 @@ class Login extends Model
             p.session_version,
             p.force_logout
         FROM persona p
-        INNER JOIN asigna_puesto a ON a.id_persona = p.id
-        INNER JOIN puesto pp ON pp.id = a.id_puesto
+        LEFT JOIN asigna_puesto a ON a.id_persona = p.id
+        LEFT JOIN puesto pp ON pp.id = a.id_puesto
         WHERE p.estatus = 'Activo'
           AND p.user_name = :usuario
           AND p.password = :password
