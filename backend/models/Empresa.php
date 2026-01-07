@@ -57,6 +57,22 @@ class Empresa extends Model
         }
     }
 
+
+    public static function getConsultaDireccion($id_credito)
+    {
+        $query = <<<SQL
+           SELECT Domicilio_Completo from tbl_segundometro_semana where Id_credito = $id_credito;
+        SQL;
+
+        try {
+            $db = new DatabaseSegundometro();
+            $r = $db->queryAll($query);
+            return self::resultado(true, 'Dirección encontrada.', $r);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al procesar la solicitud.', null, $e->getMessage());
+        }
+    }
+
     public static function getConsultaPuestos($departamento)
     {
 

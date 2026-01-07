@@ -829,7 +829,7 @@ if ($cuotasContratadas > 0) {
             <!-- Body -->
             <div class="modal-body">
 
-                <div class="row g-3">
+                <div class="row g-2">
 
                     <!-- Dirección 1 -->
                     <div class="col-md-6">
@@ -842,17 +842,10 @@ if ($cuotasContratadas > 0) {
                                 </div>
 
                                 <p class="mb-1">
-                                    <strong>Calle:</strong> Av. Reforma 123
+                                    <strong></strong>
+                                    <?= htmlspecialchars($direcciones['datos'][0]['Domicilio_Completo']) ?>
                                 </p>
-                                <p class="mb-1">
-                                    <strong>Colonia:</strong> Centro
-                                </p>
-                                <p class="mb-1">
-                                    <strong>Ciudad:</strong> Ciudad de México
-                                </p>
-                                <p class="mb-1">
-                                    <strong>C.P.:</strong> 06000
-                                </p>
+
 
                                 <span class="badge bg-success mt-2">Principal</span>
 
@@ -860,7 +853,7 @@ if ($cuotasContratadas > 0) {
                         </div>
                     </div>
 
-                    <!-- Dirección 2 -->
+                    <!-- Dirección 2
                     <div class="col-md-6">
                         <div class="card h-100 border border-1 shadow-sm">
                             <div class="card-body">
@@ -887,7 +880,7 @@ if ($cuotasContratadas > 0) {
 
                             </div>
                         </div>
-                    </div>
+                    </div>-->
 
                 </div>
 
