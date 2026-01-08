@@ -164,11 +164,11 @@
            OFFCANVAS -
       ======================== -->
     <!-- Modal RFC -->
-    <div class="modal fade" id="modalRFC" tabindex="-1" aria-labelledby="modalRFCLabel" aria-hidden="true">
+    <div class="modal fade" id="modalBajas" tabindex="-1" aria-labelledby="modalRFCLabel" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="modalRFCLabel">Dar de Baja al Gestor</h5>
+                    <h5 class="modal-title" id="modalRFCLabel">Registro de Baja</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
                 </div>
 
@@ -179,10 +179,38 @@
                         <label for="id" class="form-label"><strong>Id</strong></label>
                     </div>
 
+                    <div class="mb-3">
+                        <label for="motivoBaja" class="form-label"><strong>Motivo de baja: </strong></label>
+                        <select class="form-select" id="motivoBaja">
+                            <option value="">-- Selecciona un motivo --</option>
+                            <option value="Renuncia voluntaria">Renuncia voluntaria</option>
+                            <option value="Incumplimiento de objetivos">Incumplimiento de objetivos</option>
+                            <option value="Falta de asistencia">Falta de asistencia</option>
+                            <option value="Mutuo acuerdo">Mutuo acuerdo</option>
+                            <option value="Desempeño insuficiente">Desempeño insuficiente</option>
+                            <option value="Falta de puntualidad">Falta de puntualidad</option>
+                            <option value="Problemas disciplinarios">Problemas disciplinarios</option>
+                            <option value="Conflictos internos">Conflictos internos</option>
+                            <option value="Cambio de puesto">Cambio de puesto</option>
+                            <option value="Traslado a otra sucursal">Traslado a otra sucursal</option>
+                            <option value="Renuncia por motivos personales">Renuncia por motivos personales</option>
+                            <option value="Baja por salud">Baja por salud</option>
+                            <option value="Baja administrativa">Baja administrativa</option>
+                            <option value="Falta de capacitación">Falta de capacitación</option>
+                            <option value="Otros">Otros</option>
+                        </select>
+                    </div>
+
                     <!-- 🆕 Motivo de baja -->
                     <div class="mb-3">
-                        <label for="motivoBaja" class="form-label"><strong>Motivo de baja</strong></label>
-                        <textarea class="form-control" id="motivoBaja" rows="3" placeholder="Escribe el motivo..."></textarea>
+                        <label for="motivoBajaDescripcion" class="form-label"><strong>Descripción de la baja:</strong></label>
+                        <textarea class="form-control" id="motivoBajaDescripcion" rows="3" placeholder="Escribe el motivo..."></textarea>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="archivoPDF" class="form-label"><strong>Subir archivo PDF Opcional *</strong></label>
+                        <input class="form-control" type="file" id="archivoPDF" accept=".pdf">
+                        <small class="text-muted">Solo se permiten archivos PDF.</small>
                     </div>
                 </div>
 

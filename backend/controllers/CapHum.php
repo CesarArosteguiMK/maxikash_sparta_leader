@@ -250,6 +250,128 @@ class CapHum extends Controller
                 });
             }
             
+            function baja_gestor(id) {
+                    console.log("ID recibido:", id);
+                
+                    if (!id) {
+                        Swal.fire("Error", "ID inválido", "error");
+                        return;
+                    }
+                
+                    fetch('/CapHum/getDetallesPerfil', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            idPersona: id
+                        })
+                    })
+                    .then(res => res.json())
+                    .then(data => {
+                        if (!data.success) {
+                            Swal.fire("Error", data.mensaje, "error");
+                            return;
+                        }
+                
+                       const persona = data.datos.persona; 
+                        // Debug rápido
+                        console.log('Persona:', persona);
+                
+                        document.getElementById("edit_id").value = persona.id;
+                        // Concatenar el nombre completo en el <p id="gestor">
+                        document.getElementById("gestor").innerHTML = "<strong>Gestor:</strong> " + persona.nombres + " " + persona.apellidop + " " + persona.apellidom;
+                        
+                        $("#modalBajas").modal("show");
+                    })
+                    .catch(err => {
+                        console.error('FETCH ERROR:', err);
+                        Swal.fire("Error", "No se pudo cargar la información", "error");
+                    });
+        }
+        
+            function confirmarBaja() {
+                const idGestor = document.getElementById("edit_id").value;
+                const motivoSelect = document.getElementById("motivoBaja").value;
+                const descripcion = document.getElementById("motivoBajaDescripcion").value; // textarea
+                const archivoInput = document.getElementById("archivoPDF");
+            
+                // Validaciones
+                if (!motivoSelect) {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Atención',
+                        text: 'Debes seleccionar un motivo de baja.'
+                    });
+                    return;
+                }
+               
+                if (descripcion.trim() === "") {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Atención',
+                        text: 'Debes escribir la descripción de la baja.'
+                    });
+                    return;
+                }
+            
+                // Confirmación antes de enviar
+                Swal.fire({
+                    title: '¿Confirmar baja?',
+                    text: "Esta acción no se puede deshacer.",
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonText: 'Sí, dar de baja',
+                    cancelButtonText: 'Cancelar',
+                    reverseButtons: true
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        // Crear FormData para enviar archivo PDF
+                        const formData = new FormData();
+                        formData.append("idGestor", idGestor);
+                        formData.append("motivo", motivoSelect);
+                        formData.append("descripcion", descripcion);
+            
+                        if (archivoInput.files.length > 0) {
+                            formData.append("archivoPDF", archivoInput.files[0]);
+                        }
+            
+                        // Enviar datos al servidor
+                        fetch("bajas.php", {
+                            method: "POST",
+                            body: formData
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success) {
+                                Swal.fire({
+                                    icon: 'success',
+                                    title: '¡Listo!',
+                                    text: 'La baja se registró correctamente.'
+                                });
+                                $("#modalBajas").modal("hide");
+                                // Opcional: recargar tabla o limpiar modal
+                            } else {
+                                Swal.fire({
+                                    icon: 'error',
+                                    title: 'Error',
+                                    text: data.message || 'Ocurrió un error al registrar la baja.'
+                                });
+                            }
+                        })
+                        .catch(error => {
+                            console.error("Error:", error);
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Error',
+                                text: 'Ocurrió un error al procesar la baja.'
+                            });
+                        });
+                    }
+                });
+            }
+            
             let currentPersonaId = null;
             function onModuloChange(checkbox) {
                 if (!checkbox || currentPersonaId === null) return;
@@ -301,11 +423,6 @@ class CapHum extends Controller
                     Swal.fire("Error", "Error de comunicación con el servidor", "error");
                 });
             }
-
-
-
-
-
 
             function cargarDepartamentosCombo(id, seleccionado = null) {
                     fetch('/CapHum/getDepartamento', {
@@ -708,15 +825,26 @@ class CapHum extends Controller
             return;
         }
 
-        $resultado = CapHumDAO::actualizarModuloPerfil(
-            (int)$idPersona,
-            (int)$moduloId,
-            (int)$asignado
-        );
+        try {
+            $resultado = CapHumDAO::actualizarModuloPerfil(
+                $idPersona,
+                $moduloId,
+                (int)$asignado
+            );
 
-        self::respuestaJSON($resultado);
+            self::respuestaJSON([
+                'success' => true,
+                'mensaje' => $asignado
+                    ? 'Módulo asignado correctamente'
+                    : 'Módulo eliminado correctamente'
+            ]);
+        } catch (Exception $e) {
+            self::respuestaJSON([
+                'success' => false,
+                'mensaje' => 'Error al actualizar el módulo'
+            ]);
+        }
     }
-
 
     public function getPuestos()
     {
