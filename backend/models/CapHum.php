@@ -27,11 +27,18 @@ class CapHum extends Model
             p.apellidop,
             p.apellidom,
             pp.id        AS id_puesto,
-            pp.nombre    AS nombre_puesto,
+            CASE 
+                WHEN pp.nombre IS NULL THEN 'Sin asignar'
+                ELSE pp.nombre
+            END AS nombre_puesto,
             pp.nivel     AS nivel_puesto,
             d.nombre     AS nombre_departamento,
             aj.id_jefe,
-            p.estatus
+            p.estatus, 
+            CASE 
+                WHEN p.user_name IS NULL THEN 'Sin usuario'
+                ELSE p.user_name
+            END AS usuario
         FROM persona p
         LEFT JOIN asigna_puesto ap 
                ON p.id = ap.id_persona
@@ -679,45 +686,75 @@ class CapHum extends Model
 
     public static function UpdatePersona($data)
     {
-        $id_persona = (int)$data['id'];
-        $nombres = addslashes($data['nombres']);
-        $apellidop = addslashes($data['apellidop']);
-        $apellidom = addslashes($data['apellidom']);
-        $correo = addslashes($data['correo'] ?? '');
-        $telefono_uno = addslashes($data['telefono_uno'] ?? '');
-        $id_jefe = (int)$data['jefe_id'];
-        $id_puesto = (int)$data['puesto_id'];
-        $id_departamento = (int)$data['departamento_id'];
-        $user_name = addslashes($data['usuario']);
-        $password = addslashes($data['contrasena']);
+        $id_persona      = (int)$data['id'];
+        $nombres         = addslashes($data['nombres']);
+        $apellidop       = addslashes($data['apellidop']);
+        $apellidom       = addslashes($data['apellidom']);
+        $correo          = addslashes($data['correo'] ?? '');
+        $telefono_uno    = addslashes($data['telefono_uno'] ?? '');
+        $id_jefe         = (int)$data['jefe_id'];
+        $id_puesto       = (int)$data['puesto_id'];
+        $user_name       = addslashes($data['usuario']);
+        $password        = addslashes($data['contrasena']);
 
         try {
             $db = new Database();
 
+            // 1️⃣ UPDATE PERSONA
             $db->queryOne("
             UPDATE __SPARTA_SECRET_REDACTED__.persona
             SET 
-                nombres = '$nombres',
-                apellidop = '$apellidop',
-                apellidom = '$apellidom',
-                correo = '$correo',
+                nombres      = '$nombres',
+                apellidop    = '$apellidop',
+                apellidom    = '$apellidom',
+                correo       = '$correo',
                 telefono_uno = '$telefono_uno',
-                user_name = '$user_name',
-                password = '$password'
+                user_name    = '$user_name',
+                password     = '$password'
             WHERE id = $id_persona
         ");
 
-            $db->queryOne("
-            UPDATE asigna_jefe 
-            SET id_jefe = $id_jefe 
+            // 2️⃣ ASIGNA JEFE (si existe UPDATE, si no INSERT)
+            $existeJefe = $db->queryOne("
+            SELECT id 
+            FROM asigna_jefe 
             WHERE id_persona = $id_persona
+            LIMIT 1
         ");
 
-            $db->queryOne("
-            UPDATE asigna_puesto 
-            SET id_puesto = $id_puesto
+            if ($existeJefe) {
+                $db->queryOne("
+                UPDATE asigna_jefe
+                SET id_jefe = $id_jefe
+                WHERE id_persona = $id_persona
+            ");
+            } else {
+                $db->queryOne("
+                INSERT INTO asigna_jefe (id_persona, id_jefe)
+                VALUES ($id_persona, $id_jefe)
+            ");
+            }
+
+            // 3️⃣ ASIGNA PUESTO (si existe UPDATE, si no INSERT)
+            $existePuesto = $db->queryOne("
+            SELECT id 
+            FROM asigna_puesto 
             WHERE id_persona = $id_persona
+            LIMIT 1
         ");
+
+            if ($existePuesto) {
+                $db->queryOne("
+                UPDATE asigna_puesto
+                SET id_puesto = $id_puesto
+                WHERE id_persona = $id_persona
+            ");
+            } else {
+                $db->queryOne("
+                INSERT INTO asigna_puesto (id_persona, id_puesto)
+                VALUES ($id_persona, $id_puesto)
+            ");
+            }
 
             return self::resultado(true, 'Persona actualizada correctamente.', null);
 
@@ -725,6 +762,8 @@ class CapHum extends Model
             return self::resultado(false, 'Error al actualizar persona.', null, $e->getMessage());
         }
     }
+
+
 
 
 

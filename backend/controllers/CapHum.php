@@ -18,7 +18,15 @@ class CapHum extends Controller
                 onSuccess: (resp) => {
                     // Mapear datos como objeto para usar 'columns.data' en DataTables
                     const datos = resp.datos.map(p => ({
-                        nombre: `${p.nombres} ${p.apellidop} ${p.apellidom}`.trim(),
+                        nombre: `
+                            <div class="fw-semibold">
+                                ${p.nombres} ${p.apellidop} ${p.apellidom}
+                            </div>
+                            <small class="text-muted d-flex align-items-center gap-1">
+                                <i class="fa fa-key"></i>
+                                ${p.usuario}
+                            </small>
+                        `.trim(),
                         departamento: p.nombre_departamento,
                         puesto: p.nombre_puesto,
                         estatus: p.estatus,
@@ -46,6 +54,7 @@ class CapHum extends Controller
                 }
             });
         };
+            
             function editar(id) {
             
                 if (!id) {
@@ -119,6 +128,7 @@ class CapHum extends Controller
             jefe.innerHTML = '<option value="">Seleccione un jefe</option>';
             jefe.disabled = true;
         }
+        
             function cargarDepartamentosCombo(id, seleccionado = null) {
                     fetch('/CapHum/getDepartamento', {
                         method: 'POST',
@@ -149,6 +159,7 @@ class CapHum extends Controller
                         });
                     });
                 }
+                
             function cargarPuestosCombo(id_departamento, seleccionado = null) {
                     fetch('/CapHum/getPuestos', {
                         method: 'POST',
@@ -180,6 +191,7 @@ class CapHum extends Controller
                         });
                     });
                 }
+                
             function cargarComboJefeDirecto(id_departamento, seleccionado = null) {
                  fetch('/CapHum/getJefeDirecto', 
                     {
@@ -228,7 +240,6 @@ class CapHum extends Controller
                 cargarPuestosCombo(idDepartamento);
                 cargarComboJefeDirecto(idDepartamento);
             });
-
                 
             function edit_perfil(id) {
                 console.log("ID recibido:", id);
@@ -263,17 +274,20 @@ class CapHum extends Controller
                     const persona = data.datos.persona || {};
                     const perfiles = data.datos.perfiles || [];
             
+                    const nombreCompleto = [
+                        persona.nombres,
+                        persona.apellidop,
+                        persona.apellidom
+                    ].filter(Boolean).join(' ');
+
+                    
                     // CAMPOS TEXTO
                     const inputId = document.getElementById("edit_perfil_id");
                     const inputNombres = document.getElementById("edit_perfil_nombres");
                     if (inputId) inputId.value = persona.id ?? '';
-                    if (inputNombres) inputNombres.value = persona.nombres ?? '';
+                    if (inputNombres) inputNombres.value = nombreCompleto;
             
-                    // SELECTS
-                    const selectDepartamento = document.getElementById("edit_departamento_id");
-                    const selectPuesto = document.getElementById("edit_id_puesto");
-                    if (selectDepartamento) selectDepartamento.value = persona.id_departamento ?? '';
-                    if (selectPuesto) selectPuesto.value = persona.id_puesto ?? '';
+             
             
                     // Contenedor de módulos
                     const container = document.getElementById('modulos-form');
@@ -549,45 +563,65 @@ class CapHum extends Controller
                     Swal.fire("Error", "Error de comunicación con el servidor", "error");
                 });
             }
-
-           
+            
             function UpdateGestor() {
-                    const payload = {
-                        id: document.getElementById("edit_id").value,
-                        nombres: document.getElementById("edit_nombres").value,
-                        apellidop: document.getElementById("edit_apellidop").value,
-                        apellidom: document.getElementById("edit_apellidom").value,
-                        telefono: document.getElementById("edit_telefono").value,
-                        departamento_id: document.getElementById("edit_departamento_id").value,
-                        puesto_id: document.getElementById("edit_id_puesto").value,
-                        jefe_id: document.getElementById("edit_id_jefe").value,
-                        usuario: document.getElementById("edit_usuario").value,
-                        contrasena: document.getElementById("edit_contrasena").value
-                    };
-                
-                    fetch('/CapHum/updateGestorF', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
-                    })
-                    .then(res => res.json())
-                    .then(data => {
-                        if (!data.success) {
-                            Swal.fire("Error", data.mensaje, "error");
-                            return;
-                        }
-                
-                        Swal.fire("Éxito", "Gestor actualizado correctamente", "success");
-                
-                        bootstrap.Offcanvas.getInstance(
-                            document.getElementById('offcanvasEditUser')
-                        ).hide();
-                
-                        // Opcional: recargar tabla
-                        // cargarGestores();
-                    });
+
+                const departamento = document.getElementById("edit_departamento_id").value;
+                const puesto       = document.getElementById("edit_id_puesto").value;
+                const jefe         = document.getElementById("edit_id_jefe").value;
+            
+                // 🔴 VALIDACIONES OBLIGATORIAS
+                if (!departamento) {
+                    Swal.fire("Falta información", "Debes seleccionar un departamento", "warning");
+                    return;
                 }
-                
+            
+                if (!puesto) {
+                    Swal.fire("Falta información", "Debes seleccionar un puesto", "warning");
+                    return;
+                }
+            
+                if (!jefe) {
+                    Swal.fire("Falta información", "Debes seleccionar un jefe", "warning");
+                    return;
+                }
+            
+                // 🔹 Payload
+                const payload = {
+                    id: document.getElementById("edit_id").value,
+                    nombres: document.getElementById("edit_nombres").value,
+                    apellidop: document.getElementById("edit_apellidop").value,
+                    apellidom: document.getElementById("edit_apellidom").value,
+                    telefono: document.getElementById("edit_telefono").value,
+                    departamento_id: departamento,
+                    puesto_id: puesto,
+                    jefe_id: jefe,
+                    usuario: document.getElementById("edit_usuario").value,
+                    contrasena: document.getElementById("edit_contrasena").value
+                };
+            
+                fetch('/CapHum/updateGestorF', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (!data.success) {
+                        Swal.fire("Error", data.mensaje, "error");
+                        return;
+                    }
+            
+                    Swal.fire("Éxito", "Gestor actualizado correctamente", "success");
+            
+                    bootstrap.Offcanvas.getInstance(
+                        document.getElementById('offcanvasEditUser')
+                    ).hide();
+            
+                    // cargarGestores(); // opcional
+                });
+            }
+
                 
             document.getElementById('add_departamento_id').addEventListener('change', function () {
 
@@ -634,7 +668,6 @@ class CapHum extends Controller
                 });
             });
             
-            
             document.getElementById('add_id_puesto').addEventListener('change', function () {
                     const idPuesto = this.value;
                     const selectJefe = document.getElementById('add_id_jefe');
@@ -674,11 +707,9 @@ class CapHum extends Controller
                     .catch(() => {
                         Swal.fire("Error", "No se pudieron cargar los jefes", "error");
                     });
-                });
-                
+                }); 
+            
             function guardarGestor() {
-                
-               
                 const nombres = document.getElementById('add_nombres').value.trim();
                 const apellidop = document.getElementById('add_apellidop').value.trim();
                 const apellidom = document.getElementById('add_apellidom').value.trim();
@@ -747,7 +778,6 @@ class CapHum extends Controller
                 });
             }
             
-            
             $(document).ready(() => {
             // Inicializar DataTable con columnas explícitas
             $(document).ready(() => {
@@ -758,8 +788,6 @@ class CapHum extends Controller
             getUsuarios();
         });
             
-            
-
         </script>
         HTML;
         $departamento = CapHumDAO::getConsultaDepartamentoGestor($_SESSION['usuario_id']);
@@ -784,7 +812,8 @@ class CapHum extends Controller
                 'apellidom' => $p['apellidom'] ?? '',
                 'nombre_departamento' => $p['nombre_departamento'] ?? '',
                 'nombre_puesto' => $p['nombre_puesto'] ?? '',
-                'estatus' => ($p['estatus'] ?? 0) == 1 ? 'Activo' : 'Inactivo'
+                'estatus' => $p['estatus'] ?? '',
+                'usuario' => $p['usuario'] ?? '',
             ];
         }, $usuarios);
 
@@ -794,6 +823,7 @@ class CapHum extends Controller
             'datos' => $datos
         ]);
     }
+
     public function getDetalles()
     {
         $input = json_decode(file_get_contents("php://input"), true);
@@ -829,6 +859,7 @@ class CapHum extends Controller
 
         self::respuestaJSON($detalles);
     }
+
     public function getDepartamento()
     {
         $input = json_decode(file_get_contents("php://input"), true);
@@ -895,6 +926,7 @@ class CapHum extends Controller
 
         self::respuestaJSON($resultado);
     }
+
     public function getJefeDirecto()
     {
         $input = json_decode(file_get_contents("php://input"), true);
@@ -911,6 +943,28 @@ class CapHum extends Controller
         $detalles = CapHumDAO::getConsultaJefe($idDepartamento);
 
         self::respuestaJSON($detalles);
+    }
+
+    public function updateGestorF()
+    {
+        session_start(); // 🔴 IMPORTANTE
+        header('Content-Type: application/json; charset=utf-8');
+
+        // Leer JSON
+        $input = json_decode(file_get_contents("php://input"), true);
+
+        if (!$input || empty($input['id'])) {
+            echo json_encode([
+                'success' => false,
+                'mensaje' => 'Datos incompletos'
+            ]);
+            exit; // 🔴 CLAVE
+        }
+
+        $resultado = CapHumDAO::UpdatePersona($input);
+
+        echo json_encode($resultado);
+        exit; // 🔴 CLAVE
     }
 
     ///////
@@ -938,6 +992,7 @@ class CapHum extends Controller
         self::set("Departamentos", $getDepartamentos);
         self::render("organigrama");
     }
+
     public function getPersonasOrganigrama()
     {
         // Obtener parámetro enviado por POST (o GET según tu setup)
@@ -948,6 +1003,7 @@ class CapHum extends Controller
 
         self::respuestaJSON($puestos);
     }
+
     public function nivelJerarquicoColaborador($persona_id)
     {
         // 1️⃣ Obtener organigrama desde la DAO
@@ -980,6 +1036,7 @@ class CapHum extends Controller
         ]);
         exit;
     }
+
     private function recorrerArbol($nodo, &$rows, $jefeId = null) {
         $rows[] = [
             "id"     => (string)$nodo["id"],
@@ -993,6 +1050,7 @@ class CapHum extends Controller
             }
         }
     }
+
     public static function getGestoresPorPuesto()
     {
         $data = json_decode(file_get_contents("php://input"), true);
@@ -1017,6 +1075,7 @@ class CapHum extends Controller
             'datos'   => $resp['datos']
         ]);
     }
+
     public function getInsertarGestor()
     {
         // Obtener el JSON enviado desde fetch
