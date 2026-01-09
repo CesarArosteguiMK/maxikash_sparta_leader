@@ -47,62 +47,188 @@ class CapHum extends Controller
             });
         };
             function editar(id) {
-                    console.log("ID recibido:", id);
-                
-                    if (!id) {
-                        Swal.fire("Error", "ID inválido", "error");
+            
+                if (!id) {
+                    Swal.fire("Error", "ID inválido", "error");
+                    return;
+                }
+            
+                resetEditCombos();
+            
+                fetch('/CapHum/getDetalles', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({ idPersona: id })
+                })
+                .then(res => res.json())
+                .then(data => {
+            
+                    if (!data.success) {
+                        Swal.fire("Error", data.mensaje, "error");
                         return;
                     }
-                
-                    fetch('/CapHum/getDetalles', {
+            
+                    const persona = data.datos;
+            
+                    // CAMPOS TEXTO
+                    document.getElementById("edit_num_empleado").value = persona.numero_empleado ?? '';
+                    document.getElementById("edit_id").value = persona.id ?? '';
+                    document.getElementById("edit_nombres").value = persona.nombres ?? '';
+                    document.getElementById("edit_apellidop").value = persona.apellidop ?? '';
+                    document.getElementById("edit_apellidom").value = persona.apellidom ?? '';
+                    document.getElementById("edit_telefono").value = persona.telefono ?? '';
+                    document.getElementById("edit_usuario").value = persona.user_name ?? '';
+                    document.getElementById("edit_contrasena").value = persona.password ?? '';
+            
+                    // 1️⃣ DEPARTAMENTOS (SIEMPRE)
+                    cargarDepartamentosCombo(null, persona.id_departamento);
+            
+                    // 2️⃣ PUESTOS (SOLO SI HAY DEPARTAMENTO)
+                    if (persona.id_departamento) {
+                        cargarPuestosCombo(persona.id_departamento, persona.id_puesto);
+            
+                        // 3️⃣ JEFE (SOLO SI HAY DEPARTAMENTO)
+                        cargarComboJefeDirecto(persona.id_departamento, persona.id_jefe);
+                    }
+            
+                    // MOSTRAR OFFCANVAS
+                    const offcanvas = new bootstrap.Offcanvas(
+                        document.getElementById('offcanvasEditUser')
+                    );
+                    offcanvas.show();
+                })
+                .catch(err => {
+                    console.error(err);
+                    Swal.fire("Error", "No se pudo cargar la información", "error");
+                });
+            }
+
+            function resetEditCombos() {
+            const dep = document.getElementById('edit_departamento_id');
+            const puesto = document.getElementById('edit_id_puesto');
+            const jefe = document.getElementById('edit_id_jefe');
+        
+            dep.innerHTML = '<option value="">Seleccione un departamento</option>';
+        
+            puesto.innerHTML = '<option value="">Seleccione un puesto</option>';
+            puesto.disabled = true;
+        
+            jefe.innerHTML = '<option value="">Seleccione un jefe</option>';
+            jefe.disabled = true;
+        }
+            function cargarDepartamentosCombo(id, seleccionado = null) {
+                    fetch('/CapHum/getDepartamento', {
                         method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Accept': 'application/json'
-                        },
-                        body: JSON.stringify({ idPersona: id })
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ id })
                     })
                     .then(res => res.json())
                     .then(data => {
+                
                         if (!data.success) {
                             Swal.fire("Error", data.mensaje, "error");
                             return;
                         }
                 
-                        const persona = data.datos;
-                        
-                        cargarDepartamentosCombo(persona.id_departamento, persona.id_departamento);
-                        cargarPuestosCombo(persona.id_departamento, persona.id_puesto);
-                        cargarComboJefeDirecto(persona.id_departamento, persona.id_jefe);
+                        const select = document.getElementById('edit_departamento_id');
+                        select.innerHTML = '<option value="">Seleccione un departamento</option>';
                 
-                        // CAMPOS TEXTO
-                        document.getElementById("edit_num_empleado").value = persona.numero_empleado;
-                        document.getElementById("edit_id").value = persona.id;
-                        document.getElementById("edit_nombres").value = persona.nombres ?? '';
-                        document.getElementById("edit_apellidop").value = persona.apellidop ?? '';
-                        document.getElementById("edit_apellidom").value = persona.apellidom ?? '';
-                        document.getElementById("edit_telefono").value = persona.telefono ?? '';
-                        document.getElementById("edit_usuario").value = persona.user_name ?? '';
-                        document.getElementById("edit_contrasena").value = persona.password ?? '';
+                        data.datos.forEach(dep => {
+                            const option = document.createElement('option');
+                            option.value = dep.id;
+                            option.textContent = dep.nombre;
                 
-                       // SELECTS
-                        document.getElementById("edit_departamento_id").value = persona.id_departamento;
-                        document.getElementById("edit_id_puesto").value = persona.id_puesto;
+                            if (String(dep.id) === String(seleccionado)) {
+                                option.selected = true;
+                            }
                 
-                        
-
-                
-                        // MOSTRAR OFFCANVAS
-                        const offcanvas = new bootstrap.Offcanvas(
-                            document.getElementById('offcanvasEditUser')
-                        );
-                        offcanvas.show();
-                    })
-                    .catch(err => {
-                        console.error('FETCH ERROR:', err);
-                        Swal.fire("Error", "No se pudo cargar la información", "error");
+                            select.appendChild(option);
+                        });
                     });
                 }
+            function cargarPuestosCombo(id_departamento, seleccionado = null) {
+                    fetch('/CapHum/getPuestos', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ id_departamento })
+                    })
+                    .then(res => res.json())
+                    .then(data => {
+                
+                        if (!data.success) {
+                            Swal.fire("Error", data.mensaje, "error");
+                            return;
+                        }
+                
+                        const select = document.getElementById('edit_id_puesto');
+                        select.disabled = false;
+                        select.innerHTML = '<option value="">Seleccione un puesto</option>';
+                
+                        data.datos.forEach(puesto => {
+                            const option = document.createElement('option');
+                            option.value = puesto.id;
+                            option.textContent = puesto.nombre;
+                
+                            if (String(puesto.id) === String(seleccionado)) {
+                                option.selected = true;
+                            }
+                
+                            select.appendChild(option);
+                        });
+                    });
+                }
+            function cargarComboJefeDirecto(id_departamento, seleccionado = null) {
+                 fetch('/CapHum/getJefeDirecto', 
+                    {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id_departamento })
+                    })
+                    .then(res => res.json())
+                    .then(data => {
+                
+                        if (!data.success) {
+                            Swal.fire("Error", data.mensaje, "error");
+                            return;
+                        }
+                
+                        const select = $('#edit_id_jefe');
+                        select.prop('disabled', false);
+                        select.empty().append(new Option('Seleccione un jefe', '', false, false));
+                
+                        data.datos.forEach(jefe => {
+                            select.append(new Option(
+                                jefe.nombre_completo,
+                                jefe.id,
+                                false,
+                                String(jefe.id) === String(seleccionado)
+                            ));
+                        });
+                
+                        select.trigger('change'); // 🔥 clave para Select2
+                    });
+                }
+                
+            document.getElementById('edit_departamento_id').addEventListener('change', function () {
+                const idDepartamento = this.value;
+                const puesto = document.getElementById('edit_id_puesto');
+                const jefe = document.getElementById('edit_id_jefe');
+            
+                puesto.innerHTML = '<option value="">Seleccione un puesto</option>';
+                puesto.disabled = true;
+            
+                jefe.innerHTML = '<option value="">Seleccione un jefe</option>';
+                jefe.disabled = true;
+            
+                if (!idDepartamento) return;
+            
+                cargarPuestosCombo(idDepartamento);
+                cargarComboJefeDirecto(idDepartamento);
+            });
+
                 
             function edit_perfil(id) {
                 console.log("ID recibido:", id);
@@ -424,96 +550,7 @@ class CapHum extends Controller
                 });
             }
 
-            function cargarDepartamentosCombo(id, seleccionado = null) {
-                    fetch('/CapHum/getDepartamento', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ id })
-                    })
-                    .then(res => res.json())
-                    .then(data => {
-                
-                        if (!data.success) {
-                            Swal.fire("Error", data.mensaje, "error");
-                            return;
-                        }
-                
-                        const select = document.getElementById('edit_departamento_id');
-                        select.innerHTML = '<option value="">Seleccione un departamento</option>';
-                
-                        data.datos.forEach(dep => {
-                            const option = document.createElement('option');
-                            option.value = dep.id;
-                            option.textContent = dep.nombre;
-                
-                            if (String(dep.id) === String(seleccionado)) {
-                                option.selected = true;
-                            }
-                
-                            select.appendChild(option);
-                        });
-                    });
-                }
-            function cargarPuestosCombo(id_departamento, seleccionado = null) {
-                    fetch('/CapHum/getPuestos', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ id_departamento })
-                    })
-                    .then(res => res.json())
-                    .then(data => {
-                
-                        if (!data.success) {
-                            Swal.fire("Error", data.mensaje, "error");
-                            return;
-                        }
-                
-                        const select = document.getElementById('edit_id_puesto');
-                        select.innerHTML = '<option value="">Seleccione un puesto</option>';
-                
-                        data.datos.forEach(puesto => {
-                            const option = document.createElement('option');
-                            option.value = puesto.id;
-                            option.textContent = puesto.nombre;
-                
-                            if (String(puesto.id) === String(seleccionado)) {
-                                option.selected = true;
-                            }
-                
-                            select.appendChild(option);
-                        });
-                    });
-                }
-            function cargarComboJefeDirecto(id_departamento, seleccionado = null) {
-                 fetch('/CapHum/getJefeDirecto', 
-                    {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ id_departamento })
-                    })
-                    .then(res => res.json())
-                    .then(data => {
-                
-                        if (!data.success) {
-                            Swal.fire("Error", data.mensaje, "error");
-                            return;
-                        }
-                
-                        const select = $('#edit_id_jefe');
-                        select.empty().append(new Option('Seleccione un jefe', '', false, false));
-                
-                        data.datos.forEach(jefe => {
-                            select.append(new Option(
-                                jefe.nombre_completo,
-                                jefe.id,
-                                false,
-                                String(jefe.id) === String(seleccionado)
-                            ));
-                        });
-                
-                        select.trigger('change'); // 🔥 clave para Select2
-                    });
-                }
+           
             function UpdateGestor() {
                     const payload = {
                         id: document.getElementById("edit_id").value,
@@ -596,6 +633,7 @@ class CapHum extends Controller
                     Swal.fire("Error", "No se pudieron cargar los puestos", "error");
                 });
             });
+            
             
             document.getElementById('add_id_puesto').addEventListener('change', function () {
                     const idPuesto = this.value;
@@ -796,13 +834,6 @@ class CapHum extends Controller
         $input = json_decode(file_get_contents("php://input"), true);
         $id = $input['id'] ?? null;
 
-        if (!$id) {
-            self::respuestaJSON([
-                'success' => false,
-                'mensaje' => 'Tipo de departamento requerido'
-            ]);
-            return;
-        }
 
         self::respuestaJSON(
             CapHumDAO::getComboDepartamentos($id)

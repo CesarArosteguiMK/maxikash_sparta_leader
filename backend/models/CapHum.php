@@ -146,10 +146,10 @@ class CapHum extends Model
                 p.*,
                 ap.id_puesto, dd.nombre as departamento, dd.id as id_departamento, aj.id_jefe, p.password
             FROM persona p
-            INNER JOIN asigna_puesto ap ON ap.id_persona = p.id
-            INNER JOIN puesto pu ON pu.id = ap.id_puesto
-            INNER JOIN departamento dd ON dd.id = pu.departamento_id
-            INNER JOIN asigna_jefe aj ON aj.id_persona = p.id
+            LEFT JOIN asigna_puesto ap ON ap.id_persona = p.id
+            LEFT JOIN puesto pu ON pu.id = ap.id_puesto
+            LEFT JOIN departamento dd ON dd.id = pu.departamento_id
+            LEFT JOIN asigna_jefe aj ON aj.id_persona = p.id
             WHERE p.id = $idPersona
               AND p.estatus != 'Baja'
             LIMIT 1
@@ -275,18 +275,25 @@ class CapHum extends Model
             return self::resultado(false, 'Error al procesar la solicitud.', null, $e->getMessage());
         }
     }
-    public static function getComboDepartamentos($perfil_id)
+    public static function getComboDepartamentos($perfil_id = null)
     {
+        $where = '';
+
+        if (!empty($perfil_id)) {
+            $perfil_id = intval($perfil_id); // 🔐 seguridad
+            $where = "WHERE d.id = $perfil_id";
+        }
+
         $query = <<<SQL
-           SELECT DISTINCT d.*
-            FROM privilegios_departamento pd
-            INNER JOIN puesto p
-                    ON p.id = pd.idPuesto
-            INNER JOIN departamento d
-                    ON d.id = p.departamento_id
-            WHERE d.id = $perfil_id
-            ORDER BY d.nombre ASC
-        SQL;
+        SELECT DISTINCT d.*
+        FROM privilegios_departamento pd
+        INNER JOIN puesto p
+            ON p.id = pd.idPuesto
+        INNER JOIN departamento d
+            ON d.id = p.departamento_id
+        $where
+        ORDER BY d.nombre ASC
+    SQL;
 
         try {
             $db = new Database();
@@ -296,6 +303,7 @@ class CapHum extends Model
             return self::resultado(false, 'Error al procesar la solicitud.', null, $e->getMessage());
         }
     }
+
     public static function getConsultaPuestos($departamento)
     {
         // Query base
