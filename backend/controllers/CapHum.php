@@ -27,8 +27,16 @@ class CapHum extends Controller
                                 ${p.usuario}
                             </small>
                         `.trim(),
-                        departamento: p.nombre_departamento,
-                        puesto: p.nombre_puesto,
+                        departamento:`
+                            <small class="text-muted d-flex align-items-center gap-1">
+                                <i class="fa fa-building"></i>
+                                ${p.nombre_departamento}
+                            </small>
+                            <small class="text-muted d-flex align-items-center gap-1">
+                                <i class="fa fa-briefcase"></i>
+                                ${p.nombre_puesto}
+                            </small>
+                        `.trim(),
                         estatus: p.estatus,
                        acciones: `
                         <button class="btn btn-sm btn-primary me-1" onclick="editar(${p.id})" title="Editar">
@@ -820,12 +828,12 @@ class CapHum extends Controller
             
                     li.innerHTML = `
                         <div>
-                            <i class="bi bi-file-earmark-pdf text-danger me-2"></i>
+                            <i class="fa fa-file-pdf text-danger me-2"></i>
                             ${file.name}
                         </div>
                         <div>
-                            <i class="bi bi-check-circle-fill text-success me-3"></i>
-                            <i class="bi bi-x-circle-fill text-danger"
+                            <i class="fa fa-check-circle text-success me-3"></i>
+                            <i class="fa fa-times-circle text-danger"
                                style="cursor:pointer"
                                onclick="eliminarArchivo(${index})"></i>
                         </div>
@@ -1249,6 +1257,7 @@ class CapHum extends Controller
             ]);
         }
     }
+
 
     public function getPuestosDepartamento()
     {

@@ -28,11 +28,14 @@ class CapHum extends Model
             p.apellidom,
             pp.id        AS id_puesto,
             CASE 
-                WHEN pp.nombre IS NULL THEN 'Sin asignar'
+                WHEN pp.nombre IS NULL THEN 'Sin puesto'
                 ELSE pp.nombre
             END AS nombre_puesto,
             pp.nivel     AS nivel_puesto,
-            d.nombre     AS nombre_departamento,
+            CASE 
+                WHEN d.nombre IS NULL THEN 'Sin departamento'
+                ELSE d.nombre
+            END AS nombre_departamento,
             aj.id_jefe,
             p.estatus, 
             CASE 
@@ -352,7 +355,7 @@ class CapHum extends Model
         $query = <<<SQL
           SELECT
         per.id,
-        CONCAT(per.nombres, ' ', per.apellidop) AS nombre_completo,
+        CONCAT(per.nombres, ' ', per.apellidop, ' ', per.apellidom) AS nombre_completo,
         pu.nombre AS nombre_puesto
         FROM asigna_puesto ap
         INNER JOIN persona per 

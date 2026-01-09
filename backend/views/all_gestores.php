@@ -67,7 +67,6 @@
                     <th></th> <!-- control responsive -->
                     <th>Nombre</th>
                     <th>Departamento</th>
-                    <th>Puesto</th>
                     <th>Estatus</th>
                     <th>Acciones</th>
                 </tr>
