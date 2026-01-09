@@ -196,6 +196,7 @@
                             <option value="Baja por salud">Baja por salud</option>
                             <option value="Baja administrativa">Baja administrativa</option>
                             <option value="Falta de capacitación">Falta de capacitación</option>
+                            <option value="Empleado duplicado">Empleado Duplicado</option>
                             <option value="Otros">Otros</option>
                         </select>
                     </div>
