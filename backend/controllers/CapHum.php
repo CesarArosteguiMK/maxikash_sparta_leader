@@ -434,8 +434,7 @@ class CapHum extends Controller
             function confirmarBaja() {
                 const idGestor = document.getElementById("edit_id").value;
                 const motivoSelect = document.getElementById("motivoBaja").value;
-                const descripcion = document.getElementById("motivoBajaDescripcion").value; // textarea
-                const archivoInput = document.getElementById("archivoPDF");
+                const descripcion = document.getElementById("motivoBajaDescripcion").value;
             
                 // Validaciones
                 if (!motivoSelect) {
@@ -446,7 +445,7 @@ class CapHum extends Controller
                     });
                     return;
                 }
-               
+            
                 if (descripcion.trim() === "") {
                     Swal.fire({
                         icon: 'warning',
@@ -467,19 +466,21 @@ class CapHum extends Controller
                     reverseButtons: true
                 }).then((result) => {
                     if (result.isConfirmed) {
-                        // Crear FormData para enviar archivo PDF
+            
+                        // 🧠 Crear FormData
                         const formData = new FormData();
                         formData.append("idGestor", idGestor);
                         formData.append("motivo", motivoSelect);
                         formData.append("descripcion", descripcion);
             
-                        if (archivoInput.files.length > 0) {
-                            formData.append("archivoPDF", archivoInput.files[0]);
-                        }
+                        // 📎 Archivos múltiples (AQUÍ ESTÁ EL CAMBIO)
+                        archivosSeleccionados.forEach(file => {
+                            formData.append('archivosPDF[]', file);
+                        });
             
-                        // Enviar datos al servidor
-                        fetch("bajas.php", {
-                            method: "POST",
+                        // 🚀 Enviar al controlador
+                        fetch('/CapHum/registrarBaja', {
+                            method: 'POST',
                             body: formData
                         })
                         .then(response => response.json())
@@ -490,8 +491,12 @@ class CapHum extends Controller
                                     title: '¡Listo!',
                                     text: 'La baja se registró correctamente.'
                                 });
+            
                                 $("#modalBajas").modal("hide");
-                                // Opcional: recargar tabla o limpiar modal
+            
+                                // 🧹 Limpieza opcional
+                                archivosSeleccionados = [];
+                                document.getElementById("listaArchivos").innerHTML = "";
                             } else {
                                 Swal.fire({
                                     icon: 'error',
@@ -511,6 +516,7 @@ class CapHum extends Controller
                     }
                 });
             }
+
             
             let currentPersonaId = null;
             function onModuloChange(checkbox) {
@@ -787,6 +793,53 @@ class CapHum extends Controller
         
             getUsuarios();
         });
+            
+            
+            let archivosSeleccionados = [];
+
+            document.getElementById("archivoPDF").addEventListener("change", function (e) {
+                const nuevosArchivos = Array.from(e.target.files);
+            
+                nuevosArchivos.forEach(file => {
+                    if (file.type !== "application/pdf") return;
+            
+                    archivosSeleccionados.push(file);
+                });
+            
+                renderArchivos();
+                this.value = ""; // reset input
+            });
+            
+            function renderArchivos() {
+                const lista = document.getElementById("listaArchivos");
+                lista.innerHTML = "";
+            
+                archivosSeleccionados.forEach((file, index) => {
+                    const li = document.createElement("li");
+                    li.className = "list-group-item d-flex justify-content-between align-items-center";
+            
+                    li.innerHTML = `
+                        <div>
+                            <i class="bi bi-file-earmark-pdf text-danger me-2"></i>
+                            ${file.name}
+                        </div>
+                        <div>
+                            <i class="bi bi-check-circle-fill text-success me-3"></i>
+                            <i class="bi bi-x-circle-fill text-danger"
+                               style="cursor:pointer"
+                               onclick="eliminarArchivo(${index})"></i>
+                        </div>
+                    `;
+            
+                    lista.appendChild(li);
+                });
+            }
+            
+            function eliminarArchivo(index) {
+                archivosSeleccionados.splice(index, 1);
+                renderArchivos();
+            }
+
             
         </script>
         HTML;
@@ -1107,6 +1160,96 @@ class CapHum extends Controller
             echo json_encode(['success' => false, 'mensaje' => 'Error al insertar gestor', 'error' => $inserted['error']]);
         }
     }
+    public function registrarBaja()
+    {
+        // ⚠️ Al usar FormData NO se usa php://input
+        $idGestor    = $_POST['idGestor'] ?? null;
+        $motivo      = $_POST['motivo'] ?? null;
+        $descripcion = $_POST['descripcion'] ?? null;
+
+        // ✅ Validaciones obligatorias
+        if (empty($idGestor)) {
+            echo json_encode([
+                'success' => false,
+                'message' => 'ID del gestor es obligatorio'
+            ]);
+            return;
+        }
+
+        if (empty($motivo)) {
+            echo json_encode([
+                'success' => false,
+                'message' => 'El motivo de baja es obligatorio'
+            ]);
+            return;
+        }
+
+        if (empty(trim($descripcion))) {
+            echo json_encode([
+                'success' => false,
+                'message' => 'La descripción de la baja es obligatoria'
+            ]);
+            return;
+        }
+
+        // 📎 MANEJO DE MÚLTIPLES PDFs
+        $rutasPDF = [];
+
+        if (!empty($_FILES['archivosPDF']['name'][0])) {
+
+            $directorio = __DIR__ . '/../uploads/bajas/';
+            if (!is_dir($directorio)) {
+                mkdir($directorio, 0777, true);
+            }
+
+            foreach ($_FILES['archivosPDF']['tmp_name'] as $i => $tmp) {
+
+                if ($_FILES['archivosPDF']['error'][$i] !== UPLOAD_ERR_OK) {
+                    continue;
+                }
+
+                $nombreOrig = $_FILES['archivosPDF']['name'][$i];
+                $extension  = strtolower(pathinfo($nombreOrig, PATHINFO_EXTENSION));
+
+                if ($extension !== 'pdf') {
+                    continue;
+                }
+
+                $nombreFinal = 'baja_' . $idGestor . '_' . time() . '_' . $i . '.pdf';
+                $rutaFinal   = $directorio . $nombreFinal;
+
+                if (move_uploaded_file($tmp, $rutaFinal)) {
+                    $rutasPDF[] = $nombreFinal; // 👈 guardamos solo el nombre
+                }
+            }
+        }
+
+        // 📦 Preparar datos para el DAO
+        $data = [
+            'id_gestor'   => $idGestor,
+            'motivo'      => $motivo,
+            'descripcion' => $descripcion,
+            'archivos'    => $rutasPDF, // 👈 ahora es un arreglo
+            'fecha_baja'  => date('Y-m-d H:i:s')
+        ];
+
+        // 🧠 Llamar al modelo / DAO
+        $resultado = CapHumDAO::registrarBajaGestor($data);
+
+        if ($resultado['success']) {
+            echo json_encode([
+                'success' => true,
+                'message' => 'La baja se registró correctamente'
+            ]);
+        } else {
+            echo json_encode([
+                'success' => false,
+                'message' => 'Error al registrar la baja',
+                'error'   => $resultado['error'] ?? null
+            ]);
+        }
+    }
+
     public function getPuestosDepartamento()
     {
         $input = json_decode(file_get_contents("php://input"), true);

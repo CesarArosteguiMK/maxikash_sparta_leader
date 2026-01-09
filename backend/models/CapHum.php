@@ -360,7 +360,7 @@ class CapHum extends Model
         INNER JOIN puesto pu 
             ON pu.id = ap.id_puesto
         WHERE pu.departamento_id = $id_departamento
-          AND pu.es_jefe = 1;
+          AND pu.es_jefe = 1 ORDER BY per.nombres ASC
         SQL;
 
         try {
@@ -631,10 +631,6 @@ class CapHum extends Model
     }
 
 
-
-
-
-
     public static function insertPersona($data)
     {
         // 🔹 Escapamos valores
@@ -762,6 +758,65 @@ class CapHum extends Model
             return self::resultado(false, 'Error al actualizar persona.', null, $e->getMessage());
         }
     }
+
+    public static function registrarBajaGestor($data)
+    {
+        try {
+            $db = new Database();
+
+            // 🔹 Escapamos valores
+            $id_persona  = addslashes($data['id_gestor']);
+            $motivo      = addslashes($data['motivo']);
+            $descripcion = addslashes($data['descripcion']);
+            $fecha_baja  = addslashes($data['fecha_baja']);
+            $archivos    = $data['archivos'] ?? [];
+
+            // 1️⃣ Insertar la baja en baja_persona
+            $db->queryOne("
+            INSERT INTO __SPARTA_SECRET_REDACTED__.baja_persona
+            (id_persona, motivo, fecha_baja)
+            VALUES
+            ('$id_persona', '$motivo', '$fecha_baja')
+        ");
+
+            // Obtener el ID de la baja recién creada
+            $result = $db->queryOne("SELECT LAST_INSERT_ID() AS id");
+            $id_baja = isset($result['id']) ? intval($result['id']) : null;
+
+            if (!$id_baja) {
+                return self::resultado(false, 'No se pudo obtener el ID de la baja.');
+            }
+
+            // 2️⃣ Insertar cada archivo en carga_documento_persona
+            foreach ($archivos as $archivo) {
+
+                // Asumimos que el documento 'Documento baja' ya existe con id = 15
+                $id_documento = 15;
+
+                $archivoEsc = addslashes($archivo);
+
+                $db->queryOne("
+                INSERT INTO __SPARTA_SECRET_REDACTED__.carga_documento_persona
+                (id_persona, id_documento, archivo, fecha_carga)
+                VALUES
+                ('$id_persona', '$id_documento', '$archivoEsc', NOW())
+            ");
+            }
+
+            // 3️⃣ Actualizar estatus de la persona a 'Baja'
+            $db->queryOne("
+            UPDATE __SPARTA_SECRET_REDACTED__.persona
+            SET estatus = 'Baja'
+            WHERE id = '$id_persona'
+        ");
+
+            return self::resultado(true, 'Baja registrada correctamente con archivos.');
+
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al registrar la baja.', null, $e->getMessage());
+        }
+    }
+
 
 
 

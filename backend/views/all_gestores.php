@@ -207,11 +207,17 @@
                         <textarea class="form-control" id="motivoBajaDescripcion" rows="3" placeholder="Escribe el motivo..."></textarea>
                     </div>
 
-                    <div class="mb-3">
-                        <label for="archivoPDF" class="form-label"><strong>Subir archivo PDF Opcional *</strong></label>
-                        <input class="form-control" type="file" id="archivoPDF" accept=".pdf">
-                        <small class="text-muted">Solo se permiten archivos PDF.</small>
-                    </div>
+                    <input
+                            class="form-control"
+                            type="file"
+                            id="archivoPDF"
+                            accept=".pdf"
+                            multiple
+                    >
+                    <small class="text-muted">
+                        Puedes subir múltiples archivos PDF.
+                    </small>
+                    <ul class="list-group mt-2" id="listaArchivos"></ul>
                 </div>
 
                 <div class="modal-footer">
