@@ -1238,7 +1238,8 @@ class CapHum extends Controller
             'motivo'      => $motivo,
             'descripcion' => $descripcion,
             'archivos'    => $rutasPDF, // 👈 ahora es un arreglo
-            'fecha_baja'  => date('Y-m-d H:i:s')
+            'fecha_baja'  => date('Y-m-d H:i:s'),
+            'usuario_baja' => $_SESSION['usuario_id']
         ];
 
         // 🧠 Llamar al modelo / DAO

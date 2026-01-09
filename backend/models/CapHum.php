@@ -772,14 +772,15 @@ class CapHum extends Model
             $motivo      = addslashes($data['motivo']);
             $descripcion = addslashes($data['descripcion']);
             $fecha_baja  = addslashes($data['fecha_baja']);
+            $usuario_baja  = addslashes($data['usuario_baja']);
             $archivos    = $data['archivos'] ?? [];
 
             // 1️⃣ Insertar la baja en baja_persona
             $db->queryOne("
             INSERT INTO __SPARTA_SECRET_REDACTED__.baja_persona
-            (id_persona, motivo, fecha_baja)
+            (id_persona, motivo, fecha_baja, descripcion, usuario_baja)
             VALUES
-            ('$id_persona', '$motivo', '$fecha_baja')
+            ('$id_persona', '$motivo', '$fecha_baja', '$descripcion', '$usuario_baja')
         ");
 
             // Obtener el ID de la baja recién creada
