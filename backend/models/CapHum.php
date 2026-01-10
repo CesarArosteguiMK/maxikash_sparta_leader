@@ -23,6 +23,7 @@ class CapHum extends Model
             $query = <<<SQL
         SELECT
             p.id,
+            p.numero_empleado,
             p.nombres,
             p.apellidop,
             p.apellidom,

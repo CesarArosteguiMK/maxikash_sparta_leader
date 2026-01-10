@@ -20,6 +20,9 @@ class CapHum extends Controller
                     const datos = resp.datos.map(p => ({
                         nombre: `
                             <div class="fw-semibold">
+                               # ${p.numero_empleado}
+                            </div>
+                            <div class="fw-semibold">
                                 ${p.nombres} ${p.apellidop} ${p.apellidom}
                             </div>
                             <small class="text-muted d-flex align-items-center gap-1">
@@ -868,6 +871,7 @@ class CapHum extends Controller
         $datos = array_map(function($p) {
             return [
                 'id' => $p['id'] ?? '',
+                'numero_empleado' => $p['numero_empleado'] ?? '',
                 'nombres' => $p['nombres'] ?? '',
                 'apellidop' => $p['apellidop'] ?? '',
                 'apellidom' => $p['apellidom'] ?? '',
