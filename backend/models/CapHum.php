@@ -21,38 +21,58 @@ class CapHum extends Model
         if (in_array($id_gestor_sesion, [1, 2, 3, 396])) {
 
             $query = <<<SQL
-        SELECT
+            SELECT
             p.id,
             p.numero_empleado,
             p.nombres,
             p.apellidop,
             p.apellidom,
-            pp.id        AS id_puesto,
+        
+            pp.id AS id_puesto,
             CASE 
                 WHEN pp.nombre IS NULL THEN 'Sin puesto'
                 ELSE pp.nombre
             END AS nombre_puesto,
-            pp.nivel     AS nivel_puesto,
+            pp.nivel AS nivel_puesto,
+        
             CASE 
                 WHEN d.nombre IS NULL THEN 'Sin departamento'
                 ELSE d.nombre
             END AS nombre_departamento,
+        
             aj.id_jefe,
+        
+            -- 👇 Nombre completo del jefe
+            CASE 
+                WHEN pj.id IS NULL THEN 'Sin jefe'
+                ELSE CONCAT(pj.nombres, ' ', pj.apellidop, ' ', pj.apellidom)
+            END AS nombre_jefe,
+        
             p.estatus, 
             CASE 
                 WHEN p.user_name IS NULL THEN 'Sin usuario'
                 ELSE p.user_name
             END AS usuario
+        
         FROM persona p
+        
         LEFT JOIN asigna_puesto ap 
                ON p.id = ap.id_persona
+        
         LEFT JOIN puesto pp 
                ON pp.id = ap.id_puesto
+        
         LEFT JOIN departamento d 
                ON d.id = pp.departamento_id
+        
         LEFT JOIN asigna_jefe aj 
                ON p.id = aj.id_persona
               AND (aj.fecha_fin IS NULL OR aj.fecha_fin >= CURDATE())
+        
+        -- 🔁 self join para traer al jefe
+        LEFT JOIN persona pj 
+               ON pj.id = aj.id_jefe
+        
         WHERE p.estatus != 'Baja'
           AND (
                 pp.id IS NULL
@@ -63,7 +83,8 @@ class CapHum extends Model
                       AND pd.idPuesto  = pp.id
                 )
           )
-        ORDER BY pp.nivel ASC
+        ORDER BY pp.nivel ASC;
+
         SQL;
 
         }

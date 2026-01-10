@@ -39,6 +39,11 @@ class CapHum extends Controller
                                 <i class="fa fa-briefcase"></i>
                                 ${p.nombre_puesto}
                             </small>
+                            <hr>
+                            <small class="text-muted d-flex align-items-center gap-1">
+                                <i class="fa fa-user"> </i>Nombre del jefe:<br>
+                                
+                            </small><small>${p.nombre_jefe} </small>
                         `.trim(),
                         estatus: p.estatus,
                        acciones: `
@@ -872,6 +877,7 @@ class CapHum extends Controller
             return [
                 'id' => $p['id'] ?? '',
                 'numero_empleado' => $p['numero_empleado'] ?? '',
+                'nombre_jefe' => $p['nombre_jefe'] ?? '',
                 'nombres' => $p['nombres'] ?? '',
                 'apellidop' => $p['apellidop'] ?? '',
                 'apellidom' => $p['apellidom'] ?? '',
