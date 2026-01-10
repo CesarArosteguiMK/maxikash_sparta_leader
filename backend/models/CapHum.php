@@ -42,13 +42,12 @@ class CapHum extends Model
         
             aj.id_jefe,
         
-            -- 👇 Nombre completo del jefe
             CASE 
                 WHEN pj.id IS NULL THEN 'Sin jefe'
                 ELSE CONCAT(pj.nombres, ' ', pj.apellidop, ' ', pj.apellidom)
             END AS nombre_jefe,
         
-            p.estatus, 
+            p.estatus,
             CASE 
                 WHEN p.user_name IS NULL THEN 'Sin usuario'
                 ELSE p.user_name
@@ -65,11 +64,14 @@ class CapHum extends Model
         LEFT JOIN departamento d 
                ON d.id = pp.departamento_id
         
-        LEFT JOIN asigna_jefe aj 
-               ON p.id = aj.id_persona
-              AND (aj.fecha_fin IS NULL OR aj.fecha_fin >= CURDATE())
+        -- 🔥 MISMO FILTRO, SOLO REUBICADO
+        LEFT JOIN (
+            SELECT id_persona, id_jefe
+            FROM asigna_jefe
+            WHERE fecha_fin IS NULL 
+               OR fecha_fin >= CURDATE()
+        ) aj ON aj.id_persona = p.id
         
-        -- 🔁 self join para traer al jefe
         LEFT JOIN persona pj 
                ON pj.id = aj.id_jefe
         
@@ -80,9 +82,9 @@ class CapHum extends Model
                     SELECT 1
                     FROM __SPARTA_SECRET_REDACTED__.privilegios_departamento pd
                     WHERE pd.idPersona = $id_gestor_sesion
-                      AND pd.idPuesto  = pp.id
                 )
           )
+        
         ORDER BY pp.nivel ASC;
 
         SQL;
