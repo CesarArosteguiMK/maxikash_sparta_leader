@@ -1089,6 +1089,7 @@ class CapHum extends Controller
         $rows[] = [
             "id"     => (string)$organigrama["id_jefe"],    // ID como string
             "nombre" => $organigrama["nombre_jefe"],        // Nombre
+            "puesto" => $organigrama["nombre_puesto"] ?? null, // 👈
             "jefe"   => null                                // Sin jefe
         ];
 
@@ -1112,6 +1113,7 @@ class CapHum extends Controller
         $rows[] = [
             "id"     => (string)$nodo["id"],
             "nombre" => $nodo["nombre"],
+            "puesto" => $nodo["nombre_puesto"] ?? null, // 👈 YA VIENE DEL SQL
             "jefe"   => $jefeId
         ];
 

@@ -529,7 +529,6 @@ class CapHum extends Model
                     p.id,
                     p.nombres,
                     p.apellidop,
-                    p.apellidom,
                     ap.id_puesto,
                     pp.nombre AS nombre_puesto,
                     aj.id_jefe,
@@ -548,7 +547,6 @@ class CapHum extends Model
                     p2.id,
                     p2.nombres,
                     p2.apellidop,
-                    p2.apellidom,
                     ap2.id_puesto,
                     pp2.nombre AS nombre_puesto,
                     aj2.id_jefe,
@@ -565,7 +563,7 @@ class CapHum extends Model
             SELECT JSON_OBJECT(
                 'id_jefe', $id_persona,
                 'nombre_jefe', (
-                    SELECT CONCAT(nombres, ' ', apellidop, ' ', apellidom)
+                    SELECT CONCAT(nombres, ' ', apellidop)
                     FROM persona
                     WHERE id = $id_persona
                 ),

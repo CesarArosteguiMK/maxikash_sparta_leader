@@ -360,10 +360,13 @@
                     {
                         v: String(r.id),
                         f: `
-                        <div style="font-weight:bold;cursor:pointer;color:#2a6ebb"
-                             onclick="abrirModal('${r.id}')">
-                            ${r.nombre}
-                        </div>`,
+                <div style="font-weight:bold;cursor:pointer;color:#2a6ebb"
+                     onclick="abrirModal('${r.id}')">
+                    ${r.nombre}
+                    <div style="font-size:11px;color:#555;margin-top:2px">
+                        ${r.puesto ?? ''}
+                    </div>
+                </div>`,
                         p: { collapsed: r.jefe !== null }
                     },
                     r.jefe
