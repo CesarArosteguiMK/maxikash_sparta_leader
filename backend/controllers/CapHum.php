@@ -1050,7 +1050,7 @@ class CapHum extends Controller
         $departamentos = CapHumDAO::getConsultaDepartamentoGestor($_SESSION['usuario_id']);
 
 
-        $getDepartamentos = '<option disabled selected>Seleeccione una opción</option>';
+        $getDepartamentos = '<option disabled selected>Seleccione una opción</option>';
 
         if (!empty($departamentos['datos'])) {
             foreach ($departamentos['datos'] as $val2) {
