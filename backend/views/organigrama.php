@@ -11,6 +11,43 @@
         transform-origin: top left; /* El zoom se hace desde la esquina superior izquierda */
         transition: transform 0.2s;  /* Suaviza el zoom */
     }
+
+    /* Texto dentro de los nodos */
+    .google-visualization-orgchart-node div {
+        font-size: 11px;   /* prueba 10px–12px */
+        line-height: 1;
+        white-space: normal;
+        word-break: keep-all;   /* 👈 CLAVE */
+        overflow-wrap: normal;  /* 👈 CLAVE */
+    }
+
+
+    .org-node {
+        cursor: pointer;
+        text-align: center;
+    }
+
+    .org-nombre {
+        font-weight: bold;
+        color: #2a6ebb;
+        font-size: 6px;
+        line-height: 1.2;
+
+    }
+
+    .org-puesto {
+        font-size: 5px;          /* 👈 SMALL */
+        color: #555;
+        line-height: 1.1;
+        margin-top: 1px;
+        font-style: italic;     /* opcional */
+        white-space: normal;
+        word-break: keep-all;
+        overflow-wrap: normal;   /* 👈 NO break-word aquí */
+    }
+
+
+
 </style>
 
 <h4 class="mb-4">Organigrama por Departamento</h4>
@@ -347,6 +384,12 @@
                 });
         };
 
+        function normalizarPuesto(puesto) {
+            return puesto
+                .replace(/-/g, '-')   // guion no separable
+                .replace(/\s+/g, ' ');
+        }
+
         /* ============================= */
         /*   ORGANIGRAMA                 */
         /* ============================= */
@@ -360,13 +403,11 @@
                     {
                         v: String(r.id),
                         f: `
-                <div style="font-weight:bold;cursor:pointer;color:#2a6ebb"
-                     onclick="abrirModal('${r.id}')">
-                    ${r.nombre}
-                    <div style="font-size:11px;color:#555;margin-top:2px">
-                        ${r.puesto ?? ''}
-                    </div>
-                </div>`,
+                        <div style="font-weight:bold;cursor:pointer;color:#2a6ebb"
+                             onclick="abrirModal('${r.id}')">
+                            ${r.nombre}
+                            ${r.puesto ? `<div class="org-puesto">${normalizarPuesto(r.puesto)}</div>` : ``}
+                        </div>`,
                         p: { collapsed: r.jefe !== null }
                     },
                     r.jefe
