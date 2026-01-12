@@ -670,6 +670,7 @@ class CapHum extends Model
         $telefono_dos = addslashes($data['telefono_dos'] ?? '');
         $estatus = addslashes($data['estatus'] ?? 'Activo');
         $id_puesto = addslashes($data['id_puesto']);
+        $id_jefe = addslashes($data['id_jefe']);
         $user_name = addslashes($data['usuario']);
         $password = addslashes($data['contrasena']);
 
@@ -685,18 +686,31 @@ class CapHum extends Model
             ('$nombres', '$apellidop', '$apellidom', '$numero_empleado', '$correo', '$telefono_uno', '$telefono_dos', '$estatus', '$user_name', '$password')
         ");
 
+
             // 2️⃣ Obtenemos el ID insertado con queryOne()
             $result = $db->queryOne("SELECT LAST_INSERT_ID() AS id");
 
             $id_persona = isset($result['id']) ? intval($result['id']) : null;
 
-           if($result)
+            // Si no tiene jefe, él mismo será su jefe
+            $id_jefe = isset($data['id_jefe']) && $data['id_jefe'] !== ''
+                ? (int)$data['id_jefe']
+                : $id_persona;
+
+            if ($result)
             {
                 $db->queryOne("
-                   INSERT INTO __SPARTA_SECRET_REDACTED__.asigna_puesto
-                                (id, id_persona, id_puesto, fecha_asignacion, activo)
+                    INSERT INTO __SPARTA_SECRET_REDACTED__.asigna_puesto
+                        (id, id_persona, id_puesto, fecha_asignacion, activo)
                     VALUES
-                    (DEFAULT, $id_persona, $id_puesto, NOW(), 1)
+                        (DEFAULT, $id_persona, $id_puesto, NOW(), 1)
+                ");
+
+                            $db->queryOne("
+                    INSERT INTO __SPARTA_SECRET_REDACTED__.asigna_jefe
+                        (id, id_persona, id_jefe, fecha_inicio, fecha_fin)
+                    VALUES
+                        (DEFAULT, $id_persona, $id_jefe, NOW(), NOW())
                 ");
             }
 
