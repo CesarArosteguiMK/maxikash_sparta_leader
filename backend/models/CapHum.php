@@ -459,7 +459,7 @@ class CapHum extends Model
         INNER JOIN puesto pu 
             ON pu.id = ap.id_puesto
         WHERE
-            pu.es_jefe = 1
+            pu.es_jefe = 1 AND per.estatus = 1
             AND (
                 pu.departamento_id = $id_departamento
                 OR pu.id IN (8, 9)
@@ -473,6 +473,42 @@ class CapHum extends Model
             return self::resultado(true, 'Personas encontradas.', $r);
         } catch (\Exception $e) {
             return self::resultado(false, 'Error al procesar la solicitud.', null, $e->getMessage());
+        }
+    }
+
+    public static function getAusenciaById($idAusencia)
+    {
+        $query = <<<SQL
+        SELECT
+            a.id,
+            a.id_persona,
+            a.id_razon,
+            r.nombre AS razon,
+            a.fecha_inicio,
+            a.fecha_fin,
+            a.descripcion,
+            a.activo
+        FROM ausencia a
+        INNER JOIN razon_ausencia r ON r.id = a.id_razon
+        WHERE a.id = :idAusencia
+        LIMIT 1
+    SQL;
+
+        try {
+            $db = new Database();
+
+            $r = $db->queryOne($query, [
+                'idAusencia' => $idAusencia
+            ]);
+
+            if (!$r) {
+                return self::resultado(false, 'Ausencia no encontrada.', null);
+            }
+
+            return self::resultado(true, 'Ausencia encontrada.', $r);
+
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al obtener la ausencia.', null, $e->getMessage());
         }
     }
 
@@ -832,18 +868,43 @@ class CapHum extends Model
 
     public static function guardarAusencia($data)
     {
-        // 🔹 Escapamos valores
-        $id_persona   = (int) $data['idPersona'];
-        $id_razon     = (int) $data['idRazon'];
+        $db = new Database();
+
+        $id_ausencia  = isset($data['idAusencia']) && $data['idAusencia'] !== ''
+            ? (int)$data['idAusencia']
+            : null;
+
+        $id_persona   = (int)$data['idPersona'];
+        $id_razon     = (int)$data['idRazon'];
         $descripcion  = addslashes($data['descripcion'] ?? '');
         $fecha_inicio = addslashes($data['fechaInicio']);
         $fecha_fin    = addslashes($data['fechaFin']);
         $creado_por   = addslashes($_SESSION['usuario'] ?? 'sistema');
 
         try {
-            $db = new Database();
 
-            // 1️⃣ Insertar ausencia
+            // 🔄 UPDATE
+            if ($id_ausencia) {
+
+                $db->queryOne("
+                UPDATE __SPARTA_SECRET_REDACTED__.ausencia
+                SET
+                    id_razon     = $id_razon,
+                    descripcion  = '$descripcion',
+                    fecha_inicio = '$fecha_inicio',
+                    fecha_fin    = '$fecha_fin'
+                WHERE id = $id_ausencia
+                LIMIT 1
+            ");
+
+                return self::resultado(
+                    true,
+                    'Ausencia actualizada correctamente.',
+                    ['id' => $id_ausencia]
+                );
+            }
+
+            // ➕ INSERT
             $db->queryOne("
             INSERT INTO __SPARTA_SECRET_REDACTED__.ausencia
                 (id_persona, id_razon, descripcion, fecha_inicio, fecha_fin, creado_por, activo)
@@ -851,7 +912,6 @@ class CapHum extends Model
                 ($id_persona, $id_razon, '$descripcion', '$fecha_inicio', '$fecha_fin', '$creado_por', 1)
         ");
 
-            // 2️⃣ Obtener ID insertado
             $result = $db->queryOne("SELECT LAST_INSERT_ID() AS id");
 
             return self::resultado(
@@ -863,12 +923,13 @@ class CapHum extends Model
         } catch (\Exception $e) {
             return self::resultado(
                 false,
-                'Error al registrar ausencia.',
+                'Error al guardar ausencia.',
                 null,
                 $e->getMessage()
             );
         }
     }
+
 
 
     public static function UpdatePersona($data)

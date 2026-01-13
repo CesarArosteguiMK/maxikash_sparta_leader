@@ -243,6 +243,8 @@
 
                 <div class="modal-body">
 
+
+
                     <!-- ================== DATOS DEL GESTOR ================== -->
                     <p id="gestor" class="mb-3"><strong>Gestor:</strong></p>
                     <input type="hidden" id="edit_id">
@@ -251,6 +253,8 @@
 
                     <!-- ================== FORMULARIO AUSENCIA ================== -->
                     <div class="row g-3">
+
+                        <input type="hidden" id="id_ausencia">
 
                         <div class="col-md-4">
                             <label class="form-label"><strong>Razón de ausencia</strong></label>
@@ -277,7 +281,7 @@
                     </div>
 
                     <div class="mt-3">
-                        <button class="btn btn-primary" onclick="guardarAusencia()">
+                        <button class="btn btn-primary"  id="btnGuardarAusencia" onclick="guardarAusencia()">
                             Registrar ausencia
                         </button>
                     </div>
@@ -296,6 +300,7 @@
                                 <th>Fin</th>
                                 <th>Descripción</th>
                                 <th>Activo</th>
+                                <th>Acciones</th>
                             </tr>
                             </thead>
                             <tbody id="tablaAusencias">
@@ -309,6 +314,7 @@
                     </div>
 
                 </div>
+
 
                 <div class="modal-footer">
                     <button class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
