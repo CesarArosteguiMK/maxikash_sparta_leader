@@ -447,10 +447,7 @@ class CapHum extends Controller
                     });
         }
         
-            function registra_ausencia(id) {
-
-                console.log("ID recibido:", id);
-            
+            function registra_ausencia(id) {            
                 if (!id) {
                     Swal.fire("Error", "ID inválido", "error");
                     return;
@@ -479,10 +476,10 @@ class CapHum extends Controller
                     console.log('Persona:', persona);
             
                     // ID oculto
-                    document.getElementById("edit_id").value = persona.id;
+                    document.getElementById("edit_id_ausencia").value = persona.id;
             
                     // Nombre del gestor
-                    document.getElementById("gestor").innerHTML =
+                    document.getElementById("gestor_ausencia").innerHTML =
                         `<strong>Gestor:</strong> ${persona.nombres} ${persona.apellidop} ${persona.apellidom}`;
             
                     // Limpiar formulario
@@ -644,11 +641,28 @@ class CapHum extends Controller
                 });
             }
 
+            function limpiarFormularioAusencia() {
+                document.getElementById("id_ausencia").value = '';
+                document.getElementById("razonAusencia").value = '';
+                document.getElementById("fechaInicio").value = '';
+                document.getElementById("fechaFin").value = '';
+                document.getElementById("descripcionAusencia").value = '';
+            
+                // Texto del botón
+                document.getElementById("btnGuardarAusencia").innerText = "Guardar ausencia";
+            
+                // Texto del gestor (opcional)
+                const gestor = document.getElementById("gestor");
+                if (gestor) {
+                    gestor.innerHTML = "<strong>Gestor:</strong>";
+                }
+            }
+
             
            function guardarAusencia() {
 
                 const idAusencia = document.getElementById("id_ausencia").value;
-                const idPersona   = document.getElementById("edit_id").value;
+                const idPersona   = document.getElementById("edit_id_ausencia").value;
                 const idRazon     = document.getElementById("razonAusencia").value;
                 const fechaInicio = document.getElementById("fechaInicio").value;
                 const fechaFin    = document.getElementById("fechaFin").value;
@@ -688,6 +702,8 @@ class CapHum extends Controller
                     document.getElementById("id_ausencia").value = '';
                     document.getElementById("btnGuardarAusencia").innerText = "Guardar ausencia";
             
+                    // ✅ LIMPIEZA CENTRALIZADA
+                    limpiarFormularioAusencia();
                     // Refrescar tabla
                     cargarAusencias(idPersona);
                 })

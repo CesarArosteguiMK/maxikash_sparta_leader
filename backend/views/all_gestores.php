@@ -246,8 +246,8 @@
 
 
                     <!-- ================== DATOS DEL GESTOR ================== -->
-                    <p id="gestor" class="mb-3"><strong>Gestor:</strong></p>
-                    <input type="hidden" id="edit_id">
+                    <p id="gestor_ausencia" class="mb-3"><strong>Gestor:</strong></p>
+                    <input type="hidden" id="edit_id_ausencia">
 
                     <hr>
 
