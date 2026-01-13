@@ -53,7 +53,7 @@ class CapHum extends Controller
                         <button class="btn btn-sm btn-info me-1" onclick="verArchivo(${p.id})" title="Ver archivo">
                             <i class="fa fa-file"></i>
                         </button>
-                        <button class="btn btn-sm btn-warning me-1" onclick="eliminar(${p.id})" title="Eliminar">
+                        <button class="btn btn-sm btn-warning me-1" onclick="registra_ausencia(${p.id})" title="Ausencias">
                             <i class="fa fa-person-circle-minus"></i>
                         </button>
                         <button class="btn btn-sm btn-danger" onclick="baja_gestor(${p.id})" title="Dar de baja">
@@ -447,7 +447,145 @@ class CapHum extends Controller
                     });
         }
         
-            function confirmarBaja() {
+            function registra_ausencia(id) {
+
+                console.log("ID recibido:", id);
+            
+                if (!id) {
+                    Swal.fire("Error", "ID inválido", "error");
+                    return;
+                }
+            
+                fetch('/CapHum/getDetallesPerfil', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        idPersona: id
+                    })
+                })
+                .then(res => res.json())
+                .then(resp => {
+            
+                    if (!resp.success) {
+                        Swal.fire("Error", resp.mensaje, "error");
+                        return;
+                    }
+            
+                    const persona = resp.datos.persona;
+            
+                    console.log('Persona:', persona);
+            
+                    // ID oculto
+                    document.getElementById("edit_id").value = persona.id;
+            
+                    // Nombre del gestor
+                    document.getElementById("gestor").innerHTML =
+                        `<strong>Gestor:</strong> ${persona.nombres} ${persona.apellidop} ${persona.apellidom}`;
+            
+                    // Limpiar formulario
+                    document.getElementById("razonAusencia").value = "";
+                    document.getElementById("fechaInicio").value = "";
+                    document.getElementById("fechaFin").value = "";
+                    document.getElementById("descripcionAusencia").value = "";
+            
+                    // Cargar catálogo y tabla
+                    cargarRazones();
+                    cargarAusencias(persona.id);
+            
+                    // Mostrar modal correcto
+                    $("#modalAuscencia").modal("show");
+                })
+                .catch(err => {
+                    console.error('FETCH ERROR:', err);
+                    Swal.fire("Error", "No se pudo cargar la información", "error");
+                });
+            }
+            
+            function cargarAusencias(idPersona) {
+            fetch('/CapHum/getAusenciasPersona', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify({
+                    idPersona: idPersona
+                })
+            })
+            .then(res => res.json())
+            .then(resp => {
+        
+                if (!resp.success) {
+                    Swal.fire("Error", resp.mensaje, "error");
+                    return;
+                }
+        
+                const tbody = document.getElementById("tablaAusencias");
+                tbody.innerHTML = "";
+        
+                const data = resp.datos;
+        
+                if (!Array.isArray(data) || data.length === 0) {
+                    tbody.innerHTML = `
+                        <tr>
+                            <td colspan="5" class="text-center text-muted">
+                                Sin registros
+                            </td>
+                        </tr>`;
+                    return;
+                }
+        
+                data.forEach(a => {
+                    tbody.innerHTML += `
+                        <tr>
+                            <td>${a.razon}</td>
+                            <td>${a.fecha_inicio}</td>
+                            <td>${a.fecha_fin}</td>
+                            <td>${a.descripcion ?? ''}</td>
+                            <td>${a.activo == 1 ? 'Sí' : 'No'}</td>
+                        </tr>
+                    `;
+                });
+            })
+            .catch(err => {
+                console.error("ERROR cargarAusencias:", err);
+            });
+        }
+        
+           function cargarRazones() {
+
+                fetch('/CapHum/getRazonesAusencia')
+                    .then(res => res.json())
+                    .then(resp => {
+            
+                        if (!resp.success) {
+                            Swal.fire("Error", resp.mensaje, "error");
+                            return;
+                        }
+            
+                        if (!Array.isArray(resp.datos)) {
+                            console.error("resp.datos no es array", resp);
+                            return;
+                        }
+            
+                        const select = document.getElementById('razonAusencia');
+                        select.innerHTML = '<option value="">-- Selecciona --</option>';
+            
+                        resp.datos.forEach(r => {
+                            select.innerHTML += `
+                                <option value="${r.id}">${r.nombre}</option>
+                            `;
+                        });
+                    })
+                    .catch(err => {
+                        console.error("ERROR cargarRazones:", err);
+                    });
+            }
+            
+           function confirmarBaja() {
                 const idGestor = document.getElementById("edit_id").value;
                 const motivoSelect = document.getElementById("motivoBaja").value;
                 const descripcion = document.getElementById("motivoBajaDescripcion").value;
@@ -532,6 +670,64 @@ class CapHum extends Controller
                     }
                 });
             }
+            
+           function guardarAusencia() {
+            const idPersona = document.getElementById("edit_id").value;
+            const idRazon   = document.getElementById("razonAusencia").value;
+            const fechaIni  = document.getElementById("fechaInicio").value;
+            const fechaFin  = document.getElementById("fechaFin").value;
+            const desc      = document.getElementById("descripcionAusencia").value;
+        
+            // Validaciones básicas
+            if (!idPersona || !idRazon || !fechaIni || !fechaFin) {
+                Swal.fire("Error", "Todos los campos son obligatorios", "error");
+                return;
+            }
+        
+            if (fechaFin < fechaIni) {
+                Swal.fire("Error", "La fecha fin no puede ser menor a la fecha inicio", "error");
+                return;
+            }
+        
+            fetch('/CapHum/guardarAusencia', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify({
+                    idPersona: idPersona,
+                    idRazon: idRazon,
+                    fechaInicio: fechaIni,
+                    fechaFin: fechaFin,
+                    descripcion: desc
+                })
+            })
+            .then(res => res.json())
+            .then(resp => {
+        
+                if (!resp.success) {
+                    Swal.fire("Error", resp.mensaje, "error");
+                    return;
+                }
+        
+                Swal.fire("Correcto", "Ausencia registrada", "success");
+        
+                // Refrescar tabla
+                cargarAusencias(idPersona);
+        
+                // Limpiar formulario
+                document.getElementById("razonAusencia").value = "";
+                document.getElementById("fechaInicio").value = "";
+                document.getElementById("fechaFin").value = "";
+                document.getElementById("descripcionAusencia").value = "";
+            })
+            .catch(err => {
+                console.error("ERROR guardarAusencia:", err);
+                Swal.fire("Error", "No se pudo guardar la ausencia", "error");
+            });
+        }
+
 
             
             let currentPersonaId = null;
@@ -895,6 +1091,23 @@ class CapHum extends Controller
         ]);
     }
 
+    public function getAusenciasPersona()
+    {
+        $input = json_decode(file_get_contents("php://input"), true);
+        $idPersona = $input['idPersona'] ?? null;
+
+        if (empty($idPersona)) {
+            self::respuestaJSON([
+                'success' => false,
+                'mensaje' => 'Id de persona requerido'
+            ]);
+            return;
+        }
+
+        $resultado = CapHumDAO::getAusenciasPersona($idPersona);
+        self::respuestaJSON($resultado);
+    }
+
     public function getDetalles()
     {
         $input = json_decode(file_get_contents("php://input"), true);
@@ -997,6 +1210,38 @@ class CapHum extends Controller
 
         self::respuestaJSON($resultado);
     }
+    public function getRazonesAusencia()
+    {
+        // El DAO ya regresa success, mensaje y datos
+        $resultado = CapHumDAO::getRazonesAusencia();
+
+        self::respuestaJSON($resultado);
+    }
+    public function guardarAusencia()
+    {
+        // 🔹 Recibimos JSON
+        $data = json_decode(file_get_contents("php://input"), true);
+
+        // 🔹 Validaciones básicas
+        if (
+            empty($data['idPersona']) ||
+            empty($data['idRazon']) ||
+            empty($data['fechaInicio']) ||
+            empty($data['fechaFin'])
+        ) {
+            self::respuestaJSON([
+                'success' => false,
+                'mensaje' => 'Datos incompletos'
+            ]);
+            return;
+        }
+
+        // 🔹 Llamamos al DAO con el array $data
+        $resultado = CapHumDAO::guardarAusencia($data);
+
+        // 🔹 Enviamos respuesta JSON
+        self::respuestaJSON($resultado);
+    }
 
     public function getJefeDirecto()
     {
@@ -1015,7 +1260,6 @@ class CapHum extends Controller
 
         self::respuestaJSON($detalles);
     }
-
     public function updateGestorF()
     {
         session_start(); // 🔴 IMPORTANTE
@@ -1063,7 +1307,6 @@ class CapHum extends Controller
         self::set("Departamentos", $getDepartamentos);
         self::render("organigrama");
     }
-
     public function getPersonasOrganigrama()
     {
         // Obtener parámetro enviado por POST (o GET según tu setup)
@@ -1074,7 +1317,6 @@ class CapHum extends Controller
 
         self::respuestaJSON($puestos);
     }
-
     public function nivelJerarquicoColaborador($persona_id)
     {
         // 1️⃣ Obtener organigrama desde la DAO
@@ -1108,7 +1350,6 @@ class CapHum extends Controller
         ]);
         exit;
     }
-
     private function recorrerArbol($nodo, &$rows, $jefeId = null) {
         $rows[] = [
             "id"     => (string)$nodo["id"],
@@ -1123,7 +1364,6 @@ class CapHum extends Controller
             }
         }
     }
-
     public static function getGestoresPorPuesto()
     {
         $data = json_decode(file_get_contents("php://input"), true);
@@ -1148,7 +1388,6 @@ class CapHum extends Controller
             'datos'   => $resp['datos']
         ]);
     }
-
     public function getInsertarGestor()
     {
         // Obtener el JSON enviado desde fetch
@@ -1270,8 +1509,6 @@ class CapHum extends Controller
             ]);
         }
     }
-
-
     public function getPuestosDepartamento()
     {
         $input = json_decode(file_get_contents("php://input"), true);

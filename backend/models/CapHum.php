@@ -366,6 +366,78 @@ class CapHum extends Model
             return self::resultado(false, 'Error al procesar la solicitud.', null, $e->getMessage());
         }
     }
+
+    public static function getRazonesAusencia()
+    {
+        // Query base
+        $query = <<<SQL
+        SELECT
+            id,
+            clave,
+            nombre,
+            descripcion
+        FROM razon_ausencia
+        WHERE activo = 1
+        ORDER BY nombre
+    SQL;
+
+        $params = [];
+
+        try {
+            $db = new Database();
+
+            // Ejecutar query (no requiere parámetros)
+            $r = $db->queryAll($query, $params);
+
+            return self::resultado(true, 'Razones de ausencia encontradas.', $r);
+
+        } catch (\Exception $e) {
+            return self::resultado(
+                false,
+                'Error al obtener razones de ausencia.',
+                null,
+                $e->getMessage()
+            );
+        }
+    }
+
+    public static function getAusenciasPersona($idPersona)
+    {
+        $query = <<<SQL
+        SELECT
+            a.id,
+            r.nombre AS razon,
+            a.fecha_inicio,
+            a.fecha_fin,
+            a.descripcion,
+            a.activo
+        FROM ausencia a
+        INNER JOIN razon_ausencia r ON r.id = a.id_razon
+        WHERE a.id_persona = :idPersona
+        ORDER BY a.fecha_inicio DESC
+    SQL;
+
+        $params = ['idPersona' => $idPersona];
+
+        try {
+            $db = new Database();
+            $r = $db->queryAll($query, $params);
+
+            return self::resultado(true, 'Ausencias encontradas.', $r);
+
+        } catch (\Exception $e) {
+            return self::resultado(
+                false,
+                'Error al obtener ausencias.',
+                null,
+                $e->getMessage()
+            );
+        }
+    }
+
+
+
+
     public static function getConsultaJefe($id_departamento)
     {
         if(1 == 'admin')
@@ -378,16 +450,21 @@ class CapHum extends Model
         }
         $query = <<<SQL
           SELECT
-        per.id,
-        CONCAT(per.nombres, ' ', per.apellidop, ' ', per.apellidom) AS nombre_completo,
-        pu.nombre AS nombre_puesto
+            per.id,
+            CONCAT(per.nombres, ' ', per.apellidop, ' ', per.apellidom) AS nombre_completo,
+            pu.nombre AS nombre_puesto
         FROM asigna_puesto ap
         INNER JOIN persona per 
             ON per.id = ap.id_persona
         INNER JOIN puesto pu 
             ON pu.id = ap.id_puesto
-        WHERE pu.departamento_id = $id_departamento
-          AND pu.es_jefe = 1 ORDER BY per.nombres ASC
+        WHERE
+            pu.es_jefe = 1
+            AND (
+                pu.departamento_id = $id_departamento
+                OR pu.id IN (8, 9)
+            )
+        ORDER BY per.nombres ASC;
         SQL;
 
         try {
@@ -752,6 +829,47 @@ class CapHum extends Model
             return self::resultado(false, 'Error al insertar persona.', null, $e->getMessage());
         }
     }
+
+    public static function guardarAusencia($data)
+    {
+        // 🔹 Escapamos valores
+        $id_persona   = (int) $data['idPersona'];
+        $id_razon     = (int) $data['idRazon'];
+        $descripcion  = addslashes($data['descripcion'] ?? '');
+        $fecha_inicio = addslashes($data['fechaInicio']);
+        $fecha_fin    = addslashes($data['fechaFin']);
+        $creado_por   = addslashes($_SESSION['usuario'] ?? 'sistema');
+
+        try {
+            $db = new Database();
+
+            // 1️⃣ Insertar ausencia
+            $db->queryOne("
+            INSERT INTO __SPARTA_SECRET_REDACTED__.ausencia
+                (id_persona, id_razon, descripcion, fecha_inicio, fecha_fin, creado_por, activo)
+            VALUES
+                ($id_persona, $id_razon, '$descripcion', '$fecha_inicio', '$fecha_fin', '$creado_por', 1)
+        ");
+
+            // 2️⃣ Obtener ID insertado
+            $result = $db->queryOne("SELECT LAST_INSERT_ID() AS id");
+
+            return self::resultado(
+                true,
+                'Ausencia registrada correctamente.',
+                $result
+            );
+
+        } catch (\Exception $e) {
+            return self::resultado(
+                false,
+                'Error al registrar ausencia.',
+                null,
+                $e->getMessage()
+            );
+        }
+    }
+
 
     public static function UpdatePersona($data)
     {

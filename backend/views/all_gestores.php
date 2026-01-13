@@ -231,6 +231,93 @@
             </div>
         </div>
     </div>
+
+    <div class="modal fade" id="modalAuscencia" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content">
+
+                <div class="modal-header">
+                    <h5 class="modal-title">Registro de Ausencias</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+
+                <div class="modal-body">
+
+                    <!-- ================== DATOS DEL GESTOR ================== -->
+                    <p id="gestor" class="mb-3"><strong>Gestor:</strong></p>
+                    <input type="hidden" id="edit_id">
+
+                    <hr>
+
+                    <!-- ================== FORMULARIO AUSENCIA ================== -->
+                    <div class="row g-3">
+
+                        <div class="col-md-4">
+                            <label class="form-label"><strong>Razón de ausencia</strong></label>
+                            <select class="form-select" id="razonAusencia">
+                                <option value="">-- Selecciona --</option>
+                            </select>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label"><strong>Fecha inicio</strong></label>
+                            <input type="datetime-local" class="form-control" id="fechaInicio">
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label"><strong>Fecha fin</strong></label>
+                            <input type="datetime-local" class="form-control" id="fechaFin">
+                        </div>
+
+                        <div class="col-md-12">
+                            <label class="form-label"><strong>Descripción</strong></label>
+                            <textarea class="form-control" id="descripcionAusencia" rows="2"></textarea>
+                        </div>
+
+                    </div>
+
+                    <div class="mt-3">
+                        <button class="btn btn-primary" onclick="guardarAusencia()">
+                            Registrar ausencia
+                        </button>
+                    </div>
+
+                    <hr>
+
+                    <!-- ================== TABLA DE AUSENCIAS ================== -->
+                    <h6 class="mb-2"><strong>Historial de ausencias</strong></h6>
+
+                    <div class="table-responsive">
+                        <table class="table table-sm table-bordered table-striped">
+                            <thead class="table-dark">
+                            <tr>
+                                <th>Razón</th>
+                                <th>Inicio</th>
+                                <th>Fin</th>
+                                <th>Descripción</th>
+                                <th>Activo</th>
+                            </tr>
+                            </thead>
+                            <tbody id="tablaAusencias">
+                            <tr>
+                                <td colspan="5" class="text-center text-muted">
+                                    Sin registros
+                                </td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                </div>
+
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
     <!-- =======================
         OFFCANVAS - EDITAR
    ======================== -->
