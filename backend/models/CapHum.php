@@ -18,7 +18,7 @@ class CapHum extends Model
         // =========================
         // USUARIOS ADMIN / ESPECIALES
         // =========================
-        if (in_array($id_gestor_sesion, [1, 2, 3, 396])) {
+        if (in_array($id_gestor_sesion, [1, 2, 3, 396, 797 ])) {
 
             $query = <<<SQL
             SELECT
