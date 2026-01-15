@@ -614,15 +614,7 @@ if ($cuotasContratadas > 0) {
 
             <div class="d-flex gap-2">
                 <!-- BOTÓN CONDONAR -->
-                <button type="button"
-                        class="btn btn-condonar position-relative"
-                        data-bs-toggle="modal"
-                        data-bs-target="#modalCondonar"
-                        title="Condonar gastos de cobranza">
-
-                    <i class="fa fa-hand-holding-usd"></i>
-
-                </button>
+               
                 <!-- BOTÓN NOTAS (ICONO) -->
                 <button type="button"
                         class="btn btn-notas position-relative"
@@ -634,8 +626,8 @@ if ($cuotasContratadas > 0) {
                     <!-- Badge contador -->
                     <span id="badgeNotas"
                           class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
-        1
-    </span>
+                        <?= htmlspecialchars($notas['datos'][0]['num'] ?? '') ?>
+                    </span>
                 </button>
                 
 
@@ -1007,6 +999,8 @@ if ($cuotasContratadas > 0) {
             <!-- Body -->
             <div class="modal-body">
 
+
+
                 <!-- Nueva nota -->
                 <div class="mb-3">
                     <label class="form-label fw-semibold">Agregar nota</label>
@@ -1014,7 +1008,19 @@ if ($cuotasContratadas > 0) {
                               class="form-control"
                               rows="3"
                               placeholder="Escribe aquí cualquier nota, acuerdo, promesa, comentario del cliente..."></textarea>
+
+
                 </div>
+
+                <div class="mb-3">
+                <input
+                        type="hidden"
+                        id="idCredito_note"
+                        name="idCredito_note"
+                        value="<?= htmlspecialchars($dataEstadoCuenta['idCredito'] ?? '') ?>"
+                </div>
+
+
 
                 <div class="text-end mb-4">
                     <button class="btn btn-warning" onclick="agregarNota()">
@@ -1177,21 +1183,30 @@ if ($cuotasContratadas > 0) {
 <script>
 
     function actualizarContadorNotas() {
-        const total = document.querySelectorAll('#contenedorNotas .nota-card').length;
-        const badge = document.getElementById('badgeNotas');
 
-        if (total > 0) {
-            badge.textContent = total;
-            badge.style.display = 'inline-block';
-        } else {
-            badge.style.display = 'none';
+        const badge = document.getElementById('badgeNotas');
+        if (!badge) return;
+
+        const cards = document.querySelectorAll('#contenedorNotas .nota-card');
+
+        // Solo recalcular si el usuario YA interactuó
+        if (!document.getElementById('modalNotas')?.classList.contains('show')) {
+            return;
         }
+
+        const total = cards.length;
+
+        badge.textContent = total;
+        badge.style.display = total > 0 ? 'inline-block' : 'none';
     }
+
 
     function agregarNota() {
 
         const notaInput = document.getElementById('notaTexto');
         const nota = notaInput.value.trim();
+        const id_credito = document.getElementById('idCredito_note')?.value;
+
 
         if (!nota) {
             Swal.fire("Atención", "Escribe una nota antes de guardar", "warning");
@@ -1205,7 +1220,7 @@ if ($cuotasContratadas > 0) {
             },
             body: JSON.stringify({
                 nota: nota,
-                id_credito: 1600 // 🔴 DEBE EXISTIR
+                id_credito: id_credito // 🔴 DEBE EXISTIR
             })
         })
             .then(response => {
@@ -1265,10 +1280,6 @@ if ($cuotasContratadas > 0) {
             });
     }
 
-
-
-    // Inicializar contador al abrir la vista
-    document.addEventListener('DOMContentLoaded', actualizarContadorNotas);
 
 
     function actualizarResumenCondonacion() {

@@ -108,6 +108,25 @@ class Empresa extends Model
         }
     }
 
+    public static function getNotasNum($id_credito)
+    {
+        $query = <<<SQL
+               SELECT
+            count(id_nota) as num
+        FROM __SPARTA_SECRET_REDACTED__.notas_credito
+        WHERE id_credito = $id_credito
+        SQL;
+
+        try {
+            $db = new Database();
+            $r = $db->queryAll($query);
+            return self::resultado(true, 'numero de notas encontrado.', $r);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al procesar la solicitud.', null, $e->getMessage());
+        }
+    }
+
+
 
 
     public static function getConsultaPuestos($departamento)

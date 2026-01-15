@@ -150,12 +150,13 @@ class EstadoCuenta extends Model
         exit; // <- Muy importante: evita que se imprima algo extra
     }
 
-    public static function insertPersona($data)
+    public static function insertNotas($data)
     {
         // 🔹 Escapamos valores
         $id_credito = addslashes($data['id_credito']);
         $nota = addslashes($data['nota']);
         $usuario = addslashes($data['usuario']);
+        $usuario_id = addslashes($data['usuario_id']);
 
 
         try {
@@ -164,8 +165,8 @@ class EstadoCuenta extends Model
             // 1️⃣ Ejecutamos INSERT con queryOne() aunque no devuelve filas
             $db->queryOne("
             INSERT INTO __SPARTA_SECRET_REDACTED__.notas_credito
-            (id_nota, id_credito, nota, usuario, created_at)
-            VALUES(DEFAULT, $id_credito, '$nota', '$usuario', DEFAULT)
+            (id_nota, id_credito, nota, id_usuario, usuario, created_at)
+            VALUES(DEFAULT, $id_credito, '$nota', '$usuario_id','$usuario', DEFAULT)
             ");
 
 
@@ -182,8 +183,6 @@ class EstadoCuenta extends Model
 
     public static function getNotasCredito($idCredito)
     {
-
-
 
         $query = <<<SQL
         SELECT

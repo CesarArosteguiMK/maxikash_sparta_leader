@@ -170,14 +170,18 @@ JS;
                 $resultado = $this->api___SPARTA_SECRET_REDACTED__($idCreditoLista, $fechaHoy);
                 $respDAO = EmpresasDAO::getConsultaDireccionEstadoCuenta($idCreditoLista);
                 $referencias = EmpresasDAO::getConsultaReferenciasEstadoCuenta($idCreditoLista);
+                $notas = EmpresasDAO::getNotasNum($idCreditoLista);
             }
             else
             {
                 $resultado =  $this->api___SPARTA_SECRET_REDACTED__($idCredito, $fechaHoy);
                 $respDAO = EmpresasDAO::getConsultaDireccionEstadoCuenta($idCredito);
                 $referencias = EmpresasDAO::getConsultaReferenciasEstadoCuenta($idCredito);
+                $notas = EmpresasDAO::getNotasNum($idCredito);
             }
 
+
+            var_dump($notas);
 
 
 
@@ -347,7 +351,7 @@ JS;
                 self::set("dataOtrosDatos", $otrosDatos);
                 self::set("direcciones", $respDAO);
                 self::set("referencias", $referencias);
-
+                self::set("notas", $notas);
 
 
                 self::set("titulo", "Resultado de la solicitud");
@@ -734,10 +738,11 @@ JS;
         $data = [
             'id_credito' => (int)($input['id_credito'] ?? 0),
             'nota'       => trim($input['nota'] ?? ''),
-            'usuario'    => $_SESSION['usuario'] ?? 'Sistema'
+            'usuario'    => $_SESSION['usuario'] ?? 'Sistema',
+            'usuario_id'    => $_SESSION['usuario_id'] ?? '1'
         ];
 
-        $resultado = EstadoCuentaDAO::insertPersona($data);
+        $resultado = EstadoCuentaDAO::insertNotas($data);
 
         // 👇 NORMALIZAMOS RESPUESTA PARA JS
         echo json_encode([

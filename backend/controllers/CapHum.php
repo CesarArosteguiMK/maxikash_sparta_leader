@@ -1202,7 +1202,6 @@ class CapHum extends Controller
         self::respuestaJSON($resultado);
     }
 
-
     public function getDetalles()
     {
         $input = json_decode(file_get_contents("php://input"), true);
@@ -1238,7 +1237,6 @@ class CapHum extends Controller
 
         self::respuestaJSON($detalles);
     }
-
     public function getDepartamento()
     {
         $input = json_decode(file_get_contents("php://input"), true);
@@ -1249,7 +1247,6 @@ class CapHum extends Controller
             CapHumDAO::getComboDepartamentos($id)
         );
     }
-
     public function PerfilCheckBoxEstado()
     {
         $input = json_decode(file_get_contents("php://input"), true);
@@ -1286,7 +1283,6 @@ class CapHum extends Controller
             ]);
         }
     }
-
     public function getPuestos()
     {
         $input = json_decode(file_get_contents("php://input"), true);
