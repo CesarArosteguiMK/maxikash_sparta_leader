@@ -284,6 +284,130 @@ if ($cuotasContratadas > 0) {
     }
 
 
+    /* ==========================
+   NOTAS - ESTILO POST-IT
+   ========================== */
+
+    .nota-card {
+        background: #fff9db;
+        border-left: 6px solid #f0ad4e;
+        border-radius: 10px;
+        padding: 14px 16px;
+        box-shadow: 0 6px 14px rgba(0,0,0,.12);
+        position: relative;
+        transition: transform .2s ease, box-shadow .2s ease;
+    }
+
+    .nota-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 12px 28px rgba(0,0,0,.2);
+    }
+
+    .nota-fecha {
+        font-size: .7rem;
+        color: #856404;
+        margin-bottom: 6px;
+    }
+
+    .nota-texto {
+        font-size: .85rem;
+        color: #212529;
+        margin-bottom: 10px;
+        white-space: pre-wrap;
+    }
+
+    .nota-autor {
+        font-size: .7rem;
+        color: #6c757d;
+        text-align: right;
+    }
+
+    /* ==========================
+   BOTÓN ICONO NOTAS
+   ========================== */
+
+    .btn-notas {
+        width: 42px;
+        height: 42px;
+        border-radius: 50%;
+        background: #fff3cd;
+        border: 1px solid #ffecb5;
+        color: #f0ad4e;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 4px 10px rgba(240,173,78,.35);
+        transition: all .25s ease;
+    }
+
+    .btn-notas i {
+        font-size: 1.1rem;
+    }
+
+    .btn-notas:hover {
+        background: #ffe69c;
+        color: #d39e00;
+        transform: translateY(-2px);
+        box-shadow: 0 8px 18px rgba(240,173,78,.55);
+    }
+
+    /* Badge notificaciones */
+    .btn-notas .badge {
+        font-size: .6rem;
+        padding: .35em .45em;
+    }
+
+    /* ==========================
+   BOTÓN ICONO CONDONAR
+   ========================== */
+    .btn-condonar {
+        width: 42px;
+        height: 42px;
+        border-radius: 50%;
+        background: #e6f4ea;
+        border: 1px solid #b7dfc3;
+        color: #28a745;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 4px 10px rgba(40,167,69,.35);
+        transition: all .25s ease;
+    }
+
+    .btn-condonar i {
+        font-size: 1.1rem;
+    }
+
+    .btn-condonar:hover {
+        background: #c8ead3;
+        color: #1e7e34;
+        transform: translateY(-2px);
+        box-shadow: 0 8px 18px rgba(40,167,69,.55);
+    }
+
+    /* Billete volando */
+    .billete {
+        position: fixed;
+        font-size: 1.5rem;
+        animation: volarBillete 1s ease-out forwards;
+        pointer-events: none;
+        z-index: 9999;
+    }
+
+    @keyframes volarBillete {
+        0% {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+        }
+        100% {
+            opacity: 0;
+            transform: translateY(-120px) scale(.4);
+        }
+    }
+
+
+
+
 
 
 </style>
@@ -489,8 +613,31 @@ if ($cuotasContratadas > 0) {
             <h5 class="mb-0">Resumen general de pagos del cliente</h5>
 
             <div class="d-flex gap-2">
-                <button type="button" class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalCallCenter"><i class="fa fa-headset me-1"></i>Call Center</button>
+                <!-- BOTÓN CONDONAR -->
+                <button type="button"
+                        class="btn btn-condonar position-relative"
+                        data-bs-toggle="modal"
+                        data-bs-target="#modalCondonar"
+                        title="Condonar gastos de cobranza">
 
+                    <i class="fa fa-hand-holding-usd"></i>
+
+                </button>
+                <!-- BOTÓN NOTAS (ICONO) -->
+                <button type="button"
+                        class="btn btn-notas position-relative"
+                        title="Notas del cliente"
+                        onclick="consultaNotas(<?= htmlspecialchars($dataEstadoCuenta["idCredito"] ?? '') ?>)">
+
+                    <i class="fa fa-sticky-note"></i>
+
+                    <!-- Badge contador -->
+                    <span id="badgeNotas"
+                          class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+        1
+    </span>
+                </button>
+                
 
                 <a href="/estadocuenta/consulta" class="btn btn-outline-secondary d-flex align-items-center gap-1">
                     <i class="fa fa-search"></i>
@@ -745,6 +892,171 @@ if ($cuotasContratadas > 0) {
 
 </div>
 
+<div class="modal fade" id="modalCondonar" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+
+            <!-- Header -->
+            <div class="modal-header bg-success bg-opacity-10">
+                <h5 class="modal-title">
+                    <i class="fa fa-hand-holding-usd text-success me-2"></i>
+                    Condonar gastos de cobranza
+                </h5>
+                <button class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+
+            <!-- Body -->
+            <div class="modal-body">
+
+                <!-- Resumen -->
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <div class="alert alert-success">
+                            <strong>Seleccionados:</strong>
+                            <span id="countCondonados">0</span>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="alert alert-warning">
+                            <strong>Monto a condonar:</strong>
+                            $<span id="montoCondonar">0.00</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tabla -->
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead>
+                        <tr>
+                            <th></th>
+                            <th>Semana</th>
+                            <th>Periodo</th>
+                            <th>Monto</th>
+                        </tr>
+                        </thead>
+                        <tbody id="tablaGastos">
+
+                        <!-- Ejemplo -->
+                        <tr>
+                            <td>
+                                <input type="checkbox"
+                                       class="form-check-input chk-condona"
+                                       data-monto="150.00">
+                            </td>
+                            <td>Semana 27-2025</td>
+                            <td>01/07/2025 - 07/07/2025</td>
+                            <td>$150.00</td>
+                        </tr>
+
+                        <tr>
+                            <td>
+                                <input type="checkbox"
+                                       class="form-check-input chk-condona"
+                                       data-monto="200.00">
+                            </td>
+                            <td>Semana 28-2025</td>
+                            <td>08/07/2025 - 14/07/2025</td>
+                            <td>$200.00</td>
+                        </tr>
+
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Descripción obligatoria -->
+                <div class="mt-3">
+                    <label class="form-label fw-semibold">
+                        Motivo de la condonación <span class="text-danger">*</span>
+                    </label>
+                    <textarea id="descripcionCondonacion"
+                              class="form-control"
+                              rows="3"
+                              placeholder="Describe el motivo de la condonación..."
+                              required></textarea>
+                </div>
+
+            </div>
+
+            <!-- Footer -->
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button class="btn btn-success" onclick="confirmarCondonacion()">
+                    <i class="fa fa-check me-1"></i>Condonar
+                </button>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+
+<div class="modal fade" id="modalNotas" tabindex="-1" aria-labelledby="modalNotasLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+
+            <!-- Header -->
+            <div class="modal-header bg-warning bg-opacity-10">
+                <h5 class="modal-title" id="modalNotasLabel">
+                    <i class="fa fa-sticky-note text-warning me-2"></i>
+                    Notas del Cliente
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+
+            <!-- Body -->
+            <div class="modal-body">
+
+                <!-- Nueva nota -->
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Agregar nota</label>
+                    <textarea id="notaTexto"
+                              class="form-control"
+                              rows="3"
+                              placeholder="Escribe aquí cualquier nota, acuerdo, promesa, comentario del cliente..."></textarea>
+                </div>
+
+                <div class="text-end mb-4">
+                    <button class="btn btn-warning" onclick="agregarNota()">
+                        <i class="fa fa-plus me-1"></i>Agregar nota
+                    </button>
+                </div>
+
+                <hr>
+
+                <!-- Listado de notas -->
+                <div id="contenedorNotas" class="row g-3">
+
+                    <!-- Nota ejemplo -->
+                    <div class="col-md-6">
+                        <div class="nota-card">
+                            <div class="nota-fecha">
+                                <i class="fa fa-clock"></i> 13/01/2026 10:32
+                            </div>
+                            <p class="nota-texto">
+                                Cliente comenta que pagará el viernes por la tarde.
+                            </p>
+                            <div class="nota-autor">
+                                <i class="fa fa-user"></i> Sistema
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+            </div>
+
+            <!-- Footer -->
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    Cerrar
+                </button>
+            </div>
+
+        </div>
+    </div>
+</div>
+
 <div class="modal fade" id="modalCallCenter" tabindex="-1" aria-labelledby="modalCallCenterLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
@@ -862,5 +1174,242 @@ if ($cuotasContratadas > 0) {
     </div>
 </div>
 
+<script>
+
+    function actualizarContadorNotas() {
+        const total = document.querySelectorAll('#contenedorNotas .nota-card').length;
+        const badge = document.getElementById('badgeNotas');
+
+        if (total > 0) {
+            badge.textContent = total;
+            badge.style.display = 'inline-block';
+        } else {
+            badge.style.display = 'none';
+        }
+    }
+
+    function agregarNota() {
+
+        const notaInput = document.getElementById('notaTexto');
+        const nota = notaInput.value.trim();
+
+        if (!nota) {
+            Swal.fire("Atención", "Escribe una nota antes de guardar", "warning");
+            return;
+        }
+
+        fetch('/EstadoCuenta/AddNote', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                nota: nota,
+                id_credito: 1600 // 🔴 DEBE EXISTIR
+            })
+        })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Error HTTP ' + response.status);
+                }
+                return response.json();
+            })
+            .then(data => {
+
+                if (!data.success) {
+                    Swal.fire("Error", data.mensaje, "error");
+                    return;
+                }
+
+                // 👉 Insertar nota visualmente
+                const contenedor = document.getElementById('contenedorNotas');
+                const fecha = new Date().toLocaleString('es-MX');
+                const usuarioNota = data.data?.usuario ?? 'Operador';
+
+                const col = document.createElement('div');
+                col.className = 'col-md-6';
+
+                col.innerHTML = `
+            <div class="nota-card animate__animated animate__fadeInUp">
+                <div class="nota-fecha">
+                    <i class="fa fa-clock"></i> ${fecha}
+                </div>
+                <p class="nota-texto">${nota}</p>
+                <div class="nota-autor">
+                    <i class="fa fa-user"></i> ${usuarioNota ?? 'Operador'}
+                </div>
+            </div>
+        `;
+
+                contenedor.prepend(col);
+
+                // Limpiar input
+                notaInput.value = '';
+
+                // Actualizar contador si existe
+                if (typeof actualizarContadorNotas === 'function') {
+                    actualizarContadorNotas();
+                }
+
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Nota guardada',
+                    timer: 1200,
+                    showConfirmButton: false
+                });
+
+            })
+            .catch(error => {
+                console.error(error);
+                Swal.fire("Error", "Error de conexión con el servidor", "error");
+            });
+    }
+
+
+
+    // Inicializar contador al abrir la vista
+    document.addEventListener('DOMContentLoaded', actualizarContadorNotas);
+
+
+    function actualizarResumenCondonacion() {
+        let total = 0;
+        let count = 0;
+
+        document.querySelectorAll('.chk-condona:checked').forEach(chk => {
+            total += parseFloat(chk.dataset.monto);
+            count++;
+        });
+
+        document.getElementById('countCondonados').textContent = count;
+        document.getElementById('montoCondonar').textContent = total.toFixed(2);
+    }
+
+    function lanzarBillete(x, y) {
+        const b = document.createElement('div');
+        b.className = 'billete';
+        b.innerHTML = '💸';
+        b.style.left = x + 'px';
+        b.style.top = y + 'px';
+        document.body.appendChild(b);
+
+        setTimeout(() => b.remove(), 1000);
+    }
+
+    document.addEventListener('change', function (e) {
+        if (e.target.classList.contains('chk-condona')) {
+            actualizarResumenCondonacion();
+
+            if (e.target.checked) {
+                const rect = e.target.getBoundingClientRect();
+                lanzarBillete(rect.left, rect.top);
+            }
+        }
+    });
+
+    function confirmarCondonacion() {
+        const descripcion = document.getElementById('descripcionCondonacion').value.trim();
+        const seleccionados = document.querySelectorAll('.chk-condona:checked').length;
+
+        if (!seleccionados) {
+            alert('Selecciona al menos un gasto a condonar');
+            return;
+        }
+
+        if (!descripcion) {
+            alert('La descripción es obligatoria');
+            return;
+        }
+
+        alert('Condonación lista para enviarse al backend 😎');
+    }
+
+    function ver_gastos() {
+
+        alert('Condonación lista para enviarse al backend 😎');
+    }
+
+    function consultaNotas(idCredito) {
+
+        if (!idCredito) {
+            Swal.fire("Error", "Id de crédito inválido", "error");
+            return;
+        }
+
+        const contenedor = document.getElementById('contenedorNotas');
+        contenedor.innerHTML = `
+        <div class="col-12 text-center text-muted">
+            Cargando notas...
+        </div>
+    `;
+
+        fetch('/EstadoCuenta/getNotasCredito', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify({
+                idCredito: idCredito
+            })
+        })
+            .then(res => res.json())
+            .then(resp => {
+
+                if (!resp.success) {
+                    Swal.fire("Error", resp.mensaje, "error");
+                    contenedor.innerHTML = '';
+                    return;
+                }
+
+                const notas = resp.datos ?? resp.data ?? [];
+
+                contenedor.innerHTML = '';
+
+                if (!Array.isArray(notas) || notas.length === 0) {
+                    contenedor.innerHTML = `
+                <div class="col-12 text-center text-muted">
+                    Sin notas registradas
+                </div>
+            `;
+                    return;
+                }
+
+                notas.forEach(n => {
+
+                    contenedor.innerHTML += `
+                <div class="col-md-6">
+                    <div class="nota-card animate__animated animate__fadeInUp">
+                        <div class="nota-fecha">
+                            <i class="fa fa-clock"></i> ${n.created_at}
+                        </div>
+                        <p class="nota-texto">
+                            ${n.nota}
+                        </p>
+                        <div class="nota-autor">
+                            <i class="fa fa-user"></i> ${n.usuario ?? 'Sistema'}
+                        </div>
+                    </div>
+                </div>
+            `;
+                });
+
+            })
+            .catch(err => {
+                console.error("ERROR consultaNotas:", err);
+                Swal.fire("Error", "Error de conexión con el servidor", "error");
+                contenedor.innerHTML = '';
+            });
+
+        // 👉 Abrir modal SIEMPRE (aunque esté cargando)
+        const modal = new bootstrap.Modal(
+            document.getElementById('modalNotas')
+        );
+        modal.show();
+    }
+
+
+
+
+</script>
 
 

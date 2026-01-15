@@ -33,18 +33,6 @@ class EstadoCuenta extends Model
             return self::resultado(false, 'Error buscando créditos.', null, $e->getMessage());
         }
     }
-
-    // Igual que usan todos tus modelos
-    private static function resultado($success, $mensaje, $datos = null, $error = null)
-    {
-        return [
-            'success' => $success,
-            'mensaje' => $mensaje,
-            'datos'   => $datos,
-            'error'   => $error
-        ];
-    }
-
     public static function obtenerDocumentoOferta($id, $tipo)
     {
         if (!$id || !is_numeric($id)) {
@@ -161,6 +149,72 @@ class EstadoCuenta extends Model
 
         exit; // <- Muy importante: evita que se imprima algo extra
     }
+
+    public static function insertPersona($data)
+    {
+        // 🔹 Escapamos valores
+        $id_credito = addslashes($data['id_credito']);
+        $nota = addslashes($data['nota']);
+        $usuario = addslashes($data['usuario']);
+
+
+        try {
+            $db = new Database();
+
+            // 1️⃣ Ejecutamos INSERT con queryOne() aunque no devuelve filas
+            $db->queryOne("
+            INSERT INTO __SPARTA_SECRET_REDACTED__.notas_credito
+            (id_nota, id_credito, nota, usuario, created_at)
+            VALUES(DEFAULT, $id_credito, '$nota', '$usuario', DEFAULT)
+            ");
+
+
+            // 2️⃣ Obtenemos el ID insertado con queryOne()
+            $result = $db->queryOne("SELECT LAST_INSERT_ID() AS id");
+
+
+            return self::resultado(true, 'Nota agregada correctamente.', $result);
+
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al agregar nota.', null, $e->getMessage());
+        }
+    }
+
+    public static function getNotasCredito($idCredito)
+    {
+
+
+
+        $query = <<<SQL
+        SELECT
+            id_nota,
+            id_credito,
+            nota,
+            usuario,
+            created_at
+        FROM __SPARTA_SECRET_REDACTED__.notas_credito
+        WHERE id_credito = $idCredito
+        ORDER BY created_at DESC
+    SQL;
+
+        try {
+            $db = new Database();
+
+
+            $r = $db->queryAll($query);
+
+            return self::resultado(true, 'Notas encontradas.', $r);
+
+        } catch (\Exception $e) {
+            return self::resultado(
+                false,
+                'Error al obtener notas del crédito.',
+                [],
+                $e->getMessage()
+            );
+        }
+    }
+
 
 
 

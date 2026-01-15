@@ -727,6 +727,50 @@ JS;
     }
 
 
+    public function AddNote()
+    {
+        $input = json_decode(file_get_contents("php://input"), true);
+
+        $data = [
+            'id_credito' => (int)($input['id_credito'] ?? 0),
+            'nota'       => trim($input['nota'] ?? ''),
+            'usuario'    => $_SESSION['usuario'] ?? 'Sistema'
+        ];
+
+        $resultado = EstadoCuentaDAO::insertPersona($data);
+
+        // 👇 NORMALIZAMOS RESPUESTA PARA JS
+        echo json_encode([
+            'success' => true,
+            'mensaje' => 'Nota agregada correctamente.',
+            'data' => [
+                'usuario' => $_SESSION['usuario'] ?? 'Operador'
+            ]
+        ]);
+        exit;
+    }
+
+    public function getNotasCredito()
+    {
+        $input = json_decode(file_get_contents("php://input"), true);
+        $idCredito = $input['idCredito'] ?? null;
+
+
+        if (empty($idCredito)) {
+            self::respuestaJSON([
+                'success' => false,
+                'mensaje' => 'Id de credito requerido'
+            ]);
+            return;
+        }
+
+        $resultado = EstadoCuentaDAO::getNotasCredito($idCredito);
+        self::respuestaJSON($resultado);
+    }
+
+
+
+
 
 
 
