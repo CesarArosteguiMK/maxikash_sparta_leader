@@ -214,6 +214,199 @@ class EstadoCuenta extends Model
         }
     }
 
+    public static function getTiposContacto()
+    {
+        $query = "SELECT id, nombre FROM cat_tipo_contacto ORDER BY nombre";
+
+        try {
+            $db = new Database();
+            $r = $db->queryAll($query);
+            return self::resultado(true, 'Tipos de contacto', $r);
+
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al obtener tipos', [], $e->getMessage());
+        }
+    }
+
+    public static function getResultadosContacto($tipoContactoId)
+    {
+        $query = "
+        SELECT id, nombre
+        FROM cat_resultado_contacto
+        WHERE tipo_contacto_id = $tipoContactoId
+        ORDER BY nombre
+    ";
+
+        try {
+            $db = new Database();
+            $r = $db->queryAll($query);
+            return self::resultado(true, 'Resultados de contacto', $r);
+
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error resultados contacto', [], $e->getMessage());
+        }
+    }
+
+    public static function getDictamenes($resultadoContactoId)
+    {
+        $query = "
+        SELECT id, nombre
+        FROM cat_dictamen
+        WHERE resultado_contacto_id = $resultadoContactoId
+        ORDER BY nombre
+    ";
+
+        try {
+            $db = new Database();
+            $r = $db->queryAll($query);
+            return self::resultado(true, 'Dictámenes', $r);
+
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error dictámenes', [], $e->getMessage());
+        }
+    }
+
+    public static function getMotivosNoPago()
+    {
+        $query = "
+        SELECT
+            m.id,
+            CONCAT(t.nombre, ' - ', m.descripcion) AS descripcion
+        FROM cat_motivo_no_pago m
+        JOIN cat_motivo_no_pago_tipo t ON t.id = m.tipo_id
+        ORDER BY t.nombre, m.descripcion
+    ";
+
+        try {
+            $db = new Database();
+            $r = $db->queryAll($query);
+            return self::resultado(true, 'Motivos no pago', $r);
+
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error motivos no pago', [], $e->getMessage());
+        }
+    }
+
+    public static function getPlataformas()
+    {
+        $query = "SELECT id, nombre FROM cat_plataforma ORDER BY nombre";
+
+        try {
+            $db = new Database();
+            $r = $db->queryAll($query);
+            return self::resultado(true, 'Plataformas', $r);
+
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error plataformas', [], $e->getMessage());
+        }
+    }
+
+    public static function getTiposMotivoNoPago()
+    {
+        $query = "
+        SELECT id, nombre
+        FROM cat_motivo_no_pago_tipo
+        ORDER BY nombre
+    ";
+
+        try {
+            $db = new Database();
+            $r = $db->queryAll($query);
+            return self::resultado(true, 'Tipos motivo no pago', $r);
+
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error tipos motivo', [], $e->getMessage());
+        }
+    }
+
+    public static function getMotivosNoPagoPorTipo($tipoId)
+    {
+        $query = "
+        SELECT id, descripcion
+        FROM cat_motivo_no_pago
+        WHERE tipo_id = $tipoId
+        ORDER BY descripcion
+    ";
+
+        try {
+            $db = new Database();
+            $r = $db->queryAll($query);
+            return self::resultado(true, 'Motivos no pago', $r);
+
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error motivos', [], $e->getMessage());
+        }
+    }
+
+    public static function insertDictamenLlamada($data)
+    {
+        try {
+
+            $db = new Database();
+
+            $id_credito            = (int)$data['id_credito'];
+            $tipo_contacto_id      = (int)$data['tipo_contacto_id'];
+            $resultado_contacto_id = (int)$data['resultado_contacto_id'];
+            $dictamen_id           = (int)$data['dictamen_id'];
+
+            $motivo_no_pago_id = $data['motivo_no_pago_id']
+                ? (int)$data['motivo_no_pago_id']
+                : 'NULL';
+
+            $plataforma_id = (int)$data['plataforma_id'];
+
+            $fuente_ingresos = addslashes($data['fuente_ingresos']);
+            $comentarios     = addslashes($data['comentarios']);
+
+            // 👇 CAMPOS AUTOMÁTICOS
+            $fecha_gestion = date('Y-m-d');
+            $hora_gestion  = date('H:i:s');
+            $agente        = addslashes($data['usuario_id']);
+
+            $db->queryOne("
+            INSERT INTO __SPARTA_SECRET_REDACTED__.dictamen_llamada (
+                id_credito,
+                tipo_contacto_id,
+                resultado_contacto_id,
+                dictamen_id,
+                motivo_no_pago_id,
+                plataforma_id,
+                fuente_ingresos,
+                fecha_gestion,
+                hora_gestion,
+                agente,
+                comentarios
+            ) VALUES (
+                $id_credito,
+                $tipo_contacto_id,
+                $resultado_contacto_id,
+                $dictamen_id,
+                $motivo_no_pago_id,
+                $plataforma_id,
+                '$fuente_ingresos',
+                '$fecha_gestion',
+                '$hora_gestion',
+                '$agente',
+                '$comentarios'
+            )
+        ");
+
+            $id = $db->queryOne("SELECT LAST_INSERT_ID() AS id");
+
+            return self::resultado(true, 'Dictamen guardado correctamente', $id);
+
+        } catch (\Exception $e) {
+
+            return self::resultado(
+                false,
+                'Error al guardar el dictamen',
+                null,
+                $e->getMessage()
+            );
+        }
+    }
+
+
 
 
 

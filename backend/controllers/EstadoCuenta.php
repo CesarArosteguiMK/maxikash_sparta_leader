@@ -774,6 +774,130 @@ JS;
     }
 
 
+    public function getTiposContacto()
+    {
+        $resultado = EstadoCuentaDAO::getTiposContacto();
+        self::respuestaJSON($resultado);
+    }
+
+    public function getResultadosContacto()
+    {
+        $input = json_decode(file_get_contents("php://input"), true);
+        $tipoContactoId = $input['tipo_contacto_id'] ?? null;
+
+        if (empty($tipoContactoId)) {
+            self::respuestaJSON([
+                'success' => false,
+                'mensaje' => 'tipo_contacto_id requerido'
+            ]);
+            return;
+        }
+
+        $resultado = EstadoCuentaDAO::getResultadosContacto($tipoContactoId);
+        self::respuestaJSON($resultado);
+    }
+
+    public function getDictamenes()
+    {
+        $input = json_decode(file_get_contents("php://input"), true);
+        $resultadoContactoId = $input['resultado_contacto_id'] ?? null;
+
+        if (empty($resultadoContactoId)) {
+            self::respuestaJSON([
+                'success' => false,
+                'mensaje' => 'resultado_contacto_id requerido'
+            ]);
+            return;
+        }
+
+        $resultado = EstadoCuentaDAO::getDictamenes($resultadoContactoId);
+        self::respuestaJSON($resultado);
+    }
+
+    public function getMotivosNoPago()
+    {
+        $resultado = EstadoCuentaDAO::getMotivosNoPago();
+        self::respuestaJSON($resultado);
+    }
+
+    public function getPlataformas()
+    {
+        $resultado = EstadoCuentaDAO::getPlataformas();
+        self::respuestaJSON($resultado);
+    }
+
+    public function getTiposMotivoNoPago()
+    {
+        $resultado = EstadoCuentaDAO::getTiposMotivoNoPago();
+        self::respuestaJSON($resultado);
+    }
+
+    public function getMotivosNoPagoPorTipo()
+    {
+        $input = json_decode(file_get_contents("php://input"), true);
+        $tipoId = $input['tipo_motivo_id'] ?? null;
+
+        if (empty($tipoId)) {
+            self::respuestaJSON([
+                'success' => false,
+                'mensaje' => 'tipo_motivo_id requerido'
+            ]);
+            return;
+        }
+
+        $resultado = EstadoCuentaDAO::getMotivosNoPagoPorTipo($tipoId);
+        self::respuestaJSON($resultado);
+    }
+
+    public function guardarDictamen()
+    {
+        $input = json_decode(file_get_contents("php://input"), true);
+
+        $data = [
+            'id_credito'                => (int)($input['id_credito'] ?? 0),
+            'tipo_contacto_id'           => (int)($input['tipo_contacto_id'] ?? 0),
+            'resultado_contacto_id'      => (int)($input['resultado_contacto_id'] ?? 0),
+            'dictamen_id'                => (int)($input['dictamen_id'] ?? 0),
+            'tipo_motivo_no_pago_id'     => !empty($input['tipo_motivo_no_pago_id'])
+                ? (int)$input['tipo_motivo_no_pago_id']
+                : null,
+            'motivo_no_pago_id'          => !empty($input['motivo_no_pago_id'])
+                ? (int)$input['motivo_no_pago_id']
+                : null,
+            'plataforma_id'              => !empty($input['plataforma_id'])
+                ? (int)$input['plataforma_id']
+                : null,
+            'fuente_ingresos'            => trim($input['fuente_ingresos'] ?? ''),
+            'comentarios'                => trim($input['comentarios'] ?? ''),
+            'usuario'                    => $_SESSION['usuario'] ?? 'Sistema',
+            'usuario_id'                 => $_SESSION['usuario_id'] ?? 1
+        ];
+
+        // 🔴 Validación mínima backend
+        if (
+            !$data['id_credito'] ||
+            !$data['tipo_contacto_id'] ||
+            !$data['resultado_contacto_id'] ||
+            !$data['dictamen_id'] ||
+            !$data['comentarios']
+        ) {
+            echo json_encode([
+                'success' => false,
+                'mensaje' => 'Datos incompletos para guardar el dictamen'
+            ]);
+            exit;
+        }
+
+        $resultado = EstadoCuentaDAO::insertDictamenLlamada($data);
+
+        echo json_encode([
+            'success' => $resultado['success'],
+            'mensaje' => $resultado['mensaje'],
+            'data'    => $resultado['data'] ?? null
+        ]);
+        exit;
+    }
+
 
 
 

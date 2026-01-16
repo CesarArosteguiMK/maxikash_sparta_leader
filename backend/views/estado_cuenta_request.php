@@ -406,6 +406,38 @@ if ($cuotasContratadas > 0) {
     }
 
 
+    /* ==========================
+   BOTÓN ICONO DICTAMINAR
+   ========================== */
+    .btn-dictaminar {
+        width: 42px;
+        height: 42px;
+        border-radius: 50%;
+        background: #e7f0ff;
+        border: 1px solid #b6d4fe;
+        color: #0d6efd;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 4px 10px rgba(13,110,253,.35);
+        transition: all .25s ease;
+    }
+
+    .btn-dictaminar i {
+        font-size: 1.1rem;
+    }
+
+    .btn-dictaminar:hover {
+        background: #cfe2ff;
+        color: #084298;
+        transform: translateY(-2px);
+        box-shadow: 0 8px 18px rgba(13,110,253,.55);
+    }
+
+
+
+
+
 
 
 
@@ -613,8 +645,27 @@ if ($cuotasContratadas > 0) {
             <h5 class="mb-0">Resumen general de pagos del cliente</h5>
 
             <div class="d-flex gap-2">
+                <!-- BOTÓN DICTAMINAR -->
+                <button type="button"
+                        class="btn btn-dictaminar position-relative"
+                        data-bs-toggle="modal"
+                        data-bs-target="#modalDictamen"
+                        title="Dictaminar llamada">
+
+                    <i class="fa fa-headset"></i>
+
+                </button>
+
                 <!-- BOTÓN CONDONAR -->
-               
+                <button type="button"
+                        class="btn btn-condonar position-relative"
+                        data-bs-toggle="modal"
+                        data-bs-target="#modalCondonar"
+                        title="Condonar gastos de cobranza">
+
+                    <i class="fa fa-hand-holding-usd"></i>
+
+                </button>
                 <!-- BOTÓN NOTAS (ICONO) -->
                 <button type="button"
                         class="btn btn-notas position-relative"
@@ -981,6 +1032,104 @@ if ($cuotasContratadas > 0) {
         </div>
     </div>
 </div>
+
+<div class="modal fade" id="modalDictamen" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content shadow-lg">
+
+            <!-- HEADER -->
+            <div class="modal-header bg-primary bg-opacity-10">
+                <h5 class="modal-title">
+                    <i class="fa fa-headset text-primary me-2"></i>
+                    Dictaminar llamada
+                </h5>
+                <button class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+
+            <!-- BODY -->
+            <div class="modal-body">
+
+
+                <input
+                        type="hidden"
+                        id="idCredito_dictamen"
+                        name="idCredito_dictamen"
+                        value="<?= htmlspecialchars($dataEstadoCuenta['idCredito'] ?? '') ?>"
+            </div>
+
+                <!-- FILA 1 -->
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">Tipo contacto</label>
+                        <select id="tipo_contacto" class="form-select"></select>
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">Resultado</label>
+                        <select id="resultado_contacto" class="form-select" disabled></select>
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">Dictamen</label>
+                        <select id="dictamen" class="form-select" disabled></select>
+                    </div>
+                </div>
+
+                <!-- FILA 2 -->
+                <div class="row g-3 mt-1">
+                    <div class="row g-3 mt-1">
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Tipo motivo no pago</label>
+                            <select id="tipo_motivo_no_pago" class="form-select">
+                                <option value="">No aplica</option>
+                            </select>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Motivo no pago</label>
+                            <select id="motivo_no_pago" class="form-select" disabled>
+                                <option value="">Seleccione motivo</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Plataforma</label>
+                            <select id="plataforma" class="form-select"></select>
+                        </div>
+                    </div>
+
+
+
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">Fuente ingresos</label>
+                        <input type="text" id="fuente_ingresos" class="form-control"
+                               placeholder="Ej. Sueldo, negocio propio">
+                    </div>
+                </div>
+
+
+
+                <!-- COMENTARIOS -->
+                <div class="mt-3">
+                    <label class="form-label fw-semibold">Comentarios</label>
+                    <textarea id="comentarios" rows="3"
+                              class="form-control"
+                              placeholder="Detalle de la gestión..."></textarea>
+                </div>
+
+            </div>
+
+            <!-- FOOTER -->
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button class="btn btn-primary" onclick="guardarDictamen()">
+                    <i class="fa fa-save me-1"></i>Guardar dictamen
+                </button>
+            </div>
+
+        </div>
+    </div>
+</div>
+
 
 
 <div class="modal fade" id="modalNotas" tabindex="-1" aria-labelledby="modalNotasLabel" aria-hidden="true">
@@ -1417,6 +1566,369 @@ if ($cuotasContratadas > 0) {
         );
         modal.show();
     }
+
+    const modalDictamen = document.getElementById('modalDictamen');
+
+    modalDictamen.addEventListener('shown.bs.modal', function (event) {
+
+        const button = event.relatedTarget;
+        const idCredito = button.getAttribute('data-idcredito');
+
+        // Guardar el id crédito
+        document.getElementById('id_credito').value = idCredito;
+
+        // Inicializar combos
+        initDictamenModal();
+    });
+
+
+
+    const tipoContactoSelect      = document.getElementById('tipo_contacto');
+    const resultadoContactoSelect = document.getElementById('resultado_contacto');
+    const dictamenSelect          = document.getElementById('dictamen');
+    const plataformaSelect        = document.getElementById('plataforma');
+
+    const tipoMotivoSelect   = document.getElementById('tipo_motivo_no_pago');
+    const motivoNoPagoSelect = document.getElementById('motivo_no_pago');
+
+    function cargarTiposContacto() {
+        fetch('/EstadoCuenta/getTiposContacto')
+            .then(res => res.json())
+            .then(resp => {
+                if (!resp.success) {
+                    console.error(resp.mensaje);
+                    return;
+                }
+
+                tipoContactoSelect.innerHTML =
+                    '<option value="">Seleccione tipo de contacto</option>';
+
+                resp.datos.forEach(item => {
+                    tipoContactoSelect.innerHTML +=
+                        `<option value="${item.id}">${item.nombre}</option>`;
+                });
+            })
+            .catch(err => console.error(err));
+    }
+
+    function cargarResultadosContacto(tipoContactoId) {
+
+        resultadoContactoSelect.innerHTML =
+            '<option value="">Cargando...</option>';
+        resultadoContactoSelect.disabled = true;
+
+        dictamenSelect.innerHTML =
+            '<option value="">Seleccione dictamen</option>';
+        dictamenSelect.disabled = true;
+
+        fetch('/EstadoCuenta/getResultadosContacto', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tipo_contacto_id: tipoContactoId })
+        })
+            .then(res => res.json())
+            .then(resp => {
+                if (!resp.success) {
+                    console.error(resp.mensaje);
+                    return;
+                }
+
+                resultadoContactoSelect.innerHTML =
+                    '<option value="">Seleccione resultado</option>';
+
+                resp.datos.forEach(item => {
+                    resultadoContactoSelect.innerHTML +=
+                        `<option value="${item.id}">${item.nombre}</option>`;
+                });
+
+                resultadoContactoSelect.disabled = false;
+            })
+            .catch(err => console.error(err));
+    }
+
+
+    tipoContactoSelect.addEventListener('change', function () {
+        if (this.value) {
+            cargarResultadosContacto(this.value);
+        }
+    });
+
+    function cargarDictamenes(resultadoContactoId) {
+
+        dictamenSelect.innerHTML =
+            '<option value="">Cargando...</option>';
+        dictamenSelect.disabled = true;
+
+        fetch('/EstadoCuenta/getDictamenes', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ resultado_contacto_id: resultadoContactoId })
+        })
+            .then(res => res.json())
+            .then(resp => {
+                if (!resp.success) {
+                    console.error(resp.mensaje);
+                    return;
+                }
+
+                dictamenSelect.innerHTML =
+                    '<option value="">Seleccione dictamen</option>';
+
+                resp.datos.forEach(item => {
+                    dictamenSelect.innerHTML +=
+                        `<option value="${item.id}">${item.nombre}</option>`;
+                });
+
+                dictamenSelect.disabled = false;
+            })
+            .catch(err => console.error(err));
+    }
+
+
+    resultadoContactoSelect.addEventListener('change', function () {
+        if (this.value) {
+            cargarDictamenes(this.value);
+        }
+    });
+
+    function cargarMotivosNoPago() {
+        fetch('/EstadoCuenta/getMotivosNoPago')
+            .then(res => res.json())
+            .then(resp => {
+                if (!resp.success) {
+                    console.error(resp.mensaje);
+                    return;
+                }
+
+                motivoNoPagoSelect.innerHTML =
+                    '<option value="">No aplica</option>';
+
+                resp.datos.forEach(item => {
+                    motivoNoPagoSelect.innerHTML +=
+                        `<option value="${item.id}">${item.descripcion}</option>`;
+                });
+            })
+            .catch(err => console.error(err));
+    }
+
+
+    function cargarPlataformas() {
+        fetch('/EstadoCuenta/getPlataformas')
+            .then(res => res.json())
+            .then(resp => {
+                if (!resp.success) {
+                    console.error(resp.mensaje);
+                    return;
+                }
+
+                plataformaSelect.innerHTML =
+                    '<option value="">Seleccione plataforma</option>';
+
+                resp.datos.forEach(item => {
+                    plataformaSelect.innerHTML +=
+                        `<option value="${item.id}">${item.nombre}</option>`;
+                });
+            })
+            .catch(err => console.error(err));
+    }
+
+
+    function initDictamenModal() {
+        cargarTiposContacto();
+        cargarPlataformas();
+        cargarTiposMotivoNoPago(); // 👈 NUEVO
+    }
+
+    document.getElementById('modalDictamen')
+        .addEventListener('shown.bs.modal', initDictamenModal);
+
+    function cargarTiposMotivoNoPago() {
+        fetch('/EstadoCuenta/getTiposMotivoNoPago')
+            .then(res => res.json())
+            .then(resp => {
+                if (!resp.success) return;
+
+                tipoMotivoSelect.innerHTML =
+                    '<option value="">No aplica</option>';
+
+                resp.datos.forEach(item => {
+                    tipoMotivoSelect.innerHTML +=
+                        `<option value="${item.id}">${item.nombre}</option>`;
+                });
+            });
+    }
+
+    function cargarMotivosNoPagoPorTipo(tipoId) {
+
+        motivoNoPagoSelect.innerHTML =
+            '<option value="">Cargando...</option>';
+        motivoNoPagoSelect.disabled = true;
+
+        if (!tipoId) {
+            motivoNoPagoSelect.innerHTML =
+                '<option value="">Seleccione motivo</option>';
+            return;
+        }
+
+        fetch('/EstadoCuenta/getMotivosNoPagoPorTipo', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tipo_motivo_id: tipoId })
+        })
+            .then(res => res.json())
+            .then(resp => {
+                if (!resp.success) return;
+
+                motivoNoPagoSelect.innerHTML =
+                    '<option value="">Seleccione motivo</option>';
+
+                resp.datos.forEach(item => {
+                    motivoNoPagoSelect.innerHTML +=
+                        `<option value="${item.id}">${item.descripcion}</option>`;
+                });
+
+                motivoNoPagoSelect.disabled = false;
+            });
+    }
+
+    tipoMotivoSelect.addEventListener('change', function () {
+        cargarMotivosNoPagoPorTipo(this.value);
+    });
+
+    function guardarDictamen() {
+
+        const id_credito = document.getElementById('idCredito_dictamen')?.value;
+
+        const tipoContacto = document.getElementById('tipo_contacto').value;
+        const resultadoContacto = document.getElementById('resultado_contacto').value;
+        const dictamen = document.getElementById('dictamen').value;
+
+        const tipoMotivo = document.getElementById('tipo_motivo_no_pago').value;
+        const motivoNoPago = document.getElementById('motivo_no_pago').value;
+
+        const plataforma = document.getElementById('plataforma').value;
+        const fuenteIngresos = document.getElementById('fuente_ingresos').value.trim();
+        const comentarios = document.getElementById('comentarios').value.trim();
+
+        // 🔴 VALIDACIONES
+        if (!id_credito) {
+            Swal.fire("Error", "No se detectó el crédito", "error");
+            return;
+        }
+
+        if (!tipoContacto) {
+            Swal.fire("Atención", "Selecciona el tipo de contacto", "warning");
+            return;
+        }
+
+        if (!resultadoContacto) {
+            Swal.fire("Atención", "Selecciona el resultado del contacto", "warning");
+            return;
+        }
+
+        if (!dictamen) {
+            Swal.fire("Atención", "Selecciona el dictamen", "warning");
+            return;
+        }
+
+        // 👉 Motivo no pago SOLO si aplica
+        if (tipoMotivo && !motivoNoPago) {
+            Swal.fire("Atención", "Selecciona el motivo de no pago", "warning");
+            return;
+        }
+
+        if (!fuenteIngresos) {
+            Swal.fire("Atención", "La fuente de ingresos son obligatorios", "warning");
+            return;
+        }
+
+        if (!comentarios) {
+            Swal.fire("Atención", "Los comentarios son obligatorios", "warning");
+            return;
+        }
+
+        // 🔄 ENVÍO
+        fetch('/EstadoCuenta/guardarDictamen', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                id_credito: id_credito,
+                tipo_contacto_id: tipoContacto,
+                resultado_contacto_id: resultadoContacto,
+                dictamen_id: dictamen,
+                tipo_motivo_no_pago_id: tipoMotivo || null,
+                motivo_no_pago_id: motivoNoPago || null,
+                plataforma_id: plataforma || null,
+                fuente_ingresos: fuenteIngresos,
+                comentarios: comentarios
+            })
+        })
+            .then(res => {
+                if (!res.ok) throw new Error('Error HTTP ' + res.status);
+                return res.json();
+            })
+            .then(resp => {
+
+                if (!resp.success) {
+                    Swal.fire("Error", resp.mensaje, "error");
+                    return;
+                }
+
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Dictamen guardado',
+                    timer: 1300,
+                    showConfirmButton: false
+                });
+
+                // 🔄 Limpiar formulario
+                limpiarFormularioDictamen();
+
+                // ❌ Cerrar modal
+                const modal = bootstrap.Modal.getInstance(
+                    document.getElementById('modalDictamen')
+                );
+                modal.hide();
+
+            })
+            .catch(err => {
+                console.error(err);
+                Swal.fire("Error", "Error de conexión con el servidor", "error");
+            });
+    }
+
+    function limpiarFormularioDictamen() {
+
+        document.getElementById('tipo_contacto').value = '';
+        document.getElementById('resultado_contacto').innerHTML = '';
+        document.getElementById('resultado_contacto').disabled = true;
+
+        document.getElementById('dictamen').innerHTML = '';
+        document.getElementById('dictamen').disabled = true;
+
+        document.getElementById('tipo_motivo_no_pago').value = '';
+        document.getElementById('motivo_no_pago').innerHTML =
+            '<option value="">Seleccione motivo</option>';
+        document.getElementById('motivo_no_pago').disabled = true;
+
+        document.getElementById('plataforma').value = '';
+        document.getElementById('fuente_ingresos').value = '';
+        document.getElementById('comentarios').value = '';
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
