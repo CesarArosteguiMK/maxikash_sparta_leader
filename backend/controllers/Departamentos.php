@@ -76,7 +76,10 @@ class Departamentos extends Controller
           http.request({
             endpoint: "/departamentos/InsertPuesto",
             method: "POST",
-            data: { nombre },
+            data: { 
+              nombre,
+              id_departamento: window.departamentoActivo
+            },
             onSuccess: (resp) => {
               if (resp.success) {
                 // Insertar dinámicamente el nuevo puesto en la lista
@@ -351,6 +354,98 @@ class Departamentos extends Controller
         
           nombre.onblur = () => guardarPuesto(nombre);
         }
+        
+        /* =====================================================
+           NUEVO DEPARTAMENTO - FORMULARIO MODAL
+           ===================================================== */
+        
+        // Manejar submit del formulario de nuevo departamento
+        $(document).ready(function() {
+          const form = document.getElementById('addDepartamentoForm');
+          
+          if (form) {
+            form.addEventListener('submit', function(e) {
+              e.preventDefault();
+              
+              const input = document.getElementById('modalNombreDepartamento');
+              const nombre = input.value.trim();
+              const errorDiv = document.getElementById('errorNombre');
+              
+              // Validación
+              if (!nombre) {
+                errorDiv.textContent = 'El nombre del departamento es requerido';
+                errorDiv.style.display = 'block';
+                input.classList.add('is-invalid');
+                return;
+              }
+              
+              // Limpiar errores
+              errorDiv.style.display = 'none';
+              input.classList.remove('is-invalid');
+              
+              // Deshabilitar botón mientras se procesa
+              const submitBtn = form.querySelector('button[type="submit"]');
+              const originalText = submitBtn.innerHTML;
+              submitBtn.disabled = true;
+              submitBtn.innerHTML = '<i class="fa fa-spinner fa-spin me-2"></i>Guardando...';
+              
+              // POST al backend
+              http.request({
+                endpoint: "/departamentos/InsertDepartamento",
+                method: "POST",
+                data: { nombre },
+                onSuccess: (resp) => {
+                  if (resp.success) {
+                    // Cerrar modal
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('addDepartamentoModal'));
+                    modal.hide();
+                    
+                    // Limpiar formulario
+                    form.reset();
+                    
+                    // Recargar lista de departamentos
+                    getDepartamentos();
+                    
+                    // Mostrar notificación de éxito (opcional)
+                    console.log('Departamento creado exitosamente:', resp.mensaje);
+                  } else {
+                    errorDiv.textContent = resp.mensaje || 'Error al crear el departamento';
+                    errorDiv.style.display = 'block';
+                    input.classList.add('is-invalid');
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalText;
+                  }
+                },
+                onError: (err) => {
+                  console.error('Error al crear departamento:', err);
+                  errorDiv.textContent = 'Error de conexión. Intenta nuevamente.';
+                  errorDiv.style.display = 'block';
+                  input.classList.add('is-invalid');
+                  submitBtn.disabled = false;
+                  submitBtn.innerHTML = originalText;
+                }
+              });
+            });
+            
+            // Limpiar errores al escribir
+            const input = document.getElementById('modalNombreDepartamento');
+            if (input) {
+              input.addEventListener('input', function() {
+                this.classList.remove('is-invalid');
+                document.getElementById('errorNombre').style.display = 'none';
+              });
+            }
+            
+            // Limpiar formulario al cerrar modal
+            $('#addDepartamentoModal').on('hidden.bs.modal', function() {
+              form.reset();
+              const errorDiv = document.getElementById('errorNombre');
+              errorDiv.style.display = 'none';
+              const input = document.getElementById('modalNombreDepartamento');
+              input.classList.remove('is-invalid');
+            });
+          }
+        });
 
 
         </script>
@@ -369,7 +464,8 @@ class Departamentos extends Controller
     public function InsertPuesto()
     {
         $nombre = $_POST['nombre'] ?? null;
-        self::respuestaJSON(DepartamentosDAO::InsertPuestos($nombre));
+        $id_departamento = $_POST['id_departamento'] ?? null;
+        self::respuestaJSON(DepartamentosDAO::InsertPuestos($nombre, $id_departamento));
     }
     public function getPuestosPorDepartamento()
     {
@@ -384,5 +480,10 @@ class Departamentos extends Controller
         self::respuestaJSON(DepartamentosDAO::UpdateNombrePuesto($id_pues, $nombre));
     }
 
+    public function InsertDepartamento()
+    {
+        $nombre = $_POST['nombre'] ?? null;
+        self::respuestaJSON(DepartamentosDAO::InsertDepartamento($nombre));
+    }
 
 }

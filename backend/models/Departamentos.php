@@ -117,7 +117,7 @@ class Departamentos extends Model
         exit; // <- Muy importante: evita que se imprima algo extra
     }
 
-    public static function InsertPuestos($nombre)
+    public static function InsertPuestos($nombre, $id_departamento)
     {
         // Cabecera JSON
         header('Content-Type: application/json; charset=utf-8');
@@ -128,7 +128,7 @@ class Departamentos extends Model
                 "
                 INSERT INTO __SPARTA_SECRET_REDACTED__.puesto
                     (id, clave, nombre, nivel, activo, departamento_id, es_jefe, descripcion)
-                    VALUES(null, '$nombre', '$nombre', 100, 1, 2, 1, NULL);
+                    VALUES(null, '$nombre', '$nombre', 100, 1, $id_departamento, 1, NULL);
                                 ");
             $datos = is_array($r) ? $r : [];
 
@@ -136,6 +136,44 @@ class Departamentos extends Model
             echo json_encode([
                 "success" => true,
                 "mensaje" => "Puesto insertado.",
+                "datos" => $datos
+            ]);
+
+        } catch (\Exception $e) {
+            echo json_encode([
+                "success" => false,
+                "mensaje" => "Error al procesar la solicitud.",
+                "datos" => [],
+                "error" => $e->getMessage()
+            ]);
+        }
+
+        exit; // <- Muy importante: evita que se imprima algo extra
+    }
+
+    public static function InsertDepartamento($nombre)
+    {
+        // Cabecera JSON
+        header('Content-Type: application/json; charset=utf-8');
+
+        try {
+            $db = new Database();
+            
+            // Escapar el nombre para prevenir SQL injection básico
+            $nombre = addslashes($nombre);
+            
+            $r = $db->queryOne(
+                "
+                INSERT INTO __SPARTA_SECRET_REDACTED__.departamento
+                    (id, nombre, activo, img_url)
+                    VALUES(null, '$nombre', 1, NULL);
+                                ");
+            $datos = is_array($r) ? $r : [];
+
+            // echo JSON puro y nada más
+            echo json_encode([
+                "success" => true,
+                "mensaje" => "Departamento insertado correctamente.",
                 "datos" => $datos
             ]);
 
