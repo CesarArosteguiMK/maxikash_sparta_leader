@@ -128,6 +128,12 @@
                             <i class="fa-solid fa-pen editar-puesto"></i>
                         </div>
 
+                        <input type="hidden"
+                               id="id_departamento"
+                               class="form-control"
+                               placeholder="dep">
+
+
                         <p class="text-muted mb-0">
                             Puestos registrados en el departamento
                         </p>

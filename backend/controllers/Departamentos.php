@@ -67,6 +67,7 @@ class Departamentos extends Controller
         
         function guardarNuevoPuesto() {
           const input = document.getElementById('inputNuevoPuesto');
+          const id_departamento = document.getElementById('id_departamento').value.trim();
           const nombre = input.value.trim();
           if (!nombre) return;
         
@@ -76,7 +77,7 @@ class Departamentos extends Controller
           http.request({
             endpoint: "/departamentos/InsertPuesto",
             method: "POST",
-            data: { nombre },
+            data: { nombre: nombre, id_departamento: id_departamento },
             onSuccess: (resp) => {
               if (resp.success) {
                 // Insertar dinámicamente el nuevo puesto en la lista
@@ -125,6 +126,8 @@ class Departamentos extends Controller
           const titulo = document.getElementById('tituloDepartamento');
           titulo.textContent = nombreDepartamento;
           titulo.dataset.departamentoId = idDepartamento;
+          
+          document.getElementById('id_departamento').value = idDepartamento;
         
           // Limpiamos lista
           const lista = document.getElementById('listaPuestos');
@@ -369,7 +372,8 @@ class Departamentos extends Controller
     public function InsertPuesto()
     {
         $nombre = $_POST['nombre'] ?? null;
-        self::respuestaJSON(DepartamentosDAO::InsertPuestos($nombre));
+        $id_departamento = $_POST['id_departamento'] ?? null;
+        self::respuestaJSON(DepartamentosDAO::InsertPuestos($nombre, $id_departamento));
     }
     public function getPuestosPorDepartamento()
     {
