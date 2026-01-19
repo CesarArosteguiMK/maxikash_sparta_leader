@@ -151,4 +151,42 @@ class Departamentos extends Model
         exit; // <- Muy importante: evita que se imprima algo extra
     }
 
+    public static function InsertDepartamento($nombre)
+    {
+        // Cabecera JSON
+        header('Content-Type: application/json; charset=utf-8');
+
+        try {
+            $db = new Database();
+            
+            // Escapar el nombre para prevenir SQL injection básico
+            $nombre = addslashes($nombre);
+            
+            $r = $db->queryOne(
+                "
+                INSERT INTO __SPARTA_SECRET_REDACTED__.departamento
+                    (id, nombre, activo, img_url)
+                    VALUES(null, '$nombre', 1, NULL);
+                                ");
+            $datos = is_array($r) ? $r : [];
+
+            // echo JSON puro y nada más
+            echo json_encode([
+                "success" => true,
+                "mensaje" => "Departamento insertado correctamente.",
+                "datos" => $datos
+            ]);
+
+        } catch (\Exception $e) {
+            echo json_encode([
+                "success" => false,
+                "mensaje" => "Error al procesar la solicitud.",
+                "datos" => [],
+                "error" => $e->getMessage()
+            ]);
+        }
+
+        exit; // <- Muy importante: evita que se imprima algo extra
+    }
+
 }

@@ -55,6 +55,36 @@
         transform: scale(1.15);
     }
 
+    /* ===== MODAL DESLIZANTE ESTILO SNEAT ===== */
+    .modal-add-new-cc {
+        max-width: 500px;
+    }
+
+    .modal-simple .modal-content {
+        border: none;
+        box-shadow: 0 2px 20px 0 rgba(76, 78, 100, 0.08);
+        border-radius: 0.375rem;
+    }
+
+    .modal-simple .modal-body {
+        padding: 2rem;
+    }
+
+    .modal-simple .btn-close {
+        position: absolute;
+        top: 1rem;
+        right: 1rem;
+        z-index: 10;
+        padding: 0.5rem;
+        background-color: rgba(76, 78, 100, 0.08);
+        border-radius: 0.25rem;
+        opacity: 1;
+    }
+
+    .modal-simple .btn-close:hover {
+        background-color: rgba(76, 78, 100, 0.16);
+    }
+
 </style>
 
 
@@ -66,43 +96,44 @@
     <div id="departamentosCards" class="row g-7"></div>
 
 
-<!-- Modal para agregar departamento -->
-<div class="modal fade" id="modalNuevaSolicitud" tabindex="-1" aria-hidden="true" role="dialog">
-    <div class="modal-dialog modal-lg">
+<!-- Modal para agregar departamento - Estilo Sneat -->
+<div class="modal fade" id="addDepartamentoModal" tabindex="-1" aria-hidden="true" role="dialog">
+    <div class="modal-dialog modal-dialog-centered modal-simple modal-add-new-cc">
         <div class="modal-content">
-            <div class="modal-header">
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                <div class="text-center w-100">
-                    <h4 class="address-title mb-2">Registrar Nuevo Departamento</h4>
-                    <p class="address-subtitle">Capture los datos solicitados</p>
-                </div>
-            </div>
             <div class="modal-body">
-                <div class="row">
-                    <div class="form-group col-6">
-                        <label for="nombre" class="form-label">Nombre del Departamento</label>
-                        <input type="input" id="nombre" name="nombre" class="form-control" placeholder="Ej.: CallCenter" maxlength="500">
-                        <div class="fv-message text-danger small" style="min-height: 1.25rem"></div>
-                    </div>
-
-                    <div class="form-group col-6">
-                        <label for="descripcion" class="form-label">Descripción del Departamento</label>
-                        <input type="text" id="descripcion" name="descripcion" class="form-control" placeholder="Ej.: CallCenter centro de llamadas cobranza" maxlength="500">
-                        <div class="fv-message text-danger small" style="min-height: 1.25rem"></div>
-                    </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <div class="text-center mb-4">
+                    <h4 class="mb-2">Agregar nuevo departamento</h4>
+                    <p class="text-muted">Escribe solo el nombre del departamento</p>
                 </div>
-                <div class="form-group col-4">
-                    <label for="tipoSolicitud" class="form-label">Estatus</label>
-                    <select class="form-select" id="estatus" name="estatus">
-                        <option value="1">Activo</option>
-                    </select>
-                    <div class="fv-message text-danger small" style="min-height: 1.25rem"></div>
-                </div>
-            </div>
-
-            <div class="modal-footer">
-                <button type="button" id="cancelaSolicitud" class="btn btn-secondary" data-bs-dismiss="modal" aria-label="Close">Cancelar</button>
-                <button type="button" id="registraSolicitud" class="btn btn-primary">Guardar</button>
+                <form id="addDepartamentoForm" class="row g-4" onsubmit="return false" novalidate="novalidate">
+                    <div class="col-12">
+                        <label class="form-label w-100" for="modalNombreDepartamento">Nombre del Departamento</label>
+                        <div class="input-group input-group-merge">
+                            <span class="input-group-text">
+                                <i class="fa fa-building"></i>
+                            </span>
+                            <input 
+                                id="modalNombreDepartamento" 
+                                name="modalNombreDepartamento" 
+                                class="form-control" 
+                                type="text" 
+                                placeholder="Ej. Cobranza, Call Center, Ventas..." 
+                                required
+                                maxlength="100">
+                        </div>
+                        <div class="invalid-feedback" id="errorNombre" style="display: none;"></div>
+                    </div>
+                    
+                    <div class="col-12 text-center">
+                        <button type="submit" class="btn btn-primary me-sm-3 me-1">
+                            <i class="fa fa-save me-2"></i>Guardar
+                        </button>
+                        <button type="reset" class="btn btn-label-secondary btn-reset" data-bs-dismiss="modal" aria-label="Close">
+                            Cancelar
+                        </button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
