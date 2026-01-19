@@ -181,9 +181,6 @@ JS;
             }
 
 
-            var_dump($notas);
-
-
 
 
             //$GestionesAll = GestionesDao::getAllGestiones($idCredito, $nombre);

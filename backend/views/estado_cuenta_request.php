@@ -656,7 +656,16 @@ if ($cuotasContratadas > 0) {
 
                 </button>
 
-               
+                <!-- BOTÓN CONDONAR -->
+                <button type="button"
+                        class="btn btn-condonar position-relative"
+                        data-bs-toggle="modal"
+                        data-bs-target="#modalCondonar"
+                        title="Condonar gastos de cobranza">
+
+                    <i class="fa fa-hand-holding-usd"></i>
+
+                </button>
                 <!-- BOTÓN NOTAS (ICONO) -->
                 <button type="button"
                         class="btn btn-notas position-relative"
