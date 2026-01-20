@@ -499,7 +499,7 @@
         });
 
         //  FORZAR "Inactivo" en los estatus
-        estatus.add('Inactivo');
+        
         estatus.add('Activo');
 
         console.log(' Datos extraídos:', {
@@ -525,13 +525,13 @@
             selectDepartamento.appendChild(option);
           });
 
-          // 🎯 Agregar listener para ACTUALIZAR PUESTOS cuando cambia departamento
+          //  Agregar listener para ACTUALIZAR PUESTOS cuando cambia departamento
           selectDepartamento.addEventListener('change', (e) => {
             actualizarPuestosSegunDepartamento(e.target.value);
             aplicarFiltros();
           });
 
-          console.log('✅ UserRole (DEPARTAMENTO) llenado:', Array.from(departamentos));
+          console.log('UserRole (DEPARTAMENTO) llenado:', Array.from(departamentos));
         }
 
         // ==========================================
@@ -555,7 +555,7 @@
           // Agregar listener para filtrar en tiempo real
           selectPuesto.addEventListener('change', aplicarFiltros);
 
-          console.log('✅ UserPlan (PUESTO) llenado:', Array.from(puestos));
+          console.log('UserPlan (PUESTO) llenado:', Array.from(puestos));
         }
 
         // ==========================================
@@ -597,12 +597,12 @@
    * este filtro muestra solo los puestos de ese departamento
    */
   function actualizarPuestosSegunDepartamento(departamentoSeleccionado) {
-    console.log('🔄 Actualizando puestos para departamento:', departamentoSeleccionado);
+    console.log('Actualizando puestos para departamento:', departamentoSeleccionado);
 
     const selectPuesto = document.getElementById('UserPlan');
     
     if (!selectPuesto) {
-      console.warn('⚠️ Select UserPlan no encontrado');
+      console.warn('Select UserPlan no encontrado');
       return;
     }
 
@@ -635,7 +635,7 @@
       // Resetear el select
       selectPuesto.value = '';
       
-      console.log('✅ Se muestran todos los puestos:', Array.from(todosPuestos));
+      console.log('Se muestran todos los puestos:', Array.from(todosPuestos));
       return;
     }
 
@@ -649,7 +649,7 @@
       }
     });
 
-    console.log('📊 Puestos encontrados en', departamentoSeleccionado + ':', Array.from(puestosDelDepartamento));
+    console.log('Puestos encontrados en', departamentoSeleccionado + ':', Array.from(puestosDelDepartamento));
 
     // Limpiar opciones previas (excepto la primera)
     const opciones = selectPuesto.querySelectorAll('option');
@@ -668,7 +668,7 @@
     // Resetear el select de puestos
     selectPuesto.value = '';
 
-    console.log('✅ UserPlan actualizado con', puestosDelDepartamento.size, 'puestos de', departamentoSeleccionado);
+    console.log('UserPlan actualizado con', puestosDelDepartamento.size, 'puestos de', departamentoSeleccionado);
   }
 
   /**

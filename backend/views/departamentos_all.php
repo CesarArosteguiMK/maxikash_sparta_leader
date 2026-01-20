@@ -190,6 +190,7 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
 
+
                 <!-- Body -->
                 <div class="modal-body">
                     <div class="card">
@@ -218,6 +219,7 @@
                                 </div>
                             </div>
 
+                            
                             <!-- Lista de puestos -->
                             <ul class="p-0 m-0" id="listaPuestos">
 
