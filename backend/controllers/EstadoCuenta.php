@@ -493,6 +493,30 @@ JS;
         <script>
             document.addEventListener('DOMContentLoaded', () => {
             
+                // Botón limpiar filtros
+                const btnResetFiltros = document.getElementById('btnResetFiltros');
+                if (btnResetFiltros) {
+                    btnResetFiltros.addEventListener('click', () => {
+                        // Limpiar campo ID de crédito
+                        const idCredito = document.getElementById('idCredito');
+                        if (idCredito) {
+                            idCredito.value = '';
+                        }
+                        
+                        // Limpiar campo nombre (si existe)
+                        const nombre = document.getElementById('nombre');
+                        if (nombre) {
+                            nombre.value = '';
+                        }
+                        
+                        // Resetear select de tipo de documento
+                        const tipoDocumento = document.getElementById('tipoDocumento');
+                        if (tipoDocumento) {
+                            tipoDocumento.value = '';
+                        }
+                    });
+                }
+            
                 const form = document.getElementById('formBusqueda');
             
                 form.addEventListener('submit', e => {
@@ -559,12 +583,79 @@ JS;
                         } 
                         // Para FAD_DOC, EVIDENCIA, FACTURA, CONTRATO y otros documentos, usar el visor normal
                         else if (data.tipo && data.url) {
+                            const modalBody = document.getElementById('documentoModalBody');
+                            const wrapper = document.getElementById('documentoWrapper');
                             const visor = document.getElementById('visorDocumento');
-                            if (visor) {
-                                visor.src = data.url;
+                            
+                            if (!modalBody || !wrapper) {
+                                Swal.fire('Error', 'No se pudo cargar el visor de documentos', 'error');
+                                return;
+                            }
+                            
+                            // Si es una imagen, mostrar directamente con <img> en lugar de iframe
+                            // Verificar explícitamente si es imagen (true) o no (false/undefined)
+                            if (data.esImagen === true) {
+                                // Ocultar iframe y mostrar imagen
+                                if (visor) {
+                                    visor.style.display = 'none';
+                                    visor.src = ''; // Limpiar src del iframe
+                                }
+                                
+                                // Crear o actualizar elemento img
+                                let imgElement = wrapper.querySelector('#imgDocumento');
+                                if (!imgElement) {
+                                    imgElement = document.createElement('img');
+                                    imgElement.id = 'imgDocumento';
+                                    imgElement.style.cssText = 'max-width: 100%; max-height: calc(95vh - 60px); object-fit: contain; display: block; margin: 0 auto;';
+                                    wrapper.appendChild(imgElement);
+                                } else {
+                                    imgElement.style.display = 'block';
+                                }
+                                
+                                imgElement.src = data.url;
+                                imgElement.alt = data.archivo || 'Documento';
+                                
+                                // Manejar errores de carga de imagen
+                                imgElement.onerror = function() {
+                                    console.error('Error cargando imagen:', data);
+                                    Swal.fire({
+                                        title: 'Error',
+                                        text: 'No se pudo cargar la imagen. Verifique que el archivo exista en el servidor.',
+                                        icon: 'error',
+                                        footer: data.archivo ? 'Archivo: ' + data.archivo : ''
+                                    });
+                                };
+                                
+                                // Mostrar imagen cuando se cargue
+                                imgElement.onload = function() {
+                                    console.log('Imagen cargada correctamente:', data.archivo);
+                                };
+                                
+                            } else {
+                                // Para PDFs, usar iframe con Google Viewer
+                                // Ocultar imagen si existe
+                                const imgElement = wrapper.querySelector('#imgDocumento');
+                                if (imgElement) {
+                                    imgElement.style.display = 'none';
+                                }
+                                
+                                // Asegurarse de que el iframe exista y esté visible
+                                let iframeToUse = visor;
+                                if (!iframeToUse) {
+                                    // Si el iframe no existe, recrearlo
+                                    iframeToUse = document.createElement('iframe');
+                                    iframeToUse.id = 'visorDocumento';
+                                    iframeToUse.style.cssText = 'width:100%;height:100%;border:0;transform-origin: top left;';
+                                    iframeToUse.setAttribute('loading', 'lazy');
+                                    wrapper.appendChild(iframeToUse);
+                                }
+                                
+                                // Mostrar el iframe y establecer la URL
+                                iframeToUse.style.display = 'block';
+                                iframeToUse.src = data.url;
                                 
                                 // Aplicar zoom predeterminado de 125% después de cargar el iframe
-                                visor.onload = function() {
+                                iframeToUse.onload = function() {
                                     setTimeout(() => {
                                         if (typeof applyZoomDocumento === 'function') {
                                             applyZoomDocumento();
@@ -579,44 +670,8 @@ JS;
                                     }
                                 }, 300);
                                 
-                                // Actualizar título del modal según el tipo
-                                const modalTitle = document.querySelector('#modalDocumento .modal-title');
-                                if (modalTitle) {
-                                    const tipoNombre = {
-                                        'FAD_DOC': 'Contrato Firmado',
-                                        'EVIDENCIA': 'Foto Entrega Moto',
-                                        'FACTURA': 'Factura',
-                                        'CONTRATO': 'Validaciones'
-                                    };
-                                    modalTitle.textContent = tipoNombre[data.tipo] || 'Documento';
-                                }
-                                
-                                // Mostrar información de debug en consola si está disponible
-                                if (data.archivo) {
-                                    console.log('Documento cargado:', {
-                                        tipo: data.tipo,
-                                        archivo: data.archivo,
-                                        carpeta: data.carpeta || 'N/A',
-                                        url: data.url
-                                    });
-                                }
-                                
-                                const modal = new bootstrap.Modal(
-                                    document.getElementById('modalDocumento')
-                                );
-                                modal.show();
-                                
-                                // Aplicar zoom después de que el modal se muestre completamente
-                                modal._element.addEventListener('shown.bs.modal', function() {
-                                    setTimeout(() => {
-                                        if (typeof applyZoomDocumento === 'function') {
-                                            applyZoomDocumento();
-                                        }
-                                    }, 500);
-                                }, { once: true });
-                                
                                 // Manejar errores de carga del iframe
-                                visor.onerror = function() {
+                                iframeToUse.onerror = function() {
                                     console.error('Error cargando documento:', data);
                                     Swal.fire({
                                         title: 'Error',
@@ -625,10 +680,60 @@ JS;
                                         footer: data.archivo ? 'Archivo: ' + data.archivo : ''
                                     });
                                 };
-                                
-                            } else {
-                                Swal.fire('Error', 'No se pudo cargar el visor de documentos', 'error');
                             }
+                            
+                            // Actualizar título del modal según el tipo
+                            const modalTitle = document.querySelector('#modalDocumento .modal-title');
+                            if (modalTitle) {
+                                const tipoNombre = {
+                                    'FAD_DOC': 'Contrato Firmado',
+                                    'EVIDENCIA': 'Foto Entrega Moto',
+                                    'FACTURA': 'Factura',
+                                    'CONTRATO': 'Validaciones'
+                                };
+                                modalTitle.textContent = tipoNombre[data.tipo] || 'Documento';
+                            }
+                            
+                            // Mostrar información de debug en consola si está disponible
+                            if (data.archivo) {
+                                console.log('Documento cargado:', {
+                                    tipo: data.tipo,
+                                    archivo: data.archivo,
+                                    carpeta: data.carpeta || 'N/A',
+                                    url: data.url,
+                                    esImagen: data.esImagen || false
+                                });
+                            }
+                            
+                            const modal = new bootstrap.Modal(
+                                document.getElementById('modalDocumento')
+                            );
+                            
+                            // Resetear el estado del modal antes de mostrarlo
+                            const modalElement = document.getElementById('modalDocumento');
+                            if (modalElement) {
+                                // Asegurarse de que el iframe esté presente y visible cuando sea PDF
+                                if (!data.esImagen) {
+                                    const resetIframe = document.getElementById('visorDocumento');
+                                    if (resetIframe) {
+                                        resetIframe.style.display = 'block';
+                                    }
+                                }
+                            }
+                            
+                            modal.show();
+                            
+                            // Aplicar zoom después de que el modal se muestre completamente (solo para PDFs)
+                            if (!data.esImagen) {
+                                modal._element.addEventListener('shown.bs.modal', function() {
+                                    setTimeout(() => {
+                                        if (typeof applyZoomDocumento === 'function') {
+                                            applyZoomDocumento();
+                                        }
+                                    }, 500);
+                                }, { once: true });
+                            }
+                            
                         } else {
                             Swal.fire({
                                 title: 'Error',
@@ -744,13 +849,15 @@ JS;
             if ($tipo === 'FACTURA') {
                 $fileUrl = "http://98.90.194.116/audit-app-0.0.1-SNAPSHOT_1/s3/downloadS3File?fileName=FACTURA/{$id}_factura.pdf";
                 
-                // 🔥 GOOGLE VIEWER
+                // 🔥 GOOGLE VIEWER (solo para PDFs)
                 $viewer = "https://docs.google.com/gview?url=" . urlencode($fileUrl) . "&embedded=true";
                 
                 echo json_encode([
                     'success' => true,
                     'tipo' => $tipo,
-                    'url' => $viewer
+                    'url' => $viewer,
+                    'esImagen' => false, // FACTURA siempre es PDF
+                    'extension' => 'pdf'
                 ]);
                 exit;
             }
@@ -759,13 +866,15 @@ JS;
             elseif ($tipo === 'CONTRATO') {
                 $fileUrl = "http://98.90.194.116/audit-app-0.0.1-SNAPSHOT_1/s3/downloadS3File?fileName=VALIDACIONES/{$id}_validaciones.pdf";
                 
-                // 🔥 GOOGLE VIEWER
+                // 🔥 GOOGLE VIEWER (solo para PDFs)
                 $viewer = "https://docs.google.com/gview?url=" . urlencode($fileUrl) . "&embedded=true";
                 
                 echo json_encode([
                     'success' => true,
                     'tipo' => $tipo,
-                    'url' => $viewer
+                    'url' => $viewer,
+                    'esImagen' => false, // CONTRATO siempre es PDF
+                    'extension' => 'pdf'
                 ]);
                 exit;
             }
@@ -870,15 +979,25 @@ JS;
 
                 $fileUrl = "http://98.90.194.116/audit-app-0.0.1-SNAPSHOT_1/s3/downloadS3File?fileName={$carpeta}/{$archivo}";
                 
-                // 🔥 GOOGLE VIEWER (solo para documentos que no sean INE)
-                $viewer = "https://docs.google.com/gview?url=" . urlencode($fileUrl) . "&embedded=true";
+                // Detectar si es una imagen o un PDF
+                $esImagen = in_array($extension, ['jpg', 'jpeg', 'png', 'gif']);
+                
+                // Para imágenes, usar la URL directa; para PDFs, usar Google Viewer
+                if ($esImagen) {
+                    $viewer = $fileUrl; // URL directa para imágenes
+                } else {
+                    // 🔥 GOOGLE VIEWER solo para PDFs
+                    $viewer = "https://docs.google.com/gview?url=" . urlencode($fileUrl) . "&embedded=true";
+                }
                 
                 echo json_encode([
                     'success' => true,
                     'tipo' => $tipo,
                     'url' => $viewer,
                     'archivo' => $archivo,
-                    'carpeta' => $carpeta
+                    'carpeta' => $carpeta,
+                    'esImagen' => $esImagen, // Indicador para el frontend
+                    'extension' => $extension
                 ]);
                 exit;
             }

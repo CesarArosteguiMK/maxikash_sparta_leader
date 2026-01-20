@@ -976,7 +976,7 @@
         }
 
         function resetZoomDocumento() {
-            currentZoomDocumento = 1.25; // Resetear a 125%
+            currentZoomDocumento = 1.20; // Resetear a 120%
             applyZoomDocumento();
         }
 
