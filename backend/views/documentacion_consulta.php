@@ -96,29 +96,17 @@
 
     <!-- MODAL VISOR DE DOCUMENTOS (PDFs y otros) -->
     <div class="modal fade" id="modalDocumento" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
-            <div class="modal-content">
+        <div class="modal-dialog modal-fullscreen-lg-down" style="max-width: 95vw; width: 95vw;">
+            <div class="modal-content" style="height: 95vh; display: flex; flex-direction: column;">
 
                 <!-- HEADER -->
-                <div class="modal-header">
+                <div class="modal-header flex-shrink-0">
                     <h5 class="modal-title">Documento</h5>
-                    <div class="d-flex align-items-center gap-2">
-                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="zoomOutDocumento()" title="Alejar">
-                            <i class="fa fa-search-minus"></i>
-                        </button>
-                        <span id="zoomLevelDocumento" class="badge bg-secondary">100%</span>
-                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="zoomInDocumento()" title="Acercar">
-                            <i class="fa fa-search-plus"></i>
-                        </button>
-                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="resetZoomDocumento()" title="Restablecer">
-                            <i class="fa fa-undo"></i>
-                        </button>
-                    </div>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
 
                 <!-- BODY -->
-                <div class="modal-body p-0" id="documentoModalBody" style="height:80vh; overflow: auto; position: relative;">
+                <div class="modal-body p-0 flex-grow-1" id="documentoModalBody" style="height: calc(95vh - 60px); overflow: auto; position: relative; min-height: 0;">
                     <div id="documentoWrapper" style="display: flex; align-items: center; justify-content: center; min-height: 100%; padding: 20px;">
                         <iframe
                                 id="visorDocumento"
@@ -969,7 +957,7 @@
         });
 
         // Variables para zoom de documentos (FAD_DOC, EVIDENCIA, etc.)
-        let currentZoomDocumento = 1;
+        let currentZoomDocumento = 1.25; // Zoom predeterminado 125%
         let minZoomDocumento = 0.5;
         let maxZoomDocumento = 3;
 
@@ -988,7 +976,7 @@
         }
 
         function resetZoomDocumento() {
-            currentZoomDocumento = 1;
+            currentZoomDocumento = 1.25; // Resetear a 125%
             applyZoomDocumento();
         }
 
@@ -996,7 +984,6 @@
             const iframe = document.getElementById('visorDocumento');
             const wrapper = document.getElementById('documentoWrapper');
             const modalBody = document.getElementById('documentoModalBody');
-            const zoomLevel = document.getElementById('zoomLevelDocumento');
             
             if (iframe && wrapper && modalBody) {
                 // Aplicar zoom usando transform scale
@@ -1004,7 +991,7 @@
                 iframe.style.transformOrigin = 'top left';
                 
                 // Ajustar el tamaño del wrapper para permitir scroll cuando hay zoom
-                if (currentZoomDocumento > 1) {
+                if (currentZoomDocumento >= 1) {
                     // Calcular el tamaño necesario del wrapper
                     const bodyWidth = modalBody.clientWidth;
                     const bodyHeight = modalBody.clientHeight;
@@ -1029,7 +1016,7 @@
                         modalBody.scrollTop = 0;
                     }, 100);
                 } else {
-                    // Resetear cuando vuelve a 100%
+                    // Si el zoom es menor a 1, centrar
                     wrapper.style.width = '';
                     wrapper.style.height = '';
                     wrapper.style.minWidth = '';
@@ -1046,10 +1033,6 @@
                         modalBody.scrollTop = (modalBody.scrollHeight - modalBody.clientHeight) / 2;
                     }, 100);
                 }
-            }
-            
-            if (zoomLevel) {
-                zoomLevel.textContent = Math.round(currentZoomDocumento * 100) + '%';
             }
         }
 

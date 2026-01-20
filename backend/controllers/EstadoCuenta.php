@@ -563,6 +563,22 @@ JS;
                             if (visor) {
                                 visor.src = data.url;
                                 
+                                // Aplicar zoom predeterminado de 125% después de cargar el iframe
+                                visor.onload = function() {
+                                    setTimeout(() => {
+                                        if (typeof applyZoomDocumento === 'function') {
+                                            applyZoomDocumento();
+                                        }
+                                    }, 500);
+                                };
+                                
+                                // Aplicar zoom inmediatamente también
+                                setTimeout(() => {
+                                    if (typeof applyZoomDocumento === 'function') {
+                                        applyZoomDocumento();
+                                    }
+                                }, 300);
+                                
                                 // Actualizar título del modal según el tipo
                                 const modalTitle = document.querySelector('#modalDocumento .modal-title');
                                 if (modalTitle) {
@@ -575,14 +591,51 @@ JS;
                                     modalTitle.textContent = tipoNombre[data.tipo] || 'Documento';
                                 }
                                 
-                                new bootstrap.Modal(
+                                // Mostrar información de debug en consola si está disponible
+                                if (data.archivo) {
+                                    console.log('Documento cargado:', {
+                                        tipo: data.tipo,
+                                        archivo: data.archivo,
+                                        carpeta: data.carpeta || 'N/A',
+                                        url: data.url
+                                    });
+                                }
+                                
+                                const modal = new bootstrap.Modal(
                                     document.getElementById('modalDocumento')
-                                ).show();
+                                );
+                                modal.show();
+                                
+                                // Aplicar zoom después de que el modal se muestre completamente
+                                modal._element.addEventListener('shown.bs.modal', function() {
+                                    setTimeout(() => {
+                                        if (typeof applyZoomDocumento === 'function') {
+                                            applyZoomDocumento();
+                                        }
+                                    }, 500);
+                                }, { once: true });
+                                
+                                // Manejar errores de carga del iframe
+                                visor.onerror = function() {
+                                    console.error('Error cargando documento:', data);
+                                    Swal.fire({
+                                        title: 'Error',
+                                        text: 'No se pudo cargar el documento. Verifique que el archivo exista en el servidor.',
+                                        icon: 'error',
+                                        footer: data.archivo ? 'Archivo: ' + data.archivo : ''
+                                    });
+                                };
+                                
                             } else {
                                 Swal.fire('Error', 'No se pudo cargar el visor de documentos', 'error');
                             }
                         } else {
-                            Swal.fire('Error', 'Respuesta del servidor inválida', 'error');
+                            Swal.fire({
+                                title: 'Error',
+                                text: 'Respuesta del servidor inválida. Tipo: ' + (data.tipo || 'N/A'),
+                                icon: 'error'
+                            });
+                            console.error('Respuesta inválida:', data);
                         }
                     })
                     .catch(err => {
@@ -779,7 +832,15 @@ JS;
                 if (!$res['success']) {
                     echo json_encode([
                         'success' => false,
-                        'mensaje' => $res['mensaje']
+                        'mensaje' => $res['mensaje'] . ' (Tipo: ' . $tipo . ', ID: ' . $id . ')'
+                    ]);
+                    exit;
+                }
+
+                if (!isset($res['datos']) || !is_array($res['datos'])) {
+                    echo json_encode([
+                        'success' => false,
+                        'mensaje' => 'Error: Datos del documento no válidos (Tipo: ' . $tipo . ')'
                     ]);
                     exit;
                 }
@@ -787,7 +848,7 @@ JS;
                 if (!isset($res['datos']['nombre_archivo']) || empty($res['datos']['nombre_archivo'])) {
                     echo json_encode([
                         'success' => false,
-                        'mensaje' => 'No se encontró el archivo del documento solicitado'
+                        'mensaje' => 'No se encontró el archivo del documento solicitado. (Tipo: ' . $tipo . ', ID: ' . $id . ')'
                     ]);
                     exit;
                 }
@@ -795,7 +856,31 @@ JS;
                 $archivo = basename($res['datos']['nombre_archivo']);
                 $carpeta = $tipo === 'FAD_DOC' ? 'FAD' : 'EVIDENCIA';
 
+                // Validar que el archivo tenga extensión válida
+                $extension = strtolower(pathinfo($archivo, PATHINFO_EXTENSION));
+                $extensionesValidas = ['pdf', 'jpg', 'jpeg', 'png', 'gif'];
+                
+                if (!in_array($extension, $extensionesValidas)) {
+                    echo json_encode([
+                        'success' => false,
+                        'mensaje' => 'Tipo de archivo no soportado: ' . $extension . ' (Archivo: ' . $archivo . ')'
+                    ]);
+                    exit;
+                }
+
                 $fileUrl = "http://98.90.194.116/audit-app-0.0.1-SNAPSHOT_1/s3/downloadS3File?fileName={$carpeta}/{$archivo}";
+                
+                // 🔥 GOOGLE VIEWER (solo para documentos que no sean INE)
+                $viewer = "https://docs.google.com/gview?url=" . urlencode($fileUrl) . "&embedded=true";
+                
+                echo json_encode([
+                    'success' => true,
+                    'tipo' => $tipo,
+                    'url' => $viewer,
+                    'archivo' => $archivo,
+                    'carpeta' => $carpeta
+                ]);
+                exit;
             }
             // ---------------- Tipo no válido ----------------
             else {
@@ -805,16 +890,6 @@ JS;
                 ]);
                 exit;
             }
-
-            // 🔥 GOOGLE VIEWER (solo para documentos que no sean INE)
-            $viewer = "https://docs.google.com/gview?url=" . urlencode($fileUrl) . "&embedded=true";
-
-            echo json_encode([
-                'success' => true,
-                'tipo' => $tipo,
-                'url' => $viewer
-            ]);
-            exit;
 
         } catch (\Throwable $e) {
 
