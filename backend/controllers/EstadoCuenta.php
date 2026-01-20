@@ -556,13 +556,33 @@ JS;
                             new bootstrap.Modal(
                                 document.getElementById('modalINE')
                             ).show();
+                        } 
+                        // Para FAD_DOC, EVIDENCIA, FACTURA, CONTRATO y otros documentos, usar el visor normal
+                        else if (data.tipo && data.url) {
+                            const visor = document.getElementById('visorDocumento');
+                            if (visor) {
+                                visor.src = data.url;
+                                
+                                // Actualizar título del modal según el tipo
+                                const modalTitle = document.querySelector('#modalDocumento .modal-title');
+                                if (modalTitle) {
+                                    const tipoNombre = {
+                                        'FAD_DOC': 'Contrato Firmado',
+                                        'EVIDENCIA': 'Foto Entrega Moto',
+                                        'FACTURA': 'Factura',
+                                        'CONTRATO': 'Validaciones'
+                                    };
+                                    modalTitle.textContent = tipoNombre[data.tipo] || 'Documento';
+                                }
+                                
+                                new bootstrap.Modal(
+                                    document.getElementById('modalDocumento')
+                                ).show();
+                            } else {
+                                Swal.fire('Error', 'No se pudo cargar el visor de documentos', 'error');
+                            }
                         } else {
-                            // Para otros documentos, usar el visor normal
-                            document.getElementById('visorDocumento').src = data.url;
-                            
-                            new bootstrap.Modal(
-                                document.getElementById('modalDocumento')
-                            ).show();
+                            Swal.fire('Error', 'Respuesta del servidor inválida', 'error');
                         }
                     })
                     .catch(err => {
@@ -670,11 +690,31 @@ JS;
             // ---------------- FACTURA ----------------
             if ($tipo === 'FACTURA') {
                 $fileUrl = "http://98.90.194.116/audit-app-0.0.1-SNAPSHOT_1/s3/downloadS3File?fileName=FACTURA/{$id}_factura.pdf";
+                
+                // 🔥 GOOGLE VIEWER
+                $viewer = "https://docs.google.com/gview?url=" . urlencode($fileUrl) . "&embedded=true";
+                
+                echo json_encode([
+                    'success' => true,
+                    'tipo' => $tipo,
+                    'url' => $viewer
+                ]);
+                exit;
             }
 
             // ---------------- CONTRATO ----------------
             elseif ($tipo === 'CONTRATO') {
                 $fileUrl = "http://98.90.194.116/audit-app-0.0.1-SNAPSHOT_1/s3/downloadS3File?fileName=VALIDACIONES/{$id}_validaciones.pdf";
+                
+                // 🔥 GOOGLE VIEWER
+                $viewer = "https://docs.google.com/gview?url=" . urlencode($fileUrl) . "&embedded=true";
+                
+                echo json_encode([
+                    'success' => true,
+                    'tipo' => $tipo,
+                    'url' => $viewer
+                ]);
+                exit;
             }
             // ---------------- INE ----------------
             elseif ($tipo === 'INE') {
@@ -733,7 +773,7 @@ JS;
 
 
             // ----------------  FAD / EVIDENCIA ----------------
-            else {
+            elseif ($tipo === 'FAD_DOC' || $tipo === 'EVIDENCIA') {
                 $res = EstadoCuentaDAO::obtenerDocumentoOferta($id, $tipo);
 
                 if (!$res['success']) {
@@ -744,10 +784,26 @@ JS;
                     exit;
                 }
 
+                if (!isset($res['datos']['nombre_archivo']) || empty($res['datos']['nombre_archivo'])) {
+                    echo json_encode([
+                        'success' => false,
+                        'mensaje' => 'No se encontró el archivo del documento solicitado'
+                    ]);
+                    exit;
+                }
+
                 $archivo = basename($res['datos']['nombre_archivo']);
                 $carpeta = $tipo === 'FAD_DOC' ? 'FAD' : 'EVIDENCIA';
 
                 $fileUrl = "http://98.90.194.116/audit-app-0.0.1-SNAPSHOT_1/s3/downloadS3File?fileName={$carpeta}/{$archivo}";
+            }
+            // ---------------- Tipo no válido ----------------
+            else {
+                echo json_encode([
+                    'success' => false,
+                    'mensaje' => 'Tipo de documento no válido. Tipos permitidos: FACTURA, CONTRATO, INE, FAD_DOC, EVIDENCIA'
+                ]);
+                exit;
             }
 
             // 🔥 GOOGLE VIEWER (solo para documentos que no sean INE)

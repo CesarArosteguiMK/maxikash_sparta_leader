@@ -102,17 +102,31 @@
                 <!-- HEADER -->
                 <div class="modal-header">
                     <h5 class="modal-title">Documento</h5>
+                    <div class="d-flex align-items-center gap-2">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="zoomOutDocumento()" title="Alejar">
+                            <i class="fa fa-search-minus"></i>
+                        </button>
+                        <span id="zoomLevelDocumento" class="badge bg-secondary">100%</span>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="zoomInDocumento()" title="Acercar">
+                            <i class="fa fa-search-plus"></i>
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="resetZoomDocumento()" title="Restablecer">
+                            <i class="fa fa-undo"></i>
+                        </button>
+                    </div>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
 
                 <!-- BODY -->
-                <div class="modal-body p-0" style="height:80vh">
-                    <iframe
-                            id="visorDocumento"
-                            src=""
-                            style="width:100%;height:100%;border:0;"
-                            loading="lazy">
-                    </iframe>
+                <div class="modal-body p-0" id="documentoModalBody" style="height:80vh; overflow: auto; position: relative;">
+                    <div id="documentoWrapper" style="display: flex; align-items: center; justify-content: center; min-height: 100%; padding: 20px;">
+                        <iframe
+                                id="visorDocumento"
+                                src=""
+                                style="width:100%;height:100%;border:0;transform-origin: top left;"
+                                loading="lazy">
+                        </iframe>
+                    </div>
                 </div>
 
 
@@ -230,9 +244,9 @@
                         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
                 </div>
-                <div class="modal-body p-2 p-md-0" id="zoomModalBody" style="min-height: calc(100vh - 120px); max-height: calc(100vh - 120px); background-color: rgba(0,0,0,0.9); position: relative; overflow: auto; cursor: grab;">
-                    <div id="zoomWrapper" style="display: flex; align-items: center; justify-content: center; min-height: 100%; padding: 20px; width: 100%; height: 100%;">
-                        <div class="watermark-container-zoom" id="zoomContainer" style="position: relative; display: inline-block; transform-origin: center center; transition: transform 0.3s ease;">
+                <div class="modal-body p-0" id="zoomModalBody" style="min-height: calc(100vh - 120px); max-height: calc(100vh - 120px); background-color: rgba(0,0,0,0.9); position: relative; overflow: auto; cursor: grab;">
+                    <div id="zoomWrapper" style="display: flex; align-items: center; justify-content: center; padding: 20px;">
+                        <div class="watermark-container-zoom" id="zoomContainer" style="position: relative; display: inline-block;">
                             <img 
                                 id="imgZoomINE" 
                                 src="" 
@@ -299,9 +313,6 @@
         /* Asegurar que la imagen en zoom se muestre completa */
         #modalZoomINE .modal-body {
             overflow: auto !important;
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
         }
 
         #modalZoomINE .watermark-container-zoom {
@@ -317,7 +328,7 @@
 
         #modalZoomINE .watermark-container-zoom {
             transform-origin: center;
-            transition: transform 0.3s ease;
+            transition: none;
         }
 
         /* Asegurar que el modal body permita scroll cuando hay zoom */
@@ -520,10 +531,6 @@
                 const img = container.querySelector('img');
                 if (!img) return;
                 
-                // Obtener dimensiones naturales de la imagen (sin transformación de zoom)
-                const naturalWidth = img.naturalWidth || img.offsetWidth;
-                const naturalHeight = img.naturalHeight || img.offsetHeight;
-                
                 // Usar dimensiones actuales de la imagen renderizada
                 const width = img.offsetWidth || overlayRect.width;
                 const height = img.offsetHeight || overlayRect.height;
@@ -531,14 +538,11 @@
                 if (width === 0 || height === 0) return;
                 
                 // Calcular número de capas según el tamaño de la imagen
-                // Para zoom, usar dimensiones naturales multiplicadas por el zoom
-                const zoomFactor = isZoom ? (currentZoom || 1) : 1;
-                const effectiveWidth = isZoom ? (naturalWidth * zoomFactor) : width;
-                const effectiveHeight = isZoom ? (naturalHeight * zoomFactor) : height;
+                const effectiveWidth = width;
+                const effectiveHeight = height;
                 
-                const baseSpacing = isZoom ? 120 : 80;
-                const spacing = baseSpacing;
-                const fontSize = isZoom ? '3.5rem' : '2rem';
+                const spacing = isZoom ? 110 : 80;
+                const fontSize = isZoom ? '3.2rem' : '2rem';
                 const numLayers = Math.ceil(effectiveHeight / spacing) + 3;
                 
                 // Asegurar que el overlay tenga las mismas dimensiones que la imagen visible
@@ -555,8 +559,8 @@
                         position: absolute;
                         font-size: ${fontSize};
                         font-weight: bold;
-                        color: rgba(220, 20, 20, 0.75);
-                        text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.4);
+                        color: rgba(220, 20, 20, 0.45);
+                        text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.25);
                         transform: rotate(-45deg);
                         transform-origin: center;
                         white-space: nowrap;
@@ -617,62 +621,177 @@
         // Funciones de zoom
         function zoomInINE() {
             if (currentZoom < maxZoom) {
+                const previousZoom = currentZoom;
                 currentZoom = Math.min(currentZoom + 0.25, maxZoom);
-                applyZoom();
+                applyZoom(previousZoom);
             }
         }
 
         function zoomOutINE() {
             if (currentZoom > minZoom) {
+                const previousZoom = currentZoom;
                 currentZoom = Math.max(currentZoom - 0.25, minZoom);
-                applyZoom();
+                applyZoom(previousZoom);
             }
         }
 
         function resetZoomINE() {
+            const img = document.getElementById('imgZoomINE');
+            const modalBody = document.getElementById('zoomModalBody');
+            const wrapper = document.getElementById('zoomWrapper');
+            const container = document.getElementById('zoomContainer');
+            
+            // Resetear zoom
             currentZoom = 1;
-            applyZoom();
-            // Resetear posición de scroll al centro después de un pequeño delay
-            setTimeout(() => {
-                const modalBody = document.getElementById('zoomModalBody');
-                if (modalBody) {
-                    modalBody.scrollLeft = (modalBody.scrollWidth - modalBody.clientWidth) / 2;
-                    modalBody.scrollTop = (modalBody.scrollHeight - modalBody.clientHeight) / 2;
+            
+            // Resetear completamente los estilos de la imagen para que se comporte como al inicio
+            if (img) {
+                img.style.width = '';
+                img.style.height = '';
+                img.style.maxWidth = '95vw';
+                img.style.maxHeight = 'calc(100vh - 140px)';
+            }
+            
+            // Resetear overlay de marca de agua
+            if (container) {
+                const overlay = container.querySelector('.watermark-overlay-zoom');
+                if (overlay) {
+                    overlay.style.width = '';
+                    overlay.style.height = '';
                 }
-            }, 350);
+            }
+            
+            // Resetear wrapper
+            if (wrapper) {
+                wrapper.style.width = '';
+                wrapper.style.height = '';
+                wrapper.style.minWidth = '';
+                wrapper.style.minHeight = '';
+                wrapper.style.padding = '20px';
+                wrapper.style.alignItems = 'center';
+                wrapper.style.justifyContent = 'center';
+            }
+            
+            // Esperar a que la imagen se ajuste naturalmente y luego centrar
+            requestAnimationFrame(() => {
+                setTimeout(() => {
+                    if (modalBody) {
+                        // Centrar el scroll
+                        const scrollLeft = (modalBody.scrollWidth - modalBody.clientWidth) / 2;
+                        const scrollTop = (modalBody.scrollHeight - modalBody.clientHeight) / 2;
+                        modalBody.scrollLeft = Math.max(0, scrollLeft);
+                        modalBody.scrollTop = Math.max(0, scrollTop);
+                    }
+                    // Actualizar nivel de zoom
+                    const zoomLevel = document.getElementById('zoomLevelINE');
+                    if (zoomLevel) {
+                        zoomLevel.textContent = '100%';
+                    }
+                    // Recrear marcas de agua con el tamaño natural
+                    crearMarcasAgua();
+                }, 300);
+            });
         }
 
-        function applyZoom() {
+        function applyZoom(previousZoom = 1) {
             const container = document.getElementById('zoomContainer');
             const zoomLevel = document.getElementById('zoomLevelINE');
             const modalBody = document.getElementById('zoomModalBody');
             const img = document.getElementById('imgZoomINE');
             const wrapper = document.getElementById('zoomWrapper');
             
-            if (container && img) {
-                // Obtener dimensiones actuales de la imagen renderizada
-                const imgRect = img.getBoundingClientRect();
-                const imgWidth = imgRect.width || img.offsetWidth;
-                const imgHeight = imgRect.height || img.offsetHeight;
+            if (container && img && modalBody) {
+                const naturalWidth = img.naturalWidth || img.offsetWidth;
+                const naturalHeight = img.naturalHeight || img.offsetHeight;
                 
-                // Calcular dimensiones escaladas
-                const scaledWidth = imgWidth * currentZoom;
-                const scaledHeight = imgHeight * currentZoom;
-                
-                // Aplicar zoom con transform desde el centro
-                container.style.transform = `scale(${currentZoom})`;
-                container.style.transformOrigin = 'center center';
-                
-                // Ajustar el wrapper para permitir scroll cuando hay zoom
-                if (wrapper) {
+                if (naturalWidth > 0 && naturalHeight > 0) {
+                    const scaledWidth = naturalWidth * currentZoom;
+                    const scaledHeight = naturalHeight * currentZoom;
+                    
+                    // Zoom por tamaño real (evita recortes por transform)
+                    img.style.width = `${scaledWidth}px`;
+                    img.style.height = `${scaledHeight}px`;
                     if (currentZoom > 1) {
-                        const minWidth = Math.max(scaledWidth + 200, modalBody ? modalBody.clientWidth : 0);
-                        const minHeight = Math.max(scaledHeight + 200, modalBody ? modalBody.clientHeight : 0);
-                        wrapper.style.minWidth = `${minWidth}px`;
-                        wrapper.style.minHeight = `${minHeight}px`;
+                        img.style.maxWidth = 'none';
+                        img.style.maxHeight = 'none';
                     } else {
-                        wrapper.style.minWidth = '100%';
-                        wrapper.style.minHeight = '100%';
+                        img.style.maxWidth = '95vw';
+                        img.style.maxHeight = 'calc(100vh - 140px)';
+                    }
+                    
+                    // Overlay de marca de agua sigue el tamaño real
+                    const overlay = container.querySelector('.watermark-overlay-zoom');
+                    if (overlay) {
+                        overlay.style.width = `${scaledWidth}px`;
+                        overlay.style.height = `${scaledHeight}px`;
+                    }
+                    
+                    // Wrapper más grande para permitir scroll en todas las direcciones
+                    if (wrapper) {
+                        const bodyWidth = modalBody.clientWidth;
+                        const bodyHeight = modalBody.clientHeight;
+                        
+                        // Padding suficiente para permitir scroll completo en todas las direcciones
+                        const padding = 100;
+                        const wrapperWidth = scaledWidth + (padding * 2);
+                        const wrapperHeight = scaledHeight + (padding * 2);
+                        
+                        wrapper.style.width = `${wrapperWidth}px`;
+                        wrapper.style.height = `${wrapperHeight}px`;
+                        wrapper.style.minWidth = `${wrapperWidth}px`;
+                        wrapper.style.minHeight = `${wrapperHeight}px`;
+                        wrapper.style.padding = `${padding}px`;
+                        
+                        // Cuando hay zoom, alinear arriba/izquierda
+                        if (currentZoom > 1) {
+                            wrapper.style.alignItems = 'flex-start';
+                            wrapper.style.justifyContent = 'flex-start';
+                            
+                            // Si es un nuevo zoom (no estaba en zoom antes), resetear scroll a arriba
+                            // Si ya estaba en zoom, mantener posición relativa
+                            setTimeout(() => {
+                                if (previousZoom <= 1) {
+                                    // Primera vez que se hace zoom, empezar desde arriba
+                                    modalBody.scrollTop = 0;
+                                    modalBody.scrollLeft = 0;
+                                }
+                                // Si ya estaba en zoom, permitir scroll libre (no forzar posición)
+                            }, 150);
+                        } else {
+                            // Cuando vuelve a 100%, resetear completamente para que se comporte como al inicio
+                            // Remover estilos forzados y dejar que la imagen se ajuste naturalmente
+                            img.style.width = '';
+                            img.style.height = '';
+                            img.style.maxWidth = '95vw';
+                            img.style.maxHeight = 'calc(100vh - 140px)';
+                            
+                            // Resetear wrapper
+                            wrapper.style.width = '';
+                            wrapper.style.height = '';
+                            wrapper.style.minWidth = '';
+                            wrapper.style.minHeight = '';
+                            wrapper.style.padding = '20px';
+                            wrapper.style.alignItems = 'center';
+                            wrapper.style.justifyContent = 'center';
+                            
+                            // Resetear overlay
+                            if (overlay) {
+                                overlay.style.width = '';
+                                overlay.style.height = '';
+                            }
+                            
+                            // Centrar cuando vuelve a zoom normal - esperar a que se ajuste naturalmente
+                            requestAnimationFrame(() => {
+                                setTimeout(() => {
+                                    const scrollLeft = (modalBody.scrollWidth - modalBody.clientWidth) / 2;
+                                    const scrollTop = (modalBody.scrollHeight - modalBody.clientHeight) / 2;
+                                    modalBody.scrollLeft = Math.max(0, scrollLeft);
+                                    modalBody.scrollTop = Math.max(0, scrollTop);
+                                    // Recrear marcas de agua
+                                    crearMarcasAgua();
+                                }, 300);
+                            });
+                        }
                     }
                 }
             }
@@ -681,7 +800,6 @@
                 zoomLevel.textContent = Math.round(currentZoom * 100) + '%';
             }
             
-            // Cambiar cursor según el nivel de zoom
             if (modalBody) {
                 modalBody.style.cursor = currentZoom > 1 ? 'grab' : 'default';
                 if (img) {
@@ -689,10 +807,9 @@
                 }
             }
             
-            // Recrear marcas de agua con el nuevo zoom después de que se aplique la transformación
             setTimeout(() => {
                 crearMarcasAgua();
-            }, 300);
+            }, 250);
         }
 
         // Zoom con scroll del mouse
@@ -849,6 +966,110 @@
                     });
                 }
             });
+        });
+
+        // Variables para zoom de documentos (FAD_DOC, EVIDENCIA, etc.)
+        let currentZoomDocumento = 1;
+        let minZoomDocumento = 0.5;
+        let maxZoomDocumento = 3;
+
+        function zoomInDocumento() {
+            if (currentZoomDocumento < maxZoomDocumento) {
+                currentZoomDocumento = Math.min(currentZoomDocumento + 0.25, maxZoomDocumento);
+                applyZoomDocumento();
+            }
+        }
+
+        function zoomOutDocumento() {
+            if (currentZoomDocumento > minZoomDocumento) {
+                currentZoomDocumento = Math.max(currentZoomDocumento - 0.25, minZoomDocumento);
+                applyZoomDocumento();
+            }
+        }
+
+        function resetZoomDocumento() {
+            currentZoomDocumento = 1;
+            applyZoomDocumento();
+        }
+
+        function applyZoomDocumento() {
+            const iframe = document.getElementById('visorDocumento');
+            const wrapper = document.getElementById('documentoWrapper');
+            const modalBody = document.getElementById('documentoModalBody');
+            const zoomLevel = document.getElementById('zoomLevelDocumento');
+            
+            if (iframe && wrapper && modalBody) {
+                // Aplicar zoom usando transform scale
+                iframe.style.transform = `scale(${currentZoomDocumento})`;
+                iframe.style.transformOrigin = 'top left';
+                
+                // Ajustar el tamaño del wrapper para permitir scroll cuando hay zoom
+                if (currentZoomDocumento > 1) {
+                    // Calcular el tamaño necesario del wrapper
+                    const bodyWidth = modalBody.clientWidth;
+                    const bodyHeight = modalBody.clientHeight;
+                    const scaledWidth = bodyWidth * currentZoomDocumento;
+                    const scaledHeight = bodyHeight * currentZoomDocumento;
+                    
+                    wrapper.style.width = `${scaledWidth}px`;
+                    wrapper.style.height = `${scaledHeight}px`;
+                    wrapper.style.minWidth = `${scaledWidth}px`;
+                    wrapper.style.minHeight = `${scaledHeight}px`;
+                    wrapper.style.alignItems = 'flex-start';
+                    wrapper.style.justifyContent = 'flex-start';
+                    wrapper.style.padding = '20px';
+                    
+                    // Asegurar que el iframe mantenga su tamaño original pero se escale
+                    iframe.style.width = `${bodyWidth}px`;
+                    iframe.style.height = `${bodyHeight}px`;
+                    
+                    // Resetear scroll al inicio cuando se aplica zoom
+                    setTimeout(() => {
+                        modalBody.scrollLeft = 0;
+                        modalBody.scrollTop = 0;
+                    }, 100);
+                } else {
+                    // Resetear cuando vuelve a 100%
+                    wrapper.style.width = '';
+                    wrapper.style.height = '';
+                    wrapper.style.minWidth = '';
+                    wrapper.style.minHeight = '';
+                    wrapper.style.alignItems = 'center';
+                    wrapper.style.justifyContent = 'center';
+                    wrapper.style.padding = '20px';
+                    iframe.style.width = '100%';
+                    iframe.style.height = '100%';
+                    
+                    // Centrar
+                    setTimeout(() => {
+                        modalBody.scrollLeft = (modalBody.scrollWidth - modalBody.clientWidth) / 2;
+                        modalBody.scrollTop = (modalBody.scrollHeight - modalBody.clientHeight) / 2;
+                    }, 100);
+                }
+            }
+            
+            if (zoomLevel) {
+                zoomLevel.textContent = Math.round(currentZoomDocumento * 100) + '%';
+            }
+        }
+
+        // Zoom con scroll del mouse en el documento
+        document.addEventListener('DOMContentLoaded', function() {
+            const documentoModal = document.getElementById('modalDocumento');
+            const documentoModalBody = document.getElementById('documentoModalBody');
+            
+            if (documentoModal && documentoModalBody) {
+                documentoModalBody.addEventListener('wheel', function(e) {
+                    if (e.ctrlKey || e.metaKey) {
+                        e.preventDefault();
+                        if (e.deltaY < 0) {
+                            zoomInDocumento();
+                        } else {
+                            zoomOutDocumento();
+                        }
+                    }
+                }, { passive: false });
+            }
         });
 
         function cerrarZoomINE() {
