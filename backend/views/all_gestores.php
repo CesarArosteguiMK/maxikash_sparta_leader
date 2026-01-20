@@ -32,7 +32,7 @@
 
                 <div class="col-md-4">
                     <select id="FilterTransaction" class="form-select text-capitalize">
-                        <option value="">Select Estatus</option>
+                        <option value="">Selecciona Estatus</option>
                     </select>
                 </div>
             </div>
@@ -442,3 +442,360 @@
 <!-- =========================
      JS
 ========================== -->
+
+<script>
+  /**
+   * ==========================================
+   * LLENAR FILTROS DINÁMICAMENTE
+   * ==========================================
+   * UserRole = Departamento
+   * UserPlan = Puesto
+   * FilterTransaction = Estatus
+   * 
+   * Datos provenientes de: /CapHum/getUsuarios
+   */
+
+  // Variable global para almacenar todos los usuarios
+  let usuariosData = [];
+  
+  function llenarFiltros() {
+    console.log(' Iniciando función llenarFiltros()');
+    
+    // Llamar a la API para obtener los usuarios/gestores
+    http.request({
+      endpoint: "/CapHum/getUsuarios",
+      onSuccess: (resp) => {
+        console.log('✓ Respuesta de /CapHum/getUsuarios:', resp);
+        
+        if (!resp.success || !resp.datos || resp.datos.length === 0) {
+          console.warn(' No hay datos disponibles');
+          return;
+        }
+
+        // Guardar los datos globalmente
+        usuariosData = resp.datos;
+
+        // CONJUNTOS para almacenar valores únicos (evita duplicados)
+        const departamentos = new Set();
+        const puestos = new Set();
+        const estatus = new Set();
+
+        // Iterar los datos y extraer valores únicos
+        resp.datos.forEach(persona => {
+          // DEPARTAMENTO
+          if (persona.nombre_departamento && persona.nombre_departamento !== 'Sin departamento') {
+            departamentos.add(persona.nombre_departamento);
+          }
+          
+          // PUESTO
+          if (persona.nombre_puesto && persona.nombre_puesto !== 'Sin puesto') {
+            puestos.add(persona.nombre_puesto);
+          }
+          
+          // ESTATUS
+          if (persona.estatus) {
+            estatus.add(persona.estatus);
+          }
+        });
+
+        //  FORZAR "Inactivo" en los estatus
+        estatus.add('Inactivo');
+        estatus.add('Activo');
+
+        console.log(' Datos extraídos:', {
+          departamentos: Array.from(departamentos),
+          puestos: Array.from(puestos),
+          estatus: Array.from(estatus)
+        });
+
+        // ==========================================
+        // LLENAR SELECT DEPARTAMENTO (UserRole)
+        // ==========================================
+        const selectDepartamento = document.getElementById('UserRole');
+        if (selectDepartamento) {
+          const opciones = selectDepartamento.querySelectorAll('option');
+          opciones.forEach((opt, index) => {
+            if (index > 0) opt.remove();
+          });
+
+          departamentos.forEach(dep => {
+            const option = document.createElement('option');
+            option.value = dep;
+            option.textContent = dep;
+            selectDepartamento.appendChild(option);
+          });
+
+          // 🎯 Agregar listener para ACTUALIZAR PUESTOS cuando cambia departamento
+          selectDepartamento.addEventListener('change', (e) => {
+            actualizarPuestosSegunDepartamento(e.target.value);
+            aplicarFiltros();
+          });
+
+          console.log('✅ UserRole (DEPARTAMENTO) llenado:', Array.from(departamentos));
+        }
+
+        // ==========================================
+        // LLENAR SELECT PUESTO (UserPlan) - INICIAL
+        // ==========================================
+        const selectPuesto = document.getElementById('UserPlan');
+        if (selectPuesto) {
+          const opciones = selectPuesto.querySelectorAll('option');
+          opciones.forEach((opt, index) => {
+            if (index > 0) opt.remove();
+          });
+
+          // Mostrar TODOS los puestos al inicio (sin filtro)
+          puestos.forEach(puesto => {
+            const option = document.createElement('option');
+            option.value = puesto;
+            option.textContent = puesto;
+            selectPuesto.appendChild(option);
+          });
+
+          // Agregar listener para filtrar en tiempo real
+          selectPuesto.addEventListener('change', aplicarFiltros);
+
+          console.log('✅ UserPlan (PUESTO) llenado:', Array.from(puestos));
+        }
+
+        // ==========================================
+        // LLENAR SELECT ESTATUS (FilterTransaction)
+        // ==========================================
+        const selectEstatus = document.getElementById('FilterTransaction');
+        if (selectEstatus) {
+          const opciones = selectEstatus.querySelectorAll('option');
+          opciones.forEach((opt, index) => {
+            if (index > 0) opt.remove();
+          });
+
+          estatus.forEach(est => {
+            const option = document.createElement('option');
+            option.value = est;
+            option.textContent = est;
+            selectEstatus.appendChild(option);
+          });
+
+          //  Agregar listener para filtrar en tiempo real
+          selectEstatus.addEventListener('change', aplicarFiltros);
+
+          console.log(' FilterTransaction (ESTATUS) llenado:', Array.from(estatus));
+        }
+
+        console.log(' Filtros inicializados correctamente');
+      },
+      onError: (err) => {
+        console.error(' Error al cargar datos:', err);
+      }
+    });
+  }
+
+  /**
+   * ==========================================
+   * ACTUALIZAR PUESTOS SEGÚN DEPARTAMENTO
+   * ==========================================
+   * Cuando el usuario selecciona un departamento,
+   * este filtro muestra solo los puestos de ese departamento
+   */
+  function actualizarPuestosSegunDepartamento(departamentoSeleccionado) {
+    console.log('🔄 Actualizando puestos para departamento:', departamentoSeleccionado);
+
+    const selectPuesto = document.getElementById('UserPlan');
+    
+    if (!selectPuesto) {
+      console.warn('⚠️ Select UserPlan no encontrado');
+      return;
+    }
+
+    // Si no hay departamento seleccionado, mostrar TODOS los puestos
+    if (!departamentoSeleccionado) {
+      console.log('📌 Sin departamento seleccionado, mostrando todos los puestos');
+      
+      // Extraer todos los puestos únicos
+      const todosPuestos = new Set();
+      usuariosData.forEach(persona => {
+        if (persona.nombre_puesto && persona.nombre_puesto !== 'Sin puesto') {
+          todosPuestos.add(persona.nombre_puesto);
+        }
+      });
+
+      // Limpiar opciones previas (excepto la primera)
+      const opciones = selectPuesto.querySelectorAll('option');
+      opciones.forEach((opt, index) => {
+        if (index > 0) opt.remove();
+      });
+
+      // Agregar todos los puestos
+      todosPuestos.forEach(puesto => {
+        const option = document.createElement('option');
+        option.value = puesto;
+        option.textContent = puesto;
+        selectPuesto.appendChild(option);
+      });
+
+      // Resetear el select
+      selectPuesto.value = '';
+      
+      console.log('✅ Se muestran todos los puestos:', Array.from(todosPuestos));
+      return;
+    }
+
+    // Extraer SOLO los puestos del departamento seleccionado
+    const puestosDelDepartamento = new Set();
+    usuariosData.forEach(persona => {
+      if (persona.nombre_departamento === departamentoSeleccionado && 
+          persona.nombre_puesto && 
+          persona.nombre_puesto !== 'Sin puesto') {
+        puestosDelDepartamento.add(persona.nombre_puesto);
+      }
+    });
+
+    console.log('📊 Puestos encontrados en', departamentoSeleccionado + ':', Array.from(puestosDelDepartamento));
+
+    // Limpiar opciones previas (excepto la primera)
+    const opciones = selectPuesto.querySelectorAll('option');
+    opciones.forEach((opt, index) => {
+      if (index > 0) opt.remove();
+    });
+
+    // Agregar nuevos puestos
+    puestosDelDepartamento.forEach(puesto => {
+      const option = document.createElement('option');
+      option.value = puesto;
+      option.textContent = puesto;
+      selectPuesto.appendChild(option);
+    });
+
+    // Resetear el select de puestos
+    selectPuesto.value = '';
+
+    console.log('✅ UserPlan actualizado con', puestosDelDepartamento.size, 'puestos de', departamentoSeleccionado);
+  }
+
+  /**
+   * ==========================================
+   * APLICAR FILTROS EN TIEMPO REAL
+   * ==========================================
+   * Filtra la tabla según los valores seleccionados
+   */
+  function aplicarFiltros() {
+    console.log(' Aplicando filtros...');
+
+    // Obtener valores seleccionados
+    const departamentoSeleccionado = document.getElementById('UserRole').value;
+    const puestoSeleccionado = document.getElementById('UserPlan').value;
+    const estatusSeleccionado = document.getElementById('FilterTransaction').value;
+
+    console.log('Filtros activos:', {
+      departamento: departamentoSeleccionado || 'Todos',
+      puesto: puestoSeleccionado || 'Todos',
+      estatus: estatusSeleccionado || 'Todos'
+    });
+
+    // Filtrar datos
+    const datosFiltrados = usuariosData.filter(persona => {
+      // Filtro DEPARTAMENTO
+      if (departamentoSeleccionado && persona.nombre_departamento !== departamentoSeleccionado) {
+        return false;
+      }
+
+      // Filtro PUESTO
+      if (puestoSeleccionado && persona.nombre_puesto !== puestoSeleccionado) {
+        return false;
+      }
+
+      // Filtro ESTATUS
+      if (estatusSeleccionado && persona.estatus !== estatusSeleccionado) {
+        return false;
+      }
+
+      return true;
+    });
+
+    console.log('Resultados filtrados:', datosFiltrados.length, 'registros de', usuariosData.length);
+
+    // Actualizar tabla con datos filtrados
+    actualizarTabla(datosFiltrados);
+  }
+
+  /**
+   * ==========================================
+   * ACTUALIZAR TABLA CON DATOS FILTRADOS
+   * ==========================================
+   */
+  function actualizarTabla(datos) {
+    // Si estamos usando DataTables
+    const tabla = $('#historialUsuarios').DataTable();
+    
+    if (!tabla) {
+      console.warn(' DataTable no inicializado');
+      return;
+    }
+
+    // Mapear datos como lo hace getUsuarios()
+    const datosFormateados = datos.map(p => ({
+      nombre: `
+          <div class="fw-semibold">
+             # ${p.numero_empleado}
+          </div>
+          <div class="fw-semibold">
+              ${p.nombres} ${p.apellidop} ${p.apellidom}
+          </div>
+          <small class="text-muted d-flex align-items-center gap-1">
+              <i class="fa fa-key"></i>
+              ${p.usuario}
+          </small>
+      `.trim(),
+      departamento:`
+          <small class="text-muted d-flex align-items-center gap-1">
+              <i class="fa fa-building"></i>
+              ${p.nombre_departamento}
+          </small>
+          <small class="text-muted d-flex align-items-center gap-1">
+              <i class="fa fa-briefcase"></i>
+              ${p.nombre_puesto}
+          </small>
+          <hr>
+          <small class="text-muted d-flex align-items-center gap-1">
+              <i class="fa fa-user"> </i>Nombre del jefe:<br>
+              
+          </small><small>${p.nombre_jefe} </small>
+      `.trim(),
+      estatus: p.estatus,
+      acciones: `
+       <button class="btn btn-sm btn-primary me-1" onclick="editar(${p.id})" title="Editar">
+           <i class="fa fa-edit"></i>
+       </button>
+       <button class="btn btn-sm btn-info me-1" onclick="verArchivo(${p.id})" title="Ver archivo">
+           <i class="fa fa-file"></i>
+       </button>
+       <button class="btn btn-sm btn-warning me-1" onclick="registra_ausencia(${p.id})" title="Ausencias">
+           <i class="fa fa-person-circle-minus"></i>
+       </button>
+       <button class="btn btn-sm btn-danger" onclick="baja_gestor(${p.id})" title="Dar de baja">
+           <i class="fa fa-user-slash"></i>
+       </button>
+       <button class="btn btn-sm me-1" style="background-color: #D2D755; color: white;" onclick="edit_perfil(${p.id})" title="Permisos">
+           <i class="fa fa-lock" style="color: #007bff;"></i>
+       </button>`
+    }));
+
+    // Limpiar y recargar tabla
+    tabla.clear().rows.add(datosFormateados).draw();
+
+    console.log(' Tabla actualizada con', datosFormateados.length, 'registros');
+  }
+
+  // ==========================================
+  // EJECUTAR AL CARGAR LA PÁGINA
+  // ==========================================
+  document.addEventListener('DOMContentLoaded', () => {
+    console.log('DOM cargado, esperando 800ms...');
+    
+    // Esperar a que DataTable esté listo
+    setTimeout(() => {
+      llenarFiltros();
+    }, 800);
+  });
+
+</script>
+
