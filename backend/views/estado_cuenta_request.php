@@ -491,12 +491,12 @@ if ($cuotasContratadas > 0) {
 
                                 <i class="fa fa-location text-primary"></i>
 
-                                <a href="#"
-                                   class="text-primary text-decoration-underline"
-                                   data-bs-toggle="modal"
-                                   data-bs-target="#modalDirecciones">
+                                <button type="button"
+                                        class="btn btn-link text-primary p-0"
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#modalDirecciones">
                                     Direcciones
-                                </a>
+                                </button>
                             </small>
 
 
@@ -1246,7 +1246,7 @@ if ($cuotasContratadas > 0) {
 
 
 <div class="modal fade" id="modalDirecciones" tabindex="-1" aria-labelledby="modalDireccionesLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content">
 
             <!-- Header -->
@@ -1259,13 +1259,13 @@ if ($cuotasContratadas > 0) {
             </div>
 
             <!-- Body -->
-            <div class="modal-body">
+            <div class="modal-body py-4">
 
-                <div class="row g-2">
+                <div class="row g-3">
 
-                    <!-- Dirección 1 -->
+                    <!-- Dirección principal -->
                     <div class="col-md-6">
-                        <div class="card h-100 border border-1 shadow-sm">
+                        <div class="card h-100 shadow-sm border">
                             <div class="card-body">
 
                                 <div class="d-flex align-items-center mb-2">
@@ -1273,21 +1273,22 @@ if ($cuotasContratadas > 0) {
                                     <h6 class="mb-0">Domicilio Particular</h6>
                                 </div>
 
-                                <p class="mb-1">
-                                    <strong></strong>
-                                    <?= htmlspecialchars($direcciones['datos'][0]['Domicilio_Completo']) ?>
+                                <p class="text-muted mb-2">
+                                    <?= !empty($direcciones['datos'][0]['Domicilio_Completo'])
+                                            ? htmlspecialchars($direcciones['datos'][0]['Domicilio_Completo'])
+                                            : 'Sin dirección registrada'; ?>
                                 </p>
 
-
-                                <span class="badge bg-success mt-2">Principal</span>
+                                <span class="badge bg-success">Principal</span>
 
                             </div>
                         </div>
                     </div>
 
-                    <!-- Dirección 2
+                    <!-- Si luego agregas otra dirección, va aquí -->
+                    <!--
                     <div class="col-md-6">
-                        <div class="card h-100 border border-1 shadow-sm">
+                        <div class="card h-100 shadow-sm border">
                             <div class="card-body">
 
                                 <div class="d-flex align-items-center mb-2">
@@ -1295,24 +1296,16 @@ if ($cuotasContratadas > 0) {
                                     <h6 class="mb-0">Domicilio Laboral</h6>
                                 </div>
 
-                                <p class="mb-1">
-                                    <strong>Calle:</strong> Insurgentes Sur 456
-                                </p>
-                                <p class="mb-1">
-                                    <strong>Colonia:</strong> Del Valle
-                                </p>
-                                <p class="mb-1">
-                                    <strong>Ciudad:</strong> Ciudad de México
-                                </p>
-                                <p class="mb-1">
-                                    <strong>C.P.:</strong> 03100
+                                <p class="text-muted mb-2">
+                                    Dirección laboral...
                                 </p>
 
-                                <span class="badge bg-primary mt-2">Secundaria</span>
+                                <span class="badge bg-primary">Secundaria</span>
 
                             </div>
                         </div>
-                    </div>-->
+                    </div>
+                    -->
 
                 </div>
 
