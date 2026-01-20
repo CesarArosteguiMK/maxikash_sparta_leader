@@ -43,16 +43,28 @@
         transform: scale(1.2);
     }
 
-    /* ===== TÍTULO (SIEMPRE VISIBLE) ===== */
-    .editar-titulo {
-        color: #6c757d;
-        font-size: 0.85rem;
-        cursor: pointer;
+    /* ===== TÍTULO DEPARTAMENTO (IGUAL QUE PUESTOS) ===== */
+    .titulo-departamento-container {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
     }
 
-    .editar-titulo:hover {
+    .titulo-departamento-container .editar-titulo {
+        opacity: 0;
+        cursor: pointer;
+        color: #6c757d;
+        font-size: 0.85rem;
+        transition: all 0.2s ease;
+    }
+
+    .titulo-departamento-container:hover .editar-titulo {
+        opacity: 1;
+    }
+
+    .titulo-departamento-container .editar-titulo:hover {
         color: #696cff;
-        transform: scale(1.15);
+        transform: scale(1.2);
     }
 
     /* ===== MODAL DESLIZANTE ESTILO SNEAT ===== */
@@ -149,14 +161,19 @@
                     <div class="w-100 text-center">
 
                         <!-- Título editable -->
-                        <div class="d-flex justify-content-center align-items-center gap-2">
-                            <h4 class="mb-1"
-                                id="tituloDepartamento"
-                                contenteditable="true"
-                                onblur="guardarTituloDepartamento()">
-                                Call Center
-                            </h4>
-                            <i class="fa-solid fa-pen editar-puesto"></i>
+                        <div class="d-flex justify-content-center align-items-center">
+                            <div class="titulo-departamento-container">
+                                <h4 class="mb-1"
+                                    id="tituloDepartamento"
+                                    contenteditable="false"
+                                    data-departamento-id=""
+                                    onfocus="inicioEdicionTitulo(this)"
+                                    onblur="guardarTituloDepartamento(this)">
+                                    Call Center
+                                </h4>
+                                <i class="fa fa-pencil editar-titulo"
+                                   onclick="forzarEdicionTitulo(this)"></i>
+                            </div>
                         </div>
 
                         <input type="hidden"

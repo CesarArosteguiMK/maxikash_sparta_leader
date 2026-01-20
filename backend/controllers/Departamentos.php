@@ -13,10 +13,69 @@ class Departamentos extends Controller
         <script>
         let valorOriginal = '';
 
-        /* ---------- TÍTULO ---------- */
-        function guardarTituloDepartamento() {
-          const titulo = document.getElementById('tituloDepartamento');
-          console.log('Departamento actualizado:', titulo.textContent.trim());
+        /* ---------- TÍTULO DEPARTAMENTO ---------- */
+        function inicioEdicionTitulo(element) {
+          valorOriginal = element.textContent.trim();
+        }
+        
+        function guardarTituloDepartamento(element) {
+          const nuevoValor = element.textContent.trim();
+          const idDepartamento = element.dataset.departamentoId;
+        
+          // Si quedó vacío, revertimos al valor original
+          if (!nuevoValor) {
+            element.textContent = valorOriginal;
+            element.contentEditable = false;
+            return;
+          }
+        
+          // Desactivamos edición
+          element.contentEditable = false;
+        
+          // POST al backend
+          http.request({
+            endpoint: "/departamentos/UpdateNombreDepartamento",
+            method: "POST",
+            data: {
+              id_departamento: idDepartamento,
+              nombre: nuevoValor
+            },
+            onSuccess: (resp) => {
+              console.log('Departamento actualizado en BD:', resp);
+              if (resp.success) {
+                // Actualizar también el título en la lista de tarjetas si es necesario
+                window.departamentoActivo && getDepartamentos();
+              }
+            },
+            onError: (err) => {
+              console.error('Error al actualizar departamento:', err);
+              // Revertir en caso de error
+              element.textContent = valorOriginal;
+            }
+          });
+        }
+        
+        function forzarEdicionTitulo(icono) {
+          const titulo = icono.previousElementSibling;
+          valorOriginal = titulo.textContent.trim();
+          titulo.contentEditable = true;
+          titulo.focus();
+        
+          document.execCommand('selectAll', false, null);
+          document.getSelection().collapseToEnd();
+        
+          titulo.onkeydown = (e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              titulo.blur();
+            }
+            if (e.key === 'Escape') {
+              titulo.textContent = valorOriginal;
+              titulo.contentEditable = false;
+            }
+          };
+        
+          titulo.onblur = () => guardarTituloDepartamento(titulo);
         }
         
         /* ---------- PUESTOS ---------- */
@@ -126,6 +185,7 @@ class Departamentos extends Controller
           const titulo = document.getElementById('tituloDepartamento');
           titulo.textContent = nombreDepartamento;
           titulo.dataset.departamentoId = idDepartamento;
+          titulo.contentEditable = false; // Asegurar que no esté editable al inicio
           
           document.getElementById('id_departamento').value = idDepartamento;
         
@@ -484,6 +544,13 @@ class Departamentos extends Controller
     {
         $nombre = $_POST['nombre'] ?? null;
         self::respuestaJSON(DepartamentosDAO::InsertDepartamento($nombre));
+    }
+
+    public function UpdateNombreDepartamento()
+    {
+        $id_departamento = $_POST['id_departamento'] ?? null;
+        $nombre = $_POST['nombre'] ?? null;
+        self::respuestaJSON(DepartamentosDAO::UpdateNombreDepartamento($id_departamento, $nombre));
     }
 
 }

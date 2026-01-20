@@ -189,4 +189,42 @@ class Departamentos extends Model
         exit; // <- Muy importante: evita que se imprima algo extra
     }
 
+    public static function UpdateNombreDepartamento($id_departamento, $nombre)
+    {
+        // Cabecera JSON
+        header('Content-Type: application/json; charset=utf-8');
+
+        try {
+            $db = new Database();
+            
+            // Escapar valores para prevenir SQL injection básico
+            $nombre = addslashes($nombre);
+            $id_departamento = intval($id_departamento);
+            
+            $r = $db->queryOne(
+                "
+                UPDATE __SPARTA_SECRET_REDACTED__.departamento
+                SET nombre='$nombre' WHERE id=$id_departamento
+            ");
+            $datos = is_array($r) ? $r : [];
+
+            // echo JSON puro y nada más
+            echo json_encode([
+                "success" => true,
+                "mensaje" => "Departamento actualizado.",
+                "datos" => $datos
+            ]);
+
+        } catch (\Exception $e) {
+            echo json_encode([
+                "success" => false,
+                "mensaje" => "Error al procesar la solicitud.",
+                "datos" => [],
+                "error" => $e->getMessage()
+            ]);
+        }
+
+        exit; // <- Muy importante: evita que se imprima algo extra
+    }
+
 }
