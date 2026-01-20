@@ -526,11 +526,44 @@ JS;
                             return;
                         }
             
-                        document.getElementById('visorDocumento').src = data.url;
-            
-                        new bootstrap.Modal(
-                            document.getElementById('modalDocumento')
-                        ).show();
+                        // Si es INE, mostrar ambas imágenes (frente y reverso)
+                        if (data.tipo === 'INE') {
+                            const imgFrente = document.getElementById('imgINEfrente');
+                            const imgReverso = document.getElementById('imgINEreverso');
+                            
+                            // Configurar imágenes con carga desde servidor (sin descarga)
+                            imgFrente.src = data.frente;
+                            imgReverso.src = data.reverso;
+                            
+                            // Crear marcas de agua después de que las imágenes se carguen
+                            imgFrente.onload = function() {
+                                setTimeout(() => {
+                                    if (typeof crearMarcasAgua === 'function') {
+                                        crearMarcasAgua();
+                                    }
+                                }, 300);
+                            };
+                            
+                            imgReverso.onload = function() {
+                                setTimeout(() => {
+                                    if (typeof crearMarcasAgua === 'function') {
+                                        crearMarcasAgua();
+                                    }
+                                }, 300);
+                            };
+                            
+                            // Mostrar modal de INE
+                            new bootstrap.Modal(
+                                document.getElementById('modalINE')
+                            ).show();
+                        } else {
+                            // Para otros documentos, usar el visor normal
+                            document.getElementById('visorDocumento').src = data.url;
+                            
+                            new bootstrap.Modal(
+                                document.getElementById('modalDocumento')
+                            ).show();
+                        }
                     })
                     .catch(err => {
                         console.error(err);
@@ -684,8 +717,18 @@ JS;
 
                 $idCliente = $data['estadoCuenta']['datosCliente']['idCliente'];
 
-                // ⚠️ Aquí puedes decidir si generas PDF o solo apuntas al frente
-                $fileUrl = "http://98.90.194.116/audit-app-0.0.1-SNAPSHOT_1/s3/downloadS3File?fileName=INE/{$idCliente}_frente.jpeg";
+                // URLs directas para frente y reverso del INE
+                $urlFrente = "http://98.90.194.116/audit-app-0.0.1-SNAPSHOT_1/s3/downloadS3File?fileName=INE/{$idCliente}_frente.jpeg";
+                $urlReverso = "http://98.90.194.116/audit-app-0.0.1-SNAPSHOT_1/s3/downloadS3File?fileName=INE/{$idCliente}_reverso.jpeg";
+
+                // Para INE, devolvemos ambas URLs en lugar de usar Google Viewer
+                echo json_encode([
+                    'success' => true,
+                    'tipo' => 'INE',
+                    'frente' => $urlFrente,
+                    'reverso' => $urlReverso
+                ]);
+                exit;
             }
 
 
@@ -707,11 +750,12 @@ JS;
                 $fileUrl = "http://98.90.194.116/audit-app-0.0.1-SNAPSHOT_1/s3/downloadS3File?fileName={$carpeta}/{$archivo}";
             }
 
-            // 🔥 GOOGLE VIEWER
+            // 🔥 GOOGLE VIEWER (solo para documentos que no sean INE)
             $viewer = "https://docs.google.com/gview?url=" . urlencode($fileUrl) . "&embedded=true";
 
             echo json_encode([
                 'success' => true,
+                'tipo' => $tipo,
                 'url' => $viewer
             ]);
             exit;
