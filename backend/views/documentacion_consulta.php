@@ -1195,6 +1195,17 @@
             // INE y EVIDENCIA usan pdfDoc (sin pdfDocFactura), así que NO deben tener estas marcas
             const esPDFConMarcasSINVALOR = typeof pdfDocFactura !== 'undefined' && pdfDocFactura !== null;
             
+            // VERIFICACIÓN ADICIONAL: Verificar el título del modal para excluir EVIDENCIA
+            const modalTitle = document.querySelector('#modalDocumento .modal-title');
+            const tituloTexto = modalTitle ? modalTitle.textContent.trim() : '';
+            const esEVIDENCIA = tituloTexto.includes('EVIDENCIA') || tituloTexto === 'EVIDENCIA';
+            
+            // Si es EVIDENCIA, NO aplicar marcas de agua del modal (tiene sus propias marcas)
+            if (esEVIDENCIA) {
+                console.log('⚠️ Es EVIDENCIA - Saltando marcas de agua del modal (EVIDENCIA tiene sus propias marcas)');
+                return;
+            }
+            
             if (!esPDFConMarcasSINVALOR) {
                 console.log('⚠️ No es PDF con marcas SIN VALOR - Saltando marcas de agua del modal');
                 return;
