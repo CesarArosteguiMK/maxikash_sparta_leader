@@ -703,7 +703,7 @@ JS;
                                     // Este wrapper se ajustará cuando se haga zoom
                                     const pdfWrapper = document.createElement('div');
                                     pdfWrapper.id = 'pdfWrapperContrato';
-                                    pdfWrapper.style.cssText = 'position: absolute; top: 0; left: 0; width: 100%; height: 100%;';
+                                    pdfWrapper.style.cssText = 'position: relative; top: 0; left: 0; width: 100%; height: 100%;';
                                     
                                     // Crear contenedor con marca de agua (similar a las imágenes)
                                     const watermarkContainer = document.createElement('div');
@@ -750,16 +750,24 @@ JS;
                                     // Crear overlay de protección que bloquea el click derecho y el menú superior
                                     // Este overlay tiene dos partes: una para el menú superior y otra invisible para bloquear click derecho
                                     
-                                    // Overlay para bloquear el menú superior (primeros 60px)
+                                    // Overlay para bloquear SOLO click derecho en el menú superior (primeros 60px)
+                                    // Usar pointer-events: none para permitir clicks izquierdos en el menú
                                     const menuOverlay = document.createElement('div');
                                     menuOverlay.id = 'pdfMenuOverlay';
-                                    menuOverlay.style.cssText = 'position: absolute; top: 0; left: 0; width: 100%; height: 60px; z-index: 20; background: transparent; pointer-events: auto;';
+                                    menuOverlay.style.cssText = 'position: absolute; top: 0; left: 0; width: 100%; height: 60px; z-index: 20; background: transparent; pointer-events: none;';
                                     
                                     // Solo bloquear click derecho en el área del menú (parte superior)
-                                    menuOverlay.addEventListener('contextmenu', function(e) {
-                                        e.preventDefault();
-                                        e.stopPropagation();
-                                        return false;
+                                    // Capturar en fase de captura para bloquear antes de que llegue al iframe
+                                    embedContainer.addEventListener('contextmenu', function(e) {
+                                        // Solo bloquear si el click es en el área superior (primeros 60px)
+                                        const rect = embedContainer.getBoundingClientRect();
+                                        const clickY = e.clientY - rect.top;
+                                        if (clickY <= 60) {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                            e.stopImmediatePropagation();
+                                            return false;
+                                        }
                                     }, true);
                                     
                                     // Bloquear SOLO click derecho en el contenedor (permite clicks izquierdos y scroll)
@@ -812,15 +820,8 @@ JS;
                                     // Por eso capturamos en el contenedor padre (embedContainer) en fase de captura
                                     // para bloquear SOLO el click derecho antes de que llegue al iframe
                                     
-                                    // Bloquear también en el menuOverlay
-                                    menuOverlay.addEventListener('mousedown', function(e) {
-                                        if (e.button === 2) { // Botón derecho
-                                            e.preventDefault();
-                                            e.stopPropagation();
-                                            e.stopImmediatePropagation();
-                                            return false;
-                                        }
-                                    }, true);
+                                    // El menuOverlay ya no necesita listeners porque tiene pointer-events: none
+                                    // Los clicks pasan a través y se bloquean en embedContainer
                                     
                                     // También capturar en el documento para mayor seguridad (máxima prioridad)
                                     const contextMenuHandler = function(e) {
@@ -1090,8 +1091,9 @@ JS;
                                             // Usar las referencias locales para asegurar que funcionen
                                             const container = zoomEmbedContainer;
                                             const wrapper = zoomPdfWrapper;
+                                            const watermarkContainer = zoomWatermarkContainer;
                                             
-                                            // Obtener las dimensiones actuales del contenedor visible
+                                            // Obtener las dimensiones actuales del contenedor visible (el modal se mantiene igual)
                                             const containerWidth = container.clientWidth || container.offsetWidth;
                                             const containerHeight = container.clientHeight || container.offsetHeight;
                                             
@@ -1101,36 +1103,45 @@ JS;
                                                 return;
                                             }
                                             
-                                            // Guardar la posición actual de scroll y el centro visual antes del cambio
+                                            // Guardar la posición actual de scroll antes del cambio
                                             const scrollLeftBefore = container.scrollLeft;
                                             const scrollTopBefore = container.scrollTop;
-                                            const scrollWidthBefore = container.scrollWidth;
-                                            const scrollHeightBefore = container.scrollHeight;
                                             
                                             // Calcular el centro visual actual (posición de scroll + mitad del viewport)
                                             const centerXBefore = scrollLeftBefore + (containerWidth / 2);
                                             const centerYBefore = scrollTopBefore + (containerHeight / 2);
                                             
-                                            // Calcular el tamaño que necesita el wrapper para mostrar todo el contenido con zoom
-                                            // El wrapper debe tener el tamaño del contenedor multiplicado por el zoom
+                                            // IMPORTANTE: El wrapper debe tener el tamaño escalado para que el scroll funcione
                                             const scaledWidth = containerWidth * currentZoom;
                                             const scaledHeight = containerHeight * currentZoom;
                                             
-                                            // CRÍTICO: Primero ajustar el tamaño del wrapper ANTES de aplicar el transform
-                                            // Esto asegura que el contenedor padre sepa el tamaño real para el scroll
+                                            // El wrapper necesita tener el tamaño escalado para permitir scroll correcto
                                             wrapper.style.width = scaledWidth + 'px';
                                             wrapper.style.height = scaledHeight + 'px';
                                             wrapper.style.minWidth = scaledWidth + 'px';
                                             wrapper.style.minHeight = scaledHeight + 'px';
                                             
-                                            // Asegurar que el watermarkContainer y el iframe mantengan sus proporciones dentro del wrapper
-                                            zoomWatermarkContainer.style.width = '100%';
-                                            zoomWatermarkContainer.style.height = '100%';
+                                            // CORRECCIÓN: El watermarkContainer NO debe escalarse
+                                            // Mantiene su tamaño base sin transform
+                                            watermarkContainer.style.position = 'absolute';
+                                            watermarkContainer.style.top = '0';
+                                            watermarkContainer.style.left = '0';
+                                            watermarkContainer.style.width = containerWidth + 'px';
+                                            watermarkContainer.style.height = containerHeight + 'px';
+                                            watermarkContainer.style.transform = '';
+                                            watermarkContainer.style.transformOrigin = '';
                                             
-                                            // Luego aplicar el zoom usando transform scale al wrapper
-                                            // Usar top left como origen para que el zoom se aplique desde la esquina superior izquierda
-                                            wrapper.style.transform = `scale(${currentZoom})`;
-                                            wrapper.style.transformOrigin = 'top left';
+                                            // CORRECCIÓN: Aplicar zoom SOLO al iframe del PDF usando transform scale
+                                            // Esto evita que la marca de agua se escale
+                                            const iframePdf = watermarkContainer.querySelector('iframe');
+                                            if (iframePdf) {
+                                                // El iframe mantiene su tamaño base
+                                                iframePdf.style.width = containerWidth + 'px';
+                                                iframePdf.style.height = containerHeight + 'px';
+                                                // Aplicar transform scale SOLO al iframe (no al contenedor)
+                                                iframePdf.style.transform = `scale(${currentZoom})`;
+                                                iframePdf.style.transformOrigin = 'top left';
+                                            }
                                             
                                             // Asegurar que el contenedor tenga overflow para scroll
                                             container.style.overflow = 'auto';
@@ -1138,36 +1149,26 @@ JS;
                                             // Actualizar el indicador de zoom
                                             zoomLevel.textContent = Math.round(currentZoom * 100) + '%';
                                             
-                                            // Actualizar marcas de agua después del zoom para que se ajusten al nuevo tamaño
+                                            // Actualizar marcas de agua después del zoom (sin escalar)
                                             setTimeout(() => {
                                                 if (typeof crearMarcasAgua === 'function') {
                                                     crearMarcasAgua();
                                                 }
                                             }, 100);
                                             
-                                            // Ajustar la posición de scroll después del zoom
+                                            // Ajustar la posición de scroll después del zoom para mantener el centro visual
                                             setTimeout(() => {
-                                                if (currentZoom === 1.0) {
-                                                    // Si es zoom 1.0, resetear scroll a la posición inicial
-                                                    container.scrollLeft = 0;
-                                                    container.scrollTop = 0;
-                                                } else {
-                                                    // Para zoom diferente a 1.0, escalar la posición de scroll proporcionalmente
-                                                    // Multiplicar la posición anterior por el ratio del nuevo zoom vs el zoom anterior
-                                                    const zoomRatio = currentZoom / (currentZoom === 1.0 ? 1.0 : (scrollWidthBefore / containerWidth));
-                                                    
-                                                    // Calcular nueva posición de scroll manteniendo la proporción
-                                                    const newScrollLeft = scrollLeftBefore * (currentZoom / 1.0);
-                                                    const newScrollTop = scrollTopBefore * (currentZoom / 1.0);
-                                                    
-                                                    // Asegurar que no exceda los límites
-                                                    const maxScrollLeft = Math.max(0, container.scrollWidth - containerWidth);
-                                                    const maxScrollTop = Math.max(0, container.scrollHeight - containerHeight);
-                                                    
-                                                    container.scrollLeft = Math.max(0, Math.min(newScrollLeft, maxScrollLeft));
-                                                    container.scrollTop = Math.max(0, Math.min(newScrollTop, maxScrollTop));
-                                                }
-                                            }, 100);
+                                                // Calcular la nueva posición de scroll para mantener el centro visual
+                                                const newScrollLeft = centerXBefore - (containerWidth / 2);
+                                                const newScrollTop = centerYBefore - (containerHeight / 2);
+                                                
+                                                // Asegurar que no exceda los límites
+                                                const maxScrollLeft = Math.max(0, container.scrollWidth - containerWidth);
+                                                const maxScrollTop = Math.max(0, container.scrollHeight - containerHeight);
+                                                
+                                                container.scrollLeft = Math.max(0, Math.min(newScrollLeft, maxScrollLeft));
+                                                container.scrollTop = Math.max(0, Math.min(newScrollTop, maxScrollTop));
+                                            }, 50);
                                         };
                                         
                                         // Event listeners para los botones
@@ -1216,11 +1217,24 @@ JS;
                                             }
                                             // Resetear zoom completamente usando las referencias locales
                                             currentZoom = 1.0;
-                                            zoomPdfWrapper.style.transform = '';
                                             zoomPdfWrapper.style.width = '100%';
                                             zoomPdfWrapper.style.height = '100%';
                                             zoomPdfWrapper.style.minWidth = '';
                                             zoomPdfWrapper.style.minHeight = '';
+                                            zoomWatermarkContainer.style.position = 'relative';
+                                            zoomWatermarkContainer.style.top = '';
+                                            zoomWatermarkContainer.style.left = '';
+                                            zoomWatermarkContainer.style.width = '100%';
+                                            zoomWatermarkContainer.style.height = '100%';
+                                            zoomWatermarkContainer.style.transform = '';
+                                            zoomWatermarkContainer.style.transformOrigin = '';
+                                            const iframePdf = zoomWatermarkContainer.querySelector('iframe');
+                                            if (iframePdf) {
+                                                iframePdf.style.width = '100%';
+                                                iframePdf.style.height = '100%';
+                                                iframePdf.style.transform = '';
+                                                iframePdf.style.transformOrigin = '';
+                                            }
                                         }, { once: true });
                                         
                                         // Zoom con rueda del mouse (Ctrl + scroll) usando la referencia local
@@ -1242,6 +1256,22 @@ JS;
                                                 }
                                             }
                                         }, { passive: false });
+                                        
+                                        // Aplicar zoom inicial después de que el iframe se cargue
+                                        const applyInitialZoom = function() {
+                                            // Pequeño delay para asegurar que el iframe esté completamente cargado y el DOM esté listo
+                                            setTimeout(function() {
+                                                applyZoom();
+                                            }, 300);
+                                        };
+                                        
+                                        // Aplicar zoom cuando el iframe se carga
+                                        iframePdf.addEventListener('load', applyInitialZoom, { once: true });
+                                        
+                                        // También aplicar zoom inicial inmediatamente si el iframe ya está cargado
+                                        if (iframePdf.complete || iframePdf.readyState === 'complete') {
+                                            applyInitialZoom();
+                                        }
                                     }
                                     
                                     // Asegurar que el contenedor esté visible

@@ -95,18 +95,20 @@
     </div>
 
     <!-- MODAL VISOR DE DOCUMENTOS (PDFs y otros) -->
-    <div class="modal fade" id="modalDocumento" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-fullscreen-lg-down" style="max-width: 95vw; width: 95vw;">
-            <div class="modal-content" style="height: 95vh; display: flex; flex-direction: column;">
+    <div class="modal fade" id="modalDocumento" tabindex="-1" aria-hidden="true" style="overflow: hidden !important;">
+        <div class="modal-dialog modal-fullscreen-lg-down" style="max-width: 85vw; width: 85vw; max-height: 85vh; overflow: hidden !important; overflow-x: hidden !important; overflow-y: hidden !important; margin: 7.5vh auto;">
+            <div class="modal-content" style="height: 85vh; max-height: 85vh; display: flex; flex-direction: column; overflow: hidden !important; overflow-x: hidden !important; overflow-y: hidden !important; border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,0.3);">
 
                 <!-- HEADER -->
-                <div class="modal-header flex-shrink-0">
-                    <h5 class="modal-title">Documento</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                <div class="modal-header flex-shrink-0" style="background: linear-gradient(135deg, #4a5568 0%, #2d3748 100%); border-bottom: 1px solid rgba(255,255,255,0.1); border-radius: 12px 12px 0 0; padding: 1rem 1.25rem; position: relative; overflow: hidden !important;">
+                    <h5 class="modal-title text-white fw-semibold mb-0" style="font-size: 1.1rem;">
+                        <i class="fa fa-file-pdf me-2"></i>Documento
+                    </h5>
+                    <button type="button" class="btn-close btn-close-custom" data-bs-dismiss="modal" aria-label="Cerrar" style="position: absolute; top: 50%; right: 1.25rem; transform: translateY(-50%); margin: 0;"></button>
                 </div>
 
                 <!-- BODY -->
-                <div class="modal-body p-0 flex-grow-1" id="documentoModalBody" style="height: calc(95vh - 60px); overflow: auto; position: relative; min-height: 0;">
+                <div class="modal-body p-0 flex-grow-1" id="documentoModalBody" style="height: calc(85vh - 70px); max-height: calc(85vh - 70px); overflow: hidden !important; overflow-x: hidden !important; overflow-y: hidden !important; position: relative; min-height: 0;">
                     <!-- Contenedor para PDFs (PDF.js) -->
                     <div id="documentoPdfContainer" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; width: 100%; height: 100%; display: none; overflow: auto; background-color: #525252;">
                         <div id="documentoWrapper" style="display: flex; align-items: center; justify-content: center; min-height: 100%; padding: 20px; position: relative;">
@@ -468,6 +470,127 @@
             display: block !important;
         }
 
+        /* Eliminar COMPLETAMENTE el scroll del modal para Facturación OK */
+        #modalDocumento {
+            overflow: hidden !important;
+        }
+
+        #modalDocumento .modal-dialog {
+            overflow: hidden !important;
+            max-height: 85vh !important;
+            overflow-x: hidden !important;
+            overflow-y: hidden !important;
+        }
+
+        #modalDocumento .modal-content {
+            overflow: hidden !important;
+            max-height: 85vh !important;
+            overflow-x: hidden !important;
+            overflow-y: hidden !important;
+        }
+
+        #modalDocumento .modal-header {
+            overflow: hidden !important;
+            overflow-x: hidden !important;
+            overflow-y: hidden !important;
+        }
+
+        #modalDocumento .modal-body {
+            overflow: hidden !important;
+            overflow-x: hidden !important;
+            overflow-y: hidden !important;
+        }
+
+        /* Asegurar que el body del modal no tenga scroll */
+        #modalDocumento.modal.show ~ * {
+            overflow: hidden;
+        }
+
+        /* Cuando el modal está abierto, prevenir scroll en el body */
+        body.modal-open {
+            overflow: hidden !important;
+            padding-right: 0 !important;
+            position: fixed !important;
+            width: 100% !important;
+        }
+
+        /* Prevenir scroll en html también */
+        html.modal-open {
+            overflow: hidden !important;
+            padding-right: 0 !important;
+        }
+
+        /* Prevenir scroll en el backdrop de Bootstrap */
+        .modal-backdrop {
+            overflow: hidden !important;
+        }
+
+        /* Asegurar que NO haya scroll en NINGÚN elemento del modal */
+        #modalDocumento * {
+            overflow-x: hidden !important;
+            overflow-y: hidden !important;
+        }
+
+        /* EXCEPCIÓN: Solo el embedContainer puede tener scroll */
+        #modalDocumento #visorPdfEmbed {
+            overflow: auto !important;
+            overflow-x: auto !important;
+            overflow-y: auto !important;
+        }
+
+        /* Estilo mejorado para el botón de cerrar */
+        #modalDocumento .btn-close-custom {
+            filter: brightness(0) invert(1) !important;
+            opacity: 1 !important;
+            background-color: rgba(255,255,255,0.15) !important;
+            background-image: none !important;
+            border-radius: 50% !important;
+            width: 38px !important;
+            height: 38px !important;
+            padding: 0 !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            transition: all 0.3s ease !important;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.25) !important;
+            border: 2px solid rgba(255,255,255,0.4) !important;
+            position: absolute !important;
+            top: 50% !important;
+            right: 1.25rem !important;
+            transform: translateY(-50%) !important;
+            z-index: 10 !important;
+            margin: 0 !important;
+        }
+
+        #modalDocumento .btn-close-custom::before {
+            content: '×' !important;
+            font-size: 30px !important;
+            line-height: 1 !important;
+            font-weight: 300 !important;
+            color: white !important;
+            position: absolute !important;
+            top: 50% !important;
+            left: 50% !important;
+            transform: translate(-50%, -50%) !important;
+            z-index: 1 !important;
+        }
+
+        #modalDocumento .btn-close-custom:hover {
+            background-color: rgba(255,255,255,0.3) !important;
+            transform: translateY(-50%) scale(1.1) rotate(90deg) !important;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.4) !important;
+            border-color: rgba(255,255,255,0.8) !important;
+        }
+
+        #modalDocumento .btn-close-custom:hover::before {
+            transform: translate(-50%, -50%) rotate(-90deg) !important;
+        }
+
+        #modalDocumento .btn-close-custom:active {
+            transform: translateY(-50%) scale(1.05) rotate(90deg) !important;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3) !important;
+        }
+
         /* ===== MARCA DE AGUA "SIN VALOR" REPETIDA COMO REFERENCIA ===== */
         .watermark-container {
             position: relative;
@@ -485,9 +608,9 @@
             overflow: hidden;
         }
         
-        /* Para el overlay del PDF, permitir overflow visible y agregar franjas rojas */
+        /* Para el overlay del PDF, usar overflow hidden para evitar scrolls propios y agregar franjas rojas */
         #watermarkOverlayPdf {
-            overflow: visible;
+            overflow: hidden !important;
             background-image: 
                 repeating-linear-gradient(
                     -45deg,
@@ -570,8 +693,9 @@
                 );
         }
         
-        /* Para el overlay del PDF, mantener las franjas rojas */
+        /* Para el overlay del PDF, mantener las franjas rojas y evitar scrolls */
         #watermarkOverlayPdf {
+            overflow: hidden !important;
             background-image: 
                 repeating-linear-gradient(
                     -45deg,
@@ -637,25 +761,43 @@
                 
                 const isIframePdf = iframe || isPdfOverlay;
                 
-                // Si hay un iframe o es overlay de PDF, usar las dimensiones del contenedor padre (visor completo)
+                // Si hay un iframe o es overlay de PDF, usar las dimensiones REALES del overlay
                 let width, height;
                 if (isIframePdf) {
-                    // Para iframes y PDFs, usar las dimensiones del contenedor padre completo (visorPdfEmbed)
-                    const embedContainer = document.getElementById('visorPdfEmbed');
-                    if (embedContainer) {
-                        const embedRect = embedContainer.getBoundingClientRect();
-                        width = embedRect.width || embedContainer.clientWidth || embedContainer.offsetWidth || overlayRect.width;
-                        height = embedRect.height || embedContainer.clientHeight || embedContainer.offsetHeight || overlayRect.height;
+                    // CRÍTICO: Para PDFs con zoom, usar las dimensiones REALES del overlay, no del contenedor padre
+                    // Esto asegura que la marca de agua se mantenga alineada cuando hay zoom
+                    if (isPdfOverlay) {
+                        // Usar las dimensiones reales del overlay (que ya tiene el tamaño correcto con zoom)
+                        width = overlayRect.width || overlay.offsetWidth || overlay.clientWidth;
+                        height = overlayRect.height || overlay.offsetHeight || overlay.clientHeight;
+                        
+                        // Si el overlay tiene estilos inline con width/height en px, usarlos
+                        const overlayWidth = overlay.style.width;
+                        const overlayHeight = overlay.style.height;
+                        if (overlayWidth && overlayWidth.includes('px')) {
+                            width = parseFloat(overlayWidth);
+                        }
+                        if (overlayHeight && overlayHeight.includes('px')) {
+                            height = parseFloat(overlayHeight);
+                        }
                     } else {
-                        // Si no se encuentra el contenedor padre, usar el contenedor del modal
-                        const modalBody = document.getElementById('documentoModalBody');
-                        if (modalBody) {
-                            const modalRect = modalBody.getBoundingClientRect();
-                            width = modalRect.width || modalBody.clientWidth || modalBody.offsetWidth || overlayRect.width;
-                            height = modalRect.height || modalBody.clientHeight || modalBody.offsetHeight || overlayRect.height;
+                        // Para otros casos, usar las dimensiones del contenedor padre
+                        const embedContainer = document.getElementById('visorPdfEmbed');
+                        if (embedContainer) {
+                            const embedRect = embedContainer.getBoundingClientRect();
+                            width = embedRect.width || embedContainer.clientWidth || embedContainer.offsetWidth || overlayRect.width;
+                            height = embedRect.height || embedContainer.clientHeight || embedContainer.offsetHeight || overlayRect.height;
                         } else {
-                            width = overlayRect.width || window.innerWidth;
-                            height = overlayRect.height || window.innerHeight;
+                            // Si no se encuentra el contenedor padre, usar el contenedor del modal
+                            const modalBody = document.getElementById('documentoModalBody');
+                            if (modalBody) {
+                                const modalRect = modalBody.getBoundingClientRect();
+                                width = modalRect.width || modalBody.clientWidth || modalBody.offsetWidth || overlayRect.width;
+                                height = modalRect.height || modalBody.clientHeight || modalBody.offsetHeight || overlayRect.height;
+                            } else {
+                                width = overlayRect.width || window.innerWidth;
+                                height = overlayRect.height || window.innerHeight;
+                            }
                         }
                     }
                 } else if (img) {
@@ -683,32 +825,39 @@
                 const fontSize = isZoom ? '3.2rem' : '2rem';
                 const numLayers = Math.ceil(effectiveHeight / spacing) + 3;
                 
-                // Para iframes y overlay del PDF, asegurar que el overlay cubra todo el visor
+                // Para iframes y overlay del PDF, usar las dimensiones REALES del overlay cuando hay zoom
                 if (isIframePdf) {
-                    // El overlay debe cubrir todo el contenedor padre (visorPdfEmbed)
-                    const embedContainer = document.getElementById('visorPdfEmbed');
-                    if (embedContainer) {
-                        // Asegurar que el overlay esté en el contenedor correcto
-                        if (overlay.parentElement !== embedContainer) {
-                            embedContainer.appendChild(overlay);
-                        }
-                        // Asegurar dimensiones completas y posición absoluta
-                        overlay.style.position = 'absolute';
-                        overlay.style.top = '0';
-                        overlay.style.left = '0';
-                        overlay.style.right = '0';
-                        overlay.style.bottom = '0';
-                        overlay.style.width = '100%';
-                        overlay.style.height = '100%';
-                        overlay.style.zIndex = '10';
-                        overlay.style.pointerEvents = 'none';
-                        overlay.style.overflow = 'visible';
-                        // NO eliminar las franjas rojas - mantener el background-image del CSS
+                    // Si es el overlay del PDF (watermarkOverlayPdf), usar sus dimensiones reales
+                    if (isPdfOverlay) {
+                        // El overlay ya tiene el tamaño correcto en píxeles (scaledWidth x scaledHeight)
+                        // No mover el overlay, está en el lugar correcto dentro del watermarkContainer
+                        // Solo asegurar que las capas de marca de agua usen las dimensiones correctas
+                        // Las dimensiones width y height ya fueron calculadas arriba usando el tamaño real del overlay
                     } else {
-                        // Si no se encuentra el contenedor, usar el contenedor del modal
-                        const modalBody = document.getElementById('documentoModalBody');
-                        if (modalBody && overlay.parentElement !== modalBody) {
-                            modalBody.appendChild(overlay);
+                        // Para otros casos, usar el contenedor padre
+                        const embedContainer = document.getElementById('visorPdfEmbed');
+                        if (embedContainer) {
+                            // Asegurar que el overlay esté en el contenedor correcto
+                            if (overlay.parentElement !== embedContainer) {
+                                embedContainer.appendChild(overlay);
+                            }
+                            // Asegurar dimensiones completas y posición absoluta
+                            overlay.style.position = 'absolute';
+                            overlay.style.top = '0';
+                            overlay.style.left = '0';
+                            overlay.style.right = '0';
+                            overlay.style.bottom = '0';
+                            overlay.style.width = '100%';
+                            overlay.style.height = '100%';
+                            overlay.style.zIndex = '10';
+                            overlay.style.pointerEvents = 'none';
+                            overlay.style.overflow = 'visible';
+                        } else {
+                            // Si no se encuentra el contenedor, usar el contenedor del modal
+                            const modalBody = document.getElementById('documentoModalBody');
+                            if (modalBody && overlay.parentElement !== modalBody) {
+                                modalBody.appendChild(overlay);
+                            }
                         }
                     }
                 } else {
@@ -720,9 +869,21 @@
                 if (isIframePdf) {
                     // LÓGICA PARA PDFs - Patrón diagonal ordenado como en la imagen de referencia
                     // Asegurar que tenemos dimensiones válidas
+                    // Si es el overlay del PDF con zoom, usar las dimensiones reales que ya fueron calculadas
                     if (width === 0 || height === 0) {
-                        width = width || 1200;
-                        height = height || 800;
+                        // Si las dimensiones son 0, intentar obtenerlas del overlay directamente
+                        if (isPdfOverlay) {
+                            const overlayStyle = window.getComputedStyle(overlay);
+                            const overlayWidth = parseFloat(overlayStyle.width) || parseFloat(overlay.style.width) || overlayRect.width;
+                            const overlayHeight = parseFloat(overlayStyle.height) || parseFloat(overlay.style.height) || overlayRect.height;
+                            if (overlayWidth > 0) width = overlayWidth;
+                            if (overlayHeight > 0) height = overlayHeight;
+                        }
+                        // Si aún son 0, usar valores por defecto
+                        if (width === 0 || height === 0) {
+                            width = width || 1200;
+                            height = height || 800;
+                        }
                     }
                     
                     // Configuración para patrón ordenado y bien espaciado
@@ -1193,33 +1354,58 @@
             }
         });
         
-        // Función para desactivar descarga de imágenes y canvas (clic derecho, arrastrar, etc.)
+        // ========================================
+        // PROTECCIÓN COMPLETA PARA VISOR DE PDF
+        // ========================================
+
+        // Función mejorada para desactivar descarga de imágenes y canvas
         function desactivarDescargaImagen(element) {
             if (!element) return;
             
             // Prevenir clic derecho (menú contextual)
             element.addEventListener('contextmenu', function(e) {
                 e.preventDefault();
+                e.stopPropagation();
                 return false;
-            });
+            }, true);
             
             // Prevenir arrastrar y soltar
             element.addEventListener('dragstart', function(e) {
                 e.preventDefault();
+                e.stopPropagation();
                 return false;
-            });
+            }, true);
             
             // Prevenir selección de texto/imagen
             element.addEventListener('selectstart', function(e) {
                 e.preventDefault();
+                e.stopPropagation();
                 return false;
-            });
+            }, true);
             
             // Prevenir copiar (Ctrl+C)
             element.addEventListener('copy', function(e) {
                 e.preventDefault();
+                e.stopPropagation();
                 return false;
-            });
+            }, true);
+            
+            // Prevenir todos los eventos de puntero que podrían usarse para copiar
+            element.addEventListener('pointerdown', function(e) {
+                if (e.button === 2) { // Clic derecho
+                    e.preventDefault();
+                    e.stopPropagation();
+                    return false;
+                }
+            }, true);
+            
+            element.addEventListener('mousedown', function(e) {
+                if (e.button === 2) { // Clic derecho
+                    e.preventDefault();
+                    e.stopPropagation();
+                    return false;
+                }
+            }, true);
             
             // Estilos CSS para prevenir selección
             element.style.userSelect = 'none';
@@ -1230,13 +1416,73 @@
             element.style.khtmlUserDrag = 'none';
             element.style.userDrag = 'none';
             element.setAttribute('draggable', 'false');
+            element.setAttribute('oncontextmenu', 'return false;');
             
-            // Para canvas, también prevenir toDataURL
+            // Para canvas, también prevenir toDataURL y exportación
             if (element.tagName === 'CANVAS') {
+                // Envolver toDataURL para que devuelva vacío
                 const originalToDataURL = element.toDataURL;
                 element.toDataURL = function() {
-                    return '';
+                    console.warn('toDataURL bloqueado por seguridad');
+                    return 'data:,';
                 };
+                
+                // Bloquear getImageData si es posible
+                try {
+                    const ctx = element.getContext('2d');
+                    if (ctx) {
+                        const originalGetImageData = ctx.getImageData;
+                        ctx.getImageData = function() {
+                            console.warn('getImageData bloqueado por seguridad');
+                            throw new Error('Operación no permitida');
+                        };
+                    }
+                } catch (e) {
+                    console.log('No se pudo bloquear getImageData');
+                }
+            }
+        }
+
+        // Proteger todo el contenedor del PDF
+        function protegerContenedorPDF() {
+            const pdfContainer = document.getElementById('documentoPdfContainer');
+            const pdfWrapper = document.getElementById('documentoWrapper');
+            const pdfViewerContainer = document.getElementById('pdfViewerContainer');
+            const pdfCanvas = document.getElementById('pdfCanvas');
+            const modalBody = document.getElementById('documentoModalBody');
+            
+            // Proteger todos los contenedores
+            [pdfContainer, pdfWrapper, pdfViewerContainer, modalBody].forEach(container => {
+                if (container) {
+                    desactivarDescargaImagen(container);
+                }
+            });
+            
+            // Protección especial para el canvas
+            if (pdfCanvas) {
+                desactivarDescargaImagen(pdfCanvas);
+                
+                // Protección adicional con overlay invisible
+                let overlay = pdfCanvas.parentElement.querySelector('.canvas-protection-overlay');
+                if (!overlay) {
+                    overlay = document.createElement('div');
+                    overlay.className = 'canvas-protection-overlay';
+                    overlay.style.cssText = `
+                        position: absolute;
+                        top: 0;
+                        left: 0;
+                        width: 100%;
+                        height: 100%;
+                        z-index: 5;
+                        pointer-events: none;
+                    `;
+                    pdfCanvas.parentElement.style.position = 'relative';
+                    pdfCanvas.parentElement.appendChild(overlay);
+                    
+                    // Hacer que el overlay capture eventos de clic derecho
+                    overlay.style.pointerEvents = 'auto';
+                    desactivarDescargaImagen(overlay);
+                }
             }
         }
         
@@ -1330,6 +1576,66 @@
             // Crear marcas de agua cuando se muestra el modal de documentos
             const modalDocumento = document.getElementById('modalDocumento');
             if (modalDocumento) {
+                // Prevenir scroll del modal cuando se abre
+                modalDocumento.addEventListener('show.bs.modal', function() {
+                    // Guardar la posición actual del scroll
+                    const scrollY = window.scrollY;
+                    
+                    // Prevenir scroll en el body y html usando position fixed
+                    document.body.style.position = 'fixed';
+                    document.body.style.top = `-${scrollY}px`;
+                    document.body.style.width = '100%';
+                    document.body.style.overflow = 'hidden';
+                    document.body.style.overflowX = 'hidden';
+                    document.body.style.overflowY = 'hidden';
+                    document.body.style.paddingRight = '0';
+                    
+                    document.documentElement.style.overflow = 'hidden';
+                    document.documentElement.style.overflowX = 'hidden';
+                    document.documentElement.style.overflowY = 'hidden';
+                    document.documentElement.style.paddingRight = '0';
+                    
+                    // Asegurar que el modal NO tenga scroll
+                    modalDocumento.style.overflow = 'hidden';
+                    modalDocumento.style.overflowX = 'hidden';
+                    modalDocumento.style.overflowY = 'hidden';
+                    
+                    // Asegurar que el modal-dialog y modal-content no tengan scroll
+                    const modalDialog = modalDocumento.querySelector('.modal-dialog');
+                    const modalContent = modalDocumento.querySelector('.modal-content');
+                    const modalBody = modalDocumento.querySelector('.modal-body');
+                    const modalHeader = modalDocumento.querySelector('.modal-header');
+                    
+                    if (modalDialog) {
+                        modalDialog.style.overflow = 'hidden';
+                        modalDialog.style.overflowX = 'hidden';
+                        modalDialog.style.overflowY = 'hidden';
+                    }
+                    if (modalContent) {
+                        modalContent.style.overflow = 'hidden';
+                        modalContent.style.overflowX = 'hidden';
+                        modalContent.style.overflowY = 'hidden';
+                    }
+                    if (modalBody) {
+                        modalBody.style.overflow = 'hidden';
+                        modalBody.style.overflowX = 'hidden';
+                        modalBody.style.overflowY = 'hidden';
+                    }
+                    if (modalHeader) {
+                        modalHeader.style.overflow = 'hidden';
+                        modalHeader.style.overflowX = 'hidden';
+                        modalHeader.style.overflowY = 'hidden';
+                    }
+                    
+                    // Prevenir scroll en el backdrop
+                    const backdrop = document.querySelector('.modal-backdrop');
+                    if (backdrop) {
+                        backdrop.style.overflow = 'hidden';
+                        backdrop.style.overflowX = 'hidden';
+                        backdrop.style.overflowY = 'hidden';
+                    }
+                });
+
                 modalDocumento.addEventListener('shown.bs.modal', function() {
                     setTimeout(() => {
                         crearMarcasAgua();
@@ -1338,11 +1644,34 @@
                         if (imgDoc) {
                             desactivarDescargaImagen(imgDoc);
                         }
+                        
+                        // BLOQUEO COMPLETO DEL CLICK DERECHO EN EL VISOR DE PDF
+                        bloquearClickDerechoPDF();
                     }, 300);
                 });
                 
                 // Limpiar cuando se cierre el modal para evitar overlays bloqueantes
                 modalDocumento.addEventListener('hidden.bs.modal', function() {
+                    // Restaurar scroll del body y html cuando se cierra el modal
+                    const scrollY = document.body.style.top;
+                    document.body.style.position = '';
+                    document.body.style.top = '';
+                    document.body.style.width = '';
+                    document.body.style.overflow = '';
+                    document.body.style.overflowX = '';
+                    document.body.style.overflowY = '';
+                    document.body.style.paddingRight = '';
+                    
+                    document.documentElement.style.overflow = '';
+                    document.documentElement.style.overflowX = '';
+                    document.documentElement.style.overflowY = '';
+                    document.documentElement.style.paddingRight = '';
+                    
+                    // Restaurar la posición del scroll si había una guardada
+                    if (scrollY) {
+                        window.scrollTo(0, parseInt(scrollY || '0') * -1);
+                    }
+                    
                     // Limpiar el embed si existe
                     const embedContainer = document.getElementById('visorPdfEmbed');
                     if (embedContainer) {
@@ -1392,104 +1721,192 @@
             }
         });
 
-        // Variables para zoom de documentos (FAD_DOC, EVIDENCIA, etc.)
-        let currentZoomDocumento = 1.25; // Zoom predeterminado 125%
-        let minZoomDocumento = 0.5;
-        let maxZoomDocumento = 3;
-
-        function zoomInDocumento() {
-            if (currentZoomDocumento < maxZoomDocumento) {
-                currentZoomDocumento = Math.min(currentZoomDocumento + 0.25, maxZoomDocumento);
-                applyZoomDocumento();
-            }
-        }
-
-        function zoomOutDocumento() {
-            if (currentZoomDocumento > minZoomDocumento) {
-                currentZoomDocumento = Math.max(currentZoomDocumento - 0.25, minZoomDocumento);
-                applyZoomDocumento();
-            }
-        }
-
-        function resetZoomDocumento() {
-            currentZoomDocumento = 1.20; // Resetear a 120%
-            applyZoomDocumento();
-        }
-
-        function applyZoomDocumento() {
-            const iframe = document.getElementById('visorDocumento');
-            const wrapper = document.getElementById('documentoWrapper');
-            const modalBody = document.getElementById('documentoModalBody');
+        // Función para bloquear TODAS las combinaciones posibles del click derecho en el visor de PDF
+        function bloquearClickDerechoPDF() {
+            const embedContainer = document.getElementById('visorPdfEmbed');
+            if (!embedContainer) return;
             
-            if (iframe && wrapper && modalBody) {
-                // Aplicar zoom usando transform scale
-                iframe.style.transform = `scale(${currentZoomDocumento})`;
-                iframe.style.transformOrigin = 'top left';
-                
-                // Ajustar el tamaño del wrapper para permitir scroll cuando hay zoom
-                if (currentZoomDocumento >= 1) {
-                    // Calcular el tamaño necesario del wrapper
-                    const bodyWidth = modalBody.clientWidth;
-                    const bodyHeight = modalBody.clientHeight;
-                    const scaledWidth = bodyWidth * currentZoomDocumento;
-                    const scaledHeight = bodyHeight * currentZoomDocumento;
-                    
-                    wrapper.style.width = `${scaledWidth}px`;
-                    wrapper.style.height = `${scaledHeight}px`;
-                    wrapper.style.minWidth = `${scaledWidth}px`;
-                    wrapper.style.minHeight = `${scaledHeight}px`;
-                    wrapper.style.alignItems = 'flex-start';
-                    wrapper.style.justifyContent = 'flex-start';
-                    wrapper.style.padding = '20px';
-                    
-                    // Asegurar que el iframe mantenga su tamaño original pero se escale
-                    iframe.style.width = `${bodyWidth}px`;
-                    iframe.style.height = `${bodyHeight}px`;
-                    
-                    // Resetear scroll al inicio cuando se aplica zoom
-                    setTimeout(() => {
-                        modalBody.scrollLeft = 0;
-                        modalBody.scrollTop = 0;
-                    }, 100);
-                } else {
-                    // Si el zoom es menor a 1, centrar
-                    wrapper.style.width = '';
-                    wrapper.style.height = '';
-                    wrapper.style.minWidth = '';
-                    wrapper.style.minHeight = '';
-                    wrapper.style.alignItems = 'center';
-                    wrapper.style.justifyContent = 'center';
-                    wrapper.style.padding = '20px';
-                    iframe.style.width = '100%';
-                    iframe.style.height = '100%';
-                    
-                    // Centrar
-                    setTimeout(() => {
-                        modalBody.scrollLeft = (modalBody.scrollWidth - modalBody.clientWidth) / 2;
-                        modalBody.scrollTop = (modalBody.scrollHeight - modalBody.clientHeight) / 2;
-                    }, 100);
-                }
-            }
-        }
-
-        // Zoom con scroll del mouse en el documento
-        document.addEventListener('DOMContentLoaded', function() {
-            const documentoModal = document.getElementById('modalDocumento');
-            const documentoModalBody = document.getElementById('documentoModalBody');
+            // Lista de todos los elementos relacionados con el PDF que necesitan protección
+            const elementosPDF = [
+                embedContainer,
+                embedContainer.querySelector('#pdfWrapperContrato'),
+                embedContainer.querySelector('#watermarkOverlayPdf'),
+                embedContainer.querySelector('#pdfProtectionOverlay'),
+                embedContainer.querySelector('iframe'),
+                embedContainer.querySelector('.watermark-container')
+            ].filter(el => el !== null);
             
-            if (documentoModal && documentoModalBody) {
-                documentoModalBody.addEventListener('wheel', function(e) {
-                    if (e.ctrlKey || e.metaKey) {
-                        e.preventDefault();
-                        if (e.deltaY < 0) {
-                            zoomInDocumento();
-                        } else {
-                            zoomOutDocumento();
+            // Agregar menuOverlay solo si existe (solo para CONTRATO)
+            const menuOverlay = embedContainer.querySelector('#pdfMenuOverlay');
+            if (menuOverlay) {
+                elementosPDF.push(menuOverlay);
+            }
+            
+            // Función para bloquear evento
+            const bloquearEvento = function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                e.stopImmediatePropagation();
+                return false;
+            };
+            
+            // Bloquear contextmenu (click derecho) en todos los elementos
+            elementosPDF.forEach(elemento => {
+                if (elemento) {
+                    // Bloquear contextmenu
+                    elemento.addEventListener('contextmenu', bloquearEvento, true);
+                    
+                    // Bloquear mousedown del botón derecho (button === 2)
+                    elemento.addEventListener('mousedown', function(e) {
+                        if (e.button === 2) {
+                            bloquearEvento(e);
                         }
-                    }
-                }, { passive: false });
+                    }, true);
+                    
+                    // Bloquear mouseup del botón derecho
+                    elemento.addEventListener('mouseup', function(e) {
+                        if (e.button === 2) {
+                            bloquearEvento(e);
+                        }
+                    }, true);
+                    
+                    // Bloquear auxclick (click del botón derecho)
+                    elemento.addEventListener('auxclick', function(e) {
+                        if (e.button === 2) {
+                            bloquearEvento(e);
+                        }
+                    }, true);
+                }
+            });
+            
+            // Bloquear a nivel de documento cuando el evento viene del área del PDF
+            const bloquearEnDocumento = function(e) {
+                const target = e.target;
+                // Verificar si el target está dentro del área del PDF
+                if (embedContainer && (embedContainer.contains(target) || elementosPDF.some(el => el && el.contains(target)))) {
+                    bloquearEvento(e);
+                }
+            };
+            
+            // Bloquear contextmenu a nivel de documento (capture phase para máxima prioridad)
+            const docContextHandler = bloquearEnDocumento;
+            document.addEventListener('contextmenu', docContextHandler, { capture: true, passive: false });
+            
+            // Bloquear mousedown a nivel de documento
+            const docMouseDownHandler = function(e) {
+                if (e.button === 2) {
+                    bloquearEnDocumento(e);
+                }
+            };
+            document.addEventListener('mousedown', docMouseDownHandler, { capture: true, passive: false });
+            
+            // Bloquear mouseup a nivel de documento
+            const docMouseUpHandler = function(e) {
+                if (e.button === 2) {
+                    bloquearEnDocumento(e);
+                }
+            };
+            document.addEventListener('mouseup', docMouseUpHandler, { capture: true, passive: false });
+            
+            // Bloquear auxclick a nivel de documento
+            const docAuxClickHandler = function(e) {
+                if (e.button === 2) {
+                    bloquearEnDocumento(e);
+                }
+            };
+            document.addEventListener('auxclick', docAuxClickHandler, { capture: true, passive: false });
+            
+            // Bloquear a nivel de window (máxima prioridad)
+            const bloquearEnWindow = function(e) {
+                const target = e.target;
+                if (embedContainer && (embedContainer.contains(target) || elementosPDF.some(el => el && el.contains(target)))) {
+                    bloquearEvento(e);
+                }
+            };
+            
+            const winContextHandler = bloquearEnWindow;
+            window.addEventListener('contextmenu', winContextHandler, { capture: true, passive: false });
+            
+            const winMouseDownHandler = function(e) {
+                if (e.button === 2) {
+                    bloquearEnWindow(e);
+                }
+            };
+            window.addEventListener('mousedown', winMouseDownHandler, { capture: true, passive: false });
+            
+            const winMouseUpHandler = function(e) {
+                if (e.button === 2) {
+                    bloquearEnWindow(e);
+                }
+            };
+            window.addEventListener('mouseup', winMouseUpHandler, { capture: true, passive: false });
+            
+            const winAuxClickHandler = function(e) {
+                if (e.button === 2) {
+                    bloquearEnWindow(e);
+                }
+            };
+            window.addEventListener('auxclick', winAuxClickHandler, { capture: true, passive: false });
+            
+            // Limpiar listeners cuando se cierre el modal
+            const modalDocumento = document.getElementById('modalDocumento');
+            if (modalDocumento) {
+                modalDocumento.addEventListener('hidden.bs.modal', function() {
+                    document.removeEventListener('contextmenu', docContextHandler, { capture: true });
+                    document.removeEventListener('mousedown', docMouseDownHandler, { capture: true });
+                    document.removeEventListener('mouseup', docMouseUpHandler, { capture: true });
+                    document.removeEventListener('auxclick', docAuxClickHandler, { capture: true });
+                    window.removeEventListener('contextmenu', winContextHandler, { capture: true });
+                    window.removeEventListener('mousedown', winMouseDownHandler, { capture: true });
+                    window.removeEventListener('mouseup', winMouseUpHandler, { capture: true });
+                    window.removeEventListener('auxclick', winAuxClickHandler, { capture: true });
+                }, { once: true });
             }
-        });
+            
+            // Intentar bloquear dentro del iframe si es posible (puede fallar por CORS)
+            const iframe = embedContainer.querySelector('iframe');
+            if (iframe) {
+                iframe.addEventListener('load', function() {
+                    try {
+                        const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+                        if (iframeDoc) {
+                            // Bloquear en el documento del iframe
+                            iframeDoc.addEventListener('contextmenu', bloquearEvento, true);
+                            iframeDoc.addEventListener('mousedown', function(e) {
+                                if (e.button === 2) bloquearEvento(e);
+                            }, true);
+                            iframeDoc.addEventListener('mouseup', function(e) {
+                                if (e.button === 2) bloquearEvento(e);
+                            }, true);
+                            iframeDoc.addEventListener('auxclick', function(e) {
+                                if (e.button === 2) bloquearEvento(e);
+                            }, true);
+                            
+                            // Bloquear en el body del iframe
+                            if (iframeDoc.body) {
+                                iframeDoc.body.addEventListener('contextmenu', bloquearEvento, true);
+                                iframeDoc.body.addEventListener('mousedown', function(e) {
+                                    if (e.button === 2) bloquearEvento(e);
+                                }, true);
+                                iframeDoc.body.addEventListener('mouseup', function(e) {
+                                    if (e.button === 2) bloquearEvento(e);
+                                }, true);
+                                iframeDoc.body.addEventListener('auxclick', function(e) {
+                                    if (e.button === 2) bloquearEvento(e);
+                                }, true);
+                            }
+                        }
+                    } catch (e) {
+                        // Error de CORS - normal cuando el iframe carga contenido de otro dominio
+                        // Los bloqueos externos seguirán funcionando
+                    }
+                });
+            }
+        }
+
+        // NOTA: El sistema de zoom de iframe ha sido desactivado
+        // Todos los documentos (FAD_DOC, FACTURA OK, VALIDACIONES OK) son PDFs
+        // y usan SOLO el sistema de zoom de PDF.js (pdfScale, pdfZoomIn, pdfZoomOut)
 
         function cerrarZoomINE() {
             const modal = bootstrap.Modal.getInstance(document.getElementById('modalZoomINE'));
@@ -1541,7 +1958,121 @@
 
     <!-- PDF.js desde CDN -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    
+    <!-- CSS adicional para mayor protección -->
+    <style>
+        /* Protección adicional para el canvas del PDF */
+        #pdfCanvas,
+        #documentoPdfContainer,
+        #documentoWrapper,
+        #pdfViewerContainer {
+            -webkit-user-select: none !important;
+            -moz-user-select: none !important;
+            -ms-user-select: none !important;
+            user-select: none !important;
+            -webkit-user-drag: none !important;
+            -khtml-user-drag: none !important;
+            user-drag: none !important;
+            -webkit-touch-callout: none !important;
+        }
+        
+        /* Prevenir selección en todos los elementos del visor */
+        #modalDocumento * {
+            -webkit-user-select: none !important;
+            -moz-user-select: none !important;
+            -ms-user-select: none !important;
+            user-select: none !important;
+        }
+        
+        /* Overlay de protección para el canvas */
+        .canvas-protection-overlay {
+            cursor: default !important;
+        }
+    </style>
+    
     <script>
+        // Protección global del documento para prevenir atajos de teclado
+        document.addEventListener('DOMContentLoaded', function() {
+            // Prevenir atajos de teclado globales cuando hay un modal abierto
+            document.addEventListener('keydown', function(e) {
+                const modalDocumento = document.getElementById('modalDocumento');
+                const isModalOpen = modalDocumento && modalDocumento.classList.contains('show');
+                
+                if (isModalOpen) {
+                    // Prevenir Ctrl+S (Guardar)
+                    if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        return false;
+                    }
+                    // Prevenir Ctrl+P (Imprimir)
+                    if ((e.ctrlKey || e.metaKey) && e.key === 'p') {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        return false;
+                    }
+                    // Prevenir Ctrl+Shift+S (Guardar como)
+                    if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'S') {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        return false;
+                    }
+                }
+            }, true);
+            
+            // Aplicar protección cuando se muestra el modal
+            const modalDocumento = document.getElementById('modalDocumento');
+            if (modalDocumento) {
+                modalDocumento.addEventListener('shown.bs.modal', function() {
+                    setTimeout(() => {
+                        protegerContenedorPDF();
+                    }, 100);
+                });
+            }
+            
+            // Navegación de páginas
+            const btnPrev = document.getElementById('pdfPrev');
+            const btnNext = document.getElementById('pdfNext');
+            const btnZoomIn = document.getElementById('pdfZoomIn');
+            const btnZoomOut = document.getElementById('pdfZoomOut');
+
+            if (btnPrev) {
+                btnPrev.addEventListener('click', async function() {
+                    if (currentPage > 1) {
+                        currentPage--;
+                        await renderizarPaginaPDF(currentPage);
+                    }
+                });
+            }
+
+            if (btnNext) {
+                btnNext.addEventListener('click', async function() {
+                    if (currentPage < pdfTotalPages) {
+                        currentPage++;
+                        await renderizarPaginaPDF(currentPage);
+                    }
+                });
+            }
+
+            if (btnZoomIn) {
+                btnZoomIn.addEventListener('click', async function() {
+                    if (pdfScale < 3.0) {
+                        pdfScale += 0.25;
+                        await renderizarPaginaPDF(currentPage);
+                    }
+                });
+            }
+
+            if (btnZoomOut) {
+                btnZoomOut.addEventListener('click', async function() {
+                    if (pdfScale > 0.5) {
+                        pdfScale -= 0.25;
+                        await renderizarPaginaPDF(currentPage);
+                    }
+                });
+            }
+        });
+        
         // Limpiar overlay de SweetAlert cuando se cierra cualquier modal
         document.addEventListener('DOMContentLoaded', function() {
             // Observar cuando se cierra cualquier SweetAlert
@@ -1754,6 +2285,17 @@
                     if (typeof crearMarcasAgua === 'function') {
                         crearMarcasAgua();
                     }
+                    // Desactivar descarga en el canvas
+                    if (pdfCanvas && typeof desactivarDescargaImagen === 'function') {
+                        desactivarDescargaImagen(pdfCanvas);
+                    }
+                }, 100);
+
+                // Recrear marcas de agua después de que el canvas se renderice
+                setTimeout(() => {
+                    if (typeof crearMarcasAgua === 'function') {
+                        crearMarcasAgua();
+                    }
                     // Asegurar protección del canvas
                     if (typeof desactivarDescargaImagen === 'function') {
                         desactivarDescargaImagen(pdfCanvas);
@@ -1765,49 +2307,6 @@
             }
         }
 
-        // Navegación de páginas
-        document.addEventListener('DOMContentLoaded', function() {
-            const btnPrev = document.getElementById('pdfPrev');
-            const btnNext = document.getElementById('pdfNext');
-            const btnZoomIn = document.getElementById('pdfZoomIn');
-            const btnZoomOut = document.getElementById('pdfZoomOut');
-
-            if (btnPrev) {
-                btnPrev.addEventListener('click', async function() {
-                    if (currentPage > 1) {
-                        currentPage--;
-                        await renderizarPaginaPDF(currentPage);
-                    }
-                });
-            }
-
-            if (btnNext) {
-                btnNext.addEventListener('click', async function() {
-                    if (currentPage < pdfTotalPages) {
-                        currentPage++;
-                        await renderizarPaginaPDF(currentPage);
-                    }
-                });
-            }
-
-            if (btnZoomIn) {
-                btnZoomIn.addEventListener('click', async function() {
-                    if (pdfScale < 3.0) {
-                        pdfScale += 0.25;
-                        await renderizarPaginaPDF(currentPage);
-                    }
-                });
-            }
-
-            if (btnZoomOut) {
-                btnZoomOut.addEventListener('click', async function() {
-                    if (pdfScale > 0.5) {
-                        pdfScale -= 0.25;
-                        await renderizarPaginaPDF(currentPage);
-                    }
-                });
-            }
-        });
     </script>
 
 </div>
