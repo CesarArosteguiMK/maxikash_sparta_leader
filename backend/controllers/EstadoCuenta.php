@@ -64,11 +64,14 @@ class EstadoCuenta extends Controller
                     document.getElementById('divNombre').style.display = modo === 'nombre' ? 'block' : 'none';
                     document.getElementById('divID').style.display = modo === 'id' ? 'block' : 'none';
             }
-        
+            
             document.querySelectorAll('input[name="modoBusqueda"]').forEach(el =>
                 el.addEventListener('change', actualizarInputs)
             );
-            actualizarInputs();
+            
+            document.getElementById('modalDirecciones')
+              .addEventListener('shown.bs.modal', actualizarInputs);
+
         
             // Botón limpiar filtros
             document.getElementById("btnResetFiltros").addEventListener("click", () => {
@@ -349,6 +352,8 @@ JS;
                 self::set("direcciones", $respDAO);
                 self::set("referencias", $referencias);
                 self::set("notas", $notas);
+
+                var_dump($respDAO);
 
 
                 self::set("titulo", "Resultado de la solicitud");

@@ -491,12 +491,12 @@ if ($cuotasContratadas > 0) {
 
                                 <i class="fa fa-location text-primary"></i>
 
-                                <a href="#"
-                                   class="text-primary text-decoration-underline"
-                                   data-bs-toggle="modal"
-                                   data-bs-target="#modalDirecciones">
+                                <button type="button"
+                                        class="btn btn-link text-primary p-0"
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#modalDirecciones">
                                     Direcciones
-                                </a>
+                                </button>
                             </small>
 
 
@@ -1246,7 +1246,7 @@ if ($cuotasContratadas > 0) {
 
 
 <div class="modal fade" id="modalDirecciones" tabindex="-1" aria-labelledby="modalDireccionesLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content">
 
             <!-- Header -->
@@ -1259,9 +1259,9 @@ if ($cuotasContratadas > 0) {
             </div>
 
             <!-- Body -->
-            <div class="modal-body">
+            <div class="modal-body py-4">
 
-                <div class="row g-2">
+                <div class="row g-3">
                     <?php
                     // Validar que existan las direcciones antes de mostrarlas
                     if (isset($direcciones) && is_array($direcciones) && isset($direcciones['datos']) && is_array($direcciones['datos']) && !empty($direcciones['datos'])):
@@ -1271,17 +1271,19 @@ if ($cuotasContratadas > 0) {
                     ?>
                     <!-- Dirección <?= $index + 1 ?> -->
                     <div class="col-md-6">
-                        <div class="card h-100 border border-1 shadow-sm">
+                        <div class="card h-100 shadow-sm border">
                             <div class="card-body">
                                 <div class="d-flex align-items-center mb-2">
                                     <i class="fa fa-home text-success me-2"></i>
                                     <h6 class="mb-0">Domicilio Particular</h6>
                                 </div>
-                                <p class="mb-1">
-                                    <strong></strong>
+
+                                <p class="text-muted mb-2">
                                     <?= $domicilioCompleto ?>
                                 </p>
-                                <span class="badge bg-success mt-2">Principal</span>
+
+                                <span class="badge bg-success">Principal</span>
+
                             </div>
                         </div>
                     </div>
