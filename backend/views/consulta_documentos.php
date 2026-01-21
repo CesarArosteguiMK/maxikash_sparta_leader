@@ -267,7 +267,7 @@
             });
 
             // NOTA: El sistema de zoom de iframe ha sido desactivado
-            // Todos los documentos (FAD_DOC, FACTURA OK, VALIDACIONES OK) son PDFs
+            // Todos los documentos (FAD_DOC, FACTURA, VALIDACIONES OK) son PDFs
             // y usan SOLO el sistema de zoom de PDF.js (pdfScale, pdfZoomIn, pdfZoomOut)
 
             // Botón limpiar filtros

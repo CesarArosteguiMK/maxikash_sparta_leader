@@ -659,7 +659,7 @@ JS;
                                 // Para FACTURA, FAD_DOC y CONTRATO, usar PDF.js EXACTAMENTE como EVIDENCIA
                                 if (data.tipo === 'FACTURA' || data.tipo === 'FAD_DOC' || data.tipo === 'CONTRATO') {
                                     // Usar PDF.js para FACTURA OK, FAD_DOC y VALIDACIONES OK - EXACTAMENTE como EVIDENCIA
-                                    const tipoNombre = data.tipo === 'FACTURA' ? 'FACTURA OK' : (data.tipo === 'FAD_DOC' ? 'FAD_DOC' : 'VALIDACIONES OK');
+                                    const tipoNombre = data.tipo === 'FACTURA' ? 'FACTURA' : (data.tipo === 'FAD_DOC' ? 'FAD_DOC' : 'VALIDACIONES');
                                     console.log('Mostrando ' + tipoNombre + ' con PDF.js:', data);
                                     
                                     // Asegurar que el contenedor de visor simple esté oculto
@@ -726,8 +726,8 @@ JS;
                                 else if (false && (data.tipo === 'CONTRATO')) {
                                     const tipoNombre = {
                                         'FAD_DOC': 'FAD_DOC',
-                                        'FACTURA': 'FACTURA OK',
-                                        'CONTRATO': 'VALIDACIONES OK'
+                                        'FACTURA': 'FACTURA',
+                                        'CONTRATO': 'VALIDACIONES'
                                     };
                                     
                                     // Obtener el modal element primero
@@ -1535,8 +1535,15 @@ JS;
                                     imgDocumento.style.display = 'block';
                                     imgDocumento.style.visibility = 'visible';
                                     
-                                    // Las marcas de agua se crearán automáticamente cuando el modal se muestre
-                                    // gracias al listener en documentacion_consulta.php
+                                    // Crear marcas de agua inmediatamente y después de que la imagen se cargue (igual que INE)
+                                    const crearMarcasAguaEVIDENCIA = function() {
+                                        if (typeof crearMarcasAgua === 'function') {
+                                            crearMarcasAgua();
+                                        }
+                                    };
+                                    
+                                    // Crear marcas de agua inmediatamente (igual que INE)
+                                    setTimeout(crearMarcasAguaEVIDENCIA, 100);
                                     
                                     // Desactivar descarga inmediatamente
                                     if (typeof desactivarDescargaImagen === 'function') {
@@ -1549,18 +1556,22 @@ JS;
                                         if (typeof desactivarDescargaImagen === 'function') {
                                             desactivarDescargaImagen(imgDocumento);
                                         }
-                                        // Crear marcas de agua después de que la imagen se cargue
-                                        setTimeout(() => {
-                                            if (typeof crearMarcasAgua === 'function') {
-                                                crearMarcasAgua();
-                                            }
-                                        }, 200);
+                                        // Crear marcas de agua después de que la imagen se cargue (igual que INE)
+                                        setTimeout(crearMarcasAguaEVIDENCIA, 300);
                                         
                                         // Mostrar modal después de que la imagen se cargue
                                         const modal = new bootstrap.Modal(
                                             document.getElementById('modalDocumento')
                                         );
                                         modal.show();
+                                        
+                                        // Crear marcas de agua después de que el modal se muestre (igual que INE)
+                                        const modalElement = document.getElementById('modalDocumento');
+                                        if (modalElement) {
+                                            modalElement.addEventListener('shown.bs.modal', function() {
+                                                setTimeout(crearMarcasAguaEVIDENCIA, 200);
+                                            }, { once: true });
+                                        }
                                     };
                                     
                                     // Manejar errores de carga de imagen
@@ -1581,8 +1592,8 @@ JS;
                                 const tipoNombre = {
                                     'FAD_DOC': 'FAD_DOC',
                                     'EVIDENCIA': 'EVIDENCIA',
-                                    'FACTURA': 'FACTURA OK',
-                                    'CONTRATO': 'VALIDACIONES OK'
+                                    'FACTURA': 'FACTURA',
+                                    'CONTRATO': 'VALIDACIONES'
                                 };
                                 modalTitle.textContent = tipoNombre[data.tipo] || 'Documento';
                             }

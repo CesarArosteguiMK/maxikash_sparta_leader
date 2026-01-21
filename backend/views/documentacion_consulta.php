@@ -157,7 +157,7 @@
                                     style="max-width: 100%; max-height: calc(95vh - 140px); width: auto; height: auto; object-fit: contain; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); cursor: zoom-in; display: block; margin: 0 auto; user-select: none; -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none; -webkit-user-drag: none; -khtml-user-drag: none; user-drag: none;"
                                     draggable="false"
                                     oncontextmenu="return false;"
-                                    onerror="this.style.display='none'; Swal.fire('Error', 'No se pudo cargar la imagen', 'error');">
+                                    
                                 <div class="watermark-overlay"></div>
                             </div>
                         </div>
@@ -449,6 +449,42 @@
             }
         }
 
+        /* Ajustes del menú de zoom para móvil */
+        @media (max-width: 768px) {
+            #pdfControls {
+                padding: 8px 12px !important;
+                gap: 8px !important;
+                bottom: 10px !important;
+                max-width: 95vw !important;
+                flex-wrap: nowrap !important;
+            }
+
+            #pdfControls button {
+                min-width: 35px !important;
+                padding: 5px 8px !important;
+                font-size: 0.85rem !important;
+            }
+
+            #pdfControls span {
+                font-size: 0.75rem !important;
+                min-width: auto !important;
+                padding: 0 4px !important;
+            }
+
+            #pdfPageInfo {
+                min-width: 60px !important;
+            }
+
+            #pdfZoomLevel {
+                min-width: 40px !important;
+            }
+
+            #pdfControls > div {
+                width: 0.5px !important;
+                height: 15px !important;
+            }
+        }
+
         /* Overlay para ocultar el botón del visor de Google en PDFs */
         #pdfOverlay {
             position: absolute;
@@ -472,7 +508,7 @@
             display: block !important;
         }
 
-        /* Eliminar COMPLETAMENTE el scroll del modal para Facturación OK */
+        /* Eliminar COMPLETAMENTE el scroll del modal para Facturación */
         #modalDocumento {
             overflow: hidden !important;
         }
@@ -790,9 +826,20 @@
                     img = container ? container.querySelector('img') : null;
                     canvas = container ? (container.querySelector('canvas') || document.getElementById('pdfCanvas')) : null;
                     iframe = container ? container.querySelector('iframe') : null;
+                    
+                    // Si no se encontró contenedor pero hay un overlay de imagen, buscar la imagen directamente
+                    // Esto ayuda especialmente para EVIDENCIA que usa imgDocumento
+                    if (!container && !img && overlay.classList.contains('watermark-overlay')) {
+                        const imgDoc = document.getElementById('imgDocumento');
+                        if (imgDoc) {
+                            img = imgDoc;
+                            container = img.closest('.watermark-container');
+                            console.log('✅ Imagen y contenedor encontrados para EVIDENCIA');
+                        }
+                    }
                 }
                 
-                // Detectar si es un canvas de PDF.js - puede ser FACTURA/FAD_DOC/VALIDACIONES OK o INE/EVIDENCIA
+                // Detectar si es un canvas de PDF.js - puede ser FACTURA/FAD_DOC/VALIDACIONES o INE/EVIDENCIA
                 // IMPORTANTE: Declarar ANTES de usarlo
                 const isPdfJsCanvas = canvas && canvas.id === 'pdfCanvas' && overlay.id === 'pdfWatermark';
                 console.log('isPdfJsCanvas detectado:', isPdfJsCanvas, 'canvas:', canvas ? canvas.id : 'null', 'overlay:', overlay.id);
@@ -821,10 +868,10 @@
                         return; // Salir inmediatamente, no procesar este overlay
                     }
                     
-                    // Si NO es FACTURA/FAD_DOC/VALIDACIONES OK (no tiene pdfDocFactura ni el atributo), saltar
+                    // Si NO es FACTURA/FAD_DOC/VALIDACIONES (no tiene pdfDocFactura ni el atributo), saltar
                     const esDocumentoConMarcasSINVALOR = typeof pdfDocFactura !== 'undefined' && pdfDocFactura !== null;
                     if (!esDocumentoConMarcasSINVALOR && !requiereMarcasSINVALOR) {
-                        console.log('⚠️ Saltando overlay de PDF.js - No es FACTURA/FAD_DOC/VALIDACIONES OK');
+                        console.log('⚠️ Saltando overlay de PDF.js - No es FACTURA/FAD_DOC/VALIDACIONES');
                         return; // Salir inmediatamente
                     }
                 }
@@ -1020,12 +1067,12 @@
                 
                 if (isIframePdf) {
                     // MARCAS DE AGUA "SIN VALOR" COMENTADAS - NO SE APLICAN A NINGÚN PDF
-                    // Las marcas de agua "SIN VALOR" para FACTURA, FAD_DOC y VALIDACIONES OK están deshabilitadas
+                    // Las marcas de agua "SIN VALOR" para FACTURA, FAD_DOC y VALIDACIONES están deshabilitadas
                     console.log('⚠️ Marcas de agua "SIN VALOR" deshabilitadas - Saltando creación para PDFs');
                     return; // Salir sin crear marcas de agua
                     
                     /* CÓDIGO COMENTADO - MARCAS DE AGUA "SIN VALOR" PARA PDFs
-                    // IMPORTANTE: Solo aplicar marcas de agua "SIN VALOR" para FACTURA, FAD_DOC y VALIDACIONES OK
+                    // IMPORTANTE: Solo aplicar marcas de agua "SIN VALOR" para FACTURA, FAD_DOC y VALIDACIONES
                     // INE y EVIDENCIA tienen sus propias marcas de agua y NO deben usar estas
                     
                     // Si es canvas de PDF.js, ya se verificó arriba, pero verificar de nuevo por seguridad
@@ -1040,7 +1087,7 @@
                         
                         const esDocumentoConMarcasSINVALOR = typeof pdfDocFactura !== 'undefined' && pdfDocFactura !== null;
                         if (!esDocumentoConMarcasSINVALOR && !requiereMarcasSINVALOR) {
-                            console.log('⚠️ Verificación doble: Saltando marcas de agua "SIN VALOR" - No es FACTURA/FAD_DOC/VALIDACIONES OK');
+                            console.log('⚠️ Verificación doble: Saltando marcas de agua "SIN VALOR" - No es FACTURA/FAD_DOC/VALIDACIONES');
                             return;
                         }
                     }
@@ -1069,7 +1116,7 @@
                         }
                     }
                     
-                    console.log('Creando marcas de agua "SIN VALOR" para FACTURA/FAD_DOC/VALIDACIONES OK - Dimensiones:', width, 'x', height, 'isPdfJsCanvas:', isPdfJsCanvas);
+                    console.log('Creando marcas de agua "SIN VALOR" para FACTURA/FAD_DOC/VALIDACIONES - Dimensiones:', width, 'x', height, 'isPdfJsCanvas:', isPdfJsCanvas);
                     
                     // Configuración para patrón ordenado y bien espaciado
                     const fontSizeForIframe = '2.5rem'; // Tamaño de fuente apropiado
@@ -1144,7 +1191,7 @@
                     // Esta es la lógica original que funcionaba perfectamente para imágenes
                     
                     // VERIFICACIÓN: Si el overlay es pdfWatermark (de PDF.js), NO aplicar marcas de imágenes
-                    // pdfWatermark solo debe tener marcas "SIN VALOR" si es FACTURA/FAD_DOC/VALIDACIONES OK
+                    // pdfWatermark solo debe tener marcas "SIN VALOR" si es FACTURA/FAD_DOC/VALIDACIONES
                     if (overlay.id === 'pdfWatermark') {
                         console.log('⚠️ Saltando marcas de imágenes para overlay pdfWatermark - Este overlay es solo para PDF.js');
                         return; // Salir, no aplicar marcas de imágenes a este overlay
@@ -1154,12 +1201,65 @@
                     // Esto asegura que las marcas solo aparezcan dentro de las imágenes, no en todo el modal
                     // Igual que funciona EVIDENCIA
                     if (!container) {
-                        console.log('⚠️ Saltando overlay - No está dentro de un contenedor de imagen (.watermark-container)');
-                        return; // Salir, no aplicar marcas de agua a overlays fuera de contenedores de imágenes
+                        // Si no se encuentra el contenedor, intentar buscarlo de diferentes maneras (para EVIDENCIA)
+                        // Primero intentar desde el overlay mismo
+                        container = overlay.closest('.watermark-container');
+                        
+                        // Si aún no hay contenedor, buscar desde la imagen imgDocumento (para EVIDENCIA)
+                        if (!container) {
+                            const imgDoc = document.getElementById('imgDocumento');
+                            if (imgDoc) {
+                                img = imgDoc;
+                                container = img.closest('.watermark-container');
+                                if (container) {
+                                    console.log('✅ Contenedor encontrado para imgDocumento (EVIDENCIA)');
+                                }
+                            }
+                        }
+                        
+                        // Si aún no hay contenedor, intentar buscar el overlay desde el padre
+                        if (!container && overlay.parentElement) {
+                            container = overlay.parentElement.closest('.watermark-container');
+                            if (container) {
+                                console.log('✅ Contenedor encontrado desde parentElement');
+                            }
+                        }
+                        
+                        // Si aún no hay contenedor, salir
+                        if (!container) {
+                            console.log('⚠️ Saltando overlay - No está dentro de un contenedor de imagen (.watermark-container)');
+                            console.log('Overlay:', overlay.id, overlay.className, 'Parent:', overlay.parentElement);
+                            return; // Salir, no aplicar marcas de agua a overlays fuera de contenedores de imágenes
+                        }
                     }
                     
                     // INE y EVIDENCIA usan esta lógica original para sus marcas de agua
                     // Esta es la lógica que tenían antes de que se mezclaran con las marcas de PDFs
+                    
+                    // Asegurar que tenemos la imagen (para EVIDENCIA)
+                    if (!img && container) {
+                        img = container.querySelector('img');
+                    }
+                    if (!img) {
+                        const imgDoc = document.getElementById('imgDocumento');
+                        if (imgDoc) {
+                            img = imgDoc;
+                        }
+                    }
+                    
+                    // Verificar que el overlay esté visible y tenga dimensiones antes de crear marcas
+                    const overlayStyle = window.getComputedStyle(overlay);
+                    const overlayVisible = overlayStyle.display !== 'none' && overlayStyle.visibility !== 'hidden' && overlayStyle.opacity !== '0';
+                    
+                    console.log('✅ Creando marcas de agua para imagen (INE/EVIDENCIA) - Dimensiones:', effectiveWidth, 'x', effectiveHeight, 'numLayers:', numLayers, 'spacing:', spacing, 'img:', img ? img.id : 'null', 'container:', container ? 'encontrado' : 'no encontrado', 'overlay visible:', overlayVisible);
+                    
+                    if (!overlayVisible) {
+                        console.log('⚠️ Overlay no está visible, forzando visibilidad');
+                        overlay.style.display = 'block';
+                        overlay.style.visibility = 'visible';
+                        overlay.style.opacity = '1';
+                    }
+                    
                     for (let i = -2; i < numLayers; i++) {
                         const layer = document.createElement('div');
                         layer.className = 'watermark-layer';
@@ -1184,14 +1284,15 @@
                         `;
                         overlay.appendChild(layer);
                     }
+                    console.log('✅ Marcas de agua creadas para imagen (INE/EVIDENCIA) - Total capas:', numLayers + 2, 'overlay:', overlay.id || overlay.className);
                 }
             });
         }
 
         // Función para crear marcas de agua "SIN VALOR" en TODO el modal de PDF
-        // Solo se aplica a FACTURA, FAD_DOC y VALIDACIONES OK (no a INE/EVIDENCIA)
+        // Solo se aplica a FACTURA, FAD_DOC y VALIDACIONES (no a INE/EVIDENCIA)
         function crearMarcasAguaModalPDF() {
-            // Verificar que sea un PDF con marcas "SIN VALOR" (FACTURA, FAD_DOC, VALIDACIONES OK)
+            // Verificar que sea un PDF con marcas "SIN VALOR" (FACTURA, FAD_DOC, VALIDACIONES)
             // INE y EVIDENCIA usan pdfDoc (sin pdfDocFactura), así que NO deben tener estas marcas
             const esPDFConMarcasSINVALOR = typeof pdfDocFactura !== 'undefined' && pdfDocFactura !== null;
             
@@ -1239,10 +1340,14 @@
             
             console.log('✅ Creando marcas de agua "SIN VALOR" para TODO el modal PDF - Dimensiones:', width, 'x', height);
             
+            // Detectar si es móvil para ajustar tamaño de marcas de agua
+            const esMovil = window.innerWidth <= 768;
+            
             // Configuración para patrón diagonal ordenado que cubra TODO el modal
-            const fontSize = '2.5rem';
-            const layerSpacing = 120; // Espaciado vertical
-            const textSpacing = 150; // Espaciado horizontal entre repeticiones
+            // Ajustar tamaño y espaciado para móvil
+            const fontSize = esMovil ? '1.5rem' : '2.5rem';
+            const layerSpacing = esMovil ? 80 : 120; // Espaciado vertical más pequeño en móvil
+            const textSpacing = esMovil ? 100 : 150; // Espaciado horizontal más pequeño en móvil
             
             // Calcular número de filas y columnas para cubrir TODO el modal
             const numRows = Math.ceil((height * 1.2) / layerSpacing) + 2;
@@ -1254,8 +1359,9 @@
                 const layer = document.createElement('div');
                 layer.className = 'watermark-layer';
                 
-                // Calcular posición vertical - empezar más arriba
-                const topOffset = layerSpacing * 4; // Aumentado para empezar más arriba
+                // Calcular posición vertical - ajustar offset según dispositivo
+                // En móvil, reducir el offset para bajar las marcas de agua
+                const topOffset = esMovil ? layerSpacing * 0.1 : layerSpacing * 4;
                 const topPos = (row * layerSpacing) - topOffset;
                 
                 // Calcular posición horizontal inicial (desplazada para crear diagonal)
@@ -2269,7 +2375,7 @@
         }
 
         // NOTA: El sistema de zoom de iframe ha sido desactivado
-        // Todos los documentos (FAD_DOC, FACTURA OK, VALIDACIONES OK) son PDFs
+        // Todos los documentos (FAD_DOC, FACTURA, VALIDACIONES) son PDFs
         // y usan SOLO el sistema de zoom de PDF.js (pdfScale, pdfZoomIn, pdfZoomOut)
 
         function cerrarZoomINE() {
@@ -2556,13 +2662,15 @@
         // Exponer función de diagnóstico globalmente para depuración
         window.diagnosticarPDFjs = diagnosticarPDFjs;
 
-        // --- FUNCIÓN PARA FACTURA OK, FAD_DOC y VALIDACIONES OK (Código simplificado) ---
+        // --- FUNCIÓN PARA FACTURA, FAD_DOC y VALIDACIONES (Código simplificado) ---
         // Variables globales para FACTURA, FAD_DOC y CONTRATO (compartidas)
         let pdfDocFactura = null;
         let pageNumFactura = 1;
         let pageRenderingFactura = false;
         let pageNumPendingFactura = null;
-        let scaleFactura = 1.0; // Zoom inicial
+        // Detectar si es móvil para ajustar zoom inicial
+        const esMovil = window.innerWidth <= 768;
+        let scaleFactura = esMovil ? 0.6 : 1.0; // Zoom inicial: 0.6 para móvil, 1.0 para PC
 
         async function cargarPDFFactura(url) {
             // Verificar que PDF.js esté cargado y el worker configurado
@@ -2673,13 +2781,20 @@
                 
                 Swal.close();
                 
+                // Ajustar zoom inicial según dispositivo (móvil o PC)
+                const esMovilActual = window.innerWidth <= 768;
+                scaleFactura = esMovilActual ? 0.6 : 1.0;
+                console.log('✅ Zoom inicial configurado:', scaleFactura, '(móvil:', esMovilActual, ')');
+                
                 // Renderizar página 1
                 console.log('Iniciando renderizado de página 1...');
                 pageNumFactura = 1;
                 await renderPageFactura(pageNumFactura);
                 console.log('✅ Página 1 renderizada exitosamente');
                 
-                // Ocultar header del modal para FACTURA, FAD_DOC y VALIDACIONES OK
+                // COMENTADO: Ocultar header del modal para FACTURA, FAD_DOC y VALIDACIONES
+                // Ahora los PDFs usan el mismo botón del header que EVIDENCIA
+                /*
                 const modalElement = document.getElementById('modalDocumento');
                 if (modalElement) {
                     const handleModalShown = function() {
@@ -2693,7 +2808,7 @@
                             }
                         }
                         
-                        // Crear botón de cerrar flotante (para FACTURA, FAD_DOC y VALIDACIONES OK)
+                        // Crear botón de cerrar flotante (para FACTURA, FAD_DOC y VALIDACIONES)
                         if (!document.getElementById('pdfCloseButtonFACTURA')) {
                             const floatingCloseBtn = document.createElement('button');
                             floatingCloseBtn.id = 'pdfCloseButtonFACTURA';
@@ -2739,6 +2854,7 @@
                         }
                     }, { once: true });
                 }
+                */
                 
                 // Mostrar el modal
                 const modal = new bootstrap.Modal(document.getElementById('modalDocumento'));
@@ -2790,7 +2906,7 @@
             }
         }
 
-        /* --- FUNCIÓN DE RENDERIZADO PARA FACTURA, FAD_DOC y VALIDACIONES OK (Dibuja la página) --- */
+        /* --- FUNCIÓN DE RENDERIZADO PARA FACTURA, FAD_DOC y VALIDACIONES (Dibuja la página) --- */
         async function renderPageFactura(num) {
             if (!pdfDocFactura) {
                 console.error('renderPageFactura: pdfDocFactura no está disponible');
@@ -2980,9 +3096,9 @@
                     watermark.style.opacity = '1';
                     watermark.style.display = 'block';
                     // Marcar este overlay como que requiere marcas de agua "SIN VALOR"
-                    // SOLO para FACTURA, FAD_DOC y VALIDACIONES OK
+                    // SOLO para FACTURA, FAD_DOC y VALIDACIONES
                     watermark.setAttribute('data-marcas-sin-valor', 'true');
-                    console.log('✅ Overlay marcado con data-marcas-sin-valor=true para FACTURA/FAD_DOC/VALIDACIONES OK');
+                    console.log('✅ Overlay marcado con data-marcas-sin-valor=true para FACTURA/FAD_DOC/VALIDACIONES');
                     console.log('Overlay de marca de agua actualizado:', canvas.width, 'x', canvas.height);
                 }
                 
@@ -3012,7 +3128,7 @@
             }
         }
 
-        /* --- FUNCIONES DE CONTROL PARA FACTURA, FAD_DOC y VALIDACIONES OK (Botones) --- */
+        /* --- FUNCIONES DE CONTROL PARA FACTURA, FAD_DOC y VALIDACIONES (Botones) --- */
         function onPrevPageFactura() {
             if (!pdfDocFactura || pageNumFactura <= 1) return;
             pageNumFactura--;
@@ -3025,7 +3141,7 @@
             renderPageFactura(pageNumFactura);
         }
 
-        // Conectar botones para FACTURA, FAD_DOC y VALIDACIONES OK cuando el DOM esté listo
+        // Conectar botones para FACTURA, FAD_DOC y VALIDACIONES cuando el DOM esté listo
         document.addEventListener('DOMContentLoaded', function() {
             const btnPrev = document.getElementById('pdfPrev');
             const btnNext = document.getElementById('pdfNext');
@@ -3033,13 +3149,13 @@
             const btnZoomOut = document.getElementById('pdfZoomOut');
             
             // Guardar los listeners originales si existen
-            // Para FACTURA, FAD_DOC y VALIDACIONES OK, usaremos funciones específicas
+            // Para FACTURA, FAD_DOC y VALIDACIONES, usaremos funciones específicas
             if (btnPrev) {
                 // Remover listeners anteriores si existen
                 const newPrev = btnPrev.cloneNode(true);
                 btnPrev.parentNode.replaceChild(newPrev, btnPrev);
                 newPrev.addEventListener('click', function() {
-                    // Si es FACTURA, FAD_DOC o VALIDACIONES OK, usar función específica
+                    // Si es FACTURA, FAD_DOC o VALIDACIONES, usar función específica
                     if (pdfDocFactura) {
                         onPrevPageFactura();
                     } else {
@@ -3072,8 +3188,11 @@
                 btnZoomIn.parentNode.replaceChild(newZoomIn, btnZoomIn);
                 newZoomIn.addEventListener('click', async function() {
                     if (pdfDocFactura) {
-                        // Para FACTURA, FAD_DOC y VALIDACIONES OK
-                        if (scaleFactura < 3.0) {
+                        // Para FACTURA, FAD_DOC y VALIDACIONES
+                        // Ajustar límite máximo según dispositivo
+                        const esMovil = window.innerWidth <= 768;
+                        const maxZoom = esMovil ? 2.0 : 3.0;
+                        if (scaleFactura < maxZoom) {
                             scaleFactura += 0.25;
                             
                             const zoomLevel = document.getElementById('pdfZoomLevel');
@@ -3104,8 +3223,11 @@
                 btnZoomOut.parentNode.replaceChild(newZoomOut, btnZoomOut);
                 newZoomOut.addEventListener('click', async function() {
                     if (pdfDocFactura) {
-                        // Para FACTURA, FAD_DOC y VALIDACIONES OK
-                        if (scaleFactura > 0.5) {
+                        // Para FACTURA, FAD_DOC y VALIDACIONES
+                        // Ajustar límite mínimo según dispositivo
+                        const esMovil = window.innerWidth <= 768;
+                        const minZoom = esMovil ? 0.4 : 0.5;
+                        if (scaleFactura > minZoom) {
                             scaleFactura -= 0.25;
                             
                             const zoomLevel = document.getElementById('pdfZoomLevel');
@@ -3337,11 +3459,11 @@
                 
                 const modal = new bootstrap.Modal(modalElement);
                 
-                // NO ocultar header del modal para INE/EVIDENCIA (solo FACTURA/FAD_DOC/VALIDACIONES OK lo ocultan)
+                // NO ocultar header del modal para INE/EVIDENCIA (solo FACTURA/FAD_DOC/VALIDACIONES lo ocultan)
                 // INE y EVIDENCIA mantienen el header visible y no necesitan botón flotante
                 const handleModalShown = function() {
                     // No hacer nada - INE y EVIDENCIA mantienen el header visible
-                    // El header solo se oculta en cargarPDFFactura para FACTURA/FAD_DOC/VALIDACIONES OK
+                    // El header solo se oculta en cargarPDFFactura para FACTURA/FAD_DOC/VALIDACIONES
                     // No crear botón flotante para INE/EVIDENCIA
                 };
                 
