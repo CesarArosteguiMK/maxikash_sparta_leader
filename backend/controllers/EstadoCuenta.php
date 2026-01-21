@@ -1189,8 +1189,162 @@ JS;
         exit;
     }
 
+    
+
+    public function buscarReporteDictamen()
+{
+
+    
+    // DEBUG: Log de entrada
+    error_log('=== buscarReporteDictamen INICIO ===');
+    error_log('REQUEST_METHOD: ' . $_SERVER['REQUEST_METHOD']);
+    error_log('POST data: ' . print_r($_POST, true));
+    error_log('SESSION: ' . print_r($_SESSION ?? [], true));
+    error_log('Usuario ID: ' . ($_SESSION['usuario_id'] ?? 'NO HAY SESIÓN'));
+    
+    header('Content-Type: application/json');
+    
+    // Verificar sesión EXPLÍCITAMENTE
+    session_start(); // Asegurar que la sesión esté iniciada
+    if (!isset($_SESSION['usuario_id'])) {
+        error_log('ERROR: No hay usuario_id en sesión - Redirigiría a login');
+        // NO redirijas aquí, devuelve JSON error
+        echo json_encode([
+            'success' => false, 
+            'mensaje' => 'Sesión expirada',
+            'code' => 'SESSION_EXPIRED'
+        ]);
+        return;
+    }
+    
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        error_log('ERROR: Método no permitido: ' . $_SERVER['REQUEST_METHOD']);
+        echo json_encode(['success' => false, 'mensaje' => 'Método no permitido']);
+        return;
+    }
+
+    header('Content-Type: application/json');
+    
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        echo json_encode(['success' => false, 'mensaje' => 'Método no permitido']);
+        return;
+    }
+    
+    $fechaInicio = $_POST['fechaInicio'] ?? '';
+    $fechaFin = $_POST['fechaFin'] ?? '';
+    
+    // Validar fechas
+    if (empty($fechaInicio) || empty($fechaFin)) {
+        echo json_encode(['success' => false, 'mensaje' => 'Fechas requeridas']);
+        return;
+    }
+    
+    // Validar formato de fechas
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaInicio) || 
+        !preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaFin)) {
+        echo json_encode(['success' => false, 'mensaje' => 'Formato de fecha inválido']);
+        return;
+    }
+    
+    // Usar tu modelo existente
+    $resultado = EstadoCuentaDAO::obtenerReportesDictamenPorFecha($fechaInicio, $fechaFin);
+    
+    // Retornar como JSON
+    if ($resultado['success']) {
+        echo json_encode([
+            'success' => true,
+            'data' => $resultado['datos'],
+            'total' => count($resultado['datos'])
+        ]);
+    } else {
+        echo json_encode([
+            'success' => false,
+            'mensaje' => $resultado['mensaje'],
+            'error' => $resultado['error'] ?? null
+        ]);
+    }
+
+    error_log('=== buscarReporteDictamen FIN ===');
+}
 
 
+
+public function descargarReporteDictamen()
+{
+    $fechaInicio = $_GET['fechaInicio'] ?? '';
+    $fechaFin = $_GET['fechaFin'] ?? '';
+    
+    // Validar
+    if (empty($fechaInicio) || empty($fechaFin)) {
+        die('Fechas requeridas');
+    }
+    
+    // Validar formato
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaInicio) || 
+        !preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaFin)) {
+        die('Formato de fecha inválido. Use YYYY-MM-DD');
+    }
+    
+    // Obtener datos
+    $reportes = EstadoCuentaDAO::obtenerReportesDictamenParaDescarga($fechaInicio, $fechaFin);
+    
+    // Generar CSV
+    header('Content-Type: text/csv; charset=utf-8');
+    header('Content-Disposition: attachment; filename="Dictamen_Llamadas-' . $fechaInicio . '_a_' . $fechaFin . '.csv"');
+    
+    $output = fopen('php://output', 'w');
+    
+    // Encabezados
+    fputcsv($output, [
+        'ID Dictamen',
+        'Fecha Registro',
+        'Hora Registro',
+        'ID Credito',
+        'Cliente',
+        'Tipo Contacto',
+        'Resultado Contacto',
+        'Dictamen',
+        'Motivo No Pago',
+        'Tipo Motivo No Pago',
+        'Plataforma',
+        'Fuente de Ingresos',
+        'Comentarios',
+        'Agente'
+    ]);
+    
+    // Datos
+    foreach ($reportes as $reporte) {
+        fputcsv($output, [
+            $reporte['id_dictamen'] ?? '',
+            $reporte['fecha_registro'] ?? '',
+            $reporte['hora_registro'] ?? '',
+            $reporte['id_credito'] ?? '',
+            $reporte['nombre_cliente'] ?? '',
+            $reporte['tipo_contacto'] ?? '',
+            $reporte['resultado_contacto'] ?? '',
+            $reporte['dictamen'] ?? '',
+            $reporte['motivo_no_pago'] ?? '',
+            $reporte['tipo_motivo_no_pago'] ?? '',            
+            $reporte['plataforma'] ?? '',
+            $reporte['fuente_ingresos'] ?? '',
+            $reporte['comentarios'] ?? '',
+            $reporte['agente'] ?? ''
+        ]);
+    }
+    
+    fclose($output);
+    exit;
+}
+
+
+public function reporteDictamen()
+{
+    $script = "";
+    
+    self::set("titulo", "Dictamen de Llamadas | " . CONFIGURACION['EMPRESA']);
+    self::set("script", $script);
+    return self::render("dictamen_llamadas"); 
+}
 
 
 

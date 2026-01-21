@@ -67,7 +67,15 @@ function getMenu()
                                     'label' => 'Bonos Cobranza',
                                     'url' => '/reporteria/bonoscobranza',
                                     'modulos' => [8]
+                            ],
+
+                            [
+                                    'label' => 'Dictamen de Llamadas',
+                                    'url' => '/estadocuenta/reporteDictamen',
+                                    'modulos' => [11]
                             ]
+
+                            
                     ]
             ],
             'Configuración' => [

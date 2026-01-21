@@ -406,6 +406,109 @@ class EstadoCuenta extends Model
         }
     }
 
+    public static function obtenerReportesDictamenPorFecha($fechaInicio, $fechaFin)
+{
+    try {
+        $query = "
+            SELECT 
+                dl.id AS id_dictamen,
+                DATE(dl.fecha_gestion) AS fecha_registro,
+                TIME(dl.hora_gestion) AS hora_registro,
+                dl.id_credito,
+                p.nombres,
+                p.apellidop,
+                p.apellidom,
+                CONCAT_WS(' ', p.nombres, p.apellidop, p.apellidom) AS nombre_cliente,
+                tc.nombre AS tipo_contacto,
+                rc.nombre AS resultado_contacto,
+                cd.nombre AS dictamen,
+                cmnp.descripcion AS motivo_no_pago,
+                cmnpt.nombre AS tipo_motivo_no_pago,
+                cp.nombre AS plataforma,
+                dl.fuente_ingresos,
+                dl.comentarios,
+                dl.agente AS usuario_id   
+            FROM __SPARTA_SECRET_REDACTED__.dictamen_llamada dl
+            LEFT JOIN persona p ON dl.id_credito = p.id
+            LEFT JOIN cat_tipo_contacto tc ON dl.tipo_contacto_id = tc.id
+            LEFT JOIN cat_resultado_contacto rc ON dl.resultado_contacto_id = rc.id
+            LEFT JOIN cat_dictamen cd ON dl.dictamen_id = cd.id
+            LEFT JOIN cat_motivo_no_pago cmnp ON dl.motivo_no_pago_id = cmnp.id
+            LEFT JOIN cat_motivo_no_pago_tipo cmnpt ON cmnp.tipo_id = cmnpt.id
+            LEFT JOIN cat_plataforma cp ON dl.plataforma_id = cp.id
+            
+            WHERE DATE(dl.fecha_gestion) BETWEEN :fecha_inicio AND :fecha_fin
+            ORDER BY dl.fecha_gestion DESC, dl.hora_gestion DESC
+        ";
+        
+        $db = new Database();
+        $params = [
+            'fecha_inicio' => $fechaInicio,
+            'fecha_fin' => $fechaFin
+        ];
+        
+        $resultados = $db->queryAll($query, $params);
+        
+        return self::resultado(true, 'Reportes obtenidos', $resultados);
+        
+    } catch (\Exception $e) {
+        error_log("Error al obtener reportes de dictamen: " . $e->getMessage());
+        return self::resultado(false, 'Error al obtener reportes', [], $e->getMessage());
+    }
+}
+
+
+
+// Método adicional para descarga (sin formato JSON)
+public static function obtenerReportesDictamenParaDescarga($fechaInicio, $fechaFin)
+{
+    try {
+        $query = "
+            SELECT 
+                dl.id AS id_dictamen,
+                DATE(dl.fecha_gestion) AS fecha_registro,
+                TIME(dl.hora_gestion) AS hora_registro,
+                dl.id_credito,
+                p.nombres,
+                p.apellidop,
+                p.apellidom,
+                CONCAT_WS(' ', p.nombres, p.apellidop, p.apellidom) AS nombre_cliente,
+                tc.nombre AS tipo_contacto,
+                rc.nombre AS resultado_contacto,
+                cd.nombre AS dictamen,
+                cmnp.descripcion AS motivo_no_pago,
+                cmnpt.nombre AS tipo_motivo_no_pago,
+                cp.nombre AS plataforma,
+                dl.fuente_ingresos,
+                dl.comentarios,
+                dl.agente AS usuario_id   
+            FROM __SPARTA_SECRET_REDACTED__.dictamen_llamada dl
+            LEFT JOIN persona p ON dl.id_credito = p.id
+            LEFT JOIN cat_tipo_contacto tc ON dl.tipo_contacto_id = tc.id
+            LEFT JOIN cat_resultado_contacto rc ON dl.resultado_contacto_id = rc.id
+            LEFT JOIN cat_dictamen cd ON dl.dictamen_id = cd.id
+            LEFT JOIN cat_motivo_no_pago cmnp ON dl.motivo_no_pago_id = cmnp.id
+            LEFT JOIN cat_motivo_no_pago_tipo cmnpt ON cmnp.tipo_id = cmnpt.id
+            LEFT JOIN cat_plataforma cp ON dl.plataforma_id = cp.id
+            
+            WHERE DATE(dl.fecha_gestion) BETWEEN :fecha_inicio AND :fecha_fin
+            ORDER BY dl.fecha_gestion DESC, dl.hora_gestion DESC
+        ";
+        
+        $db = new Database();
+        $params = [
+            'fecha_inicio' => $fechaInicio,
+            'fecha_fin' => $fechaFin
+        ];
+        
+        return $db->queryAll($query, $params);
+        
+    } catch (\Exception $e) {
+        error_log("Error al obtener reportes para descarga: " . $e->getMessage());
+        return [];
+    }
+}
+
 
 
 
