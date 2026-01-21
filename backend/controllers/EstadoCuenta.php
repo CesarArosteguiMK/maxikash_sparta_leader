@@ -648,8 +648,74 @@ JS;
                                          (data.esImagen === false);
                             
                             if (esPdf) {
-                                // NUEVO VISOR SIMPLE PARA PDFs - Para FAD_DOC, FACTURA y CONTRATO
-                                if (data.tipo === 'FAD_DOC' || data.tipo === 'FACTURA' || data.tipo === 'CONTRATO') {
+                                // Para FACTURA, FAD_DOC y CONTRATO, usar PDF.js EXACTAMENTE como EVIDENCIA
+                                if (data.tipo === 'FACTURA' || data.tipo === 'FAD_DOC' || data.tipo === 'CONTRATO') {
+                                    // Usar PDF.js para FACTURA OK, FAD_DOC y VALIDACIONES OK - EXACTAMENTE como EVIDENCIA
+                                    const tipoNombre = data.tipo === 'FACTURA' ? 'FACTURA OK' : (data.tipo === 'FAD_DOC' ? 'FAD_DOC' : 'VALIDACIONES OK');
+                                    console.log('Mostrando ' + tipoNombre + ' con PDF.js:', data);
+                                    
+                                    // Asegurar que el contenedor de visor simple esté oculto
+                                    const embedContainer = document.getElementById('visorPdfEmbed');
+                                    if (embedContainer) {
+                                        embedContainer.style.display = 'none';
+                                    }
+                                    
+                                    imgContainer.style.display = 'none';
+                                    
+                                    const visorLegacy = document.getElementById('visorDocumento');
+                                    if (visorLegacy) {
+                                        visorLegacy.style.display = 'none';
+                                    }
+                                    
+                                    // Usar EXACTAMENTE la misma lógica que EVIDENCIA
+                                    // IMPORTANTE: Usar directamente la URL que viene del backend (ya es el proxy local)
+                                    let pdfUrl = data.url;
+                                    
+                                    // Solo procesar si viene de Google Viewer
+                                    if (pdfUrl.includes('docs.google.com/gview')) {
+                                        try {
+                                            const urlParams = new URL(pdfUrl);
+                                            const urlParam = urlParams.searchParams.get('url');
+                                            if (urlParam) {
+                                                pdfUrl = decodeURIComponent(urlParam);
+                                            }
+                                        } catch (e) {
+                                            console.log('No se pudo extraer URL del viewer, usando URL directa');
+                                        }
+                                    }
+                                    
+                                    // NO reconstruir la URL si ya es una URL relativa del proxy local
+                                    // El backend ya devuelve la URL correcta del proxy: /estadocuenta/verDocumento?fileName=...
+                                    // Solo reconstruir si es una URL absoluta del S3 y no incluye el proxy
+                                    if (pdfUrl.includes('http') && pdfUrl.includes('98.90.194.116') && pdfUrl.includes('downloadS3File')) {
+                                        // Si es URL directa del S3, convertirla a proxy local para evitar descarga
+                                        try {
+                                            const urlParams = new URL(pdfUrl);
+                                            const fileName = urlParams.searchParams.get('fileName');
+                                            if (fileName) {
+                                                pdfUrl = '/estadocuenta/verDocumento?fileName=' + encodeURIComponent(fileName);
+                                                console.log('URL convertida a proxy local para evitar descarga:', pdfUrl);
+                                            }
+                                        } catch (e) {
+                                            console.warn('No se pudo convertir URL a proxy local:', e);
+                                        }
+                                    }
+                                    
+                                    console.log('URL final para ' + tipoNombre + ':', pdfUrl);
+                                    
+                                    if (typeof cargarPDFFactura === 'function') {
+                                        // Usar función específica para FACTURA, FAD_DOC y CONTRATO (sin fallback a iframe)
+                                        cargarPDFFactura(pdfUrl);
+                                    } else {
+                                        console.error('PDF.js no está cargado o la función cargarPDFFactura no existe');
+                                        Swal.fire('Error', 'El visor de PDF no está disponible', 'error');
+                                    }
+                                    
+                                    // Los controles de zoom ya están en el HTML y se mostrarán automáticamente
+                                    // El header se ocultará desde cargarPDFConPDFjs cuando se muestre el modal
+                                }
+                                // Este bloque ya no se usa - todos los tipos ahora usan PDF.js arriba
+                                else if (false && (data.tipo === 'CONTRATO')) {
                                     const tipoNombre = {
                                         'FAD_DOC': 'FAD_DOC',
                                         'FACTURA': 'FACTURA OK',
@@ -719,7 +785,8 @@ JS;
                                     const iframePdf = document.createElement('iframe');
                                     
                                     // Para VALIDACIONES OK (CONTRATO), agregar parámetros de zoom para que se abra sin zoom excesivo
-                                    // Para FAD_DOC y FACTURA, también ocultar la barra de herramientas
+                                    // Para FAD_DOC, ocultar la barra de herramientas
+                                    // Para FACTURA, MOSTRAR la barra de herramientas
                                     let pdfUrl = data.url;
                                     const separator = pdfUrl.includes('#') ? '&' : '#';
                                     
@@ -728,8 +795,8 @@ JS;
                                         // #view=FitH ajusta el PDF al ancho de la ventana sin zoom excesivo
                                         // También agregar #toolbar=0 para ocultar la barra de herramientas del PDF
                                         pdfUrl = pdfUrl + separator + 'view=FitH&toolbar=0';
-                                    } else if (data.tipo === 'FAD_DOC' || data.tipo === 'FACTURA') {
-                                        // Para FAD_DOC y FACTURA, ocultar la barra de herramientas
+                                    } else if (data.tipo === 'FAD_DOC') {
+                                        // Para FAD_DOC, ocultar la barra de herramientas
                                         pdfUrl = pdfUrl + separator + 'toolbar=0';
                                     }
                                     
@@ -759,6 +826,8 @@ JS;
                                     // Usar pointer-events: none para permitir clicks izquierdos en el menú
                                     const menuOverlay = document.createElement('div');
                                     menuOverlay.id = 'pdfMenuOverlay';
+                                    
+                                    // Para otros tipos, mantener el comportamiento original
                                     menuOverlay.style.cssText = 'position: absolute; top: 0; left: 0; width: 100%; height: 60px; z-index: 20; background: transparent; pointer-events: none;';
                                     
                                     // Solo bloquear click derecho en el área del menú (parte superior)

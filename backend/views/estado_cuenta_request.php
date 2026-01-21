@@ -1,3 +1,4 @@
+
 <?php
 
 // vista___SPARTA_SECRET_REDACTED__.php

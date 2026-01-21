@@ -69,8 +69,8 @@
                             <select class="form-select" id="tipoDocumento" name="tipoDocumento">
                                 <option value="">Selecciona un documento</option>
                                 <option value="INE">INE</option>
-                                <option value="FACTURA">FACTURA OK</option>
-                                <option value="CONTRATO">VALIDACIONES OK</option>
+                                <option value="FACTURA">FACTURA</option>
+                                <option value="CONTRATO">VALIDACIONES</option>
                                 <option value="FAD_DOC">FAD_DOC</option>
                                 <option value="EVIDENCIA">EVIDENCIA</option>
                             </select>
@@ -110,7 +110,7 @@
                 <!-- BODY -->
                 <div class="modal-body p-0 flex-grow-1" id="documentoModalBody" style="height: calc(85vh - 70px); max-height: calc(85vh - 70px); overflow: hidden !important; overflow-x: hidden !important; overflow-y: hidden !important; position: relative; min-height: 0;">
                     <!-- Contenedor para PDFs (PDF.js) -->
-                    <div id="documentoPdfContainer" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; width: 100%; height: 100%; display: none; overflow: auto; background-color: #525252;">
+                    <div id="documentoPdfContainer" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; width: 100%; height: 100%; display: none; overflow: auto; overflow-x: auto; overflow-y: auto; background-color: #525252;">
                         <div id="documentoWrapper" style="display: flex; align-items: center; justify-content: center; min-height: 100%; padding: 20px; position: relative;">
                             <div id="pdfViewerContainer" style="position: relative; display: inline-block; max-width: 100%;">
                                 <canvas 
@@ -605,7 +605,17 @@
             height: 100%;
             pointer-events: none;
             z-index: 10;
-            overflow: hidden;
+            overflow: visible;
+        }
+        
+        /* Asegurar que el overlay de PDF.js sea visible */
+        #pdfWatermark {
+            z-index: 10 !important;
+            overflow: visible !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+            /* Permitir que las marcas de agua se extiendan fuera del área si es necesario */
+            clip-path: none !important;
         }
         
         /* Para el overlay del PDF, usar overflow hidden para evitar scrolls propios y agregar franjas rojas */
@@ -729,11 +739,14 @@
         // Función para crear múltiples capas de marca de agua
         function crearMarcasAgua() {
             const overlays = document.querySelectorAll('.watermark-overlay, .watermark-overlay-zoom');
+            console.log('crearMarcasAgua llamada - Overlays encontrados:', overlays.length);
             
             overlays.forEach(overlay => {
+                console.log('Procesando overlay:', overlay.id, overlay.className);
                 // Limpiar elementos anteriores si existen
                 const existingLayers = overlay.querySelectorAll('.watermark-layer');
                 existingLayers.forEach(layer => layer.remove());
+                console.log('Capas anteriores eliminadas:', existingLayers.length);
                 
                 // Obtener dimensiones reales del overlay
                 const overlayRect = overlay.getBoundingClientRect();
@@ -745,6 +758,60 @@
                 // Obtener el contenedor asociado
                 let container = overlay.closest('.watermark-container, .watermark-container-zoom');
                 
+                // Si el overlay es pdfWatermark, buscar el canvas directamente
+                let canvas = null;
+                let img = null;
+                let iframe = null;
+                
+                if (overlay.id === 'pdfWatermark') {
+                    // Para el overlay de PDF.js, buscar el canvas directamente
+                    canvas = document.getElementById('pdfCanvas');
+                    // Buscar el contenedor del canvas
+                    if (canvas && !container) {
+                        container = canvas.closest('#pdfViewerContainer') || canvas.parentElement;
+                    }
+                } else {
+                    // Para otros overlays, usar la lógica normal
+                    img = container ? container.querySelector('img') : null;
+                    canvas = container ? (container.querySelector('canvas') || document.getElementById('pdfCanvas')) : null;
+                    iframe = container ? container.querySelector('iframe') : null;
+                }
+                
+                // Detectar si es un canvas de PDF.js - puede ser FACTURA/FAD_DOC/VALIDACIONES OK o INE/EVIDENCIA
+                // IMPORTANTE: Declarar ANTES de usarlo
+                const isPdfJsCanvas = canvas && canvas.id === 'pdfCanvas' && overlay.id === 'pdfWatermark';
+                console.log('isPdfJsCanvas detectado:', isPdfJsCanvas, 'canvas:', canvas ? canvas.id : 'null', 'overlay:', overlay.id);
+                
+                // VERIFICACIÓN TEMPRANA: Si es overlay de PDF.js, verificar ANTES de procesar si es INE/EVIDENCIA
+                if (isPdfJsCanvas) {
+                    // Verificar si es INE o EVIDENCIA (usan pdfDoc, NO pdfDocFactura)
+                    const esINEoEVIDENCIA = typeof pdfDoc !== 'undefined' && pdfDoc !== null && (typeof pdfDocFactura === 'undefined' || pdfDocFactura === null);
+                    
+                    // Verificar si tiene el atributo que indica marcas "SIN VALOR"
+                    const requiereMarcasSINVALOR = overlay.getAttribute('data-marcas-sin-valor') === 'true';
+                    
+                    // Si es INE/EVIDENCIA y NO requiere marcas "SIN VALOR", saltar completamente
+                    if (esINEoEVIDENCIA && !requiereMarcasSINVALOR) {
+                        console.log('⚠️ Saltando overlay de PDF.js - Es INE/EVIDENCIA y tiene sus propias marcas de agua');
+                        return; // Salir inmediatamente, no procesar este overlay
+                    }
+                    
+                    // Si NO es FACTURA/FAD_DOC/VALIDACIONES OK (no tiene pdfDocFactura ni el atributo), saltar
+                    const esDocumentoConMarcasSINVALOR = typeof pdfDocFactura !== 'undefined' && pdfDocFactura !== null;
+                    if (!esDocumentoConMarcasSINVALOR && !requiereMarcasSINVALOR) {
+                        console.log('⚠️ Saltando overlay de PDF.js - No es FACTURA/FAD_DOC/VALIDACIONES OK');
+                        return; // Salir inmediatamente
+                    }
+                }
+                
+                // Si es overlay de PDF.js canvas (FACTURA), buscar el contenedor del canvas
+                if (isPdfJsCanvas && !container) {
+                    const pdfViewerContainer = document.getElementById('pdfViewerContainer');
+                    if (pdfViewerContainer) {
+                        container = pdfViewerContainer;
+                    }
+                }
+                
                 // Si es overlay de PDF y no tiene contenedor cercano, buscar el embedContainer
                 if (isPdfOverlay && !container) {
                     const embedContainer = document.getElementById('visorPdfEmbed');
@@ -753,20 +820,21 @@
                     }
                 }
                 
-                if (!container && !isPdfOverlay) return;
+                if (!container && !isPdfOverlay && !isPdfJsCanvas) return;
                 
-                const img = container ? container.querySelector('img') : null;
-                const canvas = container ? (container.querySelector('canvas') || document.getElementById('pdfCanvas')) : null;
-                const iframe = container ? container.querySelector('iframe') : null;
-                
-                const isIframePdf = iframe || isPdfOverlay;
+                const isIframePdf = iframe || isPdfOverlay || isPdfJsCanvas;
                 
                 // Si hay un iframe o es overlay de PDF, usar las dimensiones REALES del overlay
                 let width, height;
                 if (isIframePdf) {
                     // CRÍTICO: Para PDFs con zoom, usar las dimensiones REALES del overlay, no del contenedor padre
                     // Esto asegura que la marca de agua se mantenga alineada cuando hay zoom
-                    if (isPdfOverlay) {
+                    if (isPdfJsCanvas) {
+                        // Para canvas de PDF.js (FACTURA), usar las dimensiones del canvas directamente
+                        width = canvas.width || parseFloat(overlay.style.width) || overlayRect.width;
+                        height = canvas.height || parseFloat(overlay.style.height) || overlayRect.height;
+                        console.log('Marcas de agua para PDF.js canvas:', width, 'x', height);
+                    } else if (isPdfOverlay) {
                         // Usar las dimensiones reales del overlay (que ya tiene el tamaño correcto con zoom)
                         width = overlayRect.width || overlay.offsetWidth || overlay.clientWidth;
                         height = overlayRect.height || overlay.offsetHeight || overlay.clientHeight;
@@ -805,16 +873,27 @@
                     width = img.offsetWidth || overlayRect.width;
                     height = img.offsetHeight || overlayRect.height;
                 } else if (canvas) {
-                    // LÓGICA ORIGINAL PARA CANVAS - NO TOCAR
-                    width = canvas.width || canvas.offsetWidth || overlayRect.width;
-                    height = canvas.height || canvas.offsetHeight || overlayRect.height;
+                    // Para canvas de PDF.js (FACTURA), usar las dimensiones reales del canvas
+                    if (isPdfJsCanvas) {
+                        width = canvas.width || canvas.offsetWidth || overlayRect.width;
+                        height = canvas.height || canvas.offsetHeight || overlayRect.height;
+                    } else {
+                        // LÓGICA ORIGINAL PARA OTROS CANVAS
+                        width = canvas.width || canvas.offsetWidth || overlayRect.width;
+                        height = canvas.height || canvas.offsetHeight || overlayRect.height;
+                    }
                 } else {
                     // LÓGICA ORIGINAL - NO TOCAR
                     width = overlayRect.width;
                     height = overlayRect.height;
                 }
                 
-                if (width === 0 || height === 0) return;
+                if (width === 0 || height === 0) {
+                    console.log('⚠️ Dimensiones inválidas, saltando overlay:', overlay.id, 'width:', width, 'height:', height);
+                    return;
+                }
+                
+                console.log('✅ Dimensiones válidas para overlay:', overlay.id, 'width:', width, 'height:', height, 'isPdfJsCanvas:', isPdfJsCanvas, 'isIframePdf:', isIframePdf);
                 
                 // Calcular número de capas según el tamaño
                 const effectiveWidth = width;
@@ -861,18 +940,75 @@
                         }
                     }
                 } else {
-                    // LÓGICA ORIGINAL PARA IMÁGENES Y CANVAS - NO TOCAR
+                    // LÓGICA PARA IMÁGENES Y CANVAS
                     overlay.style.width = width + 'px';
                     overlay.style.height = height + 'px';
+                    overlay.style.position = 'absolute';
+                    overlay.style.top = '0';
+                    overlay.style.left = '0';
+                    overlay.style.zIndex = '10';
+                    overlay.style.pointerEvents = 'none';
+                }
+                
+                // Para canvas de PDF.js, asegurar que el overlay esté correctamente posicionado
+                if (isPdfJsCanvas && canvas) {
+                    overlay.style.width = width + 'px';
+                    overlay.style.height = height + 'px';
+                    overlay.style.position = 'absolute';
+                    overlay.style.top = '0';
+                    overlay.style.left = '0';
+                    overlay.style.zIndex = '10';
+                    overlay.style.pointerEvents = 'none';
+                    overlay.style.overflow = 'visible';
+                    overlay.style.visibility = 'visible';
+                    overlay.style.opacity = '1';
+                    overlay.style.display = 'block';
+                    // Permitir que las marcas de agua se extiendan fuera del área si es necesario
+                    overlay.style.clipPath = 'none';
+                    overlay.style.clip = 'auto';
+                    console.log('Overlay configurado para PDF.js canvas:', width, 'x', height);
+                    console.log('Overlay styles aplicados:', {
+                        width: overlay.style.width,
+                        height: overlay.style.height,
+                        position: overlay.style.position,
+                        zIndex: overlay.style.zIndex,
+                        visibility: overlay.style.visibility,
+                        overflow: overlay.style.overflow
+                    });
                 }
                 
                 if (isIframePdf) {
+                    // IMPORTANTE: Solo aplicar marcas de agua "SIN VALOR" para FACTURA, FAD_DOC y VALIDACIONES OK
+                    // INE y EVIDENCIA tienen sus propias marcas de agua y NO deben usar estas
+                    
+                    // Si es canvas de PDF.js, ya se verificó arriba, pero verificar de nuevo por seguridad
+                    if (isPdfJsCanvas) {
+                        const esINEoEVIDENCIA = typeof pdfDoc !== 'undefined' && pdfDoc !== null && (typeof pdfDocFactura === 'undefined' || pdfDocFactura === null);
+                        const requiereMarcasSINVALOR = overlay.getAttribute('data-marcas-sin-valor') === 'true';
+                        
+                        if (esINEoEVIDENCIA && !requiereMarcasSINVALOR) {
+                            console.log('⚠️ Verificación doble: Saltando marcas de agua "SIN VALOR" - Es INE/EVIDENCIA');
+                            return;
+                        }
+                        
+                        const esDocumentoConMarcasSINVALOR = typeof pdfDocFactura !== 'undefined' && pdfDocFactura !== null;
+                        if (!esDocumentoConMarcasSINVALOR && !requiereMarcasSINVALOR) {
+                            console.log('⚠️ Verificación doble: Saltando marcas de agua "SIN VALOR" - No es FACTURA/FAD_DOC/VALIDACIONES OK');
+                            return;
+                        }
+                    }
+                    
                     // LÓGICA PARA PDFs - Patrón diagonal ordenado como en la imagen de referencia
                     // Asegurar que tenemos dimensiones válidas
                     // Si es el overlay del PDF con zoom, usar las dimensiones reales que ya fueron calculadas
                     if (width === 0 || height === 0) {
                         // Si las dimensiones son 0, intentar obtenerlas del overlay directamente
-                        if (isPdfOverlay) {
+                        if (isPdfJsCanvas && canvas) {
+                            // Para canvas de PDF.js, usar las dimensiones del canvas
+                            width = canvas.width || parseFloat(overlay.style.width) || 1200;
+                            height = canvas.height || parseFloat(overlay.style.height) || 800;
+                            console.log('Dimensiones corregidas para PDF.js canvas:', width, 'x', height);
+                        } else if (isPdfOverlay) {
                             const overlayStyle = window.getComputedStyle(overlay);
                             const overlayWidth = parseFloat(overlayStyle.width) || parseFloat(overlay.style.width) || overlayRect.width;
                             const overlayHeight = parseFloat(overlayStyle.height) || parseFloat(overlay.style.height) || overlayRect.height;
@@ -886,46 +1022,60 @@
                         }
                     }
                     
+                    console.log('Creando marcas de agua "SIN VALOR" para FACTURA/FAD_DOC/VALIDACIONES OK - Dimensiones:', width, 'x', height, 'isPdfJsCanvas:', isPdfJsCanvas);
+                    
                     // Configuración para patrón ordenado y bien espaciado
                     const fontSizeForIframe = '2.5rem'; // Tamaño de fuente apropiado
                     const layerSpacing = 120; // Espaciado vertical más amplio para orden
                     const textSpacing = 150; // Espaciado horizontal entre repeticiones
                     
-                    // Calcular número de filas y columnas para cubrir todo el área
-                    const numRows = Math.ceil((height * 1.5) / layerSpacing) + 2; // Filas diagonales
-                    const numCols = Math.ceil((width * 1.5) / textSpacing) + 2; // Columnas
+                    // Calcular número de filas y columnas para cubrir TODO el área
+                    // Asegurar cobertura completa del documento
+                    const numRows = Math.ceil((height * 1.2) / layerSpacing) + 1; // Filas suficientes para cubrir todo el alto
+                    const numCols = Math.ceil((width * 1.6) / textSpacing) + 5; // Columnas suficientes para cubrir todo el ancho
                     
-                    // Crear patrón diagonal ordenado
+                    console.log('Creando', numRows, 'filas de marcas de agua para PDF.js canvas - Dimensiones:', width, 'x', height);
+                    
+                    // Crear patrón diagonal ordenado que cubra TODO el documento
                     // Cada capa representa una línea diagonal
-                    for (let row = -2; row < numRows; row++) {
+                    // Empezar desde -4 para cubrir mejor la parte superior y moverlas más arriba
+                    for (let row = -4; row < numRows; row++) {
                         const layer = document.createElement('div');
                         layer.className = 'watermark-layer';
                         
-                        // Calcular posición vertical
-                        const topPos = (row * layerSpacing);
+                        // Calcular posición vertical - empezar mucho más arriba
+                        // Usar un offset negativo más grande para que empiecen desde arriba del documento
+                        // Ajustar para que funcione bien con zoom también
+                        const topOffset = layerSpacing * 2.5; // Offset más grande para empezar más arriba
+                        const topPos = (row * layerSpacing) - topOffset;
                         
                         // Calcular posición horizontal inicial (desplazada para crear diagonal)
-                        const leftOffset = (row * (textSpacing * 0.5)) - (width * 0.3);
+                        // Ajustar para que cubra desde la izquierda hasta la derecha
+                        // Usar un offset negativo moderado para que empiece a la izquierda pero sea visible
+                        // Para documentos más anchos, necesitamos un offset más pequeño
+                        const leftOffset = (row * (textSpacing * 0.5)) - Math.min(width * 0.2, 200);
                         
-                        // Crear texto con repeticiones bien espaciadas
-                        const repetitions = numCols;
+                        // Crear texto con suficientes repeticiones para cubrir todo el ancho y extenderse más
+                        const repetitions = numCols + 6; // Suficientes repeticiones para cubrir toda la anchura
                         const textContent = 'SIN VALOR '.repeat(repetitions);
                         
-                        // Calcular ancho necesario para el texto
-                        const layerWidth = repetitions * textSpacing;
+                        // Calcular ancho necesario para el texto - extender para cubrir todo y más
+                        // Asegurar que el ancho sea suficiente para cubrir desde leftOffset hasta width + margen
+                        const minWidth = width - leftOffset + (width * 0.3); // Ancho mínimo para cubrir todo
+                        const layerWidth = Math.max(repetitions * textSpacing * 1.2, minWidth);
                         
                         layer.textContent = textContent;
                         layer.style.cssText = `
                             position: absolute;
                             font-size: ${fontSizeForIframe};
                             font-weight: bold;
-                            color: rgba(220, 20, 20, 0.5);
-                            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+                            color: rgba(220, 20, 20, 0.6) !important;
+                            text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.4);
                             transform: rotate(-45deg);
                             transform-origin: center;
                             white-space: nowrap;
                             letter-spacing: 0.5em;
-                            z-index: 11;
+                            z-index: 11 !important;
                             top: ${topPos}px;
                             left: ${leftOffset}px;
                             width: ${layerWidth}px;
@@ -933,9 +1083,14 @@
                             pointer-events: none;
                             user-select: none;
                             line-height: 1.2;
+                            opacity: 1 !important;
+                            visibility: visible !important;
+                            display: block !important;
                         `;
                         overlay.appendChild(layer);
+                        console.log('Capa de marca de agua creada - row:', row, 'top:', topPos, 'left:', leftOffset, 'width:', layerWidth, 'repetitions:', repetitions);
                     }
+                    console.log('✅ Marcas de agua creadas para PDF.js - Total capas:', numRows + 2, 'overlay:', overlay.id);
                 } else {
                     // LÓGICA ORIGINAL PARA IMÁGENES (INE, EVIDENCIA) - NO TOCAR ESTA PARTE
                     // Esta es la lógica original que funcionaba perfectamente para imágenes
@@ -1955,9 +2110,19 @@
             resetZoomINE();
         });
     </script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
-    <!-- PDF.js desde CDN -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <!-- PDF.js versión local (5.3.31) - Ya cargado en el layout -->
+    <script>
+        // Configurar el worker de PDF.js OBLIGATORIAMENTE antes de usar pdfjsLib.getDocument
+        // Usar versión local (5.3.31)
+        if (typeof pdfjsLib !== 'undefined') {
+            pdfjsLib.GlobalWorkerOptions.workerSrc = '/assets/vendor/libs/pdf-viewer/pdf.worker.mjs';
+            console.log('✅ Worker de PDF.js configurado correctamente (versión local 5.3.31)');
+        } else {
+            console.error('❌ PDF.js no está disponible después de cargar el script');
+        }
+    </script>
     
     <!-- CSS adicional para mayor protección -->
     <style>
@@ -2059,6 +2224,11 @@
                     if (pdfScale < 3.0) {
                         pdfScale += 0.25;
                         await renderizarPaginaPDF(currentPage);
+                        // Actualizar indicador de zoom
+                        
+                        if (zoomLevel) {
+                            zoomLevelEl.textContent = Math.round(pdfScale * 100) + '%';
+                        }
                     }
                 });
             }
@@ -2068,6 +2238,11 @@
                     if (pdfScale > 0.5) {
                         pdfScale -= 0.25;
                         await renderizarPaginaPDF(currentPage);
+                        // Actualizar indicador de zoom
+                        
+                        if (zoomLevel) {
+                            zoomLevelEl.textContent = Math.round(pdfScale * 100) + '%';
+                        }
                     }
                 });
             }
@@ -2090,34 +2265,702 @@
             };
         });
         
-        // Configurar el worker de PDF.js
-        if (typeof pdfjsLib !== 'undefined') {
-            pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        // Configurar el worker de PDF.js y verificar que esté cargado
+        function verificarPDFjs() {
+            if (typeof pdfjsLib === 'undefined') {
+                console.error('PDF.js NO está cargado');
+                return false;
+            }
+            console.log('PDF.js está cargado correctamente:', {
+                version: pdfjsLib.version || 'desconocida',
+                GlobalWorkerOptions: pdfjsLib.GlobalWorkerOptions
+            });
+            return true;
         }
+        
+        // Verificar inmediatamente después de que se carga el script
+        if (typeof pdfjsLib !== 'undefined') {
+            pdfjsLib.GlobalWorkerOptions.workerSrc = '/assets/vendor/libs/pdf-viewer/pdf.worker.mjs';
+            console.log('Worker de PDF.js configurado (versión local 5.3.31)');
+        } else {
+            console.warn('PDF.js aún no está cargado, esperando...');
+            // Intentar verificar después de un delay
+            setTimeout(() => {
+                if (verificarPDFjs()) {
+                    pdfjsLib.GlobalWorkerOptions.workerSrc = '/assets/vendor/libs/pdf-viewer/pdf.worker.mjs';
+                } else {
+                    console.error('PDF.js no se pudo cargar después de esperar');
+                }
+            }, 1000);
+        }
+        
+        // Verificar cuando el DOM esté listo
+        document.addEventListener('DOMContentLoaded', function() {
+            const estaCargado = verificarPDFjs();
+            if (!estaCargado) {
+                console.warn('⚠️ PDF.js no está cargado. El visor de PDFs no funcionará correctamente.');
+                // Intentar cargar manualmente si falló
+                setTimeout(() => {
+                    if (verificarPDFjs()) {
+                        console.log('✅ PDF.js se cargó después del delay');
+                    } else {
+                        console.error('❌ PDF.js no se pudo cargar. Verifique que el CDN esté accesible.');
+                    }
+                }, 2000);
+            }
+        });
+        
+        // También verificar después de que la página esté completamente cargada
+        window.addEventListener('load', function() {
+            const diagnostico = diagnosticarPDFjs();
+            if (!diagnostico.pdfjsLib) {
+                console.error('❌ PDF.js NO está disponible después de cargar la página completa');
+            } else {
+                console.log('✅ PDF.js está listo para usar');
+            }
+        });
 
         // Variables globales para el visor de PDF
         let pdfDoc = null;
         let currentPage = 1;
         let pdfScale = 1.0;
+        const zoomLevelEl = document.getElementById('pdfZoomLevel');
         let pdfTotalPages = 0;
+        
+        // Función de diagnóstico para verificar el estado de PDF.js
+        function diagnosticarPDFjs() {
+            const diagnostico = {
+                pdfjsLib: typeof pdfjsLib !== 'undefined',
+                worker: typeof pdfjsLib !== 'undefined' && pdfjsLib.GlobalWorkerOptions && pdfjsLib.GlobalWorkerOptions.workerSrc,
+                version: typeof pdfjsLib !== 'undefined' ? (pdfjsLib.version || 'desconocida') : 'no disponible'
+            };
+            
+            console.log('=== DIAGNÓSTICO PDF.js ===');
+            console.log('PDF.js cargado:', diagnostico.pdfjsLib);
+            console.log('Worker configurado:', diagnostico.worker);
+            console.log('Versión:', diagnostico.version);
+            console.log('========================');
+            
+            return diagnostico;
+        }
+        
+        // Exponer función de diagnóstico globalmente para depuración
+        window.diagnosticarPDFjs = diagnosticarPDFjs;
 
-        // Función para cargar y mostrar un PDF
-        async function cargarPDFConPDFjs(url) {
+        // --- FUNCIÓN PARA FACTURA OK, FAD_DOC y VALIDACIONES OK (Código simplificado) ---
+        // Variables globales para FACTURA, FAD_DOC y CONTRATO (compartidas)
+        let pdfDocFactura = null;
+        let pageNumFactura = 1;
+        let pageRenderingFactura = false;
+        let pageNumPendingFactura = null;
+        let scaleFactura = 1.0; // Zoom inicial
+
+        async function cargarPDFFactura(url) {
+            // Verificar que PDF.js esté cargado y el worker configurado
+            if (typeof pdfjsLib === 'undefined') {
+                Swal.fire('Error', 'PDF.js no está cargado. Por favor, recarga la página.', 'error');
+                return;
+            }
+            
+            // Configurar el worker ANTES de usar pdfjsLib.getDocument (OBLIGATORIO)
+            if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
+                pdfjsLib.GlobalWorkerOptions.workerSrc = '/assets/vendor/libs/pdf-viewer/pdf.worker.mjs';
+                console.log('Worker de PDF.js configurado en cargarPDFFactura (versión local 5.3.31)');
+            }
+            
+            const canvas = document.getElementById('pdfCanvas');
+            if (!canvas) {
+                Swal.fire('Error', 'No se encontró el canvas del PDF', 'error');
+                return;
+            }
+            const ctx = canvas.getContext('2d');
+            
+            // 1. Preparar la interfaz
+            const visorLegacy = document.getElementById('visorDocumento');
+            if (visorLegacy) visorLegacy.style.display = 'none';
+            
+            const pdfContainer = document.getElementById('documentoPdfContainer');
+            if (!pdfContainer) {
+                Swal.fire('Error', 'No se encontró el contenedor del PDF', 'error');
+                return;
+            }
+            pdfContainer.style.display = 'block';
+            
+            const pdfControls = document.getElementById('pdfControls');
+            if (pdfControls) pdfControls.style.display = 'flex';
+            
+            // Ocultar otros contenedores
+            const embedContainer = document.getElementById('visorPdfEmbed');
+            if (embedContainer) embedContainer.style.display = 'none';
+            const imgContainer = document.getElementById('documentoImagenContainer');
+            if (imgContainer) imgContainer.style.display = 'none';
+            
+            // Limpiar canvas mientras carga
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            Swal.fire({
+                title: 'Cargando documento...',
+                didOpen: () => Swal.showLoading()
+            });
+
             try {
+                // 2. Cargar el PDF usando fetch (envía cookies/sesión y evita 403)
+                console.log('=== INICIANDO CARGA DE PDF ===');
+                console.log('URL:', url);
+                console.log('PDF.js disponible:', typeof pdfjsLib !== 'undefined');
+                console.log('Worker configurado:', pdfjsLib.GlobalWorkerOptions.workerSrc);
+                
+                let response;
+                try {
+                    response = await fetch(url, { 
+                        credentials: 'same-origin',
+                        method: 'GET'
+                    });
+                    console.log('Fetch completado. Status:', response.status, response.statusText);
+                } catch (fetchError) {
+                    console.error('ERROR en fetch:', fetchError);
+                    throw new Error('Error al conectar con el servidor: ' + fetchError.message);
+                }
+                
+                if (!response.ok) {
+                    const errorText = await response.text().catch(() => 'No se pudo leer el error');
+                    console.error('Respuesta HTTP no OK:', response.status, errorText);
+                    throw new Error('Error HTTP ' + response.status + ': ' + response.statusText);
+                }
+                
+                const contentType = response.headers.get('content-type') || '';
+                console.log('Content-Type recibido:', contentType);
+                
+                // Permitir application/octet-stream también (algunos servidores lo usan)
+                if (!contentType.includes('application/pdf') && !contentType.includes('application/octet-stream')) {
+                    // Intentar leer el contenido para ver qué es
+                    const textPreview = await response.clone().text().catch(() => 'No se pudo leer');
+                    console.error('Respuesta no es PDF. Primeros 200 caracteres:', textPreview.substring(0, 200));
+                    throw new Error('El servidor no devolvió un PDF. Content-Type: ' + contentType);
+                }
+                
+                // Convertir respuesta a ArrayBuffer
+                console.log('Convirtiendo respuesta a ArrayBuffer...');
+                const buffer = await response.arrayBuffer();
+                console.log('✅ ArrayBuffer recibido, tamaño:', buffer.byteLength, 'bytes');
+                
+                if (buffer.byteLength === 0) {
+                    throw new Error('El archivo recibido está vacío (0 bytes)');
+                }
+                
+                // 3. Crear el documento desde el ArrayBuffer (NO desde la URL)
+                console.log('Iniciando carga del PDF con PDF.js...');
+                const loadingTask = pdfjsLib.getDocument({ 
+                    data: buffer,
+                    verbosity: 0 // Reducir logs de PDF.js
+                });
+                
+                pdfDocFactura = await loadingTask.promise;
+                console.log('✅ PDF cargado exitosamente. Páginas:', pdfDocFactura.numPages);
+                
+                // 3. Documento cargado con éxito
+                const totalPagesSpan = document.getElementById('pdfTotalPages');
+                if (totalPagesSpan) totalPagesSpan.textContent = pdfDocFactura.numPages;
+                
+                Swal.close();
+                
+                // Renderizar página 1
+                console.log('Iniciando renderizado de página 1...');
+                pageNumFactura = 1;
+                await renderPageFactura(pageNumFactura);
+                console.log('✅ Página 1 renderizada exitosamente');
+                
+                // Ocultar header del modal para FACTURA, FAD_DOC y VALIDACIONES OK
+                const modalElement = document.getElementById('modalDocumento');
+                if (modalElement) {
+                    const handleModalShown = function() {
+                        const modalHeader = modalElement.querySelector('.modal-header');
+                        if (modalHeader) {
+                            modalHeader.style.display = 'none';
+                            const modalBody = document.getElementById('documentoModalBody');
+                            if (modalBody) {
+                                modalBody.style.height = '100%';
+                                modalBody.style.maxHeight = '100%';
+                            }
+                        }
+                        
+                        // Crear botón de cerrar flotante (para FACTURA, FAD_DOC y VALIDACIONES OK)
+                        if (!document.getElementById('pdfCloseButtonFACTURA')) {
+                            const floatingCloseBtn = document.createElement('button');
+                            floatingCloseBtn.id = 'pdfCloseButtonFACTURA';
+                            floatingCloseBtn.className = 'btn-close btn-close-white';
+                            floatingCloseBtn.setAttribute('data-bs-dismiss', 'modal');
+                            floatingCloseBtn.setAttribute('aria-label', 'Cerrar');
+                            floatingCloseBtn.style.cssText = 'position: fixed; top: 20px; right: 20px; z-index: 1055; background-color: #dc3545 !important; border: 4px solid #ffffff !important; border-radius: 50%; width: 55px; height: 55px; padding: 0; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 4px 16px rgba(0,0,0,0.9), 0 0 0 3px rgba(255,255,255,0.4) !important; transition: all 0.2s ease; opacity: 1 !important;';
+                            // Asegurar que el icono X sea blanco y visible
+                            floatingCloseBtn.innerHTML = '<span style="color: #ffffff; font-size: 24px; font-weight: bold; line-height: 1;">×</span>';
+                            // Hover effect para mejor visibilidad
+                            floatingCloseBtn.addEventListener('mouseenter', function() {
+                                this.style.backgroundColor = '#c82333';
+                                this.style.borderColor = '#ffffff';
+                                this.style.transform = 'scale(1.2)';
+                                this.style.boxShadow = '0 6px 20px rgba(220,53,69,0.8), 0 0 0 4px rgba(255,255,255,0.5)';
+                            });
+                            floatingCloseBtn.addEventListener('mouseleave', function() {
+                                this.style.backgroundColor = '#dc3545';
+                                this.style.borderColor = '#ffffff';
+                                this.style.transform = 'scale(1)';
+                                this.style.boxShadow = '0 4px 16px rgba(0,0,0,0.9), 0 0 0 3px rgba(255,255,255,0.4)';
+                            });
+                            document.body.appendChild(floatingCloseBtn);
+                        }
+                    };
+                    
+                    modalElement.addEventListener('shown.bs.modal', handleModalShown, { once: true });
+                    
+                    // Restaurar cuando se cierre
+                    modalElement.addEventListener('hidden.bs.modal', function() {
+                        const btn = document.getElementById('pdfCloseButtonFACTURA');
+                        if (btn && btn.parentNode) {
+                            btn.parentNode.removeChild(btn);
+                        }
+                        const modalHeader = modalElement.querySelector('.modal-header');
+                        if (modalHeader) {
+                            modalHeader.style.display = '';
+                        }
+                        const modalBody = document.getElementById('documentoModalBody');
+                        if (modalBody) {
+                            modalBody.style.height = '';
+                            modalBody.style.maxHeight = '';
+                        }
+                    }, { once: true });
+                }
+                
+                // Mostrar el modal
+                const modal = new bootstrap.Modal(document.getElementById('modalDocumento'));
+                modal.show();
+
+            } catch (error) {
+                console.error('❌ ERROR CRÍTICO en cargarPDFFactura:', error);
+                console.error('Tipo de error:', error.name);
+                console.error('Mensaje:', error.message);
+                console.error('Stack:', error.stack);
+                Swal.close();
+                
+                // 4. MANEJO DE ERRORES (Sin fallback a iframe)
+                let mensaje = 'No se pudo cargar el PDF con el visor seguro.';
+                let detalles = '';
+                
+                if (error.name === 'MissingPDFException') {
+                    mensaje = 'El archivo PDF no existe o la ruta es incorrecta.';
+                    detalles = 'Verifica que la URL sea correcta: ' + url;
+                } else if (error.name === 'InvalidPDFException') {
+                    mensaje = 'El archivo está dañado o no es un PDF válido.';
+                    detalles = 'El servidor devolvió datos, pero PDF.js no pudo interpretarlos como PDF.';
+                } else if (error.message && error.message.includes('CORS')) {
+                    mensaje = 'Bloqueo de seguridad (CORS): El PDF está en otro servidor que no permite acceso externo.';
+                    detalles = 'El servidor no permite solicitudes desde este dominio.';
+                } else if (error.message && error.message.includes('HTTP')) {
+                    mensaje = 'Error al obtener el archivo del servidor.';
+                    detalles = error.message;
+                } else if (error.message) {
+                    mensaje = error.message;
+                    detalles = 'Error: ' + error.name;
+                }
+
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error de carga',
+                    html: `
+                        <p><strong>${mensaje}</strong></p>
+                        <p style="font-size: 0.85rem; color: #666; margin-top: 10px;">${detalles}</p>
+                        <p style="font-size: 0.75rem; color: #999; margin-top: 10px;">
+                            URL: ${url.substring(0, 100)}${url.length > 100 ? '...' : ''}
+                        </p>
+                        <p style="font-size: 0.75rem; color: #999;">
+                            Revisa la consola (F12) para más detalles técnicos.
+                        </p>
+                    `,
+                    width: '600px'
+                });
+            }
+        }
+
+        /* --- FUNCIÓN DE RENDERIZADO PARA FACTURA, FAD_DOC y VALIDACIONES OK (Dibuja la página) --- */
+        async function renderPageFactura(num) {
+            if (!pdfDocFactura) {
+                console.error('renderPageFactura: pdfDocFactura no está disponible');
+                return;
+            }
+            
+            if (pageRenderingFactura) {
+                pageNumPendingFactura = num;
+                console.log('Renderizado en progreso, página', num, 'en espera');
+                return;
+            }
+            
+            pageRenderingFactura = true;
+            console.log('Iniciando renderizado de página', num);
+            
+            try {
+                // Obtener la página
+                const page = await pdfDocFactura.getPage(num);
+                console.log('Página', num, 'obtenida, dimensiones:', page.view);
+                
+                const canvas = document.getElementById('pdfCanvas');
+                if (!canvas) {
+                    console.error('Canvas no encontrado');
+                    pageRenderingFactura = false;
+                    return;
+                }
+                const ctx = canvas.getContext('2d');
+                
+                // Calcular dimensiones basadas en el zoom (scale)
+                const viewport = page.getViewport({scale: scaleFactura});
+                console.log('Viewport calculado:', viewport.width, 'x', viewport.height, 'scale:', scaleFactura);
+                
+                canvas.height = viewport.height;
+                canvas.width = viewport.width;
+                
+                // Obtener contenedores para ajustar scrollbars
+                const pdfContainer = document.getElementById('documentoPdfContainer');
+                const documentoWrapper = document.getElementById('documentoWrapper');
+                const pdfViewerContainer = document.getElementById('pdfViewerContainer');
+                const documentoModalBody = document.getElementById('documentoModalBody');
+                
+                // Aplicar estilos según el nivel de zoom
+                if (scaleFactura > 1.0) {
+                    // Cuando hay zoom, permitir que el canvas crezca y mostrar scrollbars
+                    canvas.style.maxWidth = 'none';
+                    canvas.style.width = canvas.width + 'px';
+                    canvas.style.height = canvas.height + 'px';
+                    
+                    // Asegurar que el contenedor principal tenga scrollbars (sobrescribir el !important)
+                    if (pdfContainer) {
+                        pdfContainer.style.setProperty('overflow', 'auto', 'important');
+                        pdfContainer.style.setProperty('overflow-x', 'auto', 'important');
+                        pdfContainer.style.setProperty('overflow-y', 'auto', 'important');
+                        // Asegurar que el contenedor tenga el tamaño correcto
+                        pdfContainer.style.width = '100%';
+                        pdfContainer.style.height = '100%';
+                    }
+                    
+                    // Permitir scrollbars en el modal body también
+                    if (documentoModalBody) {
+                        documentoModalBody.style.setProperty('overflow', 'hidden', 'important');
+                        // El scroll debe estar en pdfContainer, no en modalBody
+                    }
+                    
+                    // Ajustar wrapper para permitir scroll pero mantener centrado inicialmente
+                    // El wrapper debe ser al menos tan grande como el canvas para que el scroll funcione
+                    if (documentoWrapper) {
+                        // Mantener centrado horizontalmente pero permitir scroll vertical
+                        documentoWrapper.style.alignItems = 'center';
+                        documentoWrapper.style.justifyContent = 'center';
+                        documentoWrapper.style.minHeight = 'auto';
+                        documentoWrapper.style.height = 'auto';
+                        documentoWrapper.style.width = 'max-content';
+                        documentoWrapper.style.minWidth = '100%';
+                        documentoWrapper.style.padding = '20px';
+                        documentoWrapper.style.position = 'relative';
+                    }
+                    
+                    // Centrar el scroll inicialmente después de un pequeño delay
+                    setTimeout(() => {
+                        if (pdfContainer && canvas) {
+                            // Calcular el centro del contenido
+                            const scrollLeft = (canvas.width - pdfContainer.clientWidth) / 2;
+                            const scrollTop = (canvas.height - pdfContainer.clientHeight) / 2;
+                            
+                            // Solo hacer scroll si el contenido es más grande que el contenedor
+                            if (canvas.width > pdfContainer.clientWidth) {
+                                pdfContainer.scrollLeft = Math.max(0, scrollLeft);
+                            }
+                            if (canvas.height > pdfContainer.clientHeight) {
+                                pdfContainer.scrollTop = Math.max(0, scrollTop);
+                            }
+                            console.log('Scroll centrado - scrollLeft:', pdfContainer.scrollLeft, 'scrollTop:', pdfContainer.scrollTop);
+                        }
+                    }, 150);
+                    
+                    // Ajustar viewer container - debe crecer con el contenido
+                    if (pdfViewerContainer) {
+                        pdfViewerContainer.style.maxWidth = 'none';
+                        pdfViewerContainer.style.width = 'auto';
+                        pdfViewerContainer.style.height = 'auto';
+                    }
+                } else {
+                    // Cuando está en 100% o menos, centrar y ajustar al contenedor
+                    canvas.style.maxWidth = '100%';
+                    canvas.style.width = '';
+                    canvas.style.height = 'auto';
+                    
+                    // Mantener scrollbars por si acaso
+                    if (pdfContainer) {
+                        pdfContainer.style.setProperty('overflow', 'auto', 'important');
+                    }
+                    
+                    // Centrar el contenido
+                    if (documentoWrapper) {
+                        documentoWrapper.style.alignItems = 'center';
+                        documentoWrapper.style.justifyContent = 'center';
+                        documentoWrapper.style.minHeight = '100%';
+                        documentoWrapper.style.height = '';
+                        documentoWrapper.style.width = '100%';
+                    }
+                    
+                    // Ajustar viewer container
+                    if (pdfViewerContainer) {
+                        pdfViewerContainer.style.maxWidth = '100%';
+                        pdfViewerContainer.style.width = '';
+                    }
+                }
+
+                // Renderizar
+                const renderContext = {
+                    canvasContext: ctx,
+                    viewport: viewport
+                };
+                
+                const renderTask = page.render(renderContext);
+
+                // Esperar a que termine de dibujar
+                await renderTask.promise;
+                console.log('✅ Página', num, 'renderizada exitosamente');
+                
+                // Forzar recálculo de scrollbars después del renderizado
+                if (scaleFactura > 1.0 && pdfContainer) {
+                    // Pequeño delay para asegurar que el DOM se actualice
+                    setTimeout(() => {
+                        // Forzar el scroll a aparecer verificando el tamaño
+                        const containerWidth = pdfContainer.clientWidth;
+                        const containerHeight = pdfContainer.clientHeight;
+                        const contentWidth = canvas.width + 40; // + padding
+                        const contentHeight = canvas.height + 40; // + padding
+                        
+                        console.log('Dimensiones del contenedor:', containerWidth, 'x', containerHeight);
+                        console.log('Dimensiones del contenido:', contentWidth, 'x', contentHeight);
+                        
+                        // Si el contenido es más grande, asegurar que los scrollbars estén visibles
+                        if (contentWidth > containerWidth || contentHeight > containerHeight) {
+                            pdfContainer.style.setProperty('overflow', 'auto', 'important');
+                            pdfContainer.style.setProperty('overflow-x', 'auto', 'important');
+                            pdfContainer.style.setProperty('overflow-y', 'auto', 'important');
+                            console.log('✅ Scrollbars habilitados - contenido más grande que contenedor');
+                        }
+                    }, 100);
+                }
+                
+                pageRenderingFactura = false;
+                
+                // Actualizar contador visual
+                const currentPageSpan = document.getElementById('pdfCurrentPage');
+                if (currentPageSpan) currentPageSpan.textContent = num;
+                
+                // Actualizar zoom level
+                const zoomLevel = document.getElementById('pdfZoomLevel');
+                if (zoomLevel) zoomLevel.textContent = Math.round(scaleFactura * 100) + '%';
+                
+                // Actualizar overlay de marcas de agua con las dimensiones correctas del canvas
+                const watermark = document.getElementById('pdfWatermark');
+                if (watermark) {
+                    watermark.style.width = canvas.width + 'px';
+                    watermark.style.height = canvas.height + 'px';
+                    watermark.style.position = 'absolute';
+                    watermark.style.top = '0';
+                    watermark.style.left = '0';
+                    watermark.style.zIndex = '10';
+                    watermark.style.pointerEvents = 'none';
+                    watermark.style.overflow = 'visible';
+                    watermark.style.visibility = 'visible';
+                    watermark.style.opacity = '1';
+                    watermark.style.display = 'block';
+                    // Marcar este overlay como que requiere marcas de agua "SIN VALOR"
+                    // SOLO para FACTURA, FAD_DOC y VALIDACIONES OK
+                    watermark.setAttribute('data-marcas-sin-valor', 'true');
+                    console.log('✅ Overlay marcado con data-marcas-sin-valor=true para FACTURA/FAD_DOC/VALIDACIONES OK');
+                    console.log('Overlay de marca de agua actualizado:', canvas.width, 'x', canvas.height);
+                }
+                
+                // Re-aplicar marcas de agua después de un pequeño delay para asegurar que el DOM se actualice
+                if (typeof crearMarcasAgua === 'function') {
+                    setTimeout(() => {
+                        crearMarcasAgua();
+                        console.log('Marcas de agua recreadas para FACTURA/FAD_DOC/VALIDACIONES OK');
+                    }, 150);
+                }
+
+                // Si había una página en espera, dibujarla ahora
+                if (pageNumPendingFactura !== null) {
+                    const nextPage = pageNumPendingFactura;
+                    pageNumPendingFactura = null;
+                    renderPageFactura(nextPage);
+                }
+            } catch (error) {
+                console.error('❌ Error al renderizar página', num, ':', error);
+                pageRenderingFactura = false;
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error al renderizar',
+                    text: 'No se pudo mostrar la página ' + num + ': ' + error.message,
+                    timer: 3000
+                });
+            }
+        }
+
+        /* --- FUNCIONES DE CONTROL PARA FACTURA, FAD_DOC y VALIDACIONES OK (Botones) --- */
+        function onPrevPageFactura() {
+            if (!pdfDocFactura || pageNumFactura <= 1) return;
+            pageNumFactura--;
+            renderPageFactura(pageNumFactura);
+        }
+
+        function onNextPageFactura() {
+            if (!pdfDocFactura || pageNumFactura >= pdfDocFactura.numPages) return;
+            pageNumFactura++;
+            renderPageFactura(pageNumFactura);
+        }
+
+        // Conectar botones para FACTURA, FAD_DOC y VALIDACIONES OK cuando el DOM esté listo
+        document.addEventListener('DOMContentLoaded', function() {
+            const btnPrev = document.getElementById('pdfPrev');
+            const btnNext = document.getElementById('pdfNext');
+            const btnZoomIn = document.getElementById('pdfZoomIn');
+            const btnZoomOut = document.getElementById('pdfZoomOut');
+            
+            // Guardar los listeners originales si existen
+            // Para FACTURA, FAD_DOC y VALIDACIONES OK, usaremos funciones específicas
+            if (btnPrev) {
+                // Remover listeners anteriores si existen
+                const newPrev = btnPrev.cloneNode(true);
+                btnPrev.parentNode.replaceChild(newPrev, btnPrev);
+                newPrev.addEventListener('click', function() {
+                    // Si es FACTURA, FAD_DOC o VALIDACIONES OK, usar función específica
+                    if (pdfDocFactura) {
+                        onPrevPageFactura();
+                    } else {
+                        // Para otros documentos, usar la función original
+                        if (currentPage > 1) {
+                            currentPage--;
+                            renderizarPaginaPDF(currentPage);
+                        }
+                    }
+                });
+            }
+            
+            if (btnNext) {
+                const newNext = btnNext.cloneNode(true);
+                btnNext.parentNode.replaceChild(newNext, btnNext);
+                newNext.addEventListener('click', function() {
+                    if (pdfDocFactura) {
+                        onNextPageFactura();
+                    } else {
+                        if (currentPage < pdfTotalPages) {
+                            currentPage++;
+                            renderizarPaginaPDF(currentPage);
+                        }
+                    }
+                });
+            }
+            
+            if (btnZoomIn) {
+                const newZoomIn = btnZoomIn.cloneNode(true);
+                btnZoomIn.parentNode.replaceChild(newZoomIn, btnZoomIn);
+                newZoomIn.addEventListener('click', async function() {
+                    if (pdfDocFactura) {
+                        // Para FACTURA, FAD_DOC y VALIDACIONES OK
+                        if (scaleFactura < 3.0) {
+                            scaleFactura += 0.25;
+                            
+                            const zoomLevel = document.getElementById('pdfZoomLevel');
+                            if (zoomLevel) {
+                                zoomLevel.textContent = Math.round(scaleFactura * 100) + '%';
+                            }
+                            
+                            console.log('Zoom IN - Nueva escala:', scaleFactura);
+                            await renderPageFactura(pageNumFactura);
+                        } else {
+                            console.log('Zoom máximo alcanzado (300%)');
+                        }
+                    } else {
+                        // Para otros documentos
+                        if (pdfScale < 3.0) {
+                            pdfScale += 0.25;
+                            renderizarPaginaPDF(currentPage);
+                            
+                            const zoomLevelEl = document.getElementById('pdfZoomLevel');
+                            if (zoomLevelEl) zoomLevelEl.textContent = Math.round(pdfScale * 100) + '%';
+                        }
+                    }
+                });
+            }
+            
+            if (btnZoomOut) {
+                const newZoomOut = btnZoomOut.cloneNode(true);
+                btnZoomOut.parentNode.replaceChild(newZoomOut, btnZoomOut);
+                newZoomOut.addEventListener('click', async function() {
+                    if (pdfDocFactura) {
+                        // Para FACTURA, FAD_DOC y VALIDACIONES OK
+                        if (scaleFactura > 0.5) {
+                            scaleFactura -= 0.25;
+                            
+                            const zoomLevel = document.getElementById('pdfZoomLevel');
+                            if (zoomLevel) {
+                                zoomLevel.textContent = Math.round(scaleFactura * 100) + '%';
+                            }
+                            
+                            console.log('Zoom OUT - Nueva escala:', scaleFactura);
+                            await renderPageFactura(pageNumFactura);
+                        } else {
+                            console.log('Zoom mínimo alcanzado (50%)');
+                        }
+                    } else {
+                        // Para otros documentos
+                        if (pdfScale > 0.5) {
+                            pdfScale -= 0.25;
+                            renderizarPaginaPDF(currentPage);
+                            
+                            const zoomLevelEl = document.getElementById('pdfZoomLevel');
+                            if (zoomLevelEl) zoomLevelEl.textContent = Math.round(pdfScale * 100) + '%';
+                        }
+                    }
+                });
+            }
+        });
+
+        // Función para cargar y mostrar un PDF (para otros documentos, no FACTURA)
+        // useIframeFallback: si es false, no intentará usar iframe como fallback (por defecto true para compatibilidad)
+        async function cargarPDFConPDFjs(url, useIframeFallback = true) {
+            try {
+                // Verificar que PDF.js esté cargado
+                if (typeof pdfjsLib === 'undefined') {
+                    console.error('PDF.js no está disponible');
+                    throw new Error('PDF.js no está cargado. Por favor, recarga la página. Si el problema persiste, verifique su conexión a internet.');
+                }
+                
+                // Verificar que el worker esté configurado
+                if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
+                    console.warn('Worker de PDF.js no configurado, configurando ahora...');
+                    pdfjsLib.GlobalWorkerOptions.workerSrc = '/assets/vendor/libs/pdf-viewer/pdf.worker.mjs';
+                }
+                
+                console.log('PDF.js verificado correctamente');
+
                 const pdfContainer = document.getElementById('documentoPdfContainer');
                 const pdfCanvas = document.getElementById('pdfCanvas');
                 const pdfControls = document.getElementById('pdfControls');
                 
                 if (!pdfContainer || !pdfCanvas) {
                     console.error('Elementos del visor PDF no encontrados');
-                    return;
+                    throw new Error('Elementos del visor PDF no encontrados en el DOM');
                 }
 
                 // Mostrar contenedor
                 pdfContainer.style.display = 'block';
                 if (pdfControls) {
                     pdfControls.style.display = 'flex';
+                    // Asegurar que los controles de zoom estén visibles
+                    pdfControls.style.visibility = 'visible';
+                    pdfControls.style.opacity = '1';
                 }
+                
+                // Los controles de zoom ya están en el HTML y se mostrarán automáticamente
+                // No necesitamos hacer nada adicional aquí
 
                 // Mostrar loading
                 Swal.fire({
@@ -2126,23 +2969,108 @@
                     didOpen: () => Swal.showLoading()
                 });
 
-                // Cargar el PDF como blob para evitar descarga automática
-                // Esto previene que el navegador intente descargar el archivo
-                const response = await fetch(url, {
-                    method: 'GET',
-                    headers: {
-                        'Accept': 'application/pdf'
-                    }
-                });
+                console.log('Intentando cargar PDF desde:', url);
                 
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
+                // Validar que la URL no esté vacía
+                if (!url || url.trim() === '') {
+                    throw new Error('La URL del PDF está vacía o no es válida.');
                 }
                 
+                // Las URLs relativas (que empiezan con /) son válidas para fetch
+                // No necesitamos validar con new URL() porque fetch las maneja correctamente
+                // fetch() puede manejar tanto URLs absolutas como relativas
+
+                // Cargar el PDF como blob para evitar descarga automática
+                // Esto previene que el navegador intente descargar el archivo
+                let response;
+                try {
+                    console.log('Iniciando fetch a:', url);
+                    console.log('Headers de la solicitud:', {
+                        'Accept': 'application/pdf'
+                    });
+                    
+                    response = await fetch(url, {
+                        method: 'GET',
+                        headers: {
+                            'Accept': 'application/pdf'
+                        },
+                        credentials: 'same-origin' // Incluir cookies para autenticación
+                    });
+                    
+                    console.log('Respuesta recibida:', {
+                        status: response.status,
+                        statusText: response.statusText,
+                        ok: response.ok,
+                        headers: Object.fromEntries(response.headers.entries())
+                    });
+                } catch (fetchError) {
+                    console.error('Error en fetch:', fetchError);
+                    console.error('Detalles del error de fetch:', {
+                        name: fetchError.name,
+                        message: fetchError.message,
+                        stack: fetchError.stack
+                    });
+                    
+                    // Detectar problemas específicos
+                    if (fetchError.name === 'TypeError' && fetchError.message.includes('Failed to fetch')) {
+                        // Podría ser CORS, red, o servidor inaccesible
+                        // Intentar verificar si es un problema de CORS probando la URL
+                        console.warn('Error de conexión detectado. Verificando si es problema de CORS...');
+                        
+                        // Mostrar diagnóstico completo
+                        diagnosticarPDFjs();
+                        
+                        const errorMsg = 'No se pudo conectar con el servidor. ' +
+                            'Posibles causas: ' +
+                            '1) Problema de CORS (Cross-Origin Resource Sharing) - El servidor no permite solicitudes desde este dominio ' +
+                            '2) El servidor no está accesible o está caído ' +
+                            '3) Problema de conexión a internet ' +
+                            '4) La URL requiere autenticación. ' +
+                            'Verifique la consola del navegador (F12) para más detalles. ' +
+                            'También puede ejecutar: window.diagnosticarPDFjs() en la consola.';
+                        throw new Error(errorMsg);
+                    }
+                    throw new Error('Error al obtener el archivo: ' + fetchError.message);
+                }
+                
+                if (!response.ok) {
+                    if (response.status === 404) {
+                        throw new Error('El archivo PDF no se encontró en el servidor (Error 404).');
+                    } else if (response.status === 403) {
+                        throw new Error('No tiene permisos para acceder a este archivo (Error 403).');
+                    } else if (response.status === 500) {
+                        throw new Error('Error del servidor al procesar la solicitud (Error 500).');
+                    }
+                    throw new Error(`Error HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const contentType = response.headers.get('content-type');
+                console.log('Content-Type recibido:', contentType);
+                
                 const blob = await response.blob();
+                console.log('Blob recibido, tamaño:', blob.size, 'bytes');
+                
+                if (blob.size === 0) {
+                    throw new Error('El archivo recibido está vacío.');
+                }
+                
+                // Verificar que sea un PDF - si el servidor devuelve HTML, hay un problema
+                if (contentType && contentType.includes('text/html')) {
+                    // El servidor está devolviendo HTML en lugar de PDF
+                    // Intentar leer el HTML para ver qué error hay
+                    const text = await blob.text();
+                    console.error('El servidor devolvió HTML en lugar de PDF. Contenido:', text.substring(0, 500));
+                    throw new Error('El servidor devolvió HTML en lugar de PDF. Verifique que la URL sea correcta y que el archivo exista.');
+                }
+                
+                if (contentType && !contentType.includes('application/pdf') && !contentType.includes('application/octet-stream')) {
+                    console.warn('Advertencia: El Content-Type no es application/pdf:', contentType);
+                    // Aún así intentar cargarlo, puede ser un PDF con Content-Type incorrecto
+                }
                 
                 // Convertir blob a ArrayBuffer para PDF.js
                 const arrayBuffer = await blob.arrayBuffer();
+                console.log('ArrayBuffer creado, tamaño:', arrayBuffer.byteLength, 'bytes');
                 
                 // Cargar el PDF desde el ArrayBuffer
                 const loadingTask = pdfjsLib.getDocument({
@@ -2152,7 +3080,24 @@
                     disableStream: false
                 });
 
+                // LIMPIAR INMEDIATAMENTE el atributo de marcas "SIN VALOR" ANTES de cargar
+                // INE/EVIDENCIA tienen sus propias marcas de agua y NO deben usar "SIN VALOR"
+                const watermark = document.getElementById('pdfWatermark');
+                if (watermark) {
+                    watermark.removeAttribute('data-marcas-sin-valor');
+                    console.log('✅ Atributo data-marcas-sin-valor removido para INE/EVIDENCIA (ANTES de cargar PDF)');
+                }
+                
+                console.log('Iniciando carga del PDF con PDF.js...');
                 pdfDoc = await loadingTask.promise;
+                console.log('PDF cargado exitosamente, número de páginas:', pdfDoc.numPages);
+                
+                // Asegurar que el atributo esté removido después de cargar también
+                if (watermark) {
+                    watermark.removeAttribute('data-marcas-sin-valor');
+                    console.log('✅ Atributo data-marcas-sin-valor removido para INE/EVIDENCIA (DESPUÉS de cargar PDF)');
+                }
+                
                 pdfTotalPages = pdfDoc.numPages;
                 currentPage = 1;
 
@@ -2161,15 +3106,55 @@
                 const totalPagesSpan = document.getElementById('pdfTotalPages');
                 if (currentPageSpan) currentPageSpan.textContent = currentPage;
                 if (totalPagesSpan) totalPagesSpan.textContent = pdfTotalPages;
+                
+                // Actualizar indicador de zoom
+                
+                if (zoomLevel) {
+                    zoomLevelEl.textContent = Math.round(pdfScale * 100) + '%';
+                }
 
                 // Renderizar primera página
                 await renderizarPaginaPDF(currentPage);
+                console.log('Primera página renderizada exitosamente');
 
                 // Cerrar loading
                 Swal.close();
 
                 // Mostrar modal de documento
-                const modal = new bootstrap.Modal(document.getElementById('modalDocumento'));
+                const modalElement = document.getElementById('modalDocumento');
+                if (!modalElement) {
+                    throw new Error('No se encontró el modal de documento');
+                }
+                
+                const modal = new bootstrap.Modal(modalElement);
+                
+                // NO ocultar header del modal para INE/EVIDENCIA (solo FACTURA/FAD_DOC/VALIDACIONES OK lo ocultan)
+                // INE y EVIDENCIA mantienen el header visible y no necesitan botón flotante
+                const handleModalShown = function() {
+                    // No hacer nada - INE y EVIDENCIA mantienen el header visible
+                    // El header solo se oculta en cargarPDFFactura para FACTURA/FAD_DOC/VALIDACIONES OK
+                    // No crear botón flotante para INE/EVIDENCIA
+                };
+                
+                modalElement.addEventListener('shown.bs.modal', handleModalShown, { once: true });
+                
+                // Restaurar cuando se cierre
+                modalElement.addEventListener('hidden.bs.modal', function() {
+                    const btn = document.getElementById('pdfCloseButtonFACTURA');
+                    if (btn && btn.parentNode) {
+                        btn.parentNode.removeChild(btn);
+                    }
+                    const modalHeader = modalElement.querySelector('.modal-header');
+                    if (modalHeader) {
+                        modalHeader.style.display = '';
+                    }
+                    const modalBody = document.getElementById('documentoModalBody');
+                    if (modalBody) {
+                        modalBody.style.height = '';
+                        modalBody.style.maxHeight = '';
+                    }
+                }, { once: true });
+                
                 modal.show();
 
                 // Crear marcas de agua después de renderizar
@@ -2186,50 +3171,97 @@
 
             } catch (error) {
                 console.error('Error cargando PDF con PDF.js:', error);
+                console.error('Detalles del error:', {
+                    name: error.name,
+                    message: error.message,
+                    stack: error.stack
+                });
                 Swal.close();
                 
-                // Intentar cargar con iframe directamente (sin Google Viewer para evitar el botón)
-                console.log('Intentando cargar PDF directamente con iframe...');
-                const pdfContainer = document.getElementById('documentoPdfContainer');
-                const pdfControls = document.getElementById('pdfControls');
-                
-                if (pdfContainer) {
-                    // Ocultar controles de PDF.js
-                    if (pdfControls) {
-                        pdfControls.style.display = 'none';
+                // Solo usar iframe como fallback si useIframeFallback es true
+                if (useIframeFallback) {
+                    // Intentar cargar con iframe directamente (sin Google Viewer para evitar el botón)
+                    console.log('Intentando cargar PDF directamente con iframe...');
+                    const pdfContainer = document.getElementById('documentoPdfContainer');
+                    const pdfControls = document.getElementById('pdfControls');
+                    
+                    if (pdfContainer) {
+                        // Ocultar controles de PDF.js
+                        if (pdfControls) {
+                            pdfControls.style.display = 'none';
+                        }
+                        
+                        // Limpiar contenedor
+                        pdfContainer.innerHTML = '';
+                        
+                        // Crear iframe directamente con el PDF
+                        const iframe = document.createElement('iframe');
+                        iframe.src = url;
+                        iframe.style.width = '100%';
+                        iframe.style.height = '100%';
+                        iframe.style.border = '0';
+                        iframe.setAttribute('type', 'application/pdf');
+                        
+                        const wrapper = document.createElement('div');
+                        wrapper.style.width = '100%';
+                        wrapper.style.height = '100%';
+                        wrapper.style.display = 'flex';
+                        wrapper.style.alignItems = 'center';
+                        wrapper.style.justifyContent = 'center';
+                        wrapper.style.position = 'relative';
+                        wrapper.appendChild(iframe);
+                        
+                        pdfContainer.appendChild(wrapper);
+                        pdfContainer.style.display = 'block';
+                        
+                        // Mostrar modal
+                        const modal = new bootstrap.Modal(document.getElementById('modalDocumento'));
+                        modal.show();
+                    } else {
+                        Swal.fire({
+                            title: 'Error al cargar PDF',
+                            text: 'No se pudo cargar el PDF. Verifique que el archivo exista.',
+                            icon: 'error',
+                            didClose: () => {
+                                // Limpiar overlay cuando se cierra
+                                document.body.classList.remove('swal2-shown');
+                                document.body.style.overflow = '';
+                                const swalOverlay = document.querySelector('.swal2-container');
+                                if (swalOverlay) {
+                                    swalOverlay.remove();
+                                }
+                            }
+                        });
+                    }
+                } else {
+                    // No usar iframe como fallback - mostrar error directamente con más detalles
+                    let errorMessage = 'No se pudo cargar el PDF con PDF.js.';
+                    
+                    if (error.message) {
+                        errorMessage = error.message;
+                    } else if (error.name === 'InvalidPDFException') {
+                        errorMessage = 'El archivo no es un PDF válido o está corrupto.';
+                    } else if (error.name === 'MissingPDFException') {
+                        errorMessage = 'El archivo PDF no se encontró o está vacío.';
+                    } else if (error.name === 'UnexpectedResponseException') {
+                        errorMessage = 'El servidor respondió con un formato inesperado.';
+                    } else if (error.message && error.message.includes('HTTP')) {
+                        errorMessage = error.message;
                     }
                     
-                    // Limpiar contenedor
-                    pdfContainer.innerHTML = '';
-                    
-                    // Crear iframe directamente con el PDF
-                    const iframe = document.createElement('iframe');
-                    iframe.src = url;
-                    iframe.style.width = '100%';
-                    iframe.style.height = '100%';
-                    iframe.style.border = '0';
-                    iframe.setAttribute('type', 'application/pdf');
-                    
-                    const wrapper = document.createElement('div');
-                    wrapper.style.width = '100%';
-                    wrapper.style.height = '100%';
-                    wrapper.style.display = 'flex';
-                    wrapper.style.alignItems = 'center';
-                    wrapper.style.justifyContent = 'center';
-                    wrapper.style.position = 'relative';
-                    wrapper.appendChild(iframe);
-                    
-                    pdfContainer.appendChild(wrapper);
-                    pdfContainer.style.display = 'block';
-                    
-                    // Mostrar modal
-                    const modal = new bootstrap.Modal(document.getElementById('modalDocumento'));
-                    modal.show();
-                } else {
                     Swal.fire({
                         title: 'Error al cargar PDF',
-                        text: 'No se pudo cargar el PDF. Verifique que el archivo exista.',
+                        html: `
+                            <p>${errorMessage}</p>
+                            <p style="font-size: 0.85rem; color: #666; margin-top: 10px;">
+                                <strong>URL:</strong> ${url.substring(0, 80)}${url.length > 80 ? '...' : ''}
+                            </p>
+                            <p style="font-size: 0.75rem; color: #999; margin-top: 5px;">
+                                Revise la consola del navegador (F12) para más detalles.
+                            </p>
+                        `,
                         icon: 'error',
+                        width: '600px',
                         didClose: () => {
                             // Limpiar overlay cuando se cierra
                             document.body.classList.remove('swal2-shown');
@@ -2250,6 +3282,8 @@
 
             try {
                 const pdfCanvas = document.getElementById('pdfCanvas');
+                const pdfViewerContainer = document.getElementById('pdfViewerContainer');
+                const documentoWrapper = document.getElementById('documentoWrapper');
                 const page = await pdfDoc.getPage(pageNum);
                 const viewport = page.getViewport({ scale: pdfScale });
 
@@ -2257,6 +3291,43 @@
                 pdfCanvas.height = viewport.height;
                 pdfCanvas.width = viewport.width;
 
+                // Aplicar o quitar restricción de max-width según el zoom
+                if (pdfScale > 1.0) {
+                    // Cuando hay zoom, permitir que el canvas crezca más allá del 100%
+                    pdfCanvas.style.maxWidth = 'none';
+                    pdfCanvas.style.width = pdfCanvas.width + 'px';
+                    pdfCanvas.style.height = pdfCanvas.height + 'px';
+                    if (pdfViewerContainer) {
+                        pdfViewerContainer.style.maxWidth = 'none';
+                    }
+                    // Ajustar el wrapper para que permita el crecimiento
+                    if (documentoWrapper) {
+                        documentoWrapper.style.alignItems = 'flex-start';
+                        documentoWrapper.style.justifyContent = 'flex-start';
+                        documentoWrapper.style.minHeight = 'auto';
+                    }
+                } else {
+                    // Cuando está en 100%, restaurar el max-width para que se ajuste al contenedor
+                    pdfCanvas.style.maxWidth = '100%';
+                    pdfCanvas.style.width = '';
+                    pdfCanvas.style.height = 'auto';
+                    if (pdfViewerContainer) {
+                        pdfViewerContainer.style.maxWidth = '100%';
+                    }
+                    // Restaurar el wrapper a su estado original
+                    if (documentoWrapper) {
+                        documentoWrapper.style.alignItems = 'center';
+                        documentoWrapper.style.justifyContent = 'center';
+                        documentoWrapper.style.minHeight = '100%';
+                    }
+                }
+
+                // Actualizar indicador de zoom
+                
+                if (zoomLevel) {
+                    zoomLevelEl.textContent = Math.round(pdfScale * 100) + '%';
+                }
+                
                 // Renderizar
                 const renderContext = {
                     canvasContext: pdfCanvas.getContext('2d'),
@@ -2270,8 +3341,8 @@
                 if (currentPageSpan) currentPageSpan.textContent = pageNum;
 
                 // Actualizar zoom
-                const zoomLevel = document.getElementById('pdfZoomLevel');
-                if (zoomLevel) zoomLevel.textContent = Math.round(pdfScale * 100) + '%';
+                
+                if (zoomLevel) zoomLevelEl.textContent = Math.round(pdfScale * 100) + '%';
 
                 // Actualizar marcas de agua
                 const watermark = document.getElementById('pdfWatermark');
