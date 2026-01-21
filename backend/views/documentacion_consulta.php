@@ -109,6 +109,8 @@
 
                 <!-- BODY -->
                 <div class="modal-body p-0 flex-grow-1" id="documentoModalBody" style="height: calc(85vh - 70px); max-height: calc(85vh - 70px); overflow: hidden !important; overflow-x: hidden !important; overflow-y: hidden !important; position: relative; min-height: 0;">
+                    <!-- Overlay de marca de agua para TODO el modal de PDF -->
+                    <div id="modalPdfWatermark" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5; overflow: hidden;"></div>
                     <!-- Contenedor para PDFs (PDF.js) -->
                     <div id="documentoPdfContainer" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; width: 100%; height: 100%; display: none; overflow: auto; overflow-x: auto; overflow-y: auto; background-color: #525252;">
                         <div id="documentoWrapper" style="display: flex; align-items: center; justify-content: center; min-height: 100%; padding: 20px; position: relative;">
@@ -743,6 +745,19 @@
             
             overlays.forEach(overlay => {
                 console.log('Procesando overlay:', overlay.id, overlay.className);
+                
+                // VERIFICACIÓN ESPECIAL PARA INE: Si el overlay está dentro del modal de INE, NO aplicar marcas "SIN VALOR" de PDF
+                const modalINE = document.getElementById('modalINE');
+                const modalZoomINE = document.getElementById('modalZoomINE');
+                const estaEnModalINE = (modalINE && modalINE.contains(overlay)) || (modalZoomINE && modalZoomINE.contains(overlay));
+                
+                // Si está en el modal de INE, este overlay es para imágenes de INE, NO para PDF
+                // Las imágenes de INE tienen sus propias marcas de agua (la lógica original)
+                if (estaEnModalINE && overlay.id === 'pdfWatermark') {
+                    console.log('⚠️ Saltando overlay pdfWatermark que está en modal de INE - INE usa imágenes, no PDF');
+                    return; // Salir inmediatamente, no procesar este overlay
+                }
+                
                 // Limpiar elementos anteriores si existen
                 const existingLayers = overlay.querySelectorAll('.watermark-layer');
                 existingLayers.forEach(layer => layer.remove());
@@ -784,6 +799,16 @@
                 
                 // VERIFICACIÓN TEMPRANA: Si es overlay de PDF.js, verificar ANTES de procesar si es INE/EVIDENCIA
                 if (isPdfJsCanvas) {
+                    // Verificar si está en el modal de INE (INE usa imágenes, no PDF.js)
+                    const modalINE = document.getElementById('modalINE');
+                    const modalZoomINE = document.getElementById('modalZoomINE');
+                    const estaEnModalINE = (modalINE && modalINE.contains(overlay)) || (modalZoomINE && modalZoomINE.contains(overlay));
+                    
+                    if (estaEnModalINE) {
+                        console.log('⚠️ Saltando overlay pdfWatermark - Está en modal de INE (INE usa imágenes, no PDF.js)');
+                        return; // Salir inmediatamente
+                    }
+                    
                     // Verificar si es INE o EVIDENCIA (usan pdfDoc, NO pdfDocFactura)
                     const esINEoEVIDENCIA = typeof pdfDoc !== 'undefined' && pdfDoc !== null && (typeof pdfDocFactura === 'undefined' || pdfDocFactura === null);
                     
@@ -869,9 +894,10 @@
                         }
                     }
                 } else if (img) {
-                    // LÓGICA ORIGINAL PARA IMÁGENES - NO TOCAR
-                    width = img.offsetWidth || overlayRect.width;
-                    height = img.offsetHeight || overlayRect.height;
+                    // LÓGICA PARA IMÁGENES - Usar getBoundingClientRect para dimensiones precisas
+                    const imgRect = img.getBoundingClientRect();
+                    width = imgRect.width || img.offsetWidth || img.naturalWidth || overlayRect.width;
+                    height = imgRect.height || img.offsetHeight || img.naturalHeight || overlayRect.height;
                 } else if (canvas) {
                     // Para canvas de PDF.js (FACTURA), usar las dimensiones reales del canvas
                     if (isPdfJsCanvas) {
@@ -941,6 +967,20 @@
                     }
                 } else {
                     // LÓGICA PARA IMÁGENES Y CANVAS
+                    // CRÍTICO: Asegurar que el contenedor tenga exactamente el mismo tamaño que la imagen
+                    // Esto evita que la marca de agua se extienda más allá de la imagen
+                    if (img && container && !isZoom) {
+                        // Ajustar el contenedor al tamaño exacto de la imagen (solo para modal principal, no zoom)
+                        // El zoom maneja sus propias dimensiones dinámicamente
+                        container.style.width = width + 'px';
+                        container.style.height = height + 'px';
+                        container.style.display = 'inline-block';
+                        container.style.maxWidth = '100%';
+                        container.style.maxHeight = '100%';
+                        
+                        console.log('✅ Contenedor ajustado al tamaño de imagen:', width, 'x', height);
+                    }
+                    
                     overlay.style.width = width + 'px';
                     overlay.style.height = height + 'px';
                     overlay.style.position = 'absolute';
@@ -948,6 +988,7 @@
                     overlay.style.left = '0';
                     overlay.style.zIndex = '10';
                     overlay.style.pointerEvents = 'none';
+                    overlay.style.overflow = 'hidden'; // Asegurar que no se extienda más allá del overlay
                 }
                 
                 // Para canvas de PDF.js, asegurar que el overlay esté correctamente posicionado
@@ -978,6 +1019,12 @@
                 }
                 
                 if (isIframePdf) {
+                    // MARCAS DE AGUA "SIN VALOR" COMENTADAS - NO SE APLICAN A NINGÚN PDF
+                    // Las marcas de agua "SIN VALOR" para FACTURA, FAD_DOC y VALIDACIONES OK están deshabilitadas
+                    console.log('⚠️ Marcas de agua "SIN VALOR" deshabilitadas - Saltando creación para PDFs');
+                    return; // Salir sin crear marcas de agua
+                    
+                    /* CÓDIGO COMENTADO - MARCAS DE AGUA "SIN VALOR" PARA PDFs
                     // IMPORTANTE: Solo aplicar marcas de agua "SIN VALOR" para FACTURA, FAD_DOC y VALIDACIONES OK
                     // INE y EVIDENCIA tienen sus propias marcas de agua y NO deben usar estas
                     
@@ -1091,9 +1138,28 @@
                         console.log('Capa de marca de agua creada - row:', row, 'top:', topPos, 'left:', leftOffset, 'width:', layerWidth, 'repetitions:', repetitions);
                     }
                     console.log('✅ Marcas de agua creadas para PDF.js - Total capas:', numRows + 2, 'overlay:', overlay.id);
+                    */ // FIN DEL CÓDIGO COMENTADO
                 } else {
                     // LÓGICA ORIGINAL PARA IMÁGENES (INE, EVIDENCIA) - NO TOCAR ESTA PARTE
                     // Esta es la lógica original que funcionaba perfectamente para imágenes
+                    
+                    // VERIFICACIÓN: Si el overlay es pdfWatermark (de PDF.js), NO aplicar marcas de imágenes
+                    // pdfWatermark solo debe tener marcas "SIN VALOR" si es FACTURA/FAD_DOC/VALIDACIONES OK
+                    if (overlay.id === 'pdfWatermark') {
+                        console.log('⚠️ Saltando marcas de imágenes para overlay pdfWatermark - Este overlay es solo para PDF.js');
+                        return; // Salir, no aplicar marcas de imágenes a este overlay
+                    }
+                    
+                    // VERIFICACIÓN IMPORTANTE: Solo aplicar marcas de agua a overlays dentro de contenedores de imagen
+                    // Esto asegura que las marcas solo aparezcan dentro de las imágenes, no en todo el modal
+                    // Igual que funciona EVIDENCIA
+                    if (!container) {
+                        console.log('⚠️ Saltando overlay - No está dentro de un contenedor de imagen (.watermark-container)');
+                        return; // Salir, no aplicar marcas de agua a overlays fuera de contenedores de imágenes
+                    }
+                    
+                    // INE y EVIDENCIA usan esta lógica original para sus marcas de agua
+                    // Esta es la lógica que tenían antes de que se mezclaran con las marcas de PDFs
                     for (let i = -2; i < numLayers; i++) {
                         const layer = document.createElement('div');
                         layer.className = 'watermark-layer';
@@ -1120,6 +1186,105 @@
                     }
                 }
             });
+        }
+
+        // Función para crear marcas de agua "SIN VALOR" en TODO el modal de PDF
+        // Solo se aplica a FACTURA, FAD_DOC y VALIDACIONES OK (no a INE/EVIDENCIA)
+        function crearMarcasAguaModalPDF() {
+            // Verificar que sea un PDF con marcas "SIN VALOR" (FACTURA, FAD_DOC, VALIDACIONES OK)
+            // INE y EVIDENCIA usan pdfDoc (sin pdfDocFactura), así que NO deben tener estas marcas
+            const esPDFConMarcasSINVALOR = typeof pdfDocFactura !== 'undefined' && pdfDocFactura !== null;
+            
+            if (!esPDFConMarcasSINVALOR) {
+                console.log('⚠️ No es PDF con marcas SIN VALOR - Saltando marcas de agua del modal');
+                return;
+            }
+            
+            const modalWatermark = document.getElementById('modalPdfWatermark');
+            if (!modalWatermark) {
+                console.log('⚠️ No se encontró el overlay de marca de agua del modal');
+                return;
+            }
+            
+            // Limpiar marcas anteriores
+            const existingLayers = modalWatermark.querySelectorAll('.watermark-layer');
+            existingLayers.forEach(layer => layer.remove());
+            
+            // Obtener dimensiones del modal body
+            const modalBody = document.getElementById('documentoModalBody');
+            if (!modalBody) {
+                console.log('⚠️ No se encontró el body del modal');
+                return;
+            }
+            
+            const modalRect = modalBody.getBoundingClientRect();
+            const width = modalRect.width || modalBody.clientWidth || modalBody.offsetWidth;
+            const height = modalRect.height || modalBody.clientHeight || modalBody.offsetHeight;
+            
+            if (width === 0 || height === 0) {
+                console.log('⚠️ Dimensiones inválidas del modal:', width, 'x', height);
+                return;
+            }
+            
+            console.log('✅ Creando marcas de agua "SIN VALOR" para TODO el modal PDF - Dimensiones:', width, 'x', height);
+            
+            // Configuración para patrón diagonal ordenado que cubra TODO el modal
+            const fontSize = '2.5rem';
+            const layerSpacing = 120; // Espaciado vertical
+            const textSpacing = 150; // Espaciado horizontal entre repeticiones
+            
+            // Calcular número de filas y columnas para cubrir TODO el modal
+            const numRows = Math.ceil((height * 1.2) / layerSpacing) + 2;
+            const numCols = Math.ceil((width * 1.6) / textSpacing) + 5;
+            
+            // Crear patrón diagonal ordenado que cubra TODO el modal
+            // Empezar desde más arriba para cubrir desde el inicio del modal
+            for (let row = -8; row < numRows; row++) {
+                const layer = document.createElement('div');
+                layer.className = 'watermark-layer';
+                
+                // Calcular posición vertical - empezar más arriba
+                const topOffset = layerSpacing * 4; // Aumentado para empezar más arriba
+                const topPos = (row * layerSpacing) - topOffset;
+                
+                // Calcular posición horizontal inicial (desplazada para crear diagonal)
+                const leftOffset = (row * (textSpacing * 0.5)) - Math.min(width * 0.2, 200);
+                
+                // Crear texto con suficientes repeticiones
+                const repetitions = numCols + 6;
+                const textContent = 'SIN VALOR '.repeat(repetitions);
+                
+                // Calcular ancho necesario
+                const minWidth = width - leftOffset + (width * 0.3);
+                const layerWidth = Math.max(repetitions * textSpacing * 1.2, minWidth);
+                
+                layer.textContent = textContent;
+                layer.style.cssText = `
+                    position: absolute;
+                    font-size: ${fontSize};
+                    font-weight: bold;
+                    color: rgba(220, 20, 20, 0.6) !important;
+                    text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.4);
+                    transform: rotate(-45deg);
+                    transform-origin: center;
+                    white-space: nowrap;
+                    letter-spacing: 0.5em;
+                    z-index: 6 !important;
+                    top: ${topPos}px;
+                    left: ${leftOffset}px;
+                    width: ${layerWidth}px;
+                    text-align: center;
+                    pointer-events: none;
+                    user-select: none;
+                    line-height: 1.2;
+                    opacity: 1 !important;
+                    visibility: visible !important;
+                    display: block !important;
+                `;
+                modalWatermark.appendChild(layer);
+            }
+            
+            console.log('✅ Marcas de agua "SIN VALOR" creadas para TODO el modal PDF - Total capas:', numRows + 4);
         }
 
         // Variables para zoom dinámico
@@ -1731,6 +1896,39 @@
             // Crear marcas de agua cuando se muestra el modal de documentos
             const modalDocumento = document.getElementById('modalDocumento');
             if (modalDocumento) {
+                // Crear marcas de agua "SIN VALOR" en TODO el modal cuando se muestre (solo para PDFs)
+                modalDocumento.addEventListener('shown.bs.modal', function() {
+                    setTimeout(() => {
+                        if (typeof crearMarcasAguaModalPDF === 'function') {
+                            crearMarcasAguaModalPDF();
+                        }
+                    }, 300);
+                });
+                
+                // Limpiar marcas de agua cuando se cierre el modal
+                modalDocumento.addEventListener('hidden.bs.modal', function() {
+                    const modalWatermark = document.getElementById('modalPdfWatermark');
+                    if (modalWatermark) {
+                        const existingLayers = modalWatermark.querySelectorAll('.watermark-layer');
+                        existingLayers.forEach(layer => layer.remove());
+                        console.log('✅ Marcas de agua del modal limpiadas');
+                    }
+                });
+                
+                // Actualizar marcas de agua cuando cambie el tamaño de la ventana (solo si el modal está abierto)
+                let resizeTimeout;
+                window.addEventListener('resize', function() {
+                    if (modalDocumento.classList.contains('show')) {
+                        clearTimeout(resizeTimeout);
+                        resizeTimeout = setTimeout(() => {
+                            if (typeof crearMarcasAguaModalPDF === 'function') {
+                                crearMarcasAguaModalPDF();
+                                console.log('✅ Marcas de agua del modal actualizadas después de resize');
+                            }
+                        }, 300);
+                    }
+                });
+                
                 // Prevenir scroll del modal cuando se abre
                 modalDocumento.addEventListener('show.bs.modal', function() {
                     // Guardar la posición actual del scroll
@@ -2777,12 +2975,12 @@
                     console.log('Overlay de marca de agua actualizado:', canvas.width, 'x', canvas.height);
                 }
                 
-                // Re-aplicar marcas de agua después de un pequeño delay para asegurar que el DOM se actualice
-                if (typeof crearMarcasAgua === 'function') {
+                // Crear marcas de agua "SIN VALOR" en TODO el modal después de renderizar
+                if (typeof crearMarcasAguaModalPDF === 'function') {
                     setTimeout(() => {
-                        crearMarcasAgua();
-                        console.log('Marcas de agua recreadas para FACTURA/FAD_DOC/VALIDACIONES OK');
-                    }, 150);
+                        crearMarcasAguaModalPDF();
+                        console.log('✅ Marcas de agua del modal recreadas después de renderizar PDF');
+                    }, 200);
                 }
 
                 // Si había una página en espera, dibujarla ahora

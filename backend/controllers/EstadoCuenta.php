@@ -593,6 +593,14 @@ JS;
                             imgFrente.src = data.frente;
                             imgReverso.src = data.reverso;
                             
+                            // LIMPIAR el atributo de marcas "SIN VALOR" del overlay pdfWatermark si existe
+                            // INE usa imágenes, no PDF.js, por lo que no debe tener este atributo
+                            const watermark = document.getElementById('pdfWatermark');
+                            if (watermark) {
+                                watermark.removeAttribute('data-marcas-sin-valor');
+                                console.log('✅ Atributo data-marcas-sin-valor removido del pdfWatermark para INE');
+                            }
+                            
                             // Crear marcas de agua inmediatamente y después de que las imágenes se carguen
                             const crearMarcasAguaINE = function() {
                                 if (typeof crearMarcasAgua === 'function') {
