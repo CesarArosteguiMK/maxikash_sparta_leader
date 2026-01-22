@@ -61,16 +61,30 @@ class EstadoCuenta extends Controller
             // Cambiar entre ID y Nombre
             function actualizarInputs() {
                     const modo = document.querySelector('input[name="modoBusqueda"]:checked')?.value;
-                    document.getElementById('divNombre').style.display = modo === 'nombre' ? 'block' : 'none';
-                    document.getElementById('divID').style.display = modo === 'id' ? 'block' : 'none';
+                    const divNombre = document.getElementById('divNombre');
+                    const divID = document.getElementById('divID');
+                    
+                    // Verificar que los elementos existan antes de acceder a sus propiedades
+                    if (divNombre) {
+                        divNombre.style.display = modo === 'nombre' ? 'block' : 'none';
+                    }
+                    if (divID) {
+                        divID.style.display = modo === 'id' ? 'block' : 'none';
+                    }
             }
             
             document.querySelectorAll('input[name="modoBusqueda"]').forEach(el =>
                 el.addEventListener('change', actualizarInputs)
             );
             
-            document.getElementById('modalDirecciones')
-              .addEventListener('shown.bs.modal', actualizarInputs);
+            // Solo agregar el event listener si el modal existe
+            const modalDirecciones = document.getElementById('modalDirecciones');
+            if (modalDirecciones) {
+                modalDirecciones.addEventListener('shown.bs.modal', function() {
+                    // No ejecutar actualizarInputs cuando se abre el modal de direcciones
+                    // ya que ese modal no tiene los elementos divNombre y divID
+                });
+            }
 
         
             // Botón limpiar filtros
@@ -151,11 +165,13 @@ class EstadoCuenta extends Controller
         
 
         </script>
+JS;
 
+        // Script de error - solo se ejecuta cuando hay un error
+        $script_error = <<<JS
         <script>
                 document.addEventListener('DOMContentLoaded',()=>mostrarMensajeAll({tipo:'error',titulo:'Error de busqueda',mensaje:'No se encontraron resultados'}));
         </script>
-        
 JS;
 
 
@@ -350,9 +366,6 @@ JS;
                 self::set("direcciones", $respDAO);
                 self::set("referencias", $referencias);
                 self::set("notas", $notas);
-
-                var_dump($respDAO);
-
 
                 self::set("titulo", "Resultado de la solicitud");
                 self::set("script", $script);

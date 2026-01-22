@@ -443,6 +443,32 @@ if ($cuotasContratadas > 0) {
 
 
 
+    /* ==========================
+       MODAL DIRECCIONES - Asegurar que se muestre
+       ========================== */
+    #modalDirecciones {
+        z-index: 1055 !important;
+    }
+    
+    #modalDirecciones.show {
+        display: block !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+    }
+    
+    #modalDirecciones .modal-dialog {
+        z-index: 1056 !important;
+        margin: 1.75rem auto !important;
+    }
+    
+    .modal-backdrop {
+        z-index: 1050 !important;
+    }
+    
+    .modal-backdrop.show {
+        opacity: 0.5 !important;
+    }
+
 </style>
 
 <div class="row">
@@ -495,7 +521,8 @@ if ($cuotasContratadas > 0) {
                                 <button type="button"
                                         class="btn btn-link text-primary p-0"
                                         data-bs-toggle="modal"
-                                        data-bs-target="#modalDirecciones">
+                                        data-bs-target="#modalDirecciones"
+                                        onclick="abrirModalDirecciones()">
                                     Direcciones
                                 </button>
                             </small>
@@ -1214,78 +1241,6 @@ if ($cuotasContratadas > 0) {
                 </p>
             </div>
 
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                    Cerrar
-                </button>
-            </div>
-
-        </div>
-    </div>
-</div>
-
-
-<div class="modal fade" id="modalDirecciones" tabindex="-1" aria-labelledby="modalDireccionesLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-centered">
-        <div class="modal-content">
-
-            <!-- Header -->
-            <div class="modal-header">
-                <h5 class="modal-title" id="modalDireccionesLabel">
-                    <i class="fa fa-map-marker-alt me-2 text-primary"></i>
-                    Direcciones del Cliente
-                </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-            </div>
-
-            <!-- Body -->
-            <div class="modal-body py-4">
-
-                <div class="row g-3">
-                    <?php
-                    // Validar que existan las direcciones antes de mostrarlas
-                    if (isset($direcciones) && is_array($direcciones) && isset($direcciones['datos']) && is_array($direcciones['datos']) && !empty($direcciones['datos'])):
-                        foreach ($direcciones['datos'] as $index => $direccion):
-                            if (!is_array($direccion)) continue;
-                            $domicilioCompleto = isset($direccion['Domicilio_Completo']) ? htmlspecialchars($direccion['Domicilio_Completo']) : 'No disponible';
-                    ?>
-                    <!-- Dirección <?= $index + 1 ?> -->
-                    <div class="col-md-6">
-                        <div class="card h-100 shadow-sm border">
-                            <div class="card-body">
-                                <div class="d-flex align-items-center mb-2">
-                                    <i class="fa fa-home text-success me-2"></i>
-                                    <h6 class="mb-0">Domicilio Particular</h6>
-                                </div>
-
-                                <p class="text-muted mb-2">
-                                    <?= $domicilioCompleto ?>
-                                </p>
-
-                                <span class="badge bg-success">Principal</span>
-
-                            </div>
-                        </div>
-                    </div>
-                    <?php
-                        endforeach;
-                    else:
-                    ?>
-                    <!-- Mensaje cuando no hay direcciones -->
-                    <div class="col-12">
-                        <div class="alert alert-info text-center">
-                            <i class="fa fa-info-circle me-2"></i>
-                            <strong>No se encontraron direcciones</strong>
-                            <p class="mb-0 mt-2">No hay direcciones registradas para este cliente.</p>
-                        </div>
-                    </div>
-                    <?php endif; ?>
-
-                </div>
-
-            </div>
-
-            <!-- Footer -->
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
                     Cerrar
@@ -2060,6 +2015,36 @@ if ($cuotasContratadas > 0) {
         document.getElementById('montoCondonar').textContent = total.toFixed(2);
     }
 
+    // Función para abrir el modal de direcciones
+    function abrirModalDirecciones() {
+        const modalElement = document.getElementById('modalDirecciones');
+        if (modalElement) {
+            // Mover el modal al body si no está ahí
+            if (modalElement.parentElement !== document.body) {
+                document.body.appendChild(modalElement);
+            }
+            
+            // Usar Bootstrap Modal API
+            const modal = bootstrap.Modal.getOrCreateInstance(modalElement);
+            modal.show();
+        } else {
+            console.error('Modal modalDirecciones no encontrado');
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'No se pudo encontrar el modal de direcciones'
+            });
+        }
+    }
+
+    // Mover el modal al body cuando se carga la página
+    document.addEventListener('DOMContentLoaded', function() {
+        const modalElement = document.getElementById('modalDirecciones');
+        if (modalElement && modalElement.parentElement !== document.body) {
+            document.body.appendChild(modalElement);
+        }
+    });
+
 
 
 
@@ -2081,4 +2066,111 @@ if ($cuotasContratadas > 0) {
 
 </script>
 
+<!-- Modal Direcciones - Movido al final para evitar problemas de z-index -->
+<div class="modal fade" id="modalDirecciones" tabindex="-1" aria-labelledby="modalDireccionesLabel" aria-hidden="true" style="position: fixed; z-index: 1055;">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
 
+            <!-- Header -->
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalDireccionesLabel">
+                    <i class="fa fa-map-marker-alt me-2 text-primary"></i>
+                    Direcciones del Cliente
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+
+            <!-- Body -->
+            <div class="modal-body py-4">
+                <div class="row g-3">
+                    <?php
+                    // Validar que existan las direcciones antes de mostrarlas
+                    $datosDirecciones = [];
+                    
+                    if (isset($direcciones)) {
+                        if (is_array($direcciones)) {
+                            // Si tiene estructura ['datos' => [...]]
+                            if (isset($direcciones['datos']) && is_array($direcciones['datos'])) {
+                                $datosDirecciones = $direcciones['datos'];
+                            }
+                            // Si es directamente un array
+                            elseif (!empty($direcciones) && isset($direcciones[0])) {
+                                $datosDirecciones = $direcciones;
+                            }
+                        }
+                    }
+                    
+                    if (!empty($datosDirecciones)):
+                        foreach ($datosDirecciones as $index => $direccion):
+                            if (!is_array($direccion)) continue;
+                            $domicilioCompleto = isset($direccion['Domicilio_Completo']) ? htmlspecialchars($direccion['Domicilio_Completo']) : 'No disponible';
+                            $nombreCliente = isset($direccion['Nombre_cliente']) ? htmlspecialchars($direccion['Nombre_cliente']) : '';
+                            $idCliente = isset($direccion['Id_cliente']) ? htmlspecialchars($direccion['Id_cliente']) : '';
+                    ?>
+                    <!-- Dirección <?= $index + 1 ?> -->
+                    <div class="col-md-6">
+                        <div class="card h-100 shadow-sm border">
+                            <div class="card-body">
+                                <div class="d-flex align-items-center mb-2">
+                                    <i class="fa fa-home text-success me-2"></i>
+                                    <h6 class="mb-0">Domicilio Particular</h6>
+                                </div>
+
+                                <?php if ($nombreCliente): ?>
+                                <div class="mb-2">
+                                    <small class="text-muted d-block">Cliente:</small>
+                                    <strong><?= $nombreCliente ?></strong>
+                                </div>
+                                <?php endif; ?>
+
+                                <div class="mb-2">
+                                    <small class="text-muted d-block">Dirección:</small>
+                                    <p class="mb-0"><?= $domicilioCompleto ?></p>
+                                </div>
+
+                                <?php if ($idCliente): ?>
+                                <div class="mb-2">
+                                    <small class="text-muted">ID Cliente: <?= $idCliente ?></small>
+                                </div>
+                                <?php endif; ?>
+
+                                <span class="badge bg-success">Principal</span>
+                            </div>
+                        </div>
+                    </div>
+                    <?php
+                        endforeach;
+                    else:
+                    ?>
+                    <!-- Mensaje cuando no hay direcciones -->
+                    <div class="col-12">
+                        <div class="alert alert-info text-center">
+                            <i class="fa fa-info-circle me-2"></i>
+                            <strong>No se encontraron direcciones</strong>
+                            <p class="mb-0 mt-2">No hay direcciones registradas para este cliente.</p>
+                        </div>
+                    </div>
+                    <?php endif; ?>
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    Cerrar
+                </button>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<script>
+    // Asegurar que el modal esté en el body al cargar
+    (function() {
+        const modalElement = document.getElementById('modalDirecciones');
+        if (modalElement && modalElement.parentElement !== document.body) {
+            document.body.appendChild(modalElement);
+        }
+    })();
+</script>

@@ -60,8 +60,16 @@ class Empresa extends Model
 
     public static function getConsultaDireccionEstadoCuenta($id_credito)
     {
+        // Intentar obtener más campos si están disponibles en la tabla
         $query = <<<SQL
-           SELECT Domicilio_Completo from tbl_segundometro_semana where Id_credito = $id_credito;
+           SELECT 
+               Domicilio_Completo,
+               Id_credito,
+               Id_cliente,
+               Nombre_cliente
+           FROM tbl_segundometro_semana 
+           WHERE Id_credito = $id_credito
+           LIMIT 1
         SQL;
 
         try {
