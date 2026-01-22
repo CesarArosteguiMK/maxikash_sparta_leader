@@ -21,7 +21,7 @@
             </div>
 
             <div class="row gy-3 mb-3">
-                <div class="col-lg-4 mx-auto">
+                <div class="col-12 col-md-8 col-lg-4">
                     <div class="card shadow-none bg-label-primary h-100">
                         <div class="card-body d-flex justify-content-between flex-wrap-reverse">
                             <div class="mb-0 w-100 app-academy-sm-60 d-flex flex-column justify-content-between text-center text-sm-start">
@@ -31,7 +31,7 @@
                                 </div>
                                 <!-- Botón para abrir modal -->
                                 <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalReporte">
-                                    Descargar Último Corte
+                                    Descargar dictamen
                                 </button>
                             </div>
                             <div class="w-100 app-academy-sm-40 d-flex justify-content-center justify-content-sm-end h-px-150 mb-4 mb-sm-0">
