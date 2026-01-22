@@ -173,54 +173,77 @@ class Empresa extends Model
         try {
             $db = new DatabaseSegundometro();
 
-            // 1) Obtener columnas que empiecen con Dias_mora_
             $cols = $db->queryAll("
             SELECT COLUMN_NAME 
             FROM information_schema.COLUMNS
             WHERE TABLE_SCHEMA = '__SPARTA_SECRET_REDACTED__'
               AND TABLE_NAME = 'tbl_segundometro_semana'
               AND COLUMN_NAME LIKE 'Dias_mora_%'
-            ORDER BY COLUMN_NAME ASC
         ");
 
             if (!$cols) {
                 return self::resultado(false, "No existen columnas Dias_mora_%", null);
             }
 
-            $columnas = array_column($cols, "COLUMN_NAME");
+            $ordenDias = [
+                'Lunes' => 1,
+                'Martes' => 2,
+                'Miercoles' => 3,
+                'Jueves' => 4,
+                'Viernes' => 5,
+                'Sabado' => 6,
+                'Domingo' => 7,
+            ];
 
-            // 2) Recorrer de la última a la primera (para obtener la más reciente)
-            $ultima = null;
+            $cortes = [];
 
-            foreach (array_reverse($columnas) as $col) {
+            foreach ($cols as $row) {
+                $col = $row['COLUMN_NAME'];
 
-                // 3) Verificar si tiene algún valor real
-                $sql = "SELECT 1 FROM tbl_segundometro_semana 
-                    WHERE `$col` IS NOT NULL 
-                      AND `$col` <> '' 
-                    LIMIT 1";
+                // SOLO columnas tipo Dias_mora_Dia_HH_MM
+                if (!preg_match('/^Dias_mora_(Lunes|Martes|Miercoles|Jueves|Viernes|Sabado|Domingo)_(\d{2})_(\d{2})$/', $col, $m)) {
+                    continue;
+                }
 
-                $existe = $db->queryOne($sql);
+                $dia   = $m[1];
+                $hora  = (int)$m[2];
+                $min   = (int)$m[3];
 
-                if ($existe) {
-                    $ultima = $col;
-                    break;
+                $peso = ($ordenDias[$dia] * 10000) + ($hora * 100) + $min;
+
+                $cortes[] = [
+                    'columna' => $col,
+                    'peso'    => $peso
+                ];
+            }
+
+            // Ordenar por fecha real DESC
+            usort($cortes, fn($a, $b) => $b['peso'] <=> $a['peso']);
+
+            // Buscar el primer corte que tenga datos
+            foreach ($cortes as $corte) {
+                $col = $corte['columna'];
+
+                $sql = "SELECT 1
+            FROM tbl_segundometro_semana
+            WHERE `$col` IS NOT NULL
+              AND TRIM(`$col`) <> ''
+            LIMIT 1";
+
+                if ($db->queryOne($sql)) {
+                    return self::resultado(true, "Corte encontrado.", [
+                        "columna" => $col
+                    ]);
                 }
             }
 
-            if (!$ultima) {
-                return self::resultado(false, "No hay cortes con datos.", null);
-            }
-
-            // 4) Respuesta final
-            return self::resultado(true, "Corte encontrado.", [
-                "columna" => $ultima
-            ]);
+            return self::resultado(false, "No hay cortes con datos.", null);
 
         } catch (\Exception $e) {
             return self::resultado(false, "Error al procesar la solicitud.", null, $e->getMessage());
         }
     }
+
 
     public static function descargarCorte($corte)
     {
