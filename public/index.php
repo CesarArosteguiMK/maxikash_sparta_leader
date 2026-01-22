@@ -29,12 +29,14 @@ define('METODO_DEFECTO', 'index');
 // Solo se reportan los errores y se ignoran las advertencias
 error_reporting(E_ERROR | E_PARSE);
 
+
 /*
 |--------------------------------------------------------------------------
 | CONFIGURACIÓN GENERAL
 |--------------------------------------------------------------------------
 */
 spl_autoload_register(function ($archivo) {
+
     $archivo = str_replace('\\', '/', $archivo);
     $ruta = RAIZ . "/$archivo.php";
 

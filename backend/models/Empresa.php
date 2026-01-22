@@ -6,6 +6,7 @@ use Core\Model;
 use Core\Database;
 use Core\DatabaseSegundometro;
 use Core\DatabaseAWS;
+use Core\DatabaseLegacy;
 
 class Empresa extends Model
 {
@@ -369,7 +370,182 @@ class Empresa extends Model
         }
     }
 
+    public static function descargarReporteLegacy()
+    {
+        
+        try {
 
+            /* -------------------------------------------------
+                1) OBTENER DATOS DEL GOOGLE CLOUD (MYSQL PRINCIPAL)
+            -------------------------------------------------- */
+            $db = new Database();
+
+            $sql = "
+            SELECT
+                p.numero_empleado AS external_id,
+                p.user_name AS username,
+
+                TRIM(CONCAT_WS(
+                    ' ',
+                    p.apellidop,
+                    p.apellidom,
+                    p.nombres
+                )) AS name,
+
+                p.password AS password,
+                '' AS legion,
+
+                /* ROL DEL EMPLEADO */
+                CASE
+                    WHEN TRIM(pp.nombre) IN ('Gestor 1-7','Gestor 22_29','Gestor 8_21','Gestor Despacho') THEN 'gestor'
+                    WHEN TRIM(pp.nombre) IN ('Supervisor 1-7','Supervisor 22_29','Supervisor 8_21','Supervisor despacho') THEN 'supervisor'
+                    WHEN TRIM(pp.nombre) IN ('Subgerente 8_21','Subgerente 22_29','Subgerente 1-7','Coordinador Despachos') THEN 'subgerente'
+                    WHEN TRIM(pp.nombre) IN ('Gerente 8_21','Gerente 22_29','Gerente 1-7') THEN 'gerente'
+                    WHEN TRIM(pp.nombre) IN ('Subdirector 1-7','Subdirector 8-21') THEN 'subdirector'
+                    ELSE 'sin asignar en sparta'
+                END AS role,
+
+                '' AS color,
+
+                /* ===== JEFE INMEDIATO SEGÚN SU PUESTO ===== */
+
+                /* SUPERVISOR */
+                CASE
+                    WHEN TRIM(ppj.nombre) IN ('Supervisor 1-7','Supervisor 22_29','Supervisor 8_21','Supervisor despacho')
+                    THEN pj.numero_empleado ELSE NULL
+                END AS supervisor_id,
+
+                CASE
+                    WHEN TRIM(ppj.nombre) IN ('Supervisor 1-7','Supervisor 22_29','Supervisor 8_21','Supervisor despacho')
+                    THEN TRIM(CONCAT_WS(
+                        ' ',
+                        
+                        pj.apellidop,
+                        pj.apellidom,
+                        pj.nombres
+                    ))
+
+                    ELSE ''
+                END AS supervisor_nombre,
+
+                /* SUBGERENTE */
+                CASE
+                    WHEN TRIM(ppj.nombre) IN ('Subgerente 8_21','Subgerente 22_29','Subgerente 1-7','Coordinador Despachos')
+                    THEN pj.numero_empleado ELSE NULL
+                END AS subgerente_id,
+
+                CASE
+                    WHEN TRIM(ppj.nombre) IN ('Subgerente 8_21','Subgerente 22_29','Subgerente 1-7','Coordinador Despachos')
+                THEN TRIM(CONCAT_WS(
+                        ' ',
+                    
+                        pj.apellidop,
+                        pj.apellidom,
+                        pj.nombres
+                    ))
+                    ELSE ''
+                END AS subgerente_nombre,
+
+                /* GERENTE */
+                CASE
+                    WHEN TRIM(ppj.nombre) IN ('Gerente 8_21','Gerente 22_29','Gerente 1-7')
+                    THEN pj.numero_empleado ELSE NULL
+                END AS gerente_id,
+
+                CASE
+                    WHEN TRIM(ppj.nombre) IN ('Gerente 8_21','Gerente 22_29','Gerente 1-7')
+                    THEN TRIM(CONCAT_WS(
+                        ' ',
+                        
+                        pj.apellidop,
+                        pj.apellidom,
+                        pj.nombres
+                    ))
+                    ELSE ''
+                END AS gerente_nombre,
+
+                /* SUBDIRECTOR */
+                CASE
+                    WHEN TRIM(ppj.nombre) IN ('Subdirector 1-7','Subdirector 8-21')
+                    THEN pj.numero_empleado ELSE NULL
+                END AS subdirector_id,
+
+                CASE
+                    WHEN TRIM(ppj.nombre) IN ('Subdirector 1-7','Subdirector 8-21')
+                THEN TRIM(CONCAT_WS(
+                        ' ',
+                        pj.apellidop,
+                        pj.apellidom,
+                        pj.nombres
+                    ))
+                    ELSE ''
+                END AS subdirector_nombre,
+
+                '' AS city,
+                '' AS state,
+                '' AS municipality,
+                '' AS settlement_tupe,
+                '' AS postal_code
+
+            FROM persona p
+
+            LEFT JOIN asigna_puesto ap
+                ON ap.id_persona = p.id
+
+            LEFT JOIN puesto pp
+                ON pp.id = ap.id_puesto
+
+            LEFT JOIN departamento d
+                ON d.id = pp.departamento_id
+
+            /* jefe vigente */
+            LEFT JOIN (
+                SELECT id_persona, id_jefe
+                FROM asigna_jefe
+                WHERE fecha_fin IS NULL
+                OR fecha_fin >= CURDATE()
+            ) aj ON aj.id_persona = p.id
+
+            LEFT JOIN persona pj
+                ON pj.id = aj.id_jefe
+
+            /* puesto del jefe */
+            LEFT JOIN asigna_puesto apj
+                ON apj.id_persona = aj.id_jefe
+
+            LEFT JOIN puesto ppj
+                ON ppj.id = apj.id_puesto
+
+            WHERE p.estatus <> 'Baja'
+            AND d.id IN (3, 13, 4, 8)
+            AND (
+                    pp.id IS NULL
+                    OR EXISTS (
+                        SELECT 1
+                        FROM __SPARTA_SECRET_REDACTED__.privilegios_departamento pd
+                        WHERE pd.idPersona = 1
+                    )
+            )
+
+            ORDER BY COALESCE(pp.nivel, 999) ASC;
+        ";
+
+            $rows = $db->queryAll($sql);
+
+
+            if (!$rows) {
+                return self::resultado(false, "No hay datos para el corte seleccionado ().", []);
+            }
+
+            
+           /// var_dump($finalRows);
+
+            return self::resultado(true, "Datos del corte obtenidos.", $rows);
+
+        } catch (\Exception $e) {
+            return self::resultado(false, "Error al procesar la solicitud.", null, $e->getMessage());
+        }
+    }
 
 
 

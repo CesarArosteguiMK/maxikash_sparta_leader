@@ -141,7 +141,22 @@ const http = (() => {
                         }
 
                         // Aquí sí hay fallo HTTP real
-                        const mensaje = jqXHR.responseJSON?.mensaje || "Error inesperado del servidor";
+                        let mensaje = 
+                            jqXHR.responseJSON?.mensaje ||
+                            jqXHR.responseJSON?.error ||
+                            jqXHR.responseText ||
+                            "Error inesperado del servidor";
+                        
+                        // Si el mensaje es un objeto JSON stringificado, intentar parsearlo
+                        if (typeof mensaje === "string" && mensaje.trim().startsWith("{")) {
+                            try {
+                                const parsed = JSON.parse(mensaje);
+                                mensaje = parsed.error || parsed.mensaje || mensaje;
+                            } catch (e) {
+                                // Si no se puede parsear, usar el mensaje original
+                            }
+                        }
+                        
                         if (typeof onError === "function") onError(mensaje, jqXHR);
                         else showError(mensaje);
                     },
@@ -156,11 +171,24 @@ const http = (() => {
         };
 
         const manejarError = (logicError, jqXHR) => {
-            const mensaje =
+            // Extraer mensaje de diferentes fuentes
+            let mensaje = 
                 logicError?.mensaje ||
+                logicError?.error ||
                 jqXHR?.responseJSON?.mensaje ||
+                jqXHR?.responseJSON?.error ||
                 jqXHR?.responseText ||
                 "Error inesperado del servidor";
+
+            // Si el mensaje es un objeto JSON stringificado, intentar parsearlo
+            if (typeof mensaje === "string" && mensaje.trim().startsWith("{")) {
+                try {
+                    const parsed = JSON.parse(mensaje);
+                    mensaje = parsed.error || parsed.mensaje || mensaje;
+                } catch (e) {
+                    // Si no se puede parsear, usar el mensaje original
+                }
+            }
 
             console.warn("HTTP INFO", { endpoint, api, status: jqXHR?.status, mensaje });
 
@@ -303,13 +331,50 @@ const inputFechasRestart = {}
  * SweetAlert2 -> https://sweetalert2.github.io/
  */
 const tipoMensaje = (mensaje, icono, config = null) => {
-    let configMensaje = typeof mensaje === "object" ? { html: mensaje } : { text: mensaje }
-    configMensaje.icon = icono
-    if (config) Object.assign(configMensaje, config)
-    return Swal.fire(configMensaje)
+    // Si el mensaje es un objeto JSON con error, extraer el mensaje
+    let textoMensaje = mensaje;
+    if (typeof mensaje === "object") {
+        // Si tiene propiedad 'error', usar ese mensaje
+        if (mensaje.error) {
+            textoMensaje = mensaje.error;
+        }
+        // Si tiene propiedad 'mensaje', usar ese mensaje
+        else if (mensaje.mensaje) {
+            textoMensaje = mensaje.mensaje;
+        }
+        // Si es un objeto JSON stringificado, intentar parsearlo
+        else if (typeof mensaje === "string" && mensaje.startsWith("{")) {
+            try {
+                const parsed = JSON.parse(mensaje);
+                textoMensaje = parsed.error || parsed.mensaje || mensaje;
+            } catch (e) {
+                textoMensaje = mensaje;
+            }
+        }
+        // Si no tiene propiedades conocidas, convertir a string
+        else {
+            textoMensaje = JSON.stringify(mensaje);
+        }
+    }
+    
+    let configMensaje = { text: textoMensaje };
+    configMensaje.icon = icono;
+    if (config) Object.assign(configMensaje, config);
+    return Swal.fire(configMensaje);
 }
 
-const showError = (mensaje) => tipoMensaje(mensaje, "error")
+const showError = (mensaje) => {
+    // Filtrar errores de "Recurso no disponible" solo en la página de layoutlegacy
+    if (typeof mensaje === "string" && mensaje.includes("Recurso no disponible")) {
+        // Verificar si estamos en la página de layoutlegacy
+        const currentPath = window.location.pathname.toLowerCase();
+        if (currentPath.includes("layoutlegacy") || currentPath.includes("layout_legacy")) {
+            console.warn("Error de recurso no disponible ignorado en layoutlegacy:", mensaje);
+            return; // No mostrar el error, solo loguearlo en consola
+        }
+    }
+    tipoMensaje(mensaje, "error");
+}
 const showSuccess = (mensaje) => tipoMensaje(mensaje, "success")
 const showInfo = (mensaje) => tipoMensaje(mensaje, "info")
 const showWarning = (mensaje) => tipoMensaje(mensaje, "warning")

@@ -238,4 +238,60 @@ HTML;
         exit;
     }
 
+    public function ProcesarDescargarLegacy()
+    {
+        // 1. Limpiar el buffer para evitar que cualquier eco previo rompa el Excel
+        while (ob_get_level()) {
+            ob_end_clean();
+        }
+        $r = EmpresasDAO::descargarReporteLegacy();
+
+        // 2. Si hay error, redirigir en lugar de hacer echo (que corrompe el Excel)
+        if (!$r['success'] || empty($r['datos'])) {
+            header('Location: /Reporteria/layoutlegacy?error=' . urlencode('No se pudieron obtener los datos del reporte Legacy.'));
+            exit;
+        }
+
+
+        $data = $r['datos'];
+
+        // Columnas completas según tu var_dump
+        // Columnas que coinciden con los datos de la consulta SQL
+        // IMPORTANTE: El primer parámetro es el CAMPO (clave del array), el segundo es el TÍTULO
+        $columnas = [
+            \PHPSpreadsheet::ColumnaExcel('external_id', 'ID EXTERNO'),
+            \PHPSpreadsheet::ColumnaExcel('username', 'USUARIO'),
+            \PHPSpreadsheet::ColumnaExcel('name', 'NOMBRE COMPLETO'),
+            \PHPSpreadsheet::ColumnaExcel('password', 'CONTRASEÑA'),
+            \PHPSpreadsheet::ColumnaExcel('legion', 'LEGION'),
+            \PHPSpreadsheet::ColumnaExcel('role', 'ROL'),
+            \PHPSpreadsheet::ColumnaExcel('color', 'COLOR'),
+            \PHPSpreadsheet::ColumnaExcel('supervisor_id', 'ID SUPERVISOR'),
+            \PHPSpreadsheet::ColumnaExcel('supervisor_nombre', 'NOMBRE SUPERVISOR'),
+            \PHPSpreadsheet::ColumnaExcel('subgerente_id', 'ID SUBGERENTE'),
+            \PHPSpreadsheet::ColumnaExcel('subgerente_nombre', 'NOMBRE SUBGERENTE'),
+            \PHPSpreadsheet::ColumnaExcel('gerente_id', 'ID GERENTE'),
+            \PHPSpreadsheet::ColumnaExcel('gerente_nombre', 'NOMBRE GERENTE'),
+            \PHPSpreadsheet::ColumnaExcel('subdirector_id', 'ID SUBDIRECTOR'),
+            \PHPSpreadsheet::ColumnaExcel('subdirector_nombre', 'NOMBRE SUBDIRECTOR'),
+            \PHPSpreadsheet::ColumnaExcel('city', 'CIUDAD'),
+            \PHPSpreadsheet::ColumnaExcel('state', 'ESTADO'),
+            \PHPSpreadsheet::ColumnaExcel('municipality', 'MUNICIPIO'),
+            \PHPSpreadsheet::ColumnaExcel('settlement_tupe', 'TIPO ASENTAMIENTO'),
+            \PHPSpreadsheet::ColumnaExcel('postal_code', 'CODIGO POSTAL')
+        ];
+
+        // Descargar Excel directamente
+        \PHPSpreadsheet::DescargaExcel(
+            "Reporte_Legacy_" . date('Y-m-d'),
+            "Datos Legacy",
+            "Legacy",
+            $columnas,
+            $data
+        );
+
+        // Terminar ejecución para que no se agregue nada extra
+        exit;
+    }
+
 }
