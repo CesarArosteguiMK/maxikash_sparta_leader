@@ -333,33 +333,29 @@ JS;
                 ];
             }
 
-
-            if (empty($resultado["data"]["idCredito"])) {
+            if (
+                !isset($resultado['data']['idCredito']) ||
+                $resultado['data']['idCredito'] === null ||
+                $resultado['data']['idCredito'] === ''
+            ) {
                 self::set("titulo", "Sin resultados para solicitud");
                 self::set("errorGestiones", "No se encontraron resultados");
-                $script_completo = $script . "\n" . $script_error;
-                self::set("script", $script_completo);
                 self::set("tabla", $tabla);
                 return self::render("__SPARTA_SECRET_REDACTED___request");
             }
-            else
-            {
-                self::set("dataCliente", $cliente);
-                self::set("dataEstadoCuenta", $estadoCuenta);
-                self::set("dataOtrosDatos", $otrosDatos);
-                self::set("direcciones", $respDAO);
-                self::set("referencias", $referencias);
-                self::set("notas", $notas);
 
-                var_dump($respDAO);
+// Si llega aquí, hay datos válidos
+            self::set("dataCliente", $cliente);
+            self::set("dataEstadoCuenta", $estadoCuenta);
+            self::set("dataOtrosDatos", $otrosDatos);
+            self::set("direcciones", $respDAO);
+            self::set("referencias", $referencias);
+            self::set("notas", $notas);
+            self::set("titulo", "Resultado de la solicitud");
+            self::set("script", $script);
+            self::set("tabla", $tabla);
 
-
-                self::set("titulo", "Resultado de la solicitud");
-                self::set("script", $script);
-                self::set("tabla", $tabla);
-                return self::render("__SPARTA_SECRET_REDACTED___request");
-
-            }
+            return self::render("__SPARTA_SECRET_REDACTED___request");
 
 
         }
