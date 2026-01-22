@@ -219,21 +219,7 @@
                                 visor.style.display = 'block';
                                 if (visorImagen) visorImagen.style.display = 'none';
                                 
-                                // Aplicar zoom predeterminado de 125% después de cargar el iframe
-                                visor.onload = function() {
-                                    setTimeout(() => {
-                                        if (typeof applyZoomDocumento === 'function') {
-                                            applyZoomDocumento();
-                                        }
-                                    }, 500);
-                                };
-                                
-                                // Aplicar zoom inmediatamente también
-                                setTimeout(() => {
-                                    if (typeof applyZoomDocumento === 'function') {
-                                        applyZoomDocumento();
-                                    }
-                                }, 300);
+                                // NOTA: El zoom se maneja con PDF.js, no con iframe
                                 
                                 // Mostrar información de debug
                                 if (data.archivo) {
@@ -263,16 +249,7 @@
                         );
                         modal.show();
                         
-                        // Aplicar zoom después de que el modal se muestre completamente (solo para iframe)
-                        if (data.tipo !== 'EVIDENCIA') {
-                            modal._element.addEventListener('shown.bs.modal', function() {
-                                setTimeout(() => {
-                                    if (typeof applyZoomDocumento === 'function') {
-                                        applyZoomDocumento();
-                                    }
-                                }, 500);
-                            }, { once: true });
-                        }
+                        // NOTA: El zoom se maneja con PDF.js, no con iframe
                         
                     } else {
                         Swal.fire({
@@ -289,102 +266,9 @@
                 });
             });
 
-            // Variables para zoom de documentos (FAD_DOC, EVIDENCIA, etc.)
-            let currentZoomDocumento = 1.25; // Zoom predeterminado 125%
-            let minZoomDocumento = 0.5;
-            let maxZoomDocumento = 3;
-
-            function zoomInDocumento() {
-                if (currentZoomDocumento < maxZoomDocumento) {
-                    currentZoomDocumento = Math.min(currentZoomDocumento + 0.25, maxZoomDocumento);
-                    applyZoomDocumento();
-                }
-            }
-
-            function zoomOutDocumento() {
-                if (currentZoomDocumento > minZoomDocumento) {
-                    currentZoomDocumento = Math.max(currentZoomDocumento - 0.25, minZoomDocumento);
-                    applyZoomDocumento();
-                }
-            }
-
-            function resetZoomDocumento() {
-                currentZoomDocumento = 1.20; // Resetear a 120%
-                applyZoomDocumento();
-            }
-
-            function applyZoomDocumento() {
-                const iframe = document.getElementById('visorDocumento');
-                const wrapper = document.getElementById('documentoWrapper');
-                const modalBody = document.getElementById('documentoModalBody');
-                
-                if (iframe && wrapper && modalBody) {
-                    // Aplicar zoom usando transform scale
-                    iframe.style.transform = `scale(${currentZoomDocumento})`;
-                    iframe.style.transformOrigin = 'top left';
-                    
-                    // Ajustar el tamaño del wrapper para permitir scroll cuando hay zoom
-                    if (currentZoomDocumento >= 1) {
-                        // Calcular el tamaño necesario del wrapper
-                        const bodyWidth = modalBody.clientWidth;
-                        const bodyHeight = modalBody.clientHeight;
-                        const scaledWidth = bodyWidth * currentZoomDocumento;
-                        const scaledHeight = bodyHeight * currentZoomDocumento;
-                        
-                        wrapper.style.width = `${scaledWidth}px`;
-                        wrapper.style.height = `${scaledHeight}px`;
-                        wrapper.style.minWidth = `${scaledWidth}px`;
-                        wrapper.style.minHeight = `${scaledHeight}px`;
-                        wrapper.style.alignItems = 'flex-start';
-                        wrapper.style.justifyContent = 'flex-start';
-                        wrapper.style.padding = '20px';
-                        
-                        // Asegurar que el iframe mantenga su tamaño original pero se escale
-                        iframe.style.width = `${bodyWidth}px`;
-                        iframe.style.height = `${bodyHeight}px`;
-                        
-                        // Resetear scroll al inicio cuando se aplica zoom
-                        setTimeout(() => {
-                            modalBody.scrollLeft = 0;
-                            modalBody.scrollTop = 0;
-                        }, 100);
-                    } else {
-                        // Si el zoom es menor a 1, centrar
-                        wrapper.style.width = '';
-                        wrapper.style.height = '';
-                        wrapper.style.minWidth = '';
-                        wrapper.style.minHeight = '';
-                        wrapper.style.alignItems = 'center';
-                        wrapper.style.justifyContent = 'center';
-                        wrapper.style.padding = '20px';
-                        iframe.style.width = '100%';
-                        iframe.style.height = '100%';
-                        
-                        // Centrar
-                        setTimeout(() => {
-                            modalBody.scrollLeft = (modalBody.scrollWidth - modalBody.clientWidth) / 2;
-                            modalBody.scrollTop = (modalBody.scrollHeight - modalBody.clientHeight) / 2;
-                        }, 100);
-                    }
-                }
-            }
-
-            // Zoom con scroll del mouse en el documento
-            const documentoModal = document.getElementById('modalDocumento');
-            const documentoModalBody = document.getElementById('documentoModalBody');
-            
-            if (documentoModal && documentoModalBody) {
-                documentoModalBody.addEventListener('wheel', function(e) {
-                    if (e.ctrlKey || e.metaKey) {
-                        e.preventDefault();
-                        if (e.deltaY < 0) {
-                            zoomInDocumento();
-                        } else {
-                            zoomOutDocumento();
-                        }
-                    }
-                }, { passive: false });
-            }
+            // NOTA: El sistema de zoom de iframe ha sido desactivado
+            // Todos los documentos (FAD_DOC, FACTURA, VALIDACIONES OK) son PDFs
+            // y usan SOLO el sistema de zoom de PDF.js (pdfScale, pdfZoomIn, pdfZoomOut)
 
             // Botón limpiar filtros
             const btnResetFiltros = document.getElementById('btnResetFiltros');
