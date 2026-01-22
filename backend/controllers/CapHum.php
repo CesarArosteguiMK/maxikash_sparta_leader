@@ -1132,7 +1132,7 @@ class CapHum extends Controller
         HTML;
         $departamento = CapHumDAO::getConsultaDepartamentoGestor($_SESSION['usuario_id']);
 
-        self::set("titulo", "Consulta Usuarios");
+        self::set("titulo", "Gestión de Usuarios");
         self::set("script", $script);
         self::set("departamento", $departamento);
         self::render("all_gestores");

@@ -99,7 +99,7 @@ JS;
         # -----------------------------
         # GET NORMAL
         # -----------------------------
-        self::set("titulo", "Busqueda Gestiones SKY");
+        self::set("titulo", "Histórico de Gestiones");
         self::set("script", $script);
         return self::render("gestiones_consulta");
     }

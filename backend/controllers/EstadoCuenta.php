@@ -367,7 +367,7 @@ JS;
         # -----------------------------
         # GET NORMAL
         # -----------------------------
-        self::set("titulo", "Busqueda Gestiones SKY");
+        self::set("titulo", "Estados de Cuenta");
         self::set("script", $script);
         return self::render("__SPARTA_SECRET_REDACTED___consulta");
     }
@@ -1644,7 +1644,7 @@ JS;
         # -----------------------------
         # GET NORMAL
         # -----------------------------
-        self::set("titulo", "Busqueda Gestiones SKY");
+        self::set("titulo", "Documentación");
         self::set("script", $script);
         return self::render("documentacion_consulta");
     }
