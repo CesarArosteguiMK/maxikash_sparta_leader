@@ -30,7 +30,7 @@
                                 <div class="mb-0 w-100 app-academy-sm-60 d-flex flex-column justify-content-between text-center text-sm-start">
                                     <div class="card-title">
                                         <h5 class="text-primary mb-2">Disponible para descarga diaria</h5>
-                                        <p class="text-body w-sm-80 app-academy-xl-100">El ultimo corte es: Reporte_Corte_Jueves_13_30</p>
+                                        <p class="text-body w-sm-80 app-academy-xl-100">El Último corte es: ****** falta agregar dinamicamente</p>
                                     </div>
                                     <form id="form-descarga" method="GET" action="/Reporteria/ProcesarDescargarCorte">
                                         <input type="hidden" name="columna" id="input-columna" value="">
