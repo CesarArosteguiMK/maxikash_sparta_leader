@@ -152,15 +152,13 @@ class EstadoCuenta extends Controller
 
         </script>
 
-        $script_error = 
         <script>
                 document.addEventListener('DOMContentLoaded',()=>mostrarMensajeAll({tipo:'error',titulo:'Error de busqueda',mensaje:'No se encontraron resultados'}));
         </script>
+        
+JS;
 
 
-        # -----------------------------
-        # PETICIÓN POST
-        # -----------------------------
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             $idCredito = $_POST['idCredito'] ?? null;
@@ -494,7 +492,7 @@ class EstadoCuenta extends Controller
 
     public function documentacion()
     {
-        $script = 
+        $script = <<<JS
         <script>
             document.addEventListener('DOMContentLoaded', () => {
             
@@ -1637,8 +1635,7 @@ class EstadoCuenta extends Controller
             });
             </script>
 
-
-
+JS;
 
 
 

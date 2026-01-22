@@ -407,7 +407,6 @@ class EstadoCuenta extends Model
         }
     }
 
-<<<<<<< HEAD
     public static function obtenerReportesDictamenPorFecha($fechaInicio, $fechaFin)
 {
     try {
@@ -511,7 +510,6 @@ public static function obtenerReportesDictamenParaDescarga($fechaInicio, $fechaF
     }
 }
 
-=======
     public static function getGastosCobranza($idCredito)
     {
         $query = "
@@ -557,11 +555,6 @@ public static function obtenerReportesDictamenParaDescarga($fechaInicio, $fechaF
             );
         }
     }
-
-
->>>>>>> de11aad7f57686fea8a5ebdeef55f64a37cff593
-
-
 
 
 }

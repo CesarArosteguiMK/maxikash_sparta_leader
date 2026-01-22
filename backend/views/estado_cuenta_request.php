@@ -987,7 +987,7 @@ if ($cuotasContratadas > 0) {
                 <!-- Motivo -->
                 <div class="mt-3">
                     <label class="form-label fw-semibold">
-                        Motivo de la condonación <span class="text-danger">*</span>
+                        Motivo de la condonación (convenio de pago) <span class="text-danger">*</span>
                     </label>
                     <textarea
                             id="descripcionCondonacion"
