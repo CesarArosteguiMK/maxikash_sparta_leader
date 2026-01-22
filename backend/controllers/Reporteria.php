@@ -89,40 +89,70 @@ HTML;
     }
     public function layoutlegacy()
     {
-        $script = <<<HTML
+        $script = <<<'HTML'
             <script>
-                const tabla = "#historialSolicitudes"
-                const getSolicitudes = () => {
-                    
-                    const parametros = {
-                        usuario: $_SESSION[usuario_id]
-                    }
-
-                    consultaServidor("/Empresas/ConsultaDepartamentos", parametros, (respuesta) => {
-                        if (!respuesta.success) return showError(respuesta.mensaje)  
-                        
-                        const datos = respuesta.datos.map(empresas => {
-                            return [
-                                 null,
-                                empresas.NOMBRE,
-                                empresas.RFC,
-                                empresas.RAZON_SOCIAL,
-                                empresas.ESTATUS
-                            ]
-                        });
-
-                        actualizaDatosTabla(tabla, datos)
-                      
-                    })
-                }
-                
-                
-                $(document).ready(() => {
-                    
-                    configuraTabla(tabla)
-                    getSolicitudes()
+            document.getElementById('btn-ultimo-corte').addEventListener('click', function(e) {
+                e.preventDefault();
+            
+                // Mostrar SweetAlert de carga
+                Swal.fire({
+                    title: 'Preparando Reporte Legacy...',
+                    text: 'Por favor espera mientras se cargan los datos',
+                    icon: 'info',
+                    allowOutsideClick: false,
+                    allowEscapeKey: false,
+                    showConfirmButton: false,
+                    didOpen: () => Swal.showLoading()
                 });
-
+            
+                // Simular una pequeña validación o carga de datos
+                // En este caso, vamos directo a la confirmación después de un breve delay
+                setTimeout(() => {
+                    Swal.close();
+            
+                    // Modal de confirmación elegante
+                    Swal.fire({
+                        html: `
+                            <p style="margin-bottom: 1rem; font-size: 1.1rem;">El reporte de usuarios Legacy está listo para descargar.</p>
+                            <p style="margin-bottom: 1.5rem; color: #697a8d;">Contiene toda la información actualizada de usuarios, roles y jerarquías organizacionales.</p>
+                            <p style="margin-top: 1.5rem;"><strong>¿Deseas descargarlo ahora?</strong></p>
+                        `,
+                        icon: 'info',
+                        showCancelButton: true,
+                        confirmButtonText: '<i class="bx bx-download me-2"></i>Sí, descargar',
+                        cancelButtonText: 'No, cancelar',
+                        confirmButtonColor: '#696cff',
+                        cancelButtonColor: '#a1acb8',
+                        reverseButtons: true,
+                        customClass: {
+                            confirmButton: 'btn btn-primary',
+                            cancelButton: 'btn btn-label-secondary'
+                        }
+                    }).then(result => {
+                        if (result.isConfirmed) {
+                            // Mostrar modal de generación
+                            Swal.fire({
+                                title: 'Generando archivo Excel...',
+                                text: 'Por favor espera mientras se genera el reporte Legacy',
+                                icon: 'info',
+                                allowOutsideClick: false,
+                                allowEscapeKey: false,
+                                showConfirmButton: false,
+                                didOpen: () => Swal.showLoading()
+                            });
+                    
+                            // Enviar el formulario para descargar
+                            document.getElementById('form-descarga').submit();
+                    
+                            // Cerrar SweetAlert automáticamente después de 2-3 segundos
+                            // cuando la descarga ya debería haber comenzado
+                            setTimeout(() => {
+                                Swal.close();
+                            }, 2500);
+                        }
+                    });
+                }, 800); // Pequeño delay para mostrar el modal de carga
+            });
             </script>
         HTML;
 
@@ -179,6 +209,18 @@ HTML;
     }
     public function ProcesarDescargarCorte()
     {
+
+        // Aumentar tiempo de ejecución a 5 minutos
+        set_time_limit(300);
+        
+        // Aumentar memoria si es necesario
+        ini_set('memory_limit', '512M');
+        
+        // Limpiar buffer
+        while (ob_get_level()) {
+            ob_end_clean();
+        }
+        
         // Obtener corte por GET
         $corte = $_GET['columna'] ?? null;
         if (!$corte) {
@@ -197,32 +239,32 @@ HTML;
 
         // Columnas completas según tu var_dump
         $columnas = [
-            \PHPSpreadsheet::ColumnaExcel('ID ORIGINAL', 'id_original'),
-            \PHPSpreadsheet::ColumnaExcel('TELEFONO', 'Telefono'),
-            \PHPSpreadsheet::ColumnaExcel('FIDEICOMISO', 'fideicomiso'),
-            \PHPSpreadsheet::ColumnaExcel('MKM', 'mkm'),
-            \PHPSpreadsheet::ColumnaExcel('ID CREDITO', 'id_credit'),
-            \PHPSpreadsheet::ColumnaExcel('NOMBRE', 'nombre'),
-            \PHPSpreadsheet::ColumnaExcel('PAGOS VENCIDOS', 'pagos_vencidos'),
-            \PHPSpreadsheet::ColumnaExcel('MONTO VENCIDO', 'monto_vencido', ['estilo' => \PHPSpreadsheet::GetEstilosExcel('moneda')]),
-            \PHPSpreadsheet::ColumnaExcel('BUCKET', 'bucket'),
-            \PHPSpreadsheet::ColumnaExcel('FECHA DE PAGO', 'fecha_de_pago'),
-            \PHPSpreadsheet::ColumnaExcel('TELEFONO 1', 'telefono_1'),
-            \PHPSpreadsheet::ColumnaExcel('TIPO DE PAGO', 'tipoo_de_pago'),
-            \PHPSpreadsheet::ColumnaExcel('CLABE', 'clabe'),
-            \PHPSpreadsheet::ColumnaExcel('BANCO', 'banco'),
-            \PHPSpreadsheet::ColumnaExcel('ATRIBUTO SEGMENTO', 'atributo_segmento'),
-            \PHPSpreadsheet::ColumnaExcel('NOMBRE COMPLETO', 'nombre_completo'),
-            \PHPSpreadsheet::ColumnaExcel('NOMBRE REFERENCIA 1', 'nombre_completo_referencia1'),
-            \PHPSpreadsheet::ColumnaExcel('TELEFONO REFERENCIA 1', 'telefono_referencia1'),
-            \PHPSpreadsheet::ColumnaExcel('NOMBRE REFERENCIA 2', 'nombre_completo_referencia2'),
-            \PHPSpreadsheet::ColumnaExcel('TELEFONO REFERENCIA 2', 'telefono_referencia2'),
-            \PHPSpreadsheet::ColumnaExcel('NOMBRE REFERENCIA 3', 'nombre_referencia_3'),
-            \PHPSpreadsheet::ColumnaExcel('TELEFONO REFERENCIA 3', 'telefono_referencia_3'),
-            \PHPSpreadsheet::ColumnaExcel('MOTIVO DE NO PAGO', 'Motivo_de_no_Pago'),
-            \PHPSpreadsheet::ColumnaExcel('CUANDO LE PAGAN', 'cuando_le_pagan'),
-            \PHPSpreadsheet::ColumnaExcel('GIRO DE TRABAJO', 'Giro_de_Trabajo'),
-            \PHPSpreadsheet::ColumnaExcel('HORA DE PAGO', 'hora_de_pago')
+            \PHPSpreadsheet::ColumnaExcel('id_original', 'ID ORIGINAL'),
+            \PHPSpreadsheet::ColumnaExcel('Telefono', 'TELEFONO'),
+            \PHPSpreadsheet::ColumnaExcel('fideicomiso', 'FIDEICOMISO'),
+            \PHPSpreadsheet::ColumnaExcel('mkm', 'MKM'),
+            \PHPSpreadsheet::ColumnaExcel('id_credit', 'ID CREDITO'),
+            \PHPSpreadsheet::ColumnaExcel('nombre', 'NOMBRE'),
+            \PHPSpreadsheet::ColumnaExcel('pagos_vencidos', 'PAGOS VENCIDOS'),
+            \PHPSpreadsheet::ColumnaExcel('monto_vencido', 'MONTO VENCIDO', ['estilo' => \PHPSpreadsheet::GetEstilosExcel('moneda')]),
+            \PHPSpreadsheet::ColumnaExcel('bucket', 'BUCKET'),
+            \PHPSpreadsheet::ColumnaExcel('fecha_de_pago', 'FECHA DE PAGO'),
+            \PHPSpreadsheet::ColumnaExcel('telefono_1', 'TELEFONO 1'),
+            \PHPSpreadsheet::ColumnaExcel('tipoo_de_pago', 'TIPO DE PAGO'),
+            \PHPSpreadsheet::ColumnaExcel('clabe', 'CLABE'),
+            \PHPSpreadsheet::ColumnaExcel('banco', 'BANCO'),
+            \PHPSpreadsheet::ColumnaExcel('atributo_segmento', 'ATRIBUTO SEGMENTO'),
+            \PHPSpreadsheet::ColumnaExcel('nombre_completo', 'NOMBRE COMPLETO'),
+            \PHPSpreadsheet::ColumnaExcel('nombre_completo_referencia1', 'NOMBRE REFERENCIA 1'),
+            \PHPSpreadsheet::ColumnaExcel('telefono_referencia1', 'TELEFONO REFERENCIA 1'),
+            \PHPSpreadsheet::ColumnaExcel('nombre_completo_referencia2', 'NOMBRE REFERENCIA 2'),
+            \PHPSpreadsheet::ColumnaExcel('telefono_referencia2', 'TELEFONO REFERENCIA 2'),
+            \PHPSpreadsheet::ColumnaExcel('nombre_referencia_3', 'NOMBRE REFERENCIA 3'),
+            \PHPSpreadsheet::ColumnaExcel('telefono_referencia_3', 'TELEFONO REFERENCIA 3'),
+            \PHPSpreadsheet::ColumnaExcel('Motivo_de_no_Pago', 'MOTIVO DE NO PAGO'),
+            \PHPSpreadsheet::ColumnaExcel('cuando_le_pagan', 'CUANDO LE PAGAN'),
+            \PHPSpreadsheet::ColumnaExcel('Giro_de_Trabajo', 'GIRO DE TRABAJO'),
+            \PHPSpreadsheet::ColumnaExcel('hora_de_pago', 'HORA DE PAGO')
         ];
 
         // Descargar Excel directamente

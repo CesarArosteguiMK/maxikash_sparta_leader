@@ -29,14 +29,19 @@ define('METODO_DEFECTO', 'index');
 // Solo se reportan los errores y se ignoran las advertencias
 error_reporting(E_ERROR | E_PARSE);
 
-
+require_once LIBRERIAS . '/PhpSpreadsheet/vendor/autoload.php';
 /*
 |--------------------------------------------------------------------------
 | CONFIGURACIÓN GENERAL
 |--------------------------------------------------------------------------
 */
 spl_autoload_register(function ($archivo) {
-
+    // Ignorar clases que maneja el vendor de PhpSpreadsheet
+    if (strpos($archivo, 'PhpOffice\\') === 0 || 
+        strpos($archivo, 'ZipStream\\') === 0 ||
+        strpos($archivo, 'Psr\\') === 0) {
+        return;
+    }
     $archivo = str_replace('\\', '/', $archivo);
     $ruta = RAIZ . "/$archivo.php";
 
