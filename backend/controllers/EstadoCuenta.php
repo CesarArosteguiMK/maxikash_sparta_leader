@@ -61,16 +61,30 @@ class EstadoCuenta extends Controller
             // Cambiar entre ID y Nombre
             function actualizarInputs() {
                     const modo = document.querySelector('input[name="modoBusqueda"]:checked')?.value;
-                    document.getElementById('divNombre').style.display = modo === 'nombre' ? 'block' : 'none';
-                    document.getElementById('divID').style.display = modo === 'id' ? 'block' : 'none';
+                    const divNombre = document.getElementById('divNombre');
+                    const divID = document.getElementById('divID');
+                    
+                    // Verificar que los elementos existan antes de acceder a sus propiedades
+                    if (divNombre) {
+                        divNombre.style.display = modo === 'nombre' ? 'block' : 'none';
+                    }
+                    if (divID) {
+                        divID.style.display = modo === 'id' ? 'block' : 'none';
+                    }
             }
             
             document.querySelectorAll('input[name="modoBusqueda"]').forEach(el =>
                 el.addEventListener('change', actualizarInputs)
             );
             
-            document.getElementById('modalDirecciones')
-              .addEventListener('shown.bs.modal', actualizarInputs);
+            // Solo agregar el event listener si el modal existe
+            const modalDirecciones = document.getElementById('modalDirecciones');
+            if (modalDirecciones) {
+                modalDirecciones.addEventListener('shown.bs.modal', function() {
+                    // No ejecutar actualizarInputs cuando se abre el modal de direcciones
+                    // ya que ese modal no tiene los elementos divNombre y divID
+                });
+            }
 
         
             // Botón limpiar filtros
@@ -151,11 +165,13 @@ class EstadoCuenta extends Controller
         
 
         </script>
+JS;
 
+        // Script de error - solo se ejecuta cuando hay un error
+        $script_error = <<<JS
         <script>
                 document.addEventListener('DOMContentLoaded',()=>mostrarMensajeAll({tipo:'error',titulo:'Error de busqueda',mensaje:'No se encontraron resultados'}));
         </script>
-        
 JS;
 
 
@@ -343,19 +359,28 @@ JS;
                 self::set("tabla", $tabla);
                 return self::render("__SPARTA_SECRET_REDACTED___request");
             }
+            if (empty($resultado["data"]["idCredito"])) {
 
-// Si llega aquí, hay datos válidos
-            self::set("dataCliente", $cliente);
-            self::set("dataEstadoCuenta", $estadoCuenta);
-            self::set("dataOtrosDatos", $otrosDatos);
-            self::set("direcciones", $respDAO);
-            self::set("referencias", $referencias);
-            self::set("notas", $notas);
-            self::set("titulo", "Resultado de la solicitud");
-            self::set("script", $script);
-            self::set("tabla", $tabla);
+                self::set("titulo", "Sin resultados para solicitud");
+                self::set("errorGestiones", "No se encontraron resultados");
+                self::set("tabla", $tabla);
 
-            return self::render("__SPARTA_SECRET_REDACTED___request");
+                return self::render("__SPARTA_SECRET_REDACTED___request");
+
+            } else {
+
+                self::set("dataCliente", $cliente);
+                self::set("dataEstadoCuenta", $estadoCuenta);
+                self::set("dataOtrosDatos", $otrosDatos);
+                self::set("direcciones", $respDAO);
+                self::set("referencias", $referencias);
+                self::set("notas", $notas);
+                self::set("titulo", "Resultado de la solicitud");
+                self::set("script", $script);
+                self::set("tabla", $tabla);
+
+                return self::render("__SPARTA_SECRET_REDACTED___request");
+            }
 
 
         }
@@ -363,7 +388,7 @@ JS;
         # -----------------------------
         # GET NORMAL
         # -----------------------------
-        self::set("titulo", "Busqueda Gestiones SKY");
+        self::set("titulo", "Estados de Cuenta");
         self::set("script", $script);
         return self::render("__SPARTA_SECRET_REDACTED___consulta");
     }
@@ -592,7 +617,6 @@ JS;
                             const watermark = document.getElementById('pdfWatermark');
                             if (watermark) {
                                 watermark.removeAttribute('data-marcas-sin-valor');
-                                console.log('✅ Atributo data-marcas-sin-valor removido del pdfWatermark para INE');
                             }
                             
                             // Crear marcas de agua inmediatamente y después de que las imágenes se carguen
@@ -654,7 +678,6 @@ JS;
                                 if (data.tipo === 'FACTURA' || data.tipo === 'FAD_DOC' || data.tipo === 'CONTRATO') {
                                     // Usar PDF.js para FACTURA OK, FAD_DOC y VALIDACIONES OK - EXACTAMENTE como EVIDENCIA
                                     const tipoNombre = data.tipo === 'FACTURA' ? 'FACTURA' : (data.tipo === 'FAD_DOC' ? 'FAD_DOC' : 'VALIDACIONES');
-                                    console.log('Mostrando ' + tipoNombre + ' con PDF.js:', data);
                                     
                                     // Asegurar que el contenedor de visor simple esté oculto
                                     const embedContainer = document.getElementById('visorPdfEmbed');
@@ -682,7 +705,6 @@ JS;
                                                 pdfUrl = decodeURIComponent(urlParam);
                                             }
                                         } catch (e) {
-                                            console.log('No se pudo extraer URL del viewer, usando URL directa');
                                         }
                                     }
                                     
@@ -696,14 +718,12 @@ JS;
                                             const fileName = urlParams.searchParams.get('fileName');
                                             if (fileName) {
                                                 pdfUrl = '/estadocuenta/verDocumento?fileName=' + encodeURIComponent(fileName);
-                                                console.log('URL convertida a proxy local para evitar descarga:', pdfUrl);
                                             }
                                         } catch (e) {
                                             console.warn('No se pudo convertir URL a proxy local:', e);
                                         }
                                     }
                                     
-                                    console.log('URL final para ' + tipoNombre + ':', pdfUrl);
                                     
                                     if (typeof cargarPDFFactura === 'function') {
                                         // Usar función específica para FACTURA, FAD_DOC y CONTRATO (sin fallback a iframe)
@@ -1448,7 +1468,6 @@ JS;
                                     
                                 } else {
                                     // Para otros tipos (EVIDENCIA si es PDF), usar PDF.js
-                                    console.log('Mostrando PDF con PDF.js:', data);
                                     
                                     // Asegurar que el contenedor de visor simple esté oculto
                                     const embedContainer = document.getElementById('visorPdfEmbed');
@@ -1472,7 +1491,6 @@ JS;
                                                 pdfUrl = decodeURIComponent(urlParam);
                                             }
                                         } catch (e) {
-                                            console.log('No se pudo extraer URL del viewer, usando URL directa');
                                         }
                                     }
                                     
@@ -1640,7 +1658,7 @@ JS;
         # -----------------------------
         # GET NORMAL
         # -----------------------------
-        self::set("titulo", "Busqueda Gestiones SKY");
+        self::set("titulo", "Documentación");
         self::set("script", $script);
         return self::render("documentacion_consulta");
     }

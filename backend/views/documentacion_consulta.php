@@ -777,10 +777,8 @@
         // Función para crear múltiples capas de marca de agua
         function crearMarcasAgua() {
             const overlays = document.querySelectorAll('.watermark-overlay, .watermark-overlay-zoom');
-            console.log('crearMarcasAgua llamada - Overlays encontrados:', overlays.length);
             
             overlays.forEach(overlay => {
-                console.log('Procesando overlay:', overlay.id, overlay.className);
 
                 // VERIFICACIÓN ESPECIAL: Detectar si es EVIDENCIA como IMAGEN
                const modalDocumento = document.getElementById('modalDocumento');
@@ -791,7 +789,6 @@
                 const modalTitle = document.querySelector('#modalDocumento .modal-title');
                 const tituloTexto = modalTitle ? modalTitle.textContent.trim() : '';
                 esEVIDENCIAImagen = tituloTexto === 'EVIDENCIA' || tituloTexto.includes('EVIDENCIA');
-                console.log('🔍 Detectado EVIDENCIA en modal:', esEVIDENCIAImagen, 'Título:', tituloTexto);
                }
                 
                 // VERIFICACIÓN ESPECIAL PARA INE: Si el overlay está dentro del modal de INE, NO aplicar marcas "SIN VALOR" de PDF
@@ -802,14 +799,12 @@
                 // Si está en el modal de INE, este overlay es para imágenes de INE, NO para PDF
                 // Las imágenes de INE tienen sus propias marcas de agua (la lógica original)
                 if (estaEnModalINE && overlay.id === 'pdfWatermark') {
-                    console.log('⚠️ Saltando overlay pdfWatermark que está en modal de INE - INE usa imágenes, no PDF');
                     return; // Salir inmediatamente, no procesar este overlay
                 }
                 
                 // Limpiar elementos anteriores si existen
                 const existingLayers = overlay.querySelectorAll('.watermark-layer');
                 existingLayers.forEach(layer => layer.remove());
-                console.log('Capas anteriores eliminadas:', existingLayers.length);
                 
                 // Obtener dimensiones reales del overlay
                 const overlayRect = overlay.getBoundingClientRect();
@@ -846,7 +841,6 @@
                         if (imgDoc) {
                             img = imgDoc;
                             container = img.closest('.watermark-container');
-                            console.log('✅ Imagen y contenedor encontrados para EVIDENCIA');
                         }
                     }
                 }
@@ -854,7 +848,6 @@
                 // Detectar si es un canvas de PDF.js - puede ser FACTURA/FAD_DOC/VALIDACIONES o INE/EVIDENCIA
                 // IMPORTANTE: Declarar ANTES de usarlo
                 const isPdfJsCanvas = canvas && canvas.id === 'pdfCanvas' && overlay.id === 'pdfWatermark';
-                console.log('isPdfJsCanvas detectado:', isPdfJsCanvas, 'canvas:', canvas ? canvas.id : 'null', 'overlay:', overlay.id);
                 
                 // VERIFICACIÓN TEMPRANA: Si es overlay de PDF.js, verificar ANTES de procesar si es INE/EVIDENCIA
                 if (isPdfJsCanvas) {
@@ -864,7 +857,6 @@
                     const estaEnModalINE = (modalINE && modalINE.contains(overlay)) || (modalZoomINE && modalZoomINE.contains(overlay));
                     
                     if (estaEnModalINE) {
-                        console.log('⚠️ Saltando overlay pdfWatermark - Está en modal de INE (INE usa imágenes, no PDF.js)');
                         return; // Salir inmediatamente
                     }
                     
@@ -883,14 +875,12 @@
                     // Si es INE (NO EVIDENCIA) y NO requiere marcas "SIN VALOR", saltar completamente
                     // EVIDENCIA puede usar marcas de PDFs
                     if (esINE && !requiereMarcasSINVALOR) {
-                        console.log('⚠️ Saltando overlay de PDF.js - Es INE y tiene sus propias marcas de agua');
                         return; // Salir inmediatamente, no procesar este overlay
                     }
                     
                     // Si NO es FACTURA/FAD_DOC/VALIDACIONES (no tiene pdfDocFactura ni el atributo), saltar
                     const esDocumentoConMarcasSINVALOR = typeof pdfDocFactura !== 'undefined' && pdfDocFactura !== null;
                     if (!esDocumentoConMarcasSINVALOR && !requiereMarcasSINVALOR) {
-                        console.log('⚠️ Saltando overlay de PDF.js - No es FACTURA/FAD_DOC/VALIDACIONES');
                         return; // Salir inmediatamente
                     }
                 }
@@ -924,7 +914,6 @@
                         // Para canvas de PDF.js (FACTURA), usar las dimensiones del canvas directamente
                         width = canvas.width || parseFloat(overlay.style.width) || overlayRect.width;
                         height = canvas.height || parseFloat(overlay.style.height) || overlayRect.height;
-                        console.log('Marcas de agua para PDF.js canvas:', width, 'x', height);
                     } else if (isPdfOverlay) {
                         // Usar las dimensiones reales del overlay (que ya tiene el tamaño correcto con zoom)
                         width = overlayRect.width || overlay.offsetWidth || overlay.clientWidth;
@@ -981,11 +970,9 @@
                 }
                 
                 if (width === 0 || height === 0) {
-                    console.log('⚠️ Dimensiones inválidas, saltando overlay:', overlay.id, 'width:', width, 'height:', height);
                     return;
                 }
                 
-                console.log('✅ Dimensiones válidas para overlay:', overlay.id, 'width:', width, 'height:', height, 'isPdfJsCanvas:', isPdfJsCanvas, 'isIframePdf:', isIframePdf);
                 
                 // Calcular número de capas según el tamaño
                 const effectiveWidth = width;
@@ -1044,7 +1031,6 @@
                         container.style.maxWidth = '100%';
                         container.style.maxHeight = '100%';
                         
-                        console.log('✅ Contenedor ajustado al tamaño de imagen:', width, 'x', height);
                     }
                     
                     overlay.style.width = width + 'px';
@@ -1073,21 +1059,11 @@
                     // Permitir que las marcas de agua se extiendan fuera del área si es necesario
                     overlay.style.clipPath = 'none';
                     overlay.style.clip = 'auto';
-                    console.log('Overlay configurado para PDF.js canvas:', width, 'x', height);
-                    console.log('Overlay styles aplicados:', {
-                        width: overlay.style.width,
-                        height: overlay.style.height,
-                        position: overlay.style.position,
-                        zIndex: overlay.style.zIndex,
-                        visibility: overlay.style.visibility,
-                        overflow: overlay.style.overflow
-                    });
                 }
                 
                 if (isIframePdf) {
                     // MARCAS DE AGUA "SIN VALOR" COMENTADAS - NO SE APLICAN A NINGÚN PDF
                     // Las marcas de agua "SIN VALOR" para FACTURA, FAD_DOC y VALIDACIONES están deshabilitadas
-                    console.log('⚠️ Marcas de agua "SIN VALOR" deshabilitadas - Saltando creación para PDFs');
                     return; // Salir sin crear marcas de agua
                     
                     /* CÓDIGO COMENTADO - MARCAS DE AGUA "SIN VALOR" PARA PDFs
@@ -1109,13 +1085,11 @@
                         // Solo saltar si es INE (NO EVIDENCIA) y NO requiere marcas "SIN VALOR"
                         // EVIDENCIA puede usar marcas de PDFs
                         if (esINE && !requiereMarcasSINVALOR) {
-                            console.log('⚠️ Verificación doble: Saltando marcas de agua "SIN VALOR" - Es INE');
                             return;
                         }
                         
                         const esDocumentoConMarcasSINVALOR = typeof pdfDocFactura !== 'undefined' && pdfDocFactura !== null;
                         if (!esDocumentoConMarcasSINVALOR && !requiereMarcasSINVALOR) {
-                            console.log('⚠️ Verificación doble: Saltando marcas de agua "SIN VALOR" - No es FACTURA/FAD_DOC/VALIDACIONES');
                             return;
                         }
                     }
@@ -1129,7 +1103,6 @@
                             // Para canvas de PDF.js, usar las dimensiones del canvas
                             width = canvas.width || parseFloat(overlay.style.width) || 1200;
                             height = canvas.height || parseFloat(overlay.style.height) || 800;
-                            console.log('Dimensiones corregidas para PDF.js canvas:', width, 'x', height);
                         } else if (isPdfOverlay) {
                             const overlayStyle = window.getComputedStyle(overlay);
                             const overlayWidth = parseFloat(overlayStyle.width) || parseFloat(overlay.style.width) || overlayRect.width;
@@ -1144,7 +1117,6 @@
                         }
                     }
                     
-                    console.log('Creando marcas de agua "SIN VALOR" para FACTURA/FAD_DOC/VALIDACIONES - Dimensiones:', width, 'x', height, 'isPdfJsCanvas:', isPdfJsCanvas);
                     
                     // Configuración para patrón ordenado y bien espaciado
                     const fontSizeForIframe = '2.5rem'; // Tamaño de fuente apropiado
@@ -1156,7 +1128,6 @@
                     const numRows = Math.ceil((height * 1.2) / layerSpacing) + 1; // Filas suficientes para cubrir todo el alto
                     const numCols = Math.ceil((width * 1.6) / textSpacing) + 5; // Columnas suficientes para cubrir todo el ancho
                     
-                    console.log('Creando', numRows, 'filas de marcas de agua para PDF.js canvas - Dimensiones:', width, 'x', height);
                     
                     // Crear patrón diagonal ordenado que cubra TODO el documento
                     // Cada capa representa una línea diagonal
@@ -1210,9 +1181,7 @@
                             display: block !important;
                         `;
                         overlay.appendChild(layer);
-                        console.log('Capa de marca de agua creada - row:', row, 'top:', topPos, 'left:', leftOffset, 'width:', layerWidth, 'repetitions:', repetitions);
                     }
-                    console.log('✅ Marcas de agua creadas para PDF.js - Total capas:', numRows + 2, 'overlay:', overlay.id);
                     */ // FIN DEL CÓDIGO COMENTADO
                 } else {
                     // LÓGICA ORIGINAL PARA IMÁGENES (INE, EVIDENCIA) - NO TOCAR ESTA PARTE
@@ -1220,7 +1189,6 @@
                     
                     // VERIFICACIÓN: Si el overlay es pdfWatermark (de PDF.js), NO aplicar marcas de imágenes
                     if (overlay.id === 'pdfWatermark') {
-                        console.log('⚠️ Saltando marcas de imágenes para overlay pdfWatermark');
                         return;
                     }
                     
@@ -1233,7 +1201,6 @@
                         const modalTitle = document.querySelector('#modalDocumento .modal-title');
                         const tituloTexto = modalTitle ? modalTitle.textContent.trim() : '';
                         esEVIDENCIA = tituloTexto === 'EVIDENCIA' || tituloTexto.includes('EVIDENCIA');
-                        console.log('🔍 Verificando si es EVIDENCIA:', esEVIDENCIA, 'Título:', tituloTexto);
                     }
                     
                     // VERIFICACIÓN IMPORTANTE: Solo aplicar marcas de agua a overlays dentro de contenedores de imagen
@@ -1247,11 +1214,9 @@
                             if (imgDoc) {
                                 img = imgDoc;
                                 container = img.closest('.watermark-container');
-                                console.log('📸 EVIDENCIA - imgDocumento encontrado:', imgDoc ? 'Sí' : 'No');
                                 
                                 // Si imgDocumento existe pero no tiene contenedor, CREAR el contenedor
                                 if (imgDoc && !container) {
-                                    console.log('🔧 EVIDENCIA - Creando contenedor para imgDocumento');
                                     
                                     // Buscar el contenedor padre de la imagen
                                     const imgContainer = imgDoc.parentElement;
@@ -1264,10 +1229,8 @@
                                         container.style.position = 'relative';
                                         container.style.display = 'inline-block';
                                         
-                                        console.log('✅ EVIDENCIA - Contenedor creado exitosamente');
                                     }
                                 } else if (container) {
-                                    console.log('✅ EVIDENCIA - Contenedor encontrado para imgDocumento');
                                 }
                             }
                         }
@@ -1276,24 +1239,20 @@
                         if (!container && overlay.parentElement) {
                             container = overlay.parentElement.closest('.watermark-container');
                             if (container) {
-                                console.log('✅ Contenedor encontrado desde parentElement');
                             }
                         }
                         
                         // SOLO salir si NO es EVIDENCIA y NO hay contenedor
                         // Para EVIDENCIA, continuar incluso sin contenedor formal
                         if (!container && !esEVIDENCIA) {
-                            console.log('⚠️ Saltando overlay - No está dentro de un contenedor de imagen');
                             return;
                         }
                         
                         // Para EVIDENCIA sin contenedor, usar el padre del overlay
                         if (!container && esEVIDENCIA) {
-                            console.log('⚠️ EVIDENCIA sin contenedor - Intentando usar padre del overlay');
                             const imgDoc = document.getElementById('imgDocumento');
                             if (imgDoc && imgDoc.parentElement) {
                                 container = imgDoc.parentElement;
-                                console.log('✅ Usando padre de imgDocumento como contenedor');
                             }
                         }
                     }
@@ -1304,17 +1263,14 @@
                     }
                     if (!img && esEVIDENCIA) {
                         img = document.getElementById('imgDocumento');
-                        console.log('📸 EVIDENCIA - Usando imgDocumento directamente:', img ? 'Encontrado' : 'No encontrado');
                     }
                     
                     // Verificar que el overlay esté visible y tenga dimensiones antes de crear marcas
                     const overlayStyle = window.getComputedStyle(overlay);
                     const overlayVisible = overlayStyle.display !== 'none' && overlayStyle.visibility !== 'hidden' && overlayStyle.opacity !== '0';
                     
-                    console.log('✅ Creando marcas de agua para imagen (INE/EVIDENCIA) - Dimensiones:', effectiveWidth, 'x', effectiveHeight, 'numLayers:', numLayers, 'spacing:', spacing, 'img:', img ? img.id : 'null', 'container:', container ? 'encontrado' : 'no encontrado', 'overlay visible:', overlayVisible, 'esEVIDENCIA:', esEVIDENCIA);
                     
                     if (!overlayVisible) {
-                        console.log('⚠️ Overlay no está visible, forzando visibilidad');
                         overlay.style.display = 'block';
                         overlay.style.visibility = 'visible';
                         overlay.style.opacity = '1';
@@ -1351,7 +1307,6 @@
                         `;
                         overlay.appendChild(layer);
                     }
-                    console.log('✅ Marcas de agua creadas para imagen (INE/EVIDENCIA) - Total capas:', numLayers + 2, 'overlay:', overlay.id || overlay.className, 'esEVIDENCIA:', esEVIDENCIA);
                 }
             });
         }
@@ -1372,18 +1327,15 @@
             // Si es INE, NO aplicar marcas de agua del modal (tiene sus propias marcas)
             // EVIDENCIA puede usar marcas de PDFs
             if (esINE) {
-                console.log('⚠️ Es INE - Saltando marcas de agua del modal (INE tiene sus propias marcas)');
                 return;
             }
             
             if (!esPDFConMarcasSINVALOR) {
-                console.log('⚠️ No es PDF con marcas SIN VALOR - Saltando marcas de agua del modal');
                 return;
             }
             
             const modalWatermark = document.getElementById('modalPdfWatermark');
             if (!modalWatermark) {
-                console.log('⚠️ No se encontró el overlay de marca de agua del modal');
                 return;
             }
             
@@ -1394,7 +1346,6 @@
             // Obtener dimensiones del modal body
             const modalBody = document.getElementById('documentoModalBody');
             if (!modalBody) {
-                console.log('⚠️ No se encontró el body del modal');
                 return;
             }
             
@@ -1403,11 +1354,9 @@
             const height = modalRect.height || modalBody.clientHeight || modalBody.offsetHeight;
             
             if (width === 0 || height === 0) {
-                console.log('⚠️ Dimensiones inválidas del modal:', width, 'x', height);
                 return;
             }
             
-            console.log('✅ Creando marcas de agua "SIN VALOR" para TODO el modal PDF - Dimensiones:', width, 'x', height);
             
             // Detectar si es móvil para ajustar tamaño de marcas de agua
             const esMovil = window.innerWidth <= 768;
@@ -1470,7 +1419,6 @@
                 modalWatermark.appendChild(layer);
             }
             
-            console.log('✅ Marcas de agua "SIN VALOR" creadas para TODO el modal PDF - Total capas:', numRows + 4);
         }
 
         // Variables para zoom dinámico
@@ -1944,7 +1892,6 @@
                         };
                     }
                 } catch (e) {
-                    console.log('No se pudo bloquear getImageData');
                 }
             }
         }
@@ -2097,7 +2044,6 @@
                     if (modalWatermark) {
                         const existingLayers = modalWatermark.querySelectorAll('.watermark-layer');
                         existingLayers.forEach(layer => layer.remove());
-                        console.log('✅ Marcas de agua del modal limpiadas');
                     }
                 });
                 
@@ -2109,7 +2055,6 @@
                         resizeTimeout = setTimeout(() => {
                             if (typeof crearMarcasAguaModalPDF === 'function') {
                                 crearMarcasAguaModalPDF();
-                                console.log('✅ Marcas de agua del modal actualizadas después de resize');
                             }
                         }, 300);
                     }
@@ -2502,7 +2447,6 @@
         // Usar versión local (5.3.31)
         if (typeof pdfjsLib !== 'undefined') {
             pdfjsLib.GlobalWorkerOptions.workerSrc = '/assets/vendor/libs/pdf-viewer/pdf.worker.mjs';
-            console.log('✅ Worker de PDF.js configurado correctamente (versión local 5.3.31)');
         } else {
             console.error('❌ PDF.js no está disponible después de cargar el script');
         }
@@ -2655,17 +2599,12 @@
                 console.error('PDF.js NO está cargado');
                 return false;
             }
-            console.log('PDF.js está cargado correctamente:', {
-                version: pdfjsLib.version || 'desconocida',
-                GlobalWorkerOptions: pdfjsLib.GlobalWorkerOptions
-            });
             return true;
         }
         
         // Verificar inmediatamente después de que se carga el script
         if (typeof pdfjsLib !== 'undefined') {
             pdfjsLib.GlobalWorkerOptions.workerSrc = '/assets/vendor/libs/pdf-viewer/pdf.worker.mjs';
-            console.log('Worker de PDF.js configurado (versión local 5.3.31)');
         } else {
             console.warn('PDF.js aún no está cargado, esperando...');
             // Intentar verificar después de un delay
@@ -2686,7 +2625,6 @@
                 // Intentar cargar manualmente si falló
                 setTimeout(() => {
                     if (verificarPDFjs()) {
-                        console.log('✅ PDF.js se cargó después del delay');
                     } else {
                         console.error('❌ PDF.js no se pudo cargar. Verifique que el CDN esté accesible.');
                     }
@@ -2700,7 +2638,6 @@
             if (!diagnostico.pdfjsLib) {
                 console.error('❌ PDF.js NO está disponible después de cargar la página completa');
             } else {
-                console.log('✅ PDF.js está listo para usar');
             }
         });
 
@@ -2719,11 +2656,6 @@
                 version: typeof pdfjsLib !== 'undefined' ? (pdfjsLib.version || 'desconocida') : 'no disponible'
             };
             
-            console.log('=== DIAGNÓSTICO PDF.js ===');
-            console.log('PDF.js cargado:', diagnostico.pdfjsLib);
-            console.log('Worker configurado:', diagnostico.worker);
-            console.log('Versión:', diagnostico.version);
-            console.log('========================');
             
             return diagnostico;
         }
@@ -2751,7 +2683,6 @@
             // Configurar el worker ANTES de usar pdfjsLib.getDocument (OBLIGATORIO)
             if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
                 pdfjsLib.GlobalWorkerOptions.workerSrc = '/assets/vendor/libs/pdf-viewer/pdf.worker.mjs';
-                console.log('Worker de PDF.js configurado en cargarPDFFactura (versión local 5.3.31)');
             }
             
             const canvas = document.getElementById('pdfCanvas');
@@ -2791,10 +2722,6 @@
 
             try {
                 // 2. Cargar el PDF usando fetch (envía cookies/sesión y evita 403)
-                console.log('=== INICIANDO CARGA DE PDF ===');
-                console.log('URL:', url);
-                console.log('PDF.js disponible:', typeof pdfjsLib !== 'undefined');
-                console.log('Worker configurado:', pdfjsLib.GlobalWorkerOptions.workerSrc);
                 
                 let response;
                 try {
@@ -2802,7 +2729,6 @@
                         credentials: 'same-origin',
                         method: 'GET'
                     });
-                    console.log('Fetch completado. Status:', response.status, response.statusText);
                 } catch (fetchError) {
                     console.error('ERROR en fetch:', fetchError);
                     throw new Error('Error al conectar con el servidor: ' + fetchError.message);
@@ -2815,7 +2741,6 @@
                 }
                 
                 const contentType = response.headers.get('content-type') || '';
-                console.log('Content-Type recibido:', contentType);
                 
                 // Permitir application/octet-stream también (algunos servidores lo usan)
                 if (!contentType.includes('application/pdf') && !contentType.includes('application/octet-stream')) {
@@ -2826,23 +2751,19 @@
                 }
                 
                 // Convertir respuesta a ArrayBuffer
-                console.log('Convirtiendo respuesta a ArrayBuffer...');
                 const buffer = await response.arrayBuffer();
-                console.log('✅ ArrayBuffer recibido, tamaño:', buffer.byteLength, 'bytes');
                 
                 if (buffer.byteLength === 0) {
                     throw new Error('El archivo recibido está vacío (0 bytes)');
                 }
                 
                 // 3. Crear el documento desde el ArrayBuffer (NO desde la URL)
-                console.log('Iniciando carga del PDF con PDF.js...');
                 const loadingTask = pdfjsLib.getDocument({ 
                     data: buffer,
                     verbosity: 0 // Reducir logs de PDF.js
                 });
                 
                 pdfDocFactura = await loadingTask.promise;
-                console.log('✅ PDF cargado exitosamente. Páginas:', pdfDocFactura.numPages);
                 
                 // 3. Documento cargado con éxito
                 const totalPagesSpan = document.getElementById('pdfTotalPages');
@@ -2853,13 +2774,10 @@
                 // Ajustar zoom inicial según dispositivo (móvil o PC)
                 const esMovilActual = window.innerWidth <= 768;
                 scaleFactura = esMovilActual ? 0.6 : 1.0;
-                console.log('✅ Zoom inicial configurado:', scaleFactura, '(móvil:', esMovilActual, ')');
                 
                 // Renderizar página 1
-                console.log('Iniciando renderizado de página 1...');
                 pageNumFactura = 1;
                 await renderPageFactura(pageNumFactura);
-                console.log('✅ Página 1 renderizada exitosamente');
                 
                 // COMENTADO: Ocultar header del modal para FACTURA, FAD_DOC y VALIDACIONES
                 // Ahora los PDFs usan el mismo botón del header que EVIDENCIA
@@ -2984,17 +2902,14 @@
             
             if (pageRenderingFactura) {
                 pageNumPendingFactura = num;
-                console.log('Renderizado en progreso, página', num, 'en espera');
                 return;
             }
             
             pageRenderingFactura = true;
-            console.log('Iniciando renderizado de página', num);
             
             try {
                 // Obtener la página
                 const page = await pdfDocFactura.getPage(num);
-                console.log('Página', num, 'obtenida, dimensiones:', page.view);
                 
                 const canvas = document.getElementById('pdfCanvas');
                 if (!canvas) {
@@ -3006,7 +2921,6 @@
                 
                 // Calcular dimensiones basadas en el zoom (scale)
                 const viewport = page.getViewport({scale: scaleFactura});
-                console.log('Viewport calculado:', viewport.width, 'x', viewport.height, 'scale:', scaleFactura);
                 
                 canvas.height = viewport.height;
                 canvas.width = viewport.width;
@@ -3068,7 +2982,6 @@
                             if (canvas.height > pdfContainer.clientHeight) {
                                 pdfContainer.scrollTop = Math.max(0, scrollTop);
                             }
-                            console.log('Scroll centrado - scrollLeft:', pdfContainer.scrollLeft, 'scrollTop:', pdfContainer.scrollTop);
                         }
                     }, 150);
                     
@@ -3115,7 +3028,6 @@
 
                 // Esperar a que termine de dibujar
                 await renderTask.promise;
-                console.log('✅ Página', num, 'renderizada exitosamente');
                 
                 // Forzar recálculo de scrollbars después del renderizado
                 if (scaleFactura > 1.0 && pdfContainer) {
@@ -3127,15 +3039,12 @@
                         const contentWidth = canvas.width + 40; // + padding
                         const contentHeight = canvas.height + 40; // + padding
                         
-                        console.log('Dimensiones del contenedor:', containerWidth, 'x', containerHeight);
-                        console.log('Dimensiones del contenido:', contentWidth, 'x', contentHeight);
                         
                         // Si el contenido es más grande, asegurar que los scrollbars estén visibles
                         if (contentWidth > containerWidth || contentHeight > containerHeight) {
                             pdfContainer.style.setProperty('overflow', 'auto', 'important');
                             pdfContainer.style.setProperty('overflow-x', 'auto', 'important');
                             pdfContainer.style.setProperty('overflow-y', 'auto', 'important');
-                            console.log('✅ Scrollbars habilitados - contenido más grande que contenedor');
                         }
                     }, 100);
                 }
@@ -3167,15 +3076,12 @@
                     // Marcar este overlay como que requiere marcas de agua "SIN VALOR"
                     // SOLO para FACTURA, FAD_DOC y VALIDACIONES
                     watermark.setAttribute('data-marcas-sin-valor', 'true');
-                    console.log('✅ Overlay marcado con data-marcas-sin-valor=true para FACTURA/FAD_DOC/VALIDACIONES');
-                    console.log('Overlay de marca de agua actualizado:', canvas.width, 'x', canvas.height);
                 }
                 
                 // Crear marcas de agua "SIN VALOR" en TODO el modal después de renderizar
                 if (typeof crearMarcasAguaModalPDF === 'function') {
                     setTimeout(() => {
                         crearMarcasAguaModalPDF();
-                        console.log('✅ Marcas de agua del modal recreadas después de renderizar PDF');
                     }, 200);
                 }
 
@@ -3269,10 +3175,8 @@
                                 zoomLevel.textContent = Math.round(scaleFactura * 100) + '%';
                             }
                             
-                            console.log('Zoom IN - Nueva escala:', scaleFactura);
                             await renderPageFactura(pageNumFactura);
                         } else {
-                            console.log('Zoom máximo alcanzado (300%)');
                         }
                     } else {
                         // Para otros documentos
@@ -3304,10 +3208,8 @@
                                 zoomLevel.textContent = Math.round(scaleFactura * 100) + '%';
                             }
                             
-                            console.log('Zoom OUT - Nueva escala:', scaleFactura);
                             await renderPageFactura(pageNumFactura);
                         } else {
-                            console.log('Zoom mínimo alcanzado (50%)');
                         }
                     } else {
                         // Para otros documentos
@@ -3339,7 +3241,6 @@
                     pdfjsLib.GlobalWorkerOptions.workerSrc = '/assets/vendor/libs/pdf-viewer/pdf.worker.mjs';
                 }
                 
-                console.log('PDF.js verificado correctamente');
 
                 const pdfContainer = document.getElementById('documentoPdfContainer');
                 const pdfCanvas = document.getElementById('pdfCanvas');
@@ -3369,7 +3270,6 @@
                     didOpen: () => Swal.showLoading()
                 });
 
-                console.log('Intentando cargar PDF desde:', url);
                 
                 // Validar que la URL no esté vacía
                 if (!url || url.trim() === '') {
@@ -3384,24 +3284,12 @@
                 // Esto previene que el navegador intente descargar el archivo
                 let response;
                 try {
-                    console.log('Iniciando fetch a:', url);
-                    console.log('Headers de la solicitud:', {
-                        'Accept': 'application/pdf'
-                    });
-                    
                     response = await fetch(url, {
                         method: 'GET',
                         headers: {
                             'Accept': 'application/pdf'
                         },
                         credentials: 'same-origin' // Incluir cookies para autenticación
-                    });
-                    
-                    console.log('Respuesta recibida:', {
-                        status: response.status,
-                        statusText: response.statusText,
-                        ok: response.ok,
-                        headers: Object.fromEntries(response.headers.entries())
                     });
                 } catch (fetchError) {
                     console.error('Error en fetch:', fetchError);
@@ -3445,10 +3333,8 @@
                 }
                 
                 const contentType = response.headers.get('content-type');
-                console.log('Content-Type recibido:', contentType);
                 
                 const blob = await response.blob();
-                console.log('Blob recibido, tamaño:', blob.size, 'bytes');
                 
                 if (blob.size === 0) {
                     throw new Error('El archivo recibido está vacío.');
@@ -3470,7 +3356,6 @@
                 
                 // Convertir blob a ArrayBuffer para PDF.js
                 const arrayBuffer = await blob.arrayBuffer();
-                console.log('ArrayBuffer creado, tamaño:', arrayBuffer.byteLength, 'bytes');
                 
                 // Cargar el PDF desde el ArrayBuffer
                 const loadingTask = pdfjsLib.getDocument({
@@ -3490,17 +3375,13 @@
                 
                 if (watermark && esINE) {
                     watermark.removeAttribute('data-marcas-sin-valor');
-                    console.log('✅ Atributo data-marcas-sin-valor removido para INE (ANTES de cargar PDF)');
                 }
                 
-                console.log('Iniciando carga del PDF con PDF.js...');
                 pdfDoc = await loadingTask.promise;
-                console.log('PDF cargado exitosamente, número de páginas:', pdfDoc.numPages);
                 
                 // Asegurar que el atributo esté removido después de cargar también (solo para INE)
                 if (watermark && esINE) {
                     watermark.removeAttribute('data-marcas-sin-valor');
-                    console.log('✅ Atributo data-marcas-sin-valor removido para INE (DESPUÉS de cargar PDF)');
                 }
                 
                 pdfTotalPages = pdfDoc.numPages;
@@ -3520,7 +3401,6 @@
 
                 // Renderizar primera página
                 await renderizarPaginaPDF(currentPage);
-                console.log('Primera página renderizada exitosamente');
 
                 // Cerrar loading
                 Swal.close();
@@ -3586,7 +3466,6 @@
                 // Solo usar iframe como fallback si useIframeFallback es true
                 if (useIframeFallback) {
                     // Intentar cargar con iframe directamente (sin Google Viewer para evitar el botón)
-                    console.log('Intentando cargar PDF directamente con iframe...');
                     const pdfContainer = document.getElementById('documentoPdfContainer');
                     const pdfControls = document.getElementById('pdfControls');
                     

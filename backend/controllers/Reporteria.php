@@ -83,7 +83,7 @@ class Reporteria extends Controller
             </script>
 HTML;
 
-        self::set("titulo", "Solicitud de Viáticos");
+        self::set("titulo", "Resumen Call Center");
         self::set("script", $script);
         self::render("reporteria_call_center");
     }

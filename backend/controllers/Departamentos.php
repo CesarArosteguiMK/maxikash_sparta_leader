@@ -511,7 +511,7 @@ class Departamentos extends Controller
         </script>
         HTML;
 
-        self::set("titulo", "Solicitud de Viáticos");
+        self::set("titulo", "Gestión de Departamentos");
         self::set("script", $script);
         self::render("departamentos_all");
     }
