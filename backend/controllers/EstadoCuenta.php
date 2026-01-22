@@ -1935,8 +1935,8 @@ class EstadoCuenta extends Controller
     public function getNotasCredito()
     {
         $input = json_decode(file_get_contents("php://input"), true);
-        $idCredito = $input['idCredito'] ?? null;
 
+        $idCredito = $input['idCredito'] ?? null;
 
         if (empty($idCredito)) {
             self::respuestaJSON([
@@ -1947,6 +1947,25 @@ class EstadoCuenta extends Controller
         }
 
         $resultado = EstadoCuentaDAO::getNotasCredito($idCredito);
+
+        self::respuestaJSON($resultado);
+    }
+
+
+    public function getGastosCobranza()
+    {
+        $input = json_decode(file_get_contents("php://input"), true);
+        $idCredito = $input['idCredito'] ?? null;
+
+        if (empty($idCredito)) {
+            self::respuestaJSON([
+                'success' => false,
+                'mensaje' => 'Id de crédito requerido'
+            ]);
+            return;
+        }
+
+        $resultado = EstadoCuentaDAO::getGastosCobranza($idCredito);
         self::respuestaJSON($resultado);
     }
 

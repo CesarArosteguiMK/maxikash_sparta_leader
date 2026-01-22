@@ -2,6 +2,7 @@
 
 namespace Models;
 
+use Core\DatabaseSegundometro;
 use Core\Model;
 use Core\Database;
 use Core\DatabaseAWS;
@@ -406,6 +407,7 @@ class EstadoCuenta extends Model
         }
     }
 
+<<<<<<< HEAD
     public static function obtenerReportesDictamenPorFecha($fechaInicio, $fechaFin)
 {
     try {
@@ -509,6 +511,55 @@ public static function obtenerReportesDictamenParaDescarga($fechaInicio, $fechaF
     }
 }
 
+=======
+    public static function getGastosCobranza($idCredito)
+    {
+        $query = "
+        SELECT
+            id_gastos_cobranza,
+            SEMANA,
+            periodo_inicio,
+            periodo_fin,
+            monto_valor,
+            cuota
+        FROM `__SPARTA_SECRET_REDACTED__`.gastos_cobranza
+        WHERE Id_credito = $idCredito
+          AND (condonado IS NULL OR condonado = 0)
+        ORDER BY periodo_inicio ASC
+    ";
+
+        try {
+            $db = new DatabaseSegundometro();
+            $r = $db->queryAll($query);
+
+            // Formateo mínimo para el frontend
+            $datos = array_map(function ($row) {
+                return [
+                    'id_gasto' => (int)$row['id_gastos_cobranza'],
+                    'semana'   => $row['SEMANA'],
+                    'periodo' => date('d/m/Y', strtotime($row['periodo_inicio'])) .
+                        ' - ' .
+                        date('d/m/Y', strtotime($row['periodo_fin'])),
+                    'monto'   => (float)$row['monto_valor'],
+                    'cuota'   => (float)$row['cuota']
+                ];
+            }, $r);
+
+            return self::resultado(true, 'Gastos de cobranza', $datos);
+
+        } catch (\Exception $e) {
+
+            return self::resultado(
+                false,
+                'Error al consultar gastos de cobranza',
+                [],
+                $e->getMessage()
+            );
+        }
+    }
+
+
+>>>>>>> de11aad7f57686fea8a5ebdeef55f64a37cff593
 
 
 

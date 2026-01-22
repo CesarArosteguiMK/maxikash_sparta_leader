@@ -660,13 +660,11 @@ if ($cuotasContratadas > 0) {
                 <!-- BOTÓN CONDONAR -->
                 <button type="button"
                         class="btn btn-condonar position-relative"
-                        data-bs-toggle="modal"
-                        data-bs-target="#modalCondonar"
-                        title="Condonar gastos de cobranza">
-
+                        title="Condonar gastos de cobranza"
+                        onclick="consultaGastosCondonables(<?= htmlspecialchars($dataEstadoCuenta["idCredito"] ?? '') ?>)">
                     <i class="fa fa-hand-holding-usd"></i>
-
                 </button>
+
                 <!-- BOTÓN NOTAS (ICONO) -->
                 <button type="button"
                         class="btn btn-notas position-relative"
@@ -955,13 +953,13 @@ if ($cuotasContratadas > 0) {
                 <!-- Resumen -->
                 <div class="row mb-3">
                     <div class="col-md-4">
-                        <div class="alert alert-success">
+                        <div class="alert alert-success py-2 mb-2">
                             <strong>Seleccionados:</strong>
                             <span id="countCondonados">0</span>
                         </div>
                     </div>
                     <div class="col-md-4">
-                        <div class="alert alert-warning">
+                        <div class="alert alert-warning py-2 mb-2">
                             <strong>Monto a condonar:</strong>
                             $<span id="montoCondonar">0.00</span>
                         </div>
@@ -970,61 +968,42 @@ if ($cuotasContratadas > 0) {
 
                 <!-- Tabla -->
                 <div class="table-responsive">
-                    <table class="table table-hover align-middle">
-                        <thead>
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
                         <tr>
-                            <th></th>
+                            <th style="width:40px;"></th>
                             <th>Semana</th>
                             <th>Periodo</th>
-                            <th>Monto</th>
+                            <th># Cuota</th>
+                            <th class="">Monto</th>
                         </tr>
                         </thead>
                         <tbody id="tablaGastos">
-
-                        <!-- Ejemplo -->
-                        <tr>
-                            <td>
-                                <input type="checkbox"
-                                       class="form-check-input chk-condona"
-                                       data-monto="150.00">
-                            </td>
-                            <td>Semana 27-2025</td>
-                            <td>01/07/2025 - 07/07/2025</td>
-                            <td>$150.00</td>
-                        </tr>
-
-                        <tr>
-                            <td>
-                                <input type="checkbox"
-                                       class="form-check-input chk-condona"
-                                       data-monto="200.00">
-                            </td>
-                            <td>Semana 28-2025</td>
-                            <td>08/07/2025 - 14/07/2025</td>
-                            <td>$200.00</td>
-                        </tr>
-
+                        <!-- Se llena dinámicamente -->
                         </tbody>
                     </table>
                 </div>
 
-                <!-- Descripción obligatoria -->
+                <!-- Motivo -->
                 <div class="mt-3">
                     <label class="form-label fw-semibold">
                         Motivo de la condonación <span class="text-danger">*</span>
                     </label>
-                    <textarea id="descripcionCondonacion"
-                              class="form-control"
-                              rows="3"
-                              placeholder="Describe el motivo de la condonación..."
-                              required></textarea>
+                    <textarea
+                            id="descripcionCondonacion"
+                            class="form-control"
+                            rows="3"
+                            placeholder="Describe el motivo de la condonación..."
+                    ></textarea>
                 </div>
 
             </div>
 
             <!-- Footer -->
             <div class="modal-footer">
-                <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button class="btn btn-secondary" data-bs-dismiss="modal">
+                    Cancelar
+                </button>
                 <button class="btn btn-success" onclick="confirmarCondonacion()">
                     <i class="fa fa-check me-1"></i>Condonar
                 </button>
@@ -1555,6 +1534,78 @@ if ($cuotasContratadas > 0) {
         modal.show();
     }
 
+    function consultaGastosCobranza(idCredito) {
+
+        if (!idCredito) {
+            Swal.fire("Error", "Id de crédito inválido", "error");
+            return;
+        }
+
+        fetch('/EstadoCuenta/getGastosCobranza', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify({
+                idCredito: idCredito
+            })
+        })
+            .then(res => res.json())
+            .then(resp => {
+
+                if (!resp.success) {
+                    Swal.fire("Error", resp.mensaje, "error");
+                    contenedor.innerHTML = '';
+                    return;
+                }
+
+                const notas = resp.datos ?? resp.data ?? [];
+
+                contenedor.innerHTML = '';
+
+                if (!Array.isArray(notas) || notas.length === 0) {
+                    contenedor.innerHTML = `
+                <div class="col-12 text-center text-muted">
+                    Sin notas registradas
+                </div>
+            `;
+                    return;
+                }
+
+                notas.forEach(n => {
+
+                    contenedor.innerHTML += `
+                <div class="col-md-6">
+                    <div class="nota-card animate__animated animate__fadeInUp">
+                        <div class="nota-fecha">
+                            <i class="fa fa-clock"></i> ${n.created_at}
+                        </div>
+                        <p class="nota-texto">
+                            ${n.nota}
+                        </p>
+                        <div class="nota-autor">
+                            <i class="fa fa-user"></i> ${n.usuario ?? 'Sistema'}
+                        </div>
+                    </div>
+                </div>
+            `;
+                });
+
+            })
+            .catch(err => {
+                console.error("ERROR consultaNotas:", err);
+                Swal.fire("Error", "Error de conexión con el servidor", "error");
+                contenedor.innerHTML = '';
+            });
+
+        // 👉 Abrir modal SIEMPRE (aunque esté cargando)
+        const modal = new bootstrap.Modal(
+            document.getElementById('modalCondonar')
+        );
+        modal.show();
+    }
+
     const modalDictamen = document.getElementById('modalDictamen');
 
     modalDictamen.addEventListener('shown.bs.modal', function (event) {
@@ -1903,6 +1954,113 @@ if ($cuotasContratadas > 0) {
         document.getElementById('fuente_ingresos').value = '';
         document.getElementById('comentarios').value = '';
     }
+
+
+
+    function consultaGastosCondonables(idCredito) {
+
+        if (!idCredito) {
+            Swal.fire("Error", "Id de crédito inválido", "error");
+            return;
+        }
+
+        const tabla = document.getElementById('tablaGastos');
+        const countSpan = document.getElementById('countCondonados');
+        const montoSpan = document.getElementById('montoCondonar');
+
+        // Reset visual
+        countSpan.textContent = 0;
+        montoSpan.textContent = '0.00';
+
+        tabla.innerHTML = `
+        <tr>
+            <td colspan="4" class="text-center text-muted">
+                Cargando gastos...
+            </td>
+        </tr>
+    `;
+
+        fetch('/EstadoCuenta/getGastosCobranza', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify({
+                idCredito: idCredito
+            })
+        })
+            .then(res => res.json())
+            .then(resp => {
+
+                if (!resp.success) {
+                    Swal.fire("Error", resp.mensaje, "error");
+                    tabla.innerHTML = '';
+                    return;
+                }
+
+                const gastos = resp.datos ?? resp.data ?? [];
+
+                tabla.innerHTML = '';
+
+                if (!Array.isArray(gastos) || gastos.length === 0) {
+                    tabla.innerHTML = `
+                    <tr>
+                        <td colspan="4" class="text-center text-muted">
+                            No hay gastos de cobranza
+                        </td>
+                    </tr>
+                `;
+                    return;
+                }
+
+                gastos.forEach(g => {
+
+                    tabla.innerHTML += `
+                    <tr>
+                        <td>
+                            <input type="checkbox"
+                                   class="form-check-input chk-condona"
+                                   data-monto="${parseFloat(g.monto).toFixed(2)}"
+                                   onchange="recalcularCondonacion()">
+                        </td>
+                        <td>${g.semana}</td>
+                        <td>${g.periodo}</td>
+                        <td>${g.cuota}</td>
+                        <td>$${parseFloat(g.monto).toFixed(2)}</td>
+                    </tr>
+                `;
+                });
+
+            })
+            .catch(err => {
+                console.error("ERROR consultaGastosCondonables:", err);
+                Swal.fire("Error", "Error de conexión con el servidor", "error");
+                tabla.innerHTML = '';
+            });
+
+        // 👉 Abrir modal SIEMPRE
+        const modal = new bootstrap.Modal(
+            document.getElementById('modalCondonar')
+        );
+        modal.show();
+    }
+
+    function recalcularCondonacion() {
+
+        const checks = document.querySelectorAll('.chk-condona:checked');
+
+        let total = 0;
+
+        checks.forEach(chk => {
+            total += parseFloat(chk.dataset.monto || 0);
+        });
+
+        document.getElementById('countCondonados').textContent = checks.length;
+        document.getElementById('montoCondonar').textContent = total.toFixed(2);
+    }
+
+
 
 
 
