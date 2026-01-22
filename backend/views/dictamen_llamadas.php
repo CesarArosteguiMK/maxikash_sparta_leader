@@ -20,14 +20,14 @@
                 </div>
             </div>
 
-            <div class="row gy-6 mb-6">
-                <div class="col-lg-12">
+            <div class="row gy-4 mb-4">
+                <div class="col-lg-5 mx-auto">
                     <div class="card shadow-none bg-label-primary h-100">
                         <div class="card-body d-flex justify-content-between flex-wrap-reverse">
                             <div class="mb-0 w-100 app-academy-sm-60 d-flex flex-column justify-content-between text-center text-sm-start">
                                 <div class="card-title">
                                     <h5 class="text-primary mb-2">Disponible para descarga diaria</h5>
-                                    <p class="text-body w-sm-80 app-academy-xl-100">El ultimo corte es: Reporte_Corte_Jueves_13_30</p>
+                                    <p class="text-body w-sm-80 app-academy-xl-100">Consulta, filtra y descarga reportes por rango de fechas</p>
                                 </div>
                                 <!-- Botón para abrir modal -->
                                 <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalReporte">
@@ -45,7 +45,7 @@
     </div>
 </div>
 
-<!-- MODAL REDISEÑADO -->
+<!-- MODAL REDISEÑADO con DataTables -->
 <div class="modal fade" id="modalReporte" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content">
@@ -54,9 +54,6 @@
             <div class="modal-header border-bottom">
                 <div>
                     <h5 class="modal-title fw-semibold">Dictamen de llamadas</h5>
-                    <small class="text-muted">
-                        Consulta, filtra y descarga reportes por rango de fechas
-                    </small>
                 </div>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
@@ -67,10 +64,6 @@
                 <!-- BLOQUE: FILTROS -->
                 <div class="card border-0 shadow-sm mb-4">
                     <div class="card-body">
-                        <h6 class="text-primary mb-3">
-                            <i class="fas fa-filter me-2"></i>Filtros de búsqueda
-                        </h6>
-
                         <form id="formBuscarReporte" method="POST" action="/Reporteria/BuscarReporte">
                             <div class="row g-3 align-items-end">
                                 <div class="col-md-4">
@@ -93,61 +86,25 @@
                     </div>
                 </div>
 
-                <!-- BLOQUE: BÚSQUEDA EN TABLA -->
-                <div class="card border-0 bg-light mb-3">
-                    <div class="card-body py-3">
-                        <div class="input-group">
-                            <span class="input-group-text bg-white">
-                                <i class="fas fa-search text-muted"></i>
-                            </span>
-                            <input 
-                                type="text"
-                                class="form-control"
-                                id="barraBusqueda"
-                                placeholder="Buscar por cliente, crédito, dictamen, agente…"
-                                autocomplete="off"
-                            >
-                            <button class="btn btn-outline-secondary" id="btnLimpiarBusqueda" type="button">
-                                <i class="fas fa-times"></i>
-                            </button>
-                        </div>
-
-                        <small class="text-muted d-block mt-2">
-                            <i class="fas fa-info-circle me-1"></i>
-                            Resultados encontrados: <strong id="contadorResultados">0</strong>
-                        </small>
-                    </div>
-                </div>
-
-                <!-- BLOQUE: TABLA -->
+                <!-- BLOQUE: TABLA con DataTables -->
                 <div class="card border-0 shadow-sm">
                     <div class="card-body p-0">
-
                         <div class="table-responsive">
-                            <table class="table table-hover table-striped mb-0" id="tablaReporte">
+                            <table id="tablaReporte" class="table table-hover table-striped mb-0">
                                 <thead class="table-light">
                                     <tr>
-                                        <!-- <th> Id Dictamen </th> -->
                                         <th>Fecha</th>
-                                        <th>Cliente</th>
+                                        <th>Crédito / Cliente</th>
                                         <th>Contacto</th>
-                                        <th>Dictamen</th>
-                                        <th>Origen</th>
-                                        <th>Agente</th>
-                                        <th>Notas</th>
+                                        <th>Motivo</th>
+                                        <th>Origen / Notas</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <tr id="sinResultados">
-                                        <td colspan="14" class="text-center text-muted py-5">
-                                            <i class="fas fa-search fa-2x mb-3"></i>
-                                            <p>Seleccione un rango de fechas para consultar los reportes</p>
-                                        </td>
-                                    </tr>
+                                    <!-- Los datos se cargarán dinámicamente -->
                                 </tbody>
                             </table>
                         </div>
-
                     </div>
                 </div>
 
@@ -174,156 +131,169 @@
     </div>
 </div>
 
-
-<!-- Script para manejar la funcionalidad del modal -->
+<!-- Script DataTables y funcionalidad -->
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const formBuscar = document.getElementById('formBuscarReporte');
-    const tablaReporte = document.getElementById('tablaReporte');
-    const tbody = tablaReporte.querySelector('tbody');
     const btnDescargar = document.getElementById('btnDescargarReporte');
-    const sinResultados = document.getElementById('sinResultados');
+    let datosCompletos = [];
+    let datosBusqueda = { fechaInicio: '', fechaFin: '' };
     
-    // 🔥 VARIABLES PARA BÚSQUEDA EN TIEMPO REAL
-    let datosCompletos = []; // Array que almacena TODOS los datos del servidor
-    const barraBusqueda = document.getElementById('barraBusqueda');
-    const btnLimpiar = document.getElementById('btnLimpiarBusqueda');
-    const contadorResultados = document.getElementById('contadorResultados');
+    // INICIALIZAR DATATABLE (Patrón all_gestores.php)
+    let tablaReporte = null;
     
-    // Variables para almacenar datos de búsqueda
-    let datosBusqueda = {
-        fechaInicio: '',
-        fechaFin: ''
-    };
-
-    // 🔥 FUNCIÓN PARA FILTRAR LA TABLA EN TIEMPO REAL
-    function filtrarTabla(termino) {
-        // Convertir término a minúsculas para búsqueda insensible a mayúsculas
-        const terminoLower = termino.toLowerCase();
+    function inicializarDataTable() {
+        if ($.fn.DataTable.isDataTable('#tablaReporte')) {
+            $('#tablaReporte').DataTable().destroy();
+        }
         
-        // Si el término está vacío, mostrar todos los datos
-        if (terminoLower === '') {
-            renderizarDatos(datosCompletos);
+        tablaReporte = $('#tablaReporte').DataTable({
+            data: [],
+            columns: [
+                { 
+                    data: 'fecha',
+                    render: function(data, type, row) {
+                        return `
+                            ${row.fecha_registro || ''}<br>
+                            <small class="text-muted">${row.hora_registro || ''}</small>
+                        `;
+                    }
+                },
+                { 
+                    data: 'credito_cliente',
+                    render: function(data, type, row) {
+                        return `
+                            <strong>${row.id_credito || '—'}</strong><br>
+                            <small>${row.nombre_cliente || 'N/A'}</small>
+                        `;
+                    }
+                },
+                { 
+                    data: 'contacto',
+                    render: function(data, type, row) {
+                        return `
+                            <span class="badge bg-info mb-1">${row.tipo_contacto || '—'}</span><br>
+                            <small>${row.resultado_contacto || '—'}</small><br>
+                            <strong>${row.dictamen || ''}</strong>
+                        `;
+                    }
+                },
+                { 
+                    data: 'motivo',
+                    render: function(data, type, row) {
+                        return `
+                            ${row.motivo_no_pago || 'N/A'}<br>
+                            <small class="text-muted">${row.tipo_motivo_no_pago || ''}</small>
+                        `;
+                    }
+                },
+                { 
+                    data: 'origen_notas',
+                    render: function(data, type, row) {
+                        return `
+                            <span class="badge bg-secondary mb-1">${row.plataforma || '—'}</span><br>
+                            <small>${row.fuente_ingresos || ''}</small><br>
+                            <small class="text-muted">${row.comentarios || ''}</small>
+                        `;
+                    }
+                }
+            ],
+            pageLength: 10,
+            language: {
+                url: 'https://cdn.datatables.net/plug-ins/1.11.5/i18n/es-ES.json'
+            },
+            dom: '<"row"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-6"f>>rt<"row"<"col-sm-12 col-md-5"i><"col-sm-12 col-md-7"p>>',
+            responsive: true,
+            destroy: true
+        });
+    }
+    
+    // FUNCIÓN PARA CARGAR DATOS (Patrón getUsuarios())
+    function cargarDatosReporte() {
+        if (!datosBusqueda.fechaInicio || !datosBusqueda.fechaFin) {
             return;
         }
         
-        // Filtrar los datos completos
-        const datosFiltrados = datosCompletos.filter(item => {
-            // Buscar en todas las columnas relevantes
-            return (
-
-                //(item.id_dictamen && item.id_dictamen.toString().toLowerCase().includes(terminoLower)) ||
-                (item.nombre_cliente && item.nombre_cliente.toLowerCase().includes(terminoLower)) ||
-                (item.id_credito && item.id_credito.toString().toLowerCase().includes(terminoLower)) ||
-                (item.resultado_contacto && item.resultado_contacto.toLowerCase().includes(terminoLower)) ||
-                (item.dictamen && item.dictamen.toLowerCase().includes(terminoLower)) ||
-                (item.tipo_contacto && item.tipo_contacto.toLowerCase().includes(terminoLower)) ||
-                (item.motivo_no_pago && item.motivo_no_pago.toLowerCase().includes(terminoLower)) ||
-                (item.tipo_motivo_no_pago && item.tipo_motivo_no_pago.toLowerCase().includes(terminoLower)) ||
-                (item.plataforma && item.plataforma.toLowerCase().includes(terminoLower)) ||
-                (item.fuente_ingresos && item.fuente_ingresos.toLowerCase().includes(terminoLower)) ||
-                (item.comentarios && item.comentarios.toLowerCase().includes(terminoLower)) ||
-                (item.fecha_registro && item.fecha_registro.toLowerCase().includes(terminoLower)) ||
-                (item.usuario_id && item.usuario_id.toString().toLowerCase().includes(terminoLower))
-            );
-        });
+        // Mostrar loading
+        tablaReporte.clear().draw();
         
-        // Renderizar datos filtrados
-        renderizarDatos(datosFiltrados);
+        http.request({
+            endpoint: "/EstadoCuenta/buscarReporteDictamen",
+            method: "POST",
+            data: {
+                fechaInicio: datosBusqueda.fechaInicio,
+                fechaFin: datosBusqueda.fechaFin
+            },
+            onSuccess: (resp) => {
+                console.log('Datos recibidos:', resp);
+                
+                if (resp.code === 'SESSION_EXPIRED' || 
+                    resp.mensaje?.includes('Sesión') || 
+                    resp.mensaje?.includes('sesión') ||
+                    (resp.success === false && resp.mensaje?.includes('expir'))) {
+                    
+                    console.error('Error de sesión:', resp.mensaje);
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Sesión expirada',
+                        text: 'Por favor, inicie sesión nuevamente',
+                        confirmButtonText: 'Ir al login'
+                    }).then(() => {
+                        window.location.href = '/login';
+                    });
+                    return;
+                }
+                
+                if (!resp.success || !resp.data || resp.data.length === 0) {
+                    tablaReporte.clear().draw();
+                    btnDescargar.disabled = true;
+                    
+                    Swal.fire({
+                        icon: 'info',
+                        title: 'Sin resultados',
+                        text: 'No se encontraron reportes para el rango de fechas seleccionado',
+                        timer: 2000,
+                        showConfirmButton: false
+                    });
+                    return;
+                }
+                
+                // Guardar datos completos
+                datosCompletos = resp.data;
+                
+                // Actualizar DataTable (Patrón all_gestores.php)
+                const datosFormateados = resp.data.map(item => ({
+                    ...item,
+                    fecha: item.fecha_registro, // Para ordenamiento
+                    credito_cliente: item.id_credito, // Para ordenamiento
+                    contacto: item.tipo_contacto, // Para ordenamiento
+                    motivo: item.motivo_no_pago, // Para ordenamiento
+                    origen_notas: item.plataforma // Para ordenamiento
+                }));
+                
+                tablaReporte.clear().rows.add(datosFormateados).draw();
+                btnDescargar.disabled = false;
+                
+                // Mostrar conteo
+                const info = tablaReporte.page.info();
+                console.log(`Mostrando ${info.start + 1} a ${info.end} de ${info.recordsTotal} registros`);
+            },
+            onError: (error) => {
+                console.error('Error al cargar datos:', error);
+                
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: error.message || 'Error al cargar los datos. Intente nuevamente.',
+                    confirmButtonText: 'Reintentar'
+                }).then(() => {
+                    cargarDatosReporte();
+                });
+            }
+        });
     }
-
-    // 🔥 FUNCIÓN PARA RENDERIZAR LOS DATOS EN LA TABLA
-    function renderizarDatos(datos) {
-    tbody.innerHTML = '';
-
-    if (datos.length === 0) {
-        tbody.innerHTML = `
-            <tr>
-                <td colspan="7" class="text-center text-muted py-4">
-                    <i class="fas fa-search fa-2x mb-3"></i>
-                    <p>No se encontraron resultados</p>
-                </td>
-            </tr>`;
-        contadorResultados.textContent = '0';
-        return;
-    }
-
-    datos.forEach(item => {
-        const fila = document.createElement('tr');
-        fila.innerHTML = `
-            <!-- FECHA -->
-            <td>
-                <div class="fw-semibold">${item.fecha_registro || ''}</div>
-                <small class="text-muted">${item.hora_registro || ''}</small>
-            </td>
-
-            <!-- CLIENTE -->
-            <td>
-                <div class="fw-semibold">${item.id_credito || ''}</div>
-                <small class="text-muted">${item.nombre_cliente || 'N/A'}</small>
-            </td>
-
-            <!-- CONTACTO -->
-            <td>
-                <span class="badge bg-label-primary d-block mb-1">
-                    ${item.tipo_contacto || '—'}
-                </span>
-                <small class="text-muted">
-                    ${item.resultado_contacto || '—'}
-                </small>
-            </td>
-
-            <!-- DICTAMEN -->
-            <td>
-                <span class="badge bg-label-warning d-block mb-1">
-                    ${item.dictamen || '—'}
-                </span>
-                <small class="text-muted">
-                    ${item.motivo_no_pago || '—'}
-                </small>
-            </td>
-
-            <!-- ORIGEN -->
-            <td>
-                <span class="badge bg-label-success d-block mb-1">
-                    ${item.plataforma || '—'}
-                </span>
-                <small class="text-muted">
-                    ${item.fuente_ingresos || '—'}
-                </small>
-            </td>
-
-            <!-- AGENTE -->
-            <td class="text-center fw-semibold">
-                ${item.usuario_id || '—'}
-            </td>
-
-            <!-- NOTAS -->
-            <td class="text-muted small">
-                ${item.comentarios || '—'}
-            </td>
-        `;
-        tbody.appendChild(fila);
-    });
-
-    contadorResultados.textContent = datos.length;
-}
-
-
-    // 🔥 EVENTO: Escuchar cambios en la barra de búsqueda (SIN BOTÓN)
-    barraBusqueda.addEventListener('input', function(e) {
-        const termino = e.target.value;
-        filtrarTabla(termino);
-    });
-
-    // 🔥 EVENTO: Botón para limpiar la búsqueda
-    btnLimpiar.addEventListener('click', function() {
-        barraBusqueda.value = '';
-        filtrarTabla('');
-        barraBusqueda.focus();
-    });
-
-    // Manejar envío del formulario de búsqueda
+    
+    // MANEJAR ENVÍO DEL FORMULARIO
     formBuscar.addEventListener('submit', async function(e) {
         e.preventDefault();
         
@@ -331,217 +301,122 @@ document.addEventListener('DOMContentLoaded', function() {
         datosBusqueda.fechaFin = document.getElementById('fechaFin').value;
         
         if (!datosBusqueda.fechaInicio || !datosBusqueda.fechaFin) {
-            alert('Por favor, seleccione ambas fechas');
+            Swal.fire({
+                icon: 'warning',
+                title: 'Fechas requeridas',
+                text: 'Por favor, seleccione ambas fechas',
+                timer: 2000,
+                showConfirmButton: false
+            });
             return;
         }
         
-        sinResultados.innerHTML = `
-            <td colspan="14" class="text-center">
-                <div class="spinner-border text-primary" role="status">
-                    <span class="visually-hidden">Cargando...</span>
-                </div>
-                <p class="mt-2">Buscando datos...</p>
-            </td>`;
+        // Validar que fecha fin no sea menor que fecha inicio
+        const fechaInicio = new Date(datosBusqueda.fechaInicio);
+        const fechaFin = new Date(datosBusqueda.fechaFin);
         
-        btnDescargar.disabled = true;
-        // 🔥 LIMPIAR LA BARRA DE BÚSQUEDA AL HACER UNA NUEVA BÚSQUEDA
-        barraBusqueda.value = '';
-        
-        try {
-            const response = await fetch('/EstadoCuenta/buscarReporteDictamen', {
-                method: 'POST',
-                credentials: 'include',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded'
-                },
-                body: new URLSearchParams({
-                    fechaInicio: datosBusqueda.fechaInicio,
-                    fechaFin: datosBusqueda.fechaFin
-                })
+        if (fechaFin < fechaInicio) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Fechas inválidas',
+                text: 'La fecha de fin no puede ser menor a la fecha de inicio',
+                confirmButtonText: 'Corregir'
             });
-
-            console.log('Respuesta recibida:', {
-                status: response.status,
-                statusText: response.statusText,
-                redirected: response.redirected,
-                url: response.url
-            });
-
-            if (response.redirected) {
-                console.warn('Redirección detectada a:', response.url);
-                alert('Su sesión ha expirado. Redirigiendo al login...');
-                window.location.href = '/login';
-                return;
-            }
-
-            if (response.status === 302) {
-                const redirectUrl = response.headers.get('Location');
-                console.warn('302 Found - Redirección a:', redirectUrl);
-                alert('Sesión expirada. Por favor, inicie sesión nuevamente.');
-                window.location.href = redirectUrl || '/login';
-                return;
-            }
-
-            if (!response.ok) {
-                throw new Error(`Error HTTP ${response.status}: ${response.statusText}`);
-            }
-
-            const contentType = response.headers.get('content-type');
-            
-            if (contentType && contentType.includes('application/json')) {
-                const data = await response.json();
-                
-                console.log('Datos JSON recibidos:', data);
-                
-                if (data.code === 'SESSION_EXPIRED' || 
-                    data.mensaje?.includes('Sesión') || 
-                    data.mensaje?.includes('sesión') ||
-                    (data.success === false && data.mensaje?.includes('expir'))) {
-                    
-                    console.error('Error de sesión en JSON:', data.mensaje);
-                    alert('Su sesión ha expirado. Redirigiendo al login...');
-                    window.location.href = '/login';
-                    return;
-                }
-                
-                if (!data.success) {
-                    throw new Error(data.mensaje || 'Error en la búsqueda');
-                }
-                
-                tbody.innerHTML = '';
-                
-                if (!data.data || data.data.length === 0) {
-                    tbody.innerHTML = `
-                        <tr>
-                            <td colspan="14" class="text-center text-muted py-4">
-                                <i class="fas fa-exclamation-circle fa-2x mb-3"></i>
-                                <p>No se encontraron reportes para el rango de fechas seleccionado</p>
-                            </td>
-                        </tr>`;
-                    btnDescargar.disabled = true;
-                    datosCompletos = [];
-                    contadorResultados.textContent = '0';
-                    return;
-                }
-                
-                // 🔥 GUARDAR TODOS LOS DATOS EN datosCompletos
-                datosCompletos = data.data;
-                
-                // 🔥 RENDERIZAR LOS DATOS COMPLETOS
-                renderizarDatos(datosCompletos);
-                
-                btnDescargar.disabled = false;
-                
-            } else {
-                const text = await response.text();
-                console.error('Respuesta no JSON recibida:', text.substring(0, 500));
-                
-                if (text.includes('login') || 
-                    text.includes('Login') || 
-                    text.includes('Iniciar sesión') ||
-                    text.includes('sign in') ||
-                    text.toLowerCase().includes('sesión')) {
-                    
-                    console.error('Detectada página de login en respuesta HTML');
-                    alert('Su sesión ha expirado. Será redirigido al login.');
-                    window.location.href = '/login';
-                    return;
-                }
-                
-                if (text.includes('<!DOCTYPE') || text.includes('<html')) {
-                    throw new Error('El servidor devolvió una página HTML en lugar de datos JSON');
-                }
-                
-                try {
-                    const data = JSON.parse(text);
-                    console.log('JSON parseado manualmente:', data);
-                    
-                    if (!data.success || !data.data || data.data.length === 0) {
-                        tbody.innerHTML = `
-                            <tr>
-                                <td colspan="14" class="text-center text-muted py-4">
-                                    <i class="fas fa-exclamation-circle fa-2x mb-3"></i>
-                                    <p>No se encontraron reportes para el rango de fechas seleccionado</p>
-                                </td>
-                            </tr>`;
-                        btnDescargar.disabled = true;
-                        datosCompletos = [];
-                        contadorResultados.textContent = '0';
-                        return;
-                    }
-                    
-                    // 🔥 GUARDAR TODOS LOS DATOS
-                    datosCompletos = data.data;
-                    renderizarDatos(datosCompletos);
-                    btnDescargar.disabled = false;
-                    
-                } catch (jsonError) {
-                    throw new Error('El servidor devolvió un formato no esperado: ' + text.substring(0, 100));
-                }
-            }
-            
-        } catch (error) {
-            console.error('Error completo al cargar los datos:', error);
-            
-            let mensajeError = error.message;
-            if (error.message.includes('Failed to fetch')) {
-                mensajeError = 'Error de conexión con el servidor. Verifique su conexión a internet.';
-            } else if (error.message.includes('NetworkError')) {
-                mensajeError = 'Error de red. Por favor, intente nuevamente.';
-            }
-            
-            tbody.innerHTML = `
-                <tr id="sinResultados">
-                    <td colspan="14" class="text-center text-danger py-4">
-                        <i class="fas fa-times-circle fa-2x mb-3"></i>
-                        <p>Error al cargar los datos: ${mensajeError}</p>
-                        <button onclick="window.location.reload()" class="btn btn-sm btn-outline-primary mt-2">
-                            <i class="fas fa-redo me-1"></i> Reintentar
-                        </button>
-                    </td>
-                </tr>`;
-            btnDescargar.disabled = true;
-            datosCompletos = [];
-            contadorResultados.textContent = '0';
+            return;
         }
+        
+        // Inicializar DataTable si no está inicializado
+        if (!tablaReporte) {
+            inicializarDataTable();
+        }
+        
+        // Cargar datos
+        cargarDatosReporte();
     });
-
-    // Manejar clic en botón de descarga
+    
+    //  MANEJAR DESCARGA
     btnDescargar.addEventListener('click', function() {
         if (datosBusqueda.fechaInicio && datosBusqueda.fechaFin) {
             const url = `/EstadoCuenta/descargarReporteDictamen?fechaInicio=${encodeURIComponent(datosBusqueda.fechaInicio)}&fechaFin=${encodeURIComponent(datosBusqueda.fechaFin)}`;
             console.log('Descargando desde:', url);
             window.open(url, '_blank');
         } else {
-            alert('Primero realice una búsqueda válida');
+            Swal.fire({
+                icon: 'warning',
+                title: 'Búsqueda requerida',
+                text: 'Primero realice una búsqueda válida',
+                timer: 2000,
+                showConfirmButton: false
+            });
         }
     });
-
-    // Inicializar fecha actual por defecto
-    const hoy = new Date().toISOString().split('T')[0];
-    const haceUnaSemana = new Date();
-    haceUnaSemana.setDate(haceUnaSemana.getDate() - 7);
-    const fechaPasada = haceUnaSemana.toISOString().split('T')[0];
     
-    document.getElementById('fechaInicio').value = fechaPasada;
-    document.getElementById('fechaFin').value = hoy;
+    //  INICIALIZACIÓN AL ABRIR MODAL
+    $('#modalReporte').on('shown.bs.modal', function () {
+        // Inicializar DataTable la primera vez
+        if (!tablaReporte) {
+            inicializarDataTable();
+        }
+        
+        // Establecer fechas por defecto (últimos 7 días)
+        const hoy = new Date().toISOString().split('T')[0];
+        const haceUnaSemana = new Date();
+        haceUnaSemana.setDate(haceUnaSemana.getDate() - 7);
+        const fechaPasada = haceUnaSemana.toISOString().split('T')[0];
+        
+        document.getElementById('fechaInicio').value = fechaPasada;
+        document.getElementById('fechaFin').value = hoy;
+        
+        console.log('Modal abierto. Fechas por defecto:', {
+            fechaInicio: fechaPasada,
+            fechaFin: hoy
+        });
+    });
     
-    console.log('Página cargada. Datos iniciales:', {
-        fechaInicio: fechaPasada,
-        fechaFin: hoy,
-        time: new Date().toISOString()
+    // 6️⃣ LIMPIAR AL CERRAR MODAL
+    $('#modalReporte').on('hidden.bs.modal', function () {
+        // Limpiar búsqueda pero mantener DataTable configurado
+        btnDescargar.disabled = true;
+        if (tablaReporte) {
+            tablaReporte.clear().draw();
+        }
     });
 });
 </script>
 
-<!-- Estilos adicionales para tabla más ancha -->
+<!-- Estilos para DataTables -->
 <style>
 /* Modal */
 .modal-xl {
     max-width: 95%;
 }
 
-/* Tabla */
+/* DataTables customization */
+#tablaReporte_wrapper .dataTables_filter {
+    float: right;
+    margin-bottom: 1rem;
+}
+
+#tablaReporte_wrapper .dataTables_filter input {
+    margin-left: 0.5rem;
+    display: inline-block;
+    width: auto;
+}
+
+#tablaReporte_wrapper .dataTables_length {
+    float: left;
+}
+
+#tablaReporte_wrapper .dataTables_info {
+    padding-top: 0.85em;
+    white-space: nowrap;
+}
+
+#tablaReporte_wrapper .dataTables_paginate {
+    margin-top: 0.5rem;
+}
+
+/* Tabla estilos */
 #tablaReporte th {
     position: sticky;
     top: 0;
@@ -549,16 +424,17 @@ document.addEventListener('DOMContentLoaded', function() {
     font-size: 0.85rem;
     font-weight: 600;
     white-space: nowrap;
+    z-index: 10;
 }
 
 #tablaReporte td {
     font-size: 0.85rem;
     vertical-align: top;
-    padding: 0.5rem;
+    padding: 0.75rem;
 }
 
 #tablaReporte tbody tr:hover {
-    background-color: #f5f7fa;
+    background-color: rgba(13, 110, 253, 0.05);
 }
 
 /* Scroll personalizado */
@@ -567,38 +443,36 @@ document.addEventListener('DOMContentLoaded', function() {
     overflow: auto;
 }
 
-/* Texto secundario */
-#tablaReporte small {
-    font-size: 0.75rem;
-}
-
 /* Badges */
 #tablaReporte .badge {
     font-size: 0.7rem;
+    padding: 0.25em 0.6em;
     max-width: 140px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
 
-/* Alineación semántica correcta */
-#tablaReporte td:nth-child(1),
-#tablaReporte td:nth-child(6) {
-    text-align: center;
-    font-weight: 600;
-    color: #0d6efd;
-}
-
-/* Inputs */
-#barraBusqueda:focus {
-    box-shadow: none;
-}
-
-#tablaReporte th,
+/* Alineación */
 #tablaReporte td {
     text-align: center;
 }
 
+/* Paginación personalizada */
+.dataTables_wrapper .dataTables_paginate .paginate_button {
+    border: 1px solid #dee2e6 !important;
+    margin-left: 2px !important;
+    border-radius: 0.25rem !important;
+}
 
+.dataTables_wrapper .dataTables_paginate .paginate_button.current {
+    background: #0d6efd !important;
+    color: white !important;
+    border-color: #0d6efd !important;
+}
 
+.dataTables_wrapper .dataTables_paginate .paginate_button:hover {
+    background: #e9ecef !important;
+    color: #0d6efd !important;
+}
 </style>

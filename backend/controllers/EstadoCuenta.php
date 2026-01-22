@@ -2112,11 +2112,7 @@ JS;
 
     
     // DEBUG: Log de entrada
-    error_log('=== buscarReporteDictamen INICIO ===');
-    error_log('REQUEST_METHOD: ' . $_SERVER['REQUEST_METHOD']);
-    error_log('POST data: ' . print_r($_POST, true));
-    error_log('SESSION: ' . print_r($_SESSION ?? [], true));
-    error_log('Usuario ID: ' . ($_SESSION['usuario_id'] ?? 'NO HAY SESIÓN'));
+    
     
     header('Content-Type: application/json');
     
@@ -2180,7 +2176,7 @@ JS;
         ]);
     }
 
-    error_log('=== buscarReporteDictamen FIN ===');
+    
 }
     public function verDocumento()
     {
@@ -2323,11 +2319,68 @@ public function descargarReporteDictamen()
 }
 
 
+public function getDictamenLlamadas()
+{
+    // Obtener filtros de fecha
+    $fechaInicio = $_POST['fechaInicio'] ?? null;
+    $fechaFin = $_POST['fechaFin'] ?? null;
+
+    if (empty($fechaInicio) || empty($fechaFin)) {
+        self::respuestaJSON([
+            'success' => false,
+            'mensaje' => 'Fechas requeridas'
+        ]);
+        return;
+    }
+
+    // Llamar al DAO con filtros
+    $resultado = EstadoCuentaDAO::buscarReporteDictamen(
+        $_SESSION['usuario_id'],
+        $fechaInicio,
+        $fechaFin
+    );
+
+    // Verificar resultado
+    if (!$resultado['success']) {
+        self::respuestaJSON([
+            'success' => false,
+            'mensaje' => $resultado['mensaje']
+        ]);
+        return;
+    }
+
+    // Formatear datos si es necesario
+    $datos = array_map(function($item) {
+        return [
+            'id' => $item['id'] ?? '',
+            'fecha_registro' => $item['fecha_registro'] ?? '',
+            'hora_registro' => $item['hora_registro'] ?? '',
+            'id_credito' => $item['id_credito'] ?? '',
+            'nombre_cliente' => $item['nombre_cliente'] ?? '',
+            'tipo_contacto' => $item['tipo_contacto'] ?? '',
+            'resultado_contacto' => $item['resultado_contacto'] ?? '',
+            'dictamen' => $item['dictamen'] ?? '',
+            'motivo_no_pago' => $item['motivo_no_pago'] ?? '',
+            'tipo_motivo_no_pago' => $item['tipo_motivo_no_pago'] ?? '',
+            'plataforma' => $item['plataforma'] ?? '',
+            'fuente_ingresos' => $item['fuente_ingresos'] ?? '',
+            'comentarios' => $item['comentarios'] ?? ''
+        ];
+    }, $resultado['datos']);
+
+    self::respuestaJSON([
+        'success' => true,
+        'datos' => $datos,
+        'cantidad' => count($datos)
+    ]);
+}
+
+
 public function reporteDictamen()
 {
     $script = "";
     
-    self::set("titulo", "Dictamen de Llamadas | " . CONFIGURACION['EMPRESA']);
+    self::set("titulo", "Dictamen de Llamadas | " );
     self::set("script", $script);
     return self::render("dictamen_llamadas"); 
 }
