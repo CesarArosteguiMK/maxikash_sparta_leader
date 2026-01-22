@@ -260,70 +260,225 @@ document.addEventListener('DOMContentLoaded', function() {
         columns: [
             { 
                 data: 'fecha',
+                className: 'text-center',
                 render: function(data, type, row) {
-                    return `
-                        ${row.fecha_registro || ''}<br>
-                        <small class="text-muted">${row.hora_registro || ''}</small>
-                    `;
+                    if (type === 'display') {
+                        return `
+                            <div class="d-flex align-items-center justify-content-center">
+                                <div class="me-2">
+                                    <i class="fa fa-calendar text-muted"></i>
+                                </div>
+                                <div class="text-start">
+                                    <div class="fw-semibold">${row.fecha_registro || 'N/A'}</div>
+                                    <small class="text-muted">
+                                        <i class="fa fa-clock-o me-1"></i>
+                                        ${row.hora_registro || 'Sin hora'}
+                                    </small>
+                                </div>
+                            </div>
+                        `;
+                    }
+                    return row.fecha_registro || '';
                 }
             },
             { 
                 data: 'credito_cliente',
+                className: 'text-center',
                 render: function(data, type, row) {
-                    return `
-                        <strong>${row.id_credito || '—'}</strong><br>
-                        <small>${row.nombre_cliente || 'N/A'}</small>
-                    `;
+                    if (type === 'display') {
+                        return `
+                            <div class="d-flex align-items-center justify-content-center">
+                                <div class="me-2">
+                                    <i class="fa fa-id-card text-muted"></i>
+                                </div>
+                                <div class="text-start">
+                                    <div class="fw-semibold">
+                                        <i class="fa fa-hashtag me-1 fa-sm text-muted"></i>
+                                        ${row.id_credito || '—'}
+                                    </div>
+                                    <small class="text-muted">
+                                        <i class="fa fa-user me-1"></i>
+                                        ${row.nombre_cliente || 'N/A'}
+                                    </small>
+                                </div>
+                            </div>
+                        `;
+                    }
+                    return row.id_credito || '';
                 }
             },
             { 
                 data: 'contacto',
+                className: 'text-center',
                 render: function(data, type, row) {
-                    return `
-                        <span class="badge bg-info mb-1">${row.tipo_contacto || '—'}</span><br>
-                        <small>${row.resultado_contacto || '—'}</small><br>
-                        <strong>${row.dictamen || ''}</strong>
-                    `;
+                    // Determinar icono según tipo de contacto
+                    let iconoContacto = 'fa-phone';
+                    
+                    if (row.tipo_contacto?.toLowerCase().includes('correo') || 
+                        row.tipo_contacto?.toLowerCase().includes('email')) {
+                        iconoContacto = 'fa-envelope';
+                    } else if (row.tipo_contacto?.toLowerCase().includes('whatsapp') || 
+                               row.tipo_contacto?.toLowerCase().includes('mensaje')) {
+                        iconoContacto = 'fa-comments';
+                    } else if (row.tipo_contacto?.toLowerCase().includes('personal')) {
+                        iconoContacto = 'fa-user';
+                    }
+                    
+                    // Determinar icono según dictamen
+                    let iconoDictamen = 'fa-question-circle';
+                    let dictamenText = row.dictamen || '';
+                    
+                    if (dictamenText.toLowerCase().includes('pago') || 
+                        dictamenText.toLowerCase().includes('positivo') ||
+                        dictamenText.toLowerCase().includes('favorable')) {
+                        iconoDictamen = 'fa-check-circle';
+                    } else if (dictamenText.toLowerCase().includes('no pago') || 
+                               dictamenText.toLowerCase().includes('negativo') ||
+                               dictamenText.toLowerCase().includes('desfavorable')) {
+                        iconoDictamen = 'fa-times-circle';
+                    } else if (dictamenText.toLowerCase().includes('pendiente') || 
+                               dictamenText.toLowerCase().includes('espera')) {
+                        iconoDictamen = 'fa-clock-o';
+                    }
+                    
+                    if (type === 'display') {
+                        return `
+                            <div class="d-flex align-items-start">
+                                <div class="me-2">
+                                    <i class="fa ${iconoContacto} text-muted"></i>
+                                </div>
+                                <div class="text-start">
+                                    <span class="badge bg-info mb-1">${row.tipo_contacto || '—'}</span>
+                                    <div class="small mb-1">
+                                        <i class="fa fa-comment me-1 text-muted"></i>
+                                        ${row.resultado_contacto || '—'}
+                                    </div>
+                                    <div class="fw-semibold">
+                                        <i class="fa ${iconoDictamen} text-muted me-1"></i>
+                                        ${dictamenText}
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    }
+                    return row.tipo_contacto || '';
                 }
             },
             { 
                 data: 'motivo',
+                className: 'text-center',
                 render: function(data, type, row) {
-                    return `
-                        ${row.motivo_no_pago || 'N/A'}<br>
-                        <small class="text-muted">${row.tipo_motivo_no_pago || ''}</small>
-                    `;
+                    // Determinar icono según motivo
+                    let iconoMotivo = 'fa-exclamation-circle';
+                    let motivoText = row.motivo_no_pago || '';
+                    
+                    if (motivoText.toLowerCase().includes('económico') || 
+                        motivoText.toLowerCase().includes('dinero') ||
+                        motivoText.toLowerCase().includes('financiero')) {
+                        iconoMotivo = 'fa-money';
+                    } else if (motivoText.toLowerCase().includes('olvido') || 
+                               motivoText.toLowerCase().includes('descuido')) {
+                        iconoMotivo = 'fa-bell-slash';
+                    } else if (motivoText.toLowerCase().includes('laboral') || 
+                               motivoText.toLowerCase().includes('empleo') ||
+                               motivoText.toLowerCase().includes('trabajo')) {
+                        iconoMotivo = 'fa-briefcase';
+                    } else if (motivoText.toLowerCase().includes('salud') ||
+                               motivoText.toLowerCase().includes('enferm')) {
+                        iconoMotivo = 'fa-heartbeat';
+                    } else if (motivoText.toLowerCase().includes('familiar')) {
+                        iconoMotivo = 'fa-users';
+                    }
+                    
+                    if (type === 'display') {
+                        return `
+                            <div class="d-flex align-items-start">
+                                <div class="me-2">
+                                    <i class="fa ${iconoMotivo} text-muted"></i>
+                                </div>
+                                <div class="text-start">
+                                    <div class="mb-1">${motivoText || 'N/A'}</div>
+                                    <small class="text-muted">
+                                        <i class="fa fa-tag me-1"></i>
+                                        ${row.tipo_motivo_no_pago || ''}
+                                    </small>
+                                </div>
+                            </div>
+                        `;
+                    }
+                    return motivoText;
                 }
             },
             { 
                 data: 'origen_notas',
+                className: 'text-center',
                 render: function(data, type, row) {
-                    return `
-                        <span class="badge bg-secondary mb-1">${row.plataforma || '—'}</span><br>
-                        <small>${row.fuente_ingresos || ''}</small><br>
-                        <small class="text-muted">${row.comentarios || ''}</small>
-                    `;
+                    // Determinar icono según plataforma
+                    let iconoPlataforma = 'fa-desktop';
+                    let plataformaText = row.plataforma || '';
+                    
+                    if (plataformaText.toLowerCase().includes('móvil') || 
+                        plataformaText.toLowerCase().includes('mobile') ||
+                        plataformaText.toLowerCase().includes('celular')) {
+                        iconoPlataforma = 'fa-mobile';
+                    } else if (plataformaText.toLowerCase().includes('tablet')) {
+                        iconoPlataforma = 'fa-tablet';
+                    } else if (plataformaText.toLowerCase().includes('web') ||
+                               plataformaText.toLowerCase().includes('online')) {
+                        iconoPlataforma = 'fa-globe';
+                    } else if (plataformaText.toLowerCase().includes('teléfono') ||
+                               plataformaText.toLowerCase().includes('telefono')) {
+                        iconoPlataforma = 'fa-phone';
+                    }
+                    
+                    // Determinar icono para fuente de ingresos
+                    let iconoIngresos = 'fa-money';
+                    let ingresosText = row.fuente_ingresos || '';
+                    
+                    if (ingresosText.toLowerCase().includes('negocio') ||
+                        ingresosText.toLowerCase().includes('emprendimiento')) {
+                        iconoIngresos = 'fa-briefcase';
+                    } else if (ingresosText.toLowerCase().includes('empleo') ||
+                               ingresosText.toLowerCase().includes('trabajo')) {
+                        iconoIngresos = 'fa-building';
+                    } else if (ingresosText.toLowerCase().includes('independiente') ||
+                               ingresosText.toLowerCase().includes('freelance')) {
+                        iconoIngresos = 'fa-user-md';
+                    }
+                    
+                    if (type === 'display') {
+                        return `
+                            <div class="d-flex align-items-start">
+                                <div class="me-2">
+                                    <i class="fa ${iconoPlataforma} text-muted"></i>
+                                </div>
+                                <div class="text-start">
+                                    <span class="badge bg-secondary mb-1">${plataformaText || '—'}</span>
+                                    <div class="small mb-1">
+                                        <i class="fa ${iconoIngresos} me-1 text-muted"></i>
+                                        ${ingresosText || 'No especificado'}
+                                    </div>
+                                    <small class="text-muted">
+                                        <i class="fa fa-sticky-note me-1"></i>
+                                        ${row.comentarios || 'Sin comentarios'}
+                                    </small>
+                                </div>
+                            </div>
+                        `;
+                    }
+                    return plataformaText;
                 }
             }
         ],
         pageLength: 10,
-        pagingType: 'full_numbers', // Cambiado de default a 'full_numbers'
+        pagingType: 'full_numbers',
         language: {
             url: 'https://cdn.datatables.net/plug-ins/1.11.5/i18n/es-ES.json',
-            // Sobreescribir solo los textos de paginación
             paginate: {
-                first: '«',      // << Primera página
-                previous: '‹',   // < Anterior  
-                next: '›',       // > Siguiente
-                last: '»'        // >> Última página
-            },
-            aria: {
-                paginate: {
-                    first: 'Primera página',
-                    previous: 'Página anterior',
-                    next: 'Página siguiente',
-                    last: 'Última página'
-                }
+                first: '«',
+                previous: '‹',
+                next: '›',
+                last: '»'
             }
         },
         dom: '<"row"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-6"f>>rt<"row"<"col-sm-12 col-md-5"i><"col-sm-12 col-md-7"p>>',
