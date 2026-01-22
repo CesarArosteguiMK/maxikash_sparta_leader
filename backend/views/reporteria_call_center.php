@@ -30,7 +30,7 @@
                                 <div class="mb-0 w-100 app-academy-sm-60 d-flex flex-column justify-content-between text-center text-sm-start">
                                     <div class="card-title">
                                         <h5 class="text-primary mb-2">Disponible para descarga diaria</h5>
-                                        <p class="text-body w-sm-80 app-academy-xl-100">El Último corte es: ****** falta agregar dinamicamente</p>
+                                        <p class="text-body w-sm-80 app-academy-xl-100">El Último corte es: <strong id="ultimo-corte-display">Cargando...</strong></p>
                                     </div>
                                     <form id="form-descarga" method="GET" action="/Reporteria/ProcesarDescargarCorte">
                                         <input type="hidden" name="columna" id="input-columna" value="">
@@ -86,3 +86,31 @@
         </div>
     </div>
 </div>
+
+<script>
+    // Cargar el último corte disponible al cargar la página
+    document.addEventListener('DOMContentLoaded', function() {
+        fetch('/Reporteria/getUltimoCorte', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'ultimo_corte' })
+        })
+        .then(resp => resp.json())
+        .then(data => {
+            const nombreColumna = data?.datos?.columna || "";
+            const displayElement = document.getElementById('ultimo-corte-display');
+            
+            if (nombreColumna) {
+                displayElement.textContent = nombreColumna;
+                displayElement.style.color = '#696cff';
+            } else {
+                displayElement.textContent = 'No disponible';
+                displayElement.style.color = '#a1acb8';
+            }
+        })
+        .catch(err => {
+            console.error('Error al cargar último corte:', err);
+            document.getElementById('ultimo-corte-display').textContent = 'Error al cargar';
+        });
+    });
+</script>
