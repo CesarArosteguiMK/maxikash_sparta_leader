@@ -53,8 +53,8 @@ class EstadoCuenta extends Controller
     public function Consulta()
     {
         // --- JS COMPLETO EN EL CONTROLADOR ---
-        $script = 
-        <script>
+        $script = <<<JS
+    <script>
         
         document.addEventListener("DOMContentLoaded", () => {
         
