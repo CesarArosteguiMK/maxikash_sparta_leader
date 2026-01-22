@@ -596,7 +596,6 @@ JS;
                             const watermark = document.getElementById('pdfWatermark');
                             if (watermark) {
                                 watermark.removeAttribute('data-marcas-sin-valor');
-                                console.log('✅ Atributo data-marcas-sin-valor removido del pdfWatermark para INE');
                             }
                             
                             // Crear marcas de agua inmediatamente y después de que las imágenes se carguen
@@ -658,7 +657,6 @@ JS;
                                 if (data.tipo === 'FACTURA' || data.tipo === 'FAD_DOC' || data.tipo === 'CONTRATO') {
                                     // Usar PDF.js para FACTURA OK, FAD_DOC y VALIDACIONES OK - EXACTAMENTE como EVIDENCIA
                                     const tipoNombre = data.tipo === 'FACTURA' ? 'FACTURA' : (data.tipo === 'FAD_DOC' ? 'FAD_DOC' : 'VALIDACIONES');
-                                    console.log('Mostrando ' + tipoNombre + ' con PDF.js:', data);
                                     
                                     // Asegurar que el contenedor de visor simple esté oculto
                                     const embedContainer = document.getElementById('visorPdfEmbed');
@@ -686,7 +684,6 @@ JS;
                                                 pdfUrl = decodeURIComponent(urlParam);
                                             }
                                         } catch (e) {
-                                            console.log('No se pudo extraer URL del viewer, usando URL directa');
                                         }
                                     }
                                     
@@ -700,14 +697,12 @@ JS;
                                             const fileName = urlParams.searchParams.get('fileName');
                                             if (fileName) {
                                                 pdfUrl = '/estadocuenta/verDocumento?fileName=' + encodeURIComponent(fileName);
-                                                console.log('URL convertida a proxy local para evitar descarga:', pdfUrl);
                                             }
                                         } catch (e) {
                                             console.warn('No se pudo convertir URL a proxy local:', e);
                                         }
                                     }
                                     
-                                    console.log('URL final para ' + tipoNombre + ':', pdfUrl);
                                     
                                     if (typeof cargarPDFFactura === 'function') {
                                         // Usar función específica para FACTURA, FAD_DOC y CONTRATO (sin fallback a iframe)
@@ -1452,7 +1447,6 @@ JS;
                                     
                                 } else {
                                     // Para otros tipos (EVIDENCIA si es PDF), usar PDF.js
-                                    console.log('Mostrando PDF con PDF.js:', data);
                                     
                                     // Asegurar que el contenedor de visor simple esté oculto
                                     const embedContainer = document.getElementById('visorPdfEmbed');
@@ -1476,7 +1470,6 @@ JS;
                                                 pdfUrl = decodeURIComponent(urlParam);
                                             }
                                         } catch (e) {
-                                            console.log('No se pudo extraer URL del viewer, usando URL directa');
                                         }
                                     }
                                     
