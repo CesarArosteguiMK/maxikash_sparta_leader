@@ -20,8 +20,8 @@
                 </div>
             </div>
 
-            <div class="row gy-4 mb-4">
-                <div class="col-lg-5 mx-auto">
+            <div class="row gy-3 mb-3">
+                <div class="col-lg-4 mx-auto">
                     <div class="card shadow-none bg-label-primary h-100">
                         <div class="card-body d-flex justify-content-between flex-wrap-reverse">
                             <div class="mb-0 w-100 app-academy-sm-60 d-flex flex-column justify-content-between text-center text-sm-start">
@@ -139,76 +139,200 @@ document.addEventListener('DOMContentLoaded', function() {
     let datosCompletos = [];
     let datosBusqueda = { fechaInicio: '', fechaFin: '' };
     
-    // INICIALIZAR DATATABLE (Patrón all_gestores.php)
-    let tablaReporte = null;
+    // 1️⃣ FUNCIÓN PARA OBTENER ÚLTIMO DÍA DEL MES
+    function obtenerUltimoDiaMes(fecha = new Date()) {
+        const año = fecha.getFullYear();
+        const mes = fecha.getMonth() + 1; // getMonth() devuelve 0-11
+        return new Date(año, mes, 0).getDate(); // Día 0 del mes siguiente = último día actual
+    }
     
-    function inicializarDataTable() {
-        if ($.fn.DataTable.isDataTable('#tablaReporte')) {
-            $('#tablaReporte').DataTable().destroy();
-        }
+    // 2️⃣ FUNCIÓN PARA FORMATO YYYY-MM-DD
+    function formatoFechaInput(fecha) {
+        const año = fecha.getFullYear();
+        const mes = String(fecha.getMonth() + 1).padStart(2, '0');
+        const dia = String(fecha.getDate()).padStart(2, '0');
+        return `${año}-${mes}-${dia}`;
+    }
+    
+    // 3️⃣ CONFIGURAR LIMITES DE FECHAS
+    function configurarLimitesFechas() {
+        const hoy = new Date();
+        const fechaInicioInput = document.getElementById('fechaInicio');
+        const fechaFinInput = document.getElementById('fechaFin');
         
-        tablaReporte = $('#tablaReporte').DataTable({
-            data: [],
-            columns: [
-                { 
-                    data: 'fecha',
-                    render: function(data, type, row) {
-                        return `
-                            ${row.fecha_registro || ''}<br>
-                            <small class="text-muted">${row.hora_registro || ''}</small>
-                        `;
-                    }
-                },
-                { 
-                    data: 'credito_cliente',
-                    render: function(data, type, row) {
-                        return `
-                            <strong>${row.id_credito || '—'}</strong><br>
-                            <small>${row.nombre_cliente || 'N/A'}</small>
-                        `;
-                    }
-                },
-                { 
-                    data: 'contacto',
-                    render: function(data, type, row) {
-                        return `
-                            <span class="badge bg-info mb-1">${row.tipo_contacto || '—'}</span><br>
-                            <small>${row.resultado_contacto || '—'}</small><br>
-                            <strong>${row.dictamen || ''}</strong>
-                        `;
-                    }
-                },
-                { 
-                    data: 'motivo',
-                    render: function(data, type, row) {
-                        return `
-                            ${row.motivo_no_pago || 'N/A'}<br>
-                            <small class="text-muted">${row.tipo_motivo_no_pago || ''}</small>
-                        `;
-                    }
-                },
-                { 
-                    data: 'origen_notas',
-                    render: function(data, type, row) {
-                        return `
-                            <span class="badge bg-secondary mb-1">${row.plataforma || '—'}</span><br>
-                            <small>${row.fuente_ingresos || ''}</small><br>
-                            <small class="text-muted">${row.comentarios || ''}</small>
-                        `;
-                    }
-                }
-            ],
-            pageLength: 10,
-            language: {
-                url: 'https://cdn.datatables.net/plug-ins/1.11.5/i18n/es-ES.json'
-            },
-            dom: '<"row"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-6"f>>rt<"row"<"col-sm-12 col-md-5"i><"col-sm-12 col-md-7"p>>',
-            responsive: true,
-            destroy: true
+        // Obtener último día del mes actual
+        const ultimoDiaMes = obtenerUltimoDiaMes(hoy);
+        const ultimoDiaMesFecha = new Date(hoy.getFullYear(), hoy.getMonth(), ultimoDiaMes);
+        
+        // Configurar límite máximo (último día del mes actual)
+        const maxFecha = formatoFechaInput(ultimoDiaMesFecha);
+        fechaInicioInput.max = maxFecha;
+        fechaFinInput.max = maxFecha;
+        
+        // Configurar fecha mínima (opcional, puedes ajustar según necesidad)
+        const fechaMinima = new Date(2020, 0, 1); // 1 de enero 2020
+        fechaInicioInput.min = formatoFechaInput(fechaMinima);
+        fechaFinInput.min = formatoFechaInput(fechaMinima);
+        
+        console.log('Límites configurados:', {
+            maxFecha,
+            ultimoDiaMes,
+            mesActual: hoy.getMonth() + 1
         });
     }
     
-    // FUNCIÓN PARA CARGAR DATOS (Patrón getUsuarios())
+    // 4️⃣ VALIDAR FECHAS ANTES DE BUSCAR
+    function validarFechas(fechaInicio, fechaFin) {
+        const inicio = new Date(fechaInicio);
+        const fin = new Date(fechaFin);
+        const hoy = new Date();
+        const ultimoDiaMes = obtenerUltimoDiaMes(hoy);
+        const ultimoDiaMesFecha = new Date(hoy.getFullYear(), hoy.getMonth(), ultimoDiaMes);
+        
+        // Validación 1: Fecha inicio no mayor que fecha fin
+        if (inicio > fin) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Fechas inválidas',
+                html: `
+                    <div class="text-start">
+                        <p>La <strong>fecha de inicio</strong> no puede ser mayor a la <strong>fecha de fin</strong>.</p>
+                        <div class="alert alert-warning mt-2 p-2">
+                            <i class="fas fa-calendar me-1"></i>
+                            <strong>Fecha inicio:</strong> ${fechaInicio}<br>
+                            <i class="fas fa-calendar-check me-1"></i>
+                            <strong>Fecha fin:</strong> ${fechaFin}
+                        </div>
+                    </div>
+                `,
+                confirmButtonText: 'Corregir fechas',
+                confirmButtonColor: '#3085d6'
+            });
+            return false;
+        }
+        
+        // Validación 2: No permitir fechas futuras (después del último día del mes actual)
+        if (inicio > ultimoDiaMesFecha || fin > ultimoDiaMesFecha) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Fecha fuera de rango',
+                html: `
+                    <div class="text-start">
+                        <p>No se pueden seleccionar fechas después del <strong>${ultimoDiaMes} de ${hoy.toLocaleDateString('es-ES', { month: 'long' })}</strong>.</p>
+                        <div class="alert alert-info mt-2 p-2">
+                            <i class="fas fa-info-circle me-1"></i>
+                            El sistema solo permite consultar reportes hasta el último día del mes actual.
+                        </div>
+                    </div>
+                `,
+                confirmButtonText: 'Entendido',
+                confirmButtonColor: '#3085d6'
+            });
+            return false;
+        }
+        
+        // Validación 3: Fecha no mayor a hoy (opcional, si quieres evitar fechas futuras)
+        const hoySinHora = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
+        if (inicio > hoySinHora || fin > hoySinHora) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Fecha futura',
+                text: 'No se pueden seleccionar fechas futuras.',
+                confirmButtonText: 'Corregir',
+                confirmButtonColor: '#3085d6'
+            });
+            return false;
+        }
+        
+        return true;
+    }
+    
+    // 5️⃣ INICIALIZAR DATATABLE (sin cambios)
+    let tablaReporte = null;
+    
+    function inicializarDataTable() {
+    if ($.fn.DataTable.isDataTable('#tablaReporte')) {
+        $('#tablaReporte').DataTable().destroy();
+    }
+    
+    tablaReporte = $('#tablaReporte').DataTable({
+        data: [],
+        columns: [
+            { 
+                data: 'fecha',
+                render: function(data, type, row) {
+                    return `
+                        ${row.fecha_registro || ''}<br>
+                        <small class="text-muted">${row.hora_registro || ''}</small>
+                    `;
+                }
+            },
+            { 
+                data: 'credito_cliente',
+                render: function(data, type, row) {
+                    return `
+                        <strong>${row.id_credito || '—'}</strong><br>
+                        <small>${row.nombre_cliente || 'N/A'}</small>
+                    `;
+                }
+            },
+            { 
+                data: 'contacto',
+                render: function(data, type, row) {
+                    return `
+                        <span class="badge bg-info mb-1">${row.tipo_contacto || '—'}</span><br>
+                        <small>${row.resultado_contacto || '—'}</small><br>
+                        <strong>${row.dictamen || ''}</strong>
+                    `;
+                }
+            },
+            { 
+                data: 'motivo',
+                render: function(data, type, row) {
+                    return `
+                        ${row.motivo_no_pago || 'N/A'}<br>
+                        <small class="text-muted">${row.tipo_motivo_no_pago || ''}</small>
+                    `;
+                }
+            },
+            { 
+                data: 'origen_notas',
+                render: function(data, type, row) {
+                    return `
+                        <span class="badge bg-secondary mb-1">${row.plataforma || '—'}</span><br>
+                        <small>${row.fuente_ingresos || ''}</small><br>
+                        <small class="text-muted">${row.comentarios || ''}</small>
+                    `;
+                }
+            }
+        ],
+        pageLength: 10,
+        pagingType: 'full_numbers', // Cambiado de default a 'full_numbers'
+        language: {
+            url: 'https://cdn.datatables.net/plug-ins/1.11.5/i18n/es-ES.json',
+            // Sobreescribir solo los textos de paginación
+            paginate: {
+                first: '«',      // << Primera página
+                previous: '‹',   // < Anterior  
+                next: '›',       // > Siguiente
+                last: '»'        // >> Última página
+            },
+            aria: {
+                paginate: {
+                    first: 'Primera página',
+                    previous: 'Página anterior',
+                    next: 'Página siguiente',
+                    last: 'Última página'
+                }
+            }
+        },
+        dom: '<"row"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-6"f>>rt<"row"<"col-sm-12 col-md-5"i><"col-sm-12 col-md-7"p>>',
+        responsive: true,
+        destroy: true
+    });
+}
+    
+    // 6️⃣ FUNCIÓN PARA CARGAR DATOS (sin cambios)
     function cargarDatosReporte() {
         if (!datosBusqueda.fechaInicio || !datosBusqueda.fechaFin) {
             return;
@@ -261,22 +385,27 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Guardar datos completos
                 datosCompletos = resp.data;
                 
-                // Actualizar DataTable (Patrón all_gestores.php)
+                // Actualizar DataTable
                 const datosFormateados = resp.data.map(item => ({
                     ...item,
-                    fecha: item.fecha_registro, // Para ordenamiento
-                    credito_cliente: item.id_credito, // Para ordenamiento
-                    contacto: item.tipo_contacto, // Para ordenamiento
-                    motivo: item.motivo_no_pago, // Para ordenamiento
-                    origen_notas: item.plataforma // Para ordenamiento
+                    fecha: item.fecha_registro,
+                    credito_cliente: item.id_credito,
+                    contacto: item.tipo_contacto,
+                    motivo: item.motivo_no_pago,
+                    origen_notas: item.plataforma
                 }));
                 
                 tablaReporte.clear().rows.add(datosFormateados).draw();
                 btnDescargar.disabled = false;
                 
-                // Mostrar conteo
-                const info = tablaReporte.page.info();
-                console.log(`Mostrando ${info.start + 1} a ${info.end} de ${info.recordsTotal} registros`);
+                // Mostrar éxito
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Búsqueda exitosa',
+                    text: `Se encontraron ${resp.data.length} registros`,
+                    timer: 1500,
+                    showConfirmButton: false
+                });
             },
             onError: (error) => {
                 console.error('Error al cargar datos:', error);
@@ -293,13 +422,14 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    // MANEJAR ENVÍO DEL FORMULARIO
+    // 7️⃣ MANEJAR ENVÍO DEL FORMULARIO (CON VALIDACIONES)
     formBuscar.addEventListener('submit', async function(e) {
         e.preventDefault();
         
         datosBusqueda.fechaInicio = document.getElementById('fechaInicio').value;
         datosBusqueda.fechaFin = document.getElementById('fechaFin').value;
         
+        // Validar que se hayan seleccionado ambas fechas
         if (!datosBusqueda.fechaInicio || !datosBusqueda.fechaFin) {
             Swal.fire({
                 icon: 'warning',
@@ -311,17 +441,8 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         
-        // Validar que fecha fin no sea menor que fecha inicio
-        const fechaInicio = new Date(datosBusqueda.fechaInicio);
-        const fechaFin = new Date(datosBusqueda.fechaFin);
-        
-        if (fechaFin < fechaInicio) {
-            Swal.fire({
-                icon: 'error',
-                title: 'Fechas inválidas',
-                text: 'La fecha de fin no puede ser menor a la fecha de inicio',
-                confirmButtonText: 'Corregir'
-            });
+        // Validar fechas
+        if (!validarFechas(datosBusqueda.fechaInicio, datosBusqueda.fechaFin)) {
             return;
         }
         
@@ -330,11 +451,21 @@ document.addEventListener('DOMContentLoaded', function() {
             inicializarDataTable();
         }
         
+        // Mostrar loading
+        Swal.fire({
+            title: 'Buscando reportes...',
+            text: 'Por favor espere',
+            allowOutsideClick: false,
+            didOpen: () => {
+                Swal.showLoading();
+            }
+        });
+        
         // Cargar datos
         cargarDatosReporte();
     });
     
-    //  MANEJAR DESCARGA
+    // 8️⃣ MANEJAR DESCARGA (sin cambios)
     btnDescargar.addEventListener('click', function() {
         if (datosBusqueda.fechaInicio && datosBusqueda.fechaFin) {
             const url = `/EstadoCuenta/descargarReporteDictamen?fechaInicio=${encodeURIComponent(datosBusqueda.fechaInicio)}&fechaFin=${encodeURIComponent(datosBusqueda.fechaFin)}`;
@@ -351,29 +482,85 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
     
-    //  INICIALIZACIÓN AL ABRIR MODAL
+    // 9️⃣ VALIDACIÓN EN TIEMPO REAL DE FECHAS
+    function configurarValidacionTiempoReal() {
+        const fechaInicioInput = document.getElementById('fechaInicio');
+        const fechaFinInput = document.getElementById('fechaFin');
+        
+        // Cuando cambia fecha de inicio, ajustar fecha fin mínima
+        fechaInicioInput.addEventListener('change', function() {
+            if (this.value) {
+                fechaFinInput.min = this.value;
+                
+                // Si fecha fin es menor que fecha inicio, resetear
+                if (fechaFinInput.value && fechaFinInput.value < this.value) {
+                    fechaFinInput.value = '';
+                    Swal.fire({
+                        icon: 'info',
+                        title: 'Fecha ajustada',
+                        text: 'La fecha de fin se ha ajustado para no ser menor que la fecha de inicio',
+                        timer: 10500,
+                        showConfirmButton: true
+                    });
+                }
+            }
+        });
+        
+        // Cuando cambia fecha fin, validar
+        fechaFinInput.addEventListener('change', function() {
+            if (fechaInicioInput.value && this.value) {
+                if (this.value < fechaInicioInput.value) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Fecha inválida',
+                        text: 'La fecha de fin no puede ser menor que la fecha de inicio',
+                        confirmButtonText: 'Corregir'
+                    }).then(() => {
+                        this.value = '';
+                        this.focus();
+                    });
+                }
+            }
+        });
+    }
+    
+    // 🔟 INICIALIZACIÓN AL ABRIR MODAL
     $('#modalReporte').on('shown.bs.modal', function () {
+        // Configurar límites de fechas
+        configurarLimitesFechas();
+        
+        // Configurar validación en tiempo real
+        configurarValidacionTiempoReal();
+        
         // Inicializar DataTable la primera vez
         if (!tablaReporte) {
             inicializarDataTable();
         }
         
         // Establecer fechas por defecto (últimos 7 días)
-        const hoy = new Date().toISOString().split('T')[0];
+        const hoy = new Date();
         const haceUnaSemana = new Date();
         haceUnaSemana.setDate(haceUnaSemana.getDate() - 7);
-        const fechaPasada = haceUnaSemana.toISOString().split('T')[0];
         
-        document.getElementById('fechaInicio').value = fechaPasada;
-        document.getElementById('fechaFin').value = hoy;
+        // Ajustar para no pasar del último día del mes
+        const ultimoDiaMes = obtenerUltimoDiaMes(hoy);
+        const ultimoDiaMesFecha = new Date(hoy.getFullYear(), hoy.getMonth(), ultimoDiaMes);
         
-        console.log('Modal abierto. Fechas por defecto:', {
-            fechaInicio: fechaPasada,
-            fechaFin: hoy
+        // Si hoy es después del último día del mes (por seguridad)
+        const fechaFin = hoy <= ultimoDiaMesFecha ? hoy : ultimoDiaMesFecha;
+        
+        document.getElementById('fechaInicio').value = formatoFechaInput(haceUnaSemana);
+        document.getElementById('fechaFin').value = formatoFechaInput(fechaFin);
+        
+        console.log('Fechas por defecto configuradas:', {
+            inicio: formatoFechaInput(haceUnaSemana),
+            fin: formatoFechaInput(fechaFin),
+            ultimoDiaMes,
+            mesActual: hoy.getMonth() + 1
         });
     });
     
-    // 6️⃣ LIMPIAR AL CERRAR MODAL
+    // 1️⃣1️⃣ LIMPIAR AL CERRAR MODAL
     $('#modalReporte').on('hidden.bs.modal', function () {
         // Limpiar búsqueda pero mantener DataTable configurado
         btnDescargar.disabled = true;
