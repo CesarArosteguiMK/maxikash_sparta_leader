@@ -45,105 +45,135 @@
     </div>
 </div>
 
-<!-- Modal para consulta de reporte -->
-<div class="modal fade" id="modalReporte" tabindex="-1" aria-labelledby="modalReporteLabel" aria-hidden="true">
-    <div class="modal-dialog modal-xl">
+<!-- MODAL REDISEÑADO -->
+<div class="modal fade" id="modalReporte" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="modalReporteLabel">Consulta de Dictamen de Llamadas - Reporte Completo</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <!-- Formulario de búsqueda por fechas -->
-                <form id="formBuscarReporte" method="POST" action="/Reporteria/BuscarReporte">
-                    <div class="row mb-4">
-                        <div class="col-md-5">
-                            <label for="fechaInicio" class="form-label">Fecha de inicio</label>
-                            <input type="date" class="form-control" id="fechaInicio" name="fechaInicio" required>
-                        </div>
-                        <div class="col-md-5">
-                            <label for="fechaFin" class="form-label">Fecha de fin</label>
-                            <input type="date" class="form-control" id="fechaFin" name="fechaFin" required>
-                        </div>
-                        <div class="col-md-2 d-flex align-items-end">
-                            <button type="submit" class="btn btn-primary w-100">
-                                <i class="fas fa-search me-2"></i>Buscar
-                            </button>
-                        </div>
-                    </div>
-                </form>
 
-                <!-- 🔥 BARRA DE BÚSQUEDA EN TIEMPO REAL -->
-                <div class="mb-3">
-                    <div class="input-group">
-                        <span class="input-group-text bg-light">
-                            <i class="fas fa-search text-muted"></i>
-                        </span>
-                        <input 
-                            type="text" 
-                            class="form-control" 
-                            id="barraBusqueda" 
-                            placeholder="Buscar en la tabla... (ID Dictamen, Cliente, Crédito, Resultado, etc.)"
-                            autocomplete="off"
-                        >
-                        <button 
-                            class="btn btn-outline-secondary" 
-                            type="button" 
-                            id="btnLimpiarBusqueda"
-                            title="Limpiar búsqueda"
-                        >
-                            <i class="fas fa-times"></i>
-                        </button>
-                    </div>
-                    <small class="text-muted d-block mt-2">
-                        <i class="fas fa-info-circle me-1"></i>
-                        Resultados encontrados: <span id="contadorResultados">0</span>
+            <!-- HEADER -->
+            <div class="modal-header border-bottom">
+                <div>
+                    <h5 class="modal-title fw-semibold">Dictamen de llamadas</h5>
+                    <small class="text-muted">
+                        Consulta, filtra y descarga reportes por rango de fechas
                     </small>
                 </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
 
-                <!-- Tabla de resultados COMPLETA -->
-                <div class="table-responsive">
-                    <table class="table table-striped table-hover" id="tablaReporte">
-                        <thead class="table-light">
-                            <tr>
-                                <th>ID Dictamen</th>
-                                <th>Fecha</th>
-                                <th>Hora</th>
-                                <th>ID Crédito</th>
-                                <th>Cliente</th>
-                                <th>Tipo Contacto</th>
-                                <th>Resultado</th>
-                                <th>Dictamen</th>
-                                <th>Motivo No Pago</th>
-                                <th>Tipo Motivo</th>
-                                <th>Plataforma</th>
-                                <th>Fuente Ingresos</th>
-                                <th>Comentarios</th>
-                                <th>Agente ID</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <!-- Los resultados se cargarán aquí dinámicamente -->
-                            <tr id="sinResultados">
-                                <td colspan="14" class="text-center text-muted py-4">
-                                    <i class="fas fa-search fa-2x mb-3"></i>
-                                    <p>Ingrese las fechas y haga clic en Buscar para consultar los reportes</p>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
+            <!-- BODY -->
+            <div class="modal-body">
+
+                <!-- BLOQUE: FILTROS -->
+                <div class="card border-0 shadow-sm mb-4">
+                    <div class="card-body">
+                        <h6 class="text-primary mb-3">
+                            <i class="fas fa-filter me-2"></i>Filtros de búsqueda
+                        </h6>
+
+                        <form id="formBuscarReporte" method="POST" action="/Reporteria/BuscarReporte">
+                            <div class="row g-3 align-items-end">
+                                <div class="col-md-4">
+                                    <label class="form-label">Fecha de inicio</label>
+                                    <input type="date" class="form-control" id="fechaInicio" name="fechaInicio" required>
+                                </div>
+
+                                <div class="col-md-4">
+                                    <label class="form-label">Fecha de fin</label>
+                                    <input type="date" class="form-control" id="fechaFin" name="fechaFin" required>
+                                </div>
+
+                                <div class="col-md-4">
+                                    <button type="submit" class="btn btn-primary w-100">
+                                        <i class="fas fa-search me-2"></i>Buscar reportes
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- BLOQUE: BÚSQUEDA EN TABLA -->
+                <div class="card border-0 bg-light mb-3">
+                    <div class="card-body py-3">
+                        <div class="input-group">
+                            <span class="input-group-text bg-white">
+                                <i class="fas fa-search text-muted"></i>
+                            </span>
+                            <input 
+                                type="text"
+                                class="form-control"
+                                id="barraBusqueda"
+                                placeholder="Buscar por cliente, crédito, dictamen, agente…"
+                                autocomplete="off"
+                            >
+                            <button class="btn btn-outline-secondary" id="btnLimpiarBusqueda" type="button">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+
+                        <small class="text-muted d-block mt-2">
+                            <i class="fas fa-info-circle me-1"></i>
+                            Resultados encontrados: <strong id="contadorResultados">0</strong>
+                        </small>
+                    </div>
+                </div>
+
+                <!-- BLOQUE: TABLA -->
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body p-0">
+
+                        <div class="table-responsive">
+                            <table class="table table-hover table-striped mb-0" id="tablaReporte">
+                                <thead class="table-light">
+                                    <tr>
+                                        <!-- <th> Id Dictamen </th> -->
+                                        <th>Fecha</th>
+                                        <th>Cliente</th>
+                                        <th>Contacto</th>
+                                        <th>Dictamen</th>
+                                        <th>Origen</th>
+                                        <th>Agente</th>
+                                        <th>Notas</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr id="sinResultados">
+                                        <td colspan="14" class="text-center text-muted py-5">
+                                            <i class="fas fa-search fa-2x mb-3"></i>
+                                            <p>Seleccione un rango de fechas para consultar los reportes</p>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- FOOTER -->
+            <div class="modal-footer justify-content-between">
+                <small class="text-muted">
+                    <i class="fas fa-file-excel me-1"></i>
+                    El reporte se descargará en formato Excel
+                </small>
+
+                <div>
+                    <button class="btn btn-outline-secondary me-2" data-bs-dismiss="modal">
+                        Cerrar
+                    </button>
+                    <button class="btn btn-success" id="btnDescargarReporte" disabled>
+                        <i class="fas fa-download me-2"></i>Descargar reporte
+                    </button>
                 </div>
             </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
-                <!-- Botón de descarga (inicialmente deshabilitado) -->
-                <button type="button" class="btn btn-success" id="btnDescargarReporte" disabled>
-                    <i class="fas fa-download me-2"></i>Descargar Reporte
-                </button>
-            </div>
+
         </div>
     </div>
 </div>
+
 
 <!-- Script para manejar la funcionalidad del modal -->
 <script>
@@ -181,7 +211,8 @@ document.addEventListener('DOMContentLoaded', function() {
         const datosFiltrados = datosCompletos.filter(item => {
             // Buscar en todas las columnas relevantes
             return (
-                (item.id_dictamen && item.id_dictamen.toString().toLowerCase().includes(terminoLower)) ||
+
+                //(item.id_dictamen && item.id_dictamen.toString().toLowerCase().includes(terminoLower)) ||
                 (item.nombre_cliente && item.nombre_cliente.toLowerCase().includes(terminoLower)) ||
                 (item.id_credito && item.id_credito.toString().toLowerCase().includes(terminoLower)) ||
                 (item.resultado_contacto && item.resultado_contacto.toLowerCase().includes(terminoLower)) ||
@@ -203,45 +234,81 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // 🔥 FUNCIÓN PARA RENDERIZAR LOS DATOS EN LA TABLA
     function renderizarDatos(datos) {
-        tbody.innerHTML = '';
-        
-        if (datos.length === 0) {
-            tbody.innerHTML = `
-                <tr>
-                    <td colspan="14" class="text-center text-muted py-4">
-                        <i class="fas fa-search fa-2x mb-3"></i>
-                        <p>No se encontraron resultados</p>
-                    </td>
-                </tr>`;
-            contadorResultados.textContent = '0';
-            return;
-        }
-        
-        // Llenar la tabla con los datos
-        datos.forEach(item => {
-            const fila = document.createElement('tr');
-            fila.innerHTML = `
-                <td>${item.id_dictamen || ''}</td>
-                <td>${item.fecha_registro || ''}</td>
-                <td>${item.hora_registro || ''}</td>
-                <td>${item.id_credito || ''}</td>
-                <td>${item.nombre_cliente || 'N/A'}</td>
-                <td>${item.tipo_contacto || ''}</td>
-                <td>${item.resultado_contacto || ''}</td>
-                <td>${item.dictamen || ''}</td>
-                <td>${item.motivo_no_pago || 'N/A'}</td>
-                <td>${item.tipo_motivo_no_pago || 'N/A'}</td>
-                <td>${item.plataforma || ''}</td>
-                <td>${item.fuente_ingresos || ''}</td>
-                <td>${item.comentarios || ''}</td>
-                <td>${item.usuario_id || ''}</td>
-            `;
-            tbody.appendChild(fila);
-        });
-        
-        // Actualizar contador de resultados
-        contadorResultados.textContent = datos.length;
+    tbody.innerHTML = '';
+
+    if (datos.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="7" class="text-center text-muted py-4">
+                    <i class="fas fa-search fa-2x mb-3"></i>
+                    <p>No se encontraron resultados</p>
+                </td>
+            </tr>`;
+        contadorResultados.textContent = '0';
+        return;
     }
+
+    datos.forEach(item => {
+        const fila = document.createElement('tr');
+        fila.innerHTML = `
+            <!-- FECHA -->
+            <td>
+                <div class="fw-semibold">${item.fecha_registro || ''}</div>
+                <small class="text-muted">${item.hora_registro || ''}</small>
+            </td>
+
+            <!-- CLIENTE -->
+            <td>
+                <div class="fw-semibold">${item.id_credito || ''}</div>
+                <small class="text-muted">${item.nombre_cliente || 'N/A'}</small>
+            </td>
+
+            <!-- CONTACTO -->
+            <td>
+                <span class="badge bg-label-primary d-block mb-1">
+                    ${item.tipo_contacto || '—'}
+                </span>
+                <small class="text-muted">
+                    ${item.resultado_contacto || '—'}
+                </small>
+            </td>
+
+            <!-- DICTAMEN -->
+            <td>
+                <span class="badge bg-label-warning d-block mb-1">
+                    ${item.dictamen || '—'}
+                </span>
+                <small class="text-muted">
+                    ${item.motivo_no_pago || '—'}
+                </small>
+            </td>
+
+            <!-- ORIGEN -->
+            <td>
+                <span class="badge bg-label-success d-block mb-1">
+                    ${item.plataforma || '—'}
+                </span>
+                <small class="text-muted">
+                    ${item.fuente_ingresos || '—'}
+                </small>
+            </td>
+
+            <!-- AGENTE -->
+            <td class="text-center fw-semibold">
+                ${item.usuario_id || '—'}
+            </td>
+
+            <!-- NOTAS -->
+            <td class="text-muted small">
+                ${item.comentarios || '—'}
+            </td>
+        `;
+        tbody.appendChild(fila);
+    });
+
+    contadorResultados.textContent = datos.length;
+}
+
 
     // 🔥 EVENTO: Escuchar cambios en la barra de búsqueda (SIN BOTÓN)
     barraBusqueda.addEventListener('input', function(e) {
@@ -469,110 +536,69 @@ document.addEventListener('DOMContentLoaded', function() {
 
 <!-- Estilos adicionales para tabla más ancha -->
 <style>
+/* Modal */
+.modal-xl {
+    max-width: 95%;
+}
+
+/* Tabla */
 #tablaReporte th {
-    background-color: #f8f9fa;
-    font-weight: 600;
-    border-bottom: 2px solid #dee2e6;
+    position: sticky;
+    top: 0;
+    background: #f8f9fa;
     font-size: 0.85rem;
+    font-weight: 600;
     white-space: nowrap;
 }
 
-#tablaReporte tbody tr:hover {
-    background-color: #f5f5f5;
-}
-
-#tablaReporte tbody td {
+#tablaReporte td {
     font-size: 0.85rem;
-    vertical-align: middle;
+    vertical-align: top;
     padding: 0.5rem;
 }
 
-.modal-body {
-    max-height: 70vh;
-    overflow-y: auto;
+#tablaReporte tbody tr:hover {
+    background-color: #f5f7fa;
 }
 
+/* Scroll personalizado */
 .table-responsive {
     max-height: 500px;
-    overflow-y: auto;
-    overflow-x: auto;
+    overflow: auto;
 }
 
-/* Estilos para barra de búsqueda */
-#barraBusqueda {
-    border-left: none;
+/* Texto secundario */
+#tablaReporte small {
+    font-size: 0.75rem;
 }
 
-#barraBusqueda:focus {
-    box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+/* Badges */
+#tablaReporte .badge {
+    font-size: 0.7rem;
+    max-width: 140px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
-#btnLimpiarBusqueda {
-    border-right: 1px solid #dee2e6;
-}
-
-#btnLimpiarBusqueda:hover {
-    background-color: #f8f9fa;
-    color: #dc3545;
-}
-
-/* Estilos específicos para columnas */
-#tablaReporte tbody td:nth-child(1) {
+/* Alineación semántica correcta */
+#tablaReporte td:nth-child(1),
+#tablaReporte td:nth-child(6) {
+    text-align: center;
     font-weight: 600;
     color: #0d6efd;
 }
 
-#tablaReporte tbody td:nth-child(2),
-#tablaReporte tbody td:nth-child(3) {
-    font-family: monospace;
-    font-size: 0.8rem;
+/* Inputs */
+#barraBusqueda:focus {
+    box-shadow: none;
 }
 
-#tablaReporte tbody td:nth-child(4) {
-    font-weight: 500;
+#tablaReporte th,
+#tablaReporte td {
+    text-align: center;
 }
 
-#tablaReporte tbody td:nth-child(12) {
-    max-width: 120px;
-    word-wrap: break-word;
-}
 
-#tablaReporte tbody td:nth-child(13) {
-    max-width: 200px;
-    word-wrap: break-word;
-}
 
-.table-responsive::-webkit-scrollbar {
-    height: 8px;
-    width: 8px;
-}
-
-.table-responsive::-webkit-scrollbar-track {
-    background: #f1f1f1;
-    border-radius: 4px;
-}
-
-.table-responsive::-webkit-scrollbar-thumb {
-    background: #c1c1c1;
-    border-radius: 4px;
-}
-
-.table-responsive::-webkit-scrollbar-thumb:hover {
-    background: #a8a8a8;
-}
-
-.badge-tipo-contacto {
-    background-color: #e3f2fd;
-    color: #1565c0;
-}
-
-.badge-plataforma {
-    background-color: #e8f5e9;
-    color: #2e7d32;
-}
-
-.badge-dictamen {
-    background-color: #fff3e0;
-    color: #ef6c00;
-}
 </style>
