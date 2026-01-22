@@ -47,14 +47,14 @@
 
 <!-- Modal para consulta de reporte -->
 <div class="modal fade" id="modalReporte" tabindex="-1" aria-labelledby="modalReporteLabel" aria-hidden="true">
-    <div class="modal-dialog modal-xl"> <!-- modal-xl para más ancho -->
+    <div class="modal-dialog modal-xl">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="modalReporteLabel">Consulta de Dictamen de Llamadas - Reporte Completo</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <!-- Formulario de búsqueda -->
+                <!-- Formulario de búsqueda por fechas -->
                 <form id="formBuscarReporte" method="POST" action="/Reporteria/BuscarReporte">
                     <div class="row mb-4">
                         <div class="col-md-5">
@@ -72,6 +72,34 @@
                         </div>
                     </div>
                 </form>
+
+                <!-- 🔥 BARRA DE BÚSQUEDA EN TIEMPO REAL -->
+                <div class="mb-3">
+                    <div class="input-group">
+                        <span class="input-group-text bg-light">
+                            <i class="fas fa-search text-muted"></i>
+                        </span>
+                        <input 
+                            type="text" 
+                            class="form-control" 
+                            id="barraBusqueda" 
+                            placeholder="Buscar en la tabla... (ID Dictamen, Cliente, Crédito, Resultado, etc.)"
+                            autocomplete="off"
+                        >
+                        <button 
+                            class="btn btn-outline-secondary" 
+                            type="button" 
+                            id="btnLimpiarBusqueda"
+                            title="Limpiar búsqueda"
+                        >
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <small class="text-muted d-block mt-2">
+                        <i class="fas fa-info-circle me-1"></i>
+                        Resultados encontrados: <span id="contadorResultados">0</span>
+                    </small>
+                </div>
 
                 <!-- Tabla de resultados COMPLETA -->
                 <div class="table-responsive">
@@ -126,27 +154,120 @@ document.addEventListener('DOMContentLoaded', function() {
     const btnDescargar = document.getElementById('btnDescargarReporte');
     const sinResultados = document.getElementById('sinResultados');
     
+    // 🔥 VARIABLES PARA BÚSQUEDA EN TIEMPO REAL
+    let datosCompletos = []; // Array que almacena TODOS los datos del servidor
+    const barraBusqueda = document.getElementById('barraBusqueda');
+    const btnLimpiar = document.getElementById('btnLimpiarBusqueda');
+    const contadorResultados = document.getElementById('contadorResultados');
+    
     // Variables para almacenar datos de búsqueda
     let datosBusqueda = {
         fechaInicio: '',
         fechaFin: ''
     };
 
+    // 🔥 FUNCIÓN PARA FILTRAR LA TABLA EN TIEMPO REAL
+    function filtrarTabla(termino) {
+        // Convertir término a minúsculas para búsqueda insensible a mayúsculas
+        const terminoLower = termino.toLowerCase();
+        
+        // Si el término está vacío, mostrar todos los datos
+        if (terminoLower === '') {
+            renderizarDatos(datosCompletos);
+            return;
+        }
+        
+        // Filtrar los datos completos
+        const datosFiltrados = datosCompletos.filter(item => {
+            // Buscar en todas las columnas relevantes
+            return (
+                (item.id_dictamen && item.id_dictamen.toString().toLowerCase().includes(terminoLower)) ||
+                (item.nombre_cliente && item.nombre_cliente.toLowerCase().includes(terminoLower)) ||
+                (item.id_credito && item.id_credito.toString().toLowerCase().includes(terminoLower)) ||
+                (item.resultado_contacto && item.resultado_contacto.toLowerCase().includes(terminoLower)) ||
+                (item.dictamen && item.dictamen.toLowerCase().includes(terminoLower)) ||
+                (item.tipo_contacto && item.tipo_contacto.toLowerCase().includes(terminoLower)) ||
+                (item.motivo_no_pago && item.motivo_no_pago.toLowerCase().includes(terminoLower)) ||
+                (item.tipo_motivo_no_pago && item.tipo_motivo_no_pago.toLowerCase().includes(terminoLower)) ||
+                (item.plataforma && item.plataforma.toLowerCase().includes(terminoLower)) ||
+                (item.fuente_ingresos && item.fuente_ingresos.toLowerCase().includes(terminoLower)) ||
+                (item.comentarios && item.comentarios.toLowerCase().includes(terminoLower)) ||
+                (item.fecha_registro && item.fecha_registro.toLowerCase().includes(terminoLower)) ||
+                (item.usuario_id && item.usuario_id.toString().toLowerCase().includes(terminoLower))
+            );
+        });
+        
+        // Renderizar datos filtrados
+        renderizarDatos(datosFiltrados);
+    }
+
+    // 🔥 FUNCIÓN PARA RENDERIZAR LOS DATOS EN LA TABLA
+    function renderizarDatos(datos) {
+        tbody.innerHTML = '';
+        
+        if (datos.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="14" class="text-center text-muted py-4">
+                        <i class="fas fa-search fa-2x mb-3"></i>
+                        <p>No se encontraron resultados</p>
+                    </td>
+                </tr>`;
+            contadorResultados.textContent = '0';
+            return;
+        }
+        
+        // Llenar la tabla con los datos
+        datos.forEach(item => {
+            const fila = document.createElement('tr');
+            fila.innerHTML = `
+                <td>${item.id_dictamen || ''}</td>
+                <td>${item.fecha_registro || ''}</td>
+                <td>${item.hora_registro || ''}</td>
+                <td>${item.id_credito || ''}</td>
+                <td>${item.nombre_cliente || 'N/A'}</td>
+                <td>${item.tipo_contacto || ''}</td>
+                <td>${item.resultado_contacto || ''}</td>
+                <td>${item.dictamen || ''}</td>
+                <td>${item.motivo_no_pago || 'N/A'}</td>
+                <td>${item.tipo_motivo_no_pago || 'N/A'}</td>
+                <td>${item.plataforma || ''}</td>
+                <td>${item.fuente_ingresos || ''}</td>
+                <td>${item.comentarios || ''}</td>
+                <td>${item.usuario_id || ''}</td>
+            `;
+            tbody.appendChild(fila);
+        });
+        
+        // Actualizar contador de resultados
+        contadorResultados.textContent = datos.length;
+    }
+
+    // 🔥 EVENTO: Escuchar cambios en la barra de búsqueda (SIN BOTÓN)
+    barraBusqueda.addEventListener('input', function(e) {
+        const termino = e.target.value;
+        filtrarTabla(termino);
+    });
+
+    // 🔥 EVENTO: Botón para limpiar la búsqueda
+    btnLimpiar.addEventListener('click', function() {
+        barraBusqueda.value = '';
+        filtrarTabla('');
+        barraBusqueda.focus();
+    });
+
     // Manejar envío del formulario de búsqueda
     formBuscar.addEventListener('submit', async function(e) {
-        e.preventDefault(); // Prevenir envío tradicional
+        e.preventDefault();
         
-        // Obtener fechas
         datosBusqueda.fechaInicio = document.getElementById('fechaInicio').value;
         datosBusqueda.fechaFin = document.getElementById('fechaFin').value;
         
-        // Validar fechas
         if (!datosBusqueda.fechaInicio || !datosBusqueda.fechaFin) {
             alert('Por favor, seleccione ambas fechas');
             return;
         }
         
-        // Mostrar indicador de carga
         sinResultados.innerHTML = `
             <td colspan="14" class="text-center">
                 <div class="spinner-border text-primary" role="status">
@@ -155,21 +276,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 <p class="mt-2">Buscando datos...</p>
             </td>`;
         
-        // Deshabilitar botón de descarga
         btnDescargar.disabled = true;
+        // 🔥 LIMPIAR LA BARRA DE BÚSQUEDA AL HACER UNA NUEVA BÚSQUEDA
+        barraBusqueda.value = '';
         
         try {
-            // DEBUG: Mostrar lo que se enviará
-            console.log('Enviando petición a:', '/EstadoCuenta/buscarReporteDictamen');
-            console.log('Datos:', {
-                fechaInicio: datosBusqueda.fechaInicio,
-                fechaFin: datosBusqueda.fechaFin
-            });
-
-            // **SOLUCIÓN: Hacer la petición AJAX real con manejo de sesión**
             const response = await fetch('/EstadoCuenta/buscarReporteDictamen', {
                 method: 'POST',
-                credentials: 'include', // ¡IMPORTANTE! Incluye cookies de sesión
+                credentials: 'include',
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded'
                 },
@@ -179,7 +293,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 })
             });
 
-            // DEBUG: Ver respuesta cruda
             console.log('Respuesta recibida:', {
                 status: response.status,
                 statusText: response.statusText,
@@ -187,7 +300,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 url: response.url
             });
 
-            // Manejar redirección 302 explícitamente
             if (response.redirected) {
                 console.warn('Redirección detectada a:', response.url);
                 alert('Su sesión ha expirado. Redirigiendo al login...');
@@ -195,7 +307,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
 
-            // Verificar si el status es 302
             if (response.status === 302) {
                 const redirectUrl = response.headers.get('Location');
                 console.warn('302 Found - Redirección a:', redirectUrl);
@@ -204,21 +315,17 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
 
-            // Verificar otros errores HTTP
             if (!response.ok) {
                 throw new Error(`Error HTTP ${response.status}: ${response.statusText}`);
             }
 
-            // Intentar parsear como JSON
             const contentType = response.headers.get('content-type');
             
             if (contentType && contentType.includes('application/json')) {
                 const data = await response.json();
                 
-                // DEBUG: Ver datos recibidos
                 console.log('Datos JSON recibidos:', data);
                 
-                // Manejar error de sesión desde el JSON
                 if (data.code === 'SESSION_EXPIRED' || 
                     data.mensaje?.includes('Sesión') || 
                     data.mensaje?.includes('sesión') ||
@@ -230,15 +337,12 @@ document.addEventListener('DOMContentLoaded', function() {
                     return;
                 }
                 
-                // Si no es exitoso por otra razón
                 if (!data.success) {
                     throw new Error(data.mensaje || 'Error en la búsqueda');
                 }
                 
-                // Limpiar tabla
                 tbody.innerHTML = '';
                 
-                // Si no hay datos en la respuesta
                 if (!data.data || data.data.length === 0) {
                     tbody.innerHTML = `
                         <tr>
@@ -248,40 +352,23 @@ document.addEventListener('DOMContentLoaded', function() {
                             </td>
                         </tr>`;
                     btnDescargar.disabled = true;
+                    datosCompletos = [];
+                    contadorResultados.textContent = '0';
                     return;
                 }
                 
-                // Llenar la tabla con TODOS los datos del JSON
-                data.data.forEach(item => {
-                    const fila = document.createElement('tr');
-                    fila.innerHTML = `
-                        <td>${item.id_dictamen || ''}</td>
-                        <td>${item.fecha_registro || ''}</td>
-                        <td>${item.hora_registro || ''}</td>
-                        <td>${item.id_credito || ''}</td>
-                        <td>${item.nombre_cliente || 'N/A'}</td>
-                        <td>${item.tipo_contacto || ''}</td>
-                        <td>${item.resultado_contacto || ''}</td>
-                        <td>${item.dictamen || ''}</td>
-                        <td>${item.motivo_no_pago || 'N/A'}</td>
-                        <td>${item.tipo_motivo_no_pago || 'N/A'}</td>
-                        <td>${item.plataforma || ''}</td>
-                        <td>${item.fuente_ingresos || ''}</td>
-                        <td>${item.comentarios || ''}</td>
-                        <td>${item.usuario_id || ''}</td>
-                    `;
-                    tbody.appendChild(fila);
-                });
+                // 🔥 GUARDAR TODOS LOS DATOS EN datosCompletos
+                datosCompletos = data.data;
                 
-                // Habilitar botón de descarga
+                // 🔥 RENDERIZAR LOS DATOS COMPLETOS
+                renderizarDatos(datosCompletos);
+                
                 btnDescargar.disabled = false;
                 
             } else {
-                // Si no es JSON, leer como texto
                 const text = await response.text();
                 console.error('Respuesta no JSON recibida:', text.substring(0, 500));
                 
-                // Verificar si es página de login/error
                 if (text.includes('login') || 
                     text.includes('Login') || 
                     text.includes('Iniciar sesión') ||
@@ -294,17 +381,14 @@ document.addEventListener('DOMContentLoaded', function() {
                     return;
                 }
                 
-                // Si parece ser HTML de error
                 if (text.includes('<!DOCTYPE') || text.includes('<html')) {
                     throw new Error('El servidor devolvió una página HTML en lugar de datos JSON');
                 }
                 
-                // Intentar parsear como JSON aunque no diga application/json
                 try {
                     const data = JSON.parse(text);
                     console.log('JSON parseado manualmente:', data);
                     
-                    // Si tiene éxito, procesar los datos
                     if (!data.success || !data.data || data.data.length === 0) {
                         tbody.innerHTML = `
                             <tr>
@@ -314,31 +398,14 @@ document.addEventListener('DOMContentLoaded', function() {
                                 </td>
                             </tr>`;
                         btnDescargar.disabled = true;
+                        datosCompletos = [];
+                        contadorResultados.textContent = '0';
                         return;
                     }
                     
-                    // Llenar tabla con datos parseados
-                    data.data.forEach(item => {
-                        const fila = document.createElement('tr');
-                        fila.innerHTML = `
-                            <td>${item.id_dictamen || ''}</td>
-                            <td>${item.fecha_registro || ''}</td>
-                            <td>${item.hora_registro || ''}</td>
-                            <td>${item.id_credito || ''}</td>
-                            <td>${item.nombre_cliente || 'N/A'}</td>
-                            <td>${item.tipo_contacto || ''}</td>
-                            <td>${item.resultado_contacto || ''}</td>
-                            <td>${item.dictamen || ''}</td>
-                            <td>${item.motivo_no_pago || 'N/A'}</td>
-                            <td>${item.tipo_motivo_no_pago || 'N/A'}</td>
-                            <td>${item.plataforma || ''}</td>
-                            <td>${item.fuente_ingresos || ''}</td>
-                            <td>${item.comentarios || ''}</td>
-                            <td>${item.usuario_id || ''}</td>
-                        `;
-                        tbody.appendChild(fila);
-                    });
-                    
+                    // 🔥 GUARDAR TODOS LOS DATOS
+                    datosCompletos = data.data;
+                    renderizarDatos(datosCompletos);
                     btnDescargar.disabled = false;
                     
                 } catch (jsonError) {
@@ -349,7 +416,6 @@ document.addEventListener('DOMContentLoaded', function() {
         } catch (error) {
             console.error('Error completo al cargar los datos:', error);
             
-            // Mostrar mensaje de error específico
             let mensajeError = error.message;
             if (error.message.includes('Failed to fetch')) {
                 mensajeError = 'Error de conexión con el servidor. Verifique su conexión a internet.';
@@ -368,13 +434,14 @@ document.addEventListener('DOMContentLoaded', function() {
                     </td>
                 </tr>`;
             btnDescargar.disabled = true;
+            datosCompletos = [];
+            contadorResultados.textContent = '0';
         }
     });
 
     // Manejar clic en botón de descarga
     btnDescargar.addEventListener('click', function() {
         if (datosBusqueda.fechaInicio && datosBusqueda.fechaFin) {
-            // Crear URL para descarga (ajusta según tu endpoint)
             const url = `/EstadoCuenta/descargarReporteDictamen?fechaInicio=${encodeURIComponent(datosBusqueda.fechaInicio)}&fechaFin=${encodeURIComponent(datosBusqueda.fechaFin)}`;
             console.log('Descargando desde:', url);
             window.open(url, '_blank');
@@ -392,7 +459,6 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('fechaInicio').value = fechaPasada;
     document.getElementById('fechaFin').value = hoy;
     
-    // Para debug: verificar si estamos en sesión
     console.log('Página cargada. Datos iniciales:', {
         fechaInicio: fechaPasada,
         fechaFin: hoy,
@@ -432,33 +498,50 @@ document.addEventListener('DOMContentLoaded', function() {
     overflow-x: auto;
 }
 
+/* Estilos para barra de búsqueda */
+#barraBusqueda {
+    border-left: none;
+}
+
+#barraBusqueda:focus {
+    box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+}
+
+#btnLimpiarBusqueda {
+    border-right: 1px solid #dee2e6;
+}
+
+#btnLimpiarBusqueda:hover {
+    background-color: #f8f9fa;
+    color: #dc3545;
+}
+
 /* Estilos específicos para columnas */
-#tablaReporte tbody td:nth-child(1) { /* ID Dictamen */
+#tablaReporte tbody td:nth-child(1) {
     font-weight: 600;
     color: #0d6efd;
 }
 
-#tablaReporte tbody td:nth-child(2), /* Fecha */
-#tablaReporte tbody td:nth-child(3) { /* Hora */
+#tablaReporte tbody td:nth-child(2),
+#tablaReporte tbody td:nth-child(3) {
     font-family: monospace;
     font-size: 0.8rem;
 }
 
-#tablaReporte tbody td:nth-child(4) { /* ID Crédito */
+#tablaReporte tbody td:nth-child(4) {
     font-weight: 500;
 }
 
-#tablaReporte tbody td:nth-child(12) { /* Fuente Ingresos */
+#tablaReporte tbody td:nth-child(12) {
     max-width: 120px;
     word-wrap: break-word;
 }
 
-#tablaReporte tbody td:nth-child(13) { /* Comentarios */
+#tablaReporte tbody td:nth-child(13) {
     max-width: 200px;
     word-wrap: break-word;
 }
 
-/* Scroll horizontal suave */
 .table-responsive::-webkit-scrollbar {
     height: 8px;
     width: 8px;
@@ -478,7 +561,6 @@ document.addEventListener('DOMContentLoaded', function() {
     background: #a8a8a8;
 }
 
-/* Badges para valores específicos */
 .badge-tipo-contacto {
     background-color: #e3f2fd;
     color: #1565c0;
