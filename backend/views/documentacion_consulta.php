@@ -781,6 +781,18 @@
             
             overlays.forEach(overlay => {
                 console.log('Procesando overlay:', overlay.id, overlay.className);
+
+                // VERIFICACIÓN ESPECIAL: Detectar si es EVIDENCIA como IMAGEN
+               const modalDocumento = document.getElementById('modalDocumento');
+               const estaEnModalDocumento = modalDocumento && modalDocumento.contains(overlay);
+               let esEVIDENCIAImagen = false;
+
+               if (estaEnModalDocumento) {
+                const modalTitle = document.querySelector('#modalDocumento .modal-title');
+                const tituloTexto = modalTitle ? modalTitle.textContent.trim() : '';
+                esEVIDENCIAImagen = tituloTexto === 'EVIDENCIA' || tituloTexto.includes('EVIDENCIA');
+                console.log('🔍 Detectado EVIDENCIA en modal:', esEVIDENCIAImagen, 'Título:', tituloTexto);
+               }
                 
                 // VERIFICACIÓN ESPECIAL PARA INE: Si el overlay está dentro del modal de INE, NO aplicar marcas "SIN VALOR" de PDF
                 const modalINE = document.getElementById('modalINE');
@@ -859,12 +871,19 @@
                     // Verificar si es INE o EVIDENCIA (usan pdfDoc, NO pdfDocFactura)
                     const esINEoEVIDENCIA = typeof pdfDoc !== 'undefined' && pdfDoc !== null && (typeof pdfDocFactura === 'undefined' || pdfDocFactura === null);
                     
+                    // Verificar si es INE específicamente (EVIDENCIA puede usar marcas de PDFs)
+                    const modalTitle = document.querySelector('#modalDocumento .modal-title');
+                    const tituloTexto = modalTitle ? modalTitle.textContent.trim() : '';
+                    const esINE = esINEoEVIDENCIA && (tituloTexto.includes('INE') || tituloTexto === 'INE');
+                    const esEVIDENCIA = esINEoEVIDENCIA && (tituloTexto === 'EVIDENCIA' || tituloTexto.includes('EVIDENCIA'));
+                    
                     // Verificar si tiene el atributo que indica marcas "SIN VALOR"
                     const requiereMarcasSINVALOR = overlay.getAttribute('data-marcas-sin-valor') === 'true';
                     
-                    // Si es INE/EVIDENCIA y NO requiere marcas "SIN VALOR", saltar completamente
-                    if (esINEoEVIDENCIA && !requiereMarcasSINVALOR) {
-                        console.log('⚠️ Saltando overlay de PDF.js - Es INE/EVIDENCIA y tiene sus propias marcas de agua');
+                    // Si es INE (NO EVIDENCIA) y NO requiere marcas "SIN VALOR", saltar completamente
+                    // EVIDENCIA puede usar marcas de PDFs
+                    if (esINE && !requiereMarcasSINVALOR) {
+                        console.log('⚠️ Saltando overlay de PDF.js - Es INE y tiene sus propias marcas de agua');
                         return; // Salir inmediatamente, no procesar este overlay
                     }
                     
@@ -1073,15 +1092,24 @@
                     
                     /* CÓDIGO COMENTADO - MARCAS DE AGUA "SIN VALOR" PARA PDFs
                     // IMPORTANTE: Solo aplicar marcas de agua "SIN VALOR" para FACTURA, FAD_DOC y VALIDACIONES
-                    // INE y EVIDENCIA tienen sus propias marcas de agua y NO deben usar estas
+                    // INE tiene sus propias marcas de agua y NO debe usar estas
+                    // EVIDENCIA puede usar marcas de PDFs
                     
                     // Si es canvas de PDF.js, ya se verificó arriba, pero verificar de nuevo por seguridad
                     if (isPdfJsCanvas) {
                         const esINEoEVIDENCIA = typeof pdfDoc !== 'undefined' && pdfDoc !== null && (typeof pdfDocFactura === 'undefined' || pdfDocFactura === null);
+                        
+                        // Verificar si es INE específicamente (EVIDENCIA puede usar marcas de PDFs)
+                        const modalTitle = document.querySelector('#modalDocumento .modal-title');
+                        const tituloTexto = modalTitle ? modalTitle.textContent.trim() : '';
+                        const esINE = esINEoEVIDENCIA && (tituloTexto.includes('INE') || tituloTexto === 'INE');
+                        
                         const requiereMarcasSINVALOR = overlay.getAttribute('data-marcas-sin-valor') === 'true';
                         
-                        if (esINEoEVIDENCIA && !requiereMarcasSINVALOR) {
-                            console.log('⚠️ Verificación doble: Saltando marcas de agua "SIN VALOR" - Es INE/EVIDENCIA');
+                        // Solo saltar si es INE (NO EVIDENCIA) y NO requiere marcas "SIN VALOR"
+                        // EVIDENCIA puede usar marcas de PDFs
+                        if (esINE && !requiereMarcasSINVALOR) {
+                            console.log('⚠️ Verificación doble: Saltando marcas de agua "SIN VALOR" - Es INE');
                             return;
                         }
                         
@@ -1191,33 +1219,60 @@
                     // Esta es la lógica original que funcionaba perfectamente para imágenes
                     
                     // VERIFICACIÓN: Si el overlay es pdfWatermark (de PDF.js), NO aplicar marcas de imágenes
-                    // pdfWatermark solo debe tener marcas "SIN VALOR" si es FACTURA/FAD_DOC/VALIDACIONES
                     if (overlay.id === 'pdfWatermark') {
-                        console.log('⚠️ Saltando marcas de imágenes para overlay pdfWatermark - Este overlay es solo para PDF.js');
-                        return; // Salir, no aplicar marcas de imágenes a este overlay
+                        console.log('⚠️ Saltando marcas de imágenes para overlay pdfWatermark');
+                        return;
+                    }
+                    
+                    // VERIFICACIÓN MEJORADA: Detectar si es EVIDENCIA antes de buscar contenedor
+                    const modalDocumento = document.getElementById('modalDocumento');
+                    const estaEnModalDocumento = modalDocumento && modalDocumento.contains(overlay);
+                    let esEVIDENCIA = false;
+                    
+                    if (estaEnModalDocumento) {
+                        const modalTitle = document.querySelector('#modalDocumento .modal-title');
+                        const tituloTexto = modalTitle ? modalTitle.textContent.trim() : '';
+                        esEVIDENCIA = tituloTexto === 'EVIDENCIA' || tituloTexto.includes('EVIDENCIA');
+                        console.log('🔍 Verificando si es EVIDENCIA:', esEVIDENCIA, 'Título:', tituloTexto);
                     }
                     
                     // VERIFICACIÓN IMPORTANTE: Solo aplicar marcas de agua a overlays dentro de contenedores de imagen
-                    // Esto asegura que las marcas solo aparezcan dentro de las imágenes, no en todo el modal
-                    // Igual que funciona EVIDENCIA
                     if (!container) {
-                        // Si no se encuentra el contenedor, intentar buscarlo de diferentes maneras (para EVIDENCIA)
-                        // Primero intentar desde el overlay mismo
+                        // Si no se encuentra el contenedor, intentar buscarlo de diferentes maneras
                         container = overlay.closest('.watermark-container');
                         
-                        // Si aún no hay contenedor, buscar desde la imagen imgDocumento (para EVIDENCIA)
-                        if (!container) {
+                        // Para EVIDENCIA, buscar imgDocumento específicamente
+                        if (!container && esEVIDENCIA) {
                             const imgDoc = document.getElementById('imgDocumento');
                             if (imgDoc) {
                                 img = imgDoc;
                                 container = img.closest('.watermark-container');
-                                if (container) {
-                                    console.log('✅ Contenedor encontrado para imgDocumento (EVIDENCIA)');
+                                console.log('📸 EVIDENCIA - imgDocumento encontrado:', imgDoc ? 'Sí' : 'No');
+                                
+                                // Si imgDocumento existe pero no tiene contenedor, CREAR el contenedor
+                                if (imgDoc && !container) {
+                                    console.log('🔧 EVIDENCIA - Creando contenedor para imgDocumento');
+                                    
+                                    // Buscar el contenedor padre de la imagen
+                                    const imgContainer = imgDoc.parentElement;
+                                    if (imgContainer) {
+                                        // Agregar la clase watermark-container al padre
+                                        imgContainer.classList.add('watermark-container');
+                                        container = imgContainer;
+                                        
+                                        // Asegurar que el contenedor tenga posición relativa
+                                        container.style.position = 'relative';
+                                        container.style.display = 'inline-block';
+                                        
+                                        console.log('✅ EVIDENCIA - Contenedor creado exitosamente');
+                                    }
+                                } else if (container) {
+                                    console.log('✅ EVIDENCIA - Contenedor encontrado para imgDocumento');
                                 }
                             }
                         }
                         
-                        // Si aún no hay contenedor, intentar buscar el overlay desde el padre
+                        // Intentar desde parentElement si aún no hay contenedor
                         if (!container && overlay.parentElement) {
                             container = overlay.parentElement.closest('.watermark-container');
                             if (container) {
@@ -1225,33 +1280,38 @@
                             }
                         }
                         
-                        // Si aún no hay contenedor, salir
-                        if (!container) {
-                            console.log('⚠️ Saltando overlay - No está dentro de un contenedor de imagen (.watermark-container)');
-                            console.log('Overlay:', overlay.id, overlay.className, 'Parent:', overlay.parentElement);
-                            return; // Salir, no aplicar marcas de agua a overlays fuera de contenedores de imágenes
+                        // SOLO salir si NO es EVIDENCIA y NO hay contenedor
+                        // Para EVIDENCIA, continuar incluso sin contenedor formal
+                        if (!container && !esEVIDENCIA) {
+                            console.log('⚠️ Saltando overlay - No está dentro de un contenedor de imagen');
+                            return;
+                        }
+                        
+                        // Para EVIDENCIA sin contenedor, usar el padre del overlay
+                        if (!container && esEVIDENCIA) {
+                            console.log('⚠️ EVIDENCIA sin contenedor - Intentando usar padre del overlay');
+                            const imgDoc = document.getElementById('imgDocumento');
+                            if (imgDoc && imgDoc.parentElement) {
+                                container = imgDoc.parentElement;
+                                console.log('✅ Usando padre de imgDocumento como contenedor');
+                            }
                         }
                     }
                     
-                    // INE y EVIDENCIA usan esta lógica original para sus marcas de agua
-                    // Esta es la lógica que tenían antes de que se mezclaran con las marcas de PDFs
-                    
-                    // Asegurar que tenemos la imagen (para EVIDENCIA)
+                    // Asegurar que tenemos la imagen (especialmente para EVIDENCIA)
                     if (!img && container) {
                         img = container.querySelector('img');
                     }
-                    if (!img) {
-                        const imgDoc = document.getElementById('imgDocumento');
-                        if (imgDoc) {
-                            img = imgDoc;
-                        }
+                    if (!img && esEVIDENCIA) {
+                        img = document.getElementById('imgDocumento');
+                        console.log('📸 EVIDENCIA - Usando imgDocumento directamente:', img ? 'Encontrado' : 'No encontrado');
                     }
                     
                     // Verificar que el overlay esté visible y tenga dimensiones antes de crear marcas
                     const overlayStyle = window.getComputedStyle(overlay);
                     const overlayVisible = overlayStyle.display !== 'none' && overlayStyle.visibility !== 'hidden' && overlayStyle.opacity !== '0';
                     
-                    console.log('✅ Creando marcas de agua para imagen (INE/EVIDENCIA) - Dimensiones:', effectiveWidth, 'x', effectiveHeight, 'numLayers:', numLayers, 'spacing:', spacing, 'img:', img ? img.id : 'null', 'container:', container ? 'encontrado' : 'no encontrado', 'overlay visible:', overlayVisible);
+                    console.log('✅ Creando marcas de agua para imagen (INE/EVIDENCIA) - Dimensiones:', effectiveWidth, 'x', effectiveHeight, 'numLayers:', numLayers, 'spacing:', spacing, 'img:', img ? img.id : 'null', 'container:', container ? 'encontrado' : 'no encontrado', 'overlay visible:', overlayVisible, 'esEVIDENCIA:', esEVIDENCIA);
                     
                     if (!overlayVisible) {
                         console.log('⚠️ Overlay no está visible, forzando visibilidad');
@@ -1260,17 +1320,24 @@
                         overlay.style.opacity = '1';
                     }
                     
+                    // Crear marcas de agua - estilo diferente para EVIDENCIA
                     for (let i = -2; i < numLayers; i++) {
                         const layer = document.createElement('div');
                         layer.className = 'watermark-layer';
                         layer.textContent = 'SIN VALOR '.repeat(Math.ceil(effectiveWidth / 80) + 8);
                         const layerWidth = effectiveWidth * 1.6;
+                        
+                        // Para EVIDENCIA: color más rojo y más visible (similar a la imagen compartida)
+                        // Para INE: mantener el estilo original
+                        const colorAgua = esEVIDENCIA ? 'rgba(220, 20, 20, 0.55)' : 'rgba(220, 20, 20, 0.45)';
+                        const textShadow = esEVIDENCIA ? '1px 1px 2px rgba(0, 0, 0, 0.3)' : '1px 1px 2px rgba(0, 0, 0, 0.25)';
+                        
                         layer.style.cssText = `
                             position: absolute;
                             font-size: ${fontSize};
                             font-weight: bold;
-                            color: rgba(220, 20, 20, 0.45);
-                            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.25);
+                            color: ${colorAgua};
+                            text-shadow: ${textShadow};
                             transform: rotate(-45deg);
                             transform-origin: center;
                             white-space: nowrap;
@@ -1284,7 +1351,7 @@
                         `;
                         overlay.appendChild(layer);
                     }
-                    console.log('✅ Marcas de agua creadas para imagen (INE/EVIDENCIA) - Total capas:', numLayers + 2, 'overlay:', overlay.id || overlay.className);
+                    console.log('✅ Marcas de agua creadas para imagen (INE/EVIDENCIA) - Total capas:', numLayers + 2, 'overlay:', overlay.id || overlay.className, 'esEVIDENCIA:', esEVIDENCIA);
                 }
             });
         }
@@ -1293,17 +1360,19 @@
         // Solo se aplica a FACTURA, FAD_DOC y VALIDACIONES (no a INE/EVIDENCIA)
         function crearMarcasAguaModalPDF() {
             // Verificar que sea un PDF con marcas "SIN VALOR" (FACTURA, FAD_DOC, VALIDACIONES)
-            // INE y EVIDENCIA usan pdfDoc (sin pdfDocFactura), así que NO deben tener estas marcas
+            // INE usa pdfDoc (sin pdfDocFactura), así que NO debe tener estas marcas
+            // EVIDENCIA puede usar marcas de PDFs
             const esPDFConMarcasSINVALOR = typeof pdfDocFactura !== 'undefined' && pdfDocFactura !== null;
             
-            // VERIFICACIÓN ADICIONAL: Verificar el título del modal para excluir EVIDENCIA
+            // VERIFICACIÓN ADICIONAL: Verificar el título del modal para excluir solo INE
             const modalTitle = document.querySelector('#modalDocumento .modal-title');
             const tituloTexto = modalTitle ? modalTitle.textContent.trim() : '';
-            const esEVIDENCIA = tituloTexto.includes('EVIDENCIA') || tituloTexto === 'EVIDENCIA';
+            const esINE = tituloTexto.includes('INE') || tituloTexto === 'INE';
             
-            // Si es EVIDENCIA, NO aplicar marcas de agua del modal (tiene sus propias marcas)
-            if (esEVIDENCIA) {
-                console.log('⚠️ Es EVIDENCIA - Saltando marcas de agua del modal (EVIDENCIA tiene sus propias marcas)');
+            // Si es INE, NO aplicar marcas de agua del modal (tiene sus propias marcas)
+            // EVIDENCIA puede usar marcas de PDFs
+            if (esINE) {
+                console.log('⚠️ Es INE - Saltando marcas de agua del modal (INE tiene sus propias marcas)');
                 return;
             }
             
@@ -3412,21 +3481,26 @@
                 });
 
                 // LIMPIAR INMEDIATAMENTE el atributo de marcas "SIN VALOR" ANTES de cargar
-                // INE/EVIDENCIA tienen sus propias marcas de agua y NO deben usar "SIN VALOR"
+                // Solo INE tiene sus propias marcas de agua y NO debe usar "SIN VALOR"
+                // EVIDENCIA puede usar marcas de PDFs
                 const watermark = document.getElementById('pdfWatermark');
-                if (watermark) {
+                const modalTitle = document.querySelector('#modalDocumento .modal-title');
+                const tituloTexto = modalTitle ? modalTitle.textContent.trim() : '';
+                const esINE = tituloTexto.includes('INE') || tituloTexto === 'INE';
+                
+                if (watermark && esINE) {
                     watermark.removeAttribute('data-marcas-sin-valor');
-                    console.log('✅ Atributo data-marcas-sin-valor removido para INE/EVIDENCIA (ANTES de cargar PDF)');
+                    console.log('✅ Atributo data-marcas-sin-valor removido para INE (ANTES de cargar PDF)');
                 }
                 
                 console.log('Iniciando carga del PDF con PDF.js...');
                 pdfDoc = await loadingTask.promise;
                 console.log('PDF cargado exitosamente, número de páginas:', pdfDoc.numPages);
                 
-                // Asegurar que el atributo esté removido después de cargar también
-                if (watermark) {
+                // Asegurar que el atributo esté removido después de cargar también (solo para INE)
+                if (watermark && esINE) {
                     watermark.removeAttribute('data-marcas-sin-valor');
-                    console.log('✅ Atributo data-marcas-sin-valor removido para INE/EVIDENCIA (DESPUÉS de cargar PDF)');
+                    console.log('✅ Atributo data-marcas-sin-valor removido para INE (DESPUÉS de cargar PDF)');
                 }
                 
                 pdfTotalPages = pdfDoc.numPages;
