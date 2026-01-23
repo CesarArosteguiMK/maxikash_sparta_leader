@@ -100,12 +100,12 @@
 
                 <div class="mb-2" style="display: none !important;">
                     <label class="form-label">Id Empleado *</label>
-                    <input ype="text" id="edit_id" class="form-control phone-mask">
+                    <input type="text" id="edit_id" class="form-control phone-mask">
                 </div>
 
                 <div class="mb-2">
                     <label class="form-label">Número de Empleado *</label>
-                    <input ype="text" id="edit_num_empleado" class="form-control phone-mask"disabled>
+                    <input type="text" id="edit_num_empleado" class="form-control phone-mask" disabled>
                 </div>
 
                 <div class="mb-2">
@@ -275,10 +275,13 @@
 
             if (!dep_id) return;
 
-            consultaServidor(
-                "/CapHum/getPersonasOrganigrama",
-                { idDepartamento: dep_id },
-                (respuesta) => {
+            fetch("/CapHum/getPersonasOrganigrama", {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ idDepartamento: dep_id })
+            })
+                .then(res => res.json())
+                .then(respuesta => {
                     personaSelect.innerHTML = "";
 
                     if (!respuesta.success) {
@@ -303,8 +306,12 @@
                     });
 
                     personaSelect.disabled = false;
-                }
-            );
+                })
+                .catch(err => {
+                    console.error("Error al cargar personas:", err);
+                    personaSelect.innerHTML = "<option>Error al cargar personas</option>";
+                    personaSelect.disabled = true;
+                });
         });
 
         /* ============================= */

@@ -1403,8 +1403,9 @@ class CapHum extends Controller
     }
     public function getPersonasOrganigrama()
     {
-        // Obtener parámetro enviado por POST (o GET según tu setup)
-        $idDepartamento = $_POST['idDepartamento'] ?? null;
+        // Leer JSON del body (consultaServidor envía JSON)
+        $input = json_decode(file_get_contents("php://input"), true);
+        $idDepartamento = $input['idDepartamento'] ?? null;
 
         // Pasar el parámetro a DAO
         $puestos = CapHumDAO::getPersonasOrganigrama($idDepartamento, $_SESSION['usuario_id']);
