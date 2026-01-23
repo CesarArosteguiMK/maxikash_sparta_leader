@@ -129,6 +129,7 @@ class login extends Controller
 
             $_SESSION['nivel_puesto'] = $datos['id_puesto'];
             $_SESSION['nombre_puesto'] = $datos['nombre_puesto'];
+            $_SESSION['id_puesto'] = $datos['id_puesto'];
             $_SESSION['departamento'] = $datos['departamento_id'];
 
             // 🔐 CONTROL DE SESIÓN

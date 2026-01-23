@@ -1642,39 +1642,52 @@ if ($cuotasContratadas > 0) {
             <h5 class="mb-0">Resumen general de pagos del cliente</h5>
 
             <div class="d-flex gap-2">
-                <!-- BOTÓN DICTAMINAR -->
-                <button type="button"
-                        class="btn btn-dictaminar position-relative"
-                        data-bs-toggle="modal"
-                        data-bs-target="#modalDictamen"
-                        title="Dictaminar llamada">
+                <?php if (in_array($_SESSION['id_puesto'], [19, 21, 22])): ?>
 
-                    <i class="fa fa-headset"></i>
+                    <!-- BOTÓN DICTAMINAR -->
+                    <button type="button"
+                            class="btn btn-dictaminar position-relative"
+                            data-bs-toggle="modal"
+                            data-bs-target="#modalDictamen"
+                            title="Dictaminar llamada">
 
-                </button>
+                        <i class="fa fa-headset"></i>
 
-                <!-- BOTÓN CONDONAR -->
-                <button type="button"
-                        class="btn btn-condonar position-relative"
-                        title="Condonar gastos de cobranza"
-                        onclick="consultaGastosCondonables(<?= htmlspecialchars($dataEstadoCuenta["idCredito"] ?? '') ?>)">
-                    <i class="fa fa-hand-holding-usd"></i>
-                </button>
+                    </button>
 
-                <!-- BOTÓN NOTAS (ICONO) -->
-                <button type="button"
-                        class="btn btn-notas position-relative"
-                        title="Notas del cliente"
-                        onclick="consultaNotas(<?= htmlspecialchars($dataEstadoCuenta["idCredito"] ?? '') ?>)">
+                <?php endif; ?>
 
-                    <i class="fa fa-sticky-note"></i>
+                <?php if (in_array($_SESSION['id_puesto'], [19, 21, 22])): ?>
 
-                    <!-- Badge contador -->
-                    <span id="badgeNotas"
-                          class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
-                        <?= htmlspecialchars($notas['datos'][0]['num'] ?? '') ?>
-                    </span>
-                </button>
+                    <!-- BOTÓN CONDONAR -->
+                    <button type="button"
+                            class="btn btn-condonar position-relative"
+                            title="Condonar gastos de cobranza"
+                            onclick="consultaGastosCondonables(<?= htmlspecialchars($dataEstadoCuenta['idCredito'] ?? '') ?>)">
+                        <i class="fa fa-hand-holding-usd"></i>
+                    </button>
+
+                <?php endif; ?>
+
+                <?php if (in_array($_SESSION['id_puesto'], [19, 21, 22])): ?>
+
+                    <!-- BOTÓN NOTAS (ICONO) -->
+                    <button type="button"
+                            class="btn btn-notas position-relative"
+                            title="Notas del cliente"
+                            onclick="consultaNotas(<?= htmlspecialchars($dataEstadoCuenta['idCredito'] ?? '') ?>)">
+
+                        <i class="fa fa-sticky-note"></i>
+
+                        <!-- Badge contador -->
+                        <span id="badgeNotas"
+                              class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+            <?= htmlspecialchars($notas['datos'][0]['num'] ?? '') ?>
+        </span>
+                    </button>
+
+                <?php endif; ?>
+                
                 
 
                 <a href="/estadocuenta/consulta" class="btn btn-outline-secondary d-flex align-items-center gap-1">

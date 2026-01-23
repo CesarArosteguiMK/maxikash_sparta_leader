@@ -70,6 +70,32 @@ class CapHum extends Controller
                 }
             });
         };
+        
+            const getBajas = () => {
+                http.request({
+                    endpoint: "/caphum/getBajas",
+                    onSuccess: (resp) => {
+                        // Mapear datos con las columnas exactas de la base de datos
+                        const datos = resp.datos.map(p => ({
+                            id: p.id ?? '',
+                            nombres: p.nombres ?? '',
+                            apellidop: p.apellidop ?? '',
+                            apellidom: p.apellidom ?? '',
+                            numero_empleado: p.numero_empleado ?? '',
+                            estatus: p.estatus ?? '',
+                            user_name: p.user_name ?? ''
+                        }));
+            
+                        // Actualizar DataTable
+                        const tabla = $('#historialUsuarios').DataTable();
+                        tabla.clear().rows.add(datos).draw();
+                    },
+                    onError: (err) => {
+                        console.error('Error al cargar bajas:', err);
+                        Swal.fire("Error", "No se pudieron cargar las bajas", "error");
+                    }
+                });
+            };
             
             function editar(id) {
             
@@ -1074,12 +1100,53 @@ class CapHum extends Controller
             $(document).ready(() => {
             // Inicializar DataTable con columnas explícitas
             $(document).ready(() => {
-                configuraTabla("#historialUsuarios", { registrosPorPagina: 6 });
+                configuraTabla("#historialUsuarios", { registrosPorPagina: 10 });
                 getUsuarios();
             });
         
             getUsuarios();
         });
+        
+        // Función para inicializar vista de bajas (se llama desde bajas())
+        function inicializarBajas() {
+            // Ocultar filtros y botón agregar
+            $('.card-header.border-bottom').hide();
+            $('.row.justify-content-between.m-4').hide();
+            
+            // Inicializar DataTable con las columnas exactas de la base de datos
+            const tabla = configuraTabla("#historialUsuarios", { 
+                registrosPorPagina: 10,
+                columns: [
+                    { data: null, defaultContent: '', className: 'control', orderable: false },
+                    { data: 'id', title: 'ID' },
+                    { data: 'nombres', title: 'Nombres' },
+                    { data: 'apellidop', title: 'Apellido Paterno' },
+                    { data: 'apellidom', title: 'Apellido Materno' },
+                    { data: 'numero_empleado', title: 'Número de Empleado' },
+                    { data: 'estatus', title: 'Estatus' },
+                    { data: 'user_name', title: 'Usuario' }
+                ]
+            });
+            
+            // Asegurar que el select muestre el valor correcto después de la inicialización
+            // Usamos drawCallback para asegurar que se ejecute después del renderizado
+            tabla.on('draw.dt', function() {
+                const select = $('select[name="historialUsuarios_length"]');
+                if (select.length && select.val() !== '10') {
+                    select.val('10');
+                }
+            });
+            
+            // También lo establecemos inmediatamente después de la inicialización
+            setTimeout(function() {
+                const select = $('select[name="historialUsuarios_length"]');
+                if (select.length) {
+                    select.val('10');
+                }
+            }, 50);
+            
+            getBajas();
+        }
             
             
             let archivosSeleccionados = [];
@@ -1137,6 +1204,132 @@ class CapHum extends Controller
         self::set("departamento", $departamento);
         self::render("all_gestores");
     }
+    public function bajas()
+    {
+        // Reutilizar el mismo script de gestion() pero cambiando solo la inicialización
+        // Primero obtenemos el script de gestion() y lo modificamos
+        $scriptGestion = <<<'HTML'
+        <script>
+        
+            const getUsuarios = () => {
+            http.request({
+                endpoint: "/caphum/getUsuarios",
+                onSuccess: (resp) => {
+                    // Mapear datos como objeto para usar 'columns.data' en DataTables
+                    const datos = resp.datos.map(p => ({
+                        nombre: `
+                            <div class="fw-semibold">
+                               # ${p.numero_empleado}
+                            </div>
+                            <div class="fw-semibold">
+                                ${p.nombres} ${p.apellidop} ${p.apellidom}
+                            </div>
+                            <small class="text-muted d-flex align-items-center gap-1">
+                                <i class="fa fa-key"></i>
+                                ${p.usuario}
+                            </small>
+                        `.trim(),
+                        departamento:`
+                            <small class="text-muted d-flex align-items-center gap-1">
+                                <i class="fa fa-building"></i>
+                                ${p.nombre_departamento}
+                            </small>
+                            <small class="text-muted d-flex align-items-center gap-1">
+                                <i class="fa fa-briefcase"></i>
+                                ${p.nombre_puesto}
+                            </small>
+                            <hr>
+                            <small class="text-muted d-flex align-items-center gap-1">
+                                <i class="fa fa-user"> </i>Nombre del jefe:<br>
+                                
+                            </small><small>${p.nombre_jefe} </small>
+                        `.trim(),
+                        estatus: p.estatus,
+                       acciones: `
+                        <button class="btn btn-sm btn-primary me-1" onclick="editar(${p.id})" title="Editar">
+                            <i class="fa fa-edit"></i>
+                        </button>
+                        <button class="btn btn-sm btn-info me-1" onclick="verArchivo(${p.id})" title="Ver archivo">
+                            <i class="fa fa-file"></i>
+                        </button>
+                        <button class="btn btn-sm btn-warning me-1" onclick="registra_ausencia(${p.id})" title="Ausencias">
+                            <i class="fa fa-person-circle-minus"></i>
+                        </button>
+                        <button class="btn btn-sm btn-danger" onclick="baja_gestor(${p.id})" title="Dar de baja">
+                            <i class="fa fa-user-slash"></i>
+                        </button>
+                        <button class="btn btn-sm me-1" style="background-color: #D2D755; color: white;" onclick="edit_perfil(${p.id})" title="Permisos">
+                            <i class="fa fa-lock" style="color: #007bff;"></i>
+                        </button>`
+                    }));
+        
+                    // Actualizar DataTable
+                    const tabla = $('#historialUsuarios').DataTable();
+                    tabla.clear().rows.add(datos).draw();
+                }
+            });
+        };
+        
+            const getBajas = () => {
+                http.request({
+                    endpoint: "/caphum/getBajas",
+                    onSuccess: (resp) => {
+                        // Mapear datos con las columnas exactas de la base de datos
+                        const datos = resp.datos.map(p => ({
+                            id: p.id ?? '',
+                            nombres: p.nombres ?? '',
+                            apellidop: p.apellidop ?? '',
+                            apellidom: p.apellidom ?? '',
+                            numero_empleado: p.numero_empleado ?? '',
+                            estatus: p.estatus ?? '',
+                            user_name: p.user_name ?? ''
+                        }));
+            
+                        // Actualizar DataTable
+                        const tabla = $('#historialUsuarios').DataTable();
+                        tabla.clear().rows.add(datos).draw();
+                    },
+                    onError: (err) => {
+                        console.error('Error al cargar bajas:', err);
+                        Swal.fire("Error", "No se pudieron cargar las bajas", "error");
+                    }
+                });
+            };
+            
+            // Función para inicializar vista de bajas
+            function inicializarBajas() {
+                // Ocultar filtros y botón agregar
+                $('.card-header.border-bottom').hide();
+                $('.row.justify-content-between.m-4').hide();
+                
+                // Inicializar DataTable con las columnas exactas de la base de datos
+                configuraTabla("#historialUsuarios", { 
+                    registrosPorPagina: 10,
+                    columns: [
+                        { data: null, defaultContent: '', className: 'control', orderable: false },
+                        { data: 'id', title: 'ID' },
+                        { data: 'nombres', title: 'Nombres' },
+                        { data: 'apellidop', title: 'Apellido Paterno' },
+                        { data: 'apellidom', title: 'Apellido Materno' },
+                        { data: 'numero_empleado', title: 'Número de Empleado' },
+                        { data: 'estatus', title: 'Estatus' },
+                        { data: 'user_name', title: 'Usuario' }
+                    ]
+                });
+                getBajas();
+            }
+            
+            $(document).ready(() => {
+                inicializarBajas();
+            });
+        </script>
+        HTML;
+
+        self::set("titulo", "Personas dadas de baja");
+        self::set("script", $scriptGestion);
+        self::set("departamento", ['datos' => []]); // Array vacío para no romper la vista
+        self::render("all_gestores");
+    }
     public function getUsuarios()
     {
         $resultado = CapHumDAO::getConsultaGestoresAll($_SESSION['usuario_id']);
@@ -1158,6 +1351,31 @@ class CapHum extends Controller
                 'usuario' => $p['usuario'] ?? '',
             ];
         }, $usuarios);
+
+        // Usar respuestaJSON para enviar el JSON correctamente
+        self::respuestaJSON([
+            'success' => true,
+            'datos' => $datos
+        ]);
+    }
+
+    public function getBajas()
+    {
+        $resultado = CapHumDAO::getPersonasBaja();
+        $bajas = $resultado['datos'] ?? [];
+
+        // Preparar array compatible con frontend
+        $datos = array_map(function($p) {
+            return [
+                'id' => $p['id'] ?? '',
+                'numero_empleado' => $p['numero_empleado'] ?? '',
+                'nombres' => $p['nombres'] ?? '',
+                'apellidop' => $p['apellidop'] ?? '',
+                'apellidom' => $p['apellidom'] ?? '',
+                'estatus' => $p['estatus'] ?? '',
+                'user_name' => $p['user_name'] ?? '',
+            ];
+        }, $bajas);
 
         // Usar respuestaJSON para enviar el JSON correctamente
         self::respuestaJSON([
@@ -1403,9 +1621,17 @@ class CapHum extends Controller
     }
     public function getPersonasOrganigrama()
     {
-        // Leer JSON del body (consultaServidor envía JSON)
+        // Obtener parámetro enviado por POST como JSON
         $input = json_decode(file_get_contents("php://input"), true);
         $idDepartamento = $input['idDepartamento'] ?? null;
+
+        if (empty($idDepartamento)) {
+            self::respuestaJSON([
+                'success' => false,
+                'mensaje' => 'ID de departamento requerido'
+            ]);
+            return;
+        }
 
         // Pasar el parámetro a DAO
         $puestos = CapHumDAO::getPersonasOrganigrama($idDepartamento, $_SESSION['usuario_id']);
@@ -1621,9 +1847,5 @@ class CapHum extends Controller
             CapHumDAO::getConsultaDepartamentoGestorOrganigrama($id)
         );
     }
-
-
-
-
 
 }

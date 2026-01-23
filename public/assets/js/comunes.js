@@ -289,7 +289,29 @@ const configuraTabla = (
         };
     }
 
-    return $(selector).DataTable(configuracion);
+    const tabla = $(selector).DataTable(configuracion);
+    
+    // Obtener el ID de la tabla (sin el #)
+    const tableId = $(selector).attr('id') || selector.replace('#', '');
+    const valor = registrosPorPagina.toString();
+    
+    // Asegurar que el select muestre el valor correcto después de la inicialización
+    tabla.on('init.dt', function() {
+        const select = $(`select[name="${tableId}_length"]`);
+        if (select.length) {
+            select.val(valor);
+        }
+    });
+    
+    // También establecer el valor después de un pequeño delay para asegurar que el DOM esté listo
+    setTimeout(function() {
+        const select = $(`select[name="${tableId}_length"]`);
+        if (select.length && select.val() !== valor) {
+            select.val(valor);
+        }
+    }, 50);
+
+    return tabla;
 };
 
 
