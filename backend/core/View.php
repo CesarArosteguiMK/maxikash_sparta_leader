@@ -44,6 +44,11 @@ function getMenu()
                                     'modulos' => [4]
                             ],
                             [
+                                'label' => 'Bajas',
+                                'url' => '/caphum/bajas',
+                                'modulos' => [5]
+                            ],
+                            [
                                     'label' => 'Organigrama',
                                     'url' => '/caphum/organigrama',
                                     'modulos' => [5]

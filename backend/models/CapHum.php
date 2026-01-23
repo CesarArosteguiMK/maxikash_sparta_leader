@@ -803,6 +803,32 @@ class CapHum extends Model
         }
     }
 
+    ////////////////////////////////////////
+    public static function getPersonasBaja()
+    {
+        $query = <<<SQL
+            SELECT 
+                id, 
+                nombres, 
+                apellidop, 
+                apellidom, 
+                numero_empleado, 
+                estatus, 
+                user_name
+            FROM __SPARTA_SECRET_REDACTED__.persona
+            WHERE estatus = 'Baja'
+            ORDER BY numero_empleado ASC
+        SQL;
+
+        try {
+            $db = new Database();
+            $r = $db->queryAll($query);
+            return self::resultado(true, 'Personas dadas de baja encontradas.', $r);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al obtener las personas dadas de baja.', null, $e->getMessage());
+        }
+    }
+
 
     public static function insertPersona($data)
     {
@@ -1068,6 +1094,31 @@ class CapHum extends Model
 
         } catch (\Exception $e) {
             return self::resultado(false, 'Error al registrar la baja.', null, $e->getMessage());
+        }
+    }
+
+    public static function getConsultaBajas()
+    {
+        $query = <<<SQL
+        SELECT 
+            id, 
+            nombres, 
+            apellidop, 
+            apellidom, 
+            numero_empleado, 
+            estatus, 
+            user_name
+        FROM __SPARTA_SECRET_REDACTED__.persona
+        WHERE estatus = 'Baja'
+        ORDER BY numero_empleado ASC
+        SQL;
+
+        try {
+            $db = new Database();
+            $r = $db->queryAll($query);
+            return self::resultado(true, 'Bajas encontradas.', $r);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al procesar la solicitud.', null, $e->getMessage());
         }
     }
 
