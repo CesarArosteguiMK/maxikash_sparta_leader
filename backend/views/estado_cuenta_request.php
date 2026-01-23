@@ -1280,67 +1280,6 @@ if ($cuotasContratadas > 0) {
     }
 }
 
-/* ==========================
-   PADDING ACORDEÓN - CORRECCIÓN FINAL
-   ========================== */
-
-/* 1. MARGEN SUPERIOR PARA EL ACORDEÓN COMPLETO */
-.accordion-flush.custom-accordion {
-    margin-top: 1.5rem !important; /* Espacio antes del acordeón */
-    border-top: 1px solid rgba(0,0,0,0.05); /* Línea sutil opcional */
-    padding-top: 0.5rem;
-}
-
-/* 2. PADDING INTERNO PARA EL CONTENIDO DEL ACORDEÓN */
-.accordion-body {
-    background-color: transparent;
-    padding: 1rem !important; /* PADDING INTERNO agregado */
-}
-
-/* 3. ESPACIO PARA LAS MÉTRICAS DENTRO DEL ACORDEÓN */
-.accordion-body .d-flex.justify-content-between.my-3 {
-    margin-top: 0.75rem !important;
-    margin-bottom: 1rem !important;
-    padding: 0 0.5rem;
-}
-
-/* 4. ESPACIO PARA LA LISTA DE INFORMACIÓN */
-.accordion-body .info-compact {
-    margin: 0.75rem 0 !important;
-    padding: 0 0.5rem;
-}
-
-/* 5. PADDING ESPECÍFICO PARA EL BOTÓN DE REFERENCIAS */
-.accordion-body .btn-outline-primary {
-    margin: 1rem 0.5rem 0.5rem 0.5rem !important;
-    padding: 0.6rem 1rem !important;
-}
-
-/* 6. AJUSTES RESPONSIVE */
-@media (max-width: 768px) {
-    .accordion-flush.custom-accordion {
-        margin-top: 1.25rem !important;
-    }
-    
-    .accordion-body {
-        padding: 0.75rem !important;
-    }
-    
-    .accordion-body .info-compact {
-        padding: 0 0.25rem;
-    }
-}
-
-@media (max-width: 576px) {
-    .accordion-flush.custom-accordion {
-        margin-top: 1rem !important;
-    }
-    
-    .accordion-body {
-        padding: 0.5rem !important;
-    }
-}
-
 </style>
 
 <div class="row">
@@ -1703,52 +1642,39 @@ if ($cuotasContratadas > 0) {
             <h5 class="mb-0">Resumen general de pagos del cliente</h5>
 
             <div class="d-flex gap-2">
-                <?php if (in_array($_SESSION['id_puesto'], [19, 21, 22, 10])): ?>
+                <!-- BOTÓN DICTAMINAR -->
+                <button type="button"
+                        class="btn btn-dictaminar position-relative"
+                        data-bs-toggle="modal"
+                        data-bs-target="#modalDictamen"
+                        title="Dictaminar llamada">
 
-                    <!-- BOTÓN DICTAMINAR -->
-                    <button type="button"
-                            class="btn btn-dictaminar position-relative"
-                            data-bs-toggle="modal"
-                            data-bs-target="#modalDictamen"
-                            title="Dictaminar llamada">
+                    <i class="fa fa-headset"></i>
 
-                        <i class="fa fa-headset"></i>
+                </button>
 
-                    </button>
+                <!-- BOTÓN CONDONAR -->
+                <button type="button"
+                        class="btn btn-condonar position-relative"
+                        title="Condonar gastos de cobranza"
+                        onclick="consultaGastosCondonables(<?= htmlspecialchars($dataEstadoCuenta["idCredito"] ?? '') ?>)">
+                    <i class="fa fa-hand-holding-usd"></i>
+                </button>
 
-                <?php endif; ?>
+                <!-- BOTÓN NOTAS (ICONO) -->
+                <button type="button"
+                        class="btn btn-notas position-relative"
+                        title="Notas del cliente"
+                        onclick="consultaNotas(<?= htmlspecialchars($dataEstadoCuenta["idCredito"] ?? '') ?>)">
 
-                <?php if (in_array($_SESSION['id_puesto'], [19, 21, 22, 10])): ?>
+                    <i class="fa fa-sticky-note"></i>
 
-                    <!-- BOTÓN CONDONAR -->
-                    <button type="button"
-                            class="btn btn-condonar position-relative"
-                            title="Condonar gastos de cobranza"
-                            onclick="consultaGastosCondonables(<?= htmlspecialchars($dataEstadoCuenta['idCredito'] ?? '') ?>)">
-                        <i class="fa fa-hand-holding-usd"></i>
-                    </button>
-
-                <?php endif; ?>
-
-                <?php if (in_array($_SESSION['id_puesto'], [19, 21, 22, 10])): ?>
-
-                    <!-- BOTÓN NOTAS (ICONO) -->
-                    <button type="button"
-                            class="btn btn-notas position-relative"
-                            title="Notas del cliente"
-                            onclick="consultaNotas(<?= htmlspecialchars($dataEstadoCuenta['idCredito'] ?? '') ?>)">
-
-                        <i class="fa fa-sticky-note"></i>
-
-                        <!-- Badge contador -->
-                        <span id="badgeNotas"
-                              class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
-            <?= htmlspecialchars($notas['datos'][0]['num'] ?? '') ?>
-        </span>
-                    </button>
-
-                <?php endif; ?>
-
+                    <!-- Badge contador -->
+                    <span id="badgeNotas"
+                          class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+                        <?= htmlspecialchars($notas['datos'][0]['num'] ?? '') ?>
+                    </span>
+                </button>
                 
 
                 <a href="/estadocuenta/consulta" class="btn btn-outline-secondary d-flex align-items-center gap-1">
