@@ -1101,16 +1101,25 @@ class CapHum extends Model
     {
         $query = <<<SQL
         SELECT 
-            id, 
-            nombres, 
-            apellidop, 
-            apellidom, 
-            numero_empleado, 
-            estatus, 
-            user_name
-        FROM __SPARTA_SECRET_REDACTED__.persona
-        WHERE estatus = 'Baja'
-        ORDER BY numero_empleado ASC
+            p.nombres,
+            p.apellidop,
+            p.apellidom,
+            p.numero_empleado,
+            p.numero_empleado AS external_id,
+            d.nombre AS departamento,
+            pu.nombre AS nombre_puesto,
+            bp.fecha_baja,
+            bp.id AS registro_baja,
+            bp.motivo,
+            bp.descripcion,
+            p.user_name
+        FROM __SPARTA_SECRET_REDACTED__.persona p
+        INNER JOIN __SPARTA_SECRET_REDACTED__.baja_persona bp ON p.id = bp.id_persona
+        LEFT JOIN __SPARTA_SECRET_REDACTED__.asigna_puesto ap ON p.id = ap.id_persona
+        LEFT JOIN __SPARTA_SECRET_REDACTED__.puesto pu ON ap.id_puesto = pu.id
+        LEFT JOIN __SPARTA_SECRET_REDACTED__.departamento d ON pu.departamento_id = d.id
+        WHERE p.estatus = 'Baja'
+        ORDER BY bp.fecha_baja DESC
         SQL;
 
         try {

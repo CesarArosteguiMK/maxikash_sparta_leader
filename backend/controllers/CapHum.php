@@ -75,16 +75,57 @@ class CapHum extends Controller
                 http.request({
                     endpoint: "/caphum/getBajas",
                     onSuccess: (resp) => {
-                        // Mapear datos con las columnas exactas de la base de datos
-                        const datos = resp.datos.map(p => ({
-                            id: p.id ?? '',
-                            nombres: p.nombres ?? '',
-                            apellidop: p.apellidop ?? '',
-                            apellidom: p.apellidom ?? '',
-                            numero_empleado: p.numero_empleado ?? '',
-                            estatus: p.estatus ?? '',
-                            user_name: p.user_name ?? ''
-                        }));
+                        // Mapear datos con el nuevo formato de columnas
+                        const datos = resp.datos.map(p => {
+                            const nombreCompleto = `${p.nombres ?? ''} ${p.apellidop ?? ''} ${p.apellidom ?? ''}`.trim();
+                            
+                            return {
+                                nombres: `
+                                    <div class="fw-semibold">
+                                        # ${p.external_id ?? ''}
+                                    </div>
+                                    <div class="fw-semibold">
+                                        ${nombreCompleto}
+                                    </div>
+                                    <div class="text-muted small">
+                                        # ${p.numero_empleado ?? ''}
+                                    </div>
+                                `.trim(),
+                                puesto: `
+                                    <div class="text-muted small">
+                                        ${p.departamento ?? 'N/A'}
+                                    </div>
+                                    <div class="text-muted small">
+                                        ${p.nombre_puesto ?? 'N/A'}
+                                    </div>
+                                `.trim(),
+                                estatus: `
+                                    <div class="fw-semibold text-danger">
+                                        Baja
+                                    </div>
+                                    <div class="text-muted small">
+                                        ${p.fecha_baja ? new Date(p.fecha_baja).toLocaleDateString('es-MX') : 'N/A'}
+                                    </div>
+                                    <div class="text-muted small">
+                                        Registro: ${p.registro_baja ?? 'N/A'}
+                                    </div>
+                                `.trim(),
+                                motivos: `
+                                    <div class="fw-semibold">
+                                        ${p.motivo ?? 'N/A'}
+                                    </div>
+                                    <div class="text-muted small">
+                                        ${p.descripcion ?? 'Sin descripción'}
+                                    </div>
+                                `.trim(),
+                                usuario: p.user_name ?? 'N/A',
+                                acciones: `
+                                    <button class="btn btn-sm btn-primary" onclick="editarBaja(${p.registro_baja ?? ''})" title="Editar">
+                                        <i class="fa fa-edit"></i>
+                                    </button>
+                                `.trim()
+                            };
+                        });
             
                         // Actualizar DataTable
                         const tabla = $('#historialUsuarios').DataTable();
@@ -1113,18 +1154,17 @@ class CapHum extends Controller
             $('.card-header.border-bottom').hide();
             $('.row.justify-content-between.m-4').hide();
             
-            // Inicializar DataTable con las columnas exactas de la base de datos
+            // Inicializar DataTable con las nuevas columnas
             const tabla = configuraTabla("#historialUsuarios", { 
                 registrosPorPagina: 10,
                 columns: [
                     { data: null, defaultContent: '', className: 'control', orderable: false },
-                    { data: 'id', title: 'ID' },
                     { data: 'nombres', title: 'Nombres' },
-                    { data: 'apellidop', title: 'Apellido Paterno' },
-                    { data: 'apellidom', title: 'Apellido Materno' },
-                    { data: 'numero_empleado', title: 'Número de Empleado' },
+                    { data: 'puesto', title: 'Puesto' },
                     { data: 'estatus', title: 'Estatus' },
-                    { data: 'user_name', title: 'Usuario' }
+                    { data: 'motivos', title: 'Motivos de baja' },
+                    { data: 'usuario', title: 'Usuario' },
+                    { data: 'acciones', title: 'Acciones', orderable: false }
                 ]
             });
             
@@ -1146,6 +1186,21 @@ class CapHum extends Controller
             }, 50);
             
             getBajas();
+        }
+        
+        // Función placeholder para editar baja (por ahora no hace nada)
+        function editarBaja(registroBaja) {
+            Swal.fire({
+                icon: 'warning',
+                title: '¡Espera!',
+                html: `
+                    <p style="font-size: 18px;">No me toques por favor 😅</p>
+                    <p style="font-size: 16px; margin-top: 10px;">Soy mucho botón para tu click, jejej</p>
+                    <p style="font-size: 14px; margin-top: 10px; color: #666;">Por ahora solo soy decorativo</p>
+                `,
+                confirmButtonText: 'Ok, entendido',
+                confirmButtonColor: '#3085d6'
+            });
         }
             
             
@@ -1274,16 +1329,57 @@ class CapHum extends Controller
                 http.request({
                     endpoint: "/caphum/getBajas",
                     onSuccess: (resp) => {
-                        // Mapear datos con las columnas exactas de la base de datos
-                        const datos = resp.datos.map(p => ({
-                            id: p.id ?? '',
-                            nombres: p.nombres ?? '',
-                            apellidop: p.apellidop ?? '',
-                            apellidom: p.apellidom ?? '',
-                            numero_empleado: p.numero_empleado ?? '',
-                            estatus: p.estatus ?? '',
-                            user_name: p.user_name ?? ''
-                        }));
+                        // Mapear datos con el nuevo formato de columnas
+                        const datos = resp.datos.map(p => {
+                            const nombreCompleto = `${p.nombres ?? ''} ${p.apellidop ?? ''} ${p.apellidom ?? ''}`.trim();
+                            
+                            return {
+                                nombres: `
+                                    <div class="fw-semibold">
+                                        # ${p.external_id ?? ''}
+                                    </div>
+                                    <div class="fw-semibold">
+                                        ${nombreCompleto}
+                                    </div>
+                                    <div class="text-muted small">
+                                        # ${p.numero_empleado ?? ''}
+                                    </div>
+                                `.trim(),
+                                puesto: `
+                                    <div class="text-muted small">
+                                        ${p.departamento ?? 'N/A'}
+                                    </div>
+                                    <div class="text-muted small">
+                                        ${p.nombre_puesto ?? 'N/A'}
+                                    </div>
+                                `.trim(),
+                                estatus: `
+                                    <div class="fw-semibold text-danger">
+                                        Baja
+                                    </div>
+                                    <div class="text-muted small">
+                                        ${p.fecha_baja ? new Date(p.fecha_baja).toLocaleDateString('es-MX') : 'N/A'}
+                                    </div>
+                                    <div class="text-muted small">
+                                        Registro: ${p.registro_baja ?? 'N/A'}
+                                    </div>
+                                `.trim(),
+                                motivos: `
+                                    <div class="fw-semibold">
+                                        ${p.motivo ?? 'N/A'}
+                                    </div>
+                                    <div class="text-muted small">
+                                        ${p.descripcion ?? 'Sin descripción'}
+                                    </div>
+                                `.trim(),
+                                usuario: p.user_name ?? 'N/A',
+                                acciones: `
+                                    <button class="btn btn-sm btn-primary" onclick="editarBaja(${p.registro_baja ?? ''})" title="Editar">
+                                        <i class="fa fa-edit"></i>
+                                    </button>
+                                `.trim()
+                            };
+                        });
             
                         // Actualizar DataTable
                         const tabla = $('#historialUsuarios').DataTable();
@@ -1302,21 +1398,51 @@ class CapHum extends Controller
                 $('.card-header.border-bottom').hide();
                 $('.row.justify-content-between.m-4').hide();
                 
-                // Inicializar DataTable con las columnas exactas de la base de datos
-                configuraTabla("#historialUsuarios", { 
+                // Inicializar DataTable con las nuevas columnas
+                const tabla = configuraTabla("#historialUsuarios", { 
                     registrosPorPagina: 10,
                     columns: [
                         { data: null, defaultContent: '', className: 'control', orderable: false },
-                        { data: 'id', title: 'ID' },
                         { data: 'nombres', title: 'Nombres' },
-                        { data: 'apellidop', title: 'Apellido Paterno' },
-                        { data: 'apellidom', title: 'Apellido Materno' },
-                        { data: 'numero_empleado', title: 'Número de Empleado' },
+                        { data: 'puesto', title: 'Puesto' },
                         { data: 'estatus', title: 'Estatus' },
-                        { data: 'user_name', title: 'Usuario' }
+                        { data: 'motivos', title: 'Motivos de baja' },
+                        { data: 'usuario', title: 'Usuario' },
+                        { data: 'acciones', title: 'Acciones', orderable: false }
                     ]
                 });
+                
+                // Asegurar que el select muestre el valor correcto después de la inicialización
+                tabla.on('draw.dt', function() {
+                    const select = $('select[name="historialUsuarios_length"]');
+                    if (select.length && select.val() !== '10') {
+                        select.val('10');
+                    }
+                });
+                
+                setTimeout(function() {
+                    const select = $('select[name="historialUsuarios_length"]');
+                    if (select.length) {
+                        select.val('10');
+                    }
+                }, 50);
+                
                 getBajas();
+            }
+            
+            // Función placeholder para editar baja (mensaje cómico temporal)
+            function editarBaja(registroBaja) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: '¡Espera!',
+                    html: `
+                        <p style="font-size: 18px;">No me toques por favor 😅</p>
+                        <p style="font-size: 16px; margin-top: 10px;">Soy mucho botón para tu click, jejej</p>
+                        <p style="font-size: 14px; margin-top: 10px; color: #666;">Por ahora solo soy decorativo</p>
+                    `,
+                    confirmButtonText: 'Ok, entendido',
+                    confirmButtonColor: '#3085d6'
+                });
             }
             
             $(document).ready(() => {
@@ -1361,18 +1487,23 @@ class CapHum extends Controller
 
     public function getBajas()
     {
-        $resultado = CapHumDAO::getPersonasBaja();
+        $resultado = CapHumDAO::getConsultaBajas();
         $bajas = $resultado['datos'] ?? [];
 
-        // Preparar array compatible con frontend
+        // Preparar array compatible con frontend con todos los nuevos campos
         $datos = array_map(function($p) {
             return [
-                'id' => $p['id'] ?? '',
-                'numero_empleado' => $p['numero_empleado'] ?? '',
                 'nombres' => $p['nombres'] ?? '',
                 'apellidop' => $p['apellidop'] ?? '',
                 'apellidom' => $p['apellidom'] ?? '',
-                'estatus' => $p['estatus'] ?? '',
+                'numero_empleado' => $p['numero_empleado'] ?? '',
+                'external_id' => $p['external_id'] ?? '',
+                'departamento' => $p['departamento'] ?? '',
+                'nombre_puesto' => $p['nombre_puesto'] ?? '',
+                'fecha_baja' => $p['fecha_baja'] ?? '',
+                'registro_baja' => $p['registro_baja'] ?? '',
+                'motivo' => $p['motivo'] ?? '',
+                'descripcion' => $p['descripcion'] ?? '',
                 'user_name' => $p['user_name'] ?? '',
             ];
         }, $bajas);
