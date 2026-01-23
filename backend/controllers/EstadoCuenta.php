@@ -566,8 +566,23 @@ JS;
                     const id   = idInput.value.trim();
                     const tipo = tipoSelect.value;
             
-                    if (!id || !tipo) {
-                        Swal.fire('Error', 'Por favor completa todos los campos', 'error');
+                    // Validar que el ID no esté vacío
+                    if (!id) {
+                        Swal.fire({
+                            icon: 'warning',
+                            title: 'ID de crédito requerido',
+                            text: 'Por favor introduce el ID de crédito'
+                        });
+                        return;
+                    }
+            
+                    // Validar que se haya seleccionado un tipo de documento
+                    if (!tipo) {
+                        Swal.fire({
+                            icon: 'warning',
+                            title: 'Tipo de documento requerido',
+                            text: 'Por favor selecciona el documento a comprobar'
+                        });
                         return;
                     }
             
