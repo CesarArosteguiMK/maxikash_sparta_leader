@@ -23,7 +23,7 @@
                 </div>
 
                 <!-- Tarjeta de descarga -->
-                <div class="row gy-6 mb-6 mt-4">
+                <div class="row gy-6 mb-6">
                     <div class="col-lg-4">
                         <div class="card shadow-none bg-label-primary h-100">
                             <div class="card-body d-flex justify-content-between flex-wrap-reverse">

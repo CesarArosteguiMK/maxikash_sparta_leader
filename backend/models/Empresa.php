@@ -404,140 +404,131 @@ class Empresa extends Model
             $db = new Database();
 
             $sql = "
+            WITH RECURSIVE
+            /* 1) Relación vigente persona->jefe */
+            aj_vigente AS (
+            SELECT id_persona, id_jefe
+            FROM asigna_jefe
+            WHERE fecha_fin IS NULL OR fecha_fin >= CURDATE()
+            ),
+
+            /* 2) Jerarquía: persona -> jefe -> jefe del jefe -> ... */
+            jerarquia AS (
+            /* nivel 1: jefe inmediato */
             SELECT
-                p.numero_empleado AS external_id,
-                p.user_name AS username,
+                p.id               AS persona_id,
+                aj.id_jefe         AS jefe_id,
+                1                  AS lvl
+            FROM persona p
+            LEFT JOIN aj_vigente aj ON aj.id_persona = p.id
 
-                TRIM(CONCAT_WS(
-                    ' ',
-                    p.apellidop,
-                    p.apellidom,
-                    p.nombres
-                )) AS name,
+            UNION ALL
 
-                p.password AS password,
-                '' AS legion,
+            /* niveles siguientes */
+            SELECT
+                j.persona_id,
+                aj2.id_jefe        AS jefe_id,
+                j.lvl + 1          AS lvl
+            FROM jerarquia j
+            JOIN aj_vigente aj2 ON aj2.id_persona = j.jefe_id
+            /* evita ciclos y limita profundidad */
+            WHERE j.jefe_id IS NOT NULL
+                AND j.lvl < 10
+            ),
 
-                /* ROL DEL EMPLEADO */
-                CASE
-                    WHEN TRIM(pp.nombre) IN ('Gestor 1-7','Gestor 22_29','Gestor 8_21','Gestor Despacho') THEN 'gestor'
-                    WHEN TRIM(pp.nombre) IN ('Supervisor 1-7','Supervisor 22_29','Supervisor 8_21','Supervisor despacho') THEN 'supervisor'
-                    WHEN TRIM(pp.nombre) IN ('Subgerente 8_21','Subgerente 22_29','Subgerente 1-7','Coordinador Despachos') THEN 'subgerente'
-                    WHEN TRIM(pp.nombre) IN ('Gerente 8_21','Gerente 22_29','Gerente 1-7') THEN 'gerente'
-                    WHEN TRIM(pp.nombre) IN ('Subdirector 1-7','Subdirector 8-21') THEN 'subdirector'
-                    ELSE 'sin asignar en sparta'
-                END AS role,
+            /* 3) Agregamos datos del jefe y su puesto */
+            jerarquia_detalle AS (
+            SELECT
+                j.persona_id,
+                j.jefe_id,
+                j.lvl,
+                pj.numero_empleado AS jefe_numero_empleado,
+                TRIM(CONCAT_WS(' ', pj.apellidop, pj.apellidom, pj.nombres)) AS jefe_nombre,
+                TRIM(ppj.nombre)   AS jefe_puesto
+            FROM jerarquia j
+            JOIN persona pj ON pj.id = j.jefe_id
+            LEFT JOIN asigna_puesto apj ON apj.id_persona = j.jefe_id
+            LEFT JOIN puesto ppj ON ppj.id = apj.id_puesto
+            ),
 
-                '' AS color,
+            /* 4) Tomamos el primer jefe (más cercano) por cada rol */
+            linea_jefes AS (
+            SELECT
+                persona_id,
 
-                /* ===== JEFE INMEDIATO SEGÚN SU PUESTO ===== */
+                /* Supervisor */
+                MAX(CASE WHEN jefe_puesto IN ('Supervisor 1-7','Supervisor 22_29','Supervisor 8_21','Supervisor despacho')
+                        THEN jefe_numero_empleado END) AS supervisor_id,
+                MAX(CASE WHEN jefe_puesto IN ('Supervisor 1-7','Supervisor 22_29','Supervisor 8_21','Supervisor despacho')
+                        THEN jefe_nombre END)          AS supervisor_nombre,
 
-                /* SUPERVISOR */
-                CASE
-                    WHEN TRIM(ppj.nombre) IN ('Supervisor 1-7','Supervisor 22_29','Supervisor 8_21','Supervisor despacho')
-                    THEN pj.numero_empleado ELSE NULL
-                END AS supervisor_id,
+                /* Subgerente */
+                MAX(CASE WHEN jefe_puesto IN ('Subgerente 8_21','Subgerente 22_29','Subgerente 1-7','Coordinador Despachos')
+                        THEN jefe_numero_empleado END) AS subgerente_id,
+                MAX(CASE WHEN jefe_puesto IN ('Subgerente 8_21','Subgerente 22_29','Subgerente 1-7','Coordinador Despachos')
+                        THEN jefe_nombre END)          AS subgerente_nombre,
 
-                CASE
-                    WHEN TRIM(ppj.nombre) IN ('Supervisor 1-7','Supervisor 22_29','Supervisor 8_21','Supervisor despacho')
-                    THEN TRIM(CONCAT_WS(
-                        ' ',
-                        
-                        pj.apellidop,
-                        pj.apellidom,
-                        pj.nombres
-                    ))
+                /* Gerente */
+                MAX(CASE WHEN jefe_puesto IN ('Gerente 8_21','Gerente 22_29','Gerente 1-7')
+                        THEN jefe_numero_empleado END) AS gerente_id,
+                MAX(CASE WHEN jefe_puesto IN ('Gerente 8_21','Gerente 22_29','Gerente 1-7')
+                        THEN jefe_nombre END)          AS gerente_nombre,
 
-                    ELSE ''
-                END AS supervisor_nombre,
+                /* Subdirector */
+                MAX(CASE WHEN jefe_puesto IN ('Subdirector 1-7','Subdirector 8-21')
+                        THEN jefe_numero_empleado END) AS subdirector_id,
+                MAX(CASE WHEN jefe_puesto IN ('Subdirector 1-7','Subdirector 8-21')
+                        THEN jefe_nombre END)          AS subdirector_nombre
 
-                /* SUBGERENTE */
-                CASE
-                    WHEN TRIM(ppj.nombre) IN ('Subgerente 8_21','Subgerente 22_29','Subgerente 1-7','Coordinador Despachos')
-                    THEN pj.numero_empleado ELSE NULL
-                END AS subgerente_id,
+            FROM jerarquia_detalle
+            GROUP BY persona_id
+            )
 
-                CASE
-                    WHEN TRIM(ppj.nombre) IN ('Subgerente 8_21','Subgerente 22_29','Subgerente 1-7','Coordinador Despachos')
-                THEN TRIM(CONCAT_WS(
-                        ' ',
-                    
-                        pj.apellidop,
-                        pj.apellidom,
-                        pj.nombres
-                    ))
-                    ELSE ''
-                END AS subgerente_nombre,
+            SELECT
+            p.numero_empleado AS external_id,
+            p.user_name AS username,
 
-                /* GERENTE */
-                CASE
-                    WHEN TRIM(ppj.nombre) IN ('Gerente 8_21','Gerente 22_29','Gerente 1-7')
-                    THEN pj.numero_empleado ELSE NULL
-                END AS gerente_id,
+            TRIM(CONCAT_WS(' ', p.apellidop, p.apellidom, p.nombres)) AS name,
 
-                CASE
-                    WHEN TRIM(ppj.nombre) IN ('Gerente 8_21','Gerente 22_29','Gerente 1-7')
-                    THEN TRIM(CONCAT_WS(
-                        ' ',
-                        
-                        pj.apellidop,
-                        pj.apellidom,
-                        pj.nombres
-                    ))
-                    ELSE ''
-                END AS gerente_nombre,
+            p.password AS password,
+            '' AS legion,
 
-                /* SUBDIRECTOR */
-                CASE
-                    WHEN TRIM(ppj.nombre) IN ('Subdirector 1-7','Subdirector 8-21')
-                    THEN pj.numero_empleado ELSE NULL
-                END AS subdirector_id,
+            CASE
+                WHEN TRIM(pp.nombre) IN ('Gestor 1-7','Gestor 22_29','Gestor 8_21','Gestor Despacho') THEN 'gestor'
+                WHEN TRIM(pp.nombre) IN ('Supervisor 1-7','Supervisor 22_29','Supervisor 8_21','Supervisor despacho') THEN 'supervisor'
+                WHEN TRIM(pp.nombre) IN ('Subgerente 8_21','Subgerente 22_29','Subgerente 1-7','Coordinador Despachos') THEN 'subgerente'
+                WHEN TRIM(pp.nombre) IN ('Gerente 8_21','Gerente 22_29','Gerente 1-7') THEN 'gerente'
+                WHEN TRIM(pp.nombre) IN ('Subdirector 1-7','Subdirector 8-21') THEN 'subdirector'
+                ELSE 'sin asignar en sparta'
+            END AS role,
 
-                CASE
-                    WHEN TRIM(ppj.nombre) IN ('Subdirector 1-7','Subdirector 8-21')
-                THEN TRIM(CONCAT_WS(
-                        ' ',
-                        pj.apellidop,
-                        pj.apellidom,
-                        pj.nombres
-                    ))
-                    ELSE ''
-                END AS subdirector_nombre,
+            '' AS color,
 
-                '' AS city,
-                '' AS state,
-                '' AS municipality,
-                '' AS settlement_tupe,
-                '' AS postal_code
+            /* ahora vienen de la linea completa, no solo del jefe inmediato */
+            COALESCE(lj.supervisor_id, NULL)        AS supervisor_id,
+            COALESCE(lj.supervisor_nombre, '')      AS supervisor_nombre,
+
+            COALESCE(lj.subgerente_id, NULL)        AS subgerente_id,
+            COALESCE(lj.subgerente_nombre, '')      AS subgerente_nombre,
+
+            COALESCE(lj.gerente_id, NULL)           AS gerente_id,
+            COALESCE(lj.gerente_nombre, '')         AS gerente_nombre,
+
+            COALESCE(lj.subdirector_id, NULL)       AS subdirector_id,
+            COALESCE(lj.subdirector_nombre, '')     AS subdirector_nombre,
+
+            '' AS city,
+            '' AS state,
+            '' AS municipality,
+            '' AS settlement_tupe,
+            '' AS postal_code
 
             FROM persona p
+            LEFT JOIN asigna_puesto ap ON ap.id_persona = p.id
+            LEFT JOIN puesto pp ON pp.id = ap.id_puesto
+            LEFT JOIN departamento d ON d.id = pp.departamento_id
 
-            LEFT JOIN asigna_puesto ap
-                ON ap.id_persona = p.id
-
-            LEFT JOIN puesto pp
-                ON pp.id = ap.id_puesto
-
-            LEFT JOIN departamento d
-                ON d.id = pp.departamento_id
-
-            /* jefe vigente */
-            LEFT JOIN (
-                SELECT id_persona, id_jefe
-                FROM asigna_jefe
-                WHERE fecha_fin IS NULL
-                OR fecha_fin >= CURDATE()
-            ) aj ON aj.id_persona = p.id
-
-            LEFT JOIN persona pj
-                ON pj.id = aj.id_jefe
-
-            /* puesto del jefe */
-            LEFT JOIN asigna_puesto apj
-                ON apj.id_persona = aj.id_jefe
-
-            LEFT JOIN puesto ppj
-                ON ppj.id = apj.id_puesto
+            LEFT JOIN linea_jefes lj ON lj.persona_id = p.id
 
             WHERE p.estatus <> 'Baja'
             AND d.id IN (3, 13, 4, 8)
@@ -549,7 +540,6 @@ class Empresa extends Model
                         WHERE pd.idPersona = 1
                     )
             )
-
             ORDER BY COALESCE(pp.nivel, 999) ASC;
         ";
 

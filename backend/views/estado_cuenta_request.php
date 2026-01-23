@@ -64,7 +64,6 @@ if ($cuotasContratadas > 0) {
 ?>
 
 <style>
-
     /* ==========================
    GLOBAL
    ========================== */
@@ -87,6 +86,251 @@ if ($cuotasContratadas > 0) {
     @media (max-width: 991px) {
         .sidebar-cliente {
             position: static !important;
+        }
+    }
+
+    /* ==========================
+       SIDEBAR COMPLETO - ZOOM RESPONSIVE
+   ========================== */
+
+    /* 1. CONTENEDOR PRINCIPAL */
+    .sidebar-cliente .card-body {
+        padding: 1rem !important;
+    }
+
+    @media (min-width: 768px) {
+        .sidebar-cliente .card-body {
+            padding: 1.25rem !important;
+        }
+    }
+
+    /* 2. SECCIÓN AVATAR (optimizada) */
+    .user-avatar-section .card {
+        margin-bottom: 1rem !important;
+        transition: all 0.2s ease;
+    }
+
+    .user-avatar-section .card .card-body {
+        padding: 0.75rem !important;
+    }
+
+    /* Badges en línea con zoom */
+    .badge-container-ids {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.4rem;
+        margin-bottom: 0.75rem;
+    }
+
+    .badge-container-ids .badge {
+        flex: 1;
+        min-width: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        font-size: 0.75rem;
+        padding: 0.4em 0.8em;
+        transition: all 0.2s ease;
+    }
+
+    /* Escalado de fuentes con zoom */
+    .user-avatar-section .h6 {
+        font-size: 1rem;
+        line-height: 1.3;
+        margin-bottom: 0.5rem;
+    }
+
+    .user-avatar-section .progress {
+        height: 0.5rem;
+        margin-bottom: 0.75rem;
+    }
+
+    .user-avatar-section small {
+        font-size: 0.8rem;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    /* 3. MÉTRICAS (flex escalable) */
+    .sidebar-cliente .d-flex.justify-content-between.my-3 {
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        margin: 1rem 0;
+    }
+
+    .sidebar-cliente .d-flex.justify-content-between.my-3 > div {
+        flex: 1 1 calc(50% - 0.75rem);
+        min-width: 0;
+    }
+
+    .sidebar-cliente .d-flex.justify-content-between.my-3 h5 {
+        font-size: 0.95rem;
+        margin-bottom: 0.25rem;
+    }
+
+    .sidebar-cliente .d-flex.justify-content-between.my-3 span.small {
+        font-size: 0.75rem;
+    }
+
+    /* 4. INFORMACIÓN DEL CRÉDITO (lista escalable) */
+    .sidebar-cliente .info-compact {
+        margin: 0.5rem 0;
+    }
+
+    .sidebar-cliente .info-compact li {
+        margin-bottom: 0.5rem;
+        align-items: flex-start;
+        flex-wrap: wrap;
+    }
+
+    .sidebar-cliente .info-compact i.fa-lg {
+        font-size: 1rem !important;
+        margin-top: 0.1rem;
+        min-width: 1.2rem;
+    }
+
+    .sidebar-cliente .info-compact span {
+        font-size: 0.85rem;
+        line-height: 1.3;
+        margin: 0 0.4rem;
+    }
+
+    .sidebar-cliente .info-compact span:last-child {
+        flex: 1;
+        text-align: right;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    /* 5. BOTÓN REFERENCIAS */
+    .sidebar-cliente .btn-outline-primary {
+        padding: 0.5rem 0.75rem;
+        font-size: 0.85rem;
+        margin-top: 0.5rem;
+    }
+
+    .sidebar-cliente .btn-outline-primary i {
+        font-size: 0.9rem;
+    }
+
+    /* ==========================
+       AJUSTES ESPECÍFICOS POR NIVEL DE ZOOM
+   ========================== */
+
+    /* Zoom ~125% */
+    @media (max-width: 1600px) {
+        .sidebar-cliente .card-body {
+            padding: 0.9rem !important;
+        }
+        
+        .badge-container-ids .badge {
+            font-size: 0.7rem;
+            padding: 0.35em 0.6em;
+        }
+        
+        .user-avatar-section .h6 {
+            font-size: 0.95rem;
+        }
+        
+        .sidebar-cliente .info-compact span {
+            font-size: 0.8rem;
+        }
+        
+        .sidebar-cliente .d-flex.justify-content-between.my-3 h5 {
+            font-size: 0.9rem;
+        }
+    }
+
+    /* Zoom ~150% */
+    @media (max-width: 1400px) {
+        .sidebar-cliente .card-body {
+            padding: 0.8rem !important;
+        }
+        
+        .user-avatar-section .card .card-body {
+            padding: 0.6rem !important;
+        }
+        
+        .badge-container-ids .badge {
+            font-size: 0.65rem;
+            padding: 0.3em 0.5em;
+        }
+        
+        .user-avatar-section .h6 {
+            font-size: 0.9rem;
+        }
+        
+        .sidebar-cliente .info-compact li {
+            margin-bottom: 0.4rem;
+        }
+        
+        .sidebar-cliente .info-compact span {
+            font-size: 0.75rem;
+        }
+        
+        .sidebar-cliente .info-compact i.fa-lg {
+            font-size: 0.9rem !important;
+        }
+        
+        .sidebar-cliente .d-flex.justify-content-between.my-3 h5 {
+            font-size: 0.85rem;
+        }
+        
+        .sidebar-cliente .btn-outline-primary {
+            font-size: 0.8rem;
+            padding: 0.4rem 0.6rem;
+        }
+    }
+
+    /* Zoom ~175%+ */
+    @media (max-width: 1200px) {
+        .badge-container-ids {
+            flex-direction: column;
+            gap: 0.3rem;
+        }
+        
+        .badge-container-ids .badge {
+            width: 100%;
+            max-width: 100%;
+            text-align: center;
+        }
+        
+        .sidebar-cliente .d-flex.justify-content-between.my-3 > div {
+            flex: 1 1 100%;
+        }
+        
+        .sidebar-cliente .info-compact li {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 0.2rem;
+        }
+        
+        .sidebar-cliente .info-compact span:last-child {
+            text-align: left;
+            width: 100%;
+        }
+    }
+
+    /* Mobile específico para sidebar */
+    @media (max-width: 768px) {
+        .sidebar-cliente .card-body {
+            padding: 0.75rem !important;
+        }
+        
+        .badge-container-ids {
+            flex-direction: row;
+            gap: 0.5rem;
+        }
+        
+        .badge-container-ids .badge {
+            flex: 1 1 calc(50% - 0.5rem);
+            max-width: calc(50% - 0.5rem);
+        }
+        
+        .sidebar-cliente .d-flex.justify-content-between.my-3 {
+            flex-direction: column;
+            gap: 0.5rem;
         }
     }
 
@@ -435,14 +679,6 @@ if ($cuotasContratadas > 0) {
         box-shadow: 0 8px 18px rgba(13,110,253,.55);
     }
 
-
-
-
-
-
-
-
-
     /* ==========================
        MODAL DIRECCIONES - Asegurar que se muestre
        ========================== */
@@ -468,7 +704,6 @@ if ($cuotasContratadas > 0) {
     .modal-backdrop.show {
         opacity: 0.5 !important;
     }
-
 </style>
 
 <div class="row">
@@ -478,13 +713,17 @@ if ($cuotasContratadas > 0) {
         <div class="card mb-6">
             <div class="card-body">
 
+
+                <!-- CONTENEDOR -->    
+
                 <div class="user-avatar-section">
                     <div class="card mb-3 border border-2 border-primary rounded primary-shadow">
                         <div class="card-body">
 
-                            <div class="d-flex justify-content-between align-items-start">
-                                <span class="badge bg-label-primary">ID Crédito: <?= htmlspecialchars($dataEstadoCuenta["idCredito"] ?? '') ?> </span><span class="badge bg-label-secondary">ID Cliente: <?= htmlspecialchars($dataCliente["idCliente"] ?? '') ?> </span>
-                            </div>
+                          <div class="badge-container-ids">
+    <span class="badge bg-label-primary">ID Crédito: <?= htmlspecialchars($dataEstadoCuenta["idCredito"] ?? '') ?></span>
+    <span class="badge bg-label-secondary">ID Cliente: <?= htmlspecialchars($dataCliente["idCliente"] ?? '') ?></span>
+</div>
 
                             <div class="d-flex justify-content-between align-items-center mb-1">
                                 <span class="h6 mb-0"> <?= htmlspecialchars($dataCliente["nombreCliente"] ?? '') ?></span>

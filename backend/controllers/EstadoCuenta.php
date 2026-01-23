@@ -566,8 +566,23 @@ JS;
                     const id   = idInput.value.trim();
                     const tipo = tipoSelect.value;
             
-                    if (!id || !tipo) {
-                        Swal.fire('Error', 'Por favor completa todos los campos', 'error');
+                    // Validar que el ID no esté vacío
+                    if (!id) {
+                        Swal.fire({
+                            icon: 'warning',
+                            title: 'ID de crédito requerido',
+                            text: 'Por favor introduce el ID de crédito'
+                        });
+                        return;
+                    }
+            
+                    // Validar que se haya seleccionado un tipo de documento
+                    if (!tipo) {
+                        Swal.fire({
+                            icon: 'warning',
+                            title: 'Tipo de documento requerido',
+                            text: 'Por favor selecciona el documento a comprobar'
+                        });
                         return;
                     }
             
@@ -593,7 +608,23 @@ JS;
                         Swal.close();
             
                         if (!data.success) {
-                            Swal.fire('Error', data.mensaje, 'error');
+                            // Detectar si el error es por ID incorrecto
+                            const mensaje = data.mensaje || '';
+                            const esIdIncorrecto = mensaje.toLowerCase().includes('id de crédito incorrecto') ||
+                                                   mensaje.toLowerCase().includes('id incorrecto') ||
+                                                   mensaje.toLowerCase().includes('no se pudo obtener') ||
+                                                   mensaje.toLowerCase().includes('no existe') ||
+                                                   mensaje.toLowerCase().includes('no se encontró');
+                            
+                            if (esIdIncorrecto) {
+                                Swal.fire({
+                                    icon: 'error',
+                                    title: 'ID incorrecto',
+                                    text: 'El ID de crédito ingresado no es válido. Por favor verifica e intenta nuevamente.'
+                                });
+                            } else {
+                                Swal.fire('Error', data.mensaje, 'error');
+                            }
                             return;
                         }
             
