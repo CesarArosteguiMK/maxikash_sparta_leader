@@ -1097,7 +1097,7 @@ class CapHum extends Model
         }
     }
 
-    public static function getConsultaBajas()
+    public static function getConsultaBajas($fecha_inicio = null, $fecha_fin = null)
     {
         $query = <<<SQL
         SELECT
@@ -1119,12 +1119,33 @@ class CapHum extends Model
         LEFT JOIN __SPARTA_SECRET_REDACTED__.puesto pu ON ap.id_puesto = pu.id
         LEFT JOIN __SPARTA_SECRET_REDACTED__.departamento d ON pu.departamento_id = d.id
         WHERE p.estatus = 'Baja'
-        ORDER BY bp.fecha_baja DESC
         SQL;
+
+        // Agregar filtro de fecha si se proporciona
+        if ($fecha_inicio && $fecha_fin) {
+            $query .= " AND DATE(bp.fecha_baja) BETWEEN :fecha_inicio AND :fecha_fin";
+        } elseif ($fecha_inicio) {
+            $query .= " AND DATE(bp.fecha_baja) >= :fecha_inicio";
+        } elseif ($fecha_fin) {
+            $query .= " AND DATE(bp.fecha_baja) <= :fecha_fin";
+        }
+
+        $query .= " ORDER BY bp.fecha_baja DESC";
 
         try {
             $db = new Database();
-            $r = $db->queryAll($query);
+            
+            // Si hay filtros de fecha, usar parámetros preparados
+            // NOTA: Las claves NO deben incluir el ':' porque Database::runQuery lo agrega automáticamente
+            if ($fecha_inicio || $fecha_fin) {
+                $params = [];
+                if ($fecha_inicio) $params['fecha_inicio'] = $fecha_inicio;
+                if ($fecha_fin) $params['fecha_fin'] = $fecha_fin;
+                $r = $db->queryAll($query, $params);
+            } else {
+                $r = $db->queryAll($query);
+            }
+            
             return self::resultado(true, 'Bajas encontradas.', $r);
         } catch (\Exception $e) {
             return self::resultado(false, 'Error al procesar la solicitud.', null, $e->getMessage());

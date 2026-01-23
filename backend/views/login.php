@@ -18,7 +18,7 @@
     <title>Login | Sparta  </title>
 
     <!-- Favicon -->
-    <link rel="icon" type="image/x-icon" href="/assets/img/logo_ico.svg" />
+    <link rel="icon" type="image/x-icon" href="/assets/img/logo_ico2.svg" />
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
