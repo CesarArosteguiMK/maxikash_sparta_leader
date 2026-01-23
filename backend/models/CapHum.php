@@ -1100,11 +1100,11 @@ class CapHum extends Model
     public static function getConsultaBajas()
     {
         $query = <<<SQL
-        SELECT 
+        SELECT
+            p.id AS numero_empleado,
             p.nombres,
             p.apellidop,
             p.apellidom,
-            p.numero_empleado,
             p.numero_empleado AS external_id,
             d.nombre AS departamento,
             pu.nombre AS nombre_puesto,

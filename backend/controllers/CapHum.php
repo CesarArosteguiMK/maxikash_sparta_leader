@@ -81,44 +81,59 @@ class CapHum extends Controller
                             
                             return {
                                 nombres: `
-                                    <div class="fw-semibold">
-                                        # ${p.external_id ?? ''}
+                                    <div class="fw-semibold d-flex align-items-center gap-2">
+                                        <i class="fa fa-hashtag text-primary"></i>
+                                        <span>${p.external_id ?? ''}</span>
                                     </div>
-                                    <div class="fw-semibold">
-                                        ${nombreCompleto}
+                                    <div class="fw-semibold d-flex align-items-center gap-2 mt-2">
+                                        <i class="fa fa-user text-info"></i>
+                                        <span>${nombreCompleto}</span>
                                     </div>
-                                    <div class="text-muted small">
-                                        # ${p.numero_empleado ?? ''}
+                                    <div class="text-muted small d-flex align-items-center gap-2 mt-1">
+                                        <i class="fa fa-id-card text-secondary"></i>
+                                        <span># ${p.numero_empleado ?? ''}</span>
                                     </div>
                                 `.trim(),
                                 puesto: `
-                                    <div class="text-muted small">
-                                        ${p.departamento ?? 'N/A'}
+                                    <div class="text-muted small d-flex align-items-center gap-2">
+                                        <i class="fa fa-building text-primary"></i>
+                                        <span>${p.departamento ?? 'N/A'}</span>
                                     </div>
-                                    <div class="text-muted small">
-                                        ${p.nombre_puesto ?? 'N/A'}
+                                    <div class="text-muted small d-flex align-items-center gap-2 mt-1">
+                                        <i class="fa fa-briefcase text-info"></i>
+                                        <span>${p.nombre_puesto ?? 'N/A'}</span>
                                     </div>
                                 `.trim(),
                                 estatus: `
-                                    <div class="fw-semibold text-danger">
-                                        Baja
+                                    <div class="fw-semibold text-danger d-flex align-items-center gap-2">
+                                        <i class="fa fa-ban"></i>
+                                        <span>Baja</span>
                                     </div>
-                                    <div class="text-muted small">
-                                        ${p.fecha_baja ? new Date(p.fecha_baja).toLocaleDateString('es-MX') : 'N/A'}
+                                    <div class="text-muted small d-flex align-items-center gap-2 mt-1">
+                                        <i class="fa fa-calendar text-secondary"></i>
+                                        <span>${p.fecha_baja ? new Date(p.fecha_baja).toLocaleDateString('es-MX') : 'N/A'}</span>
                                     </div>
-                                    <div class="text-muted small">
-                                        Registro: ${p.registro_baja ?? 'N/A'}
+                                    <div class="text-muted small d-flex align-items-center gap-2 mt-1">
+                                        <i class="fa fa-file-alt text-secondary"></i>
+                                        <span>Registro: ${p.registro_baja ?? 'N/A'}</span>
                                     </div>
                                 `.trim(),
                                 motivos: `
-                                    <div class="fw-semibold">
-                                        ${p.motivo ?? 'N/A'}
+                                    <div class="fw-semibold d-flex align-items-center gap-2">
+                                        <i class="fa fa-exclamation-triangle text-warning"></i>
+                                        <span>${p.motivo ?? 'N/A'}</span>
                                     </div>
-                                    <div class="text-muted small">
-                                        ${p.descripcion ?? 'Sin descripción'}
+                                    <div class="text-muted small d-flex align-items-center gap-2 mt-1">
+                                        <i class="fa fa-clipboard text-secondary"></i>
+                                        <span>${p.descripcion ?? 'Sin descripción'}</span>
                                     </div>
                                 `.trim(),
-                                usuario: p.user_name ?? 'N/A',
+                                usuario: `
+                                    <div class="d-flex align-items-center gap-2">
+                                        <i class="fa fa-key text-primary"></i>
+                                        <span>${p.user_name ?? 'N/A'}</span>
+                                    </div>
+                                `.trim(),
                                 acciones: `
                                     <button class="btn btn-sm btn-primary" onclick="editarBaja(${p.registro_baja ?? ''})" title="Editar">
                                         <i class="fa fa-edit"></i>
@@ -1335,44 +1350,59 @@ class CapHum extends Controller
                             
                             return {
                                 nombres: `
-                                    <div class="fw-semibold">
-                                        # ${p.external_id ?? ''}
+                                    <div class="fw-semibold d-flex align-items-center gap-2">
+                                        <i class="fa fa-hashtag text-primary"></i>
+                                        <span>${p.external_id ?? ''}</span>
                                     </div>
-                                    <div class="fw-semibold">
-                                        ${nombreCompleto}
+                                    <div class="fw-semibold d-flex align-items-center gap-2 mt-2">
+                                        <i class="fa fa-user text-info"></i>
+                                        <span>${nombreCompleto}</span>
                                     </div>
-                                    <div class="text-muted small">
-                                        # ${p.numero_empleado ?? ''}
+                                    <div class="text-muted small d-flex align-items-center gap-2 mt-1">
+                                        <i class="fa fa-id-card text-secondary"></i>
+                                        <span># ${p.numero_empleado ?? ''}</span>
                                     </div>
                                 `.trim(),
                                 puesto: `
-                                    <div class="text-muted small">
-                                        ${p.departamento ?? 'N/A'}
+                                    <div class="text-muted small d-flex align-items-center gap-2">
+                                        <i class="fa fa-building text-primary"></i>
+                                        <span>${p.departamento ?? 'N/A'}</span>
                                     </div>
-                                    <div class="text-muted small">
-                                        ${p.nombre_puesto ?? 'N/A'}
+                                    <div class="text-muted small d-flex align-items-center gap-2 mt-1">
+                                        <i class="fa fa-briefcase text-info"></i>
+                                        <span>${p.nombre_puesto ?? 'N/A'}</span>
                                     </div>
                                 `.trim(),
                                 estatus: `
-                                    <div class="fw-semibold text-danger">
-                                        Baja
+                                    <div class="fw-semibold text-danger d-flex align-items-center gap-2">
+                                        <i class="fa fa-ban"></i>
+                                        <span>Baja</span>
                                     </div>
-                                    <div class="text-muted small">
-                                        ${p.fecha_baja ? new Date(p.fecha_baja).toLocaleDateString('es-MX') : 'N/A'}
+                                    <div class="text-muted small d-flex align-items-center gap-2 mt-1">
+                                        <i class="fa fa-calendar text-secondary"></i>
+                                        <span>${p.fecha_baja ? new Date(p.fecha_baja).toLocaleDateString('es-MX') : 'N/A'}</span>
                                     </div>
-                                    <div class="text-muted small">
-                                        Registro: ${p.registro_baja ?? 'N/A'}
+                                    <div class="text-muted small d-flex align-items-center gap-2 mt-1">
+                                        <i class="fa fa-file-alt text-secondary"></i>
+                                        <span>Registro: ${p.registro_baja ?? 'N/A'}</span>
                                     </div>
                                 `.trim(),
                                 motivos: `
-                                    <div class="fw-semibold">
-                                        ${p.motivo ?? 'N/A'}
+                                    <div class="fw-semibold d-flex align-items-center gap-2">
+                                        <i class="fa fa-exclamation-triangle text-warning"></i>
+                                        <span>${p.motivo ?? 'N/A'}</span>
                                     </div>
-                                    <div class="text-muted small">
-                                        ${p.descripcion ?? 'Sin descripción'}
+                                    <div class="text-muted small d-flex align-items-center gap-2 mt-1">
+                                        <i class="fa fa-clipboard text-secondary"></i>
+                                        <span>${p.descripcion ?? 'Sin descripción'}</span>
                                     </div>
                                 `.trim(),
-                                usuario: p.user_name ?? 'N/A',
+                                usuario: `
+                                    <div class="d-flex align-items-center gap-2">
+                                        <i class="fa fa-key text-primary"></i>
+                                        <span>${p.user_name ?? 'N/A'}</span>
+                                    </div>
+                                `.trim(),
                                 acciones: `
                                     <button class="btn btn-sm btn-primary" onclick="editarBaja(${p.registro_baja ?? ''})" title="Editar">
                                         <i class="fa fa-edit"></i>
