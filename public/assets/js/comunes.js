@@ -331,9 +331,14 @@ const inputFechasRestart = {}
  * SweetAlert2 -> https://sweetalert2.github.io/
  */
 const tipoMensaje = (mensaje, icono, config = null) => {
+    // Si el mensaje es null o undefined, usar un valor por defecto
+    if (mensaje === null || mensaje === undefined) {
+        mensaje = "";
+    }
+    
     // Si el mensaje es un objeto JSON con error, extraer el mensaje
     let textoMensaje = mensaje;
-    if (typeof mensaje === "object") {
+    if (typeof mensaje === "object" && mensaje !== null) {
         // Si tiene propiedad 'error', usar ese mensaje
         if (mensaje.error) {
             textoMensaje = mensaje.error;
@@ -342,23 +347,25 @@ const tipoMensaje = (mensaje, icono, config = null) => {
         else if (mensaje.mensaje) {
             textoMensaje = mensaje.mensaje;
         }
-        // Si es un objeto JSON stringificado, intentar parsearlo
-        else if (typeof mensaje === "string" && mensaje.startsWith("{")) {
-            try {
-                const parsed = JSON.parse(mensaje);
-                textoMensaje = parsed.error || parsed.mensaje || mensaje;
-            } catch (e) {
-                textoMensaje = mensaje;
-            }
-        }
         // Si no tiene propiedades conocidas, convertir a string
         else {
             textoMensaje = JSON.stringify(mensaje);
         }
     }
+    // Si es un objeto JSON stringificado, intentar parsearlo
+    else if (typeof mensaje === "string" && mensaje.startsWith("{")) {
+        try {
+            const parsed = JSON.parse(mensaje);
+            textoMensaje = parsed.error || parsed.mensaje || mensaje;
+        } catch (e) {
+            textoMensaje = mensaje;
+        }
+    }
     
     let configMensaje = { text: textoMensaje };
-    configMensaje.icon = icono;
+    if (icono !== null && icono !== undefined) {
+        configMensaje.icon = icono;
+    }
     if (config) Object.assign(configMensaje, config);
     return Swal.fire(configMensaje);
 }

@@ -96,7 +96,8 @@ class EstadoCuenta extends Controller
             });
         
             // Validación antes de enviar
-            document.getElementById("formBusqueda").addEventListener("submit", e => {
+            document.getElementById("formBusqueda").addEventListener("submit", async e => {
+                e.preventDefault();
                 
                 const modo = document.querySelector('input[name="modoBusqueda"]:checked')?.value;
                 const idCredito       = document.getElementById("idCredito").value.trim();
@@ -109,7 +110,6 @@ class EstadoCuenta extends Controller
                 if (modo === "id") {
             
                     if (idCredito === "") {
-                        e.preventDefault();
                         return Swal.fire({
                             icon: "warning",
                             title: "Falta el ID de crédito",
@@ -128,7 +128,6 @@ class EstadoCuenta extends Controller
                 if (modo === "nombre") {
             
                     if (nombre === "") {
-                        e.preventDefault();
                         return Swal.fire({
                             icon: "warning",
                             title: "Falta el nombre",
@@ -137,7 +136,6 @@ class EstadoCuenta extends Controller
                     }
             
                     if (idCreditoLista === "") {
-                        e.preventDefault();
                         return Swal.fire({
                             icon: "warning",
                             title: "Cliente no seleccionado",
@@ -153,12 +151,106 @@ class EstadoCuenta extends Controller
                 // LOADING
                 // =========================
                 Swal.fire({
-                    title: "Procesando solicitud...",
+                    title: "Validando ID de crédito...",
                     text: "Espere un momento por favor.",
                     allowOutsideClick: false,
                     allowEscapeKey: false,
                     didOpen: () => Swal.showLoading()
                 });
+
+                // =========================
+                // VALIDAR ID ANTES DE ENVIAR
+                // =========================
+                try {
+                    const formData = new FormData();
+                    if (modo === "id") {
+                        formData.append("idCredito", idCredito);
+                    } else {
+                        formData.append("nombre", nombre);
+                        formData.append("idCreditoLista", idCreditoLista);
+                    }
+                    formData.append("modoBusqueda", modo);
+
+                    const response = await fetch("/EstadoCuenta/validarCredito", {
+                        method: "POST",
+                        body: formData
+                    });
+
+                    const result = await response.json();
+
+                    if (!result.success) {
+                        Swal.close();
+                        return Swal.fire({
+                            icon: "error",
+                            title: "ID de crédito incorrecto",
+                            html: "<div style='text-align: center; padding: 10px;'><p style='font-size: 16px; margin-bottom: 15px; color: #333;'><strong>El ID de crédito ingresado no existe o no es válido.</strong></p><p style='font-size: 14px; color: #666;'>Por favor verifícalo y vuelve a intentar.</p></div>",
+                            confirmButtonText: "Entendido",
+                            confirmButtonColor: "#dc3545",
+                            width: "500px",
+                            buttonsStyling: true,
+                            customClass: {
+                                popup: 'animated bounceIn',
+                                title: 'text-danger',
+                                confirmButton: 'btn-elegant-error'
+                            },
+                            showClass: {
+                                popup: 'animate__animated animate__fadeInDown'
+                            },
+                            hideClass: {
+                                popup: 'animate__animated animate__fadeOutUp'
+                            }
+                        }).then(() => {
+                            // Agregar estilos personalizados al botón después de que se renderice
+                            setTimeout(() => {
+                                const confirmBtn = document.querySelector('.swal2-confirm');
+                                if (confirmBtn) {
+                                    confirmBtn.style.cssText = `
+                                        background: linear-gradient(135deg, #dc3545 0%, #c82333 100%) !important;
+                                        border: none !important;
+                                        border-radius: 8px !important;
+                                        padding: 12px 30px !important;
+                                        font-size: 15px !important;
+                                        font-weight: 600 !important;
+                                        letter-spacing: 0.5px !important;
+                                        box-shadow: 0 4px 15px rgba(220, 53, 69, 0.3) !important;
+                                        transition: all 0.3s ease !important;
+                                        text-transform: uppercase !important;
+                                    `;
+                                    confirmBtn.addEventListener('mouseenter', function() {
+                                        this.style.transform = 'translateY(-2px)';
+                                        this.style.boxShadow = '0 6px 20px rgba(220, 53, 69, 0.4)';
+                                    });
+                                    confirmBtn.addEventListener('mouseleave', function() {
+                                        this.style.transform = 'translateY(0)';
+                                        this.style.boxShadow = '0 4px 15px rgba(220, 53, 69, 0.3)';
+                                    });
+                                }
+                            }, 100);
+                        });
+                    }
+
+                    // Si la validación es exitosa, mostrar loading y enviar el formulario
+                    Swal.fire({
+                        title: "Procesando solicitud...",
+                        text: "Espere un momento por favor.",
+                        allowOutsideClick: false,
+                        allowEscapeKey: false,
+                        didOpen: () => Swal.showLoading()
+                    });
+
+                    // Enviar el formulario usando submit() nativo (no dispara el evento submit)
+                    const form = e.target;
+                    form.submit();
+
+                } catch (error) {
+                    Swal.close();
+                    console.error("Error al validar:", error);
+                    Swal.fire({
+                        icon: "error",
+                        title: "Error de conexión",
+                        text: "No se pudo validar el ID de crédito. Por favor intenta nuevamente."
+                    });
+                }
             });
         
         });
@@ -396,6 +488,57 @@ JS;
     {
         self::respuestaJSON(EmpresasDAO::getConsultaDepartamentos($_POST));
     }
+
+    public function validarCredito()
+    {
+        $idCredito = $_POST['idCredito'] ?? null;
+        $idCreditoLista = $_POST['idCreditoLista'] ?? null;
+        $fechaHoy = date('Y-m-d');
+
+        // Usar idCreditoLista si viene (modo nombre), sino usar idCredito (modo ID)
+        $idAValidar = $idCreditoLista ?? $idCredito;
+
+        if (!$idAValidar) {
+            self::respuestaJSON([
+                'success' => false,
+                'mensaje' => 'ID de crédito no proporcionado'
+            ]);
+            return;
+        }
+
+        // Validar con la API
+        $resultado = $this->api___SPARTA_SECRET_REDACTED__($idAValidar, $fechaHoy);
+
+        // Verificar si hubo error en la API
+        if (!$resultado['ok']) {
+            self::respuestaJSON([
+                'success' => false,
+                'mensaje' => $resultado['error'] ?? 'ID de crédito incorrecto'
+            ]);
+            return;
+        }
+
+        // Verificar si el ID de crédito existe en los datos
+        if (
+            !isset($resultado['data']['idCredito']) ||
+            $resultado['data']['idCredito'] === null ||
+            $resultado['data']['idCredito'] === '' ||
+            empty($resultado['data']['idCredito'])
+        ) {
+            self::respuestaJSON([
+                'success' => false,
+                'mensaje' => 'ID de crédito incorrecto'
+            ]);
+            return;
+        }
+
+        // Si todo está bien
+        self::respuestaJSON([
+            'success' => true,
+            'mensaje' => 'ID de crédito válido'
+        ]);
+    }
+
     public static function getclientesEstadoCuentaNombre()
     {
         // Leer JSON del POST
