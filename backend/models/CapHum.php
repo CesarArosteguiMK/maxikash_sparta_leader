@@ -161,6 +161,7 @@ class CapHum extends Model
         SQL;
         }
 
+
         try {
             $db = new Database();
             $r = $db->queryAll($query);
