@@ -83,14 +83,6 @@ use Core\SessionGuard;
 SessionGuard::validar();
 
 
-// Verifica si la sesión de usuario está activa y si el navegador es compatible
-if (!isset($_SESSION['login'])) {
-    require_once LIBRERIAS . '/BrowserDetection/BrowserDetection.php';
-    if (!validaNavegador()) {
-        echo getErrorNavegador();
-        exit;
-    }
-}
 
 /*
 |--------------------------------------------------------------------------
@@ -175,43 +167,4 @@ function recursoNoDisponible()
     if (isset($_SESSION['login'])) header('Location: /' . VISTA_DEFECTO);
     else header('Location: /' . LOGIN);
     exit;
-}
-
-function validaNavegador()
-{
-    $navegadores = [
-        'Chrome' => 120,
-        'Edge' => 120,
-        'Firefox' => 130,
-    ];
-
-    $b = new \foroco\BrowserDetection();
-    $navegador = $b->getBrowser($_SERVER['HTTP_USER_AGENT']);
-
-    if (
-        !isset($navegadores[$navegador['browser_name']]) ||
-        $navegador['browser_version'] < $navegadores[$navegador['browser_name']]
-    ) {
-        return false;
-    }
-    return true;
-}
-
-function getErrorNavegador()
-{
-    $empresa = CONFIGURACION['EMPRESA'];
-
-    return <<<HTML
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <title>Navegador no compatible</title>
-</head>
-<body>
-    <h1>Navegador no compatible</h1>
-    <p>El navegador que estás utilizando no es compatible con el sistema de $empresa</p>
-</body>
-</html>
-HTML;
 }
