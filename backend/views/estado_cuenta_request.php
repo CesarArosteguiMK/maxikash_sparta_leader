@@ -172,7 +172,157 @@ if ($cuotasContratadas > 0) {
         font-size: 0.75rem;
     }
 
-    /* 4. INFORMACIÓN DEL CRÉDITO (lista escalable) */
+    /* ==========================
+   CORRECCIÓN MÓVIL - INFO COMPACT (ALINEACIÓN PERFECTA)
+   ========================== */
+
+   /* Para todas las resoluciones, mejor alineación */
+   .sidebar-cliente .info-compact li {
+       display: grid;
+       grid-template-columns: auto 1fr;
+       align-items: center;
+       gap: 0.5rem;
+       margin-bottom: 0.5rem;
+   }
+
+   .sidebar-cliente .info-compact i.fa-lg {
+       grid-column: 1;
+       text-align: center;
+       font-size: 0.9rem;
+       color: #6c757d;
+   }
+
+   .sidebar-cliente .info-compact .info-label {
+       grid-column: 2;
+       display: flex;
+       justify-content: space-between;
+       align-items: center;
+       width: 100%;
+   }
+
+   .sidebar-cliente .info-compact .info-label span:first-child {
+       font-weight: 500;
+       color: #495057;
+       white-space: nowrap;
+   }
+
+   .sidebar-cliente .info-compact .info-label span:last-child {
+       font-weight: 600;
+       color: #212529;
+       text-align: right;
+       padding-left: 1rem;
+       white-space: nowrap;
+   }
+
+   /* Responsive adjustments */
+   @media (max-width: 768px) {
+    .sidebar-cliente .info-compact li {
+        grid-template-columns: 1.2rem 1fr;
+        gap: 0.4rem;
+        margin-bottom: 0.6rem;
+    }
+    
+    .sidebar-cliente .info-compact i.fa-lg {
+        font-size: 0.85rem;
+    }
+    
+    .sidebar-cliente .info-compact .info-label span:first-child {
+        font-size: 0.8rem;
+        text-align: left;
+    }
+    
+    .sidebar-cliente .info-compact .info-label span:last-child {
+        font-size: 0.85rem;
+        padding-left: 0.5rem;
+        text-align: right !important;
+    }
+}
+
+   @media (max-width: 768px) {
+       .sidebar-cliente .info-compact li {
+           grid-template-columns: 1.2rem 1fr;
+           gap: 0.4rem;
+           margin-bottom: 0.6rem;
+       }
+       
+       .sidebar-cliente .info-compact i.fa-lg {
+           font-size: 0.85rem;
+       }
+       
+       .sidebar-cliente .info-compact .info-label span:first-child {
+           font-size: 0.8rem;
+           text-align: left;
+       }
+       
+       .sidebar-cliente .info-compact .info-label span:last-child {
+           font-size: 0.85rem;
+           padding-left: 0.5rem;
+           text-align: right !important;
+       }
+   }
+
+   /* Para móviles muy pequeños */
+   @media (max-width: 400px) {
+       .sidebar-cliente .info-compact li {
+           grid-template-columns: 1rem 1fr;
+           gap: 0.3rem;
+       }
+       
+       .sidebar-cliente .info-compact i.fa-lg {
+           font-size: 0.8rem;
+       }
+       
+       .sidebar-cliente .info-compact .info-label {
+           flex-direction: column;
+           align-items: flex-start;
+           gap: 0.1rem;
+       }
+       
+       .sidebar-cliente .info-compact .info-label span:last-child {
+           text-align: left;
+           padding-left: 0;
+           width: 100%;
+       }
+   }
+
+   /* Si prefieres mantener el HTML existente, usa esta versión alternativa: */
+   @media (max-width: 768px) {
+       .sidebar-cliente .info-compact li.d-flex {
+           display: grid !important;
+           grid-template-columns: 1.2rem auto 1fr;
+           align-items: center;
+           gap: 0.5rem;
+           margin-bottom: 0.6rem;
+       }
+       
+       .sidebar-cliente .info-compact li.d-flex i.fa-lg {
+           grid-column: 1;
+           font-size: 0.85rem !important;
+           text-align: center;
+           margin: 0 !important;
+       }
+       
+       .sidebar-cliente .info-compact li.d-flex .fw-medium {
+           grid-column: 2;
+           white-space: nowrap;
+           font-size: 0.8rem;
+           margin: 0 !important;
+           text-align: left;
+           min-width: 140px;
+       }
+       
+       .sidebar-cliente .info-compact li.d-flex span:last-child:not(.fw-medium) {
+           grid-column: 3;
+           text-align: right !important;
+           white-space: nowrap;
+           font-weight: 600;
+           font-size: 0.85rem;
+           margin: 0 !important;
+           padding-left: 0.5rem;
+       }
+   }
+
+    /* 4. INFORMACIÓN DEL CRÉDITO (lista escalable) - REEMPLAZADO CON LO DE ARRIBA */
     .sidebar-cliente .info-compact {
         margin: 0.5rem 0;
     }
@@ -300,17 +450,23 @@ if ($cuotasContratadas > 0) {
             flex: 1 1 100%;
         }
         
+        /* Mantener alineación horizontal incluso en zoom alto */
         .sidebar-cliente .info-compact li {
-            flex-direction: column;
-            align-items: flex-start;
-            gap: 0.2rem;
+            flex-direction: row !important;
+            align-items: center !important;
         }
         
         .sidebar-cliente .info-compact span:last-child {
-            text-align: left;
-            width: 100%;
+            text-align: right !important;
+            width: auto !important;
         }
     }
+
+
+    /* ==========================
+   CORRECCIÓN MÓVIL - INFO COMPACT
+   ========================== */
+   
 
     /* Mobile específico para sidebar */
     @media (max-width: 768px) {
@@ -943,12 +1099,192 @@ if ($cuotasContratadas > 0) {
     }
 }
 
+/* ==========================
+   VERSIÓN DUAL DESKTOP/MÓVIL
+   ========================== */
+
+/* Desktop: mostrar siempre, ocultar en móvil */
+.desktop-info {
+    display: block;
+}
+
+/* Móvil: ocultar por defecto, mostrar solo cuando d-lg-none */
+.mobile-info {
+    display: none;
+}
+
+/* Breakpoint para móvil (≤ 991px) */
+@media (max-width: 991px) {
+    .desktop-info {
+        display: none !important;
+    }
+    
+    .mobile-info {
+        display: block !important;
+    }
+}
+/* ==========================
+   ACORDEÓN PERSONALIZADO MÓVIL (VERSIÓN CORREGIDA)
+   ========================== */
+
+/* Ocultar la flecha por defecto de Bootstrap */
+.accordion-button::after {
+    display: none !important;
+}
+
+/* Acordeón sin bordes ni fondo */
+.accordion-flush.custom-accordion {
+    border: none;
+    background: transparent;
+    margin-top: 0.5rem;
+}
+
+/* Header del acordeón */
+.accordion-button {
+    background-color: #f8f9fa !important;
+    border: 1px solid #dee2e6 !important;
+    border-radius: 8px !important;
+    padding: 0.75rem 1rem !important;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.accordion-button:not(.collapsed) {
+    background-color: #e7f1ff !important;
+    border-color: #b6d4fe !important;
+    color: #0d6efd;
+    box-shadow: 0 4px 8px rgba(13,110,253,0.1);
+}
+
+.accordion-button:focus {
+    box-shadow: 0 0 0 3px rgba(13,110,253,0.25) !important;
+    border-color: #86b7fe !important;
+}
+
+/* NUESTRA FLECHA PERSONALIZADA */
+.accordion-arrow {
+    transition: transform 0.3s ease;
+    font-size: 0.85rem;
+    color: #6c757d;
+    margin-left: auto;
+}
+
+.accordion-button:not(.collapsed) .accordion-arrow {
+    transform: rotate(180deg);
+    color: #0d6efd;
+}
+
+/* Cuerpo del acordeón */
+.accordion-collapse {
+    border: none !important;
+}
+
+.accordion-body {
+    background-color: transparent;
+    padding: 0 !important;
+}
+
+/* Estados hover - solo desktop */
+@media (min-width: 992px) {
+    .accordion-button:hover {
+        background-color: #e9ecef !important;
+        transform: translateY(-1px);
+    }
+    
+    .accordion-button:not(.collapsed):hover {
+        background-color: #d0e2ff !important;
+    }
+}
+
+/* Asegurar que solo haya una flecha */
+.accordion-button i.fa-chevron-down {
+    display: block;
+}
+
+/* Responsive para el acordeón en móvil */
+@media (max-width: 768px) {
+    .accordion-button {
+        padding: 0.6rem 0.8rem !important;
+        font-size: 0.9rem;
+    }
+    
+    .accordion-button i.fa-info-circle {
+        font-size: 0.9rem;
+    }
+    
+    .accordion-arrow {
+        font-size: 0.8rem;
+    }
+}
+
+@media (max-width: 576px) {
+    .accordion-button {
+        padding: 0.5rem 0.7rem !important;
+        font-size: 0.85rem;
+    }
+    
+    .accordion-button span.fw-semibold {
+        font-size: 0.85rem;
+    }
+    
+    .accordion-arrow {
+        font-size: 0.75rem;
+    }
+}
+
+/* ==========================
+   ANIMACIÓN SUAVE PARA EL ACORDEÓN
+   ========================== */
+.accordion-collapse {
+    transition: all 0.35s ease !important;
+}
+
+.accordion-body {
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* ==========================
+   VERSIÓN DUAL DESKTOP/MÓVIL
+   ========================== */
+
+/* Desktop: mostrar siempre, ocultar en móvil */
+.desktop-info {
+    display: block;
+}
+
+/* Móvil: ocultar por defecto, mostrar solo cuando d-lg-none */
+.mobile-info {
+    display: none;
+}
+
+/* Breakpoint para móvil (≤ 991px) */
+@media (max-width: 991px) {
+    .desktop-info {
+        display: none !important;
+    }
+    
+    .mobile-info {
+        display: block !important;
+    }
+}
 
 </style>
 
 <div class="row">
 
-   <!-- SIDEBAR CLIENTE -->
+  <!-- SIDEBAR CLIENTE -->
 <div class="col-xl-4 col-lg-5 order-1 order-lg-0 sidebar-cliente">
     <div class="card mb-6">
         <div class="card-body">
@@ -1008,150 +1344,293 @@ if ($cuotasContratadas > 0) {
                 </div>
             </div>
             
-            <!-- ACORDEÓN PARA MÉTRICAS E INFORMACIÓN DEL CRÉDITO -->
-            <div class="accordion accordion-flush custom-accordion" id="accordionInfoCredito">
-    <div class="accordion-item">
-        <!-- HEADER DEL ACORDEÓN -->
-        <h2 class="accordion-header" id="headingInfoCredito">
-            <button class="accordion-button collapsed p-3" 
-                    type="button" 
-                    data-bs-toggle="collapse" 
-                    data-bs-target="#collapseInfoCredito" 
-                    aria-expanded="false" 
-                    aria-controls="collapseInfoCredito">
-                <div class="d-flex align-items-center w-100">
-                    <i class="fa fa-info-circle me-2 text-primary"></i>
-                    <span class="fw-semibold flex-grow-1">Información Detallada</span>
-                    <i class="fa fa-chevron-down accordion-arrow ms-2"></i>
-                </div>
-            </button>
-        </h2>
-                    
-                    <!-- CONTENIDO DEL ACORDEÓN (MÉTRICAS + INFO CRÉDITO) -->
-                    <div id="collapseInfoCredito" 
-             class="accordion-collapse collapse" 
-             aria-labelledby="headingInfoCredito" 
-             data-bs-parent="#accordionInfoCredito">
-            <div class="accordion-body p-0 pt-3">
-                            
-                            <!-- MÉTRICAS -->
-                            <div class="d-flex justify-content-between flex-nowrap my-3 gap-1 gap-md-1">
-                                <div class="d-flex align-items-center gap-3">
-                                    <div class="avatar">
-                                        <div class="avatar-initial bg-label-info rounded w-px-40 h-px-40">
-                                            <i class="fa fa-dollar"></i>
-                                        </div>
-                                    </div>
-                                    <div class="text-truncate">
-                                        <h5 class="mb-0 text-truncate">
-                                            <?= htmlspecialchars($dataEstadoCuenta["statusCredito"] ?? '') ?>
-                                        </h5>
-                                        <span class="small">Estatus Crédito</span>
-                                    </div>
-                                </div>
-                                
-                                <div class="d-flex align-items-center gap-3">
-                                    <div class="avatar">
-                                        <div class="avatar-initial bg-label-danger rounded w-px-40 h-px-40">
-                                            <i class="fa fa-dollar"></i>
-                                        </div>
-                                    </div>
-                                    <div class="text-end text-truncate">
-                                        <h5 class="mb-0 text-truncate">
-                                            <?= format_currency($dataOtrosDatos["saldoTotalVencido"] ?? 0) ?>
-                                        </h5>
-                                        <span class="small">Saldo Total Vencido</span>
-                                    </div>
-                                </div>
+            <!-- ================================
+               VERSIÓN DESKTOP (SIN ACORDEÓN)
+            ================================ -->
+            <div class="d-none d-lg-block desktop-info">
+                <!-- MÉTRICAS -->
+                <div class="d-flex justify-content-between flex-nowrap my-3 gap-1 gap-md-1">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="avatar">
+                            <div class="avatar-initial bg-label-info rounded w-px-40 h-px-40">
+                                <i class="fa fa-dollar"></i>
                             </div>
-                            
-                            <!-- INFORMACIÓN DEL CRÉDITO -->
-                            <hr class="my-2 w-100">
-                            <small class="card-text text-uppercase text-body-secondary small">Información del Crédito</small>
-                            <ul class="list-unstyled my-1 py-1 info-compact">
-                                <li class="d-flex align-items-center mb-2">
-                                    <i class="fa fa-money-bill fa-lg"></i>
-                                    <span class="fw-medium mx-2">Monto Otorgado:</span>
-                                    <span>$37,759.20</span>
-                                </li>
+                        </div>
+                        <div class="text-truncate">
+                            <h5 class="mb-0 text-truncate">
+                                <?= htmlspecialchars($dataEstadoCuenta["statusCredito"] ?? '') ?>
+                            </h5>
+                            <span class="small">Estatus Crédito</span>
+                        </div>
+                    </div>
+                    
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="avatar">
+                            <div class="avatar-initial bg-label-danger rounded w-px-40 h-px-40">
+                                <i class="fa fa-dollar"></i>
+                            </div>
+                        </div>
+                        <div class="text-end text-truncate">
+                            <h5 class="mb-0 text-truncate">
+                                <?= format_currency($dataOtrosDatos["saldoTotalVencido"] ?? 0) ?>
+                            </h5>
+                            <span class="small">Saldo Total Vencido</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- INFORMACIÓN DEL CRÉDITO -->
+              <hr class="my-2 w-100">
+<small class="card-text text-uppercase text-body-secondary small">Información del Crédito</small>
+<ul class="list-unstyled my-1 py-1 info-compact">
+    <li>
+        <i class="fa fa-money-bill fa-lg"></i>
+        <div class="info-label">
+            <span class="fw-medium">Monto Otorgado:</span>
+            <span>$37,759.20</span>
+        </div>
+    </li>
+    
+    <li>
+        <i class="fa fa-list-ol fa-lg"></i>
+        <div class="info-label">
+            <span class="fw-medium">Cuotas Contratadas:</span>
+            <span><?= htmlspecialchars($dataOtrosDatos["cuotasContratadas"] ?? '') ?> cuotas</span>
+        </div>
+    </li>
+    
+    <li>
+        <i class="fa fa-check-circle fa-lg"></i>
+        <div class="info-label">
+            <span class="fw-medium">Cuotas Pagadas:</span>
+            <span><?= htmlspecialchars($dataOtrosDatos["cuotasPagadas"] ?? '') ?> cuotas</span>
+        </div>
+    </li>
+    
+    <li>
+        <i class="fa fa-hourglass fa-lg"></i>
+        <div class="info-label">
+            <span class="fw-medium">Cuotas Faltantes:</span>
+            <span><?= $cuotasFaltantes ?> cuotas</span>
+        </div>
+    </li>
+    
+    <li>
+        <i class="fa fa-credit-card fa-lg"></i>
+        <div class="info-label">
+            <span class="fw-medium">Saldo para Liquidar:</span>
+            <span><?= format_currency($dataOtrosDatos["saldoParaLiquidarV2"] ?? 0) ?></span>
+        </div>
+    </li>
+    
+    <li>
+        <i class="fa fa-exclamation-triangle fa-lg"></i>
+        <div class="info-label">
+            <span class="fw-medium">Mora Máximo:</span>
+            <span><?= htmlspecialchars($dataOtrosDatos["diasMoraMaximo"] ?? 0) ?> días</span>
+        </div>
+    </li>
+    
+    <li>
+        <i class="fa fa-clock fa-lg"></i>
+        <div class="info-label">
+            <span class="fw-medium">Mora:</span>
+            <span><?= htmlspecialchars($dataOtrosDatos["diasMora"] ?? 0) ?> días</span>
+        </div>
+    </li>
+    
+    <li>
+        <i class="fa fa-calendar-alt fa-lg"></i>
+        <div class="info-label">
+            <span class="fw-medium">Fecha Inicio:</span>
+            <span><?= format_date($dataEstadoCuenta["fechaInicio"] ?? null) ?></span>
+        </div>
+    </li>
+    
+    <hr class="my-2 w-100">
+    
+    <li>
+        <i class="fa fa-calendar-day fa-lg"></i>
+        <div class="info-label">
+            <span class="fw-medium">Primer Vencimiento:</span>
+            <span><?= format_date($dataEstadoCuenta["primerVencimiento"] ?? null) ?></span>
+        </div>
+    </li>
+    
+    <li>
+        <i class="fa fa-calendar-check fa-lg"></i>
+        <div class="info-label">
+            <span class="fw-medium">Último Vencimiento:</span>
+            <span><?= format_date($dataEstadoCuenta["ultimoVencimiento"] ?? null) ?></span>
+        </div>
+    </li>
+    
+    <li>
+        <i class="fa fa-calendar-check fa-lg"></i>
+        <div class="info-label">
+            <span class="fw-medium">Fecha de Liquidación:</span>
+            <span><?= format_date($dataEstadoCuenta["fechaLiquidacion"] ?? null) ?></span>
+        </div>
+    </li>
+    
+    <br>
+    
+    <button type="button"
+            class="btn btn-outline-primary w-100 d-flex align-items-center justify-content-center gap-2 py-2"
+            data-bs-toggle="modal" data-bs-target="#modalRFC">
+        <i class="fa fa-id-card fa-lg"></i>
+        <strong>Ver referencias del cliente</strong>
+    </button>
+</ul>
+            </div>
+            
+            <!-- ================================
+               VERSIÓN MÓVIL (CON ACORDEÓN)
+            ================================ -->
+            <div class="d-lg-none mobile-info">
+                <div class="accordion accordion-flush custom-accordion" id="accordionInfoCredito">
+                    <div class="accordion-item">
+                        <!-- HEADER DEL ACORDEÓN -->
+                        <h2 class="accordion-header" id="headingInfoCredito">
+                            <button class="accordion-button collapsed p-3" 
+                                    type="button" 
+                                    data-bs-toggle="collapse" 
+                                    data-bs-target="#collapseInfoCredito" 
+                                    aria-expanded="false" 
+                                    aria-controls="collapseInfoCredito">
+                                <div class="d-flex align-items-center w-100">
+                                    <i class="fa fa-info-circle me-2 text-primary"></i>
+                                    <span class="fw-semibold flex-grow-1">Información Detallada</span>
+                                    <i class="fa fa-chevron-down accordion-arrow ms-2"></i>
+                                </div>
+                            </button>
+                        </h2>
+                        
+                        <!-- CONTENIDO DEL ACORDEÓN -->
+                        <div id="collapseInfoCredito" 
+                             class="accordion-collapse collapse" 
+                             aria-labelledby="headingInfoCredito" 
+                             data-bs-parent="#accordionInfoCredito">
+                            <div class="accordion-body p-0 pt-3">
                                 
-                                <li class="d-flex align-items-center mb-2">
-                                    <i class="fa fa-list-ol fa-lg"></i>
-                                    <span class="fw-medium mx-2">Cuotas Contratadas:</span>
-                                    <span><?= htmlspecialchars($dataOtrosDatos["cuotasContratadas"] ?? '') ?> cuotas</span>
-                                </li>
+                                <!-- MÉTRICAS -->
+                                <div class="d-flex justify-content-between flex-nowrap my-3 gap-1 gap-md-1">
+                                    <div class="d-flex align-items-center gap-3">
+                                        <div class="avatar">
+                                            <div class="avatar-initial bg-label-info rounded w-px-40 h-px-40">
+                                                <i class="fa fa-dollar"></i>
+                                            </div>
+                                        </div>
+                                        <div class="text-truncate">
+                                            <h5 class="mb-0 text-truncate">
+                                                <?= htmlspecialchars($dataEstadoCuenta["statusCredito"] ?? '') ?>
+                                            </h5>
+                                            <span class="small">Estatus Crédito</span>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="d-flex align-items-center gap-3">
+                                        <div class="avatar">
+                                            <div class="avatar-initial bg-label-danger rounded w-px-40 h-px-40">
+                                                <i class="fa fa-dollar"></i>
+                                            </div>
+                                        </div>
+                                        <div class="text-end text-truncate">
+                                            <h5 class="mb-0 text-truncate">
+                                                <?= format_currency($dataOtrosDatos["saldoTotalVencido"] ?? 0) ?>
+                                            </h5>
+                                            <span class="small">Saldo Total Vencido</span>
+                                        </div>
+                                    </div>
+                                </div>
                                 
-                                <li class="d-flex align-items-center mb-2">
-                                    <i class="fa fa-check-circle fa-lg"></i>
-                                    <span class="fw-medium mx-2">Cuotas Pagadas:</span>
-                                    <span><?= htmlspecialchars($dataOtrosDatos["cuotasPagadas"] ?? '') ?> cuotas</span>
-                                </li>
-                                
-                                <li class="d-flex align-items-center mb-2">
-                                    <i class="fa fa-hourglass fa-lg"></i>
-                                    <span class="fw-medium mx-2">Cuotas Faltantes:</span>
-                                    <span><?= $cuotasFaltantes ?> cuotas</span>
-                                </li>
-                                
-                                <li class="d-flex align-items-center mb-2">
-                                    <i class="fa fa-credit-card fa-lg"></i>
-                                    <span class="fw-medium mx-2">Saldo para Liquidar:</span>
-                                    <span><?= format_currency($dataOtrosDatos["saldoParaLiquidarV2"] ?? 0) ?></span>
-                                </li>
-                                
-                                <li class="d-flex align-items-center mb-2">
-                                    <i class="fa fa-exclamation-triangle fa-lg"></i>
-                                    <span class="fw-medium mx-2">Mora Máximo:</span>
-                                    <span><?= htmlspecialchars($dataOtrosDatos["diasMoraMaximo"] ?? 0) ?> días</span>
-                                </li>
-                                
-                                <li class="d-flex align-items-center mb-2">
-                                    <i class="fa fa-clock fa-lg"></i>
-                                    <span class="fw-medium mx-2">Mora:</span>
-                                    <span><?= htmlspecialchars($dataOtrosDatos["diasMora"] ?? 0) ?> días</span>
-                                </li>
-                                
-                                <li class="d-flex align-items-center mb-2">
-                                    <i class="fa fa-calendar-alt fa-lg"></i>
-                                    <span class="fw-medium mx-2">Fecha Inicio:</span>
-                                    <span><?= format_date($dataEstadoCuenta["fechaInicio"] ?? null) ?></span>
-                                </li>
-                                
+                                <!-- INFORMACIÓN DEL CRÉDITO -->
                                 <hr class="my-2 w-100">
+                                <small class="card-text text-uppercase text-body-secondary small">Información del Crédito</small>
+                                <ul class="list-unstyled my-1 py-1 info-compact">
+                                    <li class="d-flex align-items-center mb-2">
+                                        <i class="fa fa-money-bill fa-lg"></i>
+                                        <span class="fw-medium mx-2">Monto Otorgado:</span>
+                                        <span>$37,759.20</span>
+                                    </li>
+                                    
+                                    <li class="d-flex align-items-center mb-2">
+                                        <i class="fa fa-list-ol fa-lg"></i>
+                                        <span class="fw-medium mx-2">Cuotas Contratadas:</span>
+                                        <span><?= htmlspecialchars($dataOtrosDatos["cuotasContratadas"] ?? '') ?> cuotas</span>
+                                    </li>
+                                    
+                                    <li class="d-flex align-items-center mb-2">
+                                        <i class="fa fa-check-circle fa-lg"></i>
+                                        <span class="fw-medium mx-2">Cuotas Pagadas:</span>
+                                        <span><?= htmlspecialchars($dataOtrosDatos["cuotasPagadas"] ?? '') ?> cuotas</span>
+                                    </li>
+                                    
+                                    <li class="d-flex align-items-center mb-2">
+                                        <i class="fa fa-hourglass fa-lg"></i>
+                                        <span class="fw-medium mx-2">Cuotas Faltantes:</span>
+                                        <span><?= $cuotasFaltantes ?> cuotas</span>
+                                    </li>
+                                    
+                                    <li class="d-flex align-items-center mb-2">
+                                        <i class="fa fa-credit-card fa-lg"></i>
+                                        <span class="fw-medium mx-2">Saldo para Liquidar:</span>
+                                        <span><?= format_currency($dataOtrosDatos["saldoParaLiquidarV2"] ?? 0) ?></span>
+                                    </li>
+                                    
+                                    <li class="d-flex align-items-center mb-2">
+                                        <i class="fa fa-exclamation-triangle fa-lg"></i>
+                                        <span class="fw-medium mx-2">Mora Máximo:</span>
+                                        <span><?= htmlspecialchars($dataOtrosDatos["diasMoraMaximo"] ?? 0) ?> días</span>
+                                    </li>
+                                    
+                                    <li class="d-flex align-items-center mb-2">
+                                        <i class="fa fa-clock fa-lg"></i>
+                                        <span class="fw-medium mx-2">Mora:</span>
+                                        <span><?= htmlspecialchars($dataOtrosDatos["diasMora"] ?? 0) ?> días</span>
+                                    </li>
+                                    
+                                    <li class="d-flex align-items-center mb-2">
+                                        <i class="fa fa-calendar-alt fa-lg"></i>
+                                        <span class="fw-medium mx-2">Fecha Inicio:</span>
+                                        <span><?= format_date($dataEstadoCuenta["fechaInicio"] ?? null) ?></span>
+                                    </li>
+                                    
+                                    <hr class="my-2 w-100">
+                                    
+                                    <li class="d-flex align-items-center mb-2">
+                                        <i class="fa fa-calendar-day fa-lg"></i>
+                                        <span class="fw-medium mx-2">Primer Vencimiento:</span>
+                                        <span><?= format_date($dataEstadoCuenta["primerVencimiento"] ?? null) ?></span>
+                                    </li>
+                                    
+                                    <li class="d-flex align-items-center mb-2">
+                                        <i class="fa fa-calendar-check fa-lg"></i>
+                                        <span class="fw-medium mx-2">Último Vencimiento:</span>
+                                        <span><?= format_date($dataEstadoCuenta["ultimoVencimiento"] ?? null) ?></span>
+                                    </li>
+                                    
+                                    <li class="d-flex align-items-center mb-2">
+                                        <i class="fa fa-calendar-check fa-lg"></i>
+                                        <span class="fw-medium mx-2">Fecha de Liquidación:</span>
+                                        <span><?= format_date($dataEstadoCuenta["fechaLiquidacion"] ?? null) ?></span>
+                                    </li>
+                                    
+                                    <br>
+                                    
+                                    <button type="button"
+                                            class="btn btn-outline-primary w-100 d-flex align-items-center justify-content-center gap-2 py-2"
+                                            data-bs-toggle="modal" data-bs-target="#modalRFC">
+                                        <i class="fa fa-id-card fa-lg"></i>
+                                        <strong>Ver referencias del cliente</strong>
+                                    </button>
+                                </ul>
                                 
-                                <li class="d-flex align-items-center mb-2">
-                                    <i class="fa fa-calendar-day fa-lg"></i>
-                                    <span class="fw-medium mx-2">Primer Vencimiento:</span>
-                                    <span><?= format_date($dataEstadoCuenta["primerVencimiento"] ?? null) ?></span>
-                                </li>
-                                
-                                <li class="d-flex align-items-center mb-2">
-                                    <i class="fa fa-calendar-check fa-lg"></i>
-                                    <span class="fw-medium mx-2">Último Vencimiento:</span>
-                                    <span><?= format_date($dataEstadoCuenta["ultimoVencimiento"] ?? null) ?></span>
-                                </li>
-                                
-                                <li class="d-flex align-items-center mb-2">
-                                    <i class="fa fa-calendar-check fa-lg"></i>
-                                    <span class="fw-medium mx-2">Fecha de Liquidación:</span>
-                                    <span><?= format_date($dataEstadoCuenta["fechaLiquidacion"] ?? null) ?></span>
-                                </li>
-                                
-                                <br>
-                                
-                                <button type="button"
-                                        class="btn btn-outline-primary w-100 d-flex align-items-center justify-content-center gap-2 py-2"
-                                        data-bs-toggle="modal" data-bs-target="#modalRFC">
-                                    <i class="fa fa-id-card fa-lg"></i>
-                                    <strong>Ver referencias del cliente</strong>
-                                </button>
-                            </ul>
-                            
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
-            <!-- FIN ACORDEÓN -->
             
         </div>
     </div>
