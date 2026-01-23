@@ -1209,6 +1209,7 @@ if ($cuotasContratadas > 0) {
 
                 <?php endif; ?>
                 
+                
 
                 <a href="/estadocuenta/consulta" class="btn btn-outline-secondary d-flex align-items-center gap-1">
                     <i class="fa fa-search"></i>

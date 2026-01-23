@@ -18,7 +18,7 @@ class Login extends Model
             pp.departamento_id,
             p.session_version,
             p.force_logout,
-            p.id as id_puesto
+            pp.id as id_puesto
         FROM persona p
         LEFT JOIN asigna_puesto a ON a.id_persona = p.id
         LEFT JOIN puesto pp ON pp.id = a.id_puesto
