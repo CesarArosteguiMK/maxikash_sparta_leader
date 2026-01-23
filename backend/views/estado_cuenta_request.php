@@ -704,17 +704,131 @@ if ($cuotasContratadas > 0) {
     .modal-backdrop.show {
         opacity: 0.5 !important;
     }
+
+    @media (max-width: 576px) and (max-height: 900px) {
+    /* Asegurar que el sidebar esté arriba */
+    .sidebar-cliente {
+        order: -1 !important;
+        margin-bottom: 1rem;
+    }
+    
+    /* El contenido principal abajo */
+    .col-xl-8.col-lg-7 {
+        order: 1 !important;
+    }
+    
+    /* Reducir márgenes verticales */
+    .row {
+        margin-bottom: 0.5rem;
+    }
+    
+    /* Ajustar card del sidebar */
+    .sidebar-cliente .card {
+        margin-bottom: 0.75rem !important;
+    }
+    
+    /* Badges en una sola línea */
+    .badge-container-ids {
+        flex-direction: row !important;
+        gap: 0.5rem;
+    }
+    
+    .badge-container-ids .badge {
+        flex: 1 1 calc(50% - 0.5rem);
+        max-width: calc(50% - 0.5rem);
+        font-size: 0.65rem !important;
+        padding: 0.35em 0.5em !important;
+    }
+    
+    /* Header del lado derecho más compacto */
+    .col-xl-8.col-lg-7 .d-flex.justify-content-between.align-items-center.mb-3 {
+        flex-direction: column;
+        align-items: flex-start;
+        margin-bottom: 0.75rem !important;
+    }
+    
+    .col-xl-8.col-lg-7 .d-flex.justify-content-between.align-items-center.mb-3 h5 {
+        font-size: 0.85rem;
+        margin-bottom: 0.5rem;
+        width: 100%;
+    }
+    
+    /* Botones más pequeños */
+    .btn-notas, .btn-condonar, .btn-dictaminar {
+        width: 32px !important;
+        height: 32px !important;
+    }
+    
+    .btn-notas i, .btn-condonar i, .btn-dictaminar i {
+        font-size: 0.8rem !important;
+    }
+    
+    /* Métricas en 2 columnas */
+    .col-xl-8.col-lg-7 .d-flex.justify-content-around.flex-wrap.my-6 > div {
+        flex: 1 1 calc(50% - 0.5rem);
+        margin-bottom: 0.5rem;
+        gap: 0.5rem;
+    }
+    
+    .col-xl-8.col-lg-7 .d-flex.justify-content-around.flex-wrap.my-6 h5 {
+        font-size: 0.8rem;
+    }
+    
+    .col-xl-8.col-lg-7 .d-flex.justify-content-around.flex-wrap.my-6 span {
+        font-size: 0.7rem;
+    }
+    
+    /* Tabla más compacta */
+    .tabla-scrollable {
+        margin-top: 0.5rem;
+    }
+    
+    .cuotas-table td,
+    .cuotas-table th {
+        font-size: 0.6rem !important;
+        padding: 0.3rem !important;
+    }
+    
+    .cuotas-table .badge {
+        font-size: 0.55rem !important;
+        padding: 0.2em 0.3em !important;
+    }
+}
+
+/* Para móviles muy pequeños (ancho < 400px) */
+@media (max-width: 400px) {
+    .badge-container-ids {
+        flex-direction: column !important;
+    }
+    
+    .badge-container-ids .badge {
+        width: 100% !important;
+        max-width: 100% !important;
+        margin-bottom: 0.25rem;
+    }
+    
+    .col-xl-8.col-lg-7 .d-flex.justify-content-around.flex-wrap.my-6 > div {
+        flex: 1 1 100%;
+    }
+    
+    /* Botones de acción en fila */
+    .col-xl-8.col-lg-7 .d-flex.justify-content-between.align-items-center.mb-3 > .d-flex {
+        width: 100%;
+        justify-content: space-between;
+    }
+}
+
 </style>
 
 <div class="row">
 
     <!-- SIDEBAR CLIENTE -->
-    <div class="col-xl-4 col-lg-5 order-1 order-md-0 sidebar-cliente">
+    <div class="col-xl-4 col-lg-5 order-1 order-lg-0 sidebar-cliente">
         <div class="card mb-6">
             <div class="card-body">
 
 
-                <!-- CONTENEDOR -->    
+                <!-- CONTENEDOR DATOS DEL CLIENTE-->    
 
                 <div class="user-avatar-section">
                     <div class="card mb-3 border border-2 border-primary rounded primary-shadow">
@@ -817,6 +931,10 @@ if ($cuotasContratadas > 0) {
                     </li>
                 </ul>-->
 
+
+
+          <!-- INFORMACION DEL CREDITO-->
+
                 <hr class="my-2 w-100">
                 <small class="card-text text-uppercase text-body-secondary small">Información del Crédito</small>
                 <ul class="list-unstyled my-1 py-1 info-compact">
@@ -907,7 +1025,7 @@ if ($cuotasContratadas > 0) {
     </div>
 
     <!-- CONTENIDO PRINCIPAL -->
-    <div class="col-xl-8 col-lg-7 order-0 order-md-1">
+    <div class="col-xl-8 col-lg-7 order-0 order-lg-1">
         <div class="d-flex justify-content-between align-items-center mb-3">
             <h5 class="mb-0">Resumen general de pagos del cliente</h5>
 
