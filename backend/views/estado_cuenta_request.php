@@ -1163,7 +1163,7 @@ if ($cuotasContratadas > 0) {
             <h5 class="mb-0">Resumen general de pagos del cliente</h5>
 
             <div class="d-flex gap-2">
-                <?php if (in_array($_SESSION['id_puesto'], [19, 21, 22])): ?>
+                <?php if (in_array($_SESSION['id_puesto'], [19, 21, 22, 10])): ?>
 
                     <!-- BOTÓN DICTAMINAR -->
                     <button type="button"
@@ -1178,7 +1178,7 @@ if ($cuotasContratadas > 0) {
 
                 <?php endif; ?>
 
-                <?php if (in_array($_SESSION['id_puesto'], [19, 21, 22])): ?>
+                <?php if (in_array($_SESSION['id_puesto'], [19, 21, 22, 10])): ?>
 
                     <!-- BOTÓN CONDONAR -->
                     <button type="button"
@@ -1190,7 +1190,7 @@ if ($cuotasContratadas > 0) {
 
                 <?php endif; ?>
 
-                <?php if (in_array($_SESSION['id_puesto'], [19, 21, 22])): ?>
+                <?php if (in_array($_SESSION['id_puesto'], [19, 21, 22, 10])): ?>
 
                     <!-- BOTÓN NOTAS (ICONO) -->
                     <button type="button"
@@ -1208,7 +1208,7 @@ if ($cuotasContratadas > 0) {
                     </button>
 
                 <?php endif; ?>
-                
+
                 
 
                 <a href="/estadocuenta/consulta" class="btn btn-outline-secondary d-flex align-items-center gap-1">
