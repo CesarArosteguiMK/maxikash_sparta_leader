@@ -557,4 +557,113 @@ public static function obtenerReportesDictamenParaDescarga($fechaInicio, $fechaF
     }
 
 
+    public static function insertCondonacionCobranza($data)
+    {
+        // 🔹 Escapamos valores (igual que insertNotas)
+        $id_credito = addslashes($data['id_credito']);
+        $comentario = addslashes($data['comentario']);
+        $total      = addslashes($data['total']);
+        $usuario    = addslashes($data['usuario_id']);
+
+        try {
+            $db = new DatabaseSegundometro();
+
+            // 1️⃣ Insertar ticket
+            $db->queryOne("
+            INSERT INTO condonaciones_cobranza
+            (id_condonacion, id_credito, comentario, id_usuario, total_condonado, created_at)
+            VALUES (
+                DEFAULT,
+                $id_credito,
+                '$comentario',
+                '$usuario',
+                $total,
+                DEFAULT
+            )
+        ");
+
+            // 2️⃣ Obtener ID insertado
+            $result = $db->queryOne("
+            SELECT LAST_INSERT_ID() AS id_condonacion
+        ");
+
+
+            return self::resultado(true, 'Ticket creado', $result);
+
+        } catch (\Exception $e) {
+
+            return self::resultado(
+                false,
+                'Error al crear ticket',
+                null,
+                $e->getMessage()
+            );
+        }
+    }
+    public static function insertCondonacionCobranzaDetalle($data)
+    {
+        $id_condonacion       = addslashes($data['id_condonacion']);
+        $id_gastos_cobranza   = addslashes($data['id_gastos_cobranza']);
+        $monto                = addslashes($data['monto']);
+
+        try {
+            $db = new DatabaseSegundometro();
+
+            $db->queryOne("
+            INSERT INTO condonaciones_cobranza_detalle
+            (id, id_condonacion, id_gastos_cobranza, monto)
+            VALUES (
+                DEFAULT,
+                $id_condonacion,
+                $id_gastos_cobranza,
+                $monto
+            )
+        ");
+
+            return self::resultado(true, 'Detalle agregado', null);
+
+        } catch (\Exception $e) {
+
+            return self::resultado(
+                false,
+                'Error al registrar detalle',
+                null,
+                $e->getMessage()
+            );
+        }
+    }
+
+    public static function marcarGastoCondonado($idGasto)
+    {
+        try {
+            $db = new DatabaseSegundometro();
+
+            $idGasto = (int) $idGasto; // 👈 clave
+
+            $db->queryOne("
+            UPDATE gastos_cobranza
+            SET
+                condonado = 1,
+                fecha_condonacion = CONVERT_TZ(NOW(), '+00:00', 'America/Mexico_City')
+            WHERE id_gastos_cobranza = $idGasto
+        ");
+
+            return self::resultado(true, 'Gasto marcado como condonado');
+
+        } catch (\Exception $e) {
+            return self::resultado(
+                false,
+                'Error al marcar gasto como condonado',
+                null,
+                $e->getMessage()
+            );
+        }
+    }
+
+
+
+
+
+
+
 }

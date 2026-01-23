@@ -2319,72 +2319,150 @@ public function descargarReporteDictamen()
 }
 
 
-public function getDictamenLlamadas()
-{
-    // Obtener filtros de fecha
-    $fechaInicio = $_POST['fechaInicio'] ?? null;
-    $fechaFin = $_POST['fechaFin'] ?? null;
+    public function getDictamenLlamadas()
+    {
+        // Obtener filtros de fecha
+        $fechaInicio = $_POST['fechaInicio'] ?? null;
+        $fechaFin = $_POST['fechaFin'] ?? null;
 
-    if (empty($fechaInicio) || empty($fechaFin)) {
+        if (empty($fechaInicio) || empty($fechaFin)) {
+            self::respuestaJSON([
+                'success' => false,
+                'mensaje' => 'Fechas requeridas'
+            ]);
+            return;
+        }
+
+        // Llamar al DAO con filtros
+        $resultado = EstadoCuentaDAO::buscarReporteDictamen(
+            $_SESSION['usuario_id'],
+            $fechaInicio,
+            $fechaFin
+        );
+
+        // Verificar resultado
+        if (!$resultado['success']) {
+            self::respuestaJSON([
+                'success' => false,
+                'mensaje' => $resultado['mensaje']
+            ]);
+            return;
+        }
+
+        // Formatear datos si es necesario
+        $datos = array_map(function($item) {
+            return [
+                'id' => $item['id'] ?? '',
+                'fecha_registro' => $item['fecha_registro'] ?? '',
+                'hora_registro' => $item['hora_registro'] ?? '',
+                'id_credito' => $item['id_credito'] ?? '',
+                'nombre_cliente' => $item['nombre_cliente'] ?? '',
+                'tipo_contacto' => $item['tipo_contacto'] ?? '',
+                'resultado_contacto' => $item['resultado_contacto'] ?? '',
+                'dictamen' => $item['dictamen'] ?? '',
+                'motivo_no_pago' => $item['motivo_no_pago'] ?? '',
+                'tipo_motivo_no_pago' => $item['tipo_motivo_no_pago'] ?? '',
+                'plataforma' => $item['plataforma'] ?? '',
+                'fuente_ingresos' => $item['fuente_ingresos'] ?? '',
+                'comentarios' => $item['comentarios'] ?? ''
+            ];
+        }, $resultado['datos']);
+
         self::respuestaJSON([
-            'success' => false,
-            'mensaje' => 'Fechas requeridas'
+            'success' => true,
+            'datos' => $datos,
+            'cantidad' => count($datos)
         ]);
-        return;
     }
 
-    // Llamar al DAO con filtros
-    $resultado = EstadoCuentaDAO::buscarReporteDictamen(
-        $_SESSION['usuario_id'],
-        $fechaInicio,
-        $fechaFin
-    );
 
-    // Verificar resultado
-    if (!$resultado['success']) {
-        self::respuestaJSON([
-            'success' => false,
-            'mensaje' => $resultado['mensaje']
-        ]);
-        return;
+    public function reporteDictamen()
+    {
+        $script = "";
+
+        self::set("titulo", "Dictamen de Llamadas | " );
+        self::set("script", $script);
+        return self::render("dictamen_llamadas");
     }
 
-    // Formatear datos si es necesario
-    $datos = array_map(function($item) {
-        return [
-            'id' => $item['id'] ?? '',
-            'fecha_registro' => $item['fecha_registro'] ?? '',
-            'hora_registro' => $item['hora_registro'] ?? '',
-            'id_credito' => $item['id_credito'] ?? '',
-            'nombre_cliente' => $item['nombre_cliente'] ?? '',
-            'tipo_contacto' => $item['tipo_contacto'] ?? '',
-            'resultado_contacto' => $item['resultado_contacto'] ?? '',
-            'dictamen' => $item['dictamen'] ?? '',
-            'motivo_no_pago' => $item['motivo_no_pago'] ?? '',
-            'tipo_motivo_no_pago' => $item['tipo_motivo_no_pago'] ?? '',
-            'plataforma' => $item['plataforma'] ?? '',
-            'fuente_ingresos' => $item['fuente_ingresos'] ?? '',
-            'comentarios' => $item['comentarios'] ?? ''
+    public function confirmarCondonacionGastos()
+    {
+        $input = json_decode(file_get_contents("php://input"), true);
+
+        $idCredito  = $input['idCredito'] ?? null;
+        $comentario = $input['comentario'] ?? null;
+        $gastos     = $input['gastos'] ?? [];
+        $total      = $input['total'] ?? 0;
+
+        if (empty($idCredito) || empty($comentario) || empty($gastos)) {
+            self::respuestaJSON([
+                'success' => false,
+                'mensaje' => 'Datos incompletos'
+            ]);
+            return;
+        }
+
+        // Datos de sesión (igual que notas)
+        $dataTicket = [
+            'id_credito' => $idCredito,
+            'comentario' => $comentario,
+            'total'      => $total,
+            'usuario'    => $_SESSION['usuario'] ?? 'Sistema',
+            'usuario_id' => $_SESSION['id_usuario'] ?? 0
         ];
-    }, $resultado['datos']);
 
-    self::respuestaJSON([
-        'success' => true,
-        'datos' => $datos,
-        'cantidad' => count($datos)
-    ]);
-}
+        // 1️⃣ Insertar ticket
+        $ticket = EstadoCuentaDAO::insertCondonacionCobranza($dataTicket);
 
 
-public function reporteDictamen()
-{
-    $script = "";
-    
-    self::set("titulo", "Dictamen de Llamadas | " );
-    self::set("script", $script);
-    return self::render("dictamen_llamadas"); 
-}
+
+        if (!$ticket['success']) {
+            self::respuestaJSON($ticket);
+            return;
+        }
+
+        $idCondonacion = $ticket['datos']['id_condonacion'];
 
 
-            
+        // 2️⃣ Insertar detalle + marcar gastos
+        foreach ($gastos as $g) {
+
+            $detalle = EstadoCuentaDAO::insertCondonacionCobranzaDetalle([
+                'id_condonacion'     => $idCondonacion,
+                'id_gastos_cobranza' => (int) $g['id_gastos_cobranza'],
+                'monto'              => (float) $g['monto']
+            ]);
+
+            if (!$detalle['success']) {
+                self::respuestaJSON($detalle);
+                return;
+            }
+
+            // 👇 SOLO si el detalle se insertó correctamente
+            $marca = EstadoCuentaDAO::marcarGastoCondonado(
+                (int) $g['id_gastos_cobranza']
+            );
+
+            if (!$marca['success']) {
+                self::respuestaJSON($marca);
+                return;
+            }
+        }
+
+        self::respuestaJSON([
+            'success' => true,
+            'mensaje' => 'Condonación registrada correctamente',
+            'data' => [
+                'id_condonacion' => $idCondonacion
+            ]
+        ]);
+    }
+
+
+
+
+
+
+
+
 }

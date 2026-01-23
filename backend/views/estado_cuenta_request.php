@@ -991,6 +991,16 @@ if ($cuotasContratadas > 0) {
                             $<span id="montoCondonar">0.00</span>
                         </div>
                     </div>
+                    <div class="col-md-4">
+                        <div class="alert alert-danger py-2 mb-2 d-flex justify-content-between align-items-center">
+                            <span class="fw-semibold text-dark">
+                                Total gastos cobranza sin condonar:
+                            </span>
+                                                <span class="fw-bold text-danger">
+                                $<span id="montoTotalSinCondonar">0.00</span>
+                            </span>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Tabla -->
@@ -1003,6 +1013,7 @@ if ($cuotasContratadas > 0) {
                             <th>Periodo</th>
                             <th># Cuota</th>
                             <th class="">Monto</th>
+                            <th class=""></th>
                         </tr>
                         </thead>
                         <tbody id="tablaGastos">
@@ -1031,7 +1042,7 @@ if ($cuotasContratadas > 0) {
                 <button class="btn btn-secondary" data-bs-dismiss="modal">
                     Cancelar
                 </button>
-                <button class="btn btn-success" onclick="confirmarCondonacion()">
+                <button class="btn btn-success" onclick="confirmarCondonacion(<?= htmlspecialchars($dataEstadoCuenta["idCredito"] ?? '') ?>)">
                     <i class="fa fa-check me-1"></i>Condonar
                 </button>
             </div>
@@ -1388,27 +1399,6 @@ if ($cuotasContratadas > 0) {
         }
     });
 
-    function confirmarCondonacion() {
-        const descripcion = document.getElementById('descripcionCondonacion').value.trim();
-        const seleccionados = document.querySelectorAll('.chk-condona:checked').length;
-
-        if (!seleccionados) {
-            alert('Selecciona al menos un gasto a condonar');
-            return;
-        }
-
-        if (!descripcion) {
-            alert('La descripción es obligatoria');
-            return;
-        }
-
-        alert('Condonación lista para enviarse al backend 😎');
-    }
-
-    function ver_gastos() {
-
-        alert('Condonación lista para enviarse al backend 😎');
-    }
 
     function consultaNotas(idCredito) {
 
@@ -1489,77 +1479,7 @@ if ($cuotasContratadas > 0) {
         modal.show();
     }
 
-    function consultaGastosCobranza(idCredito) {
 
-        if (!idCredito) {
-            Swal.fire("Error", "Id de crédito inválido", "error");
-            return;
-        }
-
-        fetch('/EstadoCuenta/getGastosCobranza', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json'
-            },
-            body: JSON.stringify({
-                idCredito: idCredito
-            })
-        })
-            .then(res => res.json())
-            .then(resp => {
-
-                if (!resp.success) {
-                    Swal.fire("Error", resp.mensaje, "error");
-                    contenedor.innerHTML = '';
-                    return;
-                }
-
-                const notas = resp.datos ?? resp.data ?? [];
-
-                contenedor.innerHTML = '';
-
-                if (!Array.isArray(notas) || notas.length === 0) {
-                    contenedor.innerHTML = `
-                <div class="col-12 text-center text-muted">
-                    Sin notas registradas
-                </div>
-            `;
-                    return;
-                }
-
-                notas.forEach(n => {
-
-                    contenedor.innerHTML += `
-                <div class="col-md-6">
-                    <div class="nota-card animate__animated animate__fadeInUp">
-                        <div class="nota-fecha">
-                            <i class="fa fa-clock"></i> ${n.created_at}
-                        </div>
-                        <p class="nota-texto">
-                            ${n.nota}
-                        </p>
-                        <div class="nota-autor">
-                            <i class="fa fa-user"></i> ${n.usuario ?? 'Sistema'}
-                        </div>
-                    </div>
-                </div>
-            `;
-                });
-
-            })
-            .catch(err => {
-                console.error("ERROR consultaNotas:", err);
-                Swal.fire("Error", "Error de conexión con el servidor", "error");
-                contenedor.innerHTML = '';
-            });
-
-        // 👉 Abrir modal SIEMPRE (aunque esté cargando)
-        const modal = new bootstrap.Modal(
-            document.getElementById('modalCondonar')
-        );
-        modal.show();
-    }
 
     const modalDictamen = document.getElementById('modalDictamen');
 
@@ -1975,14 +1895,23 @@ if ($cuotasContratadas > 0) {
                     <tr>
                         <td>
                             <input type="checkbox"
-                                   class="form-check-input chk-condona"
-                                   data-monto="${parseFloat(g.monto).toFixed(2)}"
-                                   onchange="recalcularCondonacion()">
+                               class="form-check-input chk-condona"
+                               data-id="${g.id_gasto}"
+                               data-monto="${parseFloat(g.monto).toFixed(2)}"
+                               onchange="recalcularCondonacion()">
                         </td>
                         <td>${g.semana}</td>
                         <td>${g.periodo}</td>
                         <td>${g.cuota}</td>
                         <td>$${parseFloat(g.monto).toFixed(2)}</td>
+                        <td>
+                            <button style="display: none;" class="btn btn-sm btn-outline-primary" onclick="editarGastoCobranza(${g.id_gastos_cobranza})">  <i class="fa fa-edit"></i> </button>
+                        </td>
+
+
+
+
+
                     </tr>
                 `;
                 });
@@ -2044,6 +1973,72 @@ if ($cuotasContratadas > 0) {
             document.body.appendChild(modalElement);
         }
     });
+
+
+    function confirmarCondonacion(id_credito) {
+
+        const comentario = document.getElementById('descripcionCondonacion').value.trim();
+        const checks = document.querySelectorAll('.chk-condona:checked');
+
+        if (checks.length === 0) {
+            Swal.fire("Atención", "Selecciona al menos un gasto", "warning");
+            return;
+        }
+
+        if (!comentario) {
+            Swal.fire("Atención", "El motivo de la condonación es obligatorio", "warning");
+            return;
+        }
+
+        const gastos = [];
+        let total = 0;
+
+        checks.forEach(chk => {
+            const id = chk.dataset.id;
+            const monto = parseFloat(chk.dataset.monto);
+
+            gastos.push({
+                id_gastos_cobranza: id,
+                monto: monto
+            });
+
+            total += monto;
+        });
+
+        fetch('/EstadoCuenta/confirmarCondonacionGastos', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify({
+                idCredito: id_credito, // o como lo tengas
+                comentario: comentario,
+                total: total,
+                gastos: gastos
+            })
+        })
+            .then(res => res.json())
+            .then(resp => {
+
+                if (!resp.success) {
+                    Swal.fire("Error", resp.mensaje, "error");
+                    return;
+                }
+
+                Swal.fire("Éxito", "Gastos condonados correctamente", "success");
+
+                bootstrap.Modal
+                    .getInstance(document.getElementById('modalCondonar'))
+                    .hide();
+
+            })
+            .catch(err => {
+                console.error(err);
+                Swal.fire("Error", "Error de conexión", "error");
+            });
+    }
+
 
 
 
