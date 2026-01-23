@@ -818,211 +818,344 @@ if ($cuotasContratadas > 0) {
     }
 }
 
+/* ==========================
+   ACORDEÓN PERSONALIZADO
+   ========================== */
+
+   .accordion-button::after {
+    display: none !important;
+}
+
+
+/* Acordeón sin bordes ni fondo */
+.accordion-flush.custom-accordion {
+    border: none;
+    background: transparent;
+}
+
+/* Header del acordeón */
+.accordion-button {
+    background-color: #f8f9fa !important;
+    border: 1px solid #dee2e6 !important;
+    border-radius: 8px !important;
+    padding: 0.75rem 1rem !important;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.accordion-button:not(.collapsed) {
+    background-color: #e7f1ff !important;
+    border-color: #b6d4fe !important;
+    color: #0d6efd;
+    box-shadow: 0 4px 8px rgba(13,110,253,0.1);
+}
+
+.accordion-button:focus {
+    box-shadow: 0 0 0 3px rgba(13,110,253,0.25) !important;
+    border-color: #86b7fe !important;
+}
+
+/* Ícono de flecha */
+.accordion-arrow {
+    transition: transform 0.3s ease;
+    font-size: 0.9rem;
+    color: #6c757d;
+}
+
+.accordion-button:not(.collapsed) .accordion-arrow {
+    transform: rotate(180deg);
+    color: #0d6efd;
+}
+
+/* Cuerpo del acordeón */
+.accordion-collapse {
+    border: none !important;
+}
+
+.accordion-body {
+    background-color: transparent;
+    padding: 0 !important;
+}
+
+/* Ajustes para métricas dentro del acordeón */
+.accordion-body .d-flex.justify-content-between.my-3 {
+    margin-top: 0.5rem !important;
+    margin-bottom: 0.5rem !important;
+}
+
+.accordion-body .info-compact {
+    margin-top: 0.5rem;
+}
+
+/* Estados hover */
+.accordion-button:hover {
+    background-color: #e9ecef !important;
+    transform: translateY(-1px);
+}
+
+.accordion-button:not(.collapsed):hover {
+    background-color: #d0e2ff !important;
+}
+
+/* Responsive para el acordeón */
+@media (max-width: 768px) {
+    .accordion-button {
+        padding: 0.6rem 0.8rem !important;
+        font-size: 0.9rem;
+    }
+    
+    .accordion-button i.fa-info-circle {
+        font-size: 0.9rem;
+    }
+}
+
+@media (max-width: 576px) {
+    .accordion-button {
+        padding: 0.5rem 0.7rem !important;
+        font-size: 0.85rem;
+    }
+    
+    .accordion-button span.fw-semibold {
+        font-size: 0.85rem;
+    }
+}
+
+/* ==========================
+   ANIMACIÓN SUAVE PARA EL ACORDEÓN
+   ========================== */
+.accordion-collapse {
+    transition: all 0.35s ease !important;
+}
+
+.accordion-body {
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+
 </style>
 
 <div class="row">
 
-    <!-- SIDEBAR CLIENTE -->
-    <div class="col-xl-4 col-lg-5 order-1 order-lg-0 sidebar-cliente">
-        <div class="card mb-6">
-            <div class="card-body">
-
-
-                <!-- CONTENEDOR DATOS DEL CLIENTE-->    
-
-                <div class="user-avatar-section">
-                    <div class="card mb-3 border border-2 border-primary rounded primary-shadow">
-                        <div class="card-body">
-
-                          <div class="badge-container-ids">
-    <span class="badge bg-label-primary">ID Crédito: <?= htmlspecialchars($dataEstadoCuenta["idCredito"] ?? '') ?></span>
-    <span class="badge bg-label-secondary">ID Cliente: <?= htmlspecialchars($dataCliente["idCliente"] ?? '') ?></span>
-</div>
-
-                            <div class="d-flex justify-content-between align-items-center mb-1">
-                                <span class="h6 mb-0"> <?= htmlspecialchars($dataCliente["nombreCliente"] ?? '') ?></span>
+   <!-- SIDEBAR CLIENTE -->
+<div class="col-xl-4 col-lg-5 order-1 order-lg-0 sidebar-cliente">
+    <div class="card mb-6">
+        <div class="card-body">
+            
+            <!-- SECCIÓN AVATAR/DATOS BÁSICOS (SIEMPRE VISIBLE) -->
+            <div class="user-avatar-section">
+                <div class="card mb-3 border border-2 border-primary rounded primary-shadow">
+                    <div class="card-body">
+                        <!-- Badges IDs -->
+                        <div class="badge-container-ids">
+                            <span class="badge bg-label-primary">ID Crédito: <?= htmlspecialchars($dataEstadoCuenta["idCredito"] ?? '') ?></span>
+                            <span class="badge bg-label-secondary">ID Cliente: <?= htmlspecialchars($dataCliente["idCliente"] ?? '') ?></span>
+                        </div>
+                        
+                        <!-- Nombre -->
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <span class="h6 mb-0"> <?= htmlspecialchars($dataCliente["nombreCliente"] ?? '') ?></span>
+                        </div>
+                        
+                        <!-- Barra de progreso -->
+                        <div class="progress mb-1" title="<?= $porcentajeAvance ?>%">
+                            <div class="progress-bar bg-primary"
+                                 role="progressbar"
+                                 style="width: <?= $porcentajeAvance ?>%;"
+                                 aria-valuenow="<?= $porcentajeAvance ?>"
+                                 aria-valuemin="0"
+                                 aria-valuemax="100">
                             </div>
-
-                            <div class="progress mb-1" title="<?= $porcentajeAvance ?>%">
-                                <div
-                                        class="progress-bar bg-primary"
-                                        role="progressbar"
-                                        style="width: <?= $porcentajeAvance ?>%;"
-                                        aria-valuenow="<?= $porcentajeAvance ?>"
-                                        aria-valuemin="0"
-                                        aria-valuemax="100">
+                        </div>
+                        
+                        <!-- Teléfono y dirección -->
+                        <small class="d-flex align-items-center gap-2">
+                            <i class="fa fa-phone text-primary"></i>
+                            <?php
+                            $cel = preg_replace('/\D/', '', $dataCliente["celular"] ?? '');
+                            if (strlen($cel) === 10) {
+                                $cel = sprintf(
+                                    "(%s) %s-%s",
+                                    substr($cel, 0, 2),
+                                    substr($cel, 2, 4),
+                                    substr($cel, 6, 4)
+                                );
+                            }
+                            echo htmlspecialchars($cel);
+                            ?>
+                            
+                            <i class="fa fa-location text-primary"></i>
+                            <button type="button"
+                                    class="btn btn-link text-primary p-0"
+                                    data-bs-toggle="modal"
+                                    data-bs-target="#modalDirecciones"
+                                    onclick="abrirModalDirecciones()">
+                                Direcciones
+                            </button>
+                        </small>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- ACORDEÓN PARA MÉTRICAS E INFORMACIÓN DEL CRÉDITO -->
+            <div class="accordion accordion-flush custom-accordion" id="accordionInfoCredito">
+    <div class="accordion-item">
+        <!-- HEADER DEL ACORDEÓN -->
+        <h2 class="accordion-header" id="headingInfoCredito">
+            <button class="accordion-button collapsed p-3" 
+                    type="button" 
+                    data-bs-toggle="collapse" 
+                    data-bs-target="#collapseInfoCredito" 
+                    aria-expanded="false" 
+                    aria-controls="collapseInfoCredito">
+                <div class="d-flex align-items-center w-100">
+                    <i class="fa fa-info-circle me-2 text-primary"></i>
+                    <span class="fw-semibold flex-grow-1">Información Detallada</span>
+                    <i class="fa fa-chevron-down accordion-arrow ms-2"></i>
+                </div>
+            </button>
+        </h2>
+                    
+                    <!-- CONTENIDO DEL ACORDEÓN (MÉTRICAS + INFO CRÉDITO) -->
+                    <div id="collapseInfoCredito" 
+             class="accordion-collapse collapse" 
+             aria-labelledby="headingInfoCredito" 
+             data-bs-parent="#accordionInfoCredito">
+            <div class="accordion-body p-0 pt-3">
+                            
+                            <!-- MÉTRICAS -->
+                            <div class="d-flex justify-content-between flex-nowrap my-3 gap-1 gap-md-1">
+                                <div class="d-flex align-items-center gap-3">
+                                    <div class="avatar">
+                                        <div class="avatar-initial bg-label-info rounded w-px-40 h-px-40">
+                                            <i class="fa fa-dollar"></i>
+                                        </div>
+                                    </div>
+                                    <div class="text-truncate">
+                                        <h5 class="mb-0 text-truncate">
+                                            <?= htmlspecialchars($dataEstadoCuenta["statusCredito"] ?? '') ?>
+                                        </h5>
+                                        <span class="small">Estatus Crédito</span>
+                                    </div>
+                                </div>
+                                
+                                <div class="d-flex align-items-center gap-3">
+                                    <div class="avatar">
+                                        <div class="avatar-initial bg-label-danger rounded w-px-40 h-px-40">
+                                            <i class="fa fa-dollar"></i>
+                                        </div>
+                                    </div>
+                                    <div class="text-end text-truncate">
+                                        <h5 class="mb-0 text-truncate">
+                                            <?= format_currency($dataOtrosDatos["saldoTotalVencido"] ?? 0) ?>
+                                        </h5>
+                                        <span class="small">Saldo Total Vencido</span>
+                                    </div>
                                 </div>
                             </div>
-
-                            <small class="d-flex align-items-center gap-2">
-                                <i class="fa fa-phone text-primary"></i>
-                                <?php
-                                $cel = preg_replace('/\D/', '', $dataCliente["celular"] ?? '');
-                                if (strlen($cel) === 10) {
-                                    $cel = sprintf(
-                                            "(%s) %s-%s",
-                                            substr($cel, 0, 2),
-                                            substr($cel, 2, 4),
-                                            substr($cel, 6, 4)
-                                    );
-                                }
-                                echo htmlspecialchars($cel);
-                                ?>
-
-                                <i class="fa fa-location text-primary"></i>
-
+                            
+                            <!-- INFORMACIÓN DEL CRÉDITO -->
+                            <hr class="my-2 w-100">
+                            <small class="card-text text-uppercase text-body-secondary small">Información del Crédito</small>
+                            <ul class="list-unstyled my-1 py-1 info-compact">
+                                <li class="d-flex align-items-center mb-2">
+                                    <i class="fa fa-money-bill fa-lg"></i>
+                                    <span class="fw-medium mx-2">Monto Otorgado:</span>
+                                    <span>$37,759.20</span>
+                                </li>
+                                
+                                <li class="d-flex align-items-center mb-2">
+                                    <i class="fa fa-list-ol fa-lg"></i>
+                                    <span class="fw-medium mx-2">Cuotas Contratadas:</span>
+                                    <span><?= htmlspecialchars($dataOtrosDatos["cuotasContratadas"] ?? '') ?> cuotas</span>
+                                </li>
+                                
+                                <li class="d-flex align-items-center mb-2">
+                                    <i class="fa fa-check-circle fa-lg"></i>
+                                    <span class="fw-medium mx-2">Cuotas Pagadas:</span>
+                                    <span><?= htmlspecialchars($dataOtrosDatos["cuotasPagadas"] ?? '') ?> cuotas</span>
+                                </li>
+                                
+                                <li class="d-flex align-items-center mb-2">
+                                    <i class="fa fa-hourglass fa-lg"></i>
+                                    <span class="fw-medium mx-2">Cuotas Faltantes:</span>
+                                    <span><?= $cuotasFaltantes ?> cuotas</span>
+                                </li>
+                                
+                                <li class="d-flex align-items-center mb-2">
+                                    <i class="fa fa-credit-card fa-lg"></i>
+                                    <span class="fw-medium mx-2">Saldo para Liquidar:</span>
+                                    <span><?= format_currency($dataOtrosDatos["saldoParaLiquidarV2"] ?? 0) ?></span>
+                                </li>
+                                
+                                <li class="d-flex align-items-center mb-2">
+                                    <i class="fa fa-exclamation-triangle fa-lg"></i>
+                                    <span class="fw-medium mx-2">Mora Máximo:</span>
+                                    <span><?= htmlspecialchars($dataOtrosDatos["diasMoraMaximo"] ?? 0) ?> días</span>
+                                </li>
+                                
+                                <li class="d-flex align-items-center mb-2">
+                                    <i class="fa fa-clock fa-lg"></i>
+                                    <span class="fw-medium mx-2">Mora:</span>
+                                    <span><?= htmlspecialchars($dataOtrosDatos["diasMora"] ?? 0) ?> días</span>
+                                </li>
+                                
+                                <li class="d-flex align-items-center mb-2">
+                                    <i class="fa fa-calendar-alt fa-lg"></i>
+                                    <span class="fw-medium mx-2">Fecha Inicio:</span>
+                                    <span><?= format_date($dataEstadoCuenta["fechaInicio"] ?? null) ?></span>
+                                </li>
+                                
+                                <hr class="my-2 w-100">
+                                
+                                <li class="d-flex align-items-center mb-2">
+                                    <i class="fa fa-calendar-day fa-lg"></i>
+                                    <span class="fw-medium mx-2">Primer Vencimiento:</span>
+                                    <span><?= format_date($dataEstadoCuenta["primerVencimiento"] ?? null) ?></span>
+                                </li>
+                                
+                                <li class="d-flex align-items-center mb-2">
+                                    <i class="fa fa-calendar-check fa-lg"></i>
+                                    <span class="fw-medium mx-2">Último Vencimiento:</span>
+                                    <span><?= format_date($dataEstadoCuenta["ultimoVencimiento"] ?? null) ?></span>
+                                </li>
+                                
+                                <li class="d-flex align-items-center mb-2">
+                                    <i class="fa fa-calendar-check fa-lg"></i>
+                                    <span class="fw-medium mx-2">Fecha de Liquidación:</span>
+                                    <span><?= format_date($dataEstadoCuenta["fechaLiquidacion"] ?? null) ?></span>
+                                </li>
+                                
+                                <br>
+                                
                                 <button type="button"
-                                        class="btn btn-link text-primary p-0"
-                                        data-bs-toggle="modal"
-                                        data-bs-target="#modalDirecciones"
-                                        onclick="abrirModalDirecciones()">
-                                    Direcciones
+                                        class="btn btn-outline-primary w-100 d-flex align-items-center justify-content-center gap-2 py-2"
+                                        data-bs-toggle="modal" data-bs-target="#modalRFC">
+                                    <i class="fa fa-id-card fa-lg"></i>
+                                    <strong>Ver referencias del cliente</strong>
                                 </button>
-                            </small>
-
-
-
-
+                            </ul>
+                            
                         </div>
                     </div>
                 </div>
-
-                <!-- MÉTRICAS -->
-                <div class="d-flex justify-content-between flex-nowrap my-3 gap-1 gap-md-1">
-
-                    <div class="d-flex align-items-center gap-3">
-                        <div class="avatar">
-                            <div class="avatar-initial bg-label-info rounded w-px-40 h-px-40">
-                                <i class="fa fa-dollar"></i>
-                            </div>
-                        </div>
-                        <div class="text-truncate">
-                            <h5 class="mb-0 text-truncate">
-                                <?= htmlspecialchars($dataEstadoCuenta["statusCredito"] ?? '') ?>
-                            </h5>
-                            <span class="small">Estatus Crédito</span>
-                        </div>
-                    </div>
-
-                    <div class="d-flex align-items-center gap-3">
-                        <div class="avatar">
-                            <div class="avatar-initial bg-label-danger rounded w-px-40 h-px-40">
-                                <i class="fa fa-dollar"></i>
-                            </div>
-                        </div>
-                        <div class="text-end text-truncate">
-                            <h5 class="mb-0 text-truncate">
-                                <?= format_currency($dataOtrosDatos["saldoTotalVencido"] ?? 0) ?>
-                            </h5>
-                            <span class="small">Saldo Total Vencido</span>
-                        </div>
-                    </div>
-
-                </div>
-
-                <!-- DATOS E INFO
-                <hr class="my-2 w-100">
-                <small class="card-text text-uppercase text-body-secondary small">Identificación del Cliente</small>
-                <ul class="list-unstyled my-1 info-compact">
-                    <li class="d-flex align-items-center mb-4">
-                        <i class="fa fa-id-card fa-lg"></i>
-                        <span class="fw-medium mx-2">RFC:</span>
-                        <span><?= htmlspecialchars($dataCliente["rfc"] ?? '') ?></span>
-                    </li>
-                </ul>-->
-
-
-
-          <!-- INFORMACION DEL CREDITO-->
-
-                <hr class="my-2 w-100">
-                <small class="card-text text-uppercase text-body-secondary small">Información del Crédito</small>
-                <ul class="list-unstyled my-1 py-1 info-compact">
-                    <li class="d-flex align-items-center mb-2">
-                        <i class="fa fa-money-bill fa-lg"></i>
-                        <span class="fw-medium mx-2">Monto Otorgado:</span>
-                        <span>$37,759.20</span>
-                    </li>
-
-                    <li class="d-flex align-items-center mb-2">
-                        <i class="fa fa-list-ol fa-lg"></i>
-                        <span class="fw-medium mx-2">Cuotas Contratadas:</span>
-                        <span><?= htmlspecialchars($dataOtrosDatos["cuotasContratadas"] ?? '') ?> cuotas</span>
-                    </li>
-
-                    <li class="d-flex align-items-center mb-2">
-                        <i class="fa fa-check-circle fa-lg"></i>
-                        <span class="fw-medium mx-2">Cuotas Pagadas:</span>
-                        <span><?= htmlspecialchars($dataOtrosDatos["cuotasPagadas"] ?? '') ?> cuotas</span>
-                    </li>
-
-                    <li class="d-flex align-items-center mb-2">
-                        <i class="fa fa-hourglass fa-lg"></i>
-                        <span class="fw-medium mx-2">Cuotas Faltantes:</span>
-                        <span><?= $cuotasFaltantes ?> cuotas</span>
-                    </li>
-
-                    <li class="d-flex align-items-center mb-2">
-                        <i class="fa fa-credit-card fa-lg"></i>
-                        <span class="fw-medium mx-2">Saldo para Liquidar:</span>
-                        <span><?= format_currency($dataOtrosDatos["saldoParaLiquidarV2"] ?? 0) ?></span>
-                    </li>
-
-                    <li class="d-flex align-items-center mb-2">
-                        <i class="fa fa-exclamation-triangle fa-lg"></i>
-                        <span class="fw-medium mx-2">Mora Máximo:</span>
-                        <span><?= htmlspecialchars($dataOtrosDatos["diasMoraMaximo"] ?? 0) ?> días</span>
-                    </li>
-
-                    <li class="d-flex align-items-center mb-2">
-                        <i class="fa fa-clock fa-lg"></i>
-                        <span class="fw-medium mx-2">Mora:</span>
-                        <span><?= htmlspecialchars($dataOtrosDatos["diasMora"] ?? 0) ?> días</span>
-                    </li>
-
-                    <li class="d-flex align-items-center mb-2">
-                        <i class="fa fa-calendar-alt fa-lg"></i>
-                        <span class="fw-medium mx-2">Fecha Inicio:</span>
-                        <span><?= format_date($dataEstadoCuenta["fechaInicio"] ?? null) ?></span>
-                    </li>
-
-                    <hr class="my-2 w-100">
-
-                    <li class="d-flex align-items-center mb-2">
-                        <i class="fa fa-calendar-day fa-lg"></i>
-                        <span class="fw-medium mx-2">Primer Vencimiento:</span>
-                        <span><?= format_date($dataEstadoCuenta["primerVencimiento"] ?? null) ?></span>
-                    </li>
-
-                    <li class="d-flex align-items-center mb-2">
-                        <i class="fa fa-calendar-check fa-lg"></i>
-                        <span class="fw-medium mx-2">Último Vencimiento:</span>
-                        <span><?= format_date($dataEstadoCuenta["ultimoVencimiento"] ?? null) ?></span>
-                    </li>
-
-                    <li class="d-flex align-items-center mb-2">
-                        <i class="fa fa-calendar-check fa-lg"></i>
-                        <span class="fw-medium mx-2">Fecha de Liquidación:</span>
-                        <span><?= format_date($dataEstadoCuenta["fechaLiquidacion"] ?? null) ?></span>
-                    </li>
-
-                    <br>
-
-                    <button type="button"
-                            class="btn btn-outline-primary w-100 d-flex align-items-center justify-content-center gap-2 py-2"
-                            data-bs-toggle="modal" data-bs-target="#modalRFC">
-
-                        <i class="fa fa-id-card fa-lg"></i>
-                        <strong>Ver referencias del cliente</strong>
-
-                    </button>
-
-
-                </ul>
-
             </div>
+            <!-- FIN ACORDEÓN -->
+            
         </div>
     </div>
+</div>
 
     <!-- CONTENIDO PRINCIPAL -->
     <div class="col-xl-8 col-lg-7 order-0 order-lg-1">
@@ -2396,24 +2529,47 @@ if ($cuotasContratadas > 0) {
             });
     }
 
+/* ==========================
+   PERSISTENCIA ACORDEÓN INFO CRÉDITO
+   ========================== */
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+document.addEventListener('DOMContentLoaded', function() {
+    const accordion = document.getElementById('collapseInfoCredito');
+    const accordionButton = document.querySelector('[data-bs-target="#collapseInfoCredito"]');
+    
+    // Recuperar estado del localStorage
+    const accordionState = localStorage.getItem('accordionInfoCredito');
+    
+    // Si estaba abierto, abrirlo
+    if (accordionState === 'open') {
+        // Usar Bootstrap para abrir
+        const bsCollapse = new bootstrap.Collapse(accordion, {
+            toggle: false
+        });
+        bsCollapse.show();
+        
+        // Actualizar clases del botón
+        accordionButton.classList.remove('collapsed');
+        accordionButton.setAttribute('aria-expanded', 'true');
+    }
+    
+    // Escuchar eventos de cambio
+    accordion.addEventListener('show.bs.collapse', function() {
+        localStorage.setItem('accordionInfoCredito', 'open');
+    });
+    
+    accordion.addEventListener('hide.bs.collapse', function() {
+        localStorage.setItem('accordionInfoCredito', 'closed');
+    });
+    
+    // También manejar clics directos en el botón
+    accordionButton.addEventListener('click', function() {
+        setTimeout(() => {
+            const isExpanded = this.getAttribute('aria-expanded') === 'true';
+            localStorage.setItem('accordionInfoCredito', isExpanded ? 'open' : 'closed');
+        }, 100);
+    });
+});
 
 
 </script>
