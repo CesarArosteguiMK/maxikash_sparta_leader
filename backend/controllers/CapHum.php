@@ -72,8 +72,17 @@ class CapHum extends Controller
         };
         
             const getBajas = () => {
+                // Preparar parámetros con filtro de fecha si existe
+                const params = {};
+                if (rangoFechasBajas) {
+                    params.fecha_inicio = rangoFechasBajas.inicio;
+                    params.fecha_fin = rangoFechasBajas.fin;
+                }
+                
                 http.request({
                     endpoint: "/caphum/getBajas",
+                    data: params,
+                    metodo: "POST",
                     onSuccess: (resp) => {
                         // Mapear datos con el nuevo formato de columnas
                         const datos = resp.datos.map(p => {
@@ -82,25 +91,25 @@ class CapHum extends Controller
                             return {
                                 nombres: `
                                     <div class="fw-semibold d-flex align-items-center gap-2">
-                                        <i class="fa fa-hashtag text-primary"></i>
+                                        <i class="fa fa-hashtag" style="font-size: 0.85em; color: #333;"></i>
                                         <span>${p.external_id ?? ''}</span>
                                     </div>
                                     <div class="fw-semibold d-flex align-items-center gap-2 mt-2">
-                                        <i class="fa fa-user text-info"></i>
+                                        <i class="fa fa-user" style="font-size: 0.85em; color: #333;"></i>
                                         <span>${nombreCompleto}</span>
                                     </div>
                                     <div class="text-muted small d-flex align-items-center gap-2 mt-1">
-                                        <i class="fa fa-id-card text-secondary"></i>
+                                        <i class="fa fa-id-card" style="font-size: 0.85em; color: #666;"></i>
                                         <span># ${p.numero_empleado ?? ''}</span>
                                     </div>
                                 `.trim(),
                                 puesto: `
                                     <div class="text-muted small d-flex align-items-center gap-2">
-                                        <i class="fa fa-building text-primary"></i>
+                                        <i class="fa fa-building" style="font-size: 0.85em; color: #333;"></i>
                                         <span>${p.departamento ?? 'N/A'}</span>
                                     </div>
                                     <div class="text-muted small d-flex align-items-center gap-2 mt-1">
-                                        <i class="fa fa-briefcase text-info"></i>
+                                        <i class="fa fa-briefcase" style="font-size: 0.85em; color: #333;"></i>
                                         <span>${p.nombre_puesto ?? 'N/A'}</span>
                                     </div>
                                 `.trim(),
@@ -110,30 +119,25 @@ class CapHum extends Controller
                                         <span>Baja</span>
                                     </div>
                                     <div class="text-muted small d-flex align-items-center gap-2 mt-1">
-                                        <i class="fa fa-calendar text-secondary"></i>
+                                        <i class="fa fa-calendar" style="font-size: 0.85em; color: #666;"></i>
                                         <span>${p.fecha_baja ? new Date(p.fecha_baja).toLocaleDateString('es-MX') : 'N/A'}</span>
                                     </div>
                                     <div class="text-muted small d-flex align-items-center gap-2 mt-1">
-                                        <i class="fa fa-file-alt text-secondary"></i>
+                                        <i class="fa fa-file-alt" style="font-size: 0.85em; color: #666;"></i>
                                         <span>Registro: ${p.registro_baja ?? 'N/A'}</span>
                                     </div>
                                 `.trim(),
                                 motivos: `
                                     <div class="fw-semibold d-flex align-items-center gap-2">
-                                        <i class="fa fa-exclamation-triangle text-warning"></i>
+                                        <i class="fa fa-exclamation-triangle" style="font-size: 0.85em; color: #333;"></i>
                                         <span>${p.motivo ?? 'N/A'}</span>
                                     </div>
                                     <div class="text-muted small d-flex align-items-center gap-2 mt-1">
-                                        <i class="fa fa-clipboard text-secondary"></i>
+                                        <i class="fa fa-clipboard" style="font-size: 0.85em; color: #666;"></i>
                                         <span>${p.descripcion ?? 'Sin descripción'}</span>
                                     </div>
                                 `.trim(),
-                                usuario: `
-                                    <div class="d-flex align-items-center gap-2">
-                                        <i class="fa fa-key text-primary"></i>
-                                        <span>${p.user_name ?? 'N/A'}</span>
-                                    </div>
-                                `.trim(),
+                                usuario: p.user_name ?? 'N/A',
                                 acciones: `
                                     <button class="btn btn-sm btn-primary" onclick="editarBaja(${p.registro_baja ?? ''})" title="Editar">
                                         <i class="fa fa-edit"></i>
@@ -1340,93 +1344,270 @@ class CapHum extends Controller
             });
         };
         
-            const getBajas = () => {
-                http.request({
-                    endpoint: "/caphum/getBajas",
-                    onSuccess: (resp) => {
-                        // Mapear datos con el nuevo formato de columnas
-                        const datos = resp.datos.map(p => {
-                            const nombreCompleto = `${p.nombres ?? ''} ${p.apellidop ?? ''} ${p.apellidom ?? ''}`.trim();
-                            
-                            return {
-                                nombres: `
-                                    <div class="fw-semibold d-flex align-items-center gap-2">
-                                        <i class="fa fa-hashtag text-primary"></i>
-                                        <span>${p.external_id ?? ''}</span>
-                                    </div>
-                                    <div class="fw-semibold d-flex align-items-center gap-2 mt-2">
-                                        <i class="fa fa-user text-info"></i>
-                                        <span>${nombreCompleto}</span>
-                                    </div>
-                                    <div class="text-muted small d-flex align-items-center gap-2 mt-1">
-                                        <i class="fa fa-id-card text-secondary"></i>
-                                        <span># ${p.numero_empleado ?? ''}</span>
-                                    </div>
-                                `.trim(),
-                                puesto: `
-                                    <div class="text-muted small d-flex align-items-center gap-2">
-                                        <i class="fa fa-building text-primary"></i>
-                                        <span>${p.departamento ?? 'N/A'}</span>
-                                    </div>
-                                    <div class="text-muted small d-flex align-items-center gap-2 mt-1">
-                                        <i class="fa fa-briefcase text-info"></i>
-                                        <span>${p.nombre_puesto ?? 'N/A'}</span>
-                                    </div>
-                                `.trim(),
-                                estatus: `
-                                    <div class="fw-semibold text-danger d-flex align-items-center gap-2">
-                                        <i class="fa fa-ban"></i>
-                                        <span>Baja</span>
-                                    </div>
-                                    <div class="text-muted small d-flex align-items-center gap-2 mt-1">
-                                        <i class="fa fa-calendar text-secondary"></i>
-                                        <span>${p.fecha_baja ? new Date(p.fecha_baja).toLocaleDateString('es-MX') : 'N/A'}</span>
-                                    </div>
-                                    <div class="text-muted small d-flex align-items-center gap-2 mt-1">
-                                        <i class="fa fa-file-alt text-secondary"></i>
-                                        <span>Registro: ${p.registro_baja ?? 'N/A'}</span>
-                                    </div>
-                                `.trim(),
-                                motivos: `
-                                    <div class="fw-semibold d-flex align-items-center gap-2">
-                                        <i class="fa fa-exclamation-triangle text-warning"></i>
-                                        <span>${p.motivo ?? 'N/A'}</span>
-                                    </div>
-                                    <div class="text-muted small d-flex align-items-center gap-2 mt-1">
-                                        <i class="fa fa-clipboard text-secondary"></i>
-                                        <span>${p.descripcion ?? 'Sin descripción'}</span>
-                                    </div>
-                                `.trim(),
-                                usuario: `
-                                    <div class="d-flex align-items-center gap-2">
-                                        <i class="fa fa-key text-primary"></i>
-                                        <span>${p.user_name ?? 'N/A'}</span>
-                                    </div>
-                                `.trim(),
-                                acciones: `
-                                    <button class="btn btn-sm btn-primary" onclick="editarBaja(${p.registro_baja ?? ''})" title="Editar">
-                                        <i class="fa fa-edit"></i>
-                                    </button>
-                                `.trim()
-                            };
-                        });
+            // Variable global para almacenar el rango de fechas seleccionado
+            let rangoFechasBajas = null;
             
-                        // Actualizar DataTable
-                        const tabla = $('#historialUsuarios').DataTable();
-                        tabla.clear().rows.add(datos).draw();
+            const getBajas = () => {
+                // Preparar parámetros con filtro de fecha si existe
+                const params = {};
+                if (rangoFechasBajas) {
+                    params.fecha_inicio = rangoFechasBajas.inicio;
+                    params.fecha_fin = rangoFechasBajas.fin;
+                }
+                
+                console.log('Enviando parámetros de fecha:', params);
+                
+                // Enviar como JSON usando fetch directamente
+                fetch('/caphum/getBajas', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
                     },
-                    onError: (err) => {
-                        console.error('Error al cargar bajas:', err);
-                        Swal.fire("Error", "No se pudieron cargar las bajas", "error");
+                    body: JSON.stringify(params)
+                })
+                .then(res => {
+                    if (!res.ok) {
+                        return res.text().then(text => {
+                            console.error('Error HTTP:', res.status, text);
+                            throw new Error(`HTTP error! status: ${res.status}`);
+                        });
                     }
+                    return res.json();
+                })
+                .then(resp => {
+                    console.log('Respuesta recibida:', resp);
+                    
+                    // Si la respuesta no tiene success o es false, mostrar error
+                    if (!resp || resp.success === false) {
+                        const mensajeError = resp?.mensaje || resp?.error || "No se pudieron cargar las bajas";
+                        console.error('Error en respuesta:', mensajeError);
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error',
+                            text: mensajeError,
+                            confirmButtonText: 'Aceptar'
+                        });
+                        return;
+                    }
+                    
+                    // Verificar que resp.datos existe y es un array
+                    if (!resp.datos || !Array.isArray(resp.datos)) {
+                        console.error('resp.datos no es un array:', resp.datos);
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error',
+                            text: "Formato de respuesta inválido",
+                            confirmButtonText: 'Aceptar'
+                        });
+                        return;
+                    }
+                    
+                    // Mapear datos con el nuevo formato de columnas
+                    const datos = resp.datos.map(p => {
+                        const nombreCompleto = `${p.nombres ?? ''} ${p.apellidop ?? ''} ${p.apellidom ?? ''}`.trim();
+                        
+                        return {
+                            nombres: `
+                                <div class="fw-semibold d-flex align-items-center gap-2">
+                                    <i class="fa fa-hashtag" style="font-size: 0.85em; color: #333;"></i>
+                                    <span>${p.external_id ?? ''}</span>
+                                </div>
+                                <div class="fw-semibold d-flex align-items-center gap-2 mt-2">
+                                    <i class="fa fa-user" style="font-size: 0.85em; color: #333;"></i>
+                                    <span>${nombreCompleto}</span>
+                                </div>
+                                <div class="text-muted small d-flex align-items-center gap-2 mt-1">
+                                    <i class="fa fa-id-card" style="font-size: 0.85em; color: #666;"></i>
+                                    <span># ${p.numero_empleado ?? ''}</span>
+                                </div>
+                            `.trim(),
+                            puesto: `
+                                <div class="text-muted small d-flex align-items-center gap-2">
+                                    <i class="fa fa-building" style="font-size: 0.85em; color: #333;"></i>
+                                    <span>${p.departamento ?? 'N/A'}</span>
+                                </div>
+                                <div class="text-muted small d-flex align-items-center gap-2 mt-1">
+                                    <i class="fa fa-briefcase" style="font-size: 0.85em; color: #333;"></i>
+                                    <span>${p.nombre_puesto ?? 'N/A'}</span>
+                                </div>
+                            `.trim(),
+                            estatus: `
+                                <div class="fw-semibold text-danger d-flex align-items-center gap-2">
+                                    <i class="fa fa-ban"></i>
+                                    <span>Baja</span>
+                                </div>
+                                <div class="text-muted small d-flex align-items-center gap-2 mt-1">
+                                    <i class="fa fa-calendar" style="font-size: 0.85em; color: #666;"></i>
+                                    <span>${p.fecha_baja ? new Date(p.fecha_baja).toLocaleDateString('es-MX') : 'N/A'}</span>
+                                </div>
+                                <div class="text-muted small d-flex align-items-center gap-2 mt-1">
+                                    <i class="fa fa-file-alt" style="font-size: 0.85em; color: #666;"></i>
+                                    <span>Registro: ${p.registro_baja ?? 'N/A'}</span>
+                                </div>
+                            `.trim(),
+                            motivos: `
+                                <div class="fw-semibold d-flex align-items-center gap-2">
+                                    <i class="fa fa-exclamation-triangle" style="font-size: 0.85em; color: #333;"></i>
+                                    <span>${p.motivo ?? 'N/A'}</span>
+                                </div>
+                                <div class="text-muted small d-flex align-items-center gap-2 mt-1">
+                                    <i class="fa fa-clipboard" style="font-size: 0.85em; color: #666;"></i>
+                                    <span>${p.descripcion ?? 'Sin descripción'}</span>
+                                </div>
+                            `.trim(),
+                            usuario: p.user_name ?? 'N/A',
+                            acciones: `
+                                <button class="btn btn-sm btn-primary" onclick="editarBaja(${p.registro_baja ?? ''})" title="Editar">
+                                    <i class="fa fa-edit"></i>
+                                </button>
+                            `.trim()
+                        };
+                    });
+        
+                    // Actualizar DataTable
+                    const tabla = $('#historialUsuarios').DataTable();
+                    if (tabla) {
+                        tabla.clear();
+                        if (datos.length > 0) {
+                            tabla.rows.add(datos).draw();
+                        } else {
+                            tabla.draw();
+                            Swal.fire({
+                                icon: 'info',
+                                title: 'Sin resultados',
+                                text: 'No se encontraron bajas en el rango de fechas seleccionado',
+                                timer: 2000,
+                                showConfirmButton: false
+                            });
+                        }
+                    }
+                })
+                .catch(err => {
+                    console.error('Error al cargar bajas:', err);
+                    Swal.fire("Error", "No se pudieron cargar las bajas: " + err.message, "error");
                 });
             };
+            
+            // Función para limpiar el filtro de fecha
+            function limpiarFiltroBajas() {
+                // Limpiar la variable global
+                rangoFechasBajas = null;
+                
+                // Limpiar el input de flatpickr
+                const flatpickrInput = document.getElementById('flatpickr-range-bajas');
+                if (flatpickrInput) {
+                    if (flatpickrInput._flatpickr) {
+                        flatpickrInput._flatpickr.clear();
+                    }
+                    // También limpiar el valor del input directamente
+                    flatpickrInput.value = '';
+                }
+                
+                console.log('Filtro limpiado, recargando todas las bajas...');
+                // Recargar todas las bajas sin filtro
+                getBajas();
+            }
+            
+            // Función para descargar las bajas en Excel
+            function descargarBajasExcel() {
+                // Preparar parámetros con filtro de fecha si existe (igual que getBajas)
+                const params = {};
+                if (rangoFechasBajas) {
+                    params.fecha_inicio = rangoFechasBajas.inicio;
+                    params.fecha_fin = rangoFechasBajas.fin;
+                }
+                
+                // Construir URL con parámetros
+                let url = '/caphum/descargarBajasExcel';
+                const queryParams = new URLSearchParams();
+                if (params.fecha_inicio) queryParams.append('fecha_inicio', params.fecha_inicio);
+                if (params.fecha_fin) queryParams.append('fecha_fin', params.fecha_fin);
+                
+                if (queryParams.toString()) {
+                    url += '?' + queryParams.toString();
+                }
+                
+                // Mostrar mensaje de carga
+                Swal.fire({
+                    title: 'Generando Excel...',
+                    text: 'Por favor espera mientras se genera el archivo',
+                    allowOutsideClick: false,
+                    didOpen: () => {
+                        Swal.showLoading();
+                    }
+                });
+                
+                // Descargar el archivo
+                window.location.href = url;
+                
+                // Cerrar el mensaje después de un momento
+                setTimeout(() => {
+                    Swal.close();
+                }, 2000);
+            }
             
             // Función para inicializar vista de bajas
             function inicializarBajas() {
                 // Ocultar filtros y botón agregar
                 $('.card-header.border-bottom').hide();
                 $('.row.justify-content-between.m-4').hide();
+                
+                // Mostrar filtro de fecha
+                $('#filtroFechaBajas').show();
+                
+                // Inicializar flatpickr para rango de fechas
+                const flatpickrInput = document.getElementById('flatpickr-range-bajas');
+                if (flatpickrInput && typeof flatpickr !== 'undefined') {
+                    // Obtener fecha de hoy para limitar el máximo
+                    const hoy = new Date();
+                    hoy.setHours(23, 59, 59, 999); // Fin del día de hoy
+                    
+                    flatpickr(flatpickrInput, {
+                        mode: 'range',
+                        dateFormat: 'Y-m-d',
+                        maxDate: hoy, // No permitir fechas futuras
+                        locale: {
+                            firstDayOfWeek: 1,
+                            weekdays: {
+                                shorthand: ['Do', 'Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sa'],
+                                longhand: ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado']
+                            },
+                            months: {
+                                shorthand: ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'],
+                                longhand: ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
+                            }
+                        },
+                        onChange: function(selectedDates, dateStr, instance) {
+                            if (selectedDates.length === 2) {
+                                rangoFechasBajas = {
+                                    inicio: selectedDates[0].toISOString().split('T')[0],
+                                    fin: selectedDates[1].toISOString().split('T')[0]
+                                };
+                                console.log('Rango de fechas seleccionado:', rangoFechasBajas);
+                                // Recargar datos con el filtro de fecha
+                                getBajas();
+                            } else if (selectedDates.length === 0) {
+                                rangoFechasBajas = null;
+                                console.log('Filtro de fecha limpiado');
+                                // Recargar datos sin filtro
+                                getBajas();
+                            }
+                        }
+                    });
+                }
+                
+                // Agregar evento al botón limpiar
+                const btnLimpiar = document.getElementById('btnLimpiarFiltroBajas');
+                if (btnLimpiar) {
+                    btnLimpiar.addEventListener('click', limpiarFiltroBajas);
+                }
+                
+                // Agregar evento al botón descargar
+                const btnDescargar = document.getElementById('btnDescargarBajas');
+                if (btnDescargar) {
+                    btnDescargar.addEventListener('click', descargarBajasExcel);
+                }
                 
                 // Inicializar DataTable con las nuevas columnas
                 const tabla = configuraTabla("#historialUsuarios", { 
@@ -1517,32 +1698,195 @@ class CapHum extends Controller
 
     public function getBajas()
     {
-        $resultado = CapHumDAO::getConsultaBajas();
-        $bajas = $resultado['datos'] ?? [];
+        try {
+            // Obtener parámetros de fecha del POST
+            $input = json_decode(file_get_contents("php://input"), true);
+            $fecha_inicio = $input['fecha_inicio'] ?? null;
+            $fecha_fin = $input['fecha_fin'] ?? null;
+            
+            // Validar formato de fechas si se proporcionan
+            if ($fecha_inicio && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha_inicio)) {
+                self::respuestaJSON([
+                    'success' => false,
+                    'mensaje' => 'Formato de fecha de inicio inválido'
+                ]);
+                return;
+            }
+            
+            if ($fecha_fin && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha_fin)) {
+                self::respuestaJSON([
+                    'success' => false,
+                    'mensaje' => 'Formato de fecha de fin inválido'
+                ]);
+                return;
+            }
+            
+            $resultado = CapHumDAO::getConsultaBajas($fecha_inicio, $fecha_fin);
+            
+            // Verificar si hubo error en el DAO
+            if (!$resultado) {
+                self::respuestaJSON([
+                    'success' => false,
+                    'mensaje' => 'Error al consultar las bajas: respuesta vacía del modelo',
+                    'datos' => []
+                ]);
+                return;
+            }
+            
+            // El método resultado devuelve ['success' => bool, 'mensaje' => string, 'datos' => array]
+            if (!isset($resultado['success']) || $resultado['success'] === false) {
+                self::respuestaJSON([
+                    'success' => false,
+                    'mensaje' => $resultado['mensaje'] ?? 'Error al consultar las bajas',
+                    'error' => $resultado['error'] ?? null,
+                    'datos' => []
+                ]);
+                return;
+            }
+            
+            $bajas = $resultado['datos'] ?? [];
 
-        // Preparar array compatible con frontend con todos los nuevos campos
-        $datos = array_map(function($p) {
-            return [
-                'nombres' => $p['nombres'] ?? '',
-                'apellidop' => $p['apellidop'] ?? '',
-                'apellidom' => $p['apellidom'] ?? '',
-                'numero_empleado' => $p['numero_empleado'] ?? '',
-                'external_id' => $p['external_id'] ?? '',
-                'departamento' => $p['departamento'] ?? '',
-                'nombre_puesto' => $p['nombre_puesto'] ?? '',
-                'fecha_baja' => $p['fecha_baja'] ?? '',
-                'registro_baja' => $p['registro_baja'] ?? '',
-                'motivo' => $p['motivo'] ?? '',
-                'descripcion' => $p['descripcion'] ?? '',
-                'user_name' => $p['user_name'] ?? '',
+            // Preparar array compatible con frontend con todos los nuevos campos
+            $datos = [];
+            if (is_array($bajas) && count($bajas) > 0) {
+                $datos = array_map(function($p) {
+                    return [
+                        'nombres' => $p['nombres'] ?? '',
+                        'apellidop' => $p['apellidop'] ?? '',
+                        'apellidom' => $p['apellidom'] ?? '',
+                        'numero_empleado' => $p['numero_empleado'] ?? '',
+                        'external_id' => $p['external_id'] ?? '',
+                        'departamento' => $p['departamento'] ?? '',
+                        'nombre_puesto' => $p['nombre_puesto'] ?? '',
+                        'fecha_baja' => $p['fecha_baja'] ?? '',
+                        'registro_baja' => $p['registro_baja'] ?? '',
+                        'motivo' => $p['motivo'] ?? '',
+                        'descripcion' => $p['descripcion'] ?? '',
+                        'user_name' => $p['user_name'] ?? '',
+                    ];
+                }, $bajas);
+            }
+
+            // Usar respuestaJSON para enviar el JSON correctamente
+            self::respuestaJSON([
+                'success' => true,
+                'datos' => $datos,
+                'mensaje' => count($datos) > 0 ? 'Bajas encontradas' : 'No se encontraron bajas en el rango seleccionado'
+            ]);
+        } catch (\Exception $e) {
+            error_log('Error en getBajas: ' . $e->getMessage());
+            error_log('Stack trace: ' . $e->getTraceAsString());
+            self::respuestaJSON([
+                'success' => false,
+                'mensaje' => 'Error al procesar la solicitud: ' . $e->getMessage(),
+                'error' => $e->getMessage(),
+                'datos' => []
+            ]);
+        }
+    }
+
+    public function descargarBajasExcel()
+    {
+        // Limpiar buffer para evitar que cualquier eco previo rompa el Excel
+        while (ob_get_level()) {
+            ob_end_clean();
+        }
+        
+        try {
+            // Obtener parámetros de fecha del GET
+            $fecha_inicio = $_GET['fecha_inicio'] ?? null;
+            $fecha_fin = $_GET['fecha_fin'] ?? null;
+            
+            // Validar formato de fechas si se proporcionan
+            if ($fecha_inicio && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha_inicio)) {
+                die('Formato de fecha de inicio inválido');
+            }
+            
+            if ($fecha_fin && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha_fin)) {
+                die('Formato de fecha de fin inválido');
+            }
+            
+            // Obtener las bajas con los mismos filtros
+            $resultado = CapHumDAO::getConsultaBajas($fecha_inicio, $fecha_fin);
+            
+            // Verificar si hubo error
+            if (!$resultado || !isset($resultado['success']) || !$resultado['success']) {
+                die('Error al obtener las bajas: ' . ($resultado['mensaje'] ?? 'Error desconocido'));
+            }
+            
+            $bajas = $resultado['datos'] ?? [];
+            
+            if (empty($bajas)) {
+                die('No hay bajas para descargar');
+            }
+            
+            // Preparar datos para Excel
+            $data = [];
+            foreach ($bajas as $baja) {
+                $nombreCompleto = trim(($baja['nombres'] ?? '') . ' ' . ($baja['apellidop'] ?? '') . ' ' . ($baja['apellidom'] ?? ''));
+                $fechaBaja = $baja['fecha_baja'] ?? '';
+                if ($fechaBaja) {
+                    try {
+                        $fechaBaja = date('d/m/Y', strtotime($fechaBaja));
+                    } catch (\Exception $e) {
+                        // Mantener el formato original si hay error
+                    }
+                }
+                
+                $data[] = [
+                    'external_id' => $baja['external_id'] ?? '',
+                    'numero_empleado' => $baja['numero_empleado'] ?? '',
+                    'nombre_completo' => $nombreCompleto,
+                    'departamento' => $baja['departamento'] ?? 'N/A',
+                    'nombre_puesto' => $baja['nombre_puesto'] ?? 'N/A',
+                    'fecha_baja' => $fechaBaja,
+                    'registro_baja' => $baja['registro_baja'] ?? '',
+                    'motivo' => $baja['motivo'] ?? 'N/A',
+                    'descripcion' => $baja['descripcion'] ?? 'Sin descripción',
+                    'user_name' => $baja['user_name'] ?? 'N/A'
+                ];
+            }
+            
+            // Definir columnas para Excel
+            $columnas = [
+                \PHPSpreadsheet::ColumnaExcel('external_id', 'ID EXTERNO'),
+                \PHPSpreadsheet::ColumnaExcel('numero_empleado', 'NÚMERO DE EMPLEADO'),
+                \PHPSpreadsheet::ColumnaExcel('nombre_completo', 'NOMBRE COMPLETO'),
+                \PHPSpreadsheet::ColumnaExcel('departamento', 'DEPARTAMENTO'),
+                \PHPSpreadsheet::ColumnaExcel('nombre_puesto', 'PUESTO'),
+                \PHPSpreadsheet::ColumnaExcel('fecha_baja', 'FECHA DE BAJA'),
+                \PHPSpreadsheet::ColumnaExcel('registro_baja', 'REGISTRO DE BAJA'),
+                \PHPSpreadsheet::ColumnaExcel('motivo', 'MOTIVO'),
+                \PHPSpreadsheet::ColumnaExcel('descripcion', 'DESCRIPCIÓN'),
+                \PHPSpreadsheet::ColumnaExcel('user_name', 'USUARIO')
             ];
-        }, $bajas);
-
-        // Usar respuestaJSON para enviar el JSON correctamente
-        self::respuestaJSON([
-            'success' => true,
-            'datos' => $datos
-        ]);
+            
+            // Generar nombre del archivo
+            $nombreArchivo = 'Bajas';
+            if ($fecha_inicio && $fecha_fin) {
+                $nombreArchivo .= '_' . $fecha_inicio . '_a_' . $fecha_fin;
+            } elseif ($fecha_inicio) {
+                $nombreArchivo .= '_desde_' . $fecha_inicio;
+            } elseif ($fecha_fin) {
+                $nombreArchivo .= '_hasta_' . $fecha_fin;
+            }
+            $nombreArchivo .= '_' . date('Y-m-d');
+            
+            // Descargar Excel directamente
+            \PHPSpreadsheet::DescargaExcel(
+                $nombreArchivo,
+                "Bajas de Personal",
+                "Bajas",
+                $columnas,
+                $data
+            );
+            
+            // Terminar ejecución para que no se agregue nada extra
+            exit;
+        } catch (\Exception $e) {
+            error_log('Error en descargarBajasExcel: ' . $e->getMessage());
+            die('Error al generar el archivo Excel: ' . $e->getMessage());
+        }
     }
 
     public function getAusenciasPersona()

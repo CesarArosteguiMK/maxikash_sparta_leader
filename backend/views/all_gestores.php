@@ -58,6 +58,26 @@
         </div>
 
         <!-- =======================
+             FILTRO DE FECHA (solo para bajas)
+        ======================== -->
+        <div id="filtroFechaBajas" class="row mb-3 mx-4" style="display: none;">
+            <div class="col-md-8 col-12">
+                <label for="flatpickr-range-bajas" class="form-label">Filtrar por fecha de baja</label>
+                <div class="d-flex gap-2 align-items-end">
+                    <div class="flatpickr-wrapper flex-grow-1">
+                        <input type="text" class="form-control flatpickr-input" placeholder="Selecciona rango de fechas" id="flatpickr-range-bajas" readonly="readonly">
+                    </div>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" id="btnLimpiarFiltroBajas" title="Limpiar filtro">
+                        <i class="fa fa-times me-1"></i> Limpiar
+                    </button>
+                    <button type="button" class="btn btn-success btn-sm" id="btnDescargarBajas" title="Descargar Excel">
+                        <i class="fa fa-download me-1"></i> Descargar Excel
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- =======================
              TABLA
         ======================== -->
         <div class="card-datatable table-responsive">
@@ -770,7 +790,7 @@
 
   /**
    * ==========================================
-   * ACTUALIZAR TABLA CON DATOS FILTRADOS
+   * ACTUALIZAR TABLA CON DATOS FILTRADOSF
    * ==========================================
    */
   function actualizarTabla(datos) {
