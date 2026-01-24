@@ -412,30 +412,81 @@
             <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
         </div>
 
-        <div class="offcanvas-body p-6">
-            <form id="editNewUserFormPerfil" onsubmit="return false">
+        <div class="offcanvas-body p-4">
 
-                <div class="mb-2" style="display: none">
-                    <label class="form-label">Id Empleado *</label>
-                    <input ype="text" id="edit_perfil_id" class="form-control phone-mask"disabled>
-                </div>
+            <!-- CONTENEDOR GENERAL -->
+            <div class="container-fluid">
 
+                <!-- TABS -->
+                <ul class="nav nav-pills mb-4" role="tablist">
+                    <li class="nav-item">
+                        <button class="nav-link active"
+                                data-bs-toggle="pill"
+                                data-bs-target="#tab-perfil"
+                                type="button">
+                            Perfil
+                        </button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link"
+                                data-bs-toggle="pill"
+                                data-bs-target="#tab-modulos"
+                                type="button">
+                            Módulos
+                        </button>
+                    </li>
+                </ul>
 
-                <div class="mb-2">
-                    <label class="form-label">Nombres *</label>
-                    <input type="text" id="edit_perfil_nombres" class="form-control" readonly>
-                </div>
+                <!-- CONTENIDO DE TABS -->
+                <div class="tab-content">
 
-                <div id="modulos-container">
-                    <label class="form-label">Selleciona los accesos *</label>
-                    <div id="modulos-form">
-                        <!-- Los checkboxes se generarán aquí con JS -->
+                    <!-- TAB PERFIL -->
+                    <div class="tab-pane fade show active" id="tab-perfil">
+                        <form id="editNewUserFormPerfil" onsubmit="return false">
+
+                            <div class="mb-2 d-none">
+                                <label class="form-label">Id Empleado *</label>
+                                <input type="text" id="edit_perfil_id"
+                                       class="form-control" disabled>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">Nombres *</label>
+                                <input type="text" id="edit_perfil_nombres"
+                                       class="form-control" readonly>
+                            </div>
+
+                        </form>
                     </div>
+
+                    <!-- TAB MÓDULOS -->
+                    <div class="tab-pane fade" id="tab-modulos">
+
+                        <div class="card">
+                            <div class="card-header">
+                                <h6 class="mb-0">Accesos del usuario</h6>
+                                <small class="text-muted">
+                                    Selecciona los módulos permitidos
+                                </small>
+                            </div>
+
+                            <div class="card-body">
+                                <div id="modulos-container">
+                                    <div id="modulos-form">
+                                        <!-- Checkboxes generados por JS -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+
                 </div>
-                <br>
-            </form>
+            </div>
+
         </div>
     </div>
+
 
 </div>
 
