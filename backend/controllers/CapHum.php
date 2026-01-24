@@ -1576,7 +1576,8 @@ class CapHum extends Controller
                             months: {
                                 shorthand: ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'],
                                 longhand: ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
-                            }
+                            },
+                            rangeSeparator: ' a '
                         },
                         onChange: function(selectedDates, dateStr, instance) {
                             if (selectedDates.length === 2) {
@@ -1622,6 +1623,8 @@ class CapHum extends Controller
                         { data: 'acciones', title: 'Acciones', orderable: false }
                     ]
                 });
+                
+                // Buscador de nombres desactivado por ahora
                 
                 // Asegurar que el select muestre el valor correcto después de la inicialización
                 tabla.on('draw.dt', function() {

@@ -64,6 +64,7 @@ if ($cuotasContratadas > 0) {
 ?>
 
 <style>
+    
     /* ==========================
    GLOBAL
    ========================== */
@@ -173,16 +174,21 @@ if ($cuotasContratadas > 0) {
     }
 
     /* ==========================
-   CORRECCIÓN MÓVIL - INFO COMPACT (ALINEACIÓN PERFECTA)
+   INFORMACIÓN DEL CRÉDITO - VERSIÓN UNIFICADA (GRID)
    ========================== */
 
-   /* Para todas las resoluciones, mejor alineación */
+   /* Base para todos los dispositivos */
+   .sidebar-cliente .info-compact {
+       margin: 0.75rem 0;
+   }
+
    .sidebar-cliente .info-compact li {
        display: grid;
        grid-template-columns: auto 1fr;
        align-items: center;
        gap: 0.5rem;
        margin-bottom: 0.5rem;
+       padding: 0.25rem 0;
    }
 
    .sidebar-cliente .info-compact i.fa-lg {
@@ -190,6 +196,7 @@ if ($cuotasContratadas > 0) {
        text-align: center;
        font-size: 0.9rem;
        color: #6c757d;
+       width: 1.2rem;
    }
 
    .sidebar-cliente .info-compact .info-label {
@@ -198,12 +205,14 @@ if ($cuotasContratadas > 0) {
        justify-content: space-between;
        align-items: center;
        width: 100%;
+       min-height: 1.5rem;
    }
 
    .sidebar-cliente .info-compact .info-label span:first-child {
        font-weight: 500;
        color: #495057;
        white-space: nowrap;
+       font-size: 0.85rem;
    }
 
    .sidebar-cliente .info-compact .info-label span:last-child {
@@ -212,32 +221,15 @@ if ($cuotasContratadas > 0) {
        text-align: right;
        padding-left: 1rem;
        white-space: nowrap;
+       font-size: 0.85rem;
+       min-width: max-content;
    }
 
-   /* Responsive adjustments */
-   @media (max-width: 768px) {
-    .sidebar-cliente .info-compact li {
-        grid-template-columns: 1.2rem 1fr;
-        gap: 0.4rem;
-        margin-bottom: 0.6rem;
-    }
-    
-    .sidebar-cliente .info-compact i.fa-lg {
-        font-size: 0.85rem;
-    }
-    
-    .sidebar-cliente .info-compact .info-label span:first-child {
-        font-size: 0.8rem;
-        text-align: left;
-    }
-    
-    .sidebar-cliente .info-compact .info-label span:last-child {
-        font-size: 0.85rem;
-        padding-left: 0.5rem;
-        text-align: right !important;
-    }
-}
+   /* ==========================
+      RESPONSIVE - INFO COMPACT
+   ========================== */
 
+   /* Tablet */
    @media (max-width: 768px) {
        .sidebar-cliente .info-compact li {
            grid-template-columns: 1.2rem 1fr;
@@ -251,17 +243,15 @@ if ($cuotasContratadas > 0) {
        
        .sidebar-cliente .info-compact .info-label span:first-child {
            font-size: 0.8rem;
-           text-align: left;
        }
        
        .sidebar-cliente .info-compact .info-label span:last-child {
            font-size: 0.85rem;
-           padding-left: 0.5rem;
-           text-align: right !important;
+           padding-left: 0.75rem;
        }
    }
 
-   /* Para móviles muy pequeños */
+   /* Móviles pequeños */
    @media (max-width: 400px) {
        .sidebar-cliente .info-compact li {
            grid-template-columns: 1rem 1fr;
@@ -282,86 +272,24 @@ if ($cuotasContratadas > 0) {
            text-align: left;
            padding-left: 0;
            width: 100%;
-       }
-   }
-
-   /* Si prefieres mantener el HTML existente, usa esta versión alternativa: */
-   @media (max-width: 768px) {
-       .sidebar-cliente .info-compact li.d-flex {
-           display: grid !important;
-           grid-template-columns: 1.2rem auto 1fr;
-           align-items: center;
-           gap: 0.5rem;
-           margin-bottom: 0.6rem;
-       }
-       
-       .sidebar-cliente .info-compact li.d-flex i.fa-lg {
-           grid-column: 1;
-           font-size: 0.85rem !important;
-           text-align: center;
-           margin: 0 !important;
-       }
-       
-       .sidebar-cliente .info-compact li.d-flex .fw-medium {
-           grid-column: 2;
-           white-space: nowrap;
            font-size: 0.8rem;
-           margin: 0 !important;
-           text-align: left;
-           min-width: 140px;
-       }
-       
-       .sidebar-cliente .info-compact li.d-flex span:last-child:not(.fw-medium) {
-           grid-column: 3;
-           text-align: right !important;
-           white-space: nowrap;
-           font-weight: 600;
-           font-size: 0.85rem;
-           margin: 0 !important;
-           padding-left: 0.5rem;
        }
    }
-
-    /* 4. INFORMACIÓN DEL CRÉDITO (lista escalable) - REEMPLAZADO CON LO DE ARRIBA */
-    .sidebar-cliente .info-compact {
-        margin: 0.5rem 0;
-    }
-
-    .sidebar-cliente .info-compact li {
-        margin-bottom: 0.5rem;
-        align-items: flex-start;
-        flex-wrap: wrap;
-    }
-
-    .sidebar-cliente .info-compact i.fa-lg {
-        font-size: 1rem !important;
-        margin-top: 0.1rem;
-        min-width: 1.2rem;
-    }
-
-    .sidebar-cliente .info-compact span {
-        font-size: 0.85rem;
-        line-height: 1.3;
-        margin: 0 0.4rem;
-    }
-
-    .sidebar-cliente .info-compact span:last-child {
-        flex: 1;
-        text-align: right;
-        min-width: 0;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
 
     /* 5. BOTÓN REFERENCIAS */
     .sidebar-cliente .btn-outline-primary {
-        padding: 0.5rem 0.75rem;
+        padding: 0.6rem 1.25rem !important;
         font-size: 0.85rem;
-        margin-top: 0.5rem;
+        margin: 0.75rem 0.5rem !important;
+        border-radius: 8px;
+        border-width: 1.5px;
+        width: calc(100% - 1rem) !important;
+        box-sizing: border-box;
     }
 
     .sidebar-cliente .btn-outline-primary i {
-        font-size: 0.9rem;
+        font-size: 0.95rem;
+        margin-right: 0.5rem;
     }
 
     /* ==========================
@@ -383,7 +311,8 @@ if ($cuotasContratadas > 0) {
             font-size: 0.95rem;
         }
         
-        .sidebar-cliente .info-compact span {
+        .sidebar-cliente .info-compact .info-label span:first-child,
+        .sidebar-cliente .info-compact .info-label span:last-child {
             font-size: 0.8rem;
         }
         
@@ -415,12 +344,13 @@ if ($cuotasContratadas > 0) {
             margin-bottom: 0.4rem;
         }
         
-        .sidebar-cliente .info-compact span {
+        .sidebar-cliente .info-compact .info-label span:first-child,
+        .sidebar-cliente .info-compact .info-label span:last-child {
             font-size: 0.75rem;
         }
         
         .sidebar-cliente .info-compact i.fa-lg {
-            font-size: 0.9rem !important;
+            font-size: 0.85rem !important;
         }
         
         .sidebar-cliente .d-flex.justify-content-between.my-3 h5 {
@@ -429,7 +359,7 @@ if ($cuotasContratadas > 0) {
         
         .sidebar-cliente .btn-outline-primary {
             font-size: 0.8rem;
-            padding: 0.4rem 0.6rem;
+            padding: 0.5rem 1rem !important;
         }
     }
 
@@ -449,26 +379,12 @@ if ($cuotasContratadas > 0) {
         .sidebar-cliente .d-flex.justify-content-between.my-3 > div {
             flex: 1 1 100%;
         }
-        
-        /* Mantener alineación horizontal incluso en zoom alto */
-        .sidebar-cliente .info-compact li {
-            flex-direction: row !important;
-            align-items: center !important;
-        }
-        
-        .sidebar-cliente .info-compact span:last-child {
-            text-align: right !important;
-            width: auto !important;
-        }
     }
 
-
     /* ==========================
-   CORRECCIÓN MÓVIL - INFO COMPACT
+       CORRECCIÓN MÓVIL - SIDEBAR GENERAL
    ========================== */
-   
 
-    /* Mobile específico para sidebar */
     @media (max-width: 768px) {
         .sidebar-cliente .card-body {
             padding: 0.75rem !important;
@@ -488,7 +404,35 @@ if ($cuotasContratadas > 0) {
             flex-direction: column;
             gap: 0.5rem;
         }
+        
+        .sidebar-cliente .btn-outline-primary {
+            padding: 0.5rem 1rem !important;
+            margin: 0.5rem 0.25rem !important;
+            width: calc(100% - 0.5rem) !important;
+        }
     }
+
+    /* ==========================
+       ASEGURAR VISIBILIDAD BOTONES HEADER
+   ========================== */
+   
+   /* MOD: Asegurar que los botones del header sean visibles */
+   .col-xl-8.col-lg-7 .d-flex.justify-content-between.align-items-center.mb-3 > .d-flex.gap-2 {
+       display: flex !important;
+       visibility: visible !important;
+       opacity: 1 !important;
+   }
+   
+   .btn-dictaminar,
+   .btn-condonar,
+   .btn-notas {
+       display: flex !important;
+       visibility: visible !important;
+   }
+   
+   .btn-outline-secondary {
+       display: inline-flex !important;
+   }
 
     /* ==========================
        TABLA ESTILOS
@@ -603,14 +547,12 @@ if ($cuotasContratadas > 0) {
 
     @media (min-width: 1400px) and (max-width: 1599px) and (max-height: 900px) {
 
-        .sidebar-cliente .info-compact,
-        .sidebar-cliente .info-compact span,
-        .sidebar-cliente .info-compact li {
+        .sidebar-cliente .info-compact .info-label span:first-child,
+        .sidebar-cliente .info-compact .info-label span:last-child {
             font-size: 0.72rem !important;
-            line-height: 1.1rem;
         }
 
-        .sidebar-cliente .info-compact i {
+        .sidebar-cliente .info-compact i.fa-lg {
             font-size: 0.85rem !important;
         }
 
@@ -861,424 +803,402 @@ if ($cuotasContratadas > 0) {
         opacity: 0.5 !important;
     }
 
-    @media (max-width: 576px) and (max-height: 900px) {
-    /* Asegurar que el sidebar esté arriba */
-    .sidebar-cliente {
-        order: -1 !important;
-        margin-bottom: 1rem;
-    }
-    
-    /* El contenido principal abajo */
-    .col-xl-8.col-lg-7 {
-        order: 1 !important;
-    }
-    
-    /* Reducir márgenes verticales */
-    .row {
-        margin-bottom: 0.5rem;
-    }
-    
-    /* Ajustar card del sidebar */
-    .sidebar-cliente .card {
-        margin-bottom: 0.75rem !important;
-    }
-    
-    /* Badges en una sola línea */
-    .badge-container-ids {
-        flex-direction: row !important;
-        gap: 0.5rem;
-    }
-    
-    .badge-container-ids .badge {
-        flex: 1 1 calc(50% - 0.5rem);
-        max-width: calc(50% - 0.5rem);
-        font-size: 0.65rem !important;
-        padding: 0.35em 0.5em !important;
-    }
-    
-    /* Header del lado derecho más compacto */
-    .col-xl-8.col-lg-7 .d-flex.justify-content-between.align-items-center.mb-3 {
-        flex-direction: column;
-        align-items: flex-start;
-        margin-bottom: 0.75rem !important;
-    }
-    
-    .col-xl-8.col-lg-7 .d-flex.justify-content-between.align-items-center.mb-3 h5 {
-        font-size: 0.85rem;
-        margin-bottom: 0.5rem;
-        width: 100%;
-    }
-    
-    /* Botones más pequeños */
-    .btn-notas, .btn-condonar, .btn-dictaminar {
-        width: 32px !important;
-        height: 32px !important;
-    }
-    
-    .btn-notas i, .btn-condonar i, .btn-dictaminar i {
-        font-size: 0.8rem !important;
-    }
-    
-    /* Métricas en 2 columnas */
-    .col-xl-8.col-lg-7 .d-flex.justify-content-around.flex-wrap.my-6 > div {
-        flex: 1 1 calc(50% - 0.5rem);
-        margin-bottom: 0.5rem;
-        gap: 0.5rem;
-    }
-    
-    .col-xl-8.col-lg-7 .d-flex.justify-content-around.flex-wrap.my-6 h5 {
-        font-size: 0.8rem;
-    }
-    
-    .col-xl-8.col-lg-7 .d-flex.justify-content-around.flex-wrap.my-6 span {
-        font-size: 0.7rem;
-    }
-    
-    /* Tabla más compacta */
-    .tabla-scrollable {
-        margin-top: 0.5rem;
-    }
-    
-    .cuotas-table td,
-    .cuotas-table th {
-        font-size: 0.6rem !important;
-        padding: 0.3rem !important;
-    }
-    
-    .cuotas-table .badge {
-        font-size: 0.55rem !important;
-        padding: 0.2em 0.3em !important;
-    }
-}
+    /* ==========================
+       MÓVIL VERTICAL - ORDEN CORRECTO
+   ========================== */
+   @media (max-width: 576px) {
+       .sidebar-cliente {
+           order: -1 !important;
+           margin-bottom: 1rem;
+       }
+       
+       .col-xl-8.col-lg-7 {
+           order: 1 !important;
+       }
+       
+       .row {
+           margin-bottom: 0.5rem;
+       }
+       
+       .sidebar-cliente .card {
+           margin-bottom: 0.75rem !important;
+       }
+       
+       .badge-container-ids .badge {
+           font-size: 0.65rem !important;
+           padding: 0.35em 0.5em !important;
+       }
+       
+       .col-xl-8.col-lg-7 .d-flex.justify-content-between.align-items-center.mb-3 {
+           flex-direction: column;
+           align-items: flex-start;
+           margin-bottom: 0.75rem !important;
+       }
+       
+       .col-xl-8.col-lg-7 .d-flex.justify-content-between.align-items-center.mb-3 h5 {
+           font-size: 0.85rem;
+           margin-bottom: 0.5rem;
+           width: 100%;
+       }
+       
+       .btn-notas, .btn-condonar, .btn-dictaminar {
+           width: 36px !important;
+           height: 36px !important;
+       }
+       
+       .btn-notas i, .btn-condonar i, .btn-dictaminar i {
+           font-size: 0.9rem !important;
+       }
+       
+       .col-xl-8.col-lg-7 .d-flex.justify-content-around.flex-wrap.my-6 > div {
+           flex: 1 1 calc(50% - 0.5rem);
+           margin-bottom: 0.5rem;
+           gap: 0.5rem;
+       }
+       
+       .col-xl-8.col-lg-7 .d-flex.justify-content-around.flex-wrap.my-6 h5 {
+           font-size: 0.8rem;
+       }
+       
+       .col-xl-8.col-lg-7 .d-flex.justify-content-around.flex-wrap.my-6 span {
+           font-size: 0.7rem;
+       }
+       
+       .tabla-scrollable {
+           margin-top: 0.5rem;
+       }
+       
+       .cuotas-table td,
+       .cuotas-table th {
+           font-size: 0.6rem !important;
+           padding: 0.3rem !important;
+       }
+       
+       .cuotas-table .badge {
+           font-size: 0.55rem !important;
+           padding: 0.2em 0.3em !important;
+       }
+   }
 
-/* Para móviles muy pequeños (ancho < 400px) */
-@media (max-width: 400px) {
-    .badge-container-ids {
-        flex-direction: column !important;
-    }
-    
-    .badge-container-ids .badge {
-        width: 100% !important;
-        max-width: 100% !important;
-        margin-bottom: 0.25rem;
-    }
-    
-    .col-xl-8.col-lg-7 .d-flex.justify-content-around.flex-wrap.my-6 > div {
-        flex: 1 1 100%;
-    }
-    
-    /* Botones de acción en fila */
-    .col-xl-8.col-lg-7 .d-flex.justify-content-between.align-items-center.mb-3 > .d-flex {
-        width: 100%;
-        justify-content: space-between;
-    }
-}
-
-/* ==========================
-   ACORDEÓN PERSONALIZADO
+    /* ==========================
+       ACORDEÓN PERSONALIZADO - VERSIÓN ÚNICA
    ========================== */
 
    .accordion-button::after {
-    display: none !important;
-}
+       display: none !important;
+   }
 
+   .accordion-flush.custom-accordion {
+       border: none;
+       background: transparent;
+       margin-top: 1.5rem !important; /* MOD: Más margen superior */
+       padding-top: 0.5rem;
+       border-top: 1px solid rgba(0,0,0,0.05);
+   }
 
-/* Acordeón sin bordes ni fondo */
-.accordion-flush.custom-accordion {
-    border: none;
-    background: transparent;
-}
+   .accordion-button {
+       background-color: #f8f9fa !important;
+       border: 1px solid #dee2e6 !important;
+       border-radius: 8px !important;
+       padding: 0.75rem 1rem !important;
+       font-weight: 500;
+       transition: all 0.3s ease;
+       box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+   }
 
-/* Header del acordeón */
-.accordion-button {
-    background-color: #f8f9fa !important;
-    border: 1px solid #dee2e6 !important;
-    border-radius: 8px !important;
-    padding: 0.75rem 1rem !important;
-    font-weight: 500;
-    transition: all 0.3s ease;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-}
+   .accordion-button:not(.collapsed) {
+       background-color: #e7f1ff !important;
+       border-color: #b6d4fe !important;
+       color: #0d6efd;
+       box-shadow: 0 4px 8px rgba(13,110,253,0.1);
+   }
 
-.accordion-button:not(.collapsed) {
-    background-color: #e7f1ff !important;
-    border-color: #b6d4fe !important;
-    color: #0d6efd;
-    box-shadow: 0 4px 8px rgba(13,110,253,0.1);
-}
+   .accordion-button:focus {
+       box-shadow: 0 0 0 3px rgba(13,110,253,0.25) !important;
+       border-color: #86b7fe !important;
+   }
 
-.accordion-button:focus {
-    box-shadow: 0 0 0 3px rgba(13,110,253,0.25) !important;
-    border-color: #86b7fe !important;
-}
+   .accordion-arrow {
+       transition: transform 0.3s ease;
+       font-size: 0.85rem;
+       color: #6c757d;
+       margin-left: auto;
+   }
 
-/* Ícono de flecha */
-.accordion-arrow {
-    transition: transform 0.3s ease;
-    font-size: 0.9rem;
-    color: #6c757d;
-}
+   .accordion-button:not(.collapsed) .accordion-arrow {
+       transform: rotate(180deg);
+       color: #0d6efd;
+   }
 
-.accordion-button:not(.collapsed) .accordion-arrow {
-    transform: rotate(180deg);
-    color: #0d6efd;
-}
+   .accordion-collapse {
+       border: none !important;
+   }
 
-/* Cuerpo del acordeón */
-.accordion-collapse {
-    border: none !important;
-}
+   .accordion-body {
+       background-color: transparent;
+       padding: 1rem !important; /* MOD: Padding interno */
+   }
 
-.accordion-body {
-    background-color: transparent;
-    padding: 0 !important;
-}
+   .accordion-body .d-flex.justify-content-between.my-3 {
+       margin-top: 0.75rem !important;
+       margin-bottom: 1rem !important;
+   }
 
-/* Ajustes para métricas dentro del acordeón */
-.accordion-body .d-flex.justify-content-between.my-3 {
-    margin-top: 0.5rem !important;
-    margin-bottom: 0.5rem !important;
-}
+   .accordion-body .info-compact {
+       margin: 0.75rem 0 !important;
+   }
+   
+   .accordion-body .btn-outline-primary {
+       margin: 1.25rem 0.75rem 0.75rem 0.75rem !important;
+       padding: 0.65rem 1.5rem !important;
+       width: calc(100% - 1.5rem) !important;
+   }
 
-.accordion-body .info-compact {
-    margin-top: 0.5rem;
-}
+   @media (max-width: 768px) {
+       .accordion-button {
+           padding: 0.6rem 0.8rem !important;
+           font-size: 0.9rem;
+       }
+       
+       .accordion-button i.fa-info-circle {
+           font-size: 0.9rem;
+       }
+       
+       .accordion-arrow {
+           font-size: 0.8rem;
+       }
+       
+       .accordion-body {
+           padding: 0.75rem !important;
+       }
+   }
 
-/* Estados hover */
-.accordion-button:hover {
-    background-color: #e9ecef !important;
-    transform: translateY(-1px);
-}
+   @media (max-width: 576px) {
+       .accordion-button {
+           padding: 0.5rem 0.7rem !important;
+           font-size: 0.85rem;
+       }
+       
+       .accordion-button span.fw-semibold {
+           font-size: 0.85rem;
+       }
+       
+       .accordion-arrow {
+           font-size: 0.75rem;
+       }
+       
+       .accordion-body {
+           padding: 0.5rem !important;
+       }
+       
+       .accordion-body .btn-outline-primary {
+           margin: 1rem 0.5rem 0.5rem 0.5rem !important;
+           padding: 0.55rem 1.25rem !important;
+           width: calc(100% - 1rem) !important;
+       }
+   }
 
-.accordion-button:not(.collapsed):hover {
-    background-color: #d0e2ff !important;
-}
+   .accordion-collapse {
+       transition: all 0.35s ease !important;
+   }
 
-/* Responsive para el acordeón */
+   .accordion-body {
+       animation: fadeIn 0.3s ease;
+   }
+
+   @keyframes fadeIn {
+       from {
+           opacity: 0;
+           transform: translateY(-10px);
+       }
+       to {
+           opacity: 1;
+           transform: translateY(0);
+       }
+   }
+
+    /* ==========================
+       PADDING MÉTRICAS HORIZONTALES (Cuota Semanal, etc.)
+   ========================== */
+   
+   /* MOD: Añadir padding a métricas horizontales */
+   .col-xl-8.col-lg-7 .d-flex.justify-content-around.flex-wrap.my-6 {
+       padding: 1rem 1.25rem !important;
+       background-color: #f8f9fa;
+       border-radius: 10px;
+       margin: 1.5rem 0 !important;
+       border: 1px solid #e9ecef;
+   }
+   
+   .col-xl-8.col-lg-7 .d-flex.justify-content-around.flex-wrap.my-6 > div {
+       padding: 0.5rem 0.75rem;
+       background: white;
+       border-radius: 8px;
+       border: 1px solid #f0f0f0;
+       box-shadow: 0 2px 4px rgba(0,0,0,0.03);
+   }
+   
+   .col-xl-8.col-lg-7 .d-flex.justify-content-around.flex-wrap.my-6 {
+       gap: 1rem !important;
+   }
+   
+   @media (max-width: 768px) {
+       .col-xl-8.col-lg-7 .d-flex.justify-content-around.flex-wrap.my-6 {
+           padding: 0.75rem !important;
+       }
+       
+       .col-xl-8.col-lg-7 .d-flex.justify-content-around.flex-wrap.my-6 > div {
+           padding: 0.4rem 0.6rem;
+       }
+   }
+
+   /* ==========================
+   ALINEACIÓN PERFECTA MÓVIL - INFO CRÉDITO
+   ========================== */
+
 @media (max-width: 768px) {
-    .accordion-button {
-        padding: 0.6rem 0.8rem !important;
-        font-size: 0.9rem;
+    /* Contenedor principal ajustado */
+    .sidebar-cliente .info-compact {
+        margin: 0.5rem 0;
+        padding: 0 0.25rem;
     }
     
-    .accordion-button i.fa-info-circle {
-        font-size: 0.9rem;
+    /* Cada item con grid de 2 columnas */
+    .sidebar-cliente .info-compact li {
+        display: grid !important;
+        grid-template-columns: 1.2rem minmax(140px, 1fr) auto;
+        align-items: center;
+        gap: 0.5rem;
+        margin-bottom: 0.5rem;
+        padding: 0.2rem 0;
     }
-}
-
-@media (max-width: 576px) {
-    .accordion-button {
-        padding: 0.5rem 0.7rem !important;
+    
+    /* Icono en columna 1 */
+    .sidebar-cliente .info-compact i.fa-lg {
+        grid-column: 1;
         font-size: 0.85rem;
+        text-align: center;
+        width: 1.2rem;
     }
     
-    .accordion-button span.fw-semibold {
+    /* Etiqueta (texto) en columna 2 */
+    .sidebar-cliente .info-compact .info-label span:first-child {
+        grid-column: 2;
+        font-size: 0.8rem;
+        font-weight: 500;
+        color: #495057;
+        white-space: nowrap;
+        text-align: left;
+        padding-right: 0.5rem;
+        min-width: 140px;
+    }
+    
+    /* Valor (número) en columna 3 - ALINEADO A LA DERECHA */
+    .sidebar-cliente .info-compact .info-label span:last-child {
+        grid-column: 3;
         font-size: 0.85rem;
-    }
-}
-
-/* ==========================
-   ANIMACIÓN SUAVE PARA EL ACORDEÓN
-   ========================== */
-.accordion-collapse {
-    transition: all 0.35s ease !important;
-}
-
-.accordion-body {
-    animation: fadeIn 0.3s ease;
-}
-
-@keyframes fadeIn {
-    from {
-        opacity: 0;
-        transform: translateY(-10px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-/* ==========================
-   VERSIÓN DUAL DESKTOP/MÓVIL
-   ========================== */
-
-/* Desktop: mostrar siempre, ocultar en móvil */
-.desktop-info {
-    display: block;
-}
-
-/* Móvil: ocultar por defecto, mostrar solo cuando d-lg-none */
-.mobile-info {
-    display: none;
-}
-
-/* Breakpoint para móvil (≤ 991px) */
-@media (max-width: 991px) {
-    .desktop-info {
-        display: none !important;
+        font-weight: 600;
+        color: #212529;
+        text-align: right !important;
+        white-space: nowrap;
+        padding-left: 0;
+        min-width: max-content;
+        margin-left: auto;
     }
     
-    .mobile-info {
-        display: block !important;
+    /* Para items monetarios (con $) */
+    .sidebar-cliente .info-compact .info-label span:last-child:contains("$") {
+        letter-spacing: -0.5px; /* Compactar números con $ */
     }
 }
-/* ==========================
-   ACORDEÓN PERSONALIZADO MÓVIL (VERSIÓN CORREGIDA)
-   ========================== */
 
-/* Ocultar la flecha por defecto de Bootstrap */
-.accordion-button::after {
-    display: none !important;
-}
-
-/* Acordeón sin bordes ni fondo */
-.accordion-flush.custom-accordion {
-    border: none;
-    background: transparent;
-    margin-top: 0.5rem;
-}
-
-/* Header del acordeón */
-.accordion-button {
-    background-color: #f8f9fa !important;
-    border: 1px solid #dee2e6 !important;
-    border-radius: 8px !important;
-    padding: 0.75rem 1rem !important;
-    font-weight: 500;
-    transition: all 0.3s ease;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-}
-
-.accordion-button:not(.collapsed) {
-    background-color: #e7f1ff !important;
-    border-color: #b6d4fe !important;
-    color: #0d6efd;
-    box-shadow: 0 4px 8px rgba(13,110,253,0.1);
-}
-
-.accordion-button:focus {
-    box-shadow: 0 0 0 3px rgba(13,110,253,0.25) !important;
-    border-color: #86b7fe !important;
-}
-
-/* NUESTRA FLECHA PERSONALIZADA */
-.accordion-arrow {
-    transition: transform 0.3s ease;
-    font-size: 0.85rem;
-    color: #6c757d;
-    margin-left: auto;
-}
-
-.accordion-button:not(.collapsed) .accordion-arrow {
-    transform: rotate(180deg);
-    color: #0d6efd;
-}
-
-/* Cuerpo del acordeón */
-.accordion-collapse {
-    border: none !important;
-}
-
-.accordion-body {
-    background-color: transparent;
-    padding: 0 !important;
-}
-
-/* Estados hover - solo desktop */
-@media (min-width: 992px) {
-    .accordion-button:hover {
-        background-color: #e9ecef !important;
-        transform: translateY(-1px);
+/* Móviles muy pequeños (≤ 400px) */
+@media (max-width: 400px) {
+    .sidebar-cliente .info-compact li {
+        grid-template-columns: 1rem minmax(120px, 1fr) auto;
+        gap: 0.4rem;
     }
     
-    .accordion-button:not(.collapsed):hover {
-        background-color: #d0e2ff !important;
-    }
-}
-
-/* Asegurar que solo haya una flecha */
-.accordion-button i.fa-chevron-down {
-    display: block;
-}
-
-/* Responsive para el acordeón en móvil */
-@media (max-width: 768px) {
-    .accordion-button {
-        padding: 0.6rem 0.8rem !important;
-        font-size: 0.9rem;
+    .sidebar-cliente .info-compact i.fa-lg {
+        font-size: 0.8rem;
+        width: 1rem;
     }
     
-    .accordion-button i.fa-info-circle {
-        font-size: 0.9rem;
+    .sidebar-cliente .info-compact .info-label span:first-child {
+        font-size: 0.75rem;
+        min-width: 120px;
     }
     
-    .accordion-arrow {
+    .sidebar-cliente .info-compact .info-label span:last-child {
         font-size: 0.8rem;
     }
 }
 
-@media (max-width: 576px) {
-    .accordion-button {
-        padding: 0.5rem 0.7rem !important;
-        font-size: 0.85rem;
-    }
-    
-    .accordion-button span.fw-semibold {
-        font-size: 0.85rem;
-    }
-    
-    .accordion-arrow {
-        font-size: 0.75rem;
-    }
-}
-
 /* ==========================
-   ANIMACIÓN SUAVE PARA EL ACORDEÓN
-   ========================== */
-.accordion-collapse {
-    transition: all 0.35s ease !important;
-}
-
-.accordion-body {
-    animation: fadeIn 0.3s ease;
-}
-
-@keyframes fadeIn {
-    from {
-        opacity: 0;
-        transform: translateY(-10px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-/* ==========================
-   VERSIÓN DUAL DESKTOP/MÓVIL
+   ALINEACIÓN ESPECÍFICA PARA VALORES MONETARIOS
    ========================== */
 
-/* Desktop: mostrar siempre, ocultar en móvil */
-.desktop-info {
-    display: block;
+/* Asegurar que valores con decimales se alineen perfectamente */
+.sidebar-cliente .info-compact .info-label span:last-child {
+    font-family: 'Segoe UI', 'Roboto', 'SF Mono', Monaco, Consolas, monospace;
+    font-variant-numeric: tabular-nums; /* Números con ancho fijo */
 }
 
-/* Móvil: ocultar por defecto, mostrar solo cuando d-lg-none */
-.mobile-info {
-    display: none;
-}
-
-/* Breakpoint para móvil (≤ 991px) */
-@media (max-width: 991px) {
-    .desktop-info {
-        display: none !important;
+/* Para móvil, forzar alineación decimal */
+@media (max-width: 768px) {
+    .sidebar-cliente .info-compact .info-label {
+        display: grid !important;
+        grid-template-columns: 1fr auto;
+        width: 100%;
+        gap: 0.5rem;
     }
     
-    .mobile-info {
-        display: block !important;
+    /* Asegurar que la etiqueta ocupe espacio disponible */
+    .sidebar-cliente .info-compact .info-label span:first-child {
+        text-align: right; /* Alinear etiquetas a la derecha también */
+        padding-right: 0.75rem;
+    }
+    
+    /* Valores con ancho fijo para alineación perfecta */
+    .sidebar-cliente .info-compact .info-label span:last-child {
+        min-width: 100px;
+        text-align: left; /* Cambiar a izquierda para alineación con : */
     }
 }
+
+
+
+
+/* ==========================
+   VERSIÓN ALTERNATIVA - USANDO FLEXBOX PARA ALINEACIÓN
+   ========================== */
+
+/* Si grid no funciona bien, probar con flexbox */
+@media (max-width: 768px) {
+    .sidebar-cliente .info-compact .info-label {
+        display: flex !important;
+        justify-content: space-between;
+        align-items: center;
+        width: 100%;
+    }
+    
+    .sidebar-cliente .info-compact .info-label span:first-child {
+        flex: 1;
+        text-align: left;
+        padding-right: 1rem;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    
+    .sidebar-cliente .info-compact .info-label span:last-child {
+        flex-shrink: 0;
+        text-align: right;
+        min-width: 100px;
+        font-family: 'SF Mono', Monaco, Consolas, 'Liberation Mono', monospace;
+    }
+}
+
+</style>
 
 </style>
 

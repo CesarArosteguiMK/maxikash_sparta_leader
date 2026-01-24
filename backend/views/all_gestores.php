@@ -64,13 +64,13 @@
             <div class="col-md-8 col-12">
                 <label for="flatpickr-range-bajas" class="form-label">Filtrar por fecha de baja</label>
                 <div class="d-flex gap-2 align-items-end">
-                    <div class="flatpickr-wrapper flex-grow-1">
+                    <div class="flatpickr-wrapper" style="width: 250px;">
                         <input type="text" class="form-control flatpickr-input" placeholder="Selecciona rango de fechas" id="flatpickr-range-bajas" readonly="readonly">
                     </div>
                     <button type="button" class="btn btn-outline-secondary btn-sm" id="btnLimpiarFiltroBajas" title="Limpiar filtro">
                         <i class="fa fa-times me-1"></i> Limpiar
                     </button>
-                    <button type="button" class="btn btn-success btn-sm" id="btnDescargarBajas" title="Descargar Excel">
+                    <button type="button" class="btn btn-sm" id="btnDescargarBajas" title="Descargar Excel" style="background-color: #2c5aa0; color: white; border-color: #2c5aa0;">
                         <i class="fa fa-download me-1"></i> Descargar Excel
                     </button>
                 </div>
