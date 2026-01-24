@@ -128,7 +128,7 @@ function getMenu()
         $menu .= <<<HTML
             <li class="menu-item $abierto">
                 <a href="javascript:void(0);" class="menu-link menu-toggle">
-                    <i class="{$item['icono']}"></i>
+                    <i class="{$item['icono']} me-2"></i>
                     <div>$key</div>
                 </a>
                 <ul class="menu-sub">
