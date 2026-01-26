@@ -77,7 +77,9 @@
                         <label for="nombre" class="form-label">Nombre del Cliente</label>
                         <div class="input-group input-group-merge">
                             <input type="text" class="form-control" name="nombre" id="nombre"
-                                   placeholder="Nombre completo o parcial" autocomplete="off">
+                                   placeholder="Nombre completo o parcial" autocomplete="off"
+                                   oninput="this.value = this.value.replace(/[^A-Za-zÁÉÍÓÚáéíóúÑñ\s]/g, '').toUpperCase()"
+                                   style="text-transform: uppercase;">
                             <span class="input-group-text"><i class="fa fa-user"></i></span>
                         </div>
 
