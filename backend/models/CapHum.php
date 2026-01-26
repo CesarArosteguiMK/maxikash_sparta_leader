@@ -423,12 +423,37 @@ class CapHum extends Model
             ORDER BY m.id;
         SQL;
 
+            $query_puestos= <<<SQL
+               SELECT 
+                p.id AS id_puesto,
+                p.nombre AS nombre_puesto,
+                p.nivel as nivel,
+                d.id AS id_departamento,
+                d.nombre AS nombre_departamento,
+                CASE 
+                    WHEN p2.idPersona IS NULL THEN 'No asignado'
+                    ELSE 'Asignado'
+                END AS estado,
+                CASE 
+                                WHEN p2.idPersona IS NULL THEN 0
+                                ELSE 1
+                            END AS asignado_flag
+            FROM puesto p
+            LEFT JOIN privilegios_departamento p2 ON p.id = p2.idPuesto AND p2.idPersona  = $idPersona
+            LEFT JOIN departamento d ON d.id = p.departamento_id
+            ORDER BY d.id, p.nivel desc
+        SQL;
+
+
+
             $persona = $db->queryOne($query);
             $perfiles = $db->queryAll($query_perfiles);
+            $puestos = $db->queryAll($query_puestos);
 
             return self::resultado(true, 'Persona encontrada.', [
                 'persona' => $persona,
-                'perfiles' => $perfiles
+                'perfiles' => $perfiles,
+                'puestos' => $puestos
             ]);
 
         } catch (\Exception $e) {

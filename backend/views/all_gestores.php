@@ -578,74 +578,56 @@
 
             <div class="mb-3">
                 <label class="form-label fw-semibold">Nombres *</label>
-                <input type="text"
-                       id="edit_perfil_nombres"
-                       class="form-control"
-                       readonly>
+                <input type="text" id="edit_perfil_nombres" class="form-control" readonly>
             </div>
 
-            <!-- Tabs -->
-            <ul class="nav nav-tabs mb-3" role="tablist">
-                <li class="nav-item" role="presentation">
-                    <button class="nav-link active"
-                            data-bs-toggle="tab"
-                            data-bs-target="#tabPerfil"
-                            type="button"
-                            role="tab">
-                        <i class="bi bi-person me-1"></i> Perfil
+            <ul class="nav nav-tabs mb-3">
+                <li class="nav-item">
+                    <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tabPerfil">
+                        <i class="bi bi-person me-1"></i> Acceso a Puestos
                     </button>
                 </li>
-                <li class="nav-item" role="presentation">
-                    <button class="nav-link"
-                            data-bs-toggle="tab"
-                            data-bs-target="#tabAccesos"
-                            type="button"
-                            role="tab">
-                        <i class="bi bi-shield-lock me-1"></i> Accesos
+                <li class="nav-item">
+                    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabAccesos">
+                        <i class="bi bi-shield-lock me-1"></i> Módulos
                     </button>
                 </li>
             </ul>
 
-
-            <form id="editNewUserFormPerfil" onsubmit="return false">
-
+            <form onsubmit="return false">
                 <div class="tab-content">
 
-                    <!-- TAB PERFIL -->
-                    <div class="tab-pane fade show active" id="tabPerfil" role="tabpanel">
-
-                        <div class="mb-3 d-none">
-                            <label class="form-label">Id Empleado *</label>
-                            <input type="text"
-                                   id="edit_perfil_id"
-                                   class="form-control"
-                                   disabled>
-                        </div>
-
-
-
-                    </div>
-
-                    <!-- TAB ACCESOS -->
-                    <div class="tab-pane fade" id="tabAccesos" role="tabpanel">
+                    <!-- PERFIL -->
+                    <div class="tab-pane fade show active" id="tabPerfil">
+                        <input type="hidden" id="edit_perfil_id">
 
                         <label class="form-label fw-semibold mb-2">
-                            Selecciona los accesos *
+                            Puestos asignados
                         </label>
 
-                        <div id="modulos-container" class="border rounded p-3">
-                            <div id="modulos-form" class="row g-2">
-                                <!-- Checkboxes dinámicos -->
-                            </div>
+                        <div id="puestos-container" class="border rounded p-2">
+                            <div id="puestos-form"></div>
+                        </div>
+                    </div>
+
+                    <!-- ACCESOS -->
+                    <div class="tab-pane fade" id="tabAccesos">
+
+                        <label class="form-label fw-semibold mb-2">
+                            Selecciona los accesos
+                        </label>
+
+                        <div id="modulos-container" class="border rounded p-2">
+                            <div id="modulos-form"></div>
                         </div>
 
                     </div>
 
                 </div>
-
             </form>
         </div>
     </div>
+
 
 </div>
 

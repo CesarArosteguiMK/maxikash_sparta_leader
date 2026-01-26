@@ -343,10 +343,10 @@ class CapHum extends Controller
                 cargarComboJefeDirecto(idDepartamento);
             });
                 
+           
             function edit_perfil(id) {
                 console.log("ID recibido:", id);
-                
-                 currentPersonaId = id; 
+                currentPersonaId = id;
             
                 if (!id) {
                     Swal.fire("Error", "ID inválido", "error");
@@ -363,6 +363,7 @@ class CapHum extends Controller
                 })
                 .then(res => res.json())
                 .then(data => {
+            
                     if (!data.success) {
                         Swal.fire("Error", data.mensaje, "error");
                         return;
@@ -373,123 +374,381 @@ class CapHum extends Controller
                         return;
                     }
             
-                    const persona = data.datos.persona || {};
+                    console.log('RESPUESTA COMPLETA:', data.datos);
+            
+                    const persona  = data.datos.persona || {};
                     const perfiles = data.datos.perfiles || [];
+                    const puestos  = data.datos.puestos  || [];
             
                     const nombreCompleto = [
                         persona.nombres,
                         persona.apellidop,
                         persona.apellidom
                     ].filter(Boolean).join(' ');
-
-                    
-                    // CAMPOS TEXTO
-                    const inputId = document.getElementById("edit_perfil_id");
-                    const inputNombres = document.getElementById("edit_perfil_nombres");
-                    if (inputId) inputId.value = persona.id ?? '';
-                    if (inputNombres) inputNombres.value = nombreCompleto;
             
-             
+                    document.getElementById("edit_perfil_id").value = persona.id ?? '';
+                    document.getElementById("edit_perfil_nombres").value = nombreCompleto;
             
-                    // Contenedor de módulos
-                    const container = document.getElementById('modulos-form');
-                    if (!container) {
-                        console.error('No se encontró el contenedor modulos-form');
-                        return;
-                    }
+                    renderPuestos(puestos);
+                    renderModulos(perfiles);
             
-                    container.innerHTML = ''; // Limpiamos
-            
-                    // Agrupar módulos por pestana
-                    const modulosPorPestana = {};
-                    perfiles.forEach(mod => {
-                        if (!modulosPorPestana[mod.pestana]) modulosPorPestana[mod.pestana] = [];
-                        modulosPorPestana[mod.pestana].push(mod);
-                    });
-            
-                    // Crear tabla
-                    const table = document.createElement('table');
-                    table.classList.add('table', 'table-flush-spacing', 'mb-0', 'border-top');
-            
-                    const tbody = document.createElement('tbody');
-            
-                    Object.keys(modulosPorPestana).forEach(pestana => {
-                        const mods = modulosPorPestana[pestana];
-            
-                        mods.forEach(mod => {
-                            const tr = document.createElement('tr');
-            
-                            // Columna con nombre del módulo + descripción
-                            const tdName = document.createElement('td');
-                            tdName.classList.add('text-nowrap', 'fw-medium', 'text-heading');
-            
-                            const nombreDiv = document.createElement('div');
-                            nombreDiv.innerText = mod.modulo_nombre;
-            
-                            const descSmall = document.createElement('small');
-                            descSmall.classList.add('text-muted', 'd-block', 'fs-7'); // letra más pequeña
-                            descSmall.innerText = mod.descripcion ?? '';
-            
-                            tdName.appendChild(nombreDiv);
-                            tdName.appendChild(descSmall);
-            
-                            // Columna con checkbox
-                            const tdCheck = document.createElement('td');
-                            const divFlex = document.createElement('div');
-                            divFlex.classList.add('d-flex', 'justify-content-end');
-            
-                            const divCheck = document.createElement('div');
-                            divCheck.classList.add('form-check', 'mb-0');
-            
-                            const checkbox = document.createElement('input');
-                            checkbox.type = 'checkbox';
-                            checkbox.classList.add('form-check-input');
-                            checkbox.id = `modulo_${mod.modulo_id}`;
-                            checkbox.name = 'modulos[]';
-                            checkbox.value = mod.modulo_id;
-                            checkbox.checked = Number(mod.asignado_flag) === 1;
-                            
-                            // EVENTO NUEVO
-                            checkbox.addEventListener('change', function () {
-                                onModuloChange(this);
-                            });
-            
-                            const label = document.createElement('label');
-                            label.classList.add('form-check-label');
-                            label.htmlFor = checkbox.id;
-                            label.innerText = 'Asignar';
-            
-                            divCheck.appendChild(checkbox);
-                            divCheck.appendChild(label);
-                            divFlex.appendChild(divCheck);
-                            tdCheck.appendChild(divFlex);
-            
-                            tr.appendChild(tdName);
-                            tr.appendChild(tdCheck);
-                            tbody.appendChild(tr);
-                        });
-                    });
-            
-                    table.appendChild(tbody);
-                    container.appendChild(table);
-            
-                    // Inicializar tooltips de Bootstrap (opcional)
-                    const tooltipTriggerList = [].slice.call(container.querySelectorAll('[data-bs-toggle="tooltip"]'));
-                    tooltipTriggerList.map(function (tooltipTriggerEl) {
-                        return new bootstrap.Tooltip(tooltipTriggerEl);
-                    });
-            
-                    // MOSTRAR OFFCANVAS
                     const offcanvasEl = document.getElementById('offcanvasEditPerfil');
-                    if (offcanvasEl) {
-                        const offcanvas = new bootstrap.Offcanvas(offcanvasEl);
-                        offcanvas.show();
-                    }
+                    new bootstrap.Offcanvas(offcanvasEl).show();
                 })
                 .catch(err => {
-                    console.error('FETCH ERROR:', err);
+                    console.error(err);
                     Swal.fire("Error", "No se pudo cargar la información", "error");
                 });
+            }
+            
+            /* =========================
+               PUESTOS
+            ========================= */
+            function renderPuestos(puestos) {
+            
+                const container = document.getElementById('puestos-form');
+                container.innerHTML = '';
+            
+                if (!puestos.length) {
+                    container.innerHTML = `<div class="text-muted small">No hay puestos asignados</div>`;
+                    return;
+                }
+            
+                const table = document.createElement('table');
+                table.className = 'table table-flush-spacing mb-0 border-top';
+            
+                const tbody = document.createElement('tbody');
+            
+                puestos.forEach(puesto => {
+            
+                    const tr = document.createElement('tr');
+            
+                    // Nombre + descripción
+                    const tdName = document.createElement('td');
+                    tdName.className = 'fw-medium text-heading';
+            
+                    const nombre = document.createElement('div');
+                    nombre.innerText =
+                        puesto.nombre_puesto ||
+                        puesto.puesto_nombre ||
+                        'Puesto sin nombre';
+            
+                    const desc = document.createElement('small');
+                    desc.className = 'text-muted d-block fs-7';
+                    desc.innerText = puesto.descripcion ?? '';
+            
+                    tdName.append(nombre, desc);
+            
+                    // Checkbox
+                    const tdCheck = document.createElement('td');
+                    tdCheck.className = 'text-end';
+            
+                    const divCheck = document.createElement('div');
+                    divCheck.className = 'form-check mb-0';
+            
+                    const checkbox = document.createElement('input');
+                    checkbox.type = 'checkbox';
+                    checkbox.className = 'form-check-input';
+                    checkbox.checked = Number(puesto.asignado_flag) === 1;
+                    checkbox.value =
+                        puesto.id_puesto ||
+                        puesto.puesto_id ||
+                        '';
+            
+                    checkbox.onchange = () => onPuestoChange(checkbox);
+            
+                    const label = document.createElement('label');
+                    label.className = 'form-check-label';
+                    label.innerText = 'Asignar';
+            
+                    divCheck.append(checkbox, label);
+                    tdCheck.appendChild(divCheck);
+            
+                    tr.append(tdName, tdCheck);
+                    tbody.appendChild(tr);
+                });
+            
+                table.appendChild(tbody);
+                container.appendChild(table);
+            }
+            
+            function onPuestoChange(checkbox) {
+                console.log('Puesto:', checkbox.value, checkbox.checked);
+            }
+            
+            /* =========================
+               MÓDULOS
+            ========================= */
+            function renderModulos(perfiles) {
+            
+                const container = document.getElementById('modulos-form');
+                container.innerHTML = '';
+            
+                const modulosPorPestana = {};
+                perfiles.forEach(m => {
+                    if (!modulosPorPestana[m.pestana]) modulosPorPestana[m.pestana] = [];
+                    modulosPorPestana[m.pestana].push(m);
+                });
+            
+                const table = document.createElement('table');
+                table.className = 'table table-flush-spacing mb-0 border-top';
+            
+                const tbody = document.createElement('tbody');
+            
+                Object.keys(modulosPorPestana).forEach(pestana => {
+                    modulosPorPestana[pestana].forEach(mod => {
+            
+                        const tr = document.createElement('tr');
+            
+                        const tdName = document.createElement('td');
+                        tdName.className = 'fw-medium text-heading';
+            
+                        const nombre = document.createElement('div');
+                        nombre.innerText = mod.modulo_nombre ?? 'Módulo';
+            
+                        const desc = document.createElement('small');
+                        desc.className = 'text-muted d-block fs-7';
+                        desc.innerText = mod.descripcion ?? '';
+            
+                        tdName.append(nombre, desc);
+            
+                        const tdCheck = document.createElement('td');
+                        tdCheck.className = 'text-end';
+            
+                        const divCheck = document.createElement('div');
+                        divCheck.className = 'form-check mb-0';
+            
+                        const checkbox = document.createElement('input');
+                        checkbox.type = 'checkbox';
+                        checkbox.className = 'form-check-input';
+                        checkbox.checked = Number(mod.asignado_flag) === 1;
+                        checkbox.value = mod.modulo_id;
+            
+                        checkbox.onchange = () => onModuloChange(checkbox);
+            
+                        const label = document.createElement('label');
+                        label.className = 'form-check-label';
+                        label.innerText = 'Asignar';
+            
+                        divCheck.append(checkbox, label);
+                        tdCheck.appendChild(divCheck);
+            
+                        tr.append(tdName, tdCheck);
+                        tbody.appendChild(tr);
+                    });
+                });
+            
+                table.appendChild(tbody);
+                container.appendChild(table);
+            }
+            
+            function onModuloChange(checkbox) {
+                console.log('Módulo:', checkbox.value, checkbox.checked);
+            }
+
+
+            
+            /* =========================
+               RENDER PUESTOS
+            ========================= */
+           function renderPuestos(puestos) {
+
+            const container = document.getElementById('puestos-form');
+            container.innerHTML = '';
+        
+            if (!puestos || puestos.length === 0) {
+                container.innerHTML = `<div class="text-muted small">No hay puestos asignados</div>`;
+                return;
+            }
+        
+            /* =========================
+               AGRUPAR POR ID_DEPARTAMENTO
+            ========================= */
+            const puestosPorDepto = {};
+        
+            puestos.forEach(puesto => {
+                const deptoId = puesto.id_departamento ?? 0;
+                if (!puestosPorDepto[deptoId]) {
+                    puestosPorDepto[deptoId] = [];
+                }
+                puestosPorDepto[deptoId].push(puesto);
+            });
+        
+            /* =========================
+               CREAR ACORDEÓN
+            ========================= */
+            const accordion = document.createElement('div');
+            accordion.className = 'accordion';
+            accordion.id = 'accordionPuestos';
+        
+            let index = 0;
+        
+            Object.keys(puestosPorDepto).forEach(deptoId => {
+        
+                const puestosDepto = puestosPorDepto[deptoId];
+        
+                // 🔑 nombre dinámico del departamento
+                const deptoNombre =
+                    puestosDepto[0].nombre_departamento ??
+                    `Departamento ${deptoId}`;
+        
+                const accId = `depto_${deptoId}`;
+        
+                const item = document.createElement('div');
+                item.className = 'accordion-item';
+        
+                item.innerHTML = `
+                    <h2 class="accordion-header" id="heading_${accId}">
+                        <button class="accordion-button ${index !== 0 ? 'collapsed' : ''}"
+                                type="button"
+                                data-bs-toggle="collapse"
+                                data-bs-target="#collapse_${accId}">
+                            <strong>${deptoNombre}</strong>
+                            <span class="ms-2 text-muted small">
+                                (${puestosDepto.length})
+                            </span>
+                        </button>
+                    </h2>
+                    <div id="collapse_${accId}"
+                         class="accordion-collapse collapse ${index === 0 ? 'show' : ''}"
+                         data-bs-parent="#accordionPuestos">
+                        <div class="accordion-body p-0"></div>
+                    </div>
+                `;
+        
+                /* =========================
+                   TABLA (MISMA LÓGICA ORIGINAL)
+                ========================= */
+                const body = item.querySelector('.accordion-body');
+        
+                const table = document.createElement('table');
+                table.className = 'table table-flush-spacing mb-0 border-top';
+        
+                const tbody = document.createElement('tbody');
+        
+                puestosDepto.forEach(puesto => {
+        
+                    const tr = document.createElement('tr');
+        
+                    const tdName = document.createElement('td');
+                    tdName.className = 'fw-medium text-heading';
+        
+                    const nombre = document.createElement('div');
+                    nombre.innerText = puesto.nombre_puesto;
+        
+                    const desc = document.createElement('small');
+                    desc.className = 'text-muted d-block fs-7';
+                    desc.innerText = puesto.descripcion ?? '';
+        
+                    tdName.append(nombre, desc);
+        
+                    const tdCheck = document.createElement('td');
+                    tdCheck.className = 'text-end';
+        
+                    const divCheck = document.createElement('div');
+                    divCheck.className = 'form-check mb-0';
+        
+                    const checkbox = document.createElement('input');
+                    checkbox.type = 'checkbox';
+                    checkbox.className = 'form-check-input';
+                    checkbox.checked = Number(puesto.asignado_flag) === 1;
+                    checkbox.value = puesto.puesto_id;
+                    checkbox.onchange = () => onPuestoChange(checkbox);
+        
+                    const label = document.createElement('label');
+                    label.className = 'form-check-label';
+                    label.innerText = 'Asignar';
+        
+                    divCheck.append(checkbox, label);
+                    tdCheck.appendChild(divCheck);
+        
+                    tr.append(tdName, tdCheck);
+                    tbody.appendChild(tr);
+                });
+        
+                table.appendChild(tbody);
+                body.appendChild(table);
+                accordion.appendChild(item);
+        
+                index++;
+            });
+        
+            container.appendChild(accordion);
+        }
+
+
+            
+            function onPuestoChange(checkbox) {
+                console.log('Puesto:', checkbox.value, checkbox.checked);
+            }
+            
+            /* =========================
+               RENDER MÓDULOS
+            ========================= */
+            function renderModulos(perfiles) {
+            
+                const container = document.getElementById('modulos-form');
+                container.innerHTML = '';
+            
+                const modulosPorPestana = {};
+                perfiles.forEach(m => {
+                    if (!modulosPorPestana[m.pestana]) modulosPorPestana[m.pestana] = [];
+                    modulosPorPestana[m.pestana].push(m);
+                });
+            
+                const table = document.createElement('table');
+                table.className = 'table table-flush-spacing mb-0 border-top';
+            
+                const tbody = document.createElement('tbody');
+            
+                Object.keys(modulosPorPestana).forEach(pestana => {
+                    modulosPorPestana[pestana].forEach(mod => {
+            
+                        const tr = document.createElement('tr');
+            
+                        const tdName = document.createElement('td');
+                        tdName.className = 'fw-medium text-heading';
+            
+                        const nombre = document.createElement('div');
+                        nombre.innerText = mod.modulo_nombre;
+            
+                        const desc = document.createElement('small');
+                        desc.className = 'text-muted d-block fs-7';
+                        desc.innerText = mod.descripcion ?? '';
+            
+                        tdName.append(nombre, desc);
+            
+                        const tdCheck = document.createElement('td');
+                        tdCheck.className = 'text-end';
+            
+                        const divCheck = document.createElement('div');
+                        divCheck.className = 'form-check mb-0';
+            
+                        const checkbox = document.createElement('input');
+                        checkbox.type = 'checkbox';
+                        checkbox.className = 'form-check-input';
+                        checkbox.checked = Number(mod.asignado_flag) === 1;
+                        checkbox.value = mod.modulo_id;
+                        checkbox.onchange = () => onModuloChange(checkbox);
+            
+                        const label = document.createElement('label');
+                        label.className = 'form-check-label';
+                        label.innerText = 'Asignar';
+            
+                        divCheck.append(checkbox, label);
+                        tdCheck.appendChild(divCheck);
+            
+                        tr.append(tdName, tdCheck);
+                        tbody.appendChild(tr);
+                    });
+                });
+            
+                table.appendChild(tbody);
+                container.appendChild(table);
+            }
+            
+            function onModuloChange(checkbox) {
+                console.log('Módulo:', checkbox.value, checkbox.checked);
             }
             
             function baja_gestor(id) {
