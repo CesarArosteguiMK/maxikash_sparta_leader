@@ -393,20 +393,31 @@ class CapHum extends Controller
                     document.getElementById("edit_perfil_id").value = persona.id ?? '';
                     document.getElementById("edit_perfil_nombres").value = nombreCompleto;
                     
-                    // Obtener departamento del primer puesto asignado, o del primer puesto disponible
+                    // Obtener departamento y puesto del primer puesto asignado, o del primer puesto disponible
                     let nombreDepartamento = 'Sin departamento';
+                    let nombrePuesto = 'Sin puesto';
                     const puestoAsignado = puestos.find(p => Number(p.asignado_flag) === 1);
-                    if (puestoAsignado && puestoAsignado.nombre_departamento) {
-                        nombreDepartamento = puestoAsignado.nombre_departamento;
-                    } else if (puestos.length > 0 && puestos[0].nombre_departamento) {
-                        nombreDepartamento = puestos[0].nombre_departamento;
+                    if (puestoAsignado) {
+                        if (puestoAsignado.nombre_departamento) {
+                            nombreDepartamento = puestoAsignado.nombre_departamento;
+                        }
+                        if (puestoAsignado.nombre_puesto) {
+                            nombrePuesto = puestoAsignado.nombre_puesto;
+                        }
+                    } else if (puestos.length > 0) {
+                        if (puestos[0].nombre_departamento) {
+                            nombreDepartamento = puestos[0].nombre_departamento;
+                        }
+                        if (puestos[0].nombre_puesto) {
+                            nombrePuesto = puestos[0].nombre_puesto;
+                        }
                     }
                     
-                    // Actualizar título del modal - título arriba: "Administrar puestos y módulos del usuario", subtítulo abajo con nombre/departamento en negrita
+                    // Actualizar título del modal - título arriba: "Administrar puestos y módulos del usuario", subtítulo abajo con nombre/departamento/puesto en negrita
                     document.getElementById("modalEditPerfilLabel").innerHTML = `
                         <i class="fa fa-user-shield me-2" style="color: #495057;"></i>Administrar puestos y módulos del usuario
                     `;
-                    document.getElementById("modalEditPerfil_subtitle").innerHTML = `Gestión de Permisos y Accesos para <strong>${nombreCompleto} / ${nombreDepartamento}</strong>`;
+                    document.getElementById("modalEditPerfil_subtitle").innerHTML = `Gestión de Permisos y Accesos para <strong>${nombreCompleto} / ${nombreDepartamento} / ${nombrePuesto}</strong>`;
             
                     renderPuestos(puestos);
                     renderModulos(perfiles);
@@ -683,11 +694,11 @@ class CapHum extends Controller
         
                 item.innerHTML = `
                     <h2 class="accordion-header" id="heading_${accId}">
-                        <button class="accordion-button ${index !== 0 ? 'collapsed' : ''}"
+                        <button class="accordion-button collapsed"
                                 type="button"
                                 data-bs-toggle="collapse"
                                 data-bs-target="#collapse_${accId}"
-                                aria-expanded="${index === 0 ? 'true' : 'false'}"
+                                aria-expanded="false"
                                 style="background: #f8f9fa; font-weight: 600; padding: 1rem 1.5rem; border: none;">
                             <div class="d-flex align-items-center w-100">
                                 <i class="fa fa-building me-3" style="color: #6c757d; font-size: 1.1rem;"></i>
@@ -701,7 +712,7 @@ class CapHum extends Controller
                         </button>
                     </h2>
                     <div id="collapse_${accId}"
-                         class="accordion-collapse collapse ${index === 0 ? 'show' : ''}"
+                         class="accordion-collapse collapse"
                          data-bs-parent="#accordionPuestos">
                         <div class="accordion-body p-3" style="background-color: #ffffff; max-height: 450px; overflow-y: auto;"></div>
                     </div>

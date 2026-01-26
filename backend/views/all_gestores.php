@@ -708,7 +708,7 @@
                                 </div>
                             </div>
 
-                            <div id="modulos-container" style="max-height: 500px; overflow-y: auto;">
+                            <div id="modulos-container" style="overflow-y: visible;">
                                 <div id="modulos-form"></div>
                             </div>
                         </div>
