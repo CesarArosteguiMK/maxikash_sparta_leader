@@ -248,17 +248,142 @@ class CapHum extends Model
                     'Módulo eliminado correctamente'
                 );
             }
-
         } catch (\Exception $e) {
-            return self::resultado(
-                false,
-                'Error al actualizar el módulo',
-                null,
-                $e->getMessage()
-            );
+            return self::resultado(false, 'Error al actualizar módulo del perfil.', null, $e->getMessage());
         }
     }
 
+    /**
+     * Obtener documentos de una baja usando registro_baja
+     */
+    public static function getDocumentosBaja($registro_baja)
+    {
+        try {
+            $db = new Database();
+            
+            // Primero obtener el id_persona desde baja_persona
+            $baja = $db->queryOne("
+                SELECT id_persona 
+                FROM __SPARTA_SECRET_REDACTED__.baja_persona 
+                WHERE id = :registro_baja
+            ", ['registro_baja' => $registro_baja]);
+            
+            if (!$baja || !isset($baja['id_persona'])) {
+                return self::resultado(false, 'Baja no encontrada.', []);
+            }
+            
+            $id_persona = $baja['id_persona'];
+            $id_documento = 15; // Documento Baja
+            
+            // Obtener documentos
+            $documentos = $db->queryAll("
+                SELECT 
+                    cdp.id,
+                    cdp.archivo,
+                    cdp.fecha_carga
+                FROM __SPARTA_SECRET_REDACTED__.carga_documento_persona cdp
+                WHERE cdp.id_persona = :id_persona
+                AND cdp.id_documento = :id_documento
+                ORDER BY cdp.fecha_carga DESC
+            ", [
+                'id_persona' => $id_persona,
+                'id_documento' => $id_documento
+            ]);
+            
+            return self::resultado(true, 'Documentos encontrados.', $documentos ?? []);
+            
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al obtener documentos.', [], $e->getMessage());
+        }
+    }
+
+    /**
+     * Guardar documentos de una baja
+     */
+    public static function guardarDocumentosBaja($registro_baja, $archivos)
+    {
+        try {
+            $db = new Database();
+            
+            // Obtener el id_persona desde baja_persona
+            $baja = $db->queryOne("
+                SELECT id_persona 
+                FROM __SPARTA_SECRET_REDACTED__.baja_persona 
+                WHERE id = :registro_baja
+            ", ['registro_baja' => $registro_baja]);
+            
+            if (!$baja || !isset($baja['id_persona'])) {
+                return self::resultado(false, 'Baja no encontrada.');
+            }
+            
+            $id_persona = $baja['id_persona'];
+            $id_documento = 15; // Documento Baja
+            
+            $archivosGuardados = [];
+            
+            foreach ($archivos as $nombreArchivo) {
+                $archivoEsc = addslashes($nombreArchivo);
+                
+                $db->queryOne("
+                    INSERT INTO __SPARTA_SECRET_REDACTED__.carga_documento_persona
+                    (id_persona, id_documento, archivo, fecha_carga)
+                    VALUES
+                    (:id_persona, :id_documento, :archivo, NOW())
+                ", [
+                    'id_persona' => $id_persona,
+                    'id_documento' => $id_documento,
+                    'archivo' => $archivoEsc
+                ]);
+                
+                $archivosGuardados[] = $nombreArchivo;
+            }
+            
+            return self::resultado(true, 'Documentos guardados correctamente.', $archivosGuardados);
+            
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al guardar documentos.', null, $e->getMessage());
+        }
+    }
+
+    /**
+     * Eliminar documento de una baja
+     */
+    public static function eliminarDocumentoBaja($id_documento_carga)
+    {
+        try {
+            $db = new Database();
+            
+            // Primero obtener el nombre del archivo para eliminarlo físicamente
+            $documento = $db->queryOne("
+                SELECT archivo 
+                FROM __SPARTA_SECRET_REDACTED__.carga_documento_persona 
+                WHERE id = :id
+            ", ['id' => $id_documento_carga]);
+            
+            if (!$documento) {
+                return self::resultado(false, 'Documento no encontrado.');
+            }
+            
+            $nombreArchivo = $documento['archivo'];
+            
+            // Eliminar de la base de datos
+            $db->queryOne("
+                DELETE FROM __SPARTA_SECRET_REDACTED__.carga_documento_persona 
+                WHERE id = :id
+            ", ['id' => $id_documento_carga]);
+            
+            // Eliminar archivo físico
+            $rutaArchivo = __DIR__ . '/../uploads/bajas/' . $nombreArchivo;
+            if (file_exists($rutaArchivo)) {
+                @unlink($rutaArchivo);
+            }
+            
+            return self::resultado(true, 'Documento eliminado correctamente.');
+            
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al eliminar documento.', null, $e->getMessage());
+        }
+    }
 
     public static function getPersonaDetallePerfil($idPersona)
     {

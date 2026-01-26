@@ -307,6 +307,67 @@
         </div>
     </div>
 
+    <!-- =======================
+         MODAL - CARGAR DOCUMENTO BAJA
+    ======================== -->
+    <div class="modal fade" id="modalCargarDocumentoBaja" tabindex="-1" aria-labelledby="modalCargarDocLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalCargarDocLabel">Cargar Documento</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+
+                <div class="modal-body">
+                    <p id="cargarDoc_nombrePersona" class="mb-3"><strong>Persona:</strong></p>
+                    <input type="hidden" id="cargarDoc_registroBaja" value="">
+
+                    <div class="mb-3">
+                        <label for="cargarDoc_tipoDocumento" class="form-label"><strong>Tipo de Documento: </strong></label>
+                        <select class="form-select" id="cargarDoc_tipoDocumento">
+                            <option value="Documento Baja">Documento Baja</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label"><strong>Archivo:</strong></label>
+                        <div class="d-flex gap-2 align-items-center mb-2">
+                            <input 
+                                type="file" 
+                                id="cargarDoc_archivo" 
+                                class="form-control d-none" 
+                                onchange="agregarArchivoLista(this)"
+                                accept=".pdf"
+                                multiple
+                            />
+                            <button 
+                                type="button" 
+                                class="btn btn-outline-primary"
+                                onclick="seleccionarArchivoDocumento()"
+                            >
+                                <i class="fa fa-paperclip me-2"></i>Elegir archivos
+                            </button>
+                            <span id="cargarDoc_nombreArchivo" class="text-muted small">No se ha seleccionado ningún archivo</span>
+                        </div>
+                        <small class="text-muted">Puedes subir múltiples archivos PDF.</small>
+                    </div>
+
+                    <!-- Lista de archivos cargados -->
+                    <div id="cargarDoc_listaArchivos" class="mt-3">
+                        <!-- Los archivos se agregarán aquí dinámicamente -->
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" onclick="subirDocumentoBaja()">
+                        <i class="fa fa-upload me-2"></i>Subir Archivo
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="modal fade" id="modalAuscencia" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
             <div class="modal-content">

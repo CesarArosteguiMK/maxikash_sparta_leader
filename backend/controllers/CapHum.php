@@ -1458,8 +1458,11 @@ class CapHum extends Controller
                             `.trim(),
                             usuario: p.user_name ?? 'N/A',
                             acciones: `
-                                <button class="btn btn-sm btn-primary" onclick="editarBaja(${p.registro_baja ?? ''})" title="Editar">
-                                    <i class="fa fa-edit"></i>
+                                <button class="btn btn-sm btn-info me-1" onclick="cargarDocumentoBaja(this)" 
+                                    data-registro-baja="${p.registro_baja ?? ''}" 
+                                    data-nombre="${nombreCompleto.replace(/"/g, '&quot;')}" 
+                                    title="Cargar documento">
+                                    <i class="fa fa-file"></i>
                                 </button>
                             `.trim()
                         };
@@ -1644,18 +1647,378 @@ class CapHum extends Controller
                 getBajas();
             }
             
-            // Función placeholder para editar baja (mensaje cómico temporal)
-            function editarBaja(registroBaja) {
+            // Array para almacenar archivos ya subidos
+            let archivosSubidos = [];
+            
+            // Función para abrir modal de cargar documento
+            function cargarDocumentoBaja(button) {
+                // Obtener datos del botón
+                const registroBaja = button.getAttribute('data-registro-baja');
+                const nombreCompleto = button.getAttribute('data-nombre');
+                
+                // Guardar el registro de baja en un campo oculto del modal
+                document.getElementById('cargarDoc_registroBaja').value = registroBaja || '';
+                document.getElementById('cargarDoc_nombrePersona').textContent = 'Persona: ' + (nombreCompleto || 'N/A');
+                
+                // Limpiar el select y el input de archivo
+                document.getElementById('cargarDoc_tipoDocumento').value = 'Documento Baja';
+                document.getElementById('cargarDoc_archivo').value = '';
+                document.getElementById('cargarDoc_nombreArchivo').textContent = 'No se ha seleccionado ningún archivo';
+                
+                // Limpiar la lista de archivos nuevos
+                archivosSeleccionados = [];
+                
+                // Cargar archivos existentes
+                if (registroBaja) {
+                    cargarArchivosExistentes(registroBaja);
+                }
+                
+                // Abrir el modal
+                $('#modalCargarDocumentoBaja').modal('show');
+            }
+            
+            // Función para cargar archivos existentes
+            function cargarArchivosExistentes(registroBaja) {
+                fetch('/caphum/getDocumentosBaja?registro_baja=' + registroBaja)
+                    .then(res => res.json())
+                    .then(resp => {
+                        if (resp.success && resp.datos) {
+                            archivosSubidos = resp.datos;
+                            renderizarArchivosSubidos();
+                        } else {
+                            archivosSubidos = [];
+                            renderizarArchivosSubidos();
+                        }
+                    })
+                    .catch(err => {
+                        console.error('Error al cargar archivos:', err);
+                        archivosSubidos = [];
+                        renderizarArchivosSubidos();
+                    });
+            }
+            
+            // Función para renderizar archivos ya subidos
+            function renderizarArchivosSubidos() {
+                const listaArchivos = document.getElementById('cargarDoc_listaArchivos');
+                let html = '';
+                
+                // Primero mostrar archivos ya subidos
+                archivosSubidos.forEach((doc) => {
+                    html += `
+                        <div class="d-flex align-items-center justify-content-between p-2 border rounded mb-2">
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="badge bg-danger">PDF</span>
+                                <span class="text-truncate" style="max-width: 300px;">${doc.archivo}</span>
+                            </div>
+                            <div class="d-flex align-items-center gap-2">
+                                <button 
+                                    type="button" 
+                                    class="btn btn-sm btn-success p-1" 
+                                    title="Marcado como verificado"
+                                    style="width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;"
+                                    disabled
+                                >
+                                    <i class="fa fa-check" style="font-size: 12px;"></i>
+                                </button>
+                                <button 
+                                    type="button" 
+                                    class="btn btn-sm btn-info p-1" 
+                                    onclick="verArchivoSubido('${doc.archivo}')" 
+                                    title="Ver archivo"
+                                    style="width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;"
+                                >
+                                    <i class="fa fa-eye" style="font-size: 12px;"></i>
+                                </button>
+                                <button 
+                                    type="button" 
+                                    class="btn btn-sm btn-danger p-1" 
+                                    onclick="eliminarArchivoSubido(${doc.id}, '${doc.archivo}')" 
+                                    title="Eliminar archivo"
+                                    style="width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;"
+                                >
+                                    <i class="fa fa-times" style="font-size: 12px;"></i>
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                // Luego mostrar archivos nuevos seleccionados
+                archivosSeleccionados.forEach((file, index) => {
+                    html += `
+                        <div class="d-flex align-items-center justify-content-between p-2 border rounded mb-2">
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="badge bg-danger">PDF</span>
+                                <span class="text-truncate" style="max-width: 300px;">${file.name}</span>
+                            </div>
+                            <div class="d-flex align-items-center gap-2">
+                                <button 
+                                    type="button" 
+                                    class="btn btn-sm btn-success p-1" 
+                                    onclick="marcarArchivoVerificado(${index})" 
+                                    title="Marcar como verificado"
+                                    style="width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;"
+                                >
+                                    <i class="fa fa-check" style="font-size: 12px;"></i>
+                                </button>
+                                <button 
+                                    type="button" 
+                                    class="btn btn-sm btn-info p-1" 
+                                    onclick="verArchivoCargado(${index})" 
+                                    title="Ver archivo"
+                                    style="width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;"
+                                >
+                                    <i class="fa fa-eye" style="font-size: 12px;"></i>
+                                </button>
+                                <button 
+                                    type="button" 
+                                    class="btn btn-sm btn-danger p-1" 
+                                    onclick="eliminarArchivoCargado(${index})" 
+                                    title="Eliminar archivo"
+                                    style="width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;"
+                                >
+                                    <i class="fa fa-times" style="font-size: 12px;"></i>
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                listaArchivos.innerHTML = html;
+            }
+            
+            // Array para almacenar los archivos seleccionados
+            let archivosSeleccionados = [];
+            
+            // Función para seleccionar archivo
+            function seleccionarArchivoDocumento() {
+                document.getElementById('cargarDoc_archivo').click();
+            }
+            
+            // Función para agregar archivos a la lista
+            function agregarArchivoLista(input) {
+                const listaArchivos = document.getElementById('cargarDoc_listaArchivos');
+                const nombreArchivoSpan = document.getElementById('cargarDoc_nombreArchivo');
+                
+                if (input.files && input.files.length > 0) {
+                    // Agregar nuevos archivos al array
+                    for (let i = 0; i < input.files.length; i++) {
+                        const file = input.files[i];
+                        // Verificar si el archivo ya existe
+                        const existe = archivosSeleccionados.some(f => f.name === file.name && f.size === file.size);
+                        if (!existe) {
+                            archivosSeleccionados.push(file);
+                        }
+                    }
+                    
+                    // Actualizar el texto
+                    if (archivosSeleccionados.length > 0) {
+                        nombreArchivoSpan.textContent = archivosSeleccionados.length + ' archivo(s) seleccionado(s)';
+                    } else {
+                        nombreArchivoSpan.textContent = 'No se ha seleccionado ningún archivo';
+                    }
+                    
+                    // Renderizar la lista
+                    renderizarArchivosSubidos();
+                } else {
+                    nombreArchivoSpan.textContent = 'No se ha seleccionado ningún archivo';
+                }
+            }
+            
+            
+            // Función para eliminar un archivo de la lista (nuevo, no subido)
+            function eliminarArchivoCargado(index) {
+                archivosSeleccionados.splice(index, 1);
+                renderizarArchivosSubidos();
+                
+                const nombreArchivoSpan = document.getElementById('cargarDoc_nombreArchivo');
+                if (archivosSeleccionados.length > 0) {
+                    nombreArchivoSpan.textContent = archivosSeleccionados.length + ' archivo(s) seleccionado(s)';
+                } else {
+                    nombreArchivoSpan.textContent = 'No se ha seleccionado ningún archivo';
+                }
+                
+                // Limpiar el input file
+                document.getElementById('cargarDoc_archivo').value = '';
+            }
+            
+            // Función para eliminar un archivo ya subido
+            function eliminarArchivoSubido(idDocumento, nombreArchivo) {
                 Swal.fire({
+                    title: '¿Eliminar archivo?',
+                    text: '¿Estás seguro de que deseas eliminar "' + nombreArchivo + '"?',
                     icon: 'warning',
-                    title: '¡Espera!',
-                    html: `
-                        <p style="font-size: 18px;">No me toques por favor 😅</p>
-                        <p style="font-size: 16px; margin-top: 10px;">Soy mucho botón para tu click, jejej</p>
-                        <p style="font-size: 14px; margin-top: 10px; color: #666;">Por ahora solo soy decorativo</p>
-                    `,
-                    confirmButtonText: 'Ok, entendido',
-                    confirmButtonColor: '#3085d6'
+                    showCancelButton: true,
+                    confirmButtonText: 'Sí, eliminar',
+                    cancelButtonText: 'Cancelar'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        const formData = new FormData();
+                        formData.append('id_documento', idDocumento);
+                        
+                        fetch('/caphum/eliminarDocumentoBaja', {
+                            method: 'POST',
+                            body: formData
+                        })
+                        .then(res => res.json())
+                        .then(resp => {
+                            if (resp.success) {
+                                Swal.fire({
+                                    icon: 'success',
+                                    title: 'Archivo eliminado',
+                                    text: 'El archivo ha sido eliminado correctamente',
+                                    timer: 2000,
+                                    showConfirmButton: false
+                                });
+                                
+                                // Recargar la lista de archivos
+                                const registroBaja = document.getElementById('cargarDoc_registroBaja').value;
+                                if (registroBaja) {
+                                    cargarArchivosExistentes(registroBaja);
+                                }
+                            } else {
+                                Swal.fire({
+                                    icon: 'error',
+                                    title: 'Error',
+                                    text: resp.mensaje || 'No se pudo eliminar el archivo'
+                                });
+                            }
+                        })
+                        .catch(err => {
+                            console.error('Error:', err);
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Error',
+                                text: 'Ocurrió un error al eliminar el archivo'
+                            });
+                        });
+                    }
+                });
+            }
+            
+            // Función para ver un archivo nuevo (no subido)
+            function verArchivoCargado(index) {
+                const file = archivosSeleccionados[index];
+                if (file) {
+                    // Crear una URL temporal para el archivo
+                    const url = URL.createObjectURL(file);
+                    // Abrir en nueva ventana
+                    window.open(url, '_blank');
+                }
+            }
+            
+            // Función para ver un archivo ya subido
+            function verArchivoSubido(nombreArchivo) {
+                const url = '/caphum/verDocumentoBaja?archivo=' + encodeURIComponent(nombreArchivo);
+                window.open(url, '_blank');
+            }
+            
+            // Función para marcar archivo como verificado
+            function marcarArchivoVerificado(index) {
+                const file = archivosSeleccionados[index];
+                if (file) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Archivo verificado',
+                        text: 'El archivo "' + file.name + '" ha sido marcado como verificado',
+                        timer: 2000,
+                        showConfirmButton: false
+                    });
+                }
+            }
+            
+            // Función para subir documento
+            function subirDocumentoBaja() {
+                const tipoDocumento = document.getElementById('cargarDoc_tipoDocumento').value;
+                const registroBaja = document.getElementById('cargarDoc_registroBaja').value;
+                
+                if (!tipoDocumento) {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Atención',
+                        text: 'Por favor selecciona un tipo de documento'
+                    });
+                    return;
+                }
+                
+                if (archivosSeleccionados.length === 0) {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Atención',
+                        text: 'Por favor selecciona al menos un archivo'
+                    });
+                    return;
+                }
+                
+                if (!registroBaja) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: 'No se encontró el registro de baja'
+                    });
+                    return;
+                }
+                
+                // Mostrar loading
+                Swal.fire({
+                    title: 'Subiendo archivos...',
+                    text: 'Por favor espera',
+                    allowOutsideClick: false,
+                    didOpen: () => {
+                        Swal.showLoading();
+                    }
+                });
+                
+                // Crear FormData
+                const formData = new FormData();
+                formData.append('registro_baja', registroBaja);
+                
+                // Agregar archivos
+                archivosSeleccionados.forEach((file, index) => {
+                    formData.append('archivosPDF[]', file);
+                });
+                
+                // Enviar al servidor
+                fetch('/caphum/subirDocumentosBaja', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(res => res.json())
+                .then(resp => {
+                    Swal.close();
+                    
+                    if (resp.success) {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Archivos subidos',
+                            text: 'Se subieron ' + archivosSeleccionados.length + ' archivo(s) correctamente',
+                            timer: 2000,
+                            showConfirmButton: false
+                        });
+                        
+                        // Limpiar archivos seleccionados
+                        archivosSeleccionados = [];
+                        document.getElementById('cargarDoc_archivo').value = '';
+                        document.getElementById('cargarDoc_nombreArchivo').textContent = 'No se ha seleccionado ningún archivo';
+                        
+                        // Recargar lista de archivos
+                        cargarArchivosExistentes(registroBaja);
+                    } else {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error',
+                            text: resp.mensaje || 'No se pudieron subir los archivos'
+                        });
+                    }
+                })
+                .catch(err => {
+                    Swal.close();
+                    console.error('Error:', err);
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: 'Ocurrió un error al subir los archivos'
+                    });
                 });
             }
             
@@ -2354,6 +2717,188 @@ class CapHum extends Controller
         self::respuestaJSON(
             CapHumDAO::getConsultaDepartamentoGestorOrganigrama($id)
         );
+    }
+
+    /**
+     * Obtener documentos de una baja
+     */
+    public function getDocumentosBaja()
+    {
+        try {
+            $registro_baja = $_GET['registro_baja'] ?? null;
+            
+            if (!$registro_baja) {
+                self::respuestaJSON([
+                    'success' => false,
+                    'mensaje' => 'Registro de baja requerido',
+                    'datos' => []
+                ]);
+                return;
+            }
+            
+            $resultado = CapHumDAO::getDocumentosBaja($registro_baja);
+            self::respuestaJSON($resultado);
+            
+        } catch (\Exception $e) {
+            self::respuestaJSON([
+                'success' => false,
+                'mensaje' => 'Error al obtener documentos: ' . $e->getMessage(),
+                'datos' => []
+            ]);
+        }
+    }
+
+    /**
+     * Subir documentos de una baja
+     */
+    public function subirDocumentosBaja()
+    {
+        try {
+            $registro_baja = $_POST['registro_baja'] ?? null;
+            
+            if (!$registro_baja) {
+                self::respuestaJSON([
+                    'success' => false,
+                    'mensaje' => 'Registro de baja requerido'
+                ]);
+                return;
+            }
+            
+            if (empty($_FILES['archivosPDF']['name'][0])) {
+                self::respuestaJSON([
+                    'success' => false,
+                    'mensaje' => 'No se seleccionaron archivos'
+                ]);
+                return;
+            }
+            
+            // Crear directorio si no existe
+            $directorio = __DIR__ . '/../uploads/bajas/';
+            if (!is_dir($directorio)) {
+                mkdir($directorio, 0777, true);
+            }
+            
+            $archivosGuardados = [];
+            
+            // Procesar cada archivo
+            foreach ($_FILES['archivosPDF']['tmp_name'] as $i => $tmp) {
+                if ($_FILES['archivosPDF']['error'][$i] !== UPLOAD_ERR_OK) {
+                    continue;
+                }
+                
+                $nombreOrig = $_FILES['archivosPDF']['name'][$i];
+                $extension = strtolower(pathinfo($nombreOrig, PATHINFO_EXTENSION));
+                
+                if ($extension !== 'pdf') {
+                    continue;
+                }
+                
+                // Generar nombre único
+                $nombreFinal = 'baja_' . $registro_baja . '_' . time() . '_' . $i . '.pdf';
+                $rutaFinal = $directorio . $nombreFinal;
+                
+                if (move_uploaded_file($tmp, $rutaFinal)) {
+                    $archivosGuardados[] = $nombreFinal;
+                }
+            }
+            
+            if (empty($archivosGuardados)) {
+                self::respuestaJSON([
+                    'success' => false,
+                    'mensaje' => 'No se pudieron guardar los archivos'
+                ]);
+                return;
+            }
+            
+            // Guardar en base de datos
+            $resultado = CapHumDAO::guardarDocumentosBaja($registro_baja, $archivosGuardados);
+            self::respuestaJSON($resultado);
+            
+        } catch (\Exception $e) {
+            self::respuestaJSON([
+                'success' => false,
+                'mensaje' => 'Error al subir documentos: ' . $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
+     * Eliminar documento de una baja
+     */
+    public function eliminarDocumentoBaja()
+    {
+        try {
+            $id_documento = $_POST['id_documento'] ?? null;
+            
+            if (!$id_documento) {
+                self::respuestaJSON([
+                    'success' => false,
+                    'mensaje' => 'ID de documento requerido'
+                ]);
+                return;
+            }
+            
+            $resultado = CapHumDAO::eliminarDocumentoBaja($id_documento);
+            self::respuestaJSON($resultado);
+            
+        } catch (\Exception $e) {
+            self::respuestaJSON([
+                'success' => false,
+                'mensaje' => 'Error al eliminar documento: ' . $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
+     * Ver documento PDF de una baja
+     */
+    public function verDocumentoBaja()
+    {
+        try {
+            $nombreArchivo = $_GET['archivo'] ?? null;
+            
+            if (!$nombreArchivo) {
+                http_response_code(400);
+                echo 'Nombre de archivo requerido';
+                exit;
+            }
+            
+            // Validar que el nombre del archivo no contenga rutas relativas (seguridad)
+            if (strpos($nombreArchivo, '..') !== false || strpos($nombreArchivo, '/') !== false) {
+                http_response_code(403);
+                echo 'Nombre de archivo inválido';
+                exit;
+            }
+            
+            $rutaArchivo = __DIR__ . '/../uploads/bajas/' . basename($nombreArchivo);
+            
+            if (!file_exists($rutaArchivo)) {
+                http_response_code(404);
+                echo 'Archivo no encontrado';
+                exit;
+            }
+            
+            // Limpiar buffer
+            while (ob_get_level()) {
+                ob_end_clean();
+            }
+            
+            // Establecer headers para PDF
+            header('Content-Type: application/pdf');
+            header('Content-Disposition: inline; filename="' . basename($nombreArchivo) . '"');
+            header('Content-Length: ' . filesize($rutaArchivo));
+            header('Cache-Control: private, max-age=0, must-revalidate');
+            header('Pragma: public');
+            
+            // Leer y enviar el archivo
+            readfile($rutaArchivo);
+            exit;
+            
+        } catch (\Exception $e) {
+            http_response_code(500);
+            echo 'Error al cargar el archivo: ' . $e->getMessage();
+            exit;
+        }
     }
 
 }
