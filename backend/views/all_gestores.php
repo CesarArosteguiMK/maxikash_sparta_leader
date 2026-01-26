@@ -92,6 +92,47 @@
         </div>
 
         <!-- =======================
+             FILTRO DE FECHAS PARA BAJAS (oculto por defecto)
+        ======================== -->
+        <div id="filtroFechaBajas" style="display: none;" class="row m-4">
+            <div class="col-12">
+                <div class="card border">
+                    <div class="card-body">
+                        <div class="row align-items-end g-3">
+                            <div class="col-md-3">
+                                <label class="form-label fw-semibold">Rango de Fechas</label>
+                                <input 
+                                    type="text" 
+                                    id="flatpickr-range-bajas" 
+                                    class="form-control" 
+                                    placeholder="Selecciona un rango de fechas"
+                                />
+                            </div>
+                            <div class="col-md-8 d-flex gap-2 align-items-end">
+                                <button 
+                                    type="button" 
+                                    id="btnLimpiarFiltroBajas" 
+                                    class="btn text-white"
+                                    style="background-color: #d2d755; border-color: #d2d755; min-width: 150px;"
+                                >
+                                    <i class="fa fa-times me-2"></i>Limpiar Filtro
+                                </button>
+                                <button 
+                                    type="button" 
+                                    id="btnDescargarBajas" 
+                                    class="btn text-white"
+                                    style="background-color: #0047bb; border-color: #0047bb; min-width: 150px;"
+                                >
+                                    <i class="fa fa-download me-2"></i>Descargar Excel
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- =======================
              TABLA
         ======================== -->
         <div class="card-datatable table-responsive">

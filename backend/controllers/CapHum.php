@@ -1852,7 +1852,7 @@ class CapHum extends Controller
             
             // Definir columnas para Excel
             $columnas = [
-                \PHPSpreadsheet::ColumnaExcel('external_id', 'ID EXTERNO'),
+                \PHPSpreadsheet::ColumnaExcel('external_id', 'External ID'),
                 \PHPSpreadsheet::ColumnaExcel('numero_empleado', 'NÚMERO DE EMPLEADO'),
                 \PHPSpreadsheet::ColumnaExcel('nombre_completo', 'NOMBRE COMPLETO'),
                 \PHPSpreadsheet::ColumnaExcel('departamento', 'DEPARTAMENTO'),
