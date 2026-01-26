@@ -173,22 +173,22 @@
 
                 <div class="mb-2">
                     <label class="form-label">Nombres *</label>
-                    <input type="text" id="add_nombres" class="form-control">
+                    <input type="text" id="add_nombres" class="form-control" oninput="this.value = this.value.replace(/[^A-Za-zÁÉÍÓÚáéíóúÑñ\s]/g, '').toUpperCase()" style="text-transform: uppercase;">
                 </div>
 
                 <div class="mb-2">
                     <label class="form-label">Apellido Paterno *</label>
-                    <input type="text" id="add_apellidop" class="form-control">
+                    <input type="text" id="add_apellidop" class="form-control" oninput="this.value = this.value.replace(/[^A-Za-zÁÉÍÓÚáéíóúÑñ\s]/g, '').toUpperCase()" style="text-transform: uppercase;">
                 </div>
 
                 <div class="mb-2">
                     <label class="form-label">Apellido Materno *</label>
-                    <input type="text" id="add_apellidom" class="form-control">
+                    <input type="text" id="add_apellidom" class="form-control" oninput="this.value = this.value.replace(/[^A-Za-zÁÉÍÓÚáéíóúÑñ\s]/g, '').toUpperCase()" style="text-transform: uppercase;">
                 </div>
 
                 <div class="mb-2">
                     <label class="form-label">Teléfono *</label>
-                    <input type="text" id="add_telefono" class="form-control phone-mask">
+                    <input type="text" id="add_telefono" class="form-control phone-mask" oninput="this.value = this.value.replace(/[^0-9]/g, '')" maxlength="10">
                 </div>
 
                 <div class="mb-2">
@@ -219,7 +219,7 @@
 
                 <div class="mb-2">
                     <label class="form-label">Usuario *</label>
-                    <input type="text" id="add_usuario" class="form-control">
+                    <input type="text" id="add_usuario" class="form-control" oninput="this.value = this.value.replace(/[^A-Za-zÁÉÍÓÚáéíóúÑñ\s]/g, '').toUpperCase()" style="text-transform: uppercase;">
                 </div>
 
                 <div class="mb-7">
@@ -508,22 +508,22 @@
 
                 <div class="mb-2">
                     <label class="form-label">Nombres *</label>
-                    <input type="text" id="edit_nombres" class="form-control">
+                    <input type="text" id="edit_nombres" class="form-control" oninput="this.value = this.value.replace(/[^A-Za-zÁÉÍÓÚáéíóúÑñ\s]/g, '').toUpperCase()" style="text-transform: uppercase;">
                 </div>
 
                 <div class="mb-2">
                     <label class="form-label">Apellido Paterno *</label>
-                    <input type="text" id="edit_apellidop" class="form-control">
+                    <input type="text" id="edit_apellidop" class="form-control" oninput="this.value = this.value.replace(/[^A-Za-zÁÉÍÓÚáéíóúÑñ\s]/g, '').toUpperCase()" style="text-transform: uppercase;">
                 </div>
 
                 <div class="mb-2">
                     <label class="form-label">Apellido Materno *</label>
-                    <input type="text" id="edit_apellidom" class="form-control">
+                    <input type="text" id="edit_apellidom" class="form-control" oninput="this.value = this.value.replace(/[^A-Za-zÁÉÍÓÚáéíóúÑñ\s]/g, '').toUpperCase()" style="text-transform: uppercase;">
                 </div>
 
                 <div class="mb-2">
                     <label class="form-label">Teléfono *</label>
-                    <input type="text" id="edit_telefono" class="form-control phone-mask">
+                    <input type="text" id="edit_telefono" class="form-control phone-mask" oninput="this.value = this.value.replace(/[^0-9]/g, '')" maxlength="10">
                 </div>
 
                 <div class="mb-2">
@@ -549,7 +549,7 @@
 
                 <div class="mb-2">
                     <label class="form-label">Usuario *</label>
-                    <input type="text" id="edit_usuario" class="form-control" readonly>
+                    <input type="text" id="edit_usuario" class="form-control" readonly oninput="this.value = this.value.replace(/[^A-Za-zÁÉÍÓÚáéíóúÑñ\s]/g, '').toUpperCase()" style="text-transform: uppercase;">
                 </div>
 
                 <div class="mb-7">
