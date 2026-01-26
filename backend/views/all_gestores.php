@@ -311,7 +311,7 @@
          MODAL - CARGAR DOCUMENTO BAJA
     ======================== -->
     <div class="modal fade" id="modalCargarDocumentoBaja" tabindex="-1" aria-labelledby="modalCargarDocLabel" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title" id="modalCargarDocLabel">Cargar Documento</h5>
@@ -352,9 +352,33 @@
                         <small class="text-muted">Puedes subir múltiples archivos PDF.</small>
                     </div>
 
-                    <!-- Lista de archivos cargados -->
-                    <div id="cargarDoc_listaArchivos" class="mt-3">
-                        <!-- Los archivos se agregarán aquí dinámicamente -->
+                    <!-- Lista de archivos nuevos seleccionados (antes de subir) - ARRIBA DE LA TABLA -->
+                    <div id="cargarDoc_listaArchivos" class="mb-4" style="display: none;">
+                        <h6 class="mb-3"><strong>Archivos Nuevos Seleccionados</strong></h6>
+                        <!-- Los archivos nuevos se agregarán aquí dinámicamente -->
+                    </div>
+
+                    <!-- Tabla de archivos subidos -->
+                    <div class="mt-4">
+                        <h6 class="mb-3"><strong>Archivos Subidos</strong></h6>
+                        <div class="table-responsive">
+                            <table class="table table-bordered table-striped">
+                                <thead class="table-dark">
+                                    <tr>
+                                        <th>Documento</th>
+                                        <th>Archivo</th>
+                                        <th>Fecha de carga</th>
+                                        <th>Válido</th>
+                                        <th>Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="cargarDoc_tablaArchivos">
+                                    <tr>
+                                        <td colspan="5" class="text-center text-muted">No hay archivos subidos</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
 

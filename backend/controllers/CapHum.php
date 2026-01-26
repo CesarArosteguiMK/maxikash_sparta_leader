@@ -1667,10 +1667,18 @@ class CapHum extends Controller
                 
                 // Limpiar la lista de archivos nuevos
                 archivosSeleccionados = [];
+                document.getElementById('cargarDoc_listaArchivos').style.display = 'none';
                 
                 // Cargar archivos existentes
                 if (registroBaja) {
                     cargarArchivosExistentes(registroBaja);
+                } else {
+                    // Si no hay registro, mostrar tabla vacía
+                    document.getElementById('cargarDoc_tablaArchivos').innerHTML = `
+                        <tr>
+                            <td colspan="5" class="text-center text-muted">No hay archivos subidos</td>
+                        </tr>
+                    `;
                 }
                 
                 // Abrir el modal
@@ -1697,94 +1705,114 @@ class CapHum extends Controller
                     });
             }
             
-            // Función para renderizar archivos ya subidos
+            // Función para formatear fecha
+            function formatearFecha(fechaStr) {
+                if (!fechaStr) return 'N/A';
+                try {
+                    const fecha = new Date(fechaStr);
+                    const año = fecha.getFullYear();
+                    const mes = String(fecha.getMonth() + 1).padStart(2, '0');
+                    const dia = String(fecha.getDate()).padStart(2, '0');
+                    const horas = String(fecha.getHours()).padStart(2, '0');
+                    const minutos = String(fecha.getMinutes()).padStart(2, '0');
+                    return `${año}-${mes}-${dia} ${horas}:${minutos}`;
+                } catch (e) {
+                    return fechaStr;
+                }
+            }
+            
+            // Función para renderizar archivos ya subidos en tabla
             function renderizarArchivosSubidos() {
+                const tablaArchivos = document.getElementById('cargarDoc_tablaArchivos');
                 const listaArchivos = document.getElementById('cargarDoc_listaArchivos');
-                let html = '';
                 
-                // Primero mostrar archivos ya subidos
-                archivosSubidos.forEach((doc) => {
-                    html += `
-                        <div class="d-flex align-items-center justify-content-between p-2 border rounded mb-2">
-                            <div class="d-flex align-items-center gap-2">
-                                <span class="badge bg-danger">PDF</span>
-                                <span class="text-truncate" style="max-width: 300px;">${doc.archivo}</span>
-                            </div>
-                            <div class="d-flex align-items-center gap-2">
-                                <button 
-                                    type="button" 
-                                    class="btn btn-sm btn-success p-1" 
-                                    title="Marcado como verificado"
-                                    style="width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;"
-                                    disabled
-                                >
-                                    <i class="fa fa-check" style="font-size: 12px;"></i>
-                                </button>
-                                <button 
-                                    type="button" 
-                                    class="btn btn-sm btn-info p-1" 
-                                    onclick="verArchivoSubido('${doc.archivo}')" 
-                                    title="Ver archivo"
-                                    style="width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;"
-                                >
-                                    <i class="fa fa-eye" style="font-size: 12px;"></i>
-                                </button>
-                                <button 
-                                    type="button" 
-                                    class="btn btn-sm btn-danger p-1" 
-                                    onclick="eliminarArchivoSubido(${doc.id}, '${doc.archivo}')" 
-                                    title="Eliminar archivo"
-                                    style="width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;"
-                                >
-                                    <i class="fa fa-times" style="font-size: 12px;"></i>
-                                </button>
-                            </div>
-                        </div>
+                // Renderizar tabla de archivos subidos
+                if (archivosSubidos.length === 0) {
+                    tablaArchivos.innerHTML = `
+                        <tr>
+                            <td colspan="5" class="text-center text-muted">No hay archivos subidos</td>
+                        </tr>
                     `;
-                });
+                } else {
+                    let htmlTabla = '';
+                    archivosSubidos.forEach((doc) => {
+                        const fechaFormateada = formatearFecha(doc.fecha_carga);
+                        // Escapar el nombre del archivo para evitar problemas con comillas
+                        const archivoEscapado = (doc.archivo || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                        htmlTabla += `
+                            <tr>
+                                <td>Documento Baja</td>
+                                <td>${doc.archivo || 'N/A'}</td>
+                                <td>${fechaFormateada}</td>
+                                <td>
+                                    <span class="badge bg-success">Sí</span>
+                                </td>
+                                <td>
+                                    <button 
+                                        type="button" 
+                                        class="btn btn-sm btn-info me-1" 
+                                        onclick="verArchivoSubido('${archivoEscapado}')" 
+                                        title="Ver archivo"
+                                    >
+                                        Ver
+                                    </button>
+                                    <button 
+                                        type="button" 
+                                        class="btn btn-sm btn-danger" 
+                                        onclick="eliminarArchivoSubido(${doc.id}, '${archivoEscapado}')" 
+                                        title="Eliminar archivo"
+                                    >
+                                        <i class="fa fa-trash"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        `;
+                    });
+                    tablaArchivos.innerHTML = htmlTabla;
+                }
                 
-                // Luego mostrar archivos nuevos seleccionados
-                archivosSeleccionados.forEach((file, index) => {
-                    html += `
-                        <div class="d-flex align-items-center justify-content-between p-2 border rounded mb-2">
-                            <div class="d-flex align-items-center gap-2">
-                                <span class="badge bg-danger">PDF</span>
-                                <span class="text-truncate" style="max-width: 300px;">${file.name}</span>
+                // Renderizar lista de archivos nuevos seleccionados (antes de subir)
+                if (archivosSeleccionados.length > 0) {
+                    listaArchivos.style.display = 'block';
+                    let htmlLista = '';
+                    archivosSeleccionados.forEach((file, index) => {
+                        htmlLista += `
+                            <div class="d-flex align-items-center justify-content-between p-2 border rounded mb-2">
+                                <div class="d-flex align-items-center gap-2">
+                                    <span class="badge bg-danger">PDF</span>
+                                    <span class="text-truncate" style="max-width: 300px;">${file.name}</span>
+                                    <span class="badge bg-success rounded-circle" style="width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; padding: 0;">
+                                        <i class="fa fa-check" style="font-size: 10px; color: white;"></i>
+                                    </span>
+                                </div>
+                                <div class="d-flex align-items-center gap-2">
+                                    <button 
+                                        type="button" 
+                                        class="btn btn-sm btn-info p-1" 
+                                        onclick="verArchivoCargado(${index})" 
+                                        title="Ver archivo"
+                                        style="width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;"
+                                    >
+                                        <i class="fa fa-eye" style="font-size: 12px;"></i>
+                                    </button>
+                                    <button 
+                                        type="button" 
+                                        class="btn btn-sm btn-danger p-1" 
+                                        onclick="eliminarArchivoCargado(${index})" 
+                                        title="Eliminar archivo"
+                                        style="width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;"
+                                    >
+                                        <i class="fa fa-times" style="font-size: 12px;"></i>
+                                    </button>
+                                </div>
                             </div>
-                            <div class="d-flex align-items-center gap-2">
-                                <button 
-                                    type="button" 
-                                    class="btn btn-sm btn-success p-1" 
-                                    onclick="marcarArchivoVerificado(${index})" 
-                                    title="Marcar como verificado"
-                                    style="width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;"
-                                >
-                                    <i class="fa fa-check" style="font-size: 12px;"></i>
-                                </button>
-                                <button 
-                                    type="button" 
-                                    class="btn btn-sm btn-info p-1" 
-                                    onclick="verArchivoCargado(${index})" 
-                                    title="Ver archivo"
-                                    style="width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;"
-                                >
-                                    <i class="fa fa-eye" style="font-size: 12px;"></i>
-                                </button>
-                                <button 
-                                    type="button" 
-                                    class="btn btn-sm btn-danger p-1" 
-                                    onclick="eliminarArchivoCargado(${index})" 
-                                    title="Eliminar archivo"
-                                    style="width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;"
-                                >
-                                    <i class="fa fa-times" style="font-size: 12px;"></i>
-                                </button>
-                            </div>
-                        </div>
-                    `;
-                });
-                
-                listaArchivos.innerHTML = html;
+                        `;
+                    });
+                    listaArchivos.innerHTML = '<h6 class="mb-3"><strong>Archivos Nuevos Seleccionados</strong></h6>' + htmlLista;
+                } else {
+                    listaArchivos.style.display = 'none';
+                    listaArchivos.innerHTML = '';
+                }
             }
             
             // Array para almacenar los archivos seleccionados
@@ -1875,6 +1903,13 @@ class CapHum extends Controller
                                 const registroBaja = document.getElementById('cargarDoc_registroBaja').value;
                                 if (registroBaja) {
                                     cargarArchivosExistentes(registroBaja);
+                                } else {
+                                    // Si no hay registro, mostrar tabla vacía
+                                    document.getElementById('cargarDoc_tablaArchivos').innerHTML = `
+                                        <tr>
+                                            <td colspan="5" class="text-center text-muted">No hay archivos subidos</td>
+                                        </tr>
+                                    `;
                                 }
                             } else {
                                 Swal.fire({

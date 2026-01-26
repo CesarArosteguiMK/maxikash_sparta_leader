@@ -280,7 +280,7 @@ class CapHum extends Model
                 SELECT 
                     cdp.id,
                     cdp.archivo,
-                    cdp.fecha_carga
+                    DATE_FORMAT(cdp.fecha_carga, '%Y-%m-%d %H:%i') AS fecha_carga
                 FROM __SPARTA_SECRET_REDACTED__.carga_documento_persona cdp
                 WHERE cdp.id_persona = :id_persona
                 AND cdp.id_documento = :id_documento
