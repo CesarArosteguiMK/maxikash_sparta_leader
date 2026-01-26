@@ -36,6 +36,87 @@
         padding: .25rem 0;
     }
 
+    /* Estilos para el Modal de Permisos */
+    #modalEditPerfil .modal-content {
+        border-radius: 1rem;
+        overflow: hidden;
+    }
+
+    #modalEditPerfil .btn-outline-secondary:hover {
+        transform: scale(1.05);
+        box-shadow: 0 4px 8px rgba(108, 117, 125, 0.25) !important;
+    }
+
+    #modalEditPerfil .nav-tabs-custom .nav-link {
+        border: none;
+        border-bottom: 3px solid transparent;
+        color: #6c757d;
+        padding: 0.75rem 1.5rem;
+        font-weight: 500;
+        transition: all 0.3s ease;
+    }
+
+    #modalEditPerfil .nav-tabs-custom .nav-link:hover {
+        color: #495057;
+        background-color: #f8f9fa;
+    }
+
+    #modalEditPerfil .nav-tabs-custom .nav-link.active {
+        color: #212529;
+        border-bottom-color: #495057;
+        background-color: transparent;
+        font-weight: 600;
+    }
+
+    #modalEditPerfil .accordion-item {
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        transition: all 0.3s ease;
+    }
+
+    #modalEditPerfil .accordion-item:hover {
+        box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+    }
+
+    #modalEditPerfil .accordion-button {
+        font-size: 0.95rem;
+        transition: all 0.3s ease;
+    }
+
+    #modalEditPerfil .accordion-button:not(.collapsed) {
+        background: #f8f9fa;
+        color: #212529;
+    }
+
+    #modalEditPerfil .table-hover tbody tr {
+        transition: all 0.2s ease;
+    }
+
+    #modalEditPerfil .table-hover tbody tr:hover {
+        transform: translateX(4px);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    }
+
+    #puestos-container::-webkit-scrollbar,
+    #modulos-container::-webkit-scrollbar {
+        width: 8px;
+    }
+
+    #puestos-container::-webkit-scrollbar-track,
+    #modulos-container::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 10px;
+    }
+
+    #puestos-container::-webkit-scrollbar-thumb,
+    #modulos-container::-webkit-scrollbar-thumb {
+        background: #adb5bd;
+        border-radius: 10px;
+    }
+
+    #puestos-container::-webkit-scrollbar-thumb:hover,
+    #modulos-container::-webkit-scrollbar-thumb:hover {
+        background: #6c757d;
+    }
 
 </style>
 <div class="content-wrapper">
@@ -564,7 +645,82 @@
     </div>
 
     <!-- =======================
-      OFFCANVAS - EDITAR PERFIL PERMISOS
+      MODAL - GESTIÓN DE PERMISOS Y PUESTOS
+ ======================== -->
+    <div class="modal fade" id="modalEditPerfil" tabindex="-1" aria-labelledby="modalEditPerfilLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content" style="border: none; box-shadow: 0 10px 40px rgba(0,0,0,0.12);">
+                <div class="modal-header" style="background: #f8f9fa; border-bottom: 2px solid #e9ecef; padding: 1.5rem;">
+                    <div class="d-flex align-items-center w-100">
+                        <div class="flex-grow-1">
+                            <h5 class="modal-title fw-bold mb-1" id="modalEditPerfilLabel" style="color: #2c3e50;">
+                                <i class="fa fa-user-shield me-2" style="color: #495057;"></i>Gestión de Permisos y Accesos
+                            </h5>
+                            <p class="text-muted mb-0 small" id="modalEditPerfil_subtitle">Administrar puestos y módulos del usuario</p>
+                        </div>
+                        <button type="button" class="btn btn-sm btn-outline-secondary rounded-circle p-2" data-bs-dismiss="modal" aria-label="Cerrar" style="width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border: 2px solid #6c757d; transition: all 0.3s ease; box-shadow: 0 2px 4px rgba(108, 117, 125, 0.15);" onmouseover="this.style.backgroundColor='#6c757d'; this.querySelector('i').style.color='#fff';" onmouseout="this.style.backgroundColor='transparent'; this.querySelector('i').style.color='#6c757d';">
+                            <i class="fa fa-times" style="font-size: 1.1rem; color: #6c757d; transition: color 0.3s ease;"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="modal-body p-0">
+                    <!-- Tabs -->
+                    <ul class="nav nav-tabs nav-tabs-custom px-4 pt-3" role="tablist" style="border-bottom: 2px solid #e9ecef;">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="tabPuestos-tab" data-bs-toggle="tab" data-bs-target="#tabPuestos" type="button" role="tab">
+                                <i class="fa fa-briefcase me-2" style="color: #6c757d;"></i>Acceso a Puestos
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="tabModulos-tab" data-bs-toggle="tab" data-bs-target="#tabModulos" type="button" role="tab">
+                                <i class="fa fa-shield-alt me-2" style="color: #6c757d;"></i>Módulos del Sistema
+                            </button>
+                        </li>
+                    </ul>
+
+                    <div class="tab-content p-4">
+                        <!-- TAB PUESTOS -->
+                        <div class="tab-pane fade show active" id="tabPuestos" role="tabpanel">
+                            <input type="hidden" id="edit_perfil_id">
+                            
+                            <div class="d-flex justify-content-between align-items-center mb-4">
+                                <div>
+                                    <h6 class="mb-1 fw-bold">Puestos Disponibles</h6>
+                                    <small class="text-muted">Selecciona los puestos a los que tendrá acceso este usuario</small>
+                                </div>
+                                <button type="button" class="btn btn-sm btn-outline-primary" onclick="expandirTodosPuestos()">
+                                    <i class="fa fa-expand me-1"></i>Expandir Departamentos
+                                </button>
+                            </div>
+
+                            <div id="puestos-container" style="max-height: 500px; overflow-y: auto;">
+                                <div id="puestos-form"></div>
+                            </div>
+                        </div>
+
+                        <!-- TAB MÓDULOS -->
+                        <div class="tab-pane fade" id="tabModulos" role="tabpanel">
+                            <div class="d-flex justify-content-between align-items-center mb-4">
+                                <div>
+                                    <h6 class="mb-1 fw-bold">Módulos del Sistema</h6>
+                                    <small class="text-muted">Gestiona los accesos a los diferentes módulos</small>
+                                </div>
+                            </div>
+
+                            <div id="modulos-container" style="max-height: 500px; overflow-y: auto;">
+                                <div id="modulos-form"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- =======================
+      OFFCANVAS - EDITAR PERFIL PERMISOS (LEGACY - MANTENER POR COMPATIBILIDAD)
  ======================== -->
     <div class="offcanvas offcanvas-end" id="offcanvasEditPerfil">
         <div class="offcanvas-header border-bottom">
@@ -954,21 +1110,23 @@
       `.trim(),
       estatus: p.estatus,
       acciones: `
-       <button class="btn btn-sm btn-primary me-1" onclick="editar(${p.id})" title="Editar">
-           <i class="fa fa-edit"></i>
-       </button>
-       <button class="btn btn-sm btn-info me-1" onclick="verArchivo(${p.id})" title="Ver archivo">
-           <i class="fa fa-file"></i>
-       </button>
-       <button class="btn btn-sm btn-warning me-1" onclick="registra_ausencia(${p.id})" title="Ausencias">
-           <i class="fa fa-person-circle-minus"></i>
-       </button>
-       <button class="btn btn-sm btn-danger" onclick="baja_gestor(${p.id})" title="Dar de baja">
-           <i class="fa fa-user-slash"></i>
-       </button>
-       <button class="btn btn-sm me-1" style="background-color: #D2D755; color: white;" onclick="edit_perfil(${p.id})" title="Permisos">
-           <i class="fa fa-lock" style="color: #007bff;"></i>
-       </button>`
+       <div class="d-flex flex-wrap gap-1" style="min-width: fit-content;">
+           <button class="btn btn-sm btn-primary" onclick="editar(${p.id})" title="Editar">
+               <i class="fa fa-edit"></i>
+           </button>
+           <button class="btn btn-sm btn-info" onclick="verArchivo(${p.id})" title="Ver archivo">
+               <i class="fa fa-file"></i>
+           </button>
+           <button class="btn btn-sm btn-warning" onclick="registra_ausencia(${p.id})" title="Ausencias">
+               <i class="fa fa-person-circle-minus"></i>
+           </button>
+           <button class="btn btn-sm btn-danger" onclick="baja_gestor(${p.id})" title="Dar de baja">
+               <i class="fa fa-user-slash"></i>
+           </button>
+           <button class="btn btn-sm" style="background-color: #D2D755; color: white;" onclick="edit_perfil(${p.id})" title="Permisos">
+               <i class="fa fa-lock" style="color: #007bff;"></i>
+           </button>
+       </div>`
     }));
 
     // Limpiar y recargar tabla

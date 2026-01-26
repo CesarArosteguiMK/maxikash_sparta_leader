@@ -47,21 +47,23 @@ class CapHum extends Controller
                         `.trim(),
                         estatus: p.estatus,
                        acciones: `
-                        <button class="btn btn-sm btn-primary me-1" onclick="editar(${p.id})" title="Editar">
-                            <i class="fa fa-edit"></i>
-                        </button>
-                        <button class="btn btn-sm btn-info me-1" onclick="verArchivo(${p.id})" title="Ver archivo">
-                            <i class="fa fa-file"></i>
-                        </button>
-                        <button class="btn btn-sm btn-warning me-1" onclick="registra_ausencia(${p.id})" title="Ausencias">
-                            <i class="fa fa-person-circle-minus"></i>
-                        </button>
-                        <button class="btn btn-sm btn-danger" onclick="baja_gestor(${p.id})" title="Dar de baja">
-                            <i class="fa fa-user-slash"></i>
-                        </button>
-                        <button class="btn btn-sm me-1" style="background-color: #D2D755; color: white;" onclick="edit_perfil(${p.id})" title="Permisos">
-                            <i class="fa fa-lock" style="color: #007bff;"></i>
-                        </button>`
+                        <div class="d-flex flex-wrap gap-1" style="min-width: fit-content;">
+                            <button class="btn btn-sm btn-primary" onclick="editar(${p.id})" title="Editar">
+                                <i class="fa fa-edit"></i>
+                            </button>
+                            <button class="btn btn-sm btn-info" onclick="verArchivo(${p.id})" title="Ver archivo">
+                                <i class="fa fa-file"></i>
+                            </button>
+                            <button class="btn btn-sm btn-warning" onclick="registra_ausencia(${p.id})" title="Ausencias">
+                                <i class="fa fa-person-circle-minus"></i>
+                            </button>
+                            <button class="btn btn-sm btn-danger" onclick="baja_gestor(${p.id})" title="Dar de baja">
+                                <i class="fa fa-user-slash"></i>
+                            </button>
+                            <button class="btn btn-sm" style="background-color: #D2D755; color: white;" onclick="edit_perfil(${p.id})" title="Permisos">
+                                <i class="fa fa-lock" style="color: #007bff;"></i>
+                            </button>
+                        </div>`
                     }));
         
                     // Actualizar DataTable
@@ -344,6 +346,8 @@ class CapHum extends Controller
             });
                 
            
+            let currentPersonaId = null;
+            
             function edit_perfil(id) {
                 console.log("ID recibido:", id);
                 currentPersonaId = id;
@@ -388,12 +392,29 @@ class CapHum extends Controller
             
                     document.getElementById("edit_perfil_id").value = persona.id ?? '';
                     document.getElementById("edit_perfil_nombres").value = nombreCompleto;
+                    
+                    // Obtener departamento del primer puesto asignado, o del primer puesto disponible
+                    let nombreDepartamento = 'Sin departamento';
+                    const puestoAsignado = puestos.find(p => Number(p.asignado_flag) === 1);
+                    if (puestoAsignado && puestoAsignado.nombre_departamento) {
+                        nombreDepartamento = puestoAsignado.nombre_departamento;
+                    } else if (puestos.length > 0 && puestos[0].nombre_departamento) {
+                        nombreDepartamento = puestos[0].nombre_departamento;
+                    }
+                    
+                    // Actualizar título del modal - título arriba: "Administrar puestos y módulos del usuario", subtítulo abajo con nombre/departamento en negrita
+                    document.getElementById("modalEditPerfilLabel").innerHTML = `
+                        <i class="fa fa-user-shield me-2" style="color: #495057;"></i>Administrar puestos y módulos del usuario
+                    `;
+                    document.getElementById("modalEditPerfil_subtitle").innerHTML = `Gestión de Permisos y Accesos para <strong>${nombreCompleto} / ${nombreDepartamento}</strong>`;
             
                     renderPuestos(puestos);
                     renderModulos(perfiles);
             
-                    const offcanvasEl = document.getElementById('offcanvasEditPerfil');
-                    new bootstrap.Offcanvas(offcanvasEl).show();
+                    // Abrir modal en lugar de offcanvas
+                    const modalEl = document.getElementById('modalEditPerfil');
+                    const modal = new bootstrap.Modal(modalEl);
+                    modal.show();
                 })
                 .catch(err => {
                     console.error(err);
@@ -473,7 +494,49 @@ class CapHum extends Controller
             }
             
             function onPuestoChange(checkbox) {
-                console.log('Puesto:', checkbox.value, checkbox.checked);
+                if (!checkbox || !currentPersonaId) return;
+            
+                const payload = {
+                    idPersona: currentPersonaId,
+                    idPuesto: checkbox.value,
+                    asignado: checkbox.checked ? 1 : 0
+                };
+            
+                fetch('/caphum/actualizarPuestoPerfil', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (!data.success) {
+                        // Revertimos el checkbox si falla
+                        checkbox.checked = !checkbox.checked;
+                        Swal.fire("Error", data.mensaje || "No se pudo actualizar", "error");
+                        return;
+                    }
+            
+                    // ALERTA SEGÚN ACCIÓN - igual que módulos
+                    Swal.fire({
+                        icon: 'success',
+                        title: checkbox.checked 
+                            ? 'Asignación correcta'
+                            : 'Asignación eliminada',
+                        text: checkbox.checked
+                            ? 'El puesto fue asignado correctamente'
+                            : 'El puesto fue deseleccionado correctamente',
+                        timer: 1600,
+                        showConfirmButton: false
+                    });
+                })
+                .catch(err => {
+                    console.error(err);
+                    checkbox.checked = !checkbox.checked;
+                    Swal.fire("Error", "No se pudo actualizar el puesto", "error");
+                });
             }
             
             /* =========================
@@ -557,107 +620,224 @@ class CapHum extends Controller
             container.innerHTML = '';
         
             if (!puestos || puestos.length === 0) {
-                container.innerHTML = `<div class="text-muted small">No hay puestos asignados</div>`;
+                container.innerHTML = `<div class="text-muted small text-center py-3">No hay puestos disponibles</div>`;
                 return;
             }
         
             /* =========================
-               AGRUPAR POR ID_DEPARTAMENTO
+               AGRUPAR POR ID_DEPARTAMENTO Y ORDENAR
             ========================= */
             const puestosPorDepto = {};
         
             puestos.forEach(puesto => {
                 const deptoId = puesto.id_departamento ?? 0;
                 if (!puestosPorDepto[deptoId]) {
-                    puestosPorDepto[deptoId] = [];
+                    puestosPorDepto[deptoId] = {
+                        nombre: puesto.nombre_departamento ?? `Departamento ${deptoId}`,
+                        puestos: []
+                    };
                 }
-                puestosPorDepto[deptoId].push(puesto);
+                puestosPorDepto[deptoId].puestos.push(puesto);
+            });
+            
+            // Ordenar puestos dentro de cada departamento por nivel (mayor a menor)
+            Object.keys(puestosPorDepto).forEach(deptoId => {
+                puestosPorDepto[deptoId].puestos.sort((a, b) => {
+                    const nivelA = a.nivel ?? 0;
+                    const nivelB = b.nivel ?? 0;
+                    return nivelB - nivelA; // Mayor nivel primero
+                });
+            });
+            
+            // Ordenar departamentos alfabéticamente
+            const deptosOrdenados = Object.keys(puestosPorDepto).sort((a, b) => {
+                const nombreA = puestosPorDepto[a].nombre.toLowerCase();
+                const nombreB = puestosPorDepto[b].nombre.toLowerCase();
+                return nombreA.localeCompare(nombreB);
             });
         
             /* =========================
-               CREAR ACORDEÓN
+               CREAR ACORDEÓN MEJORADO
             ========================= */
             const accordion = document.createElement('div');
             accordion.className = 'accordion';
             accordion.id = 'accordionPuestos';
+            accordion.style.cssText = '--bs-accordion-border-radius: 0.5rem;';
         
             let index = 0;
         
-            Object.keys(puestosPorDepto).forEach(deptoId => {
+            deptosOrdenados.forEach(deptoId => {
         
-                const puestosDepto = puestosPorDepto[deptoId];
-        
-                // 🔑 nombre dinámico del departamento
-                const deptoNombre =
-                    puestosDepto[0].nombre_departamento ??
-                    `Departamento ${deptoId}`;
+                const deptoData = puestosPorDepto[deptoId];
+                const puestosDepto = deptoData.puestos;
+                const deptoNombre = deptoData.nombre;
         
                 const accId = `depto_${deptoId}`;
         
                 const item = document.createElement('div');
                 item.className = 'accordion-item';
+                item.style.border = '1px solid #dee2e6';
+                item.style.marginBottom = '0.75rem';
+                item.style.borderRadius = '0.5rem';
+                item.style.overflow = 'hidden';
         
                 item.innerHTML = `
                     <h2 class="accordion-header" id="heading_${accId}">
                         <button class="accordion-button ${index !== 0 ? 'collapsed' : ''}"
                                 type="button"
                                 data-bs-toggle="collapse"
-                                data-bs-target="#collapse_${accId}">
-                            <strong>${deptoNombre}</strong>
-                            <span class="ms-2 text-muted small">
-                                (${puestosDepto.length})
-                            </span>
+                                data-bs-target="#collapse_${accId}"
+                                aria-expanded="${index === 0 ? 'true' : 'false'}"
+                                style="background: #f8f9fa; font-weight: 600; padding: 1rem 1.5rem; border: none;">
+                            <div class="d-flex align-items-center w-100">
+                                <i class="fa fa-building me-3" style="color: #6c757d; font-size: 1.1rem;"></i>
+                                <div class="flex-grow-1 text-start">
+                                    <strong style="color: #212529;">${deptoNombre}</strong>
+                                </div>
+                                <span class="badge rounded-pill bg-secondary" style="font-size: 0.75rem; padding: 0.35rem 0.75rem;">
+                                    ${puestosDepto.length} puesto${puestosDepto.length !== 1 ? 's' : ''}
+                                </span>
+                            </div>
                         </button>
                     </h2>
                     <div id="collapse_${accId}"
                          class="accordion-collapse collapse ${index === 0 ? 'show' : ''}"
                          data-bs-parent="#accordionPuestos">
-                        <div class="accordion-body p-0"></div>
+                        <div class="accordion-body p-3" style="background-color: #ffffff; max-height: 450px; overflow-y: auto;"></div>
                     </div>
                 `;
         
                 /* =========================
-                   TABLA (MISMA LÓGICA ORIGINAL)
+                   TABLA MEJORADA CON MEJOR ESTRUCTURA
                 ========================= */
                 const body = item.querySelector('.accordion-body');
         
                 const table = document.createElement('table');
-                table.className = 'table table-flush-spacing mb-0 border-top';
+                table.className = 'table table-hover mb-0';
+                table.style.fontSize = '0.9rem';
+                table.style.borderCollapse = 'separate';
+                table.style.borderSpacing = '0';
         
                 const tbody = document.createElement('tbody');
         
-                puestosDepto.forEach(puesto => {
+                puestosDepto.forEach((puesto, puestoIndex) => {
         
                     const tr = document.createElement('tr');
+                    tr.style.borderBottom = puestoIndex < puestosDepto.length - 1 ? '1px solid #e9ecef' : 'none';
+                    tr.style.transition = 'all 0.3s ease';
+                    tr.style.cursor = 'pointer';
+                    tr.style.borderLeft = '3px solid transparent';
+                    
+                    tr.onmouseenter = () => {
+                        tr.style.backgroundColor = '#f8f9fa';
+                        tr.style.borderLeftColor = '#495057';
+                        tr.style.transform = 'translateX(4px)';
+                    };
+                    tr.onmouseleave = () => {
+                        tr.style.backgroundColor = '';
+                        tr.style.borderLeftColor = 'transparent';
+                        tr.style.transform = 'translateX(0)';
+                    };
         
                     const tdName = document.createElement('td');
-                    tdName.className = 'fw-medium text-heading';
+                    tdName.className = 'fw-medium';
+                    tdName.style.padding = '0.75rem';
+                    tdName.style.verticalAlign = 'middle';
         
-                    const nombre = document.createElement('div');
-                    nombre.innerText = puesto.nombre_puesto;
+                    const nombreDiv = document.createElement('div');
+                    nombreDiv.style.display = 'flex';
+                    nombreDiv.style.alignItems = 'center';
+                    nombreDiv.style.gap = '0.5rem';
+                    
+                    // Icono según nivel - diseño en blanco y negro (aún más pequeño)
+                    const icono = document.createElement('div');
+                    icono.style.width = '18px';
+                    icono.style.height = '18px';
+                    icono.style.borderRadius = '50%';
+                    icono.style.display = 'flex';
+                    icono.style.alignItems = 'center';
+                    icono.style.justifyContent = 'center';
+                    icono.style.flexShrink = '0';
+                    icono.style.border = '1.5px solid #dee2e6';
+                    
+                    const nivel = puesto.nivel ?? 0;
+                    const iconoInner = document.createElement('i');
+                    if (nivel >= 5) {
+                        icono.style.background = '#212529';
+                        icono.style.borderColor = '#212529';
+                        iconoInner.className = 'fa fa-crown';
+                        iconoInner.style.color = '#fff';
+                        iconoInner.style.fontSize = '0.5rem';
+                        icono.title = 'Nivel Ejecutivo';
+                    } else if (nivel >= 3) {
+                        icono.style.background = '#495057';
+                        icono.style.borderColor = '#495057';
+                        iconoInner.className = 'fa fa-star';
+                        iconoInner.style.color = '#fff';
+                        iconoInner.style.fontSize = '0.45rem';
+                        icono.title = 'Nivel Gerencial';
+                    } else {
+                        icono.style.background = '#e9ecef';
+                        icono.style.borderColor = '#adb5bd';
+                        iconoInner.className = 'fa fa-circle';
+                        iconoInner.style.color = '#6c757d';
+                        iconoInner.style.fontSize = '0.3rem';
+                        icono.title = 'Nivel Operativo';
+                    }
+                    icono.appendChild(iconoInner);
+                    
+                    const nombre = document.createElement('span');
+                    nombre.innerText = puesto.nombre_puesto || puesto.puesto_nombre || 'Puesto sin nombre';
+                    nombre.style.fontWeight = '600';
+                    nombre.style.color = '#2c3e50';
+                    nombre.style.fontSize = '0.95rem';
+                    
+                    nombreDiv.append(icono, nombre);
         
                     const desc = document.createElement('small');
-                    desc.className = 'text-muted d-block fs-7';
+                    desc.className = 'text-muted d-block mt-1';
+                    desc.style.fontSize = '0.75rem';
                     desc.innerText = puesto.descripcion ?? '';
         
-                    tdName.append(nombre, desc);
+                    tdName.append(nombreDiv, desc);
         
                     const tdCheck = document.createElement('td');
                     tdCheck.className = 'text-end';
+                    tdCheck.style.padding = '0.75rem';
+                    tdCheck.style.verticalAlign = 'middle';
+                    tdCheck.style.width = '130px';
         
                     const divCheck = document.createElement('div');
                     divCheck.className = 'form-check mb-0';
+                    divCheck.style.display = 'flex';
+                    divCheck.style.alignItems = 'center';
+                    divCheck.style.justifyContent = 'flex-end';
+                    divCheck.style.gap = '0.5rem';
         
                     const checkbox = document.createElement('input');
                     checkbox.type = 'checkbox';
                     checkbox.className = 'form-check-input';
+                    checkbox.value = puesto.id_puesto || puesto.puesto_id || '';
                     checkbox.checked = Number(puesto.asignado_flag) === 1;
-                    checkbox.value = puesto.puesto_id;
                     checkbox.onchange = () => onPuestoChange(checkbox);
+                    checkbox.style.cursor = 'pointer';
+                    checkbox.style.width = '1.1em';
+                    checkbox.style.height = '1.1em';
         
                     const label = document.createElement('label');
                     label.className = 'form-check-label';
-                    label.innerText = 'Asignar';
+                    label.innerHTML = checkbox.checked 
+                        ? '<span class="badge bg-success rounded-pill px-3 py-1"><i class="fa fa-check me-1"></i>Asignado</span>'
+                        : '<span class="badge bg-secondary rounded-pill px-3 py-1">Asignar</span>';
+                    label.style.cursor = 'pointer';
+                    label.style.userSelect = 'none';
+                    
+                    // Actualizar label cuando cambia el checkbox
+                    checkbox.addEventListener('change', function() {
+                        label.innerHTML = this.checked 
+                            ? '<span class="badge bg-success rounded-pill px-3 py-1"><i class="fa fa-check me-1"></i>Asignado</span>'
+                            : '<span class="badge bg-secondary rounded-pill px-3 py-1">Asignar</span>';
+                    });
         
                     divCheck.append(checkbox, label);
                     tdCheck.appendChild(divCheck);
@@ -668,8 +848,8 @@ class CapHum extends Controller
         
                 table.appendChild(tbody);
                 body.appendChild(table);
-                accordion.appendChild(item);
         
+                accordion.appendChild(item);
                 index++;
             });
         
@@ -679,7 +859,209 @@ class CapHum extends Controller
 
             
             function onPuestoChange(checkbox) {
-                console.log('Puesto:', checkbox.value, checkbox.checked);
+                if (!checkbox || !currentPersonaId) return;
+            
+                const payload = {
+                    idPersona: currentPersonaId,
+                    idPuesto: checkbox.value,
+                    asignado: checkbox.checked ? 1 : 0
+                };
+            
+                fetch('/caphum/actualizarPuestoPerfil', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (!data.success) {
+                        // Revertimos el checkbox si falla
+                        checkbox.checked = !checkbox.checked;
+                        Swal.fire("Error", data.mensaje || "No se pudo actualizar", "error");
+                        return;
+                    }
+            
+                    // ALERTA SEGÚN ACCIÓN - igual que módulos
+                    Swal.fire({
+                        icon: 'success',
+                        title: checkbox.checked 
+                            ? 'Asignación correcta'
+                            : 'Asignación eliminada',
+                        text: checkbox.checked
+                            ? 'El puesto fue asignado correctamente'
+                            : 'El puesto fue deseleccionado correctamente',
+                        timer: 1600,
+                        showConfirmButton: false
+                    });
+                })
+                .catch(err => {
+                    console.error(err);
+                    checkbox.checked = !checkbox.checked;
+                    Swal.fire("Error", "No se pudo actualizar el puesto", "error");
+                });
+            }
+            
+            // Función para expandir todos los acordeones
+            function expandirTodosPuestos() {
+                const accordion = document.getElementById('accordionPuestos');
+                if (!accordion) return;
+                
+                const collapses = accordion.querySelectorAll('.accordion-collapse');
+                const isAllExpanded = Array.from(collapses).every(c => c.classList.contains('show'));
+                
+                collapses.forEach(collapse => {
+                    if (isAllExpanded) {
+                        collapse.classList.remove('show');
+                        const button = collapse.previousElementSibling?.querySelector('.accordion-button');
+                        if (button) button.classList.add('collapsed');
+                    } else {
+                        collapse.classList.add('show');
+                        const button = collapse.previousElementSibling?.querySelector('.accordion-button');
+                        if (button) button.classList.remove('collapsed');
+                    }
+                });
+                
+                const btnExpandir = event?.target || document.querySelector('[onclick="expandirTodosPuestos()"]');
+                if (btnExpandir) {
+                    btnExpandir.innerHTML = isAllExpanded 
+                        ? '<i class="fa fa-expand me-1"></i>Expandir Departamentos'
+                        : '<i class="fa fa-compress me-1"></i>Colapsar Departamentos';
+                }
+            }
+            
+            // Función para guardar permisos
+            function guardarPermisos() {
+                const personaId = document.getElementById('edit_perfil_id').value;
+                
+                if (!personaId) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: 'No se encontró el ID de la persona'
+                    });
+                    return;
+                }
+                
+                // Recopilar puestos seleccionados
+                const puestosSeleccionados = [];
+                const checkboxesPuestos = document.querySelectorAll('#puestos-form input[type="checkbox"]:checked');
+                checkboxesPuestos.forEach(cb => {
+                    if (cb.value) {
+                        puestosSeleccionados.push(parseInt(cb.value));
+                    }
+                });
+                
+                // Recopilar módulos seleccionados y no seleccionados
+                const modulosAsignar = [];
+                const modulosEliminar = [];
+                const checkboxesModulos = document.querySelectorAll('#modulos-form input[type="checkbox"]');
+                checkboxesModulos.forEach(cb => {
+                    if (cb.value) {
+                        if (cb.checked) {
+                            modulosAsignar.push(parseInt(cb.value));
+                        } else {
+                            modulosEliminar.push(parseInt(cb.value));
+                        }
+                    }
+                });
+                
+                Swal.fire({
+                    title: 'Guardando cambios...',
+                    text: 'Por favor espera',
+                    allowOutsideClick: false,
+                    didOpen: () => {
+                        Swal.showLoading();
+                    }
+                });
+                
+                // Guardar puestos
+                fetch('/caphum/guardarPermisosPuestos', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        idPersona: parseInt(personaId),
+                        puestos: puestosSeleccionados
+                    })
+                })
+                .then(res => res.json())
+                .then(respPuestos => {
+                    if (!respPuestos.success) {
+                        throw new Error(respPuestos.mensaje || 'Error al guardar puestos');
+                    }
+                    
+                    // Guardar módulos (asignar y eliminar)
+                    const promesasModulos = [];
+                    
+                    // Asignar módulos
+                    modulosAsignar.forEach(moduloId => {
+                        promesasModulos.push(
+                            fetch('/caphum/PerfilCheckBoxEstado', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'Accept': 'application/json'
+                                },
+                                body: JSON.stringify({
+                                    idPersona: parseInt(personaId),
+                                    modulo_id: moduloId,
+                                    asignado: 1
+                                })
+                            }).then(res => res.json())
+                        );
+                    });
+                    
+                    // Eliminar módulos
+                    modulosEliminar.forEach(moduloId => {
+                        promesasModulos.push(
+                            fetch('/caphum/PerfilCheckBoxEstado', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'Accept': 'application/json'
+                                },
+                                body: JSON.stringify({
+                                    idPersona: parseInt(personaId),
+                                    modulo_id: moduloId,
+                                    asignado: 0
+                                })
+                            }).then(res => res.json())
+                        );
+                    });
+                    
+                    return Promise.all(promesasModulos);
+                })
+                .then(() => {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Cambios guardados',
+                        text: `Se guardaron ${puestosSeleccionados.length} puesto(s) y ${modulosAsignar.length} módulo(s) correctamente`,
+                        timer: 2000,
+                        showConfirmButton: false
+                    }).then(() => {
+                        const modalEl = document.getElementById('modalEditPerfil');
+                        const modal = bootstrap.Modal.getInstance(modalEl);
+                        if (modal) modal.hide();
+                        
+                        // Recargar la tabla si es necesario
+                        if (typeof getUsuarios === 'function') {
+                            getUsuarios();
+                        }
+                    });
+                })
+                .catch(err => {
+                    console.error('Error:', err);
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error al guardar',
+                        text: err.message || 'Ocurrió un error al guardar los cambios'
+                    });
+                });
             }
             
             /* =========================
@@ -690,6 +1072,11 @@ class CapHum extends Controller
                 const container = document.getElementById('modulos-form');
                 container.innerHTML = '';
             
+                if (!perfiles || perfiles.length === 0) {
+                    container.innerHTML = `<div class="text-muted small text-center py-4">No hay módulos disponibles</div>`;
+                    return;
+                }
+            
                 const modulosPorPestana = {};
                 perfiles.forEach(m => {
                     if (!modulosPorPestana[m.pestana]) modulosPorPestana[m.pestana] = [];
@@ -697,32 +1084,87 @@ class CapHum extends Controller
                 });
             
                 const table = document.createElement('table');
-                table.className = 'table table-flush-spacing mb-0 border-top';
+                table.className = 'table table-hover mb-0';
+                table.style.fontSize = '0.9rem';
             
                 const tbody = document.createElement('tbody');
             
                 Object.keys(modulosPorPestana).forEach(pestana => {
-                    modulosPorPestana[pestana].forEach(mod => {
+                    modulosPorPestana[pestana].forEach((mod, modIndex) => {
             
                         const tr = document.createElement('tr');
+                        tr.style.transition = 'all 0.3s ease';
+                        tr.style.cursor = 'pointer';
+                        tr.style.borderLeft = '3px solid transparent';
+                        tr.style.borderBottom = '1px solid #e9ecef';
+                        
+                        tr.onmouseenter = () => {
+                            tr.style.backgroundColor = '#f8f9fa';
+                            tr.style.borderLeftColor = '#495057';
+                            tr.style.transform = 'translateX(4px)';
+                        };
+                        tr.onmouseleave = () => {
+                            tr.style.backgroundColor = '';
+                            tr.style.borderLeftColor = 'transparent';
+                            tr.style.transform = 'translateX(0)';
+                        };
             
                         const tdName = document.createElement('td');
-                        tdName.className = 'fw-medium text-heading';
+                        tdName.className = 'fw-medium';
+                        tdName.style.padding = '0.875rem';
+                        tdName.style.verticalAlign = 'middle';
             
-                        const nombre = document.createElement('div');
-                        nombre.innerText = mod.modulo_nombre;
+                        const nombreDiv = document.createElement('div');
+                        nombreDiv.style.display = 'flex';
+                        nombreDiv.style.alignItems = 'center';
+                        nombreDiv.style.gap = '0.75rem';
+                        
+                        // Icono del módulo - diseño en blanco y negro
+                        const iconoModulo = document.createElement('div');
+                        iconoModulo.style.width = '36px';
+                        iconoModulo.style.height = '36px';
+                        iconoModulo.style.borderRadius = '8px';
+                        iconoModulo.style.background = '#e9ecef';
+                        iconoModulo.style.border = '2px solid #dee2e6';
+                        iconoModulo.style.display = 'flex';
+                        iconoModulo.style.alignItems = 'center';
+                        iconoModulo.style.justifyContent = 'center';
+                        iconoModulo.style.flexShrink = '0';
+                        
+                        const iconoInner = document.createElement('i');
+                        iconoInner.className = 'fa fa-shield-alt';
+                        iconoInner.style.color = '#495057';
+                        iconoInner.style.fontSize = '0.9rem';
+                        iconoModulo.appendChild(iconoInner);
+            
+                        const nombre = document.createElement('span');
+                        nombre.innerText = mod.modulo_nombre ?? 'Módulo';
+                        nombre.style.fontWeight = '600';
+                        nombre.style.color = '#2c3e50';
+                        nombre.style.fontSize = '0.95rem';
+                        
+                        nombreDiv.appendChild(iconoModulo);
+                        nombreDiv.appendChild(nombre);
             
                         const desc = document.createElement('small');
-                        desc.className = 'text-muted d-block fs-7';
+                        desc.className = 'text-muted d-block mt-1';
+                        desc.style.fontSize = '0.75rem';
                         desc.innerText = mod.descripcion ?? '';
             
-                        tdName.append(nombre, desc);
+                        tdName.append(nombreDiv, desc);
             
                         const tdCheck = document.createElement('td');
                         tdCheck.className = 'text-end';
+                        tdCheck.style.padding = '0.875rem';
+                        tdCheck.style.verticalAlign = 'middle';
+                        tdCheck.style.width = '130px';
             
                         const divCheck = document.createElement('div');
                         divCheck.className = 'form-check mb-0';
+                        divCheck.style.display = 'flex';
+                        divCheck.style.alignItems = 'center';
+                        divCheck.style.justifyContent = 'flex-end';
+                        divCheck.style.gap = '0.5rem';
             
                         const checkbox = document.createElement('input');
                         checkbox.type = 'checkbox';
@@ -730,10 +1172,23 @@ class CapHum extends Controller
                         checkbox.checked = Number(mod.asignado_flag) === 1;
                         checkbox.value = mod.modulo_id;
                         checkbox.onchange = () => onModuloChange(checkbox);
+                        checkbox.style.cursor = 'pointer';
+                        checkbox.style.width = '1.1em';
+                        checkbox.style.height = '1.1em';
             
                         const label = document.createElement('label');
                         label.className = 'form-check-label';
-                        label.innerText = 'Asignar';
+                        label.innerHTML = checkbox.checked 
+                            ? '<span class="badge bg-success rounded-pill px-3 py-1"><i class="fa fa-check me-1"></i>Asignado</span>'
+                            : '<span class="badge bg-secondary rounded-pill px-3 py-1">Asignar</span>';
+                        label.style.cursor = 'pointer';
+                        label.style.userSelect = 'none';
+                        
+                        checkbox.addEventListener('change', function() {
+                            label.innerHTML = this.checked 
+                                ? '<span class="badge bg-success rounded-pill px-3 py-1"><i class="fa fa-check me-1"></i>Asignado</span>'
+                                : '<span class="badge bg-secondary rounded-pill px-3 py-1">Asignar</span>';
+                        });
             
                         divCheck.append(checkbox, label);
                         tdCheck.appendChild(divCheck);
@@ -1150,7 +1605,6 @@ class CapHum extends Controller
            
 
             
-            let currentPersonaId = null;
             function onModuloChange(checkbox) {
                 if (!checkbox || currentPersonaId === null) return;
             
@@ -1579,21 +2033,23 @@ class CapHum extends Controller
                         `.trim(),
                         estatus: p.estatus,
                        acciones: `
-                        <button class="btn btn-sm btn-primary me-1" onclick="editar(${p.id})" title="Editar">
-                            <i class="fa fa-edit"></i>
-                        </button>
-                        <button class="btn btn-sm btn-info me-1" onclick="verArchivo(${p.id})" title="Ver archivo">
-                            <i class="fa fa-file"></i>
-                        </button>
-                        <button class="btn btn-sm btn-warning me-1" onclick="registra_ausencia(${p.id})" title="Ausencias">
-                            <i class="fa fa-person-circle-minus"></i>
-                        </button>
-                        <button class="btn btn-sm btn-danger" onclick="baja_gestor(${p.id})" title="Dar de baja">
-                            <i class="fa fa-user-slash"></i>
-                        </button>
-                        <button class="btn btn-sm me-1" style="background-color: #D2D755; color: white;" onclick="edit_perfil(${p.id})" title="Permisos">
-                            <i class="fa fa-lock" style="color: #007bff;"></i>
-                        </button>`
+                        <div class="d-flex flex-wrap gap-1" style="min-width: fit-content;">
+                            <button class="btn btn-sm btn-primary" onclick="editar(${p.id})" title="Editar">
+                                <i class="fa fa-edit"></i>
+                            </button>
+                            <button class="btn btn-sm btn-info" onclick="verArchivo(${p.id})" title="Ver archivo">
+                                <i class="fa fa-file"></i>
+                            </button>
+                            <button class="btn btn-sm btn-warning" onclick="registra_ausencia(${p.id})" title="Ausencias">
+                                <i class="fa fa-person-circle-minus"></i>
+                            </button>
+                            <button class="btn btn-sm btn-danger" onclick="baja_gestor(${p.id})" title="Dar de baja">
+                                <i class="fa fa-user-slash"></i>
+                            </button>
+                            <button class="btn btn-sm" style="background-color: #D2D755; color: white;" onclick="edit_perfil(${p.id})" title="Permisos">
+                                <i class="fa fa-lock" style="color: #007bff;"></i>
+                            </button>
+                        </div>`
                     }));
         
                     // Actualizar DataTable
@@ -3194,5 +3650,141 @@ class CapHum extends Controller
             exit;
         }
     }
+
+    /**
+     * Guardar permisos de puestos
+     */
+    public function guardarPermisosPuestos()
+    {
+        try {
+            $input = json_decode(file_get_contents("php://input"), true);
+            
+            $idPersona = $input['idPersona'] ?? null;
+            $puestos = $input['puestos'] ?? [];
+            
+            if (!$idPersona) {
+                self::respuestaJSON([
+                    'success' => false,
+                    'mensaje' => 'ID de persona requerido'
+                ]);
+                return;
+            }
+            
+            $db = new \Core\Database();
+            
+            try {
+                $db->beginTransaction();
+                
+                // Eliminar permisos actuales
+                $idPersonaEsc = addslashes($idPersona);
+                $db->queryOne("
+                    DELETE FROM privilegios_departamento
+                    WHERE idPersona = $idPersonaEsc
+                ");
+                
+                // Insertar nuevos permisos
+                if (!empty($puestos)) {
+                    foreach ($puestos as $idPuesto) {
+                        $idPuestoEsc = addslashes($idPuesto);
+                        $db->queryOne("
+                            INSERT INTO privilegios_departamento (idPersona, idPuesto)
+                            VALUES ($idPersonaEsc, $idPuestoEsc)
+                        ");
+                    }
+                }
+                
+                $db->commit();
+                
+                self::respuestaJSON([
+                    'success' => true,
+                    'mensaje' => 'Permisos guardados correctamente'
+                ]);
+                
+            } catch (\Exception $e) {
+                $db->rollback();
+                throw $e;
+            }
+            
+        } catch (\Exception $e) {
+            self::respuestaJSON([
+                'success' => false,
+                'mensaje' => 'Error al guardar permisos: ' . $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
+     * Actualizar puesto individual de perfil
+     */
+    public function actualizarPuestoPerfil()
+    {
+        try {
+            $input = json_decode(file_get_contents("php://input"), true);
+            
+            $idPersona = $input['idPersona'] ?? null;
+            $idPuesto = $input['idPuesto'] ?? null;
+            $asignado = $input['asignado'] ?? 0;
+            
+            if (!$idPersona || !$idPuesto) {
+                self::respuestaJSON([
+                    'success' => false,
+                    'mensaje' => 'Datos incompletos'
+                ]);
+                return;
+            }
+            
+            $db = new \Core\Database();
+            
+            if ($asignado === 1) {
+                // Verificar si ya existe
+                $idPersonaEsc = addslashes($idPersona);
+                $idPuestoEsc = addslashes($idPuesto);
+                
+                $existe = $db->queryOne("
+                    SELECT id
+                    FROM privilegios_departamento
+                    WHERE idPersona = $idPersonaEsc
+                      AND idPuesto = $idPuestoEsc
+                    LIMIT 1
+                ");
+                
+                if (!$existe) {
+                    // Insertar si no existe
+                    $db->queryOne("
+                        INSERT INTO privilegios_departamento (idPersona, idPuesto)
+                        VALUES ($idPersonaEsc, $idPuestoEsc)
+                    ");
+                }
+                
+                self::respuestaJSON([
+                    'success' => true,
+                    'mensaje' => 'Puesto asignado correctamente'
+                ]);
+                
+            } else {
+                // Eliminar asignación
+                $idPersonaEsc = addslashes($idPersona);
+                $idPuestoEsc = addslashes($idPuesto);
+                
+                $db->queryOne("
+                    DELETE FROM privilegios_departamento
+                    WHERE idPersona = $idPersonaEsc
+                      AND idPuesto = $idPuestoEsc
+                ");
+                
+                self::respuestaJSON([
+                    'success' => true,
+                    'mensaje' => 'Puesto eliminado correctamente'
+                ]);
+            }
+            
+        } catch (\Exception $e) {
+            self::respuestaJSON([
+                'success' => false,
+                'mensaje' => 'Error al actualizar puesto: ' . $e->getMessage()
+            ]);
+        }
+    }
+
 
 }
