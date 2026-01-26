@@ -3,6 +3,40 @@
         text-align: center;
         padding: 40px;
     }
+
+    #modulos-container table {
+        width: 100%;
+        table-layout: fixed;
+    }
+
+    #modulos-container td:first-child {
+        white-space: normal;
+        word-break: break-word;
+    }
+
+    #modulos-container td:last-child {
+        width: 110px;
+        text-align: right;
+        white-space: nowrap;
+    }
+
+    #modulos-container small {
+        white-space: normal;
+        word-break: break-word;
+    }
+    #modulos-container table.border-top {
+        border-top: none !important;
+    }
+
+    #modulos-container tbody tr:last-child td {
+        border-bottom: none !important;
+    }
+
+    #offcanvasEditPerfil .tab-content:not(.doc-example-content) {
+        padding: .25rem 0;
+    }
+
+
 </style>
 <div class="content-wrapper">
 
@@ -54,26 +88,6 @@
                     <i class="icon-base bx bx-plus icon-sm me-2"></i>
                     <span class="d-none d-sm-inline-block">Agregar Usuario</span>
                 </button>
-            </div>
-        </div>
-
-        <!-- =======================
-             FILTRO DE FECHA (solo para bajas)
-        ======================== -->
-        <div id="filtroFechaBajas" class="row mb-3 mx-4" style="display: none;">
-            <div class="col-md-8 col-12">
-                <label for="flatpickr-range-bajas" class="form-label">Filtrar por fecha de baja</label>
-                <div class="d-flex gap-2 align-items-end">
-                    <div class="flatpickr-wrapper" style="width: 250px;">
-                        <input type="text" class="form-control flatpickr-input" placeholder="Selecciona rango de fechas" id="flatpickr-range-bajas" readonly="readonly">
-                    </div>
-                    <button type="button" class="btn btn-outline-secondary btn-sm" id="btnLimpiarFiltroBajas" title="Limpiar filtro">
-                        <i class="fa fa-times me-1"></i> Limpiar
-                    </button>
-                    <button type="button" class="btn btn-sm" id="btnDescargarBajas" title="Descargar Excel" style="background-color: #2c5aa0; color: white; border-color: #2c5aa0;">
-                        <i class="fa fa-download me-1"></i> Descargar Excel
-                    </button>
-                </div>
             </div>
         </div>
 
@@ -428,85 +442,84 @@
  ======================== -->
     <div class="offcanvas offcanvas-end" id="offcanvasEditPerfil">
         <div class="offcanvas-header border-bottom">
-            <h5 class="offcanvas-title">Editar Perfil</h5>
+            <h5 class="offcanvas-title fw-semibold">
+                <i class="bi bi-person-gear me-1"></i> Editar Perfil
+            </h5>
             <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
         </div>
 
         <div class="offcanvas-body p-4">
 
-            <!-- CONTENEDOR GENERAL -->
-            <div class="container-fluid">
+            <div class="mb-3">
+                <label class="form-label fw-semibold">Nombres *</label>
+                <input type="text"
+                       id="edit_perfil_nombres"
+                       class="form-control"
+                       readonly>
+            </div>
 
-                <!-- TABS -->
-                <ul class="nav nav-pills mb-4" role="tablist">
-                    <li class="nav-item">
-                        <button class="nav-link active"
-                                data-bs-toggle="pill"
-                                data-bs-target="#tab-perfil"
-                                type="button">
-                            Perfil
-                        </button>
-                    </li>
-                    <li class="nav-item">
-                        <button class="nav-link"
-                                data-bs-toggle="pill"
-                                data-bs-target="#tab-modulos"
-                                type="button">
-                            Módulos
-                        </button>
-                    </li>
-                </ul>
+            <!-- Tabs -->
+            <ul class="nav nav-tabs mb-3" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active"
+                            data-bs-toggle="tab"
+                            data-bs-target="#tabPerfil"
+                            type="button"
+                            role="tab">
+                        <i class="bi bi-person me-1"></i> Perfil
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link"
+                            data-bs-toggle="tab"
+                            data-bs-target="#tabAccesos"
+                            type="button"
+                            role="tab">
+                        <i class="bi bi-shield-lock me-1"></i> Accesos
+                    </button>
+                </li>
+            </ul>
 
-                <!-- CONTENIDO DE TABS -->
+
+            <form id="editNewUserFormPerfil" onsubmit="return false">
+
                 <div class="tab-content">
 
                     <!-- TAB PERFIL -->
-                    <div class="tab-pane fade show active" id="tab-perfil">
-                        <form id="editNewUserFormPerfil" onsubmit="return false">
+                    <div class="tab-pane fade show active" id="tabPerfil" role="tabpanel">
 
-                            <div class="mb-2 d-none">
-                                <label class="form-label">Id Empleado *</label>
-                                <input type="text" id="edit_perfil_id"
-                                       class="form-control" disabled>
-                            </div>
+                        <div class="mb-3 d-none">
+                            <label class="form-label">Id Empleado *</label>
+                            <input type="text"
+                                   id="edit_perfil_id"
+                                   class="form-control"
+                                   disabled>
+                        </div>
 
-                            <div class="mb-3">
-                                <label class="form-label">Nombres *</label>
-                                <input type="text" id="edit_perfil_nombres"
-                                       class="form-control" readonly>
-                            </div>
 
-                        </form>
+
                     </div>
 
-                    <!-- TAB MÓDULOS -->
-                    <div class="tab-pane fade" id="tab-modulos">
+                    <!-- TAB ACCESOS -->
+                    <div class="tab-pane fade" id="tabAccesos" role="tabpanel">
 
-                        <div class="card">
-                            <div class="card-header">
-                                <h6 class="mb-0">Accesos del usuario</h6>
-                                <small class="text-muted">
-                                    Selecciona los módulos permitidos
-                                </small>
-                            </div>
+                        <label class="form-label fw-semibold mb-2">
+                            Selecciona los accesos *
+                        </label>
 
-                            <div class="card-body">
-                                <div id="modulos-container">
-                                    <div id="modulos-form">
-                                        <!-- Checkboxes generados por JS -->
-                                    </div>
-                                </div>
+                        <div id="modulos-container" class="border rounded p-3">
+                            <div id="modulos-form" class="row g-2">
+                                <!-- Checkboxes dinámicos -->
                             </div>
                         </div>
 
                     </div>
 
                 </div>
-            </div>
 
+            </form>
         </div>
     </div>
-
 
 </div>
 
@@ -522,22 +535,22 @@
    * UserRole = Departamento
    * UserPlan = Puesto
    * FilterTransaction = Estatus
-   * 
+   *
    * Datos provenientes de: /CapHum/getUsuarios
    */
 
   // Variable global para almacenar todos los usuarios
   let usuariosData = [];
-  
+
   function llenarFiltros() {
     console.log(' Iniciando función llenarFiltros()');
-    
+
     // Llamar a la API para obtener los usuarios/gestores
     http.request({
       endpoint: "/CapHum/getUsuarios",
       onSuccess: (resp) => {
         console.log('✓ Respuesta de /CapHum/getUsuarios:', resp);
-        
+
         if (!resp.success || !resp.datos || resp.datos.length === 0) {
           console.warn(' No hay datos disponibles');
           return;
@@ -557,12 +570,12 @@
           if (persona.nombre_departamento && persona.nombre_departamento !== 'Sin departamento') {
             departamentos.add(persona.nombre_departamento);
           }
-          
+
           // PUESTO
           if (persona.nombre_puesto && persona.nombre_puesto !== 'Sin puesto') {
             puestos.add(persona.nombre_puesto);
           }
-          
+
           // ESTATUS
           if (persona.estatus) {
             estatus.add(persona.estatus);
@@ -570,7 +583,7 @@
         });
 
         //  FORZAR "Inactivo" en los estatus
-        
+
         estatus.add('Activo');
 
         console.log(' Datos extraídos:', {
@@ -671,7 +684,7 @@
     console.log('Actualizando puestos para departamento:', departamentoSeleccionado);
 
     const selectPuesto = document.getElementById('UserPlan');
-    
+
     if (!selectPuesto) {
       console.warn('Select UserPlan no encontrado');
       return;
@@ -680,7 +693,7 @@
     // Si no hay departamento seleccionado, mostrar TODOS los puestos
     if (!departamentoSeleccionado) {
       console.log('📌 Sin departamento seleccionado, mostrando todos los puestos');
-      
+
       // Extraer todos los puestos únicos
       const todosPuestos = new Set();
       usuariosData.forEach(persona => {
@@ -705,7 +718,7 @@
 
       // Resetear el select
       selectPuesto.value = '';
-      
+
       console.log('Se muestran todos los puestos:', Array.from(todosPuestos));
       return;
     }
@@ -713,8 +726,8 @@
     // Extraer SOLO los puestos del departamento seleccionado
     const puestosDelDepartamento = new Set();
     usuariosData.forEach(persona => {
-      if (persona.nombre_departamento === departamentoSeleccionado && 
-          persona.nombre_puesto && 
+      if (persona.nombre_departamento === departamentoSeleccionado &&
+          persona.nombre_puesto &&
           persona.nombre_puesto !== 'Sin puesto') {
         puestosDelDepartamento.add(persona.nombre_puesto);
       }
@@ -790,7 +803,7 @@
 
   /**
    * ==========================================
-   * ACTUALIZAR TABLA CON DATOS FILTRADOSF
+   * ACTUALIZAR TABLA CON DATOS FILTRADOS
    * ==========================================
    */
   function actualizarTabla(datos) {
