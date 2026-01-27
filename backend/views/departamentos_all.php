@@ -80,7 +80,7 @@
         background-color:rgb(181, 181, 182);
     }
     #listaPuestos.drag-list .drag-item.dragging {
-        opacity: 1.8;
+        opacity: 1;
         transform: scale(1.02) translateY(-1px);
         box-shadow: 0 10px 28px #e2e6ea;
         background-color: #fff;
