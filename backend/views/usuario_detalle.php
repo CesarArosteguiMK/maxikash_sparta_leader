@@ -230,19 +230,19 @@
                     <form class="row g-6" onsubmit="return false">
                         <div class="col-12 col-md-4">
                             <label class="form-label" for="modalEditUserFirstName">Nombre(s)</label>
-                            <input type="text" id="modalEditUserFirstName" name="modalEditUserFirstName" class="form-control" placeholder="John" value="John">
+                            <input type="text" id="modalEditUserFirstName" name="modalEditUserFirstName" class="form-control" placeholder="John" value="John" oninput="this.value = this.value.replace(/[^A-Za-zÁÉÍÓÚáéíóúÑñ\s]/g, '').replace(/^\s+/, '').replace(/\s{2,}/g, ' ').toUpperCase()" onblur="this.value = this.value.trim()" style="text-transform: uppercase;">
                         </div>
                         <div class="col-12 col-md-4">
                             <label class="form-label" for="modalEditUserLastName">Apellido Paterno</label>
-                            <input type="text" id="modalEditUserLastName" name="modalEditUserLastName" class="form-control" placeholder="Doe" value="Doe">
+                            <input type="text" id="modalEditUserLastName" name="modalEditUserLastName" class="form-control" placeholder="Doe" value="Doe" oninput="this.value = this.value.replace(/[^A-Za-zÁÉÍÓÚáéíóúÑñ\s]/g, '').replace(/^\s+/, '').replace(/\s{2,}/g, ' ').toUpperCase()" onblur="this.value = this.value.trim()" style="text-transform: uppercase;">
                         </div>
                         <div class="col-12 col-md-4">
                             <label class="form-label" for="modalEditUserLastName">Apellido Materno</label>
-                            <input type="text" id="modalEditUserLastName" name="modalEditUserLastName" class="form-control" placeholder="Doe" value="Doe">
+                            <input type="text" id="modalEditUserLastName" name="modalEditUserLastName" class="form-control" placeholder="Doe" value="Doe" oninput="this.value = this.value.replace(/[^A-Za-zÁÉÍÓÚáéíóúÑñ\s]/g, '').replace(/^\s+/, '').replace(/\s{2,}/g, ' ').toUpperCase()" onblur="this.value = this.value.trim()" style="text-transform: uppercase;">
                         </div>
                         <div class="col-12">
                             <label class="form-label" for="modalEditUserName">Usuario</label>
-                            <input type="text" id="modalEditUserName" name="modalEditUserName" class="form-control" placeholder="johndoe007" value="johndoe007">
+                            <input type="text" id="modalEditUserName" name="modalEditUserName" class="form-control" placeholder="johndoe007" value="johndoe007" maxlength="10" oninput="this.value = this.value.replace(/[^A-Za-zÁÉÍÓÚáéíóúÑñ\s]/g, '').replace(/^\s+/, '').replace(/\s{2,}/g, ' ').toUpperCase()" onblur="this.value = this.value.trim()" style="text-transform: uppercase;">
                         </div>
                         <div class="col-12 col-md-6">
                             <label class="form-label" for="modalEditUserEmail">Email</label>
@@ -265,7 +265,7 @@
                             <label class="form-label" for="modalEditUserPhone">Phone Number</label>
                             <div class="input-group">
                                 <span class="input-group-text">US (+1)</span>
-                                <input type="text" id="modalEditUserPhone" name="modalEditUserPhone" class="form-control phone-number-mask" placeholder="202 555 0111" value="202 555 0111">
+                                <input type="text" id="modalEditUserPhone" name="modalEditUserPhone" class="form-control phone-number-mask" placeholder="202 555 0111" value="202 555 0111" oninput="this.value = this.value.replace(/[^0-9]/g, '')" onblur="validarTelefono('modalEditUserPhone')" maxlength="10">
                             </div>
                         </div>
                         <div class="col-12 col-md-6">
@@ -403,3 +403,39 @@
 
     <!-- /Modal -->
 </div>
+
+<script>
+/**
+ * ==========================================
+ * FUNCIÓN VALIDAR TELÉFONO
+ * ==========================================
+ * Valida que el número no tenga patrones repetitivos
+ */
+function validarTelefono(fieldId) {
+    const input = document.getElementById(fieldId);
+    const telefono = input.value;
+    
+    // Solo validar si tiene 10 dígitos
+    if (telefono.length !== 10) {
+        return;
+    }
+    
+    // Verificar patrones repetitivos
+    // Ejemplo: 3333333333, 1111111111
+    const todosIguales = /^(\d)\1{9}$/.test(telefono);
+    
+    // Ejemplo: 1212121212, 4242424242
+    const patron2Digitos = /^(\d{2})\1{4}$/.test(telefono);
+    
+    if (todosIguales || patron2Digitos) {
+        Swal.fire({
+            icon: 'error',
+            title: 'Número de teléfono no válido',
+            text: 'El número ingresado no es válido. Por favor, ingrese un número telefónico correcto.',
+            confirmButtonText: 'Entendido'
+        });
+        input.value = '';
+        input.focus();
+    }
+}
+</script>

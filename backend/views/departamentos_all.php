@@ -178,7 +178,9 @@
                                 type="text" 
                                 placeholder="Ej. Cobranza, Call Center, Ventas..." 
                                 required
-                                maxlength="100">
+                                maxlength="30"
+                                oninput="this.value = this.value.replace(/[^A-Za-zÁÉÍÓÚáéíóúÑñ\s]/g, '').replace(/^\s+/, '').replace(/\s{2,}/g, ' ')" 
+                                onblur="this.value = toTitleCase(this.value.trim())">
                         </div>
                         <div class="invalid-feedback" id="errorNombre" style="display: none;"></div>
                     </div>
@@ -213,6 +215,8 @@
                                     id="tituloDepartamento"
                                     contenteditable="false"
                                     data-departamento-id=""
+                                    maxlength="30"
+                                    oninput="this.textContent = this.textContent.replace(/[^A-Za-zÁÉÍÓÚáéíóúÑñ\s]/g, '').replace(/^\s+/, '').replace(/\s{2,}/g, ' ')"
                                     onfocus="inicioEdicionTitulo(this)"
                                     onblur="guardarTituloDepartamento(this)">
                                     Call Center
@@ -260,7 +264,10 @@
                                     <input type="text"
                                            id="inputNuevoPuesto"
                                            class="form-control"
-                                           placeholder="Nombre del puesto">
+                                           placeholder="Nombre del puesto"
+                                           maxlength="30"
+                                           oninput="this.value = this.value.replace(/[^A-Za-zÁÉÍÓÚáéíóúÑñ\s]/g, '').replace(/^\s+/, '').replace(/\s{2,}/g, ' ')" 
+                                           onblur="this.value = toTitleCase(this.value.trim())">
                                     <button class="btn btn-primary"
                                             onclick="guardarNuevoPuesto()">
                                         <i class="fa fa-save"></i>
@@ -339,4 +346,18 @@
         </div>
     </div>
 
-
+<script>
+/**
+ * ==========================================
+ * FUNCIÓN TO TITLE CASE
+ * ==========================================
+ * Convierte texto a formato Title Case
+ * (Primera letra de cada palabra en mayúscula)
+ */
+function toTitleCase(str) {
+    if (!str) return '';
+    return str.toLowerCase().replace(/\b\w/g, function(char) {
+        return char.toUpperCase();
+    });
+}
+</script>
