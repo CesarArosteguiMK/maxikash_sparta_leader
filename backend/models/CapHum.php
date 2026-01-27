@@ -64,7 +64,7 @@ class CapHum extends Model
         LEFT JOIN departamento d 
                ON d.id = pp.departamento_id
         
-        -- 🔥 MISMO FILTRO, SOLO REUBICADO
+        --  MISMO FILTRO, SOLO REUBICADO
         LEFT JOIN (
             SELECT id_persona, id_jefe
             FROM asigna_jefe
