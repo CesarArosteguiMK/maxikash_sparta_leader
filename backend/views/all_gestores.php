@@ -302,7 +302,7 @@
                     <div class="form-check">
                         <input class="form-check-input" type="checkbox" id="add_asignar_legion" onchange="toggleSelectLegion()">
                         <label class="form-check-label" for="add_asignar_legion">
-                            Asignar legion
+                            Asignar legión
                         </label>
                     </div>
                 </div>
@@ -756,7 +756,7 @@
                     <div class="form-check">
                         <input class="form-check-input" type="checkbox" id="edit_asignar_legion" onchange="toggleSelectLegionEdit()">
                         <label class="form-check-label" for="edit_asignar_legion">
-                            Asignar legion
+                            Asignar legión
                         </label>
                     </div>
                 </div>
