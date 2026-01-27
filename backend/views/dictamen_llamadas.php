@@ -114,7 +114,7 @@
             <div class="modal-footer justify-content-between">
                 <small class="text-muted">
                     <i class="fas fa-file-excel me-1"></i>
-                    El reporte se descargará en formato Excel
+                    El reporte se descargará en formato Excel (.xlsx)
                 </small>
 
                 <div>
