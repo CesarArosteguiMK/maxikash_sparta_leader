@@ -69,33 +69,48 @@
 
     /* ===== ORDEN DRAG AND DROP ===== */
     #listaPuestos.drag-list .drag-item {
-        cursor: move;
-        transition: box-shadow 0.2s ease, opacity 0.2s ease;
+        cursor: grab;
+        transition: box-shadow 0.25s ease, opacity 0.25s ease, transform 0.25s ease, background-color 0.2s ease;
+    }
+    #listaPuestos.drag-list .drag-item:active {
+        cursor: grabbing;
     }
     #listaPuestos.drag-list .drag-item:hover {
-        box-shadow: 0 2px 8px rgba(105, 108, 255, 0.15);
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
+        background-color:rgb(181, 181, 182);
     }
     #listaPuestos.drag-list .drag-item.dragging {
-        opacity: 0.6;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+        opacity: 1.8;
+        transform: scale(1.02) translateY(-1px);
+        box-shadow: 0 10px 28px #e2e6ea;
+        background-color: #fff;
+        z-index: 10;
+        cursor: grabbing;
     }
     #listaPuestos.drag-list .drag-item.drag-over {
-        border-top: 2px solid #696cff;
+        background-color: rgba(105, 108, 255, 0.08);
+        box-shadow: inset 0 2px 0 0 #696cff;
+        transition: background-color 0.15s ease, box-shadow 0.15s ease;
     }
+    /* Círculo gris del número de posición (siempre visible) */
+    #listaPuestos .puesto-numero,
     .puesto-numero {
-        width: 32px;
-        height: 32px;
-        min-width: 32px;
+        width: 34px;
+        height: 34px;
+        min-width: 34px;
+        max-width: 34px;
         border-radius: 50%;
-        background: linear-gradient(135deg, #696cff 0%, #5f61e6 100%);
-        color: #fff;
-        display: inline-flex;
+        background-color: #e2e6ea !important;
+        color: #495057 !important;
+        border: 1px solid #ced4da !important;
+        display: inline-flex !important;
         align-items: center;
         justify-content: center;
-        font-weight: 700;
-        font-size: 0.95rem;
-        box-shadow: 0 2px 6px rgba(105, 108, 255, 0.35);
+        font-weight: 600;
+        font-size: 0.9rem;
         margin-right: 1rem;
+        flex-shrink: 0;
+        box-sizing: border-box;
     }
 
     /* ===== MODAL DESLIZANTE ESTILO SNEAT ===== */
@@ -188,8 +203,8 @@
             <div class="modal-content">
 
                 <!-- Header -->
-                <div class="modal-header align-items-start">
-                    <div class="w-100 text-center">
+                <div class="modal-header align-items-start flex-row">
+                    <div class="w-100 text-center order-1">
 
                         <!-- Título editable -->
                         <div class="d-flex justify-content-center align-items-center">
@@ -218,7 +233,7 @@
                         </p>
                     </div>
 
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    <button type="button" class="btn-close order-2 ms-0 ms-sm-auto" data-bs-dismiss="modal" aria-label="Cerrar"></button>
                 </div>
 
 
@@ -229,7 +244,10 @@
 
                             <!-- Header lista -->
                             <div class="d-flex justify-content-between align-items-center mb-4">
-                                <h6 class="mb-0 fw-semibold">Listado de puestos</h6>
+                                <div>
+                                    <h6 class="mb-0 fw-semibold">Listado de puestos</h6>
+                                    <p class="mb-0 mt-1 small text-muted fst-italic">Orden jerárquico por nivel de cargo (escala de mando, de mayor a menor rango)</p>
+                                </div>
                                 <button class="btn btn-sm btn-outline-primary"
                                         onclick="mostrarInputNuevoPuesto()">
                                     <i class="fa fa-plus-circle"> </i>&emsp;Nuevo puesto
@@ -307,11 +325,12 @@
                 </div>
 
                 <!-- Footer -->
-                <div class="modal-footer d-flex justify-content-between">
-                    <small class="text-muted">
-                        * Edición inline, cambios listos para persistir
+                <div class="modal-footer d-flex justify-content-between align-items-center flex-wrap">
+                    <small class="text-muted me-2">
+                        Arrastre los puestos para ordenarlos según el nivel jerárquico que considere correcto.<br>
+                        Los cambios se guardan automáticamente.
                     </small>
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <button type="button" class="btn btn-secondary ms-auto" data-bs-dismiss="modal">
                         Cerrar
                     </button>
                 </div>
