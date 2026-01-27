@@ -326,7 +326,7 @@
 
                 <div class="mb-7">
                     <label class="form-label">Contraseña *</label>
-                    <input type="text" id="add_contrasena" class="form-control">
+                    <input type="text" id="add_contrasena" class="form-control" maxlength="15" oninput="this.value = this.value.replace(/^\s+/, '').replace(/\s{2,}/g, ' ')" onblur="this.value = this.value.trim()">
                 </div>
 
                 <button class="btn btn-primary me-3" onclick="guardarGestor()">Guardar</button>
