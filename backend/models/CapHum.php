@@ -385,6 +385,203 @@ class CapHum extends Model
         }
     }
 
+    /**
+     * Obtener tipos de documentos disponibles desde la base de datos
+     */
+    public static function getTiposDocumentos()
+    {
+        try {
+            $db = new Database();
+            
+            // Obtener documentos activos desde la base de datos
+            $documentos = $db->queryAll("
+                SELECT id, nombre, clave
+                FROM __SPARTA_SECRET_REDACTED__.documentos
+                WHERE activo = 1
+                ORDER BY nombre
+            ");
+            
+            return self::resultado(true, 'Tipos de documentos encontrados.', $documentos ?? []);
+            
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al obtener tipos de documentos.', [], $e->getMessage());
+        }
+    }
+
+    /**
+     * Obtener ID de documento por nombre (usando la BD)
+     */
+    public static function getIdDocumentoPorNombre($nombreDocumento)
+    {
+        try {
+            $db = new Database();
+            
+            // Limpiar el nombre del documento (trim para espacios y caracteres especiales)
+            $nombreDocumento = trim($nombreDocumento);
+            $nombreDocumento = preg_replace('/\s+/', ' ', $nombreDocumento); // Normalizar espacios múltiples
+            
+            // Primero intentar búsqueda exacta (más rápida y precisa)
+            $documento = $db->queryOne("
+                SELECT id
+                FROM __SPARTA_SECRET_REDACTED__.documentos
+                WHERE nombre = :nombre
+                AND activo = 1
+                LIMIT 1
+            ", ['nombre' => $nombreDocumento]);
+            
+            if ($documento && isset($documento['id'])) {
+                return (int)$documento['id'];
+            }
+            
+            // Si no se encuentra, intentar búsqueda case-insensitive con trim
+            $documento = $db->queryOne("
+                SELECT id
+                FROM __SPARTA_SECRET_REDACTED__.documentos
+                WHERE LOWER(TRIM(nombre)) = LOWER(TRIM(:nombre))
+                AND activo = 1
+                LIMIT 1
+            ", ['nombre' => $nombreDocumento]);
+            
+            if ($documento && isset($documento['id'])) {
+                return (int)$documento['id'];
+            }
+            
+            // Log para debugging - obtener todos los documentos para comparar
+            $todos = $db->queryAll("
+                SELECT id, nombre, clave
+                FROM __SPARTA_SECRET_REDACTED__.documentos
+                WHERE activo = 1
+                ORDER BY nombre
+            ");
+            $nombresDisponibles = array_column($todos, 'nombre');
+            error_log("Documento buscado: '" . $nombreDocumento . "' (longitud: " . strlen($nombreDocumento) . ") | Documentos disponibles: " . implode(' | ', $nombresDisponibles));
+            
+            return null;
+            
+        } catch (\Exception $e) {
+            error_log("Error en getIdDocumentoPorNombre: " . $e->getMessage() . " | Trace: " . $e->getTraceAsString());
+            return null;
+        }
+    }
+
+    /**
+     * Obtener documentos de una persona por tipo
+     */
+    public static function getDocumentosPersona($id_persona, $id_documento = null)
+    {
+        try {
+            $db = new Database();
+            
+            $query = "
+                SELECT 
+                    cdp.id,
+                    cdp.archivo,
+                    cdp.id_documento,
+                    DATE_FORMAT(cdp.fecha_carga, '%Y-%m-%d %H:%i') AS fecha_carga
+                FROM __SPARTA_SECRET_REDACTED__.carga_documento_persona cdp
+                WHERE cdp.id_persona = :id_persona
+            ";
+            
+            $params = ['id_persona' => $id_persona];
+            
+            if ($id_documento) {
+                $query .= " AND cdp.id_documento = :id_documento";
+                $params['id_documento'] = $id_documento;
+            }
+            
+            $query .= " ORDER BY cdp.fecha_carga DESC";
+            
+            $documentos = $db->queryAll($query, $params);
+            
+            return self::resultado(true, 'Documentos encontrados.', $documentos ?? []);
+            
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al obtener documentos.', [], $e->getMessage());
+        }
+    }
+
+    /**
+     * Guardar documentos de una persona
+     */
+    public static function guardarDocumentosPersona($id_persona, $id_documento, $archivos)
+    {
+        try {
+            $db = new Database();
+            
+            $archivosGuardados = [];
+            
+            foreach ($archivos as $nombreArchivo) {
+                $archivoEsc = addslashes($nombreArchivo);
+                
+                $db->queryOne("
+                    INSERT INTO __SPARTA_SECRET_REDACTED__.carga_documento_persona
+                    (id_persona, id_documento, archivo, fecha_carga)
+                    VALUES
+                    (:id_persona, :id_documento, :archivo, NOW())
+                ", [
+                    'id_persona' => $id_persona,
+                    'id_documento' => $id_documento,
+                    'archivo' => $archivoEsc
+                ]);
+                
+                $archivosGuardados[] = $nombreArchivo;
+            }
+            
+            return self::resultado(true, 'Documentos guardados correctamente.', $archivosGuardados);
+            
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al guardar documentos.', null, $e->getMessage());
+        }
+    }
+
+    /**
+     * Eliminar documento de una persona
+     */
+    public static function eliminarDocumentoPersona($id_documento_carga)
+    {
+        try {
+            $db = new Database();
+            
+            // Primero obtener el nombre del archivo para eliminarlo físicamente
+            $documento = $db->queryOne("
+                SELECT archivo, id_documento
+                FROM __SPARTA_SECRET_REDACTED__.carga_documento_persona 
+                WHERE id = :id
+            ", ['id' => $id_documento_carga]);
+            
+            if (!$documento) {
+                return self::resultado(false, 'Documento no encontrado.');
+            }
+            
+            $nombreArchivo = $documento['archivo'];
+            $id_documento = $documento['id_documento'];
+            
+            // Eliminar de la base de datos
+            $db->queryOne("
+                DELETE FROM __SPARTA_SECRET_REDACTED__.carga_documento_persona 
+                WHERE id = :id
+            ", ['id' => $id_documento_carga]);
+            
+            // Eliminar archivo físico (puede estar en diferentes carpetas según el tipo)
+            $carpetas = [
+                15 => 'bajas', // Documento baja
+                'default' => 'documentos' // Otros documentos
+            ];
+            
+            $carpeta = $carpetas[$id_documento] ?? $carpetas['default'];
+            $rutaArchivo = __DIR__ . '/../uploads/' . $carpeta . '/' . $nombreArchivo;
+            
+            if (file_exists($rutaArchivo)) {
+                @unlink($rutaArchivo);
+            }
+            
+            return self::resultado(true, 'Documento eliminado correctamente.');
+            
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al eliminar documento.', null, $e->getMessage());
+        }
+    }
+
     public static function getPersonaDetallePerfil($idPersona)
     {
         try {

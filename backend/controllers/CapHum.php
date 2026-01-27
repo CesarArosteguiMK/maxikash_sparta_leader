@@ -51,7 +51,7 @@ class CapHum extends Controller
                             <button class="btn btn-sm btn-primary" onclick="editar(${p.id})" title="Editar">
                                 <i class="fa fa-edit"></i>
                             </button>
-                            <button class="btn btn-sm btn-info" onclick="verArchivo(${p.id})" title="Ver archivo">
+                            <button class="btn btn-sm btn-info" onclick="cargarDocumentoPersona(this)" data-id-persona="${p.id}" data-nombre="${(p.nombres + ' ' + p.apellidop + ' ' + p.apellidom).replace(/"/g, '&quot;')}" title="Cargar documento">
                                 <i class="fa fa-file"></i>
                             </button>
                             <button class="btn btn-sm btn-warning" onclick="registra_ausencia(${p.id})" title="Ausencias">
@@ -393,20 +393,31 @@ class CapHum extends Controller
                     document.getElementById("edit_perfil_id").value = persona.id ?? '';
                     document.getElementById("edit_perfil_nombres").value = nombreCompleto;
                     
-                    // Obtener departamento del primer puesto asignado, o del primer puesto disponible
+                    // Obtener departamento y puesto del primer puesto asignado, o del primer puesto disponible
                     let nombreDepartamento = 'Sin departamento';
+                    let nombrePuesto = 'Sin puesto';
                     const puestoAsignado = puestos.find(p => Number(p.asignado_flag) === 1);
-                    if (puestoAsignado && puestoAsignado.nombre_departamento) {
-                        nombreDepartamento = puestoAsignado.nombre_departamento;
-                    } else if (puestos.length > 0 && puestos[0].nombre_departamento) {
-                        nombreDepartamento = puestos[0].nombre_departamento;
+                    if (puestoAsignado) {
+                        if (puestoAsignado.nombre_departamento) {
+                            nombreDepartamento = puestoAsignado.nombre_departamento;
+                        }
+                        if (puestoAsignado.nombre_puesto) {
+                            nombrePuesto = puestoAsignado.nombre_puesto;
+                        }
+                    } else if (puestos.length > 0) {
+                        if (puestos[0].nombre_departamento) {
+                            nombreDepartamento = puestos[0].nombre_departamento;
+                        }
+                        if (puestos[0].nombre_puesto) {
+                            nombrePuesto = puestos[0].nombre_puesto;
+                        }
                     }
                     
-                    // Actualizar título del modal - título arriba: "Administrar puestos y módulos del usuario", subtítulo abajo con nombre/departamento en negrita
+                    // Actualizar título del modal - título arriba: "Administrar puestos y módulos del usuario", subtítulo abajo con nombre/departamento/puesto en negrita
                     document.getElementById("modalEditPerfilLabel").innerHTML = `
                         <i class="fa fa-user-shield me-2" style="color: #495057;"></i>Administrar puestos y módulos del usuario
                     `;
-                    document.getElementById("modalEditPerfil_subtitle").innerHTML = `Gestión de Permisos y Accesos para <strong>${nombreCompleto} / ${nombreDepartamento}</strong>`;
+                    document.getElementById("modalEditPerfil_subtitle").innerHTML = `Gestión de Permisos y Accesos para <strong>${nombreCompleto} / ${nombreDepartamento} / ${nombrePuesto}</strong>`;
             
                     renderPuestos(puestos);
                     renderModulos(perfiles);
@@ -683,11 +694,11 @@ class CapHum extends Controller
         
                 item.innerHTML = `
                     <h2 class="accordion-header" id="heading_${accId}">
-                        <button class="accordion-button ${index !== 0 ? 'collapsed' : ''}"
+                        <button class="accordion-button collapsed"
                                 type="button"
                                 data-bs-toggle="collapse"
                                 data-bs-target="#collapse_${accId}"
-                                aria-expanded="${index === 0 ? 'true' : 'false'}"
+                                aria-expanded="false"
                                 style="background: #f8f9fa; font-weight: 600; padding: 1rem 1.5rem; border: none;">
                             <div class="d-flex align-items-center w-100">
                                 <i class="fa fa-building me-3" style="color: #6c757d; font-size: 1.1rem;"></i>
@@ -701,7 +712,7 @@ class CapHum extends Controller
                         </button>
                     </h2>
                     <div id="collapse_${accId}"
-                         class="accordion-collapse collapse ${index === 0 ? 'show' : ''}"
+                         class="accordion-collapse collapse"
                          data-bs-parent="#accordionPuestos">
                         <div class="accordion-body p-3" style="background-color: #ffffff; max-height: 450px; overflow-y: auto;"></div>
                     </div>
@@ -1981,6 +1992,533 @@ class CapHum extends Controller
                 renderArchivos();
             }
 
+            // ==========================================
+            // FUNCIONES PARA CARGAR DOCUMENTOS DE PERSONA (GESTIÓN)
+            // ==========================================
+            
+            // Array para almacenar archivos seleccionados (Gestión)
+            let archivosSeleccionadosPersona = [];
+            let archivosSubidosPersona = [];
+            
+            // Función para abrir modal de cargar documento de persona
+            function cargarDocumentoPersona(button) {
+                // Si button no es un elemento DOM, intentar obtenerlo del evento
+                let btnElement = button;
+                
+                if (!button || typeof button.getAttribute !== 'function') {
+                    // Si no es un elemento DOM válido, intentar obtenerlo del evento
+                    if (typeof event !== 'undefined' && event && event.target) {
+                        btnElement = event.target.closest('button');
+                    } else if (typeof button === 'string' || typeof button === 'number') {
+                        // Si se pasa un ID, buscar el botón
+                        btnElement = document.querySelector(`[data-id-persona="${button}"]`);
+                    }
+                    
+                    if (!btnElement || typeof btnElement.getAttribute !== 'function') {
+                        console.error('No se pudo obtener el elemento del botón:', button);
+                        return;
+                    }
+                }
+                
+                // Obtener datos del botón usando data-attributes
+                const idPersona = btnElement.getAttribute('data-id-persona');
+                const nombreCompleto = btnElement.getAttribute('data-nombre') || '';
+                
+                if (!idPersona) {
+                    console.error('No se encontró el ID de persona en el botón');
+                    return;
+                }
+                
+                // Guardar el ID de persona en un campo oculto del modal
+                document.getElementById('cargarDocPersona_idPersona').value = idPersona || '';
+                document.getElementById('cargarDocPersona_nombrePersona').textContent = 'Persona: ' + (nombreCompleto || 'N/A');
+                
+                // Limpiar el select y el input de archivo
+                document.getElementById('cargarDocPersona_tipoDocumento').value = '';
+                document.getElementById('cargarDocPersona_archivo').value = '';
+                document.getElementById('cargarDocPersona_nombreArchivo').textContent = 'No se ha seleccionado ningún archivo';
+                
+                // Limpiar la lista de archivos nuevos
+                archivosSeleccionadosPersona = [];
+                document.getElementById('cargarDocPersona_listaArchivos').style.display = 'none';
+                
+                // Cargar archivos existentes
+                if (idPersona) {
+                    cargarArchivosExistentesPersona(idPersona);
+                }
+                
+                // Actualizar el atributo multiple del input file según el tipo de documento
+                const selectTipo = document.getElementById('cargarDocPersona_tipoDocumento');
+                const inputFile = document.getElementById('cargarDocPersona_archivo');
+                
+                selectTipo.addEventListener('change', function() {
+                    const tipoDoc = this.value;
+                    if (tipoDoc && !permiteMultiplesArchivos(tipoDoc)) {
+                        inputFile.setAttribute('multiple', 'false');
+                        inputFile.removeAttribute('multiple');
+                    } else {
+                        inputFile.setAttribute('multiple', 'multiple');
+                    }
+                    
+                    // Limpiar archivos seleccionados cuando cambia el tipo
+                    archivosSeleccionadosPersona = [];
+                    inputFile.value = '';
+                    document.getElementById('cargarDocPersona_nombreArchivo').textContent = 'No se ha seleccionado ningún archivo';
+                    document.getElementById('cargarDocPersona_listaArchivos').style.display = 'none';
+                });
+                
+                // Mostrar modal
+                const modal = new bootstrap.Modal(document.getElementById('modalCargarDocumentoPersona'));
+                modal.show();
+            }
+            
+            // Función para seleccionar archivo
+            function seleccionarArchivoDocumentoPersona() {
+                document.getElementById('cargarDocPersona_archivo').click();
+            }
+            
+            // Tipos de documentos que solo permiten un archivo
+            const documentosUnicos = [
+                'Acta de Nacimiento',
+                'Certificado de Estudios',
+                'Comprobante de Domicilio',
+                'CURP',
+                'Identificación Oficial (INE)',
+                'RFC'
+            ];
+            
+            // Función para verificar si un tipo de documento permite múltiples archivos
+            function permiteMultiplesArchivos(tipoDocumento) {
+                return !documentosUnicos.includes(tipoDocumento);
+            }
+            
+            // Función para agregar archivo a la lista
+            function agregarArchivoListaPersona(input) {
+                const tipoDocumento = document.getElementById('cargarDocPersona_tipoDocumento').value;
+                
+                if (!tipoDocumento) {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Atención',
+                        text: 'Por favor selecciona primero un tipo de documento'
+                    });
+                    input.value = '';
+                    return;
+                }
+                
+                // Verificar si ya existe un documento de este tipo subido
+                const esUnico = !permiteMultiplesArchivos(tipoDocumento);
+                if (esUnico) {
+                    // Verificar si ya hay un archivo de este tipo en los archivos subidos
+                    const idDocumento = obtenerIdDocumentoPorNombre(tipoDocumento);
+                    const existeDocumento = archivosSubidosPersona.some(doc => doc.id_documento === idDocumento);
+                    
+                    if (existeDocumento) {
+                        Swal.fire({
+                            icon: 'warning',
+                            title: 'Documento ya existe',
+                            text: 'Este tipo de documento solo permite un archivo. Por favor elimina el existente antes de subir uno nuevo.'
+                        });
+                        input.value = '';
+                        return;
+                    }
+                    
+                    // Verificar si ya hay un archivo seleccionado de este tipo
+                    if (archivosSeleccionadosPersona.length > 0) {
+                        Swal.fire({
+                            icon: 'warning',
+                            title: 'Solo un archivo permitido',
+                            text: 'Este tipo de documento solo permite un archivo. Por favor elimina el archivo seleccionado antes de agregar otro.'
+                        });
+                        input.value = '';
+                        return;
+                    }
+                }
+                
+                if (input.files && input.files.length > 0) {
+                    const archivosValidos = [];
+                    
+                    Array.from(input.files).forEach(file => {
+                        if (file.type === 'application/pdf') {
+                            // Si es documento único, solo permitir un archivo
+                            if (esUnico && archivosSeleccionadosPersona.length >= 1) {
+                                Swal.fire({
+                                    icon: 'warning',
+                                    title: 'Solo un archivo permitido',
+                                    text: 'Este tipo de documento solo permite un archivo.'
+                                });
+                                return;
+                            }
+                            archivosValidos.push(file);
+                        }
+                    });
+                    
+                    // Agregar archivos válidos
+                    archivosValidos.forEach(file => {
+                        archivosSeleccionadosPersona.push(file);
+                    });
+                    
+                    // Actualizar contador
+                    const count = archivosSeleccionadosPersona.length;
+                    document.getElementById('cargarDocPersona_nombreArchivo').textContent = 
+                        count > 0 ? `${count} archivo(s) seleccionado(s)` : 'No se ha seleccionado ningún archivo';
+                    
+                    // Renderizar lista
+                    renderArchivosSubidosPersona();
+                }
+            }
+            
+            // Función auxiliar para obtener ID de documento (usando IDs reales de la BD)
+            function obtenerIdDocumentoPorNombre(nombre) {
+                const mapaDocumentos = {
+                    'CURP': 8,
+                    'Identificación Oficial (INE)': 9,
+                    'RFC': 10,
+                    'Comprobante de Domicilio': 11,
+                    'Acta de Nacimiento': 12,
+                    'Certificado de Estudios': 13,
+                    'Referencias Laborales': 14,
+                    'Documento baja': 15,
+                    'Documento Baja': 15  // Compatibilidad con mayúscula
+                };
+                return mapaDocumentos[nombre] || null;
+            }
+            
+            // Función para renderizar archivos
+            function renderArchivosSubidosPersona() {
+                const listaArchivos = document.getElementById('cargarDocPersona_listaArchivos');
+                const tablaArchivos = document.getElementById('cargarDocPersona_tablaArchivos');
+                
+                // Renderizar tabla de archivos subidos
+                if (archivosSubidosPersona.length > 0) {
+                    let htmlTabla = '';
+                    archivosSubidosPersona.forEach(doc => {
+                        const fechaFormateada = doc.fecha_carga || 'N/A';
+                        const archivoEscapado = (doc.archivo || '').replace(/'/g, "\\'");
+                        
+                        htmlTabla += `
+                            <tr>
+                                <td>${obtenerNombreDocumento(doc.id_documento)}</td>
+                                <td>${doc.archivo || 'N/A'}</td>
+                                <td>${fechaFormateada}</td>
+                                <td>
+                                    <span class="badge bg-success">Sí</span>
+                                </td>
+                                <td>
+                                    <button 
+                                        type="button" 
+                                        class="btn btn-sm btn-info me-1" 
+                                        onclick="verArchivoSubidoPersona('${archivoEscapado}')" 
+                                        title="Ver archivo"
+                                    >
+                                        Ver
+                                    </button>
+                                    <button 
+                                        type="button" 
+                                        class="btn btn-sm btn-danger" 
+                                        onclick="eliminarArchivoSubidoPersona(${doc.id}, '${archivoEscapado}')" 
+                                        title="Eliminar archivo"
+                                    >
+                                        <i class="fa fa-trash"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        `;
+                    });
+                    tablaArchivos.innerHTML = htmlTabla;
+                } else {
+                    tablaArchivos.innerHTML = '<tr><td colspan="5" class="text-center text-muted">No hay archivos subidos</td></tr>';
+                }
+                
+                // Renderizar lista de archivos nuevos seleccionados (antes de subir)
+                if (archivosSeleccionadosPersona.length > 0) {
+                    listaArchivos.style.display = 'block';
+                    let htmlLista = '';
+                    archivosSeleccionadosPersona.forEach((file, index) => {
+                        htmlLista += `
+                            <div class="d-flex align-items-center justify-content-between p-2 mb-2 border rounded" style="background-color: #f8f9fa;">
+                                <div class="d-flex align-items-center gap-2">
+                                    <i class="fa fa-file-pdf text-danger"></i>
+                                    <span>${file.name}</span>
+                                    <span class="badge bg-success rounded-pill">
+                                        <i class="fa fa-check"></i>
+                                    </span>
+                                </div>
+                                <div class="d-flex gap-1">
+                                    <button 
+                                        type="button" 
+                                        class="btn btn-sm btn-info p-1" 
+                                        onclick="verArchivoCargadoPersona(${index})" 
+                                        title="Ver archivo"
+                                        style="width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;"
+                                    >
+                                        <i class="fa fa-eye" style="font-size: 12px;"></i>
+                                    </button>
+                                    <button 
+                                        type="button" 
+                                        class="btn btn-sm btn-danger p-1" 
+                                        onclick="eliminarArchivoCargadoPersona(${index})" 
+                                        title="Eliminar archivo"
+                                        style="width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;"
+                                    >
+                                        <i class="fa fa-times" style="font-size: 12px;"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    listaArchivos.innerHTML = htmlLista;
+                } else {
+                    listaArchivos.style.display = 'none';
+                }
+            }
+            
+            // Función para obtener nombre del documento por ID (IDs reales de la BD)
+            function obtenerNombreDocumento(idDocumento) {
+                const mapeo = {
+                    8: 'CURP',
+                    9: 'Identificación Oficial (INE)',
+                    10: 'RFC',
+                    11: 'Comprobante de Domicilio',
+                    12: 'Acta de Nacimiento',
+                    13: 'Certificado de Estudios',
+                    14: 'Referencias Laborales',
+                    15: 'Documento baja'
+                };
+                return mapeo[idDocumento] || 'Documento';
+            }
+            
+            // Función para cargar archivos existentes
+            function cargarArchivosExistentesPersona(idPersona) {
+                fetch('/caphum/getDocumentosPersona?id_persona=' + idPersona)
+                    .then(res => res.json())
+                    .then(resp => {
+                        if (resp.success && resp.datos) {
+                            archivosSubidosPersona = resp.datos;
+                            renderArchivosSubidosPersona();
+                        } else {
+                            archivosSubidosPersona = [];
+                            renderArchivosSubidosPersona();
+                        }
+                    })
+                    .catch(err => {
+                        console.error('Error al cargar archivos:', err);
+                        archivosSubidosPersona = [];
+                        renderArchivosSubidosPersona();
+                    });
+            }
+            
+            // Función para eliminar archivo cargado (nuevo, antes de subir)
+            function eliminarArchivoCargadoPersona(index) {
+                archivosSeleccionadosPersona.splice(index, 1);
+                const count = archivosSeleccionadosPersona.length;
+                document.getElementById('cargarDocPersona_nombreArchivo').textContent = 
+                    count > 0 ? `${count} archivo(s) seleccionado(s)` : 'No se ha seleccionado ningún archivo';
+                renderArchivosSubidosPersona();
+            }
+            
+            // Función para eliminar archivo subido (ya en BD)
+            function eliminarArchivoSubidoPersona(idDocumento, nombreArchivo) {
+                Swal.fire({
+                    title: '¿Eliminar archivo?',
+                    text: '¿Estás seguro de que deseas eliminar "' + nombreArchivo + '"?',
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#d33',
+                    cancelButtonColor: '#3085d6',
+                    confirmButtonText: 'Sí, eliminar',
+                    cancelButtonText: 'Cancelar'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        const formData = new FormData();
+                        formData.append('id_documento', idDocumento);
+                        
+                        fetch('/caphum/eliminarDocumentoPersona', {
+                            method: 'POST',
+                            body: formData
+                        })
+                        .then(res => res.json())
+                        .then(resp => {
+                            if (resp.success) {
+                                Swal.fire({
+                                    icon: 'success',
+                                    title: 'Archivo eliminado',
+                                    text: 'El archivo fue eliminado correctamente',
+                                    timer: 2000,
+                                    showConfirmButton: false
+                                });
+                                
+                                // Recargar lista
+                                const idPersona = document.getElementById('cargarDocPersona_idPersona').value;
+                                if (idPersona) {
+                                    cargarArchivosExistentesPersona(idPersona);
+                                }
+                            } else {
+                                Swal.fire({
+                                    icon: 'error',
+                                    title: 'Error',
+                                    text: resp.mensaje || 'No se pudo eliminar el archivo'
+                                });
+                            }
+                        })
+                        .catch(err => {
+                            console.error('Error:', err);
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Error',
+                                text: 'Ocurrió un error al eliminar el archivo'
+                            });
+                        });
+                    }
+                });
+            }
+            
+            // Función para ver un archivo nuevo (no subido)
+            function verArchivoCargadoPersona(index) {
+                const file = archivosSeleccionadosPersona[index];
+                if (file) {
+                    const url = URL.createObjectURL(file);
+                    window.open(url, '_blank');
+                }
+            }
+            
+            // Función para ver un archivo ya subido
+            function verArchivoSubidoPersona(nombreArchivo) {
+                const url = '/caphum/verDocumentoPersona?archivo=' + encodeURIComponent(nombreArchivo);
+                window.open(url, '_blank');
+            }
+            
+            // Mapeo directo de nombres de documentos a IDs (igual que en Bajas)
+            const mapaDocumentosIds = {
+                'CURP': 8,
+                'Identificación Oficial (INE)': 9,
+                'RFC': 10,
+                'Comprobante de Domicilio': 11,
+                'Acta de Nacimiento': 12,
+                'Certificado de Estudios': 13,
+                'Referencias Laborales': 14,
+                'Documento baja': 15
+            };
+            
+            // Función para subir documento de persona
+            function subirDocumentoPersona() {
+                const tipoDocumento = document.getElementById('cargarDocPersona_tipoDocumento').value;
+                const idPersona = document.getElementById('cargarDocPersona_idPersona').value;
+                
+                if (!tipoDocumento) {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Atención',
+                        text: 'Por favor selecciona un tipo de documento'
+                    });
+                    return;
+                }
+                
+                // Obtener ID del documento usando el mapeo directo
+                const idDocumento = mapaDocumentosIds[tipoDocumento];
+                if (!idDocumento) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: 'Tipo de documento no válido: ' + tipoDocumento
+                    });
+                    return;
+                }
+                
+                if (archivosSeleccionadosPersona.length === 0) {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Atención',
+                        text: 'Por favor selecciona al menos un archivo'
+                    });
+                    return;
+                }
+                
+                if (!idPersona) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: 'No se encontró el ID de la persona'
+                    });
+                    return;
+                }
+                
+                // Mostrar loading
+                Swal.fire({
+                    title: 'Subiendo archivos...',
+                    text: 'Por favor espera',
+                    allowOutsideClick: false,
+                    didOpen: () => {
+                        Swal.showLoading();
+                    }
+                });
+                
+                // Crear FormData
+                const formData = new FormData();
+                formData.append('id_persona', idPersona);
+                formData.append('id_documento', idDocumento);  // Enviar ID directamente
+                
+                // Agregar archivos
+                archivosSeleccionadosPersona.forEach((file) => {
+                    formData.append('archivosPDF[]', file);
+                });
+                
+                // Enviar al servidor
+                fetch('/caphum/subirDocumentosPersona', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(res => {
+                    // Verificar si la respuesta es JSON válido
+                    const contentType = res.headers.get('content-type');
+                    if (contentType && contentType.includes('application/json')) {
+                        return res.json();
+                    } else {
+                        // Si no es JSON, leer como texto para ver el error
+                        return res.text().then(text => {
+                            console.error('Respuesta no JSON:', text);
+                            throw new Error('El servidor devolvió una respuesta no válida. Ver consola para más detalles.');
+                        });
+                    }
+                })
+                .then(resp => {
+                    Swal.close();
+                    
+                    if (resp.success) {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Archivos subidos',
+                            text: 'Se subieron ' + archivosSeleccionadosPersona.length + ' archivo(s) correctamente',
+                            timer: 2000,
+                            showConfirmButton: false
+                        });
+                        
+                        // Limpiar archivos seleccionados
+                        archivosSeleccionadosPersona = [];
+                        document.getElementById('cargarDocPersona_archivo').value = '';
+                        document.getElementById('cargarDocPersona_nombreArchivo').textContent = 'No se ha seleccionado ningún archivo';
+                        document.getElementById('cargarDocPersona_listaArchivos').style.display = 'none';
+                        
+                        // Recargar lista de archivos
+                        cargarArchivosExistentesPersona(idPersona);
+                    } else {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error',
+                            text: resp.mensaje || 'No se pudieron subir los archivos'
+                        });
+                    }
+                })
+                .catch(err => {
+                    Swal.close();
+                    console.error('Error al subir archivos:', err);
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: 'Ocurrió un error al subir los archivos: ' + (err.message || 'Error desconocido')
+                    });
+                });
+            }
             
         </script>
         HTML;
@@ -2037,7 +2575,7 @@ class CapHum extends Controller
                             <button class="btn btn-sm btn-primary" onclick="editar(${p.id})" title="Editar">
                                 <i class="fa fa-edit"></i>
                             </button>
-                            <button class="btn btn-sm btn-info" onclick="verArchivo(${p.id})" title="Ver archivo">
+                            <button class="btn btn-sm btn-info" onclick="cargarDocumentoPersona(this)" data-id-persona="${p.id}" data-nombre="${(p.nombres + ' ' + p.apellidop + ' ' + p.apellidom).replace(/"/g, '&quot;')}" title="Cargar documento">
                                 <i class="fa fa-file"></i>
                             </button>
                             <button class="btn btn-sm btn-warning" onclick="registra_ausencia(${p.id})" title="Ausencias">
@@ -2763,11 +3301,11 @@ class CapHum extends Controller
                 })
                 .catch(err => {
                     Swal.close();
-                    console.error('Error:', err);
+                    console.error('Error al subir archivos:', err);
                     Swal.fire({
                         icon: 'error',
                         title: 'Error',
-                        text: 'Ocurrió un error al subir los archivos'
+                        text: 'Ocurrió un error al subir los archivos: ' + (err.message || 'Error desconocido')
                     });
                 });
             }
@@ -2775,6 +3313,537 @@ class CapHum extends Controller
             $(document).ready(() => {
                 inicializarBajas();
             });
+            
+            // ==========================================
+            // FUNCIONES PARA CARGAR DOCUMENTOS DE PERSONA (GESTIÓN)
+            // ==========================================
+            
+            // Array para almacenar archivos seleccionados (Gestión)
+            let archivosSeleccionadosPersona = [];
+            let archivosSubidosPersona = [];
+            
+            // Función para abrir modal de cargar documento de persona
+            function cargarDocumentoPersona(button) {
+                // Si button no es un elemento DOM, intentar obtenerlo del evento
+                let btnElement = button;
+                
+                if (!button || typeof button.getAttribute !== 'function') {
+                    // Si no es un elemento DOM válido, intentar obtenerlo del evento
+                    if (typeof event !== 'undefined' && event && event.target) {
+                        btnElement = event.target.closest('button');
+                    } else if (typeof button === 'string' || typeof button === 'number') {
+                        // Si se pasa un ID, buscar el botón
+                        btnElement = document.querySelector(`[data-id-persona="${button}"]`);
+                    }
+                    
+                    if (!btnElement || typeof btnElement.getAttribute !== 'function') {
+                        console.error('No se pudo obtener el elemento del botón:', button);
+                        return;
+                    }
+                }
+                
+                // Obtener datos del botón usando data-attributes
+                const idPersona = btnElement.getAttribute('data-id-persona');
+                const nombreCompleto = btnElement.getAttribute('data-nombre') || '';
+                
+                if (!idPersona) {
+                    console.error('No se encontró el ID de persona en el botón');
+                    return;
+                }
+                
+                // Guardar el ID de persona en un campo oculto del modal
+                document.getElementById('cargarDocPersona_idPersona').value = idPersona || '';
+                document.getElementById('cargarDocPersona_nombrePersona').textContent = 'Persona: ' + (nombreCompleto || 'N/A');
+                
+                // Limpiar el select y el input de archivo
+                document.getElementById('cargarDocPersona_tipoDocumento').value = '';
+                document.getElementById('cargarDocPersona_archivo').value = '';
+                document.getElementById('cargarDocPersona_nombreArchivo').textContent = 'No se ha seleccionado ningún archivo';
+                
+                // Limpiar la lista de archivos nuevos
+                archivosSeleccionadosPersona = [];
+                document.getElementById('cargarDocPersona_listaArchivos').style.display = 'none';
+                
+                // Cargar tipos de documentos desde la BD (opcional, por si se quiere cargar dinámicamente)
+                // Por ahora usamos los valores estáticos del HTML
+                
+                // Cargar archivos existentes
+                if (idPersona) {
+                    cargarArchivosExistentesPersona(idPersona);
+                }
+                
+                // Actualizar el atributo multiple del input file según el tipo de documento
+                const selectTipo = document.getElementById('cargarDocPersona_tipoDocumento');
+                const inputFile = document.getElementById('cargarDocPersona_archivo');
+                
+                selectTipo.addEventListener('change', function() {
+                    const tipoDoc = this.value;
+                    if (tipoDoc && !permiteMultiplesArchivos(tipoDoc)) {
+                        inputFile.setAttribute('multiple', 'false');
+                        inputFile.removeAttribute('multiple');
+                    } else {
+                        inputFile.setAttribute('multiple', 'multiple');
+                    }
+                    
+                    // Limpiar archivos seleccionados cuando cambia el tipo
+                    archivosSeleccionadosPersona = [];
+                    inputFile.value = '';
+                    document.getElementById('cargarDocPersona_nombreArchivo').textContent = 'No se ha seleccionado ningún archivo';
+                    document.getElementById('cargarDocPersona_listaArchivos').style.display = 'none';
+                });
+                
+                // Mostrar modal
+                const modal = new bootstrap.Modal(document.getElementById('modalCargarDocumentoPersona'));
+                modal.show();
+            }
+            
+            // Función para seleccionar archivo
+            function seleccionarArchivoDocumentoPersona() {
+                document.getElementById('cargarDocPersona_archivo').click();
+            }
+            
+            // Tipos de documentos que solo permiten un archivo
+            const documentosUnicos = [
+                'Acta de Nacimiento',
+                'Certificado de Estudios',
+                'Comprobante de Domicilio',
+                'CURP',
+                'Identificación Oficial (INE)',
+                'RFC'
+            ];
+            
+            // Función para verificar si un tipo de documento permite múltiples archivos
+            function permiteMultiplesArchivos(tipoDocumento) {
+                return !documentosUnicos.includes(tipoDocumento);
+            }
+            
+            // Función para agregar archivo a la lista
+            function agregarArchivoListaPersona(input) {
+                const tipoDocumento = document.getElementById('cargarDocPersona_tipoDocumento').value;
+                
+                if (!tipoDocumento) {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Atención',
+                        text: 'Por favor selecciona primero un tipo de documento'
+                    });
+                    input.value = '';
+                    return;
+                }
+                
+                // Verificar si ya existe un documento de este tipo subido
+                const esUnico = !permiteMultiplesArchivos(tipoDocumento);
+                if (esUnico) {
+                    // Verificar si ya hay un archivo de este tipo en los archivos subidos
+                    const idDocumento = obtenerIdDocumentoPorNombre(tipoDocumento);
+                    const existeDocumento = archivosSubidosPersona.some(doc => doc.id_documento === idDocumento);
+                    
+                    if (existeDocumento) {
+                        Swal.fire({
+                            icon: 'warning',
+                            title: 'Documento ya existe',
+                            text: 'Este tipo de documento solo permite un archivo. Por favor elimina el existente antes de subir uno nuevo.'
+                        });
+                        input.value = '';
+                        return;
+                    }
+                    
+                    // Verificar si ya hay un archivo seleccionado de este tipo
+                    if (archivosSeleccionadosPersona.length > 0) {
+                        Swal.fire({
+                            icon: 'warning',
+                            title: 'Solo un archivo permitido',
+                            text: 'Este tipo de documento solo permite un archivo. Por favor elimina el archivo seleccionado antes de agregar otro.'
+                        });
+                        input.value = '';
+                        return;
+                    }
+                }
+                
+                if (input.files && input.files.length > 0) {
+                    const archivosValidos = [];
+                    
+                    Array.from(input.files).forEach(file => {
+                        if (file.type === 'application/pdf') {
+                            // Si es documento único, solo permitir un archivo
+                            if (esUnico && archivosSeleccionadosPersona.length >= 1) {
+                                Swal.fire({
+                                    icon: 'warning',
+                                    title: 'Solo un archivo permitido',
+                                    text: 'Este tipo de documento solo permite un archivo.'
+                                });
+                                return;
+                            }
+                            archivosValidos.push(file);
+                        }
+                    });
+                    
+                    // Agregar archivos válidos
+                    archivosValidos.forEach(file => {
+                        archivosSeleccionadosPersona.push(file);
+                    });
+                    
+                    // Actualizar contador
+                    const count = archivosSeleccionadosPersona.length;
+                    document.getElementById('cargarDocPersona_nombreArchivo').textContent = 
+                        count > 0 ? `${count} archivo(s) seleccionado(s)` : 'No se ha seleccionado ningún archivo';
+                    
+                    // Renderizar lista
+                    renderArchivosSubidosPersona();
+                }
+            }
+            
+            // Función auxiliar para obtener ID de documento (usando IDs reales de la BD)
+            function obtenerIdDocumentoPorNombre(nombre) {
+                const mapaDocumentos = {
+                    'CURP': 8,
+                    'Identificación Oficial (INE)': 9,
+                    'RFC': 10,
+                    'Comprobante de Domicilio': 11,
+                    'Acta de Nacimiento': 12,
+                    'Certificado de Estudios': 13,
+                    'Referencias Laborales': 14,
+                    'Documento baja': 15,
+                    'Documento Baja': 15  // Compatibilidad con mayúscula
+                };
+                return mapaDocumentos[nombre] || null;
+            }
+            
+            // Función para renderizar archivos
+            function renderArchivosSubidosPersona() {
+                const listaArchivos = document.getElementById('cargarDocPersona_listaArchivos');
+                const tablaArchivos = document.getElementById('cargarDocPersona_tablaArchivos');
+                
+                // Renderizar tabla de archivos subidos
+                if (archivosSubidosPersona.length > 0) {
+                    let htmlTabla = '';
+                    archivosSubidosPersona.forEach(doc => {
+                        const fechaFormateada = doc.fecha_carga || 'N/A';
+                        const archivoEscapado = (doc.archivo || '').replace(/'/g, "\\'");
+                        
+                        htmlTabla += `
+                            <tr>
+                                <td>${obtenerNombreDocumento(doc.id_documento)}</td>
+                                <td>${doc.archivo || 'N/A'}</td>
+                                <td>${fechaFormateada}</td>
+                                <td>
+                                    <span class="badge bg-success">Sí</span>
+                                </td>
+                                <td>
+                                    <button 
+                                        type="button" 
+                                        class="btn btn-sm btn-info me-1" 
+                                        onclick="verArchivoSubidoPersona('${archivoEscapado}')" 
+                                        title="Ver archivo"
+                                    >
+                                        Ver
+                                    </button>
+                                    <button 
+                                        type="button" 
+                                        class="btn btn-sm btn-danger" 
+                                        onclick="eliminarArchivoSubidoPersona(${doc.id}, '${archivoEscapado}')" 
+                                        title="Eliminar archivo"
+                                    >
+                                        <i class="fa fa-trash"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        `;
+                    });
+                    tablaArchivos.innerHTML = htmlTabla;
+                } else {
+                    tablaArchivos.innerHTML = '<tr><td colspan="5" class="text-center text-muted">No hay archivos subidos</td></tr>';
+                }
+                
+                // Renderizar lista de archivos nuevos seleccionados (antes de subir)
+                if (archivosSeleccionadosPersona.length > 0) {
+                    listaArchivos.style.display = 'block';
+                    let htmlLista = '';
+                    archivosSeleccionadosPersona.forEach((file, index) => {
+                        htmlLista += `
+                            <div class="d-flex align-items-center justify-content-between p-2 mb-2 border rounded" style="background-color: #f8f9fa;">
+                                <div class="d-flex align-items-center gap-2">
+                                    <i class="fa fa-file-pdf text-danger"></i>
+                                    <span>${file.name}</span>
+                                    <span class="badge bg-success rounded-pill">
+                                        <i class="fa fa-check"></i>
+                                    </span>
+                                </div>
+                                <div class="d-flex gap-1">
+                                    <button 
+                                        type="button" 
+                                        class="btn btn-sm btn-info p-1" 
+                                        onclick="verArchivoCargadoPersona(${index})" 
+                                        title="Ver archivo"
+                                        style="width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;"
+                                    >
+                                        <i class="fa fa-eye" style="font-size: 12px;"></i>
+                                    </button>
+                                    <button 
+                                        type="button" 
+                                        class="btn btn-sm btn-danger p-1" 
+                                        onclick="eliminarArchivoCargadoPersona(${index})" 
+                                        title="Eliminar archivo"
+                                        style="width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;"
+                                    >
+                                        <i class="fa fa-times" style="font-size: 12px;"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    listaArchivos.innerHTML = htmlLista;
+                } else {
+                    listaArchivos.style.display = 'none';
+                }
+            }
+            
+            // Función para obtener nombre del documento por ID (IDs reales de la BD)
+            function obtenerNombreDocumento(idDocumento) {
+                const mapeo = {
+                    8: 'CURP',
+                    9: 'Identificación Oficial (INE)',
+                    10: 'RFC',
+                    11: 'Comprobante de Domicilio',
+                    12: 'Acta de Nacimiento',
+                    13: 'Certificado de Estudios',
+                    14: 'Referencias Laborales',
+                    15: 'Documento baja'
+                };
+                return mapeo[idDocumento] || 'Documento';
+            }
+            
+            // Función para cargar archivos existentes
+            function cargarArchivosExistentesPersona(idPersona) {
+                fetch('/caphum/getDocumentosPersona?id_persona=' + idPersona)
+                    .then(res => res.json())
+                    .then(resp => {
+                        if (resp.success && resp.datos) {
+                            archivosSubidosPersona = resp.datos;
+                            renderArchivosSubidosPersona();
+                        } else {
+                            archivosSubidosPersona = [];
+                            renderArchivosSubidosPersona();
+                        }
+                    })
+                    .catch(err => {
+                        console.error('Error al cargar archivos:', err);
+                        archivosSubidosPersona = [];
+                        renderArchivosSubidosPersona();
+                    });
+            }
+            
+            // Función para eliminar archivo cargado (nuevo, antes de subir)
+            function eliminarArchivoCargadoPersona(index) {
+                archivosSeleccionadosPersona.splice(index, 1);
+                const count = archivosSeleccionadosPersona.length;
+                document.getElementById('cargarDocPersona_nombreArchivo').textContent = 
+                    count > 0 ? `${count} archivo(s) seleccionado(s)` : 'No se ha seleccionado ningún archivo';
+                renderArchivosSubidosPersona();
+            }
+            
+            // Función para eliminar archivo subido (ya en BD)
+            function eliminarArchivoSubidoPersona(idDocumento, nombreArchivo) {
+                Swal.fire({
+                    title: '¿Eliminar archivo?',
+                    text: '¿Estás seguro de que deseas eliminar "' + nombreArchivo + '"?',
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#d33',
+                    cancelButtonColor: '#3085d6',
+                    confirmButtonText: 'Sí, eliminar',
+                    cancelButtonText: 'Cancelar'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        const formData = new FormData();
+                        formData.append('id_documento', idDocumento);
+                        
+                        fetch('/caphum/eliminarDocumentoPersona', {
+                            method: 'POST',
+                            body: formData
+                        })
+                        .then(res => res.json())
+                        .then(resp => {
+                            if (resp.success) {
+                                Swal.fire({
+                                    icon: 'success',
+                                    title: 'Archivo eliminado',
+                                    text: 'El archivo fue eliminado correctamente',
+                                    timer: 2000,
+                                    showConfirmButton: false
+                                });
+                                
+                                // Recargar lista
+                                const idPersona = document.getElementById('cargarDocPersona_idPersona').value;
+                                if (idPersona) {
+                                    cargarArchivosExistentesPersona(idPersona);
+                                }
+                            } else {
+                                Swal.fire({
+                                    icon: 'error',
+                                    title: 'Error',
+                                    text: resp.mensaje || 'No se pudo eliminar el archivo'
+                                });
+                            }
+                        })
+                        .catch(err => {
+                            console.error('Error:', err);
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Error',
+                                text: 'Ocurrió un error al eliminar el archivo'
+                            });
+                        });
+                    }
+                });
+            }
+            
+            // Función para ver un archivo nuevo (no subido)
+            function verArchivoCargadoPersona(index) {
+                const file = archivosSeleccionadosPersona[index];
+                if (file) {
+                    const url = URL.createObjectURL(file);
+                    window.open(url, '_blank');
+                }
+            }
+            
+            // Función para ver un archivo ya subido
+            function verArchivoSubidoPersona(nombreArchivo) {
+                const url = '/caphum/verDocumentoPersona?archivo=' + encodeURIComponent(nombreArchivo);
+                window.open(url, '_blank');
+            }
+            
+            // Mapeo directo de nombres de documentos a IDs (igual que en Bajas)
+            const mapaDocumentosIds = {
+                'CURP': 8,
+                'Identificación Oficial (INE)': 9,
+                'RFC': 10,
+                'Comprobante de Domicilio': 11,
+                'Acta de Nacimiento': 12,
+                'Certificado de Estudios': 13,
+                'Referencias Laborales': 14,
+                'Documento baja': 15
+            };
+            
+            // Función para subir documento de persona
+            function subirDocumentoPersona() {
+                const tipoDocumento = document.getElementById('cargarDocPersona_tipoDocumento').value;
+                const idPersona = document.getElementById('cargarDocPersona_idPersona').value;
+                
+                if (!tipoDocumento) {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Atención',
+                        text: 'Por favor selecciona un tipo de documento'
+                    });
+                    return;
+                }
+                
+                // Obtener ID del documento usando el mapeo directo
+                const idDocumento = mapaDocumentosIds[tipoDocumento];
+                if (!idDocumento) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: 'Tipo de documento no válido: ' + tipoDocumento
+                    });
+                    return;
+                }
+                
+                if (archivosSeleccionadosPersona.length === 0) {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Atención',
+                        text: 'Por favor selecciona al menos un archivo'
+                    });
+                    return;
+                }
+                
+                if (!idPersona) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: 'No se encontró el ID de la persona'
+                    });
+                    return;
+                }
+                
+                // Mostrar loading
+                Swal.fire({
+                    title: 'Subiendo archivos...',
+                    text: 'Por favor espera',
+                    allowOutsideClick: false,
+                    didOpen: () => {
+                        Swal.showLoading();
+                    }
+                });
+                
+                // Crear FormData
+                const formData = new FormData();
+                formData.append('id_persona', idPersona);
+                formData.append('id_documento', idDocumento);  // Enviar ID directamente
+                
+                // Agregar archivos
+                archivosSeleccionadosPersona.forEach((file) => {
+                    formData.append('archivosPDF[]', file);
+                });
+                
+                // Enviar al servidor
+                fetch('/caphum/subirDocumentosPersona', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(res => {
+                    // Verificar si la respuesta es JSON válido
+                    const contentType = res.headers.get('content-type');
+                    if (contentType && contentType.includes('application/json')) {
+                        return res.json();
+                    } else {
+                        // Si no es JSON, leer como texto para ver el error
+                        return res.text().then(text => {
+                            console.error('Respuesta no JSON:', text);
+                            throw new Error('El servidor devolvió una respuesta no válida. Ver consola para más detalles.');
+                        });
+                    }
+                })
+                .then(resp => {
+                    Swal.close();
+                    
+                    if (resp.success) {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Archivos subidos',
+                            text: 'Se subieron ' + archivosSeleccionadosPersona.length + ' archivo(s) correctamente',
+                            timer: 2000,
+                            showConfirmButton: false
+                        });
+                        
+                        // Limpiar archivos seleccionados
+                        archivosSeleccionadosPersona = [];
+                        document.getElementById('cargarDocPersona_archivo').value = '';
+                        document.getElementById('cargarDocPersona_nombreArchivo').textContent = 'No se ha seleccionado ningún archivo';
+                        document.getElementById('cargarDocPersona_listaArchivos').style.display = 'none';
+                        
+                        // Recargar lista de archivos
+                        cargarArchivosExistentesPersona(idPersona);
+                    } else {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error',
+                            text: resp.mensaje || 'No se pudieron subir los archivos'
+                        });
+                    }
+                })
+                .catch(err => {
+                    Swal.close();
+                    console.error('Error al subir archivos:', err);
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: 'Ocurrió un error al subir los archivos: ' + (err.message || 'Error desconocido')
+                    });
+                });
+            }
         </script>
         HTML;
 
@@ -3786,5 +4855,253 @@ class CapHum extends Controller
         }
     }
 
+    /**
+     * Obtener tipos de documentos disponibles
+     */
+    public function getTiposDocumentos()
+    {
+        try {
+            $resultado = CapHumDAO::getTiposDocumentos();
+            self::respuestaJSON($resultado);
+        } catch (\Exception $e) {
+            self::respuestaJSON([
+                'success' => false,
+                'mensaje' => 'Error al obtener tipos de documentos: ' . $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
+     * Obtener documentos de una persona
+     */
+    public function getDocumentosPersona()
+    {
+        try {
+            $id_persona = $_GET['id_persona'] ?? null;
+            $id_documento = $_GET['id_documento'] ?? null;
+            
+            if (!$id_persona) {
+                self::respuestaJSON([
+                    'success' => false,
+                    'mensaje' => 'ID de persona requerido'
+                ]);
+                return;
+            }
+            
+            $resultado = CapHumDAO::getDocumentosPersona($id_persona, $id_documento);
+            self::respuestaJSON($resultado);
+            
+        } catch (\Exception $e) {
+            self::respuestaJSON([
+                'success' => false,
+                'mensaje' => 'Error al obtener documentos: ' . $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
+     * Subir documentos de una persona
+     */
+    public function subirDocumentosPersona()
+    {
+        try {
+            $id_persona = $_POST['id_persona'] ?? null;
+            // Priorizar id_documento si viene, sino intentar con tipo_documento (compatibilidad)
+            $id_documento = $_POST['id_documento'] ?? null;
+            $tipo_documento = $_POST['tipo_documento'] ?? null;
+            
+            if (!$id_persona) {
+                self::respuestaJSON([
+                    'success' => false,
+                    'mensaje' => 'ID de persona requerido'
+                ]);
+                return;
+            }
+            
+            // Si no viene id_documento, intentar obtenerlo por nombre (compatibilidad hacia atrás)
+            if (!$id_documento && $tipo_documento) {
+                $id_documento = CapHumDAO::getIdDocumentoPorNombre($tipo_documento);
+            }
+            
+            if (!$id_documento || !is_numeric($id_documento)) {
+                self::respuestaJSON([
+                    'success' => false,
+                    'mensaje' => 'ID de documento no válido'
+                ]);
+                return;
+            }
+            
+            $id_documento = (int)$id_documento;
+            
+            // Directorio de guardado (usar carpeta documentos para Gestión)
+            $directorio = __DIR__ . '/../uploads/documentos/';
+            if (!is_dir($directorio)) {
+                mkdir($directorio, 0777, true);
+            }
+            
+            $archivosGuardados = [];
+            
+            // Procesar archivos
+            if (!isset($_FILES['archivosPDF'])) {
+                self::respuestaJSON([
+                    'success' => false,
+                    'mensaje' => 'No se recibieron archivos'
+                ]);
+                return;
+            }
+            
+            // Manejar tanto array como archivo único
+            $archivos = [];
+            if (is_array($_FILES['archivosPDF']['name'])) {
+                // Múltiples archivos
+                for ($i = 0; $i < count($_FILES['archivosPDF']['name']); $i++) {
+                    if ($_FILES['archivosPDF']['error'][$i] !== UPLOAD_ERR_OK) {
+                        continue;
+                    }
+                    $archivos[] = [
+                        'tmp' => $_FILES['archivosPDF']['tmp_name'][$i],
+                        'name' => $_FILES['archivosPDF']['name'][$i],
+                        'error' => $_FILES['archivosPDF']['error'][$i]
+                    ];
+                }
+            } else {
+                // Un solo archivo
+                if ($_FILES['archivosPDF']['error'] === UPLOAD_ERR_OK) {
+                    $archivos[] = [
+                        'tmp' => $_FILES['archivosPDF']['tmp_name'],
+                        'name' => $_FILES['archivosPDF']['name'],
+                        'error' => $_FILES['archivosPDF']['error']
+                    ];
+                }
+            }
+            
+            if (empty($archivos)) {
+                self::respuestaJSON([
+                    'success' => false,
+                    'mensaje' => 'No se recibieron archivos válidos'
+                ]);
+                return;
+            }
+            
+            foreach ($archivos as $i => $archivo) {
+                if ($archivo['error'] !== UPLOAD_ERR_OK) {
+                    continue;
+                }
+                
+                $tmp = $archivo['tmp'];
+                $nombreOrig = $archivo['name'];
+                $extension = strtolower(pathinfo($nombreOrig, PATHINFO_EXTENSION));
+                
+                if ($extension !== 'pdf') {
+                    continue;
+                }
+                
+                // Generar nombre único
+                $nombreFinal = 'doc_' . $id_persona . '_' . $id_documento . '_' . time() . '_' . $i . '.pdf';
+                $rutaFinal = $directorio . $nombreFinal;
+                
+                if (move_uploaded_file($tmp, $rutaFinal)) {
+                    $archivosGuardados[] = $nombreFinal;
+                }
+            }
+            
+            if (empty($archivosGuardados)) {
+                self::respuestaJSON([
+                    'success' => false,
+                    'mensaje' => 'No se pudieron guardar los archivos'
+                ]);
+                return;
+            }
+            
+            // Guardar en base de datos
+            $resultado = CapHumDAO::guardarDocumentosPersona($id_persona, $id_documento, $archivosGuardados);
+            self::respuestaJSON($resultado);
+            
+        } catch (\Exception $e) {
+            self::respuestaJSON([
+                'success' => false,
+                'mensaje' => 'Error al subir documentos: ' . $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
+     * Eliminar documento de una persona
+     */
+    public function eliminarDocumentoPersona()
+    {
+        try {
+            $id_documento = $_POST['id_documento'] ?? null;
+            
+            if (!$id_documento) {
+                self::respuestaJSON([
+                    'success' => false,
+                    'mensaje' => 'ID de documento requerido'
+                ]);
+                return;
+            }
+            
+            $resultado = CapHumDAO::eliminarDocumentoPersona($id_documento);
+            self::respuestaJSON($resultado);
+            
+        } catch (\Exception $e) {
+            self::respuestaJSON([
+                'success' => false,
+                'mensaje' => 'Error al eliminar documento: ' . $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
+     * Ver documento de una persona
+     */
+    public function verDocumentoPersona()
+    {
+        try {
+            $nombreArchivo = $_GET['archivo'] ?? null;
+            
+            if (!$nombreArchivo) {
+                http_response_code(400);
+                echo 'Nombre de archivo requerido';
+                exit;
+            }
+            
+            // Validar que el nombre del archivo no contenga rutas relativas (seguridad)
+            if (strpos($nombreArchivo, '..') !== false || strpos($nombreArchivo, '/') !== false) {
+                http_response_code(403);
+                echo 'Nombre de archivo inválido';
+                exit;
+            }
+            
+            $rutaArchivo = __DIR__ . '/../uploads/documentos/' . basename($nombreArchivo);
+            
+            if (!file_exists($rutaArchivo)) {
+                http_response_code(404);
+                echo 'Archivo no encontrado';
+                exit;
+            }
+            
+            // Limpiar buffer
+            while (ob_get_level()) {
+                ob_end_clean();
+            }
+            
+            // Establecer headers para PDF
+            header('Content-Type: application/pdf');
+            header('Content-Disposition: inline; filename="' . basename($nombreArchivo) . '"');
+            header('Content-Length: ' . filesize($rutaArchivo));
+            header('Cache-Control: private, max-age=0, must-revalidate');
+            header('Pragma: public');
+            
+            // Leer y enviar el archivo
+            readfile($rutaArchivo);
+            exit;
+            
+        } catch (\Exception $e) {
+            http_response_code(500);
+            echo 'Error al cargar el archivo: ' . $e->getMessage();
+            exit;
+        }
+    }
 
 }
