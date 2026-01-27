@@ -298,6 +298,27 @@
                     </select>
                 </div>
 
+                <div class="mb-3">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="add_asignar_legion" onchange="toggleSelectLegion()">
+                        <label class="form-check-label" for="add_asignar_legion">
+                            Asignar legion
+                        </label>
+                    </div>
+                </div>
+
+                <div class="mb-2" id="div_select_legion" style="display: none;">
+                    <label class="form-label">Legión *</label>
+                    <select id="add_id_legion" class="form-select">
+                        <option value="">Seleccione una legión</option>
+                        <option value="1">Sabueso</option>
+                        <option value="2">Heraldo</option>
+                        <option value="3">Centinela</option>
+                        <option value="4">Senturiones</option>
+                        <option value="5">Espartano</option>
+                    </select>
+                </div>
+
                 <div class="mb-2">
                     <label class="form-label">Usuario *</label>
                     <input type="text" id="add_usuario" class="form-control" oninput="this.value = this.value.replace(/[^A-Za-zÁÉÍÓÚáéíóúÑñ\s]/g, '').toUpperCase()" style="text-transform: uppercase;">
@@ -720,6 +741,27 @@
                     </select>
                 </div>
 
+                <div class="mb-3">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="edit_asignar_legion" onchange="toggleSelectLegionEdit()">
+                        <label class="form-check-label" for="edit_asignar_legion">
+                            Asignar legion
+                        </label>
+                    </div>
+                </div>
+
+                <div class="mb-2" id="edit_div_select_legion" style="display: none;">
+                    <label class="form-label">Legión *</label>
+                    <select id="edit_id_legion" class="form-select">
+                        <option value="">Seleccione una legión</option>
+                        <option value="1">Sabueso</option>
+                        <option value="2">Heraldo</option>
+                        <option value="3">Centinela</option>
+                        <option value="4">Senturiones</option>
+                        <option value="5">Espartano</option>
+                    </select>
+                </div>
+
                 <div class="mb-2">
                     <label class="form-label">Usuario *</label>
                     <input type="text" id="edit_usuario" class="form-control" readonly oninput="this.value = this.value.replace(/[^A-Za-zÁÉÍÓÚáéíóúÑñ\s]/g, '').toUpperCase()" style="text-transform: uppercase;">
@@ -760,20 +802,34 @@
                     <!-- Tabs -->
                     <ul class="nav nav-tabs nav-tabs-custom px-4 pt-3" role="tablist" style="border-bottom: 2px solid #e9ecef;">
                         <li class="nav-item" role="presentation">
-                            <button class="nav-link active" id="tabPuestos-tab" data-bs-toggle="tab" data-bs-target="#tabPuestos" type="button" role="tab">
-                                <i class="fa fa-briefcase me-2" style="color: #6c757d;"></i>Acceso a Puestos
+                            <button class="nav-link active" id="tabModulos-tab" data-bs-toggle="tab" data-bs-target="#tabModulos" type="button" role="tab">
+                                <i class="fa fa-shield-alt me-2" style="color: #6c757d;"></i>Módulos del Sistema
                             </button>
                         </li>
                         <li class="nav-item" role="presentation">
-                            <button class="nav-link" id="tabModulos-tab" data-bs-toggle="tab" data-bs-target="#tabModulos" type="button" role="tab">
-                                <i class="fa fa-shield-alt me-2" style="color: #6c757d;"></i>Módulos del Sistema
+                            <button class="nav-link" id="tabPuestos-tab" data-bs-toggle="tab" data-bs-target="#tabPuestos" type="button" role="tab">
+                                <i class="fa fa-briefcase me-2" style="color: #6c757d;"></i>Acceso a Puestos
                             </button>
                         </li>
                     </ul>
 
                     <div class="tab-content p-4">
+                        <!-- TAB MÓDULOS -->
+                        <div class="tab-pane fade show active" id="tabModulos" role="tabpanel">
+                            <div class="d-flex justify-content-between align-items-center mb-4">
+                                <div>
+                                    <h6 class="mb-1 fw-bold">Módulos del Sistema</h6>
+                                    <small class="text-muted">Gestiona los accesos a los diferentes módulos</small>
+                                </div>
+                            </div>
+
+                            <div id="modulos-container" style="overflow-y: visible;">
+                                <div id="modulos-form"></div>
+                            </div>
+                        </div>
+
                         <!-- TAB PUESTOS -->
-                        <div class="tab-pane fade show active" id="tabPuestos" role="tabpanel">
+                        <div class="tab-pane fade" id="tabPuestos" role="tabpanel">
                             <input type="hidden" id="edit_perfil_id">
                             
                             <div class="d-flex justify-content-between align-items-center mb-4">
@@ -788,20 +844,6 @@
 
                             <div id="puestos-container" style="max-height: 500px; overflow-y: auto;">
                                 <div id="puestos-form"></div>
-                            </div>
-                        </div>
-
-                        <!-- TAB MÓDULOS -->
-                        <div class="tab-pane fade" id="tabModulos" role="tabpanel">
-                            <div class="d-flex justify-content-between align-items-center mb-4">
-                                <div>
-                                    <h6 class="mb-1 fw-bold">Módulos del Sistema</h6>
-                                    <small class="text-muted">Gestiona los accesos a los diferentes módulos</small>
-                                </div>
-                            </div>
-
-                            <div id="modulos-container" style="overflow-y: visible;">
-                                <div id="modulos-form"></div>
                             </div>
                         </div>
                     </div>
