@@ -2070,33 +2070,38 @@ class CapHum extends Controller
             let archivosSeleccionadosPersona = [];
             let archivosSubidosPersona = [];
             
+            // Alias para el botón "Ver archivo" de la tabla (recibe id de persona)
+            function verArchivo(idPersona) {
+                cargarDocumentoPersona(idPersona);
+            }
+            
             // Función para abrir modal de cargar documento de persona
             function cargarDocumentoPersona(button) {
-                // Si button no es un elemento DOM, intentar obtenerlo del evento
-                let btnElement = button;
+                let idPersona, nombreCompleto;
+                const esIdDirecto = typeof button === 'number' || (typeof button === 'string' && button !== '' && !isNaN(Number(button)));
                 
-                if (!button || typeof button.getAttribute !== 'function') {
-                    // Si no es un elemento DOM válido, intentar obtenerlo del evento
-                    if (typeof event !== 'undefined' && event && event.target) {
-                        btnElement = event.target.closest('button');
-                    } else if (typeof button === 'string' || typeof button === 'number') {
-                        // Si se pasa un ID, buscar el botón
-                        btnElement = document.querySelector(`[data-id-persona="${button}"]`);
+                if (esIdDirecto) {
+                    idPersona = String(button);
+                    nombreCompleto = 'N/A';
+                } else {
+                    let btnElement = button;
+                    if (!button || typeof button.getAttribute !== 'function') {
+                        if (typeof event !== 'undefined' && event && event.target) {
+                            btnElement = event.target.closest('button');
+                        } else if (typeof button === 'string' || typeof button === 'number') {
+                            btnElement = document.querySelector(`[data-id-persona="${button}"]`);
+                        }
+                        if (!btnElement || typeof btnElement.getAttribute !== 'function') {
+                            console.error('No se pudo obtener el elemento del botón:', button);
+                            return;
+                        }
                     }
-                    
-                    if (!btnElement || typeof btnElement.getAttribute !== 'function') {
-                        console.error('No se pudo obtener el elemento del botón:', button);
+                    idPersona = btnElement.getAttribute('data-id-persona');
+                    nombreCompleto = btnElement.getAttribute('data-nombre') || '';
+                    if (!idPersona) {
+                        console.error('No se encontró el ID de persona en el botón');
                         return;
                     }
-                }
-                
-                // Obtener datos del botón usando data-attributes
-                const idPersona = btnElement.getAttribute('data-id-persona');
-                const nombreCompleto = btnElement.getAttribute('data-nombre') || '';
-                
-                if (!idPersona) {
-                    console.error('No se encontró el ID de persona en el botón');
-                    return;
                 }
                 
                 // Guardar el ID de persona en un campo oculto del modal
@@ -3458,33 +3463,38 @@ class CapHum extends Controller
             let archivosSeleccionadosPersona = [];
             let archivosSubidosPersona = [];
             
+            // Alias para el botón "Ver archivo" de la tabla (recibe id de persona)
+            function verArchivo(idPersona) {
+                cargarDocumentoPersona(idPersona);
+            }
+            
             // Función para abrir modal de cargar documento de persona
             function cargarDocumentoPersona(button) {
-                // Si button no es un elemento DOM, intentar obtenerlo del evento
-                let btnElement = button;
+                let idPersona, nombreCompleto;
+                const esIdDirecto = typeof button === 'number' || (typeof button === 'string' && button !== '' && !isNaN(Number(button)));
                 
-                if (!button || typeof button.getAttribute !== 'function') {
-                    // Si no es un elemento DOM válido, intentar obtenerlo del evento
-                    if (typeof event !== 'undefined' && event && event.target) {
-                        btnElement = event.target.closest('button');
-                    } else if (typeof button === 'string' || typeof button === 'number') {
-                        // Si se pasa un ID, buscar el botón
-                        btnElement = document.querySelector(`[data-id-persona="${button}"]`);
+                if (esIdDirecto) {
+                    idPersona = String(button);
+                    nombreCompleto = 'N/A';
+                } else {
+                    let btnElement = button;
+                    if (!button || typeof button.getAttribute !== 'function') {
+                        if (typeof event !== 'undefined' && event && event.target) {
+                            btnElement = event.target.closest('button');
+                        } else if (typeof button === 'string' || typeof button === 'number') {
+                            btnElement = document.querySelector(`[data-id-persona="${button}"]`);
+                        }
+                        if (!btnElement || typeof btnElement.getAttribute !== 'function') {
+                            console.error('No se pudo obtener el elemento del botón:', button);
+                            return;
+                        }
                     }
-                    
-                    if (!btnElement || typeof btnElement.getAttribute !== 'function') {
-                        console.error('No se pudo obtener el elemento del botón:', button);
+                    idPersona = btnElement.getAttribute('data-id-persona');
+                    nombreCompleto = btnElement.getAttribute('data-nombre') || '';
+                    if (!idPersona) {
+                        console.error('No se encontró el ID de persona en el botón');
                         return;
                     }
-                }
-                
-                // Obtener datos del botón usando data-attributes
-                const idPersona = btnElement.getAttribute('data-id-persona');
-                const nombreCompleto = btnElement.getAttribute('data-nombre') || '';
-                
-                if (!idPersona) {
-                    console.error('No se encontró el ID de persona en el botón');
-                    return;
                 }
                 
                 // Guardar el ID de persona en un campo oculto del modal
