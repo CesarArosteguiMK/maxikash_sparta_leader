@@ -613,7 +613,7 @@ class CapHum extends Model
             pu.es_jefe = 1 AND per.estatus = 1
             AND (
                 pu.departamento_id = $id_departamento
-                OR pu.id IN (8, 9)
+                OR pu.id IN (8, 9, 55)
             )
         ORDER BY per.nombres ASC;
         SQL;
