@@ -4941,6 +4941,187 @@ class CapHum extends Controller
     }
 
     /**
+     * Obtener documentos de una persona (Gestión)
+     */
+    public function getDocumentosPersona()
+    {
+        try {
+            $id_persona = $_GET['id_persona'] ?? null;
+
+            if (!$id_persona) {
+                self::respuestaJSON([
+                    'success' => false,
+                    'mensaje' => 'ID de persona requerido',
+                    'datos' => []
+                ]);
+                return;
+            }
+
+            $resultado = CapHumDAO::getDocumentosPersona($id_persona);
+            self::respuestaJSON($resultado);
+        } catch (\Exception $e) {
+            self::respuestaJSON([
+                'success' => false,
+                'mensaje' => 'Error al obtener documentos: ' . $e->getMessage(),
+                'datos' => []
+            ]);
+        }
+    }
+
+    /**
+     * Subir documentos de una persona (Gestión)
+     */
+    public function subirDocumentosPersona()
+    {
+        try {
+            $id_persona = $_POST['id_persona'] ?? null;
+            $id_documento = $_POST['id_documento'] ?? null;
+
+            if (!$id_persona || !$id_documento) {
+                self::respuestaJSON([
+                    'success' => false,
+                    'mensaje' => 'ID de persona e ID de documento requeridos'
+                ]);
+                return;
+            }
+
+            $archivos = $_FILES['archivosPDF'] ?? null;
+            if (!$archivos || empty($archivos['name'][0])) {
+                self::respuestaJSON([
+                    'success' => false,
+                    'mensaje' => 'No se seleccionaron archivos'
+                ]);
+                return;
+            }
+
+            $id_documento = (int) $id_documento;
+            $carpeta = ($id_documento === 15) ? 'bajas' : 'documentos';
+            $directorio = __DIR__ . '/../uploads/' . $carpeta . '/';
+            if (!is_dir($directorio)) {
+                mkdir($directorio, 0777, true);
+            }
+
+            $archivosGuardados = [];
+            $nombres = is_array($archivos['name']) ? $archivos['name'] : [$archivos['name']];
+            $tmpNames = is_array($archivos['tmp_name']) ? $archivos['tmp_name'] : [$archivos['tmp_name']];
+
+            $errors = is_array($archivos['error']) ? $archivos['error'] : [$archivos['error']];
+            foreach ($nombres as $i => $nombreOrig) {
+                $tmp = $tmpNames[$i] ?? null;
+                $err = $errors[$i] ?? UPLOAD_ERR_OK;
+                if (!$tmp || $err !== UPLOAD_ERR_OK) {
+                    continue;
+                }
+                $extension = strtolower(pathinfo($nombreOrig, PATHINFO_EXTENSION));
+                if ($extension !== 'pdf') {
+                    continue;
+                }
+                $nombreFinal = 'doc_' . $id_persona . '_' . $id_documento . '_' . time() . '_' . $i . '.pdf';
+                $rutaFinal = $directorio . $nombreFinal;
+                if (move_uploaded_file($tmp, $rutaFinal)) {
+                    $archivosGuardados[] = $nombreFinal;
+                }
+            }
+
+            if (empty($archivosGuardados)) {
+                self::respuestaJSON([
+                    'success' => false,
+                    'mensaje' => 'No se pudieron guardar los archivos'
+                ]);
+                return;
+            }
+
+            $resultado = CapHumDAO::guardarDocumentosPersona($id_persona, $id_documento, $archivosGuardados);
+            self::respuestaJSON($resultado);
+        } catch (\Exception $e) {
+            self::respuestaJSON([
+                'success' => false,
+                'mensaje' => 'Error al subir documentos: ' . $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
+     * Eliminar documento de una persona (Gestión)
+     */
+    public function eliminarDocumentoPersona()
+    {
+        try {
+            $id_documento = $_POST['id_documento'] ?? null;
+
+            if (!$id_documento) {
+                self::respuestaJSON([
+                    'success' => false,
+                    'mensaje' => 'ID de documento requerido'
+                ]);
+                return;
+            }
+
+            $resultado = CapHumDAO::eliminarDocumentoPersona($id_documento);
+            self::respuestaJSON($resultado);
+        } catch (\Exception $e) {
+            self::respuestaJSON([
+                'success' => false,
+                'mensaje' => 'Error al eliminar documento: ' . $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
+     * Ver documento PDF de una persona (Gestión)
+     */
+    public function verDocumentoPersona()
+    {
+        try {
+            $nombreArchivo = $_GET['archivo'] ?? null;
+
+            if (!$nombreArchivo) {
+                http_response_code(400);
+                echo 'Nombre de archivo requerido';
+                exit;
+            }
+
+            if (strpos($nombreArchivo, '..') !== false || strpos($nombreArchivo, '/') !== false) {
+                http_response_code(403);
+                echo 'Nombre de archivo inválido';
+                exit;
+            }
+
+            $nombreArchivo = basename($nombreArchivo);
+            $carpetas = [__DIR__ . '/../uploads/documentos/', __DIR__ . '/../uploads/bajas/'];
+            $rutaArchivo = null;
+            foreach ($carpetas as $dir) {
+                $ruta = $dir . $nombreArchivo;
+                if (file_exists($ruta)) {
+                    $rutaArchivo = $ruta;
+                    break;
+                }
+            }
+
+            if (!$rutaArchivo) {
+                http_response_code(404);
+                echo 'Archivo no encontrado';
+                exit;
+            }
+
+            while (ob_get_level()) {
+                ob_end_clean();
+            }
+            header('Content-Type: application/pdf');
+            header('Content-Disposition: inline; filename="' . $nombreArchivo . '"');
+            header('Content-Length: ' . filesize($rutaArchivo));
+            header('Cache-Control: private, max-age=0, must-revalidate');
+            header('Pragma: public');
+            readfile($rutaArchivo);
+            exit;
+        } catch (\Exception $e) {
+            http_response_code(500);
+            echo 'Error al cargar el archivo: ' . $e->getMessage();
+            exit;
+        }
+    }
+
+    /**
      * Guardar permisos de puestos
      */
     public function guardarPermisosPuestos()
