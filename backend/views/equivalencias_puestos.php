@@ -1,486 +1,426 @@
-<div class="card">
-    <div class="row g-0 align-items-center">
-        <!-- Texto -->
-        <div class="col-12 col-md-8">
-            <div class="card-body">
-                <h5 class="card-title text-primary mb-3">Equivalencias de Puestos</h5>
-                <p class="mb-6">
-                    Gestiona y asigna equivalencias entre puestos de diferentes departamentos. 
-                    Arrastra los puestos disponibles hacia la lista de equivalencias para crear relaciones.
-                </p>
-            </div>
-        </div>
+<style>
+/* ===== EQUIVALENCIA PUESTOS — ESTILOS ===== */
+/* Contraste entre secciones */
+.eq-card-legacy {
+    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+}
+.eq-card-sparta {
+    border-left: 4px solid #2196F3;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+    background: #fafcff;
+}
+/* Headers */
+.eq-header-sparta {
+    background: #E3F2FD !important;
+    color: #1565C0 !important;
+    padding: 0.85rem 1.25rem !important;
+    border: none;
+    border-bottom: 1px solid rgba(33, 150, 243, 0.2);
+}
+.eq-header-sparta h6 { font-weight: 700; font-size: 1.05rem; color: #1565C0 !important; }
+.eq-header-sparta small { color: #1976D2 !important; }
+.eq-header-sparta .fa-shield-halved { color: #2196F3; }
+/* Tarjetas de puestos: sombra y borde */
+.eq-legacy-row {
+    transition: background-color 0.25s ease, box-shadow 0.25s ease, transform 0.2s ease;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    border: 1px solid rgba(0,0,0,0.06);
+    border-radius: 8px;
+}
+.eq-legacy-row:hover { background-color: #f8f9fa; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+.eq-item-sparta,
+.lista-equivalentes-legacy .list-group-item {
+    transition: box-shadow 0.25s ease, background-color 0.25s ease, transform 0.2s ease;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    border: 1px solid rgba(0,0,0,0.06);
+    border-radius: 6px;
+}
+/* Zona de drop con placeholder */
+.eq-drop-zone {
+    min-height: 52px;
+    border: 2px dashed #d9dee3;
+    border-radius: 8px;
+    background-color: #fafbfc;
+    transition: border-color 0.25s ease, background-color 0.25s ease;
+}
+.eq-drop-zone.drag-over {
+    border-color: #696cff;
+    background-color: rgba(105, 108, 255, 0.06);
+}
+/* Bloque arrastrable */
+.eq-item-sparta,
+.eq-item-sparta *,
+.lista-equivalentes-legacy .list-group-item,
+.lista-equivalentes-legacy .list-group-item * {
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+}
+.eq-item-sparta,
+.lista-equivalentes-legacy .list-group-item {
+    cursor: grab;
+}
+.eq-item-sparta:hover,
+.lista-equivalentes-legacy .list-group-item:hover {
+    background-color: #f0f2f4;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+}
+.eq-item-sparta:active,
+.lista-equivalentes-legacy .list-group-item:active { cursor: grabbing; }
+.eq-dragging {
+    opacity: 0.92;
+    box-shadow: 0 10px 24px rgba(0,0,0,0.15);
+    transition: box-shadow 0.2s ease, opacity 0.2s ease;
+}
+.sortable-ghost {
+    opacity: 0.35;
+    transition: opacity 0.2s ease;
+}
+/* Avatar Sparta en azul claro */
+#lista-sparta .avatar.bg-label-secondary { background-color: rgba(33, 150, 243, 0.15) !important; color: #1976D2 !important; }
+/* Botón quitar */
+.eq-remove-wrap {
+    margin-left: auto;
+    padding-left: 0.75rem;
+    border-left: 1px solid rgba(0,0,0,0.08);
+    flex-shrink: 0;
+}
+.eq-btn-quitar {
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: rgba(102, 126, 234, 0.1);
+    color: #667eea;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s, color 0.2s;
+}
+.eq-btn-quitar:hover {
+    background: rgba(210, 53, 69, 0.12);
+    color: #d33545;
+}
+.eq-btn-quitar i { font-size: 0.7rem; }
+.min-h-list { min-height: 320px; }
+#col-sparta { background: rgba(227, 242, 253, 0.25); border-radius: 0 0 0.375rem 0.375rem; }
+@media (max-width: 768px) { .min-h-list { min-height: 220px; } }
+</style>
 
-        <!-- Imagen -->
-        <div class="col-12 col-md-4">
-            <div class="card-body ps-md-2 pe-5 text-end">
-                <img src="https://demos.themeselection.com/sneat-bootstrap-html-admin-template/assets/img/illustrations/man-with-laptop.png"
-                     class="img-fluid scaleX-n1-rtl"
-                     alt="Equivalencias de Puestos">
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- SECCIÓN DRAG & DROP PARA EQUIVALENCIAS DE PUESTOS -->
-<div class="card mt-4">
-    <div class="card-header">
-        <h5 class="card-title mb-0">
-            <i class="fas fa-exchange-alt me-2"></i>Asignar Equivalencias de Puestos
+<div class="card shadow-sm mb-4">
+    <div class="card-body">
+        <h5 class="card-title text-primary mb-2">
+            <i class="fa-solid fa-arrows-left-right-to-line me-2"></i>Equivalencia puestos
         </h5>
-        <p class="text-muted small mb-0">Arrastra los puestos desde "Puestos Disponibles" hacia "Puestos Equivalentes" para crear relaciones</p>
+        <p class="text-muted mb-0">
+            Asigne puestos <strong>Sparta</strong> a cada puesto <strong>Legacy</strong>. Arrastre desde la columna derecha (Sparta) y suelte sobre el puesto Legacy correspondiente. Los cambios se guardan automáticamente en <code>equivalencias_legacy_puestos</code>.
+        </p>
     </div>
-    <div class="card-body">
-        <div class="row g-4">
-            <!-- Lista de Puestos Equivalentes (Destino) -->
-            <div class="col-md-6">
-                <div class="card shadow-sm border-success">
-                    <div class="card-header bg-label-success d-flex justify-content-between align-items-center">
-                        <div>
-                            <h6 class="mb-0"><i class="fas fa-link me-2"></i>Puestos Equivalentes</h6>
-                            <small class="text-muted">Puestos con equivalencia asignada</small>
-                        </div>
-                        <button class="btn btn-sm btn-outline-danger" id="btnLimpiarEquivalencias" title="Limpiar todas las equivalencias">
-                            <i class="fas fa-trash"></i>
-                        </button>
-                    </div>
-                    <div class="card-body p-2">
-                        <ul id="lista-equivalentes" class="list-group list-group-flush min-height-300">
-                            <li class="list-group-item text-center text-muted py-5 empty-state">
-                                <i class="fas fa-inbox fa-3x mb-3 opacity-25"></i>
-                                <p class="mb-0">No hay equivalencias asignadas</p>
-                                <small>Arrastra puestos desde la lista de disponibles</small>
-                            </li>
-                        </ul>
-                    </div>
-                    <div class="card-footer bg-light">
-                        <small class="text-muted">
-                            <i class="fas fa-info-circle me-1"></i>
-                            Total de equivalencias: <strong id="contador-equivalencias">0</strong>
-                        </small>
-                    </div>
+</div>
+
+<div class="row g-4">
+    <!-- Columna Legacy (izquierda) -->
+    <div class="col-lg-6">
+        <div class="card eq-card-legacy shadow-sm h-100">
+            <div class="card-header bg-label-primary">
+                <h6 class="mb-0 text-primary">
+                    <i class="fa-solid fa-database me-2"></i>Legacy
+                </h6>
+                <small class="text-muted">Puestos del sistema legacy. Suelte aquí los puestos Sparta equivalentes.</small>
+            </div>
+            <div class="card-body overflow-auto min-h-list" id="col-legacy">
+                <div id="loader-legacy" class="text-center py-5 text-muted">
+                    <i class="fa-solid fa-spinner fa-spin fa-2x mb-2"></i>
+                    <p class="mb-0">Cargando puestos Legacy...</p>
+                </div>
+                <div id="lista-legacy" class="d-none"></div>
+                <div id="empty-legacy" class="text-center py-5 text-muted d-none" style="border:1px solid black; !important" >
+                    <i class="fa-solid fa-inbox fa-2x mb-2 opacity-50"></i>
+                    <p class="mb-0">No hay puestos Legacy.</p>
                 </div>
             </div>
+        </div>
+    </div>
 
-            <!-- Lista de Puestos Disponibles (Origen) -->
-            <div class="col-md-6">
-                <div class="card shadow-sm border-primary">
-                    <div class="card-header bg-label-primary">
-                        <h6 class="mb-0"><i class="fas fa-briefcase me-2"></i>Puestos Disponibles</h6>
-                        <small class="text-muted">← Arrastra para crear equivalencia</small>
-                    </div>
-                    <div class="card-body p-2">
-                        <ul id="lista-puestos" class="list-group list-group-flush">
-                            <li class="list-group-item d-flex align-items-center py-3 cursor-move" data-puesto-id="1">
-                                <div class="avatar-wrapper me-3">
-                                    <div class="avatar avatar-sm">
-                                        <span class="avatar-initial rounded-circle bg-label-info">
-                                            <i class="fas fa-user-tie"></i>
-                                        </span>
-                                    </div>
-                                </div>
-                                <div class="flex-grow-1">
-                                    <strong>Gerente de Cobranza</strong>
-                                    <br><small class="text-muted">Departamento: Cobranza</small>
-                                </div>
-                                <i class="fas fa-grip-vertical text-muted"></i>
-                            </li>
-                            <li class="list-group-item d-flex align-items-center py-3 cursor-move" data-puesto-id="2">
-                                <div class="avatar-wrapper me-3">
-                                    <div class="avatar avatar-sm">
-                                        <span class="avatar-initial rounded-circle bg-label-success">
-                                            <i class="fas fa-phone"></i>
-                                        </span>
-                                    </div>
-                                </div>
-                                <div class="flex-grow-1">
-                                    <strong>Gestor de Call Center</strong>
-                                    <br><small class="text-muted">Departamento: Call Center</small>
-                                </div>
-                                <i class="fas fa-grip-vertical text-muted"></i>
-                            </li>
-                            <li class="list-group-item d-flex align-items-center py-3 cursor-move" data-puesto-id="3">
-                                <div class="avatar-wrapper me-3">
-                                    <div class="avatar avatar-sm">
-                                        <span class="avatar-initial rounded-circle bg-label-warning">
-                                            <i class="fas fa-headset"></i>
-                                        </span>
-                                    </div>
-                                </div>
-                                <div class="flex-grow-1">
-                                    <strong>Supervisor de Atención</strong>
-                                    <br><small class="text-muted">Departamento: Atención al Cliente</small>
-                                </div>
-                                <i class="fas fa-grip-vertical text-muted"></i>
-                            </li>
-                            <li class="list-group-item d-flex align-items-center py-3 cursor-move" data-puesto-id="4">
-                                <div class="avatar-wrapper me-3">
-                                    <div class="avatar avatar-sm">
-                                        <span class="avatar-initial rounded-circle bg-label-danger">
-                                            <i class="fas fa-chart-line"></i>
-                                        </span>
-                                    </div>
-                                </div>
-                                <div class="flex-grow-1">
-                                    <strong>Analista de Cobranza</strong>
-                                    <br><small class="text-muted">Departamento: Análisis</small>
-                                </div>
-                                <i class="fas fa-grip-vertical text-muted"></i>
-                            </li>
-                            <li class="list-group-item d-flex align-items-center py-3 cursor-move" data-puesto-id="5">
-                                <div class="avatar-wrapper me-3">
-                                    <div class="avatar avatar-sm">
-                                        <span class="avatar-initial rounded-circle bg-label-primary">
-                                            <i class="fas fa-users"></i>
-                                        </span>
-                                    </div>
-                                </div>
-                                <div class="flex-grow-1">
-                                    <strong>Coordinador de Equipo</strong>
-                                    <br><small class="text-muted">Departamento: Operaciones</small>
-                                </div>
-                                <i class="fas fa-grip-vertical text-muted"></i>
-                            </li>
-                        </ul>
-                    </div>
+    <!-- Columna Sparta (derecha) -->
+    <div class="col-lg-6">
+        <div class="card eq-card-sparta shadow-sm h-100">
+            <div class="card-header eq-header-sparta">
+                <h6 class="mb-0">
+                    <i class="fa-solid fa-shield-halved me-2"></i>Sparta
+                </h6>
+                <small>Arrastre un puesto hacia Legacy; desaparecerá aquí y quedará asignado a un solo Legacy.</small>
+            </div>
+            <div class="card-body overflow-auto min-h-list" id="col-sparta">
+                <div id="loader-sparta" class="text-center py-5 text-muted">
+                    <i class="fa-solid fa-spinner fa-spin fa-2x mb-2"></i>
+                    <p class="mb-0">Cargando puestos Sparta...</p>
+                </div>
+                <ul id="lista-sparta" class="list-group list-group-flush d-none"></ul>
+                <div id="empty-sparta" class="text-center py-5 text-muted d-none">
+                    <i class="fa-solid fa-inbox fa-2x mb-2 opacity-50"></i>
+                    <p class="mb-0">No hay puestos Sparta.</p>
                 </div>
             </div>
         </div>
     </div>
 </div>
-
-<!-- Botón para guardar equivalencias -->
-<div class="card mt-4">
-    <div class="card-body">
-        <div class="d-flex justify-content-between align-items-center">
-            <div>
-                <h6 class="mb-1">Guardar Equivalencias</h6>
-                <small class="text-muted">Las equivalencias se guardarán en la base de datos</small>
-            </div>
-            <button class="btn btn-primary" id="btnGuardarEquivalencias" disabled>
-                <i class="fas fa-save me-2"></i>Guardar Equivalencias
-            </button>
-        </div>
-    </div>
-</div>
-
-<!-- Script de funcionalidad -->
-<script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    
-    // ==========================================
-    // 🎯 DRAG & DROP PARA EQUIVALENCIAS
-    // ==========================================
-    
-    const btnGuardar = document.getElementById('btnGuardarEquivalencias');
-    
-    // Función para actualizar contador y estado vacío
-    function actualizarContadorEquivalencias() {
-        const listaEquivalentes = document.getElementById('lista-equivalentes');
-        const contador = document.getElementById('contador-equivalencias');
-        const items = listaEquivalentes.querySelectorAll('li:not(.empty-state)');
-        const emptyState = listaEquivalentes.querySelector('.empty-state');
-        
-        contador.textContent = items.length;
-        
-        // Habilitar/deshabilitar botón guardar
-        btnGuardar.disabled = items.length === 0;
-        
-        // Mostrar/ocultar mensaje de lista vacía
-        if (items.length === 0) {
-            if (!emptyState) {
-                listaEquivalentes.innerHTML = `
-                    <li class="list-group-item text-center text-muted py-5 empty-state">
-                        <i class="fas fa-inbox fa-3x mb-3 opacity-25"></i>
-                        <p class="mb-0">No hay equivalencias asignadas</p>
-                        <small>Arrastra puestos desde la lista de disponibles</small>
-                    </li>
-                `;
-            }
-        } else {
-            if (emptyState) {
-                emptyState.remove();
-            }
-        }
+    const GROUP_NAME = 'eq';
+    let legacy = [];
+    let sparta = [];
+    let sortableLegacy = [];
+
+    function esc(s) {
+        if (s == null) return '';
+        return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     }
-    
-    // Inicializar SortableJS en la lista de puestos disponibles (origen - clonado)
-    new Sortable(document.getElementById('lista-puestos'), {
-        group: {
-            name: 'equivalencias',
-            pull: 'clone',  // Permite clonar elementos
-            put: false      // No permite recibir elementos
-        },
-        animation: 150,
-        sort: false,        // No permite reordenar en esta lista
-        ghostClass: 'sortable-ghost',
-        chosenClass: 'sortable-chosen',
-        dragClass: 'sortable-drag'
-    });
-    
-    // Inicializar SortableJS en la lista de equivalentes (destino - recibe clones)
-    new Sortable(document.getElementById('lista-equivalentes'), {
-        group: {
-            name: 'equivalencias',
-            pull: true,
-            put: true       // Permite recibir elementos
-        },
-        animation: 150,
-        ghostClass: 'sortable-ghost',
-        chosenClass: 'sortable-chosen',
-        dragClass: 'sortable-drag',
-        
-        // Filtrar el elemento empty-state para que no sea arrastrable
-        filter: '.empty-state',
-        
-        // Evento cuando se añade un elemento
-        onAdd: function(evt) {
-            console.log('Equivalencia creada:', evt.item);
-            actualizarContadorEquivalencias();
-            
-            // Agregar botón de eliminar a cada item clonado
-            const btnEliminar = document.createElement('button');
-            btnEliminar.className = 'btn btn-sm btn-outline-danger ms-2';
-            btnEliminar.innerHTML = '<i class="fas fa-times"></i>';
-            btnEliminar.title = 'Eliminar equivalencia';
-            btnEliminar.onclick = function() {
-                Swal.fire({
-                    title: '¿Eliminar equivalencia?',
-                    text: 'Esta acción no se puede deshacer',
-                    icon: 'warning',
-                    showCancelButton: true,
-                    confirmButtonText: 'Sí, eliminar',
-                    cancelButtonText: 'Cancelar',
-                    confirmButtonColor: '#d33'
-                }).then((result) => {
-                    if (result.isConfirmed) {
-                        evt.item.remove();
-                        actualizarContadorEquivalencias();
-                    }
-                });
-            };
-            
-            // Agregar botón al item si no existe
-            if (!evt.item.querySelector('.btn-outline-danger')) {
-                evt.item.appendChild(btnEliminar);
-            }
-        },
-        
-        // Evento cuando se elimina un elemento
-        onRemove: function(evt) {
-            actualizarContadorEquivalencias();
-        }
-    });
-    
-    // Botón para limpiar todas las equivalencias
-    document.getElementById('btnLimpiarEquivalencias').addEventListener('click', function() {
-        const listaEquivalentes = document.getElementById('lista-equivalentes');
-        const items = listaEquivalentes.querySelectorAll('li:not(.empty-state)');
-        
-        if (items.length === 0) {
+
+    function renderColumnaLegacy() {
+        const cont = document.getElementById('lista-legacy');
+        const empty = document.getElementById('empty-legacy');
+        const loader = document.getElementById('loader-legacy');
+        loader.classList.add('d-none');
+        cont.classList.remove('d-none');
+        cont.innerHTML = '';
+        if (!legacy.length) {
+            empty.classList.remove('d-none');
             return;
         }
-        
-        Swal.fire({
-            title: '¿Limpiar todas las equivalencias?',
-            text: `Se eliminarán ${items.length} equivalencia(s)`,
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonText: 'Sí, limpiar todo',
-            cancelButtonText: 'Cancelar',
-            confirmButtonColor: '#d33'
-        }).then((result) => {
-            if (result.isConfirmed) {
-                items.forEach(item => item.remove());
-                actualizarContadorEquivalencias();
+        empty.classList.add('d-none');
+        legacy.forEach(function(l) {
+            const row = document.createElement('div');
+            row.className = 'card eq-legacy-row mb-2';
+            row.setAttribute('data-id-legacy', l.id);
+            row.innerHTML =
+                '<div class="card-body py-2">' +
+                '  <div class="d-flex align-items-center justify-content-between mb-2">' +
+                '    <span class="fw-bold">' + esc(l.nombre) + '</span>' +
+                (l.clave ? '<span class="badge bg-label-secondary">' + esc(l.clave) + '</span>' : '') +
+                '  </div>' +
+                '  <ul class="list-group list-group-flush lista-equivalentes-legacy border rounded eq-drop-zone p-1" data-id-legacy="' + l.id + '"></ul>' +
+                '</div>';
+            cont.appendChild(row);
+        });
+        initSortableLegacy();
+    }
+
+    function crearLiSparta(s) {
+        const li = document.createElement('li');
+        li.className = 'list-group-item d-flex align-items-center py-2 eq-item-sparta';
+        li.setAttribute('data-puesto-id', s.id);
+        li.setAttribute('data-puesto-nombre', s.nombre || '');
+        li.innerHTML =
+            '<span class="avatar avatar-sm me-2 rounded bg-label-secondary">' +
+            '  <i class="fa-solid fa-user-tie"></i>' +
+            '</span>' +
+            '<div class="flex-grow-1">' +
+            '  <span class="fw-medium">' + esc(s.nombre) + '</span>' +
+            (s.departamento_nombre ? '<br><small class="text-muted">' + esc(s.departamento_nombre) + '</small>' : '') +
+            '</div>' +
+            '<i class="fa-solid fa-grip-vertical text-muted"></i>';
+        return li;
+    }
+
+    function renderColumnaSparta(idsAsignados) {
+        const ul = document.getElementById('lista-sparta');
+        const empty = document.getElementById('empty-sparta');
+        const loader = document.getElementById('loader-sparta');
+        loader.classList.add('d-none');
+        ul.classList.remove('d-none');
+        ul.innerHTML = '';
+        var set = (idsAsignados instanceof Set) ? idsAsignados : new Set([].concat(idsAsignados || []).map(String));
+        var disponibles = sparta.filter(function(s) { return !set.has(String(s.id)); });
+        if (!disponibles.length) {
+            empty.classList.remove('d-none');
+            return;
+        }
+        empty.classList.add('d-none');
+        disponibles.forEach(function(s) {
+            ul.appendChild(crearLiSparta(s));
+        });
+        initSortableSparta();
+    }
+
+    function initSortableSparta() {
+        const el = document.getElementById('lista-sparta');
+        if (!el) return;
+        if (el._sortable) { el._sortable.destroy(); el._sortable = null; }
+        el._sortable = new Sortable(el, {
+            group: { name: GROUP_NAME, pull: true, put: true },
+            sort: false,
+            animation: 220,
+            forceFallback: true,
+            fallbackOnBody: true,
+            ghostClass: 'sortable-ghost',
+            chosenClass: 'eq-dragging',
+            dragClass: 'eq-dragging',
+            filter: '.eq-remove-wrap',
+            preventOnFilter: true,
+            onRemove: function() { guardarAuto(); }
+        });
+    }
+
+    function initSortableLegacy() {
+        sortableLegacy.forEach(function(s) { if (s && s.destroy) s.destroy(); });
+        sortableLegacy = [];
+        document.querySelectorAll('.lista-equivalentes-legacy').forEach(function(ul) {
+            const sortable = new Sortable(ul, {
+                group: { name: GROUP_NAME, put: true, pull: false },
+                animation: 220,
+                forceFallback: true,
+                fallbackOnBody: true,
+                ghostClass: 'sortable-ghost',
+                filter: '.eq-remove-wrap',
+                preventOnFilter: true,
+                onAdd: function(evt) {
+                    var item = evt.item;
+                    var idLegacy = ul.getAttribute('data-id-legacy');
+                    var idPuesto = item.getAttribute('data-puesto-id');
+                    if (!idPuesto) return;
+                    addRemoveButton(item, idLegacy);
+                    guardarAuto();
+                },
+                onRemove: function() { guardarAuto(); }
+            });
+            sortableLegacy.push(sortable);
+        });
+    }
+
+    function devolverASparta(item) {
+        var id = item.getAttribute('data-puesto-id');
+        if (!id) return;
+        var s = sparta.find(function(p) { return String(p.id) === String(id); });
+        if (!s) return;
+        var listLegacy = item.closest('.lista-equivalentes-legacy');
+        item.remove();
+        var ul = document.getElementById('lista-sparta');
+        var empty = document.getElementById('empty-sparta');
+        if (empty && empty.classList.contains('d-none') === false) empty.classList.add('d-none');
+        var newLi = crearLiSparta(s);
+        var insertIndex = sparta.findIndex(function(p) { return String(p.id) === String(s.id); });
+        if (insertIndex < 0) insertIndex = sparta.length;
+        var inserted = false;
+        for (var i = 0; i < ul.children.length; i++) {
+            var child = ul.children[i];
+            var pid = child.getAttribute('data-puesto-id');
+            var idx = sparta.findIndex(function(p) { return String(p.id) === String(pid); });
+            if (idx > insertIndex) {
+                ul.insertBefore(newLi, child);
+                inserted = true;
+                break;
             }
+        }
+        if (!inserted) ul.appendChild(newLi);
+        guardarAuto();
+    }
+
+    function addRemoveButton(item, idLegacy) {
+        if (item.querySelector('.eq-remove-wrap')) return;
+        var wrap = document.createElement('div');
+        wrap.className = 'eq-remove-wrap';
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'eq-btn-quitar';
+        btn.title = 'Quitar equivalencia';
+        btn.setAttribute('aria-label', 'Quitar');
+        btn.innerHTML = '<i class="fa-solid fa-times"></i>';
+        btn.onclick = function(e) { e.stopPropagation(); devolverASparta(item); };
+        wrap.appendChild(btn);
+        item.classList.add('d-flex', 'align-items-center');
+        item.appendChild(wrap);
+    }
+
+    function crearLiLegacy(sp) {
+        var li = document.createElement('li');
+        li.className = 'list-group-item d-flex align-items-center py-2 eq-item-sparta';
+        li.setAttribute('data-puesto-id', sp.id);
+        li.setAttribute('data-puesto-nombre', sp.nombre || '');
+        li.innerHTML =
+            '<span class="avatar avatar-sm me-2 rounded bg-label-secondary"><i class="fa-solid fa-user-tie"></i></span>' +
+            '<div class="flex-grow-1"><span class="fw-medium">' + esc(sp.nombre) + '</span>' +
+            (sp.departamento_nombre ? '<br><small class="text-muted">' + esc(sp.departamento_nombre) + '</small>' : '') +
+            '</div>';
+        return li;
+    }
+
+    function aplicarEquivalenciasGuardadas(equivalencias) {
+        equivalencias.forEach(function(eq) {
+            var ul = document.querySelector('.lista-equivalentes-legacy[data-id-legacy="' + eq.id_puesto_legacy + '"]');
+            if (!ul) return;
+            var sp = sparta.find(function(s) { return String(s.id) === String(eq.id_puesto); });
+            if (!sp) return;
+            var li = crearLiLegacy(sp);
+            addRemoveButton(li, eq.id_puesto_legacy);
+            ul.appendChild(li);
         });
-    });
-    
-    // Botón para guardar equivalencias
-    btnGuardar.addEventListener('click', function() {
-        const listaEquivalentes = document.getElementById('lista-equivalentes');
-        const items = listaEquivalentes.querySelectorAll('li:not(.empty-state)');
-        
-        // Recopilar IDs de puestos equivalentes
-        const equivalencias = Array.from(items).map(item => {
-            return item.getAttribute('data-puesto-id');
+        initSortableLegacy();
+    }
+
+    function recogerEquivalencias() {
+        const pares = [];
+        document.querySelectorAll('.lista-equivalentes-legacy').forEach(function(ul) {
+            const idLegacy = ul.getAttribute('data-id-legacy');
+            ul.querySelectorAll('[data-puesto-id]').forEach(function(item) {
+                const idPuesto = item.getAttribute('data-puesto-id');
+                if (idPuesto && idLegacy) pares.push({ id_puesto: idPuesto, id_puesto_legacy: idLegacy });
+            });
         });
-        
-        console.log('Equivalencias a guardar:', equivalencias);
-        
-        Swal.fire({
-            title: '¿Guardar equivalencias?',
-            text: `Se guardarán ${equivalencias.length} equivalencia(s)`,
-            icon: 'question',
-            showCancelButton: true,
-            confirmButtonText: 'Sí, guardar',
-            cancelButtonText: 'Cancelar',
-            confirmButtonColor: '#28a745'
-        }).then((result) => {
-            if (result.isConfirmed) {
-                // Aquí iría la petición AJAX para guardar en la base de datos
-                // Ejemplo:
-                /*
-                http.request({
-                    endpoint: "/CapHum/guardarEquivalencias",
-                    method: "POST",
-                    data: { equivalencias: equivalencias },
-                    onSuccess: (resp) => {
-                        if (resp.success) {
-                            Swal.fire('¡Guardado!', 'Las equivalencias han sido guardadas correctamente', 'success');
-                        }
+        return pares;
+    }
+
+    var guardarAutoTimer = null;
+    function guardarAuto() {
+        const pares = recogerEquivalencias();
+        if (guardarAutoTimer) clearTimeout(guardarAutoTimer);
+        guardarAutoTimer = setTimeout(function() {
+            guardarAutoTimer = null;
+            http.request({
+                endpoint: '/equivalencias/guardarEquivalencias',
+                method: 'POST',
+                data: JSON.stringify({ equivalencias: pares }),
+                contentType: 'application/json',
+                processData: false,
+                showLoader: false,
+                onSuccess: function(resp) {
+                    if (resp && resp.success) {
+                        Swal.fire({ icon: 'success', title: 'Guardado', text: 'Equivalencias actualizadas.', timer: 1500, showConfirmButton: false });
+                    } else {
+                        Swal.fire({ icon: 'error', title: 'Error', text: (resp && resp.mensaje) || 'No se pudieron guardar.' });
                     }
-                });
-                */
-                
-                // Por ahora, solo mostramos mensaje de éxito
-                Swal.fire({
-                    icon: 'success',
-                    title: '¡Guardado exitoso!',
-                    text: `Se guardaron ${equivalencias.length} equivalencia(s) correctamente`,
-                    timer: 2000,
-                    showConfirmButton: false
-                });
-            }
-        });
+                },
+                onError: function() {
+                    Swal.fire({ icon: 'error', title: 'Error', text: 'Error de conexión.' });
+                }
+            });
+        }, 300);
+    }
+
+    Promise.all([
+        fetch('/equivalencias/getPuestosLegacy').then(function(r) { return r.json(); }),
+        fetch('/equivalencias/getPuestosSparta').then(function(r) { return r.json(); }),
+        fetch('/equivalencias/getEquivalencias').then(function(r) { return r.json(); })
+    ]).then(function(results) {
+        var resLegacy = results[0], resSparta = results[1], resEq = results[2];
+        if (resLegacy && resLegacy.success && resLegacy.datos) legacy = resLegacy.datos;
+        if (resSparta && resSparta.success && resSparta.datos) sparta = resSparta.datos;
+        var equivalencias = (resEq && resEq.success && resEq.datos) ? resEq.datos : [];
+        var idsAsignados = new Set(equivalencias.map(function(eq) { return String(eq.id_puesto); }));
+        renderColumnaLegacy();
+        renderColumnaSparta(idsAsignados);
+        if (equivalencias.length) aplicarEquivalenciasGuardadas(equivalencias);
+    }).catch(function() {
+        document.getElementById('loader-legacy').classList.add('d-none');
+        document.getElementById('loader-sparta').classList.add('d-none');
+        document.getElementById('lista-legacy').classList.remove('d-none');
+        document.getElementById('lista-sparta').classList.remove('d-none');
+        document.getElementById('empty-legacy').classList.remove('d-none');
+        document.getElementById('empty-sparta').classList.remove('d-none');
     });
-    
-    // Inicializar contador al cargar
-    actualizarContadorEquivalencias();
 });
 </script>
-
-<!-- Estilos CSS -->
-<style>
-/* ==========================================
-   🎨 ESTILOS DRAG & DROP PARA EQUIVALENCIAS
-   ========================================== */
-
-/* Cursor para elementos arrastrables */
-.cursor-move {
-    cursor: move !important;
-    cursor: grab !important;
-    transition: all 0.2s ease;
-}
-
-.cursor-move:active {
-    cursor: grabbing !important;
-}
-
-/* Efecto hover en items */
-.cursor-move:hover {
-    background-color: #f8f9fa !important;
-    transform: translateX(3px);
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-}
-
-/* Elemento fantasma mientras se arrastra */
-.sortable-ghost {
-    opacity: 0.4 !important;
-    background-color: #e3f2fd !important;
-    border: 2px dashed #2196f3 !important;
-}
-
-/* Elemento seleccionado */
-.sortable-chosen {
-    background-color: #e8f5e9 !important;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.15) !important;
-}
-
-/* Elemento mientras se arrastra */
-.sortable-drag {
-    opacity: 0.8 !important;
-    transform: rotate(3deg) !important;
-    box-shadow: 0 8px 16px rgba(0,0,0,0.2) !important;
-}
-
-/* Altura mínima para lista vacía */
-.min-height-300 {
-    min-height: 300px;
-}
-
-/* Estado vacío animado */
-.empty-state {
-    animation: fadeIn 0.5s ease;
-    user-select: none !important;
-    pointer-events: none !important;
-}
-
-@keyframes fadeIn {
-    from {
-        opacity: 0;
-        transform: translateY(-10px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-/* Animación para nuevos items */
-.list-group-item {
-    animation: slideIn 0.3s ease;
-}
-
-@keyframes slideIn {
-    from {
-        opacity: 0;
-        transform: translateX(-20px);
-    }
-    to {
-        opacity: 1;
-        transform: translateX(0);
-    }
-}
-
-/* Grip icon en items */
-.fa-grip-vertical {
-    opacity: 0.3;
-    transition: opacity 0.2s ease;
-}
-
-.cursor-move:hover .fa-grip-vertical {
-    opacity: 0.7;
-}
-
-/* Botón eliminar en items clonados */
-.list-group-item .btn-outline-danger {
-    padding: 0.25rem 0.5rem;
-    font-size: 0.75rem;
-    transition: all 0.2s ease;
-}
-
-.list-group-item .btn-outline-danger:hover {
-    transform: scale(1.1);
-}
-
-/* Avatar en items */
-.avatar-wrapper {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.avatar-initial {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 38px;
-    height: 38px;
-    font-size: 1rem;
-}
-
-/* Responsive adjustments */
-@media (max-width: 768px) {
-    .min-height-300 {
-        min-height: 200px;
-    }
-    
-    .cursor-move {
-        font-size: 0.9rem;
-    }
-}
-</style>

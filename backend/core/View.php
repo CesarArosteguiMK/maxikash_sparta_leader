@@ -84,6 +84,11 @@ function getMenu()
                                     'label' => 'Departamentos',
                                     'url' => '/departamentos/consulta/',
                                     'modulos' => [10]
+                            ],
+                            [
+                                    'label' => 'Equivalencia puestos',
+                                    'url' => '/equivalencias/consulta',
+                                    'modulos' => [10]
                             ]
                     ]
             ]
