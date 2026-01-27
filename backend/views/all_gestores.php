@@ -473,6 +473,98 @@
         </div>
     </div>
 
+    <!-- =======================
+         MODAL - CARGAR DOCUMENTO PERSONA (GESTIÓN)
+    ======================== -->
+    <div class="modal fade" id="modalCargarDocumentoPersona" tabindex="-1" aria-labelledby="modalCargarDocPersonaLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalCargarDocPersonaLabel">Cargar Documento</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+
+                <div class="modal-body">
+                    <p id="cargarDocPersona_nombrePersona" class="mb-3"><strong>Persona:</strong></p>
+                    <input type="hidden" id="cargarDocPersona_idPersona" value="">
+
+                    <div class="mb-3">
+                        <label for="cargarDocPersona_tipoDocumento" class="form-label"><strong>Tipo de Documento: </strong></label>
+                        <select class="form-select" id="cargarDocPersona_tipoDocumento">
+                            <option value="">Seleccione un tipo de documento</option>
+                            <option value="Acta de Nacimiento">Acta de Nacimiento</option>
+                            <option value="Certificado de Estudios">Certificado de Estudios</option>
+                            <option value="Comprobante de Domicilio">Comprobante de Domicilio</option>
+                            <option value="CURP">CURP</option>
+                            <option value="Documento baja">Documento baja</option>
+                            <option value="Identificación Oficial (INE)">Identificación Oficial (INE)</option>
+                            <option value="Referencias Laborales">Referencias Laborales</option>
+                            <option value="RFC">RFC</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label"><strong>Archivo:</strong></label>
+                        <div class="d-flex gap-2 align-items-center mb-2">
+                            <input 
+                                type="file" 
+                                id="cargarDocPersona_archivo" 
+                                class="form-control d-none" 
+                                onchange="agregarArchivoListaPersona(this)"
+                                accept=".pdf"
+                            />
+                            <button 
+                                type="button" 
+                                class="btn btn-outline-primary"
+                                onclick="seleccionarArchivoDocumentoPersona()"
+                            >
+                                <i class="fa fa-paperclip me-2"></i>Elegir archivos
+                            </button>
+                            <span id="cargarDocPersona_nombreArchivo" class="text-muted small">No se ha seleccionado ningún archivo</span>
+                        </div>
+                        <small class="text-muted">Puedes subir múltiples archivos PDF.</small>
+                    </div>
+
+                    <!-- Lista de archivos nuevos seleccionados (antes de subir) - ARRIBA DE LA TABLA -->
+                    <div id="cargarDocPersona_listaArchivos" class="mb-4" style="display: none;">
+                        <h6 class="mb-3"><strong>Archivos Nuevos Seleccionados</strong></h6>
+                        <!-- Los archivos nuevos se agregarán aquí dinámicamente -->
+                    </div>
+
+                    <!-- Tabla de archivos subidos -->
+                    <div class="mt-4">
+                        <h6 class="mb-3"><strong>Archivos Subidos</strong></h6>
+                        <div class="table-responsive">
+                            <table class="table table-bordered table-striped">
+                                <thead class="table-dark">
+                                    <tr>
+                                        <th>Documento</th>
+                                        <th>Archivo</th>
+                                        <th>Fecha de carga</th>
+                                        <th>Válido</th>
+                                        <th>Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="cargarDocPersona_tablaArchivos">
+                                    <tr>
+                                        <td colspan="5" class="text-center text-muted">No hay archivos subidos</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" onclick="subirDocumentoPersona()">
+                        <i class="fa fa-upload me-2"></i>Subir Archivo
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="modal fade" id="modalAuscencia" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
             <div class="modal-content">
@@ -807,13 +899,10 @@
   let usuariosData = [];
 
   function llenarFiltros() {
-    console.log(' Iniciando función llenarFiltros()');
-
     // Llamar a la API para obtener los usuarios/gestores
     http.request({
       endpoint: "/CapHum/getUsuarios",
       onSuccess: (resp) => {
-        console.log('✓ Respuesta de /CapHum/getUsuarios:', resp);
 
         if (!resp.success || !resp.datos || resp.datos.length === 0) {
           console.warn(' No hay datos disponibles');
@@ -850,12 +939,6 @@
 
         estatus.add('Activo');
 
-        console.log(' Datos extraídos:', {
-          departamentos: Array.from(departamentos),
-          puestos: Array.from(puestos),
-          estatus: Array.from(estatus)
-        });
-
         // ==========================================
         // LLENAR SELECT DEPARTAMENTO (UserRole)
         // ==========================================
@@ -878,8 +961,6 @@
             actualizarPuestosSegunDepartamento(e.target.value);
             aplicarFiltros();
           });
-
-          console.log('UserRole (DEPARTAMENTO) llenado:', Array.from(departamentos));
         }
 
         // ==========================================
@@ -902,8 +983,6 @@
 
           // Agregar listener para filtrar en tiempo real
           selectPuesto.addEventListener('change', aplicarFiltros);
-
-          console.log('UserPlan (PUESTO) llenado:', Array.from(puestos));
         }
 
         // ==========================================
@@ -925,11 +1004,7 @@
 
           //  Agregar listener para filtrar en tiempo real
           selectEstatus.addEventListener('change', aplicarFiltros);
-
-          console.log(' FilterTransaction (ESTATUS) llenado:', Array.from(estatus));
         }
-
-        console.log(' Filtros inicializados correctamente');
       },
       onError: (err) => {
         console.error(' Error al cargar datos:', err);
@@ -1114,7 +1189,7 @@
            <button class="btn btn-sm btn-primary" onclick="editar(${p.id})" title="Editar">
                <i class="fa fa-edit"></i>
            </button>
-           <button class="btn btn-sm btn-info" onclick="verArchivo(${p.id})" title="Ver archivo">
+           <button class="btn btn-sm btn-info" onclick="cargarDocumentoPersona(this)" data-id-persona="${p.id}" data-nombre="${(p.nombres + ' ' + p.apellidop + ' ' + p.apellidom).replace(/"/g, '&quot;')}" title="Cargar documento">
                <i class="fa fa-file"></i>
            </button>
            <button class="btn btn-sm btn-warning" onclick="registra_ausencia(${p.id})" title="Ausencias">
@@ -1131,16 +1206,12 @@
 
     // Limpiar y recargar tabla
     tabla.clear().rows.add(datosFormateados).draw();
-
-    console.log(' Tabla actualizada con', datosFormateados.length, 'registros');
   }
 
   // ==========================================
   // EJECUTAR AL CARGAR LA PÁGINA
   // ==========================================
   document.addEventListener('DOMContentLoaded', () => {
-    console.log('DOM cargado, esperando 800ms...');
-    
     // Esperar a que DataTable esté listo
     setTimeout(() => {
       llenarFiltros();
