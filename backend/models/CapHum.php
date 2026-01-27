@@ -788,14 +788,7 @@ class CapHum extends Model
 
     public static function getConsultaJefe($id_departamento)
     {
-        if(1 == 'admin')
-        {
-            $add = '';
-        }
-        else
-        {
-            $add = ' AND aj.id_jefe = ';
-        }
+
         $query = <<<SQL
           SELECT
             per.id,
@@ -810,7 +803,7 @@ class CapHum extends Model
             pu.es_jefe = 1 AND per.estatus = 1
             AND (
                 pu.departamento_id = $id_departamento
-                OR pu.id IN (8, 9, 55)
+                OR pu.id IN (8)
             )
         ORDER BY per.nombres ASC;
         SQL;
