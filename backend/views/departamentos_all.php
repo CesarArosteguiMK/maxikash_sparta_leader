@@ -179,7 +179,7 @@
                                 placeholder="Ej. Cobranza, Call Center, Ventas..." 
                                 required
                                 maxlength="30"
-                                oninput="this.value = this.value.replace(/[^A-Za-zÁÉÍÓÚáéíóúÑñ\s]/g, '').replace(/^\s+/, '').replace(/\s{2,}/g, ' ')" 
+                                oninput="this.value = this.value.replace(/[^A-Za-z0-9ÁÉÍÓÚáéíóúÑñ\s]/g, '').replace(/^\s+/, '').replace(/\s{2,}/g, ' ')" 
                                 onblur="this.value = toTitleCase(this.value.trim())">
                         </div>
                         <div class="invalid-feedback" id="errorNombre" style="display: none;"></div>
@@ -216,7 +216,7 @@
                                     contenteditable="false"
                                     data-departamento-id=""
                                     maxlength="30"
-                                    oninput="this.textContent = this.textContent.replace(/[^A-Za-zÁÉÍÓÚáéíóúÑñ\s]/g, '').replace(/^\s+/, '').replace(/\s{2,}/g, ' ')"
+                                    oninput="this.textContent = this.textContent.replace(/[^A-Za-z0-9ÁÉÍÓÚáéíóúÑñ\s]/g, '').replace(/^\s+/, '').replace(/\s{2,}/g, ' ')"
                                     onfocus="inicioEdicionTitulo(this)"
                                     onblur="guardarTituloDepartamento(this)">
                                     Call Center
@@ -266,7 +266,7 @@
                                            class="form-control"
                                            placeholder="Nombre del puesto"
                                            maxlength="30"
-                                           oninput="this.value = this.value.replace(/[^A-Za-zÁÉÍÓÚáéíóúÑñ\s]/g, '').replace(/^\s+/, '').replace(/\s{2,}/g, ' ')" 
+                                           oninput="this.value = this.value.replace(/[^A-Za-z0-9ÁÉÍÓÚáéíóúÑñ\s]/g, '').replace(/^\s+/, '').replace(/\s{2,}/g, ' ')" 
                                            onblur="this.value = toTitleCase(this.value.trim())">
                                     <button class="btn btn-primary"
                                             onclick="guardarNuevoPuesto()">
