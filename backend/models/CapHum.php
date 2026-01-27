@@ -179,12 +179,14 @@ class CapHum extends Model
             $query = <<<SQL
             SELECT 
                 p.*,
-                ap.id_puesto, dd.nombre as departamento, dd.id as id_departamento, aj.id_jefe, p.password
+                ap.id_puesto, dd.nombre as departamento, dd.id as id_departamento, aj.id_jefe, p.password,
+                al.id_legion
             FROM persona p
             LEFT JOIN asigna_puesto ap ON ap.id_persona = p.id
             LEFT JOIN puesto pu ON pu.id = ap.id_puesto
             LEFT JOIN departamento dd ON dd.id = pu.departamento_id
             LEFT JOIN asigna_jefe aj ON aj.id_persona = p.id
+            LEFT JOIN asigna_legion al ON al.id_persona = p.id AND al.activo = 1
             WHERE p.id = $idPersona
               AND p.estatus != 'Baja'
             LIMIT 1
@@ -1224,6 +1226,26 @@ class CapHum extends Model
                     VALUES
                         (DEFAULT, $id_persona, $id_jefe, NOW(), NOW())
                 ");
+                
+                // 4️⃣ Asignar legión si se marcó el checkbox
+                if (isset($data['asignar_legion']) && $data['asignar_legion'] && isset($data['id_legion']) && $data['id_legion']) {
+                    $id_legion = (int)$data['id_legion'];
+                    
+                    // Desactivar cualquier legión activa previa para esta persona
+                    $db->queryOne("
+                        UPDATE __SPARTA_SECRET_REDACTED__.asigna_legion
+                        SET activo = 0, fecha_fin = NOW()
+                        WHERE id_persona = $id_persona AND activo = 1
+                    ");
+                    
+                    // Insertar la nueva asignación de legión
+                    $db->queryOne("
+                        INSERT INTO __SPARTA_SECRET_REDACTED__.asigna_legion
+                            (id, id_persona, id_legion, fecha_asignacion, activo)
+                        VALUES
+                            (DEFAULT, $id_persona, $id_legion, NOW(), 1)
+                    ");
+                }
             }
 
             return self::resultado(true, 'Persona insertada correctamente.', $result);
@@ -1369,6 +1391,27 @@ class CapHum extends Model
                 INSERT INTO asigna_puesto (id_persona, id_puesto)
                 VALUES ($id_persona, $id_puesto)
             ");
+            }
+
+            // 4️⃣ ASIGNA LEGIÓN
+            $asignarLegion = isset($data['asignar_legion']) && $data['asignar_legion'];
+            $id_legion = isset($data['id_legion']) && $data['id_legion'] !== '' && $data['id_legion'] !== null
+                ? (int)$data['id_legion']
+                : null;
+
+            $db->queryOne("
+                UPDATE __SPARTA_SECRET_REDACTED__.asigna_legion
+                SET activo = 0, fecha_fin = NOW()
+                WHERE id_persona = $id_persona AND activo = 1
+            ");
+
+            if ($asignarLegion && $id_legion) {
+                $db->queryOne("
+                    INSERT INTO __SPARTA_SECRET_REDACTED__.asigna_legion
+                        (id, id_persona, id_legion, fecha_asignacion, activo)
+                    VALUES
+                        (DEFAULT, $id_persona, $id_legion, NOW(), 1)
+                ");
             }
 
             return self::resultado(true, 'Persona actualizada correctamente.', null);

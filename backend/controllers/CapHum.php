@@ -51,7 +51,7 @@ class CapHum extends Controller
                             <button class="btn btn-sm btn-primary" onclick="editar(${p.id})" title="Editar">
                                 <i class="fa fa-edit"></i>
                             </button>
-                            <button class="btn btn-sm btn-info" onclick="cargarDocumentoPersona(this)" data-id-persona="${p.id}" data-nombre="${(p.nombres + ' ' + p.apellidop + ' ' + p.apellidom).replace(/"/g, '&quot;')}" title="Cargar documento">
+                            <button class="btn btn-sm btn-info" onclick="verArchivo(${p.id})" title="Ver archivo">
                                 <i class="fa fa-file"></i>
                             </button>
                             <button class="btn btn-sm btn-warning" onclick="registra_ausencia(${p.id})" title="Ausencias">
@@ -207,6 +207,15 @@ class CapHum extends Controller
                         cargarComboJefeDirecto(persona.id_departamento, persona.id_jefe);
                     }
             
+                    // 4️⃣ LEGIÓN
+                    const checkLegion = document.getElementById('edit_asignar_legion');
+                    const divLegion = document.getElementById('edit_div_select_legion');
+                    const selectLegion = document.getElementById('edit_id_legion');
+                    const idLegion = persona.id_legion ? String(persona.id_legion) : '';
+                    checkLegion.checked = !!idLegion;
+                    selectLegion.value = idLegion || '';
+                    divLegion.style.display = checkLegion.checked ? 'block' : 'none';
+            
                     // MOSTRAR OFFCANVAS
                     const offcanvas = new bootstrap.Offcanvas(
                         document.getElementById('offcanvasEditUser')
@@ -231,7 +240,24 @@ class CapHum extends Controller
         
             jefe.innerHTML = '<option value="">Seleccione un jefe</option>';
             jefe.disabled = true;
+        
+            const checkLegion = document.getElementById('edit_asignar_legion');
+            const divLegion = document.getElementById('edit_div_select_legion');
+            const selectLegion = document.getElementById('edit_id_legion');
+            if (checkLegion) checkLegion.checked = false;
+            if (selectLegion) selectLegion.value = '';
+            if (divLegion) divLegion.style.display = 'none';
         }
+        
+            function toggleSelectLegionEdit() {
+                const checkbox = document.getElementById('edit_asignar_legion');
+                const divSelect = document.getElementById('edit_div_select_legion');
+                const selectLegion = document.getElementById('edit_id_legion');
+                if (checkbox && divSelect && selectLegion) {
+                    divSelect.style.display = checkbox.checked ? 'block' : 'none';
+                    if (!checkbox.checked) selectLegion.value = '';
+                }
+            }
         
             function cargarDepartamentosCombo(id, seleccionado = null) {
                     fetch('/CapHum/getDepartamento', {
@@ -349,7 +375,6 @@ class CapHum extends Controller
             let currentPersonaId = null;
             
             function edit_perfil(id) {
-                console.log("ID recibido:", id);
                 currentPersonaId = id;
             
                 if (!id) {
@@ -377,8 +402,6 @@ class CapHum extends Controller
                         Swal.fire("Error", "No se encontraron datos de la persona.", "error");
                         return;
                     }
-            
-                    console.log('RESPUESTA COMPLETA:', data.datos);
             
                     const persona  = data.datos.persona || {};
                     const perfiles = data.datos.perfiles || [];
@@ -425,6 +448,16 @@ class CapHum extends Controller
                     // Abrir modal en lugar de offcanvas
                     const modalEl = document.getElementById('modalEditPerfil');
                     const modal = new bootstrap.Modal(modalEl);
+                    
+                    // Prevenir el warning de aria-hidden removiendo el focus del botón de cerrar antes de mostrar
+                    modalEl.addEventListener('shown.bs.modal', function() {
+                        // Mover el focus al primer elemento interactivo dentro del modal body
+                        const firstInput = modalEl.querySelector('.modal-body input, .modal-body button, .modal-body select');
+                        if (firstInput) {
+                            setTimeout(() => firstInput.focus(), 100);
+                        }
+                    }, { once: true });
+                    
                     modal.show();
                 })
                 .catch(err => {
@@ -1218,12 +1251,17 @@ class CapHum extends Controller
             }
             
             function baja_gestor(id) {
-                    console.log("ID recibido:", id);
-                
                     if (!id) {
                         Swal.fire("Error", "ID inválido", "error");
                         return;
                     }
+                
+                    // Limpiar campos del modal antes de cargar nueva información
+                    document.getElementById("motivoBaja").value = "";
+                    document.getElementById("motivoBajaDescripcion").value = "";
+                    document.getElementById("archivoPDF").value = "";
+                    document.getElementById("listaArchivos").innerHTML = "";
+                    document.getElementById("gestor").innerHTML = "<strong>Gestor:</strong> ";
                 
                     fetch('/CapHum/getDetallesPerfil', {
                         method: 'POST',
@@ -1672,6 +1710,8 @@ class CapHum extends Controller
                 const departamento = document.getElementById("edit_departamento_id").value;
                 const puesto       = document.getElementById("edit_id_puesto").value;
                 const jefe         = document.getElementById("edit_id_jefe").value;
+                const asignarLegion = document.getElementById("edit_asignar_legion") && document.getElementById("edit_asignar_legion").checked;
+                const idLegion     = document.getElementById("edit_id_legion") ? document.getElementById("edit_id_legion").value : '';
             
                 // 🔴 VALIDACIONES OBLIGATORIAS
                 if (!departamento) {
@@ -1689,6 +1729,11 @@ class CapHum extends Controller
                     return;
                 }
             
+                if (asignarLegion && !idLegion) {
+                    Swal.fire("Falta información", "Debes seleccionar una legión", "warning");
+                    return;
+                }
+            
                 // 🔹 Payload
                 const payload = {
                     id: document.getElementById("edit_id").value,
@@ -1699,6 +1744,8 @@ class CapHum extends Controller
                     departamento_id: departamento,
                     puesto_id: puesto,
                     jefe_id: jefe,
+                    asignar_legion: asignarLegion,
+                    id_legion: asignarLegion ? idLegion : null,
                     usuario: document.getElementById("edit_usuario").value,
                     contrasena: document.getElementById("edit_contrasena").value
                 };
@@ -1812,6 +1859,20 @@ class CapHum extends Controller
                     });
                 }); 
             
+            // Función para mostrar/ocultar el select de legión
+            function toggleSelectLegion() {
+                const checkbox = document.getElementById('add_asignar_legion');
+                const divSelect = document.getElementById('div_select_legion');
+                const selectLegion = document.getElementById('add_id_legion');
+                
+                if (checkbox.checked) {
+                    divSelect.style.display = 'block';
+                } else {
+                    divSelect.style.display = 'none';
+                    selectLegion.value = ''; // Limpiar selección si se desmarca
+                }
+            }
+            
             function guardarGestor() {
                 const nombres = document.getElementById('add_nombres').value.trim();
                 const apellidop = document.getElementById('add_apellidop').value.trim();
@@ -1820,10 +1881,12 @@ class CapHum extends Controller
                 const id_puesto = document.getElementById('add_id_puesto').value;
                 const departamento_id = document.getElementById('add_departamento_id').value;
                 const id_jefe = document.getElementById('add_id_jefe').value;
+                const asignarLegion = document.getElementById('add_asignar_legion').checked;
+                const id_legion = document.getElementById('add_id_legion').value;
                 
                 const usuario = document.getElementById('add_usuario').value.trim();
                 const contrasena = document.getElementById('add_contrasena').value.trim();
-                
+            
             
                 // 🔴 Validaciones obligatorias
                 if (!nombres) return Swal.fire('Error', 'Los nombres son obligatorios', 'error');
@@ -1838,6 +1901,11 @@ class CapHum extends Controller
                 // ⚠️ jefe puede ser null, solo valida si viene
                 if (id_jefe && isNaN(id_jefe)) {
                     return Swal.fire('Error', 'Jefe inválido', 'error');
+                }
+                
+                // 🔴 Validar legión: si el checkbox está marcado, debe seleccionar una legión
+                if (asignarLegion && !id_legion) {
+                    return Swal.fire('Error', 'Debe seleccionar una legión', 'error');
                 }
                 
                 if (!usuario) return Swal.fire('Error', 'Usuario obligatorio', 'error');
@@ -1859,6 +1927,8 @@ class CapHum extends Controller
                         id_puesto,
                         departamento_id,
                         id_jefe: id_jefe || null,
+                        asignar_legion: asignarLegion,
+                        id_legion: asignarLegion ? id_legion : null,
                         usuario,
                         contrasena
                     })
@@ -2000,33 +2070,38 @@ class CapHum extends Controller
             let archivosSeleccionadosPersona = [];
             let archivosSubidosPersona = [];
             
+            // Alias para el botón "Ver archivo" de la tabla (recibe id de persona)
+            function verArchivo(idPersona) {
+                cargarDocumentoPersona(idPersona);
+            }
+            
             // Función para abrir modal de cargar documento de persona
             function cargarDocumentoPersona(button) {
-                // Si button no es un elemento DOM, intentar obtenerlo del evento
-                let btnElement = button;
+                let idPersona, nombreCompleto;
+                const esIdDirecto = typeof button === 'number' || (typeof button === 'string' && button !== '' && !isNaN(Number(button)));
                 
-                if (!button || typeof button.getAttribute !== 'function') {
-                    // Si no es un elemento DOM válido, intentar obtenerlo del evento
-                    if (typeof event !== 'undefined' && event && event.target) {
-                        btnElement = event.target.closest('button');
-                    } else if (typeof button === 'string' || typeof button === 'number') {
-                        // Si se pasa un ID, buscar el botón
-                        btnElement = document.querySelector(`[data-id-persona="${button}"]`);
+                if (esIdDirecto) {
+                    idPersona = String(button);
+                    nombreCompleto = 'N/A';
+                } else {
+                    let btnElement = button;
+                    if (!button || typeof button.getAttribute !== 'function') {
+                        if (typeof event !== 'undefined' && event && event.target) {
+                            btnElement = event.target.closest('button');
+                        } else if (typeof button === 'string' || typeof button === 'number') {
+                            btnElement = document.querySelector(`[data-id-persona="${button}"]`);
+                        }
+                        if (!btnElement || typeof btnElement.getAttribute !== 'function') {
+                            console.error('No se pudo obtener el elemento del botón:', button);
+                            return;
+                        }
                     }
-                    
-                    if (!btnElement || typeof btnElement.getAttribute !== 'function') {
-                        console.error('No se pudo obtener el elemento del botón:', button);
+                    idPersona = btnElement.getAttribute('data-id-persona');
+                    nombreCompleto = btnElement.getAttribute('data-nombre') || '';
+                    if (!idPersona) {
+                        console.error('No se encontró el ID de persona en el botón');
                         return;
                     }
-                }
-                
-                // Obtener datos del botón usando data-attributes
-                const idPersona = btnElement.getAttribute('data-id-persona');
-                const nombreCompleto = btnElement.getAttribute('data-nombre') || '';
-                
-                if (!idPersona) {
-                    console.error('No se encontró el ID de persona en el botón');
-                    return;
                 }
                 
                 // Guardar el ID de persona en un campo oculto del modal
@@ -2034,7 +2109,8 @@ class CapHum extends Controller
                 document.getElementById('cargarDocPersona_nombrePersona').textContent = 'Persona: ' + (nombreCompleto || 'N/A');
                 
                 // Limpiar el select y el input de archivo
-                document.getElementById('cargarDocPersona_tipoDocumento').value = '';
+                const selectTipo = document.getElementById('cargarDocPersona_tipoDocumento');
+                selectTipo.value = '';
                 document.getElementById('cargarDocPersona_archivo').value = '';
                 document.getElementById('cargarDocPersona_nombreArchivo').textContent = 'No se ha seleccionado ningún archivo';
                 
@@ -2042,16 +2118,31 @@ class CapHum extends Controller
                 archivosSeleccionadosPersona = [];
                 document.getElementById('cargarDocPersona_listaArchivos').style.display = 'none';
                 
-                // Cargar archivos existentes
+                // Primero resetear todas las opciones del select para que sean visibles
+                Array.from(selectTipo.options).forEach(option => {
+                    option.style.display = 'block';
+                    option.disabled = false;
+                });
+                
+                // Cargar archivos existentes (esto actualizará el select automáticamente ocultando los únicos ya subidos)
                 if (idPersona) {
                     cargarArchivosExistentesPersona(idPersona);
+                } else {
+                    // Si no hay ID, al menos actualizar el select para mostrar todas las opciones
+                    actualizarSelectDocumentos();
                 }
                 
                 // Actualizar el atributo multiple del input file según el tipo de documento
-                const selectTipo = document.getElementById('cargarDocPersona_tipoDocumento');
                 const inputFile = document.getElementById('cargarDocPersona_archivo');
                 
-                selectTipo.addEventListener('change', function() {
+                // Remover listeners anteriores si existen para evitar duplicados
+                const nuevoSelectTipo = selectTipo.cloneNode(true);
+                selectTipo.parentNode.replaceChild(nuevoSelectTipo, selectTipo);
+                
+                // Actualizar la referencia al nuevo elemento
+                const selectTipoActualizado = document.getElementById('cargarDocPersona_tipoDocumento');
+                
+                selectTipoActualizado.addEventListener('change', function() {
                     const tipoDoc = this.value;
                     if (tipoDoc && !permiteMultiplesArchivos(tipoDoc)) {
                         inputFile.setAttribute('multiple', 'false');
@@ -2288,6 +2379,43 @@ class CapHum extends Controller
                 return mapeo[idDocumento] || 'Documento';
             }
             
+            // Función para actualizar el select de documentos, ocultando los únicos que ya están subidos
+            function actualizarSelectDocumentos() {
+                const selectTipo = document.getElementById('cargarDocPersona_tipoDocumento');
+                if (!selectTipo) return;
+                
+                // Obtener todos los IDs de documentos únicos que ya están subidos
+                const documentosUnicosSubidos = new Set();
+                archivosSubidosPersona.forEach(doc => {
+                    const idDoc = doc.id_documento;
+                    // Verificar si este ID corresponde a un documento único
+                    const nombreDoc = obtenerNombreDocumento(idDoc);
+                    if (nombreDoc && !permiteMultiplesArchivos(nombreDoc)) {
+                        documentosUnicosSubidos.add(nombreDoc);
+                    }
+                });
+                
+                // Verificar si el valor actual del select es un documento único ya subido
+                const valorActual = selectTipo.value;
+                if (valorActual && !permiteMultiplesArchivos(valorActual) && documentosUnicosSubidos.has(valorActual)) {
+                    // Si el documento seleccionado es único y ya está subido, limpiar el select
+                    selectTipo.value = '';
+                }
+                
+                // Recorrer todas las opciones del select
+                Array.from(selectTipo.options).forEach(option => {
+                    const valor = option.value;
+                    // Si es un documento único y ya está subido, ocultarlo
+                    if (valor && !permiteMultiplesArchivos(valor) && documentosUnicosSubidos.has(valor)) {
+                        option.style.display = 'none';
+                        option.disabled = true;
+                    } else {
+                        option.style.display = 'block';
+                        option.disabled = false;
+                    }
+                });
+            }
+            
             // Función para cargar archivos existentes
             function cargarArchivosExistentesPersona(idPersona) {
                 fetch('/caphum/getDocumentosPersona?id_persona=' + idPersona)
@@ -2296,15 +2424,19 @@ class CapHum extends Controller
                         if (resp.success && resp.datos) {
                             archivosSubidosPersona = resp.datos;
                             renderArchivosSubidosPersona();
+                            // Actualizar el select después de cargar los archivos
+                            actualizarSelectDocumentos();
                         } else {
                             archivosSubidosPersona = [];
                             renderArchivosSubidosPersona();
+                            actualizarSelectDocumentos();
                         }
                     })
                     .catch(err => {
                         console.error('Error al cargar archivos:', err);
                         archivosSubidosPersona = [];
                         renderArchivosSubidosPersona();
+                        actualizarSelectDocumentos();
                     });
             }
             
@@ -2348,7 +2480,7 @@ class CapHum extends Controller
                                     showConfirmButton: false
                                 });
                                 
-                                // Recargar lista
+                                // Recargar lista (esto también actualizará el select)
                                 const idPersona = document.getElementById('cargarDocPersona_idPersona').value;
                                 if (idPersona) {
                                     cargarArchivosExistentesPersona(idPersona);
@@ -2499,7 +2631,16 @@ class CapHum extends Controller
                         document.getElementById('cargarDocPersona_nombreArchivo').textContent = 'No se ha seleccionado ningún archivo';
                         document.getElementById('cargarDocPersona_listaArchivos').style.display = 'none';
                         
-                        // Recargar lista de archivos
+                        // Si es un documento único, limpiar el select de tipo de documento
+                        // (Referencias Laborales y Documento baja permiten múltiples, así que no se limpian)
+                        if (!permiteMultiplesArchivos(tipoDocumento)) {
+                            const selectTipoDoc = document.getElementById('cargarDocPersona_tipoDocumento');
+                            if (selectTipoDoc) {
+                                selectTipoDoc.value = '';
+                            }
+                        }
+                        
+                        // Recargar lista de archivos (esto también actualizará el select ocultando los únicos ya subidos)
                         cargarArchivosExistentesPersona(idPersona);
                     } else {
                         Swal.fire({
@@ -2575,7 +2716,7 @@ class CapHum extends Controller
                             <button class="btn btn-sm btn-primary" onclick="editar(${p.id})" title="Editar">
                                 <i class="fa fa-edit"></i>
                             </button>
-                            <button class="btn btn-sm btn-info" onclick="cargarDocumentoPersona(this)" data-id-persona="${p.id}" data-nombre="${(p.nombres + ' ' + p.apellidop + ' ' + p.apellidom).replace(/"/g, '&quot;')}" title="Cargar documento">
+                            <button class="btn btn-sm btn-info" onclick="verArchivo(${p.id})" title="Ver archivo">
                                 <i class="fa fa-file"></i>
                             </button>
                             <button class="btn btn-sm btn-warning" onclick="registra_ausencia(${p.id})" title="Ausencias">
@@ -3301,11 +3442,11 @@ class CapHum extends Controller
                 })
                 .catch(err => {
                     Swal.close();
-                    console.error('Error al subir archivos:', err);
+                    console.error('Error:', err);
                     Swal.fire({
                         icon: 'error',
                         title: 'Error',
-                        text: 'Ocurrió un error al subir los archivos: ' + (err.message || 'Error desconocido')
+                        text: 'Ocurrió un error al subir los archivos'
                     });
                 });
             }
@@ -3322,33 +3463,38 @@ class CapHum extends Controller
             let archivosSeleccionadosPersona = [];
             let archivosSubidosPersona = [];
             
+            // Alias para el botón "Ver archivo" de la tabla (recibe id de persona)
+            function verArchivo(idPersona) {
+                cargarDocumentoPersona(idPersona);
+            }
+            
             // Función para abrir modal de cargar documento de persona
             function cargarDocumentoPersona(button) {
-                // Si button no es un elemento DOM, intentar obtenerlo del evento
-                let btnElement = button;
+                let idPersona, nombreCompleto;
+                const esIdDirecto = typeof button === 'number' || (typeof button === 'string' && button !== '' && !isNaN(Number(button)));
                 
-                if (!button || typeof button.getAttribute !== 'function') {
-                    // Si no es un elemento DOM válido, intentar obtenerlo del evento
-                    if (typeof event !== 'undefined' && event && event.target) {
-                        btnElement = event.target.closest('button');
-                    } else if (typeof button === 'string' || typeof button === 'number') {
-                        // Si se pasa un ID, buscar el botón
-                        btnElement = document.querySelector(`[data-id-persona="${button}"]`);
+                if (esIdDirecto) {
+                    idPersona = String(button);
+                    nombreCompleto = 'N/A';
+                } else {
+                    let btnElement = button;
+                    if (!button || typeof button.getAttribute !== 'function') {
+                        if (typeof event !== 'undefined' && event && event.target) {
+                            btnElement = event.target.closest('button');
+                        } else if (typeof button === 'string' || typeof button === 'number') {
+                            btnElement = document.querySelector(`[data-id-persona="${button}"]`);
+                        }
+                        if (!btnElement || typeof btnElement.getAttribute !== 'function') {
+                            console.error('No se pudo obtener el elemento del botón:', button);
+                            return;
+                        }
                     }
-                    
-                    if (!btnElement || typeof btnElement.getAttribute !== 'function') {
-                        console.error('No se pudo obtener el elemento del botón:', button);
+                    idPersona = btnElement.getAttribute('data-id-persona');
+                    nombreCompleto = btnElement.getAttribute('data-nombre') || '';
+                    if (!idPersona) {
+                        console.error('No se encontró el ID de persona en el botón');
                         return;
                     }
-                }
-                
-                // Obtener datos del botón usando data-attributes
-                const idPersona = btnElement.getAttribute('data-id-persona');
-                const nombreCompleto = btnElement.getAttribute('data-nombre') || '';
-                
-                if (!idPersona) {
-                    console.error('No se encontró el ID de persona en el botón');
-                    return;
                 }
                 
                 // Guardar el ID de persona en un campo oculto del modal
@@ -3356,7 +3502,8 @@ class CapHum extends Controller
                 document.getElementById('cargarDocPersona_nombrePersona').textContent = 'Persona: ' + (nombreCompleto || 'N/A');
                 
                 // Limpiar el select y el input de archivo
-                document.getElementById('cargarDocPersona_tipoDocumento').value = '';
+                const selectTipo = document.getElementById('cargarDocPersona_tipoDocumento');
+                selectTipo.value = '';
                 document.getElementById('cargarDocPersona_archivo').value = '';
                 document.getElementById('cargarDocPersona_nombreArchivo').textContent = 'No se ha seleccionado ningún archivo';
                 
@@ -3364,19 +3511,31 @@ class CapHum extends Controller
                 archivosSeleccionadosPersona = [];
                 document.getElementById('cargarDocPersona_listaArchivos').style.display = 'none';
                 
-                // Cargar tipos de documentos desde la BD (opcional, por si se quiere cargar dinámicamente)
-                // Por ahora usamos los valores estáticos del HTML
+                // Primero resetear todas las opciones del select para que sean visibles
+                Array.from(selectTipo.options).forEach(option => {
+                    option.style.display = 'block';
+                    option.disabled = false;
+                });
                 
-                // Cargar archivos existentes
+                // Cargar archivos existentes (esto actualizará el select automáticamente ocultando los únicos ya subidos)
                 if (idPersona) {
                     cargarArchivosExistentesPersona(idPersona);
+                } else {
+                    // Si no hay ID, al menos actualizar el select para mostrar todas las opciones
+                    actualizarSelectDocumentos();
                 }
                 
                 // Actualizar el atributo multiple del input file según el tipo de documento
-                const selectTipo = document.getElementById('cargarDocPersona_tipoDocumento');
                 const inputFile = document.getElementById('cargarDocPersona_archivo');
                 
-                selectTipo.addEventListener('change', function() {
+                // Remover listeners anteriores si existen para evitar duplicados
+                const nuevoSelectTipo = selectTipo.cloneNode(true);
+                selectTipo.parentNode.replaceChild(nuevoSelectTipo, selectTipo);
+                
+                // Actualizar la referencia al nuevo elemento
+                const selectTipoActualizado = document.getElementById('cargarDocPersona_tipoDocumento');
+                
+                selectTipoActualizado.addEventListener('change', function() {
                     const tipoDoc = this.value;
                     if (tipoDoc && !permiteMultiplesArchivos(tipoDoc)) {
                         inputFile.setAttribute('multiple', 'false');
@@ -3613,6 +3772,43 @@ class CapHum extends Controller
                 return mapeo[idDocumento] || 'Documento';
             }
             
+            // Función para actualizar el select de documentos, ocultando los únicos que ya están subidos
+            function actualizarSelectDocumentos() {
+                const selectTipo = document.getElementById('cargarDocPersona_tipoDocumento');
+                if (!selectTipo) return;
+                
+                // Obtener todos los IDs de documentos únicos que ya están subidos
+                const documentosUnicosSubidos = new Set();
+                archivosSubidosPersona.forEach(doc => {
+                    const idDoc = doc.id_documento;
+                    // Verificar si este ID corresponde a un documento único
+                    const nombreDoc = obtenerNombreDocumento(idDoc);
+                    if (nombreDoc && !permiteMultiplesArchivos(nombreDoc)) {
+                        documentosUnicosSubidos.add(nombreDoc);
+                    }
+                });
+                
+                // Verificar si el valor actual del select es un documento único ya subido
+                const valorActual = selectTipo.value;
+                if (valorActual && !permiteMultiplesArchivos(valorActual) && documentosUnicosSubidos.has(valorActual)) {
+                    // Si el documento seleccionado es único y ya está subido, limpiar el select
+                    selectTipo.value = '';
+                }
+                
+                // Recorrer todas las opciones del select
+                Array.from(selectTipo.options).forEach(option => {
+                    const valor = option.value;
+                    // Si es un documento único y ya está subido, ocultarlo
+                    if (valor && !permiteMultiplesArchivos(valor) && documentosUnicosSubidos.has(valor)) {
+                        option.style.display = 'none';
+                        option.disabled = true;
+                    } else {
+                        option.style.display = 'block';
+                        option.disabled = false;
+                    }
+                });
+            }
+            
             // Función para cargar archivos existentes
             function cargarArchivosExistentesPersona(idPersona) {
                 fetch('/caphum/getDocumentosPersona?id_persona=' + idPersona)
@@ -3621,15 +3817,19 @@ class CapHum extends Controller
                         if (resp.success && resp.datos) {
                             archivosSubidosPersona = resp.datos;
                             renderArchivosSubidosPersona();
+                            // Actualizar el select después de cargar los archivos
+                            actualizarSelectDocumentos();
                         } else {
                             archivosSubidosPersona = [];
                             renderArchivosSubidosPersona();
+                            actualizarSelectDocumentos();
                         }
                     })
                     .catch(err => {
                         console.error('Error al cargar archivos:', err);
                         archivosSubidosPersona = [];
                         renderArchivosSubidosPersona();
+                        actualizarSelectDocumentos();
                     });
             }
             
@@ -3673,7 +3873,7 @@ class CapHum extends Controller
                                     showConfirmButton: false
                                 });
                                 
-                                // Recargar lista
+                                // Recargar lista (esto también actualizará el select)
                                 const idPersona = document.getElementById('cargarDocPersona_idPersona').value;
                                 if (idPersona) {
                                     cargarArchivosExistentesPersona(idPersona);
@@ -3824,7 +4024,16 @@ class CapHum extends Controller
                         document.getElementById('cargarDocPersona_nombreArchivo').textContent = 'No se ha seleccionado ningún archivo';
                         document.getElementById('cargarDocPersona_listaArchivos').style.display = 'none';
                         
-                        // Recargar lista de archivos
+                        // Si es un documento único, limpiar el select de tipo de documento
+                        // (Referencias Laborales y Documento baja permiten múltiples, así que no se limpian)
+                        if (!permiteMultiplesArchivos(tipoDocumento)) {
+                            const selectTipoDoc = document.getElementById('cargarDocPersona_tipoDocumento');
+                            if (selectTipoDoc) {
+                                selectTipoDoc.value = '';
+                            }
+                        }
+                        
+                        // Recargar lista de archivos (esto también actualizará el select ocultando los únicos ya subidos)
                         cargarArchivosExistentesPersona(idPersona);
                     } else {
                         Swal.fire({
@@ -4420,6 +4629,17 @@ class CapHum extends Controller
         // Preparar datos
         $data['contrasena'] = $data['contrasena'];
         $data['id_jefe'] = isset($data['id_jefe']) ? $data['id_jefe'] : null;
+        $data['asignar_legion'] = isset($data['asignar_legion']) ? (bool)$data['asignar_legion'] : false;
+        $data['id_legion'] = isset($data['id_legion']) && !empty($data['id_legion']) ? (int)$data['id_legion'] : null;
+
+        // Validar que si asignar_legion es true, id_legion debe estar presente
+        if ($data['asignar_legion'] && !$data['id_legion']) {
+            echo json_encode([
+                'success' => false,
+                'mensaje' => 'Debe seleccionar una legión si marca la opción de asignar legión'
+            ]);
+            return;
+        }
 
         // Llamar al DAO
         $inserted = CapHumDAO::insertPersona($data);
@@ -4855,253 +5075,5 @@ class CapHum extends Controller
         }
     }
 
-    /**
-     * Obtener tipos de documentos disponibles
-     */
-    public function getTiposDocumentos()
-    {
-        try {
-            $resultado = CapHumDAO::getTiposDocumentos();
-            self::respuestaJSON($resultado);
-        } catch (\Exception $e) {
-            self::respuestaJSON([
-                'success' => false,
-                'mensaje' => 'Error al obtener tipos de documentos: ' . $e->getMessage()
-            ]);
-        }
-    }
-
-    /**
-     * Obtener documentos de una persona
-     */
-    public function getDocumentosPersona()
-    {
-        try {
-            $id_persona = $_GET['id_persona'] ?? null;
-            $id_documento = $_GET['id_documento'] ?? null;
-            
-            if (!$id_persona) {
-                self::respuestaJSON([
-                    'success' => false,
-                    'mensaje' => 'ID de persona requerido'
-                ]);
-                return;
-            }
-            
-            $resultado = CapHumDAO::getDocumentosPersona($id_persona, $id_documento);
-            self::respuestaJSON($resultado);
-            
-        } catch (\Exception $e) {
-            self::respuestaJSON([
-                'success' => false,
-                'mensaje' => 'Error al obtener documentos: ' . $e->getMessage()
-            ]);
-        }
-    }
-
-    /**
-     * Subir documentos de una persona
-     */
-    public function subirDocumentosPersona()
-    {
-        try {
-            $id_persona = $_POST['id_persona'] ?? null;
-            // Priorizar id_documento si viene, sino intentar con tipo_documento (compatibilidad)
-            $id_documento = $_POST['id_documento'] ?? null;
-            $tipo_documento = $_POST['tipo_documento'] ?? null;
-            
-            if (!$id_persona) {
-                self::respuestaJSON([
-                    'success' => false,
-                    'mensaje' => 'ID de persona requerido'
-                ]);
-                return;
-            }
-            
-            // Si no viene id_documento, intentar obtenerlo por nombre (compatibilidad hacia atrás)
-            if (!$id_documento && $tipo_documento) {
-                $id_documento = CapHumDAO::getIdDocumentoPorNombre($tipo_documento);
-            }
-            
-            if (!$id_documento || !is_numeric($id_documento)) {
-                self::respuestaJSON([
-                    'success' => false,
-                    'mensaje' => 'ID de documento no válido'
-                ]);
-                return;
-            }
-            
-            $id_documento = (int)$id_documento;
-            
-            // Directorio de guardado (usar carpeta documentos para Gestión)
-            $directorio = __DIR__ . '/../uploads/documentos/';
-            if (!is_dir($directorio)) {
-                mkdir($directorio, 0777, true);
-            }
-            
-            $archivosGuardados = [];
-            
-            // Procesar archivos
-            if (!isset($_FILES['archivosPDF'])) {
-                self::respuestaJSON([
-                    'success' => false,
-                    'mensaje' => 'No se recibieron archivos'
-                ]);
-                return;
-            }
-            
-            // Manejar tanto array como archivo único
-            $archivos = [];
-            if (is_array($_FILES['archivosPDF']['name'])) {
-                // Múltiples archivos
-                for ($i = 0; $i < count($_FILES['archivosPDF']['name']); $i++) {
-                    if ($_FILES['archivosPDF']['error'][$i] !== UPLOAD_ERR_OK) {
-                        continue;
-                    }
-                    $archivos[] = [
-                        'tmp' => $_FILES['archivosPDF']['tmp_name'][$i],
-                        'name' => $_FILES['archivosPDF']['name'][$i],
-                        'error' => $_FILES['archivosPDF']['error'][$i]
-                    ];
-                }
-            } else {
-                // Un solo archivo
-                if ($_FILES['archivosPDF']['error'] === UPLOAD_ERR_OK) {
-                    $archivos[] = [
-                        'tmp' => $_FILES['archivosPDF']['tmp_name'],
-                        'name' => $_FILES['archivosPDF']['name'],
-                        'error' => $_FILES['archivosPDF']['error']
-                    ];
-                }
-            }
-            
-            if (empty($archivos)) {
-                self::respuestaJSON([
-                    'success' => false,
-                    'mensaje' => 'No se recibieron archivos válidos'
-                ]);
-                return;
-            }
-            
-            foreach ($archivos as $i => $archivo) {
-                if ($archivo['error'] !== UPLOAD_ERR_OK) {
-                    continue;
-                }
-                
-                $tmp = $archivo['tmp'];
-                $nombreOrig = $archivo['name'];
-                $extension = strtolower(pathinfo($nombreOrig, PATHINFO_EXTENSION));
-                
-                if ($extension !== 'pdf') {
-                    continue;
-                }
-                
-                // Generar nombre único
-                $nombreFinal = 'doc_' . $id_persona . '_' . $id_documento . '_' . time() . '_' . $i . '.pdf';
-                $rutaFinal = $directorio . $nombreFinal;
-                
-                if (move_uploaded_file($tmp, $rutaFinal)) {
-                    $archivosGuardados[] = $nombreFinal;
-                }
-            }
-            
-            if (empty($archivosGuardados)) {
-                self::respuestaJSON([
-                    'success' => false,
-                    'mensaje' => 'No se pudieron guardar los archivos'
-                ]);
-                return;
-            }
-            
-            // Guardar en base de datos
-            $resultado = CapHumDAO::guardarDocumentosPersona($id_persona, $id_documento, $archivosGuardados);
-            self::respuestaJSON($resultado);
-            
-        } catch (\Exception $e) {
-            self::respuestaJSON([
-                'success' => false,
-                'mensaje' => 'Error al subir documentos: ' . $e->getMessage()
-            ]);
-        }
-    }
-
-    /**
-     * Eliminar documento de una persona
-     */
-    public function eliminarDocumentoPersona()
-    {
-        try {
-            $id_documento = $_POST['id_documento'] ?? null;
-            
-            if (!$id_documento) {
-                self::respuestaJSON([
-                    'success' => false,
-                    'mensaje' => 'ID de documento requerido'
-                ]);
-                return;
-            }
-            
-            $resultado = CapHumDAO::eliminarDocumentoPersona($id_documento);
-            self::respuestaJSON($resultado);
-            
-        } catch (\Exception $e) {
-            self::respuestaJSON([
-                'success' => false,
-                'mensaje' => 'Error al eliminar documento: ' . $e->getMessage()
-            ]);
-        }
-    }
-
-    /**
-     * Ver documento de una persona
-     */
-    public function verDocumentoPersona()
-    {
-        try {
-            $nombreArchivo = $_GET['archivo'] ?? null;
-            
-            if (!$nombreArchivo) {
-                http_response_code(400);
-                echo 'Nombre de archivo requerido';
-                exit;
-            }
-            
-            // Validar que el nombre del archivo no contenga rutas relativas (seguridad)
-            if (strpos($nombreArchivo, '..') !== false || strpos($nombreArchivo, '/') !== false) {
-                http_response_code(403);
-                echo 'Nombre de archivo inválido';
-                exit;
-            }
-            
-            $rutaArchivo = __DIR__ . '/../uploads/documentos/' . basename($nombreArchivo);
-            
-            if (!file_exists($rutaArchivo)) {
-                http_response_code(404);
-                echo 'Archivo no encontrado';
-                exit;
-            }
-            
-            // Limpiar buffer
-            while (ob_get_level()) {
-                ob_end_clean();
-            }
-            
-            // Establecer headers para PDF
-            header('Content-Type: application/pdf');
-            header('Content-Disposition: inline; filename="' . basename($nombreArchivo) . '"');
-            header('Content-Length: ' . filesize($rutaArchivo));
-            header('Cache-Control: private, max-age=0, must-revalidate');
-            header('Pragma: public');
-            
-            // Leer y enviar el archivo
-            readfile($rutaArchivo);
-            exit;
-            
-        } catch (\Exception $e) {
-            http_response_code(500);
-            echo 'Error al cargar el archivo: ' . $e->getMessage();
-            exit;
-        }
-    }
 
 }
