@@ -428,9 +428,11 @@ class EstadoCuenta extends Model
                 cp.nombre AS plataforma,
                 dl.fuente_ingresos,
                 dl.comentarios,
-                dl.agente AS usuario_id   
+                dl.agente AS usuario_id,
+                CONCAT_WS(' ', u.nombres, u.apellidop, u.apellidom) AS agente
             FROM __SPARTA_SECRET_REDACTED__.dictamen_llamada dl
             LEFT JOIN persona p ON dl.id_credito = p.id
+            LEFT JOIN persona u ON dl.agente = u.id
             LEFT JOIN cat_tipo_contacto tc ON dl.tipo_contacto_id = tc.id
             LEFT JOIN cat_resultado_contacto rc ON dl.resultado_contacto_id = rc.id
             LEFT JOIN cat_dictamen cd ON dl.dictamen_id = cd.id
@@ -482,9 +484,11 @@ public static function obtenerReportesDictamenParaDescarga($fechaInicio, $fechaF
                 cp.nombre AS plataforma,
                 dl.fuente_ingresos,
                 dl.comentarios,
-                dl.agente AS usuario_id   
+                dl.agente AS usuario_id,
+                CONCAT_WS(' ', u.nombres, u.apellidop, u.apellidom) AS agente
             FROM __SPARTA_SECRET_REDACTED__.dictamen_llamada dl
             LEFT JOIN persona p ON dl.id_credito = p.id
+            LEFT JOIN persona u ON dl.agente = u.id
             LEFT JOIN cat_tipo_contacto tc ON dl.tipo_contacto_id = tc.id
             LEFT JOIN cat_resultado_contacto rc ON dl.resultado_contacto_id = rc.id
             LEFT JOIN cat_dictamen cd ON dl.dictamen_id = cd.id

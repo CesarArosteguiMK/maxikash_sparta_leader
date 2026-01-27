@@ -2444,51 +2444,141 @@ public function descargarReporteDictamen()
     // Obtener datos
     $reportes = EstadoCuentaDAO::obtenerReportesDictamenParaDescarga($fechaInicio, $fechaFin);
     
-    // Generar CSV
-    header('Content-Type: text/csv; charset=utf-8');
-    header('Content-Disposition: attachment; filename="Dictamen_Llamadas-' . $fechaInicio . '_a_' . $fechaFin . '.csv"');
+    // Cargar PhpSpreadsheet
+    require_once __DIR__ . '/../libs/PhpSpreadsheet/vendor/autoload.php';
     
-    $output = fopen('php://output', 'w');
+    // Crear nuevo documento Excel
+    $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+    $sheet = $spreadsheet->getActiveSheet();
+    $sheet->setTitle('Dictamen Llamadas');
     
     // Encabezados
-    fputcsv($output, [
-        'ID Dictamen',
-        'Fecha Registro',
-        'Hora Registro',
-        'ID Credito',
-        'Cliente',
-        'Tipo Contacto',
-        'Resultado Contacto',
-        'Dictamen',
-        'Motivo No Pago',
-        'Tipo Motivo No Pago',
-        'Plataforma',
-        'Fuente de Ingresos',
-        'Comentarios',
-        'Agente'
-    ]);
+    $headers = [
+        'A' => 'ID Dictamen',
+        'B' => 'Fecha Registro',
+        'C' => 'Hora Registro',
+        'D' => 'ID Crédito',
+        'E' => 'Cliente',
+        'F' => 'Tipo Contacto',
+        'G' => 'Resultado Contacto',
+        'H' => 'Dictamen',
+        'I' => 'Motivo No Pago',
+        'J' => 'Tipo Motivo No Pago',
+        'K' => 'Plataforma',
+        'L' => 'Fuente de Ingresos',
+        'M' => 'Comentarios',
+        'N' => 'Agente'
+    ];
     
-    // Datos
-    foreach ($reportes as $reporte) {
-        fputcsv($output, [
-            $reporte['id_dictamen'] ?? '',
-            $reporte['fecha_registro'] ?? '',
-            $reporte['hora_registro'] ?? '',
-            $reporte['id_credito'] ?? '',
-            $reporte['nombre_cliente'] ?? '',
-            $reporte['tipo_contacto'] ?? '',
-            $reporte['resultado_contacto'] ?? '',
-            $reporte['dictamen'] ?? '',
-            $reporte['motivo_no_pago'] ?? '',
-            $reporte['tipo_motivo_no_pago'] ?? '',            
-            $reporte['plataforma'] ?? '',
-            $reporte['fuente_ingresos'] ?? '',
-            $reporte['comentarios'] ?? '',
-            $reporte['agente'] ?? ''
-        ]);
+    // Escribir encabezados
+    foreach ($headers as $col => $header) {
+        $sheet->setCellValue($col . '1', $header);
     }
     
-    fclose($output);
+    // ✅ ESTILO DE ENCABEZADOS
+    $headerStyle = [
+        'font' => [
+            'bold' => true,
+            'color' => ['rgb' => 'FFFFFF'],
+            'size' => 12
+        ],
+        'fill' => [
+            'fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
+            'startColor' => ['rgb' => '4472C4']
+        ],
+        'alignment' => [
+            'horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER,
+            'vertical' => \PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER,
+            'wrapText' => true
+        ],
+        'borders' => [
+            'allBorders' => [
+                'borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN,
+                'color' => ['rgb' => '000000']
+            ]
+        ]
+    ];
+    
+    $sheet->getStyle('A1:N1')->applyFromArray($headerStyle);
+    $sheet->getRowDimension(1)->setRowHeight(30);
+    
+    // ✅ ESCRIBIR DATOS
+    $row = 2;
+    foreach ($reportes as $reporte) {
+        $sheet->setCellValue('A' . $row, $reporte['id_dictamen'] ?? '');
+        $sheet->setCellValue('B' . $row, $reporte['fecha_registro'] ?? '');
+        $sheet->setCellValue('C' . $row, $reporte['hora_registro'] ?? '');
+        $sheet->setCellValue('D' . $row, $reporte['id_credito'] ?? '');
+        $sheet->setCellValue('E' . $row, $reporte['nombre_cliente'] ?? '');
+        $sheet->setCellValue('F' . $row, $reporte['tipo_contacto'] ?? '');
+        $sheet->setCellValue('G' . $row, $reporte['resultado_contacto'] ?? '');
+        $sheet->setCellValue('H' . $row, $reporte['dictamen'] ?? '');
+        $sheet->setCellValue('I' . $row, $reporte['motivo_no_pago'] ?? '');
+        $sheet->setCellValue('J' . $row, $reporte['tipo_motivo_no_pago'] ?? '');
+        $sheet->setCellValue('K' . $row, $reporte['plataforma'] ?? '');
+        $sheet->setCellValue('L' . $row, $reporte['fuente_ingresos'] ?? '');
+        $sheet->setCellValue('M' . $row, $reporte['comentarios'] ?? '');
+        $sheet->setCellValue('N' . $row, $reporte['agente'] ?? '');
+        
+        $row++;
+    }
+    
+    // ✅ ESTILO DE DATOS (bordes y alineación)
+    $lastRow = $row - 1;
+    $dataStyle = [
+        'alignment' => [
+            'vertical' => \PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_TOP,
+            'wrapText' => true
+        ],
+        'borders' => [
+            'allBorders' => [
+                'borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN,
+                'color' => ['rgb' => 'CCCCCC']
+            ]
+        ]
+    ];
+    
+    if ($lastRow > 1) {
+        $sheet->getStyle('A2:N' . $lastRow)->applyFromArray($dataStyle);
+    }
+    
+    // ✅ AUTOAJUSTAR ANCHO DE COLUMNAS
+    $columnWidths = [
+        'A' => 12,  // ID Dictamen
+        'B' => 15,  // Fecha
+        'C' => 12,  // Hora
+        'D' => 12,  // ID Crédito
+        'E' => 30,  // Cliente
+        'F' => 18,  // Tipo Contacto
+        'G' => 20,  // Resultado Contacto
+        'H' => 18,  // Dictamen
+        'I' => 35,  // Motivo No Pago
+        'J' => 20,  // Tipo Motivo
+        'K' => 15,  // Plataforma
+        'L' => 25,  // Fuente Ingresos
+        'M' => 40,  // Comentarios
+        'N' => 25   // Agente
+    ];
+    
+    foreach ($columnWidths as $col => $width) {
+        $sheet->getColumnDimension($col)->setWidth($width);
+    }
+    
+    // ✅ CONGELAR PANEL (primera fila)
+    $sheet->freezePane('A2');
+    
+    // ✅ FILTROS AUTOMÁTICOS
+    $sheet->setAutoFilter('A1:N' . $lastRow);
+    
+    // Generar archivo Excel
+    $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
+    
+    // Headers para descarga
+    header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    header('Content-Disposition: attachment; filename="Dictamen_Llamadas-' . $fechaInicio . '_a_' . $fechaFin . '.xlsx"');
+    header('Cache-Control: max-age=0');
+    
+    $writer->save('php://output');
     exit;
 }
 
