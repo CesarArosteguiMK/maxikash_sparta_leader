@@ -302,7 +302,7 @@
                     <div class="form-check">
                         <input class="form-check-input" type="checkbox" id="add_asignar_legion" onchange="toggleSelectLegion()">
                         <label class="form-check-label" for="add_asignar_legion">
-                            Asignar legion
+                            Asignar legión
                         </label>
                     </div>
                 </div>
@@ -384,17 +384,28 @@
                         <textarea class="form-control" id="motivoBajaDescripcion" rows="3" placeholder="Escribe el motivo..."></textarea>
                     </div>
 
-                    <input
-                            class="form-control"
-                            type="file"
-                            id="archivoPDF"
-                            accept=".pdf"
-                            multiple
-                    >
-                    <small class="text-muted">
-                        Puedes subir múltiples archivos PDF.
-                    </small>
-                    <ul class="list-group mt-2" id="listaArchivos"></ul>
+                    <div class="mb-3">
+                        <label class="form-label"><strong>Documento de baja (PDF):</strong></label>
+                        <div class="d-flex gap-2 align-items-center mb-2">
+                            <input
+                                type="file"
+                                id="archivoPDF"
+                                class="form-control d-none"
+                                accept=".pdf"
+                                multiple
+                            />
+                            <button
+                                type="button"
+                                class="btn btn-outline-primary"
+                                onclick="seleccionarArchivoBajaModal()"
+                            >
+                                <i class="fa fa-paperclip me-2"></i>Elegir archivos
+                            </button>
+                            <span id="bajaModal_nombreArchivo" class="text-muted small">No se ha seleccionado ningún archivo</span>
+                        </div>
+                        <small class="text-muted">Puedes subir múltiples archivos PDF.</small>
+                    </div>
+                    <div id="listaArchivos" class="mt-2" style="display: none;"></div>
                 </div>
 
                 <div class="modal-footer">
@@ -745,7 +756,7 @@
                     <div class="form-check">
                         <input class="form-check-input" type="checkbox" id="edit_asignar_legion" onchange="toggleSelectLegionEdit()">
                         <label class="form-check-label" for="edit_asignar_legion">
-                            Asignar legion
+                            Asignar legión
                         </label>
                     </div>
                 </div>

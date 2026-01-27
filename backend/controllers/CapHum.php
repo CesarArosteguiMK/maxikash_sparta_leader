@@ -1261,6 +1261,10 @@ class CapHum extends Controller
                     document.getElementById("motivoBajaDescripcion").value = "";
                     document.getElementById("archivoPDF").value = "";
                     document.getElementById("listaArchivos").innerHTML = "";
+                    document.getElementById("listaArchivos").style.display = "none";
+                    const spanBaja = document.getElementById("bajaModal_nombreArchivo");
+                    if (spanBaja) spanBaja.textContent = "No se ha seleccionado ningún archivo";
+                    archivosSeleccionados = [];
                     document.getElementById("gestor").innerHTML = "<strong>Gestor:</strong> ";
                 
                     fetch('/CapHum/getDetallesPerfil', {
@@ -1628,9 +1632,12 @@ class CapHum extends Controller
             
                                 $("#modalBajas").modal("hide");
             
-                                // 🧹 Limpieza opcional
+                                // 🧹 Limpieza
                                 archivosSeleccionados = [];
-                                document.getElementById("listaArchivos").innerHTML = "";
+                                const listEl = document.getElementById("listaArchivos");
+                                if (listEl) { listEl.innerHTML = ""; listEl.style.display = "none"; }
+                                const spanBajaOk = document.getElementById("bajaModal_nombreArchivo");
+                                if (spanBajaOk) spanBajaOk.textContent = "No se ha seleccionado ningún archivo";
                             } else {
                                 Swal.fire({
                                     icon: 'error',
@@ -1950,6 +1957,27 @@ class CapHum extends Controller
                     Swal.fire('Error', 'No se pudo registrar el gestor', 'error');
                 });
             }
+
+            // Limpiar formulario Agregar Usuario al cerrar el offcanvas (Cancelar o X)
+            function limpiarFormularioAgregarUsuario() {
+                const ids = ['add_nombres', 'add_apellidop', 'add_apellidom', 'add_telefono', 'add_usuario', 'add_contrasena', 'add_num_telefono'];
+                ids.forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.value = '';
+                });
+                const addDepartamento = document.getElementById('add_departamento_id');
+                if (addDepartamento) addDepartamento.value = '';
+                const addPuesto = document.getElementById('add_id_puesto');
+                if (addPuesto) { addPuesto.value = ''; addPuesto.disabled = true; addPuesto.innerHTML = '<option value="">Seleccione un puesto</option>'; }
+                const addJefe = document.getElementById('add_id_jefe');
+                if (addJefe) { addJefe.value = ''; addJefe.disabled = true; addJefe.innerHTML = '<option value="">Seleccione un jefe</option>'; }
+                const addLegion = document.getElementById('add_id_legion');
+                if (addLegion) addLegion.value = '';
+                const addAsignarLegion = document.getElementById('add_asignar_legion');
+                if (addAsignarLegion) addAsignarLegion.checked = false;
+                const divLegion = document.getElementById('div_select_legion');
+                if (divLegion) divLegion.style.display = 'none';
+            }
             
             $(document).ready(() => {
             // Inicializar DataTable con columnas explícitas
@@ -1957,6 +1985,13 @@ class CapHum extends Controller
                 configuraTabla("#historialUsuarios", { registrosPorPagina: 10 });
                 getUsuarios();
             });
+
+            // Al cerrar el offcanvas Agregar Usuario (Cancelar o X), limpiar el formulario
+            const offcanvasAdd = document.getElementById('offcanvasAddUser');
+            if (offcanvasAdd) {
+                offcanvasAdd.addEventListener('hidden.bs.offcanvas', limpiarFormularioAgregarUsuario);
+            }
+        
         
             getUsuarios();
         });
@@ -2019,41 +2054,60 @@ class CapHum extends Controller
             
             let archivosSeleccionados = [];
 
-            document.getElementById("archivoPDF").addEventListener("change", function (e) {
-                const nuevosArchivos = Array.from(e.target.files);
+            function seleccionarArchivoBajaModal() {
+                document.getElementById("archivoPDF").click();
+            }
             
+            function verArchivoCargadoBajaModal(index) {
+                const file = archivosSeleccionados[index];
+                if (file) {
+                    const url = URL.createObjectURL(file);
+                    window.open(url, "_blank");
+                }
+            }
+            
+            document.getElementById("archivoPDF").addEventListener("change", function (e) {
+                const nuevosArchivos = Array.from(e.target.files || []);
                 nuevosArchivos.forEach(file => {
                     if (file.type !== "application/pdf") return;
-            
                     archivosSeleccionados.push(file);
                 });
-            
+                const spanBaja = document.getElementById("bajaModal_nombreArchivo");
+                if (spanBaja) spanBaja.textContent = archivosSeleccionados.length > 0 ? archivosSeleccionados.length + " archivo(s) seleccionado(s)" : "No se ha seleccionado ningún archivo";
                 renderArchivos();
-                this.value = ""; // reset input
+                this.value = "";
             });
             
             function renderArchivos() {
                 const lista = document.getElementById("listaArchivos");
+                const spanBaja = document.getElementById("bajaModal_nombreArchivo");
+                if (!lista) return;
                 lista.innerHTML = "";
-            
+                if (archivosSeleccionados.length === 0) {
+                    lista.style.display = "none";
+                    if (spanBaja) spanBaja.textContent = "No se ha seleccionado ningún archivo";
+                    return;
+                }
+                lista.style.display = "block";
+                if (spanBaja) spanBaja.textContent = archivosSeleccionados.length + " archivo(s) seleccionado(s)";
                 archivosSeleccionados.forEach((file, index) => {
-                    const li = document.createElement("li");
-                    li.className = "list-group-item d-flex justify-content-between align-items-center";
-            
-                    li.innerHTML = `
-                        <div>
-                            <i class="fa fa-file-pdf text-danger me-2"></i>
-                            ${file.name}
-                        </div>
-                        <div>
-                            <i class="fa fa-check-circle text-success me-3"></i>
-                            <i class="fa fa-times-circle text-danger"
-                               style="cursor:pointer"
-                               onclick="eliminarArchivo(${index})"></i>
+                    lista.innerHTML += `
+                        <div class="d-flex align-items-center justify-content-between p-2 mb-2 border rounded" style="background-color: #f8f9fa;">
+                            <div class="d-flex align-items-center gap-2">
+                                <i class="fa fa-file-pdf text-danger"></i>
+                                <span>${file.name}</span>
+                                <span class="badge bg-success rounded-pill"><i class="fa fa-check"></i></span>
+                            </div>
+                            <div class="d-flex gap-1">
+                                <button type="button" class="btn btn-sm btn-info p-1" onclick="verArchivoCargadoBajaModal(${index})" title="Ver archivo" style="width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;">
+                                    <i class="fa fa-eye" style="font-size: 12px;"></i>
+                                </button>
+                                <button type="button" class="btn btn-sm btn-danger p-1" onclick="eliminarArchivo(${index})" title="Eliminar archivo" style="width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;">
+                                    <i class="fa fa-times" style="font-size: 12px;"></i>
+                                </button>
+                            </div>
                         </div>
                     `;
-            
-                    lista.appendChild(li);
                 });
             }
             
@@ -3082,10 +3136,10 @@ class CapHum extends Controller
             // Función para cargar archivos existentes
             function cargarArchivosExistentes(registroBaja) {
                 fetch('/caphum/getDocumentosBaja?registro_baja=' + registroBaja)
-                    .then(res => res.json())
+                    .then(res => res.json())                
                     .then(resp => {
                         if (resp.success && resp.datos) {
-                            archivosSubidos = resp.datos;
+                            archivosSubidos = resp.datos;                                                                                                       
                             renderizarArchivosSubidos();
                         } else {
                             archivosSubidos = [];

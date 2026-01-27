@@ -139,32 +139,8 @@ class Departamentos extends Controller
             data: { nombre: nombre, id_departamento: id_departamento },
             onSuccess: (resp) => {
               if (resp.success) {
-                // Insertar dinámicamente el nuevo puesto en la lista
-                lista.insertAdjacentHTML('beforeend', `
-                  <li class="d-flex mb-4 align-items-center puesto-item">
-                    <div class="avatar flex-shrink-0 me-4">
-                      <span class="avatar-initial rounded bg-label-secondary">
-                        <i class="fa fa-asterisk icon-lg"></i>
-                      </span>
-                    </div>
-                    <div class="flex-grow-1">
-                      <div class="d-flex align-items-center gap-2">
-                        <h6 class="mb-0 fw-normal puesto-nombre" 
-                            contenteditable="false"
-                            data-puesto-id="${resp.id_puesto ?? ''}"
-                            onfocus="inicioEdicion(this)"
-                            onblur="guardarPuesto(this)">
-                          ${nombre}
-                        </h6>
-                        <i class="fa fa-pencil editar-puesto"
-                           onclick="forzarEdicion(this)"></i>
-                      </div>
-                      <p class="text-muted mb-0">Puesto agregado recientemente</p>
-                    </div>
-                  </li>
-                `);
-        
-                // Limpiar input y ocultar contenedor
+                // Recargar lista para que el nuevo puesto tenga número y sea arrastrable
+                cargarPuestosDepartamento(id_departamento);
                 input.value = '';
                 document.getElementById('nuevoPuestoContainer').classList.add('d-none');
               } else {
@@ -229,40 +205,111 @@ class Departamentos extends Controller
                 return;
               }
         
-              resp.datos.forEach(p => {
-                lista.insertAdjacentHTML('beforeend', crearItemPuesto(p));
+              resp.datos.forEach((p, i) => {
+                lista.insertAdjacentHTML('beforeend', crearItemPuesto(p, i + 1));
               });
+              initDragDropPuestos();
             }
           });
         }
         
-        function crearItemPuesto(p) {
+        function crearItemPuesto(p, numero) {
+          const num = numero || 1;
+          const nombreEsc = (p.puesto_nombre || '').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+          const descEsc = (p.descripcion || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
           return `
-            <li class="d-flex mb-4 align-items-center puesto-item">
-              <div class="avatar flex-shrink-0 me-4">
-                <span class="avatar-initial rounded bg-label-primary">
-                  <i class="fa fa-certificate"></i>
-                </span>
-              </div>
-        
+            <li class="list-group-item drag-item d-flex align-items-center puesto-item mb-2 rounded"
+                draggable="true"
+                data-puesto-id="${p.id_puesto}">
+              <span class="puesto-numero">${num}</span>
               <div class="flex-grow-1">
                 <div class="d-flex align-items-center gap-2">
                   <h6 class="mb-0 fw-normal puesto-nombre"
                       contenteditable="false"
                       data-puesto-id="${p.id_puesto}">
-                    ${p.puesto_nombre}
+                    ${nombreEsc}
                   </h6>
-        
                   <i class="fa fa-pencil editar-puesto"
                      onclick="forzarEdicion(this)"></i>
                 </div>
-        
-                <p class="text-muted mb-0">
-                  ${p.descripcion ?? ''}
-                </p>
+                <p class="text-muted mb-0 small">${descEsc}</p>
               </div>
             </li>
           `;
+        }
+        
+        function actualizarNumerosPuestos() {
+          const lista = document.getElementById('listaPuestos');
+          if (!lista) return;
+          const items = lista.querySelectorAll('.drag-item');
+          items.forEach((el, i) => {
+            const numSpan = el.querySelector('.puesto-numero');
+            if (numSpan) numSpan.textContent = i + 1;
+          });
+        }
+        
+        function guardarOrdenPuestos() {
+          const idDep = document.getElementById('id_departamento').value;
+          if (!idDep) return;
+          const lista = document.getElementById('listaPuestos');
+          const items = lista.querySelectorAll('.drag-item[data-puesto-id]');
+          const ordenes = Array.from(items).map(el => el.getAttribute('data-puesto-id'));
+          if (ordenes.length === 0) return;
+          http.request({
+            endpoint: '/departamentos/UpdateOrdenPuestos',
+            method: 'POST',
+            data: { id_departamento: idDep, ordenes: ordenes },
+            onSuccess: (resp) => {
+              if (resp && resp.success) console.log('Orden guardado.');
+            },
+            onError: (err) => console.error('Error al guardar orden:', err)
+          });
+        }
+        
+        function initDragDropPuestos() {
+          const lista = document.getElementById('listaPuestos');
+          if (!lista) return;
+          const items = lista.querySelectorAll('.drag-item');
+          let draggedEl = null;
+          items.forEach(item => {
+            item.setAttribute('draggable', 'true');
+            item.addEventListener('dragstart', function (e) {
+              draggedEl = this;
+              this.classList.add('dragging');
+              e.dataTransfer.setData('text/plain', this.getAttribute('data-puesto-id'));
+              e.dataTransfer.effectAllowed = 'move';
+              e.dataTransfer.setDragImage(this, 0, 0);
+            });
+            item.addEventListener('dragend', function () {
+              this.classList.remove('dragging');
+              lista.querySelectorAll('.drag-item').forEach(i => i.classList.remove('drag-over'));
+              draggedEl = null;
+              actualizarNumerosPuestos();
+              guardarOrdenPuestos();
+            });
+            item.addEventListener('dragover', function (e) {
+              e.preventDefault();
+              e.dataTransfer.dropEffect = 'move';
+              if (draggedEl && draggedEl !== this) this.classList.add('drag-over');
+            });
+            item.addEventListener('dragleave', function () {
+              this.classList.remove('drag-over');
+            });
+            item.addEventListener('drop', function (e) {
+              e.preventDefault();
+              this.classList.remove('drag-over');
+              if (!draggedEl || draggedEl === this) return;
+              const all = Array.from(lista.querySelectorAll('.drag-item'));
+              const idxDrag = all.indexOf(draggedEl);
+              const idxTarget = all.indexOf(this);
+              if (idxDrag === -1 || idxTarget === -1) return;
+              if (idxDrag < idxTarget) {
+                this.parentNode.insertBefore(draggedEl, this.nextSibling);
+              } else {
+                this.parentNode.insertBefore(draggedEl, this);
+              }
+            });
+          });
         }
 
 
@@ -538,6 +585,19 @@ class Departamentos extends Controller
         $id_pues = $_POST['id_puesto'] ?? null;
         $nombre = $_POST['nombre'] ?? null;
         self::respuestaJSON(DepartamentosDAO::UpdateNombrePuesto($id_pues, $nombre));
+    }
+
+    /**
+     * Actualizar orden de puestos (drag and drop)
+     */
+    public function UpdateOrdenPuestos()
+    {
+        $id_departamento = $_POST['id_departamento'] ?? null;
+        $ordenes = $_POST['ordenes'] ?? [];
+        if (!is_array($ordenes)) {
+            $ordenes = [];
+        }
+        DepartamentosDAO::UpdateOrdenPuestos($id_departamento, $ordenes);
     }
 
     public function InsertDepartamento()

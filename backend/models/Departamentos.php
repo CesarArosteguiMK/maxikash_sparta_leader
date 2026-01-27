@@ -62,6 +62,7 @@ class Departamentos extends Model
                     id as id_puesto, nombre as puesto_nombre, '' as descripcion, $id_departamento as id_departamento
                 FROM puesto
                 WHERE departamento_id = $id_departamento
+                ORDER BY nivel DESC, id ASC
             ");
             $datos = is_array($r) ? $r : [];
 
@@ -117,26 +118,106 @@ class Departamentos extends Model
         exit; // <- Muy importante: evita que se imprima algo extra
     }
 
-    public static function InsertPuestos($nombre, $id_departamento)
+    /**
+     * Actualiza el orden de los puestos reasignando la columna nivel.
+     * Primer puesto de la lista = mayor nivel (dept*1000+999), último = dept*1000+1.
+     * @param int $id_departamento
+     * @param array $ordenes Array de id_puesto en el orden deseado (índice 0 = primero)
+     */
+    public static function UpdateOrdenPuestos($id_departamento, $ordenes)
     {
-        // Cabecera JSON
         header('Content-Type: application/json; charset=utf-8');
 
         try {
+            $id_departamento = (int) $id_departamento;
+            if (!$id_departamento || !is_array($ordenes)) {
+                echo json_encode([
+                    'success' => false,
+                    'mensaje' => 'Datos inválidos.',
+                    'datos' => []
+                ]);
+                exit;
+            }
+
             $db = new Database();
-            $r = $db->queryOne(
-                "
+            $base = $id_departamento * 1000; // Ej: 11 -> 11000, rango 11001..11999
+            foreach ($ordenes as $pos => $id_puesto) {
+                $id_puesto = (int) $id_puesto;
+                if ($id_puesto <= 0) continue;
+                $nivel = $base + (999 - (int) $pos); // Primer pos = 11999, último = 11001
+                $db->queryOne("
+                    UPDATE __SPARTA_SECRET_REDACTED__.puesto
+                    SET nivel = $nivel
+                    WHERE id = $id_puesto AND departamento_id = $id_departamento
+                ");
+            }
+
+            echo json_encode([
+                'success' => true,
+                'mensaje' => 'Orden actualizado.',
+                'datos' => []
+            ]);
+        } catch (\Exception $e) {
+            echo json_encode([
+                'success' => false,
+                'mensaje' => 'Error al actualizar orden: ' . $e->getMessage(),
+                'datos' => []
+            ]);
+        }
+        exit;
+    }
+
+    public static function InsertPuestos($nombre, $id_departamento)
+    {
+        header('Content-Type: application/json; charset=utf-8');
+
+        try {
+            $id_departamento = (int) $id_departamento;
+            $nombre = addslashes($nombre);
+            $db = new Database();
+
+            // Insertar con nivel bajo para que quede al final (luego se rebalancea)
+            $db->queryOne("
                 INSERT INTO __SPARTA_SECRET_REDACTED__.puesto
                     (id, clave, nombre, nivel, activo, departamento_id, es_jefe, descripcion)
-                    VALUES(null, '$nombre', '$nombre', 100, 1, $id_departamento, 1, NULL);
-                                ");
-            $datos = is_array($r) ? $r : [];
+                VALUES (null, '$nombre', '$nombre', 0, 1, $id_departamento, 1, NULL)
+            ");
 
-            // echo JSON puro y nada más
+            $newId = $db->queryOne("SELECT LAST_INSERT_ID() AS id");
+            $id_puesto = (int) ($newId['id'] ?? 0);
+            if ($id_puesto <= 0) {
+                echo json_encode([
+                    'success' => false,
+                    'mensaje' => 'No se obtuvo el ID del puesto insertado.',
+                    'datos' => []
+                ]);
+                exit;
+            }
+
+            // Rebalancear niveles: todos los puestos del departamento en rango dept*1000+1 .. dept*1000+999
+            // Orden actual: nivel DESC (el nuevo tiene 0, queda último). Asignar 11999, 11998, ... 11001
+            $rows = $db->queryAll("
+                SELECT id FROM __SPARTA_SECRET_REDACTED__.puesto
+                WHERE departamento_id = $id_departamento
+                ORDER BY nivel DESC, id ASC
+            ");
+            $ordenes = is_array($rows) ? array_column($rows, 'id') : [];
+            $base = $id_departamento * 1000;
+            foreach ($ordenes as $pos => $id) {
+                $nivel = $base + (999 - (int) $pos);
+                $id = (int) $id;
+                $db->queryOne("
+                    UPDATE __SPARTA_SECRET_REDACTED__.puesto
+                    SET nivel = $nivel
+                    WHERE id = $id AND departamento_id = $id_departamento
+                ");
+            }
+
             echo json_encode([
-                "success" => true,
-                "mensaje" => "Puesto insertado.",
-                "datos" => $datos
+                'success' => true,
+                'mensaje' => 'Puesto insertado.',
+                'datos' => ['id_puesto' => $id_puesto],
+                'id_puesto' => $id_puesto
             ]);
 
         } catch (\Exception $e) {

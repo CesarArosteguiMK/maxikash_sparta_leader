@@ -67,6 +67,37 @@
         transform: scale(1.2);
     }
 
+    /* ===== ORDEN DRAG AND DROP ===== */
+    #listaPuestos.drag-list .drag-item {
+        cursor: move;
+        transition: box-shadow 0.2s ease, opacity 0.2s ease;
+    }
+    #listaPuestos.drag-list .drag-item:hover {
+        box-shadow: 0 2px 8px rgba(105, 108, 255, 0.15);
+    }
+    #listaPuestos.drag-list .drag-item.dragging {
+        opacity: 0.6;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+    }
+    #listaPuestos.drag-list .drag-item.drag-over {
+        border-top: 2px solid #696cff;
+    }
+    .puesto-numero {
+        width: 32px;
+        height: 32px;
+        min-width: 32px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #696cff 0%, #5f61e6 100%);
+        color: #fff;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 0.95rem;
+        box-shadow: 0 2px 6px rgba(105, 108, 255, 0.35);
+        margin-right: 1rem;
+    }
+
     /* ===== MODAL DESLIZANTE ESTILO SNEAT ===== */
     .modal-add-new-cc {
         max-width: 500px;
@@ -220,8 +251,8 @@
                             </div>
 
                             
-                            <!-- Lista de puestos -->
-                            <ul class="p-0 m-0" id="listaPuestos">
+                            <!-- Lista de puestos (arrastrable para reordenar) -->
+                            <ul class="list-group list-group-flush p-0 m-0 drag-list" id="listaPuestos">
 
                                 <!-- Puesto -->
                                 <li class="d-flex mb-4 align-items-center puesto-item">
