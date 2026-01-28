@@ -2427,159 +2427,101 @@ JS;
 
 public function descargarReporteDictamen()
 {
-    $fechaInicio = $_GET['fechaInicio'] ?? '';
-    $fechaFin = $_GET['fechaFin'] ?? '';
-    
-    // Validar
-    if (empty($fechaInicio) || empty($fechaFin)) {
-        die('Fechas requeridas');
+    // Limpiar buffer para evitar que cualquier eco previo rompa el Excel
+    while (ob_get_level()) {
+        ob_end_clean();
     }
     
-    // Validar formato
-    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaInicio) || 
-        !preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaFin)) {
-        die('Formato de fecha inválido. Use YYYY-MM-DD');
-    }
-    
-    // Obtener datos
-    $reportes = EstadoCuentaDAO::obtenerReportesDictamenParaDescarga($fechaInicio, $fechaFin);
-    
-    // Cargar PhpSpreadsheet
-    require_once __DIR__ . '/../libs/PhpSpreadsheet/vendor/autoload.php';
-    
-    // Crear nuevo documento Excel
-    $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
-    $sheet = $spreadsheet->getActiveSheet();
-    $sheet->setTitle('Dictamen Llamadas');
-    
-    // Encabezados
-    $headers = [
-        'A' => 'ID Dictamen',
-        'B' => 'Fecha Registro',
-        'C' => 'Hora Registro',
-        'D' => 'ID Crédito',
-        'E' => 'Cliente',
-        'F' => 'Tipo Contacto',
-        'G' => 'Resultado Contacto',
-        'H' => 'Dictamen',
-        'I' => 'Motivo No Pago',
-        'J' => 'Tipo Motivo No Pago',
-        'K' => 'Plataforma',
-        'L' => 'Fuente de Ingresos',
-        'M' => 'Comentarios',
-        'N' => 'Agente'
-    ];
-    
-    // Escribir encabezados
-    foreach ($headers as $col => $header) {
-        $sheet->setCellValue($col . '1', $header);
-    }
-    
-    // ✅ ESTILO DE ENCABEZADOS
-    $headerStyle = [
-        'font' => [
-            'bold' => true,
-            'color' => ['rgb' => 'FFFFFF'],
-            'size' => 12
-        ],
-        'fill' => [
-            'fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
-            'startColor' => ['rgb' => '4472C4']
-        ],
-        'alignment' => [
-            'horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER,
-            'vertical' => \PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER,
-            'wrapText' => true
-        ],
-        'borders' => [
-            'allBorders' => [
-                'borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN,
-                'color' => ['rgb' => '000000']
-            ]
-        ]
-    ];
-    
-    $sheet->getStyle('A1:N1')->applyFromArray($headerStyle);
-    $sheet->getRowDimension(1)->setRowHeight(30);
-    
-    // ✅ ESCRIBIR DATOS
-    $row = 2;
-    foreach ($reportes as $reporte) {
-        $sheet->setCellValue('A' . $row, $reporte['id_dictamen'] ?? '');
-        $sheet->setCellValue('B' . $row, $reporte['fecha_registro'] ?? '');
-        $sheet->setCellValue('C' . $row, $reporte['hora_registro'] ?? '');
-        $sheet->setCellValue('D' . $row, $reporte['id_credito'] ?? '');
-        $sheet->setCellValue('E' . $row, $reporte['nombre_cliente'] ?? '');
-        $sheet->setCellValue('F' . $row, $reporte['tipo_contacto'] ?? '');
-        $sheet->setCellValue('G' . $row, $reporte['resultado_contacto'] ?? '');
-        $sheet->setCellValue('H' . $row, $reporte['dictamen'] ?? '');
-        $sheet->setCellValue('I' . $row, $reporte['motivo_no_pago'] ?? '');
-        $sheet->setCellValue('J' . $row, $reporte['tipo_motivo_no_pago'] ?? '');
-        $sheet->setCellValue('K' . $row, $reporte['plataforma'] ?? '');
-        $sheet->setCellValue('L' . $row, $reporte['fuente_ingresos'] ?? '');
-        $sheet->setCellValue('M' . $row, $reporte['comentarios'] ?? '');
-        $sheet->setCellValue('N' . $row, $reporte['agente'] ?? '');
+    try {
+        // Obtener parámetros de fecha del GET
+        $fechaInicio = $_GET['fechaInicio'] ?? null;
+        $fechaFin = $_GET['fechaFin'] ?? null;
         
-        $row++;
+        // Validar fechas
+        if (empty($fechaInicio) || empty($fechaFin)) {
+            die('Fechas requeridas');
+        }
+        
+        // Validar formato de fechas
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaInicio) || 
+            !preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaFin)) {
+            die('Formato de fecha inválido. Use YYYY-MM-DD');
+        }
+        
+        // Obtener datos del reporte
+        $reportes = EstadoCuentaDAO::obtenerReportesDictamenParaDescarga($fechaInicio, $fechaFin);
+        
+        if (empty($reportes)) {
+            die('No hay datos para descargar en el rango de fechas especificado');
+        }
+        
+        // Preparar datos para Excel
+        $data = [];
+        foreach ($reportes as $reporte) {
+            // Formatear fecha si existe
+            $fechaRegistro = $reporte['fecha_registro'] ?? '';
+            if ($fechaRegistro) {
+                try {
+                    $fechaRegistro = date('d/m/Y', strtotime($fechaRegistro));
+                } catch (\Exception $e) {
+                    // Mantener el formato original si hay error
+                }
+            }
+            
+            $data[] = [
+                'id_dictamen' => $reporte['id_dictamen'] ?? '',
+                'fecha_registro' => $fechaRegistro,
+                'hora_registro' => $reporte['hora_registro'] ?? '',
+                'id_credito' => $reporte['id_credito'] ?? '',
+                'nombre_cliente' => $reporte['nombre_cliente'] ?? '',
+                'tipo_contacto' => $reporte['tipo_contacto'] ?? '',
+                'resultado_contacto' => $reporte['resultado_contacto'] ?? '',
+                'dictamen' => $reporte['dictamen'] ?? '',
+                'motivo_no_pago' => $reporte['motivo_no_pago'] ?? '',
+                'tipo_motivo_no_pago' => $reporte['tipo_motivo_no_pago'] ?? '',
+                'plataforma' => $reporte['plataforma'] ?? '',
+                'fuente_ingresos' => $reporte['fuente_ingresos'] ?? '',
+                'comentarios' => $reporte['comentarios'] ?? '',
+                'agente' => $reporte['agente'] ?? ''
+            ];
+        }
+        
+        // Definir columnas para Excel
+        $columnas = [
+            \PHPSpreadsheet::ColumnaExcel('id_dictamen', 'ID DICTAMEN'),
+            \PHPSpreadsheet::ColumnaExcel('fecha_registro', 'FECHA REGISTRO'),
+            \PHPSpreadsheet::ColumnaExcel('hora_registro', 'HORA REGISTRO'),
+            \PHPSpreadsheet::ColumnaExcel('id_credito', 'ID CRÉDITO'),
+            \PHPSpreadsheet::ColumnaExcel('nombre_cliente', 'CLIENTE'),
+            \PHPSpreadsheet::ColumnaExcel('tipo_contacto', 'TIPO CONTACTO'),
+            \PHPSpreadsheet::ColumnaExcel('resultado_contacto', 'RESULTADO CONTACTO'),
+            \PHPSpreadsheet::ColumnaExcel('dictamen', 'DICTAMEN'),
+            \PHPSpreadsheet::ColumnaExcel('motivo_no_pago', 'MOTIVO NO PAGO'),
+            \PHPSpreadsheet::ColumnaExcel('tipo_motivo_no_pago', 'TIPO MOTIVO NO PAGO'),
+            \PHPSpreadsheet::ColumnaExcel('plataforma', 'PLATAFORMA'),
+            \PHPSpreadsheet::ColumnaExcel('fuente_ingresos', 'FUENTE DE INGRESOS'),
+            \PHPSpreadsheet::ColumnaExcel('comentarios', 'COMENTARIOS'),
+            \PHPSpreadsheet::ColumnaExcel('agente', 'AGENTE')
+        ];
+        
+        // Generar nombre del archivo
+        $nombreArchivo = 'Dictamen_Llamadas_' . $fechaInicio . '_a_' . $fechaFin . '_' . date('Y-m-d');
+        
+        // Descargar Excel directamente usando PHPSpreadsheet
+        \PHPSpreadsheet::DescargaExcel(
+            $nombreArchivo,
+            "Dictamen de Llamadas",
+            "Dictamen Llamadas",
+            $columnas,
+            $data
+        );
+        
+        // Terminar ejecución para que no se agregue nada extra
+        exit;
+    } catch (\Exception $e) {
+        error_log('Error en descargarReporteDictamen: ' . $e->getMessage());
+        die('Error al generar el archivo Excel: ' . $e->getMessage());
     }
-    
-    // ✅ ESTILO DE DATOS (bordes y alineación)
-    $lastRow = $row - 1;
-    $dataStyle = [
-        'alignment' => [
-            'vertical' => \PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_TOP,
-            'wrapText' => true
-        ],
-        'borders' => [
-            'allBorders' => [
-                'borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN,
-                'color' => ['rgb' => 'CCCCCC']
-            ]
-        ]
-    ];
-    
-    if ($lastRow > 1) {
-        $sheet->getStyle('A2:N' . $lastRow)->applyFromArray($dataStyle);
-    }
-    
-    // ✅ AUTOAJUSTAR ANCHO DE COLUMNAS
-    $columnWidths = [
-        'A' => 12,  // ID Dictamen
-        'B' => 15,  // Fecha
-        'C' => 12,  // Hora
-        'D' => 12,  // ID Crédito
-        'E' => 30,  // Cliente
-        'F' => 18,  // Tipo Contacto
-        'G' => 20,  // Resultado Contacto
-        'H' => 18,  // Dictamen
-        'I' => 35,  // Motivo No Pago
-        'J' => 20,  // Tipo Motivo
-        'K' => 15,  // Plataforma
-        'L' => 25,  // Fuente Ingresos
-        'M' => 40,  // Comentarios
-        'N' => 25   // Agente
-    ];
-    
-    foreach ($columnWidths as $col => $width) {
-        $sheet->getColumnDimension($col)->setWidth($width);
-    }
-    
-    // ✅ CONGELAR PANEL (primera fila)
-    $sheet->freezePane('A2');
-    
-    // ✅ FILTROS AUTOMÁTICOS
-    $sheet->setAutoFilter('A1:N' . $lastRow);
-    
-    // Generar archivo Excel
-    $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
-    
-    // Headers para descarga
-    header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    header('Content-Disposition: attachment; filename="Dictamen_Llamadas-' . $fechaInicio . '_a_' . $fechaFin . '.xlsx"');
-    header('Cache-Control: max-age=0');
-    
-    $writer->save('php://output');
-    exit;
 }
 
 
