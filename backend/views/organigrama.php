@@ -62,7 +62,41 @@
         margin-bottom: 8px;
     }
 
-
+    /* Select con búsqueda (persona y niveles) */
+    .select-search-wrapper { position: relative; width: 100%; max-width: 350px; }
+    .select-search-wrapper .form-select { display: none; }
+    .select-search-display {
+        position: relative; width: 100%;
+        padding: 0.375rem 2.25rem 0.375rem 0.75rem;
+        font-size: 1rem; font-weight: 400; line-height: 1.5;
+        color: #697a8d; background-color: #fff;
+        border: 1px solid #d9dee3; border-radius: 0.375rem;
+        cursor: pointer; transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+    }
+    .select-search-display:hover { border-color: #b0b7c3; }
+    .select-search-display::after {
+        content: '▼'; position: absolute; right: 0.75rem; top: 50%; transform: translateY(-50%);
+        font-size: 0.75rem; color: #697a8d; pointer-events: none;
+    }
+    .select-search-dropdown {
+        position: absolute; top: 100%; left: 0; right: 0; z-index: 1050; display: none;
+        margin-top: 0.25rem; background: #fff; border: 1px solid #d9dee3; border-radius: 0.375rem;
+        box-shadow: 0 0.25rem 0.5rem rgba(0,0,0,0.1); max-height: 300px; overflow: hidden;
+    }
+    .select-search-dropdown.show { display: block; }
+    .select-search-input {
+        width: 100%; padding: 0.5rem 0.75rem; border: none; border-bottom: 1px solid #d9dee3;
+        font-size: 0.9375rem; outline: none;
+    }
+    .select-search-input:focus { border-bottom-color: #696cff; }
+    .select-search-options { max-height: 250px; overflow-y: auto; }
+    .select-search-option {
+        padding: 0.5rem 0.75rem; cursor: pointer; transition: background-color 0.15s ease;
+    }
+    .select-search-option:hover { background-color: #f5f5f9; }
+    .select-search-option.selected { background-color: #696cff; color: #fff; }
+    .select-search-option.no-results { padding: 1rem; text-align: center; color: #999; cursor: default; }
+    .select-search-option.no-results:hover { background-color: transparent; }
 
 </style>
 
@@ -231,7 +265,122 @@
 
     document.addEventListener("DOMContentLoaded", function () {
 
+        /* Select con búsqueda (reutilizado para persona y niveles) */
+        function SearchableSelect(selectElement) {
+            this.select = selectElement;
+            this.options = [];
+            this.selectedValue = '';
+            this.isOpen = false;
+            this.init();
+        }
+        SearchableSelect.prototype.init = function () {
+            this.wrapper = document.createElement('div');
+            this.wrapper.className = 'select-search-wrapper';
+            this.select.parentNode.insertBefore(this.wrapper, this.select);
+            this.wrapper.appendChild(this.select);
+            this.display = document.createElement('div');
+            this.display.className = 'select-search-display';
+            this.display.textContent = this.select.options[this.select.selectedIndex] ? this.select.options[this.select.selectedIndex].text : 'Seleccione una opción';
+            this.wrapper.appendChild(this.display);
+            this.dropdown = document.createElement('div');
+            this.dropdown.className = 'select-search-dropdown';
+            this.wrapper.appendChild(this.dropdown);
+            this.searchInput = document.createElement('input');
+            this.searchInput.type = 'text';
+            this.searchInput.className = 'select-search-input';
+            this.searchInput.placeholder = 'Buscar...';
+            this.dropdown.appendChild(this.searchInput);
+            this.optionsContainer = document.createElement('div');
+            this.optionsContainer.className = 'select-search-options';
+            this.dropdown.appendChild(this.optionsContainer);
+            this.loadOptions();
+            this.attachEvents();
+        };
+        SearchableSelect.prototype.loadOptions = function () {
+            this.options = [];
+            Array.from(this.select.options).forEach(function (option) {
+                if (option.value !== '') {
+                    this.options.push({ value: option.value, text: option.text });
+                }
+            }, this);
+            this.renderOptions(this.options);
+        };
+        SearchableSelect.prototype.renderOptions = function (filteredOptions) {
+            this.optionsContainer.innerHTML = '';
+            if (filteredOptions.length === 0) {
+                var noResults = document.createElement('div');
+                noResults.className = 'select-search-option no-results';
+                noResults.textContent = 'No se encontraron resultados';
+                this.optionsContainer.appendChild(noResults);
+                return;
+            }
+            filteredOptions.forEach(function (option) {
+                var optionDiv = document.createElement('div');
+                optionDiv.className = 'select-search-option';
+                optionDiv.textContent = option.text;
+                optionDiv.dataset.value = option.value;
+                if (option.value === this.selectedValue) optionDiv.classList.add('selected');
+                optionDiv.addEventListener('click', function () { this.selectOption(option); }.bind(this));
+                this.optionsContainer.appendChild(optionDiv);
+            }, this);
+        };
+        SearchableSelect.prototype.selectOption = function (option) {
+            this.selectedValue = option.value;
+            this.select.value = option.value;
+            this.display.textContent = option.text;
+            this.select.dispatchEvent(new Event('change', { bubbles: true }));
+            this.close();
+        };
+        SearchableSelect.prototype.open = function () {
+            if (this.select.disabled) return;
+            this.isOpen = true;
+            this.dropdown.classList.add('show');
+            this.searchInput.value = '';
+            this.searchInput.focus();
+            this.loadOptions();
+        };
+        SearchableSelect.prototype.close = function () {
+            this.isOpen = false;
+            this.dropdown.classList.remove('show');
+            this.searchInput.value = '';
+        };
+        SearchableSelect.prototype.attachEvents = function () {
+            var self = this;
+            this.display.addEventListener('click', function (e) {
+                e.stopPropagation();
+                if (self.isOpen) self.close(); else self.open();
+            });
+            this.searchInput.addEventListener('input', function (e) {
+                var searchTerm = e.target.value.toLowerCase().trim();
+                var filtered = self.options.filter(function (o) { return o.text.toLowerCase().includes(searchTerm); });
+                self.renderOptions(filtered);
+            });
+            this.dropdown.addEventListener('click', function (e) { e.stopPropagation(); });
+            document.addEventListener('click', function () { if (self.isOpen) self.close(); });
+            var observer = new MutationObserver(function () {
+                self.loadOptions();
+                var selectedOption = self.select.options[self.select.selectedIndex];
+                if (selectedOption) {
+                    self.display.textContent = selectedOption.text;
+                    self.selectedValue = selectedOption.value;
+                }
+            });
+            observer.observe(this.select, { childList: true, subtree: true });
+        };
+        SearchableSelect.prototype.refresh = function () {
+            this.loadOptions();
+            var selectedOption = this.select.options[this.select.selectedIndex];
+            if (selectedOption) {
+                this.display.textContent = selectedOption.text;
+                this.selectedValue = selectedOption.value;
+            } else {
+                this.display.textContent = 'Seleccione una opción';
+                this.selectedValue = '';
+            }
+        };
+
         let organigramaRows = [];
+        var personaSearchSelect = null;
 
         function getSubordinadosDirectos(idJefe) {
             return organigramaRows.filter(function (r) {
@@ -373,6 +522,7 @@
                     slot1.innerHTML = "";
                     slot1.appendChild(frag.label);
                     slot1.appendChild(frag.sel);
+                    new SearchableSelect(frag.sel);
                 }
                 return;
             }
@@ -384,6 +534,7 @@
             col.innerHTML = "";
             col.appendChild(frag.label);
             col.appendChild(frag.sel);
+            new SearchableSelect(frag.sel);
         }
 
         function cargarDepartamentosPorTipo(id, seleccionado = null) {
@@ -494,6 +645,7 @@
             document.getElementById("personaLevelsContainer").innerHTML = "";
             organigramaRows = [];
             document.getElementById("btnGuardarOrganigrama").disabled = true;
+            if (personaSearchSelect) personaSearchSelect.refresh();
 
             if (!dep_id) return;
 
@@ -509,6 +661,7 @@
                     if (!respuesta.success) {
                         personaSelect.innerHTML = "<option>Error al cargar personas</option>";
                         personaSelect.disabled = true;
+                        if (personaSearchSelect) personaSearchSelect.refresh();
                         return;
                     }
 
@@ -519,6 +672,7 @@
                     if (!personas.length) {
                         personaSelect.innerHTML = "<option>No hay personas</option>";
                         personaSelect.disabled = true;
+                        if (personaSearchSelect) personaSearchSelect.refresh();
                         return;
                     }
 
@@ -528,11 +682,17 @@
                     });
 
                     personaSelect.disabled = false;
+                    if (!personaSearchSelect) {
+                        personaSearchSelect = new SearchableSelect(personaSelect);
+                    } else {
+                        personaSearchSelect.refresh();
+                    }
                 })
                 .catch(err => {
                     console.error("Error al cargar personas:", err);
                     personaSelect.innerHTML = "<option>Error al cargar personas</option>";
                     personaSelect.disabled = true;
+                    if (personaSearchSelect) personaSearchSelect.refresh();
                 });
         });
 
@@ -574,6 +734,7 @@
             document.getElementById("resultado").innerHTML = "";
             organigramaRows = [];
             document.getElementById("btnGuardarOrganigrama").disabled = true;
+            if (personaSearchSelect) personaSearchSelect.refresh();
         });
 
         /* ============================= */
