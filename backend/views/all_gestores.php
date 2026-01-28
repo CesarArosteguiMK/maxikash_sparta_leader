@@ -424,7 +424,7 @@
                 </div>
 
                 <div class="mb-2">
-                    <label class="form-label">Fecha de acta</label>
+                    <label class="form-label">Fecha de acta <span class="text-danger">*</span></label>
                     <div class="fecha-acta-wrapper" id="fecha_acta_wrapper">
                         <input type="date" id="add_fecha_ingreso" class="form-control">
                     </div>

@@ -1188,7 +1188,7 @@ class CapHum extends Model
         $apellidom = addslashes($data['apellidom']);
         $numero_empleado = addslashes($data['numero_empleado']);
         $correo = addslashes($data['correo'] ?? '');
-        $telefono_uno = addslashes($data['telefono_uno'] ?? '');
+        $telefono_uno = addslashes($data['telefono'] ?? $data['telefono_uno'] ?? '');
         $telefono_dos = addslashes($data['telefono_dos'] ?? '');
         $estatus = addslashes($data['estatus'] ?? 'Activo');
         $id_puesto = addslashes($data['id_puesto']);
@@ -1203,12 +1203,17 @@ class CapHum extends Model
 
             $fecha_ingreso_sql = $fecha_ingreso !== null ? "'$fecha_ingreso'" : 'NULL';
 
-            // 1️⃣ Ejecutamos INSERT con queryOne() aunque no devuelve filas (fecha_registro = fecha y hora automáticas)
+            // Fecha y hora de CDMX para fecha_registro
+            $tz = new \DateTimeZone('America/Mexico_City');
+            $fechaRegistro = (new \DateTime('now', $tz))->format('Y-m-d H:i:s');
+            $fechaRegistro = addslashes($fechaRegistro);
+
+            // 1️⃣ Ejecutamos INSERT con queryOne() (fecha_registro = hora CDMX)
             $db->queryOne("
             INSERT INTO __SPARTA_SECRET_REDACTED__.persona
             (nombres, apellidop, apellidom, numero_empleado, correo, telefono_uno, telefono_dos, estatus, user_name, password, fecha_ingreso, fecha_registro)
             VALUES
-            ('$nombres', '$apellidop', '$apellidom', '$numero_empleado', '$correo', '$telefono_uno', '$telefono_dos', '$estatus', '$user_name', '$password', $fecha_ingreso_sql, NOW())
+            ('$nombres', '$apellidop', '$apellidom', '$numero_empleado', '$correo', '$telefono_uno', '$telefono_dos', '$estatus', '$user_name', '$password', $fecha_ingreso_sql, '$fechaRegistro')
         ");
 
 

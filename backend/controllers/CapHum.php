@@ -1915,12 +1915,13 @@ class CapHum extends Controller
                 const fecha_ingreso = document.getElementById('add_fecha_ingreso').value.trim() || null;
             
             
-                // 🔴 Validaciones obligatorias
+                // 🔴 Validaciones obligatorias (todos los campos)
                 if (!nombres) return Swal.fire('Error', 'Los nombres son obligatorios', 'error');
                 if (!apellidop) return Swal.fire('Error', 'El apellido paterno es obligatorio', 'error');
-                if (!apellidom) return Swal.fire('Error', 'El apellido paterno es obligatorio', 'error');
-            
-            
+                if (!apellidom) return Swal.fire('Error', 'El apellido materno es obligatorio', 'error');
+                if (!telefono) return Swal.fire('Error', 'El teléfono es obligatorio', 'error');
+                if (!fecha_ingreso) return Swal.fire('Error', 'La fecha de acta es obligatoria', 'error');
+
                 // 🔴 Validar relaciones
                 if (!id_puesto) return Swal.fire('Error', 'Debe seleccionar un puesto', 'error');
                 if (!departamento_id) return Swal.fire('Error', 'Debe seleccionar un departamento', 'error');
@@ -4689,13 +4690,25 @@ class CapHum extends Controller
         $inputJSON = file_get_contents('php://input');
         $data = json_decode($inputJSON, true);
 
-        // Validaciones básicas
-        $requiredFields = ['nombres', 'apellidop', 'apellidom', 'telefono', 'id_puesto', 'departamento_id', 'usuario', 'contrasena'];
+        // Validaciones básicas (todos los campos de registro obligatorios; id_jefe puede estar vacío si es máximo rango)
+        $requiredFields = ['nombres', 'apellidop', 'apellidom', 'telefono', 'fecha_ingreso', 'id_puesto', 'departamento_id', 'usuario', 'contrasena'];
+        $nombresCampos = [
+            'nombres' => 'Nombres',
+            'apellidop' => 'Apellido paterno',
+            'apellidom' => 'Apellido materno',
+            'telefono' => 'Teléfono',
+            'fecha_ingreso' => 'Fecha de acta',
+            'id_puesto' => 'Puesto',
+            'departamento_id' => 'Departamento',
+            'usuario' => 'Usuario',
+            'contrasena' => 'Contraseña'
+        ];
         foreach ($requiredFields as $field) {
-            if (empty($data[$field])) {
+            if ($data[$field] === '' || $data[$field] === null || (is_string($data[$field]) && trim($data[$field]) === '')) {
+                $nombre = $nombresCampos[$field] ?? $field;
                 echo json_encode([
                     'success' => false,
-                    'mensaje' => "El campo $field es obligatorio"
+                    'mensaje' => "El campo \"$nombre\" es obligatorio"
                 ]);
                 return;
             }
@@ -4704,7 +4717,7 @@ class CapHum extends Controller
         // Preparar datos
         $data['contrasena'] = $data['contrasena'];
         $data['id_jefe'] = isset($data['id_jefe']) ? $data['id_jefe'] : null;
-        $data['fecha_ingreso'] = !empty($data['fecha_ingreso']) ? $data['fecha_ingreso'] : null;
+        $data['fecha_ingreso'] = $data['fecha_ingreso'];
         $data['asignar_legion'] = isset($data['asignar_legion']) ? (bool)$data['asignar_legion'] : false;
         $data['id_legion'] = isset($data['id_legion']) && !empty($data['id_legion']) ? (int)$data['id_legion'] : null;
 
