@@ -110,22 +110,22 @@
 
                 <div class="mb-2">
                     <label class="form-label">Nombres *</label>
-                    <input type="text" id="edit_nombres" class="form-control">
+                    <input type="text" id="edit_nombres" class="form-control" oninput="this.value = this.value.replace(/[^A-Za-zÁÉÍÓÚáéíóúÑñ\s]/g, '').replace(/^\s+/, '').replace(/\s{2,}/g, ' ').toUpperCase()" onblur="this.value = this.value.trim()" style="text-transform: uppercase;">
                 </div>
 
                 <div class="mb-2">
                     <label class="form-label">Apellido Paterno *</label>
-                    <input type="text" id="edit_apellidop" class="form-control">
+                    <input type="text" id="edit_apellidop" class="form-control" oninput="this.value = this.value.replace(/[^A-Za-zÁÉÍÓÚáéíóúÑñ\s]/g, '').replace(/^\s+/, '').replace(/\s{2,}/g, ' ').toUpperCase()" onblur="this.value = this.value.trim()" style="text-transform: uppercase;">
                 </div>
 
                 <div class="mb-2">
                     <label class="form-label">Apellido Materno *</label>
-                    <input type="text" id="edit_apellidom" class="form-control">
+                    <input type="text" id="edit_apellidom" class="form-control" oninput="this.value = this.value.replace(/[^A-Za-zÁÉÍÓÚáéíóúÑñ\s]/g, '').replace(/^\s+/, '').replace(/\s{2,}/g, ' ').toUpperCase()" onblur="this.value = this.value.trim()" style="text-transform: uppercase;">
                 </div>
 
                 <div class="mb-2">
                     <label class="form-label">Teléfono *</label>
-                    <input type="text" id="edit_telefono" class="form-control phone-mask">
+                    <input type="text" id="edit_telefono" class="form-control phone-mask" oninput="this.value = this.value.replace(/[^0-9]/g, '')" onblur="validarTelefono('edit_telefono')" maxlength="10">
                 </div>
 
                 <div class="mb-2">
@@ -156,7 +156,7 @@
 
                 <div class="mb-7">
                     <label class="form-label">Contraseña *</label>
-                    <input type="text" id="edit_contrasena" class="form-control">
+                    <input type="text" id="edit_contrasena" class="form-control" maxlength="15" oninput="this.value = this.value.replace(/^\s+/, '').replace(/\s{2,}/g, ' ')" onblur="this.value = this.value.trim()">
                 </div>
 
                 <button type="button" class="btn btn-primary me-3" onclick="UpdateGestor()" > Guardar </button>
@@ -167,6 +167,40 @@
 
 
 <script>
+    /**
+     * ==========================================
+     * FUNCIÓN VALIDAR TELÉFONO
+     * ==========================================
+     * Valida que el número no tenga patrones repetitivos
+     */
+    function validarTelefono(fieldId) {
+        const input = document.getElementById(fieldId);
+        const telefono = input.value;
+        
+        // Solo validar si tiene 10 dígitos
+        if (telefono.length !== 10) {
+            return;
+        }
+        
+        // Verificar patrones repetitivos
+        // Ejemplo: 3333333333, 1111111111
+        const todosIguales = /^(\d)\1{9}$/.test(telefono);
+        
+        // Ejemplo: 1212121212, 4242424242
+        const patron2Digitos = /^(\d{2})\1{4}$/.test(telefono);
+        
+        if (todosIguales || patron2Digitos) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Número de teléfono no válido',
+                text: 'El número ingresado no es válido. Por favor, ingrese un número telefónico correcto.',
+                confirmButtonText: 'Entendido'
+            });
+            input.value = '';
+            input.focus();
+        }
+    }
+
     document.addEventListener("DOMContentLoaded", function () {
 
         function cargarDepartamentosPorTipo(id, seleccionado = null) {

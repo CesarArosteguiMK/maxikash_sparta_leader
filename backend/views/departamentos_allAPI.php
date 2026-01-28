@@ -41,13 +41,13 @@
                 <div class="row">
                     <div class="form-group col-6">
                         <label for="nombre" class="form-label">Nombre del Departamento</label>
-                        <input type="input" id="nombre" name="nombre" class="form-control" placeholder="Ej.: CallCenter" maxlength="500">
+                        <input type="input" id="nombre" name="nombre" class="form-control" placeholder="Ej.: CallCenter" maxlength="30" oninput="this.value = this.value.replace(/[^A-Za-zÁÉÍÓÚáéíóúÑñ\s]/g, '').replace(/^\s+/, '').replace(/\s{2,}/g, ' ').toUpperCase()" onblur="this.value = this.value.trim()" style="text-transform: uppercase;">
                         <div class="fv-message text-danger small" style="min-height: 1.25rem"></div>
                     </div>
 
                     <div class="form-group col-6">
                         <label for="descripcion" class="form-label">Descripción del Departamento</label>
-                        <input type="text" id="descripcion" name="descripcion" class="form-control" placeholder="Ej.: CallCenter centro de llamadas cobranza" maxlength="500">
+                        <input type="text" id="descripcion" name="descripcion" class="form-control" placeholder="Ej.: CallCenter centro de llamadas cobranza" maxlength="30" oninput="this.value = this.value.replace(/^\s+/, '').replace(/\s{2,}/g, ' ')" onblur="this.value = this.value.trim()">
                         <div class="fv-message text-danger small" style="min-height: 1.25rem"></div>
                     </div>
                 </div>
