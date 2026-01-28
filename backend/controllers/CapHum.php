@@ -1880,23 +1880,164 @@ class CapHum extends Controller
                 }
             }
             
+            // Variable para almacenar los event listeners y poder removerlos
+            let fechaInputClickHandler = null;
+            let fechaWrapperClickHandler = null;
+            
             function configurarMaxFechaIngreso() {
-                const input = document.getElementById('add_fecha_ingreso');
-                const wrapper = document.getElementById('fecha_acta_wrapper');
-                if (!input) return;
-                const hoy = new Date();
-                hoy.setDate(hoy.getDate() + 1);
-                const yyyy = hoy.getFullYear();
-                const mm = String(hoy.getMonth() + 1).padStart(2, '0');
-                const dd = String(hoy.getDate()).padStart(2, '0');
-                input.max = `${yyyy}-${mm}-${dd}`;
-                // Clic en todo el selector (input o wrapper) abre el calendario
-                function abrirCalendario() {
-                    if (input.showPicker) input.showPicker();
-                    else input.focus();
-                }
-                input.addEventListener('click', function (e) { e.stopPropagation(); abrirCalendario(); });
-                if (wrapper) wrapper.addEventListener('click', function (e) { if (e.target === wrapper) abrirCalendario(); });
+                // Esperar un poco para asegurar que el input esté disponible
+                setTimeout(() => {
+                    const wrapper = document.getElementById('fecha_acta_wrapper');
+                    if (!wrapper) {
+                        console.warn('Wrapper de fecha no encontrado');
+                        return;
+                    }
+                    
+                    let oldInput = document.getElementById('add_fecha_ingreso');
+                    if (!oldInput) {
+                        console.warn('Input de fecha no encontrado');
+                        return;
+                    }
+                    
+                    // Remover event listeners anteriores si existen
+                    if (fechaInputClickHandler && oldInput) {
+                        oldInput.removeEventListener('click', fechaInputClickHandler);
+                        fechaInputClickHandler = null;
+                    }
+                    
+                    if (wrapper && fechaWrapperClickHandler) {
+                        wrapper.removeEventListener('click', fechaWrapperClickHandler);
+                        fechaWrapperClickHandler = null;
+                    }
+                    
+                    // Intentar destruir instancia anterior de forma segura
+                    try {
+                        if (oldInput._flatpickr) {
+                            const instance = oldInput._flatpickr;
+                            if (instance && typeof instance.destroy === 'function') {
+                                instance.destroy();
+                            }
+                        }
+                        // También intentar con getInstance
+                        if (typeof flatpickr !== 'undefined' && typeof flatpickr.getInstance === 'function') {
+                            const existingInstance = flatpickr.getInstance(oldInput);
+                            if (existingInstance && typeof existingInstance.destroy === 'function') {
+                                existingInstance.destroy();
+                            }
+                        }
+                    } catch (e) {
+                        // Ignorar errores al destruir
+                    }
+                    
+                    // Guardar el valor actual si existe
+                    const currentValue = oldInput.value || '';
+                    
+                    // Crear un nuevo input completamente limpio
+                    const newInput = document.createElement('input');
+                    newInput.type = 'text';
+                    newInput.id = 'add_fecha_ingreso';
+                    newInput.className = 'form-control';
+                    newInput.placeholder = 'YYYY-MM-DD';
+                    newInput.value = currentValue;
+                    
+                    // Reemplazar el input viejo con el nuevo
+                    oldInput.parentNode.replaceChild(newInput, oldInput);
+                    
+                    // Pequeño delay para asegurar que el DOM se actualice
+                    setTimeout(() => {
+                        const input = document.getElementById('add_fecha_ingreso');
+                        if (!input) {
+                            console.warn('Nuevo input no encontrado después del reemplazo');
+                            return;
+                        }
+                        
+                        // Calcular fecha máxima (hoy + 1 día)
+                        const hoy = new Date();
+                        hoy.setDate(hoy.getDate() + 1);
+                        const fechaMax = hoy.toISOString().split('T')[0];
+                        
+                        // Inicializar Flatpickr si está disponible
+                        if (typeof flatpickr !== 'undefined') {
+                            try {
+                                // Renderizar el calendario directamente en el body para evitar problemas de overflow
+                                const fp = flatpickr(input, {
+                                    dateFormat: 'Y-m-d',
+                                    maxDate: fechaMax,
+                                    allowInput: false,
+                                    clickOpens: true,
+                                    defaultDate: null,
+                                    appendTo: document.body,
+                                    static: false
+                                });
+                                
+                                // Asegurar que el calendario tenga z-index alto después de renderizarse
+                                setTimeout(() => {
+                                    if (fp && fp.calendarContainer) {
+                                        fp.calendarContainer.style.zIndex = '99999';
+                                        fp.calendarContainer.style.display = '';
+                                        fp.calendarContainer.style.visibility = 'visible';
+                                        fp.calendarContainer.style.opacity = '1';
+                                    }
+                                }, 100);
+                                
+                                // Crear handler para el click en el input
+                                fechaInputClickHandler = function(e) {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    setTimeout(() => {
+                                        if (fp && typeof fp.open === 'function') {
+                                            fp.open();
+                                            // Asegurar visibilidad después de abrir
+                                            if (fp.calendarContainer) {
+                                                fp.calendarContainer.style.zIndex = '99999';
+                                                fp.calendarContainer.style.display = '';
+                                                fp.calendarContainer.style.visibility = 'visible';
+                                                fp.calendarContainer.style.opacity = '1';
+                                            }
+                                        }
+                                    }, 10);
+                                };
+                                
+                                input.addEventListener('click', fechaInputClickHandler);
+                                
+                                // También en el wrapper
+                                if (wrapper) {
+                                    fechaWrapperClickHandler = function(e) {
+                                        if (e.target === wrapper || e.target === input) {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                            setTimeout(() => {
+                                                if (fp && typeof fp.open === 'function') {
+                                                    fp.open();
+                                                    // Asegurar visibilidad después de abrir
+                                                    if (fp.calendarContainer) {
+                                                        fp.calendarContainer.style.zIndex = '99999';
+                                                        fp.calendarContainer.style.display = '';
+                                                        fp.calendarContainer.style.visibility = 'visible';
+                                                        fp.calendarContainer.style.opacity = '1';
+                                                    }
+                                                }
+                                            }, 10);
+                                        }
+                                    };
+                                    wrapper.addEventListener('click', fechaWrapperClickHandler);
+                                }
+                                
+                                
+                            } catch (error) {
+                                console.error('Error al inicializar Flatpickr:', error);
+                                // Fallback si hay error
+                                input.type = 'date';
+                                input.max = fechaMax;
+                            }
+                        } else {
+                            // Fallback si Flatpickr no está disponible
+                            console.warn('Flatpickr no está disponible, usando input nativo');
+                            input.type = 'date';
+                            input.max = fechaMax;
+                        }
+                    }, 50); // Delay corto para asegurar que el DOM se actualice
+                }, 200);
             }
             
             function guardarGestor() {
@@ -1920,7 +2061,7 @@ class CapHum extends Controller
                 if (!apellidop) return Swal.fire('Error', 'El apellido paterno es obligatorio', 'error');
                 if (!apellidom) return Swal.fire('Error', 'El apellido materno es obligatorio', 'error');
                 if (!telefono) return Swal.fire('Error', 'El teléfono es obligatorio', 'error');
-                if (!fecha_ingreso) return Swal.fire('Error', 'La fecha de acta es obligatoria', 'error');
+                if (!fecha_ingreso) return Swal.fire('Error', 'La fecha de ingreso es obligatoria', 'error');
 
                 // 🔴 Validar relaciones
                 if (!id_puesto) return Swal.fire('Error', 'Debe seleccionar un puesto', 'error');
@@ -1982,11 +2123,20 @@ class CapHum extends Controller
 
             // Limpiar formulario Agregar Usuario al cerrar el offcanvas (Cancelar o X)
             function limpiarFormularioAgregarUsuario() {
-                const ids = ['add_nombres', 'add_apellidop', 'add_apellidom', 'add_telefono', 'add_fecha_ingreso', 'add_usuario', 'add_contrasena', 'add_num_telefono'];
+                const ids = ['add_nombres', 'add_apellidop', 'add_apellidom', 'add_telefono', 'add_usuario', 'add_contrasena', 'add_num_telefono'];
                 ids.forEach(id => {
                     const el = document.getElementById(id);
                     if (el) el.value = '';
                 });
+                // Limpiar campo de fecha (Flatpickr)
+                const fechaInput = document.getElementById('add_fecha_ingreso');
+                if (fechaInput) {
+                    if (fechaInput._flatpickr) {
+                        fechaInput._flatpickr.clear();
+                    } else {
+                        fechaInput.value = '';
+                    }
+                }
                 const addDepartamento = document.getElementById('add_departamento_id');
                 if (addDepartamento) addDepartamento.value = '';
                 const addPuesto = document.getElementById('add_id_puesto');
@@ -2006,12 +2156,13 @@ class CapHum extends Controller
                 configuraTabla("#historialUsuarios", { registrosPorPagina: 10 });
                 getUsuarios();
 
-                // Configurar límite máximo de fecha de acta (hoy + 1 día)
-                configurarMaxFechaIngreso();
-
-                // Al cerrar el offcanvas Agregar Usuario (Cancelar o X), limpiar el formulario
+                // Configurar Flatpickr para fecha de ingreso (máximo: hoy + 1 día) cuando se abre el offcanvas
                 const offcanvasAdd = document.getElementById('offcanvasAddUser');
                 if (offcanvasAdd) {
+                    offcanvasAdd.addEventListener('shown.bs.offcanvas', function() {
+                        // Inicializar Flatpickr cuando se abre el offcanvas
+                        configurarMaxFechaIngreso();
+                    });
                     offcanvasAdd.addEventListener('hidden.bs.offcanvas', limpiarFormularioAgregarUsuario);
                 }
             });
@@ -4697,7 +4848,7 @@ class CapHum extends Controller
             'apellidop' => 'Apellido paterno',
             'apellidom' => 'Apellido materno',
             'telefono' => 'Teléfono',
-            'fecha_ingreso' => 'Fecha de acta',
+            'fecha_ingreso' => 'Fecha de ingreso',
             'id_puesto' => 'Puesto',
             'departamento_id' => 'Departamento',
             'usuario' => 'Usuario',

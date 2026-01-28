@@ -565,26 +565,33 @@ public static function obtenerReportesDictamenParaDescarga($fechaInicio, $fechaF
 
     public static function insertCondonacionCobranza($data)
     {
-        // 🔹 Escapamos valores (igual que insertNotas)
+        // 🔹 Escapamos valores
         $id_credito = addslashes($data['id_credito']);
         $comentario = addslashes($data['comentario']);
         $total      = addslashes($data['total']);
-        $usuario    = addslashes($data['usuario_id']);
+        $id_usuario = addslashes($data['usuario_id'] ?? 0);
+        $usuario    = addslashes($data['usuario'] ?? 'Sistema');
+
+        // Fecha y hora de CDMX para created_at
+        $tz = new \DateTimeZone('America/Mexico_City');
+        $fechaRegistro = (new \DateTime('now', $tz))->format('Y-m-d H:i:s');
+        $fechaRegistro = addslashes($fechaRegistro);
 
         try {
             $db = new DatabaseSegundometro();
 
-            // 1️⃣ Insertar ticket
+            // 1️⃣ Insertar ticket (con id_usuario, usuario y created_at en hora CDMX)
             $db->queryOne("
             INSERT INTO condonaciones_cobranza
-            (id_condonacion, id_credito, comentario, id_usuario, total_condonado, created_at)
+            (id_condonacion, id_credito, comentario, id_usuario, usuario, total_condonado, created_at)
             VALUES (
                 DEFAULT,
                 $id_credito,
                 '$comentario',
+                $id_usuario,
                 '$usuario',
                 $total,
-                DEFAULT
+                '$fechaRegistro'
             )
         ");
 

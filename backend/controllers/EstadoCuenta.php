@@ -2608,13 +2608,13 @@ public function descargarReporteDictamen()
             return;
         }
 
-        // Datos de sesión (igual que notas)
+        // Datos de sesión (usuario_id y usuario del login)
         $dataTicket = [
             'id_credito' => $idCredito,
             'comentario' => $comentario,
             'total'      => $total,
-            'usuario'    => $_SESSION['usuario'] ?? 'Sistema',
-            'usuario_id' => $_SESSION['id_usuario'] ?? 0
+            'usuario'    => $_SESSION['usuario'] ?? 'Sistema',        // user_name del login
+            'usuario_id' => $_SESSION['usuario_id'] ?? 0              // id del login
         ];
 
         // 1️⃣ Insertar ticket

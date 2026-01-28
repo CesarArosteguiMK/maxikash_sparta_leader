@@ -118,50 +118,40 @@
         background: #6c757d;
     }
 
-    /* Campo de fecha de acta: todo el selector abre el calendario y aspecto más elegante */
+    /* Campo de fecha de ingreso con Flatpickr */
     .fecha-acta-wrapper {
         position: relative;
-        cursor: pointer;
-        border-radius: 0.5rem;
-        transition: box-shadow 0.2s ease, border-color 0.2s ease;
-    }
-
-    .fecha-acta-wrapper:hover {
-        box-shadow: 0 2px 8px rgba(105, 108, 255, 0.12);
+        z-index: 1;
     }
 
     #add_fecha_ingreso {
         width: 100%;
-        min-height: 42px;
-        padding: 0.5rem 0.875rem 0.5rem 1rem;
-        font-size: 0.9375rem;
-        color: #566a7f;
-        background: linear-gradient(180deg, #fafbfc 0%, #f5f5f9 100%);
-        border: 1px solid #d9dee3;
-        border-radius: 0.5rem;
         cursor: pointer;
-        transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
-        appearance: none;
-        -webkit-appearance: none;
     }
 
-    #add_fecha_ingreso:hover {
-        border-color: #b4bdc6;
-        background: #fff;
+    /* Asegurar que el calendario de Flatpickr sea visible */
+    .flatpickr-calendar {
+        z-index: 99999 !important;
+        position: fixed !important;
     }
 
-    #add_fecha_ingreso:focus {
-        border-color: #696cff;
-        box-shadow: 0 0 0 0.2rem rgba(105, 108, 255, 0.2);
-        outline: none;
-        background-color: #fff;
+    .flatpickr-calendar.open {
+        display: block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
     }
 
-    #add_fecha_ingreso::-webkit-calendar-picker-indicator {
-        cursor: pointer;
-        opacity: 0.7;
-        margin-left: 0;
-        padding: 0.5rem;
+    /* Hacer más visible el círculo del día de hoy */
+    .flatpickr-calendar .flatpickr-day.today {
+        border-color: #696cff !important;
+        border-width: 2px !important;
+        font-weight: 600 !important;
+        background-color: #f0f0ff !important;
+    }
+
+    .flatpickr-calendar .flatpickr-day.today:hover {
+        background-color: #e0e0ff !important;
+        border-color: #696cff !important;
     }
 
     /* Estilos para Select con Búsqueda */
@@ -267,6 +257,20 @@
 
     .select-search-option.no-results:hover {
         background-color: transparent;
+    }
+
+    /* Estilos para igualar formato de letra con select de Jefe */
+    #add_departamento_id,
+    #add_id_puesto,
+    #add_id_legion,
+    #add_nombres,
+    #add_apellidop,
+    #add_apellidom,
+    #add_contrasena {
+        font-size: 1rem;
+        font-weight: 400;
+        line-height: 1.5;
+        color: #697a8d;
     }
 
 </style>
@@ -424,13 +428,6 @@
                 </div>
 
                 <div class="mb-2">
-                    <label class="form-label">Fecha de acta <span class="text-danger">*</span></label>
-                    <div class="fecha-acta-wrapper" id="fecha_acta_wrapper">
-                        <input type="date" id="add_fecha_ingreso" class="form-control">
-                    </div>
-                </div>
-
-                <div class="mb-2">
                     <label class="form-label">Departamento *</label>
                     <select id="add_departamento_id" class="form-select">
                         <option value="">Seleccione un departamento</option>
@@ -454,6 +451,13 @@
                     <select id="add_id_jefe" class="form-select" disabled>
                         <option value="">Seleccione un jefe</option>
                     </select>
+                </div>
+
+                <div class="mb-2">
+                    <label class="form-label">Fecha de ingreso <span class="text-danger">*</span></label>
+                    <div class="fecha-acta-wrapper" id="fecha_acta_wrapper">
+                        <input type="text" id="add_fecha_ingreso" class="form-control" placeholder="YYYY-MM-DD">
+                    </div>
                 </div>
 
                 <div class="mb-3">
@@ -1667,14 +1671,14 @@
       const addJefeSelect = document.getElementById('add_id_jefe');
       if (addJefeSelect) {
         searchableSelectAddJefe = new SearchableSelect(addJefeSelect);
-        console.log('✅ Select de jefe (Agregar) inicializado con búsqueda');
+        
       }
       
       // Inicializar select de "Editar Usuario"
       const editJefeSelect = document.getElementById('edit_id_jefe');
       if (editJefeSelect) {
         searchableSelectEditJefe = new SearchableSelect(editJefeSelect);
-        console.log('✅ Select de jefe (Editar) inicializado con búsqueda');
+        
       }
     }, 500);
   });
