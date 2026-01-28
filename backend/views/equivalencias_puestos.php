@@ -3,42 +3,104 @@
 /* Contraste entre secciones */
 .eq-card-legacy {
     box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+    border-left: 4px solid #8a8f9a;
+}
+.eq-card-legacy .card-header {
+    border-bottom: 1px solid #b4bac2;
 }
 .eq-card-sparta {
     border-left: 4px solid #2196F3;
     box-shadow: 0 2px 12px rgba(0,0,0,0.06);
-    background: #fafcff;
 }
-/* Headers */
+/* Headers Legacy y Sparta: mismas dimensiones, parejos */
+.eq-card-legacy .card-header,
+.eq-card-sparta .card-header {
+    min-height: 4.5rem;
+    padding: 0.85rem 1.25rem !important;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+.eq-card-legacy .card-header h6,
+.eq-card-sparta .card-header h6 {
+    font-weight: 700;
+    font-size: 1.05rem;
+    margin-bottom: 0.15rem;
+}
+.eq-card-legacy .card-header small,
+.eq-card-sparta .card-header small {
+    font-size: 0.8125rem;
+    line-height: 1.3;
+}
 .eq-header-sparta {
     background: #E3F2FD !important;
     color: #1565C0 !important;
-    padding: 0.85rem 1.25rem !important;
     border: none;
-    border-bottom: 1px solid rgba(33, 150, 243, 0.2);
+    border-bottom: 1px solid rgba(33, 150, 243, 0.25);
 }
-.eq-header-sparta h6 { font-weight: 700; font-size: 1.05rem; color: #1565C0 !important; }
+.eq-header-sparta h6 { color: #1565C0 !important; }
 .eq-header-sparta small { color: #1976D2 !important; }
 .eq-header-sparta .fa-shield-halved { color: #2196F3; }
-/* Tarjetas de puestos: sombra y borde */
+/* Tarjetas de puestos Legacy: separación clara entre bloques */
+#col-legacy {
+    background-color: #f8f9fa;
+    padding-top: 1rem;
+}
 .eq-legacy-row {
     transition: background-color 0.25s ease, box-shadow 0.25s ease, transform 0.2s ease;
     box-shadow: 0 1px 4px rgba(0,0,0,0.06);
-    border: 1px solid rgba(0,0,0,0.06);
+    border: 1px solid #b4bac2;
     border-radius: 8px;
+    background-color: #fff;
 }
-.eq-legacy-row:hover { background-color: #f8f9fa; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+.eq-legacy-row:hover { background-color: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+.eq-legacy-row + .eq-legacy-row { margin-top: 0.75rem; }
+/* Contrae/expande: con clic se despliega; con mouse solo si se está arrastrando un puesto desde Sparta */
+.eq-legacy-titulo {
+    cursor: pointer;
+    padding: 0.25rem 0;
+    user-select: none;
+}
+.eq-legacy-chevron {
+    transition: transform 0.25s ease;
+    color: #8a8f9a;
+    font-size: 0.75rem;
+}
+.eq-legacy-row.eq-legacy-expanded .eq-legacy-chevron,
+body.eq-dragging-puesto .eq-legacy-row:hover .eq-legacy-chevron {
+    transform: rotate(180deg);
+    color: #5a5fd6;
+}
+.eq-legacy-drop-wrap {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.35s ease;
+}
+.eq-legacy-row.eq-legacy-expanded .eq-legacy-drop-wrap,
+body.eq-dragging-puesto .eq-legacy-row:hover .eq-legacy-drop-wrap {
+    max-height: 900px;
+}
 .eq-item-sparta,
 .lista-equivalentes-legacy .list-group-item {
     transition: box-shadow 0.25s ease, background-color 0.25s ease, transform 0.2s ease;
     box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-    border: 1px solid rgba(0,0,0,0.06);
+    border: 1px solid #b4bac2;
     border-radius: 6px;
 }
-/* Zona de drop con placeholder */
+/* Separación sutil entre puestos asignados dentro de un mismo Legacy (2 o más en un bloque) */
+.lista-equivalentes-legacy .list-group-item + .list-group-item {
+    margin-top: 0.4rem;
+}
+/* Línea de cierre bajo el último puesto Sparta en cada Legacy (evita efecto de más espacio abajo) */
+.lista-equivalentes-legacy .list-group-item:last-child {
+    margin-bottom: 0.35rem;
+    padding-bottom: 0.35rem;
+    border-bottom: 2px solid #b4bac2;
+}
+/* Zona de drop */
 .eq-drop-zone {
     min-height: 52px;
-    border: 2px dashed #d9dee3;
+    border: 2px dashed #b4bac2;
     border-radius: 8px;
     background-color: #fafbfc;
     transition: border-color 0.25s ease, background-color 0.25s ease;
@@ -106,7 +168,15 @@
 }
 .eq-btn-quitar i { font-size: 0.7rem; }
 .min-h-list { min-height: 320px; }
-#col-sparta { background: rgba(227, 242, 253, 0.25); border-radius: 0 0 0.375rem 0.375rem; }
+/* Sparta: fondo opaco azul claro visible (como Legacy) */
+.eq-card-sparta .card-body,
+#col-sparta {
+    background-color: #dce9f5 !important;
+    border-radius: 0 0 0.375rem 0.375rem;
+}
+#lista-sparta {
+    background-color: transparent !important;
+}
 @media (max-width: 768px) { .min-h-list { min-height: 220px; } }
 </style>
 
@@ -137,7 +207,7 @@
                     <p class="mb-0">Cargando puestos Legacy...</p>
                 </div>
                 <div id="lista-legacy" class="d-none"></div>
-                <div id="empty-legacy" class="text-center py-5 text-muted d-none" style="border:1px solid black; !important" >
+                <div id="empty-legacy" class="text-center py-5 text-muted d-none">
                     <i class="fa-solid fa-inbox fa-2x mb-2 opacity-50"></i>
                     <p class="mb-0">No hay puestos Legacy.</p>
                 </div>
@@ -176,6 +246,14 @@ document.addEventListener('DOMContentLoaded', function() {
     let sparta = [];
     let sortableLegacy = [];
 
+    /* Clic en título Legacy: desplegar/contraer (sin arrastrar solo se abre con clic) */
+    document.getElementById('col-legacy').addEventListener('click', function(e) {
+        var tit = e.target.closest('.eq-legacy-titulo');
+        if (!tit) return;
+        var row = tit.closest('.eq-legacy-row');
+        if (row) row.classList.toggle('eq-legacy-expanded');
+    });
+
     function esc(s) {
         if (s == null) return '';
         return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -199,11 +277,16 @@ document.addEventListener('DOMContentLoaded', function() {
             row.setAttribute('data-id-legacy', l.id);
             row.innerHTML =
                 '<div class="card-body py-2">' +
-                '  <div class="d-flex align-items-center justify-content-between mb-2">' +
+                '  <div class="d-flex align-items-center justify-content-between eq-legacy-titulo" title="Pase el mouse para desplegar">' +
                 '    <span class="fw-bold">' + esc(l.nombre) + '</span>' +
-                (l.clave ? '<span class="badge bg-label-secondary">' + esc(l.clave) + '</span>' : '') +
+                '    <span class="d-flex align-items-center gap-1">' +
+                '' +
+                '      <i class="fa-solid fa-chevron-down eq-legacy-chevron"></i>' +
+                '    </span>' +
                 '  </div>' +
-                '  <ul class="list-group list-group-flush lista-equivalentes-legacy border rounded eq-drop-zone p-1" data-id-legacy="' + l.id + '"></ul>' +
+                '  <div class="eq-legacy-drop-wrap">' +
+                '    <ul class="list-group list-group-flush lista-equivalentes-legacy border rounded eq-drop-zone p-1 mt-2" data-id-legacy="' + l.id + '"></ul>' +
+                '  </div>' +
                 '</div>';
             cont.appendChild(row);
         });
@@ -262,6 +345,8 @@ document.addEventListener('DOMContentLoaded', function() {
             dragClass: 'eq-dragging',
             filter: '.eq-remove-wrap',
             preventOnFilter: true,
+            onStart: function() { document.body.classList.add('eq-dragging-puesto'); },
+            onEnd: function() { document.body.classList.remove('eq-dragging-puesto'); },
             onRemove: function() { guardarAuto(); }
         });
     }

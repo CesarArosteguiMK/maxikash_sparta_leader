@@ -17,7 +17,7 @@ class EquivalenciasPuestos extends Model
             $db = new Database();
             $r = $db->queryAll("
                 SELECT id, clave, nombre
-                FROM puestos_legacy
+                FROM puestos_legacy               
                 ORDER BY nombre
             ");
             $datos = is_array($r) ? $r : [];
@@ -42,6 +42,7 @@ class EquivalenciasPuestos extends Model
                 FROM puesto p
                 LEFT JOIN departamento d ON d.id = p.departamento_id
                 WHERE (p.activo IS NULL OR p.activo = 1)
+                    AND (p.departamento_id IS NULL OR p.departamento_id NOT IN (1, 2, 5, 9, 11, 21))
                 ORDER BY d.nombre, p.nombre
             ");
             $datos = is_array($r) ? $r : [];
