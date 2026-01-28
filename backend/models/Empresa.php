@@ -404,143 +404,145 @@ class Empresa extends Model
             $db = new Database();
 
             $sql = "
-            WITH RECURSIVE
-            /* 1) Relación vigente persona->jefe */
-            aj_vigente AS (
+        WITH RECURSIVE
+        
+        /* 1) Relación vigente persona -> jefe */
+        aj_vigente AS (
             SELECT id_persona, id_jefe
             FROM asigna_jefe
-            WHERE fecha_fin IS NULL OR fecha_fin >= CURDATE()
-            ),
-
-            /* 2) Jerarquía: persona -> jefe -> jefe del jefe -> ... */
-            jerarquia AS (
-            /* nivel 1: jefe inmediato */
+            WHERE fecha_fin IS NULL
+               OR fecha_fin >= CURDATE()
+        ),
+        
+        /* 2) Jerarquía completa */
+        jerarquia AS (
+            /* jefe inmediato */
             SELECT
-                p.id               AS persona_id,
-                aj.id_jefe         AS jefe_id,
-                1                  AS lvl
+                p.id       AS persona_id,
+                aj.id_jefe AS jefe_id,
+                1          AS lvl
             FROM persona p
-            LEFT JOIN aj_vigente aj ON aj.id_persona = p.id
-
+            LEFT JOIN aj_vigente aj
+                   ON aj.id_persona = p.id
+        
             UNION ALL
-
-            /* niveles siguientes */
+        
+            /* jefes hacia arriba */
             SELECT
                 j.persona_id,
-                aj2.id_jefe        AS jefe_id,
-                j.lvl + 1          AS lvl
+                aj2.id_jefe,
+                j.lvl + 1
             FROM jerarquia j
-            JOIN aj_vigente aj2 ON aj2.id_persona = j.jefe_id
-            /* evita ciclos y limita profundidad */
+            JOIN aj_vigente aj2
+                 ON aj2.id_persona = j.jefe_id
             WHERE j.jefe_id IS NOT NULL
-                AND j.lvl < 10
-            ),
-
-            /* 3) Agregamos datos del jefe y su puesto */
-            jerarquia_detalle AS (
+              AND j.lvl < 10
+        ),
+        
+        /* 3) Detalle del jefe + puesto legacy */
+        jerarquia_detalle AS (
             SELECT
                 j.persona_id,
                 j.jefe_id,
                 j.lvl,
+        
                 pj.numero_empleado AS jefe_numero_empleado,
                 TRIM(CONCAT_WS(' ', pj.apellidop, pj.apellidom, pj.nombres)) AS jefe_nombre,
-                TRIM(ppj.nombre)   AS jefe_puesto
+        
+                elp.id_puesto_legacy AS jefe_puesto_legacy
             FROM jerarquia j
-            JOIN persona pj ON pj.id = j.jefe_id
-            LEFT JOIN asigna_puesto apj ON apj.id_persona = j.jefe_id
-            LEFT JOIN puesto ppj ON ppj.id = apj.id_puesto
-            ),
-
-            /* 4) Tomamos el primer jefe (más cercano) por cada rol */
-            linea_jefes AS (
+            JOIN persona pj
+                 ON pj.id = j.jefe_id
+        
+            LEFT JOIN asigna_puesto apj
+                   ON apj.id_persona = j.jefe_id
+        
+            LEFT JOIN equivalencias_legacy_puestos elp
+                   ON elp.id_puesto = apj.id_puesto
+        ),
+        
+        /* 4) Línea completa de mando */
+        linea_jefes AS (
             SELECT
                 persona_id,
-
-                /* Supervisor */
-                MAX(CASE WHEN jefe_puesto IN ('Supervisor 1-7','Supervisor 22_29','Supervisor 8_21','Supervisor despacho')
-                        THEN jefe_numero_empleado END) AS supervisor_id,
-                MAX(CASE WHEN jefe_puesto IN ('Supervisor 1-7','Supervisor 22_29','Supervisor 8_21','Supervisor despacho')
-                        THEN jefe_nombre END)          AS supervisor_nombre,
-
-                /* Subgerente */
-                MAX(CASE WHEN jefe_puesto IN ('Subgerente 8_21','Subgerente 22_29','Subgerente 1-7','Coordinador Despachos')
-                        THEN jefe_numero_empleado END) AS subgerente_id,
-                MAX(CASE WHEN jefe_puesto IN ('Subgerente 8_21','Subgerente 22_29','Subgerente 1-7','Coordinador Despachos')
-                        THEN jefe_nombre END)          AS subgerente_nombre,
-
-                /* Gerente */
-                MAX(CASE WHEN jefe_puesto IN ('Gerente 8_21','Gerente 22_29','Gerente 1-7')
-                        THEN jefe_numero_empleado END) AS gerente_id,
-                MAX(CASE WHEN jefe_puesto IN ('Gerente 8_21','Gerente 22_29','Gerente 1-7')
-                        THEN jefe_nombre END)          AS gerente_nombre,
-
-                /* Subdirector */
-                MAX(CASE WHEN jefe_puesto IN ('Subdirector 1-7','Subdirector 8-21')
-                        THEN jefe_numero_empleado END) AS subdirector_id,
-                MAX(CASE WHEN jefe_puesto IN ('Subdirector 1-7','Subdirector 8-21')
-                        THEN jefe_nombre END)          AS subdirector_nombre
-
+        
+                MAX(CASE WHEN jefe_puesto_legacy = 2 THEN jefe_numero_empleado END) AS supervisor_id,
+                MAX(CASE WHEN jefe_puesto_legacy = 2 THEN jefe_nombre END)          AS supervisor_nombre,
+        
+                MAX(CASE WHEN jefe_puesto_legacy = 3 THEN jefe_numero_empleado END) AS subgerente_id,
+                MAX(CASE WHEN jefe_puesto_legacy = 3 THEN jefe_nombre END)          AS subgerente_nombre,
+        
+                MAX(CASE WHEN jefe_puesto_legacy = 4 THEN jefe_numero_empleado END) AS gerente_id,
+                MAX(CASE WHEN jefe_puesto_legacy = 4 THEN jefe_nombre END)          AS gerente_nombre,
+        
+                MAX(CASE WHEN jefe_puesto_legacy = 5 THEN jefe_numero_empleado END) AS subdirector_id,
+                MAX(CASE WHEN jefe_puesto_legacy = 5 THEN jefe_nombre END)          AS subdirector_nombre
+        
             FROM jerarquia_detalle
             GROUP BY persona_id
-            )
-
-            SELECT
+        )
+        
+        SELECT
             p.numero_empleado AS external_id,
-            p.user_name AS username,
-
+            p.user_name       AS username,
+        
             TRIM(CONCAT_WS(' ', p.apellidop, p.apellidom, p.nombres)) AS name,
-
+        
             p.password AS password,
             '' AS legion,
-
-            CASE
-                WHEN TRIM(pp.nombre) IN ('Gestor 1-7','Gestor 22_29','Gestor 8_21','Gestor Despacho') THEN 'gestor'
-                WHEN TRIM(pp.nombre) IN ('Supervisor 1-7','Supervisor 22_29','Supervisor 8_21','Supervisor despacho') THEN 'supervisor'
-                WHEN TRIM(pp.nombre) IN ('Subgerente 8_21','Subgerente 22_29','Subgerente 1-7','Coordinador Despachos') THEN 'subgerente'
-                WHEN TRIM(pp.nombre) IN ('Gerente 8_21','Gerente 22_29','Gerente 1-7') THEN 'gerente'
-                WHEN TRIM(pp.nombre) IN ('Subdirector 1-7','Subdirector 8-21') THEN 'subdirector'
-                ELSE 'sin asignar en sparta'
-            END AS role,
-
+        
+            /* role legacy */
+            pl.clave AS role,
+        
             '' AS color,
-
-            /* ahora vienen de la linea completa, no solo del jefe inmediato */
-            COALESCE(lj.supervisor_id, NULL)        AS supervisor_id,
-            COALESCE(lj.supervisor_nombre, '')      AS supervisor_nombre,
-
-            COALESCE(lj.subgerente_id, NULL)        AS subgerente_id,
-            COALESCE(lj.subgerente_nombre, '')      AS subgerente_nombre,
-
-            COALESCE(lj.gerente_id, NULL)           AS gerente_id,
-            COALESCE(lj.gerente_nombre, '')         AS gerente_nombre,
-
-            COALESCE(lj.subdirector_id, NULL)       AS subdirector_id,
-            COALESCE(lj.subdirector_nombre, '')     AS subdirector_nombre,
-
+        
+            /* línea jerárquica */
+            lj.supervisor_id,
+            COALESCE(lj.supervisor_nombre, '')   AS supervisor_nombre,
+        
+            lj.subgerente_id,
+            COALESCE(lj.subgerente_nombre, '')   AS subgerente_nombre,
+        
+            lj.gerente_id,
+            COALESCE(lj.gerente_nombre, '')      AS gerente_nombre,
+        
+            lj.subdirector_id,
+            COALESCE(lj.subdirector_nombre, '')  AS subdirector_nombre,
+        
             '' AS city,
             '' AS state,
             '' AS municipality,
             '' AS settlement_tupe,
             '' AS postal_code
-
-            FROM persona p
-            LEFT JOIN asigna_puesto ap ON ap.id_persona = p.id
-            LEFT JOIN puesto pp ON pp.id = ap.id_puesto
-            LEFT JOIN departamento d ON d.id = pp.departamento_id
-
-            LEFT JOIN linea_jefes lj ON lj.persona_id = p.id
-
-            WHERE p.estatus <> 'Baja'
+        
+        FROM persona p
+        
+        /* puesto del usuario */
+        JOIN asigna_puesto ap
+             ON ap.id_persona = p.id
+        
+        JOIN puesto pp
+             ON pp.id = ap.id_puesto
+        
+        /* 🔴 FILTRO REAL POR DEPARTAMENTO */
+        JOIN departamento d
+             ON d.id = pp.departamento_id
             AND d.id IN (3, 13, 4, 8)
-            AND (
-                    pp.id IS NULL
-                    OR EXISTS (
-                        SELECT 1
-                        FROM __SPARTA_SECRET_REDACTED__.privilegios_departamento pd
-                        WHERE pd.idPersona = 1
-                    )
-            )
-            ORDER BY COALESCE(pp.nivel, 999) ASC;
+        
+        /* equivalencia legacy */
+        LEFT JOIN equivalencias_legacy_puestos el
+               ON el.id_puesto = pp.id
+        
+        LEFT JOIN puestos_legacy pl
+               ON pl.id = el.id_puesto_legacy
+        
+        LEFT JOIN linea_jefes lj
+               ON lj.persona_id = p.id
+        
+        WHERE p.estatus <> 'Baja'
+        
+        ORDER BY COALESCE(pp.nivel, 999) ASC;
+
         ";
 
             $rows = $db->queryAll($sql);

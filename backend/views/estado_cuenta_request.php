@@ -1563,39 +1563,51 @@ if ($cuotasContratadas > 0) {
 
             <div class="d-flex gap-2">
                 <!-- BOTÓN DICTAMINAR -->
-                <button type="button"
-                        class="btn btn-dictaminar position-relative"
-                        data-bs-toggle="modal"
-                        data-bs-target="#modalDictamen"
-                        title="Dictaminar llamada">
-
-                    <i class="fa fa-headset"></i>
-
-                </button>
+                <?php if (
+                        isset($_SESSION['departamento'], $_SESSION['usuario_id']) &&
+                        ($_SESSION['departamento'] == 2 || $_SESSION['usuario_id'] == 1)
+                ): ?>
+                    <button type="button"
+                            class="btn btn-dictaminar position-relative"
+                            data-bs-toggle="modal"
+                            data-bs-target="#modalDictamen"
+                            title="Dictaminar llamada">
+                        <i class="fa fa-headset"></i>
+                    </button>
+                <?php endif; ?>
 
                 <!-- BOTÓN CONDONAR -->
-                <button type="button"
-                        class="btn btn-condonar position-relative"
-                        title="Condonar gastos de cobranza"
-                        onclick="consultaGastosCondonables(<?= htmlspecialchars($dataEstadoCuenta["idCredito"] ?? '') ?>)">
-                    <i class="fa fa-hand-holding-usd"></i>
-                </button>
+                <?php if (
+                        isset($_SESSION['departamento'], $_SESSION['usuario_id']) &&
+                        ($_SESSION['departamento'] == 2 || $_SESSION['usuario_id'] == 1)
+                ): ?>
+                    <button type="button"
+                            class="btn btn-condonar position-relative"
+                            title="Condonar gastos de cobranza"
+                            onclick="consultaGastosCondonables(<?= htmlspecialchars($dataEstadoCuenta["idCredito"] ?? '') ?>)">
+                        <i class="fa fa-hand-holding-usd"></i>
+                    </button>
+                <?php endif; ?>
 
                 <!-- BOTÓN NOTAS (ICONO) -->
-                <button type="button"
-                        class="btn btn-notas position-relative"
-                        title="Notas del cliente"
-                        onclick="consultaNotas(<?= htmlspecialchars($dataEstadoCuenta["idCredito"] ?? '') ?>)">
+                <?php if (
+                        isset($_SESSION['departamento'], $_SESSION['usuario_id']) &&
+                        ($_SESSION['departamento'] == 2 || $_SESSION['usuario_id'] == 1)
+                ): ?>
+                    <button type="button"
+                            class="btn btn-notas position-relative"
+                            title="Notas del cliente"
+                            onclick="consultaNotas(<?= htmlspecialchars($dataEstadoCuenta["idCredito"] ?? '') ?>)">
 
-                    <i class="fa fa-sticky-note"></i>
+                        <i class="fa fa-sticky-note"></i>
 
-                    <!-- Badge contador -->
-                    <span id="badgeNotas"
-                          class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
-                        <?= htmlspecialchars($notas['datos'][0]['num'] ?? '') ?>
-                    </span>
-                </button>
-                
+                        <span id="badgeNotas"
+                              class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+            <?= htmlspecialchars($notas['datos'][0]['num'] ?? '') ?>
+        </span>
+                    </button>
+                <?php endif; ?>
+
 
                 <a href="/estadocuenta/consulta" class="btn btn-outline-secondary d-flex align-items-center gap-1">
                     <i class="fa fa-search"></i>

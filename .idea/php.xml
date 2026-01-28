@@ -10,6 +10,31 @@
     <option name="highlightLevel" value="WARNING" />
     <option name="transferred" value="true" />
   </component>
+  <component name="PhpIncludePathManager">
+    <include_path>
+      <path value="$PROJECT_DIR$/vendor/composer" />
+      <path value="$PROJECT_DIR$/backend/libs/PhpSpreadsheet/vendor/markbaker/matrix" />
+      <path value="$PROJECT_DIR$/backend/libs/PhpSpreadsheet/vendor/phpoffice/phpspreadsheet" />
+      <path value="$PROJECT_DIR$/backend/libs/PhpSpreadsheet/vendor/markbaker/complex" />
+      <path value="$PROJECT_DIR$/backend/libs/PhpSpreadsheet/vendor/maennchen/zipstream-php" />
+      <path value="$PROJECT_DIR$/backend/libs/PhpSpreadsheet/vendor/composer" />
+      <path value="$PROJECT_DIR$/backend/libs/PhpSpreadsheet/vendor/psr/simple-cache" />
+      <path value="$PROJECT_DIR$/backend/libs/PhpSpreadsheet/vendor/psr/http-message" />
+      <path value="$PROJECT_DIR$/backend/libs/PhpSpreadsheet/vendor/psr/http-factory" />
+      <path value="$PROJECT_DIR$/backend/libs/PhpSpreadsheet/vendor/psr/http-client" />
+      <path value="$PROJECT_DIR$/backend/libs/mpdf/vendor/psr/http-message" />
+      <path value="$PROJECT_DIR$/backend/libs/mpdf/vendor/setasign/fpdi" />
+      <path value="$PROJECT_DIR$/backend/libs/mpdf/vendor/paragonie/random_compat" />
+      <path value="$PROJECT_DIR$/backend/libs/mpdf/vendor/myclabs/deep-copy" />
+      <path value="$PROJECT_DIR$/backend/libs/mpdf/vendor/composer" />
+      <path value="$PROJECT_DIR$/backend/libs/mpdf/vendor/mpdf/mpdf" />
+      <path value="$PROJECT_DIR$/backend/libs/mpdf/vendor/mpdf/psr-log-aware-trait" />
+      <path value="$PROJECT_DIR$/backend/libs/mpdf/vendor/mpdf/psr-http-message-shim" />
+      <path value="$PROJECT_DIR$/backend/libs/mpdf/vendor/psr/log" />
+      <path value="$PROJECT_DIR$/backend/libs/PHPMailer/vendor/phpmailer/phpmailer" />
+      <path value="$PROJECT_DIR$/backend/libs/PHPMailer/vendor/composer" />
+    </include_path>
+  </component>
   <component name="PhpProjectSharedConfiguration" php_language_level="8.1">
     <option name="suggestChangeDefaultLanguageLevel" value="false" />
   </component>
