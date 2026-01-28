@@ -118,6 +118,111 @@
         background: #6c757d;
     }
 
+    /* Estilos para Select con Búsqueda */
+    .select-search-wrapper {
+        position: relative;
+        width: 100%;
+    }
+
+    .select-search-wrapper .form-select {
+        display: none;
+    }
+
+    .select-search-display {
+        position: relative;
+        width: 100%;
+        padding: 0.375rem 2.25rem 0.375rem 0.75rem;
+        font-size: 1rem;
+        font-weight: 400;
+        line-height: 1.5;
+        color: #697a8d;
+        background-color: #fff;
+        background-clip: padding-box;
+        border: 1px solid #d9dee3;
+        border-radius: 0.375rem;
+        cursor: pointer;
+        transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+    }
+
+    .select-search-display:hover {
+        border-color: #b0b7c3;
+    }
+
+    .select-search-display::after {
+        content: '▼';
+        position: absolute;
+        right: 0.75rem;
+        top: 50%;
+        transform: translateY(-50%);
+        font-size: 0.75rem;
+        color: #697a8d;
+        pointer-events: none;
+    }
+
+    .select-search-dropdown {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        z-index: 1050;
+        display: none;
+        margin-top: 0.25rem;
+        background: #fff;
+        border: 1px solid #d9dee3;
+        border-radius: 0.375rem;
+        box-shadow: 0 0.25rem 0.5rem rgba(0, 0, 0, 0.1);
+        max-height: 300px;
+        overflow: hidden;
+    }
+
+    .select-search-dropdown.show {
+        display: block;
+    }
+
+    .select-search-input {
+        width: 100%;
+        padding: 0.5rem 0.75rem;
+        border: none;
+        border-bottom: 1px solid #d9dee3;
+        font-size: 0.9375rem;
+        outline: none;
+    }
+
+    .select-search-input:focus {
+        border-bottom-color: #696cff;
+    }
+
+    .select-search-options {
+        max-height: 250px;
+        overflow-y: auto;
+    }
+
+    .select-search-option {
+        padding: 0.5rem 0.75rem;
+        cursor: pointer;
+        transition: background-color 0.15s ease;
+    }
+
+    .select-search-option:hover {
+        background-color: #f5f5f9;
+    }
+
+    .select-search-option.selected {
+        background-color: #696cff;
+        color: #fff;
+    }
+
+    .select-search-option.no-results {
+        padding: 1rem;
+        text-align: center;
+        color: #999;
+        cursor: default;
+    }
+
+    .select-search-option.no-results:hover {
+        background-color: transparent;
+    }
+
 </style>
 <div class="content-wrapper">
 
@@ -1303,6 +1408,222 @@
     setTimeout(() => {
       llenarFiltros();
     }, 800);
+  });
+
+  /**
+   * ==========================================
+   * SELECT CON BÚSQUEDA EN TIEMPO REAL
+   * ==========================================
+   * Convierte un select normal en un select con búsqueda
+   */
+  class SearchableSelect {
+    constructor(selectElement) {
+      this.select = selectElement;
+      this.options = [];
+      this.selectedValue = '';
+      this.isOpen = false;
+      
+      this.init();
+    }
+
+    init() {
+      // Crear el wrapper
+      this.wrapper = document.createElement('div');
+      this.wrapper.className = 'select-search-wrapper';
+      
+      // Insertar wrapper antes del select
+      this.select.parentNode.insertBefore(this.wrapper, this.select);
+      
+      // Mover el select dentro del wrapper
+      this.wrapper.appendChild(this.select);
+      
+      // Crear el display
+      this.display = document.createElement('div');
+      this.display.className = 'select-search-display';
+      this.display.textContent = this.select.options[this.select.selectedIndex]?.text || 'Seleccione una opción';
+      this.wrapper.appendChild(this.display);
+      
+      // Crear el dropdown
+      this.dropdown = document.createElement('div');
+      this.dropdown.className = 'select-search-dropdown';
+      this.wrapper.appendChild(this.dropdown);
+      
+      // Crear el input de búsqueda
+      this.searchInput = document.createElement('input');
+      this.searchInput.type = 'text';
+      this.searchInput.className = 'select-search-input';
+      this.searchInput.placeholder = 'Buscar...';
+      this.dropdown.appendChild(this.searchInput);
+      
+      // Crear el contenedor de opciones
+      this.optionsContainer = document.createElement('div');
+      this.optionsContainer.className = 'select-search-options';
+      this.dropdown.appendChild(this.optionsContainer);
+      
+      // Cargar opciones iniciales
+      this.loadOptions();
+      
+      // Eventos
+      this.attachEvents();
+    }
+
+    loadOptions() {
+      this.options = [];
+      Array.from(this.select.options).forEach(option => {
+        if (option.value !== '') {
+          this.options.push({
+            value: option.value,
+            text: option.text
+          });
+        }
+      });
+      this.renderOptions(this.options);
+    }
+
+    renderOptions(filteredOptions) {
+      this.optionsContainer.innerHTML = '';
+      
+      if (filteredOptions.length === 0) {
+        const noResults = document.createElement('div');
+        noResults.className = 'select-search-option no-results';
+        noResults.textContent = 'No se encontraron resultados';
+        this.optionsContainer.appendChild(noResults);
+        return;
+      }
+      
+      filteredOptions.forEach(option => {
+        const optionDiv = document.createElement('div');
+        optionDiv.className = 'select-search-option';
+        optionDiv.textContent = option.text;
+        optionDiv.dataset.value = option.value;
+        
+        if (option.value === this.selectedValue) {
+          optionDiv.classList.add('selected');
+        }
+        
+        optionDiv.addEventListener('click', () => {
+          this.selectOption(option);
+        });
+        
+        this.optionsContainer.appendChild(optionDiv);
+      });
+    }
+
+    selectOption(option) {
+      this.selectedValue = option.value;
+      this.select.value = option.value;
+      this.display.textContent = option.text;
+      
+      // Disparar evento change en el select original
+      const event = new Event('change', { bubbles: true });
+      this.select.dispatchEvent(event);
+      
+      this.close();
+    }
+
+    open() {
+      this.isOpen = true;
+      this.dropdown.classList.add('show');
+      this.searchInput.value = '';
+      this.searchInput.focus();
+      this.loadOptions();
+    }
+
+    close() {
+      this.isOpen = false;
+      this.dropdown.classList.remove('show');
+      this.searchInput.value = '';
+    }
+
+    attachEvents() {
+      // Click en display
+      this.display.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (this.isOpen) {
+          this.close();
+        } else {
+          this.open();
+        }
+      });
+      
+      // Input de búsqueda
+      this.searchInput.addEventListener('input', (e) => {
+        const searchTerm = e.target.value.toLowerCase().trim();
+        const filtered = this.options.filter(option => 
+          option.text.toLowerCase().includes(searchTerm)
+        );
+        this.renderOptions(filtered);
+      });
+      
+      // Evitar que el click en el dropdown lo cierre
+      this.dropdown.addEventListener('click', (e) => {
+        e.stopPropagation();
+      });
+      
+      // Cerrar al hacer click fuera
+      document.addEventListener('click', () => {
+        if (this.isOpen) {
+          this.close();
+        }
+      });
+      
+      // Observer para detectar cambios en el select original
+      const observer = new MutationObserver(() => {
+        this.loadOptions();
+        // Actualizar el display si cambió el valor seleccionado
+        const selectedOption = this.select.options[this.select.selectedIndex];
+        if (selectedOption) {
+          this.display.textContent = selectedOption.text;
+          this.selectedValue = selectedOption.value;
+        }
+      });
+      
+      observer.observe(this.select, {
+        childList: true,
+        subtree: true
+      });
+    }
+
+    // Método para actualizar las opciones externamente
+    refresh() {
+      this.loadOptions();
+      const selectedOption = this.select.options[this.select.selectedIndex];
+      if (selectedOption) {
+        this.display.textContent = selectedOption.text;
+        this.selectedValue = selectedOption.value;
+      } else {
+        this.display.textContent = 'Seleccione una opción';
+        this.selectedValue = '';
+      }
+    }
+  }
+
+  /**
+   * ==========================================
+   * INICIALIZAR SELECTS CON BÚSQUEDA
+   * ==========================================
+   */
+  let searchableSelectAddJefe;
+  let searchableSelectEditJefe;
+
+  // Inicializar después de que el DOM esté listo
+  document.addEventListener('DOMContentLoaded', () => {
+    // Esperar un poco para asegurar que los selects están en el DOM
+    setTimeout(() => {
+      // Inicializar select de "Agregar Usuario"
+      const addJefeSelect = document.getElementById('add_id_jefe');
+      if (addJefeSelect) {
+        searchableSelectAddJefe = new SearchableSelect(addJefeSelect);
+        console.log('✅ Select de jefe (Agregar) inicializado con búsqueda');
+      }
+      
+      // Inicializar select de "Editar Usuario"
+      const editJefeSelect = document.getElementById('edit_id_jefe');
+      if (editJefeSelect) {
+        searchableSelectEditJefe = new SearchableSelect(editJefeSelect);
+        console.log('✅ Select de jefe (Editar) inicializado con búsqueda');
+      }
+    }, 500);
   });
 
 </script>
