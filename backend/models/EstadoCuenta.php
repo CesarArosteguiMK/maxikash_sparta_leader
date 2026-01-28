@@ -523,7 +523,8 @@ public static function obtenerReportesDictamenParaDescarga($fechaInicio, $fechaF
             periodo_inicio,
             periodo_fin,
             monto_valor,
-            cuota
+            cuota,
+            parcialidad
         FROM `__SPARTA_SECRET_REDACTED__`.gastos_cobranza
         WHERE Id_credito = $idCredito
           AND (condonado IS NULL OR condonado = 0)
@@ -543,7 +544,8 @@ public static function obtenerReportesDictamenParaDescarga($fechaInicio, $fechaF
                         ' - ' .
                         date('d/m/Y', strtotime($row['periodo_fin'])),
                     'monto'   => (float)$row['monto_valor'],
-                    'cuota'   => (float)$row['cuota']
+                    'cuota'   => (float)$row['cuota'],
+                    'parcialidad' => $row['parcialidad'] ?? null
                 ];
             }, $r);
 
