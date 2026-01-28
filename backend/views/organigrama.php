@@ -46,6 +46,22 @@
         overflow-wrap: normal;   /* 👈 NO break-word aquí */
     }
 
+    /* Selects: departamento corto, persona y niveles un poco más largos para nombres largos */
+    #depSelect { width: 100%; max-width: 350px; }
+    #personaSelect,
+    #personaLevelsContainer .org-level-select,
+    #personaLevel1Slot .org-level-select {
+        width: 100%;
+        max-width: 350px;
+    }
+
+    /* Título del organigrama (dentro del cuadro para que salga en la imagen) */
+    #orgTituloSeleccion {
+        color: #4a4a4a;
+        font-weight: 600;
+        margin-bottom: 8px;
+    }
+
 
 
 </style>
@@ -54,34 +70,35 @@
 
 <div class="card">
     <div class="card-body">
-        <!-- Filtros -->
-        <div class="row mb-4">
-            <div class="col-md-6 mb-3">
-                <label for="depSelect" class="form-label"><strong>Selecciona un departamento:</strong></label>
+        <!-- Fila 1: Departamento, Persona (máx rango), Nivel 1 (dinámico) -->
+        <div class="row mb-3 align-items-end">
+            <div class="col-md-4 mb-3">
+                <label for="depSelect" class="form-label"><strong>Departamento:</strong></label>
                 <select id="depSelect" class="form-select">
                     <?php echo $Departamentos; ?>
                 </select>
             </div>
-            <div class="col-md-6 mb-3">
+            <div class="col-md-4 mb-3">
                 <label for="personaSelect" class="form-label"><strong>Selecciona persona (máximo rango):</strong></label>
                 <select id="personaSelect" class="form-select" disabled>
                     <option value="">-- Selecciona un departamento primero --</option>
                 </select>
             </div>
+            <div class="col-md-4 mb-3" id="personaLevel1Slot"><!-- Nivel 1 select se inyecta aquí --></div>
         </div>
-        <!-- Selects en cascada: subordinados directos por nivel (se rellenan dinámicamente) -->
+        <!-- Filas siguientes: Nivel 2, 3, 4... (3 selects por fila) -->
         <div id="personaLevelsContainer" class="mb-4"></div>
 
-        <!-- Organigrama -->
-        <div id="resultado" class="mt-4"></div>
+        <div id="resultado" class="mt-2"></div>
 
-        <!-- Organigrama -->
         <div class="zoom-controls">
             <button id="zoom-out">-</button>
             <button id="zoom-in">+</button>
         </div>
 
+        <!-- Cuadro del organigrama: título + chart (todo se captura al descargar imagen) -->
         <div id="chart-container" class="mt-4">
+            <div id="orgTituloSeleccion" class="mb-2"></div>
             <div id="chart"></div>
         </div>
 
@@ -240,6 +257,7 @@
                 document.getElementById("chart").innerHTML = "";
                 organigramaRows = [];
                 document.getElementById("btnGuardarOrganigrama").disabled = true;
+                document.getElementById("orgTituloSeleccion").textContent = "";
                 if (luegoSubordinados) luegoSubordinados([]);
                 return;
             }
@@ -249,6 +267,7 @@
                     if (!res.success) {
                         organigramaRows = [];
                         document.getElementById("btnGuardarOrganigrama").disabled = true;
+                        document.getElementById("orgTituloSeleccion").textContent = "";
                         if (typeof mostrarMensajeAll === 'function') {
                             mostrarMensajeAll({ tipo: 'error', titulo: 'Error', mensaje: 'No se encontraron resultados' });
                         }
@@ -256,6 +275,16 @@
                         return;
                     }
                     organigramaRows = res.rows || [];
+                    (function () {
+                        var root = organigramaRows.find(function (r) { return r && (r.jefe === null || r.jefe === undefined); });
+                        var titulo = "";
+                        if (root) {
+                            titulo = "Organigrama: " + (root.nombre || "");
+                            var cargo = root.puesto || root.nombre_puesto || "";
+                            if (cargo) titulo += " / " + cargo;
+                        }
+                        document.getElementById("orgTituloSeleccion").textContent = titulo;
+                    })();
                     var chartContainer = document.getElementById("chart");
                     chartContainer.innerHTML = "";
                     loadGoogleCharts(function () {
@@ -269,18 +298,22 @@
         }
 
         function quitarSelectsDesdeNivel(desdeNivel) {
+            if (desdeNivel <= 1) {
+                var slot1 = document.getElementById("personaLevel1Slot");
+                if (slot1) slot1.innerHTML = "";
+            }
             var cont = document.getElementById("personaLevelsContainer");
             var selects = cont.querySelectorAll("select.org-level-select");
             selects.forEach(function (sel) {
                 var lvl = parseInt(sel.getAttribute("data-level"), 10);
                 if (lvl >= desdeNivel) {
-                    var col = sel.closest(".col-md-6");
+                    var col = sel.closest(".col-md-4");
                     if (col) col.innerHTML = "";
                 }
             });
             var rows = cont.querySelectorAll(".row.mb-3");
             rows.forEach(function (row) {
-                var cols = row.querySelectorAll(".col-md-6");
+                var cols = row.querySelectorAll(".col-md-4");
                 var vacia = true;
                 for (var i = 0; i < cols.length; i++) {
                     if (cols[i].children.length > 0) { vacia = false; break; }
@@ -294,22 +327,15 @@
             if (rowIdx < rows.length) return rows[rowIdx];
             var row = document.createElement("div");
             row.className = "row mb-3";
-            row.innerHTML = '<div class="col-md-6"></div><div class="col-md-6"></div>';
+            row.innerHTML = '<div class="col-md-4"></div><div class="col-md-4"></div><div class="col-md-4"></div>';
             container.appendChild(row);
             return row;
         }
 
-        function anadirSelectNivel(nivel, opciones) {
-            if (!opciones || opciones.length === 0) return;
-            var cont = document.getElementById("personaLevelsContainer");
-            var rowIdx = Math.floor((nivel - 1) / 2);
-            var colIdx = (nivel - 1) % 2;
-            var row = getOrCreateRowAt(cont, rowIdx);
-            var col = row.children[colIdx];
-            col.innerHTML = '';
+        function crearSelectNivel(nivel, opciones) {
             var label = document.createElement("label");
             label.className = "form-label";
-            label.innerHTML = "<strong>Subordinados directos (nivel " + nivel + "):</strong>";
+            label.innerHTML = "<strong>Subordinados (nivel " + nivel + "):</strong>";
             var sel = document.createElement("select");
             sel.className = "form-select org-level-select";
             sel.setAttribute("data-level", nivel);
@@ -323,9 +349,6 @@
                 opt.textContent = op.nombre || op.id;
                 sel.appendChild(opt);
             });
-            col.appendChild(label);
-            col.appendChild(sel);
-
             sel.addEventListener("change", function () {
                 var val = this.value;
                 var lvl = parseInt(this.getAttribute("data-level"), 10);
@@ -338,6 +361,29 @@
                     if (subsConEquipo.length > 0) anadirSelectNivel(lvl + 1, subsConEquipo);
                 });
             });
+            return { label: label, sel: sel };
+        }
+
+        function anadirSelectNivel(nivel, opciones) {
+            if (!opciones || opciones.length === 0) return;
+            var frag = crearSelectNivel(nivel, opciones);
+            if (nivel === 1) {
+                var slot1 = document.getElementById("personaLevel1Slot");
+                if (slot1) {
+                    slot1.innerHTML = "";
+                    slot1.appendChild(frag.label);
+                    slot1.appendChild(frag.sel);
+                }
+                return;
+            }
+            var cont = document.getElementById("personaLevelsContainer");
+            var rowIdx = Math.floor((nivel - 2) / 3);
+            var colIdx = (nivel - 2) % 3;
+            var row = getOrCreateRowAt(cont, rowIdx);
+            var col = row.children[colIdx];
+            col.innerHTML = "";
+            col.appendChild(frag.label);
+            col.appendChild(frag.sel);
         }
 
         function cargarDepartamentosPorTipo(id, seleccionado = null) {
@@ -442,7 +488,9 @@
             personaSelect.disabled = true;
 
             document.getElementById("resultado").innerHTML = "";
+            document.getElementById("orgTituloSeleccion").textContent = "";
             document.getElementById("chart").innerHTML = "";
+            document.getElementById("personaLevel1Slot").innerHTML = "";
             document.getElementById("personaLevelsContainer").innerHTML = "";
             organigramaRows = [];
             document.getElementById("btnGuardarOrganigrama").disabled = true;
@@ -493,12 +541,14 @@
         /* ============================= */
         document.getElementById("personaSelect").addEventListener("change", function () {
             var persona_id = this.value;
+            document.getElementById("personaLevel1Slot").innerHTML = "";
             document.getElementById("personaLevelsContainer").innerHTML = "";
 
             if (!persona_id) {
                 document.getElementById("chart").innerHTML = "";
                 organigramaRows = [];
                 document.getElementById("btnGuardarOrganigrama").disabled = true;
+                document.getElementById("orgTituloSeleccion").textContent = "";
                 return;
             }
 
@@ -511,13 +561,16 @@
         /*   BOTÓN LIMPIAR               */
         /* ============================= */
         document.getElementById("btnLimpiarOrganigrama").addEventListener("click", function () {
-            document.getElementById("depSelect").value = "";
+            var depSelect = document.getElementById("depSelect");
+            depSelect.selectedIndex = 0; // "Seleccione una opción"
             var personaSelect = document.getElementById("personaSelect");
             personaSelect.innerHTML = "<option value=\"\">-- Selecciona un departamento primero --</option>";
             personaSelect.disabled = true;
             personaSelect.value = "";
+            document.getElementById("personaLevel1Slot").innerHTML = "";
             document.getElementById("personaLevelsContainer").innerHTML = "";
             document.getElementById("chart").innerHTML = "";
+            document.getElementById("orgTituloSeleccion").textContent = "";
             document.getElementById("resultado").innerHTML = "";
             organigramaRows = [];
             document.getElementById("btnGuardarOrganigrama").disabled = true;

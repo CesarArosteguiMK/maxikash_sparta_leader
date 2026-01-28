@@ -955,7 +955,7 @@ class CapHum extends Model
                 $queryPersonas = <<<SQL
                 SELECT 
                 p.id,
-                CONCAT(p.nombres, ' ', p.apellidop, ' ', p.apellidom, ' ----- (', UPPER(pp.nombre), ') '  ) AS nombre,
+                CONCAT(p.nombres, ' ', p.apellidop, ' ', p.apellidom) AS nombre,
                 ap.id_puesto
             FROM persona p
             INNER JOIN asigna_puesto ap ON ap.id_persona = p.id
@@ -1022,6 +1022,14 @@ class CapHum extends Model
                     SELECT CONCAT(nombres, ' ', apellidop)
                     FROM persona
                     WHERE id = $id_persona
+                ),
+                'nombre_puesto', (
+                    SELECT pp.nombre
+                    FROM persona p
+                    INNER JOIN asigna_puesto ap ON ap.id_persona = p.id
+                    INNER JOIN puesto pp ON pp.id = ap.id_puesto
+                    WHERE p.id = $id_persona
+                    LIMIT 1
                 ),
                 'subordinados', (
                     SELECT COALESCE(JSON_ARRAYAGG(
