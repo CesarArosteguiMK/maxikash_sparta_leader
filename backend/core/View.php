@@ -89,6 +89,11 @@ function getMenu()
                                     'label' => 'Equivalencia puestos',
                                     'url' => '/equivalencias/consulta',
                                     'modulos' => [10]
+                            ],
+                            [
+                                    'label' => 'Shell Segundómetro',
+                                    'url' => '/segundometro/shell',
+                                    'modulos' => [10]
                             ]
                     ]
             ]
