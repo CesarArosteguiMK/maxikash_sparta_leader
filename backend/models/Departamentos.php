@@ -95,7 +95,7 @@ class Departamentos extends Model
             $r = $db->queryOne(
                 "
                 UPDATE __SPARTA_SECRET_REDACTED__.puesto
-                SET nombre='$nombre' WHERE id=$id_puesto
+                SET nombre='$nombre', clave='$nombre' WHERE id=$id_puesto
             ");
             $datos = is_array($r) ? $r : [];
 
