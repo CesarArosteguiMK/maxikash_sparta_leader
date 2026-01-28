@@ -77,6 +77,16 @@ function getMenu()
                             
                     ]
             ],
+            'Condonaciones' => [
+                    'icono' => 'fa-solid fa-hand-holding-dollar',
+                    'subItems' => [
+                            [
+                                    'label' => 'Historial Condonaciones',
+                                    'url' => '/condonaciones/historial',
+                                    'modulos' => [1, 10]
+                            ]
+                    ]
+            ],
             'Configuración' => [
                     'icono' => 'fa-solid fa-cog',
                     'subItems' => [
