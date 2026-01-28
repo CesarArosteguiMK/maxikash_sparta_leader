@@ -69,6 +69,8 @@
                 </select>
             </div>
         </div>
+        <!-- Selects en cascada: subordinados directos por nivel (se rellenan dinámicamente) -->
+        <div id="personaLevelsContainer" class="mb-4"></div>
 
         <!-- Organigrama -->
         <div id="resultado" class="mt-4"></div>
@@ -81,6 +83,15 @@
 
         <div id="chart-container" class="mt-4">
             <div id="chart"></div>
+        </div>
+
+        <div class="mt-4 d-flex gap-2 flex-wrap">
+            <button type="button" class="btn btn-label-secondary" id="btnLimpiarOrganigrama">
+                <i class="fa-solid fa-eraser me-1"></i>Limpiar
+            </button>
+            <button type="button" class="btn btn-primary" id="btnGuardarOrganigrama" disabled>
+                <i class="fa-solid fa-image me-1"></i>Guardar organigrama
+            </button>
         </div>
 
     </div>
@@ -165,7 +176,7 @@
         </div>
     </div>
 
-
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script>
     /**
      * ==========================================
@@ -202,6 +213,132 @@
     }
 
     document.addEventListener("DOMContentLoaded", function () {
+
+        let organigramaRows = [];
+
+        function getSubordinadosDirectos(idJefe) {
+            return organigramaRows.filter(function (r) {
+                if (!r || r.id == null) return false;
+                if (String(r.id) === String(idJefe)) return false;
+                return String(r.jefe) === String(idJefe);
+            });
+        }
+
+        function obtenerIdRootActual() {
+            var id = document.getElementById("personaSelect").value;
+            var cont = document.getElementById("personaLevelsContainer");
+            var selects = cont.querySelectorAll("select.org-level-select");
+            for (var i = 0; i < selects.length; i++) {
+                var v = selects[i].value;
+                if (v) id = v;
+            }
+            return id || null;
+        }
+
+        function cargarOrganigramaDesdeRoot(personaId, luegoSubordinados) {
+            if (!personaId) {
+                document.getElementById("chart").innerHTML = "";
+                organigramaRows = [];
+                document.getElementById("btnGuardarOrganigrama").disabled = true;
+                if (luegoSubordinados) luegoSubordinados([]);
+                return;
+            }
+            fetch("/CapHum/nivelJerarquicoColaborador/" + personaId)
+                .then(function (res) { return res.json(); })
+                .then(function (res) {
+                    if (!res.success) {
+                        organigramaRows = [];
+                        document.getElementById("btnGuardarOrganigrama").disabled = true;
+                        if (typeof mostrarMensajeAll === 'function') {
+                            mostrarMensajeAll({ tipo: 'error', titulo: 'Error', mensaje: 'No se encontraron resultados' });
+                        }
+                        if (luegoSubordinados) luegoSubordinados([]);
+                        return;
+                    }
+                    organigramaRows = res.rows || [];
+                    var chartContainer = document.getElementById("chart");
+                    chartContainer.innerHTML = "";
+                    loadGoogleCharts(function () {
+                        drawOrgChart(res.rows, chartContainer);
+                    });
+                    document.getElementById("btnGuardarOrganigrama").disabled = false;
+                    var subs = getSubordinadosDirectos(personaId);
+                    var subsConEquipo = subs.filter(function (op) { return getSubordinadosDirectos(op.id).length > 0; });
+                    if (luegoSubordinados) luegoSubordinados(subsConEquipo);
+                });
+        }
+
+        function quitarSelectsDesdeNivel(desdeNivel) {
+            var cont = document.getElementById("personaLevelsContainer");
+            var selects = cont.querySelectorAll("select.org-level-select");
+            selects.forEach(function (sel) {
+                var lvl = parseInt(sel.getAttribute("data-level"), 10);
+                if (lvl >= desdeNivel) {
+                    var col = sel.closest(".col-md-6");
+                    if (col) col.innerHTML = "";
+                }
+            });
+            var rows = cont.querySelectorAll(".row.mb-3");
+            rows.forEach(function (row) {
+                var cols = row.querySelectorAll(".col-md-6");
+                var vacia = true;
+                for (var i = 0; i < cols.length; i++) {
+                    if (cols[i].children.length > 0) { vacia = false; break; }
+                }
+                if (vacia) row.remove();
+            });
+        }
+
+        function getOrCreateRowAt(container, rowIdx) {
+            var rows = container.querySelectorAll(".row.mb-3");
+            if (rowIdx < rows.length) return rows[rowIdx];
+            var row = document.createElement("div");
+            row.className = "row mb-3";
+            row.innerHTML = '<div class="col-md-6"></div><div class="col-md-6"></div>';
+            container.appendChild(row);
+            return row;
+        }
+
+        function anadirSelectNivel(nivel, opciones) {
+            if (!opciones || opciones.length === 0) return;
+            var cont = document.getElementById("personaLevelsContainer");
+            var rowIdx = Math.floor((nivel - 1) / 2);
+            var colIdx = (nivel - 1) % 2;
+            var row = getOrCreateRowAt(cont, rowIdx);
+            var col = row.children[colIdx];
+            col.innerHTML = '';
+            var label = document.createElement("label");
+            label.className = "form-label";
+            label.innerHTML = "<strong>Subordinados directos (nivel " + nivel + "):</strong>";
+            var sel = document.createElement("select");
+            sel.className = "form-select org-level-select";
+            sel.setAttribute("data-level", nivel);
+            var opt0 = document.createElement("option");
+            opt0.value = "";
+            opt0.textContent = "-- Selecciona --";
+            sel.appendChild(opt0);
+            opciones.forEach(function (op) {
+                var opt = document.createElement("option");
+                opt.value = op.id;
+                opt.textContent = op.nombre || op.id;
+                sel.appendChild(opt);
+            });
+            col.appendChild(label);
+            col.appendChild(sel);
+
+            sel.addEventListener("change", function () {
+                var val = this.value;
+                var lvl = parseInt(this.getAttribute("data-level"), 10);
+                quitarSelectsDesdeNivel(lvl + 1);
+                if (!val) {
+                    cargarOrganigramaDesdeRoot(obtenerIdRootActual(), function () {});
+                    return;
+                }
+                cargarOrganigramaDesdeRoot(val, function (subsConEquipo) {
+                    if (subsConEquipo.length > 0) anadirSelectNivel(lvl + 1, subsConEquipo);
+                });
+            });
+        }
 
         function cargarDepartamentosPorTipo(id, seleccionado = null) {
             fetch('/CapHum/getDepartamento', {
@@ -306,6 +443,9 @@
 
             document.getElementById("resultado").innerHTML = "";
             document.getElementById("chart").innerHTML = "";
+            document.getElementById("personaLevelsContainer").innerHTML = "";
+            organigramaRows = [];
+            document.getElementById("btnGuardarOrganigrama").disabled = true;
 
             if (!dep_id) return;
 
@@ -352,28 +492,59 @@
         /*   SELECT PERSONA              */
         /* ============================= */
         document.getElementById("personaSelect").addEventListener("change", function () {
-            const persona_id = this.value;
-            if (!persona_id) return;
+            var persona_id = this.value;
+            document.getElementById("personaLevelsContainer").innerHTML = "";
 
-            fetch("/CapHum/nivelJerarquicoColaborador/" + persona_id)
-                .then(res => res.json())
-                .then(res => {
-                    if (!res.success) {
-                        mostrarMensajeAll({
-                            tipo: 'error',
-                            titulo: 'Error',
-                            mensaje: 'No se encontraron resultados'
-                        });
-                        return;
-                    }
+            if (!persona_id) {
+                document.getElementById("chart").innerHTML = "";
+                organigramaRows = [];
+                document.getElementById("btnGuardarOrganigrama").disabled = true;
+                return;
+            }
 
-                    const chartContainer = document.getElementById("chart");
-                    chartContainer.innerHTML = "";
+            cargarOrganigramaDesdeRoot(persona_id, function (subsConEquipo) {
+                if (subsConEquipo.length > 0) anadirSelectNivel(1, subsConEquipo);
+            });
+        });
 
-                    loadGoogleCharts(() => {
-                        drawOrgChart(res.rows, chartContainer);
-                    });
-                });
+        /* ============================= */
+        /*   BOTÓN LIMPIAR               */
+        /* ============================= */
+        document.getElementById("btnLimpiarOrganigrama").addEventListener("click", function () {
+            document.getElementById("depSelect").value = "";
+            var personaSelect = document.getElementById("personaSelect");
+            personaSelect.innerHTML = "<option value=\"\">-- Selecciona un departamento primero --</option>";
+            personaSelect.disabled = true;
+            personaSelect.value = "";
+            document.getElementById("personaLevelsContainer").innerHTML = "";
+            document.getElementById("chart").innerHTML = "";
+            document.getElementById("resultado").innerHTML = "";
+            organigramaRows = [];
+            document.getElementById("btnGuardarOrganigrama").disabled = true;
+        });
+
+        /* ============================= */
+        /*   BOTÓN GUARDAR ORGANIGRAMA (descargar imagen) */
+        /* ============================= */
+        document.getElementById("btnGuardarOrganigrama").addEventListener("click", function () {
+            var container = document.getElementById("chart-container");
+            if (!container || container.querySelectorAll("*").length === 0) {
+                if (typeof Swal !== "undefined") Swal.fire("Aviso", "No hay organigrama para guardar. Selecciona departamento y persona primero.", "info");
+                return;
+            }
+            if (typeof html2canvas === "undefined") {
+                if (typeof Swal !== "undefined") Swal.fire("Error", "No se puede exportar la imagen. Recarga la página.", "error");
+                return;
+            }
+            html2canvas(container, { scale: 2, useCORS: true, logging: false }).then(function (canvas) {
+                var link = document.createElement("a");
+                link.download = "organigrama.png";
+                link.href = canvas.toDataURL("image/png");
+                link.click();
+            }).catch(function (err) {
+                console.error("html2canvas:", err);
+                if (typeof Swal !== "undefined") Swal.fire("Error", "No se pudo generar la imagen.", "error");
+            });
         });
 
         /* ============================= */
