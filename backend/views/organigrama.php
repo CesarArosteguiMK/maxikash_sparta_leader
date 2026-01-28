@@ -47,12 +47,19 @@
     }
 
     /* Selects: departamento corto, persona y niveles un poco más largos para nombres largos */
-    #depSelect { width: 100%; max-width: 350px; }
+    #depSelect {
+    width: 100%;
+    max-width: 360px;
+    font-size: 1rem;
+    font-weight: 400;
+    line-height: 1.5;
+    color: #697a8d;
+}
     #personaSelect,
     #personaLevelsContainer .org-level-select,
     #personaLevel1Slot .org-level-select {
         width: 100%;
-        max-width: 350px;
+        max-width: 360px;
     }
 
     /* Título del organigrama (dentro del cuadro para que salga en la imagen) */
