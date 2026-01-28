@@ -1880,6 +1880,25 @@ class CapHum extends Controller
                 }
             }
             
+            function configurarMaxFechaIngreso() {
+                const input = document.getElementById('add_fecha_ingreso');
+                const wrapper = document.getElementById('fecha_acta_wrapper');
+                if (!input) return;
+                const hoy = new Date();
+                hoy.setDate(hoy.getDate() + 1);
+                const yyyy = hoy.getFullYear();
+                const mm = String(hoy.getMonth() + 1).padStart(2, '0');
+                const dd = String(hoy.getDate()).padStart(2, '0');
+                input.max = `${yyyy}-${mm}-${dd}`;
+                // Clic en todo el selector (input o wrapper) abre el calendario
+                function abrirCalendario() {
+                    if (input.showPicker) input.showPicker();
+                    else input.focus();
+                }
+                input.addEventListener('click', function (e) { e.stopPropagation(); abrirCalendario(); });
+                if (wrapper) wrapper.addEventListener('click', function (e) { if (e.target === wrapper) abrirCalendario(); });
+            }
+            
             function guardarGestor() {
                 const nombres = document.getElementById('add_nombres').value.trim();
                 const apellidop = document.getElementById('add_apellidop').value.trim();
@@ -1893,6 +1912,7 @@ class CapHum extends Controller
                 
                 const usuario = document.getElementById('add_usuario').value.trim();
                 const contrasena = document.getElementById('add_contrasena').value.trim();
+                const fecha_ingreso = document.getElementById('add_fecha_ingreso').value.trim() || null;
             
             
                 // 🔴 Validaciones obligatorias
@@ -1931,6 +1951,7 @@ class CapHum extends Controller
                         apellidop,
                         apellidom,
                         telefono,
+                        fecha_ingreso,
                         id_puesto,
                         departamento_id,
                         id_jefe: id_jefe || null,
@@ -1960,7 +1981,7 @@ class CapHum extends Controller
 
             // Limpiar formulario Agregar Usuario al cerrar el offcanvas (Cancelar o X)
             function limpiarFormularioAgregarUsuario() {
-                const ids = ['add_nombres', 'add_apellidop', 'add_apellidom', 'add_telefono', 'add_usuario', 'add_contrasena', 'add_num_telefono'];
+                const ids = ['add_nombres', 'add_apellidop', 'add_apellidom', 'add_telefono', 'add_fecha_ingreso', 'add_usuario', 'add_contrasena', 'add_num_telefono'];
                 ids.forEach(id => {
                     const el = document.getElementById(id);
                     if (el) el.value = '';
@@ -1980,21 +2001,19 @@ class CapHum extends Controller
             }
             
             $(document).ready(() => {
-            // Inicializar DataTable con columnas explícitas
-            $(document).ready(() => {
+                // Inicializar DataTable con columnas explícitas
                 configuraTabla("#historialUsuarios", { registrosPorPagina: 10 });
                 getUsuarios();
-            });
 
-            // Al cerrar el offcanvas Agregar Usuario (Cancelar o X), limpiar el formulario
-            const offcanvasAdd = document.getElementById('offcanvasAddUser');
-            if (offcanvasAdd) {
-                offcanvasAdd.addEventListener('hidden.bs.offcanvas', limpiarFormularioAgregarUsuario);
-            }
-        
-        
-            getUsuarios();
-        });
+                // Configurar límite máximo de fecha de acta (hoy + 1 día)
+                configurarMaxFechaIngreso();
+
+                // Al cerrar el offcanvas Agregar Usuario (Cancelar o X), limpiar el formulario
+                const offcanvasAdd = document.getElementById('offcanvasAddUser');
+                if (offcanvasAdd) {
+                    offcanvasAdd.addEventListener('hidden.bs.offcanvas', limpiarFormularioAgregarUsuario);
+                }
+            });
         
         // Función para inicializar vista de bajas (se llama desde bajas())
         function inicializarBajas() {
@@ -4685,6 +4704,7 @@ class CapHum extends Controller
         // Preparar datos
         $data['contrasena'] = $data['contrasena'];
         $data['id_jefe'] = isset($data['id_jefe']) ? $data['id_jefe'] : null;
+        $data['fecha_ingreso'] = !empty($data['fecha_ingreso']) ? $data['fecha_ingreso'] : null;
         $data['asignar_legion'] = isset($data['asignar_legion']) ? (bool)$data['asignar_legion'] : false;
         $data['id_legion'] = isset($data['id_legion']) && !empty($data['id_legion']) ? (int)$data['id_legion'] : null;
 

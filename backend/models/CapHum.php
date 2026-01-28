@@ -1195,17 +1195,20 @@ class CapHum extends Model
         $id_jefe = addslashes($data['id_jefe']);
         $user_name = addslashes($data['usuario']);
         $password = addslashes($data['contrasena']);
+        $fecha_ingreso = !empty($data['fecha_ingreso']) ? addslashes($data['fecha_ingreso']) : null;
 
 
         try {
             $db = new Database();
 
-            // 1️⃣ Ejecutamos INSERT con queryOne() aunque no devuelve filas
+            $fecha_ingreso_sql = $fecha_ingreso !== null ? "'$fecha_ingreso'" : 'NULL';
+
+            // 1️⃣ Ejecutamos INSERT con queryOne() aunque no devuelve filas (fecha_registro = fecha y hora automáticas)
             $db->queryOne("
             INSERT INTO __SPARTA_SECRET_REDACTED__.persona
-            (nombres, apellidop, apellidom, numero_empleado, correo, telefono_uno, telefono_dos, estatus, user_name, password)
+            (nombres, apellidop, apellidom, numero_empleado, correo, telefono_uno, telefono_dos, estatus, user_name, password, fecha_ingreso, fecha_registro)
             VALUES
-            ('$nombres', '$apellidop', '$apellidom', '$numero_empleado', '$correo', '$telefono_uno', '$telefono_dos', '$estatus', '$user_name', '$password')
+            ('$nombres', '$apellidop', '$apellidom', '$numero_empleado', '$correo', '$telefono_uno', '$telefono_dos', '$estatus', '$user_name', '$password', $fecha_ingreso_sql, NOW())
         ");
 
 

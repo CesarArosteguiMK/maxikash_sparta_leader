@@ -118,6 +118,52 @@
         background: #6c757d;
     }
 
+    /* Campo de fecha de acta: todo el selector abre el calendario y aspecto más elegante */
+    .fecha-acta-wrapper {
+        position: relative;
+        cursor: pointer;
+        border-radius: 0.5rem;
+        transition: box-shadow 0.2s ease, border-color 0.2s ease;
+    }
+
+    .fecha-acta-wrapper:hover {
+        box-shadow: 0 2px 8px rgba(105, 108, 255, 0.12);
+    }
+
+    #add_fecha_ingreso {
+        width: 100%;
+        min-height: 42px;
+        padding: 0.5rem 0.875rem 0.5rem 1rem;
+        font-size: 0.9375rem;
+        color: #566a7f;
+        background: linear-gradient(180deg, #fafbfc 0%, #f5f5f9 100%);
+        border: 1px solid #d9dee3;
+        border-radius: 0.5rem;
+        cursor: pointer;
+        transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+        appearance: none;
+        -webkit-appearance: none;
+    }
+
+    #add_fecha_ingreso:hover {
+        border-color: #b4bdc6;
+        background: #fff;
+    }
+
+    #add_fecha_ingreso:focus {
+        border-color: #696cff;
+        box-shadow: 0 0 0 0.2rem rgba(105, 108, 255, 0.2);
+        outline: none;
+        background-color: #fff;
+    }
+
+    #add_fecha_ingreso::-webkit-calendar-picker-indicator {
+        cursor: pointer;
+        opacity: 0.7;
+        margin-left: 0;
+        padding: 0.5rem;
+    }
+
     /* Estilos para Select con Búsqueda */
     .select-search-wrapper {
         position: relative;
@@ -375,6 +421,13 @@
                 <div class="mb-2">
                     <label class="form-label">Teléfono *</label>
                     <input type="text" id="add_telefono" class="form-control phone-mask" oninput="this.value = this.value.replace(/[^0-9]/g, '')" onblur="validarTelefono('add_telefono')" maxlength="10">
+                </div>
+
+                <div class="mb-2">
+                    <label class="form-label">Fecha de acta</label>
+                    <div class="fecha-acta-wrapper" id="fecha_acta_wrapper">
+                        <input type="date" id="add_fecha_ingreso" class="form-control">
+                    </div>
                 </div>
 
                 <div class="mb-2">
