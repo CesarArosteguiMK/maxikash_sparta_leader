@@ -2150,7 +2150,7 @@ JS;
             return;
         }
 
-        $resultado = EstadoCuentaDAO::getGastosCobranza($idCredito);
+        $resultado = EstadoCuentaDAO::getGastosCobranza($idCredito);    
         self::respuestaJSON($resultado);
     }
 

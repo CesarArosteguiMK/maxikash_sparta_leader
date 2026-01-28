@@ -4591,6 +4591,8 @@ class CapHum extends Controller
 
         self::respuestaJSON($puestos);
     }
+
+    /// ESTA NO SE MUEVE 
     public function nivelJerarquicoColaborador($persona_id)
     {
         // 1️⃣ Obtener organigrama desde la DAO

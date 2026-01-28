@@ -1912,6 +1912,7 @@ if ($cuotasContratadas > 0) {
                             <th style="width:40px;"></th>
                             <th>Semana</th>
                             <th>Periodo</th>
+                            <th>Parcialidad</th>
                             <th># Cuota</th>
                             <th class="">Monto</th>
                             <th class=""></th>
@@ -2747,6 +2748,7 @@ if ($cuotasContratadas > 0) {
         // Reset visual
         countSpan.textContent = 0;
         montoSpan.textContent = '0.00';
+        document.getElementById('montoTotalSinCondonar').textContent = '0.00';
 
         tabla.innerHTML = `
         <tr>
@@ -2787,6 +2789,7 @@ if ($cuotasContratadas > 0) {
                         </td>
                     </tr>
                 `;
+                    document.getElementById('montoTotalSinCondonar').textContent = '0.00';
                     return;
                 }
 
@@ -2803,7 +2806,9 @@ if ($cuotasContratadas > 0) {
                         </td>
                         <td>${g.semana}</td>
                         <td>${g.periodo}</td>
-                        <td>${g.cuota}</td>
+                        <td>${g.parcialidad != null && g.parcialidad !== '' ? g.parcialidad : '-'}</td>
+                        
+                        <td>$${parseFloat(g.cuota).toFixed(2)}</td>
                         <td>$${parseFloat(g.monto).toFixed(2)}</td>
                         <td>
                             <button style="display: none;" class="btn btn-sm btn-outline-primary" onclick="editarGastoCobranza(${g.id_gastos_cobranza})">  <i class="fa fa-edit"></i> </button>
@@ -2816,6 +2821,9 @@ if ($cuotasContratadas > 0) {
                     </tr>
                 `;
                 });
+
+                const totalSinCondonar = gastos.reduce((acc, g) => acc + parseFloat(g.monto || 0), 0);
+                document.getElementById('montoTotalSinCondonar').textContent = totalSinCondonar.toFixed(2);
 
             })
             .catch(err => {
