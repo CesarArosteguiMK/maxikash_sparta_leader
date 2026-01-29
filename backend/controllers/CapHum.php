@@ -23,7 +23,7 @@ class CapHum extends Controller
                                # ${p.numero_empleado}
                             </div>
                             <div class="fw-semibold">
-                                ${p.nombres} ${p.apellidop} ${p.apellidom}
+                                ${[p.nombres, p.segundo_nombre, p.apellidop, p.apellidom].filter(x => x).join(' ')}
                             </div>
                             <small class="text-muted d-flex align-items-center gap-1">
                                 <i class="fa fa-key"></i>
@@ -190,6 +190,7 @@ class CapHum extends Controller
                     document.getElementById("edit_num_empleado").value = persona.numero_empleado ?? '';
                     document.getElementById("edit_id").value = persona.id ?? '';
                     document.getElementById("edit_nombres").value = persona.nombres ?? '';
+                    document.getElementById("edit_segundo_nombre").value = persona.segundo_nombre ?? '';
                     document.getElementById("edit_apellidop").value = persona.apellidop ?? '';
                     document.getElementById("edit_apellidom").value = persona.apellidom ?? '';
                     document.getElementById("edit_telefono").value = persona.telefono ?? '';
@@ -2916,7 +2917,7 @@ class CapHum extends Controller
                                # ${p.numero_empleado}
                             </div>
                             <div class="fw-semibold">
-                                ${p.nombres} ${p.apellidop} ${p.apellidom}
+                                ${[p.nombres, p.segundo_nombre, p.apellidop, p.apellidom].filter(x => x).join(' ')}
                             </div>
                             <small class="text-muted d-flex align-items-center gap-1">
                                 <i class="fa fa-key"></i>
@@ -4302,6 +4303,7 @@ class CapHum extends Controller
                 'numero_empleado' => $p['numero_empleado'] ?? '',
                 'nombre_jefe' => $p['nombre_jefe'] ?? '',
                 'nombres' => $p['nombres'] ?? '',
+                'segundo_nombre' => $p['segundo_nombre'] ?? '',
                 'apellidop' => $p['apellidop'] ?? '',
                 'apellidom' => $p['apellidom'] ?? '',
                 'nombre_departamento' => $p['nombre_departamento'] ?? '',
@@ -4374,6 +4376,7 @@ class CapHum extends Controller
                 $datos = array_map(function($p) {
                     return [
                         'nombres' => $p['nombres'] ?? '',
+                        'segundo_nombre' => $p['segundo_nombre'] ?? '',
                         'apellidop' => $p['apellidop'] ?? '',
                         'apellidom' => $p['apellidom'] ?? '',
                         'numero_empleado' => $p['numero_empleado'] ?? '',
