@@ -46,7 +46,7 @@ function getMenu()
                             [
                                 'label' => 'Bajas',
                                 'url' => '/caphum/bajas',
-                                'modulos' => [5]
+                                'modulos' => [13]
                             ],
                             [
                                     'label' => 'Organigrama',
@@ -71,7 +71,7 @@ function getMenu()
                             [
                                     'label' => 'Dictamen de Llamadas',
                                     'url' => '/estadocuenta/reporteDictamen',
-                                    'modulos' => [11]
+                                    'modulos' => [14]
                             ]
 
                             
@@ -83,7 +83,7 @@ function getMenu()
                             [
                                     'label' => 'Historial Condonaciones',
                                     'url' => '/condonaciones/historial',
-                                    'modulos' => [1, 10]
+                                    'modulos' => [15]
                             ]
                     ]
             ],
@@ -98,12 +98,12 @@ function getMenu()
                             [
                                     'label' => 'Equivalencia puestos',
                                     'url' => '/equivalencias/consulta',
-                                    'modulos' => [10]
+                                    'modulos' => [17]
                             ],
                             [
                                     'label' => 'Shell Segundómetro',
                                     'url' => '/segundometro/shell',
-                                    'modulos' => [10]
+                                    'modulos' => [16]
                             ]
                     ]
             ]
