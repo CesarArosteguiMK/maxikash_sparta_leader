@@ -88,7 +88,7 @@ class CapHum extends Controller
                     onSuccess: (resp) => {
                         // Mapear datos con el nuevo formato de columnas
                         const datos = resp.datos.map(p => {
-                            const nombreCompleto = `${p.nombres ?? ''} ${p.apellidop ?? ''} ${p.apellidom ?? ''}`.trim();
+                            const nombreCompleto = [p.nombres, p.segundo_nombre, p.apellidop, p.apellidom].filter(x => x).join(' ');
                             
                             return {
                                 nombres: `
@@ -1745,6 +1745,7 @@ class CapHum extends Controller
                 const payload = {
                     id: document.getElementById("edit_id").value,
                     nombres: document.getElementById("edit_nombres").value,
+                    segundo_nombre: document.getElementById("edit_segundo_nombre").value,
                     apellidop: document.getElementById("edit_apellidop").value,
                     apellidom: document.getElementById("edit_apellidom").value,
                     telefono: document.getElementById("edit_telefono").value,
@@ -2042,6 +2043,7 @@ class CapHum extends Controller
             
             function guardarGestor() {
                 const nombres = document.getElementById('add_nombres').value.trim();
+                const segundo_nombre = document.getElementById('add_segundo_nombre').value.trim();
                 const apellidop = document.getElementById('add_apellidop').value.trim();
                 const apellidom = document.getElementById('add_apellidom').value.trim();
                 const telefono = document.getElementById('add_telefono').value.trim();
@@ -2090,6 +2092,7 @@ class CapHum extends Controller
                     body: JSON.stringify({
                         
                         nombres,
+                        segundo_nombre,
                         apellidop,
                         apellidom,
                         telefono,
@@ -3024,7 +3027,7 @@ class CapHum extends Controller
                     
                     // Mapear datos con el nuevo formato de columnas
                     const datos = resp.datos.map(p => {
-                        const nombreCompleto = `${p.nombres ?? ''} ${p.apellidop ?? ''} ${p.apellidom ?? ''}`.trim();
+                        const nombreCompleto = [p.nombres, p.segundo_nombre, p.apellidop, p.apellidom].filter(x => x).join(' ');
                         
                         return {
                             nombres: `

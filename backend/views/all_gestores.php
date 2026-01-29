@@ -264,6 +264,7 @@
     #add_id_puesto,
     #add_id_legion,
     #add_nombres,
+    #add_segundo_nombre,
     #add_apellidop,
     #add_apellidom,
     #add_contrasena {
@@ -410,6 +411,11 @@
                 <div class="mb-2">
                     <label class="form-label">Nombres *</label>
                     <input type="text" id="add_nombres" class="form-control" oninput="this.value = this.value.replace(/[^A-Za-zÁÉÍÓÚáéíóúÑñ\s]/g, '').replace(/^\s+/, '').replace(/\s{2,}/g, ' ').toUpperCase()" onblur="this.value = this.value.trim()" style="text-transform: uppercase;">
+                </div>
+
+                <div class="mb-2">
+                    <label class="form-label">Segundo Nombre (Opcional)</label>
+                    <input type="text" id="add_segundo_nombre" class="form-control" oninput="this.value = this.value.replace(/[^A-Za-zÁÉÍÓÚáéíóúÑñ\s]/g, '').replace(/^\s+/, '').replace(/\s{2,}/g, ' ').toUpperCase()" onblur="this.value = this.value.trim()" style="text-transform: uppercase;">
                 </div>
 
                 <div class="mb-2">
@@ -876,6 +882,11 @@
                 <div class="mb-2">
                     <label class="form-label">Nombres *</label>
                     <input type="text" id="edit_nombres" class="form-control" oninput="this.value = this.value.replace(/[^A-Za-zÁÉÍÓÚáéíóúÑñ\s]/g, '').replace(/^\s+/, '').replace(/\s{2,}/g, ' ').toUpperCase()" onblur="this.value = this.value.trim()" style="text-transform: uppercase;">
+                </div>
+
+                <div class="mb-2">
+                    <label class="form-label">Segundo Nombre (Opcional)</label>
+                    <input type="text" id="edit_segundo_nombre" class="form-control" oninput="this.value = this.value.replace(/[^A-Za-zÁÉÍÓÚáéíóúÑñ\s]/g, '').replace(/^\s+/, '').replace(/\s{2,}/g, ' ').toUpperCase()" onblur="this.value = this.value.trim()" style="text-transform: uppercase;">
                 </div>
 
                 <div class="mb-2">
@@ -1410,7 +1421,7 @@
              # ${p.numero_empleado}
           </div>
           <div class="fw-semibold">
-              ${p.nombres} ${p.apellidop} ${p.apellidom}
+              ${[p.nombres, p.segundo_nombre, p.apellidop, p.apellidom].filter(x => x).join(' ')}
           </div>
           <small class="text-muted d-flex align-items-center gap-1">
               <i class="fa fa-key"></i>
@@ -1438,7 +1449,7 @@
            <button class="btn btn-sm btn-primary" onclick="editar(${p.id})" title="Editar">
                <i class="fa fa-edit"></i>
            </button>
-           <button class="btn btn-sm btn-info" onclick="cargarDocumentoPersona(this)" data-id-persona="${p.id}" data-nombre="${(p.nombres + ' ' + p.apellidop + ' ' + p.apellidom).replace(/"/g, '&quot;')}" title="Cargar documento">
+           <button class="btn btn-sm btn-info" onclick="cargarDocumentoPersona(this)" data-id-persona="${p.id}" data-nombre="${[p.nombres, p.segundo_nombre, p.apellidop, p.apellidom].filter(x => x).join(' ').replace(/"/g, '&quot;')}" title="Cargar documento">
                <i class="fa fa-file"></i>
            </button>
            <button class="btn btn-sm btn-warning" onclick="registra_ausencia(${p.id})" title="Ausencias">

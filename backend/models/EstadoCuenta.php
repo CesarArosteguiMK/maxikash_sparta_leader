@@ -14,9 +14,9 @@ class EstadoCuenta extends Model
         $qry = "
             SELECT
                 id,
-                CONCAT_WS(' ', nombres, apellidop, apellidom) AS nombre_completo
+                CONCAT_WS(' ', nombres, segundo_nombre, apellidop, apellidom) AS nombre_completo
             FROM persona
-            WHERE CONCAT_WS(' ', nombres, apellidop, apellidom)  LIKE '%$nombre%'
+            WHERE CONCAT_WS(' ', nombres, segundo_nombre, apellidop, apellidom)  LIKE '%$nombre%'
               AND estatus = 'Activo'
             ORDER BY nombres, apellidop
             LIMIT 10
@@ -93,9 +93,9 @@ class EstadoCuenta extends Model
         $query = <<<SQL
             SELECT
                 id,
-                CONCAT_WS(' ', nombres, apellidop, apellidom) AS nombre_completo
+                CONCAT_WS(' ', nombres, segundo_nombre, apellidop, apellidom) AS nombre_completo
             FROM persona
-            WHERE CONCAT_WS(' ', nombres, apellidop, apellidom) LIKE :nombre
+            WHERE CONCAT_WS(' ', nombres, segundo_nombre, apellidop, apellidom) LIKE :nombre
               AND estatus = 'Activo'
             ORDER BY nombres, apellidop
             LIMIT 10
@@ -123,9 +123,9 @@ class EstadoCuenta extends Model
             $r = $db->queryAll(
                 "SELECT
                         id,
-                        CONCAT_WS(' ', nombres, apellidop, apellidom) AS nombre_completo
+                        CONCAT_WS(' ', nombres, segundo_nombre, apellidop, apellidom) AS nombre_completo
                     FROM persona
-                    WHERE CONCAT_WS(' ', nombres, apellidop, apellidom) LIKE '%jona%'
+                    WHERE CONCAT_WS(' ', nombres, segundo_nombre, apellidop, apellidom) LIKE '%jona%'
                       AND estatus = 'Activo'
                     ORDER BY nombres, apellidop
                     LIMIT 10
@@ -417,9 +417,10 @@ class EstadoCuenta extends Model
                 TIME(dl.hora_gestion) AS hora_registro,
                 dl.id_credito,
                 p.nombres,
+                p.segundo_nombre,
                 p.apellidop,
                 p.apellidom,
-                CONCAT_WS(' ', p.nombres, p.apellidop, p.apellidom) AS nombre_cliente,
+                CONCAT_WS(' ', p.nombres, p.segundo_nombre, p.apellidop, p.apellidom) AS nombre_cliente,
                 tc.nombre AS tipo_contacto,
                 rc.nombre AS resultado_contacto,
                 cd.nombre AS dictamen,
@@ -429,7 +430,7 @@ class EstadoCuenta extends Model
                 dl.fuente_ingresos,
                 dl.comentarios,
                 dl.agente AS usuario_id,
-                CONCAT_WS(' ', u.nombres, u.apellidop, u.apellidom) AS agente
+                CONCAT_WS(' ', u.nombres, u.segundo_nombre, u.apellidop, u.apellidom) AS agente
             FROM __SPARTA_SECRET_REDACTED__.dictamen_llamada dl
             LEFT JOIN persona p ON dl.id_credito = p.id
             LEFT JOIN persona u ON dl.agente = u.id
@@ -473,9 +474,10 @@ public static function obtenerReportesDictamenParaDescarga($fechaInicio, $fechaF
                 TIME(dl.hora_gestion) AS hora_registro,
                 dl.id_credito,
                 p.nombres,
+                p.segundo_nombre,
                 p.apellidop,
                 p.apellidom,
-                CONCAT_WS(' ', p.nombres, p.apellidop, p.apellidom) AS nombre_cliente,
+                CONCAT_WS(' ', p.nombres, p.segundo_nombre, p.apellidop, p.apellidom) AS nombre_cliente,
                 tc.nombre AS tipo_contacto,
                 rc.nombre AS resultado_contacto,
                 cd.nombre AS dictamen,
@@ -485,7 +487,7 @@ public static function obtenerReportesDictamenParaDescarga($fechaInicio, $fechaF
                 dl.fuente_ingresos,
                 dl.comentarios,
                 dl.agente AS usuario_id,
-                CONCAT_WS(' ', u.nombres, u.apellidop, u.apellidom) AS agente
+                CONCAT_WS(' ', u.nombres, u.segundo_nombre, u.apellidop, u.apellidom) AS agente
             FROM __SPARTA_SECRET_REDACTED__.dictamen_llamada dl
             LEFT JOIN persona p ON dl.id_credito = p.id
             LEFT JOIN persona u ON dl.agente = u.id

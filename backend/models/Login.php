@@ -11,7 +11,7 @@ class Login extends Model
     {
         $query = <<<SQL
         SELECT 
-            p.id, p.nombres, p.apellidop, p.apellidom,
+            p.id, p.nombres, p.segundo_nombre, p.apellidop, p.apellidom,
             p.numero_empleado, p.user_name, p.password,
             pp.id AS id_puesto,
             pp.nombre AS nombre_puesto,
