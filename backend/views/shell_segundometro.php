@@ -16,9 +16,7 @@
                             </p>
                         </div>
                         <div class="col-md-4 text-end">
-                            <button class="btn btn-primary" onclick="refrescarLista()">
-                                <i class="fa fa-sync-alt me-2"></i>Refrescar Lista
-                            </button>
+                            <small class="text-muted"><i class="fa fa-sync-alt me-1"></i>Actualización automática cada 30 s</small>
                         </div>
                     </div>
                 </div>

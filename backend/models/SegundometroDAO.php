@@ -1,0 +1,410 @@
+<?php
+
+namespace Models;
+
+use Core\Model;
+
+class SegundometroDAO extends Model
+{
+    /**
+     * Configuración SSH para conectarse al servidor remoto
+     * IMPORTANTE: Ajustar según tu configuración
+     */
+    private static $SSH_HOST = '34.173.106.81';
+    private static $SSH_USER = 'jesus';
+    private static $SSH_KEY = 'C:\\Users\\lrgon\\Downloads\\jesusssh4.unknown';
+    private static $DIRECTORIO_REMOTO = '/home/usuariossftp/s2/mega_reporte';
+    
+    /**
+     * Ejecutar comando SSH remoto
+     * 
+     * @param string $comando Comando a ejecutar en el servidor remoto
+     * @return array ['success' => bool, 'output' => string, 'error' => string]
+     */
+    private static function ejecutarSSH($comando)
+    {
+        // Escapar el comando y la llave SSH
+        $sshKeyEscaped = escapeshellarg(self::$SSH_KEY);
+        $comandoEscapado = escapeshellarg($comando);
+        
+        // Construir comando SSH completo
+        $sshComando = sprintf(
+            'ssh -i %s -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null %s@%s %s 2>&1',
+            $sshKeyEscaped,
+            self::$SSH_USER,
+            self::$SSH_HOST,
+            $comandoEscapado
+        );
+        
+        $output = [];
+        $returnVar = 0;
+        
+        exec($sshComando, $output, $returnVar);
+        
+        $outputStr = implode("\n", $output);
+        
+        return [
+            'success' => $returnVar === 0,
+            'output' => $outputStr,
+            'error' => $returnVar !== 0 ? $outputStr : '',
+            'return_code' => $returnVar
+        ];
+    }
+    
+    /**
+     * Obtener archivos de reportes: solo hoy y ayer, con owner (ls -l)
+     * Owner s2 = proveedor, root = nosotros
+     *
+     * @return array Lista de archivos con información (nombre, owner, fecha_display, etc.)
+     */
+    public static function obtenerArchivos()
+    {
+        $archivos = [];
+        
+        try {
+            // Solo hoy y ayer (2 días: el que vivimos + el anterior)
+            $fechaLimite = date('Ymd', strtotime('-1 day'));
+            
+            // ls -l para obtener owner (col 3), size (col 5), filename (col 9)
+            $comandoListar = sprintf(
+                "cd %s && ls -l mega_rpt_*.csv.zip 2>/dev/null",
+                escapeshellarg(self::$DIRECTORIO_REMOTO)
+            );
+            
+            $resultado = self::ejecutarSSH($comandoListar);
+            
+            if (!$resultado['success']) {
+                error_log("Error SSH al listar archivos: " . $resultado['error']);
+                return [];
+            }
+            
+            $lineas = explode("\n", trim($resultado['output']));
+            
+            foreach ($lineas as $linea) {
+                $linea = trim($linea);
+                if (empty($linea)) continue;
+                
+                // Formato ls -l: permisos links owner group size month day time filename
+                $partes = preg_split('/\s+/', $linea, 9);
+                if (count($partes) < 9) continue;
+                
+                $owner = $partes[2];
+                $sizeBytes = (int) $partes[4];
+                $nombreArchivo = basename($partes[8]);
+                
+                if (!preg_match('/mega_rpt_(\d{8})_(\d{2})_(\d{2})_(\d{2})\.csv\.zip/', $nombreArchivo, $matches)) {
+                    continue;
+                }
+                
+                $fechaArchivo = $matches[1];
+                $hora = $matches[2];
+                $minuto = $matches[3];
+                $segundo = $matches[4];
+                
+                // Solo hoy y ayer
+                if ($fechaArchivo < $fechaLimite) continue;
+                
+                $fechaObj = date('Y-m-d', strtotime($fechaArchivo));
+                $fechaHoy = date('Y-m-d');
+                $fechaAyer = date('Y-m-d', strtotime('-1 day'));
+                
+                $meses = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+                         'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+                $mes = $meses[(int)date('n', strtotime($fechaArchivo)) - 1];
+                
+                if ($fechaObj === $fechaHoy) {
+                    $fechaDisplay = 'Hoy - ' . date('d', strtotime($fechaArchivo)) . ' de ' . $mes . ' de ' . date('Y', strtotime($fechaArchivo));
+                } elseif ($fechaObj === $fechaAyer) {
+                    $fechaDisplay = 'Ayer - ' . date('d', strtotime($fechaArchivo)) . ' de ' . $mes . ' de ' . date('Y', strtotime($fechaArchivo));
+                } else {
+                    $fechaDisplay = date('d', strtotime($fechaArchivo)) . ' de ' . $mes . ' de ' . date('Y', strtotime($fechaArchivo));
+                }
+                
+                $archivos[] = [
+                    'nombre' => $nombreArchivo,
+                    'owner' => $owner,
+                    'ruta_completa' => self::$DIRECTORIO_REMOTO . '/' . $nombreArchivo,
+                    'fecha' => $fechaObj,
+                    'fecha_formato' => date('d/m/Y', strtotime($fechaArchivo)),
+                    'fecha_display' => $fechaDisplay,
+                    'hora' => "{$hora}:{$minuto}:{$segundo}",
+                    'tamano' => self::formatearTamano($sizeBytes),
+                    'tamano_bytes' => $sizeBytes,
+                    'timestamp' => strtotime("{$fechaArchivo} {$hora}:{$minuto}:{$segundo}")
+                ];
+            }
+            
+            // Ordenar por timestamp descendente (más reciente primero)
+            usort($archivos, function($a, $b) {
+                return $b['timestamp'] - $a['timestamp'];
+            });
+            
+        } catch (\Exception $e) {
+            error_log("Error al obtener archivos: " . $e->getMessage());
+            // Retornar array vacío si hay error
+            return [];
+        }
+        
+        return $archivos;
+    }
+    
+    /**
+     * Copiar archivo con +1 segundo en el nombre (en servidor remoto)
+     * Ejecuta: sudo cp archivo_original.zip archivo_+1segundo.zip
+     * 
+     * @param string $nombreArchivo Nombre del archivo a copiar
+     * @return array Información de la operación
+     */
+    public static function copiarConSegundoAdelantado($nombreArchivo)
+    {
+        // Validar formato del nombre de archivo
+        if (!preg_match('/mega_rpt_(\d{8})_(\d{2})_(\d{2})_(\d{2})\.csv\.zip/', $nombreArchivo, $matches)) {
+            throw new \Exception('Formato de archivo inválido');
+        }
+        
+        $fecha = $matches[1]; // YYYYMMDD
+        $hora = (int)$matches[2];
+        $minuto = (int)$matches[3];
+        $segundo = (int)$matches[4];
+        
+        // Incrementar segundo
+        $segundoNuevo = $segundo + 1;
+        
+        // Manejar overflow de segundos (59 -> 00)
+        if ($segundoNuevo >= 60) {
+            $segundoNuevo = 0;
+            $minuto++;
+            
+            // Manejar overflow de minutos (59 -> 00)
+            if ($minuto >= 60) {
+                $minuto = 0;
+                $hora++;
+                
+                // Manejar overflow de horas (23 -> 00)
+                if ($hora >= 24) {
+                    $hora = 0;
+                    // Incrementar fecha
+                    $fecha = date('Ymd', strtotime($fecha . ' +1 day'));
+                }
+            }
+        }
+        
+        // Formatear nuevo nombre
+        $horaStr = str_pad($hora, 2, '0', STR_PAD_LEFT);
+        $minutoStr = str_pad($minuto, 2, '0', STR_PAD_LEFT);
+        $segundoStr = str_pad($segundoNuevo, 2, '0', STR_PAD_LEFT);
+        $nombreNuevo = "mega_rpt_{$fecha}_{$horaStr}_{$minutoStr}_{$segundoStr}.csv.zip";
+        
+        // Rutas completas en servidor remoto
+        $rutaOrigen = self::$DIRECTORIO_REMOTO . '/' . $nombreArchivo;
+        $rutaDestino = self::$DIRECTORIO_REMOTO . '/' . $nombreNuevo;
+        
+        try {
+            // Ejecutar comando sudo cp en servidor remoto
+            $comando = sprintf(
+                "cd %s && sudo cp %s %s",
+                escapeshellarg(self::$DIRECTORIO_REMOTO),
+                escapeshellarg($nombreArchivo),
+                escapeshellarg($nombreNuevo)
+            );
+            
+            $resultado = self::ejecutarSSH($comando);
+            
+            if (!$resultado['success']) {
+                throw new \Exception('Error al ejecutar comando: ' . $resultado['error']);
+            }
+            
+            // Verificar que el archivo se haya creado (listar archivos)
+            $comandoVerificar = sprintf(
+                "cd %s && ls -1 %s 2>/dev/null",
+                escapeshellarg(self::$DIRECTORIO_REMOTO),
+                escapeshellarg($nombreNuevo)
+            );
+            
+            $verificacion = self::ejecutarSSH($comandoVerificar);
+            
+            if (!$verificacion['success'] || empty(trim($verificacion['output']))) {
+                throw new \Exception('El archivo no se creó correctamente en el servidor');
+            }
+            
+            return [
+                'origen' => $nombreArchivo,
+                'destino' => $nombreNuevo,
+                'ruta_origen' => $rutaOrigen,
+                'ruta_destino' => $rutaDestino,
+                'comando' => "sudo cp {$rutaOrigen} {$rutaDestino}",
+                'mensaje' => 'Archivo copiado exitosamente'
+            ];
+            
+        } catch (\Exception $e) {
+            error_log("Error al copiar archivo: " . $e->getMessage());
+            throw $e;
+        }
+    }
+    
+    /**
+     * Copiar archivo remoto a un archivo temporal local para descarga
+     * Usa SCP: servidor remoto -> archivo temporal en el servidor PHP
+     *
+     * @param string $nombreArchivo Nombre del archivo (ej. mega_rpt_20260128_16_31_21.csv.zip)
+     * @return string Ruta local del archivo temporal (el llamador debe eliminarlo después de enviarlo)
+     */
+    public static function copiarRemotoATemporal($nombreArchivo)
+    {
+        if (!preg_match('/^mega_rpt_\d{8}_\d{2}_\d{2}_\d{2}\.csv\.zip$/', $nombreArchivo)) {
+            throw new \Exception('Formato de archivo inválido');
+        }
+        
+        $rutaRemota = self::$DIRECTORIO_REMOTO . '/' . $nombreArchivo;
+        $tempDir = rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR);
+        $nombreLocal = 'segundometro_' . uniqid() . '_' . $nombreArchivo;
+        $rutaLocal = $tempDir . DIRECTORY_SEPARATOR . $nombreLocal;
+        
+        $sshKeyEscaped = escapeshellarg(self::$SSH_KEY);
+        $remoteEscaped = escapeshellarg(self::$SSH_USER . '@' . self::$SSH_HOST . ':' . $rutaRemota);
+        $localEscaped = escapeshellarg($rutaLocal);
+        
+        $comando = sprintf(
+            'scp -i %s -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null %s %s 2>&1',
+            $sshKeyEscaped,
+            $remoteEscaped,
+            $localEscaped
+        );
+        
+        $output = [];
+        $returnVar = 0;
+        exec($comando, $output, $returnVar);
+        
+        if ($returnVar !== 0 || !is_file($rutaLocal)) {
+            @unlink($rutaLocal);
+            throw new \Exception('No se pudo descargar el archivo del servidor remoto: ' . implode(' ', $output));
+        }
+        
+        return $rutaLocal;
+    }
+    
+    /**
+     * Eliminar archivo en el servidor remoto SOLO si el owner es root (nosotros).
+     * Seguridad: solo se elimina el archivo cuyo nombre coincide exactamente y cuyo owner es root.
+     * En el servidor, "ls -lt | head" ayuda a ver orden (más reciente primero) y owner (root vs s2).
+     * Comando ejecutado: cd DIR && sudo rm 'nombre_archivo' (un solo archivo, nunca glob).
+     *
+     * @param string $nombreArchivo Nombre exacto del archivo a eliminar (ej. mega_rpt_20260128_16_31_21.csv.zip)
+     * @return array ['success' => true, 'mensaje' => ...]
+     */
+    public static function eliminarArchivo($nombreArchivo)
+    {
+        if (!preg_match('/^mega_rpt_\d{8}_\d{2}_\d{2}_\d{2}\.csv\.zip$/', $nombreArchivo)) {
+            throw new \Exception('Formato de archivo inválido');
+        }
+        
+        // Listar SOLO este archivo (nombre entre comillas para no expandir glob)
+        $comandoLs = sprintf(
+            "cd %s && ls -l %s 2>/dev/null",
+            escapeshellarg(self::$DIRECTORIO_REMOTO),
+            escapeshellarg($nombreArchivo)
+        );
+        $resultado = self::ejecutarSSH($comandoLs);
+        
+        if (!$resultado['success'] || empty(trim($resultado['output']))) {
+            throw new \Exception('El archivo no existe en el servidor');
+        }
+        
+        // Extraer solo las líneas que son de un archivo (formato ls: permisos links owner group size ... nombre)
+        $lineas = array_filter(array_map('trim', explode("\n", $resultado['output'])));
+        $lineasQueCoinciden = [];
+        foreach ($lineas as $l) {
+            if (!preg_match('/^[-d]/', $l)) {
+                continue; // saltar "total N"
+            }
+            $partes = preg_split('/\s+/', $l, 9);
+            if (count($partes) < 9) {
+                continue;
+            }
+            $nombreEnLinea = basename($partes[8]);
+            if ($nombreEnLinea === $nombreArchivo) {
+                $lineasQueCoinciden[] = $l;
+            }
+        }
+        
+        // CRÍTICO: debe haber exactamente una línea que corresponda a este archivo
+        if (count($lineasQueCoinciden) !== 1) {
+            throw new \Exception('No se pudo identificar de forma única el archivo a eliminar (se encontraron ' . count($lineasQueCoinciden) . ' coincidencias). No se eliminó nada.');
+        }
+        
+        $linea = $lineasQueCoinciden[0];
+        $partes = preg_split('/\s+/', $linea, 9);
+        $owner = trim($partes[2]);
+        
+        if (strtolower($owner) !== 'root') {
+            throw new \Exception('Solo se pueden eliminar archivos propios (nosotros). Este archivo es del proveedor (owner: ' . $owner . ').');
+        }
+        
+        // Eliminar ÚNICAMENTE este archivo: sudo rm 'nombre_archivo' (sin asteriscos ni glob)
+        $nombreEscapadoRemoto = str_replace("'", "'\\''", $nombreArchivo);
+        $comandoRm = "cd " . self::$DIRECTORIO_REMOTO . " && sudo rm '" . $nombreEscapadoRemoto . "' 2>&1";
+        $resRm = self::ejecutarSSH($comandoRm);
+        
+        if (!$resRm['success']) {
+            throw new \Exception('Error al eliminar el archivo: ' . $resRm['error']);
+        }
+        
+        return ['success' => true, 'mensaje' => 'Archivo eliminado correctamente'];
+    }
+    
+    /**
+     * Normalizar tamaño de archivo (de formato ls a formato legible)
+     */
+    private static function normalizarTamano($tamanoStr)
+    {
+        // Formato de ls puede ser: "1.2M", "500K", "2.5G", etc.
+        return trim($tamanoStr);
+    }
+    
+    /**
+     * Convertir tamaño de formato ls a bytes
+     */
+    private static function convertirTamanoABytes($tamanoStr)
+    {
+        $tamanoStr = trim($tamanoStr);
+        if (empty($tamanoStr)) return 0;
+        
+        $unidad = strtoupper(substr($tamanoStr, -1));
+        $numero = (float)substr($tamanoStr, 0, -1);
+        
+        switch ($unidad) {
+            case 'K': return $numero * 1024;
+            case 'M': return $numero * 1024 * 1024;
+            case 'G': return $numero * 1024 * 1024 * 1024;
+            case 'T': return $numero * 1024 * 1024 * 1024 * 1024;
+            default: return (int)$numero;
+        }
+    }
+    
+    /**
+     * Formatear tamaño de archivo en formato legible
+     */
+    private static function formatearTamano($bytes)
+    {
+        $unidades = ['B', 'KB', 'MB', 'GB', 'TB'];
+        $i = 0;
+        
+        while ($bytes >= 1024 && $i < count($unidades) - 1) {
+            $bytes /= 1024;
+            $i++;
+        }
+        
+        return round($bytes, 2) . ' ' . $unidades[$i];
+    }
+    
+    /**
+     * Configurar parámetros SSH
+     */
+    public static function configurarSSH($host, $user, $key, $directorio)
+    {
+        self::$SSH_HOST = $host;
+        self::$SSH_USER = $user;
+        self::$SSH_KEY = $key;
+        self::$DIRECTORIO_REMOTO = $directorio;
+    }
+}

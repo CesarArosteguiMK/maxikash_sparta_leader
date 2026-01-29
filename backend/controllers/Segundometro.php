@@ -19,49 +19,7 @@ class Segundometro extends Controller
     {
         $script = <<<'HTML'
         <script>
-            // 🎨 DATOS SIMULADOS PARA DISEÑO
-            const generarDatosSimulados = () => {
-                const archivos = [];
-                const fechaHoy = new Date();
-                const fechaAyer = new Date(fechaHoy);
-                fechaAyer.setDate(fechaAyer.getDate() - 1);
-                
-                const fechas = [
-                    {
-                        fecha: fechaHoy.toISOString().split('T')[0],
-                        fechaArchivo: fechaHoy.toISOString().split('T')[0].replace(/-/g, ''),
-                        display: 'Hoy - ' + fechaHoy.toLocaleDateString('es-MX', { day: '2-digit', month: 'long', year: 'numeric' })
-                    },
-                    {
-                        fecha: fechaAyer.toISOString().split('T')[0],
-                        fechaArchivo: fechaAyer.toISOString().split('T')[0].replace(/-/g, ''),
-                        display: 'Ayer - ' + fechaAyer.toLocaleDateString('es-MX', { day: '2-digit', month: 'long', year: 'numeric' })
-                    }
-                ];
-                
-                const horas = ['07', '09', '11', '13', '15', '17', '19', '21', '23'];
-                
-                fechas.forEach(fechaObj => {
-                    horas.forEach(hora => {
-                        const minuto = '31';
-                        const segundo = String(Math.floor(Math.random() * 10) + 50).padStart(2, '0');
-                        const nombre = `mega_rpt_${fechaObj.fechaArchivo}_${hora}_${minuto}_${segundo}.csv.zip`;
-                        const tamanoMB = Math.floor(Math.random() * 50) + 5;
-                        
-                        archivos.push({
-                            nombre: nombre,
-                            fecha: fechaObj.fecha,
-                            fecha_display: fechaObj.display,
-                            hora: `${hora}:${minuto}:${segundo}`,
-                            tamano: `${tamanoMB} MB`
-                        });
-                    });
-                });
-                
-                return archivos;
-            };
-            
-            // 🎨 RENDERIZAR ARCHIVOS EN LA INTERFAZ
+            // 🎨 RENDERIZAR ARCHIVOS EN LA INTERFAZ (SOLO ARCHIVOS REALES DEL SERVIDOR)
             const renderArchivos = (archivos) => {
                 const container = document.getElementById('archivos-container');
                 
@@ -69,7 +27,8 @@ class Segundometro extends Controller
                     container.innerHTML = `
                         <div class="alert alert-info text-center">
                             <i class="fa fa-info-circle fa-2x mb-2"></i>
-                            <p class="mb-0">No se encontraron archivos de reportes</p>
+                            <p class="mb-0">No se encontraron archivos de reportes en el servidor</p>
+                            <small class="text-muted">Los archivos aparecerán aquí cuando existan en el servidor</small>
                         </div>
                     `;
                     return;
@@ -81,7 +40,7 @@ class Segundometro extends Controller
                     if (!archivosPorFecha[archivo.fecha]) {
                         archivosPorFecha[archivo.fecha] = {
                             archivos: [],
-                            display: archivo.fecha_display
+                            display: archivo.fecha_display || archivo.fecha
                         };
                     }
                     archivosPorFecha[archivo.fecha].archivos.push(archivo);
@@ -112,14 +71,22 @@ class Segundometro extends Controller
                                                 <th><i class="fa fa-file-archive me-1"></i>Nombre del Archivo</th>
                                                 <th width="120"><i class="fa fa-clock me-1"></i>Hora</th>
                                                 <th width="120"><i class="fa fa-hdd me-1"></i>Tamaño</th>
-                                                <th width="180" class="text-center"><i class="fa fa-cog me-1"></i>Acciones</th>
+                                                <th width="260" class="text-center"><i class="fa fa-cog me-1"></i>Acciones</th>
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            ${archivosDelDia.map((archivo, index) => `
+                                            ${archivosDelDia.map((archivo, index) => {
+                                                const owner = (archivo.owner || '').toString();
+                                                const esProveedor = owner === 's2';
+                                                const esNosotros = owner === 'root';
+                                                let etiqueta = '';
+                                                if (esProveedor) etiqueta = '<span class="text-danger ms-1">(proveedor)</span>';
+                                                else if (esNosotros) etiqueta = '<span class="text-success ms-1">(nosotros)</span>';
+                                                const nombreEscapado = (archivo.nombre || '').replace(/'/g, "\\\\'");
+                                                return `
                                                 <tr>
                                                     <td class="text-muted">${index + 1}</td>
-                                                    <td class="font-monospace text-primary fw-semibold">${archivo.nombre}</td>
+                                                    <td class="font-monospace text-primary fw-semibold">${archivo.nombre} ${etiqueta}</td>
                                                     <td class="text-center">
                                                         <span class="badge bg-info">${archivo.hora}</span>
                                                     </td>
@@ -127,15 +94,29 @@ class Segundometro extends Controller
                                                         <span class="text-muted">${archivo.tamano}</span>
                                                     </td>
                                                     <td class="text-center">
-                                                        <button 
-                                                            class="btn btn-sm btn-success" 
-                                                            onclick="copiarArchivo('${archivo.nombre}')"
-                                                            title="Copiar archivo con +1 segundo">
-                                                            <i class="fa fa-copy me-1"></i>Copiar +1s
-                                                        </button>
+                                                        <div class="d-flex flex-wrap gap-2 justify-content-center align-items-center">
+                                                            <a href="/segundometro/descargarArchivo?nombre_archivo=${encodeURIComponent(archivo.nombre)}" class="btn btn-sm btn-primary" title="Descargar reporte">
+                                                                <i class="fa fa-download me-1"></i>Descargar
+                                                            </a>
+                                                            <button 
+                                                                class="btn btn-sm btn-success" 
+                                                                onclick="copiarArchivo('${nombreEscapado}')"
+                                                                title="Copiar archivo con +1 segundo">
+                                                                <i class="fa fa-copy me-1"></i>Copiar +1s
+                                                            </button>
+                                                            ${esNosotros ? `
+                                                            <button 
+                                                                class="btn btn-sm btn-danger" 
+                                                                onclick="eliminarArchivo('${nombreEscapado}')"
+                                                                title="Eliminar archivo (solo nosotros)">
+                                                                <i class="fa fa-trash me-1"></i>Eliminar
+                                                            </button>
+                                                            ` : ''}
+                                                        </div>
                                                     </td>
                                                 </tr>
-                                            `).join('')}
+                                            `;
+                                            }).join('')}
                                         </tbody>
                                     </table>
                                 </div>
@@ -147,9 +128,9 @@ class Segundometro extends Controller
                 container.innerHTML = html;
             };
             
-            // 📋 COPIAR ARCHIVO CON +1 SEGUNDO (SIMULADO)
+            // 📋 COPIAR ARCHIVO CON +1 SEGUNDO (LLAMADA REAL AL SERVIDOR)
             const copiarArchivo = async (nombreArchivo) => {
-                // Extraer componentes del nombre
+                // Extraer componentes del nombre para mostrar preview
                 const match = nombreArchivo.match(/mega_rpt_(\d{8})_(\d{2})_(\d{2})_(\d{2})\.csv\.zip/);
                 
                 if (!match) {
@@ -174,7 +155,6 @@ class Segundometro extends Controller
                         
                         if (nuevaHora >= 24) {
                             nuevaHora = 0;
-                            // Incrementar fecha (simplificado para demo)
                             const dateObj = new Date(
                                 parseInt(fecha.substring(0, 4)),
                                 parseInt(fecha.substring(4, 6)) - 1,
@@ -219,18 +199,36 @@ class Segundometro extends Controller
                 
                 if (!result.isConfirmed) return;
                 
-                // Simular proceso
+                // Mostrar loading
                 Swal.fire({
                     title: 'Procesando...',
-                    html: 'Ejecutando comando de copia',
+                    html: 'Ejecutando comando de copia en el servidor remoto',
                     allowOutsideClick: false,
                     didOpen: () => {
                         Swal.showLoading();
                     }
                 });
                 
-                // Simular delay de ejecución
-                setTimeout(() => {
+                // Llamada AJAX real al servidor
+                try {
+                    const formData = new FormData();
+                    formData.append('nombre_archivo', nombreArchivo);
+                    
+                    const response = await fetch('/segundometro/copiarArchivo', {
+                        method: 'POST',
+                        body: formData,
+                        headers: {
+                            'Front-Request': 'true'
+                        }
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (!data.success) {
+                        throw new Error(data.mensaje || 'Error desconocido');
+                    }
+                    
+                    // Éxito
                     Swal.fire({
                         icon: 'success',
                         title: '¡Archivo copiado exitosamente!',
@@ -239,49 +237,108 @@ class Segundometro extends Controller
                                 <div class="alert alert-success">
                                     <div class="mb-2">
                                         <strong>✅ Origen:</strong><br>
-                                        <code>${nombreArchivo}</code>
+                                        <code>${data.datos.origen}</code>
                                     </div>
                                     <div>
                                         <strong>✅ Destino:</strong><br>
-                                        <code>${nombreDestino}</code>
+                                        <code>${data.datos.destino}</code>
                                     </div>
                                 </div>
                                 <p class="text-muted mb-0 small">
                                     <i class="fa fa-info-circle me-1"></i>
-                                    El archivo se ha copiado correctamente en el servidor
+                                    El archivo se ha copiado correctamente en el servidor remoto
                                 </p>
                             </div>
                         `,
                         confirmButtonText: 'Aceptar'
+                    }).then(() => {
+                        // Recargar lista después de copiar
+                        listarArchivos();
                     });
                     
-                    // Recargar lista (en producción esto actualizaría desde el servidor)
-                    // listarArchivos();
-                }, 1500);
+                } catch (error) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error al copiar archivo',
+                        text: error.message || 'Ocurrió un error al ejecutar el comando en el servidor',
+                        confirmButtonText: 'Aceptar'
+                    });
+                }
             };
             
-            // 🔄 REFRESCAR LISTA
-            const refrescarLista = () => {
-                Swal.fire({
-                    title: 'Actualizando...',
-                    text: 'Cargando archivos del servidor',
-                    allowOutsideClick: false,
-                    didOpen: () => {
-                        Swal.showLoading();
-                    }
+            // 🗑️ ELIMINAR ARCHIVO (SOLO NOSOTROS / ROOT)
+            const eliminarArchivo = async (nombreArchivo) => {
+                const result = await Swal.fire({
+                    title: '¿Eliminar archivo?',
+                    html: '<p class="mb-2">Se eliminará permanentemente del servidor:</p><code class="d-block text-start">' + nombreArchivo + '</code><p class="text-danger mt-2 mb-0 small">Esta acción no se puede deshacer.</p>',
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonText: 'Sí, eliminar',
+                    cancelButtonText: 'Cancelar',
+                    confirmButtonColor: '#dc3545',
+                    cancelButtonColor: '#6c757d'
                 });
-                
-                setTimeout(() => {
-                    const archivos = generarDatosSimulados();
-                    renderArchivos(archivos);
-                    Swal.close();
-                }, 1000);
+                if (!result.isConfirmed) return;
+                Swal.fire({ title: 'Eliminando...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
+                try {
+                    const formData = new FormData();
+                    formData.append('nombre_archivo', nombreArchivo);
+                    const response = await fetch('/segundometro/eliminarArchivo', {
+                        method: 'POST',
+                        body: formData,
+                        headers: { 'Front-Request': 'true' }
+                    });
+                    const data = await response.json();
+                    if (!data.success) throw new Error(data.mensaje || 'Error al eliminar');
+                    Swal.fire({ icon: 'success', title: 'Archivo eliminado', text: 'El archivo se eliminó correctamente del servidor.', confirmButtonText: 'Aceptar' }).then(() => listarArchivos());
+                } catch (error) {
+                    Swal.fire({ icon: 'error', title: 'Error al eliminar', text: error.message || 'No se pudo eliminar el archivo.', confirmButtonText: 'Aceptar' });
+                }
             };
             
-            // 🚀 INICIALIZAR AL CARGAR
+            // 🔄 LISTAR ARCHIVOS DESDE EL SERVIDOR (LLAMADA REAL)
+            const listarArchivos = async (silent = false) => {
+                const container = document.getElementById('archivos-container');
+                try {
+                    const response = await fetch('/segundometro/listarArchivos', {
+                        method: 'GET',
+                        headers: {
+                            'Front-Request': 'true'
+                        }
+                    });
+                    
+                    const contentType = response.headers.get('Content-Type') || '';
+                    if (!contentType.includes('application/json')) {
+                        throw new Error('El servidor respondió con un formato inesperado. Compruebe que la sesión esté activa.');
+                    }
+                    
+                    const data = await response.json();
+                    
+                    if (!data.success) {
+                        throw new Error(data.mensaje || 'Error al obtener archivos');
+                    }
+                    
+                    renderArchivos(data.datos || []);
+                    
+                } catch (error) {
+                    if (!silent) {
+                        console.error('Error al listar archivos:', error);
+                        const msg = error.message || 'Error al conectar con el servidor';
+                        container.innerHTML = `
+                            <div class="alert alert-danger text-center">
+                                <i class="fa fa-exclamation-triangle fa-2x mb-2"></i>
+                                <p class="mb-0">Error al conectar con el servidor</p>
+                                <small class="text-muted">${msg}</small>
+                            </div>
+                        `;
+                    }
+                }
+            };
+            
+            // 🚀 INICIALIZAR AL CARGAR Y ACTUALIZACIÓN AUTOMÁTICA CADA 30 s
             document.addEventListener('DOMContentLoaded', () => {
-                const archivos = generarDatosSimulados();
-                renderArchivos(archivos);
+                listarArchivos(false);
+                setInterval(() => listarArchivos(true), 30000);
             });
         </script>
         HTML;
@@ -299,12 +356,12 @@ class Segundometro extends Controller
         try {
             $archivos = SegundometroDAO::obtenerArchivos();
             
-            self::json([
+            self::respuestaJSON([
                 'success' => true,
                 'datos' => $archivos
             ]);
         } catch (\Exception $e) {
-            self::json([
+            self::respuestaJSON([
                 'success' => false,
                 'mensaje' => 'Error al listar archivos: ' . $e->getMessage()
             ]);
@@ -325,15 +382,68 @@ class Segundometro extends Controller
             
             $resultado = SegundometroDAO::copiarConSegundoAdelantado($nombreArchivo);
             
-            self::json([
+            self::respuestaJSON([
                 'success' => true,
                 'mensaje' => 'Archivo copiado exitosamente',
                 'datos' => $resultado
             ]);
         } catch (\Exception $e) {
-            self::json([
+            self::respuestaJSON([
                 'success' => false,
                 'mensaje' => 'Error al copiar archivo: ' . $e->getMessage()
+            ]);
+        }
+    }
+    
+    /**
+     * Descargar reporte: copia del remoto a temporal y envía al navegador
+     */
+    public function descargarArchivo()
+    {
+        $nombreArchivo = $_GET['nombre_archivo'] ?? null;
+        if (!$nombreArchivo || !preg_match('/^mega_rpt_\d{8}_\d{2}_\d{2}_\d{2}\.csv\.zip$/', $nombreArchivo)) {
+            header('HTTP/1.0 400 Bad Request');
+            echo 'Nombre de archivo inválido';
+            exit;
+        }
+        $rutaLocal = null;
+        try {
+            $rutaLocal = SegundometroDAO::copiarRemotoATemporal($nombreArchivo);
+            if (!is_file($rutaLocal)) {
+                throw new \Exception('No se pudo obtener el archivo');
+            }
+            header('Content-Type: application/zip');
+            header('Content-Disposition: attachment; filename="' . $nombreArchivo . '"');
+            header('Content-Length: ' . filesize($rutaLocal));
+            readfile($rutaLocal);
+            @unlink($rutaLocal);
+            exit;
+        } catch (\Exception $e) {
+            if ($rutaLocal && is_file($rutaLocal)) {
+                @unlink($rutaLocal);
+            }
+            header('HTTP/1.0 500');
+            echo 'Error al descargar: ' . $e->getMessage();
+            exit;
+        }
+    }
+    
+    /**
+     * Eliminar archivo en el servidor remoto (solo si owner es root)
+     */
+    public function eliminarArchivo()
+    {
+        try {
+            $nombreArchivo = $_POST['nombre_archivo'] ?? null;
+            if (!$nombreArchivo) {
+                throw new \Exception('Nombre de archivo no proporcionado');
+            }
+            SegundometroDAO::eliminarArchivo($nombreArchivo);
+            self::respuestaJSON(['success' => true, 'mensaje' => 'Archivo eliminado correctamente']);
+        } catch (\Exception $e) {
+            self::respuestaJSON([
+                'success' => false,
+                'mensaje' => $e->getMessage()
             ]);
         }
     }
