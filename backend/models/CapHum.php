@@ -985,6 +985,7 @@ class CapHum extends Model
                 SELECT 
                     p.id,
                     p.nombres,
+                    p.segundo_nombre,
                     p.apellidop,
                     ap.id_puesto,
                     pp.nombre AS nombre_puesto,
@@ -1003,6 +1004,7 @@ class CapHum extends Model
                 SELECT 
                     p2.id,
                     p2.nombres,
+                    p2.segundo_nombre,
                     p2.apellidop,
                     ap2.id_puesto,
                     pp2.nombre AS nombre_puesto,

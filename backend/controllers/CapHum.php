@@ -4774,7 +4774,30 @@ class CapHum extends Controller
     {
         // 1️⃣ Obtener organigrama desde la DAO
         $personas = CapHumDAO::getConsultaPersonasJerarquia($persona_id);
-        $organigramaJson = $personas["datos"][0]["organigrama_json"];
+        
+        // 🔍 Debug: verificar qué se está devolviendo
+        if (!$personas['success'] || empty($personas["datos"])) {
+            header('Content-Type: application/json');
+            echo json_encode([
+                "success" => false,
+                "mensaje" => "No se encontraron datos del organigrama",
+                "debug" => $personas
+            ]);
+            exit;
+        }
+        
+        $organigramaJson = $personas["datos"][0]["organigrama_json"] ?? null;
+        
+        if (!$organigramaJson) {
+            header('Content-Type: application/json');
+            echo json_encode([
+                "success" => false,
+                "mensaje" => "organigrama_json está vacío",
+                "debug" => $personas["datos"]
+            ]);
+            exit;
+        }
+        
         $organigrama = json_decode($organigramaJson, true);
 
         // 2️⃣ Construir filas para el OrgChart
@@ -4782,8 +4805,8 @@ class CapHum extends Controller
 
         // Raíz del organigrama
         $rows[] = [
-            "id"     => (string)$organigrama["id_jefe"],    // ID como string
-            "nombre" => $organigrama["nombre_jefe"],        // Nombre
+            "id"     => (string)($organigrama["id_jefe"] ?? ''),    // ID como string
+            "nombre" => $organigrama["nombre_jefe"] ?? null,        // Nombre
             "puesto" => $organigrama["nombre_puesto"] ?? null, // 👈
             "jefe"   => null                                // Sin jefe
         ];
