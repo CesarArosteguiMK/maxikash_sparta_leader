@@ -24,64 +24,24 @@
         </div>
     </div>
 
-    <!-- 📊 INFORMACIÓN DEL SISTEMA -->
-    <div class="row mb-4">
-        <div class="col-md-4">
-            <div class="card shadow-sm h-100">
-                <div class="card-body text-center">
-                    <div class="avatar avatar-lg mb-3 mx-auto">
-                        <div class="avatar-initial bg-label-info rounded">
-                            <i class="fa fa-calendar-alt fa-2x"></i>
-                        </div>
-                    </div>
-                    <h5 class="mb-1">Historial</h5>
-                    <p class="text-muted mb-0">Últimos 2 días</p>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-4">
-            <div class="card shadow-sm h-100">
-                <div class="card-body text-center">
-                    <div class="avatar avatar-lg mb-3 mx-auto">
-                        <div class="avatar-initial bg-label-success rounded">
-                            <i class="fa fa-clock fa-2x"></i>
-                        </div>
-                    </div>
-                    <h5 class="mb-1">Frecuencia</h5>
-                    <p class="text-muted mb-0">Cada 2 horas</p>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-4">
-            <div class="card shadow-sm h-100">
-                <div class="card-body text-center">
-                    <div class="avatar avatar-lg mb-3 mx-auto">
-                        <div class="avatar-initial bg-label-warning rounded">
-                            <i class="fa fa-copy fa-2x"></i>
-                        </div>
-                    </div>
-                    <h5 class="mb-1">Operación</h5>
-                    <p class="text-muted mb-0">Copiar +1 segundo</p>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- 📝 INSTRUCCIONES -->
+    <!-- 📝 DESCRIPCIÓN DEL MÓDULO -->
     <div class="row mb-4">
         <div class="col-12">
-            <div class="alert alert-primary d-flex align-items-start" role="alert">
-                <i class="fa fa-info-circle fa-2x me-3 mt-1"></i>
-                <div>
-                    <h5 class="alert-heading mb-2">¿Cómo funciona?</h5>
-                    <p class="mb-2">
-                        Esta herramienta te permite copiar archivos de reportes de forma segura sin necesidad de usar comandos de terminal.
+            <div class="card shadow-sm border-0">
+                <div class="card-body">
+                    <h5 class="card-title mb-3">
+                        <i class="fa fa-info-circle text-primary me-2"></i>¿Qué hace este módulo?
+                    </h5>
+                    <p class="text-muted mb-3">
+                        Esta herramienta permite copiar y gestionar archivos de reportes <code>mega_rpt_*.csv.zip</code> de forma segura y controlada, sin necesidad de utilizar comandos de terminal.
                     </p>
-                    <ul class="mb-0">
-                        <li><strong>Visualiza</strong> todos los reportes de los últimos 2 días organizados por fecha</li>
-                        <li><strong>Copia archivos</strong> con un simple clic en el botón "Copiar +1s"</li>
-                        <li>El archivo copiado tendrá <strong>+1 segundo</strong> en su nombre (ej: <code>07_31_58</code> → <code>07_31_59</code>)</li>
-                        <li>Se ejecuta automáticamente el comando <code>sudo cp</code> en el servidor</li>
+                    <ul class="mb-0 ps-4 ms-2">
+                        <li class="mb-2"><strong>Historial:</strong> se muestran los reportes generados en los últimos 2 días (hoy y ayer), organizados por fecha. Cada archivo indica si es del <span class="text-danger">proveedor</span> o <span class="text-success">nosotros</span>.</li>
+                        <li class="mb-2"><strong>Frecuencia:</strong> los reportes se generan en el servidor de forma periódica; la lista se actualiza automáticamente cada 30 segundos.</li>
+                        <li class="mb-2"><strong>Copiar +1s:</strong> con un clic se copia el archivo en el servidor y el nuevo nombre incrementa +1 segundo (ej.: <code>07_31_58</code> → <code>07_31_59</code>; si es 59 segundos, pasa al minuto siguiente).</li>
+                        <li class="mb-2"><strong>Descargar:</strong> se puede descargar cualquier reporte directamente desde la interfaz al equipo local.</li>
+                        <li class="mb-2"><strong>Eliminar:</strong> solo los archivos propios (nosotros, owner root) pueden eliminarse; los del proveedor no muestran esta opción.</li>
+                        <li class="mb-0"><strong>Ejecución:</strong> todas las operaciones se ejecutan en el servidor remoto de forma automática (listar, copiar, descargar y eliminar).</li>
                     </ul>
                 </div>
             </div>
