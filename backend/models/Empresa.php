@@ -447,7 +447,7 @@ class Empresa extends Model
                 j.lvl,
         
                 pj.numero_empleado AS jefe_numero_empleado,
-                TRIM(CONCAT_WS(' ', pj.apellidop, pj.apellidom, pj.nombres)) AS jefe_nombre,
+                TRIM(CONCAT_WS(' ', pj.apellidop, pj.apellidom, pj.nombres, pj.segundo_nombre)) AS jefe_nombre,
         
                 elp.id_puesto_legacy AS jefe_puesto_legacy
             FROM jerarquia j
@@ -486,7 +486,7 @@ class Empresa extends Model
             p.numero_empleado AS external_id,
             p.user_name       AS username,
         
-            TRIM(CONCAT_WS(' ', p.apellidop, p.apellidom, p.nombres)) AS name,
+            TRIM(CONCAT_WS(' ', p.apellidop, p.apellidom, p.nombres, p.segundo_nombre)) AS name,
         
             p.password AS password,
             '' AS legion,
