@@ -12,7 +12,15 @@ class SegundometroDAO extends Model
      */
     private static $SSH_HOST = '34.173.106.81';
     private static $SSH_USER = 'jesus';
-    private static $SSH_KEY = 'C:\\Users\\admin\\Downloads\\jesusssh4.unknown';
+    //private static $SSH_KEY = 'C:\\Users\\lrgon\\Downloads\\jesusssh4.unknown';
+
+    private static $SSH_KEY = __DIR__ . '/../config/ssh/jesusssh4.unknown';
+
+
+    // __DIR__ = sparta___SPARTA_SECRET_REDACTED__/backend/Models/
+    // /../ = Sube un nivel → sparta___SPARTA_SECRET_REDACTED__/backend/
+    // /config/ssh/jesusssh4.unknown = Entra a config/ssh 
+
     private static $DIRECTORIO_REMOTO = '/home/usuariossftp/s2/mega_reporte';
     
     /**
@@ -23,6 +31,7 @@ class SegundometroDAO extends Model
      */
     private static function ejecutarSSH($comando)
     {
+
         // Escapar el comando y la llave SSH
         $sshKeyEscaped = escapeshellarg(self::$SSH_KEY);
         $comandoEscapado = escapeshellarg($comando);

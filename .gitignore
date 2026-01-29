@@ -1,0 +1,32 @@
+# Llaves SSH privadas (NO subir a Git)
+backend/config/ssh/*.unknown
+backend/config/ssh/*.key
+backend/config/ssh/*.pem
+backend/config/ssh/*.ppk
+
+# Mantener la estructura de carpetas
+!backend/config/ssh/.gitkeep
+!backend/config/ssh/README.md
+!backend/config/ssh/fix_permissions.bat
+```
+
+---
+
+## 🗂️ Estructura completa de archivos:
+```
+sparta___SPARTA_SECRET_REDACTED__/                                    ← RAÍZ del proyecto
+│
+├── .gitignore                                    ← CREAR/EDITAR AQUÍ ✏️
+├── setup.bat                                     ← CREAR ✏️
+├── README_SETUP.md                               ← CREAR ✏️ (opcional)
+│
+└── backend/
+    ├── config/
+    │   └── ssh/
+    │       ├── jesusssh4.unknown                 ← YA LO TIENES (NO va a Git ❌)
+    │       ├── fix_permissions.bat               ← CREAR ✏️ (SÍ va a Git ✅)
+    │       ├── .gitkeep                          ← CREAR ✏️ (archivo vacío)
+    │       └── README.md                         ← CREAR ✏️ (opcional)
+    │
+    └── models/
+        └── SegundometroDAO.php                   ← YA LO TIENES
