@@ -12,7 +12,7 @@ class SegundometroDAO extends Model
      */
     private static $SSH_HOST = '34.173.106.81';
     private static $SSH_USER = 'jesus';
-    private static $SSH_KEY = 'C:\\Users\\lrgon\\Downloads\\jesusssh4.unknown';
+    private static $SSH_KEY = 'C:\\Users\\admin\\Downloads\\jesusssh4.unknown';
     private static $DIRECTORIO_REMOTO = '/home/usuariossftp/s2/mega_reporte';
     
     /**
