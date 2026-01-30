@@ -5,6 +5,10 @@
     #modalRastreoCredito .modal-body.rastreo-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem 2rem; }
     @media (max-width: 768px) { #modalRastreoCredito .modal-body.rastreo-grid { grid-template-columns: 1fr; } }
     #modalRastreoCredito .rastreo-block-full { grid-column: 1 / -1; }
+    #modalRastreoCredito.modal .modal-dialog { max-width: 95vw; width: 95vw; height: 90vh; max-height: 90vh; margin: 2rem auto; }
+    #modalRastreoCredito .modal-content { height: 100%; display: flex; flex-direction: column; }
+    #modalRastreoCredito .modal-body { flex: 1; overflow-y: auto; }
+    #modalRastreoCredito .rastreo-seccion-direcciones, #modalRastreoCredito .rastreo-seccion-blank { min-height: 200px; border: 1px solid var(--bs-border-color); border-radius: 0.375rem; background: var(--bs-body-bg); }
     #tablaTicketsPanel th:nth-child(6) { min-width: 10rem; white-space: nowrap; }
     #tablaTicketsPanel .d-flex.flex-wrap.gap-1 { flex-wrap: wrap; gap: 0.35rem !important; }
     #tablaTicketsPanel .d-flex.flex-wrap.gap-1 .btn { flex-shrink: 0; }
@@ -43,9 +47,9 @@
     </div>
 </div>
 
-<!-- Modal Iniciar rastreo: datos de la persona/crédito del ticket -->
+<!-- Modal Iniciar rastreo: datos de la persona/crédito del ticket (casi pantalla completa) -->
 <div class="modal fade" id="modalRastreoCredito" tabindex="-1" aria-labelledby="modalRastreoCreditoLabel" aria-hidden="true">
-    <div class="modal-dialog modal-xl modal-dialog-centered">
+    <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content shadow-sm">
             <div class="modal-header py-2 border-bottom">
                 <h6 class="modal-title text-primary mb-0" id="modalRastreoCreditoLabel">
@@ -53,10 +57,46 @@
                 </h6>
                 <button type="button" class="btn-close btn-close-sm" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
-            <div class="modal-body py-3 rastreo-grid" id="modalRastreoCreditoBody">
-                <!-- Se llena por JS al hacer clic en Iniciar rastreo -->
+            <div class="modal-body py-3">
+                <!-- Arriba: ID, nombre completo, teléfono cliente -->
+                <div class="row g-3 mb-4 pb-3 border-bottom" id="rastreoTop">
+                    <!-- Se llena por JS -->
+                </div>
+                <!-- Medio: quién levantó el ticket, cuándo se levantó, asignado a (si aplica) -->
+                <div class="row g-3 mb-4 pb-3 border-bottom" id="rastreoMedio">
+                    <!-- Se llena por JS -->
+                </div>
+                <!-- Ticket(s) levantado(s): folio, tipo, estado, descripción, fechas (estilo bonito) -->
+                <div class="mb-4 pb-3 border-bottom" id="rastreoTicketsWrap">
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                        <i class="fa-solid fa-ticket text-primary"></i>
+                        <span class="fw-semibold small text-muted">Ticket(s) levantado(s)</span>
+                    </div>
+                    <div id="rastreoTickets" class="credito-modal-list">
+                        <!-- Se llena por JS: tarjetas con folio, tipo, estado, descripción, creación, vencimiento -->
+                    </div>
+                </div>
+                <!-- Abajo: dos bloques – direcciones (lupa) y bloque en blanco -->
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <div class="rastreo-seccion-direcciones p-3 h-100" id="rastreoDirecciones">
+                            <div class="d-flex align-items-center gap-2 mb-2">
+                                <i class="fa-solid fa-magnifying-glass text-primary"></i>
+                                <span class="fw-semibold small text-muted">Todas las direcciones registradas</span>
+                            </div>
+                            <div id="rastreoDireccionesContenido" class="small">
+                                <!-- Se llena por JS -->
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="rastreo-seccion-blank p-3 h-100" id="rastreoBlank">
+                            <span class="text-muted small">—</span>
+                        </div>
+                    </div>
+                </div>
             </div>
-            <div class="modal-footer py-2 border-top d-flex flex-wrap gap-2 justify-content-between">
+            <div class="modal-footer py-2 border-top d-flex flex-wrap gap-2 justify-content-end align-items-center">
                 <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cerrar</button>
                 <button type="button" class="btn btn-sm btn-outline-primary" id="btnAsignarRastreo" onclick="mostrarAsignarOpciones()" title="Asignar este ticket">
                     <i class="fa-solid fa-user-plus me-1"></i>Asignar...

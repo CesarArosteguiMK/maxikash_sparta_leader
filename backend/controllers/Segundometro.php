@@ -334,11 +334,78 @@ class Segundometro extends Controller
                     }
                 }
             };
-            
-            // 🚀 INICIALIZAR AL CARGAR Y ACTUALIZACIÓN AUTOMÁTICA CADA 30 s
-            document.addEventListener('DOMContentLoaded', () => {
+
+            // 🚀 ACTUALIZACIÓN SOLO EN VENTANAS (7:31, 9:31, 11:31, 13:31, 14:31, 16:31, 18:31, 20:31, 23:50 CDMX), 2 min cada 30 s. No SSH si la pestaña no está visible.
+            var segundometroRefreshInterval = null;
+            var segundometroRefreshTimeout = null;
+            var VENTANAS_MINUTOS = [7*60+31, 9*60+31, 11*60+31, 13*60+31, 14*60+31, 16*60+31, 18*60+31, 20*60+31, 23*60+50];
+            var DURACION_VENTANA_SEG = 120;
+            var INTERVALO_SEG = 30;
+
+            function clearSegundometroTimers() {
+                if (segundometroRefreshInterval) { clearInterval(segundometroRefreshInterval); segundometroRefreshInterval = null; }
+                if (segundometroRefreshTimeout) { clearTimeout(segundometroRefreshTimeout); segundometroRefreshTimeout = null; }
+            }
+
+            function minutosActualesCDMX() {
+                var r = new Date().toLocaleTimeString('en-GB', { timeZone: 'America/Mexico_City', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+                var p = r.split(':');
+                return parseInt(p[0],10)*60 + parseInt(p[1],10);
+            }
+
+            function segundosActualesCDMX() {
+                var r = new Date().toLocaleTimeString('en-GB', { timeZone: 'America/Mexico_City', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+                var p = r.split(':');
+                return parseInt(p[0],10)*3600 + parseInt(p[1],10)*60 + parseInt(p[2],10);
+            }
+
+            function estaEnVentana() {
+                var min = minutosActualesCDMX();
+                for (var i = 0; i < VENTANAS_MINUTOS.length; i++) {
+                    if (min >= VENTANAS_MINUTOS[i] && min < VENTANAS_MINUTOS[i] + 2) return true;
+                }
+                return false;
+            }
+
+            function msHastaProximaVentana() {
+                var segTotal = segundosActualesCDMX();
+                var min = Math.floor(segTotal / 60);
+                for (var i = 0; i < VENTANAS_MINUTOS.length; i++) {
+                    var inicioSeg = VENTANAS_MINUTOS[i] * 60;
+                    if (segTotal < inicioSeg) return (inicioSeg - segTotal) * 1000;
+                }
+                var primerInicioManana = VENTANAS_MINUTOS[0] * 60;
+                return (24 * 3600 - segTotal + primerInicioManana) * 1000;
+            }
+
+            function programarRefrescos() {
+                if (document.hidden) return;
+                clearSegundometroTimers();
+                if (estaEnVentana()) {
+                    var cuenta = 0;
+                    var maxRefrescos = Math.floor(DURACION_VENTANA_SEG / INTERVALO_SEG);
+                    segundometroRefreshInterval = setInterval(function() {
+                        if (document.hidden) { clearSegundometroTimers(); return; }
+                        listarArchivos(true);
+                        cuenta++;
+                        if (cuenta >= maxRefrescos) {
+                            clearSegundometroTimers();
+                            segundometroRefreshTimeout = setTimeout(programarRefrescos, msHastaProximaVentana());
+                        }
+                    }, INTERVALO_SEG * 1000);
+                    listarArchivos(true);
+                } else {
+                    segundometroRefreshTimeout = setTimeout(programarRefrescos, msHastaProximaVentana());
+                }
+            }
+
+            document.addEventListener('DOMContentLoaded', function() {
                 listarArchivos(false);
-                setInterval(() => listarArchivos(true), 30000);
+                programarRefrescos();
+                document.addEventListener('visibilitychange', function() {
+                    if (document.hidden) clearSegundometroTimers();
+                    else { listarArchivos(true); programarRefrescos(); }
+                });
             });
         </script>
         HTML;
@@ -447,4 +514,45 @@ class Segundometro extends Controller
             ]);
         }
     }
+
+    // ========== COMENTADO - retomar más adelante: Truncar, ls -lt, monitorear, estadoKronos ==========
+    /*
+    public function truncar() { ... }
+    public function listarLsLtHead() { ... }
+    public function verProcesoMonitorear() { ... }
+    public function estadoKronos() { ... }
+    */
+
+    /*
+     * COMENTADO - retomar más adelante: estado de reportes por BD (sin SSH).
+     * Endpoint POST /segundometro/estadoReportes con { nombres: [...] } → { estados: { nombre: 'ok'|'error'|'procesando' } }
+     *
+    public function estadoReportes()
+    {
+        try {
+            $nombres = [];
+            $input = file_get_contents('php://input');
+            if ($input !== '' && $input !== false) {
+                $json = json_decode($input, true);
+                if (isset($json['nombres']) && is_array($json['nombres'])) {
+                    $nombres = $json['nombres'];
+                }
+            }
+            if (empty($nombres) && isset($_POST['nombres']) && is_array($_POST['nombres'])) {
+                $nombres = $_POST['nombres'];
+            }
+            $estados = SegundometroDAO::obtenerEstadoReportesPorBD($nombres);
+            self::respuestaJSON([
+                'success' => true,
+                'estados' => $estados
+            ]);
+        } catch (\Exception $e) {
+            self::respuestaJSON([
+                'success' => false,
+                'estados' => [],
+                'mensaje' => $e->getMessage()
+            ]);
+        }
+    }
+    */
 }

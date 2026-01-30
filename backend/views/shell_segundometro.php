@@ -16,7 +16,7 @@
                             </p>
                         </div>
                         <div class="col-md-4 text-end">
-                            <small class="text-muted"><i class="fa fa-sync-alt me-1"></i>Actualización automática cada 30 s</small>
+                            <small class="text-muted"><i class="fa fa-sync-alt me-1"></i>Actualización al abrir y en ventanas 7:31, 9:31, 11:31, 13:31, 14:31, 16:31, 18:31, 20:31, 23:50 (CDMX)</small>
                         </div>
                     </div>
                 </div>
@@ -37,7 +37,7 @@
                     </p>
                     <ul class="mb-0 ps-4 ms-2">
                         <li class="mb-2"><strong>Historial:</strong> se muestran los reportes generados en los últimos 2 días (hoy y ayer), organizados por fecha. Cada archivo indica si es del <span class="text-danger">proveedor</span> o <span class="text-success">nosotros</span>.</li>
-                        <li class="mb-2"><strong>Frecuencia:</strong> los reportes se generan en el servidor de forma periódica; la lista se actualiza automáticamente cada 30 segundos.</li>
+                        <li class="mb-2"><strong>Frecuencia:</strong> la lista se actualiza al abrir la página (F5) y solo durante 2 minutos en las ventanas 7:31, 9:31, 11:31, 13:31, 14:31, 16:31, 18:31, 20:31 y 23:50 (hora CDMX), cada 30 s en esa ventana. No se ejecutan consultas SSH si está en otra pestaña o menú.</li>
                         <li class="mb-2"><strong>Copiar +1s:</strong> con un clic se copia el archivo en el servidor y el nuevo nombre incrementa +1 segundo (ej.: <code>07_31_58</code> → <code>07_31_59</code>; si es 59 segundos, pasa al minuto siguiente).</li>
                         <li class="mb-2"><strong>Descargar:</strong> se puede descargar cualquier reporte directamente desde la interfaz al equipo local.</li>
                         <li class="mb-2"><strong>Eliminar:</strong> solo los archivos propios (nosotros, owner root) pueden eliminarse; los del proveedor no muestran esta opción.</li>

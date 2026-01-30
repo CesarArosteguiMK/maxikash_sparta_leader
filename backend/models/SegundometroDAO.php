@@ -3,6 +3,7 @@
 namespace Models;
 
 use Core\Model;
+// use Core\DatabaseSegundometro; // COMENTADO - solo se usa en obtenerEstadoReportesPorBD (comentado más abajo)
 
 class SegundometroDAO extends Model
 {
@@ -416,4 +417,129 @@ class SegundometroDAO extends Model
         self::$SSH_KEY = $key;
         self::$DIRECTORIO_REMOTO = $directorio;
     }
+
+    // ========== MÉTODOS NUEVOS (no modifican lógica existente) ==========
+
+    /**
+     * Ejecutar ls -lt | head en el directorio remoto (misma conexión SSH).
+     * @return array ['success' => bool, 'output' => string]
+     */
+    public static function obtenerSalidaLsLtHead()
+    {
+        $dir = str_replace("'", "'\\''", self::$DIRECTORIO_REMOTO);
+        $comando = sprintf("bash -c 'cd %s && ls -lt | head'", $dir);
+        $resultado = self::ejecutarSSH($comando);
+        return [
+            'success' => $resultado['success'],
+            'output'   => $resultado['output'] ?? '',
+            'error'    => $resultado['error'] ?? ''
+        ];
+    }
+
+    /**
+     * Ejecutar monitorear.sh en el servidor remoto para ver el proceso.
+     * @return array ['success' => bool, 'output' => string]
+     */
+    public static function obtenerSalidaMonitorear()
+    {
+        $comando = 'sudo bash /home/jesus/scripts/monitorear.sh 2>&1';
+        $resultado = self::ejecutarSSH($comando);
+        return [
+            'success' => $resultado['success'],
+            'output'   => $resultado['output'] ?? '',
+            'error'    => $resultado['error'] ?? ''
+        ];
+    }
+
+    /**
+     * Leer archivo de estado del último proceso Kronos (insertar_kronos.py).
+     * El script en el servidor debe escribir OK, ERROR o RUNNING en ese archivo.
+     * Ruta esperada: /home/jesus/scripts/ultimo_estado_kronos.txt
+     * @return array ['success' => bool, 'status' => 'ok'|'error'|'running'|'unknown', 'message' => string]
+     */
+    public static function leerEstadoProcesoKronos()
+    {
+        $rutaEstado = '/home/jesus/scripts/ultimo_estado_kronos.txt';
+        $comando = sprintf('cat %s 2>/dev/null || echo ""', escapeshellarg($rutaEstado));
+        $resultado = self::ejecutarSSH($comando);
+        $contenido = trim($resultado['output'] ?? '');
+        $status = 'unknown';
+        $message = $contenido;
+        if ($contenido !== '') {
+            $linea = strtolower(trim(explode("\n", $contenido)[0]));
+            if (strpos($linea, 'ok') === 0 || $linea === 'ok') {
+                $status = 'ok';
+            } elseif (strpos($linea, 'error') === 0 || strpos($linea, 'fail') !== false) {
+                $status = 'error';
+            } elseif (strpos($linea, 'running') === 0 || strpos($linea, 'procesando') !== false) {
+                $status = 'running';
+            } else {
+                $status = 'unknown';
+            }
+        }
+        return [
+            'success' => true,
+            'status'  => $status,
+            'message' => $message
+        ];
+    }
+
+    /*
+     * COMENTADO - retomar más adelante: estado de reportes por BD (sin SSH).
+     * BD: __SPARTA_SECRET_REDACTED__, tabla: tbl_segundometro_semana, columna ej.: Dias_mora_Viernes_11_30 (numérica).
+     * Requiere: use Core\DatabaseSegundometro; al inicio de la clase.
+     *
+    public static function obtenerEstadoReportesPorBD(array $nombresArchivo)
+    {
+        $estados = [];
+        $diaNombre = [
+            1 => 'Lunes',
+            2 => 'Martes',
+            3 => 'Miercoles',
+            4 => 'Jueves',
+            5 => 'Viernes',
+            6 => 'Sabado',
+            7 => 'Domingo',
+        ];
+        $tz = new \DateTimeZone('America/Mexico_City');
+        $ahora = new \DateTime('now', $tz);
+
+        foreach ($nombresArchivo as $nombre) {
+            $nombre = trim((string) $nombre);
+            if ($nombre === '') {
+                continue;
+            }
+            if (!preg_match('/mega_rpt_(\d{8})_(\d{2})_(\d{2})_\d{2}\.csv\.zip/', $nombre, $m)) {
+                $estados[$nombre] = 'error';
+                continue;
+            }
+            $fecha = $m[1];
+            $hh = $m[2];
+            $mm = $m[3];
+            $tiempoReporte = \DateTime::createFromFormat('Ymd H:i:s', $fecha . ' ' . $hh . ':' . $mm . ':00', $tz);
+            if (!$tiempoReporte) {
+                $estados[$nombre] = 'error';
+                continue;
+            }
+            $diaNum = (int) $tiempoReporte->format('N');
+            $diaStr = $diaNombre[$diaNum] ?? 'Lunes';
+            $columna = 'Dias_mora_' . $diaStr . '_' . $hh . '_' . $mm;
+            $diffSegundos = $ahora->getTimestamp() - $tiempoReporte->getTimestamp();
+            if ($diffSegundos < 240) {
+                $estados[$nombre] = 'procesando';
+                continue;
+            }
+            try {
+                $db = new DatabaseSegundometro();
+                $colEscapada = '`' . str_replace('`', '``', $columna) . '`';
+                $sql = "SELECT 1 FROM tbl_segundometro_semana WHERE $colEscapada IS NOT NULL LIMIT 1";
+                $row = $db->queryOne($sql);
+                $estados[$nombre] = $row ? 'ok' : 'error';
+            } catch (\Exception $e) {
+                $estados[$nombre] = 'error';
+            }
+        }
+        return $estados;
+    }
+    */
 }
