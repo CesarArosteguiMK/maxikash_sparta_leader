@@ -183,6 +183,11 @@
                 </div>
 
                 <div class="mb-2">
+                    <label class="form-label">Segundo Nombre (Opcional)</label>
+                    <input type="text" id="edit_segundo_nombre" class="form-control" oninput="this.value = this.value.replace(/[^A-Za-zÁÉÍÓÚáéíóúÑñ\s]/g, '').replace(/^\s+/, '').replace(/\s{2,}/g, ' ').toUpperCase()" onblur="this.value = this.value.trim()" style="text-transform: uppercase;">
+                </div>
+
+                <div class="mb-2">
                     <label class="form-label">Apellido Paterno *</label>
                     <input type="text" id="edit_apellidop" class="form-control" oninput="this.value = this.value.replace(/[^A-Za-zÁÉÍÓÚáéíóúÑñ\s]/g, '').replace(/^\s+/, '').replace(/\s{2,}/g, ' ').toUpperCase()" onblur="this.value = this.value.trim()" style="text-transform: uppercase;">
                 </div>
@@ -798,6 +803,7 @@
                     document.getElementById("edit_num_empleado").value = persona.numero_empleado ?? '';
                     document.getElementById("edit_id").value = persona.id ?? '';
                     document.getElementById("edit_nombres").value = persona.nombres ?? '';
+                    document.getElementById("edit_segundo_nombre").value = persona.segundo_nombre ?? '';
                     document.getElementById("edit_apellidop").value = persona.apellidop ?? '';
                     document.getElementById("edit_apellidom").value = persona.apellidom ?? '';
                     document.getElementById("edit_telefono").value = persona.telefono ?? '';

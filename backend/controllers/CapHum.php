@@ -23,7 +23,7 @@ class CapHum extends Controller
                                # ${p.numero_empleado}
                             </div>
                             <div class="fw-semibold">
-                                ${p.nombres} ${p.apellidop} ${p.apellidom}
+                                ${[p.nombres, p.segundo_nombre, p.apellidop, p.apellidom].filter(x => x).join(' ')}
                             </div>
                             <small class="text-muted d-flex align-items-center gap-1">
                                 <i class="fa fa-key"></i>
@@ -88,7 +88,7 @@ class CapHum extends Controller
                     onSuccess: (resp) => {
                         // Mapear datos con el nuevo formato de columnas
                         const datos = resp.datos.map(p => {
-                            const nombreCompleto = `${p.nombres ?? ''} ${p.apellidop ?? ''} ${p.apellidom ?? ''}`.trim();
+                            const nombreCompleto = [p.nombres, p.segundo_nombre, p.apellidop, p.apellidom].filter(x => x).join(' ');
                             
                             return {
                                 nombres: `
@@ -190,6 +190,7 @@ class CapHum extends Controller
                     document.getElementById("edit_num_empleado").value = persona.numero_empleado ?? '';
                     document.getElementById("edit_id").value = persona.id ?? '';
                     document.getElementById("edit_nombres").value = persona.nombres ?? '';
+                    document.getElementById("edit_segundo_nombre").value = persona.segundo_nombre ?? '';
                     document.getElementById("edit_apellidop").value = persona.apellidop ?? '';
                     document.getElementById("edit_apellidom").value = persona.apellidom ?? '';
                     document.getElementById("edit_telefono").value = persona.telefono ?? '';
@@ -1745,6 +1746,7 @@ class CapHum extends Controller
                 const payload = {
                     id: document.getElementById("edit_id").value,
                     nombres: document.getElementById("edit_nombres").value,
+                    segundo_nombre: document.getElementById("edit_segundo_nombre").value,
                     apellidop: document.getElementById("edit_apellidop").value,
                     apellidom: document.getElementById("edit_apellidom").value,
                     telefono: document.getElementById("edit_telefono").value,
@@ -2042,6 +2044,7 @@ class CapHum extends Controller
             
             function guardarGestor() {
                 const nombres = document.getElementById('add_nombres').value.trim();
+                const segundo_nombre = document.getElementById('add_segundo_nombre').value.trim();
                 const apellidop = document.getElementById('add_apellidop').value.trim();
                 const apellidom = document.getElementById('add_apellidom').value.trim();
                 const telefono = document.getElementById('add_telefono').value.trim();
@@ -2090,6 +2093,7 @@ class CapHum extends Controller
                     body: JSON.stringify({
                         
                         nombres,
+                        segundo_nombre,
                         apellidop,
                         apellidom,
                         telefono,
@@ -2913,7 +2917,7 @@ class CapHum extends Controller
                                # ${p.numero_empleado}
                             </div>
                             <div class="fw-semibold">
-                                ${p.nombres} ${p.apellidop} ${p.apellidom}
+                                ${[p.nombres, p.segundo_nombre, p.apellidop, p.apellidom].filter(x => x).join(' ')}
                             </div>
                             <small class="text-muted d-flex align-items-center gap-1">
                                 <i class="fa fa-key"></i>
@@ -3024,7 +3028,7 @@ class CapHum extends Controller
                     
                     // Mapear datos con el nuevo formato de columnas
                     const datos = resp.datos.map(p => {
-                        const nombreCompleto = `${p.nombres ?? ''} ${p.apellidop ?? ''} ${p.apellidom ?? ''}`.trim();
+                        const nombreCompleto = [p.nombres, p.segundo_nombre, p.apellidop, p.apellidom].filter(x => x).join(' ');
                         
                         return {
                             nombres: `
@@ -4299,6 +4303,7 @@ class CapHum extends Controller
                 'numero_empleado' => $p['numero_empleado'] ?? '',
                 'nombre_jefe' => $p['nombre_jefe'] ?? '',
                 'nombres' => $p['nombres'] ?? '',
+                'segundo_nombre' => $p['segundo_nombre'] ?? '',
                 'apellidop' => $p['apellidop'] ?? '',
                 'apellidom' => $p['apellidom'] ?? '',
                 'nombre_departamento' => $p['nombre_departamento'] ?? '',
@@ -4371,6 +4376,7 @@ class CapHum extends Controller
                 $datos = array_map(function($p) {
                     return [
                         'nombres' => $p['nombres'] ?? '',
+                        'segundo_nombre' => $p['segundo_nombre'] ?? '',
                         'apellidop' => $p['apellidop'] ?? '',
                         'apellidom' => $p['apellidom'] ?? '',
                         'numero_empleado' => $p['numero_empleado'] ?? '',
@@ -4768,7 +4774,30 @@ class CapHum extends Controller
     {
         // 1️⃣ Obtener organigrama desde la DAO
         $personas = CapHumDAO::getConsultaPersonasJerarquia($persona_id);
-        $organigramaJson = $personas["datos"][0]["organigrama_json"];
+        
+        // 🔍 Debug: verificar qué se está devolviendo
+        if (!$personas['success'] || empty($personas["datos"])) {
+            header('Content-Type: application/json');
+            echo json_encode([
+                "success" => false,
+                "mensaje" => "No se encontraron datos del organigrama",
+                "debug" => $personas
+            ]);
+            exit;
+        }
+        
+        $organigramaJson = $personas["datos"][0]["organigrama_json"] ?? null;
+        
+        if (!$organigramaJson) {
+            header('Content-Type: application/json');
+            echo json_encode([
+                "success" => false,
+                "mensaje" => "organigrama_json está vacío",
+                "debug" => $personas["datos"]
+            ]);
+            exit;
+        }
+        
         $organigrama = json_decode($organigramaJson, true);
 
         // 2️⃣ Construir filas para el OrgChart
@@ -4776,8 +4805,8 @@ class CapHum extends Controller
 
         // Raíz del organigrama
         $rows[] = [
-            "id"     => (string)$organigrama["id_jefe"],    // ID como string
-            "nombre" => $organigrama["nombre_jefe"],        // Nombre
+            "id"     => (string)($organigrama["id_jefe"] ?? ''),    // ID como string
+            "nombre" => $organigrama["nombre_jefe"] ?? null,        // Nombre
             "puesto" => $organigrama["nombre_puesto"] ?? null, // 👈
             "jefe"   => null                                // Sin jefe
         ];

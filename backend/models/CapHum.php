@@ -25,6 +25,7 @@ class CapHum extends Model
             p.id,
             p.numero_empleado,
             p.nombres,
+            p.segundo_nombre,
             p.apellidop,
             p.apellidom,
         
@@ -44,7 +45,7 @@ class CapHum extends Model
         
             CASE 
                 WHEN pj.id IS NULL THEN 'Sin jefe'
-                ELSE CONCAT(pj.nombres, ' ', pj.apellidop, ' ', pj.apellidom)
+                ELSE CONCAT_WS(' ', pj.nombres, pj.segundo_nombre, pj.apellidop, pj.apellidom)
             END AS nombre_jefe,
         
             p.estatus,
@@ -794,7 +795,7 @@ class CapHum extends Model
         $query = <<<SQL
           SELECT
             per.id,
-            CONCAT(per.nombres, ' ', per.apellidop, ' ', per.apellidom) AS nombre_completo,
+            CONCAT_WS(' ', per.nombres, per.segundo_nombre, per.apellidop, per.apellidom) AS nombre_completo,
             pu.nombre AS nombre_puesto
         FROM asigna_puesto ap
         INNER JOIN persona per 
@@ -867,7 +868,7 @@ class CapHum extends Model
         $query = <<<SQL
         SELECT DISTINCT
             p.id,
-            CONCAT(p.nombres, ' ', p.apellidop, ' ', p.apellidom) AS nombre_completo,
+            CONCAT_WS(' ', p.nombres, p.segundo_nombre, p.apellidop, p.apellidom) AS nombre_completo,
             pp.nombre AS puesto,
             pp.nivel
         FROM persona p
@@ -955,7 +956,7 @@ class CapHum extends Model
                 $queryPersonas = <<<SQL
                 SELECT 
                 p.id,
-                CONCAT(p.nombres, ' ', p.apellidop, ' ', p.apellidom) AS nombre,
+                CONCAT_WS(' ', p.nombres, p.segundo_nombre, p.apellidop, p.apellidom) AS nombre,
                 ap.id_puesto
             FROM persona p
             INNER JOIN asigna_puesto ap ON ap.id_persona = p.id
@@ -984,6 +985,7 @@ class CapHum extends Model
                 SELECT 
                     p.id,
                     p.nombres,
+                    p.segundo_nombre,
                     p.apellidop,
                     ap.id_puesto,
                     pp.nombre AS nombre_puesto,
@@ -1002,6 +1004,7 @@ class CapHum extends Model
                 SELECT 
                     p2.id,
                     p2.nombres,
+                    p2.segundo_nombre,
                     p2.apellidop,
                     ap2.id_puesto,
                     pp2.nombre AS nombre_puesto,
@@ -1019,7 +1022,7 @@ class CapHum extends Model
             SELECT JSON_OBJECT(
                 'id_jefe', $id_persona,
                 'nombre_jefe', (
-                    SELECT CONCAT(nombres, ' ', apellidop)
+                    SELECT CONCAT_WS(' ', nombres, segundo_nombre, apellidop)
                     FROM persona
                     WHERE id = $id_persona
                 ),
@@ -1035,7 +1038,7 @@ class CapHum extends Model
                     SELECT COALESCE(JSON_ARRAYAGG(
                         JSON_OBJECT(
                             'id', j1.id,
-                            'nombre', CONCAT(j1.nombres, ' ', j1.apellidop),
+                            'nombre', CONCAT_WS(' ', j1.nombres, j1.segundo_nombre, j1.apellidop),
                             'id_puesto', j1.id_puesto,
                             'nombre_puesto', j1.nombre_puesto,
                             'nivel', j1.nivel,
@@ -1044,7 +1047,7 @@ class CapHum extends Model
                                 SELECT COALESCE(JSON_ARRAYAGG(
                                     JSON_OBJECT(
                                         'id', j2.id,
-                                        'nombre', CONCAT(j2.nombres, ' ', j2.apellidop),
+                                        'nombre', CONCAT_WS(' ', j2.nombres, j2.segundo_nombre, j2.apellidop),
                                         'id_puesto', j2.id_puesto,
                                         'nombre_puesto', j2.nombre_puesto,
                                         'nivel', j2.nivel,
@@ -1053,7 +1056,7 @@ class CapHum extends Model
                                             SELECT COALESCE(JSON_ARRAYAGG(
                                                 JSON_OBJECT(
                                                     'id', j3.id,
-                                                    'nombre', CONCAT(j3.nombres, ' ', j3.apellidop),
+                                                    'nombre', CONCAT_WS(' ', j3.nombres, j3.segundo_nombre, j3.apellidop),
                                                     'id_puesto', j3.id_puesto,
                                                     'nombre_puesto', j3.nombre_puesto,
                                                     'nivel', j3.nivel,
@@ -1062,7 +1065,7 @@ class CapHum extends Model
                                                         SELECT COALESCE(JSON_ARRAYAGG(
                                                             JSON_OBJECT(
                                                                 'id', j4.id,
-                                                                'nombre', CONCAT(j4.nombres, ' ', j4.apellidop),
+                                                                'nombre', CONCAT_WS(' ', j4.nombres, j4.segundo_nombre, j4.apellidop),
                                                                 'id_puesto', j4.id_puesto,
                                                                 'nombre_puesto', j4.nombre_puesto,
                                                                 'nivel', j4.nivel
@@ -1184,6 +1187,7 @@ class CapHum extends Model
     {
         // 🔹 Escapamos valores
         $nombres = addslashes($data['nombres']);
+        $segundo_nombre = addslashes($data['segundo_nombre'] ?? '');
         $apellidop = addslashes($data['apellidop']);
         $apellidom = addslashes($data['apellidom']);
         $numero_empleado = addslashes($data['numero_empleado']);
@@ -1211,9 +1215,9 @@ class CapHum extends Model
             // 1️⃣ Ejecutamos INSERT con queryOne() (fecha_registro = hora CDMX)
             $db->queryOne("
             INSERT INTO __SPARTA_SECRET_REDACTED__.persona
-            (nombres, apellidop, apellidom, numero_empleado, correo, telefono_uno, telefono_dos, estatus, user_name, password, fecha_ingreso, fecha_registro)
+            (nombres, segundo_nombre, apellidop, apellidom, numero_empleado, correo, telefono_uno, telefono_dos, estatus, user_name, password, fecha_ingreso, fecha_registro)
             VALUES
-            ('$nombres', '$apellidop', '$apellidom', '$numero_empleado', '$correo', '$telefono_uno', '$telefono_dos', '$estatus', '$user_name', '$password', $fecha_ingreso_sql, '$fechaRegistro')
+            ('$nombres', '$segundo_nombre', '$apellidop', '$apellidom', '$numero_empleado', '$correo', '$telefono_uno', '$telefono_dos', '$estatus', '$user_name', '$password', $fecha_ingreso_sql, '$fechaRegistro')
         ");
 
 
@@ -1341,6 +1345,7 @@ class CapHum extends Model
     {
         $id_persona      = (int)$data['id'];
         $nombres         = addslashes($data['nombres']);
+        $segundo_nombre  = addslashes($data['segundo_nombre'] ?? '');
         $apellidop       = addslashes($data['apellidop']);
         $apellidom       = addslashes($data['apellidom']);
         $correo          = addslashes($data['correo'] ?? '');
@@ -1357,13 +1362,14 @@ class CapHum extends Model
             $db->queryOne("
             UPDATE __SPARTA_SECRET_REDACTED__.persona
             SET 
-                nombres      = '$nombres',
-                apellidop    = '$apellidop',
-                apellidom    = '$apellidom',
-                correo       = '$correo',
-                telefono_uno = '$telefono_uno',
-                user_name    = '$user_name',
-                password     = '$password'
+                nombres       = '$nombres',
+                segundo_nombre = '$segundo_nombre',
+                apellidop     = '$apellidop',
+                apellidom     = '$apellidom',
+                correo        = '$correo',
+                telefono_uno  = '$telefono_uno',
+                user_name     = '$user_name',
+                password      = '$password'
             WHERE id = $id_persona
         ");
 

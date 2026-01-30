@@ -15,7 +15,7 @@ class Permisos extends Model
         $query = <<<SQL
             SELECT
                 p.id,
-                CONCAT(p.nombres, ' ', p.apellidop, ' ', p.apellidom) AS nombre_completo,
+                CONCAT_WS(' ', p.nombres, p.segundo_nombre, p.apellidop, p.apellidom) AS nombre_completo,
                 GROUP_CONCAT(pt.nombre ORDER BY pt.nombre SEPARATOR ', ') AS puestos
             FROM persona p
             LEFT JOIN privilegios_departamento pd ON pd.idPersona = p.id
