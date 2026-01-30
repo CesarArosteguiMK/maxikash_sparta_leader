@@ -1,6 +1,5 @@
-
 <?php
-
+session_start();
 // vista___SPARTA_SECRET_REDACTED__.php
 date_default_timezone_set('America/Mexico_City');
 
@@ -1883,18 +1882,20 @@ if ($cuotasContratadas > 0) {
                     <?php
                     $hideStyle = (
                             isset($_SESSION['departamento']) &&
-                            (int)$_SESSION['departamento'] === 2
+                            (
+                                    (int)$_SESSION['departamento'] === 9
+                            )
                     ) ? 'style="display:none;"' : '';
                     ?>
 
-                        <div class="col-md-4 d-none" id="boxSeleccionados" <?= $hideStyle ?>>
+                        <div class="col-md-4" id="boxSeleccionados" <?= $hideStyle ?>>
                             <div class="alert alert-success py-2 mb-2">
                                 <strong>Seleccionados:</strong>
                                 <span id="countCondonados">0</span>
                             </div>
                         </div>
 
-                        <div class="col-md-4 d-none" id="boxMonto" <?= $hideStyle ?>>
+                        <div class="col-md-4" id="boxMonto" <?= $hideStyle ?>>
                             <div class="alert alert-warning py-2 mb-2">
                                 <strong>Monto a condonar:</strong>
                                 $<span id="montoCondonar">0.00</span>
@@ -1936,7 +1937,7 @@ if ($cuotasContratadas > 0) {
                 </div>
 
                 <!-- Motivo -->
-                <div class="mt-3  d-none" <?= $hideStyle ?>>
+                <div class="mt-3" <?= $hideStyle ?>>
                     <label class="form-label fw-semibold">
                         Motivo de la condonación (convenio de pago) <span class="text-danger">*</span>
                     </label>
@@ -1951,7 +1952,7 @@ if ($cuotasContratadas > 0) {
             </div>
 
             <!-- Footer -->
-            <div class="modal-footer  d-none" <?= $hideStyle ?>>
+            <div class="modal-footer" <?= $hideStyle ?>>
                 <button class="btn btn-secondary" data-bs-dismiss="modal" >
                     Cancelar
                 </button>

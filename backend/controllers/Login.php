@@ -125,7 +125,8 @@ class login extends Controller
             $_SESSION['login'] = true;
             $_SESSION['usuario_id'] = (int)$datos['id'];
             $_SESSION['usuario'] = $datos['user_name'];
-            $_SESSION['usuario_nombre'] = $datos['nombres'];
+            $_SESSION['usuario_nombre'] = $datos['nombres'] . ' ' . $datos['segundo_nombre']. ' ' . $datos['apellidop'];
+
 
             $_SESSION['nivel_puesto'] = $datos['id_puesto'];
             $_SESSION['nombre_puesto'] = $datos['nombre_puesto'];
