@@ -2039,10 +2039,6 @@
     }
   }
 
-   * ==========================================
-   * GENERAR CONTENIDO DEL TOOLTIP
-   * ==========================================
-   */
   function generarContenidoTooltip(tipo) {
     const datos = usuariosData || [];
     
