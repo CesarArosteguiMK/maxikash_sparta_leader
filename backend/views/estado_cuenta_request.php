@@ -1579,7 +1579,7 @@ if ($cuotasContratadas > 0) {
                 <!-- BOTÓN CONDONAR -->
                 <?php if (
                         isset($_SESSION['departamento'], $_SESSION['usuario_id']) &&
-                        ($_SESSION['departamento'] == 2 || $_SESSION['usuario_id'] == 1)
+                        (in_array((int)$_SESSION['departamento'], [2, 9], true)|| $_SESSION['usuario_id'] == 1)
                 ): ?>
                     <button type="button"
                             class="btn btn-condonar position-relative"
@@ -1877,21 +1877,31 @@ if ($cuotasContratadas > 0) {
 
             <!-- Body -->
             <div class="modal-body">
-
                 <!-- Resumen -->
                 <div class="row mb-3">
-                    <div class="col-md-4">
-                        <div class="alert alert-success py-2 mb-2">
-                            <strong>Seleccionados:</strong>
-                            <span id="countCondonados">0</span>
+
+                    <?php
+                    $hideStyle = (
+                            isset($_SESSION['departamento']) &&
+                            (int)$_SESSION['departamento'] === 2
+                    ) ? 'style="display:none;"' : '';
+                    ?>
+
+                        <div class="col-md-4 d-none" id="boxSeleccionados" <?= $hideStyle ?>>
+                            <div class="alert alert-success py-2 mb-2">
+                                <strong>Seleccionados:</strong>
+                                <span id="countCondonados">0</span>
+                            </div>
                         </div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="alert alert-warning py-2 mb-2">
-                            <strong>Monto a condonar:</strong>
-                            $<span id="montoCondonar">0.00</span>
+
+                        <div class="col-md-4 d-none" id="boxMonto" <?= $hideStyle ?>>
+                            <div class="alert alert-warning py-2 mb-2">
+                                <strong>Monto a condonar:</strong>
+                                $<span id="montoCondonar">0.00</span>
+                            </div>
                         </div>
-                    </div>
+
+
                     <div class="col-md-4">
                         <div class="alert alert-danger py-2 mb-2 d-flex justify-content-between align-items-center">
                             <span class="fw-semibold text-dark">
@@ -1902,6 +1912,7 @@ if ($cuotasContratadas > 0) {
                             </span>
                         </div>
                     </div>
+
                 </div>
 
                 <!-- Tabla -->
@@ -1925,7 +1936,7 @@ if ($cuotasContratadas > 0) {
                 </div>
 
                 <!-- Motivo -->
-                <div class="mt-3">
+                <div class="mt-3  d-none" <?= $hideStyle ?>>
                     <label class="form-label fw-semibold">
                         Motivo de la condonación (convenio de pago) <span class="text-danger">*</span>
                     </label>
@@ -1940,8 +1951,8 @@ if ($cuotasContratadas > 0) {
             </div>
 
             <!-- Footer -->
-            <div class="modal-footer">
-                <button class="btn btn-secondary" data-bs-dismiss="modal">
+            <div class="modal-footer  d-none" <?= $hideStyle ?>>
+                <button class="btn btn-secondary" data-bs-dismiss="modal" >
                     Cancelar
                 </button>
                 <button class="btn btn-success" onclick="confirmarCondonacion(<?= htmlspecialchars($dataEstadoCuenta["idCredito"] ?? '') ?>)">
