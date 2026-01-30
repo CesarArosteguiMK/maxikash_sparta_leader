@@ -28,13 +28,16 @@ class Ticket extends Model
                 et.nombre AS estado_ticket_nombre,
                 pt.nombre AS prioridad_nombre,
                 ot.nombre AS origen_nombre,
-                CONCAT(TRIM(IFNULL(p.nombres, '')), ' ', TRIM(IFNULL(p.apellidop, ''))) AS creador_nombre
+                CONCAT(TRIM(IFNULL(p.nombres, '')), ' ', TRIM(IFNULL(p.apellidop, ''))) AS creador_nombre,
+                CONCAT(TRIM(IFNULL(pa.nombres, '')), ' ', TRIM(IFNULL(pa.apellidop, ''))) AS asignado_nombre
             FROM ticket t
             INNER JOIN tipo_ticket tt ON t.id_tipo_ticket = tt.id_tipo_ticket
             INNER JOIN estado_ticket et ON t.id_estado_ticket = et.id_estado_ticket
             INNER JOIN prioridad_ticket pt ON t.id_prioridad = pt.id_prioridad
             INNER JOIN origen_ticket ot ON t.id_origen_ticket = ot.id_origen_ticket
             INNER JOIN persona p ON t.id_persona_creador = p.id
+            LEFT JOIN asignacion_ticket at ON at.id_ticket = t.id_ticket AND (at.activo = 1 OR at.activo IS NULL)
+            LEFT JOIN persona pa ON at.id_persona_asignada = pa.id
             WHERE (t.activo = 1 OR t.activo IS NULL)
         SQL;
 
@@ -255,6 +258,74 @@ class Ticket extends Model
             return $row ? (int)$row['id'] : 0;
         } catch (\Exception $e) {
             return 0;
+        }
+    }
+
+    /**
+     * Asigna un ticket a una persona usando la tabla asignacion_ticket.
+     * Desactiva la asignación anterior (activo=0, fecha_liberacion=NOW()) e inserta la nueva.
+     */
+    public static function asignar($idTicket, $idPersona)
+    {
+        $tid = (int)$idTicket;
+        $pid = (int)$idPersona;
+        if ($tid < 1 || $pid < 1) {
+            return self::resultado(false, 'ID de ticket o persona inválido.', null);
+        }
+        try {
+            $db = new Database();
+            $tz = new \DateTimeZone('America/Mexico_City');
+            $now = (new \DateTime('now', $tz))->format('Y-m-d H:i:s');
+            $db->CRUD(
+                "UPDATE asignacion_ticket SET activo = 0, fecha_liberacion = :ahora WHERE id_ticket = :id_ticket AND (activo = 1 OR activo IS NULL)",
+                ['ahora' => $now, 'id_ticket' => $tid]
+            );
+            $db->CRUD(
+                "INSERT INTO asignacion_ticket (id_ticket, id_persona_asignada, fecha_asignacion, activo) VALUES (:id_ticket, :id_persona, :fecha_asignacion, 1)",
+                ['id_ticket' => $tid, 'id_persona' => $pid, 'fecha_asignacion' => $now]
+            );
+            return self::resultado(true, 'Ticket asignado correctamente.');
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al asignar el ticket.', null, $e->getMessage());
+        }
+    }
+
+    /**
+     * Nombre completo de una persona por id (para "Tomar asignación").
+     */
+    public static function getNombrePersona($idPersona)
+    {
+        $id = (int)$idPersona;
+        if ($id < 1) return '';
+        try {
+            $db = new Database();
+            $row = $db->queryOne("SELECT CONCAT(TRIM(IFNULL(nombres,'')), ' ', TRIM(IFNULL(apellidop,''))) AS nombre FROM persona WHERE id = :id", ['id' => $id]);
+            return $row ? trim($row['nombre']) : '';
+        } catch (\Exception $e) {
+            return '';
+        }
+    }
+
+    /**
+     * Personas del departamento Sabueso (id 5): activas, con puesto asignado en ese departamento.
+     */
+    public static function getPersonasDepartamentoSabueso()
+    {
+        $idDepartamento = 5;
+        try {
+            $db = new Database();
+            $rows = $db->queryAll(
+                "SELECT DISTINCT p.id, CONCAT(TRIM(IFNULL(p.nombres,'')), ' ', TRIM(IFNULL(p.apellidop,''))) AS nombre_completo " .
+                "FROM persona p " .
+                "INNER JOIN asigna_puesto ap ON ap.id_persona = p.id AND (ap.activo = 1 OR ap.activo IS NULL) " .
+                "INNER JOIN puesto pu ON pu.id = ap.id_puesto AND pu.departamento_id = :dep " .
+                "WHERE (p.estatus = 'Activo' OR p.estatus IS NULL) AND p.estatus != 'Baja' " .
+                "ORDER BY nombre_completo",
+                ['dep' => $idDepartamento]
+            );
+            return self::resultado(true, 'OK', is_array($rows) ? $rows : []);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al obtener personas.', null, $e->getMessage());
         }
     }
 
