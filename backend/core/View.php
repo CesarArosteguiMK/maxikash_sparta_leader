@@ -87,6 +87,21 @@ function getMenu()
                             ]
                     ]
             ],
+            'Sabueso' => [
+                    'icono' => 'fa-solid fa-dog',
+                    'subItems' => [
+                            [
+                                    'label' => 'Ticket',
+                                    'url' => '/sabueso/ticket',
+                                    'modulos' => [18]
+                            ],
+                            [
+                                    'label' => 'Panel Admin',
+                                    'url' => '/sabueso/paneladmin',
+                                    'modulos' => [19]
+                            ]
+                    ]
+            ],
             'Configuración' => [
                     'icono' => 'fa-solid fa-cog',
                     'subItems' => [
@@ -378,6 +393,9 @@ function getMenu()
     <script src="/assets/vendor/libs/datatables-bs5/datatables-bootstrap5.js"></script>
     <script src="/assets/vendor/libs/dropzone/dropzone.js"></script>
     <script src="/assets/vendor/libs/flatpickr/flatpickr.js"></script>
+    <script>
+    (function(){if(typeof flatpickr==='undefined')return;if(!flatpickr.l10ns)flatpickr.l10ns={};if(!flatpickr.l10ns.es){flatpickr.l10ns.es={weekdays:{shorthand:['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'],longhand:['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado']},months:{shorthand:['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'],longhand:['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']},firstDayOfWeek:1,ordinal:function(){return'.';}};}try{flatpickr.localize(flatpickr.l10ns.es);}catch(e){}})();
+    </script>
     <script src="/assets/vendor/libs/fullcalendar/fullcalendar.js"></script>
     <!-- <script src="/assets/vendor/libs/i18n/i18n.js"></script> -->
     <script src="/assets/vendor/libs/jkanban/jkanban.js"></script>

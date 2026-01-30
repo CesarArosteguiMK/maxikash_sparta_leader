@@ -109,10 +109,14 @@ if ($extension !== '' && strtolower($extension) !== 'php') {
 
 /*
 |--------------------------------------------------------------------------
-| LOGIN FORZADO
+| LOGIN FORZADO (excepto sabueso/crearTicketWhatsApp, que usa API key)
 |--------------------------------------------------------------------------
 */
-if (!isset($_SESSION['login']) || strtolower($urlSolicitada[0]) === strtolower(LOGIN)) {
+$esCrearTicketWhatsApp = isset($urlSolicitada[0], $urlSolicitada[1])
+    && strtolower($urlSolicitada[0]) === 'sabueso'
+    && strtolower($urlSolicitada[1]) === 'crearticketwhatsapp';
+
+if ((!isset($_SESSION['login']) && !$esCrearTicketWhatsApp) || strtolower($urlSolicitada[0]) === strtolower(LOGIN)) {
     $login = 'Controllers\\' . LOGIN;
     $login = new $login;
 

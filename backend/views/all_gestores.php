@@ -129,10 +129,19 @@
         cursor: pointer;
     }
 
-    /* Asegurar que el calendario de Flatpickr sea visible */
+    /* Ocultar flechita desplegable del mes (solo flechas prev/next) */
+    .flatpickr-calendar .flatpickr-monthDropdown-months {
+        appearance: none !important;
+        background-image: none !important;
+        -webkit-appearance: none;
+        -moz-appearance: none;
+    }
+    /* Calendario un poco más grande; se cierra al seleccionar fecha */
     .flatpickr-calendar {
         z-index: 99999 !important;
         position: fixed !important;
+        transform: scale(1.12);
+        transform-origin: top left;
     }
 
     .flatpickr-calendar.open {
