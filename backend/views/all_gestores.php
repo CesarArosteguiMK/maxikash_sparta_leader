@@ -274,6 +274,380 @@
         color: #697a8d;
     }
 
+    /* ===== INDICADORES / KPIs ===== */
+    .kpi-wrapper {
+        display: flex;
+        justify-content: center;
+        align-items: stretch;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+
+    .kpi-item {
+        flex: 0 1 auto;
+        min-width: 120px;
+        max-width: 150px;
+    }
+
+    .kpi-card {
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        height: 100%;
+        background: #ffffff;
+        border: none;
+        border-radius: 0.5rem;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        position: relative;
+        overflow: hidden;
+        cursor: pointer;
+    }
+
+    /* Borde superior colorido */
+    .kpi-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: linear-gradient(90deg, var(--kpi-color-start), var(--kpi-color-end));
+        transition: height 0.3s ease;
+    }
+
+    .kpi-card:hover {
+        transform: translateY(-5px) scale(1.02);
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.15), 0 10px 10px -5px rgba(0, 0, 0, 0.1);
+    }
+
+    .kpi-card:hover::before {
+        height: 6px;
+    }
+
+    /* Colores específicos para cada tipo de indicador */
+    .kpi-card.tipo-departamento {
+        --kpi-color-start: #4F46E5;
+        --kpi-color-end: #6366F1;
+    }
+
+    .kpi-card.tipo-puesto {
+        --kpi-color-start: #10B981;
+        --kpi-color-end: #34D399;
+    }
+
+    .kpi-card.tipo-rol {
+        --kpi-color-start: #8B5CF6;
+        --kpi-color-end: #A78BFA;
+    }
+
+    .kpi-card.tipo-total {
+        --kpi-color-start: #F59E0B;
+        --kpi-color-end: #FBBF24;
+    }
+
+    .kpi-card.tipo-especifico {
+        --kpi-color-start: #EF4444;
+        --kpi-color-end: #F87171;
+    }
+
+    .kpi-card .card-body {
+        position: relative;
+        padding: 0.75rem 0.7rem;
+        text-align: center;
+    }
+
+    .kpi-number {
+        font-size: 1.3rem;
+        font-weight: 700;
+        line-height: 1;
+        margin-bottom: 0.3rem;
+        background: linear-gradient(135deg, var(--kpi-color-start), var(--kpi-color-end));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        font-family: 'Segoe UI', system-ui, sans-serif;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        transition: all 0.3s ease;
+    }
+
+    .kpi-card:hover .kpi-number {
+        transform: scale(1.1);
+        filter: brightness(1.2);
+    }
+
+    /* Animación de pulso para números actualizados */
+    @keyframes pulse-update {
+        0%, 100% {
+            transform: scale(1);
+        }
+        50% {
+            transform: scale(1.15);
+        }
+    }
+
+    .kpi-number.updating {
+        animation: pulse-update 0.5s ease-in-out;
+    }
+
+    .kpi-label {
+        font-size: 0.55rem;
+        color: #64748B;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 0;
+        line-height: 1.2;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .kpi-icon {
+        font-size: 1.2rem;
+        opacity: 0.15;
+        position: absolute;
+        right: 0.5rem;
+        top: 0.5rem;
+        color: var(--kpi-color-start);
+        transition: all 0.3s ease;
+    }
+
+    .kpi-card:hover .kpi-icon {
+        opacity: 0.25;
+        transform: scale(1.1) rotate(5deg);
+    }
+
+    /* Patrón de fondo sutil */
+    .kpi-card::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-image: 
+            radial-gradient(circle at 2px 2px, rgba(0, 0, 0, 0.02) 1px, transparent 1px);
+        background-size: 20px 20px;
+        pointer-events: none;
+        opacity: 0.5;
+    }
+
+    /* Separadores entre indicadores */
+    .kpi-separator {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0 0.3rem;
+    }
+
+    .kpi-separator .line {
+        width: 1px;
+        height: 35px;
+        background: linear-gradient(180deg, transparent, rgba(148, 163, 184, 0.4), transparent);
+    }
+
+    /* Responsive para tablets */
+    @media (max-width: 991px) {
+        .kpi-item {
+            min-width: 110px;
+            max-width: 140px;
+        }
+
+        .kpi-number {
+            font-size: 1.15rem;
+        }
+        
+        .kpi-label {
+            font-size: 0.52rem;
+        }
+        
+        .kpi-separator .line {
+            height: 30px;
+        }
+    }
+
+    /* Responsive para móviles - Grid simétrico 2x2 */
+    @media (max-width: 767px) {
+        .kpi-wrapper {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.5rem;
+            justify-items: stretch;
+        }
+
+        .kpi-item {
+            min-width: unset;
+            max-width: unset;
+            width: 100%;
+        }
+
+        .kpi-separator {
+            display: none !important;
+        }
+
+        .kpi-number {
+            font-size: 1.05rem;
+        }
+        
+        .kpi-label {
+            font-size: 0.5rem;
+            white-space: normal;
+        }
+        
+        .kpi-card .card-body {
+            padding: 0.6rem;
+        }
+    }
+
+    /* Para móviles muy pequeños - una columna */
+    @media (max-width: 480px) {
+        .kpi-wrapper {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    /* ===== TOOLTIPS ENRIQUECIDOS ===== */
+    .kpi-tooltip {
+        position: absolute;
+        background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+        color: #ffffff;
+        padding: 0.75rem 1rem;
+        border-radius: 0.5rem;
+        font-size: 0.75rem;
+        z-index: 9999;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.2s ease;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+        min-width: 200px;
+        max-width: 300px;
+    }
+
+    .kpi-tooltip.show {
+        opacity: 1;
+    }
+
+    /* Flecha del tooltip removida para diseño flotante limpio */
+    /*
+    .kpi-tooltip::before {
+        content: '';
+        position: absolute;
+        bottom: -6px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 0;
+        height: 0;
+        border-left: 6px solid transparent;
+        border-right: 6px solid transparent;
+        border-top: 6px solid #1e293b;
+    }
+    */
+
+    .kpi-tooltip-title {
+        font-weight: 700;
+        margin-bottom: 0.4rem;
+        color: #fbbf24;
+        font-size: 0.8rem;
+    }
+
+    .kpi-tooltip-item {
+        display: flex;
+        justify-content: space-between;
+        padding: 0.2rem 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .kpi-tooltip-item:last-child {
+        border-bottom: none;
+    }
+
+    .kpi-tooltip-label {
+        color: #cbd5e1;
+    }
+
+    .kpi-tooltip-value {
+        font-weight: 600;
+        color: #fff;
+    }
+
+    /* ===== MODAL DE DESGLOSE ===== */
+    .stat-card {
+        background: #f8fafc;
+        border-left: 4px solid;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        border-radius: 0.375rem;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+
+    .stat-card[data-color="indigo"] {
+        border-left-color: #4F46E5;
+    }
+
+    .stat-card[data-color="emerald"] {
+        border-left-color: #10B981;
+    }
+
+    .stat-card[data-color="purple"] {
+        border-left-color: #8B5CF6;
+    }
+
+    .stat-card[data-color="amber"] {
+        border-left-color: #F59E0B;
+    }
+
+    .stat-card[data-color="red"] {
+        border-left-color: #EF4444;
+    }
+
+    .stat-label {
+        font-size: 0.75rem;
+        color: #64748b;
+        text-transform: uppercase;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+    }
+
+    .stat-value {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #1e293b;
+        margin-top: 0.25rem;
+    }
+
+    .progress-bar-kpi {
+        transition: width 0.6s ease;
+    }
+
+    /* Headers de tabla con colores temáticos */
+    .table-header-indigo {
+        background: linear-gradient(135deg, #4F46E5, #6366F1) !important;
+        color: white !important;
+    }
+
+    .table-header-emerald {
+        background: linear-gradient(135deg, #10B981, #34D399) !important;
+        color: white !important;
+    }
+
+    .table-header-purple {
+        background: linear-gradient(135deg, #8B5CF6, #A78BFA) !important;
+        color: white !important;
+    }
+
+    .table-header-amber {
+        background: linear-gradient(135deg, #F59E0B, #FBBF24) !important;
+        color: white !important;
+    }
+
+    .table-header-red {
+        background: linear-gradient(135deg, #EF4444, #F87171) !important;
+        color: white !important;
+    }
+
+    .badge-count {
+        font-size: 0.85rem;
+        padding: 0.35em 0.65em;
+    }
+
 </style>
 <div class="content-wrapper">
 
@@ -308,6 +682,127 @@
                 </div>
             </div>
         </div>
+
+        <!-- =======================
+             PANEL DE INDICADORES
+        ======================== -->
+        <div class="row m-4 mb-3">
+            <div class="col-12">
+                <div class="kpi-wrapper">
+                    <!-- Indicador: Departamentos -->
+                    <div class="kpi-item">
+                        <div class="card kpi-card tipo-departamento shadow-sm h-100" data-tipo="departamentos">
+                            <div class="card-body">
+                                <i class="bx bx-buildings kpi-icon"></i>
+                                <div class="kpi-number" id="kpi-departamentos">0</div>
+                                <div class="kpi-label">Departamentos</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Separador -->
+                    <div class="kpi-separator">
+                        <div class="line"></div>
+                    </div>
+
+                    <!-- Indicador: Puestos -->
+                    <div class="kpi-item">
+                        <div class="card kpi-card tipo-puesto shadow-sm h-100" data-tipo="puestos">
+                            <div class="card-body">
+                                <i class="bx bx-briefcase kpi-icon"></i>
+                                <div class="kpi-number" id="kpi-puestos">0</div>
+                                <div class="kpi-label">Puestos</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Separador Dinámico 1 -->
+                    <div class="kpi-separator" id="separator-rol1" style="display: none;">
+                        <div class="line"></div>
+                    </div>
+
+                    <!-- Indicador Dinámico 1: Rol específico -->
+                    <div class="kpi-item" id="kpi-rol1-container" style="display: none;">
+                        <div class="card kpi-card tipo-rol shadow-sm h-100" data-tipo="rol1">
+                            <div class="card-body">
+                                <i class="bx bx-user-circle kpi-icon"></i>
+                                <div class="kpi-number" id="kpi-rol1-numero">0</div>
+                                <div class="kpi-label" id="kpi-rol1-label" title="">Rol 1</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Separador Dinámico 2 -->
+                    <div class="kpi-separator" id="separator-rol2" style="display: none;">
+                        <div class="line"></div>
+                    </div>
+
+                    <!-- Indicador Dinámico 2: Rol específico -->
+                    <div class="kpi-item" id="kpi-rol2-container" style="display: none;">
+                        <div class="card kpi-card tipo-rol shadow-sm h-100" data-tipo="rol2">
+                            <div class="card-body">
+                                <i class="bx bx-user-check kpi-icon"></i>
+                                <div class="kpi-number" id="kpi-rol2-numero">0</div>
+                                <div class="kpi-label" id="kpi-rol2-label" title="">Rol 2</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Separador Empleados -->
+                    <div class="kpi-separator" id="separator-empleados" style="display: none;">
+                        <div class="line"></div>
+                    </div>
+
+                    <!-- Indicador: Total de Empleados (Dinámico según filtros) -->
+                    <div class="kpi-item" id="kpi-total-empleados-container" style="display: none;">
+                        <div class="card kpi-card tipo-total shadow-sm h-100" data-tipo="total">
+                            <div class="card-body">
+                                <i class="bx bx-group kpi-icon"></i>
+                                <div class="kpi-number" id="kpi-total-empleados">0</div>
+                                <div class="kpi-label" id="kpi-total-empleados-label" title="">Total Empleados</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Separador Empleados Puesto -->
+                    <div class="kpi-separator" id="separator-empleados-puesto" style="display: none;">
+                        <div class="line"></div>
+                    </div>
+
+                    <!-- Indicador: Empleados por Puesto -->
+                    <div class="kpi-item" id="kpi-empleados-container" style="display: none;">
+                        <div class="card kpi-card tipo-especifico shadow-sm h-100" data-tipo="puesto-especifico">
+                            <div class="card-body">
+                                <i class="bx bx-user-pin kpi-icon"></i>
+                                <div class="kpi-number" id="kpi-empleados-puesto">0</div>
+                                <div class="kpi-label" id="kpi-empleados-label" title="">Empleados</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAL: DESGLOSE DETALLADO DE INDICADORES -->
+        <div class="modal fade" id="modalKpiDesglose" tabindex="-1" aria-labelledby="modalKpiTitle" aria-hidden="true">
+            <div class="modal-dialog modal-lg modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="modalKpiTitle">
+                            <i class="bx bx-chart me-2"></i>
+                            Desglose Detallado
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                    </div>
+                    <div class="modal-body" id="modalKpiContent">
+                        <!-- Contenido dinámico generado por JavaScript -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tooltip personalizado -->
+        <div class="kpi-tooltip" id="kpiTooltip"></div>
 
         <!-- =======================
              BOTÓN AGREGAR
@@ -1146,6 +1641,906 @@
 
   /**
    * ==========================================
+   * ACTUALIZAR INDICADORES (KPIs)
+   * ==========================================
+   * Calcula y muestra los indicadores clave:
+   * - Total de Departamentos
+   * - Total de Puestos
+   * - Lógica condicional según filtros:
+   *   1. Sin filtros: Total de Empleados (global)
+   *   2. Con departamento: Roles dinámicos + Total Empleados del departamento
+   *   3. Con puesto: Roles dinámicos + Empleados en ese puesto
+   */
+  function actualizarIndicadores(datos) {
+    if (!datos || datos.length === 0) {
+      document.getElementById('kpi-departamentos').textContent = '0';
+      document.getElementById('kpi-puestos').textContent = '0';
+      ocultarIndicadorEmpleados();
+      ocultarIndicadorTotalEmpleados();
+      ocultarIndicadoresRoles();
+      return;
+    }
+
+    // DEPARTAMENTOS: Contar únicos (excluyendo "Sin departamento")
+    const departamentos = new Set();
+    datos.forEach(persona => {
+      if (persona.nombre_departamento && persona.nombre_departamento !== 'Sin departamento') {
+        departamentos.add(persona.nombre_departamento);
+      }
+    });
+
+    // PUESTOS: Contar únicos (excluyendo "Sin puesto")
+    const puestos = new Set();
+    datos.forEach(persona => {
+      if (persona.nombre_puesto && persona.nombre_puesto !== 'Sin puesto') {
+        puestos.add(persona.nombre_puesto);
+      }
+    });
+
+    // Obtener filtros actuales
+    const departamentoSeleccionado = document.getElementById('UserRole').value;
+    const puestoSeleccionado = document.getElementById('UserPlan').value;
+
+    // ==========================================
+    // LÓGICA CONDICIONAL SEGÚN FILTROS
+    // ==========================================
+
+    // CASO 1: Sin filtros seleccionados
+    if (!departamentoSeleccionado && !puestoSeleccionado) {
+      // Mostrar: Departamentos, Puestos, Total de Empleados (global)
+      ocultarIndicadoresRoles();
+      ocultarIndicadorEmpleados();
+      mostrarIndicadorTotalEmpleados(datos.length, 'Total Empleados');
+    }
+    // CASO 2: Solo departamento seleccionado (sin puesto)
+    else if (departamentoSeleccionado && !puestoSeleccionado) {
+      // Mostrar: Departamentos, Puestos, Roles Dinámicos, Total Empleados del Departamento
+      actualizarIndicadoresRoles(datos, departamentoSeleccionado);
+      ocultarIndicadorEmpleados();
+      
+      const empleadosDepartamento = datos.filter(p => p.nombre_departamento === departamentoSeleccionado).length;
+      mostrarIndicadorTotalEmpleados(empleadosDepartamento, 'Empleados en ' + departamentoSeleccionado);
+    }
+    // CASO 3: Puesto seleccionado (con o sin departamento)
+    else if (puestoSeleccionado) {
+      // Mostrar: Departamentos, Puestos, Empleados en Puesto
+      // OCULTAR roles dinámicos para evitar redundancia
+      ocultarIndicadoresRoles();
+      ocultarIndicadorTotalEmpleados();
+      
+      const empleadosEnPuesto = datos.filter(persona => 
+        persona.nombre_puesto === puestoSeleccionado
+      ).length;
+      mostrarIndicadorEmpleados(puestoSeleccionado, empleadosEnPuesto);
+    }
+
+    // Actualizar los números en el DOM con animación
+    animarNumero('kpi-departamentos', departamentos.size);
+    animarNumero('kpi-puestos', puestos.size);
+
+    console.log('📊 Indicadores actualizados:', {
+      departamentos: departamentos.size,
+      puestos: puestos.size,
+      departamentoSeleccionado: departamentoSeleccionado || 'Ninguno',
+      puestoSeleccionado: puestoSeleccionado || 'Ninguno',
+      totalEmpleados: datos.length
+    });
+  }
+
+  /**
+   * ==========================================
+   * ACTUALIZAR INDICADORES DE ROLES
+   * ==========================================
+   * Analiza los puestos del departamento seleccionado
+   * y muestra los 2 más relevantes como indicadores
+   */
+  function actualizarIndicadoresRoles(datos, departamento) {
+    // Filtrar solo personas del departamento seleccionado
+    const empleadosDepartamento = datos.filter(persona => 
+      persona.nombre_departamento === departamento
+    );
+
+    if (empleadosDepartamento.length === 0) {
+      ocultarIndicadoresRoles();
+      return;
+    }
+
+    // Contar empleados por puesto en este departamento
+    const puestosCounts = {};
+    empleadosDepartamento.forEach(persona => {
+      const puesto = persona.nombre_puesto;
+      if (puesto && puesto !== 'Sin puesto') {
+        puestosCounts[puesto] = (puestosCounts[puesto] || 0) + 1;
+      }
+    });
+
+    // Ordenar puestos por cantidad (descendente) y obtener los 2 primeros
+    const puestosOrdenados = Object.entries(puestosCounts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 2);
+
+    // Mostrar indicadores según lo encontrado
+    if (puestosOrdenados.length >= 1) {
+      mostrarIndicadorRol1(puestosOrdenados[0][0], puestosOrdenados[0][1]);
+    } else {
+      ocultarIndicadorRol1();
+    }
+
+    if (puestosOrdenados.length >= 2) {
+      mostrarIndicadorRol2(puestosOrdenados[1][0], puestosOrdenados[1][1]);
+    } else {
+      ocultarIndicadorRol2();
+    }
+
+    console.log('👥 Roles actualizados para', departamento + ':', puestosOrdenados);
+  }
+
+  /**
+   * ==========================================
+   * MOSTRAR INDICADOR ROL 1
+   * ==========================================
+   */
+  function mostrarIndicadorRol1(nombrePuesto, cantidad) {
+    const container = document.getElementById('kpi-rol1-container');
+    const label = document.getElementById('kpi-rol1-label');
+    const separador = document.getElementById('separator-rol1');
+    
+    if (container && label) {
+      container.style.display = '';
+      
+      // Añadir tooltip con nombre completo
+      label.setAttribute('title', nombrePuesto);
+      
+      // Truncar nombre si es muy largo
+      let labelText = nombrePuesto;
+      if (labelText.length > 18) {
+        labelText = nombrePuesto.substring(0, 15) + '...';
+      }
+      label.textContent = labelText;
+      
+      animarNumero('kpi-rol1-numero', cantidad);
+      
+      if (separador) {
+        separador.style.display = '';
+      }
+    }
+  }
+
+  /**
+   * ==========================================
+   * MOSTRAR INDICADOR ROL 2
+   * ==========================================
+   */
+  function mostrarIndicadorRol2(nombrePuesto, cantidad) {
+    const container = document.getElementById('kpi-rol2-container');
+    const label = document.getElementById('kpi-rol2-label');
+    const separador = document.getElementById('separator-rol2');
+    
+    if (container && label) {
+      container.style.display = '';
+      
+      // Añadir tooltip con nombre completo
+      label.setAttribute('title', nombrePuesto);
+      
+      // Truncar nombre si es muy largo
+      let labelText = nombrePuesto;
+      if (labelText.length > 18) {
+        labelText = nombrePuesto.substring(0, 15) + '...';
+      }
+      label.textContent = labelText;
+      
+      animarNumero('kpi-rol2-numero', cantidad);
+      
+      if (separador) {
+        separador.style.display = '';
+      }
+    }
+  }
+
+  /**
+   * ==========================================
+   * OCULTAR INDICADOR ROL 1
+   * ==========================================
+   */
+  function ocultarIndicadorRol1() {
+    const container = document.getElementById('kpi-rol1-container');
+    const separador = document.getElementById('separator-rol1');
+    
+    if (container) container.style.display = 'none';
+    if (separador) separador.style.display = 'none';
+  }
+
+  /**
+   * ==========================================
+   * OCULTAR INDICADOR ROL 2
+   * ==========================================
+   */
+  function ocultarIndicadorRol2() {
+    const container = document.getElementById('kpi-rol2-container');
+    const separador = document.getElementById('separator-rol2');
+    
+    if (container) container.style.display = 'none';
+    if (separador) separador.style.display = 'none';
+  }
+
+  /**
+   * ==========================================
+   * OCULTAR AMBOS INDICADORES DE ROLES
+   * ==========================================
+   */
+  function ocultarIndicadoresRoles() {
+    ocultarIndicadorRol1();
+    ocultarIndicadorRol2();
+  }
+
+  /**
+   * ==========================================
+   * MOSTRAR INDICADOR DE TOTAL EMPLEADOS
+   * ==========================================
+   */
+  function mostrarIndicadorTotalEmpleados(cantidad, labelTexto) {
+    const container = document.getElementById('kpi-total-empleados-container');
+    const label = document.getElementById('kpi-total-empleados-label');
+    const separador = document.getElementById('separator-empleados');
+    
+    if (container && label) {
+      container.style.display = '';
+      
+      // Añadir tooltip con texto completo
+      label.setAttribute('title', labelTexto);
+      
+      // Truncar si es muy largo
+      let textoFinal = labelTexto;
+      if (labelTexto.length > 22) {
+        textoFinal = labelTexto.substring(0, 19) + '...';
+      }
+      label.textContent = textoFinal;
+      
+      animarNumero('kpi-total-empleados', cantidad);
+      
+      // Mostrar separador
+      if (separador) {
+        separador.style.display = '';
+      }
+    }
+  }
+
+  /**
+   * ==========================================
+   * OCULTAR INDICADOR DE TOTAL EMPLEADOS
+   * ==========================================
+   */
+  function ocultarIndicadorTotalEmpleados() {
+    const container = document.getElementById('kpi-total-empleados-container');
+    const separador = document.getElementById('separator-empleados');
+    
+    if (container) container.style.display = 'none';
+    if (separador) separador.style.display = 'none';
+  }
+
+  /**
+   * ==========================================
+   * MOSTRAR INDICADOR DE EMPLEADOS
+   * ==========================================
+   */
+  function mostrarIndicadorEmpleados(nombrePuesto, cantidad) {
+    const container = document.getElementById('kpi-empleados-container');
+    const label = document.getElementById('kpi-empleados-label');
+    const separador = document.getElementById('separator-empleados-puesto');
+    
+    if (container) {
+      container.style.display = '';
+      
+      // Añadir tooltip con nombre completo
+      label.setAttribute('title', 'Empleados en ' + nombrePuesto);
+      
+      // Truncar nombre del puesto si es muy largo
+      let labelText = 'Empleados en ' + nombrePuesto;
+      if (labelText.length > 25) {
+        labelText = 'Empleados: ' + nombrePuesto.substring(0, 15) + '...';
+      }
+      label.textContent = labelText;
+      
+      animarNumero('kpi-empleados-puesto', cantidad);
+      
+      // Mostrar separador en desktop
+      if (separador) {
+        separador.style.display = '';
+      }
+    }
+  }
+
+  /**
+   * ==========================================
+   * OCULTAR INDICADOR DE EMPLEADOS
+   * ==========================================
+   */
+  function ocultarIndicadorEmpleados() {
+    const container = document.getElementById('kpi-empleados-container');
+    const separador = document.getElementById('separator-empleados-puesto');
+    
+    if (container) {
+      container.style.display = 'none';
+    }
+    
+    if (separador) {
+      separador.style.display = 'none';
+    }
+  }
+
+  /**
+   * ==========================================
+   * ANIMAR NÚMEROS DE KPIs
+   * ==========================================
+   * Crea una animación suave al actualizar los números
+   */
+  function animarNumero(elementId, valorFinal) {
+    const elemento = document.getElementById(elementId);
+    if (!elemento) return;
+
+    // Agregar clase de animación de pulso
+    elemento.classList.add('updating');
+    setTimeout(() => {
+      elemento.classList.remove('updating');
+    }, 500);
+
+    const valorActual = parseInt(elemento.textContent) || 0;
+    const diferencia = valorFinal - valorActual;
+    
+    // Si no hay cambio, solo actualizar sin animación
+    if (diferencia === 0) {
+      elemento.textContent = valorFinal;
+      return;
+    }
+    
+    const duracion = 500; // milisegundos
+    const pasos = 20;
+    const incremento = diferencia / pasos;
+    const intervalo = duracion / pasos;
+
+    let contador = 0;
+    const timer = setInterval(() => {
+      contador++;
+      const nuevoValor = Math.round(valorActual + (incremento * contador));
+      elemento.textContent = nuevoValor;
+
+      if (contador >= pasos) {
+        elemento.textContent = valorFinal;
+        clearInterval(timer);
+      }
+    }, intervalo);
+  }
+
+  /**
+   * ==========================================
+   * TOOLTIPS ENRIQUECIDOS
+   * ==========================================
+   * Muestra información adicional al pasar el mouse
+   */
+  function mostrarTooltip(elemento, tipo) {
+    const tooltip = document.getElementById('kpiTooltip');
+    if (!tooltip) return;
+    
+    const rect = elemento.getBoundingClientRect();
+    
+    let contenido = generarContenidoTooltip(tipo);
+    tooltip.innerHTML = contenido;
+    
+    // Posicionar el tooltip
+    tooltip.style.left = rect.left + (rect.width / 2) - 100 + 'px';
+    tooltip.style.top = rect.top - tooltip.offsetHeight - 10 + 'px';
+    tooltip.classList.add('show');
+  }
+
+  function ocultarTooltip() {
+    const tooltip = document.getElementById('kpiTooltip');
+    if (tooltip) {
+      tooltip.classList.remove('show');
+    }
+  }
+
+   * ==========================================
+   * GENERAR CONTENIDO DEL TOOLTIP
+   * ==========================================
+   */
+  function generarContenidoTooltip(tipo) {
+    const datos = usuariosData || [];
+    
+    switch(tipo) {
+      case 'departamentos':
+        const depts = [...new Set(datos.filter(u => u.nombre_departamento && u.nombre_departamento !== 'Sin departamento').map(u => u.nombre_departamento))];
+        const topDept = obtenerTopDepartamento(datos);
+        return `
+          <div class="kpi-tooltip-title">📊 Departamentos</div>
+          <div class="kpi-tooltip-item">
+            <span class="kpi-tooltip-label">Total:</span>
+            <span class="kpi-tooltip-value">${depts.length}</span>
+          </div>
+          <div class="kpi-tooltip-item">
+            <span class="kpi-tooltip-label">Mayor:</span>
+            <span class="kpi-tooltip-value">${topDept.nombre}</span>
+          </div>
+          <div class="kpi-tooltip-item">
+            <span class="kpi-tooltip-label">Empleados:</span>
+            <span class="kpi-tooltip-value">${topDept.cantidad}</span>
+          </div>
+          <div style="margin-top: 0.5rem; font-size: 0.7rem; color: #94a3b8; text-align: center;">Click para ver desglose</div>
+        `;
+      
+      case 'puestos':
+        const puestos = [...new Set(datos.filter(u => u.nombre_puesto && u.nombre_puesto !== 'Sin puesto').map(u => u.nombre_puesto))];
+        const topPuesto = obtenerTopPuesto(datos);
+        return `
+          <div class="kpi-tooltip-title">💼 Puestos</div>
+          <div class="kpi-tooltip-item">
+            <span class="kpi-tooltip-label">Total:</span>
+            <span class="kpi-tooltip-value">${puestos.length}</span>
+          </div>
+          <div class="kpi-tooltip-item">
+            <span class="kpi-tooltip-label">Más común:</span>
+            <span class="kpi-tooltip-value">${topPuesto.nombre}</span>
+          </div>
+          <div class="kpi-tooltip-item">
+            <span class="kpi-tooltip-label">Personas:</span>
+            <span class="kpi-tooltip-value">${topPuesto.cantidad}</span>
+          </div>
+          <div style="margin-top: 0.5rem; font-size: 0.7rem; color: #94a3b8; text-align: center;">Click para ver desglose</div>
+        `;
+      
+      case 'total':
+        const departamentoActual = document.getElementById('filtroDepartamento').value;
+        return `
+          <div class="kpi-tooltip-title">👥 Total Empleados</div>
+          <div class="kpi-tooltip-item">
+            <span class="kpi-tooltip-label">Contexto:</span>
+            <span class="kpi-tooltip-value">${departamentoActual ? 'Departamento' : 'Global'}</span>
+          </div>
+          <div class="kpi-tooltip-item">
+            <span class="kpi-tooltip-label">Activos:</span>
+            <span class="kpi-tooltip-value">${datos.filter(u => u.estatus === 'Activo').length}</span>
+          </div>
+          <div class="kpi-tooltip-item">
+            <span class="kpi-tooltip-label">Inactivos:</span>
+            <span class="kpi-tooltip-value">${datos.filter(u => u.estatus !== 'Activo').length}</span>
+          </div>
+          <div style="margin-top: 0.5rem; font-size: 0.7rem; color: #94a3b8; text-align: center;">Click para ver listado</div>
+        `;
+      
+      default:
+        return `
+          <div class="kpi-tooltip-title">📈 Estadísticas</div>
+          <div style="margin-top: 0.5rem; font-size: 0.7rem; color: #94a3b8; text-align: center;">Click para más detalles</div>
+        `;
+    }
+  }
+
+  function obtenerTopDepartamento(datos) {
+    const conteo = {};
+    datos.forEach(u => {
+      if (u.nombre_departamento && u.nombre_departamento !== 'Sin departamento') {
+        conteo[u.nombre_departamento] = (conteo[u.nombre_departamento] || 0) + 1;
+      }
+    });
+    const top = Object.entries(conteo).sort((a, b) => b[1] - a[1])[0];
+    return top ? { nombre: top[0], cantidad: top[1] } : { nombre: 'N/A', cantidad: 0 };
+  }
+
+  function obtenerTopPuesto(datos) {
+    const conteo = {};
+    datos.forEach(u => {
+      if (u.nombre_puesto && u.nombre_puesto !== 'Sin puesto') {
+        conteo[u.nombre_puesto] = (conteo[u.nombre_puesto] || 0) + 1;
+      }
+    });
+    const top = Object.entries(conteo).sort((a, b) => b[1] - a[1])[0];
+    return top ? { nombre: top[0], cantidad: top[1] } : { nombre: 'N/A', cantidad: 0 };
+  }
+
+  /**
+   * ==========================================
+   * MODAL DE DESGLOSE DETALLADO
+   * ==========================================
+   * Muestra información completa al hacer click
+   */
+  function abrirModalDesglose(tipo) {
+    const modal = new bootstrap.Modal(document.getElementById('modalKpiDesglose'));
+    const modalTitle = document.getElementById('modalKpiTitle');
+    const modalContent = document.getElementById('modalKpiContent');
+    
+    // Configurar íconos según tipo
+    const iconos = {
+      'departamentos': 'bx-buildings',
+      'puestos': 'bx-briefcase',
+      'rol1': 'bx-user-circle',
+      'rol2': 'bx-user-check',
+      'total': 'bx-group',
+      'puesto-especifico': 'bx-user-pin'
+    };
+    
+    const colores = {
+      'departamentos': 'indigo',
+      'puestos': 'emerald',
+      'rol1': 'purple',
+      'rol2': 'purple',
+      'total': 'amber',
+      'puesto-especifico': 'red'
+    };
+    
+    const icono = iconos[tipo] || 'bx-chart';
+    const color = colores[tipo] || 'indigo';
+    
+    // Generar contenido según tipo
+    const contenido = generarContenidoModal(tipo, color);
+    modalTitle.innerHTML = `<i class="bx ${icono} me-2"></i>${contenido.titulo}`;
+    modalContent.innerHTML = contenido.html;
+    
+    modal.show();
+  }
+
+  function generarContenidoModal(tipo, color) {
+    const datos = usuariosData || [];
+    
+    switch(tipo) {
+      case 'departamentos':
+        return generarModalDepartamentos(datos);
+      case 'puestos':
+        return generarModalPuestos(datos);
+      case 'total':
+        return generarModalTotalEmpleados(datos);
+      case 'rol1':
+      case 'rol2':
+        return generarModalRol(tipo, datos);
+      case 'puesto-especifico':
+        return generarModalPuestoEspecifico(datos);
+      default:
+        return { titulo: 'Desglose', html: '<p>No hay datos disponibles</p>' };
+    }
+  }
+
+  function generarModalDepartamentos(datos) {
+    const conteo = {};
+    datos.forEach(u => {
+      if (u.nombre_departamento && u.nombre_departamento !== 'Sin departamento') {
+        conteo[u.nombre_departamento] = (conteo[u.nombre_departamento] || 0) + 1;
+      }
+    });
+    
+    const departamentos = Object.entries(conteo)
+      .sort((a, b) => b[1] - a[1])
+      .map(([dept, cantidad]) => ({ dept, cantidad }));
+    
+    const total = departamentos.length;
+    const totalEmpleados = datos.length;
+    const promedio = (totalEmpleados / total).toFixed(1);
+    
+    let html = `
+      <div class="row mb-3">
+        <div class="col-md-4">
+          <div class="stat-card" data-color="indigo">
+            <div class="stat-label"><i class="bx bx-buildings me-1"></i>Total Departamentos</div>
+            <div class="stat-value">${total}</div>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="stat-card" data-color="indigo">
+            <div class="stat-label"><i class="bx bx-group me-1"></i>Total Empleados</div>
+            <div class="stat-value">${totalEmpleados}</div>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="stat-card" data-color="indigo">
+            <div class="stat-label"><i class="bx bx-trending-up me-1"></i>Promedio por Dept.</div>
+            <div class="stat-value">${promedio}</div>
+          </div>
+        </div>
+      </div>
+      
+      <h6 class="mb-3 fw-bold text-indigo"><i class="bx bx-bar-chart me-2"></i>Distribución de Empleados</h6>
+      <div class="table-responsive">
+        <table class="table table-hover table-sm">
+          <thead class="table-header-indigo">
+            <tr>
+              <th>#</th>
+              <th>Departamento</th>
+              <th class="text-center">Empleados</th>
+              <th class="text-center">% del Total</th>
+              <th>Distribución</th>
+            </tr>
+          </thead>
+          <tbody>
+    `;
+    
+    departamentos.forEach((item, index) => {
+      const porcentaje = ((item.cantidad / totalEmpleados) * 100).toFixed(1);
+      html += `
+        <tr>
+          <td>${index + 1}</td>
+          <td><strong>${item.dept}</strong></td>
+          <td class="text-center"><span class="badge badge-count" style="background: linear-gradient(135deg, #4F46E5, #6366F1);">${item.cantidad}</span></td>
+          <td class="text-center"><strong>${porcentaje}%</strong></td>
+          <td>
+            <div class="progress" style="height: 6px;">
+              <div class="progress-bar progress-bar-kpi" role="progressbar" 
+                   style="width: ${porcentaje}%; background: linear-gradient(90deg, #4F46E5, #6366F1);" 
+                   aria-valuenow="${porcentaje}" aria-valuemin="0" aria-valuemax="100"></div>
+            </div>
+          </td>
+        </tr>
+      `;
+    });
+    
+    html += `
+          </tbody>
+        </table>
+      </div>
+    `;
+    
+    return { titulo: 'Departamentos - Análisis Completo', html };
+  }
+
+  function generarModalPuestos(datos) {
+    const conteo = {};
+    datos.forEach(u => {
+      if (u.nombre_puesto && u.nombre_puesto !== 'Sin puesto') {
+        conteo[u.nombre_puesto] = (conteo[u.nombre_puesto] || 0) + 1;
+      }
+    });
+    
+    const puestos = Object.entries(conteo)
+      .sort((a, b) => b[1] - a[1])
+      .map(([puesto, cantidad]) => ({ puesto, cantidad }));
+    
+    const total = puestos.length;
+    const totalEmpleados = datos.length;
+    
+    let html = `
+      <div class="row mb-3">
+        <div class="col-md-6">
+          <div class="stat-card" data-color="emerald">
+            <div class="stat-label"><i class="bx bx-briefcase me-1"></i>Total Puestos</div>
+            <div class="stat-value">${total}</div>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <div class="stat-card" data-color="emerald">
+            <div class="stat-label"><i class="bx bx-group me-1"></i>Total Empleados</div>
+            <div class="stat-value">${totalEmpleados}</div>
+          </div>
+        </div>
+      </div>
+      
+      <h6 class="mb-3 fw-bold"><i class="bx bx-bar-chart me-2"></i>Distribución por Puesto</h6>
+      <div class="table-responsive">
+        <table class="table table-hover table-sm">
+          <thead class="table-header-emerald">
+            <tr>
+              <th>#</th>
+              <th>Puesto</th>
+              <th class="text-center">Personas</th>
+              <th class="text-center">% del Total</th>
+              <th>Barra</th>
+            </tr>
+          </thead>
+          <tbody>
+    `;
+    
+    puestos.forEach((item, index) => {
+      const porcentaje = ((item.cantidad / totalEmpleados) * 100).toFixed(1);
+      html += `
+        <tr>
+          <td>${index + 1}</td>
+          <td><strong>${item.puesto}</strong></td>
+          <td class="text-center"><span class="badge badge-count" style="background: linear-gradient(135deg, #10B981, #34D399);">${item.cantidad}</span></td>
+          <td class="text-center"><strong>${porcentaje}%</strong></td>
+          <td>
+            <div class="progress" style="height: 6px;">
+              <div class="progress-bar progress-bar-kpi" role="progressbar" 
+                   style="width: ${porcentaje}%; background: linear-gradient(90deg, #10B981, #34D399);"></div>
+            </div>
+          </td>
+        </tr>
+      `;
+    });
+    
+    html += `
+          </tbody>
+        </table>
+      </div>
+    `;
+    
+    return { titulo: 'Puestos - Análisis Completo', html };
+  }
+
+  function generarModalTotalEmpleados(datos) {
+    const activos = datos.filter(u => u.estatus === 'Activo').length;
+    const inactivos = datos.length - activos;
+    const porcentajeActivos = ((activos / datos.length) * 100).toFixed(1);
+    
+    let html = `
+      <div class="row mb-3">
+        <div class="col-md-4">
+          <div class="stat-card" data-color="amber">
+            <div class="stat-label"><i class="bx bx-user me-1"></i>Total Empleados</div>
+            <div class="stat-value">${datos.length}</div>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="stat-card" data-color="emerald">
+            <div class="stat-label"><i class="bx bx-check-circle me-1"></i>Activos</div>
+            <div class="stat-value">${activos}</div>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="stat-card" data-color="red">
+            <div class="stat-label"><i class="bx bx-x-circle me-1"></i>Inactivos</div>
+            <div class="stat-value">${inactivos}</div>
+          </div>
+        </div>
+      </div>
+      
+      <h6 class="mb-3 fw-bold"><i class="bx bx-list-ul me-2"></i>Listado de Empleados</h6>
+      <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+        <table class="table table-sm table-hover">
+          <thead class="table-header-amber" style="position: sticky; top: 0; z-index: 10;">
+            <tr>
+              <th>Nombre</th>
+              <th>Departamento</th>
+              <th>Puesto</th>
+              <th class="text-center">Estatus</th>
+            </tr>
+          </thead>
+          <tbody>
+    `;
+    
+    datos.forEach(u => {
+      const badgeClass = u.estatus === 'Activo' ? 'bg-success' : 'bg-secondary';
+      const nombreCompleto = [u.nombres, u.segundo_nombre, u.apellidop, u.apellidom].filter(x => x).join(' ') || 'N/A';
+      html += `
+        <tr>
+          <td><strong>${nombreCompleto}</strong></td>
+          <td>${u.nombre_departamento || 'N/A'}</td>
+          <td>${u.nombre_puesto || 'N/A'}</td>
+          <td class="text-center"><span class="badge ${badgeClass}">${u.estatus || 'N/A'}</span></td>
+        </tr>
+      `;
+    });
+    
+    html += `
+          </tbody>
+        </table>
+      </div>
+    `;
+    
+    return { titulo: 'Total de Empleados', html };
+  }
+
+  function generarModalRol(tipo, datos) {
+    const label = document.getElementById(`kpi-${tipo}-label`).textContent;
+    const empleadosRol = datos.filter(u => u.nombre_puesto === label);
+    
+    let html = `
+      <div class="row mb-3">
+        <div class="col-md-12">
+          <div class="stat-card" data-color="purple">
+            <div class="stat-label"><i class="bx bx-user-circle me-1"></i>Personas en ${label}</div>
+            <div class="stat-value">${empleadosRol.length}</div>
+          </div>
+        </div>
+      </div>
+      
+      <h6 class="mb-3 fw-bold"><i class="bx bx-list-ul me-2"></i>Listado de ${label}</h6>
+      <div class="table-responsive">
+        <table class="table table-hover table-sm">
+          <thead class="table-header-purple">
+            <tr>
+              <th>Nombre</th>
+              <th>Departamento</th>
+              <th class="text-center">Estatus</th>
+            </tr>
+          </thead>
+          <tbody>
+    `;
+    
+    empleadosRol.forEach(u => {
+      const badgeClass = u.estatus === 'Activo' ? 'bg-success' : 'bg-secondary';
+      const nombreCompleto = [u.nombres, u.segundo_nombre, u.apellidop, u.apellidom].filter(x => x).join(' ') || 'N/A';
+      html += `
+        <tr>
+          <td><strong>${nombreCompleto}</strong></td>
+          <td>${u.nombre_departamento || 'N/A'}</td>
+          <td class="text-center"><span class="badge ${badgeClass}">${u.estatus || 'N/A'}</span></td>
+        </tr>
+      `;
+    });
+    
+    html += `
+          </tbody>
+        </table>
+      </div>
+    `;
+    
+    return { titulo: `${label} - Desglose`, html };
+  }
+
+  function generarModalPuestoEspecifico(datos) {
+    const puestoSeleccionado = document.getElementById('filtroPuesto').value;
+    const empleadosPuesto = datos.filter(u => u.nombre_puesto === puestoSeleccionado);
+    
+    let html = `
+      <div class="row mb-3">
+        <div class="col-md-12">
+          <div class="stat-card" data-color="red">
+            <div class="stat-label"><i class="bx bx-user-pin me-1"></i>Empleados en ${puestoSeleccionado}</div>
+            <div class="stat-value">${empleadosPuesto.length}</div>
+          </div>
+        </div>
+      </div>
+      
+      <h6 class="mb-3 fw-bold"><i class="bx bx-list-ul me-2"></i>Listado Completo</h6>
+      <div class="table-responsive">
+        <table class="table table-hover table-sm">
+          <thead class="table-header-red">
+            <tr>
+              <th>Nombre</th>
+              <th>Departamento</th>
+              <th class="text-center">Estatus</th>
+            </tr>
+          </thead>
+          <tbody>
+    `;
+    
+    empleadosPuesto.forEach(u => {
+      const badgeClass = u.estatus === 'Activo' ? 'bg-success' : 'bg-secondary';
+      const nombreCompleto = [u.nombres, u.segundo_nombre, u.apellidop, u.apellidom].filter(x => x).join(' ') || 'N/A';
+      html += `
+        <tr>
+          <td><strong>${nombreCompleto}</strong></td>
+          <td>${u.nombre_departamento || 'N/A'}</td>
+          <td class="text-center"><span class="badge ${badgeClass}">${u.estatus || 'N/A'}</span></td>
+        </tr>
+      `;
+    });
+    
+    html += `
+          </tbody>
+        </table>
+      </div>
+    `;
+    
+    return { titulo: `${puestoSeleccionado} - Empleados`, html };
+  }
+
+  /**
+   * ==========================================
+   * EVENTOS PARA TOOLTIPS Y MODALES
+   * ==========================================
+   */
+  document.addEventListener('DOMContentLoaded', function() {
+    // Agregar eventos a todas las tarjetas KPI
+    document.querySelectorAll('.kpi-card').forEach(card => {
+      const tipo = card.getAttribute('data-tipo');
+      
+      // Evento hover para tooltip
+      card.addEventListener('mouseenter', function() {
+        mostrarTooltip(this, tipo);
+      });
+      
+      card.addEventListener('mouseleave', function() {
+        ocultarTooltip();
+      });
+      
+      // Evento click para modal
+      card.addEventListener('click', function() {
+        ocultarTooltip();
+        if (tipo) {
+          abrirModalDesglose(tipo);
+        }
+      });
+    });
+  });
+
+  /**
+   * ==========================================
    * LLENAR FILTROS DINÁMICAMENTE
    * ==========================================
    * UserRole = Departamento
@@ -1171,6 +2566,11 @@
 
         // Guardar los datos globalmente
         usuariosData = resp.datos;
+
+        // ==========================================
+        // ACTUALIZAR INDICADORES (KPIs)
+        // ==========================================
+        actualizarIndicadores(resp.datos);
 
         // CONJUNTOS para almacenar valores únicos (evita duplicados)
         const departamentos = new Set();
@@ -1395,6 +2795,9 @@
     });
 
     console.log('Resultados filtrados:', datosFiltrados.length, 'registros de', usuariosData.length);
+
+    // Actualizar indicadores con datos filtrados
+    actualizarIndicadores(datosFiltrados);
 
     // Actualizar tabla con datos filtrados
     actualizarTabla(datosFiltrados);
