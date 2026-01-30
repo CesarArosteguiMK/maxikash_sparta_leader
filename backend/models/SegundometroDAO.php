@@ -37,9 +37,9 @@ class SegundometroDAO extends Model
         $sshKeyEscaped = escapeshellarg(self::$SSH_KEY);
         $comandoEscapado = escapeshellarg($comando);
         
-        // Construir comando SSH completo
+        // Construir comando SSH completo (timeouts para no colgar si el remoto no responde)
         $sshComando = sprintf(
-            'ssh -i %s -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null %s@%s %s 2>&1',
+            'ssh -i %s -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10 -o ServerAliveInterval=5 %s@%s %s 2>&1',
             $sshKeyEscaped,
             self::$SSH_USER,
             self::$SSH_HOST,
@@ -275,7 +275,7 @@ class SegundometroDAO extends Model
         $localEscaped = escapeshellarg($rutaLocal);
         
         $comando = sprintf(
-            'scp -i %s -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null %s %s 2>&1',
+            'scp -i %s -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10 %s %s 2>&1',
             $sshKeyEscaped,
             $remoteEscaped,
             $localEscaped
