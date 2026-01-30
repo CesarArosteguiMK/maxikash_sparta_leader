@@ -13,13 +13,14 @@
  *   50 7 * * 2 cd /ruta/cronjobs && php insertar_moras_martes.php >> /var/log/morosidad_console.log 2>&1
  * 
  * CONFIGURACIÓN WEBHOOK GOOGLE CHAT:
+ *   
+ *   Para obtener la URL del webhook:
  *   1. En Google Chat, ve al espacio donde quieres las notificaciones
  *   2. Click en el nombre del espacio → Administrar webhooks
  *   3. Click en "+ Agregar webhook"
- *   4. Nombre: "Cronjob Morosidad" (o el que prefieras)
- *   5. URL del avatar (opcional): https://example.com/icon.png
- *   6. Click en "Guardar" y copia la URL generada
- *   7. Pega la URL en la variable $GOOGLE_CHAT_WEBHOOK abajo
+ *   4. Nombre: "Cronjob Morosidad"
+ *   5. Click en "Guardar" y copia la URL generada
+ *   6. Pégala en config.ini (NUNCA en el código fuente)
  */
 
 // ============================================
@@ -43,9 +44,14 @@ if (!defined('RAIZ')) {
 // 2. CONFIGURACIÓN DEL CRONJOB
 // ============================================
 
-// 🔧 WEBHOOK DE GOOGLE CHAT - Configura tu URL aquí
-$GOOGLE_CHAT_WEBHOOK = 'https://chat.googleapis.com/v1/spaces/AAQA94dHd6w/messages?key=__SPARTA_TOKEN_REDACTED__&token=FW1iUh2nu8h7BosMGNhdFaiDLbIJEijqFKel6pf6Qhg';
-// Para desactivar webhook, deja la URL vacía: $GOOGLE_CHAT_WEBHOOK = '';
+// � CARGAR WEBHOOK DE FORMA SEGURA DESDE CONFIG.INI
+$configFile = $projectRoot . '/config/config.ini';
+if (!file_exists($configFile)) {
+    die("ERROR: No se encontró el archivo de configuración: $configFile\n");
+}
+
+$config = parse_ini_file($configFile, true);
+$GOOGLE_CHAT_WEBHOOK = $config['webhook']['GOOGLE_CHAT'] ?? '';
 
 // Parsear argumentos de línea de comandos
 $args = getopt('', ['dry-run', 'force', 'verbose', 'no-webhook']);

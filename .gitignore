@@ -4,6 +4,9 @@ backend/config/ssh/*.key
 backend/config/ssh/*.pem
 backend/config/ssh/*.ppk
 
+# Archivo de configuración con credenciales sensibles
+backend/config/config.ini
+
 # Mantener la estructura de carpetas
 !backend/config/ssh/.gitkeep
 !backend/config/ssh/README.md
