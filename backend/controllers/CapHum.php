@@ -3090,6 +3090,9 @@ class CapHum extends Controller
                             `.trim()
                         };
                     });
+                    
+                    // Actualizar KPIs de Bajas
+                    actualizarIndicadoresBajas(resp.datos, rangoFechasBajas !== null);
         
                     // Actualizar DataTable
                     const tabla = $('#historialUsuarios').DataTable();
@@ -3129,6 +3132,11 @@ class CapHum extends Controller
                     // También limpiar el valor del input directamente
                     flatpickrInput.value = '';
                 }
+                
+                // Remover clase active de todos los botones de filtro rápido
+                document.querySelectorAll('.btn-filtro-rapido').forEach(btn => {
+                    btn.classList.remove('active');
+                });
                 
                 console.log('Filtro limpiado, recargando todas las bajas...');
                 // Recargar todas las bajas sin filtro
@@ -3179,6 +3187,10 @@ class CapHum extends Controller
                 $('.card-header.border-bottom').hide();
                 $('.row.justify-content-between.m-4').hide();
                 
+                // Ocultar panel de indicadores normal y mostrar panel de indicadores de Bajas
+                $('.row.m-4.mb-3').hide();  // Ocultar el panel de KPIs original
+                $('#panelIndicadoresBajas').show();  // Mostrar el panel de KPIs de Bajas
+                
                 // Mostrar filtro de fecha
                 $('#filtroFechaBajas').show();
                 
@@ -3207,6 +3219,11 @@ class CapHum extends Controller
                         },
                         onChange: function(selectedDates, dateStr, instance) {
                             if (selectedDates.length === 2) {
+                                // Remover clase active de todos los botones (uso manual)
+                                document.querySelectorAll('.btn-filtro-rapido').forEach(btn => {
+                                    btn.classList.remove('active');
+                                });
+                                
                                 rangoFechasBajas = {
                                     inicio: selectedDates[0].toISOString().split('T')[0],
                                     fin: selectedDates[1].toISOString().split('T')[0]
@@ -3267,6 +3284,97 @@ class CapHum extends Controller
                     }
                 }, 50);
                 
+                // Agregar event listeners para los KPIs de Bajas
+                const kpiDepartamentos = document.getElementById('kpi-bajas-departamentos');
+                if (kpiDepartamentos) {
+                    kpiDepartamentos.addEventListener('click', function() {
+                        abrirModalBajas('departamentos');
+                    });
+                }
+                
+                const kpiPuestos = document.getElementById('kpi-bajas-puestos');
+                if (kpiPuestos) {
+                    kpiPuestos.addEventListener('click', function() {
+                        abrirModalBajas('puestos');
+                    });
+                }
+                
+                // Agregar event listeners para los filtros rápidos
+                const botonesFiltroRapido = document.querySelectorAll('.btn-filtro-rapido');
+                botonesFiltroRapido.forEach(boton => {
+                    boton.addEventListener('click', function() {
+                        aplicarFiltroRapido(this.getAttribute('data-periodo'));
+                    });
+                });
+                
+                getBajas();
+            }
+            
+            // Función para aplicar filtros rápidos
+            function aplicarFiltroRapido(periodo) {
+                const hoy = new Date();
+                let fechaInicio, fechaFin;
+                
+                // Remover clase active de todos los botones
+                document.querySelectorAll('.btn-filtro-rapido').forEach(btn => {
+                    btn.classList.remove('active');
+                });
+                
+                // Agregar clase active al botón seleccionado
+                const botonActivo = document.querySelector(`[data-periodo="${periodo}"]`);
+                if (botonActivo) {
+                    botonActivo.classList.add('active');
+                }
+                
+                switch(periodo) {
+                    case 'ultimo-mes':
+                        fechaInicio = new Date(hoy.getFullYear(), hoy.getMonth() - 1, hoy.getDate());
+                        fechaFin = hoy;
+                        break;
+                    case 'ultimos-3-meses':
+                        fechaInicio = new Date(hoy.getFullYear(), hoy.getMonth() - 3, hoy.getDate());
+                        fechaFin = hoy;
+                        break;
+                    case 'ultimos-6-meses':
+                        fechaInicio = new Date(hoy.getFullYear(), hoy.getMonth() - 6, hoy.getDate());
+                        fechaFin = hoy;
+                        break;
+                    case 'ano-actual':
+                        fechaInicio = new Date(hoy.getFullYear(), 0, 1);
+                        fechaFin = hoy;
+                        break;
+                    case 'todo':
+                        rangoFechasBajas = null;
+                        const flatpickrInput = document.getElementById('flatpickr-range-bajas');
+                        if (flatpickrInput && flatpickrInput._flatpickr) {
+                            flatpickrInput._flatpickr.clear();
+                        }
+                        getBajas();
+                        return;
+                }
+                
+                // Formatear fechas
+                const formatoFecha = (fecha) => {
+                    const year = fecha.getFullYear();
+                    const month = String(fecha.getMonth() + 1).padStart(2, '0');
+                    const day = String(fecha.getDate()).padStart(2, '0');
+                    return `${year}-${month}-${day}`;
+                };
+                
+                rangoFechasBajas = {
+                    inicio: formatoFecha(fechaInicio),
+                    fin: formatoFecha(fechaFin)
+                };
+                
+                // Actualizar el flatpickr visualmente
+                const flatpickrInput = document.getElementById('flatpickr-range-bajas');
+                if (flatpickrInput && flatpickrInput._flatpickr) {
+                    flatpickrInput._flatpickr.setDate([fechaInicio, fechaFin], false);
+                }
+                
+                console.log('Filtro rápido aplicado:', periodo, rangoFechasBajas);
+                
+                // Recargar datos con el filtro
                 getBajas();
             }
             

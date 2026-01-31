@@ -357,6 +357,53 @@
         --kpi-color-end: #F87171;
     }
 
+    /* Colores para KPIs de Bajas - Tema rojo/naranja/oscuro */
+    #panelIndicadoresBajas .kpi-card.tipo-total {
+        --kpi-color-start: #DC2626;
+        --kpi-color-end: #EF4444;
+    }
+
+    #panelIndicadoresBajas .kpi-card.tipo-departamento {
+        --kpi-color-start: #EA580C;
+        --kpi-color-end: #F97316;
+    }
+
+    #panelIndicadoresBajas .kpi-card.tipo-puesto {
+        --kpi-color-start: #D97706;
+        --kpi-color-end: #F59E0B;
+    }
+
+    #panelIndicadoresBajas .kpi-card.tipo-especifico {
+        --kpi-color-start: #7C2D12;
+        --kpi-color-end: #9A3412;
+    }
+
+    /* Estilos para botones de filtros rápidos */
+    .btn-filtro-rapido {
+        transition: all 0.3s ease;
+        font-size: 0.9rem;
+        padding: 0.5rem 1rem;
+        border-width: 2px;
+    }
+
+    .btn-filtro-rapido:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+    }
+
+    .btn-filtro-rapido.active {
+        background-color: #0d6efd !important;
+        color: white !important;
+        border-color: #0d6efd !important;
+        box-shadow: 0 4px 12px rgba(13, 110, 253, 0.3);
+    }
+
+    .btn-filtro-rapido.btn-outline-success.active {
+        background-color: #198754 !important;
+        border-color: #198754 !important;
+        box-shadow: 0 4px 12px rgba(25, 135, 84, 0.3);
+    }
+
     .kpi-card .card-body {
         position: relative;
         padding: 0.75rem 0.7rem;
@@ -607,6 +654,10 @@
         border-left-color: #EF4444;
     }
 
+    .stat-card[data-color="orange"] {
+        border-left-color: #F97316;
+    }
+
     .stat-label {
         font-size: 0.75rem;
         color: #64748b;
@@ -814,6 +865,76 @@
         <div class="kpi-tooltip" id="kpiTooltip"></div>
 
         <!-- =======================
+             PANEL DE INDICADORES PARA BAJAS (oculto por defecto)
+        ======================== -->
+        <div id="panelIndicadoresBajas" style="display: none;" class="row m-4 mb-3">
+            <div class="col-12">
+                <div class="kpi-wrapper">
+                    <!-- Indicador: Total de Bajas -->
+                    <div class="kpi-item">
+                        <div class="card kpi-card tipo-total shadow-sm h-100" data-tipo="total-bajas">
+                            <div class="card-body">
+                                <i class="bx bx-user-x kpi-icon"></i>
+                                <div class="kpi-number" id="kpi-bajas-total">0</div>
+                                <div class="kpi-label">Total de Bajas</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Separador -->
+                    <div class="kpi-separator">
+                        <div class="line"></div>
+                    </div>
+
+                    <!-- Indicador: Bajas Departamentales -->
+                    <div class="kpi-item">
+                        <div class="card kpi-card tipo-departamento shadow-sm h-100" data-tipo="depto-bajas" style="cursor: pointer;" id="kpi-bajas-departamentos">
+                            <div class="card-body">
+                                <i class="bx bx-buildings kpi-icon"></i>
+                                <div class="kpi-number" id="kpi-bajas-depto-numero">0</div>
+                                <div class="kpi-label">Bajas Departamental</div>
+                                
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Separador -->
+                    <div class="kpi-separator">
+                        <div class="line"></div>
+                    </div>
+
+                    <!-- Indicador: Bajas por Puesto -->
+                    <div class="kpi-item">
+                        <div class="card kpi-card tipo-puesto shadow-sm h-100" data-tipo="puesto-bajas" style="cursor: pointer;" id="kpi-bajas-puestos">
+                            <div class="card-body">
+                                <i class="bx bx-briefcase kpi-icon"></i>
+                                <div class="kpi-number" id="kpi-bajas-puesto-numero">0</div>
+                                <div class="kpi-label">Bajas por Puesto</div>
+                               
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Separador (para bajas del período) -->
+                    <div class="kpi-separator" id="separator-bajas-periodo" style="display: none;">
+                        <div class="line"></div>
+                    </div>
+
+                    <!-- Indicador: Bajas del Período (visible solo con filtro de fecha) -->
+                    <div class="kpi-item" id="kpi-bajas-periodo-container" style="display: none;">
+                        <div class="card kpi-card tipo-especifico shadow-sm h-100" data-tipo="periodo-bajas">
+                            <div class="card-body">
+                                <i class="bx bx-calendar-event kpi-icon"></i>
+                                <div class="kpi-number" id="kpi-bajas-periodo-numero">0</div>
+                                <div class="kpi-label" id="kpi-bajas-periodo-label" title="">Bajas del Período</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- =======================
              BOTÓN AGREGAR
         ======================== -->
         <div class="row justify-content-between m-4">
@@ -839,22 +960,75 @@
             <div class="col-12">
                 <div class="card border">
                     <div class="card-body">
-                        <div class="row align-items-end g-3">
-                            <div class="col-md-3">
-                                <label class="form-label fw-semibold">Rango de Fechas</label>
+                        <!-- Selector de Fechas Manual -->
+                        <div class="row align-items-end g-3 mb-3">
+                            <div class="col-md-12">
+                                <label class="form-label fw-semibold">
+                                    <i class="fa fa-calendar-alt me-2"></i>Rango de Fechas Personalizado
+                                </label>
                                 <input 
                                     type="text" 
                                     id="flatpickr-range-bajas" 
                                     class="form-control" 
-                                    placeholder="Selecciona un rango de fechas"
+                                    placeholder="Selecciona un rango de fechas personalizado"
                                 />
                             </div>
-                            <div class="col-md-8 d-flex gap-2 align-items-end">
+                        </div>
+
+                        <!-- Filtros Rápidos -->
+                        <div class="row g-3 mb-3">
+                            <div class="col-12">
+                                <label class="form-label fw-semibold mb-2">
+                                    <i class="fa fa-bolt me-2"></i>Filtros Rápidos
+                                </label>
+                                <div class="d-flex flex-wrap gap-2">
+                                    <button 
+                                        type="button" 
+                                        class="btn btn-outline-primary btn-filtro-rapido"
+                                        data-periodo="ultimo-mes"
+                                    >
+                                        <i class="fa fa-calendar-day me-1"></i>Último Mes
+                                    </button>
+                                    <button 
+                                        type="button" 
+                                        class="btn btn-outline-primary btn-filtro-rapido"
+                                        data-periodo="ultimos-3-meses"
+                                    >
+                                        <i class="fa fa-calendar-week me-1"></i>Últimos 3 Meses
+                                    </button>
+                                    <button 
+                                        type="button" 
+                                        class="btn btn-outline-primary btn-filtro-rapido"
+                                        data-periodo="ultimos-6-meses"
+                                    >
+                                        <i class="fa fa-calendar me-1"></i>Últimos 6 Meses
+                                    </button>
+                                    <button 
+                                        type="button" 
+                                        class="btn btn-outline-primary btn-filtro-rapido"
+                                        data-periodo="ano-actual"
+                                    >
+                                        <i class="fa fa-calendar-alt me-1"></i>Año Actual
+                                    </button>
+                                    <button 
+                                        type="button" 
+                                        class="btn btn-outline-success btn-filtro-rapido"
+                                        data-periodo="todo"
+                                    >
+                                        <i class="fa fa-infinity me-1"></i>Todo
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Botones de Acción -->
+                        <div class="row g-3">
+                            <div class="col-12 d-flex gap-2 justify-content-end">
                                 <button 
                                     type="button" 
                                     id="btnLimpiarFiltroBajas" 
                                     class="btn text-white"
-                                    style="background-color: #d2d755; border-color: #d2d755; min-width: 150px;"
+                                    style="background-color: #d2d755; border-color: #d2d755;"
                                 >
                                     <i class="fa fa-times me-2"></i>Limpiar Filtro
                                 </button>
@@ -862,7 +1036,7 @@
                                     type="button" 
                                     id="btnDescargarBajas" 
                                     class="btn text-white"
-                                    style="background-color: #0047bb; border-color: #0047bb; min-width: 150px;"
+                                    style="background-color: #0047bb; border-color: #0047bb;"
                                 >
                                     <i class="fa fa-download me-2"></i>Descargar Excel
                                 </button>
@@ -2543,6 +2717,376 @@
       });
     });
   });
+
+  /**
+   * ==========================================
+   * FUNCIONES PARA KPIs DE BAJAS
+   * ==========================================
+   */
+
+  // Variable global para almacenar datos de bajas
+  let datosBajasGlobal = [];
+
+  /**
+   * ACTUALIZAR INDICADORES DE BAJAS
+   * Calcula y muestra los 4 indicadores del módulo de Bajas
+   */
+  function actualizarIndicadoresBajas(datosBajas, tieneFiltroFecha = false) {
+    // Guardar datos globalmente para los modales
+    datosBajasGlobal = datosBajas || [];
+
+    if (!datosBajas || datosBajas.length === 0) {
+      document.getElementById('kpi-bajas-total').textContent = '0';
+      document.getElementById('kpi-bajas-depto-numero').textContent = '0';
+      document.getElementById('kpi-bajas-puesto-numero').textContent = '0';
+      ocultarIndicadorBajasPeriodo();
+      return;
+    }
+
+    // 1. TOTAL DE BAJAS
+    const totalBajas = datosBajas.length;
+    animarNumero('kpi-bajas-total', totalBajas);
+
+    // 2. CONTEO TOTAL DE DEPARTAMENTOS CON BAJAS
+    const departamentosConBajas = obtenerTodosDepartamentosBajas(datosBajas);
+    animarNumero('kpi-bajas-depto-numero', departamentosConBajas.length);
+
+    // 3. CONTEO TOTAL DE PUESTOS CON BAJAS
+    const puestosConBajas = obtenerTodosPuestosBajas(datosBajas);
+    animarNumero('kpi-bajas-puesto-numero', puestosConBajas.length);
+
+    // 4. BAJAS DEL PERÍODO (solo si hay filtro de fecha)
+    if (tieneFiltroFecha && rangoFechasBajas) {
+      mostrarIndicadorBajasPeriodo(totalBajas, rangoFechasBajas);
+    } else {
+      ocultarIndicadorBajasPeriodo();
+    }
+
+    console.log('📊 Indicadores de Bajas actualizados:', {
+      totalBajas: totalBajas,
+      departamentos: departamentosConBajas.length,
+      puestos: puestosConBajas.length,
+      tieneFiltroFecha: tieneFiltroFecha
+    });
+  }
+
+  /**
+   * OBTENER TODOS LOS DEPARTAMENTOS CON BAJAS
+   */
+  function obtenerTodosDepartamentosBajas(datos) {
+    const departamentos = new Set();
+    datos.forEach(baja => {
+      const depto = baja.departamento;
+      if (depto && depto !== 'N/A' && depto !== 'Sin departamento') {
+        departamentos.add(depto);
+      }
+    });
+    return Array.from(departamentos);
+  }
+
+  /**
+   * OBTENER TODOS LOS PUESTOS CON BAJAS
+   */
+  function obtenerTodosPuestosBajas(datos) {
+    const puestos = new Set();
+    datos.forEach(baja => {
+      const puesto = baja.nombre_puesto;
+      if (puesto && puesto !== 'N/A' && puesto !== 'Sin puesto') {
+        puestos.add(puesto);
+      }
+    });
+    return Array.from(puestos);
+  }
+
+  /**
+   * OBTENER DEPARTAMENTO CON MÁS BAJAS
+   */
+  function obtenerTopDepartamentoBajas(datos) {
+    const conteo = {};
+    datos.forEach(baja => {
+      const depto = baja.departamento;
+      if (depto && depto !== 'N/A' && depto !== 'Sin departamento') {
+        conteo[depto] = (conteo[depto] || 0) + 1;
+      }
+    });
+
+    const entries = Object.entries(conteo);
+    if (entries.length === 0) {
+      return { nombre: 'N/A', cantidad: 0 };
+    }
+
+    const [nombre, cantidad] = entries.sort((a, b) => b[1] - a[1])[0];
+    return { nombre, cantidad };
+  }
+
+  /**
+   * OBTENER PUESTO CON MÁS BAJAS
+   */
+  function obtenerTopPuestoBajas(datos) {
+    const conteo = {};
+    datos.forEach(baja => {
+      const puesto = baja.nombre_puesto;
+      if (puesto && puesto !== 'N/A' && puesto !== 'Sin puesto') {
+        conteo[puesto] = (conteo[puesto] || 0) + 1;
+      }
+    });
+
+    const entries = Object.entries(conteo);
+    if (entries.length === 0) {
+      return { nombre: 'N/A', cantidad: 0 };
+    }
+
+    const [nombre, cantidad] = entries.sort((a, b) => b[1] - a[1])[0];
+    return { nombre, cantidad };
+  }
+
+  /**
+   * MOSTRAR INDICADOR DE BAJAS DEL PERÍODO
+   */
+  function mostrarIndicadorBajasPeriodo(cantidad, rangoFechas) {
+    const container = document.getElementById('kpi-bajas-periodo-container');
+    const separador = document.getElementById('separator-bajas-periodo');
+    const label = document.getElementById('kpi-bajas-periodo-label');
+
+    if (container && label) {
+      container.style.display = '';
+      
+      // Formatear las fechas para el label
+      const fechaInicio = new Date(rangoFechas.inicio).toLocaleDateString('es-MX', { day: '2-digit', month: 'short' });
+      const fechaFin = new Date(rangoFechas.fin).toLocaleDateString('es-MX', { day: '2-digit', month: 'short' });
+      const labelText = `${fechaInicio} - ${fechaFin}`;
+      
+      label.textContent = labelText;
+      label.setAttribute('title', `Bajas del ${rangoFechas.inicio} al ${rangoFechas.fin}`);
+      
+      animarNumero('kpi-bajas-periodo-numero', cantidad);
+      
+      if (separador) {
+        separador.style.display = '';
+      }
+    }
+  }
+
+  /**
+   * OCULTAR INDICADOR DE BAJAS DEL PERÍODO
+   */
+  function ocultarIndicadorBajasPeriodo() {
+    const container = document.getElementById('kpi-bajas-periodo-container');
+    const separador = document.getElementById('separator-bajas-periodo');
+    
+    if (container) container.style.display = 'none';
+    if (separador) separador.style.display = 'none';
+  }
+
+  /**
+   * ACTUALIZAR LABEL DE KPI (con truncado de texto)
+   */
+  function actualizarLabelKPI(elementId, texto, maxLength = 20) {
+    const elemento = document.getElementById(elementId);
+    if (!elemento) return;
+
+    elemento.setAttribute('title', texto);
+    
+    let textoMostrado = texto;
+    if (texto.length > maxLength) {
+      textoMostrado = texto.substring(0, maxLength - 3) + '...';
+    }
+    elemento.textContent = textoMostrado;
+  }
+
+  /**
+   * GENERAR MODAL DE BAJAS DEPARTAMENTALES
+   * Muestra el TOP de departamentos con más bajas
+   */
+  function generarModalBajasDepartamentales(datos) {
+    const conteo = {};
+    datos.forEach(baja => {
+      const depto = baja.departamento;
+      if (depto && depto !== 'N/A' && depto !== 'Sin departamento') {
+        conteo[depto] = (conteo[depto] || 0) + 1;
+      }
+    });
+
+    const departamentos = Object.entries(conteo)
+      .sort((a, b) => b[1] - a[1])
+      .map(([dept, cantidad]) => ({ dept, cantidad }));
+
+    const total = departamentos.length;
+    const totalBajas = datos.length;
+    const promedio = total > 0 ? (totalBajas / total).toFixed(1) : '0';
+
+    let html = `
+      <div class="row mb-3">
+        <div class="col-md-4">
+          <div class="stat-card" data-color="red">
+            <div class="stat-label"><i class="bx bx-buildings me-1"></i>Departamentos Afectados</div>
+            <div class="stat-value">${total}</div>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="stat-card" data-color="red">
+            <div class="stat-label"><i class="bx bx-user-x me-1"></i>Total Bajas</div>
+            <div class="stat-value">${totalBajas}</div>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="stat-card" data-color="red">
+            <div class="stat-label"><i class="bx bx-trending-up me-1"></i>Promedio por Dept.</div>
+            <div class="stat-value">${promedio}</div>
+          </div>
+        </div>
+      </div>
+      
+      <h6 class="mb-3 fw-bold text-danger"><i class="bx bx-bar-chart me-2"></i>Top Departamentos con más Bajas</h6>
+      <div class="table-responsive">
+        <table class="table table-hover table-sm">
+          <thead class="table-header-red">
+            <tr>
+              <th>#</th>
+              <th>Departamento</th>
+              <th class="text-center">Bajas</th>
+              <th class="text-center">% del Total</th>
+              <th>Distribución</th>
+            </tr>
+          </thead>
+          <tbody>
+    `;
+
+    departamentos.forEach((item, index) => {
+      const porcentaje = ((item.cantidad / totalBajas) * 100).toFixed(1);
+      html += `
+        <tr>
+          <td>${index + 1}</td>
+          <td><strong>${item.dept}</strong></td>
+          <td class="text-center"><span class="badge badge-count" style="background: linear-gradient(135deg, #DC2626, #EF4444);">${item.cantidad}</span></td>
+          <td class="text-center"><strong>${porcentaje}%</strong></td>
+          <td>
+            <div class="progress" style="height: 6px;">
+              <div class="progress-bar progress-bar-kpi" role="progressbar" 
+                   style="width: ${porcentaje}%; background: linear-gradient(90deg, #DC2626, #EF4444);" 
+                   aria-valuenow="${porcentaje}" aria-valuemin="0" aria-valuemax="100"></div>
+            </div>
+          </td>
+        </tr>
+      `;
+    });
+
+    html += `
+          </tbody>
+        </table>
+      </div>
+    `;
+
+    return { titulo: '🏢 Bajas Departamentales - Análisis Completo', html };
+  }
+
+  /**
+   * GENERAR MODAL DE BAJAS POR PUESTO
+   * Muestra el TOP de puestos con más bajas
+   */
+  function generarModalBajasPorPuesto(datos) {
+    const conteo = {};
+    datos.forEach(baja => {
+      const puesto = baja.nombre_puesto;
+      if (puesto && puesto !== 'N/A' && puesto !== 'Sin puesto') {
+        conteo[puesto] = (conteo[puesto] || 0) + 1;
+      }
+    });
+
+    const puestos = Object.entries(conteo)
+      .sort((a, b) => b[1] - a[1])
+      .map(([puesto, cantidad]) => ({ puesto, cantidad }));
+
+    const total = puestos.length;
+    const totalBajas = datos.length;
+
+    let html = `
+      <div class="row mb-3">
+        <div class="col-md-6">
+          <div class="stat-card" data-color="orange">
+            <div class="stat-label"><i class="bx bx-briefcase me-1"></i>Puestos Afectados</div>
+            <div class="stat-value">${total}</div>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <div class="stat-card" data-color="orange">
+            <div class="stat-label"><i class="bx bx-user-x me-1"></i>Total Bajas</div>
+            <div class="stat-value">${totalBajas}</div>
+          </div>
+        </div>
+      </div>
+      
+      <h6 class="mb-3 fw-bold" style="color: #D97706;"><i class="bx bx-bar-chart me-2"></i>Top Puestos con más Bajas</h6>
+      <div class="table-responsive">
+        <table class="table table-hover table-sm">
+          <thead style="background: linear-gradient(135deg, #D97706, #F59E0B); color: white;">
+            <tr>
+              <th>#</th>
+              <th>Puesto</th>
+              <th class="text-center">Bajas</th>
+              <th class="text-center">% del Total</th>
+              <th>Distribución</th>
+            </tr>
+          </thead>
+          <tbody>
+    `;
+
+    puestos.forEach((item, index) => {
+      const porcentaje = ((item.cantidad / totalBajas) * 100).toFixed(1);
+      html += `
+        <tr>
+          <td>${index + 1}</td>
+          <td><strong>${item.puesto}</strong></td>
+          <td class="text-center"><span class="badge badge-count" style="background: linear-gradient(135deg, #D97706, #F59E0B);">${item.cantidad}</span></td>
+          <td class="text-center"><strong>${porcentaje}%</strong></td>
+          <td>
+            <div class="progress" style="height: 6px;">
+              <div class="progress-bar progress-bar-kpi" role="progressbar" 
+                   style="width: ${porcentaje}%; background: linear-gradient(90deg, #D97706, #F59E0B);"></div>
+            </div>
+          </td>
+        </tr>
+      `;
+    });
+
+    html += `
+          </tbody>
+        </table>
+      </div>
+    `;
+
+    return { titulo: '💼 Bajas por Puesto - Análisis Completo', html };
+  }
+
+  /**
+   * ABRIR MODAL DE BAJAS
+   */
+  function abrirModalBajas(tipo) {
+    if (!datosBajasGlobal || datosBajasGlobal.length === 0) {
+      Swal.fire({
+        icon: 'info',
+        title: 'Sin datos',
+        text: 'No hay información de bajas disponible',
+        confirmButtonText: 'Aceptar'
+      });
+      return;
+    }
+
+    let contenidoModal;
+    if (tipo === 'departamentos') {
+      contenidoModal = generarModalBajasDepartamentales(datosBajasGlobal);
+    } else if (tipo === 'puestos') {
+      contenidoModal = generarModalBajasPorPuesto(datosBajasGlobal);
+    }
+
+    // Actualizar el modal
+    document.getElementById('modalKpiTitle').innerHTML = contenidoModal.titulo;
+    document.getElementById('modalKpiContent').innerHTML = contenidoModal.html;
+
+    // Mostrar el modal
+    const modal = new bootstrap.Modal(document.getElementById('modalKpiDesglose'));
+    modal.show();
+  }
 
   /**
    * ==========================================
