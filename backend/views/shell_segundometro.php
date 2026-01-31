@@ -48,6 +48,15 @@
         </div>
     </div>
 
+    <!-- Botón Truncar: solo habilitado los martes de 8:00 a 11:00 (CDMX) -->
+    <div class="row mb-3">
+        <div class="col-12">
+            <button type="button" class="btn btn-truncar-segundometro" id="btnTruncarSegundometro" disabled title="Disponible solo los martes de 8:00 a 11:00 (CDMX)">
+                <i class="fa fa-cut me-2"></i>Truncar
+            </button>
+        </div>
+    </div>
+
     <!-- 📁 LISTA DE ARCHIVOS -->
     <div class="row">
         <div class="col-12">
@@ -136,6 +145,35 @@
         color: #ffffff !important;
     }
     
+    /* Botón Truncar: neon leve deshabilitado, neon más vivo habilitado */
+    .btn-truncar-segundometro {
+        font-weight: 600;
+        transition: background-color 0.25s ease, box-shadow 0.25s ease, color 0.25s ease, border-color 0.25s ease;
+    }
+    .btn-truncar-segundometro:disabled {
+        background: rgba(0, 230, 230, 0.12);
+        border: 1px solid rgba(0, 200, 220, 0.4);
+        color: rgba(0, 120, 140, 0.85);
+        box-shadow: 0 0 12px rgba(0, 230, 230, 0.15);
+    }
+    .btn-truncar-segundometro:disabled .fa-cut {
+        color: rgba(0, 150, 170, 0.9);
+    }
+    .btn-truncar-segundometro:not(:disabled) {
+        background: linear-gradient(135deg, #00c9d4 0%, #00a8b8 100%);
+        border: 1px solid rgba(0, 200, 220, 0.8);
+        color: #fff;
+        box-shadow: 0 0 16px rgba(0, 200, 220, 0.4);
+    }
+    .btn-truncar-segundometro:not(:disabled):hover {
+        background: linear-gradient(135deg, #00d4e0 0%, #00b8c8 100%);
+        color: #fff;
+        box-shadow: 0 0 20px rgba(0, 220, 230, 0.5);
+    }
+    .btn-truncar-segundometro:not(:disabled) .fa-cut {
+        color: #fff;
+    }
+
     /* Badge contador de archivos - texto negro/oscuro */
     .card-header.bg-primary .badge {
         color: #2c3e50 !important;

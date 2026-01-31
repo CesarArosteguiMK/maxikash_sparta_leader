@@ -346,4 +346,138 @@ class Ticket extends Model
             return self::resultado(false, 'Error al eliminar el ticket.', null, $e->getMessage());
         }
     }
+
+    /**
+     * Mensajes del chat (bitácora) por ticket.
+     */
+    public static function getChatPorTicket($idTicket)
+    {
+        $id = (int)$idTicket;
+        if ($id < 1) {
+            return self::resultado(false, 'ID de ticket inválido.', []);
+        }
+        try {
+            $db = new Database();
+            $rows = $db->queryAll(
+                "SELECT c.id, c.id_ticket, c.id_persona, c.mensaje, c.fecha_creacion, " .
+                "CONCAT(TRIM(IFNULL(p.nombres,'')), ' ', TRIM(IFNULL(p.apellidop,''))) AS persona_nombre " .
+                "FROM chat c INNER JOIN persona p ON c.id_persona = p.id " .
+                "WHERE c.id_ticket = :id_ticket ORDER BY c.fecha_creacion ASC",
+                ['id_ticket' => $id]
+            );
+            return self::resultado(true, 'OK', is_array($rows) ? $rows : []);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al obtener chat.', null, $e->getMessage());
+        }
+    }
+
+    /**
+     * Agregar mensaje al chat (bitácora) del ticket.
+     */
+    public static function agregarChat($idTicket, $idPersona, $mensaje)
+    {
+        $tid = (int)$idTicket;
+        $pid = (int)$idPersona;
+        $msg = trim((string)$mensaje);
+        if ($tid < 1 || $pid < 1 || $msg === '') {
+            return self::resultado(false, 'Datos inválidos.', null);
+        }
+        if (strlen($msg) > 2000) {
+            return self::resultado(false, 'Mensaje demasiado largo.', null);
+        }
+        try {
+            $db = new Database();
+            $tz = new \DateTimeZone('America/Mexico_City');
+            $now = (new \DateTime('now', $tz))->format('Y-m-d H:i:s');
+            $db->CRUD(
+                "INSERT INTO chat (id_ticket, id_persona, mensaje, fecha_creacion) VALUES (:id_ticket, :id_persona, :mensaje, :fecha_creacion)",
+                ['id_ticket' => $tid, 'id_persona' => $pid, 'mensaje' => $msg, 'fecha_creacion' => $now]
+            );
+            return self::resultado(true, 'Mensaje guardado.');
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al guardar mensaje.', null, $e->getMessage());
+        }
+    }
+
+    /**
+     * Lista de evidencias (imágenes) por ticket.
+     */
+    public static function getEvidenciasPorTicket($idTicket)
+    {
+        $id = (int)$idTicket;
+        if ($id < 1) {
+            return self::resultado(false, 'ID de ticket inválido.', []);
+        }
+        try {
+            $db = new Database();
+            $rows = $db->queryAll(
+                "SELECT id, id_ticket, id_persona, ruta_archivo, nombre_original, comentario, fecha_subida FROM ticket_evidencia WHERE id_ticket = :id_ticket ORDER BY fecha_subida ASC",
+                ['id_ticket' => $id]
+            );
+            return self::resultado(true, 'OK', is_array($rows) ? $rows : []);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al obtener evidencias.', null, $e->getMessage());
+        }
+    }
+
+    /**
+     * Guardar registro de evidencia (ruta ya guardada en disco). Comentario opcional.
+     */
+    public static function guardarEvidencia($idTicket, $idPersona, $rutaArchivo, $nombreOriginal, $comentario = null)
+    {
+        $tid = (int)$idTicket;
+        $pid = (int)$idPersona;
+        $ruta = trim((string)$rutaArchivo);
+        $nombre = trim((string)$nombreOriginal) ?: 'imagen';
+        $com = $comentario !== null ? trim((string)$comentario) : '';
+        if ($tid < 1 || $pid < 1 || $ruta === '') {
+            return self::resultado(false, 'Datos inválidos.', null);
+        }
+        try {
+            $db = new Database();
+            $tz = new \DateTimeZone('America/Mexico_City');
+            $now = (new \DateTime('now', $tz))->format('Y-m-d H:i:s');
+            $db->CRUD(
+                "INSERT INTO ticket_evidencia (id_ticket, id_persona, ruta_archivo, nombre_original, comentario, fecha_subida) VALUES (:id_ticket, :id_persona, :ruta_archivo, :nombre_original, :comentario, :fecha_subida)",
+                ['id_ticket' => $tid, 'id_persona' => $pid, 'ruta_archivo' => $ruta, 'nombre_original' => $nombre, 'comentario' => $com ?: null, 'fecha_subida' => $now]
+            );
+            $lastId = $db->queryOne("SELECT LAST_INSERT_ID() AS id");
+            return self::resultado(true, 'Evidencia guardada.', ['id' => $lastId['id'] ?? null]);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al guardar evidencia.', null, $e->getMessage());
+        }
+    }
+
+    /**
+     * Obtener una evidencia por id (para eliminar y obtener ruta).
+     */
+    public static function getEvidenciaPorId($idEvidencia)
+    {
+        $id = (int)$idEvidencia;
+        if ($id < 1) return null;
+        try {
+            $db = new Database();
+            return $db->queryOne("SELECT id, id_ticket, ruta_archivo FROM ticket_evidencia WHERE id = :id", ['id' => $id]);
+        } catch (\Exception $e) {
+            return null;
+        }
+    }
+
+    /**
+     * Eliminar evidencia (registro en BD). El controlador debe borrar el archivo si existe.
+     */
+    public static function eliminarEvidencia($idEvidencia)
+    {
+        $id = (int)$idEvidencia;
+        if ($id < 1) {
+            return self::resultado(false, 'ID de evidencia inválido.', null);
+        }
+        try {
+            $db = new Database();
+            $db->CRUD("DELETE FROM ticket_evidencia WHERE id = :id", ['id' => $id]);
+            return self::resultado(true, 'Evidencia eliminada.');
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al eliminar evidencia.', null, $e->getMessage());
+        }
+    }
 }

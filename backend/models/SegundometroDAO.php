@@ -3,7 +3,7 @@
 namespace Models;
 
 use Core\Model;
-// use Core\DatabaseSegundometro; // COMENTADO - solo se usa en obtenerEstadoReportesPorBD (comentado más abajo)
+use Core\DatabaseSegundometro;
 
 class SegundometroDAO extends Model
 {
@@ -39,7 +39,7 @@ class SegundometroDAO extends Model
         
         // Construir comando SSH completo (timeouts para no colgar si el remoto no responde)
         $sshComando = sprintf(
-            'ssh -i %s -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10 -o ServerAliveInterval=5 %s@%s %s 2>&1',
+            'ssh -i %s -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=20 -o ServerAliveInterval=5 %s@%s %s 2>&1',
             $sshKeyEscaped,
             self::$SSH_USER,
             self::$SSH_HOST,
@@ -246,6 +246,60 @@ class SegundometroDAO extends Model
                 'mensaje' => 'Archivo copiado exitosamente'
             ];
             
+        } catch (\Exception $e) {
+            error_log("Error al copiar archivo: " . $e->getMessage());
+            throw $e;
+        }
+    }
+
+    /**
+     * Copiar archivo en el servidor remoto con nombre de destino indicado (origen y destino válidos mega_rpt_*.csv.zip).
+     *
+     * @param string $nombreOrigen Nombre del archivo origen
+     * @param string $nombreDestino Nombre del archivo destino (p. ej. +2 seg, +1 min)
+     * @return array ['origen' => ..., 'destino' => ..., ...]
+     */
+    public static function copiarAArchivo($nombreOrigen, $nombreDestino)
+    {
+        if (!preg_match('/^mega_rpt_\d{8}_\d{2}_\d{2}_\d{2}\.csv\.zip$/', $nombreOrigen)) {
+            throw new \Exception('Formato de archivo origen inválido');
+        }
+        if (!preg_match('/^mega_rpt_\d{8}_\d{2}_\d{2}_\d{2}\.csv\.zip$/', $nombreDestino)) {
+            throw new \Exception('Formato de archivo destino inválido');
+        }
+        if ($nombreOrigen === $nombreDestino) {
+            throw new \Exception('Origen y destino no pueden ser iguales');
+        }
+        $rutaOrigen = self::$DIRECTORIO_REMOTO . '/' . $nombreOrigen;
+        $rutaDestino = self::$DIRECTORIO_REMOTO . '/' . $nombreDestino;
+        try {
+            $comando = sprintf(
+                "cd %s && sudo cp %s %s",
+                escapeshellarg(self::$DIRECTORIO_REMOTO),
+                escapeshellarg($nombreOrigen),
+                escapeshellarg($nombreDestino)
+            );
+            $resultado = self::ejecutarSSH($comando);
+            if (!$resultado['success']) {
+                throw new \Exception('Error al ejecutar comando: ' . $resultado['error']);
+            }
+            $comandoVerificar = sprintf(
+                "cd %s && ls -1 %s 2>/dev/null",
+                escapeshellarg(self::$DIRECTORIO_REMOTO),
+                escapeshellarg($nombreDestino)
+            );
+            $verificacion = self::ejecutarSSH($comandoVerificar);
+            if (!$verificacion['success'] || empty(trim($verificacion['output']))) {
+                throw new \Exception('El archivo no se creó correctamente en el servidor');
+            }
+            return [
+                'origen' => $nombreOrigen,
+                'destino' => $nombreDestino,
+                'ruta_origen' => $rutaOrigen,
+                'ruta_destino' => $rutaDestino,
+                'comando' => "sudo cp {$rutaOrigen} {$rutaDestino}",
+                'mensaje' => 'Archivo copiado exitosamente'
+            ];
         } catch (\Exception $e) {
             error_log("Error al copiar archivo: " . $e->getMessage());
             throw $e;
@@ -484,14 +538,47 @@ class SegundometroDAO extends Model
         ];
     }
 
-    /*
-     * COMENTADO - retomar más adelante: estado de reportes por BD (sin SSH).
-     * BD: __SPARTA_SECRET_REDACTED__, tabla: tbl_segundometro_semana, columna ej.: Dias_mora_Viernes_11_30 (numérica).
-     * Requiere: use Core\DatabaseSegundometro; al inicio de la clase.
+    /**
+     * Slots de hora en tbl_segundometro_semana (columnas Dias_mora_Dia_HH_MM).
+     * La BD solo tiene estos horarios, no cada minuto.
+     */
+    private static $SLOTS_SEGUNDOMETRO = ['07_30', '09_30', '11_30', '13_30', '14_30', '16_30', '18_30', '20_30', '23_50'];
+
+    /**
+     * Dado hora y minuto del archivo, devuelve el slot de la BD (ej. 16_31 → 16_30).
+     * Regla: último slot <= (hh, mm); si es antes de 07:30, se usa 07_30.
      *
+     * @param string $hh Hora 00-23
+     * @param string $mm Minuto 00-59
+     * @return string Slot en formato HH_MM
+     */
+    private static function horaArchivoASlot($hh, $mm)
+    {
+        $minutosActual = (int) $hh * 60 + (int) $mm;
+        $slotElegido = self::$SLOTS_SEGUNDOMETRO[0];
+        foreach (self::$SLOTS_SEGUNDOMETRO as $slot) {
+            list($sh, $sm) = explode('_', $slot);
+            $minutosSlot = (int) $sh * 60 + (int) $sm;
+            if ($minutosSlot <= $minutosActual) {
+                $slotElegido = $slot;
+            }
+        }
+        return $slotElegido;
+    }
+
+    /**
+     * Estado de reportes consultando solo BD (sin SSH).
+     * BD: __SPARTA_SECRET_REDACTED__, tabla: tbl_segundometro_semana, columnas Dias_mora_Dia_HH_MM con slots fijos.
+     * La hora del archivo se mapea al slot correspondiente (ej. 16_31 → 16_30).
+     * Durante 4 min desde la hora del reporte → procesando; después, si hay datos → ok, si no → error.
+     *
+     * @param array $nombresArchivo Lista de nombres (ej. mega_rpt_20260128_16_31_21.csv.zip)
+     * @return array ['nombre_archivo' => 'ok'|'error'|'procesando']
+     */
     public static function obtenerEstadoReportesPorBD(array $nombresArchivo)
     {
         $estados = [];
+        $queriesPorColumna = [];
         $diaNombre = [
             1 => 'Lunes',
             2 => 'Martes',
@@ -523,23 +610,38 @@ class SegundometroDAO extends Model
             }
             $diaNum = (int) $tiempoReporte->format('N');
             $diaStr = $diaNombre[$diaNum] ?? 'Lunes';
-            $columna = 'Dias_mora_' . $diaStr . '_' . $hh . '_' . $mm;
+            $slot = self::horaArchivoASlot($hh, $mm);
+            $columna = 'Dias_mora_' . $diaStr . '_' . $slot;
             $diffSegundos = $ahora->getTimestamp() - $tiempoReporte->getTimestamp();
             if ($diffSegundos < 240) {
                 $estados[$nombre] = 'procesando';
                 continue;
             }
-            try {
-                $db = new DatabaseSegundometro();
+            $queriesPorColumna[$columna][] = $nombre;
+        }
+
+        if (empty($queriesPorColumna)) {
+            return $estados;
+        }
+
+        try {
+            $db = new DatabaseSegundometro();
+            foreach ($queriesPorColumna as $columna => $nombres) {
                 $colEscapada = '`' . str_replace('`', '``', $columna) . '`';
                 $sql = "SELECT 1 FROM tbl_segundometro_semana WHERE $colEscapada IS NOT NULL LIMIT 1";
                 $row = $db->queryOne($sql);
-                $estados[$nombre] = $row ? 'ok' : 'error';
-            } catch (\Exception $e) {
-                $estados[$nombre] = 'error';
+                $resultado = $row ? 'ok' : 'error';
+                foreach ($nombres as $nombre) {
+                    $estados[$nombre] = $resultado;
+                }
+            }
+        } catch (\Exception $e) {
+            foreach (array_keys($queriesPorColumna) as $columna) {
+                foreach ($queriesPorColumna[$columna] as $nombre) {
+                    $estados[$nombre] = 'error';
+                }
             }
         }
         return $estados;
     }
-    */
 }

@@ -19,8 +19,14 @@ class Segundometro extends Controller
     {
         $script = <<<'HTML'
         <script>
+            // Estado de reportes por BD (solo consulta MySQL, sin SSH)
+            let estadoReportesCache = {};
+            let archivosActuales = [];
+            var segundometroEstadoInterval = null;
+
             // 🎨 RENDERIZAR ARCHIVOS EN LA INTERFAZ (SOLO ARCHIVOS REALES DEL SERVIDOR)
-            const renderArchivos = (archivos) => {
+            const renderArchivos = (archivos, estados) => {
+                estados = estados || {};
                 const container = document.getElementById('archivos-container');
                 
                 if (!archivos || archivos.length === 0) {
@@ -68,6 +74,7 @@ class Segundometro extends Controller
                                         <thead class="table-light">
                                             <tr>
                                                 <th width="50"><i class="fa fa-hashtag"></i></th>
+                                                <th width="44" class="text-center" title="Estado en BD"><i class="fa fa-info-circle me-1"></i></th>
                                                 <th><i class="fa fa-file-archive me-1"></i>Nombre del Archivo</th>
                                                 <th width="120"><i class="fa fa-clock me-1"></i>Hora</th>
                                                 <th width="120"><i class="fa fa-hdd me-1"></i>Tamaño</th>
@@ -83,9 +90,12 @@ class Segundometro extends Controller
                                                 if (esProveedor) etiqueta = '<span class="text-danger ms-1">(proveedor)</span>';
                                                 else if (esNosotros) etiqueta = '<span class="text-success ms-1">(nosotros)</span>';
                                                 const nombreEscapado = (archivo.nombre || '').replace(/'/g, "\\\\'");
+                                                const estado = estados[archivo.nombre] || 'procesando';
+                                                const iconoEstado = estado === 'ok' ? '<i class="fa fa-check-circle text-success" title="OK en BD"></i>' : estado === 'error' ? '<i class="fa fa-times-circle text-danger" title="Error / sin datos en BD"></i>' : '<i class="fa fa-spinner fa-spin text-primary" title="Procesando"></i>';
                                                 return `
                                                 <tr>
                                                     <td class="text-muted">${index + 1}</td>
+                                                    <td class="text-center">${iconoEstado}</td>
                                                     <td class="font-monospace text-primary fw-semibold">${archivo.nombre} ${etiqueta}</td>
                                                     <td class="text-center">
                                                         <span class="badge bg-info">${archivo.hora}</span>
@@ -128,141 +138,108 @@ class Segundometro extends Controller
                 container.innerHTML = html;
             };
             
-            // 📋 COPIAR ARCHIVO CON +1 SEGUNDO (LLAMADA REAL AL SERVIDOR)
+            // 📋 COPIAR ARCHIVO: diseño como antes; destino por defecto +1 s; lápiz para editar (ej. +2 s, +20 s, +1 min)
+            const escHtml = function(s) { return (s + '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); };
             const copiarArchivo = async (nombreArchivo) => {
-                // Extraer componentes del nombre para mostrar preview
                 const match = nombreArchivo.match(/mega_rpt_(\d{8})_(\d{2})_(\d{2})_(\d{2})\.csv\.zip/);
-                
                 if (!match) {
                     Swal.fire('Error', 'Formato de archivo inválido', 'error');
                     return;
                 }
-                
                 const [, fecha, hora, minuto, segundo] = match;
                 let nuevoSegundo = parseInt(segundo) + 1;
                 let nuevoMinuto = parseInt(minuto);
                 let nuevaHora = parseInt(hora);
                 let nuevaFecha = fecha;
-                
-                // Manejar overflow de segundos
                 if (nuevoSegundo >= 60) {
                     nuevoSegundo = 0;
                     nuevoMinuto++;
-                    
                     if (nuevoMinuto >= 60) {
                         nuevoMinuto = 0;
                         nuevaHora++;
-                        
                         if (nuevaHora >= 24) {
                             nuevaHora = 0;
-                            const dateObj = new Date(
-                                parseInt(fecha.substring(0, 4)),
-                                parseInt(fecha.substring(4, 6)) - 1,
-                                parseInt(fecha.substring(6, 8))
-                            );
+                            const dateObj = new Date(parseInt(fecha.substring(0, 4)), parseInt(fecha.substring(4, 6)) - 1, parseInt(fecha.substring(6, 8)));
                             dateObj.setDate(dateObj.getDate() + 1);
                             nuevaFecha = dateObj.toISOString().split('T')[0].replace(/-/g, '');
                         }
                     }
                 }
-                
-                const nombreDestino = `mega_rpt_${nuevaFecha}_${String(nuevaHora).padStart(2, '0')}_${String(nuevoMinuto).padStart(2, '0')}_${String(nuevoSegundo).padStart(2, '0')}.csv.zip`;
-                
-                // Confirmar acción
+                const nombreDestinoDefault = 'mega_rpt_' + nuevaFecha + '_' + String(nuevaHora).padStart(2, '0') + '_' + String(nuevoMinuto).padStart(2, '0') + '_' + String(nuevoSegundo).padStart(2, '0') + '.csv.zip';
                 const result = await Swal.fire({
-                    title: 'Confirmar copia de archivo',
-                    html: `
-                        <div class="text-start">
-                            <p class="mb-3">¿Desea copiar este archivo con +1 segundo?</p>
-                            <div class="alert alert-light border">
-                                <div class="mb-2">
-                                    <strong>📄 Origen:</strong><br>
-                                    <code class="text-primary">${nombreArchivo}</code>
-                                </div>
-                                <div>
-                                    <strong>📋 Destino:</strong><br>
-                                    <code class="text-success">${nombreDestino}</code>
-                                </div>
-                            </div>
-                            <div class="alert alert-warning mb-0">
-                                <small><strong>Comando:</strong> <code>sudo cp ${nombreArchivo} ${nombreDestino}</code></small>
-                            </div>
-                        </div>
-                    `,
+                    title: 'Copiar archivo',
+                    html: '<div class="text-start">' +
+                        '<div class="alert alert-light border rounded mb-3">' +
+                        '<div class="mb-3"><label class="text-muted small text-uppercase mb-1">Origen</label><br><code class="text-primary bg-light px-2 py-1 rounded">' + escHtml(nombreArchivo) + '</code></div>' +
+                        '<div id="swal-destino-block">' +
+                        '<label class="text-muted small text-uppercase mb-1">Destino</label><br>' +
+                        '<span id="swal-destino-wrap" class="d-inline-flex align-items-center gap-1">' +
+                        '<span class="badge bg-success px-2 py-1 fs-6">+1s</span>' +
+                        '<button type="button" class="btn btn-sm btn-outline-secondary p-1" id="swal-destino-editar" title="Editar destino (poner el valor que desees)"><i class="fa fa-pencil-alt"></i></button>' +
+                        '</span>' +
+                        '<div id="swal-destino-input-wrap" class="mt-2" style="display:none">' +
+                        '<input type="text" id="swal-destino-input" class="form-control form-control-sm font-monospace" value="' + escHtml(nombreDestinoDefault) + '" placeholder="mega_rpt_YYYYMMDD_HH_MM_SS.csv.zip">' +
+                        '<small class="text-muted">Edita el nombre del archivo destino si quieres otro valor (ej. +2s, +1 min)</small>' +
+                        '</div>' +
+                        '</div>' +
+                        '</div>' +
+                        '<div class="alert alert-secondary border rounded mb-0 py-2"><small class="text-muted"><strong>Comando:</strong></small> <code class="small">sudo cp ' + escHtml(nombreArchivo) + ' <span id="swal-cmd-dest">' + escHtml(nombreDestinoDefault) + '</span></code></div>' +
+                        '</div>',
                     icon: 'question',
                     showCancelButton: true,
                     confirmButtonText: 'Sí, copiar',
                     cancelButtonText: 'Cancelar',
                     confirmButtonColor: '#28a745',
-                    cancelButtonColor: '#6c757d'
-                });
-                
-                if (!result.isConfirmed) return;
-                
-                // Mostrar loading
-                Swal.fire({
-                    title: 'Procesando...',
-                    html: 'Ejecutando comando de copia en el servidor remoto',
-                    allowOutsideClick: false,
-                    didOpen: () => {
-                        Swal.showLoading();
-                    }
-                });
-                
-                // Llamada AJAX real al servidor
-                try {
-                    const formData = new FormData();
-                    formData.append('nombre_archivo', nombreArchivo);
-                    
-                    const response = await fetch('/segundometro/copiarArchivo', {
-                        method: 'POST',
-                        body: formData,
-                        headers: {
-                            'Front-Request': 'true'
+                    cancelButtonColor: '#6c757d',
+                    didOpen: function() {
+                        var btn = document.getElementById('swal-destino-editar');
+                        var wrap = document.getElementById('swal-destino-wrap');
+                        var inputWrap = document.getElementById('swal-destino-input-wrap');
+                        var input = document.getElementById('swal-destino-input');
+                        var cmdDest = document.getElementById('swal-cmd-dest');
+                        if (btn && input) {
+                            btn.addEventListener('click', function() {
+                                wrap.style.display = 'none';
+                                inputWrap.style.display = 'block';
+                                input.focus();
+                            });
+                            input.addEventListener('input', function() { if (cmdDest) cmdDest.textContent = input.value; });
                         }
-                    });
-                    
-                    const data = await response.json();
-                    
-                    if (!data.success) {
-                        throw new Error(data.mensaje || 'Error desconocido');
+                    },
+                    preConfirm: function() {
+                        var input = document.getElementById('swal-destino-input');
+                        var inputWrap = document.getElementById('swal-destino-input-wrap');
+                        var dest = (inputWrap && inputWrap.style.display !== 'none' && input && input.value) ? input.value.trim() : nombreDestinoDefault;
+                        if (!dest) dest = nombreDestinoDefault;
+                        if (!/^mega_rpt_\d{8}_\d{2}_\d{2}_\d{2}\.csv\.zip$/.test(dest)) {
+                            Swal.showValidationMessage('Destino debe tener formato mega_rpt_YYYYMMDD_HH_MM_SS.csv.zip');
+                            return false;
+                        }
+                        if (dest === nombreArchivo) {
+                            Swal.showValidationMessage('Destino no puede ser igual al origen');
+                            return false;
+                        }
+                        return dest;
                     }
-                    
-                    // Éxito
+                });
+                if (!result.isConfirmed) return;
+                var nombreDestino = result.value === false ? nombreDestinoDefault : result.value;
+                Swal.fire({ title: 'Procesando...', html: 'Ejecutando comando de copia en el servidor remoto', allowOutsideClick: false, didOpen: function() { Swal.showLoading(); } });
+                try {
+                    var formData = new FormData();
+                    formData.append('nombre_archivo', nombreArchivo);
+                    formData.append('nombre_destino', nombreDestino);
+                    var response = await fetch('/segundometro/copiarArchivo', { method: 'POST', body: formData, headers: { 'Front-Request': 'true' } });
+                    var data = await response.json();
+                    if (!data.success) throw new Error(data.mensaje || 'Error desconocido');
                     Swal.fire({
                         icon: 'success',
                         title: '¡Archivo copiado exitosamente!',
-                        html: `
-                            <div class="text-start">
-                                <div class="alert alert-success">
-                                    <div class="mb-2">
-                                        <strong>✅ Origen:</strong><br>
-                                        <code>${data.datos.origen}</code>
-                                    </div>
-                                    <div>
-                                        <strong>✅ Destino:</strong><br>
-                                        <code>${data.datos.destino}</code>
-                                    </div>
-                                </div>
-                                <p class="text-muted mb-0 small">
-                                    <i class="fa fa-info-circle me-1"></i>
-                                    El archivo se ha copiado correctamente en el servidor remoto
-                                </p>
-                            </div>
-                        `,
+                        html: '<div class="text-start"><div class="alert alert-success"><div class="mb-2"><strong>✅ Origen:</strong><br><code>' + escHtml(data.datos.origen) + '</code></div><div><strong>✅ Destino:</strong><br><code>' + escHtml(data.datos.destino) + '</code></div></div><p class="text-muted mb-0 small"><i class="fa fa-info-circle me-1"></i>El archivo se ha copiado correctamente en el servidor remoto</p></div>',
                         confirmButtonText: 'Aceptar'
-                    }).then(() => {
-                        // Recargar lista después de copiar
-                        listarArchivos();
-                    });
-                    
+                    }).then(function() { listarArchivos(); });
                 } catch (error) {
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Error al copiar archivo',
-                        text: error.message || 'Ocurrió un error al ejecutar el comando en el servidor',
-                        confirmButtonText: 'Aceptar'
-                    });
+                    Swal.fire({ icon: 'error', title: 'Error al copiar archivo', text: error.message || 'No se pudo copiar en el servidor', confirmButtonText: 'Aceptar' });
                 }
             };
             
@@ -295,7 +272,7 @@ class Segundometro extends Controller
                     Swal.fire({ icon: 'error', title: 'Error al eliminar', text: error.message || 'No se pudo eliminar el archivo.', confirmButtonText: 'Aceptar' });
                 }
             };
-            
+
             // 🔄 LISTAR ARCHIVOS DESDE EL SERVIDOR (LLAMADA REAL)
             const listarArchivos = async (silent = false) => {
                 const container = document.getElementById('archivos-container');
@@ -318,7 +295,8 @@ class Segundometro extends Controller
                         throw new Error(data.mensaje || 'Error al obtener archivos');
                     }
                     
-                    renderArchivos(data.datos || []);
+                    archivosActuales = data.datos || [];
+                    renderArchivos(archivosActuales, estadoReportesCache);
                     
                 } catch (error) {
                     if (!silent) {
@@ -378,6 +356,19 @@ class Segundometro extends Controller
                 return (24 * 3600 - segTotal + primerInicioManana) * 1000;
             }
 
+            function clearEstadoReportesInterval() {
+                if (segundometroEstadoInterval) { clearInterval(segundometroEstadoInterval); segundometroEstadoInterval = null; }
+            }
+            function actualizarEstadoReportes() {
+                if (document.hidden) return;
+                if (!archivosActuales || archivosActuales.length === 0) return;
+                var nombresPendientes = archivosActuales.map(function(a){ return a.nombre; }).filter(function(n){ return estadoReportesCache[n] !== 'ok'; });
+                if (nombresPendientes.length === 0) return;
+                fetch('/segundometro/estadoReportes', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Front-Request': 'true' }, body: JSON.stringify({ nombres: nombresPendientes }) })
+                    .then(function(r){ return r.json(); })
+                    .then(function(data){ if (data.success && data.estados) { for (var k in data.estados) estadoReportesCache[k] = data.estados[k]; renderArchivos(archivosActuales, estadoReportesCache); } })
+                    .catch(function(){});
+            }
             function programarRefrescos() {
                 if (document.hidden) return;
                 clearSegundometroTimers();
@@ -399,12 +390,32 @@ class Segundometro extends Controller
                 }
             }
 
+            function actualizarEstadoBotonTruncar() {
+                var btn = document.getElementById('btnTruncarSegundometro');
+                if (!btn) return;
+                var dia = new Date().toLocaleDateString('en-GB', { timeZone: 'America/Mexico_City', weekday: 'short' });
+                var hora = parseInt(new Date().toLocaleTimeString('en-GB', { timeZone: 'America/Mexico_City', hour: '2-digit', hour12: false }), 10);
+                var habilitado = (dia === 'Tue' && hora >= 8 && hora < 11);
+                btn.disabled = !habilitado;
+                btn.title = habilitado ? 'Truncar (solo martes 8:00–11:00 CDMX)' : 'Disponible solo los martes de 8:00 a 11:00 (CDMX)';
+            }
+
             document.addEventListener('DOMContentLoaded', function() {
+                actualizarEstadoBotonTruncar();
                 listarArchivos(false);
                 programarRefrescos();
+                setTimeout(function(){ actualizarEstadoReportes(); }, 2500);
+                segundometroEstadoInterval = setInterval(function() { if (!document.hidden) actualizarEstadoReportes(); }, 60000);
                 document.addEventListener('visibilitychange', function() {
-                    if (document.hidden) clearSegundometroTimers();
-                    else { listarArchivos(true); programarRefrescos(); }
+                    if (document.hidden) { clearSegundometroTimers(); clearEstadoReportesInterval(); }
+                    else {
+                        actualizarEstadoBotonTruncar();
+                        listarArchivos(true);
+                        programarRefrescos();
+                        actualizarEstadoReportes();
+                        clearEstadoReportesInterval();
+                        segundometroEstadoInterval = setInterval(function() { if (!document.hidden) actualizarEstadoReportes(); }, 60000);
+                    }
                 });
             });
         </script>
@@ -436,18 +447,23 @@ class Segundometro extends Controller
     }
 
     /**
-     * Copiar archivo con +1 segundo
+     * Copiar archivo: si se envía nombre_destino válido se usa ese; si no, se calcula +1 segundo.
      */
     public function copiarArchivo()
     {
         try {
             $nombreArchivo = $_POST['nombre_archivo'] ?? null;
+            $nombreDestino = isset($_POST['nombre_destino']) ? trim((string) $_POST['nombre_destino']) : null;
             
             if (!$nombreArchivo) {
                 throw new \Exception('Nombre de archivo no proporcionado');
             }
             
-            $resultado = SegundometroDAO::copiarConSegundoAdelantado($nombreArchivo);
+            if ($nombreDestino !== '' && preg_match('/^mega_rpt_\d{8}_\d{2}_\d{2}_\d{2}\.csv\.zip$/', $nombreDestino) && $nombreDestino !== $nombreArchivo) {
+                $resultado = SegundometroDAO::copiarAArchivo($nombreArchivo, $nombreDestino);
+            } else {
+                $resultado = SegundometroDAO::copiarConSegundoAdelantado($nombreArchivo);
+            }
             
             self::respuestaJSON([
                 'success' => true,
@@ -515,18 +531,9 @@ class Segundometro extends Controller
         }
     }
 
-    // ========== COMENTADO - retomar más adelante: Truncar, ls -lt, monitorear, estadoKronos ==========
-    /*
-    public function truncar() { ... }
-    public function listarLsLtHead() { ... }
-    public function verProcesoMonitorear() { ... }
-    public function estadoKronos() { ... }
-    */
-
-    /*
-     * COMENTADO - retomar más adelante: estado de reportes por BD (sin SSH).
-     * Endpoint POST /segundometro/estadoReportes con { nombres: [...] } → { estados: { nombre: 'ok'|'error'|'procesando' } }
-     *
+    /**
+     * Estado de reportes por BD (sin SSH). POST con { nombres: [...] } → { estados: { nombre: 'ok'|'error'|'procesando' } }
+     */
     public function estadoReportes()
     {
         try {
@@ -554,5 +561,4 @@ class Segundometro extends Controller
             ]);
         }
     }
-    */
 }
