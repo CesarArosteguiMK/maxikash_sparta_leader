@@ -77,6 +77,17 @@
         box-shadow: 0 4px 12px rgba(0,0,0,0.12);
     }
 
+    /* Botones de acción: Plantilla y Agregar Usuario */
+    .btn-action-size {
+      height: 36px;
+      padding: 0.375rem 0.75rem;
+      font-size: 0.875rem;
+      line-height: 1;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.375rem;
+    }
+
     #modalEditPerfil .accordion-button {
         font-size: 0.95rem;
         transition: all 0.3s ease;
@@ -935,19 +946,32 @@
         </div>
 
         <!-- =======================
-             BOTÓN AGREGAR
+             BOTONES DE ACCIÓN
         ======================== -->
         <div class="row justify-content-between m-4">
             <div class="col-8"></div>
 
-            <div class="col-4 d-flex align-items-end justify-content-end">
+            <div class="col-4 d-flex align-items-end justify-content-end gap-2">
+                <!-- Botón Descargar Plantilla -->
                 <button
-                        type="button"
-                        class="btn btn-primary add-new"
-                        data-bs-toggle="offcanvas"
-                        data-bs-target="#offcanvasAddUser"
+                  type="button"
+                  class="btn text-white btn-action-size"
+                  style="background-color: #0047bb; border-color: #0047bb;"
+                  onclick="descargarPlantillaGestores()"
+                  title="Descargar plantilla Excel"
                 >
-                    <i class="icon-base bx bx-plus icon-sm me-2"></i>
+                    <i class="bx bx-download icon-sm me-sm-2"></i>
+                    <span class="d-none d-sm-inline-block">Plantilla</span>
+                </button>
+                
+                <!-- Botón Agregar Usuario -->
+                <button
+                  type="button"
+                  class="btn btn-primary add-new btn-action-size"
+                  data-bs-toggle="offcanvas"
+                  data-bs-target="#offcanvasAddUser"
+                >
+                    <i class="icon-base bx bx-plus icon-sm me-sm-2"></i>
                     <span class="d-none d-sm-inline-block">Agregar Usuario</span>
                 </button>
             </div>
@@ -3646,5 +3670,111 @@
     }, 500);
   });
 
-</script>
+  /**
+   * ==========================================
+   * FUNCIÓN DESCARGAR PLANTILLA GESTORES
+   * ==========================================
+   */
+  function descargarPlantillaGestores() {
+    // Obtener filtros activos
+    const departamento = document.getElementById('UserRole').value || '';
+    const puesto = document.getElementById('UserPlan').value || '';
+    const estatus = document.getElementById('FilterTransaction').value || '';
+    
+    // Generar mensaje dinámico según filtros
+    let mensajeFiltros = 'Se descargará un archivo Excel con ';
+    let detallesFiltros = [];
+    
+    if (departamento) detallesFiltros.push(`Departamento: <strong>${departamento}</strong>`);
+    if (puesto) detallesFiltros.push(`Puesto: <strong>${puesto}</strong>`);
+    if (estatus) detallesFiltros.push(`Estatus: <strong>${estatus}</strong>`);
+    
+    if (detallesFiltros.length > 0) {
+      mensajeFiltros = 'Se descargará un archivo Excel filtrado por:<br><br>' + detallesFiltros.join('<br>');
+    } else {
+      mensajeFiltros = 'Se descargará un archivo Excel con <strong>TODOS los gestores</strong> del sistema.';
+    }
+    
+    Swal.fire({
+      html: `
+        <div style="text-align: center;">
+          <i class="bx bx-file-blank" style="font-size: 4rem; color: #0047bb;"></i>
+          <h4 style="margin-top: 1rem; margin-bottom: 1rem;">Descargar Plantilla de Gestores</h4>
+          <p style="color: #697a8d; margin-bottom: 1.5rem;">
+            ${mensajeFiltros}
+          </p>
+          <div style="background: #f8f9fa; padding: 1rem; border-radius: 0.5rem; margin-bottom: 1rem;">
+            <small style="color: #6c757d;">
+              <i class="bx bx-info-circle me-1"></i>
+              Incluye: número de empleado, nombres, departamento, puesto, jefe y estatus.
+            </small>
+          </div>
+          <p style="margin-top: 1rem;"><strong>¿Deseas continuar con la descarga?</strong></p>
+        </div>
+      `,
+      showCancelButton: true,
+      confirmButtonText: '<i class="bx bx-download me-2"></i>Sí, descargar',
+      cancelButtonText: 'Cancelar',
+      confirmButtonColor: '#0047bb',
+      cancelButtonColor: '#a1acb8',
+      reverseButtons: true
+    }).then((result) => {
+      if (result.isConfirmed) {
+        Swal.fire({
+          title: 'Generando archivo Excel...',
+          html: '<div class="spinner-border text-primary" role="status"><span class="visually-hidden">Cargando...</span></div><p style="margin-top: 1rem;">Por favor espera...</p>',
+          allowOutsideClick: false,
+          showConfirmButton: false,
+          didOpen: () => Swal.showLoading()
+        });
 
+        // Crear formulario para descarga con filtros
+        const form = document.createElement('form');
+        form.method = 'GET';
+        form.action = '/CapHum/descargarPlantillaGestores';
+        form.style.display = 'none';
+        
+        // Agregar filtros como inputs hidden
+        if (departamento) {
+          const inputDep = document.createElement('input');
+          inputDep.type = 'hidden';
+          inputDep.name = 'departamento';
+          inputDep.value = departamento;
+          form.appendChild(inputDep);
+        }
+        
+        if (puesto) {
+          const inputPuesto = document.createElement('input');
+          inputPuesto.type = 'hidden';
+          inputPuesto.name = 'puesto';
+          inputPuesto.value = puesto;
+          form.appendChild(inputPuesto);
+        }
+        
+        if (estatus) {
+          const inputEstatus = document.createElement('input');
+          inputEstatus.type = 'hidden';
+          inputEstatus.name = 'estatus';
+          inputEstatus.value = estatus;
+          form.appendChild(inputEstatus);
+        }
+        
+        document.body.appendChild(form);
+        form.submit();
+
+        // Cerrar después de 3 segundos
+        setTimeout(() => {
+          Swal.close();
+          Swal.fire({
+            icon: 'success',
+            title: '¡Descarga iniciada!',
+            text: 'El archivo se está descargando.',
+            timer: 3000,
+            showConfirmButton: false
+          });
+        }, 3000);
+      }
+    });
+  }
+
+</script>
