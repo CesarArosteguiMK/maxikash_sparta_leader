@@ -293,6 +293,59 @@
         line-height: 1.5;
         color: #697a8d;
     }
+    
+    /* ===== MEJORAS UX: BADGES INTERACTIVOS ===== */
+    .badge-puesto-multiple {
+        transition: all 0.3s ease;
+        cursor: help;
+    }
+    
+    .badge-puesto-multiple:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+    }
+    
+    /* Animación fade-in para tabla */
+    @keyframes fadeInRow {
+        from {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    /* Indicador de múltiples puestos en acciones */
+    .indicator-multiples-puestos {
+        position: absolute;
+        top: -5px;
+        right: -5px;
+        background: linear-gradient(135deg, #10b981, #34d399);
+        border-radius: 50%;
+        width: 18px;
+        height: 18px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 10px;
+        color: white;
+        font-weight: bold;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        z-index: 10;
+    }
+    
+    /* Estilo para botones de acción con indicador */
+    .btn-with-indicator {
+        position: relative;
+    }
+    
+    /* Mejora en filtros - feedback visual */
+    .filter-active {
+        border: 2px solid #10b981 !important;
+        box-shadow: 0 0 0 0.2rem rgba(16, 185, 129, 0.25) !important;
+    }
 
     /* ===== INDICADORES / KPIs ===== */
     .kpi-wrapper {
@@ -734,21 +787,29 @@
             <h5 class="card-title mb-0">Filtros de búsqueda</h5>
 
             <div class="row pt-4 g-6">
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <select id="UserRole" class="form-select text-capitalize">
                         <option value="">Selecciona Departamento</option>
                     </select>
                 </div>
 
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <select id="UserPlan" class="form-select text-capitalize">
                         <option value="">Selecciona Puesto</option>
                     </select>
                 </div>
 
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <select id="FilterTransaction" class="form-select text-capitalize">
                         <option value="">Selecciona Estatus</option>
+                    </select>
+                </div>
+                
+                <div class="col-md-3">
+                    <select id="FilterMultiplePuestos" class="form-select text-capitalize">
+                        <option value="">Todos los usuarios</option>
+                        <option value="multiples">Múltiples puestos</option>
+                        <option value="unico">Un solo puesto</option>
                     </select>
                 </div>
             </div>
@@ -1606,15 +1667,40 @@
                     <input type="text" id="edit_telefono" class="form-control phone-mask" oninput="this.value = this.value.replace(/[^0-9]/g, '')" onblur="validarTelefono('edit_telefono')" maxlength="10">
                 </div>
 
+                <!-- Alerta informativa de múltiples puestos -->
+                <div class="alert alert-info d-none mb-3" id="edit_alerta_multiples_puestos" style="background: linear-gradient(135deg, #3b82f6 0%, #60a5fa 100%); border: none; color: white;">
+                    <div class="d-flex align-items-center">
+                        <i class="fa fa-info-circle me-2" style="font-size: 1.5rem;"></i>
+                        <div>
+                            <strong>Usuario con múltiples puestos</strong>
+                            <p class="mb-0 small">Este usuario tiene asignados varios puestos. A continuación se muestran todos:</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Contenedor de puestos múltiples -->
+                <div class="mb-3 d-none" id="edit_contenedor_multiples_puestos">
+                    <label class="form-label fw-semibold">
+                        <i class="fa fa-layer-group me-1"></i>Puestos Asignados
+                    </label>
+                    <div id="edit_lista_puestos" class="border rounded p-3" style="background: #f8f9fa;">
+                        <!-- Los puestos se agregarán dinámicamente aquí -->
+                    </div>
+                    <small class="text-muted mt-1 d-block">
+                        <i class="fa fa-lightbulb me-1"></i>
+                        Para modificar puestos, usa el módulo de "Permisos" (botón amarillo con candado)
+                    </small>
+                </div>
+
                 <div class="mb-2">
-                    <label class="form-label">Departamento *</label>
+                    <label class="form-label">Departamento <span id="edit_label_principal" class="badge bg-primary" style="display: none;">Principal</span></label>
                     <select id="edit_departamento_id" class="form-select">
                         <option value="">Seleccione un departamento</option>
                     </select>
                 </div>
 
                 <div class="mb-2">
-                    <label class="form-label">Puesto *</label>
+                    <label class="form-label">Puesto <span id="edit_label_puesto_principal" class="badge bg-primary" style="display: none;">Principal</span></label>
                     <select id="edit_id_puesto" class="form-select">
                         <option value="">Seleccione un puesto</option>
                     </select>
@@ -3125,6 +3211,55 @@
 
   // Variable global para almacenar todos los usuarios
   let usuariosData = [];
+  
+  /**
+   * ==========================================
+   * CONSOLIDAR USUARIOS CON MÚLTIPLES PUESTOS
+   * ==========================================
+   * Agrupa registros duplicados de usuarios que tienen múltiples puestos
+   * y retorna un array con usuarios únicos
+   */
+  function consolidarUsuarios(usuarios) {
+    const usuariosMap = new Map();
+    
+    usuarios.forEach(usuario => {
+      const id = usuario.id;
+      
+      if (!usuariosMap.has(id)) {
+        // Primera vez que vemos este usuario, crear estructura
+        usuariosMap.set(id, {
+          ...usuario,
+          puestos: [{
+            id_puesto: usuario.id_puesto,
+            nombre_puesto: usuario.nombre_puesto,
+            nombre_departamento: usuario.nombre_departamento,
+            id_departamento: usuario.id_departamento
+          }],
+          // Guardar el nombre del puesto y departamento originales para compatibilidad
+          nombre_puesto_principal: usuario.nombre_puesto,
+          nombre_departamento_principal: usuario.nombre_departamento
+        });
+      } else {
+        // Ya existe, agregar nuevo puesto si no está duplicado
+        const usuarioExistente = usuariosMap.get(id);
+        const puestoExiste = usuarioExistente.puestos.some(p => 
+          p.id_puesto === usuario.id_puesto && 
+          p.nombre_departamento === usuario.nombre_departamento
+        );
+        
+        if (!puestoExiste) {
+          usuarioExistente.puestos.push({
+            id_puesto: usuario.id_puesto,
+            nombre_puesto: usuario.nombre_puesto,
+            nombre_departamento: usuario.nombre_departamento,
+            id_departamento: usuario.id_departamento
+          });
+        }
+      }
+    });
+    
+    return Array.from(usuariosMap.values());
+  }
 
   function llenarFiltros() {
     // Llamar a la API para obtener los usuarios/gestores
@@ -3137,13 +3272,18 @@
           return;
         }
 
-        // Guardar los datos globalmente
-        usuariosData = resp.datos;
+        // Consolidar usuarios con múltiples puestos
+        const usuariosConsolidados = consolidarUsuarios(resp.datos);
+        
+        // Guardar los datos consolidados globalmente
+        usuariosData = usuariosConsolidados;
+        
+        console.log('📊 Usuarios consolidados:', usuariosConsolidados.length, 'de', resp.datos.length, 'registros');
 
         // ==========================================
         // ACTUALIZAR INDICADORES (KPIs)
         // ==========================================
-        actualizarIndicadores(resp.datos);
+        actualizarIndicadores(usuariosConsolidados);
 
         // CONJUNTOS para almacenar valores únicos (evita duplicados)
         const departamentos = new Set();
@@ -3192,6 +3332,8 @@
           //  Agregar listener para ACTUALIZAR PUESTOS cuando cambia departamento
           selectDepartamento.addEventListener('change', (e) => {
             actualizarPuestosSegunDepartamento(e.target.value);
+            // Agregar feedback visual
+            aplicarFeedbackVisualFiltro(e.target);
             aplicarFiltros();
           });
         }
@@ -3215,7 +3357,10 @@
           });
 
           // Agregar listener para filtrar en tiempo real
-          selectPuesto.addEventListener('change', aplicarFiltros);
+          selectPuesto.addEventListener('change', (e) => {
+            aplicarFeedbackVisualFiltro(e.target);
+            aplicarFiltros();
+          });
         }
 
         // ==========================================
@@ -3236,7 +3381,22 @@
           });
 
           //  Agregar listener para filtrar en tiempo real
-          selectEstatus.addEventListener('change', aplicarFiltros);
+          selectEstatus.addEventListener('change', (e) => {
+            aplicarFeedbackVisualFiltro(e.target);
+            aplicarFiltros();
+          });
+        }
+        
+        // ==========================================
+        // INICIALIZAR FILTRO DE MÚLTIPLES PUESTOS
+        // ==========================================
+        const selectMultiplePuestos = document.getElementById('FilterMultiplePuestos');
+        if (selectMultiplePuestos) {
+          // Agregar listener para filtrar en tiempo real
+          selectMultiplePuestos.addEventListener('change', (e) => {
+            aplicarFeedbackVisualFiltro(e.target);
+            aplicarFiltros();
+          });
         }
       },
       onError: (err) => {
@@ -3334,17 +3494,19 @@
    * Filtra la tabla según los valores seleccionados
    */
   function aplicarFiltros() {
-    console.log(' Aplicando filtros...');
+    console.log('🔍 Aplicando filtros...');
 
     // Obtener valores seleccionados
     const departamentoSeleccionado = document.getElementById('UserRole').value;
     const puestoSeleccionado = document.getElementById('UserPlan').value;
     const estatusSeleccionado = document.getElementById('FilterTransaction').value;
+    const multiplePuestosSeleccionado = document.getElementById('FilterMultiplePuestos').value;
 
     console.log('Filtros activos:', {
       departamento: departamentoSeleccionado || 'Todos',
       puesto: puestoSeleccionado || 'Todos',
-      estatus: estatusSeleccionado || 'Todos'
+      estatus: estatusSeleccionado || 'Todos',
+      multiplePuestos: multiplePuestosSeleccionado || 'Todos'
     });
 
     // Filtrar datos
@@ -3362,6 +3524,17 @@
       // Filtro ESTATUS
       if (estatusSeleccionado && persona.estatus !== estatusSeleccionado) {
         return false;
+      }
+      
+      // Filtro MÚLTIPLES PUESTOS
+      if (multiplePuestosSeleccionado) {
+        const tienePuestos = persona.puestos && persona.puestos.length > 1;
+        if (multiplePuestosSeleccionado === 'multiples' && !tienePuestos) {
+          return false;
+        }
+        if (multiplePuestosSeleccionado === 'unico' && tienePuestos) {
+          return false;
+        }
       }
 
       return true;
@@ -3390,58 +3563,139 @@
       return;
     }
 
-    // Mapear datos como lo hace getUsuarios()
-    const datosFormateados = datos.map(p => ({
-      nombre: `
+    // Mapear datos con soporte para múltiples puestos
+    const datosFormateados = datos.map(p => {
+      const nombreCompleto = [p.nombres, p.segundo_nombre, p.apellidop, p.apellidom].filter(x => x).join(' ');
+      const tienePuestos = p.puestos && p.puestos.length > 1;
+      
+      // Generar badges para múltiples puestos con departamentos visibles
+      let puestosHTML = '';
+      if (tienePuestos) {
+        puestosHTML = '<div class="d-flex flex-column gap-2">';
+        p.puestos.forEach((puesto, index) => {
+          const colorBadge = obtenerColorDepartamento(puesto.nombre_departamento);
+          puestosHTML += `
+            <div class="d-flex flex-column" style="gap: 0.25rem;">
+              <small class="text-muted fw-semibold" style="font-size: 0.7rem;">
+                <i class="fa fa-building me-1"></i>${puesto.nombre_departamento}
+              </small>
+              <span class="badge badge-puesto-multiple" 
+                    style="background: ${colorBadge}; font-size: 0.75rem; width: fit-content;" 
+                    title="${puesto.nombre_puesto}">
+                <i class="fa fa-briefcase me-1"></i>${puesto.nombre_puesto}
+              </span>
+            </div>
+          `;
+        });
+        puestosHTML += '</div>';
+      } else {
+        // Un solo puesto, mostrar formato tradicional
+        puestosHTML = `
+          <small class="text-muted d-flex align-items-center gap-1">
+            <i class="fa fa-building"></i>
+            ${p.nombre_departamento || 'Sin departamento'}
+          </small>
+          <small class="text-muted d-flex align-items-center gap-1">
+            <i class="fa fa-briefcase"></i>
+            ${p.nombre_puesto || 'Sin puesto'}
+          </small>
+        `;
+      }
+      
+      return {
+        nombre: `
           <div class="fw-semibold">
              # ${p.numero_empleado}
           </div>
           <div class="fw-semibold">
-              ${[p.nombres, p.segundo_nombre, p.apellidop, p.apellidom].filter(x => x).join(' ')}
+              ${nombreCompleto}
           </div>
           <small class="text-muted d-flex align-items-center gap-1">
               <i class="fa fa-key"></i>
               ${p.usuario}
           </small>
-      `.trim(),
-      departamento:`
+          ${tienePuestos ? '<span class="badge bg-info mt-1" style="font-size: 0.65rem;"><i class="fa fa-layer-group me-1"></i>Múltiples puestos</span>' : ''}
+        `.trim(),
+        departamento: `
+          ${puestosHTML}
+          <hr class="my-2">
           <small class="text-muted d-flex align-items-center gap-1">
-              <i class="fa fa-building"></i>
-              ${p.nombre_departamento}
+              <i class="fa fa-user"></i>Jefe: <strong class="ms-1">${p.nombre_jefe || 'Sin jefe'}</strong>
           </small>
-          <small class="text-muted d-flex align-items-center gap-1">
-              <i class="fa fa-briefcase"></i>
-              ${p.nombre_puesto}
-          </small>
-          <hr>
-          <small class="text-muted d-flex align-items-center gap-1">
-              <i class="fa fa-user"> </i>Nombre del jefe:<br>
-              
-          </small><small>${p.nombre_jefe} </small>
-      `.trim(),
-      estatus: p.estatus,
-      acciones: `
-       <div class="d-flex flex-wrap gap-1" style="min-width: fit-content;">
-           <button class="btn btn-sm btn-primary" onclick="editar(${p.id})" title="Editar">
-               <i class="fa fa-edit"></i>
-           </button>
-           <button class="btn btn-sm btn-info" onclick="cargarDocumentoPersona(this)" data-id-persona="${p.id}" data-nombre="${[p.nombres, p.segundo_nombre, p.apellidop, p.apellidom].filter(x => x).join(' ').replace(/"/g, '&quot;')}" title="Cargar documento">
-               <i class="fa fa-file"></i>
-           </button>
-           <button class="btn btn-sm btn-warning" onclick="registra_ausencia(${p.id})" title="Ausencias">
-               <i class="fa fa-person-circle-minus"></i>
-           </button>
-           <button class="btn btn-sm btn-danger" onclick="baja_gestor(${p.id})" title="Dar de baja">
-               <i class="fa fa-user-slash"></i>
-           </button>
-           <button class="btn btn-sm" style="background-color: #D2D755; color: white;" onclick="edit_perfil(${p.id})" title="Permisos">
-               <i class="fa fa-lock" style="color: #007bff;"></i>
-           </button>
-       </div>`
-    }));
+        `.trim(),
+        estatus: p.estatus,
+        acciones: `
+         <div class="d-flex flex-wrap gap-1" style="min-width: fit-content;">
+             <button class="btn btn-sm btn-primary ${tienePuestos ? 'btn-with-indicator' : ''}" onclick="editar(${p.id})" title="${tienePuestos ? 'Editar (Múltiples puestos)' : 'Editar'}">
+                 ${tienePuestos ? '<span class="indicator-multiples-puestos">' + p.puestos.length + '</span>' : ''}
+                 <i class="fa fa-edit"></i>
+             </button>
+             <button class="btn btn-sm btn-info" onclick="cargarDocumentoPersona(this)" data-id-persona="${p.id}" data-nombre="${nombreCompleto.replace(/"/g, '&quot;')}" title="Cargar documento">
+                 <i class="fa fa-file"></i>
+             </button>
+             <button class="btn btn-sm btn-warning" onclick="registra_ausencia(${p.id})" title="Ausencias">
+                 <i class="fa fa-person-circle-minus"></i>
+             </button>
+             <button class="btn btn-sm btn-danger" onclick="baja_gestor(${p.id})" title="Dar de baja">
+                 <i class="fa fa-user-slash"></i>
+             </button>
+             <button class="btn btn-sm" style="background-color: #D2D755; color: white;" onclick="edit_perfil(${p.id})" title="${tienePuestos ? 'Permisos (Gestionar múltiples puestos)' : 'Permisos'}">
+                 <i class="fa fa-lock" style="color: #007bff;"></i>
+             </button>
+         </div>`
+      };
+    });
 
     // Limpiar y recargar tabla
     tabla.clear().rows.add(datosFormateados).draw();
+  }
+  
+  /**
+   * ==========================================
+   * OBTENER COLOR PARA BADGE DE DEPARTAMENTO
+   * ==========================================
+   */
+  function obtenerColorDepartamento(departamento) {
+    const colores = {
+      'Dirección Cobranza': 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+      'Sabuesos': 'linear-gradient(135deg, #10b981, #34d399)',
+      'Auditoria Cobranza': 'linear-gradient(135deg, #f59e0b, #fbbf24)',
+      'Call Center': 'linear-gradient(135deg, #3b82f6, #60a5fa)',
+      'Recursos Humanos': 'linear-gradient(135deg, #ec4899, #f472b6)',
+      'Sistemas': 'linear-gradient(135deg, #8b5cf6, #a78bfa)',
+      'Contabilidad': 'linear-gradient(135deg, #14b8a6, #2dd4bf)'
+    };
+    
+    return colores[departamento] || 'linear-gradient(135deg, #64748b, #94a3b8)';
+  }
+
+  /**
+   * ==========================================
+   * FEEDBACK VISUAL EN FILTROS
+   * ==========================================
+   * Añade clase visual cuando un filtro está activo
+   */
+  function aplicarFeedbackVisualFiltro(selectElement) {
+    if (selectElement.value) {
+      selectElement.classList.add('filter-active');
+    } else {
+      selectElement.classList.remove('filter-active');
+    }
+  }
+  
+  /**
+   * ==========================================
+   * INICIALIZAR FEEDBACK VISUAL EN FILTROS
+   * ==========================================
+   */
+  function inicializarFeedbackFiltros() {
+    const filtros = ['UserRole', 'UserPlan', 'FilterTransaction', 'FilterMultiplePuestos'];
+    filtros.forEach(id => {
+      const filtro = document.getElementById(id);
+      if (filtro && filtro.value) {
+        filtro.classList.add('filter-active');
+      }
+    });
   }
 
   // ==========================================
@@ -3451,6 +3705,7 @@
     // Esperar a que DataTable esté listo
     setTimeout(() => {
       llenarFiltros();
+      inicializarFeedbackFiltros();
     }, 800);
   });
 

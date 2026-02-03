@@ -16,55 +16,135 @@ class CapHum extends Controller
             http.request({
                 endpoint: "/caphum/getUsuarios",
                 onSuccess: (resp) => {
-                    // Mapear datos como objeto para usar 'columns.data' en DataTables
-                    const datos = resp.datos.map(p => ({
-                        nombre: `
-                            <div class="fw-semibold">
-                               # ${p.numero_empleado}
-                            </div>
-                            <div class="fw-semibold">
-                                ${[p.nombres, p.segundo_nombre, p.apellidop, p.apellidom].filter(x => x).join(' ')}
-                            </div>
-                            <small class="text-muted d-flex align-items-center gap-1">
-                                <i class="fa fa-key"></i>
-                                ${p.usuario}
-                            </small>
-                        `.trim(),
-                        departamento:`
-                            <small class="text-muted d-flex align-items-center gap-1">
-                                <i class="fa fa-building"></i>
-                                ${p.nombre_departamento}
-                            </small>
-                            <small class="text-muted d-flex align-items-center gap-1">
-                                <i class="fa fa-briefcase"></i>
-                                ${p.nombre_puesto}
-                            </small>
-                            <hr>
-                            <small class="text-muted d-flex align-items-center gap-1">
-                                <i class="fa fa-user"> </i>Nombre del jefe:<br>
-                                
-                            </small><small>${p.nombre_jefe} </small>
-                        `.trim(),
-                        estatus: p.estatus,
-                       acciones: `
-                        <div class="d-flex flex-wrap gap-1" style="min-width: fit-content;">
-                            <button class="btn btn-sm btn-primary" onclick="editar(${p.id})" title="Editar">
-                                <i class="fa fa-edit"></i>
-                            </button>
-                            <button class="btn btn-sm btn-info" onclick="verArchivo(${p.id})" title="Ver archivo">
-                                <i class="fa fa-file"></i>
-                            </button>
-                            <button class="btn btn-sm btn-warning" onclick="registra_ausencia(${p.id})" title="Ausencias">
-                                <i class="fa fa-person-circle-minus"></i>
-                            </button>
-                            <button class="btn btn-sm btn-danger" onclick="baja_gestor(${p.id})" title="Dar de baja">
-                                <i class="fa fa-user-slash"></i>
-                            </button>
-                            <button class="btn btn-sm" style="background-color: #D2D755; color: white;" onclick="edit_perfil(${p.id})" title="Permisos">
-                                <i class="fa fa-lock" style="color: #007bff;"></i>
-                            </button>
-                        </div>`
-                    }));
+                    // ==========================================
+                    // CONSOLIDAR USUARIOS CON MÚLTIPLES PUESTOS
+                    // ==========================================
+                    const usuariosMap = new Map();
+                    
+                    resp.datos.forEach(usuario => {
+                        const id = usuario.id;
+                        
+                        if (!usuariosMap.has(id)) {
+                            // Primera vez que vemos este usuario
+                            usuariosMap.set(id, {
+                                ...usuario,
+                                puestos: [{
+                                    id_puesto: usuario.id_puesto,
+                                    nombre_puesto: usuario.nombre_puesto,
+                                    nombre_departamento: usuario.nombre_departamento,
+                                    id_departamento: usuario.id_departamento
+                                }]
+                            });
+                        } else {
+                            // Ya existe, agregar nuevo puesto
+                            const usuarioExistente = usuariosMap.get(id);
+                            const puestoExiste = usuarioExistente.puestos.some(p => 
+                                p.id_puesto === usuario.id_puesto && 
+                                p.nombre_departamento === usuario.nombre_departamento
+                            );
+                            
+                            if (!puestoExiste) {
+                                usuarioExistente.puestos.push({
+                                    id_puesto: usuario.id_puesto,
+                                    nombre_puesto: usuario.nombre_puesto,
+                                    nombre_departamento: usuario.nombre_departamento,
+                                    id_departamento: usuario.id_departamento
+                                });
+                            }
+                        }
+                    });
+                    
+                    const usuariosConsolidados = Array.from(usuariosMap.values());
+                    
+                    // Guardar en variable global para otros usos
+                    window.usuariosData = usuariosConsolidados;
+                    
+                    console.log('📊 Usuarios consolidados:', usuariosConsolidados.length, 'de', resp.datos.length, 'registros');
+                    
+                    // ==========================================
+                    // MAPEAR DATOS CON SOPORTE PARA MÚLTIPLES PUESTOS
+                    // ==========================================
+                    const datos = usuariosConsolidados.map(p => {
+                        const nombreCompleto = [p.nombres, p.segundo_nombre, p.apellidop, p.apellidom].filter(x => x).join(' ');
+                        const tienePuestos = p.puestos && p.puestos.length > 1;
+                        
+                        // Generar badges para múltiples puestos con departamentos
+                        let puestosHTML = '';
+                        if (tienePuestos) {
+                            puestosHTML = '<div class="d-flex flex-column gap-2">';
+                            p.puestos.forEach((puesto, index) => {
+                                const colorBadge = obtenerColorDepartamento(puesto.nombre_departamento);
+                                puestosHTML += `
+                                    <div class="d-flex flex-column" style="gap: 0.25rem;">
+                                        <small class="text-muted fw-semibold" style="font-size: 0.7rem;">
+                                            <i class="fa fa-building me-1"></i>${puesto.nombre_departamento}
+                                        </small>
+                                        <span class="badge badge-puesto-multiple" 
+                                              style="background: ${colorBadge}; font-size: 0.75rem; width: fit-content;" 
+                                              title="${puesto.nombre_puesto}">
+                                            <i class="fa fa-briefcase me-1"></i>${puesto.nombre_puesto}
+                                        </span>
+                                    </div>
+                                `;
+                            });
+                            puestosHTML += '</div>';
+                        } else {
+                            // Un solo puesto
+                            puestosHTML = `
+                                <small class="text-muted d-flex align-items-center gap-1">
+                                    <i class="fa fa-building"></i>
+                                    ${p.nombre_departamento || 'Sin departamento'}
+                                </small>
+                                <small class="text-muted d-flex align-items-center gap-1">
+                                    <i class="fa fa-briefcase"></i>
+                                    ${p.nombre_puesto || 'Sin puesto'}
+                                </small>
+                            `;
+                        }
+                        
+                        return {
+                            nombre: `
+                                <div class="fw-semibold">
+                                   # ${p.numero_empleado}
+                                </div>
+                                <div class="fw-semibold">
+                                    ${nombreCompleto}
+                                </div>
+                                <small class="text-muted d-flex align-items-center gap-1">
+                                    <i class="fa fa-key"></i>
+                                    ${p.usuario}
+                                </small>
+                                ${tienePuestos ? '<span class="badge bg-info mt-1" style="font-size: 0.65rem;"><i class="fa fa-layer-group me-1"></i>Múltiples puestos</span>' : ''}
+                            `.trim(),
+                            departamento: `
+                                ${puestosHTML}
+                                <hr class="my-2">
+                                <small class="text-muted d-flex align-items-center gap-1">
+                                    <i class="fa fa-user"></i>Jefe: <strong class="ms-1">${p.nombre_jefe || 'Sin jefe'}</strong>
+                                </small>
+                            `.trim(),
+                            estatus: p.estatus,
+                            acciones: `
+                                <div class="d-flex flex-wrap gap-1" style="min-width: fit-content;">
+                                    <button class="btn btn-sm btn-primary ${tienePuestos ? 'btn-with-indicator' : ''}" onclick="editar(${p.id})" title="${tienePuestos ? 'Editar (Múltiples puestos)' : 'Editar'}">
+                                        ${tienePuestos ? '<span class="indicator-multiples-puestos">' + p.puestos.length + '</span>' : ''}
+                                        <i class="fa fa-edit"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-info" onclick="cargarDocumentoPersona(this)" data-id-persona="${p.id}" data-nombre="${nombreCompleto.replace(/"/g, '&quot;')}" title="Cargar documento">
+                                        <i class="fa fa-file"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-warning" onclick="registra_ausencia(${p.id})" title="Ausencias">
+                                        <i class="fa fa-person-circle-minus"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-danger" onclick="baja_gestor(${p.id})" title="Dar de baja">
+                                        <i class="fa fa-user-slash"></i>
+                                    </button>
+                                    <button class="btn btn-sm" style="background-color: #D2D755; color: white;" onclick="edit_perfil(${p.id})" title="${tienePuestos ? 'Permisos (Gestionar múltiples puestos)' : 'Permisos'}">
+                                        <i class="fa fa-lock" style="color: #007bff;"></i>
+                                    </button>
+                                </div>`
+                        };
+                    });
         
                     // Actualizar DataTable
                     const tabla = $('#historialUsuarios').DataTable();
@@ -185,6 +265,54 @@ class CapHum extends Controller
                     }
             
                     const persona = data.datos;
+                    
+                    // Buscar si este usuario tiene múltiples puestos
+                    const usuarioData = usuariosData.find(u => u.id === id);
+                    const tienePuestos = usuarioData && usuarioData.puestos && usuarioData.puestos.length > 1;
+                    
+                    // Mostrar/ocultar alerta y lista de múltiples puestos
+                    const alertaMultiples = document.getElementById('edit_alerta_multiples_puestos');
+                    const contenedorMultiples = document.getElementById('edit_contenedor_multiples_puestos');
+                    const labelPrincipal = document.getElementById('edit_label_principal');
+                    const labelPuestoPrincipal = document.getElementById('edit_label_puesto_principal');
+                    
+                    if (tienePuestos) {
+                        // Mostrar alerta y contenedor
+                        if (alertaMultiples) alertaMultiples.classList.remove('d-none');
+                        if (contenedorMultiples) contenedorMultiples.classList.remove('d-none');
+                        if (labelPrincipal) labelPrincipal.style.display = 'inline-block';
+                        if (labelPuestoPrincipal) labelPuestoPrincipal.style.display = 'inline-block';
+                        
+                        // Generar lista de puestos
+                        const listaPuestos = document.getElementById('edit_lista_puestos');
+                        if (listaPuestos) {
+                            let html = '<div class="d-flex flex-column gap-2">';
+                            usuarioData.puestos.forEach((puesto, index) => {
+                                const colorBadge = obtenerColorDepartamento(puesto.nombre_departamento);
+                                const esPrincipal = index === 0;
+                                html += `
+                                    <div class="d-flex align-items-center justify-content-between p-2 rounded" style="background: white;">
+                                        <div class="d-flex align-items-center gap-2">
+                                            <i class="fa fa-briefcase text-muted"></i>
+                                            <div>
+                                                <div class="fw-semibold">${puesto.nombre_puesto}</div>
+                                                <small class="text-muted">${puesto.nombre_departamento}</small>
+                                            </div>
+                                        </div>
+                                        ${esPrincipal ? '<span class="badge bg-primary">Principal</span>' : '<span class="badge bg-secondary">Secundario</span>'}
+                                    </div>
+                                `;
+                            });
+                            html += '</div>';
+                            listaPuestos.innerHTML = html;
+                        }
+                    } else {
+                        // Ocultar alerta y contenedor
+                        if (alertaMultiples) alertaMultiples.classList.add('d-none');
+                        if (contenedorMultiples) contenedorMultiples.classList.add('d-none');
+                        if (labelPrincipal) labelPrincipal.style.display = 'none';
+                        if (labelPuestoPrincipal) labelPuestoPrincipal.style.display = 'none';
+                    }
             
                     // CAMPOS TEXTO
                     document.getElementById("edit_num_empleado").value = persona.numero_empleado ?? '';
