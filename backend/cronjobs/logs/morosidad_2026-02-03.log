@@ -1,0 +1,110 @@
+[2026-02-03 17:31:25] [INFO] CRONJOB: INSERCIÓN DE MOROSIDAD
+[2026-02-03 17:31:25] [INFO] Fecha/Hora: 2026-02-03 17:31:25
+[2026-02-03 17:31:25] [WARNING] MODO FORCE ACTIVADO - Se ejecutará sin importar el día
+[2026-02-03 17:31:25] [SUCCESS] WEBHOOK ACTIVADO - Se enviarán notificaciones a Google Chat
+[2026-02-03 17:31:25] [SUCCESS] Conexión a base de datos establecida exitosamente
+[2026-02-03 17:31:25] [INFO] INICIANDO PROCESO DE MOROSIDAD
+[2026-02-03 17:31:25] [INFO] Modo: PRODUCCIÓN
+[2026-02-03 17:31:26] [INFO] Día actual: Tuesday (código: 2)
+[2026-02-03 17:31:26] [SUCCESS] Validación de día correcta: Es martes
+[2026-02-03 17:31:26] [INFO] PASO 1: Consultando créditos morosos (Dias_mora > 1)
+[2026-02-03 17:31:27] [SUCCESS] Créditos morosos encontrados: 9680
+[2026-02-03 17:31:27] [INFO] PASO 2: Insertando registros en gastos_cobranza
+[2026-02-03 17:31:27] [INFO] Iniciando transacción de base de datos...
+[2026-02-03 17:33:19] [INFO] Progreso: 5.2% (500 insertados, 0 duplicados, 0 errores)
+[2026-02-03 17:35:13] [INFO] Progreso: 10.3% (1000 insertados, 0 duplicados, 0 errores)
+[2026-02-03 17:37:13] [INFO] Progreso: 15.5% (1500 insertados, 0 duplicados, 0 errores)
+[2026-02-03 17:39:08] [INFO] Progreso: 20.7% (2000 insertados, 0 duplicados, 0 errores)
+[2026-02-03 17:41:02] [INFO] Progreso: 25.8% (2500 insertados, 0 duplicados, 0 errores)
+[2026-02-03 17:42:56] [INFO] Progreso: 31% (3000 insertados, 0 duplicados, 0 errores)
+[2026-02-03 17:44:50] [INFO] Progreso: 36.2% (3500 insertados, 0 duplicados, 0 errores)
+[2026-02-03 17:46:43] [INFO] Progreso: 41.3% (4000 insertados, 0 duplicados, 0 errores)
+[2026-02-03 17:48:37] [INFO] Progreso: 46.5% (4500 insertados, 0 duplicados, 0 errores)
+[2026-02-03 17:50:32] [INFO] Progreso: 51.7% (5000 insertados, 0 duplicados, 0 errores)
+[2026-02-03 17:52:25] [INFO] Progreso: 56.8% (5500 insertados, 0 duplicados, 0 errores)
+[2026-02-03 17:54:18] [INFO] Progreso: 62% (6000 insertados, 0 duplicados, 0 errores)
+[2026-02-03 17:56:12] [INFO] Progreso: 67.1% (6500 insertados, 0 duplicados, 0 errores)
+[2026-02-03 17:58:07] [INFO] Progreso: 72.3% (7000 insertados, 0 duplicados, 0 errores)
+[2026-02-03 18:00:01] [INFO] Progreso: 77.5% (7500 insertados, 0 duplicados, 0 errores)
+[2026-02-03 18:01:55] [INFO] Progreso: 82.6% (8000 insertados, 0 duplicados, 0 errores)
+[2026-02-03 11:25:31] [INFO] CRONJOB: INSERCIÓN DE MOROSIDAD
+[2026-02-03 11:25:31] [INFO] Fecha/Hora: 2026-02-03 11:25:31
+[2026-02-03 11:25:31] [WARNING] MODO FORCE ACTIVADO - Se ejecutará sin importar el día
+[2026-02-03 11:25:31] [SUCCESS] WEBHOOK ACTIVADO - Se enviarán notificaciones a Google Chat
+[2026-02-03 11:25:31] [SUCCESS] Conexión a base de datos establecida exitosamente
+[2026-02-03 11:25:31] [INFO] INICIANDO PROCESO DE MOROSIDAD
+[2026-02-03 11:25:31] [INFO] Modo: PRODUCCIÓN
+[2026-02-03 11:25:32] [INFO] Día actual: Tuesday (código: 2)
+[2026-02-03 11:25:32] [SUCCESS] Validación de día correcta: Es martes
+[2026-02-03 11:25:32] [INFO] PASO 1: Consultando créditos morosos (Dias_mora > 1)
+[2026-02-03 11:25:33] [SUCCESS] Créditos morosos encontrados: 9680
+[2026-02-03 11:25:33] [INFO] PASO 2: Insertando registros en gastos_cobranza
+[2026-02-03 11:25:33] [INFO] Iniciando transacción de base de datos...
+[2026-02-03 11:27:28] [INFO] Progreso: 5.2% (500 insertados, 0 duplicados, 0 errores)
+[2026-02-03 11:35:24] [INFO] CRONJOB: INSERCIÓN DE MOROSIDAD
+[2026-02-03 11:35:24] [INFO] Fecha/Hora: 2026-02-03 11:35:24
+[2026-02-03 11:35:24] [WARNING] MODO FORCE ACTIVADO - Se ejecutará sin importar el día
+[2026-02-03 11:35:24] [SUCCESS] WEBHOOK ACTIVADO - Se enviarán notificaciones a Google Chat
+[2026-02-03 11:35:24] [SUCCESS] Conexión a base de datos establecida exitosamente
+[2026-02-03 11:35:24] [INFO] INICIANDO PROCESO DE MOROSIDAD
+[2026-02-03 11:35:24] [INFO] Modo: PRODUCCIÓN
+[2026-02-03 11:35:26] [INFO] Día actual: Tuesday (código: 2)
+[2026-02-03 11:35:26] [SUCCESS] Validación de día correcta: Es martes
+[2026-02-03 11:35:26] [INFO] PASO 1: Consultando créditos morosos (Dias_mora > 1)
+[2026-02-03 11:35:26] [SUCCESS] Créditos morosos encontrados: 100 (MODO PRUEBA: 100 registros)
+[2026-02-03 11:35:26] [INFO] PASO 2: Insertando registros en gastos_cobranza
+[2026-02-03 11:35:26] [INFO] Iniciando transacción de base de datos...
+[2026-02-03 11:35:37] [INFO] Progreso: 50% (50 insertados, 0 duplicados, 0 errores)
+[2026-02-03 11:35:49] [INFO] Progreso: 100% (100 insertados, 0 duplicados, 0 errores)
+[2026-02-03 11:35:50] [SUCCESS] Transacción COMMIT exitoso - Cambios guardados permanentemente
+[2026-02-03 11:35:50] [INFO] RESUMEN DE EJECUCIÓN
+[2026-02-03 11:35:50] [INFO] Total de créditos morosos: 100
+[2026-02-03 11:35:50] [INFO] Insertados exitosamente:   100
+[2026-02-03 11:35:50] [INFO] Duplicados omitidos:       0
+[2026-02-03 11:35:50] [INFO] Errores de inserción:      0
+[2026-02-03 11:35:50] [INFO] Tasa de procesamiento:     100%
+[2026-02-03 11:35:51] [SUCCESS] PROCESO COMPLETADO EXITOSAMENTE
+[2026-02-03 11:35:51] [INFO] Tiempo de ejecución: 26.55 segundos
+[2026-02-03 11:57:33] [INFO] CRONJOB: INSERCIÓN DE MOROSIDAD
+[2026-02-03 11:57:33] [INFO] Fecha/Hora: 2026-02-03 11:57:33
+[2026-02-03 11:57:33] [WARNING] MODO FORCE ACTIVADO - Se ejecutará sin importar el día
+[2026-02-03 11:57:33] [SUCCESS] WEBHOOK ACTIVADO - Se enviarán notificaciones a Google Chat
+[2026-02-03 11:57:33] [SUCCESS] Conexión a base de datos establecida exitosamente
+[2026-02-03 11:57:33] [INFO] INICIANDO PROCESO DE MOROSIDAD
+[2026-02-03 11:57:33] [INFO] Modo: PRODUCCIÓN
+[2026-02-03 11:57:34] [INFO] Día actual: Tuesday (código: 2)
+[2026-02-03 11:57:34] [SUCCESS] Validación de día correcta: Es martes
+[2026-02-03 11:57:34] [INFO] PASO 1: Consultando créditos morosos (Dias_mora > 1)
+[2026-02-03 11:57:35] [SUCCESS] Créditos morosos encontrados: 9660
+[2026-02-03 11:57:35] [INFO] PASO 2: Insertando registros en gastos_cobranza (MODO LOTES)
+[2026-02-03 11:57:35] [INFO] Iniciando transacción de base de datos...
+[2026-02-03 11:57:35] [INFO] Procesando 9660 registros en 20 lotes de 500
+[2026-02-03 11:57:35] [INFO] Lote 1/20 completado - Progreso: 5% (500 insertados, 0 duplicados)
+[2026-02-03 11:57:36] [INFO] Lote 2/20 completado - Progreso: 10% (1000 insertados, 0 duplicados)
+[2026-02-03 11:57:38] [INFO] Lote 3/20 completado - Progreso: 15% (1500 insertados, 0 duplicados)
+[2026-02-03 11:57:39] [INFO] Lote 4/20 completado - Progreso: 20% (2000 insertados, 0 duplicados)
+[2026-02-03 11:57:40] [INFO] Lote 5/20 completado - Progreso: 25% (2500 insertados, 0 duplicados)
+[2026-02-03 11:57:42] [INFO] Lote 6/20 completado - Progreso: 30% (3000 insertados, 0 duplicados)
+[2026-02-03 11:57:43] [INFO] Lote 7/20 completado - Progreso: 35% (3500 insertados, 0 duplicados)
+[2026-02-03 11:57:44] [INFO] Lote 8/20 completado - Progreso: 40% (4000 insertados, 0 duplicados)
+[2026-02-03 11:57:45] [INFO] Lote 9/20 completado - Progreso: 45% (4500 insertados, 0 duplicados)
+[2026-02-03 11:57:46] [INFO] Lote 10/20 completado - Progreso: 50% (5000 insertados, 0 duplicados)
+[2026-02-03 11:57:48] [INFO] Lote 11/20 completado - Progreso: 55% (5500 insertados, 0 duplicados)
+[2026-02-03 11:57:49] [INFO] Lote 12/20 completado - Progreso: 60% (6000 insertados, 0 duplicados)
+[2026-02-03 11:57:50] [INFO] Lote 13/20 completado - Progreso: 65% (6500 insertados, 0 duplicados)
+[2026-02-03 11:57:51] [INFO] Lote 14/20 completado - Progreso: 70% (7000 insertados, 0 duplicados)
+[2026-02-03 11:57:52] [INFO] Lote 15/20 completado - Progreso: 75% (7500 insertados, 0 duplicados)
+[2026-02-03 11:57:54] [INFO] Lote 16/20 completado - Progreso: 80% (8000 insertados, 0 duplicados)
+[2026-02-03 11:57:55] [INFO] Lote 17/20 completado - Progreso: 85% (8500 insertados, 0 duplicados)
+[2026-02-03 11:57:56] [INFO] Lote 18/20 completado - Progreso: 90% (9000 insertados, 0 duplicados)
+[2026-02-03 11:57:58] [INFO] Lote 19/20 completado - Progreso: 95% (9500 insertados, 0 duplicados)
+[2026-02-03 11:57:59] [INFO] Lote 20/20 completado - Progreso: 100% (9660 insertados, 0 duplicados)
+[2026-02-03 11:58:00] [SUCCESS] Transacción COMMIT exitoso - Cambios guardados permanentemente
+[2026-02-03 11:58:00] [INFO] RESUMEN DE EJECUCIÓN
+[2026-02-03 11:58:00] [INFO] Total de créditos morosos: 9660
+[2026-02-03 11:58:00] [INFO] Insertados exitosamente:   9660
+[2026-02-03 11:58:00] [INFO] Duplicados omitidos:       0
+[2026-02-03 11:58:00] [INFO] Errores de inserción:      0
+[2026-02-03 11:58:00] [INFO] Tasa de procesamiento:     100%
+[2026-02-03 11:58:02] [SUCCESS] PROCESO COMPLETADO EXITOSAMENTE
+[2026-02-03 11:58:02] [INFO] Tiempo de ejecución: 29.02 segundos

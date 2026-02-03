@@ -27,6 +27,9 @@
 // 1. BOOTSTRAP DEL PROYECTO
 // ============================================
 
+// Configurar zona horaria de Ciudad de México
+date_default_timezone_set('America/Mexico_City');
+
 $projectRoot = dirname(__DIR__);
 
 // Cargar autoloader del proyecto
@@ -71,6 +74,7 @@ class CronLogger
     private $startTime;
     private $mensajesPendientes = [];
     private $webhookEnabled;
+    private $logFile;
 
     public function __construct($webhookUrl, $verbose = false, $noWebhook = false)
     {
@@ -78,6 +82,13 @@ class CronLogger
         $this->verbose = $verbose;
         $this->startTime = microtime(true);
         $this->webhookEnabled = !$noWebhook && !empty($webhookUrl);
+        
+        // Configurar archivo de log
+        $logDir = dirname(__DIR__) . '/cronjobs/logs';
+        if (!is_dir($logDir)) {
+            mkdir($logDir, 0755, true);
+        }
+        $this->logFile = $logDir . '/morosidad_' . date('Y-m-d') . '.log';
     }
 
     public function log($mensaje, $nivel = 'INFO')
@@ -87,6 +98,9 @@ class CronLogger
         
         // Escribir a consola siempre
         echo $linea . "\n";
+        
+        // Escribir a archivo de log
+        file_put_contents($this->logFile, $linea . "\n", FILE_APPEND);
         
         // Acumular para webhook (solo mensajes importantes)
         if ($this->webhookEnabled && in_array($nivel, ['SUCCESS', 'WARNING', 'ERROR'])) {
@@ -161,6 +175,25 @@ class CronLogger
                     ]]
                 ]]
             ]]
+        ];
+
+        $this->enviarWebhook($payload);
+    }
+
+    /**
+     * Enviar mensaje de progreso (más simple, sin acumular)
+     */
+    public function enviarProgreso($insertados, $duplicados, $errores, $total)
+    {
+        if (!$this->webhookEnabled) {
+            return;
+        }
+
+        $progreso = round((($insertados + $duplicados + $errores) / $total) * 100, 1);
+        $emoji = '📊';
+
+        $payload = [
+            'text' => "$emoji Progreso: *{$progreso}%* | Insertados: {$insertados} | Duplicados: {$duplicados} | Errores: {$errores}"
         ];
 
         $this->enviarWebhook($payload);
@@ -351,6 +384,15 @@ class CronMorosidad
             $this->logger->error("ERROR CRÍTICO: " . $e->getMessage());
             $this->logger->error("Stack trace: " . $e->getTraceAsString());
             
+            // 🔒 ROLLBACK en caso de error crítico (confirmación de seguridad)
+            try {
+                $this->db->rollback();
+                $this->logger->warning("ROLLBACK de seguridad ejecutado - Todos los cambios fueron revertidos");
+            } catch (\Exception $rollbackError) {
+                // Si ya se hizo rollback antes, esto fallará pero es esperado
+                $this->logger->info("ROLLBACK de seguridad: " . $rollbackError->getMessage() . " (ya se ejecutó anteriormente)");
+            }
+            
             // Enviar error a Google Chat
             $this->logger->enviarWebhookInmediato(
                 "ERROR CRÍTICO en Cronjob",
@@ -419,7 +461,7 @@ class CronMorosidad
 
     private function insertarGastosCobranza($creditos)
     {
-        $this->logger->info("PASO 2: Insertando registros en gastos_cobranza");
+        $this->logger->info("PASO 2: Insertando registros en gastos_cobranza (MODO LOTES)");
         
         $total = count($creditos);
         if ($total == 0) {
@@ -437,105 +479,159 @@ class CronMorosidad
         $errores = 0;
         $duplicados = 0;
         $erroresDetalle = [];
+        
+        // Generar valor de SEMANA (una sola vez)
+        $numeroSemana = date('W');
+        $anio = date('Y');
+        $semanaTexto = "Semana {$numeroSemana}-{$anio}";
 
-        // SQL para verificar duplicados (mismo crédito en la misma semana)
-        $sqlVerificar = <<<SQL
-            SELECT COUNT(*) as existe 
-            FROM gastos_cobranza 
-            WHERE Id_credito = :Id_credito 
-            AND WEEK(SEMANA, 1) = WEEK(NOW(), 1)
-            AND YEAR(SEMANA) = YEAR(NOW())
-        SQL;
+        // 🔒 INICIAR TRANSACCIÓN
+        $this->logger->info("Iniciando transacción de base de datos...");
+        $this->db->beginTransaction();
 
-        // SQL de inserción con control de duplicados
-        $sql = <<<SQL
-            INSERT INTO gastos_cobranza (
-                Id_credito,
-                Id_cliente,
-                Nombre_cliente,
-                Saldo_vencido_inicio,
-                SEMANA,
-                periodo_inicio,
-                periodo_fin,
-                monto_valor,
-                Fecha_primer_vencimiento,
-                cuota,
-                condonado
-            ) VALUES (
-                :Id_credito,
-                :Id_cliente,
-                :Nombre_cliente,
-                :Saldo_vencido_inicio,
-                NOW(),
-                :periodo_inicio,
-                :periodo_fin,
-                :monto_valor,
-                :Fecha_primer_vencimiento,
-                :cuota,
-                :condonado
-            )
-        SQL;
+        // 📦 PROCESAR EN LOTES DE 500
+        $tamañoLote = 500;
+        $lotes = array_chunk($creditos, $tamañoLote);
+        $totalLotes = count($lotes);
+        
+        $this->logger->info("Procesando {$total} registros en {$totalLotes} lotes de {$tamañoLote}");
 
-        foreach ($creditos as $index => $credito) {
+        foreach ($lotes as $numeroLote => $lote) {
             try {
-                $idCredito = $credito['Id_credito'] ?? null;
+                // PASO 1: Extraer IDs del lote para verificar duplicados EN BLOQUE
+                $idsLote = array_filter(array_column($lote, 'Id_credito'));
                 
-                if (!$idCredito) {
-                    $errores++;
-                    $this->logger->error("Registro sin Id_credito en índice $index");
+                if (empty($idsLote)) {
+                    $this->logger->warning("Lote " . ($numeroLote + 1) . " sin IDs válidos");
                     continue;
                 }
-
-                // Verificar si ya existe para esta semana
-                $verificacion = $this->db->queryAll($sqlVerificar, [':Id_credito' => $idCredito]);
                 
-                if ($verificacion && $verificacion[0]['existe'] > 0) {
-                    $duplicados++;
-                    $this->logger->debug("Crédito $idCredito ya existe para esta semana - omitido");
-                    continue;
+                // PASO 2: Verificar duplicados de TODO el lote en UNA SOLA QUERY
+                // Construir query con marcadores nombrados para DatabaseSegundometro
+                $marcadoresIds = [];
+                $paramsVerificar = [];
+                foreach ($idsLote as $idx => $id) {
+                    $marcadoresIds[] = ":id_$idx";
+                    $paramsVerificar["id_$idx"] = $id;
                 }
-
-                // Preparar valores para inserción
-                $valores = [
-                    ':Id_credito' => $idCredito,
-                    ':Id_cliente' => $credito['Id_cliente'] ?? null,
-                    ':Nombre_cliente' => $credito['Nombre_cliente'] ?? null,
-                    ':Saldo_vencido_inicio' => $credito['Saldo_vencido_inicio'] ?? 0,
-                    ':periodo_inicio' => $credito['periodo_inicio'] ?? null,
-                    ':periodo_fin' => $credito['periodo_fin'] ?? null,
-                    ':monto_valor' => $credito['monto_valor'] ?? 0,
-                    ':Fecha_primer_vencimiento' => $credito['Fecha_primer_vencimiento'] ?? null,
-                    ':cuota' => $credito['cuota'] ?? 0,
-                    ':condonado' => $credito['condonado'] ?? 0
-                ];
-
-                $this->db->query($sql, $valores);
-                $insertados++;
-
-                // Mostrar progreso cada 50 registros procesados
-                $procesados = $insertados + $duplicados + $errores;
-                if ($procesados % 50 == 0) {
-                    $progreso = round(($procesados / $total) * 100, 1);
-                    $this->logger->info("Progreso: $progreso% ({$insertados} insertados, {$duplicados} duplicados, {$errores} errores)");
+                $paramsVerificar['semana'] = $semanaTexto;
+                
+                $placeholders = implode(',', $marcadoresIds);
+                $sqlVerificar = "SELECT Id_credito FROM gastos_cobranza 
+                                WHERE Id_credito IN ($placeholders) 
+                                AND SEMANA = :semana";
+                
+                $resultados = $this->db->queryAll($sqlVerificar, $paramsVerificar);
+                $duplicadosEncontrados = array_column($resultados, 'Id_credito');
+                $duplicadosSet = array_flip($duplicadosEncontrados);
+                
+                // PASO 3: Construir multi-INSERT (solo registros no duplicados)
+                $valoresInsert = [];
+                $parametrosInsert = [];
+                
+                foreach ($lote as $credito) {
+                    $idCredito = $credito['Id_credito'] ?? null;
+                    
+                    if (!$idCredito) {
+                        $errores++;
+                        continue;
+                    }
+                    
+                    // Si ya existe, contar como duplicado y saltar
+                    if (isset($duplicadosSet[$idCredito])) {
+                        $duplicados++;
+                        continue;
+                    }
+                    
+                    // Validar fechas
+                    $periodoInicio = $credito['periodo_inicio'] ?? null;
+                    if ($periodoInicio && (stripos($periodoInicio, 'Semana') !== false || !strtotime($periodoInicio))) {
+                        $periodoInicio = null;
+                    }
+                    
+                    $periodoFin = $credito['periodo_fin'] ?? null;
+                    if ($periodoFin && (stripos($periodoFin, 'Semana') !== false || !strtotime($periodoFin))) {
+                        $periodoFin = null;
+                    }
+                    
+                    // Agregar placeholder para VALUES
+                    $valoresInsert[] = "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                    
+                    // Agregar parámetros en el orden correcto
+                    array_push($parametrosInsert,
+                        $idCredito,
+                        $credito['Id_cliente'] ?? null,
+                        $credito['Nombre_cliente'] ?? null,
+                        $credito['Saldo_vencido_inicio'] ?? 0,
+                        $semanaTexto,
+                        $periodoInicio,
+                        $periodoFin,
+                        $credito['monto_valor'] ?? 0,
+                        $credito['Fecha_primer_vencimiento'] ?? null,
+                        $credito['cuota'] ?? 0,
+                        $credito['condonado'] ?? 0
+                    );
                 }
-
+                
+                // PASO 4: Ejecutar multi-INSERT si hay datos
+                if (!empty($valoresInsert)) {
+                    // Convertir a marcadores nombrados para DatabaseSegundometro
+                    $marcadoresNombrados = [];
+                    $paramsInsert = [];
+                    $contadorParam = 0;
+                    
+                    foreach ($valoresInsert as $idx => $placeholder) {
+                        $marcadores = [];
+                        for ($i = 0; $i < 11; $i++) { // 11 campos
+                            $nombreParam = "p{$contadorParam}_$i";
+                            $marcadores[] = ":$nombreParam";
+                            $paramsInsert[$nombreParam] = $parametrosInsert[$contadorParam * 11 + $i];
+                        }
+                        $marcadoresNombrados[] = "(" . implode(', ', $marcadores) . ")";
+                        $contadorParam++;
+                    }
+                    
+                    $sqlInsert = "INSERT INTO gastos_cobranza (
+                        Id_credito, Id_cliente, Nombre_cliente, Saldo_vencido_inicio,
+                        SEMANA, periodo_inicio, periodo_fin, monto_valor,
+                        Fecha_primer_vencimiento, cuota, condonado
+                    ) VALUES " . implode(', ', $marcadoresNombrados);
+                    
+                    $insertadosLote = $this->db->CRUD($sqlInsert, $paramsInsert);
+                    $insertados += $insertadosLote;
+                }
+                
+                // Progreso cada lote
+                $progreso = round((($numeroLote + 1) / $totalLotes) * 100, 1);
+                $this->logger->info("Lote " . ($numeroLote + 1) . "/{$totalLotes} completado - Progreso: {$progreso}% ({$insertados} insertados, {$duplicados} duplicados)");
+                
+                // Enviar al webhook cada lote
+                $this->logger->enviarProgreso($insertados, $duplicados, $errores, $total);
+                
             } catch (\Exception $e) {
-                $errores++;
-                $errorMsg = sprintf(
-                    "Error en registro %d (ID: %s): %s",
-                    $index + 1,
-                    $credito['Id_credito'] ?? 'N/A',
-                    $e->getMessage()
-                );
+                $errores += count($lote);
+                $errorMsg = "Error en lote " . ($numeroLote + 1) . ": " . $e->getMessage();
                 $this->logger->error($errorMsg);
                 $erroresDetalle[] = $errorMsg;
-
-                // Si hay muchos errores, detener
-                if ($errores > 100) {
-                    $this->logger->error("DEMASIADOS ERRORES ($errores). Deteniendo proceso.");
-                    break;
+                
+                if ($errores > 1000) {
+                    $this->logger->error("DEMASIADOS ERRORES ($errores). Haciendo ROLLBACK...");
+                    $this->db->rollback();
+                    $this->logger->error("ROLLBACK completado. Ningún cambio fue guardado en la DB.");
+                    throw new \Exception("Proceso abortado por exceso de errores. Rollback ejecutado.");
                 }
             }
+        }
+
+        // 🔒 COMMIT DE LA TRANSACCIÓN
+        try {
+            $this->db->commit();
+            $this->logger->success("Transacción COMMIT exitoso - Cambios guardados permanentemente");
+        } catch (\Exception $e) {
+            $this->logger->error("Error al hacer COMMIT: " . $e->getMessage());
+            $this->db->rollback();
+            $this->logger->error("ROLLBACK ejecutado por error en COMMIT.");
+            throw $e;
         }
 
         return [
