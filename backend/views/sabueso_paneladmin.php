@@ -35,7 +35,7 @@
     #modalEvidenciaRastreo .modal-content {
         border: none;
         border-radius: 8px;
-        overflow: hidden;
+       /* overflow: hidden;*/
         box-shadow: 0 8px 32px rgba(0,0,0,0.25);
     }
     #modalEvidenciaRastreo .modal-header {
@@ -242,7 +242,7 @@
         <div class="modal-content">
             <div class="modal-header d-flex align-items-center">
                 <h6 class="modal-title mb-0"><i class="fa-solid fa-image me-2"></i>Evidencia</h6>
-                <button type="button" class="btn-close ms-auto" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                <button type="button" class="btn-close btn-close-sm ms-auto" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
             <div class="modal-body text-center" id="modalEvidenciaRastreoBody">
                 <!-- Vista previa de imagen o zona para arrastrar/soltar -->
