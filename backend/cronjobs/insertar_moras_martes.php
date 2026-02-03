@@ -428,9 +428,9 @@ class CronMorosidad
 
     private function consultarCreditosMorosos()
     {
-        $this->logger->info("PASO 1: Consultando créditos morosos (Dias_mora > 1)");
+        $this->logger->info("PASO 1: Consultando créditos morosos (Dias_mora >= 1)");
 
-        $sql = "SELECT * FROM tbl_segundometro_semana WHERE Dias_mora > 1";
+        $sql = "SELECT * FROM tbl_segundometro_semana WHERE Dias_mora >= 1";
         
         try {
             $creditos = $this->db->queryAll($sql);
@@ -484,6 +484,10 @@ class CronMorosidad
         $numeroSemana = date('W');
         $anio = date('Y');
         $semanaTexto = "Semana {$numeroSemana}-{$anio}";
+        
+        // Calcular periodo_inicio y periodo_fin para toda la semana
+        $periodoInicio = date('Y-m-d', strtotime("{$anio}W" . str_pad($numeroSemana, 2, '0', STR_PAD_LEFT) . "1")); // Lunes
+        $periodoFin = date('Y-m-d', strtotime("{$anio}W" . str_pad($numeroSemana, 2, '0', STR_PAD_LEFT) . "7")); // Domingo
 
         // 🔒 INICIAR TRANSACCIÓN
         $this->logger->info("Iniciando transacción de base de datos...");
@@ -543,19 +547,8 @@ class CronMorosidad
                         continue;
                     }
                     
-                    // Validar fechas
-                    $periodoInicio = $credito['periodo_inicio'] ?? null;
-                    if ($periodoInicio && (stripos($periodoInicio, 'Semana') !== false || !strtotime($periodoInicio))) {
-                        $periodoInicio = null;
-                    }
-                    
-                    $periodoFin = $credito['periodo_fin'] ?? null;
-                    if ($periodoFin && (stripos($periodoFin, 'Semana') !== false || !strtotime($periodoFin))) {
-                        $periodoFin = null;
-                    }
-                    
-                    // Agregar placeholder para VALUES
-                    $valoresInsert[] = "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                    // Agregar placeholder para VALUES (12 campos)
+                    $valoresInsert[] = "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
                     
                     // Agregar parámetros en el orden correcto
                     array_push($parametrosInsert,
@@ -564,12 +557,13 @@ class CronMorosidad
                         $credito['Nombre_cliente'] ?? null,
                         $credito['Saldo_vencido_inicio'] ?? 0,
                         $semanaTexto,
-                        $periodoInicio,
-                        $periodoFin,
-                        $credito['monto_valor'] ?? 0,
+                        $periodoInicio,  // Calculado (lunes de la semana)
+                        $periodoFin,     // Calculado (domingo de la semana)
+                        $credito['Num_cuotas_pagadas'] ?? null,  // parcialidad
+                        250,  // monto_valor (siempre 250)
                         $credito['Fecha_primer_vencimiento'] ?? null,
-                        $credito['cuota'] ?? 0,
-                        $credito['condonado'] ?? 0
+                        $credito['Cuota'] ?? 0,  // cuota
+                        0  // condonado (fijo en 0)
                     );
                 }
                 
@@ -582,10 +576,10 @@ class CronMorosidad
                     
                     foreach ($valoresInsert as $idx => $placeholder) {
                         $marcadores = [];
-                        for ($i = 0; $i < 11; $i++) { // 11 campos
+                        for ($i = 0; $i < 12; $i++) { // 12 campos
                             $nombreParam = "p{$contadorParam}_$i";
                             $marcadores[] = ":$nombreParam";
-                            $paramsInsert[$nombreParam] = $parametrosInsert[$contadorParam * 11 + $i];
+                            $paramsInsert[$nombreParam] = $parametrosInsert[$contadorParam * 12 + $i];
                         }
                         $marcadoresNombrados[] = "(" . implode(', ', $marcadores) . ")";
                         $contadorParam++;
@@ -593,7 +587,7 @@ class CronMorosidad
                     
                     $sqlInsert = "INSERT INTO gastos_cobranza (
                         Id_credito, Id_cliente, Nombre_cliente, Saldo_vencido_inicio,
-                        SEMANA, periodo_inicio, periodo_fin, monto_valor,
+                        SEMANA, periodo_inicio, periodo_fin, parcialidad, monto_valor,
                         Fecha_primer_vencimiento, cuota, condonado
                     ) VALUES " . implode(', ', $marcadoresNombrados);
                     
