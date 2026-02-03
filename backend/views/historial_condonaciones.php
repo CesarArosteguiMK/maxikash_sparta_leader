@@ -13,36 +13,7 @@
         cursor: pointer;
     }
 
-    /* ===== TABLA RESPONSIVE ===== */
-    .table-responsive {
-        border-radius: 8px;
-        overflow: hidden;
-    }
-
-    .table thead th {
-        background-color: #696cff;
-        color: white;
-        font-weight: 600;
-        text-transform: uppercase;
-        font-size: 0.75rem;
-        letter-spacing: 0.5px;
-        border: none;
-        padding: 1rem 0.75rem;
-    }
-
-    .table tbody tr {
-        transition: background-color 0.2s ease;
-    }
-
-    .table tbody tr:hover {
-        background-color: #f8f9fa;
-    }
-
-    .table tbody td {
-        padding: 0.875rem 0.75rem;
-        vertical-align: middle;
-        font-size: 0.875rem;
-    }
+    /* DataTables usará sus propios estilos */
 
     /* ===== BADGES ===== */
     .badge {
@@ -75,31 +46,123 @@
         border-radius: 6px;
     }
 
-    /* ===== ESTADÍSTICAS ===== */
-    .stats-card {
-        border-left: 4px solid;
-        transition: all 0.3s ease;
+    /* ===== INDICADORES / KPIs (Estilo del proyecto) ===== */
+    .kpi-wrapper {
+        display: flex;
+        justify-content: center;
+        align-items: stretch;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+
+    .kpi-item {
+        flex: 0 1 auto;
+        min-width: 120px;
+        max-width: 150px;
+    }
+
+    .kpi-card {
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         height: 100%;
+        background: #ffffff;
+        border: none;
+        border-radius: 0.5rem;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        position: relative;
+        overflow: hidden;
+        cursor: pointer;
     }
 
-    .stats-card:hover {
-        transform: translateY(-3px);
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    .kpi-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: linear-gradient(90deg, var(--kpi-color-start), var(--kpi-color-end));
+        transition: height 0.3s ease;
     }
 
-    .stats-number {
-        font-size: 2rem;
+    .kpi-card:hover {
+        transform: translateY(-5px) scale(1.02);
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.15), 0 10px 10px -5px rgba(0, 0, 0, 0.1);
+    }
+
+    .kpi-card:hover::before {
+        height: 6px;
+    }
+
+    .kpi-card.tipo-total {
+        --kpi-color-start: #4F46E5;
+        --kpi-color-end: #6366F1;
+    }
+
+    .kpi-card.tipo-monto {
+        --kpi-color-start: #10B981;
+        --kpi-color-end: #34D399;
+    }
+
+    .kpi-card.tipo-promedio {
+        --kpi-color-start: #06B6D4;
+        --kpi-color-end: #22D3EE;
+    }
+
+    .kpi-card.tipo-mes {
+        --kpi-color-start: #F59E0B;
+        --kpi-color-end: #FBBF24;
+    }
+
+    .kpi-card .card-body {
+        position: relative;
+        padding: 0.75rem 0.7rem;
+        text-align: center;
+    }
+
+    .kpi-number {
+        font-size: 1.3rem;
         font-weight: 700;
         line-height: 1;
-        margin-bottom: 0.5rem;
+        margin-bottom: 0.3rem;
+        background: linear-gradient(135deg, var(--kpi-color-start), var(--kpi-color-end));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        font-family: 'Segoe UI', system-ui, sans-serif;
+        transition: all 0.3s ease;
     }
 
-    .stats-label {
-        font-size: 0.8rem;
-        color: #6c757d;
+    .kpi-card:hover .kpi-number {
+        transform: scale(1.1);
+        filter: brightness(1.2);
+    }
+
+    .kpi-label {
+        font-size: 0.55rem;
+        color: #64748B;
+        font-weight: 600;
         text-transform: uppercase;
         letter-spacing: 0.5px;
-        font-weight: 600;
+        margin-bottom: 0;
+        line-height: 1.2;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .kpi-icon {
+        font-size: 1.2rem;
+        opacity: 0.15;
+        position: absolute;
+        right: 0.5rem;
+        top: 0.5rem;
+        color: var(--kpi-color-start);
+        transition: all 0.3s ease;
+    }
+
+    .kpi-card:hover .kpi-icon {
+        opacity: 0.25;
+        transform: scale(1.1) rotate(5deg);
     }
 
     /* ===== MODAL DETALLE ===== */
@@ -196,34 +259,51 @@
     }
 
     /* ===== RESPONSIVE ===== */
+    @media (max-width: 991px) {
+        .kpi-item {
+            min-width: 110px;
+            max-width: 140px;
+        }
+
+        .kpi-number {
+            font-size: 1.15rem;
+        }
+        
+        .kpi-label {
+            font-size: 0.52rem;
+        }
+    }
+
+    @media (max-width: 575px) {
+        .kpi-wrapper {
+            justify-content: space-evenly;
+        }
+
+        .kpi-item {
+            min-width: 90px;
+            max-width: 110px;
+        }
+
+        .kpi-number {
+            font-size: 1rem;
+        }
+        
+        .kpi-label {
+            font-size: 0.5rem;
+        }
+
+        .kpi-icon {
+            font-size: 1rem;
+        }
+    }
+
     @media (max-width: 768px) {
-        .stats-number {
-            font-size: 1.5rem;
-        }
-
-        .table thead {
-            display: none;
-        }
-
-        .table tbody tr {
-            display: block;
-            margin-bottom: 1rem;
-            border: 1px solid #e7e7e7;
-            border-radius: 8px;
+        .filter-container {
             padding: 1rem;
         }
-
-        .table tbody td {
-            display: flex;
-            justify-content: space-between;
-            padding: 0.5rem 0;
-            border: none;
-        }
-
-        .table tbody td::before {
-            content: attr(data-label);
-            font-weight: 600;
-            color: #566a7f;
+        
+        .filter-container .row {
+            gap: 0.5rem;
         }
     }
 </style>
@@ -241,37 +321,52 @@
             </div>
         </div>
 
-        <!-- Estadísticas -->
-        <div class="row g-3 mb-4">
-            <div class="col-md-3">
-                <div class="card stats-card h-100" style="border-left-color: #696cff;">
-                    <div class="card-body">
-                        <div class="stats-number text-primary" id="statTotal">0</div>
-                        <div class="stats-label">Total Condonaciones</div>
+        <!-- KPIs / Métricas -->
+        <div class="row m-4 mb-3">
+            <div class="col-12">
+                <div class="kpi-wrapper">
+                    <!-- Total -->
+                    <div class="kpi-item">
+                        <div class="card kpi-card tipo-total shadow-sm h-100">
+                            <div class="card-body">
+                                <i class="bx bx-receipt kpi-icon"></i>
+                                <div class="kpi-number" id="statTotal">0</div>
+                                <div class="kpi-label">Total</div>
+                            </div>
+                        </div>
                     </div>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="card stats-card h-100" style="border-left-color: #28a745;">
-                    <div class="card-body">
-                        <div class="stats-number text-success" id="statMontoTotal">$0.00</div>
-                        <div class="stats-label">Monto Total</div>
+
+                    <!-- Monto Total -->
+                    <div class="kpi-item">
+                        <div class="card kpi-card tipo-monto shadow-sm h-100">
+                            <div class="card-body">
+                                <i class="bx bx-dollar-circle kpi-icon"></i>
+                                <div class="kpi-number" id="statMontoTotal">$0.00</div>
+                                <div class="kpi-label">Monto Total</div>
+                            </div>
+                        </div>
                     </div>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="card stats-card h-100" style="border-left-color: #17a2b8;">
-                    <div class="card-body">
-                        <div class="stats-number text-info" id="statPromedio">$0.00</div>
-                        <div class="stats-label">Promedio</div>
+
+                    <!-- Promedio -->
+                    <div class="kpi-item">
+                        <div class="card kpi-card tipo-promedio shadow-sm h-100">
+                            <div class="card-body">
+                                <i class="bx bx-calculator kpi-icon"></i>
+                                <div class="kpi-number" id="statPromedio">$0.00</div>
+                                <div class="kpi-label">Promedio</div>
+                            </div>
+                        </div>
                     </div>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="card stats-card h-100" style="border-left-color: #ffc107;">
-                    <div class="card-body">
-                        <div class="stats-number text-warning" id="statMesActual">0</div>
-                        <div class="stats-label">Este Mes</div>
+
+                    <!-- Este Mes -->
+                    <div class="kpi-item">
+                        <div class="card kpi-card tipo-mes shadow-sm h-100">
+                            <div class="card-body">
+                                <i class="bx bx-calendar kpi-icon"></i>
+                                <div class="kpi-number" id="statMesActual">0</div>
+                                <div class="kpi-label">Este Mes</div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -308,33 +403,25 @@
 
         <!-- Tabla de Condonaciones -->
         <div class="card">
-            <div class="card-body">
-                <div class="table-responsive">
-                    <table class="table table-hover" id="tablaCondonaciones">
-                        <thead>
-                            <tr>
-                                <th>ID</th>
-                                <th>Cliente</th>
-                                <th>ID Crédito</th>
-                                <th>Monto Condonado</th>
-                                <th>Fecha</th>
-                                <th>Usuario</th>
-                                <th>Detalles</th>
-                                <th>Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody id="bodyCondonaciones">
-                            <!-- Spinner inicial -->
-                            <tr>
-                                <td colspan="8" class="text-center py-5">
-                                    <div class="spinner-border" role="status">
-                                        <span class="visually-hidden">Cargando...</span>
-                                    </div>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
+            <div class="card-datatable table-responsive">
+                <table id="tablaCondonaciones" class="dt-responsive table border-top">
+                    <thead>
+                        <tr>
+                            <th></th>
+                            <th>ID</th>
+                            <th>Cliente</th>
+                            <th>ID Crédito</th>
+                            <th>Monto Condonado</th>
+                            <th>Fecha</th>
+                            <th>Usuario</th>
+                            <th>Detalles</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="bodyCondonaciones">
+                        <!-- Datos cargados dinámicamente -->
+                    </tbody>
+                </table>
             </div>
         </div>
 
@@ -397,6 +484,7 @@ function renderCondonaciones(datos) {
     datos.forEach(item => {
         html += `
             <tr class="fade-in">
+                <td></td>
                 <td data-label="ID">#${item.id_condonacion}</td>
                 <td data-label="Cliente">${item.nombre_colaborador || 'N/A'}</td>
                 <td data-label="Crédito">${item.id_credito}</td>
@@ -637,7 +725,7 @@ function formatearFecha(fecha) {
 function mostrarTablaVacia() {
     document.getElementById('bodyCondonaciones').innerHTML = `
         <tr>
-            <td colspan="8" class="text-center py-5">
+            <td colspan="9" class="text-center py-5">
                 <div class="empty-state">
                     <i class="bx bx-file-blank"></i>
                     <p>No hay condonaciones registradas</p>
@@ -650,7 +738,7 @@ function mostrarTablaVacia() {
 function mostrarError() {
     document.getElementById('bodyCondonaciones').innerHTML = `
         <tr>
-            <td colspan="8" class="text-center py-5 text-danger">
+            <td colspan="9" class="text-center py-5 text-danger">
                 Error al cargar los datos
             </td>
         </tr>
