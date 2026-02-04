@@ -58,8 +58,10 @@
                         <th>Teléfono</th>
                         <th>Cuenta CLABE</th>
                         <th>Pago Semanal</th>
+                        <?php /* CAMPOS OPCIONALES - Descomentar si se requieren:
                         <th>Pagos Vencidos</th>
                         <th>Deuda Total</th>
+                        */ ?>
                     </tr>
                     </thead>
                     <tbody>
@@ -70,8 +72,10 @@
                         <td><?= $r["telefono_celular"] ?></td>
                         <td><?= $r["cuenta_clabe"] ?></td>
                         <td><?= $r["pago_semanal"] ?></td>
+                        <?php /* CAMPOS OPCIONALES - Descomentar si se requieren:
                         <td><?= $r["pagos_vencidos"] ?></td>
                         <td>$<?= number_format($r["deuda_total"], 2) ?></td>
+                        */ ?>
                     </tr>
                     </tbody>
                 </table>
