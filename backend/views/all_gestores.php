@@ -370,14 +370,14 @@
     
     /* Badge para puesto PRINCIPAL */
     .badge-puesto-principal {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+        background: linear-gradient(135deg, #2563eb, #1d4ed8) !important;
         color: white !important;
         font-size: 0.85rem !important;
         padding: 0.5rem 0.75rem !important;
-        border-radius: 0.5rem !important;
+        border-radius: 0.375rem !important;
         font-weight: 600 !important;
-        border: 2px solid #667eea !important;
-        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3) !important;
+        border: 1px solid #1e40af !important;
+        box-shadow: 0 2px 6px rgba(37, 99, 235, 0.25) !important;
         display: inline-flex;
         align-items: center;
         gap: 0.375rem;
@@ -385,36 +385,36 @@
     }
     
     .badge-puesto-principal:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4) !important;
+        background: linear-gradient(135deg, #1d4ed8, #1e40af) !important;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(37, 99, 235, 0.3) !important;
     }
     
     /* Badge para puestos SECUNDARIOS */
     .badge-puesto-secundario {
-        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%) !important;
+        background: linear-gradient(135deg, #10B981, #34D399) !important;
         color: white !important;
         font-size: 0.75rem !important;
         padding: 0.35rem 0.6rem !important;
         border-radius: 0.375rem !important;
         font-weight: 500 !important;
-        border: 1px dashed rgba(255, 255, 255, 0.5) !important;
-        box-shadow: 0 2px 8px rgba(240, 147, 251, 0.25) !important;
+        border: 1px solid #059669 !important;
+        box-shadow: 0 2px 4px rgba(16, 185, 129, 0.25) !important;
         display: inline-flex;
         align-items: center;
         gap: 0.25rem;
         transition: all 0.3s ease;
-        opacity: 0.9;
     }
     
     .badge-puesto-secundario:hover {
-        opacity: 1;
+        background: linear-gradient(135deg, #059669, #10B981) !important;
         transform: translateY(-1px);
-        box-shadow: 0 4px 12px rgba(240, 147, 251, 0.35) !important;
+        box-shadow: 0 3px 6px rgba(16, 185, 129, 0.3) !important;
     }
     
     /* Badge para usuario con múltiples puestos */
     .badge-multipuesto-indicator {
-        background: linear-gradient(135deg, #06b6d4, #0891b2) !important;
+        background: linear-gradient(135deg, #10B981, #34D399) !important;
         color: white !important;
         font-size: 0.65rem !important;
         padding: 0.25rem 0.5rem !important;
