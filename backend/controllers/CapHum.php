@@ -283,28 +283,33 @@ class CapHum extends Controller
                         if (labelPrincipal) labelPrincipal.style.display = 'inline-block';
                         if (labelPuestoPrincipal) labelPuestoPrincipal.style.display = 'inline-block';
                         
-                        // Generar lista de puestos
-                        const listaPuestos = document.getElementById('edit_lista_puestos');
-                        if (listaPuestos) {
-                            let html = '<div class="d-flex flex-column gap-2">';
-                            usuarioData.puestos.forEach((puesto, index) => {
-                                const colorBadge = obtenerColorDepartamento(puesto.nombre_departamento);
-                                const esPrincipal = index === 0;
-                                html += `
-                                    <div class="d-flex align-items-center justify-content-between p-2 rounded" style="background: white;">
-                                        <div class="d-flex align-items-center gap-2">
-                                            <i class="fa fa-briefcase text-muted"></i>
-                                            <div>
-                                                <div class="fw-semibold">${puesto.nombre_puesto}</div>
-                                                <small class="text-muted">${puesto.nombre_departamento}</small>
+                        // Cargar gestión completa de puestos (nueva funcionalidad)
+                        if (typeof cargarPuestosUsuario === 'function') {
+                            cargarPuestosUsuario(id);
+                        } else {
+                            // Fallback: Generar lista simple de puestos
+                            const listaPuestos = document.getElementById('edit_lista_puestos');
+                            if (listaPuestos) {
+                                let html = '<div class="d-flex flex-column gap-2">';
+                                usuarioData.puestos.forEach((puesto, index) => {
+                                    const colorBadge = obtenerColorDepartamento(puesto.nombre_departamento);
+                                    const esPrincipal = index === 0;
+                                    html += `
+                                        <div class="d-flex align-items-center justify-content-between p-2 rounded" style="background: white;">
+                                            <div class="d-flex align-items-center gap-2">
+                                                <i class="fa fa-briefcase text-muted"></i>
+                                                <div>
+                                                    <div class="fw-semibold">${puesto.nombre_puesto}</div>
+                                                    <small class="text-muted">${puesto.nombre_departamento}</small>
+                                                </div>
                                             </div>
+                                            ${esPrincipal ? '<span class="badge bg-primary">Principal</span>' : '<span class="badge bg-secondary">Secundario</span>'}
                                         </div>
-                                        ${esPrincipal ? '<span class="badge bg-primary">Principal</span>' : '<span class="badge bg-secondary">Secundario</span>'}
-                                    </div>
-                                `;
-                            });
-                            html += '</div>';
-                            listaPuestos.innerHTML = html;
+                                    `;
+                                });
+                                html += '</div>';
+                                listaPuestos.innerHTML = html;
+                            }
                         }
                     } else {
                         // Ocultar alerta y contenedor
@@ -1870,6 +1875,12 @@ class CapHum extends Controller
                     return;
                 }
             
+                // 🔹 Obtener puestos adicionales si hay panel de múltiples puestos
+                let puestosAdicionales = [];
+                if (typeof obtenerPuestosParaGuardar === 'function') {
+                    puestosAdicionales = obtenerPuestosParaGuardar();
+                }
+            
                 // 🔹 Payload
                 const payload = {
                     id: document.getElementById("edit_id").value,
@@ -1884,7 +1895,8 @@ class CapHum extends Controller
                     asignar_legion: asignarLegion,
                     id_legion: asignarLegion ? idLegion : null,
                     usuario: document.getElementById("edit_usuario").value,
-                    contrasena: document.getElementById("edit_contrasena").value
+                    contrasena: document.getElementById("edit_contrasena").value,
+                    puestos_adicionales: puestosAdicionales  // 🆕 Incluir múltiples puestos
                 };
             
                 fetch('/CapHum/updateGestorF', {

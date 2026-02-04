@@ -149,7 +149,79 @@ SQL;
     ORDER BY d.created_at DESC
 SQL;
 
-        return $mysqli->queryAll($query);
+        $legacyData = $mysqli->queryAll($query);
+        
+        // Si no hay datos de Legacy, retornar vacío
+        if (empty($legacyData)) {
+            return [];
+        }
+
+        // Obtener datos complementarios de Sky Logic
+        $skyData = self::getSkyLogicComplementData($credito);
+        
+        // Si hay datos de Sky Logic, completar los campos vacíos de Legacy
+        if (!empty($skyData)) {
+            foreach ($legacyData as &$legacyRow) {
+                $legacyRow = self::mergeWithSkyLogicData($legacyRow, $skyData);
+            }
+        }
+
+        return $legacyData;
+    }
+
+    /**
+     * Obtiene datos complementarios de Sky Logic para completar Legacy
+     */
+    private static function getSkyLogicComplementData($credito)
+    {
+        $db = new Database();
+        
+        $query = <<<SQL
+    SELECT 
+        telefono_celular, cp, direccion, cuenta_clabe,
+        pago_semanal, pagos_vencidos, deuda_total,
+        referencia_personal1, parentesco1, telefono_referencia1,
+        referencia_personal2, parentesco2, telefono_referencia2,
+        comentarios_generales, geolocalizacion, direccion_geo,
+        longitud, latitud, medio_contactacion_campo, dictamen_campo,
+        estatus, direccion_ine, direccion_actual,
+        promesa_pago, porque_atraso_pago, motivo_negativa
+    FROM base_clientes 
+    WHERE id_credito = '{$credito}'
+    ORDER BY fecha_dispositivo DESC
+    LIMIT 1
+SQL;
+
+        $result = $db->queryAll($query);
+        return !empty($result) ? $result[0] : null;
+    }
+
+    /**
+     * Combina datos de Legacy con datos de Sky Logic
+     * Prioriza datos de Sky Logic para campos vacíos en Legacy
+     */
+    private static function mergeWithSkyLogicData($legacyRow, $skyData)
+    {
+        // Campos a completar desde Sky Logic si están vacíos en Legacy
+        $fieldsToMerge = [
+            'telefono_celular', 'cp', 'direccion', 'cuenta_clabe',
+            'pago_semanal', 'pagos_vencidos', 'deuda_total',
+            'referencia_personal1', 'parentesco1', 'telefono_referencia1',
+            'referencia_personal2', 'parentesco2', 'telefono_referencia2',
+            'comentarios_generales', 'geolocalizacion', 'direccion_geo',
+            'longitud', 'latitud', 'medio_contactacion_campo', 'dictamen_campo',
+            'estatus', 'direccion_ine', 'direccion_actual',
+            'promesa_pago', 'porque_atraso_pago', 'motivo_negativa'
+        ];
+
+        foreach ($fieldsToMerge as $field) {
+            // Si el campo en Legacy está vacío y existe en Sky Logic con datos
+            if (empty($legacyRow[$field]) && !empty($skyData[$field])) {
+                $legacyRow[$field] = $skyData[$field];
+            }
+        }
+
+        return $legacyRow;
     }
 
     public static function getAllGestionesSkyLogic($credito, $nombre)

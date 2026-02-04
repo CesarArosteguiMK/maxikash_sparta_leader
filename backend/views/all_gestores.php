@@ -87,6 +87,25 @@
       align-items: center;
       gap: 0.375rem;
     }
+    
+    /* Contador en filtros */
+    .filter-counter {
+        display: inline-block;
+        background: rgba(99, 102, 241, 0.15);
+        color: #6366f1;
+        padding: 0.125rem 0.5rem;
+        border-radius: 0.25rem;
+        font-size: 0.75rem;
+        font-weight: 600;
+        margin-left: 0.5rem;
+    }
+    
+    /* Filtro activo con feedback visual mejorado */
+    .form-select.filter-active {
+        border-color: #6366f1 !important;
+        box-shadow: 0 0 0 0.2rem rgba(99, 102, 241, 0.15) !important;
+        background-color: #f0f0ff !important;
+    }
 
     #modalEditPerfil .accordion-button {
         font-size: 0.95rem;
@@ -317,17 +336,326 @@
         }
     }
     
-    /* Indicador de múltiples puestos en acciones */
+    /* Indicador de múltiples puestos en acciones - MEJORADO */
     .indicator-multiples-puestos {
         position: absolute;
-        top: -5px;
-        right: -5px;
-        background: linear-gradient(135deg, #10b981, #34d399);
+        top: -8px;
+        right: -8px;
+        background: linear-gradient(135deg, #f59e0b, #fbbf24);
         border-radius: 50%;
-        width: 18px;
-        height: 18px;
+        width: 24px;
+        height: 24px;
         display: flex;
         align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 0.7rem;
+        color: white;
+        box-shadow: 0 2px 8px rgba(245, 158, 11, 0.5);
+        animation: pulseIndicator 2s infinite;
+        z-index: 10;
+        border: 2px solid white;
+    }
+    
+    @keyframes pulseIndicator {
+        0%, 100% {
+            transform: scale(1);
+            box-shadow: 0 2px 8px rgba(245, 158, 11, 0.5);
+        }
+        50% {
+            transform: scale(1.1);
+            box-shadow: 0 4px 12px rgba(245, 158, 11, 0.7);
+        }
+    }
+    
+    /* Badge para puesto PRINCIPAL */
+    .badge-puesto-principal {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+        color: white !important;
+        font-size: 0.85rem !important;
+        padding: 0.5rem 0.75rem !important;
+        border-radius: 0.5rem !important;
+        font-weight: 600 !important;
+        border: 2px solid #667eea !important;
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3) !important;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.375rem;
+        transition: all 0.3s ease;
+    }
+    
+    .badge-puesto-principal:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4) !important;
+    }
+    
+    /* Badge para puestos SECUNDARIOS */
+    .badge-puesto-secundario {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%) !important;
+        color: white !important;
+        font-size: 0.75rem !important;
+        padding: 0.35rem 0.6rem !important;
+        border-radius: 0.375rem !important;
+        font-weight: 500 !important;
+        border: 1px dashed rgba(255, 255, 255, 0.5) !important;
+        box-shadow: 0 2px 8px rgba(240, 147, 251, 0.25) !important;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+        transition: all 0.3s ease;
+        opacity: 0.9;
+    }
+    
+    .badge-puesto-secundario:hover {
+        opacity: 1;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(240, 147, 251, 0.35) !important;
+    }
+    
+    /* Badge para usuario con múltiples puestos */
+    .badge-multipuesto-indicator {
+        background: linear-gradient(135deg, #06b6d4, #0891b2) !important;
+        color: white !important;
+        font-size: 0.65rem !important;
+        padding: 0.25rem 0.5rem !important;
+        border-radius: 0.25rem !important;
+        font-weight: 600 !important;
+        letter-spacing: 0.025rem;
+        animation: fadeInUp 0.5s ease;
+    }
+    
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    /* Contenedor de puestos colapsable */
+    .puestos-collapse-container {
+        max-height: 200px;
+        overflow: hidden;
+        transition: max-height 0.4s ease;
+    }
+    
+    .puestos-collapse-container.expanded {
+        max-height: 1000px;
+    }
+    
+    /* Botón ver más puestos */
+    .btn-ver-mas-puestos {
+        font-size: 0.7rem;
+        padding: 0.25rem 0.5rem;
+        background: linear-gradient(135deg, #64748b, #94a3b8);
+        border: none;
+        color: white;
+        border-radius: 0.25rem;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        margin-top: 0.5rem;
+    }
+    
+    .btn-ver-mas-puestos:hover {
+        background: linear-gradient(135deg, #475569, #64748b);
+        transform: translateX(2px);
+    }
+    
+    /* Departamento label pequeño */
+    .departamento-label {
+        font-size: 0.7rem;
+        color: #64748b;
+        font-weight: 600;
+        margin-bottom: 0.25rem;
+        display: flex;
+        align-items: center;
+        gap: 0.25rem;
+    }
+    
+    /* Mejorar el botón con indicador */
+    .btn-with-indicator {
+        position: relative;
+        overflow: visible !important;
+    }
+    
+    /* ==========================================
+     * ESTILOS PARA GESTIÓN DE MÚLTIPLES PUESTOS EN MODAL DE EDICIÓN
+     * ========================================== */
+    
+    /* Item de puesto en el panel de gestión */
+    .puesto-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0.5rem 0.75rem;
+        margin-bottom: 0.5rem;
+        background: white;
+        border: 1px solid #e5e7eb;
+        border-radius: 0.375rem;
+        transition: all 0.2s ease;
+    }
+    
+    .puesto-item:hover {
+        border-color: #cbd5e1;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+    
+    .puesto-item.principal {
+        border-color: #93c5fd;
+        background: rgba(147, 197, 253, 0.05);
+    }
+    
+    .puesto-item-content {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        flex: 1;
+    }
+    
+    .puesto-item-info {
+        display: flex;
+        flex-direction: column;
+        gap: 0.125rem;
+        flex: 1;
+    }
+    
+    .puesto-item-departamento {
+        font-size: 0.7rem;
+        color: #6b7280;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 0.25rem;
+    }
+    
+    .puesto-item-nombre {
+        font-size: 0.8rem;
+        color: #1f2937;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 0.375rem;
+    }
+    
+    .puesto-item-badge {
+        font-size: 0.65rem;
+        padding: 0.125rem 0.4rem;
+        border-radius: 0.25rem;
+        font-weight: 600;
+        background: #3b82f6;
+        color: white;
+    }
+    
+    .puesto-item-actions {
+        display: flex;
+        gap: 0.375rem;
+    }
+    
+    .btn-eliminar-puesto {
+        width: 28px;
+        height: 28px;
+        padding: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(220, 38, 38, 0.2);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(220, 38, 38, 0.4);
+        color: white;
+        border-radius: 0.25rem;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    
+    .btn-eliminar-puesto:hover {
+        background: rgba(220, 38, 38, 0.35);
+        border-color: rgba(220, 38, 38, 0.6);
+        transform: scale(1.05);
+    }
+    
+    .btn-eliminar-puesto:disabled {
+        background: #f3f4f6;
+        color: #d1d5db;
+        cursor: not-allowed;
+    }
+    
+    .btn-editar-puesto {
+        width: 28px;
+        height: 28px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #fef3c7;
+        color: #d97706;
+        border: none;
+        border-radius: 0.25rem;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        font-size: 0.8rem;
+    }
+    
+    .btn-editar-puesto:hover {
+        background: #f59e0b;
+        color: white;
+    }
+    
+    /* Panel de agregar puesto */
+    #edit_panel_agregar_puesto {
+        animation: slideDown 0.3s ease;
+    }
+    
+    /* Panel de editar puesto */
+    #edit_panel_editar_puesto {
+        animation: slideDown 0.3s ease;
+        border-width: 2px !important;
+    }
+    
+    @keyframes slideDown {
+        from {
+            opacity: 0;
+            transform: translateY(-10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    /* Scrollbar personalizado para lista de puestos */
+    #edit_lista_puestos::-webkit-scrollbar {
+        width: 8px;
+    }
+    
+    #edit_lista_puestos::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 10px;
+    }
+    
+    #edit_lista_puestos::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 10px;
+    }
+    
+    #edit_lista_puestos::-webkit-scrollbar-thumb:hover {
+        background: #94a3b8;
+    }
+    
+    /* Mensaje cuando no hay puestos */
+    .no-puestos-message {
+        text-align: center;
+        padding: 2rem;
+        color: #9ca3af;
+        font-size: 0.875rem;
+    }
+    
+    .no-puestos-message i {
+        font-size: 2rem;
+        margin-bottom: 0.5rem;
+        display: block;
+    }
         justify-content: center;
         font-size: 10px;
         color: white;
@@ -1673,23 +2001,96 @@
                         <i class="fa fa-info-circle me-2" style="font-size: 1.5rem;"></i>
                         <div>
                             <strong>Usuario con múltiples puestos</strong>
-                            <p class="mb-0 small">Este usuario tiene asignados varios puestos. A continuación se muestran todos:</p>
+                            <p class="mb-0 small">Este usuario tiene asignados varios puestos. Gestiona, agrega o elimina puestos a continuación.</p>
                         </div>
                     </div>
                 </div>
 
-                <!-- Contenedor de puestos múltiples -->
+                <!-- Contenedor de puestos múltiples - MEJORADO CON GESTIÓN COMPLETA -->
                 <div class="mb-3 d-none" id="edit_contenedor_multiples_puestos">
                     <label class="form-label fw-semibold">
-                        <i class="fa fa-layer-group me-1"></i>Puestos Asignados
+                        <i class="fa fa-layer-group me-1"></i>Gestión de Puestos Asignados
                     </label>
-                    <div id="edit_lista_puestos" class="border rounded p-3" style="background: #f8f9fa;">
-                        <!-- Los puestos se agregarán dinámicamente aquí -->
+                    
+                    <!-- Lista de puestos con opciones de gestión -->
+                    <div id="edit_lista_puestos" class="border rounded p-3 mb-2" style="background: #f8f9fa; max-height: 400px; overflow-y: auto;">
+                        <!-- Los puestos se agregarán dinámicamente aquí con este formato:
+                        <div class="puesto-item" data-puesto-id="X">
+                            <input type="radio" name="puesto_principal" />
+                            <span>Departamento - Puesto</span>
+                            <button onclick="eliminarPuesto(X)">×</button>
+                        </div>
+                        -->
                     </div>
-                    <small class="text-muted mt-1 d-block">
-                        <i class="fa fa-lightbulb me-1"></i>
-                        Para modificar puestos, usa el módulo de "Permisos" (botón amarillo con candado)
-                    </small>
+                    
+                    <!-- Botón para agregar nuevo puesto -->
+                    <div class="d-flex gap-2 align-items-center">
+                        <button type="button" class="btn btn-sm btn-outline-success" onclick="mostrarAgregarPuesto()">
+                            <i class="fa fa-plus-circle me-1"></i>Agregar Puesto
+                        </button>
+                        <small class="text-muted">
+                            <i class="fa fa-info-circle me-1"></i>
+                            El primer puesto es el principal
+                        </small>
+                    </div>
+                    
+                    <!-- Panel para agregar nuevo puesto (oculto por defecto) -->
+                    <div id="edit_panel_agregar_puesto" class="mt-3 p-3 border rounded d-none" style="background: #fff;">
+                        <h6 class="mb-3">
+                            <i class="fa fa-plus me-1"></i>Agregar Nuevo Puesto
+                        </h6>
+                        <div class="row">
+                            <div class="col-md-6 mb-2">
+                                <label class="form-label">Departamento</label>
+                                <select id="edit_nuevo_departamento" class="form-select form-select-sm" onchange="cargarPuestosParaAgregar()">
+                                    <option value="">Seleccione un departamento</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6 mb-2">
+                                <label class="form-label">Puesto</label>
+                                <select id="edit_nuevo_puesto" class="form-select form-select-sm">
+                                    <option value="">Seleccione un puesto</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="d-flex gap-2 mt-2">
+                            <button type="button" class="btn btn-sm btn-success" onclick="agregarNuevoPuesto()">
+                                <i class="fa fa-check me-1"></i>Agregar
+                            </button>
+                            <button type="button" class="btn btn-sm btn-secondary" onclick="cancelarAgregarPuesto()">
+                                <i class="fa fa-times me-1"></i>Cancelar
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Panel para editar puesto existente (oculto por defecto) -->
+                    <div id="edit_panel_editar_puesto" class="mt-3 p-3 border rounded d-none" style="background: #fffbea; border-color: #fbbf24 !important;">
+                        <h6 class="mb-3">
+                            <i class="fa fa-edit me-1"></i>Editar Puesto
+                        </h6>
+                        <div class="row">
+                            <div class="col-md-6 mb-2">
+                                <label class="form-label">Departamento</label>
+                                <select id="edit_editar_departamento" class="form-select form-select-sm" onchange="cargarPuestosParaEditar()">
+                                    <option value="">Seleccione un departamento</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6 mb-2">
+                                <label class="form-label">Puesto</label>
+                                <select id="edit_editar_puesto" class="form-select form-select-sm">
+                                    <option value="">Seleccione un puesto</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="d-flex gap-2 mt-2">
+                            <button type="button" class="btn btn-sm btn-warning" onclick="guardarEdicionPuesto()">
+                                <i class="fa fa-save me-1"></i>Guardar Cambios
+                            </button>
+                            <button type="button" class="btn btn-sm btn-secondary" onclick="cancelarEditarPuesto()">
+                                <i class="fa fa-times me-1"></i>Cancelar
+                            </button>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="mb-2">
@@ -3407,6 +3808,89 @@
 
   /**
    * ==========================================
+   * FILTRAR USUARIOS MULTIPUESTO
+   * ==========================================
+   * Función para filtrar usuarios con múltiples puestos al hacer click en el KPI
+   */
+  function filtrarMultipuestos() {
+    const selectMultiple = document.getElementById('FilterMultiplePuestos');
+    if (selectMultiple) {
+      selectMultiple.value = 'multiples';
+      aplicarFeedbackVisualFiltro(selectMultiple);
+      aplicarFiltros();
+      
+      // Scroll suave hacia la tabla
+      setTimeout(() => {
+        document.getElementById('historialUsuarios')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 300);
+      
+      // Feedback visual
+      Swal.fire({
+        icon: 'info',
+        title: 'Filtro Aplicado',
+        text: 'Mostrando solo usuarios con múltiples puestos',
+        timer: 2000,
+        showConfirmButton: false,
+        toast: true,
+        position: 'top-end'
+      });
+    }
+  }
+  
+  /**
+   * ==========================================
+   * EXPANDIR PUESTOS
+   * ==========================================
+   * Muestra todos los puestos de un usuario en un modal
+   */
+  function expandirPuestos(userId) {
+    const usuario = usuariosData.find(u => u.id === userId);
+    if (!usuario || !usuario.puestos) return;
+    
+    let puestosHTML = '<div class="d-flex flex-column gap-2">';
+    usuario.puestos.forEach((puesto, index) => {
+      const esPrincipal = index === 0;
+      const iconoPuesto = esPrincipal ? '⭐' : '📎';
+      const claseBadge = esPrincipal ? 'badge-puesto-principal' : 'badge-puesto-secundario';
+      
+      puestosHTML += `
+        <div class="d-flex flex-column" style="gap: 0.25rem;">
+          <small class="departamento-label">
+            <i class="fa fa-building"></i>${puesto.nombre_departamento}
+          </small>
+          <span class="badge ${claseBadge}" style="width: 100%;">
+            <span style="font-size: 0.9rem;">${iconoPuesto}</span>
+            <i class="fa fa-briefcase"></i>
+            ${puesto.nombre_puesto}
+            ${esPrincipal ? '<small class="ms-1" style="opacity: 0.8;">(Principal)</small>' : ''}
+          </span>
+        </div>
+      `;
+    });
+    puestosHTML += '</div>';
+    
+    const nombreCompleto = [usuario.nombres, usuario.segundo_nombre, usuario.apellidop, usuario.apellidom].filter(x => x).join(' ');
+    
+    Swal.fire({
+      title: `<i class="fa fa-layer-group me-2"></i>${usuario.puestos.length} Puestos Asignados`,
+      html: `
+        <div class="text-start">
+          <p class="mb-3"><strong><i class="fa fa-user me-2"></i>${nombreCompleto}</strong></p>
+          <hr>
+          ${puestosHTML}
+        </div>
+      `,
+      width: '600px',
+      showCloseButton: true,
+      showConfirmButton: false,
+      customClass: {
+        popup: 'swal-wide'
+      }
+    });
+  }
+
+  /**
+   * ==========================================
    * ACTUALIZAR PUESTOS SEGÚN DEPARTAMENTO
    * ==========================================
    * Cuando el usuario selecciona un departamento,
@@ -3542,6 +4026,18 @@
 
     console.log('Resultados filtrados:', datosFiltrados.length, 'registros de', usuariosData.length);
 
+    // Actualizar contadores en el filtro de múltiples puestos
+    const usuariosMultiples = usuariosData.filter(u => u.puestos && u.puestos.length > 1).length;
+    const usuariosUnicos = usuariosData.length - usuariosMultiples;
+    
+    // Actualizar el texto del select con los contadores
+    const selectMultiple = document.getElementById('FilterMultiplePuestos');
+    if (selectMultiple) {
+      const options = selectMultiple.querySelectorAll('option');
+      if (options[1]) options[1].textContent = `Múltiples puestos (${usuariosMultiples})`;
+      if (options[2]) options[2].textContent = `Único puesto (${usuariosUnicos})`;
+    }
+
     // Actualizar indicadores con datos filtrados
     actualizarIndicadores(datosFiltrados);
 
@@ -3563,30 +4059,53 @@
       return;
     }
 
-    // Mapear datos con soporte para múltiples puestos
+    // Mapear datos con soporte para múltiples puestos - VISUALIZACIÓN MEJORADA
     const datosFormateados = datos.map(p => {
       const nombreCompleto = [p.nombres, p.segundo_nombre, p.apellidop, p.apellidom].filter(x => x).join(' ');
       const tienePuestos = p.puestos && p.puestos.length > 1;
       
-      // Generar badges para múltiples puestos con departamentos visibles
+      // Generar badges para múltiples puestos con JERARQUÍA VISUAL
       let puestosHTML = '';
       if (tienePuestos) {
+        const totalPuestos = p.puestos.length;
+        const mostrarDirecto = totalPuestos <= 3;
+        const puestosVisible = mostrarDirecto ? p.puestos : p.puestos.slice(0, 2);
+        
         puestosHTML = '<div class="d-flex flex-column gap-2">';
-        p.puestos.forEach((puesto, index) => {
+        
+        puestosVisible.forEach((puesto, index) => {
+          const esPrincipal = index === 0; // El primer puesto es el principal
           const colorBadge = obtenerColorDepartamento(puesto.nombre_departamento);
+          const iconoPuesto = esPrincipal ? '⭐' : '📎';
+          const claseBadge = esPrincipal ? 'badge-puesto-principal' : 'badge-puesto-secundario';
+          
           puestosHTML += `
             <div class="d-flex flex-column" style="gap: 0.25rem;">
-              <small class="text-muted fw-semibold" style="font-size: 0.7rem;">
-                <i class="fa fa-building me-1"></i>${puesto.nombre_departamento}
+              <small class="departamento-label">
+                <i class="fa fa-building"></i>${puesto.nombre_departamento}
               </small>
-              <span class="badge badge-puesto-multiple" 
-                    style="background: ${colorBadge}; font-size: 0.75rem; width: fit-content;" 
-                    title="${puesto.nombre_puesto}">
-                <i class="fa fa-briefcase me-1"></i>${puesto.nombre_puesto}
+              <span class="badge ${claseBadge}" 
+                    title="${esPrincipal ? 'Puesto Principal' : 'Puesto Secundario'}: ${puesto.nombre_puesto}">
+                <span style="font-size: 0.9rem;">${iconoPuesto}</span>
+                <i class="fa fa-briefcase"></i>
+                ${puesto.nombre_puesto}
+                ${esPrincipal ? '<small class="ms-1" style="opacity: 0.8;">(Principal)</small>' : ''}
               </span>
             </div>
           `;
         });
+        
+        // Botón "ver más" si hay más de 3 puestos
+        if (!mostrarDirecto) {
+          const puestosRestantes = totalPuestos - 2;
+          puestosHTML += `
+            <button class="btn-ver-mas-puestos" onclick="expandirPuestos(${p.id})" 
+                    title="Ver ${puestosRestantes} puesto(s) más">
+              <i class="fa fa-plus-circle me-1"></i>Ver ${puestosRestantes} más
+            </button>
+          `;
+        }
+        
         puestosHTML += '</div>';
       } else {
         // Un solo puesto, mostrar formato tradicional
@@ -3614,7 +4133,7 @@
               <i class="fa fa-key"></i>
               ${p.usuario}
           </small>
-          ${tienePuestos ? '<span class="badge bg-info mt-1" style="font-size: 0.65rem;"><i class="fa fa-layer-group me-1"></i>Múltiples puestos</span>' : ''}
+          ${tienePuestos ? `<span class="badge badge-multipuesto-indicator mt-1"><i class="fa fa-layer-group me-1"></i>${p.puestos.length} Puestos Asignados</span>` : ''}
         `.trim(),
         departamento: `
           ${puestosHTML}
@@ -3626,8 +4145,8 @@
         estatus: p.estatus,
         acciones: `
          <div class="d-flex flex-wrap gap-1" style="min-width: fit-content;">
-             <button class="btn btn-sm btn-primary ${tienePuestos ? 'btn-with-indicator' : ''}" onclick="editar(${p.id})" title="${tienePuestos ? 'Editar (Múltiples puestos)' : 'Editar'}">
-                 ${tienePuestos ? '<span class="indicator-multiples-puestos">' + p.puestos.length + '</span>' : ''}
+             <button class="btn btn-sm btn-primary ${tienePuestos ? 'btn-with-indicator' : ''}" onclick="editar(${p.id})" title="${tienePuestos ? 'Editar usuario con ' + p.puestos.length + ' puestos asignados' : 'Editar usuario'}">
+                 ${tienePuestos ? '<span class="indicator-multiples-puestos" title="' + p.puestos.length + ' puestos">' + p.puestos.length + '</span>' : ''}
                  <i class="fa fa-edit"></i>
              </button>
              <button class="btn btn-sm btn-info" onclick="cargarDocumentoPersona(this)" data-id-persona="${p.id}" data-nombre="${nombreCompleto.replace(/"/g, '&quot;')}" title="Cargar documento">
@@ -3924,6 +4443,616 @@
       }
     }, 500);
   });
+
+  /**
+   * ==========================================
+   * GESTIÓN DE MÚLTIPLES PUESTOS - FUNCIONES
+   * ==========================================
+   */
+  
+  // Variable global para almacenar los puestos del usuario actual
+  let puestosUsuarioActual = [];
+  let usuarioEditandoId = null;
+  let todosLosDepartamentos = [];
+  let todosLosPuestos = [];
+  
+  /**
+   * Cargar puestos del usuario en el panel de edición
+   */
+  function cargarPuestosUsuario(usuarioId) {
+    usuarioEditandoId = usuarioId;
+    const usuario = usuariosData.find(u => u.id === usuarioId);
+    
+    if (!usuario) return;
+    
+    // Si el usuario tiene múltiples puestos
+    if (usuario.puestos && usuario.puestos.length > 1) {
+      puestosUsuarioActual = JSON.parse(JSON.stringify(usuario.puestos)); // Copia profunda
+      mostrarAlertaMultiplesPuestos(true);
+      mostrarContenedorPuestos(true);
+      renderizarListaPuestos();
+    } else {
+      // Usuario con un solo puesto
+      puestosUsuarioActual = usuario.puestos ? JSON.parse(JSON.stringify(usuario.puestos)) : [{
+        id_puesto: usuario.id_puesto,
+        nombre_puesto: usuario.nombre_puesto,
+        nombre_departamento: usuario.nombre_departamento,
+        id_departamento: usuario.id_departamento
+      }];
+      mostrarAlertaMultiplesPuestos(false);
+      mostrarContenedorPuestos(false);
+    }
+  }
+  
+  /**
+   * Mostrar/ocultar alerta de múltiples puestos
+   */
+  function mostrarAlertaMultiplesPuestos(mostrar) {
+    const alerta = document.getElementById('edit_alerta_multiples_puestos');
+    if (alerta) {
+      if (mostrar) {
+        alerta.classList.remove('d-none');
+      } else {
+        alerta.classList.add('d-none');
+      }
+    }
+  }
+  
+  /**
+   * Mostrar/ocultar contenedor de gestión de puestos
+   */
+  function mostrarContenedorPuestos(mostrar) {
+    const contenedor = document.getElementById('edit_contenedor_multiples_puestos');
+    if (contenedor) {
+      if (mostrar) {
+        contenedor.classList.remove('d-none');
+      } else {
+        contenedor.classList.add('d-none');
+      }
+    }
+  }
+  
+  /**
+   * Renderizar la lista de puestos con opciones de gestión
+   */
+  function renderizarListaPuestos() {
+    const listaPuestos = document.getElementById('edit_lista_puestos');
+    if (!listaPuestos) return;
+    
+    listaPuestos.innerHTML = '';
+    
+    if (puestosUsuarioActual.length === 0) {
+      listaPuestos.innerHTML = `
+        <div class="no-puestos-message">
+          <i class="fa fa-inbox"></i>
+          <p class="mb-0">No hay puestos asignados</p>
+        </div>
+      `;
+      return;
+    }
+    
+    puestosUsuarioActual.forEach((puesto, index) => {
+      const esPrincipal = index === 0;
+      const puedeEliminar = puestosUsuarioActual.length > 1;
+      
+      const puestoItem = document.createElement('div');
+      puestoItem.className = 'puesto-item mb-2';
+      puestoItem.dataset.puestoIndex = index;
+      
+      puestoItem.innerHTML = `
+        <div class="d-flex align-items-center justify-content-between">
+          <div class="flex-grow-1">
+            <span class="puesto-item-badge">
+              ${esPrincipal ? '<i class="fa fa-star"></i>' : ''}
+              ${puesto.nombre_puesto}
+            </span>
+            <div class="mt-1">
+              <small style="opacity: 0.9;">${puesto.nombre_departamento}</small>
+            </div>
+          </div>
+          <div class="d-flex gap-1">
+            <button type="button" class="btn-editar-puesto" onclick="editarPuesto(${index})" title="Editar puesto">
+              <i class="fa fa-pencil"></i>
+            </button>
+            <button type="button" class="btn-eliminar-puesto" onclick="confirmarEliminarPuesto(${index})" ${!puedeEliminar ? 'disabled' : ''} title="${puedeEliminar ? 'Eliminar puesto' : 'No puedes eliminar el último puesto'}">
+              <i class="fa fa-trash"></i>
+            </button>
+          </div>
+        </div>
+      `;
+      
+      listaPuestos.appendChild(puestoItem);
+    });
+  }
+  
+  /**
+   * Editar un puesto existente
+   */
+  function editarPuesto(index) {
+    const puesto = puestosUsuarioActual[index];
+    if (!puesto) return;
+    
+    // Guardar el índice que estamos editando
+    window.puestoEditandoIndex = index;
+    
+    // Abrir panel de edición
+    const panel = document.getElementById('edit_panel_editar_puesto');
+    if (!panel) return;
+    
+    panel.classList.remove('d-none');
+    
+    // Cargar datos actuales
+    cargarDepartamentosParaEditar();
+    
+    // Esperar a que se carguen los departamentos y luego seleccionar
+    setTimeout(() => {
+      const selectDept = document.getElementById('edit_editar_departamento');
+      if (selectDept) {
+        // Buscar el option por el nombre del departamento
+        for (let i = 0; i < selectDept.options.length; i++) {
+          if (selectDept.options[i].dataset.nombre === puesto.nombre_departamento) {
+            selectDept.value = selectDept.options[i].value;
+            break;
+          }
+        }
+        
+        // Cargar puestos del departamento
+        cargarPuestosParaEditar();
+        
+        // Esperar y seleccionar el puesto
+        setTimeout(() => {
+          const selectPuesto = document.getElementById('edit_editar_puesto');
+          if (selectPuesto) {
+            selectPuesto.value = puesto.id_puesto;
+          }
+        }, 300);
+      }
+    }, 300);
+  }
+  
+  /**
+   * Confirmar eliminación de puesto
+   */
+  function confirmarEliminarPuesto(index) {
+    const puesto = puestosUsuarioActual[index];
+    const esPrincipal = index === 0;
+    
+    Swal.fire({
+      title: '¿Eliminar este puesto?',
+      html: `
+        <div class="text-start">
+          <p><strong>Departamento:</strong> ${puesto.nombre_departamento}</p>
+          <p><strong>Puesto:</strong> ${puesto.nombre_puesto}</p>
+          ${esPrincipal ? '<p class="text-danger mt-3"><i class="fa fa-exclamation-triangle me-1"></i><strong>Este es el puesto principal.</strong> Al eliminarlo, el siguiente puesto se convertirá en principal.</p>' : ''}
+        </div>
+      `,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#dc2626',
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: 'Sí, eliminar',
+      cancelButtonText: 'Cancelar'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        eliminarPuesto(index);
+      }
+    });
+  }
+  
+  /**
+   * Eliminar puesto
+   */
+  function eliminarPuesto(index) {
+    const puestoEliminado = puestosUsuarioActual.splice(index, 1)[0];
+    
+    // Si queda solo un puesto, ocultar el panel de gestión
+    if (puestosUsuarioActual.length === 1) {
+      mostrarAlertaMultiplesPuestos(false);
+      mostrarContenedorPuestos(false);
+    } else {
+      renderizarListaPuestos();
+    }
+    
+    Swal.fire({
+      icon: 'success',
+      title: 'Puesto Eliminado',
+      text: `"${puestoEliminado.nombre_puesto}" ha sido eliminado`,
+      timer: 2000,
+      showConfirmButton: false,
+      toast: true,
+      position: 'top-end'
+    });
+  }
+  
+  /**
+   * Mostrar panel para agregar nuevo puesto
+   */
+  function mostrarAgregarPuesto() {
+    const panel = document.getElementById('edit_panel_agregar_puesto');
+    if (!panel) return;
+    
+    panel.classList.remove('d-none');
+    cargarDepartamentosParaAgregar();
+    
+    // Limpiar selects
+    document.getElementById('edit_nuevo_departamento').value = '';
+    document.getElementById('edit_nuevo_puesto').value = '';
+  }
+  
+  /**
+   * Cancelar agregar puesto
+   */
+  function cancelarAgregarPuesto() {
+    const panel = document.getElementById('edit_panel_agregar_puesto');
+    if (!panel) return;
+    
+    panel.classList.add('d-none');
+    
+    // Limpiar selects
+    document.getElementById('edit_nuevo_departamento').value = '';
+    document.getElementById('edit_nuevo_puesto').value = '';
+    document.getElementById('edit_nuevo_jefe').value = '';
+  }
+  
+  /**
+   * Cancelar editar puesto
+   */
+  function cancelarEditarPuesto() {
+    const panel = document.getElementById('edit_panel_editar_puesto');
+    if (!panel) return;
+    
+    panel.classList.add('d-none');
+    
+    // Limpiar selects
+    document.getElementById('edit_editar_departamento').value = '';
+    document.getElementById('edit_editar_puesto').value = '';
+    document.getElementById('edit_editar_jefe').value = '';
+    window.puestoEditandoIndex = null;
+  }
+  
+  /**
+   * Cargar departamentos en el select para agregar puesto
+   */
+  function cargarDepartamentosParaAgregar() {
+    const select = document.getElementById('edit_nuevo_departamento');
+    if (!select) return;
+    
+    // Limpiar opciones excepto la primera
+    select.innerHTML = '<option value="">Seleccione un departamento</option>';
+    
+    // Obtener departamentos únicos de usuariosData
+    const departamentos = new Set();
+    usuariosData.forEach(u => {
+      if (u.nombre_departamento && u.nombre_departamento !== 'Sin departamento') {
+        departamentos.add(JSON.stringify({
+          id: u.id_departamento,
+          nombre: u.nombre_departamento
+        }));
+      }
+    });
+    
+    // Agregar opciones
+    Array.from(departamentos).forEach(deptStr => {
+      const dept = JSON.parse(deptStr);
+      const option = document.createElement('option');
+      option.value = dept.id;
+      option.textContent = dept.nombre;
+      option.dataset.nombre = dept.nombre;
+      select.appendChild(option);
+    });
+  }
+  
+  /**
+   * Cargar puestos según departamento seleccionado
+   */
+  function cargarPuestosParaAgregar() {
+    const selectDept = document.getElementById('edit_nuevo_departamento');
+    const selectPuesto = document.getElementById('edit_nuevo_puesto');
+    
+    if (!selectDept || !selectPuesto) return;
+    
+    const departamentoId = selectDept.value;
+    const departamentoNombre = selectDept.options[selectDept.selectedIndex]?.dataset.nombre;
+    
+    // Limpiar select de puestos
+    selectPuesto.innerHTML = '<option value="">Seleccione un puesto</option>';
+    
+    if (!departamentoId) return;
+    
+    // Obtener puestos del departamento seleccionado
+    const puestos = new Set();
+    usuariosData.forEach(u => {
+      if (u.nombre_departamento === departamentoNombre && u.nombre_puesto && u.nombre_puesto !== 'Sin puesto') {
+        puestos.add(JSON.stringify({
+          id: u.id_puesto,
+          nombre: u.nombre_puesto
+        }));
+      }
+    });
+    
+    // Agregar opciones
+    Array.from(puestos).forEach(puestoStr => {
+      const puesto = JSON.parse(puestoStr);
+      const option = document.createElement('option');
+      option.value = puesto.id;
+      option.textContent = puesto.nombre;
+      selectPuesto.appendChild(option);
+    });
+  }
+  
+  /**
+   * Cargar jefes según departamento seleccionado para agregar
+   */
+  function cargarJefesParaAgregar() {
+    const selectDept = document.getElementById('edit_nuevo_departamento');
+    const selectJefe = document.getElementById('edit_nuevo_jefe');
+    
+    if (!selectDept || !selectJefe) return;
+    
+    const departamentoId = selectDept.value;
+    const departamentoNombre = selectDept.options[selectDept.selectedIndex]?.dataset.nombre;
+    
+    // Limpiar select de jefes
+    selectJefe.innerHTML = '<option value="">Seleccione un jefe</option>';
+    
+    if (!departamentoId) return;
+    
+    // Obtener jefes del mismo departamento
+    const jefes = [];
+    usuariosData.forEach(u => {
+      if (u.nombre_departamento === departamentoNombre && u.id !== usuarioEditandoId) {
+        jefes.push({
+          id: u.id,
+          nombre: `${u.nombres} ${u.apellidop || ''} ${u.apellidom || ''}`.trim()
+        });
+      }
+    });
+    
+    // Ordenar por nombre
+    jefes.sort((a, b) => a.nombre.localeCompare(b.nombre));
+    
+    // Agregar opciones
+    jefes.forEach(jefe => {
+      const option = document.createElement('option');
+      option.value = jefe.id;
+      option.textContent = jefe.nombre;
+      selectJefe.appendChild(option);
+    });
+  }
+  
+  /**
+   * Cargar departamentos para editar puesto
+   */
+  function cargarDepartamentosParaEditar() {
+    const select = document.getElementById('edit_editar_departamento');
+    if (!select) return;
+    
+    // Limpiar opciones excepto la primera
+    select.innerHTML = '<option value="">Seleccione un departamento</option>';
+    
+    // Obtener departamentos únicos
+    const departamentos = new Set();
+    usuariosData.forEach(u => {
+      if (u.nombre_departamento && u.nombre_departamento !== 'Sin departamento') {
+        departamentos.add(JSON.stringify({
+          id: u.id_departamento,
+          nombre: u.nombre_departamento
+        }));
+      }
+    });
+    
+    // Agregar opciones
+    Array.from(departamentos).forEach(deptStr => {
+      const dept = JSON.parse(deptStr);
+      const option = document.createElement('option');
+      option.value = dept.id;
+      option.textContent = dept.nombre;
+      option.dataset.nombre = dept.nombre;
+      select.appendChild(option);
+    });
+  }
+  
+  /**
+   * Cargar puestos para editar según departamento
+   */
+  function cargarPuestosParaEditar() {
+    const selectDept = document.getElementById('edit_editar_departamento');
+    const selectPuesto = document.getElementById('edit_editar_puesto');
+    
+    if (!selectDept || !selectPuesto) return;
+    
+    const departamentoId = selectDept.value;
+    const departamentoNombre = selectDept.options[selectDept.selectedIndex]?.dataset.nombre;
+    
+    // Limpiar select de puestos
+    selectPuesto.innerHTML = '<option value="">Seleccione un puesto</option>';
+    
+    if (!departamentoId) return;
+    
+    // Obtener puestos del departamento seleccionado
+    const puestos = new Set();
+    usuariosData.forEach(u => {
+      if (u.nombre_departamento === departamentoNombre && u.nombre_puesto && u.nombre_puesto !== 'Sin puesto') {
+        puestos.add(JSON.stringify({
+          id: u.id_puesto,
+          nombre: u.nombre_puesto
+        }));
+      }
+    });
+    
+    // Agregar opciones
+    Array.from(puestos).forEach(puestoStr => {
+      const puesto = JSON.parse(puestoStr);
+      const option = document.createElement('option');
+      option.value = puesto.id;
+      option.textContent = puesto.nombre;
+      selectPuesto.appendChild(option);
+    });
+  }
+  
+  /**
+   * Cargar jefes para editar según departamento
+   */
+  function cargarJefesParaEditar() {
+    const selectDept = document.getElementById('edit_editar_departamento');
+    const selectJefe = document.getElementById('edit_editar_jefe');
+    
+    if (!selectDept || !selectJefe) return;
+    
+    const departamentoId = selectDept.value;
+    const departamentoNombre = selectDept.options[selectDept.selectedIndex]?.dataset.nombre;
+    
+    // Limpiar select de jefes
+    selectJefe.innerHTML = '<option value="">Seleccione un jefe</option>';
+    
+    if (!departamentoId) return;
+    
+    // Obtener jefes del mismo departamento
+    const jefes = [];
+    usuariosData.forEach(u => {
+      if (u.nombre_departamento === departamentoNombre && u.id !== usuarioEditandoId) {
+        jefes.push({
+          id: u.id,
+          nombre: `${u.nombres} ${u.apellidop || ''} ${u.apellidom || ''}`.trim()
+        });
+      }
+    });
+    
+    // Ordenar por nombre
+    jefes.sort((a, b) => a.nombre.localeCompare(b.nombre));
+    
+    // Agregar opciones
+    jefes.forEach(jefe => {
+      const option = document.createElement('option');
+      option.value = jefe.id;
+      option.textContent = jefe.nombre;
+      selectJefe.appendChild(option);
+    });
+  }
+  
+  /**
+   * Guardar cambios de edición de puesto
+   */
+  function guardarEdicionPuesto() {
+    const index = window.puestoEditandoIndex;
+    if (index === null || index === undefined) return;
+    
+    const selectDept = document.getElementById('edit_editar_departamento');
+    const selectPuesto = document.getElementById('edit_editar_puesto');
+    
+    if (!selectDept || !selectPuesto) return;
+    
+    const departamentoId = selectDept.value;
+    const departamentoNombre = selectDept.options[selectDept.selectedIndex]?.dataset.nombre;
+    const puestoId = selectPuesto.value;
+    const puestoNombre = selectPuesto.options[selectPuesto.selectedIndex]?.text;
+    
+    // Validar
+    if (!departamentoId || !puestoId) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Campos Incompletos',
+        text: 'Selecciona un departamento y un puesto',
+        confirmButtonColor: '#6366f1'
+      });
+      return;
+    }
+    
+    // Verificar si ya existe otro puesto con los mismos datos (excepto el que estamos editando)
+    const yaExiste = puestosUsuarioActual.some((p, i) => 
+      i !== index && p.id_puesto == puestoId && p.id_departamento == departamentoId
+    );
+    
+    if (yaExiste) {
+      Swal.fire({
+        icon: 'info',
+        title: 'Puesto Ya Asignado',
+        text: 'Este puesto ya está asignado al usuario',
+        confirmButtonColor: '#6366f1'
+      });
+      return;
+    }
+    
+    // Actualizar el puesto
+    puestosUsuarioActual[index] = {
+      id_puesto: puestoId,
+      nombre_puesto: puestoNombre,
+      nombre_departamento: departamentoNombre,
+      id_departamento: departamentoId
+    };
+    
+    // Re-renderizar
+    renderizarListaPuestos();
+    cancelarEditarPuesto();
+  }
+  
+  /**
+   * Agregar nuevo puesto a la lista
+   */
+  function agregarNuevoPuesto() {
+    const selectDept = document.getElementById('edit_nuevo_departamento');
+    const selectPuesto = document.getElementById('edit_nuevo_puesto');
+    
+    if (!selectDept || !selectPuesto) return;
+    
+    const departamentoId = selectDept.value;
+    const departamentoNombre = selectDept.options[selectDept.selectedIndex]?.dataset.nombre;
+    const puestoId = selectPuesto.value;
+    const puestoNombre = selectPuesto.options[selectPuesto.selectedIndex]?.text;
+    
+    // Validar
+    if (!departamentoId || !puestoId) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Campos Incompletos',
+        text: 'Selecciona un departamento y un puesto',
+        confirmButtonColor: '#6366f1'
+      });
+      return;
+    }
+    
+    // Verificar si ya existe
+    const yaExiste = puestosUsuarioActual.some(p => 
+      p.id_puesto == puestoId && p.id_departamento == departamentoId
+    );
+    
+    if (yaExiste) {
+      Swal.fire({
+        icon: 'info',
+        title: 'Puesto Ya Asignado',
+        text: 'Este puesto ya está asignado al usuario',
+        confirmButtonColor: '#6366f1'
+      });
+      return;
+    }
+    
+    // Agregar nuevo puesto
+    const nuevoPuesto = {
+      id_puesto: puestoId,
+      nombre_puesto: puestoNombre,
+      nombre_departamento: departamentoNombre,
+      id_departamento: departamentoId
+    };
+    
+    puestosUsuarioActual.push(nuevoPuesto);
+    
+    // Si ahora tiene más de 1 puesto, mostrar panel
+    if (puestosUsuarioActual.length > 1) {
+      mostrarAlertaMultiplesPuestos(true);
+      mostrarContenedorPuestos(true);
+    }
+    
+    // Re-renderizar
+    renderizarListaPuestos();
+    cancelarAgregarPuesto();
+  }
+  
+  /**
+   * Obtener los puestos actuales para guardar
+   */
+  function obtenerPuestosParaGuardar() {
+    return puestosUsuarioActual;
+  }
 
   /**
    * ==========================================

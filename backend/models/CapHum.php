@@ -1394,25 +1394,43 @@ class CapHum extends Model
             ");
             }
 
-            // 3️⃣ ASIGNA PUESTO (si existe UPDATE, si no INSERT)
-            $existePuesto = $db->queryOne("
-            SELECT id 
-            FROM asigna_puesto 
-            WHERE id_persona = $id_persona
-            LIMIT 1
-        ");
-
-            if ($existePuesto) {
-                $db->queryOne("
-                UPDATE asigna_puesto
-                SET id_puesto = $id_puesto
-                WHERE id_persona = $id_persona
-            ");
+            // 3️⃣ ASIGNA PUESTO(S) - Manejo de múltiples puestos
+            // Si viene el array puestos_adicionales, usamos ese; si no, usamos el puesto_id tradicional
+            $puestosAdicionales = $data['puestos_adicionales'] ?? null;
+            
+            if ($puestosAdicionales && is_array($puestosAdicionales) && count($puestosAdicionales) > 0) {
+                // Eliminar todos los puestos actuales
+                $db->queryOne("DELETE FROM asigna_puesto WHERE id_persona = $id_persona");
+                
+                // Insertar cada puesto del array
+                foreach ($puestosAdicionales as $puesto) {
+                    $puestoId = (int)$puesto['id_puesto'];
+                    $db->queryOne("
+                        INSERT INTO asigna_puesto (id_persona, id_puesto)
+                        VALUES ($id_persona, $puestoId)
+                    ");
+                }
             } else {
-                $db->queryOne("
-                INSERT INTO asigna_puesto (id_persona, id_puesto)
-                VALUES ($id_persona, $id_puesto)
-            ");
+                // Comportamiento tradicional (un solo puesto)
+                $existePuesto = $db->queryOne("
+                    SELECT id 
+                    FROM asigna_puesto 
+                    WHERE id_persona = $id_persona
+                    LIMIT 1
+                ");
+
+                if ($existePuesto) {
+                    $db->queryOne("
+                        UPDATE asigna_puesto
+                        SET id_puesto = $id_puesto
+                        WHERE id_persona = $id_persona
+                    ");
+                } else {
+                    $db->queryOne("
+                        INSERT INTO asigna_puesto (id_persona, id_puesto)
+                        VALUES ($id_persona, $id_puesto)
+                    ");
+                }
             }
 
             // 4️⃣ ASIGNA LEGIÓN

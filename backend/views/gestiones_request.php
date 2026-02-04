@@ -58,6 +58,8 @@
                         <th>Teléfono</th>
                         <th>Cuenta CLABE</th>
                         <th>Pago Semanal</th>
+                        <th>Pagos Vencidos</th>
+                        <th>Deuda Total</th>
                     </tr>
                     </thead>
                     <tbody>
@@ -68,6 +70,8 @@
                         <td><?= $r["telefono_celular"] ?></td>
                         <td><?= $r["cuenta_clabe"] ?></td>
                         <td><?= $r["pago_semanal"] ?></td>
+                        <td><?= $r["pagos_vencidos"] ?></td>
+                        <td>$<?= number_format($r["deuda_total"], 2) ?></td>
                     </tr>
                     </tbody>
                 </table>
@@ -169,6 +173,27 @@
 
                                 <?php endif; ?>
 
+
+                                <!-- DIRECCIONES -->
+                                <?php if ($g["direccion"] || $g["direccion_actual"]): ?>
+                                    <h6 class="fw-bold">Direcciones</h6>
+                                    <div class="table-responsive mb-4">
+                                        <table class="table table-bordered table-striped">
+                                            <thead class="table-light">
+                                            <tr>
+                                                <?php if ($g["direccion"]): ?><th>Dirección Principal</th><?php endif; ?>
+                                                <?php if ($g["direccion_actual"]): ?><th>Dirección Actual</th><?php endif; ?>
+                                            </tr>
+                                            </thead>
+                                            <tbody>
+                                            <tr>
+                                                <?php if ($g["direccion"]): ?><td><?= $g["direccion"] ?></td><?php endif; ?>
+                                                <?php if ($g["direccion_actual"]): ?><td><?= $g["direccion_actual"] ?></td><?php endif; ?>
+                                            </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                <?php endif; ?>
 
                                 <!-- PROMESAS -->
                                 <h6 class="fw-bold">Promesas y comentarios</h6>
