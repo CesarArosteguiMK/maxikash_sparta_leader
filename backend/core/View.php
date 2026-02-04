@@ -102,6 +102,16 @@ function getMenu()
                             ]
                     ]
             ],
+            'Despachos' => [
+                    'icono' => 'fa-solid fa-building-columns',
+                    'subItems' => [
+                            [
+                                    'label' => 'Asignación de Créditos',
+                                    'url' => '/Despachos/AsignacionCreditosDespacho',
+                                    'modulos' => [20]
+                            ]
+                    ]
+            ],
             'Configuración' => [
                     'icono' => 'fa-solid fa-cog',
                     'subItems' => [
