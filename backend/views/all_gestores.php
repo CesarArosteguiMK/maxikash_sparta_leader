@@ -4536,7 +4536,7 @@
       puestoItem.dataset.puestoIndex = index;
       
       puestoItem.innerHTML = `
-        <div class="d-flex align-items-center justify-content-between">
+        <div class="d-flex align-items-center justify-content-between w-100">
           <div class="flex-grow-1">
             <span class="puesto-item-badge">
               ${esPrincipal ? '<i class="fa fa-star"></i>' : ''}
@@ -4546,7 +4546,7 @@
               <small style="opacity: 0.9;">${puesto.nombre_departamento}</small>
             </div>
           </div>
-          <div class="d-flex gap-1">
+          <div class="d-flex gap-1 ms-auto" style="margin-left: 1rem;">
             <button type="button" class="btn-editar-puesto" onclick="editarPuesto(${index})" title="Editar puesto">
               <i class="fa fa-pencil"></i>
             </button>
