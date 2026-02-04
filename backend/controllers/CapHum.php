@@ -1879,6 +1879,7 @@ class CapHum extends Controller
                 let puestosAdicionales = [];
                 if (typeof obtenerPuestosParaGuardar === 'function') {
                     puestosAdicionales = obtenerPuestosParaGuardar();
+                    console.log('🔍 CONTROLLER - puestosAdicionales obtenidos:', puestosAdicionales);
                 }
             
                 // 🔹 Payload
@@ -1898,6 +1899,8 @@ class CapHum extends Controller
                     contrasena: document.getElementById("edit_contrasena").value,
                     puestos_adicionales: puestosAdicionales  // 🆕 Incluir múltiples puestos
                 };
+                
+                console.log('📤 CONTROLLER - Payload completo a enviar:', payload);
             
                 fetch('/CapHum/updateGestorF', {
                     method: 'POST',
@@ -4556,6 +4559,8 @@ class CapHum extends Controller
                 'apellidom' => $p['apellidom'] ?? '',
                 'nombre_departamento' => $p['nombre_departamento'] ?? '',
                 'nombre_puesto' => $p['nombre_puesto'] ?? '',
+                'id_puesto' => $p['id_puesto'] ?? null,  // 🔧 FIX: Agregar ID del puesto
+                'id_departamento' => $p['id_departamento'] ?? null,  // 🔧 FIX: Agregar ID del departamento
                 'estatus' => $p['estatus'] ?? '',
                 'usuario' => $p['usuario'] ?? '',
             ];

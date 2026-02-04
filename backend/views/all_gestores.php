@@ -2778,7 +2778,7 @@
         `;
       
       case 'total':
-        const departamentoActual = document.getElementById('filtroDepartamento').value;
+        const departamentoActual = document.getElementById('UserRole')?.value || '';
         return `
           <div class="kpi-tooltip-title">👥 Total Empleados</div>
           <div class="kpi-tooltip-item">
@@ -3153,7 +3153,7 @@
   }
 
   function generarModalPuestoEspecifico(datos) {
-    const puestoSeleccionado = document.getElementById('filtroPuesto').value;
+    const puestoSeleccionado = document.getElementById('UserPlan')?.value || '';
     const empleadosPuesto = datos.filter(u => u.nombre_puesto === puestoSeleccionado);
     
     let html = `
@@ -3623,6 +3623,9 @@
   function consolidarUsuarios(usuarios) {
     const usuariosMap = new Map();
     
+    // 🔍 DEBUG: Ver una muestra de los datos crudos que llegan
+    console.log('🔍 [consolidarUsuarios] Muestra de datos RAW (primeros 3):', usuarios.slice(0, 3));
+    
     usuarios.forEach(usuario => {
       const id = usuario.id;
       
@@ -3823,17 +3826,6 @@
       setTimeout(() => {
         document.getElementById('historialUsuarios')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }, 300);
-      
-      // Feedback visual
-      Swal.fire({
-        icon: 'info',
-        title: 'Filtro Aplicado',
-        text: 'Mostrando solo usuarios con múltiples puestos',
-        timer: 2000,
-        showConfirmButton: false,
-        toast: true,
-        position: 'top-end'
-      });
     }
   }
   
@@ -4463,6 +4455,10 @@
     usuarioEditandoId = usuarioId;
     const usuario = usuariosData.find(u => u.id === usuarioId);
     
+    // 🔍 DEBUG: Ver estructura del usuario antes de cargar puestos
+    console.log('🔍 [cargarPuestosUsuario] Usuario encontrado:', usuario);
+    console.log('🔍 [cargarPuestosUsuario] Puestos del usuario:', usuario?.puestos);
+    
     if (!usuario) return;
     
     // Si el usuario tiene múltiples puestos
@@ -4652,16 +4648,6 @@
     } else {
       renderizarListaPuestos();
     }
-    
-    Swal.fire({
-      icon: 'success',
-      title: 'Puesto Eliminado',
-      text: `"${puestoEliminado.nombre_puesto}" ha sido eliminado`,
-      timer: 2000,
-      showConfirmButton: false,
-      toast: true,
-      position: 'top-end'
-    });
   }
   
   /**
@@ -4720,14 +4706,27 @@
     // Limpiar opciones excepto la primera
     select.innerHTML = '<option value="">Seleccione un departamento</option>';
     
-    // Obtener departamentos únicos de usuariosData
+    // 🔧 FIX: Obtener departamentos únicos desde el array puestos[]
     const departamentos = new Set();
     usuariosData.forEach(u => {
-      if (u.nombre_departamento && u.nombre_departamento !== 'Sin departamento') {
-        departamentos.add(JSON.stringify({
-          id: u.id_departamento,
-          nombre: u.nombre_departamento
-        }));
+      // Si el usuario tiene múltiples puestos, iterar el array puestos[]
+      if (u.puestos && u.puestos.length > 0) {
+        u.puestos.forEach(puesto => {
+          if (puesto.nombre_departamento && puesto.nombre_departamento !== 'Sin departamento') {
+            departamentos.add(JSON.stringify({
+              id: puesto.id_departamento,
+              nombre: puesto.nombre_departamento
+            }));
+          }
+        });
+      } else {
+        // Fallback para usuarios sin consolidar
+        if (u.nombre_departamento && u.nombre_departamento !== 'Sin departamento') {
+          departamentos.add(JSON.stringify({
+            id: u.id_departamento,
+            nombre: u.nombre_departamento
+          }));
+        }
       }
     });
     
@@ -4759,14 +4758,27 @@
     
     if (!departamentoId) return;
     
-    // Obtener puestos del departamento seleccionado
+    // 🔧 FIX: Obtener puestos del departamento seleccionado desde el array puestos[]
     const puestos = new Set();
     usuariosData.forEach(u => {
-      if (u.nombre_departamento === departamentoNombre && u.nombre_puesto && u.nombre_puesto !== 'Sin puesto') {
-        puestos.add(JSON.stringify({
-          id: u.id_puesto,
-          nombre: u.nombre_puesto
-        }));
+      // Si el usuario tiene múltiples puestos, iterar el array puestos[]
+      if (u.puestos && u.puestos.length > 0) {
+        u.puestos.forEach(puesto => {
+          if (puesto.nombre_departamento === departamentoNombre && puesto.nombre_puesto && puesto.nombre_puesto !== 'Sin puesto') {
+            puestos.add(JSON.stringify({
+              id: puesto.id_puesto,
+              nombre: puesto.nombre_puesto
+            }));
+          }
+        });
+      } else {
+        // Fallback para usuarios sin consolidar
+        if (u.nombre_departamento === departamentoNombre && u.nombre_puesto && u.nombre_puesto !== 'Sin puesto') {
+          puestos.add(JSON.stringify({
+            id: u.id_puesto,
+            nombre: u.nombre_puesto
+          }));
+        }
       }
     });
     
@@ -4776,8 +4788,14 @@
       const option = document.createElement('option');
       option.value = puesto.id;
       option.textContent = puesto.nombre;
+      
+      // 🔍 DEBUG: Verificar que se están creando correctamente las opciones
+      console.log('📋 [cargarPuestosParaAgregar] Opción creada - value:', option.value, '(tipo:', typeof option.value, '), text:', option.textContent);
+      
       selectPuesto.appendChild(option);
     });
+    
+    console.log('✅ [cargarPuestosParaAgregar] Total opciones agregadas:', selectPuesto.options.length - 1);
   }
   
   /**
@@ -4830,14 +4848,27 @@
     // Limpiar opciones excepto la primera
     select.innerHTML = '<option value="">Seleccione un departamento</option>';
     
-    // Obtener departamentos únicos
+    // 🔧 FIX: Obtener departamentos únicos desde el array puestos[]
     const departamentos = new Set();
     usuariosData.forEach(u => {
-      if (u.nombre_departamento && u.nombre_departamento !== 'Sin departamento') {
-        departamentos.add(JSON.stringify({
-          id: u.id_departamento,
-          nombre: u.nombre_departamento
-        }));
+      // Si el usuario tiene múltiples puestos, iterar el array puestos[]
+      if (u.puestos && u.puestos.length > 0) {
+        u.puestos.forEach(puesto => {
+          if (puesto.nombre_departamento && puesto.nombre_departamento !== 'Sin departamento') {
+            departamentos.add(JSON.stringify({
+              id: puesto.id_departamento,
+              nombre: puesto.nombre_departamento
+            }));
+          }
+        });
+      } else {
+        // Fallback para usuarios sin consolidar
+        if (u.nombre_departamento && u.nombre_departamento !== 'Sin departamento') {
+          departamentos.add(JSON.stringify({
+            id: u.id_departamento,
+            nombre: u.nombre_departamento
+          }));
+        }
       }
     });
     
@@ -4869,14 +4900,27 @@
     
     if (!departamentoId) return;
     
-    // Obtener puestos del departamento seleccionado
+    // 🔧 FIX: Obtener puestos del departamento seleccionado desde el array puestos[]
     const puestos = new Set();
     usuariosData.forEach(u => {
-      if (u.nombre_departamento === departamentoNombre && u.nombre_puesto && u.nombre_puesto !== 'Sin puesto') {
-        puestos.add(JSON.stringify({
-          id: u.id_puesto,
-          nombre: u.nombre_puesto
-        }));
+      // Si el usuario tiene múltiples puestos, iterar el array puestos[]
+      if (u.puestos && u.puestos.length > 0) {
+        u.puestos.forEach(puesto => {
+          if (puesto.nombre_departamento === departamentoNombre && puesto.nombre_puesto && puesto.nombre_puesto !== 'Sin puesto') {
+            puestos.add(JSON.stringify({
+              id: puesto.id_puesto,
+              nombre: puesto.nombre_puesto
+            }));
+          }
+        });
+      } else {
+        // Fallback para usuarios sin consolidar
+        if (u.nombre_departamento === departamentoNombre && u.nombre_puesto && u.nombre_puesto !== 'Sin puesto') {
+          puestos.add(JSON.stringify({
+            id: u.id_puesto,
+            nombre: u.nombre_puesto
+          }));
+        }
       }
     });
     
@@ -5000,6 +5044,14 @@
     const puestoId = selectPuesto.value;
     const puestoNombre = selectPuesto.options[selectPuesto.selectedIndex]?.text;
     
+    // 🔍 DEBUG: Ver qué valores se están capturando
+    console.log('🔍 agregarNuevoPuesto() - Valores capturados:');
+    console.log('  - departamentoId:', departamentoId, '(tipo:', typeof departamentoId, ')');
+    console.log('  - departamentoNombre:', departamentoNombre);
+    console.log('  - puestoId:', puestoId, '(tipo:', typeof puestoId, ')');
+    console.log('  - puestoNombre:', puestoNombre);
+    console.log('  - Select options:', selectPuesto.selectedOptions[0]);
+    
     // Validar
     if (!departamentoId || !puestoId) {
       Swal.fire({
@@ -5034,7 +5086,11 @@
       id_departamento: departamentoId
     };
     
+    console.log('📦 Objeto nuevoPuesto creado:', nuevoPuesto);
+    
     puestosUsuarioActual.push(nuevoPuesto);
+    
+    console.log('✅ puestosUsuarioActual después de agregar:', puestosUsuarioActual);
     
     // Si ahora tiene más de 1 puesto, mostrar panel
     if (puestosUsuarioActual.length > 1) {
@@ -5051,6 +5107,7 @@
    * Obtener los puestos actuales para guardar
    */
   function obtenerPuestosParaGuardar() {
+    console.log('💾 obtenerPuestosParaGuardar() - Retornando:', puestosUsuarioActual);
     return puestosUsuarioActual;
   }
 

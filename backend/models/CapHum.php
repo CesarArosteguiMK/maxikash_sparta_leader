@@ -36,6 +36,7 @@ class CapHum extends Model
             END AS nombre_puesto,
             pp.nivel AS nivel_puesto,
         
+            d.id AS id_departamento,
             CASE 
                 WHEN d.nombre IS NULL THEN 'Sin departamento'
                 ELSE d.nombre
@@ -110,6 +111,7 @@ class CapHum extends Model
                 pp.id AS id_puesto,
                 pp.nombre AS nombre_puesto,
                 pp.nivel AS nivel_puesto,
+                d.id AS id_departamento,
                 d.nombre AS nombre_departamento,
                 aj.id_jefe,
                 p.estatus,
@@ -140,6 +142,7 @@ class CapHum extends Model
                 pp2.id AS id_puesto,
                 pp2.nombre AS nombre_puesto,
                 pp2.nivel AS nivel_puesto,
+                d2.id AS id_departamento,
                 d2.nombre AS nombre_departamento,
                 aj2.id_jefe,
                 p2.estatus,
@@ -1398,17 +1401,23 @@ class CapHum extends Model
             // Si viene el array puestos_adicionales, usamos ese; si no, usamos el puesto_id tradicional
             $puestosAdicionales = $data['puestos_adicionales'] ?? null;
             
+            // 🔍 DEBUG: Log para verificar qué llega
+            error_log('🔍 UpdatePersona - puestos_adicionales recibido: ' . json_encode($puestosAdicionales));
+            
             if ($puestosAdicionales && is_array($puestosAdicionales) && count($puestosAdicionales) > 0) {
                 // Eliminar todos los puestos actuales
                 $db->queryOne("DELETE FROM asigna_puesto WHERE id_persona = $id_persona");
                 
                 // Insertar cada puesto del array
-                foreach ($puestosAdicionales as $puesto) {
+                foreach ($puestosAdicionales as $index => $puesto) {
+                    error_log("🔍 Procesando puesto[$index]: " . json_encode($puesto));
                     $puestoId = (int)$puesto['id_puesto'];
+                    error_log("🔍 id_puesto convertido a int: $puestoId");
                     $db->queryOne("
                         INSERT INTO asigna_puesto (id_persona, id_puesto)
                         VALUES ($id_persona, $puestoId)
                     ");
+                    error_log("✅ INSERT ejecutado: id_persona=$id_persona, id_puesto=$puestoId");
                 }
             } else {
                 // Comportamiento tradicional (un solo puesto)
