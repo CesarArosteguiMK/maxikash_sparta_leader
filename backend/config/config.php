@@ -6,5 +6,3 @@ define('ENDPOINT', 'https://servicios.s2movil.net/s2__SPARTA_SECRET_REDACTED__/e
 
 // API key para crear tickets desde el bot de WhatsApp (cabecera X-API-Key o body api_key).
 define('TICKET_WHATSAPP_API_KEY', 'cambiar_clave_secreta_whatsapp_' . md5('sparta___SPARTA_SECRET_REDACTED__'));
-
-
