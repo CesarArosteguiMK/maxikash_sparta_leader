@@ -4,6 +4,7 @@ namespace Models;
 
 use Core\Model;
 use Core\Database;
+use Core\DatabaseSegundometro;
 
 class Despachos extends Model
 {
@@ -12,6 +13,32 @@ class Despachos extends Model
     public function __construct()
     {
         $this->db = new Database();
+    }
+
+    /**
+     * Obtener dirección completa desde tbl_segundometro_semana
+     * Esta función consulta la base de datos db-megae-reporte
+     */
+    private function obtenerDomicilioCompleto($idCredito)
+    {
+        try {
+            $dbSegundo = new DatabaseSegundometro();
+            $query = <<<SQL
+            SELECT 
+                Domicilio_Completo,
+                Id_cliente,
+                Nombre_cliente
+            FROM tbl_segundometro_semana 
+            WHERE Id_credito = :idCredito
+            LIMIT 1
+SQL;
+            
+            $resultado = $dbSegundo->queryOne($query, ['idCredito' => $idCredito]);
+            return $resultado['Domicilio_Completo'] ?? null;
+        } catch (\Exception $e) {
+            error_log("Error al obtener Domicilio_Completo: " . $e->getMessage());
+            return null;
+        }
     }
 
     /**
@@ -52,12 +79,10 @@ SQL;
             per.id,
             CONCAT_WS(' ', per.nombres, per.segundo_nombre, per.apellidop, per.apellidom) AS nombre_completo,
             pu.nombre AS puesto,
-            COALESCE(d.numero_tel1, per.telefono_uno) AS telefono,
-            COALESCE(d.correo_1, per.correo) AS correo,
-            COALESCE(d.direccion, 'Sin dirección registrada') AS direccion,
-            d.tipo_persona,
-            d.numero_tel2,
-            d.correo_2,
+            per.telefono_uno AS telefono,
+            per.correo AS correo,
+            COALESCE(d.direccion, '') AS direccion,
+            COALESCE(d.tipo_persona, '') AS tipo_persona,
             d.id AS id_despacho
         FROM persona per
         INNER JOIN asigna_puesto ap ON per.id = ap.id_persona
@@ -219,7 +244,13 @@ SQL;
             $cliente["estado"] ?? '',
             $cliente["codigoPostal"] ?? ''
         ]);
-        $direccion = !empty($direccionParts) ? implode(', ', $direccionParts) : 'Sin dirección';
+        $direccionAPI = !empty($direccionParts) ? implode(', ', $direccionParts) : null;
+        
+        // Intentar obtener dirección desde tbl_segundometro_semana (prioridad)
+        $domicilioCompleto = $this->obtenerDomicilioCompleto($valor);
+        
+        // Usar domicilio completo si existe, sino la de la API, sino mensaje por defecto
+        $direccion = $domicilioCompleto ?: ($direccionAPI ?: 'Sin dirección registrada');
         
         return [
             'id_credito' => $estadoCuenta["idCredito"] ?? $valor,
@@ -229,23 +260,52 @@ SQL;
             'telefono' => $cliente["celular"] ?? 'Sin teléfono',
             'curp' => $cliente["curp"] ?? 'Sin CURP',
             'direccion' => $direccion,
+            'direccion_api' => $direccionAPI ?: 'No disponible en API',
+            'direccion_megareporte' => $domicilioCompleto ?: 'No disponible en Megareporte',
             'sucursal' => $cliente["sucursal"] ?? 'Sin sucursal',
             'fecha_desembolso' => $estadoCuenta["fechaDesembolso"] ?? 'Sin fecha'
         ];
     }
 
     /**
+     * Obtener información de asignación de un crédito
+     * Devuelve datos del despacho si está asignado, o null si no
+     */
+    public function obtenerAsignacionCredito($idCredito)
+    {
+        $query = <<<SQL
+        SELECT 
+            acd.id_credito,
+            acd.estatus,
+            DATE_FORMAT(acd.fecha_alta, '%Y-%m-%d %H:%i') as fecha_asignacion,
+            DATE_FORMAT(acd.fecha_baja, '%Y-%m-%d %H:%i') as fecha_baja,
+            d.id_persona,
+            CONCAT_WS(' ', per.nombres, per.apellidop) as nombre_despacho,
+            pu.nombre as puesto_despacho,
+            per.telefono_uno as telefono_despacho,
+            per.correo as correo_despacho,
+            CONCAT_WS(' ', per_asigno.nombres, per_asigno.apellidop) as asignado_por
+        FROM asigna_creditos_despacho acd
+        INNER JOIN despachos d ON acd.id_despacho = d.id
+        INNER JOIN persona per ON d.id_persona = per.id
+        LEFT JOIN asigna_puesto ap ON per.id = ap.id_persona
+        LEFT JOIN puesto pu ON ap.id_puesto = pu.id
+        LEFT JOIN persona per_asigno ON acd.alta = per_asigno.id
+        WHERE acd.id_credito = :idCredito
+        ORDER BY acd.fecha_alta DESC
+        LIMIT 1
+SQL;
+        
+        return $this->db->queryOne($query, ['idCredito' => $idCredito]);
+    }
+    
+    /**
      * Verificar si un crédito ya está asignado a un despacho (activo)
      */
     public function verificarAsignacion($idCredito)
     {
-        $query = <<<SQL
-        SELECT COUNT(*) as total 
-        FROM asigna_creditos_despacho 
-        WHERE id_credito = :idCredito AND estatus = 'Activo'
-SQL;
-        $result = $this->db->queryOne($query, ['idCredito' => $idCredito]);
-        return ($result['total'] ?? 0) > 0;
+        $asignacion = $this->obtenerAsignacionCredito($idCredito);
+        return $asignacion && $asignacion['estatus'] === '1';
     }
 
     /**
@@ -261,19 +321,42 @@ SQL;
             return false;
         }
         
-        $query = <<<SQL
-        INSERT INTO asigna_creditos_despacho 
-        (id_despacho, id_credito, fecha_alta, persona_que_lo_asigna, estatus)
-        VALUES (:idDespacho, :idCredito, CURDATE(), :usuarioAsignacion, 'Activo')
-SQL;
-
+        // Verificar si ya existe una asignación previa para este crédito y despacho
+        $queryVerificar = "SELECT id FROM asigna_creditos_despacho WHERE id_despacho = :idDespacho AND id_credito = :idCredito LIMIT 1";
+        $existente = $this->db->queryOne($queryVerificar, [
+            'idDespacho' => $despacho['id'],
+            'idCredito' => $idCredito
+        ]);
+        
         $usuarioAsignacion = $_SESSION['usuario_id'] ?? 1;
         
-        return $this->db->query($query, [
-            'idDespacho' => $despacho['id'],
-            'idCredito' => $idCredito,
-            'usuarioAsignacion' => $usuarioAsignacion
-        ]);
+        if ($existente) {
+            // Si ya existe, reactivar (UPDATE)
+            $query = <<<SQL
+            UPDATE asigna_creditos_despacho 
+            SET estatus = '1',
+                fecha_baja = NULL,
+                fecha_alta = NOW(),
+                alta = :usuarioAsignacion
+            WHERE id = :id
+SQL;
+            return $this->db->CRUD($query, [
+                'id' => $existente['id'],
+                'usuarioAsignacion' => $usuarioAsignacion
+            ]) > 0;
+        } else {
+            // Si no existe, crear nuevo (INSERT)
+            $query = <<<SQL
+            INSERT INTO asigna_creditos_despacho 
+            (id_despacho, id_credito, fecha_alta, alta, estatus)
+            VALUES (:idDespacho, :idCredito, NOW(), :usuarioAsignacion, '1')
+SQL;
+            return $this->db->CRUD($query, [
+                'idDespacho' => $despacho['id'],
+                'idCredito' => $idCredito,
+                'usuarioAsignacion' => $usuarioAsignacion
+            ]) > 0;
+        }
     }
 
     /**
@@ -283,6 +366,7 @@ SQL;
     {
         $fechaBaja = $nuevoEstatus === '0' ? 'NOW()' : 'NULL';
         
+        // Actualizar todos los registros de este crédito (un crédito solo puede estar activo en un lugar a la vez)
         $query = <<<SQL
         UPDATE asigna_creditos_despacho 
         SET estatus = :nuevoEstatus, 
@@ -290,10 +374,10 @@ SQL;
         WHERE id_credito = :idCredito
 SQL;
         
-        return $this->db->query($query, [
+        return $this->db->CRUD($query, [
             'idCredito' => $idCredito,
             'nuevoEstatus' => $nuevoEstatus
-        ]);
+        ]) > 0;
     }
 
     /**
@@ -339,10 +423,120 @@ SQL;
 
         $idPersonaComenta = $_SESSION['usuario_id'] ?? 1;
         
-        return $this->db->query($query, [
+        return $this->db->CRUD($query, [
             'idDespacho' => $despacho['id'],
             'comentario' => $comentario,
             'idPersona' => $idPersonaComenta
-        ]);
+        ]) > 0;
+    }
+
+    /**
+     * Obtener catálogo de documentos para despachos
+     */
+    public function obtenerCatalogoDocumentos()
+    {
+        $query = "SELECT id, nombre_documento, descripcion 
+                  FROM catalogo_documentos_despacho 
+                  ORDER BY nombre_documento";
+        
+        return $this->db->queryAll($query);
+    }
+
+    /**
+     * Obtener documentos cargados para un despacho específico
+     */
+    public function obtenerDocumentosDespacho($idPersona)
+    {
+        // Primero obtener el id del despacho
+        $queryDespacho = "SELECT id FROM despachos WHERE id_persona = :idPersona LIMIT 1";
+        $despacho = $this->db->queryOne($queryDespacho, ['idPersona' => $idPersona]);
+        
+        if (!$despacho) {
+            return [];
+        }
+
+        $query = <<<SQL
+        SELECT 
+            dd.id,
+            dd.id_catalogo_documento,
+            dd.nombre_archivo,
+            dd.ruta_archivo,
+            dd.fecha_carga,
+            dd.estatus,
+            cd.nombre_documento,
+            cd.descripcion,
+            'Sistema' as cargado_por
+        FROM documentos_despacho dd
+        INNER JOIN catalogo_documentos_despacho cd ON dd.id_catalogo_documento = cd.id
+        WHERE dd.id_despacho = :idDespacho
+        ORDER BY dd.fecha_carga DESC
+SQL;
+
+        return $this->db->queryAll($query, ['idDespacho' => $despacho['id']]);
+    }
+
+    /**
+     * Subir un documento para un despacho
+     */
+    public function subirDocumento($idPersona, $idCatalogoDocumento, $nombreArchivo, $rutaArchivo)
+    {
+        // Primero obtener el id del despacho
+        $queryDespacho = "SELECT id FROM despachos WHERE id_persona = :idPersona LIMIT 1";
+        $despacho = $this->db->queryOne($queryDespacho, ['idPersona' => $idPersona]);
+        
+        if (!$despacho) {
+            return false;
+        }
+
+        $query = <<<SQL
+        INSERT INTO documentos_despacho 
+        (id_despacho, id_catalogo_documento, nombre_archivo, ruta_archivo, fecha_carga, estatus)
+        VALUES (:idDespacho, :idCatalogoDocumento, :nombreArchivo, :rutaArchivo, NOW(), 'Vigente')
+SQL;
+        
+        return $this->db->CRUD($query, [
+            'idDespacho' => $despacho['id'],
+            'idCatalogoDocumento' => $idCatalogoDocumento,
+            'nombreArchivo' => $nombreArchivo,
+            'rutaArchivo' => $rutaArchivo
+        ]) > 0;
+    }
+
+    /**
+     * Actualizar tipo de persona en la tabla despachos
+     */
+    public function actualizarTipoPersona($idPersona, $tipoPersona)
+    {
+        // Primero verificar si existe registro en despachos
+        $queryVerificar = "SELECT id FROM despachos WHERE id_persona = :idPersona LIMIT 1";
+        $despacho = $this->db->queryOne($queryVerificar, ['idPersona' => $idPersona]);
+        
+        if ($despacho) {
+            // Si existe, actualizar
+            $query = "UPDATE despachos SET tipo_persona = :tipoPersona WHERE id = :id";
+            return $this->db->CRUD($query, [
+                'id' => $despacho['id'],
+                'tipoPersona' => $tipoPersona
+            ]) > 0;
+        } else {
+            // Si no existe, crear registro en despachos
+            $query = <<<SQL
+            INSERT INTO despachos (id_persona, tipo_persona, estatus, fecha_alta)
+            VALUES (:idPersona, :tipoPersona, 'Activo', NOW())
+SQL;
+            return $this->db->CRUD($query, [
+                'idPersona' => $idPersona,
+                'tipoPersona' => $tipoPersona
+            ]) > 0;
+        }
+    }
+
+    /**
+     * Obtener información de un documento por su ID
+     */
+    public function obtenerInfoDocumento($idDocumento)
+    {
+        $query = "SELECT nombre_archivo, ruta_archivo FROM documentos_despacho WHERE id = :id";
+        return $this->db->queryOne($query, ['id' => $idDocumento]);
     }
 }

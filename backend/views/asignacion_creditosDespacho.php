@@ -16,6 +16,112 @@
         box-shadow: 0 4px 12px rgba(0,0,0,0.1);
     }
 
+    /* Toggle de asignación */
+    #asignacion-info-container [onclick] {
+        transition: background-color 0.2s ease;
+        padding: 0.25rem;
+        border-radius: 0.25rem;
+    }
+    
+    #asignacion-info-container [onclick]:hover {
+        background-color: rgba(0,0,0,0.03);
+    }
+    
+    #asignacion-toggle-icon {
+        transition: transform 0.3s ease;
+    }
+    
+    /* Estilos para stack de créditos */
+    #creditos-stack {
+        max-height: 520px; /* Altura aproximada para 2 créditos completos */
+        overflow-y: auto;
+        overflow-x: hidden;
+        padding-right: 0.25rem;
+    }
+    
+    #creditos-stack::-webkit-scrollbar {
+        width: 6px;
+    }
+    
+    #creditos-stack::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 10px;
+    }
+    
+    #creditos-stack::-webkit-scrollbar-thumb {
+        background: #888;
+        border-radius: 10px;
+    }
+    
+    #creditos-stack::-webkit-scrollbar-thumb:hover {
+        background: #555;
+    }
+    
+    .credit-card-item {
+        animation: slideInDown 0.3s ease-out;
+        margin-bottom: 1rem;
+    }
+    
+    @keyframes slideInDown {
+        from {
+            opacity: 0;
+            transform: translateY(-20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    .credit-card-item.removing {
+        animation: slideOutUp 0.3s ease-out;
+    }
+    
+    @keyframes slideOutUp {
+        to {
+            opacity: 0;
+            transform: translateY(-20px);
+        }
+    }
+    
+    /* Botones con gradientes */
+    .btn-gradient-success {
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        border: none;
+        color: white;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-gradient-success:hover {
+        background: linear-gradient(135deg, #218838 0%, #1a9e7a 100%);
+        transform: scale(1.05);
+        box-shadow: 0 4px 8px rgba(40, 167, 69, 0.3);
+        color: white;
+    }
+    
+    .btn-gradient-danger {
+        background: linear-gradient(135deg, #dc3545 0%, #fd7e14 100%);
+        border: none;
+        color: white;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-gradient-danger:hover {
+        background: linear-gradient(135deg, #c82333 0%, #e8590c 100%);
+        transform: scale(1.05);
+        box-shadow: 0 4px 8px rgba(220, 53, 69, 0.3);
+        color: white;
+    }
+    
+    /* Texto de estado con gradiente */
+    .text-gradient-primary {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        font-weight: bold;
+    }
+
     /* Estilos para información del despacho tipo labels */
     .info-compact {
         list-style: none;
@@ -175,6 +281,131 @@
     .select-search-option.no-results:hover {
         background-color: transparent;
     }
+
+    /* Estilos para edición de tipo persona */
+    .edit-tipo-icon {
+        transition: color 0.2s ease;
+    }
+
+    .edit-tipo-icon:hover {
+        color: #696cff !important;
+    }
+
+    /* Estilos para acordeón padre de documentos */
+    #accordionDocumentosPadre .accordion-item {
+        border: 1px solid #d9dee3;
+        margin-bottom: 0;
+    }
+
+    #accordionDocumentosPadre .accordion-button {
+        background-color: transparent;
+        font-weight: 500;
+        font-size: 0.9375rem;
+        color: #697a8d;
+        padding: 1rem 1.25rem;
+        border-bottom: 1px solid #d9dee3;
+    }
+
+    #accordionDocumentosPadre .accordion-button:not(.collapsed) {
+        background-color: transparent;
+        color: #696cff;
+        box-shadow: none;
+        border-bottom: 1px solid #d9dee3;
+    }
+
+    #accordionDocumentosPadre .accordion-button:not(.collapsed) i {
+        color: #696cff;
+    }
+
+    #accordionDocumentosPadre .accordion-button:focus {
+        box-shadow: none;
+        border-color: #d9dee3;
+    }
+
+    #accordionDocumentosPadre .accordion-button::after {
+        background-size: 1.25rem;
+    }
+
+    #accordionDocumentosPadre .accordion-body {
+        background-color: #fff;
+        padding: 1rem 1.25rem;
+    }
+
+    /* Estilos para acordeón de documentos internos */
+    #accordionDocumentos .accordion-item {
+        border: 1px solid #d9dee3;
+        margin-bottom: 0.75rem;
+        border-radius: 0.375rem;
+    }
+
+    #accordionDocumentos .accordion-button {
+        background-color: transparent;
+        font-weight: 400;
+        font-size: 0.875rem;
+        padding: 0.75rem 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        color: #697a8d;
+    }
+
+    #accordionDocumentos .accordion-button:not(.collapsed) {
+        background-color: rgba(105, 108, 255, 0.08);
+        color: #696cff;
+        box-shadow: none;
+    }
+
+    #accordionDocumentos .accordion-button:focus {
+        box-shadow: none;
+        border-color: #d9dee3;
+    }
+
+    #accordionDocumentos .accordion-body {
+        padding: 1rem;
+        font-size: 0.875rem;
+        background-color: #fff;
+    }
+
+    #accordionDocumentos .badge {
+        font-size: 0.7rem;
+        padding: 0.35em 0.65em;
+        margin-left: auto !important;
+        flex-shrink: 0;
+        font-weight: 500;
+    }
+
+    #accordionDocumentos .accordion-button::after {
+        margin-left: 0.5rem !important;
+        background-size: 1.125rem;
+    }
+
+    #accordionDocumentos .alert-info {
+        background-color: rgba(3, 195, 236, 0.12);
+        border: 1px solid rgba(3, 195, 236, 0.4);
+        color: #03a9f4;
+        padding: 0.75rem;
+        border-radius: 0.375rem;
+    }
+
+    /* Estilos para modal visualizador PDF */
+    #modalVisualizadorPDF .modal-xl {
+        max-width: 95%;
+    }
+
+    #modalVisualizadorPDF .modal-body {
+        background-color: #525659;
+    }
+
+    #iframeVisualizadorPDF {
+        background-color: #fff;
+    }
+
+    @media (max-width: 768px) {
+        #modalVisualizadorPDF .modal-body {
+            height: 70vh !important;
+        }
+    }
+
 </style>
 
 <!-- Título de la página -->
@@ -185,7 +416,7 @@
 
 <div class="row g-4 mb-4">
     <!-- PANEL IZQUIERDO -->
-    <div class="col-md-5">
+    <div class="col-md-4">
         <div class="card h-100">
             <div class="card-body">
                 <h5 class="card-title mb-4">
@@ -248,7 +479,21 @@
                             <i class="fa fa-id-card fa-lg text-primary"></i>
                             <div class="info-label">
                                 <span class="fw-medium">Tipo:</span>
-                                <span id="info-tipo">-</span>
+                                <div class="d-flex align-items-center gap-2">
+                                    <span id="info-tipo">-</span>
+                                    <i class="fa fa-pencil-alt text-muted edit-tipo-icon" 
+                                       style="cursor: pointer; font-size: 0.85rem;" 
+                                       onclick="toggleEditTipo()" 
+                                       title="Editar tipo de persona"></i>
+                                    <select id="select-tipo-persona" class="form-select form-select-sm" 
+                                            style="display: none; width: auto; min-width: 120px;" 
+                                            onchange="actualizarTipoPersona()"
+                                            onblur="setTimeout(cancelarEditTipo, 200)">
+                                        <option value="">Seleccionar...</option>
+                                        <option value="FISICA">FISICA</option>
+                                        <option value="MORAL">MORAL</option>
+                                    </select>
+                                </div>
                             </div>
                         </li>
                         
@@ -259,6 +504,29 @@
                             </div>
                         </li>
                     </ul>
+                </div>
+
+                <hr class="my-4">
+
+                <!-- Acordeón padre para Documentos del Despacho -->
+                <div class="accordion" id="accordionDocumentosPadre">
+                    <div class="accordion-item">
+                        <h2 class="accordion-header" id="headingDocumentos">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" 
+                                    data-bs-target="#collapseDocumentos" aria-expanded="false" aria-controls="collapseDocumentos">
+                                <i class="fa-solid fa-file-alt me-2"></i>
+                                Documentos del Despacho
+                            </button>
+                        </h2>
+                        <div id="collapseDocumentos" class="accordion-collapse collapse" 
+                             aria-labelledby="headingDocumentos" data-bs-parent="#accordionDocumentosPadre">
+                            <div class="accordion-body p-2">
+                                <div class="accordion" id="accordionDocumentos">
+                                    <!-- Los documentos se cargarán dinámicamente aquí -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <hr class="my-4">
@@ -274,92 +542,12 @@
                 <button class="btn btn-primary w-100" id="btn-guardar-comentarios">
                     <i class="fa-solid fa-save me-1"></i>Guardar Comentarios
                 </button>
-
-                <hr class="my-4">
-
-                <h5 class="card-title mb-3">
-                    <i class="fa-solid fa-chart-line me-2"></i>Métricas
-                </h5>
-                
-                <div class="row g-2">
-                    <div class="col-6">
-                        <div class="card bg-label-primary metric-card">
-                            <div class="card-body p-3">
-                                <div class="d-flex align-items-center">
-                                    <div class="avatar flex-shrink-0 me-2">
-                                        <span class="avatar-initial rounded bg-label-primary">
-                                            <i class="fa-solid fa-file-invoice"></i>
-                                        </span>
-                                    </div>
-                                    <div>
-                                        <small class="d-block">Créditos asignados</small>
-                                        <h6 class="mb-0" id="metrica-creditos">0</h6>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="col-6">
-                        <div class="card bg-label-success metric-card">
-                            <div class="card-body p-3">
-                                <div class="d-flex align-items-center">
-                                    <div class="avatar flex-shrink-0 me-2">
-                                        <span class="avatar-initial rounded bg-label-success">
-                                            <i class="fa-solid fa-dollar-sign"></i>
-                                        </span>
-                                    </div>
-                                    <div>
-                                        <small class="d-block">Saldo total</small>
-                                        <h6 class="mb-0" id="metrica-saldo">$0.00</h6>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="col-6">
-                        <div class="card bg-label-info metric-card">
-                            <div class="card-body p-3">
-                                <div class="d-flex align-items-center">
-                                    <div class="avatar flex-shrink-0 me-2">
-                                        <span class="avatar-initial rounded bg-label-info">
-                                            <i class="fa-solid fa-percent"></i>
-                                        </span>
-                                    </div>
-                                    <div>
-                                        <small class="d-block">Recuperación</small>
-                                        <h6 class="mb-0" id="metrica-recuperacion">0%</h6>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="col-6">
-                        <div class="card bg-label-warning metric-card">
-                            <div class="card-body p-3">
-                                <div class="d-flex align-items-center">
-                                    <div class="avatar flex-shrink-0 me-2">
-                                        <span class="avatar-initial rounded bg-label-warning">
-                                            <i class="fa-solid fa-clock"></i>
-                                        </span>
-                                    </div>
-                                    <div>
-                                        <small class="d-block">Promedio mora</small>
-                                        <h6 class="mb-0" id="metrica-mora">0 días</h6>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
             </div>
         </div>
     </div>
 
     <!-- PANEL DERECHO -->
-    <div class="col-md-7">
+    <div class="col-md-8">
         <div class="card h-100">
             <div class="card-body">
                 <h5 class="card-title mb-4">
@@ -405,25 +593,42 @@
                     </div>
                 </form>
 
-                <!-- Resultado de búsqueda -->
-                <div class="card border border-primary credit-result-box mt-4" id="credit-result">
-                    <div class="card-body p-3">
-                        <div class="d-flex justify-content-between align-items-start">
-                            <div class="flex-grow-1" style="font-size: 0.875rem;">
-                                <div class="d-flex align-items-center mb-1">
-                                    <strong class="me-2" id="credit-id">ID Crédito: </strong>
-                                    <span class="badge bg-warning" id="credit-mora">0</span>
-                                </div>
-                                <div class="mb-1"><strong>Nombre:</strong> <span id="credit-nombre">-</span></div>
-                                <div class="mb-1"><strong>Dirección:</strong> <span id="credit-direccion" class="text-muted">-</span></div>
-                                <div><strong>Saldo:</strong> <span class="text-danger fw-bold" id="credit-saldo">$0.00</span></div>
-                            </div>
-                            <button class="btn btn-success btn-sm ms-3" id="btn-asignar-credito">
-                                <i class="fa-solid fa-check me-1"></i>Asignar
-                            </button>
-                        </div>
-                    </div>
+                <!-- Stack de créditos buscados -->
+                <div id="creditos-stack" class="mt-4">
+                    <!-- Los créditos se agregarán dinámicamente aquí -->
                 </div>
+                
+                <!-- Botón para limpiar lista -->
+                <div id="btn-limpiar-container" class="mt-3" style="display: none;">
+                    <button class="btn btn-outline-danger w-100" onclick="limpiarListaCreditos()">
+                        <i class="fa-solid fa-trash me-2"></i>Limpiar lista
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para visualizar PDF -->
+<div class="modal fade" id="modalVisualizadorPDF" tabindex="-1" aria-labelledby="modalVisualizadorPDFLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalVisualizadorPDFLabel">
+                    <i class="fa-solid fa-file-pdf me-2"></i>Visualizador de Documento
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-0" style="height: 80vh;">
+                <iframe id="iframeVisualizadorPDF" style="width: 100%; height: 100%; border: none;" src=""></iframe>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fa-solid fa-times me-1"></i>Cerrar
+                </button>
+                <a id="btnDescargarPDFModal" href="#" class="btn btn-primary" download>
+                    <i class="fa-solid fa-download me-1"></i>Descargar
+                </a>
             </div>
         </div>
     </div>
@@ -460,7 +665,7 @@
 <script>
 // Variables globales
 let despachoSeleccionado = null;
-let creditoEncontrado = null;
+let creditosEncontrados = []; // Array de créditos en el stack
 let searchableSelectDespacho;
 
 /**
@@ -648,7 +853,7 @@ document.addEventListener('DOMContentLoaded', function() {
         buscarCredito();
     });
     
-    document.getElementById('btn-asignar-credito').addEventListener('click', asignarCredito);
+    // El botón de asignar ahora está en cada crédito del stack
     document.getElementById('btn-guardar-comentarios').addEventListener('click', guardarComentarios);
     document.getElementById('btn-exportar-excel').addEventListener('click', exportarExcel);
 });
@@ -740,11 +945,8 @@ function cargarDatosDespacho(idPersona) {
                 // Cargar comentarios si existen
                 document.getElementById('comentarios-despacho').value = data.comentarios || '';
                 
-                // Cargar métricas
-                document.getElementById('metrica-creditos').textContent = data.metricas.creditos_asignados || 0;
-                document.getElementById('metrica-saldo').textContent = formatearMoneda(data.metricas.saldo_total || 0);
-                document.getElementById('metrica-recuperacion').textContent = (data.metricas.recuperacion || 0) + '%';
-                document.getElementById('metrica-mora').textContent = (data.metricas.promedio_mora || 0) + ' días';
+                // Cargar documentos del despacho
+                cargarDocumentosDespacho(idPersona);
             }
         })
         .catch(error => {
@@ -774,16 +976,62 @@ function buscarCredito() {
     .then(response => response.json())
     .then(data => {
         if (data.success && data.credito) {
-            creditoEncontrado = data.credito;
-            document.getElementById('credit-id').textContent = `ID CREDITO ${creditoEncontrado.id_credito}`;
-            document.getElementById('credit-nombre').textContent = creditoEncontrado.nombre_cliente;
-            document.getElementById('credit-direccion').textContent = creditoEncontrado.direccion || 'Sin dirección';
-            document.getElementById('credit-saldo').textContent = formatearMoneda(creditoEncontrado.saldo_actual || 0);
-            document.getElementById('credit-mora').textContent = `${creditoEncontrado.dias_mora || 0} días`;
-            document.getElementById('credit-result').style.display = 'block';
+            // Verificar si el crédito ya está en el stack (comparación flexible)
+            const creditoExistente = creditosEncontrados.find(c => String(c.credito.id_credito) === String(data.credito.id_credito));
+            
+            if (creditoExistente) {
+                // Mover el crédito al inicio del stack
+                // 1. Remover del array
+                creditosEncontrados = creditosEncontrados.filter(item => String(item.credito.id_credito) !== String(data.credito.id_credito));
+                
+                // 2. Agregar al inicio
+                creditosEncontrados.unshift(creditoExistente);
+                
+                // 3. Remover visualmente y volver a agregar al inicio
+                const card = document.getElementById(`credit-${data.credito.id_credito}`);
+                if (card) {
+                    // Animación de resaltado
+                    card.style.transition = 'all 0.3s ease';
+                    card.style.transform = 'translateX(-10px)';
+                    card.style.opacity = '0';
+                    
+                    setTimeout(() => {
+                        card.remove();
+                        // Re-agregar al inicio
+                        agregarCreditoAlStack(creditoExistente.credito, creditoExistente.asignacion);
+                        
+                        // Animación de entrada
+                        const newCard = document.getElementById(`credit-${data.credito.id_credito}`);
+                        if (newCard) {
+                            newCard.style.transform = 'translateX(10px)';
+                            newCard.style.opacity = '0';
+                            setTimeout(() => {
+                                newCard.style.transition = 'all 0.3s ease';
+                                newCard.style.transform = 'translateX(0)';
+                                newCard.style.opacity = '1';
+                            }, 50);
+                        }
+                    }, 300);
+                }
+                
+                // Limpiar campo de búsqueda
+                document.getElementById('idCredito').value = '';
+                return;
+            }
+            
+            // Agregar al array (crédito nuevo)
+            creditosEncontrados.unshift({
+                credito: data.credito,
+                asignacion: data.asignacion
+            });
+            
+            // Agregar visualmente al stack
+            agregarCreditoAlStack(data.credito, data.asignacion);
+            
+            // Limpiar campo de búsqueda
+            document.getElementById('idCredito').value = '';
         } else {
             Swal.fire('No encontrado', 'No se encontró el crédito', 'info');
-            limpiarBusqueda();
         }
     })
     .catch(error => {
@@ -792,24 +1040,184 @@ function buscarCredito() {
     });
 }
 
-// Función para limpiar búsqueda
-function limpiarBusqueda() {
-    document.getElementById('idCredito').value = '';
-    document.getElementById('credit-result').style.display = 'none';
-    creditoEncontrado = null;
+// Función para agregar crédito al stack visual
+function agregarCreditoAlStack(credito, asignacion) {
+    const stack = document.getElementById('creditos-stack');
+    
+    // Mostrar botón de limpiar lista
+    document.getElementById('btn-limpiar-container').style.display = 'block';
+    const creditoId = `credit-${credito.id_credito}`;
+    
+    // Crear card del crédito
+    const card = document.createElement('div');
+    card.className = 'card border border-primary credit-card-item';
+    card.id = creditoId;
+    
+    const esActivo = asignacion && (asignacion.estatus === '1' || asignacion.estatus === 1);
+    const statusText = asignacion ? (esActivo ? 'Crédito asignado actualmente' : 'Crédito tuvo asignación (inactiva)') : '';
+    const statusClass = asignacion ? (esActivo ? 'text-gradient-primary' : 'text-muted') : '';
+    
+    const asignacionHTML = asignacion ? `
+        <div class="mt-2">
+            <hr class="my-2">
+            <div class="d-flex align-items-center justify-content-between" style="cursor: pointer;" onclick="toggleAsignacionInfo('${creditoId}')">
+                <small class="${statusClass}">
+                    <i class="fa-solid fa-info-circle me-1"></i>
+                    <span>${statusText}</span>
+                </small>
+                <i class="fa-solid fa-chevron-down" id="toggle-icon-${creditoId}"></i>
+            </div>
+            <div class="collapse" id="details-${creditoId}">
+                <div class="mt-2 p-2 bg-light rounded" style="font-size: 0.8rem;">
+                    <div class="row g-2">
+                        <div class="col-12">
+                            <strong class="text-primary">Asignado a:</strong>
+                            <span>${asignacion.nombre_despacho || 'No especificado'}</span>
+                        </div>
+                        <div class="col-6">
+                            <small class="text-muted">Puesto:</small><br>
+                            <span>${asignacion.puesto_despacho || 'No especificado'}</span>
+                        </div>
+                        <div class="col-6">
+                            <small class="text-muted">Estatus:</small><br>
+                            <span class="badge ${esActivo ? 'bg-success' : 'bg-secondary'}">${esActivo ? 'Activo' : 'Inactivo'}</span>
+                        </div>
+                        <div class="col-6">
+                            <small class="text-muted">Fecha asignación:</small><br>
+                            <span>${asignacion.fecha_asignacion || '-'}</span>
+                        </div>
+                        <div class="col-6">
+                            <small class="text-muted">Asignado por:</small><br>
+                            <span>${asignacion.asignado_por || 'Sistema'}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    ` : '';
+    
+    card.innerHTML = `
+        <div class="card-body p-3">
+            <div class="d-flex justify-content-between align-items-start">
+                <div class="flex-grow-1" style="font-size: 0.875rem;">
+                    <div class="d-flex align-items-center mb-1">
+                        <strong class="me-2">ID CREDITO ${credito.id_credito}</strong>
+                        <span class="badge bg-warning">${credito.dias_mora || 0} días</span>
+                    </div>
+                    <div class="mb-1"><strong>Nombre:</strong> ${credito.nombre_cliente}</div>
+                    <div class="mb-1"><strong>Dirección:</strong> <span class="text-muted">${credito.direccion || 'Sin dirección'}</span></div>
+                    <div><strong>Saldo:</strong> <span class="text-danger fw-bold">${formatearMoneda(credito.saldo_actual || 0)}</span></div>
+                </div>
+                <div class="d-flex flex-column gap-2 ms-3">
+                    <button class="btn btn-gradient-success btn-sm" onclick="asignarCreditoDelStack('${credito.id_credito}')" title="Asignar crédito">
+                        <i class="fa-solid fa-check"></i>
+                    </button>
+                    <button class="btn btn-gradient-danger btn-sm" onclick="descartarCredito('${credito.id_credito}')" title="Descartar">
+                        <i class="fa-solid fa-times"></i>
+                    </button>
+                </div>
+            </div>
+            ${asignacionHTML}
+        </div>
+    `;
+    
+    // Insertar al inicio del stack
+    stack.insertBefore(card, stack.firstChild);
 }
 
-// Función para asignar crédito al despacho
-function asignarCredito() {
+// Función para descartar crédito del stack
+function descartarCredito(idCredito) {
+    const card = document.getElementById(`credit-${idCredito}`);
+    if (card) {
+        card.classList.add('removing');
+        setTimeout(() => {
+            card.remove();
+            // Remover del array (comparación flexible)
+            creditosEncontrados = creditosEncontrados.filter(item => String(item.credito.id_credito) !== String(idCredito));
+            
+            // Ocultar botón de limpiar si no hay más créditos
+            if (creditosEncontrados.length === 0) {
+                document.getElementById('btn-limpiar-container').style.display = 'none';
+            }
+        }, 300);
+    }
+}
+
+// Función para limpiar toda la lista de créditos
+function limpiarListaCreditos() {
+    Swal.fire({
+        title: '¿Limpiar lista?',
+        text: 'Se eliminarán todos los créditos consultados de la lista',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#3085d6',
+        cancelButtonColor: '#d33',
+        confirmButtonText: 'Sí, limpiar',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            // Vaciar array
+            creditosEncontrados = [];
+            
+            // Limpiar DOM
+            const stack = document.getElementById('creditos-stack');
+            stack.innerHTML = '';
+            
+            // Ocultar botón
+            document.getElementById('btn-limpiar-container').style.display = 'none';
+            
+            Swal.fire('Limpiado', 'La lista ha sido vaciada', 'success');
+        }
+    });
+}
+
+// Función para toggle de información de asignación
+function toggleAsignacionInfo(creditoId) {
+    const collapseElement = document.getElementById(`details-${creditoId}`);
+    const icon = document.getElementById(`toggle-icon-${creditoId}`);
+    
+    const bsCollapse = new bootstrap.Collapse(collapseElement, {
+        toggle: true
+    });
+    
+    // Cambiar icono
+    setTimeout(() => {
+        if (collapseElement.classList.contains('show')) {
+            icon.className = 'fa-solid fa-chevron-up';
+        } else {
+            icon.className = 'fa-solid fa-chevron-down';
+        }
+    }, 100);
+}
+
+// Función para asignar crédito desde el stack
+function asignarCreditoDelStack(idCredito) {
     if (!despachoSeleccionado) {
         Swal.fire('Advertencia', 'Seleccione un despacho primero', 'warning');
         return;
     }
     
-    if (!creditoEncontrado) {
-        Swal.fire('Advertencia', 'Busque un crédito primero', 'warning');
+    // Comparación flexible para manejar string vs number
+    const creditoItem = creditosEncontrados.find(item => String(item.credito.id_credito) === String(idCredito));
+    if (!creditoItem) {
+        console.error('Crédito no encontrado. ID buscado:', idCredito);
+        console.error('Créditos disponibles:', creditosEncontrados);
+        Swal.fire('Error', 'Crédito no encontrado en la lista', 'error');
         return;
     }
+    
+    // VALIDACIÓN: Verificar si el crédito ya está asignado activamente
+    // Para deshabilitar esta validación, comente las siguientes 7 líneas
+    if (creditoItem.asignacion) {
+        const esActivo = creditoItem.asignacion.estatus === '1' || creditoItem.asignacion.estatus === 1;
+        if (esActivo) {
+            Swal.fire('No permitido', `Este crédito ya está asignado a: ${creditoItem.asignacion.nombre_despacho}`, 'warning');
+            return;
+        }
+    }
+    // FIN VALIDACIÓN
+    
+    const creditoEncontrado = creditoItem.credito;
     
     Swal.fire({
         title: '¿Confirmar asignación?',
@@ -826,7 +1234,7 @@ function asignarCredito() {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    id_despacho: despachoSeleccionado,
+                    id_persona: despachoSeleccionado,
                     id_credito: creditoEncontrado.id_credito
                 })
             })
@@ -834,9 +1242,8 @@ function asignarCredito() {
             .then(data => {
                 if (data.success) {
                     Swal.fire('Éxito', 'Crédito asignado correctamente', 'success');
-                    limpiarBusqueda();
+                    descartarCredito(idCredito);
                     cargarCreditosAsignados(despachoSeleccionado);
-                    cargarDatosDespacho(despachoSeleccionado); // Actualizar métricas
                 } else {
                     Swal.fire('Error', data.message || 'No se pudo asignar el crédito', 'error');
                 }
@@ -956,7 +1363,6 @@ function cambiarEstatusCredito(idCredito, nuevoEstatus, switchElement) {
                 if (data.success) {
                     Swal.fire('Éxito', data.message, 'success');
                     cargarCreditosAsignados(despachoSeleccionado);
-                    cargarDatosDespacho(despachoSeleccionado); // Actualizar métricas
                 } else {
                     Swal.fire('Error', data.message || 'No se pudo cambiar el estatus', 'error');
                     // Revertir el switch si hubo error
@@ -1028,6 +1434,406 @@ function formatearMoneda(valor) {
         currency: 'MXN'
     }).format(valor);
 }
+
+// ============================================================================
+// GESTIÓN DE DOCUMENTOS
+// ============================================================================
+
+let catalogoDocumentos = [];
+let documentosDespacho = [];
+
+// Cargar catálogo de documentos al iniciar
+async function cargarCatalogoDocumentos() {
+    try {
+        const response = await fetch('/despachos/obtenerCatalogoDocumentos');
+        const data = await response.json();
+        
+        if (data.success) {
+            catalogoDocumentos = data.catalogo;
+        } else {
+            console.error('Error al cargar catálogo:', data.message);
+        }
+    } catch (error) {
+        console.error('Error al cargar catálogo de documentos:', error);
+    }
+}
+
+// Cargar documentos del despacho seleccionado
+async function cargarDocumentosDespacho(idPersona) {
+    try {
+        const response = await fetch('/despachos/obtenerDocumentosDespacho', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ id_persona: idPersona })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            documentosDespacho = data.documentos;
+            renderizarAcordeonDocumentos();
+        } else {
+            console.error('Error al cargar documentos:', data.message);
+            documentosDespacho = [];
+            renderizarAcordeonDocumentos();
+        }
+    } catch (error) {
+        console.error('Error al cargar documentos del despacho:', error);
+        documentosDespacho = [];
+        renderizarAcordeonDocumentos();
+    }
+}
+
+// Renderizar acordeón de documentos
+function renderizarAcordeonDocumentos() {
+    const accordion = document.getElementById('accordionDocumentos');
+    
+    if (!despachoSeleccionado) {
+        accordion.innerHTML = '<p class="text-muted text-center">Seleccione un despacho para ver sus documentos</p>';
+        return;
+    }
+    
+    if (catalogoDocumentos.length === 0) {
+        accordion.innerHTML = '<p class="text-muted text-center">No hay documentos en el catálogo</p>';
+        return;
+    }
+    
+    let html = '';
+    
+    catalogoDocumentos.forEach((doc, index) => {
+        // Buscar si existe el documento subido
+        const documentoSubido = documentosDespacho.find(d => 
+            String(d.id_catalogo_documento) === String(doc.id)
+        );
+        
+        const tieneDocumento = !!documentoSubido;
+        const estatus = documentoSubido?.estatus || null;
+        
+        // Verificar si es PDF
+        const esPDF = tieneDocumento && documentoSubido.nombre_archivo.toLowerCase().endsWith('.pdf');
+        
+        // Clase de badge según el estatus
+        let badgeClass = 'bg-secondary';
+        let badgeText = 'Sin subir';
+        
+        if (tieneDocumento) {
+            switch (estatus) {
+                case 'Vigente':
+                    badgeClass = 'bg-success';
+                    badgeText = '✓ Vigente';
+                    break;
+                case 'Vencido':
+                    badgeClass = 'bg-warning';
+                    badgeText = '⚠ Vencido';
+                    break;
+                case 'Rechazado':
+                    badgeClass = 'bg-danger';
+                    badgeText = '✗ Rechazado';
+                    break;
+            }
+        }
+        
+        html += `
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="heading${index}">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" 
+                            data-bs-target="#collapse${index}" aria-expanded="false" aria-controls="collapse${index}">
+                        <span style="flex: 1; display: flex; align-items: center;">
+                            <i class="fa-solid fa-file-pdf me-2"></i>
+                            ${doc.nombre_documento}
+                        </span>
+                        <span class="badge ${badgeClass}">${badgeText}</span>
+                    </button>
+                </h2>
+                <div id="collapse${index}" class="accordion-collapse collapse" 
+                     aria-labelledby="heading${index}" data-bs-parent="#accordionDocumentos">
+                    <div class="accordion-body">
+                        ${doc.descripcion ? `<p class="text-muted small mb-3">${doc.descripcion}</p>` : ''}
+                        
+                        ${tieneDocumento ? `
+                            <!-- Documento ya subido -->
+                            <div class="alert alert-info mb-3">
+                                <i class="fa-solid fa-info-circle me-1"></i>
+                                <strong>Documento cargado</strong><br>
+                                <small>
+                                    Fecha: ${documentoSubido.fecha_carga}<br>
+                                    Por: ${documentoSubido.cargado_por}<br>
+                                    Archivo: ${documentoSubido.nombre_archivo}
+                                </small>
+                            </div>
+                            
+                            <div class="d-flex gap-2 justify-content-center">
+                                ${esPDF ? `
+                                    <button class="btn btn-sm btn-success" 
+                                            onclick="visualizarDocumento(${documentoSubido.id}, '${documentoSubido.nombre_archivo}')"
+                                            title="Ver documento"
+                                            style="width: 40px; height: 40px;">
+                                        <i class="fa-solid fa-eye"></i>
+                                    </button>
+                                ` : ''}
+                                <a href="/despachos/descargarDocumento/${documentoSubido.id}" 
+                                   class="btn btn-sm btn-primary" download
+                                   title="Descargar documento"
+                                   style="width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;">
+                                    <i class="fa-solid fa-download"></i>
+                                </a>
+                                <button class="btn btn-sm btn-outline-secondary" 
+                                        onclick="reemplazarDocumento(${doc.id})"
+                                        title="Reemplazar documento"
+                                        style="width: 40px; height: 40px;">
+                                    <i class="fa-solid fa-sync"></i>
+                                </button>
+                            </div>
+                        ` : `
+                            <!-- Formulario de carga -->
+                            <form onsubmit="subirDocumento(event, ${doc.id})" id="form-doc-${doc.id}">
+                                <div class="mb-3">
+                                    <label class="form-label">Seleccionar archivo</label>
+                                    <input type="file" class="form-control form-control-sm" 
+                                           name="archivo" required
+                                           accept=".pdf,.jpg,.jpeg,.png,.doc,.docx">
+                                    <small class="form-text text-muted">
+                                        PDF, JPG, PNG, DOC, DOCX (máx. 5MB)
+                                    </small>
+                                </div>
+                                <button type="submit" class="btn btn-success btn-sm w-100">
+                                    <i class="fa-solid fa-upload me-1"></i>Subir Documento
+                                </button>
+                            </form>
+                        `}
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    
+    accordion.innerHTML = html;
+}
+
+// Subir documento
+async function subirDocumento(event, idCatalogoDocumento) {
+    event.preventDefault();
+    
+    if (!despachoSeleccionado) {
+        Swal.fire('Error', 'No hay despacho seleccionado', 'error');
+        return;
+    }
+    
+    const form = event.target;
+    const formData = new FormData(form);
+    formData.append('id_persona', despachoSeleccionado);
+    formData.append('id_catalogo_documento', idCatalogoDocumento);
+    
+    try {
+        // Mostrar loading
+        Swal.fire({
+            title: 'Subiendo documento...',
+            allowOutsideClick: false,
+            didOpen: () => {
+                Swal.showLoading();
+            }
+        });
+        
+        const response = await fetch('/despachos/subirDocumento', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            Swal.fire('Éxito', 'Documento subido correctamente', 'success');
+            // Recargar documentos
+            await cargarDocumentosDespacho(despachoSeleccionado);
+        } else {
+            Swal.fire('Error', data.message || 'No se pudo subir el documento', 'error');
+        }
+    } catch (error) {
+        console.error('Error al subir documento:', error);
+        Swal.fire('Error', 'Error al subir el documento', 'error');
+    }
+}
+
+// Reemplazar documento existente
+function reemplazarDocumento(idCatalogoDocumento) {
+    Swal.fire({
+        title: '¿Reemplazar documento?',
+        text: 'El documento actual será reemplazado por el nuevo',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Sí, reemplazar',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            // Encontrar el documento en el array
+            const index = catalogoDocumentos.findIndex(d => d.id === idCatalogoDocumento);
+            if (index !== -1) {
+                // Remover el documento actual de la lista
+                const docIndex = documentosDespacho.findIndex(d => 
+                    String(d.id_catalogo_documento) === String(idCatalogoDocumento)
+                );
+                if (docIndex !== -1) {
+                    documentosDespacho.splice(docIndex, 1);
+                }
+                // Re-renderizar para mostrar el formulario de carga
+                renderizarAcordeonDocumentos();
+            }
+        }
+    });
+}
+
+// Inicializar catálogo al cargar la página
+cargarCatalogoDocumentos();
+
+// ============================================================================
+// VISUALIZADOR DE PDF
+// ============================================================================
+
+function visualizarDocumento(idDocumento, nombreArchivo) {
+    const iframe = document.getElementById('iframeVisualizadorPDF');
+    const btnDescargar = document.getElementById('btnDescargarPDFModal');
+    const modalLabel = document.getElementById('modalVisualizadorPDFLabel');
+    
+    // Construir URL para visualizar el documento
+    const urlDocumento = `/despachos/descargarDocumento/${idDocumento}`;
+    
+    // Configurar iframe
+    iframe.src = urlDocumento;
+    
+    // Configurar botón de descarga
+    btnDescargar.href = urlDocumento;
+    btnDescargar.download = nombreArchivo;
+    
+    // Actualizar título del modal
+    modalLabel.innerHTML = `<i class="fa-solid fa-file-pdf me-2"></i>${nombreArchivo}`;
+    
+    // Mostrar modal
+    const modal = new bootstrap.Modal(document.getElementById('modalVisualizadorPDF'));
+    modal.show();
+}
+
+// ============================================================================
+// EDICIÓN DE TIPO PERSONA
+// ============================================================================
+
+function toggleEditTipo() {
+    if (!despachoSeleccionado) {
+        Swal.fire('Advertencia', 'Seleccione un despacho primero', 'warning');
+        return;
+    }
+    
+    const spanTipo = document.getElementById('info-tipo');
+    const selectTipo = document.getElementById('select-tipo-persona');
+    const iconEdit = document.querySelector('.edit-tipo-icon');
+    
+    if (selectTipo.style.display === 'none') {
+        // Mostrar select, ocultar span e icono
+        const valorActual = spanTipo.textContent.trim();
+        selectTipo.value = valorActual !== '-' ? valorActual : '';
+        spanTipo.style.display = 'none';
+        iconEdit.style.display = 'none';
+        selectTipo.style.display = 'block';
+        selectTipo.focus();
+    }
+}
+
+function cancelarEditTipo() {
+    const spanTipo = document.getElementById('info-tipo');
+    const selectTipo = document.getElementById('select-tipo-persona');
+    const iconEdit = document.querySelector('.edit-tipo-icon');
+    
+    if (selectTipo.style.display !== 'none') {
+        selectTipo.style.display = 'none';
+        spanTipo.style.display = 'inline';
+        iconEdit.style.display = 'inline';
+    }
+}
+
+async function actualizarTipoPersona() {
+    const selectTipo = document.getElementById('select-tipo-persona');
+    const nuevoTipo = selectTipo.value;
+    
+    if (!nuevoTipo) {
+        // Si no seleccionó nada, revertir a modo vista
+        const spanTipo = document.getElementById('info-tipo');
+        const iconEdit = document.querySelector('.edit-tipo-icon');
+        selectTipo.style.display = 'none';
+        spanTipo.style.display = 'inline';
+        iconEdit.style.display = 'inline';
+        return;
+    }
+    
+    try {
+        const response = await fetch('/despachos/actualizarTipoPersona', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                id_persona: despachoSeleccionado,
+                tipo_persona: nuevoTipo
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            // Actualizar interfaz
+            const spanTipo = document.getElementById('info-tipo');
+            const iconEdit = document.querySelector('.edit-tipo-icon');
+            
+            spanTipo.textContent = nuevoTipo;
+            selectTipo.style.display = 'none';
+            spanTipo.style.display = 'inline';
+            iconEdit.style.display = 'inline';
+        } else {
+            Swal.fire('Error', data.message || 'No se pudo actualizar el tipo de persona', 'error');
+            // Revertir a modo vista sin cambios
+            const spanTipo = document.getElementById('info-tipo');
+            const iconEdit = document.querySelector('.edit-tipo-icon');
+            selectTipo.style.display = 'none';
+            spanTipo.style.display = 'inline';
+            iconEdit.style.display = 'inline';
+        }
+    } catch (error) {
+        console.error('Error al actualizar tipo persona:', error);
+        Swal.fire('Error', 'Error al actualizar el tipo de persona', 'error');
+        // Revertir a modo vista
+        const spanTipo = document.getElementById('info-tipo');
+        const iconEdit = document.querySelector('.edit-tipo-icon');
+        selectTipo.style.display = 'none';
+        spanTipo.style.display = 'inline';
+        iconEdit.style.display = 'inline';
+    }
+}
+
+// ===========================================
+// AUTO-COLAPSAR SUB-ACORDEONES
+// ===========================================
+
+// Cuando el acordeón padre se cierra, cerrar todos los sub-acordeones
+const collapseDocumentos = document.getElementById('collapseDocumentos');
+if (collapseDocumentos) {
+    collapseDocumentos.addEventListener('hidden.bs.collapse', function () {
+        // Encontrar todos los sub-acordeones abiertos y cerrarlos
+        const accordionDocumentos = document.getElementById('accordionDocumentos');
+        if (accordionDocumentos) {
+            const subAccordions = accordionDocumentos.querySelectorAll('.accordion-collapse.show');
+            subAccordions.forEach(element => {
+                const bsCollapse = bootstrap.Collapse.getInstance(element);
+                if (bsCollapse) {
+                    bsCollapse.hide();
+                } else {
+                    // Si no existe instancia, crear una y cerrarla
+                    new bootstrap.Collapse(element, {toggle: false}).hide();
+                }
+            });
+        }
+    });
+}
+
 </script>
 
 <?= $script ?? '' ?>
