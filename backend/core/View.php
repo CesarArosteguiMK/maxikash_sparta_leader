@@ -187,7 +187,7 @@ function getMenu()
     <meta charset="utf-8" />
     <meta
         name="viewport"
-        content="width=device-width, initial-scale=1.0, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0" />
+        content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="" />
 
     <title><?= $titulo; ?></title>
@@ -235,7 +235,7 @@ function getMenu()
     <link rel="stylesheet" href="/assets/vendor/libs/jkanban/jkanban.css">
     <link rel="stylesheet" href="/assets/vendor/libs/jquery-timepicker/jquery-timepicker.css">
     <link rel="stylesheet" href="/assets/vendor/libs/jstree/jstree.css">
-    <!-- <link rel="stylesheet" href="/assets/vendor/libs/leaflet/leaflet.css"> -->
+    <link rel="stylesheet" href="/assets/vendor/libs/leaflet/leaflet.css">
     <!-- <link rel="stylesheet" href="/assets/vendor/libs/mapbox-gl/mapbox-gl.css"> -->
     <link rel="stylesheet" href="/assets/vendor/libs/nouislider/nouislider.css">
     <link rel="stylesheet" href="/assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.css">
@@ -402,7 +402,7 @@ function getMenu()
     <script src="/assets/vendor/libs/jquery-repeater/jquery-repeater.js"></script>
     <script src="/assets/vendor/libs/jquery-timepicker/jquery-timepicker.js"></script>
     <script src="/assets/vendor/libs/jstree/jstree.js"></script>
-    <!-- <script src="/assets/vendor/libs/leaflet/leaflet.js"></script> -->
+    <script src="/assets/vendor/libs/leaflet/leaflet.js"></script>
     <!-- <script src="/assets/vendor/libs/mapbox-gl/mapbox-gl.js"></script> -->
     <script src="/assets/vendor/libs/masonry/masonry.js"></script>
     <script src="/assets/vendor/libs/moment/moment.js"></script>
