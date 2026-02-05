@@ -7,4 +7,12 @@ define('ENDPOINT', 'https://servicios.s2movil.net/s2__SPARTA_SECRET_REDACTED__/e
 // API key para crear tickets desde el bot de WhatsApp (cabecera X-API-Key o body api_key).
 define('TICKET_WHATSAPP_API_KEY', 'cambiar_clave_secreta_whatsapp_' . md5('sparta___SPARTA_SECRET_REDACTED__'));
 
+// API key para OpenAI / análisis IA (legacy). Si se usa Gemini, esta no se usa.
+define('OPENAI_API_KEY', '');
+// API key para Google Gemini (Analizar IA, Resumir ubicaciones, Resumen gestiones). Modelo: gemini-2.5-flash
+define('GEMINI_API_KEY', '');
+// Si en XAMPP/local da error de SSL, ponga true SOLO para probar (no recomendado en producción).
+define('OPENAI_SSL_VERIFY', true);
 
+// Mapa en modal Iniciar rastreo: clave de Google Maps (Maps JavaScript API). Sin clave se usa Leaflet/CartoDB.
+define('GOOGLE_MAPS_API_KEY', 'AIzaSyB2oudGwnMDhpyUsO6jGkiblGVlWDV5w1M');
