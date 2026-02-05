@@ -16,6 +16,60 @@
         box-shadow: 0 4px 12px rgba(0,0,0,0.1);
     }
 
+    /* Estilos para información del despacho tipo labels */
+    .info-compact {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+
+    .info-compact li {
+        display: grid;
+        grid-template-columns: 2rem 1fr;
+        align-items: start;
+        gap: 0.75rem;
+        padding: 0.625rem 0;
+        border-bottom: 1px solid #f0f0f0;
+    }
+
+    .info-compact li:last-child {
+        border-bottom: none;
+    }
+
+    .info-compact i {
+        font-size: 1.1rem;
+        color: #696cff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 2rem;
+        height: 2rem;
+    }
+
+    .info-compact .info-label {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+        min-width: 0;
+    }
+
+    .info-compact .info-label span:first-child {
+        color: #697a8d;
+        font-size: 0.875rem;
+        white-space: nowrap;
+    }
+
+    .info-compact .info-label span:last-child {
+        color: #566a7f;
+        font-weight: 600;
+        text-align: right;
+        flex: 1;
+        min-width: 0;
+        word-wrap: break-word;
+    }
+
     /* Estilos para Select con Búsqueda - Despachos */
     .select-search-wrapper {
         position: relative;
@@ -145,9 +199,51 @@
                     </select>
                 </div>
 
-                <div class="mb-3">
-                    <label class="form-label" for="info-despacho">Información del despacho</label>
-                    <textarea id="info-despacho" class="form-control" rows="3" placeholder="Dirección, teléfono, zona, etc." readonly></textarea>
+                <!-- Información del Despacho con diseño tipo labels -->
+                <div id="info-despacho-container" style="display: none;">
+                    <hr class="my-3">
+                    <small class="card-text text-uppercase text-body-secondary small">Información del Despacho</small>
+                    <ul class="list-unstyled my-2 py-1 info-compact">
+                        <li>
+                            <i class="fa fa-user fa-lg text-primary"></i>
+                            <div class="info-label">
+                                <span class="fw-medium">Nombre:</span>
+                                <span id="info-nombre">-</span>
+                            </div>
+                        </li>
+                        
+                        <li>
+                            <i class="fa fa-briefcase fa-lg text-primary"></i>
+                            <div class="info-label">
+                                <span class="fw-medium">Puesto:</span>
+                                <span id="info-puesto">-</span>
+                            </div>
+                        </li>
+                        
+                        <li>
+                            <i class="fa fa-phone fa-lg text-primary"></i>
+                            <div class="info-label">
+                                <span class="fw-medium">Teléfono:</span>
+                                <span id="info-telefono">-</span>
+                            </div>
+                        </li>
+                        
+                        <li>
+                            <i class="fa fa-envelope fa-lg text-primary"></i>
+                            <div class="info-label">
+                                <span class="fw-medium">Correo:</span>
+                                <span id="info-correo">-</span>
+                            </div>
+                        </li>
+                        
+                        <li>
+                            <i class="fa fa-map-marker-alt fa-lg text-primary"></i>
+                            <div class="info-label">
+                                <span class="fw-medium">Dirección:</span>
+                                <span id="info-direccion">-</span>
+                            </div>
+                        </li>
+                    </ul>
                 </div>
 
                 <hr class="my-4">
@@ -296,14 +392,19 @@
 
                 <!-- Resultado de búsqueda -->
                 <div class="card border border-primary credit-result-box mt-4" id="credit-result">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                <h6 class="mb-1" id="credit-id">ID CRÉDITO</h6>
-                                <p class="mb-0 text-muted" id="credit-nombre">NOMBRE DEL CLIENTE</p>
+                    <div class="card-body p-3">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div class="flex-grow-1" style="font-size: 0.875rem;">
+                                <div class="d-flex align-items-center mb-1">
+                                    <strong class="me-2" id="credit-id">ID Crédito: </strong>
+                                    <span class="badge bg-warning" id="credit-mora">0</span>
+                                </div>
+                                <div class="mb-1"><strong>Nombre:</strong> <span id="credit-nombre">-</span></div>
+                                <div class="mb-1"><strong>Dirección:</strong> <span id="credit-direccion" class="text-muted">-</span></div>
+                                <div><strong>Saldo:</strong> <span class="text-danger fw-bold" id="credit-saldo">$0.00</span></div>
                             </div>
-                            <button class="btn btn-success" id="btn-asignar-credito">
-                                <i class="fa-solid fa-check me-1"></i>ASIGNAR
+                            <button class="btn btn-success btn-sm ms-3" id="btn-asignar-credito">
+                                <i class="fa-solid fa-check me-1"></i>Asignar
                             </button>
                         </div>
                     </div>
@@ -590,7 +691,17 @@ function cargarDatosDespacho(idPersona) {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                document.getElementById('info-despacho').value = data.informacion || '';
+                // Mostrar el contenedor de información
+                document.getElementById('info-despacho-container').style.display = 'block';
+                
+                // Llenar los labels con la información
+                document.getElementById('info-nombre').textContent = data.datos.nombre_completo || '-';
+                document.getElementById('info-puesto').textContent = data.datos.puesto || '-';
+                document.getElementById('info-telefono').textContent = data.datos.telefono || '-';
+                document.getElementById('info-correo').textContent = data.datos.correo || '-';
+                document.getElementById('info-direccion').textContent = data.datos.direccion || '-';
+                
+                // Cargar comentarios si existen
                 document.getElementById('comentarios-despacho').value = data.comentarios || '';
                 
                 // Cargar métricas
@@ -628,8 +739,11 @@ function buscarCredito() {
     .then(data => {
         if (data.success && data.credito) {
             creditoEncontrado = data.credito;
-            document.getElementById('credit-id').textContent = `ID CRÉDITO ${creditoEncontrado.id_credito}`;
+            document.getElementById('credit-id').textContent = `ID CREDITO ${creditoEncontrado.id_credito}`;
             document.getElementById('credit-nombre').textContent = creditoEncontrado.nombre_cliente;
+            document.getElementById('credit-direccion').textContent = creditoEncontrado.direccion || 'Sin dirección';
+            document.getElementById('credit-saldo').textContent = formatearMoneda(creditoEncontrado.saldo_actual || 0);
+            document.getElementById('credit-mora').textContent = `${creditoEncontrado.dias_mora || 0} días`;
             document.getElementById('credit-result').style.display = 'block';
         } else {
             Swal.fire('No encontrado', 'No se encontró el crédito', 'info');

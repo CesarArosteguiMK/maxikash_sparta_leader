@@ -42,60 +42,68 @@ SQL;
     }
 
     /**
-     * Obtener datos de un despacho específico
+     * Obtener datos de un despacho específico usando la tabla persona directamente
+     * Si existe en despachos, traemos esos datos adicionales, sino solo de persona
      */
-    public function obtenerDatosDespacho($idDespacho)
+    public function obtenerDatosDespacho($idPersona)
     {
         $query = <<<SQL
         SELECT 
-            d.id,
-            d.id_persona,
+            per.id,
             CONCAT_WS(' ', per.nombres, per.segundo_nombre, per.apellidop, per.apellidom) AS nombre_completo,
+            pu.nombre AS puesto,
+            COALESCE(d.numero_tel1, per.telefono_uno) AS telefono,
+            COALESCE(d.correo_1, per.correo) AS correo,
+            COALESCE(d.direccion, 'Sin dirección registrada') AS direccion,
             d.tipo_persona,
-            d.numero_tel1,
             d.numero_tel2,
-            d.correo_1,
             d.correo_2,
-            d.direccion,
-            pu.nombre AS puesto
-        FROM despachos d
-        INNER JOIN persona per ON d.id_persona = per.id
+            d.id AS id_despacho
+        FROM persona per
         INNER JOIN asigna_puesto ap ON per.id = ap.id_persona
         INNER JOIN puesto pu ON ap.id_puesto = pu.id
-        WHERE d.id = ? AND ap.activo = 1
+        LEFT JOIN despachos d ON per.id = d.id_persona AND d.estatus = 'Activo'
+        WHERE per.id = :idPersona 
+          AND ap.id_puesto IN (24, 36)
+          AND ap.activo = 1
+        LIMIT 1
 SQL;
 
-        $result = $this->db->queryOne($query, [$idDespacho]);
+        $result = $this->db->queryOne($query, ['idPersona' => $idPersona]);
         
         if (!$result) {
             return [
-                'nombre_despacho' => '',
-                'informacion' => '',
-                'comentarios' => []
+                'datos' => [
+                    'nombre_completo' => '',
+                    'puesto' => '',
+                    'telefono' => '',
+                    'correo' => '',
+                    'direccion' => '',
+                    'tipo_persona' => ''
+                ],
+                'comentarios' => '',
+                'id_despacho' => null
             ];
         }
         
-        // Construir información del despacho
-        $informacion = "Tipo: {$result['tipo_persona']}\n";
-        $informacion .= "Teléfono 1: {$result['numero_tel1']}\n";
-        if ($result['numero_tel2']) {
-            $informacion .= "Teléfono 2: {$result['numero_tel2']}\n";
+        // Obtener el último comentario (si existe y tiene id_despacho)
+        $comentario = '';
+        if (!empty($result['id_despacho'])) {
+            $queryComentario = <<<SQL
+            SELECT comentario 
+            FROM comentarios_despacho 
+            WHERE id_despacho = :idDespacho 
+            ORDER BY fecha_comentario DESC 
+            LIMIT 1
+SQL;
+            $comentarioResult = $this->db->queryOne($queryComentario, ['idDespacho' => $result['id_despacho']]);
+            $comentario = $comentarioResult['comentario'] ?? '';
         }
-        $informacion .= "Email: {$result['correo_1']}\n";
-        if ($result['correo_2']) {
-            $informacion .= "Email 2: {$result['correo_2']}\n";
-        }
-        if ($result['direccion']) {
-            $informacion .= "Dirección: {$result['direccion']}";
-        }
-        
-        // Obtener comentarios
-        $comentarios = $this->obtenerComentarios($idDespacho);
         
         return [
-            'nombre_despacho' => $result['nombre_completo'],
-            'informacion' => $informacion,
-            'comentarios' => $comentarios
+            'datos' => $result,
+            'comentarios' => $comentario,
+            'id_despacho' => $result['id_despacho'] ?? null
         ];
     }
 
@@ -122,76 +130,108 @@ SQL;
     /**
      * Obtener métricas de un despacho
      */
-    public function obtenerMetricasDespacho($idDespacho)
+    public function obtenerMetricasDespacho($idPersona)
     {
+        // Primero obtener el id del despacho
+        $queryDespacho = "SELECT id FROM despachos WHERE id_persona = :idPersona AND estatus = 'Activo' LIMIT 1";
+        $despacho = $this->db->queryOne($queryDespacho, ['idPersona' => $idPersona]);
+        
+        if (!$despacho) {
+            return [
+                'creditos_asignados' => 0,
+                'saldo_total' => 0,
+                'recuperacion' => 0,
+                'promedio_mora' => 0
+            ];
+        }
+        
+        $idDespacho = $despacho['id'];
+        
         // Créditos asignados activos
         $queryCreditos = <<<SQL
         SELECT COUNT(*) as total 
         FROM asigna_creditos_despacho 
-        WHERE id_despacho = ? AND estatus = 'Activo'
+        WHERE id_despacho = :idDespacho AND estatus = 'Activo'
 SQL;
-        $creditos = $this->db->queryOne($queryCreditos, [$idDespacho]);
+        $creditos = $this->db->queryOne($queryCreditos, ['idDespacho' => $idDespacho]);
         
-        // Saldo total - esto dependerá de tu tabla de créditos
-        // Por ahora devuelvo 0, ajusta según tu tabla real
-        $querySaldo = <<<SQL
-        SELECT COALESCE(SUM(c.saldo_actual), 0) as total_saldo
-        FROM asigna_creditos_despacho acd
-        INNER JOIN creditos c ON acd.id_credito = c.id_credito
-        WHERE acd.id_despacho = ? AND acd.estatus = 'Activo'
-SQL;
-        $saldo = $this->db->queryOne($querySaldo, [$idDespacho]);
-        
-        // Recuperación - ajusta según tu lógica de negocio
-        $queryRecuperacion = <<<SQL
-        SELECT 
-            COALESCE(
-                (SUM(c.monto_pagado) / NULLIF(SUM(c.saldo_original), 0)) * 100, 
-                0
-            ) as porcentaje
-        FROM asigna_creditos_despacho acd
-        INNER JOIN creditos c ON acd.id_credito = c.id_credito
-        WHERE acd.id_despacho = ? AND acd.estatus = 'Activo'
-SQL;
-        $recuperacion = $this->db->queryOne($queryRecuperacion, [$idDespacho]);
-        
-        // Promedio días mora
-        $queryMora = <<<SQL
-        SELECT COALESCE(AVG(c.dias_mora), 0) as promedio
-        FROM asigna_creditos_despacho acd
-        INNER JOIN creditos c ON acd.id_credito = c.id_credito
-        WHERE acd.id_despacho = ? AND acd.estatus = 'Activo'
-SQL;
-        $mora = $this->db->queryOne($queryMora, [$idDespacho]);
+        // Por ahora, saldo, recuperación y mora se calculan cuando tengas acceso a la API de créditos
+        // o cuando definas de dónde obtienes esta información
         
         return [
             'creditos_asignados' => $creditos['total'] ?? 0,
-            'saldo_total' => $saldo['total_saldo'] ?? 0,
-            'recuperacion' => round($recuperacion['porcentaje'] ?? 0, 2),
-            'promedio_mora' => round($mora['promedio'] ?? 0, 0)
+            'saldo_total' => 0,
+            'recuperacion' => 0,
+            'promedio_mora' => 0
         ];
     }
 
     /**
-     * Buscar crédito por ID
+     * Buscar crédito por ID usando la API externa (como en EstadoCuenta)
      */
     public function buscarCredito($tipo, $valor)
     {
-        // Por ahora solo por ID, ajusta según tu tabla de créditos
-        $query = <<<SQL
-        SELECT 
-            c.id_credito,
-            CONCAT(c.nombre, ' ', c.apellido_paterno, ' ', c.apellido_materno) AS nombre_cliente,
-            c.saldo_actual,
-            c.dias_mora,
-            c.curp,
-            c.telefono
-        FROM creditos c
-        WHERE c.id_credito = ?
-        LIMIT 1
-SQL;
-
-        return $this->db->queryOne($query, [$valor]);
+        // Usamos la API externa para obtener información del crédito
+        // Similar a como se hace en EstadoCuenta
+        $url = "https://servicios.s2movil.net/s2__SPARTA_SECRET_REDACTED__/estadocuenta";
+        
+        $payload = json_encode([
+            "idCredito" => intval($valor),
+            "fechaCorte" => date('Y-m-d')
+        ]);
+        
+        $headers = [
+            "Token: __SPARTA_TOKEN_REDACTED__",
+            "Content-Type: application/json"
+        ];
+        
+        $ch = curl_init($url);
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 20);
+        
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        
+        if ($response === false || $httpCode !== 200) {
+            return null;
+        }
+        
+        $json = json_decode($response, true);
+        
+        if (!isset($json["estadoCuenta"])) {
+            return null;
+        }
+        
+        $estadoCuenta = $json["estadoCuenta"];
+        $cliente = $estadoCuenta["datosCliente"] ?? [];
+        
+        // Construir dirección completa desde los campos del cliente
+        $direccionParts = array_filter([
+            $cliente["calle"] ?? '',
+            $cliente["numeroExterior"] ?? '',
+            $cliente["numeroInterior"] ?? '',
+            $cliente["colonia"] ?? '',
+            $cliente["municipio"] ?? '',
+            $cliente["estado"] ?? '',
+            $cliente["codigoPostal"] ?? ''
+        ]);
+        $direccion = !empty($direccionParts) ? implode(', ', $direccionParts) : 'Sin dirección';
+        
+        return [
+            'id_credito' => $estadoCuenta["idCredito"] ?? $valor,
+            'nombre_cliente' => $cliente["nombreCliente"] ?? 'Sin nombre',
+            'saldo_actual' => $estadoCuenta["datosSaldos"]["saldoTotalVencido"] ?? 0,
+            'dias_mora' => $estadoCuenta["datosSaldos"]["diasMoraMaximo"] ?? 0,
+            'telefono' => $cliente["celular"] ?? 'Sin teléfono',
+            'curp' => $cliente["curp"] ?? 'Sin CURP',
+            'direccion' => $direccion,
+            'sucursal' => $cliente["sucursal"] ?? 'Sin sucursal',
+            'fecha_desembolso' => $estadoCuenta["fechaDesembolso"] ?? 'Sin fecha'
+        ];
     }
 
     /**
@@ -202,26 +242,38 @@ SQL;
         $query = <<<SQL
         SELECT COUNT(*) as total 
         FROM asigna_creditos_despacho 
-        WHERE id_credito = ? AND estatus = 'Activo'
+        WHERE id_credito = :idCredito AND estatus = 'Activo'
 SQL;
-        $result = $this->db->queryOne($query, [$idCredito]);
+        $result = $this->db->queryOne($query, ['idCredito' => $idCredito]);
         return ($result['total'] ?? 0) > 0;
     }
 
     /**
      * Asignar crédito a un despacho
      */
-    public function asignarCredito($idDespacho, $idCredito)
+    public function asignarCredito($idPersona, $idCredito)
     {
+        // Primero obtener el id del despacho
+        $queryDespacho = "SELECT id FROM despachos WHERE id_persona = :idPersona AND estatus = 'Activo' LIMIT 1";
+        $despacho = $this->db->queryOne($queryDespacho, ['idPersona' => $idPersona]);
+        
+        if (!$despacho) {
+            return false;
+        }
+        
         $query = <<<SQL
         INSERT INTO asigna_creditos_despacho 
         (id_despacho, id_credito, fecha_alta, persona_que_lo_asigna, estatus)
-        VALUES (?, ?, NOW(), ?, 'Activo')
+        VALUES (:idDespacho, :idCredito, CURDATE(), :usuarioAsignacion, 'Activo')
 SQL;
 
-        $usuarioAsignacion = $_SESSION['usuario_id'] ?? $_SESSION['id_persona'] ?? 0;
+        $usuarioAsignacion = $_SESSION['usuario_id'] ?? 1;
         
-        return $this->db->query($query, [$idDespacho, $idCredito, $usuarioAsignacion]);
+        return $this->db->query($query, [
+            'idDespacho' => $despacho['id'],
+            'idCredito' => $idCredito,
+            'usuarioAsignacion' => $usuarioAsignacion
+        ]);
     }
 
     /**
@@ -232,50 +284,68 @@ SQL;
         $query = <<<SQL
         UPDATE asigna_creditos_despacho 
         SET estatus = 'Finalizado', 
-            fecha_baja = NOW()
-        WHERE id_credito = ? AND estatus = 'Activo'
+            fecha_baja = CURDATE()
+        WHERE id_credito = :idCredito AND estatus = 'Activo'
 SQL;
         
-        return $this->db->query($query, [$idCredito]);
+        return $this->db->query($query, ['idCredito' => $idCredito]);
     }
 
     /**
      * Obtener créditos asignados a un despacho
+     * Nota: La información de créditos se obtiene de asigna_creditos_despacho
+     * El detalle completo se consultaría por API cuando sea necesario
      */
-    public function obtenerCreditosAsignados($idDespacho)
+    public function obtenerCreditosAsignados($idPersona)
     {
+        // Primero obtener el id del despacho
+        $queryDespacho = "SELECT id FROM despachos WHERE id_persona = :idPersona AND estatus = 'Activo' LIMIT 1";
+        $despacho = $this->db->queryOne($queryDespacho, ['idPersona' => $idPersona]);
+        
+        if (!$despacho) {
+            return [];
+        }
+        
         $query = <<<SQL
         SELECT 
-            c.id_credito,
-            CONCAT(c.nombre, ' ', c.apellido_paterno, ' ', c.apellido_materno) AS nombre_cliente,
-            c.saldo_actual as saldo,
-            c.dias_mora,
+            acd.id_credito,
             acd.estatus as estado,
             DATE_FORMAT(acd.fecha_alta, '%Y-%m-%d') as fecha_asignacion,
             CONCAT_WS(' ', per.nombres, per.apellidop) as asignado_por
         FROM asigna_creditos_despacho acd
-        INNER JOIN creditos c ON acd.id_credito = c.id_credito
         LEFT JOIN persona per ON acd.persona_que_lo_asigna = per.id
-        WHERE acd.id_despacho = ? AND acd.estatus = 'Activo'
+        WHERE acd.id_despacho = :idDespacho AND acd.estatus = 'Activo'
         ORDER BY acd.fecha_alta DESC
 SQL;
 
-        return $this->db->queryAll($query, [$idDespacho]);
+        return $this->db->queryAll($query, ['idDespacho' => $despacho['id']]);
     }
 
     /**
      * Guardar comentario sobre un despacho
      */
-    public function guardarComentario($idDespacho, $comentario)
+    public function guardarComentario($idPersona, $comentario)
     {
+        // Primero obtener el id del despacho
+        $queryDespacho = "SELECT id FROM despachos WHERE id_persona = :idPersona AND estatus = 'Activo' LIMIT 1";
+        $despacho = $this->db->queryOne($queryDespacho, ['idPersona' => $idPersona]);
+        
+        if (!$despacho) {
+            return false;
+        }
+        
         $query = <<<SQL
         INSERT INTO comentarios_despacho 
         (id_despacho, comentario, id_persona_comenta, fecha_comentario)
-        VALUES (?, ?, ?, NOW())
+        VALUES (:idDespacho, :comentario, :idPersona, NOW())
 SQL;
 
-        $idPersona = $_SESSION['id_persona'] ?? $_SESSION['usuario_id'] ?? 0;
+        $idPersonaComenta = $_SESSION['usuario_id'] ?? 1;
         
-        return $this->db->query($query, [$idDespacho, $comentario, $idPersona]);
+        return $this->db->query($query, [
+            'idDespacho' => $despacho['id'],
+            'comentario' => $comentario,
+            'idPersona' => $idPersonaComenta
+        ]);
     }
 }

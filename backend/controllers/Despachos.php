@@ -72,8 +72,8 @@ class Despachos extends Controller
             
             echo json_encode([
                 'success' => true,
-                'informacion' => $datos['informacion'] ?? '',
-                'comentarios' => $datos['comentarios'] ?? [],
+                'datos' => $datos['datos'] ?? [],
+                'comentarios' => $datos['comentarios'] ?? '',
                 'metricas' => $metricas
             ]);
         } catch (\Exception $e) {
