@@ -277,48 +277,45 @@ SQL;
     }
 
     /**
-     * Desasignar crédito (marcar como Finalizado)
+     * Cambiar estatus de crédito (activar/desactivar)
      */
-    public function desasignarCredito($idCredito)
+    public function cambiarEstatusCredito($idCredito, $nuevoEstatus)
     {
+        $fechaBaja = $nuevoEstatus === '0' ? 'NOW()' : 'NULL';
+        
         $query = <<<SQL
         UPDATE asigna_creditos_despacho 
-        SET estatus = 'Finalizado', 
-            fecha_baja = CURDATE()
-        WHERE id_credito = :idCredito AND estatus = 'Activo'
+        SET estatus = :nuevoEstatus, 
+            fecha_baja = $fechaBaja
+        WHERE id_credito = :idCredito
 SQL;
         
-        return $this->db->query($query, ['idCredito' => $idCredito]);
+        return $this->db->query($query, [
+            'idCredito' => $idCredito,
+            'nuevoEstatus' => $nuevoEstatus
+        ]);
     }
 
     /**
      * Obtener créditos asignados a un despacho
-     * Nota: La información de créditos se obtiene de asigna_creditos_despacho
-     * El detalle completo se consultaría por API cuando sea necesario
+     * Consulta directamente desde asigna_creditos_despacho usando id_persona
      */
     public function obtenerCreditosAsignados($idPersona)
     {
-        // Primero obtener el id del despacho
-        $queryDespacho = "SELECT id FROM despachos WHERE id_persona = :idPersona AND estatus = 'Activo' LIMIT 1";
-        $despacho = $this->db->queryOne($queryDespacho, ['idPersona' => $idPersona]);
-        
-        if (!$despacho) {
-            return [];
-        }
-        
         $query = <<<SQL
         SELECT 
             acd.id_credito,
             acd.estatus as estado,
-            DATE_FORMAT(acd.fecha_alta, '%Y-%m-%d') as fecha_asignacion,
+            DATE_FORMAT(acd.fecha_alta, '%Y-%m-%d %H:%i') as fecha_asignacion,
             CONCAT_WS(' ', per.nombres, per.apellidop) as asignado_por
         FROM asigna_creditos_despacho acd
-        LEFT JOIN persona per ON acd.persona_que_lo_asigna = per.id
-        WHERE acd.id_despacho = :idDespacho AND acd.estatus = 'Activo'
+        INNER JOIN despachos d ON acd.id_despacho = d.id
+        LEFT JOIN persona per ON acd.alta = per.id
+        WHERE d.id_persona = :idPersona
         ORDER BY acd.fecha_alta DESC
 SQL;
 
-        return $this->db->queryAll($query, ['idDespacho' => $despacho['id']]);
+        return $this->db->queryAll($query, ['idPersona' => $idPersona]);
     }
 
     /**

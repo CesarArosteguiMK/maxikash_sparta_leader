@@ -204,7 +204,7 @@
                     <hr class="my-3">
                     <small class="card-text text-uppercase text-body-secondary small">Información del Despacho</small>
                     <ul class="list-unstyled my-2 py-1 info-compact">
-                        <li>
+                        <li id="info-nombre-container">
                             <i class="fa fa-user fa-lg text-primary"></i>
                             <div class="info-label">
                                 <span class="fw-medium">Nombre:</span>
@@ -212,7 +212,7 @@
                             </div>
                         </li>
                         
-                        <li>
+                        <li id="info-puesto-container">
                             <i class="fa fa-briefcase fa-lg text-primary"></i>
                             <div class="info-label">
                                 <span class="fw-medium">Puesto:</span>
@@ -220,7 +220,7 @@
                             </div>
                         </li>
                         
-                        <li>
+                        <li id="info-telefono-container">
                             <i class="fa fa-phone fa-lg text-primary"></i>
                             <div class="info-label">
                                 <span class="fw-medium">Teléfono:</span>
@@ -228,7 +228,7 @@
                             </div>
                         </li>
                         
-                        <li>
+                        <li id="info-correo-container">
                             <i class="fa fa-envelope fa-lg text-primary"></i>
                             <div class="info-label">
                                 <span class="fw-medium">Correo:</span>
@@ -236,11 +236,26 @@
                             </div>
                         </li>
                         
-                        <li>
+                        <li id="info-direccion-container">
                             <i class="fa fa-map-marker-alt fa-lg text-primary"></i>
                             <div class="info-label">
                                 <span class="fw-medium">Dirección:</span>
                                 <span id="info-direccion">-</span>
+                            </div>
+                        </li>
+                        
+                        <li id="info-tipo-container">
+                            <i class="fa fa-id-card fa-lg text-primary"></i>
+                            <div class="info-label">
+                                <span class="fw-medium">Tipo:</span>
+                                <span id="info-tipo">-</span>
+                            </div>
+                        </li>
+                        
+                        <li id="info-sin-datos-container" style="display: none;">
+                            <i class="fa fa-exclamation-circle fa-lg text-muted"></i>
+                            <div class="info-label">
+                                <span class="text-muted">Sin datos de contacto</span>
                             </div>
                         </li>
                     </ul>
@@ -430,21 +445,13 @@
             <thead>
                 <tr>
                     <th>ID Crédito</th>
-                    <th>Cliente</th>
-                    <th>Saldo</th>
-                    <th>Días Mora</th>
                     <th>Estado</th>
                     <th>Fecha Asignación</th>
+                    <th>Asignado Por</th>
                     <th>Acciones</th>
                 </tr>
             </thead>
             <tbody id="tbody-creditos">
-                <tr>
-                    <td colspan="7" class="text-center py-5">
-                        <i class="fa-solid fa-info-circle me-2 text-muted"></i>
-                        <span class="text-muted">Seleccione un despacho para ver los créditos asignados</span>
-                    </td>
-                </tr>
             </tbody>
         </table>
     </div>
@@ -694,12 +701,41 @@ function cargarDatosDespacho(idPersona) {
                 // Mostrar el contenedor de información
                 document.getElementById('info-despacho-container').style.display = 'block';
                 
-                // Llenar los labels con la información
-                document.getElementById('info-nombre').textContent = data.datos.nombre_completo || '-';
-                document.getElementById('info-puesto').textContent = data.datos.puesto || '-';
-                document.getElementById('info-telefono').textContent = data.datos.telefono || '-';
-                document.getElementById('info-correo').textContent = data.datos.correo || '-';
-                document.getElementById('info-direccion').textContent = data.datos.direccion || '-';
+                // Función auxiliar para verificar si un valor está vacío
+                const estaVacio = (valor) => {
+                    return !valor || valor === '' || valor === 'Sin dirección registrada' || valor === '-' || valor === null;
+                };
+                
+                // Función auxiliar para mostrar/ocultar campo
+                const mostrarCampo = (containerId, valor, elementId) => {
+                    const container = document.getElementById(containerId);
+                    const element = document.getElementById(elementId);
+                    
+                    if (!estaVacio(valor)) {
+                        container.style.display = 'grid';
+                        element.textContent = valor;
+                        return true; // Tiene datos
+                    } else {
+                        container.style.display = 'none';
+                        return false; // No tiene datos
+                    }
+                };
+                
+                // Llenar y mostrar/ocultar cada campo
+                mostrarCampo('info-nombre-container', data.datos.nombre_completo, 'info-nombre');
+                mostrarCampo('info-puesto-container', data.datos.puesto, 'info-puesto');
+                const tieneTelefono = mostrarCampo('info-telefono-container', data.datos.telefono, 'info-telefono');
+                const tieneCorreo = mostrarCampo('info-correo-container', data.datos.correo, 'info-correo');
+                const tieneDireccion = mostrarCampo('info-direccion-container', data.datos.direccion, 'info-direccion');
+                mostrarCampo('info-tipo-container', data.datos.tipo_persona, 'info-tipo');
+                
+                // Si no tiene teléfono, correo ni dirección, mostrar "Sin Datos"
+                const sinDatosContainer = document.getElementById('info-sin-datos-container');
+                if (!tieneTelefono && !tieneCorreo && !tieneDireccion) {
+                    sinDatosContainer.style.display = 'grid';
+                } else {
+                    sinDatosContainer.style.display = 'none';
+                }
                 
                 // Cargar comentarios si existen
                 document.getElementById('comentarios-despacho').value = data.comentarios || '';
@@ -818,36 +854,65 @@ function cargarCreditosAsignados(idPersona) {
     fetch(`/despachos/obtenerCreditosAsignados/${idPersona}`)
         .then(response => response.json())
         .then(data => {
-            const tbody = document.getElementById('tbody-creditos');
-            tbody.innerHTML = '';
-            
-            if (data.success && data.creditos && data.creditos.length > 0) {
-                data.creditos.forEach(credito => {
-                    const tr = document.createElement('tr');
-                    tr.innerHTML = `
-                        <td>${credito.id_credito}</td>
-                        <td>${credito.nombre_cliente}</td>
-                        <td>${formatearMoneda(credito.saldo)}</td>
-                        <td><span class="badge bg-warning">${credito.dias_mora}</span></td>
-                        <td><span class="badge bg-label-success">${credito.estado}</span></td>
-                        <td>${credito.fecha_asignacion}</td>
-                        <td>
-                            <button class="btn btn-sm btn-danger" onclick="desasignarCredito('${credito.id_credito}')" title="Desasignar crédito">
-                                <i class="fa-solid fa-times"></i>
-                            </button>
-                        </td>
-                    `;
-                    tbody.appendChild(tr);
+            if (data.success && data.creditos) {
+                // Inicializar DataTable si no existe
+                if (!$.fn.DataTable.isDataTable('#tabla-creditos')) {
+                    configuraTabla('#tabla-creditos', {
+                        registrosPorPagina: 10,
+                        columns: [
+                            { data: 0, title: 'ID Crédito' },
+                            { data: 1, title: 'Estado' },
+                            { data: 2, title: 'Fecha Asignación' },
+                            { data: 3, title: 'Asignado Por' },
+                            { data: 4, title: 'Acciones', orderable: false }
+                        ]
+                    });
+                }
+                
+                // Formatear datos para DataTable (arrays)
+                const datosFormateados = data.creditos.map(credito => {
+                    const esActivo = credito.estado === '1' || credito.estado === 1 || credito.estado === 'Activo';
+                    const estadoBadge = esActivo ? 'bg-success' : 'bg-secondary';
+                    const estadoTexto = esActivo ? 'Activo' : 'Inactivo';
+                    
+                    // Switch toggle visual
+                    const switchEstatus = `
+                        <div class="form-check form-switch d-flex justify-content-center">
+                            <input class="form-check-input switch-credito" type="checkbox" 
+                                   id="switch-${credito.id_credito}" 
+                                   data-credito="${credito.id_credito}"
+                                   ${esActivo ? 'checked' : ''}
+                                   style="cursor: pointer; width: 2.5rem; height: 1.25rem;">
+                        </div>`;
+                    
+                    return [
+                        `<strong>${credito.id_credito}</strong>`,
+                        `<span class="badge ${estadoBadge}">${estadoTexto}</span>`,
+                        credito.fecha_asignacion,
+                        credito.asignado_por || 'Sistema',
+                        switchEstatus
+                    ];
                 });
-            } else {
-                tbody.innerHTML = `
-                    <tr>
-                        <td colspan="7" class="text-center py-5">
-                            <i class="fa-solid fa-inbox me-2 text-muted"></i>
-                            <span class="text-muted">No hay créditos asignados a este despacho</span>
-                        </td>
-                    </tr>
-                `;
+                
+                // Actualizar tabla manteniendo página actual
+                actualizaDatosTabla('#tabla-creditos', datosFormateados, true);
+                
+                // Agregar event listeners a los switches después de actualizar la tabla
+                setTimeout(() => {
+                    document.querySelectorAll('.switch-credito').forEach(switchElement => {
+                        switchElement.addEventListener('change', function(e) {
+                            const idCredito = this.getAttribute('data-credito');
+                            const nuevoEstatus = this.checked ? '1' : '0';
+                            const estadoAnterior = !this.checked;
+                            
+                            // Revertir el switch temporalmente
+                            this.checked = estadoAnterior;
+                            
+                            // Pedir confirmación
+                            cambiarEstatusCredito(idCredito, nuevoEstatus, this);
+                        });
+                    });
+                }, 100);
             }
         })
         .catch(error => {
@@ -855,41 +920,61 @@ function cargarCreditosAsignados(idPersona) {
         });
 }
 
-// Función para desasignar crédito
-function desasignarCredito(idCredito) {
+// Función para cambiar estatus de crédito
+function cambiarEstatusCredito(idCredito, nuevoEstatus, switchElement) {
+    const accion = nuevoEstatus === '1' ? 'activar' : 'desactivar';
+    const titulo = nuevoEstatus === '1' ? '¿Activar crédito?' : '¿Desactivar crédito?';
+    const texto = `¿Desea ${accion} el crédito ${idCredito}?`;
+    const btnTexto = nuevoEstatus === '1' ? 'Sí, activar' : 'Sí, desactivar';
+    
     Swal.fire({
-        title: '¿Confirmar desasignación?',
-        text: `¿Desea desasignar el crédito ${idCredito}?`,
+        title: titulo,
+        text: texto,
         icon: 'warning',
         showCancelButton: true,
-        confirmButtonText: 'Sí, desasignar',
+        confirmButtonText: btnTexto,
         cancelButtonText: 'Cancelar'
     }).then((result) => {
         if (result.isConfirmed) {
-            fetch('/despachos/desasignarCredito', {
+            // Usuario confirmó, cambiar el switch
+            if (switchElement) {
+                switchElement.checked = nuevoEstatus === '1';
+            }
+            
+            fetch('/despachos/cambiarEstatusCredito', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    id_credito: idCredito
+                    id_credito: idCredito,
+                    nuevo_estatus: nuevoEstatus
                 })
             })
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    Swal.fire('Éxito', 'Crédito desasignado correctamente', 'success');
+                    Swal.fire('Éxito', data.message, 'success');
                     cargarCreditosAsignados(despachoSeleccionado);
                     cargarDatosDespacho(despachoSeleccionado); // Actualizar métricas
                 } else {
-                    Swal.fire('Error', data.message || 'No se pudo desasignar el crédito', 'error');
+                    Swal.fire('Error', data.message || 'No se pudo cambiar el estatus', 'error');
+                    // Revertir el switch si hubo error
+                    if (switchElement) {
+                        switchElement.checked = nuevoEstatus !== '1';
+                    }
                 }
             })
             .catch(error => {
-                console.error('Error al desasignar crédito:', error);
-                Swal.fire('Error', 'Error al desasignar el crédito', 'error');
+                console.error('Error al cambiar estatus:', error);
+                Swal.fire('Error', 'Error al cambiar el estatus del crédito', 'error');
+                // Revertir el switch si hubo error
+                if (switchElement) {
+                    switchElement.checked = nuevoEstatus !== '1';
+                }
             });
         }
+        // Si cancela, el switch ya está revertido, no hacer nada
     });
 }
 

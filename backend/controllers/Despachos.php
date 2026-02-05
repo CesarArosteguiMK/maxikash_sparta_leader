@@ -178,31 +178,33 @@ class Despachos extends Controller
      * Desasignar crédito de un despacho
      * POST: id_credito
      */
-    public function DesasignarCredito()
+    public function CambiarEstatusCredito()
     {
         try {
             $input = json_decode(file_get_contents('php://input'), true);
             $idCredito = $input['id_credito'] ?? null;
+            $nuevoEstatus = $input['nuevo_estatus'] ?? null;
 
-            if (!$idCredito) {
+            if (!$idCredito || $nuevoEstatus === null) {
                 echo json_encode([
                     'success' => false,
-                    'message' => 'Falta el ID del crédito'
+                    'message' => 'Faltan datos requeridos'
                 ]);
                 return;
             }
 
-            $resultado = $this->model->desasignarCredito($idCredito);
+            $resultado = $this->model->cambiarEstatusCredito($idCredito, $nuevoEstatus);
             
             if ($resultado) {
+                $mensaje = $nuevoEstatus === '1' ? 'Crédito activado correctamente' : 'Crédito desactivado correctamente';
                 echo json_encode([
                     'success' => true,
-                    'message' => 'Crédito desasignado correctamente'
+                    'message' => $mensaje
                 ]);
             } else {
                 echo json_encode([
                     'success' => false,
-                    'message' => 'No se pudo desasignar el crédito'
+                    'message' => 'No se pudo cambiar el estatus del crédito'
                 ]);
             }
         } catch (\Exception $e) {
