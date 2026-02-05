@@ -1424,7 +1424,33 @@ function exportarExcel() {
         return;
     }
     
+    // Mostrar mensaje de carga
+    Swal.fire({
+        title: 'Generando reporte...',
+        html: 'Por favor espere mientras se genera el archivo Excel.<br><small>Este proceso puede tardar varios minutos si hay muchos créditos asignados.</small>',
+        icon: 'info',
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        showConfirmButton: false,
+        didOpen: () => {
+            Swal.showLoading();
+        }
+    });
+    
+    // Iniciar descarga
     window.location.href = `/despachos/exportarExcel/${despachoSeleccionado}`;
+    
+    // Cerrar mensaje después de un tiempo (el archivo se descargará en segundo plano)
+    setTimeout(() => {
+        Swal.close();
+        Swal.fire({
+            title: 'Descarga iniciada',
+            text: 'El archivo debería descargarse en unos momentos',
+            icon: 'success',
+            timer: 3000,
+            showConfirmButton: false
+        });
+    }, 3000);
 }
 
 // Función auxiliar para formatear moneda

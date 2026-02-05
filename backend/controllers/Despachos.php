@@ -287,23 +287,14 @@ class Despachos extends Controller
     public function ExportarExcel($idDespacho)
     {
         try {
+            // Aumentar tiempo de ejecución para reportes grandes
+            set_time_limit(300); // 5 minutos
+            ini_set('memory_limit', '512M');
+            
             $creditos = $this->model->obtenerCreditosAsignados($idDespacho);
             $datosDespacho = $this->model->obtenerDatosDespacho($idDespacho);
             
-            // Enriquecer datos de créditos con información de la API
-            foreach ($creditos as &$credito) {
-                $datosCredito = $this->model->buscarCredito('id_credito', $credito['id_credito']);
-                if ($datosCredito) {
-                    $credito['nombre_cliente'] = $datosCredito['nombre_cliente'];
-                    $credito['saldo'] = $datosCredito['saldo_actual'];
-                    $credito['dias_mora'] = $datosCredito['dias_mora'];
-                } else {
-                    $credito['nombre_cliente'] = 'No disponible';
-                    $credito['saldo'] = 0;
-                    $credito['dias_mora'] = 0;
-                }
-            }
-            unset($credito); // Romper la referencia
+            // Los datos ya vienen desde la base de datos, no necesitamos llamar a la API
             
             // Generar Excel usando PhpSpreadsheet
             require_once __DIR__ . '/../libs/PhpSpreadsheet/vendor/autoload.php';

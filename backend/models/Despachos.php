@@ -386,6 +386,7 @@ SQL;
      */
     public function obtenerCreditosAsignados($idPersona)
     {
+        // Obtener créditos asignados desde __SPARTA_SECRET_REDACTED__
         $query = <<<SQL
         SELECT 
             acd.id_credito,
@@ -399,7 +400,65 @@ SQL;
         ORDER BY acd.fecha_alta DESC
 SQL;
 
-        return $this->db->queryAll($query, ['idPersona' => $idPersona]);
+        $creditos = $this->db->queryAll($query, ['idPersona' => $idPersona]);
+        
+        if (empty($creditos)) {
+            return [];
+        }
+        
+        // Extraer IDs de crédito para buscar en tbl_segundometro_semana
+        $idsCredito = array_column($creditos, 'id_credito');
+        
+        // Sanitizar IDs (asegurar que son numéricos)
+        $idsCredito = array_map('intval', $idsCredito);
+        
+        // Conectar a db-megae-reporte
+        $dbSegundometro = new \Core\DatabaseSegundometro();
+        
+        // Construir query con placeholders nombrados
+        $placeholders = [];
+        $params = [];
+        foreach ($idsCredito as $idx => $idCredito) {
+            $key = "id$idx";
+            $placeholders[] = ":$key";
+            $params[$key] = $idCredito;
+        }
+        $placeholdersStr = implode(',', $placeholders);
+        
+        $querySegundometro = "
+            SELECT 
+                Id_credito,
+                Nombre_cliente,
+                Dias_mora,
+                Saldo_total_capital as saldo
+            FROM tbl_segundometro_semana
+            WHERE Id_credito IN ($placeholdersStr)
+        ";
+        
+        $datosCreditos = $dbSegundometro->queryAll($querySegundometro, $params);
+        
+        // Crear índice por id_credito para búsqueda rápida
+        $mapaCreditos = [];
+        foreach ($datosCreditos as $dato) {
+            $mapaCreditos[$dato['Id_credito']] = $dato;
+        }
+        
+        // Enriquecer créditos con datos de segundometro
+        foreach ($creditos as &$credito) {
+            $idCredito = $credito['id_credito'];
+            if (isset($mapaCreditos[$idCredito])) {
+                $credito['nombre_cliente'] = $mapaCreditos[$idCredito]['Nombre_cliente'] ?? 'No disponible';
+                $credito['dias_mora'] = $mapaCreditos[$idCredito]['Dias_mora'] ?? 0;
+                $credito['saldo'] = $mapaCreditos[$idCredito]['saldo'] ?? 0;
+            } else {
+                $credito['nombre_cliente'] = 'No disponible';
+                $credito['dias_mora'] = 0;
+                $credito['saldo'] = 0;
+            }
+        }
+        unset($credito); // Romper referencia
+        
+        return $creditos;
     }
 
     /**
