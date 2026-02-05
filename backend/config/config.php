@@ -8,7 +8,7 @@ define('ENDPOINT', 'https://servicios.s2movil.net/s2__SPARTA_SECRET_REDACTED__/e
 define('TICKET_WHATSAPP_API_KEY', 'cambiar_clave_secreta_whatsapp_' . md5('sparta___SPARTA_SECRET_REDACTED__'));
 
 // API key para OpenAI / análisis IA (legacy). Si se usa Gemini, esta no se usa.
-define('OPENAI_API_KEY', '');
+
 // API key para Google Gemini (Analizar IA, Resumir ubicaciones, Resumen gestiones). Modelo: gemini-2.5-flash
 define('GEMINI_API_KEY', '');
 // Si en XAMPP/local da error de SSL, ponga true SOLO para probar (no recomendado en producción).
