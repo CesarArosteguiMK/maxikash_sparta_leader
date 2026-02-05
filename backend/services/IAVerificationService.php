@@ -84,6 +84,47 @@ class IAVerificationService
         ];
     }
 
+    /**
+     * Valida que las evidencias de prediccion_conductual existan en datosReales/resultadoMotor.
+     * Si alguna evidencia no está soportada, la añade a claims_no_soportados.
+     *
+     * @param array $datosReales
+     * @param array $resultadoMotor
+     * @param array $prediccion_conductual Salida de BehaviorPredictionService
+     * @param array $verificacion Resultado actual de verificar()
+     * @return array $verificacion con claims_no_soportados enriquecido
+     */
+    public function enriquecerConEvidenciasPredictor(array $datosReales, array $resultadoMotor, array $prediccion_conductual, array $verificacion): array
+    {
+        $evidencias = $prediccion_conductual['evidencias'] ?? [];
+        if (empty($evidencias)) {
+            return $verificacion;
+        }
+        $idsReales = [];
+        foreach ($resultadoMotor['trazabilidad']['candidatos'] ?? [] as $c) {
+            $id = $c['id'] ?? $c['key'] ?? null;
+            if ($id !== null && $id !== '') {
+                $idsReales[(string) $id] = true;
+            }
+        }
+        foreach ($datosReales['gps'] ?? [] as $i => $g) {
+            $id = $g['id'] ?? 'gps_' . $i;
+            $idsReales[(string) $id] = true;
+        }
+        foreach ($datosReales['gestiones'] ?? [] as $i => $g) {
+            $id = $g['id'] ?? 'g' . $i;
+            $idsReales[(string) $id] = true;
+        }
+        $claims = $verificacion['claims_no_soportados'] ?? [];
+        foreach ($evidencias as $id) {
+            if (!isset($idsReales[(string) $id])) {
+                $claims[] = 'evidencia_predictor_no_presente:' . $id;
+            }
+        }
+        $verificacion['claims_no_soportados'] = array_values(array_unique($claims));
+        return $verificacion;
+    }
+
     private function fallbackVerificacion(array $datosReales, array $resultadoMotor): array
     {
         $motorConf = (float) ($resultadoMotor['motor_confidence'] ?? 50.0);

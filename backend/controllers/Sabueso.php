@@ -14,11 +14,13 @@ require_once __DIR__ . '/../services/IAInterpretationService.php';
 require_once __DIR__ . '/../services/IAVerificationService.php';
 require_once __DIR__ . '/../services/PipelineCache.php';
 require_once __DIR__ . '/../services/LocationAuditLogger.php';
+require_once __DIR__ . '/../services/BehaviorPredictionService.php';
 use Services\LocationScoringService;
 use Services\IAInterpretationService;
 use Services\IAVerificationService;
 use Services\PipelineCache;
 use Services\LocationAuditLogger;
+use Services\BehaviorPredictionService;
 
 class Sabueso extends Controller
 {
@@ -1687,7 +1689,36 @@ SCRIPT;
     }
 
     /**
-     * Ejecuta el flujo: Motor → (cache) → Interpretación IA → Verificación IA → audit.
+     * Construye historial_temporal para BehaviorPredictionService a partir de datosParaMotor.
+     *
+     * @param array $data Salida de prepararDatosParaMotor
+     * @return array [ fechas_pago=>[], gestiones=>[], gps=>[] ]
+     */
+    private function construirHistorialTemporal(array $data): array
+    {
+        $fechas_pago = [];
+        foreach ($data['gestiones'] ?? [] as $g) {
+            $tipo = (string) ($g['tipo'] ?? '');
+            if (stripos($tipo, 'Pago') !== false) {
+                $f = $g['fecha'] ?? null;
+                if ($f) {
+                    $ts = is_numeric($f) ? (int) $f : strtotime($f);
+                    if ($ts) {
+                        $fechas_pago[] = date('Y-m-d', $ts);
+                    }
+                }
+            }
+        }
+        rsort($fechas_pago);
+        return [
+            'fechas_pago' => array_values(array_unique($fechas_pago)),
+            'gestiones'   => $data['gestiones'] ?? [],
+            'gps'         => $data['ubicaciones'] ?? [],
+        ];
+    }
+
+    /**
+     * Ejecuta el flujo: Motor → (cache) → Interpretación IA → Verificación IA → Predictor → audit.
      * Retorna formato final: predicciones_finales {domicilio,trabajo,otro}, confianza_global, plan_operativo[string], prediccion_intencion, riesgos[string], trazabilidad, verificacion, json_legacy.
      */
     private function ejecutarPipelinePrediccion($idCredito, $idTicket = 0)
@@ -1715,9 +1746,11 @@ SCRIPT;
         $gemini = [$this, 'llamarGemini'];
         $contextoMinimo = "Crédito {$idCredito}.";
 
+        $prediccion_conductual = null;
         if (is_array($cached) && isset($cached['interpretacion']) && isset($cached['verificacion'])) {
             $interpretacion = $cached['interpretacion'];
             $verificacion = $cached['verificacion'];
+            $prediccion_conductual = $cached['prediccion_conductual'] ?? null;
         } else {
             $interpretacionSvc = new IAInterpretationService();
             $interpretacion = $interpretacionSvc->interpretar($resultadoMotor, $gemini, $contextoMinimo);
@@ -1725,13 +1758,25 @@ SCRIPT;
             $pagosCount = $data['pagos_count'];
             $ubic = UbicacionDAO::getUbicacionesFiltradasPorIdCredito($idCredito);
             $gpsList = [];
-            foreach (array_slice($ubic['direcciones_resumen'] ?? [], 0, 10) as $d) {
-                $gpsList[] = ['texto' => $d['texto'] ?? '—', 'visitas' => (int)($d['cantidad_registros'] ?? 0), 'ultima_fecha' => $d['ultima_fecha'] ?? '—'];
+            foreach (array_slice($ubic['direcciones_resumen'] ?? [], 0, 10) as $i => $d) {
+                $gpsList[] = [
+                    'id' => $d['id'] ?? 'u' . $i,
+                    'texto' => $d['texto'] ?? '—',
+                    'visitas' => (int)($d['cantidad_registros'] ?? 0),
+                    'ultima_fecha' => $d['ultima_fecha'] ?? '—',
+                ];
             }
             $gestionesFull = GestionesDAO::getAllGestiones($idCredito, '');
             $gestionesList = [];
-            foreach (array_slice(is_array($gestionesFull) ? $gestionesFull : [], 0, 10) as $g) {
-                $gestionesList[] = ['fecha' => $g['fecha_dispositivo'] ?? $g['fecha_hora'] ?? '—', 'gestor' => $g['usuario_asignado'] ?? $g['usuario'] ?? '—', 'dictamen' => $g['dictamen_campo'] ?? $g['dictamen_ccc'] ?? '—', 'comentarios' => substr($g['comentarios_generales'] ?? '—', 0, 200)];
+            foreach (array_slice(is_array($gestionesFull) ? $gestionesFull : [], 0, 10) as $i => $g) {
+                $gestionesList[] = [
+                    'id' => $g['id'] ?? 'g' . $i,
+                    'fecha' => $g['fecha_dispositivo'] ?? $g['fecha_hora'] ?? '—',
+                    'tipo' => $g['dictamen_campo'] ?? $g['dictamen_ccc'] ?? '—',
+                    'gestor' => $g['usuario_asignado'] ?? $g['usuario'] ?? '—',
+                    'dictamen' => $g['dictamen_campo'] ?? $g['dictamen_ccc'] ?? '—',
+                    'comentarios' => substr($g['comentarios_generales'] ?? '—', 0, 200),
+                ];
             }
             $test = $this->detectSuspectedTest($idCredito, $idTicket);
             $datosReales = [
@@ -1743,7 +1788,32 @@ SCRIPT;
             ];
             $verificacionSvc = new IAVerificationService();
             $verificacion = $verificacionSvc->verificar($datosReales, $resultadoMotor, $interpretacion, $gemini);
-            $cache->set($cacheKey, ['interpretacion' => $interpretacion, 'verificacion' => $verificacion]);
+
+            $historial_temporal = $this->construirHistorialTemporal($data);
+                'fechas_pago' => [],
+                'gestiones' => $data['gestiones'] ?? [],
+                'gps' => $data['ubicaciones'] ?? [],
+            ];
+            $predictionSvc = new BehaviorPredictionService();
+            try {
+                $prediccion_conductual = $predictionSvc->predecirIntencionAcreditado($resultadoMotor, $datosReales, $historial_temporal);
+            } catch (\Throwable $e) {
+                $prediccion_conductual = [
+                    'evento_probable' => 'insuficiente_datos',
+                    'confianza_evento' => 0.0,
+                    'indicadores' => [],
+                    'ventana_tiempo_estimada' => ['desde_horas' => 0, 'hasta_horas' => 168],
+                    'explicacion_deterministica' => 'Error en predictor: ' . $e->getMessage(),
+                    'evidencias' => [],
+                ];
+            }
+            $verificacion = $verificacionSvc->enriquecerConEvidenciasPredictor($datosReales, $resultadoMotor, $prediccion_conductual, $verificacion);
+
+            $cache->set($cacheKey, [
+                'interpretacion' => $interpretacion,
+                'verificacion' => $verificacion,
+                'prediccion_conductual' => $prediccion_conductual,
+            ]);
 
             $responseHash = md5(json_encode($interpretacion, JSON_UNESCAPED_UNICODE) . json_encode($verificacion, JSON_UNESCAPED_UNICODE));
             $audit = new LocationAuditLogger();
@@ -1752,8 +1822,49 @@ SCRIPT;
                 ['domicilio' => $dom, 'trabajo' => $tra, 'otro' => $otr, 'motor_confidence' => $motorConf],
                 substr($contextoMinimo . ' ' . ($interpretacion['resumen'] ?? ''), 0, 500),
                 $responseHash,
-                ['veracity_score' => $verificacion['veracity_score'] ?? 0, 'suspected_test' => $verificacion['suspected_test'] ?? false]
+                [
+                    'veracity_score' => $verificacion['veracity_score'] ?? 0,
+                    'suspected_test' => $verificacion['suspected_test'] ?? false,
+                    'prediccion_conductual' => [
+                        'evento_probable' => $prediccion_conductual['evento_probable'] ?? '',
+                        'confianza_evento' => $prediccion_conductual['confianza_evento'] ?? 0,
+                        'evidencias' => $prediccion_conductual['evidencias'] ?? [],
+                    ],
+                ]
             );
+        }
+
+        if ($prediccion_conductual === null) {
+            $historial_temporal = [
+                'fechas_pago' => [],
+                'gestiones' => $data['gestiones'] ?? [],
+                'gps' => $data['ubicaciones'] ?? [],
+            ];
+            $pagosCount = $data['pagos_count'];
+            $ubic = UbicacionDAO::getUbicacionesFiltradasPorIdCredito($idCredito);
+            $gpsList = [];
+            foreach (array_slice($ubic['direcciones_resumen'] ?? [], 0, 10) as $i => $d) {
+                $gpsList[] = ['id' => $d['id'] ?? 'u' . $i, 'texto' => $d['texto'] ?? '—', 'visitas' => (int)($d['cantidad_registros'] ?? 0), 'ultima_fecha' => $d['ultima_fecha'] ?? '—'];
+            }
+            $gestionesFull = GestionesDAO::getAllGestiones($idCredito, '');
+            $gestionesList = [];
+            foreach (array_slice(is_array($gestionesFull) ? $gestionesFull : [], 0, 10) as $i => $g) {
+                $gestionesList[] = ['id' => $g['id'] ?? 'g' . $i, 'fecha' => $g['fecha_dispositivo'] ?? $g['fecha_hora'] ?? '—', 'tipo' => $g['dictamen_campo'] ?? $g['dictamen_ccc'] ?? '—'];
+            }
+            $datosReales = ['pagos_count' => $pagosCount, 'gps' => $gpsList, 'gestiones' => $gestionesList, 'suspected_test' => false, 'suspected_test_reasons' => []];
+            $predictionSvc = new BehaviorPredictionService();
+            try {
+                $prediccion_conductual = $predictionSvc->predecirIntencionAcreditado($resultadoMotor, $datosReales, $historial_temporal);
+            } catch (\Throwable $e) {
+                $prediccion_conductual = [
+                    'evento_probable' => 'insuficiente_datos',
+                    'confianza_evento' => 0.0,
+                    'indicadores' => [],
+                    'ventana_tiempo_estimada' => ['desde_horas' => 0, 'hasta_horas' => 168],
+                    'explicacion_deterministica' => 'Error: ' . $e->getMessage(),
+                    'evidencias' => [],
+                ];
+            }
         }
 
         $confianzaGlobal = (int) ($verificacion['veracity_score'] ?? 70);
@@ -1775,6 +1886,15 @@ SCRIPT;
         $prediccionIntencion = $interpretacion['prediccion_intencion'] ?? ['accion' => 'Revisar mapa y gestiones', 'evidencia' => [], 'nota' => ''];
         if (!isset($prediccionIntencion['evidencia']) || !is_array($prediccionIntencion['evidencia'])) {
             $prediccionIntencion['evidencia'] = array_slice(array_map(function ($c) { return (string)($c['id'] ?? $c['key'] ?? ''); }, $traz['candidatos'] ?? []), 0, 3);
+        }
+        if (!empty($prediccion_conductual['evidencias'])) {
+            $prediccionIntencion['evidencia'] = array_values(array_unique(array_merge(
+                $prediccionIntencion['evidencia'],
+                array_slice($prediccion_conductual['evidencias'], 0, 5)
+            )));
+        }
+        if (!empty($prediccion_conductual['explicacion_deterministica'])) {
+            $prediccionIntencion['nota'] = trim(($prediccionIntencion['nota'] ?? '') . ' ' . $prediccion_conductual['explicacion_deterministica']);
         }
 
         $verificacionOut = [
@@ -1815,17 +1935,19 @@ SCRIPT;
             'missing_data' => $verificacion['claims_no_soportados'] ?? [],
             'next_steps' => $planOperativo,
             'suspected_test' => $verificacion['suspected_test'] ?? false,
+            'prediccion_conductual' => $prediccion_conductual,
         ];
 
         return [
-            'predicciones_finales'  => $prediccionesFinales,
-            'confianza_global'      => $confianzaGlobal / 100.0,
-            'plan_operativo'        => $planOperativo,
-            'prediccion_intencion'  => $prediccionIntencion,
-            'riesgos'               => $riesgosStrings,
-            'trazabilidad'          => $trazabilidad,
-            'verificacion'          => $verificacionOut,
-            'json_legacy'           => $this->normalizarJsonPrediccion($jsonLegacy, true),
+            'predicciones_finales'   => $prediccionesFinales,
+            'confianza_global'       => $confianzaGlobal / 100.0,
+            'plan_operativo'         => $planOperativo,
+            'prediccion_intencion'   => $prediccionIntencion,
+            'prediccion_conductual' => $prediccion_conductual,
+            'riesgos'                => $riesgosStrings,
+            'trazabilidad'           => $trazabilidad,
+            'verificacion'           => $verificacionOut,
+            'json_legacy'            => $this->normalizarJsonPrediccion($jsonLegacy, true),
         ];
     }
 

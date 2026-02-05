@@ -57,22 +57,57 @@ Si falla la LLM, se devuelve fallback mínimo; `evidencia` referencia ids de can
   "claims_no_soportados": []
 }
 ```
-Si falla la LLM: `motor_confidence < 10` → `suspected_test` true.
+Si falla la LLM: `motor_confidence < 10` → `suspected_test` true.  
+`enriquecerConEvidenciasPredictor(datosReales, resultadoMotor, prediccion_conductual, verificacion)` añade a `claims_no_soportados` las evidencias del predictor que no existan en datosReales/resultadoMotor.
+
+### BehaviorPredictionService::predecirIntencionAcreditado(resultadoMotor, datosReales, historial_temporal)
+
+Predictor **determinístico** (sin rand()). Predice evento futuro del acreditado.
+
+**Input `historial_temporal` (opcional):** `{ "fechas_pago": ["YYYY-MM-DD", ...], "gestiones": [...], "gps": [...] }`. Si `fechas_pago` no se pasa, se intenta extraer de gestiones (tipo contiene "Pago").
+
+**Output:**
+```json
+{
+  "evento_probable": "pago_proximo",
+  "confianza_evento": 72.50,
+  "indicadores": {
+    "intervalo_promedio_pago": 7.0,
+    "desviacion_intervalos": 0.5,
+    "frecuencia_gestiones": 6,
+    "recencia_gps": 2,
+    "variabilidad_ubicacion": 2
+  },
+  "ventana_tiempo_estimada": { "desde_horas": 24, "hasta_horas": 72 },
+  "explicacion_deterministica": "Evento: pago_proximo. Indicadores: ... Evidencias (ids): p12, g34, u0",
+  "evidencias": ["p12", "g34", "u0"]
+}
+```
+Valores posibles de `evento_probable`: `pago_proximo`, `retraso_pago`, `evasión_contacto`, `visita_domiciliaria_exitosa`, `visita_domiciliaria_fallida`, `pago_en_caja`, `cambio_ubicacion_habitual`, `insuficiente_datos`.  
+Si datos insuficientes: `evento_probable: 'insuficiente_datos'`, `confianza_evento < 30`.
 
 ### Formato final del pipeline (Sabueso / ejemplo_uso_pipeline.php)
 
 ```json
 {
-  "predicciones_finales": { "domicilio": 65.50, "trabajo": 25.20, "otro": 9.30 },
-  "confianza_global": 0.75,
-  "plan_operativo": ["string"],
+  "predicciones_finales": { "domicilio": 79.00, "trabajo": 18.00, "otro": 3.00 },
+  "confianza_global": 0.65,
+  "plan_operativo": ["Revisar mapa de ubicaciones", "Confirmar horarios con gestiones"],
+  "prediccion_conductual": {
+    "evento_probable": "pago_proximo",
+    "confianza_evento": 72.50,
+    "indicadores": { "intervalo_promedio_pago": 7.0, "desviacion_intervalos": 0.5, "frecuencia_gestiones": 6, "recencia_gps": 2 },
+    "ventana_tiempo_estimada": { "desde_horas": 24, "hasta_horas": 72 },
+    "explicacion_deterministica": "Pagos cada 7 días con baja desviación; últimas gestiones positivas; GPS en zona comercial.",
+    "evidencias": ["p12", "g34", "u0"]
+  },
   "prediccion_intencion": { "accion": "string", "evidencia": ["id"], "nota": "string" },
-  "riesgos": ["string"],
+  "riesgos": ["GPS antiguo (>90d)"],
   "trazabilidad": {},
-  "verificacion": { "veracity_score": 75, "suspected_test": false, "evidencias_validadas": [], "claims_no_soportados": [] }
+  "verificacion": { "veracity_score": 65, "suspected_test": false, "evidencias_validadas": [], "claims_no_soportados": [] }
 }
 ```
-`predicciones_finales` las calcula **solo** el motor; la IA no modifica probabilidades. `prediccion_intencion.evidencia` debe referenciar al menos un id de `datosParaMotor`.
+`predicciones_finales` las calcula **solo** el motor; la IA no modifica probabilidades. `prediccion_conductual` es la salida del predictor determinístico. `prediccion_intencion.evidencia` debe referenciar ids de `datosParaMotor` o del predictor.
 
 ## Arquitectura
 
@@ -90,15 +125,17 @@ Si falla la LLM: `motor_confidence < 10` → `suspected_test` true.
 │ determinístico│         │ (solo interpreta)  │         │ (coherencia)     │
 └───────────────┘         └───────────────────┘         └──────────────────┘
         │                           │                           │
-        │ probabilidades            │ resumen, acciones,        │ veracity_score,
-        │ domicilio/trabajo/otro     │ riesgos, patrones         │ suspected_test,
-        │ (sin IA)                   │ (nunca calcula %)         │ evidencias_validadas
-        └───────────────────────────┴───────────────────────────┘
+        │                           │                           │
+        ▼                           ▼                           ▼
+┌───────────────────────────────────────────────────────────────────┐
+│ BehaviorPredictionService (después de verificación)                │
+│ evento_probable, confianza_evento, indicadores, ventana, evidencias│
+└───────────────────────────────────────────────────────────────────┘
                                     │
                                     ▼
                     Respuesta: predicciones_finales,
-                    confianza_global, plan_operativo,
-                    riesgos, trazabilidad
+                    prediccion_conductual, confianza_global,
+                    plan_operativo, riesgos, trazabilidad
 ```
 
 ### Capa 1 – LocationScoringService (motor matemático)
@@ -118,10 +155,17 @@ Si falla la LLM: `motor_confidence < 10` → `suspected_test` true.
 
 ### Capa 3 – IAVerificationService (verificador IA)
 
-- **Responsabilidad:** Validar coherencia entre datos reales, motor e interpretación. Detectar simulaciones, contradicciones, afirmaciones sin evidencia.
+- **Responsabilidad:** Validar coherencia entre datos reales, motor e interpretación. Detectar simulaciones, contradicciones, afirmaciones sin evidencia. Validar evidencias del predictor (`enriquecerConEvidenciasPredictor`).
 - **Entrada:** `datosReales`, `resultadoMotor`, `interpretacionIA`.
 - **Salida:** `veracity_score`, `suspected_test`, `evidencias_validadas`, `claims_no_soportados`.
 - **Fallback:** Verificación determinística (reglas locales) si la IA falla.
+
+### BehaviorPredictionService (predictor conductual)
+
+- **Responsabilidad:** Predecir evento futuro (intención/acción) del acreditado de forma **determinística** (sin rand()).
+- **Entrada:** `resultadoMotor`, `datosReales`, `historial_temporal` (opcional: fechas_pago, gestiones, gps).
+- **Salida:** `evento_probable`, `confianza_evento` (0..100), `indicadores`, `ventana_tiempo_estimada`, `explicacion_deterministica`, `evidencias` (ids).
+- **Reglas:** Si datos insuficientes → `evento_probable: 'insuficiente_datos'`, `confianza_evento < 30`. Fórmula de confianza documentada en código (normalización de desviación, recencia GPS, frecuencia gestiones, variabilidad ubicación).
 
 ## Integración en Sabueso.php
 
@@ -131,7 +175,7 @@ Si falla la LLM: `motor_confidence < 10` → `suspected_test` true.
    - Si el pipeline lanza excepción, usa `fallbackAnalizarIA()`.
 
 2. **Flujo:**  
-   `prepararDatosParaMotor` → `LocationScoringService::calcularProbabilidadLocalizacion` → `IAInterpretationService::interpretar` → preparar datos reales → `IAVerificationService::verificar` → combinar y devolver `predicciones_finales`, `confianza_global`, `plan_operativo`, `riesgos`, `trazabilidad` y `json_legacy`.
+   `prepararDatosParaMotor` → `LocationScoringService::calcularProbabilidadLocalizacion` → (cache) → `IAInterpretationService::interpretar` → preparar datos reales → `IAVerificationService::verificar` → `BehaviorPredictionService::predecirIntencionAcreditado` → `enriquecerConEvidenciasPredictor` → cache set / audit log → combinar y devolver `predicciones_finales`, `prediccion_conductual`, `confianza_global`, `plan_operativo`, `riesgos`, `trazabilidad` y `json_legacy`.
 
 ## Ejemplo de uso (desde código)
 
@@ -209,7 +253,8 @@ composer install
 php backend/services/ejemplo_uso_pipeline.php
 ```
 
-Tests: `backend/tests/Unit/Services/` (LocationScoringServiceTest, IAInterpretationServiceTest, IAVerificationServiceTest, PipelineOutputTest).
+Tests: `backend/tests/Unit/Services/` (LocationScoringServiceTest, IAInterpretationServiceTest, IAVerificationServiceTest, PipelineOutputTest, BehaviorPredictionServiceTest).  
+Audit: `backend/storage/logs/location_audit.log` (hash_input, resultado_motor, prediccion_conductual summary, verif_result, timestamp). Cache: 24h por hash de input; incluye `prediccion_conductual`.
 
 ## Criterios de éxito
 

@@ -3,9 +3,10 @@
 /**
  * CAPA 2 – INTERPRETACIÓN IA
  *
- * Recibe SOLO resultado del motor. Produce resumen, acciones_recomendadas[], riesgos_detectados[] (strings),
- * patrones_conductuales[], prediccion_intencion { accion, evidencia[id_evidencia,...], nota }.
- * Si falla la LLM, devuelve fallback mínimo desde trazabilidad (evidencia = ids de candidatos).
+ * Recibe resultado del motor y opcionalmente prediccion_conductual (BehaviorPredictionService).
+ * Usa SOLO resultadoMotor y prediccion_conductual (explicacion_deterministica + evidencias) como contexto;
+ * NO recalcula ni cambia probabilidades numéricas del motor.
+ * Produce resumen, acciones_recomendadas[], riesgos_detectados[], patrones_conductuales[], prediccion_intencion.
  */
 
 namespace Services;
@@ -16,9 +17,10 @@ class IAInterpretationService
      * @param array $resultadoMotor Salida de LocationScoringService (domicilio/trabajo/otro 0..100, trazabilidad)
      * @param callable $llamarLLM function(string $systemPrompt, array $parts, int $maxTokens): array { success, texto, mensaje }
      * @param string|null $contextoMinimo
+     * @param array|null $prediccion_conductual Salida opcional de BehaviorPredictionService (explicacion_deterministica, evidencias). La IA usa solo esto para enriquecer prediccion_intencion; NO recalcula probabilidades.
      * @return array [ resumen, acciones_recomendadas[], riesgos_detectados[], patrones_conductuales[], prediccion_intencion=>[accion, evidencia[], nota] ]
      */
-    public function interpretar(array $resultadoMotor, callable $llamarLLM, ?string $contextoMinimo = null): array
+    public function interpretar(array $resultadoMotor, callable $llamarLLM, ?string $contextoMinimo = null, ?array $prediccion_conductual = null): array
     {
         $dom = (float) ($resultadoMotor['domicilio'] ?? 0);
         $tra = (float) ($resultadoMotor['trabajo'] ?? 0);
@@ -29,6 +31,9 @@ class IAInterpretationService
             $id = $c['id'] ?? $c['key'] ?? null;
             return $id !== null ? (string) $id : null;
         }, $candidatos)));
+        if (!empty($prediccion_conductual['evidencias'])) {
+            $idsEvidencia = array_values(array_unique(array_merge($idsEvidencia, $prediccion_conductual['evidencias'])));
+        }
 
         $lineas = [
             "Probabilidades (motor, NO modificar): domicilio={$dom}%, trabajo={$tra}%, otro={$otr}%.",
@@ -39,9 +44,17 @@ class IAInterpretationService
         if ($contextoMinimo !== null && $contextoMinimo !== '') {
             $lineas[] = "Contexto: " . $contextoMinimo;
         }
+        if (!empty($prediccion_conductual['explicacion_deterministica'])) {
+            $lineas[] = "Predicción conductual (usar solo para enriquecer texto; NO cambiar probabilidades): " . $prediccion_conductual['explicacion_deterministica'];
+            if (!empty($prediccion_conductual['evidencias'])) {
+                $lineas[] = "Evidencias predictor (ids válidos): " . implode(', ', array_slice($prediccion_conductual['evidencias'], 0, 10));
+            }
+        }
 
-        $promptSistema = 'Eres un analista. INTERPRETA resultados ya calculados. NO inventes probabilidades. '
-            . 'Devuelve prediccion_intencion con evidencia como array de IDs que refieran a candidatos del input. RESPONDE SOLO JSON.';
+        $promptSistema = 'Eres un asistente que interpreta salidas determinísticas. NO recalcules ni cambies probabilidades. '
+            . 'Recibes resultadoMotor + prediccion_conductual (explicacion deterministica + evidencias). '
+            . 'Genera JSON con resumen (2 frases), patrones, acciones_recomendadas (priorizadas) y riesgos_detectados. '
+            . 'prediccion_intencion.evidencia debe usar solo ids del input. RESPONDE SOLO JSON. Usa solo ids y resúmenes, nunca PII.';
         $promptUsuario = "INPUT:\n" . implode("\n", $lineas) . "\n\n"
             . "Devuelve JSON:\n"
             . "{\n"
