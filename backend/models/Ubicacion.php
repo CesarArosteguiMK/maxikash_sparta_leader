@@ -150,6 +150,7 @@ class Ubicacion
                 'longitud' => $g['longitud'],
                 'cantidad_registros' => $g['contador'],
                 'punto_de_interes' => $g['contador'] >= self::UMBRAL_PUNTO_INTERES,
+                'fechas' => $g['fechas'] ?? [],
             ];
         }
         return $resultado;
@@ -192,6 +193,8 @@ class Ubicacion
         foreach ($puntosMapa as $i => $p) {
             $etiqueta = ($p['punto_de_interes'] ?? false) ? 'Punto de interés' : 'Menos frecuente';
             $visitas = (int) ($p['cantidad_registros'] ?? 1);
+            $fechas = $p['fechas'] ?? [];
+            $ultimaFecha = !empty($fechas) ? max($fechas) : '';
             $direccionesResumen[] = [
                 'orden' => $i + 1,
                 'lat' => $p['latitud'],
@@ -199,6 +202,7 @@ class Ubicacion
                 'texto' => $etiqueta,
                 'punto_de_interes' => $p['punto_de_interes'] ?? false,
                 'cantidad_registros' => $visitas,
+                'ultima_fecha' => $ultimaFecha,
             ];
         }
         return [

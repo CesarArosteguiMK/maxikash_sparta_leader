@@ -468,6 +468,9 @@
                                         <button type="button" class="btn btn-sm btn-outline-danger" id="btnBorrarIAAnalizar" title="Borrar lectura guardada (Analizar)" style="display: none;">
                                             <i class="fa-solid fa-trash-can me-1"></i>Borrar
                                         </button>
+                                        <button type="button" class="btn btn-sm btn-outline-success" id="btnEvidenciaVerificacion" title="Ver datos reales del sistema para contrastar con la IA">
+                                            <i class="fa-solid fa-circle-check me-1"></i>Datos verificados
+                                        </button>
                                     </div>
                                 </div>
                             </div>
@@ -540,6 +543,26 @@
                 <button type="button" class="btn-close btn-close-sm ms-auto" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
             <div class="modal-body py-4" id="modalLecturaIABody" style="line-height: 1.7; max-height: 70vh; overflow-y: auto;">
+            </div>
+            <div class="modal-footer py-2 border-top">
+                <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Datos verificados: evidencia cruda (pagos, GPS, gestiones) para contrastar con la IA -->
+<div class="modal fade" id="modalEvidenciaVerificacion" tabindex="-1" aria-labelledby="modalEvidenciaVerificacionLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header py-2 border-bottom d-flex align-items-center bg-success bg-opacity-10">
+                <h6 class="modal-title mb-0" id="modalEvidenciaVerificacionLabel">
+                    <i class="fa-solid fa-circle-check me-2 text-success"></i>Datos verificados – Evidencia real del sistema
+                </h6>
+                <button type="button" class="btn-close btn-close-sm ms-auto" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body py-4" id="modalEvidenciaVerificacionBody" style="line-height: 1.6; max-height: 70vh; overflow-y: auto;">
+                <p class="text-muted mb-0">Cargando...</p>
             </div>
             <div class="modal-footer py-2 border-top">
                 <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cerrar</button>

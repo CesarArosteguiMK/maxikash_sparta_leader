@@ -8,6 +8,18 @@ use Models\Empresa as EmpresaDAO;
 use Models\Gestiones as GestionesDAO;
 use Models\Ubicacion as UbicacionDAO;
 
+// Capas del sistema de predicción: motor, interpretación IA, verificación IA, cache, audit
+require_once __DIR__ . '/../services/LocationScoringService.php';
+require_once __DIR__ . '/../services/IAInterpretationService.php';
+require_once __DIR__ . '/../services/IAVerificationService.php';
+require_once __DIR__ . '/../services/PipelineCache.php';
+require_once __DIR__ . '/../services/LocationAuditLogger.php';
+use Services\LocationScoringService;
+use Services\IAInterpretationService;
+use Services\IAVerificationService;
+use Services\PipelineCache;
+use Services\LocationAuditLogger;
+
 class Sabueso extends Controller
 {
     /**
@@ -465,13 +477,30 @@ SCRIPT;
                 txt.text(\'Analizando...\'); btn.prop(\'disabled\', true);
                 $(\'#rastreoAnalizarIAContenido\').html(\'<p class="text-muted mb-0"><span class="spinner-border spinner-border-sm me-2"></span>Analizando con IA...</p>\').show();
                 $(\'#modalPrediccionIABody\').html(\'<p class="text-muted mb-0"><span class="spinner-border spinner-border-sm me-2"></span>Generando predicción...</p>\');
-                http.request({ endpoint: \'/sabueso/analizarIA\', metodo: \'POST\', data: JSON.stringify({ id_credito: idCreditoRastreoActual, id_ticket: ticketIdRastreoActual || 0 }), contentType: \'application/json\', processData: false, onSuccess: function(r) {
-                    if (r.success && r.texto) {
-                        rastreoUltimoAnalizarIA = r.texto;
-                        try { if (typeof localStorage !== \'undefined\') localStorage.setItem(\'sabueso_ia_\' + idCreditoRastreoActual + \'_\' + (ticketIdRastreoActual || 0) + \'_analizar\', r.texto); } catch (e) {}
+                http.request({ endpoint: \'/sabueso/analizarIA\', metodo: \'POST\', data: JSON.stringify({ id_credito: idCreditoRastreoActual, id_ticket: ticketIdRastreoActual || 0 }), contentType: \'application/json\', processData: false, timeout: 90000, onSuccess: function(r) {
+                    if (r.success && (r.texto || r.json)) {
+                        rastreoUltimoAnalizarIA = r.texto || (r.json ? JSON.stringify(r.json, null, 2) : \'\');
+                        try { if (typeof localStorage !== \'undefined\') localStorage.setItem(\'sabueso_ia_\' + idCreditoRastreoActual + \'_\' + (ticketIdRastreoActual || 0) + \'_analizar\', rastreoUltimoAnalizarIA); } catch (e) {}
                         $(\'#btnLecturaIAAnalizar, #btnBorrarIAAnalizar\').show();
                         $(\'#rastreoAnalizarIAContenido\').empty();
-                        $(\'#modalPrediccionIABody\').html(formatGeminiText(r.texto));
+                        var bodyHtml = \'\';
+                        if (r.json && !r.json.error) {
+                            var j = r.json;
+                            var prob = j.confianza_analisis != null ? Math.round(j.confianza_analisis*100) : (j.confidence != null ? Math.round(j.confidence*100) : null);
+                            if (prob != null) bodyHtml += \'<p class="small mb-2"><span class="badge bg-label-info">Confianza del análisis: \' + prob + \'%</span>\';
+                            if (j.suspected_test) bodyHtml += \' <span class="badge bg-warning text-dark">Posible prueba/simulación</span>\';
+                            bodyHtml += \'</p>\';
+                            bodyHtml += \'<p class="fw-semibold">\' + (j.resumen_ejecutivo || j.summary || j.resumen || j.one_line_summary || \'\').replace(/</g, \'&lt;\').replace(/>/g, \'&gt;\').replace(/\\n/g, \'<br>\') + \'</p>\';
+                            if (j.perfil_conductual) bodyHtml += \'<p class="small text-muted mt-2"><strong>Perfil conductual:</strong> \' + String(j.perfil_conductual).replace(/</g, \'&lt;\') + \'</p>\';
+                            if (j.operational_plan && j.operational_plan.length) { bodyHtml += \'<p class="small text-muted mt-2 mb-1">Plan operativo:</p><ul class="list-unstyled">\'; j.operational_plan.forEach(function(op) { bodyHtml += \'<li class="mb-1">\' + (op.priority || \'\') + \'. \' + (op.step || \'\').replace(/</g, \'&lt;\') + (op.expected_uncertainty_reduction != null ? \' <span class="text-success">\' + Math.round(op.expected_uncertainty_reduction*100) + \'% reduc.</span>\' : \'\') + (op.time_window ? \' <span class="text-muted">\' + op.time_window + \'</span>\' : \'\') + \'</li>\'; }); bodyHtml += \'</ul>\'; }
+                            if (j.estrategia_localizacion && j.estrategia_localizacion.length) { bodyHtml += \'<p class="small text-muted mt-2 mb-1">Estrategia (prioridad):</p><ul class="list-unstyled">\'; j.estrategia_localizacion.forEach(function(e) { bodyHtml += \'<li class="mb-1">\' + (e.orden || \'\') + \'. \' + (e.accion || \'\').replace(/</g, \'&lt;\') + (e.impacto_reduccion_incertidumbre ? \' <span class="text-success">\' + e.impacto_reduccion_incertidumbre + \'</span>\' : \'\') + \'</li>\'; }); bodyHtml += \'</ul>\'; }
+                            if (j.risks && j.risks.length) { bodyHtml += \'<p class="small text-warning mt-2 mb-1">Riesgos:</p><ul class="list-unstyled">\'; j.risks.forEach(function(r) { var riskText = (typeof r === \'object\' && r.risk) ? r.risk : r; var impact = (typeof r === \'object\' && r.impact != null) ? Math.round(r.impact*100) + \'% impacto\' : \'\'; bodyHtml += \'<li class="mb-1">\' + String(riskText).replace(/</g, \'&lt;\') + (impact ? \' <span class="text-danger">\' + impact + \'</span>\' : \'\') + \'</li>\'; }); bodyHtml += \'</ul>\'; }
+                            else if (j.riesgos && j.riesgos.length) bodyHtml += \'<p class="small text-warning mt-2">Riesgos: \' + (j.riesgos.join ? j.riesgos.join(\'; \') : j.riesgos).replace(/</g, \'&lt;\') + \'</p>\';
+                            if (j.predictions && j.predictions.length) { bodyHtml += \'<p class="small text-muted mt-2 mb-1">Predicciones (prob. suman 100%):</p><ul class="list-unstyled">\'; j.predictions.forEach(function(p) { var lugar = p.lugar || p.place_type || \'-\'; var probP = p.probabilidad != null ? p.probabilidad : p.confidence; var motivo = p.motivo || p.reason || \'\'; var horario = p.horario_probable || \'—\'; var ev = (p.evidencias && p.evidencias.length) ? \' [\' + (p.evidencias.join ? p.evidencias.join(\', \') : p.evidencias) + \']\' : \'\'; bodyHtml += \'<li class="mb-2"><span class="badge bg-label-primary me-1">\' + lugar + \'</span> \' + (probP != null ? \'<strong>\' + Math.round(probP*100) + \'%</strong> \' : \'\') + motivo.replace(/</g, \'&lt;\') + \' <span class="text-muted">Horario: \' + horario + \'</span>\' + ev + \'</li>\'; }); bodyHtml += \'</ul>\'; }
+                            if (j.next_steps && j.next_steps.length) { bodyHtml += \'<p class="small text-muted mt-2 mb-1">Próximos pasos:</p><ul>\'; j.next_steps.forEach(function(s) { bodyHtml += \'<li>\' + String(s).replace(/</g, \'&lt;\') + \'</li>\'; }); bodyHtml += \'</ul>\'; }
+                            var miss = j.missing_data || j.missing; if (miss && (miss.length || (typeof miss === \'string\' && miss))) bodyHtml += \'<p class="small text-warning mt-2">Datos faltantes: \' + (miss.join ? miss.join(\', \') : miss).replace(/</g, \'&lt;\') + \'</p>\';
+                        } else { bodyHtml = formatGeminiText(r.texto || \'\'); }
+                        $(\'#modalPrediccionIABody\').html(bodyHtml);
                         $(\'#modalPrediccionIA\').modal(\'show\');
                     } else {
                         $(\'#rastreoAnalizarIAContenido\').empty();
@@ -491,7 +520,26 @@ SCRIPT;
             $(\'#btnLecturaIAAnalizar\').on(\'click\', function() {
                 if (rastreoUltimoAnalizarIA) {
                     $(\'#modalPrediccionIALabel\').html(\'<i class="fa-solid fa-wand-magic-sparkles me-2"></i>Predicción IA – Cómo localizar al acreditado\');
-                    $(\'#modalPrediccionIABody\').html(formatGeminiText(rastreoUltimoAnalizarIA));
+                    var bodyHtml = \'\';
+                    try {
+                        var j = JSON.parse(rastreoUltimoAnalizarIA);
+                        if (j && typeof j === \'object\' && (j.resumen_ejecutivo !== undefined || j.resumen !== undefined || j.one_line_summary !== undefined || (j.predictions && j.predictions.length))) {
+                            var prob = j.confianza_analisis != null ? Math.round(j.confianza_analisis*100) : (j.confidence != null ? Math.round(j.confidence*100) : null);
+                            if (prob != null) bodyHtml += \'<p class="small mb-2"><span class="badge bg-label-info">Confianza: \' + prob + \'%</span>\';
+                            if (j.suspected_test) bodyHtml += \' <span class="badge bg-warning text-dark">Posible prueba</span>\';
+                            bodyHtml += \'</p>\';
+                            bodyHtml += \'<p class="fw-semibold">\' + (j.resumen_ejecutivo || j.summary || j.resumen || j.one_line_summary || \'\').replace(/</g, \'&lt;\').replace(/>/g, \'&gt;\').replace(/\\n/g, \'<br>\') + \'</p>\';
+                            if (j.perfil_conductual) bodyHtml += \'<p class="small text-muted mt-2"><strong>Perfil conductual:</strong> \' + String(j.perfil_conductual).replace(/</g, \'&lt;\') + \'</p>\';
+                            if (j.operational_plan && j.operational_plan.length) { bodyHtml += \'<p class="small text-muted mt-2 mb-1">Plan operativo:</p><ul class="list-unstyled">\'; j.operational_plan.forEach(function(op) { bodyHtml += \'<li class="mb-1">\' + (op.priority || \'\') + \'. \' + (op.step || \'\').replace(/</g, \'&lt;\') + (op.expected_uncertainty_reduction != null ? \' <span class="text-success">\' + Math.round(op.expected_uncertainty_reduction*100) + \'%</span>\' : \'\') + \'</li>\'; }); bodyHtml += \'</ul>\'; }
+                            if (j.estrategia_localizacion && j.estrategia_localizacion.length) { bodyHtml += \'<p class="small text-muted mt-2 mb-1">Estrategia:</p><ul class="list-unstyled">\'; j.estrategia_localizacion.forEach(function(e) { bodyHtml += \'<li class="mb-1">\' + (e.orden || \'\') + \'. \' + (e.accion || \'\').replace(/</g, \'&lt;\') + (e.impacto_reduccion_incertidumbre ? \' <span class="text-success">\' + e.impacto_reduccion_incertidumbre + \'</span>\' : \'\') + \'</li>\'; }); bodyHtml += \'</ul>\'; }
+                            if (j.riesgos && j.riesgos.length) bodyHtml += \'<p class="small text-warning mt-2">Riesgos: \' + (j.riesgos.join ? j.riesgos.join(\'; \') : j.riesgos).replace(/</g, \'&lt;\') + \'</p>\';
+                            if (j.risks && j.risks.length) { bodyHtml += \'<p class="small text-warning mt-2 mb-1">Riesgos:</p><ul class="list-unstyled">\'; j.risks.forEach(function(r) { var riskText = (typeof r === \'object\' && r.risk) ? r.risk : r; var impact = (typeof r === \'object\' && r.impact != null) ? Math.round(r.impact*100) + \'% impacto\' : \'\'; bodyHtml += \'<li class="mb-1">\' + String(riskText).replace(/</g, \'&lt;\') + (impact ? \' <span class="text-danger">\' + impact + \'</span>\' : \'\') + \'</li>\'; }); bodyHtml += \'</ul>\'; }
+                            if (j.predictions && j.predictions.length) { bodyHtml += \'<p class="small text-muted mt-2 mb-1">Predicciones:</p><ul class="list-unstyled">\'; j.predictions.forEach(function(p) { var lugar = p.lugar || p.place_type || \'-\'; var probP = p.probabilidad != null ? p.probabilidad : p.confidence; var motivo = p.motivo || p.reason || \'\'; var horario = p.horario_probable || \'—\'; var ev = (p.evidencias && p.evidencias.length) ? \' [\' + (p.evidencias.join ? p.evidencias.join(\', \') : p.evidencias) + \']\' : \'\'; bodyHtml += \'<li class="mb-2"><span class="badge bg-label-primary me-1">\' + lugar + \'</span> \' + (probP != null ? \'<strong>\' + Math.round(probP*100) + \'%</strong> \' : \'\') + motivo.replace(/</g, \'&lt;\') + \' <span class="text-muted">(\' + horario + \')</span>\' + ev + \'</li>\'; }); bodyHtml += \'</ul>\'; }
+                            if (j.next_steps && j.next_steps.length) { bodyHtml += \'<p class="small text-muted mt-2 mb-1">Próximos pasos:</p><ul>\'; j.next_steps.forEach(function(s) { bodyHtml += \'<li>\' + String(s).replace(/</g, \'&lt;\') + \'</li>\'; }); bodyHtml += \'</ul>\'; }
+                            var miss = j.missing_data || j.missing; if (miss && (miss.length || (typeof miss === \'string\' && miss))) bodyHtml += \'<p class="small text-warning mt-2">Datos faltantes: \' + (miss.join ? miss.join(\', \') : miss).replace(/</g, \'&lt;\') + \'</p>\';
+                        } else { bodyHtml = formatGeminiText(rastreoUltimoAnalizarIA); }
+                    } catch (e) { bodyHtml = formatGeminiText(rastreoUltimoAnalizarIA); }
+                    $(\'#modalPrediccionIABody\').html(bodyHtml);
                     $(\'#modalPrediccionIA\').modal(\'show\');
                 } else { Swal.fire({ icon: \'info\', title: \'Lectura de IA\', text: \'Primero ejecute Analizar con IA.\' }); }
             });
@@ -501,12 +549,21 @@ SCRIPT;
                 btn.prop(\'disabled\', true);
                 var cont = $(\'#rastreoResumenIAContenido\');
                 cont.html(\'<span class="spinner-border spinner-border-sm me-2"></span>Resumiendo ubicaciones con IA...\').removeClass(\'text-danger\').addClass(\'text-muted\').show();
-                http.request({ endpoint: \'/sabueso/resumirUbicacionesIA\', metodo: \'POST\', data: JSON.stringify({ id_credito: idCreditoRastreoActual }), contentType: \'application/json\', processData: false, showLoader: false, onSuccess: function(r) {
+                http.request({ endpoint: \'/sabueso/resumirUbicacionesIA\', metodo: \'POST\', data: JSON.stringify({ id_credito: idCreditoRastreoActual }), contentType: \'application/json\', processData: false, showLoader: false, timeout: 90000, onSuccess: function(r) {
                     try {
-                        if (r && r.success && r.texto && (r.texto + \'\').trim()) {
-                            var txt = formatGeminiText(r.texto);
-                            rastreoUltimoResumenUbicaciones = r.texto;
-                            try { if (typeof localStorage !== \'undefined\') localStorage.setItem(\'sabueso_ia_\' + idCreditoRastreoActual + \'_ubicaciones\', r.texto); } catch (e) {}
+                        if (r && r.success && (r.texto || r.json)) {
+                            var txt = \'\';
+                            if (r.json && !r.json.error) {
+                                var j = r.json;
+                                var confPct = (j.overall_confidence != null) ? Math.round(j.overall_confidence*100) : null;
+                                txt = (confPct != null ? \'<p class="small mb-2"><span class="badge bg-label-info">Confianza global: \' + confPct + \'%</span>\' + (j.suspected_test ? \' <span class="badge bg-warning text-dark">Posible prueba</span>\' : \'\') + \'</p>\' : \'\');
+                                txt += \'<p class="fw-semibold">\' + (j.resumen || j.one_line_summary || \'\').replace(/</g, \'&lt;\').replace(/>/g, \'&gt;\') + \'</p>\';
+                                if (j.predictions && j.predictions.length) { txt += \'<p class="small text-muted mt-2 mb-1">Ranking (prob. suman 100%):</p><ul class="list-unstyled">\'; j.predictions.forEach(function(p) { var lugar = p.lugar || p.place_type || \'-\'; var probP = p.probabilidad != null ? p.probabilidad : p.probability != null ? p.probability : p.confidence; var motivo = p.motivo || p.reason || \'\'; var horario = p.horario_probable || \'—\'; var ev = (p.evidencias && p.evidencias.length) ? \' [\' + (p.evidencias.join ? p.evidencias.join(\', \') : p.evidencias) + \']\' : ((p.evidence && p.evidence.length) ? \' [\' + (p.evidence.join ? p.evidence.join(\', \') : p.evidence) + \']\' : \'\'); var acts = (p.actions && p.actions.length) ? p.actions : []; var actsStr = \'\'; if (acts.length) { acts.forEach(function(a) { var ax = typeof a === \'object\' ? (a.action || \'\') + (a.impact_reduction != null ? \' (\' + Math.round(a.impact_reduction*100) + \'%)\' : \'\') : a; actsStr += (actsStr ? \'; \' : \'\') + ax; }); actsStr = \' <span class="text-success small">\' + actsStr + \'</span>\'; } txt += \'<li class="mb-2"><span class="badge bg-label-primary me-1">\' + lugar + \'</span> #\' + (p.prioridad || \'\') + \' \' + (probP != null ? \'<strong>\' + Math.round(probP*100) + \'%</strong> \' : \'\') + motivo.replace(/</g, \'&lt;\') + \' <span class="text-muted">Horario: \' + horario + \'</span>\' + ev + actsStr + \'</li>\'; }); txt += \'</ul>\'; }
+                                if (j.next_steps && j.next_steps.length) { txt += \'<p class="small text-muted mt-2 mb-1">Próximos pasos:</p><ul>\'; j.next_steps.forEach(function(s) { txt += \'<li>\' + String(s).replace(/</g, \'&lt;\') + \'</li>\'; }); txt += \'</ul>\'; }
+                                if ((j.missing && j.missing.length) || (j.missing_data_global && j.missing_data_global.length)) { var miss = j.missing_data_global && j.missing_data_global.length ? j.missing_data_global : j.missing; txt += \'<p class="small text-warning mt-2">Datos faltantes: \' + (miss.join ? miss.join(\', \') : miss).replace(/</g, \'&lt;\') + \'</p>\'; }
+                            } else { txt = formatGeminiText(r.texto || \'\'); }
+                            rastreoUltimoResumenUbicaciones = r.texto || (r.json ? JSON.stringify(r.json, null, 2) : \'\');
+                            try { if (typeof localStorage !== \'undefined\') localStorage.setItem(\'sabueso_ia_\' + idCreditoRastreoActual + \'_ubicaciones\', rastreoUltimoResumenUbicaciones); } catch (e) {}
                             cont.html(\'<span class="text-success"><i class="fa-solid fa-check me-1"></i>Listo. Use el botón «Lectura de IA» para ver el análisis.</span>\').removeClass(\'text-danger text-muted\').addClass(\'text-body\');
                             $(\'#btnLecturaIAUbicaciones, #btnBorrarIAUbicaciones\').show();
                             $(\'#modalLecturaIALabel\').html(\'<i class="fa-solid fa-book-open me-2"></i>Lectura de IA – Ubicaciones\');
@@ -527,7 +584,19 @@ SCRIPT;
             $(\'#btnLecturaIAUbicaciones\').on(\'click\', function() {
                 if (rastreoUltimoResumenUbicaciones) {
                     $(\'#modalLecturaIALabel\').html(\'<i class="fa-solid fa-book-open me-2"></i>Lectura de IA – Ubicaciones\');
-                    $(\'#modalLecturaIABody\').html(formatGeminiText(rastreoUltimoResumenUbicaciones));
+                    var bodyHtml = \'\';
+                    try {
+                        var j = JSON.parse(rastreoUltimoResumenUbicaciones);
+                        if (j && typeof j === \'object\' && (j.resumen !== undefined || j.one_line_summary !== undefined || (j.predictions && j.predictions.length))) {
+                            var confPct = (j.overall_confidence != null) ? Math.round(j.overall_confidence*100) : null;
+                            bodyHtml = (confPct != null ? \'<p class="small mb-2"><span class="badge bg-label-info">Confianza global: \' + confPct + \'%</span>\' + (j.suspected_test ? \' <span class="badge bg-warning text-dark">Posible prueba</span>\' : \'\') + \'</p>\' : \'\');
+                            bodyHtml += \'<p class="fw-semibold">\' + (j.resumen || j.one_line_summary || \'\').replace(/</g, \'&lt;\').replace(/>/g, \'&gt;\') + \'</p>\';
+                            if (j.predictions && j.predictions.length) { bodyHtml += \'<p class="small text-muted mt-2 mb-1">Ranking:</p><ul class="list-unstyled">\'; j.predictions.forEach(function(p) { var lugar = p.lugar || p.place_type || \'-\'; var probP = p.probabilidad != null ? p.probabilidad : p.probability != null ? p.probability : p.confidence; var motivo = p.motivo || p.reason || \'\'; var horario = p.horario_probable || \'—\'; var ev = (p.evidencias && p.evidencias.length) ? \' [\' + (p.evidencias.join ? p.evidencias.join(\', \') : p.evidencias) + \']\' : ((p.evidence && p.evidence.length) ? \' [\' + (p.evidence.join ? p.evidence.join(\', \') : p.evidence) + \']\' : \'\'); var acts = (p.actions && p.actions.length) ? p.actions : []; var actsStr = \'\'; if (acts.length) { acts.forEach(function(a) { var ax = typeof a === \'object\' ? (a.action || \'\') + (a.impact_reduction != null ? \' (\' + Math.round(a.impact_reduction*100) + \'%)\' : \'\') : a; actsStr += (actsStr ? \'; \' : \'\') + ax; }); actsStr = \' <span class="text-success small">\' + actsStr + \'</span>\'; } bodyHtml += \'<li class="mb-2"><span class="badge bg-label-primary me-1">\' + lugar + \'</span> \' + (probP != null ? \'<strong>\' + Math.round(probP*100) + \'%</strong> \' : \'\') + motivo.replace(/</g, \'&lt;\') + \' <span class="text-muted">(\' + horario + \')</span>\' + ev + actsStr + \'</li>\'; }); bodyHtml += \'</ul>\'; }
+                            if (j.next_steps && j.next_steps.length) { bodyHtml += \'<p class="small text-muted mt-2 mb-1">Próximos pasos:</p><ul>\'; j.next_steps.forEach(function(s) { bodyHtml += \'<li>\' + String(s).replace(/</g, \'&lt;\') + \'</li>\'; }); bodyHtml += \'</ul>\'; }
+                            if ((j.missing && j.missing.length) || (j.missing_data_global && j.missing_data_global.length)) { var miss = j.missing_data_global && j.missing_data_global.length ? j.missing_data_global : j.missing; bodyHtml += \'<p class="small text-warning mt-2">Datos faltantes: \' + (miss.join ? miss.join(\', \') : miss).replace(/</g, \'&lt;\') + \'</p>\'; }
+                        } else { bodyHtml = formatGeminiText(rastreoUltimoResumenUbicaciones); }
+                    } catch (e) { bodyHtml = formatGeminiText(rastreoUltimoResumenUbicaciones); }
+                    $(\'#modalLecturaIABody\').html(bodyHtml);
                     $(\'#modalLecturaIA\').modal(\'show\');
                 } else { Swal.fire({ icon: \'info\', title: \'Lectura de IA\', text: \'Primero ejecute Resumir ubicaciones con IA.\' }); }
             });
@@ -573,6 +642,22 @@ SCRIPT;
                 rastreoUltimoAnalizarIA = \'\';
                 $(\'#btnLecturaIAAnalizar, #btnBorrarIAAnalizar\').hide();
                 Swal.fire({ icon: \'success\', title: \'Borrado\', text: \'Lectura de IA (Analizar) eliminada. Puede generar una nueva cuando quiera.\' });
+            });
+            $(\'#btnEvidenciaVerificacion\').on(\'click\', function() {
+                if (!idCreditoRastreoActual) { Swal.fire({ icon: \'warning\', title: \'Rastreo\', text: \'No hay crédito seleccionado.\' }); return; }
+                $(\'#modalEvidenciaVerificacionBody\').html(\'<p class="text-muted mb-0"><span class="spinner-border spinner-border-sm me-2"></span>Cargando datos verificados...</p>\');
+                $(\'#modalEvidenciaVerificacion\').modal(\'show\');
+                http.request({ endpoint: \'/sabueso/getEvidenciaVerificacion\', metodo: \'POST\', data: JSON.stringify({ id_credito: idCreditoRastreoActual, id_ticket: ticketIdRastreoActual || 0 }), contentType: \'application/json\', processData: false, onSuccess: function(r) {
+                    if (!r.success || !r.datos) { $(\'#modalEvidenciaVerificacionBody\').html(\'<p class="text-danger mb-0">\' + (r.mensaje || \'No se pudieron cargar los datos.\') + \'</p>\'); return; }
+                    var d = r.datos; var esc = function(s){ if (s==null||s===undefined) return \'\'; return (s+\'\').replace(/&/g, \'&amp;\').replace(/</g, \'&lt;\').replace(/>/g, \'&gt;\'); };
+                    var html = \'\';
+                    html += \'<p class="small text-muted mb-3">Estos son los datos reales del sistema (estado de cuenta, GPS, gestiones). Compárelos con lo que indica la Lectura de IA.</p>\';
+                    html += \'<p class="mb-2"><strong>Pagos en estado de cuenta:</strong> <span class="badge bg-label-primary">\' + (d.pagos_count != null ? d.pagos_count : 0) + \'</span></p>\';
+                    if (d.gps && d.gps.length) { html += \'<p class="mb-1"><strong>Ubicaciones GPS (top 10):</strong></p><ul class="list-unstyled small mb-3">\'; d.gps.forEach(function(g){ html += \'<li class="mb-1">\' + esc(g.texto) + \' · visitas: \' + (g.visitas||0) + \' · última: \' + esc(g.ultima_fecha) + \'</li>\'; }); html += \'</ul>\'; } else { html += \'<p class="small text-muted mb-3">Sin ubicaciones GPS.</p>\'; }
+                    if (d.gestiones && d.gestiones.length) { html += \'<p class="mb-1"><strong>Últimas gestiones (10):</strong></p><ul class="list-unstyled small mb-3">\'; d.gestiones.forEach(function(g){ html += \'<li class="mb-2 border-bottom pb-1">\' + esc(g.fecha) + \' · \' + esc(g.gestor) + \' · \' + esc(g.dictamen) + \'<br><span class="text-muted">\' + esc(g.comentarios) + \'</span></li>\'; }); html += \'</ul>\'; } else { html += \'<p class="small text-muted mb-3">Sin gestiones.</p>\'; }
+                    if (d.suspected_test) { html += \'<p class="mb-1"><strong><span class="badge bg-warning text-dark">Posible prueba/simulación</span></strong></p>\'; if (d.suspected_test_reasons && d.suspected_test_reasons.length) { html += \'<ul class="list-unstyled small text-warning">\'; d.suspected_test_reasons.forEach(function(reason){ html += \'<li>\' + esc(reason) + \'</li>\'; }); html += \'</ul>\'; } }
+                    $(\'#modalEvidenciaVerificacionBody\').html(html);
+                }, onError: function(err) { $(\'#modalEvidenciaVerificacionBody\').html(\'<p class="text-danger mb-0">\' + (typeof err === \'string\' ? err : (err && err.mensaje) || \'Error al cargar.\') + \'</p>\'); } });
             });
             $(\'#btnBorrarIAUbicaciones\').on(\'click\', function() {
                 if (!idCreditoRastreoActual) return;
@@ -949,74 +1034,100 @@ SCRIPT;
      */
     public function analizarIA()
     {
-        $modulos = $_SESSION['modulos'] ?? [];
-        if (!is_array($modulos) || !in_array(19, $modulos)) {
-            self::respuestaJSON(['success' => false, 'mensaje' => 'No tiene permiso para usar Analizar con IA.', 'texto' => '']);
-            return;
+        while (ob_get_level()) {
+            ob_end_clean();
         }
-        $raw = file_get_contents('php://input');
-        $datos = json_decode($raw, true) ?: [];
-        $idCredito = isset($datos['id_credito']) && $datos['id_credito'] !== '' ? (int)$datos['id_credito'] : 0;
-        $idTicket = isset($datos['id_ticket']) && $datos['id_ticket'] !== '' ? (int)$datos['id_ticket'] : 0;
-        if ($idCredito < 1) {
-            self::respuestaJSON(['success' => false, 'mensaje' => 'ID de crédito requerido.', 'texto' => '']);
-            return;
+        @set_time_limit(90);
+        try {
+            $modulos = $_SESSION['modulos'] ?? [];
+            if (!is_array($modulos) || !in_array(19, $modulos)) {
+                self::respuestaJSON(['success' => false, 'mensaje' => 'No tiene permiso para usar Analizar con IA.', 'texto' => '']);
+                return;
+            }
+            $raw = file_get_contents('php://input');
+            $datos = json_decode($raw, true) ?: [];
+            $idCredito = isset($datos['id_credito']) && $datos['id_credito'] !== '' ? (int)$datos['id_credito'] : 0;
+            $idTicket = isset($datos['id_ticket']) && $datos['id_ticket'] !== '' ? (int)$datos['id_ticket'] : 0;
+            if ($idCredito < 1) {
+                self::respuestaJSON(['success' => false, 'mensaje' => 'ID de crédito requerido.', 'texto' => '']);
+                return;
+            }
+
+            // Flujo de 3 capas: Motor determinístico → Interpretación IA → Verificación IA
+            try {
+                $pipeline = $this->ejecutarPipelinePrediccion($idCredito, $idTicket);
+                $jsonLegacy = $pipeline['json_legacy'];
+                self::respuestaJSON([
+                    'success' => true,
+                    'mensaje' => 'OK',
+                    'texto' => json_encode($jsonLegacy, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT),
+                    'json' => $jsonLegacy,
+                ]);
+                return;
+            } catch (\Throwable $pipeEx) {
+                // Fallback: análisis local sin IA (mantiene funcionalidad si falla el pipeline)
+                $fallback = $this->fallbackAnalizarIA($idCredito, $idTicket);
+                self::respuestaJSON([
+                    'success' => true,
+                    'mensaje' => 'Pipeline no disponible: ' . $pipeEx->getMessage(),
+                    'texto' => json_encode($fallback, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT),
+                    'json' => $fallback,
+                ]);
+                return;
+            }
+        } catch (\Throwable $e) {
+            self::respuestaJSON([
+                'success' => false,
+                'mensaje' => 'Error al analizar con IA: ' . $e->getMessage(),
+                'texto' => '',
+                'json' => null,
+            ]);
+        }
+    }
+
+    /**
+     * Contexto reducido para analizarIA: top 3 ubicaciones, últimas 8 gestiones,
+     * últimos 6 mensajes del chat, evidencias como texto (sin imágenes inline). Evita timeouts.
+     */
+    private function construirContextoAnalizarIAReducido($idCredito, $idTicket)
+    {
+        $lineas = [];
+        $dir = EmpresaDAO::getConsultaDireccionEstadoCuenta($idCredito);
+        $datosDir = ($dir['success'] ?? false) && !empty($dir['datos']) ? $dir['datos'][0] : [];
+        $lineas[] = 'ID crédito: ' . $idCredito;
+        $lineas[] = 'Domicilio megareporte: ' . ($datosDir['Domicilio_Completo'] ?? '—');
+
+        $ubic = UbicacionDAO::getUbicacionesFiltradasPorIdCredito($idCredito);
+        $top = array_slice($ubic['direcciones_resumen'] ?? [], 0, 3);
+        $lineas[] = "\nTOP_UBICACIONES (máx 3):";
+        foreach ($top as $d) {
+            $lineas[] = '- ' . ($d['texto'] ?? '—') . '; visitas: ' . ($d['cantidad_registros'] ?? 0) . '; last_seen: ' . ($d['ultima_fecha'] ?? '—');
         }
 
-        $contexto = $this->construirContextoAnalizarIA($idCredito, $idTicket);
-
-        $promptSistema = 'Actúa como un Auditor Forense de Cobranza de élite. Tu objetivo es encontrar la verdad oculta cruzando todos los datos (GPS, pagos, fotos, bitácora). NO seas breve. Sé explícito, detallado y narrativo. Tu análisis debe ser lo suficientemente profundo para que el gestor no tenga dudas. Usa formato Markdown (negritas con **texto**) para resaltar lo importante.';
-        $promptUsuarioTexto = "Analiza este caso y genera un INFORME DE INTELIGENCIA ESTRATÉGICA (sin límites de extensión):
-
-**1. 📊 PROBABILIDAD REAL DE RECUPERACIÓN**
-[Barra visual] (XX%)
-*Análisis de Solvencia y Voluntad:* (Explica detalladamente tu razonamiento. Cruza el historial de pagos con las excusas recientes. ¿Tienen dinero y no quieren pagar, o realmente están quebrados?).
-
-**2. 🔎 PERFIL PSICOLÓGICO Y CONDUCTUAL**
-(Analiza al deudor y al gestor. ¿El deudor es un mentiroso compulsivo, una víctima de circunstancias o un evasor profesional? ¿El gestor está haciendo su trabajo o simula visitas? Cita fechas y comentarios específicos de la bitácora).
-
-**3. 🎯 LA JUGADA MAESTRA (Estrategia de Localización)**
-(Instrucción precisa y detallada. ¿Dónde ir? ¿A qué hora exacta? ¿Qué decirle? Basa esto en los patrones de GPS y horas de contacto exitoso previas).
-
-**4. ⚠️ ALERTAS DE FRAUDE O ANOMALÍAS**
-(Extiéndete aquí si las fotos se ven falsas, si las coordenadas no coinciden con la dirección, o si el gestor repite la misma excusa).
-
-Contexto del caso:
-" . $contexto;
-
-        $parts = [['text' => $promptUsuarioTexto]];
+        // getAllGestiones devuelve orden DESC (más reciente primero); tomar las 8 más recientes
+        $gestiones = GestionesDAO::getAllGestiones($idCredito, '');
+        $gestiones = is_array($gestiones) ? array_slice($gestiones, 0, 8) : [];
+        $lineas[] = "\nULTIMAS_8_GESTIONES:";
+        foreach ($gestiones as $g) {
+            $lineas[] = '- ' . ($g['fecha_dispositivo'] ?? $g['fecha_hora'] ?? '') . ' | dir: ' . ($g['direccion_actual'] ?? $g['direccion'] ?? '—') . ' | dictamen: ' . ($g['dictamen_campo'] ?? $g['dictamen_ccc'] ?? '—') . ' | comentarios: ' . substr($g['comentarios_generales'] ?? '—', 0, 80);
+        }
 
         if ($idTicket > 0) {
-            $evid = TicketDAO::getEvidenciasPorTicket($idTicket);
-            $listaEvid = isset($evid['datos']) && is_array($evid['datos']) ? array_slice($evid['datos'], -12) : [];
-            $baseUploads = __DIR__ . '/../uploads/';
-            foreach ($listaEvid as $e) {
-                $ruta = isset($e['ruta_archivo']) ? trim($e['ruta_archivo']) : '';
-                if ($ruta === '') continue;
-                $path = $baseUploads . str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $ruta);
-                if (!is_file($path)) continue;
-                $data = @file_get_contents($path);
-                if ($data === false || strlen($data) > 4 * 1024 * 1024) continue;
-                $mime = (new \finfo(FILEINFO_MIME_TYPE))->file($path);
-                if (strpos($mime, 'image/') !== 0) continue;
-                $parts[] = [
-                    'inlineData' => [
-                        'mimeType' => $mime,
-                        'data' => base64_encode($data),
-                    ],
-                ];
+            $chat = TicketDAO::getChatPorTicket($idTicket);
+            $listaChat = isset($chat['datos']) && is_array($chat['datos']) ? array_slice($chat['datos'], -6) : [];
+            $lineas[] = "\nBITACORA (últimos 6 mensajes):";
+            foreach ($listaChat as $m) {
+                $lineas[] = '- [' . ($m['fecha_creacion'] ?? '') . '] ' . ($m['persona_nombre'] ?? '') . ': ' . substr($m['mensaje'] ?? '', 0, 100);
             }
-            if (count($parts) > 1) {
-                $parts[] = ['text' => "\n\nAUDITORÍA DE EVIDENCIA VISUAL (IMPORTANTE): Mira las fotos adjuntas. ¿Son fotos reales de una visita o parecen descargadas/capturas de pantalla? ¿Coincide la fachada en todas? ¿Se ve nomenclatura? Si detectas fraude del gestor (fotos negras, borrosas a propósito), denúncialo en la sección de ALERTAS."];
+            $evid = TicketDAO::getEvidenciasPorTicket($idTicket);
+            $listaEvid = isset($evid['datos']) && is_array($evid['datos']) ? array_slice($evid['datos'], -5) : [];
+            $lineas[] = "\nEVIDENCIAS (resumen):";
+            foreach ($listaEvid as $e) {
+                $lineas[] = '- ' . ($e['fecha_subida'] ?? '') . ' | ' . substr($e['comentario'] ?? '—', 0, 60);
             }
         }
 
-        $resultado = $this->llamarGemini($promptSistema, $parts, 8192);
-        if (!$resultado['success']) {
-            self::respuestaJSON(['success' => false, 'mensaje' => $resultado['mensaje'], 'texto' => $resultado['texto']]);
-            return;
-        }
-        self::respuestaJSON(['success' => true, 'mensaje' => 'OK', 'texto' => $resultado['texto']]);
+        return implode("\n", $lineas);
     }
 
     /**
@@ -1177,34 +1288,757 @@ Contexto del caso:
     }
 
     /**
-     * API: resumir solo ubicaciones con IA (Gemini). Recibe id_credito, devuelve texto corto (resumen + orden de visita).
+     * Contexto reducido para IA: top 3 ubicaciones + últimas 8 gestiones.
+     * Evita payloads gigantes y timeouts en Gemini.
+     */
+    private function construirContextoSoloUbicacionesReducido($idCredito)
+    {
+        $lineas = [];
+        $dir = EmpresaDAO::getConsultaDireccionEstadoCuenta($idCredito);
+        $datosDir = ($dir['success'] ?? false) && !empty($dir['datos']) ? $dir['datos'][0] : [];
+        $lineas[] = 'ID: ' . $idCredito;
+        $lineas[] = 'Domicilio_reportado: ' . ($datosDir['Domicilio_Completo'] ?? '—');
+
+        $ubic = UbicacionDAO::getUbicacionesFiltradasPorIdCredito($idCredito);
+        $top = $ubic['direcciones_resumen'] ?? [];
+        $top = array_slice($top, 0, 3);
+        $lineas[] = 'TOP_UBICACIONES:';
+        foreach ($top as $d) {
+            $texto = $d['texto'] ?? '—';
+            $visitas = $d['cantidad_registros'] ?? 0;
+            $last = $d['ultima_fecha'] ?? '—';
+            $latlng = ($d['lat'] ?? '') . ',' . ($d['lng'] ?? '');
+            $lineas[] = '- texto: ' . $texto . '; visitas: ' . $visitas . '; last_seen: ' . $last . '; latlng: ' . $latlng;
+        }
+
+        // getAllGestiones devuelve orden DESC (más reciente primero); tomar las 8 más recientes
+        $gestiones = GestionesDAO::getAllGestiones($idCredito, '');
+        $gestiones = is_array($gestiones) ? array_slice($gestiones, 0, 8) : [];
+        $lineas[] = 'ULTIMAS_GESTIONES (usa la hora para inferir horario probable):';
+        foreach ($gestiones as $g) {
+            $fecha = $g['fecha_dispositivo'] ?? $g['fecha_hora'] ?? '';
+            $dirAct = $g['direccion_actual'] ?? $g['direccion'] ?? '—';
+            $tel = $g['telefono_celular'] ?? '—';
+            $dictamen = $g['dictamen_campo'] ?? $g['dictamen_ccc'] ?? '—';
+            $lineas[] = '- fecha_hora:' . $fecha . '; dir:' . $dirAct . '; tel:' . $tel . '; dictamen:' . $dictamen;
+        }
+
+        return implode("\n", $lineas);
+    }
+
+    /** Pesos de fuente para scoring (pagos, gps, gestiones, horario). */
+    private const WEIGHT_PAYMENTS = 0.40;
+    private const WEIGHT_GPS = 0.35;
+    private const WEIGHT_GESTIONES = 0.15;
+    private const WEIGHT_HORARIO = 0.10;
+    private const PAYMENTS_NORM = 8.0;
+    private const GPS_VISITS_NORM = 6.0;
+    private const GESTIONES_NORM = 8.0;
+    private const GPS_DAYS_PENALTY_30 = 0.5;
+    private const GPS_DAYS_PENALTY_90 = 0.2;
+    private const SUSPECTED_TEST_CONFIDENCE_FACTOR = 0.6;
+
+    /**
+     * Obtiene el número de pagos registrados en estado de cuenta para un crédito.
+     */
+    private function getPagosCountForCredito($idCredito)
+    {
+        try {
+            $estadoCuentaCtrl = new \Controllers\EstadoCuenta();
+            $resEstado = $estadoCuentaCtrl->api___SPARTA_SECRET_REDACTED__($idCredito, date('Y-m-d'));
+            if (!empty($resEstado['ok']) && !empty($resEstado['data']['datosPagos'])) {
+                return count($resEstado['data']['datosPagos']);
+            }
+        } catch (\Throwable $e) {
+            // ignorar
+        }
+        return 0;
+    }
+
+    /**
+     * Construye candidatos para scoring: domicilio (primera ubicación + pagos/gestiones), trabajo/otro (resto).
+     * Cada candidato: place_type, payments_count, gps_visits, last_gps_days, gestiones_count, horario_score, label.
+     */
+    private function buildCandidatosUbicacion($idCredito)
+    {
+        $candidatos = [];
+        $paymentsCount = $this->getPagosCountForCredito($idCredito);
+        $ubic = UbicacionDAO::getUbicacionesFiltradasPorIdCredito($idCredito);
+        $ubic = is_array($ubic) ? $ubic : [];
+        $top = array_slice($ubic['direcciones_resumen'] ?? [], 0, 5);
+        $gestiones = GestionesDAO::getAllGestiones($idCredito, '');
+        $gestiones = is_array($gestiones) ? $gestiones : [];
+        $totalGestiones = count($gestiones);
+        $gestiones = array_slice($gestiones, 0, 16);
+
+        $horarioScoreGlobal = 0.0;
+        if (!empty($gestiones)) {
+            $ventanas = ['06-09' => 0, '09-12' => 0, '12-15' => 0, '15-18' => 0, '18-21' => 0, '21-24' => 0];
+            foreach ($gestiones as $g) {
+                $f = $g['fecha_dispositivo'] ?? $g['fecha_hora'] ?? null;
+                if ($f && preg_match('/ (\d{1,2}):/', $f, $m)) {
+                    $h = (int) $m[1];
+                    if ($h >= 6 && $h < 9) $ventanas['06-09']++;
+                    elseif ($h >= 9 && $h < 12) $ventanas['09-12']++;
+                    elseif ($h >= 12 && $h < 15) $ventanas['12-15']++;
+                    elseif ($h >= 15 && $h < 18) $ventanas['15-18']++;
+                    elseif ($h >= 18 && $h < 21) $ventanas['18-21']++;
+                    else $ventanas['21-24']++;
+                }
+            }
+            $maxVentana = max($ventanas);
+            $horarioScoreGlobal = $maxVentana > 0 ? min(1.0, $maxVentana / 4.0) : 0.5;
+        } else {
+            $horarioScoreGlobal = 0.5;
+        }
+
+        $now = time();
+        foreach ($top as $i => $d) {
+            $visitas = (int) ($d['cantidad_registros'] ?? 0);
+            $ultimaFecha = $d['ultima_fecha'] ?? '';
+            $lastGpsDays = 9999;
+            if ($ultimaFecha !== '') {
+                $ts = is_numeric($ultimaFecha) ? (int) $ultimaFecha : strtotime($ultimaFecha);
+                if ($ts) {
+                    $lastGpsDays = (int) (($now - $ts) / 86400);
+                }
+            }
+            $placeType = $i === 0 ? 'domicilio' : ($i === 1 ? 'trabajo' : 'otro');
+            $candidatos[] = [
+                'key' => $i,
+                'place_type' => $placeType,
+                'label' => $d['texto'] ?? $placeType,
+                'payments_count' => $i === 0 ? $paymentsCount : 0,
+                'gps_visits' => $visitas,
+                'last_gps_days' => $lastGpsDays,
+                'gestiones_count' => $i === 0 ? $totalGestiones : 0,
+                'horario_score' => $i === 0 ? $horarioScoreGlobal : (min(1.0, $visitas / 4.0) * 0.5),
+            ];
+        }
+        return $candidatos;
+    }
+
+    /**
+     * Calcula scores de localización por candidato (raw y probabilidad normalizada).
+     * Pesos: pagos 0.40, gps 0.35, gestiones 0.15, horario 0.10. Penaliza GPS antiguo (>30 días x0.5, >90 x0.2).
+     *
+     * @param array $candidates Lista de candidatos con payments_count, gps_visits, last_gps_days, gestiones_count, horario_score
+     * @return array [ key => ['raw' => float, 'probability' => float], ... ]
+     */
+    private function compute_location_scores(array $candidates)
+    {
+        $w = [
+            'payments' => self::WEIGHT_PAYMENTS,
+            'gps' => self::WEIGHT_GPS,
+            'gestiones' => self::WEIGHT_GESTIONES,
+            'horario' => self::WEIGHT_HORARIO,
+        ];
+        $raw = [];
+        foreach ($candidates as $c) {
+            $key = $c['key'] ?? count($raw);
+            $paymentsScore = min(1.0, (($c['payments_count'] ?? 0) / self::PAYMENTS_NORM));
+            $gpsFreqNorm = min(1.0, (($c['gps_visits'] ?? 0) / self::GPS_VISITS_NORM));
+            $lastGpsDays = $c['last_gps_days'] ?? 9999;
+            $gpsMultiplier = 1.0;
+            if ($lastGpsDays > 90) {
+                $gpsMultiplier = self::GPS_DAYS_PENALTY_90;
+            } elseif ($lastGpsDays > 30) {
+                $gpsMultiplier = self::GPS_DAYS_PENALTY_30;
+            }
+            $gpsScore = $gpsFreqNorm * $gpsMultiplier;
+            $gestionesScore = min(1.0, (($c['gestiones_count'] ?? 0) / self::GESTIONES_NORM));
+            $horarioScore = (float) ($c['horario_score'] ?? 0);
+
+            $rawScore = $w['payments'] * $paymentsScore + $w['gps'] * $gpsScore
+                + $w['gestiones'] * $gestionesScore + $w['horario'] * $horarioScore;
+            $raw[$key] = $rawScore;
+        }
+        $total = array_sum($raw) + 1e-12;
+        $out = [];
+        foreach ($raw as $key => $r) {
+            $out[$key] = ['raw' => $r, 'probability' => $r / $total];
+        }
+        return $out;
+    }
+
+    /**
+     * Detecta posible prueba/simulación: palabras clave en notas, >3 gestiones mismo gestor en <2 min, pagos duplicados.
+     * Si flag_count >= 2 → suspected_test = true y confidence *= 0.6.
+     *
+     * @return array ['suspected' => bool, 'confidence_multiplier' => float, 'reasons' => string[]]
+     */
+    private function detectSuspectedTest($idCredito, $idTicket = 0)
+    {
+        $reasons = [];
+        $flagCount = 0;
+        $regexNotes = '/\b(test|prueba|dummy|ejemplo|usuario_testeo)\b/ui';
+
+        $gestiones = GestionesDAO::getAllGestiones($idCredito, '');
+        $gestiones = is_array($gestiones) ? array_slice($gestiones, 0, 30) : [];
+        foreach ($gestiones as $g) {
+            $comentarios = $g['comentarios_generales'] ?? '';
+            if (preg_match($regexNotes, $comentarios)) {
+                $reasons[] = 'Palabra clave en gestión: ' . substr($comentarios, 0, 60);
+                $flagCount++;
+                break;
+            }
+        }
+        $usuarioPorFecha = [];
+        foreach ($gestiones as $g) {
+            $f = $g['fecha_dispositivo'] ?? $g['fecha_hora'] ?? '';
+            $usuario = $g['usuario_asignado'] ?? $g['usuario'] ?? '';
+            if ($f && $usuario !== '') {
+                $ts = is_numeric($f) ? (int) $f : strtotime($f);
+                $usuarioPorFecha[] = ['ts' => $ts ?: 0, 'usuario' => $usuario];
+            }
+        }
+        usort($usuarioPorFecha, function ($a, $b) { return $a['ts'] <=> $b['ts']; });
+        for ($i = 0; $i < count($usuarioPorFecha) - 2; $i++) {
+            $a = $usuarioPorFecha[$i];
+            $b = $usuarioPorFecha[$i + 2];
+            if ($a['usuario'] === $b['usuario'] && ($b['ts'] - $a['ts']) <= 120) {
+                $reasons[] = '3+ gestiones mismo gestor en <2 min';
+                $flagCount++;
+                break;
+            }
+        }
+
+        if ($idTicket > 0) {
+            $chat = TicketDAO::getChatPorTicket($idTicket);
+            $listaChat = isset($chat['datos']) && is_array($chat['datos']) ? $chat['datos'] : [];
+            foreach ($listaChat as $m) {
+                $msg = $m['mensaje'] ?? '';
+                if (preg_match($regexNotes, $msg)) {
+                    $reasons[] = 'Palabra clave en bitácora';
+                    $flagCount++;
+                    break;
+                }
+            }
+        }
+
+        $suspected = $flagCount >= 2;
+        $multiplier = $suspected ? self::SUSPECTED_TEST_CONFIDENCE_FACTOR : 1.0;
+        return ['suspected' => $suspected, 'confidence_multiplier' => $multiplier, 'reasons' => $reasons];
+    }
+
+    /**
+     * Construye el JSON de predicción de ubicaciones desde candidatos y scores locales (sin IA).
+     * Incluye one_line_summary, overall_confidence, predictions (raw_score, evidence, actions con impact_reduction), missing_data_global, suspected_test.
+     */
+    private function buildResultadoResumenUbicacionesLocal($idCredito, $idTicket = 0)
+    {
+        $candidatos = $this->buildCandidatosUbicacion($idCredito);
+        if (empty($candidatos)) {
+            $test = $this->detectSuspectedTest($idCredito, $idTicket);
+            return [
+                'one_line_summary' => 'Sin ubicaciones GPS para este crédito. Revise megareporte y gestiones.',
+                'resumen' => 'Sin ubicaciones GPS.',
+                'overall_confidence' => round(0.3 * $test['confidence_multiplier'], 2),
+                'predictions' => [],
+                'next_steps' => ['Revisar megareporte', 'Revisar historial de gestiones'],
+                'missing_data_global' => ['ubicaciones_gps', 'gestiones_recientes'],
+                'missing' => ['ubicaciones_gps'],
+                'suspected_test' => $test['suspected'],
+            ];
+        }
+        $scores = $this->compute_location_scores($candidatos);
+        $test = $this->detectSuspectedTest($idCredito, $idTicket);
+        $overallConfidence = 0.75 * $test['confidence_multiplier'];
+
+        $predictions = [];
+        foreach ($candidatos as $c) {
+            $key = $c['key'];
+            $sc = $scores[$key] ?? ['raw' => 0, 'probability' => 0];
+            $prob = round($sc['probability'], 2);
+            $rawScore = $sc['raw'];
+            $evidence = [];
+            if (($c['payments_count'] ?? 0) > 0) {
+                $evidence[] = 'pagos:' . $c['payments_count'];
+            }
+            $evidence[] = 'gps_visits:' . ($c['gps_visits'] ?? 0) . ',last_gps_days:' . ($c['last_gps_days'] ?? '—');
+            if (($c['gestiones_count'] ?? 0) > 0) {
+                $evidence[] = 'gestiones:' . $c['gestiones_count'];
+            }
+            if (($c['horario_score'] ?? 0) > 0) {
+                $evidence[] = 'horario_match:' . round($c['horario_score'] * 100) . '%';
+            }
+            $actions = [];
+            if ($c['place_type'] === 'domicilio' && $prob > 0.3) {
+                $actions[] = ['action' => 'visita domiciliaria', 'impact_reduction' => 0.70, 'suggested_time' => '13:00-15:00'];
+                $actions[] = ['action' => 'llamada previa', 'impact_reduction' => 0.10, 'suggested_time' => '12:30'];
+            } else {
+                $actions[] = ['action' => 'verificar historial visitas', 'impact_reduction' => 0.20];
+            }
+            $predictions[] = [
+                'place_type' => $c['place_type'],
+                'lugar' => $c['place_type'],
+                'probability' => $prob,
+                'raw_score' => $rawScore,
+                'priority' => count($predictions) + 1,
+                'evidence' => $evidence,
+                'actions' => $actions,
+                'missing_data' => $c['place_type'] === 'domicilio' ? ['numero_exterior', 'foto_fachada'] : [],
+                'motivo' => $c['label'],
+                'horario_probable' => '—',
+                'evidencias' => array_map(function ($e) {
+                    return (strpos($e, 'pagos:') === 0) ? 'pagos' : (strpos($e, 'gps') === 0 ? 'gps' : (strpos($e, 'gestiones') === 0 ? 'gestiones' : 'horario'));
+                }, $evidence),
+            ];
+        }
+        $totalProb = array_sum(array_column($predictions, 'probability'));
+        if ($totalProb > 0.001) {
+            foreach ($predictions as &$p) {
+                $p['probability'] = round($p['probability'] / $totalProb, 2);
+            }
+            unset($p);
+        }
+
+        return [
+            'one_line_summary' => 'Domicilio con probabilidad ' . round($predictions[0]['probability'] * 100) . '% respaldado por pagos y gestiones; GPS con penalización por antigüedad.',
+            'resumen' => 'Domicilio con probabilidad ' . round($predictions[0]['probability'] * 100) . '% respaldado por pagos y gestiones.',
+            'overall_confidence' => round($overallConfidence, 2),
+            'predictions' => $predictions,
+            'next_steps' => ['Revisar mapa de ubicaciones', 'Confirmar horarios con gestiones'],
+            'missing_data_global' => ['numero_exterior', 'confirmacion_ingresos_en_caja'],
+            'missing' => ['numero_exterior', 'confirmacion_ingresos_en_caja'],
+            'suspected_test' => $test['suspected'],
+        ];
+    }
+
+    /**
+     * Devuelve JSON de fallback cuando la IA no responde o falla (solo ubicaciones).
+     * Usa scoring local (buildResultadoResumenUbicacionesLocal) para resultado trazable.
+     */
+    private function fallbackPrediccionUbicaciones($idCredito, $idTicket = 0)
+    {
+        return $this->buildResultadoResumenUbicacionesLocal($idCredito, $idTicket);
+    }
+
+    /**
+     * Fallback para analizarIA cuando la IA no responde (esquema cerebro completo).
+     * Usa scoring local para predictions y detectSuspectedTest para confidence/suspected_test.
+     */
+    private function fallbackAnalizarIA($idCredito, $idTicket = 0)
+    {
+        $local = $this->buildResultadoResumenUbicacionesLocal($idCredito, $idTicket);
+        $test = $this->detectSuspectedTest($idCredito, $idTicket);
+        $confidence = 0.65 * $test['confidence_multiplier'];
+        $pred = [
+            'confianza_analisis' => $confidence,
+            'confidence' => $confidence,
+            'resumen_ejecutivo' => $local['one_line_summary'] ?? 'Análisis no disponible (IA no respondió). Revise mapa y gestiones manualmente.',
+            'summary' => $local['one_line_summary'] ?? 'Análisis no disponible.',
+            'perfil_conductual' => 'Patrones inferidos desde gestiones y GPS (sin IA).',
+            'behavior_profile' => [
+                'patterns' => ['Revisar mapa y gestiones manualmente'],
+                'hours_distribution' => (object) [],
+            ],
+            'estrategia_localizacion' => [
+                ['accion' => 'Revisar mapa de ubicaciones', 'impacto_reduccion_incertidumbre' => '50%', 'orden' => 1],
+                ['accion' => 'Revisar historial de gestiones', 'impacto_reduccion_incertidumbre' => '30%', 'orden' => 2],
+            ],
+            'riesgos' => $test['suspected'] ? ['Posible registro de prueba en bitácora (impacto en confianza).'] : [],
+            'risks' => $test['suspected'] ? [['risk' => 'registros_prueba_en_bitacora', 'impact' => 0.4, 'evidence' => $test['reasons']]] : [],
+            'operational_plan' => [
+                ['step' => 'Revisar mapa de ubicaciones', 'priority' => 1, 'expected_uncertainty_reduction' => 0.5, 'time_window' => 'hoy'],
+                ['step' => 'Revisar historial de gestiones', 'priority' => 2, 'expected_uncertainty_reduction' => 0.3, 'time_window' => 'hoy'],
+            ],
+            'predictions' => $local['predictions'],
+            'missing_data' => $local['missing_data_global'] ?? ['Confirmar horarios recientes', 'Última ubicación GPS'],
+            'next_steps' => $local['next_steps'] ?? ['Revisar mapa de ubicaciones', 'Revisar historial de gestiones'],
+            'suspected_test' => $test['suspected'],
+        ];
+        return $this->normalizarJsonPrediccion($pred, true);
+    }
+
+    /**
+     * Prepara datos crudos para el motor (contrato: id, etiqueta, cantidad_registros, ultima_fecha; id, fecha, tipo).
+     *
+     * @return array [ 'pagos_count'=>int, 'ubicaciones'=>[{id, etiqueta, cantidad_registros, ultima_fecha}], 'gestiones'=>[{id, fecha, tipo}] ]
+     */
+    private function prepararDatosParaMotor($idCredito)
+    {
+        $pagosCount = $this->getPagosCountForCredito($idCredito);
+        $ubic = UbicacionDAO::getUbicacionesFiltradasPorIdCredito($idCredito);
+        $ubicaciones = [];
+        foreach ($ubic['direcciones_resumen'] ?? [] as $i => $d) {
+            $ubicaciones[] = [
+                'id' => $d['id'] ?? 'u' . $i,
+                'etiqueta' => $d['texto'] ?? $d['etiqueta'] ?? '—',
+                'cantidad_registros' => (int) ($d['cantidad_registros'] ?? 0),
+                'ultima_fecha' => $d['ultima_fecha'] ?? '—',
+            ];
+        }
+        $gestionesRaw = GestionesDAO::getAllGestiones($idCredito, '');
+        $gestionesRaw = is_array($gestionesRaw) ? $gestionesRaw : [];
+        $gestiones = [];
+        foreach ($gestionesRaw as $i => $g) {
+            $gestiones[] = [
+                'id' => $g['id'] ?? 'g' . $i,
+                'fecha' => $g['fecha_dispositivo'] ?? $g['fecha_hora'] ?? '—',
+                'tipo' => $g['dictamen_campo'] ?? $g['dictamen_ccc'] ?? '',
+            ];
+        }
+        return [
+            'pagos_count' => $pagosCount,
+            'ubicaciones' => $ubicaciones,
+            'gestiones'   => $gestiones,
+        ];
+    }
+
+    /**
+     * Ejecuta el flujo: Motor → (cache) → Interpretación IA → Verificación IA → audit.
+     * Retorna formato final: predicciones_finales {domicilio,trabajo,otro}, confianza_global, plan_operativo[string], prediccion_intencion, riesgos[string], trazabilidad, verificacion, json_legacy.
+     */
+    private function ejecutarPipelinePrediccion($idCredito, $idTicket = 0)
+    {
+        $data = $this->prepararDatosParaMotor($idCredito);
+
+        $motor = new LocationScoringService();
+        $resultadoMotor = $motor->calcularProbabilidadLocalizacion($data);
+
+        $dom = (float) ($resultadoMotor['domicilio'] ?? 0);
+        $tra = (float) ($resultadoMotor['trabajo'] ?? 0);
+        $otr = (float) ($resultadoMotor['otro'] ?? 0);
+        $sum = $dom + $tra + $otr;
+        if (abs($sum - 100.0) > 0.01) {
+            $otr = round(100.0 - $dom - $tra, 2);
+        }
+        $prediccionesFinales = ['domicilio' => round($dom, 2), 'trabajo' => round($tra, 2), 'otro' => round($otr, 2)];
+        $traz = $resultadoMotor['trazabilidad'] ?? [];
+        $motorConf = (float) ($resultadoMotor['motor_confidence'] ?? 50.0);
+
+        $cache = new PipelineCache(null, 86400);
+        $cacheKey = PipelineCache::hashInput($data);
+        $cached = $cache->get($cacheKey);
+
+        $gemini = [$this, 'llamarGemini'];
+        $contextoMinimo = "Crédito {$idCredito}.";
+
+        if (is_array($cached) && isset($cached['interpretacion']) && isset($cached['verificacion'])) {
+            $interpretacion = $cached['interpretacion'];
+            $verificacion = $cached['verificacion'];
+        } else {
+            $interpretacionSvc = new IAInterpretationService();
+            $interpretacion = $interpretacionSvc->interpretar($resultadoMotor, $gemini, $contextoMinimo);
+
+            $pagosCount = $data['pagos_count'];
+            $ubic = UbicacionDAO::getUbicacionesFiltradasPorIdCredito($idCredito);
+            $gpsList = [];
+            foreach (array_slice($ubic['direcciones_resumen'] ?? [], 0, 10) as $d) {
+                $gpsList[] = ['texto' => $d['texto'] ?? '—', 'visitas' => (int)($d['cantidad_registros'] ?? 0), 'ultima_fecha' => $d['ultima_fecha'] ?? '—'];
+            }
+            $gestionesFull = GestionesDAO::getAllGestiones($idCredito, '');
+            $gestionesList = [];
+            foreach (array_slice(is_array($gestionesFull) ? $gestionesFull : [], 0, 10) as $g) {
+                $gestionesList[] = ['fecha' => $g['fecha_dispositivo'] ?? $g['fecha_hora'] ?? '—', 'gestor' => $g['usuario_asignado'] ?? $g['usuario'] ?? '—', 'dictamen' => $g['dictamen_campo'] ?? $g['dictamen_ccc'] ?? '—', 'comentarios' => substr($g['comentarios_generales'] ?? '—', 0, 200)];
+            }
+            $test = $this->detectSuspectedTest($idCredito, $idTicket);
+            $datosReales = [
+                'pagos_count' => $pagosCount,
+                'gps' => $gpsList,
+                'gestiones' => $gestionesList,
+                'suspected_test' => $test['suspected'],
+                'suspected_test_reasons' => $test['reasons'],
+            ];
+            $verificacionSvc = new IAVerificationService();
+            $verificacion = $verificacionSvc->verificar($datosReales, $resultadoMotor, $interpretacion, $gemini);
+            $cache->set($cacheKey, ['interpretacion' => $interpretacion, 'verificacion' => $verificacion]);
+
+            $responseHash = md5(json_encode($interpretacion, JSON_UNESCAPED_UNICODE) . json_encode($verificacion, JSON_UNESCAPED_UNICODE));
+            $audit = new LocationAuditLogger();
+            $audit->log(
+                $cacheKey,
+                ['domicilio' => $dom, 'trabajo' => $tra, 'otro' => $otr, 'motor_confidence' => $motorConf],
+                substr($contextoMinimo . ' ' . ($interpretacion['resumen'] ?? ''), 0, 500),
+                $responseHash,
+                ['veracity_score' => $verificacion['veracity_score'] ?? 0, 'suspected_test' => $verificacion['suspected_test'] ?? false]
+            );
+        }
+
+        $confianzaGlobal = (int) ($verificacion['veracity_score'] ?? 70);
+        if ($verificacion['suspected_test'] ?? false) {
+            $confianzaGlobal = (int) round($confianzaGlobal * self::SUSPECTED_TEST_CONFIDENCE_FACTOR);
+        }
+        $confianzaGlobal = max(0, min(100, $confianzaGlobal));
+
+        $planOperativo = array_values(array_map('strval', $interpretacion['acciones_recomendadas'] ?? []));
+        if (empty($planOperativo)) {
+            $planOperativo = ['Revisar mapa de ubicaciones', 'Revisar historial de gestiones'];
+        }
+
+        $riesgosStrings = array_values(array_map('strval', $interpretacion['riesgos_detectados'] ?? []));
+        foreach ($verificacion['claims_no_soportados'] ?? [] as $c) {
+            $riesgosStrings[] = 'claim_sin_evidencia: ' . (is_string($c) ? $c : json_encode($c, JSON_UNESCAPED_UNICODE));
+        }
+
+        $prediccionIntencion = $interpretacion['prediccion_intencion'] ?? ['accion' => 'Revisar mapa y gestiones', 'evidencia' => [], 'nota' => ''];
+        if (!isset($prediccionIntencion['evidencia']) || !is_array($prediccionIntencion['evidencia'])) {
+            $prediccionIntencion['evidencia'] = array_slice(array_map(function ($c) { return (string)($c['id'] ?? $c['key'] ?? ''); }, $traz['candidatos'] ?? []), 0, 3);
+        }
+
+        $verificacionOut = [
+            'veracity_score' => (int) ($verificacion['veracity_score'] ?? 70),
+            'suspected_test' => (bool) ($verificacion['suspected_test'] ?? false),
+            'evidencias_validadas' => array_values($verificacion['evidencias_validadas'] ?? []),
+            'claims_no_soportados' => array_values($verificacion['claims_no_soportados'] ?? []),
+        ];
+
+        $trazabilidad = [
+            'motor' => ['domicilio' => $dom, 'trabajo' => $tra, 'otro' => $otr, 'motor_confidence' => $motorConf, 'trazabilidad' => $traz],
+            'interpretacion_ok' => $interpretacion['success'] ?? false,
+            'verificacion_ok' => $verificacion['success'] ?? false,
+        ];
+
+        $predictionsLegacy = [
+            ['place_type' => 'domicilio', 'lugar' => 'domicilio', 'probability' => $dom / 100, 'probabilidad' => $dom / 100, 'priority' => 1, 'motivo' => $traz['candidatos'][0]['label'] ?? 'domicilio', 'horario_probable' => '—', 'evidence' => [], 'actions' => []],
+            ['place_type' => 'trabajo', 'lugar' => 'trabajo', 'probability' => $tra / 100, 'probabilidad' => $tra / 100, 'priority' => 2, 'motivo' => $traz['candidatos'][1]['label'] ?? 'trabajo', 'horario_probable' => '—', 'evidence' => [], 'actions' => []],
+            ['place_type' => 'otro', 'lugar' => 'otro', 'probability' => $otr / 100, 'probabilidad' => $otr / 100, 'priority' => 3, 'motivo' => 'otro', 'horario_probable' => '—', 'evidence' => [], 'actions' => []],
+        ];
+        $planLegacy = [];
+        foreach ($planOperativo as $i => $step) {
+            $planLegacy[] = ['step' => $step, 'priority' => $i + 1, 'expected_uncertainty_reduction' => 0.5, 'time_window' => ''];
+        }
+        $riesgosLegacy = array_map(function ($r) { return ['risk' => $r, 'impact' => 0.3, 'evidence' => []]; }, $riesgosStrings);
+        $jsonLegacy = [
+            'confianza_analisis' => $confianzaGlobal / 100.0,
+            'confidence' => $confianzaGlobal / 100.0,
+            'resumen_ejecutivo' => $interpretacion['resumen'] ?? '',
+            'summary' => $interpretacion['resumen'] ?? '',
+            'perfil_conductual' => is_array($interpretacion['patrones_conductuales'] ?? null) ? implode('; ', $interpretacion['patrones_conductuales']) : '',
+            'behavior_profile' => ['patterns' => $interpretacion['patrones_conductuales'] ?? [], 'hours_distribution' => (object)[]],
+            'predictions' => $predictionsLegacy,
+            'operational_plan' => $planLegacy,
+            'estrategia_localizacion' => array_map(function ($s, $i) { return ['accion' => $s, 'orden' => $i + 1, 'impacto_reduccion_incertidumbre' => '50%']; }, $planOperativo, array_keys($planOperativo)),
+            'risks' => $riesgosLegacy,
+            'riesgos' => $riesgosStrings,
+            'missing_data' => $verificacion['claims_no_soportados'] ?? [],
+            'next_steps' => $planOperativo,
+            'suspected_test' => $verificacion['suspected_test'] ?? false,
+        ];
+
+        return [
+            'predicciones_finales'  => $prediccionesFinales,
+            'confianza_global'      => $confianzaGlobal / 100.0,
+            'plan_operativo'        => $planOperativo,
+            'prediccion_intencion'  => $prediccionIntencion,
+            'riesgos'               => $riesgosStrings,
+            'trazabilidad'          => $trazabilidad,
+            'verificacion'          => $verificacionOut,
+            'json_legacy'           => $this->normalizarJsonPrediccion($jsonLegacy, true),
+        ];
+    }
+
+    /**
+     * API: resumir solo ubicaciones con IA (Gemini). Recibe id_credito.
+     * Devuelve JSON estructurado: one_line_summary, predictions, next_steps. Máx 1024 tokens.
      * Solo usuarios con permiso al Panel Admin (módulo 19) pueden usar esta función.
      */
     public function resumirUbicacionesIA()
     {
-        $modulos = $_SESSION['modulos'] ?? [];
-        if (!is_array($modulos) || !in_array(19, $modulos)) {
-            self::respuestaJSON(['success' => false, 'mensaje' => 'No tiene permiso para usar Resumir ubicaciones con IA.', 'texto' => '']);
-            return;
+        while (ob_get_level()) {
+            ob_end_clean();
         }
-        $raw = file_get_contents('php://input');
-        $datos = json_decode($raw, true) ?: [];
-        $idCredito = isset($datos['id_credito']) && $datos['id_credito'] !== '' ? (int)$datos['id_credito'] : 0;
-        if ($idCredito < 1) {
-            self::respuestaJSON(['success' => false, 'mensaje' => 'ID de crédito requerido.', 'texto' => '']);
-            return;
-        }
+        @set_time_limit(90);
+        try {
+            $modulos = $_SESSION['modulos'] ?? [];
+            if (!is_array($modulos) || !in_array(19, $modulos)) {
+                self::respuestaJSON(['success' => false, 'mensaje' => 'No tiene permiso para usar Resumir ubicaciones con IA.', 'texto' => '', 'json' => null]);
+                return;
+            }
+            $raw = file_get_contents('php://input');
+            $datos = json_decode($raw, true) ?: [];
+            $idCredito = isset($datos['id_credito']) && $datos['id_credito'] !== '' ? (int)$datos['id_credito'] : 0;
+            if ($idCredito < 1) {
+                self::respuestaJSON(['success' => false, 'mensaje' => 'ID de crédito requerido.', 'texto' => '', 'json' => null]);
+                return;
+            }
 
-        $contexto = $this->construirContextoSoloUbicaciones($idCredito);
-        $promptSistema = 'Eres un experto en inteligencia geoespacial y rastreo de personas.';
-        $promptUsuario = "Analiza minuciosamente los siguientes puntos GPS y frecuencias de visita.\nContexto:\n" . $contexto . "\n\nOBJETIVO: CRONOGRAMA DE LOCALIZACIÓN.\n\nNo hagas un resumen general. Quiero que detectes:\n1. **La Madriguera:** ¿Dónde pernocta realmente? (Analiza puntos nocturnos).\n2. **La Rutina Laboral:** ¿Dónde pasa las horas de oficina?\n3. **Puntos de Fuga:** ¿A dónde va los fines de semana?\n\nEntrega una lista de horarios y lugares recomendados para emboscar al deudor con alta probabilidad de éxito. Sé extenso en tu deducción. Usa **negritas** para resaltar.";
+            $localResult = $this->buildResultadoResumenUbicacionesLocal($idCredito, 0);
+        $contexto = $this->construirContextoSoloUbicacionesReducido($idCredito);
+        $promptSistema = 'Eres un motor analítico que calcula probabilidades de localización. RESPONDE SOLO JSON. No incluyas texto adicional. Usa los pesos de fuente: pagos 0.40, gps 0.35, gestiones 0.15, horario 0.10. Penaliza fuentes antiguas (>30 días -> x0.5, >90 días -> x0.2). Detecta posibles \'prueba\' en notas y marca suspected_test=true si corresponde. Devuelve el campo \'evidence\' con evidencia por candidato.';
+        $promptUsuario = "CONTEXT:\n" . $contexto . "\n\nINSTRUCCIONES:\n"
+            . "Devuelve un JSON con:\n"
+            . "{\n"
+            . "  \"one_line_summary\": \"<máx 120 chars>\",\n"
+            . "  \"overall_confidence\": 0-1,\n"
+            . "  \"predictions\": [\n"
+            . "    { \"place_type\": \"domicilio|trabajo|otro\", \"probability\": 0-1, \"raw_score\": float, \"priority\": 1..N, \"evidence\": [\"pagos:8\",\"gps:5,last_days:21\",\"gestiones:8\",\"horario:13-15\"], \"actions\": [{\"action\":\"visita domiciliaria\",\"impact_reduction\":0.70,\"suggested_time\":\"13:00-15:00\"}], \"missing_data\":[\"numero_exterior\"] }\n"
+            . "  ],\n"
+            . "  \"missing_data_global\": [],\n"
+            . "  \"suspected_test\": true|false\n"
+            . "}\n";
 
-        $resultado = $this->llamarGemini($promptSistema, $promptUsuario, 4096);
+        $resultado = $this->llamarGemini($promptSistema, [['text' => $promptUsuario]], 2048);
         if (!$resultado['success']) {
-            self::respuestaJSON(['success' => false, 'mensaje' => $resultado['mensaje'], 'texto' => $resultado['texto']]);
+            self::respuestaJSON([
+                'success' => true,
+                'mensaje' => $resultado['mensaje'],
+                'texto' => json_encode($localResult, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT),
+                'json' => $localResult,
+            ]);
             return;
         }
-        self::respuestaJSON(['success' => true, 'mensaje' => 'OK', 'texto' => $resultado['texto']]);
+
+        $texto = trim($resultado['texto']);
+        $texto = preg_replace('/^```(?:json)?\s*/i', '', $texto);
+        $texto = preg_replace('/\s*```\s*$/i', '', $texto);
+        $json = json_decode($texto, true);
+        if (!is_array($json)) {
+            self::respuestaJSON([
+                'success' => true,
+                'mensaje' => 'La IA no devolvió JSON válido.',
+                'texto' => $resultado['texto'],
+                'json' => $localResult,
+            ]);
+            return;
+        }
+        if (!empty($json['error']) && $json['error'] === 'INSUFFICIENT_DATA') {
+            $merged = $this->mergeResumenUbicacionesIALocal($localResult, $json);
+            self::respuestaJSON(['success' => true, 'mensaje' => 'OK', 'texto' => $texto, 'json' => $merged]);
+            return;
+        }
+        $merged = $this->mergeResumenUbicacionesIALocal($localResult, $json);
+        self::respuestaJSON(['success' => true, 'mensaje' => 'OK', 'texto' => $texto, 'json' => $merged]);
+        } catch (\Throwable $e) {
+            self::respuestaJSON([
+                'success' => false,
+                'mensaje' => 'Error al resumir ubicaciones: ' . $e->getMessage(),
+                'texto' => '',
+                'json' => null,
+            ]);
+        }
+    }
+
+    /**
+     * Fusiona resultado local (probabilidades calculadas, evidence) con JSON de IA (summary, next_steps, suspected_test).
+     * Prioriza: probabilities y raw_score del resultado local; one_line_summary, next_steps y missing_data_global de IA si vienen.
+     */
+    private function mergeResumenUbicacionesIALocal(array $local, array $ia)
+    {
+        $out = [
+            'one_line_summary' => $ia['one_line_summary'] ?? $local['one_line_summary'] ?? $local['resumen'] ?? '',
+            'resumen' => $ia['one_line_summary'] ?? $local['resumen'] ?? '',
+            'overall_confidence' => isset($ia['overall_confidence']) ? (float) $ia['overall_confidence'] : ($local['overall_confidence'] ?? 0.75),
+            'predictions' => $local['predictions'],
+            'next_steps' => !empty($ia['next_steps']) && is_array($ia['next_steps']) ? $ia['next_steps'] : ($local['next_steps'] ?? []),
+            'missing_data_global' => !empty($ia['missing_data_global']) && is_array($ia['missing_data_global']) ? $ia['missing_data_global'] : ($local['missing_data_global'] ?? []),
+            'missing' => $local['missing'] ?? [],
+            'suspected_test' => isset($ia['suspected_test']) ? (bool) $ia['suspected_test'] : ($local['suspected_test'] ?? false),
+        ];
+        if ($out['suspected_test'] && $out['overall_confidence'] > 0.5) {
+            $out['overall_confidence'] = round($out['overall_confidence'] * self::SUSPECTED_TEST_CONFIDENCE_FACTOR, 2);
+        }
+        if (!empty($ia['predictions']) && is_array($ia['predictions']) && count($ia['predictions']) === count($out['predictions'])) {
+            foreach ($out['predictions'] as $i => &$p) {
+                $pi = $ia['predictions'][$i] ?? [];
+                if (!empty($pi['evidence'])) {
+                    $p['evidence'] = is_array($pi['evidence']) ? $pi['evidence'] : [$pi['evidence']];
+                }
+                if (!empty($pi['actions']) && is_array($pi['actions'])) {
+                    $p['actions'] = $pi['actions'];
+                }
+                if (isset($pi['missing_data']) && is_array($pi['missing_data'])) {
+                    $p['missing_data'] = $pi['missing_data'];
+                }
+            }
+            unset($p);
+        }
+        return $this->normalizarJsonPrediccion($out, false);
+    }
+
+    /**
+     * Normaliza el JSON de predicción: esquema unificado, arrays, probabilidades suman 1.0.
+     * @param array $json Respuesta de la IA
+     * @param bool $esAnalizarIA true = esquema analizarIA (confianza_analisis, estrategia, riesgos)
+     */
+    private function normalizarJsonPrediccion(array $json, $esAnalizarIA = false)
+    {
+        if (!empty($json['predictions']) && is_array($json['predictions'])) {
+            $probs = [];
+            foreach ($json['predictions'] as $i => &$p) {
+                $p['lugar'] = $p['lugar'] ?? $p['place_type'] ?? 'otro';
+                $p['place_type'] = $p['place_type'] ?? $p['lugar'];
+                $p['probabilidad'] = isset($p['probabilidad']) ? (float) $p['probabilidad'] : (isset($p['probability']) ? (float) $p['probability'] : (isset($p['confidence']) ? (float) $p['confidence'] : 0.33));
+                $p['probability'] = $p['probabilidad'];
+                if (isset($p['raw_score'])) {
+                    $p['raw_score'] = (float) $p['raw_score'];
+                }
+                $p['prioridad'] = $p['prioridad'] ?? $p['priority'] ?? $i + 1;
+                $p['motivo'] = $p['motivo'] ?? $p['reason'] ?? '';
+                $p['horario_probable'] = $p['horario_probable'] ?? '—';
+                $ev = $p['evidencias'] ?? $p['evidence'] ?? [];
+                $p['evidencias'] = is_array($ev) ? $ev : [ (string) $ev ];
+                $p['evidence'] = $p['evidencias'];
+                $acciones = $p['acciones'] ?? $p['actions'] ?? [];
+                $p['acciones'] = is_array($acciones) ? $acciones : [ (string) $acciones ];
+                $p['actions'] = $p['acciones'];
+                $probs[] = $p['probabilidad'];
+            }
+            unset($p);
+            $sum = array_sum($probs);
+            if ($sum > 0.001) {
+                foreach ($json['predictions'] as &$p) {
+                    $p['probabilidad'] = round($p['probabilidad'] / $sum, 2);
+                }
+                unset($p);
+            }
+        }
+        $json['resumen'] = $json['resumen'] ?? $json['one_line_summary'] ?? '';
+        $json['one_line_summary'] = $json['one_line_summary'] ?? $json['resumen'];
+        if (isset($json['overall_confidence'])) {
+            $json['overall_confidence'] = (float) $json['overall_confidence'];
+        }
+        if (isset($json['suspected_test'])) {
+            $json['suspected_test'] = (bool) $json['suspected_test'];
+        }
+        if (isset($json['missing_data_global']) && !is_array($json['missing_data_global'])) {
+            $json['missing_data_global'] = $json['missing_data_global'] === '' || $json['missing_data_global'] === null ? [] : [ (string) $json['missing_data_global'] ];
+        }
+        if (!empty($json['next_steps']) && !is_array($json['next_steps'])) {
+            $json['next_steps'] = [ (string) $json['next_steps'] ];
+        }
+        $json['missing'] = $json['missing'] ?? $json['missing_data_global'] ?? [];
+        if (!is_array($json['missing'])) {
+            $json['missing'] = $json['missing'] === '' || $json['missing'] === null ? [] : [ (string) $json['missing'] ];
+        }
+        if ($esAnalizarIA) {
+            $json['confianza_analisis'] = isset($json['confianza_analisis']) ? (float) $json['confianza_analisis'] : (isset($json['confidence']) ? (float) $json['confidence'] : 0.5);
+            $json['confidence'] = $json['confianza_analisis'];
+            $json['resumen_ejecutivo'] = $json['resumen_ejecutivo'] ?? $json['summary'] ?? $json['resumen'] ?? '';
+            $json['summary'] = $json['resumen_ejecutivo'];
+            $json['perfil_conductual'] = $json['perfil_conductual'] ?? '';
+            $json['behavior_profile'] = $json['behavior_profile'] ?? ['patterns' => [], 'hours_distribution' => (object) []];
+            if (!is_array($json['behavior_profile'])) {
+                $json['behavior_profile'] = ['patterns' => [], 'hours_distribution' => (object) []];
+            }
+            $json['estrategia_localizacion'] = isset($json['estrategia_localizacion']) && is_array($json['estrategia_localizacion']) ? $json['estrategia_localizacion'] : [];
+            $json['riesgos'] = isset($json['riesgos']) && is_array($json['riesgos']) ? $json['riesgos'] : [];
+            if (!empty($json['risks']) && is_array($json['risks'])) {
+                foreach ($json['risks'] as &$r) {
+                    if (!isset($r['risk'])) {
+                        $r = ['risk' => is_string($r) ? $r : '', 'impact' => 0.3, 'evidence' => []];
+                    }
+                    $r['impact'] = isset($r['impact']) ? (float) $r['impact'] : 0.3;
+                    $r['evidence'] = isset($r['evidence']) && is_array($r['evidence']) ? $r['evidence'] : [];
+                }
+                unset($r);
+            } else {
+                $json['risks'] = [];
+            }
+            $json['operational_plan'] = isset($json['operational_plan']) && is_array($json['operational_plan']) ? $json['operational_plan'] : [];
+            foreach ($json['operational_plan'] as &$op) {
+                $op['expected_uncertainty_reduction'] = isset($op['expected_uncertainty_reduction']) ? (float) $op['expected_uncertainty_reduction'] : 0.5;
+                $op['time_window'] = $op['time_window'] ?? $op['estimated_time_window'] ?? '';
+            }
+            unset($op);
+            $json['missing_data'] = $json['missing_data'] ?? $json['missing'] ?? [];
+            if (!is_array($json['missing_data'])) {
+                $json['missing_data'] = $json['missing_data'] === '' || $json['missing_data'] === null ? [] : [ (string) $json['missing_data'] ];
+            }
+            $json['suspected_test'] = isset($json['suspected_test']) ? (bool) $json['suspected_test'] : false;
+        }
+        return $json;
     }
 
     /**
@@ -1343,6 +2177,71 @@ Contexto del caso:
             $e['url'] = $baseUrl . (int)$e['id'];
         }
         self::respuestaJSON(['success' => $resultado['success'] ?? false, 'mensaje' => $resultado['mensaje'] ?? '', 'datos' => $list]);
+    }
+
+    /**
+     * API: evidencia cruda para verificación (pagos, GPS, gestiones, suspected_test).
+     * No llama a IA. Sirve para contrastar lo que dice la Lectura IA con datos reales del sistema.
+     * Requiere permiso módulo 19 (Panel Admin / Analizar IA).
+     */
+    public function getEvidenciaVerificacion()
+    {
+        $modulos = $_SESSION['modulos'] ?? [];
+        if (!is_array($modulos) || !in_array(19, $modulos)) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'No tiene permiso para ver datos verificados.', 'datos' => null]);
+            return;
+        }
+        $raw = file_get_contents('php://input');
+        $datos = json_decode($raw, true) ?: [];
+        $idCredito = isset($datos['id_credito']) && $datos['id_credito'] !== '' ? (int) $datos['id_credito'] : 0;
+        $idTicket = isset($datos['id_ticket']) ? (int) $datos['id_ticket'] : 0;
+        if ($idCredito < 1) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'ID de crédito requerido.', 'datos' => null]);
+            return;
+        }
+        try {
+            $pagosCount = $this->getPagosCountForCredito($idCredito);
+            $ubic = UbicacionDAO::getUbicacionesFiltradasPorIdCredito($idCredito);
+            $gps = [];
+            foreach (array_slice($ubic['direcciones_resumen'] ?? [], 0, 10) as $d) {
+                $gps[] = [
+                    'texto' => $d['texto'] ?? '—',
+                    'visitas' => (int) ($d['cantidad_registros'] ?? 0),
+                    'ultima_fecha' => $d['ultima_fecha'] ?? '—',
+                    'lat' => $d['lat'] ?? null,
+                    'lng' => $d['lng'] ?? null,
+                ];
+            }
+            $gestiones = GestionesDAO::getAllGestiones($idCredito, '');
+            $gestiones = is_array($gestiones) ? array_slice($gestiones, 0, 10) : [];
+            $gestionesList = [];
+            foreach ($gestiones as $g) {
+                $gestionesList[] = [
+                    'fecha' => $g['fecha_dispositivo'] ?? $g['fecha_hora'] ?? '—',
+                    'gestor' => $g['usuario_asignado'] ?? $g['usuario'] ?? '—',
+                    'dictamen' => $g['dictamen_campo'] ?? $g['dictamen_ccc'] ?? '—',
+                    'comentarios' => substr($g['comentarios_generales'] ?? '—', 0, 200),
+                ];
+            }
+            $test = $this->detectSuspectedTest($idCredito, $idTicket);
+            self::respuestaJSON([
+                'success' => true,
+                'mensaje' => 'OK',
+                'datos' => [
+                    'pagos_count' => $pagosCount,
+                    'gps' => $gps,
+                    'gestiones' => $gestionesList,
+                    'suspected_test' => $test['suspected'],
+                    'suspected_test_reasons' => $test['reasons'],
+                ],
+            ]);
+        } catch (\Throwable $e) {
+            self::respuestaJSON([
+                'success' => false,
+                'mensaje' => 'Error al obtener evidencia: ' . $e->getMessage(),
+                'datos' => null,
+            ]);
+        }
     }
 
     /**

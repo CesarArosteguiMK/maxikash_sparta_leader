@@ -4603,17 +4603,8 @@ window.puedeEditarTodos = <?= json_encode(!empty($puedeEditarTodos ?? false)) ?>
             break;
           }
         }
-        
-        // Cargar puestos del departamento
-        cargarPuestosParaEditar();
-        
-        // Esperar y seleccionar el puesto
-        setTimeout(() => {
-          const selectPuesto = document.getElementById('edit_editar_puesto');
-          if (selectPuesto) {
-            selectPuesto.value = puesto.id_puesto;
-          }
-        }, 300);
+        // Cargar puestos del departamento desde backend y preseleccionar el puesto actual
+        cargarPuestosParaEditar(puesto.id_puesto);
       }
     }, 300);
   }
@@ -4754,7 +4745,7 @@ window.puedeEditarTodos = <?= json_encode(!empty($puedeEditarTodos ?? false)) ?>
   }
   
   /**
-   * Cargar puestos según departamento seleccionado
+   * Cargar puestos según departamento seleccionado (desde backend: todos los puestos del departamento).
    */
   function cargarPuestosParaAgregar() {
     const selectDept = document.getElementById('edit_nuevo_departamento');
@@ -4763,51 +4754,49 @@ window.puedeEditarTodos = <?= json_encode(!empty($puedeEditarTodos ?? false)) ?>
     if (!selectDept || !selectPuesto) return;
     
     const departamentoId = selectDept.value;
-    const departamentoNombre = selectDept.options[selectDept.selectedIndex]?.dataset.nombre;
     
     // Limpiar select de puestos
     selectPuesto.innerHTML = '<option value="">Seleccione un puesto</option>';
     
     if (!departamentoId) return;
     
-    // 🔧 FIX: Obtener puestos del departamento seleccionado desde el array puestos[]
-    const puestos = new Set();
-    usuariosData.forEach(u => {
-      // Si el usuario tiene múltiples puestos, iterar el array puestos[]
-      if (u.puestos && u.puestos.length > 0) {
-        u.puestos.forEach(puesto => {
-          if (puesto.nombre_departamento === departamentoNombre && puesto.nombre_puesto && puesto.nombre_puesto !== 'Sin puesto') {
-            puestos.add(JSON.stringify({
-              id: puesto.id_puesto,
-              nombre: puesto.nombre_puesto
-            }));
+    fetch('/CapHum/getPuestos', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id_departamento: departamentoId })
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (!data.success || !Array.isArray(data.datos)) return;
+        data.datos.forEach(p => {
+          const option = document.createElement('option');
+          option.value = p.id;
+          option.textContent = p.nombre || p.puesto_nombre || '';
+          selectPuesto.appendChild(option);
+        });
+      })
+      .catch(() => {
+        const departamentoNombre = selectDept.options[selectDept.selectedIndex]?.dataset.nombre;
+        const puestos = new Set();
+        usuariosData.forEach(u => {
+          if (u.puestos && u.puestos.length > 0) {
+            u.puestos.forEach(puesto => {
+              if (puesto.nombre_departamento === departamentoNombre && puesto.nombre_puesto && puesto.nombre_puesto !== 'Sin puesto') {
+                puestos.add(JSON.stringify({ id: puesto.id_puesto, nombre: puesto.nombre_puesto }));
+              }
+            });
+          } else if (u.nombre_departamento === departamentoNombre && u.nombre_puesto && u.nombre_puesto !== 'Sin puesto') {
+            puestos.add(JSON.stringify({ id: u.id_puesto, nombre: u.nombre_puesto }));
           }
         });
-      } else {
-        // Fallback para usuarios sin consolidar
-        if (u.nombre_departamento === departamentoNombre && u.nombre_puesto && u.nombre_puesto !== 'Sin puesto') {
-          puestos.add(JSON.stringify({
-            id: u.id_puesto,
-            nombre: u.nombre_puesto
-          }));
-        }
-      }
-    });
-    
-    // Agregar opciones
-    Array.from(puestos).forEach(puestoStr => {
-      const puesto = JSON.parse(puestoStr);
-      const option = document.createElement('option');
-      option.value = puesto.id;
-      option.textContent = puesto.nombre;
-      
-      // 🔍 DEBUG: Verificar que se están creando correctamente las opciones
-      console.log('📋 [cargarPuestosParaAgregar] Opción creada - value:', option.value, '(tipo:', typeof option.value, '), text:', option.textContent);
-      
-      selectPuesto.appendChild(option);
-    });
-    
-    console.log('✅ [cargarPuestosParaAgregar] Total opciones agregadas:', selectPuesto.options.length - 1);
+        Array.from(puestos).forEach(puestoStr => {
+          const puesto = JSON.parse(puestoStr);
+          const option = document.createElement('option');
+          option.value = puesto.id;
+          option.textContent = puesto.nombre;
+          selectPuesto.appendChild(option);
+        });
+      });
   }
   
   /**
@@ -4896,54 +4885,69 @@ window.puedeEditarTodos = <?= json_encode(!empty($puedeEditarTodos ?? false)) ?>
   }
   
   /**
-   * Cargar puestos para editar según departamento
+   * Cargar puestos para editar según departamento (desde backend: todos los puestos del departamento).
+   * @param {string|number|null} puestoIdToSelect - Si se pasa, tras cargar se selecciona este id en el select.
    */
-  function cargarPuestosParaEditar() {
+  function cargarPuestosParaEditar(puestoIdToSelect) {
     const selectDept = document.getElementById('edit_editar_departamento');
     const selectPuesto = document.getElementById('edit_editar_puesto');
     
     if (!selectDept || !selectPuesto) return;
     
     const departamentoId = selectDept.value;
-    const departamentoNombre = selectDept.options[selectDept.selectedIndex]?.dataset.nombre;
     
     // Limpiar select de puestos
     selectPuesto.innerHTML = '<option value="">Seleccione un puesto</option>';
     
     if (!departamentoId) return;
     
-    // 🔧 FIX: Obtener puestos del departamento seleccionado desde el array puestos[]
-    const puestos = new Set();
-    usuariosData.forEach(u => {
-      // Si el usuario tiene múltiples puestos, iterar el array puestos[]
-      if (u.puestos && u.puestos.length > 0) {
-        u.puestos.forEach(puesto => {
-          if (puesto.nombre_departamento === departamentoNombre && puesto.nombre_puesto && puesto.nombre_puesto !== 'Sin puesto') {
-            puestos.add(JSON.stringify({
-              id: puesto.id_puesto,
-              nombre: puesto.nombre_puesto
-            }));
+    // Cargar todos los puestos del departamento desde el backend (no solo los que tienen usuarios asignados)
+    fetch('/CapHum/getPuestos', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id_departamento: departamentoId })
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (!data.success || !Array.isArray(data.datos)) {
+          return;
+        }
+        data.datos.forEach(p => {
+          const option = document.createElement('option');
+          option.value = p.id;
+          option.textContent = p.nombre || p.puesto_nombre || '';
+          selectPuesto.appendChild(option);
+        });
+        if (puestoIdToSelect != null && puestoIdToSelect !== '') {
+          selectPuesto.value = String(puestoIdToSelect);
+        }
+      })
+      .catch(() => {
+        // Fallback: puestos que aparecen en usuariosData para este departamento
+        const departamentoNombre = selectDept.options[selectDept.selectedIndex]?.dataset.nombre;
+        const puestos = new Set();
+        usuariosData.forEach(u => {
+          if (u.puestos && u.puestos.length > 0) {
+            u.puestos.forEach(puesto => {
+              if (puesto.nombre_departamento === departamentoNombre && puesto.nombre_puesto && puesto.nombre_puesto !== 'Sin puesto') {
+                puestos.add(JSON.stringify({ id: puesto.id_puesto, nombre: puesto.nombre_puesto }));
+              }
+            });
+          } else if (u.nombre_departamento === departamentoNombre && u.nombre_puesto && u.nombre_puesto !== 'Sin puesto') {
+            puestos.add(JSON.stringify({ id: u.id_puesto, nombre: u.nombre_puesto }));
           }
         });
-      } else {
-        // Fallback para usuarios sin consolidar
-        if (u.nombre_departamento === departamentoNombre && u.nombre_puesto && u.nombre_puesto !== 'Sin puesto') {
-          puestos.add(JSON.stringify({
-            id: u.id_puesto,
-            nombre: u.nombre_puesto
-          }));
+        Array.from(puestos).forEach(puestoStr => {
+          const puesto = JSON.parse(puestoStr);
+          const option = document.createElement('option');
+          option.value = puesto.id;
+          option.textContent = puesto.nombre;
+          selectPuesto.appendChild(option);
+        });
+        if (puestoIdToSelect != null && puestoIdToSelect !== '') {
+          selectPuesto.value = String(puestoIdToSelect);
         }
-      }
-    });
-    
-    // Agregar opciones
-    Array.from(puestos).forEach(puestoStr => {
-      const puesto = JSON.parse(puestoStr);
-      const option = document.createElement('option');
-      option.value = puesto.id;
-      option.textContent = puesto.nombre;
-      selectPuesto.appendChild(option);
-    });
+      });
   }
   
   /**

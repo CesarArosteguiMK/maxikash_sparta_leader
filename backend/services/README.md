@@ -1,0 +1,220 @@
+# Servicios de predicción de localización (3 capas)
+
+Arquitectura del sistema de predicción de localización de acreditados: **determinístico**, **auditable** y **robusto frente a fallos de IA**.
+
+## Contratos JSON (entrada/salida)
+
+### LocationScoringService::calcularProbabilidadLocalizacion(array $datosParaMotor)
+
+**Input `datosParaMotor`:**
+```json
+{
+  "pagos_count": 51,
+  "ubicaciones": [
+    { "id": "u0", "etiqueta": "Punto de interés", "cantidad_registros": 12, "ultima_fecha": "2026-01-08T22:45:28" },
+    { "id": "u1", "etiqueta": "Otro", "cantidad_registros": 6, "ultima_fecha": "2025-12-31T03:59:16" }
+  ],
+  "gestiones": [
+    { "id": "g0", "fecha": "2026-01-27T22:03:34", "tipo": "Pago Recibido" }
+  ]
+}
+```
+
+**Output:**
+```json
+{
+  "domicilio": 65.50,
+  "trabajo": 25.20,
+  "otro": 9.30,
+  "trazabilidad": { "candidatos": [...], "scores_raw": [...], "pesos_usados": {...} },
+  "motor_confidence": 72.50
+}
+```
+Reglas: `domicilio + trabajo + otro = 100` (±0.01). Determinista, sin `rand()`.
+
+### IAInterpretationService::interpretar(resultadoMotor, llamarLLM, contextoMinimo)
+
+**Output:**
+```json
+{
+  "resumen": "string",
+  "acciones_recomendadas": ["string"],
+  "riesgos_detectados": ["string"],
+  "patrones_conductuales": ["string"],
+  "prediccion_intencion": { "accion": "string", "evidencia": ["id_evidencia"], "nota": "string" }
+}
+```
+Si falla la LLM, se devuelve fallback mínimo; `evidencia` referencia ids de candidatos del motor.
+
+### IAVerificationService::verificar(datosReales, resultadoMotor, interpretacionIA, llamarLLM)
+
+**Output:**
+```json
+{
+  "veracity_score": 75,
+  "suspected_test": false,
+  "evidencias_validadas": [],
+  "claims_no_soportados": []
+}
+```
+Si falla la LLM: `motor_confidence < 10` → `suspected_test` true.
+
+### Formato final del pipeline (Sabueso / ejemplo_uso_pipeline.php)
+
+```json
+{
+  "predicciones_finales": { "domicilio": 65.50, "trabajo": 25.20, "otro": 9.30 },
+  "confianza_global": 0.75,
+  "plan_operativo": ["string"],
+  "prediccion_intencion": { "accion": "string", "evidencia": ["id"], "nota": "string" },
+  "riesgos": ["string"],
+  "trazabilidad": {},
+  "verificacion": { "veracity_score": 75, "suspected_test": false, "evidencias_validadas": [], "claims_no_soportados": [] }
+}
+```
+`predicciones_finales` las calcula **solo** el motor; la IA no modifica probabilidades. `prediccion_intencion.evidencia` debe referenciar al menos un id de `datosParaMotor`.
+
+## Arquitectura
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                     Sabueso.php (orquestador)                     │
+│  prepararDatosParaMotor() → ejecutarPipelinePrediccion()          │
+└─────────────────────────────────────────────────────────────────┘
+                                    │
+        ┌───────────────────────────┼───────────────────────────┐
+        ▼                           ▼                           ▼
+┌───────────────┐         ┌───────────────────┐         ┌──────────────────┐
+│ CAPA 1        │         │ CAPA 2             │         │ CAPA 3           │
+│ Motor         │ ──────► │ Interpretación IA  │ ──────► │ Verificador IA   │
+│ determinístico│         │ (solo interpreta)  │         │ (coherencia)     │
+└───────────────┘         └───────────────────┘         └──────────────────┘
+        │                           │                           │
+        │ probabilidades            │ resumen, acciones,        │ veracity_score,
+        │ domicilio/trabajo/otro     │ riesgos, patrones         │ suspected_test,
+        │ (sin IA)                   │ (nunca calcula %)         │ evidencias_validadas
+        └───────────────────────────┴───────────────────────────┘
+                                    │
+                                    ▼
+                    Respuesta: predicciones_finales,
+                    confianza_global, plan_operativo,
+                    riesgos, trazabilidad
+```
+
+### Capa 1 – LocationScoringService (motor matemático)
+
+- **Responsabilidad:** Calcular probabilidades de localización (domicilio, trabajo, otro) **sin usar IA**.
+- **Entrada:** `pagos_count`, `ubicaciones`, `gestiones` (datos crudos).
+- **Salida:** `domicilio`, `trabajo`, `otro` (float, suman 1), más `trazabilidad`.
+- **Reglas:** Pesos configurables (pagos, GPS, gestiones, horario), penalización por datos antiguos (>30 días, >90 días).
+- **Reproducibilidad:** 100% determinístico.
+
+### Capa 2 – IAInterpretationService (interpretación IA)
+
+- **Responsabilidad:** Explicar resultados, patrones conductuales, acciones recomendadas, riesgos. **Nunca calcula probabilidades.**
+- **Entrada:** Solo resultado del motor (probabilidades y candidatos).
+- **Salida:** `resumen`, `acciones_recomendadas`, `riesgos_detectados`, `patrones_conductuales`.
+- **Fallback:** Si la IA falla, se devuelve interpretación mínima a partir del motor.
+
+### Capa 3 – IAVerificationService (verificador IA)
+
+- **Responsabilidad:** Validar coherencia entre datos reales, motor e interpretación. Detectar simulaciones, contradicciones, afirmaciones sin evidencia.
+- **Entrada:** `datosReales`, `resultadoMotor`, `interpretacionIA`.
+- **Salida:** `veracity_score`, `suspected_test`, `evidencias_validadas`, `claims_no_soportados`.
+- **Fallback:** Verificación determinística (reglas locales) si la IA falla.
+
+## Integración en Sabueso.php
+
+1. **analizarIA()**  
+   - Llama a `ejecutarPipelinePrediccion($idCredito, $idTicket)`.  
+   - Responde con `json_legacy` (mismo formato que el modal / Lectura IA).  
+   - Si el pipeline lanza excepción, usa `fallbackAnalizarIA()`.
+
+2. **Flujo:**  
+   `prepararDatosParaMotor` → `LocationScoringService::calcularProbabilidadLocalizacion` → `IAInterpretationService::interpretar` → preparar datos reales → `IAVerificationService::verificar` → combinar y devolver `predicciones_finales`, `confianza_global`, `plan_operativo`, `riesgos`, `trazabilidad` y `json_legacy`.
+
+## Ejemplo de uso (desde código)
+
+```php
+// En un controlador o script
+require_once __DIR__ . '/services/LocationScoringService.php';
+require_once __DIR__ . '/services/IAInterpretationService.php';
+require_once __DIR__ . '/services/IAVerificationService.php';
+
+use Services\LocationScoringService;
+use Services\IAInterpretationService;
+use Services\IAVerificationService;
+
+// 1) Datos (desde BD o API)
+$data = [
+    'pagos_count' => 51,
+    'ubicaciones' => [
+        ['texto' => 'Punto de interés', 'cantidad_registros' => 12, 'ultima_fecha' => '2026-01-08 22:45:28'],
+        ['texto' => 'Menos frecuente', 'cantidad_registros' => 1, 'ultima_fecha' => '2025-12-30 23:22:16'],
+    ],
+    'gestiones' => [ /* array de gestiones con fecha_dispositivo o fecha_hora */ ],
+];
+
+// 2) Capa 1 – Motor
+$motor = new LocationScoringService();
+$resultadoMotor = $motor->calcularProbabilidadLocalizacion($data);
+// $resultadoMotor['domicilio'], ['trabajo'], ['otro'], ['trazabilidad']
+
+// 3) Capa 2 – Interpretación (requiere callable a Gemini)
+$gemini = function ($sys, $parts, $max) {
+    return (new \Controllers\Sabueso())->llamarGemini($sys, $parts, $max);
+};
+$interpretacion = (new IAInterpretationService())->interpretar($resultadoMotor, $gemini, "Crédito 123.");
+// $interpretacion['resumen'], ['acciones_recomendadas'], ['riesgos_detectados'], ['patrones_conductuales']
+
+// 4) Capa 3 – Verificación
+$datosReales = [
+    'pagos_count' => 51,
+    'gps' => [ /* ... */ ],
+    'gestiones' => [ /* ... */ ],
+    'suspected_test' => false,
+    'suspected_test_reasons' => [],
+];
+$verificacion = (new IAVerificationService())->verificar($datosReales, $resultadoMotor, $interpretacion, $gemini);
+// $verificacion['veracity_score'], ['suspected_test'], ['evidencias_validadas'], ['claims_no_soportados']
+```
+
+## Configuración de pesos (Capa 1)
+
+```php
+$motor = new LocationScoringService([
+    'weight_payments'   => 0.40,
+    'weight_gps'        => 0.35,
+    'weight_gestiones'  => 0.15,
+    'weight_horario'    => 0.10,
+    'payments_norm'     => 8.0,
+    'gps_visits_norm'   => 6.0,
+    'gestiones_norm'    => 8.0,
+    'gps_penalty_30_days' => 0.5,
+    'gps_penalty_90_days' => 0.2,
+]);
+```
+
+## Ejecución de tests y ejemplo
+
+```bash
+# Instalar PHPUnit (desde la raíz del repo)
+composer install
+
+# Ejecutar tests
+./vendor/bin/phpunit
+# o: php vendor/bin/phpunit
+
+# Ejemplo de pipeline (JSON con claves requeridas; no requiere API)
+php backend/services/ejemplo_uso_pipeline.php
+```
+
+Tests: `backend/tests/Unit/Services/` (LocationScoringServiceTest, IAInterpretationServiceTest, IAVerificationServiceTest, PipelineOutputTest).
+
+## Criterios de éxito
+
+- La IA **no inventa probabilidades**; solo las interpreta (Capa 2).
+- El sistema **sigue funcionando si la IA falla** (fallbacks en Capa 2 y 3, y `fallbackAnalizarIA` en Sabueso).
+- **Coherencia** entre motor, interpretación y verificación.
+- **Extensible:** nuevos pesos o reglas en el motor sin tocar la IA.
+- **Auditable:** `trazabilidad` incluye candidatos, scores y evidencias validadas.
