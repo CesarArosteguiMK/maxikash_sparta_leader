@@ -751,22 +751,20 @@ JS;
                         Swal.close();
             
                         if (!data.success) {
-                            // Detectar si el error es por ID incorrecto
                             const mensaje = data.mensaje || '';
-                            const esIdIncorrecto = mensaje.toLowerCase().includes('id de crédito incorrecto') ||
-                                                   mensaje.toLowerCase().includes('id incorrecto') ||
-                                                   mensaje.toLowerCase().includes('no se pudo obtener') ||
-                                                   mensaje.toLowerCase().includes('no existe') ||
-                                                   mensaje.toLowerCase().includes('no se encontró');
-                            
-                            if (esIdIncorrecto) {
+                            const esSinDocumento = mensaje.indexOf('no tiene') !== -1 && mensaje.indexOf('registrado') !== -1;
+                            if (esSinDocumento) {
                                 Swal.fire({
-                                    icon: 'error',
-                                    title: 'ID incorrecto',
-                                    text: 'El ID de crédito ingresado no es válido. Por favor verifica e intenta nuevamente.'
+                                    icon: 'info',
+                                    title: 'Documento no registrado',
+                                    text: mensaje
                                 });
                             } else {
-                                Swal.fire('Error', data.mensaje, 'error');
+                                Swal.fire({
+                                    icon: 'error',
+                                    title: 'Error',
+                                    text: mensaje
+                                });
                             }
                             return;
                         }
@@ -1915,20 +1913,50 @@ JS;
                 exit;
             }
 
+            // Nombre del documento para mensajes al usuario (según lo que ve en el menú)
+            $nombresDoc = [
+                'INE' => 'INE',
+                'FACTURA' => 'Factura',
+                'CONTRATO' => 'Validaciones',
+                'FAD_DOC' => 'FAD_DOC',
+                'EVIDENCIA' => 'Evidencia'
+            ];
+            $nombreDoc = $nombresDoc[$tipo] ?? $tipo;
+
+            // Helper: comprobar si un archivo existe en S3 (HEAD)
+            $existeEnS3 = function ($fileName) {
+                $s3Url = "http://98.90.194.116/audit-app-0.0.1-SNAPSHOT_1/s3/downloadS3File?fileName=" . urlencode($fileName);
+                $ch = curl_init($s3Url);
+                curl_setopt_array($ch, [
+                    CURLOPT_RETURNTRANSFER => true,
+                    CURLOPT_NOBODY => true,
+                    CURLOPT_FOLLOWLOCATION => true,
+                    CURLOPT_TIMEOUT => 8,
+                ]);
+                curl_exec($ch);
+                $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                curl_close($ch);
+                return $code === 200;
+            };
+
             // ---------------- FACTURA ----------------
             if ($tipo === 'FACTURA') {
-                // Usar nuestro proxy local para visualización inline
                 $fileName = "FACTURA/{$id}_factura.pdf";
+                if (!$existeEnS3($fileName)) {
+                    echo json_encode([
+                        'success' => false,
+                        'mensaje' => "Este ID de crédito no tiene {$nombreDoc} registrado."
+                    ]);
+                    exit;
+                }
                 $fileUrl = "/estadocuenta/verDocumento?fileName=" . urlencode($fileName);
-                
-                // Usar URL del proxy para PDF.js
                 echo json_encode([
                     'success' => true,
                     'tipo' => $tipo,
                     'url' => $fileUrl,
                     'archivo' => "{$id}_factura.pdf",
                     'carpeta' => 'FACTURA',
-                    'esImagen' => false, // FACTURA es PDF
+                    'esImagen' => false,
                     'extension' => 'pdf'
                 ]);
                 exit;
@@ -1936,18 +1964,22 @@ JS;
 
             // ---------------- CONTRATO ----------------
             elseif ($tipo === 'CONTRATO') {
-                // Usar nuestro proxy local para visualización inline
                 $fileName = "VALIDACIONES/{$id}_validaciones.pdf";
+                if (!$existeEnS3($fileName)) {
+                    echo json_encode([
+                        'success' => false,
+                        'mensaje' => "Este ID de crédito no tiene {$nombreDoc} registrado."
+                    ]);
+                    exit;
+                }
                 $fileUrl = "/estadocuenta/verDocumento?fileName=" . urlencode($fileName);
-                
-                // Usar URL del proxy para PDF.js
                 echo json_encode([
                     'success' => true,
                     'tipo' => $tipo,
                     'url' => $fileUrl,
                     'archivo' => "{$id}_validaciones.pdf",
                     'carpeta' => 'VALIDACIONES',
-                    'esImagen' => false, // CONTRATO es PDF
+                    'esImagen' => false,
                     'extension' => 'pdf'
                 ]);
                 exit;
@@ -1986,7 +2018,7 @@ JS;
                 ) {
                     echo json_encode([
                         'success' => false,
-                        'mensaje' => 'No se pudo obtener idCliente desde estado de cuenta'
+                        'mensaje' => 'Este ID de crédito no tiene INE registrado.'
                     ]);
                     exit;
                 }
@@ -1997,7 +2029,25 @@ JS;
                 $urlFrente = "http://98.90.194.116/audit-app-0.0.1-SNAPSHOT_1/s3/downloadS3File?fileName=INE/{$idCliente}_frente.jpeg";
                 $urlReverso = "http://98.90.194.116/audit-app-0.0.1-SNAPSHOT_1/s3/downloadS3File?fileName=INE/{$idCliente}_reverso.jpeg";
 
-                // Para INE, devolvemos ambas URLs en lugar de usar Google Viewer
+                // Comprobar que las imágenes INE existan en S3; si no, no abrir modal en blanco
+                $chF = curl_init($urlFrente);
+                curl_setopt_array($chF, [CURLOPT_RETURNTRANSFER => true, CURLOPT_NOBODY => true, CURLOPT_FOLLOWLOCATION => true, CURLOPT_TIMEOUT => 8]);
+                curl_exec($chF);
+                $codeF = (int) curl_getinfo($chF, CURLINFO_HTTP_CODE);
+                curl_close($chF);
+                $chR = curl_init($urlReverso);
+                curl_setopt_array($chR, [CURLOPT_RETURNTRANSFER => true, CURLOPT_NOBODY => true, CURLOPT_FOLLOWLOCATION => true, CURLOPT_TIMEOUT => 8]);
+                curl_exec($chR);
+                $codeR = (int) curl_getinfo($chR, CURLINFO_HTTP_CODE);
+                curl_close($chR);
+                if ($codeF !== 200 || $codeR !== 200) {
+                    echo json_encode([
+                        'success' => false,
+                        'mensaje' => 'Este ID de crédito no tiene INE registrado.'
+                    ]);
+                    exit;
+                }
+
                 echo json_encode([
                     'success' => true,
                     'tipo' => 'INE',
@@ -2010,12 +2060,20 @@ JS;
 
             // ----------------  FAD / EVIDENCIA ----------------
             elseif ($tipo === 'FAD_DOC' || $tipo === 'EVIDENCIA') {
-                $res = EstadoCuentaDAO::obtenerDocumentoOferta($id, $tipo);
+                try {
+                    $res = EstadoCuentaDAO::obtenerDocumentoOferta($id, $tipo);
+                } catch (\Throwable $e) {
+                    echo json_encode([
+                        'success' => false,
+                        'mensaje' => "Este ID de crédito no tiene {$nombreDoc} registrado."
+                    ]);
+                    exit;
+                }
 
                 if (!$res['success']) {
                     echo json_encode([
                         'success' => false,
-                        'mensaje' => $res['mensaje'] . ' (Tipo: ' . $tipo . ', ID: ' . $id . ')'
+                        'mensaje' => "Este ID de crédito no tiene {$nombreDoc} registrado."
                     ]);
                     exit;
                 }
@@ -2023,7 +2081,7 @@ JS;
                 if (!isset($res['datos']) || !is_array($res['datos'])) {
                     echo json_encode([
                         'success' => false,
-                        'mensaje' => 'Error: Datos del documento no válidos (Tipo: ' . $tipo . ')'
+                        'mensaje' => "Este ID de crédito no tiene {$nombreDoc} registrado."
                     ]);
                     exit;
                 }
@@ -2031,7 +2089,7 @@ JS;
                 if (!isset($res['datos']['nombre_archivo']) || empty($res['datos']['nombre_archivo'])) {
                     echo json_encode([
                         'success' => false,
-                        'mensaje' => 'No se encontró el archivo del documento solicitado. (Tipo: ' . $tipo . ', ID: ' . $id . ')'
+                        'mensaje' => "Este ID de crédito no tiene {$nombreDoc} registrado."
                     ]);
                     exit;
                 }

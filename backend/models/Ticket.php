@@ -330,7 +330,7 @@ class Ticket extends Model
     }
 
     /**
-     * Elimina un ticket de la base de datos (borrado físico).
+     * Elimina un ticket y todo lo asociado: mensajes de bitácora (chat), evidencias (archivos + registros) y asignaciones.
      */
     public static function eliminar($idTicket)
     {
@@ -340,6 +340,22 @@ class Ticket extends Model
         }
         try {
             $db = new Database();
+            $baseUploads = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR;
+
+            $evidencias = $db->queryAll("SELECT id, ruta_archivo FROM ticket_evidencia WHERE id_ticket = :id", ['id' => $id]);
+            if (is_array($evidencias)) {
+                foreach ($evidencias as $row) {
+                    if (!empty($row['ruta_archivo'])) {
+                        $path = $baseUploads . str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $row['ruta_archivo']);
+                        if (is_file($path)) {
+                            @unlink($path);
+                        }
+                    }
+                }
+            }
+            $db->CRUD("DELETE FROM ticket_evidencia WHERE id_ticket = :id", ['id' => $id]);
+            $db->CRUD("DELETE FROM chat WHERE id_ticket = :id", ['id' => $id]);
+            $db->CRUD("DELETE FROM asignacion_ticket WHERE id_ticket = :id", ['id' => $id]);
             $db->CRUD("DELETE FROM ticket WHERE id_ticket = :id", ['id' => $id]);
             return self::resultado(true, 'Ticket eliminado.');
         } catch (\Exception $e) {

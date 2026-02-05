@@ -1101,6 +1101,10 @@
     }
 
 </style>
+<script>
+window.miUsuarioId = <?= json_encode((int)($miUsuarioId ?? 0)) ?>;
+window.puedeEditarTodos = <?= json_encode(!empty($puedeEditarTodos ?? false)) ?>;
+</script>
 <div class="content-wrapper">
 
     <!-- =======================
@@ -1953,7 +1957,7 @@
    ======================== -->
     <div class="offcanvas offcanvas-end" id="offcanvasEditUser">
         <div class="offcanvas-header border-bottom">
-            <h5 class="offcanvas-title">Editar Gestor</h5>
+            <h5 class="offcanvas-title" id="offcanvasEditUserTitle">Editar Gestor</h5>
             <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
         </div>
 
@@ -2140,12 +2144,12 @@
                     <input type="text" id="edit_usuario" class="form-control" readonly oninput="this.value = this.value.replace(/[^A-Za-zÁÉÍÓÚáéíóúÑñ\s]/g, '').toUpperCase()" style="text-transform: uppercase;">
                 </div>
 
-                <div class="mb-7">
+                <div class="mb-7" id="edit_row_contrasena">
                     <label class="form-label">Contraseña *</label>
                     <input type="text" id="edit_contrasena" class="form-control">
                 </div>
 
-                <button type="button" class="btn btn-primary me-3" onclick="UpdateGestor()" > Guardar </button>
+                <button type="button" id="edit_btn_guardar" class="btn btn-primary me-3" onclick="UpdateGestor()" > Guardar </button>
                 <button type="button" class="btn btn-label-danger" data-bs-dismiss="offcanvas" > Cancelar </button>
             </form>
         </div>
@@ -4135,12 +4139,19 @@
           </small>
         `.trim(),
         estatus: p.estatus,
-        acciones: `
+        acciones: (() => {
+          const puedeEditar = window.puedeEditarTodos;
+          return `
          <div class="d-flex flex-wrap gap-1" style="min-width: fit-content;">
-             <button class="btn btn-sm btn-primary ${tienePuestos ? 'btn-with-indicator' : ''}" onclick="editar(${p.id})" title="${tienePuestos ? 'Editar usuario con ' + p.puestos.length + ' puestos asignados' : 'Editar usuario'}">
+             ${puedeEditar
+               ? `<button class="btn btn-sm btn-primary ${tienePuestos ? 'btn-with-indicator' : ''}" onclick="editar(${p.id})" title="${tienePuestos ? 'Editar usuario con ' + p.puestos.length + ' puestos asignados' : 'Editar usuario'}">
                  ${tienePuestos ? '<span class="indicator-multiples-puestos" title="' + p.puestos.length + ' puestos">' + p.puestos.length + '</span>' : ''}
                  <i class="fa fa-edit"></i>
-             </button>
+             </button>`
+               : `<button class="btn btn-sm btn-outline-secondary" onclick="visualizar(${p.id})" title="Visualizar">
+                 <i class="fa fa-eye"></i>
+             </button>`
+             }
              <button class="btn btn-sm btn-info" onclick="cargarDocumentoPersona(this)" data-id-persona="${p.id}" data-nombre="${nombreCompleto.replace(/"/g, '&quot;')}" title="Cargar documento">
                  <i class="fa fa-file"></i>
              </button>
@@ -4153,7 +4164,8 @@
              <button class="btn btn-sm" style="background-color: #D2D755; color: white;" onclick="edit_perfil(${p.id})" title="${tienePuestos ? 'Permisos (Gestionar múltiples puestos)' : 'Permisos'}">
                  <i class="fa fa-lock" style="color: #007bff;"></i>
              </button>
-         </div>`
+         </div>`;
+        })()
       };
     });
 

@@ -77,8 +77,8 @@ class EstadoCuenta extends Model
 
             return self::resultado(true, 'Documento encontrado', $r[0]);
 
-        } catch (Exception $e) {
-            return self::resultado(false, 'Error consultando documento', null, $e->getMessage());
+        } catch (\Throwable $e) {
+            return self::resultado(false, 'Documento no encontrado', null, $e->getMessage());
         }
     }
 

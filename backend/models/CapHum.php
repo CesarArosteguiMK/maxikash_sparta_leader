@@ -13,12 +13,15 @@ class CapHum extends Model
     ///
     ///
 
-    public static function getConsultaGestoresAll($id_gestor_sesion)
+    public static function getConsultaGestoresAll($id_gestor_sesion, $tieneDepartamento = true)
     {
         // =========================
-        // USUARIOS ADMIN / ESPECIALES
+        // VER TODOS: admin O sin departamento asignado (módulo 10)
+        // Si no tiene "Configuración > Departamentos" asignado → ver todos los usuarios.
         // =========================
-        if (in_array($id_gestor_sesion, [1, 2, 3, 396, 797 ])) {
+        $verTodos = in_array($id_gestor_sesion, [1, 2, 3, 396, 797]) || !$tieneDepartamento;
+
+        if ($verTodos) {
 
             $query = <<<SQL
             SELECT
@@ -66,26 +69,21 @@ class CapHum extends Model
         LEFT JOIN departamento d 
                ON d.id = pp.departamento_id
         
-        --  MISMO FILTRO, SOLO REUBICADO
+        --  JEFE: una asignación por persona (la fila más reciente por id; si tiene fecha_fin pasada se muestra igual)
         LEFT JOIN (
-            SELECT id_persona, id_jefe
-            FROM asigna_jefe
-            WHERE fecha_fin IS NULL 
-               OR fecha_fin >= CURDATE()
+            SELECT a.id_persona, a.id_jefe
+            FROM asigna_jefe a
+            INNER JOIN (
+                SELECT id_persona, MAX(id) AS mid
+                FROM asigna_jefe
+                GROUP BY id_persona
+            ) m ON a.id_persona = m.id_persona AND a.id = m.mid
         ) aj ON aj.id_persona = p.id
         
         LEFT JOIN persona pj 
                ON pj.id = aj.id_jefe
         
         WHERE p.estatus != 'Baja'
-          AND (
-                pp.id IS NULL
-                OR EXISTS (
-                    SELECT 1
-                    FROM __SPARTA_SECRET_REDACTED__.privilegios_departamento pd
-                    WHERE pd.idPersona = $id_gestor_sesion
-                )
-          )
         
         ORDER BY pp.nivel ASC;
 
@@ -794,7 +792,6 @@ class CapHum extends Model
 
     public static function getConsultaJefe($id_departamento)
     {
-
         $query = <<<SQL
           SELECT
             per.id,
@@ -806,7 +803,7 @@ class CapHum extends Model
         INNER JOIN puesto pu 
             ON pu.id = ap.id_puesto
         WHERE
-            pu.es_jefe = 1 AND per.estatus = 1
+            pu.es_jefe = 1 AND per.estatus != 'Baja'
             AND (
                 pu.departamento_id = $id_departamento
                 OR pu.id IN (8)
@@ -818,6 +815,56 @@ class CapHum extends Model
             $db = new Database();
             $r = $db->queryAll($query);
             return self::resultado(true, 'Personas encontradas.', $r);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al procesar la solicitud.', null, $e->getMessage());
+        }
+    }
+
+    /** Personas con puesto en el departamento (para combo jefe cuando no hay es_jefe ni por nivel) */
+    public static function getPersonasPorDepartamento($id_departamento)
+    {
+        $query = <<<SQL
+          SELECT DISTINCT
+            per.id,
+            CONCAT_WS(' ', per.nombres, per.segundo_nombre, per.apellidop, per.apellidom) AS nombre_completo,
+            pu.nombre AS nombre_puesto
+          FROM asigna_puesto ap
+          INNER JOIN persona per ON per.id = ap.id_persona
+          INNER JOIN puesto pu ON pu.id = ap.id_puesto
+          WHERE per.estatus != 'Baja'
+            AND pu.departamento_id = $id_departamento
+          ORDER BY per.nombres ASC
+        SQL;
+        try {
+            $db = new Database();
+            $r = $db->queryAll($query);
+            return self::resultado(true, 'Personas encontradas.', $r);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al procesar la solicitud.', null, $e->getMessage());
+        }
+    }
+
+    /** Jefe por defecto cuando no hay resultados (ej. Legal/Abogado): JONNATHAN MARLON FLORES RODRIGUEZ */
+    public static function getJefeDefault()
+    {
+        $query = <<<SQL
+          SELECT
+            per.id,
+            CONCAT_WS(' ', per.nombres, per.segundo_nombre, per.apellidop, per.apellidom) AS nombre_completo,
+            COALESCE(pu.nombre, '') AS nombre_puesto
+          FROM persona per
+          LEFT JOIN asigna_puesto ap ON ap.id_persona = per.id
+          LEFT JOIN puesto pu ON pu.id = ap.id_puesto
+          WHERE per.estatus != 'Baja'
+            AND per.nombres LIKE '%JONNATHAN%'
+            AND (per.apellidop LIKE '%FLORES%' OR per.apellidop LIKE '%FLÓRES%')
+            AND (per.apellidom LIKE '%RODRIGUEZ%' OR per.apellidom LIKE '%RODRÍGUEZ%')
+          LIMIT 1
+        SQL;
+        try {
+            $db = new Database();
+            $r = $db->queryOne($query);
+            return $r ? self::resultado(true, 'Jefe por defecto.', [$r]) : self::resultado(true, 'Sin resultados.', []);
         } catch (\Exception $e) {
             return self::resultado(false, 'Error al procesar la solicitud.', null, $e->getMessage());
         }

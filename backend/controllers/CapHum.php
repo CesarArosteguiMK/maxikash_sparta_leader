@@ -124,12 +124,19 @@ class CapHum extends Controller
                                 </small>
                             `.trim(),
                             estatus: p.estatus,
-                            acciones: `
+                            acciones: (() => {
+                                const puedeEditar = window.puedeEditarTodos;
+                                return `
                                 <div class="d-flex flex-wrap gap-1" style="min-width: fit-content;">
-                                    <button class="btn btn-sm btn-primary ${tienePuestos ? 'btn-with-indicator' : ''}" onclick="editar(${p.id})" title="${tienePuestos ? 'Editar (Múltiples puestos)' : 'Editar'}">
+                                    ${puedeEditar
+                                        ? `<button class="btn btn-sm btn-primary ${tienePuestos ? 'btn-with-indicator' : ''}" onclick="editar(${p.id})" title="${tienePuestos ? 'Editar (Múltiples puestos)' : 'Editar'}">
                                         ${tienePuestos ? '<span class="indicator-multiples-puestos">' + p.puestos.length + '</span>' : ''}
                                         <i class="fa fa-edit"></i>
-                                    </button>
+                                    </button>`
+                                        : `<button class="btn btn-sm btn-outline-secondary" onclick="visualizar(${p.id})" title="Visualizar">
+                                        <i class="fa fa-eye"></i>
+                                    </button>`
+                                    }
                                     <button class="btn btn-sm btn-info" onclick="cargarDocumentoPersona(this)" data-id-persona="${p.id}" data-nombre="${nombreCompleto.replace(/"/g, '&quot;')}" title="Cargar documento">
                                         <i class="fa fa-file"></i>
                                     </button>
@@ -142,7 +149,8 @@ class CapHum extends Controller
                                     <button class="btn btn-sm" style="background-color: #D2D755; color: white;" onclick="edit_perfil(${p.id})" title="${tienePuestos ? 'Permisos (Gestionar múltiples puestos)' : 'Permisos'}">
                                         <i class="fa fa-lock" style="color: #007bff;"></i>
                                     </button>
-                                </div>`
+                                </div>`;
+                            })()
                         };
                     });
         
@@ -239,6 +247,30 @@ class CapHum extends Controller
                 });
             };
             
+            function setModoEdicion() {
+                const rowContrasena = document.getElementById('edit_row_contrasena');
+                const titulo = document.getElementById('offcanvasEditUserTitle');
+                const btnGuardar = document.getElementById('edit_btn_guardar');
+                const form = document.getElementById('editNewUserForm');
+                if (rowContrasena) rowContrasena.style.display = '';
+                if (titulo) titulo.textContent = 'Editar Gestor';
+                if (btnGuardar) btnGuardar.style.display = '';
+                if (form) {
+                    form.querySelectorAll('input, select, button[type="button"]').forEach(el => { el.disabled = false; });
+                }
+            }
+            function setModoVisualizar() {
+                const rowContrasena = document.getElementById('edit_row_contrasena');
+                const titulo = document.getElementById('offcanvasEditUserTitle');
+                const btnGuardar = document.getElementById('edit_btn_guardar');
+                const form = document.getElementById('editNewUserForm');
+                if (rowContrasena) rowContrasena.style.display = 'none';
+                if (titulo) titulo.textContent = 'Visualizar Gestor';
+                if (btnGuardar) btnGuardar.style.display = 'none';
+                if (form) {
+                    form.querySelectorAll('input, select').forEach(el => { el.disabled = true; });
+                }
+            }
             function editar(id) {
             
                 if (!id) {
@@ -247,6 +279,7 @@ class CapHum extends Controller
                 }
             
                 resetEditCombos();
+                setModoEdicion();
             
                 fetch('/CapHum/getDetalles', {
                     method: 'POST',
@@ -337,8 +370,8 @@ class CapHum extends Controller
                     if (persona.id_departamento) {
                         cargarPuestosCombo(persona.id_departamento, persona.id_puesto);
             
-                        // 3️⃣ JEFE (SOLO SI HAY DEPARTAMENTO)
-                        cargarComboJefeDirecto(persona.id_departamento, persona.id_jefe);
+                        // 3️⃣ JEFE (SOLO SI HAY DEPARTAMENTO; con puesto para Legal/Abogado etc.)
+                        cargarComboJefeDirecto(persona.id_departamento, persona.id_jefe, persona.id_puesto);
                     }
             
                     // 4️⃣ LEGIÓN
@@ -354,6 +387,57 @@ class CapHum extends Controller
                     const offcanvas = new bootstrap.Offcanvas(
                         document.getElementById('offcanvasEditUser')
                     );
+                    offcanvas.show();
+                })
+                .catch(err => {
+                    console.error(err);
+                    Swal.fire("Error", "No se pudo cargar la información", "error");
+                });
+            }
+
+            function visualizar(id) {
+                if (!id) {
+                    Swal.fire("Error", "ID inválido", "error");
+                    return;
+                }
+                resetEditCombos();
+                setModoVisualizar();
+                fetch('/CapHum/getDetalles', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                    body: JSON.stringify({ idPersona: id })
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (!data.success) {
+                        Swal.fire("Error", data.mensaje, "error");
+                        return;
+                    }
+                    const persona = data.datos;
+                    document.getElementById("edit_num_empleado").value = persona.numero_empleado ?? '';
+                    document.getElementById("edit_id").value = persona.id ?? '';
+                    document.getElementById("edit_nombres").value = persona.nombres ?? '';
+                    document.getElementById("edit_segundo_nombre").value = persona.segundo_nombre ?? '';
+                    document.getElementById("edit_apellidop").value = persona.apellidop ?? '';
+                    document.getElementById("edit_apellidom").value = persona.apellidom ?? '';
+                    document.getElementById("edit_telefono").value = persona.telefono ?? '';
+                    document.getElementById("edit_usuario").value = persona.user_name ?? '';
+                    document.getElementById("edit_contrasena").value = '';
+                    cargarDepartamentosCombo(null, persona.id_departamento);
+                    if (persona.id_departamento) {
+                        cargarPuestosCombo(persona.id_departamento, persona.id_puesto);
+                        cargarComboJefeDirecto(persona.id_departamento, persona.id_jefe, persona.id_puesto);
+                    }
+                    const checkLegion = document.getElementById('edit_asignar_legion');
+                    const divLegion = document.getElementById('edit_div_select_legion');
+                    const selectLegion = document.getElementById('edit_id_legion');
+                    const idLegion = persona.id_legion ? String(persona.id_legion) : '';
+                    checkLegion.checked = !!idLegion;
+                    selectLegion.value = idLegion || '';
+                    divLegion.style.display = checkLegion.checked ? 'block' : 'none';
+                    document.getElementById('edit_alerta_multiples_puestos').classList.add('d-none');
+                    document.getElementById('edit_contenedor_multiples_puestos').classList.add('d-none');
+                    const offcanvas = new bootstrap.Offcanvas(document.getElementById('offcanvasEditUser'));
                     offcanvas.show();
                 })
                 .catch(err => {
@@ -456,12 +540,12 @@ class CapHum extends Controller
                     });
                 }
                 
-            function cargarComboJefeDirecto(id_departamento, seleccionado = null) {
+            function cargarComboJefeDirecto(id_departamento, seleccionado = null, id_puesto = null) {
                  fetch('/CapHum/getJefeDirecto', 
                     {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ id_departamento })
+                    body: JSON.stringify({ id_departamento: id_departamento, id_puesto: id_puesto || undefined })
                     })
                     .then(res => res.json())
                     .then(data => {
@@ -502,7 +586,14 @@ class CapHum extends Controller
                 if (!idDepartamento) return;
             
                 cargarPuestosCombo(idDepartamento);
-                cargarComboJefeDirecto(idDepartamento);
+                cargarComboJefeDirecto(idDepartamento, null, null);
+            });
+
+            document.getElementById('edit_id_puesto').addEventListener('change', function () {
+                const idPuesto = this.value;
+                const idDepartamento = document.getElementById('edit_departamento_id').value;
+                if (!idDepartamento) return;
+                cargarComboJefeDirecto(idDepartamento, null, idPuesto || null);
             });
                 
            
@@ -1933,7 +2024,6 @@ class CapHum extends Controller
                 // Reset
                 selectPuesto.innerHTML = '<option value="">Seleccione un puesto</option>';
                 selectPuesto.disabled = true;
-                
                 selectJefe.innerHTML = '<option value="">Seleccione un jefe</option>';
                 selectJefe.disabled = true;
             
@@ -1941,75 +2031,66 @@ class CapHum extends Controller
             
                 fetch('/CapHum/getPuestos', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        id_departamento: idDepartamento
-                    })
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id_departamento: idDepartamento })
                 })
                 .then(res => res.json())
                 .then(data => {
-            
                     if (!data.success) {
                         Swal.fire("Error", data.mensaje, "error");
                         return;
                     }
-            
                     data.datos.forEach(puesto => {
                         const option = document.createElement('option');
                         option.value = puesto.id;
                         option.textContent = puesto.nombre;
                         selectPuesto.appendChild(option);
                     });
-            
                     selectPuesto.disabled = false;
+                    // Cargar jefes del departamento (sin puesto aún: por es_jefe o todas las personas del depto)
+                    cargarJefeComboAdd(idDepartamento, null, selectJefe);
                 })
                 .catch(() => {
                     Swal.fire("Error", "No se pudieron cargar los puestos", "error");
                 });
             });
             
-            document.getElementById('add_id_puesto').addEventListener('change', function () {
-                    const idPuesto = this.value;
-                    const selectJefe = document.getElementById('add_id_jefe');
-                
-                    // Reset
-                    selectJefe.innerHTML = '<option value="">Seleccione un jefe</option>';
-                    selectJefe.disabled = true;
-                
-                    if (!idPuesto) return;
-                
-                    fetch('/CapHum/getGestoresPorPuesto', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            id_puesto: idPuesto
-                        })
-                    })
-                    .then(res => res.json())
-                    .then(data => {
-                
-                        if (!data.success) {
-                            Swal.fire("Error", data.mensaje, "error");
-                            return;
-                        }
-                
-                        data.datos.forEach(jefe => {
-                            const option = document.createElement('option');
-                            option.value = jefe.id;
-                            option.textContent = jefe.nombre_completo;
-                            selectJefe.appendChild(option);
-                        });
-                
+            function cargarJefeComboAdd(idDepartamento, idPuesto, selectJefe) {
+                if (!selectJefe) selectJefe = document.getElementById('add_id_jefe');
+                selectJefe.innerHTML = '<option value="">Seleccione un jefe</option>';
+                selectJefe.disabled = true;
+                fetch('/CapHum/getJefeDirecto', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id_departamento: idDepartamento, id_puesto: idPuesto || undefined })
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (!data.success) {
                         selectJefe.disabled = false;
-                    })
-                    .catch(() => {
-                        Swal.fire("Error", "No se pudieron cargar los jefes", "error");
+                        return;
+                    }
+                    (data.datos || []).forEach(jefe => {
+                        const option = document.createElement('option');
+                        option.value = jefe.id;
+                        option.textContent = jefe.nombre_completo || (jefe.nombre_puesto ? jefe.nombre_completo + ' - ' + jefe.nombre_puesto : jefe.nombre_completo);
+                        selectJefe.appendChild(option);
                     });
-                }); 
+                    selectJefe.disabled = false;
+                })
+                .catch(() => {
+                    selectJefe.disabled = false;
+                    Swal.fire("Error", "No se pudieron cargar los jefes", "error");
+                });
+            }
+            
+            document.getElementById('add_id_puesto').addEventListener('change', function () {
+                const idPuesto = this.value;
+                const idDepartamento = document.getElementById('add_departamento_id').value;
+                const selectJefe = document.getElementById('add_id_jefe');
+                if (!idDepartamento) return;
+                cargarJefeComboAdd(idDepartamento, idPuesto || null, selectJefe);
+            }); 
             
             // Función para mostrar/ocultar el select de legión
             function toggleSelectLegion() {
@@ -3036,10 +3117,14 @@ class CapHum extends Controller
         </script>
         HTML;
         $departamento = CapHumDAO::getConsultaDepartamentoGestor($_SESSION['usuario_id']);
+        $modulos = $_SESSION['modulos'] ?? [];
+        $puedeEditarTodos = in_array(10, $modulos);
 
         self::set("titulo", "Gestión de Usuarios");
         self::set("script", $script);
         self::set("departamento", $departamento);
+        self::set("miUsuarioId", (int) $_SESSION['usuario_id']);
+        self::set("puedeEditarTodos", $puedeEditarTodos);
         self::render("all_gestores");
     }
     public function bajas()
@@ -4543,7 +4628,8 @@ class CapHum extends Controller
     }
     public function getUsuarios()
     {
-        $resultado = CapHumDAO::getConsultaGestoresAll($_SESSION['usuario_id']);
+        $tieneDepartamento = in_array(10, $_SESSION['modulos'] ?? []);
+        $resultado = CapHumDAO::getConsultaGestoresAll($_SESSION['usuario_id'], $tieneDepartamento);
         $usuarios = $resultado['datos'] ?? [];
 
 
@@ -4681,7 +4767,8 @@ class CapHum extends Controller
             $filtroEstatus = $_GET['estatus'] ?? '';
             
             // Obtener datos usando el mismo método que getUsuarios
-            $resultado = CapHumDAO::getConsultaGestoresAll($_SESSION['usuario_id']);
+            $tieneDepartamento = in_array(10, $_SESSION['modulos'] ?? []);
+            $resultado = CapHumDAO::getConsultaGestoresAll($_SESSION['usuario_id'], $tieneDepartamento);
 
             if (!$resultado['success'] || empty($resultado['datos'])) {
                 die("No se pudieron obtener los datos de los gestores.");
@@ -5047,16 +5134,66 @@ class CapHum extends Controller
     {
         $input = json_decode(file_get_contents("php://input"), true);
         $idDepartamento = $input['id_departamento'] ?? null;
+        $idPuesto = $input['id_puesto'] ?? null;
 
         if (!$idDepartamento) {
             self::respuestaJSON([
                 'success' => false,
-                'mensaje' => 'ID de persona no recibido'
+                'mensaje' => 'ID de departamento no recibido'
             ]);
             return;
         }
 
+        // 1) Si hay puesto seleccionado: jefes por nivel (mismo departamento, nivel superior)
+        if ($idPuesto) {
+            $porPuesto = CapHumDAO::getConsultaGestoresPorPuesto($idPuesto);
+            if ($porPuesto['success'] && !empty($porPuesto['datos'])) {
+                $datos = array_map(function ($row) {
+                    return [
+                        'id' => $row['id'],
+                        'nombre_completo' => $row['nombre_completo'] ?? '',
+                        'nombre_puesto' => $row['puesto'] ?? $row['nombre_puesto'] ?? ''
+                    ];
+                }, $porPuesto['datos']);
+                self::respuestaJSON(['success' => true, 'mensaje' => 'Jefes encontrados.', 'datos' => $datos]);
+                return;
+            }
+        }
+
+        // 2) Jefes por es_jefe=1 en el departamento (o puesto id 8)
         $detalles = CapHumDAO::getConsultaJefe($idDepartamento);
+        if ($detalles['success'] && !empty($detalles['datos'])) {
+            self::respuestaJSON($detalles);
+            return;
+        }
+
+        // 3) Fallback: todas las personas del departamento (ej. Legal/Abogado sin es_jefe ni nivel superior)
+        $porDepto = CapHumDAO::getPersonasPorDepartamento($idDepartamento);
+        if ($porDepto['success'] && !empty($porDepto['datos'])) {
+            $datos = array_map(function ($row) {
+                return [
+                    'id' => $row['id'],
+                    'nombre_completo' => $row['nombre_completo'] ?? '',
+                    'nombre_puesto' => $row['nombre_puesto'] ?? $row['puesto'] ?? ''
+                ];
+            }, $porDepto['datos']);
+            self::respuestaJSON(['success' => true, 'mensaje' => 'Personas del departamento.', 'datos' => $datos]);
+            return;
+        }
+
+        // 4) Si todo devuelve vacío: mostrar siempre JONNATHAN MARLON FLORES RODRIGUEZ como opción
+        $jefeDefault = CapHumDAO::getJefeDefault();
+        if ($jefeDefault['success'] && !empty($jefeDefault['datos'])) {
+            $datos = array_map(function ($row) {
+                return [
+                    'id' => $row['id'],
+                    'nombre_completo' => $row['nombre_completo'] ?? '',
+                    'nombre_puesto' => $row['nombre_puesto'] ?? ''
+                ];
+            }, $jefeDefault['datos']);
+            self::respuestaJSON(['success' => true, 'mensaje' => 'Jefe por defecto.', 'datos' => $datos]);
+            return;
+        }
 
         self::respuestaJSON($detalles);
     }

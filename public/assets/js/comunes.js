@@ -113,10 +113,12 @@ const http = (() => {
                             resp = new Blob([resp], { type: ct });
                         }
 
-                        // Solo error si success === false
-                        if (resp?.success === false) throw resp;
+                        // Si success === false, dar la respuesta al caller para que actualice UI, luego lanzar para manejarError
+                        if (resp?.success === false) {
+                            onSuccess(resp);
+                            throw resp;
+                        }
 
-                        // Llamar onSuccess siempre que sea success true
                         onSuccess(resp);
 
                     } catch (err) {

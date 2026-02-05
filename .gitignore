@@ -7,6 +7,9 @@ backend/config/ssh/*.ppk
 # Archivo de configuración con credenciales sensibles
 backend/config/config.ini
 
+# API key OpenAI (nunca subir; copiar secret.php.example a secret.php)
+backend/config/secret.php
+
 # Mantener la estructura de carpetas
 !backend/config/ssh/.gitkeep
 !backend/config/ssh/README.md
