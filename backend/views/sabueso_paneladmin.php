@@ -25,7 +25,7 @@
     #modalRastreoCredito.modal .modal-dialog { max-width: 95vw; width: 95vw; height: 90vh; max-height: 90vh; margin: 2rem auto; }
     /* FONDO GRIS: contenedor padre = gris azulado (Slate 100). Tarjetas blancas resaltan encima. */
     #modalRastreoCredito .modal-content { height: 100%; display: flex; flex-direction: column; border-radius: 16px; overflow: visible; background-color: #F1F5F9 !important; border: none !important; }
-    #modalRastreoCredito .modal-body { flex: 1; overflow: hidden; background-color: #F1F5F9 !important; padding: 1rem; -webkit-font-smoothing: antialiased; display: flex; flex-direction: column; min-height: 0; }
+    #modalRastreoCredito .modal-body { flex: 1; overflow-x: hidden; overflow-y: auto; background-color: #F1F5F9 !important; padding: 1rem; -webkit-font-smoothing: antialiased; display: flex; flex-direction: column; min-height: 0; }
     #modalRastreoCredito .modal-body .small { line-height: 1.5; letter-spacing: 0.01em; color: #374151; }
     /* Encabezado y pie BLANCOS para limpieza visual */
     #modalRastreoCredito .modal-header { background-color: #FFFFFF !important; border-bottom: 1px solid #E5E7EB !important; }
@@ -109,6 +109,8 @@
     #modalRastreoCredito .rastreo-ia-box .ia-hero-icon { color: #fff !important; }
     #modalRastreoCredito .btn-primary i, #modalRastreoCredito .btn-analizar-ia i { color: #fff !important; }
     #modalRastreoCredito .rastreo-header-right .text-success { color: var(--bs-success) !important; }
+    #modalRastreoCredito .rastreo-analitica-bar { border-color: #E5E7EB; }
+    #modalRastreoCredito .rastreo-card-header { border-bottom-color: #F3F4F6; }
     /* Títulos: mayúsculas pequeñas, negrita, más letter-spacing */
     #modalRastreoCredito .rastreo-seccion-direcciones > .d-flex.mb-2,
     #modalRastreoCredito .rastreo-seccion-gestiones > .d-flex.mb-2,
@@ -390,7 +392,7 @@
                 </h6>
                 <button type="button" class="btn-close btn-close-sm ms-auto" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
-            <div class="modal-body py-3" style="background-color: #F1F5F9 !important; padding: 20px !important;">
+            <div class="modal-body py-3">
                 <!-- Encabezado: columna izquierda = datos cliente + ticket; columna derecha = quién levantó / cuando / asignado -->
                 <div class="rastreo-header-grid">
                     <div class="rastreo-header-left">
@@ -412,7 +414,7 @@
                     </div>
                 </div>
                 <!-- Botones de analítica determinística (independientes de IA) -->
-                <div class="mb-3 d-flex align-items-center gap-2 flex-wrap border-bottom pb-2" style="border-color: #E5E7EB !important;">
+                <div class="rastreo-analitica-bar mb-3 d-flex align-items-center gap-2 flex-wrap border-bottom pb-2">
                     <span class="small text-muted me-1">Analítica:</span>
                     <button type="button" class="btn btn-sm btn-outline-secondary" id="btnAnaliticaUbicaciones" title="Ver distancias a casa, última apertura y aperturas últimos 5 días" aria-label="Abrir analítica de ubicaciones">
                         <i class="fa-solid fa-location-dot me-1"></i>Ubicaciones
@@ -427,7 +429,7 @@
                 <!-- Abajo: 3 columnas = [Dir+Mapa 29%] | [Centro 50%] | [Bitácora 21%] -->
                 <div class="rastreo-grid">
                     <div class="rastreo-col-izq">
-                        <div class="rastreo-seccion-direcciones p-3 h-100" id="rastreoDirecciones" style="background-color: #ffffff !important; border: 1px solid #d1d5db !important; margin-bottom: 20px !important;">
+                        <div class="rastreo-seccion-direcciones p-3 h-100" id="rastreoDirecciones">
                             <div class="d-flex align-items-center gap-2 mb-2">
                                 <i class="fa-solid fa-magnifying-glass text-primary"></i>
                                 <span class="fw-semibold small text-muted">Direcciones (maxi app)</span>
@@ -459,8 +461,8 @@
                     <div class="rastreo-col-centro" id="rastreoColCentro">
                         <!-- Orden por defecto: 1) IA (grande), 2) Evidencias, 3) Gestiones. Arrastrar el encabezado para reordenar. -->
 <?php if (!empty($puedeUsarAnalizarIA)): ?>
-                        <div class="rastreo-ia-box rastreo-centro-card" style="background-color: #ffffff !important; border: 1px solid #d1d5db !important; margin-bottom: 0 !important;">
-                            <div class="rastreo-card-header d-flex align-items-center gap-2 mb-2 pb-2 border-bottom" style="border-bottom-color: #F3F4F6 !important;">
+                        <div class="rastreo-ia-box rastreo-centro-card">
+                            <div class="rastreo-card-header d-flex align-items-center gap-2 mb-2 pb-2 border-bottom">
                                 <i class="fa-solid fa-brain text-primary"></i>
                                 <span class="fw-semibold small text-muted">Análisis con IA</span>
                             </div>
@@ -489,7 +491,7 @@
                             </div>
                         </div>
 <?php endif; ?>
-                        <div class="rastreo-seccion-evidencias p-3 rastreo-col-evidencias rastreo-centro-card" style="background-color: #ffffff !important; border: 1px solid #d1d5db !important; margin-bottom: 0 !important;">
+                        <div class="rastreo-seccion-evidencias p-3 rastreo-col-evidencias rastreo-centro-card">
                             <div class="rastreo-card-header d-flex align-items-center gap-2 mb-2">
                                 <i class="fa-solid fa-images text-primary"></i>
                                 <span class="fw-semibold small text-muted">Cargar evidencias</span>
@@ -498,7 +500,7 @@
                                 <div class="col-6"><div class="evidencia-slot" data-slot="0" data-id="" title="Clic para cargar"><i class="fa-solid fa-plus text-muted"></i><span class="evidencia-slot-label">Agregar</span></div></div>
                             </div>
                         </div>
-                        <div class="rastreo-seccion-gestiones p-3 rastreo-col-gestiones rastreo-centro-card" style="background-color: #ffffff !important; border: 1px solid #d1d5db !important; margin-bottom: 0 !important;">
+                        <div class="rastreo-seccion-gestiones p-3 rastreo-col-gestiones rastreo-centro-card">
                             <div class="d-flex align-items-center justify-content-between gap-2 mb-2 flex-wrap">
                                 <div class="rastreo-card-header d-flex align-items-center gap-2">
                                     <i class="fa-solid fa-folder-tree text-primary"></i>

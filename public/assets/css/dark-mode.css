@@ -123,6 +123,10 @@ body.dark-mode .menu-sub .menu-link:hover {
     color: #ffffff !important;
 }
 
+body.dark-mode .menu-inner-shadow {
+    background: none !important;
+}
+
 body.dark-mode .app-brand {
     background-color: #1e1e1e !important;
 }
@@ -1779,6 +1783,35 @@ body.dark-mode .leaflet-popup-content-wrapper {
     color: #e0e0e0 !important;
 }
 
+body.dark-mode #modalRastreoCredito .leaflet-control-zoom,
+body.dark-mode #modalRastreoCredito .leaflet-control-layers,
+body.dark-mode #modalRastreoCredito .leaflet-control-attribution {
+    background-color: #252525 !important;
+    border-color: #3a3a3a !important;
+    color: #e0e0e0 !important;
+}
+
+body.dark-mode #modalRastreoCredito .leaflet-control-zoom a,
+body.dark-mode #modalRastreoCredito .leaflet-control-layers-toggle {
+    background-color: #303030 !important;
+    border-color: #3a3a3a !important;
+    color: #e0e0e0 !important;
+}
+
+body.dark-mode #modalRastreoCredito .leaflet-control-zoom a:hover,
+body.dark-mode #modalRastreoCredito .leaflet-control-layers-toggle:hover {
+    background-color: #3a3a3a !important;
+    color: #ffffff !important;
+}
+
+body.dark-mode #modalRastreoCredito .leaflet-control-attribution a {
+    color: #9ec5fe !important;
+}
+
+body.dark-mode #modalRastreoCredito .leaflet-popup-tip {
+    background-color: #252525 !important;
+}
+
 /* FullCalendar */
 body.dark-mode .fc {
     background-color: #252525 !important;
@@ -3165,8 +3198,38 @@ body.dark-mode #modalRastreoCredito .modal-body {
     background-color: #1a1a1a !important;
 }
 
+body.dark-mode #modalRastreoCredito .modal-body.py-3,
+body.dark-mode #modalRastreoCredito .modal-body .py-3 {
+    background-color: #1a1a1a !important;
+}
+
+/* Forzar fondos oscuros solo dentro del modal de rastreo */
+body.dark-mode #modalRastreoCredito .bg-white,
+body.dark-mode #modalRastreoCredito .bg-light,
+body.dark-mode #modalRastreoCredito [style*="background-color: #fff"],
+body.dark-mode #modalRastreoCredito [style*="background-color: white"],
+body.dark-mode #modalRastreoCredito [style*="background: #fff"],
+body.dark-mode #modalRastreoCredito [style*="background: white"],
+body.dark-mode #modalRastreoCredito [style*="background-color: #ffffff"],
+body.dark-mode #modalRastreoCredito [style*="background: #ffffff"] {
+    background-color: #1a1a1a !important;
+    background: #1a1a1a !important;
+}
+
+body.dark-mode #modalRastreoCredito [style*="color: #000"],
+body.dark-mode #modalRastreoCredito [style*="color: black"],
+body.dark-mode #modalRastreoCredito [style*="color: #333"],
+body.dark-mode #modalRastreoCredito [style*="color: #666"],
+body.dark-mode #modalRastreoCredito .text-dark {
+    color: #e0e0e0 !important;
+}
+
 body.dark-mode #modalRastreoCredito .modal-body .small {
     color: #b8b8c1 !important;
+}
+
+body.dark-mode #modalRastreoCredito .rastreo-analitica-bar {
+    border-color: #3a3a3a !important;
 }
 
 /* Header grid - Bordes */
@@ -3648,4 +3711,57 @@ body:not(.dark-mode) #modalLecturaIA .modal-body {
 body:not(.dark-mode) #modalLecturaIA .modal-footer {
     background-color: #fff !important;
     border-top-color: #dee2e6 !important;
+}
+
+/* ==========================================
+   EQUIVALENCIA PUESTOS - DARK MODE
+   ========================================== */
+body.dark-mode .eq-card-legacy,
+body.dark-mode .eq-card-sparta {
+    background-color: #252525 !important;
+    border-color: #3a3a3a !important;
+}
+
+body.dark-mode .eq-card-legacy .card-header,
+body.dark-mode .eq-card-sparta .card-header {
+    background-color: #303030 !important;
+    border-bottom-color: #3a3a3a !important;
+    color: #e0e0e0 !important;
+}
+
+body.dark-mode .eq-header-sparta {
+    background-color: #303030 !important;
+    color: #9ec5fe !important;
+    border-bottom-color: #3a3a3a !important;
+}
+
+body.dark-mode .eq-header-sparta h6,
+body.dark-mode .eq-header-sparta small {
+    color: #9ec5fe !important;
+}
+
+body.dark-mode #col-legacy,
+body.dark-mode #col-sparta,
+body.dark-mode .eq-card-sparta .card-body {
+    background-color: #1a1a1a !important;
+}
+
+body.dark-mode .eq-legacy-row {
+    background-color: #252525 !important;
+    border-color: #3a3a3a !important;
+    box-shadow: 0 1px 6px rgba(0, 0, 0, 0.45) !important;
+}
+
+body.dark-mode .eq-legacy-row:hover {
+    background-color: #2a2a2a !important;
+}
+
+body.dark-mode .eq-drop-zone {
+    background-color: #1f1f1f !important;
+    border-color: #3a3a3a !important;
+}
+
+body.dark-mode .eq-drop-zone.drag-over {
+    background-color: rgba(110, 168, 254, 0.12) !important;
+    border-color: #6ea8fe !important;
 }

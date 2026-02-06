@@ -679,7 +679,9 @@ function getMenu()
 
         // Actualizar el icono y texto después de que el DOM esté listo
         document.addEventListener('DOMContentLoaded', function() {
-            const isDark = localStorage.getItem('darkMode') === 'enabled';
+            const isDarkStored = localStorage.getItem('darkMode') === 'enabled';
+            const isDarkByClass = document.body.classList.contains('dark-mode');
+            const isDark = isDarkStored || isDarkByClass;
             applyDarkMode(isDark);
             
             // Re-aplicar cuando se abren modales o se actualiza contenido dinámico
