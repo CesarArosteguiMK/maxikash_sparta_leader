@@ -492,11 +492,6 @@
                             </div>
                         </div>
 
-                        <div class="rastreo-seccion-gestiones p-3 rastreo-col-gestiones rastreo-centro-card" style="background-color: #ffffff !important; border: 1px solid #d1d5db !important; margin-bottom: 0 !important;">
-                            <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
-                                <i class="fa-solid fa-folder-tree text-primary"></i>
-                                <span class="fw-semibold small text-muted">Histórico de Gestiones</span>
-
                         <div class="rastreo-seccion-gestiones p-3 rastreo-col-gestiones rastreo-centro-card">
                             <div class="d-flex align-items-center justify-content-between gap-2 mb-2 flex-wrap">
                                 <div class="rastreo-card-header d-flex align-items-center gap-2">
@@ -520,7 +515,7 @@
                         </div>
                     </div>
                     <div class="rastreo-col-bitacora-wrap">
-                        <div class="rastreo-seccion-bitacora p-3 h-100 d-flex flex-column" style="background-color: #ffffff !important; border: 1px solid #d1d5db !important; margin-bottom: 20px !important;">
+                        <div class="rastreo-seccion-bitacora p-3 h-100 d-flex flex-column">
                             <div class="d-flex align-items-center gap-2 mb-2">
                                 <i class="fa-solid fa-comments text-primary"></i>
                                 <span class="fw-semibold small text-muted">Bitácora</span>
