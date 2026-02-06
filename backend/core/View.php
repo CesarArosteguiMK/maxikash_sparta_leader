@@ -222,6 +222,7 @@ function getMenu()
     <!-- Core CSS -->
     <link rel="stylesheet" href="/assets/vendor/css/core.css" />
     <link rel="stylesheet" href="/assets/css/demo.css" />
+    <link rel="stylesheet" href="/assets/css/dark-mode.css" />
 
     <!-- Vendors CSS -->
     <link rel="stylesheet" href="/assets/vendor/libs/@form-validation/form-validation.css">
@@ -344,6 +345,14 @@ function getMenu()
                                             <i class="fa-solid fa-power-off">&nbsp;</i><span>Cerrar sesión</span>
                                         </a>
                                     </li>
+                                    <li>
+                                        <hr class="dropdown-divider">
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item" href="javascript:void(0);" onclick="toggleDarkMode()">
+                                            <i class="fa-solid fa-moon" id="darkModeIcon">&nbsp;</i><span id="darkModeText">Modo Oscuro</span>
+                                        </a>
+                                    </li>
                                 </ul>
                             </li>
                             <!--/ User Panel -->
@@ -438,6 +447,254 @@ function getMenu()
     <script src="/assets/js/comunes.js"></script>
     <script src="/assets/js/componentes.js"></script>
 
+    <!-- Dark Mode Script -->
+    <script>
+        // Función para aplicar el dark mode
+        function applyDarkMode(isDark) {
+            const body = document.body;
+            const icon = document.getElementById('darkModeIcon');
+            const text = document.getElementById('darkModeText');
+            
+            if (isDark) {
+                body.classList.add('dark-mode');
+                if (icon) icon.className = 'fa-solid fa-sun';
+                if (text) text.textContent = 'Modo Claro';
+                
+                // Forzar estilos en elementos específicos
+                fixInlineStyles();
+            } else {
+                body.classList.remove('dark-mode');
+                if (icon) icon.className = 'fa-solid fa-moon';
+                if (text) text.textContent = 'Modo Oscuro';
+                
+                // Restaurar estilos originales
+                restoreOriginalStyles();
+            }
+        }
+
+        // Función para restaurar estilos originales cuando se desactiva dark mode
+        function restoreOriginalStyles() {
+            // Restaurar dropdowns
+            const dropdowns = document.querySelectorAll('.dropdown-menu, .dropdown-item');
+            dropdowns.forEach(el => {
+                el.style.backgroundColor = '';
+                el.style.color = '';
+                el.style.backgroundImage = '';
+                el.style.borderColor = '';
+            });
+
+            // Restaurar acordeones
+            const accordions = document.querySelectorAll('.accordion-button, .accordion-body, .accordion-item, .accordion-collapse');
+            accordions.forEach(el => {
+                el.style.backgroundColor = '';
+                el.style.color = '';
+                el.style.backgroundImage = '';
+                el.style.borderColor = '';
+            });
+
+            // Restaurar offcanvas y todos sus hijos
+            const offcanvasElements = document.querySelectorAll('.offcanvas, .offcanvas-header, .offcanvas-body, .offcanvas *');
+            offcanvasElements.forEach(el => {
+                el.style.backgroundColor = '';
+                el.style.color = '';
+                el.style.borderColor = '';
+                el.style.borderBottomColor = '';
+                el.style.background = '';
+            });
+
+            // Restaurar cards
+            const cards = document.querySelectorAll('.card, .card-header, .card-body');
+            cards.forEach(el => {
+                el.style.backgroundColor = '';
+                el.style.color = '';
+            });
+
+            // Restaurar formularios
+            const formElements = document.querySelectorAll('.form-control, .form-select, .form-label');
+            formElements.forEach(el => {
+                el.style.backgroundColor = '';
+                el.style.color = '';
+                el.style.borderColor = '';
+            });
+
+            // Restaurar modales
+            const modals = document.querySelectorAll('.modal-content, .modal-header, .modal-body, .modal-footer');
+            modals.forEach(el => {
+                el.style.backgroundColor = '';
+                el.style.color = '';
+            });
+
+            // Restaurar tabs
+            const tabs = document.querySelectorAll('.nav-tabs .nav-link, .tab-content, .tab-pane');
+            tabs.forEach(el => {
+                el.style.backgroundColor = '';
+                el.style.color = '';
+            });
+
+            // NO RESTAURAR KPIs - Ellos mantienen sus estilos originales con variables CSS
+            // Los KPIs no necesitan restauración porque usan variables CSS que funcionan en ambos modos
+        }
+
+        // Función para corregir estilos inline problemáticos
+        function fixInlineStyles() {
+            // Encontrar elementos con background blanco inline
+            const whiteBackgrounds = document.querySelectorAll('[style*="background-color: #fff"], [style*="background-color: white"], [style*="background: #fff"], [style*="background: white"], [style*="background-color: rgb(255, 255, 255)"]');
+            whiteBackgrounds.forEach(el => {
+                if (!el.classList.contains('btn-primary') && !el.classList.contains('btn-success') && !el.classList.contains('btn-danger') && !el.classList.contains('btn-warning') && !el.classList.contains('btn-info')) {
+                    el.style.backgroundColor = '#252525';
+                    el.style.background = '#252525';
+                }
+            });
+
+            // Encontrar elementos con texto negro inline
+            const blackText = document.querySelectorAll('[style*="color: #000"], [style*="color: black"], [style*="color: rgb(0, 0, 0)"], [style*="color: #333"]');
+            blackText.forEach(el => {
+                if (!el.classList.contains('btn')) {
+                    el.style.color = '#e0e0e0';
+                }
+            });
+
+            // FORZAR BACKGROUNDS OSCUROS EN OFFCANVAS
+            const offcanvasElements = document.querySelectorAll('.offcanvas, .offcanvas-header, .offcanvas-body, .offcanvas *');
+            offcanvasElements.forEach(el => {
+                if (el.classList.contains('offcanvas')) {
+                    el.style.backgroundColor = '#252525';
+                    el.style.color = '#e0e0e0';
+                } else if (el.classList.contains('offcanvas-header')) {
+                    el.style.backgroundColor = '#303030';
+                    el.style.color = '#ffffff';
+                    el.style.borderBottomColor = '#3a3a3a';
+                } else if (el.classList.contains('offcanvas-body')) {
+                    el.style.backgroundColor = '#252525';
+                    el.style.color = '#e0e0e0';
+                }
+                
+                // Eliminar fondos blancos de cualquier hijo
+                if (el.style.backgroundColor === 'rgb(255, 255, 255)' || el.style.backgroundColor === '#fff' || el.style.backgroundColor === 'white') {
+                    if (!el.classList.contains('btn-primary') && !el.classList.contains('btn-success') && !el.classList.contains('btn-danger')) {
+                        el.style.backgroundColor = 'transparent';
+                    }
+                }
+            });
+
+            // ELIMINAR TODOS LOS GRADIENTES - Convertir a colores sólidos
+            // EXCEPTO en elementos de KPIs que necesitan mantener sus colores
+            const elementsWithGradient = document.querySelectorAll('[style*="linear-gradient"], [style*="radial-gradient"]');
+            elementsWithGradient.forEach(el => {
+                // Saltar elementos de KPIs
+                if (el.classList.contains('kpi-card') || 
+                    el.classList.contains('kpi-number') || 
+                    el.closest('.kpi-card') ||
+                    el.classList.contains('kpi-separator')) {
+                    return;
+                }
+                
+                const style = el.getAttribute('style');
+                if (style) {
+                    // Eliminar cualquier gradiente del estilo inline
+                    let newStyle = style.replace(/background(-image)?:\s*(?:linear|radial)-gradient\([^)]+\)\s*;?/gi, '');
+                    
+                    // Si el elemento tiene clases específicas, asignar colores sólidos
+                    if (el.classList.contains('table-header-indigo')) {
+                        newStyle += '; background: #4F46E5 !important;';
+                    } else if (el.classList.contains('table-header-emerald')) {
+                        newStyle += '; background: #10B981 !important;';
+                    } else if (el.classList.contains('table-header-purple')) {
+                        newStyle += '; background: #8B5CF6 !important;';
+                    } else if (el.classList.contains('table-header-amber')) {
+                        newStyle += '; background: #F59E0B !important;';
+                    } else if (el.classList.contains('btn-gradient-success')) {
+                        newStyle += '; background: #28a745 !important;';
+                    } else if (el.classList.contains('btn-gradient-danger')) {
+                        newStyle += '; background: #dc3545 !important;';
+                    } else {
+                        // Para otros elementos, usar color oscuro por defecto
+                        newStyle += '; background: #252525 !important;';
+                    }
+                    
+                    el.setAttribute('style', newStyle);
+                    el.style.backgroundImage = 'none';
+                }
+            });
+
+            // Forzar color en acordeones
+            const accordions = document.querySelectorAll('.accordion-button, .accordion-body, .accordion-item, .accordion-collapse');
+            accordions.forEach(el => {
+                el.style.backgroundImage = 'none';
+                if (el.classList.contains('accordion-button')) {
+                    el.style.color = '#ffffff';
+                    el.style.backgroundColor = '#303030';
+                } else if (el.classList.contains('accordion-item') || el.classList.contains('accordion-collapse')) {
+                    el.style.backgroundColor = '#252525';
+                    el.style.borderColor = '#3a3a3a';
+                } else {
+                    el.style.color = '#e0e0e0';
+                    el.style.backgroundColor = '#252525';
+                }
+            });
+
+            // Forzar color en dropdowns
+            const dropdowns = document.querySelectorAll('.dropdown-menu, .dropdown-item');
+            dropdowns.forEach(el => {
+                el.style.backgroundImage = 'none';
+                if (el.classList.contains('dropdown-menu')) {
+                    el.style.backgroundColor = '#252525';
+                    el.style.borderColor = '#3a3a3a';
+                } else if (el.classList.contains('dropdown-item')) {
+                    el.style.color = '#e0e0e0';
+                    el.style.backgroundColor = 'transparent';
+                }
+            });
+
+            // Eliminar gradientes de KPI cards
+            // NO HACER - Los KPIs deben mantener sus gradientes
+            // const kpiCards = document.querySelectorAll('.kpi-card, .stat-card, [class*="kpi-"]');
+            // kpiCards.forEach(el => {
+            //     el.style.backgroundImage = 'none';
+            // });
+
+            // Eliminar gradientes de botones
+            const buttons = document.querySelectorAll('.btn, button');
+            buttons.forEach(btn => {
+                if (btn.style.background && (btn.style.background.includes('gradient') || btn.style.backgroundImage)) {
+                    btn.style.backgroundImage = 'none';
+                }
+            });
+        }
+
+        // Función para toggle del dark mode
+        function toggleDarkMode() {
+            const isDark = document.body.classList.toggle('dark-mode');
+            localStorage.setItem('darkMode', isDark ? 'enabled' : 'disabled');
+            applyDarkMode(isDark);
+        }
+
+        // Aplicar dark mode al cargar la página (antes de que se renderice)
+        (function() {
+            const darkMode = localStorage.getItem('darkMode');
+            if (darkMode === 'enabled') {
+                document.body.classList.add('dark-mode');
+            }
+        })();
+
+        // Actualizar el icono y texto después de que el DOM esté listo
+        document.addEventListener('DOMContentLoaded', function() {
+            const isDark = localStorage.getItem('darkMode') === 'enabled';
+            applyDarkMode(isDark);
+            
+            // Re-aplicar cuando se abren modales o se actualiza contenido dinámico
+            const observer = new MutationObserver(function(mutations) {
+                if (document.body.classList.contains('dark-mode')) {
+                    fixInlineStyles();
+                }
+            });
+            
+            observer.observe(document.body, {
+                childList: true,
+                subtree: true
+            });
+        });
+    </script>
 
     <?= $script ?? ''; ?>
 </body>
