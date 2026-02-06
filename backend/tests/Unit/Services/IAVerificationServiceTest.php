@@ -43,4 +43,36 @@ class IAVerificationServiceTest extends TestCase
         $this->assertTrue($out['suspected_test'], 'motor_confidence < 10 debe implicar suspected_test true');
         $this->assertLessThanOrEqual(50, $out['veracity_score']);
     }
+
+    public function testPredictEvidenceValidation(): void
+    {
+        $datosReales = [
+            'pagos_count' => 1,
+            'gps' => [['id' => 'u0']],
+            'gestiones' => [['id' => 'g0']],
+            'suspected_test' => false,
+            'suspected_test_reasons' => [],
+        ];
+        $resultadoMotor = [
+            'domicilio' => 50.0,
+            'trabajo' => 30.0,
+            'otro' => 20.0,
+            'motor_confidence' => 60.0,
+            'trazabilidad' => ['candidatos' => [['id' => 'u0', 'key' => 0]]],
+        ];
+        $prediccion_conductual = [
+            'evidencias' => ['u0', 'g0', 'id_inexistente_xyz'],
+        ];
+        $verificacion = [
+            'veracity_score' => 70,
+            'suspected_test' => false,
+            'evidencias_validadas' => [],
+            'claims_no_soportados' => [],
+        ];
+        $svc = new \Services\IAVerificationService();
+        $out = $svc->enriquecerConEvidenciasPredictor($datosReales, $resultadoMotor, $prediccion_conductual, $verificacion);
+        $this->assertArrayHasKey('claims_no_soportados', $out);
+        $claims = $out['claims_no_soportados'];
+        $this->assertContains('evidencia_predictor_no_presente:id_inexistente_xyz', $claims, 'Evidencia del predictor no presente debe aparecer en claims_no_soportados');
+    }
 }

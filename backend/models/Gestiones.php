@@ -63,6 +63,11 @@ SQL;
         return $resultado;
     }
 
+    /**
+     * Gestiones desde __SPARTA_SECRET_REDACTED__ (Legacy): tasks + dictums + opcionesdictamen.
+     * Coordenadas del gestor: dictums.lat, dictums.lng (al registrar el dictamen).
+     * tasks también tiene lat/lng; si dictums viene NULL se puede usar COALESCE(d.lat, t.lat).
+     */
     public static function getGestionesLegacy($credito)
     {
         $mysqli = new DatabaseLegacy(); // conexión LEGACY
@@ -127,8 +132,8 @@ SQL;
         '' AS device_imei,
         NOW() AS fecha_sistema,
         d.created_at AS fecha_dispositivo,
-        '' AS longitud,
-        '' AS latitud,
+        d.lng AS longitud,
+        d.lat AS latitud,
         '' AS ubicacion_usuario,
         '' AS fake_gps,
         '' AS secure_area,
@@ -261,5 +266,55 @@ SQL;
         return $mysqli->queryAll($query);
     }
 
-
+    /**
+     * Devuelve eventos de ubicación del gestor (coordenadas en cada gestión) para un crédito.
+     * Origen: Sky Logic (base_clientes.longitud/latitud) y Legacy __SPARTA_SECRET_REDACTED__ (dictums.longitud/latitud).
+     * Formato: [ ['lat'=>float, 'lng'=>float, 'timestamp'=>int, 'id'=>string], ... ]
+     *
+     * @param string|int $idCredito
+     * @param string|null $gestorId Si se pasa, filtra por usuario_asignado/codigo_gestor (opcional)
+     * @return array
+     */
+    public static function getEventosGestorPorCredito($idCredito, $gestorId = null): array
+    {
+        $gestiones = self::getAllGestiones((string) $idCredito, '');
+        $eventos = [];
+        foreach ($gestiones as $i => $g) {
+            $lat = $g['latitud'] ?? null;
+            $lng = $g['longitud'] ?? null;
+            if ($lat === null && $lng === null) {
+                continue;
+            }
+            $lat = trim((string) $lat);
+            $lng = trim((string) $lng);
+            if ($lat === '' || $lng === '' || ($lat === '0' && $lng === '0')) {
+                continue;
+            }
+            $latF = (float) $lat;
+            $lngF = (float) $lng;
+            if ($latF === 0.0 && $lngF === 0.0) {
+                continue;
+            }
+            if ($gestorId !== null && $gestorId !== '') {
+                $asignado = trim((string) ($g['usuario_asignado'] ?? ''));
+                $codigo  = trim((string) ($g['codigo_gestor'] ?? ''));
+                if ($asignado !== $gestorId && $codigo !== $gestorId) {
+                    continue;
+                }
+            }
+            $fecha = $g['fecha_dispositivo'] ?? $g['fecha_hora'] ?? $g['fecha_sistema'] ?? null;
+            $ts = null;
+            if ($fecha !== null) {
+                $ts = is_numeric($fecha) ? (int) $fecha : strtotime($fecha);
+            }
+            $eventId = $g['id_registro'] ?? $g['id'] ?? 'g_' . $i;
+            $eventos[] = [
+                'lat' => $latF,
+                'lng' => $lngF,
+                'timestamp' => $ts,
+                'id' => (string) $eventId,
+            ];
+        }
+        return $eventos;
+    }
 }
