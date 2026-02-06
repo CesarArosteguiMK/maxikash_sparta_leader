@@ -499,7 +499,7 @@
                                     <span class="fw-semibold small text-muted">Histórico de Gestiones</span>
                                 </div>
                                 <div class="d-flex align-items-center gap-1">
-                                    <button type="button" class="badge bg-primary border-0 py-2 px-2 text-decoration-none btn-resumen-ia-gestiones" id="btnResumenIAGestiones" title="Resumen con IA" style="cursor: pointer; font-size: 0.7rem;">✨ Resumen con IA</button>
+                                    <!-- <button type="button" class="badge bg-primary border-0 py-2 px-2 text-decoration-none btn-resumen-ia-gestiones" id="btnResumenIAGestiones" title="Resumen con IA" style="cursor: pointer; font-size: 0.7rem;">✨ Resumen con IA</button> -->
                                     <button type="button" class="btn btn-sm btn-outline-secondary" id="btnLecturaIAGestiones" title="Ver última lectura de IA (gestiones)" style="display: none; font-size: 0.7rem;">
                                         <i class="fa-solid fa-book-open me-1"></i>Lectura de IA
                                     </button>

@@ -3425,6 +3425,39 @@ body.dark-mode #modalRastreoCredito #rastreoMapaLeaflet {
     background-color: #303030 !important;
 }
 
+body.dark-mode #modalRastreoCredito #rastreoMapaLeaflet .leaflet-container img,
+body.dark-mode #modalRastreoCredito #rastreoMapaLeaflet .leaflet-tile,
+body.dark-mode #modalRastreoCredito .leaflet-container img,
+body.dark-mode #modalRastreoCredito .leaflet-tile {
+    opacity: 1 !important;
+    filter: none !important;
+}
+
+body.dark-mode #modalRastreoCredito #rastreoMapaLeaflet [style*="background"],
+body.dark-mode #modalMapaGrande #rastreoMapaGrandeContenedor [style*="background"] {
+    background: revert !important;
+    background-image: revert !important;
+}
+
+body.dark-mode #modalRastreoCredito #rastreoMapaLeaflet .gm-style img,
+body.dark-mode #modalMapaGrande #rastreoMapaGrandeContenedor .gm-style img {
+    opacity: 1 !important;
+    filter: none !important;
+}
+
+body.dark-mode #modalRastreoCredito #rastreoMapaLeaflet .gm-style div[style*="background-image"],
+body.dark-mode #modalMapaGrande #rastreoMapaGrandeContenedor .gm-style div[style*="background-image"] {
+    background-image: revert !important;
+}
+
+body.dark-mode #modalRastreoCredito #rastreoMapaLeaflet .gm-style div[style*="background"],
+body.dark-mode #modalRastreoCredito #rastreoDirecciones .gm-style div[style*="background"],
+body.dark-mode #modalMapaGrande #rastreoMapaGrandeContenedor .gm-style div[style*="background"] {
+    background: revert !important;
+    background-color: revert !important;
+    background-image: revert !important;
+}
+
 /* Contenido de IA */
 body.dark-mode #modalRastreoCredito #rastreoAnalizarIAContenido {
     border-top-color: #3a3a3a !important;
