@@ -411,6 +411,19 @@
                         <!-- Se llena por JS: Quién levantó el ticket, Cuando se levantó, Asignado a -->
                     </div>
                 </div>
+                <!-- Botones de analítica determinística (independientes de IA) -->
+                <div class="mb-3 d-flex align-items-center gap-2 flex-wrap border-bottom pb-2" style="border-color: #E5E7EB !important;">
+                    <span class="small text-muted me-1">Analítica:</span>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" id="btnAnaliticaUbicaciones" title="Ver distancias a casa, última apertura y aperturas últimos 5 días" aria-label="Abrir analítica de ubicaciones">
+                        <i class="fa-solid fa-location-dot me-1"></i>Ubicaciones
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" id="btnAnaliticaPagos" title="Ver intervalo, desviación, día más frecuente y patrón de pagos" aria-label="Abrir analítica de gestiones y pagos">
+                        <i class="fa-solid fa-calendar-check me-1"></i>Gestiones / Pagos
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" id="btnAnaliticaCumplimiento" title="Ver cumplimiento del gestor (visitas cercanas vs lejanas)" aria-label="Abrir analítica de cumplimiento del gestor">
+                        <i class="fa-solid fa-user-check me-1"></i>Cumplimiento Gestor
+                    </button>
+                </div>
                 <!-- Abajo: 3 columnas = [Dir+Mapa 29%] | [Centro 50%] | [Bitácora 21%] -->
                 <div class="rastreo-grid">
                     <div class="rastreo-col-izq">
@@ -647,3 +660,51 @@
         </div>
     </div>
 </div>
+
+<!-- Modales analítica determinística (Ubicaciones, Pagos, Cumplimiento Gestor) -->
+<div class="modal fade" id="modalAnaliticaSpatial" tabindex="-1" aria-labelledby="modalAnaliticaSpatialLabel" aria-modal="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header d-flex align-items-center">
+                <h6 class="modal-title" id="modalAnaliticaSpatialLabel">Analítica: Ubicaciones</h6>
+                <button type="button" class="btn btn-sm btn-outline-primary ms-2" data-analytics-force data-analytics-modal="modalAnaliticaSpatial" data-analytics-type="spatial" data-analytics-title="Analítica: Ubicaciones" title="Forzar actualización (omitir caché)">Forzar actualización</button>
+                <button type="button" class="btn-close btn-close-sm ms-auto" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body" id="modalAnaliticaSpatialBody"></div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="modal fade" id="modalAnaliticaPayments" tabindex="-1" aria-labelledby="modalAnaliticaPaymentsLabel" aria-modal="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header d-flex align-items-center">
+                <h6 class="modal-title" id="modalAnaliticaPaymentsLabel">Analítica: Gestiones / Pagos</h6>
+                <button type="button" class="btn btn-sm btn-outline-primary ms-2" data-analytics-force data-analytics-modal="modalAnaliticaPayments" data-analytics-type="payments" data-analytics-title="Analítica: Gestiones / Pagos" title="Forzar actualización (omitir caché)">Forzar actualización</button>
+                <button type="button" class="btn-close btn-close-sm ms-auto" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body" id="modalAnaliticaPaymentsBody"></div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="modal fade" id="modalAnaliticaCompliance" tabindex="-1" aria-labelledby="modalAnaliticaComplianceLabel" aria-modal="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header d-flex align-items-center">
+                <h6 class="modal-title" id="modalAnaliticaComplianceLabel">Analítica: Cumplimiento Gestor</h6>
+                <button type="button" class="btn btn-sm btn-outline-primary ms-2" data-analytics-force data-analytics-modal="modalAnaliticaCompliance" data-analytics-type="compliance" data-analytics-title="Analítica: Cumplimiento Gestor" title="Forzar actualización (omitir caché)">Forzar actualización</button>
+                <button type="button" class="btn-close btn-close-sm ms-auto" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body" id="modalAnaliticaComplianceBody"></div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+<script src="/assets/js/analytics-modals.js"></script>

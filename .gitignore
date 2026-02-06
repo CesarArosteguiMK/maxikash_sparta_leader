@@ -10,6 +10,9 @@ backend/config/config.ini
 # API key OpenAI (nunca subir; copiar secret.php.example a secret.php)
 backend/config/secret.php
 
+# Clave maestra para descifrar API keys en BD (config_api)
+backend/config/master_key.php
+
 # Mantener la estructura de carpetas
 !backend/config/ssh/.gitkeep
 !backend/config/ssh/README.md

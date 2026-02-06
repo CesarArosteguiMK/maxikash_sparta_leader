@@ -1,0 +1,15 @@
+{"type":"analytics","endpoint":"spatial","id_credito":735641,"params":{"gestorId":null},"cache_hit":false,"timestamp":"2026-02-05T18:40:39-06:00","summary":[]}
+{"type":"analytics","endpoint":"spatial","id_credito":735641,"params":{"gestorId":null},"cache_hit":false,"timestamp":"2026-02-05T18:41:14-06:00","summary":[]}
+{"type":"analytics","endpoint":"payments","id_credito":735641,"params":{"gestorId":null},"cache_hit":false,"timestamp":"2026-02-05T18:42:39-06:00","summary":{"total_pagos":9}}
+{"type":"analytics","endpoint":"compliance","id_credito":735641,"params":{"gestorId":null},"cache_hit":false,"timestamp":"2026-02-05T18:43:00-06:00","summary":[]}
+{"type":"analytics","endpoint":"spatial","id_credito":735641,"params":{"gestorId":null},"cache_hit":false,"timestamp":"2026-02-05T18:43:56-06:00","summary":[]}
+{"type":"analytics","endpoint":"spatial","id_credito":735641,"params":{"gestorId":null},"cache_hit":false,"timestamp":"2026-02-05T18:44:03-06:00","summary":[]}
+{"type":"analytics","endpoint":"spatial","id_credito":735641,"params":{"gestorId":null},"cache_hit":false,"timestamp":"2026-02-05T19:00:45-06:00","summary":[]}
+{"type":"analytics","endpoint":"compliance","id_credito":735641,"params":{"gestorId":null},"cache_hit":false,"timestamp":"2026-02-05T19:07:19-06:00","summary":{"error":"Error en DB: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'd.longitud' in 'field list'\nQuery:     SELECT \r\n        'LEGACY' AS app,\r\n        '' AS id,\r\n        '' AS id_team,\r\n        ut.nam"}}
+{"type":"analytics","endpoint":"compliance","id_credito":735641,"params":{"gestorId":null},"cache_hit":false,"timestamp":"2026-02-05T19:08:45-06:00","summary":[]}
+{"type":"analytics","endpoint":"spatial","id_credito":735641,"params":{"gestorId":null},"cache_hit":false,"timestamp":"2026-02-05T19:08:53-06:00","summary":[]}
+{"type":"analytics","endpoint":"payments","id_credito":735641,"params":{"gestorId":null},"cache_hit":false,"timestamp":"2026-02-05T19:11:20-06:00","summary":{"total_pagos":9}}
+{"type":"analytics","endpoint":"compliance","id_credito":735641,"params":{"gestorId":null},"cache_hit":false,"timestamp":"2026-02-05T19:17:59-06:00","summary":{"porcentaje_cumplimiento":16.67}}
+{"type":"analytics","endpoint":"spatial","id_credito":735641,"params":{"gestorId":null},"cache_hit":false,"timestamp":"2026-02-05T19:21:00-06:00","summary":[]}
+{"type":"analytics","endpoint":"compliance","id_credito":735641,"params":{"gestorId":null},"cache_hit":false,"timestamp":"2026-02-05T19:22:00-06:00","summary":{"porcentaje_cumplimiento":16.67}}
+{"type":"analytics","endpoint":"payments","id_credito":735641,"params":{"gestorId":null},"cache_hit":false,"timestamp":"2026-02-05T19:22:54-06:00","summary":{"total_pagos":9}}

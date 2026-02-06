@@ -12,11 +12,17 @@ require_once __DIR__ . '/LocationScoringService.php';
 require_once __DIR__ . '/IAInterpretationService.php';
 require_once __DIR__ . '/IAVerificationService.php';
 require_once __DIR__ . '/BehaviorPredictionService.php';
+require_once __DIR__ . '/SpatialAnalyticsService.php';
+require_once __DIR__ . '/TemporalPaymentsService.php';
+require_once __DIR__ . '/GestorComplianceService.php';
 
 use Services\LocationScoringService;
 use Services\IAInterpretationService;
 use Services\IAVerificationService;
 use Services\BehaviorPredictionService;
+use Services\SpatialAnalyticsService;
+use Services\TemporalPaymentsService;
+use Services\GestorComplianceService;
 
 $datosParaMotor = [
     'pagos_count' => 51,
@@ -93,6 +99,27 @@ if (!empty($prediccion_conductual['explicacion_deterministica'])) {
 $plan_operativo = $interpretacion['acciones_recomendadas'] ?? ['Revisar mapa de ubicaciones', 'Revisar historial de gestiones'];
 $riesgos = array_values(array_map('strval', $interpretacion['riesgos_detectados'] ?? []));
 
+$ubicacionesUsuario = [
+    ['lat' => 19.43, 'lng' => -99.13],
+    ['lat' => 19.44, 'lng' => -99.14],
+];
+$domicilio = ['lat' => 19.43, 'lng' => -99.13];
+$eventosGPS = [
+    ['lat' => 19.43, 'lng' => -99.13, 'timestamp' => time() - 3600],
+    ['lat' => 19.44, 'lng' => -99.14, 'timestamp' => time() - 7200],
+];
+$spatial = new SpatialAnalyticsService();
+$analitica_espacial = [
+    'distancias_a_casa' => $spatial->calcularDistanciasCasa($ubicacionesUsuario, $domicilio),
+    'ultima_apertura' => $spatial->ultimaUbicacionApp($eventosGPS, $domicilio),
+    'aperturas_ultimos_5_dias' => $spatial->aperturasUltimosDias($eventosGPS, 5),
+];
+$pagosParaTemporal = [['fecha' => '2026-01-20'], ['fecha' => '2026-01-27'], ['fecha' => '2026-01-13']];
+$temporal = new TemporalPaymentsService();
+$analitica_pagos = $temporal->analizarPagos($pagosParaTemporal);
+$compliance = new GestorComplianceService();
+$cumplimiento_gestor = $compliance->verificarCercaniaGestor([], $ubicacionesUsuario);
+
 $out = [
     'predicciones_finales' => $predicciones_finales,
     'confianza_global'     => (int) ($verificacion['veracity_score'] ?? 70) / 100.0,
@@ -111,6 +138,9 @@ $out = [
         'evidencias_validadas' => $verificacion['evidencias_validadas'] ?? [],
         'claims_no_soportados' => $verificacion['claims_no_soportados'] ?? [],
     ],
+    'analitica_espacial'   => $analitica_espacial,
+    'analitica_pagos'      => $analitica_pagos,
+    'cumplimiento_gestor'  => $cumplimiento_gestor,
 ];
 
 $sumCheck = $predicciones_finales['domicilio'] + $predicciones_finales['trabajo'] + $predicciones_finales['otro'];
