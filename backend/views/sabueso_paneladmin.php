@@ -179,6 +179,12 @@
     #modalRastreoCredito .bitacora-msg-mine .bitacora-msg-header strong { color: #fff; }
     #modalRastreoCredito .bitacora-msg-header { font-size: 0.7rem; color: #64748b; margin-bottom: 0.2rem; }
     #modalRastreoCredito .bitacora-msg-header strong { color: #334155; font-size: 0.8rem; }
+    #modalRastreoCredito .bitacora-btn-delete { flex-shrink: 0; opacity: 1; }
+    #modalRastreoCredito .bitacora-msg-mine .bitacora-btn-delete { color: rgba(255,255,255,0.95) !important; }
+    /* Scrim entre modales: padre abajo, scrim en medio, hijo encima */
+    #modalRastreoCredito.modal-below-scrim { z-index: 1045 !important; }
+    .modal-scrim { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1060; pointer-events: auto; }
+    .modal.modal-nested-open { z-index: 1070 !important; }
     /* Input chat: cápsula redondeada */
     #modalRastreoCredito #rastreoBitacoraInput { border-radius: 24px; border: 1px solid #e2e8f0; padding: 0.5rem 1rem; font-size: 0.9rem; }
     #modalRastreoCredito #rastreoBitacoraInput:focus { border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15); }
@@ -435,22 +441,7 @@
                             <div id="rastreoDireccionesContenido" class="small mb-3">
                                 <!-- Se llena por JS -->
                             </div>
-<?php if (!empty($puedeUsarAnalizarIA)): ?>
-                            <div class="mb-3 d-flex align-items-center gap-2 flex-wrap">
-                                <button type="button" class="btn btn-sm btn-outline-primary" id="btnResumirUbicacionesIA" title="Resumir ubicaciones y orden de visita con IA">
-                                    <i class="fa-solid fa-wand-magic-sparkles me-1"></i>Resumir ubicaciones con IA
-                                </button>
-                                <button type="button" class="btn btn-sm btn-outline-secondary" id="btnLecturaIAUbicaciones" title="Ver última lectura de IA (ubicaciones)" style="display: none;">
-                                    <i class="fa-solid fa-book-open me-1"></i>Lectura de IA
-                                </button>
-                                <button type="button" class="btn btn-sm btn-outline-danger" id="btnBorrarIAUbicaciones" title="Borrar lectura guardada (Ubicaciones)" style="display: none;">
-                                    <i class="fa-solid fa-trash-can me-1"></i>Borrar
-                                </button>
-                            </div>
-                            <div id="rastreoResumenIAContenido" class="small text-muted border-top pt-2" style="min-height: 0;">
-                                <!-- Se llena por JS al hacer clic en Resumir ubicaciones con IA -->
-                            </div>
-<?php endif; ?>
+<?php /* Resumir ubicaciones con IA y Lectura/Borrar: ocultos; solo se muestra Analizar. */ ?>
                             <div class="rastreo-mapa-wrap">
                                 <div id="rastreoMapaLeaflet"></div>
                             </div>
@@ -472,13 +463,13 @@
                                     <div class="ia-desc">Procesamos el expediente completo (bitácora, GPS y evidencias) para identificar patrones y predecir la ubicación del acreditado.</div>
                                     <div id="rastreoAnalizarIAContenido" class="small"></div>
                                     <div class="ia-boton-wrap d-flex align-items-center gap-2 flex-wrap">
-                                        <button type="button" class="btn btn-analizar-ia btn-sm" id="btnAnalizarRastreo" title="Analizar con IA">
+                                        <button type="button" class="btn btn-analizar-ia btn-sm" id="btnAnalizarRastreo" title="Analizar ubicaciones, pagos y cumplimiento del gestor con IA">
                                             <i class="fa-solid fa-wand-magic-sparkles me-1"></i><span id="btnAnalizarRastreoText">Analizar</span>
                                         </button>
-                                        <button type="button" class="btn btn-sm btn-outline-secondary" id="btnLecturaIAAnalizar" title="Ver última predicción de IA (analizar)" style="display: none;">
+                                        <button type="button" class="btn btn-sm btn-outline-secondary" id="btnLecturaIAAnalizar" title="Ver último análisis guardado" style="display: none;">
                                             <i class="fa-solid fa-book-open me-1"></i>Lectura de IA
                                         </button>
-                                        <button type="button" class="btn btn-sm btn-outline-danger" id="btnBorrarIAAnalizar" title="Borrar lectura guardada (Analizar)" style="display: none;">
+                                        <button type="button" class="btn btn-sm btn-outline-danger" id="btnBorrarIAAnalizar" title="Borrar último análisis" style="display: none;">
                                             <i class="fa-solid fa-trash-can me-1"></i>Borrar
                                         </button>
                                         <button type="button" class="btn btn-sm btn-outline-success" id="btnEvidenciaVerificacion" title="Ver datos reales del sistema para contrastar con la IA">
@@ -499,25 +490,13 @@
                             </div>
                         </div>
                         <div class="rastreo-seccion-gestiones p-3 rastreo-col-gestiones rastreo-centro-card" style="background-color: #ffffff !important; border: 1px solid #d1d5db !important; margin-bottom: 0 !important;">
-                            <div class="d-flex align-items-center justify-content-between gap-2 mb-2 flex-wrap">
-                                <div class="rastreo-card-header d-flex align-items-center gap-2">
-                                    <i class="fa-solid fa-folder-tree text-primary"></i>
-                                    <span class="fw-semibold small text-muted">Histórico de Gestiones</span>
-                                </div>
-                                <div class="d-flex align-items-center gap-1">
-                                    <button type="button" class="badge bg-primary border-0 py-2 px-2 text-decoration-none btn-resumen-ia-gestiones" id="btnResumenIAGestiones" title="Resumen con IA" style="cursor: pointer; font-size: 0.7rem;">✨ Resumen con IA</button>
-                                    <button type="button" class="btn btn-sm btn-outline-secondary" id="btnLecturaIAGestiones" title="Ver última lectura de IA (gestiones)" style="display: none; font-size: 0.7rem;">
-                                        <i class="fa-solid fa-book-open me-1"></i>Lectura de IA
-                                    </button>
-                                    <button type="button" class="btn btn-sm btn-outline-danger" id="btnBorrarIAGestiones" title="Borrar lectura guardada (Gestiones)" style="display: none; font-size: 0.7rem;">
-                                        <i class="fa-solid fa-trash-can me-1"></i>Borrar
-                                    </button>
-                                </div>
+                            <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
+                                <i class="fa-solid fa-folder-tree text-primary"></i>
+                                <span class="fw-semibold small text-muted">Histórico de Gestiones</span>
                             </div>
                             <div id="rastreoGestionesContenido" class="small overflow-auto flex-grow-1">
                                 <span class="text-muted">Contactación y dictamen, Promesas y comentarios (se cargan por crédito).</span>
                             </div>
-                            <div id="rastreoResumenIAGestionesContenido" class="small mt-2 pt-2 border-top" style="display: none;"></div>
                         </div>
                     </div>
                     <div class="rastreo-col-bitacora-wrap">
@@ -700,11 +679,84 @@
                 <button type="button" class="btn btn-sm btn-outline-primary ms-2" data-analytics-force data-analytics-modal="modalAnaliticaCompliance" data-analytics-type="compliance" data-analytics-title="Analítica: Cumplimiento Gestor" title="Forzar actualización (omitir caché)">Forzar actualización</button>
                 <button type="button" class="btn-close btn-close-sm ms-auto" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
-            <div class="modal-body" id="modalAnaliticaComplianceBody"></div>
+            <div class="modal-body overflow-auto" id="modalAnaliticaComplianceBody" style="max-height: 70vh;"></div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cerrar</button>
             </div>
         </div>
     </div>
 </div>
+<!-- Scrim entre modales: se inyecta por JS cuando se abre un modal hijo sobre el de rastreo -->
 <script src="/assets/js/analytics-modals.js"></script>
+<script>
+(function() {
+    var SCRIM_Z = 1060;
+    var CHILD_MODALS = ['modalAsignarA', 'modalAnaliticaSpatial', 'modalAnaliticaPayments', 'modalAnaliticaCompliance', 'modalLecturaIA', 'modalEvidenciaVerificacion', 'modalPrediccionIA', 'modalMapaGrande', 'modalEvidenciaRastreo'];
+    var scrimEl = null;
+    var parentModal = null;
+    function getOrCreateScrim() {
+        if (scrimEl && scrimEl.parentNode) return scrimEl;
+        scrimEl = document.createElement('div');
+        scrimEl.className = 'modal-scrim';
+        scrimEl.setAttribute('aria-hidden', 'true');
+        scrimEl.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:' + SCRIM_Z + ';pointer-events:auto;';
+        return scrimEl;
+    }
+    function cleanupScrim() {
+        if (scrimEl && scrimEl.parentNode) scrimEl.parentNode.removeChild(scrimEl);
+        parentModal = document.getElementById('modalRastreoCredito');
+        if (parentModal) parentModal.classList.remove('modal-below-scrim');
+        CHILD_MODALS.forEach(function(id) {
+            var m = document.getElementById(id);
+            if (m) m.classList.remove('modal-nested-open');
+        });
+    }
+    function onChildModalShown(ev) {
+        var childModal = ev.target;
+        parentModal = document.getElementById('modalRastreoCredito');
+        if (!parentModal || !parentModal.classList.contains('show')) return;
+        parentModal.classList.add('modal-below-scrim');
+        var el = getOrCreateScrim();
+        if (el.parentNode) {
+            el.parentNode.removeChild(el);
+        }
+        document.body.insertBefore(el, childModal);
+        childModal.classList.add('modal-nested-open');
+        childModal.style.setProperty('z-index', '1070', 'important');
+    }
+    function onChildModalHidden(ev) {
+        var modal = ev.target;
+        modal.classList.remove('modal-nested-open');
+        modal.style.removeProperty('z-index');
+        var anyChildOpen = CHILD_MODALS.some(function(id) {
+            var m = document.getElementById(id);
+            return m && m.classList.contains('show');
+        });
+        if (!anyChildOpen) {
+            if (parentModal) parentModal.classList.remove('modal-below-scrim');
+            if (scrimEl && scrimEl.parentNode) scrimEl.parentNode.removeChild(scrimEl);
+        }
+    }
+    function onParentModalHidden() {
+        cleanupScrim();
+    }
+    function bindModals() {
+        parentModal = document.getElementById('modalRastreoCredito');
+        if (parentModal) {
+            parentModal.addEventListener('hidden.bs.modal', onParentModalHidden);
+        }
+        CHILD_MODALS.forEach(function(id) {
+            var el = document.getElementById(id);
+            if (el) {
+                el.addEventListener('shown.bs.modal', onChildModalShown);
+                el.addEventListener('hidden.bs.modal', onChildModalHidden);
+            }
+        });
+    }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', bindModals);
+    } else {
+        bindModals();
+    }
+})();
+</script>

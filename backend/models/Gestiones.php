@@ -313,6 +313,7 @@ SQL;
                 'lng' => $lngF,
                 'timestamp' => $ts,
                 'id' => (string) $eventId,
+                'usuario_asignado' => trim((string) ($g['usuario_asignado'] ?? '')),
             ];
         }
         return $eventos;

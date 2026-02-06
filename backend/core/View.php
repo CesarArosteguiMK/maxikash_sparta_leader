@@ -99,6 +99,11 @@ function getMenu()
                                     'label' => 'Panel Admin',
                                     'url' => '/sabueso/paneladmin',
                                     'modulos' => [19]
+                            ],
+                            [
+                                    'label' => 'Cerrado/Eliminado',
+                                    'url' => '/sabueso/cerradoEliminado',
+                                    'modulos' => [19]
                             ]
                     ]
             ],

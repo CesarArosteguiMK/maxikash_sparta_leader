@@ -34,25 +34,36 @@
         modalBody.innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary" role="status" aria-hidden="true"></div><p class="mt-2 small text-muted">Cargando...</p></div>';
     }
 
+    /** Si distancia >= 1000 m devuelve "X km", si no "X m" (siempre con unidad al final). */
+    function formatDistancia(metros) {
+        if (metros == null || metros === '' || isNaN(parseFloat(metros))) return '—';
+        var m = parseFloat(metros);
+        if (m >= 1000) return (Math.round(m / 100) / 10) + ' km';
+        return Math.round(m) + ' m';
+    }
+
     function renderSpatial(data) {
         if (!data) return '';
         var html = '';
+        html += '<p class="small text-muted mb-2">Las distancias mostradas son <strong>a la casa del acreditado</strong> (domicilio o ubicación más visitada). Si la distancia es menor a ~100 m, es posible que el punto sea su casa.</p>';
         var summary = 'Sin datos de ubicaciones.';
         if (data.ultima_apertura && data.ultima_apertura.timestamp) {
             var ts = data.ultima_apertura.timestamp;
-            var dist = data.ultima_apertura.distancia_a_casa_m != null ? data.ultima_apertura.distancia_a_casa_m + ' m' : '—';
-            summary = 'Última apertura: ' + (ts ? new Date(ts).toLocaleString('es-MX') : '—') + '; distancia a casa: ' + dist + '.';
+            var dist = formatDistancia(data.ultima_apertura.distancia_a_casa_m);
+            summary = 'Última apertura de la app: ' + (ts ? new Date(ts).toLocaleString('es-MX') : '—') + '. <strong>Distancia a su casa:</strong> ' + dist + '.';
         }
         var a5 = data.aperturas_ultimos_5_dias || {};
-        summary += ' Total aperturas últimos 5 días: ' + (a5.total_aperturas || 0) + '.';
-        html += '<p class="small text-muted mb-3" role="status">' + summary + '</p>';
-        html += '<table class="table table-sm table-bordered"><thead><tr><th>Label</th><th>Visitas</th><th>Última fecha</th><th>Distancia (m)</th></tr></thead><tbody>';
+        summary += ' Total de aperturas (GPS) en los últimos 5 días: ' + (a5.total_aperturas || 0) + '.';
+        html += '<p class="small mb-3" role="status">' + summary + '</p>';
+        html += '<table class="table table-sm table-bordered"><thead><tr><th>Ubicación</th><th>Visitas</th><th>Última fecha</th><th>Distancia a su casa</th></tr></thead><tbody>';
         (data.distancias_a_casa || []).forEach(function (row) {
-            html += '<tr><td>' + (row.label || '—') + '</td><td>' + (row.visitas_count ?? '—') + '</td><td>' + (row.ultima_fecha || '—') + '</td><td>' + (row.distancia_m != null ? row.distancia_m : '—') + '</td></tr>';
+            var distCell = formatDistancia(row.distancia_m);
+            var ultimaFecha = row.ultima_fecha ? (typeof row.ultima_fecha === 'string' && row.ultima_fecha.match(/^\d{4}-/) ? new Date(row.ultima_fecha).toLocaleDateString('es-MX') : row.ultima_fecha) : '—';
+            html += '<tr><td>' + (row.label || '—') + '</td><td>' + (row.visitas_count ?? '—') + '</td><td>' + ultimaFecha + '</td><td>' + distCell + '</td></tr>';
         });
         html += '</tbody></table>';
         if (a5.resumen_por_dia && a5.resumen_por_dia.length) {
-            html += '<p class="small fw-semibold mt-2">Resumen por día</p><ul class="list-unstyled small">';
+            html += '<p class="small fw-semibold mt-2">Aperturas por día (últimos 5 días)</p><ul class="list-unstyled small">';
             a5.resumen_por_dia.forEach(function (d) {
                 html += '<li>' + (d.fecha || '') + ': ' + (d.total || 0) + '</li>';
             });
@@ -64,24 +75,27 @@
     function renderPayments(data) {
         if (!data) return '';
         var html = '';
-        var summary = 'Total pagos: ' + (data.total_pagos || 0) + '. Intervalo promedio: ' + (data.intervalo_promedio_dias != null ? data.intervalo_promedio_dias : '—') + ' días. Patrón: ' + (data.patron_pago || '—') + '.';
+        html += '<p class="small text-muted mb-2">Resumen de <strong>gestiones con dictamen de pago</strong>: cuántos pagos se registraron, cada cuántos días en promedio, y si hay un día de la semana o patrón recurrente.</p>';
+        var summary = 'Total de pagos registrados: ' + (data.total_pagos || 0) + '. Días entre un pago y el siguiente (promedio): ' + (data.intervalo_promedio_dias != null ? data.intervalo_promedio_dias : '—') + '. Patrón detectado: ' + (data.patron_pago || '—') + '.';
         if (data.patron_pago === 'insuficiente_datos') {
-            summary = 'Datos insuficientes para analizar patrón (menos de 3 pagos). Total: ' + (data.total_pagos || 0) + '.';
+            summary = 'Se necesitan al menos 3 pagos para analizar patrón. Total de pagos registrados: ' + (data.total_pagos || 0) + '.';
         }
-        html += '<p class="small text-muted mb-3" role="status">' + summary + '</p>';
-        html += '<table class="table table-sm"><tr><td class="text-muted">Intervalo promedio (días)</td><td>' + (data.intervalo_promedio_dias != null ? data.intervalo_promedio_dias : '—') + '</td></tr>';
-        html += '<tr><td class="text-muted">Desviación intervalos</td><td>' + (data.desviacion_intervalos != null ? data.desviacion_intervalos : '—') + '</td></tr>';
-        html += '<tr><td class="text-muted">Día más frecuente</td><td>' + (data.dia_mas_frecuente || '—') + '</td></tr>';
-        html += '<tr><td class="text-muted">Consistencia día <span class="text-muted" title="Porcentaje de pagos en el día más frecuente">(0..1)</span></td><td>' + (data.consistencia_dia != null ? data.consistencia_dia : '—') + '</td></tr>';
-        html += '<tr><td class="text-muted">Patrón pago</td><td>' + (data.patron_pago || '—') + '</td></tr></table>';
+        html += '<p class="small mb-3" role="status">' + summary + '</p>';
+        html += '<table class="table table-sm table-bordered"><thead><tr><th>Concepto</th><th>Valor</th></tr></thead><tbody>';
+        html += '<tr><td><strong>Intervalo promedio (días)</strong><br><span class="text-muted small">Promedio de días entre un pago y el siguiente</span></td><td>' + (data.intervalo_promedio_dias != null ? data.intervalo_promedio_dias : '—') + '</td></tr>';
+        html += '<tr><td><strong>Desviación de intervalos</strong><br><span class="text-muted small">Qué tan variables son los días entre pagos</span></td><td>' + (data.desviacion_intervalos != null ? data.desviacion_intervalos : '—') + '</td></tr>';
+        html += '<tr><td><strong>Día más frecuente</strong><br><span class="text-muted small">Día de la semana en que más suele pagar</span></td><td>' + (data.dia_mas_frecuente || '—') + '</td></tr>';
+        html += '<tr><td><strong>Consistencia del día</strong><br><span class="text-muted small">Proporción de pagos en ese día (0 a 1)</span></td><td>' + (data.consistencia_dia != null ? data.consistencia_dia : '—') + '</td></tr>';
+        html += '<tr><td><strong>Patrón de pago</strong><br><span class="text-muted small">Resumen del comportamiento (regular, irregular, etc.)</span></td><td>' + (data.patron_pago || '—') + '</td></tr></tbody></table>';
         return html;
     }
 
     function renderCompliance(data) {
         if (!data) return '';
         var html = '';
-        var summary = 'Cumplimiento: ' + (data.porcentaje_cumplimiento != null ? data.porcentaje_cumplimiento + '%' : '—') + '. Visitas cercanas: ' + (data.visitas_cercanas ?? 0) + ', lejanas: ' + (data.visitas_lejanas ?? 0) + '.';
-        html += '<p class="small text-muted mb-3" role="status">' + summary + '</p>';
+        html += '<p class="small text-muted mb-2">Cada fila es una <strong>visita del gestor</strong> (con GPS). Se compara la ubicación del gestor con las ubicaciones frecuentes del acreditado: si estuvo a menos de 100 m se considera "cerca" (cumplimiento). "¿Estuvo en su casa?" indica si la visita fue al punto más visitado (posible domicilio) o a otro lugar.</p>';
+        var summary = 'Porcentaje de cumplimiento: ' + (data.porcentaje_cumplimiento != null ? data.porcentaje_cumplimiento + '%' : '—') + '. Visitas cercanas al acreditado: ' + (data.visitas_cercanas ?? 0) + ', visitas lejanas: ' + (data.visitas_lejanas ?? 0) + '.';
+        html += '<p class="small mb-3" role="status">' + summary + '</p>';
         if (data.alertas && data.alertas.length) {
             html += '<ul class="small text-warning">';
             data.alertas.forEach(function (a) {
@@ -90,9 +104,13 @@
             html += '</ul>';
         }
         if (data.detalles && data.detalles.length) {
-            html += '<table class="table table-sm table-bordered"><thead><tr><th>Evento</th><th>Timestamp</th><th>Distancia (m)</th><th>Ubicación</th><th>Cerca</th></tr></thead><tbody>';
+            html += '<table class="table table-sm table-bordered"><thead><tr><th>Gestor</th><th>Fecha y hora</th><th>Distancia</th><th>¿Estuvo en su casa?</th><th>Cerca (&lt;100 m)</th></tr></thead><tbody>';
             data.detalles.forEach(function (d) {
-                html += '<tr><td>' + (d.gestor_event_id || '—') + '</td><td>' + (d.timestamp || '—') + '</td><td>' + (d.distancia_m != null ? d.distancia_m : '—') + '</td><td>' + (d.ubicacion_id || '—') + '</td><td>' + (d.cerca ? 'Sí' : 'No') + '</td></tr>';
+                var ts = d.timestamp ? new Date(d.timestamp).toLocaleString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
+                var dist = formatDistancia(d.distancia_m);
+                var ubicacionLabel = d.ubicacion_label != null ? d.ubicacion_label : (d.ubicacion_id || '—');
+                var esCasa = d.es_casa ? 'Sí' : 'No';
+                html += '<tr><td>' + (d.gestor_nombre || '—') + '</td><td>' + ts + '</td><td>' + dist + '</td><td>' + ubicacionLabel + ' <small>(' + esCasa + ')</small></td><td>' + (d.cerca ? 'Sí' : 'No') + '</td></tr>';
             });
             html += '</tbody></table>';
         }

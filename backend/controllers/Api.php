@@ -19,11 +19,15 @@ require_once __DIR__ . '/../services/SpatialAnalyticsService.php';
 require_once __DIR__ . '/../services/TemporalPaymentsService.php';
 require_once __DIR__ . '/../services/GestorComplianceService.php';
 require_once __DIR__ . '/../services/GeocodingService.php';
+require_once __DIR__ . '/../services/AnaliticaInterpretarService.php';
+require_once __DIR__ . '/../services/AnalisisPresenter.php';
 
 use Services\SpatialAnalyticsService;
 use Services\TemporalPaymentsService;
 use Services\GestorComplianceService;
 use Services\GeocodingService;
+use Services\AnaliticaInterpretarService;
+use Services\AnalisisPresenter;
 
 class Api extends Controller
 {
@@ -183,20 +187,30 @@ class Api extends Controller
         $ubic = UbicacionDAO::getUbicacionesFiltradasPorIdCredito($idCredito);
         $direcciones = $ubic['direcciones_resumen'] ?? [];
         $ubicacionesUsuario = [];
+        $mapUbicacion = [];
         foreach ($direcciones as $i => $d) {
+            $uid = $d['id'] ?? 'u' . $i;
             $ubicacionesUsuario[] = [
-                'id' => $d['id'] ?? 'u' . $i,
+                'id' => $uid,
                 'lat' => (float) ($d['lat'] ?? $d['latitud'] ?? 0),
                 'lng' => (float) ($d['lng'] ?? $d['longitud'] ?? 0),
+            ];
+            $mapUbicacion[$uid] = [
+                'label' => $i === 0 ? 'Su casa (más visitada)' : 'Otro lugar frecuente',
+                'es_casa' => $i === 0,
             ];
         }
         $eventosGestor = GestionesDAO::getEventosGestorPorCredito($idCredito, $gestorId);
         $compliance = new GestorComplianceService();
         $out = $compliance->verificarCercaniaGestor($eventosGestor, $ubicacionesUsuario);
-        foreach ($out['detalles'] as &$d) {
+        foreach ($out['detalles'] as $i => &$d) {
             if (isset($d['timestamp']) && $d['timestamp'] !== null && is_numeric($d['timestamp'])) {
                 $d['timestamp'] = date('c', (int) $d['timestamp']);
             }
+            $d['gestor_nombre'] = isset($eventosGestor[$i]) ? ($eventosGestor[$i]['usuario_asignado'] ?? '—') : '—';
+            $uid = $d['ubicacion_id'] ?? null;
+            $d['ubicacion_label'] = $uid !== null && isset($mapUbicacion[$uid]) ? $mapUbicacion[$uid]['label'] : ($uid ?? '—');
+            $d['es_casa'] = $uid !== null && isset($mapUbicacion[$uid]) ? $mapUbicacion[$uid]['es_casa'] : false;
         }
         unset($d);
         return $out;
@@ -266,5 +280,129 @@ class Api extends Controller
             'summary' => $summaryShort,
         ], JSON_UNESCAPED_UNICODE) . "\n";
         @file_put_contents(self::AUDIT_LOG, $line, FILE_APPEND | LOCK_EX);
+    }
+
+    /**
+     * GET /api/analitica/interpretar?idCredito=123&idTicket=0
+     * O POST con body JSON: { analitica_espacial, analitica_pagos, analitica_gestiones, metadata }.
+     * Devuelve informe estructurado (one_line_summary, sections, predictions, next_steps, etc.).
+     */
+    public function analitica(string $action = '')
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        $action = strtolower(trim($action));
+        if ($action !== 'interpretar') {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'Acción no válida. Use: analitica/interpretar', 'data' => null]);
+            return;
+        }
+
+        $idCredito = (int) ($_GET['idCredito'] ?? $_GET['id_credito'] ?? 0);
+        $idTicket = (int) ($_GET['idTicket'] ?? $_GET['id_ticket'] ?? 0);
+        $input = null;
+
+        $raw = file_get_contents('php://input');
+        if ($raw !== '' && $raw !== false) {
+            $body = json_decode($raw, true);
+            if (is_array($body) && isset($body['metadata'])) {
+                $input = $body;
+                $idCredito = (int) ($body['metadata']['idCredito'] ?? $idCredito);
+            }
+        }
+
+        if ($input === null && $idCredito < 1) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'idCredito requerido (query o metadata en body).', 'data' => null]);
+            return;
+        }
+
+        if ($input === null) {
+            $input = $this->buildInputFromCredito($idCredito, $idTicket);
+        }
+
+        $tz = new \DateTimeZone('America/Mexico_City');
+        if (empty($input['metadata']['fecha_actual'])) {
+            $input['metadata'] = array_merge($input['metadata'] ?? [], [
+                'idCredito' => $idCredito,
+                'idTicket' => $idTicket,
+                'fecha_actual' => (new \DateTime('now', $tz))->format('c'),
+                'timezone' => 'America/Mexico_City',
+            ]);
+        }
+
+        $sabueso = new Sabueso();
+        $llmFn = function (string $systemPrompt, string $userPrompt, int $maxTokens) use ($sabueso) {
+            return $sabueso->callGemini($systemPrompt, [['text' => $userPrompt]], $maxTokens);
+        };
+
+        $service = new AnaliticaInterpretarService();
+        $result = $service->interpretar($input, $llmFn);
+
+        if (!($result['success'] ?? false)) {
+            self::respuestaJSON(['success' => false, 'mensaje' => $result['mensaje'] ?? 'Error al interpretar.', 'data' => null]);
+            return;
+        }
+        $data = $result['data'];
+        $presenter = new AnalisisPresenter();
+        $presentation = $presenter->present($data);
+        $response = [
+            'success' => true,
+            'data' => $data,
+            'presentation' => $presentation,
+            'cache_hit' => $result['cache_hit'] ?? false,
+            'from_llm' => $result['from_llm'] ?? false,
+        ];
+        if (!empty($result['validation_error'])) {
+            $response['validation_error'] = $result['validation_error'];
+        }
+        self::respuestaJSON($response);
+    }
+
+    private function buildInputFromCredito(int $idCredito, int $idTicket): array
+    {
+        $spatial = $this->buildSpatialAnalytics($idCredito);
+        $payments = $this->buildPaymentsAnalytics($idCredito);
+        $compliance = $this->buildComplianceAnalytics($idCredito, null);
+
+        $gestiones = GestionesDAO::getAllGestiones($idCredito, '');
+        $gestiones = is_array($gestiones) ? $gestiones : [];
+        $lastPaymentDate = null;
+        foreach ($gestiones as $g) {
+            $tipo = (string) ($g['dictamen_campo'] ?? $g['dictamen_ccc'] ?? '');
+            if (stripos($tipo, 'Pago') !== false) {
+                $f = $g['fecha_dispositivo'] ?? $g['fecha_hora'] ?? null;
+                if ($f) {
+                    $ts = is_numeric($f) ? (int) $f : strtotime($f);
+                    if ($ts && ($lastPaymentDate === null || $ts > strtotime($lastPaymentDate))) {
+                        $lastPaymentDate = date('c', $ts);
+                    }
+                }
+            }
+        }
+        $ultimaGestion = $gestiones[0] ?? [];
+        $promesaPago = $ultimaGestion['promesa_pago'] ?? null;
+        $diasMora = isset($ultimaGestion['pagos_vencidos']) ? (int) $ultimaGestion['pagos_vencidos'] : null;
+        $totalDeuda = $ultimaGestion['deuda_total'] ?? null;
+
+        $analiticaPagos = [
+            'last_payment_date' => $lastPaymentDate,
+            'estado_actual' => null,
+            'dias_mora' => $diasMora,
+            'promesa_pago' => $promesaPago,
+            'monto_prometido' => null,
+            'total_deuda' => $totalDeuda,
+            'total_pagos' => $payments['total_pagos'] ?? 0,
+        ];
+
+        $tz = new \DateTimeZone('America/Mexico_City');
+        return [
+            'analitica_espacial' => $spatial,
+            'analitica_pagos' => $analiticaPagos,
+            'analitica_gestiones' => $compliance,
+            'metadata' => [
+                'idCredito' => $idCredito,
+                'idTicket' => $idTicket,
+                'fecha_actual' => (new \DateTime('now', $tz))->format('c'),
+                'timezone' => 'America/Mexico_City',
+            ],
+        ];
     }
 }

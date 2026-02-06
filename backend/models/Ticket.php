@@ -15,48 +15,50 @@ class Ticket extends Model
      */
     public static function getListaTickets($idUsuario, $soloDelUsuario = true)
     {
-        $baseQuery = <<<SQL
-            SELECT
-                t.id_ticket,
-                t.folio,
-                t.id_credito,
-                t.descripcion_inicial,
-                t.fecha_creacion,
-                t.fecha_vencimiento,
-                t.activo,
-                tt.nombre AS tipo_ticket_nombre,
-                et.nombre AS estado_ticket_nombre,
-                pt.nombre AS prioridad_nombre,
-                ot.nombre AS origen_nombre,
-                CONCAT(TRIM(IFNULL(p.nombres, '')), ' ', TRIM(IFNULL(p.apellidop, ''))) AS creador_nombre,
-                CONCAT(TRIM(IFNULL(pa.nombres, '')), ' ', TRIM(IFNULL(pa.apellidop, ''))) AS asignado_nombre
-            FROM ticket t
-            INNER JOIN tipo_ticket tt ON t.id_tipo_ticket = tt.id_tipo_ticket
-            INNER JOIN estado_ticket et ON t.id_estado_ticket = et.id_estado_ticket
-            INNER JOIN prioridad_ticket pt ON t.id_prioridad = pt.id_prioridad
-            INNER JOIN origen_ticket ot ON t.id_origen_ticket = ot.id_origen_ticket
-            INNER JOIN persona p ON t.id_persona_creador = p.id
-            LEFT JOIN asignacion_ticket at ON at.id_ticket = t.id_ticket AND (at.activo = 1 OR at.activo IS NULL)
-            LEFT JOIN persona pa ON at.id_persona_asignada = pa.id
-            WHERE (t.activo = 1 OR t.activo IS NULL)
-        SQL;
+        $baseSelect = "SELECT t.id_ticket, t.folio, t.id_credito, t.descripcion_inicial, t.fecha_creacion, t.fecha_vencimiento, " .
+            "tt.nombre AS tipo_ticket_nombre, et.nombre AS estado_ticket_nombre, pt.nombre AS prioridad_nombre, ot.nombre AS origen_nombre, " .
+            "CONCAT(TRIM(IFNULL(p.nombres, '')), ' ', TRIM(IFNULL(p.apellidop, ''))) AS creador_nombre, " .
+            "CONCAT(TRIM(IFNULL(pa.nombres, '')), ' ', TRIM(IFNULL(pa.apellidop, ''))) AS asignado_nombre " .
+            "FROM ticket t " .
+            "INNER JOIN tipo_ticket tt ON t.id_tipo_ticket = tt.id_tipo_ticket " .
+            "INNER JOIN estado_ticket et ON t.id_estado_ticket = et.id_estado_ticket " .
+            "INNER JOIN prioridad_ticket pt ON t.id_prioridad = pt.id_prioridad " .
+            "INNER JOIN origen_ticket ot ON t.id_origen_ticket = ot.id_origen_ticket " .
+            "INNER JOIN persona p ON t.id_persona_creador = p.id " .
+            "LEFT JOIN asignacion_ticket at ON at.id_ticket = t.id_ticket AND (at.activo = 1 OR at.activo IS NULL) " .
+            "LEFT JOIN persona pa ON at.id_persona_asignada = pa.id ";
 
         $params = [];
         if ($soloDelUsuario) {
-            $baseQuery .= ' AND t.id_persona_creador = :id_persona';
             $params['id_persona'] = (int)$idUsuario;
         }
 
-        $baseQuery .= ' ORDER BY t.fecha_creacion DESC';
-
-        try {
-            $db = new Database();
-            $rows = $db->queryAll($baseQuery, $params);
-            $datos = is_array($rows) ? $rows : [];
-            return self::resultado(true, 'Tickets encontrados.', $datos);
-        } catch (\Exception $e) {
-            return self::resultado(false, 'Error al consultar tickets.', null, $e->getMessage());
+        $db = new Database();
+        $whereCandidates = [
+            "WHERE (t.activo = 1 OR t.activo IS NULL) AND (t.fecha_eliminacion IS NULL)",
+            "WHERE (t.activo = 1 OR t.activo IS NULL)",
+            "WHERE (t.fecha_eliminacion IS NULL)",
+            "WHERE 1=1",
+        ];
+        if ($soloDelUsuario) {
+            foreach ($whereCandidates as $i => $w) {
+                $whereCandidates[$i] .= ' AND t.id_persona_creador = :id_persona';
+            }
         }
+        $orderBy = " ORDER BY t.fecha_creacion DESC";
+
+        $lastException = null;
+        foreach ($whereCandidates as $where) {
+            try {
+                $rows = $db->queryAll($baseSelect . $where . $orderBy, $params);
+                $datos = is_array($rows) ? $rows : [];
+                return self::resultado(true, 'Tickets encontrados.', $datos);
+            } catch (\Exception $e) {
+                $lastException = $e;
+                continue;
+            }
+        }
+        return self::resultado(false, 'Error al consultar tickets.', null, $lastException ? $lastException->getMessage() : '');
     }
 
     /**
@@ -227,7 +229,22 @@ class Ticket extends Model
             );
             return is_array($rows) ? $rows : [];
         } catch (\Exception $e) {
-            return [];
+            try {
+                $rows = $db->queryAll(
+                    "SELECT t.id_ticket, t.folio, t.descripcion_inicial, t.fecha_creacion, t.fecha_vencimiento, " .
+                    "tt.nombre AS tipo_nombre, et.nombre AS estado_nombre, pt.nombre AS prioridad_nombre, ot.nombre AS origen_nombre " .
+                    "FROM ticket t " .
+                    "INNER JOIN tipo_ticket tt ON t.id_tipo_ticket = tt.id_tipo_ticket " .
+                    "INNER JOIN estado_ticket et ON t.id_estado_ticket = et.id_estado_ticket " .
+                    "INNER JOIN prioridad_ticket pt ON t.id_prioridad = pt.id_prioridad " .
+                    "INNER JOIN origen_ticket ot ON t.id_origen_ticket = ot.id_origen_ticket " .
+                    "WHERE t.id_credito = :id ORDER BY t.fecha_creacion DESC",
+                    ['id' => $id]
+                );
+                return is_array($rows) ? $rows : [];
+            } catch (\Exception $e2) {
+                return [];
+            }
         }
     }
 
@@ -291,6 +308,46 @@ class Ticket extends Model
     }
 
     /**
+     * Quitar la asignación actual del ticket (activo = 0 en asignacion_ticket).
+     */
+    public static function quitarAsignacion($idTicket)
+    {
+        $tid = (int)$idTicket;
+        if ($tid < 1) {
+            return self::resultado(false, 'ID de ticket inválido.', null);
+        }
+        try {
+            $db = new Database();
+            $tz = new \DateTimeZone('America/Mexico_City');
+            $now = (new \DateTime('now', $tz))->format('Y-m-d H:i:s');
+            $db->CRUD(
+                "UPDATE asignacion_ticket SET activo = 0, fecha_liberacion = :ahora WHERE id_ticket = :id_ticket AND (activo = 1 OR activo IS NULL)",
+                ['ahora' => $now, 'id_ticket' => $tid]
+            );
+            return self::resultado(true, 'Asignación quitada correctamente.');
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al quitar la asignación.', null, $e->getMessage());
+        }
+    }
+
+    /**
+     * id_credito del ticket (para registrar historial de asignación por crédito).
+     */
+    public static function getIdCreditoPorTicket(int $idTicket): ?int
+    {
+        if ($idTicket < 1) {
+            return null;
+        }
+        try {
+            $db = new Database();
+            $row = $db->queryOne("SELECT id_credito FROM ticket WHERE id_ticket = :id AND (activo = 1 OR activo IS NULL)", ['id' => $idTicket]);
+            return $row && isset($row['id_credito']) ? (int) $row['id_credito'] : null;
+        } catch (\Exception $e) {
+            return null;
+        }
+    }
+
+    /**
      * Nombre completo de una persona por id (para "Tomar asignación").
      */
     public static function getNombrePersona($idPersona)
@@ -330,36 +387,319 @@ class Ticket extends Model
     }
 
     /**
-     * Elimina un ticket y todo lo asociado: mensajes de bitácora (chat), evidencias (archivos + registros) y asignaciones.
+     * Inserta un registro en ticket_historico (snapshot del ticket) y luego hace soft-delete en ticket.
+     *
+     * @param int $idTicket
+     * @param string $tipoAccion 'cerrado' | 'eliminado'
+     * @param int|null $idPersonaElimino Quien cerró/eliminó (sesión).
      */
-    public static function eliminar($idTicket)
+    public static function registrarEnHistorico($idTicket, $tipoAccion, $idPersonaElimino = null)
+    {
+        $id = (int)$idTicket;
+        if ($id < 1) {
+            return;
+        }
+        $tipoAccion = strtolower((string)$tipoAccion) === 'cerrado' ? 'cerrado' : 'eliminado';
+        try {
+            $db = new Database();
+            $tz = new \DateTimeZone('America/Mexico_City');
+            $now = (new \DateTime('now', $tz))->format('Y-m-d H:i:s');
+
+            $row = $db->queryOne(
+                "SELECT t.id_ticket, t.id_credito, t.folio, t.id_tipo_ticket, t.id_estado_ticket, t.id_prioridad, t.descripcion_inicial, " .
+                "t.fecha_creacion, t.fecha_vencimiento, t.id_persona_creador, " .
+                "tt.nombre AS tipo_ticket_nombre, et.nombre AS estado_ticket_nombre, pt.nombre AS prioridad_nombre, " .
+                "CONCAT(TRIM(IFNULL(p.nombres,'')), ' ', TRIM(IFNULL(p.apellidop,''))) AS creador_nombre, " .
+                "CONCAT(TRIM(IFNULL(pe.nombres,'')), ' ', TRIM(IFNULL(pe.apellidop,''))) AS quien_elimino_nombre " .
+                "FROM ticket t " .
+                "INNER JOIN tipo_ticket tt ON t.id_tipo_ticket = tt.id_tipo_ticket " .
+                "INNER JOIN estado_ticket et ON t.id_estado_ticket = et.id_estado_ticket " .
+                "INNER JOIN prioridad_ticket pt ON t.id_prioridad = pt.id_prioridad " .
+                "INNER JOIN persona p ON t.id_persona_creador = p.id " .
+                "LEFT JOIN persona pe ON t.id_persona_elimino = pe.id " .
+                "WHERE t.id_ticket = :id AND (t.activo = 1 OR t.activo IS NULL)",
+                ['id' => $id]
+            );
+            if (!$row) {
+                return;
+            }
+            $asignado = self::getUltimoAsignadoPorTicket($id);
+            $quienElimino = $idPersonaElimino !== null ? trim(self::getNombrePersona((int)$idPersonaElimino)) : '';
+            if ($quienElimino === '' && isset($row['quien_elimino_nombre'])) {
+                $quienElimino = trim($row['quien_elimino_nombre'] ?? '');
+            }
+
+            $db->CRUD(
+                "INSERT INTO ticket_historico (id_ticket, id_credito, folio, id_tipo_ticket, tipo_ticket_nombre, id_estado_ticket, estado_ticket_nombre, " .
+                "id_prioridad, prioridad_nombre, descripcion_inicial, fecha_creacion, fecha_vencimiento, id_persona_creador, creador_nombre, asignado_nombre, " .
+                "id_persona_elimino, quien_elimino_nombre, fecha_eliminacion, tipo_accion) " .
+                "VALUES (:id_ticket, :id_credito, :folio, :id_tipo, :tipo_nombre, :id_estado, :estado_nombre, :id_prioridad, :prioridad_nombre, :descripcion, " .
+                ":fecha_creacion, :fecha_vencimiento, :id_creador, :creador_nombre, :asignado_nombre, :id_elimino, :quien_elimino, :fecha_eliminacion, :tipo_accion)",
+                [
+                    'id_ticket' => $id,
+                    'id_credito' => $row['id_credito'] ?? null,
+                    'folio' => $row['folio'] ?? null,
+                    'id_tipo' => $row['id_tipo_ticket'] ?? null,
+                    'tipo_nombre' => $row['tipo_ticket_nombre'] ?? null,
+                    'id_estado' => $row['id_estado_ticket'] ?? null,
+                    'estado_nombre' => $row['estado_ticket_nombre'] ?? null,
+                    'id_prioridad' => $row['id_prioridad'] ?? null,
+                    'prioridad_nombre' => $row['prioridad_nombre'] ?? null,
+                    'descripcion' => $row['descripcion_inicial'] ?? null,
+                    'fecha_creacion' => $row['fecha_creacion'] ?? null,
+                    'fecha_vencimiento' => $row['fecha_vencimiento'] ?? null,
+                    'id_creador' => $row['id_persona_creador'] ?? null,
+                    'creador_nombre' => $row['creador_nombre'] ?? null,
+                    'asignado_nombre' => $asignado !== '—' ? $asignado : null,
+                    'id_elimino' => $idPersonaElimino !== null ? (int)$idPersonaElimino : null,
+                    'quien_elimino' => $quienElimino !== '' ? $quienElimino : null,
+                    'fecha_eliminacion' => $now,
+                    'tipo_accion' => $tipoAccion,
+                ]
+            );
+        } catch (\Exception $e) {
+            // Log opcional; no fallar el flujo
+        }
+    }
+
+    /**
+     * Marca el ticket como eliminado (soft delete): registra en ticket_historico y luego activo=0, fecha_eliminacion, id_persona_elimino.
+     *
+     * @param int $idTicket
+     * @param int|null $idPersonaElimino Quien eliminó (sesión); null = no registrar.
+     */
+    public static function eliminar($idTicket, $idPersonaElimino = null)
     {
         $id = (int)$idTicket;
         if ($id < 1) {
             return self::resultado(false, 'ID de ticket inválido.', null);
         }
         try {
+            self::registrarEnHistorico($id, 'eliminado', $idPersonaElimino);
             $db = new Database();
-            $baseUploads = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR;
-
-            $evidencias = $db->queryAll("SELECT id, ruta_archivo FROM ticket_evidencia WHERE id_ticket = :id", ['id' => $id]);
-            if (is_array($evidencias)) {
-                foreach ($evidencias as $row) {
-                    if (!empty($row['ruta_archivo'])) {
-                        $path = $baseUploads . str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $row['ruta_archivo']);
-                        if (is_file($path)) {
-                            @unlink($path);
-                        }
-                    }
+            $tz = new \DateTimeZone('America/Mexico_City');
+            $now = (new \DateTime('now', $tz))->format('Y-m-d H:i:s');
+            $idPersona = $idPersonaElimino !== null ? (int)$idPersonaElimino : null;
+            try {
+                $db->CRUD(
+                    "UPDATE ticket SET activo = 0, fecha_eliminacion = :ahora, id_persona_elimino = :id_persona WHERE id_ticket = :id",
+                    ['ahora' => $now, 'id_persona' => $idPersona, 'id' => $id]
+                );
+            } catch (\Exception $e) {
+                if (stripos($e->getMessage(), 'activo') !== false) {
+                    $db->CRUD(
+                        "UPDATE ticket SET fecha_eliminacion = :ahora, id_persona_elimino = :id_persona WHERE id_ticket = :id",
+                        ['ahora' => $now, 'id_persona' => $idPersona, 'id' => $id]
+                    );
+                } else {
+                    throw $e;
                 }
             }
-            $db->CRUD("DELETE FROM ticket_evidencia WHERE id_ticket = :id", ['id' => $id]);
-            $db->CRUD("DELETE FROM chat WHERE id_ticket = :id", ['id' => $id]);
-            $db->CRUD("DELETE FROM asignacion_ticket WHERE id_ticket = :id", ['id' => $id]);
-            $db->CRUD("DELETE FROM ticket WHERE id_ticket = :id", ['id' => $id]);
             return self::resultado(true, 'Ticket eliminado.');
         } catch (\Exception $e) {
             return self::resultado(false, 'Error al eliminar el ticket.', null, $e->getMessage());
+        }
+    }
+
+    /**
+     * Cierra el ticket: registra en ticket_historico (tipo_accion=cerrado) y hace soft-delete igual que eliminar.
+     *
+     * @param int $idTicket
+     * @param int|null $idPersonaCierra Quien cerró (sesión).
+     */
+    public static function cerrar($idTicket, $idPersonaCierra = null)
+    {
+        $id = (int)$idTicket;
+        if ($id < 1) {
+            return self::resultado(false, 'ID de ticket inválido.', null);
+        }
+        try {
+            self::registrarEnHistorico($id, 'cerrado', $idPersonaCierra);
+            $db = new Database();
+            $tz = new \DateTimeZone('America/Mexico_City');
+            $now = (new \DateTime('now', $tz))->format('Y-m-d H:i:s');
+            $idPersona = $idPersonaCierra !== null ? (int)$idPersonaCierra : null;
+            try {
+                $db->CRUD(
+                    "UPDATE ticket SET activo = 0, fecha_eliminacion = :ahora, id_persona_elimino = :id_persona WHERE id_ticket = :id",
+                    ['ahora' => $now, 'id_persona' => $idPersona, 'id' => $id]
+                );
+            } catch (\Exception $e) {
+                if (stripos($e->getMessage(), 'activo') !== false) {
+                    $db->CRUD(
+                        "UPDATE ticket SET fecha_eliminacion = :ahora, id_persona_elimino = :id_persona WHERE id_ticket = :id",
+                        ['ahora' => $now, 'id_persona' => $idPersona, 'id' => $id]
+                    );
+                } else {
+                    throw $e;
+                }
+            }
+            return self::resultado(true, 'Ticket cerrado.');
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al cerrar el ticket.', null, $e->getMessage());
+        }
+    }
+
+    /**
+     * Lista de tickets cerrados/eliminados desde ticket_historico (con tipo_accion: cerrado | eliminado).
+     */
+    public static function getListaTicketsCerradosEliminados()
+    {
+        $query = <<<SQL
+            SELECT
+                id_ticket,
+                folio,
+                id_credito,
+                descripcion_inicial,
+                fecha_creacion,
+                fecha_vencimiento,
+                fecha_eliminacion,
+                id_persona_elimino,
+                tipo_ticket_nombre,
+                estado_ticket_nombre,
+                prioridad_nombre,
+                creador_nombre,
+                asignado_nombre,
+                quien_elimino_nombre,
+                tipo_accion
+            FROM ticket_historico
+            ORDER BY fecha_eliminacion DESC
+        SQL;
+        try {
+            $db = new Database();
+            $rows = $db->queryAll($query);
+            $rows = is_array($rows) ? $rows : [];
+            return self::resultado(true, 'Tickets encontrados.', $rows);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al consultar tickets.', null, $e->getMessage());
+        }
+    }
+
+    /**
+     * Un ticket cerrado/eliminado por id_ticket desde ticket_historico (último registro para ese id_ticket).
+     */
+    public static function getTicketCerradoEliminadoPorId(int $idTicket): ?array
+    {
+        if ($idTicket < 1) {
+            return null;
+        }
+        try {
+            $db = new Database();
+            $row = $db->queryOne(
+                "SELECT id_ticket, folio, id_credito, descripcion_inicial, fecha_creacion, fecha_vencimiento, fecha_eliminacion, " .
+                "id_persona_elimino, tipo_ticket_nombre, estado_ticket_nombre, prioridad_nombre, creador_nombre, asignado_nombre, " .
+                "quien_elimino_nombre, tipo_accion FROM ticket_historico WHERE id_ticket = :id ORDER BY fecha_eliminacion DESC LIMIT 1",
+                ['id' => $idTicket]
+            );
+            return $row ?: null;
+        } catch (\Exception $e) {
+            return null;
+        }
+    }
+
+    /**
+     * Historial de asignación por ticket (para modal rastreo: "Asignado a" por ticket, no por crédito).
+     * Devuelve asignado_actual (nombre), estado, historial (persona, desde, hasta, duracion_humana).
+     */
+    public static function getHistorialAsignacionPorTicket(int $idTicket): array
+    {
+        if ($idTicket < 1) {
+            return [
+                'asignado_actual' => null,
+                'estado'          => 'primera_asignacion',
+                'historial'       => [],
+            ];
+        }
+        try {
+            $db = new Database();
+            $rows = $db->queryAll(
+                "SELECT at.id_asignacion, at.id_persona_asignada, at.fecha_asignacion, at.fecha_liberacion, at.activo, " .
+                "CONCAT(TRIM(IFNULL(p.nombres,'')), ' ', TRIM(IFNULL(p.apellidop,''))) AS persona_nombre " .
+                "FROM asignacion_ticket at INNER JOIN persona p ON at.id_persona_asignada = p.id " .
+                "WHERE at.id_ticket = :id ORDER BY at.fecha_asignacion DESC",
+                ['id' => $idTicket]
+            );
+            $rows = is_array($rows) ? $rows : [];
+            $tz = new \DateTimeZone('America/Mexico_City');
+            $now = (new \DateTime('now', $tz))->getTimestamp();
+            $asignadoActual = null;
+            $historial = [];
+            foreach ($rows as $r) {
+                $desdeTs = strtotime($r['fecha_asignacion']);
+                $hastaRaw = $r['fecha_liberacion'] ?? null;
+                $activo = (int)($r['activo'] ?? 0);
+                $hastaTs = $hastaRaw ? strtotime($hastaRaw) : ($activo ? $now : ($desdeTs ?: $now));
+                if ($activo === 1) {
+                    $asignadoActual = trim($r['persona_nombre'] ?? '');
+                }
+                $desdeFmt = $desdeTs ? date('Y-m-d H:i', $desdeTs) : '—';
+                $hastaFmt = $hastaRaw ? date('Y-m-d H:i', strtotime($hastaRaw)) : ($activo ? date('Y-m-d H:i', $now) : '—');
+                $duracionHumana = self::duracionHumanaAsignacion($desdeTs, $hastaTs);
+                $historial[] = [
+                    'persona'         => trim($r['persona_nombre'] ?? ''),
+                    'desde'           => $desdeFmt,
+                    'hasta'           => $hastaFmt,
+                    'duracion_humana' => $duracionHumana,
+                ];
+            }
+            if (count($rows) === 0) {
+                $estado = 'primera_asignacion';
+            } elseif ($asignadoActual !== null && $asignadoActual !== '') {
+                $estado = 'con_historial';
+            } else {
+                $estado = 'sin_asignar';
+            }
+            return [
+                'asignado_actual' => $asignadoActual !== '' ? $asignadoActual : null,
+                'estado'         => $estado,
+                'historial'      => $historial,
+            ];
+        } catch (\Exception $e) {
+            return [
+                'asignado_actual' => null,
+                'estado'          => 'primera_asignacion',
+                'historial'       => [],
+            ];
+        }
+    }
+
+    private static function duracionHumanaAsignacion($desdeTs, $hastaTs): string
+    {
+        if (!$desdeTs || !$hastaTs || $hastaTs < $desdeTs) {
+            return '—';
+        }
+        $seg = $hastaTs - $desdeTs;
+        if ($seg < 60) {
+            return $seg . ' s';
+        }
+        if ($seg < 3600) {
+            return round($seg / 60) . ' min';
+        }
+        if ($seg < 86400) {
+            return round($seg / 3600, 1) . ' h';
+        }
+        return round($seg / 86400) . ' días';
+    }
+
+    /**
+     * Última persona asignada al ticket (desde asignacion_ticket, activo o no).
+     */
+    public static function getUltimoAsignadoPorTicket(int $idTicket): string
+    {
+        if ($idTicket < 1) {
+            return '—';
+        }
+        try {
+            $db = new Database();
+            $row = $db->queryOne(
+                "SELECT CONCAT(TRIM(IFNULL(p.nombres,'')), ' ', TRIM(IFNULL(p.apellidop,''))) AS nombre " .
+                "FROM asignacion_ticket at INNER JOIN persona p ON at.id_persona_asignada = p.id " .
+                "WHERE at.id_ticket = :id ORDER BY at.fecha_asignacion DESC LIMIT 1",
+                ['id' => $idTicket]
+            );
+            return $row ? trim($row['nombre']) : '—';
+        } catch (\Exception $e) {
+            return '—';
         }
     }
 
@@ -412,6 +752,29 @@ class Ticket extends Model
             return self::resultado(true, 'Mensaje guardado.');
         } catch (\Exception $e) {
             return self::resultado(false, 'Error al guardar mensaje.', null, $e->getMessage());
+        }
+    }
+
+    /**
+     * Eliminar un mensaje del chat (bitácora) por id.
+     * Opcional: verificar que el mensaje pertenezca al ticket dado.
+     */
+    public static function eliminarMensajeChat($idMensaje, $idTicket = null)
+    {
+        $id = (int)$idMensaje;
+        if ($id < 1) {
+            return self::resultado(false, 'ID de mensaje inválido.');
+        }
+        try {
+            $db = new Database();
+            if ($idTicket !== null && (int)$idTicket > 0) {
+                $db->CRUD('DELETE FROM chat WHERE id = :id AND id_ticket = :id_ticket', ['id' => $id, 'id_ticket' => (int)$idTicket]);
+            } else {
+                $db->CRUD('DELETE FROM chat WHERE id = :id', ['id' => $id]);
+            }
+            return self::resultado(true, 'Mensaje eliminado.');
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al eliminar mensaje.', null, $e->getMessage());
         }
     }
 
