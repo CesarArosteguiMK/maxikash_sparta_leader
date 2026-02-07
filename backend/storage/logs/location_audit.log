@@ -40,3 +40,12 @@
 {"type":"analytics","endpoint":"compliance","id_credito":735641,"params":{"gestorId":null},"cache_hit":false,"timestamp":"2026-02-06T13:07:58-06:00","summary":{"porcentaje_cumplimiento":16.67}}
 {"type":"analytics","endpoint":"compliance","id_credito":735641,"params":{"gestorId":null},"cache_hit":false,"timestamp":"2026-02-06T13:08:50-06:00","summary":{"porcentaje_cumplimiento":16.67}}
 {"type":"analytics","endpoint":"compliance","id_credito":735641,"params":{"gestorId":null},"cache_hit":false,"timestamp":"2026-02-06T13:51:41-06:00","summary":{"porcentaje_cumplimiento":16.67}}
+{"type":"analytics","endpoint":"payments","id_credito":735641,"params":{"gestorId":null},"cache_hit":false,"timestamp":"2026-02-06T16:44:36-06:00","summary":{"total_pagos":9}}
+{"type":"analytics","endpoint":"spatial","id_credito":735641,"params":{"gestorId":null},"cache_hit":false,"timestamp":"2026-02-06T16:44:47-06:00","summary":[]}
+{"type":"analytics","endpoint":"spatial","id_credito":735641,"params":{"gestorId":null},"cache_hit":false,"timestamp":"2026-02-06T16:56:47-06:00","summary":[]}
+{"type":"analytics","endpoint":"payments","id_credito":735641,"params":{"gestorId":null},"cache_hit":false,"timestamp":"2026-02-06T16:57:18-06:00","summary":{"total_pagos":9}}
+{"type":"analytics","endpoint":"compliance","id_credito":735641,"params":{"gestorId":null},"cache_hit":false,"timestamp":"2026-02-06T16:57:51-06:00","summary":{"porcentaje_cumplimiento":16.67}}
+{"type":"analytics","endpoint":"compliance","id_credito":735641,"params":{"gestorId":null},"cache_hit":false,"timestamp":"2026-02-06T19:52:48-06:00","summary":{"porcentaje_cumplimiento":16.67}}
+{"type":"analytics","endpoint":"spatial","id_credito":735641,"params":{"gestorId":null},"cache_hit":false,"timestamp":"2026-02-06T20:08:11-06:00","summary":[]}
+{"type":"analytics","endpoint":"payments","id_credito":735641,"params":{"gestorId":null},"cache_hit":false,"timestamp":"2026-02-06T20:08:41-06:00","summary":{"total_pagos":9}}
+{"type":"analytics","endpoint":"compliance","id_credito":735641,"params":{"gestorId":null},"cache_hit":false,"timestamp":"2026-02-06T20:09:03-06:00","summary":{"porcentaje_cumplimiento":16.67}}

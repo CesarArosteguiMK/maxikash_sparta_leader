@@ -32,8 +32,9 @@ class AnalisisPresenter
 
         $resumenCaso = $this->textoResumenCaso($statusFlags, $keyFindings, $confianzaPct);
         $cliente = $this->bloqueCliente($statusFlags, $keyFindings, $metricas);
-        $gestion = $this->bloqueGestion($statusFlags, $keyFindings, $metricas);
+        $gestion = $this->bloqueGestion($statusFlags, $keyFindings, $metricas, $jsonInterpretacion['gestores_detalle'] ?? []);
         $pagos = $this->bloquePagos($statusFlags, $keyFindings, $metricas);
+        $anomalias = $this->bloqueAnomalias($jsonInterpretacion['anomalies_detected'] ?? []);
         $accionesSugeridas = $this->bloqueAcciones($jsonInterpretacion['recommended_actions'] ?? []);
 
         $out = [
@@ -43,6 +44,7 @@ class AnalisisPresenter
             'cliente' => $cliente,
             'gestion' => $gestion,
             'pagos' => $pagos,
+            'anomalias' => $anomalias,
             'acciones_sugeridas' => $accionesSugeridas,
         ];
         if (!empty($missingData)) {
@@ -134,9 +136,9 @@ class AnalisisPresenter
     }
 
     /**
-     * Bloque Gestión: estado y efectividad SIEMPRE desde métricas verificadas (cumplimiento_promedio).
+     * Bloque Gestión: estado y efectividad desde métricas verificadas; listado de TODOS los gestores con cumplimiento individual.
      */
-    private function bloqueGestion(array $statusFlags, array $keyFindings, array $metricas): array
+    private function bloqueGestion(array $statusFlags, array $keyFindings, array $metricas, array $gestoresDetalle = []): array
     {
         $estado = strtolower((string) ($statusFlags['gestion'] ?? 'neutral'));
         if (isset($metricas['cumplimiento_promedio']) && $metricas['cumplimiento_promedio'] !== null) {
@@ -164,6 +166,19 @@ class AnalisisPresenter
             ];
         }
 
+        $gestoresUi = [];
+        foreach ($gestoresDetalle as $g) {
+            $clasificacion = (string) ($g['clasificacion'] ?? '');
+            $gestoresUi[] = [
+                'nombre' => (string) ($g['nombre'] ?? '—'),
+                'total_visitas' => (int) ($g['total_visitas'] ?? 0),
+                'visitas_fuera_rango' => (int) ($g['visitas_fuera_rango'] ?? 0),
+                'distancia_promedio_km' => (float) ($g['distancia_promedio_km'] ?? 0),
+                'cumplimiento_pct' => (float) ($g['cumplimiento_pct'] ?? 0),
+                'clasificacion' => $clasificacion === 'critico' ? 'CRÍTICO' : ($clasificacion === 'deficiente' ? 'DEFICIENTE' : 'ACEPTABLE'),
+            ];
+        }
+
         return [
             'titulo' => 'Gestión',
             'estado' => $this->estadoALabel($estado),
@@ -173,7 +188,27 @@ class AnalisisPresenter
             'texto' => $texto,
             'icono' => 'fa-solid fa-users',
             'worst_gestor' => $worstGestorUi,
+            'gestores_detalle' => $gestoresUi,
         ];
+    }
+
+    /**
+     * Bloque Anomalías: lista de anomalías detectadas (sobrio, sin suavizar).
+     */
+    private function bloqueAnomalias(array $anomaliesDetected): array
+    {
+        $out = [];
+        foreach (array_slice($anomaliesDetected, 0, 10) as $a) {
+            if (!is_array($a)) {
+                continue;
+            }
+            $out[] = [
+                'tipo' => trim((string) ($a['tipo'] ?? '')),
+                'descripcion' => trim((string) ($a['descripcion'] ?? '')),
+                'evidencia' => trim((string) ($a['evidencia'] ?? '')),
+            ];
+        }
+        return $out;
     }
 
     /**
@@ -199,7 +234,7 @@ class AnalisisPresenter
         if ($estado === 'positivo') {
             $texto = 'Hábito de pago activo.';
         } elseif ($estado === 'riesgo') {
-            $texto = 'Hábito de pago en riesgo o irregular.';
+            $texto = 'Hábito de pago en riesgo o irregular. Señalar riesgos.';
         }
 
         return [

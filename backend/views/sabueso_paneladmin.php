@@ -1,3 +1,4 @@
+<link rel="stylesheet" href="/assets/css/analitica-ia.css">
 <style>
     .credito-modal-list { display: flex; flex-direction: column; gap: 0.75rem; }
     .credito-modal-item { display: flex; flex-direction: column; gap: 0.15rem; }
@@ -40,6 +41,10 @@
     #modalRastreoCredito .rastreo-tickets-cell .credito-modal-list { color: #1e3a8a; }
     #modalRastreoCredito .rastreo-header-right { display: flex; flex-direction: column; gap: 0.5rem; padding-left: 1rem; border-left: 1px solid rgba(0,0,0,0.08); min-width: 180px; }
     #modalRastreoCredito .rastreo-ticket-info-col { display: flex; flex-direction: column; gap: 0.5rem; }
+    /* Direcciones (maxi app): etiqueta "Ubicación N:" en una sola línea para que 2 y 3 no queden debajo */
+    #modalRastreoCredito .rastreo-direccion-item { display: flex; align-items: flex-start; gap: 0.35rem; flex-wrap: nowrap; min-width: 0; }
+    #modalRastreoCredito .rastreo-direccion-label { flex-shrink: 0; white-space: nowrap; }
+    #modalRastreoCredito .rastreo-direccion-item .direccion-linea { min-width: 0; flex: 1; word-break: break-word; }
     /* Líneas de acento: border-top 5px azul en todas las tarjetas */
     #modalRastreoCredito .rastreo-seccion-direcciones,
     #modalRastreoCredito .rastreo-seccion-gestiones,
@@ -61,24 +66,28 @@
     #modalRastreoCredito .rastreo-seccion-bitacora:hover {
         box-shadow: 0 14px 20px -3px rgba(0, 0, 0, 0.1), 0 6px 10px -2px rgba(0, 0, 0, 0.06) !important;
     }
-    /* Hero IA: misma línea de acento y sombra premium */
+    /* Hero IA: SIN franja morada (obligatorio). Caja y encabezado sin borde superior morado. */
+    #modalRastreoCredito .rastreo-col-centro .rastreo-ia-box,
+    #modalRastreoCredito .rastreo-ia-box.rastreo-centro-card,
     #modalRastreoCredito .rastreo-ia-box {
         background-color: #FFFFFF !important;
         color: #334155;
         border: 1px solid #D1D5DB !important;
-        border-top: 5px solid #4f46e5 !important;
+        border-top: none !important;
         border-radius: 12px;
-        padding: 1.5rem;
+        padding: 1rem 1.25rem;
         margin-bottom: 20px !important;
         box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.07) !important;
         position: relative;
-        overflow: hidden;
-        min-height: 160px;
+        overflow: visible;
+        min-height: 0;
         display: flex;
         flex-direction: column;
-        justify-content: center;
+        justify-content: flex-start;
         transition: box-shadow 0.25s ease;
     }
+    #modalRastreoCredito .rastreo-ia-box .rastreo-card-header { border-top: none !important; }
+    #modalRastreoCredito .rastreo-ia-box .ia-boton-wrap .btn-ia-sec { font-size: 0.7rem; padding: 0.3rem 0.5rem; line-height: 1.2; }
     #modalRastreoCredito .rastreo-ia-box:hover {
         box-shadow: 0 14px 20px -3px rgba(0, 0, 0, 0.1), 0 6px 10px -2px rgba(0, 0, 0, 0.06) !important;
     }
@@ -110,12 +119,18 @@
     #modalRastreoCredito .btn-primary i, #modalRastreoCredito .btn-analizar-ia i { color: #fff !important; }
     #modalRastreoCredito .rastreo-header-right .text-success { color: var(--bs-success) !important; }
     #modalRastreoCredito .rastreo-analitica-bar { border-color: #E5E7EB; }
+    /* Scrim para modal Analítica IA: fondo oscuro detrás del modal, bloquea scroll body */
+    .scrim { position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 1000; }
+    #modalPrediccionIA.modal-analitica-ia .modal-dialog { position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%); z-index: 1080; max-height: 90vh; overflow: hidden; display: flex; flex-direction: column; }
+    #modalPrediccionIA.modal-analitica-ia .modal-content { max-height: 90vh; display: flex; flex-direction: column; }
+    #modalPrediccionIA.modal-analitica-ia .modal-body { overflow-y: auto; flex: 1 1 auto; min-height: 0; padding: 1rem 1.25rem; }
     #modalRastreoCredito .rastreo-card-header { border-bottom-color: #F3F4F6; }
     /* Títulos: mayúsculas pequeñas, negrita, más letter-spacing */
     #modalRastreoCredito .rastreo-seccion-direcciones > .d-flex.mb-2,
     #modalRastreoCredito .rastreo-seccion-gestiones > .d-flex.mb-2,
     #modalRastreoCredito .rastreo-seccion-evidencias > .d-flex.mb-2,
     #modalRastreoCredito .rastreo-seccion-bitacora > .d-flex.mb-2 { font-weight: 700; color: #374151; letter-spacing: 0.04em; text-transform: uppercase; font-size: 0.75rem; border-bottom: 1px solid #F3F4F6; padding-bottom: 0.5rem; margin-bottom: 0.75rem; line-height: 1.4; }
+    #modalRastreoCredito .rastreo-bitacora-titulo { border-bottom: 3px solid #334155 !important; padding-bottom: 0.5rem; margin-bottom: 0.5rem; }
     #modalRastreoCredito .rastreo-seccion-direcciones > .d-flex.mb-2 .fw-semibold.small.text-muted,
     #modalRastreoCredito .rastreo-seccion-gestiones > .d-flex.mb-2 .fw-semibold.small.text-muted,
     #modalRastreoCredito .rastreo-seccion-evidencias > .d-flex.mb-2 .fw-semibold.small.text-muted,
@@ -123,7 +138,8 @@
     #modalRastreoCredito .rastreo-ia-box .ia-title { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em; color: #374151; font-weight: 700; margin-bottom: 0.75rem; padding-bottom: 0.5rem; border-bottom: 1px solid #F3F4F6; line-height: 1.4; }
     #modalRastreoCredito .rastreo-ia-box .ia-desc { font-size: 0.9rem; color: #475569; margin-bottom: 0.5rem; line-height: 1.55; letter-spacing: 0.01em; flex: 1; min-height: 0; overflow: auto; }
     #modalRastreoCredito .rastreo-ia-box .ia-content { display: flex; flex-direction: column; flex: 1; min-height: 0; min-width: 0; }
-    #modalRastreoCredito .rastreo-ia-box .ia-boton-wrap { margin-top: auto; display: flex; justify-content: flex-end; padding-top: 0.5rem; }
+    #modalRastreoCredito .rastreo-ia-box .ia-boton-wrap { margin-top: auto; display: flex; justify-content: flex-end; align-items: center; flex-wrap: wrap; gap: 0.35rem; padding-top: 0.5rem; padding-bottom: 0.15rem; max-width: 100%; min-width: 0; flex-shrink: 0; overflow-x: auto; overflow-y: visible; min-height: 2rem; }
+    #modalRastreoCredito .rastreo-ia-box .ia-boton-wrap .btn { flex-shrink: 0; visibility: visible; }
     #modalRastreoCredito .rastreo-ia-box .btn-analizar-ia { background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%); border: none; color: #fff; padding: 0.6rem 1.25rem; border-radius: 10px; font-weight: 600; box-shadow: 0 4px 14px rgba(79, 70, 229, 0.4); transition: transform 0.15s ease, box-shadow 0.15s ease; }
     #modalRastreoCredito .rastreo-ia-box .btn-analizar-ia:hover { background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%); color: #fff; box-shadow: 0 6px 20px rgba(79, 70, 229, 0.5); transform: translateY(-1px); }
     #modalRastreoCredito #rastreoAnalizarIAContenido { font-size: 0.85rem; line-height: 1.6; overflow-y: auto; min-height: 0; margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px solid #e2e8f0; }
@@ -462,20 +478,20 @@
                                     <i class="fa-solid fa-brain"></i>
                                 </div>
                                 <div class="ia-content flex-grow-1">
-                                    <div class="ia-desc">Procesamos el expediente completo (bitácora, GPS y evidencias) para identificar patrones y predecir la ubicación del acreditado.</div>
+                                    <div class="ia-desc">Interpretación inteligente de datos analíticos para apoyar la toma de decisiones.</div>
                                     <div id="rastreoAnalizarIAContenido" class="small"></div>
                                     <div class="ia-boton-wrap d-flex align-items-center gap-2 flex-wrap">
                                         <button type="button" class="btn btn-analizar-ia btn-sm" id="btnAnalizarRastreo" title="Analizar ubicaciones, pagos y cumplimiento del gestor con IA">
                                             <i class="fa-solid fa-wand-magic-sparkles me-1"></i><span id="btnAnalizarRastreoText">Analizar</span>
                                         </button>
-                                        <button type="button" class="btn btn-sm btn-outline-secondary" id="btnLecturaIAAnalizar" title="Ver último análisis guardado" style="display: none;">
+                                        <button type="button" class="btn btn-sm btn-outline-secondary btn-ia-sec" id="btnLecturaIAAnalizar" title="Ver último análisis guardado" style="display: none;">
                                             <i class="fa-solid fa-book-open me-1"></i>Lectura de IA
                                         </button>
-                                        <button type="button" class="btn btn-sm btn-outline-danger" id="btnBorrarIAAnalizar" title="Borrar último análisis" style="display: none;">
+                                        <button type="button" class="btn btn-sm btn-outline-danger btn-ia-sec" id="btnBorrarIAAnalizar" title="Borrar último análisis" style="display: none;">
                                             <i class="fa-solid fa-trash-can me-1"></i>Borrar
                                         </button>
-                                        <button type="button" class="btn btn-sm btn-outline-success" id="btnEvidenciaVerificacion" title="Ver datos reales del sistema para contrastar con la IA">
-                                            <i class="fa-solid fa-circle-check me-1"></i>Datos verificados
+                                        <button type="button" class="btn btn-sm btn-outline-primary btn-ia-sec" id="btnResumenAnaliticaIA" title="Ver resumen analítico por reglas (cómo localizar al acreditado)" style="display: none;">
+                                            <i class="fa-solid fa-chart-line me-1"></i>Resumen analítico
                                         </button>
                                     </div>
                                 </div>
@@ -516,7 +532,7 @@
                     </div>
                     <div class="rastreo-col-bitacora-wrap">
                         <div class="rastreo-seccion-bitacora p-3 h-100 d-flex flex-column">
-                            <div class="d-flex align-items-center gap-2 mb-2">
+                            <div class="d-flex align-items-center gap-2 mb-2 rastreo-bitacora-titulo">
                                 <i class="fa-solid fa-comments text-primary"></i>
                                 <span class="fw-semibold small text-muted">Bitácora</span>
                             </div>
@@ -584,12 +600,12 @@
         <div class="modal-content">
             <div class="modal-header py-3 border-bottom bg-primary text-white d-flex align-items-center">
                 <h5 class="modal-title mb-0" id="modalPrediccionIALabel" style="color: #ffffff !important;">
-                    <i class="fa-solid fa-wand-magic-sparkles me-2"></i>Predicción IA – Cómo localizar al acreditado
+                    <i class="fa-solid fa-chart-line me-2"></i>Analítica – Resumen
                 </h5>
                 <button type="button" class="btn-close btn-close-white btn-close-sm ms-auto" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
-            <div class="modal-body py-4" id="modalPrediccionIABody" style="line-height: 1.7; max-height: 75vh; overflow-y: auto;">
-                <p class="text-muted mb-0">Se analizará toda la información del crédito para generar una predicción detallada de ubicación y ruta sugerida.</p>
+            <div class="modal-body py-4" id="modalPrediccionIABody" style="line-height: 1.6;">
+                <p class="text-muted mb-0">Se calcularán las métricas del crédito (ubicación, pagos, gestión) por reglas determinísticas. No se usa IA en este análisis.</p>
             </div>
             <div class="modal-footer py-2 border-top">
                 <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cerrar</button>
@@ -730,19 +746,52 @@
         var childModal = ev.target;
         parentModal = document.getElementById('modalRastreoCredito');
         if (!parentModal || !parentModal.classList.contains('show')) return;
-        parentModal.classList.add('modal-below-scrim');
-        var el = getOrCreateScrim();
-        if (el.parentNode) {
-            el.parentNode.removeChild(el);
+        // Resumen analítico: no inyectar scrim y poner modal + su backdrop por encima del padre
+        var isResumenAnalitica = (childModal.id === 'modalPrediccionIA' && childModal.classList.contains('modal-analitica-ia'));
+        if (!isResumenAnalitica) {
+            parentModal.classList.add('modal-below-scrim');
+            var el = getOrCreateScrim();
+            if (el.parentNode) {
+                el.parentNode.removeChild(el);
+            }
+            if (childModal.parentNode === document.body) {
+                document.body.insertBefore(el, childModal);
+            } else {
+                document.body.appendChild(el);
+            }
+        } else {
+            parentModal.classList.add('modal-below-scrim');
+            // Resumen analítico: ocultar el backdrop del segundo modal para que no tape el contenido
+            requestAnimationFrame(function() {
+                var backdrops = document.querySelectorAll('.modal-backdrop');
+                if (backdrops.length > 1) {
+                    var segundoBackdrop = backdrops[backdrops.length - 1];
+                    segundoBackdrop.style.setProperty('z-index', '1040', 'important');
+                    segundoBackdrop.style.setProperty('pointer-events', 'none', 'important');
+                }
+                childModal.style.setProperty('z-index', '1090', 'important');
+                var dialog = childModal.querySelector('.modal-dialog');
+                if (dialog) dialog.style.setProperty('z-index', '1090', 'important');
+            });
         }
-        document.body.insertBefore(el, childModal);
         childModal.classList.add('modal-nested-open');
         childModal.style.setProperty('z-index', '1070', 'important');
+        document.body.style.overflow = 'hidden';
     }
     function onChildModalHidden(ev) {
         var modal = ev.target;
         modal.classList.remove('modal-nested-open');
         modal.style.removeProperty('z-index');
+        var dialog = modal.querySelector('.modal-dialog');
+        if (dialog) dialog.style.removeProperty('z-index');
+        if (modal.id === 'modalPrediccionIA') {
+            var backdrops = document.querySelectorAll('.modal-backdrop');
+            if (backdrops.length > 1) {
+                var segundo = backdrops[backdrops.length - 1];
+                segundo.style.removeProperty('pointer-events');
+                segundo.style.removeProperty('z-index');
+            }
+        }
         var anyChildOpen = CHILD_MODALS.some(function(id) {
             var m = document.getElementById(id);
             return m && m.classList.contains('show');
@@ -750,6 +799,7 @@
         if (!anyChildOpen) {
             if (parentModal) parentModal.classList.remove('modal-below-scrim');
             if (scrimEl && scrimEl.parentNode) scrimEl.parentNode.removeChild(scrimEl);
+            document.body.style.overflow = '';
         }
     }
     function onParentModalHidden() {
@@ -773,5 +823,45 @@
     } else {
         bindModals();
     }
+})();
+(function runWhenJQuery() {
+    if (typeof window.$ === 'undefined') {
+        setTimeout(runWhenJQuery, 50);
+        return;
+    }
+    $(document).ready(function() {
+        $('#modalRastreoCredito').on('shown.bs.modal', function() {
+            var id = typeof idCreditoRastreoActual !== 'undefined' ? idCreditoRastreoActual : null;
+            var btn = $('#btnResumenAnaliticaIA');
+            if (id) { btn.show(); } else { btn.hide(); }
+        }).on('hidden.bs.modal', function() { $('#btnResumenAnaliticaIA').hide(); });
+
+        $('#btnResumenAnaliticaIA').on('click', function() {
+            var id = typeof idCreditoRastreoActual !== 'undefined' ? idCreditoRastreoActual : null;
+            if (!id) return;
+            var $body = $('#modalPrediccionIABody');
+            var $label = $('#modalPrediccionIALabel');
+            $label.html('<i class="fa-solid fa-chart-line me-2"></i>Resumen analítico – Cómo localizar al acreditado');
+            $body.html('<p class="text-muted mb-0"><span class="spinner-border spinner-border-sm me-2"></span>Cargando resumen...</p>');
+            $('#modalPrediccionIA').addClass('modal-analitica-ia').modal('show');
+            http.request({
+                endpoint: '/sabueso/resumenAnaliticaHTML?id_credito=' + id,
+                metodo: 'GET',
+                timeout: 30000,
+                showLoader: false,
+                onSuccess: function(r) {
+                    if (!r.success) {
+                        $body.html('<p class="text-danger mb-0">' + ((r.mensaje || 'Error') + '').replace(/</g, '&lt;') + '</p>');
+                        return;
+                    }
+                    $body.html(r.html || '');
+                },
+                onError: function(e) {
+                    var msg = (typeof e === 'string' ? e : (e && e.mensaje)) || 'No se pudo cargar el resumen.';
+                    $body.html('<p class="text-danger mb-0">' + String(msg).replace(/</g, '&lt;') + '</p>');
+                }
+            });
+        });
+    });
 })();
 </script>

@@ -45,8 +45,11 @@ class AnaliticaInterpretarService
             }
         }
 
-        $fallback = $this->buildFallbackDesdeReglas($features, $reglas, $worstGestor);
+        $fallback = $this->buildFallbackDesdeReglas($features, $reglas, $worstGestor, $gestiones);
         if ($llmFn === null) {
+            $fallback['metricas_verificadas'] = $this->extraerMetricasVerificadas($features);
+            $fallback['missing_data'] = $this->detectarDatosFaltantes($features);
+            $fallback = $this->reevaluacionGlobalCoherencia($fallback);
             return ['success' => true, 'data' => $fallback, 'cache_hit' => false];
         }
 
@@ -74,12 +77,10 @@ class AnaliticaInterpretarService
             $data = $this->corregirContradicciones($data, $features, $worstGestor);
         }
         $data = $this->asegurarSchemaCompleto($data, $features, $worstGestor);
+        $data['gestores_detalle'] = $this->listarTodosGestoresConCumplimiento($gestiones);
         $data['metricas_verificadas'] = $this->extraerMetricasVerificadas($features);
         $data['missing_data'] = $this->detectarDatosFaltantes($features);
-        $data['overall_confidence'] = $this->ajustarConfianzaPorDatosFaltantes(
-            (float) ($data['overall_confidence'] ?? 0.5),
-            $data['missing_data']
-        );
+        $data = $this->reevaluacionGlobalCoherencia($data);
 
         if ($cacheKey && $data) {
             $this->cacheSet($cacheKey, $data);
@@ -97,6 +98,153 @@ class AnaliticaInterpretarService
     /**
      * Detecta el gestor con mayor incumplimiento: más visitas lejanas o mayor distancia promedio (> 1 km).
      */
+    /**
+     * REGLA DE BLOQUEO: Si CUALQUIER sección está CRÍTICA, confianza general NO puede ser > 80%.
+     * Si Gestión está CRÍTICA (cumplimiento < 30%), confianza debe estar entre 65% y 75%.
+     */
+    private function aplicarReglaConfianzaGlobal(array $data): float
+    {
+        $conf = (float) ($data['overall_confidence'] ?? 0.5);
+        $flags = $data['status_flags'] ?? [];
+        $gestion = strtolower((string) ($flags['gestion'] ?? ''));
+        $cliente = strtolower((string) ($flags['cliente'] ?? ''));
+        $pagos = strtolower((string) ($flags['pagos'] ?? ''));
+
+        $hayCritico = ($gestion === 'critico' || $cliente === 'critico' || $pagos === 'critico');
+        if ($hayCritico && $conf > 0.80) {
+            $conf = 0.80;
+        }
+        if ($gestion === 'critico') {
+            $conf = max(0.65, min(0.75, $conf));
+        }
+        return round($conf, 2);
+    }
+
+    /**
+     * REGLA FINAL DE COHERENCIA GLOBAL (OBLIGATORIA).
+     * Reevaluación global: bloquear confianza y endurecer lenguaje si Gestión CRÍTICA o hay anomalías.
+     * LOS DATOS MANDAN. ENDURECER > SUAVIZAR.
+     */
+    private function reevaluacionGlobalCoherencia(array $data): array
+    {
+        $flags = $data['status_flags'] ?? [];
+        $gestion = strtolower((string) ($flags['gestion'] ?? ''));
+        $anomalias = $data['anomalies_detected'] ?? [];
+        $hayRiesgo = ($gestion === 'critico' || (is_array($anomalias) && count($anomalias) > 0));
+
+        if ($hayRiesgo) {
+            $data = $this->aplicarBloqueoLenguajeOptimista($data);
+        }
+
+        $data['overall_confidence'] = $this->aplicarReglaConfianzaGlobal($data);
+        $data['overall_confidence'] = $this->ajustarConfianzaPorDatosFaltantes(
+            (float) $data['overall_confidence'],
+            $data['missing_data'] ?? []
+        );
+        return $data;
+    }
+
+    /**
+     * BLOQUEO DE LENGUAJE OPTIMISTA: si Gestión CRÍTICA o anomalía operativa,
+     * reemplazar términos prohibidos por lenguaje de advertencia/riesgo.
+     */
+    private function aplicarBloqueoLenguajeOptimista(array $data): array
+    {
+        $prohibidos = ['estabilidad', 'alta voluntad', 'excelente', 'muy positivo', 'ejemplar', 'sólido historial', 'comportamiento ejemplar'];
+        $reemplazos = [
+            'estabilidad' => 'situación actual',
+            'alta voluntad' => 'disposición de pago',
+            'excelente' => 'adecuado',
+            'muy positivo' => 'positivo con observaciones',
+            'ejemplar' => 'regular',
+            'sólido historial' => 'historial de pagos',
+            'comportamiento ejemplar' => 'comportamiento según datos',
+        ];
+
+        $endurecer = function (string $texto) use ($prohibidos, $reemplazos): string {
+            $t = $texto;
+            foreach ($reemplazos as $prohibido => $sustituto) {
+                $t = preg_replace('/\b' . preg_quote($prohibido, '/') . '\b/iu', $sustituto, $t);
+            }
+            return $t;
+        };
+
+        $findings = &$data['key_findings'];
+        if (isset($findings['cliente']['summary'])) {
+            $findings['cliente']['summary'] = $endurecer((string) $findings['cliente']['summary']);
+        }
+        if (isset($findings['gestion']['summary'])) {
+            $findings['gestion']['summary'] = $endurecer((string) $findings['gestion']['summary']);
+        }
+        if (isset($findings['pagos']['summary'])) {
+            $findings['pagos']['summary'] = $endurecer((string) $findings['pagos']['summary']);
+        }
+
+        $acciones = &$data['recommended_actions'];
+        if (is_array($acciones)) {
+            foreach ($acciones as $i => $a) {
+                if (isset($a['justificacion']) && (string) $a['justificacion'] !== '') {
+                    $acciones[$i]['justificacion'] = $endurecer((string) $a['justificacion']);
+                }
+            }
+        }
+
+        return $data;
+    }
+
+    /**
+     * Lista TODOS los gestores con: nombre, total_visitas, visitas_fuera_rango, distancia_promedio_km, cumplimiento_pct, clasificacion.
+     * Clasificación: <30% CRÍTICO, 30-60% DEFICIENTE, >60% ACEPTABLE.
+     */
+    private function listarTodosGestoresConCumplimiento(array $gestiones): array
+    {
+        $raw = $gestiones['raw_detalles'] ?? [];
+        if (!is_array($raw) || empty($raw)) {
+            return [];
+        }
+        $porGestor = [];
+        foreach ($raw as $d) {
+            $nombre = trim((string) ($d['gestor_nombre'] ?? $d['gestor_id'] ?? '—'));
+            if ($nombre === '' || $nombre === '—') {
+                continue;
+            }
+            if (!isset($porGestor[$nombre])) {
+                $porGestor[$nombre] = ['visitas_lejanas' => 0, 'distancia_sum_m' => 0, 'total' => 0];
+            }
+            $cerca = $d['cerca'] ?? false;
+            $distancia_m = isset($d['distancia_m']) ? (float) $d['distancia_m'] : null;
+            $porGestor[$nombre]['total']++;
+            if (!$cerca) {
+                $porGestor[$nombre]['visitas_lejanas']++;
+            }
+            if ($distancia_m !== null) {
+                $porGestor[$nombre]['distancia_sum_m'] += $distancia_m;
+            }
+        }
+        $out = [];
+        foreach ($porGestor as $nombre => $stats) {
+            $total = $stats['total'];
+            $visitasLejanas = $stats['visitas_lejanas'];
+            $distanciaPromedioKm = $total > 0 && $stats['distancia_sum_m'] > 0
+                ? round($stats['distancia_sum_m'] / 1000.0 / $total, 2)
+                : 0.0;
+            $cumplimientoPct = $total > 0 ? round(($total - $visitasLejanas) / $total * 100, 1) : 0;
+            $clasificacion = $cumplimientoPct < 30 ? 'critico' : ($cumplimientoPct <= 60 ? 'deficiente' : 'aceptable');
+            $out[] = [
+                'nombre' => $nombre,
+                'total_visitas' => $total,
+                'visitas_fuera_rango' => $visitasLejanas,
+                'distancia_promedio_km' => $distanciaPromedioKm,
+                'cumplimiento_pct' => $cumplimientoPct,
+                'clasificacion' => $clasificacion,
+            ];
+        }
+        usort($out, function ($a, $b) {
+            return ($a['cumplimiento_pct'] <=> $b['cumplimiento_pct']);
+        });
+        return $out;
+    }
+
     private function detectarWorstGestor(array $gestiones): ?array
     {
         $raw = $gestiones['raw_detalles'] ?? [];
@@ -284,7 +432,7 @@ class AnaliticaInterpretarService
         return $reglas;
     }
 
-    private function buildFallbackDesdeReglas(array $features, array $reglas, ?array $worstGestor): array
+    private function buildFallbackDesdeReglas(array $features, array $reglas, ?array $worstGestor, array $gestiones = []): array
     {
         $cumplimiento = $features['cumplimiento_promedio'];
         $statusGestion = ($cumplimiento !== null && $cumplimiento < self::UMBRAL_CUMPLIMIENTO_CRITICO) ? 'critico' : ($cumplimiento !== null && $cumplimiento >= 70 ? 'positivo' : 'neutral');
@@ -306,8 +454,9 @@ class AnaliticaInterpretarService
             'worst_gestor' => $worstGestor,
         ];
 
-        return [
-            'overall_confidence' => ($confianzaCliente + $confianzaGestion + $confianzaPagos) / 3,
+        $overallRaw = ($confianzaCliente + $confianzaGestion + $confianzaPagos) / 3;
+        $dataFallback = [
+            'overall_confidence' => $overallRaw,
             'status_flags' => [
                 'cliente' => $statusCliente,
                 'gestion' => $statusGestion,
@@ -332,7 +481,10 @@ class AnaliticaInterpretarService
                 ],
             ] : [],
             'recommended_actions' => $this->generarAccionesDesdeReglas($features, $reglas, $worstGestor),
+            'gestores_detalle' => $this->listarTodosGestoresConCumplimiento($gestiones),
         ];
+        $dataFallback['overall_confidence'] = $this->aplicarReglaConfianzaGlobal($dataFallback);
+        return $dataFallback;
     }
 
     private function generarAccionesDesdeReglas(array $features, array $reglas, ?array $worstGestor): array
@@ -372,34 +524,36 @@ class AnaliticaInterpretarService
     private function getSystemPromptAntiAlucinacion(): string
     {
         return <<<PROMPT
-Eres un analista de riesgo. Recibes métricas ya calculadas (cumplimiento de gestor, pagos, ubicación).
-DEBES responder ÚNICAMENTE con un objeto JSON válido, sin markdown ni texto alrededor.
+Eres un analista de riesgo. Recibes métricas ya calculadas. La IA NO genera texto libre: debes devolver ÚNICAMENTE datos estructurados (estados, porcentajes, flags). Responde solo con un objeto JSON válido, sin markdown ni texto alrededor.
 
-REGLAS OBLIGATORIAS (anti-alucinación):
-- Si cumplimiento_gestor < 30% → status_flags.gestion DEBE ser "critico". NO puedes poner "positivo" ni "neutral" en ese caso.
-- El worst_gestor (si se proporciona en los datos) ya está calculado; NO inventes otro. Usa los números proporcionados.
-- NO inventes porcentajes ni calificativos no soportados por los datos.
-- Toda conclusión debe poder justificarse con los números entregados.
-- Si hay contradicción entre un número y un texto, el número gana y debes corregir el texto.
+CONFIANZA GENERAL (REGLA DE BLOQUEO):
+- Si CUALQUIER sección está en estado "critico", overall_confidence NO puede ser > 0.80.
+- Si status_flags.gestion es "critico" (cumplimiento < 30%), overall_confidence debe estar entre 0.65 y 0.75.
+- La confianza general NO es un promedio; es evaluación de riesgo global.
+
+JERARQUÍA: Gestión > Pagos > Cliente. Gestión CRÍTICA invalida estados "excelente" en otras secciones.
+
+REGLAS OBLIGATORIAS:
+- Si cumplimiento_gestor < 30% → status_flags.gestion DEBE ser "critico". NO "positivo" ni "neutral".
+- worst_gestor (si se proporciona) ya está calculado; NO inventes otro. Usa los números proporcionados.
+- NO inventes porcentajes. Máximo 1-2 frases por summary. Lenguaje sobrio. Señalar riesgos cuando existan. PROHIBIDO suavizar conclusiones críticas.
+- Cliente: si hay varias ubicaciones y >5 visitas fuera de domicilio, estado NO puede ser "positivo" sin observación; usar "neutral" o "positivo con observación".
+- Pagos: si patrón irregular, PROHIBIDO usar "estabilidad", "excelente", "muy positivo"; máximo "positivo moderado" o "neutral alto".
 
 Schema JSON estricto (responde solo con esto):
 {
-  "overall_confidence": número 0..1,
-  "status_flags": {
-    "cliente": "positivo|neutral|riesgo",
-    "gestion": "positivo|neutral|critico",
-    "pagos": "positivo|neutral|riesgo"
-  },
+  "overall_confidence": número 0..1 (respetar regla de bloqueo arriba),
+  "status_flags": { "cliente": "positivo|neutral|riesgo", "gestion": "positivo|neutral|critico", "pagos": "positivo|neutral|riesgo" },
   "key_findings": {
     "cliente": { "summary": "string corto", "confidence": 0..1 },
     "gestion": { "summary": "string corto", "confidence": 0..1, "worst_gestor": null o { "nombre", "motivo", "distancia_promedio_km", "visitas_lejanas" } },
     "pagos": { "summary": "string corto", "confidence": 0..1 }
   },
-  "anomalies_detected": [ { "tipo": "gestor_lejano_recurrente|patron_raro|contradiccion", "descripcion": "string corto", "evidencia": "referencia" } ],
+  "anomalies_detected": [ { "tipo": "string", "descripcion": "string corto", "evidencia": "string" } ],
   "recommended_actions": [ { "accion": "string", "prioridad": "alta|media|baja", "justificacion": "string corto" } ]
 }
 
-Máximo 2 frases por summary. Sin exageraciones. Idioma: español.
+Idioma: español. Los datos mandan; la IA ayuda, no decide.
 PROMPT;
     }
 

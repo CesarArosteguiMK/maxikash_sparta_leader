@@ -52,12 +52,19 @@ SQL;
         $legacy = self::getGestionesLegacy($credito);
         $sky    = self::getAllGestionesSkyLogic($credito, $nombre);
 
+        if (!is_array($legacy)) {
+            $legacy = [];
+        }
+        if (!is_array($sky)) {
+            $sky = [];
+        }
+
         // LEGACY primero, luego SKY
         $resultado = array_merge($legacy, $sky);
 
-        // ordenar por fecha_dispositivo DESC
+        // Ordenar por fecha_dispositivo DESC
         usort($resultado, function ($a, $b) {
-            return strtotime($b['fecha_dispositivo']) <=> strtotime($a['fecha_dispositivo']);
+            return strtotime($b['fecha_dispositivo'] ?? 0) <=> strtotime($a['fecha_dispositivo'] ?? 0);
         });
 
         return $resultado;
@@ -314,6 +321,8 @@ SQL;
                 'timestamp' => $ts,
                 'id' => (string) $eventId,
                 'usuario_asignado' => trim((string) ($g['usuario_asignado'] ?? '')),
+                'codigo_gestor' => trim((string) ($g['codigo_gestor'] ?? '')),
+                'usuario' => trim((string) ($g['usuario'] ?? '')),
             ];
         }
         return $eventos;

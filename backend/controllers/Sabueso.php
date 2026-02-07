@@ -84,8 +84,8 @@ SCRIPT;
         var rastreoUltimoAnalizarIA = '';
         var rastreoTicketInfoBase = '';
 SCRIPT;
-        $script .= "\n\n        function attrEsc(s){ if (s==null||s===undefined) return ''; var x=(s+'').split('&').join('&amp;').split('<').join('&lt;'); return x.split('\"').join('&quot;'); }\n        $(document).ready(function() {\n            configuraTabla(\"#tablaTicketsPanel\", {\n                registrosPorPagina: 10,\n                columns: " . $columnsJson['columnsJs'] . "\n            });\n            getTicketsPanelAdmin();\n        });\n\n        function getTicketsPanelAdmin() {\n            http.request({\n                endpoint: \"/sabueso/getTicketsPanelAdmin\",\n                metodo: \"POST\",\n                onSuccess: function(resp) {\n                    var datos = (resp.datos || []).map(function(t) {\n                        var fechaCreacion = t.fecha_creacion ? new Date(t.fecha_creacion).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—';\n                        var fechaVenc = t.fecha_vencimiento ? new Date(t.fecha_vencimiento).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—';\n                        var prioridadNombre = (t.prioridad_nombre || '').toLowerCase();\n                        var prioridadBadge = '<span class=\"badge bg-label-secondary\">' + (t.prioridad_nombre || '—') + '</span>';\n                        if (prioridadNombre.indexOf('alta') !== -1) prioridadBadge = '<span class=\"badge bg-danger text-white\">' + (t.prioridad_nombre || '—') + '</span>';\n                        else if (prioridadNombre.indexOf('medio') !== -1 || prioridadNombre.indexOf('media') !== -1) prioridadBadge = '<span class=\"badge\" style=\"background-color:#fd7e14;color:#fff;\">' + (t.prioridad_nombre || '—') + '</span>';\n                        else if (prioridadNombre.indexOf('bajo') !== -1 || prioridadNombre.indexOf('baja') !== -1) prioridadBadge = '<span class=\"badge\" style=\"background-color:#ffc107;color:#212529;\">' + (t.prioridad_nombre || '—') + '</span>';\n                        else if (prioridadNombre.indexOf('sin prioridad') !== -1) prioridadBadge = '<span class=\"badge bg-secondary\" style=\"background-color:#6c757d!important;color:#fff;\">' + (t.prioridad_nombre || '—') + '</span>';\n                        var estadoBadge = (t.asignado_nombre && (t.asignado_nombre + '').trim()) ? '<span class=\"badge bg-success text-white\">Asignado</span>' : '<span class=\"badge bg-label-secondary\">Abierto</span>';\n                        var row = {\n                            folio_tipo: '<div class=\"fw-semibold\">' + (t.folio || '—') + '</div><div class=\"small text-muted mt-1\">' + (t.tipo_ticket_nombre || '—') + '</div>',\n                            estado: estadoBadge,\n                            prioridad: prioridadBadge,\n                            credito: '<small>#' + (t.id_credito != null ? t.id_credito : '—') + '</small>',\n                            fechas: '<div class=\"small d-flex align-items-center gap-1\"><i class=\"fa fa-calendar-plus-o text-muted\" style=\"width: 1rem;\"></i><span>Creación: ' + fechaCreacion + '</span></div><div class=\"small text-muted d-flex align-items-center gap-1 mt-1\"><i class=\"fa fa-calendar-times-o\" style=\"width: 1rem;\"></i><span>Vencimiento: ' + fechaVenc + '</span></div>',\n                            creador: '<small class=\"d-flex align-items-center gap-1\"><i class=\"fa fa-user\"></i>' + (t.creador_nombre || '—') + '</small>',\n                            asignado: (t.asignado_nombre && t.asignado_nombre.trim()) ? '<small class=\"d-flex align-items-center gap-1\"><i class=\"fa fa-user-check text-success\"></i>' + t.asignado_nombre + '</small>' : '<span class=\"text-muted\">—</span>',\n                            acciones: '<div class=\"d-flex flex-wrap gap-1 align-items-center\"><button class=\"btn btn-sm btn-primary btn-rastreo\" onclick=\"abrirRastreo(this)\" data-id-credito=\"' + (t.id_credito != null ? t.id_credito : 0) + '\" data-id-ticket=\"' + (t.id_ticket) + '\" data-asignado=\"' + attrEsc(t.asignado_nombre) + '\" data-creador-nombre=\"' + attrEsc(t.creador_nombre) + '\" data-fecha-creacion=\"' + attrEsc(t.fecha_creacion) + '\" title=\"Iniciar rastreo\"><i class=\"fa-solid fa-magnifying-glass-plus\"></i></button><button class=\"btn btn-sm btn-warning text-dark\" onclick=\"cerrarTicketPanel(' + (t.id_ticket) + ')\" title=\"Cerrar\"><i class=\"fa fa-times-circle\"></i></button><button class=\"btn btn-sm btn-danger\" onclick=\"eliminarTicketPanel(' + (t.id_ticket) + ')\" title=\"Eliminar\"><i class=\"fa fa-trash\"></i></button></div>'\n                        };\n                        return row;\n                    });\n                    var tabla = $('#tablaTicketsPanel').DataTable();\n                    tabla.clear().rows.add(datos).draw();\n                },\n                onError: function() {\n                    var tabla = $('#tablaTicketsPanel').DataTable();\n                    tabla.clear().draw();\n                }\n            });\n        }\n        function abrirRastreo(btn) {\n            var idCredito = parseInt(btn.getAttribute('data-id-credito')||0, 10);\n            var idTicket = parseInt(btn.getAttribute('data-id-ticket')||0, 10);\n            var asignadoNombre = (btn.getAttribute('data-asignado')||'').trim();\n            var creadorNombre = (btn.getAttribute('data-creador-nombre')||'').trim();\n            var fechaCreacionRaw = (btn.getAttribute('data-fecha-creacion')||'').trim();\n            var fechaCreacionDisplay = fechaCreacionRaw ? (new Date(fechaCreacionRaw).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' }) + ' ' + new Date(fechaCreacionRaw).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })) : '—';\n            ticketIdRastreoActual = idTicket || null;\n            if (!idCredito || isNaN(idCredito)) { Swal.fire({ icon: 'warning', title: 'Rastreo', text: 'No hay ID de crédito para este ticket.' }); return; }\n            http.request({\n                endpoint: \"/sabueso/getDatosCredito\",\n                metodo: \"POST\",\n                data: JSON.stringify({ id_credito: idCredito }),\n                contentType: \"application/json\",\n                processData: false,\n                showLoader: true,\n                onSuccess: function(resp) {\n                    var d = resp.datos || null;\n                    if (!d) { var msg = (resp.mensaje || 'No se encontraron datos para este crédito.'); $('#rastreoTopLeft').html('<div class=\"alert alert-warning mb-0\"><strong>Crédito #' + idCredito + '</strong><br>' + msg + '<br><small>El crédito debe existir en Segundometro u Oferta para ver el rastreo.</small></div>'); $('#rastreoTopRight').html(''); $('#rastreoTickets').html(''); $('#rastreoDireccionesContenido').html(''); idCreditoRastreoActual = idCredito; $('#modalRastreoCredito').modal('show'); return; }\n                    var esc = function(s) { var x = (s + '').split('&').join('&amp;').split('<').join('&lt;').split('>').join('&gt;'); return x.split(String.fromCharCode(34)).join('&quot;'); };\n                    var idCred = (d.id_credito || d.Id_credito || '—');\n                    var nombreCompleto = esc(d.Nombre_cliente || d.nombre_completo || '—');\n                    var tel = (d.telefono_referencia1 || d.telefono_referencia2 || '').trim();\n                    var telEsc = tel ? esc(tel) : '—';\n                    var dirMegareporte = (d.Domicilio_Completo && (d.Domicilio_Completo + '').trim()) ? esc(d.Domicilio_Completo) : '—';
-                    rastreoTicketInfoBase = '<div class=\"rastreo-ticket-info-col\"><span class=\"text-muted small d-block\">Quién levantó el ticket</span><div class=\"fw-medium\">' + (creadorNombre ? esc(creadorNombre) : '—') + '</div><span class=\"text-muted small d-block mt-1\">Cuando se levantó</span><div class=\"fw-medium\">' + fechaCreacionDisplay + '</div><span class=\"text-muted small d-block mt-1\">Asignado a</span><div id=\"rastreoAsignadoBlock\" class=\"fw-medium\"><span class=\"text-muted\">Cargando...</span></div></div>';\n                    var htmlTicketInfo = rastreoTicketInfoBase;\n                    var htmlTopLeft = '<div><span class=\"text-muted small d-block\">ID crédito</span><div class=\"fw-semibold\">' + idCred + '</div></div><div><span class=\"text-muted small d-block\">Nombre completo</span><div class=\"fw-semibold\">' + nombreCompleto + '</div></div><div><span class=\"text-muted small d-block\">Teléfono cliente</span><div class=\"fw-semibold\">' + telEsc + '</div></div><div><span class=\"text-muted small d-block\">Dirección megareporte</span><div class=\"fw-semibold small\">' + dirMegareporte + '</div></div>';\n                    var dirContenido = (d.Domicilio_Completo && (d.Domicilio_Completo + '').trim()) ? esc(d.Domicilio_Completo) : '<span class=\"text-muted\">No hay direcciones registradas</span>';\n                    var tickets = d.tickets || [];\n                    var ticketActual = tickets.filter(function(tk) { return tk.id_ticket == ticketIdRastreoActual; })[0];\n                    var htmlTickets = '';\n                    if (ticketActual) {\n                        var fCreacion = ticketActual.fecha_creacion ? new Date(ticketActual.fecha_creacion).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—';\n                        var fVenc = ticketActual.fecha_vencimiento ? new Date(ticketActual.fecha_vencimiento).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—';\n                        htmlTickets = '<div class=\"small bg-light rounded p-2 mb-2\"><strong>' + esc(ticketActual.folio || '—') + '</strong> · ' + esc(ticketActual.tipo_nombre || '') + ' · ' + esc(ticketActual.estado_nombre || '') + '<br><span class=\"text-muted small\">Descripción:</span> ' + esc(ticketActual.descripcion_inicial || '—') + '<br>Creación: ' + fCreacion + ' · Venc: ' + fVenc + '</div>';\n                    } else { htmlTickets = '<span class=\"text-muted small\">Ticket actual (sin detalle adicional).</span>'; }\n                    $('#rastreoTopLeft').html(htmlTopLeft); $('#rastreoTopRight').html(htmlTicketInfo);\n                    loadHistorialAsignacionTicket(ticketIdRastreoActual);\n                    $('#rastreoTickets').html(htmlTickets);\n                    $('#rastreoDireccionesContenido').html('<span class=\"text-muted\">Cargando direcciones...</span>');\n                    rastreoDireccionesParaMapa = [];\n                    $('#btnAsignarRastreo').html('<i class=\"fa-solid fa-user-plus me-1\"></i>Asignar...');\n                    idCreditoRastreoActual = idCredito;\n                    rastreoDatosClienteActual = { nombre: (d.Nombre_cliente || d.nombre_completo || '—'), credito: idCred, telefono: (tel || '—'), direccion: (d.Domicilio_Completo || '—') };\n                    var kA = \"sabueso_ia_\" + idCredito + \"_\" + (idTicket || 0) + \"_analizar\"; var kU = \"sabueso_ia_\" + idCredito + \"_ubicaciones\"; var kG = \"sabueso_ia_\" + idCredito + \"_gestiones\";\n                    try { if (typeof localStorage !== \"undefined\") { rastreoUltimoAnalizarIA = localStorage.getItem(kA) || \"\"; rastreoUltimoResumenUbicaciones = localStorage.getItem(kU) || \"\"; rastreoUltimoResumenGestiones = localStorage.getItem(kG) || \"\"; } else { rastreoUltimoAnalizarIA = \"\"; rastreoUltimoResumenUbicaciones = \"\"; rastreoUltimoResumenGestiones = \"\"; } } catch (e) { rastreoUltimoAnalizarIA = \"\"; rastreoUltimoResumenUbicaciones = \"\"; rastreoUltimoResumenGestiones = \"\"; }\n                    if (rastreoUltimoAnalizarIA) { \$(\"#btnLecturaIAAnalizar\").show(); \$(\"#btnBorrarIAAnalizar\").show(); } else { \$(\"#btnLecturaIAAnalizar\").hide(); \$(\"#btnBorrarIAAnalizar\").hide(); }\n                    if (rastreoUltimoResumenUbicaciones) { \$(\"#btnLecturaIAUbicaciones\").show(); \$(\"#btnBorrarIAUbicaciones\").show(); } else { \$(\"#btnLecturaIAUbicaciones\").hide(); \$(\"#btnBorrarIAUbicaciones\").hide(); }\n                    if (rastreoUltimoResumenGestiones) { \$(\"#btnLecturaIAGestiones\").show(); \$(\"#btnBorrarIAGestiones\").show(); } else { \$(\"#btnLecturaIAGestiones\").hide(); \$(\"#btnBorrarIAGestiones\").hide(); }\n                    \$(\"#modalRastreoCredito\").modal(\"show\");\n                },\n                onError: function(err) {\n                    var errMsg = (typeof err === 'string' ? err : (err && err.mensaje)) || 'No se pudieron cargar los datos del crédito.';\n                    Swal.fire({ icon: 'error', title: 'Rastreo', text: errMsg });\n                }\n            });\n        }\n        function tooltipHistorialAsignacion(estado, historial) {\n            if (estado === 'primera_asignacion') return 'Es la primera asignación de este ticket.';\n            var lineas = ['Historial de asignación (este ticket)'];\n            (historial || []).forEach(function(h) { lineas.push('• ' + (h.persona || '—')); lineas.push('  ' + (h.desde || '—') + ' → ' + (h.hasta || '—') + ' (' + (h.duracion_humana || '—') + ')'); });\n            if (estado === 'sin_asignar') lineas.push('Actualmente sin persona asignada a este ticket.');\n            return lineas.join('\\n');\n        }\n        function loadHistorialAsignacionTicket(idTicket) {\n            if (!idTicket) return;\n            http.request({ endpoint: '/sabueso/getHistorialAsignacionTicket', metodo: 'POST', data: JSON.stringify({ id_ticket: idTicket }), contentType: 'application/json', processData: false, onSuccess: function(r) {\n                var asignado = r.asignado_actual || null;\n                var estado = r.estado || 'primera_asignacion';\n                var historial = r.historial || [];\n                var tooltipTxt = tooltipHistorialAsignacion(estado, historial);\n                var tooltipEsc = (tooltipTxt + '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/\"/g, '&quot;');\n                var tooltipAttr = tooltipEsc.replace(/\\n/g, '<br>');\n                var html = asignado ? ('<i class=\"fa-solid fa-user-check text-success me-1\"></i>' + (asignado.replace(/&/g, '&amp;').replace(/</g, '&lt;')) + ' <i class=\"fa-solid fa-circle-info ms-1\" role=\"img\" aria-label=\"Historial\" data-bs-toggle=\"tooltip\" data-bs-html=\"true\" data-bs-title=\"' + tooltipAttr + '\"></i>') : ('<span class=\"text-muted\">Sin asignar</span> <i class=\"fa-solid fa-circle-info ms-1\" role=\"img\" aria-label=\"Historial\" data-bs-toggle=\"tooltip\" data-bs-html=\"true\" data-bs-title=\"' + tooltipAttr + '\"></i>');\n                var bloque = $('#rastreoAsignadoBlock');\n                if (bloque.length) bloque.html(html);\n                if (asignado) { if (!$('#rastreoAsignadoBlock').next('.btn').length) $('#rastreoAsignadoBlock').after('<button type=\"button\" class=\"btn btn-sm btn-outline-danger mt-1\" onclick=\"quitarAsignacionRastreo()\" title=\"Quitar asignación\">Quitar asignación</button>'); } else { $('#rastreoAsignadoBlock').next('.btn').remove(); }\n                $('#btnAsignarRastreo').html(asignado ? '<i class=\"fa-solid fa-user-pen me-1\"></i>Reasignar a...' : '<i class=\"fa-solid fa-user-plus me-1\"></i>Asignar...');\n                if (typeof $().tooltip === 'function') { $('#rastreoAsignadoBlock [data-bs-toggle=\"tooltip\"]').tooltip(); }\n            } });\n        }\n        function mostrarAsignarOpciones() {\n            if (!ticketIdRastreoActual) { Swal.fire({ icon: 'warning', title: 'Asignar', text: 'No hay ticket seleccionado.' }); return; }\n            Swal.fire({ title: 'Asignar ticket', text: '¿A quién desea asignar este ticket?', icon: 'question', showDenyButton: true, showCancelButton: true, confirmButtonText: 'Tomar asignación', denyButtonText: 'Asignar a...', cancelButtonText: 'Cancelar' }).then(function(res) {\n                if (res.isConfirmed) asignarTicketA(miUsuarioId);\n                else if (res.isDenied) abrirModalAsignarA();\n            });\n        }\n        function asignarTicketA(idPersona) {\n            if (!ticketIdRastreoActual || !idPersona) return;\n            http.request({ endpoint: \"/sabueso/asignarTicket\", metodo: \"POST\", data: JSON.stringify({ id_ticket: ticketIdRastreoActual, id_persona: idPersona }), contentType: \"application/json\", processData: false, onSuccess: function(r) {\n                Swal.fire({ icon: 'success', title: 'Asignado', text: r.mensaje || 'Ticket asignado.' });\n                $('#modalRastreoCredito, #modalAsignarA').modal('hide');\n                ticketIdRastreoActual = null;\n                getTicketsPanelAdmin();\n            }, onError: function(e) { Swal.fire({ icon: 'error', title: 'Error', text: (e && e.mensaje) || 'No se pudo asignar.' }); } });\n        }\n        function quitarAsignacionRastreo() {\n            if (!ticketIdRastreoActual) return;\n            if (typeof Swal !== 'undefined') {\n                Swal.fire({ title: '¿Quitar asignación?', text: 'El ticket quedará sin persona asignada.', icon: 'question', showCancelButton: true, confirmButtonColor: '#d33', cancelButtonColor: '#6c757d', confirmButtonText: 'Sí, quitar' }).then(function(res) {\n                    if (!res.isConfirmed) return;\n                    http.request({ endpoint: '/sabueso/quitarAsignacionTicket', metodo: 'POST', data: JSON.stringify({ id_ticket: ticketIdRastreoActual }), contentType: 'application/json', processData: false, onSuccess: function(r) {\n                        if (r.success) { Swal.fire({ icon: 'success', title: 'Listo', text: r.mensaje || 'Asignación quitada.' }); if (ticketIdRastreoActual) loadHistorialAsignacionTicket(ticketIdRastreoActual); getTicketsPanelAdmin(); } else { if (typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: 'Error', text: r.mensaje || 'No se pudo quitar.' }); }\n                    }, onError: function(e) { if (typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: 'Error', text: (e && e.mensaje) || 'No se pudo quitar.' }); } });\n                });\n            } else {\n                http.request({ endpoint: '/sabueso/quitarAsignacionTicket', metodo: 'POST', data: JSON.stringify({ id_ticket: ticketIdRastreoActual }), contentType: 'application/json', processData: false, onSuccess: function(r) { if (r.success) { if (idCreditoRastreoActual) loadHistorialAsignacion(idCreditoRastreoActual); getTicketsPanelAdmin(); } } });\n            }\n        }\n        function abrirModalAsignarA() {\n            http.request({ endpoint: \"/sabueso/getPersonasSabueso\", metodo: \"POST\", onSuccess: function(resp) {\n                var list = resp.datos || [];\n                var html = list.length ? list.map(function(p) { return '<div class=\"d-flex justify-content-between align-items-center py-2 border-bottom\"><span>' + (p.nombre_completo || p.id) + '</span><button type=\"button\" class=\"btn btn-sm btn-primary\" onclick=\"asignarTicketA(' + p.id + ')\">Asignárselo</button></div>'; }).join('') : '<p class=\"text-muted mb-0\">No hay personas en el departamento Sabueso.</p>';\n                $('#modalAsignarABody').html(html);\n                $('#modalRastreoCredito').modal('hide');\n                $('#modalAsignarA').modal('show');\n            }, onError: function() { Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudo cargar la lista.' }); } });\n        }\n        function cerrarTicketPanel(idTicket) {\n            if (!idTicket) return;\n            Swal.fire({ title: '¿Cerrar ticket?', text: 'El ticket se registrará como cerrado y dejará de mostrarse en la lista activa.', icon: 'question', showCancelButton: true, confirmButtonColor: '#fd7e14', cancelButtonColor: '#6c757d', confirmButtonText: 'Sí, cerrar' }).then(function(res) {\n                if (!res.isConfirmed) return;\n                http.request({\n                    endpoint: \"/sabueso/cerrarTicket\",\n                    metodo: \"POST\",\n                    data: JSON.stringify({ id_ticket: idTicket }),\n                    contentType: \"application/json\",\n                    processData: false,\n                    onSuccess: function(resp) {\n                        Swal.fire({ icon: 'success', title: 'Cerrado', text: resp.mensaje || 'Ticket cerrado.' });\n                        getTicketsPanelAdmin();\n                    },\n                    onError: function(err) {\n                        Swal.fire({ icon: 'error', title: 'Error', text: (err && err.mensaje) || 'No se pudo cerrar.' });\n                    }\n                });\n            });\n        }\n        function eliminarTicketPanel(idTicket) {\n            if (!idTicket) return;\n            Swal.fire({ title: '¿Eliminar ticket?', text: 'Esta acción no se puede deshacer.', icon: 'warning', showCancelButton: true, confirmButtonColor: '#d33', cancelButtonColor: '#6c757d', confirmButtonText: 'Sí, eliminar' }).then(function(res) {\n                if (!res.isConfirmed) return;\n                http.request({\n                    endpoint: \"/sabueso/eliminarTicket\",\n                    metodo: \"POST\",\n                    data: JSON.stringify({ id_ticket: idTicket }),\n                    contentType: \"application/json\",\n                    processData: false,\n                    onSuccess: function(resp) {\n                        Swal.fire({ icon: 'success', title: 'Eliminado', text: resp.mensaje || 'Ticket eliminado.' });\n                        getTicketsPanelAdmin();\n                    },\n                    onError: function(err) {\n                        Swal.fire({ icon: 'error', title: 'Error', text: (err && err.mensaje) || 'No se pudo eliminar.' });\n                    }\n                });\n            });\n        }\n        </script>";
+        $script .= "\n\n        function attrEsc(s){ if (s==null||s===undefined) return ''; var x=(s+'').split('&').join('&amp;').split('<').join('&lt;'); return x.split('\"').join('&quot;'); }\n        $(document).ready(function() {\n            configuraTabla(\"#tablaTicketsPanel\", {\n                registrosPorPagina: 10,\n                columns: " . $columnsJson['columnsJs'] . "\n            });\n            getTicketsPanelAdmin();\n        });\n\n        function getTicketsPanelAdmin() {\n            http.request({\n                endpoint: \"/sabueso/getTicketsPanelAdmin\",\n                metodo: \"POST\",\n                onSuccess: function(resp) {\n                    var datos = (resp.datos || []).map(function(t) {\n                        var fechaCreacion = t.fecha_creacion ? new Date(t.fecha_creacion).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—';\n                        var fechaVenc = t.fecha_vencimiento ? new Date(t.fecha_vencimiento).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—';\n                        var prioridadNombre = (t.prioridad_nombre || '').toLowerCase();\n                        var prioridadBadge = '<span class=\"badge bg-label-secondary\">' + (t.prioridad_nombre || '—') + '</span>';\n                        if (prioridadNombre.indexOf('alta') !== -1) prioridadBadge = '<span class=\"badge bg-danger text-white\">' + (t.prioridad_nombre || '—') + '</span>';\n                        else if (prioridadNombre.indexOf('medio') !== -1 || prioridadNombre.indexOf('media') !== -1) prioridadBadge = '<span class=\"badge\" style=\"background-color:#fd7e14;color:#fff;\">' + (t.prioridad_nombre || '—') + '</span>';\n                        else if (prioridadNombre.indexOf('bajo') !== -1 || prioridadNombre.indexOf('baja') !== -1) prioridadBadge = '<span class=\"badge\" style=\"background-color:#ffc107;color:#212529;\">' + (t.prioridad_nombre || '—') + '</span>';\n                        else if (prioridadNombre.indexOf('sin prioridad') !== -1) prioridadBadge = '<span class=\"badge bg-secondary\" style=\"background-color:#6c757d!important;color:#fff;\">' + (t.prioridad_nombre || '—') + '</span>';\n                        var estadoBadge = (t.asignado_nombre && (t.asignado_nombre + '').trim()) ? '<span class=\"badge bg-success text-white\">Asignado</span>' : '<span class=\"badge bg-label-secondary\">Abierto</span>';\n                        var row = {\n                            folio_tipo: '<div class=\"fw-semibold\">' + (t.folio || '—') + '</div><div class=\"small text-muted mt-1\">' + (t.tipo_ticket_nombre || '—') + '</div>',\n                            estado: estadoBadge,\n                            prioridad: prioridadBadge,\n                            credito: '<small>#' + (t.id_credito != null ? t.id_credito : '—') + '</small>',\n                            fechas: '<div class=\"small d-flex align-items-center gap-1\"><i class=\"fa fa-calendar-plus-o text-muted\" style=\"width: 1rem;\"></i><span>Creación: ' + fechaCreacion + '</span></div><div class=\"small text-muted d-flex align-items-center gap-1 mt-1\"><i class=\"fa fa-calendar-times-o\" style=\"width: 1rem;\"></i><span>Vencimiento: ' + fechaVenc + '</span></div>',\n                            creador: '<small class=\"d-flex align-items-center gap-1\"><i class=\"fa fa-user\"></i>' + (t.creador_nombre || '—') + '</small>',\n                            asignado: (t.asignado_nombre && t.asignado_nombre.trim()) ? '<small class=\"d-flex align-items-center gap-1\"><i class=\"fa fa-user-check text-success\"></i>' + t.asignado_nombre + '</small>' : '<span class=\"text-muted\">—</span>',\n                            acciones: '<div class=\"d-flex flex-wrap gap-1 align-items-center\"><button class=\"btn btn-sm btn-primary btn-rastreo\" onclick=\"abrirRastreo(this)\" data-id-credito=\"' + (t.id_credito != null ? t.id_credito : 0) + '\" data-id-ticket=\"' + (t.id_ticket) + '\" data-asignado=\"' + attrEsc(t.asignado_nombre) + '\" data-creador-nombre=\"' + attrEsc(t.creador_nombre) + '\" data-fecha-creacion=\"' + attrEsc(t.fecha_creacion) + '\" title=\"Iniciar rastreo\"><i class=\"fa-solid fa-magnifying-glass-plus\"></i></button><button class=\"btn btn-sm btn-secondary\" onclick=\"cerrarTicketPanel(' + (t.id_ticket) + ')\" title=\"Cerrar ticket\"><i class=\"fa fa-minus\"></i></button><button class=\"btn btn-sm btn-danger\" onclick=\"eliminarTicketPanel(' + (t.id_ticket) + ')\" title=\"Eliminar ticket\"><i class=\"fa fa-trash\"></i></button></div>'\n                        };\n                        return row;\n                    });\n                    var tabla = $('#tablaTicketsPanel').DataTable();\n                    tabla.clear().rows.add(datos).draw();\n                },\n                onError: function() {\n                    var tabla = $('#tablaTicketsPanel').DataTable();\n                    tabla.clear().draw();\n                }\n            });\n        }\n        function abrirRastreo(btn) {\n            var idCredito = parseInt(btn.getAttribute('data-id-credito')||0, 10);\n            var idTicket = parseInt(btn.getAttribute('data-id-ticket')||0, 10);\n            var asignadoNombre = (btn.getAttribute('data-asignado')||'').trim();\n            var creadorNombre = (btn.getAttribute('data-creador-nombre')||'').trim();\n            var fechaCreacionRaw = (btn.getAttribute('data-fecha-creacion')||'').trim();\n            var fechaCreacionDisplay = fechaCreacionRaw ? (new Date(fechaCreacionRaw).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' }) + ' ' + new Date(fechaCreacionRaw).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })) : '—';\n            ticketIdRastreoActual = idTicket || null;\n            if (!idCredito || isNaN(idCredito)) { Swal.fire({ icon: 'warning', title: 'Rastreo', text: 'No hay ID de crédito para este ticket.' }); return; }\n            http.request({\n                endpoint: \"/sabueso/getDatosCredito\",\n                metodo: \"POST\",\n                data: JSON.stringify({ id_credito: idCredito }),\n                contentType: \"application/json\",\n                processData: false,\n                showLoader: true,\n                onSuccess: function(resp) {\n                    var d = resp.datos || null;\n                    if (!d) { var msg = (resp.mensaje || 'No se encontraron datos para este crédito.'); $('#rastreoTopLeft').html('<div class=\"alert alert-warning mb-0\"><strong>Crédito #' + idCredito + '</strong><br>' + msg + '<br><small>El crédito debe existir en Segundometro u Oferta para ver el rastreo.</small></div>'); $('#rastreoTopRight').html(''); $('#rastreoTickets').html(''); $('#rastreoDireccionesContenido').html(''); idCreditoRastreoActual = idCredito; $('#modalRastreoCredito').modal('show'); return; }\n                    var esc = function(s) { var x = (s + '').split('&').join('&amp;').split('<').join('&lt;').split('>').join('&gt;'); return x.split(String.fromCharCode(34)).join('&quot;'); };\n                    var idCred = (d.id_credito || d.Id_credito || '—');\n                    var nombreCompleto = esc(d.Nombre_cliente || d.nombre_completo || '—');\n                    var tel = (d.telefono_referencia1 || d.telefono_referencia2 || '').trim();\n                    var telEsc = tel ? esc(tel) : '—';\n                    var dirMegareporte = (d.Domicilio_Completo && (d.Domicilio_Completo + '').trim()) ? esc(d.Domicilio_Completo) : '—';
+                    rastreoTicketInfoBase = '<div class=\"rastreo-ticket-info-col\"><span class=\"text-muted small d-block\">Quién levantó el ticket</span><div class=\"fw-medium\">' + (creadorNombre ? esc(creadorNombre) : '—') + '</div><span class=\"text-muted small d-block mt-1\">Cuando se levantó</span><div class=\"fw-medium\">' + fechaCreacionDisplay + '</div><span class=\"text-muted small d-block mt-1\">Asignado a</span><div id=\"rastreoAsignadoBlock\" class=\"fw-medium\"><span class=\"text-muted\">Cargando...</span></div></div>';\n                    var htmlTicketInfo = rastreoTicketInfoBase;\n                    var htmlTopLeft = '<div><span class=\"text-muted small d-block\">ID crédito</span><div class=\"fw-semibold\">' + idCred + '</div></div><div><span class=\"text-muted small d-block\">Nombre completo</span><div class=\"fw-semibold\">' + nombreCompleto + '</div></div><div><span class=\"text-muted small d-block\">Teléfono cliente</span><div class=\"fw-semibold\">' + telEsc + '</div></div><div><span class=\"text-muted small d-block\">Dirección megareporte</span><div class=\"fw-semibold small\">' + dirMegareporte + '</div></div>';\n                    var dirContenido = (d.Domicilio_Completo && (d.Domicilio_Completo + '').trim()) ? esc(d.Domicilio_Completo) : '<span class=\"text-muted\">No hay direcciones registradas</span>';\n                    var tickets = d.tickets || [];\n                    var ticketActual = tickets.filter(function(tk) { return tk.id_ticket == ticketIdRastreoActual; })[0];\n                    var htmlTickets = '';\n                    if (ticketActual) {\n                        var fCreacion = ticketActual.fecha_creacion ? new Date(ticketActual.fecha_creacion).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—';\n                        var fVenc = ticketActual.fecha_vencimiento ? new Date(ticketActual.fecha_vencimiento).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—';\n                        htmlTickets = '<div class=\"small bg-light rounded p-2 mb-2\"><strong>' + esc(ticketActual.folio || '—') + '</strong> · ' + esc(ticketActual.tipo_nombre || '') + ' · ' + esc(ticketActual.estado_nombre || '') + '<br><span class=\"text-muted small\">Descripción:</span> ' + esc(ticketActual.descripcion_inicial || '—') + '<br>Creación: ' + fCreacion + ' · Venc: ' + fVenc + '</div>';\n                    } else { htmlTickets = '<span class=\"text-muted small\">Ticket actual (sin detalle adicional).</span>'; }\n                    $('#rastreoTopLeft').html(htmlTopLeft); $('#rastreoTopRight').html(htmlTicketInfo);\n                    loadHistorialAsignacionTicket(ticketIdRastreoActual);\n                    $('#rastreoTickets').html(htmlTickets);\n                    $('#rastreoDireccionesContenido').html('<span class=\"text-muted\">Cargando direcciones...</span>');\n                    rastreoDireccionesParaMapa = [];\n                    $('#btnAsignarRastreo').html('<i class=\"fa-solid fa-user-plus me-1\"></i>Asignar...');\n                    idCreditoRastreoActual = idCredito;\n                    rastreoDatosClienteActual = { nombre: (d.Nombre_cliente || d.nombre_completo || '—'), credito: idCred, telefono: (tel || '—'), direccion: (d.Domicilio_Completo || '—') };\n                    var kA = \"sabueso_ia_\" + idCredito + \"_\" + (idTicket || 0) + \"_analizar\"; var kU = \"sabueso_ia_\" + idCredito + \"_ubicaciones\"; var kG = \"sabueso_ia_\" + idCredito + \"_gestiones\";\n                    try { if (typeof localStorage !== \"undefined\") { rastreoUltimoAnalizarIA = localStorage.getItem(kA) || \"\"; rastreoUltimoResumenUbicaciones = localStorage.getItem(kU) || \"\"; rastreoUltimoResumenGestiones = localStorage.getItem(kG) || \"\"; } else { rastreoUltimoAnalizarIA = \"\"; rastreoUltimoResumenUbicaciones = \"\"; rastreoUltimoResumenGestiones = \"\"; } } catch (e) { rastreoUltimoAnalizarIA = \"\"; rastreoUltimoResumenUbicaciones = \"\"; rastreoUltimoResumenGestiones = \"\"; }\n                    if (rastreoUltimoAnalizarIA) { \$(\"#btnLecturaIAAnalizar\").show(); \$(\"#btnBorrarIAAnalizar\").show(); } else { \$(\"#btnLecturaIAAnalizar\").hide(); \$(\"#btnBorrarIAAnalizar\").hide(); }\n                    if (rastreoUltimoResumenUbicaciones) { \$(\"#btnLecturaIAUbicaciones\").show(); \$(\"#btnBorrarIAUbicaciones\").show(); } else { \$(\"#btnLecturaIAUbicaciones\").hide(); \$(\"#btnBorrarIAUbicaciones\").hide(); }\n                    if (rastreoUltimoResumenGestiones) { \$(\"#btnLecturaIAGestiones\").show(); \$(\"#btnBorrarIAGestiones\").show(); } else { \$(\"#btnLecturaIAGestiones\").hide(); \$(\"#btnBorrarIAGestiones\").hide(); }\n                    \$(\"#modalRastreoCredito\").modal(\"show\");\n                },\n                onError: function(err) {\n                    var errMsg = (typeof err === 'string' ? err : (err && err.mensaje)) || 'No se pudieron cargar los datos del crédito.';\n                    Swal.fire({ icon: 'error', title: 'Rastreo', text: errMsg });\n                }\n            });\n        }\n        function tooltipHistorialAsignacion(estado, historial) {\n            if (estado === 'primera_asignacion') return 'Es la primera asignación de este ticket.';\n            var lineas = ['Historial de asignación (este ticket)'];\n            (historial || []).forEach(function(h) { lineas.push('• ' + (h.persona || '—') + ': ' + (h.duracion_humana || '—')); });\n            if (estado === 'sin_asignar') lineas.push('Actualmente sin persona asignada a este ticket.');\n            return lineas.join('\\n');\n        }\n        function loadHistorialAsignacionTicket(idTicket) {\n            if (!idTicket) return;\n            http.request({ endpoint: '/sabueso/getHistorialAsignacionTicket', metodo: 'POST', data: JSON.stringify({ id_ticket: idTicket }), contentType: 'application/json', processData: false, onSuccess: function(r) {\n                var asignado = r.asignado_actual || null;\n                var estado = r.estado || 'primera_asignacion';\n                var historial = r.historial || [];\n                var tooltipTxt = tooltipHistorialAsignacion(estado, historial);\n                var tooltipEsc = (tooltipTxt + '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/\"/g, '&quot;');\n                var tooltipAttr = tooltipEsc.replace(/\\n/g, '<br>');\n                var html = asignado ? ('<i class=\"fa-solid fa-user-check text-success me-1\"></i>' + (asignado.replace(/&/g, '&amp;').replace(/</g, '&lt;')) + ' <i class=\"fa-solid fa-circle-info ms-1\" role=\"img\" aria-label=\"Historial\" data-bs-toggle=\"tooltip\" data-bs-html=\"true\" data-bs-title=\"' + tooltipAttr + '\"></i>') : ('<span class=\"text-muted\">Sin asignar</span> <i class=\"fa-solid fa-circle-info ms-1\" role=\"img\" aria-label=\"Historial\" data-bs-toggle=\"tooltip\" data-bs-html=\"true\" data-bs-title=\"' + tooltipAttr + '\"></i>');\n                var bloque = $('#rastreoAsignadoBlock');\n                if (bloque.length) bloque.html(html);\n                if (asignado) { if (!$('#rastreoAsignadoBlock').next('.btn').length) $('#rastreoAsignadoBlock').after('<button type=\"button\" class=\"btn btn-sm btn-outline-danger mt-1\" onclick=\"quitarAsignacionRastreo()\" title=\"Quitar asignación\">Quitar asignación</button>'); } else { $('#rastreoAsignadoBlock').next('.btn').remove(); }\n                $('#btnAsignarRastreo').html(asignado ? '<i class=\"fa-solid fa-user-pen me-1\"></i>Reasignar a...' : '<i class=\"fa-solid fa-user-plus me-1\"></i>Asignar...');\n                if (typeof $().tooltip === 'function') { $('#rastreoAsignadoBlock [data-bs-toggle=\"tooltip\"]').tooltip(); }\n            } });\n        }\n        function mostrarAsignarOpciones() {\n            if (!ticketIdRastreoActual) { Swal.fire({ icon: 'warning', title: 'Asignar', text: 'No hay ticket seleccionado.' }); return; }\n            Swal.fire({ title: 'Asignar ticket', text: '¿A quién desea asignar este ticket?', icon: 'question', showDenyButton: true, showCancelButton: true, confirmButtonText: 'Tomar asignación', denyButtonText: 'Asignar a...', cancelButtonText: 'Cancelar' }).then(function(res) {\n                if (res.isConfirmed) asignarTicketA(miUsuarioId);\n                else if (res.isDenied) abrirModalAsignarA();\n            });\n        }\n        function asignarTicketA(idPersona) {\n            if (!ticketIdRastreoActual || !idPersona) return;\n            http.request({ endpoint: \"/sabueso/asignarTicket\", metodo: \"POST\", data: JSON.stringify({ id_ticket: ticketIdRastreoActual, id_persona: idPersona }), contentType: \"application/json\", processData: false, onSuccess: function(r) {\n                Swal.fire({ icon: 'success', title: 'Asignado', text: r.mensaje || 'Ticket asignado.' });\n                $('#modalRastreoCredito, #modalAsignarA').modal('hide');\n                ticketIdRastreoActual = null;\n                getTicketsPanelAdmin();\n            }, onError: function(e) { Swal.fire({ icon: 'error', title: 'Error', text: (e && e.mensaje) || 'No se pudo asignar.' }); } });\n        }\n        function quitarAsignacionRastreo() {\n            if (!ticketIdRastreoActual) return;\n            if (typeof Swal !== 'undefined') {\n                Swal.fire({ title: '¿Quitar asignación?', text: 'El ticket quedará sin persona asignada.', icon: 'question', showCancelButton: true, confirmButtonColor: '#d33', cancelButtonColor: '#6c757d', confirmButtonText: 'Sí, quitar' }).then(function(res) {\n                    if (!res.isConfirmed) return;\n                    http.request({ endpoint: '/sabueso/quitarAsignacionTicket', metodo: 'POST', data: JSON.stringify({ id_ticket: ticketIdRastreoActual }), contentType: 'application/json', processData: false, onSuccess: function(r) {\n                        if (r.success) { Swal.fire({ icon: 'success', title: 'Listo', text: r.mensaje || 'Asignación quitada.' }); if (ticketIdRastreoActual) loadHistorialAsignacionTicket(ticketIdRastreoActual); getTicketsPanelAdmin(); } else { if (typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: 'Error', text: r.mensaje || 'No se pudo quitar.' }); }\n                    }, onError: function(e) { if (typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: 'Error', text: (e && e.mensaje) || 'No se pudo quitar.' }); } });\n                });\n            } else {\n                http.request({ endpoint: '/sabueso/quitarAsignacionTicket', metodo: 'POST', data: JSON.stringify({ id_ticket: ticketIdRastreoActual }), contentType: 'application/json', processData: false, onSuccess: function(r) { if (r.success) { if (idCreditoRastreoActual) loadHistorialAsignacion(idCreditoRastreoActual); getTicketsPanelAdmin(); } } });\n            }\n        }\n        function abrirModalAsignarA() {\n            http.request({ endpoint: \"/sabueso/getPersonasSabueso\", metodo: \"POST\", onSuccess: function(resp) {\n                var list = resp.datos || [];\n                var html = list.length ? list.map(function(p) { return '<div class=\"d-flex justify-content-between align-items-center py-2 border-bottom\"><span>' + (p.nombre_completo || p.id) + '</span><button type=\"button\" class=\"btn btn-sm btn-primary\" onclick=\"asignarTicketA(' + p.id + ')\">Asignárselo</button></div>'; }).join('') : '<p class=\"text-muted mb-0\">No hay personas en el departamento Sabueso.</p>';\n                $('#modalAsignarABody').html(html);\n                $('#modalRastreoCredito').modal('hide');\n                $('#modalAsignarA').modal('show');\n            }, onError: function() { Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudo cargar la lista.' }); } });\n        }\n        function cerrarTicketPanel(idTicket) {\n            if (!idTicket) return;\n            Swal.fire({ title: '¿Cerrar ticket?', text: 'El ticket se registrará como cerrado y dejará de mostrarse en la lista activa.', icon: 'question', showCancelButton: true, confirmButtonColor: '#fd7e14', cancelButtonColor: '#6c757d', confirmButtonText: 'Sí, cerrar' }).then(function(res) {\n                if (!res.isConfirmed) return;\n                http.request({\n                    endpoint: \"/sabueso/cerrarTicket\",\n                    metodo: \"POST\",\n                    data: JSON.stringify({ id_ticket: idTicket }),\n                    contentType: \"application/json\",\n                    processData: false,\n                    onSuccess: function(resp) {\n                        Swal.fire({ icon: 'success', title: 'Cerrado', text: resp.mensaje || 'Ticket cerrado.' });\n                        getTicketsPanelAdmin();\n                    },\n                    onError: function(err) {\n                        Swal.fire({ icon: 'error', title: 'Error', text: (err && err.mensaje) || 'No se pudo cerrar.' });\n                    }\n                });\n            });\n        }\n        function eliminarTicketPanel(idTicket) {\n            if (!idTicket) return;\n            Swal.fire({ title: '¿Eliminar ticket?', text: 'Esta acción no se puede deshacer.', icon: 'warning', showCancelButton: true, confirmButtonColor: '#d33', cancelButtonColor: '#6c757d', confirmButtonText: 'Sí, eliminar' }).then(function(res) {\n                if (!res.isConfirmed) return;\n                http.request({\n                    endpoint: \"/sabueso/eliminarTicket\",\n                    metodo: \"POST\",\n                    data: JSON.stringify({ id_ticket: idTicket }),\n                    contentType: \"application/json\",\n                    processData: false,\n                    onSuccess: function(resp) {\n                        Swal.fire({ icon: 'success', title: 'Eliminado', text: resp.mensaje || 'Ticket eliminado.' });\n                        getTicketsPanelAdmin();\n                    },\n                    onError: function(err) {\n                        Swal.fire({ icon: 'error', title: 'Error', text: (err && err.mensaje) || 'No se pudo eliminar.' });\n                    }\n                });\n            });\n        }\n";
         $evidenciasScript = 'var miUsuarioId = ' . (int)$usuarioId . '; var miPersonaId = ' . (int)$personaId . '; var miUsuarioNombre = ' . json_encode($usuarioNombre ?? '', JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . ';
         var evidenciasRastreoActual = []; var evidenciaModalSlot = null; var evidenciaModalId = null; var evidenciaPreviewObjectUrl = null;
         function formatGeminiText(text) {
@@ -124,7 +124,7 @@ SCRIPT;
             if (!idCreditoRastreoActual) { $(\'#rastreoGestionesContenido\').html(\'<span class="text-muted">Seleccione un crédito.</span>\'); return; }
             http.request({ endpoint: "/sabueso/getGestionesCredito", metodo: "POST", data: JSON.stringify({ id_credito: idCreditoRastreoActual }), contentType: "application/json", processData: false, onSuccess: function(r) {
                 var list = (r.datos || []);
-                function esc(s) { if (s==null||s===undefined) return \'\'; return (s+\'\').replace(/&/g, \'&amp;\').replace(/</g, \'&lt;\').replace(/>/g, \'&gt;\').replace(/"/g, \'&quot;\'); }
+                function esc(s) { if (s==null||s===undefined) return \'\'; return (s+\'\').replace(/&/g, \'&amp;\').replace(/</g, \'&lt;\').replace(/>/g, \'&gt;\').replace(/\x22/g, \'&quot;\'); }
                 function v(s) { var x = (s==null||s===undefined||s===\'\') ? \'—\' : s; return esc(x); }
                 var html = \'\';
                 list.forEach(function(g) {
@@ -155,7 +155,7 @@ SCRIPT;
             for (i = lista.length - 1; i >= 0; i--) {
                 e = lista[i];
                 if (e && e.url) {
-                    comAttr = (e.comentario || \'\').replace(/&/g, \'&amp;\').replace(/"/g, \'&quot;\').replace(/</g, \'&lt;\').replace(/[\r\n]+/g, \' \');
+                    comAttr = (e.comentario || \'\').replace(/&/g, \'&amp;\').replace(/\x22/g, \'&quot;\').replace(/</g, \'&lt;\').replace(/[\r\n]+/g, \' \');
                     html += \'<div class="col-6"><div class="evidencia-slot" data-slot="\' + (lista.length - i) + \'" data-id="\' + (e.id || \'\') + \'" data-comentario="\' + comAttr + \'" title="Clic para ver o eliminar"><img src="\' + (e.url || \'\') + \'" alt="Evidencia"></div></div>\';
                 }
             }
@@ -249,7 +249,9 @@ SCRIPT;
             try {
                 if (L.Icon && L.Icon.Default) L.Icon.Default.imagePath = \'/assets/vendor/libs/leaflet/images/\';
                 rastreoMapaLeaflet = L.map(\'rastreoMapaLeaflet\', { center: [19.43, -99.13], zoom: 10 });
-                L.tileLayer(\'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png\', { attribution: \'&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>\', subdomains: \'abcd\', maxZoom: 20 }).addTo(rastreoMapaLeaflet);
+                var isDarkRastreo = document.body && document.body.classList.contains(\'dark-mode\');
+                var tileUrlRastreo = isDarkRastreo ? \'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png\' : \'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png\';
+                L.tileLayer(tileUrlRastreo, { attribution: \'&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>\', subdomains: \'abcd\', maxZoom: 20 }).addTo(rastreoMapaLeaflet);
                 var zoomDireccion = 16;
                 var estiloDireccionPrincipal = { color: \'#dc2626\', fillColor: \'#ef4444\', fillOpacity: 0.7, weight: 3, radius: 14 };
                 if (addressesOrPuntos && addressesOrPuntos.length) {
@@ -290,6 +292,7 @@ SCRIPT;
                         });
                     }
                 }
+                setTimeout(function() { if (rastreoMapaLeaflet && typeof rastreoMapaLeaflet.invalidateSize === \'function\') rastreoMapaLeaflet.invalidateSize(); }, 150);
             } catch (e) { rastreoMapaLeaflet = null; }
         }
         function initMapaRastreoGrande(addressesOrPuntos) {
@@ -357,7 +360,9 @@ SCRIPT;
             try {
                 if (L.Icon && L.Icon.Default) L.Icon.Default.imagePath = \'/assets/vendor/libs/leaflet/images/\';
                 rastreoMapaGrande = L.map(\'rastreoMapaGrandeContenedor\', { center: [19.43, -99.13], zoom: 10 });
-                L.tileLayer(\'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png\', { attribution: \'&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>\', subdomains: \'abcd\', maxZoom: 20 }).addTo(rastreoMapaGrande);
+                var isDarkGrande = document.body && document.body.classList.contains(\'dark-mode\');
+                var tileUrlGrande = isDarkGrande ? \'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png\' : \'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png\';
+                L.tileLayer(tileUrlGrande, { attribution: \'&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>\', subdomains: \'abcd\', maxZoom: 20 }).addTo(rastreoMapaGrande);
                 var zoomDireccion = 16;
                 var estiloDireccionPrincipal = { color: \'#dc2626\', fillColor: \'#ef4444\', fillOpacity: 0.7, weight: 3, radius: 14 };
                 if (addressesOrPuntos && addressesOrPuntos.length) {
@@ -422,7 +427,7 @@ SCRIPT;
                             var badgeCls = d.punto_de_interes ? \'badge bg-primary\' : \'badge bg-secondary\';
                             var badgeVisitas = \'<span class="\' + badgeCls + \' ms-1">\' + visitas + \' visitas</span>\';
                             var etiqueta = (d.texto || \'\').trim() || \'Ubicación\';
-                            return \'<div class="small mb-2 d-flex align-items-start gap-1"><span class="text-muted">📍 Ubicación \' + d.orden + \':</span> <span class="direccion-linea">\' + etiqueta + \' — <span class="direccion-value" data-lat="\' + d.lat + \'" data-lng="\' + d.lng + \'">Obteniendo dirección...</span></span> \' + badgeVisitas + \'</div>\';
+                            return \'<div class="rastreo-direccion-item small mb-2"><span class="rastreo-direccion-label text-muted">📍 Ubicación \' + d.orden + \':</span><span class="direccion-linea">\' + etiqueta + \' — <span class="direccion-value" data-lat="\' + d.lat + \'" data-lng="\' + d.lng + \'">Obteniendo dirección...</span></span> \' + badgeVisitas + \'</div>\';
                         }).join(\'\');
                         $(\'#rastreoDireccionesContenido\').html(html);
                         (function throttleReverseGeocode() {
@@ -495,179 +500,73 @@ SCRIPT;
                     $(\'#rastreoBitacoraInput\').val(\'\'); cargarChatRastreo();
                 }, onError: function(e) { Swal.fire({ icon: \'error\', title: \'Error\', text: (e && e.mensaje) || \'No se pudo enviar.\' }); } });
             });
+        });
+';
+        $script .= '
             $(\'#btnAnalizarRastreo\').on(\'click\', function() {
                 var btn = $(\'#btnAnalizarRastreo\'); var txt = $(\'#btnAnalizarRastreoText\');
                 if (btn.prop(\'disabled\')) return;
-                if (!idCreditoRastreoActual) { Swal.fire({ icon: \'warning\', title: \'Analizar IA\', text: \'No hay crédito seleccionado.\' }); return; }
+                if (!idCreditoRastreoActual) { Swal.fire({ icon: \'warning\', title: \'Analizar\', text: \'No hay crédito seleccionado.\' }); return; }
                 txt.text(\'Analizando...\'); btn.prop(\'disabled\', true);
-                $(\'#rastreoAnalizarIAContenido\').html(\'<p class="text-muted mb-0"><span class="spinner-border spinner-border-sm me-2"></span>Analizando con IA...</p>\').show();
-                $(\'#modalPrediccionIABody\').html(\'<p class="text-muted mb-0"><span class="spinner-border spinner-border-sm me-2"></span>Generando predicción...</p>\');
-                http.request({ endpoint: \'/api/analitica/interpretar?idCredito=\' + idCreditoRastreoActual + \'&idTicket=\' + (ticketIdRastreoActual || 0), metodo: \'GET\', timeout: 90000, onSuccess: function(r) {
-                    if (r.success && r.data) { r.json = r.data; r.texto = r.data.one_line_summary || \'\'; }
-                    if (r.success && (r.texto || r.json)) {
-                        rastreoUltimoAnalizarIA = r.texto || (r.json ? JSON.stringify(r.json, null, 2) : \'\');
-                        try {
-                            if (typeof localStorage !== \'undefined\') {
-                                localStorage.setItem(\'sabueso_ia_\' + idCreditoRastreoActual + \'_\' + (ticketIdRastreoActual || 0) + \'_analizar\', rastreoUltimoAnalizarIA);
-                                if (r.presentation) localStorage.setItem(\'sabueso_ia_\' + idCreditoRastreoActual + \'_\' + (ticketIdRastreoActual || 0) + \'_analizar_ui\', JSON.stringify(r.presentation));
-                            }
-                        } catch (e) {}
-                        $(\'#btnLecturaIAAnalizar, #btnBorrarIAAnalizar\').show();
-                        $(\'#rastreoAnalizarIAContenido\').empty();
-                        var bodyHtml = \'\';
-                        if (r.presentation) {
-                            var p = r.presentation;
-                            var esc = function(s){ return (s+\'\').replace(/&/g, \'&amp;\').replace(/</g, \'&lt;\').replace(/>/g, \'&gt;\').replace(/"/g, \'&quot;\'); };
-                            bodyHtml += \'<div class="analisis-ui-humano">\';
-                            if (p.resumen_caso != null) {
-                                bodyHtml += \'<h6 class="text-uppercase small fw-bold text-muted mb-2">Resumen del caso</h6>\';
-                                bodyHtml += \'<p class="mb-3">\' + esc(p.resumen_caso || \'\') + \'</p>\';
-                                bodyHtml += \'<p class="mb-3"><span class="badge bg-\' + (p.confianza_color || \'secondary\') + \'">Confianza general: \' + (p.confianza_pct != null ? p.confianza_pct : \'—\') + \'%</span></p>\';
-                                if (p.cliente) {
-                                    bodyHtml += \'<h6 class="text-uppercase small fw-bold text-muted mb-2">Cliente</h6>\';
-                                    bodyHtml += \'<p class="small mb-2"><span class="badge bg-\' + (p.cliente.color || \'secondary\') + \'">\' + esc(p.cliente.estado || \'\') + \'</span> Probabilidad: \' + (p.cliente.probabilidad_pct != null ? p.cliente.probabilidad_pct + \'%\' : \'—\') + \'</p>\';
-                                    bodyHtml += \'<p class="small mb-3">\' + esc(p.cliente.texto || \'\') + \'</p>\';
-                                }
-                                if (p.gestion) {
-                                    bodyHtml += \'<h6 class="text-uppercase small fw-bold text-muted mb-2">Gestión</h6>\';
-                                    bodyHtml += \'<p class="small mb-2"><span class="badge bg-\' + (p.gestion.color || \'secondary\') + \'">\' + esc(p.gestion.estado || \'\') + \'</span> Efectividad: \' + (p.gestion.efectividad_pct != null ? p.gestion.efectividad_pct + \'%\' : \'—\') + \'</p>\';
-                                    bodyHtml += \'<p class="small mb-2">\' + esc(p.gestion.texto || \'\') + \'</p>\';
-                                    if (p.gestion.worst_gestor && p.gestion.worst_gestor.nombre) {
-                                        var wg = p.gestion.worst_gestor;
-                                        bodyHtml += \'<div class="small bg-light rounded p-2 mb-3"><strong>Gestor con mayor incumplimiento:</strong> \' + esc(wg.nombre) + \'<br>Distancia promedio: \' + (wg.distancia_promedio_km != null ? wg.distancia_promedio_km + \' km\' : \'—\') + \' · Visitas fuera de rango: \' + (wg.visitas_lejanas != null ? wg.visitas_lejanas : \'—\') + \'</div>\';
-                                    }
-                                }
-                                if (p.pagos) {
-                                    bodyHtml += \'<h6 class="text-uppercase small fw-bold text-muted mb-2">Pagos</h6>\';
-                                    bodyHtml += \'<p class="small mb-2"><span class="badge bg-\' + (p.pagos.color || \'secondary\') + \'">\' + esc(p.pagos.estado || \'\') + \'</span> Prob. cumplimiento: \' + (p.pagos.cumplimiento_pct != null ? p.pagos.cumplimiento_pct + \'%\' : \'—\') + \'</p>\';
-                                    bodyHtml += \'<p class="small mb-3">\' + esc(p.pagos.texto || \'\') + \'</p>\';
-                                }
-                                if (p.acciones_sugeridas && p.acciones_sugeridas.length) {
-                                    bodyHtml += \'<h6 class="text-uppercase small fw-bold text-muted mb-2">Acciones sugeridas</h6><div class="d-flex flex-wrap gap-2">\';
-                                    p.acciones_sugeridas.forEach(function(a) {
-                                        bodyHtml += \'<div class="card border shadow-sm" style="min-width:200px"><div class="card-body py-2 px-3"><span class="badge bg-\' + (a.color || \'secondary\') + \' me-1">\' + esc(a.prioridad_label || \'\') + \'</span><span class="small">\' + esc(a.accion || \'\') + \'</span>\' + (a.justificacion ? \'<p class="small text-muted mb-0 mt-1">\' + esc(a.justificacion) + \'</p>\' : \'\') + \'</div></div>\';
-                                    });
-                                    bodyHtml += \'</div>\';
-                                }
-                                if (p.missing_data && p.missing_data.length) {
-                                    bodyHtml += \'<h6 class="text-uppercase small fw-bold text-muted mb-2 mt-3">Datos faltantes</h6><p class="small text-warning mb-0">\' + esc((p.missing_data.join ? p.missing_data.join(\', \') : p.missing_data)) + \'</p>\';
-                                }
-                            } else {
-                                bodyHtml += \'<h6 class="text-uppercase small fw-bold text-muted mb-2">Resumen del caso</h6>\';
-                                bodyHtml += \'<p class="mb-3">\' + esc(p.resumen_ui || \'\') + \'</p>\';
-                                bodyHtml += \'<p class="mb-3"><span class="badge bg-\' + (p.confianza_color || \'secondary\') + \'">Confianza general: \' + (p.confianza_general_pct != null ? p.confianza_general_pct : \'—\') + \'%</span>\';
-                                if (p.suspected_test) bodyHtml += \' <span class="badge bg-warning text-dark">Posible prueba/simulación</span>\';
-                                bodyHtml += \'</p>\';
-                                if (p.cards && p.cards.length) {
-                                    bodyHtml += \'<div class="row g-2 mb-3">\';
-                                    p.cards.forEach(function(c) {
-                                        bodyHtml += \'<div class="col-md-4"><div class="card border-0 shadow-sm h-100"><div class="card-body py-3">\';
-                                        bodyHtml += \'<div class="d-flex align-items-center gap-2 mb-2"><i class="\' + (c.icono || \'fa-solid fa-circle\') + \' text-\' + (c.color || \'secondary\') + \'"></i><strong class="small">\' + esc(c.titulo || \'\') + \'</strong></div>\';
-                                        bodyHtml += \'<p class="small mb-2">\' + esc(c.descripcion || \'\') + \'</p>\';
-                                        bodyHtml += \'<div class="d-flex align-items-center gap-2"><div class="progress flex-grow-1" style="height:8px"><div class="progress-bar bg-\' + (c.color || \'secondary\') + \'" role="progressbar" style="width:\' + (c.porcentaje != null ? c.porcentaje : 0) + \'%"></div></div><span class="badge bg-label-\' + (c.color || \'secondary\') + \'">\' + (c.porcentaje != null ? c.porcentaje + \'%\' : \'—\') + \'</span></div>\';
-                                        bodyHtml += \'</div></div></div>\';
-                                    });
-                                    bodyHtml += \'</div>\';
-                                }
-                                if (p.acciones_ui && p.acciones_ui.length) {
-                                    bodyHtml += \'<h6 class="text-uppercase small fw-bold text-muted mb-2">Acciones recomendadas</h6><div class="d-flex flex-wrap gap-2">\';
-                                    p.acciones_ui.forEach(function(a) {
-                                        bodyHtml += \'<div class="card border shadow-sm" style="min-width:180px"><div class="card-body py-2 px-3 d-flex align-items-center gap-2"><i class="\' + (a.icono || \'fa-solid fa-circle-check\') + \' text-primary"></i><span class="small">\' + esc(a.titulo || \'\') + \'</span></div></div>\';
-                                    });
-                                    bodyHtml += \'</div>\';
-                                }
-                            }
-                            bodyHtml += \'</div>\';
-                        } else if (r.json && !r.json.error) {
-                            var j = r.json;
-                            var prob = j.confianza_analisis != null ? Math.round(j.confianza_analisis*100) : (j.confidence != null ? Math.round(j.confidence*100) : (j.overall_confidence != null ? Math.round(j.overall_confidence*100) : null));
-                            if (prob != null) bodyHtml += \'<p class="small mb-2"><span class="badge bg-label-info">Confianza del análisis: \' + prob + \'%</span>\';
-                            if (j.suspected_test) bodyHtml += \' <span class="badge bg-warning text-dark">Posible prueba/simulación</span>\';
-                            bodyHtml += \'</p>\';
-                            bodyHtml += \'<p class="fw-semibold">\' + (j.resumen_ejecutivo || j.summary || j.resumen || j.one_line_summary || \'\').replace(/</g, \'&lt;\').replace(/>/g, \'&gt;\').replace(/\\n/g, \'<br>\') + \'</p>\';
-                            if (j.sections && typeof j.sections === \'object\') { bodyHtml += \'<p class="small text-muted mt-2"><strong>Cliente:</strong> \' + (j.sections.cliente || \'—\').replace(/</g, \'&lt;\') + \' <strong>Gestores:</strong> \' + (j.sections.gestores || \'—\').replace(/</g, \'&lt;\') + \' <strong>Pagos:</strong> \' + (j.sections.pagos || \'—\').replace(/</g, \'&lt;\') + \'</p>\'; }
-                            if (j.perfil_conductual) bodyHtml += \'<p class="small text-muted mt-2"><strong>Perfil conductual:</strong> \' + String(j.perfil_conductual).replace(/</g, \'&lt;\') + \'</p>\';
-                            if (j.operational_plan && j.operational_plan.length) { bodyHtml += \'<p class="small text-muted mt-2 mb-1">Plan operativo:</p><ul class="list-unstyled">\'; j.operational_plan.forEach(function(op) { bodyHtml += \'<li class="mb-1">\' + (op.priority || \'\') + \'. \' + (op.step || \'\').replace(/</g, \'&lt;\') + (op.expected_uncertainty_reduction != null ? \' <span class="text-success">\' + Math.round(op.expected_uncertainty_reduction*100) + \'% reduc.</span>\' : \'\') + (op.time_window ? \' <span class="text-muted">\' + op.time_window + \'</span>\' : \'\') + \'</li>\'; }); bodyHtml += \'</ul>\'; }
-                            if (j.estrategia_localizacion && j.estrategia_localizacion.length) { bodyHtml += \'<p class="small text-muted mt-2 mb-1">Estrategia (prioridad):</p><ul class="list-unstyled">\'; j.estrategia_localizacion.forEach(function(e) { bodyHtml += \'<li class="mb-1">\' + (e.orden || \'\') + \'. \' + (e.accion || \'\').replace(/</g, \'&lt;\') + (e.impacto_reduccion_incertidumbre ? \' <span class="text-success">\' + e.impacto_reduccion_incertidumbre + \'</span>\' : \'\') + \'</li>\'; }); bodyHtml += \'</ul>\'; }
-                            if (j.risks && j.risks.length) { bodyHtml += \'<p class="small text-warning mt-2 mb-1">Riesgos:</p><ul class="list-unstyled">\'; j.risks.forEach(function(r) { var riskText = (typeof r === \'object\' && r.risk) ? r.risk : r; var impact = (typeof r === \'object\' && r.impact != null) ? Math.round(r.impact*100) + \'% impacto\' : \'\'; bodyHtml += \'<li class="mb-1">\' + String(riskText).replace(/</g, \'&lt;\') + (impact ? \' <span class="text-danger">\' + impact + \'</span>\' : \'\') + \'</li>\'; }); bodyHtml += \'</ul>\'; }
-                            else if (j.riesgos && j.riesgos.length) bodyHtml += \'<p class="small text-warning mt-2">Riesgos: \' + (j.riesgos.join ? j.riesgos.join(\'; \') : j.riesgos).replace(/</g, \'&lt;\') + \'</p>\';
-                            if (j.predictions && j.predictions.length) { bodyHtml += \'<p class="small text-muted mt-2 mb-1">Predicciones:</p><ul class="list-unstyled">\'; j.predictions.forEach(function(p) { var lugar = (p.label || p.lugar || p.place_type || \'-\'); var probP = p.probability != null ? p.probability : (p.probabilidad != null ? p.probabilidad : p.confidence); var motivo = (p.reason || p.motivo || \'\'); var horario = p.horario_probable || \'—\'; var ev = (p.evidence_ids && p.evidence_ids.length) ? \' [\' + (p.evidence_ids.join ? p.evidence_ids.join(\', \') : p.evidence_ids) + \']\' : ((p.evidencias && p.evidencias.length) ? \' [\' + (p.evidencias.join ? p.evidencias.join(\', \') : p.evidencias) + \']\' : \'\'); bodyHtml += \'<li class="mb-2"><span class="badge bg-label-primary me-1">\' + String(lugar).replace(/</g, \'&lt;\') + \'</span> \' + (probP != null ? \'<strong>\' + Math.round(probP*100) + \'%</strong> \' : \'\') + String(motivo).replace(/</g, \'&lt;\') + \' <span class="text-muted">\' + horario + \'</span>\' + ev + \'</li>\'; }); bodyHtml += \'</ul>\'; }
-                            if (j.next_steps && j.next_steps.length) { bodyHtml += \'<p class="small text-muted mt-2 mb-1">Próximos pasos:</p><ul>\'; j.next_steps.forEach(function(s) { bodyHtml += \'<li>\' + String(s).replace(/</g, \'&lt;\') + \'</li>\'; }); bodyHtml += \'</ul>\'; }
-                            var miss = j.missing_data || j.missing; if (miss && (miss.length || (typeof miss === \'string\' && miss))) bodyHtml += \'<p class="small text-warning mt-2">Datos faltantes: \' + (miss.join ? miss.join(\', \') : miss).replace(/</g, \'&lt;\') + \'</p>\';
-                        } else { bodyHtml = formatGeminiText(r.texto || \'\'); }
-                        $(\'#modalPrediccionIABody\').html(bodyHtml);
+                $(\'#rastreoAnalizarIAContenido\').html(\'<p class="text-muted mb-0"><span class="spinner-border spinner-border-sm me-2"></span>Ejecutando análisis con IA...</p>\').show();
+                $(\'#modalPrediccionIABody\').html(\'<p class="text-muted mb-0"><span class="spinner-border spinner-border-sm me-2"></span>Calculando riesgo de impago y predicción del gestor...</p>\');
+                $(\'#modalPrediccionIA\').addClass(\'modal-analitica-ia\');
+                http.request({ endpoint: \'/sabueso/analizarIA\', metodo: \'POST\', data: JSON.stringify({ id_credito: idCreditoRastreoActual, id_ticket: ticketIdRastreoActual || 0 }), contentType: \'application/json\', processData: false, timeout: 90000, onSuccess: function(r) {
+                    if (!r.success) {
+                        $(\'#modalPrediccionIABody\').html(\'<p class="text-danger mb-0">\' + ((r.mensaje || \'Error\') + \'\').replace(/</g, \'&lt;\') + \'</p>\');
+                        $(\'#modalPrediccionIALabel\').html(\'<i class="fa-solid fa-wand-magic-sparkles me-2"></i>Análisis con IA\');
                         $(\'#modalPrediccionIA\').modal(\'show\');
-                    } else {
-                        $(\'#rastreoAnalizarIAContenido\').empty();
-                        $(\'#modalPrediccionIABody\').html(\'<p class="text-danger mb-0">\' + (r.mensaje || \'No se obtuvo predicción.\').replace(/</g, \'&lt;\') + \'</p>\');
-                        $(\'#modalPrediccionIA\').modal(\'show\');
+                        txt.text(\'Analizar\'); btn.prop(\'disabled\', false); return;
                     }
-                    txt.text(\'Analizar\'); btn.prop(\'disabled\', false);
-                }, onError: function(e) {
-                    var msg = (typeof e === \'string\' ? e : (e && e.mensaje)) || \'No se pudo conectar con el servicio de IA.\';
+                    var j = r.json || {};
+                    var esc = function(s){ if (s == null || s === undefined) return \'\'; return (s+\'\').replace(/&/g,\'&amp;\').replace(/</g,\'&lt;\').replace(/>/g,\'&gt;\').replace(/"/g,\'&quot;\'); };
+                    var confPct = (j.confianza_analisis != null || j.confidence != null) ? Math.round((j.confianza_analisis != null ? j.confianza_analisis : j.confidence) * 100) : null;
+                    var html = \'<div class="analitica-ia-container">\';
+                    html += \'<p class="mb-2">\' + (confPct != null ? \'<span class="badge bg-label-info me-1">Confianza del análisis: \' + confPct + \'%</span>\' : \'\') + (j.suspected_test ? \' <span class="badge bg-warning text-dark">Posible prueba</span>\' : \'\') + \'</p>\';
+                    if (j.resumen_ejecutivo || j.summary) html += \'<p class="fw-semibold mb-3">\' + esc(j.resumen_ejecutivo || j.summary) + \'</p>\';
+                    html += \'<div class="analitica-ia-card mb-3"><h3 class="h6 border-bottom pb-2 mb-2">Riesgo / predicción de impago</h3>\';
+                    var pc = j.prediccion_conductual || {};
+                    if (pc.evento_probable) html += \'<p><strong>Evento probable:</strong> \' + esc(pc.evento_probable) + (pc.confianza_evento != null ? \' (confianza \' + Math.round((pc.confianza_evento)*100) + \'%)\' : \'\') + \'</p>\';
+                    if (pc.explicacion_deterministica) html += \'<p class="small text-muted">\' + esc(pc.explicacion_deterministica) + \'</p>\';
+                    var riesgosImpago = (j.riesgos || []).filter(function(x){ var t = (x+\'\').toLowerCase(); return /pago|impago|saldo|mora|recuperación|deuda/.test(t); });
+                    if (riesgosImpago.length) { html += \'<p class="small mb-1"><strong>Riesgos detectados:</strong></p><ul class="small">\'; riesgosImpago.forEach(function(x){ html += \'<li>\' + esc(x) + \'</li>\'; }); html += \'</ul>\'; }
+                    var ap = j.analitica_pagos || {};
+                    if (ap.total_pagos != null || ap.patron_pago) html += \'<p class="small mb-0">Historial de pagos: \' + (ap.total_pagos != null ? ap.total_pagos + \' pagos\' : \'\') + (ap.patron_pago ? \', patrón \' + esc(ap.patron_pago) : \'\') + \'</p>\';
+                    html += \'</div>\';
+                    html += \'<div class="analitica-ia-card mb-3"><h3 class="h6 border-bottom pb-2 mb-2">Riesgo y predicción con el gestor</h3>\';
+                    var cg = j.cumplimiento_gestor || {};
+                    if (cg.porcentaje_cumplimiento != null) html += \'<p><strong>Cumplimiento de gestiones:</strong> \' + esc(cg.porcentaje_cumplimiento) + \'%\'; if (cg.visitas_cercanas != null || cg.visitas_lejanas != null) html += \' (\' + (cg.visitas_cercanas || 0) + \' visitas dentro de rango, \' + (cg.visitas_lejanas || 0) + \' fuera)\'; html += \'</p>\';
+                    if (cg.alertas && cg.alertas.length) { html += \'<ul class="small">\'; cg.alertas.forEach(function(a){ html += \'<li class="text-warning">\' + esc(a) + \'</li>\'; }); html += \'</ul>\'; }
+                    var riesgosGestor = (j.riesgos || []).filter(function(x){ var t = (x+\'\').toLowerCase(); return /gestor|cumplimiento|cobranza|canal|auditoría|eficacia/.test(t); });
+                    if (riesgosGestor.length) { html += \'<p class="small mb-1"><strong>Riesgos relacionados al gestor:</strong></p><ul class="small">\'; riesgosGestor.forEach(function(x){ html += \'<li>\' + esc(x) + \'</li>\'; }); html += \'</ul>\'; }
+                    if (j.next_steps && j.next_steps.length) { html += \'<p class="small mb-1"><strong>Próximos pasos:</strong></p><ul class="small">\'; j.next_steps.forEach(function(s){ html += \'<li>\' + esc(s) + \'</li>\'; }); html += \'</ul>\'; }
+                    html += \'</div>\';
+                    var otrosRiesgos = (j.riesgos || []).filter(function(x){ var t = (x+\'\').toLowerCase(); return !/pago|impago|saldo|mora|recuperación|deuda|gestor|cumplimiento|cobranza|canal|auditoría|eficacia/.test(t); });
+                    if (otrosRiesgos.length) { html += \'<div class="analitica-ia-card mb-2"><p class="small mb-1"><strong>Otros riesgos:</strong></p><ul class="small">\'; otrosRiesgos.forEach(function(x){ html += \'<li>\' + esc(x) + \'</li>\'; }); html += \'</ul></div>\'; }
+                    html += \'<p class="small text-muted mt-2">Análisis generado con IA (pipeline de predicción).</p></div>\';
+                    rastreoUltimoAnalizarIA = html;
+                    try { if (typeof localStorage !== \'undefined\') { localStorage.setItem(\'sabueso_ia_\' + idCreditoRastreoActual + \'_\' + (ticketIdRastreoActual || 0) + \'_analizar\', html); } } catch (e) {}
+                    $(\'#btnLecturaIAAnalizar, #btnBorrarIAAnalizar\').show();
                     $(\'#rastreoAnalizarIAContenido\').empty();
-                    $(\'#modalPrediccionIABody\').html(\'<p class="text-danger mb-0">\' + String(msg).replace(/</g, \'&lt;\') + \'</p>\');
+                    $(\'#modalPrediccionIALabel\').html(\'<i class="fa-solid fa-wand-magic-sparkles me-2"></i>Análisis con IA – Riesgo de impago y gestor\');
+                    $(\'#modalPrediccionIABody\').html(html);
                     $(\'#modalPrediccionIA\').modal(\'show\');
                     txt.text(\'Analizar\'); btn.prop(\'disabled\', false);
-                    Swal.fire({ icon: \'error\', title: \'Analizar IA\', text: msg });
+                }, onError: function(e) {
+                    var msg = (typeof e === \'string\' ? e : (e && e.mensaje)) || \'No se pudo obtener el análisis con IA.\';
+                    $(\'#rastreoAnalizarIAContenido\').empty();
+                    $(\'#modalPrediccionIABody\').html(\'<p class="text-danger mb-0">\' + String(msg).replace(/</g, \'&lt;\') + \'</p>\');
+                    $(\'#modalPrediccionIALabel\').html(\'<i class="fa-solid fa-wand-magic-sparkles me-2"></i>Análisis con IA\');
+                    $(\'#modalPrediccionIA\').modal(\'show\');
+                    txt.text(\'Analizar\'); btn.prop(\'disabled\', false);
                 } });
             });
             $(\'#btnLecturaIAAnalizar\').on(\'click\', function() {
                 if (rastreoUltimoAnalizarIA) {
-                    $(\'#modalPrediccionIALabel\').html(\'<i class="fa-solid fa-wand-magic-sparkles me-2"></i>Predicción IA – Cómo localizar al acreditado\');
-                    var bodyHtml = \'\';
-                    try {
-                        var uiKey = \'sabueso_ia_\' + idCreditoRastreoActual + \'_\' + (ticketIdRastreoActual || 0) + \'_analizar_ui\';
-                        var pStored = null;
-                        try { if (typeof localStorage !== \'undefined\') pStored = localStorage.getItem(uiKey); } catch (e) {}
-                        if (pStored) {
-                            var p = JSON.parse(pStored);
-                            if (p && typeof p === \'object\') {
-                                var esc = function(s){ return (s+\'\').replace(/&/g, \'&amp;\').replace(/</g, \'&lt;\').replace(/>/g, \'&gt;\').replace(/"/g, \'&quot;\'); };
-                                bodyHtml += \'<div class="analisis-ui-humano">\';
-                                if (p.resumen_caso != null) {
-                                    bodyHtml += \'<h6 class="text-uppercase small fw-bold text-muted mb-2">Resumen del caso</h6>\';
-                                    bodyHtml += \'<p class="mb-3">\' + esc(p.resumen_caso || \'\') + \'</p>\';
-                                    bodyHtml += \'<p class="mb-3"><span class="badge bg-\' + (p.confianza_color || \'secondary\') + \'">Confianza general: \' + (p.confianza_pct != null ? p.confianza_pct : \'—\') + \'%</span></p>\';
-                                    if (p.cliente) { bodyHtml += \'<h6 class="text-uppercase small fw-bold text-muted mb-2">Cliente</h6>\'; bodyHtml += \'<p class="small mb-2"><span class="badge bg-\' + (p.cliente.color || \'secondary\') + \'">\' + esc(p.cliente.estado || \'\') + \'</span> \' + (p.cliente.probabilidad_pct != null ? p.cliente.probabilidad_pct + \'%\' : \'—\') + \'</p>\'; bodyHtml += \'<p class="small mb-3">\' + esc(p.cliente.texto || \'\') + \'</p>\'; }
-                                    if (p.gestion) { bodyHtml += \'<h6 class="text-uppercase small fw-bold text-muted mb-2">Gestión</h6>\'; bodyHtml += \'<p class="small mb-2"><span class="badge bg-\' + (p.gestion.color || \'secondary\') + \'">\' + esc(p.gestion.estado || \'\') + \'</span> \' + (p.gestion.efectividad_pct != null ? p.gestion.efectividad_pct + \'%\' : \'—\') + \'</p>\'; bodyHtml += \'<p class="small mb-2">\' + esc(p.gestion.texto || \'\') + \'</p>\'; if (p.gestion.worst_gestor && p.gestion.worst_gestor.nombre) { var wg = p.gestion.worst_gestor; bodyHtml += \'<div class="small bg-light rounded p-2 mb-3"><strong>Gestor con mayor incumplimiento:</strong> \' + esc(wg.nombre) + \'<br>Distancia promedio: \' + (wg.distancia_promedio_km != null ? wg.distancia_promedio_km + \' km\' : \'—\') + \' · Visitas fuera de rango: \' + (wg.visitas_lejanas != null ? wg.visitas_lejanas : \'—\') + \'</div>\'; } }
-                                    if (p.pagos) { bodyHtml += \'<h6 class="text-uppercase small fw-bold text-muted mb-2">Pagos</h6>\'; bodyHtml += \'<p class="small mb-2"><span class="badge bg-\' + (p.pagos.color || \'secondary\') + \'">\' + esc(p.pagos.estado || \'\') + \'</span> \' + (p.pagos.cumplimiento_pct != null ? p.pagos.cumplimiento_pct + \'%\' : \'—\') + \'</p>\'; bodyHtml += \'<p class="small mb-3">\' + esc(p.pagos.texto || \'\') + \'</p>\'; }
-                                    if (p.acciones_sugeridas && p.acciones_sugeridas.length) { bodyHtml += \'<h6 class="text-uppercase small fw-bold text-muted mb-2">Acciones sugeridas</h6><div class="d-flex flex-wrap gap-2">\'; p.acciones_sugeridas.forEach(function(a) { bodyHtml += \'<div class="card border shadow-sm" style="min-width:200px"><div class="card-body py-2 px-3"><span class="badge bg-\' + (a.color || \'secondary\') + \' me-1">\' + esc(a.prioridad_label || \'\') + \'</span><span class="small">\' + esc(a.accion || \'\') + \'</span>\' + (a.justificacion ? \'<p class="small text-muted mb-0 mt-1">\' + esc(a.justificacion) + \'</p>\' : \'\') + \'</div></div>\'; }); bodyHtml += \'</div>\'; }
-                                } else {
-                                    bodyHtml += \'<h6 class="text-uppercase small fw-bold text-muted mb-2">Resumen del caso</h6>\';
-                                    bodyHtml += \'<p class="mb-3">\' + esc(p.resumen_ui || \'\') + \'</p>\';
-                                    bodyHtml += \'<p class="mb-3"><span class="badge bg-\' + (p.confianza_color || \'secondary\') + \'">Confianza general: \' + (p.confianza_general_pct != null ? p.confianza_general_pct : \'—\') + \'%</span>\'; if (p.suspected_test) bodyHtml += \' <span class="badge bg-warning text-dark">Posible prueba/simulación</span>\'; bodyHtml += \'</p>\';
-                                    if (p.cards && p.cards.length) { bodyHtml += \'<div class="row g-2 mb-3">\'; p.cards.forEach(function(c) { bodyHtml += \'<div class="col-md-4"><div class="card border-0 shadow-sm h-100"><div class="card-body py-3"><div class="d-flex align-items-center gap-2 mb-2"><i class="\' + (c.icono || \'fa-solid fa-circle\') + \' text-\' + (c.color || \'secondary\') + \'"></i><strong class="small">\' + esc(c.titulo || \'\') + \'</strong></div><p class="small mb-2">\' + esc(c.descripcion || \'\') + \'</p><div class="d-flex align-items-center gap-2"><div class="progress flex-grow-1" style="height:8px"><div class="progress-bar bg-\' + (c.color || \'secondary\') + \'" role="progressbar" style="width:\' + (c.porcentaje != null ? c.porcentaje : 0) + \'%"></div></div><span class="badge bg-label-\' + (c.color || \'secondary\') + \'">\' + (c.porcentaje != null ? c.porcentaje + \'%\' : \'—\') + \'</span></div></div></div></div>\'; }); bodyHtml += \'</div>\'; }
-                                    if (p.acciones_ui && p.acciones_ui.length) { bodyHtml += \'<h6 class="text-uppercase small fw-bold text-muted mb-2">Acciones recomendadas</h6><div class="d-flex flex-wrap gap-2">\'; p.acciones_ui.forEach(function(a) { bodyHtml += \'<div class="card border shadow-sm" style="min-width:180px"><div class="card-body py-2 px-3 d-flex align-items-center gap-2"><i class="\' + (a.icono || \'fa-solid fa-circle-check\') + \' text-primary"></i><span class="small">\' + esc(a.titulo || \'\') + \'</span></div></div>\'; }); bodyHtml += \'</div>\'; }
-                                }
-                                bodyHtml += \'</div>\';
-                            }
-                        }
-                        if (!bodyHtml) {
-                        var j = JSON.parse(rastreoUltimoAnalizarIA);
-                        if (j && typeof j === \'object\' && (j.resumen_ejecutivo !== undefined || j.resumen !== undefined || j.one_line_summary !== undefined || (j.predictions && j.predictions.length))) {
-                            var prob = j.confianza_analisis != null ? Math.round(j.confianza_analisis*100) : (j.confidence != null ? Math.round(j.confidence*100) : (j.overall_confidence != null ? Math.round(j.overall_confidence*100) : null));
-                            if (prob != null) bodyHtml += \'<p class="small mb-2"><span class="badge bg-label-info">Confianza: \' + prob + \'%</span>\';
-                            if (j.suspected_test) bodyHtml += \' <span class="badge bg-warning text-dark">Posible prueba</span>\';
-                            bodyHtml += \'</p>\';
-                            bodyHtml += \'<p class="fw-semibold">\' + (j.resumen_ejecutivo || j.summary || j.resumen || j.one_line_summary || \'\').replace(/</g, \'&lt;\').replace(/>/g, \'&gt;\').replace(/\\n/g, \'<br>\') + \'</p>\';
-                            if (j.sections && typeof j.sections === \'object\') { bodyHtml += \'<p class="small text-muted mt-2"><strong>Cliente:</strong> \' + (j.sections.cliente || \'—\').replace(/</g, \'&lt;\') + \' <strong>Gestores:</strong> \' + (j.sections.gestores || \'—\').replace(/</g, \'&lt;\') + \' <strong>Pagos:</strong> \' + (j.sections.pagos || \'—\').replace(/</g, \'&lt;\') + \'</p>\'; }
-                            if (j.perfil_conductual) bodyHtml += \'<p class="small text-muted mt-2"><strong>Perfil conductual:</strong> \' + String(j.perfil_conductual).replace(/</g, \'&lt;\') + \'</p>\';
-                            if (j.operational_plan && j.operational_plan.length) { bodyHtml += \'<p class="small text-muted mt-2 mb-1">Plan operativo:</p><ul class="list-unstyled">\'; j.operational_plan.forEach(function(op) { bodyHtml += \'<li class="mb-1">\' + (op.priority || \'\') + \'. \' + (op.step || \'\').replace(/</g, \'&lt;\') + (op.expected_uncertainty_reduction != null ? \' <span class="text-success">\' + Math.round(op.expected_uncertainty_reduction*100) + \'%</span>\' : \'\') + \'</li>\'; }); bodyHtml += \'</ul>\'; }
-                            if (j.estrategia_localizacion && j.estrategia_localizacion.length) { bodyHtml += \'<p class="small text-muted mt-2 mb-1">Estrategia:</p><ul class="list-unstyled">\'; j.estrategia_localizacion.forEach(function(e) { bodyHtml += \'<li class="mb-1">\' + (e.orden || \'\') + \'. \' + (e.accion || \'\').replace(/</g, \'&lt;\') + (e.impacto_reduccion_incertidumbre ? \' <span class="text-success">\' + e.impacto_reduccion_incertidumbre + \'</span>\' : \'\') + \'</li>\'; }); bodyHtml += \'</ul>\'; }
-                            if (j.riesgos && j.riesgos.length) bodyHtml += \'<p class="small text-warning mt-2">Riesgos: \' + (j.riesgos.join ? j.riesgos.join(\'; \') : j.riesgos).replace(/</g, \'&lt;\') + \'</p>\';
-                            if (j.risks && j.risks.length) { bodyHtml += \'<p class="small text-warning mt-2 mb-1">Riesgos:</p><ul class="list-unstyled">\'; j.risks.forEach(function(r) { var riskText = (typeof r === \'object\' && r.risk) ? r.risk : r; var impact = (typeof r === \'object\' && r.impact != null) ? Math.round(r.impact*100) + \'% impacto\' : \'\'; bodyHtml += \'<li class="mb-1">\' + String(riskText).replace(/</g, \'&lt;\') + (impact ? \' <span class="text-danger">\' + impact + \'</span>\' : \'\') + \'</li>\'; }); bodyHtml += \'</ul>\'; }
-                            if (j.predictions && j.predictions.length) { bodyHtml += \'<p class="small text-muted mt-2 mb-1">Predicciones:</p><ul class="list-unstyled">\'; j.predictions.forEach(function(p) { var lugar = (p.label || p.lugar || p.place_type || \'-\'); var probP = p.probability != null ? p.probability : (p.probabilidad != null ? p.probabilidad : p.confidence); var motivo = (p.reason || p.motivo || \'\'); var horario = p.horario_probable || \'—\'; var ev = (p.evidence_ids && p.evidence_ids.length) ? \' [\' + (p.evidence_ids.join ? p.evidence_ids.join(\', \') : p.evidence_ids) + \']\' : ((p.evidencias && p.evidencias.length) ? \' [\' + (p.evidencias.join ? p.evidencias.join(\', \') : p.evidencias) + \']\' : \'\'); bodyHtml += \'<li class="mb-2"><span class="badge bg-label-primary me-1">\' + String(lugar).replace(/</g, \'&lt;\') + \'</span> \' + (probP != null ? \'<strong>\' + Math.round(probP*100) + \'%</strong> \' : \'\') + String(motivo).replace(/</g, \'&lt;\') + \' <span class="text-muted">(\' + horario + \')</span>\' + ev + \'</li>\'; }); bodyHtml += \'</ul>\'; }
-                            if (j.next_steps && j.next_steps.length) { bodyHtml += \'<p class="small text-muted mt-2 mb-1">Próximos pasos:</p><ul>\'; j.next_steps.forEach(function(s) { bodyHtml += \'<li>\' + String(s).replace(/</g, \'&lt;\') + \'</li>\'; }); bodyHtml += \'</ul>\'; }
-                            var miss = j.missing_data || j.missing; if (miss && (miss.length || (typeof miss === \'string\' && miss))) bodyHtml += \'<p class="small text-warning mt-2">Datos faltantes: \' + (miss.join ? miss.join(\', \') : miss).replace(/</g, \'&lt;\') + \'</p>\';
-                        } else { bodyHtml = formatGeminiText(rastreoUltimoAnalizarIA); }
-                        }
-                        if (!bodyHtml) bodyHtml = formatGeminiText(rastreoUltimoAnalizarIA);
-                    } catch (e) { bodyHtml = formatGeminiText(rastreoUltimoAnalizarIA); }
-                    $(\'#modalPrediccionIABody\').html(bodyHtml);
+                    $(\'#modalPrediccionIALabel\').html(\'<i class="fa-solid fa-wand-magic-sparkles me-2"></i>Análisis con IA – Riesgo de impago y gestor\');
+                    $(\'#modalPrediccionIABody\').html(rastreoUltimoAnalizarIA);
                     $(\'#modalPrediccionIA\').modal(\'show\');
-                } else { Swal.fire({ icon: \'info\', title: \'Lectura de IA\', text: \'Primero ejecute Analizar con IA.\' }); }
-            });
+                } else { Swal.fire({ icon: \'info\', title: \'Lectura\', text: \'Primero ejecute Analizar.\' }); } });
             $(\'#btnResumirUbicacionesIA\').on(\'click\', function() {
                 var btn = $(\'#btnResumirUbicacionesIA\');
                 if (btn.prop(\'disabled\') || !idCreditoRastreoActual) return;
@@ -766,28 +665,11 @@ SCRIPT;
                 try {
                     if (typeof localStorage !== \'undefined\') {
                         localStorage.removeItem(\'sabueso_ia_\' + idCreditoRastreoActual + \'_\' + (ticketIdRastreoActual || 0) + \'_analizar\');
-                        localStorage.removeItem(\'sabueso_ia_\' + idCreditoRastreoActual + \'_\' + (ticketIdRastreoActual || 0) + \'_analizar_ui\');
                     }
                 } catch (e) {}
                 rastreoUltimoAnalizarIA = \'\';
                 $(\'#btnLecturaIAAnalizar, #btnBorrarIAAnalizar\').hide();
                 Swal.fire({ icon: \'success\', title: \'Borrado\', text: \'Lectura de IA (Analizar) eliminada. Puede generar una nueva cuando quiera.\' });
-            });
-            $(\'#btnEvidenciaVerificacion\').on(\'click\', function() {
-                if (!idCreditoRastreoActual) { Swal.fire({ icon: \'warning\', title: \'Rastreo\', text: \'No hay crédito seleccionado.\' }); return; }
-                $(\'#modalEvidenciaVerificacionBody\').html(\'<p class="text-muted mb-0"><span class="spinner-border spinner-border-sm me-2"></span>Cargando datos verificados...</p>\');
-                $(\'#modalEvidenciaVerificacion\').modal(\'show\');
-                http.request({ endpoint: \'/sabueso/getEvidenciaVerificacion\', metodo: \'POST\', data: JSON.stringify({ id_credito: idCreditoRastreoActual, id_ticket: ticketIdRastreoActual || 0 }), contentType: \'application/json\', processData: false, onSuccess: function(r) {
-                    if (!r.success || !r.datos) { $(\'#modalEvidenciaVerificacionBody\').html(\'<p class="text-danger mb-0">\' + (r.mensaje || \'No se pudieron cargar los datos.\') + \'</p>\'); return; }
-                    var d = r.datos; var esc = function(s){ if (s==null||s===undefined) return \'\'; return (s+\'\').replace(/&/g, \'&amp;\').replace(/</g, \'&lt;\').replace(/>/g, \'&gt;\'); };
-                    var html = \'\';
-                    html += \'<p class="small text-muted mb-3">Estos son los datos reales del sistema (estado de cuenta, GPS, gestiones). Compárelos con lo que indica la Lectura de IA.</p>\';
-                    html += \'<p class="mb-2"><strong>Pagos en estado de cuenta:</strong> <span class="badge bg-label-primary">\' + (d.pagos_count != null ? d.pagos_count : 0) + \'</span></p>\';
-                    if (d.gps && d.gps.length) { html += \'<p class="mb-1"><strong>Ubicaciones GPS (top 10):</strong></p><ul class="list-unstyled small mb-3">\'; d.gps.forEach(function(g){ html += \'<li class="mb-1">\' + esc(g.texto) + \' · visitas: \' + (g.visitas||0) + \' · última: \' + esc(g.ultima_fecha) + \'</li>\'; }); html += \'</ul>\'; } else { html += \'<p class="small text-muted mb-3">Sin ubicaciones GPS.</p>\'; }
-                    if (d.gestiones && d.gestiones.length) { html += \'<p class="mb-1"><strong>Últimas gestiones (10):</strong></p><ul class="list-unstyled small mb-3">\'; d.gestiones.forEach(function(g){ html += \'<li class="mb-2 border-bottom pb-1">\' + esc(g.fecha) + \' · \' + esc(g.gestor) + \' · \' + esc(g.dictamen) + \'<br><span class="text-muted">\' + esc(g.comentarios) + \'</span></li>\'; }); html += \'</ul>\'; } else { html += \'<p class="small text-muted mb-3">Sin gestiones.</p>\'; }
-                    if (d.suspected_test) { html += \'<p class="mb-1"><strong><span class="badge bg-warning text-dark">Posible prueba/simulación</span></strong></p>\'; if (d.suspected_test_reasons && d.suspected_test_reasons.length) { html += \'<ul class="list-unstyled small text-warning">\'; d.suspected_test_reasons.forEach(function(reason){ html += \'<li>\' + esc(reason) + \'</li>\'; }); html += \'</ul>\'; } }
-                    $(\'#modalEvidenciaVerificacionBody\').html(html);
-                }, onError: function(err) { $(\'#modalEvidenciaVerificacionBody\').html(\'<p class="text-danger mb-0">\' + (typeof err === \'string\' ? err : (err && err.mensaje) || \'Error al cargar.\') + \'</p>\'); } });
             });
             $(\'#btnBorrarIAUbicaciones\').on(\'click\', function() {
                 if (!idCreditoRastreoActual) return;
@@ -805,7 +687,8 @@ SCRIPT;
                 $(\'#rastreoResumenIAGestionesContenido\').html(\'\').hide();
                 Swal.fire({ icon: \'success\', title: \'Borrado\', text: \'Lectura de IA (Gestiones) eliminada. Puede generar una nueva cuando quiera.\' });
             });
-        });';
+';
+        $script .= "\n        </script>";
         $end = "\n        </script>";
         $pos = strrpos($script, $end);
         if ($pos !== false) {
@@ -888,21 +771,21 @@ SCRIPT;
                         var fechaVenc = t.fecha_vencimiento ? new Date(t.fecha_vencimiento).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—';
                         var fechaElim = t.fecha_eliminacion ? new Date(t.fecha_eliminacion).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
                         var prioridadNombre = (t.prioridad_nombre || '').toLowerCase();
-                        var prioridadBadge = '<span class="badge bg-label-secondary">' + (t.prioridad_nombre || '—') + '</span>';
-                        if (prioridadNombre.indexOf('alta') !== -1) prioridadBadge = '<span class="badge bg-danger text-white">' + (t.prioridad_nombre || '—') + '</span>';
-                        else if (prioridadNombre.indexOf('medio') !== -1 || prioridadNombre.indexOf('media') !== -1) prioridadBadge = '<span class="badge" style="background-color:#fd7e14;color:#fff;">' + (t.prioridad_nombre || '—') + '</span>';
-                        else if (prioridadNombre.indexOf('bajo') !== -1 || prioridadNombre.indexOf('baja') !== -1) prioridadBadge = '<span class="badge" style="background-color:#ffc107;color:#212529;">' + (t.prioridad_nombre || '—') + '</span>';
+                        var prioridadBadge = '<span class=\"badge bg-label-secondary\">' + (t.prioridad_nombre || '—') + '</span>';
+                        if (prioridadNombre.indexOf('alta') !== -1) prioridadBadge = '<span class=\"badge bg-danger text-white\">' + (t.prioridad_nombre || '—') + '</span>';
+                        else if (prioridadNombre.indexOf('medio') !== -1 || prioridadNombre.indexOf('media') !== -1) prioridadBadge = '<span class=\"badge\" style=\"background-color:#fd7e14;color:#fff;\">' + (t.prioridad_nombre || '—') + '</span>';
+                        else if (prioridadNombre.indexOf('bajo') !== -1 || prioridadNombre.indexOf('baja') !== -1) prioridadBadge = '<span class=\"badge\" style=\"background-color:#ffc107;color:#212529;\">' + (t.prioridad_nombre || '—') + '</span>';
                         var estadoBadge = '<span class="badge bg-secondary">Cerrado/Eliminado</span>';
                         var tipoAccion = (t.tipo_accion || '').toLowerCase();
                         var tipoAccionBadge = tipoAccion === 'cerrado' ? '<span class="badge bg-warning text-dark">Cerrado</span>' : '<span class="badge bg-danger">Eliminado</span>';
                         var row = {
-                            folio_tipo: '<div class="fw-semibold">' + (t.folio || '—') + '</div><div class="small text-muted mt-1">' + (t.tipo_ticket_nombre || '—') + '</div>',
+                            folio_tipo: '<div class=\"fw-semibold\">' + (t.folio || '—') + '</div><div class=\"small text-muted mt-1\">' + (t.tipo_ticket_nombre || '—') + '</div>',
                             estado: estadoBadge,
                             prioridad: prioridadBadge,
                             credito: '<small>#' + (t.id_credito != null ? t.id_credito : '—') + '</small>',
                             fechas: '<div class="small">Creación: ' + fechaCreacion + '</div><div class="small text-muted mt-1">Venc: ' + fechaVenc + '</div>',
                             creador: '<small>' + (t.creador_nombre || '—') + '</small>',
-                            asignado: (t.asignado_nombre && t.asignado_nombre.trim()) ? '<small><i class="fa fa-user-check text-success me-1"></i>' + attrEsc(t.asignado_nombre) + '</small>' : '<span class="text-muted">—</span>',
+                            asignado: (t.asignado_nombre && t.asignado_nombre.trim()) ? '<small><i class="fa fa-user-check text-success me-1"></i>' + attrEsc(t.asignado_nombre) + '</small>' : '<span class=\"text-muted\">—</span>',
                             tipo_accion_display: tipoAccionBadge,
                             quien_elimino: '<small>' + (t.quien_elimino_nombre ? attrEsc(t.quien_elimino_nombre) : '—') + '</small>',
                             fecha_eliminacion_display: '<small>' + fechaElim + '</small>',
@@ -952,7 +835,7 @@ SCRIPT;
                     htmlTicket += '<div class="small">Asignado (último): ' + (ticket.asignado_nombre ? esc(ticket.asignado_nombre) : '—') + '</div>';
                     htmlTicket += '<div class="small text-danger mt-1">Cerrado/eliminado: ' + fElim + ' por ' + esc(ticket.quien_elimino_nombre || '—') + '</div></div>';
                     var historial = d.historial_asignacion || [];
-                    var htmlHistorial = historial.length ? '<ul class="list-unstyled small mb-0">' + historial.map(function(h){ return '<li>' + esc(h.persona || '—') + ' · ' + (h.desde || '—') + ' → ' + (h.hasta || '—') + ' (' + (h.duracion_humana || '—') + ')</li>'; }).join('') + '</ul>' : '<span class="text-muted small">Sin historial de asignación.</span>';
+                    var htmlHistorial = historial.length ? '<ul class="list-unstyled small mb-0">' + historial.map(function(h){ return '<li>' + esc(h.persona || '—') + ': ' + (h.duracion_humana || '—') + '</li>'; }).join('') + '</ul>' : '<span class="text-muted small">Sin historial de asignación.</span>';
                     var html = '<div class="cerrado-ver-seccion"><h6 class="text-uppercase small fw-bold text-muted mb-2">Datos del crédito</h6>' + htmlCredito + '</div>';
                     html += '<div class="cerrado-ver-seccion"><h6 class="text-uppercase small fw-bold text-muted mb-2">Ticket</h6>' + htmlTicket + '</div>';
                     html += '<div class="cerrado-ver-seccion"><h6 class="text-uppercase small fw-bold text-muted mb-2">Historial de asignación</h6>' + htmlHistorial + '</div>';
@@ -2091,6 +1974,7 @@ SCRIPT;
     {
         $pagosCount = $this->getPagosCountForCredito($idCredito);
         $ubic = UbicacionDAO::getUbicacionesFiltradasPorIdCredito($idCredito);
+        $ubic = is_array($ubic) ? $ubic : [];
         $ubicaciones = [];
         foreach ($ubic['direcciones_resumen'] ?? [] as $i => $d) {
             $ubicaciones[] = [
@@ -2128,6 +2012,7 @@ SCRIPT;
     private function ejecutarAnaliticasDeterministicas($idCredito, array $data): array
     {
         $ubic = UbicacionDAO::getUbicacionesFiltradasPorIdCredito($idCredito);
+        $ubic = is_array($ubic) ? $ubic : [];
         $direcciones = $ubic['direcciones_resumen'] ?? [];
         $domicilio = [];
         $ubicacionesUsuario = [];
@@ -3021,5 +2906,321 @@ SCRIPT;
         header('Content-Length: ' . filesize($path));
         readfile($path);
         exit;
+    }
+
+    /**
+     * Vista "Analítica IA - Resumen": métricas desde servicios existentes (sin hardcodear valores).
+     * GET /sabueso/resumenAnalitica?id_credito=123
+     */
+    public function resumenAnalitica()
+    {
+        $idCredito = (int) ($_GET['id_credito'] ?? $_GET['idCredito'] ?? 0);
+        if ($idCredito < 1) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'id_credito requerido.']);
+            return;
+        }
+
+        $datos = $this->getDatosResumenAnalitica($idCredito);
+        if ($datos === null) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'No se pudieron obtener datos para este crédito.']);
+            return;
+        }
+
+        foreach ($datos as $k => $v) {
+            $this->set($k, $v);
+        }
+        $this->render('sabueso_resumen_analitica');
+    }
+
+    /**
+     * GET /sabueso/resumenAnaliticaHTML?id_credito=123
+     * Devuelve el HTML renderizado del resumen analítica para inyectar en el modal.
+     * Solo datos determinísticos (SpatialAnalytics, GestorCompliance, TemporalPayments). Sin IA.
+     */
+    public function resumenAnaliticaHTML()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        $idCredito = (int) ($_GET['id_credito'] ?? $_GET['idCredito'] ?? 0);
+        if ($idCredito < 1) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'id_credito requerido.']);
+            return;
+        }
+        try {
+            $datos = $this->getDatosResumenAnalitica($idCredito);
+            if ($datos === null) {
+                self::respuestaJSON(['success' => false, 'mensaje' => 'No se pudieron obtener datos para este crédito.']);
+                return;
+            }
+            $datos['en_modal'] = true;
+            extract($datos);
+            ob_start();
+            include __DIR__ . '/../views/sabueso_resumen_analitica.php';
+            $html = ob_get_clean();
+            // Quitar el <link> CSS duplicado (ya cargado en paneladmin)
+            $html = str_replace('<link rel="stylesheet" href="/assets/css/analitica-ia.css">', '', $html);
+            self::respuestaJSON(['success' => true, 'html' => trim($html)]);
+        } catch (\Throwable $e) {
+            self::respuestaJSON([
+                'success' => false,
+                'mensaje' => 'Error al generar resumen: ' . $e->getMessage(),
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    /**
+     * Obtiene datos para la vista Resumen Analítica desde servicios existentes (sin inventar valores).
+     *
+     * @return array|null Variables para la vista o null si falla
+     */
+    private function getDatosResumenAnalitica(int $idCredito): ?array
+    {
+        $data = $this->prepararDatosParaMotor($idCredito);
+        $analiticas = $this->ejecutarAnaliticasDeterministicas($idCredito, $data);
+        $analiticaEspacial = $analiticas['analitica_espacial'] ?? [];
+        $analiticaPagos = $analiticas['analitica_pagos'] ?? [];
+        $cumplimientoGestor = $analiticas['cumplimiento_gestor'] ?? [];
+
+        $eventosGestor = GestionesDAO::getEventosGestorPorCredito($idCredito);
+        $mapaGestorPorId = [];
+        foreach ($eventosGestor as $e) {
+            $eid = $e['id'] ?? $e['gestor_event_id'] ?? null;
+            if ($eid !== null && $eid !== '') {
+                $nombre = trim((string) ($e['usuario_asignado'] ?? ''));
+                if ($nombre === '') {
+                    $nombre = trim((string) ($e['codigo_gestor'] ?? ''));
+                }
+                if ($nombre === '') {
+                    $nombre = trim((string) ($e['usuario'] ?? ''));
+                }
+                $mapaGestorPorId[(string) $eid] = $nombre !== '' ? $nombre : '—';
+            }
+        }
+        $detalles = $cumplimientoGestor['detalles'] ?? [];
+        foreach ($detalles as &$d) {
+            $eid = $d['gestor_event_id'] ?? null;
+            $d['gestor_nombre'] = ($eid !== null && isset($mapaGestorPorId[(string) $eid]))
+                ? $mapaGestorPorId[(string) $eid] : '—';
+        }
+        unset($d);
+
+        $peorGestor = $this->calcularPeorGestorDesdeDetalles($detalles);
+
+        $distanciasCasa = $analiticaEspacial['distancias_a_casa'] ?? [];
+        $distanciaDomicilio = null;
+        $domicilioConfirmado = false;
+        if (!empty($distanciasCasa) && is_array($distanciasCasa)) {
+            $distanciasMetros = array_filter(array_column($distanciasCasa, 'distancia_m'), 'is_numeric');
+            $distanciaDomicilio = !empty($distanciasMetros) ? (int) round(min($distanciasMetros)) : null;
+            $domicilioConfirmado = $distanciaDomicilio !== null && $distanciaDomicilio <= 100;
+        }
+        $puntoInteres = [];
+        if (!empty($distanciasCasa)) {
+            $ordenado = $distanciasCasa;
+            usort($ordenado, function ($a, $b) {
+                return (int) ($b['visitas_count'] ?? 0) - (int) ($a['visitas_count'] ?? 0);
+            });
+            $primero = $ordenado[0];
+            $distanciaKm = isset($primero['distancia_m']) ? round((float) $primero['distancia_m'] / 1000.0, 2) : null;
+            $puntoInteres = [
+                'distancia' => $distanciaKm,
+                'visitas' => (int) ($primero['visitas_count'] ?? 0),
+                'lat' => $primero['lat'] ?? null,
+                'lng' => $primero['lng'] ?? null,
+            ];
+        }
+        $confianzaEspacial = ($domicilioConfirmado && $distanciaDomicilio !== null) ? 0.75 : (count($distanciasCasa) > 0 ? 0.5 : 0);
+
+        $cumplimientoPorc = isset($cumplimientoGestor['porcentaje_cumplimiento']) && is_numeric($cumplimientoGestor['porcentaje_cumplimiento'])
+            ? (float) $cumplimientoGestor['porcentaje_cumplimiento'] : null;
+        $visitasCercanas = (int) ($cumplimientoGestor['visitas_cercanas'] ?? 0);
+        $visitasLejanas = (int) ($cumplimientoGestor['visitas_lejanas'] ?? 0);
+
+        $totalPagos = (int) ($analiticaPagos['total_pagos'] ?? 0);
+        $intervaloPromedio = isset($analiticaPagos['intervalo_promedio_dias']) && is_numeric($analiticaPagos['intervalo_promedio_dias'])
+            ? round((float) $analiticaPagos['intervalo_promedio_dias'], 1) : null;
+        $desviacion = isset($analiticaPagos['desviacion_intervalos']) && is_numeric($analiticaPagos['desviacion_intervalos'])
+            ? round((float) $analiticaPagos['desviacion_intervalos'], 2) : null;
+        $diaFrecuente = isset($analiticaPagos['dia_mas_frecuente']) && (string) $analiticaPagos['dia_mas_frecuente'] !== ''
+            ? (string) $analiticaPagos['dia_mas_frecuente'] : 'N/D';
+        $consistenciaDia = isset($analiticaPagos['consistencia_dia']) && is_numeric($analiticaPagos['consistencia_dia'])
+            ? round((float) $analiticaPagos['consistencia_dia'] * 100, 1) : null;
+        $patronPago = isset($analiticaPagos['patron_pago']) && (string) $analiticaPagos['patron_pago'] !== ''
+            ? (string) $analiticaPagos['patron_pago'] : 'desconocido';
+
+        $confianzaGestion = $cumplimientoPorc !== null ? min(1.0, (float) $cumplimientoPorc / 100.0) : 0;
+        $confianzaPagos = $totalPagos >= 3 ? ($patronPago === 'regular' ? 0.9 : ($patronPago === 'irregular' ? 0.7 : 0.5)) : 0;
+        $pesoTotal = 0;
+        $confianzaGeneral = 0.0;
+        if ($confianzaEspacial > 0) {
+            $confianzaGeneral += $confianzaEspacial * 0.4;
+            $pesoTotal += 0.4;
+        }
+        if ($confianzaGestion > 0) {
+            $confianzaGeneral += $confianzaGestion * 0.3;
+            $pesoTotal += 0.3;
+        }
+        if ($confianzaPagos > 0) {
+            $confianzaGeneral += $confianzaPagos * 0.3;
+            $pesoTotal += 0.3;
+        }
+        $confianzaGeneral = $pesoTotal > 0 ? (int) round(($confianzaGeneral / $pesoTotal) * 100) : 0;
+        // Si gestión es CRÍTICA (cumplimiento <30%), forzar confianza general al rango 65–75% (regla de coherencia).
+        if ($cumplimientoPorc !== null && $cumplimientoPorc < 30 && ($confianzaGeneral < 65 || $confianzaGeneral > 75)) {
+            $confianzaGeneral = 70;
+        }
+
+        $scoreCliente = $confianzaEspacial > 0 ? (int) round($confianzaEspacial * 100) : 0;
+        $scoreGestion = $cumplimientoPorc !== null ? (int) round($cumplimientoPorc) : 0;
+        $scorePagos = 0;
+        if ($totalPagos > 0) {
+            $scorePagos = $patronPago === 'regular' ? 90 : ($patronPago === 'irregular' ? 70 : 50);
+            if ($totalPagos >= 10) {
+                $scorePagos = min(100, $scorePagos + 10);
+            }
+        }
+
+        $ultimoPago = ['fecha' => null, 'monto' => null];
+        $gestionesList = $data['gestiones'] ?? [];
+        foreach ($gestionesList as $item) {
+            $tipo = (string) ($item['dictamen_campo'] ?? $item['dictamen_ccc'] ?? '');
+            if (stripos($tipo, 'Pago') !== false) {
+                $f = $item['fecha_dispositivo'] ?? $item['fecha_hora'] ?? null;
+                if ($f) {
+                    $ultimoPago['fecha'] = is_numeric($f) ? date('Y-m-d', (int) $f) : date('Y-m-d', strtotime($f));
+                    $ultimoPago['monto'] = $item['monto'] ?? null;
+                    break;
+                }
+            }
+        }
+
+        $datosFaltantes = [];
+        if (empty($ultimoPago['fecha'])) {
+            $datosFaltantes[] = ['campo' => 'fecha_ultimo_pago', 'descripcion' => 'Requerido para cálculo de morosidad'];
+        }
+        if (empty($ultimoPago['monto'])) {
+            $datosFaltantes[] = ['campo' => 'monto_ultimo_pago', 'descripcion' => 'Necesario para análisis de tendencia'];
+        }
+        if (!empty($puntoInteres) && !isset($puntoInteres['tipo'])) {
+            $datosFaltantes[] = ['campo' => 'identidad_tipo_punto_interes', 'descripcion' => 'Para optimizar estrategia de contacto'];
+        }
+
+        $accionesRecomendadas = [];
+        if ($cumplimientoPorc !== null && $cumplimientoPorc < 30 && $peorGestor !== null) {
+            $accionesRecomendadas[] = [
+                'prioridad' => 'alta',
+                'titulo' => 'Auditar o reasignar al gestor responsable por baja eficacia',
+                'descripcion' => 'El desempeño en campo es crítico (' . number_format($cumplimientoPorc, 1) . '%). Se requiere acción inmediata: auditoría de campo, capacitación o reasignación del caso.',
+            ];
+        }
+        if (!empty($puntoInteres) && isset($puntoInteres['visitas']) && (int) $puntoInteres['visitas'] >= 10) {
+            $accionesRecomendadas[] = [
+                'prioridad' => 'media',
+                'titulo' => 'Verificar identidad del punto de interés con ' . (int) $puntoInteres['visitas'] . ' visitas',
+                'descripcion' => 'Determinar si es lugar de trabajo para ajustar estrategia de contacto y horarios de gestión.',
+            ];
+        }
+        if (!empty($datosFaltantes)) {
+            $accionesRecomendadas[] = [
+                'prioridad' => 'baja',
+                'titulo' => 'Solicitar y registrar información faltante',
+                'descripcion' => 'Completar ' . count($datosFaltantes) . ' campo(s) faltante(s) antes de automatizar comunicaciones.',
+            ];
+        }
+        if ($totalPagos >= 5 && ($patronPago === 'regular' || $scorePagos >= 70)) {
+            $accionesRecomendadas[] = [
+                'prioridad' => 'baja',
+                'titulo' => 'Mantener condiciones actuales del crédito',
+                'descripcion' => 'Sólo mantener tras verificar que la auditoría no indica problema. Situación de pagos y ubicación según datos disponibles.',
+            ];
+        }
+
+        $mensajesSugeridos = [];
+        if (empty($ultimoPago['fecha']) || empty($ultimoPago['monto'])) {
+            $mensajesSugeridos[] = [
+                'tipo' => 'WhatsApp',
+                'prioridad' => 'media',
+                'mensaje' => 'Hola, registramos actividad reciente en su cuenta. ¿Podría confirmar la fecha y el monto de su último pago para actualizar su estado? Gracias.',
+            ];
+        }
+        $mensajesSugeridos[] = [
+            'tipo' => 'SMS',
+            'prioridad' => 'baja',
+            'mensaje' => 'Recordatorio: revise su estado de cuenta. Para más información responda este mensaje o llame al número de atención.',
+        ];
+
+        return [
+            'id_credito' => $idCredito,
+            'analisisEspacial' => $analiticaEspacial,
+            'cumplimientoGestor' => $cumplimientoGestor,
+            'analisisPagos' => $analiticaPagos,
+            'domicilioConfirmado' => $domicilioConfirmado,
+            'distanciaDomicilio' => $distanciaDomicilio,
+            'puntoInteres' => $puntoInteres,
+            'confianzaEspacial' => $confianzaEspacial,
+            'cumplimientoPorc' => $cumplimientoPorc,
+            'visitasCercanas' => $visitasCercanas,
+            'visitasLejanas' => $visitasLejanas,
+            'peorGestor' => $peorGestor,
+            'totalPagos' => $totalPagos,
+            'intervaloPromedio' => $intervaloPromedio,
+            'desviacion' => $desviacion,
+            'diaFrecuente' => $diaFrecuente,
+            'consistenciaDia' => $consistenciaDia,
+            'patronPago' => $patronPago,
+            'confianzaGeneral' => $confianzaGeneral,
+            'scoreCliente' => $scoreCliente,
+            'scoreGestion' => $scoreGestion,
+            'scorePagos' => $scorePagos,
+            'ultimoPago' => $ultimoPago,
+            'datosFaltantes' => $datosFaltantes,
+            'accionesRecomendadas' => $accionesRecomendadas,
+            'mensajesSugeridos' => $mensajesSugeridos,
+        ];
+    }
+
+    /**
+     * Calcula el gestor con mayor incumplimiento a partir de detalles enriquecidos con gestor_nombre.
+     */
+    private function calcularPeorGestorDesdeDetalles(array $detalles): ?array
+    {
+        $porGestor = [];
+        foreach ($detalles as $d) {
+            $nombre = trim((string) ($d['gestor_nombre'] ?? '—'));
+            if ($nombre === '' || $nombre === '—') {
+                $nombre = 'N/D';
+            }
+            if (!isset($porGestor[$nombre])) {
+                $porGestor[$nombre] = ['visitas_lejanas' => 0, 'distancia_sum_m' => 0, 'total' => 0];
+            }
+            $porGestor[$nombre]['total']++;
+            if (empty($d['cerca'])) {
+                $porGestor[$nombre]['visitas_lejanas']++;
+            }
+            if (isset($d['distancia_m']) && is_numeric($d['distancia_m'])) {
+                $porGestor[$nombre]['distancia_sum_m'] += (float) $d['distancia_m'];
+            }
+        }
+        if (empty($porGestor)) {
+            return null;
+        }
+        $peor = null;
+        $peorLejanas = -1;
+        foreach ($porGestor as $nombre => $stats) {
+            $lejanas = (int) $stats['visitas_lejanas'];
+            if ($lejanas > $peorLejanas) {
+                $peorLejanas = $lejanas;
+                $total = (int) $stats['total'];
+                $distanciaPromedioKm = $total > 0 && $stats['distancia_sum_m'] > 0
+                    ? round($stats['distancia_sum_m'] / 1000.0 / $total, 2)
+                    : 0.0;
+                $peor = [
+                    'nombre' => $nombre,
+                    'distancia_promedio' => $distanciaPromedioKm,
+                    'visitas_fuera_rango' => $lejanas,
+                ];
+            }
+        }
+        return $peor;
     }
 }
