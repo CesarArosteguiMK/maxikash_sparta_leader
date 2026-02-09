@@ -83,7 +83,7 @@ Predictor **determinístico** (sin rand()). Predice evento futuro del acreditado
   "evidencias": ["p12", "g34", "u0"]
 }
 ```
-Valores posibles de `evento_probable`: `pago_proximo`, `retraso_pago`, `evasión_contacto`, `visita_domiciliaria_exitosa`, `visita_domiciliaria_fallida`, `pago_en_caja`, `cambio_ubicacion_habitual`, `insuficiente_datos`.  
+Valores posibles de `evento_probable`: `pago_proximo`, `retraso_pago`, `evasión_contacto`, `visita_domiciliaria_exitosa`, `visita_domiciliaria_fallida`, `cambio_ubicacion_habitual`, `insuficiente_datos`.  
 Si datos insuficientes: `evento_probable: 'insuficiente_datos'`, `confianza_evento < 30`.
 
 ### SpatialAnalyticsService (analítica geoespacial, sin IA)

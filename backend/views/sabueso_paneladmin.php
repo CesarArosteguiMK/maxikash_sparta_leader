@@ -123,6 +123,17 @@
     #modalRastreoCredito .btn-primary i, #modalRastreoCredito .btn-analizar-ia i { color: #fff !important; }
     #modalRastreoCredito .rastreo-header-right .text-success { color: var(--bs-success) !important; }
     #modalRastreoCredito .rastreo-analitica-bar { border-color: #E5E7EB; }
+    /* Resumen analítico: mismo tamaño que los otros 3, color distinto (agrupa info de Ubicaciones, Gestiones/Pagos, Cumplimiento) */
+    #modalRastreoCredito .rastreo-analitica-bar .btn-resumen-analitico {
+        border: 1px solid #0d9488;
+        color: #0d9488;
+        background-color: transparent;
+    }
+    #modalRastreoCredito .rastreo-analitica-bar .btn-resumen-analitico:hover {
+        background-color: #0d9488;
+        color: #fff;
+        border-color: #0d9488;
+    }
     /* Scrim para modal Analítica IA: fondo oscuro detrás del modal, bloquea scroll body */
     .scrim { position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 1000; }
     /* Header oscuro para modal Análisis IA / Resumen analítico (título visible) */
@@ -459,6 +470,9 @@
                     <button type="button" class="btn btn-sm btn-outline-secondary" id="btnAnaliticaCumplimiento" title="Ver cumplimiento del gestor (visitas cercanas vs lejanas)" aria-label="Abrir analítica de cumplimiento del gestor">
                         <i class="fa-solid fa-user-check me-1"></i>Cumplimiento Gestor
                     </button>
+                    <button type="button" class="btn btn-sm btn-resumen-analitico" id="btnResumenAnaliticaIA" title="Ver resumen analítico por reglas (cómo localizar al acreditado)" style="display: none;">
+                        <i class="fa-solid fa-chart-line me-1"></i>Resumen analítico
+                    </button>
                 </div>
                 <!-- Abajo: 3 columnas = [Dir+Mapa 29%] | [Centro 50%] | [Bitácora 21%] -->
                 <div class="rastreo-grid">
@@ -501,9 +515,6 @@
                                         </button>
                                         <button type="button" class="btn btn-sm btn-outline-danger btn-ia-sec" id="btnBorrarIAAnalizar" title="Borrar último análisis" style="display: none;">
                                             <i class="fa-solid fa-trash-can me-1"></i>Borrar
-                                        </button>
-                                        <button type="button" class="btn btn-sm btn-outline-primary btn-ia-sec" id="btnResumenAnaliticaIA" title="Ver resumen analítico por reglas (cómo localizar al acreditado)" style="display: none;">
-                                            <i class="fa-solid fa-chart-line me-1"></i>Resumen analítico
                                         </button>
                                     </div>
                                 </div>

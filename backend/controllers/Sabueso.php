@@ -526,10 +526,11 @@ SCRIPT;
                     if (j.resumen_ejecutivo || j.summary) html += \'<p class="fw-semibold mb-3">\' + esc(j.resumen_ejecutivo || j.summary) + \'</p>\';
                     html += \'<div class="analitica-ia-card mb-3"><h3 class="h6 border-bottom pb-2 mb-2">Riesgo / predicción de impago</h3>\';
                     var pc = j.prediccion_conductual || {};
-                    var eventoLabel = (pc.evento_probable === \'pago_en_caja\') ? \'Pago recibido\' : (pc.evento_probable || \'\');
+                    var eventoLabel = (pc.evento_probable || \'\');
+                    if (eventoLabel === \'pago_en_caja\') eventoLabel = \'Pago reciente\';
                     var confianzaPct = pc.confianza_evento != null ? (pc.confianza_evento <= 1 ? Math.round(pc.confianza_evento * 100) : Math.round(pc.confianza_evento)) : null;
                     if (pc.evento_probable) html += \'<p><strong>Evento probable:</strong> \' + (eventoLabel ? esc(eventoLabel) : esc(pc.evento_probable)) + (confianzaPct != null ? \' (confianza \' + confianzaPct + \'%)\' : \'\') + \'</p>\';
-                    if (pc.explicacion_deterministica) html += \'<p class="small text-muted">\' + esc(pc.explicacion_deterministica) + \'</p>\';
+                    if (pc.explicacion_deterministica) html += \'<p class="small text-muted">\' + esc((pc.explicacion_deterministica || \'\').replace(/pago_en_caja/g, \'Pago reciente\')) + \'</p>\';
                     if (!pc.evento_probable && !pc.explicacion_deterministica) html += \'<p class="small text-muted">Sin predicción específica de evento. Revisar historial de pagos y gestiones.</p>\';
                     var riesgosImpago = (j.riesgos || []).filter(function(x){ var t = (x+\'\').toLowerCase(); return /pago|impago|saldo|mora|recuperación|deuda/.test(t); });
                     if (riesgosImpago.length) { html += \'<p class="small mb-1"><strong>Riesgos detectados:</strong></p><ul class="small">\'; riesgosImpago.forEach(function(x){ html += \'<li>\' + esc(x) + \'</li>\'; }); html += \'</ul>\'; }

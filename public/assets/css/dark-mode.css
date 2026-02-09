@@ -1102,6 +1102,23 @@ body.dark-mode [style*="background: #ffffff"] {
     background-color: #252525 !important;
 }
 
+/* Excluir contenedores del mapa de rastreo: no aplicar fondo oscuro a divs de Google Maps */
+body.dark-mode #modalRastreoCredito #rastreoMapaLeaflet [style*="background-color: #fff"],
+body.dark-mode #modalRastreoCredito #rastreoMapaLeaflet [style*="background-color: white"],
+body.dark-mode #modalRastreoCredito #rastreoMapaLeaflet [style*="background: #fff"],
+body.dark-mode #modalRastreoCredito #rastreoMapaLeaflet [style*="background: white"],
+body.dark-mode #modalRastreoCredito #rastreoMapaLeaflet [style*="background-color: #ffffff"],
+body.dark-mode #modalRastreoCredito #rastreoMapaLeaflet [style*="background: #ffffff"],
+body.dark-mode #modalMapaGrande #rastreoMapaGrandeContenedor [style*="background-color: #fff"],
+body.dark-mode #modalMapaGrande #rastreoMapaGrandeContenedor [style*="background-color: white"],
+body.dark-mode #modalMapaGrande #rastreoMapaGrandeContenedor [style*="background: #fff"],
+body.dark-mode #modalMapaGrande #rastreoMapaGrandeContenedor [style*="background: white"],
+body.dark-mode #modalMapaGrande #rastreoMapaGrandeContenedor [style*="background-color: #ffffff"],
+body.dark-mode #modalMapaGrande #rastreoMapaGrandeContenedor [style*="background: #ffffff"] {
+    background-color: revert !important;
+    background: revert !important;
+}
+
 /* Forzar texto claro en elementos con texto oscuro inline */
 body.dark-mode [style*="color: #000"],
 body.dark-mode [style*="color: black"],
@@ -3232,6 +3249,17 @@ body.dark-mode #modalRastreoCredito .rastreo-analitica-bar {
     border-color: #3a3a3a !important;
 }
 
+body.dark-mode #modalRastreoCredito .rastreo-analitica-bar .btn-resumen-analitico {
+    border-color: #2dd4bf !important;
+    color: #2dd4bf !important;
+    background-color: transparent !important;
+}
+body.dark-mode #modalRastreoCredito .rastreo-analitica-bar .btn-resumen-analitico:hover {
+    background-color: #2dd4bf !important;
+    color: #0f172a !important;
+    border-color: #2dd4bf !important;
+}
+
 /* Header grid - Bordes */
 body.dark-mode #modalRastreoCredito .rastreo-header-grid {
     border-bottom-color: rgba(255,255,255,0.1) !important;
@@ -3420,9 +3448,47 @@ body.dark-mode #modalRastreoCredito .evidencia-slot:hover .evidencia-slot-label 
     color: #6ea8fe !important;
 }
 
-/* Mapa */
+/* Mapa: evitar que modo oscuro pinte capas internas (manchas negras) */
 body.dark-mode #modalRastreoCredito #rastreoMapaLeaflet {
+    background-color: transparent !important;
+}
+
+body.dark-mode #modalMapaGrande #rastreoMapaGrandeContenedor {
+    background-color: transparent !important;
+}
+
+/* Forzar fondo transparente en TODOS los descendientes del mapa (capas de Google Maps sin background en style) */
+body.dark-mode #modalRastreoCredito #rastreoMapaLeaflet *,
+body.dark-mode #modalMapaGrande #rastreoMapaGrandeContenedor * {
+    background: transparent !important;
+    background-color: transparent !important;
+}
+
+/* Restaurar fondo oscuro solo en controles del mapa (Leaflet) para que sigan visibles */
+body.dark-mode #modalRastreoCredito #rastreoMapaLeaflet .leaflet-control-zoom,
+body.dark-mode #modalRastreoCredito #rastreoMapaLeaflet .leaflet-control-layers,
+body.dark-mode #modalRastreoCredito #rastreoMapaLeaflet .leaflet-control-attribution,
+body.dark-mode #modalMapaGrande #rastreoMapaGrandeContenedor .leaflet-control-zoom,
+body.dark-mode #modalMapaGrande #rastreoMapaGrandeContenedor .leaflet-control-layers,
+body.dark-mode #modalMapaGrande #rastreoMapaGrandeContenedor .leaflet-control-attribution {
+    background-color: #252525 !important;
+    background: #252525 !important;
+}
+
+body.dark-mode #modalRastreoCredito #rastreoMapaLeaflet .leaflet-control-zoom a,
+body.dark-mode #modalRastreoCredito #rastreoMapaLeaflet .leaflet-control-layers-toggle,
+body.dark-mode #modalMapaGrande #rastreoMapaGrandeContenedor .leaflet-control-zoom a,
+body.dark-mode #modalMapaGrande #rastreoMapaGrandeContenedor .leaflet-control-layers-toggle {
     background-color: #303030 !important;
+    background: #303030 !important;
+}
+
+body.dark-mode #modalRastreoCredito #rastreoMapaLeaflet .leaflet-popup-content-wrapper,
+body.dark-mode #modalRastreoCredito #rastreoMapaLeaflet .leaflet-popup-tip,
+body.dark-mode #modalMapaGrande #rastreoMapaGrandeContenedor .leaflet-popup-content-wrapper,
+body.dark-mode #modalMapaGrande #rastreoMapaGrandeContenedor .leaflet-popup-tip {
+    background-color: #252525 !important;
+    background: #252525 !important;
 }
 
 body.dark-mode #modalRastreoCredito #rastreoMapaLeaflet .leaflet-container img,
@@ -3437,6 +3503,7 @@ body.dark-mode #modalRastreoCredito #rastreoMapaLeaflet [style*="background"],
 body.dark-mode #modalMapaGrande #rastreoMapaGrandeContenedor [style*="background"] {
     background: revert !important;
     background-image: revert !important;
+    background-color: revert !important;
 }
 
 body.dark-mode #modalRastreoCredito #rastreoMapaLeaflet .gm-style img,
