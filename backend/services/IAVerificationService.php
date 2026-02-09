@@ -72,13 +72,30 @@ class IAVerificationService
             $veracity = (int) round($veracity * 0.6);
         }
 
+        $claims = isset($json['claims_no_soportados']) && is_array($json['claims_no_soportados'])
+            ? array_values($json['claims_no_soportados']) : [];
+
+        $resumen = (string) ($interpretacionIA['resumen'] ?? '');
+        $resumenLower = mb_strtolower($resumen);
+        $pagosCount = (int) ($datosReales['pagos_count'] ?? 0);
+        if ($pagosCount === 0 && (strpos($resumenLower, 'bajo riesgo') !== false || strpos($resumenLower, 'buen pagador') !== false || strpos($resumenLower, 'pagos al día') !== false || strpos($resumenLower, 'sin mora') !== false)) {
+            $claims[] = 'coherencia: 0 pagos en estado de cuenta pero resumen sugiere bajo riesgo o buen pago';
+            $veracity = min($veracity, 55);
+        }
+
+        $cg = $datosReales['cumplimiento_gestor'] ?? [];
+        $pctGestor = isset($cg['porcentaje_cumplimiento']) && is_numeric($cg['porcentaje_cumplimiento']) ? (float) $cg['porcentaje_cumplimiento'] : null;
+        if ($pctGestor !== null && $pctGestor < 50 && (strpos($resumenLower, 'gestor cumple') !== false || strpos($resumenLower, 'cumplimiento adecuado') !== false || strpos($resumenLower, 'buen desempeño del gestor') !== false)) {
+            $claims[] = 'coherencia: cumplimiento gestor ' . round($pctGestor, 0) . '% pero resumen indica cumplimiento adecuado';
+            $veracity = min($veracity, 60);
+        }
+
         return [
             'veracity_score'       => $veracity,
             'suspected_test'       => $suspected,
             'evidencias_validadas' => isset($json['evidencias_validadas']) && is_array($json['evidencias_validadas'])
                 ? array_values($json['evidencias_validadas']) : [],
-            'claims_no_soportados' => isset($json['claims_no_soportados']) && is_array($json['claims_no_soportados'])
-                ? array_values($json['claims_no_soportados']) : [],
+            'claims_no_soportados' => array_values(array_unique($claims)),
             'success'              => true,
             'raw_ia'               => $texto,
         ];

@@ -161,6 +161,11 @@ class Api extends Controller
 
     private function buildPaymentsAnalytics(int $idCredito): array
     {
+        $pagosParaTemporal = $this->getPagosDesdeEstadoCuenta($idCredito);
+        if (!empty($pagosParaTemporal)) {
+            $temporal = new TemporalPaymentsService();
+            return $temporal->analizarPagos($pagosParaTemporal);
+        }
         $gestiones = GestionesDAO::getAllGestiones($idCredito, '');
         $gestiones = is_array($gestiones) ? $gestiones : [];
         $pagos = [];
@@ -170,16 +175,41 @@ class Api extends Controller
                 $f = $g['fecha_dispositivo'] ?? $g['fecha_hora'] ?? null;
                 if ($f) {
                     $ts = is_numeric($f) ? (int) $f : strtotime($f);
-                    $pagos[] = [
-                        'id' => $g['id'] ?? 'g' . $i,
-                        'fecha_pago' => $ts ? date('c', $ts) : null,
-                        'monto' => $g['monto'] ?? null,
-                    ];
+                    $pagos[] = ['fecha' => $ts ? date('Y-m-d', $ts) : null];
                 }
             }
         }
         $temporal = new TemporalPaymentsService();
         return $temporal->analizarPagos($pagos);
+    }
+
+    /**
+     * Obtiene fechas de pago desde API estado de cuenta (misma fuente que Analizar IA).
+     * @return array [] de ['fecha' => 'Y-m-d'] para TemporalPaymentsService::analizarPagos
+     */
+    private function getPagosDesdeEstadoCuenta(int $idCredito): array
+    {
+        try {
+            $estadoCuentaCtrl = new \Controllers\EstadoCuenta();
+            $res = $estadoCuentaCtrl->api___SPARTA_SECRET_REDACTED__($idCredito, date('Y-m-d'));
+            if (empty($res['ok']) || empty($res['data']['datosPagos'])) {
+                return [];
+            }
+            $pagos = $res['data']['datosPagos'];
+            $out = [];
+            foreach ($pagos as $p) {
+                $f = $p['fechaDeposito'] ?? $p['fechaRegistro'] ?? $p['fechaValor'] ?? null;
+                if ($f) {
+                    $fechaNorm = is_numeric($f) ? date('Y-m-d', (int) $f) : date('Y-m-d', strtotime($f));
+                    if ($fechaNorm) {
+                        $out[] = ['fecha' => $fechaNorm];
+                    }
+                }
+            }
+            return $out;
+        } catch (\Throwable $e) {
+            return [];
+        }
     }
 
     private function buildComplianceAnalytics(int $idCredito, ?string $gestorId): array

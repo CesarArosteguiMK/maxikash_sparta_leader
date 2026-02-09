@@ -26,6 +26,7 @@ $scorePagos = isset($scorePagos) ? (int) $scorePagos : 0;
 $datosFaltantes = isset($datosFaltantes) && is_array($datosFaltantes) ? $datosFaltantes : [];
 $accionesRecomendadas = isset($accionesRecomendadas) && is_array($accionesRecomendadas) ? $accionesRecomendadas : [];
 $mensajesSugeridos = isset($mensajesSugeridos) && is_array($mensajesSugeridos) ? $mensajesSugeridos : [];
+$ultimoPago = isset($ultimoPago) && is_array($ultimoPago) ? $ultimoPago : ['fecha' => null, 'monto' => null];
 
 $esc = function ($s) {
     return htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8');
@@ -105,6 +106,9 @@ $esc = function ($s) {
                     <?php if (!empty($puntoInteres) && isset($puntoInteres['visitas']) && isset($puntoInteres['distancia'])): ?>
                     <p>Punto de interés con <strong><?= (int) $puntoInteres['visitas'] ?> visitas</strong> a <?= $esc($puntoInteres['distancia']) ?> km.</p>
                     <?php endif; ?>
+                    <?php if (!empty($puntoInteres) && isset($puntoInteres['tipo']) && (string) $puntoInteres['tipo'] !== ''): ?>
+                    <p><strong>Tipo (estrategia contacto):</strong> <?= $esc($puntoInteres['tipo']) ?>.</p>
+                    <?php endif; ?>
                 </div>
                 <div class="analitica-ia-progress-bar-container">
                     <div class="analitica-ia-progress-bar <?= $claseProgressCliente ?>" style="width: <?= min(100, $scoreCliente) ?>%;"></div>
@@ -182,6 +186,16 @@ $esc = function ($s) {
                     <p><strong>Patrón:</strong> <?= $esc(ucfirst($patronPago)) ?></p>
                     <?php if ($diaFrecuente !== 'N/D'): ?>
                     <p><strong>Día frecuente:</strong> <?= $esc(ucfirst($diaFrecuente)) ?><?= $consistenciaDia !== null ? ' (' . $esc($consistenciaDia) . '%)' : '' ?></p>
+                    <?php endif; ?>
+                    <?php if (!empty($ultimoPago['fecha']) || !empty($ultimoPago['monto'])): ?>
+                    <?php
+                    $diasDesdeUltimo = null;
+                    if (!empty($ultimoPago['fecha'])) {
+                        $tsUltimo = strtotime($ultimoPago['fecha']);
+                        $diasDesdeUltimo = $tsUltimo !== false ? (int) floor((time() - $tsUltimo) / 86400) : null;
+                    }
+                    ?>
+                    <p><strong>Último pago:</strong> <?= !empty($ultimoPago['fecha']) ? $esc($ultimoPago['fecha']) : '—' ?><?= $diasDesdeUltimo !== null ? ' (hace ' . $diasDesdeUltimo . ' día' . ($diasDesdeUltimo !== 1 ? 's' : '') . ')' : '' ?><?= !empty($ultimoPago['monto']) ? ', monto ' . $esc($ultimoPago['monto']) : '' ?>.</p>
                     <?php endif; ?>
                 </div>
                 <div class="analitica-ia-progress-bar-container">

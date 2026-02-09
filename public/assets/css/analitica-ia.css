@@ -19,14 +19,26 @@
 .analitica-ia-container--modal .analitica-ia-header {
   text-align: left;
   margin-bottom: 1rem;
+  background: linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%);
+  color: #fff;
+  padding: 1rem 1.25rem;
+  border-radius: 10px;
+  margin-left: 0;
+  margin-right: 0;
 }
 .analitica-ia-container--modal .analitica-ia-title--modal {
   font-size: 1.25rem;
   font-weight: 700;
-  color: #1e293b;
+  color: #fff !important;
   margin: 0 0 0.75rem 0;
   line-height: 1.35;
 }
+.analitica-ia-container--modal .analitica-ia-header .analitica-ia-nota-sin-ia {
+  color: #e2e8f0;
+  background: rgba(255,255,255,0.1);
+  border-left-color: rgba(255,255,255,0.4);
+}
+.analitica-ia-container--modal .analitica-ia-header .analitica-ia-nota-sin-ia strong { color: #fff; }
 .analitica-ia-nota-sin-ia {
   font-size: 0.8125rem;
   color: #475569;

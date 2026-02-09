@@ -5,28 +5,32 @@
     .credito-modal-item .fw-medium { word-break: break-word; }
     /* Cuerpo modal: 3 columnas con espacio para ver el fondo gris entre tarjetas */
     #modalRastreoCredito .rastreo-header-grid { flex-shrink: 0; }
-    #modalRastreoCredito .rastreo-grid { display: grid; grid-template-columns: minmax(0, 29%) minmax(300px, 1fr) minmax(220px, 21%); gap: 1rem; align-items: stretch; min-height: 0; flex: 1; }
+    /* Grid: las 3 columnas con la misma altura (stretch) */
+    #modalRastreoCredito .rastreo-grid { display: grid; grid-template-columns: minmax(0, 29%) minmax(300px, 1fr) minmax(220px, 21%); gap: 1rem; align-items: stretch; min-height: auto; }
+    @media (max-width: 1199px) {
+        #modalRastreoCredito .rastreo-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr); }
+    }
     @media (max-width: 992px) { #modalRastreoCredito .rastreo-grid { grid-template-columns: 1fr; } }
-    #modalRastreoCredito .rastreo-col-izq { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
+    #modalRastreoCredito .rastreo-col-izq { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
     #modalRastreoCredito .rastreo-col-izq .rastreo-seccion-direcciones { display: flex; flex-direction: column; flex: 1; min-height: 200px; min-width: 0; }
     #modalRastreoCredito .rastreo-col-izq .rastreo-mapa-wrap { margin-top: auto; flex-shrink: 0; }
-    /* Columna centro: Grid 2 cols. Izq: IA (25%) y Evidencias (25%) filas iguales; Derecha: Histórico full height. */
-    #modalRastreoCredito .rastreo-col-centro { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 0.75rem; min-height: 0; min-width: 0; }
-    #modalRastreoCredito .rastreo-col-centro .rastreo-ia-box { grid-column: 1; grid-row: 1; min-height: 100px; display: flex; flex-direction: column; }
-    #modalRastreoCredito .rastreo-col-centro .rastreo-seccion-evidencias { grid-column: 1; grid-row: 2; }
-    #modalRastreoCredito .rastreo-col-centro .rastreo-seccion-gestiones { grid-column: 2; grid-row: 1 / -1; height: 100%; min-height: 200px; }
+    /* Columna centro: misma altura que las demás; filas reparten el espacio. */
+    #modalRastreoCredito .rastreo-col-centro { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 0.75rem; min-width: 0; min-height: 0; }
+    #modalRastreoCredito .rastreo-col-centro .rastreo-ia-box { grid-column: 1; grid-row: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+    #modalRastreoCredito .rastreo-col-centro .rastreo-seccion-evidencias { grid-column: 1; grid-row: 2; min-height: 0; }
+    #modalRastreoCredito .rastreo-col-centro .rastreo-seccion-gestiones { grid-column: 2; grid-row: 1 / -1; min-height: 0; }
     @media (max-width: 991px) {
         #modalRastreoCredito .rastreo-col-centro { grid-template-columns: 1fr; grid-template-rows: auto; }
         #modalRastreoCredito .rastreo-col-centro .rastreo-ia-box,
         #modalRastreoCredito .rastreo-col-centro .rastreo-seccion-evidencias,
         #modalRastreoCredito .rastreo-col-centro .rastreo-seccion-gestiones { grid-column: 1; grid-row: auto; height: auto; min-height: 140px; }
     }
-    #modalRastreoCredito .rastreo-col-bitacora-wrap { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
+    #modalRastreoCredito .rastreo-col-bitacora-wrap { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
     #modalRastreoCredito .rastreo-block-full { grid-column: 1 / -1; }
     #modalRastreoCredito.modal .modal-dialog { max-width: 95vw; width: 95vw; height: 90vh; max-height: 90vh; margin: 2rem auto; }
     /* FONDO GRIS: contenedor padre = gris azulado (Slate 100). Tarjetas blancas resaltan encima. */
     #modalRastreoCredito .modal-content { height: 100%; display: flex; flex-direction: column; border-radius: 16px; overflow: visible; background-color: #F1F5F9 !important; border: none !important; }
-    #modalRastreoCredito .modal-body { flex: 1; overflow-x: hidden; overflow-y: auto; background-color: #F1F5F9 !important; padding: 1rem; -webkit-font-smoothing: antialiased; display: flex; flex-direction: column; min-height: 0; }
+    #modalRastreoCredito .modal-body { flex: 1; overflow-x: hidden; overflow-y: auto; -webkit-overflow-scrolling: touch; background-color: #F1F5F9 !important; padding: 1rem; -webkit-font-smoothing: antialiased; display: flex; flex-direction: column; min-height: 0; }
     #modalRastreoCredito .modal-body .small { line-height: 1.5; letter-spacing: 0.01em; color: #374151; }
     /* Encabezado y pie BLANCOS para limpieza visual */
     #modalRastreoCredito .modal-header { background-color: #FFFFFF !important; border-bottom: 1px solid #E5E7EB !important; }
@@ -105,7 +109,7 @@
         flex-shrink: 0;
     }
     #modalRastreoCredito .rastreo-ia-box .ia-content { flex: 1; min-width: 0; }
-    #modalRastreoCredito .rastreo-col-centro .rastreo-centro-card { display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+    #modalRastreoCredito .rastreo-col-centro .rastreo-centro-card { display: flex; flex-direction: column; }
     /* Iconografía: iconos FontAwesome del modal en azul de marca #4f46e5 */
     #modalRastreoCredito .rastreo-seccion-direcciones i[class*="fa-"],
     #modalRastreoCredito .rastreo-seccion-gestiones i[class*="fa-"],
@@ -121,7 +125,15 @@
     #modalRastreoCredito .rastreo-analitica-bar { border-color: #E5E7EB; }
     /* Scrim para modal Analítica IA: fondo oscuro detrás del modal, bloquea scroll body */
     .scrim { position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 1000; }
-    #modalPrediccionIA.modal-analitica-ia .modal-dialog { position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%); z-index: 1080; max-height: 90vh; overflow: hidden; display: flex; flex-direction: column; }
+    /* Header oscuro para modal Análisis IA / Resumen analítico (título visible) */
+    #modalPrediccionIA .modal-header-analitica-ia {
+      background: linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%) !important;
+      color: #fff !important;
+      border-bottom-color: rgba(255,255,255,0.12) !important;
+    }
+    #modalPrediccionIA .modal-header-analitica-ia .modal-title,
+    #modalPrediccionIA .modal-header-analitica-ia .modal-title i { color: #fff !important; }
+    #modalPrediccionIA.modal-analitica-ia .modal-dialog { position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%); z-index: 1080; width: min(92vw, 1140px); max-width: 92vw; max-height: 90vh; overflow: hidden; display: flex; flex-direction: column; }
     #modalPrediccionIA.modal-analitica-ia .modal-content { max-height: 90vh; display: flex; flex-direction: column; }
     #modalPrediccionIA.modal-analitica-ia .modal-body { overflow-y: auto; flex: 1 1 auto; min-height: 0; padding: 1rem 1.25rem; }
     #modalRastreoCredito .rastreo-card-header { border-bottom-color: #F3F4F6; }
@@ -333,7 +345,7 @@
         color: #fff;
     }
 
-    /* ========== RESPONSIVE: celular y zoom ========== */
+    /* ========== RESPONSIVE: celular, laptop y zoom ========== */
     /* Base: permitir zoom (no usar maximum-scale=1 en viewport) y reflow con unidades relativas */
     html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
     @media (max-width: 992px) {
@@ -598,8 +610,8 @@
 <div class="modal fade" id="modalPrediccionIA" tabindex="-1" aria-labelledby="modalPrediccionIALabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
         <div class="modal-content">
-            <div class="modal-header py-3 border-bottom bg-primary text-white d-flex align-items-center">
-                <h5 class="modal-title mb-0" id="modalPrediccionIALabel" style="color: #ffffff !important;">
+            <div class="modal-header modal-header-analitica-ia py-3 border-bottom d-flex align-items-center">
+                <h5 class="modal-title mb-0" id="modalPrediccionIALabel">
                     <i class="fa-solid fa-chart-line me-2"></i>Analítica – Resumen
                 </h5>
                 <button type="button" class="btn-close btn-close-white btn-close-sm ms-auto" data-bs-dismiss="modal" aria-label="Cerrar"></button>
@@ -728,8 +740,10 @@
     function getOrCreateScrim() {
         if (scrimEl && scrimEl.parentNode) return scrimEl;
         scrimEl = document.createElement('div');
-        scrimEl.className = 'modal-scrim';
+        scrimEl.id = 'scrim-entre-modal-padre-hijo';
+        scrimEl.className = 'modal-scrim scrim-entre-modales';
         scrimEl.setAttribute('aria-hidden', 'true');
+        scrimEl.setAttribute('data-role', 'scrim-padre-hijo');
         scrimEl.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:' + SCRIM_Z + ';pointer-events:auto;';
         return scrimEl;
     }
@@ -746,36 +760,42 @@
         var childModal = ev.target;
         parentModal = document.getElementById('modalRastreoCredito');
         if (!parentModal || !parentModal.classList.contains('show')) return;
-        // Resumen analítico: no inyectar scrim y poner modal + su backdrop por encima del padre
+        // Modal padre queda detrás; al abrir un hijo encima se pone el scrim entre padre e hijo. El hijo debe quedar POR ENCIMA del scrim.
         var isResumenAnalitica = (childModal.id === 'modalPrediccionIA' && childModal.classList.contains('modal-analitica-ia'));
-        if (!isResumenAnalitica) {
-            parentModal.classList.add('modal-below-scrim');
-            var el = getOrCreateScrim();
-            if (el.parentNode) {
-                el.parentNode.removeChild(el);
-            }
-            if (childModal.parentNode === document.body) {
-                document.body.insertBefore(el, childModal);
-            } else {
-                document.body.appendChild(el);
-            }
-        } else {
-            parentModal.classList.add('modal-below-scrim');
-            // Resumen analítico: ocultar el backdrop del segundo modal para que no tape el contenido
-            requestAnimationFrame(function() {
-                var backdrops = document.querySelectorAll('.modal-backdrop');
-                if (backdrops.length > 1) {
-                    var segundoBackdrop = backdrops[backdrops.length - 1];
-                    segundoBackdrop.style.setProperty('z-index', '1040', 'important');
-                    segundoBackdrop.style.setProperty('pointer-events', 'none', 'important');
-                }
-                childModal.style.setProperty('z-index', '1090', 'important');
-                var dialog = childModal.querySelector('.modal-dialog');
-                if (dialog) dialog.style.setProperty('z-index', '1090', 'important');
-            });
+
+        parentModal.classList.add('modal-below-scrim');
+
+        // Primero: poner el modal hijo POR ENCIMA del scrim (z-index mayor que SCRIM_Z) ANTES de insertar el scrim
+        var childZ = isResumenAnalitica ? '1090' : '1070';
+        childModal.style.setProperty('z-index', childZ, 'important');
+        var dialogEl = childModal.querySelector('.modal-dialog');
+        if (dialogEl) dialogEl.style.setProperty('z-index', childZ, 'important');
+
+        // Mover el modal hijo a body para que sea hermano del scrim y no quede detrás por estar dentro del padre
+        if (childModal.parentNode !== document.body) {
+            document.body.appendChild(childModal);
         }
+
+        var el = getOrCreateScrim();
+        if (el.parentNode) {
+            el.parentNode.removeChild(el);
+        }
+        // Scrim con z-index 1060 (SCRIM_Z); el hijo ya tiene 1070/1090, queda por encima
+        document.body.insertBefore(el, childModal);
+
+        // Bootstrap añade .modal-backdrop: TODOS deben quedar DETRÁS del modal hijo (z-index menor que childZ)
+        requestAnimationFrame(function() {
+            var backdrops = document.querySelectorAll('.modal-backdrop');
+            var zDebajoHijo = '1040';
+            for (var b = 0; b < backdrops.length; b++) {
+                backdrops[b].style.setProperty('z-index', zDebajoHijo, 'important');
+                if (isResumenAnalitica && b === backdrops.length - 1) {
+                    backdrops[b].style.setProperty('pointer-events', 'none', 'important');
+                }
+            }
+        });
+
         childModal.classList.add('modal-nested-open');
-        childModal.style.setProperty('z-index', '1070', 'important');
         document.body.style.overflow = 'hidden';
     }
     function onChildModalHidden(ev) {
@@ -784,13 +804,10 @@
         modal.style.removeProperty('z-index');
         var dialog = modal.querySelector('.modal-dialog');
         if (dialog) dialog.style.removeProperty('z-index');
-        if (modal.id === 'modalPrediccionIA') {
-            var backdrops = document.querySelectorAll('.modal-backdrop');
-            if (backdrops.length > 1) {
-                var segundo = backdrops[backdrops.length - 1];
-                segundo.style.removeProperty('pointer-events');
-                segundo.style.removeProperty('z-index');
-            }
+        var backdrops = document.querySelectorAll('.modal-backdrop');
+        for (var b = 0; b < backdrops.length; b++) {
+            backdrops[b].style.removeProperty('pointer-events');
+            backdrops[b].style.removeProperty('z-index');
         }
         var anyChildOpen = CHILD_MODALS.some(function(id) {
             var m = document.getElementById(id);

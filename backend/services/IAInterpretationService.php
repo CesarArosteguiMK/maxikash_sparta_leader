@@ -51,9 +51,10 @@ class IAInterpretationService
             }
         }
 
-        $promptSistema = 'Eres un asistente que interpreta salidas determinísticas. NO recalcules ni cambies probabilidades. '
-            . 'Recibes resultadoMotor + prediccion_conductual (explicacion deterministica + evidencias). '
-            . 'Genera JSON con resumen (2 frases), patrones, acciones_recomendadas (priorizadas) y riesgos_detectados. '
+        $promptSistema = 'Eres un asistente que interpreta salidas determinísticas para cobranza y localización. NO recalcules ni cambies probabilidades. '
+            . 'Recibes resultadoMotor, prediccion_conductual y CONTEXTO del crédito (ubicaciones, gestiones, cumplimiento del gestor, estado de cuenta/pagos, referencias, bitácora). '
+            . 'Genera JSON con: resumen (2-3 frases que integren riesgo de impago Y desempeño del gestor), patrones_conductuales, acciones_recomendadas (priorizadas), riesgos_detectados. '
+            . 'Los riesgos_detectados deben basarse en los datos: incluir riesgos de PAGO/IMAGO (historial de pagos, saldo, mora) y riesgos del GESTOR (cumplimiento, visitas fuera de rango, alertas) cuando apliquen. '
             . 'prediccion_intencion.evidencia debe usar solo ids del input. RESPONDE SOLO JSON. Usa solo ids y resúmenes, nunca PII.';
         $promptUsuario = "INPUT:\n" . implode("\n", $lineas) . "\n\n"
             . "Devuelve JSON:\n"
@@ -65,7 +66,7 @@ class IAInterpretationService
             . "  \"prediccion_intencion\": { \"accion\": \"string\", \"evidencia\": [ \"id\" ], \"nota\": \"string\" }\n"
             . "}\n";
 
-        $resultado = $llamarLLM($promptSistema, [['text' => $promptUsuario]], 1024);
+        $resultado = $llamarLLM($promptSistema, [['text' => $promptUsuario]], 1536);
 
         if (!$resultado['success'] || trim($resultado['texto'] ?? '') === '') {
             return $this->fallbackInterpretacion($resultadoMotor, $idsEvidencia);

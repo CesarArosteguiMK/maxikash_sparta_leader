@@ -526,16 +526,21 @@ SCRIPT;
                     if (j.resumen_ejecutivo || j.summary) html += \'<p class="fw-semibold mb-3">\' + esc(j.resumen_ejecutivo || j.summary) + \'</p>\';
                     html += \'<div class="analitica-ia-card mb-3"><h3 class="h6 border-bottom pb-2 mb-2">Riesgo / predicción de impago</h3>\';
                     var pc = j.prediccion_conductual || {};
-                    if (pc.evento_probable) html += \'<p><strong>Evento probable:</strong> \' + esc(pc.evento_probable) + (pc.confianza_evento != null ? \' (confianza \' + Math.round((pc.confianza_evento)*100) + \'%)\' : \'\') + \'</p>\';
+                    var eventoLabel = (pc.evento_probable === \'pago_en_caja\') ? \'Pago recibido\' : (pc.evento_probable || \'\');
+                    var confianzaPct = pc.confianza_evento != null ? (pc.confianza_evento <= 1 ? Math.round(pc.confianza_evento * 100) : Math.round(pc.confianza_evento)) : null;
+                    if (pc.evento_probable) html += \'<p><strong>Evento probable:</strong> \' + (eventoLabel ? esc(eventoLabel) : esc(pc.evento_probable)) + (confianzaPct != null ? \' (confianza \' + confianzaPct + \'%)\' : \'\') + \'</p>\';
                     if (pc.explicacion_deterministica) html += \'<p class="small text-muted">\' + esc(pc.explicacion_deterministica) + \'</p>\';
+                    if (!pc.evento_probable && !pc.explicacion_deterministica) html += \'<p class="small text-muted">Sin predicción específica de evento. Revisar historial de pagos y gestiones.</p>\';
                     var riesgosImpago = (j.riesgos || []).filter(function(x){ var t = (x+\'\').toLowerCase(); return /pago|impago|saldo|mora|recuperación|deuda/.test(t); });
                     if (riesgosImpago.length) { html += \'<p class="small mb-1"><strong>Riesgos detectados:</strong></p><ul class="small">\'; riesgosImpago.forEach(function(x){ html += \'<li>\' + esc(x) + \'</li>\'; }); html += \'</ul>\'; }
                     var ap = j.analitica_pagos || {};
                     if (ap.total_pagos != null || ap.patron_pago) html += \'<p class="small mb-0">Historial de pagos: \' + (ap.total_pagos != null ? ap.total_pagos + \' pagos\' : \'\') + (ap.patron_pago ? \', patrón \' + esc(ap.patron_pago) : \'\') + \'</p>\';
+                    else if (Object.keys(ap).length > 0 || (j.analitica_pagos && typeof j.analitica_pagos === \'object\')) html += \'<p class="small mb-0 text-muted">Historial de pagos: no disponible.</p>\';
                     html += \'</div>\';
                     html += \'<div class="analitica-ia-card mb-3"><h3 class="h6 border-bottom pb-2 mb-2">Riesgo y predicción con el gestor</h3>\';
                     var cg = j.cumplimiento_gestor || {};
-                    if (cg.porcentaje_cumplimiento != null) html += \'<p><strong>Cumplimiento de gestiones:</strong> \' + esc(cg.porcentaje_cumplimiento) + \'%\'; if (cg.visitas_cercanas != null || cg.visitas_lejanas != null) html += \' (\' + (cg.visitas_cercanas || 0) + \' visitas dentro de rango, \' + (cg.visitas_lejanas || 0) + \' fuera)\'; html += \'</p>\';
+                    if (cg.porcentaje_cumplimiento != null) { html += \'<p><strong>Cumplimiento de gestiones:</strong> \' + esc(cg.porcentaje_cumplimiento) + \'%\'; if (cg.visitas_cercanas != null || cg.visitas_lejanas != null) html += \' (\' + (cg.visitas_cercanas || 0) + \' visitas dentro de rango, \' + (cg.visitas_lejanas || 0) + \' fuera)\'; html += \'</p>\'; }
+                    else if (Object.keys(cg).length > 0 || (j.cumplimiento_gestor && typeof j.cumplimiento_gestor === \'object\')) html += \'<p class="small mb-0 text-muted">Cumplimiento de gestiones: no disponible.</p>\';
                     if (cg.alertas && cg.alertas.length) { html += \'<ul class="small">\'; cg.alertas.forEach(function(a){ html += \'<li class="text-warning">\' + esc(a) + \'</li>\'; }); html += \'</ul>\'; }
                     var riesgosGestor = (j.riesgos || []).filter(function(x){ var t = (x+\'\').toLowerCase(); return /gestor|cumplimiento|cobranza|canal|auditoría|eficacia/.test(t); });
                     if (riesgosGestor.length) { html += \'<p class="small mb-1"><strong>Riesgos relacionados al gestor:</strong></p><ul class="small">\'; riesgosGestor.forEach(function(x){ html += \'<li>\' + esc(x) + \'</li>\'; }); html += \'</ul>\'; }
@@ -1435,6 +1440,71 @@ SCRIPT;
     }
 
     /**
+     * Contexto rico para la interpretación IA: reducido + cumplimiento gestor + analítica pagos + estado cuenta + referencias.
+     * Mejora la confiabilidad del resumen y riesgos (pago y gestor).
+     */
+    private function construirContextoParaInterpretacionIA($idCredito, $idTicket, array $analiticas, $resumenEstadoCuenta)
+    {
+        $lineas = [trim($this->construirContextoAnalizarIAReducido($idCredito, $idTicket))];
+        $lineas[] = "\n=== CUMPLIMIENTO GESTOR ===";
+        $cg = $analiticas['cumplimiento_gestor'] ?? [];
+        $pct = $cg['porcentaje_cumplimiento'] ?? null;
+        if ($pct !== null) {
+            $lineas[] = 'Porcentaje cumplimiento: ' . $pct . '%. Visitas dentro de rango: ' . ($cg['visitas_cercanas'] ?? 0) . ', fuera de rango: ' . ($cg['visitas_lejanas'] ?? 0);
+            if (!empty($cg['alertas'])) {
+                $lineas[] = 'Alertas: ' . implode('; ', array_slice($cg['alertas'], 0, 5));
+            }
+        } else {
+            $lineas[] = 'Sin datos de cumplimiento (sin eventos de ubicación del gestor o sin ubicaciones del cliente).';
+        }
+        $lineas[] = "\n=== ANALÍTICA PAGOS ===";
+        $ap = $analiticas['analitica_pagos'] ?? [];
+        $lineas[] = 'Total pagos (usados en análisis): ' . ($ap['total_pagos'] ?? 0) . '. Patrón: ' . ($ap['patron_pago'] ?? '—') . '. Intervalo promedio (días): ' . ($ap['intervalo_promedio_dias'] ?? '—') . '. Día más frecuente: ' . ($ap['dia_mas_frecuente'] ?? '—');
+        $lineas[] = "\n=== ESTADO DE CUENTA (API) ===";
+        $lineas[] = $resumenEstadoCuenta !== '' ? $resumenEstadoCuenta : 'No disponible o sin pagos.';
+        // Último pago (morosidad/tendencia) y tipo punto de interés (estrategia contacto) para la IA
+        try {
+            $estadoCuentaCtrl = new \Controllers\EstadoCuenta();
+            $resEstado = $estadoCuentaCtrl->api___SPARTA_SECRET_REDACTED__($idCredito, date('Y-m-d'));
+            if (!empty($resEstado['ok']) && !empty($resEstado['data']['datosPagos'])) {
+                $pagosEc = $resEstado['data']['datosPagos'];
+                $conFechaMonto = [];
+                foreach ($pagosEc as $p) {
+                    $f = $p['fechaDeposito'] ?? $p['fechaRegistro'] ?? $p['fechaValor'] ?? null;
+                    if ($f !== null) {
+                        $fNorm = is_numeric($f) ? date('Y-m-d', (int) $f) : date('Y-m-d', strtotime($f));
+                        $conFechaMonto[] = ['fecha' => $fNorm, 'monto' => $p['montoPago'] ?? $p['monto'] ?? null];
+                    }
+                }
+                if (!empty($conFechaMonto)) {
+                    usort($conFechaMonto, function ($a, $b) { return strcmp($b['fecha'], $a['fecha']); });
+                    $ultFecha = $conFechaMonto[0]['fecha'];
+                    $ultMonto = $conFechaMonto[0]['monto'];
+                    $diasDesde = (int) floor((time() - strtotime($ultFecha)) / 86400);
+                    $lineas[] = 'Último pago (morosidad/tendencia): fecha ' . $ultFecha . ', monto ' . ($ultMonto !== null && $ultMonto !== '' ? $ultMonto : '—') . ', hace ' . $diasDesde . ' día(s).';
+                }
+            }
+        } catch (\Throwable $e) {
+            // Sin último pago en contexto
+        }
+        $ubicCtx = UbicacionDAO::getUbicacionesFiltradasPorIdCredito($idCredito);
+        $dirsCtx = $ubicCtx['direcciones_resumen'] ?? [];
+        if (!empty($dirsCtx)) {
+            $primeraDir = $dirsCtx[0];
+            $tipoPunto = trim((string) ($primeraDir['texto'] ?? '')) !== '' ? (string) $primeraDir['texto'] : (!empty($primeraDir['punto_de_interes']) ? 'Punto de interés' : 'Menos frecuente');
+            $lineas[] = 'Punto más visitado (estrategia contacto): ' . $tipoPunto . '.';
+        }
+        $ref = EmpresaDAO::getConsultaReferenciasEstadoCuenta($idCredito);
+        $datosRef = ($ref['success'] ?? false) && !empty($ref['datos']) ? $ref['datos'][0] : [];
+        if (!empty($datosRef)) {
+            $lineas[] = "\n=== REFERENCIAS / CONTACTO ===";
+            $lineas[] = 'Tel. referencia 1: ' . ($datosRef['telefono_referencia1'] ?? '—') . ' (' . ($datosRef['nombre_completo_referencia1'] ?? '—') . ')';
+            $lineas[] = 'Tel. referencia 2: ' . ($datosRef['telefono_referencia2'] ?? '—') . ' (' . ($datosRef['nombre_completo_referencia2'] ?? '—') . ')';
+        }
+        return implode("\n", $lineas);
+    }
+
+    /**
      * Construye el texto de contexto completo para analizarIA: crédito, pagos, direcciones,
      * todas las gestiones, bitácora completa, evidencias (fotos y comentarios), ubicaciones del mapa.
      */
@@ -1657,6 +1727,56 @@ SCRIPT;
             // ignorar
         }
         return 0;
+    }
+
+    /**
+     * Obtiene datos de estado de cuenta para el pipeline: fechas de pago reales, array para TemporalPaymentsService y resumen para contexto IA.
+     * Una sola llamada a la API para usar en analítica, historial_temporal y contexto.
+     *
+     * @return array { fechas_pago: string[], pagos_para_temporal: array[], resumen_texto: string, total: int }
+     */
+    private function getDatosEstadoCuentaParaPipeline($idCredito)
+    {
+        $out = [
+            'fechas_pago'         => [],
+            'pagos_para_temporal' => [],
+            'resumen_texto'       => '',
+            'total'               => 0,
+        ];
+        try {
+            $estadoCuentaCtrl = new \Controllers\EstadoCuenta();
+            $resEstado = $estadoCuentaCtrl->api___SPARTA_SECRET_REDACTED__($idCredito, date('Y-m-d'));
+            if (empty($resEstado['ok']) || empty($resEstado['data'])) {
+                return $out;
+            }
+            $data = $resEstado['data'];
+            $pagos = $data['datosPagos'] ?? [];
+            $saldos = $data['datosSaldos'] ?? [];
+            $out['total'] = count($pagos);
+            $fechas = [];
+            foreach ($pagos as $p) {
+                $f = $p['fechaDeposito'] ?? $p['fechaRegistro'] ?? $p['fechaValor'] ?? null;
+                if ($f) {
+                    $fechaNorm = is_numeric($f) ? date('Y-m-d', (int) $f) : date('Y-m-d', strtotime($f));
+                    if ($fechaNorm) {
+                        $fechas[] = $fechaNorm;
+                        $out['pagos_para_temporal'][] = ['fecha' => $fechaNorm];
+                    }
+                }
+            }
+            $fechas = array_values(array_unique($fechas));
+            rsort($fechas);
+            $out['fechas_pago'] = $fechas;
+            $saldoStr = '';
+            if (!empty($saldos) && isset($saldos['saldo'])) {
+                $saldoStr = ' Saldo actual: ' . ($saldos['saldo'] ?? '—');
+            }
+            $ultima = !empty($fechas) ? $fechas[0] : '—';
+            $out['resumen_texto'] = 'Estado de cuenta: ' . $out['total'] . ' pago(s) registrado(s). Última fecha de pago: ' . $ultima . '.' . $saldoStr;
+            return $out;
+        } catch (\Throwable $e) {
+            return $out;
+        }
     }
 
     /**
@@ -2003,13 +2123,14 @@ SCRIPT;
 
     /**
      * Ejecuta servicios determinísticos de analítica espacial, pagos y cumplimiento gestor.
-     * Sin IA. Resultados integrables en analizarIA, Resumen Ubicaciones IA y Resumen IA.
+     * Sin IA. Prioriza pagos reales del estado de cuenta API si se pasan.
      *
      * @param int $idCredito
      * @param array $data Salida de prepararDatosParaMotor
+     * @param array[] $pagosDesdeApi Opcional. Array de [ 'fecha' => 'Y-m-d' ] desde estado de cuenta API.
      * @return array [ analitica_espacial, analitica_pagos, cumplimiento_gestor ]
      */
-    private function ejecutarAnaliticasDeterministicas($idCredito, array $data): array
+    private function ejecutarAnaliticasDeterministicas($idCredito, array $data, array $pagosDesdeApi = []): array
     {
         $ubic = UbicacionDAO::getUbicacionesFiltradasPorIdCredito($idCredito);
         $ubic = is_array($ubic) ? $ubic : [];
@@ -2082,12 +2203,16 @@ SCRIPT;
             'aperturas_ultimos_5_dias' => $aperturas5,
         ];
         $pagosParaTemporal = [];
-        foreach ($data['gestiones'] ?? [] as $g) {
-            $tipo = (string) ($g['tipo'] ?? '');
-            if (stripos($tipo, 'Pago') !== false) {
-                $f = $g['fecha'] ?? null;
-                if ($f) {
-                    $pagosParaTemporal[] = ['fecha' => is_numeric($f) ? date('Y-m-d', (int) $f) : date('Y-m-d', strtotime($f))];
+        if (!empty($pagosDesdeApi)) {
+            $pagosParaTemporal = $pagosDesdeApi;
+        } else {
+            foreach ($data['gestiones'] ?? [] as $g) {
+                $tipo = (string) ($g['tipo'] ?? '');
+                if (stripos($tipo, 'Pago') !== false) {
+                    $f = $g['fecha'] ?? null;
+                    if ($f) {
+                        $pagosParaTemporal[] = ['fecha' => is_numeric($f) ? date('Y-m-d', (int) $f) : date('Y-m-d', strtotime($f))];
+                    }
                 }
             }
         }
@@ -2104,29 +2229,38 @@ SCRIPT;
     }
 
     /**
-     * Construye historial_temporal para BehaviorPredictionService a partir de datosParaMotor.
+     * Construye historial_temporal para BehaviorPredictionService.
+     * Prioriza fechas de pago del estado de cuenta API; si no hay, usa fechas extraídas de gestiones (dictamen Pago).
      *
      * @param array $data Salida de prepararDatosParaMotor
+     * @param string[] $fechasPagoApi Fechas Y-m-d desde estado de cuenta API (opcional)
      * @return array [ fechas_pago=>[], gestiones=>[], gps=>[] ]
      */
-    private function construirHistorialTemporal(array $data): array
+    private function construirHistorialTemporal(array $data, array $fechasPagoApi = []): array
     {
         $fechas_pago = [];
-        foreach ($data['gestiones'] ?? [] as $g) {
-            $tipo = (string) ($g['tipo'] ?? '');
-            if (stripos($tipo, 'Pago') !== false) {
-                $f = $g['fecha'] ?? null;
-                if ($f) {
-                    $ts = is_numeric($f) ? (int) $f : strtotime($f);
-                    if ($ts) {
-                        $fechas_pago[] = date('Y-m-d', $ts);
+        if (!empty($fechasPagoApi)) {
+            $fechas_pago = array_values(array_unique($fechasPagoApi));
+            rsort($fechas_pago);
+        }
+        if (empty($fechas_pago)) {
+            foreach ($data['gestiones'] ?? [] as $g) {
+                $tipo = (string) ($g['tipo'] ?? '');
+                if (stripos($tipo, 'Pago') !== false) {
+                    $f = $g['fecha'] ?? null;
+                    if ($f) {
+                        $ts = is_numeric($f) ? (int) $f : strtotime($f);
+                        if ($ts) {
+                            $fechas_pago[] = date('Y-m-d', $ts);
+                        }
                     }
                 }
             }
+            rsort($fechas_pago);
+            $fechas_pago = array_values(array_unique($fechas_pago));
         }
-        rsort($fechas_pago);
         return [
-            'fechas_pago' => array_values(array_unique($fechas_pago)),
+            'fechas_pago' => $fechas_pago,
             'gestiones'   => $data['gestiones'] ?? [],
             'gps'         => $data['ubicaciones'] ?? [],
         ];
@@ -2139,6 +2273,10 @@ SCRIPT;
     private function ejecutarPipelinePrediccion($idCredito, $idTicket = 0)
     {
         $data = $this->prepararDatosParaMotor($idCredito);
+
+        $estadoCuentaData = $this->getDatosEstadoCuentaParaPipeline($idCredito);
+        $pagosDesdeApi = $estadoCuentaData['pagos_para_temporal'];
+        $resumenEstadoCuenta = $estadoCuentaData['resumen_texto'];
 
         $motor = new LocationScoringService();
         $resultadoMotor = $motor->calcularProbabilidadLocalizacion($data);
@@ -2154,14 +2292,16 @@ SCRIPT;
         $traz = $resultadoMotor['trazabilidad'] ?? [];
         $motorConf = (float) ($resultadoMotor['motor_confidence'] ?? 50.0);
 
-        $analiticas = $this->ejecutarAnaliticasDeterministicas($idCredito, $data);
+        $analiticas = $this->ejecutarAnaliticasDeterministicas($idCredito, $data, $pagosDesdeApi);
 
         $cache = new PipelineCache(null, 86400);
-        $cacheKey = PipelineCache::hashInput($data);
+        $cacheKey = PipelineCache::hashInput($data) . '_v2';
         $cached = $cache->get($cacheKey);
 
-        $gemini = [$this, 'llamarGemini'];
-        $contextoMinimo = "Crédito {$idCredito}.";
+        $gemini = function ($systemPrompt, $parts, $maxTokens) {
+            return $this->llamarGemini($systemPrompt, $parts, $maxTokens);
+        };
+        $contextoRico = $this->construirContextoParaInterpretacionIA($idCredito, $idTicket, $analiticas, $resumenEstadoCuenta);
 
         $prediccion_conductual = null;
         if (is_array($cached) && isset($cached['interpretacion']) && isset($cached['verificacion'])) {
@@ -2170,9 +2310,9 @@ SCRIPT;
             $prediccion_conductual = $cached['prediccion_conductual'] ?? null;
         } else {
             $interpretacionSvc = new IAInterpretationService();
-            $interpretacion = $interpretacionSvc->interpretar($resultadoMotor, $gemini, $contextoMinimo);
+            $interpretacion = $interpretacionSvc->interpretar($resultadoMotor, $gemini, $contextoRico);
 
-            $pagosCount = $data['pagos_count'];
+            $pagosCount = !empty($estadoCuentaData['total']) ? $estadoCuentaData['total'] : $data['pagos_count'];
             $ubic = UbicacionDAO::getUbicacionesFiltradasPorIdCredito($idCredito);
             $gpsList = [];
             foreach (array_slice($ubic['direcciones_resumen'] ?? [], 0, 10) as $i => $d) {
@@ -2202,11 +2342,12 @@ SCRIPT;
                 'gestiones' => $gestionesList,
                 'suspected_test' => $test['suspected'],
                 'suspected_test_reasons' => $test['reasons'],
+                'cumplimiento_gestor' => $analiticas['cumplimiento_gestor'] ?? [],
             ];
             $verificacionSvc = new IAVerificationService();
             $verificacion = $verificacionSvc->verificar($datosReales, $resultadoMotor, $interpretacion, $gemini);
 
-            $historial_temporal = $this->construirHistorialTemporal($data);
+            $historial_temporal = $this->construirHistorialTemporal($data, $estadoCuentaData['fechas_pago']);
             $predictionSvc = new BehaviorPredictionService();
             try {
                 $prediccion_conductual = $predictionSvc->predecirIntencionAcreditado($resultadoMotor, $datosReales, $historial_temporal);
@@ -2233,7 +2374,7 @@ SCRIPT;
             $audit->log(
                 $cacheKey,
                 ['domicilio' => $dom, 'trabajo' => $tra, 'otro' => $otr, 'motor_confidence' => $motorConf],
-                substr($contextoMinimo . ' ' . ($interpretacion['resumen'] ?? ''), 0, 500),
+                substr(mb_substr($contextoRico, 0, 200) . ' ' . ($interpretacion['resumen'] ?? ''), 0, 500),
                 $responseHash,
                 [
                     'veracity_score' => $verificacion['veracity_score'] ?? 0,
@@ -2248,12 +2389,8 @@ SCRIPT;
         }
 
         if ($prediccion_conductual === null) {
-            $historial_temporal = [
-                'fechas_pago' => [],
-                'gestiones' => $data['gestiones'] ?? [],
-                'gps' => $data['ubicaciones'] ?? [],
-            ];
-            $pagosCount = $data['pagos_count'];
+            $historial_temporal = $this->construirHistorialTemporal($data, $estadoCuentaData['fechas_pago']);
+            $pagosCount = !empty($estadoCuentaData['total']) ? $estadoCuentaData['total'] : $data['pagos_count'];
             $ubic = UbicacionDAO::getUbicacionesFiltradasPorIdCredito($idCredito);
             $gpsList = [];
             foreach (array_slice($ubic['direcciones_resumen'] ?? [], 0, 10) as $i => $d) {
@@ -2264,7 +2401,14 @@ SCRIPT;
             foreach (array_slice(is_array($gestionesFull) ? $gestionesFull : [], 0, 10) as $i => $g) {
                 $gestionesList[] = ['id' => $g['id'] ?? 'g' . $i, 'fecha' => $g['fecha_dispositivo'] ?? $g['fecha_hora'] ?? '—', 'tipo' => $g['dictamen_campo'] ?? $g['dictamen_ccc'] ?? '—'];
             }
-            $datosReales = ['pagos_count' => $pagosCount, 'gps' => $gpsList, 'gestiones' => $gestionesList, 'suspected_test' => false, 'suspected_test_reasons' => []];
+            $datosReales = [
+                'pagos_count' => $pagosCount,
+                'gps' => $gpsList,
+                'gestiones' => $gestionesList,
+                'suspected_test' => false,
+                'suspected_test_reasons' => [],
+                'cumplimiento_gestor' => $analiticas['cumplimiento_gestor'] ?? [],
+            ];
             $predictionSvc = new BehaviorPredictionService();
             try {
                 $prediccion_conductual = $predictionSvc->predecirIntencionAcreditado($resultadoMotor, $datosReales, $historial_temporal);
@@ -2333,6 +2477,17 @@ SCRIPT;
             $planLegacy[] = ['step' => $step, 'priority' => $i + 1, 'expected_uncertainty_reduction' => 0.5, 'time_window' => ''];
         }
         $riesgosLegacy = array_map(function ($r) { return ['risk' => $r, 'impact' => 0.3, 'evidence' => []]; }, $riesgosStrings);
+        // Asegurar que prediccion_conductual tenga siempre evento_probable y explicacion_deterministica para el modal
+        $pcLegacy = is_array($prediccion_conductual) ? $prediccion_conductual : [];
+        $pcLegacy['evento_probable'] = trim((string) ($pcLegacy['evento_probable'] ?? ''));
+        $pcLegacy['explicacion_deterministica'] = trim((string) ($pcLegacy['explicacion_deterministica'] ?? ''));
+        if ($pcLegacy['evento_probable'] === '') {
+            $pcLegacy['evento_probable'] = 'Sin predicción específica; revisar historial y gestiones.';
+        }
+        if ($pcLegacy['explicacion_deterministica'] === '') {
+            $pcLegacy['explicacion_deterministica'] = 'Evaluación basada en datos disponibles (pagos, ubicaciones y cumplimiento del gestor).';
+        }
+        $pcLegacy['confianza_evento'] = isset($pcLegacy['confianza_evento']) ? (float) $pcLegacy['confianza_evento'] : 0.0;
         $jsonLegacy = [
             'confianza_analisis' => $confianzaGlobal / 100.0,
             'confidence' => $confianzaGlobal / 100.0,
@@ -2348,7 +2503,7 @@ SCRIPT;
             'missing_data' => $verificacion['claims_no_soportados'] ?? [],
             'next_steps' => $planOperativo,
             'suspected_test' => $verificacion['suspected_test'] ?? false,
-            'prediccion_conductual' => $prediccion_conductual,
+            'prediccion_conductual' => $pcLegacy,
             'analitica_espacial' => $analiticas['analitica_espacial'],
             'analitica_pagos' => $analiticas['analitica_pagos'],
             'cumplimiento_gestor' => $analiticas['cumplimiento_gestor'],
@@ -2976,16 +3131,20 @@ SCRIPT;
     private function getDatosResumenAnalitica(int $idCredito): ?array
     {
         $data = $this->prepararDatosParaMotor($idCredito);
-        $analiticas = $this->ejecutarAnaliticasDeterministicas($idCredito, $data);
+        $estadoCuentaData = $this->getDatosEstadoCuentaParaPipeline($idCredito);
+        $pagosDesdeApi = $estadoCuentaData['pagos_para_temporal'] ?? [];
+        $analiticas = $this->ejecutarAnaliticasDeterministicas($idCredito, $data, $pagosDesdeApi);
         $analiticaEspacial = $analiticas['analitica_espacial'] ?? [];
         $analiticaPagos = $analiticas['analitica_pagos'] ?? [];
         $cumplimientoGestor = $analiticas['cumplimiento_gestor'] ?? [];
 
         $eventosGestor = GestionesDAO::getEventosGestorPorCredito($idCredito);
-        $mapaGestorPorId = [];
-        foreach ($eventosGestor as $e) {
-            $eid = $e['id'] ?? $e['gestor_event_id'] ?? null;
-            if ($eid !== null && $eid !== '') {
+        $detalles = $cumplimientoGestor['detalles'] ?? [];
+        // Mismo criterio que API Cumplimiento Gestor: enriquecer por ÍNDICE para que el nombre coincida siempre
+        foreach ($detalles as $i => &$d) {
+            $nombre = '—';
+            if (isset($eventosGestor[$i])) {
+                $e = $eventosGestor[$i];
                 $nombre = trim((string) ($e['usuario_asignado'] ?? ''));
                 if ($nombre === '') {
                     $nombre = trim((string) ($e['codigo_gestor'] ?? ''));
@@ -2993,14 +3152,9 @@ SCRIPT;
                 if ($nombre === '') {
                     $nombre = trim((string) ($e['usuario'] ?? ''));
                 }
-                $mapaGestorPorId[(string) $eid] = $nombre !== '' ? $nombre : '—';
+                $nombre = $nombre !== '' ? $nombre : '—';
             }
-        }
-        $detalles = $cumplimientoGestor['detalles'] ?? [];
-        foreach ($detalles as &$d) {
-            $eid = $d['gestor_event_id'] ?? null;
-            $d['gestor_nombre'] = ($eid !== null && isset($mapaGestorPorId[(string) $eid]))
-                ? $mapaGestorPorId[(string) $eid] : '—';
+            $d['gestor_nombre'] = $nombre;
         }
         unset($d);
 
@@ -3028,6 +3182,15 @@ SCRIPT;
                 'lat' => $primero['lat'] ?? null,
                 'lng' => $primero['lng'] ?? null,
             ];
+            // identidad_tipo_punto_interes: desde direcciones_resumen (mismo punto más visitado)
+            $ubicResumen = UbicacionDAO::getUbicacionesFiltradasPorIdCredito($idCredito);
+            $direccionesResumen = $ubicResumen['direcciones_resumen'] ?? [];
+            if (!empty($direccionesResumen)) {
+                $primeraDir = $direccionesResumen[0];
+                $puntoInteres['tipo'] = trim((string) ($primeraDir['texto'] ?? '')) !== ''
+                    ? (string) $primeraDir['texto']
+                    : (!empty($primeraDir['punto_de_interes']) ? 'Punto de interés' : 'Menos frecuente');
+            }
         }
         $confianzaEspacial = ($domicilioConfirmado && $distanciaDomicilio !== null) ? 0.75 : (count($distanciasCasa) > 0 ? 0.5 : 0);
 
@@ -3081,15 +3244,46 @@ SCRIPT;
         }
 
         $ultimoPago = ['fecha' => null, 'monto' => null];
-        $gestionesList = $data['gestiones'] ?? [];
-        foreach ($gestionesList as $item) {
-            $tipo = (string) ($item['dictamen_campo'] ?? $item['dictamen_ccc'] ?? '');
-            if (stripos($tipo, 'Pago') !== false) {
-                $f = $item['fecha_dispositivo'] ?? $item['fecha_hora'] ?? null;
-                if ($f) {
-                    $ultimoPago['fecha'] = is_numeric($f) ? date('Y-m-d', (int) $f) : date('Y-m-d', strtotime($f));
-                    $ultimoPago['monto'] = $item['monto'] ?? null;
-                    break;
+        // Prioridad: estado de cuenta (sección créditos) para fecha y monto del último pago
+        try {
+            $estadoCuentaCtrl = new \Controllers\EstadoCuenta();
+            $resEstado = $estadoCuentaCtrl->api___SPARTA_SECRET_REDACTED__($idCredito, date('Y-m-d'));
+            if (!empty($resEstado['ok']) && !empty($resEstado['data']['datosPagos'])) {
+                $pagosEc = $resEstado['data']['datosPagos'];
+                $conFechaMonto = [];
+                foreach ($pagosEc as $p) {
+                    $f = $p['fechaDeposito'] ?? $p['fechaRegistro'] ?? $p['fechaValor'] ?? null;
+                    if ($f !== null) {
+                        $fNorm = is_numeric($f) ? date('Y-m-d', (int) $f) : date('Y-m-d', strtotime($f));
+                        $conFechaMonto[] = [
+                            'fecha' => $fNorm,
+                            'monto' => $p['montoPago'] ?? $p['monto'] ?? null,
+                        ];
+                    }
+                }
+                if (!empty($conFechaMonto)) {
+                    usort($conFechaMonto, function ($a, $b) {
+                        return strcmp($b['fecha'], $a['fecha']);
+                    });
+                    $ultimoPago['fecha'] = $conFechaMonto[0]['fecha'];
+                    $ultimoPago['monto'] = $conFechaMonto[0]['monto'];
+                }
+            }
+        } catch (\Throwable $e) {
+            // Si falla estado de cuenta, se usa fallback de gestiones
+        }
+        // Fallback: gestiones (dictamen Pago) si no hubo estado de cuenta
+        if ($ultimoPago['fecha'] === null) {
+            $gestionesList = $data['gestiones'] ?? [];
+            foreach ($gestionesList as $item) {
+                $tipo = (string) ($item['dictamen_campo'] ?? $item['dictamen_ccc'] ?? $item['tipo'] ?? '');
+                if (stripos($tipo, 'Pago') !== false) {
+                    $f = $item['fecha_dispositivo'] ?? $item['fecha_hora'] ?? $item['fecha'] ?? null;
+                    if ($f) {
+                        $ultimoPago['fecha'] = is_numeric($f) ? date('Y-m-d', (int) $f) : date('Y-m-d', strtotime($f));
+                        $ultimoPago['monto'] = $item['monto'] ?? null;
+                        break;
+                    }
                 }
             }
         }

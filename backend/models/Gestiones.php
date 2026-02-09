@@ -197,7 +197,8 @@ SQL;
         comentarios_generales, geolocalizacion, direccion_geo,
         longitud, latitud, medio_contactacion_campo, dictamen_campo,
         estatus, direccion_ine, direccion_actual,
-        promesa_pago, porque_atraso_pago, motivo_negativa
+        promesa_pago, porque_atraso_pago, motivo_negativa,
+        images, ubicacion_usuario
     FROM base_clientes 
     WHERE id_credito = '{$credito}'
     ORDER BY fecha_dispositivo DESC
@@ -223,7 +224,8 @@ SQL;
             'comentarios_generales', 'geolocalizacion', 'direccion_geo',
             'longitud', 'latitud', 'medio_contactacion_campo', 'dictamen_campo',
             'estatus', 'direccion_ine', 'direccion_actual',
-            'promesa_pago', 'porque_atraso_pago', 'motivo_negativa'
+            'promesa_pago', 'porque_atraso_pago', 'motivo_negativa',
+            'images', 'ubicacion_usuario'
         ];
 
         foreach ($fieldsToMerge as $field) {
