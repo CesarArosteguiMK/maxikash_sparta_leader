@@ -149,5 +149,12 @@ HTML;
         echo json_encode($resultado);
     }
 
+    // Método de debug para probar la búsqueda de documentos vía router
+    public function debug_document_search()
+    {
+        $this->set('titulo', 'Debug Búsqueda de Documento');
+        self::render('debug_document_search');
+    }
+
 
 }

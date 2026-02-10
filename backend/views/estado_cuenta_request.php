@@ -1198,6 +1198,56 @@ if ($cuotasContratadas > 0) {
 }
 
 </style>
+<style>
+/* Restaurar colores de métricas en modo claro */
+body:not(.dark-mode) .d-flex.justify-content-around.flex-wrap.my-6 h5,
+body:not(.dark-mode) .d-flex.justify-content-between.my-3 h5 {
+    color: #212529 !important;
+}
+body:not(.dark-mode) .d-flex.justify-content-around.flex-wrap.my-6 span,
+body:not(.dark-mode) .d-flex.justify-content-between.my-3 span.small {
+    color: #6c757d !important;
+}
+body:not(.dark-mode) .sidebar-cliente .info-compact .info-label span:first-child {
+    color: #495057 !important;
+}
+body:not(.dark-mode) .sidebar-cliente .info-compact .info-label span:last-child {
+    color: #212529 !important;
+}
+body:not(.dark-mode) .sidebar-cliente .info-compact i.fa-lg {
+    color: #6c757d !important;
+}
+</style>
+<style>
+/* Restaurar colores de botones de acción en modo claro */
+body:not(.dark-mode) .btn-dictaminar {
+    background: #e7f0ff !important;
+    border: 1px solid #b6d4fe !important;
+    color: #0d6efd !important;
+}
+body:not(.dark-mode) .btn-dictaminar:hover {
+    background: #cfe2ff !important;
+    color: #084298 !important;
+}
+body:not(.dark-mode) .btn-condonar {
+    background: #e6f4ea !important;
+    border: 1px solid #b7dfc3 !important;
+    color: #28a745 !important;
+}
+body:not(.dark-mode) .btn-condonar:hover {
+    background: #c8ead3 !important;
+    color: #1e7e34 !important;
+}
+body:not(.dark-mode) .btn-notas {
+    background: #fff3cd !important;
+    border: 1px solid #ffecb5 !important;
+    color: #f0ad4e !important;
+}
+body:not(.dark-mode) .btn-notas:hover {
+    background: #ffe69c !important;
+    color: #d39e00 !important;
+}
+</style>
 
 </style>
 
