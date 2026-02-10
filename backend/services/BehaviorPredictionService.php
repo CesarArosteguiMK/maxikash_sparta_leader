@@ -27,7 +27,6 @@ class BehaviorPredictionService
     private const EVENTO_EVASION_CONTACTO = 'evasión_contacto';
     private const EVENTO_VISITA_DOM_EXITOSA = 'visita_domiciliaria_exitosa';
     private const EVENTO_VISITA_DOM_FALLIDA = 'visita_domiciliaria_fallida';
-    private const EVENTO_PAGO_EN_CAJA = 'pago_en_caja';
     private const EVENTO_CAMBIO_UBICACION = 'cambio_ubicacion_habitual';
     private const EVENTO_INSUFICIENTE_DATOS = 'insuficiente_datos';
 
@@ -304,14 +303,14 @@ class BehaviorPredictionService
             return self::EVENTO_VISITA_DOM_EXITOSA;
         }
         if ($intervaloPromedio >= 1 && $diasDesdeUltimoPago <= 3) {
-            return self::EVENTO_PAGO_EN_CAJA;
+            return self::EVENTO_PAGO_PROXIMO;
         }
         return self::EVENTO_PAGO_PROXIMO;
     }
 
     private function estimarVentanaTiempo(string $evento, float $intervaloPromedio, array $fechasPago): array
     {
-        if ($evento === self::EVENTO_PAGO_PROXIMO || $evento === self::EVENTO_PAGO_EN_CAJA) {
+        if ($evento === self::EVENTO_PAGO_PROXIMO) {
             $horas = $intervaloPromedio <= 0 ? 48.0 : min(168.0, $intervaloPromedio * 24.0 * 0.5);
             return ['desde_horas' => (int) max(0, $horas - 24), 'hasta_horas' => (int) min(168, $horas + 24)];
         }

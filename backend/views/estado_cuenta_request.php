@@ -1756,24 +1756,22 @@ body:not(.dark-mode) .btn-notas:hover {
                         }
 
                         // Calcular días de mora:
-                        //  - usar raw_cargo['diasMora'] si existe
-                        //  - si no existe: si hay pagos, usar diff entre lastPagoDate y fechaVenc
-                        //  - si no hay pagos, usar diff entre hoy y fechaVenc
-                        $diasMora = null;
-                        if (isset($raw_cargo['diasMora']) && $raw_cargo['diasMora'] !== null) {
-                            $diasMora = (int)$raw_cargo['diasMora'];
-                        } else {
-                            $fechaVenc = $fecha ? strtotime($fecha) : false;
-                            if ($fechaVenc) {
-                                if ($lastPagoDate) {
-                                    $diff = floor((strtotime($lastPagoDate) - $fechaVenc) / 86400);
-                                    $diasMora = max(0, $diff);
-                                } else {
-                                    $diff = floor((time() - $fechaVenc) / 86400);
-                                    $diasMora = max(0, $diff);
-                                }
+                        //  - Si la cuota tiene saldo pendiente (pendiente > 0): siempre en tiempo real = días desde vencimiento hasta hoy.
+                        //  - Si la cuota está pagada (pendiente <= 0): usar raw_cargo['diasMora'] si existe, si no la mora al momento del pago.
+                        $fechaVenc = $fecha ? strtotime($fecha) : false;
+                        $diasMora = 0;
+                        if ($fechaVenc) {
+                            if ($pendiente > 0) {
+                                // Cuota con saldo pendiente: mora en tiempo real (cada día que pasa suma un día de mora).
+                                $diasMora = max(0, (int) floor((time() - $fechaVenc) / 86400));
                             } else {
-                                $diasMora = 0;
+                                // Cuota pagada: mora al momento del pago (o la que traiga la API).
+                                if (isset($raw_cargo['diasMora']) && $raw_cargo['diasMora'] !== null) {
+                                    $diasMora = (int) $raw_cargo['diasMora'];
+                                } elseif ($lastPagoDate) {
+                                    $diff = floor((strtotime($lastPagoDate) - $fechaVenc) / 86400);
+                                    $diasMora = max(0, (int) $diff);
+                                }
                             }
                         }
 
@@ -1802,11 +1800,24 @@ body:not(.dark-mode) .btn-notas:hover {
                                             $pago_monto = safe($pago['montoPago'], 0.0);
                                             $pago_aplicado = safe($pago['aplicado'], 0.0);
                                             $pago_fecha = safe($pago['fechaRegistro'], $pago['fechaPago'] ?? null);
+                                            $es_sobrante = !empty($pago['es_sobrante']) || (isset($pago['extemporaneos']) && (float)$pago['extemporaneos'] > 0);
+                                            $es_gasto_cobranza = !empty($pago['gasto_cobranza']);
+                                            if ($es_gasto_cobranza) {
+                                                $etiqueta = 'Gasto de Cobranza';
+                                                $etiqueta_aplicado = 'Aplicado';
+                                            } else {
+                                                $etiqueta = $es_sobrante ? 'Sobrante' : 'Pago';
+                                                $etiqueta_aplicado = $es_sobrante ? 'Aplicado Sobrante' : 'Aplicado';
+                                            }
                                             ?>
-                                            <li>
-                                                <span class="text-primary">Pago: <?= format_currency($pago_monto) ?></span> -
-                                                <span style="color:#05611d;">Aplicado: <?= format_currency($pago_aplicado) ?></span> -
+                                            <li<?= $es_gasto_cobranza ? ' class="text-danger"' : '' ?>>
+                                                <?php if ($es_gasto_cobranza): ?>
+                                                <span class="text-danger"><?= htmlspecialchars($etiqueta) ?>: <?= format_currency($pago_monto) ?> - <?= htmlspecialchars($etiqueta_aplicado) ?>: <?= format_currency($pago_aplicado) ?> - <?= htmlspecialchars(format_date($pago_fecha)) ?></span>
+                                                <?php else: ?>
+                                                <span><?php if ($etiqueta === 'Pago'): ?><span style="color:#0d6efd;">Pago</span><?php elseif ($etiqueta === 'Sobrante'): ?><span style="color:#6c757d;font-weight:bold;">Sobrante</span><?php else: ?><?= htmlspecialchars($etiqueta) ?><?php endif; ?>: <?= format_currency($pago_monto) ?></span> -
+                                                <span style="color:#05611d;"><?= htmlspecialchars($etiqueta_aplicado) ?>: <?= format_currency($pago_aplicado) ?></span> -
                                                 <span class="text-muted fecha-pago"><?= htmlspecialchars(format_date($pago_fecha)) ?></span>
+                                                <?php endif; ?>
                                             </li>
                                         <?php endforeach; ?>
                                     <?php else: ?>
