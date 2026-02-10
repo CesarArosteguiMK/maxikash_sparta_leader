@@ -1,0 +1,3 @@
+# Dependencias para app.py (exportar legacy_semanal a CSV)
+pymysql>=1.1.0
+python-dotenv>=1.0.0

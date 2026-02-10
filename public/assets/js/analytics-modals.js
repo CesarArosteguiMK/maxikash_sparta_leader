@@ -42,10 +42,21 @@
         return Math.round(m) + ' m';
     }
 
+    function escapeHtml(s) {
+        if (s == null || s === undefined) return '';
+        var t = String(s);
+        return t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
     function renderSpatial(data) {
         if (!data) return '';
         var html = '';
-        html += '<p class="small text-muted mb-2">Las distancias mostradas son <strong>a la casa del acreditado</strong> (domicilio o ubicación más visitada). Si la distancia es menor a ~100 m, es posible que el punto sea su casa.</p>';
+        var dirMegareporte = data.direccion_megareporte || '';
+        if (dirMegareporte) {
+            html += '<p class="small text-muted mb-2"><strong>Su casa</strong> es la <strong>Dirección megareporte</strong>: ' + escapeHtml(dirMegareporte) + '. Las distancias mostradas son a esa casa. Si la distancia es menor a ~100 m, es posible que el punto sea su casa.</p>';
+        } else {
+            html += '<p class="small text-muted mb-2">Las distancias mostradas son <strong>a la casa del acreditado</strong> (domicilio o ubicación más visitada). Si la distancia es menor a ~100 m, es posible que el punto sea su casa.</p>';
+        }
         var summary = 'Sin datos de ubicaciones.';
         if (data.ultima_apertura && data.ultima_apertura.timestamp) {
             var ts = data.ultima_apertura.timestamp;
@@ -56,10 +67,11 @@
         summary += ' Total de aperturas (GPS) en los últimos 5 días: ' + (a5.total_aperturas || 0) + '.';
         html += '<p class="small mb-3" role="status">' + summary + '</p>';
         html += '<table class="table table-sm table-bordered"><thead><tr><th>Ubicación</th><th>Visitas</th><th>Última fecha</th><th>Distancia a su casa</th></tr></thead><tbody>';
-        (data.distancias_a_casa || []).forEach(function (row) {
+        (data.distancias_a_casa || []).forEach(function (row, idx) {
             var distCell = formatDistancia(row.distancia_m);
             var ultimaFecha = row.ultima_fecha ? (typeof row.ultima_fecha === 'string' && row.ultima_fecha.match(/^\d{4}-/) ? new Date(row.ultima_fecha).toLocaleDateString('es-MX') : row.ultima_fecha) : '—';
-            html += '<tr><td>' + (row.label || '—') + '</td><td>' + (row.visitas_count ?? '—') + '</td><td>' + ultimaFecha + '</td><td>' + distCell + '</td></tr>';
+            var ubicacionLabel = (row.label || '—') + ' (u' + (idx + 1) + ')';
+            html += '<tr><td>' + ubicacionLabel + '</td><td>' + (row.visitas_count ?? '—') + '</td><td>' + ultimaFecha + '</td><td>' + distCell + '</td></tr>';
         });
         html += '</tbody></table>';
         if (a5.resumen_por_dia && a5.resumen_por_dia.length) {
@@ -82,10 +94,9 @@
         }
         html += '<p class="small mb-3" role="status">' + summary + '</p>';
         html += '<table class="table table-sm table-bordered"><thead><tr><th>Concepto</th><th>Valor</th></tr></thead><tbody>';
-        html += '<tr><td><strong>Intervalo promedio (días)</strong><br><span class="text-muted small">Promedio de días entre un pago y el siguiente</span></td><td>' + (data.intervalo_promedio_dias != null ? data.intervalo_promedio_dias : '—') + '</td></tr>';
-        html += '<tr><td><strong>Desviación de intervalos</strong><br><span class="text-muted small">Qué tan variables son los días entre pagos</span></td><td>' + (data.desviacion_intervalos != null ? data.desviacion_intervalos : '—') + '</td></tr>';
         html += '<tr><td><strong>Día más frecuente</strong><br><span class="text-muted small">Día de la semana en que más suele pagar</span></td><td>' + (data.dia_mas_frecuente || '—') + '</td></tr>';
-        html += '<tr><td><strong>Consistencia del día</strong><br><span class="text-muted small">Proporción de pagos en ese día (0 a 1)</span></td><td>' + (data.consistencia_dia != null ? data.consistencia_dia : '—') + '</td></tr>';
+        var consistenciaPct = (data.consistencia_dia != null && !isNaN(parseFloat(data.consistencia_dia))) ? (parseFloat(data.consistencia_dia) <= 1 ? Math.round(parseFloat(data.consistencia_dia) * 1000) / 10 : Math.round(parseFloat(data.consistencia_dia) * 10) / 10) : null;
+        html += '<tr><td><strong>Consistencia del día</strong><br><span class="text-muted small">Proporción de pagos en ese día</span></td><td>' + (consistenciaPct != null ? consistenciaPct + '%' : '—') + '</td></tr>';
         html += '<tr><td><strong>Patrón de pago</strong><br><span class="text-muted small">Resumen del comportamiento (regular, irregular, etc.)</span></td><td>' + (data.patron_pago || '—') + '</td></tr></tbody></table>';
         return html;
     }
@@ -93,7 +104,7 @@
     function renderCompliance(data) {
         if (!data) return '';
         var html = '';
-        html += '<p class="small text-muted mb-2">Cada fila es una <strong>visita del gestor</strong> (con GPS). Se compara la ubicación del gestor con las ubicaciones frecuentes del acreditado: si estuvo a menos de 100 m se considera "cerca" (cumplimiento). "¿Estuvo en su casa?" indica si la visita fue al punto más visitado (posible domicilio) o a otro lugar.</p>';
+        html += '<p class="small text-muted mb-2">Cada fila es una <strong>visita del gestor</strong> (con GPS). Se compara la ubicación del gestor con las ubicaciones frecuentes del acreditado: si estuvo a menos de 100 m se considera "cerca" (cumplimiento). La columna "¿Estuvo en su casa?" muestra la <strong>distancia a cada ubicación</strong> (casa / otros lugares frecuentes) para ver a qué distancia estuvo el gestor de cada una.</p>';
         var summary = 'Porcentaje de cumplimiento: ' + (data.porcentaje_cumplimiento != null ? data.porcentaje_cumplimiento + '%' : '—') + '. Visitas cercanas al acreditado: ' + (data.visitas_cercanas ?? 0) + ', visitas lejanas: ' + (data.visitas_lejanas ?? 0) + '.';
         html += '<p class="small mb-3" role="status">' + summary + '</p>';
         if (data.alertas && data.alertas.length) {
@@ -108,9 +119,13 @@
             data.detalles.forEach(function (d) {
                 var ts = d.timestamp ? new Date(d.timestamp).toLocaleString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
                 var dist = formatDistancia(d.distancia_m);
-                var ubicacionLabel = d.ubicacion_label != null ? d.ubicacion_label : (d.ubicacion_id || '—');
-                var esCasa = d.es_casa ? 'Sí' : 'No';
-                html += '<tr><td>' + (d.gestor_nombre || '—') + '</td><td>' + ts + '</td><td>' + dist + '</td><td>' + ubicacionLabel + ' <small>(' + esCasa + ')</small></td><td>' + (d.cerca ? 'Sí' : 'No') + '</td></tr>';
+                var distanciasCelda = '—';
+                if (d.distancias_mostrar && d.distancias_mostrar.length) {
+                    distanciasCelda = d.distancias_mostrar.map(function (x) {
+                        return (x.label || '—') + ': ' + formatDistancia(x.distancia_m);
+                    }).join('; ');
+                }
+                html += '<tr><td>' + (d.gestor_nombre || '—') + '</td><td>' + ts + '</td><td>' + dist + '</td><td>' + distanciasCelda + '</td><td>' + (d.cerca ? 'Sí' : 'No') + '</td></tr>';
             });
             html += '</tbody></table>';
         }
@@ -129,8 +144,9 @@
         fetchAnalytics(type, force)
             .then(function (res) {
                 if (res.success && res.data) {
-                    body.innerHTML = '<div class="analytics-summary">' + renderFn(res.data) + '</div>' +
-                        '<details class="mt-3"><summary class="small">Ver más (JSON)</summary><pre class="small bg-light p-2 mt-2 overflow-auto" style="max-height:200px">' + (JSON.stringify(res.data, null, 2) || '') + '</pre></details>';
+                    body.innerHTML = '<div class="analytics-summary">' + renderFn(res.data) + '</div>';
+                    // Oculto: Ver más (JSON) — descomentar la línea siguiente para volver a mostrarlo
+                    // body.innerHTML += '<details class="mt-3"><summary class="small">Ver más (JSON)</summary><pre class="small bg-light p-2 mt-2 overflow-auto" style="max-height:200px">' + (JSON.stringify(res.data, null, 2) || '') + '</pre></details>';
                 } else {
                     body.innerHTML = '<p class="text-danger small">' + (res.mensaje || 'Error al cargar.') + '</p>';
                 }

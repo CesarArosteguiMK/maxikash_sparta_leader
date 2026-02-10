@@ -72,6 +72,7 @@ class GestorComplianceService
                     'ubicacion_id' => null,
                     'cerca' => false,
                     'sin_gps' => true,
+                    'distancias_por_ubicacion' => [],
                 ];
                 $visitas_lejanas_count++;
                 continue;
@@ -79,6 +80,7 @@ class GestorComplianceService
             $latG = (float) $latG;
             $lngG = (float) $lngG;
             [$minDist, $ubicacionId] = $this->minimaDistanciaYUbicacion($latG, $lngG, $ubicacionesUsuario);
+            $distanciasPorUbicacion = $this->distanciasATodasUbicaciones($latG, $lngG, $ubicacionesUsuario);
             $cerca = $minDist <= $umbral;
             $detalles[] = [
                 'gestor_event_id' => $gestorEventId,
@@ -86,6 +88,7 @@ class GestorComplianceService
                 'distancia_m' => round($minDist, 2),
                 'ubicacion_id' => $ubicacionId,
                 'cerca' => $cerca,
+                'distancias_por_ubicacion' => $distanciasPorUbicacion,
             ];
             if ($cerca) {
                 $visitas_cercanas_count++;
@@ -117,6 +120,26 @@ class GestorComplianceService
                 'distancia_m' => null,
                 'ubicacion_id' => null,
                 'cerca' => false,
+                'distancias_por_ubicacion' => [],
+            ];
+        }
+        return $out;
+    }
+
+    /**
+     * Distancia del punto (lat, lng) a cada ubicación.
+     *
+     * @return array list of [ 'ubicacion_id' => id, 'distancia_m' => float ]
+     */
+    private function distanciasATodasUbicaciones(float $lat, float $lng, array $ubicaciones): array
+    {
+        $out = [];
+        foreach ($ubicaciones as $u) {
+            $latU = (float) ($u['lat'] ?? $u['latitud'] ?? 0);
+            $lngU = (float) ($u['lng'] ?? $u['longitud'] ?? 0);
+            $out[] = [
+                'ubicacion_id' => $u['id'] ?? null,
+                'distancia_m' => round($this->haversineMetros($lat, $lng, $latU, $lngU), 2),
             ];
         }
         return $out;
