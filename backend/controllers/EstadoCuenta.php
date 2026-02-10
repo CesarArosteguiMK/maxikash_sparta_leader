@@ -703,6 +703,138 @@ JS;
         $script = <<<JS
         <script>
             document.addEventListener('DOMContentLoaded', () => {
+
+                const registroTipos = {
+                    'INE': 'INE',
+                    'FACTURA': 'Factura',
+                    'CONTRATO': 'Validaciones',
+                    'FAD_DOC': 'FAD_DOC',
+                    'EVIDENCIA': 'Evidencia'
+                };
+
+                const abrirModalRegistroDocumento = (idCredito, tipoDocumento) => {
+                    const modalElement = document.getElementById('modalRegistrarDocumentoCliente');
+                    if (!modalElement) {
+                        Swal.fire('Error', 'No se encontró el modal de registro', 'error');
+                        return;
+                    }
+
+                    const idInput = document.getElementById('registroDocumentoId');
+                    const tipoInput = document.getElementById('registroDocumentoTipo');
+                    const tipoTexto = document.getElementById('registroDocumentoTipoTexto');
+                    const archivoInput = document.getElementById('registroDocumentoArchivo');
+                    const archivoUnico = document.getElementById('registroArchivoUnico');
+                    const archivosINE = document.getElementById('registroArchivosINE');
+                    const ineFrente = document.getElementById('registroINEFrente');
+                    const ineReverso = document.getElementById('registroINEReverso');
+
+                    if (idInput) idInput.value = idCredito || '';
+                    if (tipoInput) tipoInput.value = tipoDocumento || '';
+                    if (tipoTexto) tipoTexto.value = registroTipos[tipoDocumento] || tipoDocumento || '';
+
+                    // Mostrar/ocultar campos según tipo de documento
+                    if (tipoDocumento === 'INE') {
+                        if (archivoUnico) archivoUnico.style.display = 'none';
+                        if (archivosINE) archivosINE.style.display = 'block';
+                        if (archivoInput) archivoInput.value = '';
+                        if (ineFrente) ineFrente.value = '';
+                        if (ineReverso) ineReverso.value = '';
+                    } else {
+                        if (archivoUnico) archivoUnico.style.display = 'block';
+                        if (archivosINE) archivosINE.style.display = 'none';
+                        if (archivoInput) archivoInput.value = '';
+                        if (ineFrente) ineFrente.value = '';
+                        if (ineReverso) ineReverso.value = '';
+                    }
+
+                    const modal = new bootstrap.Modal(modalElement);
+                    modal.show();
+                };
+
+                const formRegistrar = document.getElementById('formRegistrarDocumentoCliente');
+                if (formRegistrar) {
+                    formRegistrar.addEventListener('submit', async function(e) {
+                        e.preventDefault();
+
+                        const idCredito = document.getElementById('registroDocumentoId')?.value.trim();
+                        const tipoDocumento = document.getElementById('registroDocumentoTipo')?.value.trim();
+
+                        if (!idCredito || !tipoDocumento) {
+                            Swal.fire('Error', 'Datos incompletos para el registro', 'error');
+                            return;
+                        }
+
+                        const formData = new FormData();
+                        formData.append('idCredito', idCredito);
+                        formData.append('tipoDocumento', tipoDocumento);
+
+                        // Validar archivos según tipo de documento
+                        if (tipoDocumento === 'INE') {
+                            const ineFrente = document.getElementById('registroINEFrente');
+                            const ineReverso = document.getElementById('registroINEReverso');
+
+                            if (!ineFrente?.files?.[0] || !ineReverso?.files?.[0]) {
+                                Swal.fire('Error', 'Debes seleccionar ambos archivos: frente y reverso del INE', 'error');
+                                return;
+                            }
+
+                            formData.append('ineFrente', ineFrente.files[0]);
+                            formData.append('ineReverso', ineReverso.files[0]);
+                        } else {
+                            const archivoInput = document.getElementById('registroDocumentoArchivo');
+
+                            if (!archivoInput?.files?.[0]) {
+                                Swal.fire('Error', 'Selecciona un archivo para registrar', 'error');
+                                return;
+                            }
+
+                            formData.append('archivo', archivoInput.files[0]);
+                        }
+
+                        Swal.fire({
+                            title: 'Registrando documento',
+                            allowOutsideClick: false,
+                            allowEscapeKey: false,
+                            didOpen: () => Swal.showLoading()
+                        });
+
+                        try {
+                            const endpoint = tipoDocumento === 'INE' 
+                                ? '/estadocuenta/registrarINE' 
+                                : '/estadocuenta/registrarDocumentoCliente';
+                            
+                            const response = await fetch(endpoint, {
+                                method: 'POST',
+                                body: formData
+                            });
+                            const data = await response.json();
+
+                            Swal.close();
+
+                            if (!data || !data.success) {
+                                Swal.fire('Error', data?.mensaje || 'No se pudo registrar el documento', 'error');
+                                return;
+                            }
+
+                            const modalElement = document.getElementById('modalRegistrarDocumentoCliente');
+                            if (modalElement) {
+                                const modal = bootstrap.Modal.getInstance(modalElement);
+                                if (modal) {
+                                    modal.hide();
+                                }
+                            }
+
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Documento registrado',
+                                text: data.mensaje || 'El documento se guardo correctamente.'
+                            });
+                        } catch (error) {
+                            Swal.close();
+                            Swal.fire('Error', 'No se pudo registrar el documento', 'error');
+                        }
+                    });
+                }
             
                 // Botón limpiar filtros
                 const btnResetFiltros = document.getElementById('btnResetFiltros');
@@ -713,7 +845,6 @@ JS;
                         if (idCredito) {
                             idCredito.value = '';
                         }
-                        
                         // Limpiar campo nombre (si existe)
                         const nombre = document.getElementById('nombre');
                         if (nombre) {
@@ -773,6 +904,61 @@ JS;
                         return;
                     }
             
+                    // ====== LIMPIAR CONTENEDORES ANTES DE CARGAR NUEVO DOCUMENTO ======
+                    const limpiarContenedoresDocumento = function() {
+                        // Limpiar canvas de PDF
+                        const canvas = document.getElementById('pdfCanvas');
+                        if (canvas) {
+                            const ctx = canvas.getContext('2d');
+                            if (ctx) {
+                                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                            }
+                            canvas.width = 0;
+                            canvas.height = 0;
+                        }
+                        
+                        // Ocultar TODOS los contenedores
+                        const pdfContainer = document.getElementById('documentoPdfContainer');
+                        if (pdfContainer) pdfContainer.style.display = 'none';
+                        
+                        const imgContainer = document.getElementById('documentoImagenContainer');
+                        if (imgContainer) imgContainer.style.display = 'none';
+                        
+                        const embedContainer = document.getElementById('visorPdfEmbed');
+                        if (embedContainer) {
+                            embedContainer.style.display = 'none';
+                            embedContainer.innerHTML = '';
+                        }
+                        
+                        const visorLegacy = document.getElementById('visorDocumento');
+                        if (visorLegacy) {
+                            visorLegacy.style.display = 'none';
+                            visorLegacy.src = '';
+                        }
+                        
+                        // Limpiar imagen de documentos
+                        const imgDocumento = document.getElementById('imgDocumento');
+                        if (imgDocumento) {
+                            imgDocumento.src = '';
+                            imgDocumento.style.display = 'none';
+                        }
+                        
+                        // Ocultar controles de PDF
+                        const pdfControls = document.getElementById('pdfControls');
+                        if (pdfControls) pdfControls.style.display = 'none';
+                        
+                        // Resetear variables globales de PDF si existen
+                        if (typeof pdfDocFactura !== 'undefined' && pdfDocFactura) {
+                            pdfDocFactura = null;
+                        }
+                        if (typeof pageNumFactura !== 'undefined') {
+                            pageNumFactura = 1;
+                        }
+                    };
+                    
+                    // Ejecutar limpieza ANTES de buscar
+                    limpiarContenedoresDocumento();
+                    
                     Swal.fire({
                         title: 'Procesando',
                         allowOutsideClick: false,
@@ -801,7 +987,14 @@ JS;
                                 Swal.fire({
                                     icon: 'info',
                                     title: 'Documento no registrado',
-                                    text: mensaje
+                                    text: mensaje,
+                                    showCancelButton: true,
+                                    confirmButtonText: 'Registrar',
+                                    cancelButtonText: 'Cerrar'
+                                }).then((result) => {
+                                    if (result.isConfirmed) {
+                                        abrirModalRegistroDocumento(id, tipo);
+                                    }
                                 });
                             } else {
                                 Swal.fire({
@@ -890,10 +1083,10 @@ JS;
                                          (data.esImagen === false);
                             
                             if (esPdf) {
-                                // Para FACTURA, FAD_DOC y CONTRATO, usar PDF.js EXACTAMENTE como EVIDENCIA
-                                if (data.tipo === 'FACTURA' || data.tipo === 'FAD_DOC' || data.tipo === 'CONTRATO') {
-                                    // Usar PDF.js para FACTURA OK, FAD_DOC y VALIDACIONES OK - EXACTAMENTE como EVIDENCIA
-                                    const tipoNombre = data.tipo === 'FACTURA' ? 'FACTURA' : (data.tipo === 'FAD_DOC' ? 'FAD_DOC' : 'VALIDACIONES');
+                                // Para FACTURA, FAD_DOC, CONTRATO y EVIDENCIA, usar PDF.js con la misma función cargarPDFFactura
+                                if (data.tipo === 'FACTURA' || data.tipo === 'FAD_DOC' || data.tipo === 'CONTRATO' || data.tipo === 'EVIDENCIA') {
+                                    // Usar PDF.js para FACTURA, FAD_DOC, VALIDACIONES y EVIDENCIA con cargarPDFFactura
+                                    const tipoNombre = data.tipo === 'FACTURA' ? 'FACTURA' : (data.tipo === 'FAD_DOC' ? 'FAD_DOC' : (data.tipo === 'EVIDENCIA' ? 'EVIDENCIA' : 'VALIDACIONES'));
                                     
                                     // Asegurar que el contenedor de visor simple esté oculto
                                     const embedContainer = document.getElementById('visorPdfEmbed');
@@ -1683,135 +1876,13 @@ JS;
                                     }, 100);
                                     
                                 } else {
-                                    // Para otros tipos (EVIDENCIA si es PDF), usar PDF.js
-                                    
-                                    // Asegurar que el contenedor de visor simple esté oculto
-                                    const embedContainer = document.getElementById('visorPdfEmbed');
-                                    if (embedContainer) {
-                                        embedContainer.style.display = 'none';
-                                    }
-                                    
-                                    imgContainer.style.display = 'none';
-                                    
-                                    const visorLegacy = document.getElementById('visorDocumento');
-                                    if (visorLegacy) {
-                                        visorLegacy.style.display = 'none';
-                                    }
-                                    
-                                    let pdfUrl = data.url;
-                                    if (pdfUrl.includes('docs.google.com/gview')) {
-                                        try {
-                                            const urlParams = new URL(pdfUrl);
-                                            const urlParam = urlParams.searchParams.get('url');
-                                            if (urlParam) {
-                                                pdfUrl = decodeURIComponent(urlParam);
-                                            }
-                                        } catch (e) {
-                                        }
-                                    }
-                                    
-                                    if (data.archivo && data.carpeta && !pdfUrl.includes('http')) {
-                                        pdfUrl = 'http://98.90.194.116/audit-app-0.0.1-SNAPSHOT_1/s3/downloadS3File?fileName=' + data.carpeta + '/' + data.archivo;
-                                    }
-                                    
-                                    if (typeof cargarPDFConPDFjs === 'function') {
-                                        cargarPDFConPDFjs(pdfUrl);
-                                    } else {
-                                        console.error('PDF.js no está cargado');
-                                        Swal.fire('Error', 'El visor de PDF no está disponible', 'error');
-                                    }
-                                    
-                                    const modalDocumento = document.getElementById('modalDocumento');
-                                    if (modalDocumento) {
-                                        modalDocumento.addEventListener('shown.bs.modal', function() {
-                                            setTimeout(() => {
-                                                if (typeof crearMarcasAgua === 'function') {
-                                                    crearMarcasAgua();
-                                                }
-                                            }, 500);
-                                        }, { once: true });
-                                    }
+                                    // No debería llegar aquí - todos los tipos de PDF usan el bloque de arriba con FACTURA
+                                    console.error('Tipo de documento PDF no reconocido:', data.tipo);
+                                    Swal.fire('Error', 'Tipo de documento no soportado: ' + data.tipo, 'error');
                                 }
                             } else {
-                                // Mostrar imagen (EVIDENCIA, FAD_DOC si es imagen, etc.)
-                                
-                                // Asegurar que el contenedor de visor simple esté oculto
-                                const embedContainer = document.getElementById('visorPdfEmbed');
-                                if (embedContainer) {
-                                    embedContainer.style.display = 'none';
-                                }
-                                
-                                pdfContainer.style.display = 'none';
-                                // Ocultar el iframe legacy también
-                                const visorLegacy = document.getElementById('visorDocumento');
-                                if (visorLegacy) {
-                                    visorLegacy.style.display = 'none';
-                                }
-                                
-                                // Mostrar el contenedor de imagen
-                                imgContainer.style.display = 'block';
-                                
-                                if (imgDocumento) {
-                                    // Limpiar src anterior para forzar recarga
-                                    imgDocumento.src = '';
-                                    
-                                    // Establecer la nueva URL
-                                    imgDocumento.src = data.url;
-                                    imgDocumento.alt = data.archivo || 'Documento';
-                                    
-                                    // Asegurar que la imagen sea visible
-                                    imgDocumento.style.display = 'block';
-                                    imgDocumento.style.visibility = 'visible';
-                                    
-                                    // Crear marcas de agua inmediatamente y después de que la imagen se cargue (igual que INE)
-                                    const crearMarcasAguaEVIDENCIA = function() {
-                                        if (typeof crearMarcasAgua === 'function') {
-                                            crearMarcasAgua();
-                                        }
-                                    };
-                                    
-                                    // Crear marcas de agua inmediatamente (igual que INE)
-                                    setTimeout(crearMarcasAguaEVIDENCIA, 100);
-                                    
-                                    // Desactivar descarga inmediatamente
-                                    if (typeof desactivarDescargaImagen === 'function') {
-                                        desactivarDescargaImagen(imgDocumento);
-                                    }
-                                    
-                                    // Manejar carga exitosa
-                                    imgDocumento.onload = function() {
-                                        // Desactivar descarga después de cargar
-                                        if (typeof desactivarDescargaImagen === 'function') {
-                                            desactivarDescargaImagen(imgDocumento);
-                                        }
-                                        // Crear marcas de agua después de que la imagen se cargue (igual que INE)
-                                        setTimeout(crearMarcasAguaEVIDENCIA, 300);
-                                        
-                                        // Mostrar modal después de que la imagen se cargue
-                                        const modal = new bootstrap.Modal(
-                                            document.getElementById('modalDocumento')
-                                        );
-                                        modal.show();
-                                        
-                                        // Crear marcas de agua después de que el modal se muestre (igual que INE)
-                                        const modalElement = document.getElementById('modalDocumento');
-                                        if (modalElement) {
-                                            modalElement.addEventListener('shown.bs.modal', function() {
-                                                setTimeout(crearMarcasAguaEVIDENCIA, 200);
-                                            }, { once: true });
-                                        }
-                                    };
-                                    
-                                    // Manejar errores de carga de imagen
-                                    imgDocumento.onerror = function() {
-                                        Swal.fire({
-                                            title: 'Error',
-                                            text: 'No se pudo cargar la imagen. Verifique que el archivo exista en el servidor.',
-                                            icon: 'error',
-                                            footer: data.archivo ? 'Archivo: ' + data.archivo : ''
-                                        });
-                                    };
-                                }
+                                // Si no es PDF, mostrar error - todos los documentos deben ser PDF
+                                Swal.fire('Error', 'El documento debe ser un archivo PDF', 'error');
                             }
                             
                             // Actualizar título del modal según el tipo
@@ -1826,27 +1897,7 @@ JS;
                                 modalTitle.textContent = tipoNombre[data.tipo] || 'Documento';
                             }
                             
-                            
-                            // Mostrar modal de documento (solo si no es imagen, las imágenes muestran el modal en onload)
-                            if (!data.esImagen || esPdf) {
-                                const modal = new bootstrap.Modal(
-                                    document.getElementById('modalDocumento')
-                                );
-                                modal.show();
-                            }
-                            
-                            // Crear marcas de agua cuando el modal se muestre completamente
-                            const modalElement = document.getElementById('modalDocumento');
-                            if (modalElement) {
-                                modalElement.addEventListener('shown.bs.modal', function() {
-                                    setTimeout(() => {
-                                        if (typeof crearMarcasAgua === 'function') {
-                                            crearMarcasAgua();
-                                        }
-                                    }, 500);
-                                }, { once: true });
-                            }
-                            
+                            // El modal se muestra automáticamente desde cargarPDFFactura
                         } else {
                             Swal.fire({
                                 title: 'Error',
@@ -1920,279 +1971,626 @@ JS;
 
         return [$status, json_decode($response, true)];
     }
+public function descargar()
+{
+    try {
 
-    public function descargar()
-    {
-        try {
+        header('Content-Type: application/json; charset=utf-8');
 
-            header('Content-Type: application/json; charset=utf-8');
+        $raw = file_get_contents('php://input');
+        if (!$raw) {
+            error_log("DESCARGAR - Body vacío");
+            echo json_encode([
+                'success' => false,
+                'mensaje' => 'Body vacío'
+            ]);
+            exit;
+        }
 
-            $raw = file_get_contents('php://input');
-            if (!$raw) {
-                echo json_encode([
-                    'success' => false,
-                    'mensaje' => 'Body vacío'
-                ]);
-                exit;
+        $input = json_decode($raw, true);
+
+        if (!$input) {
+            error_log("DESCARGAR - JSON inválido");
+            echo json_encode([
+                'success' => false,
+                'mensaje' => 'JSON inválido'
+            ]);
+            exit;
+        }
+
+        $id   = $input['id']   ?? null;
+        $tipo = strtoupper($input['tipo'] ?? '');
+
+        if (!$id || !$tipo) {
+            error_log("DESCARGAR - Parámetros incompletos: ID=$id, TIPO=$tipo");
+            echo json_encode([
+                'success' => false,
+                'mensaje' => 'Parámetros incompletos'
+            ]);
+            exit;
+        }
+
+        error_log("====== DESCARGAR INICIADO ======");
+        error_log("BUSCANDO: ID=$id, TIPO=$tipo");
+
+        // Nombre del documento para mensajes al usuario
+        $nombresDoc = [
+            'INE' => 'INE',
+            'FACTURA' => 'Factura',
+            'CONTRATO' => 'Validaciones',
+            'FAD_DOC' => 'FAD_DOC',
+            'EVIDENCIA' => 'Evidencia'
+        ];
+        $nombreDoc = $nombresDoc[$tipo] ?? $tipo;
+
+        // Helper: comprobar si un archivo existe en S3 (HEAD)
+        $existeEnS3 = function ($fileName) {
+            $s3Url = "http://98.90.194.116/audit-app-0.0.1-SNAPSHOT_1/s3/downloadS3File?fileName=" . urlencode($fileName);
+            $ch = curl_init($s3Url);
+            curl_setopt_array($ch, [
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_NOBODY => true,
+                CURLOPT_FOLLOWLOCATION => true,
+                CURLOPT_TIMEOUT => 8,
+            ]);
+            curl_exec($ch);
+            $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+            return $code === 200;
+        };
+
+        // ---------------- 3RA FORMA: SOLO PARA DOCUMENTOS EN oferta_documentos ----------------
+        $consultarBDTerceraForma = function ($idCredito, $tipoDocumento) {
+    try {
+        error_log("3RA FORMA - Consultando BD via DAO: ID=$idCredito, TIPO=$tipoDocumento");
+        
+        // Mapeo correcto según tu BD
+        $tiposBD = [
+            'FACTURA' => 'FACTURA',      // BD: FACTURA
+            'CONTRATO' => 'VALIDACIONES', // BD: VALIDACIONES  
+            'FAD_DOC' => 'FAD',          // BD: FAD
+            'EVIDENCIA' => 'EVIDENCIA',  // BD: EVIDENCIA
+        ];
+        
+        $tipoBD = $tiposBD[$tipoDocumento] ?? null;
+        
+        if (!$tipoBD) {
+            error_log("3RA FORMA - Tipo no mapeado: $tipoDocumento");
+            return null;
+        }
+        
+        // ¡IMPORTANTE! Usar el DAO como lo hace FAD_DOC y EVIDENCIA
+        // Pero con una pequeña modificación para aceptar todos los tipos
+        
+        if ($tipoDocumento === 'FAD_DOC' || $tipoDocumento === 'EVIDENCIA') {
+            // Para estos tipos, usar el DAO existente
+            $res = EstadoCuentaDAO::obtenerDocumentoOferta($idCredito, $tipoDocumento);
+        } else {
+            // Para FACTURA y CONTRATO, usar una función similar
+            // O mejor, modificar el DAO para aceptar todos los tipos
+            $res = $this->consultarDocumentoGenerico($idCredito, $tipoBD);
+        }
+        
+        if ($res['success'] && isset($res['datos']['nombre_archivo']) && !empty($res['datos']['nombre_archivo'])) {
+            $nombreArchivo = $res['datos']['nombre_archivo'];
+            error_log("3RA FORMA - Encontrado via DAO: " . $nombreArchivo);
+            return $nombreArchivo;
+        }
+        
+        error_log("3RA FORMA - No encontrado via DAO");
+        return null;
+        
+    } catch (\Throwable $e) {
+        error_log("3RA FORMA - Error en DAO: " . $e->getMessage());
+        return null;
+    }
+};
+
+        $buscarLocal = function ($idCredito, $tipoDocumento) {
+            $directorioBase = __DIR__ . '/../../uploads/documentos/doc_cliente';
+            
+            if (!is_dir($directorioBase)) {
+                error_log("1RA FORMA - Directorio NO existe: {$directorioBase}");
+                return null;
+            }
+            
+            error_log("1RA FORMA - Buscando local: ID=$idCredito, TIPO=$tipoDocumento");
+
+            $idSeguro = preg_replace('/[^0-9]/', '', (string)$idCredito);
+            $tipoSeguro = preg_replace('/[^A-Z0-9_-]/', '_', strtoupper((string)$tipoDocumento));
+
+            if ($idSeguro === '' || $tipoSeguro === '') {
+                error_log("1RA FORMA - ID o Tipo inválido");
+                return null;
             }
 
-            $input = json_decode($raw, true);
+            // Caso especial para INE: buscar frente y reverso
+            if ($tipoSeguro === 'INE') {
+                $patronFrente = $directorioBase . '/' . $idSeguro . '_INE_frente_*.{jpg,jpeg,png}';
+                $patronReverso = $directorioBase . '/' . $idSeguro . '_INE_reverso_*.{jpg,jpeg,png}';
+                
+                $archivosFrente = glob($patronFrente, GLOB_BRACE);
+                $archivosReverso = glob($patronReverso, GLOB_BRACE);
+                
+                if (!$archivosFrente || !$archivosReverso) {
+                    error_log("1RA FORMA - INE no encontrado localmente");
+                    return null;
+                }
 
-            if (!$input) {
-                echo json_encode([
-                    'success' => false,
-                    'mensaje' => 'JSON inválido'
-                ]);
-                exit;
+                usort($archivosFrente, function ($a, $b) {
+                    return filemtime($b) <=> filemtime($a);
+                });
+                usort($archivosReverso, function ($a, $b) {
+                    return filemtime($b) <=> filemtime($a);
+                });
+
+                $archivoFrente = basename($archivosFrente[0]);
+                $archivoReverso = basename($archivosReverso[0]);
+
+                error_log("1RA FORMA - INE encontrado localmente: $archivoFrente, $archivoReverso");
+                
+                return [
+                    'esINE' => true,
+                    'archivoFrente' => $archivoFrente,
+                    'archivoReverso' => $archivoReverso,
+                    'urlFrente' => '/estadocuenta/servirArchivoLocal?archivo=' . urlencode($archivoFrente),
+                    'urlReverso' => '/estadocuenta/servirArchivoLocal?archivo=' . urlencode($archivoReverso),
+                    'extension' => 'jpg',
+                    'esImagen' => true
+                ];
             }
 
-            $id   = $input['id']   ?? null;
-            $tipo = strtoupper($input['tipo'] ?? '');
-
-            if (!$id || !$tipo) {
-                echo json_encode([
-                    'success' => false,
-                    'mensaje' => 'Parámetros incompletos'
-                ]);
-                exit;
+            // Para otros documentos, búsqueda normal
+            $patron = $directorioBase . '/' . $idSeguro . '_' . $tipoSeguro . '_*.{pdf,jpg,jpeg,png}';
+            $archivos = glob($patron, GLOB_BRACE);
+            
+            if (!$archivos) {
+                error_log("1RA FORMA - No encontrado localmente");
+                return null;
             }
 
-            // Nombre del documento para mensajes al usuario (según lo que ve en el menú)
-            $nombresDoc = [
-                'INE' => 'INE',
-                'FACTURA' => 'Factura',
-                'CONTRATO' => 'Validaciones',
-                'FAD_DOC' => 'FAD_DOC',
-                'EVIDENCIA' => 'Evidencia'
+            usort($archivos, function ($a, $b) {
+                return filemtime($b) <=> filemtime($a);
+            });
+
+            $rutaCompleta = $archivos[0];
+            $archivo = basename($rutaCompleta);
+            $extension = strtolower(pathinfo($archivo, PATHINFO_EXTENSION));
+            $esImagen = in_array($extension, ['jpg', 'jpeg', 'png'], true);
+            
+            error_log("1RA FORMA - Encontrado localmente: $archivo");
+            
+            return [
+                'archivo' => $archivo,
+                'extension' => $extension,
+                'esImagen' => $esImagen,
+                'url' => '/estadocuenta/servirArchivoLocal?archivo=' . urlencode($archivo)
             ];
-            $nombreDoc = $nombresDoc[$tipo] ?? $tipo;
+        };
 
-            // Helper: comprobar si un archivo existe en S3 (HEAD)
-            $existeEnS3 = function ($fileName) {
-                $s3Url = "http://98.90.194.116/audit-app-0.0.1-SNAPSHOT_1/s3/downloadS3File?fileName=" . urlencode($fileName);
-                $ch = curl_init($s3Url);
-                curl_setopt_array($ch, [
-                    CURLOPT_RETURNTRANSFER => true,
-                    CURLOPT_NOBODY => true,
-                    CURLOPT_FOLLOWLOCATION => true,
-                    CURLOPT_TIMEOUT => 8,
-                ]);
-                curl_exec($ch);
-                $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
-                curl_close($ch);
-                return $code === 200;
-            };
-
-            // ---------------- FACTURA ----------------
-            if ($tipo === 'FACTURA') {
-                $fileName = "FACTURA/{$id}_factura.pdf";
-                if (!$existeEnS3($fileName)) {
-                    echo json_encode([
-                        'success' => false,
-                        'mensaje' => "Este ID de crédito no tiene {$nombreDoc} registrado."
-                    ]);
-                    exit;
-                }
-                $fileUrl = "/estadocuenta/verDocumento?fileName=" . urlencode($fileName);
+        // ---------------- FACTURA ----------------
+        if ($tipo === 'FACTURA') {
+            error_log("=== PROCESANDO FACTURA ===");
+            
+            $local = $buscarLocal($id, $tipo);
+            if ($local) {
+                error_log("FACTURA $id - RESULTADO: 1RA FORMA (Local)");
                 echo json_encode([
                     'success' => true,
                     'tipo' => $tipo,
-                    'url' => $fileUrl,
-                    'archivo' => "{$id}_factura.pdf",
-                    'carpeta' => 'FACTURA',
-                    'esImagen' => false,
-                    'extension' => 'pdf'
+                    'url' => $local['url'],
+                    'archivo' => $local['archivo'],
+                    'esImagen' => $local['esImagen'],
+                    'extension' => $local['extension']
                 ]);
                 exit;
             }
-
-            // ---------------- CONTRATO ----------------
-            elseif ($tipo === 'CONTRATO') {
-                $fileName = "VALIDACIONES/{$id}_validaciones.pdf";
-                if (!$existeEnS3($fileName)) {
-                    echo json_encode([
-                        'success' => false,
-                        'mensaje' => "Este ID de crédito no tiene {$nombreDoc} registrado."
-                    ]);
-                    exit;
+            
+            error_log("FACTURA $id - 1RA FORMA falló, probando 2DA FORMA...");
+            $fileName = "FACTURA/{$id}_factura.pdf";
+            if (!$existeEnS3($fileName)) {
+                error_log("FACTURA $id - 2DA FORMA falló, probando 3RA FORMA...");
+                
+                $nombreBD = $consultarBDTerceraForma($id, 'FACTURA');
+                
+                if ($nombreBD) {
+                    $fileNameBD = "FACTURA/" . $nombreBD;
+                    if ($existeEnS3($fileNameBD)) {
+                        error_log("FACTURA $id - RESULTADO: 3RA FORMA (BD + S3)");
+                        $fileUrl = "/estadocuenta/verDocumento?fileName=" . urlencode($fileNameBD);
+                        echo json_encode([
+                            'success' => true,
+                            'tipo' => $tipo,
+                            'url' => $fileUrl,
+                            'archivo' => $nombreBD,
+                            'carpeta' => 'FACTURA',
+                            'esImagen' => false,
+                            'extension' => 'pdf'
+                        ]);
+                        exit;
+                    } else {
+                        error_log("FACTURA $id - 3RA FORMA: Encontrado en BD pero no en S3: $fileNameBD");
+                    }
                 }
-                $fileUrl = "/estadocuenta/verDocumento?fileName=" . urlencode($fileName);
+                
+                error_log("FACTURA $id - RESULTADO: 3 FORMAS FALLIDAS");
+                echo json_encode([
+                    'success' => false,
+                    'mensaje' => "Este ID de crédito no tiene {$nombreDoc} registrado."
+                ]);
+                exit;
+            }
+            
+            error_log("FACTURA $id - RESULTADO: 2DA FORMA (S3 estándar)");
+            $fileUrl = "/estadocuenta/verDocumento?fileName=" . urlencode($fileName);
+            echo json_encode([
+                'success' => true,
+                'tipo' => $tipo,
+                'url' => $fileUrl,
+                'archivo' => "{$id}_factura.pdf",
+                'carpeta' => 'FACTURA',
+                'esImagen' => false,
+                'extension' => 'pdf'
+            ]);
+            exit;
+        }
+
+        // ---------------- CONTRATO ----------------
+        elseif ($tipo === 'CONTRATO') {
+            error_log("=== PROCESANDO CONTRATO/VALIDACIONES ===");
+            
+            $local = $buscarLocal($id, $tipo);
+            if ($local) {
+                error_log("CONTRATO $id - RESULTADO: 1RA FORMA (Local)");
                 echo json_encode([
                     'success' => true,
                     'tipo' => $tipo,
-                    'url' => $fileUrl,
-                    'archivo' => "{$id}_validaciones.pdf",
-                    'carpeta' => 'VALIDACIONES',
-                    'esImagen' => false,
-                    'extension' => 'pdf'
+                    'url' => $local['url'],
+                    'archivo' => $local['archivo'],
+                    'esImagen' => $local['esImagen'],
+                    'extension' => $local['extension']
                 ]);
                 exit;
             }
-            // ---------------- INE ----------------
-            elseif ($tipo === 'INE') {
-
-                $endpoint = "https://servicios.s2movil.net/s2__SPARTA_SECRET_REDACTED__/estadocuenta";
-                $token    = "__SPARTA_TOKEN_REDACTED__";
-
-                $payload = json_encode([
-                    "idCredito"  => (int)$id,
-                    "fechaCorte" => date("Y-m-d")
-                ]);
-
-                $ch = curl_init($endpoint);
-                curl_setopt_array($ch, [
-                    CURLOPT_RETURNTRANSFER => true,
-                    CURLOPT_POST           => true,
-                    CURLOPT_HTTPHEADER     => [
-                        "Content-Type: application/json",
-                        "Token: {$token}"
-                    ],
-                    CURLOPT_POSTFIELDS     => $payload,
-                    CURLOPT_TIMEOUT        => 10
-                ]);
-
-                $response = curl_exec($ch);
-                curl_close($ch);
-
-                $data = json_decode($response, true);
-
-                if (
-                    !$data ||
-                    !isset($data['estadoCuenta']['datosCliente']['idCliente'])
-                ) {
-                    echo json_encode([
-                        'success' => false,
-                        'mensaje' => 'Este ID de crédito no tiene INE registrado.'
-                    ]);
-                    exit;
+            
+            error_log("CONTRATO $id - 1RA FORMA falló, probando 2DA FORMA...");
+            $fileName = "VALIDACIONES/{$id}_validaciones.pdf";
+            if (!$existeEnS3($fileName)) {
+                error_log("CONTRATO $id - 2DA FORMA falló, probando 3RA FORMA...");
+                
+                $nombreBD = $consultarBDTerceraForma($id, 'CONTRATO');
+                
+                if ($nombreBD) {
+                    $fileNameBD = "VALIDACIONES/" . $nombreBD;
+                    if ($existeEnS3($fileNameBD)) {
+                        error_log("CONTRATO $id - RESULTADO: 3RA FORMA (BD + S3)");
+                        $fileUrl = "/estadocuenta/verDocumento?fileName=" . urlencode($fileNameBD);
+                        echo json_encode([
+                            'success' => true,
+                            'tipo' => $tipo,
+                            'url' => $fileUrl,
+                            'archivo' => $nombreBD,
+                            'carpeta' => 'VALIDACIONES',
+                            'esImagen' => false,
+                            'extension' => 'pdf'
+                        ]);
+                        exit;
+                    } else {
+                        error_log("CONTRATO $id - 3RA FORMA: Encontrado en BD pero no en S3: $fileNameBD");
+                    }
                 }
+                
+                error_log("CONTRATO $id - RESULTADO: 3 FORMAS FALLIDAS");
+                echo json_encode([
+                    'success' => false,
+                    'mensaje' => "Este ID de crédito no tiene {$nombreDoc} registrado."
+                ]);
+                exit;
+            }
+            
+            error_log("CONTRATO $id - RESULTADO: 2DA FORMA (S3 estándar)");
+            $fileUrl = "/estadocuenta/verDocumento?fileName=" . urlencode($fileName);
+            echo json_encode([
+                'success' => true,
+                'tipo' => $tipo,
+                'url' => $fileUrl,
+                'archivo' => "{$id}_validaciones.pdf",
+                'carpeta' => 'VALIDACIONES',
+                'esImagen' => false,
+                'extension' => 'pdf'
+            ]);
+            exit;
+        }
 
-                $idCliente = $data['estadoCuenta']['datosCliente']['idCliente'];
-
-                // URLs directas para frente y reverso del INE
-                $urlFrente = "http://98.90.194.116/audit-app-0.0.1-SNAPSHOT_1/s3/downloadS3File?fileName=INE/{$idCliente}_frente.jpeg";
-                $urlReverso = "http://98.90.194.116/audit-app-0.0.1-SNAPSHOT_1/s3/downloadS3File?fileName=INE/{$idCliente}_reverso.jpeg";
-
-                // Comprobar que las imágenes INE existan en S3; si no, no abrir modal en blanco
-                $chF = curl_init($urlFrente);
-                curl_setopt_array($chF, [CURLOPT_RETURNTRANSFER => true, CURLOPT_NOBODY => true, CURLOPT_FOLLOWLOCATION => true, CURLOPT_TIMEOUT => 8]);
-                curl_exec($chF);
-                $codeF = (int) curl_getinfo($chF, CURLINFO_HTTP_CODE);
-                curl_close($chF);
-                $chR = curl_init($urlReverso);
-                curl_setopt_array($chR, [CURLOPT_RETURNTRANSFER => true, CURLOPT_NOBODY => true, CURLOPT_FOLLOWLOCATION => true, CURLOPT_TIMEOUT => 8]);
-                curl_exec($chR);
-                $codeR = (int) curl_getinfo($chR, CURLINFO_HTTP_CODE);
-                curl_close($chR);
-                if ($codeF !== 200 || $codeR !== 200) {
-                    echo json_encode([
-                        'success' => false,
-                        'mensaje' => 'Este ID de crédito no tiene INE registrado.'
-                    ]);
-                    exit;
-                }
-
+        // ---------------- INE ----------------
+        elseif ($tipo === 'INE') {
+            error_log("=== PROCESANDO INE ===");
+            
+            // Buscar primero localmente
+            $local = $buscarLocal($id, $tipo);
+            if ($local && isset($local['esINE']) && $local['esINE'] === true) {
+                error_log("INE $id - RESULTADO: 1RA FORMA (Local)");
                 echo json_encode([
                     'success' => true,
                     'tipo' => 'INE',
-                    'frente' => $urlFrente,
-                    'reverso' => $urlReverso
+                    'frente' => $local['urlFrente'],
+                    'reverso' => $local['urlReverso'],
+                    'archivoFrente' => $local['archivoFrente'],
+                    'archivoReverso' => $local['archivoReverso']
                 ]);
                 exit;
             }
 
+            // Si no existe local, buscar en API externo y S3 (2da forma)
+            error_log("INE $id - 1RA FORMA falló, probando 2DA FORMA (API + S3)...");
+            $endpoint = "https://servicios.s2movil.net/s2__SPARTA_SECRET_REDACTED__/estadocuenta";
+            $token    = "__SPARTA_TOKEN_REDACTED__";
 
-            // ----------------  FAD / EVIDENCIA ----------------
-            elseif ($tipo === 'FAD_DOC' || $tipo === 'EVIDENCIA') {
-                try {
-                    $res = EstadoCuentaDAO::obtenerDocumentoOferta($id, $tipo);
-                } catch (\Throwable $e) {
-                    echo json_encode([
-                        'success' => false,
-                        'mensaje' => "Este ID de crédito no tiene {$nombreDoc} registrado."
-                    ]);
-                    exit;
-                }
+            $payload = json_encode([
+                "idCredito"  => (int)$id,
+                "fechaCorte" => date("Y-m-d")
+            ]);
 
-                if (!$res['success']) {
-                    echo json_encode([
-                        'success' => false,
-                        'mensaje' => "Este ID de crédito no tiene {$nombreDoc} registrado."
-                    ]);
-                    exit;
-                }
+            $ch = curl_init($endpoint);
+            curl_setopt_array($ch, [
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_POST           => true,
+                CURLOPT_HTTPHEADER     => [
+                    "Content-Type: application/json",
+                    "Token: {$token}"
+                ],
+                CURLOPT_POSTFIELDS     => $payload,
+                CURLOPT_TIMEOUT        => 10
+            ]);
 
-                if (!isset($res['datos']) || !is_array($res['datos'])) {
-                    echo json_encode([
-                        'success' => false,
-                        'mensaje' => "Este ID de crédito no tiene {$nombreDoc} registrado."
-                    ]);
-                    exit;
-                }
+            $response = curl_exec($ch);
+            curl_close($ch);
 
-                if (!isset($res['datos']['nombre_archivo']) || empty($res['datos']['nombre_archivo'])) {
-                    echo json_encode([
-                        'success' => false,
-                        'mensaje' => "Este ID de crédito no tiene {$nombreDoc} registrado."
-                    ]);
-                    exit;
-                }
+            $data = json_decode($response, true);
 
+            if (
+                !$data ||
+                !isset($data['estadoCuenta']['datosCliente']['idCliente'])
+            ) {
+                error_log("INE $id - 2DA FORMA falló (API), INE no tiene 3RA FORMA");
+                echo json_encode([
+                    'success' => false,
+                    'mensaje' => 'Este ID de crédito no tiene INE registrado.'
+                ]);
+                exit;
+            }
+
+            $idCliente = $data['estadoCuenta']['datosCliente']['idCliente'];
+
+            // URLs directas para frente y reverso del INE (2da forma)
+            $urlFrente = "http://98.90.194.116/audit-app-0.0.1-SNAPSHOT_1/s3/downloadS3File?fileName=INE/{$idCliente}_frente.jpeg";
+            $urlReverso = "http://98.90.194.116/audit-app-0.0.1-SNAPSHOT_1/s3/downloadS3File?fileName=INE/{$idCliente}_reverso.jpeg";
+
+            // Comprobar que las imágenes INE existan en S3
+            $chF = curl_init($urlFrente);
+            curl_setopt_array($chF, [CURLOPT_RETURNTRANSFER => true, CURLOPT_NOBODY => true, CURLOPT_FOLLOWLOCATION => true, CURLOPT_TIMEOUT => 8]);
+            curl_exec($chF);
+            $codeF = (int) curl_getinfo($chF, CURLINFO_HTTP_CODE);
+            curl_close($chF);
+            $chR = curl_init($urlReverso);
+            curl_setopt_array($chR, [CURLOPT_RETURNTRANSFER => true, CURLOPT_NOBODY => true, CURLOPT_FOLLOWLOCATION => true, CURLOPT_TIMEOUT => 8]);
+            curl_exec($chR);
+            $codeR = (int) curl_getinfo($chR, CURLINFO_HTTP_CODE);
+            curl_close($chR);
+            
+            if ($codeF !== 200 || $codeR !== 200) {
+                error_log("INE $id - 2DA FORMA falló (imágenes no encontradas)");
+                echo json_encode([
+                    'success' => false,
+                    'mensaje' => 'Este ID de crédito no tiene INE registrado.'
+                ]);
+                exit;
+            }
+
+            error_log("INE $id - RESULTADO: 2DA FORMA (API + S3)");
+            echo json_encode([
+                'success' => true,
+                'tipo' => 'INE',
+                'frente' => $urlFrente,
+                'reverso' => $urlReverso
+            ]);
+            exit;
+        }
+
+        // ---------------- FAD_DOC ----------------
+        elseif ($tipo === 'FAD_DOC') {
+            error_log("=== PROCESANDO FAD_DOC ===");
+            
+            $local = $buscarLocal($id, $tipo);
+            if ($local) {
+                error_log("FAD_DOC $id - RESULTADO: 1RA FORMA (Local)");
+                echo json_encode([
+                    'success' => true,
+                    'tipo' => $tipo,
+                    'url' => $local['url'],
+                    'archivo' => $local['archivo'],
+                    'esImagen' => $local['esImagen'],
+                    'extension' => $local['extension']
+                ]);
+                exit;
+            }
+            
+            // Primero intentar DAO (2da forma actual)
+            error_log("FAD_DOC $id - 1RA FORMA falló, probando 2DA FORMA (DAO)...");
+            try {
+                $res = EstadoCuentaDAO::obtenerDocumentoOferta($id, $tipo);
+            } catch (\Throwable $e) {
+                error_log("FAD_DOC $id - Error en DAO: " . $e->getMessage());
+                $res = ['success' => false];
+            }
+
+            if ($res['success'] && isset($res['datos']['nombre_archivo']) && !empty($res['datos']['nombre_archivo'])) {
+                error_log("FAD_DOC $id - RESULTADO: 2DA FORMA (DAO)");
                 $archivo = basename($res['datos']['nombre_archivo']);
-                $carpeta = $tipo === 'FAD_DOC' ? 'FAD' : 'EVIDENCIA';
-
-                // Validar que el archivo tenga extensión válida
+                $archivo = str_replace(['doc_cliente/', 'doc_cliente\\'], '', $archivo);
+                $archivo = basename($archivo);
+                
+                $carpeta = 'FAD';
                 $extension = strtolower(pathinfo($archivo, PATHINFO_EXTENSION));
-                $extensionesValidas = ['pdf', 'jpg', 'jpeg', 'png', 'gif'];
-                
-                if (!in_array($extension, $extensionesValidas)) {
-                    echo json_encode([
-                        'success' => false,
-                        'mensaje' => 'Tipo de archivo no soportado: ' . $extension . ' (Archivo: ' . $archivo . ')'
-                    ]);
-                    exit;
-                }
-
-                // Usar proxy local para forzar visualización inline (evita descarga)
-                $fileName = "{$carpeta}/{$archivo}";
-                $fileUrl = "/estadocuenta/verDocumento?fileName=" . urlencode($fileName);
-                
-                // Detectar si es una imagen o un PDF
                 $esImagen = in_array($extension, ['jpg', 'jpeg', 'png', 'gif']);
                 
-                // Para imágenes y PDFs, usar la URL del proxy local que fuerza inline
-                $viewer = $fileUrl;
+                $fileName = "{$carpeta}/{$archivo}";
+                $fileUrl = "/estadocuenta/verDocumento?fileName=" . urlencode($fileName);
                 
                 echo json_encode([
                     'success' => true,
                     'tipo' => $tipo,
-                    'url' => $viewer,
+                    'url' => $fileUrl,
                     'archivo' => $archivo,
                     'carpeta' => $carpeta,
-                    'esImagen' => $esImagen, // Indicador para el frontend
+                    'esImagen' => $esImagen,
                     'extension' => $extension
                 ]);
                 exit;
             }
-            // ---------------- Tipo no válido ----------------
-            else {
-                echo json_encode([
-                    'success' => false,
-                    'mensaje' => 'Tipo de documento no válido. Tipos permitidos: FACTURA, CONTRATO, INE, FAD_DOC, EVIDENCIA'
-                ]);
-                exit;
+            
+            // Si DAO falla, intentar 3RA FORMA
+            error_log("FAD_DOC $id - 2DA FORMA (DAO) falló, probando 3RA FORMA...");
+            $nombreBD = $consultarBDTerceraForma($id, 'FAD_DOC');
+            
+            if ($nombreBD) {
+                $fileNameBD = "FAD/" . $nombreBD;
+                if ($existeEnS3($fileNameBD)) {
+                    error_log("FAD_DOC $id - RESULTADO: 3RA FORMA (BD + S3)");
+                    $extension = strtolower(pathinfo($nombreBD, PATHINFO_EXTENSION));
+                    $esImagen = in_array($extension, ['jpg', 'jpeg', 'png', 'gif']);
+                    
+                    $fileUrl = "/estadocuenta/verDocumento?fileName=" . urlencode($fileNameBD);
+                    echo json_encode([
+                        'success' => true,
+                        'tipo' => $tipo,
+                        'url' => $fileUrl,
+                        'archivo' => $nombreBD,
+                        'carpeta' => 'FAD',
+                        'esImagen' => $esImagen,
+                        'extension' => $extension
+                    ]);
+                    exit;
+                } else {
+                    error_log("FAD_DOC $id - 3RA FORMA: Encontrado en BD pero no en S3: $fileNameBD");
+                }
             }
-
-        } catch (\Throwable $e) {
-
+            
+            error_log("FAD_DOC $id - RESULTADO: 3 FORMAS FALLIDAS");
             echo json_encode([
                 'success' => false,
-                'mensaje' => 'Error interno',
-                'debug'   => $e->getMessage()
+                'mensaje' => "Este ID de crédito no tiene {$nombreDoc} registrado en ninguna ubicación."
             ]);
             exit;
         }
+
+        // ---------------- EVIDENCIA ----------------
+        elseif ($tipo === 'EVIDENCIA') {
+            error_log("=== PROCESANDO EVIDENCIA ===");
+            
+            $local = $buscarLocal($id, $tipo);
+            if ($local) {
+                error_log("EVIDENCIA $id - RESULTADO: 1RA FORMA (Local)");
+                echo json_encode([
+                    'success' => true,
+                    'tipo' => $tipo,
+                    'url' => $local['url'],
+                    'archivo' => $local['archivo'],
+                    'esImagen' => $local['esImagen'],
+                    'extension' => $local['extension']
+                ]);
+                exit;
+            }
+            
+            // Primero intentar DAO (2da forma actual)
+            error_log("EVIDENCIA $id - 1RA FORMA falló, probando 2DA FORMA (DAO)...");
+            try {
+                $res = EstadoCuentaDAO::obtenerDocumentoOferta($id, $tipo);
+            } catch (\Throwable $e) {
+                error_log("EVIDENCIA $id - Error en DAO: " . $e->getMessage());
+                $res = ['success' => false];
+            }
+
+            if ($res['success'] && isset($res['datos']['nombre_archivo']) && !empty($res['datos']['nombre_archivo'])) {
+                error_log("EVIDENCIA $id - RESULTADO: 2DA FORMA (DAO)");
+                $archivo = basename($res['datos']['nombre_archivo']);
+                $archivo = str_replace(['doc_cliente/', 'doc_cliente\\'], '', $archivo);
+                $archivo = basename($archivo);
+                
+                $carpeta = 'EVIDENCIA';
+                $extension = strtolower(pathinfo($archivo, PATHINFO_EXTENSION));
+                $esImagen = in_array($extension, ['jpg', 'jpeg', 'png', 'gif']);
+                
+                $fileName = "{$carpeta}/{$archivo}";
+                $fileUrl = "/estadocuenta/verDocumento?fileName=" . urlencode($fileName);
+                
+                echo json_encode([
+                    'success' => true,
+                    'tipo' => $tipo,
+                    'url' => $fileUrl,
+                    'archivo' => $archivo,
+                    'carpeta' => $carpeta,
+                    'esImagen' => $esImagen,
+                    'extension' => $extension
+                ]);
+                exit;
+            }
+            
+            // Si DAO falla, intentar 3RA FORMA
+            error_log("EVIDENCIA $id - 2DA FORMA (DAO) falló, probando 3RA FORMA...");
+            $nombreBD = $consultarBDTerceraForma($id, 'EVIDENCIA');
+            
+            if ($nombreBD) {
+                $fileNameBD = "EVIDENCIA/" . $nombreBD;
+                if ($existeEnS3($fileNameBD)) {
+                    error_log("EVIDENCIA $id - RESULTADO: 3RA FORMA (BD + S3)");
+                    $extension = strtolower(pathinfo($nombreBD, PATHINFO_EXTENSION));
+                    $esImagen = in_array($extension, ['jpg', 'jpeg', 'png', 'gif']);
+                    
+                    $fileUrl = "/estadocuenta/verDocumento?fileName=" . urlencode($fileNameBD);
+                    echo json_encode([
+                        'success' => true,
+                        'tipo' => $tipo,
+                        'url' => $fileUrl,
+                        'archivo' => $nombreBD,
+                        'carpeta' => 'EVIDENCIA',
+                        'esImagen' => $esImagen,
+                        'extension' => $extension
+                    ]);
+                    exit;
+                } else {
+                    error_log("EVIDENCIA $id - 3RA FORMA: Encontrado en BD pero no en S3: $fileNameBD");
+                }
+            }
+            
+            error_log("EVIDENCIA $id - RESULTADO: 3 FORMAS FALLIDAS");
+            echo json_encode([
+                'success' => false,
+                'mensaje' => "Este ID de crédito no tiene {$nombreDoc} registrado en ninguna ubicación."
+            ]);
+            exit;
+        }
+
+        // ---------------- Tipo no válido ----------------
+        else {
+            error_log("TIPO NO VÁLIDO: $tipo");
+            echo json_encode([
+                'success' => false,
+                'mensaje' => 'Tipo de documento no válido. Tipos permitidos: FACTURA, CONTRATO, INE, FAD_DOC, EVIDENCIA'
+            ]);
+            exit;
+        }
+
+    } catch (\Throwable $e) {
+        error_log("ERROR CRÍTICO en descargar(): " . $e->getMessage());
+        echo json_encode([
+            'success' => false,
+            'mensaje' => 'Error interno',
+            'debug'   => $e->getMessage()
+        ]);
+        exit;
     }
+}
 
 
     public function AddNote()
@@ -2454,6 +2852,244 @@ JS;
 
     
 }
+
+    public function registrarDocumentoCliente()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            echo json_encode([
+                'success' => false,
+                'mensaje' => 'Metodo no permitido'
+            ]);
+            return;
+        }
+
+        $idCredito = $_POST['idCredito'] ?? null;
+        $tipoDocumento = strtoupper(trim($_POST['tipoDocumento'] ?? ''));
+
+        if (empty($idCredito) || empty($tipoDocumento)) {
+            echo json_encode([
+                'success' => false,
+                'mensaje' => 'Parametros incompletos'
+            ]);
+            return;
+        }
+
+        if (!isset($_FILES['archivo']) || $_FILES['archivo']['error'] !== UPLOAD_ERR_OK) {
+            echo json_encode([
+                'success' => false,
+                'mensaje' => 'No se recibio ningun archivo o hubo un error en la carga'
+            ]);
+            return;
+        }
+
+        $archivo = $_FILES['archivo'];
+        $extension = strtolower(pathinfo($archivo['name'], PATHINFO_EXTENSION));
+        $extensionesPermitidas = ['pdf', 'jpg', 'jpeg', 'png'];
+
+        if (!in_array($extension, $extensionesPermitidas, true)) {
+            echo json_encode([
+                'success' => false,
+                'mensaje' => 'Extension de archivo no permitida. Solo PDF, JPG o PNG'
+            ]);
+            return;
+        }
+
+        if ($archivo['size'] > 10 * 1024 * 1024) {
+            echo json_encode([
+                'success' => false,
+                'mensaje' => 'El archivo excede el tamano maximo permitido de 10 MB'
+            ]);
+            return;
+        }
+
+        $directorioBase = __DIR__ . '/../../uploads/documentos/doc_cliente';
+        if (!file_exists($directorioBase)) {
+            mkdir($directorioBase, 0777, true);
+        }
+
+        $idSeguro = preg_replace('/[^0-9]/', '', (string)$idCredito);
+        $tipoSeguro = preg_replace('/[^A-Z0-9_-]/', '_', $tipoDocumento);
+
+        if ($idSeguro === '') {
+            echo json_encode([
+                'success' => false,
+                'mensaje' => 'ID de credito invalido'
+            ]);
+            return;
+        }
+
+        $timestamp = date('Ymd_His');
+        $nombreArchivo = $idSeguro . '_' . $tipoSeguro . '_' . $timestamp . '.' . $extension;
+        $rutaCompleta = $directorioBase . '/' . $nombreArchivo;
+        $rutaRelativa = 'uploads/documentos/doc_cliente/' . $nombreArchivo;
+
+        if (!move_uploaded_file($archivo['tmp_name'], $rutaCompleta)) {
+            echo json_encode([
+                'success' => false,
+                'mensaje' => 'Error al guardar el archivo en el servidor'
+            ]);
+            return;
+        }
+
+        echo json_encode([
+            'success' => true,
+            'mensaje' => 'Documento guardado correctamente',
+            'archivo' => $nombreArchivo,
+            'ruta' => $rutaRelativa
+        ]);
+    }
+
+    /**
+     * Registra INE (frente y reverso) localmente
+     */
+    public function registrarINE()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            echo json_encode([
+                'success' => false,
+                'mensaje' => 'Metodo no permitido'
+            ]);
+            return;
+        }
+
+        $idCredito = $_POST['idCredito'] ?? null;
+        $tipoDocumento = strtoupper(trim($_POST['tipoDocumento'] ?? ''));
+
+        if (empty($idCredito) || $tipoDocumento !== 'INE') {
+            echo json_encode([
+                'success' => false,
+                'mensaje' => 'Parametros incompletos o tipo de documento incorrecto'
+            ]);
+            return;
+        }
+
+        // Validar que se recibieron ambos archivos
+        if (!isset($_FILES['ineFrente']) || $_FILES['ineFrente']['error'] !== UPLOAD_ERR_OK ||
+            !isset($_FILES['ineReverso']) || $_FILES['ineReverso']['error'] !== UPLOAD_ERR_OK) {
+            echo json_encode([
+                'success' => false,
+                'mensaje' => 'Debes subir ambos archivos: frente y reverso del INE'
+            ]);
+            return;
+        }
+
+        $frente = $_FILES['ineFrente'];
+        $reverso = $_FILES['ineReverso'];
+
+        $extensionesPermitidas = ['jpg', 'jpeg', 'png'];
+        $extFrente = strtolower(pathinfo($frente['name'], PATHINFO_EXTENSION));
+        $extReverso = strtolower(pathinfo($reverso['name'], PATHINFO_EXTENSION));
+
+        if (!in_array($extFrente, $extensionesPermitidas, true) || !in_array($extReverso, $extensionesPermitidas, true)) {
+            echo json_encode([
+                'success' => false,
+                'mensaje' => 'Extension de archivo no permitida. Solo JPG o PNG para INE'
+            ]);
+            return;
+        }
+
+        if ($frente['size'] > 10 * 1024 * 1024 || $reverso['size'] > 10 * 1024 * 1024) {
+            echo json_encode([
+                'success' => false,
+                'mensaje' => 'Uno de los archivos excede el tamano maximo de 10 MB'
+            ]);
+            return;
+        }
+
+        $directorioBase = __DIR__ . '/../../uploads/documentos/doc_cliente';
+        if (!file_exists($directorioBase)) {
+            mkdir($directorioBase, 0777, true);
+        }
+
+        $idSeguro = preg_replace('/[^0-9]/', '', (string)$idCredito);
+        if ($idSeguro === '') {
+            echo json_encode([
+                'success' => false,
+                'mensaje' => 'ID de credito invalido'
+            ]);
+            return;
+        }
+
+        $timestamp = date('Ymd_His');
+        $nombreFrente = $idSeguro . '_INE_frente_' . $timestamp . '.' . $extFrente;
+        $nombreReverso = $idSeguro . '_INE_reverso_' . $timestamp . '.' . $extReverso;
+        
+        $rutaFrente = $directorioBase . '/' . $nombreFrente;
+        $rutaReverso = $directorioBase . '/' . $nombreReverso;
+
+        // Guardar ambos archivos
+        if (!move_uploaded_file($frente['tmp_name'], $rutaFrente)) {
+            echo json_encode([
+                'success' => false,
+                'mensaje' => 'Error al guardar el archivo frente del INE'
+            ]);
+            return;
+        }
+
+        if (!move_uploaded_file($reverso['tmp_name'], $rutaReverso)) {
+            // Si el reverso falla, eliminar el frente
+            @unlink($rutaFrente);
+            echo json_encode([
+                'success' => false,
+                'mensaje' => 'Error al guardar el archivo reverso del INE'
+            ]);
+            return;
+        }
+
+        echo json_encode([
+            'success' => true,
+            'mensaje' => 'INE guardado correctamente (frente y reverso)',
+            'archivoFrente' => $nombreFrente,
+            'archivoReverso' => $nombreReverso
+        ]);
+    }
+
+    /**
+     * Sirve archivos locales desde uploads/documentos/doc_cliente/
+     * con los headers HTTP correctos
+     */
+    public function servirArchivoLocal()
+    {
+        if (!isset($_GET['archivo'])) {
+            http_response_code(400);
+            echo json_encode(['error' => 'Archivo no especificado']);
+            exit;
+        }
+
+        $archivo = basename($_GET['archivo']); // Sanitizar para evitar path traversal
+        $rutaCompleta = __DIR__ . '/../../uploads/documentos/doc_cliente/' . $archivo;
+
+        if (!file_exists($rutaCompleta) || !is_file($rutaCompleta)) {
+            http_response_code(404);
+            echo json_encode(['error' => 'Archivo no encontrado']);
+            exit;
+        }
+
+        // Determinar Content-Type según extensión
+        $extension = strtolower(pathinfo($archivo, PATHINFO_EXTENSION));
+        $mimeTypes = [
+            'pdf' => 'application/pdf',
+            'jpg' => 'image/jpeg',
+            'jpeg' => 'image/jpeg',
+            'png' => 'image/png',
+        ];
+        $contentType = $mimeTypes[$extension] ?? 'application/octet-stream';
+
+        // Enviar headers correctos
+        header('Content-Type: ' . $contentType);
+        header('Content-Length: ' . filesize($rutaCompleta));
+        header('Content-Disposition: inline; filename="' . $archivo . '"');
+        header('Cache-Control: public, max-age=3600');
+        
+        // Leer y enviar el archivo
+        readfile($rutaCompleta);
+        exit;
+    }
+
     public function verDocumento()
     {
         $fileName = $_GET['fileName'] ?? '';
@@ -2765,12 +3401,4 @@ public function descargarReporteDictamen()
             ]
         ]);
     }
-
-
-
-
-
-
-
-
 }

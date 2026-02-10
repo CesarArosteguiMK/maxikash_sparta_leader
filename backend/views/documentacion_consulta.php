@@ -124,26 +124,6 @@
                                 <div class="watermark-overlay" id="pdfWatermark" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10;"></div>
                             </div>
                         </div>
-                        <!-- Controles de navegación del PDF -->
-                        <div id="pdfControls" style="position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background-color: rgba(0,0,0,0.7); padding: 10px 20px; border-radius: 25px; z-index: 1000; display: flex; align-items: center; gap: 15px;">
-                            <button id="pdfPrev" class="btn btn-sm btn-light" style="min-width: 40px;">
-                                <i class="fa fa-chevron-left"></i>
-                            </button>
-                            <span id="pdfPageInfo" style="color: white; font-size: 0.9rem; min-width: 80px; text-align: center;">
-                                <span id="pdfCurrentPage">1</span> / <span id="pdfTotalPages">1</span>
-                            </span>
-                            <button id="pdfNext" class="btn btn-sm btn-light" style="min-width: 40px;">
-                                <i class="fa fa-chevron-right"></i>
-                            </button>
-                            <div style="width: 1px; height: 20px; background-color: rgba(255,255,255,0.3);"></div>
-                            <button id="pdfZoomOut" class="btn btn-sm btn-light" style="min-width: 40px;">
-                                <i class="fa fa-search-minus"></i>
-                            </button>
-                            <span id="pdfZoomLevel" style="color: white; font-size: 0.9rem; min-width: 50px; text-align: center;">100%</span>
-                            <button id="pdfZoomIn" class="btn btn-sm btn-light" style="min-width: 40px;">
-                                <i class="fa fa-search-plus"></i>
-                            </button>
-                        </div>
                     </div>
                     <!-- Contenedor para imágenes -->
                     <div id="documentoImagenContainer" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; width: 100%; height: 100%; display: none; overflow: auto; background-color: #f8f9fa;">
@@ -169,6 +149,27 @@
                             style="width:100%;height:100%;border:0;transform-origin: top left; display: none;"
                             loading="lazy">
                     </iframe>
+                    
+                    <!-- Controles de navegación del PDF - Movidos fuera de documentoPdfContainer para que position:fixed funcione correctamente -->
+                    <div id="pdfControls" style="position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background-color: rgba(0,0,0,0.7); padding: 10px 20px; border-radius: 25px; z-index: 1000; display: none; align-items: center; gap: 15px;">
+                        <button id="pdfPrev" class="btn btn-sm btn-light" style="min-width: 40px;">
+                            <i class="fa fa-chevron-left"></i>
+                        </button>
+                        <span id="pdfPageInfo" style="color: white; font-size: 0.9rem; min-width: 80px; text-align: center;">
+                            <span id="pdfCurrentPage">1</span> / <span id="pdfTotalPages">1</span>
+                        </span>
+                        <button id="pdfNext" class="btn btn-sm btn-light" style="min-width: 40px;">
+                            <i class="fa fa-chevron-right"></i>
+                        </button>
+                        <div style="width: 1px; height: 20px; background-color: rgba(255,255,255,0.3);"></div>
+                        <button id="pdfZoomOut" class="btn btn-sm btn-light" style="min-width: 40px;">
+                            <i class="fa fa-search-minus"></i>
+                        </button>
+                        <span id="pdfZoomLevel" style="color: white; font-size: 0.9rem; min-width: 50px; text-align: center;">100%</span>
+                        <button id="pdfZoomIn" class="btn btn-sm btn-light" style="min-width: 40px;">
+                            <i class="fa fa-search-plus"></i>
+                        </button>
+                    </div>
                 </div>
 
 
@@ -317,6 +318,60 @@
                     </small>
                     <button type="button" class="btn btn-light w-100 w-sm-auto" data-bs-dismiss="modal">Cerrar</button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL REGISTRAR DOCUMENTO CLIENTE -->
+    <div class="modal fade" id="modalRegistrarDocumentoCliente" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Registrar documento</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <form id="formRegistrarDocumentoCliente" enctype="multipart/form-data">
+                    <div class="modal-body">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">ID de crédito</label>
+                                <input type="text" class="form-control" id="registroDocumentoId" name="idCredito" readonly>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Tipo de documento</label>
+                                <input type="text" class="form-control" id="registroDocumentoTipoTexto" readonly>
+                                <input type="hidden" id="registroDocumentoTipo" name="tipoDocumento">
+                            </div>
+                            
+                            <!-- Archivo único para FACTURA, CONTRATO, FAD_DOC, EVIDENCIA -->
+                            <div class="col-12" id="registroArchivoUnico">
+                                <label class="form-label">Archivo</label>
+                                <input class="form-control" type="file" id="registroDocumentoArchivo" name="archivo" accept=".pdf,.jpg,.jpeg,.png">
+                                <small class="text-muted">Formatos permitidos: PDF, JPG, PNG. Max 10 MB.</small>
+                            </div>
+                            
+                            <!-- Archivos múltiples para INE (frente y reverso) -->
+                            <div id="registroArchivosINE" style="display: none;">
+                                <div class="col-12 mb-3">
+                                    <label class="form-label">INE Frente</label>
+                                    <input class="form-control" type="file" id="registroINEFrente" name="ineFrente" accept=".jpg,.jpeg,.png">
+                                    <small class="text-muted">Formato: JPG, PNG. Max 10 MB.</small>
+                                </div>
+                                <div class="col-12">
+                                    <label class="form-label">INE Reverso</label>
+                                    <input class="form-control" type="file" id="registroINEReverso" name="ineReverso" accept=".jpg,.jpeg,.png">
+                                    <small class="text-muted">Formato: JPG, PNG. Max 10 MB.</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fa fa-save me-1"></i>Registrar
+                        </button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
@@ -780,15 +835,16 @@
             
             overlays.forEach(overlay => {
 
-                // VERIFICACIÓN ESPECIAL: Detectar si es EVIDENCIA como IMAGEN
+                // VERIFICACIÓN ESPECIAL: Detectar si es tipo de documento (ya no se usa para EVIDENCIA)
                const modalDocumento = document.getElementById('modalDocumento');
                const estaEnModalDocumento = modalDocumento && modalDocumento.contains(overlay);
-               let esEVIDENCIAImagen = false;
-
+               let esEVIDENCIALegacy = false; // Variable legacy - ya no se usa
+               
                if (estaEnModalDocumento) {
                 const modalTitle = document.querySelector('#modalDocumento .modal-title');
                 const tituloTexto = modalTitle ? modalTitle.textContent.trim() : '';
-                esEVIDENCIAImagen = tituloTexto === 'EVIDENCIA' || tituloTexto.includes('EVIDENCIA');
+                // EVIDENCIA ya no se maneja como imagen, siempre usa PDF.js como FACTURA
+                esEVIDENCIALegacy = false;
                }
                 
                 // VERIFICACIÓN ESPECIAL PARA INE: Si el overlay está dentro del modal de INE, NO aplicar marcas "SIN VALOR" de PDF
@@ -835,7 +891,7 @@
                     iframe = container ? container.querySelector('iframe') : null;
                     
                     // Si no se encontró contenedor pero hay un overlay de imagen, buscar la imagen directamente
-                    // Esto ayuda especialmente para EVIDENCIA que usa imgDocumento
+                    // Legacy: EVIDENCIA ahora usa PDF.js, pero este código se mantiene por compatibilidad
                     if (!container && !img && overlay.classList.contains('watermark-overlay')) {
                         const imgDoc = document.getElementById('imgDocumento');
                         if (imgDoc) {
@@ -845,11 +901,11 @@
                     }
                 }
                 
-                // Detectar si es un canvas de PDF.js - puede ser FACTURA/FAD_DOC/VALIDACIONES o INE/EVIDENCIA
+                // Detectar si es un canvas de PDF.js - FACTURA/FAD_DOC/VALIDACIONES/EVIDENCIA todos usan pdfDocFactura
                 // IMPORTANTE: Declarar ANTES de usarlo
                 const isPdfJsCanvas = canvas && canvas.id === 'pdfCanvas' && overlay.id === 'pdfWatermark';
                 
-                // VERIFICACIÓN TEMPRANA: Si es overlay de PDF.js, verificar ANTES de procesar si es INE/EVIDENCIA
+                // VERIFICACIÓN TEMPRANA: Si es overlay de PDF.js, verificar ANTES de procesar si es INE
                 if (isPdfJsCanvas) {
                     // Verificar si está en el modal de INE (INE usa imágenes, no PDF.js)
                     const modalINE = document.getElementById('modalINE');
@@ -860,32 +916,30 @@
                         return; // Salir inmediatamente
                     }
                     
-                    // Verificar si es INE o EVIDENCIA (usan pdfDoc, NO pdfDocFactura)
-                    const esINEoEVIDENCIA = typeof pdfDoc !== 'undefined' && pdfDoc !== null && (typeof pdfDocFactura === 'undefined' || pdfDocFactura === null);
+                    // Verificar si es INE (EVIDENCIA ahora usa pdfDocFactura como FACTURA)
+                    const esINE = typeof pdfDoc !== 'undefined' && pdfDoc !== null && (typeof pdfDocFactura === 'undefined' || pdfDocFactura === null);
                     
-                    // Verificar si es INE específicamente (EVIDENCIA puede usar marcas de PDFs)
+                    // Verificar el título del modal
                     const modalTitle = document.querySelector('#modalDocumento .modal-title');
                     const tituloTexto = modalTitle ? modalTitle.textContent.trim() : '';
-                    const esINE = esINEoEVIDENCIA && (tituloTexto.includes('INE') || tituloTexto === 'INE');
-                    const esEVIDENCIA = esINEoEVIDENCIA && (tituloTexto === 'EVIDENCIA' || tituloTexto.includes('EVIDENCIA'));
+                    const esINETitulo = esINE && (tituloTexto.includes('INE') || tituloTexto === 'INE');
                     
                     // Verificar si tiene el atributo que indica marcas "SIN VALOR"
                     const requiereMarcasSINVALOR = overlay.getAttribute('data-marcas-sin-valor') === 'true';
                     
-                    // Si es INE (NO EVIDENCIA) y NO requiere marcas "SIN VALOR", saltar completamente
-                    // EVIDENCIA puede usar marcas de PDFs
-                    if (esINE && !requiereMarcasSINVALOR) {
+                    // Si es INE y NO requiere marcas "SIN VALOR", saltar completamente
+                    if (esINETitulo && !requiereMarcasSINVALOR) {
                         return; // Salir inmediatamente, no procesar este overlay
                     }
                     
-                    // Si NO es FACTURA/FAD_DOC/VALIDACIONES (no tiene pdfDocFactura ni el atributo), saltar
+                    // Si NO es FACTURA/FAD_DOC/VALIDACIONES/EVIDENCIA (no tiene pdfDocFactura), saltar
                     const esDocumentoConMarcasSINVALOR = typeof pdfDocFactura !== 'undefined' && pdfDocFactura !== null;
                     if (!esDocumentoConMarcasSINVALOR && !requiereMarcasSINVALOR) {
                         return; // Salir inmediatamente
                     }
                 }
                 
-                // Si es overlay de PDF.js canvas (FACTURA), buscar el contenedor del canvas
+                // Si es overlay de PDF.js canvas (FACTURA, FAD_DOC, VALIDACIONES, EVIDENCIA), buscar el contenedor del canvas
                 if (isPdfJsCanvas && !container) {
                     const pdfViewerContainer = document.getElementById('pdfViewerContainer');
                     if (pdfViewerContainer) {
@@ -1208,7 +1262,7 @@
                         // Si no se encuentra el contenedor, intentar buscarlo de diferentes maneras
                         container = overlay.closest('.watermark-container');
                         
-                        // Para EVIDENCIA, buscar imgDocumento específicamente
+                        // Legacy: EVIDENCIA ahora usa PDF.js, este código se mantiene por compatibilidad
                         if (!container && esEVIDENCIA) {
                             const imgDoc = document.getElementById('imgDocumento');
                             if (imgDoc) {
@@ -1288,23 +1342,7 @@
                         const colorAgua = esEVIDENCIA ? 'rgba(220, 20, 20, 0.55)' : 'rgba(220, 20, 20, 0.45)';
                         const textShadow = esEVIDENCIA ? '1px 1px 2px rgba(0, 0, 0, 0.3)' : '1px 1px 2px rgba(0, 0, 0, 0.25)';
                         
-                        layer.style.cssText = `
-                            position: absolute;
-                            font-size: ${fontSize};
-                            font-weight: bold;
-                            color: ${colorAgua};
-                            text-shadow: ${textShadow};
-                            transform: rotate(-45deg);
-                            transform-origin: center;
-                            white-space: nowrap;
-                            letter-spacing: 0.4em;
-                            z-index: 11;
-                            top: ${(i * spacing)}px;
-                            left: -${effectiveWidth * 0.3}px;
-                            width: ${layerWidth}px;
-                            text-align: center;
-                            pointer-events: none;
-                        `;
+                        layer
                         overlay.appendChild(layer);
                     }
                 }
@@ -1496,7 +1534,6 @@
             const img = document.getElementById('imgZoomINE');
             const modalBody = document.getElementById('zoomModalBody');
             const wrapper = document.getElementById('zoomWrapper');
-            const container = document.getElementById('zoomContainer');
             
             // Resetear zoom
             currentZoom = 1;
@@ -1510,8 +1547,8 @@
             }
             
             // Resetear overlay de marca de agua
-            if (container) {
-                const overlay = container.querySelector('.watermark-overlay-zoom');
+            if (wrapper) {
+                const overlay = wrapper.querySelector('.watermark-overlay-zoom');
                 if (overlay) {
                     overlay.style.width = '';
                     overlay.style.height = '';
@@ -1945,14 +1982,28 @@
             if (!modal) return;
             
             modal.addEventListener('keydown', function(e) {
-                // Prevenir Ctrl+S (Guardar)
-                if (e.ctrlKey && e.key === 's') {
+                // Prevenir Ctrl+S / Cmd+S (Guardar)
+                if ((e.ctrlKey || e.metaKey) && e.key === 's') {
                     e.preventDefault();
+                    e.stopPropagation();
                     return false;
                 }
-                // Prevenir Ctrl+P (Imprimir)
-                if (e.ctrlKey && e.key === 'p') {
+                // Prevenir Ctrl+P / Cmd+P (Imprimir)
+                if ((e.ctrlKey || e.metaKey) && e.key === 'p') {
                     e.preventDefault();
+                    e.stopPropagation();
+                    return false;
+                }
+                // Prevenir Ctrl+C / Cmd+C (Copiar)
+                if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    return false;
+                }
+                // Prevenir Ctrl+A / Cmd+A (Seleccionar todo)
+                if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
+                    e.preventDefault();
+                    e.stopPropagation();
                     return false;
                 }
                 // Prevenir F12 (Herramientas de desarrollador)
@@ -1961,17 +2012,17 @@
                     return false;
                 }
                 // Prevenir Ctrl+Shift+I (Herramientas de desarrollador)
-                if (e.ctrlKey && e.shiftKey && e.key === 'I') {
+                if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'I') {
                     e.preventDefault();
                     return false;
                 }
                 // Prevenir Ctrl+Shift+J (Consola)
-                if (e.ctrlKey && e.shiftKey && e.key === 'J') {
+                if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'J') {
                     e.preventDefault();
                     return false;
                 }
                 // Prevenir Ctrl+U (Ver código fuente)
-                if (e.ctrlKey && e.key === 'u') {
+                if ((e.ctrlKey || e.metaKey) && e.key === 'u') {
                     e.preventDefault();
                     return false;
                 }
@@ -2010,7 +2061,8 @@
                 });
             }
             
-            // Observar cuando se carga la imagen de documentos (EVIDENCIA, FAD_DOC, etc.)
+            // Observar cuando se carga la imagen de documentos (Legacy - ya no se usa para EVIDENCIA que ahora es PDF)
+            // Este código se mantiene por compatibilidad pero EVIDENCIA ahora siempre usa PDF.js
             if (imgDocumento) {
                 desactivarDescargaImagen(imgDocumento);
                 imgDocumento.addEventListener('load', function() {
@@ -2481,6 +2533,42 @@
         .canvas-protection-overlay {
             cursor: default !important;
         }
+        
+        /* BLOQUEO ABSOLUTO DE IMPRESIÓN - Ocultar todo cuando se intenta imprimir */
+        @media print {
+            /* Ocultar todo el contenido de los documentos protegidos al imprimir */
+            #modalDocumento,
+            #modalDocumento *,
+            #pdfCanvas,
+            #documentoPdfContainer,
+            #documentoWrapper,
+            #pdfViewerContainer,
+            #documentoImagenContainer,
+            #imgDocumento,
+            .modal-backdrop {
+                display: none !important;
+                visibility: hidden !important;
+                opacity: 0 !important;
+            }
+            
+            /* Mostrar mensaje de bloqueo */
+            body::after {
+                content: "⚠️ DOCUMENTO PROTEGIDO - LA IMPRESIÓN NO ESTÁ PERMITIDA" !important;
+                display: block !important;
+                position: fixed !important;
+                top: 50% !important;
+                left: 50% !important;
+                transform: translate(-50%, -50%) !important;
+                font-size: 24px !important;
+                font-weight: bold !important;
+                color: #dc3545 !important;
+                text-align: center !important;
+                padding: 40px !important;
+                border: 3px solid #dc3545 !important;
+                background: white !important;
+                z-index: 99999 !important;
+            }
+        }
     </style>
     
     <script>
@@ -2492,14 +2580,26 @@
                 const isModalOpen = modalDocumento && modalDocumento.classList.contains('show');
                 
                 if (isModalOpen) {
-                    // Prevenir Ctrl+S (Guardar)
+                    // Prevenir Ctrl+S / Cmd+S (Guardar)
                     if ((e.ctrlKey || e.metaKey) && e.key === 's') {
                         e.preventDefault();
                         e.stopPropagation();
                         return false;
                     }
-                    // Prevenir Ctrl+P (Imprimir)
+                    // Prevenir Ctrl+P / Cmd+P (Imprimir)
                     if ((e.ctrlKey || e.metaKey) && e.key === 'p') {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        return false;
+                    }
+                    // Prevenir Ctrl+C / Cmd+C (Copiar)
+                    if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        return false;
+                    }
+                    // Prevenir Ctrl+A / Cmd+A (Seleccionar todo)
+                    if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
                         e.preventDefault();
                         e.stopPropagation();
                         return false;
@@ -2512,6 +2612,39 @@
                     }
                 }
             }, true);
+            
+            // BLOQUEO ABSOLUTO DE IMPRESIÓN - Interceptar el evento beforeprint
+            window.addEventListener('beforeprint', function(e) {
+                const modalDocumento = document.getElementById('modalDocumento');
+                const isModalOpen = modalDocumento && modalDocumento.classList.contains('show');
+                
+                if (isModalOpen) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    e.stopImmediatePropagation();
+                    
+                    // Ocultar todo el contenido antes de imprimir
+                    document.body.style.display = 'none';
+                    
+                    // Mostrar alerta al usuario
+                    setTimeout(() => {
+                        document.body.style.display = '';
+                        Swal.fire({
+                            icon: 'warning',
+                            title: 'Impresión no permitida',
+                            text: 'Este documento es solo para visualización. La impresión está deshabilitada por seguridad.',
+                            confirmButtonText: 'Entendido'
+                        });
+                    }, 100);
+                    
+                    return false;
+                }
+            });
+            
+            // Bloqueo adicional del evento afterprint
+            window.addEventListener('afterprint', function(e) {
+                document.body.style.display = '';
+            });
             
             // Aplicar protección cuando se muestra el modal
             const modalDocumento = document.getElementById('modalDocumento');
@@ -2685,9 +2818,19 @@
                 pdfjsLib.GlobalWorkerOptions.workerSrc = '/assets/vendor/libs/pdf-viewer/pdf.worker.mjs';
             }
             
+            // ====== LIMPIAR DOCUMENTO ANTERIOR SI EXISTE ======
+            if (pdfDocFactura) {
+                try {
+                    await pdfDocFactura.destroy();
+                } catch (e) {
+                    console.warn('Error al destruir documento anterior:', e);
+                }
+                pdfDocFactura = null;
+            }
+            
             const canvas = document.getElementById('pdfCanvas');
             if (!canvas) {
-                Swal.fire('Error', 'No se encontró el canvas del PDF', 'error');
+                console.warn('Canvas de PDF no disponible, posiblemente se use otro visor');
                 return;
             }
             const ctx = canvas.getContext('2d');
@@ -2698,7 +2841,7 @@
             
             const pdfContainer = document.getElementById('documentoPdfContainer');
             if (!pdfContainer) {
-                Swal.fire('Error', 'No se encontró el contenedor del PDF', 'error');
+                console.warn('Contenedor de PDF no disponible, posiblemente se use otro visor');
                 return;
             }
             pdfContainer.style.display = 'block';
@@ -2885,7 +3028,7 @@
                             URL: ${url.substring(0, 100)}${url.length > 100 ? '...' : ''}
                         </p>
                         <p style="font-size: 0.75rem; color: #999;">
-                            Revisa la consola (F12) para más detalles técnicos.
+                            Revisa la consola (F12) para más detalles.
                         </p>
                     `,
                     width: '600px'
@@ -3241,6 +3384,15 @@
                     pdfjsLib.GlobalWorkerOptions.workerSrc = '/assets/vendor/libs/pdf-viewer/pdf.worker.mjs';
                 }
                 
+                // ====== LIMPIAR DOCUMENTO ANTERIOR SI EXISTE ======
+                if (pdfDoc) {
+                    try {
+                        await pdfDoc.destroy();
+                    } catch (e) {
+                        console.warn('Error al destruir documento anterior:', e);
+                    }
+                    pdfDoc = null;
+                }
 
                 const pdfContainer = document.getElementById('documentoPdfContainer');
                 const pdfCanvas = document.getElementById('pdfCanvas');
@@ -3398,7 +3550,7 @@
                 if (zoomLevel) {
                     zoomLevelEl.textContent = Math.round(pdfScale * 100) + '%';
                 }
-
+                
                 // Renderizar primera página
                 await renderizarPaginaPDF(currentPage);
 
@@ -3586,9 +3738,39 @@
                     }
                     // Ajustar el wrapper para que permita el crecimiento
                     if (documentoWrapper) {
+                        // Mantener centrado horizontalmente pero permitir scroll vertical
                         documentoWrapper.style.alignItems = 'flex-start';
                         documentoWrapper.style.justifyContent = 'flex-start';
                         documentoWrapper.style.minHeight = 'auto';
+                        documentoWrapper.style.height = 'auto';
+                        documentoWrapper.style.width = 'max-content';
+                        documentoWrapper.style.minWidth = '100%';
+                        documentoWrapper.style.padding = '20px';
+                        documentoWrapper.style.position = 'relative';
+                    }
+                    
+                    // Centrar el scroll inicialmente después de un pequeño delay
+                    setTimeout(() => {
+                        if (pdfContainer && canvas) {
+                            // Calcular el centro del contenido
+                            const scrollLeft = (canvas.width - pdfContainer.clientWidth) / 2;
+                            const scrollTop = (canvas.height - pdfContainer.clientHeight) / 2;
+                            
+                            // Solo hacer scroll si el contenido es más grande que el contenedor
+                            if (canvas.width > pdfContainer.clientWidth) {
+                                pdfContainer.scrollLeft = Math.max(0, scrollLeft);
+                            }
+                            if (canvas.height > pdfContainer.clientHeight) {
+                                pdfContainer.scrollTop = Math.max(0, scrollTop);
+                            }
+                        }
+                    }, 150);
+                    
+                    // Ajustar viewer container - debe crecer con el contenido
+                    if (pdfViewerContainer) {
+                        pdfViewerContainer.style.maxWidth = 'none';
+                        pdfViewerContainer.style.width = 'auto';
+                        pdfViewerContainer.style.height = 'auto';
                     }
                 } else {
                     // Cuando está en 100%, restaurar el max-width para que se ajuste al contenedor
@@ -3603,6 +3785,14 @@
                         documentoWrapper.style.alignItems = 'center';
                         documentoWrapper.style.justifyContent = 'center';
                         documentoWrapper.style.minHeight = '100%';
+                        documentoWrapper.style.height = '';
+                        documentoWrapper.style.width = '100%';
+                    }
+                    
+                    // Ajustar viewer container
+                    if (pdfViewerContainer) {
+                        pdfViewerContainer.style.maxWidth = '100%';
+                        pdfViewerContainer.style.width = '';
                     }
                 }
 

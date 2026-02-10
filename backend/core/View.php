@@ -443,7 +443,10 @@ function getMenu()
     <script src="/assets/vendor/libs/sweetalert2/sweetalert2.js"></script>
     <script src="/assets/vendor/libs/swiper/swiper.js"></script>
     <script src="/assets/vendor/libs/tagify/tagify.js"></script>
-    <script src="/assets/vendor/libs/pdf-viewer/pdf.mjs" type="module"></script>
+    <script type="module">
+        import * as pdfjsLib from '/assets/vendor/libs/pdf-viewer/pdf.mjs';
+        window.pdfjsLib = pdfjsLib;
+    </script>
 
     <!-- Main JS -->
     <script src="/assets/js/main.js"></script>

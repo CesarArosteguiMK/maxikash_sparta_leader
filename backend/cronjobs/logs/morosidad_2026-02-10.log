@@ -1,0 +1,98 @@
+[2026-02-10 10:07:56] [INFO] CRONJOB: INSERCIÓN DE MOROSIDAD
+[2026-02-10 10:07:56] [INFO] Fecha/Hora: 2026-02-10 10:07:56
+[2026-02-10 10:07:56] [WARNING] MODO DRY-RUN ACTIVADO - No se modificará la base de datos
+[2026-02-10 10:07:56] [SUCCESS] WEBHOOK ACTIVADO - Se enviarán notificaciones a Google Chat
+[2026-02-10 10:07:56] [SUCCESS] Conexión a base de datos establecida exitosamente
+[2026-02-10 10:07:56] [INFO] INICIANDO PROCESO DE MOROSIDAD
+[2026-02-10 10:07:56] [INFO] Modo: DRY-RUN (Simulación)
+[2026-02-10 10:07:57] [INFO] Día actual: Tuesday (código: 2)
+[2026-02-10 10:07:57] [SUCCESS] Validación de día correcta: Es martes
+[2026-02-10 10:07:57] [INFO] PASO 1: Consultando créditos morosos (Dias_mora >= 1)
+[2026-02-10 10:07:58] [SUCCESS] Créditos morosos encontrados: 24413
+[2026-02-10 10:07:58] [DEBUG] Primeros 3 registros (muestra):
+[2026-02-10 10:07:58] [DEBUG]   [1] ID: 1008, Cliente: ALEJANDRO FAUSTINO PERALES TEMPLOS, Dias_mora: 995
+[2026-02-10 10:07:58] [DEBUG]   [2] ID: 1022, Cliente: VIRIDIANA PONCE REYES, Dias_mora: 1065
+[2026-02-10 10:07:58] [DEBUG]   [3] ID: 1030, Cliente: OSCAR LANDEROS SERVIN, Dias_mora: 1072
+[2026-02-10 10:07:58] [INFO] PASO 2: Insertando registros en gastos_cobranza (MODO LOTES)
+[2026-02-10 10:07:58] [WARNING] DRY-RUN: No se insertarán registros
+[2026-02-10 10:07:58] [INFO] Se procesarían 24413 registros
+[2026-02-10 10:07:58] [INFO] RESUMEN DE EJECUCIÓN
+[2026-02-10 10:07:58] [INFO] Total de créditos morosos: 24413
+[2026-02-10 10:07:58] [INFO] Insertados exitosamente:   0
+[2026-02-10 10:07:58] [INFO] Duplicados omitidos:       0
+[2026-02-10 10:07:58] [INFO] Errores de inserción:      0
+[2026-02-10 10:07:58] [INFO] Tasa de procesamiento:     0%
+[2026-02-10 10:07:59] [SUCCESS] PROCESO COMPLETADO EXITOSAMENTE
+[2026-02-10 10:07:59] [INFO] Tiempo de ejecución: 3.84 segundos
+[2026-02-10 10:10:46] [INFO] CRONJOB: INSERCIÓN DE MOROSIDAD
+[2026-02-10 10:10:46] [INFO] Fecha/Hora: 2026-02-10 10:10:46
+[2026-02-10 10:10:46] [WARNING] MODO FORCE ACTIVADO - Se ejecutará sin importar el día
+[2026-02-10 10:10:46] [SUCCESS] WEBHOOK ACTIVADO - Se enviarán notificaciones a Google Chat
+[2026-02-10 10:10:46] [SUCCESS] Conexión a base de datos establecida exitosamente
+[2026-02-10 10:10:46] [INFO] INICIANDO PROCESO DE MOROSIDAD
+[2026-02-10 10:10:46] [INFO] Modo: PRODUCCIÓN
+[2026-02-10 10:10:47] [INFO] Día actual: Tuesday (código: 2)
+[2026-02-10 10:10:47] [SUCCESS] Validación de día correcta: Es martes
+[2026-02-10 10:10:47] [INFO] PASO 1: Consultando créditos morosos (Dias_mora >= 1)
+[2026-02-10 10:10:49] [SUCCESS] Créditos morosos encontrados: 24413
+[2026-02-10 10:10:49] [INFO] PASO 2: Insertando registros en gastos_cobranza (MODO LOTES)
+[2026-02-10 10:10:49] [INFO] Iniciando transacción de base de datos...
+[2026-02-10 10:10:49] [INFO] Procesando 24413 registros en 49 lotes de 500
+[2026-02-10 10:10:49] [INFO] Lote 1/49 completado - Progreso: 2% (500 insertados, 0 duplicados)
+[2026-02-10 10:10:51] [INFO] Lote 2/49 completado - Progreso: 4.1% (1000 insertados, 0 duplicados)
+[2026-02-10 10:10:52] [INFO] Lote 3/49 completado - Progreso: 6.1% (1500 insertados, 0 duplicados)
+[2026-02-10 10:10:53] [INFO] Lote 4/49 completado - Progreso: 8.2% (2000 insertados, 0 duplicados)
+[2026-02-10 10:10:54] [INFO] Lote 5/49 completado - Progreso: 10.2% (2500 insertados, 0 duplicados)
+[2026-02-10 10:10:55] [INFO] Lote 6/49 completado - Progreso: 12.2% (3000 insertados, 0 duplicados)
+[2026-02-10 10:10:56] [INFO] Lote 7/49 completado - Progreso: 14.3% (3500 insertados, 0 duplicados)
+[2026-02-10 10:10:57] [INFO] Lote 8/49 completado - Progreso: 16.3% (4000 insertados, 0 duplicados)
+[2026-02-10 10:10:58] [INFO] Lote 9/49 completado - Progreso: 18.4% (4500 insertados, 0 duplicados)
+[2026-02-10 10:10:59] [INFO] Lote 10/49 completado - Progreso: 20.4% (5000 insertados, 0 duplicados)
+[2026-02-10 10:11:01] [INFO] Lote 11/49 completado - Progreso: 22.4% (5500 insertados, 0 duplicados)
+[2026-02-10 10:11:02] [INFO] Lote 12/49 completado - Progreso: 24.5% (6000 insertados, 0 duplicados)
+[2026-02-10 10:11:03] [INFO] Lote 13/49 completado - Progreso: 26.5% (6500 insertados, 0 duplicados)
+[2026-02-10 10:11:04] [INFO] Lote 14/49 completado - Progreso: 28.6% (7000 insertados, 0 duplicados)
+[2026-02-10 10:11:06] [INFO] Lote 15/49 completado - Progreso: 30.6% (7500 insertados, 0 duplicados)
+[2026-02-10 10:11:07] [INFO] Lote 16/49 completado - Progreso: 32.7% (8000 insertados, 0 duplicados)
+[2026-02-10 10:11:09] [INFO] Lote 17/49 completado - Progreso: 34.7% (8500 insertados, 0 duplicados)
+[2026-02-10 10:11:10] [INFO] Lote 18/49 completado - Progreso: 36.7% (9000 insertados, 0 duplicados)
+[2026-02-10 10:11:11] [INFO] Lote 19/49 completado - Progreso: 38.8% (9500 insertados, 0 duplicados)
+[2026-02-10 10:11:12] [INFO] Lote 20/49 completado - Progreso: 40.8% (10000 insertados, 0 duplicados)
+[2026-02-10 10:11:14] [INFO] Lote 21/49 completado - Progreso: 42.9% (10500 insertados, 0 duplicados)
+[2026-02-10 10:11:15] [INFO] Lote 22/49 completado - Progreso: 44.9% (11000 insertados, 0 duplicados)
+[2026-02-10 10:11:16] [INFO] Lote 23/49 completado - Progreso: 46.9% (11500 insertados, 0 duplicados)
+[2026-02-10 10:11:17] [INFO] Lote 24/49 completado - Progreso: 49% (12000 insertados, 0 duplicados)
+[2026-02-10 10:11:18] [INFO] Lote 25/49 completado - Progreso: 51% (12500 insertados, 0 duplicados)
+[2026-02-10 10:11:20] [INFO] Lote 26/49 completado - Progreso: 53.1% (13000 insertados, 0 duplicados)
+[2026-02-10 10:11:21] [INFO] Lote 27/49 completado - Progreso: 55.1% (13500 insertados, 0 duplicados)
+[2026-02-10 10:11:22] [INFO] Lote 28/49 completado - Progreso: 57.1% (14000 insertados, 0 duplicados)
+[2026-02-10 10:11:23] [INFO] Lote 29/49 completado - Progreso: 59.2% (14500 insertados, 0 duplicados)
+[2026-02-10 10:11:25] [INFO] Lote 30/49 completado - Progreso: 61.2% (15000 insertados, 0 duplicados)
+[2026-02-10 10:11:26] [INFO] Lote 31/49 completado - Progreso: 63.3% (15500 insertados, 0 duplicados)
+[2026-02-10 10:11:27] [INFO] Lote 32/49 completado - Progreso: 65.3% (16000 insertados, 0 duplicados)
+[2026-02-10 10:11:28] [INFO] Lote 33/49 completado - Progreso: 67.3% (16500 insertados, 0 duplicados)
+[2026-02-10 10:11:29] [INFO] Lote 34/49 completado - Progreso: 69.4% (17000 insertados, 0 duplicados)
+[2026-02-10 10:11:31] [INFO] Lote 35/49 completado - Progreso: 71.4% (17500 insertados, 0 duplicados)
+[2026-02-10 10:11:32] [INFO] Lote 36/49 completado - Progreso: 73.5% (18000 insertados, 0 duplicados)
+[2026-02-10 10:11:33] [INFO] Lote 37/49 completado - Progreso: 75.5% (18500 insertados, 0 duplicados)
+[2026-02-10 10:11:34] [INFO] Lote 38/49 completado - Progreso: 77.6% (19000 insertados, 0 duplicados)
+[2026-02-10 10:11:35] [INFO] Lote 39/49 completado - Progreso: 79.6% (19500 insertados, 0 duplicados)
+[2026-02-10 10:11:37] [INFO] Lote 40/49 completado - Progreso: 81.6% (20000 insertados, 0 duplicados)
+[2026-02-10 10:11:38] [INFO] Lote 41/49 completado - Progreso: 83.7% (20500 insertados, 0 duplicados)
+[2026-02-10 10:11:40] [INFO] Lote 42/49 completado - Progreso: 85.7% (21000 insertados, 0 duplicados)
+[2026-02-10 10:11:41] [INFO] Lote 43/49 completado - Progreso: 87.8% (21500 insertados, 0 duplicados)
+[2026-02-10 10:11:42] [INFO] Lote 44/49 completado - Progreso: 89.8% (22000 insertados, 0 duplicados)
+[2026-02-10 10:11:43] [INFO] Lote 45/49 completado - Progreso: 91.8% (22500 insertados, 0 duplicados)
+[2026-02-10 10:11:43] [INFO] Lote 46/49 completado - Progreso: 93.9% (23000 insertados, 0 duplicados)
+[2026-02-10 10:11:44] [INFO] Lote 47/49 completado - Progreso: 95.9% (23500 insertados, 0 duplicados)
+[2026-02-10 10:11:44] [INFO] Lote 48/49 completado - Progreso: 98% (24000 insertados, 0 duplicados)
+[2026-02-10 10:11:45] [INFO] Lote 49/49 completado - Progreso: 100% (24413 insertados, 0 duplicados)
+[2026-02-10 10:11:45] [SUCCESS] Transacción COMMIT exitoso - Cambios guardados permanentemente
+[2026-02-10 10:11:45] [INFO] RESUMEN DE EJECUCIÓN
+[2026-02-10 10:11:45] [INFO] Total de créditos morosos: 24413
+[2026-02-10 10:11:45] [INFO] Insertados exitosamente:   24413
+[2026-02-10 10:11:45] [INFO] Duplicados omitidos:       0
+[2026-02-10 10:11:45] [INFO] Errores de inserción:      0
+[2026-02-10 10:11:45] [INFO] Tasa de procesamiento:     100%
+[2026-02-10 10:11:46] [SUCCESS] PROCESO COMPLETADO EXITOSAMENTE
+[2026-02-10 10:11:46] [INFO] Tiempo de ejecución: 59.63 segundos
