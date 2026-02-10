@@ -1,24 +1,3 @@
-<?php
-// ...existing code...
-// Plantilla de función para descarga desde URL externa
-function tryDownloadFromExternalUrl($fileName) {
-    $baseUrl = 'http://98.90.194.116/audit-app-0.0.1-SNAPSHOT_1/s3/downloadS3File?fileName=';
-    $externalUrl = $baseUrl . urlencode($fileName);
-    // Verificar si el archivo existe en la URL externa
-    $headers = @get_headers($externalUrl);
-    if ($headers && strpos($headers[0], '200') !== false) {
-        // Descargar y enviar el archivo al usuario
-        header('Content-Type: application/octet-stream');
-        header('Content-Disposition: attachment; filename="' . basename($fileName) . '"');
-        readfile($externalUrl);
-        exit;
-    }
-    // Si no existe, retornar false
-    return false;
-}
-// ...existing code...
-?>
-
 <div class="container py-4">
 
     <!-- Título -->
