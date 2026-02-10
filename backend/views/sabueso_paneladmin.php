@@ -5,15 +5,18 @@
     .credito-modal-item .fw-medium { word-break: break-word; }
     /* Cuerpo modal: 3 columnas con espacio para ver el fondo gris entre tarjetas */
     #modalRastreoCredito .rastreo-header-grid { flex-shrink: 0; }
-    /* Grid: las 3 columnas con la misma altura (stretch) */
-    #modalRastreoCredito .rastreo-grid { display: grid; grid-template-columns: minmax(0, 29%) minmax(300px, 1fr) minmax(220px, 21%); gap: 1rem; align-items: stretch; min-height: auto; }
+    /* Grid: 3 columnas 34% | 34% | 32% = Direcciones maxi app | Direcciones alternas | Bitácora+Dictamen */
+    #modalRastreoCredito .rastreo-grid { display: grid; grid-template-columns: minmax(0, 34%) minmax(0, 34%) minmax(0, 32%); gap: 1rem; align-items: stretch; min-height: auto; }
     @media (max-width: 1199px) {
         #modalRastreoCredito .rastreo-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr); }
     }
     @media (max-width: 992px) { #modalRastreoCredito .rastreo-grid { grid-template-columns: 1fr; } }
-    #modalRastreoCredito .rastreo-col-izq { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
-    #modalRastreoCredito .rastreo-col-izq .rastreo-seccion-direcciones { display: flex; flex-direction: column; flex: 1; min-height: 200px; min-width: 0; }
-    #modalRastreoCredito .rastreo-col-izq .rastreo-mapa-wrap { margin-top: auto; flex-shrink: 0; }
+    #modalRastreoCredito .rastreo-col-izq,
+    #modalRastreoCredito .rastreo-col-direcciones-alternas { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+    #modalRastreoCredito .rastreo-col-izq .rastreo-seccion-direcciones,
+    #modalRastreoCredito .rastreo-col-direcciones-alternas .rastreo-seccion-direcciones { display: flex; flex-direction: column; flex: 1; min-height: 200px; min-width: 0; }
+    #modalRastreoCredito .rastreo-col-izq .rastreo-mapa-wrap,
+    #modalRastreoCredito .rastreo-col-direcciones-alternas .rastreo-mapa-wrap { margin-top: auto; flex-shrink: 0; }
     /* Columna centro: misma altura que las demás; filas reparten el espacio. */
     #modalRastreoCredito .rastreo-col-centro { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 0.75rem; min-width: 0; min-height: 0; }
     #modalRastreoCredito .rastreo-col-centro .rastreo-ia-box { grid-column: 1; grid-row: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
@@ -25,7 +28,11 @@
         #modalRastreoCredito .rastreo-col-centro .rastreo-seccion-evidencias,
         #modalRastreoCredito .rastreo-col-centro .rastreo-seccion-gestiones { grid-column: 1; grid-row: auto; height: auto; min-height: 140px; }
     }
-    #modalRastreoCredito .rastreo-col-bitacora-wrap { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+    /* Columna derecha: dos bloques fijos 50% Bitácora + 50% Dictamen (grid 2 filas iguales) */
+    #modalRastreoCredito .rastreo-grid { min-height: 420px; }
+    #modalRastreoCredito .rastreo-col-bitacora-wrap { display: grid; grid-template-rows: 1fr 1fr; gap: 0.5rem; min-width: 0; min-height: 0; }
+    #modalRastreoCredito .rastreo-col-bitacora-wrap .rastreo-seccion-bitacora { grid-row: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+    #modalRastreoCredito .rastreo-col-bitacora-wrap .rastreo-seccion-dictamen { grid-row: 2; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
     #modalRastreoCredito .rastreo-block-full { grid-column: 1 / -1; }
     #modalRastreoCredito.modal .modal-dialog { max-width: 95vw; width: 95vw; height: 90vh; max-height: 90vh; margin: 2rem auto; }
     /* FONDO GRIS: contenedor padre = gris azulado (Slate 100). Tarjetas blancas resaltan encima. */
@@ -46,14 +53,30 @@
     #modalRastreoCredito .rastreo-header-right { display: flex; flex-direction: column; gap: 0.5rem; padding-left: 1rem; border-left: 1px solid rgba(0,0,0,0.08); min-width: 180px; }
     #modalRastreoCredito .rastreo-ticket-info-col { display: flex; flex-direction: column; gap: 0.5rem; }
     /* Direcciones (maxi app): etiqueta "Ubicación N:" en una sola línea para que 2 y 3 no queden debajo */
-    #modalRastreoCredito .rastreo-direccion-item { display: flex; align-items: flex-start; gap: 0.35rem; flex-wrap: nowrap; min-width: 0; }
+    #modalRastreoCredito .rastreo-direccion-item { display: flex; align-items: flex-start; gap: 0.35rem; flex-wrap: nowrap; min-width: 0; cursor: pointer; padding: 0.25rem 0; border-radius: 6px; transition: background 0.15s ease; }
+    #modalRastreoCredito .rastreo-direccion-item:hover { background: rgba(59, 130, 246, 0.08); }
     #modalRastreoCredito .rastreo-direccion-label { flex-shrink: 0; white-space: nowrap; }
     #modalRastreoCredito .rastreo-direccion-item .direccion-linea { min-width: 0; flex: 1; word-break: break-word; }
+    /* Bloque de carga: ocupa todo el espacio de direcciones + mapa, spinner centrado y visible */
+    #modalRastreoCredito #rastreoDireccionesContenido.rastreo-contenido-cargando {
+        flex: 1; display: flex; flex-direction: column; min-height: 0;
+    }
+    #modalRastreoCredito .rastreo-cargando-bloque {
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        flex: 1; min-height: 280px; gap: 0.75rem; color: #6b7280;
+    }
+    #modalRastreoCredito .rastreo-cargando-bloque .spinner-border { width: 2.5rem; height: 2.5rem; border-width: 0.2em; }
+    #modalRastreoCredito .rastreo-cargando-bloque .rastreo-cargando-texto { font-size: 0.95rem; font-weight: 500; }
+    /* Mismo bloque de carga para Direcciones alternas */
+    #modalRastreoCredito #rastreoDireccionesAlternasContenido.rastreo-contenido-cargando {
+        flex: 1; display: flex; flex-direction: column; min-height: 0;
+    }
     /* Líneas de acento: border-top 5px azul en todas las tarjetas */
     #modalRastreoCredito .rastreo-seccion-direcciones,
     #modalRastreoCredito .rastreo-seccion-gestiones,
     #modalRastreoCredito .rastreo-seccion-evidencias,
-    #modalRastreoCredito .rastreo-seccion-bitacora {
+    #modalRastreoCredito .rastreo-seccion-bitacora,
+    #modalRastreoCredito .rastreo-seccion-dictamen {
         min-height: 120px;
         background-color: #FFFFFF !important;
         border: 1px solid #D1D5DB !important;
@@ -64,10 +87,14 @@
         padding: 1.25rem !important;
         transition: box-shadow 0.25s ease;
     }
+    #modalRastreoCredito .rastreo-col-bitacora-wrap .rastreo-seccion-bitacora,
+    #modalRastreoCredito .rastreo-col-bitacora-wrap .rastreo-seccion-dictamen { margin-bottom: 0 !important; border-radius: 12px; flex-shrink: 0; }
+    #modalRastreoCredito .rastreo-col-bitacora-wrap .rastreo-seccion-dictamen { border-top: 5px solid #4f46e5; }
     #modalRastreoCredito .rastreo-seccion-direcciones:hover,
     #modalRastreoCredito .rastreo-seccion-gestiones:hover,
     #modalRastreoCredito .rastreo-seccion-evidencias:hover,
-    #modalRastreoCredito .rastreo-seccion-bitacora:hover {
+    #modalRastreoCredito .rastreo-seccion-bitacora:hover,
+    #modalRastreoCredito .rastreo-seccion-dictamen:hover {
         box-shadow: 0 14px 20px -3px rgba(0, 0, 0, 0.1), 0 6px 10px -2px rgba(0, 0, 0, 0.06) !important;
     }
     /* Hero IA: SIN franja morada (obligatorio). Caja y encabezado sin borde superior morado. */
@@ -115,6 +142,7 @@
     #modalRastreoCredito .rastreo-seccion-gestiones i[class*="fa-"],
     #modalRastreoCredito .rastreo-seccion-evidencias i[class*="fa-"],
     #modalRastreoCredito .rastreo-seccion-bitacora > .d-flex.mb-2 i[class*="fa-"],
+    #modalRastreoCredito .rastreo-seccion-dictamen > .d-flex.mb-2 i[class*="fa-"],
     #modalRastreoCredito .rastreo-ia-box .ia-title i[class*="fa-"],
     #modalRastreoCredito .rastreo-tickets-cell i[class*="fa-"],
     #modalRastreoCredito .rastreo-header-right i[class*="fa-user"] { color: #4f46e5 !important; }
@@ -201,10 +229,11 @@
         #modalRastreoCredito .rastreo-col-gestiones,
         #modalRastreoCredito .rastreo-col-evidencias { border-left: none; }
     }
-    /* Chat estilo Messenger/WhatsApp: bitácora al mismo nivel que histórico de gestiones; enviar siempre abajo */
-    #modalRastreoCredito .rastreo-seccion-bitacora { background: #fff; min-width: 0; flex: 1; display: flex; flex-direction: column; overflow: hidden; min-height: 0; }
+    /* Chat estilo Messenger/WhatsApp: bitácora; en columna derecha el 50% lo da el grid (1fr 1fr) */
+    #modalRastreoCredito .rastreo-seccion-bitacora { background: #fff; min-width: 0; display: flex; flex-direction: column; overflow: hidden; min-height: 0; }
     #modalRastreoCredito .rastreo-seccion-bitacora > .d-flex.mb-2 { flex-shrink: 0; }
-    #modalRastreoCredito #rastreoBitacoraContenido { min-width: 0; overflow-wrap: break-word; word-break: break-word; padding: 0.25rem 0; overflow-y: auto; flex: 1; min-height: 0; }
+    #modalRastreoCredito #rastreoBitacoraContenido,
+    #modalRastreoCredito #rastreoDictamenContenido { min-width: 0; overflow-wrap: break-word; word-break: break-word; padding: 0.25rem 0; overflow-y: auto; flex: 1; min-height: 0; }
     #modalRastreoCredito .bitacora-msg { display: flex; gap: 0.5rem; margin-bottom: 0.65rem; align-items: flex-end; }
     #modalRastreoCredito .bitacora-msg.bitacora-msg-mine { flex-direction: row-reverse; }
     #modalRastreoCredito .rastreo-seccion-bitacora .bitacora-avatar { background: linear-gradient(135deg, #94a3b8 0%, #64748b 100%); width: 28px; height: 28px; min-width: 28px; font-size: 0.65rem; }
@@ -230,14 +259,25 @@
     #modalRastreoCredito #rastreoBitacoraInput { border-radius: 24px; border: 1px solid #e2e8f0; padding: 0.5rem 1rem; font-size: 0.9rem; }
     #modalRastreoCredito #rastreoBitacoraInput:focus { border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15); }
     #modalRastreoCredito #rastreoBitacoraEnviar { border-radius: 50%; width: 38px; height: 38px; min-width: 38px; padding: 0; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-    #modalRastreoCredito .rastreo-bitacora-input-wrap { padding: 0.25rem 0; margin-top: auto; flex-shrink: 0; }
+    #modalRastreoCredito .rastreo-bitacora-input-wrap,
+    #modalRastreoCredito .rastreo-dictamen-input-wrap { padding: 0.25rem 0; margin-top: auto; flex-shrink: 0; }
+    #modalRastreoCredito #rastreoDictamenInput { border-radius: 24px; border: 1px solid #e2e8f0; padding: 0.5rem 1rem; font-size: 0.9rem; }
+    #modalRastreoCredito #rastreoDictamenInput:focus { border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15); }
     #modalRastreoCredito #rastreoMapaLeaflet { min-height: 168px; height: 168px; border-radius: 10px; overflow: hidden; background: #e2e8f0; cursor: pointer; }
     #modalRastreoCredito #rastreoMapaLeaflet.leaflet-container { font-family: inherit; }
+    .leaflet-tooltip-distancia { font-size: 11px; font-weight: bold; background: rgba(248,250,252,0.95); padding: 2px 6px; border-radius: 4px; white-space: nowrap; }
     /* Modal mapa grande: 90% pantalla */
     #modalMapaGrande .modal-dialog { max-width: 90vw; width: 90vw; height: 90vh; max-height: 90vh; margin: 1rem auto; }
     #modalMapaGrande .modal-content { display: flex; flex-direction: column; min-height: 80vh; }
     #modalMapaGrande .modal-body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
     #modalMapaGrande #rastreoMapaGrandeContenedor { flex: 1; width: 100%; min-height: 400px; border-radius: 8px; background: #e2e8f0; }
+    /* Mapa Direcciones alternas: clic para ampliar */
+    #rastreoMapaAlternasWrap { position: relative; cursor: pointer; border-radius: 10px; overflow: hidden; }
+    #rastreoMapaAlternasWrap .rastreo-mapa-ampliar-badge { position: absolute; bottom: 8px; right: 8px; z-index: 10; font-size: 0.75rem; background: rgba(0,0,0,0.65); color: #fff; padding: 4px 8px; border-radius: 6px; pointer-events: none; }
+    #modalMapaAlternasGrande .modal-dialog { max-width: 90vw; width: 90vw; height: 90vh; max-height: 90vh; margin: 1rem auto; }
+    #modalMapaAlternasGrande .modal-content { display: flex; flex-direction: column; min-height: 80vh; }
+    #modalMapaAlternasGrande .modal-body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+    #modalMapaAlternasGrande #rastreoMapaAlternasGrandeContenedor { flex: 1; width: 100%; min-height: 400px; border-radius: 8px; background: #e2e8f0; }
     /* Dropzone evidencias: dashed, fondo casi transparente, ícono grande amigable */
     #modalRastreoCredito .evidencia-slot { width: 100%; aspect-ratio: 1; max-height: 120px; border: 2px dashed #cbd5e1; border-radius: 12px; background: rgba(241, 245, 249, 0.8); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.5rem; cursor: pointer; overflow: hidden; transition: border-color 0.2s ease, background 0.2s ease; }
     #modalRastreoCredito .evidencia-slot i.fa-plus { font-size: 1.75rem; color: #94a3b8; }
@@ -365,7 +405,8 @@
         #modalRastreoCredito .rastreo-seccion-direcciones,
         #modalRastreoCredito .rastreo-seccion-gestiones,
         #modalRastreoCredito .rastreo-seccion-evidencias,
-        #modalRastreoCredito .rastreo-seccion-bitacora { margin-bottom: 0.75rem !important; padding: 0.75rem !important; }
+        #modalRastreoCredito .rastreo-seccion-bitacora,
+        #modalRastreoCredito .rastreo-seccion-dictamen { margin-bottom: 0.75rem !important; padding: 0.75rem !important; }
         #modalRastreoCredito .rastreo-header-grid { grid-template-columns: 1fr; padding-left: 0; }
         #modalRastreoCredito .rastreo-header-right { border-left: none; border-top: 1px solid rgba(0,0,0,0.08); padding-top: 0.75rem; margin-top: 0.5rem; padding-left: 0; }
         #modalRastreoCredito .rastreo-header-left .rastreo-datos-row { grid-template-columns: repeat(2, 1fr); }
@@ -387,12 +428,16 @@
         #modalRastreoCredito .rastreo-seccion-direcciones,
         #modalRastreoCredito .rastreo-seccion-gestiones,
         #modalRastreoCredito .rastreo-seccion-evidencias,
-        #modalRastreoCredito .rastreo-seccion-bitacora { padding: 0.6rem !important; min-height: 80px; }
+        #modalRastreoCredito .rastreo-seccion-bitacora,
+        #modalRastreoCredito .rastreo-seccion-dictamen { padding: 0.6rem !important; min-height: 80px; }
         #modalRastreoCredito #rastreoMapaLeaflet { min-height: 120px; height: 120px; }
         /* Touch: botones mínimo 44px para dedo */
         #modalRastreoCredito #rastreoBitacoraEnviar,
-        #modalRastreoCredito .rastreo-bitacora-input-wrap .btn { min-width: 44px; min-height: 44px; width: 44px; height: 44px; }
-        #modalRastreoCredito #rastreoBitacoraInput { min-height: 44px; padding: 0.5rem 1rem; }
+        #modalRastreoCredito #rastreoDictamenEnviar,
+        #modalRastreoCredito .rastreo-bitacora-input-wrap .btn,
+        #modalRastreoCredito .rastreo-dictamen-input-wrap .btn { min-width: 44px; min-height: 44px; width: 44px; height: 44px; }
+        #modalRastreoCredito #rastreoBitacoraInput,
+        #modalRastreoCredito #rastreoDictamenInput { min-height: 44px; padding: 0.5rem 1rem; }
         #modalRastreoCredito .btn-analizar-ia,
         #modalRastreoCredito #btnResumirUbicacionesIA,
         #modalRastreoCredito .modal-footer .btn { min-height: 44px; padding: 0.5rem 1rem; }
@@ -474,7 +519,7 @@
                         <i class="fa-solid fa-chart-line me-1"></i>Resumen analítico
                     </button>
                 </div>
-                <!-- Abajo: 3 columnas = [Dir+Mapa 29%] | [Centro 50%] | [Bitácora 21%] -->
+                <!-- Abajo: 3 columnas 34% | 34% | 32% = Direcciones maxi app | Direcciones alternas | Bitácora+Dictamen -->
                 <div class="rastreo-grid">
                     <div class="rastreo-col-izq">
                         <div class="rastreo-seccion-direcciones p-3 h-100" id="rastreoDirecciones">
@@ -491,70 +536,23 @@
                             </div>
                         </div>
                     </div>
-                    <div class="rastreo-col-centro" id="rastreoColCentro">
-                        <!-- Orden por defecto: 1) IA (grande), 2) Evidencias, 3) Gestiones. Arrastrar el encabezado para reordenar. -->
-<?php if (!empty($puedeUsarAnalizarIA)): ?>
-                        <div class="rastreo-ia-box rastreo-centro-card">
-                            <div class="rastreo-card-header d-flex align-items-center gap-2 mb-2 pb-2 border-bottom">
-                                <i class="fa-solid fa-brain text-primary"></i>
-                                <span class="fw-semibold small text-muted">Análisis con IA</span>
+                    <div class="rastreo-col-direcciones-alternas">
+                        <div class="rastreo-seccion-direcciones p-3 h-100" id="rastreoDireccionesAlternas">
+                            <div class="d-flex align-items-center gap-2 mb-2">
+                                <i class="fa-solid fa-location-dot text-primary"></i>
+                                <span class="fw-semibold small text-muted">Direcciones alternas</span>
                             </div>
-                            <div class="ia-hero-wrap flex-grow-1 d-flex align-items-start gap-3">
-                                <div class="ia-hero-icon d-none d-md-flex" aria-hidden="true">
-                                    <i class="fa-solid fa-brain"></i>
-                                </div>
-                                <div class="ia-content flex-grow-1">
-                                    <div class="ia-desc">Interpretación inteligente de datos analíticos para apoyar la toma de decisiones.</div>
-                                    <div id="rastreoAnalizarIAContenido" class="small"></div>
-                                    <div class="ia-boton-wrap d-flex align-items-center gap-2 flex-wrap">
-                                        <button type="button" class="btn btn-analizar-ia btn-sm" id="btnAnalizarRastreo" title="Analizar ubicaciones, pagos y cumplimiento del gestor con IA">
-                                            <i class="fa-solid fa-wand-magic-sparkles me-1"></i><span id="btnAnalizarRastreoText">Analizar</span>
-                                        </button>
-                                        <button type="button" class="btn btn-sm btn-outline-secondary btn-ia-sec" id="btnLecturaIAAnalizar" title="Ver último análisis guardado" style="display: none;">
-                                            <i class="fa-solid fa-book-open me-1"></i>Lectura de IA
-                                        </button>
-                                        <button type="button" class="btn btn-sm btn-outline-danger btn-ia-sec" id="btnBorrarIAAnalizar" title="Borrar último análisis" style="display: none;">
-                                            <i class="fa-solid fa-trash-can me-1"></i>Borrar
-                                        </button>
-                                    </div>
-                                </div>
+                            <div id="rastreoDireccionesAlternasContenido" class="small mb-3">
+                                <!-- Leyenda: azul = direcciones maxi app, naranja = gestores (últimos 6). Clic en el mapa para ampliar. -->
                             </div>
-                        </div>
-<?php endif; ?>
-                        <div class="rastreo-seccion-evidencias p-3 rastreo-col-evidencias rastreo-centro-card">
-                            <div class="rastreo-card-header d-flex align-items-center gap-2 mb-2">
-                                <i class="fa-solid fa-images text-primary"></i>
-                                <span class="fw-semibold small text-muted">Cargar evidencias</span>
-                            </div>
-                            <div class="row g-2" id="rastreoEvidenciasSlots">
-                                <div class="col-6"><div class="evidencia-slot" data-slot="0" data-id="" title="Clic para cargar"><i class="fa-solid fa-plus text-muted"></i><span class="evidencia-slot-label">Agregar</span></div></div>
-                            </div>
-                        </div>
-
-                        <div class="rastreo-seccion-gestiones p-3 rastreo-col-gestiones rastreo-centro-card">
-                            <div class="d-flex align-items-center justify-content-between gap-2 mb-2 flex-wrap">
-                                <div class="rastreo-card-header d-flex align-items-center gap-2">
-                                    <i class="fa-solid fa-folder-tree text-primary"></i>
-                                    <span class="fw-semibold small text-muted">Histórico de Gestiones</span>
-                                </div>
-                                <div class="d-flex align-items-center gap-1">
-                                    <!-- <button type="button" class="badge bg-primary border-0 py-2 px-2 text-decoration-none btn-resumen-ia-gestiones" id="btnResumenIAGestiones" title="Resumen con IA" style="cursor: pointer; font-size: 0.7rem;">✨ Resumen con IA</button> -->
-                                    <button type="button" class="btn btn-sm btn-outline-secondary" id="btnLecturaIAGestiones" title="Ver última lectura de IA (gestiones)" style="display: none; font-size: 0.7rem;">
-                                        <i class="fa-solid fa-book-open me-1"></i>Lectura de IA
-                                    </button>
-                                    <button type="button" class="btn btn-sm btn-outline-danger" id="btnBorrarIAGestiones" title="Borrar lectura guardada (Gestiones)" style="display: none; font-size: 0.7rem;">
-                                        <i class="fa-solid fa-trash-can me-1"></i>Borrar
-                                    </button>
-                                </div>
-
-                            </div>
-                            <div id="rastreoGestionesContenido" class="small overflow-auto flex-grow-1">
-                                <span class="text-muted">Contactación y dictamen, Promesas y comentarios (se cargan por crédito).</span>
+                            <div class="rastreo-mapa-wrap rastreo-mapa-alternas-wrap" id="rastreoMapaAlternasWrap" title="Clic para ampliar">
+                                <div id="rastreoMapaAlternas" style="min-height: 168px; width: 100%; border-radius: 10px;"></div>
+                                <span class="rastreo-mapa-ampliar-badge"><i class="fa-solid fa-expand me-1"></i>Clic para ampliar</span>
                             </div>
                         </div>
                     </div>
                     <div class="rastreo-col-bitacora-wrap">
-                        <div class="rastreo-seccion-bitacora p-3 h-100 d-flex flex-column">
+                        <div class="rastreo-seccion-bitacora p-3 d-flex flex-column">
                             <div class="d-flex align-items-center gap-2 mb-2 rastreo-bitacora-titulo">
                                 <i class="fa-solid fa-comments text-primary"></i>
                                 <span class="fw-semibold small text-muted">Bitácora</span>
@@ -567,7 +565,26 @@
                                 <button type="button" class="btn btn-sm btn-primary flex-shrink-0" id="rastreoBitacoraEnviar" title="Enviar"><i class="fa-solid fa-paper-plane"></i></button>
                             </div>
                         </div>
+                        <div class="rastreo-seccion-dictamen p-3 d-flex flex-column">
+                            <div class="d-flex align-items-center gap-2 mb-2 rastreo-bitacora-titulo">
+                                <i class="fa-solid fa-file-lines text-primary"></i>
+                                <span class="fw-semibold small text-muted">Dictamen</span>
+                            </div>
+                            <div id="rastreoDictamenContenido" class="small flex-grow-1 overflow-auto mb-2" style="min-height: 72px;">
+                                <!-- Mensajes dictamen por JS -->
+                            </div>
+                            <div class="d-flex gap-2 align-items-center rastreo-dictamen-input-wrap">
+                                <input type="text" class="form-control form-control-sm" id="rastreoDictamenInput" placeholder="Escribir dictamen..." maxlength="500">
+                                <button type="button" class="btn btn-sm btn-primary flex-shrink-0" id="rastreoDictamenEnviar" title="Enviar"><i class="fa-solid fa-paper-plane"></i></button>
+                            </div>
+                        </div>
                     </div>
+                </div>
+                <!-- Columna centro (IA, evidencias, gestiones) oculta; se mantiene en DOM para referencias JS -->
+                <div class="d-none" id="rastreoColCentro" aria-hidden="true">
+                    <div id="rastreoAnalizarIAContenido" class="small"></div>
+                    <div class="rastreo-seccion-evidencias rastreo-col-evidencias rastreo-centro-card" id="rastreoEvidenciasWrap"><div class="row g-2" id="rastreoEvidenciasSlots"></div></div>
+                    <div class="rastreo-seccion-gestiones rastreo-col-gestiones rastreo-centro-card" id="rastreoGestionesWrap"><div id="rastreoGestionesContenido" class="small overflow-auto flex-grow-1"><span class="text-muted">Contactación y dictamen (se cargan por crédito).</span></div></div>
                 </div>
             </div>
             <div class="modal-footer py-2 border-top d-flex flex-wrap gap-2 justify-content-end align-items-center">
@@ -672,6 +689,21 @@
     </div>
 </div>
 
+<!-- Modal mapa Direcciones alternas grande: azul = maxi app, naranja = gestores (últimos 6) -->
+<div class="modal fade" id="modalMapaAlternasGrande" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered h-90">
+        <div class="modal-content h-100">
+            <div class="modal-header py-2 d-flex align-items-center">
+                <h6 class="modal-title mb-0"><i class="fa-solid fa-map-location-dot me-2"></i>Mapa – Direcciones alternas</h6>
+                <button type="button" class="btn-close btn-close-sm ms-auto" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body p-2 d-flex flex-column flex-grow-1 min-h-0">
+                <div id="rastreoMapaAlternasGrandeContenedor"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Input oculto para subir evidencias -->
 <input type="file" id="inputEvidenciaRastreo" accept="image/*" style="display: none;">
 
@@ -745,7 +777,7 @@
 <script>
 (function() {
     var SCRIM_Z = 1060;
-    var CHILD_MODALS = ['modalAsignarA', 'modalAnaliticaSpatial', 'modalAnaliticaPayments', 'modalAnaliticaCompliance', 'modalLecturaIA', 'modalEvidenciaVerificacion', 'modalPrediccionIA', 'modalMapaGrande', 'modalEvidenciaRastreo'];
+    var CHILD_MODALS = ['modalAsignarA', 'modalAnaliticaSpatial', 'modalAnaliticaPayments', 'modalAnaliticaCompliance', 'modalLecturaIA', 'modalEvidenciaVerificacion', 'modalPrediccionIA', 'modalMapaGrande', 'modalMapaAlternasGrande', 'modalEvidenciaRastreo'];
     var scrimEl = null;
     var parentModal = null;
     function getOrCreateScrim() {
@@ -869,7 +901,7 @@
             if (!id) return;
             var $body = $('#modalPrediccionIABody');
             var $label = $('#modalPrediccionIALabel');
-            $label.html('<i class="fa-solid fa-chart-line me-2"></i>Resumen analítico – Cómo localizar al acreditado');
+            $label.html('<i class="fa-solid fa-chart-line me-2"></i>Resumen');
             $body.html('<p class="text-muted mb-0"><span class="spinner-border spinner-border-sm me-2"></span>Cargando resumen...</p>');
             $('#modalPrediccionIA').addClass('modal-analitica-ia').modal('show');
             http.request({

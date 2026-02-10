@@ -156,6 +156,7 @@ class Api extends Controller
             'distancias_a_casa' => $distanciasCasa,
             'ultima_apertura' => $ultimaApertura,
             'aperturas_ultimos_5_dias' => $aperturas5,
+            'direccion_megareporte' => $domicilioCompleto !== '' ? $domicilioCompleto : null,
         ];
     }
 
@@ -241,6 +242,14 @@ class Api extends Controller
             $uid = $d['ubicacion_id'] ?? null;
             $d['ubicacion_label'] = $uid !== null && isset($mapUbicacion[$uid]) ? $mapUbicacion[$uid]['label'] : ($uid ?? '—');
             $d['es_casa'] = $uid !== null && isset($mapUbicacion[$uid]) ? $mapUbicacion[$uid]['es_casa'] : false;
+            $d['distancias_mostrar'] = [];
+            foreach ($d['distancias_por_ubicacion'] ?? [] as $du) {
+                $uidDu = $du['ubicacion_id'] ?? null;
+                $d['distancias_mostrar'][] = [
+                    'label' => $uidDu !== null && isset($mapUbicacion[$uidDu]) ? $mapUbicacion[$uidDu]['label'] : ($uidDu ?? '—'),
+                    'distancia_m' => $du['distancia_m'] ?? null,
+                ];
+            }
         }
         unset($d);
         return $out;

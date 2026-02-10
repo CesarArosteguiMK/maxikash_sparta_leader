@@ -779,6 +779,80 @@ class Ticket extends Model
     }
 
     /**
+     * Mensajes de dictamen por ticket (igual estructura que chat/bitácora).
+     */
+    public static function getDictamenPorTicket($idTicket)
+    {
+        $id = (int)$idTicket;
+        if ($id < 1) {
+            return self::resultado(false, 'ID de ticket inválido.', []);
+        }
+        try {
+            $db = new Database();
+            $rows = $db->queryAll(
+                "SELECT d.id, d.id_ticket, d.id_persona, d.mensaje, d.fecha_creacion, " .
+                "CONCAT(TRIM(IFNULL(p.nombres,'')), ' ', TRIM(IFNULL(p.apellidop,''))) AS persona_nombre " .
+                "FROM dictamen d INNER JOIN persona p ON d.id_persona = p.id " .
+                "WHERE d.id_ticket = :id_ticket ORDER BY d.fecha_creacion ASC",
+                ['id_ticket' => $id]
+            );
+            return self::resultado(true, 'OK', is_array($rows) ? $rows : []);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al obtener dictamen.', null, $e->getMessage());
+        }
+    }
+
+    /**
+     * Agregar mensaje de dictamen al ticket.
+     */
+    public static function agregarDictamen($idTicket, $idPersona, $mensaje)
+    {
+        $tid = (int)$idTicket;
+        $pid = (int)$idPersona;
+        $msg = trim((string)$mensaje);
+        if ($tid < 1 || $pid < 1 || $msg === '') {
+            return self::resultado(false, 'Datos inválidos.', null);
+        }
+        if (strlen($msg) > 2000) {
+            return self::resultado(false, 'Mensaje demasiado largo.', null);
+        }
+        try {
+            $db = new Database();
+            $tz = new \DateTimeZone('America/Mexico_City');
+            $now = (new \DateTime('now', $tz))->format('Y-m-d H:i:s');
+            $db->CRUD(
+                "INSERT INTO dictamen (id_ticket, id_persona, mensaje, fecha_creacion) VALUES (:id_ticket, :id_persona, :mensaje, :fecha_creacion)",
+                ['id_ticket' => $tid, 'id_persona' => $pid, 'mensaje' => $msg, 'fecha_creacion' => $now]
+            );
+            return self::resultado(true, 'Dictamen guardado.');
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al guardar dictamen.', null, $e->getMessage());
+        }
+    }
+
+    /**
+     * Eliminar un mensaje de dictamen por id.
+     */
+    public static function eliminarMensajeDictamen($idMensaje, $idTicket = null)
+    {
+        $id = (int)$idMensaje;
+        if ($id < 1) {
+            return self::resultado(false, 'ID de mensaje inválido.');
+        }
+        try {
+            $db = new Database();
+            if ($idTicket !== null && (int)$idTicket > 0) {
+                $db->CRUD('DELETE FROM dictamen WHERE id = :id AND id_ticket = :id_ticket', ['id' => $id, 'id_ticket' => (int)$idTicket]);
+            } else {
+                $db->CRUD('DELETE FROM dictamen WHERE id = :id', ['id' => $id]);
+            }
+            return self::resultado(true, 'Dictamen eliminado.');
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al eliminar dictamen.', null, $e->getMessage());
+        }
+    }
+
+    /**
      * Lista de evidencias (imágenes) por ticket.
      */
     public static function getEvidenciasPorTicket($idTicket)

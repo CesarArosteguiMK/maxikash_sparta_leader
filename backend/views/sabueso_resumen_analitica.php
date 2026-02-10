@@ -20,6 +20,7 @@ $desviacion = isset($desviacion) && is_numeric($desviacion) ? $desviacion : null
 $diaFrecuente = isset($diaFrecuente) && (string) $diaFrecuente !== '' ? (string) $diaFrecuente : 'N/D';
 $consistenciaDia = isset($consistenciaDia) && is_numeric($consistenciaDia) ? $consistenciaDia : null;
 $patronPago = isset($patronPago) && (string) $patronPago !== '' ? (string) $patronPago : 'desconocido';
+$etiquetaPatronPago = isset($etiquetaPatronPago) && (string) $etiquetaPatronPago !== '' ? (string) $etiquetaPatronPago : $patronPago;
 $scoreCliente = isset($scoreCliente) ? (int) $scoreCliente : 0;
 $scoreGestion = isset($scoreGestion) ? (int) $scoreGestion : 0;
 $scorePagos = isset($scorePagos) ? (int) $scorePagos : 0;
@@ -37,7 +38,7 @@ $esc = function ($s) {
     <div class="analitica-ia-card">
         <div class="analitica-ia-header">
             <?php if ($enModal): ?>
-            <h2 class="analitica-ia-title analitica-ia-title--modal">Resumen analítico – Cómo localizar al acreditado</h2>
+            <h2 class="analitica-ia-title analitica-ia-title--modal">Resumen</h2>
             <p class="analitica-ia-nota-sin-ia">Análisis por <strong>reglas determinísticas</strong> (sin IA). La confianza, los estados y las acciones se calculan con reglas fijas a partir de ubicación, pagos y gestión de campo. No se usa inteligencia artificial en este resumen.</p>
             <?php else: ?>
             <h1 class="analitica-ia-title">Predicción IA – Cómo localizar al acreditado</h1>
@@ -65,10 +66,7 @@ $esc = function ($s) {
                 $partes[] = 'Se detectó actividad recurrente en punto de interés a <span class="highlight">' . $esc($puntoInteres['distancia']) . ' km</span> (' . (int) $puntoInteres['visitas'] . ' visitas)';
             }
             if ($totalPagos > 0) {
-                $partes[] = 'El cliente mantiene <span class="highlight">' . $totalPagos . ' pagos activos</span> con patrón ' . $esc($patronPago);
-                if ($intervaloPromedio !== null && $desviacion !== null) {
-                    $partes[] = '(intervalo promedio ~' . $esc($intervaloPromedio) . ' días, desviación ' . $esc($desviacion) . ' días)';
-                }
+                $partes[] = 'El cliente mantiene <span class="highlight">' . $totalPagos . ' pagos activos</span> con patrón ' . $esc(ucfirst($etiquetaPatronPago));
             }
             if ($cumplimientoPorc !== null) {
                 $estadoGestion = $cumplimientoPorc < 30 ? 'crítica' : ($cumplimientoPorc < 70 ? 'regular' : 'buena');
@@ -95,7 +93,10 @@ $esc = function ($s) {
             ?>
             <div class="analitica-ia-metric-card">
                 <div class="analitica-ia-metric-header">
-                    <div class="analitica-ia-metric-title">Cliente</div>
+                    <div class="analitica-ia-metric-title d-flex align-items-center gap-1 flex-wrap">
+                        Cliente
+                        <i class="fa-solid fa-circle-info text-muted small" style="cursor: help; font-size: 0.85em;" data-bs-toggle="tooltip" data-bs-placement="top" title="<?= $esc('La confianza de ubicación se calcula según qué tan cerca y con qué frecuencia se registran puntos alrededor del domicilio. Cuanto más cercanos y consistentes sean esos puntos, mayor será el porcentaje.') ?>" aria-label="Información sobre el score de ubicación"></i>
+                    </div>
                     <div class="analitica-ia-score-circle <?= $claseScoreCliente ?>"><?= $scoreCliente ?>%</div>
                 </div>
                 <div class="analitica-ia-metric-content">
@@ -124,7 +125,10 @@ $esc = function ($s) {
             ?>
             <div class="analitica-ia-metric-card">
                 <div class="analitica-ia-metric-header">
-                    <div class="analitica-ia-metric-title">Gestión</div>
+                    <div class="analitica-ia-metric-title d-flex align-items-center gap-1 flex-wrap">
+                        Gestión
+                        <i class="fa-solid fa-circle-info text-muted small" style="cursor: help; font-size: 0.85em;" data-bs-toggle="tooltip" data-bs-placement="top" title="<?= $esc('El cumplimiento de gestión refleja qué tan cerca estuvieron las visitas del gestor de las ubicaciones del cliente. Visitas más cercanas aumentan el porcentaje; visitas más lejanas lo reducen.') ?>" aria-label="Información sobre el score de gestión"></i>
+                    </div>
                     <div class="analitica-ia-score-circle <?= $claseScoreGestion ?>"><?= $scoreGestion ?>%</div>
                 </div>
                 <div class="analitica-ia-metric-content">
@@ -170,7 +174,10 @@ $esc = function ($s) {
             ?>
             <div class="analitica-ia-metric-card">
                 <div class="analitica-ia-metric-header">
-                    <div class="analitica-ia-metric-title">Pagos</div>
+                    <div class="analitica-ia-metric-title d-flex align-items-center gap-1 flex-wrap">
+                        Pagos
+                        <i class="fa-solid fa-circle-info text-muted small" style="cursor: help; font-size: 0.85em;" data-bs-toggle="tooltip" data-bs-placement="top" title="<?= $esc('La confianza se calcula según la constancia real de los pagos. Pequeñas variaciones en las fechas reducen ligeramente el porcentaje, aunque el historial sea bueno.') ?>" aria-label="Información sobre el score de pagos"></i>
+                    </div>
                     <div class="analitica-ia-score-circle <?= $claseScorePagos ?>"><?= $scorePagos ?>%</div>
                 </div>
                 <div class="analitica-ia-metric-content">
@@ -180,10 +187,7 @@ $esc = function ($s) {
                     <?php else: ?>
                     <p>Historial de pagos activo (<strong><?= $totalPagos ?> pagos</strong>).</p>
                     <?php endif; ?>
-                    <?php if ($intervaloPromedio !== null): ?>
-                    <p>Intervalo promedio <strong>~<?= $esc($intervaloPromedio) ?> días</strong><?= $desviacion !== null ? ' (desviación ' . $esc($desviacion) . ' días)' : '' ?>.</p>
-                    <?php endif; ?>
-                    <p><strong>Patrón:</strong> <?= $esc(ucfirst($patronPago)) ?></p>
+                    <p><strong>Patrón:</strong> <?= $esc($etiquetaPatronPago === 'critico' ? 'Crítico' : ucfirst($etiquetaPatronPago)) ?></p>
                     <?php if ($diaFrecuente !== 'N/D'): ?>
                     <p><strong>Día frecuente:</strong> <?= $esc(ucfirst($diaFrecuente)) ?><?= $consistenciaDia !== null ? ' (' . $esc($consistenciaDia) . '%)' : '' ?></p>
                     <?php endif; ?>
