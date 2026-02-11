@@ -527,10 +527,11 @@ JS;
         }
 
         # -----------------------------
-        # GET NORMAL
+        # GET NORMAL (menú Estados de cuentas: el permiso de registrar documentos no aplica)
         # -----------------------------
         self::set("titulo", "Estados de Cuenta");
-        self::set("script", $script);
+        $scriptConsulta = str_replace('TienePermisoRegistrarDocumentos_PLACEHOLDER', json_encode(false), $script);
+        self::set("script", $scriptConsulta);
         return self::render("__SPARTA_SECRET_REDACTED___consulta");
     }
     public function getclientesEstadoCuenta()
