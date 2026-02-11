@@ -560,7 +560,8 @@ public static function obtenerReportesDictamenParaDescarga($fechaInicio, $fechaF
             periodo_fin,
             monto_valor,
             cuota,
-            parcialidad
+            parcialidad,
+            Fecha_primer_vencimiento
         FROM `__SPARTA_SECRET_REDACTED__`.gastos_cobranza
         WHERE Id_credito = $idCredito
           AND (condonado IS NULL OR condonado = 0)
@@ -573,6 +574,26 @@ public static function obtenerReportesDictamenParaDescarga($fechaInicio, $fechaF
 
             // Formateo mínimo para el frontend
             $datos = array_map(function ($row) {
+                // Calcular parcialidad basada en el número de semana
+                $parcialidadCalculada = null;
+                if (preg_match('/Semana (\d+)-/', $row['SEMANA'], $matches)) {
+                    $numeroSemana = (int)$matches[1];
+                    $parcialidadCalculada = $numeroSemana - 3; // Offset para coincidir con datos
+                }
+
+                // Si no se puede calcular por semana, usar fecha_primer_vencimiento y periodo_inicio
+                if ($parcialidadCalculada === null) {
+                    $fechaPrimerVencimiento = $row['Fecha_primer_vencimiento'];
+                    if ($fechaPrimerVencimiento && $row['periodo_inicio']) {
+                        $fechaInicio = strtotime($fechaPrimerVencimiento);
+                        $periodoInicio = strtotime($row['periodo_inicio']);
+                        $diasTranscurridos = ($periodoInicio - $fechaInicio) / (60 * 60 * 24);
+                        if ($diasTranscurridos >= 0) {
+                            $parcialidadCalculada = floor($diasTranscurridos / 7) + 1;
+                        }
+                    }
+                }
+
                 return [
                     'id_gasto' => (int)$row['id_gastos_cobranza'],
                     'semana'   => $row['SEMANA'],
@@ -581,7 +602,7 @@ public static function obtenerReportesDictamenParaDescarga($fechaInicio, $fechaF
                         date('d/m/Y', strtotime($row['periodo_fin'])),
                     'monto'   => (float)$row['monto_valor'],
                     'cuota'   => (float)$row['cuota'],
-                    'parcialidad' => $row['parcialidad'] ?? null
+                    'parcialidad' => $parcialidadCalculada ?? ($row['parcialidad'] ?? null)
                 ];
             }, $r);
 
