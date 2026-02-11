@@ -136,9 +136,8 @@
                                     class="img-fluid"
                                     style="max-width: 100%; max-height: calc(95vh - 140px); width: auto; height: auto; object-fit: contain; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); cursor: zoom-in; display: block; margin: 0 auto; user-select: none; -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none; -webkit-user-drag: none; -khtml-user-drag: none; user-drag: none;"
                                     draggable="false"
-                                    oncontextmenu="return false;"
-                                    
-                                <div class="watermark-overlay"></div>
+                                    oncontextmenu="return false;">
+                                <div class="watermark-overlay" id="watermarkOverlayEvidencia" style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:9999;overflow:visible;"></div>
                             </div>
                         </div>
                     </div>
@@ -763,6 +762,17 @@
             /* Permitir que las marcas de agua se extiendan fuera del área si es necesario */
             clip-path: none !important;
         }
+
+        /* Overlay de EVIDENCIA (imagen): forzar visibilidad y que las capas se vean */
+        #watermarkOverlayEvidencia,
+        #watermarkOverlayEvidencia .watermark-layer {
+            visibility: visible !important;
+            opacity: 1 !important;
+            display: block !important;
+            pointer-events: none !important;
+        }
+        #watermarkOverlayEvidencia { z-index: 9999 !important; overflow: visible !important; }
+        #watermarkOverlayEvidencia .watermark-layer { z-index: 10000 !important; }
         
         /* Para el overlay del PDF, usar overflow hidden para evitar scrolls propios y agregar franjas rojas */
         #watermarkOverlayPdf {
@@ -1165,25 +1175,30 @@
                     }
                 } else {
                     // LÓGICA PARA IMÁGENES Y CANVAS
-                    // CRÍTICO: Asegurar que el contenedor tenga exactamente el mismo tamaño que la imagen
-                    // Esto evita que la marca de agua se extienda más allá de la imagen
-                    if (img && container && !isZoom) {
-                        // Ajustar el contenedor al tamaño exacto de la imagen (solo para modal principal, no zoom)
+                    const esOverlayEvidencia = overlay.id === 'watermarkOverlayEvidencia' || overlay.closest('#documentoImagenContainer');
+                    if (img && container && !isZoom && !esOverlayEvidencia) {
+                        // Ajustar el contenedor al tamaño exacto de la imagen (NO para EVIDENCIA: evita que la foto se achique)
                         container.style.width = width + 'px';
                         container.style.height = height + 'px';
                         container.style.display = 'inline-block';
                         container.style.maxWidth = '100%';
                         container.style.maxHeight = '100%';
                     }
-                    
-                    overlay.style.width = width + 'px';
-                    overlay.style.height = height + 'px';
+                    if (esOverlayEvidencia) {
+                        overlay.style.width = '100%';
+                        overlay.style.height = '100%';
+                        overlay.style.right = '0';
+                        overlay.style.bottom = '0';
+                    } else {
+                        overlay.style.width = width + 'px';
+                        overlay.style.height = height + 'px';
+                    }
                     overlay.style.position = 'absolute';
                     overlay.style.top = '0';
                     overlay.style.left = '0';
                     overlay.style.zIndex = '10';
                     overlay.style.pointerEvents = 'none';
-                    overlay.style.overflow = 'hidden'; // Solo dentro del cuadro de la imagen, no todo el modal
+                    overlay.style.overflow = esOverlayEvidencia ? 'visible' : 'hidden';
                 }
                 
                 // Para canvas de PDF.js, asegurar que el overlay esté correctamente posicionado
@@ -1500,10 +1515,10 @@
             aplicarMarcasAguaEVIDENCIA();
         }
         
-        // Solo EVIDENCIA (imagen JPG): no depende del bucle de overlays ni del visor PDF
+        // EVIDENCIA (imagen): misma lógica de marcas que los PDF (crearMarcasAguaModalPDF)
         function aplicarMarcasAguaEVIDENCIA(retryCount) {
             retryCount = retryCount || 0;
-            const maxRetry = 4;
+            const maxRetry = 6;
             try {
                 const tituloEl = document.querySelector('#modalDocumento .modal-title');
                 const titulo = tituloEl ? tituloEl.textContent.trim() : '';
@@ -1514,55 +1529,74 @@
                 const style = window.getComputedStyle(imgContainer);
                 const visible = style.display !== 'none' && style.visibility !== 'hidden' && (style.opacity !== '0' || !style.opacity);
                 if (!visible) return;
-                const overlayEv = imgContainer.querySelector('.watermark-overlay');
+                const overlayEv = document.getElementById('watermarkOverlayEvidencia') || imgContainer.querySelector('.watermark-overlay');
                 const imgEv = document.getElementById('imgDocumento');
-                if (!overlayEv || !imgEv) return;
-                overlayEv.querySelectorAll('.watermark-layer').forEach(l => l.remove());
+                if (!overlayEv) {
+                    if (typeof console !== 'undefined') console.warn('[Marca agua EVIDENCIA] No se encontró overlay (watermarkOverlayEvidencia)');
+                    return;
+                }
+
                 let w = 0, h = 0;
-                const r = imgEv.getBoundingClientRect();
-                w = r.width || imgEv.naturalWidth || imgEv.offsetWidth || 0;
-                h = r.height || imgEv.naturalHeight || imgEv.offsetHeight || 0;
-                if ((w === 0 || h === 0) && imgEv.naturalWidth > 0 && imgEv.naturalHeight > 0) {
-                    w = w || imgEv.naturalWidth;
-                    h = h || imgEv.naturalHeight;
+                if (imgEv) {
+                    const r = imgEv.getBoundingClientRect();
+                    w = r.width || imgEv.naturalWidth || imgEv.offsetWidth || 0;
+                    h = r.height || imgEv.naturalHeight || imgEv.offsetHeight || 0;
+                    if ((w === 0 || h === 0) && imgEv.naturalWidth > 0 && imgEv.naturalHeight > 0) {
+                        w = w || imgEv.naturalWidth;
+                        h = h || imgEv.naturalHeight;
+                    }
+                }
+                if ((w === 0 || h === 0) && imgContainer) {
+                    const cr = imgContainer.getBoundingClientRect();
+                    if (cr.width > 0 && cr.height > 0) { w = w || cr.width; h = h || cr.height; }
+                }
+                if (w <= 0 || h <= 0) {
+                    w = w || 800;
+                    h = h || 600;
                 }
                 if (w <= 0 || h <= 0) {
                     if (retryCount < maxRetry) setTimeout(function() { aplicarMarcasAguaEVIDENCIA(retryCount + 1); }, 200 + retryCount * 150);
                     return;
                 }
+                if (typeof console !== 'undefined') console.log('[Marca agua EVIDENCIA] aplicarMarcasAguaEVIDENCIA ejecutando. w=' + w + ' h=' + h + ' overlay=' + (overlayEv ? 'ok' : 'no'));
+
+                // NO forzar tamaño del contenedor: dejar que la imagen lo defina (evita que la foto se achique cada vez que se abre)
                 const cont = overlayEv.closest('.watermark-container') || overlayEv.parentElement;
                 if (cont) {
                     cont.style.position = 'relative';
                     cont.style.display = 'inline-block';
-                    cont.style.width = w + 'px';
-                    cont.style.height = h + 'px';
+                    cont.style.width = '';
+                    cont.style.height = '';
+                    cont.style.maxWidth = '100%';
                 }
-                overlayEv.style.cssText = 'position:absolute;top:0;left:0;width:' + w + 'px;height:' + h + 'px;z-index:10;pointer-events:none;overflow:hidden;display:block !important;visibility:visible !important;opacity:1 !important;';
-                var winW = typeof window !== 'undefined' ? window.innerWidth : 1200;
-                var escala = winW < 480 ? 0.65 : (winW < 768 ? 0.8 : (winW < 1200 ? 0.9 : 1));
-                var esVertical = h > w;
-                var layerSpacing = Math.round((esVertical ? 46 : 62) * escala);
-                var textSpacing = Math.round((esVertical ? 72 : 95) * escala);
-                var fontSizeImg = ((esVertical ? 1.6 : 1.9) * escala).toFixed(2) + 'rem';
-                var colorAgua = 'rgba(220, 20, 20, 0.55)', textShadow = '1px 1px 3px rgba(0, 0, 0, 0.4)';
-                var topOffsetExtra = layerSpacing * (esVertical ? 2.8 : 2.2);
-                var desplazarArriba = Math.round((esVertical ? 50 : 38) * escala);
-                var multAlto = esVertical ? 2.6 : 1.4, multAncho = esVertical ? 1.8 : 1.4;
-                var numRows = Math.ceil((h * multAlto) / layerSpacing) + (esVertical ? 22 : 5);
-                var numCols = Math.ceil((w * multAncho) / textSpacing) + (esVertical ? 10 : 5);
-                var rowStart = esVertical ? -22 : -5, rowEnd = numRows + (esVertical ? 22 : 0);
-                for (var row = rowStart; row < rowEnd; row++) {
-                    var layer = document.createElement('div');
+                overlayEv.style.cssText = 'position:absolute;top:0;left:0;right:0;bottom:0;width:100%;height:100%;z-index:10;pointer-events:none;overflow:visible !important;display:block !important;visibility:visible !important;opacity:1 !important;';
+
+                overlayEv.querySelectorAll('.watermark-layer').forEach(l => l.remove());
+
+                const esMovil = window.innerWidth <= 768;
+                const fontSize = esMovil ? '1.5rem' : '2.5rem';
+                const layerSpacing = esMovil ? 80 : 120;
+                const textSpacing = esMovil ? 100 : 150;
+                const numRows = Math.ceil((h * 1.45) / layerSpacing) + 8;
+                const numCols = Math.ceil((w * 1.6) / textSpacing) + 5;
+                let layersAdded = 0;
+                const topOffset = esMovil ? layerSpacing * 0.5 : layerSpacing * 2;
+                for (let row = -10; row < numRows; row++) {
+                    const layer = document.createElement('div');
                     layer.className = 'watermark-layer';
-                    var reps = numCols + (esVertical ? 12 : 4);
-                    layer.textContent = 'SIN VALOR '.repeat(reps);
-                    var topPos = (row * layerSpacing) - topOffsetExtra - desplazarArriba;
-                    var leftOffset = (row * (textSpacing * 0.5)) - (esVertical ? Math.min(w * 0.25, 220 * escala) : Math.min(w * 0.15, 180 * escala));
-                    var minWidth = w - leftOffset + (esVertical ? h * 0.5 : w * 0.25);
-                    var layerWidth = Math.max(reps * textSpacing * 1.15, minWidth);
-                    layer.style.cssText = 'position:absolute;font-size:' + fontSizeImg + ';font-weight:bold;color:' + colorAgua + ' !important;text-shadow:' + textShadow + ';transform:rotate(-45deg);transform-origin:center;white-space:nowrap;letter-spacing:0.35em;z-index:11 !important;top:' + topPos + 'px;left:' + leftOffset + 'px;width:' + layerWidth + 'px;text-align:center;pointer-events:none;user-select:none;line-height:1.2;opacity:1 !important;visibility:visible !important;display:block !important;';
+                    const topPos = (row * layerSpacing) - topOffset;
+                    const leftOffset = (row * (textSpacing * 0.5)) - Math.min(w * 0.25, 220);
+                    const repetitions = numCols + 10;
+                    const textContent = 'SIN VALOR '.repeat(repetitions);
+                    const minWidth = w - leftOffset + (w * 0.45);
+                    const layerWidth = Math.max(repetitions * textSpacing * 1.2, minWidth);
+
+                    layer.textContent = textContent;
+                    layer.style.cssText = 'position:absolute;font-size:' + fontSize + ';font-weight:bold;color:rgba(220,20,20,0.6) !important;text-shadow:1px 1px 3px rgba(0,0,0,0.4);transform:rotate(-45deg);transform-origin:center;white-space:nowrap;letter-spacing:0.5em;z-index:10000 !important;top:' + topPos + 'px;left:' + leftOffset + 'px;width:' + layerWidth + 'px;text-align:center;pointer-events:none;user-select:none;line-height:1.2;opacity:1 !important;visibility:visible !important;display:block !important;';
                     overlayEv.appendChild(layer);
+                    layersAdded++;
                 }
+                if (typeof console !== 'undefined' && layersAdded > 0) console.log('[Marca agua EVIDENCIA] Dibujadas ' + layersAdded + ' capas en overlay. w=' + w + ' h=' + h);
             } catch (e) {
                 if (typeof console !== 'undefined') console.warn('[Marca agua EVIDENCIA]', e);
                 if (retryCount < maxRetry) setTimeout(function() { aplicarMarcasAguaEVIDENCIA(retryCount + 1); }, 300);
