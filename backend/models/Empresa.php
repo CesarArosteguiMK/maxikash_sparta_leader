@@ -111,11 +111,10 @@ class Empresa extends Model
         try {
             $db = new \core\DatabaseMaxiProd();
             $r = $db->queryAll($query);
-            // Log temporal para debug
-            file_put_contents(__DIR__ . '/log_referencias.txt', date('Y-m-d H:i:s') . "\nID Credito: $id_credito\n" . print_r($r, true) . "\n\n", FILE_APPEND);
+           
             return self::resultado(true, 'Dirección encontrada.', $r);
         } catch (\Exception $e) {
-            file_put_contents(__DIR__ . '/log_referencias.txt', date('Y-m-d H:i:s') . "\nID Credito: $id_credito\nERROR: " . $e->getMessage() . "\n\n", FILE_APPEND);
+            
             return self::resultado(false, 'Error al procesar la solicitud.', null, $e->getMessage());
         }
     }
