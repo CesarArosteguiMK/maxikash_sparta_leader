@@ -109,10 +109,12 @@ class Empresa extends Model
         SQL;
 
         try {
-            $db = new DatabaseAWS();
+            $db = new \core\DatabaseMaxiProd();
             $r = $db->queryAll($query);
+           
             return self::resultado(true, 'Dirección encontrada.', $r);
         } catch (\Exception $e) {
+            
             return self::resultado(false, 'Error al procesar la solicitud.', null, $e->getMessage());
         }
     }
