@@ -1442,27 +1442,33 @@
                     }
                     
                     // Crear marcas de agua "SIN VALOR" solo dentro del cuadro de la imagen (INE y EVIDENCIA)
-                    // Escala según resolución/móvil para que se vean bien en cualquier pantalla
+                    // Vertical (portrait): más densidad y rango ampliado para cubrir bordes y esquinas
                     const winW = typeof window !== 'undefined' ? window.innerWidth : 1200;
                     const escalaMarca = winW < 480 ? 0.65 : (winW < 768 ? 0.8 : (winW < 1200 ? 0.9 : 1));
-                    const layerSpacing = Math.round(62 * escalaMarca);
-                    const textSpacing = Math.round(95 * escalaMarca);
-                    const fontSizeImg = (1.9 * escalaMarca).toFixed(2) + 'rem';
-                    const numRows = Math.ceil((effectiveHeight * 1.4) / layerSpacing) + 5;
-                    const numCols = Math.ceil((effectiveWidth * 1.4) / textSpacing) + 5;
+                    const esVertical = effectiveHeight > effectiveWidth;
+                    const layerSpacing = Math.round((esVertical ? 46 : 62) * escalaMarca);
+                    const textSpacing = Math.round((esVertical ? 72 : 95) * escalaMarca);
+                    const fontSizeImg = ((esVertical ? 1.6 : 1.9) * escalaMarca).toFixed(2) + 'rem';
+                    const multAlto = esVertical ? 2.6 : 1.4;
+                    const multAncho = esVertical ? 1.8 : 1.4;
+                    const numRows = Math.ceil((effectiveHeight * multAlto) / layerSpacing) + (esVertical ? 22 : 5);
+                    const numCols = Math.ceil((effectiveWidth * multAncho) / textSpacing) + (esVertical ? 10 : 5);
                     const colorAgua = 'rgba(220, 20, 20, 0.55)';
                     const textShadow = '1px 1px 3px rgba(0, 0, 0, 0.4)';
-                    const topOffsetExtra = layerSpacing * 2.2;
-                    const desplazarArriba = Math.round(38 * escalaMarca);
+                    const topOffsetExtra = layerSpacing * (esVertical ? 2.8 : 2.2);
+                    const desplazarArriba = Math.round((esVertical ? 50 : 38) * escalaMarca);
+                    const rowStart = esVertical ? -22 : -5;
+                    const rowEnd = numRows + (esVertical ? 22 : 0);
 
-                    for (let row = -5; row < numRows; row++) {
+                    for (let row = rowStart; row < rowEnd; row++) {
                         const layer = document.createElement('div');
                         layer.className = 'watermark-layer';
-                        const repetitions = numCols + 4;
+                        const repetitions = numCols + (esVertical ? 12 : 4);
                         layer.textContent = 'SIN VALOR '.repeat(repetitions);
                         const topPos = (row * layerSpacing) - topOffsetExtra - desplazarArriba;
-                        const leftOffset = (row * (textSpacing * 0.5)) - Math.min(effectiveWidth * 0.15, 180 * escalaMarca);
-                        const layerWidth = Math.max(repetitions * textSpacing * 1.1, effectiveWidth - leftOffset + effectiveWidth * 0.25);
+                        const leftOffset = (row * (textSpacing * 0.5)) - (esVertical ? Math.min(effectiveWidth * 0.25, 220 * escalaMarca) : Math.min(effectiveWidth * 0.15, 180 * escalaMarca));
+                        const minWidth = effectiveWidth - leftOffset + (esVertical ? effectiveHeight * 0.5 : effectiveWidth * 0.25);
+                        const layerWidth = Math.max(repetitions * textSpacing * 1.15, minWidth);
 
                         layer.style.cssText = `
                             position: absolute;
@@ -1534,19 +1540,26 @@
                 overlayEv.style.cssText = 'position:absolute;top:0;left:0;width:' + w + 'px;height:' + h + 'px;z-index:10;pointer-events:none;overflow:hidden;display:block !important;visibility:visible !important;opacity:1 !important;';
                 var winW = typeof window !== 'undefined' ? window.innerWidth : 1200;
                 var escala = winW < 480 ? 0.65 : (winW < 768 ? 0.8 : (winW < 1200 ? 0.9 : 1));
-                var layerSpacing = Math.round(62 * escala), textSpacing = Math.round(95 * escala);
-                var fontSizeImg = (1.9 * escala).toFixed(2) + 'rem';
+                var esVertical = h > w;
+                var layerSpacing = Math.round((esVertical ? 46 : 62) * escala);
+                var textSpacing = Math.round((esVertical ? 72 : 95) * escala);
+                var fontSizeImg = ((esVertical ? 1.6 : 1.9) * escala).toFixed(2) + 'rem';
                 var colorAgua = 'rgba(220, 20, 20, 0.55)', textShadow = '1px 1px 3px rgba(0, 0, 0, 0.4)';
-                var topOffsetExtra = layerSpacing * 2.2, desplazarArriba = Math.round(38 * escala);
-                var numRows = Math.ceil((h * 1.4) / layerSpacing) + 5, numCols = Math.ceil((w * 1.4) / textSpacing) + 5;
-                for (var row = -5; row < numRows; row++) {
+                var topOffsetExtra = layerSpacing * (esVertical ? 2.8 : 2.2);
+                var desplazarArriba = Math.round((esVertical ? 50 : 38) * escala);
+                var multAlto = esVertical ? 2.6 : 1.4, multAncho = esVertical ? 1.8 : 1.4;
+                var numRows = Math.ceil((h * multAlto) / layerSpacing) + (esVertical ? 22 : 5);
+                var numCols = Math.ceil((w * multAncho) / textSpacing) + (esVertical ? 10 : 5);
+                var rowStart = esVertical ? -22 : -5, rowEnd = numRows + (esVertical ? 22 : 0);
+                for (var row = rowStart; row < rowEnd; row++) {
                     var layer = document.createElement('div');
                     layer.className = 'watermark-layer';
-                    var reps = numCols + 4;
+                    var reps = numCols + (esVertical ? 12 : 4);
                     layer.textContent = 'SIN VALOR '.repeat(reps);
                     var topPos = (row * layerSpacing) - topOffsetExtra - desplazarArriba;
-                    var leftOffset = (row * (textSpacing * 0.5)) - Math.min(w * 0.15, 180 * escala);
-                    var layerWidth = Math.max(reps * textSpacing * 1.1, w - leftOffset + w * 0.25);
+                    var leftOffset = (row * (textSpacing * 0.5)) - (esVertical ? Math.min(w * 0.25, 220 * escala) : Math.min(w * 0.15, 180 * escala));
+                    var minWidth = w - leftOffset + (esVertical ? h * 0.5 : w * 0.25);
+                    var layerWidth = Math.max(reps * textSpacing * 1.15, minWidth);
                     layer.style.cssText = 'position:absolute;font-size:' + fontSizeImg + ';font-weight:bold;color:' + colorAgua + ' !important;text-shadow:' + textShadow + ';transform:rotate(-45deg);transform-origin:center;white-space:nowrap;letter-spacing:0.35em;z-index:11 !important;top:' + topPos + 'px;left:' + leftOffset + 'px;width:' + layerWidth + 'px;text-align:center;pointer-events:none;user-select:none;line-height:1.2;opacity:1 !important;visibility:visible !important;display:block !important;';
                     overlayEv.appendChild(layer);
                 }
@@ -3447,11 +3460,16 @@
                     watermark.setAttribute('data-marcas-sin-valor', 'true');
                 }
                 
-                // Crear marcas de agua "SIN VALOR" en TODO el modal después de renderizar
+                // Crear marcas de agua "SIN VALOR" en TODO el modal y en el overlay del canvas (FACTURA, FAD_DOC, VALIDACIONES, EVIDENCIA)
                 if (typeof crearMarcasAguaModalPDF === 'function') {
                     setTimeout(() => {
                         crearMarcasAguaModalPDF();
                     }, 200);
+                }
+                if (typeof crearMarcasAgua === 'function') {
+                    setTimeout(() => {
+                        crearMarcasAgua();
+                    }, 250);
                 }
 
                 // Si había una página en espera, dibujarla ahora
