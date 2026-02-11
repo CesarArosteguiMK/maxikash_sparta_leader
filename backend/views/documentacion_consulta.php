@@ -1457,33 +1457,38 @@
                     }
                     
                     // Crear marcas de agua "SIN VALOR" solo dentro del cuadro de la imagen (INE y EVIDENCIA)
-                    // Vertical (portrait): más densidad y rango ampliado para cubrir bordes y esquinas
+                    // INE: bajar patrón y cubrir completo; en zoom usar más densidad para que siga cubriendo
                     const winW = typeof window !== 'undefined' ? window.innerWidth : 1200;
                     const escalaMarca = winW < 480 ? 0.65 : (winW < 768 ? 0.8 : (winW < 1200 ? 0.9 : 1));
                     const esVertical = effectiveHeight > effectiveWidth;
-                    const layerSpacing = Math.round((esVertical ? 46 : 62) * escalaMarca);
-                    const textSpacing = Math.round((esVertical ? 72 : 95) * escalaMarca);
+                    const densidadZoom = isZoom ? 0.78 : 1;
+                    const layerSpacing = Math.round((esVertical ? 46 : 62) * escalaMarca * densidadZoom);
+                    const textSpacing = Math.round((esVertical ? 72 : 95) * escalaMarca * densidadZoom);
                     const fontSizeImg = ((esVertical ? 1.6 : 1.9) * escalaMarca).toFixed(2) + 'rem';
-                    const multAlto = esVertical ? 2.6 : 1.4;
-                    const multAncho = esVertical ? 1.8 : 1.4;
-                    const numRows = Math.ceil((effectiveHeight * multAlto) / layerSpacing) + (esVertical ? 22 : 5);
-                    const numCols = Math.ceil((effectiveWidth * multAncho) / textSpacing) + (esVertical ? 10 : 5);
+                    const multAlto = esVertical ? 2.8 : 1.5;
+                    const multAncho = esVertical ? 2 : 1.5;
+                    const numRows = Math.ceil((effectiveHeight * multAlto) / layerSpacing) + (esVertical ? 28 : 10);
+                    const numCols = Math.ceil((effectiveWidth * multAncho) / textSpacing) + (esVertical ? 14 : 8);
                     const colorAgua = 'rgba(220, 20, 20, 0.55)';
                     const textShadow = '1px 1px 3px rgba(0, 0, 0, 0.4)';
-                    const topOffsetExtra = layerSpacing * (esVertical ? 2.8 : 2.2);
-                    const desplazarArriba = Math.round((esVertical ? 50 : 38) * escalaMarca);
-                    const rowStart = esVertical ? -22 : -5;
-                    const rowEnd = numRows + (esVertical ? 22 : 0);
+                    const topOffsetExtra = layerSpacing * (estaEnModalINE ? (esVertical ? 1.8 : 1.4) : (esVertical ? 2.8 : 2.2));
+                    const desplazarArriba = Math.round((estaEnModalINE ? (esVertical ? 28 : 20) : (esVertical ? 50 : 38)) * escalaMarca);
+                    const rowStart = (isZoom && estaEnModalINE) ? (esVertical ? -42 : -16) : (esVertical ? -26 : -8);
+                    const rowEnd = (isZoom && estaEnModalINE) ? (numRows + (esVertical ? 58 : 28)) : (numRows + (esVertical ? 28 : 10));
+                    const extraIzqZoom = (isZoom && estaEnModalINE) ? 110 : 0;
 
                     for (let row = rowStart; row < rowEnd; row++) {
                         const layer = document.createElement('div');
                         layer.className = 'watermark-layer';
-                        const repetitions = numCols + (esVertical ? 12 : 4);
+                        const repsExtra = estaEnModalINE ? (esVertical ? 16 : 10) : (esVertical ? 12 : 4);
+                        const repetitions = numCols + repsExtra + (isZoom && estaEnModalINE ? 6 : 0);
                         layer.textContent = 'SIN VALOR '.repeat(repetitions);
                         const topPos = (row * layerSpacing) - topOffsetExtra - desplazarArriba;
-                        const leftOffset = (row * (textSpacing * 0.5)) - (esVertical ? Math.min(effectiveWidth * 0.25, 220 * escalaMarca) : Math.min(effectiveWidth * 0.15, 180 * escalaMarca));
-                        const minWidth = effectiveWidth - leftOffset + (esVertical ? effectiveHeight * 0.5 : effectiveWidth * 0.25);
-                        const layerWidth = Math.max(repetitions * textSpacing * 1.15, minWidth);
+                        let leftOffset = (row * (textSpacing * 0.5)) - (esVertical ? Math.min(effectiveWidth * 0.28, 240 * escalaMarca) : Math.min(effectiveWidth * 0.2, 200 * escalaMarca));
+                        if (extraIzqZoom) leftOffset -= extraIzqZoom;
+                        let minWidth = effectiveWidth - leftOffset + (esVertical ? effectiveHeight * 0.55 : effectiveWidth * 0.4);
+                        if (extraIzqZoom) minWidth += extraIzqZoom;
+                        const layerWidth = Math.max(repetitions * textSpacing * 1.2, minWidth);
 
                         layer.style.cssText = `
                             position: absolute;
