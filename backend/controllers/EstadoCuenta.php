@@ -5,6 +5,7 @@ namespace Controllers;
 use Core\Controller;
 use Models\Empresa as EmpresasDAO;
 use Models\EstadoCuenta as EstadoCuentaDAO;
+use Models\Login as LoginDAO;
 
 
 class EstadoCuenta extends Controller
@@ -52,10 +53,13 @@ class EstadoCuenta extends Controller
     }
     public function Consulta()
     {
+        $idUsuario = (int) ($_SESSION['usuario_id'] ?? 0);
+        $modulosActuales = $idUsuario ? LoginDAO::getModulosUsuario($idUsuario) : [];
+        $tienePermisoRegistrarDocumentos = in_array(21, $modulosActuales);
         // --- JS COMPLETO EN EL CONTROLADOR ---
         $script = <<<JS
     <script>
-        
+        var tienePermisoRegistrarDocumentos = TienePermisoRegistrarDocumentos_PLACEHOLDER;
         document.addEventListener("DOMContentLoaded", () => {
         
             // Cambiar entre ID y Nombre
@@ -512,7 +516,8 @@ JS;
                 self::set("referencias", $referencias);
                 self::set("notas", $notas);
                 self::set("titulo", "Resultado de la solicitud");
-                self::set("script", $script);
+                $scriptConPermiso = str_replace('TienePermisoRegistrarDocumentos_PLACEHOLDER', json_encode($tienePermisoRegistrarDocumentos), $script);
+                self::set("script", $scriptConPermiso);
                 self::set("tabla", $tabla);
 
                 return self::render("__SPARTA_SECRET_REDACTED___request");
@@ -700,8 +705,12 @@ JS;
 
     public function documentacion()
     {
+        $idUsuario = (int) ($_SESSION['usuario_id'] ?? 0);
+        $modulosActuales = $idUsuario ? LoginDAO::getModulosUsuario($idUsuario) : [];
+        $tienePermisoRegistrarDocumentos = in_array(21, $modulosActuales);
         $script = <<<JS
         <script>
+            var tienePermisoRegistrarDocumentos = TienePermisoRegistrarDocumentos_PLACEHOLDER;
             document.addEventListener('DOMContentLoaded', () => {
 
                 const registroTipos = {
@@ -800,8 +809,8 @@ JS;
 
                         try {
                             const endpoint = tipoDocumento === 'INE' 
-                                ? '/estadocuenta/registrarINE' 
-                                : '/estadocuenta/registrarDocumentoCliente';
+                                ? '/EstadoCuenta/registrarINE' 
+                                : '/EstadoCuenta/registrarDocumentoCliente';
                             
                             const response = await fetch(endpoint, {
                                 method: 'POST',
@@ -971,12 +980,17 @@ JS;
                         }
                     });
             
-                    fetch('/estadocuenta/descargar', {
+                    fetch('/EstadoCuenta/descargar', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ id, tipo })
                     })
-                    .then(res => res.json())
+                    .then(res => {
+                        if (!res.ok) {
+                            return res.text().then(t => { throw new Error('HTTP ' + res.status + (t ? ': ' + t.substring(0, 80) : '')); });
+                        }
+                        return res.json();
+                    })
                     .then(data => {
                         Swal.close();
             
@@ -984,18 +998,28 @@ JS;
                             const mensaje = data.mensaje || '';
                             const esSinDocumento = mensaje.indexOf('no tiene') !== -1 && mensaje.indexOf('registrado') !== -1;
                             if (esSinDocumento) {
-                                Swal.fire({
-                                    icon: 'info',
-                                    title: 'Documento no registrado',
-                                    text: mensaje,
-                                    showCancelButton: true,
-                                    confirmButtonText: 'Registrar',
-                                    cancelButtonText: 'Cerrar'
-                                }).then((result) => {
-                                    if (result.isConfirmed) {
-                                        abrirModalRegistroDocumento(id, tipo);
-                                    }
-                                });
+                                if (tienePermisoRegistrarDocumentos) {
+                                    Swal.fire({
+                                        icon: 'info',
+                                        title: 'Documento no registrado',
+                                        text: mensaje,
+                                        showCancelButton: true,
+                                        confirmButtonText: 'Registrar',
+                                        cancelButtonText: 'Cerrar'
+                                    }).then((result) => {
+                                        if (result.isConfirmed) {
+                                            abrirModalRegistroDocumento(id, tipo);
+                                        }
+                                    });
+                                } else {
+                                    Swal.fire({
+                                        icon: 'info',
+                                        title: 'Documento no registrado',
+                                        text: mensaje,
+                                        showCancelButton: false,
+                                        confirmButtonText: 'Cerrar'
+                                    });
+                                }
                             } else {
                                 Swal.fire({
                                     icon: 'error',
@@ -1940,7 +1964,8 @@ JS;
                     })
                     .catch(err => {
                         console.error(err);
-                        Swal.fire('Error', 'Error de comunicación', 'error');
+                        const msg = err && err.message ? err.message : 'Error de conexión';
+                        Swal.fire('Error', msg.indexOf('HTTP') === 0 ? 'El servidor respondió con error. ' + msg : 'Error de comunicación. ' + msg, 'error');
                     });
                 });
             
@@ -1956,6 +1981,7 @@ JS;
         # -----------------------------
         # GET NORMAL
         # -----------------------------
+        $script = str_replace('TienePermisoRegistrarDocumentos_PLACEHOLDER', json_encode($tienePermisoRegistrarDocumentos), $script);
         self::set("titulo", "Documentación");
         self::set("script", $script);
         return self::render("documentacion_consulta");

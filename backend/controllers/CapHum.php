@@ -668,7 +668,8 @@ class CapHum extends Controller
                     document.getElementById("modalEditPerfil_subtitle").innerHTML = `Gestión de Permisos y Accesos para <strong>${nombreCompleto} / ${nombreDepartamento} / ${nombrePuesto}</strong>`;
             
                     renderPuestos(puestos);
-                    renderModulos(perfiles);
+                    renderModulos(perfiles.filter(m => (m.pestana || '') !== 'Permisos especiales'));
+                    renderPermisosEspeciales(perfiles.filter(m => (m.pestana || '') === 'Permisos especiales'));
             
                     // Abrir modal en lugar de offcanvas
                     const modalEl = document.getElementById('modalEditPerfil');
@@ -814,6 +815,7 @@ class CapHum extends Controller
             function renderModulos(perfiles) {
             
                 const container = document.getElementById('modulos-form');
+                if (!container) return;
                 container.innerHTML = '';
             
                 const modulosPorPestana = {};
@@ -824,58 +826,89 @@ class CapHum extends Controller
             
                 const table = document.createElement('table');
                 table.className = 'table table-flush-spacing mb-0 border-top';
-            
                 const tbody = document.createElement('tbody');
-            
                 Object.keys(modulosPorPestana).forEach(pestana => {
                     modulosPorPestana[pestana].forEach(mod => {
-            
-                        const tr = document.createElement('tr');
-            
-                        const tdName = document.createElement('td');
-                        tdName.className = 'fw-medium text-heading';
-            
-                        const nombre = document.createElement('div');
-                        nombre.innerText = mod.modulo_nombre ?? 'Módulo';
-            
-                        const desc = document.createElement('small');
-                        desc.className = 'text-muted d-block fs-7';
-                        desc.innerText = mod.descripcion ?? '';
-            
-                        tdName.append(nombre, desc);
-            
-                        const tdCheck = document.createElement('td');
-                        tdCheck.className = 'text-end';
-            
-                        const divCheck = document.createElement('div');
-                        divCheck.className = 'form-check mb-0';
-            
-                        const checkbox = document.createElement('input');
-                        checkbox.type = 'checkbox';
-                        checkbox.className = 'form-check-input';
-                        checkbox.checked = Number(mod.asignado_flag) === 1;
-                        checkbox.value = mod.modulo_id;
-            
-                        checkbox.onchange = () => onModuloChange(checkbox);
-            
-                        const label = document.createElement('label');
-                        label.className = 'form-check-label';
-                        label.innerText = 'Asignar';
-            
-                        divCheck.append(checkbox, label);
-                        tdCheck.appendChild(divCheck);
-            
-                        tr.append(tdName, tdCheck);
-                        tbody.appendChild(tr);
+                        tbody.appendChild(crearFilaModulo(mod));
                     });
                 });
-            
                 table.appendChild(tbody);
                 container.appendChild(table);
             }
             
+            function renderPermisosEspeciales(perfiles) {
+                const container = document.getElementById('permisos-especiales-form');
+                if (!container) return;
+                container.innerHTML = '';
+                if (!perfiles || perfiles.length === 0) {
+                    container.innerHTML = '<p class="text-muted small mb-0">No hay permisos especiales configurados.</p>';
+                    return;
+                }
+                const table = document.createElement('table');
+                table.className = 'table table-flush-spacing mb-0 border-top';
+                const tbody = document.createElement('tbody');
+                perfiles.forEach(mod => {
+                    tbody.appendChild(crearFilaModulo(mod));
+                });
+                table.appendChild(tbody);
+                container.appendChild(table);
+            }
+            
+            function crearFilaModulo(mod) {
+                const tr = document.createElement('tr');
+                const tdName = document.createElement('td');
+                tdName.className = 'fw-medium text-heading';
+                const nombre = document.createElement('div');
+                nombre.innerText = mod.modulo_nombre ?? 'Módulo';
+                const desc = document.createElement('small');
+                desc.className = 'text-muted d-block fs-7';
+                desc.innerText = mod.descripcion ?? '';
+                tdName.append(nombre, desc);
+                const tdCheck = document.createElement('td');
+                tdCheck.className = 'text-end';
+                const divCheck = document.createElement('div');
+                divCheck.className = 'form-check mb-0';
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.className = 'form-check-input';
+                checkbox.checked = Number(mod.asignado_flag) === 1;
+                checkbox.value = mod.modulo_id;
+                checkbox.onchange = () => onModuloChange(checkbox);
+                const label = document.createElement('label');
+                label.className = 'form-check-label';
+                label.innerText = 'Asignar';
+                divCheck.append(checkbox, label);
+                tdCheck.appendChild(divCheck);
+                tr.append(tdName, tdCheck);
+                return tr;
+            }
+            
             function onModuloChange(checkbox) {
-                console.log('Módulo:', checkbox.value, checkbox.checked);
+                if (!checkbox || !currentPersonaId) return;
+                const payload = {
+                    idPersona: currentPersonaId,
+                    modulo_id: checkbox.value,
+                    asignado: checkbox.checked ? 1 : 0
+                };
+                fetch('/CapHum/PerfilCheckBoxEstado', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                    body: JSON.stringify(payload)
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        if (typeof Swal !== 'undefined') Swal.fire({ icon: 'success', title: 'Guardado', text: data.mensaje || 'Permiso actualizado', timer: 1500, showConfirmButton: false });
+                    } else {
+                        if (typeof Swal !== 'undefined') Swal.fire('Error', data.mensaje || 'No se pudo actualizar', 'error');
+                        checkbox.checked = !checkbox.checked;
+                    }
+                })
+                .catch(err => {
+                    console.error(err);
+                    if (typeof Swal !== 'undefined') Swal.fire('Error', 'Error de conexión', 'error');
+                    checkbox.checked = !checkbox.checked;
+                });
             }
 
 

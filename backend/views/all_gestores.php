@@ -2188,6 +2188,11 @@ window.puedeEditarTodos = <?= json_encode(!empty($puedeEditarTodos ?? false)) ?>
                                 <i class="fa fa-briefcase me-2" style="color: #6c757d;"></i>Acceso a Puestos
                             </button>
                         </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="tabPermisosEspeciales-tab" data-bs-toggle="tab" data-bs-target="#tabPermisosEspeciales" type="button" role="tab">
+                                <i class="fa fa-key me-2" style="color: #6c757d;"></i>Permisos especiales
+                            </button>
+                        </li>
                     </ul>
 
                     <div class="tab-content p-4">
@@ -2221,6 +2226,19 @@ window.puedeEditarTodos = <?= json_encode(!empty($puedeEditarTodos ?? false)) ?>
 
                             <div id="puestos-container" style="max-height: 500px; overflow-y: auto;">
                                 <div id="puestos-form"></div>
+                            </div>
+                        </div>
+
+                        <!-- TAB PERMISOS ESPECIALES -->
+                        <div class="tab-pane fade" id="tabPermisosEspeciales" role="tabpanel">
+                            <div class="d-flex justify-content-between align-items-center mb-4">
+                                <div>
+                                    <h6 class="mb-1 fw-bold">Permisos especiales</h6>
+                                    <small class="text-muted">Asigna permisos adicionales para acciones específicas</small>
+                                </div>
+                            </div>
+                            <div id="permisos-especiales-container" style="overflow-y: visible;">
+                                <div id="permisos-especiales-form"></div>
                             </div>
                         </div>
                     </div>
