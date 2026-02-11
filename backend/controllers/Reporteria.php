@@ -7,19 +7,24 @@ use Models\Empresa as EmpresasDAO;
 
 class Reporteria extends Controller 
 {
-        public function reporteCapitalHumano()
-        {
-            
-            $script = "";
-
-            self::set("titulo", "Reporte CH");
-            self::set("script", $script);
-            self::render("reporte_capital_humano");
-        }
-        
+    public function reporteCapitalHumano()
+    {
+        $script = "";
+        self::set("titulo", "Reporte CH");
+        self::set("script", $script);
+        self::render("reporte_capital_humano");
+    }
+    
     // ==== Reporte de Capital Humano ====
     public function getUsuariosCapitalHumano()
-    {
+{
+
+error_reporting(E_ALL);
+    ini_set('display_errors', 1);
+    // Limpiar cualquier salida previa
+    while (ob_get_level()) ob_end_clean();
+    
+    try {
         $tieneDepartamento = in_array(10, $_SESSION['modulos'] ?? []);
         $resultado = \Models\CapHum::getConsultaGestoresAll($_SESSION['usuario_id'], $tieneDepartamento);
         $usuarios = $resultado['datos'] ?? [];
@@ -42,11 +47,24 @@ class Reporteria extends Controller
             ];
         }, $usuarios);
 
-        self::respuestaJSON([
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode([
             'success' => true,
             'datos' => $datos
         ]);
+        exit;
+        
+    } catch (\Exception $e) {
+        error_log('Error en getUsuariosCapitalHumano: ' . $e->getMessage());
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode([
+            'success' => false,
+            'datos' => [],
+            'mensaje' => 'Error al cargar usuarios: ' . $e->getMessage()
+        ]);
+        exit;
     }
+}
 
     public function getBajasCapitalHumano()
     {
@@ -54,6 +72,7 @@ class Reporteria extends Controller
             $input = json_decode(file_get_contents("php://input"), true);
             $fecha_inicio = $input['fecha_inicio'] ?? null;
             $fecha_fin = $input['fecha_fin'] ?? null;
+            
             if ($fecha_inicio && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha_inicio)) {
                 self::respuestaJSON([
                     'success' => false,
@@ -68,7 +87,9 @@ class Reporteria extends Controller
                 ]);
                 return;
             }
+            
             $resultado = \Models\CapHum::getConsultaBajas($fecha_inicio, $fecha_fin);
+            
             if (!$resultado) {
                 self::respuestaJSON([
                     'success' => false,
@@ -77,6 +98,7 @@ class Reporteria extends Controller
                 ]);
                 return;
             }
+            
             if (!isset($resultado['success']) || $resultado['success'] === false) {
                 self::respuestaJSON([
                     'success' => false,
@@ -86,8 +108,10 @@ class Reporteria extends Controller
                 ]);
                 return;
             }
+            
             $bajas = $resultado['datos'] ?? [];
             $datos = [];
+            
             if (is_array($bajas) && count($bajas) > 0) {
                 $datos = array_map(function($p) {
                     return [
@@ -107,11 +131,13 @@ class Reporteria extends Controller
                     ];
                 }, $bajas);
             }
+            
             self::respuestaJSON([
                 'success' => true,
                 'datos' => $datos,
                 'mensaje' => count($datos) > 0 ? 'Bajas encontradas' : 'No se encontraron bajas en el rango seleccionado'
             ]);
+            
         } catch (\Exception $e) {
             error_log('Error en getBajasCapitalHumano: ' . $e->getMessage());
             self::respuestaJSON([
@@ -129,22 +155,28 @@ class Reporteria extends Controller
             ob_end_clean();
         }
         try {
-            $fecha_inicio = $_GET['fecha_inicio'] ?? null;
-            $fecha_fin = $_GET['fecha_fin'] ?? null;
-            if ($fecha_inicio && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha_inicio)) {
-                die('Formato de fecha de inicio inválido');
-            }
-            if ($fecha_fin && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha_fin)) {
-                die('Formato de fecha de fin inválido');
-            }
-            $resultado = \Models\CapHum::getConsultaBajas($fecha_inicio, $fecha_fin);
+            $departamento = $_GET['departamento'] ?? null;
+            $puesto = $_GET['puesto'] ?? null;
+            $estatus = $_GET['estatus'] ?? null;
+            $multipuesto = $_GET['multipuesto'] ?? null;
+
+            $resultado = \Models\CapHum::getConsultaBajasAvanzado([
+                'departamento' => $departamento,
+                'puesto' => $puesto,
+                'estatus' => $estatus,
+                'multipuesto' => $multipuesto
+            ]);
+            
             if (!$resultado || !isset($resultado['success']) || !$resultado['success']) {
                 die('Error al obtener las bajas: ' . ($resultado['mensaje'] ?? 'Error desconocido'));
             }
+            
             $bajas = $resultado['datos'] ?? [];
+            
             if (empty($bajas)) {
                 die('No hay bajas para descargar');
             }
+            
             $data = [];
             foreach ($bajas as $baja) {
                 $nombreCompleto = trim(($baja['nombres'] ?? '') . ' ' . ($baja['apellidop'] ?? '') . ' ' . ($baja['apellidom'] ?? ''));
@@ -167,6 +199,7 @@ class Reporteria extends Controller
                     'user_name' => $baja['user_name'] ?? 'N/A'
                 ];
             }
+            
             $columnas = [
                 \PHPSpreadsheet::ColumnaExcel('external_id', 'External ID'),
                 \PHPSpreadsheet::ColumnaExcel('numero_empleado', 'NÚMERO DE EMPLEADO'),
@@ -179,15 +212,8 @@ class Reporteria extends Controller
                 \PHPSpreadsheet::ColumnaExcel('descripcion', 'DESCRIPCIÓN'),
                 \PHPSpreadsheet::ColumnaExcel('user_name', 'USUARIO')
             ];
-            $nombreArchivo = 'Bajas';
-            if ($fecha_inicio && $fecha_fin) {
-                $nombreArchivo .= '_' . $fecha_inicio . '_a_' . $fecha_fin;
-            } elseif ($fecha_inicio) {
-                $nombreArchivo .= '_desde_' . $fecha_inicio;
-            } elseif ($fecha_fin) {
-                $nombreArchivo .= '_hasta_' . $fecha_fin;
-            }
-            $nombreArchivo .= '_' . date('Y-m-d');
+            
+            $nombreArchivo = 'Bajas_' . date('Y-m-d');
             \PHPSpreadsheet::DescargaExcel(
                 $nombreArchivo,
                 "Bajas de Personal",
@@ -196,8 +222,217 @@ class Reporteria extends Controller
                 $data
             );
             exit;
+            
         } catch (\Exception $e) {
             error_log('Error en descargarBajasExcelCapitalHumano: ' . $e->getMessage());
+            die('Error al generar el archivo Excel: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Obtener filtros dinámicos para el reporte de Capital Humano
+     * GET /Reporteria/getFiltrosCapitalHumano
+     */
+    /**
+ * Obtener filtros dinámicos para el reporte de Capital Humano
+ * GET /Reporteria/getFiltrosCapitalHumano
+ */
+public function getFiltrosCapitalHumano()
+{
+     error_reporting(E_ALL);
+    ini_set('display_errors', 1);
+    // Limpiar cualquier salida previa
+    while (ob_get_level()) ob_end_clean();
+    
+    try {
+        // 1. Departamentos usando CapHum::getComboDepartamentos()
+        $deptos = \Models\CapHum::getComboDepartamentos();
+        
+        // 2. Puestos (todos) usando CapHum::getConsultaPuestos(null)
+        $puestos = \Models\CapHum::getConsultaPuestos(null);
+        
+        // 3. Motivos de baja únicos
+        $motivos = [];
+        try {
+            $bajas = \Models\CapHum::getConsultaBajasAvanzado([]);
+            if ($bajas && $bajas['success'] && !empty($bajas['datos'])) {
+                foreach ($bajas['datos'] as $b) {
+                    if (!empty($b['motivo']) && !in_array($b['motivo'], $motivos)) {
+                        $motivos[] = $b['motivo'];
+                    }
+                }
+                sort($motivos);
+            }
+        } catch (\Exception $e) {
+            error_log('Error cargando motivos de baja: ' . $e->getMessage());
+        }
+        
+        // 4. Estatus disponibles para usuarios activos
+        $estatusUsuarios = ['Activo', 'Inactivo'];
+        
+        // ✅ RESPUESTA JSON LIMPIA
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode([
+            'success' => true,
+            'departamentos' => $deptos['datos'] ?? [],
+            'puestos' => $puestos['datos'] ?? [],
+            'estatus_bajas' => $motivos,
+            'estatus_usuarios' => $estatusUsuarios
+        ]);
+        exit;
+        
+    } catch (\Exception $e) {
+        error_log('Error en getFiltrosCapitalHumano: ' . $e->getMessage());
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode([
+            'success' => false,
+            'mensaje' => 'Error al cargar filtros: ' . $e->getMessage()
+        ]);
+        exit;
+    }
+}
+
+    /**
+     * Descargar Excel de usuarios activos filtrados
+     * GET /Reporteria/descargarUsuariosExcelCapitalHumano
+     */
+    public function descargarUsuariosExcelCapitalHumano()
+    {
+        // Limpiar buffer
+        while (ob_get_level()) {
+            ob_end_clean();
+        }
+        
+        try {
+            // Obtener filtros de GET
+            $departamento = $_GET['departamento'] ?? null;
+            $puesto = $_GET['puesto'] ?? null;
+            $estatus = $_GET['estatus'] ?? null;
+            $multipuesto = $_GET['multipuesto'] ?? null;
+            
+            // Obtener datos base
+            $tieneDepartamento = in_array(10, $_SESSION['modulos'] ?? []);
+            $resultado = \Models\CapHum::getConsultaGestoresAll($_SESSION['usuario_id'], $tieneDepartamento);
+            
+            if (!$resultado['success'] || empty($resultado['datos'])) {
+                die('No se pudieron obtener los datos de usuarios');
+            }
+            
+            $usuarios = $resultado['datos'];
+            
+            // Aplicar filtros en memoria
+            if ($departamento) {
+                $usuarios = array_filter($usuarios, fn($u) => 
+                    ($u['nombre_departamento'] ?? '') == $departamento
+                );
+            }
+            
+            if ($puesto) {
+                $usuarios = array_filter($usuarios, fn($u) => 
+                    ($u['nombre_puesto'] ?? '') == $puesto
+                );
+            }
+            
+            if ($estatus) {
+                $usuarios = array_filter($usuarios, fn($u) => 
+                    ($u['estatus'] ?? '') == $estatus
+                );
+            }
+            
+            // Filtro multipuesto (requiere subconsulta)
+            if ($multipuesto === 'multiples' || $multipuesto === 'unico') {
+                foreach ($usuarios as $key => $u) {
+                    $id_persona = $u['id'] ?? 0;
+                    if ($id_persona) {
+                        $db = new \Core\Database();
+                        $count = $db->queryOne("
+                            SELECT COUNT(*) as total 
+                            FROM __SPARTA_SECRET_REDACTED__.asigna_puesto 
+                            WHERE id_persona = :id
+                        ", ['id' => $id_persona]);
+                        
+                        $totalPuestos = $count['total'] ?? 1;
+                        
+                        if ($multipuesto === 'multiples' && $totalPuestos <= 1) {
+                            unset($usuarios[$key]);
+                        }
+                        if ($multipuesto === 'unico' && $totalPuestos > 1) {
+                            unset($usuarios[$key]);
+                        }
+                    }
+                }
+            }
+            
+            if (empty($usuarios)) {
+                die('No hay usuarios para descargar con los filtros seleccionados');
+            }
+            
+            // Preparar datos para Excel
+            $data = [];
+            foreach ($usuarios as $u) {
+                $nombreCompleto = trim(($u['nombres'] ?? '') . ' ' . 
+                                     ($u['segundo_nombre'] ?? '') . ' ' . 
+                                     ($u['apellidop'] ?? '') . ' ' . 
+                                     ($u['apellidom'] ?? ''));
+                
+                $data[] = [
+                    'numero_empleado' => $u['numero_empleado'] ?? '',
+                    'nombre_completo' => $nombreCompleto,
+                    'departamento' => $u['nombre_departamento'] ?? 'N/A',
+                    'puesto' => $u['nombre_puesto'] ?? 'N/A',
+                    'estatus' => $u['estatus'] ?? 'N/A',
+                    'usuario' => $u['usuario'] ?? 'N/A',
+                    'jefe' => $u['nombre_jefe'] ?? 'N/A'
+                ];
+            }
+            
+            // Columnas para Excel
+            $columnas = [
+                \PHPSpreadsheet::ColumnaExcel('numero_empleado', 'NÚMERO DE EMPLEADO'),
+                \PHPSpreadsheet::ColumnaExcel('nombre_completo', 'NOMBRE COMPLETO'),
+                \PHPSpreadsheet::ColumnaExcel('departamento', 'DEPARTAMENTO'),
+                \PHPSpreadsheet::ColumnaExcel('puesto', 'PUESTO'),
+                \PHPSpreadsheet::ColumnaExcel('estatus', 'ESTATUS'),
+                \PHPSpreadsheet::ColumnaExcel('usuario', 'USUARIO'),
+                \PHPSpreadsheet::ColumnaExcel('jefe', 'JEFE INMEDIATO')
+            ];
+            
+            // Nombre del archivo
+            $nombreArchivo = "Plantilla_Gestores";
+    
+    // Agregar departamento si existe
+    if (!empty($departamento)) {
+        $nombreArchivo .= "_" . str_replace(' ', '_', $departamento);
+    }
+    
+    // Agregar puesto si existe  
+    if (!empty($puesto)) {
+        $nombreArchivo .= "_" . str_replace(' ', '_', $puesto);
+    }
+    
+    // Agregar estatus si existe
+    if (!empty($estatus)) {
+        $nombreArchivo .= "_" . $estatus;
+    }
+    
+    // Agregar fecha y hora
+    $fecha = date('Y-m-d');
+    $hora = date('His');
+    $nombreArchivo .= "_{$fecha}_{$hora}";
+            
+            // Descargar Excel
+            \PHPSpreadsheet::DescargaExcel(
+                $nombreArchivo,
+                "Reporte_Capital_Humano",
+                "Usuarios",
+                $columnas,
+                $data
+            );
+            
+            exit;
+            
+        } catch (\Exception $e) {
+            error_log('Error en descargarUsuariosExcelCapitalHumano: ' . $e->getMessage());
             die('Error al generar el archivo Excel: ' . $e->getMessage());
         }
     }
@@ -282,6 +517,7 @@ HTML;
         self::set("script", $script);
         self::render("reporteria_call_center");
     }
+    
     public function layoutlegacy()
     {
         $script = <<<'HTML'
@@ -355,13 +591,14 @@ HTML;
         self::set("script", $script);
         self::render("layout_legacy");
     }
+    
     public function getUltimoCorte()
     {
         self::respuestaJSON(EmpresasDAO::getObtenerUltimoCorte());
     }
+    
     public function ProcesarDescargarCorte()
     {
-
         // Aumentar tiempo de ejecución a 5 minutos
         set_time_limit(300);
         
@@ -446,7 +683,6 @@ HTML;
             exit;
         }
 
-
         $data = $r['datos'];
 
         // Columnas completas según tu var_dump
@@ -507,7 +743,7 @@ HTML;
             
             // Obtener datos usando el mismo método que getUsuarios
             $tieneDepartamento = in_array(10, $_SESSION['modulos'] ?? []);
-            $resultado = CapHumDAO::getConsultaGestoresAll($_SESSION['usuario_id'], $tieneDepartamento);
+            $resultado = \Models\CapHum::getConsultaGestoresAll($_SESSION['usuario_id'], $tieneDepartamento);
 
             if (!$resultado['success'] || empty($resultado['datos'])) {
                 die("No se pudieron obtener los datos de los gestores.");
@@ -594,7 +830,4 @@ HTML;
         }
     }
 
-
-    
-
-}
+} // ← ¡ESTA ES LA ÚNICA LLAVE DE CIERRE DE LA CLASE!
