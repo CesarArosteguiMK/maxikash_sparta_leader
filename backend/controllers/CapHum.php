@@ -4680,6 +4680,7 @@ class CapHum extends Controller
         self::set("departamento", ['datos' => []]); // Array vacío para no romper la vista
         self::render("all_gestores");
     }
+
     public function getUsuarios()
     {
         $tieneDepartamento = in_array(10, $_SESSION['modulos'] ?? []);
@@ -5969,6 +5970,4 @@ class CapHum extends Controller
             ]);
         }
     }
-
-
 }

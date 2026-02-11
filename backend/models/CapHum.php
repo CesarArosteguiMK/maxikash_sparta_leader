@@ -13,6 +13,12 @@ class CapHum extends Model
     ///
     ///
 
+        /**
+     * Consulta bajas con filtros avanzados (departamento, puesto, estatus, multipuesto)
+     * @param array $filtros
+     * @return array
+     */
+
     public static function getConsultaGestoresAll($id_gestor_sesion, $tieneDepartamento = true)
     {
         // =========================
@@ -1625,6 +1631,72 @@ class CapHum extends Model
                 $r = $db->queryAll($query);
             }
             
+            return self::resultado(true, 'Bajas encontradas.', $r);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al procesar la solicitud.', null, $e->getMessage());
+        }
+    }
+
+       public static function getConsultaBajasAvanzado($filtros = [])
+    {
+        $query = <<<SQL
+        SELECT
+            p.id AS numero_empleado,
+            p.nombres,
+            p.apellidop,
+            p.apellidom,
+            p.numero_empleado AS external_id,
+            d.nombre AS departamento,
+            pu.nombre AS nombre_puesto,
+            bp.fecha_baja,
+            bp.id AS registro_baja,
+            bp.motivo,
+            bp.descripcion,
+            p.user_name
+        FROM __SPARTA_SECRET_REDACTED__.persona p
+        INNER JOIN __SPARTA_SECRET_REDACTED__.baja_persona bp ON p.id = bp.id_persona
+        LEFT JOIN __SPARTA_SECRET_REDACTED__.asigna_puesto ap ON p.id = ap.id_persona
+        LEFT JOIN __SPARTA_SECRET_REDACTED__.puesto pu ON ap.id_puesto = pu.id
+        LEFT JOIN __SPARTA_SECRET_REDACTED__.departamento d ON pu.departamento_id = d.id
+        WHERE p.estatus = 'Baja'
+        SQL;
+
+        $params = [];
+
+        // Fechas eliminadas como filtro
+
+        // Departamento
+        if (!empty($filtros['departamento'])) {
+            $query .= " AND d.id = :departamento";
+            $params['departamento'] = $filtros['departamento'];
+        }
+
+        // Puesto
+        if (!empty($filtros['puesto'])) {
+            $query .= " AND pu.id = :puesto";
+            $params['puesto'] = $filtros['puesto'];
+        }
+
+        // Estatus (por si se requiere filtrar por otro estatus de baja)
+        if (!empty($filtros['estatus'])) {
+            $query .= " AND bp.motivo = :estatus";
+            $params['estatus'] = $filtros['estatus'];
+        }
+
+        // Multipuesto (si se requiere filtrar por empleados con más de un puesto)
+        if (isset($filtros['multipuesto']) && $filtros['multipuesto'] !== '' && $filtros['multipuesto'] !== null) {
+            if ($filtros['multipuesto'] === 'multiples') {
+                $query .= " AND (SELECT COUNT(*) FROM __SPARTA_SECRET_REDACTED__.asigna_puesto ap2 WHERE ap2.id_persona = p.id) > 1";
+            } elseif ($filtros['multipuesto'] === 'unico') {
+                $query .= " AND (SELECT COUNT(*) FROM __SPARTA_SECRET_REDACTED__.asigna_puesto ap2 WHERE ap2.id_persona = p.id) = 1";
+            }
+        }
+
+        $query .= " ORDER BY bp.fecha_baja DESC";
+
+        try {
+            $db = new Database();
+            $r = $db->queryAll($query, $params);
             return self::resultado(true, 'Bajas encontradas.', $r);
         } catch (\Exception $e) {
             return self::resultado(false, 'Error al procesar la solicitud.', null, $e->getMessage());
