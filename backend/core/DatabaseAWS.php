@@ -6,12 +6,15 @@ class DatabaseAWS
 {
     private $db;
 
-    function __construct()
+    /**
+     * @param string|null $esquema Nombre de la BD: "__SPARTA_SECRET_REDACTED__" (por defecto) o "__SPARTA_SECRET_REDACTED__" (p. ej. oferta_documentos / Documentación S3)
+     */
+    function __construct($esquema = null)
     {
         // 🔧 Ajusta tus valores aquí
         $servidor = "__SPARTA_HOST_REDACTED__";   // tu host
         $puerto   = "3306";        // puerto MySQL
-        $esquema  = "__SPARTA_SECRET_REDACTED__";    // nombre de tu BD (ubicacion por idCliente)
+        $esquema  = $esquema ?? "__SPARTA_SECRET_REDACTED__";  // __SPARTA_SECRET_REDACTED__ por defecto; pasar "__SPARTA_SECRET_REDACTED__" para documentación/oferta_documentos
         $usuario  = "__SPARTA_SECRET_REDACTED__";        // usuario
         $password = "__SPARTA_PASSWORD_REDACTED__";            // contraseña
 

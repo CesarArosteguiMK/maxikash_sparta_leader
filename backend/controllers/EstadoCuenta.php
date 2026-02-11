@@ -1881,8 +1881,39 @@ JS;
                                     Swal.fire('Error', 'Tipo de documento no soportado: ' + data.tipo, 'error');
                                 }
                             } else {
-                                // Si no es PDF, mostrar error - todos los documentos deben ser PDF
-                                Swal.fire('Error', 'El documento debe ser un archivo PDF', 'error');
+                                // Si no es PDF pero es imagen (p. ej. EVIDENCIA .jpg/.jpeg/.png), usar visor de imagen
+                                const esImagen = (data.esImagen === true) || (data.extension && ['jpg', 'jpeg', 'png', 'gif'].indexOf(String(data.extension).toLowerCase()) !== -1);
+                                if (esImagen && data.url) {
+                                    pdfContainer.style.display = 'none';
+                                    imgContainer.style.display = 'block';
+                                    const imgDocumento = document.getElementById('imgDocumento');
+                                    if (imgDocumento) {
+                                        imgDocumento.src = data.url;
+                                        imgDocumento.style.display = 'block';
+                                    }
+                                    const modalElement = document.getElementById('modalDocumento');
+                                    const modalTitle = document.querySelector('#modalDocumento .modal-title');
+                                    if (modalTitle) {
+                                        const tipoNombre = { 'FAD_DOC': 'FAD_DOC', 'EVIDENCIA': 'EVIDENCIA', 'FACTURA': 'FACTURA', 'CONTRATO': 'VALIDACIONES' };
+                                        modalTitle.textContent = tipoNombre[data.tipo] || 'Documento';
+                                    }
+                                    if (modalElement) {
+                                        const modal = new bootstrap.Modal(modalElement);
+                                        modal.show();
+                                        modalElement.addEventListener('shown.bs.modal', function() {
+                                            setTimeout(function() {
+                                                if (typeof crearMarcasAgua === 'function') crearMarcasAgua();
+                                                if (typeof aplicarMarcasAguaEVIDENCIA === 'function') {
+                                                    aplicarMarcasAguaEVIDENCIA(0);
+                                                    setTimeout(function() { aplicarMarcasAguaEVIDENCIA(0); }, 350);
+                                                }
+                                                if (typeof desactivarDescargaImagen === 'function' && imgDocumento) desactivarDescargaImagen(imgDocumento);
+                                            }, 200);
+                                        }, { once: true });
+                                    }
+                                } else {
+                                    Swal.fire('Error', 'El documento debe ser un archivo PDF o imagen válida.', 'error');
+                                }
                             }
                             
                             // Actualizar título del modal según el tipo
@@ -2352,7 +2383,20 @@ public function descargar()
                 !$data ||
                 !isset($data['estadoCuenta']['datosCliente']['idCliente'])
             ) {
-                error_log("INE $id - 2DA FORMA falló (API), INE no tiene 3RA FORMA");
+                error_log("INE $id - 2DA FORMA falló (API), probando 3RA FORMA (persona_documentos)...");
+                $resINE = EstadoCuentaDAO::obtenerINEPersonaDocumentos($id);
+                if (!empty($resINE['success']) && !empty($resINE['datos']['archivo_ine_frente']) && !empty($resINE['datos']['archivo_ine_reverso'])) {
+                    error_log("INE $id - RESULTADO: 3RA FORMA (persona_documentos)");
+                    $base = '/estadocuenta/servirINEPersonaDocumento?id=' . urlencode($id) . '&lado=';
+                    echo json_encode([
+                        'success' => true,
+                        'tipo' => 'INE',
+                        'frente' => $base . 'frente',
+                        'reverso' => $base . 'reverso'
+                    ]);
+                    exit;
+                }
+                error_log("INE $id - 3RA FORMA falló, sin INE registrado");
                 echo json_encode([
                     'success' => false,
                     'mensaje' => 'Este ID de crédito no tiene INE registrado.'
@@ -2379,7 +2423,20 @@ public function descargar()
             curl_close($chR);
             
             if ($codeF !== 200 || $codeR !== 200) {
-                error_log("INE $id - 2DA FORMA falló (imágenes no encontradas)");
+                error_log("INE $id - 2DA FORMA falló (imágenes no encontradas), probando 3RA FORMA (persona_documentos)...");
+                $resINE = EstadoCuentaDAO::obtenerINEPersonaDocumentos($id);
+                if (!empty($resINE['success']) && !empty($resINE['datos']['archivo_ine_frente']) && !empty($resINE['datos']['archivo_ine_reverso'])) {
+                    error_log("INE $id - RESULTADO: 3RA FORMA (persona_documentos)");
+                    $base = '/estadocuenta/servirINEPersonaDocumento?id=' . urlencode($id) . '&lado=';
+                    echo json_encode([
+                        'success' => true,
+                        'tipo' => 'INE',
+                        'frente' => $base . 'frente',
+                        'reverso' => $base . 'reverso'
+                    ]);
+                    exit;
+                }
+                error_log("INE $id - 2DA FORMA falló (imágenes no encontradas), 3RA FORMA no disponible");
                 echo json_encode([
                     'success' => false,
                     'mensaje' => 'Este ID de crédito no tiene INE registrado.'
@@ -3087,6 +3144,68 @@ public function descargar()
         
         // Leer y enviar el archivo
         readfile($rutaCompleta);
+        exit;
+    }
+
+    /**
+     * Sirve frente o reverso del INE desde persona_documentos (3RA FORMA).
+     * GET: id = id de crédito (id_oferta), lado = frente|reverso
+     */
+    public function servirINEPersonaDocumento()
+    {
+        $id = isset($_GET['id']) ? trim((string) $_GET['id']) : '';
+        $lado = isset($_GET['lado']) ? strtolower(trim((string) $_GET['lado'])) : '';
+        if (!in_array($lado, ['frente', 'reverso'], true) || $id === '' || !is_numeric($id)) {
+            http_response_code(400);
+            header('Content-Type: application/json');
+            echo json_encode(['error' => 'Parámetros inválidos (id y lado=frente|reverso)']);
+            exit;
+        }
+        $res = EstadoCuentaDAO::obtenerINEPersonaDocumentos($id);
+        if (empty($res['success']) || empty($res['datos'])) {
+            http_response_code(404);
+            header('Content-Type: application/json');
+            echo json_encode(['error' => 'INE no encontrado']);
+            exit;
+        }
+        $col = $lado === 'frente' ? 'archivo_ine_frente' : 'archivo_ine_reverso';
+        $valor = $res['datos'][$col] ?? null;
+        if ($valor === null || $valor === '') {
+            http_response_code(404);
+            header('Content-Type: application/json');
+            echo json_encode(['error' => 'Imagen no encontrada']);
+            exit;
+        }
+        $valor = trim((string) $valor);
+        // persona_documentos guarda nombres de archivo (ej. 698912_1748642990507_frente.jpeg); servimos desde S3 carpeta INE/
+        $fileName = (strpos($valor, 'INE/') === 0) ? $valor : 'INE/' . $valor;
+        $s3Url = "http://98.90.194.116/audit-app-0.0.1-SNAPSHOT_1/s3/downloadS3File?fileName=" . urlencode($fileName);
+        $ext = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
+        $contentType = ($ext === 'png') ? 'image/png' : 'image/jpeg';
+        $ch = curl_init($s3Url);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_SSL_VERIFYHOST => 0,
+            CURLOPT_SSL_VERIFYPEER => 0,
+            CURLOPT_TIMEOUT => 30,
+            CURLOPT_HEADER => false,
+        ]);
+        $data = curl_exec($ch);
+        $httpCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        if ($httpCode !== 200 || $data === false) {
+            http_response_code(404);
+            header('Content-Type: application/json');
+            echo json_encode(['error' => 'No se pudo recuperar la imagen desde S3']);
+            exit;
+        }
+        if (ob_get_length()) ob_clean();
+        header('Content-Type: ' . $contentType);
+        header('Content-Disposition: inline; filename="INE_' . $lado . '.' . ($ext ?: 'jpg') . '"');
+        header('Content-Length: ' . strlen($data));
+        header('Cache-Control: public, max-age=3600');
+        echo $data;
         exit;
     }
 

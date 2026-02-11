@@ -48,7 +48,7 @@ class EstadoCuenta extends Model
             $qry = "
                 SELECT nombre_archivo
                 FROM oferta_documentos
-                WHERE tipo_documento = 'FAD'
+                WHERE tipo_documento IN ('FAD', 'FAD_DOC')
                 AND fk_oferta = :id
                 LIMIT 1
             ";
@@ -67,8 +67,8 @@ class EstadoCuenta extends Model
         ];
 
         try {
-            // 🔥 conexión 3
-            $db = new DatabaseAWS();
+            // Documentación / oferta_documentos está en __SPARTA_SECRET_REDACTED__
+            $db = new DatabaseAWS('__SPARTA_SECRET_REDACTED__');
             $r = $db->queryAll($qry, $val);
 
             if (!$r || count($r) === 0) {
@@ -79,6 +79,40 @@ class EstadoCuenta extends Model
 
         } catch (\Throwable $e) {
             return self::resultado(false, 'Documento no encontrado', null, $e->getMessage());
+        }
+    }
+
+    /**
+     * Obtiene INE (frente y reverso) desde persona_documentos vía oferta (id crédito = id_oferta).
+     * JOIN: oferta.id_oferta = id_credito → oferta.fk_persona → persona_documentos.fk_persona.
+     *
+     * @param int|string $idCredito ID de crédito (id_oferta)
+     * @return array resultado(): success, data con archivo_ine_frente y archivo_ine_reverso, o error
+     */
+    public static function obtenerINEPersonaDocumentos($idCredito)
+    {
+        if (!$idCredito || !is_numeric($idCredito)) {
+            return self::resultado(false, 'ID de crédito inválido', null);
+        }
+
+        $qry = "
+            SELECT pd.archivo_ine_frente, pd.archivo_ine_reverso
+            FROM persona_documentos pd
+            INNER JOIN oferta o ON o.fk_persona = pd.fk_persona
+            WHERE o.id_oferta = :id_credito
+            LIMIT 1
+        ";
+        $val = ['id_credito' => (int) $idCredito];
+
+        try {
+            $db = new DatabaseAWS('__SPARTA_SECRET_REDACTED__');
+            $r = $db->queryOne($qry, $val);
+            if (!$r) {
+                return self::resultado(false, 'INE no encontrado en persona_documentos', null);
+            }
+            return self::resultado(true, 'OK', $r);
+        } catch (\Throwable $e) {
+            return self::resultado(false, 'Error al consultar INE', null, $e->getMessage());
         }
     }
 
