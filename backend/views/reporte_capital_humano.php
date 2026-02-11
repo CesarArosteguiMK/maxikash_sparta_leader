@@ -387,10 +387,7 @@ function filtrarUsuarios() {
 }
 
 // ============================================
-// 6. DESCARGAR EXCEL CON MODAL DE CONFIRMACIÓN
-// ============================================
-// ============================================
-// DESCARGAR EXCEL CON MODAL DE CONFIRMACIÓN - VERSIÓN FINAL
+// DESCARGAR EXCEL - VERSIÓN FINAL (MISMA VENTANA, SIN CANCELAR)
 // ============================================
 function descargarExcelUsuarios() {
     const departamento = document.getElementById('filtroDepartamentoUsuario').value || '';
@@ -437,6 +434,7 @@ function descargarExcelUsuarios() {
     const segundos = String(ahora.getSeconds()).padStart(2, '0');
     nombreArchivo += `_${año}-${mes}-${dia}_${horas}${minutos}${segundos}`;
     
+    // MODAL DE CONFIRMACIÓN - SOLO PREGUNTA UNA VEZ
     Swal.fire({
         html: `
             <div style="text-align: center;">
@@ -463,55 +461,17 @@ function descargarExcelUsuarios() {
         customClass: {
             confirmButton: 'btn',
             cancelButton: 'btn'
-        },
-        // 🆕 MANEJAR CANCELACIÓN EXPLÍCITAMENTE
-        willClose: () => {
-            // Solo se ejecuta si se cerró el modal sin confirmar
-            console.log('Modal cerrado sin confirmar');
         }
     }).then((result) => {
         if (result.isConfirmed) {
-            // ✅ USUARIO CONFIRMÓ - INICIAR DESCARGA
-            let descargaCancelada = false;
-            
-            // Mostrar loader con botón de cancelar
+            // ✅ USUARIO CONFIRMÓ - MOSTRAR LOADER
             Swal.fire({
                 title: 'Generando reporte...',
-                html: `
-                    <div style="text-align: center;">
-                        <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem; margin-bottom: 1rem;">
-                            <span class="visually-hidden">Cargando...</span>
-                        </div>
-                        <p style="color: #697a8d; margin-bottom: 1.5rem;">Por favor espera mientras se genera el archivo Excel</p>
-                        <button id="btnCancelarDescarga" class="btn btn-danger">
-                            <i class="fas fa-times me-2"></i>Cancelar descarga
-                        </button>
-                    </div>
-                `,
+                html: '<div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;"></div><p style="margin-top: 1.5rem; color: #697a8d;">Por favor espera mientras se genera el archivo Excel</p>',
                 allowOutsideClick: false,
                 showConfirmButton: false,
                 didOpen: () => {
-                    // Agregar event listener al botón de cancelar
-                    const btnCancelar = document.getElementById('btnCancelarDescarga');
-                    if (btnCancelar) {
-                        btnCancelar.addEventListener('click', function() {
-                            descargaCancelada = true;
-                            Swal.close();
-                            
-                            // 🚫 MOSTRAR MODAL DE CANCELACIÓN
-                            Swal.fire({
-                                icon: 'info',
-                                title: 'Descarga cancelada',
-                                text: 'La generación del reporte fue cancelada.',
-                                confirmButtonText: 'Aceptar',
-                                confirmButtonColor: '#6c757d',
-                                timer: 3000,
-                                timerProgressBar: true
-                            });
-                        });
-                    }
-                    
-                    // Iniciar descarga en background
+                    // 📥 DESCARGA EN LA MISMA VENTANA (IFRAME SILENCIOSO)
                     const url = '/Reporteria/descargarUsuariosExcelCapitalHumano?' + new URLSearchParams({
                         ...(departamento && { departamento }),
                         ...(puesto && { puesto }),
@@ -519,41 +479,35 @@ function descargarExcelUsuarios() {
                         ...(multipuesto && { multipuesto })
                     }).toString();
                     
-                    // 📥 DESCARGA EN LA MISMA VENTANA (sin abrir pestaña nueva)
                     const iframe = document.createElement('iframe');
                     iframe.style.display = 'none';
                     iframe.src = url;
                     document.body.appendChild(iframe);
                     
-                    // Monitorear si la descarga se completó
+                    // Cerrar loader y mostrar éxito
                     setTimeout(() => {
-                        if (!descargaCancelada) {
-                            // Cerrar loader después de 3 segundos
-                            Swal.close();
-                            
-                            // ✅ MOSTRAR CONFIRMACIÓN DE DESCARGA INICIADA
-                            Swal.fire({
-                                icon: 'success',
-                                title: '¡Descarga iniciada!',
-                                text: 'El archivo se está descargando.',
-                                timer: 2000,
-                                showConfirmButton: false,
-                                timerProgressBar: true
-                            });
-                            
-                            // Limpiar iframe después de 5 segundos
-                            setTimeout(() => {
-                                if (iframe.parentNode) {
-                                    iframe.parentNode.removeChild(iframe);
-                                }
-                            }, 5000);
-                        }
-                    }, 3000);
+                        Swal.close();
+                        Swal.fire({
+                            icon: 'success',
+                            title: '¡Descarga iniciada!',
+                            text: 'El archivo se está descargando.',
+                            timer: 2000,
+                            showConfirmButton: false,
+                            timerProgressBar: true
+                        });
+                        
+                        // Limpiar iframe
+                        setTimeout(() => {
+                            if (iframe.parentNode) {
+                                iframe.parentNode.removeChild(iframe);
+                            }
+                        }, 5000);
+                    }, 2000);
                 }
             });
             
         } else if (result.dismiss === Swal.DismissReason.cancel) {
-            // 🚫 USUARIO CANCELÓ EN EL MODAL DE CONFIRMACIÓN
+            // 🚫 USUARIO CANCELÓ - MENSAJE AMIGABLE
             Swal.fire({
                 icon: 'info',
                 title: 'Descarga cancelada',
