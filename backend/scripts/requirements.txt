@@ -1,0 +1,2 @@
+# Para pdf_media.py (inspección y extracción de vídeo/audio en PDF)
+pymupdf>=1.23.0

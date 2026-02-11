@@ -96,15 +96,15 @@
 
     <!-- MODAL VISOR DE DOCUMENTOS (PDFs y otros) -->
     <div class="modal fade" id="modalDocumento" tabindex="-1" aria-hidden="true" style="overflow: hidden !important;">
-        <div class="modal-dialog modal-fullscreen-lg-down" style="max-width: 85vw; width: 85vw; max-height: 85vh; overflow: hidden !important; overflow-x: hidden !important; overflow-y: hidden !important; margin: 7.5vh auto;">
-            <div class="modal-content" style="height: 85vh; max-height: 85vh; display: flex; flex-direction: column; overflow: hidden !important; overflow-x: hidden !important; overflow-y: hidden !important; border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,0.3);">
+        <div class="modal-dialog modal-fullscreen-lg-down modal-documento-visor" style="max-width: 85vw; width: 85vw; max-height: 85vh; overflow: hidden !important; overflow-x: hidden !important; overflow-y: hidden !important; margin: 7.5vh auto;">
+            <div class="modal-content modal-documento-content" style="height: 85vh; max-height: 85vh; display: flex; flex-direction: column; overflow: hidden !important; overflow-x: hidden !important; overflow-y: hidden !important; border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,0.3);">
 
                 <!-- HEADER -->
-                <div class="modal-header flex-shrink-0" style="background: linear-gradient(135deg, #4a5568 0%, #2d3748 100%); border-bottom: 1px solid rgba(255,255,255,0.1); border-radius: 12px 12px 0 0; padding: 1rem 1.25rem; position: relative; overflow: hidden !important;">
+                <div class="modal-header flex-shrink-0" style="background: linear-gradient(135deg, #4a5568 0%, #2d3748 100%); border-bottom: 1px solid rgba(255,255,255,0.1); border-radius: 12px 12px 0 0; padding: 1rem 1.25rem; position: relative; overflow: hidden !important; padding-top: max(1rem, env(safe-area-inset-top));">
                     <h5 class="modal-title text-white fw-semibold mb-0" style="font-size: 1.1rem;">
                         <i class="fa fa-file-pdf me-2"></i>Documento
                     </h5>
-                    <button type="button" class="btn-close btn-close-custom" data-bs-dismiss="modal" aria-label="Cerrar" style="position: absolute; top: 50%; right: 1.25rem; transform: translateY(-50%); margin: 0;"></button>
+                    <button type="button" class="btn-close btn-close-custom" data-bs-dismiss="modal" aria-label="Cerrar" style="position: absolute; top: 50%; right: max(1.25rem, env(safe-area-inset-right)); transform: translateY(-50%); margin: 0; min-width: 44px; min-height: 44px;"></button>
                 </div>
 
                 <!-- BODY -->
@@ -149,29 +149,48 @@
                             loading="lazy">
                     </iframe>
                     
-                    <!-- Controles de navegación del PDF - Movidos fuera de documentoPdfContainer para que position:fixed funcione correctamente -->
-                    <div id="pdfControls" style="position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background-color: rgba(0,0,0,0.7); padding: 10px 20px; border-radius: 25px; z-index: 1000; display: none; align-items: center; gap: 15px;">
-                        <button id="pdfPrev" class="btn btn-sm btn-light" style="min-width: 40px;">
+                    <!-- Controles de navegación del PDF - Movidos fuera de documentoPdfContainer para que position:fixed funcione correctamente; safe-area para notch/home en móviles -->
+                    <div id="pdfControls" class="pdf-controls-touch" style="position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background-color: rgba(0,0,0,0.7); padding: 10px 20px; border-radius: 25px; z-index: 1000; display: none; align-items: center; gap: 15px;">
+                        <button id="pdfPrev" class="btn btn-sm btn-light" style="min-width: 44px; min-height: 44px;">
                             <i class="fa fa-chevron-left"></i>
                         </button>
                         <span id="pdfPageInfo" style="color: white; font-size: 0.9rem; min-width: 80px; text-align: center;">
                             <span id="pdfCurrentPage">1</span> / <span id="pdfTotalPages">1</span>
                         </span>
-                        <button id="pdfNext" class="btn btn-sm btn-light" style="min-width: 40px;">
+                        <button id="pdfNext" class="btn btn-sm btn-light" style="min-width: 44px; min-height: 44px;">
                             <i class="fa fa-chevron-right"></i>
                         </button>
                         <div style="width: 1px; height: 20px; background-color: rgba(255,255,255,0.3);"></div>
-                        <button id="pdfZoomOut" class="btn btn-sm btn-light" style="min-width: 40px;">
+                        <button id="pdfZoomOut" class="btn btn-sm btn-light" style="min-width: 44px; min-height: 44px;">
                             <i class="fa fa-search-minus"></i>
                         </button>
                         <span id="pdfZoomLevel" style="color: white; font-size: 0.9rem; min-width: 50px; text-align: center;">100%</span>
-                        <button id="pdfZoomIn" class="btn btn-sm btn-light" style="min-width: 40px;">
+                        <button id="pdfZoomIn" class="btn btn-sm btn-light" style="min-width: 44px; min-height: 44px;">
                             <i class="fa fa-search-plus"></i>
+                        </button>
+                        <div style="width: 1px; height: 20px; background-color: rgba(255,255,255,0.3);" id="pdfVideosSep"></div>
+                        <button id="pdfVideosBtn" class="btn btn-sm btn-info" style="min-width: 44px; min-height: 44px; display: none;" title="Ver videos / audio de esta página">
+                            <i class="fa fa-video"></i>
                         </button>
                     </div>
                 </div>
 
 
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Videos / audio extraídos del PDF -->
+    <div class="modal fade" id="modalVideosPDF" tabindex="-1">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="fa fa-video me-2"></i>Videos</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="modalVideosPDFBody">
+                    <p class="text-muted">Cargando...</p>
+                </div>
             </div>
         </div>
     </div>
@@ -376,6 +395,78 @@
     </div>
 
     <style>
+        /* Modal documento: dvh y safe-area para móviles reales (iPhone, OnePlus, etc.) */
+        @supports (height: 100dvh) {
+            #modalDocumento.modal.show .modal-documento-visor {
+                max-height: min(85vh, 85dvh) !important;
+                margin: min(7.5vh, 7.5dvh) auto !important;
+            }
+            #modalDocumento.modal.show .modal-documento-content {
+                height: min(85vh, 85dvh) !important;
+                max-height: min(85vh, 85dvh) !important;
+            }
+            #modalDocumento #documentoModalBody {
+                height: calc(min(85vh, 85dvh) - 70px) !important;
+                max-height: calc(min(85vh, 85dvh) - 70px) !important;
+            }
+        }
+        /* Barra de controles PDF: base centrada con sombra; respetar safe-area */
+        #pdfControls {
+            bottom: max(20px, env(safe-area-inset-bottom)) !important;
+            left: 50% !important;
+            transform: translateX(-50%) !important;
+            box-sizing: border-box !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.45) !important;
+        }
+        /* Escritorio: barra con ancho al contenido, centrada y con base (sombra) definida */
+        @media (min-width: 992px) {
+            #pdfControls {
+                width: auto !important;
+                max-width: calc(85vw - 20px) !important;
+                min-width: 0 !important;
+                justify-content: center !important;
+            }
+            #modalDocumento.show #pdfControls {
+                width: auto !important;
+                max-width: calc(85vw - 20px) !important;
+            }
+        }
+        /* Tablet/móvil: barra a ancho completo, contenido alineado al inicio para scroll */
+        @media (max-width: 991px) {
+            #pdfControls {
+                max-width: calc(100vw - 24px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px)) !important;
+                justify-content: flex-start !important;
+            }
+            #modalDocumento.show #pdfControls {
+                width: calc(100vw - 20px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px)) !important;
+                max-width: calc(100vw - 20px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px)) !important;
+            }
+        }
+        /* Touch targets y scroll horizontal; padding izquierdo y derecho para que no se corten los botones */
+        .pdf-controls-touch {
+            overflow-x: auto !important;
+            overflow-y: hidden !important;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+            padding-left: 12px !important;
+            padding-right: 12px !important;
+        }
+        .pdf-controls-touch::-webkit-scrollbar {
+            display: none;
+        }
+        .pdf-controls-touch button {
+            min-width: 44px !important;
+            min-height: 44px !important;
+            flex-shrink: 0 !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+        }
+
         /* Estilos para desktop */
         .img-zoomable:hover {
             transform: scale(1.02);
@@ -565,39 +656,70 @@
             }
         }
 
-        /* Ajustes del menú de zoom para móvil */
+        /* Móvil: barra solo del ancho del contenido (no se extiende a la derecha) y todos los botones del mismo tamaño */
         @media (max-width: 768px) {
-            #pdfControls {
+            #pdfControls,
+            #modalDocumento.show #pdfControls {
                 padding: 8px 12px !important;
-                gap: 8px !important;
-                bottom: 10px !important;
-                max-width: 95vw !important;
+                gap: 6px !important;
+                bottom: max(10px, env(safe-area-inset-bottom)) !important;
+                left: 50% !important;
+                right: auto !important;
+                transform: translateX(-50%) !important;
+                width: max-content !important;
+                max-width: calc(100vw - 20px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px)) !important;
+                margin: 0 !important;
                 flex-wrap: nowrap !important;
+                min-width: 0 !important;
+                box-sizing: border-box !important;
+                box-shadow: none !important;
             }
 
             #pdfControls button {
-                min-width: 35px !important;
-                padding: 5px 8px !important;
+                min-width: 36px !important;
+                min-height: 36px !important;
+                padding: 6px !important;
                 font-size: 0.85rem !important;
             }
 
             #pdfControls span {
                 font-size: 0.75rem !important;
                 min-width: auto !important;
-                padding: 0 4px !important;
+                padding: 0 2px !important;
+                flex-shrink: 0 !important;
             }
 
             #pdfPageInfo {
-                min-width: 60px !important;
+                min-width: 48px !important;
             }
 
             #pdfZoomLevel {
-                min-width: 40px !important;
+                min-width: 28px !important;
             }
 
             #pdfControls > div {
                 width: 0.5px !important;
-                height: 15px !important;
+                height: 14px !important;
+                flex-shrink: 0 !important;
+            }
+        }
+
+        /* Pantallas muy estrechas: mismo tamaño de botones, barra compacta */
+        @media (max-width: 380px) {
+            #pdfControls {
+                padding: 6px 10px !important;
+                gap: 4px !important;
+            }
+            #pdfControls button {
+                min-width: 32px !important;
+                min-height: 32px !important;
+                padding: 4px !important;
+            }
+            #pdfPageInfo {
+                min-width: 40px !important;
+            }
+            #pdfZoomLevel {
+                min-width: 24px !important;
             }
         }
 
@@ -1624,9 +1746,29 @@
             }
         }
 
+        // Si el usuario tiene permiso "Control completo FAD_DOC" y el documento abierto es FAD_DOC: sin marcas, descarga y control completo
+        function esFAD_DOCConPermisoControl() {
+            return typeof window.tienePermisoControlFAD_DOC !== 'undefined' && window.tienePermisoControlFAD_DOC && typeof window.tipoDocumentoActual !== 'undefined' && window.tipoDocumentoActual === 'FAD_DOC';
+        }
+        function actualizarBotonVideosMedia() {
+            const btn = document.getElementById('pdfVideosBtn');
+            const sep = document.getElementById('pdfVideosSep');
+            if (!btn || !sep) return;
+            const esFAD = typeof window.tipoDocumentoActual !== 'undefined' && window.tipoDocumentoActual === 'FAD_DOC';
+            const paginas = window.paginasConMediaFAD_DOC;
+            const paginaActual = typeof pageNumFactura !== 'undefined' ? pageNumFactura : 1;
+            const tieneVideosEnPagina = Array.isArray(paginas) && paginas.indexOf(paginaActual) !== -1;
+            const mostrar = esFAD;
+            btn.style.display = mostrar ? 'inline-block' : 'none';
+            sep.style.display = mostrar ? 'block' : 'none';
+            btn.disabled = !tieneVideosEnPagina;
+            btn.title = tieneVideosEnPagina ? 'Ver videos / audio de esta página' : 'No hay videos en esta página';
+        }
+
         // Función para crear marcas de agua "SIN VALOR" en TODO el modal de PDF
         // Solo se aplica a FACTURA, FAD_DOC y VALIDACIONES (no a INE/EVIDENCIA)
         function crearMarcasAguaModalPDF() {
+            // Siempre aplicar marcas de agua en FAD_DOC como en los demás PDF (FACTURA, VALIDACIONES)
             // Verificar que sea un PDF con marcas "SIN VALOR" (FACTURA, FAD_DOC, VALIDACIONES)
             // INE usa pdfDoc (sin pdfDocFactura), así que NO debe tener estas marcas
             // EVIDENCIA puede usar marcas de PDFs
@@ -1684,7 +1826,8 @@
             const numRows = Math.ceil((height * 1.2) / layerSpacing) + 2;
             const numCols = Math.ceil((width * 1.6) / textSpacing) + 5;
             
-            const desplazamientoDiagonalPDF = esMovil ? 45 : 60;
+            const desplazamientoDiagonalPDF = 80;   // escritorio: subir e izquierda
+            const desplazamientoDiagonalPDFMovil = 60; // móvil: bajar e izquierda (como zoom INE)
             for (let row = -8; row < numRows; row++) {
                 const layer = document.createElement('div');
                 layer.className = 'watermark-layer';
@@ -1692,8 +1835,13 @@
                 const topOffset = esMovil ? layerSpacing * 0.1 : layerSpacing * 4;
                 let topPos = (row * layerSpacing) - topOffset;
                 let leftOffset = (row * (textSpacing * 0.5)) - Math.min(width * 0.2, 200);
-                topPos -= desplazamientoDiagonalPDF;
-                leftOffset -= desplazamientoDiagonalPDF;
+                if (esMovil) {
+                    topPos += desplazamientoDiagonalPDFMovil;
+                    leftOffset -= desplazamientoDiagonalPDFMovil;
+                } else {
+                    topPos -= desplazamientoDiagonalPDF;
+                    leftOffset -= desplazamientoDiagonalPDF;
+                }
                 
                 // Crear texto con suficientes repeticiones
                 const repetitions = numCols + 6;
@@ -2222,7 +2370,7 @@
             }
         }
 
-        // Proteger todo el contenedor del PDF
+        // Proteger todo el contenedor del PDF (marcas de agua y bloqueo de descarga/copia para todos, igual que otros PDF)
         function protegerContenedorPDF() {
             const pdfContainer = document.getElementById('documentoPdfContainer');
             const pdfWrapper = document.getElementById('documentoWrapper');
@@ -2230,18 +2378,15 @@
             const pdfCanvas = document.getElementById('pdfCanvas');
             const modalBody = document.getElementById('documentoModalBody');
             
-            // Proteger todos los contenedores
             [pdfContainer, pdfWrapper, pdfViewerContainer, modalBody].forEach(container => {
                 if (container) {
                     desactivarDescargaImagen(container);
                 }
             });
             
-            // Protección especial para el canvas
             if (pdfCanvas) {
                 desactivarDescargaImagen(pdfCanvas);
                 
-                // Protección adicional con overlay invisible
                 let overlay = pdfCanvas.parentElement.querySelector('.canvas-protection-overlay');
                 if (!overlay) {
                     overlay = document.createElement('div');
@@ -2258,7 +2403,6 @@
                     pdfCanvas.parentElement.style.position = 'relative';
                     pdfCanvas.parentElement.appendChild(overlay);
                     
-                    // Hacer que el overlay capture eventos de clic derecho
                     overlay.style.pointerEvents = 'auto';
                     desactivarDescargaImagen(overlay);
                 }
@@ -2335,6 +2479,15 @@
                             crearMarcasAgua();
                         }, 200);
                     });
+                    // En móvil el click puede no dispararse por el overlay o el delay; touchend abre el zoom
+                    img.addEventListener('touchend', function(e) {
+                        if (e.changedTouches && e.changedTouches.length === 1 && typeof abrirZoomINE === 'function') {
+                            const touch = e.changedTouches[0];
+                            const tipo = this.id === 'imgINEfrente' ? 'Frente' : 'Reverso';
+                            abrirZoomINE(this.src, tipo);
+                            e.preventDefault();
+                        }
+                    }, { passive: false });
                 }
             });
             
@@ -2383,13 +2536,21 @@
                     }, 300);
                 });
                 
-                // Limpiar marcas de agua cuando se cierre el modal
+                // Limpiar marcas de agua y estado cuando se cierre el modal
                 modalDocumento.addEventListener('hidden.bs.modal', function() {
                     const modalWatermark = document.getElementById('modalPdfWatermark');
                     if (modalWatermark) {
                         const existingLayers = modalWatermark.querySelectorAll('.watermark-layer');
                         existingLayers.forEach(layer => layer.remove());
                     }
+                    window.tipoDocumentoActual = null;
+                    window.urlDocumentoActual = null;
+                    window.idCreditoDocumentoActual = null;
+                    window.paginasConMediaFAD_DOC = null;
+                    const pdfVideosBtn = document.getElementById('pdfVideosBtn');
+                    const pdfVideosSep = document.getElementById('pdfVideosSep');
+                    if (pdfVideosBtn) pdfVideosBtn.style.display = 'none';
+                    if (pdfVideosSep) pdfVideosSep.style.display = 'none';
                 });
                 
                 // Actualizar marcas de agua cuando cambie el tamaño de la ventana (solo si el modal está abierto)
@@ -3154,7 +3315,10 @@
             pdfContainer.style.display = 'block';
             
             const pdfControls = document.getElementById('pdfControls');
-            if (pdfControls) pdfControls.style.display = 'flex';
+            if (pdfControls) {
+                pdfControls.style.display = 'flex';
+                if (typeof actualizarBotonVideosMedia === 'function') actualizarBotonVideosMedia();
+            }
             
             // Ocultar otros contenedores
             const embedContainer = document.getElementById('visorPdfEmbed');
@@ -3221,9 +3385,24 @@
                 
                 Swal.close();
                 
-                // Ajustar zoom inicial según dispositivo (móvil o PC)
+                // Ajustar zoom inicial: en móvil real calcular escala para que el PDF encaje en el ancho (evita verse mal en OnePlus, iPhone, etc.)
                 const esMovilActual = window.innerWidth <= 768;
-                scaleFactura = esMovilActual ? 0.6 : 1.0;
+                if (esMovilActual) {
+                    try {
+                        const page = await pdfDocFactura.getPage(1);
+                        const viewport1 = page.getViewport({ scale: 1 });
+                        const container = document.getElementById('documentoPdfContainer') || document.getElementById('pdfViewerContainer');
+                        const containerWidth = container ? (container.clientWidth || window.innerWidth - 40) : window.innerWidth - 40;
+                        const padding = 40;
+                        const scaleToFit = (containerWidth - padding) / viewport1.width;
+                        scaleFactura = Math.max(0.5, Math.min(1.2, scaleToFit));
+                        if (scaleFactura > 1) scaleFactura = Math.floor(scaleFactura * 4) / 4;
+                    } catch (e) {
+                        scaleFactura = 0.6;
+                    }
+                } else {
+                    scaleFactura = 1.0;
+                }
                 
                 // Renderizar página 1
                 pageNumFactura = 1;
@@ -3349,7 +3528,7 @@
                 console.error('renderPageFactura: pdfDocFactura no está disponible');
                 return;
             }
-            
+            pageNumFactura = num;
             if (pageRenderingFactura) {
                 pageNumPendingFactura = num;
                 return;
@@ -3539,6 +3718,7 @@
                         crearMarcasAgua();
                     }, 250);
                 }
+                if (typeof actualizarBotonVideosMedia === 'function') actualizarBotonVideosMedia();
 
                 // Si había una página en espera, dibujarla ahora
                 if (pageNumPendingFactura !== null) {
@@ -3678,6 +3858,61 @@
                     }
                 });
             }
+
+            const pdfVideosBtn = document.getElementById('pdfVideosBtn');
+            if (pdfVideosBtn) {
+                pdfVideosBtn.addEventListener('click', function() {
+                    const idCredito = typeof idCreditoDocumentoActual !== 'undefined' ? idCreditoDocumentoActual : null;
+                    const pagina = typeof pageNumFactura !== 'undefined' ? pageNumFactura : 1;
+                    if (!idCredito) return;
+                    const body = document.getElementById('modalVideosPDFBody');
+                    const modalEl = document.getElementById('modalVideosPDF');
+                    if (body) body.innerHTML = '<div class="text-center py-4"><div class="spinner-border text-primary mb-2" role="status"><span class="visually-hidden">Cargando...</span></div><p class="text-muted mb-0">Cargando videos, por favor espere...</p></div>';
+                    const modal = modalEl ? new bootstrap.Modal(modalEl) : null;
+                    if (modal) modal.show();
+                    fetch('/EstadoCuenta/extraerVideosDocumento', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ idCredito: idCredito, pagina: pagina })
+                    })
+                    .then(r => r.json())
+                    .then(data => {
+                        if (!body) return;
+                        if (!data || !data.success) {
+                            body.innerHTML = '<p class="text-danger">' + (data && data.mensaje ? data.mensaje : 'Error al extraer') + '</p>';
+                            return;
+                        }
+                        const videos = data.videos || [];
+                        if (videos.length === 0) {
+                            body.innerHTML = '<p class="text-muted">No hay videos o audio en esta página.</p>';
+                            return;
+                        }
+                        const puedeDescargar = typeof window.tienePermisoControlFAD_DOC !== 'undefined' && window.tienePermisoControlFAD_DOC;
+                        const noDescargarAttr = ' controlsList="nodownload" oncontextmenu="return false;" ';
+                        let html = '';
+                        videos.forEach(function(v) {
+                            const url = v.url || '';
+                            const nombre = v.nombre || 'Media';
+                            const ext = (nombre.split('.').pop() || '').toLowerCase();
+                            const esAudio = ['mp3','wav','m4a','ogg'].indexOf(ext) !== -1;
+                            if (esAudio) {
+                                html += '<div class="mb-4"><label class="form-label fw-semibold">' + nombre + '</label><audio controls class="w-100" ' + noDescargarAttr + ' src="' + url + '"></audio>';
+                            } else {
+                                html += '<div class="mb-4"><label class="form-label fw-semibold">' + nombre + '</label><video controls class="w-100" style="max-height: 400px;" ' + noDescargarAttr + ' src="' + url + '"></video>';
+                            }
+                            if (puedeDescargar) {
+                                const urlDescarga = url + (url.indexOf('?') !== -1 ? '&' : '?') + 'descargar=1';
+                                html += '<div class="mt-1"><a href="' + urlDescarga + '" class="btn btn-sm btn-outline-secondary" download target="_blank"><i class="fa fa-download me-1"></i>Descargar</a></div>';
+                            }
+                            html += '</div>';
+                        });
+                        body.innerHTML = html;
+                    })
+                    .catch(function() {
+                        if (body) body.innerHTML = '<p class="text-danger">Error de conexión.</p>';
+                    });
+                });
+            }
         });
 
         // Función para cargar y mostrar un PDF (para otros documentos, no FACTURA)
@@ -3719,9 +3954,9 @@
                 pdfContainer.style.display = 'block';
                 if (pdfControls) {
                     pdfControls.style.display = 'flex';
-                    // Asegurar que los controles de zoom estén visibles
                     pdfControls.style.visibility = 'visible';
                     pdfControls.style.opacity = '1';
+                    if (typeof actualizarBotonVideosMedia === 'function') actualizarBotonVideosMedia();
                 }
                 
                 // Los controles de zoom ya están en el HTML y se mostrarán automáticamente
@@ -3911,11 +4146,11 @@
                     if (typeof crearMarcasAgua === 'function') {
                         crearMarcasAgua();
                     }
-                    // Desactivar descarga en el canvas
                     const pdfCanvas = document.getElementById('pdfCanvas');
                     if (pdfCanvas && typeof desactivarDescargaImagen === 'function') {
                         desactivarDescargaImagen(pdfCanvas);
                     }
+                    actualizarBotonVideosMedia();
                 }, 300);
 
             } catch (error) {
@@ -4142,19 +4377,16 @@
                     if (typeof crearMarcasAgua === 'function') {
                         crearMarcasAgua();
                     }
-                    // Desactivar descarga en el canvas
                     if (pdfCanvas && typeof desactivarDescargaImagen === 'function') {
                         desactivarDescargaImagen(pdfCanvas);
                     }
                 }, 100);
 
-                // Recrear marcas de agua después de que el canvas se renderice
                 setTimeout(() => {
                     if (typeof crearMarcasAgua === 'function') {
                         crearMarcasAgua();
                     }
-                    // Asegurar protección del canvas
-                    if (typeof desactivarDescargaImagen === 'function') {
+                    if (typeof desactivarDescargaImagen === 'function' && pdfCanvas) {
                         desactivarDescargaImagen(pdfCanvas);
                     }
                 }, 200);

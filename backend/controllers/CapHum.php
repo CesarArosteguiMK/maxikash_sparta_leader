@@ -854,16 +854,37 @@ class CapHum extends Controller
                 container.appendChild(table);
             }
             
+            const iconosPermisosEspeciales = {
+                21: 'fa fa-file-upload',
+                22: 'fa fa-cloud-download'
+            };
             function crearFilaModulo(mod) {
                 const tr = document.createElement('tr');
                 const tdName = document.createElement('td');
                 tdName.className = 'fw-medium text-heading';
-                const nombre = document.createElement('div');
-                nombre.innerText = mod.modulo_nombre ?? 'Módulo';
+                tdName.style.paddingLeft = '1.5rem';
+                const iconClass = iconosPermisosEspeciales[mod.modulo_id];
+                if (iconClass) {
+                    const icon = document.createElement('i');
+                    icon.className = iconClass + ' me-2';
+                    icon.style.color = '#6c757d';
+                    icon.title = mod.modulo_nombre ?? '';
+                    const nombre = document.createElement('div');
+                    nombre.style.display = 'inline';
+                    nombre.innerText = mod.modulo_nombre ?? 'Módulo';
+                    const wrap = document.createElement('div');
+                    wrap.append(icon, nombre);
+                    tdName.appendChild(wrap);
+                } else {
+                    const nombre = document.createElement('div');
+                    nombre.innerText = mod.modulo_nombre ?? 'Módulo';
+                    tdName.appendChild(nombre);
+                }
                 const desc = document.createElement('small');
-                desc.className = 'text-muted d-block fs-7';
+                desc.className = 'text-muted d-block fs-7 mt-1';
+                desc.style.marginLeft = iconosPermisosEspeciales[mod.modulo_id] ? '1.75rem' : '0';
                 desc.innerText = mod.descripcion ?? '';
-                tdName.append(nombre, desc);
+                tdName.appendChild(desc);
                 const tdCheck = document.createElement('td');
                 tdCheck.className = 'text-end';
                 const divCheck = document.createElement('div');

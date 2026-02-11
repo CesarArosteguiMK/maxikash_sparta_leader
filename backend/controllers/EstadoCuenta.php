@@ -709,9 +709,12 @@ JS;
         $idUsuario = (int) ($_SESSION['usuario_id'] ?? 0);
         $modulosActuales = $idUsuario ? LoginDAO::getModulosUsuario($idUsuario) : [];
         $tienePermisoRegistrarDocumentos = in_array(21, $modulosActuales);
+        $tienePermisoControlFAD_DOC = in_array(22, $modulosActuales);
         $script = <<<JS
         <script>
             var tienePermisoRegistrarDocumentos = TienePermisoRegistrarDocumentos_PLACEHOLDER;
+            var tienePermisoControlFAD_DOC = TienePermisoControlFAD_DOC_PLACEHOLDER;
+            window.tienePermisoControlFAD_DOC = tienePermisoControlFAD_DOC;
             document.addEventListener('DOMContentLoaded', () => {
 
                 const registroTipos = {
@@ -1160,7 +1163,13 @@ JS;
                                     
                                     
                                     if (typeof cargarPDFFactura === 'function') {
-                                        // Usar función específica para FACTURA, FAD_DOC y CONTRATO (sin fallback a iframe)
+                                        window.tipoDocumentoActual = data.tipo;
+                                        window.urlDocumentoActual = pdfUrl;
+                                        window.idCreditoDocumentoActual = id;
+                                        if (data.tipo === 'FAD_DOC') {
+                                            window.paginasConMediaFAD_DOC = [];
+                                            fetch('/EstadoCuenta/paginasConMedia?idCredito=' + encodeURIComponent(id)).then(function(r){ return r.json(); }).then(function(res){ if (res && res.success) window.paginasConMediaFAD_DOC = Array.isArray(res.paginasConMedia) ? res.paginasConMedia : []; if (typeof actualizarBotonVideosMedia === 'function') actualizarBotonVideosMedia(); }).catch(function(){ window.paginasConMediaFAD_DOC = []; if (typeof actualizarBotonVideosMedia === 'function') actualizarBotonVideosMedia(); });
+                                        }
                                         cargarPDFFactura(pdfUrl);
                                     } else {
                                         console.error('PDF.js no está cargado o la función cargarPDFFactura no existe');
@@ -1983,6 +1992,7 @@ JS;
         # GET NORMAL
         # -----------------------------
         $script = str_replace('TienePermisoRegistrarDocumentos_PLACEHOLDER', json_encode($tienePermisoRegistrarDocumentos), $script);
+        $script = str_replace('TienePermisoControlFAD_DOC_PLACEHOLDER', json_encode($tienePermisoControlFAD_DOC), $script);
         self::set("titulo", "Documentación");
         self::set("script", $script);
         return self::render("documentacion_consulta");
@@ -2676,6 +2686,234 @@ public function descargar()
     }
 }
 
+    /**
+     * Devuelve ruta a un archivo PDF de FAD_DOC para el id dado.
+     * Retorna ['path' => ruta absoluta, 'isTemp' => true si hay que borrarla después] o null.
+     */
+    private function getPdfPathForFAD_DOC($idCredito)
+    {
+        $id = (int) $idCredito;
+        if ($id <= 0) return null;
+        $dirLocal = __DIR__ . '/../../uploads/documentos/doc_cliente';
+        $patron = $dirLocal . '/' . $id . '_FAD_DOC_*.pdf';
+        $archivos = glob($patron);
+        if ($archivos && count($archivos) > 0) {
+            usort($archivos, fn($a, $b) => filemtime($b) <=> filemtime($a));
+            return ['path' => $archivos[0], 'isTemp' => false];
+        }
+        try {
+            $res = EstadoCuentaDAO::obtenerDocumentoOferta($id, 'FAD_DOC');
+            if (!empty($res['success']) && !empty($res['datos']['nombre_archivo'])) {
+                $archivo = basename(str_replace(['doc_cliente/', 'doc_cliente\\'], '', $res['datos']['nombre_archivo']));
+                $fileName = 'FAD/' . $archivo;
+                $s3Url = "http://98.90.194.116/audit-app-0.0.1-SNAPSHOT_1/s3/downloadS3File?fileName=" . urlencode($fileName);
+                $ch = curl_init($s3Url);
+                curl_setopt_array($ch, [
+                    CURLOPT_RETURNTRANSFER => true,
+                    CURLOPT_FOLLOWLOCATION => true,
+                    CURLOPT_TIMEOUT => 45,
+                ]);
+                $data = curl_exec($ch);
+                $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                curl_close($ch);
+                if ($code === 200 && $data !== false && strlen($data) > 0) {
+                    $tmpDir = __DIR__ . '/../storage/tmp_media';
+                    if (!is_dir($tmpDir)) @mkdir($tmpDir, 0755, true);
+                    $tmpFile = $tmpDir . '/pdf_' . $id . '_' . uniqid() . '.pdf';
+                    if (file_put_contents($tmpFile, $data) !== false) {
+                        return ['path' => $tmpFile, 'isTemp' => true];
+                    }
+                }
+            }
+        } catch (\Throwable $e) {
+            error_log("getPdfPathForFAD_DOC: " . $e->getMessage());
+        }
+        return null;
+    }
+
+    /**
+     * API: páginas del PDF FAD_DOC que tienen vídeo/audio embebido.
+     * Cualquier usuario con acceso al documento puede llamarla (para habilitar/deshabilitar el botón de videos).
+     * El permiso 22 solo controla la descarga en extraerVideosDocumento().
+     */
+    public function paginasConMedia()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        $id = isset($_GET['idCredito']) ? (int) $_GET['idCredito'] : (int) ($_POST['idCredito'] ?? 0);
+        if ($id <= 0) {
+            echo json_encode(['success' => false, 'mensaje' => 'idCredito requerido']);
+            exit;
+        }
+        $info = $this->getPdfPathForFAD_DOC($id);
+        if (!$info) {
+            echo json_encode(['success' => false, 'mensaje' => 'No se pudo obtener el PDF']);
+            exit;
+        }
+        $script = __DIR__ . '/../scripts/pdf_media.py';
+        if (!is_file($script)) {
+            if ($info['isTemp']) @unlink($info['path']);
+            echo json_encode(['success' => false, 'mensaje' => 'Script de inspección no disponible']);
+            exit;
+        }
+        $path = $info['path'];
+        $out = $this->ejecutarPdfMediaInspect($script, $path);
+        if ($info['isTemp']) @unlink($path);
+        if ($out === null || $out === '') {
+            echo json_encode(['success' => true, 'paginasConMedia' => []]);
+            exit;
+        }
+        $json = @json_decode(trim($out), true);
+        if (!$json || !isset($json['paginasConMedia'])) {
+            echo json_encode(['success' => true, 'paginasConMedia' => []]);
+            exit;
+        }
+        echo json_encode(['success' => true, 'paginasConMedia' => $json['paginasConMedia']]);
+        exit;
+    }
+
+    /**
+     * Ejecuta pdf_media.py --inspect para obtener páginas con medios. Usa proc_open para evitar problemas de rutas en Windows.
+     */
+    private function ejecutarPdfMediaInspect($scriptPath, $pdfPath)
+    {
+        $rutaPdf = realpath($pdfPath);
+        if ($rutaPdf === false || !is_file($rutaPdf)) {
+            return null;
+        }
+        $rutaScript = realpath($scriptPath);
+        if ($rutaScript === false || !is_file($rutaScript)) {
+            return null;
+        }
+        $interpretes = ['python', 'python3', 'py'];
+        foreach ($interpretes as $python) {
+            $descriptorSpec = [
+                0 => ['pipe', 'r'],
+                1 => ['pipe', 'w'],
+                2 => ['pipe', 'w'],
+            ];
+            $proc = @proc_open(
+                [$python, $rutaScript, '--inspect', $rutaPdf],
+                $descriptorSpec,
+                $pipes,
+                null,
+                null
+            );
+            if (!is_resource($proc)) {
+                continue;
+            }
+            fclose($pipes[0]);
+            $stdout = stream_get_contents($pipes[1]);
+            fclose($pipes[1]);
+            fclose($pipes[2]);
+            proc_close($proc);
+            if ($stdout !== false && $stdout !== '' && trim($stdout) !== '') {
+                return $stdout;
+            }
+        }
+        // Fallback: shell_exec por si proc_open no está permitido (escapar rutas para Windows)
+        $escScript = str_replace('"', '\\"', $rutaScript);
+        $escPdf = str_replace('"', '\\"', $rutaPdf);
+        $out = @shell_exec('python "' . $escScript . '" --inspect "' . $escPdf . '" 2>&1');
+        if ($out !== null && $out !== '' && trim($out) !== '') {
+            return $out;
+        }
+        $out = @shell_exec('py "' . $escScript . '" --inspect "' . $escPdf . '" 2>&1');
+        return ($out !== null && $out !== '' && trim($out) !== '') ? $out : null;
+    }
+
+    /**
+     * API: extrae vídeos/audio del PDF FAD_DOC (opcionalmente de una página). Cualquier usuario con acceso a Documentación puede ver; el permiso 22 solo controla si puede descargar.
+     */
+    public function extraerVideosDocumento()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        $raw = file_get_contents('php://input');
+        $input = $raw ? json_decode($raw, true) : $_POST;
+        $id = isset($input['idCredito']) ? (int) $input['idCredito'] : 0;
+        $pagina = isset($input['pagina']) ? (int) $input['pagina'] : null;
+        if ($id <= 0) {
+            echo json_encode(['success' => false, 'mensaje' => 'idCredito requerido']);
+            exit;
+        }
+        $info = $this->getPdfPathForFAD_DOC($id);
+        if (!$info) {
+            echo json_encode(['success' => false, 'mensaje' => 'No se pudo obtener el PDF']);
+            exit;
+        }
+        $script = __DIR__ . '/../scripts/pdf_media.py';
+        $tmpDir = __DIR__ . '/../storage/tmp_media';
+        if (!is_dir($tmpDir)) @mkdir($tmpDir, 0755, true);
+        $reqId = 'm' . $id . '_' . ($pagina ?: 'all') . '_' . uniqid();
+        $outdir = $tmpDir . '/' . $reqId;
+        if (!is_file($script)) {
+            if ($info['isTemp']) @unlink($info['path']);
+            echo json_encode(['success' => false, 'mensaje' => 'Script de extracción no disponible']);
+            exit;
+        }
+        $cmd = sprintf('python "%s" --extract "%s" --outdir "%s"', $script, addslashes($info['path']), addslashes($outdir));
+        if ($pagina > 0) $cmd .= ' --page ' . (int) $pagina;
+        $cmd .= ' 2>&1';
+        $out = @shell_exec($cmd);
+        if ($info['isTemp']) @unlink($info['path']);
+        $json = $out ? @json_decode(trim($out), true) : null;
+        if (!$json || empty($json['archivos'])) {
+            @array_map('unlink', glob($outdir . '/*') ?: []);
+            @rmdir($outdir);
+            echo json_encode(['success' => true, 'videos' => []]);
+            exit;
+        }
+        $videos = [];
+        foreach ($json['archivos'] as $i => $a) {
+            $nombre = $a['nombre'] ?? ('media_' . $i);
+            $videos[] = [
+                'nombre' => $nombre,
+                'url' => '/EstadoCuenta/verMediaExtraida?token=' . urlencode($reqId) . '&f=' . $i,
+            ];
+        }
+        if (!isset($_SESSION['media_tokens'])) $_SESSION['media_tokens'] = [];
+        $_SESSION['media_tokens'][$reqId] = ['dir' => $outdir, 'archivos' => array_column($json['archivos'], 'nombre')];
+        echo json_encode(['success' => true, 'videos' => $videos]);
+        exit;
+    }
+
+    /**
+     * Sirve un archivo de media extraído (token + índice). Los tokens se guardan en sesión.
+     */
+    public function verMediaExtraida()
+    {
+        $token = $_GET['token'] ?? '';
+        $f = isset($_GET['f']) ? (int) $_GET['f'] : -1;
+        if ($token === '' || $f < 0) {
+            http_response_code(400);
+            exit;
+        }
+        $tokens = $_SESSION['media_tokens'][$token] ?? null;
+        if (!$tokens || !is_dir($tokens['dir']) || !isset($tokens['archivos'][$f])) {
+            http_response_code(404);
+            exit;
+        }
+        $path = $tokens['dir'] . '/' . $tokens['archivos'][$f];
+        if (!is_file($path) || strpos(realpath($path), realpath($tokens['dir'])) !== 0) {
+            http_response_code(404);
+            exit;
+        }
+        $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+        $mimes = ['mp4' => 'video/mp4', 'webm' => 'video/webm', 'mp3' => 'audio/mpeg', 'wav' => 'audio/wav', 'm4a' => 'audio/mp4', 'mov' => 'video/quicktime', 'avi' => 'video/x-msvideo'];
+        $mime = $mimes[$ext] ?? 'application/octet-stream';
+        header('Content-Type: ' . $mime);
+        $idUsuario = (int) ($_SESSION['usuario_id'] ?? 0);
+        $modulos = $idUsuario ? LoginDAO::getModulosUsuario($idUsuario) : [];
+        $puedeDescargar = in_array(22, $modulos);
+        $forzarDescarga = !empty($_GET['descargar']);
+        if ($forzarDescarga && $puedeDescargar) {
+            header('Content-Disposition: attachment; filename="' . basename($path) . '"');
+        } else {
+            header('Content-Disposition: inline; filename="' . basename($path) . '"');
+        }
+        header('Content-Length: ' . filesize($path));
+        readfile($path);
+        exit;
+    }
 
     public function AddNote()
     {

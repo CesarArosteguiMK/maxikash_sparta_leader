@@ -2237,7 +2237,7 @@ window.puedeEditarTodos = <?= json_encode(!empty($puedeEditarTodos ?? false)) ?>
                                     <small class="text-muted">Asigna permisos adicionales para acciones específicas</small>
                                 </div>
                             </div>
-                            <div id="permisos-especiales-container" style="overflow-y: visible;">
+                            <div id="permisos-especiales-container" style="overflow-y: visible; margin-left: 1.25rem; padding-left: 0.5rem; border-left: 2px solid #e9ecef;">
                                 <div id="permisos-especiales-form"></div>
                             </div>
                         </div>
