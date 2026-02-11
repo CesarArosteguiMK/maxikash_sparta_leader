@@ -5,8 +5,203 @@ namespace Controllers;
 use Core\Controller;
 use Models\Empresa as EmpresasDAO;
 
-class Reporteria extends Controller
+class Reporteria extends Controller 
 {
+        public function reporteCapitalHumano()
+        {
+            
+            $script = "";
+
+            self::set("titulo", "Reporte CH");
+            self::set("script", $script);
+            self::render("reporte_capital_humano");
+        }
+        
+    // ==== Reporte de Capital Humano ====
+    public function getUsuariosCapitalHumano()
+    {
+        $tieneDepartamento = in_array(10, $_SESSION['modulos'] ?? []);
+        $resultado = \Models\CapHum::getConsultaGestoresAll($_SESSION['usuario_id'], $tieneDepartamento);
+        $usuarios = $resultado['datos'] ?? [];
+
+        $datos = array_map(function($p) {
+            return [
+                'id' => $p['id'] ?? '',
+                'numero_empleado' => $p['numero_empleado'] ?? '',
+                'nombre_jefe' => $p['nombre_jefe'] ?? '',
+                'nombres' => $p['nombres'] ?? '',
+                'segundo_nombre' => $p['segundo_nombre'] ?? '',
+                'apellidop' => $p['apellidop'] ?? '',
+                'apellidom' => $p['apellidom'] ?? '',
+                'nombre_departamento' => $p['nombre_departamento'] ?? '',
+                'nombre_puesto' => $p['nombre_puesto'] ?? '',
+                'id_puesto' => $p['id_puesto'] ?? null,
+                'id_departamento' => $p['id_departamento'] ?? null,
+                'estatus' => $p['estatus'] ?? '',
+                'usuario' => $p['usuario'] ?? '',
+            ];
+        }, $usuarios);
+
+        self::respuestaJSON([
+            'success' => true,
+            'datos' => $datos
+        ]);
+    }
+
+    public function getBajasCapitalHumano()
+    {
+        try {
+            $input = json_decode(file_get_contents("php://input"), true);
+            $fecha_inicio = $input['fecha_inicio'] ?? null;
+            $fecha_fin = $input['fecha_fin'] ?? null;
+            if ($fecha_inicio && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha_inicio)) {
+                self::respuestaJSON([
+                    'success' => false,
+                    'mensaje' => 'Formato de fecha de inicio inválido'
+                ]);
+                return;
+            }
+            if ($fecha_fin && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha_fin)) {
+                self::respuestaJSON([
+                    'success' => false,
+                    'mensaje' => 'Formato de fecha de fin inválido'
+                ]);
+                return;
+            }
+            $resultado = \Models\CapHum::getConsultaBajas($fecha_inicio, $fecha_fin);
+            if (!$resultado) {
+                self::respuestaJSON([
+                    'success' => false,
+                    'mensaje' => 'Error al consultar las bajas: respuesta vacía del modelo',
+                    'datos' => []
+                ]);
+                return;
+            }
+            if (!isset($resultado['success']) || $resultado['success'] === false) {
+                self::respuestaJSON([
+                    'success' => false,
+                    'mensaje' => $resultado['mensaje'] ?? 'Error al consultar las bajas',
+                    'error' => $resultado['error'] ?? null,
+                    'datos' => []
+                ]);
+                return;
+            }
+            $bajas = $resultado['datos'] ?? [];
+            $datos = [];
+            if (is_array($bajas) && count($bajas) > 0) {
+                $datos = array_map(function($p) {
+                    return [
+                        'nombres' => $p['nombres'] ?? '',
+                        'segundo_nombre' => $p['segundo_nombre'] ?? '',
+                        'apellidop' => $p['apellidop'] ?? '',
+                        'apellidom' => $p['apellidom'] ?? '',
+                        'numero_empleado' => $p['numero_empleado'] ?? '',
+                        'external_id' => $p['external_id'] ?? '',
+                        'departamento' => $p['departamento'] ?? '',
+                        'nombre_puesto' => $p['nombre_puesto'] ?? '',
+                        'fecha_baja' => $p['fecha_baja'] ?? '',
+                        'registro_baja' => $p['registro_baja'] ?? '',
+                        'motivo' => $p['motivo'] ?? '',
+                        'descripcion' => $p['descripcion'] ?? '',
+                        'user_name' => $p['user_name'] ?? '',
+                    ];
+                }, $bajas);
+            }
+            self::respuestaJSON([
+                'success' => true,
+                'datos' => $datos,
+                'mensaje' => count($datos) > 0 ? 'Bajas encontradas' : 'No se encontraron bajas en el rango seleccionado'
+            ]);
+        } catch (\Exception $e) {
+            error_log('Error en getBajasCapitalHumano: ' . $e->getMessage());
+            self::respuestaJSON([
+                'success' => false,
+                'mensaje' => 'Error al procesar la solicitud: ' . $e->getMessage(),
+                'error' => $e->getMessage(),
+                'datos' => []
+            ]);
+        }
+    }
+
+    public function descargarBajasExcelCapitalHumano()
+    {
+        while (ob_get_level()) {
+            ob_end_clean();
+        }
+        try {
+            $fecha_inicio = $_GET['fecha_inicio'] ?? null;
+            $fecha_fin = $_GET['fecha_fin'] ?? null;
+            if ($fecha_inicio && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha_inicio)) {
+                die('Formato de fecha de inicio inválido');
+            }
+            if ($fecha_fin && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha_fin)) {
+                die('Formato de fecha de fin inválido');
+            }
+            $resultado = \Models\CapHum::getConsultaBajas($fecha_inicio, $fecha_fin);
+            if (!$resultado || !isset($resultado['success']) || !$resultado['success']) {
+                die('Error al obtener las bajas: ' . ($resultado['mensaje'] ?? 'Error desconocido'));
+            }
+            $bajas = $resultado['datos'] ?? [];
+            if (empty($bajas)) {
+                die('No hay bajas para descargar');
+            }
+            $data = [];
+            foreach ($bajas as $baja) {
+                $nombreCompleto = trim(($baja['nombres'] ?? '') . ' ' . ($baja['apellidop'] ?? '') . ' ' . ($baja['apellidom'] ?? ''));
+                $fechaBaja = $baja['fecha_baja'] ?? '';
+                if ($fechaBaja) {
+                    try {
+                        $fechaBaja = date('d/m/Y', strtotime($fechaBaja));
+                    } catch (\Exception $e) {}
+                }
+                $data[] = [
+                    'external_id' => $baja['external_id'] ?? '',
+                    'numero_empleado' => $baja['numero_empleado'] ?? '',
+                    'nombre_completo' => $nombreCompleto,
+                    'departamento' => $baja['departamento'] ?? 'N/A',
+                    'nombre_puesto' => $baja['nombre_puesto'] ?? 'N/A',
+                    'fecha_baja' => $fechaBaja,
+                    'registro_baja' => $baja['registro_baja'] ?? '',
+                    'motivo' => $baja['motivo'] ?? 'N/A',
+                    'descripcion' => $baja['descripcion'] ?? 'Sin descripción',
+                    'user_name' => $baja['user_name'] ?? 'N/A'
+                ];
+            }
+            $columnas = [
+                \PHPSpreadsheet::ColumnaExcel('external_id', 'External ID'),
+                \PHPSpreadsheet::ColumnaExcel('numero_empleado', 'NÚMERO DE EMPLEADO'),
+                \PHPSpreadsheet::ColumnaExcel('nombre_completo', 'NOMBRE COMPLETO'),
+                \PHPSpreadsheet::ColumnaExcel('departamento', 'DEPARTAMENTO'),
+                \PHPSpreadsheet::ColumnaExcel('nombre_puesto', 'PUESTO'),
+                \PHPSpreadsheet::ColumnaExcel('fecha_baja', 'FECHA DE BAJA'),
+                \PHPSpreadsheet::ColumnaExcel('registro_baja', 'REGISTRO DE BAJA'),
+                \PHPSpreadsheet::ColumnaExcel('motivo', 'MOTIVO'),
+                \PHPSpreadsheet::ColumnaExcel('descripcion', 'DESCRIPCIÓN'),
+                \PHPSpreadsheet::ColumnaExcel('user_name', 'USUARIO')
+            ];
+            $nombreArchivo = 'Bajas';
+            if ($fecha_inicio && $fecha_fin) {
+                $nombreArchivo .= '_' . $fecha_inicio . '_a_' . $fecha_fin;
+            } elseif ($fecha_inicio) {
+                $nombreArchivo .= '_desde_' . $fecha_inicio;
+            } elseif ($fecha_fin) {
+                $nombreArchivo .= '_hasta_' . $fecha_fin;
+            }
+            $nombreArchivo .= '_' . date('Y-m-d');
+            \PHPSpreadsheet::DescargaExcel(
+                $nombreArchivo,
+                "Bajas de Personal",
+                "Bajas",
+                $columnas,
+                $data
+            );
+            exit;
+        } catch (\Exception $e) {
+            error_log('Error en descargarBajasExcelCapitalHumano: ' . $e->getMessage());
+            die('Error al generar el archivo Excel: ' . $e->getMessage());
+        }
+    }
+
     public function resumencallcenter()
     {
         $script = <<<'HTML'
@@ -291,6 +486,112 @@ HTML;
 
         // Terminar ejecución para que no se agregue nada extra
         exit;
+    }
+
+    public function descargarPlantillaGestores()
+    {
+        // Aumentar tiempo de ejecución
+        set_time_limit(300);
+        ini_set('memory_limit', '512M');
+        
+        // Limpiar buffer
+        while (ob_get_level()) {
+            ob_end_clean();
+        }
+        
+        try {
+            // Obtener filtros de GET
+            $filtroDepartamento = $_GET['departamento'] ?? '';
+            $filtroPuesto = $_GET['puesto'] ?? '';
+            $filtroEstatus = $_GET['estatus'] ?? '';
+            
+            // Obtener datos usando el mismo método que getUsuarios
+            $tieneDepartamento = in_array(10, $_SESSION['modulos'] ?? []);
+            $resultado = CapHumDAO::getConsultaGestoresAll($_SESSION['usuario_id'], $tieneDepartamento);
+
+            if (!$resultado['success'] || empty($resultado['datos'])) {
+                die("No se pudieron obtener los datos de los gestores.");
+            }
+
+            $datos = $resultado['datos'];
+            
+            // Aplicar filtros si existen
+            $datosFiltrados = array_filter($datos, function($gestor) use ($filtroDepartamento, $filtroPuesto, $filtroEstatus) {
+                $cumpleDepartamento = empty($filtroDepartamento) || ($gestor['nombre_departamento'] ?? '') === $filtroDepartamento;
+                $cumplePuesto = empty($filtroPuesto) || ($gestor['nombre_puesto'] ?? '') === $filtroPuesto;
+                $cumpleEstatus = empty($filtroEstatus) || ($gestor['estatus'] ?? '') === $filtroEstatus;
+                
+                return $cumpleDepartamento && $cumplePuesto && $cumpleEstatus;
+            });
+            
+            // Validar que haya datos después del filtro
+            if (empty($datosFiltrados)) {
+                die("No se encontraron datos con los filtros aplicados.");
+            }
+
+            // Columnas usando SOLO los campos disponibles en el modelo actual
+            $columnas = [
+                \PHPSpreadsheet::ColumnaExcel('numero_empleado', 'NO. EMPLEADO'),
+                \PHPSpreadsheet::ColumnaExcel('nombres', 'NOMBRES'),
+                \PHPSpreadsheet::ColumnaExcel('segundo_nombre', 'SEGUNDO NOMBRE'),
+                \PHPSpreadsheet::ColumnaExcel('apellidop', 'APELLIDO PATERNO'),
+                \PHPSpreadsheet::ColumnaExcel('apellidom', 'APELLIDO MATERNO'),
+                \PHPSpreadsheet::ColumnaExcel('usuario', 'USUARIO'),
+                \PHPSpreadsheet::ColumnaExcel('nombre_departamento', 'DEPARTAMENTO'),
+                \PHPSpreadsheet::ColumnaExcel('nombre_puesto', 'PUESTO'),
+                \PHPSpreadsheet::ColumnaExcel('nombre_jefe', 'JEFE INMEDIATO'),
+                \PHPSpreadsheet::ColumnaExcel('estatus', 'ESTATUS'),
+            ];
+
+            // Preparar datos formateados
+            $datosFormateados = [];
+            foreach ($datosFiltrados as $gestor) {
+                $datosFormateados[] = [
+                    'numero_empleado' => $gestor['numero_empleado'] ?? '',
+                    'nombres' => $gestor['nombres'] ?? '',
+                    'segundo_nombre' => $gestor['segundo_nombre'] ?? '',
+                    'apellidop' => $gestor['apellidop'] ?? '',
+                    'apellidom' => $gestor['apellidom'] ?? '',
+                    'usuario' => $gestor['usuario'] ?? '',
+                    'nombre_departamento' => $gestor['nombre_departamento'] ?? '',
+                    'nombre_puesto' => $gestor['nombre_puesto'] ?? '',
+                    'nombre_jefe' => $gestor['nombre_jefe'] ?? '',
+                    'estatus' => $gestor['estatus'] ?? '',
+                ];
+            }
+
+            // Nombre del archivo con timestamp y filtros aplicados
+            $fechaActual = date('Y-m-d_His');
+            $nombreArchivo = "Plantilla_Gestores";
+            
+            // Agregar filtros al nombre del archivo
+            if ($filtroDepartamento) {
+                $nombreArchivo .= "_" . str_replace(' ', '_', $filtroDepartamento);
+            }
+            if ($filtroPuesto) {
+                $nombreArchivo .= "_" . str_replace(' ', '_', $filtroPuesto);
+            }
+            if ($filtroEstatus) {
+                $nombreArchivo .= "_" . $filtroEstatus;
+            }
+            
+            $nombreArchivo .= "_{$fechaActual}";
+
+            // Descargar Excel
+            \PHPSpreadsheet::DescargaExcel(
+                $nombreArchivo,
+                "Plantilla de Gestores",
+                "Gestores",
+                $columnas,
+                $datosFormateados
+            );
+
+            exit;
+
+        } catch (\Exception $e) {
+            error_log('Error en descargarPlantillaGestores: ' . $e->getMessage());
+            die('Error al generar el archivo Excel: ' . $e->getMessage());
+        }
     }
 
 

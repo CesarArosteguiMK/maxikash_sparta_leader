@@ -68,11 +68,21 @@ function getMenu()
                                     'url' => '/reporteria/layoutlegacy',
                                     'modulos' => [7]
                             ],
+
+                            
+
+
                             [
                                     'label' => 'Dictamen de Llamadas',
                                     'url' => '/estadocuenta/reporteDictamen',
                                     'modulos' => [14]
-                            ]
+                            ],
+
+                                   [
+                                        'label' => 'Reporte CH',
+                                        'url' => '/reporteria/reporteCapitalHumano',
+                                        'modulos' => [21]
+                           ]                                   
 
                             
                     ]
