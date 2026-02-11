@@ -194,8 +194,8 @@
                         <!-- FRENTE -->
                         <div class="col-12 col-md-6">
                             <div class="card h-100">
-                                <div class="card-header text-center" style="background-color: #696cff; color: #ffffff !important;">
-                                    <h6 class="mb-0" style="color: #ffffff !important; font-weight: 600; font-size: 0.95rem;">
+                                <div class="card-header text-center header-ine-frente">
+                                    <h6 class="mb-0">
                                         <i class="fa fa-id-card me-2"></i>Frente
                                     </h6>
                                 </div>
@@ -225,8 +225,8 @@
                         <!-- REVERSO -->
                         <div class="col-12 col-md-6">
                             <div class="card h-100">
-                                <div class="card-header text-center" style="background-color: #8592a3; color: #ffffff !important;">
-                                    <h6 class="mb-0" style="color: #ffffff !important; font-weight: 600; font-size: 0.95rem;">
+                                <div class="card-header text-center header-ine-reverso">
+                                    <h6 class="mb-0">
                                         <i class="fa fa-id-card me-2"></i>Reverso
                                     </h6>
                                 </div>
@@ -472,7 +472,60 @@
             #modalINE .card-header h6 {
                 font-size: 0.85rem !important;
             }
+        }
 
+        /* INE: Frente y Reverso siempre visibles (fondo oscuro, texto claro) */
+        #modalINE .header-ine-frente {
+            background-color: #2c3e50 !important;
+            color: #ffffff !important;
+        }
+        #modalINE .header-ine-frente h6,
+        #modalINE .header-ine-frente .fa {
+            color: #ffffff !important;
+            font-weight: 600;
+            font-size: 0.95rem;
+        }
+        #modalINE .header-ine-reverso {
+            background-color: #34495e !important;
+            color: #ffffff !important;
+        }
+        #modalINE .header-ine-reverso h6,
+        #modalINE .header-ine-reverso .fa {
+            color: #ffffff !important;
+            font-weight: 600;
+            font-size: 0.95rem;
+        }
+
+        /* Modal zoom INE: header oscuro y botones/X siempre visibles */
+        #modalZoomINE .modal-header {
+            background-color: #1a1d21 !important;
+            border-color: rgba(255,255,255,0.15) !important;
+        }
+        #modalZoomINE .modal-title {
+            color: #ffffff !important;
+        }
+        #modalZoomINE .btn-group .btn-outline-light,
+        #modalZoomINE .btn-group .btn {
+            color: #f0f0f0 !important;
+            border-color: rgba(255,255,255,0.5) !important;
+            background-color: rgba(255,255,255,0.08) !important;
+        }
+        #modalZoomINE .btn-group .btn-outline-light:hover {
+            color: #fff !important;
+            background-color: rgba(255,255,255,0.2) !important;
+            border-color: #fff !important;
+        }
+        #modalZoomINE .btn-close,
+        #modalZoomINE .btn-close-white {
+            filter: invert(1) grayscale(100%) brightness(200%);
+            opacity: 0.9;
+        }
+        #modalZoomINE .btn-close:hover {
+            opacity: 1;
+        }
+
+        /* Mejoras para móvil (reabrir media query) */
+        @media (max-width: 767.98px) {
             #modalZoomINE .modal-header,
             #modalZoomINE .modal-footer {
                 padding: 0.75rem;
@@ -832,6 +885,16 @@
         // Función para crear múltiples capas de marca de agua
         function crearMarcasAgua() {
             const overlays = document.querySelectorAll('.watermark-overlay, .watermark-overlay-zoom');
+            // Diagnóstico EVIDENCIA: ver en consola (F12) por qué no salen las marcas
+            try {
+                const docImgContainer = document.getElementById('documentoImagenContainer');
+                const modalTitulo = document.querySelector('#modalDocumento .modal-title');
+                const tituloTexto = modalTitulo ? modalTitulo.textContent.trim() : '';
+                const puedeSerEvidencia = (tituloTexto === 'EVIDENCIA' || tituloTexto.includes('EVIDENCIA')) || (docImgContainer && docImgContainer.style.display !== 'none');
+                if (puedeSerEvidencia && typeof console !== 'undefined') {
+                    console.log('[Marca agua EVIDENCIA] crearMarcasAgua() llamado. Título modal:', tituloTexto, '| documentoImagenContainer visible:', !!(docImgContainer && docImgContainer.style.display !== 'none'), '| Total overlays:', overlays.length);
+                }
+            } catch (e) {}
             
             overlays.forEach(overlay => {
 
@@ -877,6 +940,9 @@
                 let img = null;
                 let iframe = null;
                 
+                // Evitar conflicto: si el overlay está en documentoImagenContainer (imagen JPG), no usar nada del visor PDF
+                const overlayEnDocumentoImagen = overlay.closest('#documentoImagenContainer');
+                
                 if (overlay.id === 'pdfWatermark') {
                     // Para el overlay de PDF.js, buscar el canvas directamente
                     canvas = document.getElementById('pdfCanvas');
@@ -887,11 +953,18 @@
                 } else {
                     // Para otros overlays, usar la lógica normal
                     img = container ? container.querySelector('img') : null;
-                    canvas = container ? (container.querySelector('canvas') || document.getElementById('pdfCanvas')) : null;
-                    iframe = container ? container.querySelector('iframe') : null;
+                    // Si es el overlay de EVIDENCIA (imagen en documentoImagenContainer), NO usar pdfCanvas del modal PDF
+                    if (overlayEnDocumentoImagen) {
+                        canvas = null;
+                        iframe = null;
+                        if (!container) container = overlay.closest('.watermark-container');
+                        if (!img) img = document.getElementById('imgDocumento');
+                    } else {
+                        canvas = container ? (container.querySelector('canvas') || document.getElementById('pdfCanvas')) : null;
+                        iframe = container ? container.querySelector('iframe') : null;
+                    }
                     
                     // Si no se encontró contenedor pero hay un overlay de imagen, buscar la imagen directamente
-                    // Legacy: EVIDENCIA ahora usa PDF.js, pero este código se mantiene por compatibilidad
                     if (!container && !img && overlay.classList.contains('watermark-overlay')) {
                         const imgDoc = document.getElementById('imgDocumento');
                         if (imgDoc) {
@@ -955,7 +1028,12 @@
                     }
                 }
                 
-                if (!container && !isPdfOverlay && !isPdfJsCanvas) return;
+                if (!container && !isPdfOverlay && !isPdfJsCanvas) {
+                    if (typeof console !== 'undefined' && overlay.closest('#documentoImagenContainer')) {
+                        console.warn('[Marca agua EVIDENCIA] Overlay descartado: sin container (no es PDF).');
+                    }
+                    return;
+                }
                 
                 const isIframePdf = iframe || isPdfOverlay || isPdfJsCanvas;
                 
@@ -1007,6 +1085,16 @@
                     const imgRect = img.getBoundingClientRect();
                     width = imgRect.width || img.offsetWidth || img.naturalWidth || overlayRect.width;
                     height = imgRect.height || img.offsetHeight || img.naturalHeight || overlayRect.height;
+                    // Fallback para EVIDENCIA/INE cuando la imagen aún no tiene layout (getBoundingClientRect = 0)
+                    if ((width === 0 || height === 0) && img.naturalWidth > 0 && img.naturalHeight > 0) {
+                        width = width || img.naturalWidth;
+                        height = height || img.naturalHeight;
+                    }
+                    // EVIDENCIA en documentoImagenContainer: si sigue en 0, usar overlay o contenedor
+                    if (overlayEnDocumentoImagen && (width === 0 || height === 0) && container) {
+                        const cr = container.getBoundingClientRect();
+                        if (cr.width > 0 && cr.height > 0) { width = width || cr.width; height = height || cr.height; }
+                    }
                 } else if (canvas) {
                     // Para canvas de PDF.js (FACTURA), usar las dimensiones reales del canvas
                     if (isPdfJsCanvas) {
@@ -1024,6 +1112,9 @@
                 }
                 
                 if (width === 0 || height === 0) {
+                    if (typeof console !== 'undefined' && overlay.closest('#documentoImagenContainer')) {
+                        console.warn('[Marca agua EVIDENCIA] Overlay descartado: dimensiones 0. width=', width, 'height=', height, 'img=', img ? { naturalWidth: img.naturalWidth, naturalHeight: img.naturalHeight, src: (img.src || '').substring(0, 60) } : 'sin img');
+                    }
                     return;
                 }
                 
@@ -1078,13 +1169,11 @@
                     // Esto evita que la marca de agua se extienda más allá de la imagen
                     if (img && container && !isZoom) {
                         // Ajustar el contenedor al tamaño exacto de la imagen (solo para modal principal, no zoom)
-                        // El zoom maneja sus propias dimensiones dinámicamente
                         container.style.width = width + 'px';
                         container.style.height = height + 'px';
                         container.style.display = 'inline-block';
                         container.style.maxWidth = '100%';
                         container.style.maxHeight = '100%';
-                        
                     }
                     
                     overlay.style.width = width + 'px';
@@ -1094,7 +1183,7 @@
                     overlay.style.left = '0';
                     overlay.style.zIndex = '10';
                     overlay.style.pointerEvents = 'none';
-                    overlay.style.overflow = 'hidden'; // Asegurar que no se extienda más allá del overlay
+                    overlay.style.overflow = 'hidden'; // Solo dentro del cuadro de la imagen, no todo el modal
                 }
                 
                 // Para canvas de PDF.js, asegurar que el overlay esté correctamente posicionado
@@ -1238,19 +1327,34 @@
                     }
                     */ // FIN DEL CÓDIGO COMENTADO
                 } else {
-                    // LÓGICA ORIGINAL PARA IMÁGENES (INE, EVIDENCIA) - NO TOCAR ESTA PARTE
-                    // Esta es la lógica original que funcionaba perfectamente para imágenes
+                    // ========== SOLO MARCAS DE AGUA PARA IMÁGENES (INE y EVIDENCIA) ==========
+                    // No mezclar con documentos PDF (FACTURA, VALIDACIONES, FAD_DOC) — esos tienen su propia lógica/retorno arriba.
                     
-                    // VERIFICACIÓN: Si el overlay es pdfWatermark (de PDF.js), NO aplicar marcas de imágenes
+                    // VERIFICACIÓN: Si el overlay es pdfWatermark (visor PDF.js), NO aplicar marcas de imagen
                     if (overlay.id === 'pdfWatermark') {
                         return;
                     }
                     
-                    // VERIFICACIÓN MEJORADA: Detectar si es EVIDENCIA antes de buscar contenedor
                     const modalDocumento = document.getElementById('modalDocumento');
+                    const modalINE = document.getElementById('modalINE');
+                    const modalZoomINE = document.getElementById('modalZoomINE');
                     const estaEnModalDocumento = modalDocumento && modalDocumento.contains(overlay);
-                    let esEVIDENCIA = false;
+                    const estaEnModalINE = (modalINE && modalINE.contains(overlay)) || (modalZoomINE && modalZoomINE.contains(overlay));
                     
+                    // Solo aplicar marcas de imagen a INE o EVIDENCIA. Si estamos en modal de documento y es FACTURA/FAD_DOC/VALIDACIONES, salir.
+                    if (estaEnModalDocumento && !estaEnModalINE) {
+                        const modalTitle = document.querySelector('#modalDocumento .modal-title');
+                        const tituloTexto = modalTitle ? modalTitle.textContent.trim() : '';
+                        const esDocPdf = tituloTexto === 'FACTURA' || tituloTexto === 'VALIDACIONES' || tituloTexto === 'FAD_DOC' || tituloTexto.includes('FACTURA') || tituloTexto.includes('VALIDACIONES') || tituloTexto.includes('FAD_DOC');
+                        if (esDocPdf) {
+                            if (typeof console !== 'undefined' && (tituloTexto === 'EVIDENCIA' || tituloTexto.includes('EVIDENCIA'))) {
+                                console.warn('[Marca agua EVIDENCIA] No aplicado: modal tratado como PDF (esDocPdf=true). ¿EVIDENCIA se muestra como PDF en lugar de imagen?');
+                            }
+                            return; // No tocar marcas de documentos PDF
+                        }
+                    }
+                    
+                    let esEVIDENCIA = false;
                     if (estaEnModalDocumento) {
                         const modalTitle = document.querySelector('#modalDocumento .modal-title');
                         const tituloTexto = modalTitle ? modalTitle.textContent.trim() : '';
@@ -1299,6 +1403,9 @@
                         // SOLO salir si NO es EVIDENCIA y NO hay contenedor
                         // Para EVIDENCIA, continuar incluso sin contenedor formal
                         if (!container && !esEVIDENCIA) {
+                            if (typeof console !== 'undefined' && overlay.closest('#documentoImagenContainer')) {
+                                console.warn('[Marca agua EVIDENCIA] Overlay descartado: sin container y esEVIDENCIA=false (¿título del modal no es EVIDENCIA?).');
+                            }
                             return;
                         }
                         
@@ -1330,23 +1437,123 @@
                         overlay.style.opacity = '1';
                     }
                     
-                    // Crear marcas de agua - estilo diferente para EVIDENCIA
-                    for (let i = -2; i < numLayers; i++) {
+                    if (typeof console !== 'undefined' && (esEVIDENCIA || overlay.closest('#documentoImagenContainer'))) {
+                        console.log('[Marca agua EVIDENCIA] Dibujando marcas. container=', !!container, 'img=', !!img, 'effectiveWidth=', effectiveWidth, 'effectiveHeight=', effectiveHeight);
+                    }
+                    
+                    // Crear marcas de agua "SIN VALOR" solo dentro del cuadro de la imagen (INE y EVIDENCIA)
+                    // Escala según resolución/móvil para que se vean bien en cualquier pantalla
+                    const winW = typeof window !== 'undefined' ? window.innerWidth : 1200;
+                    const escalaMarca = winW < 480 ? 0.65 : (winW < 768 ? 0.8 : (winW < 1200 ? 0.9 : 1));
+                    const layerSpacing = Math.round(62 * escalaMarca);
+                    const textSpacing = Math.round(95 * escalaMarca);
+                    const fontSizeImg = (1.9 * escalaMarca).toFixed(2) + 'rem';
+                    const numRows = Math.ceil((effectiveHeight * 1.4) / layerSpacing) + 5;
+                    const numCols = Math.ceil((effectiveWidth * 1.4) / textSpacing) + 5;
+                    const colorAgua = 'rgba(220, 20, 20, 0.55)';
+                    const textShadow = '1px 1px 3px rgba(0, 0, 0, 0.4)';
+                    const topOffsetExtra = layerSpacing * 2.2;
+                    const desplazarArriba = Math.round(38 * escalaMarca);
+
+                    for (let row = -5; row < numRows; row++) {
                         const layer = document.createElement('div');
                         layer.className = 'watermark-layer';
-                        layer.textContent = 'SIN VALOR '.repeat(Math.ceil(effectiveWidth / 80) + 8);
-                        const layerWidth = effectiveWidth * 1.6;
-                        
-                        // Para EVIDENCIA: color más rojo y más visible (similar a la imagen compartida)
-                        // Para INE: mantener el estilo original
-                        const colorAgua = esEVIDENCIA ? 'rgba(220, 20, 20, 0.55)' : 'rgba(220, 20, 20, 0.45)';
-                        const textShadow = esEVIDENCIA ? '1px 1px 2px rgba(0, 0, 0, 0.3)' : '1px 1px 2px rgba(0, 0, 0, 0.25)';
-                        
-                        layer
+                        const repetitions = numCols + 4;
+                        layer.textContent = 'SIN VALOR '.repeat(repetitions);
+                        const topPos = (row * layerSpacing) - topOffsetExtra - desplazarArriba;
+                        const leftOffset = (row * (textSpacing * 0.5)) - Math.min(effectiveWidth * 0.15, 180 * escalaMarca);
+                        const layerWidth = Math.max(repetitions * textSpacing * 1.1, effectiveWidth - leftOffset + effectiveWidth * 0.25);
+
+                        layer.style.cssText = `
+                            position: absolute;
+                            font-size: ${fontSizeImg};
+                            font-weight: bold;
+                            color: ${colorAgua} !important;
+                            text-shadow: ${textShadow};
+                            transform: rotate(-45deg);
+                            transform-origin: center;
+                            white-space: nowrap;
+                            letter-spacing: 0.35em;
+                            z-index: 11 !important;
+                            top: ${topPos}px;
+                            left: ${leftOffset}px;
+                            width: ${layerWidth}px;
+                            text-align: center;
+                            pointer-events: none;
+                            user-select: none;
+                            line-height: 1.2;
+                            opacity: 1 !important;
+                            visibility: visible !important;
+                            display: block !important;
+                        `;
                         overlay.appendChild(layer);
                     }
                 }
             });
+            
+            aplicarMarcasAguaEVIDENCIA();
+        }
+        
+        // Solo EVIDENCIA (imagen JPG): no depende del bucle de overlays ni del visor PDF
+        function aplicarMarcasAguaEVIDENCIA(retryCount) {
+            retryCount = retryCount || 0;
+            const maxRetry = 4;
+            try {
+                const tituloEl = document.querySelector('#modalDocumento .modal-title');
+                const titulo = tituloEl ? tituloEl.textContent.trim() : '';
+                const esEvidencia = titulo === 'EVIDENCIA' || titulo.includes('EVIDENCIA');
+                if (!esEvidencia) return;
+                const imgContainer = document.getElementById('documentoImagenContainer');
+                if (!imgContainer) return;
+                const style = window.getComputedStyle(imgContainer);
+                const visible = style.display !== 'none' && style.visibility !== 'hidden' && (style.opacity !== '0' || !style.opacity);
+                if (!visible) return;
+                const overlayEv = imgContainer.querySelector('.watermark-overlay');
+                const imgEv = document.getElementById('imgDocumento');
+                if (!overlayEv || !imgEv) return;
+                overlayEv.querySelectorAll('.watermark-layer').forEach(l => l.remove());
+                let w = 0, h = 0;
+                const r = imgEv.getBoundingClientRect();
+                w = r.width || imgEv.naturalWidth || imgEv.offsetWidth || 0;
+                h = r.height || imgEv.naturalHeight || imgEv.offsetHeight || 0;
+                if ((w === 0 || h === 0) && imgEv.naturalWidth > 0 && imgEv.naturalHeight > 0) {
+                    w = w || imgEv.naturalWidth;
+                    h = h || imgEv.naturalHeight;
+                }
+                if (w <= 0 || h <= 0) {
+                    if (retryCount < maxRetry) setTimeout(function() { aplicarMarcasAguaEVIDENCIA(retryCount + 1); }, 200 + retryCount * 150);
+                    return;
+                }
+                const cont = overlayEv.closest('.watermark-container') || overlayEv.parentElement;
+                if (cont) {
+                    cont.style.position = 'relative';
+                    cont.style.display = 'inline-block';
+                    cont.style.width = w + 'px';
+                    cont.style.height = h + 'px';
+                }
+                overlayEv.style.cssText = 'position:absolute;top:0;left:0;width:' + w + 'px;height:' + h + 'px;z-index:10;pointer-events:none;overflow:hidden;display:block !important;visibility:visible !important;opacity:1 !important;';
+                var winW = typeof window !== 'undefined' ? window.innerWidth : 1200;
+                var escala = winW < 480 ? 0.65 : (winW < 768 ? 0.8 : (winW < 1200 ? 0.9 : 1));
+                var layerSpacing = Math.round(62 * escala), textSpacing = Math.round(95 * escala);
+                var fontSizeImg = (1.9 * escala).toFixed(2) + 'rem';
+                var colorAgua = 'rgba(220, 20, 20, 0.55)', textShadow = '1px 1px 3px rgba(0, 0, 0, 0.4)';
+                var topOffsetExtra = layerSpacing * 2.2, desplazarArriba = Math.round(38 * escala);
+                var numRows = Math.ceil((h * 1.4) / layerSpacing) + 5, numCols = Math.ceil((w * 1.4) / textSpacing) + 5;
+                for (var row = -5; row < numRows; row++) {
+                    var layer = document.createElement('div');
+                    layer.className = 'watermark-layer';
+                    var reps = numCols + 4;
+                    layer.textContent = 'SIN VALOR '.repeat(reps);
+                    var topPos = (row * layerSpacing) - topOffsetExtra - desplazarArriba;
+                    var leftOffset = (row * (textSpacing * 0.5)) - Math.min(w * 0.15, 180 * escala);
+                    var layerWidth = Math.max(reps * textSpacing * 1.1, w - leftOffset + w * 0.25);
+                    layer.style.cssText = 'position:absolute;font-size:' + fontSizeImg + ';font-weight:bold;color:' + colorAgua + ' !important;text-shadow:' + textShadow + ';transform:rotate(-45deg);transform-origin:center;white-space:nowrap;letter-spacing:0.35em;z-index:11 !important;top:' + topPos + 'px;left:' + leftOffset + 'px;width:' + layerWidth + 'px;text-align:center;pointer-events:none;user-select:none;line-height:1.2;opacity:1 !important;visibility:visible !important;display:block !important;';
+                    overlayEv.appendChild(layer);
+                }
+            } catch (e) {
+                if (typeof console !== 'undefined') console.warn('[Marca agua EVIDENCIA]', e);
+                if (retryCount < maxRetry) setTimeout(function() { aplicarMarcasAguaEVIDENCIA(retryCount + 1); }, 300);
+            }
         }
 
         // Función para crear marcas de agua "SIN VALOR" en TODO el modal de PDF
@@ -1701,9 +1908,10 @@
                 }
             }
             
+            // Reajustar marcas de agua cada vez que cambia el zoom para que cubran toda la imagen
             setTimeout(() => {
                 crearMarcasAgua();
-            }, 250);
+            }, 280);
         }
 
         // Zoom con scroll del mouse
@@ -2069,7 +2277,11 @@
                     setTimeout(() => {
                         crearMarcasAgua();
                         desactivarDescargaImagen(imgDocumento);
-                    }, 200);
+                        if (typeof aplicarMarcasAguaEVIDENCIA === 'function') {
+                            aplicarMarcasAguaEVIDENCIA(0);
+                            setTimeout(function() { aplicarMarcasAguaEVIDENCIA(0); }, 250);
+                        }
+                    }, 150);
                 });
             }
             
@@ -2180,7 +2392,15 @@
                         if (imgDoc) {
                             desactivarDescargaImagen(imgDoc);
                         }
-                        
+                        // Si es EVIDENCIA (imagen), aplicar marcas con varios reintentos (imagen puede cargar después)
+                        const titulo = document.querySelector('#modalDocumento .modal-title');
+                        const esEvidencia = titulo && (titulo.textContent.trim() === 'EVIDENCIA' || titulo.textContent.trim().includes('EVIDENCIA'));
+                        if (esEvidencia && typeof aplicarMarcasAguaEVIDENCIA === 'function') {
+                            aplicarMarcasAguaEVIDENCIA(0);
+                            [200, 450, 750, 1100].forEach(function(ms) { setTimeout(function() { aplicarMarcasAguaEVIDENCIA(0); }, ms); });
+                        } else {
+                            setTimeout(crearMarcasAgua, 450);
+                        }
                         // BLOQUEO COMPLETO DEL CLICK DERECHO EN EL VISOR DE PDF
                         bloquearClickDerechoPDF();
                     }, 300);
@@ -2243,7 +2463,7 @@
                 });
             }
             
-            // Cuando se muestra el modal del INE, asegurar protección
+            // Cuando se muestra el modal del INE, asegurar protección y crear marcas de agua (layout ya estable)
             const modalINE = document.getElementById('modalINE');
             if (modalINE) {
                 modalINE.addEventListener('shown.bs.modal', function() {
@@ -2253,6 +2473,12 @@
                         if (imgFrente) desactivarDescargaImagen(imgFrente);
                         if (imgReverso) desactivarDescargaImagen(imgReverso);
                     }, 300);
+                    // Crear marcas de agua cuando el modal está totalmente visible (dimensiones ya correctas)
+                    setTimeout(() => {
+                        if (typeof crearMarcasAgua === 'function') {
+                            crearMarcasAgua();
+                        }
+                    }, 200);
                 });
             }
         });
