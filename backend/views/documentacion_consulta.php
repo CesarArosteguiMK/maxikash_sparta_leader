@@ -134,7 +134,7 @@
                                     src="" 
                                     alt="Documento"
                                     class="img-fluid"
-                                    style="max-width: 100%; max-height: calc(95vh - 140px); width: auto; height: auto; object-fit: contain; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); cursor: zoom-in; display: block; margin: 0 auto; user-select: none; -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none; -webkit-user-drag: none; -khtml-user-drag: none; user-drag: none;"
+                                    style="max-width: 100%; max-height: calc(95vh - 140px); width: auto; height: auto; object-fit: contain; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); cursor: default; display: block; margin: 0 auto; user-select: none; -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none; -webkit-user-drag: none; -khtml-user-drag: none; user-drag: none;"
                                     draggable="false"
                                     oncontextmenu="return false;">
                                 <div class="watermark-overlay" id="watermarkOverlayEvidencia" style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:9999;overflow:visible;"></div>
@@ -277,13 +277,13 @@
                     <div class="d-flex align-items-center gap-2">
                         <!-- Controles de zoom -->
                         <div class="btn-group" role="group">
-                            <button type="button" class="btn btn-sm btn-outline-light" onclick="zoomOutINE()" title="Alejar">
+                            <button type="button" id="btnZoomOutINE" class="btn btn-sm btn-outline-light" onclick="zoomOutINE()" title="Alejar">
                                 <i class="fa fa-search-minus"></i>
                             </button>
                             <button type="button" class="btn btn-sm btn-outline-light" onclick="resetZoomINE()" title="Restablecer">
                                 <span id="zoomLevelINE">100%</span>
                             </button>
-                            <button type="button" class="btn btn-sm btn-outline-light" onclick="zoomInINE()" title="Acercar">
+                            <button type="button" id="btnZoomInINE" class="btn btn-sm btn-outline-light" onclick="zoomInINE()" title="Acercar">
                                 <i class="fa fa-search-plus"></i>
                             </button>
                         </div>
@@ -419,6 +419,7 @@
         #modalZoomINE .watermark-container-zoom {
             max-width: 100%;
             max-height: 100%;
+            overflow: visible;
         }
 
         #modalZoomINE .watermark-container-zoom img {
@@ -513,6 +514,14 @@
             color: #fff !important;
             background-color: rgba(255,255,255,0.2) !important;
             border-color: #fff !important;
+        }
+        #modalZoomINE .btn-group .btn-outline-light:disabled,
+        #modalZoomINE .btn-group .btn:disabled {
+            opacity: 0.5 !important;
+            cursor: not-allowed !important;
+            background-color: rgba(255,255,255,0.04) !important;
+            border-color: rgba(255,255,255,0.25) !important;
+            color: rgba(255,255,255,0.6) !important;
         }
         #modalZoomINE .btn-close,
         #modalZoomINE .btn-close-white {
@@ -1176,15 +1185,15 @@
                 } else {
                     // LÓGICA PARA IMÁGENES Y CANVAS
                     const esOverlayEvidencia = overlay.id === 'watermarkOverlayEvidencia' || overlay.closest('#documentoImagenContainer');
-                    if (img && container && !isZoom && !esOverlayEvidencia) {
-                        // Ajustar el contenedor al tamaño exacto de la imagen (NO para EVIDENCIA: evita que la foto se achique)
+                    const esOverlayINEModal = overlay.closest('#modalINE') && !overlay.closest('#modalZoomINE');
+                    if (img && container && !isZoom && !esOverlayEvidencia && !esOverlayINEModal) {
                         container.style.width = width + 'px';
                         container.style.height = height + 'px';
                         container.style.display = 'inline-block';
                         container.style.maxWidth = '100%';
                         container.style.maxHeight = '100%';
                     }
-                    if (esOverlayEvidencia) {
+                    if (esOverlayEvidencia || esOverlayINEModal) {
                         overlay.style.width = '100%';
                         overlay.style.height = '100%';
                         overlay.style.right = '0';
@@ -1461,7 +1470,7 @@
                     const winW = typeof window !== 'undefined' ? window.innerWidth : 1200;
                     const escalaMarca = winW < 480 ? 0.65 : (winW < 768 ? 0.8 : (winW < 1200 ? 0.9 : 1));
                     const esVertical = effectiveHeight > effectiveWidth;
-                    const densidadZoom = isZoom ? 0.78 : 1;
+                    const densidadZoom = isZoom ? 0.72 : 1;
                     const layerSpacing = Math.round((esVertical ? 46 : 62) * escalaMarca * densidadZoom);
                     const textSpacing = Math.round((esVertical ? 72 : 95) * escalaMarca * densidadZoom);
                     const fontSizeImg = ((esVertical ? 1.6 : 1.9) * escalaMarca).toFixed(2) + 'rem';
@@ -1471,11 +1480,14 @@
                     const numCols = Math.ceil((effectiveWidth * multAncho) / textSpacing) + (esVertical ? 14 : 8);
                     const colorAgua = 'rgba(220, 20, 20, 0.55)';
                     const textShadow = '1px 1px 3px rgba(0, 0, 0, 0.4)';
-                    const topOffsetExtra = layerSpacing * (estaEnModalINE ? (esVertical ? 1.8 : 1.4) : (esVertical ? 2.8 : 2.2));
-                    const desplazarArriba = Math.round((estaEnModalINE ? (esVertical ? 28 : 20) : (esVertical ? 50 : 38)) * escalaMarca);
+                    const topOffsetExtraZoom = (isZoom && estaEnModalINE) ? (esVertical ? 1.2 : 1) : null;
+                    const topOffsetExtra = layerSpacing * (topOffsetExtraZoom !== null ? topOffsetExtraZoom : (estaEnModalINE ? (esVertical ? 1.8 : 1.4) : (esVertical ? 2.8 : 2.2)));
+                    const desplazarArribaBase = estaEnModalINE ? (esVertical ? 28 : 20) : (esVertical ? 50 : 38);
+                    const desplazarArriba = Math.round((isZoom && estaEnModalINE ? (esVertical ? 8 : 6) : desplazarArribaBase) * escalaMarca);
                     const rowStart = (isZoom && estaEnModalINE) ? (esVertical ? -42 : -16) : (esVertical ? -26 : -8);
-                    const rowEnd = (isZoom && estaEnModalINE) ? (numRows + (esVertical ? 58 : 28)) : (numRows + (esVertical ? 28 : 10));
-                    const extraIzqZoom = (isZoom && estaEnModalINE) ? 110 : 0;
+                    const rowEnd = (isZoom && estaEnModalINE) ? (numRows + (esVertical ? 82 : 40)) : (numRows + (esVertical ? 28 : 10));
+                    const extraIzqZoom = (isZoom && estaEnModalINE) ? 170 : 0;
+                    const desplazamientoDiagonal = (isZoom && estaEnModalINE) ? Math.round(550 * escalaMarca) : 0;
 
                     for (let row = rowStart; row < rowEnd; row++) {
                         const layer = document.createElement('div');
@@ -1483,9 +1495,13 @@
                         const repsExtra = estaEnModalINE ? (esVertical ? 16 : 10) : (esVertical ? 12 : 4);
                         const repetitions = numCols + repsExtra + (isZoom && estaEnModalINE ? 6 : 0);
                         layer.textContent = 'SIN VALOR '.repeat(repetitions);
-                        const topPos = (row * layerSpacing) - topOffsetExtra - desplazarArriba;
+                        let topPos = (row * layerSpacing) - topOffsetExtra - desplazarArriba;
                         let leftOffset = (row * (textSpacing * 0.5)) - (esVertical ? Math.min(effectiveWidth * 0.28, 240 * escalaMarca) : Math.min(effectiveWidth * 0.2, 200 * escalaMarca));
                         if (extraIzqZoom) leftOffset -= extraIzqZoom;
+                        if (desplazamientoDiagonal) {
+                            topPos += desplazamientoDiagonal;
+                            leftOffset -= desplazamientoDiagonal;
+                        }
                         let minWidth = effectiveWidth - leftOffset + (esVertical ? effectiveHeight * 0.55 : effectiveWidth * 0.4);
                         if (extraIzqZoom) minWidth += extraIzqZoom;
                         const layerWidth = Math.max(repetitions * textSpacing * 1.2, minWidth);
@@ -1668,19 +1684,16 @@
             const numRows = Math.ceil((height * 1.2) / layerSpacing) + 2;
             const numCols = Math.ceil((width * 1.6) / textSpacing) + 5;
             
-            // Crear patrón diagonal ordenado que cubra TODO el modal
-            // Empezar desde más arriba para cubrir desde el inicio del modal
+            const desplazamientoDiagonalPDF = esMovil ? 45 : 60;
             for (let row = -8; row < numRows; row++) {
                 const layer = document.createElement('div');
                 layer.className = 'watermark-layer';
                 
-                // Calcular posición vertical - ajustar offset según dispositivo
-                // En móvil, reducir el offset para bajar las marcas de agua
                 const topOffset = esMovil ? layerSpacing * 0.1 : layerSpacing * 4;
-                const topPos = (row * layerSpacing) - topOffset;
-                
-                // Calcular posición horizontal inicial (desplazada para crear diagonal)
-                const leftOffset = (row * (textSpacing * 0.5)) - Math.min(width * 0.2, 200);
+                let topPos = (row * layerSpacing) - topOffset;
+                let leftOffset = (row * (textSpacing * 0.5)) - Math.min(width * 0.2, 200);
+                topPos -= desplazamientoDiagonalPDF;
+                leftOffset -= desplazamientoDiagonalPDF;
                 
                 // Crear texto con suficientes repeticiones
                 const repetitions = numCols + 6;
@@ -1720,8 +1733,8 @@
 
         // Variables para zoom dinámico
         let currentZoom = 1;
-        let minZoom = 0.5;
-        let maxZoom = 5;
+        let minZoom = 1;
+        let maxZoom = 1.75;
         let isDragging = false;
         let startX = 0;
         let startY = 0;
@@ -1840,6 +1853,10 @@
                     if (zoomLevel) {
                         zoomLevel.textContent = '100%';
                     }
+                    var btnOut = document.getElementById('btnZoomOutINE');
+                    var btnIn = document.getElementById('btnZoomInINE');
+                    if (btnOut) { btnOut.disabled = currentZoom <= minZoom; btnOut.style.display = ''; }
+                    if (btnIn) { btnIn.disabled = currentZoom >= maxZoom; btnIn.style.display = ''; }
                     // Recrear marcas de agua con el tamaño natural
                     crearMarcasAgua();
                 }, 300);
@@ -1872,11 +1889,13 @@
                         img.style.maxHeight = 'calc(100vh - 140px)';
                     }
                     
-                    // Overlay de marca de agua sigue el tamaño real
+                    // Overlay de marca de agua sigue el tamaño real de la imagen
                     const overlay = container.querySelector('.watermark-overlay-zoom');
                     if (overlay) {
                         overlay.style.width = `${scaledWidth}px`;
                         overlay.style.height = `${scaledHeight}px`;
+                        overlay.style.left = '';
+                        overlay.style.top = '';
                     }
                     
                     // Wrapper más grande para permitir scroll en todas las direcciones
@@ -1951,6 +1970,16 @@
             
             if (zoomLevel) {
                 zoomLevel.textContent = Math.round(currentZoom * 100) + '%';
+            }
+            var btnOut = document.getElementById('btnZoomOutINE');
+            var btnIn = document.getElementById('btnZoomInINE');
+            if (btnOut) {
+                btnOut.disabled = currentZoom <= minZoom;
+                btnOut.style.display = '';
+            }
+            if (btnIn) {
+                btnIn.disabled = currentZoom >= maxZoom;
+                btnIn.style.display = '';
             }
             
             if (modalBody) {
