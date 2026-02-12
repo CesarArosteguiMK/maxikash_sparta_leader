@@ -22,8 +22,55 @@ $archivoReporte = $LOG_DIR . '/diagnostico_segundometro_' . $timestamp . '.txt';
 // Configuración SSH (debe coincidir con SegundometroDAO.php)
 $SSH_HOST = '34.173.106.81';
 $SSH_USER = 'jesus';
-$SSH_KEY = $RAIZ . '/config/ssh/jesusssh4.unknown';
 $DIRECTORIO_REMOTO = '/home/usuariossftp/s2/mega_reporte';
+
+// Obtener ruta de la clave SSH igual que SegundometroDAO::getSSHKey()
+function getDiagnosticoSSHKey($raiz) {
+    $configFile = $raiz . '/config/config.ini';
+    $defaultKey = $raiz . '/config/ssh/jesusssh4.unknown';
+    if (is_file($configFile)) {
+        $config = @parse_ini_file($configFile, true);
+        if (is_array($config)) {
+            $path = trim($config['ssh']['ssh_key'] ?? '');
+            if ($path !== '' && @is_file($path)) {
+                return $path;
+            }
+        }
+    }
+    return $defaultKey;
+}
+
+// Obtener comando SSH igual que SegundometroDAO::getSSHCommand()
+function getDiagnosticoSSHCommand() {
+    $raiz = dirname(__DIR__);
+    $configFile = $raiz . '/config/config.ini';
+    if (is_file($configFile)) {
+        $config = @parse_ini_file($configFile, true);
+        if (is_array($config)) {
+            $path = trim($config['ssh']['ssh_command'] ?? '');
+            if ($path !== '' && @is_file($path)) {
+                return $path;
+            }
+        }
+    }
+    $output = [];
+    $ret = 0;
+    if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
+        @exec('where.exe ssh 2>&1', $output, $ret);
+    } else {
+        @exec('which ssh 2>&1', $output, $ret);
+    }
+    if ($ret === 0 && !empty($output)) {
+        return trim($output[0]);
+    }
+    return null;
+}
+
+$SSH_KEY = getDiagnosticoSSHKey($RAIZ);
+$SSH_CMD = getDiagnosticoSSHCommand();
+if ($SSH_CMD === null) {
+    $SSH_CMD = 'ssh';
+}
 
 // Array para almacenar resultados
 $resultados = [];
@@ -156,6 +203,7 @@ $reporte[] = "";
 $reporte[] = "3. CLAVE SSH";
 $reporte[] = str_repeat("-", 47);
 $reporte[] = "  Ruta: $SSH_KEY";
+$reporte[] = "  (misma lógica que SegundometroDAO::getSSHKey() - config.ini [ssh] ssh_key o por defecto)";
 
 if (file_exists($SSH_KEY)) {
     agregarResultado('SSH', 'Archivo clave', 'OK', 'Existe', $SSH_KEY);
@@ -212,7 +260,8 @@ if (file_exists($SSH_KEY) && function_exists('exec') && !in_array('exec', $disab
     // Test 1: Ping al host
     $reporte[] = "";
     $reporte[] = "  [Test 1] Ping al servidor...";
-    $pingResult = ejecutarComando("ping -c 1 -W 5 $SSH_HOST");
+    $pingCmd = (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') ? "ping -n 1 $SSH_HOST" : "ping -c 1 -W 5 $SSH_HOST";
+    $pingResult = ejecutarComando($pingCmd);
     if ($pingResult['success']) {
         agregarResultado('Conectividad', 'Ping', 'OK', 'Servidor responde');
         $reporte[] = "  ✅ Servidor responde a ping";
@@ -221,12 +270,14 @@ if (file_exists($SSH_KEY) && function_exists('exec') && !in_array('exec', $disab
         $reporte[] = "  ⚠️  Servidor no responde a ping (puede estar bloqueado por firewall)";
     }
     
-    // Test 2: Conexión SSH básica
+    // Test 2: Conexión SSH básica (usa la misma clave y comando que el DAO)
     $reporte[] = "";
     $reporte[] = "  [Test 2] Conexión SSH básica (timeout 10s)...";
     $sshKeyEscaped = escapeshellarg($SSH_KEY);
+    $sshExeEscaped = escapeshellarg($SSH_CMD);
     $sshTest = sprintf(
-        'ssh -i %s -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10 -o BatchMode=yes %s@%s "echo OK" 2>&1',
+        '%s -i %s -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10 -o BatchMode=yes %s@%s "echo OK" 2>&1',
+        $sshExeEscaped,
         $sshKeyEscaped,
         $SSH_USER,
         $SSH_HOST
@@ -253,7 +304,8 @@ if (file_exists($SSH_KEY) && function_exists('exec') && !in_array('exec', $disab
         $reporte[] = "";
         $reporte[] = "  [Test 3] Verificar directorio remoto...";
         $dirTest = sprintf(
-            'ssh -i %s -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10 %s@%s "test -d %s && echo OK || echo FAIL" 2>&1',
+            '%s -i %s -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10 %s@%s "test -d %s && echo OK || echo FAIL" 2>&1',
+            $sshExeEscaped,
             $sshKeyEscaped,
             $SSH_USER,
             $SSH_HOST,
@@ -273,7 +325,8 @@ if (file_exists($SSH_KEY) && function_exists('exec') && !in_array('exec', $disab
         $reporte[] = "";
         $reporte[] = "  [Test 4] Listar archivos mega_rpt_*.csv.zip...";
         $listTest = sprintf(
-            'ssh -i %s -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10 %s@%s "cd %s && ls -l mega_rpt_*.csv.zip 2>/dev/null | head -n 5" 2>&1',
+            '%s -i %s -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10 %s@%s "cd %s && ls -l mega_rpt_*.csv.zip 2>/dev/null | head -n 5" 2>&1',
+            $sshExeEscaped,
             $sshKeyEscaped,
             $SSH_USER,
             $SSH_HOST,
@@ -554,8 +607,10 @@ if (file_exists($archivoDAO)) {
     }
     
     if (preg_match('/private static \$SSH_KEY = (.+?);/', $contenido, $m)) {
-        $reporte[] = "     Configuración SSH_KEY: " . trim($m[1]);
+        $reporte[] = "     Configuración SSH_KEY (por defecto en DAO): " . trim($m[1]);
     }
+    $reporte[] = "     Clave que usa este diagnóstico (getSSHKey): $SSH_KEY";
+    $reporte[] = "     Comando SSH que usa este diagnóstico: $SSH_CMD";
 } else {
     agregarResultado('Clases', 'SegundometroDAO.php', 'ERROR', 'No existe', $archivoDAO);
     $reporte[] = "  ❌ SegundometroDAO.php NO existe";
