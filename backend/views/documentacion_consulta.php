@@ -1751,7 +1751,7 @@
             return typeof window.tienePermisoControlFAD_DOC !== 'undefined' && window.tienePermisoControlFAD_DOC && typeof window.tipoDocumentoActual !== 'undefined' && window.tipoDocumentoActual === 'FAD_DOC';
         }
         // true = botón "Ver videos" siempre habilitado (para pruebas en servidor); false = solo habilitado en páginas con medios
-        var SIEMPRE_HABILITAR_BOTON_VIDEOS = true;
+        var SIEMPRE_HABILITAR_BOTON_VIDEOS = false;
         function actualizarBotonVideosMedia() {
             const btn = document.getElementById('pdfVideosBtn');
             const sep = document.getElementById('pdfVideosSep');
