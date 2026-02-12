@@ -20,6 +20,11 @@ backend/config/master_key.php
 !backend/config/ssh/.gitkeep
 !backend/config/ssh/README.md
 !backend/config/ssh/fix_permissions.bat
+
+# Medios extraídos de PDFs (videos/audio temporales) y logs de depuración
+backend/storage/tmp_media/
+backend/storage/logs/*.log
+!backend/storage/logs/.gitkeep
 ```
 
 ---

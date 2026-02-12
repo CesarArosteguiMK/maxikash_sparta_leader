@@ -2817,7 +2817,7 @@ public function descargar()
         }
         $interpretes = array_filter(array_merge(
             [self::getPythonExecutable()],
-            ['python', 'python3', 'py']
+            ['py', 'python3', 'python']
         ));
         foreach ($interpretes as $python) {
             if ($python === null || $python === '') {
@@ -2858,11 +2858,11 @@ public function descargar()
                 return $out;
             }
         }
-        $out = @shell_exec('python ' . $escScript . ' --inspect ' . $escPdf . ' 2>&1');
+        $out = @shell_exec('py ' . $escScript . ' --inspect ' . $escPdf . ' 2>&1');
         if ($out !== null && $out !== '' && trim($out) !== '') {
             return $out;
         }
-        $out = @shell_exec('py ' . $escScript . ' --inspect ' . $escPdf . ' 2>&1');
+        $out = @shell_exec('python ' . $escScript . ' --inspect ' . $escPdf . ' 2>&1');
         return ($out !== null && $out !== '' && trim($out) !== '') ? $out : null;
     }
 
