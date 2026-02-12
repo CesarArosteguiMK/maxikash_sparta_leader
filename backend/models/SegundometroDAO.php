@@ -94,7 +94,7 @@ class SegundometroDAO extends Model
         $comandoEscapado = escapeshellarg($comando);
         
         $sshComando = sprintf(
-            '%s -i %s -o StrictHostKeyChecking=no -o StrictModes=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=20 -o ServerAliveInterval=5 %s@%s %s 2>&1',
+            '%s -i %s -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=20 -o ServerAliveInterval=5 %s@%s %s 2>&1',
             escapeshellarg($sshCommand),
             $sshKeyEscaped,
             self::$SSH_USER,
@@ -385,7 +385,7 @@ class SegundometroDAO extends Model
         $localEscaped = escapeshellarg($rutaLocal);
         
         $comando = sprintf(
-            'scp -i %s -o StrictHostKeyChecking=no -o StrictModes=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10 %s %s 2>&1',
+            'scp -i %s -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10 %s %s 2>&1',
             $sshKeyEscaped,
             $remoteEscaped,
             $localEscaped
