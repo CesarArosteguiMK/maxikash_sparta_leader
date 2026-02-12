@@ -2856,6 +2856,19 @@ public function descargar()
         $out = @shell_exec($cmd);
         if ($info['isTemp']) @unlink($info['path']);
         $json = $out ? @json_decode(trim($out), true) : null;
+        // Log para depurar extracción de videos en servidor (quitar cuando se resuelva)
+        $logDir = __DIR__ . '/../storage/logs';
+        if (is_dir($logDir)) {
+            $logFile = $logDir . '/extraer_videos_debug.log';
+            $outPreview = $out === null ? '(shell_exec devolvió null)' : (strlen($out) > 2000 ? substr($out, 0, 2000) . '...[truncado]' : $out);
+            $jsonOk = $json && is_array($json);
+            $archivosCount = $jsonOk && isset($json['archivos']) ? count($json['archivos']) : 0;
+            $logLine = date('Y-m-d H:i:s') . " | idCredito=$id | pagina=" . ($pagina ?? 'all') . "\n"
+                . "  cmd: " . $cmd . "\n"
+                . "  out_len: " . ($out === null ? 'null' : strlen($out)) . " | json_ok: " . ($jsonOk ? '1' : '0') . " | archivos: " . $archivosCount . " | json_error: " . json_last_error_msg() . "\n"
+                . "  out_preview:\n" . $outPreview . "\n---\n";
+            @file_put_contents($logFile, $logLine, FILE_APPEND | LOCK_EX);
+        }
         if (!$json || empty($json['archivos'])) {
             @array_map('unlink', glob($outdir . '/*') ?: []);
             @rmdir($outdir);
