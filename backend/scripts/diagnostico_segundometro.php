@@ -280,10 +280,12 @@ if (file_exists($SSH_KEY) && function_exists('exec') && !in_array('exec', $disab
     $reporte[] = "  [Test 2] Conexión SSH básica (timeout 10s)...";
     $sshKeyEscaped = escapeshellarg($SSH_KEY);
     $sshExeEscaped = escapeshellarg($SSH_CMD);
+    $knownHostsFile = (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') ? 'NUL' : '/dev/null';
     $sshTest = sprintf(
-        '%s -i %s -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10 -o BatchMode=yes %s@%s "echo OK" 2>&1',
+        '%s -i %s -o StrictHostKeyChecking=no -o UserKnownHostsFile=%s -o ConnectTimeout=10 -o BatchMode=yes %s@%s "echo OK" 2>&1',
         $sshExeEscaped,
         $sshKeyEscaped,
+        $knownHostsFile,
         $SSH_USER,
         $SSH_HOST
     );
@@ -309,9 +311,10 @@ if (file_exists($SSH_KEY) && function_exists('exec') && !in_array('exec', $disab
         $reporte[] = "";
         $reporte[] = "  [Test 3] Verificar directorio remoto...";
         $dirTest = sprintf(
-            '%s -i %s -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10 %s@%s "test -d %s && echo OK || echo FAIL" 2>&1',
+            '%s -i %s -o StrictHostKeyChecking=no -o UserKnownHostsFile=%s -o ConnectTimeout=10 %s@%s "test -d %s && echo OK || echo FAIL" 2>&1',
             $sshExeEscaped,
             $sshKeyEscaped,
+            $knownHostsFile,
             $SSH_USER,
             $SSH_HOST,
             escapeshellarg($DIRECTORIO_REMOTO)
@@ -330,9 +333,10 @@ if (file_exists($SSH_KEY) && function_exists('exec') && !in_array('exec', $disab
         $reporte[] = "";
         $reporte[] = "  [Test 4] Listar archivos mega_rpt_*.csv.zip...";
         $listTest = sprintf(
-            '%s -i %s -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10 %s@%s "cd %s && ls -l mega_rpt_*.csv.zip 2>/dev/null | head -n 5" 2>&1',
+            '%s -i %s -o StrictHostKeyChecking=no -o UserKnownHostsFile=%s -o ConnectTimeout=10 %s@%s "cd %s && ls -l mega_rpt_*.csv.zip 2>/dev/null | head -n 5" 2>&1',
             $sshExeEscaped,
             $sshKeyEscaped,
+            $knownHostsFile,
             $SSH_USER,
             $SSH_HOST,
             escapeshellarg($DIRECTORIO_REMOTO)

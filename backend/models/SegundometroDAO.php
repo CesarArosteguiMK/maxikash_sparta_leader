@@ -103,6 +103,14 @@ class SegundometroDAO extends Model
     }
     
     /**
+     * Ruta para UserKnownHostsFile: en Windows NUL, en Linux /dev/null.
+     */
+    private static function getSSHKnownHostsFile()
+    {
+        return (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') ? 'NUL' : '/dev/null';
+    }
+    
+    /**
      * Ejecutar comando SSH remoto
      * 
      * @param string $comando Comando a ejecutar en el servidor remoto
@@ -123,10 +131,12 @@ class SegundometroDAO extends Model
         $sshKeyEscaped = escapeshellarg(self::getSSHKey());
         $comandoEscapado = escapeshellarg($comando);
         
+        $knownHosts = self::getSSHKnownHostsFile();
         $sshComando = sprintf(
-            '%s -i %s -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=20 -o ServerAliveInterval=5 %s@%s %s 2>&1',
+            '%s -i %s -o StrictHostKeyChecking=no -o UserKnownHostsFile=%s -o ConnectTimeout=20 -o ServerAliveInterval=5 %s@%s %s 2>&1',
             escapeshellarg($sshCommand),
             $sshKeyEscaped,
+            $knownHosts,
             self::$SSH_USER,
             self::$SSH_HOST,
             $comandoEscapado
@@ -414,9 +424,11 @@ class SegundometroDAO extends Model
         $remoteEscaped = escapeshellarg(self::$SSH_USER . '@' . self::$SSH_HOST . ':' . $rutaRemota);
         $localEscaped = escapeshellarg($rutaLocal);
         
+        $knownHosts = self::getSSHKnownHostsFile();
         $comando = sprintf(
-            'scp -i %s -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10 %s %s 2>&1',
+            'scp -i %s -o StrictHostKeyChecking=no -o UserKnownHostsFile=%s -o ConnectTimeout=10 %s %s 2>&1',
             $sshKeyEscaped,
+            $knownHosts,
             $remoteEscaped,
             $localEscaped
         );
