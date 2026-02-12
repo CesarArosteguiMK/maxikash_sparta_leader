@@ -308,9 +308,198 @@ if (file_exists($SSH_KEY) && function_exists('exec') && !in_array('exec', $disab
 $reporte[] = "";
 
 // ============================================
-// 5. VERIFICAR DIRECTORIOS DE LA APLICACIÓN
+// 5. PRUEBAS ESPECÍFICAS DE DETECCIÓN SSH
 // ============================================
-$reporte[] = "5. DIRECTORIOS DE LA APLICACIÓN";
+$reporte[] = "5. PRUEBAS ESPECÍFICAS (getSSHCommand)";
+$reporte[] = str_repeat("-", 47);
+
+// Cargar SegundometroDAO para probar getSSHCommand()
+$segDAO = $RAIZ . '/models/SegundometroDAO.php';
+if (file_exists($segDAO)) {
+    require_once $RAIZ . '/core/Model.php';
+    require_once $segDAO;
+    
+    $reporte[] = "";
+    $reporte[] = "  [Test A] Lectura de config.ini desde PHP...";
+    $configFile = $RAIZ . '/config/config.ini';
+    if (is_file($configFile)) {
+        $config = @parse_ini_file($configFile, true);
+        if (is_array($config) && isset($config['ssh']['ssh_command'])) {
+            $pathConfig = trim($config['ssh']['ssh_command']);
+            agregarResultado('Config', 'Leer config.ini [ssh]', 'OK', 'Se lee correctamente', $pathConfig);
+            $reporte[] = "  ✅ config.ini [ssh] ssh_command: $pathConfig";
+            
+            if (@is_file($pathConfig)) {
+                agregarResultado('Config', 'Ruta SSH en config', 'OK', 'Archivo existe');
+                $reporte[] = "     ✅ El archivo existe en esa ruta";
+            } else {
+                agregarResultado('Config', 'Ruta SSH en config', 'ERROR', 'Archivo NO existe en esa ruta');
+                $reporte[] = "     ❌ El archivo NO existe en esa ruta";
+            }
+        } else {
+            agregarResultado('Config', 'Leer config.ini [ssh]', 'WARNING', 'No está configurado o no se pudo leer');
+            $reporte[] = "  ⚠️  [ssh] ssh_command no está en config.ini";
+        }
+    } else {
+        agregarResultado('Config', 'config.ini', 'WARNING', 'No existe');
+        $reporte[] = "  ⚠️  config.ini no existe";
+    }
+    
+    $reporte[] = "";
+    $reporte[] = "  [Test B] Ejecutar getSSHCommand() del DAO...";
+    try {
+        // Usar reflection para acceder al método privado
+        $reflection = new \ReflectionClass('Models\SegundometroDAO');
+        $method = $reflection->getMethod('getSSHCommand');
+        $method->setAccessible(true);
+        $sshPath = $method->invoke(null);
+        
+        if ($sshPath !== null && $sshPath !== '') {
+            agregarResultado('DAO', 'getSSHCommand()', 'OK', 'Detectó ruta de SSH', $sshPath);
+            $reporte[] = "  ✅ getSSHCommand() devuelve: $sshPath";
+            
+            if (@is_file($sshPath)) {
+                $reporte[] = "     ✅ El archivo existe";
+            } else {
+                agregarResultado('DAO', 'SSH executable', 'ERROR', 'La ruta devuelta no existe como archivo');
+                $reporte[] = "     ❌ Pero el archivo NO existe";
+            }
+        } else {
+            agregarResultado('DAO', 'getSSHCommand()', 'ERROR', 'NO detectó ruta de SSH (devolvió null)');
+            $reporte[] = "  ❌ getSSHCommand() devolvió NULL";
+            $reporte[] = "     Esto significa que ni config.ini ni detección automática funcionaron";
+        }
+    } catch (\Exception $e) {
+        agregarResultado('DAO', 'getSSHCommand()', 'ERROR', 'Error al ejecutar', $e->getMessage());
+        $reporte[] = "  ❌ Error al ejecutar getSSHCommand(): " . $e->getMessage();
+    }
+} else {
+    agregarResultado('DAO', 'SegundometroDAO.php', 'ERROR', 'No se pudo cargar');
+    $reporte[] = "  ❌ No se pudo cargar SegundometroDAO.php";
+}
+
+$reporte[] = "";
+
+// ============================================
+// 6. VARIABLES DE ENTORNO Y CONTEXTO
+// ============================================
+$reporte[] = "6. VARIABLES DE ENTORNO Y CONTEXTO";
+$reporte[] = str_repeat("-", 47);
+
+$sapi = php_sapi_name();
+$reporte[] = "  SAPI: $sapi";
+if ($sapi === 'cli') {
+    $reporte[] = "     ℹ️  Modo CLI (línea de comandos)";
+} elseif (in_array($sapi, ['apache', 'apache2handler', 'fpm-fcgi', 'cgi-fcgi'])) {
+    $reporte[] = "     ℹ️  Modo Web ($sapi)";
+}
+
+$path = getenv('PATH');
+if ($path) {
+    $reporte[] = "";
+    $reporte[] = "  Variable PATH:";
+    $pathParts = explode(PATH_SEPARATOR, $path);
+    $numPaths = count($pathParts);
+    $reporte[] = "     Total de rutas: $numPaths";
+    $reporte[] = "     Primeras 5 rutas:";
+    foreach (array_slice($pathParts, 0, 5) as $i => $p) {
+        $reporte[] = "       " . ($i + 1) . ". " . $p;
+    }
+    
+    // Buscar OpenSSH en PATH
+    $foundOpenSSH = false;
+    foreach ($pathParts as $p) {
+        if (stripos($p, 'OpenSSH') !== false || stripos($p, 'ssh') !== false) {
+            $reporte[] = "     ✅ Encontrado directorio SSH en PATH: $p";
+            $foundOpenSSH = true;
+        }
+    }
+    if (!$foundOpenSSH) {
+        agregarResultado('Entorno', 'PATH con SSH', 'WARNING', 'No hay directorio OpenSSH/ssh en PATH');
+        $reporte[] = "     ⚠️  No se encontró directorio OpenSSH/ssh en PATH";
+    }
+} else {
+    agregarResultado('Entorno', 'Variable PATH', 'WARNING', 'No se pudo leer');
+    $reporte[] = "  ⚠️  No se pudo leer variable PATH";
+}
+
+$reporte[] = "";
+$reporte[] = "  Otras variables relevantes:";
+$relevantVars = ['HOME', 'USERPROFILE', 'SYSTEMROOT', 'WINDIR', 'TEMP', 'TMP'];
+foreach ($relevantVars as $var) {
+    $val = getenv($var);
+    if ($val) {
+        $reporte[] = "     $var: $val";
+    }
+}
+
+$reporte[] = "";
+
+// ============================================
+// 7. TEST DE EJECUCIÓN REAL SSH DESDE PHP
+// ============================================
+$reporte[] = "7. TEST DE EJECUCIÓN SSH DESDE CONTEXTO PHP";
+$reporte[] = str_repeat("-", 47);
+
+$reporte[] = "";
+$reporte[] = "  [Test 1] Ejecutar 'where.exe ssh' (Windows)...";
+$whereResult = ejecutarComando('where.exe ssh');
+if ($whereResult['success'] && !empty(trim($whereResult['output']))) {
+    $paths = explode("\n", trim($whereResult['output']));
+    agregarResultado('Test SSH', 'where.exe ssh', 'OK', 'Encontró ' . count($paths) . ' ruta(s)', $whereResult['output']);
+    $reporte[] = "  ✅ Encontró " . count($paths) . " ruta(s):";
+    foreach ($paths as $p) {
+        $p = trim($p);
+        if ($p) $reporte[] = "     • $p";
+    }
+} else {
+    agregarResultado('Test SSH', 'where.exe ssh', 'ERROR', 'No encontró ssh.exe');
+    $reporte[] = "  ❌ No encontró ssh.exe";
+    if (!empty($whereResult['output'])) {
+        $reporte[] = "     Salida: " . $whereResult['output'];
+    }
+}
+
+$reporte[] = "";
+$reporte[] = "  [Test 2] Intentar ejecutar SSH directamente...";
+$sshTestDirect = ejecutarComando('ssh -V');
+if ($sshTestDirect['success'] || strpos($sshTestDirect['output'], 'OpenSSH') !== false) {
+    agregarResultado('Test SSH', 'ssh -V', 'OK', 'SSH ejecutable desde PHP');
+    $reporte[] = "  ✅ SSH es ejecutable desde este contexto PHP";
+    $reporte[] = "     " . trim($sshTestDirect['output']);
+} else {
+    agregarResultado('Test SSH', 'ssh -V', 'ERROR', 'SSH NO ejecutable desde PHP');
+    $reporte[] = "  ❌ SSH NO es ejecutable desde este contexto PHP";
+    $reporte[] = "     Salida: " . trim($sshTestDirect['output']);
+}
+
+$reporte[] = "";
+$reporte[] = "  [Test 3] Ruta completa C:\\Windows\\System32\\OpenSSH\\ssh.exe...";
+$sshFullPath = 'C:\Windows\System32\OpenSSH\ssh.exe';
+if (file_exists($sshFullPath)) {
+    $reporte[] = "  ✅ Archivo existe: $sshFullPath";
+    
+    $sshTestFull = ejecutarComando('"' . $sshFullPath . '" -V');
+    if ($sshTestFull['success'] || strpos($sshTestFull['output'], 'OpenSSH') !== false) {
+        agregarResultado('Test SSH', 'Ruta completa SSH', 'OK', 'Ejecutable con ruta completa');
+        $reporte[] = "  ✅ Ejecutable con ruta completa";
+        $reporte[] = "     " . trim($sshTestFull['output']);
+    } else {
+        agregarResultado('Test SSH', 'Ruta completa SSH', 'ERROR', 'Existe pero no ejecutable');
+        $reporte[] = "  ❌ Existe pero no se puede ejecutar";
+        $reporte[] = "     Salida: " . trim($sshTestFull['output']);
+    }
+} else {
+    agregarResultado('Test SSH', 'SSH en ruta estándar', 'WARNING', 'No existe en ruta estándar de Windows');
+    $reporte[] = "  ⚠️  No existe en: $sshFullPath";
+}
+
+$reporte[] = "";
+
+// ============================================
+// 8. VERIFICAR DIRECTORIOS DE LA APLICACIÓN
+// ============================================
+$reporte[] = "8. DIRECTORIOS DE LA APLICACIÓN";
 $reporte[] = str_repeat("-", 47);
 
 $directorios = [
@@ -341,9 +530,9 @@ foreach ($directorios as $nombre => $ruta) {
 $reporte[] = "";
 
 // ============================================
-// 6. VERIFICAR CLASES PHP NECESARIAS
+// 9. VERIFICAR CLASES PHP NECESARIAS
 // ============================================
-$reporte[] = "6. CLASES PHP";
+$reporte[] = "9. CLASES PHP";
 $reporte[] = str_repeat("-", 47);
 
 $archivoDAO = $RAIZ . '/models/SegundometroDAO.php';
