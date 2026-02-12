@@ -29,33 +29,38 @@ El script genera un reporte completo guardado en `backend/storage/logs/diagnosti
 
 ## Configuración para Shell Segundómetro
 
-El módulo Shell Segundómetro usa SSH para conectarse al servidor remoto de reportes. Si en el servidor el comando `ssh` no está en el PATH, configure la ruta en **`backend/config/config.ini`**:
+El módulo Shell Segundómetro usa SSH para conectarse al servidor remoto de reportes. Configure en **`backend/config/config.ini`**:
 
-### Windows:
+### ssh_command (ejecutable SSH)
 
+Si en el servidor el comando `ssh` no está en el PATH:
+
+**Windows:**
 ```ini
 [ssh]
 ssh_command = C:\Windows\System32\OpenSSH\ssh.exe
 ```
 
-### Linux:
-
+**Linux:**
 ```ini
 [ssh]
 ssh_command = /usr/bin/ssh
 ```
 
-**Obtener la ruta en Windows:**
-```cmd
-where.exe ssh
+### ssh_key (clave privada)
+
+Si la clave en `backend/config/ssh/` tiene problemas de permisos (p. ej. "UNPROTECTED PRIVATE KEY FILE" en Windows), use una ruta donde la clave sí funcione:
+
+```ini
+[ssh]
+ssh_key = C:\Users\admin\Downloads\jesusssh4.unknown
 ```
 
-**Obtener la ruta en Linux:**
-```bash
-which ssh
-```
+- **Servidor:** Puede usar la ruta donde la clave tiene permisos correctos (ej. `C:\Users\admin\Downloads\jesusssh4.unknown`).
+- **Local/desarrollo:** Si no define `ssh_key` o el archivo no existe, se usa `backend/config/ssh/jesusssh4.unknown`.
 
-Si no está configurada y tampoco se detecta automáticamente, el módulo mostrará "SSH no encontrado" al intentar listar archivos.
+**Obtener la ruta de ssh en Windows:** `where.exe ssh`  
+**En Linux:** `which ssh`
 
 ---
 

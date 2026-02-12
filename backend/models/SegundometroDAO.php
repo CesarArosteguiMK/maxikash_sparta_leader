@@ -25,6 +25,30 @@ class SegundometroDAO extends Model
     private static $DIRECTORIO_REMOTO = '/home/usuariossftp/s2/mega_reporte';
     
     /**
+     * Ruta de la clave SSH (cacheada). Si en config.ini existe [ssh] ssh_key y el archivo existe, se usa esa; si no, la del proyecto.
+     */
+    private static function getSSHKey()
+    {
+        static $cached = null;
+        if ($cached !== null) {
+            return $cached;
+        }
+        $configFile = __DIR__ . '/../config/config.ini';
+        if (is_file($configFile)) {
+            $config = @parse_ini_file($configFile, true);
+            if (is_array($config)) {
+                $path = trim($config['ssh']['ssh_key'] ?? '');
+                if ($path !== '' && @is_file($path)) {
+                    $cached = $path;
+                    return $path;
+                }
+            }
+        }
+        $cached = self::$SSH_KEY;
+        return $cached;
+    }
+    
+    /**
      * Detecta la ruta del ejecutable SSH (cacheada).
      * 1) Si en config.ini existe [ssh] ssh_command (ruta absoluta), se usa esa.
      * 2) Si no, se intenta detectar: en Windows "where ssh", en Linux "which ssh".
@@ -90,7 +114,7 @@ class SegundometroDAO extends Model
             ];
         }
 
-        $sshKeyEscaped = escapeshellarg(self::$SSH_KEY);
+        $sshKeyEscaped = escapeshellarg(self::getSSHKey());
         $comandoEscapado = escapeshellarg($comando);
         
         $sshComando = sprintf(
@@ -380,7 +404,7 @@ class SegundometroDAO extends Model
         $nombreLocal = 'segundometro_' . uniqid() . '_' . $nombreArchivo;
         $rutaLocal = $tempDir . DIRECTORY_SEPARATOR . $nombreLocal;
         
-        $sshKeyEscaped = escapeshellarg(self::$SSH_KEY);
+        $sshKeyEscaped = escapeshellarg(self::getSSHKey());
         $remoteEscaped = escapeshellarg(self::$SSH_USER . '@' . self::$SSH_HOST . ':' . $rutaRemota);
         $localEscaped = escapeshellarg($rutaLocal);
         
