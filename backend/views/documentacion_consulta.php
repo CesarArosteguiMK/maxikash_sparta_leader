@@ -1750,6 +1750,8 @@
         function esFAD_DOCConPermisoControl() {
             return typeof window.tienePermisoControlFAD_DOC !== 'undefined' && window.tienePermisoControlFAD_DOC && typeof window.tipoDocumentoActual !== 'undefined' && window.tipoDocumentoActual === 'FAD_DOC';
         }
+        // true = botón "Ver videos" siempre habilitado (para pruebas en servidor); false = solo habilitado en páginas con medios
+        var SIEMPRE_HABILITAR_BOTON_VIDEOS = true;
         function actualizarBotonVideosMedia() {
             const btn = document.getElementById('pdfVideosBtn');
             const sep = document.getElementById('pdfVideosSep');
@@ -1761,8 +1763,8 @@
             const mostrar = esFAD;
             btn.style.display = mostrar ? 'inline-block' : 'none';
             sep.style.display = mostrar ? 'block' : 'none';
-            btn.disabled = !tieneVideosEnPagina;
-            btn.title = tieneVideosEnPagina ? 'Ver videos / audio de esta página' : 'No hay videos en esta página';
+            btn.disabled = SIEMPRE_HABILITAR_BOTON_VIDEOS ? false : !tieneVideosEnPagina;
+            btn.title = SIEMPRE_HABILITAR_BOTON_VIDEOS ? 'Ver videos / audio (siempre habilitado para pruebas)' : (tieneVideosEnPagina ? 'Ver videos / audio de esta página' : 'No hay videos en esta página');
         }
 
         // Función para crear marcas de agua "SIN VALOR" en TODO el modal de PDF
