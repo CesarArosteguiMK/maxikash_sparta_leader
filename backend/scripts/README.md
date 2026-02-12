@@ -1,5 +1,32 @@
 # Scripts auxiliares
 
+## diagnostico_segundometro.php
+
+Script de diagnóstico completo para el módulo Shell Segundómetro. Verifica:
+- Funciones PHP disponibles (exec, shell_exec, etc.)
+- Disponibilidad del comando `ssh`
+- Existencia y permisos de la clave SSH
+- Conectividad con el servidor remoto
+- Directorios de la aplicación
+- Configuración de SegundometroDAO.php
+
+**Ejecución:**
+
+Desde navegador:
+```
+http://tu-servidor/backend/scripts/diagnostico_segundometro.php
+```
+
+Desde línea de comandos:
+```bash
+cd backend/scripts
+php diagnostico_segundometro.php
+```
+
+El script genera un reporte completo guardado en `backend/storage/logs/diagnostico_segundometro_[timestamp].txt` con todos los problemas encontrados.
+
+---
+
 ## pdf_media.py
 
 Inspecciona y extrae vídeos/audio embebidos de un PDF (anotaciones Movie, RichMedia, FileAttachment, archivos embebidos).
