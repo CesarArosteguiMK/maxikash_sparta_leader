@@ -27,6 +27,38 @@ El script genera un reporte completo guardado en `backend/storage/logs/diagnosti
 
 ---
 
+## Configuración para Shell Segundómetro
+
+El módulo Shell Segundómetro usa SSH para conectarse al servidor remoto de reportes. Si en el servidor el comando `ssh` no está en el PATH, configure la ruta en **`backend/config/config.ini`**:
+
+### Windows:
+
+```ini
+[ssh]
+ssh_command = C:\Windows\System32\OpenSSH\ssh.exe
+```
+
+### Linux:
+
+```ini
+[ssh]
+ssh_command = /usr/bin/ssh
+```
+
+**Obtener la ruta en Windows:**
+```cmd
+where.exe ssh
+```
+
+**Obtener la ruta en Linux:**
+```bash
+which ssh
+```
+
+Si no está configurada y tampoco se detecta automáticamente, el módulo mostrará "SSH no encontrado" al intentar listar archivos.
+
+---
+
 ## pdf_media.py
 
 Inspecciona y extrae vídeos/audio embebidos de un PDF (anotaciones Movie, RichMedia, FileAttachment, archivos embebidos).

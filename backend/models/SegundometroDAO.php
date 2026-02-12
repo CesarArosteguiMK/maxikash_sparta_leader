@@ -25,6 +25,54 @@ class SegundometroDAO extends Model
     private static $DIRECTORIO_REMOTO = '/home/usuariossftp/s2/mega_reporte';
     
     /**
+     * Detecta la ruta del ejecutable SSH (cacheada).
+     * 1) Si en config.ini existe [ssh] ssh_command (ruta absoluta), se usa esa.
+     * 2) Si no, se intenta detectar: en Windows "where ssh", en Linux "which ssh".
+     * En el servidor, si "ssh" no está en PATH, añada en config.ini la ruta.
+     */
+    private static function getSSHCommand()
+    {
+        static $cached = null;
+        if ($cached !== null) {
+            return $cached === '' ? null : $cached;
+        }
+        $configFile = __DIR__ . '/../config/config.ini';
+        if (is_file($configFile)) {
+            $config = @parse_ini_file($configFile, true);
+            if (is_array($config)) {
+                $path = trim($config['ssh']['ssh_command'] ?? '');
+                if ($path !== '' && @is_file($path)) {
+                    $cached = $path;
+                    return $path;
+                }
+            }
+        }
+        $isWindows = strtoupper(substr(PHP_OS, 0, 3)) === 'WIN';
+        $candidates = $isWindows 
+            ? ['where.exe ssh', 'C:\Windows\System32\OpenSSH\ssh.exe']
+            : ['which ssh', '/usr/bin/ssh', '/bin/ssh'];
+        
+        foreach ($candidates as $cmd) {
+            if (strpos($cmd, ' ') !== false) {
+                $out = @shell_exec($cmd . ' 2>&1');
+                $path = $out ? trim(explode("\n", $out)[0]) : '';
+            } else {
+                $path = $cmd;
+            }
+            if ($path !== '' && @is_file($path)) {
+                $cached = $path;
+                return $path;
+            }
+        }
+        if (!$isWindows) {
+            $cached = 'ssh';
+            return 'ssh';
+        }
+        $cached = '';
+        return null;
+    }
+    
+    /**
      * Ejecutar comando SSH remoto
      * 
      * @param string $comando Comando a ejecutar en el servidor remoto
@@ -32,14 +80,22 @@ class SegundometroDAO extends Model
      */
     private static function ejecutarSSH($comando)
     {
+        $sshCommand = self::getSSHCommand();
+        if ($sshCommand === null) {
+            return [
+                'success' => false,
+                'output' => '',
+                'error' => 'SSH no encontrado. Configure [ssh] ssh_command en backend/config/config.ini con la ruta al ejecutable.',
+                'return_code' => 127
+            ];
+        }
 
-        // Escapar el comando y la llave SSH
         $sshKeyEscaped = escapeshellarg(self::$SSH_KEY);
         $comandoEscapado = escapeshellarg($comando);
         
-        // Construir comando SSH completo (timeouts para no colgar si el remoto no responde)
         $sshComando = sprintf(
-            'ssh -i %s -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=20 -o ServerAliveInterval=5 %s@%s %s 2>&1',
+            '%s -i %s -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=20 -o ServerAliveInterval=5 %s@%s %s 2>&1',
+            escapeshellarg($sshCommand),
             $sshKeyEscaped,
             self::$SSH_USER,
             self::$SSH_HOST,
