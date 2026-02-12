@@ -1633,6 +1633,24 @@ class CapHum extends Controller
                 });
             }
             
+            function initFlatpickrAusencia() {
+                var inpInicio = document.getElementById("fechaInicio");
+                var inpFin = document.getElementById("fechaFin");
+                if (!inpInicio || !inpFin || typeof flatpickr === "undefined") return;
+                if (inpInicio._flatpickr) return;
+                var opts = {
+                    enableTime: true,
+                    dateFormat: "Y-m-d H:i",
+                    time_24hr: true,
+                    allowInput: false,
+                    appendTo: document.body,
+                    locale: "es",
+                    static: false
+                };
+                flatpickr(inpInicio, opts);
+                flatpickr(inpFin, opts);
+            }
+            
             function cargarAusencias(idPersona) {
             fetch('/CapHum/getAusenciasPersona', {
                 method: 'POST',
@@ -1752,9 +1770,13 @@ class CapHum extends Controller
                     document.getElementById("id_ausencia").value = a.id;
                     document.getElementById("razonAusencia").value = a.id_razon;
             
-                    // 🔹 Fechas compatibles con datetime-local
-                    document.getElementById("fechaInicio").value = a.fecha_inicio.replace(' ', 'T');
-                    document.getElementById("fechaFin").value = a.fecha_fin.replace(' ', 'T');
+                    // 🔹 Fechas formato Flatpickr (Y-m-d H:i)
+                    var fi = (a.fecha_inicio || '').toString().substring(0, 16);
+                    var ff = (a.fecha_fin || '').toString().substring(0, 16);
+                    document.getElementById("fechaInicio").value = fi;
+                    document.getElementById("fechaFin").value = ff;
+                    if (document.getElementById("fechaInicio")._flatpickr) document.getElementById("fechaInicio")._flatpickr.setDate(fi, false);
+                    if (document.getElementById("fechaFin")._flatpickr) document.getElementById("fechaFin")._flatpickr.setDate(ff, false);
             
                     document.getElementById("descripcionAusencia").value = a.descripcion ?? '';
             
@@ -1776,8 +1798,10 @@ class CapHum extends Controller
             function limpiarFormularioAusencia() {
                 document.getElementById("id_ausencia").value = '';
                 document.getElementById("razonAusencia").value = '';
-                document.getElementById("fechaInicio").value = '';
-                document.getElementById("fechaFin").value = '';
+                var elInicio = document.getElementById("fechaInicio");
+                var elFin = document.getElementById("fechaFin");
+                if (elInicio) { elInicio.value = ''; if (elInicio._flatpickr) elInicio._flatpickr.clear(); }
+                if (elFin) { elFin.value = ''; if (elFin._flatpickr) elFin._flatpickr.clear(); }
                 document.getElementById("descripcionAusencia").value = '';
             
                 // Texto del botón
@@ -2437,6 +2461,9 @@ class CapHum extends Controller
                 // Inicializar DataTable con columnas explícitas
                 configuraTabla("#historialUsuarios", { registrosPorPagina: 10 });
                 getUsuarios();
+
+                // Flatpickr fecha+hora en modal de ausencias (calendario moderno)
+                $("#modalAuscencia").on("shown.bs.modal", function() { initFlatpickrAusencia(); });
 
                 // Configurar Flatpickr para fecha de ingreso (máximo: hoy + 1 día) cuando se abre el offcanvas
                 const offcanvasAdd = document.getElementById('offcanvasAddUser');

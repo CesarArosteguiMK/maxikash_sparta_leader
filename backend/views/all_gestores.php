@@ -1892,13 +1892,13 @@ window.puedeEditarTodos = <?= json_encode(!empty($puedeEditarTodos ?? false)) ?>
                         </div>
 
                         <div class="col-md-4">
-                            <label class="form-label"><strong>Fecha inicio</strong></label>
-                            <input type="datetime-local" class="form-control" id="fechaInicio">
+                            <label class="form-label"><strong>Fecha y hora inicio</strong></label>
+                            <input type="text" class="form-control flatpickr-datetime-ausencia" id="fechaInicio" placeholder="Seleccione fecha y hora" autocomplete="off" readonly>
                         </div>
 
                         <div class="col-md-4">
-                            <label class="form-label"><strong>Fecha fin</strong></label>
-                            <input type="datetime-local" class="form-control" id="fechaFin">
+                            <label class="form-label"><strong>Fecha y hora fin</strong></label>
+                            <input type="text" class="form-control flatpickr-datetime-ausencia" id="fechaFin" placeholder="Seleccione fecha y hora" autocomplete="off" readonly>
                         </div>
 
                         <div class="col-md-12">
