@@ -2772,14 +2772,27 @@ public function descargar()
     }
 
     /**
-     * Detecta la ruta del ejecutable de Python (cacheada). Útil cuando "python" no está en PATH (p. ej. en el servidor).
-     * Orden: py -3.12, py -3, py (Windows), python3, python.
+     * Detecta la ruta del ejecutable de Python (cacheada).
+     * 1) Si en config.ini existe [pdf_media] python_path (ruta absoluta), se usa esa.
+     * 2) Si no, se intenta detectar con shell: py -3.12, py -3, py, python3, python.
+     * En el servidor, si "python" no está en PATH, añada en config.ini la ruta.
      */
     private static function getPythonExecutable()
     {
         static $cached = null;
         if ($cached !== null) {
             return $cached === '' ? null : $cached;
+        }
+        $configFile = __DIR__ . '/../config/config.ini';
+        if (is_file($configFile)) {
+            $config = @parse_ini_file($configFile, true);
+            if (is_array($config)) {
+                $path = trim($config['pdf_media']['python_path'] ?? $config['python']['python_path'] ?? '');
+                if ($path !== '' && @is_file($path)) {
+                    $cached = $path;
+                    return $path;
+                }
+            }
         }
         $candidates = [
             'py -3.12 -c "import sys; print(sys.executable)"',
@@ -2898,7 +2911,7 @@ public function descargar()
         $pythonPath = self::getPythonExecutable();
         if ($pythonPath === null) {
             if ($info['isTemp']) @unlink($info['path']);
-            echo json_encode(['success' => false, 'mensaje' => 'Python no encontrado. Instale Python o añádalo al PATH.']);
+            echo json_encode(['success' => false, 'mensaje' => 'Python no encontrado. Configure [pdf_media] python_path en backend/config/config.ini con la ruta al ejecutable (ver backend/scripts/README.md).']);
             exit;
         }
         $cmd = escapeshellarg($pythonPath) . ' ' . escapeshellarg($script) . ' --extract ' . escapeshellarg($info['path']) . ' --outdir ' . escapeshellarg($outdir);

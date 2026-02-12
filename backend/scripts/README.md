@@ -19,3 +19,22 @@ pip install pymupdf
   Salida JSON: `{"archivos": [{"nombre": "media_0.mp4", "path": "..."}]}`
 
 En Windows (XAMPP) suele usarse `python`; en Linux a veces `python3`.
+
+### Si el servidor no encuentra Python (mensaje "Python no encontrado")
+
+En el servidor, si `python` o `py` no están en el PATH, indique la ruta en **`backend/config/config.ini`**:
+
+```ini
+[pdf_media]
+python_path = C:\Users\admin\AppData\Local\Programs\Python\Python312\python.exe
+```
+
+En Linux:
+
+```ini
+[pdf_media]
+python_path = /usr/bin/python3
+```
+
+Obtener la ruta en Windows (ejecutar en CMD o PowerShell):  
+`py -3 -c "import sys; print(sys.executable)"`
