@@ -2772,7 +2772,38 @@ public function descargar()
     }
 
     /**
-     * Ejecuta pdf_media.py --inspect para obtener páginas con medios. Usa proc_open para evitar problemas de rutas en Windows.
+     * Detecta la ruta del ejecutable de Python (cacheada). Útil cuando "python" no está en PATH (p. ej. en el servidor).
+     * Orden: py -3.12, py -3, py (Windows), python3, python.
+     */
+    private static function getPythonExecutable()
+    {
+        static $cached = null;
+        if ($cached !== null) {
+            return $cached === '' ? null : $cached;
+        }
+        $candidates = [
+            'py -3.12 -c "import sys; print(sys.executable)"',
+            'py -3 -c "import sys; print(sys.executable)"',
+            'py -c "import sys; print(sys.executable)"',
+            'python3 -c "import sys; print(sys.executable)"',
+            'python -c "import sys; print(sys.executable)"',
+        ];
+        foreach ($candidates as $cmd) {
+            $out = @shell_exec($cmd . ' 2>&1');
+            $path = $out ? trim($out) : '';
+            if ($path !== '' && (stripos($path, 'python') !== false || substr($path, -4) === '.exe')) {
+                if (@is_file($path)) {
+                    $cached = $path;
+                    return $path;
+                }
+            }
+        }
+        $cached = '';
+        return null;
+    }
+
+    /**
+     * Ejecuta pdf_media.py --inspect para obtener páginas con medios. Usa proc_open con ruta de Python detectada o fallback shell_exec.
      */
     private function ejecutarPdfMediaInspect($scriptPath, $pdfPath)
     {
@@ -2784,8 +2815,14 @@ public function descargar()
         if ($rutaScript === false || !is_file($rutaScript)) {
             return null;
         }
-        $interpretes = ['python', 'python3', 'py'];
+        $interpretes = array_filter(array_merge(
+            [self::getPythonExecutable()],
+            ['python', 'python3', 'py']
+        ));
         foreach ($interpretes as $python) {
+            if ($python === null || $python === '') {
+                continue;
+            }
             $descriptorSpec = [
                 0 => ['pipe', 'r'],
                 1 => ['pipe', 'w'],
@@ -2810,14 +2847,22 @@ public function descargar()
                 return $stdout;
             }
         }
-        // Fallback: shell_exec por si proc_open no está permitido (escapar rutas para Windows)
-        $escScript = str_replace('"', '\\"', $rutaScript);
-        $escPdf = str_replace('"', '\\"', $rutaPdf);
-        $out = @shell_exec('python "' . $escScript . '" --inspect "' . $escPdf . '" 2>&1');
+        // Fallback: shell_exec con ruta de Python detectada o comandos por nombre
+        $pythonPath = self::getPythonExecutable();
+        $escScript = escapeshellarg($rutaScript);
+        $escPdf = escapeshellarg($rutaPdf);
+        if ($pythonPath !== null) {
+            $cmd = escapeshellarg($pythonPath) . ' ' . $escScript . ' --inspect ' . $escPdf . ' 2>&1';
+            $out = @shell_exec($cmd);
+            if ($out !== null && $out !== '' && trim($out) !== '') {
+                return $out;
+            }
+        }
+        $out = @shell_exec('python ' . $escScript . ' --inspect ' . $escPdf . ' 2>&1');
         if ($out !== null && $out !== '' && trim($out) !== '') {
             return $out;
         }
-        $out = @shell_exec('py "' . $escScript . '" --inspect "' . $escPdf . '" 2>&1');
+        $out = @shell_exec('py ' . $escScript . ' --inspect ' . $escPdf . ' 2>&1');
         return ($out !== null && $out !== '' && trim($out) !== '') ? $out : null;
     }
 
@@ -2850,7 +2895,13 @@ public function descargar()
             echo json_encode(['success' => false, 'mensaje' => 'Script de extracción no disponible']);
             exit;
         }
-        $cmd = sprintf('python "%s" --extract "%s" --outdir "%s"', $script, addslashes($info['path']), addslashes($outdir));
+        $pythonPath = self::getPythonExecutable();
+        if ($pythonPath === null) {
+            if ($info['isTemp']) @unlink($info['path']);
+            echo json_encode(['success' => false, 'mensaje' => 'Python no encontrado. Instale Python o añádalo al PATH.']);
+            exit;
+        }
+        $cmd = escapeshellarg($pythonPath) . ' ' . escapeshellarg($script) . ' --extract ' . escapeshellarg($info['path']) . ' --outdir ' . escapeshellarg($outdir);
         if ($pagina > 0) $cmd .= ' --page ' . (int) $pagina;
         $cmd .= ' 2>&1';
         $out = @shell_exec($cmd);
