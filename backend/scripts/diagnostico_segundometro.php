@@ -226,7 +226,7 @@ if (file_exists($SSH_KEY) && function_exists('exec') && !in_array('exec', $disab
     $reporte[] = "  [Test 2] Conexión SSH básica (timeout 10s)...";
     $sshKeyEscaped = escapeshellarg($SSH_KEY);
     $sshTest = sprintf(
-        'ssh -i %s -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10 -o BatchMode=yes %s@%s "echo OK" 2>&1',
+        'ssh -i %s -o StrictHostKeyChecking=no -o StrictModes=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10 -o BatchMode=yes %s@%s "echo OK" 2>&1',
         $sshKeyEscaped,
         $SSH_USER,
         $SSH_HOST
@@ -253,7 +253,7 @@ if (file_exists($SSH_KEY) && function_exists('exec') && !in_array('exec', $disab
         $reporte[] = "";
         $reporte[] = "  [Test 3] Verificar directorio remoto...";
         $dirTest = sprintf(
-            'ssh -i %s -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10 %s@%s "test -d %s && echo OK || echo FAIL" 2>&1',
+            'ssh -i %s -o StrictHostKeyChecking=no -o StrictModes=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10 %s@%s "test -d %s && echo OK || echo FAIL" 2>&1',
             $sshKeyEscaped,
             $SSH_USER,
             $SSH_HOST,
@@ -273,7 +273,7 @@ if (file_exists($SSH_KEY) && function_exists('exec') && !in_array('exec', $disab
         $reporte[] = "";
         $reporte[] = "  [Test 4] Listar archivos mega_rpt_*.csv.zip...";
         $listTest = sprintf(
-            'ssh -i %s -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10 %s@%s "cd %s && ls -l mega_rpt_*.csv.zip 2>/dev/null | head -n 5" 2>&1',
+            'ssh -i %s -o StrictHostKeyChecking=no -o StrictModes=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10 %s@%s "cd %s && ls -l mega_rpt_*.csv.zip 2>/dev/null | head -n 5" 2>&1',
             $sshKeyEscaped,
             $SSH_USER,
             $SSH_HOST,
