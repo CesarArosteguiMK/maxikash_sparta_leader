@@ -24,10 +24,15 @@ $SSH_HOST = '34.173.106.81';
 $SSH_USER = 'jesus';
 $DIRECTORIO_REMOTO = '/home/usuariossftp/s2/mega_reporte';
 
-// Obtener ruta de la clave SSH igual que SegundometroDAO::getSSHKey()
+// Obtener ruta de la clave SSH igual que SegundometroDAO::getSSHKey(): primero proyecto, luego config.ini
 function getDiagnosticoSSHKey($raiz) {
-    $configFile = $raiz . '/config/config.ini';
     $defaultKey = $raiz . '/config/ssh/jesusssh4.unknown';
+    // 1) Primero la ruta por defecto del proyecto
+    if (@is_file($defaultKey)) {
+        return $defaultKey;
+    }
+    // 2) Si no existe, revisar config.ini
+    $configFile = $raiz . '/config/config.ini';
     if (is_file($configFile)) {
         $config = @parse_ini_file($configFile, true);
         if (is_array($config)) {
@@ -203,7 +208,7 @@ $reporte[] = "";
 $reporte[] = "3. CLAVE SSH";
 $reporte[] = str_repeat("-", 47);
 $reporte[] = "  Ruta: $SSH_KEY";
-$reporte[] = "  (misma lógica que SegundometroDAO::getSSHKey() - config.ini [ssh] ssh_key o por defecto)";
+$reporte[] = "  (misma lógica que SegundometroDAO::getSSHKey() - primero backend/config/ssh/, luego config.ini [ssh] ssh_key)";
 
 if (file_exists($SSH_KEY)) {
     agregarResultado('SSH', 'Archivo clave', 'OK', 'Existe', $SSH_KEY);

@@ -25,7 +25,7 @@ class SegundometroDAO extends Model
     private static $DIRECTORIO_REMOTO = '/home/usuariossftp/s2/mega_reporte';
     
     /**
-     * Ruta de la clave SSH (cacheada). Si en config.ini existe [ssh] ssh_key y el archivo existe, se usa esa; si no, la del proyecto.
+     * Ruta de la clave SSH (cacheada). Primero la del proyecto (backend/config/ssh/); si no existe, la de config.ini [ssh] ssh_key.
      */
     private static function getSSHKey()
     {
@@ -33,6 +33,12 @@ class SegundometroDAO extends Model
         if ($cached !== null) {
             return $cached;
         }
+        // 1) Primero la ruta por defecto del proyecto
+        if (@is_file(self::$SSH_KEY)) {
+            $cached = self::$SSH_KEY;
+            return $cached;
+        }
+        // 2) Si no existe, revisar config.ini
         $configFile = __DIR__ . '/../config/config.ini';
         if (is_file($configFile)) {
             $config = @parse_ini_file($configFile, true);
