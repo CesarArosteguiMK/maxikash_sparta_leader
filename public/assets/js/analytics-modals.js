@@ -104,7 +104,7 @@
     function renderCompliance(data) {
         if (!data) return '';
         var html = '';
-        html += '<p class="small text-muted mb-2">Cada fila es una <strong>visita del gestor</strong> (con GPS). Se compara la ubicación del gestor con las ubicaciones frecuentes del acreditado: si estuvo a menos de 100 m se considera "cerca" (cumplimiento). La columna "¿Estuvo en su casa?" muestra la <strong>distancia a cada ubicación</strong> (casa / otros lugares frecuentes) para ver a qué distancia estuvo el gestor de cada una.</p>';
+        html += '<p class="small text-muted mb-2">Cada fila es una <strong>visita del gestor</strong> (con GPS). Se compara la ubicación del gestor con las ubicaciones frecuentes del acreditado: si estuvo a menos de 100 m se considera "cerca" (cumplimiento).</p>';
         var summary = 'Porcentaje de cumplimiento: ' + (data.porcentaje_cumplimiento != null ? data.porcentaje_cumplimiento + '%' : '—') + '. Visitas cercanas al acreditado: ' + (data.visitas_cercanas ?? 0) + ', visitas lejanas: ' + (data.visitas_lejanas ?? 0) + '.';
         html += '<p class="small mb-3" role="status">' + summary + '</p>';
         if (data.alertas && data.alertas.length) {
@@ -115,17 +115,12 @@
             html += '</ul>';
         }
         if (data.detalles && data.detalles.length) {
-            html += '<table class="table table-sm table-bordered"><thead><tr><th>Gestor</th><th>Fecha y hora</th><th>Distancia</th><th>¿Estuvo en su casa?</th><th>Cerca (&lt;100 m)</th></tr></thead><tbody>';
+            html += '<table class="table table-sm table-bordered"><thead><tr><th>Gestor</th><th>Fecha y hora</th><th>Distancia</th><th>Tipo</th></tr></thead><tbody>';
             data.detalles.forEach(function (d) {
                 var ts = d.timestamp ? new Date(d.timestamp).toLocaleString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
                 var dist = formatDistancia(d.distancia_m);
-                var distanciasCelda = '—';
-                if (d.distancias_mostrar && d.distancias_mostrar.length) {
-                    distanciasCelda = d.distancias_mostrar.map(function (x) {
-                        return (x.label || '—') + ': ' + formatDistancia(x.distancia_m);
-                    }).join('; ');
-                }
-                html += '<tr><td>' + (d.gestor_nombre || '—') + '</td><td>' + ts + '</td><td>' + dist + '</td><td>' + distanciasCelda + '</td><td>' + (d.cerca ? 'Sí' : 'No') + '</td></tr>';
+                var tipo = (d.tipo_contacto || '—').trim() || '—';
+                html += '<tr><td>' + (d.gestor_nombre || '—') + '</td><td>' + ts + '</td><td>' + dist + '</td><td>' + tipo + '</td></tr>';
             });
             html += '</tbody></table>';
         }

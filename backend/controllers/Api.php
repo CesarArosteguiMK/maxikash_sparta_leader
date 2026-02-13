@@ -239,6 +239,10 @@ class Api extends Controller
                 $d['timestamp'] = date('c', (int) $d['timestamp']);
             }
             $d['gestor_nombre'] = isset($eventosGestor[$i]) ? ($eventosGestor[$i]['usuario_asignado'] ?? '—') : '—';
+            $e = $eventosGestor[$i] ?? [];
+            // Misma regla que gestiones_request.php: medio_contactacion_ccc == "0" → Campo, sino → Telefónico (Legacy tiene ccc vacío y se muestra Telefónico)
+            $ccc = (string) ($e['medio_contactacion_ccc'] ?? '');
+            $d['tipo_contacto'] = ($ccc === '0') ? 'Campo' : 'Telefónico';
             $uid = $d['ubicacion_id'] ?? null;
             $d['ubicacion_label'] = $uid !== null && isset($mapUbicacion[$uid]) ? $mapUbicacion[$uid]['label'] : ($uid ?? '—');
             $d['es_casa'] = $uid !== null && isset($mapUbicacion[$uid]) ? $mapUbicacion[$uid]['es_casa'] : false;

@@ -400,12 +400,68 @@ class Segundometro extends Controller
                 btn.title = habilitado ? 'Truncar (solo martes 8:00–11:00 CDMX)' : 'Disponible solo los martes de 8:00 a 11:00 (CDMX)';
             }
 
+            // Monitorear: panel con iframe (stream solo en el iframe; al cerrar panel se corta la conexión)
+            function abrirPanelMonitorear() {
+                var panel = document.getElementById('panelMonitorear');
+                var iframe = document.getElementById('panelMonitorearIframe');
+                if (!panel || !iframe) return;
+                iframe.src = '/segundometro/ventanaMonitorear';
+                panel.style.display = 'flex';
+            }
+            function cerrarPanelMonitorear() {
+                var panel = document.getElementById('panelMonitorear');
+                var iframe = document.getElementById('panelMonitorearIframe');
+                if (iframe && iframe.contentWindow) {
+                    try {
+                        iframe.contentWindow.postMessage({ action: 'cerrarEventSource' }, '*');
+                    } catch (e) {}
+                }
+                if (iframe && iframe.parentNode) {
+                    var contenedorIframe = iframe.parentNode;
+                    iframe.src = 'about:blank';
+                    contenedorIframe.removeChild(iframe);
+                    var nuevoIframe = document.createElement('iframe');
+                    nuevoIframe.id = 'panelMonitorearIframe';
+                    nuevoIframe.style.cssText = 'flex:1; width:100%; height:360px; border:none; background:#1e1e1e;';
+                    contenedorIframe.appendChild(nuevoIframe);
+                }
+                if (panel) panel.style.display = 'none';
+            }
+            function initPanelMonitorearDrag() {
+                var panel = document.getElementById('panelMonitorear');
+                var header = document.getElementById('panelMonitorearHeader');
+                if (!panel || !header) return;
+                var dragging = false, offX = 0, offY = 0;
+                header.addEventListener('mousedown', function(e) {
+                    if (e.target.id === 'panelMonitorearCerrar' || e.target.closest('#panelMonitorearCerrar')) return;
+                    dragging = true;
+                    offX = e.clientX - panel.getBoundingClientRect().left;
+                    offY = e.clientY - panel.getBoundingClientRect().top;
+                });
+                document.addEventListener('mousemove', function(e) {
+                    if (!dragging) return;
+                    var x = e.clientX - offX, y = e.clientY - offY;
+                    if (x < 0) x = 0; if (y < 0) y = 0;
+                    if (x + panel.offsetWidth > window.innerWidth) x = window.innerWidth - panel.offsetWidth;
+                    if (y + panel.offsetHeight > window.innerHeight) y = window.innerHeight - panel.offsetHeight;
+                    panel.style.left = x + 'px';
+                    panel.style.top = y + 'px';
+                    panel.style.right = 'auto';
+                });
+                document.addEventListener('mouseup', function() { dragging = false; });
+            }
+
             document.addEventListener('DOMContentLoaded', function() {
                 actualizarEstadoBotonTruncar();
                 listarArchivos(false);
                 programarRefrescos();
                 setTimeout(function(){ actualizarEstadoReportes(); }, 2500);
                 segundometroEstadoInterval = setInterval(function() { if (!document.hidden) actualizarEstadoReportes(); }, 60000);
+                var btnMon = document.getElementById('btnMonitorearSegundometro');
+                if (btnMon) btnMon.addEventListener('click', abrirPanelMonitorear);
+                var btnCerrarMon = document.getElementById('panelMonitorearCerrar');
+                if (btnCerrarMon) btnCerrarMon.addEventListener('click', cerrarPanelMonitorear);
+                initPanelMonitorearDrag();
                 document.addEventListener('visibilitychange', function() {
                     if (document.hidden) { clearSegundometroTimers(); clearEstadoReportesInterval(); }
                     else {
@@ -424,6 +480,140 @@ class Segundometro extends Controller
         self::set("titulo", "Shell Segundómetro");
         self::set("script", $script);
         self::render("shell_segundometro");
+    }
+
+    /**
+     * Una sola ejecución de monitorear.sh (timeout 10 s). Respuesta JSON.
+     * Sin streaming: la petición termina y no bloquea al cerrar el panel o cambiar de menú.
+     */
+    public function obtenerMonitorear()
+    {
+        try {
+            $resultado = SegundometroDAO::obtenerSalidaMonitorearCorto(10);
+            self::respuestaJSON([
+                'success' => $resultado['success'],
+                'output'   => $resultado['output'] ?? '',
+                'error'   => $resultado['error'] ?? ''
+            ]);
+        } catch (\Exception $e) {
+            self::respuestaJSON([
+                'success' => false,
+                'output'  => '',
+                'error'   => $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
+     * Streaming SSE de monitorear.sh (para ventana nueva). La ventana mantiene la conexión; al cerrarla se libera el worker.
+     */
+    public function streamMonitorear()
+    {
+        @ignore_user_abort(false);
+        set_time_limit(60);
+        $cmd = SegundometroDAO::getComandoMonitorearParaStream();
+        if ($cmd === null) {
+            header('Content-Type: text/event-stream');
+            header('Cache-Control: no-cache');
+            header('Connection: keep-alive');
+            echo "data: " . json_encode(['error' => 'SSH no disponible']) . "\n\n";
+            if (function_exists('ob_flush')) { @ob_flush(); }
+            if (function_exists('flush')) { flush(); }
+            exit;
+        }
+        header('Content-Type: text/event-stream');
+        header('Cache-Control: no-cache');
+        header('Connection: keep-alive');
+        header('X-Accel-Buffering: no');
+        if (ob_get_level()) {
+            while (ob_get_level()) { ob_end_flush(); }
+        }
+        @ini_set('output_buffering', 'off');
+        @ini_set('zlib.output_compression', false);
+        if (function_exists('apache_setenv')) { @apache_setenv('no-gzip', '1'); }
+        $descriptorSpec = [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']];
+        $process = @proc_open($cmd, $descriptorSpec, $pipes);
+        if (!is_resource($process)) {
+            echo "data: " . json_encode(['error' => 'No se pudo iniciar el comando']) . "\n\n";
+            if (function_exists('ob_flush')) { @ob_flush(); }
+            if (function_exists('flush')) { flush(); }
+            exit;
+        }
+        fclose($pipes[0]);
+        stream_set_blocking($pipes[1], false);
+        stream_set_blocking($pipes[2], false);
+        $inicio = time();
+        $timeoutTotal = 50;
+        $ultimaActividad = time();
+        $iteracion = 0;
+        while (true) {
+            $iteracion++;
+            if ($iteracion % 5 === 0 && connection_aborted()) {
+                @proc_terminate($process, 15);
+                usleep(100000);
+                @proc_terminate($process, 9);
+                @fclose($pipes[1]);
+                @fclose($pipes[2]);
+                @proc_close($process);
+                exit;
+            }
+            if (time() - $ultimaActividad > 5) {
+                echo ": keepalive\n\n";
+                if (function_exists('ob_flush')) { @ob_flush(); }
+                if (function_exists('flush')) { flush(); }
+                $ultimaActividad = time();
+                if (connection_aborted()) {
+                    @proc_terminate($process, 15);
+                    usleep(100000);
+                    @proc_terminate($process, 9);
+                    @fclose($pipes[1]);
+                    @fclose($pipes[2]);
+                    @proc_close($process);
+                    exit;
+                }
+            }
+            $linea = fgets($pipes[1]);
+            if ($linea !== false && $linea !== '') {
+                echo "data: " . json_encode(['out' => $linea]) . "\n\n";
+                if (function_exists('ob_flush')) { @ob_flush(); }
+                if (function_exists('flush')) { flush(); }
+                $ultimaActividad = time();
+            }
+            $errLine = fgets($pipes[2]);
+            if ($errLine !== false && $errLine !== '') {
+                echo "data: " . json_encode(['err' => $errLine]) . "\n\n";
+                if (function_exists('ob_flush')) { @ob_flush(); }
+                if (function_exists('flush')) { flush(); }
+                $ultimaActividad = time();
+            }
+            $estado = proc_get_status($process);
+            if (!$estado['running']) {
+                break;
+            }
+            if (time() - $inicio >= $timeoutTotal) {
+                break;
+            }
+            usleep(100000);
+        }
+        @proc_terminate($process, 15);
+        usleep(50000);
+        @proc_terminate($process, 9);
+        @fclose($pipes[1]);
+        @fclose($pipes[2]);
+        @proc_close($process);
+        echo "data: " . json_encode(['done' => true]) . "\n\n";
+        if (function_exists('ob_flush')) { @ob_flush(); }
+        if (function_exists('flush')) { flush(); }
+        exit;
+    }
+
+    /**
+     * Ventana mínima que muestra el stream en vivo (EventSource). Al cerrar la ventana se cierra la conexión.
+     * Sin layout para que sea solo consola.
+     */
+    public function ventanaMonitorear()
+    {
+        self::render("ventana_monitorear", true);
     }
 
     /**

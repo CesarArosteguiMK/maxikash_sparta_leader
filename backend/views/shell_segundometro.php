@@ -48,11 +48,14 @@
         </div>
     </div>
 
-    <!-- Botón Truncar: solo habilitado los martes de 8:00 a 11:00 (CDMX) -->
+    <!-- Botón Truncar y Monitorear -->
     <div class="row mb-3">
         <div class="col-12">
             <button type="button" class="btn btn-truncar-segundometro" id="btnTruncarSegundometro" disabled title="Disponible solo los martes de 8:00 a 11:00 (CDMX)">
                 <i class="fa fa-cut me-2"></i>Truncar
+            </button>
+            <button type="button" class="btn btn-monitorear-segundometro ms-2" id="btnMonitorearSegundometro" title="Abrir panel con salida en vivo (al cerrar el panel se corta la conexión)">
+                <i class="fa fa-terminal me-2"></i>Monitorear
             </button>
         </div>
     </div>
@@ -87,6 +90,15 @@
         </div>
         <p class="text-white mt-3 fw-semibold">Procesando operación...</p>
     </div>
+</div>
+
+<!-- Panel Monitorear: iframe con stream (conexión solo en el iframe; al cerrar panel se corta) -->
+<div id="panelMonitorear" style="display:none; position:fixed; top:80px; right:20px; width:520px; max-width:95vw; height:420px; max-height:75vh; z-index:9000; background:#1e1e1e; border:1px solid #444; border-radius:8px; box-shadow:0 8px 24px rgba(0,0,0,0.4); flex-direction:column; overflow:hidden;">
+    <div id="panelMonitorearHeader" style="display:flex; align-items:center; justify-content:space-between; padding:8px 12px; background:#2d2d2d; cursor:move; user-select:none; border-bottom:1px solid #444;">
+        <span style="color:#fff; font-weight:600;"><i class="fa fa-terminal me-2"></i>Monitorear</span>
+        <button type="button" id="panelMonitorearCerrar" style="background:transparent; border:none; color:#aaa; cursor:pointer; padding:4px 8px;" title="Cerrar"><i class="fa fa-times"></i></button>
+    </div>
+    <iframe id="panelMonitorearIframe" style="flex:1; width:100%; height:360px; border:none; background:#1e1e1e;"></iframe>
 </div>
 
 <!-- 🎨 ESTILOS PERSONALIZADOS -->
@@ -172,6 +184,25 @@
     }
     .btn-truncar-segundometro:not(:disabled) .fa-cut {
         color: #fff;
+    }
+
+    /* Botón Monitorear: tono elegante y suave (ámbar/arena), mismo tamaño que Truncar */
+    .btn-monitorear-segundometro {
+        font-weight: 600;
+        padding: 0.5rem 1rem;
+        transition: background-color 0.25s ease, box-shadow 0.25s ease, color 0.25s ease, border-color 0.25s ease;
+        background: linear-gradient(135deg, #c4b5a0 0%, #a89888 100%);
+        border: 1px solid rgba(168, 152, 136, 0.6);
+        color: #3d3630;
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+    }
+    .btn-monitorear-segundometro:hover {
+        background: linear-gradient(135deg, #d4c8b8 0%, #b8a898 100%);
+        color: #2d2824;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+    }
+    .btn-monitorear-segundometro .fa-terminal {
+        color: #4a423a;
     }
 
     /* Badge contador de archivos - texto negro/oscuro */

@@ -16,6 +16,15 @@ backend/config/secret.php
 # Clave maestra para descifrar API keys en BD (config_api)
 backend/config/master_key.php
 
+# Certificados SSL __SPARTA_SECRET_REDACTED__ (clave privada y cert cliente: NO subir)
+backend/BD/client-key.pem
+backend/BD/client-cert.pem
+# Copias temporales sin espacios (Windows SSL)
+backend/BD/geo_ssl_*.pem
+
+# Test diagnóstico SSL __SPARTA_SECRET_REDACTED__ (no subir; solo uso local)
+public/test_geo_ssl.php
+
 # Mantener la estructura de carpetas
 !backend/config/ssh/.gitkeep
 !backend/config/ssh/README.md

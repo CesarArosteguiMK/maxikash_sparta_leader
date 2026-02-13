@@ -325,6 +325,8 @@ SQL;
                 'usuario_asignado' => trim((string) ($g['usuario_asignado'] ?? '')),
                 'codigo_gestor' => trim((string) ($g['codigo_gestor'] ?? '')),
                 'usuario' => trim((string) ($g['usuario'] ?? '')),
+                'medio_contactacion_ccc' => trim((string) ($g['medio_contactacion_ccc'] ?? '')),
+                'medio_contactacion_campo' => trim((string) ($g['medio_contactacion_campo'] ?? '')),
             ];
         }
         return $eventos;

@@ -57,6 +57,59 @@
     #modalRastreoCredito .rastreo-direccion-item:hover { background: rgba(59, 130, 246, 0.08); }
     #modalRastreoCredito .rastreo-direccion-label { flex-shrink: 0; white-space: nowrap; }
     #modalRastreoCredito .rastreo-direccion-item .direccion-linea { min-width: 0; flex: 1; word-break: break-word; }
+    /* Título Donde firma (direcciones alternas) */
+    #modalRastreoCredito .rastreo-donde-firma-titulo { font-size: 0.8rem; font-weight: 600; color: #4b5563; margin-bottom: 0.5rem; }
+    /* Pin rosa geo (CASA): gota con parpadeo + icono casa */
+    #modalRastreoCredito .rastreo-pin-rosa, #modalRastreoCredito .rastreo-pin-casa {
+        display: inline-block;
+        width: 14px;
+        height: 20px;
+        background: linear-gradient(180deg, #ec4899 0%, #be185d 100%);
+        border-radius: 50% 50% 50% 0;
+        transform: rotate(-45deg);
+        margin-right: 6px;
+        vertical-align: middle;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+        animation: rastreo-pin-rosa-pulse 1.2s ease-in-out infinite;
+    }
+    #modalRastreoCredito .rastreo-geo-casa .rastreo-geo-icon { color: #be185d; margin-right: 4px; }
+    /* Pin verde (OTRO DOMICILIO) */
+    #modalRastreoCredito .rastreo-pin-verde {
+        display: inline-block;
+        width: 14px;
+        height: 20px;
+        background: linear-gradient(180deg, #22c55e 0%, #15803d 100%);
+        border-radius: 50% 50% 50% 0;
+        transform: rotate(-45deg);
+        margin-right: 6px;
+        vertical-align: middle;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    }
+    #modalRastreoCredito .rastreo-geo-otro .rastreo-geo-icon { color: #15803d; }
+    #modalRastreoCredito .rastreo-geo-otro .rastreo-geo-link { color: #15803d; }
+    /* Pin carmelita (AGENCIA) */
+    #modalRastreoCredito .rastreo-pin-carmelita {
+        display: inline-block;
+        width: 14px;
+        height: 20px;
+        background: linear-gradient(180deg, #d4a574 0%, #b8860b 100%);
+        border-radius: 50% 50% 50% 0;
+        transform: rotate(-45deg);
+        margin-right: 6px;
+        vertical-align: middle;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    }
+    #modalRastreoCredito .rastreo-geo-agencia .rastreo-geo-icon { color: #b8860b; }
+    #modalRastreoCredito .rastreo-geo-agencia .rastreo-geo-link { color: #b8860b; }
+    @keyframes rastreo-pin-rosa-pulse {
+        0%, 100% { opacity: 1; transform: rotate(-45deg) scale(1); }
+        50% { opacity: 0.75; transform: rotate(-45deg) scale(1.08); }
+    }
+    #modalRastreoCredito .rastreo-geo-item { display: flex; align-items: flex-start; gap: 0.35rem; flex-wrap: wrap; padding: 0.25rem 0; }
+    #modalRastreoCredito .rastreo-geo-item[data-indice-geo] { cursor: pointer; border-radius: 6px; transition: background 0.15s ease; }
+    #modalRastreoCredito .rastreo-geo-item[data-indice-geo]:hover { background: rgba(0,0,0,0.04); }
+    #modalRastreoCredito .rastreo-geo-link { color: #be185d; text-decoration: none; }
+    #modalRastreoCredito .rastreo-geo-link:hover { text-decoration: underline; }
     /* Bloque de carga: ocupa todo el espacio de direcciones + mapa, spinner centrado y visible */
     #modalRastreoCredito #rastreoDireccionesContenido.rastreo-contenido-cargando {
         flex: 1; display: flex; flex-direction: column; min-height: 0;
