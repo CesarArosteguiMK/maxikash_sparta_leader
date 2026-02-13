@@ -94,7 +94,7 @@
   font-family: 'Public Sans', sans-serif;
   font-size: 16px;
   font-weight: 400;
-  color: #1e3a8a;
+  color: #3c3939;
   margin-bottom: 30px;
   text-align: center;
   letter-spacing: 1px;
@@ -260,9 +260,9 @@
                   class="form-control"
                   name="password"
                   placeholder="Ingresa la contraseña" />
-                <span class="input-group-text cursor-pointer">
+                <button type="button" class="btn btn-light" id="togglePassword" style="border: none; background: #f8f9fa; color: #6c757d;">
                   <i class="fa fa-eye"></i>
-                </span>
+                </button>
               </div>
             </div>
 
@@ -305,6 +305,22 @@
   <script src="/assets/vendor/libs/sweetalert2/sweetalert2.js"></script>
 
   <script src="/assets/js/main.js"></script>
+
+  <script>
+    $(document).ready(function() {
+      $('#togglePassword').click(function() {
+        var input = $(this).closest('.input-group').find('input');
+        var icon = $(this).find('i');
+        if (input.attr('type') === 'password') {
+          input.attr('type', 'text');
+          icon.removeClass('fa-eye').addClass('fa-eye-slash');
+        } else {
+          input.attr('type', 'password');
+          icon.removeClass('fa-eye-slash').addClass('fa-eye');
+        }
+      });
+    });
+  </script>
 
   <?= $script; ?>
 
