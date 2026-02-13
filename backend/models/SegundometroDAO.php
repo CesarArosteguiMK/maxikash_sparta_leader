@@ -132,8 +132,9 @@ class SegundometroDAO extends Model
         $comandoEscapado = escapeshellarg($comando);
         
         $knownHosts = self::getSSHKnownHostsFile();
+        // BatchMode=yes fuerza modo no-interactivo (evita prompts que colgarían exec). ConnectTimeout=10 para no colgar.
         $sshComando = sprintf(
-            '%s -i %s -o StrictHostKeyChecking=no -o UserKnownHostsFile=%s -o ConnectTimeout=20 -o ServerAliveInterval=5 %s@%s %s 2>&1',
+            '%s -i %s -o StrictHostKeyChecking=no -o UserKnownHostsFile=%s -o ConnectTimeout=10 -o BatchMode=yes -o ServerAliveInterval=5 %s@%s %s 2>&1',
             escapeshellarg($sshCommand),
             $sshKeyEscaped,
             $knownHosts,
@@ -144,22 +145,30 @@ class SegundometroDAO extends Model
         
         // DEBUG temporal: logging del comando real y resultado
         $logFile = __DIR__ . DIRECTORY_SEPARATOR . '..' . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'logs' . DIRECTORY_SEPARATOR . 'ssh_debug.log';
-        @file_put_contents($logFile, date('Y-m-d H:i:s') . " - Comando: $sshComando\n", FILE_APPEND);
+        @file_put_contents($logFile, "\n=== " . date('Y-m-d H:i:s') . " ===\n", FILE_APPEND);
+        @file_put_contents($logFile, "Comando: $sshComando\n", FILE_APPEND);
         
-        $output = [];
-        $returnVar = 0;
+        // shell_exec() evita colgarse como exec() cuando SSH espera input; no devuelve código de salida
+        $outputRaw = shell_exec($sshComando);
         
-        exec($sshComando, $output, $returnVar);
+        @file_put_contents($logFile, "Output: " . ($outputRaw !== null ? trim($outputRaw) : 'NULL') . "\n", FILE_APPEND);
         
-        @file_put_contents($logFile, "Salida: " . implode("\n", $output) . "\n", FILE_APPEND);
-        @file_put_contents($logFile, "Código: $returnVar\n\n", FILE_APPEND);
-        
-        $outputStr = implode("\n", $output);
+        $outputStr = $outputRaw !== null ? trim($outputRaw) : '';
+        // Inferir fallo por mensajes típicos de SSH (shell_exec no devuelve return code)
+        $looksError = (
+            $outputStr === ''
+            || stripos($outputStr, 'Permission denied') !== false
+            || stripos($outputStr, 'Connection refused') !== false
+            || stripos($outputStr, 'timed out') !== false
+            || stripos($outputStr, 'Could not resolve host') !== false
+            || stripos($outputStr, 'No such file') !== false
+        );
+        $returnVar = $looksError ? 1 : 0;
         
         return [
             'success' => $returnVar === 0,
             'output' => $outputStr,
-            'error' => $returnVar !== 0 ? $outputStr : '',
+            'error' => $looksError ? $outputStr : '',
             'return_code' => $returnVar
         ];
     }
