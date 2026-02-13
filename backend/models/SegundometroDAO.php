@@ -25,38 +25,49 @@ class SegundometroDAO extends Model
     private static $DIRECTORIO_REMOTO = '/home/usuariossftp/s2/mega_reporte';
     
     /**
-     * Ruta de la clave SSH (cacheada). Primero la del proyecto (backend/config/ssh/); si no existe, la de config.ini [ssh] ssh_key.
+     * Ruta de la clave SSH (cacheada). Con Plink usa .ppk; con OpenSSH usa PEM/.unknown.
+     * Origen: config.ini ssh_key_plink / ssh_key, o claves por defecto del proyecto.
      */
     private static function getSSHKey()
     {
-        static $cached = null;
-        if ($cached !== null) {
-            return $cached;
-        }
-        // 1) Primero la ruta por defecto del proyecto
-        if (@is_file(self::$SSH_KEY)) {
-            $cached = self::$SSH_KEY;
-            return $cached;
-        }
-        // 2) Si no existe, revisar config.ini
+        static $cachedPlink = null, $cachedOpenSSH = null;
         $configFile = __DIR__ . '/../config/config.ini';
-        if (is_file($configFile)) {
-            $config = @parse_ini_file($configFile, true);
-            if (is_array($config)) {
-                $usePlink = !empty($config['ssh']['ssh_use_plink']);
-                if ($usePlink) {
-                    $path = trim($config['ssh']['ssh_key_plink'] ?? $config['ssh']['ssh_key'] ?? '');
-                } else {
-                    $path = trim($config['ssh']['ssh_key'] ?? '');
-                }
-                if ($path !== '' && @is_file($path)) {
-                    $cached = $path;
-                    return $path;
-                }
+        $config = (is_file($configFile) && is_array($cfg = @parse_ini_file($configFile, true))) ? $cfg : [];
+        $usePlink = !empty($config['ssh']['ssh_use_plink']);
+
+        if ($usePlink) {
+            if ($cachedPlink !== null) {
+                return $cachedPlink;
             }
+            // Plink exige clave .ppk (PuTTY), no OpenSSH PEM
+            $path = trim($config['ssh']['ssh_key_plink'] ?? '');
+            if ($path !== '' && @is_file($path)) {
+                $cachedPlink = $path;
+                return $cachedPlink;
+            }
+            $ppkProyecto = __DIR__ . '/../config/ssh/jesusssh4.ppk';
+            if (@is_file($ppkProyecto)) {
+                $cachedPlink = $ppkProyecto;
+                return $cachedPlink;
+            }
+            $cachedPlink = $path !== '' ? $path : $ppkProyecto;
+            return $cachedPlink;
         }
-        $cached = self::$SSH_KEY;
-        return $cached;
+
+        if ($cachedOpenSSH !== null) {
+            return $cachedOpenSSH;
+        }
+        if (@is_file(self::$SSH_KEY)) {
+            $cachedOpenSSH = self::$SSH_KEY;
+            return $cachedOpenSSH;
+        }
+        $path = trim($config['ssh']['ssh_key'] ?? '');
+        if ($path !== '' && @is_file($path)) {
+            $cachedOpenSSH = $path;
+            return $cachedOpenSSH;
+        }
+        $cachedOpenSSH = self::$SSH_KEY;
+        return $cachedOpenSSH;
     }
     
     /**
