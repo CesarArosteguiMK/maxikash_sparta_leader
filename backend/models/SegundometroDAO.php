@@ -142,10 +142,17 @@ class SegundometroDAO extends Model
             $comandoEscapado
         );
         
+        // DEBUG temporal: logging del comando real y resultado
+        $logFile = __DIR__ . DIRECTORY_SEPARATOR . '..' . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'logs' . DIRECTORY_SEPARATOR . 'ssh_debug.log';
+        @file_put_contents($logFile, date('Y-m-d H:i:s') . " - Comando: $sshComando\n", FILE_APPEND);
+        
         $output = [];
         $returnVar = 0;
         
         exec($sshComando, $output, $returnVar);
+        
+        @file_put_contents($logFile, "Salida: " . implode("\n", $output) . "\n", FILE_APPEND);
+        @file_put_contents($logFile, "Código: $returnVar\n\n", FILE_APPEND);
         
         $outputStr = implode("\n", $output);
         
@@ -589,7 +596,48 @@ class SegundometroDAO extends Model
     }
 
     /**
-     * Ejecutar monitorear.sh en el servidor remoto para ver el proceso.
+     * Devuelve el comando shell completo para ejecutar monitorear.sh por streaming (timeout 45 s en remoto).
+     * Usado por el controlador para proc_open y enviar SSE. Retorna null si SSH no está disponible.
+     * @return string|null
+     */
+    public static function getComandoMonitorearParaStream()
+    {
+        $sshCommand = self::getSSHCommand();
+        if ($sshCommand === null) {
+            return null;
+        }
+        $knownHosts = self::getSSHKnownHostsFile();
+        $comandoRemoto = 'timeout 45 sudo bash /home/jesus/scripts/monitorear.sh 2>&1';
+        return sprintf(
+            '%s -i %s -o StrictHostKeyChecking=no -o UserKnownHostsFile=%s -o ConnectTimeout=20 -o ServerAliveInterval=5 %s@%s %s',
+            escapeshellarg($sshCommand),
+            escapeshellarg(self::getSSHKey()),
+            $knownHosts,
+            self::$SSH_USER,
+            self::$SSH_HOST,
+            escapeshellarg($comandoRemoto)
+        );
+    }
+
+    /**
+     * Ejecutar monitorear.sh en el servidor remoto (timeout corto, una sola respuesta).
+     * Para el panel Monitorear: sin streaming, la petición termina en unos segundos y no bloquea al cambiar de menú.
+     * @param int $segundos Timeout en el servidor remoto (default 10)
+     * @return array ['success' => bool, 'output' => string, 'error' => string]
+     */
+    public static function obtenerSalidaMonitorearCorto($segundos = 10)
+    {
+        $comando = sprintf('timeout %d sudo bash /home/jesus/scripts/monitorear.sh 2>&1', max(5, min(30, (int) $segundos)));
+        $resultado = self::ejecutarSSH($comando);
+        return [
+            'success' => $resultado['success'],
+            'output'   => $resultado['output'] ?? '',
+            'error'    => $resultado['error'] ?? ''
+        ];
+    }
+
+    /**
+     * Ejecutar monitorear.sh en el servidor remoto para ver el proceso (sin timeout, para uso manual/CLI).
      * @return array ['success' => bool, 'output' => string]
      */
     public static function obtenerSalidaMonitorear()
