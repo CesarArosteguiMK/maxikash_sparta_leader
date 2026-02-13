@@ -92,9 +92,9 @@
 /* Encabezado LOGIN */
 .login-heading {
   font-family: 'Public Sans', sans-serif;
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 400;
-  color: #3c3939;
+  color: #a09a9a;
   margin-bottom: 30px;
   text-align: center;
   letter-spacing: 1px;
