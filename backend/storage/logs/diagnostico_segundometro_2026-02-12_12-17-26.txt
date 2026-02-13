@@ -1,0 +1,128 @@
+===============================================
+DIAGNÓSTICO SHELL SEGUNDÓMETRO
+===============================================
+Fecha: 2026-02-12 12:17:26 CST
+Servidor: 34.51.32.249
+PHP Version: 8.1.25
+SO: WINNT
+Usuario ejecutando: SYSTEM
+
+1. FUNCIONES PHP
+-----------------------------------------------
+  ✅ exec: Disponible
+  ✅ shell_exec: Disponible
+  ✅ system: Disponible
+  ✅ passthru: Disponible
+  ✅ open_basedir: Sin restricciones
+  ✅ safe_mode: Desactivado
+
+2. COMANDO SSH
+-----------------------------------------------
+  ❌ ssh NO encontrado en PATH
+     Verificar: comando 'which ssh' o 'where ssh'
+
+3. CLAVE SSH
+-----------------------------------------------
+  Ruta: C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend/config/ssh/jesusssh4.unknown
+  ✅ Archivo existe
+     Permisos: 0666
+     ⚠️  Permisos pueden causar problemas
+        Recomendado: chmod 600 C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend/config/ssh/jesusssh4.unknown
+     ❌ Usuario actual NO puede leer la clave
+     Tamaño: 1,679 bytes
+
+4. CONECTIVIDAD SSH
+-----------------------------------------------
+  Host: 34.173.106.81
+  Usuario: jesus
+
+  [Test 1] Ping al servidor...
+  ⚠️  Servidor no responde a ping (puede estar bloqueado por firewall)
+
+  [Test 2] Conexión SSH básica (timeout 10s)...
+  ❌ Fallo la conexión SSH
+     Salida: Warning: Permanently added '34.173.106.81' (ED25519) to the list of known hosts.
+Load key "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend/config/ssh/jesusssh4.unknown": Permission denied
+jesus@34.173.106.8
+     ⚠️  Error de permisos - verificar clave SSH
+
+5. PRUEBAS ESPECÍFICAS (getSSHCommand)
+-----------------------------------------------
+
+  [Test A] Lectura de config.ini desde PHP...
+  ✅ config.ini [ssh] ssh_command: C:\Windows\System32\OpenSSH\ssh.exe
+     ✅ El archivo existe en esa ruta
+
+  [Test B] Ejecutar getSSHCommand() del DAO...
+  ✅ getSSHCommand() devuelve: C:\Windows\System32\OpenSSH\ssh.exe
+     ✅ El archivo existe
+
+6. VARIABLES DE ENTORNO Y CONTEXTO
+-----------------------------------------------
+  SAPI: apache2handler
+     ℹ️  Modo Web (apache2handler)
+
+  Variable PATH:
+     Total de rutas: 15
+     Primeras 5 rutas:
+       1. C:\Windows\system32
+       2. C:\Windows
+       3. C:\Windows\System32\Wbem
+       4. C:\Windows\System32\WindowsPowerShell\v1.0\
+       5. C:\Windows\System32\OpenSSH\
+     ✅ Encontrado directorio SSH en PATH: C:\Windows\System32\OpenSSH\
+     ✅ Encontrado directorio SSH en PATH: C:\Windows\System32\OpenSSH
+
+  Otras variables relevantes:
+     USERPROFILE: C:\Windows\system32\config\systemprofile
+     SYSTEMROOT: C:\Windows
+     WINDIR: C:\Windows
+     TEMP: C:\Windows\TEMP
+     TMP: \xampp\tmp
+
+7. TEST DE EJECUCIÓN SSH DESDE CONTEXTO PHP
+-----------------------------------------------
+
+  [Test 1] Ejecutar 'where.exe ssh' (Windows)...
+  ✅ Encontró 2 ruta(s):
+     • C:\Windows\System32\ssh.exe
+     • C:\Windows\System32\OpenSSH\ssh.exe
+
+  [Test 2] Intentar ejecutar SSH directamente...
+  ✅ SSH es ejecutable desde este contexto PHP
+     OpenSSH_for_Windows_9.5p2, LibreSSL 3.8.2
+
+  [Test 3] Ruta completa C:\Windows\System32\OpenSSH\ssh.exe...
+  ✅ Archivo existe: C:\Windows\System32\OpenSSH\ssh.exe
+  ✅ Ejecutable con ruta completa
+     OpenSSH_for_Windows_9.5p2, LibreSSL 3.8.2
+
+8. DIRECTORIOS DE LA APLICACIÓN
+-----------------------------------------------
+  ✅ Raíz backend: Existe y es escribible
+  ✅ Config: Existe y es escribible
+  ✅ Config SSH: Existe y es escribible
+  ✅ Storage: Existe y es escribible
+  ✅ Storage logs: Existe y es escribible
+  ✅ Models: Existe y es escribible
+  ✅ Controllers: Existe y es escribible
+
+9. CLASES PHP
+-----------------------------------------------
+  ✅ SegundometroDAO.php existe
+     ✅ SSH_HOST coincide: 34.173.106.81
+     Configuración SSH_KEY: 'C:\\Users\\lrgon\\Downloads\\jesusssh4.unknown'
+
+===============================================
+RESUMEN
+===============================================
+Total de tests ejecutados: 0
+Problemas críticos: 0
+Advertencias: 0
+Duración: 0.9s
+
+✅ TODO CORRECTO - No se encontraron problemas
+
+===============================================
+Reporte generado: 2026-02-12 12:17:27 CST
+===============================================
