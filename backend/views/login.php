@@ -92,13 +92,14 @@
 /* Encabezado LOGIN */
 .login-heading {
   font-family: 'Public Sans', sans-serif;
-  font-size: 20px;
+  font-size: 16px;
   font-weight: 400;
   color: #1e3a8a;
   margin-bottom: 30px;
   text-align: center;
   letter-spacing: 1px;
   text-transform: none;
+  white-space: nowrap;
 }
 
 /* Botón */
