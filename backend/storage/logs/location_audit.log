@@ -99,3 +99,5 @@
 {"type":"analytics","endpoint":"compliance","id_credito":735641,"params":{"gestorId":null},"cache_hit":false,"timestamp":"2026-02-12T18:12:44-06:00","summary":{"porcentaje_cumplimiento":21.43}}
 {"type":"analytics","endpoint":"compliance","id_credito":735641,"params":{"gestorId":null},"cache_hit":false,"timestamp":"2026-02-12T18:21:07-06:00","summary":{"porcentaje_cumplimiento":21.43}}
 {"type":"analytics","endpoint":"compliance","id_credito":735641,"params":{"gestorId":null},"cache_hit":false,"timestamp":"2026-02-12T18:24:03-06:00","summary":{"porcentaje_cumplimiento":21.43}}
+{"type":"analytics","endpoint":"payments","id_credito":735641,"params":{"gestorId":null},"cache_hit":false,"timestamp":"2026-02-13T11:37:14-06:00","summary":{"total_pagos":53}}
+{"type":"analytics","endpoint":"compliance","id_credito":735641,"params":{"gestorId":null},"cache_hit":false,"timestamp":"2026-02-13T11:51:52-06:00","summary":{"porcentaje_cumplimiento":20}}

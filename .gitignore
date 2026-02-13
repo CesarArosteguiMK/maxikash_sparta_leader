@@ -1,58 +1,36 @@
-# Llaves SSH privadas (NO subir a Git)
+# ========== Credenciales y configuración (NUNCA subir) ==========
+.env
+backend/config/config.ini
+backend/config/secret.php
+backend/config/master_key.php
+
+# ========== Llaves SSH (OpenSSH PEM / PuTTY .ppk) ==========
 backend/config/ssh/*.unknown
 backend/config/ssh/*.key
 backend/config/ssh/*.pem
 backend/config/ssh/*.ppk
+backend/config/ssh/jesusssh4.ppk
+backend/config/ssh/jesusssh4.unknown
 
-# Archivo de configuración con credenciales sensibles
-backend/config/config.ini
-
-# credenciales de entorno (nunca subir; copiar .env.example a .env)
-.env
-
-# API key OpenAI (nunca subir; copiar secret.php.example a secret.php)
-backend/config/secret.php
-
-# Clave maestra para descifrar API keys en BD (config_api)
-backend/config/master_key.php
-
-# Certificados SSL __SPARTA_SECRET_REDACTED__ (clave privada y cert cliente: NO subir)
-backend/BD/client-key.pem
+# ========== Certificados SSL (backend/BD: server-ca, client-cert, client-key) ==========
+# Incluye variantes con (1), (3), etc. que genera Windows al descargar de nuevo
+backend/BD/*.pem
+backend/BD/server-ca.pem
 backend/BD/client-cert.pem
-# Copias temporales sin espacios (Windows SSL)
+backend/BD/client-cert*.pem
+backend/BD/client-key.pem
+backend/BD/client-key*.pem
 backend/BD/geo_ssl_*.pem
 
-# Test diagnóstico SSL __SPARTA_SECRET_REDACTED__ (no subir; solo uso local)
-public/test_geo_ssl.php
-
-# Mantener la estructura de carpetas
+# ========== Excepciones en backend/config/ssh (sí van a Git) ==========
 !backend/config/ssh/.gitkeep
 !backend/config/ssh/README.md
 !backend/config/ssh/fix_permissions.bat
 
-# Medios extraídos de PDFs (videos/audio temporales) y logs de depuración
+# ========== Test y diagnóstico (no subir; pueden exponer rutas) ==========
+public/test_geo_ssl.php
+
+# ========== Medios temporales y logs ==========
 backend/storage/tmp_media/
 backend/storage/logs/*.log
 !backend/storage/logs/.gitkeep
-```
-
----
-
-## 🗂️ Estructura completa de archivos:
-```
-sparta___SPARTA_SECRET_REDACTED__/                                    ← RAÍZ del proyecto
-│
-├── .gitignore                                    ← CREAR/EDITAR AQUÍ ✏️
-├── setup.bat                                     ← CREAR ✏️
-├── README_SETUP.md                               ← CREAR ✏️ (opcional)
-│
-└── backend/
-    ├── config/
-    │   └── ssh/
-    │       ├── jesusssh4.unknown                 ← YA LO TIENES (NO va a Git ❌)
-    │       ├── fix_permissions.bat               ← CREAR ✏️ (SÍ va a Git ✅)
-    │       ├── .gitkeep                          ← CREAR ✏️ (archivo vacío)
-    │       └── README.md                         ← CREAR ✏️ (opcional)
-    │
-    └── models/
-        └── SegundometroDAO.php                   ← YA LO TIENES
