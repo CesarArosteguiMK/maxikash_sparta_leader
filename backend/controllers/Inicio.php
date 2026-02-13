@@ -3,6 +3,7 @@
 namespace Controllers;
 
 use Core\Controller;
+use Core\DatabaseGeo;
 use Models\Usuarios as UsuariosDao;
 
 class Inicio extends Controller
@@ -13,6 +14,199 @@ class Inicio extends Controller
         // Validar si el usuario debe cambiar su contraseña
         $this->validarActualizacionPassword();
 
+    }
+
+    /**
+     * Diagnóstico de conexión a BD direcciones alternas (__SPARTA_SECRET_REDACTED__): SSL, permisos, análisis por pasos.
+     * No asume rutas fijas; usa la misma lógica que DatabaseGeo (__DIR__ del core) y comprueba también desde backend/.
+     */
+    public function diagnosticoConexiones()
+    {
+        header('Content-Type: text/html; charset=utf-8');
+
+        // Ruta que usa DatabaseGeo (desde backend/core → backend/BD)
+        $paths = DatabaseGeo::getSslPaths();
+        $dirGeo = $paths['dir'];
+        $dirResolved = @realpath($dirGeo);
+
+        // Ruta alternativa: desde este controlador (backend/controllers → backend/BD)
+        $backendDir = dirname(__DIR__);
+        $dirDesdeBackend = $backendDir . DIRECTORY_SEPARATOR . 'BD';
+        $dirAltResolved = @realpath($dirDesdeBackend);
+
+        // Usar la carpeta que exista (prioridad: la que usa la app, luego la alternativa)
+        $dirEfectivo = $dirResolved ?: $dirAltResolved;
+        $sslDir = $dirEfectivo ?: $dirGeo;
+
+        $sep = DIRECTORY_SEPARATOR;
+        $ca   = $sslDir . $sep . 'server-ca.pem';
+        $cert = $sslDir . $sep . 'client-cert.pem';
+        if (!is_file($cert)) {
+            $cert = $sslDir . $sep . 'client-cert (3).pem';
+        }
+        $key = $sslDir . $sep . 'client-key.pem';
+        if (!is_file($key)) {
+            $key = $sslDir . $sep . 'client-key (1).pem';
+        }
+
+        $caExists = is_file($ca);
+        $caReadable = $caExists && is_readable($ca);
+        $certExists = is_file($cert);
+        $certReadable = $certExists && is_readable($cert);
+        $keyExists = is_file($key);
+        $keyReadable = $keyExists && is_readable($key);
+
+        $lines = [];
+        $lines[] = '=== Diagnóstico de conexión (BD direcciones alternas / __SPARTA_SECRET_REDACTED__) ===';
+        $lines[] = 'Servidor: ' . ($_SERVER['SERVER_NAME'] ?? '?') . ' | ' . date('Y-m-d H:i:s');
+        $lines[] = '';
+        $lines[] = '--- Ubicación de la carpeta de certificados (backend/BD) ---';
+        $lines[] = 'Ruta que usa la app (desde Core\DatabaseGeo): ' . $dirGeo;
+        $lines[] = '  Resuelta (realpath): ' . ($dirResolved ?: '(no existe o no accesible)');
+        $lines[] = 'Ruta desde backend/ (desde controlador): ' . $dirDesdeBackend;
+        $lines[] = '  Resuelta (realpath): ' . ($dirAltResolved ?: '(no existe o no accesible)');
+        $lines[] = 'Carpeta usada en este diagnóstico: ' . ($dirEfectivo ?: $dirGeo);
+        $lines[] = 'Existe carpeta: ' . (is_dir($sslDir) ? 'Sí' : 'No');
+        $lines[] = '';
+        $lines[] = '--- Archivos de certificados ---';
+        $lines[] = 'server-ca.pem:  ' . ($caExists ? 'Existe' : 'NO EXISTE') . ' | Lectura: ' . ($caReadable ? 'Sí' : 'No');
+        $lines[] = '  Ruta: ' . $ca;
+        $lines[] = 'client-cert:   ' . ($certExists ? 'Existe' : 'NO EXISTE') . ' | Lectura: ' . ($certReadable ? 'Sí' : 'No');
+        $lines[] = '  Ruta: ' . $cert;
+        $lines[] = 'client-key:    ' . ($keyExists ? 'Existe' : 'NO EXISTE') . ' | Lectura: ' . ($keyReadable ? 'Sí' : 'No');
+        $lines[] = '  Ruta: ' . $key;
+        $lines[] = '';
+
+        // Diagnóstico por pasos (como test_geo_ssl.php)
+        $host = '__SPARTA_HOST_REDACTED__';
+        $port = 3306;
+        $dbname = '__SPARTA_SECRET_REDACTED__';
+        $user = '__SPARTA_SECRET_REDACTED__';
+        $pass = '__SPARTA_PASSWORD_REDACTED__';
+        $dsn = "mysql:host=$host;port=$port;dbname=$dbname;charset=utf8mb4";
+        $opciones = [
+            \PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION,
+            \PDO::ATTR_DEFAULT_FETCH_MODE => \PDO::FETCH_ASSOC,
+        ];
+
+        $lines[] = '--- Diagnóstico por pasos (conexión a ' . $host . ':' . $port . ') ---';
+        $lines[] = '';
+
+        // Paso 1: Sin SSL
+        $lines[] = '1. Conexión SIN SSL (comprobar red/firewall):';
+        try {
+            $pdo = new \PDO($dsn, $user, $pass, $opciones);
+            $lines[] = '   OK (TCP establecido; servidor aceptó sin forzar SSL).';
+            $pdo = null;
+        } catch (\PDOException $e) {
+            $lines[] = '   Error: ' . $e->getMessage();
+            $lines[] = '   (Si falla: firewall, host incorrecto, o servidor exige SSL.)';
+        }
+        $lines[] = '';
+
+        // Paso 2: Solo CA
+        $lines[] = '2. Conexión SSL solo CA (sin client-cert/key):';
+        if (is_file($ca)) {
+            $opts = $opciones + [
+                \PDO::MYSQL_ATTR_SSL_CA => $ca,
+                \PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT => false,
+            ];
+            try {
+                $pdo = new \PDO($dsn, $user, $pass, $opts);
+                $lines[] = '   OK (SSL con CA; servidor no exige certificado cliente).';
+                $pdo = null;
+            } catch (\PDOException $e) {
+                $lines[] = '   Error: ' . $e->getMessage();
+            }
+        } else {
+            $lines[] = '   (server-ca.pem no encontrado)';
+        }
+        $lines[] = '';
+
+        // Paso 3: CA + cert + key
+        $lines[] = '3. Conexión SSL completa (CA + cert + key):';
+        if (is_file($ca) && is_file($cert) && is_file($key)) {
+            $opts = $opciones + [
+                \PDO::MYSQL_ATTR_SSL_CA => $ca,
+                \PDO::MYSQL_ATTR_SSL_CERT => $cert,
+                \PDO::MYSQL_ATTR_SSL_KEY => $key,
+                \PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT => false,
+            ];
+            try {
+                $pdo = new \PDO($dsn, $user, $pass, $opts);
+                $lines[] = '   OK (conexión SSL completa; esta es la config que usa la app).';
+                $pdo = null;
+            } catch (\PDOException $e) {
+                $lines[] = '   Error: ' . $e->getMessage();
+            }
+        } else {
+            $lines[] = '   (falta ca, cert o key)';
+        }
+        $lines[] = '';
+
+        // Conexión con DatabaseGeo (clase real)
+        $lines[] = '--- Conexión con DatabaseGeo (clase de la app) ---';
+        $db = new DatabaseGeo();
+        $connected = $db->isConnected();
+        $lastError = DatabaseGeo::getLastError();
+        $lines[] = 'Conectado: ' . ($connected ? 'Sí' : 'No');
+        if (!$connected && $lastError) {
+            $lines[] = 'Error PDO: ' . $lastError;
+        }
+        $lines[] = '';
+
+        // Sugerencia
+        if (!$dirResolved && !$dirAltResolved) {
+            $lines[] = 'Solución: La carpeta backend/BD no existe en ninguna ruta comprobada. Crear la carpeta y copiar los 3 .pem (server-ca, client-cert, client-key). La ruta depende de dónde esté el proyecto (D:, Linux, etc.).';
+        } elseif (!$caExists || !$certExists || !$keyExists) {
+            $lines[] = 'Solución: Copiar los 3 archivos .pem en la carpeta que sí existe (ver rutas resueltas arriba).';
+        } elseif (!$caReadable || !$certReadable || !$keyReadable) {
+            $lines[] = 'Solución: Revisar permisos (chmod 600 o 644) para que el usuario del servidor web pueda leer los .pem.';
+        } elseif (!$connected) {
+            $lines[] = 'Solución: Archivos OK pero la BD rechaza la conexión. Revisar: red/firewall (__SPARTA_HOST_REDACTED__:3306), credenciales y que el usuario tenga acceso desde esta IP.';
+        }
+
+        $report = implode("\n", $lines);
+        $reportHtml = htmlspecialchars($report, ENT_QUOTES, 'UTF-8');
+        $reportHtml = str_replace(
+            ['Sí', 'No', 'NO EXISTE', 'Existe', 'Error:', 'Error PDO:', 'Solución:'],
+            ['<span class="ok">Sí</span>', '<span class="error">No</span>', '<span class="error">NO EXISTE</span>', '<span class="ok">Existe</span>', '<span class="error">Error:</span>', '<span class="error">Error PDO:</span>', '<span class="warning">Solución:</span>'],
+            $reportHtml
+        );
+        ?>
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Diagnóstico de conexiones</title>
+            <meta charset="UTF-8">
+            <style>
+                body { font-family: 'Courier New', monospace; background: #1e1e1e; color: #d4d4d4; padding: 20px; margin: 0; }
+                .container { max-width: 920px; margin: 0 auto; background: #252526; padding: 24px; border-radius: 8px; }
+                pre { white-space: pre-wrap; word-wrap: break-word; line-height: 1.5; font-size: 13px; }
+                .ok { color: #4ec9b0; }
+                .error { color: #f48771; }
+                .warning { color: #dcdcaa; }
+                .btn { display: inline-block; padding: 10px 20px; background: #0e639c; color: #fff; text-decoration: none; border-radius: 4px; margin: 8px 4px; border: none; cursor: pointer; font-size: 14px; }
+                .btn:hover { background: #1177bb; }
+                .header { margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid #444; }
+                .header h1 { color: #4ec9b0; margin: 0 0 8px 0; font-size: 1.25rem; }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <h1>🔌 Diagnóstico de conexiones (BD direcciones alternas)</h1>
+                </div>
+                <pre><?php echo $reportHtml; ?></pre>
+                <div style="margin-top: 20px;">
+                    <button onclick="window.location.reload()" class="btn">🔄 Actualizar</button>
+                    <button onclick="window.close()" class="btn">✖️ Cerrar</button>
+                </div>
+            </div>
+        </body>
+        </html>
+        <?php
+        exit;
     }
 
     /**
