@@ -75,11 +75,87 @@ class Inicio extends Controller
         $lines[] = '  Ruta: ' . $cert;
         $lines[] = 'client-key:    ' . ($keyExists ? 'Existe' : 'NO EXISTE') . ' | Lectura: ' . ($keyReadable ? 'Sí' : 'No');
         $lines[] = '  Ruta: ' . $key;
+        if ($caExists) {
+            $sizeCa = @filesize($ca);
+            $lines[] = 'Tamaño server-ca.pem: ' . ($sizeCa !== false ? $sizeCa . ' bytes' : '?') . ($sizeCa === 0 ? ' (vacío)' : '');
+        }
+        if ($certExists) {
+            $sizeCert = @filesize($cert);
+            $lines[] = 'Tamaño client-cert: ' . ($sizeCert !== false ? $sizeCert . ' bytes' : '?') . ($sizeCert === 0 ? ' (vacío)' : '');
+        }
+        if ($keyExists) {
+            $sizeKey = @filesize($key);
+            $lines[] = 'Tamaño client-key: ' . ($sizeKey !== false ? $sizeKey . ' bytes' : '?') . ($sizeKey === 0 ? ' (vacío)' : '');
+        }
+        $lines[] = '';
+
+        // --- Entorno PHP y extensiones ---
+        $lines[] = '--- Entorno (PHP y extensiones) ---';
+        $lines[] = 'PHP: ' . PHP_VERSION . ' | SAPI: ' . php_sapi_name();
+        $lines[] = 'Sistema: ' . PHP_OS . ' | Servidor: ' . ($_SERVER['SERVER_SOFTWARE'] ?? '?');
+        $pdoLoaded = extension_loaded('pdo');
+        $pdoMysqlLoaded = extension_loaded('pdo_mysql');
+        $opensslLoaded = extension_loaded('openssl');
+        $lines[] = 'PDO: ' . ($pdoLoaded ? 'Sí' : 'No') . ' | pdo_mysql: ' . ($pdoMysqlLoaded ? 'Sí' : 'No') . ' | openssl: ' . ($opensslLoaded ? 'Sí' : 'No');
+        if (!$pdoLoaded || !$pdoMysqlLoaded) {
+            $lines[] = '  (Falta extensión necesaria para MySQL.)';
+        }
+        $lines[] = '';
+
+        // --- IP de salida (para autorizar en Cloud SQL) ---
+        $lines[] = '--- IP de este servidor (añadir en redes autorizadas de la BD) ---';
+        $ipSalida = null;
+        if (function_exists('gethostname')) {
+            $hostname = @gethostname();
+            if ($hostname && function_exists('gethostbyname')) {
+                $ipSalida = @gethostbyname($hostname);
+                if ($ipSalida === $hostname) {
+                    $ipSalida = null;
+                }
+            }
+        }
+        if (empty($ipSalida) && !empty($_SERVER['SERVER_ADDR'])) {
+            $ipSalida = $_SERVER['SERVER_ADDR'];
+        }
+        $lines[] = 'IP local/host: ' . ($ipSalida ?: '(no detectada)');
+        $lines[] = '  → En Cloud SQL / MySQL: autorizar esta IP para poder conectar.';
+        $lines[] = '';
+
+        // --- Conectividad de red (socket TCP) ---
+        $host = '__SPARTA_HOST_REDACTED__';
+        $port = 3306;
+        $lines[] = '--- Conectividad de red (TCP ' . $host . ':' . $port . ') ---';
+        $timeoutSocket = 5;
+        $errno = 0;
+        $errstr = '';
+        $fp = @fsockopen($host, $port, $errno, $errstr, $timeoutSocket);
+        $socketOk = (bool)$fp;
+        $socketErrnoSaved = $errno;
+        $socketErrstrSaved = $errstr;
+        if ($fp) {
+            $lines[] = 'Socket TCP: OK (puerto ' . $port . ' accesible; red/firewall permiten conexión).';
+            fclose($fp);
+        } else {
+            $lines[] = 'Socket TCP: FALLO (no se puede conectar en ' . $timeoutSocket . ' s).';
+            $lines[] = '  errno: ' . $errno . ' | errstr: ' . ($errstr ?: '(vacío)');
+            if ($errno === 110 || $errstr === 'Connection timed out' || stripos($errstr, 'timed out') !== false) {
+                $lines[] = '  → Timeout: la IP de este servidor probablemente no está autorizada en la BD, o hay firewall.';
+            } elseif ($errno === 111 || stripos($errstr, 'refused') !== false) {
+                $lines[] = '  → Connection refused: MySQL no escucha en ese puerto o en esa IP.';
+            } else {
+                $lines[] = '  → Revisar: firewall salida (este servidor), redes autorizadas (BD), que MySQL escuche en ' . $host . '.';
+            }
+        }
+        $socketTimeout = !$socketOk && ($socketErrnoSaved === 110 || stripos((string)$socketErrstrSaved, 'timed out') !== false);
+        $socketRefused = !$socketOk && ($socketErrnoSaved === 111 || stripos((string)$socketErrstrSaved, 'refused') !== false);
+        $lines[] = '';
+
+        // --- Resolución DNS (opcional; si el host fuera nombre) ---
+        $ipResuelta = @gethostbyname($host);
+        $lines[] = 'Resolución de ' . $host . ': ' . ($ipResuelta !== $host ? $ipResuelta : '(mismo valor, no es nombre DNS)');
         $lines[] = '';
 
         // Diagnóstico por pasos (como test_geo_ssl.php)
-        $host = '__SPARTA_HOST_REDACTED__';
-        $port = 3306;
         $dbname = '__SPARTA_SECRET_REDACTED__';
         $user = '__SPARTA_SECRET_REDACTED__';
         $pass = '__SPARTA_PASSWORD_REDACTED__';
@@ -155,22 +231,91 @@ class Inicio extends Controller
         }
         $lines[] = '';
 
-        // Sugerencia
+        // --- Interpretación de errores PDO ---
+        $lines[] = '--- Interpretación de errores PDO ---';
+        $lines[] = 'Código 2002: no se pudo establecer conexión TCP (timeout, firewall, IP no autorizada).';
+        $lines[] = 'Código 1045: acceso denegado (usuario/contraseña o host no permitido).';
+        $lines[] = 'Código 2026: problema con certificado SSL.';
+        $lines[] = '';
+
+        // --- Checklist de red (revisar si hay timeout / 2002) ---
+        $lines[] = '--- Checklist de red (revisar si hay timeout o error 2002) ---';
+        $lines[] = '';
+        $lines[] = '1. Autorización de red en la BD (' . $host . ')';
+        $lines[] = '   Si la base está en Google Cloud SQL (o similar):';
+        $lines[] = '   En la consola, en "Redes autorizadas" / "Authorized networks", hay que añadir';
+        $lines[] = '   la IP del servidor de la app: 34.51.32.249.';
+        $lines[] = '   Sin esa IP, Cloud SQL no acepta conexiones desde 34.51.32.249 y se produce el timeout.';
+        if ($socketOk) {
+            $lines[] = '   [Verificación] TCP OK → probablemente esta IP ya está autorizada.';
+        } elseif ($socketTimeout) {
+            $lines[] = '   [Verificación] Timeout → REVISAR: añadir IP de este servidor (' . ($ipSalida ?: 'ver arriba') . ') en redes autorizadas.';
+        } else {
+            $lines[] = '   [Verificación] Conexión fallida → revisar redes autorizadas en la consola de la BD.';
+        }
+        $lines[] = '';
+        $lines[] = '2. Firewall en el servidor de la app (34.51.32.249)';
+        $lines[] = '   Comprobar que no se esté bloqueando la salida al puerto ' . $port . ' hacia ' . $host . '.';
+        if ($socketOk) {
+            $lines[] = '   [Verificación] TCP OK → la salida al puerto ' . $port . ' está permitida desde este servidor.';
+        } elseif ($socketTimeout) {
+            $lines[] = '   [Verificación] Timeout → REVISAR: reglas de firewall de salida (iptables, ufw, etc.) hacia ' . $host . ':' . $port . '.';
+        } else {
+            $lines[] = '   [Verificación] Conexión fallida → revisar firewall de salida en este servidor.';
+        }
+        $lines[] = '';
+        $lines[] = '3. Que MySQL escuche en la IP correcta';
+        $lines[] = '   Si ' . $host . ' es la IP pública del servidor de BD, MySQL debe estar configurado';
+        $lines[] = '   para escuchar en esa IP (o en 0.0.0.0), no solo en 127.0.0.1.';
+        if ($socketOk) {
+            $lines[] = '   [Verificación] TCP OK → MySQL acepta conexiones en ese puerto/IP.';
+        } elseif ($socketRefused) {
+            $lines[] = '   [Verificación] Connection refused → REVISAR: MySQL debe escuchar en 0.0.0.0 o en la IP pública, no solo en 127.0.0.1.';
+        } else {
+            $lines[] = '   [Verificación] Conexión fallida → revisar bind_address de MySQL en el servidor de BD.';
+        }
+        $lines[] = '';
+
+        // Sugerencia y posible causa
+        $posibleCausa = [];
         if (!$dirResolved && !$dirAltResolved) {
             $lines[] = 'Solución: La carpeta backend/BD no existe en ninguna ruta comprobada. Crear la carpeta y copiar los 3 .pem (server-ca, client-cert, client-key). La ruta depende de dónde esté el proyecto (D:, Linux, etc.).';
+            $posibleCausa[] = 'Falta carpeta de certificados.';
         } elseif (!$caExists || !$certExists || !$keyExists) {
             $lines[] = 'Solución: Copiar los 3 archivos .pem en la carpeta que sí existe (ver rutas resueltas arriba).';
+            $posibleCausa[] = 'Faltan uno o más .pem.';
         } elseif (!$caReadable || !$certReadable || !$keyReadable) {
             $lines[] = 'Solución: Revisar permisos (chmod 600 o 644) para que el usuario del servidor web pueda leer los .pem.';
+            $posibleCausa[] = 'Permisos de lectura de los .pem.';
+        } elseif (!$pdoLoaded || !$pdoMysqlLoaded) {
+            $lines[] = 'Solución: Habilitar extensiones PDO y pdo_mysql en php.ini.';
+            $posibleCausa[] = 'Extensiones PHP (pdo_mysql).';
         } elseif (!$connected) {
-            $lines[] = 'Solución: Archivos OK pero la BD rechaza la conexión. Revisar: red/firewall (__SPARTA_HOST_REDACTED__:3306), credenciales y que el usuario tenga acceso desde esta IP.';
+            $lines[] = 'Solución: Archivos OK pero la BD rechaza la conexión. Revisar: red/firewall (' . $host . ':' . $port . '), credenciales y que el usuario tenga acceso desde esta IP.';
+            if ($lastError) {
+                if (strpos($lastError, '2002') !== false || stripos($lastError, 'timed out') !== false) {
+                    $posibleCausa[] = 'Red/firewall: IP de este servidor no autorizada o timeout (código 2002).';
+                } elseif (strpos($lastError, '1045') !== false) {
+                    $posibleCausa[] = 'Credenciales o acceso denegado (código 1045).';
+                } elseif (strpos($lastError, '2026') !== false) {
+                    $posibleCausa[] = 'Certificado SSL rechazado (código 2026).';
+                } else {
+                    $posibleCausa[] = 'Conexión rechazada; ver mensaje PDO arriba.';
+                }
+            } else {
+                $posibleCausa[] = 'Conexión rechazada (revisar pasos 1–3 y socket TCP).';
+            }
+        }
+        if (!empty($posibleCausa)) {
+            $lines[] = '';
+            $lines[] = 'Posible causa: ' . implode(' ', $posibleCausa);
         }
 
         $report = implode("\n", $lines);
         $reportHtml = htmlspecialchars($report, ENT_QUOTES, 'UTF-8');
         $reportHtml = str_replace(
-            ['Sí', 'No', 'NO EXISTE', 'Existe', 'Error:', 'Error PDO:', 'Solución:'],
-            ['<span class="ok">Sí</span>', '<span class="error">No</span>', '<span class="error">NO EXISTE</span>', '<span class="ok">Existe</span>', '<span class="error">Error:</span>', '<span class="error">Error PDO:</span>', '<span class="warning">Solución:</span>'],
+            ['Sí', 'No', 'NO EXISTE', 'Existe', 'Error:', 'Error PDO:', 'Solución:', 'Posible causa:', 'FALLO', 'Socket TCP: OK', 'Socket TCP: FALLO'],
+            ['<span class="ok">Sí</span>', '<span class="error">No</span>', '<span class="error">NO EXISTE</span>', '<span class="ok">Existe</span>', '<span class="error">Error:</span>', '<span class="error">Error PDO:</span>', '<span class="warning">Solución:</span>', '<span class="warning">Posible causa:</span>', '<span class="error">FALLO</span>', '<span class="ok">Socket TCP: OK</span>', '<span class="error">Socket TCP: FALLO</span>'],
             $reportHtml
         );
         ?>
