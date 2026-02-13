@@ -380,14 +380,27 @@ JS;
                 $aplicados = [];
 
                 // -------------------------
-                // APLICAR PAGOS A ESTE CARGO
+                // Índices de pagos que aplican a esta cuota, ordenados para dejar más sobrante a la siguiente: primero los que NO incluyen cuota N+1, después los que sí (24,25).
+                // Así no "gastamos" todo el pago (24,25) en la 24 y dejamos más para la 25.
                 // -------------------------
-                foreach ($pagos_list as &$pago) {
-
-                    // ¿Este pago aplica a esta cuota?
-                    if (!in_array($cuota_num, $pago["cuotas"])) {
-                        continue;
+                $siguiente_cuota = $cuota_num + 1;
+                $indices_aplicables = [];
+                foreach ($pagos_list as $idx => $p) {
+                    if (in_array($cuota_num, $p["cuotas"] ?? [])) {
+                        $indices_aplicables[] = $idx;
                     }
+                }
+                usort($indices_aplicables, function ($a, $b) use ($pagos_list, $siguiente_cuota) {
+                    $tiene_siguiente_a = in_array($siguiente_cuota, $pagos_list[$a]["cuotas"] ?? []);
+                    $tiene_siguiente_b = in_array($siguiente_cuota, $pagos_list[$b]["cuotas"] ?? []);
+                    return ($tiene_siguiente_a ? 1 : 0) <=> ($tiene_siguiente_b ? 1 : 0);
+                });
+
+                // -------------------------
+                // APLICAR PAGOS A ESTE CARGO (en el orden calculado)
+                // -------------------------
+                foreach ($indices_aplicables as $idx) {
+                    $pago = &$pagos_list[$idx];
 
                     // --- Aplicar monto real (remaining) a la cuota primero ---
                     $aplico_remaining_esta_cuota = false;
@@ -395,21 +408,23 @@ JS;
 
                         $remaining_al_inicio = round($pago["remaining"], 2);
                         $aplicar = min($pago["remaining"], $monto_restante_cargo);
-                        // Es sobrante cuando aplicamos el "resto" del pago (chunk < cargo) o cuando el pago ya se aplicó en cuota anterior (remaining < original).
-                        $es_sobrante_remaining = (($aplicar == $pago["remaining"]) && ($aplicar < $monto_cargo))
-                            || ($remaining_al_inicio < round($pago["montoPagoOriginal"] ?? PHP_INT_MAX, 2));
+                        $ext_api = round($pago["extemporaneos"] ?? 0, 2);
+                        $monto_real_pago = round(($pago["montoPagoOriginal"] ?? 0) - $ext_api, 2);
+                        // Es sobrante solo cuando aplicamos el "resto" de un pago que ya se usó en parte en OTRA cuota (remaining < monto real). No cuando la diferencia con el original es solo extemporáneos/gasto cobranza.
+                        $es_sobrante_remaining = ($remaining_al_inicio < $monto_real_pago);
                         // Mostrar monto real del depósito solo cuando es la primera aplicación; si ya se usó en cuota anterior, mostrar el resto que llegó.
                         $monto_mostrar = $es_sobrante_remaining ? $remaining_al_inicio : round($pago["montoPagoOriginal"] ?? $pago["remaining"], 2);
-
+                        $aplicado_total_pago = round(($pago["montoPagoOriginal"] ?? 0) - $ext_api, 2);
                         $aplicados[] = [
-                            "idPago"       => $pago["idPago"],
-                            "montoPago"    => $monto_mostrar,
-                            "aplicado"     => round($aplicar, 2),
-                            "fechaRegistro"=> $pago["fechaRegistro"],
-                            "fechaPago"    => $fecha_venc,
-                            "diasMora"     => null,
-                            "extemporaneos"=> 0.0,
-                            "es_sobrante"  => $es_sobrante_remaining
+                            "idPago"            => $pago["idPago"],
+                            "montoPago"        => $monto_mostrar,
+                            "aplicado"         => round($aplicar, 2),
+                            "aplicadoTotalPago" => $aplicado_total_pago,
+                            "fechaRegistro"    => $pago["fechaRegistro"],
+                            "fechaPago"        => $fecha_venc,
+                            "diasMora"         => null,
+                            "extemporaneos"    => $ext_api,
+                            "es_sobrante"      => $es_sobrante_remaining
                         ];
 
                         $aplico_remaining_esta_cuota = true;
@@ -418,54 +433,13 @@ JS;
                         $monto_restante_cargo     = round($monto_restante_cargo - $aplicar, 2);
                     }
 
-                    // --- Sobrante (remaining + extemporáneos): priorizar liquidar la siguiente semana; solo cobrar Gasto de Cobranza si ya estamos al día (sobrante no alcanza para la siguiente cuota) ---
+                    // --- Sobrante (remaining + extemporáneos): actualizar remaining del pago. Gastos de cobranza solo vienen de la API (extemporaneos), no se calculan desde sobrante. ---
                     $sobrante_restante = round($pago["remaining"] + $pago["extemporaneos"], 2);
-                    $sobrante_prioriza_siguiente = ($monto_siguiente_cuota > 0 && $sobrante_restante >= $monto_siguiente_cuota);
-                    if ($sobrante_restante >= 235 && $aplico_remaining_esta_cuota && !$pago["_extemporaneo_aplicado"] && !$sobrante_prioriza_siguiente) {
-                        $fecha_venc_ts = $fecha_venc ? @strtotime($fecha_venc) : 0;
-                        $pago_fecha_ts = !empty($pago["fechaRegistro"]) ? @strtotime($pago["fechaRegistro"]) : 0;
-                        $mora_dias = ($fecha_venc_ts && $pago_fecha_ts) ? max(0, (int) floor(($pago_fecha_ts - $fecha_venc_ts) / 86400)) : 0;
-                        if ($mora_dias > 0) {
-                            $monto_gasto = min(250, $sobrante_restante);
-                            $aplicados[] = [
-                                "idPago"          => $pago["idPago"],
-                                "montoPago"       => round($monto_gasto, 2),
-                                "aplicado"        => round($monto_gasto, 2),
-                                "fechaRegistro"   => $pago["fechaRegistro"],
-                                "fechaPago"       => $fecha_venc,
-                                "diasMora"        => $mora_dias,
-                                "extemporaneos"   => 0.0,
-                                "es_sobrante"     => false,
-                                "gasto_cobranza"  => true
-                            ];
-                            // Sumar el Gasto al "aplicado" de la línea anterior del mismo pago; si era sobrante, mostrar depósito original (ej. Sobrante: $1011 - Aplicado Sobrante: $1009).
-                            $id_pago_gasto = $pago["idPago"];
-                            $monto_orig = round($pago["montoPagoOriginal"] ?? 0, 2);
-                            for ($i = count($aplicados) - 2; $i >= 0; $i--) {
-                                if (isset($aplicados[$i]["idPago"]) && $aplicados[$i]["idPago"] === $id_pago_gasto && empty($aplicados[$i]["gasto_cobranza"])) {
-                                    $aplicados[$i]["aplicado"] = round(($aplicados[$i]["aplicado"] ?? 0) + $monto_gasto, 2);
-                                    if (!empty($aplicados[$i]["es_sobrante"])) {
-                                        $aplicados[$i]["montoPago"] = $monto_orig;
-                                        $aplicados[$i]["es_sobrante"] = false;
-                                    }
-                                    break;
-                                }
-                            }
-                            $resto_sobrante = round($sobrante_restante - $monto_gasto, 2);
-                            $pago["remaining"] = $resto_sobrante;
-                            $pago["extemporaneos"] = 0;
-                            $pago["_extemporaneo_aplicado"] = true;
-                        } else {
-                            $pago["remaining"] = $sobrante_restante;
-                            $pago["extemporaneos"] = 0;
-                            $pago["_extemporaneo_aplicado"] = true;
-                        }
-                    } else {
-                        $pago["remaining"] = $sobrante_restante;
-                        $pago["extemporaneos"] = 0;
-                        $pago["_extemporaneo_aplicado"] = true;
-                    }
+                    $pago["remaining"] = $sobrante_restante;
+                    $pago["extemporaneos"] = 0;
+                    $pago["_extemporaneo_aplicado"] = true;
                 }
+                unset($pago);
 
                 // -------------------------
                 // CÁLCULOS FINALES

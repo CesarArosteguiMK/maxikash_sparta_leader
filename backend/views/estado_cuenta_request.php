@@ -1798,9 +1798,11 @@ body:not(.dark-mode) .btn-notas:hover {
                                         <?php foreach ($aplicados as $pago): ?>
                                             <?php
                                             $pago_monto = safe($pago['montoPago'], 0.0);
-                                            $pago_aplicado = safe($pago['aplicado'], 0.0);
                                             $pago_fecha = safe($pago['fechaRegistro'], $pago['fechaPago'] ?? null);
-                                            $es_sobrante = !empty($pago['es_sobrante']) || (isset($pago['extemporaneos']) && (float)$pago['extemporaneos'] > 0);
+                                            $extemporaneos = isset($pago['extemporaneos']) ? (float)$pago['extemporaneos'] : 0.0;
+                                            $es_sobrante = !empty($pago['es_sobrante']);
+                                            // Siempre mostrar lo que se aplicó a ESTA cuota (chunk), no el total del depósito: Pago 670 con cuota 666 → Aplicado 666; sobrante 4 + pago 670 → aplicado 662 a esta cuota.
+                                            $pago_aplicado = safe($pago['aplicado'], 0.0);
                                             $es_gasto_cobranza = !empty($pago['gasto_cobranza']);
                                             if ($es_gasto_cobranza) {
                                                 $etiqueta = 'Gasto de Cobranza';
@@ -1819,6 +1821,12 @@ body:not(.dark-mode) .btn-notas:hover {
                                                 <span class="text-muted fecha-pago"><?= htmlspecialchars(format_date($pago_fecha)) ?></span>
                                                 <?php endif; ?>
                                             </li>
+                                            <?php if (!$es_gasto_cobranza && $extemporaneos > 0): ?>
+                                            <li class="text-danger">
+                                                <span class="text-danger">Gasto cobranza: <?= format_currency($extemporaneos) ?></span> -
+                                                <span class="text-muted fecha-pago"><?= htmlspecialchars(format_date($pago_fecha)) ?></span>
+                                            </li>
+                                            <?php endif; ?>
                                         <?php endforeach; ?>
                                     <?php else: ?>
                                         <!-- Sin pagos -->
