@@ -193,27 +193,23 @@ class SegundometroDAO extends Model
         @file_put_contents($logFile, "\n=== " . date('Y-m-d H:i:s') . " ===\n", FILE_APPEND);
         @file_put_contents($logFile, "Comando: $sshComando\n", FILE_APPEND);
         
-        // shell_exec() evita colgarse como exec() cuando SSH espera input; no devuelve código de salida
-        $outputRaw = shell_exec($sshComando);
+        // exec() devuelve código de salida real: 0 = éxito (sudo cp, sudo rm no imprimen nada y antes se consideraban error)
+        $outputLines = [];
+        $returnVar = -1;
+        exec($sshComando, $outputLines, $returnVar);
+        $outputStr = trim(implode("\n", $outputLines));
         
-        @file_put_contents($logFile, "Output: " . ($outputRaw !== null ? trim($outputRaw) : 'NULL') . "\n", FILE_APPEND);
+        @file_put_contents($logFile, "Output: " . ($outputStr !== '' ? $outputStr : 'NULL') . "\n", FILE_APPEND);
+        @file_put_contents($logFile, "Return code: $returnVar\n", FILE_APPEND);
         
-        $outputStr = $outputRaw !== null ? trim($outputRaw) : '';
-        // Inferir fallo por mensajes típicos de SSH (shell_exec no devuelve return code)
-        $looksError = (
-            $outputStr === ''
-            || stripos($outputStr, 'Permission denied') !== false
-            || stripos($outputStr, 'Connection refused') !== false
-            || stripos($outputStr, 'timed out') !== false
-            || stripos($outputStr, 'Could not resolve host') !== false
-            || stripos($outputStr, 'No such file') !== false
-        );
-        $returnVar = $looksError ? 1 : 0;
+        // Éxito = código 0. Si falla, error = salida del comando (o mensaje genérico si vacío)
+        $success = ($returnVar === 0);
+        $errorStr = $success ? '' : ($outputStr !== '' ? $outputStr : 'Comando remoto falló (código ' . $returnVar . ')');
         
         return [
-            'success' => $returnVar === 0,
+            'success' => $success,
             'output' => $outputStr,
-            'error' => $looksError ? $outputStr : '',
+            'error' => $errorStr,
             'return_code' => $returnVar
         ];
     }
@@ -481,19 +477,51 @@ class SegundometroDAO extends Model
         $nombreLocal = 'segundometro_' . uniqid() . '_' . $nombreArchivo;
         $rutaLocal = $tempDir . DIRECTORY_SEPARATOR . $nombreLocal;
         
-        // scp es siempre OpenSSH; usar clave PEM
-        $sshKeyEscaped = escapeshellarg(self::getSSHKey(false));
-        $remoteEscaped = escapeshellarg(self::$SSH_USER . '@' . self::$SSH_HOST . ':' . $rutaRemota);
-        $localEscaped = escapeshellarg($rutaLocal);
+        $sshCommand = self::getSSHCommand();
+        $isPlink = $sshCommand !== null && (stripos($sshCommand, 'plink') !== false);
         
-        $knownHosts = self::getSSHKnownHostsFile();
-        $comando = sprintf(
-            'scp -i %s -o StrictHostKeyChecking=no -o UserKnownHostsFile=%s -o ConnectTimeout=10 %s %s 2>&1',
-            $sshKeyEscaped,
-            $knownHosts,
-            $remoteEscaped,
-            $localEscaped
-        );
+        if ($isPlink) {
+            // Plink: usar pscp (PuTTY SCP) con .ppk y -hostkey
+            $configFile = __DIR__ . '/../config/config.ini';
+            $cfg = (is_file($configFile) && is_array($c = @parse_ini_file($configFile, true))) ? $c : [];
+            $pscpPath = trim($cfg['ssh']['ssh_pscp'] ?? '');
+            if ($pscpPath === '' || !@is_file($pscpPath)) {
+                $plinkDir = dirname($sshCommand);
+                $isWin = (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN');
+                $pscpPath = $plinkDir . DIRECTORY_SEPARATOR . 'pscp' . ($isWin ? '.exe' : '');
+            }
+            if (!@is_file($pscpPath)) {
+                $pscpPath = 'pscp' . (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN' ? '.exe' : '');
+            }
+            $keyPath = self::getSSHKey(true);
+            $hostkey = '';
+            $hk = trim($cfg['ssh']['ssh_hostkey'] ?? '');
+            if ($hk !== '') {
+                $hostkey = ' -hostkey ' . escapeshellarg($hk);
+            }
+            $remoteSpec = self::$SSH_USER . '@' . self::$SSH_HOST . ':' . $rutaRemota;
+            $comando = sprintf(
+                '%s -i %s%s -batch %s %s 2>&1',
+                escapeshellarg($pscpPath),
+                escapeshellarg($keyPath),
+                $hostkey,
+                escapeshellarg($remoteSpec),
+                escapeshellarg($rutaLocal)
+            );
+        } else {
+            // OpenSSH: scp con clave PEM
+            $sshKeyEscaped = escapeshellarg(self::getSSHKey(false));
+            $remoteEscaped = escapeshellarg(self::$SSH_USER . '@' . self::$SSH_HOST . ':' . $rutaRemota);
+            $localEscaped = escapeshellarg($rutaLocal);
+            $knownHosts = self::getSSHKnownHostsFile();
+            $comando = sprintf(
+                'scp -i %s -o StrictHostKeyChecking=no -o UserKnownHostsFile=%s -o ConnectTimeout=10 %s %s 2>&1',
+                $sshKeyEscaped,
+                $knownHosts,
+                $remoteEscaped,
+                $localEscaped
+            );
+        }
         
         $output = [];
         $returnVar = 0;
@@ -673,8 +701,9 @@ class SegundometroDAO extends Model
                     $hostkey = ' -hostkey ' . escapeshellarg($hk);
                 }
             }
+            // -t fuerza PTY en el servidor para que la salida sea line-buffered y llegue en vivo al stream
             return sprintf(
-                '%s -i %s%s -batch %s@%s %s',
+                '%s -i %s%s -t -batch %s@%s %s',
                 escapeshellarg($sshCommand),
                 escapeshellarg(self::getSSHKey(true)),
                 $hostkey,
