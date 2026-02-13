@@ -153,10 +153,20 @@ class SegundometroDAO extends Model
         }
         
         if ($isPlink) {
+            // Plink en -batch exige host key cacheada; -hostkey <fingerprint> evita "Cannot confirm a host key in batch mode"
+            $hostkey = '';
+            if (is_file($configFile)) {
+                $cfg = @parse_ini_file($configFile, true);
+                $hk = trim($cfg['ssh']['ssh_hostkey'] ?? '');
+                if ($hk !== '') {
+                    $hostkey = ' -hostkey ' . escapeshellarg($hk);
+                }
+            }
             $sshComando = sprintf(
-                '%s -i %s -batch %s@%s %s 2>&1',
+                '%s -i %s%s -batch %s@%s %s 2>&1',
                 escapeshellarg($sshCommand),
                 $sshKeyEscaped,
+                $hostkey,
                 self::$SSH_USER,
                 self::$SSH_HOST,
                 $comandoEscapado
