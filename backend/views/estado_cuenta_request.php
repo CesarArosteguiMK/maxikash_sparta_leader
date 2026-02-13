@@ -1356,7 +1356,7 @@ body:not(.dark-mode) .btn-notas:hover {
         <i class="fa fa-money-bill fa-lg"></i>
         <div class="info-label">
             <span class="fw-medium">Monto Otorgado:</span>
-            <span>$37,759.20</span>
+            <span>$<?= number_format($dataEstadoCuenta["montoOtorgado"] ?? 0, 2, '.', ',') ?></span>
         </div>
     </li>
     
