@@ -43,7 +43,12 @@ class SegundometroDAO extends Model
         if (is_file($configFile)) {
             $config = @parse_ini_file($configFile, true);
             if (is_array($config)) {
-                $path = trim($config['ssh']['ssh_key'] ?? '');
+                $usePlink = !empty($config['ssh']['ssh_use_plink']);
+                if ($usePlink) {
+                    $path = trim($config['ssh']['ssh_key_plink'] ?? $config['ssh']['ssh_key'] ?? '');
+                } else {
+                    $path = trim($config['ssh']['ssh_key'] ?? '');
+                }
                 if ($path !== '' && @is_file($path)) {
                     $cached = $path;
                     return $path;
@@ -70,7 +75,12 @@ class SegundometroDAO extends Model
         if (is_file($configFile)) {
             $config = @parse_ini_file($configFile, true);
             if (is_array($config)) {
-                $path = trim($config['ssh']['ssh_command'] ?? '');
+                $usePlink = !empty($config['ssh']['ssh_use_plink']);
+                if ($usePlink) {
+                    $path = trim($config['ssh']['ssh_command_plink'] ?? $config['ssh']['ssh_command'] ?? '');
+                } else {
+                    $path = trim($config['ssh']['ssh_command'] ?? '');
+                }
                 if ($path !== '' && @is_file($path)) {
                     $cached = $path;
                     return $path;
@@ -131,17 +141,38 @@ class SegundometroDAO extends Model
         $sshKeyEscaped = escapeshellarg(self::getSSHKey());
         $comandoEscapado = escapeshellarg($comando);
         
-        $knownHosts = self::getSSHKnownHostsFile();
-        // BatchMode=yes fuerza modo no-interactivo (evita prompts que colgarían exec). ConnectTimeout=10 para no colgar.
-        $sshComando = sprintf(
-            '%s -i %s -o StrictHostKeyChecking=no -o UserKnownHostsFile=%s -o ConnectTimeout=10 -o BatchMode=yes -o ServerAliveInterval=5 %s@%s %s 2>&1',
-            escapeshellarg($sshCommand),
-            $sshKeyEscaped,
-            $knownHosts,
-            self::$SSH_USER,
-            self::$SSH_HOST,
-            $comandoEscapado
-        );
+        // Plink (PuTTY) no usa -o; usa -batch. OpenSSH usa -o StrictHostKeyChecking, etc.
+        // Prioridad: config ssh_use_plink=1 → Plink; ssh_use_plink=0 → OpenSSH; si no está definido, detectar por ruta
+        $configFile = __DIR__ . DIRECTORY_SEPARATOR . '..' . DIRECTORY_SEPARATOR . 'config' . DIRECTORY_SEPARATOR . 'config.ini';
+        $isPlink = (stripos($sshCommand, 'plink') !== false);
+        if (is_file($configFile)) {
+            $config = @parse_ini_file($configFile, true);
+            if (is_array($config) && isset($config['ssh']['ssh_use_plink'])) {
+                $isPlink = !empty($config['ssh']['ssh_use_plink']);
+            }
+        }
+        
+        if ($isPlink) {
+            $sshComando = sprintf(
+                '%s -i %s -batch %s@%s %s 2>&1',
+                escapeshellarg($sshCommand),
+                $sshKeyEscaped,
+                self::$SSH_USER,
+                self::$SSH_HOST,
+                $comandoEscapado
+            );
+        } else {
+            $knownHosts = self::getSSHKnownHostsFile();
+            $sshComando = sprintf(
+                '%s -i %s -o StrictHostKeyChecking=no -o UserKnownHostsFile=%s -o ConnectTimeout=10 -o BatchMode=yes -o ServerAliveInterval=5 %s@%s %s 2>&1',
+                escapeshellarg($sshCommand),
+                $sshKeyEscaped,
+                $knownHosts,
+                self::$SSH_USER,
+                self::$SSH_HOST,
+                $comandoEscapado
+            );
+        }
         
         // DEBUG temporal: logging del comando real y resultado
         $logFile = __DIR__ . DIRECTORY_SEPARATOR . '..' . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'logs' . DIRECTORY_SEPARATOR . 'ssh_debug.log';
