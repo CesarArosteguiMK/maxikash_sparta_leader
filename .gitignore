@@ -7,7 +7,7 @@ backend/config/ssh/*.ppk
 # Archivo de configuración con credenciales sensibles
 backend/config/config.ini
 
-# Credenciales para app.py (export legacy_semanal)
+# credenciales de entorno (nunca subir; copiar .env.example a .env)
 .env
 
 # API key OpenAI (nunca subir; copiar secret.php.example a secret.php)

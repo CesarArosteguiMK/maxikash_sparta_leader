@@ -6,14 +6,32 @@ class DatabaseLegacy
 {
     private $db;
 
+    private function loadEnv($path)
+    {
+        if (!file_exists($path)) {
+            throw new \Exception("Archivo .env no encontrado en $path");
+        }
+        $lines = file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+        foreach ($lines as $line) {
+            if (strpos(trim($line), '#') === 0) continue;
+            list($name, $value) = explode('=', $line, 2);
+            $name = trim($name);
+            $value = trim($value);
+            putenv("$name=$value");
+            $_ENV[$name] = $value;
+        }
+    }
+
     function __construct()
     {
-        // 🔧 Ajusta tus valores aquí
-        $servidor = "__SPARTA_HOST_REDACTED__";
-        $puerto   = "3306";
-        $esquema  = "__SPARTA_SECRET_REDACTED__";
-        $usuario  = "__SPARTA_SECRET_REDACTED__";
-        $password = '__SPARTA_PASSWORD_REDACTED__';
+        $this->loadEnv(__DIR__ . '/../../.env');
+
+        // Ajusta tus valores aquí
+        $servidor = getenv('DB_SERVIDOR');
+        $puerto   = getenv('DB_PUERTO');
+        $esquema  = getenv('DB_ESQUEMA');
+        $usuario  = getenv('DB_USUARIO');
+        $password = getenv('DB_PASSWORD');
 
         // Cadena MySQL
         $cadena = "mysql:host=$servidor;port=$puerto;dbname=$esquema;charset=utf8mb4";

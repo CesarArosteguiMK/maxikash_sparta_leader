@@ -8,14 +8,32 @@ class Database
 {
     private $db;
 
+    private function loadEnv($path)
+    {
+        if (!file_exists($path)) {
+            throw new \Exception("Archivo .env no encontrado en $path");
+        }
+        $lines = file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+        foreach ($lines as $line) {
+            if (strpos(trim($line), '#') === 0) continue;
+            list($name, $value) = explode('=', $line, 2);
+            $name = trim($name);
+            $value = trim($value);
+            putenv("$name=$value");
+            $_ENV[$name] = $value;
+        }
+    }
+
     function __construct()
     {
+        $this->loadEnv(__DIR__ . '/../../.env');
+
         // 🔧 Ajusta tus valores aquí
-        $servidor = "__SPARTA_HOST_REDACTED__";   // tu host
-        $puerto   = "3306";        // puerto MySQL
-        $esquema  = "__SPARTA_SECRET_REDACTED__";     // nombre de tu BD
-        $usuario  = "__SPARTA_SECRET_REDACTED__";        // usuario
-        $password = "__SPARTA_PASSWORD_REDACTED__";            // contraseña
+        $servidor = getenv('DB2_SERVIDOR');
+        $puerto   = getenv('DB2_PUERTO');
+        $esquema  = getenv('DB2_ESQUEMA');
+        $usuario  = getenv('DB2_USUARIO');
+        $password = getenv('DB2_PASSWORD');
 
         // Cadena MySQL
         $cadena = "mysql:host=$servidor;port=$puerto;dbname=$esquema;charset=utf8mb4";
