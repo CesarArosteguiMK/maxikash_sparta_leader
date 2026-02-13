@@ -26,14 +26,14 @@ class SegundometroDAO extends Model
     
     /**
      * Ruta de la clave SSH (cacheada). Con Plink usa .ppk; con OpenSSH usa PEM/.unknown.
-     * Origen: config.ini ssh_key_plink / ssh_key, o claves por defecto del proyecto.
+     * @param bool|null $forPlink true = clave .ppk (Plink), false = clave PEM (OpenSSH), null = decidir por config (retrocompat)
      */
-    private static function getSSHKey()
+    private static function getSSHKey($forPlink = null)
     {
         static $cachedPlink = null, $cachedOpenSSH = null;
         $configFile = __DIR__ . '/../config/config.ini';
         $config = (is_file($configFile) && is_array($cfg = @parse_ini_file($configFile, true))) ? $cfg : [];
-        $usePlink = !empty($config['ssh']['ssh_use_plink']);
+        $usePlink = ($forPlink !== null) ? $forPlink : !empty($config['ssh']['ssh_use_plink']);
 
         if ($usePlink) {
             if ($cachedPlink !== null) {
@@ -149,19 +149,12 @@ class SegundometroDAO extends Model
             ];
         }
 
-        $sshKeyEscaped = escapeshellarg(self::getSSHKey());
+        // Modo por ejecutable real: si la ruta contiene "plink" → Plink (opciones + clave .ppk); si no → OpenSSH
+        $isPlink = (stripos($sshCommand, 'plink') !== false);
+        $sshKeyEscaped = escapeshellarg(self::getSSHKey($isPlink));
         $comandoEscapado = escapeshellarg($comando);
         
-        // Plink (PuTTY) no usa -o; usa -batch. OpenSSH usa -o StrictHostKeyChecking, etc.
-        // Prioridad: config ssh_use_plink=1 → Plink; ssh_use_plink=0 → OpenSSH; si no está definido, detectar por ruta
         $configFile = __DIR__ . DIRECTORY_SEPARATOR . '..' . DIRECTORY_SEPARATOR . 'config' . DIRECTORY_SEPARATOR . 'config.ini';
-        $isPlink = (stripos($sshCommand, 'plink') !== false);
-        if (is_file($configFile)) {
-            $config = @parse_ini_file($configFile, true);
-            if (is_array($config) && isset($config['ssh']['ssh_use_plink'])) {
-                $isPlink = !empty($config['ssh']['ssh_use_plink']);
-            }
-        }
         
         if ($isPlink) {
             // Plink en -batch exige host key cacheada; -hostkey <fingerprint> evita "Cannot confirm a host key in batch mode"
@@ -488,7 +481,8 @@ class SegundometroDAO extends Model
         $nombreLocal = 'segundometro_' . uniqid() . '_' . $nombreArchivo;
         $rutaLocal = $tempDir . DIRECTORY_SEPARATOR . $nombreLocal;
         
-        $sshKeyEscaped = escapeshellarg(self::getSSHKey());
+        // scp es siempre OpenSSH; usar clave PEM
+        $sshKeyEscaped = escapeshellarg(self::getSSHKey(false));
         $remoteEscaped = escapeshellarg(self::$SSH_USER . '@' . self::$SSH_HOST . ':' . $rutaRemota);
         $localEscaped = escapeshellarg($rutaLocal);
         
@@ -667,12 +661,33 @@ class SegundometroDAO extends Model
         if ($sshCommand === null) {
             return null;
         }
-        $knownHosts = self::getSSHKnownHostsFile();
+        $isPlink = (stripos($sshCommand, 'plink') !== false);
         $comandoRemoto = 'timeout 45 sudo bash /home/jesus/scripts/monitorear.sh 2>&1';
+        if ($isPlink) {
+            $configFile = __DIR__ . '/../config/config.ini';
+            $hostkey = '';
+            if (is_file($configFile)) {
+                $cfg = @parse_ini_file($configFile, true);
+                $hk = trim($cfg['ssh']['ssh_hostkey'] ?? '');
+                if ($hk !== '') {
+                    $hostkey = ' -hostkey ' . escapeshellarg($hk);
+                }
+            }
+            return sprintf(
+                '%s -i %s%s -batch %s@%s %s',
+                escapeshellarg($sshCommand),
+                escapeshellarg(self::getSSHKey(true)),
+                $hostkey,
+                self::$SSH_USER,
+                self::$SSH_HOST,
+                escapeshellarg($comandoRemoto)
+            );
+        }
+        $knownHosts = self::getSSHKnownHostsFile();
         return sprintf(
             '%s -i %s -o StrictHostKeyChecking=no -o UserKnownHostsFile=%s -o ConnectTimeout=20 -o ServerAliveInterval=5 %s@%s %s',
             escapeshellarg($sshCommand),
-            escapeshellarg(self::getSSHKey()),
+            escapeshellarg(self::getSSHKey(false)),
             $knownHosts,
             self::$SSH_USER,
             self::$SSH_HOST,
