@@ -308,9 +308,9 @@
 
   <script>
     $(document).ready(function() {
-      $('#togglePassword').click(function() {
+      $('#togglePassword, #togglePassword i').click(function() {
         var input = $(this).closest('.input-group').find('input');
-        var icon = $(this).find('i');
+        var icon = $('#togglePassword').find('i');
         if (input.attr('type') === 'password') {
           input.attr('type', 'text');
           icon.removeClass('fa-eye').addClass('fa-eye-slash');
