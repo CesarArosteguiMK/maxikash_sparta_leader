@@ -433,9 +433,8 @@ JS;
                         $monto_restante_cargo     = round($monto_restante_cargo - $aplicar, 2);
                     }
 
-                    // --- Sobrante (remaining + extemporáneos): actualizar remaining del pago. Gastos de cobranza solo vienen de la API (extemporaneos), no se calculan desde sobrante. ---
-                    $sobrante_restante = round($pago["remaining"] + $pago["extemporaneos"], 2);
-                    $pago["remaining"] = $sobrante_restante;
+                    // --- Actualizar remaining del pago. Los extemporáneos (gasto cobranza) NO se suman al sobrante: no van al crédito, solo se cobran. Solo arrastramos lo que sobra del monto real. ---
+                    $pago["remaining"] = round($pago["remaining"], 2);
                     $pago["extemporaneos"] = 0;
                     $pago["_extemporaneo_aplicado"] = true;
                 }
