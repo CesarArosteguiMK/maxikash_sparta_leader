@@ -942,33 +942,60 @@ JS;
                         }
                     };
                     
-                    // Ejecutar limpieza ANTES de buscar
-                    limpiarContenedoresDocumento();
-                    
+                    // Primero validar que el ID de crédito exista (API estado de cuenta)
                     Swal.fire({
-                        title: 'Procesando',
+                        title: 'Validando crédito',
                         allowOutsideClick: false,
                         allowEscapeKey: false,
                         didOpen: () => Swal.showLoading(),
                         didClose: () => {
-                            // Limpiar overlay si se cierra
                             document.body.classList.remove('swal2-shown');
                             document.body.style.overflow = '';
                         }
                     });
-            
-                    fetch('/EstadoCuenta/descargar', {
+                    const formDataValidar = new FormData();
+                    formDataValidar.append('idCredito', id);
+                    fetch('/EstadoCuenta/validarCredito', {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ id, tipo })
+                        body: formDataValidar
                     })
-                    .then(res => {
+                    .then(r => r.json())
+                    .then(function(dataValidar) {
+                        if (!dataValidar.success) {
+                            Swal.close();
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'ID de crédito no válido',
+                                text: dataValidar.mensaje || 'El ID de crédito no existe. Verifica el número.'
+                            });
+                            return null;
+                        }
+                        limpiarContenedoresDocumento();
+                        Swal.fire({
+                            title: 'Procesando',
+                            allowOutsideClick: false,
+                            allowEscapeKey: false,
+                            didOpen: () => Swal.showLoading(),
+                            didClose: () => {
+                                document.body.classList.remove('swal2-shown');
+                                document.body.style.overflow = '';
+                            }
+                        });
+                        return fetch('/EstadoCuenta/descargar', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ id, tipo })
+                        });
+                    })
+                    .then(function(res) {
+                        if (!res) return null;
                         if (!res.ok) {
                             return res.text().then(t => { throw new Error('HTTP ' + res.status + (t ? ': ' + t.substring(0, 80) : '')); });
                         }
                         return res.json();
                     })
-                    .then(data => {
+                    .then(function(data) {
+                        if (!data) return;
                         Swal.close();
             
                         if (!data.success) {

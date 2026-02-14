@@ -5206,7 +5206,7 @@ window.puedeEditarTodos = <?= json_encode(!empty($puedeEditarTodos ?? false)) ?>
         // Crear formulario para descarga con filtros
         const form = document.createElement('form');
         form.method = 'GET';
-        form.action = '/CapHum/descargarPlantillaGestores';
+        form.action = '/Reporteria/descargarPlantillaGestores';
         form.style.display = 'none';
         
         // Agregar filtros como inputs hidden

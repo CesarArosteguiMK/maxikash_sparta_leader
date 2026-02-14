@@ -531,6 +531,10 @@ class Segundometro extends Controller
         @ini_set('output_buffering', 'off');
         @ini_set('zlib.output_compression', false);
         if (function_exists('apache_setenv')) { @apache_setenv('no-gzip', '1'); }
+        // Liberar sesión para que otras peticiones (Eliminar, Copiar +1s) no queden bloqueadas esperando el lock
+        if (function_exists('session_write_close')) {
+            session_write_close();
+        }
         $descriptorSpec = [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']];
         $process = @proc_open($cmd, $descriptorSpec, $pipes);
         if (!is_resource($process)) {
