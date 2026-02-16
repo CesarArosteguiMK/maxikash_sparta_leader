@@ -147,6 +147,78 @@ class EstadoCuenta extends Model
         }
     }
 
+    /**
+     * Registra en auditoria___SPARTA_SECRET_REDACTED__ cada consulta de estado de cuenta.
+     * Columnas: usuario (email/user_name), id_credito, fecha_corte, fecha_consulta, exito, mensaje_error.
+     *
+     * @param string     $usuario     Usuario que consulta, ej. email ($_SESSION['usuario'])
+     * @param int|string $id_credito ID del crédito consultado
+     * @param string     $fecha_corte Fecha de corte consultada (Y-m-d)
+     * @param int        $exito       1 = éxito, 0 = error
+     * @param string|null $mensaje_error Mensaje de error cuando exito = 0
+     * @return bool true si se insertó, false si falló (no lanza excepción)
+     */
+    public static function registrarAuditoria($usuario, $id_credito, $fecha_corte, $exito, $mensaje_error = null)
+    {
+        $sql = "
+            INSERT INTO auditoria___SPARTA_SECRET_REDACTED__
+            (usuario, id_credito, fecha_corte, fecha_consulta, exito, mensaje_error)
+            VALUES (:usuario, :id_credito, :fecha_corte, :fecha_consulta, :exito, :mensaje_error)
+        ";
+        $valores = [
+            'usuario'        => $usuario !== null && $usuario !== '' ? (string) $usuario : null,
+            'id_credito'     => $id_credito !== null && $id_credito !== '' ? (int) $id_credito : null,
+            'fecha_corte'    => $fecha_corte,
+            'fecha_consulta' => date('Y-m-d H:i:s'),
+            'exito'          => (int) $exito,
+            'mensaje_error'  => $mensaje_error !== null && $mensaje_error !== '' ? (string) $mensaje_error : null
+        ];
+        try {
+            $db = new Database();
+            $db->CRUD($sql, $valores);
+            return true;
+        } catch (\Throwable $e) {
+            return false;
+        }
+    }
+
+    /**
+     * Registra en auditoria_documentos cada consulta de documento.
+     * Columnas: usuario, documento_clave, documento_nombre, id_referencia, fecha_consulta, exito, mensaje_error.
+     *
+     * @param string     $usuario         Usuario que consulta, ej. email ($_SESSION['usuario'])
+     * @param string     $documento_clave Clave del documento (ej. INE, FAD_DOC)
+     * @param string     $documento_nombre Nombre para mostrar (ej. INE, Factura)
+     * @param int|string|null $id_referencia ID consultado (crédito, etc.)
+     * @param int        $exito           1 = éxito, 0 = error
+     * @param string|null $mensaje_error  Mensaje de error cuando exito = 0
+     * @return bool true si se insertó, false si falló (no lanza excepción)
+     */
+    public static function registrarAuditoriaDocumentos($usuario, $documento_clave, $documento_nombre, $id_referencia, $exito, $mensaje_error = null)
+    {
+        $sql = "
+            INSERT INTO auditoria_documentos
+            (usuario, documento_clave, documento_nombre, id_referencia, fecha_consulta, exito, mensaje_error)
+            VALUES (:usuario, :documento_clave, :documento_nombre, :id_referencia, :fecha_consulta, :exito, :mensaje_error)
+        ";
+        $valores = [
+            'usuario'         => $usuario !== null && $usuario !== '' ? (string) $usuario : null,
+            'documento_clave' => $documento_clave !== null && $documento_clave !== '' ? (string) $documento_clave : null,
+            'documento_nombre' => $documento_nombre !== null && $documento_nombre !== '' ? (string) $documento_nombre : null,
+            'id_referencia'   => $id_referencia !== null && $id_referencia !== '' ? (int) $id_referencia : null,
+            'fecha_consulta'  => date('Y-m-d H:i:s'),
+            'exito'           => (int) $exito,
+            'mensaje_error'   => $mensaje_error !== null && $mensaje_error !== '' ? (string) $mensaje_error : null
+        ];
+        try {
+            $db = new Database();
+            $db->CRUD($sql, $valores);
+            return true;
+        } catch (\Throwable $e) {
+            return false;
+        }
+    }
+
     public static function getPorNombreEstadoCuenta()
     {
         // Cabecera JSON

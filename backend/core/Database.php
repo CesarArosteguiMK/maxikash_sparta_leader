@@ -99,90 +99,6 @@ class Database
         return $error;
     }
 
-    private function registrarLog($sql, $valores = null)
-    {
-        $operacionesModificacion = ['INSERT', 'UPDATE', 'DELETE'];
-        $sqlUpper = strtoupper(trim($sql));
-        $tipoOperacion = null;
-
-        $esModificacion = false;
-        foreach ($operacionesModificacion as $operacion) {
-            if (strpos($sqlUpper, $operacion) === 0) {
-                $esModificacion = true;
-                $tipoOperacion = $operacion;
-                break;
-            }
-        }
-
-        $esSelect = strpos($sqlUpper, 'SELECT') === 0;
-        if ($esSelect) $tipoOperacion = 'SELECT';
-
-        // Regla para SELECT solo nocturnos
-        $registrarSelect = false;
-        if ($esSelect) {
-            $horaActual = (int)date('G');
-            $registrarSelect = ($horaActual >= 19 || $horaActual < 8);
-        }
-
-        // No registrar si no aplica
-        if ((!$esModificacion && !$registrarSelect)) return;
-
-        if ($this->db === null || !is_object($this->db)) return;
-
-        try {
-            $usuarioId = $_SESSION['usuario_id'] ?? null;
-            $personaId = $_SESSION['persona_id'] ?? null;
-
-            $ip = $this->getClientIP();
-            $trace = $this->getSimpleTrace();
-            $parametersJson = $valores ? json_encode($valores, JSON_UNESCAPED_UNICODE) : null;
-
-            $logSql = "INSERT INTO LOG (USUARIO, PERSONA, IP, QUERY_TEXT, PARAMETERS_JSON, TRACE, TIPO) 
-                       VALUES (:usuario, :persona, :ip, :query_text, :parameters_json, :trace, :tipo)";
-
-            $stmtLog = $this->db->prepare($logSql);
-
-            $stmtLog->execute([
-                ":usuario" => $usuarioId,
-                ":persona" => $personaId,
-                ":ip" => $ip,
-                ":query_text" => $sql,
-                ":parameters_json" => $parametersJson,
-                ":trace" => $trace,
-                ":tipo" => $tipoOperacion,
-            ]);
-        } catch (\Exception $e) {
-            error_log("Error al registrar LOG: " . $e->getMessage());
-        }
-    }
-
-    private function getClientIP()
-    {
-        if (!empty($_SERVER['HTTP_CLIENT_IP'])) return $_SERVER['HTTP_CLIENT_IP'];
-        if (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) return trim(explode(',', $_SERVER['HTTP_X_FORWARDED_FOR'])[0]);
-        return $_SERVER['REMOTE_ADDR'] ?? '';
-    }
-
-    private function getSimpleTrace()
-    {
-        $trace = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 10);
-        $out = [];
-
-        foreach ($trace as $item) {
-            if (($item['class'] ?? '') === 'Core\Database') continue;
-
-            $line = '';
-            if (isset($item['file'])) $line .= $item['file'];
-            if (isset($item['line'])) $line .= ':' . $item['line'];
-            if (isset($item['function'])) {
-                $line .= ' - ' . ($item['class'] ?? '') . ($item['type'] ?? '') . $item['function'] . '()';
-            }
-            $out[] = $line;
-        }
-
-        return implode("\n", $out);
-    }
-
     public function beginTransaction()  { if ($this->db) $this->db->beginTransaction(); }
     public function commit()           { if ($this->db) $this->db->commit(); }
     public function rollback()         { if ($this->db) $this->db->rollBack(); }
@@ -203,7 +119,6 @@ class Database
             }
 
             $stmt->execute();
-            $this->registrarLog($sql, $valores);
 
             return $stmt;
         } catch (\Exception $e) {

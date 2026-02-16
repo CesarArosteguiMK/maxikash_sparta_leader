@@ -12,6 +12,35 @@
     #listaResultados strong {
         font-weight: 600;             /* resaltar coincidencias */
     }
+
+    /* Mismo formato que otros calendarios del proyecto (flatpickr) */
+    .flatpickr-calendar .flatpickr-monthDropdown-months {
+        appearance: none !important;
+        background-image: none !important;
+        -webkit-appearance: none;
+        -moz-appearance: none;
+    }
+    .flatpickr-calendar {
+        z-index: 99999 !important;
+        position: fixed !important;
+        transform: scale(1.12);
+        transform-origin: top left;
+    }
+    .flatpickr-calendar.open {
+        display: block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+    }
+    .flatpickr-calendar .flatpickr-day.today {
+        border-color: #696cff !important;
+        border-width: 2px !important;
+        font-weight: 600 !important;
+        background-color: #f0f0ff !important;
+    }
+    .flatpickr-calendar .flatpickr-day.today:hover {
+        background-color: #e0e0ff !important;
+        border-color: #696cff !important;
+    }
 </style>
 
 
@@ -72,6 +101,21 @@
                         </div>
                     </div>
 
+                    <!-- Fecha de corte personalizada (solo si tiene permiso 23) -->
+                    <div class="col-auto" id="divFechaCorte" style="display: none;">
+                        <label for="fechaCorte" class="form-label small mb-1">
+                            <i class="fa fa-calendar-alt me-1"></i>Fecha de corte
+                            <i class="fa fa-info-circle text-muted ms-1" style="cursor: help; font-size: 0.85rem;"
+                               title="La consulta mostrará datos hasta esta fecha (corte histórico). Solo se mostrarán movimientos hasta el día seleccionado, no posteriores."></i>
+                        </label>
+                        <input type="text" class="form-control flatpickr-fecha-corte" id="fechaCorte" name="fechaCorte"
+                               style="max-width: 10rem; cursor: pointer;"
+                               placeholder="Seleccione fecha"
+                               value="<?= htmlspecialchars($_POST['fechaCorte'] ?? '') ?>"
+                               autocomplete="off" readonly
+                               title="Clic para abrir el calendario">
+                    </div>
+
                     <!-- Nombre -->
                     <div class="col-md-6 position-relative" id="divNombre" style="display: none;">
                         <label for="nombre" class="form-label">Nombre del Cliente</label>
@@ -106,6 +150,22 @@
 </div>
 <script>
     document.addEventListener('DOMContentLoaded', () => {
+        // Calendario fecha de corte: mismo formato que otros calendarios del proyecto (flatpickr)
+        const fechaCorteInput = document.getElementById('fechaCorte');
+        if (fechaCorteInput && typeof flatpickr !== 'undefined') {
+            const hoy = new Date();
+            hoy.setHours(23, 59, 59, 999);
+            flatpickr(fechaCorteInput, {
+                dateFormat: 'Y-m-d',
+                maxDate: hoy,
+                allowInput: false,
+                clickOpens: true,
+                appendTo: document.body,
+                locale: 'es',
+                disableMobile: true
+            });
+        }
+
         const input = document.getElementById('nombre');
         const lista = document.getElementById('listaResultados');
 

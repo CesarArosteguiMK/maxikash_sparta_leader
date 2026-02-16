@@ -56,11 +56,19 @@ class EstadoCuenta extends Controller
         $idUsuario = (int) ($_SESSION['usuario_id'] ?? 0);
         $modulosActuales = $idUsuario ? LoginDAO::getModulosUsuario($idUsuario) : [];
         $tienePermisoRegistrarDocumentos = in_array(21, $modulosActuales);
+        $tienePermisoFechaCorte = in_array(23, $modulosActuales);
         // --- JS COMPLETO EN EL CONTROLADOR ---
         $script = <<<JS
     <script>
         var tienePermisoRegistrarDocumentos = TienePermisoRegistrarDocumentos_PLACEHOLDER;
+        var tienePermisoFechaCorte = TienePermisoFechaCorte_PLACEHOLDER;
         document.addEventListener("DOMContentLoaded", () => {
+
+            // Mostrar calendario de fecha de corte si tiene permiso
+            if (tienePermisoFechaCorte) {
+                const divFechaCorte = document.getElementById('divFechaCorte');
+                if (divFechaCorte) divFechaCorte.style.display = 'block';
+            }
         
             // Cambiar entre ID y Nombre
             function actualizarInputs() {
@@ -95,6 +103,8 @@ class EstadoCuenta extends Controller
             document.getElementById("btnResetFiltros").addEventListener("click", () => {
                 document.getElementById("idCredito").value = "";
                 document.getElementById("nombre").value = "";
+                const fechaCorteInput = document.getElementById("fechaCorte");
+                if (fechaCorteInput) fechaCorteInput.value = "";
                 document.getElementById("modoID").checked = true;
                 actualizarInputs();
             });
@@ -276,7 +286,15 @@ JS;
             $idCredito = $_POST['idCredito'] ?? null;
             $nombre = $_POST['nombre'] ?? null;
             $idCreditoLista = $_POST['idCreditoLista'] ?? null;
-            $fechaHoy = date('Y-m-d');
+            $fechaCortePost = isset($_POST['fechaCorte']) ? trim((string) $_POST['fechaCorte']) : null;
+            if ($fechaCortePost === '') $fechaCortePost = null;
+            // Si tiene permiso de fecha de corte personalizada y envió una fecha válida (pasada o hoy), usarla
+            if ($tienePermisoFechaCorte && $fechaCortePost && preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaCortePost) && $fechaCortePost <= date('Y-m-d')) {
+                $fechaHoy = $fechaCortePost;
+            } else {
+                $fechaHoy = date('Y-m-d');
+            }
+            error_log('[EstadoCuenta Consulta] POST fechaCorte=' . ($fechaCortePost ?? 'null') . ', permisoFechaCorte=' . ($tienePermisoFechaCorte ? '1' : '0') . ', fechaUsada=' . $fechaHoy);
 
             if($nombre != null && $idCreditoLista != null)
             {
@@ -293,8 +311,16 @@ JS;
                 $notas = EmpresasDAO::getNotasNum($idCredito);
             }
 
-
-
+            // Registrar en auditoría: usuario (email), crédito, fecha de corte, éxito/error
+            $idConsultado = ($nombre != null && $idCreditoLista != null) ? $idCreditoLista : $idCredito;
+            $usuarioEmail = (string) ($_SESSION['usuario'] ?? '');
+            EstadoCuentaDAO::registrarAuditoria(
+                $usuarioEmail,
+                $idConsultado,
+                $fechaHoy,
+                !empty($resultado['ok']) ? 1 : 0,
+                isset($resultado['error']) ? $resultado['error'] : null
+            );
 
             //$GestionesAll = GestionesDao::getAllGestiones($idCredito, $nombre);
             //$resultado =  $this->api___SPARTA_SECRET_REDACTED__($idCredito, "2025-12-04");
@@ -490,6 +516,7 @@ JS;
                 self::set("notas", $notas);
                 self::set("titulo", "Resultado de la solicitud");
                 $scriptConPermiso = str_replace('TienePermisoRegistrarDocumentos_PLACEHOLDER', json_encode($tienePermisoRegistrarDocumentos), $script);
+                $scriptConPermiso = str_replace('TienePermisoFechaCorte_PLACEHOLDER', json_encode($tienePermisoFechaCorte), $scriptConPermiso);
                 self::set("script", $scriptConPermiso);
                 self::set("tabla", $tabla);
 
@@ -504,6 +531,7 @@ JS;
         # -----------------------------
         self::set("titulo", "Estados de Cuenta");
         $scriptConsulta = str_replace('TienePermisoRegistrarDocumentos_PLACEHOLDER', json_encode(false), $script);
+        $scriptConsulta = str_replace('TienePermisoFechaCorte_PLACEHOLDER', json_encode($tienePermisoFechaCorte), $scriptConsulta);
         self::set("script", $scriptConsulta);
         return self::render("__SPARTA_SECRET_REDACTED___consulta");
     }
@@ -531,6 +559,16 @@ JS;
 
         // Validar con la API
         $resultado = $this->api___SPARTA_SECRET_REDACTED__($idAValidar, $fechaHoy);
+
+        // Registrar en auditoría (usuario = email/user_name)
+        $usuarioEmail = (string) ($_SESSION['usuario'] ?? '');
+        EstadoCuentaDAO::registrarAuditoria(
+            $usuarioEmail,
+            $idAValidar,
+            $fechaHoy,
+            !empty($resultado['ok']) ? 1 : 0,
+            isset($resultado['error']) ? $resultado['error'] : null
+        );
 
         // Verificar si hubo error en la API
         if (!$resultado['ok']) {
@@ -595,10 +633,12 @@ JS;
         $url = "https://servicios.s2movil.net/s2__SPARTA_SECRET_REDACTED__/estadocuenta";
 
         // --- Construir el JSON que la API externa espera ---
+        $fechaCorteStr = is_string($fechaCorte) ? $fechaCorte : date('Y-m-d', is_numeric($fechaCorte) ? $fechaCorte : time());
         $payload = json_encode([
             "idCredito" => intval($idCredito),
-            "fechaCorte" => $fechaCorte
+            "fechaCorte" => $fechaCorteStr
         ]);
+        error_log('[EstadoCuenta API] Request idCredito=' . intval($idCredito) . ', fechaCorte=' . $fechaCorteStr);
 
         // --- Headers obligatorios ---
         $headers = [
@@ -675,6 +715,16 @@ JS;
             "data" => $json["estadoCuenta"]
         ];
     }
+
+    /**
+     * Registra en auditoria_documentos la consulta de documento (éxito o error).
+     */
+    private function registrarAuditoriaDocumento($idReferencia, $documentoClave, $documentoNombre, $exito, $mensajeError = null)
+    {
+        $usuario = (string) ($_SESSION['usuario'] ?? '');
+        EstadoCuentaDAO::registrarAuditoriaDocumentos($usuario, $documentoClave, $documentoNombre, $idReferencia, $exito, $mensajeError);
+    }
+
     ///////////////////////////////////////
 
     public function documentacion()
@@ -1169,6 +1219,9 @@ JS;
                                         if (data.tipo === 'FAD_DOC') {
                                             window.paginasConMediaFAD_DOC = [];
                                             fetch('/EstadoCuenta/paginasConMedia?idCredito=' + encodeURIComponent(id)).then(function(r){ return r.json(); }).then(function(res){ if (res && res.success) window.paginasConMediaFAD_DOC = Array.isArray(res.paginasConMedia) ? res.paginasConMedia : []; if (typeof actualizarBotonVideosMedia === 'function') actualizarBotonVideosMedia(); }).catch(function(){ window.paginasConMediaFAD_DOC = []; if (typeof actualizarBotonVideosMedia === 'function') actualizarBotonVideosMedia(); });
+                                        } else {
+                                            window.paginasConMediaFAD_DOC = null;
+                                            if (typeof actualizarBotonVideosMedia === 'function') actualizarBotonVideosMedia();
                                         }
                                         cargarPDFFactura(pdfUrl);
                                     } else {
@@ -2048,6 +2101,7 @@ public function descargar()
         $raw = file_get_contents('php://input');
         if (!$raw) {
             error_log("DESCARGAR - Body vacío");
+            $this->registrarAuditoriaDocumento(null, '', '', 0, 'Body vacío');
             echo json_encode([
                 'success' => false,
                 'mensaje' => 'Body vacío'
@@ -2059,6 +2113,7 @@ public function descargar()
 
         if (!$input) {
             error_log("DESCARGAR - JSON inválido");
+            $this->registrarAuditoriaDocumento(null, '', '', 0, 'JSON inválido');
             echo json_encode([
                 'success' => false,
                 'mensaje' => 'JSON inválido'
@@ -2071,6 +2126,7 @@ public function descargar()
 
         if (!$id || !$tipo) {
             error_log("DESCARGAR - Parámetros incompletos: ID=$id, TIPO=$tipo");
+            $this->registrarAuditoriaDocumento($id, $tipo ?: '', $tipo ?: '', 0, 'Parámetros incompletos');
             echo json_encode([
                 'success' => false,
                 'mensaje' => 'Parámetros incompletos'
@@ -2243,6 +2299,7 @@ public function descargar()
             $local = $buscarLocal($id, $tipo);
             if ($local) {
                 error_log("FACTURA $id - RESULTADO: 1RA FORMA (Local)");
+                $this->registrarAuditoriaDocumento($id, $tipo, $nombreDoc, 1, null);
                 echo json_encode([
                     'success' => true,
                     'tipo' => $tipo,
@@ -2265,6 +2322,7 @@ public function descargar()
                     $fileNameBD = "FACTURA/" . $nombreBD;
                     if ($existeEnS3($fileNameBD)) {
                         error_log("FACTURA $id - RESULTADO: 3RA FORMA (BD + S3)");
+                        $this->registrarAuditoriaDocumento($id, $tipo, $nombreDoc, 1, null);
                         $fileUrl = "/estadocuenta/verDocumento?fileName=" . urlencode($fileNameBD);
                         echo json_encode([
                             'success' => true,
@@ -2282,6 +2340,7 @@ public function descargar()
                 }
                 
                 error_log("FACTURA $id - RESULTADO: 3 FORMAS FALLIDAS");
+                $this->registrarAuditoriaDocumento($id, $tipo, $nombreDoc, 0, "Este ID de crédito no tiene {$nombreDoc} registrado.");
                 echo json_encode([
                     'success' => false,
                     'mensaje' => "Este ID de crédito no tiene {$nombreDoc} registrado."
@@ -2290,6 +2349,7 @@ public function descargar()
             }
             
             error_log("FACTURA $id - RESULTADO: 2DA FORMA (S3 estándar)");
+            $this->registrarAuditoriaDocumento($id, $tipo, $nombreDoc, 1, null);
             $fileUrl = "/estadocuenta/verDocumento?fileName=" . urlencode($fileName);
             echo json_encode([
                 'success' => true,
@@ -2310,6 +2370,7 @@ public function descargar()
             $local = $buscarLocal($id, $tipo);
             if ($local) {
                 error_log("CONTRATO $id - RESULTADO: 1RA FORMA (Local)");
+                $this->registrarAuditoriaDocumento($id, $tipo, $nombreDoc, 1, null);
                 echo json_encode([
                     'success' => true,
                     'tipo' => $tipo,
@@ -2332,6 +2393,7 @@ public function descargar()
                     $fileNameBD = "VALIDACIONES/" . $nombreBD;
                     if ($existeEnS3($fileNameBD)) {
                         error_log("CONTRATO $id - RESULTADO: 3RA FORMA (BD + S3)");
+                        $this->registrarAuditoriaDocumento($id, $tipo, $nombreDoc, 1, null);
                         $fileUrl = "/estadocuenta/verDocumento?fileName=" . urlencode($fileNameBD);
                         echo json_encode([
                             'success' => true,
@@ -2349,6 +2411,7 @@ public function descargar()
                 }
                 
                 error_log("CONTRATO $id - RESULTADO: 3 FORMAS FALLIDAS");
+                $this->registrarAuditoriaDocumento($id, $tipo, $nombreDoc, 0, "Este ID de crédito no tiene {$nombreDoc} registrado.");
                 echo json_encode([
                     'success' => false,
                     'mensaje' => "Este ID de crédito no tiene {$nombreDoc} registrado."
@@ -2357,6 +2420,7 @@ public function descargar()
             }
             
             error_log("CONTRATO $id - RESULTADO: 2DA FORMA (S3 estándar)");
+            $this->registrarAuditoriaDocumento($id, $tipo, $nombreDoc, 1, null);
             $fileUrl = "/estadocuenta/verDocumento?fileName=" . urlencode($fileName);
             echo json_encode([
                 'success' => true,
@@ -2378,6 +2442,7 @@ public function descargar()
             $local = $buscarLocal($id, $tipo);
             if ($local && isset($local['esINE']) && $local['esINE'] === true) {
                 error_log("INE $id - RESULTADO: 1RA FORMA (Local)");
+                $this->registrarAuditoriaDocumento($id, $tipo, $nombreDoc, 1, null);
                 echo json_encode([
                     'success' => true,
                     'tipo' => 'INE',
@@ -2424,6 +2489,7 @@ public function descargar()
                 $resINE = EstadoCuentaDAO::obtenerINEPersonaDocumentos($id);
                 if (!empty($resINE['success']) && !empty($resINE['datos']['archivo_ine_frente']) && !empty($resINE['datos']['archivo_ine_reverso'])) {
                     error_log("INE $id - RESULTADO: 3RA FORMA (persona_documentos)");
+                    $this->registrarAuditoriaDocumento($id, $tipo, $nombreDoc, 1, null);
                     $base = '/estadocuenta/servirINEPersonaDocumento?id=' . urlencode($id) . '&lado=';
                     echo json_encode([
                         'success' => true,
@@ -2434,6 +2500,7 @@ public function descargar()
                     exit;
                 }
                 error_log("INE $id - 3RA FORMA falló, sin INE registrado");
+                $this->registrarAuditoriaDocumento($id, $tipo, $nombreDoc, 0, 'Este ID de crédito no tiene INE registrado.');
                 echo json_encode([
                     'success' => false,
                     'mensaje' => 'Este ID de crédito no tiene INE registrado.'
@@ -2464,6 +2531,7 @@ public function descargar()
                 $resINE = EstadoCuentaDAO::obtenerINEPersonaDocumentos($id);
                 if (!empty($resINE['success']) && !empty($resINE['datos']['archivo_ine_frente']) && !empty($resINE['datos']['archivo_ine_reverso'])) {
                     error_log("INE $id - RESULTADO: 3RA FORMA (persona_documentos)");
+                    $this->registrarAuditoriaDocumento($id, $tipo, $nombreDoc, 1, null);
                     $base = '/estadocuenta/servirINEPersonaDocumento?id=' . urlencode($id) . '&lado=';
                     echo json_encode([
                         'success' => true,
@@ -2474,6 +2542,7 @@ public function descargar()
                     exit;
                 }
                 error_log("INE $id - 2DA FORMA falló (imágenes no encontradas), 3RA FORMA no disponible");
+                $this->registrarAuditoriaDocumento($id, $tipo, $nombreDoc, 0, 'Este ID de crédito no tiene INE registrado.');
                 echo json_encode([
                     'success' => false,
                     'mensaje' => 'Este ID de crédito no tiene INE registrado.'
@@ -2482,6 +2551,7 @@ public function descargar()
             }
 
             error_log("INE $id - RESULTADO: 2DA FORMA (API + S3)");
+            $this->registrarAuditoriaDocumento($id, $tipo, $nombreDoc, 1, null);
             echo json_encode([
                 'success' => true,
                 'tipo' => 'INE',
@@ -2498,6 +2568,7 @@ public function descargar()
             $local = $buscarLocal($id, $tipo);
             if ($local) {
                 error_log("FAD_DOC $id - RESULTADO: 1RA FORMA (Local)");
+                $this->registrarAuditoriaDocumento($id, $tipo, $nombreDoc, 1, null);
                 echo json_encode([
                     'success' => true,
                     'tipo' => $tipo,
@@ -2520,6 +2591,7 @@ public function descargar()
 
             if ($res['success'] && isset($res['datos']['nombre_archivo']) && !empty($res['datos']['nombre_archivo'])) {
                 error_log("FAD_DOC $id - RESULTADO: 2DA FORMA (DAO)");
+                $this->registrarAuditoriaDocumento($id, $tipo, $nombreDoc, 1, null);
                 $archivo = basename($res['datos']['nombre_archivo']);
                 $archivo = str_replace(['doc_cliente/', 'doc_cliente\\'], '', $archivo);
                 $archivo = basename($archivo);
@@ -2551,6 +2623,7 @@ public function descargar()
                 $fileNameBD = "FAD/" . $nombreBD;
                 if ($existeEnS3($fileNameBD)) {
                     error_log("FAD_DOC $id - RESULTADO: 3RA FORMA (BD + S3)");
+                    $this->registrarAuditoriaDocumento($id, $tipo, $nombreDoc, 1, null);
                     $extension = strtolower(pathinfo($nombreBD, PATHINFO_EXTENSION));
                     $esImagen = in_array($extension, ['jpg', 'jpeg', 'png', 'gif']);
                     
@@ -2571,6 +2644,7 @@ public function descargar()
             }
             
             error_log("FAD_DOC $id - RESULTADO: 3 FORMAS FALLIDAS");
+            $this->registrarAuditoriaDocumento($id, $tipo, $nombreDoc, 0, "Este ID de crédito no tiene {$nombreDoc} registrado en ninguna ubicación.");
             echo json_encode([
                 'success' => false,
                 'mensaje' => "Este ID de crédito no tiene {$nombreDoc} registrado en ninguna ubicación."
@@ -2585,6 +2659,7 @@ public function descargar()
             $local = $buscarLocal($id, $tipo);
             if ($local) {
                 error_log("EVIDENCIA $id - RESULTADO: 1RA FORMA (Local)");
+                $this->registrarAuditoriaDocumento($id, $tipo, $nombreDoc, 1, null);
                 echo json_encode([
                     'success' => true,
                     'tipo' => $tipo,
@@ -2607,6 +2682,7 @@ public function descargar()
 
             if ($res['success'] && isset($res['datos']['nombre_archivo']) && !empty($res['datos']['nombre_archivo'])) {
                 error_log("EVIDENCIA $id - RESULTADO: 2DA FORMA (DAO)");
+                $this->registrarAuditoriaDocumento($id, $tipo, $nombreDoc, 1, null);
                 $archivo = basename($res['datos']['nombre_archivo']);
                 $archivo = str_replace(['doc_cliente/', 'doc_cliente\\'], '', $archivo);
                 $archivo = basename($archivo);
@@ -2638,6 +2714,7 @@ public function descargar()
                 $fileNameBD = "EVIDENCIA/" . $nombreBD;
                 if ($existeEnS3($fileNameBD)) {
                     error_log("EVIDENCIA $id - RESULTADO: 3RA FORMA (BD + S3)");
+                    $this->registrarAuditoriaDocumento($id, $tipo, $nombreDoc, 1, null);
                     $extension = strtolower(pathinfo($nombreBD, PATHINFO_EXTENSION));
                     $esImagen = in_array($extension, ['jpg', 'jpeg', 'png', 'gif']);
                     
@@ -2658,6 +2735,7 @@ public function descargar()
             }
             
             error_log("EVIDENCIA $id - RESULTADO: 3 FORMAS FALLIDAS");
+            $this->registrarAuditoriaDocumento($id, $tipo, $nombreDoc, 0, "Este ID de crédito no tiene {$nombreDoc} registrado en ninguna ubicación.");
             echo json_encode([
                 'success' => false,
                 'mensaje' => "Este ID de crédito no tiene {$nombreDoc} registrado en ninguna ubicación."
@@ -2668,6 +2746,7 @@ public function descargar()
         // ---------------- Tipo no válido ----------------
         else {
             error_log("TIPO NO VÁLIDO: $tipo");
+            $this->registrarAuditoriaDocumento($id ?? null, $tipo ?? '', $nombreDoc ?? $tipo ?? '', 0, 'Tipo de documento no válido. Tipos permitidos: FACTURA, CONTRATO, INE, FAD_DOC, EVIDENCIA');
             echo json_encode([
                 'success' => false,
                 'mensaje' => 'Tipo de documento no válido. Tipos permitidos: FACTURA, CONTRATO, INE, FAD_DOC, EVIDENCIA'
@@ -2677,6 +2756,11 @@ public function descargar()
 
     } catch (\Throwable $e) {
         error_log("ERROR CRÍTICO en descargar(): " . $e->getMessage());
+        if (isset($id) && isset($tipo) && isset($nombreDoc)) {
+            $this->registrarAuditoriaDocumento($id, $tipo, $nombreDoc, 0, 'Error interno: ' . $e->getMessage());
+        } else {
+            $this->registrarAuditoriaDocumento(null, '', '', 0, 'Error interno: ' . $e->getMessage());
+        }
         echo json_encode([
             'success' => false,
             'mensaje' => 'Error interno',
