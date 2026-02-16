@@ -5180,6 +5180,16 @@ class CapHum extends Controller
         session_start(); // 🔴 IMPORTANTE
         header('Content-Type: application/json; charset=utf-8');
 
+        // Mismo permiso que Gestiones: solo quien tiene Configuración - Departamentos (módulo 10) puede editar
+        $modulos = $_SESSION['modulos'] ?? [];
+        if (!in_array(10, $modulos)) {
+            echo json_encode([
+                'success' => false,
+                'mensaje' => 'No tiene permiso para editar. Solo usuarios con acceso a Configuración - Departamentos pueden modificar la información.'
+            ]);
+            exit;
+        }
+
         // Leer JSON
         $input = json_decode(file_get_contents("php://input"), true);
 
@@ -5217,9 +5227,13 @@ class CapHum extends Controller
             }
         }
 
+        $modulos = $_SESSION['modulos'] ?? [];
+        $puedeEditarTodos = in_array(10, $modulos); // Configuración - Departamentos (igual que en Gestiones)
+
         self::set("titulo", "Organigrama");
         self::set("script", $script);
         self::set("Departamentos", $getDepartamentos);
+        self::set("puedeEditarTodos", $puedeEditarTodos);
         self::render("organigrama");
     }
     public function getPersonasOrganigrama()

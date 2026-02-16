@@ -160,7 +160,7 @@
  ======================== -->
     <div class="offcanvas offcanvas-end" id="offcanvasEditUser">
         <div class="offcanvas-header border-bottom">
-            <h5 class="offcanvas-title">Editar Gestor</h5>
+            <h5 class="offcanvas-title" id="offcanvasEditUserTitle">Editar Gestor</h5>
             <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
         </div>
 
@@ -228,12 +228,12 @@
                     <input type="text" id="edit_usuario" class="form-control" readonly>
                 </div>
 
-                <div class="mb-7">
+                <div class="mb-7" id="edit_row_contrasena">
                     <label class="form-label">Contraseña *</label>
                     <input type="text" id="edit_contrasena" class="form-control" maxlength="15" oninput="this.value = this.value.replace(/^\s+/, '').replace(/\s{2,}/g, ' ')" onblur="this.value = this.value.trim()">
                 </div>
 
-                <button type="button" class="btn btn-primary me-3" onclick="UpdateGestor()" > Guardar </button>
+                <button type="button" class="btn btn-primary me-3" id="edit_btn_guardar" onclick="UpdateGestor()" > Guardar </button>
                 <button type="button" class="btn btn-label-danger" data-bs-dismiss="offcanvas" > Cancelar </button>
             </form>
         </div>
@@ -241,6 +241,35 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script>
+    window.puedeEditarTodosOrganigrama = <?= json_encode(!empty($puedeEditarTodos ?? false)) ?>;
+
+    function setModoEdicionOrganigrama() {
+        var rowContrasena = document.getElementById('edit_row_contrasena');
+        var titulo = document.getElementById('offcanvasEditUserTitle');
+        var btnGuardar = document.getElementById('edit_btn_guardar');
+        var form = document.getElementById('editNewUserForm');
+        if (rowContrasena) rowContrasena.style.display = '';
+        if (titulo) titulo.textContent = 'Editar Gestor';
+        if (btnGuardar) btnGuardar.style.display = '';
+        if (form) {
+            form.querySelectorAll('input, select').forEach(function(el) { el.disabled = false; });
+        }
+    }
+    function setModoVisualizarOrganigrama() {
+        var rowContrasena = document.getElementById('edit_row_contrasena');
+        var titulo = document.getElementById('offcanvasEditUserTitle');
+        var btnGuardar = document.getElementById('edit_btn_guardar');
+        var form = document.getElementById('editNewUserForm');
+        if (rowContrasena) rowContrasena.style.display = 'none';
+        if (titulo) titulo.textContent = 'Visualizar Gestor';
+        if (btnGuardar) btnGuardar.style.display = 'none';
+        if (form) {
+            form.querySelectorAll('input, select').forEach(function(el) { el.disabled = true; });
+        }
+        var contrasena = document.getElementById('edit_contrasena');
+        if (contrasena) contrasena.value = '';
+    }
+
     /**
      * ==========================================
      * FUNCIÓN VALIDAR TELÉFONO
@@ -811,6 +840,13 @@
                     document.getElementById("edit_contrasena").value = persona.password ?? '';
                     document.getElementById("edit_departamento_id").value = persona.id_departamento ?? '';
                     document.getElementById("edit_id_puesto").value = persona.id_puesto ?? '';
+
+                    if (window.puedeEditarTodosOrganigrama) {
+                        setModoEdicionOrganigrama();
+                    } else {
+                        document.getElementById("edit_contrasena").value = '';
+                        setModoVisualizarOrganigrama();
+                    }
 
                     const offcanvas = new bootstrap.Offcanvas(
                         document.getElementById('offcanvasEditUser')
