@@ -1,0 +1,110 @@
+<?php
+
+namespace Controllers;
+
+use Core\Controller;
+use Models\Indicadores as IndicadoresDao;
+
+class Indicadores extends Controller
+{
+    public function index()
+    {
+        self::render("indicadores_view");
+    }
+
+    public function kpiTotal()
+    {
+        $data = IndicadoresDao::getKpiTotal();
+        self::render("kpi_total", $data);
+    }
+
+    public function gestiones1A7()
+    {
+        $data = IndicadoresDao::getGestiones1A7();
+        self::render("gestiones_1_a_7", $data);
+    }
+
+    public function eficiencia1A7()
+    {
+        $data = IndicadoresDao::getEficiencia1A7();
+        self::render("eficiencia_1_a_7", $data);
+    }
+
+    public function gestiones8A21()
+    {
+        $data = IndicadoresDao::getGestiones8A21();
+        self::render("gestiones_8_a_21", $data);
+    }
+
+    public function eficiencia8A21()
+    {
+        $data = IndicadoresDao::getEficiencia8A21();
+        self::render("eficiencia_8_a_21", $data);
+    }
+
+    public function seguimientoIntensidad()
+    {
+        $data = IndicadoresDao::getSeguimientoIntensidad();
+        self::render("seguimiento_de_intensidad", $data);
+    }
+
+    public function detalleClientes()
+    {
+        $data = IndicadoresDao::getDetalleClientes();
+        self::render("detalle_clientes", $data);
+    }
+
+    public function detalleEficiencia()
+    {
+        $data = IndicadoresDao::getDetalleEficiencia();
+        self::render("detalle_eficiencia", $data);
+    }
+
+    public function carteraInicioSem()
+    {
+        $data = IndicadoresDao::getCarteraInicioSem();
+        self::render("cartera_inicio_de_sem", $data);
+    }
+
+    public function seguimientoPromesasPago()
+    {
+        $data = IndicadoresDao::getSeguimientoPromesasPago();
+        self::render("seguimiento_a_promesas_de_pago", $data);
+    }
+
+    public function espartanos()
+    {
+        $data = IndicadoresDao::getEspartanosMatrizBuckets();
+        self::render("espartanos", $data);
+    }
+
+    public function matrizBuckets()
+    {
+        $data = IndicadoresDao::getMatrizBuckets();
+        self::render("matriz_de_buckets", $data);
+    }
+
+    public function matrizBucketsMas1()
+    {
+        $data = IndicadoresDao::getMatrizBucketsMas1();
+        self::render("matriz_de_buckets_mas_1", $data);
+    }
+
+    public function auditoria()
+    {
+        $data = IndicadoresDao::getAuditoria();
+        self::render("auditoria", $data);
+    }
+
+    public function auditoria2()
+    {
+        $data = IndicadoresDao::getAuditoria2();
+        self::render("auditoria_2", $data);
+    }
+
+    public function seguimiento()
+    {
+        $data = IndicadoresDao::getSeguimiento();
+        self::render("seguimiento", $data);
+    }
+}
