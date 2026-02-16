@@ -330,7 +330,7 @@
     #modalMapaAlternasGrande .modal-dialog { max-width: 90vw; width: 90vw; height: 90vh; max-height: 90vh; margin: 1rem auto; }
     #modalMapaAlternasGrande .modal-content { display: flex; flex-direction: column; min-height: 80vh; }
     #modalMapaAlternasGrande .modal-body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
-    #modalMapaAlternasGrande #rastreoMapaAlternasGrandeContenedor { flex: 1; width: 100%; min-height: 400px; border-radius: 8px; background: #e2e8f0; }
+    #modalMapaAlternasGrande #rastreoMapaAlternasGrandeContenedor { flex: 1; width: 100%; min-height: 400px; border-radius: 8px; background: #e2e8f0; position: relative; }
     /* Dropzone evidencias: dashed, fondo casi transparente, ícono grande amigable */
     #modalRastreoCredito .evidencia-slot { width: 100%; aspect-ratio: 1; max-height: 120px; border: 2px dashed #cbd5e1; border-radius: 12px; background: rgba(241, 245, 249, 0.8); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.5rem; cursor: pointer; overflow: hidden; transition: border-color 0.2s ease, background 0.2s ease; }
     #modalRastreoCredito .evidencia-slot i.fa-plus { font-size: 1.75rem; color: #94a3b8; }

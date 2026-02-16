@@ -2,6 +2,11 @@
     <img src="https://__SPARTA_SECRET_REDACTED__.mx/cdn/shop/files/Logotipo-Maxikash-Outline.png?v=1749328460" alt="Logo de la empresa" class="mb-10 w-50">
 </div>
 
+<?php
+// Botón diagnóstico BD: poner a true cuando necesites mostrarlo de nuevo
+$mostrar_boton_diagnostico_bd = false;
+?>
+<?php if ($mostrar_boton_diagnostico_bd): ?>
 <!-- Botón flotante: diagnóstico de conexiones (BD direcciones alternas, SSL, permisos) -->
 <button id="btnDiagnosticoConexiones" style="
     position: fixed;
@@ -42,3 +47,4 @@ document.getElementById('btnDiagnosticoConexiones').addEventListener('click', fu
         'width=' + w + ',height=' + h + ',left=' + left + ',top=' + top + ',resizable=yes,scrollbars=yes');
 });
 </script>
+<?php endif; ?>

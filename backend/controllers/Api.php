@@ -14,6 +14,7 @@ use Core\Controller;
 use Models\Ubicacion as UbicacionDAO;
 use Models\Gestiones as GestionesDAO;
 use Models\Empresa as EmpresaDAO;
+use Models\SegundometroDAO;
 
 require_once __DIR__ . '/../services/SpatialAnalyticsService.php';
 require_once __DIR__ . '/../services/TemporalPaymentsService.php';
@@ -165,23 +166,26 @@ class Api extends Controller
         $pagosParaTemporal = $this->getPagosDesdeEstadoCuenta($idCredito);
         if (!empty($pagosParaTemporal)) {
             $temporal = new TemporalPaymentsService();
-            return $temporal->analizarPagos($pagosParaTemporal);
-        }
-        $gestiones = GestionesDAO::getAllGestiones($idCredito, '');
-        $gestiones = is_array($gestiones) ? $gestiones : [];
-        $pagos = [];
-        foreach ($gestiones as $i => $g) {
-            $tipo = (string) ($g['dictamen_campo'] ?? $g['dictamen_ccc'] ?? '');
-            if (stripos($tipo, 'Pago') !== false) {
-                $f = $g['fecha_dispositivo'] ?? $g['fecha_hora'] ?? null;
-                if ($f) {
-                    $ts = is_numeric($f) ? (int) $f : strtotime($f);
-                    $pagos[] = ['fecha' => $ts ? date('Y-m-d', $ts) : null];
+            $data = $temporal->analizarPagos($pagosParaTemporal);
+        } else {
+            $gestiones = GestionesDAO::getAllGestiones($idCredito, '');
+            $gestiones = is_array($gestiones) ? $gestiones : [];
+            $pagos = [];
+            foreach ($gestiones as $i => $g) {
+                $tipo = (string) ($g['dictamen_campo'] ?? $g['dictamen_ccc'] ?? '');
+                if (stripos($tipo, 'Pago') !== false) {
+                    $f = $g['fecha_dispositivo'] ?? $g['fecha_hora'] ?? null;
+                    if ($f) {
+                        $ts = is_numeric($f) ? (int) $f : strtotime($f);
+                        $pagos[] = ['fecha' => $ts ? date('Y-m-d', $ts) : null];
+                    }
                 }
             }
+            $temporal = new TemporalPaymentsService();
+            $data = $temporal->analizarPagos($pagos);
         }
-        $temporal = new TemporalPaymentsService();
-        return $temporal->analizarPagos($pagos);
+        $data['bucket_morosidad_counts'] = SegundometroDAO::getBucketMorosidadCounts($idCredito);
+        return $data;
     }
 
     /**

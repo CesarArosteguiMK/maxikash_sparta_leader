@@ -534,7 +534,33 @@ class SegundometroDAO extends Model
         
         return $rutaLocal;
     }
-    
+
+    /**
+     * Conteos por Bucket_Morosidad para un crédito en tbl_segundometro_histo (__SPARTA_SECRET_REDACTED__, __SPARTA_HOST_REDACTED__).
+     * Útil para el modal Gestiones/Pagos: cuántas veces aparece Current, 1 a 7 días, etc.
+     *
+     * @param int $idCredito ID del crédito
+     * @return array Lista de ['bucket' => string, 'cnt' => int]; vacío si error o sin datos
+     */
+    public static function getBucketMorosidadCounts($idCredito)
+    {
+        $idCredito = (int) $idCredito;
+        if ($idCredito < 1) {
+            return [];
+        }
+        try {
+            $db = new DatabaseSegundometro();
+            // Columna según tbl_segundometro_histo; si en tu BD se llama Bucket_Morosidad_Real, cámbiala aquí
+            $rows = $db->queryAll(
+                'SELECT Bucket_Morosidad AS bucket, COUNT(*) AS cnt FROM tbl_segundometro_histo WHERE Id_credito = :id_credito GROUP BY Bucket_Morosidad ORDER BY bucket',
+                ['id_credito' => $idCredito]
+            );
+            return is_array($rows) ? $rows : [];
+        } catch (\Throwable $e) {
+            return [];
+        }
+    }
+
     /**
      * Eliminar archivo en el servidor remoto SOLO si el owner es root (nosotros).
      * Seguridad: solo se elimina el archivo cuyo nombre coincide exactamente y cuyo owner es root.

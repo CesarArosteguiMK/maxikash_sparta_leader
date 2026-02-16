@@ -97,7 +97,18 @@
         html += '<tr><td><strong>Día más frecuente</strong><br><span class="text-muted small">Día de la semana en que más suele pagar</span></td><td>' + (data.dia_mas_frecuente || '—') + '</td></tr>';
         var consistenciaPct = (data.consistencia_dia != null && !isNaN(parseFloat(data.consistencia_dia))) ? (parseFloat(data.consistencia_dia) <= 1 ? Math.round(parseFloat(data.consistencia_dia) * 1000) / 10 : Math.round(parseFloat(data.consistencia_dia) * 10) / 10) : null;
         html += '<tr><td><strong>Consistencia del día</strong><br><span class="text-muted small">Proporción de pagos en ese día</span></td><td>' + (consistenciaPct != null ? consistenciaPct + '%' : '—') + '</td></tr>';
-        html += '<tr><td><strong>Patrón de pago</strong><br><span class="text-muted small">Resumen del comportamiento (regular, irregular, etc.)</span></td><td>' + (data.patron_pago || '—') + '</td></tr></tbody></table>';
+        html += '<tr><td><strong>Patrón de pago</strong><br><span class="text-muted small">Resumen del comportamiento (regular, irregular, etc.)</span></td><td>' + (data.patron_pago || '—') + '</td></tr>';
+        var buckets = data.bucket_morosidad_counts || [];
+        if (buckets.length) {
+            var bucketLines = [];
+            buckets.forEach(function (b) {
+                var label = escapeHtml(b.bucket != null ? b.bucket : '—');
+                var cnt = b.cnt != null ? b.cnt : '—';
+                bucketLines.push('<div class="ps-3 small">' + label + ' &nbsp; ' + cnt + ' veces</div>');
+            });
+            html += '<tr><td><strong>Historia Bucket</strong><br><span class="text-muted small">Conteo por bucket de morosidad en histórico</span></td><td><div class="d-flex flex-column gap-1">' + bucketLines.join('') + '</div></td></tr>';
+        }
+        html += '</tbody></table>';
         return html;
     }
 
