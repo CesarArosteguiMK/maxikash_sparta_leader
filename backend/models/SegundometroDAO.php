@@ -481,7 +481,7 @@ class SegundometroDAO extends Model
         $isPlink = $sshCommand !== null && (stripos($sshCommand, 'plink') !== false);
         
         if ($isPlink) {
-            // Plink: usar pscp (PuTTY SCP) con .ppk y -hostkey
+            // Plink: intentar pscp (PuTTY SCP); si no está disponible, usar plink + cat (fallback)
             $configFile = __DIR__ . '/../config/config.ini';
             $cfg = (is_file($configFile) && is_array($c = @parse_ini_file($configFile, true))) ? $c : [];
             $pscpPath = trim($cfg['ssh']['ssh_pscp'] ?? '');
@@ -499,15 +499,56 @@ class SegundometroDAO extends Model
             if ($hk !== '') {
                 $hostkey = ' -hostkey ' . escapeshellarg($hk);
             }
-            $remoteSpec = self::$SSH_USER . '@' . self::$SSH_HOST . ':' . $rutaRemota;
-            $comando = sprintf(
-                '%s -i %s%s -batch %s %s 2>&1',
-                escapeshellarg($pscpPath),
-                escapeshellarg($keyPath),
-                $hostkey,
-                escapeshellarg($remoteSpec),
-                escapeshellarg($rutaLocal)
-            );
+
+            $usoPscp = @is_file($pscpPath);
+            if ($usoPscp) {
+                $remoteSpec = self::$SSH_USER . '@' . self::$SSH_HOST . ':' . $rutaRemota;
+                $comando = sprintf(
+                    '%s -i %s%s -batch %s %s 2>&1',
+                    escapeshellarg($pscpPath),
+                    escapeshellarg($keyPath),
+                    $hostkey,
+                    escapeshellarg($remoteSpec),
+                    escapeshellarg($rutaLocal)
+                );
+            } else {
+                // Fallback: plink ejecuta "cat rutaRemota" en el servidor; capturamos stdout en binario (no requiere pscp)
+                $userHost = self::$SSH_USER . '@' . self::$SSH_HOST;
+                $remoteCmd = 'cat ' . str_replace("'", "'\\''", $rutaRemota);
+                $comandoPlink = sprintf(
+                    '%s -i %s%s -batch %s %s',
+                    escapeshellarg($sshCommand),
+                    escapeshellarg($keyPath),
+                    $hostkey,
+                    escapeshellarg($userHost),
+                    escapeshellarg($remoteCmd)
+                );
+                $descriptors = [
+                    0 => ['pipe', 'r'],
+                    1 => ['pipe', 'w'],
+                    2 => ['pipe', 'w']
+                ];
+                $proc = @proc_open($comandoPlink, $descriptors, $pipes, null, null, ['binary_pipes' => true]);
+                if (!is_resource($proc)) {
+                    @unlink($rutaLocal);
+                    throw new \Exception('No se pudo descargar el archivo del servidor remoto: no se pudo ejecutar plink (pscp no está disponible). Instale PuTTY completo o configure ssh_pscp en config.ini.');
+                }
+                fclose($pipes[0]);
+                $stderr = stream_get_contents($pipes[2]);
+                fclose($pipes[2]);
+                $out = stream_get_contents($pipes[1]);
+                fclose($pipes[1]);
+                $returnVar = proc_close($proc);
+                if ($returnVar !== 0 || $out === false) {
+                    @unlink($rutaLocal);
+                    throw new \Exception('No se pudo descargar el archivo del servidor remoto: ' . trim($stderr ?: 'plink falló (código ' . $returnVar . ')'));
+                }
+                if (file_put_contents($rutaLocal, $out, LOCK_EX) === false) {
+                    @unlink($rutaLocal);
+                    throw new \Exception('No se pudo guardar el archivo descargado en el servidor.');
+                }
+                return $rutaLocal;
+            }
         } else {
             // OpenSSH: scp con clave PEM
             $sshKeyEscaped = escapeshellarg(self::getSSHKey(false));
