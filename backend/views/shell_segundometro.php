@@ -51,12 +51,15 @@
     <!-- Botón Truncar y Monitorear -->
     <div class="row mb-3">
         <div class="col-12">
-            <button type="button" class="btn btn-truncar-segundometro" id="btnTruncarSegundometro" disabled title="Disponible solo los martes de 8:00 a 11:00 (CDMX)">
+            <button type="button" class="btn btn-truncar-segundometro" id="btnTruncarSegundometro" disabled title="Disponible solo los martes de 7:00 a 9:30 AM (CDMX)">
                 <i class="fa fa-cut me-2"></i>Truncar
             </button>
             <button type="button" class="btn btn-monitorear-segundometro ms-2" id="btnMonitorearSegundometro" title="Abrir panel con salida en vivo (al cerrar el panel se corta la conexión)">
                 <i class="fa fa-terminal me-2"></i>Monitorear
             </button>
+            <span class="ms-3 align-middle">
+                <a href="#" id="linkTruncarModoPrueba" class="small text-muted" title="Habilita el botón Truncar para probar (sin restricción de horario). Recarga la página con ?truncar_test=1">Habilitar Truncar para pruebas</a>
+            </span>
         </div>
     </div>
 

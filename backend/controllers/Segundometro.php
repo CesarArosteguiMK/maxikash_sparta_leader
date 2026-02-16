@@ -390,14 +390,28 @@ class Segundometro extends Controller
                 }
             }
 
+            function esTruncarModoPrueba() {
+                var params = new URLSearchParams(window.location.search);
+                var v = params.get('truncar_test');
+                return v === '1' || v === 'true' || v === 'yes';
+            }
+
             function actualizarEstadoBotonTruncar() {
                 var btn = document.getElementById('btnTruncarSegundometro');
                 if (!btn) return;
-                var dia = new Date().toLocaleDateString('en-GB', { timeZone: 'America/Mexico_City', weekday: 'short' });
-                var hora = parseInt(new Date().toLocaleTimeString('en-GB', { timeZone: 'America/Mexico_City', hour: '2-digit', hour12: false }), 10);
-                var habilitado = (dia === 'Tue' && hora >= 8 && hora < 11);
+                var habilitado = false;
+                if (esTruncarModoPrueba()) {
+                    habilitado = true;
+                    btn.title = 'Modo prueba: Truncar habilitado (URL con ?truncar_test=1). Quita el parámetro para volver al horario normal.';
+                } else {
+                    var dia = new Date().toLocaleDateString('en-GB', { timeZone: 'America/Mexico_City', weekday: 'short' });
+                    var r = new Date().toLocaleTimeString('en-GB', { timeZone: 'America/Mexico_City', hour: '2-digit', minute: '2-digit', hour12: false });
+                    var p = r.split(':');
+                    var minDia = parseInt(p[0], 10) * 60 + parseInt(p[1], 10);
+                    habilitado = (dia === 'Tue' && minDia >= 420 && minDia < 570); // Martes 7:00 (420) a 9:30 (570)
+                    btn.title = habilitado ? 'Truncar tabla Semana (copia a Historial y limpia)' : 'Disponible solo los martes de 7:00 a 9:30 AM (CDMX)';
+                }
                 btn.disabled = !habilitado;
-                btn.title = habilitado ? 'Truncar (solo martes 8:00–11:00 CDMX)' : 'Disponible solo los martes de 8:00 a 11:00 (CDMX)';
             }
 
             // Monitorear: panel con iframe (stream solo en el iframe; al cerrar panel se corta la conexión)
@@ -451,12 +465,82 @@ class Segundometro extends Controller
                 document.addEventListener('mouseup', function() { dragging = false; });
             }
 
+            async function truncarSegundometro() {
+                var result = await Swal.fire({
+                    title: '¿Truncar tabla Semana?',
+                    html: '<div class="text-start">'
+                        + '<p class="mb-2">Este proceso realizará las siguientes acciones:</p>'
+                        + '<ol class="mb-2">'
+                        + '<li><strong>Copiar</strong> todos los registros de <code>tbl_segundometro_semana_prueba</code> a <code>tbl_segundometro_histo_prueba</code></li>'
+                        + '<li><strong>Notificar</strong> el resultado a Google Chat</li>'
+                        + '<li><strong>Truncar</strong> (vaciar) la tabla <code>tbl_segundometro_semana_prueba</code></li>'
+                        + '</ol>'
+                        + '<p class="text-danger mb-0 small"><i class="fa fa-exclamation-triangle me-1"></i>Esta acción no se puede deshacer.</p>'
+                        + '</div>',
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonText: 'Sí, truncar',
+                    cancelButtonText: 'Cancelar',
+                    confirmButtonColor: '#00c9d4',
+                    cancelButtonColor: '#6c757d'
+                });
+                if (!result.isConfirmed) return;
+                Swal.fire({ title: 'Procesando...', html: 'Copiando registros y truncando tabla.<br>Esto puede tardar unos segundos.', allowOutsideClick: false, didOpen: function() { Swal.showLoading(); } });
+                try {
+                    var body = {};
+                    if (esTruncarModoPrueba()) body.truncar_test = 1;
+                    var response = await fetch('/segundometro/truncarSegundometro', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Front-Request': 'true' },
+                        body: Object.keys(body).length ? JSON.stringify(body) : undefined
+                    });
+                    var data = await response.json();
+                    if (!data.success) throw new Error(data.mensaje || 'Error desconocido');
+                    Swal.fire({
+                        icon: 'success',
+                        title: '¡Proceso completado!',
+                        html: '<div class="text-start">'
+                            + '<div class="alert alert-success">'
+                            + '<p class="mb-1"><strong>✅ Registros copiados:</strong> ' + (data.registros_copiados || 0) + '</p>'
+                            + '<p class="mb-0"><strong>🧹 Tabla truncada:</strong> exitosamente</p>'
+                            + '</div>'
+                            + '<p class="text-muted small mb-0"><i class="fa fa-bell me-1"></i>Se enviaron notificaciones a Google Chat.</p>'
+                            + '</div>',
+                        confirmButtonText: 'Aceptar'
+                    });
+                } catch (error) {
+                    Swal.fire({ icon: 'error', title: 'Error al truncar', text: error.message || 'No se pudo completar el proceso.', confirmButtonText: 'Aceptar' });
+                }
+            }
+
             document.addEventListener('DOMContentLoaded', function() {
                 actualizarEstadoBotonTruncar();
                 listarArchivos(false);
                 programarRefrescos();
                 setTimeout(function(){ actualizarEstadoReportes(); }, 2500);
                 segundometroEstadoInterval = setInterval(function() { if (!document.hidden) actualizarEstadoReportes(); }, 60000);
+                var btnTruncar = document.getElementById('btnTruncarSegundometro');
+                if (btnTruncar) btnTruncar.addEventListener('click', truncarSegundometro);
+                var linkPrueba = document.getElementById('linkTruncarModoPrueba');
+                if (linkPrueba) {
+                    if (esTruncarModoPrueba()) {
+                        linkPrueba.textContent = 'Salir del modo prueba';
+                        linkPrueba.title = 'Quitar ?truncar_test=1 y volver al horario normal (martes 7:00-9:30)';
+                    }
+                    linkPrueba.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        if (esTruncarModoPrueba()) {
+                            var params = new URLSearchParams(window.location.search);
+                            params.delete('truncar_test');
+                            var qs = params.toString();
+                            window.location.href = window.location.pathname + (qs ? '?' + qs : '');
+                        } else {
+                            var url = window.location.pathname + window.location.search;
+                            url += (url.indexOf('?') === -1 ? '?' : '&') + 'truncar_test=1';
+                            window.location.href = url;
+                        }
+                    });
+                }
                 var btnMon = document.getElementById('btnMonitorearSegundometro');
                 if (btnMon) btnMon.addEventListener('click', abrirPanelMonitorear);
                 var btnCerrarMon = document.getElementById('panelMonitorearCerrar');
@@ -721,6 +805,65 @@ class Segundometro extends Controller
             self::respuestaJSON([
                 'success' => false,
                 'mensaje' => $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
+     * Truncar Segundómetro: copiar semana → historial, notificar webhook, truncar semana.
+     * Solo permitido los martes de 7:00 a 9:30 AM (CDMX). Con truncar_test=1 se omite la validación (modo prueba).
+     */
+    public function truncarSegundometro()
+    {
+        try {
+            $modoPrueba = false;
+            $input = file_get_contents('php://input');
+            if ($input !== '' && $input !== false) {
+                $json = json_decode($input, true);
+                $modoPrueba = !empty($json['truncar_test']);
+            }
+            if (!$modoPrueba && isset($_POST['truncar_test'])) {
+                $modoPrueba = (bool)$_POST['truncar_test'];
+            }
+
+            if (!$modoPrueba) {
+                // Validar: solo martes de 7:00 a 9:30 CDMX
+                $tz = new \DateTimeZone('America/Mexico_City');
+                $ahora = new \DateTime('now', $tz);
+                $diaSemana = $ahora->format('N'); // 1=lunes, 7=domingo
+                $hora = (int)$ahora->format('G');
+                $minuto = (int)$ahora->format('i');
+                $minutosDia = $hora * 60 + $minuto;
+                $inicioPermitido = 7 * 60;       // 7:00
+                $finPermitido    = 9 * 60 + 30;   // 9:30
+
+                if ($diaSemana != 2) { // 2 = martes
+                    self::respuestaJSON([
+                        'success' => false,
+                        'mensaje' => 'Operación solo disponible los martes de 7:00 a 9:30 AM (CDMX). Hoy no es martes.'
+                    ]);
+                    return;
+                }
+                if ($minutosDia < $inicioPermitido || $minutosDia >= $finPermitido) {
+                    self::respuestaJSON([
+                        'success' => false,
+                        'mensaje' => 'Operación solo disponible los martes de 7:00 a 9:30 AM (CDMX). Hora actual: ' . $ahora->format('H:i')
+                    ]);
+                    return;
+                }
+            }
+
+            $resultado = SegundometroDAO::truncarSemanaAHistorico();
+
+            self::respuestaJSON([
+                'success' => true,
+                'mensaje' => $resultado['mensaje'],
+                'registros_copiados' => $resultado['registros_copiados']
+            ]);
+        } catch (\Exception $e) {
+            self::respuestaJSON([
+                'success' => false,
+                'mensaje' => 'Error: ' . $e->getMessage()
             ]);
         }
     }

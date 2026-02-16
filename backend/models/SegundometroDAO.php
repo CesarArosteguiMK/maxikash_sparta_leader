@@ -577,6 +577,94 @@ class SegundometroDAO extends Model
     }
 
     /**
+     * Enviar mensaje a un webhook de Google Chat.
+     *
+     * @param string $webhookUrl URL del webhook
+     * @param string $texto Texto del mensaje
+     * @return bool true si se envió correctamente (HTTP 200)
+     */
+    private static function enviarWebhook($webhookUrl, $texto)
+    {
+        $payload = json_encode(['text' => $texto]);
+        $ch = curl_init($webhookUrl);
+        curl_setopt_array($ch, [
+            CURLOPT_HTTPHEADER     => ['Content-Type: application/json'],
+            CURLOPT_POST           => true,
+            CURLOPT_POSTFIELDS     => $payload,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT        => 10,
+        ]);
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        return $httpCode === 200;
+    }
+
+    /**
+     * Proceso de truncar Segundómetro:
+     *   1. Copiar tbl_segundometro_semana_prueba → tbl_segundometro_histo_prueba
+     *   2. Notificar a webhook de Google Chat
+     *   3. Si OK → truncar tbl_segundometro_semana_prueba
+     *   4. Notificar resultado final
+     *
+     * @return array ['success' => bool, 'mensaje' => string, 'registros_copiados' => int]
+     */
+    public static function truncarSemanaAHistorico()
+    {
+        $webhookUrl = '__SPARTA_WEBHOOK_REDACTED__';
+        $db = new DatabaseSegundometro();
+        $fecha = date('Y-m-d H:i:s');
+        $usuario = $_SESSION['usuario'] ?? 'sistema';
+
+        // Paso 1: Copiar datos de semana a histórico
+        try {
+            $rowsCopied = $db->CRUD(
+                'INSERT INTO tbl_segundometro_histo_prueba SELECT * FROM tbl_segundometro_semana_prueba'
+            );
+        } catch (\Exception $e) {
+            $msgError = "❌ *Error al copiar Semana → Historial*\n"
+                      . "Fecha: {$fecha}\n"
+                      . "Usuario: {$usuario}\n"
+                      . "Detalle: " . $e->getMessage();
+            self::enviarWebhook($webhookUrl, $msgError);
+            throw new \Exception('Error al copiar datos de Semana a Historial: ' . $e->getMessage());
+        }
+
+        // Paso 2: Notificar copia exitosa
+        $msgCopia = "📋 *Copia automática de Semana → Historial completada*\n"
+                  . "✅ *{$rowsCopied}* registros copiados exitosamente\n"
+                  . "Fecha: {$fecha}\n"
+                  . "Usuario: {$usuario}";
+        self::enviarWebhook($webhookUrl, $msgCopia);
+
+        // Paso 3: Truncar tabla semana
+        try {
+            $db->CRUD('TRUNCATE TABLE tbl_segundometro_semana_prueba');
+        } catch (\Exception $e) {
+            $msgError = "⚠️ *Copia exitosa pero error al truncar Semana*\n"
+                      . "Se copiaron {$rowsCopied} registros pero no se pudo limpiar la tabla.\n"
+                      . "Fecha: {$fecha}\n"
+                      . "Usuario: {$usuario}\n"
+                      . "Detalle: " . $e->getMessage();
+            self::enviarWebhook($webhookUrl, $msgError);
+            throw new \Exception('Copia exitosa (' . $rowsCopied . ' registros) pero error al truncar: ' . $e->getMessage());
+        }
+
+        // Paso 4: Notificar truncado exitoso
+        $msgTruncar = "🧹 *Tabla Semana truncada exitosamente*\n"
+                    . "Se eliminaron todos los registros de `tbl_segundometro_semana_prueba` después de copiar {$rowsCopied} registros al historial.\n"
+                    . "Fecha: {$fecha}\n"
+                    . "Usuario: {$usuario}";
+        self::enviarWebhook($webhookUrl, $msgTruncar);
+
+        return [
+            'success' => true,
+            'mensaje' => "Proceso completado: {$rowsCopied} registros copiados y tabla truncada.",
+            'registros_copiados' => $rowsCopied
+        ];
+    }
+
+    /**
      * Conteos por Bucket_Morosidad para un crédito en tbl_segundometro_histo (__SPARTA_SECRET_REDACTED__, __SPARTA_HOST_REDACTED__).
      * Útil para el modal Gestiones/Pagos: cuántas veces aparece Current, 1 a 7 días, etc.
      *
