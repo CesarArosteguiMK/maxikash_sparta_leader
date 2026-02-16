@@ -169,7 +169,7 @@
                             <i class="fa fa-search-plus"></i>
                         </button>
                         <div style="width: 1px; height: 20px; background-color: rgba(255,255,255,0.3);" id="pdfVideosSep"></div>
-                        <button id="pdfVideosBtn" class="btn btn-sm btn-info" style="min-width: 44px; min-height: 44px; display: none;" title="Ver videos / audio de esta página">
+                        <button id="pdfVideosBtn" class="btn btn-sm btn-info" style="min-width: 44px; min-height: 44px;" title="Ver videos / audio de esta página">
                             <i class="fa fa-video"></i>
                         </button>
                     </div>
@@ -409,6 +409,17 @@
                 height: calc(min(85vh, 85dvh) - 70px) !important;
                 max-height: calc(min(85vh, 85dvh) - 70px) !important;
             }
+        }
+        /* Botón de videos/audio: solo visible para FAD_DOC; oculto por defecto para el resto de documentos */
+        #pdfControls #pdfVideosBtn,
+        #pdfControls #pdfVideosSep {
+            display: none !important;
+        }
+        #pdfControls #pdfVideosBtn.visible-solo-fad-doc {
+            display: inline-block !important;
+        }
+        #pdfControls #pdfVideosSep.visible-solo-fad-doc {
+            display: block !important;
         }
         /* Barra de controles PDF: base centrada con sombra; respetar safe-area */
         #pdfControls {
@@ -1756,13 +1767,16 @@
             const btn = document.getElementById('pdfVideosBtn');
             const sep = document.getElementById('pdfVideosSep');
             if (!btn || !sep) return;
+            // Solo mostrar el botón de videos/audio para FAD_DOC; ocultar para FACTURA, CONTRATO, EVIDENCIA, INE, etc.
             const esFAD = typeof window.tipoDocumentoActual !== 'undefined' && window.tipoDocumentoActual === 'FAD_DOC';
+            btn.classList.remove('visible-solo-fad-doc');
+            sep.classList.remove('visible-solo-fad-doc');
+            if (!esFAD) return;
+            btn.classList.add('visible-solo-fad-doc');
+            sep.classList.add('visible-solo-fad-doc');
             const paginas = window.paginasConMediaFAD_DOC;
             const paginaActual = typeof pageNumFactura !== 'undefined' ? pageNumFactura : 1;
             const tieneVideosEnPagina = Array.isArray(paginas) && paginas.indexOf(paginaActual) !== -1;
-            const mostrar = esFAD;
-            btn.style.display = mostrar ? 'inline-block' : 'none';
-            sep.style.display = mostrar ? 'block' : 'none';
             btn.disabled = SIEMPRE_HABILITAR_BOTON_VIDEOS ? false : !tieneVideosEnPagina;
             btn.title = SIEMPRE_HABILITAR_BOTON_VIDEOS ? 'Ver videos / audio (siempre habilitado para pruebas)' : (tieneVideosEnPagina ? 'Ver videos / audio de esta página' : 'No hay videos en esta página');
         }
@@ -2551,8 +2565,8 @@
                     window.paginasConMediaFAD_DOC = null;
                     const pdfVideosBtn = document.getElementById('pdfVideosBtn');
                     const pdfVideosSep = document.getElementById('pdfVideosSep');
-                    if (pdfVideosBtn) pdfVideosBtn.style.display = 'none';
-                    if (pdfVideosSep) pdfVideosSep.style.display = 'none';
+                    if (pdfVideosBtn) pdfVideosBtn.classList.remove('visible-solo-fad-doc');
+                    if (pdfVideosSep) pdfVideosSep.classList.remove('visible-solo-fad-doc');
                 });
                 
                 // Actualizar marcas de agua cuando cambie el tamaño de la ventana (solo si el modal está abierto)

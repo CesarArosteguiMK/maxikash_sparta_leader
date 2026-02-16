@@ -136,3 +136,17 @@ operable program or batch file.
 >>>>>>> b582db9b43de3a2145556668b3c6c8ae00e4a863
 
 ---
+2026-02-16 13:28:34 | idCredito=735641 | pagina=1
+  cmd: "C:\Users\amigo_j9s4pcx\AppData\Local\Programs\Python\Python314\python.exe" "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../scripts/pdf_media.py" --extract "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/pdf_735641_69936fe1a2531.pdf" --outdir "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/m735641_1_69936fe1a2982" --page 1 2>&1
+  out_len: 17 | json_ok: 1 | archivos: 0 | json_error: No error
+  out_preview:
+{"archivos": []}
+
+---
+2026-02-16 13:35:11 | idCredito=735641 | pagina=3
+  cmd: "C:\Users\amigo_j9s4pcx\AppData\Local\Programs\Python\Python314\python.exe" "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../scripts/pdf_media.py" --extract "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/pdf_735641_6993716f31423.pdf" --outdir "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/m735641_3_6993716f31dbb" --page 3 2>&1
+  out_len: 303 | json_ok: 1 | archivos: 2 | json_error: No error
+  out_preview:
+{"archivos": [{"nombre": "media_p3_0.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m735641_3_6993716f31dbb\\media_p3_0.mp4"}, {"nombre": "media_p3_1.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m735641_3_6993716f31dbb\\media_p3_1.mp4"}]}
+
+---

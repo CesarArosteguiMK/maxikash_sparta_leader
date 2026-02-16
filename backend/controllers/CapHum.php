@@ -856,7 +856,8 @@ class CapHum extends Controller
             
             const iconosPermisosEspeciales = {
                 21: 'fa fa-file-upload',
-                22: 'fa fa-cloud-download'
+                22: 'fa fa-cloud-download',
+                23: 'fa fa-calendar-alt'
             };
             function crearFilaModulo(mod) {
                 const tr = document.createElement('tr');
