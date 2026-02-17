@@ -1,4 +1,9 @@
+<!-- 
+    Vista: gestiones_1_a_7.php
+    Diseño intacto, solo agregamos lógica JS al final
+-->
 <style>
+    /* TU CSS EXACTAMENTE IGUAL - SIN CAMBIOS */
     #tabla-reportes {
         width: 100%;
         table-layout: auto;
@@ -172,7 +177,7 @@
                             <th>Estatus Actividad Gestor</th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody id="tabla-body">
                         <!-- JS inyectará filas -->
                     </tbody>
                     <tfoot>
@@ -186,9 +191,9 @@
                             <td id="total-campo"><strong>0</strong></td>
                             <td id="total-telefono"><strong>0</strong></td>
                             <td id="total-saldo"><strong>$0</strong></td>
-                            <td><strong>-</strong></td>
-                            <td><strong>-</strong></td>
-                            <td><strong>-</strong></td>
+                            <td id="total-fecha-antigua"><strong>-</strong></td>
+                            <td id="total-fecha-reciente"><strong>-</strong></td>
+                            <td id="total-estatus"><strong>-</strong></td>
                         </tr>
                     </tfoot>
                 </table>
@@ -206,12 +211,15 @@
 
 </div>
 
+<!-- ========================================== -->
+<!-- SOLO AGREGAMOS LÓGICA JS, DISEÑO INTACTO -->
+<!-- ========================================== -->
 <script>
 document.addEventListener("DOMContentLoaded", () => {
-    console.log("Vista Gestiones 1 a 7 lista para lógica JS");
+    console.log("🚀 Vista Gestiones 1 a 7 inicializada");
 
     // ==========================================
-    // FUNCIONALIDAD DE REDIMENSIONAR COLUMNAS
+    // FUNCIONALIDAD DE REDIMENSIONAR COLUMNAS (TU CÓDIGO EXACTO)
     // ==========================================
     const table = document.getElementById('tabla-reportes');
     const headers = table.querySelectorAll('thead th');
@@ -219,7 +227,6 @@ document.addEventListener("DOMContentLoaded", () => {
     headers.forEach((th, index) => {
         th.classList.add('resizable');
         
-        // Crear el elemento resizer
         const resizer = document.createElement('div');
         resizer.classList.add('resizer');
         th.appendChild(resizer);
@@ -236,7 +243,6 @@ document.addEventListener("DOMContentLoaded", () => {
                 const width = startWidth + (e.pageX - startX);
                 th.style.width = width + 'px';
                 
-                // Aplicar el mismo ancho a todas las celdas de la columna
                 const cells = table.querySelectorAll(`tbody td:nth-child(${index + 1}), tfoot td:nth-child(${index + 1})`);
                 cells.forEach(cell => {
                     cell.style.width = width + 'px';
@@ -254,14 +260,116 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     });
 
-    // Aquí podrás:
-    // 1. Cargar datos vía fetch()
-    // 2. Filtrar según selects y checkboxes
-    // 3. Recalcular totales dinámicamente
-    // 4. Renderizar tabla dinámicamente
+    // ==========================================
+    // DATOS INYECTADOS DESDE EL CONTROLADOR
+    // ==========================================
+    const datosIniciales = <?php echo json_encode($gestiones ?? []); ?>;
+    const totalesIniciales = <?php echo json_encode($totales ?? []); ?>;
 
-    // Ejemplo básico: puedes integrar con los datos pasados desde el controlador
-    // const data = [/* datos del modelo */];
-    // renderTable(data);
+    console.log("Datos recibidos:", datosIniciales);
+    console.log("Totales recibidos:", totalesIniciales);
+
+    // ==========================================
+    // FUNCIÓN PARA RENDERIZAR LA TABLA
+    // ==========================================
+    function renderTable(data) {
+        const tbody = document.getElementById('tabla-body');
+        if (!tbody) return;
+        
+        tbody.innerHTML = '';
+        
+        if (!data || data.length === 0) {
+            const emptyRow = document.createElement('tr');
+            emptyRow.innerHTML = `<td colspan="12" class="text-center">No hay datos disponibles</td>`;
+            tbody.appendChild(emptyRow);
+            return;
+        }
+        
+        data.forEach(row => {
+            const tr = document.createElement('tr');
+            
+            // Determinar clase del badge según estatus
+            let badgeClass = 'badge bg-secondary';
+            if (row.estatus_gestor === 'Activo') badgeClass = 'badge bg-success';
+            if (row.estatus_gestor === 'Inactivo') badgeClass = 'badge bg-warning text-dark';
+            
+            tr.innerHTML = `
+                <td>${escapeHtml(row.lider || 'SIN ASIGNAR')}</td>
+                <td>${formatNumber(row.current || 0)}</td>
+                <td>${formatNumber(row.gestiones_1a7 || 0)}</td>
+                <td>${formatNumber(row.sin_gestion || 0)}</td>
+                <td>${formatDecimal(row.eficiencia || 0)}%</td>
+                <td>${formatNumber(row.total_general || 0)}</td>
+                <td>${formatNumber(row.campo || 0)}</td>
+                <td>${formatNumber(row.telefono || 0)}</td>
+                <td>${formatCurrency(row.saldo_vencido || 0)}</td>
+                <td>${escapeHtml(row.fecha_dictamen_mas_antigua || '-')}</td>
+                <td>${escapeHtml(row.fecha_dictamen_mas_reciente || '-')}</td>
+                <td><span class="${badgeClass}">${escapeHtml(row.estatus_gestor || 'Sin actividad')}</span></td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    // ==========================================
+    // FUNCIÓN PARA ACTUALIZAR TOTALES DEL FOOTER
+    // ==========================================
+    function actualizarTotales(totales) {
+        if (!totales) return;
+        
+        document.getElementById('total-current').innerHTML = `<strong>${totales.total_current || '0'}</strong>`;
+        document.getElementById('total-1a7').innerHTML = `<strong>${totales.total_1a7 || '0'}</strong>`;
+        document.getElementById('total-sin-gestion').innerHTML = `<strong>${totales.total_sin_gestion || '0'}</strong>`;
+        document.getElementById('total-eficiencia').innerHTML = `<strong>${totales.total_eficiencia || '0%'}</strong>`;
+        document.getElementById('total-general').innerHTML = `<strong>${totales.total_general || '0'}</strong>`;
+        document.getElementById('total-campo').innerHTML = `<strong>${totales.total_campo || '0'}</strong>`;
+        document.getElementById('total-telefono').innerHTML = `<strong>${totales.total_telefono || '0'}</strong>`;
+        document.getElementById('total-saldo').innerHTML = `<strong>${totales.total_saldo || '$0'}</strong>`;
+        // Los de fechas y estatus se quedan como están (no aplica total)
+    }
+
+    // ==========================================
+    // FUNCIONES DE FORMATEO
+    // ==========================================
+    function formatNumber(num) {
+        return new Intl.NumberFormat('es-MX').format(num);
+    }
+    
+    function formatDecimal(num) {
+        return new Intl.NumberFormat('es-MX', { 
+            minimumFractionDigits: 1, 
+            maximumFractionDigits: 1 
+        }).format(num);
+    }
+    
+    function formatCurrency(num) {
+        // Si ya viene formateado como string, lo dejamos igual
+        if (typeof num === 'string' && num.includes('$')) return num;
+        
+        return new Intl.NumberFormat('es-MX', {
+            style: 'currency',
+            currency: 'MXN',
+            minimumFractionDigits: 2
+        }).format(num);
+    }
+    
+    function escapeHtml(text) {
+        if (!text) return text;
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    // ==========================================
+    // CARGA INICIAL
+    // ==========================================
+    if (datosIniciales && datosIniciales.length > 0) {
+        renderTable(datosIniciales);
+        actualizarTotales(totalesIniciales);
+    } else {
+        // Si no hay datos, mostrar mensaje
+        document.getElementById('tabla-body').innerHTML = 
+            '<tr><td colspan="12" class="text-center">No hay datos disponibles</td></tr>';
+    }
 });
 </script>

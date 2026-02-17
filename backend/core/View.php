@@ -35,6 +35,93 @@ function getMenu()
                             ]
                     ]
             ],
+        
+            'Indicadores' => [
+                    'icono' => 'fa-solid fa-chart-line',
+                    'subItems' => [
+                        [
+                            'label' => 'KPI Total',
+                            'url' => '/indicadores/kpiTotal',
+                            'modulos' => [40]
+                        ],
+                        [
+                            'label' => 'Gestión 1-7',
+                            'url' => '/indicadores/gestiones1A7',
+                            'modulos' => [24]
+                        ],
+                        [
+                            'label' => 'Eficiencia 1-7',
+                            'url' => '/indicadores/eficiencia1A7',
+                            'modulos' => [25]
+                        ],
+                        [
+                            'label' => 'Gestión 8-21',
+                            'url' => '/indicadores/gestiones8A21',
+                            'modulos' => [26]
+                        ],
+                        [
+                            'label' => 'Eficiencia 8-21',
+                            'url' => '/indicadores/eficiencia8A21',
+                            'modulos' => [27]
+                        ],
+                        [
+                            'label' => 'Intensidad',
+                            'url' => '/indicadores/seguimientoIntensidad',
+                            'modulos' => [29]
+                        ],
+                        [
+                            'label' => 'Detalle Clientes',
+                            'url' => '/indicadores/detalleClientes',
+                            'modulos' => [30]
+                        ],
+                        [
+                            'label' => 'Detalle Eficiencia',
+                            'url' => '/indicadores/detalleEficiencia',
+                            'modulos' => [31]
+                        ],
+                        [
+                            'label' => 'Cartera Inicial',
+                            'url' => '/indicadores/carteraInicioSem',
+                            'modulos' => [32]
+                        ],
+                        [
+                            'label' => 'Promesas Pago',
+                            'url' => '/indicadores/seguimientoPromesasPago',
+                            'modulos' => [33]
+                        ],
+                        [
+                            'label' => 'Espartanos',
+                            'url' => '/indicadores/espartanos',
+                            'modulos' => [34]
+                        ],
+                        [
+                            'label' => 'Matriz Buckets',
+                            'url' => '/indicadores/matrizBuckets',
+                            'modulos' => [35]
+                        ],
+                        [
+                            'label' => 'Buckets +1',
+                            'url' => '/indicadores/matrizBucketsMas1',
+                            'modulos' => [36]
+                        ],
+                        [
+                            'label' => 'Auditoría',
+                            'url' => '/indicadores/auditoria',
+                            'modulos' => [37]
+                        ],
+                        [
+                            'label' => 'Auditoría 2',
+                            'url' => '/indicadores/auditoria2',
+                            'modulos' => [38]
+                        ],
+                        [
+                            'label' => 'Seguimiento',
+                            'url' => '/indicadores/seguimiento',
+                            'modulos' => [39]
+                        ]
+                    ]
+            ],
+            
             'Capital Humano' => [
                     'icono' => 'fa-solid fa-users',
                     'subItems' => [
@@ -147,91 +234,7 @@ function getMenu()
                             ]
                     ]
             ],
-            'Indicadores' => [
-                    'icono' => 'fa-solid fa-chart-line',
-                    'subItems' => [
-                            [
-                                    'label' => 'KPI Total',
-                                    'url' => '/indicadores/kpiTotal',
-                                    'modulos' => []
-                            ],
-                            [
-                                    'label' => 'Gestión 1-7',
-                                    'url' => '/indicadores/gestiones1A7',
-                                    'modulos' => []
-                            ],
-                            [
-                                    'label' => 'Eficiencia 1-7',
-                                    'url' => '/indicadores/eficiencia1A7',
-                                    'modulos' => []
-                            ],
-                            [
-                                    'label' => 'Gestión 8-21',
-                                    'url' => '/indicadores/gestiones8A21',
-                                    'modulos' => []
-                            ],
-                            [
-                                    'label' => 'Eficiencia 8-21',
-                                    'url' => '/indicadores/eficiencia8A21',
-                                    'modulos' => []
-                            ],
-                            [
-                                    'label' => 'Intensidad',
-                                    'url' => '/indicadores/seguimientoIntensidad',
-                                    'modulos' => []
-                            ],
-                            [
-                                    'label' => 'Detalle Clientes',
-                                    'url' => '/indicadores/detalleClientes',
-                                    'modulos' => []
-                            ],
-                            [
-                                    'label' => 'Detalle Eficiencia',
-                                    'url' => '/indicadores/detalleEficiencia',
-                                    'modulos' => []
-                            ],
-                            [
-                                    'label' => 'Cartera Inicial',
-                                    'url' => '/indicadores/carteraInicioSem',
-                                    'modulos' => []
-                            ],
-                            [
-                                    'label' => 'Promesas Pago',
-                                    'url' => '/indicadores/seguimientoPromesasPago',
-                                    'modulos' => []
-                            ],
-                            [
-                                    'label' => 'Espartanos',
-                                    'url' => '/indicadores/espartanos',
-                                    'modulos' => []
-                            ],
-                             [
-                                    'label' => 'Matriz Buckets',
-                                    'url' => '/indicadores/matrizBuckets',
-                                    'modulos' => []
-                            ],
-                            [
-                                    'label' => 'Buckets +1',
-                                    'url' => '/indicadores/matrizBucketsMas1',
-                                    'modulos' => []
-                            ],
-                            [
-                                    'label' => 'Auditoría',
-                                    'url' => '/indicadores/auditoria',
-                                    'modulos' => []
-                            ],
-                            [
-                                    'label' => 'Auditoría 2',
-                                    'url' => '/indicadores/auditoria2',
-                                    'modulos' => []
-                            ],
-                            [
-                                    'label' => 'Seguimiento',
-                                    'url' => '/indicadores/seguimiento',
-                                    'modulos' => []
-                            ]
-                    ]
-            ]
+            
     ];
 
     $menu = '';

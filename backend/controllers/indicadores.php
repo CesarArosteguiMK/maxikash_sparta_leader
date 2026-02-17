@@ -1,4 +1,5 @@
 <?php
+// controllers/Indicadores.php
 
 namespace Controllers;
 
@@ -18,16 +19,27 @@ class Indicadores extends Controller
         self::render("kpi_total", $data);
     }
 
-    public function gestiones1A7()
-    {
-        $data = IndicadoresDao::getGestiones1A7();
-        self::render("gestiones_1_a_7", $data);
-    }
+   public function gestiones1A7()
+{
+    // Obtener datos
+    $gestiones = IndicadoresDao::getGestiones1A7();
+    $totales = IndicadoresDao::getTotalesGestiones1A7();
+    
+    //  Usar set() para cada variable (método correcto del framework)
+    $this->set('gestiones', $gestiones['data'] ?? []);
+    $this->set('totales', $totales);
+    $this->set('success', $gestiones['success'] ?? false);
+    
+    //  Render sin parámetros extra
+    $this->render("gestiones_1_a_7");
+}
 
     public function eficiencia1A7()
     {
         $data = IndicadoresDao::getEficiencia1A7();
-        self::render("eficiencia_1_a_7", $data);
+        $this->set('eficiencia', $data['data'] ?? []);
+        $this->set('success', $data['success'] ?? false);
+        $this->render("eficiencia_1_a_7");
     }
 
     public function gestiones8A21()
@@ -106,5 +118,23 @@ class Indicadores extends Controller
     {
         $data = IndicadoresDao::getSeguimiento();
         self::render("seguimiento", $data);
+    }
+
+    /**
+     * API endpoint para actualización vía AJAX
+     */
+    public function apiGestiones1A7()
+    {
+        header('Content-Type: application/json');
+        
+        $gestiones = IndicadoresDao::getGestiones1A7();
+        $totales = IndicadoresDao::getTotalesGestiones1A7();
+        
+        echo json_encode([
+            'success' => $gestiones['success'],
+            'data' => $gestiones['data'] ?? [],
+            'totales' => $totales
+        ]);
+        exit;
     }
 }
