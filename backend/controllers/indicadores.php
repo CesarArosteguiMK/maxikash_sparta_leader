@@ -37,7 +37,9 @@ class Indicadores extends Controller
     public function eficiencia1A7()
     {
         $data = IndicadoresDao::getEficiencia1A7();
-        self::render("eficiencia_1_a_7", $data);
+        $this->set('eficiencia', $data['data'] ?? []);
+        $this->set('success', $data['success'] ?? false);
+        $this->render("eficiencia_1_a_7");
     }
 
     public function gestiones8A21()
