@@ -3,6 +3,92 @@
 * File include item demo only specific css only
 ******************************************************************************/
 
+/* Logo de la empresa como fondo en el menú lateral (watermark) */
+#layout-menu {
+  position: relative;
+}
+#layout-menu::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  top: 0;
+  background-image: url('https://__SPARTA_SECRET_REDACTED__.mx/cdn/shop/files/Logotipo-Maxikash-Outline.png?v=1749328460');
+  background-repeat: no-repeat;
+  background-position: center bottom 80px;
+  background-size: 70%;
+  opacity: 0.06;
+  pointer-events: none;
+  z-index: 0;
+}
+#layout-menu .menu-inner,
+#layout-menu .app-brand {
+  position: relative;
+  z-index: 1;
+}
+
+/* Widget hora + fecha en navbar (estilo moderno) */
+.navbar-datetime {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  margin-right: 12px;
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 12px;
+  font-size: 0.8125rem;
+}
+body.dark-mode .navbar-datetime {
+  background: rgba(30, 41, 59, 0.8);
+  border-color: rgba(51, 65, 85, 0.8);
+}
+.navbar-datetime-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: rgba(26, 82, 168, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #1A52A8;
+  font-size: 14px;
+}
+body.dark-mode .navbar-datetime-icon {
+  background: rgba(147, 197, 253, 0.15);
+  color: #93c5fd;
+}
+.navbar-datetime-time {
+  font-weight: 700;
+  font-size: 1.1rem;
+  line-height: 1.2;
+  color: inherit;
+}
+.navbar-datetime-date {
+  font-size: 0.75rem;
+  opacity: 0.85;
+}
+
+/* Iconos modernos modo oscuro / modo claro */
+.dropdown-item.dark-mode-toggle i.dark-mode-icon {
+  font-size: 1.1rem;
+  width: 1.25em;
+  text-align: center;
+  margin-right: 0.5rem;
+}
+.dropdown-item.dark-mode-toggle.active-dark i.fa-sun {
+  color: #eab308;
+}
+.dropdown-item.dark-mode-toggle:not(.active-dark) i.fa-moon {
+  color: #64748b;
+}
+body.dark-mode .dropdown-item.dark-mode-toggle.active-dark i.fa-sun {
+  color: #fbbf24;
+}
+
 .menu .app-brand.demo {
   height: 64px;
   margin-top: 12px;

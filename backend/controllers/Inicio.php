@@ -8,12 +8,21 @@ use Models\Usuarios as UsuariosDao;
 
 class Inicio extends Controller
 {
+    /** Usuario que ve el dashboard Maxikash en inicio (id 878) */
+    private static function esUsuarioDashboardMaxikash()
+    {
+        $usuarioId = (int) ($_SESSION['usuario_id'] ?? 0);
+        return $usuarioId === 878;
+    }
+
     public function index()
     {
-        self::render("inicio");
-        // Validar si el usuario debe cambiar su contraseña
         $this->validarActualizacionPassword();
-
+        if (self::esUsuarioDashboardMaxikash()) {
+            self::render("inicio___SPARTA_SECRET_REDACTED___contenido", false);
+            return;
+        }
+        self::render("inicio");
     }
 
     /**

@@ -15,8 +15,13 @@
     #modalRastreoCredito .rastreo-col-direcciones-alternas { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
     #modalRastreoCredito .rastreo-col-izq .rastreo-seccion-direcciones,
     #modalRastreoCredito .rastreo-col-direcciones-alternas .rastreo-seccion-direcciones { display: flex; flex-direction: column; flex: 1; min-height: 200px; min-width: 0; }
-    #modalRastreoCredito .rastreo-col-izq .rastreo-mapa-wrap,
-    #modalRastreoCredito .rastreo-col-direcciones-alternas .rastreo-mapa-wrap { margin-top: auto; flex-shrink: 0; }
+    #modalRastreoCredito .rastreo-col-izq .rastreo-mapa-wrap { margin-top: auto; flex-shrink: 0; }
+    /* Direcciones alternas: lista + mapa ocupan todo el bloque sin huecos */
+    #modalRastreoCredito #rastreoDireccionesAlternas { display: flex; flex-direction: column; flex: 1; min-height: 0; padding-bottom: 0.5rem !important; }
+    #modalRastreoCredito #rastreoDireccionesAlternasContenido { flex-shrink: 0; margin-bottom: 0.5rem !important; }
+    #modalRastreoCredito #rastreoDireccionesAlternas .rastreo-mapa-wrap { flex: 1; min-height: 160px; margin-top: 0; display: flex; flex-direction: column; }
+    #modalRastreoCredito #rastreoMapaAlternasWrap { flex: 1; min-height: 160px; position: relative; }
+    #modalRastreoCredito #rastreoMapaAlternas { flex: 1; min-height: 160px !important; }
     /* Columna centro: misma altura que las demás; filas reparten el espacio. */
     #modalRastreoCredito .rastreo-col-centro { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 0.75rem; min-width: 0; min-height: 0; }
     #modalRastreoCredito .rastreo-col-centro .rastreo-ia-box { grid-column: 1; grid-row: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
@@ -52,11 +57,22 @@
     #modalRastreoCredito .rastreo-tickets-cell .credito-modal-list { color: #1e3a8a; }
     #modalRastreoCredito .rastreo-header-right { display: flex; flex-direction: column; gap: 0.5rem; padding-left: 1rem; border-left: 1px solid rgba(0,0,0,0.08); min-width: 180px; }
     #modalRastreoCredito .rastreo-ticket-info-col { display: flex; flex-direction: column; gap: 0.5rem; }
-    /* Direcciones (maxi app): etiqueta "Ubicación N:" en una sola línea para que 2 y 3 no queden debajo */
-    #modalRastreoCredito .rastreo-direccion-item { display: flex; align-items: flex-start; gap: 0.35rem; flex-wrap: nowrap; min-width: 0; cursor: pointer; padding: 0.25rem 0; border-radius: 6px; transition: background 0.15s ease; }
-    #modalRastreoCredito .rastreo-direccion-item:hover { background: rgba(59, 130, 246, 0.08); }
-    #modalRastreoCredito .rastreo-direccion-label { flex-shrink: 0; white-space: nowrap; }
-    #modalRastreoCredito .rastreo-direccion-item .direccion-linea { min-width: 0; flex: 1; word-break: break-word; }
+    /* Direcciones (maxi app): cada ubicación es una fila de 3 columnas (dirección | registros | fecha+distancia) */
+    #modalRastreoCredito .rastreo-direcciones-lista { margin-bottom: 0.75rem; }
+    #modalRastreoCredito .rastreo-direccion-item.rastreo-direccion-row { display: grid; grid-template-columns: 1fr auto auto; gap: 0.75rem 1rem; align-items: start; cursor: pointer; padding: 0.5rem 0; border-bottom: 1px solid rgba(0,0,0,0.08); transition: background 0.15s ease; }
+    #modalRastreoCredito .rastreo-direccion-item.rastreo-direccion-row:last-of-type { border-bottom: none; }
+    #modalRastreoCredito .rastreo-direccion-item.rastreo-direccion-row:hover { background: rgba(59, 130, 246, 0.08); }
+    #modalRastreoCredito .rastreo-direccion-item .rastreo-col-direccion { min-width: 0; }
+    #modalRastreoCredito .rastreo-direccion-item .direccion-linea { word-break: break-word; }
+    #modalRastreoCredito .rastreo-direccion-item .rastreo-col-registros { white-space: nowrap; }
+    #modalRastreoCredito .rastreo-direccion-item .rastreo-col-fecha-distancia { display: flex; flex-direction: column; gap: 0.15rem; white-space: nowrap; }
+    /* Badge registros: sombra negra; muchos = primary, pocos = amarillo/ámbar */
+    #modalRastreoCredito .rastreo-badge-registros { box-shadow: 0 1px 3px rgba(0,0,0,0.35); font-size: 0.75rem; }
+    #modalRastreoCredito .rastreo-badge-registros-pocos { background-color: #f59e0b !important; color: #fff !important; }
+    @media (max-width: 768px) {
+        #modalRastreoCredito .rastreo-direccion-item.rastreo-direccion-row { grid-template-columns: 1fr; gap: 0.25rem; }
+        #modalRastreoCredito .rastreo-direccion-item .rastreo-col-fecha-distancia { flex-direction: row; flex-wrap: wrap; gap: 0 0.75rem; }
+    }
     /* Título Donde firma (direcciones alternas) */
     #modalRastreoCredito .rastreo-donde-firma-titulo { font-size: 0.8rem; font-weight: 600; color: #4b5563; margin-bottom: 0.5rem; }
     /* Pin rosa geo (CASA): gota con parpadeo + icono casa */
@@ -108,6 +124,20 @@
     #modalRastreoCredito .rastreo-geo-item { display: flex; align-items: flex-start; gap: 0.35rem; flex-wrap: wrap; padding: 0.25rem 0; }
     #modalRastreoCredito .rastreo-geo-item[data-indice-geo] { cursor: pointer; border-radius: 6px; transition: background 0.15s ease; }
     #modalRastreoCredito .rastreo-geo-item[data-indice-geo]:hover { background: rgba(0,0,0,0.04); }
+    /* Parpadeo al seleccionar dirección alterna */
+    @keyframes rastreo-geo-parpadeo {
+        0%, 100% { opacity: 1; background: rgba(59, 130, 246, 0.2); box-shadow: none; }
+        50% { opacity: 1; background: rgba(59, 130, 246, 0.45); box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.5); }
+    }
+    #modalRastreoCredito .rastreo-geo-item-parpadeo { animation: rastreo-geo-parpadeo 0.45s ease-in-out 5; }
+    /* Parpadeo fila Direcciones maxi app */
+    @keyframes rastreo-direccion-parpadeo {
+        0%, 100% { opacity: 1; background: rgba(59, 130, 246, 0.2); box-shadow: none; }
+        50% { opacity: 1; background: rgba(59, 130, 246, 0.45); box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.5); }
+    }
+    #modalRastreoCredito .rastreo-direccion-item-parpadeo { animation: rastreo-direccion-parpadeo 0.45s ease-in-out 5; }
+    /* Tarjeta ubicación seleccionada (Direcciones alternas) - oculta, no se usa */
+    #modalRastreoCredito .rastreo-geo-card-inner { border-color: rgba(59, 130, 246, 0.3) !important; }
     #modalRastreoCredito .rastreo-geo-link { color: #be185d; text-decoration: none; }
     #modalRastreoCredito .rastreo-geo-link:hover { text-decoration: underline; }
     /* Bloque de carga: ocupa todo el espacio de direcciones + mapa, spinner centrado y visible */
@@ -316,7 +346,10 @@
     #modalRastreoCredito .rastreo-dictamen-input-wrap { padding: 0.25rem 0; margin-top: auto; flex-shrink: 0; }
     #modalRastreoCredito #rastreoDictamenInput { border-radius: 24px; border: 1px solid #e2e8f0; padding: 0.5rem 1rem; font-size: 0.9rem; }
     #modalRastreoCredito #rastreoDictamenInput:focus { border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15); }
-    #modalRastreoCredito #rastreoMapaLeaflet { min-height: 168px; height: 168px; border-radius: 10px; overflow: hidden; background: #e2e8f0; cursor: pointer; }
+    /* Bloque Direcciones maxi app: todo (intro + lista + mapa) dentro del bloque con scroll; el mapa no se sale */
+    #modalRastreoCredito #rastreoDirecciones { display: flex; flex-direction: column; min-height: 0; flex: 1; overflow-y: auto; overflow-x: hidden; }
+    #modalRastreoCredito #rastreoDirecciones .rastreo-mapa-wrap { flex-shrink: 0; min-height: 200px; height: 200px; display: flex; flex-direction: column; margin-top: 0.5rem; }
+    #modalRastreoCredito #rastreoDirecciones .rastreo-mapa-wrap #rastreoMapaLeaflet { width: 100%; height: 100%; min-height: 200px; border-radius: 10px; overflow: hidden; background: #e2e8f0; cursor: pointer; }
     #modalRastreoCredito #rastreoMapaLeaflet.leaflet-container { font-family: inherit; }
     .leaflet-tooltip-distancia { font-size: 11px; font-weight: bold; background: rgba(248,250,252,0.95); padding: 2px 6px; border-radius: 4px; white-space: nowrap; }
     /* Modal mapa grande: 90% pantalla */
@@ -469,7 +502,7 @@
         #modalRastreoCredito .modal-content { border-radius: 0; }
         #modalRastreoCredito .modal-body { padding: 0.75rem; }
         #modalRastreoCredito .rastreo-header-left .rastreo-datos-row { grid-template-columns: 1fr; gap: 0.5rem 0; }
-        #modalRastreoCredito #rastreoMapaLeaflet { min-height: 140px; height: 140px; }
+        #modalRastreoCredito #rastreoDirecciones .rastreo-mapa-wrap #rastreoMapaLeaflet { min-height: 140px; }
         #modalRastreoCredito .rastreo-ia-box { padding: 1rem; min-height: auto; }
         #modalRastreoCredito .rastreo-ia-box .ia-hero-icon { width: 44px; height: 44px; min-width: 44px; min-height: 44px; font-size: 1.25rem; }
         .card { margin-left: 0.25rem; margin-right: 0.25rem; }
@@ -483,7 +516,7 @@
         #modalRastreoCredito .rastreo-seccion-evidencias,
         #modalRastreoCredito .rastreo-seccion-bitacora,
         #modalRastreoCredito .rastreo-seccion-dictamen { padding: 0.6rem !important; min-height: 80px; }
-        #modalRastreoCredito #rastreoMapaLeaflet { min-height: 120px; height: 120px; }
+        #modalRastreoCredito #rastreoDirecciones .rastreo-mapa-wrap #rastreoMapaLeaflet { min-height: 120px; }
         /* Touch: botones mínimo 44px para dedo */
         #modalRastreoCredito #rastreoBitacoraEnviar,
         #modalRastreoCredito #rastreoDictamenEnviar,
@@ -559,7 +592,7 @@
                 <!-- Botones de analítica determinística (independientes de IA) -->
                 <div class="rastreo-analitica-bar mb-3 d-flex align-items-center gap-2 flex-wrap border-bottom pb-2">
                     <span class="small text-muted me-1">Analítica:</span>
-                    <button type="button" class="btn btn-sm btn-outline-secondary" id="btnAnaliticaUbicaciones" title="Ver distancias a casa, última apertura y aperturas últimos 5 días" aria-label="Abrir analítica de ubicaciones">
+                    <button type="button" class="btn btn-sm btn-outline-secondary d-none" id="btnAnaliticaUbicaciones" title="Ver distancias a casa, última apertura y aperturas últimos 5 días" aria-label="Abrir analítica de ubicaciones" aria-hidden="true">
                         <i class="fa-solid fa-location-dot me-1"></i>Ubicaciones
                     </button>
                     <button type="button" class="btn btn-sm btn-outline-secondary" id="btnAnaliticaPagos" title="Ver intervalo, desviación, día más frecuente y patrón de pagos" aria-label="Abrir analítica de gestiones y pagos">
@@ -595,11 +628,12 @@
                                 <i class="fa-solid fa-location-dot text-primary"></i>
                                 <span class="fw-semibold small text-muted">Direcciones alternas</span>
                             </div>
-                            <div id="rastreoDireccionesAlternasContenido" class="small mb-3">
-                                <!-- Leyenda: azul = direcciones maxi app, naranja = gestores (últimos 6). Clic en el mapa para ampliar. -->
+                            <div id="rastreoGeoSeleccionadaCard" class="rastreo-geo-card mb-2 small" style="display:none;"></div>
+                            <div id="rastreoDireccionesAlternasContenido" class="small">
+                                <!-- Donde firma + mapa; margen controlado por CSS -->
                             </div>
                             <div class="rastreo-mapa-wrap rastreo-mapa-alternas-wrap" id="rastreoMapaAlternasWrap" title="Clic para ampliar">
-                                <div id="rastreoMapaAlternas" style="min-height: 168px; width: 100%; border-radius: 10px;"></div>
+                                <div id="rastreoMapaAlternas" style="width: 100%; height: 100%; min-height: 160px; border-radius: 10px;"></div>
                                 <span class="rastreo-mapa-ampliar-badge"><i class="fa-solid fa-expand me-1"></i>Clic para ampliar</span>
                             </div>
                         </div>

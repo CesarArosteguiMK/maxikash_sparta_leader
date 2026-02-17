@@ -99,6 +99,8 @@ SCRIPT;
         var rastreoMapaAlternasGrande = null;
         var rastreoGestionesParaMapa = [];
         var rastreoGestionesCargadas = false;
+        var rastreoTotalGestiones = 0;
+        var rastreoConUbicacion = 0;
         var rastreoPuntosGeo = [];
         var rastreoCentrarEnGeoAlternasIndice = null;
         var rastreoMarkersGeoAlternasGrande = [];
@@ -189,12 +191,10 @@ SCRIPT;
                 $(\'#rastreoGestionesContenido\').html(html || \'<span class="text-muted">Sin gestiones para este crédito.</span>\');
                 rastreoGestionesParaMapa = (r.datos || []).filter(function(g) { var lat = parseFloat(g.latitud || g.lat), lng = parseFloat(g.longitud || g.lng); return !isNaN(lat) && !isNaN(lng); }).slice(0, 7).map(function(g) { return { lat: parseFloat(g.latitud || g.lat), lng: parseFloat(g.longitud || g.lng), nombre: ((g.usuario_asignado || g.usuario || g.codigo_gestor || \'—\') + \'\').trim(), fecha: ((g.fecha_dispositivo || g.fecha_hora || \'\') + \'\').toString().substring(0, 16) }; });
                 rastreoGestionesCargadas = true;
-                var totalGestiones = (r.datos || []).length;
-                var conUbicacion = rastreoGestionesParaMapa.length;
-                var leyenda = \'<span class="text-muted small">Rosa = CASA. Verde = Otro domicilio. Carmelita = Agencia. Azul = maxi app. Naranja = gestores (últimos 7). \' + conUbicacion + \' de \' + totalGestiones + \' con ubicación.</span>\';
+                rastreoTotalGestiones = (r.datos || []).length;
+                rastreoConUbicacion = rastreoGestionesParaMapa.length;
                 var htmlGeoPart = buildGeoListHtml(rastreoPuntosGeo);
-                htmlGeoPart += (htmlGeoPart ? \'\' : \'\') + \'<div id="rastreoAlternasLeyenda" class="mt-2">\' + leyenda + \'</div>\';
-                $(\'#rastreoDireccionesAlternasContenido\').removeClass(\'rastreo-contenido-cargando\').html(htmlGeoPart);
+                $(\'#rastreoDireccionesAlternasContenido\').removeClass(\'rastreo-contenido-cargando\').html(htmlGeoPart || \'<span class="text-muted small">Sin direcciones alternas para este crédito.</span>\');
                 $(\'#rastreoDireccionesAlternas .rastreo-mapa-wrap\').show();
                 maybeInitMapaAlternas();
             }, onError: function() {
@@ -247,6 +247,58 @@ SCRIPT;
             var esc = (txt || \'\').replace(/&/g, \'&amp;\').replace(/</g, \'&lt;\').replace(/>/g, \'&gt;\');
             var svg = \'<svg xmlns="http://www.w3.org/2000/svg" width="56" height="24" viewBox="0 0 56 24"><rect width="56" height="24" rx="12" fill="#6366f1" fill-opacity="0.95" stroke="#4f46e5" stroke-width="1"/><text x="28" y="16" text-anchor="middle" fill="white" font-size="12" font-family="Arial,sans-serif">\' + esc + \'</text></svg>\';
             return { url: \'data:image/svg+xml;charset=UTF-8,\' + encodeURIComponent(svg), scaledSize: new google.maps.Size(56, 24), anchor: new google.maps.Point(28, 12) };
+        }
+        function groupPointsByArea(puntos) {
+            var groups = {};
+            (puntos || []).forEach(function(p) {
+                var lat = parseFloat(p.lat !== undefined ? p.lat : p.latitud);
+                var lng = parseFloat(p.lng !== undefined ? p.lng : p.longitud);
+                if (isNaN(lat) || isNaN(lng)) return;
+                var key = Math.round(lat * 100) + \'_\' + Math.round(lng * 100);
+                if (!groups[key]) groups[key] = { lat: 0, lng: 0, count: 0 };
+                groups[key].lat += lat;
+                groups[key].lng += lng;
+                groups[key].count++;
+            });
+            var clusters = [];
+            Object.keys(groups).forEach(function(k) {
+                var g = groups[k];
+                if (g.count > 1) clusters.push({ lat: g.lat / g.count, lng: g.lng / g.count, count: g.count });
+            });
+            return clusters;
+        }
+        function clusterLabelIcon(count) {
+            var text = count + \' ubicaciones en esta área\';
+            var esc = (text + \'\').replace(/&/g, \'&amp;\').replace(/</g, \'&lt;\').replace(/>/g, \'&gt;\');
+            var svg = \'<svg xmlns="http://www.w3.org/2000/svg" width="220" height="36" viewBox="0 0 220 36"><rect x="2" y="2" width="216" height="32" rx="10" fill="#1a1a1a" stroke="#444" stroke-width="1.5"/><text x="110" y="24" text-anchor="middle" fill="#fff" font-size="13" font-weight="700" font-family="Arial,sans-serif">\' + esc + \'</text></svg>\';
+            return { url: \'data:image/svg+xml;charset=UTF-8,\' + encodeURIComponent(svg), scaledSize: new google.maps.Size(220, 36), anchor: new google.maps.Point(110, 36) };
+        }
+        function addClusterLabelsToMap(map, puntos) {
+            if (!map || typeof google === \'undefined\' || !google.maps) return;
+            var clusters = groupPointsByArea(puntos);
+            for (var i = 0; i < clusters.length; i++) {
+                var c = clusters[i];
+                var pos = new google.maps.LatLng(c.lat + 0.0004, c.lng);
+                try {
+                    var marker = new google.maps.Marker({
+                        position: pos,
+                        map: map,
+                        icon: clusterLabelIcon(c.count),
+                        title: c.count + \' ubicaciones en esta área\',
+                        zIndex: 999,
+                        clickable: false
+                    });
+                } catch (e) {}
+            }
+        }
+        function todosPuntosParaCluster(puntosGeo, puntosMaxiApp, puntosGestores) {
+            var out = [];
+            (puntosGeo || []).forEach(function(p) { var lat = parseFloat(p.lat), lng = parseFloat(p.lng); if (!isNaN(lat) && !isNaN(lng)) out.push({ lat: lat, lng: lng }); });
+            if (puntosMaxiApp && puntosMaxiApp.length && puntosMaxiApp[0] && (puntosMaxiApp[0].latitud !== undefined || puntosMaxiApp[0].lat !== undefined)) {
+                (puntosMaxiApp || []).forEach(function(p) { var lat = parseFloat(p.latitud || p.lat), lng = parseFloat(p.longitud || p.lng); if (!isNaN(lat) && !isNaN(lng)) out.push({ lat: lat, lng: lng }); });
+            }
+            (puntosGestores || []).forEach(function(p) { var lat = parseFloat(p.lat), lng = parseFloat(p.lng); if (!isNaN(lat) && !isNaN(lng)) out.push({ lat: lat, lng: lng }); });
+            return out;
         }
         function initMapaRastreoAlternas(puntosMaxiApp, puntosGestores, puntosGeo) {
             puntosGeo = puntosGeo || [];
@@ -324,6 +376,7 @@ SCRIPT;
                     marker.addListener(\'click\', function() { infow.open(rastreoMapaAlternas, marker); });
                 });
             }
+            addClusterLabelsToMap(rastreoMapaAlternas, todosPuntosParaCluster(puntosGeo, puntosMaxiApp, puntosGestores));
             if (hasPoints) rastreoMapaAlternas.fitBounds(bounds, 50);
             filtrarMapaPorGestor(rastreoFiltroGestorActual);
         }
@@ -354,6 +407,8 @@ SCRIPT;
             if (!cont) return;
             var oldOverlayG = cont.querySelector(\'.rastreo-filtro-gestor-overlay\');
             if (oldOverlayG) oldOverlayG.remove();
+            var oldLeyendaG = cont.querySelector(\'.rastreo-leyenda-mapa-grande\');
+            if (oldLeyendaG) oldLeyendaG.remove();
             if (!googleMapsApiKey || !googleMapsApiKey.length) return;
             if (typeof google === \'undefined\' || !google.maps) return;
             if (rastreoMapaAlternasGrande) { try { if (typeof rastreoMapaAlternasGrande.remove === \'function\') rastreoMapaAlternasGrande.remove(); } catch (e) {} rastreoMapaAlternasGrande = null; }
@@ -429,14 +484,26 @@ SCRIPT;
                     rastreoInfoWindowsGeoAlternasGrande.push(infow);
                 });
             }
+            addClusterLabelsToMap(rastreoMapaAlternasGrande, todosPuntosParaCluster(puntosGeo, puntosMaxiApp, puntosGestores));
+            var conU = (typeof rastreoConUbicacion !== \'undefined\' ? rastreoConUbicacion : (puntosGestores && puntosGestores.length) ? puntosGestores.length : 0);
+            var totG = (typeof rastreoTotalGestiones !== \'undefined\' ? rastreoTotalGestiones : 0) || conU;
+            var leyendaGrandeHtml = \'<span class="d-block">Rosa = <span style="color:#ec4899;font-weight:600">CASA.</span></span>\' +
+                \'<span class="d-block">Verde = <span style="color:#22c55e;font-weight:600">Otro domicilio.</span></span>\' +
+                \'<span class="d-block">Carmelita = <span style="color:#b8860b;font-weight:600">Agencia.</span></span>\' +
+                \'<span class="d-block">Azul = <span style="color:#2563eb;font-weight:600">maxi app.</span></span>\' +
+                \'<span class="d-block">Naranja = <span style="color:#ea580c;font-weight:600">gestores (últimos 7).</span></span>\' +
+                \'<span class="d-block rastreo-leyenda-conteo" style="color:#0f172a;font-weight:700">\' + conU + \' de \' + totG + \' con ubicación.</span>\';
             if (puntosGestores && puntosGestores.length) {
                 var seenGG = {}, nombresGG = [];
                 puntosGestores.forEach(function(g) { var n = (g.nombre || \'—\').trim() || \'—\'; if (!seenGG[n]) { seenGG[n] = true; nombresGG.push(n); } });
                 var escOG = function(s) { if (s == null || s === undefined) return \'\'; return (s+\'\').replace(/&/g, \'&amp;\').replace(/</g, \'&lt;\').replace(/>/g, \'&gt;\').replace(/\"/g, \'&quot;\'); };
                 var htmlOG = \'<div class="rastreo-filtro-gestor-overlay" style="position:absolute;top:52px;left:8px;z-index:10;background:rgba(255,255,255,0.95);padding:6px 8px;border-radius:8px;box-shadow:0 1px 4px rgba(0,0,0,0.2);pointer-events:auto;"><span class="small text-muted d-block mb-1">Filtrar por gestor</span><span class="d-flex flex-column gap-1"><button type="button" class="btn btn-sm btn-outline-secondary rastreo-filtro-gestor active" data-gestor="">Todos</button>\';
                 nombresGG.forEach(function(n) { htmlOG += \'<button type="button" class="btn btn-sm btn-outline-secondary rastreo-filtro-gestor" data-gestor="\' + escOG(n) + \'">\' + escOG(n) + \'</button>\'; });
-                htmlOG += \'</span></div>\';
+                htmlOG += \'</span><div class="rastreo-leyenda-mapa-grande mt-2 small text-muted" style="max-width:280px;">\' + leyendaGrandeHtml + \'</div></div>\';
                 cont.insertAdjacentHTML(\'beforeend\', htmlOG);
+            } else if (hasPoints) {
+                var htmlLeyenda = \'<div class="rastreo-filtro-gestor-overlay" style="position:absolute;top:52px;left:8px;z-index:10;background:rgba(255,255,255,0.95);padding:6px 8px;border-radius:8px;box-shadow:0 1px 4px rgba(0,0,0,0.2);pointer-events:auto;"><div class="rastreo-leyenda-mapa-grande small text-muted" style="max-width:280px;">\' + leyendaGrandeHtml + \'</div></div>\';
+                cont.insertAdjacentHTML(\'beforeend\', htmlLeyenda);
             }
             if (hasPoints) rastreoMapaAlternasGrande.fitBounds(bounds, 50);
             filtrarMapaPorGestor(rastreoFiltroGestorActual);
@@ -543,6 +610,7 @@ SCRIPT;
                                 (function(m, w) { m.addListener(\'click\', function() { w.open(rastreoMapaLeaflet, m); }); })(marker, infow);
                                 rastreoMarkersMaxiApp[i] = { marker: marker, infow: infow };
                             });
+                            addClusterLabelsToMap(rastreoMapaLeaflet, addressesOrPuntos);
                             if (hasPoints) rastreoMapaLeaflet.fitBounds(bounds, 50);
                         } else {
                             addressesOrPuntos.forEach(function(addr, i) {
@@ -692,11 +760,18 @@ SCRIPT;
                             markersGrande[i] = { marker: marker, infow: infow };
                         });
                         if (hasPoints) rastreoMapaGrande.fitBounds(bounds, 50);
+                        addClusterLabelsToMap(rastreoMapaGrande, addressesOrPuntos);
                         if (indiceCentrar !== undefined && indiceCentrar !== null && markersGrande[indiceCentrar] && rastreoMapaGrande) {
-                            var mg = markersGrande[indiceCentrar];
-                            rastreoMapaGrande.setCenter(mg.marker.getPosition());
-                            rastreoMapaGrande.setZoom(16);
-                            if (mg.infow && typeof mg.infow.open === \'function\') mg.infow.open(rastreoMapaGrande, mg.marker);
+                            (function(idx) {
+                                setTimeout(function() {
+                                    if (!rastreoMapaGrande || !markersGrande[idx]) return;
+                                    var mg = markersGrande[idx];
+                                    rastreoMapaGrande.panTo(mg.marker.getPosition());
+                                    rastreoMapaGrande.setZoom(16);
+                                    if (mg.infow && typeof mg.infow.open === \'function\') { try { mg.infow.close(); } catch (e) {} mg.infow.open(rastreoMapaGrande, mg.marker); }
+                                    if (typeof mg.marker.setAnimation === \'function\') { mg.marker.setAnimation(google.maps.Animation.BOUNCE); setTimeout(function() { if (mg.marker.setAnimation) mg.marker.setAnimation(null); }, 2500); }
+                                }, 300);
+                            })(indiceCentrar);
                         }
                     } else {
                         addressesOrPuntos.forEach(function(addr, i) {
@@ -777,18 +852,11 @@ SCRIPT;
                 var lat = parseFloat($(this).data(\'lat\'));
                 var lng = parseFloat($(this).data(\'lng\'));
                 if (isNaN(lat) || isNaN(lng)) return;
-                if (rastreoMapaLeaflet) {
-                    if (typeof rastreoMapaLeaflet.setCenter === \'function\') {
-                        rastreoMapaLeaflet.setCenter({ lat: lat, lng: lng });
-                        rastreoMapaLeaflet.setZoom(16);
-                    } else if (typeof rastreoMapaLeaflet.setView === \'function\') {
-                        rastreoMapaLeaflet.setView([lat, lng], 16);
-                    }
-                    if (rastreoMarkersMaxiApp[idx] && rastreoMarkersMaxiApp[idx].infow && rastreoMarkersMaxiApp[idx].marker && typeof rastreoMarkersMaxiApp[idx].infow.open === \'function\') {
-                        rastreoMarkersMaxiApp[idx].infow.open(rastreoMapaLeaflet, rastreoMarkersMaxiApp[idx].marker);
-                    }
-                }
                 rastreoCentrarEnPunto = idx;
+                var $item = $(this).closest(\'.rastreo-direccion-item\');
+                $(\'.rastreo-direccion-item\').removeClass(\'rastreo-direccion-item-parpadeo\');
+                $item.addClass(\'rastreo-direccion-item-parpadeo\');
+                setTimeout(function() { $item.removeClass(\'rastreo-direccion-item-parpadeo\'); }, 2400);
                 $(\'#modalMapaGrande\').modal(\'show\');
             });
             $(\'#rastreoMapaLeaflet\').on(\'click\', function() { $(\'#modalMapaGrande\').modal(\'show\'); });
@@ -800,11 +868,18 @@ SCRIPT;
             $(\'#modalMapaGrande\').on(\'hidden.bs.modal\', function() {
                 if (rastreoMapaGrande) { if (typeof rastreoMapaGrande.remove === \'function\') rastreoMapaGrande.remove(); rastreoMapaGrande = null; }
             });
-            $(\'#rastreoMapaAlternasWrap\').on(\'click\', function() { rastreoCentrarEnGeoAlternasIndice = null; $(\'#modalMapaAlternasGrande\').modal(\'show\'); });
+            $(\'#rastreoMapaAlternasWrap\').on(\'click\', function() { rastreoCentrarEnGeoAlternasIndice = null; $(\'#rastreoGeoSeleccionadaCard\').hide(); $(\'#modalMapaAlternasGrande\').modal(\'show\'); });
             $(\'#rastreoDireccionesAlternasContenido\').on(\'click\', \'.rastreo-geo-item[data-indice-geo]\', function(e) {
                 e.preventDefault();
-                var idx = parseInt($(this).data(\'indice-geo\'), 10);
-                if (!isNaN(idx) && idx >= 0) { rastreoCentrarEnGeoAlternasIndice = idx; $(\'#modalMapaAlternasGrande\').modal(\'show\'); }
+                var $item = $(this).closest(\'.rastreo-geo-item[data-indice-geo]\');
+                var idx = parseInt($item.data(\'indice-geo\'), 10);
+                if (isNaN(idx) || idx < 0) return;
+                rastreoCentrarEnGeoAlternasIndice = idx;
+                $(\'#rastreoGeoSeleccionadaCard\').hide();
+                $(\'.rastreo-geo-item[data-indice-geo]\').removeClass(\'rastreo-geo-item-parpadeo\');
+                $item.addClass(\'rastreo-geo-item-parpadeo\');
+                setTimeout(function() { $item.removeClass(\'rastreo-geo-item-parpadeo\'); }, 2400);
+                $(\'#modalMapaAlternasGrande\').modal(\'show\');
             });
             $(document).on(\'click\', \'.rastreo-filtro-gestor-overlay .rastreo-filtro-gestor\', function(e) {
                 e.preventDefault();
@@ -817,14 +892,19 @@ SCRIPT;
             });
             $(\'#modalMapaAlternasGrande\').on(\'shown.bs.modal\', function() {
                 initMapaRastreoAlternasGrande(rastreoDireccionesParaMapa, rastreoGestionesParaMapa, rastreoPuntosGeo || []);
-                if (rastreoCentrarEnGeoAlternasIndice !== null && rastreoCentrarEnGeoAlternasGrande && rastreoMarkersGeoAlternasGrande && rastreoMarkersGeoAlternasGrande[rastreoCentrarEnGeoAlternasIndice]) {
-                    var m = rastreoMarkersGeoAlternasGrande[rastreoCentrarEnGeoAlternasIndice];
-                    var w = rastreoInfoWindowsGeoAlternasGrande[rastreoCentrarEnGeoAlternasIndice];
-                    rastreoMapaAlternasGrande.panTo(m.getPosition());
-                    rastreoMapaAlternasGrande.setZoom(16);
-                    if (w) w.open(rastreoMapaAlternasGrande, m);
-                    if (typeof m.setAnimation === \'function\') { m.setAnimation(google.maps.Animation.BOUNCE); setTimeout(function() { m.setAnimation(null); }, 3000); }
-                    rastreoCentrarEnGeoAlternasIndice = null;
+                var idxGeo = rastreoCentrarEnGeoAlternasIndice;
+                rastreoCentrarEnGeoAlternasIndice = null;
+                if (idxGeo !== null && idxGeo !== undefined) {
+                    setTimeout(function() {
+                        if (rastreoMapaAlternasGrande && rastreoMarkersGeoAlternasGrande && rastreoMarkersGeoAlternasGrande[idxGeo]) {
+                            var m = rastreoMarkersGeoAlternasGrande[idxGeo];
+                            var w = rastreoInfoWindowsGeoAlternasGrande[idxGeo];
+                            rastreoMapaAlternasGrande.panTo(m.getPosition());
+                            rastreoMapaAlternasGrande.setZoom(16);
+                            if (w) { try { w.close(); } catch (e) {} w.open(rastreoMapaAlternasGrande, m); }
+                            if (typeof m.setAnimation === \'function\') { m.setAnimation(google.maps.Animation.BOUNCE); setTimeout(function() { if (m.setAnimation) m.setAnimation(null); }, 2500); }
+                        }
+                    }, 300);
                 }
             });
             $(\'#modalMapaAlternasGrande\').on(\'hidden.bs.modal\', function() {
@@ -849,33 +929,99 @@ SCRIPT;
                     rastreoDomicilioMegareporte = (r.domicilio_megareporte && r.domicilio_megareporte.lat != null && r.domicilio_megareporte.lng != null) ? r.domicilio_megareporte : null;
                     rastreoIndiceCasa = (r.indice_casa !== undefined && r.indice_casa !== null && Number.isInteger(r.indice_casa)) ? r.indice_casa : null;
                     var htmlGeo = buildGeoListHtml(rastreoPuntosGeo);
-                    var leyendaAlternas = \'<span class="text-muted small">Cargando gestiones...</span>\';
-                    var $leyenda = $(\'#rastreoAlternasLeyenda\');
-                    if ($leyenda.length && $leyenda.text().indexOf(\'Cargando gestiones\') === -1) leyendaAlternas = $leyenda.html();
-                    var contenidoAlternas = htmlGeo ? (htmlGeo + \'<div id="rastreoAlternasLeyenda" class="mt-2">\' + leyendaAlternas + \'</div>\') : (\'<span class="text-muted small">Sin direcciones alternas para este crédito.</span><div id="rastreoAlternasLeyenda" class="mt-2">\' + leyendaAlternas + \'</div>\');
+                    var contenidoAlternas = htmlGeo || \'<span class="text-muted small">Sin direcciones alternas para este crédito.</span>\';
                     $(\'#rastreoDireccionesAlternasContenido\').removeClass(\'rastreo-contenido-cargando\').html(contenidoAlternas);
                     $(\'#rastreoDireccionesAlternas .rastreo-mapa-wrap\').show();
                     if (r.success && r.direcciones_resumen && r.direcciones_resumen.length) {
-                        var html = r.direcciones_resumen.map(function(d) {
-                            var visitas = d.cantidad_registros != null ? d.cantidad_registros : 0;
-                            var badgeCls = d.punto_de_interes ? \'badge bg-primary\' : \'badge bg-secondary\';
-                            var badgeVisitas = \'<span class="\' + badgeCls + \' ms-1">\' + visitas + \' visitas</span>\';
-                            var etiqueta = (d.texto || \'\').trim() || \'Ubicación\';
-                            return \'<div class="rastreo-direccion-item small mb-2" data-indice="\' + (d.orden - 1) + \'" data-lat="\' + d.lat + \'" data-lng="\' + d.lng + \'"><span class="rastreo-direccion-label text-muted">📍 Ubicación \' + d.orden + \':</span><span class="direccion-linea">\' + etiqueta + \' — <span class="direccion-value" data-lat="\' + d.lat + \'" data-lng="\' + d.lng + \'">Obteniendo dirección...</span></span> \' + badgeVisitas + \'</div>\';
-                        }).join(\'\');
-                        $(\'#rastreoDireccionesContenido\').removeClass(\'rastreo-contenido-cargando\').html(html);
-                        (function throttleReverseGeocode() {
-                            var delay = 0;
-                            $(\'#rastreoDireccionesContenido .direccion-value[data-lat][data-lng]\').each(function() {
-                                var el = this; var lat = $(el).data(\'lat\'); var lng = $(el).data(\'lng\');
-                                delay += 1100;
-                                (function(elm, la, ln, d) {
-                                    setTimeout(function() {
-                                        fetch(\'https://nominatim.openstreetmap.org/reverse?lat=\' + la + \'&lon=\' + ln + \'&format=json\', { headers: { \'Accept\': \'application/json\', \'User-Agent\': \'SpartaLedger/1.0 (cobranza)\' } }).then(function(r) { return r.json(); }).then(function(data) { $(elm).text(data.display_name || \'Sin dirección\'); }).catch(function() { $(elm).text(\'Sin dirección\'); });
-                                    }, d);
-                                })(el, lat, lng, delay);
-                            });
-                        })();
+                        var dirsRastreo = r.direcciones_resumen;
+                        function escR(s) { if (s == null || s === undefined) return \'\'; return (s+\'\').replace(/&/g, \'&amp;\').replace(/</g, \'&lt;\').replace(/>/g, \'&gt;\').replace(/\"/g, \'&quot;\'); }
+                        function formatDistanciaRastreo(m) { if (m == null || m === \'\' || isNaN(parseFloat(m))) return \'—\'; var x = parseFloat(m); if (x >= 1000) return (Math.round(x/100)/10) + \' km\'; return Math.round(x) + \' m\'; }
+                        function formatUltimaFechaRastreo(f) { if (!f) return \'—\'; if (typeof f === \'string\' && f.match(/^\\d{4}-/)) return new Date(f).toLocaleDateString(\'es-MX\'); return (f+\'\').substring(0, 10); }
+                        function buildIntroSpatial(data) {
+                            data = data || {};
+                            var dirMegareporte = (data.direccion_megareporte || \'\').trim();
+                            var p1 = dirMegareporte
+                                ? \'<p class="small text-muted mb-2"><strong>Su casa</strong> es la <strong>Dirección megareporte</strong>: \' + escR(dirMegareporte) + \'. Las distancias mostradas son a esa casa. Si la distancia es menor a ~100 m, es posible que el punto sea su casa.</p>\'
+                                : \'<p class="small text-muted mb-2">Las distancias mostradas son <strong>a la casa del acreditado</strong> (domicilio o ubicación más visitada). Si la distancia es menor a ~100 m, es posible que el punto sea su casa.</p>\';
+                            var ultima = data.ultima_apertura || {};
+                            var ts = ultima.timestamp;
+                            var tsStr = ts ? new Date(ts).toLocaleString(\'es-MX\') : \'—\';
+                            var distCasa = formatDistanciaRastreo(ultima.distancia_a_casa_m);
+                            var a5 = data.aperturas_ultimos_5_dias || {};
+                            var totalA5 = a5.total_aperturas != null ? a5.total_aperturas : 0;
+                            var p2 = \'<p class="small text-muted mb-3">Última apertura de la app: \' + tsStr + \'. Distancia a su casa: \' + distCasa + \'. Total de aperturas (GPS) en los últimos 5 días: \' + totalA5 + \'.</p>\';
+                            return p1 + p2;
+                        }
+                        function buildDireccionesMaxiHtml(distanciasACasa, dataSpatial) {
+                            distanciasACasa = distanciasACasa || [];
+                            var intro = buildIntroSpatial(dataSpatial);
+                            var list = dirsRastreo.map(function(d, i) {
+                                var row = distanciasACasa[i] || {};
+                                var visitas = d.cantidad_registros != null ? d.cantidad_registros : 0;
+                                var tipoLabel = d.punto_de_interes ? \'Punto de interés\' : \'Menos frecuente\';
+                                var ultimaFecha = formatUltimaFechaRastreo(row.ultima_fecha != null ? row.ultima_fecha : d.ultima_fecha);
+                                var distancia = formatDistanciaRastreo(row.distancia_m);
+                                var registroTexto = visitas === 1 ? \'1 registro\' : visitas + \' registros\';
+                                var badgeCls = visitas >= 3 ? \'badge bg-primary rastreo-badge-registros\' : \'badge rastreo-badge-registros rastreo-badge-registros-pocos\';
+                                var badgeRegistros = \'<span class="\' + badgeCls + \' ms-1">\' + registroTexto + \'</span>\';
+                                return \'<div class="rastreo-direccion-item rastreo-direccion-row small" data-indice="\' + (d.orden - 1) + \'" data-lat="\' + d.lat + \'" data-lng="\' + d.lng + \'">\' +
+                                    \'<div class="rastreo-col-direccion">\' +
+                                    \'<div class="rastreo-direccion-label fw-semibold">📍 Ubicación \' + d.orden + \':</div>\' +
+                                    \'<div class="direccion-linea text-muted">\' + tipoLabel + \' — <span class="direccion-value" data-lat="\' + d.lat + \'" data-lng="\' + d.lng + \'">Obteniendo dirección...</span></div>\' +
+                                    \'</div>\' +
+                                    \'<div class="rastreo-col-registros text-nowrap">\' + badgeRegistros + \'</div>\' +
+                                    \'<div class="rastreo-col-fecha-distancia text-muted small">\' +
+                                    \'<div class="rastreo-ultima-fecha">Última fecha: \' + ultimaFecha + \'</div>\' +
+                                    \'<div class="rastreo-distancia">Distancia a su casa: \' + distancia + \'</div>\' +
+                                    \'</div>\' +
+                                    \'</div>\';
+                            }).join(\'\');
+                            return intro + \'<div class="rastreo-direcciones-lista">\' + list + \'</div>\';
+                        }
+                        $(\'#rastreoDireccionesContenido\').removeClass(\'rastreo-contenido-cargando\').html(buildDireccionesMaxiHtml([], null));
+                        fetch(\'/api/analytics/spatial/\' + idCreditoRastreoActual, { method: \'GET\', headers: { \'Accept\': \'application/json\' } }).then(function(resp) { return resp.json(); }).then(function(apiResp) {
+                            var data = (apiResp.data || {});
+                            var distancias = data.distancias_a_casa || [];
+                            $(\'#rastreoDireccionesContenido\').html(buildDireccionesMaxiHtml(distancias, data));
+                            (function doReverseGeocode() {
+                                var delay = 800;
+                                var nodes = document.querySelectorAll(\'#rastreoDireccionesContenido .direccion-value[data-lat][data-lng]\');
+                                function setAddr(elm, text) { if (elm && elm.textContent !== undefined) elm.textContent = text; }
+                                function fetchOne(elm, isRetry) {
+                                    if (!elm || !elm.getAttribute) return;
+                                    var lat = parseFloat(elm.getAttribute(\'data-lat\')), lng = parseFloat(elm.getAttribute(\'data-lng\'));
+                                    if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) { setAddr(elm, \'Sin coordenadas\'); return; }
+                                    var url = \'https://nominatim.openstreetmap.org/reverse?lat=\' + lat + \'&lon=\' + lng + \'&format=json\';
+                                    fetch(url, { headers: { \'Accept\': \'application/json\', \'User-Agent\': \'SpartaLedger/1.0 (cobranza)\' } }).then(function(r) { return r.json(); }).then(function(data) { setAddr(elm, (data && data.display_name) ? data.display_name : \'Sin dirección\'); }).catch(function() {
+                                        if (!isRetry) { setTimeout(function() { fetchOne(elm, true); }, 2000); } else { setAddr(elm, \'Sin dirección\'); }
+                                    });
+                                }
+                                for (var i = 0; i < nodes.length; i++) {
+                                    (function(elm, d) { setTimeout(function() { fetchOne(elm, false); }, d); })(nodes[i], delay);
+                                    delay += 1100;
+                                }
+                            })();
+                        }).catch(function() {
+                            $(\'#rastreoDireccionesContenido\').html(buildDireccionesMaxiHtml([], null));
+                            (function doReverseGeocode() {
+                                var delay = 800;
+                                var nodes = document.querySelectorAll(\'#rastreoDireccionesContenido .direccion-value[data-lat][data-lng]\');
+                                function setAddr(elm, text) { if (elm && elm.textContent !== undefined) elm.textContent = text; }
+                                function fetchOne(elm, isRetry) {
+                                    if (!elm || !elm.getAttribute) return;
+                                    var lat = parseFloat(elm.getAttribute(\'data-lat\')), lng = parseFloat(elm.getAttribute(\'data-lng\'));
+                                    if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) { setAddr(elm, \'Sin coordenadas\'); return; }
+                                    var url = \'https://nominatim.openstreetmap.org/reverse?lat=\' + lat + \'&lon=\' + lng + \'&format=json\';
+                                    fetch(url, { headers: { \'Accept\': \'application/json\', \'User-Agent\': \'SpartaLedger/1.0 (cobranza)\' } }).then(function(r) { return r.json(); }).then(function(data) { setAddr(elm, (data && data.display_name) ? data.display_name : \'Sin dirección\'); }).catch(function() {
+                                        if (!isRetry) { setTimeout(function() { fetchOne(elm, true); }, 2000); } else { setAddr(elm, \'Sin dirección\'); }
+                                    });
+                                }
+                                for (var i = 0; i < nodes.length; i++) {
+                                    (function(elm, d) { setTimeout(function() { fetchOne(elm, false); }, d); })(nodes[i], delay);
+                                    delay += 1100;
+                                }
+                            })();
+                        });
                     } else {
                         $(\'#rastreoDireccionesContenido\').removeClass(\'rastreo-contenido-cargando\').html(\'<span class="text-muted">Sin ubicaciones en maxi app para este crédito.</span>\');
                     }

@@ -116,6 +116,52 @@
   opacity: 0.95;
 }
 
+/* Contraseña: input normal (como Usuario) + botón ojo encima. Sin input-group = mismo borde verde natural */
+.password-field-wrap {
+  position: relative;
+}
+.password-field-wrap .form-control {
+  padding-right: 2.75rem;
+}
+.password-field-wrap .btn-password-eye {
+  position: absolute !important;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 2.5rem;
+  margin: 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  color: #6c757d;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s ease;
+  z-index: 5;
+  pointer-events: auto;
+  cursor: pointer;
+}
+.password-field-wrap .btn-password-eye:hover {
+  color: #1f2a44;
+  background: transparent !important;
+}
+.password-field-wrap .btn-password-eye:focus {
+  box-shadow: none;
+  outline: none;
+}
+.password-field-wrap .btn-password-eye .fa-eye,
+.password-field-wrap .btn-password-eye .fa-eye-slash {
+  font-size: 1rem;
+  pointer-events: none;
+}
+.btn-password-eye {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
 /* Footer con logo */
 #footer-logo {
   display: flex;
@@ -251,16 +297,16 @@
                 autofocus />
             </div>
 
-            <div class="mb-6 form-group form-password-toggle">
+            <div class="mb-6 form-group">
               <label class="form-label" for="password">Contraseña</label>
-              <div class="input-group input-group-merge">
+              <div class="password-field-wrap">
                 <input
                   type="password"
                   id="password"
                   class="form-control"
                   name="password"
                   placeholder="Ingresa la contraseña" />
-                <button type="button" class="btn btn-light" id="togglePassword" style="border: none; background: #f8f9fa; color: #6c757d;">
+                <button type="button" class="btn btn-password-eye" id="togglePassword" title="Mostrar/ocultar contraseña">
                   <i class="fa fa-eye"></i>
                 </button>
               </div>
@@ -309,7 +355,7 @@
   <script>
     $(document).ready(function() {
       $('#togglePassword, #togglePassword i').click(function() {
-        var input = $(this).closest('.input-group').find('input');
+        var input = $(this).closest('.password-field-wrap').find('input');
         var icon = $('#togglePassword').find('i');
         if (input.attr('type') === 'password') {
           input.attr('type', 'text');

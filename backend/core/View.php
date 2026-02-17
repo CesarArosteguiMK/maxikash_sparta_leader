@@ -421,6 +421,16 @@ function getMenu()
 
                     <div class="navbar-nav-right d-flex align-items-center" id="navbar-collapse">
                         <ul class="navbar-nav flex-row align-items-center ms-auto">
+                            <!-- Hora y fecha -->
+                            <li class="nav-item me-3">
+                                <div class="navbar-datetime">
+                                    <span class="navbar-datetime-icon"><i class="fa-regular fa-clock"></i></span>
+                                    <div>
+                                        <div class="navbar-datetime-time" id="navbarTime">--:--</div>
+                                        <div class="navbar-datetime-date" id="navbarDate">--</div>
+                                    </div>
+                                </div>
+                            </li>
                             <!-- User Panel -->
                             <li class="nav-item navbar-dropdown dropdown-user dropdown">
                                 <a
@@ -449,8 +459,8 @@ function getMenu()
                                         <hr class="dropdown-divider">
                                     </li>
                                     <li>
-                                        <a class="dropdown-item" href="javascript:void(0);" onclick="toggleDarkMode()">
-                                            <i class="fa-solid fa-moon" id="darkModeIcon">&nbsp;</i><span id="darkModeText">Modo Oscuro</span>
+                                        <a class="dropdown-item dark-mode-toggle" href="javascript:void(0);" onclick="toggleDarkMode()" id="darkModeToggle">
+                                            <i class="fa-solid fa-moon dark-mode-icon" id="darkModeIcon"></i><span id="darkModeText">Modo oscuro</span>
                                         </a>
                                     </li>
                                 </ul>
@@ -552,25 +562,26 @@ function getMenu()
 
     <!-- Dark Mode Script -->
     <script>
-        // Función para aplicar el dark mode
+        // Función para aplicar el dark mode (iconos modernos: sol = modo claro, luna = modo oscuro)
         function applyDarkMode(isDark) {
             const body = document.body;
             const icon = document.getElementById('darkModeIcon');
             const text = document.getElementById('darkModeText');
+            const toggle = document.getElementById('darkModeToggle');
             
             if (isDark) {
                 body.classList.add('dark-mode');
-                if (icon) icon.className = 'fa-solid fa-sun';
-                if (text) text.textContent = 'Modo Claro';
+                if (icon) { icon.className = 'fa-solid fa-sun dark-mode-icon'; }
+                if (text) text.textContent = 'Modo claro';
+                if (toggle) toggle.classList.add('active-dark');
                 
-                // Forzar estilos en elementos específicos
                 fixInlineStyles();
             } else {
                 body.classList.remove('dark-mode');
-                if (icon) icon.className = 'fa-solid fa-moon';
-                if (text) text.textContent = 'Modo Oscuro';
+                if (icon) { icon.className = 'fa-solid fa-moon dark-mode-icon'; }
+                if (text) text.textContent = 'Modo oscuro';
+                if (toggle) toggle.classList.remove('active-dark');
                 
-                // Restaurar estilos originales
                 restoreOriginalStyles();
             }
         }
@@ -644,8 +655,8 @@ function getMenu()
             const whiteBackgrounds = document.querySelectorAll('[style*="background-color: #fff"], [style*="background-color: white"], [style*="background: #fff"], [style*="background: white"], [style*="background-color: rgb(255, 255, 255)"]');
             whiteBackgrounds.forEach(el => {
                 if (!el.classList.contains('btn-primary') && !el.classList.contains('btn-success') && !el.classList.contains('btn-danger') && !el.classList.contains('btn-warning') && !el.classList.contains('btn-info')) {
-                    el.style.backgroundColor = '#252525';
-                    el.style.background = '#252525';
+                    el.style.backgroundColor = '#1e293b';
+                    el.style.background = '#1e293b';
                 }
             });
 
@@ -661,14 +672,14 @@ function getMenu()
             const offcanvasElements = document.querySelectorAll('.offcanvas, .offcanvas-header, .offcanvas-body, .offcanvas *');
             offcanvasElements.forEach(el => {
                 if (el.classList.contains('offcanvas')) {
-                    el.style.backgroundColor = '#252525';
+                    el.style.backgroundColor = '#1e293b';
                     el.style.color = '#e0e0e0';
                 } else if (el.classList.contains('offcanvas-header')) {
-                    el.style.backgroundColor = '#303030';
+                    el.style.backgroundColor = '#334155';
                     el.style.color = '#ffffff';
                     el.style.borderBottomColor = '#3a3a3a';
                 } else if (el.classList.contains('offcanvas-body')) {
-                    el.style.backgroundColor = '#252525';
+                    el.style.backgroundColor = '#1e293b';
                     el.style.color = '#e0e0e0';
                 }
                 
@@ -712,7 +723,7 @@ function getMenu()
                         newStyle += '; background: #dc3545 !important;';
                     } else {
                         // Para otros elementos, usar color oscuro por defecto
-                        newStyle += '; background: #252525 !important;';
+                        newStyle += '; background: #1e293b !important;';
                     }
                     
                     el.setAttribute('style', newStyle);
@@ -726,13 +737,13 @@ function getMenu()
                 el.style.backgroundImage = 'none';
                 if (el.classList.contains('accordion-button')) {
                     el.style.color = '#ffffff';
-                    el.style.backgroundColor = '#303030';
+                    el.style.backgroundColor = '#334155';
                 } else if (el.classList.contains('accordion-item') || el.classList.contains('accordion-collapse')) {
-                    el.style.backgroundColor = '#252525';
+                    el.style.backgroundColor = '#1e293b';
                     el.style.borderColor = '#3a3a3a';
                 } else {
                     el.style.color = '#e0e0e0';
-                    el.style.backgroundColor = '#252525';
+                    el.style.backgroundColor = '#1e293b';
                 }
             });
 
@@ -741,7 +752,7 @@ function getMenu()
             dropdowns.forEach(el => {
                 el.style.backgroundImage = 'none';
                 if (el.classList.contains('dropdown-menu')) {
-                    el.style.backgroundColor = '#252525';
+                    el.style.backgroundColor = '#1e293b';
                     el.style.borderColor = '#3a3a3a';
                 } else if (el.classList.contains('dropdown-item')) {
                     el.style.color = '#e0e0e0';
@@ -798,6 +809,21 @@ function getMenu()
                 childList: true,
                 subtree: true
             });
+
+            // Hora y fecha en navbar (actualización cada minuto)
+            function updateNavbarDateTime() {
+                var elTime = document.getElementById('navbarTime');
+                var elDate = document.getElementById('navbarDate');
+                if (!elTime || !elDate) return;
+                var n = new Date();
+                var h = n.getHours(), m = n.getMinutes();
+                elTime.textContent = (h < 10 ? '0' : '') + h + ':' + (m < 10 ? '0' : '') + m;
+                var d = n.getDate(), mes = n.getMonth();
+                var meses = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+                elDate.textContent = d + ' ' + meses[mes];
+            }
+            updateNavbarDateTime();
+            setInterval(updateNavbarDateTime, 60000);
         });
     </script>
 
