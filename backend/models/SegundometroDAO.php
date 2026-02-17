@@ -834,7 +834,7 @@ class SegundometroDAO extends Model
     }
 
     /**
-     * Devuelve el comando shell completo para ejecutar monitorear.sh por streaming (timeout 45 s en remoto).
+     * Devuelve el comando shell completo para ejecutar monitorear.sh por streaming (timeout 1 h en remoto).
      * Usado por el controlador para proc_open y enviar SSE. Retorna null si SSH no está disponible.
      * @return string|null
      */
@@ -845,7 +845,7 @@ class SegundometroDAO extends Model
             return null;
         }
         $isPlink = (stripos($sshCommand, 'plink') !== false);
-        $comandoRemoto = 'timeout 45 sudo bash /home/jesus/scripts/monitorear.sh 2>&1';
+        $comandoRemoto = 'timeout 3600 sudo bash /home/jesus/scripts/monitorear.sh 2>&1';
         if ($isPlink) {
             $configFile = __DIR__ . '/../config/config.ini';
             $hostkey = '';

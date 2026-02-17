@@ -414,13 +414,42 @@ class Segundometro extends Controller
                 btn.disabled = !habilitado;
             }
 
-            // Monitorear: panel con iframe (stream solo en el iframe; al cerrar panel se corta la conexión)
+            // Monitorear: panel en la misma página (streaming). Minimizar deja usar otros botones sin cortar el stream.
             function abrirPanelMonitorear() {
                 var panel = document.getElementById('panelMonitorear');
                 var iframe = document.getElementById('panelMonitorearIframe');
                 if (!panel || !iframe) return;
                 iframe.src = '/segundometro/ventanaMonitorear';
                 panel.style.display = 'flex';
+                panel.dataset.minimizado = '0';
+                restaurarPanelMonitorear();
+            }
+            function minimizarPanelMonitorear() {
+                var panel = document.getElementById('panelMonitorear');
+                var body = document.getElementById('panelMonitorearBody');
+                var btnMin = document.getElementById('panelMonitorearMinimizar');
+                if (!panel || !body) return;
+                panel.dataset.minimizado = '1';
+                body.style.display = 'none';
+                panel.style.height = 'auto';
+                panel.style.maxHeight = 'none';
+                if (btnMin) { btnMin.title = 'Restaurar panel para ver el stream'; btnMin.innerHTML = '<i class="fa fa-window-restore"></i>'; }
+            }
+            function restaurarPanelMonitorear() {
+                var panel = document.getElementById('panelMonitorear');
+                var body = document.getElementById('panelMonitorearBody');
+                var btnMin = document.getElementById('panelMonitorearMinimizar');
+                if (!panel || !body) return;
+                panel.dataset.minimizado = '0';
+                body.style.display = 'flex';
+                panel.style.height = '420px';
+                panel.style.maxHeight = '75vh';
+                if (btnMin) { btnMin.title = 'Minimizar (el stream sigue; podrás usar Truncar y demás botones)'; btnMin.innerHTML = '<i class="fa fa-window-minimize"></i>'; }
+            }
+            function toggleMinimizarPanelMonitorear() {
+                var panel = document.getElementById('panelMonitorear');
+                if (!panel) return;
+                if (panel.dataset.minimizado === '1') restaurarPanelMonitorear(); else minimizarPanelMonitorear();
             }
             function cerrarPanelMonitorear() {
                 var panel = document.getElementById('panelMonitorear');
@@ -436,10 +465,10 @@ class Segundometro extends Controller
                     contenedorIframe.removeChild(iframe);
                     var nuevoIframe = document.createElement('iframe');
                     nuevoIframe.id = 'panelMonitorearIframe';
-                    nuevoIframe.style.cssText = 'flex:1; width:100%; height:360px; border:none; background:#1e1e1e;';
+                    nuevoIframe.style.cssText = 'flex:1; width:100%; height:100%; min-height:0; border:none; background:#1e1e1e;';
                     contenedorIframe.appendChild(nuevoIframe);
                 }
-                if (panel) panel.style.display = 'none';
+                if (panel) { panel.style.display = 'none'; panel.dataset.minimizado = '0'; }
             }
             function initPanelMonitorearDrag() {
                 var panel = document.getElementById('panelMonitorear');
@@ -447,7 +476,7 @@ class Segundometro extends Controller
                 if (!panel || !header) return;
                 var dragging = false, offX = 0, offY = 0;
                 header.addEventListener('mousedown', function(e) {
-                    if (e.target.id === 'panelMonitorearCerrar' || e.target.closest('#panelMonitorearCerrar')) return;
+                    if (e.target.id === 'panelMonitorearCerrar' || e.target.closest('#panelMonitorearCerrar') || e.target.id === 'panelMonitorearMinimizar' || e.target.closest('#panelMonitorearMinimizar')) return;
                     dragging = true;
                     offX = e.clientX - panel.getBoundingClientRect().left;
                     offY = e.clientY - panel.getBoundingClientRect().top;
@@ -545,6 +574,8 @@ class Segundometro extends Controller
                 if (btnMon) btnMon.addEventListener('click', abrirPanelMonitorear);
                 var btnCerrarMon = document.getElementById('panelMonitorearCerrar');
                 if (btnCerrarMon) btnCerrarMon.addEventListener('click', cerrarPanelMonitorear);
+                var btnMinMon = document.getElementById('panelMonitorearMinimizar');
+                if (btnMinMon) btnMinMon.addEventListener('click', toggleMinimizarPanelMonitorear);
                 initPanelMonitorearDrag();
                 document.addEventListener('visibilitychange', function() {
                     if (document.hidden) { clearSegundometroTimers(); clearEstadoReportesInterval(); }
@@ -594,7 +625,7 @@ class Segundometro extends Controller
     public function streamMonitorear()
     {
         @ignore_user_abort(false);
-        set_time_limit(60);
+        set_time_limit(3700);
         $cmd = SegundometroDAO::getComandoMonitorearParaStream();
         if ($cmd === null) {
             header('Content-Type: text/event-stream');
@@ -631,7 +662,7 @@ class Segundometro extends Controller
         stream_set_blocking($pipes[1], false);
         stream_set_blocking($pipes[2], false);
         $inicio = time();
-        $timeoutTotal = 50;
+        $timeoutTotal = 3600;
         $ultimaActividad = time();
         $iteracion = 0;
         while (true) {
@@ -646,7 +677,7 @@ class Segundometro extends Controller
                 exit;
             }
             if (time() - $ultimaActividad > 5) {
-                echo ": keepalive\n\n";
+                echo "data: " . json_encode(['heartbeat' => true, 'ts' => date('H:i:s')]) . "\n\n";
                 if (function_exists('ob_flush')) { @ob_flush(); }
                 if (function_exists('flush')) { flush(); }
                 $ultimaActividad = time();
