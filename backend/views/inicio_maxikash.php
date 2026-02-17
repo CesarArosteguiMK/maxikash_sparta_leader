@@ -225,10 +225,11 @@ body::before{
 .sec-line{flex:1;height:1px;background:var(--border);}
 
 .grid-cards{
-  display:grid;grid-template-columns:repeat(auto-fill,minmax(188px,1fr));
+  display:flex;flex-wrap:wrap;justify-content:center;
   gap:13px;margin-bottom:22px;
 }
 .qcard{
+  width:188px;min-width:188px;max-width:188px;
   background:var(--surface);border:1px solid var(--border);
   border-radius:var(--r);padding:22px 17px 17px;cursor:pointer;
   position:relative;overflow:hidden;transition:all .22s cubic-bezier(.4,0,.2,1);

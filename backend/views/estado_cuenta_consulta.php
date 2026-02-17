@@ -89,9 +89,8 @@
             <form method="POST" id="formBusqueda">
 
                 <div class="row g-3 align-items-end">
-
-                    <!-- ID -->
-                    <div class="col-md-6" id="divID">
+                    <!-- Fila: ID de crédito y Fecha de corte alineados -->
+                    <div class="col-12 col-md-6" id="divID">
                         <label for="idCredito" class="form-label">ID de crédito</label>
                         <div class="input-group input-group-merge">
                             <input type="number" class="form-control" id="idCredito" name="idCredito"
@@ -100,9 +99,7 @@
                             <span class="input-group-text"><i class="fa fa-hashtag"></i></span>
                         </div>
                     </div>
-
-                    <!-- Fecha de corte personalizada (solo si tiene permiso 23) -->
-                    <div class="col-auto" id="divFechaCorte" style="display: none;">
+                    <div class="col-12 col-md-6" id="divFechaCorte" style="display: none;">
                         <label for="fechaCorte" class="form-label small mb-1">
                             <i class="fa fa-calendar-alt me-1"></i>Fecha de corte
                             <i class="fa fa-info-circle text-muted ms-1" style="cursor: help; font-size: 0.85rem;"
@@ -115,9 +112,8 @@
                                autocomplete="off" readonly
                                title="Clic para abrir el calendario">
                     </div>
-
-                    <!-- Nombre -->
-                    <div class="col-md-6 position-relative" id="divNombre" style="display: none;">
+                    <!-- Nombre (fila completa cuando modo nombre) -->
+                    <div class="col-12 position-relative" id="divNombre" style="display: none;">
                         <label for="nombre" class="form-label">Nombre del Cliente</label>
                         <div class="input-group input-group-merge">
                             <input type="text" class="form-control" name="nombre" id="nombre"
@@ -126,16 +122,10 @@
                                    style="text-transform: uppercase;">
                             <span class="input-group-text"><i class="fa fa-user"></i></span>
                         </div>
-
-                        <!-- DROPDOWN PROFESIONAL -->
                         <div id="listaResultados" class="list-group position-absolute shadow-sm"
-                             style="top:100%; left:0; right:0; z-index:1000; display:none; max-height:200px; overflow-y:auto; border:1px solid #ced4da; border-radius:.25rem;">
-                        </div>
+                             style="top:100%; left:0; right:0; z-index:1000; display:none; max-height:200px; overflow-y:auto; border:1px solid #ced4da; border-radius:.25rem;"></div>
                         <input type="hidden" name="idCreditoLista" id="idCreditoLista">
                     </div>
-
-
-
                     <div class="col-12">
                         <button type="submit" class="btn btn-outline-primary w-100" id="btnBuscar">Buscar</button>
                     </div>

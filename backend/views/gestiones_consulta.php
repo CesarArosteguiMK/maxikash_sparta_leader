@@ -43,9 +43,7 @@
             <form method="POST" id="formBusqueda">
 
                 <div class="row g-3 align-items-end">
-
-                    <!-- ID -->
-                    <div class="col-md-6" id="divID">
+                    <div class="col-12 col-md-6" id="divID">
                         <label for="idCredito" class="form-label">ID de crédito</label>
                         <div class="input-group input-group-merge">
                             <input type="number" class="form-control" id="idCredito" name="idCredito"
@@ -54,9 +52,7 @@
                             <span class="input-group-text"><i class="fa fa-hashtag"></i></span>
                         </div>
                     </div>
-
-                    <!-- Nombre -->
-                    <div class="col-md-6" id="divNombre" style="display: none;">
+                    <div class="col-12 col-md-6" id="divNombre" style="display: none;">
                         <label for="nombre" class="form-label">Nombre del Cliente</label>
                         <div class="input-group input-group-merge">
                             <input type="text" class="form-control" name="nombre" id="nombre"
@@ -65,10 +61,7 @@
                             <span class="input-group-text"><i class="fa fa-user"></i></span>
                         </div>
                     </div>
-
-                    <!-- Fecha Corte oculta -->
                     <input type="hidden" name="fechaCorte" id="fechaCorte" value="<?= $fecha_actual_iso ?>">
-
                     <div class="col-12">
                         <button type="submit" class="btn btn-outline-primary w-100" id="btnBuscar">Buscar</button>
                     </div>

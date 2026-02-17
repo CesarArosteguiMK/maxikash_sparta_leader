@@ -248,13 +248,21 @@ SCRIPT;
             var svg = \'<svg xmlns="http://www.w3.org/2000/svg" width="56" height="24" viewBox="0 0 56 24"><rect width="56" height="24" rx="12" fill="#6366f1" fill-opacity="0.95" stroke="#4f46e5" stroke-width="1"/><text x="28" y="16" text-anchor="middle" fill="white" font-size="12" font-family="Arial,sans-serif">\' + esc + \'</text></svg>\';
             return { url: \'data:image/svg+xml;charset=UTF-8,\' + encodeURIComponent(svg), scaledSize: new google.maps.Size(56, 24), anchor: new google.maps.Point(28, 12) };
         }
-        function groupPointsByArea(puntos) {
+        var rastreoClusterMarkers = [];
+        var rastreoPuntosClusterActual = [];
+        function groupPointsByArea(puntos, zoom) {
+            var factor = 40;
+            if (zoom >= 15) factor = 800;
+            else if (zoom >= 14) factor = 400;
+            else if (zoom >= 13) factor = 200;
+            else if (zoom >= 12) factor = 100;
+            else if (zoom >= 11) factor = 40;
             var groups = {};
             (puntos || []).forEach(function(p) {
                 var lat = parseFloat(p.lat !== undefined ? p.lat : p.latitud);
                 var lng = parseFloat(p.lng !== undefined ? p.lng : p.longitud);
                 if (isNaN(lat) || isNaN(lng)) return;
-                var key = Math.round(lat * 100) + \'_\' + Math.round(lng * 100);
+                var key = Math.round(lat * factor) + \'_\' + Math.round(lng * factor);
                 if (!groups[key]) groups[key] = { lat: 0, lng: 0, count: 0 };
                 groups[key].lat += lat;
                 groups[key].lng += lng;
@@ -270,34 +278,53 @@ SCRIPT;
         function clusterLabelIcon(count) {
             var text = count + \' ubicaciones en esta área\';
             var esc = (text + \'\').replace(/&/g, \'&amp;\').replace(/</g, \'&lt;\').replace(/>/g, \'&gt;\');
-            var svg = \'<svg xmlns="http://www.w3.org/2000/svg" width="220" height="36" viewBox="0 0 220 36"><rect x="2" y="2" width="216" height="32" rx="10" fill="#1a1a1a" stroke="#444" stroke-width="1.5"/><text x="110" y="24" text-anchor="middle" fill="#fff" font-size="13" font-weight="700" font-family="Arial,sans-serif">\' + esc + \'</text></svg>\';
-            return { url: \'data:image/svg+xml;charset=UTF-8,\' + encodeURIComponent(svg), scaledSize: new google.maps.Size(220, 36), anchor: new google.maps.Point(110, 36) };
+            var svg = \'<svg xmlns="http://www.w3.org/2000/svg" width="230" height="40" viewBox="0 0 230 40"><defs><filter id="shadow" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.25"/></filter></defs><rect x="4" y="4" width="222" height="32" rx="12" fill="rgba(51,65,85,0.94)" stroke="rgba(71,85,105,0.9)" stroke-width="1.2" filter="url(#shadow)"/><text x="115" y="26" text-anchor="middle" fill="#f1f5f9" font-size="12" font-weight="600" font-family="Arial,sans-serif">\' + esc + \'</text></svg>\';
+            return { url: \'data:image/svg+xml;charset=UTF-8,\' + encodeURIComponent(svg), scaledSize: new google.maps.Size(230, 40), anchor: new google.maps.Point(115, 40) };
         }
         function addClusterLabelsToMap(map, puntos) {
             if (!map || typeof google === \'undefined\' || !google.maps) return;
-            var clusters = groupPointsByArea(puntos);
+            rastreoPuntosClusterActual = puntos || [];
+            var zoom = typeof map.getZoom === \'function\' ? map.getZoom() : 10;
+            while (rastreoClusterMarkers.length) {
+                var m = rastreoClusterMarkers.pop();
+                if (m && m.setMap) m.setMap(null);
+            }
+            if (zoom >= 16 || zoom <= 10) return;
+            var div = typeof map.getDiv === \'function\' ? map.getDiv() : null;
+            if (div && (div.offsetWidth < 380 || div.offsetHeight < 280)) return;
+            var clusters = groupPointsByArea(puntos, zoom);
+            var offsetNorth = 0.005;
             for (var i = 0; i < clusters.length; i++) {
                 var c = clusters[i];
-                var pos = new google.maps.LatLng(c.lat + 0.0004, c.lng);
+                var pos = new google.maps.LatLng(c.lat + offsetNorth, c.lng);
                 try {
                     var marker = new google.maps.Marker({
                         position: pos,
                         map: map,
                         icon: clusterLabelIcon(c.count),
                         title: c.count + \' ubicaciones en esta área\',
-                        zIndex: 999,
+                        zIndex: 998,
                         clickable: false
                     });
+                    rastreoClusterMarkers.push(marker);
                 } catch (e) {}
             }
         }
         function todosPuntosParaCluster(puntosGeo, puntosMaxiApp, puntosGestores) {
+            var seen = {};
             var out = [];
-            (puntosGeo || []).forEach(function(p) { var lat = parseFloat(p.lat), lng = parseFloat(p.lng); if (!isNaN(lat) && !isNaN(lng)) out.push({ lat: lat, lng: lng }); });
-            if (puntosMaxiApp && puntosMaxiApp.length && puntosMaxiApp[0] && (puntosMaxiApp[0].latitud !== undefined || puntosMaxiApp[0].lat !== undefined)) {
-                (puntosMaxiApp || []).forEach(function(p) { var lat = parseFloat(p.latitud || p.lat), lng = parseFloat(p.longitud || p.lng); if (!isNaN(lat) && !isNaN(lng)) out.push({ lat: lat, lng: lng }); });
+            function add(lat, lng) {
+                if (isNaN(lat) || isNaN(lng)) return;
+                var key = Math.round(lat * 1e5) + \'_\' + Math.round(lng * 1e5);
+                if (seen[key]) return;
+                seen[key] = true;
+                out.push({ lat: lat, lng: lng });
             }
-            (puntosGestores || []).forEach(function(p) { var lat = parseFloat(p.lat), lng = parseFloat(p.lng); if (!isNaN(lat) && !isNaN(lng)) out.push({ lat: lat, lng: lng }); });
+            (puntosGeo || []).forEach(function(p) { add(parseFloat(p.lat), parseFloat(p.lng)); });
+            if (puntosMaxiApp && puntosMaxiApp.length && puntosMaxiApp[0] && (puntosMaxiApp[0].latitud !== undefined || puntosMaxiApp[0].lat !== undefined)) {
+                (puntosMaxiApp || []).forEach(function(p) { add(parseFloat(p.latitud || p.lat), parseFloat(p.longitud || p.lng)); });
+            }
+            (puntosGestores || []).forEach(function(p) { add(parseFloat(p.lat), parseFloat(p.lng)); });
             return out;
         }
         function initMapaRastreoAlternas(puntosMaxiApp, puntosGestores, puntosGeo) {
@@ -377,6 +404,10 @@ SCRIPT;
                 });
             }
             addClusterLabelsToMap(rastreoMapaAlternas, todosPuntosParaCluster(puntosGeo, puntosMaxiApp, puntosGestores));
+            if (rastreoMapaAlternas.addListener) {
+                rastreoMapaAlternas.addListener(\'zoom_changed\', function() { addClusterLabelsToMap(rastreoMapaAlternas, rastreoPuntosClusterActual); });
+                google.maps.event.addDomListener(window, \'resize\', function() { if (rastreoMapaAlternas) addClusterLabelsToMap(rastreoMapaAlternas, rastreoPuntosClusterActual); });
+            }
             if (hasPoints) rastreoMapaAlternas.fitBounds(bounds, 50);
             filtrarMapaPorGestor(rastreoFiltroGestorActual);
         }
@@ -485,6 +516,10 @@ SCRIPT;
                 });
             }
             addClusterLabelsToMap(rastreoMapaAlternasGrande, todosPuntosParaCluster(puntosGeo, puntosMaxiApp, puntosGestores));
+            if (rastreoMapaAlternasGrande.addListener) {
+                rastreoMapaAlternasGrande.addListener(\'zoom_changed\', function() { addClusterLabelsToMap(rastreoMapaAlternasGrande, rastreoPuntosClusterActual); });
+                google.maps.event.addDomListener(window, \'resize\', function() { if (rastreoMapaAlternasGrande) addClusterLabelsToMap(rastreoMapaAlternasGrande, rastreoPuntosClusterActual); });
+            }
             var conU = (typeof rastreoConUbicacion !== \'undefined\' ? rastreoConUbicacion : (puntosGestores && puntosGestores.length) ? puntosGestores.length : 0);
             var totG = (typeof rastreoTotalGestiones !== \'undefined\' ? rastreoTotalGestiones : 0) || conU;
             var leyendaGrandeHtml = \'<span class="d-block">Rosa = <span style="color:#ec4899;font-weight:600">CASA.</span></span>\' +

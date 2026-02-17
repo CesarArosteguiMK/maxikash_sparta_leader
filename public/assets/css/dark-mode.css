@@ -268,14 +268,25 @@ body.dark-mode .page-item.active .page-link {
 }
 
 /* Inicio Maxikash (contenido dentro del template) */
-body.dark-mode .inicio-mkx .role-sw { color: #94a3b8; }
-body.dark-mode .inicio-mkx .r-btn { border-color: #334155; background: #1e293b; color: #94a3b8; }
-body.dark-mode .inicio-mkx .r-btn:hover,
-body.dark-mode .inicio-mkx .r-btn.active { background: #2563eb; border-color: #2563eb; color: #fff; }
 body.dark-mode .inicio-mkx .hero { background: linear-gradient(128deg, #0f172a 0%, #1e3a5f 50%, #1e40af 100%); box-shadow: 0 8px 32px rgba(0,0,0,.3); }
 body.dark-mode .inicio-mkx .qcard { background: #1e293b !important; border-color: #334155 !important; }
 body.dark-mode .inicio-mkx .qcard:hover { border-color: #475569; box-shadow: 0 14px 36px rgba(0,0,0,.25); }
 body.dark-mode .inicio-mkx .sec-line { background: #334155; }
+/* Iconos de accesos rápidos en modo oscuro: fondos suaves y iconos más vivos */
+body.dark-mode .inicio-mkx .qico.bg-blue { background: rgba(59, 130, 246, 0.22) !important; }
+body.dark-mode .inicio-mkx .qico.bg-blue i { color: #93c5fd !important; }
+body.dark-mode .inicio-mkx .qico.bg-green { background: rgba(34, 197, 94, 0.22) !important; }
+body.dark-mode .inicio-mkx .qico.bg-green i { color: #86efac !important; }
+body.dark-mode .inicio-mkx .qico.bg-orange { background: rgba(249, 115, 22, 0.22) !important; }
+body.dark-mode .inicio-mkx .qico.bg-orange i { color: #fdba74 !important; }
+body.dark-mode .inicio-mkx .qico.bg-purple { background: rgba(124, 58, 237, 0.22) !important; }
+body.dark-mode .inicio-mkx .qico.bg-purple i { color: #c4b5fd !important; }
+body.dark-mode .inicio-mkx .qico.bg-red { background: rgba(239, 68, 68, 0.22) !important; }
+body.dark-mode .inicio-mkx .qico.bg-red i { color: #fca5a5 !important; }
+body.dark-mode .inicio-mkx .qico.bg-teal { background: rgba(13, 148, 136, 0.22) !important; }
+body.dark-mode .inicio-mkx .qico.bg-teal i { color: #5eead4 !important; }
+body.dark-mode .inicio-mkx .qico.bg-yellow { background: rgba(202, 138, 4, 0.25) !important; }
+body.dark-mode .inicio-mkx .qico.bg-yellow i { color: #fde047 !important; }
 
 /* ==========================================
    FORMULARIOS

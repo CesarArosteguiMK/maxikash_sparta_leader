@@ -43,27 +43,15 @@
             <form id="formBusqueda" method="GET" onsubmit="return false;" action="javascript:void(0);">
 
                 <div class="row g-3 align-items-end">
-
-                    <!-- ID -->
-                    <div class="col-md-6" id="divID">
+                    <!-- Fila: ID de crédito y Tipo de documento alineados -->
+                    <div class="col-12 col-md-6" id="divID">
                         <label for="idCredito" class="form-label">ID de crédito</label>
                         <div class="input-group input-group-merge">
                             <input type="number" class="form-control" id="idCredito" name="idCredito" value="" placeholder="Ej.: 12345">
                             <span class="input-group-text"><i class="fa fa-hashtag"></i></span>
                         </div>
                     </div>
-
-                    <!-- Nombre -->
-                    <div class="col-md-6" id="divNombre" style="display: none;">
-                        <label for="nombre" class="form-label">Nombre del Cliente</label>
-                        <div class="input-group input-group-merge">
-                            <input type="text" class="form-control" name="nombre" id="nombre" value="" placeholder="Nombre completo o parcial">
-                            <span class="input-group-text"><i class="fa fa-user"></i></span>
-                        </div>
-                    </div>
-
-                    <!-- Tipo de Documento -->
-                    <div class="col-md-6">
+                    <div class="col-12 col-md-6">
                         <label for="tipoDocumento" class="form-label">Tipo de documento</label>
                         <div class="input-group input-group-merge">
                             <select class="form-select" id="tipoDocumento" name="tipoDocumento">
@@ -74,14 +62,17 @@
                                 <option value="FAD_DOC">FAD_DOC</option>
                                 <option value="EVIDENCIA">EVIDENCIA</option>
                             </select>
-                            <span class="input-group-text">
-                                <i class="fa fa-file"></i>
-                            </span>
+                            <span class="input-group-text"><i class="fa fa-file"></i></span>
                         </div>
                     </div>
-
-
-
+                    <!-- Nombre (oculto por defecto) -->
+                    <div class="col-12" id="divNombre" style="display: none;">
+                        <label for="nombre" class="form-label">Nombre del Cliente</label>
+                        <div class="input-group input-group-merge">
+                            <input type="text" class="form-control" name="nombre" id="nombre" value="" placeholder="Nombre completo o parcial">
+                            <span class="input-group-text"><i class="fa fa-user"></i></span>
+                        </div>
+                    </div>
                     <div class="col-12">
                         <button type="button" class="btn btn-outline-primary w-100" id="btnBuscar">Buscar</button>
                     </div>
