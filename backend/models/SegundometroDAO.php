@@ -602,9 +602,9 @@ class SegundometroDAO extends Model
 
     /**
      * Proceso de truncar Segundómetro:
-     *   1. Copiar tbl_segundometro_semana_prueba → tbl_segundometro_histo_prueba
+     *   1. Copiar tbl_segundometro_semana → tbl_segundometro_histo
      *   2. Notificar a webhook de Google Chat
-     *   3. Si OK → truncar tbl_segundometro_semana_prueba
+     *   3. Si OK → truncar tbl_segundometro_semana
      *   4. Notificar resultado final
      *
      * @return array ['success' => bool, 'mensaje' => string, 'registros_copiados' => int]
@@ -619,7 +619,7 @@ class SegundometroDAO extends Model
         // Paso 1: Copiar datos de semana a histórico
         try {
             $rowsCopied = $db->CRUD(
-                'INSERT INTO tbl_segundometro_histo_prueba SELECT * FROM tbl_segundometro_semana_prueba'
+                'INSERT INTO tbl_segundometro_histo SELECT * FROM tbl_segundometro_semana'
             );
         } catch (\Exception $e) {
             $msgError = "❌ *Error al copiar Semana → Historial*\n"
@@ -639,7 +639,7 @@ class SegundometroDAO extends Model
 
         // Paso 3: Truncar tabla semana
         try {
-            $db->CRUD('TRUNCATE TABLE tbl_segundometro_semana_prueba');
+            $db->CRUD('TRUNCATE TABLE tbl_segundometro_semana');
         } catch (\Exception $e) {
             $msgError = "⚠️ *Copia exitosa pero error al truncar Semana*\n"
                       . "Se copiaron {$rowsCopied} registros pero no se pudo limpiar la tabla.\n"
@@ -652,7 +652,7 @@ class SegundometroDAO extends Model
 
         // Paso 4: Notificar truncado exitoso
         $msgTruncar = "🧹 *Tabla Semana truncada exitosamente*\n"
-                    . "Se eliminaron todos los registros de `tbl_segundometro_semana_prueba` después de copiar {$rowsCopied} registros al historial.\n"
+                    . "Se eliminaron todos los registros de `tbl_segundometro_semana` después de copiar {$rowsCopied} registros al historial.\n"
                     . "Fecha: {$fecha}\n"
                     . "Usuario: {$usuario}";
         self::enviarWebhook($webhookUrl, $msgTruncar);

@@ -471,9 +471,9 @@ class Segundometro extends Controller
                     html: '<div class="text-start">'
                         + '<p class="mb-2">Este proceso realizará las siguientes acciones:</p>'
                         + '<ol class="mb-2">'
-                        + '<li><strong>Copiar</strong> todos los registros de <code>tbl_segundometro_semana_prueba</code> a <code>tbl_segundometro_histo_prueba</code></li>'
+                        + '<li><strong>Copiar</strong> todos los registros de <code>tbl_segundometro_semana</code> a <code>tbl_segundometro_histo</code></li>'
                         + '<li><strong>Notificar</strong> el resultado a Google Chat</li>'
-                        + '<li><strong>Truncar</strong> (vaciar) la tabla <code>tbl_segundometro_semana_prueba</code></li>'
+                        + '<li><strong>Truncar</strong> (vaciar) la tabla <code>tbl_segundometro_semana</code></li>'
                         + '</ol>'
                         + '<p class="text-danger mb-0 small"><i class="fa fa-exclamation-triangle me-1"></i>Esta acción no se puede deshacer.</p>'
                         + '</div>',

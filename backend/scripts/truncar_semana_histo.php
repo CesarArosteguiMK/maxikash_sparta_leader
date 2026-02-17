@@ -3,9 +3,9 @@
  * Script: Copia Semana → Historial, notifica por webhook y trunca tabla Semana.
  *
  * Hace lo mismo que el botón "Truncar" del Shell Segundómetro:
- *   1. INSERT INTO tbl_segundometro_histo_prueba SELECT * FROM tbl_segundometro_semana_prueba
+ *   1. INSERT INTO tbl_segundometro_histo SELECT * FROM tbl_segundometro_semana
  *   2. Envía mensajes al webhook de Google Chat
- *   3. TRUNCATE TABLE tbl_segundometro_semana_prueba
+ *   3. TRUNCATE TABLE tbl_segundometro_semana
  *
  * Uso:
  *   - Doble clic en truncar_semana_histo.bat (Windows)
