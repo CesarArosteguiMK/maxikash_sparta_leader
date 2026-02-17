@@ -57,7 +57,7 @@
             <button type="button" class="btn btn-monitorear-segundometro ms-2" id="btnMonitorearSegundometro" title="Abrir panel con salida en vivo (al cerrar el panel se corta la conexión)">
                 <i class="fa fa-terminal me-2"></i>Monitorear
             </button>
-            <span class="ms-3 align-middle">
+            <span class="ms-3 align-middle" id="wrapLinkTruncarPrueba" style="display: none;">
                 <a href="#" id="linkTruncarModoPrueba" class="small text-muted" title="Habilita el botón Truncar para probar (sin restricción de horario). Recarga la página con ?truncar_test=1">Habilitar Truncar para pruebas</a>
             </span>
         </div>
