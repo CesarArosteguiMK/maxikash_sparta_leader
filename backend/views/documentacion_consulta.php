@@ -172,6 +172,10 @@
                         <button id="pdfVideosBtn" class="btn btn-sm btn-info" style="min-width: 44px; min-height: 44px;" title="Ver videos / audio de esta página">
                             <i class="fa fa-video"></i>
                         </button>
+                        <div style="width: 1px; height: 20px; background-color: rgba(255,255,255,0.3); display: none;" id="pdfDescargarFADSep"></div>
+                        <a id="pdfDescargarFADBtn" href="#" class="btn btn-sm btn-success" style="min-width: 44px; min-height: 44px; display: none; align-items: center; justify-content: center; text-decoration: none;" title="Descargar PDF FAD_DOC">
+                            <i class="fa fa-download"></i>
+                        </a>
                     </div>
                 </div>
 
@@ -1779,6 +1783,24 @@
             const tieneVideosEnPagina = Array.isArray(paginas) && paginas.indexOf(paginaActual) !== -1;
             btn.disabled = SIEMPRE_HABILITAR_BOTON_VIDEOS ? false : !tieneVideosEnPagina;
             btn.title = SIEMPRE_HABILITAR_BOTON_VIDEOS ? 'Ver videos / audio (siempre habilitado para pruebas)' : (tieneVideosEnPagina ? 'Ver videos / audio de esta página' : 'No hay videos en esta página');
+        }
+
+        function actualizarBotonDescargarFAD() {
+            const btn = document.getElementById('pdfDescargarFADBtn');
+            const sep = document.getElementById('pdfDescargarFADSep');
+            if (!btn || !sep) return;
+            const esFAD = typeof window.tipoDocumentoActual !== 'undefined' && window.tipoDocumentoActual === 'FAD_DOC';
+            const puedeDescargar = typeof window.tienePermisoDescargarPDFFAD_DOC !== 'undefined' && window.tienePermisoDescargarPDFFAD_DOC;
+            const idCredito = typeof window.idCreditoDocumentoActual !== 'undefined' ? window.idCreditoDocumentoActual : '';
+            if (esFAD && puedeDescargar && idCredito) {
+                btn.href = '/EstadoCuenta/descargarPdfFAD_DOC?id=' + encodeURIComponent(idCredito);
+                btn.style.display = 'flex';
+                sep.style.display = 'block';
+            } else {
+                btn.href = '#';
+                btn.style.display = 'none';
+                sep.style.display = 'none';
+            }
         }
 
         // Función para crear marcas de agua "SIN VALOR" en TODO el modal de PDF

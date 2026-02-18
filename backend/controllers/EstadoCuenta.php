@@ -733,11 +733,14 @@ JS;
         $modulosActuales = $idUsuario ? LoginDAO::getModulosUsuario($idUsuario) : [];
         $tienePermisoRegistrarDocumentos = in_array(21, $modulosActuales);
         $tienePermisoControlFAD_DOC = in_array(22, $modulosActuales);
+        $tienePermisoDescargarPDFFAD_DOC = in_array(24, $modulosActuales);
         $script = <<<JS
         <script>
             var tienePermisoRegistrarDocumentos = TienePermisoRegistrarDocumentos_PLACEHOLDER;
             var tienePermisoControlFAD_DOC = TienePermisoControlFAD_DOC_PLACEHOLDER;
+            var tienePermisoDescargarPDFFAD_DOC = TienePermisoDescargarPDFFAD_DOC_PLACEHOLDER;
             window.tienePermisoControlFAD_DOC = tienePermisoControlFAD_DOC;
+            window.tienePermisoDescargarPDFFAD_DOC = tienePermisoDescargarPDFFAD_DOC;
             document.addEventListener('DOMContentLoaded', () => {
 
                 const registroTipos = {
@@ -1223,6 +1226,7 @@ JS;
                                             window.paginasConMediaFAD_DOC = null;
                                             if (typeof actualizarBotonVideosMedia === 'function') actualizarBotonVideosMedia();
                                         }
+                                        if (typeof actualizarBotonDescargarFAD === 'function') actualizarBotonDescargarFAD();
                                         cargarPDFFactura(pdfUrl);
                                     } else {
                                         console.error('PDF.js no está cargado o la función cargarPDFFactura no existe');
@@ -2046,6 +2050,7 @@ JS;
         # -----------------------------
         $script = str_replace('TienePermisoRegistrarDocumentos_PLACEHOLDER', json_encode($tienePermisoRegistrarDocumentos), $script);
         $script = str_replace('TienePermisoControlFAD_DOC_PLACEHOLDER', json_encode($tienePermisoControlFAD_DOC), $script);
+        $script = str_replace('TienePermisoDescargarPDFFAD_DOC_PLACEHOLDER', json_encode($tienePermisoDescargarPDFFAD_DOC), $script);
         self::set("titulo", "Documentación");
         self::set("script", $script);
         return self::render("documentacion_consulta");
@@ -2813,6 +2818,50 @@ public function descargar()
             error_log("getPdfPathForFAD_DOC: " . $e->getMessage());
         }
         return null;
+    }
+
+    /**
+     * Descargar PDF FAD_DOC. Requiere permiso módulo 24 (Descargar PDF FAD_DOC).
+     * GET: id = id_credito
+     */
+    public function descargarPdfFAD_DOC()
+    {
+        $id = (int) ($_GET['id'] ?? 0);
+        if ($id <= 0) {
+            http_response_code(400);
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode(['success' => false, 'mensaje' => 'ID de crédito no válido']);
+            exit;
+        }
+        $idUsuario = (int) ($_SESSION['usuario_id'] ?? 0);
+        $modulos = $idUsuario ? LoginDAO::getModulosUsuario($idUsuario) : [];
+        if (!in_array(24, $modulos)) {
+            http_response_code(403);
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode(['success' => false, 'mensaje' => 'No tiene permiso para descargar el PDF FAD_DOC.']);
+            exit;
+        }
+        $info = $this->getPdfPathForFAD_DOC($id);
+        if (!$info || empty($info['path']) || !is_file($info['path'])) {
+            http_response_code(404);
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode(['success' => false, 'mensaje' => 'No se encontró el documento FAD_DOC para este crédito.']);
+            exit;
+        }
+        $path = $info['path'];
+        $nombre = basename($path);
+        if (ob_get_length()) {
+            ob_clean();
+        }
+        header('Content-Type: application/pdf');
+        header('Content-Disposition: attachment; filename="' . preg_replace('/[^\w\.\-]/', '_', $nombre) . '"');
+        header('Content-Length: ' . filesize($path));
+        header('Cache-Control: no-cache, must-revalidate');
+        readfile($path);
+        if (!empty($info['isTemp'])) {
+            @unlink($path);
+        }
+        exit;
     }
 
     /**
