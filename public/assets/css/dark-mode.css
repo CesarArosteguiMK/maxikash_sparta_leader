@@ -275,6 +275,26 @@ body.dark-mode .page-item.active .page-link {
 /* Inicio Maxikash (contenido dentro del template) */
 body.dark-mode .inicio-mkx .hero { background: linear-gradient(128deg, #0f172a 0%, #1e3a5f 50%, #1e40af 100%); box-shadow: 0 8px 32px rgba(0,0,0,.3); }
 body.dark-mode .inicio-mkx .hero::after { background: linear-gradient(to bottom, #c8d62b, #8fa010) !important; opacity: 1; }
+/* Reloj en modo oscuro: mismo efecto glass y verde que en modo claro */
+body.dark-mode .inicio-mkx .hero-datetime {
+  background: rgba(255,255,255,0.12) !important;
+  border-color: rgba(255,255,255,0.22) !important;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+body.dark-mode .inicio-mkx .hero-datetime-icon {
+  background: linear-gradient(135deg, rgba(200,214,43,0.45), rgba(200,214,43,0.2)) !important;
+  border-color: rgba(200,214,43,0.45) !important;
+  box-shadow: 0 2px 14px rgba(0,0,0,0.25), 0 0 16px 2px rgba(200,214,43,0.2), inset 0 1px 0 rgba(255,255,255,0.12) !important;
+}
+body.dark-mode .inicio-mkx .hero-datetime-icon i {
+  color: #C8D62B !important;
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.2));
+}
+body.dark-mode .inicio-mkx .hero-datetime-time,
+body.dark-mode .inicio-mkx .hero-datetime-date {
+  color: #fff !important;
+}
 body.dark-mode .inicio-mkx .qcard { background: #1e293b !important; border-color: #334155 !important; }
 body.dark-mode .inicio-mkx .qcard:hover { border-color: #475569; box-shadow: 0 14px 36px rgba(0,0,0,.25); }
 body.dark-mode .inicio-mkx .sec-line { background: #334155; }

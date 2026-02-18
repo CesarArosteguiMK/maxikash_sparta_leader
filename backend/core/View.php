@@ -446,6 +446,7 @@ html.dark-mode .navbar .text-muted{color:#94a3b8 !important;}
 </head>
 
 <body>
+    <script>(function(){var d=document,e=d.documentElement,b=d.body,v=localStorage.getItem('darkMode')==='enabled';if(v){e.classList.add('dark-mode');if(b)b.classList.add('dark-mode');}})();</script>
     <!-- Layout wrapper -->
     <div class="layout-wrapper layout-content-navbar">
         <div class="layout-container">

@@ -3,14 +3,27 @@
 * File include item demo only specific css only
 ******************************************************************************/
 
-/* Sidebar: nunca debe desbordar al área de contenido (evita logo grande en otros equipos) */
+/* Permitir que solo la flecha del menú sobresalga: contenedores sin recortar en el eje horizontal */
+.layout-wrapper:not(.layout-without-menu) {
+  overflow-x: visible;
+}
+/* Sidebar: cabecera fija; solo la lista hace scroll. overflow:visible para que SOLO la flecha pueda sobresalir (sin recorte) */
 #layout-menu.layout-menu {
-  overflow-x: hidden;
-  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  overflow: visible;
   max-width: 100%;
+}
+#layout-menu.layout-menu > hr,
+#layout-menu.layout-menu > .menu-inner-shadow {
+  flex-shrink: 0;
 }
 .layout-menu .menu-inner {
   position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 /* Iconos modernos modo oscuro / modo claro */
@@ -30,26 +43,45 @@ body.dark-mode .dropdown-item.dark-mode-toggle.active-dark i.fa-sun {
   color: #fbbf24;
 }
 
-/* Cabecera del menú: cajón justo al tamaño del logo */
+/* Cabecera del menú: el cajón es SOLO el logo; la flecha queda fuera del cajón para que resalte y no provoque scroll */
 .menu .app-brand.demo {
-  height: 72px;
   min-height: 72px;
-  max-height: 72px;
   margin-top: 8px;
-  overflow: hidden;
+  overflow: visible;
   flex-shrink: 0;
+  position: relative;
 }
+/* Logo: altura fija, sin cajón visual; la flecha queda en la orilla del menú (core: inset-inline-start 15.2rem) */
 .layout-menu .app-brand.demo .app-brand-link {
   display: flex;
   align-items: center;
-  min-height: 0;
+  min-height: 72px;
+  height: 72px;
+  max-height: 72px;
+  min-width: 0;
   overflow: hidden;
+  flex: 1;
 }
 .layout-menu .app-brand.demo .app-brand-text {
   flex: 1;
   min-width: 0;
   display: flex;
   align-items: center;
+}
+/* Botón flecha en la orilla del menú (usa core 15.2rem); centrado vertical y por encima del contenido */
+.layout-menu .app-brand .layout-menu-toggle {
+  z-index: 15;
+  top: 50%;
+  transform: translateY(-50%);
+  transition: filter 0.2s ease, box-shadow 0.2s ease;
+}
+/* Efecto hover al pasar el mouse por encima de la flecha */
+.layout-menu .app-brand .layout-menu-toggle:hover {
+  filter: brightness(1.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+.layout-menu .app-brand .layout-menu-toggle:hover i {
+  color: var(--bs-white);
 }
 .app-brand-logo.demo svg {
   width: 22px;
