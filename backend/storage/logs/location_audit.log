@@ -108,3 +108,5 @@
 {"type":"analytics","endpoint":"payments","id_credito":735641,"params":{"gestorId":null},"cache_hit":false,"timestamp":"2026-02-16T11:11:38-06:00","summary":{"total_pagos":53}}
 {"type":"analytics","endpoint":"payments","id_credito":1600,"params":{"gestorId":null},"cache_hit":false,"timestamp":"2026-02-16T11:12:37-06:00","summary":{"total_pagos":138}}
 {"type":"analytics","endpoint":"payments","id_credito":735641,"params":{"gestorId":null},"cache_hit":false,"timestamp":"2026-02-16T11:28:32-06:00","summary":{"total_pagos":53}}
+{"type":"analytics","endpoint":"payments","id_credito":735641,"params":{"gestorId":null},"cache_hit":false,"timestamp":"2026-02-18T04:59:32-06:00","summary":{"total_pagos":53}}
+{"type":"analytics","endpoint":"spatial","id_credito":735641,"params":{"gestorId":null},"cache_hit":false,"timestamp":"2026-02-18T05:03:42-06:00","summary":[]}
