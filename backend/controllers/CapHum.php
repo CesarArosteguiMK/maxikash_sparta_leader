@@ -857,14 +857,17 @@ class CapHum extends Controller
             const iconosPermisosEspeciales = {
                 21: 'fa fa-file-upload',
                 22: 'fa fa-cloud-download',
-                23: 'fa fa-calendar-alt'
+                23: 'fa fa-calendar-alt',
+                24: 'fa fa-file-pdf',
+                '24': 'fa fa-file-pdf'
             };
             function crearFilaModulo(mod) {
                 const tr = document.createElement('tr');
                 const tdName = document.createElement('td');
                 tdName.className = 'fw-medium text-heading';
                 tdName.style.paddingLeft = '1.5rem';
-                const iconClass = iconosPermisosEspeciales[mod.modulo_id];
+                const modId = mod.modulo_id != null ? mod.modulo_id : mod.id;
+                const iconClass = iconosPermisosEspeciales[modId] || iconosPermisosEspeciales[Number(modId)];
                 if (iconClass) {
                     const icon = document.createElement('i');
                     icon.className = iconClass + ' me-2';
@@ -883,7 +886,7 @@ class CapHum extends Controller
                 }
                 const desc = document.createElement('small');
                 desc.className = 'text-muted d-block fs-7 mt-1';
-                desc.style.marginLeft = iconosPermisosEspeciales[mod.modulo_id] ? '1.75rem' : '0';
+                desc.style.marginLeft = iconClass ? '1.75rem' : '0';
                 desc.innerText = mod.descripcion ?? '';
                 tdName.appendChild(desc);
                 const tdCheck = document.createElement('td');

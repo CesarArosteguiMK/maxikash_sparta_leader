@@ -117,11 +117,11 @@ document.addEventListener('DOMContentLoaded', function() {
     <div class="card">
         <div class="card-body">
             <form method="post" class="row g-3 align-items-end" autocomplete="off">
-                <div class="col-md-6">
+                <div class="col-12 col-md-6">
                     <label for="idCredito" class="form-label">ID de crédito (oferta)</label>
                     <input type="text" class="form-control" id="idCredito" name="idCredito" value="" placeholder="Ej.: 737196" autocomplete="off">
                 </div>
-                <div class="col-md-6">
+                <div class="col-12 col-md-6">
                     <label for="tipoDocumento" class="form-label">Tipo de documento</label>
                     <select class="form-select" id="tipoDocumento" name="tipoDocumento">
                         <option value="">Selecciona un documento</option>

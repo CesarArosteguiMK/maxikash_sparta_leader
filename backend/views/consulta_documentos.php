@@ -31,10 +31,8 @@
         <div class="card-body">
             <form id="formConsulta">
 
-                <div class="row g-3">
-
-                    <!-- ID Crédito -->
-                    <div class="col-md-6">
+                <div class="row g-3 align-items-end">
+                    <div class="col-12 col-md-6">
                         <label class="form-label">ID Crédito</label>
                         <div class="input-group input-group-merge">
                             <input type="text" class="form-control" id="idDocumento"
@@ -43,9 +41,7 @@
                             <span class="input-group-text"><i class="fa fa-hashtag"></i></span>
                         </div>
                     </div>
-
-                    <!-- Tipo de documento -->
-                    <div class="col-md-6">
+                    <div class="col-12 col-md-6">
                         <label class="form-label">Tipo de Documento</label>
                         <div class="input-group input-group-merge">
                             <select id="tipoDocumento" class="form-select" required>
@@ -57,13 +53,11 @@
                             <span class="input-group-text"><i class="fa fa-file"></i></span>
                         </div>
                     </div>
-
                     <div class="col-12">
                         <button class="btn btn-outline-primary w-100 mt-2" type="submit">
                             Buscar Documento
                         </button>
                     </div>
-
                 </div>
             </form>
         </div>

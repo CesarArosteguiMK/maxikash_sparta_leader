@@ -19,6 +19,8 @@ class Inicio extends Controller
     {
         $this->validarActualizacionPassword();
         if (self::esUsuarioDashboardMaxikash()) {
+            require_once dirname(__DIR__) . '/config/menu_accesos_inicio.php';
+            $this->set('accesosRapidos', getAccesosRapidosDesdeModulos());
             self::render("inicio___SPARTA_SECRET_REDACTED___contenido", false);
             return;
         }

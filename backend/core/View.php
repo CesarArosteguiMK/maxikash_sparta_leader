@@ -270,7 +270,7 @@ function getMenu()
         $menu .= <<<HTML
             <li class="menu-item $abierto">
                 <a href="javascript:void(0);" class="menu-link menu-toggle">
-                    <i class="{$item['icono']} me-2"></i>
+                    <i class="menu-icon {$item['icono']}"></i>
                     <div>$key</div>
                 </a>
                 <ul class="menu-sub">
@@ -424,16 +424,6 @@ function getMenu()
 
                     <div class="navbar-nav-right d-flex align-items-center" id="navbar-collapse">
                         <ul class="navbar-nav flex-row align-items-center ms-auto">
-                            <!-- Hora y fecha -->
-                            <li class="nav-item me-3">
-                                <div class="navbar-datetime">
-                                    <span class="navbar-datetime-icon"><i class="fa-regular fa-clock"></i></span>
-                                    <div>
-                                        <div class="navbar-datetime-time" id="navbarTime">--:--</div>
-                                        <div class="navbar-datetime-date" id="navbarDate">--</div>
-                                    </div>
-                                </div>
-                            </li>
                             <!-- User Panel -->
                             <li class="nav-item navbar-dropdown dropdown-user dropdown">
                                 <a
@@ -813,20 +803,6 @@ function getMenu()
                 subtree: true
             });
 
-            // Hora y fecha en navbar (actualización cada minuto)
-            function updateNavbarDateTime() {
-                var elTime = document.getElementById('navbarTime');
-                var elDate = document.getElementById('navbarDate');
-                if (!elTime || !elDate) return;
-                var n = new Date();
-                var h = n.getHours(), m = n.getMinutes();
-                elTime.textContent = (h < 10 ? '0' : '') + h + ':' + (m < 10 ? '0' : '') + m;
-                var d = n.getDate(), mes = n.getMonth();
-                var meses = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
-                elDate.textContent = d + ' ' + meses[mes];
-            }
-            updateNavbarDateTime();
-            setInterval(updateNavbarDateTime, 60000);
         });
     </script>
 
