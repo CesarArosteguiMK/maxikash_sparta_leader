@@ -2,8 +2,13 @@
  * ==========================================
  * DARK MODE STYLES (tema slate/azul, alineado con inicio)
  * ==========================================
- * Aplicado con la clase .dark-mode en body
+ * Aplicado con la clase .dark-mode en body (o en html para evitar flash al cargar)
  */
+
+/* Evitar flash blanco: si html tiene dark-mode antes de pintar body, el fondo ya es oscuro */
+html.dark-mode body {
+    background-color: #0f172a !important;
+}
 
 /* ==========================================
    VARIABLES Y COLORES BASE (tema slate)
@@ -269,24 +274,13 @@ body.dark-mode .page-item.active .page-link {
 
 /* Inicio Maxikash (contenido dentro del template) */
 body.dark-mode .inicio-mkx .hero { background: linear-gradient(128deg, #0f172a 0%, #1e3a5f 50%, #1e40af 100%); box-shadow: 0 8px 32px rgba(0,0,0,.3); }
+body.dark-mode .inicio-mkx .hero::after { background: linear-gradient(to bottom, #c8d62b, #8fa010) !important; opacity: 1; }
 body.dark-mode .inicio-mkx .qcard { background: #1e293b !important; border-color: #334155 !important; }
 body.dark-mode .inicio-mkx .qcard:hover { border-color: #475569; box-shadow: 0 14px 36px rgba(0,0,0,.25); }
 body.dark-mode .inicio-mkx .sec-line { background: #334155; }
 /* Iconos de accesos rápidos en modo oscuro: fondos suaves y iconos más vivos */
-body.dark-mode .inicio-mkx .qico.bg-blue { background: rgba(59, 130, 246, 0.22) !important; }
-body.dark-mode .inicio-mkx .qico.bg-blue i { color: #93c5fd !important; }
-body.dark-mode .inicio-mkx .qico.bg-green { background: rgba(34, 197, 94, 0.22) !important; }
-body.dark-mode .inicio-mkx .qico.bg-green i { color: #86efac !important; }
-body.dark-mode .inicio-mkx .qico.bg-orange { background: rgba(249, 115, 22, 0.22) !important; }
-body.dark-mode .inicio-mkx .qico.bg-orange i { color: #fdba74 !important; }
-body.dark-mode .inicio-mkx .qico.bg-purple { background: rgba(124, 58, 237, 0.22) !important; }
-body.dark-mode .inicio-mkx .qico.bg-purple i { color: #c4b5fd !important; }
-body.dark-mode .inicio-mkx .qico.bg-red { background: rgba(239, 68, 68, 0.22) !important; }
-body.dark-mode .inicio-mkx .qico.bg-red i { color: #fca5a5 !important; }
-body.dark-mode .inicio-mkx .qico.bg-teal { background: rgba(13, 148, 136, 0.22) !important; }
-body.dark-mode .inicio-mkx .qico.bg-teal i { color: #5eead4 !important; }
-body.dark-mode .inicio-mkx .qico.bg-yellow { background: rgba(202, 138, 4, 0.25) !important; }
-body.dark-mode .inicio-mkx .qico.bg-yellow i { color: #fde047 !important; }
+body.dark-mode .inicio-mkx .qico { background: rgba(255,255,255,0.08) !important; }
+body.dark-mode .inicio-mkx .qico i { color: rgba(255,255,255,0.87) !important; }
 
 /* ==========================================
    FORMULARIOS
@@ -350,6 +344,21 @@ body.dark-mode .form-control-plaintext {
 
 body.dark-mode textarea.form-control {
     color: #e0e0e0 !important;
+}
+
+/* Autocompletado/autofill del navegador: forzar texto y fondo visibles en modo oscuro */
+body.dark-mode .form-control:-webkit-autofill,
+body.dark-mode .form-control:-webkit-autofill:hover,
+body.dark-mode .form-control:-webkit-autofill:focus,
+body.dark-mode .form-control:-webkit-autofill:active,
+body.dark-mode .form-select:-webkit-autofill,
+body.dark-mode .form-select:-webkit-autofill:hover,
+body.dark-mode .form-select:-webkit-autofill:focus {
+    -webkit-text-fill-color: #f1f5f9 !important;
+    -webkit-box-shadow: 0 0 0 1000px #1e293b inset !important;
+    box-shadow: 0 0 0 1000px #1e293b inset !important;
+    caret-color: #f1f5f9 !important;
+    transition: background-color 5000s ease-in-out 0s, color 5000s ease-in-out 0s !important;
 }
 
 body.dark-mode input[type="text"],
@@ -1621,6 +1630,13 @@ body.dark-mode .modal-title {
 body.dark-mode *::before,
 body.dark-mode *::after {
     background-image: none !important;
+}
+
+/* Excepción: barra inferior (gradiente) de tarjetas de accesos rápidos */
+body.dark-mode .inicio-mkx .qcard::after,
+body.dark-mode .qcard::after {
+    background: linear-gradient(90deg, #3b82f6, #22c55e) !important;
+    background-image: linear-gradient(90deg, #3b82f6, #22c55e) !important;
 }
 
 /* Asegurar que divs, sections y containers no tengan gradientes */
@@ -3223,6 +3239,32 @@ body:not(.dark-mode) .timeline-item::before {
    SABUESO PANEL ADMIN - MODAL RASTREO
    ========================================== */
 
+/* En modo oscuro: backdrop no intercepta clics, menos opaco (quitar sensación de neblina) */
+body.dark-mode .modal-backdrop,
+body.dark-mode .modal-backdrop.show {
+    z-index: 1000 !important;
+    pointer-events: none !important;
+    opacity: 0.25 !important;
+    background-color: rgba(0,0,0,0.25) !important;
+}
+/* Scrim entre modales (al abrir Resumen analítico): menos opaco y no bloquear clics */
+body.dark-mode .modal-scrim,
+body.dark-mode .scrim-entre-modales,
+body.dark-mode #scrim-entre-modal-padre-hijo,
+body.dark-mode .scrim {
+    opacity: 0.25 !important;
+    background: rgba(0,0,0,0.25) !important;
+    pointer-events: none !important;
+}
+body.dark-mode .modal,
+body.dark-mode .modal.show {
+    z-index: 9999 !important;
+}
+body.dark-mode .modal.show .modal-dialog {
+    z-index: 1;
+    pointer-events: auto;
+}
+
 /* Modal general */
 body.dark-mode #modalRastreoCredito .modal-content {
     background-color: #1a1a1a !important;
@@ -3317,11 +3359,12 @@ body.dark-mode #modalRastreoCredito .rastreo-tickets-cell .credito-modal-list {
     color: #9ec5fe !important;
 }
 
-/* Tarjetas principales - Direcciones, Gestiones, Evidencias, Bitácora */
+/* Tarjetas principales - Direcciones, Gestiones, Evidencias, Bitácora, Dictamen */
 body.dark-mode #modalRastreoCredito .rastreo-seccion-direcciones,
 body.dark-mode #modalRastreoCredito .rastreo-seccion-gestiones,
 body.dark-mode #modalRastreoCredito .rastreo-seccion-evidencias,
-body.dark-mode #modalRastreoCredito .rastreo-seccion-bitacora {
+body.dark-mode #modalRastreoCredito .rastreo-seccion-bitacora,
+body.dark-mode #modalRastreoCredito .rastreo-seccion-dictamen {
     background-color: #252525 !important;
     border-color: #3a3a3a !important;
     border-top-color: #6ea8fe !important;
@@ -3331,7 +3374,8 @@ body.dark-mode #modalRastreoCredito .rastreo-seccion-bitacora {
 body.dark-mode #modalRastreoCredito .rastreo-seccion-direcciones:hover,
 body.dark-mode #modalRastreoCredito .rastreo-seccion-gestiones:hover,
 body.dark-mode #modalRastreoCredito .rastreo-seccion-evidencias:hover,
-body.dark-mode #modalRastreoCredito .rastreo-seccion-bitacora:hover {
+body.dark-mode #modalRastreoCredito .rastreo-seccion-bitacora:hover,
+body.dark-mode #modalRastreoCredito .rastreo-seccion-dictamen:hover {
     box-shadow: 0 14px 20px -3px rgba(0,0,0,0.6) !important;
 }
 
@@ -3357,6 +3401,7 @@ body.dark-mode #modalRastreoCredito .rastreo-seccion-direcciones i[class*="fa-"]
 body.dark-mode #modalRastreoCredito .rastreo-seccion-gestiones i[class*="fa-"],
 body.dark-mode #modalRastreoCredito .rastreo-seccion-evidencias i[class*="fa-"],
 body.dark-mode #modalRastreoCredito .rastreo-seccion-bitacora > .d-flex.mb-2 i[class*="fa-"],
+body.dark-mode #modalRastreoCredito .rastreo-seccion-dictamen > .d-flex.mb-2 i[class*="fa-"],
 body.dark-mode #modalRastreoCredito .rastreo-tickets-cell i[class*="fa-"],
 body.dark-mode #modalRastreoCredito .rastreo-header-right i[class*="fa-user"] {
     color: #6ea8fe !important;
@@ -3366,7 +3411,8 @@ body.dark-mode #modalRastreoCredito .rastreo-header-right i[class*="fa-user"] {
 body.dark-mode #modalRastreoCredito .rastreo-seccion-direcciones > .d-flex.mb-2,
 body.dark-mode #modalRastreoCredito .rastreo-seccion-gestiones > .d-flex.mb-2,
 body.dark-mode #modalRastreoCredito .rastreo-seccion-evidencias > .d-flex.mb-2,
-body.dark-mode #modalRastreoCredito .rastreo-seccion-bitacora > .d-flex.mb-2 {
+body.dark-mode #modalRastreoCredito .rastreo-seccion-bitacora > .d-flex.mb-2,
+body.dark-mode #modalRastreoCredito .rastreo-seccion-dictamen > .d-flex.mb-2 {
     color: #e0e0e0 !important;
     border-bottom-color: #3a3a3a !important;
 }
@@ -3374,7 +3420,8 @@ body.dark-mode #modalRastreoCredito .rastreo-seccion-bitacora > .d-flex.mb-2 {
 body.dark-mode #modalRastreoCredito .rastreo-seccion-direcciones > .d-flex.mb-2 .fw-semibold.small.text-muted,
 body.dark-mode #modalRastreoCredito .rastreo-seccion-gestiones > .d-flex.mb-2 .fw-semibold.small.text-muted,
 body.dark-mode #modalRastreoCredito .rastreo-seccion-evidencias > .d-flex.mb-2 .fw-semibold.small.text-muted,
-body.dark-mode #modalRastreoCredito .rastreo-seccion-bitacora > .d-flex.mb-2 .fw-semibold.small.text-muted {
+body.dark-mode #modalRastreoCredito .rastreo-seccion-bitacora > .d-flex.mb-2 .fw-semibold.small.text-muted,
+body.dark-mode #modalRastreoCredito .rastreo-seccion-dictamen > .d-flex.mb-2 .fw-semibold.small.text-muted {
     color: #e0e0e0 !important;
 }
 
@@ -3456,6 +3503,26 @@ body.dark-mode #modalRastreoCredito #rastreoBitacoraInput::placeholder {
 body.dark-mode #modalRastreoCredito #rastreoBitacoraInput:focus {
     border-color: #6ea8fe !important;
     box-shadow: 0 0 0 3px rgba(110,168,254,0.25) !important;
+}
+
+/* Contenido e input de Dictamen */
+body.dark-mode #modalRastreoCredito #rastreoDictamenContenido {
+    color: #e0e0e0 !important;
+}
+body.dark-mode #modalRastreoCredito #rastreoDictamenInput {
+    background-color: #303030 !important;
+    border-color: #3a3a3a !important;
+    color: #e0e0e0 !important;
+}
+body.dark-mode #modalRastreoCredito #rastreoDictamenInput::placeholder {
+    color: #8a8a94 !important;
+}
+body.dark-mode #modalRastreoCredito #rastreoDictamenInput:focus {
+    border-color: #6ea8fe !important;
+    box-shadow: 0 0 0 3px rgba(110,168,254,0.25) !important;
+}
+body.dark-mode #modalRastreoCredito .rastreo-seccion-dictamen {
+    border-top-color: #6ea8fe !important;
 }
 
 /* Slots de evidencias */
@@ -3587,6 +3654,176 @@ body.dark-mode .credito-modal-list {
 
 body.dark-mode .credito-modal-item .fw-medium {
     color: #b8b8c1 !important;
+}
+
+/* Modal Resumen analítico (#modalPrediccionIA con contenido analitica-ia) */
+body.dark-mode #modalPrediccionIA .modal-content {
+    background-color: #1a1a1a !important;
+    border-color: #3a3a3a !important;
+}
+body.dark-mode #modalPrediccionIA .modal-header,
+body.dark-mode #modalPrediccionIA .modal-header-analitica-ia {
+    background: linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%) !important;
+    border-bottom-color: rgba(255,255,255,0.12) !important;
+}
+body.dark-mode #modalPrediccionIA .modal-title,
+body.dark-mode #modalPrediccionIA .modal-title i { color: #fff !important; }
+body.dark-mode #modalPrediccionIA .modal-body {
+    background-color: #1a1a1a !important;
+    color: #e0e0e0 !important;
+}
+body.dark-mode #modalPrediccionIA #modalPrediccionIABody .analitica-ia-container,
+body.dark-mode #modalPrediccionIABody .analitica-ia-container {
+    background: linear-gradient(180deg, #252525 0%, #1a1a1a 100%) !important;
+}
+body.dark-mode #modalPrediccionIA .analitica-ia-container--modal .analitica-ia-header {
+    background: linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%) !important;
+    color: #fff !important;
+}
+body.dark-mode #modalPrediccionIA .analitica-ia-container--modal .analitica-ia-card {
+    background-color: #252525 !important;
+    border-color: #3a3a3a !important;
+    color: #e0e0e0 !important;
+}
+body.dark-mode #modalPrediccionIA .analitica-ia-container--modal .analitica-ia-metric-card {
+    background-color: #252525 !important;
+    border-color: #3a3a3a !important;
+    color: #e0e0e0 !important;
+}
+body.dark-mode #modalPrediccionIA .analitica-ia-container--modal .analitica-ia-summary-box {
+    background-color: #252525 !important;
+    border-color: #3a3a3a !important;
+    color: #e0e0e0 !important;
+}
+body.dark-mode #modalPrediccionIA .analitica-ia-metric-title,
+body.dark-mode #modalPrediccionIA .analitica-ia-metric-content,
+body.dark-mode #modalPrediccionIA .analitica-ia-metric-content p {
+    color: #e0e0e0 !important;
+}
+body.dark-mode #modalPrediccionIA .analitica-ia-nota-sin-ia {
+    color: #b8b8c1 !important;
+    background: rgba(255,255,255,0.08) !important;
+    border-left-color: #6ea8fe !important;
+}
+body.dark-mode #modalPrediccionIA .analitica-ia-nota-sin-ia strong { color: #e0e0e0 !important; }
+body.dark-mode #modalPrediccionIA .analitica-ia-confidence-badge {
+    color: #fff !important;
+}
+body.dark-mode #modalPrediccionIA .btn-close {
+    filter: invert(1) grayscale(100%) brightness(200%);
+}
+
+/* Resumen Ejecutivo: caja con texto */
+body.dark-mode #modalPrediccionIA .analitica-ia-summary-box,
+#modalPrediccionIABody.analitica-ia-resumen-dark .analitica-ia-summary-box {
+    background: #252525 !important;
+    background-image: none !important;
+    border-left-color: #6ea8fe !important;
+    color: #e0e0e0 !important;
+}
+body.dark-mode #modalPrediccionIA .analitica-ia-summary-box p,
+#modalPrediccionIABody.analitica-ia-resumen-dark .analitica-ia-summary-box p {
+    color: #e0e0e0 !important;
+}
+body.dark-mode #modalPrediccionIA .analitica-ia-summary-box .highlight,
+#modalPrediccionIABody.analitica-ia-resumen-dark .analitica-ia-summary-box .highlight {
+    color: #93c5fd !important;
+}
+#modalPrediccionIABody.analitica-ia-resumen-dark .analitica-ia-summary-box strong {
+    color: #f1f5f9 !important;
+}
+
+/* Anomalía detectada y Gestor con mayor incumplimiento */
+body.dark-mode #modalPrediccionIA .analitica-ia-anomaly-box {
+    background-color: #303030 !important;
+    border-color: #3a3a3a !important;
+    border-left-color: #f87171 !important;
+    color: #e0e0e0 !important;
+}
+body.dark-mode #modalPrediccionIA .analitica-ia-anomaly-box .icon {
+    color: #fca5a5 !important;
+}
+body.dark-mode #modalPrediccionIA .analitica-ia-anomaly-box > p {
+    color: #e0e0e0 !important;
+}
+body.dark-mode #modalPrediccionIA .analitica-ia-gestor-detail,
+body.dark-mode #modalPrediccionIA #modalPrediccionIABody .analitica-ia-gestor-detail {
+    background-color: #252525 !important;
+    border-color: #3a3a3a !important;
+    color: #e0e0e0 !important;
+}
+body.dark-mode #modalPrediccionIA .analitica-ia-gestor-detail p {
+    color: #e0e0e0 !important;
+}
+body.dark-mode #modalPrediccionIA .analitica-ia-gestor-detail strong {
+    color: #f1f5f9 !important;
+}
+
+/* Acciones Recomendadas (Alta, Media, Baja) */
+body.dark-mode #modalPrediccionIA .analitica-ia-actions-section,
+body.dark-mode #modalPrediccionIA .analitica-ia-actions-title {
+    color: #e0e0e0 !important;
+}
+body.dark-mode #modalPrediccionIA .analitica-ia-action-item {
+    background-color: #252525 !important;
+    border-color: #3a3a3a !important;
+    color: #e0e0e0 !important;
+}
+body.dark-mode #modalPrediccionIA .analitica-ia-action-item:hover {
+    border-color: #6ea8fe !important;
+}
+body.dark-mode #modalPrediccionIA .analitica-ia-action-content p {
+    color: #e0e0e0 !important;
+}
+body.dark-mode #modalPrediccionIA .analitica-ia-priority-alta {
+    background: rgba(248,113,113,0.25) !important;
+    color: #fca5a5 !important;
+}
+body.dark-mode #modalPrediccionIA .analitica-ia-priority-media {
+    background: rgba(253,224,71,0.2) !important;
+    color: #fde047 !important;
+}
+body.dark-mode #modalPrediccionIA .analitica-ia-priority-baja {
+    background: rgba(147,197,253,0.2) !important;
+    color: #93c5fd !important;
+}
+
+/* Mensajes Sugeridos (SMS, etc.) */
+body.dark-mode #modalPrediccionIA .analitica-ia-messages-section .analitica-ia-actions-title {
+    color: #e0e0e0 !important;
+}
+body.dark-mode #modalPrediccionIA .analitica-ia-message-card {
+    background-color: #252525 !important;
+    border-color: #3a3a3a !important;
+    color: #e0e0e0 !important;
+}
+body.dark-mode #modalPrediccionIA .analitica-ia-message-header {
+    border-bottom-color: #3a3a3a !important;
+}
+body.dark-mode #modalPrediccionIA .analitica-ia-message-type {
+    color: #93c5fd !important;
+}
+body.dark-mode #modalPrediccionIA .analitica-ia-message-priority {
+    color: #94a3b8 !important;
+}
+body.dark-mode #modalPrediccionIA .analitica-ia-message-content {
+    color: #e0e0e0 !important;
+}
+
+/* Barras de progreso y datos faltantes en dark */
+body.dark-mode #modalPrediccionIA .analitica-ia-progress-bar-container {
+    background-color: #3a3a3a !important;
+}
+body.dark-mode #modalPrediccionIA .analitica-ia-missing-data {
+    background-color: #303030 !important;
+    border-left-color: #f59e0b !important;
+}
+body.dark-mode #modalPrediccionIA .analitica-ia-missing-data h3,
+body.dark-mode #modalPrediccionIA .analitica-ia-missing-data li {
+    color: #e0e0e0 !important;
+}
+body.dark-mode #modalPrediccionIA .analitica-ia-footer-note {
+    color: #94a3b8 !important;
 }
 
 /* Modal Lectura IA */

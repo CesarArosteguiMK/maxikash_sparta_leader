@@ -1,3 +1,13 @@
+<style>
+    /* Card con esquinas más redondeadas (igual que Estado de cuenta) */
+    .documentacion-card.card {
+        border-radius: 1rem;
+    }
+    .documentacion-card .card-body {
+        border-radius: 0 0 1rem 1rem;
+    }
+</style>
+
 <div class="container py-4">
 
     <!-- Título -->
@@ -9,7 +19,7 @@
     </div>
 
     <!-- Card principal -->
-    <div class="card">
+    <div class="card documentacion-card">
 
         <!-- Filtros -->
         <div class="row justify-content-between m-4">

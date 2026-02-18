@@ -88,6 +88,7 @@ class Empresa extends Model
                SELECT 
             o.id_oferta AS id_credito,
             CONCAT(p.primer_nombre, ' ', p.apellido_paterno, ' ', p.apellido_materno) AS nombre_completo,
+            COALESCE(p.rfc, '') AS rfc,
             CONCAT(
                 COALESCE(p2.nombre_referencia1,''), ' ',
                 COALESCE(p2.apellido_paterno_referencia1,''), ' ',

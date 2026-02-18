@@ -1308,6 +1308,10 @@ body:not(.dark-mode) .btn-notas:hover {
                                     onclick="abrirModalDirecciones()">
                                 Direcciones
                             </button>
+                            <span class="text-nowrap">
+                                <i class="fa fa-id-card text-primary"></i>
+                                RFC: <?= htmlspecialchars(trim($referencias['datos'][0]['rfc'] ?? '') ?: '—') ?>
+                            </span>
                         </small>
                     </div>
                 </div>

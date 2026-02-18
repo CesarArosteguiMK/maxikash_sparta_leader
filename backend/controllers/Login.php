@@ -4,6 +4,7 @@ namespace Controllers;
 
 use Core\Controller;
 use Models\Login as LoginDao;
+use Models\Perfil as PerfilDao;
 
 class login extends Controller
 {
@@ -140,9 +141,13 @@ class login extends Controller
             // 🔐 MÓDULOS PERMITIDOS
             $_SESSION['modulos'] = LoginDao::getModulosUsuario($datos['id']);
 
-            $_SESSION['foto_perfil'] = !empty($datos['FOTO'])
-                ? "/CapHum/getFotoPersona?personaId={$datos['FOTO']}"
-                : "/assets/img/misc/user.svg";
+            $_SESSION['foto_perfil'] = "/assets/img/misc/user.svg";
+            $perfil = PerfilDao::getByPersonaId($datos['id']);
+            if ($perfil && !empty($perfil['foto'])) {
+                $_SESSION['foto_perfil'] = $perfil['foto'];
+            } elseif (!empty($datos['FOTO'])) {
+                $_SESSION['foto_perfil'] = "/CapHum/getFotoPersona?personaId={$datos['FOTO']}";
+            }
 
             $respuesta = self::respuesta(true, 'Bienvenido', [
                 'url' => '/' . VISTA_DEFECTO

@@ -11,7 +11,7 @@ function getMenu()
 
     $menuItems = [
             'Créditos' => [
-                    'icono' => 'fa-solid fa-usd',
+                    'icono' => 'fa-solid fa-sack-dollar',
                     'subItems' => [
                             [
                                     'label' => 'Estados de Cuenta',
@@ -266,9 +266,11 @@ function getMenu()
         if ($submenu === '') continue;
 
         $abierto = strpos($submenu, 'active') !== false ? 'active open' : '';
+        $keyNorm = str_replace(['á','é','í','ó','ú','ñ','Á','É','Í','Ó','Ú','Ñ','ü','Ü'], ['a','e','i','o','u','n','a','e','i','o','u','n','u','u'], $key);
+        $slug = 'menu-' . strtolower(trim(preg_replace('/[^a-z0-9]+/i', '-', $keyNorm), '-'));
 
         $menu .= <<<HTML
-            <li class="menu-item $abierto">
+            <li class="menu-item $slug $abierto">
                 <a href="javascript:void(0);" class="menu-link menu-toggle">
                     <i class="menu-icon {$item['icono']}"></i>
                     <div>$key</div>
@@ -297,6 +299,44 @@ function getMenu()
     data-style="light">
 
 <head>
+    <style id="dark-mode-critical">html.dark-mode body{background-color:#0f172a !important;}
+html.dark-mode .layout-wrapper,html.dark-mode .layout-container,html.dark-mode .content-wrapper,html.dark-mode .layout-page,html.dark-mode .container-xxl,html.dark-mode .container-fluid,html.dark-mode .container{background-color:transparent !important;}
+html.dark-mode .layout-navbar{background-color:rgba(30,41,59,.95) !important;border-bottom:1px solid #334155 !important;}
+html.dark-mode .navbar{background-color:transparent !important;}
+html.dark-mode .navbar .nav-link{color:#f1f5f9 !important;}
+html.dark-mode .layout-menu,html.dark-mode .menu,html.dark-mode .menu-inner,html.dark-mode .app-brand{background-color:#1e293b !important;}
+html.dark-mode .menu-item .menu-link{color:#94a3b8 !important;}
+html.dark-mode .menu-item .menu-link:hover{background-color:#334155 !important;color:#93c5fd !important;}
+html.dark-mode .card,html.dark-mode .documentacion-card,html.dark-mode .estado-cuenta-card{background-color:#1e293b !important;color:#f1f5f9 !important;border-color:#334155 !important;}
+html.dark-mode .card-body,html.dark-mode .card-header,html.dark-mode .card-footer{background-color:#1e293b !important;color:#f1f5f9 !important;border-color:#334155 !important;}
+html.dark-mode .card-header{background-color:#334155 !important;}
+html.dark-mode .card-footer{background-color:#334155 !important;}
+html.dark-mode .form-control,html.dark-mode .form-select{background-color:#1e293b !important;color:#f1f5f9 !important;border-color:#334155 !important;}
+html.dark-mode .form-label,html.dark-mode .form-check-label{color:#e0e0e0 !important;}
+html.dark-mode .form-check-input{background-color:#252525 !important;border-color:#3a3a3a !important;}
+html.dark-mode .input-group-text{background-color:#303030 !important;border-color:#3a3a3a !important;color:#e0e0e0 !important;}
+html.dark-mode .btn-outline-secondary{color:#94a3b8 !important;border-color:#475569 !important;}
+html.dark-mode .btn-outline-secondary:hover{background-color:#334155 !important;color:#f1f5f9 !important;border-color:#475569 !important;}
+html.dark-mode .btn-outline-primary{color:#93c5fd !important;border-color:#3b82f6 !important;}
+html.dark-mode .btn-outline-primary:hover{background-color:#1e40af !important;color:#fff !important;border-color:#3b82f6 !important;}
+html.dark-mode .inicio-mkx .hero{background:linear-gradient(128deg,#0f172a 0%,#1e3a5f 50%,#1e40af 100%) !important;}
+html.dark-mode .inicio-mkx .hero-desc{color:rgba(255,255,255,.85) !important;}
+html.dark-mode .inicio-mkx .hero-title{color:#fff !important;}
+html.dark-mode .inicio-mkx .hero-badge{color:#c8d62b !important;}
+html.dark-mode .inicio-mkx .hero-datetime{background:rgba(255,255,255,0.1) !important;border-color:rgba(255,255,255,0.2) !important;}
+html.dark-mode .inicio-mkx .hero-datetime-time,html.dark-mode .inicio-mkx .hero-datetime-date{color:#fff !important;}
+html.dark-mode .inicio-mkx .sec-txt{color:#e0e0e0 !important;}
+html.dark-mode .inicio-mkx .sec-line{background:#334155 !important;}
+html.dark-mode .inicio-mkx .qcard{background:#1e293b !important;border-color:#334155 !important;color:#f1f5f9 !important;}
+html.dark-mode .inicio-mkx .qcard:hover{border-color:#475569 !important;}
+html.dark-mode .inicio-mkx .qcard .qico{background:rgba(255,255,255,0.08) !important;}
+html.dark-mode .inicio-mkx .qcard .qico i{color:rgba(255,255,255,.87) !important;}
+html.dark-mode .inicio-mkx .qcard .qt{color:#f1f5f9 !important;}
+html.dark-mode .inicio-mkx .qcard .qd{color:rgba(241,245,249,.85) !important;}
+html.dark-mode .navbar .dropdown .dropdown-toggle,html.dark-mode .navbar h6{color:#f1f5f9 !important;}
+html.dark-mode .navbar .text-muted{color:#94a3b8 !important;}
+</style>
+    <script>(function(){if(localStorage.getItem('darkMode')==='enabled')document.documentElement.classList.add('dark-mode');})();</script>
     <meta charset="utf-8" />
     <meta
         name="viewport"
@@ -369,6 +409,26 @@ function getMenu()
     <!-- Page CSS -->
     <?= $css ?? ''; ?>
 
+    <!-- Iconos del menú lateral en blanco y negro (mismo color para todos) -->
+    <style>
+    .layout-menu .menu-inner > .menu-item .menu-link .menu-icon { color: var(--bs-body-color, #697a8d) !important; font-size: 1.05rem !important; block-size: 1.05rem !important; inline-size: 1.05rem !important; }
+    .layout-menu .menu-inner > .menu-item .menu-link > div { font-size: 0.875rem !important; font-weight: 700 !important; }
+    body.dark-mode .layout-menu .menu-inner > .menu-item .menu-link .menu-icon { color: rgba(255,255,255,.87) !important; }
+    </style>
+
+    <!-- Dropdown usuario: iconos con color -->
+    <style>
+    .navbar-dropdown .dropdown-menu .dropdown-item i.fa-fw { width: 1.25em; text-align: center; margin-inline-end: 0.5rem; }
+    .navbar-dropdown .dropdown-item.user-dropdown-perfil i { color: #1A52A8 !important; }
+    .navbar-dropdown .dropdown-item.user-dropdown-logout i { color: #dc2626 !important; }
+    .navbar-dropdown .dropdown-item.user-dropdown-dark i.dark-mode-icon { color: #7c3aed !important; }
+    .navbar-dropdown .dropdown-item.user-dropdown-dark:hover i { color: #8b5cf6 !important; }
+    body.dark-mode .navbar-dropdown .dropdown-item.user-dropdown-perfil i { color: #60a5fa !important; }
+    body.dark-mode .navbar-dropdown .dropdown-item.user-dropdown-logout i { color: #f87171 !important; }
+    body.dark-mode .navbar-dropdown .dropdown-item.user-dropdown-dark i.dark-mode-icon { color: #c4b5fd !important; }
+    body.dark-mode .navbar-dropdown .dropdown-item.user-dropdown-dark:hover i { color: #a78bfa !important; }
+    </style>
+
     <!-- Helpers -->
     <script src="/assets/vendor/js/helpers.js"></script>
     <!--! Template customizer & Theme config files MUST be included after core stylesheets and helpers.js in the <head> section -->
@@ -389,18 +449,16 @@ function getMenu()
                 <div class="app-brand demo">
                     <a href="/Inicio" class="app-brand-link w-100">
                         <span class="app-brand-logo demo w-100">
-
+                            <img src="/assets/img/Logotipo-Maxikash-Outline.webp" alt="Maxikash" class="sidebar-logo" />
                         </span>
-                        <span class="app-brand-text demo menu-text fw-bold ms-2">
-                            <img src="https://__SPARTA_SECRET_REDACTED__.mx/cdn/shop/files/Logotipo-Maxikash-Outline.png?v=1749328460" alt="Logo de la empresa" class="w-100" />
-                        </span>
+                        <span class="app-brand-text demo menu-text fw-bold ms-2 d-none d-md-inline-block" style="font-size:0;">Maxikash</span>
                     </a>
 
                     <a href="javascript:void(0);" class="layout-menu-toggle menu-link text-large ms-auto">
                         <i class="fa-solid fa-chevron-left d-flex align-items-center justify-content-center"></i>
                     </a>
                 </div>
-                <hr class="app-brand-text demo menu-text fw-bold ms-2">
+                <hr>
                 <div class="menu-inner-shadow"></div>
 
                 <ul class="menu-inner py-1">
@@ -443,17 +501,27 @@ function getMenu()
                                     </div>
                                 </a>
                                 <ul class="dropdown-menu dropdown-menu-end">
+                                    <?php
+                                    $uid = (int)($_SESSION['usuario_id'] ?? 0);
+                                    if (in_array($uid, [1, 877, 878], true)): ?>
                                     <li>
-                                        <a class="dropdown-item" href="/login/cerrarSesion">
-                                            <i class="fa-solid fa-power-off">&nbsp;</i><span>Cerrar sesión</span>
+                                        <a class="dropdown-item user-dropdown-perfil" href="/perfil">
+                                            <i class="fa-solid fa-gear fa-fw"></i><span>Ajuste (tu perfil)</span>
+                                        </a>
+                                    </li>
+                                    <li><hr class="dropdown-divider"></li>
+                                    <?php endif; ?>
+                                    <li>
+                                        <a class="dropdown-item user-dropdown-logout" href="/login/cerrarSesion">
+                                            <i class="fa-solid fa-right-from-bracket fa-fw"></i><span>Cerrar sesión</span>
                                         </a>
                                     </li>
                                     <li>
                                         <hr class="dropdown-divider">
                                     </li>
                                     <li>
-                                        <a class="dropdown-item dark-mode-toggle" href="javascript:void(0);" onclick="toggleDarkMode()" id="darkModeToggle">
-                                            <i class="fa-solid fa-moon dark-mode-icon" id="darkModeIcon"></i><span id="darkModeText">Modo oscuro</span>
+                                        <a class="dropdown-item dark-mode-toggle user-dropdown-dark" href="javascript:void(0);" onclick="toggleDarkMode()" id="darkModeToggle">
+                                            <i class="fa-solid fa-moon dark-mode-icon fa-fw" id="darkModeIcon"></i><span id="darkModeText">Modo oscuro</span>
                                         </a>
                                     </li>
                                 </ul>
@@ -563,6 +631,7 @@ function getMenu()
             const toggle = document.getElementById('darkModeToggle');
             
             if (isDark) {
+                document.documentElement.classList.add('dark-mode');
                 body.classList.add('dark-mode');
                 if (icon) { icon.className = 'fa-solid fa-sun dark-mode-icon'; }
                 if (text) text.textContent = 'Modo claro';
@@ -570,6 +639,7 @@ function getMenu()
                 
                 fixInlineStyles();
             } else {
+                document.documentElement.classList.remove('dark-mode');
                 body.classList.remove('dark-mode');
                 if (icon) { icon.className = 'fa-solid fa-moon dark-mode-icon'; }
                 if (text) text.textContent = 'Modo oscuro';
@@ -780,6 +850,7 @@ function getMenu()
         (function() {
             const darkMode = localStorage.getItem('darkMode');
             if (darkMode === 'enabled') {
+                document.documentElement.classList.add('dark-mode');
                 document.body.classList.add('dark-mode');
             }
         })();

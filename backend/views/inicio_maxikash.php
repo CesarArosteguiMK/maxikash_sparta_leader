@@ -9,6 +9,16 @@ if (strpos($nombreCorto, ' ') !== false) {
     $partes = explode(' ', $nombreCorto);
     $nombreCorto = $partes[0] . ' ' . end($partes);
 }
+$mensajesPorPuesto = [
+    'Administrador de Proyectos' => 'Responsable de planificar, coordinar y supervisar la ejecución de los proyectos estratégicos de la organización.',
+    'Desarrollador Junior'       => 'Perfil orientado al desarrollo y soporte de funcionalidades bajo supervisión técnica. Participa en la implementación de tareas asignadas, corrección de incidencias y mejora continua del sistema, fortaleciendo sus habilidades técnicas dentro del equipo de desarrollo.',
+    'Desarrollador Senior'      => 'Responsable del diseño técnico, arquitectura y supervisión de soluciones dentro del sistema. Lidera decisiones técnicas, revisa código, optimiza procesos y garantiza la calidad, seguridad y escalabilidad de las aplicaciones desarrolladas.',
+    'Call Center'               => 'Gestiona la operación de atención al cliente. Supervisa llamadas, seguimiento y desempeño del equipo en tiempo real.',
+    'Capital Humano'            => 'Gestiona el talento y los procesos laborales. Controla asistencias, nómina y administración del personal desde un panel unificado.',
+];
+$puestoNormalizado = trim((string) $puestoUsuario);
+$heroDesc = $mensajesPorPuesto[$puestoNormalizado] ?? 'Tienes acceso al portal. Usa los accesos rápidos o el menú lateral para navegar.';
+
 $urls = [
     'inicio' => '/inicio',
     'creditos' => '/estadocuenta/consulta',
@@ -27,7 +37,7 @@ $urls = [
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Portal Maxikash | Inicio</title>
-<link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 :root {
   --blue:     #1A52A8;
@@ -89,6 +99,7 @@ body::before{
   width:3px;background:var(--blue);border-radius:0 3px 3px 0;
 }
 .sb-icon{font-size:15px;width:22px;text-align:center;}
+.sb-icon i{color:var(--blue);}
 .sb-footer{padding:14px 10px 0;border-top:1px solid var(--border);position:relative;}
 .sb-user-wrap{position:relative;}
 .sb-user{
@@ -171,6 +182,8 @@ body::before{
   animation:up .55s ease both;
   box-shadow:0 8px 32px rgba(26,82,168,.22);
 }
+.hero > div{position:relative;z-index:1;}
+.hero .hstats{position:relative;z-index:1;}
 .hero::before{
   content:'';position:absolute;inset:0;
   background:
@@ -185,7 +198,7 @@ body::before{
 }
 .hero-wm{
   position:absolute;right:34px;top:50%;transform:translateY(-50%);
-  opacity:.07;pointer-events:none;
+  opacity:1;pointer-events:none;z-index:0;
 }
 .hero-badge{
   display:inline-flex;align-items:center;gap:5px;
@@ -195,10 +208,10 @@ body::before{
 }
 .badge-dot{width:5px;height:5px;border-radius:50%;background:var(--yellow);animation:blink 2s infinite;}
 .hero-title{
-  font-family:'Syne',sans-serif;font-size:28px;font-weight:800;
-  color:#fff;line-height:1.15;margin-bottom:8px;
+  font-family:'Outfit',sans-serif;font-size:28px;font-weight:700;
+  color:#fff;line-height:1.2;margin-bottom:8px;letter-spacing:-0.02em;
 }
-.hero-desc{font-size:13.5px;color:rgba(255,255,255,.55);max-width:380px;line-height:1.65;}
+.hero-desc{font-size:13.5px;color:rgba(255,255,255,.55);max-width:560px;line-height:1.65;}
 
 .hstats{display:flex;flex-direction:column;gap:9px;min-width:185px;}
 .hst{
@@ -242,10 +255,11 @@ body::before{
   border-color:rgba(26,82,168,.18);
 }
 .qcard::after{
-  content:'';position:absolute;bottom:0;left:0;right:0;height:2.5px;
+  content:'';position:absolute;bottom:0;left:0;right:0;height:3px;
   background:linear-gradient(90deg,var(--blue),var(--yellow));
   transform:scaleX(0);transform-origin:left;
   transition:transform .28s ease;border-radius:0 0 var(--r) var(--r);
+  z-index:1;
 }
 .qcard:hover::after{transform:scaleX(1);}
 .qico{
@@ -264,6 +278,13 @@ body::before{
 .bg-orange{background:#fff7ed;} .bg-purple{background:#faf5ff;}
 .bg-red   {background:#fef2f2;} .bg-teal  {background:#f0fdfa;}
 .bg-yellow{background:#fefce8;}
+.qico.bg-blue i{color:#1A52A8;}
+.qico.bg-green i{color:#16a34a;}
+.qico.bg-orange i{color:#ea580c;}
+.qico.bg-purple i{color:#7c3aed;}
+.qico.bg-red i{color:#dc2626;}
+.qico.bg-teal i{color:#0d9488;}
+.qico.bg-yellow i{color:#ca8a04;}
 
 .bot{display:grid;grid-template-columns:1fr 292px;gap:16px;}
 
@@ -388,8 +409,20 @@ body.dark-mode .sb-user-dropdown{background:var(--surface);border-color:var(--bo
 body.dark-mode .sb-user-dropdown a:hover,body.dark-mode .sb-user-dropdown button:hover{background:#334155;color:#93c5fd;}
 body.dark-mode .topbar{background:rgba(30,41,59,.9);border-color:var(--border);}
 body.dark-mode .hero{background:linear-gradient(128deg,#0f172a 0%,#1e3a5f 50%,#1e40af 100%);}
+body.dark-mode .hero::after{background:linear-gradient(to bottom,#c8d62b,#8fa010) !important;opacity:1;}
 body.dark-mode .qcard{background:var(--surface);border-color:var(--border);}
-body.dark-mode .qcard:hover{border-color:#475569;}
+body.dark-mode .qcard::after{
+  background:linear-gradient(90deg,#3b82f6,#22c55e);
+  height:3px;
+  z-index:1;
+}
+body.dark-mode .qcard:hover{
+  border-color:rgba(59,130,246,.4);
+  transform:translateY(-5px);
+  box-shadow:0 14px 36px rgba(0,0,0,.35),0 0 0 1px rgba(59,130,246,.15);
+}
+body.dark-mode .qcard:hover::after{transform:scaleX(1);}
+body.dark-mode .qcard:hover .qarr{opacity:1;background:var(--blue);color:#fff;}
 body.dark-mode .panel,body.dark-mode .icard,body.dark-mode .cal-card,body.dark-mode .quote-card{background:var(--surface);border-color:var(--border);}
 body.dark-mode .role-sw{background:var(--surface);border-color:var(--border);}
 body.dark-mode .r-btn{background:#334155;color:var(--muted);border-color:var(--border);}
@@ -443,15 +476,15 @@ body.dark-mode .r-btn:hover,body.dark-mode .r-btn.active{background:var(--blue);
     </div>
 
     <div class="hero">
-      <svg class="hero-wm" width="170" height="170" viewBox="0 0 40 40" fill="none">
-        <path d="M20 2L38 20L20 38L2 20Z" fill="none" stroke="#fff" stroke-width="2.5"/>
-        <path d="M20 10L30 20L20 30L10 20Z" fill="#fff"/>
-        <path d="M20 14L26 20L20 26L14 20Z" fill="#1A52A8"/>
+      <svg class="hero-wm" width="200" height="200" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <!-- Logo figura imposible (diamante/cinta) como marca de agua en blanco -->
+        <path fill="rgba(255,255,255,0.22)" fill-rule="evenodd" d="M100 28 L172 100 L100 172 L28 100 Z M100 52 L148 100 L100 148 L52 100 Z"/>
+        <path fill="rgba(255,255,255,0.12)" stroke="rgba(255,255,255,0.32)" stroke-width="2.5" stroke-linejoin="round" d="M100 52 L148 100 L100 148 L52 100 Z"/>
       </svg>
       <div>
         <div class="hero-badge"><span class="badge-dot"></span><span id="heroBadge"><?= htmlspecialchars($puestoUsuario) ?></span></div>
         <h1 class="hero-title" id="heroTitle">¡Hola, <?= htmlspecialchars($nombreCorto) ?>! 👋</h1>
-        <p class="hero-desc" id="heroDesc">Tienes acceso al portal. Usa los accesos rápidos o el menú lateral para navegar.</p>
+        <p class="hero-desc" id="heroDesc"><?= htmlspecialchars($heroDesc) ?></p>
       </div>
       <div class="hstats" id="hstats"></div>
     </div>
@@ -542,6 +575,7 @@ body.dark-mode .r-btn:hover,body.dark-mode .r-btn.active{background:var(--blue);
   var userFull = <?= json_encode($nombreUsuario) ?>;
   var userRole = <?= json_encode($puestoUsuario) ?>;
   var userInit = <?= json_encode($iniciales) ?>;
+  var heroDescFromServer = <?= json_encode($heroDesc) ?>;
 
   var HERO_DESC = {
     admin:     'Gestiona créditos, personal, reportería y configuración desde un solo lugar. Usa los accesos rápidos o el menú lateral.',
@@ -558,7 +592,7 @@ body.dark-mode .r-btn:hover,body.dark-mode .r-btn.active{background:var(--blue);
 
   var MENU = {
     inicio:{ ico:'🏠', l:'Inicio' },
-    creditos:{ ico:'💰', l:'Créditos' },
+    creditos:{ ico:'<i class="fa-solid fa-sack-dollar"></i>', l:'Créditos' },
     campo:{ ico:'🏕️', l:'Gestiones Campo' },
     rrhh:{ ico:'👥', l:'Capital Humano' },
     reporteria:{ ico:'📊', l:'Reportería' },
@@ -569,7 +603,7 @@ body.dark-mode .r-btn:hover,body.dark-mode .r-btn.active{background:var(--blue);
   };
 
   var CARDS = {
-    creditos:     { ico:'💰', bg:'bg-blue',   t:'Créditos',         d:'Estados de cuenta y documentación', url: urls.creditos },
+    creditos:     { ico:'<i class="fa-solid fa-sack-dollar"></i>', bg:'bg-blue',   t:'Créditos',         d:'Estados de cuenta y documentación', url: urls.creditos },
     campo:        { ico:'🏕️', bg:'bg-green',  t:'Gestiones Campo',  d:'Supervisión en terreno', url: urls.campo },
     rrhh:         { ico:'👥', bg:'bg-purple', t:'Capital Humano',   d:'Personal y nómina', url: urls.rrhh },
     reporteria:   { ico:'📊', bg:'bg-orange', t:'Reportería',       d:'Informes y estadísticas', url: urls.reporteria },
@@ -594,7 +628,7 @@ body.dark-mode .r-btn:hover,body.dark-mode .r-btn.active{background:var(--blue);
     var r = ROLES[key] || ROLES.admin;
     document.getElementById('heroBadge').textContent = r.role;
     document.getElementById('heroTitle').textContent = '¡Hola, ' + r.name + '! 👋';
-    document.getElementById('heroDesc').textContent = r.heroDesc || HERO_DESC.admin;
+    document.getElementById('heroDesc').textContent = heroDescFromServer || r.heroDesc || HERO_DESC.admin;
     document.getElementById('tbName').textContent = r.name;
     document.getElementById('sbInit').textContent = r.init;
     document.getElementById('sbName').textContent = r.full;
