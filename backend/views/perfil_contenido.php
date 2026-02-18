@@ -1,5 +1,6 @@
 <?php
 $fotoPerfil = $_SESSION['foto_perfil'] ?? '/assets/img/misc/user.svg';
+$tieneFotoPersonalizada = !empty($fotoPerfil) && strpos($fotoPerfil, 'fotos_perfil') !== false;
 $flash = $_SESSION['perfil_flash'] ?? '';
 if ($flash) unset($_SESSION['perfil_flash']);
 $datos = $datos ?? [
@@ -49,7 +50,14 @@ body.dark-mode .pf-mkx .pf-readonly.form-control{border-bottom-color:rgba(255,25
           <div class="pf-photo-actions">
             <label class="form-label mb-1 small fw-semibold">Cambiar foto de perfil</label>
             <input type="file" name="foto" accept="image/jpeg,image/png,image/webp" id="inputFoto" class="form-control form-control-sm" style="max-width:240px;" />
-            <small class="text-muted">Podrás elegir el encuadre en círculo antes de guardar.</small>
+            <small class="text-muted d-block mb-2">Podrás elegir el encuadre en círculo antes de guardar.</small>
+            <?php if ($tieneFotoPersonalizada): ?>
+            <form action="/perfil/eliminarFoto" method="post" class="d-inline" onsubmit="return confirm('¿Quieres quitar tu foto de perfil? Se usará la imagen por defecto.');">
+              <button type="submit" class="btn btn-outline-danger btn-sm">
+                <i class="fa-solid fa-trash-can fa-fw me-1"></i>Eliminar foto
+              </button>
+            </form>
+            <?php endif; ?>
           </div>
         </div>
         <div class="row g-3 mb-3">

@@ -125,4 +125,27 @@ class Perfil extends Model
             return self::resultado(false, 'Error al actualizar la foto.', null, $e->getMessage());
         }
     }
+
+    /**
+     * Elimina la foto de perfil: pone foto = null en BD para el id_persona.
+     */
+    public static function eliminarFoto($idPersona)
+    {
+        $idPersona = (int) $idPersona;
+        if ($idPersona <= 0) {
+            return self::resultado(false, 'Id de persona inválido.');
+        }
+        try {
+            $db = new Database();
+            $existe = self::getByPersonaId($idPersona);
+            if ($existe) {
+                $db->CRUD("UPDATE perfil SET foto = NULL WHERE id_persona = :id_persona", [
+                    'id_persona' => $idPersona,
+                ]);
+            }
+            return self::resultado(true, 'Foto eliminada.');
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al eliminar la foto.', null, $e->getMessage());
+        }
+    }
 }

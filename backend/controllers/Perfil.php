@@ -159,4 +159,34 @@ class Perfil extends Controller
         header('Location: /perfil');
         exit;
     }
+
+    /**
+     * Elimina la foto de perfil del usuario: borra el archivo local (si existe), actualiza BD y sesión.
+     */
+    public function eliminarFoto()
+    {
+        if (!isset($_SESSION['usuario_id']) || !self::esUsuarioDashboardMaxikash()) {
+            header('Location: /login');
+            exit;
+        }
+        $idPersona = (int) $_SESSION['usuario_id'];
+        $perfil = PerfilDao::getByPersonaId($idPersona);
+        $fotoActual = $perfil['foto'] ?? '';
+
+        $projectRoot = dirname(dirname(__DIR__));
+        $fotosDir = $projectRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'img' . DIRECTORY_SEPARATOR . 'fotos_perfil';
+        if ($fotoActual && strpos($fotoActual, '/assets/img/fotos_perfil/') === 0) {
+            $nombreArchivo = basename($fotoActual);
+            $rutaCompleta = $fotosDir . DIRECTORY_SEPARATOR . $nombreArchivo;
+            if (is_file($rutaCompleta)) {
+                @unlink($rutaCompleta);
+            }
+        }
+
+        $res = PerfilDao::eliminarFoto($idPersona);
+        $_SESSION['foto_perfil'] = '/assets/img/misc/user.svg';
+        $_SESSION['perfil_flash'] = $res['success'] ? 'Foto de perfil eliminada.' : ($res['mensaje'] ?? 'Error al eliminar.');
+        header('Location: /perfil');
+        exit;
+    }
 }

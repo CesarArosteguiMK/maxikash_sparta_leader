@@ -830,7 +830,7 @@
             overflow-y: auto !important;
         }
 
-        /* Estilo mejorado para el botón de cerrar */
+        /* Estilo mejorado para el botón de cerrar (modo oscuro / header oscuro) */
         #modalDocumento .btn-close-custom {
             filter: brightness(0) invert(1) !important;
             opacity: 1 !important;
@@ -881,6 +881,15 @@
         #modalDocumento .btn-close-custom:active {
             transform: translateY(-50%) scale(1.05) rotate(90deg) !important;
             box-shadow: 0 2px 10px rgba(0,0,0,0.3) !important;
+        }
+
+        /* Modo claro: el header puede verse claro por estilos globales, la X debe ser oscura y visible */
+        body:not(.dark-mode) #modalDocumento .modal-header {
+            background: linear-gradient(135deg, #4a5568 0%, #2d3748 100%) !important;
+            border-bottom: 1px solid rgba(255,255,255,0.1) !important;
+        }
+        body:not(.dark-mode) #modalDocumento .btn-close-custom::before {
+            color: #ffffff !important;
         }
 
         /* ===== MARCA DE AGUA "SIN VALOR" REPETIDA COMO REFERENCIA ===== */
