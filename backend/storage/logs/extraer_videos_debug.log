@@ -186,3 +186,10 @@ operable program or batch file.
 >>>>>>> 586908d80fe3baa3f9f63728804e40ea4c48a23a
 
 ---
+2026-02-16 15:48:25 | idCredito=141052 | pagina=12
+  cmd: "C:\Users\admin\AppData\Local\Programs\Python\Python312\python.exe" "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../scripts/pdf_media.py" --extract "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/pdf_141052_699390a8c009d.pdf" --outdir "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/m141052_12_699390a8c045f" --page 12 2>&1
+  out_len: 162 | json_ok: 1 | archivos: 1 | json_error: No error
+  out_preview:
+{"archivos": [{"nombre": "media_p12_0.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m141052_12_699390a8c045f\\media_p12_0.mp4"}]}
+
+---
