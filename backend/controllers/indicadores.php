@@ -21,16 +21,12 @@ class Indicadores extends Controller
 
    public function gestiones1A7()
 {
-    // Obtener datos
-    $gestiones = IndicadoresDao::getGestiones1A7();
-    $totales = IndicadoresDao::getTotalesGestiones1A7();
+    $resultado = IndicadoresDao::getGestiones1A7();
     
-    //  Usar set() para cada variable (método correcto del framework)
-    $this->set('gestiones', $gestiones['data'] ?? []);
-    $this->set('totales', $totales);
-    $this->set('success', $gestiones['success'] ?? false);
+    $this->set('gestiones', $resultado['data'] ?? []);
+    $this->set('totales', $resultado['totales'] ?? []);
+    $this->set('success', $resultado['success'] ?? false);
     
-    //  Render sin parámetros extra
     $this->render("gestiones_1_a_7");
 }
 
@@ -44,14 +40,18 @@ class Indicadores extends Controller
 
     public function gestiones8A21()
     {
-        $data = IndicadoresDao::getGestiones8A21();
-        self::render("gestiones_8_a_21", $data);
+        $resultado = IndicadoresDao::getGestiones8A21();
+        $this->set('gestiones', $resultado['data'] ?? []);
+        $this->set('totales', $resultado['totales'] ?? []);
+        $this->render("gestiones_8_a_21");
     }
 
     public function eficiencia8A21()
     {
         $data = IndicadoresDao::getEficiencia8A21();
-        self::render("eficiencia_8_a_21", $data);
+        $this->set('eficiencia', $data['data'] ?? []);
+        $this->set('success', $data['success'] ?? false);
+        $this->render("eficiencia_8_a_21");
     }
 
     public function seguimientoIntensidad()
@@ -126,15 +126,14 @@ class Indicadores extends Controller
     public function apiGestiones1A7()
     {
         header('Content-Type: application/json');
-        
-        $gestiones = IndicadoresDao::getGestiones1A7();
-        $totales = IndicadoresDao::getTotalesGestiones1A7();
-        
-        echo json_encode([
-            'success' => $gestiones['success'],
-            'data' => $gestiones['data'] ?? [],
-            'totales' => $totales
-        ]);
-        exit;
+    
+    $resultado = IndicadoresDao::getGestiones1A7();
+    
+    echo json_encode([
+        'success' => $resultado['success'],
+        'data' => $resultado['data'] ?? [],
+        'totales' => $resultado['totales'] ?? []
+    ]);
+    exit;
     }
 }

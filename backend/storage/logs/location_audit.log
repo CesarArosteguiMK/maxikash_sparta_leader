@@ -136,3 +136,4 @@
 {"type":"analytics","endpoint":"payments","id_credito":735641,"params":{"gestorId":null},"cache_hit":false,"timestamp":"2026-02-18T08:58:57-06:00","summary":{"total_pagos":53}}
 {"type":"analytics","endpoint":"compliance","id_credito":735641,"params":{"gestorId":null},"cache_hit":false,"timestamp":"2026-02-18T09:00:00-06:00","summary":{"porcentaje_cumplimiento":20}}
 {"type":"analytics","endpoint":"spatial","id_credito":735641,"params":{"gestorId":null},"cache_hit":false,"timestamp":"2026-02-18T12:06:06-06:00","summary":[]}
+{"type":"analytics","endpoint":"spatial","id_credito":735641,"params":{"gestorId":null},"cache_hit":false,"timestamp":"2026-02-18T12:31:33-06:00","summary":[]}

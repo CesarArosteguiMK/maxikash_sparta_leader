@@ -1,3 +1,7 @@
+<!-- 
+    Vista: gestiones_8_a_21.php
+    Diseño intacto, con lógica JS para jerarquía y drill-down
+-->
 <style>
     #tabla-8a21 {
         width: 100%;
@@ -78,6 +82,75 @@
         text-align: right;
     }
 
+    /* Estilos para jerarquía */
+    .nivel-0 {
+        font-weight: bold;
+        background-color: #f8f9fa;
+    }
+    
+    .nivel-1 {
+        padding-left: 25px !important;
+        background-color: #ffffff;
+    }
+    
+    .nivel-2 {
+        padding-left: 50px !important;
+        background-color: #f8f9fa;
+    }
+    
+    .nivel-3 {
+        padding-left: 75px !important;
+        background-color: #ffffff;
+    }
+    
+    .toggle-icon {
+        cursor: pointer;
+        margin-right: 8px;
+        font-size: 1.1rem;
+        display: inline-block;
+        width: 20px;
+        text-align: center;
+        user-select: none;
+    }
+    
+    .toggle-icon:hover {
+        color: #4CAF50;
+    }
+    
+    .nodo-nombre {
+        cursor: pointer;
+    }
+    
+    .nodo-nombre:hover {
+        text-decoration: underline;
+        color: #4CAF50;
+    }
+    
+    .tr-territorial,
+    .tr-jefe-plaza,
+    .tr-gestor {
+        transition: all 0.2s ease;
+    }
+    
+    .tr-territorial:hover,
+    .tr-jefe-plaza:hover,
+    .tr-gestor:hover {
+        background-color: #f0f7ff !important;
+    }
+    
+    /* Badges de estatus */
+    .badge.bg-success {
+        background-color: #28a745 !important;
+    }
+    
+    .badge.bg-warning {
+        background-color: #ffc107 !important;
+    }
+    
+    .badge.bg-secondary {
+        background-color: #6c757d !important;
+    }
+
     /* Responsividad para móviles */
     @media (max-width: 576px) {
         .container {
@@ -96,6 +169,16 @@
         }
         .form-select, .form-check-input {
             font-size: 0.875rem;
+        }
+        
+        .nivel-1 {
+            padding-left: 15px !important;
+        }
+        .nivel-2 {
+            padding-left: 30px !important;
+        }
+        .nivel-3 {
+            padding-left: 45px !important;
         }
     }
 
@@ -170,13 +253,13 @@
                 <table id="tabla-8a21" class="dt-responsive table border-top">
                     <thead>
                         <tr>
-                            <th>Líderes</th>
+                            <th>Líderes / Territorial / Jefe Plaza / Gestor</th>
                             <th>CURRENT</th>
                             <th>1 A 7 DÍAS</th>
                             <th>8 A 14 DÍAS</th>
                             <th>15 A 21 DÍAS</th>
                             <th>SIN GESTIÓN</th>
-                            <th>Estatus Actividad Gestor</th>
+                            <th>Estatus Actividad</th>
                             <th>TOTAL GENERAL</th>
                             <th>EFICIENCIA</th>
                             <th>CAMPO</th>
@@ -185,11 +268,11 @@
                             <th>SALDO VENCIDO</th>
                             <th>Fecha Dictamen Más Antigua</th>
                             <th>Fecha Dictamen Más Reciente</th>
-                            <th>Estatus Actividad Gestor (Detalle)</th>
+                            <th>Estatus (Detalle)</th>
                         </tr>
                     </thead>
-                    <tbody>
-                        <!-- Render dinámico -->
+                    <tbody id="tabla-body">
+                        <!-- JS inyectará filas -->
                     </tbody>
                     <tfoot>
                         <tr>
@@ -226,9 +309,26 @@
 
 </div>
 
+<!-- ========================================== -->
+<!-- LÓGICA JS COMPLETA CON JERARQUÍA -->
+<!-- ========================================== -->
 <script>
 document.addEventListener("DOMContentLoaded", () => {
-    console.log("Vista Gestiones 8 a 21 lista para lógica JS");
+    console.log("🚀 Vista Gestiones 8 a 21 inicializada");
+
+    // ==========================================
+    // ✅ MOSTRAR LOADER
+    // ==========================================
+    Swal.fire({
+        title: 'Obteniendo datos del reporte',
+        html: 'Por favor espera mientras se procesan los datos...<br><small class="text-muted">Esto puede tardar unos segundos debido al volumen de información</small>',
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        showConfirmButton: false,
+        didOpen: () => {
+            Swal.showLoading();
+        }
+    });
 
     // ==========================================
     // FUNCIONALIDAD DE REDIMENSIONAR COLUMNAS
@@ -239,7 +339,6 @@ document.addEventListener("DOMContentLoaded", () => {
     headers.forEach((th, index) => {
         th.classList.add('resizable');
         
-        // Crear el elemento resizer
         const resizer = document.createElement('div');
         resizer.classList.add('resizer');
         th.appendChild(resizer);
@@ -256,7 +355,6 @@ document.addEventListener("DOMContentLoaded", () => {
                 const width = startWidth + (e.pageX - startX);
                 th.style.width = width + 'px';
                 
-                // Aplicar el mismo ancho a todas las celdas de la columna
                 const cells = table.querySelectorAll(`tbody td:nth-child(${index + 1}), tfoot td:nth-child(${index + 1})`);
                 cells.forEach(cell => {
                     cell.style.width = width + 'px';
@@ -274,14 +372,216 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     });
 
-    // Aquí podrás:
-    // 1. Cargar datos vía fetch()
-    // 2. Filtrar según selects y checkboxes
-    // 3. Recalcular totales dinámicamente
-    // 4. Renderizar tabla dinámicamente
+    // ==========================================
+    // DATOS INYECTADOS DESDE EL CONTROLADOR
+    // ==========================================
+    const datosIniciales = <?php echo json_encode($gestiones ?? []); ?>;
+    const totalesIniciales = <?php echo json_encode($totales ?? []); ?>;
 
-    // Ejemplo básico: puedes integrar con los datos pasados desde el controlador
-    // const data = [/* datos del modelo */];
-    // renderTable(data);
+    console.log("Datos jerárquicos recibidos:", datosIniciales);
+    console.log("Totales recibidos:", totalesIniciales);
+
+    // ==========================================
+    // FUNCIONES DE FORMATEO
+    // ==========================================
+    function formatNumber(num) {
+        return new Intl.NumberFormat('es-MX').format(num || 0);
+    }
+    
+    function formatDecimal(num) {
+        return new Intl.NumberFormat('es-MX', { 
+            minimumFractionDigits: 1, 
+            maximumFractionDigits: 1 
+        }).format(num || 0);
+    }
+    
+    function formatCurrency(num) {
+        if (typeof num === 'string' && num.includes('$')) return num;
+        const valor = parseFloat(num) || 0;
+        return new Intl.NumberFormat('es-MX', {
+            style: 'currency',
+            currency: 'MXN',
+            minimumFractionDigits: 2
+        }).format(valor);
+    }
+    
+    function escapeHtml(text) {
+        if (!text) return text;
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    function getBadgeClass(estatus) {
+        if (estatus === 'Activo') return 'badge bg-success';
+        if (estatus === 'Inactivo') return 'badge bg-warning text-dark';
+        return 'badge bg-secondary';
+    }
+
+    // ==========================================
+    // ESTADO DE EXPANSIÓN
+    // ==========================================
+    const expandedState = new Set();
+
+    // ==========================================
+    // FUNCIÓN PARA RENDERIZAR JERARQUÍA COMPLETA
+    // ==========================================
+    function renderJerarquia() {
+        const tbody = document.getElementById('tabla-body');
+        if (!tbody) return;
+        
+        tbody.innerHTML = '';
+        
+        if (!datosIniciales || datosIniciales.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="16" class="text-center">No hay datos disponibles</td></tr>';
+            return;
+        }
+        
+        // Renderizar cada líder y su jerarquía
+        datosIniciales.forEach((lider, index) => {
+            renderNodo(lider, 0, tbody, `lider-${index}`);
+        });
+    }
+
+    // ==========================================
+    // FUNCIÓN RECURSIVA PARA RENDERIZAR NODOS
+    // ==========================================
+    function renderNodo(nodo, nivel, contenedor, path) {
+        if (!nodo) return;
+        
+        const tr = document.createElement('tr');
+        tr.dataset.path = path;
+        tr.dataset.tipo = nodo.tipo || 'desconocido';
+        tr.dataset.nivel = nivel;
+        
+        // Determinar clase según nivel
+        tr.className = `tr-${nodo.tipo || 'nodo'}`;
+        
+        // Construir nombre con indentación e ícono
+        let nombreHtml = '';
+        
+        // Agregar espacios de indentación
+        for (let i = 0; i < nivel; i++) {
+            nombreHtml += '<span style="display:inline-block; width:25px;"></span>';
+        }
+        
+        // Agregar ícono de expandir/colapsar si tiene hijos
+        const tieneHijos = nodo.hijos && nodo.hijos.length > 0;
+        const estaExpandido = expandedState.has(path);
+        
+        if (tieneHijos) {
+            nombreHtml += `<span class="toggle-icon" data-path="${path}" data-expand="true">${estaExpandido ? '▼' : '►'}</span>`;
+        } else {
+            nombreHtml += '<span style="display:inline-block; width:20px;"></span>';
+        }
+        
+        // Nombre del nodo
+        nombreHtml += `<span class="nodo-nombre" data-path="${path}" data-toggle="true">${escapeHtml(nodo.nombre || 'SIN NOMBRE')}</span>`;
+        
+        // Determinar badge class para estatus
+        const badgeClass = getBadgeClass(nodo.estatus);
+        
+        // Construir fila completa
+        tr.innerHTML = `
+            <td>${nombreHtml}</td>
+            <td>${formatNumber(nodo.current)}</td>
+            <td>${formatNumber(nodo.gestiones_1a7)}</td>
+            <td>${formatNumber(nodo.gestiones_8a14)}</td>
+            <td>${formatNumber(nodo.gestiones_15a21)}</td>
+            <td>${formatNumber(nodo.sin_gestion)}</td>
+            <td><span class="${badgeClass}">${escapeHtml(nodo.estatus || 'Sin actividad')}</span></td>
+            <td>${formatNumber(nodo.total_general)}</td>
+            <td>${formatDecimal(nodo.eficiencia)}%</td>
+            <td>${formatNumber(nodo.campo)}</td>
+            <td>${formatNumber(nodo.telefono)}</td>
+            <td>${formatNumber(nodo.whatsapp)}</td>
+            <td>${formatCurrency(nodo.saldo_vencido)}</td>
+            <td>${escapeHtml(nodo.fecha_antigua ? new Date(nodo.fecha_antigua).toLocaleString('es-MX') : '-')}</td>
+            <td>${escapeHtml(nodo.fecha_reciente ? new Date(nodo.fecha_reciente).toLocaleString('es-MX') : '-')}</td>
+            <td><span class="${badgeClass}">${escapeHtml(nodo.estatus || 'Sin actividad')}</span></td>
+        `;
+        
+        contenedor.appendChild(tr);
+        
+        // Si está expandido, renderizar hijos
+        if (tieneHijos && estaExpandido) {
+            nodo.hijos.forEach((hijo, index) => {
+                renderNodo(hijo, nivel + 1, contenedor, `${path}-hijo-${index}`);
+            });
+        }
+    }
+
+    // ==========================================
+    // MANEJADOR DE CLICKS EN ÍCONOS Y NOMBRES
+    // ==========================================
+    function handleToggleClick(path) {
+        if (expandedState.has(path)) {
+            expandedState.delete(path); // Colapsar
+        } else {
+            expandedState.add(path); // Expandir
+        }
+        renderJerarquia(); // Re-renderizar
+        actualizarTotales(totalesIniciales); // Mantener totales
+    }
+
+    // Delegación de eventos para los clics
+    document.getElementById('tabla-body').addEventListener('click', (e) => {
+        const toggleIcon = e.target.closest('.toggle-icon');
+        const nodoNombre = e.target.closest('.nodo-nombre');
+        
+        if (toggleIcon) {
+            const path = toggleIcon.dataset.path;
+            if (path) handleToggleClick(path);
+        } else if (nodoNombre) {
+            const path = nodoNombre.dataset.path;
+            if (path) handleToggleClick(path);
+        }
+    });
+
+    // ==========================================
+    // FUNCIÓN PARA ACTUALIZAR TOTALES DEL FOOTER
+    // ==========================================
+    function actualizarTotales(totales) {
+        if (!totales) return;
+        
+        document.getElementById('t-current').innerHTML = `<strong>${totales.total_current || '0'}</strong>`;
+        document.getElementById('t-1a7').innerHTML = `<strong>${totales.total_1a7 || '0'}</strong>`;
+        document.getElementById('t-8a14').innerHTML = `<strong>${totales.total_8a14 || '0'}</strong>`;
+        document.getElementById('t-15a21').innerHTML = `<strong>${totales.total_15a21 || '0'}</strong>`;
+        document.getElementById('t-sin').innerHTML = `<strong>${totales.total_sin_gestion || '0'}</strong>`;
+        document.getElementById('t-general').innerHTML = `<strong>${totales.total_general || '0'}</strong>`;
+        document.getElementById('t-eficiencia').innerHTML = `<strong>${totales.total_eficiencia || '0%'}</strong>`;
+        document.getElementById('t-campo').innerHTML = `<strong>${totales.total_campo || '0'}</strong>`;
+        document.getElementById('t-telefono').innerHTML = `<strong>${totales.total_telefono || '0'}</strong>`;
+        document.getElementById('t-whatsapp').innerHTML = `<strong>${totales.total_whatsapp || '0'}</strong>`;
+        document.getElementById('t-saldo').innerHTML = `<strong>${totales.total_saldo || '$0'}</strong>`;
+    }
+
+    // ==========================================
+    // FUNCIONES PARA FILTROS (PLACEHOLDER)
+    // ==========================================
+    function aplicarFiltros() {
+        console.log("Filtros aplicados");
+        // Aquí iría la lógica para filtrar los datos actuales
+    }
+
+    // Inicializar eventos de filtros
+    document.getElementById('filtro-campana')?.addEventListener('change', aplicarFiltros);
+    document.getElementById('filtro-contacto')?.addEventListener('change', aplicarFiltros);
+    document.getElementById('fuera-zona-false')?.addEventListener('change', aplicarFiltros);
+    document.getElementById('fuera-zona-true')?.addEventListener('change', aplicarFiltros);
+
+    // ==========================================
+    // ✅ CARGA INICIAL
+    // ==========================================
+    if (datosIniciales && datosIniciales.length > 0) {
+        renderJerarquia();
+        actualizarTotales(totalesIniciales);
+        Swal.close();
+    } else {
+        document.getElementById('tabla-body').innerHTML = 
+            '<tr><td colspan="16" class="text-center">No hay datos disponibles</td></tr>';
+        Swal.close();
+    }
 });
 </script>

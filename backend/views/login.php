@@ -270,6 +270,9 @@
         </div>
       </div>
 
+
+
+
       <!-- Login derecho -->
       <div class="d-flex col-12 col-lg-6 col-xl-3 align-items-center authentication-bg p-0">
         <div class="w-px-400 mx-auto">
