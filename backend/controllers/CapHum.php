@@ -1416,6 +1416,17 @@ class CapHum extends Controller
             
                 const tbody = document.createElement('tbody');
             
+                const iconosModulos = {
+                    1: 'fa fa-file-invoice-dollar', 2: 'fa fa-folder-open', 3: 'fa fa-screwdriver-wrench',
+                    4: 'fa fa-users', 5: 'fa fa-sitemap', 6: 'fa fa-chart-bar', 7: 'fa fa-file-alt',
+                    10: 'fa fa-cog', 13: 'fa fa-user-minus', 14: 'fa fa-file-alt', 15: 'fa fa-hand-holding-dollar',
+                    16: 'fa fa-cog', 17: 'fa fa-cog', 18: 'fa fa-dog', 19: 'fa fa-dog', 20: 'fa fa-building-columns',
+                    21: 'fa fa-file-alt', 24: 'fa fa-chart-line', 25: 'fa fa-chart-line', 26: 'fa fa-chart-line',
+                    27: 'fa fa-chart-line', 29: 'fa fa-chart-line', 30: 'fa fa-chart-line', 31: 'fa fa-chart-line',
+                    32: 'fa fa-chart-line', 33: 'fa fa-chart-line', 34: 'fa fa-chart-line', 35: 'fa fa-chart-line',
+                    36: 'fa fa-chart-line', 37: 'fa fa-chart-line', 38: 'fa fa-chart-line', 39: 'fa fa-chart-line', 40: 'fa fa-chart-line'
+                };
+            
                 Object.keys(modulosPorPestana).forEach(pestana => {
                     modulosPorPestana[pestana].forEach((mod, modIndex) => {
             
@@ -1446,22 +1457,25 @@ class CapHum extends Controller
                         nombreDiv.style.alignItems = 'center';
                         nombreDiv.style.gap = '0.75rem';
                         
-                        // Icono del módulo - diseño en blanco y negro
+                        const modId = mod.modulo_id != null ? mod.modulo_id : mod.id;
+                        const iconClass = iconosModulos[modId] || iconosModulos[Number(modId)] || 'fa fa-cube';
                         const iconoModulo = document.createElement('div');
-                        iconoModulo.style.width = '36px';
-                        iconoModulo.style.height = '36px';
-                        iconoModulo.style.borderRadius = '8px';
-                        iconoModulo.style.background = '#e9ecef';
-                        iconoModulo.style.border = '2px solid #dee2e6';
+                        iconoModulo.className = 'modulo-icon-box';
+                        iconoModulo.style.width = '40px';
+                        iconoModulo.style.height = '40px';
+                        iconoModulo.style.borderRadius = '10px';
+                        iconoModulo.style.background = 'rgba(26, 82, 168, 0.12)';
+                        iconoModulo.style.border = '1px solid rgba(26, 82, 168, 0.25)';
                         iconoModulo.style.display = 'flex';
                         iconoModulo.style.alignItems = 'center';
                         iconoModulo.style.justifyContent = 'center';
                         iconoModulo.style.flexShrink = '0';
                         
                         const iconoInner = document.createElement('i');
-                        iconoInner.className = 'fa fa-shield-alt';
-                        iconoInner.style.color = '#495057';
-                        iconoInner.style.fontSize = '0.9rem';
+                        iconoInner.className = iconClass;
+                        iconoInner.style.color = '#1A52A8';
+                        iconoInner.style.fontSize = '1rem';
+                        iconoInner.title = mod.modulo_nombre ?? '';
                         iconoModulo.appendChild(iconoInner);
             
                         const nombre = document.createElement('span');

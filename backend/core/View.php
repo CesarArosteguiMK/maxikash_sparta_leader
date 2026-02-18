@@ -455,9 +455,10 @@ html.dark-mode .navbar .text-muted{color:#94a3b8 !important;}
             <aside id="layout-menu" class="layout-menu menu-vertical menu bg-menu-theme">
                 <div class="app-brand demo">
                     <a href="/Inicio" class="app-brand-link w-100">
-                        <span class="app-brand-logo demo w-100">
+                        <span class="app-brand-logo demo w-100 app-brand-img">
                             <img src="/assets/img/Logotipo-Maxikash-Outline.webp" alt="Maxikash" class="sidebar-logo" />
                         </span>
+                        <img src="/assets/img/cabeza_spartan2.png" alt="Spartan" class="app-brand-img-collapsed sidebar-logo-collapsed" />
                         <span class="app-brand-text demo menu-text fw-bold ms-2 d-none d-md-inline-block" style="font-size:0;">Maxikash</span>
                     </a>
 
@@ -513,22 +514,19 @@ html.dark-mode .navbar .text-muted{color:#94a3b8 !important;}
                                     if (in_array($uid, [1, 877, 878], true)): ?>
                                     <li>
                                         <a class="dropdown-item user-dropdown-perfil" href="/perfil">
-                                            <i class="fa-solid fa-gear fa-fw"></i><span>Ajuste (tu perfil)</span>
+                                            <i class="fa-solid fa-user-pen fa-fw"></i><span>Ajustes (tu perfil)</span>
+                                        </a>
+                                    </li>
+                                    <?php endif; ?>
+                                    <li>
+                                        <a class="dropdown-item dark-mode-toggle user-dropdown-dark" href="javascript:void(0);" onclick="toggleDarkMode()" id="darkModeToggle">
+                                            <i class="fa-solid fa-moon dark-mode-icon fa-fw" id="darkModeIcon"></i><span id="darkModeText">Apariencia (modo oscuro)</span>
                                         </a>
                                     </li>
                                     <li><hr class="dropdown-divider"></li>
-                                    <?php endif; ?>
                                     <li>
                                         <a class="dropdown-item user-dropdown-logout" href="/login/cerrarSesion">
                                             <i class="fa-solid fa-right-from-bracket fa-fw"></i><span>Cerrar sesión</span>
-                                        </a>
-                                    </li>
-                                    <li>
-                                        <hr class="dropdown-divider">
-                                    </li>
-                                    <li>
-                                        <a class="dropdown-item dark-mode-toggle user-dropdown-dark" href="javascript:void(0);" onclick="toggleDarkMode()" id="darkModeToggle">
-                                            <i class="fa-solid fa-moon dark-mode-icon fa-fw" id="darkModeIcon"></i><span id="darkModeText">Modo oscuro</span>
                                         </a>
                                     </li>
                                 </ul>
@@ -641,7 +639,7 @@ html.dark-mode .navbar .text-muted{color:#94a3b8 !important;}
                 document.documentElement.classList.add('dark-mode');
                 body.classList.add('dark-mode');
                 if (icon) { icon.className = 'fa-solid fa-sun dark-mode-icon'; }
-                if (text) text.textContent = 'Modo claro';
+                if (text) text.textContent = 'Apariencia (modo claro)';
                 if (toggle) toggle.classList.add('active-dark');
                 
                 fixInlineStyles();
@@ -649,7 +647,7 @@ html.dark-mode .navbar .text-muted{color:#94a3b8 !important;}
                 document.documentElement.classList.remove('dark-mode');
                 body.classList.remove('dark-mode');
                 if (icon) { icon.className = 'fa-solid fa-moon dark-mode-icon'; }
-                if (text) text.textContent = 'Modo oscuro';
+                if (text) text.textContent = 'Apariencia (modo oscuro)';
                 if (toggle) toggle.classList.remove('active-dark');
                 
                 restoreOriginalStyles();

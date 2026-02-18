@@ -37,7 +37,8 @@
  <style>
     
   body {
-  background-color: #ffffff !important;
+  background: #ffffff !important;
+  min-height: 100vh;
 }
 
 /* Contenedor principal */
@@ -191,12 +192,15 @@
 
 }
 
-/* Tarjeta de login */
+/* Tarjeta de login – Liquid Glass sobre fondo blanco */
 .authentication-bg .w-px-400 {
-  background: white;
+  background: rgba(255, 255, 255, 0.95) !important;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(30, 41, 68, 0.12);
   padding: 2.5rem 2rem;
   border-radius: 20px;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+  box-shadow: 0 4px 24px rgba(0,0,0,0.06), 0 0 0 1px rgba(30, 41, 68, 0.06);
 }
 
 /* Campos con iconos */
@@ -212,13 +216,18 @@
   box-shadow: none;
 }
 .form-control {
-  border: 1px solid #e2e8f0;
+  background: rgba(255, 255, 255, 0.9) !important;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(226, 232, 240, 0.9);
   padding: 0.75rem 1rem;
+  border-radius: 12px;
   transition: border-color 0.2s, box-shadow 0.2s;
 }
 .form-control:focus {
   border-color: #1e3a8a;
   box-shadow: 0 0 0 3px rgba(30,58,138,0.1);
+  background: rgba(255, 255, 255, 0.98) !important;
 }
 
 /* Botón con sombra y transición */

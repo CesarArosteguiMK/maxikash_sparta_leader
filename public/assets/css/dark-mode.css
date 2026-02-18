@@ -22,6 +22,11 @@ body.dark-mode {
     --bs-border-color: #334155;
     --bs-secondary-bg: #1e293b;
     --bs-tertiary-bg: #334155;
+    /* Esquinas redondeadas (alineado con demo.css) */
+    --bs-border-radius: 0.75rem;
+    --bs-border-radius-sm: 0.5rem;
+    --bs-border-radius-lg: 0.875rem;
+    --bs-border-radius-xl: 1rem;
 }
 
 /* ==========================================
@@ -280,18 +285,23 @@ body.dark-mode .dataTables_wrapper .dataTables_paginate {
 }
 
 body.dark-mode .page-link {
-    background-color: #1e293b !important;
+    background: rgba(30, 41, 59, 0.88) !important;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
     border-color: #334155 !important;
     color: #93c5fd !important;
+    border-radius: var(--bs-border-radius-sm) !important;
 }
 
 body.dark-mode .page-link:hover {
-    background-color: #334155 !important;
+    background: rgba(51, 65, 85, 0.95) !important;
     color: #bfdbfe !important;
 }
 
 body.dark-mode .page-item.active .page-link {
-    background-color: #2563eb !important;
+    background: rgba(37, 99, 235, 0.9) !important;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
     border-color: #2563eb !important;
 }
 
@@ -643,58 +653,77 @@ body.dark-mode .alert-success {
 }
 
 /* ==========================================
-   TABS Y NAVEGACIÓN
+   TABS Y NAVEGACIÓN – Liquid Glass + esquinas redondeadas
    ========================================== */
 body.dark-mode .nav-tabs {
-    border-bottom-color: #3a3a3a !important;
+    border-bottom-color: #334155 !important;
 }
 
 body.dark-mode .nav-tabs .nav-link {
-    color: #b8b8c1 !important;
+    color: #94a3b8 !important;
     border-color: transparent !important;
+    border-radius: var(--bs-border-radius) var(--bs-border-radius) 0 0 !important;
+    background: rgba(30, 41, 59, 0.75) !important;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
 }
 
 body.dark-mode .nav-tabs .nav-link:hover {
-    border-color: #3a3a3a !important;
-    color: #ffffff !important;
+    border-color: #334155 !important;
+    color: #f1f5f9 !important;
+    background: rgba(51, 65, 85, 0.85) !important;
 }
 
 body.dark-mode .nav-tabs .nav-link.active {
-    background-color: #252525 !important;
-    border-color: #3a3a3a #3a3a3a #252525 !important;
-    color: #ffffff !important;
+    background: rgba(30, 41, 59, 0.95) !important;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-color: #334155 #334155 transparent !important;
+    color: #93c5fd !important;
 }
 
 body.dark-mode .nav-pills .nav-link {
-    color: #b8b8c1 !important;
+    color: #94a3b8 !important;
+    border-radius: var(--bs-border-radius) !important;
+    background: rgba(30, 41, 59, 0.8) !important;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
 }
 
 body.dark-mode .nav-pills .nav-link:hover {
-    background-color: #303030 !important;
-    color: #ffffff !important;
+    background: rgba(51, 65, 85, 0.9) !important;
+    color: #f1f5f9 !important;
 }
 
 body.dark-mode .nav-pills .nav-link.active {
-    background-color: #0d6efd !important;
+    background: rgba(37, 99, 235, 0.9) !important;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
     color: #ffffff !important;
 }
 
 /* ==========================================
-   ACCORDION
+   ACCORDION – Liquid Glass + esquinas redondeadas
    ========================================== */
 body.dark-mode .accordion-item {
-    background-color: #252525 !important;
-    border-color: #3a3a3a !important;
+    background: rgba(30, 41, 59, 0.88) !important;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-color: #334155 !important;
+    border-radius: var(--bs-border-radius) !important;
+    overflow: hidden;
 }
 
 body.dark-mode .accordion-button {
-    background-color: #303030 !important;
-    color: #ffffff !important;
+    background: rgba(51, 65, 85, 0.7) !important;
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    color: #f1f5f9 !important;
 }
 
 body.dark-mode .accordion-button:not(.collapsed) {
-    background-color: #3a3a3a !important;
-    color: #ffffff !important;
+    background: rgba(51, 65, 85, 0.9) !important;
+    color: #93c5fd !important;
     box-shadow: none !important;
 }
 
@@ -709,7 +738,7 @@ body.dark-mode .accordion-button::after {
 }
 
 body.dark-mode .accordion-body {
-    background-color: #252525 !important;
+    background: transparent !important;
     color: #e0e0e0 !important;
 }
 
@@ -764,52 +793,85 @@ body.dark-mode .breadcrumb-item + .breadcrumb-item::before {
 }
 
 /* ==========================================
-   LISTAS Y GRUPOS
+   LISTAS Y GRUPOS – Liquid Glass + esquinas redondeadas
    ========================================== */
 body.dark-mode .list-group-item {
-    background-color: #252525 !important;
-    border-color: #3a3a3a !important;
+    background: rgba(30, 41, 59, 0.85) !important;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border-color: #334155 !important;
     color: #e0e0e0 !important;
+    border-radius: var(--bs-border-radius-sm) !important;
 }
 
 body.dark-mode .list-group-item:hover {
-    background-color: #303030 !important;
+    background: rgba(51, 65, 85, 0.9) !important;
 }
 
 body.dark-mode .list-group-item.active {
-    background-color: #0d6efd !important;
-    border-color: #0d6efd !important;
+    background: rgba(37, 99, 235, 0.9) !important;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border-color: #2563eb !important;
     color: #ffffff !important;
 }
 
 /* ==========================================
-   PROGRESS BAR
+   PROGRESS BAR – Liquid Glass
    ========================================== */
 body.dark-mode .progress {
-    background-color: #303030 !important;
+    background: rgba(51, 65, 85, 0.8) !important;
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    border-radius: var(--bs-border-radius) !important;
+}
+
+body.dark-mode .progress-bar {
+    border-radius: var(--bs-border-radius) !important;
 }
 
 /* ==========================================
-   TOOLTIPS Y POPOVERS
+   TOOLTIPS Y POPOVERS – Liquid Glass
    ========================================== */
 body.dark-mode .tooltip-inner {
-    background-color: #3a3a3a !important;
-    color: #ffffff !important;
+    background: rgba(30, 41, 59, 0.95) !important;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #f1f5f9 !important;
+    border-radius: var(--bs-border-radius-sm) !important;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
 }
 
 body.dark-mode .popover {
-    background-color: #252525 !important;
-    border-color: #3a3a3a !important;
+    background: rgba(30, 41, 59, 0.95) !important;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid #334155 !important;
+    border-radius: var(--bs-border-radius-lg) !important;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
 }
 
 body.dark-mode .popover-header {
-    background-color: #303030 !important;
-    border-bottom-color: #3a3a3a !important;
-    color: #ffffff !important;
+    background: rgba(51, 65, 85, 0.8) !important;
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    border-bottom-color: #334155 !important;
+    color: #f1f5f9 !important;
 }
 
 body.dark-mode .popover-body {
-    color: #e0e0e0 !important;
+    background: transparent !important;
+    color: #e2e8f0 !important;
+}
+
+/* Iconos del modal Módulos del Sistema (Administrar puestos y módulos) */
+body.dark-mode .modulo-icon-box {
+    background: rgba(59, 130, 246, 0.2) !important;
+    border-color: rgba(59, 130, 246, 0.4) !important;
+}
+body.dark-mode .modulo-icon-box i {
+    color: #93c5fd !important;
 }
 
 /* ==========================================
@@ -916,33 +978,133 @@ body.dark-mode .bootstrap-select .dropdown-menu {
     border-color: #3a3a3a !important;
 }
 
-/* Flatpickr */
-body.dark-mode .flatpickr-calendar {
-    background-color: #252525 !important;
-    border-color: #3a3a3a !important;
+/* ==========================================
+   FLATPICKR (calendario) – modo oscuro + Liquid Glass + esquinas redondeadas
+   ========================================== */
+body.dark-mode .flatpickr-calendar,
+body.dark-mode .flatpickr-calendar.open {
+    background: rgba(30, 41, 59, 0.95) !important;
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid #334155 !important;
+    border-radius: var(--bs-border-radius-lg) !important;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4) !important;
 }
 
-body.dark-mode .flatpickr-months {
-    background-color: #303030 !important;
+body.dark-mode .flatpickr-calendar .flatpickr-month,
+body.dark-mode .flatpickr-calendar .flatpickr-months {
+    background: rgba(51, 65, 85, 0.9) !important;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border-bottom: 1px solid #334155 !important;
+    color: #f1f5f9 !important;
 }
 
-body.dark-mode .flatpickr-current-month .flatpickr-monthDropdown-months,
-body.dark-mode .flatpickr-current-month input.cur-year {
-    background-color: #252525 !important;
-    color: #e0e0e0 !important;
+body.dark-mode .flatpickr-calendar .flatpickr-current-month {
+    color: #f1f5f9 !important;
 }
 
-body.dark-mode .flatpickr-day {
-    color: #e0e0e0 !important;
+body.dark-mode .flatpickr-calendar .flatpickr-current-month .flatpickr-monthDropdown-months,
+body.dark-mode .flatpickr-calendar .flatpickr-current-month input.cur-year {
+    background: rgba(30, 41, 59, 0.9) !important;
+    color: #f1f5f9 !important;
+    border-color: #334155 !important;
 }
 
-body.dark-mode .flatpickr-day:hover {
-    background-color: #303030 !important;
+body.dark-mode .flatpickr-calendar .flatpickr-prev-month,
+body.dark-mode .flatpickr-calendar .flatpickr-next-month {
+    color: #94a3b8 !important;
+    fill: #94a3b8 !important;
 }
 
-body.dark-mode .flatpickr-day.selected {
-    background-color: #0d6efd !important;
-    border-color: #0d6efd !important;
+body.dark-mode .flatpickr-calendar .flatpickr-prev-month:hover,
+body.dark-mode .flatpickr-calendar .flatpickr-next-month:hover {
+    background: rgba(51, 65, 85, 0.9) !important;
+    color: #93c5fd !important;
+    fill: #93c5fd !important;
+}
+
+body.dark-mode .flatpickr-calendar .flatpickr-prev-month svg,
+body.dark-mode .flatpickr-calendar .flatpickr-next-month svg {
+    fill: currentColor !important;
+}
+
+body.dark-mode .flatpickr-calendar .flatpickr-weekdays {
+    background: transparent !important;
+}
+
+body.dark-mode .flatpickr-calendar span.flatpickr-weekday {
+    color: #94a3b8 !important;
+}
+
+body.dark-mode .flatpickr-calendar .flatpickr-days,
+body.dark-mode .flatpickr-calendar .dayContainer {
+    background: transparent !important;
+}
+
+body.dark-mode .flatpickr-calendar .flatpickr-day {
+    color: #e2e8f0 !important;
+    border-color: transparent !important;
+}
+
+body.dark-mode .flatpickr-calendar .flatpickr-day.prevMonthDay,
+body.dark-mode .flatpickr-calendar .flatpickr-day.nextMonthDay {
+    color: #64748b !important;
+}
+
+body.dark-mode .flatpickr-calendar .flatpickr-day:hover {
+    background: rgba(51, 65, 85, 0.9) !important;
+    border-color: transparent !important;
+    color: #f1f5f9 !important;
+}
+
+body.dark-mode .flatpickr-calendar .flatpickr-day.today {
+    border-color: #93c5fd !important;
+    background: rgba(51, 65, 85, 0.7) !important;
+    color: #f1f5f9 !important;
+}
+
+body.dark-mode .flatpickr-calendar .flatpickr-day.today:hover {
+    background: rgba(51, 65, 85, 0.95) !important;
+    color: #93c5fd !important;
+}
+
+body.dark-mode .flatpickr-calendar .flatpickr-day.selected,
+body.dark-mode .flatpickr-calendar .flatpickr-day.startRange,
+body.dark-mode .flatpickr-calendar .flatpickr-day.endRange {
+    background: rgba(37, 99, 235, 0.9) !important;
+    border-color: #2563eb !important;
+    color: #ffffff !important;
+}
+
+body.dark-mode .flatpickr-calendar .flatpickr-day.selected:hover,
+body.dark-mode .flatpickr-calendar .flatpickr-day.startRange:hover,
+body.dark-mode .flatpickr-calendar .flatpickr-day.endRange:hover {
+    background: rgba(59, 130, 246, 0.95) !important;
+    color: #ffffff !important;
+}
+
+body.dark-mode .flatpickr-calendar .flatpickr-innerContainer,
+body.dark-mode .flatpickr-calendar .flatpickr-rContainer {
+    background: transparent !important;
+}
+
+/* Tiempo (hasTime) */
+body.dark-mode .flatpickr-calendar.hasTime .flatpickr-time {
+    background: rgba(51, 65, 85, 0.9) !important;
+    border-top: 1px solid #334155 !important;
+    color: #f1f5f9 !important;
+}
+
+body.dark-mode .flatpickr-calendar .flatpickr-time input {
+    background: rgba(30, 41, 59, 0.9) !important;
+    color: #f1f5f9 !important;
+    border-color: #334155 !important;
+}
+
+body.dark-mode .flatpickr-calendar .numInputWrapper span {
+    color: #94a3b8 !important;
+    border-color: #334155 !important;
 }
 
 /* SweetAlert2 */
