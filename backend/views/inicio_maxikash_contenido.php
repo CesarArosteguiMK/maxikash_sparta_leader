@@ -11,13 +11,24 @@ $logoUrl = '/assets/img/Logotipo-Maxikash-Outline.webp';
 
 $mensajesPorPuesto = [
     'Administrador de Proyectos' => 'Responsable de planificar, coordinar y supervisar la ejecución de los proyectos estratégicos de la organización.',
-    'Desarrollador Junior'       => 'Perfil orientado al desarrollo y soporte de funcionalidades bajo supervisión técnica. Participa en la implementación de tareas asignadas, corrección de incidencias y mejora continua del sistema, fortaleciendo sus habilidades técnicas dentro del equipo de desarrollo.',
+    'Desarrollador Junior'       => 'Perfil orientado al desarrollo y soporte de funcionalidades bajo supervisión técnica.',
     'Desarrollador Senior'      => 'Responsable del diseño técnico, arquitectura y supervisión de soluciones dentro del sistema. Lidera decisiones técnicas, revisa código, optimiza procesos y garantiza la calidad, seguridad y escalabilidad de las aplicaciones desarrolladas.',
     'Call Center'               => 'Gestiona la operación de atención al cliente. Supervisa llamadas, seguimiento y desempeño del equipo en tiempo real.',
     'Capital Humano'            => 'Gestiona el talento y los procesos laborales. Controla asistencias, nómina y administración del personal desde un panel unificado.',
 ];
+// Normalizar nombre de puesto (BD puede tener "Desarrollador Jr", "Call center", etc.)
+$aliasPuesto = [
+    'Desarrollador Jr' => 'Desarrollador Junior',
+    'Desarrollador Sr' => 'Desarrollador Senior',
+    'Call center'      => 'Call Center',
+    'call center'      => 'Call Center',
+    'Capital humano'  => 'Capital Humano',
+    'capital humano'  => 'Capital Humano',
+    'Administrador'   => 'Administrador de Proyectos',
+];
 $puestoNormalizado = trim((string) $puestoUsuario);
-$heroDesc = $mensajesPorPuesto[$puestoNormalizado] ?? 'Tienes acceso al portal. Usa los accesos rápidos o el menú lateral para navegar.';
+$puestoParaBusqueda = $aliasPuesto[$puestoNormalizado] ?? $puestoNormalizado;
+$heroDesc = $mensajesPorPuesto[$puestoParaBusqueda] ?? 'Tienes acceso al portal. Usa los accesos rápidos o el menú lateral para navegar.';
 ?>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <style>

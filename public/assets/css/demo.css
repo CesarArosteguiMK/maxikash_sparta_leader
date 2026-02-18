@@ -43,6 +43,114 @@ body.dark-mode .dropdown-item.dark-mode-toggle.active-dark i.fa-sun {
   color: #fbbf24;
 }
 
+/* Navbar superior: Liquid Glass (estilo iOS) – modo claro */
+.layout-navbar {
+  background: rgba(255, 255, 255, 0.72) !important;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+.layout-navbar .navbar {
+  background-color: transparent !important;
+}
+
+/* Cards: Liquid Glass – modo claro (fondo suave + blur ligero) */
+.card {
+  background: rgba(255, 255, 255, 0.9) !important;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+.card-header {
+  background: rgba(0, 0, 0, 0.04) !important;
+}
+.card-body {
+  background: transparent !important;
+}
+
+/* Modales: Liquid Glass – modo claro (fondo semitransparente + blur) */
+.modal-content {
+  background: rgba(255, 255, 255, 0.92) !important;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+.modal-header {
+  background: rgba(0, 0, 0, 0.03) !important;
+}
+
+/* Dropdowns: Liquid Glass – modo claro */
+.dropdown-menu {
+  background: rgba(255, 255, 255, 0.92) !important;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+/* Sidebar (menú lateral): glass muy sutil – solo modo claro (en dark se usa dark-mode.css) */
+body:not(.dark-mode) #layout-menu.layout-menu,
+body:not(.dark-mode) .layout-menu.menu {
+  background: rgba(255, 255, 255, 0.96) !important;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+body:not(.dark-mode) .layout-menu .menu-inner,
+body:not(.dark-mode) .layout-menu .app-brand {
+  background: transparent !important;
+}
+
+/* Offcanvas: Liquid Glass – modo claro */
+.offcanvas {
+  background: rgba(255, 255, 255, 0.94) !important;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+.offcanvas-header {
+  background: rgba(0, 0, 0, 0.03) !important;
+}
+.offcanvas-body {
+  background: transparent !important;
+}
+
+/* Tarjetas accesos rápidos (Inicio): Liquid Glass – modo claro */
+.inicio-mkx .qcard {
+  background: rgba(255, 255, 255, 0.9) !important;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+/* Cabeceras de tabla fijas (sticky): Liquid Glass – modo claro */
+.table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: rgba(255, 255, 255, 0.92) !important;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+/* Inputs / barras de búsqueda en navbar: Liquid Glass – modo claro */
+.navbar .form-control,
+.navbar .form-select,
+.navbar .input-group-text {
+  background: rgba(255, 255, 255, 0.75) !important;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+/* Badges / notificaciones flotantes: Liquid Glass – modo claro */
+.badge {
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+.toast {
+  background: rgba(255, 255, 255, 0.94) !important;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+.alert {
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
 /* Cabecera del menú: el cajón es SOLO el logo; la flecha queda fuera del cajón para que resalte y no provoque scroll */
 .menu .app-brand.demo {
   min-height: 72px;

@@ -74,18 +74,23 @@ body.dark-mode .container-fluid {
    CARDS Y PANELES
    ========================================== */
 body.dark-mode .card {
-    background-color: #1e293b !important;
+    background: rgba(30, 41, 59, 0.88) !important;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
     color: #f1f5f9 !important;
     border-color: #334155 !important;
 }
 
 body.dark-mode .card-header {
-    background-color: #334155 !important;
+    background: rgba(51, 65, 85, 0.7) !important;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
     color: #ffffff !important;
     border-bottom-color: #334155 !important;
 }
 
 body.dark-mode .card-body {
+    background: transparent !important;
     color: #f1f5f9 !important;
 }
 
@@ -105,12 +110,21 @@ body.dark-mode .card-text {
 /* ==========================================
    MENÚ LATERAL
    ========================================== */
+body.dark-mode .layout-menu,
+body.dark-mode .layout-menu.menu,
 body.dark-mode .menu {
-    background-color: #1e293b !important;
+    background: rgba(30, 41, 59, 0.95) !important;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+}
+
+body.dark-mode .layout-menu .menu-inner,
+body.dark-mode .layout-menu .app-brand {
+    background: transparent !important;
 }
 
 body.dark-mode .menu-inner {
-    background-color: #1e293b !important;
+    background: transparent !important;
 }
 
 body.dark-mode .menu-item .menu-link {
@@ -149,14 +163,16 @@ body.dark-mode .app-brand {
 }
 
 /* ==========================================
-   NAVBAR SUPERIOR
+   NAVBAR SUPERIOR – Liquid Glass (modo oscuro)
    ========================================== */
 body.dark-mode .layout-navbar {
-    background-color: rgba(30, 41, 59, .95) !important;
+    background: rgba(30, 41, 59, 0.85) !important;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
     border-bottom: 1px solid #334155 !important;
 }
 
-body.dark-mode .navbar {
+body.dark-mode .layout-navbar .navbar {
     background-color: transparent !important;
 }
 
@@ -172,7 +188,9 @@ body.dark-mode .navbar .nav-link:hover {
    DROPDOWNS
    ========================================== */
 body.dark-mode .dropdown-menu {
-    background-color: #1e293b !important;
+    background: rgba(30, 41, 59, 0.92) !important;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
     border-color: #334155 !important;
 }
 
@@ -212,7 +230,12 @@ body.dark-mode .table {
 }
 
 body.dark-mode .table thead th {
-    background-color: #334155 !important;
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: rgba(51, 65, 85, 0.92) !important;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
     color: #ffffff !important;
     border-color: #334155 !important;
 }
@@ -295,7 +318,12 @@ body.dark-mode .inicio-mkx .hero-datetime-time,
 body.dark-mode .inicio-mkx .hero-datetime-date {
   color: #fff !important;
 }
-body.dark-mode .inicio-mkx .qcard { background: #1e293b !important; border-color: #334155 !important; }
+body.dark-mode .inicio-mkx .qcard {
+    background: rgba(30, 41, 59, 0.9) !important;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-color: #334155 !important;
+}
 body.dark-mode .inicio-mkx .qcard:hover { border-color: #475569; box-shadow: 0 14px 36px rgba(0,0,0,.25); }
 body.dark-mode .inicio-mkx .sec-line { background: #334155; }
 /* Iconos de accesos rápidos en modo oscuro: fondos suaves y iconos más vivos */
@@ -310,6 +338,15 @@ body.dark-mode .form-select {
     background-color: #1e293b !important;
     color: #f1f5f9 !important;
     border-color: #334155 !important;
+}
+
+/* Inputs / barras de búsqueda en navbar: Liquid Glass – modo oscuro */
+body.dark-mode .navbar .form-control,
+body.dark-mode .navbar .form-select,
+body.dark-mode .navbar .input-group-text {
+    background: rgba(30, 41, 59, 0.85) !important;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
 }
 
 body.dark-mode .form-control:focus,
@@ -399,13 +436,17 @@ body.dark-mode input[type="search"] {
    MODALES
    ========================================== */
 body.dark-mode .modal-content {
-    background-color: #252525 !important;
-    border-color: #3a3a3a !important;
+    background: rgba(30, 41, 59, 0.92) !important;
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border-color: #334155 !important;
 }
 
 body.dark-mode .modal-header {
-    background-color: #303030 !important;
-    border-bottom-color: #3a3a3a !important;
+    background: rgba(51, 65, 85, 0.6) !important;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border-bottom-color: #334155 !important;
 }
 
 body.dark-mode .modal-title {
@@ -429,16 +470,20 @@ body.dark-mode .btn-close {
    OFFCANVAS
    ========================================== */
 body.dark-mode .offcanvas {
-    background-color: #252525 !important;
+    background: rgba(30, 41, 59, 0.94) !important;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
 }
 
 body.dark-mode .offcanvas-header {
-    background-color: #303030 !important;
-    border-bottom-color: #3a3a3a !important;
+    background: rgba(51, 65, 85, 0.6) !important;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border-bottom-color: #334155 !important;
 }
 
 body.dark-mode .offcanvas-body {
-    background-color: #252525 !important;
+    background: transparent !important;
     color: #e0e0e0 !important;
 }
 
@@ -573,6 +618,8 @@ body.dark-mode .btn[style*="background: white"] {
    ========================================== */
 body.dark-mode .alert {
     border-color: #3a3a3a !important;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
 }
 
 body.dark-mode .alert-info {
@@ -1132,6 +1179,15 @@ body.dark-mode #panelIndicadoresBajas .kpi-number {
    ========================================== */
 body.dark-mode .badge {
     filter: brightness(1.2);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+}
+
+/* Toast: Liquid Glass – modo oscuro */
+body.dark-mode .toast {
+    background: rgba(30, 41, 59, 0.94) !important;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
 }
 
 /* ==========================================
