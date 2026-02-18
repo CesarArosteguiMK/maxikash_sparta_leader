@@ -3,7 +3,12 @@
 * File include item demo only specific css only
 ******************************************************************************/
 
-/* Sin watermark en el menú lateral (evita logo abajo y desplazamientos) */
+/* Sidebar: nunca debe desbordar al área de contenido (evita logo grande en otros equipos) */
+#layout-menu.layout-menu {
+  overflow-x: hidden;
+  overflow-y: auto;
+  max-width: 100%;
+}
 .layout-menu .menu-inner {
   position: relative;
 }
@@ -54,7 +59,16 @@ body.dark-mode .dropdown-item.dark-mode-toggle.active-dark i.fa-sun {
   font-size: 1.75rem;
   letter-spacing: -0.5px;
 }
-/* Logo del sidebar: tamaño fijo grande, sin depender de w-100 */
+/* Logo del sidebar: tamaño fijo (evita que se vea gigante en otros equipos con caché vieja) */
+.layout-menu .app-brand.demo .app-brand-text img {
+  max-height: 56px !important;
+  height: auto !important;
+  width: auto !important;
+  max-width: 100% !important;
+  object-fit: contain;
+  display: block;
+  flex-shrink: 0;
+}
 img.sidebar-logo {
   height: 56px !important;
   width: auto !important;

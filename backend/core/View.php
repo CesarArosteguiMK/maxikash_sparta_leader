@@ -3,6 +3,12 @@
 $titulo = $titulo ?? "Inicio | "  . CONFIGURACION['EMPRESA'];
 $usuario = $_SESSION['nombre'] ?? 'Usuario';
 
+// Cache-busting para CSS: mismo estilo en todos los navegadores (evita caché vieja en otros equipos)
+$__demoCss = realpath(__DIR__ . '/../../public/assets/css/demo.css');
+$__darkCss = realpath(__DIR__ . '/../../public/assets/css/dark-mode.css');
+$__assetsVer = ($__demoCss ? filemtime($__demoCss) : '') . ($__darkCss ? '.' . filemtime($__darkCss) : '');
+if ($__assetsVer === '.' || $__assetsVer === '') $__assetsVer = (string) time();
+
 function getMenu()
 {
     if (!isset($_SESSION['modulos'])) {
@@ -364,8 +370,8 @@ html.dark-mode .navbar .text-muted{color:#94a3b8 !important;}
 
     <!-- Core CSS -->
     <link rel="stylesheet" href="/assets/vendor/css/core.css" />
-    <link rel="stylesheet" href="/assets/css/demo.css" />
-    <link rel="stylesheet" href="/assets/css/dark-mode.css" />
+    <link rel="stylesheet" href="/assets/css/demo.css?v=<?= $__assetsVer ?>" />
+    <link rel="stylesheet" href="/assets/css/dark-mode.css?v=<?= $__assetsVer ?>" />
 
     <!-- Vendors CSS -->
     <link rel="stylesheet" href="/assets/vendor/libs/@form-validation/form-validation.css">
