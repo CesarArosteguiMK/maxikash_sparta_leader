@@ -1,16 +1,14 @@
 <?php
 /**
  * Lista plana de ítems del menú para Accesos rápidos (misma lógica que View::getMenu).
- * Cada elemento: ['url' => ..., 'label' => ..., 'icon' => 'fa-solid fa-...']
+ * También usada para autorización: ruta -> módulos requeridos (index.php).
  */
-if (!function_exists('getAccesosRapidosDesdeModulos')) {
-    function getAccesosRapidosDesdeModulos()
+if (!function_exists('getMenuItemsConfig')) {
+    function getMenuItemsConfig()
     {
-        $modulos = $_SESSION['modulos'] ?? [];
-        $items = [];
-        $menuItems = [
-            ['url' => '/estadocuenta/consulta', 'label' => 'Estados de Cuenta', 'icon' => 'fa-solid fa-usd', 'bg' => 'bg-yellow', 'modulos' => [1]],
-            ['url' => '/estadocuenta/documentacion', 'label' => 'Documentación', 'icon' => 'fa-solid fa-usd', 'bg' => 'bg-yellow', 'modulos' => [2]],
+        return [
+            ['url' => '/estadocuenta/consulta', 'label' => 'Estados de Cuenta', 'icon' => 'fa-solid fa-sack-dollar', 'bg' => 'bg-yellow', 'modulos' => [1]],
+            ['url' => '/estadocuenta/documentacion', 'label' => 'Documentación', 'icon' => 'fa-solid fa-sack-dollar', 'bg' => 'bg-yellow', 'modulos' => [2]],
             ['url' => '/gestiones/seguimiento', 'label' => 'Histórico Gestiones', 'icon' => 'fa-solid fa-screwdriver-wrench', 'bg' => 'bg-green', 'modulos' => [3]],
             ['url' => '/indicadores/kpiTotal', 'label' => 'KPI Total', 'icon' => 'fa-solid fa-chart-line', 'bg' => 'bg-orange', 'modulos' => [40]],
             ['url' => '/indicadores/gestiones1A7', 'label' => 'Gestión 1-7', 'icon' => 'fa-solid fa-chart-line', 'bg' => 'bg-orange', 'modulos' => [24]],
@@ -44,12 +42,79 @@ if (!function_exists('getAccesosRapidosDesdeModulos')) {
             ['url' => '/equivalencias/consulta', 'label' => 'Equivalencia puestos', 'icon' => 'fa-solid fa-cog', 'bg' => 'bg-blue', 'modulos' => [17]],
             ['url' => '/segundometro/shell', 'label' => 'Shell Segundómetro', 'icon' => 'fa-solid fa-cog', 'bg' => 'bg-blue', 'modulos' => [16]],
         ];
-        foreach ($menuItems as $row) {
+    }
+}
+
+if (!function_exists('getAccesosRapidosDesdeModulos')) {
+    function getAccesosRapidosDesdeModulos()
+    {
+        $modulos = $_SESSION['modulos'] ?? [];
+        $items = [];
+        foreach (getMenuItemsConfig() as $row) {
             if (!empty($row['modulos']) && !array_intersect($row['modulos'], $modulos)) {
+                continue;
+            }
+            // No mostrar Indicadores en accesos rápidos (son muchos y recargan la página)
+            $path = trim(parse_url($row['url'], PHP_URL_PATH), '/');
+            if (stripos($path, 'indicadores/') === 0) {
                 continue;
             }
             $items[] = ['url' => $row['url'], 'label' => $row['label'], 'icon' => $row['icon'], 'bg' => $row['bg'] ?? 'bg-blue'];
         }
         return $items;
+    }
+}
+
+/**
+ * Devuelve mapa path_normalizado => [módulos]. Usado para autorización en index.php.
+ */
+if (!function_exists('getRutasModulos')) {
+    function getRutasModulos()
+    {
+        $rutas = [];
+        foreach (getMenuItemsConfig() as $row) {
+            if (empty($row['modulos'])) {
+                continue;
+            }
+            $path = trim(parse_url($row['url'], PHP_URL_PATH), '/');
+            $path = strtolower(preg_replace('#/+#', '/', $path));
+            if ($path !== '') {
+                $rutas[$path] = $row['modulos'];
+            }
+        }
+        return $rutas;
+    }
+}
+
+/**
+ * Módulos requeridos por controlador completo (todas las acciones).
+ * Si la ruta concreta no está en getRutasModulos(), se usa esto.
+ */
+if (!function_exists('getControladoresModulos')) {
+    function getControladoresModulos()
+    {
+        return [
+            'segundometro' => [16],
+        ];
+    }
+}
+
+/**
+ * Devuelve array de módulos requeridos para controller/metodo, o null si no hay restricción.
+ */
+if (!function_exists('getModulosRequeridos')) {
+    function getModulosRequeridos($controller, $metodo)
+    {
+        $path = strtolower(trim($controller)) . '/' . strtolower(trim($metodo));
+        $rutas = getRutasModulos();
+        if (isset($rutas[$path])) {
+            return $rutas[$path];
+        }
+        $controlador = strtolower(trim($controller));
+        $porControlador = getControladoresModulos();
+        if (isset($porControlador[$controlador])) {
+            return $porControlador[$controlador];
+        }
+        return null;
     }
 }

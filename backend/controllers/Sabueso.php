@@ -108,6 +108,9 @@ SCRIPT;
         var rastreoMarkersPorGestorAlternas = {};
         var rastreoMarkersPorGestorAlternasGrande = {};
         var rastreoFiltroGestorActual = '';
+        var rastreoFiltroGestoresSeleccionados = [];
+        var rastreoColoresPorGestor = {};
+        var rastreoPaletaColoresGestores = ["#ea580c", "#dc2626", "#9333ea", "#0891b2", "#ca8a04", "#db2777", "#0d9488", "#64748b"];
 SCRIPT;
         $script .= "\n\n        function attrEsc(s){ if (s==null||s===undefined) return ''; var x=(s+'').split('&').join('&amp;').split('<').join('&lt;'); return x.split('\"').join('&quot;'); }\n        $(document).ready(function() {\n            configuraTabla(\"#tablaTicketsPanel\", {\n                registrosPorPagina: 10,\n                columns: " . $columnsJson['columnsJs'] . "\n            });\n            getTicketsPanelAdmin();\n        });\n\n        function getTicketsPanelAdmin() {\n            http.request({\n                endpoint: \"/sabueso/getTicketsPanelAdmin\",\n                metodo: \"POST\",\n                onSuccess: function(resp) {\n                    var datos = (resp.datos || []).map(function(t) {\n                        var fechaCreacion = t.fecha_creacion ? new Date(t.fecha_creacion).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—';\n                        var fechaVenc = t.fecha_vencimiento ? new Date(t.fecha_vencimiento).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—';\n                        var prioridadNombre = (t.prioridad_nombre || '').toLowerCase();\n                        var prioridadBadge = '<span class=\"badge bg-label-secondary\">' + (t.prioridad_nombre || '—') + '</span>';\n                        if (prioridadNombre.indexOf('alta') !== -1) prioridadBadge = '<span class=\"badge bg-danger text-white\">' + (t.prioridad_nombre || '—') + '</span>';\n                        else if (prioridadNombre.indexOf('medio') !== -1 || prioridadNombre.indexOf('media') !== -1) prioridadBadge = '<span class=\"badge\" style=\"background-color:#fd7e14;color:#fff;\">' + (t.prioridad_nombre || '—') + '</span>';\n                        else if (prioridadNombre.indexOf('bajo') !== -1 || prioridadNombre.indexOf('baja') !== -1) prioridadBadge = '<span class=\"badge\" style=\"background-color:#ffc107;color:#212529;\">' + (t.prioridad_nombre || '—') + '</span>';\n                        else if (prioridadNombre.indexOf('sin prioridad') !== -1) prioridadBadge = '<span class=\"badge bg-secondary\" style=\"background-color:#6c757d!important;color:#fff;\">' + (t.prioridad_nombre || '—') + '</span>';\n                        var estadoBadge = (t.asignado_nombre && (t.asignado_nombre + '').trim()) ? '<span class=\"badge bg-success text-white\">Asignado</span>' : '<span class=\"badge bg-label-secondary\">Abierto</span>';\n                        var row = {\n                            folio_tipo: '<div class=\"fw-semibold\">' + (t.folio || '—') + '</div><div class=\"small text-muted mt-1\">' + (t.tipo_ticket_nombre || '—') + '</div>',\n                            estado: estadoBadge,\n                            prioridad: prioridadBadge,\n                            credito: '<small>#' + (t.id_credito != null ? t.id_credito : '—') + '</small>',\n                            fechas: '<div class=\"small d-flex align-items-center gap-1\"><i class=\"fa fa-calendar-plus-o text-muted\" style=\"width: 1rem;\"></i><span>Creación: ' + fechaCreacion + '</span></div><div class=\"small text-muted d-flex align-items-center gap-1 mt-1\"><i class=\"fa fa-calendar-times-o\" style=\"width: 1rem;\"></i><span>Vencimiento: ' + fechaVenc + '</span></div>',\n                            creador: '<small class=\"d-flex align-items-center gap-1\"><i class=\"fa fa-user\"></i>' + (t.creador_nombre || '—') + '</small>',\n                            asignado: (t.asignado_nombre && t.asignado_nombre.trim()) ? '<small class=\"d-flex align-items-center gap-1\"><i class=\"fa fa-user-check text-success\"></i>' + t.asignado_nombre + '</small>' : '<span class=\"text-muted\">—</span>',\n                            acciones: '<div class=\"d-flex flex-wrap gap-1 align-items-center\"><button class=\"btn btn-sm btn-primary btn-rastreo\" onclick=\"abrirRastreo(this)\" data-id-credito=\"' + (t.id_credito != null ? t.id_credito : 0) + '\" data-id-ticket=\"' + (t.id_ticket) + '\" data-asignado=\"' + attrEsc(t.asignado_nombre) + '\" data-creador-nombre=\"' + attrEsc(t.creador_nombre) + '\" data-fecha-creacion=\"' + attrEsc(t.fecha_creacion) + '\" title=\"Iniciar rastreo\"><i class=\"fa-solid fa-magnifying-glass-plus\"></i></button><button class=\"btn btn-sm btn-secondary\" onclick=\"cerrarTicketPanel(' + (t.id_ticket) + ')\" title=\"Cerrar ticket\"><i class=\"fa fa-minus\"></i></button><button class=\"btn btn-sm btn-danger\" onclick=\"eliminarTicketPanel(' + (t.id_ticket) + ')\" title=\"Eliminar ticket\"><i class=\"fa fa-trash\"></i></button></div>'\n                        };\n                        return row;\n                    });\n                    var tabla = $('#tablaTicketsPanel').DataTable();\n                    tabla.clear().rows.add(datos).draw();\n                },\n                onError: function() {\n                    var tabla = $('#tablaTicketsPanel').DataTable();\n                    tabla.clear().draw();\n                }\n            });\n        }\n        function abrirRastreo(btn) {\n            var idCredito = parseInt(btn.getAttribute('data-id-credito')||0, 10);\n            var idTicket = parseInt(btn.getAttribute('data-id-ticket')||0, 10);\n            var asignadoNombre = (btn.getAttribute('data-asignado')||'').trim();\n            var creadorNombre = (btn.getAttribute('data-creador-nombre')||'').trim();\n            var fechaCreacionRaw = (btn.getAttribute('data-fecha-creacion')||'').trim();\n            var fechaCreacionDisplay = fechaCreacionRaw ? (new Date(fechaCreacionRaw).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' }) + ' ' + new Date(fechaCreacionRaw).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })) : '—';\n            ticketIdRastreoActual = idTicket || null;\n            if (!idCredito || isNaN(idCredito)) { Swal.fire({ icon: 'warning', title: 'Rastreo', text: 'No hay ID de crédito para este ticket.' }); return; }\n            http.request({\n                endpoint: \"/sabueso/getDatosCredito\",\n                metodo: \"POST\",\n                data: JSON.stringify({ id_credito: idCredito }),\n                contentType: \"application/json\",\n                processData: false,\n                showLoader: true,\n                onSuccess: function(resp) {\n                    var d = resp.datos || null;\n                    if (!d) { var msg = (resp.mensaje || 'No se encontraron datos para este crédito.'); $('#rastreoTopLeft').html('<div class=\"alert alert-warning mb-0\"><strong>Crédito #' + idCredito + '</strong><br>' + msg + '<br><small>El crédito debe existir en Segundometro u Oferta para ver el rastreo.</small></div>'); $('#rastreoTopRight').html(''); $('#rastreoTickets').html(''); $('#rastreoDireccionesContenido').html(''); idCreditoRastreoActual = idCredito; $('#modalRastreoCredito').modal('show'); return; }\n                    var esc = function(s) { var x = (s + '').split('&').join('&amp;').split('<').join('&lt;').split('>').join('&gt;'); return x.split(String.fromCharCode(34)).join('&quot;'); };\n                    var idCred = (d.id_credito || d.Id_credito || '—');\n                    var nombreCompleto = esc(d.Nombre_cliente || d.nombre_completo || '—');\n                    var tel = (d.telefono_referencia1 || d.telefono_referencia2 || '').trim();\n                    var telEsc = tel ? esc(tel) : '—';\n                    var dirMegareporte = (d.Domicilio_Completo && (d.Domicilio_Completo + '').trim()) ? esc(d.Domicilio_Completo) : '—';
                     rastreoTicketInfoBase = '<div class=\"rastreo-ticket-info-col\"><span class=\"text-muted small d-block\">Quién levantó el ticket</span><div class=\"fw-medium\">' + (creadorNombre ? esc(creadorNombre) : '—') + '</div><span class=\"text-muted small d-block mt-1\">Cuando se levantó</span><div class=\"fw-medium\">' + fechaCreacionDisplay + '</div><span class=\"text-muted small d-block mt-1\">Asignado a</span><div id=\"rastreoAsignadoBlock\" class=\"fw-medium\"><span class=\"text-muted\">Cargando...</span></div></div>';\n                    var htmlTicketInfo = rastreoTicketInfoBase;\n                    var htmlTopLeft = '<div><span class=\"text-muted small d-block\">ID crédito</span><div class=\"fw-semibold\">' + idCred + '</div></div><div><span class=\"text-muted small d-block\">Nombre completo</span><div class=\"fw-semibold\">' + nombreCompleto + '</div></div><div><span class=\"text-muted small d-block\">Teléfono cliente</span><div class=\"fw-semibold\">' + telEsc + '</div></div><div><span class=\"text-muted small d-block\">Dirección megareporte</span><div class=\"fw-semibold small\">' + dirMegareporte + '</div></div>';\n                    var dirContenido = (d.Domicilio_Completo && (d.Domicilio_Completo + '').trim()) ? esc(d.Domicilio_Completo) : '<span class=\"text-muted\">No hay direcciones registradas</span>';\n                    var tickets = d.tickets || [];\n                    var ticketActual = tickets.filter(function(tk) { return tk.id_ticket == ticketIdRastreoActual; })[0];\n                    var htmlTickets = '';\n                    if (ticketActual) {\n                        var fCreacion = ticketActual.fecha_creacion ? new Date(ticketActual.fecha_creacion).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—';\n                        var fVenc = ticketActual.fecha_vencimiento ? new Date(ticketActual.fecha_vencimiento).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—';\n                        htmlTickets = '<div class=\"small bg-light rounded p-2 mb-2\"><strong>' + esc(ticketActual.folio || '—') + '</strong> · ' + esc(ticketActual.tipo_nombre || '') + ' · ' + esc(ticketActual.estado_nombre || '') + '<br><span class=\"text-muted small\">Descripción:</span> ' + esc(ticketActual.descripcion_inicial || '—') + '<br>Creación: ' + fCreacion + ' · Venc: ' + fVenc + '</div>';\n                    } else { htmlTickets = '<span class=\"text-muted small\">Ticket actual (sin detalle adicional).</span>'; }\n                    $('#rastreoTopLeft').html(htmlTopLeft); $('#rastreoTopRight').html(htmlTicketInfo);\n                    loadHistorialAsignacionTicket(ticketIdRastreoActual);\n                    $('#rastreoTickets').html(htmlTickets);\n                    $('#rastreoDireccionesContenido').html('<span class=\"text-muted\">Cargando direcciones...</span>');\n                    rastreoDireccionesParaMapa = [];\n                    $('#btnAsignarRastreo').html('<i class=\"fa-solid fa-user-plus me-1\"></i>Asignar...');\n                    idCreditoRastreoActual = idCredito;\n                    rastreoDatosClienteActual = { nombre: (d.Nombre_cliente || d.nombre_completo || '—'), credito: idCred, telefono: (tel || '—'), direccion: (d.Domicilio_Completo || '—') };\n                    var kA = \"sabueso_ia_\" + idCredito + \"_\" + (idTicket || 0) + \"_analizar\"; var kU = \"sabueso_ia_\" + idCredito + \"_ubicaciones\"; var kG = \"sabueso_ia_\" + idCredito + \"_gestiones\";\n                    try { if (typeof localStorage !== \"undefined\") { rastreoUltimoAnalizarIA = localStorage.getItem(kA) || \"\"; rastreoUltimoResumenUbicaciones = localStorage.getItem(kU) || \"\"; rastreoUltimoResumenGestiones = localStorage.getItem(kG) || \"\"; } else { rastreoUltimoAnalizarIA = \"\"; rastreoUltimoResumenUbicaciones = \"\"; rastreoUltimoResumenGestiones = \"\"; } } catch (e) { rastreoUltimoAnalizarIA = \"\"; rastreoUltimoResumenUbicaciones = \"\"; rastreoUltimoResumenGestiones = \"\"; }\n                    if (rastreoUltimoAnalizarIA) { \$(\"#btnLecturaIAAnalizar\").show(); \$(\"#btnBorrarIAAnalizar\").show(); } else { \$(\"#btnLecturaIAAnalizar\").hide(); \$(\"#btnBorrarIAAnalizar\").hide(); }\n                    if (rastreoUltimoResumenUbicaciones) { \$(\"#btnLecturaIAUbicaciones\").show(); \$(\"#btnBorrarIAUbicaciones\").show(); } else { \$(\"#btnLecturaIAUbicaciones\").hide(); \$(\"#btnBorrarIAUbicaciones\").hide(); }\n                    if (rastreoUltimoResumenGestiones) { \$(\"#btnLecturaIAGestiones\").show(); \$(\"#btnBorrarIAGestiones\").show(); } else { \$(\"#btnLecturaIAGestiones\").hide(); \$(\"#btnBorrarIAGestiones\").hide(); }\n                    \$(\"#modalRastreoCredito\").modal(\"show\");\n                },\n                onError: function(err) {\n                    var errMsg = (typeof err === 'string' ? err : (err && err.mensaje)) || 'No se pudieron cargar los datos del crédito.';\n                    Swal.fire({ icon: 'error', title: 'Rastreo', text: errMsg });\n                }\n            });\n        }\n        function tooltipHistorialAsignacion(estado, historial) {\n            if (estado === 'primera_asignacion') return 'Es la primera asignación de este ticket.';\n            var lineas = ['Historial de asignación (este ticket)'];\n            (historial || []).forEach(function(h) { lineas.push('• ' + (h.persona || '—') + ': ' + (h.duracion_humana || '—')); });\n            if (estado === 'sin_asignar') lineas.push('Actualmente sin persona asignada a este ticket.');\n            return lineas.join('\\n');\n        }\n        function loadHistorialAsignacionTicket(idTicket) {\n            if (!idTicket) return;\n            http.request({ endpoint: '/sabueso/getHistorialAsignacionTicket', metodo: 'POST', data: JSON.stringify({ id_ticket: idTicket }), contentType: 'application/json', processData: false, onSuccess: function(r) {\n                var asignado = r.asignado_actual || null;\n                var estado = r.estado || 'primera_asignacion';\n                var historial = r.historial || [];\n                var tooltipTxt = tooltipHistorialAsignacion(estado, historial);\n                var tooltipEsc = (tooltipTxt + '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/\"/g, '&quot;');\n                var tooltipAttr = tooltipEsc.replace(/\\n/g, '<br>');\n                var html = asignado ? ('<i class=\"fa-solid fa-user-check text-success me-1\"></i>' + (asignado.replace(/&/g, '&amp;').replace(/</g, '&lt;')) + ' <i class=\"fa-solid fa-circle-info ms-1\" role=\"img\" aria-label=\"Historial\" data-bs-toggle=\"tooltip\" data-bs-html=\"true\" data-bs-title=\"' + tooltipAttr + '\"></i>') : ('<span class=\"text-muted\">Sin asignar</span> <i class=\"fa-solid fa-circle-info ms-1\" role=\"img\" aria-label=\"Historial\" data-bs-toggle=\"tooltip\" data-bs-html=\"true\" data-bs-title=\"' + tooltipAttr + '\"></i>');\n                var bloque = $('#rastreoAsignadoBlock');\n                if (bloque.length) bloque.html(html);\n                if (asignado) { if (!$('#rastreoAsignadoBlock').next('.btn').length) $('#rastreoAsignadoBlock').after('<button type=\"button\" class=\"btn btn-sm btn-outline-danger mt-1\" onclick=\"quitarAsignacionRastreo()\" title=\"Quitar asignación\">Quitar asignación</button>'); } else { $('#rastreoAsignadoBlock').next('.btn').remove(); }\n                $('#btnAsignarRastreo').html(asignado ? '<i class=\"fa-solid fa-user-pen me-1\"></i>Reasignar a...' : '<i class=\"fa-solid fa-user-plus me-1\"></i>Asignar...');\n                if (typeof $().tooltip === 'function') { $('#rastreoAsignadoBlock [data-bs-toggle=\"tooltip\"]').tooltip(); }\n            } });\n        }\n        function mostrarAsignarOpciones() {\n            if (!ticketIdRastreoActual) { Swal.fire({ icon: 'warning', title: 'Asignar', text: 'No hay ticket seleccionado.' }); return; }\n            Swal.fire({ title: 'Asignar ticket', text: '¿A quién desea asignar este ticket?', icon: 'question', showDenyButton: true, showCancelButton: true, confirmButtonText: 'Tomar asignación', denyButtonText: 'Asignar a...', cancelButtonText: 'Cancelar' }).then(function(res) {\n                if (res.isConfirmed) asignarTicketA(miUsuarioId);\n                else if (res.isDenied) abrirModalAsignarA();\n            });\n        }\n        function asignarTicketA(idPersona) {\n            if (!ticketIdRastreoActual || !idPersona) return;\n            http.request({ endpoint: \"/sabueso/asignarTicket\", metodo: \"POST\", data: JSON.stringify({ id_ticket: ticketIdRastreoActual, id_persona: idPersona }), contentType: \"application/json\", processData: false, onSuccess: function(r) {\n                Swal.fire({ icon: 'success', title: 'Asignado', text: r.mensaje || 'Ticket asignado.' });\n                $('#modalRastreoCredito, #modalAsignarA').modal('hide');\n                ticketIdRastreoActual = null;\n                getTicketsPanelAdmin();\n            }, onError: function(e) { Swal.fire({ icon: 'error', title: 'Error', text: (e && e.mensaje) || 'No se pudo asignar.' }); } });\n        }\n        function quitarAsignacionRastreo() {\n            if (!ticketIdRastreoActual) return;\n            if (typeof Swal !== 'undefined') {\n                Swal.fire({ title: '¿Quitar asignación?', text: 'El ticket quedará sin persona asignada.', icon: 'question', showCancelButton: true, confirmButtonColor: '#d33', cancelButtonColor: '#6c757d', confirmButtonText: 'Sí, quitar' }).then(function(res) {\n                    if (!res.isConfirmed) return;\n                    http.request({ endpoint: '/sabueso/quitarAsignacionTicket', metodo: 'POST', data: JSON.stringify({ id_ticket: ticketIdRastreoActual }), contentType: 'application/json', processData: false, onSuccess: function(r) {\n                        if (r.success) { Swal.fire({ icon: 'success', title: 'Listo', text: r.mensaje || 'Asignación quitada.' }); if (ticketIdRastreoActual) loadHistorialAsignacionTicket(ticketIdRastreoActual); getTicketsPanelAdmin(); } else { if (typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: 'Error', text: r.mensaje || 'No se pudo quitar.' }); }\n                    }, onError: function(e) { if (typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: 'Error', text: (e && e.mensaje) || 'No se pudo quitar.' }); } });\n                });\n            } else {\n                http.request({ endpoint: '/sabueso/quitarAsignacionTicket', metodo: 'POST', data: JSON.stringify({ id_ticket: ticketIdRastreoActual }), contentType: 'application/json', processData: false, onSuccess: function(r) { if (r.success) { if (idCreditoRastreoActual) loadHistorialAsignacion(idCreditoRastreoActual); getTicketsPanelAdmin(); } } });\n            }\n        }\n        function abrirModalAsignarA() {\n            http.request({ endpoint: \"/sabueso/getPersonasSabueso\", metodo: \"POST\", onSuccess: function(resp) {\n                var list = resp.datos || [];\n                var html = list.length ? list.map(function(p) { return '<div class=\"d-flex justify-content-between align-items-center py-2 border-bottom\"><span>' + (p.nombre_completo || p.id) + '</span><button type=\"button\" class=\"btn btn-sm btn-primary\" onclick=\"asignarTicketA(' + p.id + ')\">Asignárselo</button></div>'; }).join('') : '<p class=\"text-muted mb-0\">No hay personas en el departamento Sabueso.</p>';\n                $('#modalAsignarABody').html(html);\n                $('#modalRastreoCredito').modal('hide');\n                $('#modalAsignarA').modal('show');\n            }, onError: function() { Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudo cargar la lista.' }); } });\n        }\n        function cerrarTicketPanel(idTicket) {\n            if (!idTicket) return;\n            Swal.fire({ title: '¿Cerrar ticket?', text: 'El ticket se registrará como cerrado y dejará de mostrarse en la lista activa.', icon: 'question', showCancelButton: true, confirmButtonColor: '#fd7e14', cancelButtonColor: '#6c757d', confirmButtonText: 'Sí, cerrar' }).then(function(res) {\n                if (!res.isConfirmed) return;\n                http.request({\n                    endpoint: \"/sabueso/cerrarTicket\",\n                    metodo: \"POST\",\n                    data: JSON.stringify({ id_ticket: idTicket }),\n                    contentType: \"application/json\",\n                    processData: false,\n                    onSuccess: function(resp) {\n                        Swal.fire({ icon: 'success', title: 'Cerrado', text: resp.mensaje || 'Ticket cerrado.' });\n                        getTicketsPanelAdmin();\n                    },\n                    onError: function(err) {\n                        Swal.fire({ icon: 'error', title: 'Error', text: (err && err.mensaje) || 'No se pudo cerrar.' });\n                    }\n                });\n            });\n        }\n        function eliminarTicketPanel(idTicket) {\n            if (!idTicket) return;\n            Swal.fire({ title: '¿Eliminar ticket?', text: 'Esta acción no se puede deshacer.', icon: 'warning', showCancelButton: true, confirmButtonColor: '#d33', cancelButtonColor: '#6c757d', confirmButtonText: 'Sí, eliminar' }).then(function(res) {\n                if (!res.isConfirmed) return;\n                http.request({\n                    endpoint: \"/sabueso/eliminarTicket\",\n                    metodo: \"POST\",\n                    data: JSON.stringify({ id_ticket: idTicket }),\n                    contentType: \"application/json\",\n                    processData: false,\n                    onSuccess: function(resp) {\n                        Swal.fire({ icon: 'success', title: 'Eliminado', text: resp.mensaje || 'Ticket eliminado.' });\n                        getTicketsPanelAdmin();\n                    },\n                    onError: function(err) {\n                        Swal.fire({ icon: 'error', title: 'Error', text: (err && err.mensaje) || 'No se pudo eliminar.' });\n                    }\n                });\n            });\n        }\n";
@@ -279,7 +282,7 @@ SCRIPT;
             var text = count + \' ubicaciones en esta área\';
             var esc = (text + \'\').replace(/&/g, \'&amp;\').replace(/</g, \'&lt;\').replace(/>/g, \'&gt;\');
             var svg = \'<svg xmlns="http://www.w3.org/2000/svg" width="230" height="40" viewBox="0 0 230 40"><defs><filter id="shadow" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.25"/></filter></defs><rect x="4" y="4" width="222" height="32" rx="12" fill="rgba(51,65,85,0.94)" stroke="rgba(71,85,105,0.9)" stroke-width="1.2" filter="url(#shadow)"/><text x="115" y="26" text-anchor="middle" fill="#f1f5f9" font-size="12" font-weight="600" font-family="Arial,sans-serif">\' + esc + \'</text></svg>\';
-            return { url: \'data:image/svg+xml;charset=UTF-8,\' + encodeURIComponent(svg), scaledSize: new google.maps.Size(230, 40), anchor: new google.maps.Point(115, 40) };
+            return { url: \'data:image/svg+xml;charset=UTF-8,\' + encodeURIComponent(svg), scaledSize: new google.maps.Size(230, 40), anchor: new google.maps.Point(0, 20) };
         }
         function addClusterLabelsToMap(map, puntos) {
             if (!map || typeof google === \'undefined\' || !google.maps) return;
@@ -293,10 +296,10 @@ SCRIPT;
             var div = typeof map.getDiv === \'function\' ? map.getDiv() : null;
             if (div && (div.offsetWidth < 380 || div.offsetHeight < 280)) return;
             var clusters = groupPointsByArea(puntos, zoom);
-            var offsetNorth = 0.005;
+            var offsetEast = 0.003;
             for (var i = 0; i < clusters.length; i++) {
                 var c = clusters[i];
-                var pos = new google.maps.LatLng(c.lat + offsetNorth, c.lng);
+                var pos = new google.maps.LatLng(c.lat, c.lng + offsetEast);
                 try {
                     var marker = new google.maps.Marker({
                         position: pos,
@@ -370,6 +373,8 @@ SCRIPT;
                 }
             }
             if (puntosGestores && puntosGestores.length) {
+                var seenG = {}, idxG = 0;
+                puntosGestores.forEach(function(g) { var n = (g.nombre || \'—\').trim() || \'—\'; if (!seenG[n]) { seenG[n] = true; rastreoColoresPorGestor[n] = rastreoPaletaColoresGestores[idxG % rastreoPaletaColoresGestores.length]; idxG++; } });
                 puntosGestores.forEach(function(g, i) {
                     var lat = g.lat, lon = g.lng;
                     if (isNaN(lat) || isNaN(lon)) return;
@@ -377,7 +382,9 @@ SCRIPT;
                     var pos = { lat: lat, lng: lon };
                     bounds.extend(pos);
                     var nombreGestor = (g.nombre || \'—\').trim() || \'—\';
-                    var marker = new google.maps.Marker({ position: pos, map: rastreoMapaAlternas, icon: iconNaranja, title: (g.nombre || \'Gestor \') + (g.fecha ? \' — \' + g.fecha : \'\') });
+                    var colorG = rastreoColoresPorGestor[nombreGestor] || rastreoPaletaColoresGestores[0];
+                    var iconGestor = pinGotaIcon(colorG);
+                    var marker = new google.maps.Marker({ position: pos, map: rastreoMapaAlternas, icon: iconGestor, title: (g.nombre || \'Gestor \') + (g.fecha ? \' — \' + g.fecha : \'\') });
                     var infoHtml = \'<strong>Gestor</strong>: \' + (g.nombre || \'—\') + (g.fecha ? \'<br><strong>Fecha</strong>: \' + g.fecha : \'\');
                     var infow = new google.maps.InfoWindow({ content: infoHtml });
                     marker.addListener(\'click\', function() { infow.open(rastreoMapaAlternas, marker); });
@@ -409,23 +416,37 @@ SCRIPT;
                 google.maps.event.addDomListener(window, \'resize\', function() { if (rastreoMapaAlternas) addClusterLabelsToMap(rastreoMapaAlternas, rastreoPuntosClusterActual); });
             }
             if (hasPoints) rastreoMapaAlternas.fitBounds(bounds, 50);
-            filtrarMapaPorGestor(rastreoFiltroGestorActual);
+            filtrarMapaPorGestor(rastreoFiltroGestoresSeleccionados.length ? rastreoFiltroGestoresSeleccionados : null);
         }
-        function filtrarMapaPorGestor(nombre) {
-            rastreoFiltroGestorActual = (nombre === null || nombre === undefined) ? \'\' : (nombre + \'\').trim();
-            var showAll = rastreoFiltroGestorActual === \'\';
+        function filtrarMapaPorGestor(sel) {
+            var selected = [];
+            if (sel !== null && sel !== undefined) { if (Array.isArray(sel)) selected = sel; else selected = (sel + \'\').trim() ? [ (sel + \'\').trim() ] : []; }
+            rastreoFiltroGestoresSeleccionados = selected;
+            rastreoFiltroGestorActual = selected.length === 0 ? \'\' : selected.length === 1 ? selected[0] : selected.join(\',\');
+            var showAll = selected.length === 0;
+            function iconForGestor(n, isGrande) {
+                if (showAll) return pinGotaIcon(rastreoColoresPorGestor[n] || rastreoPaletaColoresGestores[0]);
+                var idx = selected.indexOf(n);
+                if (idx === -1) return null;
+                var color = rastreoPaletaColoresGestores[idx % rastreoPaletaColoresGestores.length];
+                var base = pinGotaIcon(color);
+                if (isGrande) return { url: base.url, scaledSize: new google.maps.Size(34, 48), anchor: new google.maps.Point(17, 48) };
+                return base;
+            }
             if (rastreoMapaAlternas && rastreoMarkersPorGestorAlternas) {
                 Object.keys(rastreoMarkersPorGestorAlternas).forEach(function(n) {
                     var arr = rastreoMarkersPorGestorAlternas[n];
-                    var visible = showAll || n === rastreoFiltroGestorActual;
-                    (arr || []).forEach(function(marker) { marker.setMap(visible ? rastreoMapaAlternas : null); });
+                    var visible = showAll || selected.indexOf(n) !== -1;
+                    var icon = iconForGestor(n, false);
+                    (arr || []).forEach(function(marker) { marker.setMap(visible ? rastreoMapaAlternas : null); if (visible && icon) marker.setIcon(icon); });
                 });
             }
             if (rastreoMapaAlternasGrande && rastreoMarkersPorGestorAlternasGrande) {
                 Object.keys(rastreoMarkersPorGestorAlternasGrande).forEach(function(n) {
                     var arr = rastreoMarkersPorGestorAlternasGrande[n];
-                    var visible = showAll || n === rastreoFiltroGestorActual;
-                    (arr || []).forEach(function(marker) { marker.setMap(visible ? rastreoMapaAlternasGrande : null); });
+                    var visible = showAll || selected.indexOf(n) !== -1;
+                    var icon = iconForGestor(n, true);
+                    (arr || []).forEach(function(marker) { marker.setMap(visible ? rastreoMapaAlternasGrande : null); if (visible && icon) marker.setIcon(icon); });
                 });
             }
         }
@@ -480,6 +501,8 @@ SCRIPT;
                 }
             }
             if (puntosGestores && puntosGestores.length) {
+                var seenGG = {}, idxGG = 0;
+                puntosGestores.forEach(function(g) { var n = (g.nombre || \'—\').trim() || \'—\'; if (!seenGG[n]) { seenGG[n] = true; if (!rastreoColoresPorGestor[n]) rastreoColoresPorGestor[n] = rastreoPaletaColoresGestores[idxGG % rastreoPaletaColoresGestores.length]; idxGG++; } });
                 puntosGestores.forEach(function(g, i) {
                     var lat = g.lat, lon = g.lng;
                     if (isNaN(lat) || isNaN(lon)) return;
@@ -487,7 +510,9 @@ SCRIPT;
                     var pos = { lat: lat, lng: lon };
                     bounds.extend(pos);
                     var nombreGestorG = (g.nombre || \'—\').trim() || \'—\';
-                    var marker = new google.maps.Marker({ position: pos, map: rastreoMapaAlternasGrande, icon: iconNaranjaGrande, title: (g.nombre || \'Gestor \') + (g.fecha ? \' — \' + g.fecha : \'\') });
+                    var colorG = rastreoColoresPorGestor[nombreGestorG] || rastreoPaletaColoresGestores[0];
+                    var iconGestorGrande = { url: pinGotaIcon(colorG).url, scaledSize: new google.maps.Size(34, 48), anchor: new google.maps.Point(17, 48) };
+                    var marker = new google.maps.Marker({ position: pos, map: rastreoMapaAlternasGrande, icon: iconGestorGrande, title: (g.nombre || \'Gestor \') + (g.fecha ? \' — \' + g.fecha : \'\') });
                     var infoHtml = \'<strong>Gestor</strong>: \' + (g.nombre || \'—\') + (g.fecha ? \'<br><strong>Fecha</strong>: \' + g.fecha : \'\');
                     var infow = new google.maps.InfoWindow({ content: infoHtml });
                     marker.addListener(\'click\', function() { infow.open(rastreoMapaAlternasGrande, marker); });
@@ -526,22 +551,33 @@ SCRIPT;
                 \'<span class="d-block">Verde = <span style="color:#22c55e;font-weight:600">Otro domicilio.</span></span>\' +
                 \'<span class="d-block">Carmelita = <span style="color:#b8860b;font-weight:600">Agencia.</span></span>\' +
                 \'<span class="d-block">Azul = <span style="color:#2563eb;font-weight:600">maxi app.</span></span>\' +
-                \'<span class="d-block">Naranja = <span style="color:#ea580c;font-weight:600">gestores (últimos 7).</span></span>\' +
+                \'<span class="d-block">Gestores = <span style="font-weight:600">cada asesor con su color.</span></span>\' +
                 \'<span class="d-block rastreo-leyenda-conteo" style="color:#0f172a;font-weight:700">\' + conU + \' de \' + totG + \' con ubicación.</span>\';
             if (puntosGestores && puntosGestores.length) {
                 var seenGG = {}, nombresGG = [];
                 puntosGestores.forEach(function(g) { var n = (g.nombre || \'—\').trim() || \'—\'; if (!seenGG[n]) { seenGG[n] = true; nombresGG.push(n); } });
                 var escOG = function(s) { if (s == null || s === undefined) return \'\'; return (s+\'\').replace(/&/g, \'&amp;\').replace(/</g, \'&lt;\').replace(/>/g, \'&gt;\').replace(/\"/g, \'&quot;\'); };
-                var htmlOG = \'<div class="rastreo-filtro-gestor-overlay" style="position:absolute;top:52px;left:8px;z-index:10;background:rgba(255,255,255,0.95);padding:6px 8px;border-radius:8px;box-shadow:0 1px 4px rgba(0,0,0,0.2);pointer-events:auto;"><span class="small text-muted d-block mb-1">Filtrar por gestor</span><span class="d-flex flex-column gap-1"><button type="button" class="btn btn-sm btn-outline-secondary rastreo-filtro-gestor active" data-gestor="">Todos</button>\';
-                nombresGG.forEach(function(n) { htmlOG += \'<button type="button" class="btn btn-sm btn-outline-secondary rastreo-filtro-gestor" data-gestor="\' + escOG(n) + \'">\' + escOG(n) + \'</button>\'; });
-                htmlOG += \'</span><div class="rastreo-leyenda-mapa-grande mt-2 small text-muted" style="max-width:280px;">\' + leyendaGrandeHtml + \'</div></div>\';
+                var htmlOG = \'<div class="rastreo-filtro-gestor-overlay" style="position:absolute;top:52px;left:8px;z-index:10;background:rgba(255,255,255,0.95);padding:6px 8px;border-radius:8px;box-shadow:0 1px 4px rgba(0,0,0,0.2);pointer-events:auto;"><span class="small text-muted d-block mb-1">Filtrar por asesor (puede elegir varios)</span><div class="d-flex flex-column gap-1"><label class="d-flex align-items-center gap-2 mb-0 cursor-pointer"><input type="checkbox" class="rastreo-filtro-gestor-cb form-check-input" data-gestor=""> <span>Todos</span></label>\';
+                nombresGG.forEach(function(n) { var color = rastreoColoresPorGestor[n] || \'#6b7280\'; htmlOG += \'<label class="d-flex align-items-center gap-2 mb-0 cursor-pointer"><input type="checkbox" class="rastreo-filtro-gestor-cb form-check-input" data-gestor="\' + escOG(n) + \'"> <span class="rounded-circle d-inline-block" style="width:10px;height:10px;background:\' + color + \';flex-shrink:0"></span><span>\' + escOG(n) + \'</span></label>\'; });
+                htmlOG += \'</div><div class="rastreo-leyenda-mapa-grande mt-2 small text-muted" style="max-width:280px;">\' + leyendaGrandeHtml + \'</div></div>\';
                 cont.insertAdjacentHTML(\'beforeend\', htmlOG);
+                (function() {
+                    var ov = cont.querySelector(\'.rastreo-filtro-gestor-overlay\');
+                    if (!ov) return;
+                    var sel = rastreoFiltroGestoresSeleccionados || [];
+                    var cbs = ov.querySelectorAll(\'.rastreo-filtro-gestor-cb\');
+                    for (var i = 0; i < cbs.length; i++) {
+                        var g = cbs[i].getAttribute(\'data-gestor\');
+                        if (g === \'\' || g === null) { cbs[i].checked = (sel.length === 0); continue; }
+                        cbs[i].checked = (sel.indexOf(g) !== -1);
+                    }
+                })();
             } else if (hasPoints) {
                 var htmlLeyenda = \'<div class="rastreo-filtro-gestor-overlay" style="position:absolute;top:52px;left:8px;z-index:10;background:rgba(255,255,255,0.95);padding:6px 8px;border-radius:8px;box-shadow:0 1px 4px rgba(0,0,0,0.2);pointer-events:auto;"><div class="rastreo-leyenda-mapa-grande small text-muted" style="max-width:280px;">\' + leyendaGrandeHtml + \'</div></div>\';
                 cont.insertAdjacentHTML(\'beforeend\', htmlLeyenda);
             }
             if (hasPoints) rastreoMapaAlternasGrande.fitBounds(bounds, 50);
-            filtrarMapaPorGestor(rastreoFiltroGestorActual);
+            filtrarMapaPorGestor(rastreoFiltroGestoresSeleccionados.length ? rastreoFiltroGestoresSeleccionados : null);
             setTimeout(function() { if (rastreoMapaAlternasGrande && typeof rastreoMapaAlternasGrande.invalidateSize === \'function\') rastreoMapaAlternasGrande.invalidateSize(); }, 150);
         }
         function cargarEvidenciasRastreo() {
@@ -617,7 +653,7 @@ SCRIPT;
                                 var pos = { lat: lat, lng: lon };
                                 bounds.extend(pos);
                                 var visitas = p.cantidad_registros || 1;
-                                var color = coloresPuntosMapa[i % coloresPuntosMapa.length];
+                                var color = \'#2563eb\';
                                 var iconGota = pinGotaIcon(color);
                                 var marker = new google.maps.Marker({ position: pos, map: rastreoMapaLeaflet, icon: iconGota, title: (p.punto_de_interes ? \'Punto de interés \' : \'Menos frecuente \') + (i + 1) + \' — \' + visitas + \' visitas\' });
                                 var esCasa = (rastreoIndiceCasa !== null && i === rastreoIndiceCasa);
@@ -765,7 +801,7 @@ SCRIPT;
                             var pos = { lat: lat, lng: lon };
                             bounds.extend(pos);
                             var visitas = p.cantidad_registros || 1;
-                            var color = coloresPuntosMapa[i % coloresPuntosMapa.length];
+                            var color = \'#2563eb\';
                             var iconGotaGrande = pinGotaIcon(color);
                             var iconGotaGrandeSize = { url: iconGotaGrande.url, scaledSize: new google.maps.Size(34, 48), anchor: new google.maps.Point(17, 48) };
                             var marker = new google.maps.Marker({ position: pos, map: rastreoMapaGrande, icon: iconGotaGrandeSize, title: (p.punto_de_interes ? \'Punto de interés \' : \'Menos frecuente \') + (i + 1) + \' — \' + visitas + \' visitas\' });
@@ -916,14 +952,23 @@ SCRIPT;
                 setTimeout(function() { $item.removeClass(\'rastreo-geo-item-parpadeo\'); }, 2400);
                 $(\'#modalMapaAlternasGrande\').modal(\'show\');
             });
-            $(document).on(\'click\', \'.rastreo-filtro-gestor-overlay .rastreo-filtro-gestor\', function(e) {
-                e.preventDefault();
-                e.stopPropagation();
-                var nom = $(this).data(\'gestor\');
-                if (nom === undefined) nom = \'\';
-                filtrarMapaPorGestor(nom);
-                $(this).closest(\'.rastreo-filtro-gestor-overlay\').find(\'.rastreo-filtro-gestor\').removeClass(\'active\');
-                $(this).addClass(\'active\');
+            $(document).on(\'change\', \'.rastreo-filtro-gestor-overlay .rastreo-filtro-gestor-cb\', function(e) {
+                var overlay = $(this).closest(\'.rastreo-filtro-gestor-overlay\');
+                var todosCb = overlay.find(\'.rastreo-filtro-gestor-cb[data-gestor=""]\');
+                var isTodos = $(this).data(\'gestor\') === \'\' || $(this).attr(\'data-gestor\') === \'\';
+                if (isTodos && $(this).prop(\'checked\')) {
+                    overlay.find(\'.rastreo-filtro-gestor-cb\').not(todosCb).prop(\'checked\', false);
+                    filtrarMapaPorGestor(null);
+                    return;
+                }
+                if (!isTodos && $(this).prop(\'checked\')) todosCb.prop(\'checked\', false);
+                var selected = [];
+                overlay.find(\'.rastreo-filtro-gestor-cb:checked\').each(function() {
+                    var g = $(this).data(\'gestor\');
+                    if (g !== undefined && g !== \'\') selected.push(g);
+                });
+                if (selected.length === 0) { todosCb.prop(\'checked\', true); filtrarMapaPorGestor(null); return; }
+                filtrarMapaPorGestor(selected);
             });
             $(\'#modalMapaAlternasGrande\').on(\'shown.bs.modal\', function() {
                 initMapaRastreoAlternasGrande(rastreoDireccionesParaMapa, rastreoGestionesParaMapa, rastreoPuntosGeo || []);

@@ -8,11 +8,11 @@ use Models\Usuarios as UsuariosDao;
 
 class Inicio extends Controller
 {
-    /** Usuario que ve el dashboard Maxikash en inicio (id 878) */
+    /** Usuarios que ven el dashboard Maxikash en inicio (ids 1, 877, 878) */
     private static function esUsuarioDashboardMaxikash()
     {
         $usuarioId = (int) ($_SESSION['usuario_id'] ?? 0);
-        return $usuarioId === 878;
+        return in_array($usuarioId, [1, 877, 878], true);
     }
 
     public function index()

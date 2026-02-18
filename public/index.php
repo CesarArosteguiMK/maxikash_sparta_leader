@@ -151,6 +151,37 @@ unset($urlSolicitada[1]);
 
 if (!method_exists($controlador, $metodo)) recursoNoDisponible();
 
+/*
+|--------------------------------------------------------------------------
+| VERIFICACIÓN DE ACCESO (dentro del index, sin rastro en red ni consola)
+|--------------------------------------------------------------------------
+*/
+$rutasModulos = [
+    'estadocuenta/consulta' => [1], 'estadocuenta/documentacion' => [2], 'estadocuenta/reporteDictamen' => [14],
+    'gestiones/seguimiento' => [3],
+    'indicadores/kpiTotal' => [40], 'indicadores/gestiones1A7' => [24], 'indicadores/eficiencia1A7' => [25],
+    'indicadores/gestiones8A21' => [26], 'indicadores/eficiencia8A21' => [27], 'indicadores/seguimientoIntensidad' => [29],
+    'indicadores/detalleClientes' => [30], 'indicadores/detalleEficiencia' => [31], 'indicadores/carteraInicioSem' => [32],
+    'indicadores/seguimientoPromesasPago' => [33], 'indicadores/espartanos' => [34], 'indicadores/matrizBuckets' => [35],
+    'indicadores/matrizBucketsMas1' => [36], 'indicadores/auditoria' => [37], 'indicadores/auditoria2' => [38], 'indicadores/seguimiento' => [39],
+    'caphum/gestion' => [4], 'caphum/bajas' => [13], 'caphum/organigrama' => [5],
+    'reporteria/resumencallcenter' => [6], 'reporteria/layoutlegacy' => [7], 'reporteria/reporteCapitalHumano' => [21],
+    'condonaciones/historial' => [15],
+    'sabueso/ticket' => [18], 'sabueso/paneladmin' => [19], 'sabueso/cerradoEliminado' => [19],
+    'despachos/asignacioncreditosdespacho' => [20], 'departamentos/consulta' => [10], 'equivalencias/consulta' => [17],
+    'segundometro/shell' => [16],
+];
+$controladoresModulos = ['segundometro' => [16]];
+$path = strtolower(trim($controladorArchivo)) . '/' . strtolower(trim($metodo));
+$modulosRequeridos = $rutasModulos[$path] ?? $controladoresModulos[strtolower(trim($controladorArchivo))] ?? null;
+if ($modulosRequeridos !== null) {
+    $modulosUsuario = $_SESSION['modulos'] ?? [];
+    if (!is_array($modulosUsuario) || !array_intersect($modulosRequeridos, $modulosUsuario)) {
+        header('Location: /' . VISTA_DEFECTO);
+        exit;
+    }
+}
+
 $parametros = count($urlSolicitada) ? array_values($urlSolicitada) : [];
 call_user_func_array([$controlador, $metodo], $parametros);
 

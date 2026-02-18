@@ -1,4 +1,11 @@
 <style>
+    /* Card con esquinas más redondeadas */
+    .estado-cuenta-card.card {
+        border-radius: 1rem;
+    }
+    .estado-cuenta-card .card-body {
+        border-radius: 0 0 1rem 1rem;
+    }
     #listaResultados .list-group-item {
         background-color: #fff;       /* fondo blanco sólido */
         border-bottom: 1px solid #dee2e6; /* separación tipo Bootstrap */
@@ -55,7 +62,7 @@
     </div>
 
     <!-- Card principal -->
-    <div class="card">
+    <div class="card estado-cuenta-card">
 
         <!-- Filtros -->
         <div class="row justify-content-between m-4">

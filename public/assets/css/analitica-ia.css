@@ -111,20 +111,24 @@
 .analitica-ia-confidence-badge .label { font-size: 15px; opacity: 0.98; font-weight: 600; text-transform: lowercase; }
 .confidence-badge .confidence-icon { font-size: 26px; line-height: 1; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.2)); }
 
-/* Box del resumen ejecutivo - más visible */
+/* Box del resumen ejecutivo: estructura común */
 .summary-box,
 .analitica-ia-summary-box {
-  background: linear-gradient(135deg, #eef2f7 0%, #e2e8f0 100%);
   padding: 22px;
   border-radius: 12px;
   border-left: 5px solid #6366f1;
   margin: 20px 0;
   box-shadow: 0 1px 4px rgba(0,0,0,0.06);
 }
-.summary-box p,
-.analitica-ia-summary-box p { color: #1e293b; line-height: 1.65; margin-bottom: 10px; font-size: 1rem; }
-.summary-box .highlight,
-.analitica-ia-summary-box .highlight { font-weight: 600; color: #6366f1; }
+/* Fondo y texto solo en modo claro; en dark-mode no aplican y se usan las reglas del bloque final */
+body:not(.dark-mode) .summary-box,
+body:not(.dark-mode) .analitica-ia-summary-box {
+  background: linear-gradient(135deg, #eef2f7 0%, #e2e8f0 100%);
+}
+body:not(.dark-mode) .summary-box p,
+body:not(.dark-mode) .analitica-ia-summary-box p { color: #1e293b; line-height: 1.65; margin-bottom: 10px; font-size: 1rem; }
+body:not(.dark-mode) .summary-box .highlight,
+body:not(.dark-mode) .analitica-ia-summary-box .highlight { font-weight: 600; color: #6366f1; }
 
 /* Grid de métricas - 3 columnas en desktop */
 .analitica-ia-metrics-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; margin-top: 24px; }
@@ -313,4 +317,35 @@
   .analitica-ia-card { padding: 20px; }
   .confidence-badge, .analitica-ia-confidence-badge { font-size: 22px; padding: 14px 28px; }
   .confidence-badge .confidence-icon { font-size: 22px; }
+}
+
+/* Modo oscuro: Resumen analítico dentro del modal */
+body.dark-mode #modalPrediccionIA .analitica-ia-container,
+body.dark-mode #modalPrediccionIABody .analitica-ia-container {
+  background: linear-gradient(180deg, #252525 0%, #1a1a1a 100%) !important;
+}
+body.dark-mode #modalPrediccionIA .analitica-ia-card,
+body.dark-mode #modalPrediccionIABody .analitica-ia-card {
+  background-color: #252525 !important;
+  border-color: #3a3a3a !important;
+  color: #e0e0e0 !important;
+}
+body.dark-mode #modalPrediccionIA .analitica-ia-summary-box,
+body.dark-mode #modalPrediccionIABody .analitica-ia-summary-box {
+  background: #252525 !important;
+  background-image: none !important;
+  border-left-color: #6ea8fe !important;
+  color: #e0e0e0 !important;
+}
+body.dark-mode #modalPrediccionIA .analitica-ia-summary-box p,
+body.dark-mode #modalPrediccionIABody .analitica-ia-summary-box p {
+  color: #e0e0e0 !important;
+}
+body.dark-mode #modalPrediccionIA .analitica-ia-summary-box .highlight,
+body.dark-mode #modalPrediccionIABody .analitica-ia-summary-box .highlight {
+  color: #93c5fd !important;
+}
+body.dark-mode #modalPrediccionIA .analitica-ia-summary-box strong,
+body.dark-mode #modalPrediccionIABody .analitica-ia-summary-box strong {
+  color: #f1f5f9 !important;
 }

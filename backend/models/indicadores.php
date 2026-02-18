@@ -1,5 +1,5 @@
 <?php
-// models/Indicadores.php - Versión completa actualizada
+// models/Indicadores.php - Versión completa OPTIMIZADA con cierre de conexiones
 
 namespace Models;
 
@@ -23,124 +23,169 @@ class Indicadores extends Model
         $property = $reflection->getProperty('db');
         $property->setAccessible(true);
         return $property->getValue($database);
-    }
+    } 
 
     /**
-     * ✅ GESTIONES 1 A 7 - VERSIÓN COMPLETA
+     * ✅ GESTIONES 1 A 7 - VERSIÓN COMPLETA OPTIMIZADA
      */
     public static function getGestiones1A7($filtros = [])
-    {
+{
+    $dbSegundo = null;
+    $dbLegacy = null;
+    
+    try {
+        // ==========================================
+        // PASO 1: Obtener líderes con datos base
+        // ==========================================
         $dbSegundo = self::getSegundometroConnection();
+        
+        $sqlLideres = "
+            SELECT 
+                CASE 
+                    WHEN Observaciones IS NULL OR TRIM(Observaciones) = '' THEN 'SIN ASIGNAR'
+                    ELSE Observaciones 
+                END as lider,
+                COUNT(*) as total_creditos,
+                SUM(CASE WHEN Cierre_Actual = 'a) Current' THEN 1 ELSE 0 END) as current,
+                SUM(CASE WHEN Cierre_Actual = 'b) 1 a 7 dias' THEN 1 ELSE 0 END) as gestiones_1a7,
+                SUM(COALESCE(Saldo_vencido_actualizado, 0)) as saldo_vencido
+            FROM tbl_segundometro_semana
+            WHERE Cierre_Actual IN ('a) Current', 'b) 1 a 7 dias', 'c) 8 a 14 dias', 'd) 15 a 21 dias')
+            GROUP BY 
+                CASE 
+                    WHEN Observaciones IS NULL OR TRIM(Observaciones) = '' THEN 'SIN ASIGNAR'
+                    ELSE Observaciones 
+                END
+            ORDER BY total_creditos DESC
+        ";
+        
+        $stmtLideres = $dbSegundo->prepare($sqlLideres);
+        $stmtLideres->execute();
+        $lideres = $stmtLideres->fetchAll(\PDO::FETCH_ASSOC);
+        $stmtLideres->closeCursor();
+        
+        if (empty($lideres)) {
+            return [  
+                'success' => true,
+                'data' => [],
+                'totales' => [
+                    'total_current' => '0',
+                    'total_1a7' => '0',
+                    'total_sin_gestion' => '0',
+                    'total_eficiencia' => '0%',
+                    'total_general' => '0',
+                    'total_campo' => '0',
+                    'total_telefono' => '0',
+                    'total_saldo' => '$0.00'
+                ]
+            ];
+        }
+        
+        // ==========================================
+        // PASO 2: Obtener créditos con su líder
+        // ==========================================
+        $sqlCreditos = "
+            SELECT 
+                CASE 
+                    WHEN Observaciones IS NULL OR TRIM(Observaciones) = '' THEN 'SIN ASIGNAR'
+                    ELSE Observaciones 
+                END as lider,
+                Id_credito
+            FROM tbl_segundometro_semana
+            WHERE Cierre_Actual IN ('a) Current', 'b) 1 a 7 dias', 'c) 8 a 14 dias', 'd) 15 a 21 dias')
+        ";
+        
+        $stmtCreditos = $dbSegundo->prepare($sqlCreditos);
+        $stmtCreditos->execute();
+        
+        $creditosPorLider = [];
+        $todosLosCreditos = [];
+        
+        while ($row = $stmtCreditos->fetch(\PDO::FETCH_ASSOC)) {
+            $creditosPorLider[$row['lider']][] = $row['Id_credito'];
+            $todosLosCreditos[] = $row['Id_credito'];
+        }
+        $stmtCreditos->closeCursor();
+        $dbSegundo = null; // ✅ Cerrar Segundómetro
+        
+        // ==========================================
+        // PASO 3: UNA SOLA query a Legacy para TODO
+        // ==========================================
         $dbLegacy = self::getLegacyConnection();
         
-        try {
-            // ==========================================
-            // PASO 1: Obtener líderes con datos base
-            // ==========================================
-            $sqlLideres = "
-                SELECT 
-                    CASE 
-                        WHEN Observaciones IS NULL OR TRIM(Observaciones) = '' THEN 'SIN ASIGNAR'
-                        ELSE Observaciones 
-                    END as lider,
-                    COUNT(*) as total_creditos,
-                    SUM(CASE WHEN Cierre_Actual = 'a) Current' THEN 1 ELSE 0 END) as current,
-                    SUM(CASE WHEN Cierre_Actual = 'b) 1 a 7 dias' THEN 1 ELSE 0 END) as gestiones_1a7,
-                    SUM(COALESCE(Saldo_vencido_actualizado, 0)) as saldo_vencido
-                FROM tbl_segundometro_semana
-                WHERE Cierre_Actual IN ('a) Current', 'b) 1 a 7 dias', 'c) 8 a 14 dias', 'd) 15 a 21 dias')
-                GROUP BY 
-                    CASE 
-                        WHEN Observaciones IS NULL OR TRIM(Observaciones) = '' THEN 'SIN ASIGNAR'
-                        ELSE Observaciones 
-                    END
-                ORDER BY total_creditos DESC
-            ";
+        $gestionesPorCredito = [];
+        
+        if (!empty($todosLosCreditos)) {
+            $chunks = array_chunk($todosLosCreditos, 5000);
             
-            $stmtLideres = $dbSegundo->prepare($sqlLideres);
-            $stmtLideres->execute();
-            $lideres = $stmtLideres->fetchAll(\PDO::FETCH_ASSOC);
-            
-            if (empty($lideres)) {
-                return ['success' => true, 'data' => []];
-            }
-            
-            // ==========================================
-            // PASO 2: Obtener IDs de créditos por líder
-            // ==========================================
-            $sqlCreditos = "
-                SELECT 
-                    CASE 
-                        WHEN Observaciones IS NULL OR TRIM(Observaciones) = '' THEN 'SIN ASIGNAR'
-                        ELSE Observaciones 
-                    END as lider,
-                    Id_credito
-                FROM tbl_segundometro_semana
-                WHERE Cierre_Actual IN ('a) Current', 'b) 1 a 7 dias', 'c) 8 a 14 dias', 'd) 15 a 21 dias')
-            ";
-            
-            $stmtCreditos = $dbSegundo->prepare($sqlCreditos);
-            $stmtCreditos->execute();
-            $creditosPorLider = [];
-            
-            while ($row = $stmtCreditos->fetch(\PDO::FETCH_ASSOC)) {
-                $creditosPorLider[$row['lider']][] = $row['Id_credito'];
-            }
-            
-            // ==========================================
-            // PASO 3: Procesar cada líder
-            // ==========================================
-            $resultado = [];
-            
-            foreach ($lideres as $lider) {
-                $nombreLider = $lider['lider'];
-                $creditos = $creditosPorLider[$nombreLider] ?? [];
+            foreach ($chunks as $chunk) {
+                $placeholders = implode(',', array_fill(0, count($chunk), '?'));
                 
-                // Inicializar contadores
-                $campo = 0;
-                $telefono = 0;
-                $sinGestion = 0;
-                $fechaAntigua = null;
-                $fechaReciente = null;
-                $estatus = 'Sin actividad';
+                $sqlLegacy = "
+                    SELECT 
+                        id_credit,
+                        contacto,
+                        fecha_dictamen
+                    FROM legacy_semanal
+                    WHERE id_credit IN ($placeholders)
+                      AND campana LIKE 'ASIGNACION_W%_1A7'
+                ";
                 
-                if (!empty($creditos)) {
-                    $placeholders = implode(',', array_fill(0, count($creditos), '?'));
+                $stmtLegacy = $dbLegacy->prepare($sqlLegacy);
+                $stmtLegacy->execute($chunk);
+                
+                while ($row = $stmtLegacy->fetch(\PDO::FETCH_ASSOC)) {
+                    $gestionesPorCredito[$row['id_credit']][] = [
+                        'contacto' => strtolower($row['contacto'] ?? ''),
+                        'fecha_dictamen' => $row['fecha_dictamen']
+                    ];
+                }
+                $stmtLegacy->closeCursor();
+            }
+        }
+        
+        $dbLegacy = null; // ✅ Cerrar Legacy
+        
+        // ==========================================
+        // PASO 4: Procesar por líder + calcular totales
+        // ==========================================
+        $resultado = [];
+        
+        // Acumuladores para totales
+        $totales_current = 0;
+        $totales_1a7 = 0;
+        $totales_sin_gestion = 0;
+        $totales_general = 0;
+        $totales_campo = 0;
+        $totales_telefono = 0;
+        $totales_saldo = 0;
+        
+        foreach ($lideres as $lider) {
+            $nombreLider = $lider['lider'];
+            $creditos = $creditosPorLider[$nombreLider] ?? [];
+            
+            // Inicializar contadores
+            $campo = 0;
+            $telefono = 0;
+            $fechaAntigua = null;
+            $fechaReciente = null;
+            $creditosConGestion = [];
+            
+            // Procesar gestiones de ESTE líder (en memoria)
+            foreach ($creditos as $idCredito) {
+                if (isset($gestionesPorCredito[$idCredito])) {
+                    $creditosConGestion[$idCredito] = true;
                     
-                    // ✅ Query con filtro de campaña
-                    $sqlLegacy = "
-                        SELECT 
-                            id_credit,
-                            contacto,
-                            fecha_dictamen
-                        FROM legacy_semanal
-                        WHERE id_credit IN ($placeholders)
-                          AND campana LIKE 'ASIGNACION_W%_1A7'
-                    ";
-                    
-                    $stmtLegacy = $dbLegacy->prepare($sqlLegacy);
-                    $stmtLegacy->execute($creditos);
-                    $gestiones = $stmtLegacy->fetchAll(\PDO::FETCH_ASSOC);
-                    
-                    // Créditos que SÍ tienen gestión
-                    $creditosConGestion = [];
-                    
-                    foreach ($gestiones as $gestion) {
-                        $creditosConGestion[$gestion['id_credit']] = true;
-                        
-                        $contacto = strtolower($gestion['contacto'] ?? '');
-                        
-                        // ✅ CAMPO = whatsapp + telefono
-                        if (in_array($contacto, ['whatsapp', 'telefono'])) {
+                    foreach ($gestionesPorCredito[$idCredito] as $gestion) {
+                        // Contar contacto
+                        if (in_array($gestion['contacto'], ['whatsapp', 'telefono'])) {
                             $campo++;
                         }
-                        
-                        // ✅ TELEFONO = solo telefono
-                        if ($contacto === 'telefono') {
+                        if ($gestion['contacto'] === 'telefono') {
                             $telefono++;
                         }
                         
-                        // ✅ Calcular fechas
+                        // Calcular fechas
                         if ($gestion['fecha_dictamen']) {
                             if (!$fechaAntigua || strtotime($gestion['fecha_dictamen']) < strtotime($fechaAntigua)) {
                                 $fechaAntigua = $gestion['fecha_dictamen'];
@@ -150,174 +195,101 @@ class Indicadores extends Model
                             }
                         }
                     }
-                    
-                    // ✅ SIN GESTIÓN = créditos sin registros en legacy
-                    $sinGestion = count($creditos) - count($creditosConGestion);
-                    
-                    // ✅ Calcular estatus de actividad
-                    if ($fechaReciente) {
-                        $minutos = (time() - strtotime($fechaReciente)) / 60;
-                        if ($minutos < 30) {
-                            $estatus = 'Activo';
-                        } else {
-                            $estatus = 'Inactivo';
-                        }
-                    }
-                } else {
-                    // Si no hay créditos, todos son sin gestión
-                    $sinGestion = $lider['total_creditos'];
                 }
-                
-                // Calcular eficiencia
-                $total_base = $lider['current'] + $lider['gestiones_1a7'];
-                $eficiencia = $total_base > 0 ? round(($lider['current'] * 100) / $total_base, 1) : 0;
-                
-                // ✅ Armar resultado final
-                $resultado[] = [
-                    'lider' => $nombreLider,
-                    'current' => (int)$lider['current'],
-                    'gestiones_1a7' => (int)$lider['gestiones_1a7'],
-                    'sin_gestion' => $sinGestion,
-                    'eficiencia' => $eficiencia,
-                    'total_general' => (int)$lider['total_creditos'],
-                    'campo' => $campo,
-                    'telefono' => $telefono,
-                    'saldo_vencido' => '$' . number_format($lider['saldo_vencido'] ?? 0, 2),
-                    'fecha_dictamen_mas_antigua' => $fechaAntigua ? date('d/m/Y H:i', strtotime($fechaAntigua)) : '-',
-                    'fecha_dictamen_mas_reciente' => $fechaReciente ? date('d/m/Y H:i', strtotime($fechaReciente)) : '-',
-                    'estatus_gestor' => $estatus
-                ];
             }
             
-            return [
-                'success' => true,
-                'data' => $resultado
-            ];
+            // Calcular sin gestión
+            $sinGestion = count($creditos) - count($creditosConGestion);
             
-        } catch (\Exception $e) {
-            error_log("ERROR en getGestiones1A7: " . $e->getMessage());
-            return [
-                'success' => false,
-                'data' => [],
-                'error' => $e->getMessage()
-            ];
-        }
-    }
-
-    /**
-     * ✅ TOTALES OPTIMIZADOS - VERSIÓN COMPLETA
-     */
-    public static function getTotalesGestiones1A7($filtros = [])
-    {
-        $dbSegundo = self::getSegundometroConnection();
-        $dbLegacy = self::getLegacyConnection();
-        
-        try {
-            // Totales de Segundómetro
-            $sql = "
-                SELECT 
-                    SUM(CASE WHEN Cierre_Actual = 'a) Current' THEN 1 ELSE 0 END) as total_current,
-                    SUM(CASE WHEN Cierre_Actual = 'b) 1 a 7 dias' THEN 1 ELSE 0 END) as total_1a7,
-                    COUNT(*) as total_general,
-                    SUM(COALESCE(Saldo_vencido_actualizado, 0)) as total_saldo
-                FROM tbl_segundometro_semana
-                WHERE Cierre_Actual IN ('a) Current', 'b) 1 a 7 dias', 'c) 8 a 14 dias', 'd) 15 a 21 dias')
-            ";
-            
-            $stmt = $dbSegundo->prepare($sql);
-            $stmt->execute();
-            $totales = $stmt->fetch(\PDO::FETCH_ASSOC);
-            
-            // Obtener créditos para calcular sin gestión, campo y telefono
-            $sqlCreditos = "
-                SELECT Id_credito
-                FROM tbl_segundometro_semana
-                WHERE Cierre_Actual IN ('a) Current', 'b) 1 a 7 dias', 'c) 8 a 14 dias', 'd) 15 a 21 dias')
-            ";
-            
-            $stmtCreditos = $dbSegundo->prepare($sqlCreditos);
-            $stmtCreditos->execute();
-            $creditos = $stmtCreditos->fetchAll(\PDO::FETCH_COLUMN);
-            
-            $total_campo = 0;
-            $total_telefono = 0;
-            $total_sin_gestion = count($creditos);
-            
-            if (!empty($creditos)) {
-                $placeholders = implode(',', array_fill(0, count($creditos), '?'));
-                
-                $sqlLegacy = "
-                    SELECT 
-                        id_credit,
-                        contacto
-                    FROM legacy_semanal
-                    WHERE id_credit IN ($placeholders)
-                      AND campana LIKE 'ASIGNACION_W%_1A7'
-                ";
-                
-                $stmtLegacy = $dbLegacy->prepare($sqlLegacy);
-                $stmtLegacy->execute($creditos);
-                $gestiones = $stmtLegacy->fetchAll(\PDO::FETCH_ASSOC);
-                
-                $creditosConGestion = [];
-                
-                foreach ($gestiones as $gestion) {
-                    $creditosConGestion[$gestion['id_credit']] = true;
-                    
-                    $contacto = strtolower($gestion['contacto'] ?? '');
-                    
-                    if (in_array($contacto, ['whatsapp', 'telefono'])) {
-                        $total_campo++;
-                    }
-                    if ($contacto === 'telefono') {
-                        $total_telefono++;
-                    }
+            // Calcular estatus
+            $estatus = 'Sin actividad';
+            if ($fechaReciente) {
+                $minutos = (time() - strtotime($fechaReciente)) / 60;
+                if ($minutos < 30) {
+                    $estatus = 'Activo';
+                } else {
+                    $estatus = 'Inactivo';
                 }
-                
-                $total_sin_gestion = count($creditos) - count($creditosConGestion);
             }
             
             // Calcular eficiencia
-            $eficiencia_global = $totales['total_general'] > 0 
-                ? ($totales['total_current'] * 100) / $totales['total_general']
-                : 0;
+            $total_base = $lider['current'] + $lider['gestiones_1a7'];
+            $eficiencia = $total_base > 0 ? round(($lider['current'] * 100) / $total_base, 1) : 0;
             
-            return [
-                'total_current' => number_format($totales['total_current'] ?? 0),
-                'total_1a7' => number_format($totales['total_1a7'] ?? 0),
-                'total_sin_gestion' => number_format($total_sin_gestion),
-                'total_eficiencia' => round($eficiencia_global, 1) . '%',
-                'total_general' => number_format($totales['total_general'] ?? 0),
-                'total_campo' => number_format($total_campo),
-                'total_telefono' => number_format($total_telefono),
-                'total_saldo' => '$' . number_format($totales['total_saldo'] ?? 0, 2)
-            ];
+            // ✅ Acumular para totales
+            $totales_current += $lider['current'];
+            $totales_1a7 += $lider['gestiones_1a7'];
+            $totales_sin_gestion += $sinGestion;
+            $totales_general += $lider['total_creditos'];
+            $totales_campo += $campo;
+            $totales_telefono += $telefono;
+            $totales_saldo += $lider['saldo_vencido'];
             
-        } catch (\Exception $e) {
-            error_log("Error en getTotalesGestiones1A7: " . $e->getMessage());
-            return [
-                'total_current' => '0',
-                'total_1a7' => '0',
-                'total_sin_gestion' => '0',
-                'total_eficiencia' => '0%',
-                'total_general' => '0',
-                'total_campo' => '0',
-                'total_telefono' => '0',
-                'total_saldo' => '$0.00'
+            // Armar resultado final
+            $resultado[] = [
+                'lider' => $nombreLider,
+                'current' => (int)$lider['current'],
+                'gestiones_1a7' => (int)$lider['gestiones_1a7'],
+                'sin_gestion' => $sinGestion,
+                'eficiencia' => $eficiencia,
+                'total_general' => (int)$lider['total_creditos'],
+                'campo' => $campo,
+                'telefono' => $telefono,
+                'saldo_vencido' => '$' . number_format($lider['saldo_vencido'] ?? 0, 2),
+                'fecha_dictamen_mas_antigua' => $fechaAntigua ? date('d/m/Y H:i', strtotime($fechaAntigua)) : '-',
+                'fecha_dictamen_mas_reciente' => $fechaReciente ? date('d/m/Y H:i', strtotime($fechaReciente)) : '-',
+                'estatus_gestor' => $estatus
             ];
         }
+        
+        //  Calcular eficiencia global
+        $eficiencia_global = $totales_general > 0 
+            ? ($totales_current * 100) / $totales_general
+            : 0;
+        
+        return [
+            'success' => true,
+            'data' => $resultado,
+            'totales' => [
+                'total_current' => number_format($totales_current),
+                'total_1a7' => number_format($totales_1a7),
+                'total_sin_gestion' => number_format($totales_sin_gestion),
+                'total_eficiencia' => round($eficiencia_global, 1) . '%',
+                'total_general' => number_format($totales_general),
+                'total_campo' => number_format($totales_campo),
+                'total_telefono' => number_format($totales_telefono),
+                'total_saldo' => '$' . number_format($totales_saldo, 2)
+            ]
+        ];
+        
+    } catch (\Exception $e) {
+        error_log("ERROR en getGestiones1A7: " . $e->getMessage());
+        $dbSegundo = null;
+        $dbLegacy = null;
+        
+        return [
+            'success' => false,
+            'data' => [],
+            'totales' => [],
+            'error' => $e->getMessage()
+        ];
     }
+}
 
-    // AQUI ES DONDE TRABAJAREMOS!!!!
-    public static function getEficiencia1A7()
+    /**
+     * ✅ EFICIENCIA 1 A 7 - VERSIÓN COMPLETA OPTIMIZADA
+     */
+   public static function getEficiencia1A7()
 {
-    $dbSegundo = self::getSegundometroConnection();
-    $dbLegacy = self::getLegacyConnection();
+    $dbSegundo = null;
+    $dbLegacy = null;
     
     try {
         // ==========================================
-        // PASO 1: Obtener líderes (misma lógica que getGestiones1A7)
+        // PASO 1: Obtener líderes
         // ==========================================
+        $dbSegundo = self::getSegundometroConnection();
+        
         $sqlLideres = "
             SELECT 
                 CASE 
@@ -340,13 +312,14 @@ class Indicadores extends Model
         $stmtLideres = $dbSegundo->prepare($sqlLideres);
         $stmtLideres->execute();
         $lideres = $stmtLideres->fetchAll(\PDO::FETCH_ASSOC);
+        $stmtLideres->closeCursor();
         
         if (empty($lideres)) {
             return ['success' => true, 'data' => []];
         }
         
         // ==========================================
-        // PASO 2: Obtener IDs de créditos por líder
+        // PASO 2: Obtener créditos con su líder
         // ==========================================
         $sqlCreditos = "
             SELECT 
@@ -361,18 +334,59 @@ class Indicadores extends Model
         
         $stmtCreditos = $dbSegundo->prepare($sqlCreditos);
         $stmtCreditos->execute();
+        
         $creditosPorLider = [];
+        $todosLosCreditos = [];
         
         while ($row = $stmtCreditos->fetch(\PDO::FETCH_ASSOC)) {
             $creditosPorLider[$row['lider']][] = $row['Id_credito'];
+            $todosLosCreditos[] = $row['Id_credito'];
+        }
+        $stmtCreditos->closeCursor();
+        $dbSegundo = null; // ✅ Cerrar Segundómetro
+        
+        // ==========================================
+        // PASO 3: UNA SOLA query a Legacy para TODO
+        // ==========================================
+        $dbLegacy = self::getLegacyConnection();
+        
+        $gestionesPorCredito = [];
+        
+        if (!empty($todosLosCreditos)) {
+            // Procesar en chunks GRANDES (5000) pero UNA VEZ
+            $chunks = array_chunk($todosLosCreditos, 5000);
+            
+            foreach ($chunks as $chunk) {
+                $placeholders = implode(',', array_fill(0, count($chunk), '?'));
+                
+                $sqlLegacy = "
+                    SELECT 
+                        id_credit,
+                        dictamen_for,
+                        contacto
+                    FROM legacy_semanal
+                    WHERE id_credit IN ($placeholders)
+                      AND campana LIKE 'ASIGNACION_W%_1A7'
+                ";
+                
+                $stmtLegacy = $dbLegacy->prepare($sqlLegacy);
+                $stmtLegacy->execute($chunk);
+                
+                while ($row = $stmtLegacy->fetch(\PDO::FETCH_ASSOC)) {
+                    $gestionesPorCredito[$row['id_credit']][] = [
+                        'dictamen' => $row['dictamen_for'],
+                        'contacto' => strtolower($row['contacto'] ?? '')
+                    ];
+                }
+                $stmtLegacy->closeCursor();
+            }
         }
         
-        // ==========================================
-        // PASO 3: Procesar cada líder con TODOS los dictámenes
-        // ==========================================
-        $resultado = [];
+        $dbLegacy = null; // ✅ Cerrar Legacy
         
-        // Mapeo de dictámenes a columnas
+        // ==========================================
+        // PASO 4: Procesar resultados por líder (EN MEMORIA)
+        // ==========================================
         $dictamenes = [
             'Pago Recibido' => 'pagos_recibidos',
             'Promesa de Pago' => 'promesa_pago',
@@ -390,94 +404,57 @@ class Indicadores extends Model
             'Defunción' => 'defuncion'
         ];
         
+        $resultado = [];
+        
         foreach ($lideres as $lider) {
             $nombreLider = $lider['lider'];
             $creditos = $creditosPorLider[$nombreLider] ?? [];
             
-            // Inicializar contadores para TODAS las columnas
-            $conteos = [
-                'pagos_recibidos' => 0,
-                'promesa_pago' => 0,
-                'negativa_pago' => 0,
-                'prestanombre' => 0,
-                'contacto_tercero' => 0,
-                'no_contesta' => 0,
-                'sin_contacto' => 0,
-                'illocalizable' => 0,
-                'pago_no_identificado' => 0,
-                'cambio_domicilio' => 0,
-                'convenio_pago_parcial' => 0,
-                'moto_recuperada' => 0,
-                'siniestro' => 0,
-                'defuncion' => 0,
-                'campo' => 0,      // whatsapp + telefono
-                'telefono' => 0     // solo telefono
-            ];
+            // Inicializar contadores
+            $conteos = array_fill_keys(array_values($dictamenes), 0);
+            $conteos['campo'] = 0;
+            $conteos['telefono'] = 0;
             
             $creditosConGestion = [];
             
-            if (!empty($creditos)) {
-                $placeholders = implode(',', array_fill(0, count($creditos), '?'));
-                
-                // Query para obtener TODAS las gestiones con TODOS los campos necesarios
-                $sqlLegacy = "
-                    SELECT 
-                        id_credit,
-                        dictamen_for,
-                        contacto,
-                        fecha_dictamen
-                    FROM legacy_semanal
-                    WHERE id_credit IN ($placeholders)
-                      AND campana LIKE 'ASIGNACION_W%_1A7'
-                ";
-                
-                $stmtLegacy = $dbLegacy->prepare($sqlLegacy);
-                $stmtLegacy->execute($creditos);
-                $gestiones = $stmtLegacy->fetchAll(\PDO::FETCH_ASSOC);
-                
-                // Procesar cada gestión
-                foreach ($gestiones as $gestion) {
-                    $creditosConGestion[$gestion['id_credit']] = true;
+            // Procesar gestiones de ESTE líder (en memoria)
+            foreach ($creditos as $idCredito) {
+                if (isset($gestionesPorCredito[$idCredito])) {
+                    $creditosConGestion[$idCredito] = true;
                     
-                    // 1️⃣ CONTAR POR DICTAMEN (mapeo directo)
-                    $dictamen = $gestion['dictamen_for'] ?? '';
-                    if (isset($dictamenes[$dictamen])) {
-                        $columna = $dictamenes[$dictamen];
-                        $conteos[$columna]++;
-                    }
-                    
-                    // 2️⃣ CONTACTOS (campo y teléfono)
-                    $contacto = strtolower($gestion['contacto'] ?? '');
-                    if (in_array($contacto, ['whatsapp', 'telefono'])) {
-                        $conteos['campo']++;
-                    }
-                    if ($contacto === 'telefono') {
-                        $conteos['telefono']++;
+                    foreach ($gestionesPorCredito[$idCredito] as $gestion) {
+                        // Contar dictamen
+                        if (isset($dictamenes[$gestion['dictamen']])) {
+                            $columna = $dictamenes[$gestion['dictamen']];
+                            $conteos[$columna]++;
+                        }
+                        
+                        // Contar contacto
+                        if (in_array($gestion['contacto'], ['whatsapp', 'telefono'])) {
+                            $conteos['campo']++;
+                        }
+                        if ($gestion['contacto'] === 'telefono') {
+                            $conteos['telefono']++;
+                        }
                     }
                 }
             }
             
-            // Calcular SIN GESTIÓN
             $sinGestion = count($creditos) - count($creditosConGestion);
-            
-            // Calcular TOTAL GENERAL
             $totalGeneral = $lider['current'] + $lider['gestiones_1a7'];
-            
-            // Calcular EFICIENCIA (según la fórmula del PM)
-            // Asumiendo: (Pagos + Promesas) / (Total General - Sin Gestión)
             $gestionados = max($totalGeneral - $sinGestion, 0);
+            
             $eficiencia = $gestionados > 0 
                 ? round((($conteos['pagos_recibidos'] + $conteos['promesa_pago']) * 100) / $gestionados, 1)
                 : 0;
             
-            // ✅ Armar resultado final con TODAS las columnas
             $resultado[] = [
                 'lider' => $nombreLider,
                 'current' => (int)$lider['current'],
                 'gestiones_1a7' => (int)$lider['gestiones_1a7'],
                 'total_general' => $totalGeneral,
                 'sin_gestion' => $sinGestion,
-                'eficiencia' => $eficiencia . '%',
+                'eficiencia' => $eficiencia,
                 'pagos_recibidos' => $conteos['pagos_recibidos'],
                 'promesa_pago' => $conteos['promesa_pago'],
                 'negativa_pago' => $conteos['negativa_pago'],
@@ -491,10 +468,7 @@ class Indicadores extends Model
                 'convenio_pago_parcial' => $conteos['convenio_pago_parcial'],
                 'moto_recuperada' => $conteos['moto_recuperada'],
                 'siniestro' => $conteos['siniestro'],
-                'defuncion' => $conteos['defuncion'],
-                // Métricas adicionales (útiles para otros módulos)
-                'campo' => $conteos['campo'],
-                'telefono' => $conteos['telefono']
+                'defuncion' => $conteos['defuncion']
             ];
         }
         
@@ -505,6 +479,9 @@ class Indicadores extends Model
         
     } catch (\Exception $e) {
         error_log("ERROR en getEficiencia1A7: " . $e->getMessage());
+        $dbSegundo = null;
+        $dbLegacy = null;
+        
         return [
             'success' => false,
             'data' => [],
@@ -513,18 +490,354 @@ class Indicadores extends Model
     }
 }
 
-    public static function getGestiones8A21() { return ['success' => true, 'data' => []]; }
-    public static function getEficiencia8A21() { return ['success' => true, 'eficiencia' => 0]; }
-    public static function getSeguimientoIntensidad() { return ['success' => true, 'data' => []]; }
-    public static function getSeguimientoPromesasPago() { return ['success' => true, 'data' => []]; }
-    public static function getKpiTotal() { return []; }
-    public static function getDetalleClientes() { return []; }
-    public static function getDetalleEficiencia() { return []; }
-    public static function getCarteraInicioSem() { return []; }
-    public static function getEspartanosMatrizBuckets() { return []; }
-    public static function getMatrizBuckets() { return []; }
-    public static function getMatrizBucketsMas1() { return []; }
-    public static function getAuditoria() { return []; }
-    public static function getAuditoria2() { return []; }
-    public static function getSeguimiento() { return []; }
+    /**
+     * ✅ MÉTODOS PENDIENTES (con estructura optimizada para futuro)
+     */
+    /**
+ * ✅ GESTIONES 8 A 21 - VERSIÓN COMPLETA OPTIMIZADA
+ */
+public static function getGestiones8A21($filtros = [])
+{
+    $dbSegundo = null;
+    $dbLegacy = null;
+    
+    try {
+        // ==========================================
+        // PASO 1: Obtener líderes con datos base
+        // ==========================================
+        $dbSegundo = self::getSegundometroConnection();
+        
+        $sqlLideres = "
+            SELECT 
+                CASE 
+                    WHEN Observaciones IS NULL OR TRIM(Observaciones) = '' THEN 'SIN ASIGNAR'
+                    ELSE Observaciones 
+                END as lider,
+                COUNT(*) as total_creditos,
+                SUM(CASE WHEN Cierre_Actual = 'a) Current' THEN 1 ELSE 0 END) as current,
+                SUM(CASE WHEN Cierre_Actual = 'b) 1 a 7 dias' THEN 1 ELSE 0 END) as gestiones_1a7,
+                SUM(CASE WHEN Cierre_Actual = 'c) 8 a 14 dias' THEN 1 ELSE 0 END) as gestiones_8a14,
+                SUM(CASE WHEN Cierre_Actual = 'd) 15 a 21 dias' THEN 1 ELSE 0 END) as gestiones_15a21,
+                SUM(COALESCE(Saldo_vencido_actualizado, 0)) as saldo_vencido
+            FROM tbl_segundometro_semana
+            WHERE Cierre_Actual IN ('a) Current', 'b) 1 a 7 dias', 'c) 8 a 14 dias', 'd) 15 a 21 dias')
+            GROUP BY 
+                CASE 
+                    WHEN Observaciones IS NULL OR TRIM(Observaciones) = '' THEN 'SIN ASIGNAR'
+                    ELSE Observaciones 
+                END
+            ORDER BY total_creditos DESC
+        ";
+        
+        $stmtLideres = $dbSegundo->prepare($sqlLideres);
+        $stmtLideres->execute();
+        $lideres = $stmtLideres->fetchAll(\PDO::FETCH_ASSOC);
+        $stmtLideres->closeCursor();
+        
+        if (empty($lideres)) {
+            return [
+                'success' => true,
+                'data' => [],
+                'totales' => [
+                    'total_current' => '0',
+                    'total_1a7' => '0',
+                    'total_8a14' => '0',
+                    'total_15a21' => '0',
+                    'total_sin_gestion' => '0',
+                    'total_eficiencia' => '0%',
+                    'total_general' => '0',
+                    'total_campo' => '0',
+                    'total_telefono' => '0',
+                    'total_whatsapp' => '0',
+                    'total_saldo' => '$0.00'
+                ]
+            ];
+        }
+        
+        // ==========================================
+        // PASO 2: Obtener créditos con su líder
+        // ==========================================
+        $sqlCreditos = "
+            SELECT 
+                CASE 
+                    WHEN Observaciones IS NULL OR TRIM(Observaciones) = '' THEN 'SIN ASIGNAR'
+                    ELSE Observaciones 
+                END as lider,
+                Id_credito
+            FROM tbl_segundometro_semana
+            WHERE Cierre_Actual IN ('a) Current', 'b) 1 a 7 dias', 'c) 8 a 14 dias', 'd) 15 a 21 dias')
+        ";
+        
+        $stmtCreditos = $dbSegundo->prepare($sqlCreditos);
+        $stmtCreditos->execute();
+        
+        $creditosPorLider = [];
+        $todosLosCreditos = [];
+        
+        while ($row = $stmtCreditos->fetch(\PDO::FETCH_ASSOC)) {
+            $creditosPorLider[$row['lider']][] = $row['Id_credito'];
+            $todosLosCreditos[] = $row['Id_credito'];
+        }
+        $stmtCreditos->closeCursor();
+        $dbSegundo = null; // ✅ Cerrar Segundómetro
+        
+        // ==========================================
+        // PASO 3: UNA SOLA query a Legacy para TODO
+        // ==========================================
+        $dbLegacy = self::getLegacyConnection();
+        
+        $gestionesPorCredito = [];
+        
+        if (!empty($todosLosCreditos)) {
+            $chunks = array_chunk($todosLosCreditos, 5000);
+            
+            foreach ($chunks as $chunk) {
+                $placeholders = implode(',', array_fill(0, count($chunk), '?'));
+                
+                $sqlLegacy = "
+                    SELECT 
+                        id_credit,
+                        contacto,
+                        fecha_dictamen
+                    FROM legacy_semanal
+                    WHERE id_credit IN ($placeholders)
+                      AND campana LIKE 'ASIGNACION_W%_8A21'
+                ";
+                
+                $stmtLegacy = $dbLegacy->prepare($sqlLegacy);
+                $stmtLegacy->execute($chunk);
+                
+                while ($row = $stmtLegacy->fetch(\PDO::FETCH_ASSOC)) {
+                    $gestionesPorCredito[$row['id_credit']][] = [
+                        'contacto' => strtolower($row['contacto'] ?? ''),
+                        'fecha_dictamen' => $row['fecha_dictamen']
+                    ];
+                }
+                $stmtLegacy->closeCursor();
+            }
+        }
+        
+        $dbLegacy = null; // ✅ Cerrar Legacy
+        
+        // ==========================================
+        // PASO 4: Procesar por líder + calcular totales
+        // ==========================================
+        $resultado = [];
+        
+        // Acumuladores para totales
+        $totales_current = 0;
+        $totales_1a7 = 0;
+        $totales_8a14 = 0;
+        $totales_15a21 = 0;
+        $totales_sin_gestion = 0;
+        $totales_general = 0;
+        $totales_campo = 0;
+        $totales_telefono = 0;
+        $totales_whatsapp = 0;
+        $totales_saldo = 0;
+        
+        foreach ($lideres as $lider) {
+            $nombreLider = $lider['lider'];
+            $creditos = $creditosPorLider[$nombreLider] ?? [];
+            
+            // Inicializar contadores
+            $campo = 0;
+            $telefono = 0;
+            $whatsapp = 0;
+            $fechaAntigua = null;
+            $fechaReciente = null;
+            $creditosConGestion = [];
+            
+            // Procesar gestiones de ESTE líder (en memoria)
+            foreach ($creditos as $idCredito) {
+                if (isset($gestionesPorCredito[$idCredito])) {
+                    $creditosConGestion[$idCredito] = true;
+                    
+                    foreach ($gestionesPorCredito[$idCredito] as $gestion) {
+                        $contacto = $gestion['contacto'];
+                        
+                        // ✅ CAMPO = whatsapp + telefono
+                        if (in_array($contacto, ['whatsapp', 'telefono'])) {
+                            $campo++;
+                        }
+                        
+                        // ✅ TELEFONO = solo telefono
+                        if ($contacto === 'telefono') {
+                            $telefono++;
+                        }
+                        
+                        // ✅ WHATSAPP = solo whatsapp (NUEVO)
+                        if ($contacto === 'whatsapp') {
+                            $whatsapp++;
+                        }
+                        
+                        // ✅ Calcular fechas
+                        if ($gestion['fecha_dictamen']) {
+                            if (!$fechaAntigua || strtotime($gestion['fecha_dictamen']) < strtotime($fechaAntigua)) {
+                                $fechaAntigua = $gestion['fecha_dictamen'];
+                            }
+                            if (!$fechaReciente || strtotime($gestion['fecha_dictamen']) > strtotime($fechaReciente)) {
+                                $fechaReciente = $gestion['fecha_dictamen'];
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // Calcular sin gestión
+            $sinGestion = count($creditos) - count($creditosConGestion);
+            
+            // Calcular estatus
+            $estatus = 'Sin actividad';
+            if ($fechaReciente) {
+                $minutos = (time() - strtotime($fechaReciente)) / 60;
+                if ($minutos < 30) {
+                    $estatus = 'Activo';
+                } else {
+                    $estatus = 'Inactivo';
+                }
+            }
+            
+            // Calcular eficiencia (8-14 + 15-21 como base)
+            $total_base_8a21 = $lider['gestiones_8a14'] + $lider['gestiones_15a21'];
+            $eficiencia = $total_base_8a21 > 0 
+                ? round(($lider['current'] * 100) / $total_base_8a21, 1) 
+                : 0;
+            
+            // ✅ Acumular para totales
+            $totales_current += $lider['current'];
+            $totales_1a7 += $lider['gestiones_1a7'];
+            $totales_8a14 += $lider['gestiones_8a14'];
+            $totales_15a21 += $lider['gestiones_15a21'];
+            $totales_sin_gestion += $sinGestion;
+            $totales_general += $lider['total_creditos'];
+            $totales_campo += $campo;
+            $totales_telefono += $telefono;
+            $totales_whatsapp += $whatsapp;
+            $totales_saldo += $lider['saldo_vencido'];
+            
+            // Armar resultado final
+            $resultado[] = [
+                'lider' => $nombreLider,
+                'current' => (int)$lider['current'],
+                'gestiones_1a7' => (int)$lider['gestiones_1a7'],
+                'gestiones_8a14' => (int)$lider['gestiones_8a14'],
+                'gestiones_15a21' => (int)$lider['gestiones_15a21'],
+                'sin_gestion' => $sinGestion,
+                'estatus_gestor' => $estatus,
+                'total_general' => (int)$lider['total_creditos'],
+                'eficiencia' => $eficiencia,
+                'campo' => $campo,
+                'telefono' => $telefono,
+                'whatsapp' => $whatsapp,
+                'saldo_vencido' => '$' . number_format($lider['saldo_vencido'] ?? 0, 2),
+                'fecha_dictamen_mas_antigua' => $fechaAntigua ? date('d/m/Y H:i', strtotime($fechaAntigua)) : '-',
+                'fecha_dictamen_mas_reciente' => $fechaReciente ? date('d/m/Y H:i', strtotime($fechaReciente)) : '-',
+                'estatus_gestor_detalle' => $estatus // Columna duplicada
+            ];
+        }
+        
+        // ✅ Calcular eficiencia global
+        $total_base_global = $totales_8a14 + $totales_15a21;
+        $eficiencia_global = $total_base_global > 0 
+            ? ($totales_current * 100) / $total_base_global
+            : 0;
+        
+        return [
+            'success' => true,
+            'data' => $resultado,
+            'totales' => [
+                'total_current' => number_format($totales_current),
+                'total_1a7' => number_format($totales_1a7),
+                'total_8a14' => number_format($totales_8a14),
+                'total_15a21' => number_format($totales_15a21),
+                'total_sin_gestion' => number_format($totales_sin_gestion),
+                'total_eficiencia' => round($eficiencia_global, 1) . '%',
+                'total_general' => number_format($totales_general),
+                'total_campo' => number_format($totales_campo),
+                'total_telefono' => number_format($totales_telefono),
+                'total_whatsapp' => number_format($totales_whatsapp),
+                'total_saldo' => '$' . number_format($totales_saldo, 2)
+            ]
+        ];
+        
+    } catch (\Exception $e) {
+        error_log("ERROR en getGestiones8A21: " . $e->getMessage());
+        $dbSegundo = null;
+        $dbLegacy = null;
+        
+        return [
+            'success' => false,
+            'data' => [],
+            'totales' => [],
+            'error' => $e->getMessage()
+        ];
+    }
+}
+    
+    public static function getEficiencia8A21() 
+    { 
+        return ['success' => true, 'eficiencia' => 0]; 
+    }
+    
+    public static function getSeguimientoIntensidad() 
+    { 
+        return ['success' => true, 'data' => []]; 
+    }
+    
+    public static function getSeguimientoPromesasPago() 
+    { 
+        return ['success' => true, 'data' => []]; 
+    }
+    
+    public static function getKpiTotal() 
+    { 
+        return []; 
+    }
+    
+    public static function getDetalleClientes() 
+    { 
+        return []; 
+    }
+    
+    public static function getDetalleEficiencia() 
+    { 
+        return []; 
+    }
+    
+    public static function getCarteraInicioSem() 
+    { 
+        return []; 
+    }
+    
+    public static function getEspartanosMatrizBuckets() 
+    { 
+        return []; 
+    }
+    
+    public static function getMatrizBuckets() 
+    { 
+        return []; 
+    }
+    
+    public static function getMatrizBucketsMas1() 
+    { 
+        return []; 
+    }
+    
+    public static function getAuditoria() 
+    { 
+        return []; 
+    }
+    
+    public static function getAuditoria2() 
+    { 
+        return []; 
+    }
+    
+    public static function getSeguimiento() 
+    { 
+        return []; 
+    }
+    //                                     𒉭 
 }

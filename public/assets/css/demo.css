@@ -3,9 +3,35 @@
 * File include item demo only specific css only
 ******************************************************************************/
 
-/* Sin watermark en el menú lateral (evita logo abajo y desplazamientos) */
+/* ========== Esquinas más redondeadas (estilo estado de cuenta/documentación) ========== */
+:root {
+  --bs-border-radius: 0.75rem;      /* 12px - cards, modales, inputs */
+  --bs-border-radius-sm: 0.5rem;   /* 8px */
+  --bs-border-radius-lg: 0.875rem; /* 14px */
+  --bs-border-radius-xl: 1rem;     /* 16px */
+}
+
+/* Permitir que solo la flecha del menú sobresalga: contenedores sin recortar en el eje horizontal */
+.layout-wrapper:not(.layout-without-menu) {
+  overflow-x: visible;
+}
+/* Sidebar: cabecera fija; solo la lista hace scroll. overflow:visible para que SOLO la flecha pueda sobresalir (sin recorte) */
+#layout-menu.layout-menu {
+  display: flex;
+  flex-direction: column;
+  overflow: visible;
+  max-width: 100%;
+}
+#layout-menu.layout-menu > hr,
+#layout-menu.layout-menu > .menu-inner-shadow {
+  flex-shrink: 0;
+}
 .layout-menu .menu-inner {
   position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 /* Iconos modernos modo oscuro / modo claro */
@@ -25,20 +51,343 @@ body.dark-mode .dropdown-item.dark-mode-toggle.active-dark i.fa-sun {
   color: #fbbf24;
 }
 
-/* Cabecera del menú: altura fija para que no desplace el menú */
-.menu .app-brand.demo {
-  height: 64px;
-  min-height: 64px;
-  max-height: 64px;
-  margin-top: 8px;
-  overflow: hidden;
-  flex-shrink: 0;
+/* Navbar superior: Liquid Glass (estilo iOS) – modo claro */
+.layout-navbar {
+  background: rgba(255, 255, 255, 0.72) !important;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
 }
+.layout-navbar .navbar {
+  background-color: transparent !important;
+}
+
+/* Cards: Liquid Glass – modo claro (fondo suave + blur ligero) + sombra unificada */
+.card {
+  background: rgba(255, 255, 255, 0.9) !important;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+  transition: box-shadow 0.25s ease, transform 0.25s ease;
+}
+.card:hover {
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.08);
+}
+.card-header {
+  background: rgba(0, 0, 0, 0.04) !important;
+}
+.card-body {
+  background: transparent !important;
+}
+
+/* Modales: Liquid Glass – modo claro (fondo semitransparente + blur) */
+.modal-content {
+  background: rgba(255, 255, 255, 0.92) !important;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+.modal-header {
+  background: rgba(0, 0, 0, 0.03) !important;
+}
+
+/* Dropdowns: Liquid Glass – modo claro */
+.dropdown-menu {
+  background: rgba(255, 255, 255, 0.92) !important;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+/* Sidebar (menú lateral): glass muy sutil – solo modo claro (en dark se usa dark-mode.css) */
+body:not(.dark-mode) #layout-menu.layout-menu,
+body:not(.dark-mode) .layout-menu.menu {
+  background: rgba(255, 255, 255, 0.96) !important;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+body:not(.dark-mode) .layout-menu .menu-inner,
+body:not(.dark-mode) .layout-menu .app-brand {
+  background: transparent !important;
+}
+
+/* Offcanvas: Liquid Glass – modo claro */
+.offcanvas {
+  background: rgba(255, 255, 255, 0.94) !important;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+.offcanvas-header {
+  background: rgba(0, 0, 0, 0.03) !important;
+}
+.offcanvas-body {
+  background: transparent !important;
+}
+
+/* Tarjetas accesos rápidos (Inicio): Liquid Glass – modo claro */
+.inicio-mkx .qcard {
+  background: rgba(255, 255, 255, 0.9) !important;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+/* Cabeceras de tabla fijas (sticky): Liquid Glass – modo claro */
+.table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: rgba(255, 255, 255, 0.92) !important;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+/* Inputs / barras de búsqueda en navbar: Liquid Glass – modo claro */
+.navbar .form-control,
+.navbar .form-select,
+.navbar .input-group-text {
+  background: rgba(255, 255, 255, 0.75) !important;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+/* Badges / notificaciones flotantes: Liquid Glass – modo claro */
+.badge {
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+.toast {
+  background: rgba(255, 255, 255, 0.94) !important;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+.alert {
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+/* Cards, modales, botones, inputs: esquinas redondeadas explícitas */
+.card {
+  border-radius: var(--bs-border-radius-lg) !important;
+}
+.modal-content {
+  border-radius: var(--bs-border-radius-xl) !important;
+}
+.dropdown-menu {
+  border-radius: var(--bs-border-radius) !important;
+}
+.btn {
+  border-radius: var(--bs-border-radius) !important;
+  transition: box-shadow 0.2s ease, transform 0.2s ease, background-color 0.2s ease;
+}
+.btn:hover {
+  transform: translateY(-1px);
+}
+.btn:active {
+  transform: translateY(0);
+}
+.form-control,
+.form-select {
+  border-radius: var(--bs-border-radius) !important;
+}
+.offcanvas {
+  border-radius: var(--bs-border-radius-lg) !important;
+}
+.offcanvas-top { border-radius: 0 0 var(--bs-border-radius-lg) var(--bs-border-radius-lg) !important; }
+.offcanvas-bottom { border-radius: var(--bs-border-radius-lg) var(--bs-border-radius-lg) 0 0 !important; }
+.offcanvas-start { border-radius: 0 var(--bs-border-radius-lg) var(--bs-border-radius-lg) 0 !important; }
+.offcanvas-end { border-radius: var(--bs-border-radius-lg) 0 0 var(--bs-border-radius-lg) !important; }
+.table {
+  border-radius: var(--bs-border-radius) !important;
+  overflow: hidden;
+}
+.alert {
+  border-radius: var(--bs-border-radius) !important;
+}
+.toast {
+  border-radius: var(--bs-border-radius) !important;
+}
+.badge {
+  border-radius: var(--bs-border-radius-sm) !important;
+}
+
+/* Paginación: Liquid Glass + esquinas redondeadas */
+.pagination {
+  gap: 0.25rem;
+}
+.page-link {
+  border-radius: var(--bs-border-radius-sm) !important;
+  background: rgba(255, 255, 255, 0.85) !important;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(0, 0, 0, 0.08) !important;
+}
+.pagination .page-item.active .page-link {
+  background: rgba(30, 58, 138, 0.9) !important;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+/* Tabs: Liquid Glass + esquinas redondeadas */
+.nav-tabs {
+  border-bottom-color: rgba(0, 0, 0, 0.08);
+}
+.nav-tabs .nav-link {
+  border-radius: var(--bs-border-radius) var(--bs-border-radius) 0 0 !important;
+  background: rgba(255, 255, 255, 0.7) !important;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid transparent;
+}
+.nav-tabs .nav-link.active {
+  background: rgba(255, 255, 255, 0.95) !important;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+.nav-pills .nav-link {
+  border-radius: var(--bs-border-radius) !important;
+  background: rgba(255, 255, 255, 0.75) !important;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+.nav-pills .nav-link.active {
+  background: rgba(30, 58, 138, 0.9) !important;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+/* Accordion: Liquid Glass + esquinas redondeadas */
+.accordion-item {
+  border-radius: var(--bs-border-radius) !important;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.88) !important;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+.accordion-button {
+  border-radius: 0 !important;
+  background: rgba(0, 0, 0, 0.03) !important;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+.accordion-item:first-child .accordion-button { border-radius: var(--bs-border-radius) var(--bs-border-radius) 0 0 !important; }
+.accordion-item:last-child .accordion-button { border-radius: 0 0 var(--bs-border-radius) var(--bs-border-radius) !important; }
+.accordion-body {
+  background: transparent !important;
+}
+
+/* List group: Liquid Glass + esquinas redondeadas */
+.list-group-item {
+  border-radius: var(--bs-border-radius-sm) !important;
+  background: rgba(255, 255, 255, 0.8) !important;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+.list-group:not(.list-group-flush) .list-group-item:first-child {
+  border-radius: var(--bs-border-radius) var(--bs-border-radius) 0 0 !important;
+}
+.list-group:not(.list-group-flush) .list-group-item:last-child {
+  border-radius: 0 0 var(--bs-border-radius) var(--bs-border-radius) !important;
+}
+
+/* Breadcrumb: contenedor con glass si tiene fondo */
+.breadcrumb {
+  border-radius: var(--bs-border-radius-sm) !important;
+}
+.breadcrumb-item + .breadcrumb-item::before {
+  color: rgba(0, 0, 0, 0.4);
+}
+
+/* Tooltips: Liquid Glass + esquinas redondeadas */
+.tooltip-inner {
+  background: rgba(30, 41, 59, 0.95) !important;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: var(--bs-border-radius-sm) !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  color: #f1f5f9 !important;
+}
+
+/* Popovers: Liquid Glass + esquinas redondeadas */
+.popover {
+  background: rgba(255, 255, 255, 0.95) !important;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(0, 0, 0, 0.08) !important;
+  border-radius: var(--bs-border-radius-lg) !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+}
+.popover-header {
+  background: rgba(0, 0, 0, 0.04) !important;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: var(--bs-border-radius-lg) var(--bs-border-radius-lg) 0 0 !important;
+}
+.popover-body {
+  background: transparent !important;
+}
+
+/* Progress bar: Liquid Glass */
+.progress {
+  background: rgba(0, 0, 0, 0.06) !important;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  border-radius: var(--bs-border-radius) !important;
+}
+.progress-bar {
+  border-radius: var(--bs-border-radius) !important;
+}
+
+/* Calendario Flatpickr: esquinas redondeadas + Liquid Glass (modo claro) */
+.flatpickr-calendar,
+.flatpickr-calendar.open {
+  border-radius: var(--bs-border-radius-lg) !important;
+  background: rgba(255, 255, 255, 0.96) !important;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(0, 0, 0, 0.08) !important;
+}
+.flatpickr-calendar .flatpickr-month {
+  border-radius: var(--bs-border-radius-lg) var(--bs-border-radius-lg) 0 0 !important;
+}
+
+/* Cabecera del menú: el cajón es SOLO el logo; la flecha queda fuera del cajón para que resalte y no provoque scroll */
+.menu .app-brand.demo {
+  min-height: 72px;
+  margin-top: 8px;
+  overflow: visible;
+  flex-shrink: 0;
+  position: relative;
+}
+/* Logo: altura fija, sin cajón visual; la flecha queda en la orilla del menú (core: inset-inline-start 15.2rem) */
 .layout-menu .app-brand.demo .app-brand-link {
   display: flex;
   align-items: center;
-  min-height: 0;
+  min-height: 72px;
+  height: 72px;
+  max-height: 72px;
+  min-width: 0;
   overflow: hidden;
+  flex: 1;
+}
+.layout-menu .app-brand.demo .app-brand-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+}
+/* Botón flecha en la orilla del menú (usa core 15.2rem); centrado vertical y por encima del contenido */
+.layout-menu .app-brand .layout-menu-toggle {
+  z-index: 15;
+  top: 50%;
+  transform: translateY(-50%);
+  transition: filter 0.2s ease, box-shadow 0.2s ease;
+}
+/* Efecto hover al pasar el mouse por encima de la flecha */
+.layout-menu .app-brand .layout-menu-toggle:hover {
+  filter: brightness(1.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+.layout-menu .app-brand .layout-menu-toggle:hover i {
+  color: var(--bs-white);
 }
 .app-brand-logo.demo svg {
   width: 22px;
@@ -48,14 +397,45 @@ body.dark-mode .dropdown-item.dark-mode-toggle.active-dark i.fa-sun {
   font-size: 1.75rem;
   letter-spacing: -0.5px;
 }
-/* Logo esquina superior izquierda: más grande, ocupa bien el espacio */
-.layout-menu .app-brand.demo .app-brand-text img.w-100 {
-  max-height: 52px;
-  height: auto;
+/* Logo del sidebar: tamaño fijo (evita que se vea gigante en otros equipos con caché vieja) */
+.layout-menu .app-brand.demo .app-brand-text img {
+  max-height: 56px !important;
+  height: auto !important;
+  width: auto !important;
+  max-width: 100% !important;
+  object-fit: contain;
+  display: block;
+  flex-shrink: 0;
+}
+img.sidebar-logo {
+  height: 56px !important;
   width: auto !important;
   max-width: 100%;
   object-fit: contain;
   display: block;
+  flex-shrink: 0;
+}
+
+/* Imagen cabeza espartana cuando el menú está contraído: cajón fijo (no crece), imagen más grande y puede sobresalir */
+.layout-menu-collapsed:not(.layout-menu-hover) .layout-menu .app-brand.demo .app-brand-link {
+  overflow: visible !important;
+  height: 72px !important;
+  min-height: 72px !important;
+  max-height: 72px !important;
+  padding-top: 4px !important;
+  padding-bottom: 4px !important;
+  display: flex !important;
+  align-items: center !important;
+}
+.layout-menu .app-brand .app-brand-img-collapsed.sidebar-logo-collapsed {
+  height: 96px !important;
+  width: auto !important;
+  max-width: 100px !important;
+  object-fit: contain;
+  margin: 0 auto;
+  margin-inline-start: -21px !important;
+  margin-top: 18px !important;
+  flex-shrink: 0;
 }
 
 /* ! For .layout-navbar-fixed added fix padding top to .layout-page */

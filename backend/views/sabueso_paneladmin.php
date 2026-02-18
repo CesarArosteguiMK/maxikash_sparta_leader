@@ -983,6 +983,16 @@
             if (id) { btn.show(); } else { btn.hide(); }
         }).on('hidden.bs.modal', function() { $('#btnResumenAnaliticaIA').hide(); });
 
+        $('#modalPrediccionIA').on('shown.bs.modal', function() {
+            var isDark = document.body && document.body.classList.contains('dark-mode');
+            if (isDark) {
+                $('#modalPrediccionIABody').addClass('analitica-ia-resumen-dark');
+            } else {
+                $('#modalPrediccionIABody').removeClass('analitica-ia-resumen-dark');
+            }
+        }).on('hidden.bs.modal', function() {
+            $('#modalPrediccionIABody').removeClass('analitica-ia-resumen-dark');
+        });
         $('#btnResumenAnaliticaIA').on('click', function() {
             var id = typeof idCreditoRastreoActual !== 'undefined' ? idCreditoRastreoActual : null;
             if (!id) return;
@@ -1002,6 +1012,8 @@
                         return;
                     }
                     $body.html(r.html || '');
+                    var isDark = document.body && document.body.classList.contains('dark-mode');
+                    if (isDark) { $body.addClass('analitica-ia-resumen-dark'); }
                 },
                 onError: function(e) {
                     var msg = (typeof e === 'string' ? e : (e && e.mensaje)) || 'No se pudo cargar el resumen.';
