@@ -322,11 +322,11 @@
             </div>
 
             <!-- Footer con logo -->
-            <div id="footer-logo">
-              <span>Sistema desarrollado por</span>
+        <!--    <div id="footer-logo">
+              <span>Sistema desarrollado por</span> 
               <img src="/assets/img/Logotipo-Maxikash-Outline.webp" alt="Maxicash Logo" id="maxicash-logo">
             </div>
-
+-->
           </div>
           <!-- /Form -->
 
