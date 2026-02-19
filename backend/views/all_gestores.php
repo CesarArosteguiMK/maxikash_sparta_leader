@@ -625,6 +625,58 @@
         color: white;
     }
     
+    /* Modo oscuro: ítems y botones de múltiples puestos */
+    body.dark-mode #edit_lista_puestos {
+        background: #1e293b !important;
+        border-color: #334155 !important;
+    }
+    body.dark-mode .puesto-item {
+        background: #1e293b;
+        border-color: #334155;
+    }
+    body.dark-mode .puesto-item:hover {
+        border-color: #475569;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+    }
+    body.dark-mode .puesto-item.principal {
+        border-color: #3b82f6;
+        background: rgba(59, 130, 246, 0.12);
+    }
+    body.dark-mode .puesto-item-departamento {
+        color: #94a3b8;
+    }
+    body.dark-mode .puesto-item-nombre {
+        color: #f1f5f9;
+    }
+    body.dark-mode .btn-editar-puesto {
+        background: rgba(245, 158, 11, 0.25);
+        color: #fbbf24;
+        border: 1px solid rgba(245, 158, 11, 0.4);
+    }
+    body.dark-mode .btn-editar-puesto:hover {
+        background: #f59e0b;
+        color: #0f172a;
+        border-color: #f59e0b;
+    }
+    body.dark-mode .btn-eliminar-puesto {
+        background: rgba(239, 68, 68, 0.25);
+        border-color: rgba(239, 68, 68, 0.5);
+        color: #fca5a5;
+    }
+    body.dark-mode .btn-eliminar-puesto:hover {
+        background: rgba(239, 68, 68, 0.45);
+        border-color: rgba(239, 68, 68, 0.7);
+        color: #fff;
+    }
+    body.dark-mode .btn-eliminar-puesto:disabled {
+        background: #334155;
+        color: #475569;
+        border-color: #475569;
+    }
+    body.dark-mode .no-puestos-message {
+        color: #94a3b8;
+    }
+    
     /* Panel de agregar puesto */
     #edit_panel_agregar_puesto {
         animation: slideDown 0.3s ease;
@@ -1365,6 +1417,7 @@
 <script>
 window.miUsuarioId = <?= json_encode((int)($miUsuarioId ?? 0)) ?>;
 window.puedeEditarTodos = <?= json_encode(!empty($puedeEditarTodos ?? false)) ?>;
+window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? [])) ?>;
 </script>
 <div class="content-wrapper">
 
@@ -4451,6 +4504,40 @@ window.puedeEditarTodos = <?= json_encode(!empty($puedeEditarTodos ?? false)) ?>
     // Limpiar y recargar tabla
     tabla.clear().rows.add(datosFormateados).draw();
   }
+
+  /**
+   * Eliminar usuario por completo del sistema (persona y datos relacionados).
+   */
+  function eliminarPersonaCompleto(idPersona, nombreMostrar) {
+    if (!idPersona) return;
+    const nombre = (nombreMostrar || 'este usuario').toString().replace(/</g, '');
+    Swal.fire({
+      title: '¿Eliminar del sistema?',
+      html: 'Se eliminará por completo a <strong>' + nombre + '</strong>. No se podrá deshacer.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#dc3545',
+      cancelButtonColor: '#6c757d',
+      confirmButtonText: 'Sí, eliminar'
+    }).then((result) => {
+      if (!result.isConfirmed) return;
+      fetch('/CapHum/eliminarPersonaCompleto', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idPersona: idPersona })
+      })
+        .then(r => r.json())
+        .then(data => {
+          if (data.success) {
+            Swal.fire('Listo', data.mensaje || 'Usuario eliminado del sistema.', 'success');
+            if (typeof llenarFiltros === 'function') llenarFiltros();
+          } else {
+            Swal.fire('Error', data.mensaje || 'No se pudo eliminar.', 'error');
+          }
+        })
+        .catch(() => Swal.fire('Error', 'Error de conexión.', 'error'));
+    });
+  }
   
   /**
    * ==========================================
@@ -4746,29 +4833,21 @@ window.puedeEditarTodos = <?= json_encode(!empty($puedeEditarTodos ?? false)) ?>
     usuarioEditandoId = usuarioId;
     const usuario = usuariosData.find(u => u.id === usuarioId);
     
-    // 🔍 DEBUG: Ver estructura del usuario antes de cargar puestos
-    console.log('🔍 [cargarPuestosUsuario] Usuario encontrado:', usuario);
-    console.log('🔍 [cargarPuestosUsuario] Puestos del usuario:', usuario?.puestos);
-    
     if (!usuario) return;
     
-    // Si el usuario tiene múltiples puestos
-    if (usuario.puestos && usuario.puestos.length > 1) {
-      puestosUsuarioActual = JSON.parse(JSON.stringify(usuario.puestos)); // Copia profunda
-      mostrarAlertaMultiplesPuestos(true);
-      mostrarContenedorPuestos(true);
-      renderizarListaPuestos();
+    if (usuario.puestos && usuario.puestos.length > 0) {
+      puestosUsuarioActual = JSON.parse(JSON.stringify(usuario.puestos));
     } else {
-      // Usuario con un solo puesto
-      puestosUsuarioActual = usuario.puestos ? JSON.parse(JSON.stringify(usuario.puestos)) : [{
+      puestosUsuarioActual = (usuario.id_puesto && usuario.id_departamento) ? [{
         id_puesto: usuario.id_puesto,
-        nombre_puesto: usuario.nombre_puesto,
-        nombre_departamento: usuario.nombre_departamento,
+        nombre_puesto: usuario.nombre_puesto || 'Sin puesto',
+        nombre_departamento: usuario.nombre_departamento || 'Sin departamento',
         id_departamento: usuario.id_departamento
-      }];
-      mostrarAlertaMultiplesPuestos(false);
-      mostrarContenedorPuestos(false);
+      }] : [];
     }
+    mostrarAlertaMultiplesPuestos(puestosUsuarioActual.length > 1);
+    mostrarContenedorPuestos(true);
+    renderizarListaPuestos();
   }
   
   /**
@@ -4985,40 +5064,33 @@ window.puedeEditarTodos = <?= json_encode(!empty($puedeEditarTodos ?? false)) ?>
     const select = document.getElementById('edit_nuevo_departamento');
     if (!select) return;
     
-    // Limpiar opciones excepto la primera
     select.innerHTML = '<option value="">Seleccione un departamento</option>';
+    const agregados = new Map();
     
-    // 🔧 FIX: Obtener departamentos únicos desde el array puestos[]
-    const departamentos = new Set();
-    usuariosData.forEach(u => {
-      // Si el usuario tiene múltiples puestos, iterar el array puestos[]
-      if (u.puestos && u.puestos.length > 0) {
-        u.puestos.forEach(puesto => {
-          if (puesto.nombre_departamento && puesto.nombre_departamento !== 'Sin departamento') {
-            departamentos.add(JSON.stringify({
-              id: puesto.id_departamento,
-              nombre: puesto.nombre_departamento
-            }));
-          }
-        });
-      } else {
-        // Fallback para usuarios sin consolidar
-        if (u.nombre_departamento && u.nombre_departamento !== 'Sin departamento') {
-          departamentos.add(JSON.stringify({
-            id: u.id_departamento,
-            nombre: u.nombre_departamento
-          }));
+    if (window.todosDepartamentosBackend && Array.isArray(window.todosDepartamentosBackend)) {
+      window.todosDepartamentosBackend.forEach(d => {
+        const id = d.id || d.departamento_id;
+        const nombre = d.nombre || d.departamento_nombre || '';
+        if (id && nombre) {
+          agregados.set(Number(id), nombre);
         }
-      }
-    });
-    
-    // Agregar opciones
-    Array.from(departamentos).forEach(deptStr => {
-      const dept = JSON.parse(deptStr);
+      });
+    }
+    if (typeof usuariosData !== 'undefined') {
+      usuariosData.forEach(u => {
+        const list = u.puestos && u.puestos.length > 0 ? u.puestos : (u.id_departamento ? [{ id_departamento: u.id_departamento, nombre_departamento: u.nombre_departamento }] : []);
+        list.forEach(p => {
+          const id = p.id_departamento;
+          const nombre = p.nombre_departamento || '';
+          if (id && nombre && nombre !== 'Sin departamento') agregados.set(Number(id), nombre);
+        });
+      });
+    }
+    Array.from(agregados.entries()).sort((a, b) => a[1].localeCompare(b[1])).forEach(([id, nombre]) => {
       const option = document.createElement('option');
-      option.value = dept.id;
-      option.textContent = dept.nombre;
-      option.dataset.nombre = dept.nombre;
+      option.value = id;
+      option.textContent = nombre;
+      option.dataset.nombre = nombre;
       select.appendChild(option);
     });
   }
@@ -5401,9 +5473,29 @@ window.puedeEditarTodos = <?= json_encode(!empty($puedeEditarTodos ?? false)) ?>
   /**
    * Obtener los puestos actuales para guardar
    */
+  function sincronizarPrincipalConListaPuestos() {
+    const selPuesto = document.getElementById('edit_id_puesto');
+    const selDepto = document.getElementById('edit_departamento_id');
+    if (!selPuesto || !selDepto) return;
+    const idPuesto = selPuesto.value;
+    const idDepto = selDepto.value;
+    const nombrePuesto = selPuesto.options[selPuesto.selectedIndex]?.textContent || '';
+    const nombreDepto = selDepto.options[selDepto.selectedIndex]?.textContent || '';
+    if (!idPuesto || !idDepto) return;
+    const principal = { id_puesto: idPuesto, id_departamento: idDepto, nombre_puesto: nombrePuesto, nombre_departamento: nombreDepto };
+    const otros = (puestosUsuarioActual || []).filter(p => String(p.id_puesto) !== String(idPuesto));
+    puestosUsuarioActual = [principal, ...otros];
+    if (typeof renderizarListaPuestos === 'function') renderizarListaPuestos();
+  }
+
   function obtenerPuestosParaGuardar() {
-    console.log('💾 obtenerPuestosParaGuardar() - Retornando:', puestosUsuarioActual);
-    return puestosUsuarioActual;
+    const principalId = document.getElementById('edit_id_puesto') && document.getElementById('edit_id_puesto').value;
+    const principal = principalId ? [{ id_puesto: principalId }] : [];
+    const otros = (puestosUsuarioActual || [])
+      .filter(p => String(p.id_puesto) !== String(principalId))
+      .map(p => ({ id_puesto: p.id_puesto }));
+    const lista = principal.length ? [...principal, ...otros] : otros;
+    return lista;
   }
 
   /**

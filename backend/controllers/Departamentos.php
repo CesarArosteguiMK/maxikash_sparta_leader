@@ -183,6 +183,70 @@ class Departamentos extends Controller
           cargarPuestosDepartamento(idDepartamento);
         }
         
+        function eliminarDepartamento(idDepartamento, nombreDisplay) {
+          const nombre = (nombreDisplay || 'este departamento').trim() || 'este departamento';
+          if (!confirm('¿Eliminar el departamento "' + nombre + '"? Se borrarán también sus puestos. Esta acción no se puede deshacer.')) {
+            return;
+          }
+          http.request({
+            endpoint: "/departamentos/eliminarDepartamento",
+            method: "POST",
+            data: { id_departamento: idDepartamento },
+            onSuccess: (resp) => {
+              if (resp && resp.success === true) {
+                cerrarModalDepartamentoSiAbierto();
+                if (typeof getDepartamentos === 'function') getDepartamentos();
+                return;
+              }
+              const msg = (resp && resp.mensaje) ? resp.mensaje : 'No se pudo eliminar el departamento.';
+              alert(msg);
+            },
+            onError: () => {
+              alert('Error al eliminar el departamento.');
+            }
+          });
+        }
+        
+        function cerrarModalDepartamentoSiAbierto() {
+          try {
+            const modalEl = document.getElementById('modalDetalleDepartamento');
+            if (modalEl && modalEl.classList.contains('show')) {
+              const modal = bootstrap.Modal.getInstance(modalEl);
+              if (modal) modal.hide();
+            }
+          } catch (e) {}
+        }
+        
+        function eliminarDepartamentoDesdeModal() {
+          const id = window.departamentoActivo;
+          const tituloEl = document.getElementById('tituloDepartamento');
+          const nombre = (tituloEl && tituloEl.textContent) ? tituloEl.textContent.trim() : 'este departamento';
+          if (!id) {
+            alert('No hay departamento seleccionado.');
+            return;
+          }
+          if (!confirm('¿Eliminar el departamento "' + nombre + '"? Se borrarán también sus puestos. Esta acción no se puede deshacer.')) {
+            return;
+          }
+          http.request({
+            endpoint: "/departamentos/eliminarDepartamento",
+            method: "POST",
+            data: { id_departamento: id },
+            onSuccess: (resp) => {
+              if (resp && resp.success === true) {
+                cerrarModalDepartamentoSiAbierto();
+                if (typeof getDepartamentos === 'function') getDepartamentos();
+                return;
+              }
+              const msg = (resp && resp.mensaje) ? resp.mensaje : 'No se pudo eliminar el departamento.';
+              alert(msg);
+            },
+            onError: () => {
+              alert('Error al eliminar el departamento.');
+            }
+          });
+        }
+        
         function cargarPuestosDepartamento(idDepartamento) {
           http.request({
             endpoint: "/departamentos/getPuestosPorDepartamento",
@@ -343,9 +407,6 @@ class Departamentos extends Controller
                                                onclick="abrirModalDepartamento(${d.departamento_id}, '${d.departamento_nombre.replace(/'/g, "\\'")}')">
                                               Editar
                                             </button>
-                                            <a href="javascript:void(0);" class="text-secondary fs-5">
-                                                <i class="bx bx-copy"></i>
-                                            </a>
                                         </div>
                                     </div>
                                     <div class="col-sm-4 d-flex align-items-center justify-content-center p-1">
@@ -611,6 +672,16 @@ class Departamentos extends Controller
         $id_departamento = $_POST['id_departamento'] ?? null;
         $nombre = $_POST['nombre'] ?? null;
         self::respuestaJSON(DepartamentosDAO::UpdateNombreDepartamento($id_departamento, $nombre));
+    }
+
+    /**
+     * Eliminar departamento (y sus puestos). Solo si no tiene personal asignado.
+     */
+    public function eliminarDepartamento()
+    {
+        $input = json_decode(file_get_contents('php://input'), true);
+        $id = isset($input['id_departamento']) ? (int) $input['id_departamento'] : (int) ($_POST['id_departamento'] ?? 0);
+        DepartamentosDAO::eliminarDepartamento($id);
     }
 
 }

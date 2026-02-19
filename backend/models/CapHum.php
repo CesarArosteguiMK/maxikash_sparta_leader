@@ -1661,6 +1661,54 @@ class CapHum extends Model
         }
     }
 
+    /**
+     * Elimina por completo una persona y sus datos relacionados (solo si no tiene dependencias críticas).
+     * Orden: anular referencias en ticket, borrar tablas hijas, luego persona.
+     */
+    public static function eliminarPersonaCompleto($id_persona)
+    {
+        $id = (int) $id_persona;
+        if ($id < 1) {
+            return self::resultado(false, 'ID de persona inválido.');
+        }
+        try {
+            $db = new Database();
+            // 1) Tickets: dejar de referenciar a esta persona como creador (evitar FK)
+            $db->queryOne("UPDATE ticket SET id_persona_creador = NULL WHERE id_persona_creador = $id");
+            // 2) Asignaciones de ticket
+            $db->queryOne("DELETE FROM asignacion_ticket WHERE id_persona_asignada = $id");
+            // 3) Módulos web
+            $db->queryOne("DELETE FROM asigna_modulo_web WHERE usuario_id = $id");
+            // 4) Puestos
+            $db->queryOne("DELETE FROM __SPARTA_SECRET_REDACTED__.asigna_puesto WHERE id_persona = $id");
+            // 5) Bajas
+            $db->queryOne("DELETE FROM __SPARTA_SECRET_REDACTED__.baja_persona WHERE id_persona = $id");
+            // 6) Documentos cargados
+            $db->queryOne("DELETE FROM __SPARTA_SECRET_REDACTED__.carga_documento_persona WHERE id_persona = $id");
+            // 7) Legión
+            $db->queryOne("DELETE FROM __SPARTA_SECRET_REDACTED__.asigna_legion WHERE id_persona = $id");
+            // 8) Perfil (si existe la tabla)
+            try {
+                $db->queryOne("DELETE FROM __SPARTA_SECRET_REDACTED__.perfil WHERE id_persona = $id");
+            } catch (\Exception $e) {
+                // ignorar si no existe perfil
+            }
+            // 9) Chat / dictamen / evidencias (sabueso)
+            try {
+                $db->queryOne("DELETE FROM chat WHERE id_persona = $id");
+                $db->queryOne("DELETE FROM dictamen WHERE id_persona = $id");
+                $db->queryOne("DELETE FROM ticket_evidencia WHERE id_persona = $id");
+            } catch (\Exception $e) {
+                // ignorar si no existen
+            }
+            // 10) Persona
+            $db->queryOne("DELETE FROM __SPARTA_SECRET_REDACTED__.persona WHERE id = $id");
+            return self::resultado(true, 'Usuario eliminado del sistema correctamente.');
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al eliminar el usuario.', null, $e->getMessage());
+        }
+    }
+
     public static function getConsultaBajas($fecha_inicio = null, $fecha_fin = null)
     {
         $query = <<<SQL

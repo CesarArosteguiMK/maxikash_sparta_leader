@@ -300,57 +300,15 @@ class CapHum extends Controller
             
                     const persona = data.datos;
                     
-                    // Buscar si este usuario tiene múltiples puestos
+                    // Siempre mostrar sección de múltiples puestos para poder agregar más
                     const usuarioData = usuariosData.find(u => u.id === id);
-                    const tienePuestos = usuarioData && usuarioData.puestos && usuarioData.puestos.length > 1;
-                    
-                    // Mostrar/ocultar alerta y lista de múltiples puestos
-                    const alertaMultiples = document.getElementById('edit_alerta_multiples_puestos');
-                    const contenedorMultiples = document.getElementById('edit_contenedor_multiples_puestos');
                     const labelPrincipal = document.getElementById('edit_label_principal');
                     const labelPuestoPrincipal = document.getElementById('edit_label_puesto_principal');
-                    
-                    if (tienePuestos) {
-                        // Mostrar alerta y contenedor
-                        if (alertaMultiples) alertaMultiples.classList.remove('d-none');
-                        if (contenedorMultiples) contenedorMultiples.classList.remove('d-none');
-                        if (labelPrincipal) labelPrincipal.style.display = 'inline-block';
-                        if (labelPuestoPrincipal) labelPuestoPrincipal.style.display = 'inline-block';
-                        
-                        // Cargar gestión completa de puestos (nueva funcionalidad)
-                        if (typeof cargarPuestosUsuario === 'function') {
-                            cargarPuestosUsuario(id);
-                        } else {
-                            // Fallback: Generar lista simple de puestos
-                            const listaPuestos = document.getElementById('edit_lista_puestos');
-                            if (listaPuestos) {
-                                let html = '<div class="d-flex flex-column gap-2">';
-                                usuarioData.puestos.forEach((puesto, index) => {
-                                    const colorBadge = obtenerColorDepartamento(puesto.nombre_departamento);
-                                    const esPrincipal = index === 0;
-                                    html += `
-                                        <div class="d-flex align-items-center justify-content-between p-2 rounded" style="background: white;">
-                                            <div class="d-flex align-items-center gap-2">
-                                                <i class="fa fa-briefcase text-muted"></i>
-                                                <div>
-                                                    <div class="fw-semibold">${puesto.nombre_puesto}</div>
-                                                    <small class="text-muted">${puesto.nombre_departamento}</small>
-                                                </div>
-                                            </div>
-                                            ${esPrincipal ? '<span class="badge bg-primary">Principal</span>' : '<span class="badge bg-secondary">Secundario</span>'}
-                                        </div>
-                                    `;
-                                });
-                                html += '</div>';
-                                listaPuestos.innerHTML = html;
-                            }
-                        }
-                    } else {
-                        // Ocultar alerta y contenedor
-                        if (alertaMultiples) alertaMultiples.classList.add('d-none');
-                        if (contenedorMultiples) contenedorMultiples.classList.add('d-none');
-                        if (labelPrincipal) labelPrincipal.style.display = 'none';
-                        if (labelPuestoPrincipal) labelPuestoPrincipal.style.display = 'none';
+                    const tieneVarios = usuarioData && usuarioData.puestos && usuarioData.puestos.length > 1;
+                    if (labelPrincipal) labelPrincipal.style.display = tieneVarios ? 'inline-block' : 'none';
+                    if (labelPuestoPrincipal) labelPuestoPrincipal.style.display = tieneVarios ? 'inline-block' : 'none';
+                    if (typeof cargarPuestosUsuario === 'function') {
+                        cargarPuestosUsuario(id);
                     }
             
                     // CAMPOS TEXTO
@@ -595,6 +553,10 @@ class CapHum extends Controller
                 const idDepartamento = document.getElementById('edit_departamento_id').value;
                 if (!idDepartamento) return;
                 cargarComboJefeDirecto(idDepartamento, null, idPuesto || null);
+                if (typeof sincronizarPrincipalConListaPuestos === 'function') sincronizarPrincipalConListaPuestos();
+            });
+            document.getElementById('edit_departamento_id').addEventListener('change', function () {
+                if (typeof sincronizarPrincipalConListaPuestos === 'function') sincronizarPrincipalConListaPuestos();
             });
                 
            
@@ -5555,6 +5517,26 @@ class CapHum extends Controller
             ]);
         }
     }
+
+    /**
+     * Elimina por completo un usuario/persona del sistema (y sus datos relacionados).
+     */
+    public function eliminarPersonaCompleto()
+    {
+        $input = json_decode(file_get_contents('php://input'), true);
+        $id = isset($input['idPersona']) ? (int) $input['idPersona'] : 0;
+        if ($id < 1) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'ID de persona inválido.']);
+            return;
+        }
+        $resultado = CapHumDAO::eliminarPersonaCompleto($id);
+        if ($resultado['success']) {
+            self::respuestaJSON(['success' => true, 'mensaje' => $resultado['mensaje'] ?? 'Usuario eliminado del sistema.']);
+        } else {
+            self::respuestaJSON(['success' => false, 'mensaje' => $resultado['mensaje'] ?? 'Error al eliminar.', 'error' => $resultado['error'] ?? null]);
+        }
+    }
+
     public function getPuestosDepartamento()
     {
         $input = json_decode(file_get_contents("php://input"), true);

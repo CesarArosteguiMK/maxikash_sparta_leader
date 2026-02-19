@@ -295,4 +295,56 @@ class Departamentos extends Model
         exit; // <- Muy importante: evita que se imprima algo extra
     }
 
+    /**
+     * Elimina un departamento y sus puestos. Solo permite si no tiene personal asignado (total_personas = 0).
+     */
+    public static function eliminarDepartamento($id_departamento)
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        $id = (int) $id_departamento;
+        if ($id < 1) {
+            echo json_encode(['success' => false, 'mensaje' => 'ID de departamento inválido.', 'datos' => []]);
+            exit;
+        }
+        try {
+            $db = new Database();
+            $row = $db->queryOne(
+                "SELECT COUNT(DISTINCT a.id_persona) AS total_personas
+                 FROM departamento d
+                 LEFT JOIN puesto p ON p.departamento_id = d.id
+                 LEFT JOIN asigna_puesto a ON a.id_puesto = p.id
+                 WHERE d.id = :id",
+                ['id' => $id]
+            );
+            $totalPersonas = (int) ($row['total_personas'] ?? 0);
+            if ($totalPersonas > 0) {
+                echo json_encode([
+                    'success' => false,
+                    'mensaje' => 'No se puede eliminar: el departamento tiene personal asignado. Reasigne o dé de baja al personal primero.',
+                    'datos' => []
+                ]);
+                exit;
+            }
+            // Quitar asignaciones de puestos de este departamento (por si acaso)
+            $db->queryOne("DELETE a FROM __SPARTA_SECRET_REDACTED__.asigna_puesto a INNER JOIN __SPARTA_SECRET_REDACTED__.puesto p ON p.id = a.id_puesto WHERE p.departamento_id = $id");
+            // Borrar puestos del departamento
+            $db->queryOne("DELETE FROM __SPARTA_SECRET_REDACTED__.puesto WHERE departamento_id = $id");
+            // Borrar departamento
+            $db->queryOne("DELETE FROM __SPARTA_SECRET_REDACTED__.departamento WHERE id = $id");
+            echo json_encode([
+                'success' => true,
+                'mensaje' => 'Departamento eliminado correctamente.',
+                'datos' => []
+            ]);
+        } catch (\Exception $e) {
+            echo json_encode([
+                'success' => false,
+                'mensaje' => 'Error al eliminar el departamento.',
+                'datos' => [],
+                'error' => $e->getMessage()
+            ]);
+        }
+        exit;
+    }
+
 }

@@ -72,6 +72,55 @@ body.dark-mode .inicio-mkx .qcard:hover::after{transform:scaleX(1);}
 .inicio-mkx .qd{font-size:12px;opacity:.85;}
 .inicio-mkx .qarr{position:absolute;top:15px;right:13px;width:21px;height:21px;border-radius:6px;background:#f1f5f9;display:flex;align-items:center;justify-content:center;font-size:11px;opacity:0;transition:all .2s;}
 .inicio-mkx .qcard:hover .qarr{opacity:1;background:var(--blue);color:#fff;}
+/* Hero responsive para celular */
+@media (max-width: 991.98px) {
+  .inicio-mkx .hero {
+    grid-template-columns: 1fr;
+    padding: 24px 20px;
+    gap: 20px;
+  }
+  .inicio-mkx .hero-logo-bg {
+    width: 120px;
+    height: 120px;
+    right: 16px;
+    top: 50%;
+    opacity: 0.85;
+  }
+  .inicio-mkx .hero-logo-bg svg {
+    width: 100%;
+    height: 100%;
+  }
+  .inicio-mkx .hero-title {
+    font-size: 1.5rem;
+  }
+  .inicio-mkx .hero-desc {
+    font-size: 12.5px;
+  }
+  .inicio-mkx .hero-datetime {
+    flex-wrap: wrap;
+    padding: 12px 14px;
+  }
+  .inicio-mkx .hero-datetime-icon {
+    width: 40px;
+    height: 40px;
+    font-size: 18px;
+  }
+  .inicio-mkx .hero-datetime-time {
+    font-size: 1.15rem;
+  }
+}
+@media (max-width: 575.98px) {
+  .inicio-mkx .hero {
+    padding: 20px 16px;
+  }
+  .inicio-mkx .hero-title {
+    font-size: 1.35rem;
+  }
+  .inicio-mkx .hero-badge {
+    font-size: 9.5px;
+    padding: 3px 10px;
+  }
+}
 </style>
 
 <div class="inicio-mkx">

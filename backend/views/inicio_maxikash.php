@@ -240,6 +240,36 @@ body::before{
 }
 .hst-lbl{font-size:10.5px;color:rgba(255,255,255,.45);margin-top:2px;}
 
+/* Hero responsive para celular */
+@media (max-width: 991.98px) {
+  .hero {
+    grid-template-columns: 1fr;
+    padding: 24px 20px;
+    gap: 18px;
+  }
+  .hero-wm {
+    width: 120px;
+    height: 120px;
+    right: 16px;
+    opacity: 0.85;
+  }
+  .hero-title { font-size: 1.5rem; }
+  .hero-desc { font-size: 12.5px; }
+  .hstats {
+    flex-direction: row;
+    flex-wrap: wrap;
+    min-width: 0;
+    gap: 8px;
+  }
+  .hst { padding: 9px 12px; min-width: 0; }
+  .hst-val { font-size: 13px; }
+}
+@media (max-width: 575.98px) {
+  .hero { padding: 20px 16px; }
+  .hero-title { font-size: 1.35rem; }
+  .hero-badge { font-size: 9.5px; padding: 3px 10px; }
+}
+
 .sec-hd{display:flex;align-items:center;gap:10px;margin-bottom:14px;}
 .sec-txt{
   font-family:'Syne',sans-serif;font-size:14px;font-weight:700;
