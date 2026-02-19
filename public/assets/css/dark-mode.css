@@ -4600,4 +4600,218 @@ body.dark-mode .eq-drop-zone {
 body.dark-mode .eq-drop-zone.drag-over {
     background-color: rgba(110, 168, 254, 0.12) !important;
     border-color: #6ea8fe !important;
+
+    /* ==========================================
+   GESTIONES 1-7 - DARK MODE ESPECÍFICO
+   ========================================== */
+
+/* Columna congelada (primera columna) en dark mode */
+body.dark-mode #tabla-reportes th:first-child,
+body.dark-mode #tabla-reportes td:first-child {
+    background: #1e293b !important;  /* Mismo color que las filas */
+    box-shadow: 2px 0 5px -2px rgba(0, 0, 0, 0.5) !important;
+}
+
+/* Header de columna congelada */
+body.dark-mode #tabla-reportes thead th:first-child {
+    background: rgba(51, 65, 85, 0.92) !important;
+    backdrop-filter: blur(10px);
+}
+
+/* Sombra decorativa */
+body.dark-mode #tabla-reportes td:first-child::after {
+    background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.05)) !important;
+}
+
+/* Fila seleccionada (como en Excel) */
+body.dark-mode #tabla-reportes tbody tr.selected {
+    background-color: #2d3a4f !important;  /* Azul oscuro para selección */
+}
+
+body.dark-mode #tabla-reportes tbody tr.selected td:first-child {
+    background-color: #2d3a4f !important;
+}
+
+/* Hover en filas */
+body.dark-mode #tabla-reportes tbody tr:hover {
+    background-color: #3a4a62 !important;
+}
+
+body.dark-mode #tabla-reportes tbody tr:hover td:first-child {
+    background-color: #3a4a62 !important;
+}
+
+/* Badge de WhatsApp en dark mode */
+body.dark-mode .badge-whatsapp {
+    background-color: #25D366 !important;  /* Mantener el verde original */
+    color: #ffffff !important;
+    box-shadow: 0 2px 4px rgba(37, 211, 102, 0.3) !important;
+}
+
+/* Badges de estatus */
+body.dark-mode .badge.bg-success {
+    background-color: #198754 !important;
+    color: #ffffff !important;
+}
+
+body.dark-mode .badge.bg-warning {
+    background-color: #ffc107 !important;
+    color: #000000 !important;
+}
+
+body.dark-mode .badge.bg-secondary {
+    background-color: #4a5a72 !important;
+    color: #e0e0e0 !important;
+}
+
+/* Resaltado de animaciones */
+body.dark-mode .highlight-change {
+    animation: highlight-pulse-dark 1s ease !important;
+    color: #4ade80 !important;
+}
+
+@keyframes highlight-pulse-dark {
+    0% { 
+        background-color: #2d6a4f;
+        transform: scale(1);
+    }
+    50% { 
+        background-color: #40916c;
+        transform: scale(1.02);
+    }
+    100% { 
+        background-color: transparent;
+        transform: scale(1);
+    }
+}
+
+/* Footer de totales */
+body.dark-mode #tabla-reportes tfoot tr {
+    background-color: #1e293b !important;
+}
+
+body.dark-mode #tabla-reportes tfoot td {
+    background-color: #1e293b !important;
+    color: #f1f5f9 !important;
+    border-top: 2px solid #3a4a62 !important;
+}
+
+/* Primera columna del footer también congelada */
+body.dark-mode #tabla-reportes tfoot td:first-child {
+    background-color: #1e293b !important;
+    box-shadow: 2px 0 5px -2px rgba(0, 0, 0, 0.5) !important;
+}
+
+/* Scrollbar personalizada para dark mode */
+body.dark-mode .table-responsive::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+body.dark-mode .table-responsive::-webkit-scrollbar-track {
+    background: #1a1a1a;
+}
+
+body.dark-mode .table-responsive::-webkit-scrollbar-thumb {
+    background: #3a4a62;
+    border-radius: 5px;
+}
+
+body.dark-mode .table-responsive::-webkit-scrollbar-thumb:hover {
+    background: #4a5a72;
+}
+
+/* Indicador de selección flotante */
+body.dark-mode .selection-info {
+    background: #1e293b !important;
+    border-left: 3px solid #6ea8fe !important;
+    color: #f1f5f9 !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5) !important;
+}
+
+/* Botón de pausa/play del auto-refresh */
+body.dark-mode #toggle-refresh {
+    background-color: #1e293b !important;
+    border-color: #3a4a62 !important;
+    color: #f1f5f9 !important;
+}
+
+body.dark-mode #toggle-refresh:hover {
+    background-color: #3a4a62 !important;
+    border-color: #4a5a72 !important;
+}
+
+/* Select de campaña */
+body.dark-mode #filtro-campana {
+    background-color: #1e293b !important;
+    border-color: #3a4a62 !important;
+    color: #f1f5f9 !important;
+}
+
+/* Checkboxes de "Fuera de Zona" */
+body.dark-mode .form-check-input {
+    background-color: #1e293b !important;
+    border-color: #3a4a62 !important;
+}
+
+body.dark-mode .form-check-input:checked {
+    background-color: #6ea8fe !important;
+    border-color: #6ea8fe !important;
+}
+
+body.dark-mode .form-check-label {
+    color: #f1f5f9 !important;
+}
+
+/* Loader de SweetAlert en dark mode */
+body.dark-mode .swal2-popup {
+    background: #1e293b !important;
+    color: #f1f5f9 !important;
+}
+
+body.dark-mode .swal2-title {
+    color: #ffffff !important;
+}
+
+body.dark-mode .swal2-html-container {
+    color: #f1f5f9 !important;
+}
+
+/* ==========================================
+   ACORDEÓN DE CAMPAÑAS (cuando lo implementes)
+   ========================================== */
+body.dark-mode .accordion-item {
+    background-color: #1e293b !important;
+    border-color: #3a4a62 !important;
+}
+
+body.dark-mode .accordion-button {
+    background-color: #2d3a4f !important;
+    color: #f1f5f9 !important;
+}
+
+body.dark-mode .accordion-button:not(.collapsed) {
+    background-color: #3a4a62 !important;
+    color: #6ea8fe !important;
+}
+
+body.dark-mode .accordion-body {
+    background-color: #1e293b !important;
+}
+
+body.dark-mode .list-group-item {
+    background-color: #1e293b !important;
+    border-color: #3a4a62 !important;
+    color: #f1f5f9 !important;
+}
+
+body.dark-mode .list-group-item:hover {
+    background-color: #2d3a4f !important;
+    color: #6ea8fe !important;
+}
+
+body.dark-mode .list-group-item.active {
+    background-color: #6ea8fe !important;
+    color: #ffffff !important;
+}
 }
