@@ -68,10 +68,10 @@ $cabezaUrlFallback = rtrim($assetsBase, '/') . '/assets/img/nu_spartan.png';
 }
 .login-logo-mobile img {
   display: block;
-  width: 140px;
+  width: 100px;
   max-width: 100%;
   height: auto;
-  max-height: 160px;
+  max-height: 100px;
   object-fit: contain;
   margin: 0 auto;
 }
@@ -155,31 +155,34 @@ $cabezaUrlFallback = rtrim($assetsBase, '/') . '/assets/img/nu_spartan.png';
   align-items: center;
 }
 
-/* Contenedor interno */
+/* Contenedor interno: poco padding y espacio mínimo entre hijos */
 .authentication-bg .w-px-400 {
   width: 100%;
   max-width: 420px;
   padding: 0;
 }
+.authentication-bg .w-px-400 > * + * {
+  margin-top: 0.4rem;
+}
 
-/* Título principal: SPARTA ADMIN */
+/* Título principal: SPARTA ADMIN – poco margen para juntar con el resto */
 .sparta-title {
   font-family: 'Times New Roman', serif;
   font-size: 38px;
   letter-spacing: 4px;
   color: #1f2a44;
-  margin-bottom: 20px;
+  margin: 0 0 0.35rem 0;
   text-align: center;
   white-space: nowrap;
 }
 
-/* Encabezado LOGIN */
+/* Encabezado LOGIN – poco margen */
 .login-heading {
   font-family: 'Public Sans', sans-serif;
   font-size: 14px;
   font-weight: 400;
   color: #a09a9a;
-  margin-bottom: 30px;
+  margin: 0 0 0.35rem 0;
   text-align: center;
   letter-spacing: 1px;
   text-transform: none;
@@ -279,7 +282,7 @@ $cabezaUrlFallback = rtrim($assetsBase, '/') . '/assets/img/nu_spartan.png';
     width: 100%;
     align-items: flex-start !important;
   }
-  /* Columna del login: pegada arriba, sin centrar; el .w-px-400 es el bloque que movemos */
+  /* Columna del login: pegada arriba, poco padding */
   .authentication-inner .authentication-bg {
     display: flex !important;
     flex: 1 1 100% !important;
@@ -288,17 +291,13 @@ $cabezaUrlFallback = rtrim($assetsBase, '/') . '/assets/img/nu_spartan.png';
     max-width: 100% !important;
     justify-content: center;
     text-align: center;
-    padding: 1rem !important;
+    padding: 0.5rem 0.75rem !important;
     min-height: auto !important;
     align-items: flex-start !important;
-    padding-top: 0.5rem !important;
   }
-  /* Tarjeta: aquí controlas si el login sube (poco padding-top) o baja (más padding-top) */
   .authentication-bg .w-px-400 {
     width: 100% !important;
     max-width: 100% !important;
-    padding: 1rem !important;
-    padding-top: 0.75rem !important;
   }
   .sparta-title {
     font-size: 1.75rem;
@@ -308,21 +307,24 @@ $cabezaUrlFallback = rtrim($assetsBase, '/') . '/assets/img/nu_spartan.png';
   }
 }
 
-/* Tarjeta de login – Liquid Glass sobre fondo blanco */
+/* Tarjeta de login – Liquid Glass, padding compacto */
 .authentication-bg .w-px-400 {
   background: rgba(255, 255, 255, 0.95) !important;
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
   border: 1px solid rgba(30, 41, 68, 0.12);
-  padding: 2.5rem 2rem;
+  padding: 1rem 1.5rem 1.25rem;
   border-radius: 20px;
   box-shadow: 0 4px 24px rgba(0,0,0,0.06), 0 0 0 1px rgba(30, 41, 68, 0.06);
 }
 
-/* MÓVIL: anular padding/márgenes de la tarjeta para que título, cabeza, texto y form queden pegados */
+/* MÓVIL: tarjeta y bloques muy pegados (mínimo espacio) */
 @media (max-width: 991.98px) {
   .authentication-bg .w-px-400 {
-    padding: 0.5rem 1rem 1rem !important;
+    padding: 0.5rem 1rem 0.75rem !important;
+  }
+  .authentication-bg .w-px-400 > * + * {
+    margin-top: 0.25rem !important;
   }
   .login-page-mobile .w-px-400 .sparta-title,
   body.login-page-mobile .w-px-400 h1.sparta-title {
@@ -332,18 +334,27 @@ $cabezaUrlFallback = rtrim($assetsBase, '/') . '/assets/img/nu_spartan.png';
     margin: 0 !important;
     padding: 0 !important;
     border: none !important;
+    min-height: 0 !important;
   }
   .login-page-mobile .w-px-400 .login-logo-mobile {
     margin: 0 !important;
     padding: 0 !important;
   }
+  .login-page-mobile .w-px-400 .login-logo-mobile img {
+    max-height: 90px !important;
+    width: 90px !important;
+  }
   .login-page-mobile .w-px-400 .login-heading,
   body.login-page-mobile .w-px-400 h5.login-heading {
-    margin: 0 0 0.35rem 0 !important;
+    margin: 0 !important;
   }
   .login-page-mobile .w-px-400 #formAuthentication {
     margin: 0 !important;
     padding: 0 !important;
+  }
+  .login-page-mobile .w-px-400 #formAuthentication .form-group.mb-6,
+  .login-page-mobile .w-px-400 #formAuthentication .mb-6 {
+    margin-bottom: 0.5rem !important;
   }
   .login-page-mobile .w-px-400 center {
     margin: 0 !important;
