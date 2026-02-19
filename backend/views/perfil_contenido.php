@@ -18,20 +18,28 @@ $usernameVal = $datos['username'] ?? '';
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css" />
 <style>
 .pf-mkx .card{border-radius:14px;border:1px solid var(--bs-border-color-translucent, #e2e8f0);}
-.pf-mkx .pf-photo-wrap img{width:88px;height:88px;border-radius:50%;object-fit:cover;border:3px solid var(--bs-border-color-translucent);}
+.pf-mkx .pf-photo-wrap .pf-preview-circle{width:88px;height:88px;border-radius:50%;overflow:hidden;flex-shrink:0;border:3px solid var(--bs-border-color-translucent);background:#f1f5f9;}
+.pf-mkx .pf-photo-wrap .pf-preview-circle img{width:100%;height:100%;object-fit:cover;display:block;}
+.pf-mkx .pf-photo-wrap .pf-preview-circle{cursor:pointer;}
+.pf-mkx .pf-photo-wrap .pf-preview-circle:hover{opacity:0.9;}
 .pf-mkx .pf-field label{font-size:12px;font-weight:600;color:var(--bs-secondary-color);margin-bottom:6px;}
 .pf-mkx .pf-btn{background:#1A52A8;color:#fff;border:none;border-radius:9px;padding:10px 20px;font-size:13.5px;font-weight:600;cursor:pointer;}
 .pf-mkx .pf-btn:hover{background:#2563C4;color:#fff;}
 .pf-mkx .pf-flash{background:#f0fdf4;border:1px solid #bbf7d0;color:#166534;padding:12px 16px;border-radius:9px;margin-bottom:20px;font-size:13px;}
 body.dark-mode .pf-mkx .pf-flash{background:#14532d;border-color:#166534;color:#86efac;}
 .pf-crop-modal{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;}
-.pf-crop-modal .pf-crop-box{background:var(--bs-body-bg,#fff);border-radius:14px;padding:20px;max-width:500px;width:100%;}
-.pf-crop-modal .pf-crop-container{height:320px;background:#111;}
+.pf-crop-modal .pf-crop-box{background:var(--bs-body-bg,#fff);border-radius:14px;padding:20px;max-width:520px;width:100%;}
+.pf-crop-modal .pf-crop-container{height:420px;background:#111;}
 .pf-crop-modal .pf-crop-container img{max-width:100%;display:block;}
 .pf-crop-modal .pf-crop-actions{margin-top:16px;display:flex;gap:10px;justify-content:flex-end;}
 .pf-crop-modal .cropper-view-box,.pf-crop-modal .cropper-face{border-radius:50%;}
 .pf-crop-modal .cropper-drag-box{background:transparent;}
 .pf-crop-modal .cropper-modal{opacity:0.5;}
+.pf-lightbox{position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:10000;display:flex;align-items:center;justify-content:center;padding:24px;cursor:pointer;}
+.pf-lightbox img{max-width:100%;max-height:90vh;width:auto;height:auto;object-fit:contain;border-radius:8px;box-shadow:0 12px 40px rgba(0,0,0,.5);cursor:default;pointer-events:none;}
+.pf-lightbox .pf-lightbox-close{position:absolute;top:16px;right:16px;width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,.2);border:2px solid rgba(255,255,255,.5);color:#fff;font-size:22px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;transition:background .2s,border-color .2s;}
+.pf-lightbox .pf-lightbox-close:hover{background:rgba(255,255,255,.35);border-color:#fff;}
+.pf-lightbox .pf-lightbox-hint{position:absolute;bottom:20px;left:50%;transform:translateX(-50%);color:rgba(255,255,255,.8);font-size:13px;}
 /* Solo lectura: aspecto de texto pegado, no editable */
 .pf-mkx .pf-readonly.form-control{background:transparent !important;border:none !important;border-bottom:1px solid var(--bs-border-color-translucent,rgba(0,0,0,.12)) !important;border-radius:0 !important;padding-left:0 !important;cursor:default !important;pointer-events:none !important;box-shadow:none !important;}
 .pf-mkx .pf-readonly.form-control:focus{outline:none !important;box-shadow:none !important;}
@@ -46,7 +54,9 @@ body.dark-mode .pf-mkx .pf-readonly.form-control{border-bottom-color:rgba(255,25
       <form action="/perfil/guardar" method="post" enctype="multipart/form-data" id="formPerfil">
         <input type="hidden" name="foto_base64" id="fotoBase64" value="" />
         <div class="pf-photo-wrap d-flex align-items-center gap-3 mb-4 pb-4 border-bottom">
-          <img id="previewFoto" src="<?= htmlspecialchars($fotoPerfil) ?>" alt="Foto de perfil" />
+          <div class="pf-preview-circle" id="previewFotoWrap" title="Clic para ver en grande">
+            <img id="previewFoto" src="<?= htmlspecialchars($fotoPerfil) ?>" alt="Foto de perfil" />
+          </div>
           <div class="pf-photo-actions">
             <label class="form-label mb-1 small fw-semibold">Cambiar foto de perfil</label>
             <input type="file" name="foto" accept="image/jpeg,image/png,image/webp" id="inputFoto" class="form-control form-control-sm" style="max-width:240px;" />
@@ -140,6 +150,12 @@ body.dark-mode .pf-mkx .pf-readonly.form-control{border-bottom-color:rgba(255,25
   </div>
 </div>
 
+<div class="pf-lightbox" id="fotoLightbox" style="display:none;" aria-hidden="true">
+  <button type="button" class="pf-lightbox-close" id="fotoLightboxClose" aria-label="Cerrar">&times;</button>
+  <img id="fotoLightboxImg" src="" alt="Foto de perfil en grande" />
+  <span class="pf-lightbox-hint">Clic fuera o en &times; para cerrar</span>
+</div>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
 <script>
 (function(){
@@ -174,23 +190,32 @@ body.dark-mode .pf-mkx .pf-readonly.form-control{border-bottom-color:rgba(255,25
       var f = this.files && this.files[0];
       if (!f || !f.type.match(/^image\//)) return;
       fotoBase64.value = '';
+      if (cropper) { cropper.destroy(); cropper = null; }
+      cropImage.src = '';
+      cropImage.style.maxWidth = 'none';
+      cropImage.style.maxHeight = 'none';
       var r = new FileReader();
       r.onload = function(){
-        cropImage.src = r.result;
+        var dataUrl = r.result;
         cropModal.style.display = 'flex';
-        if (cropper) cropper.destroy();
-        cropper = new Cropper(cropImage, {
-          aspectRatio: 1,
-          viewMode: 1,
-          dragMode: 'move',
-          autoCropArea: 0.8,
-          restore: false,
-          guides: false,
-          center: true,
-          highlight: false,
-          cropBoxMovable: false,
-          cropBoxResizable: false,
-        });
+        cropImage.onload = function(){
+          cropImage.onload = null;
+          cropper = new Cropper(cropImage, {
+            aspectRatio: 1,
+            viewMode: 1,
+            dragMode: 'move',
+            autoCropArea: 0.85,
+            restore: false,
+            guides: true,
+            center: true,
+            highlight: true,
+            cropBoxMovable: true,
+            cropBoxResizable: true,
+            minContainerWidth: 400,
+            minContainerHeight: 400,
+          });
+        };
+        cropImage.src = dataUrl;
       };
       r.readAsDataURL(f);
     });
@@ -198,6 +223,7 @@ body.dark-mode .pf-mkx .pf-readonly.form-control{border-bottom-color:rgba(255,25
     cropCancel.addEventListener('click', function(){
       cropModal.style.display = 'none';
       if (cropper) { cropper.destroy(); cropper = null; }
+      cropImage.src = '';
       inputFoto.value = '';
     });
 
@@ -212,6 +238,30 @@ body.dark-mode .pf-mkx .pf-readonly.form-control{border-bottom-color:rgba(255,25
       cropper.destroy();
       cropper = null;
     });
+
+    var previewWrap = document.getElementById('previewFotoWrap');
+    var lightbox = document.getElementById('fotoLightbox');
+    var lightboxImg = document.getElementById('fotoLightboxImg');
+    var lightboxClose = document.getElementById('fotoLightboxClose');
+    if (previewWrap && lightbox && lightboxImg) {
+      previewWrap.addEventListener('click', function(){
+        var src = previewFoto.src;
+        if (src) {
+          lightboxImg.src = src;
+          lightbox.style.display = 'flex';
+          document.body.style.overflow = 'hidden';
+        }
+      });
+      function cerrarLightbox(){
+        lightbox.style.display = 'none';
+        lightboxImg.src = '';
+        document.body.style.overflow = '';
+      }
+      lightbox.addEventListener('click', function(e){
+        if (e.target === lightbox) cerrarLightbox();
+      });
+      if (lightboxClose) lightboxClose.addEventListener('click', cerrarLightbox);
+    }
   }
 })();
 </script>

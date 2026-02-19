@@ -1020,8 +1020,8 @@ class CapHum extends Model
             WHERE ap.id_puesto IN ($placeholdersStr)
               AND p.estatus != 'Baja'
             ORDER BY 
-                pp.nivel DESC,      -- primero: puesto de mayor nivel
-                nombre ASC          -- después: nombre de la persona
+                pp.nivel DESC,
+                nombre ASC
         SQL;
 
                 $personas = $db->queryAll($queryPersonas, $params);
@@ -1032,12 +1032,26 @@ class CapHum extends Model
             return self::resultado(false, 'Error al procesar la solicitud.', null, $e->getMessage());
         }
     }
-    public static function getConsultaPersonasJerarquia($id_persona)
+    public static function getConsultaPersonasJerarquia($id_persona, $id_departamento = 0)
     {
+        $id_persona = (int) $id_persona;
+        if ($id_persona <= 0) {
+            return self::resultado(false, 'ID de persona inválido.', null);
+        }
+        $id_departamento = (int) $id_departamento;
+        $filtroDepto = '';
+        if ($id_departamento > 0) {
+            $filtroDepto = " AND p.id IN (SELECT ap_in.id_persona FROM asigna_puesto ap_in INNER JOIN puesto pp_in ON pp_in.id = ap_in.id_puesto WHERE pp_in.departamento_id = $id_departamento)";
+        }
+        $filtroDepto2 = '';
+        if ($id_departamento > 0) {
+            $filtroDepto2 = " AND p2.id IN (SELECT ap_in.id_persona FROM asigna_puesto ap_in INNER JOIN puesto pp_in ON pp_in.id = ap_in.id_puesto WHERE pp_in.departamento_id = $id_departamento)";
+        }
+
         $query = <<<SQL
                WITH RECURSIVE Jerarquia AS (
 
-                -- NIVEL 1
+                -- NIVEL 1: un solo puesto por persona; opcionalmente solo personas con puesto en el departamento
                 SELECT 
                     p.id,
                     p.nombres,
@@ -1048,15 +1062,16 @@ class CapHum extends Model
                     aj.id_jefe,
                     1 AS nivel
                 FROM persona p
-                JOIN asigna_puesto ap ON p.id = ap.id_persona
+                JOIN (SELECT id_persona, MIN(id_puesto) AS id_puesto FROM asigna_puesto GROUP BY id_persona) ap ON p.id = ap.id_persona
                 JOIN puesto pp ON pp.id = ap.id_puesto
-                JOIN asigna_jefe aj ON p.id = aj.id_persona
+                JOIN (SELECT id_persona, MIN(id_jefe) AS id_jefe FROM asigna_jefe GROUP BY id_persona) aj ON p.id = aj.id_persona
                 WHERE p.estatus != 'Baja'
-                  AND aj.id_jefe = $id_persona  -- ← tu jefe raíz
+                  AND aj.id_jefe = $id_persona
+                  $filtroDepto
             
                 UNION ALL
             
-                -- NIVELES 2–4
+                -- NIVELES 2–4: un solo puesto y un solo jefe por persona; opcionalmente solo personas del departamento
                 SELECT 
                     p2.id,
                     p2.nombres,
@@ -1067,12 +1082,13 @@ class CapHum extends Model
                     aj2.id_jefe,
                     j.nivel + 1 AS nivel
                 FROM persona p2
-                JOIN asigna_puesto ap2 ON p2.id = ap2.id_persona
+                JOIN (SELECT id_persona, MIN(id_puesto) AS id_puesto FROM asigna_puesto GROUP BY id_persona) ap2 ON p2.id = ap2.id_persona
                 JOIN puesto pp2 ON pp2.id = ap2.id_puesto
-                JOIN asigna_jefe aj2 ON p2.id = aj2.id_persona
+                JOIN (SELECT id_persona, MIN(id_jefe) AS id_jefe FROM asigna_jefe GROUP BY id_persona) aj2 ON p2.id = aj2.id_persona
                 JOIN Jerarquia j ON aj2.id_jefe = j.id
                 WHERE p2.estatus != 'Baja'
                   AND j.nivel < 4
+                  $filtroDepto2
             )
             
             SELECT JSON_OBJECT(
@@ -1192,6 +1208,69 @@ class CapHum extends Model
             return self::resultado(false, 'Error al procesar la solicitud.', null, $e->getMessage());
         }
     }
+    /** Para organigrama: devuelve todos los departamentos (sin filtrar por gestor). */
+    public static function getTodosDepartamentos()
+    {
+        $query = <<<SQL
+            SELECT id, nombre
+            FROM departamento
+            ORDER BY nombre ASC
+        SQL;
+        try {
+            $db = new Database();
+            $r = $db->queryAll($query);
+            return self::resultado(true, 'Departamentos encontrados.', $r);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al obtener departamentos.', null, $e->getMessage());
+        }
+    }
+
+    /** Puestos asignados a una persona (para organigrama). Si id_departamento se pasa, solo puestos de ese departamento. */
+    public static function getPuestosPorPersona($id_persona, $id_departamento = 0)
+    {
+        $id_persona = (int) $id_persona;
+        if ($id_persona <= 0) {
+            return self::resultado(false, 'ID de persona inválido.', null);
+        }
+        $id_departamento = (int) $id_departamento;
+        $params = ['id_persona' => $id_persona];
+        $filtroDepto = '';
+        if ($id_departamento > 0) {
+            $filtroDepto = ' AND pp.departamento_id = :id_departamento';
+            $params['id_departamento'] = $id_departamento;
+        }
+        $query = <<<SQL
+            SELECT pp.id, pp.nombre
+            FROM asigna_puesto ap
+            INNER JOIN puesto pp ON pp.id = ap.id_puesto
+            WHERE ap.id_persona = :id_persona
+            $filtroDepto
+            ORDER BY pp.nombre ASC
+        SQL;
+        try {
+            $db = new Database();
+            $r = $db->queryAll($query, $params);
+            return self::resultado(true, 'Puestos encontrados.', $r ?: []);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al obtener puestos.', null, $e->getMessage());
+        }
+    }
+
+    /** Nombre del puesto por ID (para organigrama por cargo). */
+    public static function getNombrePuesto($id_puesto)
+    {
+        $id_puesto = (int) $id_puesto;
+        if ($id_puesto <= 0) return null;
+        $query = "SELECT nombre FROM puesto WHERE id = :id";
+        try {
+            $db = new Database();
+            $r = $db->queryAll($query, ['id' => $id_puesto]);
+            return isset($r[0]['nombre']) ? $r[0]['nombre'] : null;
+        } catch (\Exception $e) {
+            return null;
+        }
+    }
+
     ////////////////////////////////////////
     public static function getConsultaDepartamentoGestorOrganigrama($departamento)
     {

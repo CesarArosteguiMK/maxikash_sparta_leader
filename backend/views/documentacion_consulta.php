@@ -113,9 +113,9 @@
                     <!-- Overlay de marca de agua para TODO el modal de PDF -->
                     <div id="modalPdfWatermark" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5; overflow: hidden;"></div>
                     <!-- Contenedor para PDFs (PDF.js) -->
-                    <div id="documentoPdfContainer" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; width: 100%; height: 100%; display: none; overflow: auto; overflow-x: auto; overflow-y: auto; background-color: #525252;">
+                    <div id="documentoPdfContainer" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; width: 100%; height: 100%; display: none; overflow: auto; overflow-x: auto; overflow-y: auto; background-color: #4b5563;">
                         <div id="documentoWrapper" style="display: flex; align-items: center; justify-content: center; min-height: 100%; padding: 20px; position: relative;">
-                            <div id="pdfViewerContainer" style="position: relative; display: inline-block; max-width: 100%;">
+                            <div id="pdfViewerContainer" style="position: relative; display: inline-block; max-width: 100%; background: #6b7280;">
                                 <canvas 
                                     id="pdfCanvas" 
                                     style="max-width: 100%; height: auto; display: block; box-shadow: 0 2px 8px rgba(0,0,0,0.3); user-select: none; -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none; -webkit-user-drag: none; -khtml-user-drag: none; user-drag: none;"
@@ -892,6 +892,66 @@
             color: #ffffff !important;
         }
 
+        /* Dark mode: modal con fondo gris; canvas del PDF con fondo blanco para que las letras no se vean transparentes */
+        body.dark-mode #modalDocumento {
+            color-scheme: light;
+        }
+        body.dark-mode #modalDocumento .modal-dialog,
+        body.dark-mode #modalDocumento .modal-content {
+            background: #1e293b !important;
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
+            border: 1px solid #334155 !important;
+        }
+        body.dark-mode #modalDocumento .modal-header {
+            background: #334155 !important;
+            border-bottom: 1px solid #334155 !important;
+            color: #ffffff !important;
+        }
+        body.dark-mode #modalDocumento .modal-title {
+            color: #ffffff !important;
+        }
+        body.dark-mode #modalDocumento #documentoModalBody {
+            background: #334155 !important;
+            color: #e2e8f0 !important;
+            opacity: 1 !important;
+        }
+        body.dark-mode #modalDocumento #documentoPdfContainer {
+            background-color: #334155 !important;
+            opacity: 1 !important;
+        }
+        body.dark-mode #modalDocumento #pdfViewerContainer {
+            background: #475569 !important;
+            opacity: 1 !important;
+        }
+        /* Canvas del PDF: fondo blanco y sin filtros para que el documento no se vea lavado/transparente */
+        body.dark-mode #modalDocumento #pdfCanvas,
+        body.dark-mode #modalDocumento canvas {
+            background: #ffffff !important;
+            opacity: 1 !important;
+            filter: none !important;
+        }
+        body.dark-mode #modalDocumento .btn-close-custom {
+            filter: brightness(0) invert(1) !important;
+        }
+        body.dark-mode #modalDocumento .btn-close-custom::before {
+            color: #ffffff !important;
+        }
+        body.dark-mode #modalDocumento #pdfControls {
+            background-color: rgba(30, 41, 59, 0.95) !important;
+            color: #ffffff !important;
+            border: 1px solid #475569 !important;
+        }
+        body.dark-mode #modalDocumento #pdfControls .btn-light {
+            background-color: #64748b !important;
+            color: #f1f5f9 !important;
+            border-color: #475569 !important;
+        }
+        body.dark-mode #modalDocumento #pdfPageInfo,
+        body.dark-mode #modalDocumento #pdfZoomLevel {
+            color: #f1f5f9 !important;
+        }
+
         /* ===== MARCA DE AGUA "SIN VALOR" REPETIDA COMO REFERENCIA ===== */
         .watermark-container {
             position: relative;
@@ -917,6 +977,18 @@
             opacity: 1 !important;
             /* Permitir que las marcas de agua se extiendan fuera del área si es necesario */
             clip-path: none !important;
+        }
+
+        /* Mejorar legibilidad del texto del documento (solo el canvas, no la marca de agua) */
+        #pdfCanvas {
+            filter: contrast(1.15) brightness(1.02);
+        }
+        /* Fondo medio gris tirando a oscuro para el visor del documento */
+        #documentoPdfContainer {
+            background-color: #4b5563 !important;
+        }
+        #pdfViewerContainer {
+            background: #6b7280 !important;
         }
 
         /* Overlay de EVIDENCIA (imagen): forzar visibilidad y que las capas se vean */
@@ -3595,9 +3667,12 @@
                     return;
                 }
                 const ctx = canvas.getContext('2d');
+                const dpr = Math.min(window.devicePixelRatio || 1, 2.5);
                 
-                // Calcular dimensiones basadas en el zoom (scale)
-                const viewport = page.getViewport({scale: scaleFactura});
+                // Calcular dimensiones: escala por DPR para texto nítido (más píxeles), tamaño de pantalla en CSS
+                const viewport = page.getViewport({scale: scaleFactura * dpr});
+                const displayWidth = viewport.width / dpr;
+                const displayHeight = viewport.height / dpr;
                 
                 canvas.height = viewport.height;
                 canvas.width = viewport.width;
@@ -3608,12 +3683,12 @@
                 const pdfViewerContainer = document.getElementById('pdfViewerContainer');
                 const documentoModalBody = document.getElementById('documentoModalBody');
                 
-                // Aplicar estilos según el nivel de zoom
+                // Aplicar estilos según el nivel de zoom (tamaño visual en CSS = displayWidth/Height para que se vea nítido)
                 if (scaleFactura > 1.0) {
                     // Cuando hay zoom, permitir que el canvas crezca y mostrar scrollbars
                     canvas.style.maxWidth = 'none';
-                    canvas.style.width = canvas.width + 'px';
-                    canvas.style.height = canvas.height + 'px';
+                    canvas.style.width = displayWidth + 'px';
+                    canvas.style.height = displayHeight + 'px';
                     
                     // Asegurar que el contenedor principal tenga scrollbars (sobrescribir el !important)
                     if (pdfContainer) {
@@ -3648,15 +3723,12 @@
                     // Centrar el scroll inicialmente después de un pequeño delay
                     setTimeout(() => {
                         if (pdfContainer && canvas) {
-                            // Calcular el centro del contenido
-                            const scrollLeft = (canvas.width - pdfContainer.clientWidth) / 2;
-                            const scrollTop = (canvas.height - pdfContainer.clientHeight) / 2;
-                            
-                            // Solo hacer scroll si el contenido es más grande que el contenedor
-                            if (canvas.width > pdfContainer.clientWidth) {
+                            const scrollLeft = (displayWidth - pdfContainer.clientWidth) / 2;
+                            const scrollTop = (displayHeight - pdfContainer.clientHeight) / 2;
+                            if (displayWidth > pdfContainer.clientWidth) {
                                 pdfContainer.scrollLeft = Math.max(0, scrollLeft);
                             }
-                            if (canvas.height > pdfContainer.clientHeight) {
+                            if (displayHeight > pdfContainer.clientHeight) {
                                 pdfContainer.scrollTop = Math.max(0, scrollTop);
                             }
                         }
@@ -3669,10 +3741,10 @@
                         pdfViewerContainer.style.height = 'auto';
                     }
                 } else {
-                    // Cuando está en 100% o menos, centrar y ajustar al contenedor
+                    // Cuando está en 100% o menos, centrar y ajustar al contenedor (tamaño visual para nitidez)
                     canvas.style.maxWidth = '100%';
-                    canvas.style.width = '';
-                    canvas.style.height = 'auto';
+                    canvas.style.width = displayWidth + 'px';
+                    canvas.style.height = displayHeight + 'px';
                     
                     // Mantener scrollbars por si acaso
                     if (pdfContainer) {
@@ -3695,6 +3767,10 @@
                     }
                 }
 
+                // Rellenar fondo blanco para que las páginas no se vean transparentes (sobre todo en dark mode)
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, viewport.width, viewport.height);
+
                 // Renderizar
                 const renderContext = {
                     canvasContext: ctx,
@@ -3708,13 +3784,11 @@
                 
                 // Forzar recálculo de scrollbars después del renderizado
                 if (scaleFactura > 1.0 && pdfContainer) {
-                    // Pequeño delay para asegurar que el DOM se actualice
                     setTimeout(() => {
-                        // Forzar el scroll a aparecer verificando el tamaño
                         const containerWidth = pdfContainer.clientWidth;
                         const containerHeight = pdfContainer.clientHeight;
-                        const contentWidth = canvas.width + 40; // + padding
-                        const contentHeight = canvas.height + 40; // + padding
+                        const contentWidth = displayWidth + 40;
+                        const contentHeight = displayHeight + 40;
                         
                         
                         // Si el contenido es más grande, asegurar que los scrollbars estén visibles
@@ -3736,11 +3810,11 @@
                 const zoomLevel = document.getElementById('pdfZoomLevel');
                 if (zoomLevel) zoomLevel.textContent = Math.round(scaleFactura * 100) + '%';
                 
-                // Actualizar overlay de marcas de agua con las dimensiones correctas del canvas
+                // Actualizar overlay de marcas de agua con el tamaño visual del canvas
                 const watermark = document.getElementById('pdfWatermark');
                 if (watermark) {
-                    watermark.style.width = canvas.width + 'px';
-                    watermark.style.height = canvas.height + 'px';
+                    watermark.style.width = displayWidth + 'px';
+                    watermark.style.height = displayHeight + 'px';
                     watermark.style.position = 'absolute';
                     watermark.style.top = '0';
                     watermark.style.left = '0';
@@ -4316,18 +4390,18 @@
                 const pdfViewerContainer = document.getElementById('pdfViewerContainer');
                 const documentoWrapper = document.getElementById('documentoWrapper');
                 const page = await pdfDoc.getPage(pageNum);
-                const viewport = page.getViewport({ scale: pdfScale });
+                const dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+                const viewport = page.getViewport({ scale: pdfScale * dpr });
+                const displayWidth = viewport.width / dpr;
+                const displayHeight = viewport.height / dpr;
 
-                // Ajustar tamaño del canvas
                 pdfCanvas.height = viewport.height;
                 pdfCanvas.width = viewport.width;
 
-                // Aplicar o quitar restricción de max-width según el zoom
                 if (pdfScale > 1.0) {
-                    // Cuando hay zoom, permitir que el canvas crezca más allá del 100%
                     pdfCanvas.style.maxWidth = 'none';
-                    pdfCanvas.style.width = pdfCanvas.width + 'px';
-                    pdfCanvas.style.height = pdfCanvas.height + 'px';
+                    pdfCanvas.style.width = displayWidth + 'px';
+                    pdfCanvas.style.height = displayHeight + 'px';
                     if (pdfViewerContainer) {
                         pdfViewerContainer.style.maxWidth = 'none';
                     }
@@ -4344,34 +4418,28 @@
                         documentoWrapper.style.position = 'relative';
                     }
                     
-                    // Centrar el scroll inicialmente después de un pequeño delay
                     setTimeout(() => {
-                        if (pdfContainer && canvas) {
-                            // Calcular el centro del contenido
-                            const scrollLeft = (canvas.width - pdfContainer.clientWidth) / 2;
-                            const scrollTop = (canvas.height - pdfContainer.clientHeight) / 2;
-                            
-                            // Solo hacer scroll si el contenido es más grande que el contenedor
-                            if (canvas.width > pdfContainer.clientWidth) {
+                        if (pdfContainer && pdfCanvas) {
+                            const scrollLeft = (displayWidth - pdfContainer.clientWidth) / 2;
+                            const scrollTop = (displayHeight - pdfContainer.clientHeight) / 2;
+                            if (displayWidth > pdfContainer.clientWidth) {
                                 pdfContainer.scrollLeft = Math.max(0, scrollLeft);
                             }
-                            if (canvas.height > pdfContainer.clientHeight) {
+                            if (displayHeight > pdfContainer.clientHeight) {
                                 pdfContainer.scrollTop = Math.max(0, scrollTop);
                             }
                         }
                     }, 150);
                     
-                    // Ajustar viewer container - debe crecer con el contenido
                     if (pdfViewerContainer) {
                         pdfViewerContainer.style.maxWidth = 'none';
                         pdfViewerContainer.style.width = 'auto';
                         pdfViewerContainer.style.height = 'auto';
                     }
                 } else {
-                    // Cuando está en 100%, restaurar el max-width para que se ajuste al contenedor
                     pdfCanvas.style.maxWidth = '100%';
-                    pdfCanvas.style.width = '';
-                    pdfCanvas.style.height = 'auto';
+                    pdfCanvas.style.width = displayWidth + 'px';
+                    pdfCanvas.style.height = displayHeight + 'px';
                     if (pdfViewerContainer) {
                         pdfViewerContainer.style.maxWidth = '100%';
                     }
@@ -4396,10 +4464,15 @@
                 if (zoomLevel) {
                     zoomLevelEl.textContent = Math.round(pdfScale * 100) + '%';
                 }
-                
+
+                const ctx = pdfCanvas.getContext('2d');
+                // Rellenar fondo blanco para que las páginas no se vean transparentes (sobre todo en dark mode)
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, viewport.width, viewport.height);
+
                 // Renderizar
                 const renderContext = {
-                    canvasContext: pdfCanvas.getContext('2d'),
+                    canvasContext: ctx,
                     viewport: viewport
                 };
 
@@ -4413,11 +4486,11 @@
                 
                 if (zoomLevel) zoomLevelEl.textContent = Math.round(pdfScale * 100) + '%';
 
-                // Actualizar marcas de agua
+                // Actualizar marcas de agua (tamaño visual del canvas)
                 const watermark = document.getElementById('pdfWatermark');
                 if (watermark) {
-                    watermark.style.width = pdfCanvas.width + 'px';
-                    watermark.style.height = pdfCanvas.height + 'px';
+                    watermark.style.width = displayWidth + 'px';
+                    watermark.style.height = displayHeight + 'px';
                 }
 
                 // Recrear marcas de agua después de que el canvas se renderice
