@@ -70,7 +70,7 @@ class Perfil extends Model
                 }
             }
             if (!empty($datos['pass'])) {
-                $campos['pass'] = password_hash($datos['pass'], PASSWORD_DEFAULT);
+                $campos['pass'] = $datos['pass'];
             }
             if ($existe) {
                 $updateKeys = array_filter(array_keys($campos), function ($k) { return $k !== 'id_persona'; });
