@@ -212,6 +212,333 @@
 </div>
 
 <script>
+
+document.addEventListener("DOMContentLoaded", () => {
+    // ==========================================
+    // CONFIGURACIÓN INICIAL
+    // ==========================================
+    const API_ENDPOINT = '/indicadores/apiGestiones8A21'; // Sugerencia: crear este endpoint
+    let datosOriginales = [];
+    let datosFiltrados = [];
+    
+    // Elementos del DOM
+    const tablaBody = document.querySelector('#tabla-8a21 tbody');
+    const filtros = {
+        campana: document.getElementById('filtro-campana'),
+        fueraZonaFalse: document.getElementById('fuera-zona-false'),
+        fueraZonaTrue: document.getElementById('fuera-zona-true'),
+        contacto: document.getElementById('filtro-contacto')
+    };
+    
+    // ==========================================
+    // 1. CARGA INICIAL DE DATOS
+    // ==========================================
+    async function cargarDatos() {
+        try {
+            mostrarLoader();
+            
+            // Opción A: Usar datos ya inyectados por el controlador
+            <?php if (isset($gestiones) && isset($totales)): ?>
+            datosOriginales = <?= json_encode($gestiones) ?>;
+            actualizarTotales(<?= json_encode($totales) ?>);
+            renderizarTabla(datosOriginales);
+            poblarFiltros(datosOriginales);
+            
+            // Opción B: Llamada AJAX (recomendado para actualizaciones)
+            // const respuesta = await fetch(API_ENDPOINT);
+            // const data = await respuesta.json();
+            // if (data.success) {
+            //     datosOriginales = data.data;
+            //     actualizarTotales(data.totales);
+            //     renderizarTabla(datosOriginales);
+            //     poblarFiltros(datosOriginales);
+            // }
+            
+            <?php else: ?>
+            console.warn('No hay datos disponibles');
+            mostrarMensajeSinDatos();
+            <?php endif; ?>
+            
+        } catch (error) {
+            console.error('Error cargando datos:', error);
+            mostrarError('Error al cargar los datos. Intente nuevamente.');
+        } finally {
+            ocultarLoader();
+        }
+    }
+    
+    // ==========================================
+    // 2. RENDERIZADO DE TABLA
+    // ==========================================
+    function renderizarTabla(datos) {
+        if (!datos || datos.length === 0) {
+            tablaBody.innerHTML = `
+                <tr>
+                    <td colspan="16" class="text-center py-4">
+                        <div class="text-muted">No hay datos para mostrar</div>
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+        
+        let html = '';
+        datos.forEach(item => {
+            // Determinar clase CSS para el estatus
+            const estatusClass = getEstatusClass(item.estatus_gestor);
+            
+            html += `
+                <tr>
+                    <td><strong>${item.lider}</strong></td>
+                    <td>${formatNumber(item.current)}</td>
+                    <td>${formatNumber(item.gestiones_1a7)}</td>
+                    <td>${formatNumber(item.gestiones_8a14)}</td>
+                    <td>${formatNumber(item.gestiones_15a21)}</td>
+                    <td class="${item.sin_gestion > 0 ? 'text-danger fw-bold' : ''}">${formatNumber(item.sin_gestion)}</td>
+                    <td>
+                        <span class="badge ${estatusClass}">${item.estatus_gestor}</span>
+                    </td>
+                    <td><strong>${formatNumber(item.total_general)}</strong></td>
+                    <td>
+                        <div class="progress" style="height: 20px;">
+                            <div class="progress-bar ${getEficienciaColor(item.eficiencia)}" 
+                                 style="width: ${item.eficiencia}%;">
+                                ${item.eficiencia}%
+                            </div>
+                        </div>
+                    </td>
+                    <td>${formatNumber(item.campo)}</td>
+                    <td>${formatNumber(item.telefono)}</td>
+                    <td>${formatNumber(item.whatsapp)}</td>
+                    <td>${item.saldo_vencido}</td>
+                    <td><small>${item.fecha_dictamen_mas_antigua}</small></td>
+                    <td><small>${item.fecha_dictamen_mas_reciente}</small></td>
+                    <td>
+                        <span class="badge ${estatusClass}">${item.estatus_gestor_detalle}</span>
+                    </td>
+                </tr>
+            `;
+        });
+        
+        tablaBody.innerHTML = html;
+        
+        // Actualizar contador de registros
+        actualizarContadorRegistros(datos.length);
+    }
+    
+    // ==========================================
+    // 3. FUNCIONES DE FILTRADO
+    // ==========================================
+    function aplicarFiltros() {
+        datosFiltrados = datosOriginales.filter(item => {
+            // Filtro por contacto (simulado)
+            const contactoSeleccionado = filtros.contacto.value;
+            if (contactoSeleccionado !== 'all') {
+                // Aquí implementarías la lógica real de filtrado
+                // Por ahora, filtro de ejemplo basado en campo/telefono/whatsapp
+                if (contactoSeleccionado === 'campo' && item.campo === 0) return false;
+                if (contactoSeleccionado === 'telefono' && item.telefono === 0) return false;
+                if (contactoSeleccionado === 'whatsapp' && item.whatsapp === 0) return false;
+            }
+            
+            // Filtro Fuera de Zona (simulado)
+            const falseChecked = filtros.fueraZonaFalse.checked;
+            const trueChecked = filtros.fueraZonaTrue.checked;
+            
+            if (!falseChecked && !trueChecked) return false; // Ninguno seleccionado
+            // Si ambos están seleccionados, mostrar todos
+            // Si solo uno está seleccionado, habría que filtrar según datos reales
+            
+            return true;
+        });
+        
+        renderizarTabla(datosFiltrados);
+        recalcularTotalesFiltrados(datosFiltrados);
+    }
+    
+    // ==========================================
+    // 4. RECÁLCULO DE TOTALES (para filtros)
+    // ==========================================
+    function recalcularTotalesFiltrados(datos) {
+        if (!datos || datos.length === 0) {
+            document.getElementById('t-current').innerHTML = '<strong>0</strong>';
+            document.getElementById('t-1a7').innerHTML = '<strong>0</strong>';
+            document.getElementById('t-8a14').innerHTML = '<strong>0</strong>';
+            document.getElementById('t-15a21').innerHTML = '<strong>0</strong>';
+            document.getElementById('t-sin').innerHTML = '<strong>0</strong>';
+            document.getElementById('t-general').innerHTML = '<strong>0</strong>';
+            document.getElementById('t-eficiencia').innerHTML = '<strong>0%</strong>';
+            document.getElementById('t-campo').innerHTML = '<strong>0</strong>';
+            document.getElementById('t-telefono').innerHTML = '<strong>0</strong>';
+            document.getElementById('t-whatsapp').innerHTML = '<strong>0</strong>';
+            document.getElementById('t-saldo').innerHTML = '<strong>$0</strong>';
+            return;
+        }
+        
+        // Sumar todos los valores
+        const totales = {
+            current: datos.reduce((sum, item) => sum + (parseInt(item.current) || 0), 0),
+            gestiones_1a7: datos.reduce((sum, item) => sum + (parseInt(item.gestiones_1a7) || 0), 0),
+            gestiones_8a14: datos.reduce((sum, item) => sum + (parseInt(item.gestiones_8a14) || 0), 0),
+            gestiones_15a21: datos.reduce((sum, item) => sum + (parseInt(item.gestiones_15a21) || 0), 0),
+            sin_gestion: datos.reduce((sum, item) => sum + (parseInt(item.sin_gestion) || 0), 0),
+            total_general: datos.reduce((sum, item) => sum + (parseInt(item.total_general) || 0), 0),
+            campo: datos.reduce((sum, item) => sum + (parseInt(item.campo) || 0), 0),
+            telefono: datos.reduce((sum, item) => sum + (parseInt(item.telefono) || 0), 0),
+            whatsapp: datos.reduce((sum, item) => sum + (parseInt(item.whatsapp) || 0), 0),
+            saldo: datos.reduce((sum, item) => {
+                const saldo = parseFloat(item.saldo_vencido.replace(/[$,]/g, '')) || 0;
+                return sum + saldo;
+            }, 0)
+        };
+        
+        // Calcular eficiencia global
+        const totalBase = totales.gestiones_8a14 + totales.gestiones_15a21;
+        const eficienciaGlobal = totalBase > 0 ? ((totales.current * 100) / totalBase).toFixed(1) : 0;
+        
+        // Actualizar DOM
+        document.getElementById('t-current').innerHTML = `<strong>${formatNumber(totales.current)}</strong>`;
+        document.getElementById('t-1a7').innerHTML = `<strong>${formatNumber(totales.gestiones_1a7)}</strong>`;
+        document.getElementById('t-8a14').innerHTML = `<strong>${formatNumber(totales.gestiones_8a14)}</strong>`;
+        document.getElementById('t-15a21').innerHTML = `<strong>${formatNumber(totales.gestiones_15a21)}</strong>`;
+        document.getElementById('t-sin').innerHTML = `<strong>${formatNumber(totales.sin_gestion)}</strong>`;
+        document.getElementById('t-general').innerHTML = `<strong>${formatNumber(totales.total_general)}</strong>`;
+        document.getElementById('t-eficiencia').innerHTML = `<strong>${eficienciaGlobal}%</strong>`;
+        document.getElementById('t-campo').innerHTML = `<strong>${formatNumber(totales.campo)}</strong>`;
+        document.getElementById('t-telefono').innerHTML = `<strong>${formatNumber(totales.telefono)}</strong>`;
+        document.getElementById('t-whatsapp').innerHTML = `<strong>${formatNumber(totales.whatsapp)}</strong>`;
+        document.getElementById('t-saldo').innerHTML = `<strong>${formatCurrency(totales.saldo)}</strong>`;
+    }
+    
+    // ==========================================
+    // 5. FUNCIONES AUXILIARES
+    // ==========================================
+    function formatNumber(num) {
+        return new Intl.NumberFormat('es-MX').format(num || 0);
+    }
+    
+    function formatCurrency(num) {
+        return '$' + new Intl.NumberFormat('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(num || 0);
+    }
+    
+    function getEstatusClass(estatus) {
+        switch(estatus) {
+            case 'Activo': return 'bg-success';
+            case 'Inactivo': return 'bg-warning text-dark';
+            case 'Sin actividad': return 'bg-secondary';
+            default: return 'bg-light text-dark';
+        }
+    }
+    
+    function getEficienciaColor(eficiencia) {
+        if (eficiencia >= 70) return 'bg-success';
+        if (eficiencia >= 40) return 'bg-warning';
+        return 'bg-danger';
+    }
+    
+    function poblarFiltros(datos) {
+        // Poblar filtro de contacto con valores únicos
+        const contactos = new Set();
+        datos.forEach(item => {
+            if (item.campo > 0) contactos.add('campo');
+            if (item.telefono > 0) contactos.add('telefono');
+            if (item.whatsapp > 0) contactos.add('whatsapp');
+        });
+        
+        const selectContacto = filtros.contacto;
+        contactos.forEach(contacto => {
+            const option = document.createElement('option');
+            option.value = contacto;
+            option.textContent = contacto.charAt(0).toUpperCase() + contacto.slice(1);
+            selectContacto.appendChild(option);
+        });
+    }
+    
+    function mostrarLoader() {
+        // Implementar spinner de carga
+        tablaBody.innerHTML = `
+            <tr>
+                <td colspan="16" class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Cargando...</span>
+                    </div>
+                    <p class="mt-2 text-muted">Cargando datos...</p>
+                </td>
+            </tr>
+        `;
+    }
+    
+    function ocultarLoader() {
+        // El loader se reemplaza al renderizar
+    }
+    
+    function mostrarError(mensaje) {
+        tablaBody.innerHTML = `
+            <tr>
+                <td colspan="16" class="text-center py-4">
+                    <div class="alert alert-danger mb-0">
+                        <i class="bi bi-exclamation-triangle"></i>
+                        ${mensaje}
+                    </div>
+                </td>
+            </tr>
+        `;
+    }
+    
+    function mostrarMensajeSinDatos() {
+        tablaBody.innerHTML = `
+            <tr>
+                <td colspan="16" class="text-center py-4">
+                    <div class="text-muted">
+                        <i class="bi bi-inbox"></i>
+                        No hay datos disponibles
+                    </div>
+                </td>
+            </tr>
+        `;
+    }
+    
+    function actualizarContadorRegistros(total) {
+        // Opcional: mostrar contador de registros
+        console.log(`Total registros: ${total}`);
+    }
+    
+    // ==========================================
+    // 6. EVENT LISTENERS
+    // ==========================================
+    filtros.contacto.addEventListener('change', aplicarFiltros);
+    filtros.fueraZonaFalse.addEventListener('change', aplicarFiltros);
+    filtros.fueraZonaTrue.addEventListener('change', aplicarFiltros);
+    
+    // Botón de actualización (opcional)
+    const btnActualizar = document.createElement('button');
+    btnActualizar.className = 'btn btn-sm btn-outline-primary ms-2';
+    btnActualizar.innerHTML = '<i class="bi bi-arrow-repeat"></i> Actualizar';
+    btnActualizar.addEventListener('click', cargarDatos);
+    document.querySelector('.row.g-3.mb-4').appendChild(btnActualizar);
+    
+    // ==========================================
+    // 7. EXPORTACIÓN A EXCEL (opcional)
+    // ==========================================
+    function exportarAExcel() {
+        const datosExportar = datosFiltrados.length ? datosFiltrados : datosOriginales;
+        // Implementar lógica de exportación
+        console.log('Exportando...', datosExportar);
+    }
+    
+    // Botón de exportación
+    const btnExportar = document.createElement('button');
+    btnExportar.className = 'btn btn-sm btn-outline-success ms-2';
+    btnExportar.innerHTML = '<i class="bi bi-file-excel"></i> Exportar';
+    btnExportar.addEventListener('click', exportarAExcel);
+    document.querySelector('.row.g-3.mb-4').appendChild(btnExportar);
+    
+    // ==========================================
+    // INICIALIZACIÓN
+    // ==========================================
+    cargarDatos();
+});
+
 document.addEventListener("DOMContentLoaded", () => {
     console.log("Vista Eficiencia 1 a 7 lista para lógica JS");
 
