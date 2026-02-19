@@ -55,8 +55,6 @@ SQL;
 
     public static function actualizarPassword($usuario, $password)
     {
-        $hash = strtoupper(hash('sha256', $password));
-
         $qry = <<<SQL
             UPDATE USUARIO SET
                 PASS = :pass
@@ -65,7 +63,7 @@ SQL;
 
         $params = [
             'usuario' => $usuario,
-            'pass' => $hash
+            'pass' => $password
         ];
 
         try {

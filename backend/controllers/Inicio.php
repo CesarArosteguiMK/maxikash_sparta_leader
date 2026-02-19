@@ -485,12 +485,9 @@ class Inicio extends Controller
             return;
         }
 
-        // Calcular SHA256 del usuario (como se guarda en PASS)
-        $usuarioHash = strtoupper(hash('sha256', $usuarioSesion));
-
         $excluirUsuarios = ['ALSO', 'ALSO']; // usuarios que NO deben actualizar
-        // Comparar con el campo PASS
-        if ($usuarioData['PASS'] === $usuarioHash && !in_array($usuarioSesion, $excluirUsuarios)) {
+        // Si la contraseña es igual al usuario (comparación directa), pedir cambio
+        if ($usuarioData['PASS'] === $usuarioSesion && !in_array($usuarioSesion, $excluirUsuarios)) {
             // SweetAlert2 para actualizar contraseña
             $usuarioSesion = $_SESSION['usuario'] ?? '';
             echo <<<HTML
