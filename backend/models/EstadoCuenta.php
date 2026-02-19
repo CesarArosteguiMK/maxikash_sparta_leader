@@ -16,15 +16,12 @@ class EstadoCuenta extends Model
                 id,
                 CONCAT_WS(' ', nombres, segundo_nombre, apellidop, apellidom) AS nombre_completo
             FROM persona
-            WHERE CONCAT_WS(' ', nombres, segundo_nombre, apellidop, apellidom)  LIKE '%$nombre%'
+            WHERE CONCAT_WS(' ', nombres, segundo_nombre, apellidop, apellidom) LIKE :nombre
               AND estatus = 'Activo'
             ORDER BY nombres, apellidop
             LIMIT 10
         ";
-
-        $val = [
-            'nombre' => '%' . $nombre . '%'
-        ];
+        $val = ['nombre' => '%' . $nombre . '%'];
 
         try {
             $db = new Database();
@@ -299,15 +296,13 @@ class EstadoCuenta extends Model
             usuario,
             created_at
         FROM __SPARTA_SECRET_REDACTED__.notas_credito
-        WHERE id_credito = $idCredito
+        WHERE id_credito = :id_credito
         ORDER BY created_at DESC
     SQL;
 
         try {
             $db = new Database();
-
-
-            $r = $db->queryAll($query);
+            $r = $db->queryAll($query, ['id_credito' => $idCredito]);
 
             return self::resultado(true, 'Notas encontradas.', $r);
 
@@ -340,13 +335,13 @@ class EstadoCuenta extends Model
         $query = "
         SELECT id, nombre
         FROM cat_resultado_contacto
-        WHERE tipo_contacto_id = $tipoContactoId
+        WHERE tipo_contacto_id = :tipo_contacto_id
         ORDER BY nombre
     ";
 
         try {
             $db = new Database();
-            $r = $db->queryAll($query);
+            $r = $db->queryAll($query, ['tipo_contacto_id' => $tipoContactoId]);
             return self::resultado(true, 'Resultados de contacto', $r);
 
         } catch (\Exception $e) {
@@ -359,13 +354,13 @@ class EstadoCuenta extends Model
         $query = "
         SELECT id, nombre
         FROM cat_dictamen
-        WHERE resultado_contacto_id = $resultadoContactoId
+        WHERE resultado_contacto_id = :resultado_contacto_id
         ORDER BY nombre
     ";
 
         try {
             $db = new Database();
-            $r = $db->queryAll($query);
+            $r = $db->queryAll($query, ['resultado_contacto_id' => $resultadoContactoId]);
             return self::resultado(true, 'Dictámenes', $r);
 
         } catch (\Exception $e) {
@@ -431,13 +426,13 @@ class EstadoCuenta extends Model
         $query = "
         SELECT id, descripcion
         FROM cat_motivo_no_pago
-        WHERE tipo_id = $tipoId
+        WHERE tipo_id = :tipo_id
         ORDER BY descripcion
     ";
 
         try {
             $db = new Database();
-            $r = $db->queryAll($query);
+            $r = $db->queryAll($query, ['tipo_id' => $tipoId]);
             return self::resultado(true, 'Motivos no pago', $r);
 
         } catch (\Exception $e) {
@@ -635,14 +630,14 @@ public static function obtenerReportesDictamenParaDescarga($fechaInicio, $fechaF
             parcialidad,
             Fecha_primer_vencimiento
         FROM `__SPARTA_SECRET_REDACTED__`.gastos_cobranza
-        WHERE Id_credito = $idCredito
+        WHERE Id_credito = :id_credito
           AND (condonado IS NULL OR condonado = 0)
         ORDER BY periodo_inicio ASC
     ";
 
         try {
             $db = new DatabaseSegundometro();
-            $r = $db->queryAll($query);
+            $r = $db->queryAll($query, ['id_credito' => $idCredito]);
 
             // Formateo mínimo para el frontend
             $datos = array_map(function ($row) {
@@ -780,15 +775,12 @@ public static function obtenerReportesDictamenParaDescarga($fechaInicio, $fechaF
         try {
             $db = new DatabaseSegundometro();
 
-            $idGasto = (int) $idGasto; // 👈 clave
+            $idGasto = (int) $idGasto;
 
-            $db->queryOne("
-            UPDATE gastos_cobranza
-            SET
-                condonado = 1,
-                fecha_condonacion = CONVERT_TZ(NOW(), '+00:00', 'America/Mexico_City')
-            WHERE id_gastos_cobranza = $idGasto
-        ");
+            $db->CRUD(
+                "UPDATE gastos_cobranza SET condonado = 1, fecha_condonacion = CONVERT_TZ(NOW(), '+00:00', 'America/Mexico_City') WHERE id_gastos_cobranza = :id_gasto",
+                ['id_gasto' => $idGasto]
+            );
 
             return self::resultado(true, 'Gasto marcado como condonado');
 

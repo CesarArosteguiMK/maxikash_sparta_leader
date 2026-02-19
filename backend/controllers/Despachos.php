@@ -437,17 +437,17 @@ class Despachos extends Controller
 
             $archivo = $_FILES['archivo'];
             
-            // Validar extensión
-            $extensionesPermitidas = ['pdf', 'jpg', 'jpeg', 'png', 'doc', 'docx'];
-            $extension = strtolower(pathinfo($archivo['name'], PATHINFO_EXTENSION));
-            
-            if (!in_array($extension, $extensionesPermitidas)) {
+            // Validar MIME real (no confiar en extensión del cliente)
+            if (!\Core\SecureUpload::validateMime($archivo['tmp_name'], \Core\SecureUpload::MIME_DESPACHO)) {
                 echo json_encode([
                     'success' => false,
-                    'message' => 'Extensión de archivo no permitida. Solo se permiten: ' . implode(', ', $extensionesPermitidas)
+                    'message' => 'Tipo de archivo no permitido. Solo PDF, JPG, PNG, GIF, WebP, DOC o DOCX.'
                 ]);
                 return;
             }
+
+            $mime = \Core\SecureUpload::getMimeType($archivo['tmp_name']);
+            $extension = $mime ? \Core\SecureUpload::extensionFromMime($mime) : 'bin';
 
             // Validar tamaño (5MB máximo)
             if ($archivo['size'] > 5 * 1024 * 1024) {
@@ -458,19 +458,13 @@ class Despachos extends Controller
                 return;
             }
 
-            // Crear directorio si no existe
             $directorioBase = __DIR__ . '/../../uploads/documentos_despacho';
-            if (!file_exists($directorioBase)) {
-                mkdir($directorioBase, 0777, true);
-            }
+            \Core\SecureUpload::ensureDir($directorioBase);
 
-            // Generar nombre único para el archivo
-            $nombreOriginal = pathinfo($archivo['name'], PATHINFO_FILENAME);
-            $nombreArchivo = $nombreOriginal . '_' . time() . '.' . $extension;
+            $nombreArchivo = \Core\SecureUpload::generateSafeFilename($extension);
             $rutaCompleta = $directorioBase . '/' . $nombreArchivo;
             $rutaRelativa = 'uploads/documentos_despacho/' . $nombreArchivo;
 
-            // Mover archivo
             if (!move_uploaded_file($archivo['tmp_name'], $rutaCompleta)) {
                 echo json_encode([
                     'success' => false,

@@ -3,6 +3,7 @@
 namespace Controllers;
 
 use Core\Controller;
+use Core\SecureUpload;
 use Models\CapHum as CapHumDAO;
 
 class CapHum extends Controller
@@ -5234,14 +5235,14 @@ class CapHum extends Controller
             </script>
         HTML;
 
-        $departamentos = CapHumDAO::getConsultaDepartamentoGestor($_SESSION['usuario_id']);
-
+        // Organigrama: mostrar todos los departamentos para que cualquier usuario pueda elegir uno
+        $departamentos = CapHumDAO::getTodosDepartamentos();
 
         $getDepartamentos = '<option disabled selected>Seleccione una opción</option>';
 
         if (!empty($departamentos['datos'])) {
             foreach ($departamentos['datos'] as $val2) {
-                $getDepartamentos .= '<option value="' . $val2['id'] . '">' . htmlspecialchars($val2['nombre'], ENT_QUOTES, 'UTF-8') . '</option>';
+                $getDepartamentos .= '<option value="' . (int)$val2['id'] . '">' . htmlspecialchars($val2['nombre'], ENT_QUOTES, 'UTF-8') . '</option>';
             }
         }
 
@@ -5274,11 +5275,33 @@ class CapHum extends Controller
         self::respuestaJSON($puestos);
     }
 
+    /** Puestos de una persona (para organigrama). Si idDepartamento se envía, solo puestos de ese departamento. */
+    public function getPuestosPorPersona()
+    {
+        $input = json_decode(file_get_contents("php://input"), true);
+        $idPersona = (int) ($input['idPersona'] ?? 0);
+        $idDepartamento = (int) ($input['idDepartamento'] ?? 0);
+        if ($idPersona <= 0) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'ID de persona requerido', 'datos' => []]);
+            return;
+        }
+        $resp = CapHumDAO::getPuestosPorPersona($idPersona, $idDepartamento);
+        self::respuestaJSON($resp);
+    }
+
     /// ESTA NO SE MUEVE 
     public function nivelJerarquicoColaborador($persona_id)
     {
-        // 1️⃣ Obtener organigrama desde la DAO
-        $personas = CapHumDAO::getConsultaPersonasJerarquia($persona_id);
+        $persona_id = (int) ($persona_id ?? 0);
+        if ($persona_id <= 0) {
+            header('Content-Type: application/json');
+            echo json_encode(['success' => false, 'mensaje' => 'ID de persona inválido']);
+            exit;
+        }
+        $id_departamento = isset($_GET['id_departamento']) ? (int) $_GET['id_departamento'] : 0;
+
+        // 1️⃣ Obtener organigrama desde la DAO (solo personas con puesto en el departamento si se envía)
+        $personas = CapHumDAO::getConsultaPersonasJerarquia($persona_id, $id_departamento);
         
         // 🔍 Debug: verificar qué se está devolviendo
         if (!$personas['success'] || empty($personas["datos"])) {
@@ -5291,9 +5314,10 @@ class CapHum extends Controller
             exit;
         }
         
-        $organigramaJson = $personas["datos"][0]["organigrama_json"] ?? null;
-        
-        if (!$organigramaJson) {
+        $primeraFila = $personas["datos"][0] ?? [];
+        $organigramaJson = $primeraFila["organigrama_json"] ?? $primeraFila["ORGANIGRAMA_JSON"] ?? null;
+
+        if ($organigramaJson === null || $organigramaJson === '') {
             header('Content-Type: application/json');
             echo json_encode([
                 "success" => false,
@@ -5304,22 +5328,36 @@ class CapHum extends Controller
         }
         
         $organigrama = json_decode($organigramaJson, true);
+        if (!is_array($organigrama)) {
+            header('Content-Type: application/json');
+            echo json_encode(['success' => false, 'mensaje' => 'Datos del organigrama no válidos']);
+            exit;
+        }
 
-        // 2️⃣ Construir filas para el OrgChart
+        // 2️⃣ Construir filas para el OrgChart (siempre al menos la raíz)
         $rows = [];
+        $this->idsYaAgregados = [];
+        $id_puesto = isset($_GET['id_puesto']) ? (int) $_GET['id_puesto'] : 0;
+        $nombrePuestoRaiz = $organigrama["nombre_puesto"] ?? '';
+        if ($id_puesto > 0) {
+            $nombrePuestoRaiz = CapHumDAO::getNombrePuesto($id_puesto) ?: $nombrePuestoRaiz;
+        }
 
-        // Raíz del organigrama
+        $idRaiz = (string)($organigrama["id_jefe"] ?? $persona_id);
+        $this->idsYaAgregados[$idRaiz] = true;
+
+        // Raíz del organigrama (evitar null para que el gráfico no falle)
         $rows[] = [
-            "id"     => (string)($organigrama["id_jefe"] ?? ''),    // ID como string
-            "nombre" => $organigrama["nombre_jefe"] ?? null,        // Nombre
-            "puesto" => $organigrama["nombre_puesto"] ?? null, // 👈
-            "jefe"   => null                                // Sin jefe
+            "id"     => $idRaiz,
+            "nombre" => $organigrama["nombre_jefe"] ?? '',
+            "puesto" => $nombrePuestoRaiz,
+            "jefe"   => null
         ];
 
-        // Subordinados de la raíz
+        // Subordinados de la raíz (recorrerArbol evita duplicados por id)
         if (!empty($organigrama["subordinados"])) {
             foreach ($organigrama["subordinados"] as $sub) {
-                $this->recorrerArbol($sub, $rows, (string)$organigrama["id_jefe"]);
+                $this->recorrerArbol($sub, $rows, $idRaiz);
             }
         }
 
@@ -5331,11 +5369,19 @@ class CapHum extends Controller
         ]);
         exit;
     }
+    private $idsYaAgregados = [];
+
     private function recorrerArbol($nodo, &$rows, $jefeId = null) {
+        $id = (string)($nodo["id"] ?? '');
+        if ($id === '') return;
+        /* Evitar duplicados por id (misma persona no debe aparecer dos veces en el organigrama) */
+        if (isset($this->idsYaAgregados[$id])) return;
+        $this->idsYaAgregados[$id] = true;
+
         $rows[] = [
-            "id"     => (string)$nodo["id"],
-            "nombre" => $nodo["nombre"],
-            "puesto" => $nodo["nombre_puesto"] ?? null, // 👈 YA VIENE DEL SQL
+            "id"     => $id,
+            "nombre" => $nodo["nombre"] ?? '',
+            "puesto" => $nodo["nombre_puesto"] ?? '',
             "jefe"   => $jefeId
         ];
 
@@ -5456,15 +5502,13 @@ class CapHum extends Controller
             return;
         }
 
-        // 📎 MANEJO DE MÚLTIPLES PDFs
+        // 📎 MANEJO DE MÚLTIPLES PDFs (MIME real, nombre seguro, 0755)
         $rutasPDF = [];
 
         if (!empty($_FILES['archivosPDF']['name'][0])) {
 
             $directorio = __DIR__ . '/../uploads/bajas/';
-            if (!is_dir($directorio)) {
-                mkdir($directorio, 0777, true);
-            }
+            SecureUpload::ensureDir($directorio);
 
             foreach ($_FILES['archivosPDF']['tmp_name'] as $i => $tmp) {
 
@@ -5472,18 +5516,15 @@ class CapHum extends Controller
                     continue;
                 }
 
-                $nombreOrig = $_FILES['archivosPDF']['name'][$i];
-                $extension  = strtolower(pathinfo($nombreOrig, PATHINFO_EXTENSION));
-
-                if ($extension !== 'pdf') {
+                if (!SecureUpload::validateMime($tmp, SecureUpload::MIME_PDF)) {
                     continue;
                 }
 
-                $nombreFinal = 'baja_' . $idGestor . '_' . time() . '_' . $i . '.pdf';
+                $nombreFinal = SecureUpload::generateSafeFilename('pdf');
                 $rutaFinal   = $directorio . $nombreFinal;
 
                 if (move_uploaded_file($tmp, $rutaFinal)) {
-                    $rutasPDF[] = $nombreFinal; // 👈 guardamos solo el nombre
+                    $rutasPDF[] = $nombreFinal;
                 }
             }
         }
@@ -5585,31 +5626,20 @@ class CapHum extends Controller
                 return;
             }
             
-            // Crear directorio si no existe
             $directorio = __DIR__ . '/../uploads/bajas/';
-            if (!is_dir($directorio)) {
-                mkdir($directorio, 0777, true);
-            }
-            
+            SecureUpload::ensureDir($directorio);
+
             $archivosGuardados = [];
-            
-            // Procesar cada archivo
+
             foreach ($_FILES['archivosPDF']['tmp_name'] as $i => $tmp) {
                 if ($_FILES['archivosPDF']['error'][$i] !== UPLOAD_ERR_OK) {
                     continue;
                 }
-                
-                $nombreOrig = $_FILES['archivosPDF']['name'][$i];
-                $extension = strtolower(pathinfo($nombreOrig, PATHINFO_EXTENSION));
-                
-                if ($extension !== 'pdf') {
+                if (!SecureUpload::validateMime($tmp, SecureUpload::MIME_PDF)) {
                     continue;
                 }
-                
-                // Generar nombre único
-                $nombreFinal = 'baja_' . $registro_baja . '_' . time() . '_' . $i . '.pdf';
+                $nombreFinal = SecureUpload::generateSafeFilename('pdf');
                 $rutaFinal = $directorio . $nombreFinal;
-                
                 if (move_uploaded_file($tmp, $rutaFinal)) {
                     $archivosGuardados[] = $nombreFinal;
                 }
@@ -5771,26 +5801,23 @@ class CapHum extends Controller
             $id_documento = (int) $id_documento;
             $carpeta = ($id_documento === 15) ? 'bajas' : 'documentos';
             $directorio = __DIR__ . '/../uploads/' . $carpeta . '/';
-            if (!is_dir($directorio)) {
-                mkdir($directorio, 0777, true);
-            }
+            SecureUpload::ensureDir($directorio);
 
             $archivosGuardados = [];
             $nombres = is_array($archivos['name']) ? $archivos['name'] : [$archivos['name']];
             $tmpNames = is_array($archivos['tmp_name']) ? $archivos['tmp_name'] : [$archivos['tmp_name']];
-
             $errors = is_array($archivos['error']) ? $archivos['error'] : [$archivos['error']];
+
             foreach ($nombres as $i => $nombreOrig) {
                 $tmp = $tmpNames[$i] ?? null;
                 $err = $errors[$i] ?? UPLOAD_ERR_OK;
                 if (!$tmp || $err !== UPLOAD_ERR_OK) {
                     continue;
                 }
-                $extension = strtolower(pathinfo($nombreOrig, PATHINFO_EXTENSION));
-                if ($extension !== 'pdf') {
+                if (!SecureUpload::validateMime($tmp, SecureUpload::MIME_PDF)) {
                     continue;
                 }
-                $nombreFinal = 'doc_' . $id_persona . '_' . $id_documento . '_' . time() . '_' . $i . '.pdf';
+                $nombreFinal = SecureUpload::generateSafeFilename('pdf');
                 $rutaFinal = $directorio . $nombreFinal;
                 if (move_uploaded_file($tmp, $rutaFinal)) {
                     $archivosGuardados[] = $nombreFinal;

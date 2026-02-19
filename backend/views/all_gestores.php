@@ -42,6 +42,29 @@
         overflow: hidden;
     }
 
+    /* DARK MODE: Modal de Permisos */
+    body.dark-mode #modalEditPerfil .modal-content {
+      background: rgba(30, 41, 59, 0.92) !important;
+      color: #e0e0e0 !important;
+    }
+    body.dark-mode #modalEditPerfil .nav-tabs-custom {
+      background-color: #252525 !important;
+      border-bottom-color: #3a3a3a !important;
+    }
+    body.dark-mode #modalEditPerfil .nav-tabs-custom .nav-link {
+      color: #b8b8c1 !important;
+      background-color: transparent !important;
+    }
+    body.dark-mode #modalEditPerfil .nav-tabs-custom .nav-link.active {
+      background-color: #303030 !important;
+      color: #ffffff !important;
+      border-bottom-color: #6ea8fe !important;
+    }
+    body.dark-mode #modalEditPerfil .tab-content {
+      background-color: #252525 !important;
+      color: #e0e0e0 !important;
+    }
+
     #modalEditPerfil .btn-outline-secondary:hover {
         transform: scale(1.05);
         box-shadow: 0 4px 8px rgba(108, 117, 125, 0.25) !important;
@@ -1100,7 +1123,245 @@
         padding: 0.35em 0.65em;
     }
 
+    /* ============================================================
+   RESPONSIVIDAD MODAL #modalEditPerfil
+   Optimizado para smartphones: 360x780 → 393x852
+   ============================================================ */
+
+/* ─────────────────────────────────────────────
+   BASE MÓVIL: aplica desde 0 hasta 575px
+   ───────────────────────────────────────────── */
+@media (max-width: 575.98px) {
+
+  /* ── 1. DIÁLOGO: ocupa toda la pantalla como sheet nativo ── */
+  #modalEditPerfil .modal-dialog {
+    margin: 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    height: 100% !important;                  /* full height */
+    min-height: 100% !important;
+    display: flex !important;
+    align-items: flex-end !important;         /* sube desde abajo (bottom-sheet) */
+  }
+
+  /* ── 2. CONTENT: ocupa todo el ancho y altura máxima ── */
+  #modalEditPerfil .modal-content {
+    border-radius: 1.25rem 1.25rem 0 0 !important;   /* esquinas solo arriba */
+    width: 100% !important;
+    max-height: 92vh !important;              /* deja espacio para ver contexto */
+    height: auto !important;
+    overflow: hidden !important;
+    display: flex !important;
+    flex-direction: column !important;
+  }
+
+  /* ── 3. HEADER: compacto, sin desbordamiento ── */
+  #modalEditPerfil .modal-header {
+    padding: 1rem 1rem 0.75rem !important;
+    flex-shrink: 0 !important;
+  }
+
+  #modalEditPerfil .modal-header .d-flex {
+    flex-wrap: nowrap !important;
+    gap: 0.5rem !important;
+    align-items: flex-start !important;
+  }
+
+  #modalEditPerfil .modal-title {
+    font-size: 0.95rem !important;
+    line-height: 1.3 !important;
+    margin-bottom: 0.15rem !important;
+  }
+
+  #modalEditPerfil #modalEditPerfil_subtitle {
+    font-size: 0.72rem !important;
+    line-height: 1.2 !important;
+  }
+
+  /* Botón cerrar: tamaño táctil mínimo 44px */
+  #modalEditPerfil .modal-header button[data-bs-dismiss="modal"] {
+    min-width: 44px !important;
+    min-height: 44px !important;
+    width: 44px !important;
+    height: 44px !important;
+    flex-shrink: 0 !important;
+    padding: 0 !important;
+    border-radius: 50% !important;
+  }
+
+  /* ── 4. BODY: scroll interno, sin overflow roto ── */
+  #modalEditPerfil .modal-body {
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    flex: 1 1 auto !important;
+    padding: 0 !important;
+    -webkit-overflow-scrolling: touch !important;  /* scroll suave iOS */
+  }
+
+  /* ── 5. TABS: scroll horizontal si no caben, nunca wrap ── */
+  #modalEditPerfil .nav-tabs-custom {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    -webkit-overflow-scrolling: touch !important;
+    scrollbar-width: none !important;              /* ocultar scrollbar en Firefox */
+    padding: 0 0.75rem !important;
+    border-bottom: 2px solid #e9ecef !important;
+    gap: 0 !important;
+    background: #fff !important;
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 10 !important;
+  }
+
+  #modalEditPerfil .nav-tabs-custom::-webkit-scrollbar {
+    display: none !important;                      /* ocultar scrollbar en Chrome/Safari */
+  }
+
+  #modalEditPerfil .nav-tabs-custom .nav-item {
+    flex-shrink: 0 !important;
+  }
+
+  #modalEditPerfil .nav-tabs-custom .nav-link {
+    padding: 0.6rem 0.75rem !important;
+    font-size: 0.72rem !important;
+    font-weight: 500 !important;
+    white-space: nowrap !important;
+    border-bottom-width: 3px !important;
+  }
+
+  /* Icono dentro de tab: reducir margen */
+  #modalEditPerfil .nav-tabs-custom .nav-link i,
+  #modalEditPerfil .nav-tabs-custom .nav-link .fa {
+    font-size: 0.8rem !important;
+    margin-right: 0.3rem !important;
+  }
+
+  /* ── 6. TAB CONTENT: padding cómodo para dedos ── */
+  #modalEditPerfil .tab-content {
+    padding: 1rem !important;
+  }
+
+  /* ── 7. HEADERS DE SECCIÓN dentro de tabs ── */
+  #modalEditPerfil .tab-pane h6 {
+    font-size: 0.85rem !important;
+    margin-bottom: 0.4rem !important;
+  }
+
+  #modalEditPerfil .tab-pane small {
+    font-size: 0.7rem !important;
+  }
+
+  /* ── 8. PUESTOS CONTAINER: altura adaptada a móvil ── */
+  #modalEditPerfil #puestos-container {
+    max-height: 55vh !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+
+  /* ── 9. MÓDULOS CONTAINER ── */
+  #modalEditPerfil #modulos-container {
+    max-height: 55vh !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+
+  /* ── 10. PERMISOS ESPECIALES CONTAINER ── */
+  #modalEditPerfil #permisos-especiales-container {
+    max-height: 55vh !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    margin-left: 0 !important;               /* quitar indent de desktop */
+    padding-left: 0 !important;
+    border-left: none !important;
+  }
+
+  /* ── 11. BOTÓN EXPANDIR DEPARTAMENTOS ── */
+  #modalEditPerfil #tabPuestos .d-flex.justify-content-between {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 0.5rem !important;
+  }
+
+  #modalEditPerfil #tabPuestos button[onclick="expandirTodosPuestos()"] {
+    width: 100% !important;
+    justify-content: center !important;
+    font-size: 0.8rem !important;
+    padding: 0.5rem 0.75rem !important;
+  }
+
+  /* ── 12. TABLAS dentro de módulos/permisos ── */
+  #modalEditPerfil .table-hover tbody tr:hover {
+    transform: none !important;              /* deshabilitar translateX en touch */
+  }
+
+  /* ── 13. ACCORDION dentro de módulos ── */
+  #modalEditPerfil .accordion-button {
+    font-size: 0.82rem !important;
+    padding: 0.65rem 0.75rem !important;
+  }
+
+  #modalEditPerfil .accordion-body {
+    padding: 0.5rem 0.75rem !important;
+  }
+
+  /* ── 14. INDICADOR "pill" drag para bottom-sheet ── */
+  #modalEditPerfil .modal-content::before {
+    content: '' !important;
+    display: block !important;
+    width: 40px !important;
+    height: 4px !important;
+    background: #dee2e6 !important;
+    border-radius: 2px !important;
+    margin: 0.6rem auto 0 !important;
+    flex-shrink: 0 !important;
+  }
+}
+
+/* ─────────────────────────────────────────────
+   AJUSTE FINO para los más pequeños (360px)
+   ───────────────────────────────────────────── */
+@media (max-width: 375px) {
+
+  #modalEditPerfil .modal-title {
+    font-size: 0.875rem !important;
+  }
+
+  #modalEditPerfil .nav-tabs-custom .nav-link {
+    padding: 0.55rem 0.6rem !important;
+    font-size: 0.68rem !important;
+  }
+
+  #modalEditPerfil .tab-content {
+    padding: 0.75rem !important;
+  }
+}
+
+/* ─────────────────────────────────────────────
+   ANIMACIÓN DE ENTRADA: slide-up desde abajo
+   (reemplaza el fade genérico de Bootstrap)
+   ───────────────────────────────────────────── */
+@media (max-width: 575.98px) {
+
+  #modalEditPerfil.modal .modal-dialog {
+    transition: transform 0.35s cubic-bezier(0.32, 0.72, 0, 1) !important;
+    transform: translateY(100%) !important;
+  }
+
+  #modalEditPerfil.modal.show .modal-dialog {
+    transform: translateY(0) !important;
+  }
+
+  /* Overlay un poco más oscuro en móvil para mejor contraste */
+  #modalEditPerfil.modal .modal-backdrop,
+  body > .modal-backdrop {
+    background-color: rgba(0, 0, 0, 0.6) !important;
+  }
+}
 </style>
+
+
 <script>
 window.miUsuarioId = <?= json_encode((int)($miUsuarioId ?? 0)) ?>;
 window.puedeEditarTodos = <?= json_encode(!empty($puedeEditarTodos ?? false)) ?>;

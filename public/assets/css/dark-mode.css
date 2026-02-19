@@ -476,6 +476,59 @@ body.dark-mode .btn-close {
     filter: invert(1) grayscale(100%) brightness(200%);
 }
 
+/* Modal visor de documentos en dark mode: fondo gris; canvas del PDF con fondo blanco y sin filtros para que el documento se lea bien */
+body.dark-mode #modalDocumento {
+    color-scheme: light;
+}
+body.dark-mode #modalDocumento .modal-dialog,
+body.dark-mode #modalDocumento .modal-content {
+    background: #1e293b !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    border: 1px solid #334155 !important;
+}
+body.dark-mode #modalDocumento .modal-header {
+    background: #334155 !important;
+    border-bottom: 1px solid #334155 !important;
+    color: #ffffff !important;
+}
+body.dark-mode #modalDocumento .modal-title {
+    color: #ffffff !important;
+}
+body.dark-mode #modalDocumento #documentoModalBody {
+    background: #334155 !important;
+    color: #e2e8f0 !important;
+    opacity: 1 !important;
+}
+body.dark-mode #modalDocumento #documentoPdfContainer {
+    background-color: #334155 !important;
+    opacity: 1 !important;
+}
+body.dark-mode #modalDocumento #pdfViewerContainer {
+    background: #475569 !important;
+    opacity: 1 !important;
+}
+/* Canvas del PDF: fondo blanco y sin filtros para que las letras no se vean transparentes (anula la regla global body.dark-mode canvas) */
+body.dark-mode #modalDocumento #pdfCanvas,
+body.dark-mode #modalDocumento canvas {
+    background: #ffffff !important;
+    opacity: 1 !important;
+    filter: none !important;
+}
+body.dark-mode #modalDocumento .btn-close-custom,
+body.dark-mode #modalDocumento .btn-close {
+    filter: brightness(0) invert(1) !important;
+}
+body.dark-mode #modalDocumento .btn-close-custom::before {
+    color: #ffffff !important;
+}
+body.dark-mode #modalDocumento #pdfControls,
+body.dark-mode #modalDocumento [id^="pdfOverlay"] {
+    background-color: rgba(30, 41, 59, 0.95) !important;
+    color: #ffffff !important;
+    border: 1px solid #475569 !important;
+}
+
 /* ==========================================
    OFFCANVAS
    ========================================== */
@@ -908,6 +961,18 @@ body.dark-mode .text-primary {
 
 body.dark-mode .text-secondary {
     color: #b8b8c1 !important;
+}
+
+body.dark-mode .text-success,
+body.dark-mode i.text-success,
+body.dark-mode .fa-check-circle.text-success {
+    color: #22c55e !important;
+}
+
+body.dark-mode .text-danger,
+body.dark-mode i.text-danger,
+body.dark-mode .fa-times-circle.text-danger {
+    color: #f87171 !important;
 }
 
 body.dark-mode a {
@@ -3084,6 +3149,19 @@ body.dark-mode .btn-label-secondary:hover {
     color: #b8b8c1 !important;
 }
 
+/* Botón Cancelar (btn-label-danger): modo oscuro, sin fondo claro */
+body.dark-mode .btn-label-danger {
+    background-color: rgba(185, 28, 28, 0.25) !important;
+    border-color: rgba(185, 28, 28, 0.5) !important;
+    color: #fca5a5 !important;
+}
+
+body.dark-mode .btn-label-danger:hover {
+    background-color: rgba(185, 28, 28, 0.4) !important;
+    border-color: rgba(220, 38, 38, 0.7) !important;
+    color: #fecaca !important;
+}
+
 /* Controles de zoom */
 body.dark-mode .zoom-controls {
     display: flex;
@@ -3218,29 +3296,51 @@ body.dark-mode .select-search-wrapper .form-select {
     display: none !important;
 }
 
-/* Chart container */
+/* ========== Organigrama - Modo oscuro elegante ========== */
+/* Contenedor: gradiente sutil, borde y sombra */
 body.dark-mode #chart-container {
-    background-color: #252525 !important;
-    border-color: #3a3a3a !important;
+    background: linear-gradient(160deg, #1e293b 0%, #0f172a 50%, #0c1222 100%) !important;
+    border: 1px solid #334155 !important;
+    border-radius: 12px !important;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.04), 0 8px 32px rgba(0,0,0,.45) !important;
 }
 
 body.dark-mode #orgTituloSeleccion {
-    color: #e0e0e0 !important;
+    color: #e2e8f0 !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.02em !important;
+    text-shadow: 0 1px 2px rgba(0,0,0,.25) !important;
 }
 
-/* Nodos del organigrama */
+/* Nodos: gradiente, borde fino, sombra y esquinas redondeadas */
+body.dark-mode .google-visualization-orgchart-node {
+    background: linear-gradient(180deg, #334155 0%, #1e293b 100%) !important;
+    border: 1px solid #475569 !important;
+    border-radius: 10px !important;
+    box-shadow: 0 4px 14px rgba(0,0,0,.4), 0 1px 0 rgba(255,255,255,.06) inset !important;
+    transition: box-shadow .2s ease, border-color .2s ease !important;
+}
+
+body.dark-mode .google-visualization-orgchart-node:hover {
+    border-color: #64748b !important;
+    box-shadow: 0 6px 20px rgba(0,0,0,.5), 0 1px 0 rgba(255,255,255,.08) inset !important;
+}
+
+/* Nombre: azul suave */
 body.dark-mode .org-nombre {
-    color: #6ea8fe !important;
+    color: #93c5fd !important;
 }
 
 body.dark-mode .org-puesto {
-    color: #b8b8c1 !important;
+    color: #94a3b8 !important;
 }
 
-body.dark-mode .google-visualization-orgchart-node {
-    background-color: #303030 !important;
-    border-color: #3a3a3a !important;
-    color: #e0e0e0 !important;
+/* Líneas conectoras del árbol */
+body.dark-mode .google-visualization-orgchart-lineleft,
+body.dark-mode .google-visualization-orgchart-lineright,
+body.dark-mode .google-visualization-orgchart-linebottom,
+body.dark-mode .google-visualization-orgchart-line {
+    border-color: #475569 !important;
 }
 
 /* ==========================================
@@ -3863,6 +3963,209 @@ body.dark-mode #modalMapaGrande #rastreoMapaGrandeContenedor .gm-style div[style
     background-image: revert !important;
 }
 
+/* Panel admin del mapa (Google Maps InfoWindow): modo oscuro — después del revert para que no se pise */
+body.dark-mode #modalRastreoCredito #rastreoMapaLeaflet .gm-style-iw,
+body.dark-mode #modalRastreoCredito #rastreoMapaLeaflet .gm-style-iw-c,
+body.dark-mode #modalRastreoCredito #rastreoMapaLeaflet .gm-style-iw-d,
+body.dark-mode #modalMapaGrande #rastreoMapaGrandeContenedor .gm-style-iw,
+body.dark-mode #modalMapaGrande #rastreoMapaGrandeContenedor .gm-style-iw-c,
+body.dark-mode #modalMapaGrande #rastreoMapaGrandeContenedor .gm-style-iw-d,
+body.dark-mode #modalMapaAlternasGrande #rastreoMapaAlternasGrandeContenedor .gm-style-iw,
+body.dark-mode #modalMapaAlternasGrande #rastreoMapaAlternasGrandeContenedor .gm-style-iw-c,
+body.dark-mode #modalMapaAlternasGrande #rastreoMapaAlternasGrandeContenedor .gm-style-iw-d {
+    background-color: #252525 !important;
+    background: #252525 !important;
+    color: #e8e8e8 !important;
+    border: none !important;
+    outline: none !important;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4) !important;
+}
+/* Quitar bordes/rectángulos blancos del popup (mapa direcciones alternas y todos): todo el contenedor del InfoWindow */
+body.dark-mode #modalMapaAlternasGrande #rastreoMapaAlternasGrandeContenedor [class*="gm-style-iw"],
+body.dark-mode #modalMapaAlternasGrande #rastreoMapaAlternasGrandeContenedor [class*="gm-style-iw"] *,
+body.dark-mode #modalRastreoCredito #rastreoMapaLeaflet [class*="gm-style-iw"],
+body.dark-mode #modalRastreoCredito #rastreoMapaLeaflet [class*="gm-style-iw"] *,
+body.dark-mode #modalMapaGrande #rastreoMapaGrandeContenedor [class*="gm-style-iw"],
+body.dark-mode #modalMapaGrande #rastreoMapaGrandeContenedor [class*="gm-style-iw"] * {
+    border-color: #252525 !important;
+    outline: none !important;
+}
+body.dark-mode #modalMapaAlternasGrande #rastreoMapaAlternasGrandeContenedor div[style*="position: absolute"][style*="z-index"]:has([class*="gm-style-iw"]),
+body.dark-mode #modalRastreoCredito #rastreoMapaLeaflet div[style*="position: absolute"]:has([class*="gm-style-iw"]),
+body.dark-mode #modalMapaGrande #rastreoMapaGrandeContenedor div[style*="position: absolute"]:has([class*="gm-style-iw"]) {
+    border: none !important;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.5) !important;
+}
+body.dark-mode #modalRastreoCredito #rastreoMapaLeaflet .gm-style-iw strong,
+body.dark-mode #modalMapaGrande #rastreoMapaGrandeContenedor .gm-style-iw strong,
+body.dark-mode #modalMapaAlternasGrande #rastreoMapaAlternasGrandeContenedor .gm-style-iw strong {
+    color: #f0f0f0 !important;
+}
+/* Scrollbar del popup del mapa: oscura en modo oscuro (ya no blanca) */
+body.dark-mode #modalRastreoCredito #rastreoMapaLeaflet .gm-style-iw-d,
+body.dark-mode #modalMapaGrande #rastreoMapaGrandeContenedor .gm-style-iw-d,
+body.dark-mode #modalMapaAlternasGrande #rastreoMapaAlternasGrandeContenedor .gm-style-iw-d {
+    scrollbar-color: #555 #252525 !important;
+}
+body.dark-mode #modalRastreoCredito #rastreoMapaLeaflet .gm-style-iw-d::-webkit-scrollbar,
+body.dark-mode #modalMapaGrande #rastreoMapaGrandeContenedor .gm-style-iw-d::-webkit-scrollbar,
+body.dark-mode #modalMapaAlternasGrande #rastreoMapaAlternasGrandeContenedor .gm-style-iw-d::-webkit-scrollbar {
+    width: 8px !important;
+    height: 8px !important;
+}
+body.dark-mode #modalRastreoCredito #rastreoMapaLeaflet .gm-style-iw-d::-webkit-scrollbar-track,
+body.dark-mode #modalMapaGrande #rastreoMapaGrandeContenedor .gm-style-iw-d::-webkit-scrollbar-track,
+body.dark-mode #modalMapaAlternasGrande #rastreoMapaAlternasGrandeContenedor .gm-style-iw-d::-webkit-scrollbar-track {
+    background: #252525 !important;
+}
+body.dark-mode #modalRastreoCredito #rastreoMapaLeaflet .gm-style-iw-d::-webkit-scrollbar-thumb,
+body.dark-mode #modalMapaGrande #rastreoMapaGrandeContenedor .gm-style-iw-d::-webkit-scrollbar-thumb,
+body.dark-mode #modalMapaAlternasGrande #rastreoMapaAlternasGrandeContenedor .gm-style-iw-d::-webkit-scrollbar-thumb {
+    background: #555 !important;
+    border-radius: 4px !important;
+}
+body.dark-mode #modalRastreoCredito #rastreoMapaLeaflet .gm-style-iw-d::-webkit-scrollbar-thumb:hover,
+body.dark-mode #modalMapaGrande #rastreoMapaGrandeContenedor .gm-style-iw-d::-webkit-scrollbar-thumb:hover,
+body.dark-mode #modalMapaAlternasGrande #rastreoMapaAlternasGrandeContenedor .gm-style-iw-d::-webkit-scrollbar-thumb:hover {
+    background: #666 !important;
+}
+body.dark-mode #modalRastreoCredito #rastreoMapaLeaflet .gm-style-iw-t,
+body.dark-mode #modalMapaGrande #rastreoMapaGrandeContenedor .gm-style-iw-t,
+body.dark-mode #modalMapaAlternasGrande #rastreoMapaAlternasGrandeContenedor .gm-style-iw-t {
+    background: #252525 !important;
+}
+/* Botón cerrar (X) del popup: el icono es un span con mask-image; fondo blanco = X blanca (solo en modo oscuro) */
+body.dark-mode #modalRastreoCredito #rastreoMapaLeaflet .gm-style-iw-tc,
+body.dark-mode #modalMapaGrande #rastreoMapaGrandeContenedor .gm-style-iw-tc,
+body.dark-mode #modalMapaAlternasGrande #rastreoMapaAlternasGrandeContenedor .gm-style-iw-tc,
+body.dark-mode #modalRastreoCredito #rastreoMapaLeaflet .gm-style-iw-tc *,
+body.dark-mode #modalMapaGrande #rastreoMapaGrandeContenedor .gm-style-iw-tc *,
+body.dark-mode #modalMapaAlternasGrande #rastreoMapaAlternasGrandeContenedor .gm-style-iw-tc * {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+body.dark-mode #modalRastreoCredito #rastreoMapaLeaflet button.gm-ui-hover-effect,
+body.dark-mode #modalMapaGrande #rastreoMapaGrandeContenedor button.gm-ui-hover-effect,
+body.dark-mode #modalMapaAlternasGrande #rastreoMapaAlternasGrandeContenedor button.gm-ui-hover-effect {
+    background: transparent !important;
+    border: none !important;
+}
+body.dark-mode #modalRastreoCredito #rastreoMapaLeaflet button.gm-ui-hover-effect span,
+body.dark-mode #modalMapaGrande #rastreoMapaGrandeContenedor button.gm-ui-hover-effect span,
+body.dark-mode #modalMapaAlternasGrande #rastreoMapaAlternasGrandeContenedor button.gm-ui-hover-effect span {
+    background-color: #ffffff !important;
+    background: #ffffff !important;
+    -webkit-mask-size: contain !important;
+    -webkit-mask-repeat: no-repeat !important;
+    -webkit-mask-position: center !important;
+    mask-size: contain !important;
+    mask-repeat: no-repeat !important;
+    mask-position: center !important;
+}
+body.dark-mode #modalRastreoCredito #rastreoMapaLeaflet .gm-style-iw-tc .gm-ui-hover-effect,
+body.dark-mode #modalMapaGrande #rastreoMapaGrandeContenedor .gm-style-iw-tc .gm-ui-hover-effect,
+body.dark-mode #modalMapaAlternasGrande #rastreoMapaAlternasGrandeContenedor .gm-style-iw-tc .gm-ui-hover-effect {
+    background: transparent !important;
+}
+/* Quitar triángulo blanco en la esquina del popup (punta del InfoWindow) */
+body.dark-mode #modalRastreoCredito #rastreoMapaLeaflet .gm-style-iw-t,
+body.dark-mode #modalMapaGrande #rastreoMapaGrandeContenedor .gm-style-iw-t,
+body.dark-mode #modalMapaAlternasGrande #rastreoMapaAlternasGrandeContenedor .gm-style-iw-t,
+body.dark-mode #modalRastreoCredito #rastreoMapaLeaflet .gm-style-iw-b,
+body.dark-mode #modalMapaGrande #rastreoMapaGrandeContenedor .gm-style-iw-b,
+body.dark-mode #modalMapaAlternasGrande #rastreoMapaAlternasGrandeContenedor .gm-style-iw-b {
+    background: #252525 !important;
+    border-color: #252525 !important;
+    box-shadow: none !important;
+}
+body.dark-mode #modalRastreoCredito #rastreoMapaLeaflet .gm-style-iw a,
+body.dark-mode #modalMapaGrande #rastreoMapaGrandeContenedor .gm-style-iw a,
+body.dark-mode #modalMapaAlternasGrande #rastreoMapaAlternasGrandeContenedor .gm-style-iw a {
+    color: #6ea8fe !important;
+}
+
+/* Controles del mapa (Mapa / Satélite): texto negro en modo oscuro (mapa minimizado y ampliado) */
+body.dark-mode #modalRastreoCredito #rastreoMapaLeaflet .gm-style-mtc,
+body.dark-mode #modalRastreoCredito #rastreoMapaLeaflet .gm-style-mtc *,
+body.dark-mode #modalRastreoCredito #rastreoMapaAlternas .gm-style-mtc,
+body.dark-mode #modalRastreoCredito #rastreoMapaAlternas .gm-style-mtc *,
+body.dark-mode #modalMapaGrande #rastreoMapaGrandeContenedor .gm-style-mtc,
+body.dark-mode #modalMapaGrande #rastreoMapaGrandeContenedor .gm-style-mtc *,
+body.dark-mode #modalMapaAlternasGrande #rastreoMapaAlternasGrandeContenedor .gm-style-mtc,
+body.dark-mode #modalMapaAlternasGrande #rastreoMapaAlternasGrandeContenedor .gm-style-mtc * {
+    color: #1a1a1a !important;
+}
+body.dark-mode #modalRastreoCredito #rastreoMapaAlternas [class*="gm-style-mtc"],
+body.dark-mode #modalRastreoCredito #rastreoMapaAlternas [class*="gm-style-mtc"] *,
+body.dark-mode #modalRastreoCredito #rastreoMapaAlternas [class*="mtc"] {
+    color: #1a1a1a !important;
+}
+body.dark-mode #modalRastreoCredito #rastreoMapaLeaflet [class*="gm-style-mtc"],
+body.dark-mode #modalRastreoCredito #rastreoMapaLeaflet [class*="gm-style-mtc"] *,
+body.dark-mode #modalRastreoCredito #rastreoMapaLeaflet [class*="mtc"] {
+    color: #1a1a1a !important;
+}
+/* Direcciones alternas: mismo estilo para controles Mapa/Satélite (por si el DOM usa otra jerarquía) */
+body.dark-mode #modalMapaAlternasGrande #rastreoMapaAlternasGrandeContenedor [class*="gm-style-mtc"],
+body.dark-mode #modalMapaAlternasGrande #rastreoMapaAlternasGrandeContenedor [class*="gm-style-mtc"] *,
+body.dark-mode #modalMapaAlternasGrande #rastreoMapaAlternasGrandeContenedor [class*="mtc"] {
+    color: #1a1a1a !important;
+}
+body.dark-mode #modalMapaAlternasGrande #rastreoMapaAlternasGrandeContenedor [class*="mtc"] button,
+body.dark-mode #modalMapaAlternasGrande #rastreoMapaAlternasGrandeContenedor [class*="mtc"] div[role="button"] {
+    background-color: rgba(255, 255, 255, 0.95) !important;
+    color: #1a1a1a !important;
+}
+body.dark-mode #modalRastreoCredito #rastreoMapaLeaflet .gm-style-mtc button,
+body.dark-mode #modalRastreoCredito #rastreoMapaLeaflet [class*="mtc"] button,
+body.dark-mode #modalRastreoCredito #rastreoMapaAlternas .gm-style-mtc button,
+body.dark-mode #modalRastreoCredito #rastreoMapaAlternas [class*="mtc"] button,
+body.dark-mode #modalMapaGrande #rastreoMapaGrandeContenedor .gm-style-mtc button,
+body.dark-mode #modalMapaAlternasGrande #rastreoMapaAlternasGrandeContenedor .gm-style-mtc button,
+body.dark-mode #modalMapaAlternasGrande #rastreoMapaAlternasGrandeContenedor [class*="gm-style-mtc"] button {
+    background-color: rgba(255, 255, 255, 0.95) !important;
+    color: #1a1a1a !important;
+}
+
+/* Modal Mapa – Direcciones alternas: filtro por gestor y leyenda en modo oscuro */
+body.dark-mode #modalMapaAlternasGrande .rastreo-filtro-gestor-overlay {
+    background: rgba(37, 37, 37, 0.97) !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4) !important;
+    color: #e8e8e8 !important;
+}
+body.dark-mode #modalMapaAlternasGrande .rastreo-filtro-gestor-overlay .text-muted,
+body.dark-mode #modalMapaAlternasGrande .rastreo-filtro-gestor-overlay .rastreo-leyenda-mapa-grande {
+    color: #c8c8d0 !important;
+}
+body.dark-mode #modalMapaAlternasGrande .rastreo-filtro-gestor-overlay label,
+body.dark-mode #modalMapaAlternasGrande .rastreo-filtro-gestor-overlay label span:not([style*="width"]) {
+    color: #e8e8e8 !important;
+}
+body.dark-mode #modalMapaAlternasGrande .rastreo-filtro-gestor-overlay .rastreo-leyenda-conteo {
+    color: #e8e8e8 !important;
+}
+body.dark-mode #modalMapaAlternasGrande .rastreo-filtro-gestor-overlay .form-check-input {
+    background-color: #404040 !important;
+    border-color: #606070 !important;
+}
+/* Leyenda: colores como en modo claro (Rosa, Verde, Carmelita, Azul, Gestores) */
+body.dark-mode #modalMapaAlternasGrande .rastreo-leyenda-mapa-grande .d-block:nth-child(1) span[style*="color"] {
+    color: #ec4899 !important;
+}
+body.dark-mode #modalMapaAlternasGrande .rastreo-leyenda-mapa-grande .d-block:nth-child(2) span[style*="color"] {
+    color: #22c55e !important;
+}
+body.dark-mode #modalMapaAlternasGrande .rastreo-leyenda-mapa-grande .d-block:nth-child(3) span[style*="color"] {
+    color: #b8860b !important;
+}
+body.dark-mode #modalMapaAlternasGrande .rastreo-leyenda-mapa-grande .d-block:nth-child(4) span[style*="color"] {
+    color: #2563eb !important;
+}
+body.dark-mode #modalMapaAlternasGrande .rastreo-leyenda-mapa-grande .d-block:nth-child(5) span {
+    color: #d4d4e0 !important;
+}
+
 /* Contenido de IA */
 body.dark-mode #modalRastreoCredito #rastreoAnalizarIAContenido {
     border-top-color: #3a3a3a !important;
@@ -4372,4 +4675,218 @@ body.dark-mode .eq-drop-zone {
 body.dark-mode .eq-drop-zone.drag-over {
     background-color: rgba(110, 168, 254, 0.12) !important;
     border-color: #6ea8fe !important;
+
+    /* ==========================================
+   GESTIONES 1-7 - DARK MODE ESPECÍFICO
+   ========================================== */
+
+/* Columna congelada (primera columna) en dark mode */
+body.dark-mode #tabla-reportes th:first-child,
+body.dark-mode #tabla-reportes td:first-child {
+    background: #1e293b !important;  /* Mismo color que las filas */
+    box-shadow: 2px 0 5px -2px rgba(0, 0, 0, 0.5) !important;
+}
+
+/* Header de columna congelada */
+body.dark-mode #tabla-reportes thead th:first-child {
+    background: rgba(51, 65, 85, 0.92) !important;
+    backdrop-filter: blur(10px);
+}
+
+/* Sombra decorativa */
+body.dark-mode #tabla-reportes td:first-child::after {
+    background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.05)) !important;
+}
+
+/* Fila seleccionada (como en Excel) */
+body.dark-mode #tabla-reportes tbody tr.selected {
+    background-color: #2d3a4f !important;  /* Azul oscuro para selección */
+}
+
+body.dark-mode #tabla-reportes tbody tr.selected td:first-child {
+    background-color: #2d3a4f !important;
+}
+
+/* Hover en filas */
+body.dark-mode #tabla-reportes tbody tr:hover {
+    background-color: #3a4a62 !important;
+}
+
+body.dark-mode #tabla-reportes tbody tr:hover td:first-child {
+    background-color: #3a4a62 !important;
+}
+
+/* Badge de WhatsApp en dark mode */
+body.dark-mode .badge-whatsapp {
+    background-color: #25D366 !important;  /* Mantener el verde original */
+    color: #ffffff !important;
+    box-shadow: 0 2px 4px rgba(37, 211, 102, 0.3) !important;
+}
+
+/* Badges de estatus */
+body.dark-mode .badge.bg-success {
+    background-color: #198754 !important;
+    color: #ffffff !important;
+}
+
+body.dark-mode .badge.bg-warning {
+    background-color: #ffc107 !important;
+    color: #000000 !important;
+}
+
+body.dark-mode .badge.bg-secondary {
+    background-color: #4a5a72 !important;
+    color: #e0e0e0 !important;
+}
+
+/* Resaltado de animaciones */
+body.dark-mode .highlight-change {
+    animation: highlight-pulse-dark 1s ease !important;
+    color: #4ade80 !important;
+}
+
+@keyframes highlight-pulse-dark {
+    0% { 
+        background-color: #2d6a4f;
+        transform: scale(1);
+    }
+    50% { 
+        background-color: #40916c;
+        transform: scale(1.02);
+    }
+    100% { 
+        background-color: transparent;
+        transform: scale(1);
+    }
+}
+
+/* Footer de totales */
+body.dark-mode #tabla-reportes tfoot tr {
+    background-color: #1e293b !important;
+}
+
+body.dark-mode #tabla-reportes tfoot td {
+    background-color: #1e293b !important;
+    color: #f1f5f9 !important;
+    border-top: 2px solid #3a4a62 !important;
+}
+
+/* Primera columna del footer también congelada */
+body.dark-mode #tabla-reportes tfoot td:first-child {
+    background-color: #1e293b !important;
+    box-shadow: 2px 0 5px -2px rgba(0, 0, 0, 0.5) !important;
+}
+
+/* Scrollbar personalizada para dark mode */
+body.dark-mode .table-responsive::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+body.dark-mode .table-responsive::-webkit-scrollbar-track {
+    background: #1a1a1a;
+}
+
+body.dark-mode .table-responsive::-webkit-scrollbar-thumb {
+    background: #3a4a62;
+    border-radius: 5px;
+}
+
+body.dark-mode .table-responsive::-webkit-scrollbar-thumb:hover {
+    background: #4a5a72;
+}
+
+/* Indicador de selección flotante */
+body.dark-mode .selection-info {
+    background: #1e293b !important;
+    border-left: 3px solid #6ea8fe !important;
+    color: #f1f5f9 !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5) !important;
+}
+
+/* Botón de pausa/play del auto-refresh */
+body.dark-mode #toggle-refresh {
+    background-color: #1e293b !important;
+    border-color: #3a4a62 !important;
+    color: #f1f5f9 !important;
+}
+
+body.dark-mode #toggle-refresh:hover {
+    background-color: #3a4a62 !important;
+    border-color: #4a5a72 !important;
+}
+
+/* Select de campaña */
+body.dark-mode #filtro-campana {
+    background-color: #1e293b !important;
+    border-color: #3a4a62 !important;
+    color: #f1f5f9 !important;
+}
+
+/* Checkboxes de "Fuera de Zona" */
+body.dark-mode .form-check-input {
+    background-color: #1e293b !important;
+    border-color: #3a4a62 !important;
+}
+
+body.dark-mode .form-check-input:checked {
+    background-color: #6ea8fe !important;
+    border-color: #6ea8fe !important;
+}
+
+body.dark-mode .form-check-label {
+    color: #f1f5f9 !important;
+}
+
+/* Loader de SweetAlert en dark mode */
+body.dark-mode .swal2-popup {
+    background: #1e293b !important;
+    color: #f1f5f9 !important;
+}
+
+body.dark-mode .swal2-title {
+    color: #ffffff !important;
+}
+
+body.dark-mode .swal2-html-container {
+    color: #f1f5f9 !important;
+}
+
+/* ==========================================
+   ACORDEÓN DE CAMPAÑAS (cuando lo implementes)
+   ========================================== */
+body.dark-mode .accordion-item {
+    background-color: #1e293b !important;
+    border-color: #3a4a62 !important;
+}
+
+body.dark-mode .accordion-button {
+    background-color: #2d3a4f !important;
+    color: #f1f5f9 !important;
+}
+
+body.dark-mode .accordion-button:not(.collapsed) {
+    background-color: #3a4a62 !important;
+    color: #6ea8fe !important;
+}
+
+body.dark-mode .accordion-body {
+    background-color: #1e293b !important;
+}
+
+body.dark-mode .list-group-item {
+    background-color: #1e293b !important;
+    border-color: #3a4a62 !important;
+    color: #f1f5f9 !important;
+}
+
+body.dark-mode .list-group-item:hover {
+    background-color: #2d3a4f !important;
+    color: #6ea8fe !important;
+}
+
+body.dark-mode .list-group-item.active {
+    background-color: #6ea8fe !important;
+    color: #ffffff !important;
+}
 }

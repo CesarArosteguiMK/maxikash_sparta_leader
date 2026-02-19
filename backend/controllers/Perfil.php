@@ -7,13 +7,6 @@ use Models\Perfil as PerfilDao;
 
 class Perfil extends Controller
 {
-    /** Usuarios que ven el dashboard Maxikash (ids 1, 877, 878) */
-    private static function esUsuarioDashboardMaxikash()
-    {
-        $usuarioId = (int) ($_SESSION['usuario_id'] ?? 0);
-        return in_array($usuarioId, [1, 877, 878], true);
-    }
-
     /** Combina datos de perfil y persona: si no hay en perfil, usa persona (__SPARTA_SECRET_REDACTED__). */
     private static function mergePerfilPersona($perfil, $persona)
     {
@@ -61,10 +54,6 @@ class Perfil extends Controller
 
     public function index()
     {
-        if (!self::esUsuarioDashboardMaxikash()) {
-            header('Location: /inicio');
-            exit;
-        }
         $idPersona = (int) ($_SESSION['usuario_id'] ?? 0);
         $perfil = $idPersona > 0 ? PerfilDao::getByPersonaId($idPersona) : null;
         $persona = $idPersona > 0 ? PerfilDao::getPersonaById($idPersona) : null;
@@ -80,7 +69,7 @@ class Perfil extends Controller
      */
     public function guardar()
     {
-        if (!isset($_SESSION['usuario_id']) || !self::esUsuarioDashboardMaxikash()) {
+        if (!isset($_SESSION['usuario_id'])) {
             header('Location: /login');
             exit;
         }
@@ -165,7 +154,7 @@ class Perfil extends Controller
      */
     public function eliminarFoto()
     {
-        if (!isset($_SESSION['usuario_id']) || !self::esUsuarioDashboardMaxikash()) {
+        if (!isset($_SESSION['usuario_id'])) {
             header('Location: /login');
             exit;
         }

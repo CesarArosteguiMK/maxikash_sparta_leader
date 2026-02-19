@@ -1,11 +1,18 @@
 <?php
 
-define('TOKEN', '__SPARTA_TOKEN_REDACTED__');  // tu token real
-
-define('ENDPOINT', 'https://servicios.s2movil.net/s2__SPARTA_SECRET_REDACTED__/estadocuenta'); // tu endpoint real
-
-// API key para crear tickets desde el bot de WhatsApp (cabecera X-API-Key o body api_key).
-define('TICKET_WHATSAPP_API_KEY', 'cambiar_clave_secreta_whatsapp_' . md5('sparta___SPARTA_SECRET_REDACTED__'));
+// Preferir variables de entorno en producción; no commitear valores reales.
+if (!defined('TOKEN')) {
+    $t = getenv('TOKEN');
+    define('TOKEN', ($t !== false && $t !== '') ? $t : '__SPARTA_TOKEN_REDACTED__');
+}
+if (!defined('ENDPOINT')) {
+    $e = getenv('ENDPOINT');
+    define('ENDPOINT', ($e !== false && $e !== '') ? $e : 'https://servicios.s2movil.net/s2__SPARTA_SECRET_REDACTED__/estadocuenta');
+}
+if (!defined('TICKET_WHATSAPP_API_KEY')) {
+    $k = getenv('TICKET_WHATSAPP_API_KEY');
+    define('TICKET_WHATSAPP_API_KEY', ($k !== false && $k !== '') ? $k : 'cambiar_clave_secreta_whatsapp_' . md5('sparta___SPARTA_SECRET_REDACTED__'));
+}
 
 // --- API keys desde BD (tabla config_api, valor en texto plano). ---
 // No se usa clave maestra; se lee directamente. Para no mostrar en pantalla use config_api_for_display().

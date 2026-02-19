@@ -31,16 +31,17 @@ class Gestiones extends Model
         WHERE 1=1
 SQL;
 
+        $params = [];
         if (!empty($nombre)) {
-            $nombre = "%{$nombre}%";
-            $query .= " AND nombre_completo_cliente LIKE '{$nombre}'";
+            $params['nombre'] = '%' . $nombre . '%';
+            $query .= " AND nombre_completo_cliente LIKE :nombre";
         } else {
-            $query .= " AND id_credito = '{$credito}'";
+            $params['credito'] = $credito;
+            $query .= " AND id_credito = :credito";
         }
-
         $query .= " ORDER BY base_clientes.fecha_dispositivo DESC";
 
-        $res_u = $mysqli->queryAll($query);
+        $res_u = $mysqli->queryAll($query, $params);
 
 
 
@@ -157,11 +158,11 @@ SQL;
             WHEN u.gerente_id IS NOT NULL THEN u.gerente_id
             ELSE u.subdirector_id
         END
-    WHERE t.credit_number = '{$credito}'
+    WHERE t.credit_number = :credito
     ORDER BY d.created_at DESC
 SQL;
 
-        $legacyData = $mysqli->queryAll($query);
+        $legacyData = $mysqli->queryAll($query, ['credito' => $credito]);
         
         // Si no hay datos de Legacy, retornar vacío
         if (empty($legacyData)) {
@@ -200,12 +201,12 @@ SQL;
         promesa_pago, porque_atraso_pago, motivo_negativa,
         images, ubicacion_usuario
     FROM base_clientes 
-    WHERE id_credito = '{$credito}'
+    WHERE id_credito = :credito
     ORDER BY fecha_dispositivo DESC
     LIMIT 1
 SQL;
 
-        $result = $db->queryAll($query);
+        $result = $db->queryAll($query, ['credito' => $credito]);
         return !empty($result) ? $result[0] : null;
     }
 
@@ -263,16 +264,17 @@ SQL;
     WHERE 1=1
 SQL;
 
+        $params = [];
         if (!empty($nombre)) {
-            $nombre = "%{$nombre}%";
-            $query .= " AND nombre_completo_cliente LIKE '{$nombre}'";
+            $params['nombre'] = '%' . $nombre . '%';
+            $query .= " AND nombre_completo_cliente LIKE :nombre";
         } else {
-            $query .= " AND id_credito = '{$credito}'";
+            $params['credito'] = $credito;
+            $query .= " AND id_credito = :credito";
         }
-
         $query .= " ORDER BY fecha_dispositivo DESC";
 
-        return $mysqli->queryAll($query);
+        return $mysqli->queryAll($query, $params);
     }
 
     /**

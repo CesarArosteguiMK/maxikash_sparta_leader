@@ -8,23 +8,12 @@ use Models\Usuarios as UsuariosDao;
 
 class Inicio extends Controller
 {
-    /** Usuarios que ven el dashboard Maxikash en inicio (ids 1, 877, 878) */
-    private static function esUsuarioDashboardMaxikash()
-    {
-        $usuarioId = (int) ($_SESSION['usuario_id'] ?? 0);
-        return in_array($usuarioId, [1, 877, 878], true);
-    }
-
     public function index()
     {
         $this->validarActualizacionPassword();
-        if (self::esUsuarioDashboardMaxikash()) {
-            require_once dirname(__DIR__) . '/config/menu_accesos_inicio.php';
-            $this->set('accesosRapidos', getAccesosRapidosDesdeModulos());
-            self::render("inicio___SPARTA_SECRET_REDACTED___contenido", false);
-            return;
-        }
-        self::render("inicio");
+        require_once dirname(__DIR__) . '/config/menu_accesos_inicio.php';
+        $this->set('accesosRapidos', getAccesosRapidosDesdeModulos());
+        self::render("inicio___SPARTA_SECRET_REDACTED___contenido", false);
     }
 
     /**
@@ -496,12 +485,9 @@ class Inicio extends Controller
             return;
         }
 
-        // Calcular SHA256 del usuario (como se guarda en PASS)
-        $usuarioHash = strtoupper(hash('sha256', $usuarioSesion));
-
         $excluirUsuarios = ['ALSO', 'ALSO']; // usuarios que NO deben actualizar
-        // Comparar con el campo PASS
-        if ($usuarioData['PASS'] === $usuarioHash && !in_array($usuarioSesion, $excluirUsuarios)) {
+        // Si la contraseña es igual al usuario (comparación directa), pedir cambio
+        if ($usuarioData['PASS'] === $usuarioSesion && !in_array($usuarioSesion, $excluirUsuarios)) {
             // SweetAlert2 para actualizar contraseña
             $usuarioSesion = $_SESSION['usuario'] ?? '';
             echo <<<HTML

@@ -7,6 +7,16 @@
 header_remove('X-Powered-By');
 header_remove('Server');
 
+// Headers de seguridad
+header('X-Frame-Options: SAMEORIGIN');
+header('X-Content-Type-Options: nosniff');
+header('X-XSS-Protection: 1; mode=block');
+header('Referrer-Policy: strict-origin-when-cross-origin');
+header('Content-Security-Policy: default-src \'self\'; script-src \'self\' \'unsafe-inline\' \'unsafe-eval\' https://maps.googleapis.com https://*.googleapis.com https://www.gstatic.com https://*.gstatic.com https://cdnjs.cloudflare.com; style-src \'self\' \'unsafe-inline\' https://fonts.googleapis.com https://fonts.gstatic.com https://www.gstatic.com https://*.gstatic.com https://cdnjs.cloudflare.com; font-src \'self\' https://fonts.gstatic.com https://www.gstatic.com https://*.gstatic.com; img-src \'self\' data: https: blob: http://98.90.194.116; connect-src \'self\' https://*.googleapis.com https://*.gstatic.com http://98.90.194.116; frame-src \'self\' https://www.google.com https://maps.google.com https://*.google.com; frame-ancestors \'self\';');
+if (!empty($_SERVER['HTTPS']) && strtolower($_SERVER['HTTPS']) !== 'off') {
+    header('Strict-Transport-Security: max-age=31536000; includeSubDomains; preload');
+}
+
 /*
 |--------------------------------------------------------------------------
 | DEFINICIÓN DE CONSTANTES (ANTES DE AUTOLOAD Y CONFIG)
@@ -94,16 +104,29 @@ $urlSolicitada = isset($_GET['url'])
     ? explode('/', filter_var(rtrim($_GET['url'], '/'), FILTER_SANITIZE_URL))
     : [''];
 
+// Ruta de diagnóstico deshabilitada por seguridad (no exponer phpinfo en producción)
 if ($urlSolicitada[0] === 'plat_desc') {
-    phpinfo();
+    header('HTTP/1.0 404 Not Found');
     exit;
 }
 
-// Si la URL solicitada no es un archivo PHP, se verifica su existencia
+// Si la URL solicitada no es un archivo PHP, se verifica su existencia (evitar path traversal)
 $extension = pathinfo(end($urlSolicitada), PATHINFO_EXTENSION);
-if ($extension !== '' && strtolower($extension) !== 'php') {
-    $rutaArchivo = dirname(__DIR__) . '/' . $_GET['url'];
-    if (!file_exists($rutaArchivo)) header('HTTP/1.0 404 Not Found');
+if ($extension !== '' && strtolower($extension) !== 'php' && isset($_GET['url'])) {
+    $base = realpath(dirname(__DIR__));
+    $urlSegura = str_replace(['../', '..\\'], '', trim($_GET['url'], "/\\"));
+    $candidato = $base . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $urlSegura);
+    $resuelto = @realpath($candidato);
+    $baseNorm = str_replace('\\', '/', $base);
+    $resueltoNorm = $resuelto ? str_replace('\\', '/', $resuelto) : '';
+    if ($resuelto === false || $resueltoNorm === '' || strpos(strtolower($resueltoNorm), strtolower($baseNorm)) !== 0) {
+        header('HTTP/1.0 404 Not Found');
+        exit;
+    }
+    if (!is_file($resuelto)) {
+        header('HTTP/1.0 404 Not Found');
+        exit;
+    }
     exit;
 }
 
@@ -164,7 +187,7 @@ $rutasModulos = [
     'indicadores/detalleClientes' => [30], 'indicadores/detalleEficiencia' => [31], 'indicadores/carteraInicioSem' => [32],
     'indicadores/seguimientoPromesasPago' => [33], 'indicadores/espartanos' => [34], 'indicadores/matrizBuckets' => [35],
     'indicadores/matrizBucketsMas1' => [36], 'indicadores/auditoria' => [37], 'indicadores/auditoria2' => [38], 'indicadores/seguimiento' => [39],
-    'caphum/gestion' => [4], 'caphum/bajas' => [13], 'caphum/organigrama' => [5],
+    'caphum/gestion' => [4], 'caphum/bajas' => [13], 'caphum/organigrama' => [5], 'caphum/niveljerarquicocolaborador' => [5], 'caphum/getpuestospersona' => [5],
     'reporteria/resumencallcenter' => [6], 'reporteria/layoutlegacy' => [7], 'reporteria/reporteCapitalHumano' => [21],
     'condonaciones/historial' => [15],
     'sabueso/ticket' => [18], 'sabueso/paneladmin' => [19], 'sabueso/cerradoEliminado' => [19],

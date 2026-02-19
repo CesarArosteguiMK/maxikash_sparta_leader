@@ -213,6 +213,50 @@
         color: #4a423a;
     }
 
+    /* Modo oscuro: Truncar y Monitorear con estilo consistente (relleno sólido, buen contraste) */
+    body.dark-mode .btn-truncar-segundometro:disabled {
+        background: rgba(0, 180, 200, 0.2);
+        border: 1px solid rgba(0, 200, 220, 0.5);
+        color: rgba(160, 230, 240, 0.9);
+        box-shadow: 0 0 12px rgba(0, 200, 220, 0.2);
+    }
+    body.dark-mode .btn-truncar-segundometro:disabled .fa-cut {
+        color: rgba(160, 230, 240, 0.95);
+    }
+    body.dark-mode .btn-truncar-segundometro:not(:disabled) {
+        background: linear-gradient(135deg, #0d9488 0%, #0f766e 100%);
+        border: 1px solid rgba(20, 184, 166, 0.6);
+        color: #fff;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    }
+    body.dark-mode .btn-truncar-segundometro:not(:disabled):hover {
+        background: linear-gradient(135deg, #14b8a6 0%, #0d9488 100%);
+        color: #fff;
+        box-shadow: 0 0 18px rgba(20, 184, 166, 0.4);
+    }
+    body.dark-mode .btn-truncar-segundometro:not(:disabled) .fa-cut {
+        color: #fff;
+    }
+    /* Monitorear: conservar colores del modo claro en modo oscuro (anular reglas globales de dark-mode.css) */
+    body.dark-mode .btn-monitorear-segundometro {
+        background: linear-gradient(135deg, #c4b5a0 0%, #a89888 100%) !important;
+        background-image: linear-gradient(135deg, #c4b5a0 0%, #a89888 100%) !important;
+        border: 1px solid rgba(168, 152, 136, 0.7) !important;
+        color: #3d3630 !important;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25) !important;
+        filter: none !important;
+    }
+    body.dark-mode .btn-monitorear-segundometro:hover {
+        background: linear-gradient(135deg, #d4c8b8 0%, #b8a898 100%) !important;
+        background-image: linear-gradient(135deg, #d4c8b8 0%, #b8a898 100%) !important;
+        color: #2d2824 !important;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+        filter: none !important;
+    }
+    body.dark-mode .btn-monitorear-segundometro .fa-terminal {
+        color: #4a423a !important;
+    }
+
     /* Badge contador de archivos - texto negro/oscuro */
     .card-header.bg-primary .badge {
         color: #2c3e50 !important;

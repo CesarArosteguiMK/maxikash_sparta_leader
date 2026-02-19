@@ -45,13 +45,14 @@ class Empresa extends Model
         $query = <<<SQL
            SELECT Id_credito, Nombre_cliente 
             FROM tbl_segundometro_semana 
-            WHERE Nombre_cliente LIKE '%$nombre%'
+            WHERE Nombre_cliente LIKE :nombre
             LIMIT 10
         SQL;
+        $params = ['nombre' => '%' . $nombre . '%'];
 
         try {
             $db = new DatabaseSegundometro();
-            $r = $db->queryAll($query);
+            $r = $db->queryAll($query, $params);
             return self::resultado(true, 'Nombres encontrados.', $r);
         } catch (\Exception $e) {
             return self::resultado(false, 'Error al procesar la solicitud.', null, $e->getMessage());
@@ -61,7 +62,6 @@ class Empresa extends Model
 
     public static function getConsultaDireccionEstadoCuenta($id_credito)
     {
-        // Intentar obtener más campos si están disponibles en la tabla
         $query = <<<SQL
            SELECT 
                Domicilio_Completo,
@@ -69,13 +69,14 @@ class Empresa extends Model
                Id_cliente,
                Nombre_cliente
            FROM tbl_segundometro_semana 
-           WHERE Id_credito = $id_credito
+           WHERE Id_credito = :id_credito
            LIMIT 1
         SQL;
+        $params = ['id_credito' => $id_credito];
 
         try {
             $db = new DatabaseSegundometro();
-            $r = $db->queryAll($query);
+            $r = $db->queryAll($query, $params);
             return self::resultado(true, 'Dirección encontrada.', $r);
         } catch (\Exception $e) {
             return self::resultado(false, 'Error al procesar la solicitud.', null, $e->getMessage());
@@ -106,16 +107,15 @@ class Empresa extends Model
         FROM oferta o
         INNER JOIN persona p ON o.fk_persona = p.id_persona
         LEFT JOIN persona_adicionales p2 ON p2.fk_persona = p.id_persona
-        WHERE o.id_oferta = $id_credito
+        WHERE o.id_oferta = :id_credito
         SQL;
+        $params = ['id_credito' => $id_credito];
 
         try {
             $db = new \core\DatabaseMaxiProd();
-            $r = $db->queryAll($query);
-           
+            $r = $db->queryAll($query, $params);
             return self::resultado(true, 'Dirección encontrada.', $r);
         } catch (\Exception $e) {
-            
             return self::resultado(false, 'Error al procesar la solicitud.', null, $e->getMessage());
         }
     }
@@ -126,12 +126,13 @@ class Empresa extends Model
                SELECT
             count(id_nota) as num
         FROM __SPARTA_SECRET_REDACTED__.notas_credito
-        WHERE id_credito = $id_credito
+        WHERE id_credito = :id_credito
         SQL;
+        $params = ['id_credito' => $id_credito];
 
         try {
             $db = new Database();
-            $r = $db->queryAll($query);
+            $r = $db->queryAll($query, $params);
             return self::resultado(true, 'numero de notas encontrado.', $r);
         } catch (\Exception $e) {
             return self::resultado(false, 'Error al procesar la solicitud.', null, $e->getMessage());
@@ -382,12 +383,11 @@ class Empresa extends Model
             INNER JOIN puesto pu ON pu.id = ap.id_puesto
             INNER JOIN departamento dd ON dd.id = pu.departamento_id
             INNER JOIN asigna_jefe aj ON aj.id_persona = p.id
-            WHERE p.id = $idPersona
+            WHERE p.id = :id_persona
               AND p.estatus != 'Baja'
             LIMIT 1
         SQL;
-
-            $persona = $db->queryOne($query);
+            $persona = $db->queryOne($query, ['id_persona' => $idPersona]);
 
             return self::resultado(true, 'Persona encontrada.', $persona);
 
