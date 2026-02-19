@@ -3,6 +3,7 @@
 namespace Controllers;
 
 use Core\Controller;
+use Core\SecureUpload;
 use Models\CapHum as CapHumDAO;
 
 class CapHum extends Controller
@@ -5456,15 +5457,13 @@ class CapHum extends Controller
             return;
         }
 
-        // 📎 MANEJO DE MÚLTIPLES PDFs
+        // 📎 MANEJO DE MÚLTIPLES PDFs (MIME real, nombre seguro, 0755)
         $rutasPDF = [];
 
         if (!empty($_FILES['archivosPDF']['name'][0])) {
 
             $directorio = __DIR__ . '/../uploads/bajas/';
-            if (!is_dir($directorio)) {
-                mkdir($directorio, 0777, true);
-            }
+            SecureUpload::ensureDir($directorio);
 
             foreach ($_FILES['archivosPDF']['tmp_name'] as $i => $tmp) {
 
@@ -5472,18 +5471,15 @@ class CapHum extends Controller
                     continue;
                 }
 
-                $nombreOrig = $_FILES['archivosPDF']['name'][$i];
-                $extension  = strtolower(pathinfo($nombreOrig, PATHINFO_EXTENSION));
-
-                if ($extension !== 'pdf') {
+                if (!SecureUpload::validateMime($tmp, SecureUpload::MIME_PDF)) {
                     continue;
                 }
 
-                $nombreFinal = 'baja_' . $idGestor . '_' . time() . '_' . $i . '.pdf';
+                $nombreFinal = SecureUpload::generateSafeFilename('pdf');
                 $rutaFinal   = $directorio . $nombreFinal;
 
                 if (move_uploaded_file($tmp, $rutaFinal)) {
-                    $rutasPDF[] = $nombreFinal; // 👈 guardamos solo el nombre
+                    $rutasPDF[] = $nombreFinal;
                 }
             }
         }
@@ -5585,31 +5581,20 @@ class CapHum extends Controller
                 return;
             }
             
-            // Crear directorio si no existe
             $directorio = __DIR__ . '/../uploads/bajas/';
-            if (!is_dir($directorio)) {
-                mkdir($directorio, 0777, true);
-            }
-            
+            SecureUpload::ensureDir($directorio);
+
             $archivosGuardados = [];
-            
-            // Procesar cada archivo
+
             foreach ($_FILES['archivosPDF']['tmp_name'] as $i => $tmp) {
                 if ($_FILES['archivosPDF']['error'][$i] !== UPLOAD_ERR_OK) {
                     continue;
                 }
-                
-                $nombreOrig = $_FILES['archivosPDF']['name'][$i];
-                $extension = strtolower(pathinfo($nombreOrig, PATHINFO_EXTENSION));
-                
-                if ($extension !== 'pdf') {
+                if (!SecureUpload::validateMime($tmp, SecureUpload::MIME_PDF)) {
                     continue;
                 }
-                
-                // Generar nombre único
-                $nombreFinal = 'baja_' . $registro_baja . '_' . time() . '_' . $i . '.pdf';
+                $nombreFinal = SecureUpload::generateSafeFilename('pdf');
                 $rutaFinal = $directorio . $nombreFinal;
-                
                 if (move_uploaded_file($tmp, $rutaFinal)) {
                     $archivosGuardados[] = $nombreFinal;
                 }
@@ -5771,26 +5756,23 @@ class CapHum extends Controller
             $id_documento = (int) $id_documento;
             $carpeta = ($id_documento === 15) ? 'bajas' : 'documentos';
             $directorio = __DIR__ . '/../uploads/' . $carpeta . '/';
-            if (!is_dir($directorio)) {
-                mkdir($directorio, 0777, true);
-            }
+            SecureUpload::ensureDir($directorio);
 
             $archivosGuardados = [];
             $nombres = is_array($archivos['name']) ? $archivos['name'] : [$archivos['name']];
             $tmpNames = is_array($archivos['tmp_name']) ? $archivos['tmp_name'] : [$archivos['tmp_name']];
-
             $errors = is_array($archivos['error']) ? $archivos['error'] : [$archivos['error']];
+
             foreach ($nombres as $i => $nombreOrig) {
                 $tmp = $tmpNames[$i] ?? null;
                 $err = $errors[$i] ?? UPLOAD_ERR_OK;
                 if (!$tmp || $err !== UPLOAD_ERR_OK) {
                     continue;
                 }
-                $extension = strtolower(pathinfo($nombreOrig, PATHINFO_EXTENSION));
-                if ($extension !== 'pdf') {
+                if (!SecureUpload::validateMime($tmp, SecureUpload::MIME_PDF)) {
                     continue;
                 }
-                $nombreFinal = 'doc_' . $id_persona . '_' . $id_documento . '_' . time() . '_' . $i . '.pdf';
+                $nombreFinal = SecureUpload::generateSafeFilename('pdf');
                 $rutaFinal = $directorio . $nombreFinal;
                 if (move_uploaded_file($tmp, $rutaFinal)) {
                     $archivosGuardados[] = $nombreFinal;

@@ -10,14 +10,13 @@ class Database
 
     function __construct()
     {
-        // 🔧 Ajusta tus valores aquí
-        $servidor = "__SPARTA_HOST_REDACTED__";   // tu host
-        $puerto   = "3306";        // puerto MySQL
-        $esquema  = "__SPARTA_SECRET_REDACTED__";     // nombre de tu BD
-        $usuario  = "__SPARTA_SECRET_REDACTED__";        // usuario
-        $password = "__SPARTA_PASSWORD_REDACTED__";            // contraseña
+        // Preferir variables de entorno; fallback a valores por defecto (no commitear secretos en producción)
+        $servidor = getenv('DB_HOST') ?: getenv('DB_SERVIDOR') ?: '__SPARTA_HOST_REDACTED__';
+        $puerto   = getenv('DB_PUERTO') ?: '3306';
+        $esquema  = getenv('DB_NAME') ?: getenv('DB_ESQUEMA') ?: '__SPARTA_SECRET_REDACTED__';
+        $usuario  = getenv('DB_USER') ?: getenv('DB_USUARIO') ?: '__SPARTA_SECRET_REDACTED__';
+        $password = getenv('DB_PASSWORD') ?: getenv('DB_PASS') ?: '__SPARTA_PASSWORD_REDACTED__';
 
-        // Cadena MySQL
         $cadena = "mysql:host=$servidor;port=$puerto;dbname=$esquema;charset=utf8mb4";
 
         try {
@@ -32,12 +31,12 @@ class Database
                 ]
             );
         } catch (\PDOException $e) {
-            $this->baseNoDisponible("{$e->getMessage()}\nDatos de conexión: $cadena");
+            $this->baseNoDisponible();
             $this->db = null;
         }
     }
 
-    private function baseNoDisponible($mensaje)
+    private function baseNoDisponible()
     {
         http_response_code(503);
         echo <<<HTML
@@ -80,11 +79,6 @@ class Database
                     <p>Estamos trabajando para resolver la situación. Por favor, vuelva a intentarlo más tarde.</p>
                 </div>
             </body>
-            <script>
-                window.onload = () => {
-                    console.log("$mensaje")
-                }
-            </script>
             </html>
         HTML;
         exit();

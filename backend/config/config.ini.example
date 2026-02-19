@@ -1,0 +1,20 @@
+; Copiar como config.ini y rellenar con valores reales. NO subir config.ini (está en .gitignore).
+
+[database]
+SERVIDOR = "localhost"
+PUERTO = 3306
+ESQUEMA = "nombre_esquema"
+USUARIO = "usuario"
+PASSWORD = "contraseña"
+
+[webhook]
+GOOGLE_CHAT = "https://chat.googleapis.com/..."
+
+[pdf_media]
+python_path = "/ruta/a/python"
+
+[ssh]
+ssh_use_plink = 0
+ssh_command = /usr/bin/ssh
+ssh_key = /ruta/a/clave_privada
+; ssh_command_plink, ssh_key_plink, ssh_hostkey, ssh_pscp = según entorno

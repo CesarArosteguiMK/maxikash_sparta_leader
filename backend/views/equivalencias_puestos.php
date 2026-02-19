@@ -178,6 +178,142 @@ body.eq-dragging-puesto .eq-legacy-row:hover .eq-legacy-drop-wrap {
     background-color: transparent !important;
 }
 @media (max-width: 768px) { .min-h-list { min-height: 220px; } }
+
+/* ===== MODO OSCURO — Equivalencia puestos (Legacy y Sparta) ===== */
+body.dark-mode .eq-card-legacy {
+    border-left-color: #94a3b8;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.3);
+}
+body.dark-mode .eq-card-legacy .card-header {
+    background: rgba(51, 65, 85, 0.9) !important;
+    border-bottom-color: #475569;
+}
+body.dark-mode .eq-card-legacy .card-header h6,
+body.dark-mode .eq-card-legacy .card-header .text-primary {
+    color: #e2e8f0 !important;
+}
+body.dark-mode .eq-card-legacy .card-header small,
+body.dark-mode .eq-card-legacy .card-header .text-muted {
+    color: #94a3b8 !important;
+}
+body.dark-mode .eq-card-legacy .card-header .fa-database {
+    color: #94a3b8 !important;
+}
+body.dark-mode #col-legacy {
+    background-color: #1e293b !important;
+}
+/* Filas Legacy: fondo y texto con buen contraste */
+body.dark-mode .eq-legacy-row {
+    background-color: #334155 !important;
+    border-color: #475569 !important;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+}
+body.dark-mode .eq-legacy-row:hover {
+    background-color: #334155 !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.35);
+}
+body.dark-mode .eq-legacy-row .card-body,
+body.dark-mode .eq-legacy-row .eq-legacy-titulo,
+body.dark-mode .eq-legacy-row .fw-bold,
+body.dark-mode .eq-legacy-row .card-body span {
+    color: #e2e8f0 !important;
+}
+body.dark-mode .eq-legacy-chevron {
+    color: #94a3b8 !important;
+}
+body.dark-mode .eq-legacy-row.eq-legacy-expanded .eq-legacy-chevron,
+body.dark-mode.eq-dragging-puesto .eq-legacy-row:hover .eq-legacy-chevron {
+    color: #818cf8 !important;
+}
+/* Lista de puestos asignados dentro de cada Legacy */
+body.dark-mode .lista-equivalentes-legacy {
+    background-color: #1e293b !important;
+    border-color: #475569 !important;
+}
+body.dark-mode .lista-equivalentes-legacy .list-group-item {
+    background-color: #334155 !important;
+    border-color: #475569 !important;
+    color: #e2e8f0 !important;
+}
+body.dark-mode .lista-equivalentes-legacy .list-group-item .fw-medium,
+body.dark-mode .lista-equivalentes-legacy .list-group-item span:not(.avatar *) {
+    color: #e2e8f0 !important;
+}
+body.dark-mode .lista-equivalentes-legacy .list-group-item small,
+body.dark-mode .lista-equivalentes-legacy .list-group-item .text-muted {
+    color: #94a3b8 !important;
+}
+body.dark-mode .lista-equivalentes-legacy .list-group-item:last-child {
+    border-bottom-color: #475569 !important;
+}
+body.dark-mode .lista-equivalentes-legacy .list-group-item:hover {
+    background-color: #475569 !important;
+}
+/* Avatar en items Legacy (icono beige/crema → tono que contraste en oscuro) */
+body.dark-mode .lista-equivalentes-legacy .avatar.bg-label-secondary {
+    background-color: rgba(148, 163, 184, 0.35) !important;
+    color: #e2e8f0 !important;
+}
+/* Zona de drop */
+body.dark-mode .eq-drop-zone {
+    background-color: #1e293b !important;
+    border-color: #475569 !important;
+}
+body.dark-mode .eq-drop-zone.drag-over {
+    border-color: #818cf8 !important;
+    background-color: rgba(129, 140, 248, 0.15) !important;
+}
+/* Sparta columna en modo oscuro */
+body.dark-mode .eq-card-sparta .card-body,
+body.dark-mode #col-sparta {
+    background-color: #1e3a5f !important;
+}
+body.dark-mode .eq-header-sparta {
+    background: rgba(30, 58, 95, 0.95) !important;
+    color: #93c5fd !important;
+    border-bottom-color: #3b82f6 !important;
+}
+body.dark-mode .eq-header-sparta h6,
+body.dark-mode .eq-header-sparta small {
+    color: #93c5fd !important;
+}
+body.dark-mode .eq-header-sparta .fa-shield-halved {
+    color: #60a5fa !important;
+}
+body.dark-mode #lista-sparta .list-group-item {
+    background-color: #334155 !important;
+    border-color: #475569 !important;
+    color: #e2e8f0 !important;
+}
+body.dark-mode #lista-sparta .list-group-item .fw-medium,
+body.dark-mode #lista-sparta .list-group-item span:not(.avatar *) {
+    color: #e2e8f0 !important;
+}
+body.dark-mode #lista-sparta .list-group-item small {
+    color: #94a3b8 !important;
+}
+body.dark-mode #lista-sparta .list-group-item:hover {
+    background-color: #475569 !important;
+}
+body.dark-mode #lista-sparta .avatar.bg-label-secondary {
+    background-color: rgba(96, 165, 250, 0.25) !important;
+    color: #93c5fd !important;
+}
+/* Loaders y empty en modo oscuro */
+body.dark-mode #loader-legacy.text-muted,
+body.dark-mode #empty-legacy.text-muted,
+body.dark-mode #loader-sparta.text-muted,
+body.dark-mode #empty-sparta.text-muted {
+    color: #94a3b8 !important;
+}
+body.dark-mode .eq-btn-quitar {
+    background: rgba(129, 140, 248, 0.2);
+    color: #a5b4fc;
+}
+body.dark-mode .eq-btn-quitar:hover {
+    background: rgba(248, 113, 113, 0.25);
+    color: #fca5a5;
+}
 </style>
 
 <div class="card shadow-sm mb-4">
