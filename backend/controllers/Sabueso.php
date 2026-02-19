@@ -3770,19 +3770,15 @@ SCRIPT;
             self::respuestaJSON(['success' => false, 'mensaje' => 'No se recibió una imagen válida.']);
             return;
         }
-        $finfo = new \finfo(FILEINFO_MIME_TYPE);
-        $mime = $finfo->file($_FILES['evidencia']['tmp_name']);
-        $allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-        if (!in_array($mime, $allowed, true)) {
+        if (!\Core\SecureUpload::validateMime($_FILES['evidencia']['tmp_name'], \Core\SecureUpload::MIME_IMAGES)) {
             self::respuestaJSON(['success' => false, 'mensaje' => 'Solo se permiten imágenes (JPEG, PNG, GIF, WebP).']);
             return;
         }
+        $mime = \Core\SecureUpload::getMimeType($_FILES['evidencia']['tmp_name']);
+        $ext = $mime ? \Core\SecureUpload::extensionFromMime($mime) : 'jpg';
         $dir = __DIR__ . '/../uploads/sabueso_evidencias';
-        if (!is_dir($dir)) {
-            @mkdir($dir, 0755, true);
-        }
-        $ext = pathinfo($_FILES['evidencia']['name'], PATHINFO_EXTENSION) ?: 'jpg';
-        $nombreArchivo = 'ev_' . $idTicket . '_' . $idPersona . '_' . time() . '_' . bin2hex(random_bytes(4)) . '.' . preg_replace('/[^a-z0-9]/i', '', $ext);
+        \Core\SecureUpload::ensureDir($dir);
+        $nombreArchivo = 'ev_' . $idTicket . '_' . $idPersona . '_' . \Core\SecureUpload::generateSafeFilename($ext);
         $rutaCompleta = $dir . '/' . $nombreArchivo;
         if (!move_uploaded_file($_FILES['evidencia']['tmp_name'], $rutaCompleta)) {
             self::respuestaJSON(['success' => false, 'mensaje' => 'Error al guardar el archivo.']);

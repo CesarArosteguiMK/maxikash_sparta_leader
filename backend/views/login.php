@@ -260,22 +260,46 @@
   text-decoration: underline;
 }
 
+/* Marca de agua: cabeza del espartano detrás del login (solo cuando no se muestra la imagen grande = móvil) */
+body.login-page-mobile::before {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 0;
+  background: url("/assets/img/cabeza_spartan2.png") center center no-repeat;
+  background-size: 65% auto;
+  opacity: 0.45;
+  pointer-events: none;
+}
+body.login-page-mobile .authentication-wrapper {
+  position: relative;
+  z-index: 1;
+}
+@media (min-width: 992px) {
+  body.login-page-mobile::before {
+    display: none;
+  }
+}
+
 </style>
 
 </head>
 
-<body>
+<body class="login-page-mobile">
 
   <div class="authentication-wrapper authentication-cover">
     <div class="authentication-inner row m-0">
 
-      <!-- Imagen izquierda (NO se toca estructura) -->
+      <!-- Imagen izquierda -->
       <div class="d-none d-lg-flex col-lg-6 col-xl-7 align-items-center justify-content-center p-5">
         <div class="w-100 text-center">
           <img
             src="/assets/img/nu_spartan.png"
             alt="Login Cover"
-            >
+          >
         </div>
       </div>
 

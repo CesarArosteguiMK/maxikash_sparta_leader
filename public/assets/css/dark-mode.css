@@ -910,6 +910,18 @@ body.dark-mode .text-secondary {
     color: #b8b8c1 !important;
 }
 
+body.dark-mode .text-success,
+body.dark-mode i.text-success,
+body.dark-mode .fa-check-circle.text-success {
+    color: #22c55e !important;
+}
+
+body.dark-mode .text-danger,
+body.dark-mode i.text-danger,
+body.dark-mode .fa-times-circle.text-danger {
+    color: #f87171 !important;
+}
+
 body.dark-mode a {
     color: #6ea8fe !important;
 }
@@ -3084,6 +3096,19 @@ body.dark-mode .btn-label-secondary:hover {
     color: #b8b8c1 !important;
 }
 
+/* Botón Cancelar (btn-label-danger): modo oscuro, sin fondo claro */
+body.dark-mode .btn-label-danger {
+    background-color: rgba(185, 28, 28, 0.25) !important;
+    border-color: rgba(185, 28, 28, 0.5) !important;
+    color: #fca5a5 !important;
+}
+
+body.dark-mode .btn-label-danger:hover {
+    background-color: rgba(185, 28, 28, 0.4) !important;
+    border-color: rgba(220, 38, 38, 0.7) !important;
+    color: #fecaca !important;
+}
+
 /* Controles de zoom */
 body.dark-mode .zoom-controls {
     display: flex;
@@ -3861,6 +3886,209 @@ body.dark-mode #modalMapaGrande #rastreoMapaGrandeContenedor .gm-style div[style
     background: revert !important;
     background-color: revert !important;
     background-image: revert !important;
+}
+
+/* Panel admin del mapa (Google Maps InfoWindow): modo oscuro — después del revert para que no se pise */
+body.dark-mode #modalRastreoCredito #rastreoMapaLeaflet .gm-style-iw,
+body.dark-mode #modalRastreoCredito #rastreoMapaLeaflet .gm-style-iw-c,
+body.dark-mode #modalRastreoCredito #rastreoMapaLeaflet .gm-style-iw-d,
+body.dark-mode #modalMapaGrande #rastreoMapaGrandeContenedor .gm-style-iw,
+body.dark-mode #modalMapaGrande #rastreoMapaGrandeContenedor .gm-style-iw-c,
+body.dark-mode #modalMapaGrande #rastreoMapaGrandeContenedor .gm-style-iw-d,
+body.dark-mode #modalMapaAlternasGrande #rastreoMapaAlternasGrandeContenedor .gm-style-iw,
+body.dark-mode #modalMapaAlternasGrande #rastreoMapaAlternasGrandeContenedor .gm-style-iw-c,
+body.dark-mode #modalMapaAlternasGrande #rastreoMapaAlternasGrandeContenedor .gm-style-iw-d {
+    background-color: #252525 !important;
+    background: #252525 !important;
+    color: #e8e8e8 !important;
+    border: none !important;
+    outline: none !important;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4) !important;
+}
+/* Quitar bordes/rectángulos blancos del popup (mapa direcciones alternas y todos): todo el contenedor del InfoWindow */
+body.dark-mode #modalMapaAlternasGrande #rastreoMapaAlternasGrandeContenedor [class*="gm-style-iw"],
+body.dark-mode #modalMapaAlternasGrande #rastreoMapaAlternasGrandeContenedor [class*="gm-style-iw"] *,
+body.dark-mode #modalRastreoCredito #rastreoMapaLeaflet [class*="gm-style-iw"],
+body.dark-mode #modalRastreoCredito #rastreoMapaLeaflet [class*="gm-style-iw"] *,
+body.dark-mode #modalMapaGrande #rastreoMapaGrandeContenedor [class*="gm-style-iw"],
+body.dark-mode #modalMapaGrande #rastreoMapaGrandeContenedor [class*="gm-style-iw"] * {
+    border-color: #252525 !important;
+    outline: none !important;
+}
+body.dark-mode #modalMapaAlternasGrande #rastreoMapaAlternasGrandeContenedor div[style*="position: absolute"][style*="z-index"]:has([class*="gm-style-iw"]),
+body.dark-mode #modalRastreoCredito #rastreoMapaLeaflet div[style*="position: absolute"]:has([class*="gm-style-iw"]),
+body.dark-mode #modalMapaGrande #rastreoMapaGrandeContenedor div[style*="position: absolute"]:has([class*="gm-style-iw"]) {
+    border: none !important;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.5) !important;
+}
+body.dark-mode #modalRastreoCredito #rastreoMapaLeaflet .gm-style-iw strong,
+body.dark-mode #modalMapaGrande #rastreoMapaGrandeContenedor .gm-style-iw strong,
+body.dark-mode #modalMapaAlternasGrande #rastreoMapaAlternasGrandeContenedor .gm-style-iw strong {
+    color: #f0f0f0 !important;
+}
+/* Scrollbar del popup del mapa: oscura en modo oscuro (ya no blanca) */
+body.dark-mode #modalRastreoCredito #rastreoMapaLeaflet .gm-style-iw-d,
+body.dark-mode #modalMapaGrande #rastreoMapaGrandeContenedor .gm-style-iw-d,
+body.dark-mode #modalMapaAlternasGrande #rastreoMapaAlternasGrandeContenedor .gm-style-iw-d {
+    scrollbar-color: #555 #252525 !important;
+}
+body.dark-mode #modalRastreoCredito #rastreoMapaLeaflet .gm-style-iw-d::-webkit-scrollbar,
+body.dark-mode #modalMapaGrande #rastreoMapaGrandeContenedor .gm-style-iw-d::-webkit-scrollbar,
+body.dark-mode #modalMapaAlternasGrande #rastreoMapaAlternasGrandeContenedor .gm-style-iw-d::-webkit-scrollbar {
+    width: 8px !important;
+    height: 8px !important;
+}
+body.dark-mode #modalRastreoCredito #rastreoMapaLeaflet .gm-style-iw-d::-webkit-scrollbar-track,
+body.dark-mode #modalMapaGrande #rastreoMapaGrandeContenedor .gm-style-iw-d::-webkit-scrollbar-track,
+body.dark-mode #modalMapaAlternasGrande #rastreoMapaAlternasGrandeContenedor .gm-style-iw-d::-webkit-scrollbar-track {
+    background: #252525 !important;
+}
+body.dark-mode #modalRastreoCredito #rastreoMapaLeaflet .gm-style-iw-d::-webkit-scrollbar-thumb,
+body.dark-mode #modalMapaGrande #rastreoMapaGrandeContenedor .gm-style-iw-d::-webkit-scrollbar-thumb,
+body.dark-mode #modalMapaAlternasGrande #rastreoMapaAlternasGrandeContenedor .gm-style-iw-d::-webkit-scrollbar-thumb {
+    background: #555 !important;
+    border-radius: 4px !important;
+}
+body.dark-mode #modalRastreoCredito #rastreoMapaLeaflet .gm-style-iw-d::-webkit-scrollbar-thumb:hover,
+body.dark-mode #modalMapaGrande #rastreoMapaGrandeContenedor .gm-style-iw-d::-webkit-scrollbar-thumb:hover,
+body.dark-mode #modalMapaAlternasGrande #rastreoMapaAlternasGrandeContenedor .gm-style-iw-d::-webkit-scrollbar-thumb:hover {
+    background: #666 !important;
+}
+body.dark-mode #modalRastreoCredito #rastreoMapaLeaflet .gm-style-iw-t,
+body.dark-mode #modalMapaGrande #rastreoMapaGrandeContenedor .gm-style-iw-t,
+body.dark-mode #modalMapaAlternasGrande #rastreoMapaAlternasGrandeContenedor .gm-style-iw-t {
+    background: #252525 !important;
+}
+/* Botón cerrar (X) del popup: el icono es un span con mask-image; fondo blanco = X blanca (solo en modo oscuro) */
+body.dark-mode #modalRastreoCredito #rastreoMapaLeaflet .gm-style-iw-tc,
+body.dark-mode #modalMapaGrande #rastreoMapaGrandeContenedor .gm-style-iw-tc,
+body.dark-mode #modalMapaAlternasGrande #rastreoMapaAlternasGrandeContenedor .gm-style-iw-tc,
+body.dark-mode #modalRastreoCredito #rastreoMapaLeaflet .gm-style-iw-tc *,
+body.dark-mode #modalMapaGrande #rastreoMapaGrandeContenedor .gm-style-iw-tc *,
+body.dark-mode #modalMapaAlternasGrande #rastreoMapaAlternasGrandeContenedor .gm-style-iw-tc * {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+body.dark-mode #modalRastreoCredito #rastreoMapaLeaflet button.gm-ui-hover-effect,
+body.dark-mode #modalMapaGrande #rastreoMapaGrandeContenedor button.gm-ui-hover-effect,
+body.dark-mode #modalMapaAlternasGrande #rastreoMapaAlternasGrandeContenedor button.gm-ui-hover-effect {
+    background: transparent !important;
+    border: none !important;
+}
+body.dark-mode #modalRastreoCredito #rastreoMapaLeaflet button.gm-ui-hover-effect span,
+body.dark-mode #modalMapaGrande #rastreoMapaGrandeContenedor button.gm-ui-hover-effect span,
+body.dark-mode #modalMapaAlternasGrande #rastreoMapaAlternasGrandeContenedor button.gm-ui-hover-effect span {
+    background-color: #ffffff !important;
+    background: #ffffff !important;
+    -webkit-mask-size: contain !important;
+    -webkit-mask-repeat: no-repeat !important;
+    -webkit-mask-position: center !important;
+    mask-size: contain !important;
+    mask-repeat: no-repeat !important;
+    mask-position: center !important;
+}
+body.dark-mode #modalRastreoCredito #rastreoMapaLeaflet .gm-style-iw-tc .gm-ui-hover-effect,
+body.dark-mode #modalMapaGrande #rastreoMapaGrandeContenedor .gm-style-iw-tc .gm-ui-hover-effect,
+body.dark-mode #modalMapaAlternasGrande #rastreoMapaAlternasGrandeContenedor .gm-style-iw-tc .gm-ui-hover-effect {
+    background: transparent !important;
+}
+/* Quitar triángulo blanco en la esquina del popup (punta del InfoWindow) */
+body.dark-mode #modalRastreoCredito #rastreoMapaLeaflet .gm-style-iw-t,
+body.dark-mode #modalMapaGrande #rastreoMapaGrandeContenedor .gm-style-iw-t,
+body.dark-mode #modalMapaAlternasGrande #rastreoMapaAlternasGrandeContenedor .gm-style-iw-t,
+body.dark-mode #modalRastreoCredito #rastreoMapaLeaflet .gm-style-iw-b,
+body.dark-mode #modalMapaGrande #rastreoMapaGrandeContenedor .gm-style-iw-b,
+body.dark-mode #modalMapaAlternasGrande #rastreoMapaAlternasGrandeContenedor .gm-style-iw-b {
+    background: #252525 !important;
+    border-color: #252525 !important;
+    box-shadow: none !important;
+}
+body.dark-mode #modalRastreoCredito #rastreoMapaLeaflet .gm-style-iw a,
+body.dark-mode #modalMapaGrande #rastreoMapaGrandeContenedor .gm-style-iw a,
+body.dark-mode #modalMapaAlternasGrande #rastreoMapaAlternasGrandeContenedor .gm-style-iw a {
+    color: #6ea8fe !important;
+}
+
+/* Controles del mapa (Mapa / Satélite): texto negro en modo oscuro (mapa minimizado y ampliado) */
+body.dark-mode #modalRastreoCredito #rastreoMapaLeaflet .gm-style-mtc,
+body.dark-mode #modalRastreoCredito #rastreoMapaLeaflet .gm-style-mtc *,
+body.dark-mode #modalRastreoCredito #rastreoMapaAlternas .gm-style-mtc,
+body.dark-mode #modalRastreoCredito #rastreoMapaAlternas .gm-style-mtc *,
+body.dark-mode #modalMapaGrande #rastreoMapaGrandeContenedor .gm-style-mtc,
+body.dark-mode #modalMapaGrande #rastreoMapaGrandeContenedor .gm-style-mtc *,
+body.dark-mode #modalMapaAlternasGrande #rastreoMapaAlternasGrandeContenedor .gm-style-mtc,
+body.dark-mode #modalMapaAlternasGrande #rastreoMapaAlternasGrandeContenedor .gm-style-mtc * {
+    color: #1a1a1a !important;
+}
+body.dark-mode #modalRastreoCredito #rastreoMapaAlternas [class*="gm-style-mtc"],
+body.dark-mode #modalRastreoCredito #rastreoMapaAlternas [class*="gm-style-mtc"] *,
+body.dark-mode #modalRastreoCredito #rastreoMapaAlternas [class*="mtc"] {
+    color: #1a1a1a !important;
+}
+body.dark-mode #modalRastreoCredito #rastreoMapaLeaflet [class*="gm-style-mtc"],
+body.dark-mode #modalRastreoCredito #rastreoMapaLeaflet [class*="gm-style-mtc"] *,
+body.dark-mode #modalRastreoCredito #rastreoMapaLeaflet [class*="mtc"] {
+    color: #1a1a1a !important;
+}
+/* Direcciones alternas: mismo estilo para controles Mapa/Satélite (por si el DOM usa otra jerarquía) */
+body.dark-mode #modalMapaAlternasGrande #rastreoMapaAlternasGrandeContenedor [class*="gm-style-mtc"],
+body.dark-mode #modalMapaAlternasGrande #rastreoMapaAlternasGrandeContenedor [class*="gm-style-mtc"] *,
+body.dark-mode #modalMapaAlternasGrande #rastreoMapaAlternasGrandeContenedor [class*="mtc"] {
+    color: #1a1a1a !important;
+}
+body.dark-mode #modalMapaAlternasGrande #rastreoMapaAlternasGrandeContenedor [class*="mtc"] button,
+body.dark-mode #modalMapaAlternasGrande #rastreoMapaAlternasGrandeContenedor [class*="mtc"] div[role="button"] {
+    background-color: rgba(255, 255, 255, 0.95) !important;
+    color: #1a1a1a !important;
+}
+body.dark-mode #modalRastreoCredito #rastreoMapaLeaflet .gm-style-mtc button,
+body.dark-mode #modalRastreoCredito #rastreoMapaLeaflet [class*="mtc"] button,
+body.dark-mode #modalRastreoCredito #rastreoMapaAlternas .gm-style-mtc button,
+body.dark-mode #modalRastreoCredito #rastreoMapaAlternas [class*="mtc"] button,
+body.dark-mode #modalMapaGrande #rastreoMapaGrandeContenedor .gm-style-mtc button,
+body.dark-mode #modalMapaAlternasGrande #rastreoMapaAlternasGrandeContenedor .gm-style-mtc button,
+body.dark-mode #modalMapaAlternasGrande #rastreoMapaAlternasGrandeContenedor [class*="gm-style-mtc"] button {
+    background-color: rgba(255, 255, 255, 0.95) !important;
+    color: #1a1a1a !important;
+}
+
+/* Modal Mapa – Direcciones alternas: filtro por gestor y leyenda en modo oscuro */
+body.dark-mode #modalMapaAlternasGrande .rastreo-filtro-gestor-overlay {
+    background: rgba(37, 37, 37, 0.97) !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4) !important;
+    color: #e8e8e8 !important;
+}
+body.dark-mode #modalMapaAlternasGrande .rastreo-filtro-gestor-overlay .text-muted,
+body.dark-mode #modalMapaAlternasGrande .rastreo-filtro-gestor-overlay .rastreo-leyenda-mapa-grande {
+    color: #c8c8d0 !important;
+}
+body.dark-mode #modalMapaAlternasGrande .rastreo-filtro-gestor-overlay label,
+body.dark-mode #modalMapaAlternasGrande .rastreo-filtro-gestor-overlay label span:not([style*="width"]) {
+    color: #e8e8e8 !important;
+}
+body.dark-mode #modalMapaAlternasGrande .rastreo-filtro-gestor-overlay .rastreo-leyenda-conteo {
+    color: #e8e8e8 !important;
+}
+body.dark-mode #modalMapaAlternasGrande .rastreo-filtro-gestor-overlay .form-check-input {
+    background-color: #404040 !important;
+    border-color: #606070 !important;
+}
+/* Leyenda: colores como en modo claro (Rosa, Verde, Carmelita, Azul, Gestores) */
+body.dark-mode #modalMapaAlternasGrande .rastreo-leyenda-mapa-grande .d-block:nth-child(1) span[style*="color"] {
+    color: #ec4899 !important;
+}
+body.dark-mode #modalMapaAlternasGrande .rastreo-leyenda-mapa-grande .d-block:nth-child(2) span[style*="color"] {
+    color: #22c55e !important;
+}
+body.dark-mode #modalMapaAlternasGrande .rastreo-leyenda-mapa-grande .d-block:nth-child(3) span[style*="color"] {
+    color: #b8860b !important;
+}
+body.dark-mode #modalMapaAlternasGrande .rastreo-leyenda-mapa-grande .d-block:nth-child(4) span[style*="color"] {
+    color: #2563eb !important;
+}
+body.dark-mode #modalMapaAlternasGrande .rastreo-leyenda-mapa-grande .d-block:nth-child(5) span {
+    color: #d4d4e0 !important;
 }
 
 /* Contenido de IA */

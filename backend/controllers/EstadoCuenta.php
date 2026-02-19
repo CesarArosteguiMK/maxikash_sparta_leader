@@ -2234,14 +2234,18 @@ public function descargar()
             }
 
             // Caso especial para INE: buscar frente y reverso
+            // En Windows GLOB_BRACE no funciona; buscar por cada extensión y unir
             if ($tipoSeguro === 'INE') {
-                $patronFrente = $directorioBase . '/' . $idSeguro . '_INE_frente_*.{jpg,jpeg,png}';
-                $patronReverso = $directorioBase . '/' . $idSeguro . '_INE_reverso_*.{jpg,jpeg,png}';
-                
-                $archivosFrente = glob($patronFrente, GLOB_BRACE);
-                $archivosReverso = glob($patronReverso, GLOB_BRACE);
-                
-                if (!$archivosFrente || !$archivosReverso) {
+                $exts = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+                $archivosFrente = [];
+                $archivosReverso = [];
+                foreach ($exts as $ext) {
+                    $pf = $directorioBase . DIRECTORY_SEPARATOR . $idSeguro . '_INE_frente_*.' . $ext;
+                    $pr = $directorioBase . DIRECTORY_SEPARATOR . $idSeguro . '_INE_reverso_*.' . $ext;
+                    $archivosFrente = array_merge($archivosFrente, glob($pf) ?: []);
+                    $archivosReverso = array_merge($archivosReverso, glob($pr) ?: []);
+                }
+                if (empty($archivosFrente) || empty($archivosReverso)) {
                     error_log("1RA FORMA - INE no encontrado localmente");
                     return null;
                 }
@@ -2262,8 +2266,8 @@ public function descargar()
                     'esINE' => true,
                     'archivoFrente' => $archivoFrente,
                     'archivoReverso' => $archivoReverso,
-                    'urlFrente' => '/estadocuenta/servirArchivoLocal?archivo=' . urlencode($archivoFrente),
-                    'urlReverso' => '/estadocuenta/servirArchivoLocal?archivo=' . urlencode($archivoReverso),
+                    'urlFrente' => '/EstadoCuenta/servirArchivoLocal?archivo=' . urlencode($archivoFrente),
+                    'urlReverso' => '/EstadoCuenta/servirArchivoLocal?archivo=' . urlencode($archivoReverso),
                     'extension' => 'jpg',
                     'esImagen' => true
                 ];
@@ -2495,7 +2499,7 @@ public function descargar()
                 if (!empty($resINE['success']) && !empty($resINE['datos']['archivo_ine_frente']) && !empty($resINE['datos']['archivo_ine_reverso'])) {
                     error_log("INE $id - RESULTADO: 3RA FORMA (persona_documentos)");
                     $this->registrarAuditoriaDocumento($id, $tipo, $nombreDoc, 1, null);
-                    $base = '/estadocuenta/servirINEPersonaDocumento?id=' . urlencode($id) . '&lado=';
+                    $base = '/EstadoCuenta/servirINEPersonaDocumento?id=' . urlencode($id) . '&lado=';
                     echo json_encode([
                         'success' => true,
                         'tipo' => 'INE',
@@ -2537,7 +2541,7 @@ public function descargar()
                 if (!empty($resINE['success']) && !empty($resINE['datos']['archivo_ine_frente']) && !empty($resINE['datos']['archivo_ine_reverso'])) {
                     error_log("INE $id - RESULTADO: 3RA FORMA (persona_documentos)");
                     $this->registrarAuditoriaDocumento($id, $tipo, $nombreDoc, 1, null);
-                    $base = '/estadocuenta/servirINEPersonaDocumento?id=' . urlencode($id) . '&lado=';
+                    $base = '/EstadoCuenta/servirINEPersonaDocumento?id=' . urlencode($id) . '&lado=';
                     echo json_encode([
                         'success' => true,
                         'tipo' => 'INE',
@@ -3417,16 +3421,17 @@ public function descargar()
         }
 
         $archivo = $_FILES['archivo'];
-        $extension = strtolower(pathinfo($archivo['name'], PATHINFO_EXTENSION));
-        $extensionesPermitidas = ['pdf', 'jpg', 'jpeg', 'png'];
 
-        if (!in_array($extension, $extensionesPermitidas, true)) {
+        if (!\Core\SecureUpload::validateMime($archivo['tmp_name'], \Core\SecureUpload::MIME_PDF_OR_IMAGES)) {
             echo json_encode([
                 'success' => false,
-                'mensaje' => 'Extension de archivo no permitida. Solo PDF, JPG o PNG'
+                'mensaje' => 'Tipo de archivo no permitido. Solo PDF, JPG o PNG.'
             ]);
             return;
         }
+
+        $mime = \Core\SecureUpload::getMimeType($archivo['tmp_name']);
+        $extension = $mime ? \Core\SecureUpload::extensionFromMime($mime) : 'bin';
 
         if ($archivo['size'] > 10 * 1024 * 1024) {
             echo json_encode([
@@ -3437,13 +3442,9 @@ public function descargar()
         }
 
         $directorioBase = __DIR__ . '/../../uploads/documentos/doc_cliente';
-        if (!file_exists($directorioBase)) {
-            mkdir($directorioBase, 0777, true);
-        }
+        \Core\SecureUpload::ensureDir($directorioBase);
 
         $idSeguro = preg_replace('/[^0-9]/', '', (string)$idCredito);
-        $tipoSeguro = preg_replace('/[^A-Z0-9_-]/', '_', $tipoDocumento);
-
         if ($idSeguro === '') {
             echo json_encode([
                 'success' => false,
@@ -3452,8 +3453,7 @@ public function descargar()
             return;
         }
 
-        $timestamp = date('Ymd_His');
-        $nombreArchivo = $idSeguro . '_' . $tipoSeguro . '_' . $timestamp . '.' . $extension;
+        $nombreArchivo = \Core\SecureUpload::generateSafeFilename($extension);
         $rutaCompleta = $directorioBase . '/' . $nombreArchivo;
         $rutaRelativa = 'uploads/documentos/doc_cliente/' . $nombreArchivo;
 
@@ -3512,14 +3512,11 @@ public function descargar()
         $frente = $_FILES['ineFrente'];
         $reverso = $_FILES['ineReverso'];
 
-        $extensionesPermitidas = ['jpg', 'jpeg', 'png'];
-        $extFrente = strtolower(pathinfo($frente['name'], PATHINFO_EXTENSION));
-        $extReverso = strtolower(pathinfo($reverso['name'], PATHINFO_EXTENSION));
-
-        if (!in_array($extFrente, $extensionesPermitidas, true) || !in_array($extReverso, $extensionesPermitidas, true)) {
+        if (!\Core\SecureUpload::validateMime($frente['tmp_name'], \Core\SecureUpload::MIME_IMAGES) ||
+            !\Core\SecureUpload::validateMime($reverso['tmp_name'], \Core\SecureUpload::MIME_IMAGES)) {
             echo json_encode([
                 'success' => false,
-                'mensaje' => 'Extension de archivo no permitida. Solo JPG o PNG para INE'
+                'mensaje' => 'Tipo de archivo no permitido. Solo JPG, PNG, GIF o WebP para INE.'
             ]);
             return;
         }
@@ -3533,9 +3530,7 @@ public function descargar()
         }
 
         $directorioBase = __DIR__ . '/../../uploads/documentos/doc_cliente';
-        if (!file_exists($directorioBase)) {
-            mkdir($directorioBase, 0777, true);
-        }
+        \Core\SecureUpload::ensureDir($directorioBase);
 
         $idSeguro = preg_replace('/[^0-9]/', '', (string)$idCredito);
         if ($idSeguro === '') {
@@ -3546,14 +3541,19 @@ public function descargar()
             return;
         }
 
+        $mimeF = \Core\SecureUpload::getMimeType($frente['tmp_name']);
+        $mimeR = \Core\SecureUpload::getMimeType($reverso['tmp_name']);
+        $extFrente = $mimeF ? \Core\SecureUpload::extensionFromMime($mimeF) : 'jpg';
+        $extReverso = $mimeR ? \Core\SecureUpload::extensionFromMime($mimeR) : 'jpg';
+
+        // Formato de nombre que espera buscarLocal(): idSeguro_INE_frente_* / idSeguro_INE_reverso_*
         $timestamp = date('Ymd_His');
         $nombreFrente = $idSeguro . '_INE_frente_' . $timestamp . '.' . $extFrente;
         $nombreReverso = $idSeguro . '_INE_reverso_' . $timestamp . '.' . $extReverso;
-        
+
         $rutaFrente = $directorioBase . '/' . $nombreFrente;
         $rutaReverso = $directorioBase . '/' . $nombreReverso;
 
-        // Guardar ambos archivos
         if (!move_uploaded_file($frente['tmp_name'], $rutaFrente)) {
             echo json_encode([
                 'success' => false,
@@ -3593,13 +3593,26 @@ public function descargar()
         }
 
         $archivo = basename($_GET['archivo']); // Sanitizar para evitar path traversal
-        $rutaCompleta = __DIR__ . '/../../uploads/documentos/doc_cliente/' . $archivo;
-
-        if (!file_exists($rutaCompleta) || !is_file($rutaCompleta)) {
+        $directorioBase = realpath(__DIR__ . '/../../uploads/documentos/doc_cliente');
+        if ($directorioBase === false || !is_dir($directorioBase)) {
+            http_response_code(404);
+            echo json_encode(['error' => 'Directorio no encontrado']);
+            exit;
+        }
+        $rutaCompleta = $directorioBase . DIRECTORY_SEPARATOR . $archivo;
+        // Evitar path traversal: el archivo debe estar dentro del directorio base
+        $rutaReal = realpath($rutaCompleta);
+        $dentroDeBase = $rutaReal !== false && (
+            strpos($rutaReal, $directorioBase) === 0 ||
+            (DIRECTORY_SEPARATOR === '\\' && stripos($rutaReal, $directorioBase) === 0)
+        );
+        if ($rutaReal === false || !is_file($rutaReal) || !$dentroDeBase) {
             http_response_code(404);
             echo json_encode(['error' => 'Archivo no encontrado']);
             exit;
         }
+
+        $rutaCompleta = $rutaReal;
 
         // Determinar Content-Type según extensión
         $extension = strtolower(pathinfo($archivo, PATHINFO_EXTENSION));
@@ -3608,6 +3621,8 @@ public function descargar()
             'jpg' => 'image/jpeg',
             'jpeg' => 'image/jpeg',
             'png' => 'image/png',
+            'gif' => 'image/gif',
+            'webp' => 'image/webp',
         ];
         $contentType = $mimeTypes[$extension] ?? 'application/octet-stream';
 

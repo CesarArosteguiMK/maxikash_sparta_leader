@@ -18,9 +18,7 @@ class Reporteria extends Controller
     // ==== Reporte de Capital Humano ====
     public function getUsuariosCapitalHumano()
 {
-
-error_reporting(E_ALL);
-    ini_set('display_errors', 1);
+    // No activar display_errors en producción; los errores se registran en log del servidor
     // Limpiar cualquier salida previa
     while (ob_get_level()) ob_end_clean();
     
@@ -239,8 +237,7 @@ error_reporting(E_ALL);
  */
 public function getFiltrosCapitalHumano()
 {
-     error_reporting(E_ALL);
-    ini_set('display_errors', 1);
+    // No activar display_errors en producción; los errores se registran en log del servidor
     // Limpiar cualquier salida previa
     while (ob_get_level()) ob_end_clean();
     

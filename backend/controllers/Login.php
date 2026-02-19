@@ -3,6 +3,7 @@
 namespace Controllers;
 
 use Core\Controller;
+use Core\LoginRateLimit;
 use Models\Login as LoginDao;
 use Models\Perfil as PerfilDao;
 
@@ -23,11 +24,12 @@ class login extends Controller
                         type: "POST",
                         data: datos,
                         success: (respuesta) => {
-                            if (respuesta.success) window.location.href = respuesta.datos.url
-                            else {
-                                showError(respuesta.mensaje)
-                                if (respuesta.error) console.log(respuesta.error)
-                                btn.removeAttribute("disabled")
+                            if (respuesta.success) {
+                                window.location.href = respuesta.datos.url;
+                            } else {
+                                showError(respuesta.mensaje);
+                                if (respuesta.error) console.log(respuesta.error);
+                                btn.removeAttribute("disabled");
                             }
                         },
                         error: () => {
@@ -117,6 +119,13 @@ class login extends Controller
     public function validaUsuario()
     {
         $respuesta = self::respuesta(false, 'Credenciales incorrectas.');
+
+        $rateCheck = LoginRateLimit::check();
+        if ($rateCheck[0] === false) {
+            $respuesta = self::respuesta(false, $rateCheck[1] ?? 'Demasiados intentos.');
+            self::respuestaJSON($respuesta);
+        }
+
         $validacion = LoginDao::validaUsuario($_POST);
 
         if ($validacion['success'] && !empty($validacion['datos'])) {
@@ -149,9 +158,12 @@ class login extends Controller
                 $_SESSION['foto_perfil'] = "/CapHum/getFotoPersona?personaId={$datos['FOTO']}";
             }
 
+            LoginRateLimit::clear();
             $respuesta = self::respuesta(true, 'Bienvenido', [
                 'url' => '/' . VISTA_DEFECTO
             ]);
+        } else {
+            LoginRateLimit::recordFailure();
         }
 
         self::respuestaJSON($respuesta);

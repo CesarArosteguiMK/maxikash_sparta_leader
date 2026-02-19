@@ -35,3 +35,7 @@ backend/storage/tmp_media/
 backend/storage/logs/*.log
 backend/storage/logs/*
 !backend/storage/logs/.gitkeep
+
+# ========== Rate limiting (login) ==========
+backend/storage/rate_limit/
+!backend/storage/rate_limit/.gitkeep
