@@ -27,7 +27,7 @@ class Indicadores extends Model
     }
 
     /**
-     * ✅ GESTIONES 1 A 7 - CORREGIDA SEGÚN POWERBI
+     *   GESTIONES 1 A 7 - CORREGIDA SEGÚN POWERBI
      * - Eficiencia = Current / (Current + 1a7 + 8a14 + 15a21)
      * - Fechas solo del día actual
      * - WhatsApp agregado
