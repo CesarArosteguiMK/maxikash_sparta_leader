@@ -1937,21 +1937,11 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
                         <select class="form-select" id="motivoBaja">
                             <option value="">-- Selecciona un motivo --</option>
                             <option value="Renuncia voluntaria">Renuncia voluntaria</option>
-                            <option value="Incumplimiento de objetivos">Incumplimiento de objetivos</option>
-                            <option value="Falta de asistencia">Falta de asistencia</option>
-                            <option value="Mutuo acuerdo">Mutuo acuerdo</option>
-                            <option value="Desempeño insuficiente">Desempeño insuficiente</option>
-                            <option value="Falta de puntualidad">Falta de puntualidad</option>
-                            <option value="Problemas disciplinarios">Problemas disciplinarios</option>
-                            <option value="Conflictos internos">Conflictos internos</option>
-                            <option value="Cambio de puesto">Cambio de puesto</option>
-                            <option value="Traslado a otra sucursal">Traslado a otra sucursal</option>
-                            <option value="Renuncia por motivos personales">Renuncia por motivos personales</option>
-                            <option value="Baja por salud">Baja por salud</option>
-                            <option value="Baja administrativa">Baja administrativa</option>
-                            <option value="Falta de capacitación">Falta de capacitación</option>
-                            <option value="Empleado duplicado">Empleado Duplicado</option>
-                            <option value="Otros">Otros</option>
+                            <option value="Falta de probidad">Falta de probidad</option>
+                            <option value="Faltas injustificadas">Faltas injustificadas</option>
+                            <option value="Bajo rendimiento">Bajo rendimiento</option>
+                            <option value="Cambio de área">Cambio de área</option>
+                            <option value="Conciliación">Conciliación</option>
                         </select>
                     </div>
 
