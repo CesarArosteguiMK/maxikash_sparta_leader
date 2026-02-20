@@ -48,12 +48,94 @@ body.dark-mode .inicio-mkx .hero::after{background:linear-gradient(to bottom,#c8
 body.dark-mode .inicio-mkx .hero-badge .badge-dot{box-shadow:0 0 10px var(--yellow);}
 .inicio-mkx .hero-title{font-family:'Outfit',sans-serif;font-size:28px;font-weight:700;color:#fff;line-height:1.2;margin-bottom:8px;letter-spacing:-0.02em;}
 .inicio-mkx .hero-desc{font-size:13.5px;color:rgba(255,255,255,.55);max-width:560px;line-height:1.65;}
-.inicio-mkx .hero-datetime{position:relative;z-index:1;display:flex;align-items:center;gap:14px;padding:14px 18px;background:rgba(255,255,255,0.12);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,0.2);border-radius:14px;}
-.inicio-mkx .hero-datetime-icon{width:48px;height:48px;border-radius:14px;background:linear-gradient(135deg,rgba(200,214,43,0.4),rgba(200,214,43,0.18));display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;color:#C8D62B;animation:hero-clock-pulse 2.5s ease-in-out infinite;box-shadow:0 2px 12px rgba(0,0,0,0.12),inset 0 1px 0 rgba(255,255,255,0.25);border:1px solid rgba(200,214,43,0.35);}
+.inicio-mkx .hero-datetime{position:relative;z-index:1;display:flex;align-items:center;gap:14px;padding:14px 18px;background:rgba(255,255,255,0.12);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,0.2);border-radius:14px;cursor:pointer;transition:all .2s;}
+.inicio-mkx .hero-datetime:hover{background:rgba(255,255,255,0.2);transform:scale(1.02);}
+.inicio-mkx .hero-datetime-icon{width:48px;height:48px;border-radius:14px;background:linear-gradient(135deg,rgba(200,214,43,0.5),rgba(200,214,43,0.25));display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;color:#C8D62B;animation:hero-clock-pulse 1.5s ease-in-out infinite;box-shadow:0 2px 12px rgba(0,0,0,0.12),inset 0 1px 0 rgba(255,255,255,0.25),0 0 0 0 rgba(200,214,43,0);border:1px solid rgba(200,214,43,0.5);}
 .inicio-mkx .hero-datetime-icon i{color:#C8D62B;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.15));}
 .inicio-mkx .hero-datetime-time{font-weight:700;font-size:1.35rem;line-height:1.2;color:#fff;}
 .inicio-mkx .hero-datetime-date{font-size:0.8rem;opacity:0.95;margin-top:2px;color:rgba(255,255,255,0.9);}
-@keyframes hero-clock-pulse{0%,100%{opacity:1;transform:scale(1);box-shadow:0 2px 12px rgba(0,0,0,0.12),0 0 0 0 rgba(200,214,43,0.35);}50%{opacity:0.95;transform:scale(1.02);box-shadow:0 4px 16px rgba(0,0,0,0.18),0 0 14px 2px rgba(200,214,43,0.25);}}
+@keyframes hero-clock-pulse{0%,100%{transform:scale(1);box-shadow:0 2px 12px rgba(0,0,0,0.12),0 0 0 0 rgba(200,214,43,0.4);}50%{transform:scale(1.08);box-shadow:0 4px 16px rgba(0,0,0,0.18),0 0 20px 4px rgba(200,214,43,0.5);}}
+
+/* Panel reloj desplegable – Liquid Glass */
+.clock-panel-overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:9998;display:none;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);}
+.clock-panel-overlay.open{display:block;animation:overlayIn .25s ease;}
+@keyframes overlayIn{from{opacity:0;}to{opacity:1;}}
+.clock-panel{
+  position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+  width:340px;max-width:calc(100vw - 32px);
+  background:rgba(255,255,255,0.88);
+  backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+  border-radius:24px;
+  border:1px solid rgba(255,255,255,0.5);
+  box-shadow:0 25px 80px rgba(0,0,0,.2),0 0 0 1px rgba(0,0,0,0.05),inset 0 1px 0 rgba(255,255,255,0.6);
+  z-index:9999;display:none;overflow:hidden;
+}
+.clock-panel.open{display:block;animation:panelIn .35s cubic-bezier(0.34,1.56,0.64,1);}
+@keyframes panelIn{from{opacity:0;transform:translate(-50%,-50%) scale(.85);}to{opacity:1;transform:translate(-50%,-50%) scale(1);}}
+.cp-header{
+  background:linear-gradient(135deg,rgba(26,82,168,0.95) 0%,rgba(37,99,196,0.95) 100%);
+  padding:24px 20px;text-align:center;color:#fff;
+  backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+}
+.cp-time{font-family:'Outfit',sans-serif;font-size:52px;font-weight:700;letter-spacing:2px;line-height:1;text-shadow:0 2px 10px rgba(0,0,0,0.15);}
+.cp-date{font-size:15px;opacity:.95;font-weight:500;margin-top:6px;}
+.cp-weather{
+  display:flex;align-items:center;gap:14px;padding:16px 20px;
+  background:rgba(224,242,254,0.6);
+  border-bottom:1px solid rgba(0,0,0,0.06);
+}
+.cp-weather-ico{font-size:36px;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.1));}
+.cp-weather-info{flex:1;}
+.cp-weather-label{font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.5px;font-weight:600;}
+.cp-weather-temp{font-size:22px;font-weight:700;color:#1e293b;}
+.cp-calendar{padding:16px 20px;border-bottom:1px solid rgba(0,0,0,0.06);background:rgba(255,255,255,0.3);}
+.cp-cal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+.cp-cal-month{font-size:15px;font-weight:600;color:#1e293b;}
+.cp-cal-nav{display:flex;gap:6px;}
+.cp-cal-nav button{
+  width:28px;height:28px;border:1px solid rgba(0,0,0,0.1);border-radius:8px;
+  background:rgba(255,255,255,0.7);cursor:pointer;font-size:12px;color:#64748b;
+  display:flex;align-items:center;justify-content:center;transition:all .2s;
+}
+.cp-cal-nav button:hover{background:#1A52A8;color:#fff;border-color:#1A52A8;transform:scale(1.05);}
+.cp-cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;text-align:center;}
+.cp-cal-dn{font-size:10px;font-weight:600;color:#94a3b8;padding:4px 0;}
+.cp-cal-d{font-size:12px;padding:7px 0;border-radius:8px;color:#64748b;transition:all .15s;position:relative;}
+.cp-cal-d.empty{visibility:hidden;}
+.cp-cal-d.today{background:linear-gradient(135deg,#1A52A8,#2563eb);color:#fff;font-weight:700;box-shadow:0 2px 8px rgba(26,82,168,0.35);}
+.cp-event-dot{position:absolute;bottom:2px;left:50%;transform:translateX(-50%);width:5px;height:5px;background:#f59e0b;border-radius:50%;box-shadow:0 0 4px rgba(245,158,11,0.5);}
+.cp-cal-d.today .cp-event-dot{background:#fff;box-shadow:0 0 4px rgba(255,255,255,0.5);}
+.cp-quote{
+  padding:16px 20px;
+  background:linear-gradient(135deg,rgba(255,251,235,0.8),rgba(254,243,199,0.6));
+  border-left:4px solid #f59e0b;
+}
+.cp-quote-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;color:#b45309;margin-bottom:8px;display:flex;align-items:center;gap:6px;}
+.cp-quote-text{font-size:14px;font-style:italic;color:#78350f;line-height:1.55;}
+.cp-quote-author{font-size:12px;color:#92400e;font-weight:500;margin-top:6px;}
+
+/* Dark mode para panel – Liquid Glass */
+body.dark-mode .clock-panel-overlay{background:rgba(0,0,0,.5);}
+body.dark-mode .clock-panel{
+  background:rgba(30,41,59,0.85);
+  border-color:rgba(255,255,255,0.1);
+  box-shadow:0 25px 80px rgba(0,0,0,.5),0 0 0 1px rgba(255,255,255,0.05),inset 0 1px 0 rgba(255,255,255,0.1);
+}
+body.dark-mode .cp-header{background:linear-gradient(135deg,rgba(30,58,138,0.95) 0%,rgba(29,78,216,0.95) 100%);}
+body.dark-mode .cp-weather{background:rgba(30,58,95,0.5);border-color:rgba(255,255,255,0.06);}
+body.dark-mode .cp-weather-temp{color:#fff;}
+body.dark-mode .cp-weather-label{color:#94a3b8;}
+body.dark-mode .cp-calendar{border-color:rgba(255,255,255,0.06);background:rgba(0,0,0,0.15);}
+body.dark-mode .cp-cal-month{color:#fff;}
+body.dark-mode .cp-cal-nav button{background:rgba(255,255,255,0.1);border-color:rgba(255,255,255,0.15);color:#94a3b8;}
+body.dark-mode .cp-cal-nav button:hover{background:#3b82f6;color:#fff;border-color:#3b82f6;}
+body.dark-mode .cp-cal-d{color:#94a3b8;}
+body.dark-mode .cp-cal-d.today{background:linear-gradient(135deg,#3b82f6,#2563eb);box-shadow:0 2px 10px rgba(59,130,246,0.4);}
+body.dark-mode .cp-event-dot{background:#fbbf24;box-shadow:0 0 6px rgba(251,191,36,0.6);}
+body.dark-mode .cp-quote{background:linear-gradient(135deg,rgba(66,32,6,0.7),rgba(120,53,15,0.5));border-left-color:#f59e0b;}
+body.dark-mode .cp-quote-label{color:#fbbf24;}
+body.dark-mode .cp-quote-text{color:#fef3c7;}
+body.dark-mode .cp-quote-author{color:#fcd34d;}
 body.dark-mode .inicio-mkx .hero-datetime-icon{background:linear-gradient(135deg,rgba(200,214,43,0.35),rgba(200,214,43,0.12));border-color:rgba(200,214,43,0.4);box-shadow:0 2px 14px rgba(0,0,0,0.35),inset 0 1px 0 rgba(255,255,255,0.08);}
 body.dark-mode .inicio-mkx .hero-datetime-icon i{color:#c8d62b;filter:drop-shadow(0 1px 3px rgba(0,0,0,0.3));}
 .inicio-mkx .sec-hd{display:flex;align-items:center;gap:10px;margin-bottom:14px;}
@@ -137,12 +219,43 @@ body.dark-mode .inicio-mkx .qcard:hover::after{transform:scaleX(1);}
         <h1 class="hero-title">¡Hola, <?= htmlspecialchars($nombreCorto) ?>! 👋</h1>
         <p class="hero-desc"><?= htmlspecialchars($heroDesc) ?></p>
       </div>
-      <div class="hero-datetime">
+      <div class="hero-datetime" id="btnOpenClockPanel" title="Ver más información">
         <span class="hero-datetime-icon"><i class="fa-solid fa-clock"></i></span>
         <div>
           <div class="hero-datetime-time" id="inicioTime">--:--</div>
           <div class="hero-datetime-date" id="inicioDate">--</div>
         </div>
+      </div>
+    </div>
+
+    <!-- Overlay y Panel del reloj -->
+    <div class="clock-panel-overlay" id="clockOverlay"></div>
+    <div class="clock-panel" id="clockPanel">
+      <div class="cp-header">
+        <div class="cp-time" id="cpTime">--:--:--</div>
+        <div class="cp-date" id="cpDate">Cargando...</div>
+      </div>
+      <div class="cp-weather">
+        <div class="cp-weather-ico" id="cpWxIco">⛅</div>
+        <div class="cp-weather-info">
+          <div class="cp-weather-label">Clima estimado</div>
+          <div class="cp-weather-temp" id="cpWxTemp">23°C</div>
+        </div>
+      </div>
+      <div class="cp-calendar">
+        <div class="cp-cal-header">
+          <span class="cp-cal-month" id="cpCalMonth">Febrero 2026</span>
+          <div class="cp-cal-nav">
+            <button type="button" id="cpCalPrev">◀</button>
+            <button type="button" id="cpCalNext">▶</button>
+          </div>
+        </div>
+        <div class="cp-cal-grid" id="cpCalGrid"></div>
+      </div>
+      <div class="cp-quote">
+        <div class="cp-quote-label">💡 Frase del día</div>
+        <div class="cp-quote-text" id="cpQuoteText">"El éxito es la suma de pequeños esfuerzos repetidos día tras día."</div>
+        <div class="cp-quote-author" id="cpQuoteAuthor">— Robert Collier</div>
       </div>
     </div>
 
@@ -162,19 +275,264 @@ body.dark-mode .inicio-mkx .qcard:hover::after{transform:scaleX(1);}
 
 <script>
 (function(){
+  var pad = function(n){ return (n < 10 ? '0' : '') + n; };
+  
+  // Obtener fecha/hora en zona horaria de CDMX
+  function getCDMXDate(){
+    return new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Mexico_City' }));
+  }
+  
+  // Actualizar hora del hero (CDMX)
   function updateInicioDateTime(){
     var elTime = document.getElementById('inicioTime');
     var elDate = document.getElementById('inicioDate');
     if (!elTime || !elDate) return;
-    var n = new Date();
+    var n = getCDMXDate();
     var h = n.getHours(), m = n.getMinutes();
-    elTime.textContent = (h < 10 ? '0' : '') + h + ':' + (m < 10 ? '0' : '') + m;
+    elTime.textContent = pad(h) + ':' + pad(m);
     var d = n.getDate(), mes = n.getMonth(), dia = n.getDay();
     var meses = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
     var dias = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
     elDate.textContent = dias[dia] + ' ' + d + ' ' + meses[mes];
   }
   updateInicioDateTime();
-  setInterval(updateInicioDateTime, 60000);
+  setInterval(updateInicioDateTime, 1000);
+
+  // Panel reloj
+  var btnOpen = document.getElementById('btnOpenClockPanel');
+  var clockPanel = document.getElementById('clockPanel');
+  var clockOverlay = document.getElementById('clockOverlay');
+  var cdmxNow = getCDMXDate();
+  var cpCy = cdmxNow.getFullYear();
+  var cpCm = cdmxNow.getMonth();
+
+  // Frases cargadas desde archivo (fallback incluido)
+  var QUOTES = [];
+  var todayQuote = null;
+
+  // Cargar frases desde el archivo JSON
+  fetch('/backend/config/frases_motivacionales.json')
+    .then(function(r){ return r.json(); })
+    .then(function(data){
+      if(data && data.frases && data.frases.length > 0){
+        QUOTES = data.frases.map(function(f, idx){ return { id: idx, t: f.texto, a: f.autor }; });
+        todayQuote = selectTodayQuote();
+      }
+    })
+    .catch(function(){
+      // Fallback si no carga el archivo
+      QUOTES = [
+        { id: 0, t:'El éxito es la suma de pequeños esfuerzos repetidos día tras día.', a:'Robert Collier' },
+        { id: 1, t:'La actitud es la pequeña cosa que hace una gran diferencia.', a:'Winston Churchill' },
+        { id: 2, t:'Siempre parece imposible hasta que se hace.', a:'Nelson Mandela' }
+      ];
+      todayQuote = selectTodayQuote();
+    });
+
+  // Sistema de frases sin repetir por 5 días
+  function getTodayKey(){
+    var n = getCDMXDate();
+    return n.getFullYear() + '-' + (n.getMonth()+1) + '-' + n.getDate();
+  }
+
+  function getUsedQuotes(){
+    try {
+      var stored = localStorage.getItem('usedQuotes');
+      return stored ? JSON.parse(stored) : {};
+    } catch(e){ return {}; }
+  }
+
+  function saveUsedQuotes(used){
+    try {
+      localStorage.setItem('usedQuotes', JSON.stringify(used));
+    } catch(e){}
+  }
+
+  function selectTodayQuote(){
+    var todayKey = getTodayKey();
+    var used = getUsedQuotes();
+    
+    // Si ya hay una frase guardada para hoy, usarla
+    if(used[todayKey] && used[todayKey].quote){
+      var savedQuote = QUOTES.find(function(q){ return q.id === used[todayKey].quote.id; });
+      if(savedQuote) return savedQuote;
+    }
+    
+    // Limpiar frases usadas con más de 5 días
+    var now = getCDMXDate();
+    var fiveDaysAgo = new Date(now);
+    fiveDaysAgo.setDate(fiveDaysAgo.getDate() - 5);
+    
+    var recentlyUsedIds = [];
+    Object.keys(used).forEach(function(dateKey){
+      var parts = dateKey.split('-');
+      var usedDate = new Date(parts[0], parts[1]-1, parts[2]);
+      if(usedDate >= fiveDaysAgo && dateKey !== todayKey){
+        if(used[dateKey].quote && typeof used[dateKey].quote.id !== 'undefined'){
+          recentlyUsedIds.push(used[dateKey].quote.id);
+        }
+      } else if(usedDate < fiveDaysAgo){
+        // Eliminar registros antiguos (más de 5 días)
+        delete used[dateKey];
+      }
+    });
+    
+    // Filtrar frases disponibles (no usadas en últimos 5 días)
+    var availableQuotes = QUOTES.filter(function(q){
+      return recentlyUsedIds.indexOf(q.id) === -1;
+    });
+    
+    // Si no hay frases disponibles, usar todas
+    if(availableQuotes.length === 0){
+      availableQuotes = QUOTES;
+    }
+    
+    // Seleccionar una frase random
+    var randomIndex = Math.floor(Math.random() * availableQuotes.length);
+    var selectedQuote = availableQuotes[randomIndex];
+    
+    // Guardar la frase de hoy
+    used[todayKey] = { quote: { id: selectedQuote.id, t: selectedQuote.t, a: selectedQuote.a } };
+    saveUsedQuotes(used);
+    
+    return selectedQuote;
+  }
+
+  // Días festivos/eventos de México (mes, día) - los puntos en el calendario
+  var EVENTOS_MX = {
+    '1-1': 'Año Nuevo',
+    '2-5': 'Día de la Constitución',
+    '3-21': 'Natalicio de Benito Juárez',
+    '5-1': 'Día del Trabajo',
+    '5-10': 'Día de las Madres',
+    '9-16': 'Día de la Independencia',
+    '11-2': 'Día de Muertos',
+    '11-20': 'Revolución Mexicana',
+    '12-25': 'Navidad',
+    '12-31': 'Fin de Año'
+  };
+
+  function openPanel(){
+    clockPanel.classList.add('open');
+    clockOverlay.classList.add('open');
+    updateClockPanel();
+    renderCpCal();
+    loadCpQuote();
+    loadCpWeather();
+  }
+  function closePanel(){
+    clockPanel.classList.remove('open');
+    clockOverlay.classList.remove('open');
+  }
+
+  btnOpen.addEventListener('click', function(e){
+    e.stopPropagation();
+    openPanel();
+  });
+  clockOverlay.addEventListener('click', closePanel);
+  clockPanel.addEventListener('click', function(e){ e.stopPropagation(); });
+
+  // Actualizar hora del panel (CDMX)
+  function updateClockPanel(){
+    var n = getCDMXDate();
+    document.getElementById('cpTime').textContent = pad(n.getHours()) + ':' + pad(n.getMinutes()) + ':' + pad(n.getSeconds());
+    var dias = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+    var meses = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+    document.getElementById('cpDate').textContent = dias[n.getDay()] + ', ' + n.getDate() + ' de ' + meses[n.getMonth()] + ' ' + n.getFullYear();
+  }
+
+  // Calendario con eventos (puntos)
+  function renderCpCal(){
+    var MN = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+    document.getElementById('cpCalMonth').textContent = MN[cpCm] + ' ' + cpCy;
+    var fd = new Date(cpCy, cpCm, 1).getDay();
+    var tot = new Date(cpCy, cpCm+1, 0).getDate();
+    var now = getCDMXDate();
+    var td = (now.getMonth() === cpCm && now.getFullYear() === cpCy) ? now.getDate() : -1;
+    var dns = ['D','L','M','X','J','V','S'];
+    var h = dns.map(function(d){ return '<div class="cp-cal-dn">' + d + '</div>'; }).join('');
+    for (var i = 0; i < fd; i++) h += '<div class="cp-cal-d empty"></div>';
+    for (var d = 1; d <= tot; d++){
+      var c = 'cp-cal-d';
+      if (d === td) c += ' today';
+      var eventKey = (cpCm + 1) + '-' + d;
+      var hasEvent = EVENTOS_MX[eventKey];
+      var eventDot = hasEvent ? '<span class="cp-event-dot" title="' + hasEvent + '"></span>' : '';
+      h += '<div class="' + c + '">' + d + eventDot + '</div>';
+    }
+    document.getElementById('cpCalGrid').innerHTML = h;
+  }
+
+  function cpChMonth(dir){
+    cpCm += dir;
+    if (cpCm < 0){ cpCm = 11; cpCy--; }
+    if (cpCm > 11){ cpCm = 0; cpCy++; }
+    renderCpCal();
+  }
+
+  document.getElementById('cpCalPrev').addEventListener('click', function(){ cpChMonth(-1); });
+  document.getElementById('cpCalNext').addEventListener('click', function(){ cpChMonth(1); });
+
+  // Frase del día (random, sin repetir por 5 días)
+  function loadCpQuote(){
+    // Si no hay frase seleccionada aún, intentar seleccionar
+    if(!todayQuote && QUOTES.length > 0){
+      todayQuote = selectTodayQuote();
+    }
+    
+    if(todayQuote){
+      document.getElementById('cpQuoteText').textContent = '"' + todayQuote.t + '"';
+      document.getElementById('cpQuoteAuthor').textContent = '— ' + todayQuote.a;
+    }
+  }
+
+  // Cargar clima real de CDMX (usando endpoint PHP)
+  function loadCpWeather(){
+    var elTemp = document.getElementById('cpWxTemp');
+    var elIco = document.getElementById('cpWxIco');
+    var elLabel = document.querySelector('.cp-weather-label');
+    
+    // Mostrar cargando
+    elTemp.textContent = 'Cargando...';
+    elIco.textContent = '⏳';
+    
+    // Usar nuestro endpoint PHP (evita CORS)
+    fetch('/clima/cdmx')
+      .then(function(response){ return response.json(); })
+      .then(function(data){
+        if(data && data.success){
+          elTemp.textContent = data.temperature + '°C';
+          elIco.textContent = getWeatherEmoji(data.weather_code);
+          if(elLabel) elLabel.textContent = 'Clima CDMX';
+        } else {
+          throw new Error(data.error || 'Error desconocido');
+        }
+      })
+      .catch(function(err){
+        console.log('Error clima:', err);
+        elTemp.textContent = 'No disponible';
+        elIco.textContent = '❓';
+      });
+  }
+
+  // Convertir código WMO a emoji
+  function getWeatherEmoji(code){
+    if(code === 0) return '☀️';
+    if(code === 1 || code === 2) return '⛅';
+    if(code === 3) return '☁️';
+    if(code >= 45 && code <= 48) return '🌫️';
+    if(code >= 51 && code <= 57) return '🌧️';
+    if(code >= 61 && code <= 67) return '🌧️';
+    if(code >= 71 && code <= 77) return '❄️';
+    if(code >= 80 && code <= 82) return '🌦️';
+    if(code >= 85 && code <= 86) return '🌨️';
+    if(code >= 95 && code <= 99) return '⛈️';
+    return '🌡️';
+  }
+
+  // Actualizar reloj del panel cada segundo si está abierto
+  setInterval(function(){
+    if(clockPanel.classList.contains('open')) updateClockPanel();
+  }, 1000);
 })();
 </script>

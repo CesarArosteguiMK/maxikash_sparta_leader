@@ -170,16 +170,57 @@ body::before{
 .tb-notif:hover{background:#f1f5f9;}
 .tb-dot{position:absolute;top:6px;right:7px;width:6px;height:6px;background:#ef4444;border-radius:50%;border:1.5px solid #fff;}
 
-/* Panel reloj desplegable */
-.tb-clock-wrap{position:relative;}
-.tb-clock-panel{
-  position:absolute;top:calc(100% + 10px);right:0;width:340px;
-  background:var(--surface);border:1px solid var(--border);border-radius:var(--r);
-  box-shadow:0 12px 40px rgba(0,0,0,.15);padding:0;z-index:100;
-  display:none;overflow:hidden;
+/* Panel reloj desplegable (desde hero) */
+.clock-panel-container{
+  position:fixed;
+  top:50%;left:50%;
+  transform:translate(-50%,-50%);
+  z-index:99999;
+  pointer-events:none;
 }
-.tb-clock-panel.open{display:block;animation:fadeDown .25s ease;}
-@keyframes fadeDown{from{opacity:0;transform:translateY(-8px);}to{opacity:1;transform:translateY(0);}}
+.clock-panel{
+  width:340px;
+  background:#fff;border:3px solid #1A52A8;border-radius:16px;
+  box-shadow:0 25px 80px rgba(0,0,0,.4);padding:0;
+  display:none;overflow:hidden;
+  pointer-events:auto;
+}
+.clock-panel.open{display:block !important;animation:fadeIn .3s ease;}
+@keyframes fadeIn{from{opacity:0;transform:scale(.9);}to{opacity:1;transform:scale(1);}}
+
+/* Hacer clickeable el hst del reloj con efecto parpadeante MUY visible */
+.hst.hst-clock{
+  cursor:pointer;transition:all .2s;position:relative;
+  background:rgba(255,255,255,.15) !important;
+}
+.hst.hst-clock:hover{background:rgba(255,255,255,.28) !important;transform:scale(1.05);}
+.hst.hst-clock .hst-ico{
+  animation:clockPulse 1.2s ease-in-out infinite;
+  font-size:20px !important;
+}
+@keyframes clockPulse{
+  0%,100%{transform:scale(1);text-shadow:0 0 5px rgba(255,255,255,.5);}
+  50%{transform:scale(1.3);text-shadow:0 0 15px rgba(200,214,43,1),0 0 30px rgba(200,214,43,.8);}
+}
+.hst.hst-clock::before{
+  content:'Click';position:absolute;top:-8px;right:-5px;
+  background:var(--yellow);color:#1A52A8;font-size:8px;font-weight:700;
+  padding:2px 5px;border-radius:4px;text-transform:uppercase;
+  animation:clickBadge 1.5s ease-in-out infinite;
+}
+@keyframes clickBadge{
+  0%,100%{opacity:1;transform:scale(1);}
+  50%{opacity:.6;transform:scale(1.1);}
+}
+.hst.hst-clock::after{
+  content:'';position:absolute;inset:-4px;border-radius:12px;
+  border:2px solid var(--yellow);animation:clockRing 1.2s ease-in-out infinite;
+  pointer-events:none;
+}
+@keyframes clockRing{
+  0%,100%{opacity:.3;transform:scale(.97);}
+  50%{opacity:1;transform:scale(1.02);}
+}
 
 .cp-header{
   background:linear-gradient(135deg,#1A52A8 0%,#2563C4 100%);
@@ -508,7 +549,7 @@ body.dark-mode .sb-user-dropdown a:hover,body.dark-mode .sb-user-dropdown button
 body.dark-mode .topbar{background:rgba(30,41,59,.9);border-color:var(--border);}
 body.dark-mode .tb-notif{background:var(--surface);border-color:var(--border);}
 body.dark-mode .tb-notif:hover{background:#334155;}
-body.dark-mode .tb-clock-panel{background:var(--surface);border-color:var(--border);box-shadow:0 12px 40px rgba(0,0,0,.4);}
+body.dark-mode .clock-panel{background:var(--surface);border-color:var(--border);box-shadow:0 12px 40px rgba(0,0,0,.4);}
 body.dark-mode .cp-header{background:linear-gradient(135deg,#1e3a8a 0%,#1d4ed8 100%);}
 body.dark-mode .cp-weather{background:linear-gradient(90deg,#1e3a5f,#0f172a);border-color:var(--border);}
 body.dark-mode .cp-weather-temp{color:#fff;}
@@ -575,47 +616,6 @@ body.dark-mode .r-btn:hover,body.dark-mode .r-btn.active{background:var(--blue);
     <div class="tb-left">Portal Maxikash &nbsp;·&nbsp; <strong id="tbName"><?= htmlspecialchars($nombreCorto) ?></strong></div>
     <div class="tb-right">
       <span class="tb-chip" id="tbDate"></span>
-      
-      <!-- Icono reloj con panel desplegable -->
-      <div class="tb-clock-wrap">
-        <button type="button" class="tb-notif" id="btnClockPanel" title="Ver hora y calendario">🕐</button>
-        <div class="tb-clock-panel" id="clockPanel">
-          <!-- Header con reloj grande -->
-          <div class="cp-header">
-            <div class="cp-time" id="cpTime">--:--:--</div>
-            <div class="cp-date" id="cpDate">Cargando...</div>
-          </div>
-          
-          <!-- Clima -->
-          <div class="cp-weather">
-            <div class="cp-weather-ico" id="cpWxIco">⛅</div>
-            <div class="cp-weather-info">
-              <div class="cp-weather-label">Clima estimado</div>
-              <div class="cp-weather-temp" id="cpWxTemp">23°C</div>
-            </div>
-          </div>
-          
-          <!-- Mini calendario -->
-          <div class="cp-calendar">
-            <div class="cp-cal-header">
-              <span class="cp-cal-month" id="cpCalMonth">Febrero 2026</span>
-              <div class="cp-cal-nav">
-                <button type="button" id="cpCalPrev">◀</button>
-                <button type="button" id="cpCalNext">▶</button>
-              </div>
-            </div>
-            <div class="cp-cal-grid" id="cpCalGrid"></div>
-          </div>
-          
-          <!-- Frase del día -->
-          <div class="cp-quote">
-            <div class="cp-quote-label">💡 Frase del día</div>
-            <div class="cp-quote-text" id="cpQuoteText">"El éxito es la suma de pequeños esfuerzos repetidos día tras día."</div>
-            <div class="cp-quote-author" id="cpQuoteAuthor">— Robert Collier</div>
-          </div>
-        </div>
-      </div>
-      
       <a href="/login/cerrarSesion" class="tb-notif" title="Cerrar sesión">🚪</a>
     </div>
   </header>
@@ -641,6 +641,45 @@ body.dark-mode .r-btn:hover,body.dark-mode .r-btn.active{background:var(--blue);
         <p class="hero-desc" id="heroDesc"><?= htmlspecialchars($heroDesc) ?></p>
       </div>
       <div class="hstats" id="hstats"></div>
+    </div>
+
+    <!-- Panel desplegable del reloj -->
+    <div class="clock-panel-container">
+      <div class="clock-panel" id="clockPanel">
+        <!-- Header con reloj grande -->
+        <div class="cp-header">
+          <div class="cp-time" id="cpTime">--:--:--</div>
+          <div class="cp-date" id="cpDate">Cargando...</div>
+        </div>
+        
+        <!-- Clima -->
+        <div class="cp-weather">
+          <div class="cp-weather-ico" id="cpWxIco">⛅</div>
+          <div class="cp-weather-info">
+            <div class="cp-weather-label">Clima estimado</div>
+            <div class="cp-weather-temp" id="cpWxTemp">23°C</div>
+          </div>
+        </div>
+        
+        <!-- Mini calendario -->
+        <div class="cp-calendar">
+          <div class="cp-cal-header">
+            <span class="cp-cal-month" id="cpCalMonth">Febrero 2026</span>
+            <div class="cp-cal-nav">
+              <button type="button" id="cpCalPrev">◀</button>
+              <button type="button" id="cpCalNext">▶</button>
+            </div>
+          </div>
+          <div class="cp-cal-grid" id="cpCalGrid"></div>
+        </div>
+        
+        <!-- Frase del día -->
+        <div class="cp-quote">
+          <div class="cp-quote-label">💡 Frase del día</div>
+          <div class="cp-quote-text" id="cpQuoteText">"El éxito es la suma de pequeños esfuerzos repetidos día tras día."</div>
+          <div class="cp-quote-author" id="cpQuoteAuthor">— Robert Collier</div>
+        </div>
+      </div>
     </div>
 
     <div class="sec-hd"><span class="sec-txt">Accesos rápidos</span><div class="sec-line"></div></div>
@@ -724,6 +763,8 @@ body.dark-mode .r-btn:hover,body.dark-mode .r-btn.active{background:var(--blue);
 
 <script>
 (function(){
+  console.log('%c🕐 SCRIPT INICIO CARGADO', 'background:#1A52A8;color:white;padding:5px 10px;font-size:14px;');
+  
   var urls = <?= json_encode($urls) ?>;
   var userName = <?= json_encode($nombreCorto) ?>;
   var userFull = <?= json_encode($nombreUsuario) ?>;
@@ -842,7 +883,7 @@ body.dark-mode .r-btn:hover,body.dark-mode .r-btn.active{background:var(--blue);
     var dns = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
     var pd = payDays();
     document.getElementById('hstats').innerHTML =
-      '<div class="hst"><div class="hst-ico">🕐</div><div><div class="hst-val" id="hTime">' + pad(h) + ':' + pad(n.getMinutes()) + '</div><div class="hst-lbl">' + dns[n.getDay()] + ' ' + n.getDate() + ' ' + mns[n.getMonth()] + '</div></div></div>' +
+      '<div class="hst hst-clock" id="hstClock" title="Click para ver calendario y más info"><div class="hst-ico">🕐</div><div><div class="hst-val" id="hTime">' + pad(h) + ':' + pad(n.getMinutes()) + '</div><div class="hst-lbl">' + dns[n.getDay()] + ' ' + n.getDate() + ' ' + mns[n.getMonth()] + '</div></div></div>' +
       '<div class="hst"><div class="hst-ico">' + sh.i + '</div><div><div class="hst-val" style="font-size:13px">' + sh.l.split(' ')[0] + '</div><div class="hst-lbl">Turno en curso</div></div></div>' +
       '<div class="hst"><div class="hst-ico">💵</div><div><div class="hst-val">' + pd + ' día' + (pd === 1 ? '' : 's') + '</div><div class="hst-lbl">Para la quincena</div></div></div>';
   }
@@ -883,6 +924,39 @@ body.dark-mode .r-btn:hover,body.dark-mode .r-btn.active{background:var(--blue);
     document.getElementById('qAuth').textContent = '— ' + q.a;
   }
 
+  /* Variables globales */
+  var clockPanel = document.getElementById('clockPanel');
+  var cpCy = new Date().getFullYear(), cpCm = new Date().getMonth();
+  var sbUserBtn = document.getElementById('sbUserBtn');
+  var sbUserDropdown = document.getElementById('sbUserDropdown');
+  var hstatsContainer = document.getElementById('hstats');
+  
+  clockPanel.addEventListener('click', function(e){ e.stopPropagation(); });
+
+  /* Event delegation para el click del reloj */
+  console.log('hstatsContainer:', hstatsContainer);
+  console.log('clockPanel:', clockPanel);
+  
+  if(hstatsContainer){
+    hstatsContainer.addEventListener('click', function(e){
+      var clockEl = e.target.closest('.hst-clock');
+      if(clockEl){
+        e.stopPropagation();
+        sbUserDropdown.classList.remove('open');
+        clockPanel.classList.toggle('open');
+        if(clockPanel.classList.contains('open')){
+          updateClockPanel();
+          renderCpCal();
+          loadCpQuote();
+          loadCpWeather();
+        }
+      }
+    });
+    console.log('%c✅ Click del reloj configurado', 'color:green;font-weight:bold;');
+  } else {
+    console.error('❌ hstatsContainer no encontrado!');
+  }
+
   setRole('admin');
   tick(); renderCal(); loadWeather(); loadQuote();
   setInterval(tick, 1000);
@@ -894,24 +968,9 @@ body.dark-mode .r-btn:hover,body.dark-mode .r-btn.active{background:var(--blue);
   document.getElementById('calNext').addEventListener('click', function(){ chMonth(1); });
 
   /* Dropdown usuario (izquierda inferior) */
-  var sbUserBtn = document.getElementById('sbUserBtn');
-  var sbUserDropdown = document.getElementById('sbUserDropdown');
   sbUserBtn.addEventListener('click', function(e){ e.stopPropagation(); sbUserDropdown.classList.toggle('open'); clockPanel.classList.remove('open'); });
   document.addEventListener('click', function(){ sbUserDropdown.classList.remove('open'); clockPanel.classList.remove('open'); });
   sbUserDropdown.addEventListener('click', function(e){ e.stopPropagation(); });
-
-  /* Panel reloj en topbar */
-  var btnClockPanel = document.getElementById('btnClockPanel');
-  var clockPanel = document.getElementById('clockPanel');
-  var cpCy = new Date().getFullYear(), cpCm = new Date().getMonth();
-
-  btnClockPanel.addEventListener('click', function(e){
-    e.stopPropagation();
-    sbUserDropdown.classList.remove('open');
-    clockPanel.classList.toggle('open');
-    if(clockPanel.classList.contains('open')){ updateClockPanel(); renderCpCal(); loadCpQuote(); loadCpWeather(); }
-  });
-  clockPanel.addEventListener('click', function(e){ e.stopPropagation(); });
 
   function updateClockPanel(){
     var n = new Date();
