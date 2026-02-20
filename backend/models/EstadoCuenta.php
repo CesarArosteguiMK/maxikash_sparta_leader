@@ -698,7 +698,7 @@ public static function obtenerReportesDictamenParaDescarga($fechaInicio, $fechaF
     }
 }
 
-    public static function getGastosCobranza($idCredito)
+      public static function getGastosCobranza($idCredito)
     {
         $query = "
         SELECT
@@ -720,26 +720,26 @@ public static function obtenerReportesDictamenParaDescarga($fechaInicio, $fechaF
             $db = new DatabaseSegundometro();
             $r = $db->queryAll($query, ['id_credito' => $idCredito]);
 
-            // Formateo mínimo para el frontend
+            // Formateo para el frontend
             $datos = array_map(function ($row) {
-                // Calcular parcialidad basada en el número de semana
+                
+                // 🔴 NUEVA PRIORIDAD 1️⃣: Calcular por fechas (correcto)
                 $parcialidadCalculada = null;
-                if (preg_match('/Semana (\d+)-/', $row['SEMANA'], $matches)) {
-                    $numeroSemana = (int)$matches[1];
-                    $parcialidadCalculada = $numeroSemana - 3; // Offset para coincidir con datos
-                }
-
-                // Si no se puede calcular por semana, usar fecha_primer_vencimiento y periodo_inicio
-                if ($parcialidadCalculada === null) {
-                    $fechaPrimerVencimiento = $row['Fecha_primer_vencimiento'];
-                    if ($fechaPrimerVencimiento && $row['periodo_inicio']) {
-                        $fechaInicio = strtotime($fechaPrimerVencimiento);
-                        $periodoInicio = strtotime($row['periodo_inicio']);
-                        $diasTranscurridos = ($periodoInicio - $fechaInicio) / (60 * 60 * 24);
-                        if ($diasTranscurridos >= 0) {
-                            $parcialidadCalculada = floor($diasTranscurridos / 7) + 1;
-                        }
+                
+                if (!empty($row['Fecha_primer_vencimiento']) && !empty($row['periodo_inicio'])) {
+                    $fechaInicio = strtotime($row['Fecha_primer_vencimiento']);
+                    $periodoInicio = strtotime($row['periodo_inicio']);
+                    
+                    if ($fechaInicio && $periodoInicio && $periodoInicio >= $fechaInicio) {
+                        $diasTranscurridos = ($periodoInicio - $fechaInicio) / 86400; // 86400 = 24*60*60
+                        $parcialidadCalculada = floor($diasTranscurridos / 7) + 1; // +1 porque la primera semana es 1
                     }
+                }
+                
+                // 🔴 PRIORIDAD 2️⃣: Si falla el cálculo por fechas, intentar con SEMANA (fallback)
+                if ($parcialidadCalculada === null && preg_match('/Semana (\d+)-/', $row['SEMANA'], $matches)) {
+                    $numeroSemana = (int)$matches[1];
+                    $parcialidadCalculada = $numeroSemana - 3; // Offset mágico (no confiable, solo fallback)
                 }
 
                 return [
@@ -750,6 +750,7 @@ public static function obtenerReportesDictamenParaDescarga($fechaInicio, $fechaF
                         date('d/m/Y', strtotime($row['periodo_fin'])),
                     'monto'   => (float)$row['monto_valor'],
                     'cuota'   => (float)$row['cuota'],
+                    // Si ambos cálculos fallan, usar el campo de BD como último recurso
                     'parcialidad' => $parcialidadCalculada ?? ($row['parcialidad'] ?? null)
                 ];
             }, $r);
@@ -757,7 +758,6 @@ public static function obtenerReportesDictamenParaDescarga($fechaInicio, $fechaF
             return self::resultado(true, 'Gastos de cobranza', $datos);
 
         } catch (\Exception $e) {
-
             return self::resultado(
                 false,
                 'Error al consultar gastos de cobranza',
@@ -766,7 +766,6 @@ public static function obtenerReportesDictamenParaDescarga($fechaInicio, $fechaF
             );
         }
     }
-
 
     public static function insertCondonacionCobranza($data)
     {
@@ -874,11 +873,5 @@ public static function obtenerReportesDictamenParaDescarga($fechaInicio, $fechaF
             );
         }
     }
-
-
-
-
-
-
 
 }
