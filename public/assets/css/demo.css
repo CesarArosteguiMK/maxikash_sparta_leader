@@ -110,6 +110,16 @@ body:not(.dark-mode) .layout-menu .app-brand {
   background: transparent !important;
 }
 
+/* Ítem Bajas en rojo en el menú lateral (modo claro): link + icono + texto */
+.menu-link.menu-link-bajas,
+.menu-link.menu-link-bajas * {
+  color: #dc2626 !important;
+}
+.menu-link.menu-link-bajas:hover,
+.menu-link.menu-link-bajas:hover * {
+  color: #b91c1c !important;
+}
+
 /* Offcanvas: Liquid Glass – modo claro */
 .offcanvas {
   background: rgba(255, 255, 255, 0.94) !important;

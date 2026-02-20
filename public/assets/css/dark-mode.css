@@ -159,6 +159,14 @@ body.dark-mode .menu-sub .menu-link:hover {
     color: #93c5fd !important;
 }
 
+/* Ítem Bajas en rojo también en modo oscuro (link + icono + texto; la regla universal no debe pisar) */
+body.dark-mode .menu-link.menu-link-bajas,
+body.dark-mode .menu-link.menu-link-bajas *,
+body.dark-mode .menu-link.menu-link-bajas:hover,
+body.dark-mode .menu-link.menu-link-bajas:hover * {
+    color: #dc2626 !important;
+}
+
 body.dark-mode .menu-inner-shadow {
     background: none !important;
 }

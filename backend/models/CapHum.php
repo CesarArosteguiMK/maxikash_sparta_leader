@@ -286,6 +286,7 @@ class CapHum extends Model
             $query = <<<SQL
             SELECT 
                 p.*,
+                p.telefono_uno AS telefono,
                 ap.id_puesto, dd.nombre as departamento, dd.id as id_departamento, aj.id_jefe, p.password,
                 al.id_legion
             FROM persona p
@@ -663,8 +664,9 @@ class CapHum extends Model
             
             // Eliminar archivo físico (puede estar en diferentes carpetas según el tipo)
             $carpetas = [
-                15 => 'bajas', // Documento baja
-                'default' => 'documentos' // Otros documentos
+                15 => 'bajas',    // Documento baja
+                16 => 'reingresos', // Documento reingreso
+                'default' => 'documentos'
             ];
             
             $carpeta = $carpetas[$id_documento] ?? $carpetas['default'];
@@ -1744,6 +1746,95 @@ class CapHum extends Model
         }
     }
 
+    /** ID de documento para "Documento Reingreso" en carga_documento_persona */
+    const ID_DOCUMENTO_REINGRESO = 16;
+
+    /**
+     * Registrar reingreso de un gestor (pasar de Baja a Activo).
+     * Inserta en reingresos, guarda PDFs en carga_documento_persona (id_documento=16) y actualiza persona.estatus = 'Activo'.
+     */
+    public static function registrarReingresoGestor($data)
+    {
+        try {
+            $db = new Database();
+
+            $id_persona   = (int)($data['id_gestor'] ?? 0);
+            $motivo       = addslashes($data['motivo_reingreso'] ?? '');
+            $descripcion  = addslashes($data['descripcion_reingreso'] ?? '');
+            $fecha_reingreso = addslashes($data['fecha_reingreso'] ?? date('Y-m-d H:i:s'));
+            $usuario_reingreso = addslashes($data['usuario_reingreso'] ?? '');
+            $archivos    = $data['archivos'] ?? [];
+
+            if ($id_persona < 1) {
+                return self::resultado(false, 'ID de persona inválido.');
+            }
+
+            // 1) Insertar en reingresos
+            $db->queryOne("
+                INSERT INTO __SPARTA_SECRET_REDACTED__.reingresos
+                (id_persona, fecha_reingreso, motivo_reingreso, descripcion_reingreso, usuario_reingreso)
+                VALUES
+                ($id_persona, '$fecha_reingreso', '$motivo', '$descripcion', '$usuario_reingreso')
+            ");
+
+            $result = $db->queryOne("SELECT LAST_INSERT_ID() AS id");
+            $id_reingreso = isset($result['id']) ? (int)$result['id'] : null;
+            if (!$id_reingreso) {
+                return self::resultado(false, 'No se pudo obtener el ID del reingreso.');
+            }
+
+            // 2) Guardar cada archivo en carga_documento_persona (Documento Reingreso = 16)
+            $id_documento = self::ID_DOCUMENTO_REINGRESO;
+            foreach ($archivos as $archivo) {
+                $archivoEsc = addslashes($archivo);
+                $db->queryOne("
+                    INSERT INTO __SPARTA_SECRET_REDACTED__.carga_documento_persona
+                    (id_persona, id_documento, archivo, fecha_carga)
+                    VALUES
+                    ($id_persona, $id_documento, '$archivoEsc', NOW())
+                ");
+            }
+
+            // 3) Pasar a la plantilla: estatus = 'Activo'
+            $db->queryOne("
+                UPDATE __SPARTA_SECRET_REDACTED__.persona
+                SET estatus = 'Activo'
+                WHERE id = $id_persona
+            ");
+
+            return self::resultado(true, 'Reingreso registrado correctamente. La persona ha sido reactivada en la plantilla.');
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al registrar el reingreso.', null, $e->getMessage());
+        }
+    }
+
+    /**
+     * Obtener documentos de un reingreso (por id de registro reingreso).
+     */
+    public static function getDocumentosReingreso($registro_reingreso)
+    {
+        try {
+            $db = new Database();
+            $reingreso = $db->queryOne("
+                SELECT id_persona FROM __SPARTA_SECRET_REDACTED__.reingresos WHERE id = :id
+            ", ['id' => $registro_reingreso]);
+            if (!$reingreso || !isset($reingreso['id_persona'])) {
+                return self::resultado(false, 'Reingreso no encontrado.', []);
+            }
+            $id_persona = $reingreso['id_persona'];
+            $id_documento = self::ID_DOCUMENTO_REINGRESO;
+            $documentos = $db->queryAll("
+                SELECT cdp.id, cdp.archivo, DATE_FORMAT(cdp.fecha_carga, '%Y-%m-%d %H:%i') AS fecha_carga
+                FROM __SPARTA_SECRET_REDACTED__.carga_documento_persona cdp
+                WHERE cdp.id_persona = :id_persona AND cdp.id_documento = :id_documento
+                ORDER BY cdp.fecha_carga DESC
+            ", ['id_persona' => $id_persona, 'id_documento' => $id_documento]);
+            return self::resultado(true, 'Documentos encontrados.', $documentos ?? []);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al obtener documentos.', [], $e->getMessage());
+        }
+    }
+
     /**
      * Elimina por completo una persona y sus datos relacionados (solo si no tiene dependencias críticas).
      * Orden: anular referencias en ticket, borrar tablas hijas, luego persona.
@@ -1793,8 +1884,9 @@ class CapHum extends Model
                 // 7) Puestos
                 $db->CRUD("DELETE FROM __SPARTA_SECRET_REDACTED__.asigna_puesto WHERE id_persona = $id");
                 
-                // 8) Bajas
+                // 8) Bajas y reingresos
                 $db->CRUD("DELETE FROM __SPARTA_SECRET_REDACTED__.baja_persona WHERE id_persona = $id");
+                $db->CRUD("DELETE FROM __SPARTA_SECRET_REDACTED__.reingresos WHERE id_persona = $id");
                 
                 // 9) Legión
                 $db->CRUD("DELETE FROM __SPARTA_SECRET_REDACTED__.asigna_legion WHERE id_persona = $id");
@@ -2010,6 +2102,9 @@ class CapHum extends Model
             // 5. baja_persona
             $count = $db->queryOne("SELECT COUNT(*) as c FROM __SPARTA_SECRET_REDACTED__.baja_persona WHERE id_persona = :id", ['id' => $id_persona]);
             if ($count['c'] > 0) $dependencias['baja_persona'] = (int)$count['c'];
+            // 5b. reingresos
+            $count = $db->queryOne("SELECT COUNT(*) as c FROM __SPARTA_SECRET_REDACTED__.reingresos WHERE id_persona = :id", ['id' => $id_persona]);
+            if ($count['c'] > 0) $dependencias['reingresos'] = (int)$count['c'];
             
             // 6. ticket_historico (gestor_id)
             $count = $db->queryOne("SELECT COUNT(*) as c FROM __SPARTA_SECRET_REDACTED__.ticket_historico WHERE gestor_id = :id", ['id' => $id_persona]);
@@ -2044,6 +2139,7 @@ class CapHum extends Model
                 $db->CRUD("DELETE FROM __SPARTA_SECRET_REDACTED__.asigna_jefe WHERE id_jefe = :id", ['id' => $id_persona]);
                 $db->CRUD("DELETE FROM __SPARTA_SECRET_REDACTED__.asigna_puesto WHERE id_persona = :id", ['id' => $id_persona]);
                 $db->CRUD("DELETE FROM __SPARTA_SECRET_REDACTED__.baja_persona WHERE id_persona = :id", ['id' => $id_persona]);
+                $db->CRUD("DELETE FROM __SPARTA_SECRET_REDACTED__.reingresos WHERE id_persona = :id", ['id' => $id_persona]);
                 
                 // Para tickets, en lugar de eliminar, ponemos NULL (para no perder historial)
                 $db->CRUD("UPDATE __SPARTA_SECRET_REDACTED__.ticket_historico SET gestor_id = NULL WHERE gestor_id = :id", ['id' => $id_persona]);

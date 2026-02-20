@@ -53,6 +53,10 @@ $cabezaUrlFallback = rtrim($assetsBase, '/') . '/assets/img/nu_spartan.png';
 @media (max-width: 991.98px) {
   html, body.login-page-mobile {
     background: #e8ecf2 !important;
+    overflow: hidden !important;
+    height: 100% !important;
+    min-height: 100dvh !important;
+    min-height: 100vh !important;
   }
   .login-cabeza-fondo {
     display: none !important;

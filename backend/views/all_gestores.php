@@ -79,6 +79,58 @@
         transition: all 0.3s ease;
     }
 
+    /* Modal Reingreso: Liquid Glass + responsive */
+    #modalReingreso .modal-reingreso-glass {
+        background: rgba(255, 255, 255, 0.92) !important;
+        backdrop-filter: blur(14px);
+        -webkit-backdrop-filter: blur(14px);
+        border-radius: 1rem;
+        border: 1px solid rgba(0, 0, 0, 0.08);
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+    }
+    #modalReingreso .modal-header {
+        background: rgba(0, 0, 0, 0.03) !important;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+        border-radius: 1rem 1rem 0 0;
+    }
+    #modalReingreso .modal-footer {
+        background: rgba(0, 0, 0, 0.03) !important;
+        border-top: 1px solid rgba(0, 0, 0, 0.08);
+        border-radius: 0 0 1rem 1rem;
+    }
+    @media (max-width: 575.98px) {
+        #modalReingreso .modal-reingreso-dialog {
+            margin: 0.5rem;
+            max-width: calc(100vw - 1rem);
+        }
+        #modalReingreso .modal-body {
+            padding: 1rem;
+            max-height: 60vh;
+        }
+        #modalReingreso .modal-footer {
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            padding: 0.75rem 1rem;
+        }
+        #modalReingreso .modal-footer .btn {
+            flex: 1 1 auto;
+            min-width: 0;
+        }
+    }
+    body.dark-mode #modalReingreso .modal-reingreso-glass {
+        background: rgba(30, 41, 59, 0.92) !important;
+        border-color: rgba(255, 255, 255, 0.08);
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    }
+    body.dark-mode #modalReingreso .modal-header {
+        background: rgba(51, 65, 85, 0.6) !important;
+        border-bottom-color: rgba(255, 255, 255, 0.08);
+    }
+    body.dark-mode #modalReingreso .modal-footer {
+        background: rgba(51, 65, 85, 0.6) !important;
+        border-top-color: rgba(255, 255, 255, 0.08);
+    }
+
     #modalEditPerfil .nav-tabs-custom .nav-link:hover {
         color: #495057;
         background-color: #f8f9fa;
@@ -1029,7 +1081,7 @@
 
     /* ===== TOOLTIPS ENRIQUECIDOS ===== */
     .kpi-tooltip {
-        position: absolute;
+        position: fixed;
         background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
         color: #ffffff;
         padding: 0.75rem 1rem;
@@ -1981,6 +2033,61 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
                     <!-- 🆕 Botón para confirmar baja -->
                     <button type="button" class="btn btn-danger" onclick="confirmarBaja()">
                         Confirmar Baja
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- =======================
+         MODAL - REGISTRO DE REINGRESO
+    ======================== -->
+    <div class="modal fade" id="modalReingreso" tabindex="-1" aria-labelledby="modalReingresoLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-reingreso-dialog">
+            <div class="modal-content modal-reingreso-glass">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalReingresoLabel">Registro de Reingreso</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <p id="reingreso_gestor"><strong>Gestor:</strong> </p>
+                    <input type="hidden" id="reingreso_id_persona" value="">
+
+                    <div class="mb-3">
+                        <label for="motivoReingreso" class="form-label"><strong>Motivo del reingreso:</strong></label>
+                        <select class="form-select" id="motivoReingreso">
+                            <option value="">-- Selecciona un motivo --</option>
+                            <option value="Reincorporación">Reincorporación</option>
+                            <option value="Nuevo contrato">Nuevo contrato</option>
+                            <option value="Cambio de área">Cambio de área</option>
+                            <option value="Solicitud del empleado">Solicitud del empleado</option>
+                            <option value="Decisión de la empresa">Decisión de la empresa</option>
+                            <option value="Otro">Otro</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="reingreso_descripcion" class="form-label"><strong>Descripción del reingreso:</strong></label>
+                        <textarea class="form-control" id="reingreso_descripcion" rows="3" placeholder="Escribe la descripción..."></textarea>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label"><strong>Documento de reingreso (PDF):</strong></label>
+                        <div class="d-flex gap-2 align-items-center mb-2">
+                            <input type="file" id="archivoPDFReingreso" class="form-control d-none" accept=".pdf" multiple onchange="typeof agregarArchivosReingreso === 'function' && agregarArchivosReingreso(this)" />
+                            <button type="button" class="btn btn-outline-primary" onclick="document.getElementById('archivoPDFReingreso').click()">
+                                <i class="fa fa-paperclip me-2"></i>Elegir archivos
+                            </button>
+                            <span id="reingreso_nombreArchivo" class="text-muted small">No se ha seleccionado ningún archivo</span>
+                        </div>
+                        <small class="text-muted">Puedes subir múltiples archivos PDF.</small>
+                    </div>
+                    <div id="listaArchivosReingreso" class="mt-2" style="display: none;"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                    <button type="button" class="btn btn-success" onclick="confirmarReingreso()">
+                        <i class="fa fa-user-check me-1"></i>Confirmar Reingreso
                     </button>
                 </div>
             </div>
@@ -3035,17 +3142,29 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
     
     let contenido = generarContenidoTooltip(tipo);
     tooltip.innerHTML = contenido;
-    
-    // Posicionar el tooltip
-    tooltip.style.left = rect.left + (rect.width / 2) - 100 + 'px';
-    tooltip.style.top = rect.top - tooltip.offsetHeight - 10 + 'px';
+    tooltip.style.visibility = 'hidden';
     tooltip.classList.add('show');
+    
+    // Posicionar respecto al viewport (tooltip debe estar en document.body). Centrar arriba de la tarjeta.
+    requestAnimationFrame(function() {
+      const w = tooltip.offsetWidth;
+      const h = tooltip.offsetHeight;
+      const cardCenterX = rect.left + (rect.width / 2);
+      let left = cardCenterX - (w / 2);
+      const top = rect.top - h - 10;
+      const padding = 8;
+      left = Math.max(padding, Math.min(left, window.innerWidth - w - padding));
+      tooltip.style.left = left + 'px';
+      tooltip.style.top = Math.max(padding, top) + 'px';
+      tooltip.style.visibility = '';
+    });
   }
 
   function ocultarTooltip() {
     const tooltip = document.getElementById('kpiTooltip');
     if (tooltip) {
       tooltip.classList.remove('show');
+      tooltip.style.visibility = '';
     }
   }
 
@@ -3522,6 +3641,12 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
    * ==========================================
    */
   document.addEventListener('DOMContentLoaded', function() {
+    // Mover el tooltip a body para que position:fixed sea siempre respecto al viewport
+    const tooltipEl = document.getElementById('kpiTooltip');
+    if (tooltipEl && tooltipEl.parentNode !== document.body) {
+      document.body.appendChild(tooltipEl);
+    }
+
     // Agregar eventos a todas las tarjetas KPI
     document.querySelectorAll('.kpi-card').forEach(card => {
       const tipo = card.getAttribute('data-tipo');

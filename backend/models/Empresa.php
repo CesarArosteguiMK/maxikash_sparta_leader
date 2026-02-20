@@ -139,8 +139,26 @@ class Empresa extends Model
         }
     }
 
-
-
+    /**
+     * Lista de departamentos (para combo/select en Estado de Cuenta y Empresas).
+     * Acepta POST opcional; ignora filtros si no aplican.
+     */
+    public static function getConsultaDepartamentos($post = [])
+    {
+        try {
+            $db = new Database();
+            $r = $db->queryAll("
+                SELECT d.id AS departamento_id, d.nombre AS departamento_nombre
+                FROM departamento d
+                WHERE (d.activo IS NULL OR d.activo = 1)
+                ORDER BY d.nombre
+            ");
+            $datos = is_array($r) ? $r : [];
+            return self::resultado(true, 'Departamentos encontrados.', $datos);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al procesar la solicitud.', [], $e->getMessage());
+        }
+    }
 
     public static function getConsultaPuestos($departamento)
     {

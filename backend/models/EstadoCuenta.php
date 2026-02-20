@@ -80,6 +80,36 @@ class EstadoCuenta extends Model
     }
 
     /**
+     * Obtener documento por tipo genérico (FACTURA, VALIDACIONES, etc.) desde oferta_documentos.
+     */
+    public static function obtenerDocumentoPorTipo($idOferta, $tipoBD)
+    {
+        if (!$idOferta || !is_numeric($idOferta) || !$tipoBD) {
+            return self::resultado(false, 'Parámetros inválidos');
+        }
+        $tipoBD = preg_replace('/[^A-Za-z0-9_]/', '', $tipoBD);
+        if ($tipoBD === '') {
+            return self::resultado(false, 'Tipo inválido');
+        }
+        try {
+            $db = new DatabaseAWS('__SPARTA_SECRET_REDACTED__');
+            $qry = "
+                SELECT nombre_archivo
+                FROM oferta_documentos
+                WHERE tipo_documento = :tipo AND fk_oferta = :id
+                LIMIT 1
+            ";
+            $r = $db->queryAll($qry, ['tipo' => $tipoBD, 'id' => $idOferta]);
+            if (!$r || count($r) === 0) {
+                return self::resultado(false, 'Documento no encontrado');
+            }
+            return self::resultado(true, 'Documento encontrado', $r[0]);
+        } catch (\Throwable $e) {
+            return self::resultado(false, 'Documento no encontrado', null, $e->getMessage());
+        }
+    }
+
+    /**
      * Obtiene INE (frente y reverso) desde persona_documentos vía oferta (id crédito = id_oferta).
      * JOIN: oferta.id_oferta = id_credito → oferta.fk_persona → persona_documentos.fk_persona.
      *
@@ -505,6 +535,57 @@ class EstadoCuenta extends Model
                 null,
                 $e->getMessage()
             );
+        }
+    }
+
+    /**
+     * Buscar reporte dictamen por rango de fechas y opcionalmente por usuario (agente).
+     * Usado por el controlador EstadoCuenta::buscarReporteDictamen (POST desde dictamen_llamadas).
+     */
+    public static function buscarReporteDictamen($usuarioId, $fechaInicio, $fechaFin)
+    {
+        try {
+            $db = new Database();
+            $params = [
+                'fecha_inicio' => $fechaInicio,
+                'fecha_fin' => $fechaFin
+            ];
+            $where = " WHERE DATE(dl.fecha_gestion) BETWEEN :fecha_inicio AND :fecha_fin";
+            if (!empty($usuarioId)) {
+                $where .= " AND dl.agente = :usuario_id";
+                $params['usuario_id'] = $usuarioId;
+            }
+            $query = "
+            SELECT 
+                dl.id AS id,
+                DATE(dl.fecha_gestion) AS fecha_registro,
+                TIME(dl.hora_gestion) AS hora_registro,
+                dl.id_credito,
+                CONCAT_WS(' ', p.nombres, p.segundo_nombre, p.apellidop, p.apellidom) AS nombre_cliente,
+                tc.nombre AS tipo_contacto,
+                rc.nombre AS resultado_contacto,
+                cd.nombre AS dictamen,
+                cmnp.descripcion AS motivo_no_pago,
+                cmnpt.nombre AS tipo_motivo_no_pago,
+                cp.nombre AS plataforma,
+                dl.fuente_ingresos,
+                dl.comentarios
+            FROM __SPARTA_SECRET_REDACTED__.dictamen_llamada dl
+            LEFT JOIN persona p ON dl.id_credito = p.id
+            LEFT JOIN cat_tipo_contacto tc ON dl.tipo_contacto_id = tc.id
+            LEFT JOIN cat_resultado_contacto rc ON dl.resultado_contacto_id = rc.id
+            LEFT JOIN cat_dictamen cd ON dl.dictamen_id = cd.id
+            LEFT JOIN cat_motivo_no_pago cmnp ON dl.motivo_no_pago_id = cmnp.id
+            LEFT JOIN cat_motivo_no_pago_tipo cmnpt ON cmnp.tipo_id = cmnpt.id
+            LEFT JOIN cat_plataforma cp ON dl.plataforma_id = cp.id
+            " . $where . "
+            ORDER BY dl.fecha_gestion DESC, dl.hora_gestion DESC
+            ";
+            $resultados = $db->queryAll($query, $params);
+            return self::resultado(true, 'Reportes obtenidos', $resultados ?: []);
+        } catch (\Exception $e) {
+            error_log("Error en buscarReporteDictamen: " . $e->getMessage());
+            return self::resultado(false, 'Error al obtener reportes', [], $e->getMessage());
         }
     }
 

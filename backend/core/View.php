@@ -509,15 +509,11 @@ html.dark-mode .navbar .text-muted{color:#94a3b8 !important;}
                                     </div>
                                 </a>
                                 <ul class="dropdown-menu dropdown-menu-end">
-                                    <?php
-                                    $uid = (int)($_SESSION['usuario_id'] ?? 0);
-                                    if (in_array($uid, [1, 877, 878], true)): ?>
                                     <li>
                                         <a class="dropdown-item user-dropdown-perfil" href="/perfil">
                                             <i class="fa-solid fa-user-pen fa-fw"></i><span>Ajustes (tu perfil)</span>
                                         </a>
                                     </li>
-                                    <?php endif; ?>
                                     <li>
                                         <a class="dropdown-item dark-mode-toggle user-dropdown-dark" href="javascript:void(0);" onclick="toggleDarkMode()" id="darkModeToggle">
                                             <i class="fa-solid fa-moon dark-mode-icon fa-fw" id="darkModeIcon"></i><span id="darkModeText">Apariencia (modo oscuro)</span>

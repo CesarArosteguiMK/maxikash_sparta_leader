@@ -25,6 +25,15 @@ class EstadoCuenta extends Controller
         return $default;
     }
 
+    /**
+     * Consultar documento genérico por tipo (FACTURA, VALIDACIONES, etc.) en oferta_documentos.
+     * Usado por la 3ª forma de búsqueda de documentos en el script de estado de cuenta.
+     */
+    private function consultarDocumentoGenerico($idCredito, $tipoBD)
+    {
+        return EstadoCuentaDAO::obtenerDocumentoPorTipo($idCredito, $tipoBD);
+    }
+
     // ---------------- PARSEAR CUOTAS ----------------
     private function parse_cuotas_field($value) {
         if (!$value) return [];
@@ -1735,7 +1744,7 @@ JS;
                                                 iframePdf.style.width = containerWidth + 'px';
                                                 iframePdf.style.height = containerHeight + 'px';
                                                 // Aplicar transform scale SOLO al iframe (no al contenedor)
-                                                iframePdf.style.transform = `scale(${currentZoom})`;
+                                                iframePdf.style.transform = `scale(\${currentZoom})`;
                                                 iframePdf.style.transformOrigin = 'top left';
                                             }
                                             

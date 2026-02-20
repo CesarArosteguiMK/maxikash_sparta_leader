@@ -203,9 +203,9 @@ class CapHum extends Controller
                                     </div>
                                 `.trim(),
                                 estatus: `
-                                    <div class="fw-semibold text-danger d-flex align-items-center gap-2">
-                                        <i class="fa fa-ban"></i>
-                                        <span>Baja</span>
+                                    <div class="fw-semibold d-flex align-items-center gap-2" style="color: #dc3545 !important;">
+                                        <i class="fa fa-ban" style="color: #dc3545 !important;"></i>
+                                        <span style="color: #dc3545 !important;">Baja</span>
                                     </div>
                                     <div class="text-muted small d-flex align-items-center gap-2 mt-1">
                                         <i class="fa fa-calendar" style="font-size: 0.85em; color: #666;"></i>
@@ -2498,7 +2498,62 @@ class CapHum extends Controller
                 confirmButtonColor: '#3085d6'
             });
         }
-            
+
+        var archivosSeleccionadosReingreso = [];
+        function abrirModalReingreso(idPersona, nombreCompleto) {
+            document.getElementById('reingreso_id_persona').value = idPersona || '';
+            document.getElementById('reingreso_gestor').innerHTML = '<strong>Gestor:</strong> ' + (nombreCompleto || 'N/A');
+            document.getElementById('motivoReingreso').value = '';
+            document.getElementById('reingreso_descripcion').value = '';
+            document.getElementById('archivoPDFReingreso').value = '';
+            archivosSeleccionadosReingreso = [];
+            document.getElementById('reingreso_nombreArchivo').textContent = 'No se ha seleccionado ningún archivo';
+            document.getElementById('listaArchivosReingreso').style.display = 'none';
+            document.getElementById('listaArchivosReingreso').innerHTML = '';
+            var modal = new bootstrap.Modal(document.getElementById('modalReingreso'));
+            modal.show();
+        }
+        function agregarArchivosReingreso(input) {
+            archivosSeleccionadosReingreso = Array.from(input.files || []);
+            var span = document.getElementById('reingreso_nombreArchivo');
+            var list = document.getElementById('listaArchivosReingreso');
+            if (archivosSeleccionadosReingreso.length === 0) {
+                span.textContent = 'No se ha seleccionado ningún archivo';
+                list.style.display = 'none';
+            } else {
+                span.textContent = archivosSeleccionadosReingreso.length + ' archivo(s) seleccionado(s)';
+                list.innerHTML = archivosSeleccionadosReingreso.map(function(f, i) { return '<div class="small">' + (i+1) + '. ' + f.name + '</div>'; }).join('');
+                list.style.display = 'block';
+            }
+        }
+        function confirmarReingreso() {
+            var idPersona = document.getElementById('reingreso_id_persona').value;
+            var motivo = document.getElementById('motivoReingreso').value;
+            var descripcion = document.getElementById('reingreso_descripcion').value.trim();
+            if (!idPersona) { Swal.fire({ icon: 'warning', title: 'Atención', text: 'Falta el gestor.' }); return; }
+            if (!motivo) { Swal.fire({ icon: 'warning', title: 'Atención', text: 'Debes seleccionar un motivo de reingreso.' }); return; }
+            if (!descripcion) { Swal.fire({ icon: 'warning', title: 'Atención', text: 'Debes escribir la descripción del reingreso.' }); return; }
+            Swal.fire({ title: '¿Confirmar reingreso?', text: 'La persona pasará de Baja a Activo en la plantilla.', icon: 'question', showCancelButton: true, confirmButtonText: 'Sí, confirmar reingreso', cancelButtonText: 'Cancelar', reverseButtons: true }).then(function(result) {
+                if (!result.isConfirmed) return;
+                var formData = new FormData();
+                formData.append('id_gestor', idPersona);
+                formData.append('motivo_reingreso', motivo);
+                formData.append('descripcion_reingreso', descripcion);
+                archivosSeleccionadosReingreso.forEach(function(file) { formData.append('archivosPDF[]', file); });
+                fetch('/CapHum/registrarReingreso', { method: 'POST', body: formData })
+                    .then(function(r) { return r.json(); })
+                    .then(function(data) {
+                        if (data.success) {
+                            Swal.fire({ icon: 'success', title: '¡Listo!', text: data.message || 'Reingreso registrado. La persona ha sido reactivada.' });
+                            bootstrap.Modal.getInstance(document.getElementById('modalReingreso')).hide();
+                            if (typeof getBajas === 'function') getBajas();
+                        } else {
+                            Swal.fire({ icon: 'error', title: 'Error', text: data.message || 'No se pudo registrar el reingreso.' });
+                        }
+                    })
+                    .catch(function() { Swal.fire({ icon: 'error', title: 'Error', text: 'Error de conexión.' }); });
+            });
+        }
             
             let archivosSeleccionados = [];
 
@@ -3183,6 +3238,64 @@ class CapHum extends Controller
         $scriptGestion = <<<'HTML'
         <script>
         
+            // ----- Reingreso (modal Reactivar): necesario en vista Bajas -----
+            var archivosSeleccionadosReingreso = [];
+            function abrirModalReingreso(idPersona, nombreCompleto) {
+                document.getElementById('reingreso_id_persona').value = idPersona || '';
+                document.getElementById('reingreso_gestor').innerHTML = '<strong>Gestor:</strong> ' + (nombreCompleto || 'N/A');
+                document.getElementById('motivoReingreso').value = '';
+                document.getElementById('reingreso_descripcion').value = '';
+                document.getElementById('archivoPDFReingreso').value = '';
+                archivosSeleccionadosReingreso = [];
+                document.getElementById('reingreso_nombreArchivo').textContent = 'No se ha seleccionado ningún archivo';
+                document.getElementById('listaArchivosReingreso').style.display = 'none';
+                document.getElementById('listaArchivosReingreso').innerHTML = '';
+                var modal = new bootstrap.Modal(document.getElementById('modalReingreso'));
+                modal.show();
+            }
+            function agregarArchivosReingreso(input) {
+                archivosSeleccionadosReingreso = Array.from(input.files || []);
+                var span = document.getElementById('reingreso_nombreArchivo');
+                var list = document.getElementById('listaArchivosReingreso');
+                if (archivosSeleccionadosReingreso.length === 0) {
+                    span.textContent = 'No se ha seleccionado ningún archivo';
+                    list.style.display = 'none';
+                } else {
+                    span.textContent = archivosSeleccionadosReingreso.length + ' archivo(s) seleccionado(s)';
+                    list.innerHTML = archivosSeleccionadosReingreso.map(function(f, i) { return '<div class="small">' + (i+1) + '. ' + f.name + '</div>'; }).join('');
+                    list.style.display = 'block';
+                }
+            }
+            function confirmarReingreso() {
+                var idPersona = document.getElementById('reingreso_id_persona').value;
+                var motivo = document.getElementById('motivoReingreso').value;
+                var descripcion = document.getElementById('reingreso_descripcion').value.trim();
+                if (!idPersona) { Swal.fire({ icon: 'warning', title: 'Atención', text: 'Falta el gestor.' }); return; }
+                if (!motivo) { Swal.fire({ icon: 'warning', title: 'Atención', text: 'Debes seleccionar un motivo de reingreso.' }); return; }
+                if (!descripcion) { Swal.fire({ icon: 'warning', title: 'Atención', text: 'Debes escribir la descripción del reingreso.' }); return; }
+                Swal.fire({ title: '¿Confirmar reingreso?', text: 'La persona pasará de Baja a Activo en la plantilla.', icon: 'question', showCancelButton: true, confirmButtonText: 'Sí, confirmar reingreso', cancelButtonText: 'Cancelar', reverseButtons: true }).then(function(result) {
+                    if (!result.isConfirmed) return;
+                    var formData = new FormData();
+                    formData.append('id_gestor', idPersona);
+                    formData.append('motivo_reingreso', motivo);
+                    formData.append('descripcion_reingreso', descripcion);
+                    archivosSeleccionadosReingreso.forEach(function(file) { formData.append('archivosPDF[]', file); });
+                    fetch('/CapHum/registrarReingreso', { method: 'POST', body: formData })
+                        .then(function(r) { return r.json(); })
+                        .then(function(data) {
+                            if (data.success) {
+                                Swal.fire({ icon: 'success', title: '¡Listo!', text: data.message || 'Reingreso registrado. La persona ha sido reactivada.' });
+                                bootstrap.Modal.getInstance(document.getElementById('modalReingreso')).hide();
+                                if (typeof getBajas === 'function') getBajas();
+                            } else {
+                                Swal.fire({ icon: 'error', title: 'Error', text: data.message || 'No se pudo registrar el reingreso.' });
+                            }
+                        })
+                        .catch(function() { Swal.fire({ icon: 'error', title: 'Error', text: 'Error de conexión.' }); });
+                });
+            }
+            // ----- Fin reingreso -----
+        
             const getUsuarios = () => {
             http.request({
                 endpoint: "/caphum/getUsuarios",
@@ -3329,9 +3442,9 @@ class CapHum extends Controller
                                 </div>
                             `.trim(),
                             estatus: `
-                                <div class="fw-semibold text-danger d-flex align-items-center gap-2">
-                                    <i class="fa fa-ban"></i>
-                                    <span>Baja</span>
+                                <div class="fw-semibold d-flex align-items-center gap-2" style="color: #dc3545 !important;">
+                                    <i class="fa fa-ban" style="color: #dc3545 !important;"></i>
+                                    <span style="color: #dc3545 !important;">Baja</span>
                                 </div>
                                 <div class="text-muted small d-flex align-items-center gap-2 mt-1">
                                     <i class="fa fa-calendar" style="font-size: 0.85em; color: #666;"></i>
@@ -3354,12 +3467,17 @@ class CapHum extends Controller
                             `.trim(),
                             usuario: p.user_name ?? 'N/A',
                             acciones: `
-                                <button class="btn btn-sm btn-info me-1" onclick="cargarDocumentoBaja(this)" 
-                                    data-registro-baja="${p.registro_baja ?? ''}" 
-                                    data-nombre="${nombreCompleto.replace(/"/g, '&quot;')}" 
-                                    title="Cargar documento">
-                                    <i class="fa fa-file"></i>
-                                </button>
+                                <div class="d-flex gap-2 flex-wrap align-items-center justify-content-start">
+                                    <button class="btn btn-sm btn-success" onclick="abrirModalReingreso(${p.id}, '${(nombreCompleto || '').replace(/'/g, "\\'")}')" title="Reactivar (registrar reingreso)" aria-label="Reactivar">
+                                        <i class="fa fa-user-check"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-info" onclick="cargarDocumentoBaja(this)" 
+                                        data-registro-baja="${p.registro_baja ?? ''}" 
+                                        data-nombre="${nombreCompleto.replace(/"/g, '&quot;')}" 
+                                        title="Cargar documento" aria-label="Cargar documento">
+                                        <i class="fa fa-file"></i>
+                                    </button>
+                                </div>
                             `.trim()
                         };
                     });
@@ -5497,6 +5615,74 @@ class CapHum extends Controller
     }
 
     /**
+     * Registrar reingreso: persona que estaba de baja vuelve a la plantilla (estatus Activo).
+     * POST: id_gestor, motivo_reingreso, descripcion_reingreso, archivosPDF[]
+     * La fecha de reingreso se asigna en el backend (momento del registro).
+     */
+    public function registrarReingreso()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+
+        $idGestor = $_POST['id_gestor'] ?? null;
+        $motivo = trim($_POST['motivo_reingreso'] ?? '');
+        $descripcion = trim($_POST['descripcion_reingreso'] ?? '');
+
+        if (empty($idGestor)) {
+            echo json_encode(['success' => false, 'message' => 'Falta el ID del gestor']);
+            return;
+        }
+        if (empty($motivo)) {
+            echo json_encode(['success' => false, 'message' => 'Debes seleccionar un motivo de reingreso']);
+            return;
+        }
+        if (empty($descripcion)) {
+            echo json_encode(['success' => false, 'message' => 'Debes escribir la descripción del reingreso']);
+            return;
+        }
+
+        $rutasPDF = [];
+        if (!empty($_FILES['archivosPDF']['name'][0])) {
+            $directorio = __DIR__ . '/../uploads/reingresos/';
+            SecureUpload::ensureDir($directorio);
+            foreach ($_FILES['archivosPDF']['tmp_name'] as $i => $tmp) {
+                if ($_FILES['archivosPDF']['error'][$i] !== UPLOAD_ERR_OK) continue;
+                if (!SecureUpload::validateMime($tmp, SecureUpload::MIME_PDF)) continue;
+                $nombreFinal = SecureUpload::generateSafeFilename('pdf');
+                $rutaFinal = $directorio . $nombreFinal;
+                if (move_uploaded_file($tmp, $rutaFinal)) {
+                    $rutasPDF[] = $nombreFinal;
+                }
+            }
+        }
+
+        // Fecha de reingreso en hora CDMX (America/Mexico_City)
+        $tz = new \DateTimeZone('America/Mexico_City');
+        $now = new \DateTime('now', $tz);
+        $fechaReingresoSql = $now->format('Y-m-d H:i:s');
+
+        $data = [
+            'id_gestor' => $idGestor,
+            'motivo_reingreso' => $motivo,
+            'descripcion_reingreso' => $descripcion,
+            'fecha_reingreso' => $fechaReingresoSql,
+            'usuario_reingreso' => $_SESSION['usuario_id'] ?? $_SESSION['usuario'] ?? '',
+            'archivos' => $rutasPDF
+        ];
+
+        $resultado = CapHumDAO::registrarReingresoGestor($data);
+
+        if ($resultado['success']) {
+            echo json_encode(['success' => true, 'message' => $resultado['mensaje'] ?? 'Reingreso registrado correctamente']);
+        } else {
+            echo json_encode([
+                'success' => false,
+                'message' => $resultado['mensaje'] ?? 'Error al registrar el reingreso',
+                'error' => $resultado['error'] ?? null
+            ]);
+        }
+    }
+
+    /**
      * Elimina por completo un usuario/persona del sistema (y sus datos relacionados).
      */
     /**
@@ -5573,6 +5759,28 @@ class CapHum extends Controller
             $resultado = CapHumDAO::getDocumentosBaja($registro_baja);
             self::respuestaJSON($resultado);
             
+        } catch (\Exception $e) {
+            self::respuestaJSON([
+                'success' => false,
+                'mensaje' => 'Error al obtener documentos: ' . $e->getMessage(),
+                'datos' => []
+            ]);
+        }
+    }
+
+    /**
+     * GET documentos de un reingreso (por registro_reingreso).
+     */
+    public function getDocumentosReingreso()
+    {
+        try {
+            $registro_reingreso = $_GET['registro_reingreso'] ?? null;
+            if (!$registro_reingreso) {
+                self::respuestaJSON(['success' => false, 'mensaje' => 'Registro de reingreso requerido', 'datos' => []]);
+                return;
+            }
+            $resultado = CapHumDAO::getDocumentosReingreso($registro_reingreso);
+            self::respuestaJSON($resultado);
         } catch (\Exception $e) {
             self::respuestaJSON([
                 'success' => false,
@@ -5779,7 +5987,7 @@ class CapHum extends Controller
             }
 
             $id_documento = (int) $id_documento;
-            $carpeta = ($id_documento === 15) ? 'bajas' : 'documentos';
+            $carpeta = ($id_documento === 15) ? 'bajas' : (($id_documento === 16) ? 'reingresos' : 'documentos');
             $directorio = __DIR__ . '/../uploads/' . $carpeta . '/';
             SecureUpload::ensureDir($directorio);
 
@@ -5869,7 +6077,7 @@ class CapHum extends Controller
             }
 
             $nombreArchivo = basename($nombreArchivo);
-            $carpetas = [__DIR__ . '/../uploads/documentos/', __DIR__ . '/../uploads/bajas/'];
+            $carpetas = [__DIR__ . '/../uploads/documentos/', __DIR__ . '/../uploads/bajas/', __DIR__ . '/../uploads/reingresos/'];
             $rutaArchivo = null;
             foreach ($carpetas as $dir) {
                 $ruta = $dir . $nombreArchivo;
