@@ -165,9 +165,67 @@ body::before{
   width:34px;height:34px;border-radius:9px;border:1px solid var(--border);
   background:#fff;cursor:pointer;display:flex;align-items:center;
   justify-content:center;font-size:15px;position:relative;transition:all .2s;
+  text-decoration:none;
 }
 .tb-notif:hover{background:#f1f5f9;}
 .tb-dot{position:absolute;top:6px;right:7px;width:6px;height:6px;background:#ef4444;border-radius:50%;border:1.5px solid #fff;}
+
+/* Panel reloj desplegable */
+.tb-clock-wrap{position:relative;}
+.tb-clock-panel{
+  position:absolute;top:calc(100% + 10px);right:0;width:340px;
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--r);
+  box-shadow:0 12px 40px rgba(0,0,0,.15);padding:0;z-index:100;
+  display:none;overflow:hidden;
+}
+.tb-clock-panel.open{display:block;animation:fadeDown .25s ease;}
+@keyframes fadeDown{from{opacity:0;transform:translateY(-8px);}to{opacity:1;transform:translateY(0);}}
+
+.cp-header{
+  background:linear-gradient(135deg,#1A52A8 0%,#2563C4 100%);
+  padding:20px;text-align:center;color:#fff;
+}
+.cp-time{
+  font-family:'Outfit',sans-serif;font-size:48px;font-weight:700;
+  letter-spacing:2px;line-height:1;margin-bottom:4px;
+}
+.cp-date{font-size:14px;opacity:.85;font-weight:500;}
+
+.cp-weather{
+  display:flex;align-items:center;gap:12px;padding:14px 18px;
+  background:linear-gradient(90deg,#e0f2fe,#f0f9ff);border-bottom:1px solid var(--border);
+}
+.cp-weather-ico{font-size:32px;}
+.cp-weather-info{flex:1;}
+.cp-weather-label{font-size:11px;color:var(--soft);text-transform:uppercase;letter-spacing:.5px;font-weight:600;}
+.cp-weather-temp{font-size:20px;font-weight:700;color:var(--text);}
+
+.cp-calendar{padding:14px 18px;border-bottom:1px solid var(--border);}
+.cp-cal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+.cp-cal-month{font-size:14px;font-weight:600;color:var(--text);}
+.cp-cal-nav{display:flex;gap:4px;}
+.cp-cal-nav button{
+  width:26px;height:26px;border:1px solid var(--border);border-radius:6px;
+  background:#fff;cursor:pointer;font-size:11px;color:var(--muted);
+  display:flex;align-items:center;justify-content:center;transition:all .15s;
+}
+.cp-cal-nav button:hover{background:var(--blue);color:#fff;border-color:var(--blue);}
+.cp-cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;text-align:center;}
+.cp-cal-dn{font-size:10px;font-weight:600;color:var(--soft);padding:4px 0;}
+.cp-cal-d{
+  font-size:12px;padding:6px 0;border-radius:6px;color:var(--muted);
+  cursor:default;transition:background .15s;
+}
+.cp-cal-d.empty{visibility:hidden;}
+.cp-cal-d.today{background:var(--blue);color:#fff;font-weight:700;}
+
+.cp-quote{padding:14px 18px;background:#fffbeb;border-left:3px solid #f59e0b;}
+.cp-quote-label{
+  font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;
+  color:#b45309;margin-bottom:6px;display:flex;align-items:center;gap:5px;
+}
+.cp-quote-text{font-size:13px;font-style:italic;color:#78350f;line-height:1.5;margin-bottom:4px;}
+.cp-quote-author{font-size:11px;color:#92400e;font-weight:500;}
 
 .page{padding:26px 34px 56px;}
 
@@ -448,6 +506,21 @@ body.dark-mode .sb-user:hover{background:#334155;}
 body.dark-mode .sb-user-dropdown{background:var(--surface);border-color:var(--border);box-shadow:0 8px 24px rgba(0,0,0,.4);}
 body.dark-mode .sb-user-dropdown a:hover,body.dark-mode .sb-user-dropdown button:hover{background:#334155;color:#93c5fd;}
 body.dark-mode .topbar{background:rgba(30,41,59,.9);border-color:var(--border);}
+body.dark-mode .tb-notif{background:var(--surface);border-color:var(--border);}
+body.dark-mode .tb-notif:hover{background:#334155;}
+body.dark-mode .tb-clock-panel{background:var(--surface);border-color:var(--border);box-shadow:0 12px 40px rgba(0,0,0,.4);}
+body.dark-mode .cp-header{background:linear-gradient(135deg,#1e3a8a 0%,#1d4ed8 100%);}
+body.dark-mode .cp-weather{background:linear-gradient(90deg,#1e3a5f,#0f172a);border-color:var(--border);}
+body.dark-mode .cp-weather-temp{color:#fff;}
+body.dark-mode .cp-calendar{border-color:var(--border);}
+body.dark-mode .cp-cal-month{color:#fff;}
+body.dark-mode .cp-cal-nav button{background:var(--surface);border-color:var(--border);color:var(--muted);}
+body.dark-mode .cp-cal-nav button:hover{background:var(--blue);color:#fff;}
+body.dark-mode .cp-cal-d{color:var(--muted);}
+body.dark-mode .cp-quote{background:#422006;border-left-color:#f59e0b;}
+body.dark-mode .cp-quote-label{color:#fbbf24;}
+body.dark-mode .cp-quote-text{color:#fef3c7;}
+body.dark-mode .cp-quote-author{color:#fcd34d;}
 body.dark-mode .hero{background:linear-gradient(128deg,#0f172a 0%,#1e3a5f 50%,#1e40af 100%);}
 body.dark-mode .hero::after{background:linear-gradient(to bottom,#c8d62b,#8fa010) !important;opacity:1;}
 body.dark-mode .qcard{background:var(--surface);border-color:var(--border);}
@@ -502,6 +575,47 @@ body.dark-mode .r-btn:hover,body.dark-mode .r-btn.active{background:var(--blue);
     <div class="tb-left">Portal Maxikash &nbsp;·&nbsp; <strong id="tbName"><?= htmlspecialchars($nombreCorto) ?></strong></div>
     <div class="tb-right">
       <span class="tb-chip" id="tbDate"></span>
+      
+      <!-- Icono reloj con panel desplegable -->
+      <div class="tb-clock-wrap">
+        <button type="button" class="tb-notif" id="btnClockPanel" title="Ver hora y calendario">🕐</button>
+        <div class="tb-clock-panel" id="clockPanel">
+          <!-- Header con reloj grande -->
+          <div class="cp-header">
+            <div class="cp-time" id="cpTime">--:--:--</div>
+            <div class="cp-date" id="cpDate">Cargando...</div>
+          </div>
+          
+          <!-- Clima -->
+          <div class="cp-weather">
+            <div class="cp-weather-ico" id="cpWxIco">⛅</div>
+            <div class="cp-weather-info">
+              <div class="cp-weather-label">Clima estimado</div>
+              <div class="cp-weather-temp" id="cpWxTemp">23°C</div>
+            </div>
+          </div>
+          
+          <!-- Mini calendario -->
+          <div class="cp-calendar">
+            <div class="cp-cal-header">
+              <span class="cp-cal-month" id="cpCalMonth">Febrero 2026</span>
+              <div class="cp-cal-nav">
+                <button type="button" id="cpCalPrev">◀</button>
+                <button type="button" id="cpCalNext">▶</button>
+              </div>
+            </div>
+            <div class="cp-cal-grid" id="cpCalGrid"></div>
+          </div>
+          
+          <!-- Frase del día -->
+          <div class="cp-quote">
+            <div class="cp-quote-label">💡 Frase del día</div>
+            <div class="cp-quote-text" id="cpQuoteText">"El éxito es la suma de pequeños esfuerzos repetidos día tras día."</div>
+            <div class="cp-quote-author" id="cpQuoteAuthor">— Robert Collier</div>
+          </div>
+        </div>
+      </div>
+      
       <a href="/login/cerrarSesion" class="tb-notif" title="Cerrar sesión">🚪</a>
     </div>
   </header>
@@ -782,9 +896,72 @@ body.dark-mode .r-btn:hover,body.dark-mode .r-btn.active{background:var(--blue);
   /* Dropdown usuario (izquierda inferior) */
   var sbUserBtn = document.getElementById('sbUserBtn');
   var sbUserDropdown = document.getElementById('sbUserDropdown');
-  sbUserBtn.addEventListener('click', function(e){ e.stopPropagation(); sbUserDropdown.classList.toggle('open'); });
-  document.addEventListener('click', function(){ sbUserDropdown.classList.remove('open'); });
+  sbUserBtn.addEventListener('click', function(e){ e.stopPropagation(); sbUserDropdown.classList.toggle('open'); clockPanel.classList.remove('open'); });
+  document.addEventListener('click', function(){ sbUserDropdown.classList.remove('open'); clockPanel.classList.remove('open'); });
   sbUserDropdown.addEventListener('click', function(e){ e.stopPropagation(); });
+
+  /* Panel reloj en topbar */
+  var btnClockPanel = document.getElementById('btnClockPanel');
+  var clockPanel = document.getElementById('clockPanel');
+  var cpCy = new Date().getFullYear(), cpCm = new Date().getMonth();
+
+  btnClockPanel.addEventListener('click', function(e){
+    e.stopPropagation();
+    sbUserDropdown.classList.remove('open');
+    clockPanel.classList.toggle('open');
+    if(clockPanel.classList.contains('open')){ updateClockPanel(); renderCpCal(); loadCpQuote(); loadCpWeather(); }
+  });
+  clockPanel.addEventListener('click', function(e){ e.stopPropagation(); });
+
+  function updateClockPanel(){
+    var n = new Date();
+    var h = n.getHours(), mn = n.getMinutes(), s = n.getSeconds();
+    document.getElementById('cpTime').textContent = pad(h) + ':' + pad(mn) + ':' + pad(s);
+    var dns = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+    var mns = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+    document.getElementById('cpDate').textContent = dns[n.getDay()] + ', ' + n.getDate() + ' de ' + mns[n.getMonth()] + ' ' + n.getFullYear();
+  }
+  function renderCpCal(){
+    var MN = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+    document.getElementById('cpCalMonth').textContent = MN[cpCm] + ' ' + cpCy;
+    var fd = new Date(cpCy, cpCm, 1).getDay();
+    var tot = new Date(cpCy, cpCm+1, 0).getDate();
+    var now = new Date();
+    var td = (now.getMonth() === cpCm && now.getFullYear() === cpCy) ? now.getDate() : -1;
+    var dns = ['D','L','M','X','J','V','S'];
+    var h = dns.map(function(d){ return '<div class="cp-cal-dn">' + d + '</div>'; }).join('');
+    for (var i = 0; i < fd; i++) h += '<div class="cp-cal-d empty"></div>';
+    for (var d = 1; d <= tot; d++){
+      var c = 'cp-cal-d';
+      if (d === td) c += ' today';
+      h += '<div class="' + c + '">' + d + '</div>';
+    }
+    document.getElementById('cpCalGrid').innerHTML = h;
+  }
+  function cpChMonth(dir){
+    cpCm += dir;
+    if (cpCm < 0){ cpCm = 11; cpCy--; }
+    if (cpCm > 11){ cpCm = 0; cpCy++; }
+    renderCpCal();
+  }
+  document.getElementById('cpCalPrev').addEventListener('click', function(){ cpChMonth(-1); });
+  document.getElementById('cpCalNext').addEventListener('click', function(){ cpChMonth(1); });
+
+  function loadCpQuote(){
+    var q = QUOTES[new Date().getDate() % QUOTES.length];
+    document.getElementById('cpQuoteText').textContent = '"' + q.t + '"';
+    document.getElementById('cpQuoteAuthor').textContent = '— ' + q.a;
+  }
+  function loadCpWeather(){
+    var w = WX[new Date().getDay() % WX.length];
+    document.getElementById('cpWxTemp').textContent = w.t;
+    document.getElementById('cpWxIco').textContent = w.i;
+  }
+
+  // Actualizar reloj del panel cada segundo si está abierto
+  setInterval(function(){
+    if(clockPanel.classList.contains('open')) updateClockPanel();
+  }, 1000);
 
   /* Modo oscuro: misma clave que el resto del portal (View.php) para que quede integrado */
   var darkStored = localStorage.getItem('darkMode') === 'enabled';

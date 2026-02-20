@@ -318,43 +318,75 @@ $cabezaUrlFallback = rtrim($assetsBase, '/') . '/assets/img/nu_spartan.png';
   box-shadow: 0 4px 24px rgba(0,0,0,0.06), 0 0 0 1px rgba(30, 41, 68, 0.06);
 }
 
-/* MÓVIL: tarjeta y bloques muy pegados (mínimo espacio) */
+/* MÓVIL: tarjeta centrada, compacta y moderna */
 @media (max-width: 991.98px) {
+  /* Centrar tarjeta verticalmente */
+  .authentication-inner .authentication-bg {
+    align-items: center !important;
+    min-height: 100vh !important;
+    padding: 1rem !important;
+  }
+  /* Tarjeta: más padding horizontal, sombra suave */
   .authentication-bg .w-px-400 {
-    padding: 0.5rem 1rem 0.75rem !important;
+    padding: 1.5rem 1.25rem 1.25rem !important;
+    border-radius: 24px !important;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.08), 0 0 0 1px rgba(30,41,68,0.08) !important;
+    max-width: 360px !important;
   }
   .authentication-bg .w-px-400 > * + * {
-    margin-top: 0.25rem !important;
+    margin-top: 0.5rem !important;
   }
+  /* Título más pequeño en móvil */
   .login-page-mobile .w-px-400 .sparta-title,
   body.login-page-mobile .w-px-400 h1.sparta-title {
     margin: 0 !important;
+    font-size: 1.6rem !important;
+    letter-spacing: 3px !important;
   }
   .login-page-mobile .w-px-400 .login-logo-espacio-mobile {
-    margin: 0 !important;
-    padding: 0 !important;
-    border: none !important;
-    min-height: 0 !important;
+    display: none !important;
   }
+  /* Logo: más grande para que destaque */
   .login-page-mobile .w-px-400 .login-logo-mobile {
-    margin: 0 !important;
+    margin: 0.5rem 0 !important;
     padding: 0 !important;
   }
   .login-page-mobile .w-px-400 .login-logo-mobile img {
-    max-height: 90px !important;
-    width: 90px !important;
+    max-height: 260px !important;
+    width: 260px !important;
+    filter: drop-shadow(0 4px 8px rgba(0,0,0,0.15));
   }
+  /* Texto de credenciales */
   .login-page-mobile .w-px-400 .login-heading,
   body.login-page-mobile .w-px-400 h5.login-heading {
-    margin: 0 !important;
+    margin: 0 0 0.25rem 0 !important;
+    font-size: 13px !important;
   }
+  /* Form */
   .login-page-mobile .w-px-400 #formAuthentication {
     margin: 0 !important;
     padding: 0 !important;
   }
   .login-page-mobile .w-px-400 #formAuthentication .form-group.mb-6,
   .login-page-mobile .w-px-400 #formAuthentication .mb-6 {
-    margin-bottom: 0.5rem !important;
+    margin-bottom: 0.65rem !important;
+  }
+  .login-page-mobile .w-px-400 #formAuthentication .form-label {
+    font-size: 13px !important;
+    margin-bottom: 0.25rem !important;
+    color: #4b5563;
+  }
+  .login-page-mobile .w-px-400 #formAuthentication .form-control {
+    padding: 0.6rem 0.9rem !important;
+    font-size: 14px !important;
+    border-radius: 10px !important;
+  }
+  /* Botón más destacado */
+  .login-page-mobile .w-px-400 #btnLogin {
+    height: 44px !important;
+    font-size: 15px !important;
+    border-radius: 12px !important;
+    margin-top: 0.5rem !important;
   }
   .login-page-mobile .w-px-400 center {
     margin: 0 !important;
