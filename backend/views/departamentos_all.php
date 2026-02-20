@@ -333,7 +333,7 @@
 
                 <!-- Footer -->
                 <div class="modal-footer d-flex justify-content-between align-items-center flex-wrap">
-                    <small class="text-muted me-2">
+                    <small class="text-muted me-2 flex-grow-1">
                         Arrastre los puestos para ordenarlos según el nivel jerárquico que considere correcto.<br>
                         Los cambios se guardan automáticamente.
                     </small>

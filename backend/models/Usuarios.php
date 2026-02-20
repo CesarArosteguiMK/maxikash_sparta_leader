@@ -25,7 +25,6 @@ class Usuarios extends Model
         try {
             $db = new Database();
             $r = $db->queryAll($query);
-            //var_dump($r);
             return self::resultado(true, 'Empresas encontradas.', $r);
         } catch (\Exception $e) {
             return self::resultado(false, 'Error al procesar la solicitud.', null, $e->getMessage());

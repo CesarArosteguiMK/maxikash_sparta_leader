@@ -1,10 +1,19 @@
+<?php
+$assetsBase = '';
+if (!empty($_SERVER['SCRIPT_NAME'])) {
+  $dir = dirname($_SERVER['SCRIPT_NAME']);
+  $assetsBase = ($dir === '/' || $dir === '\\') ? '' : $dir;
+}
+$cabezaUrl = rtrim($assetsBase, '/') . '/assets/img/cabeza_spartan2.png';
+$cabezaUrlFallback = rtrim($assetsBase, '/') . '/assets/img/nu_spartan.png';
+?>
 <!doctype html>
 <html
   lang="es"
   class="light-style layout-wide customizer-hide"
   dir="ltr"
   data-theme="theme-default"
-  data-assets-path="/assets/"
+  data-assets-path="<?= htmlspecialchars($assetsBase) ?>/assets/"
   data-template="vertical-menu-template"
   data-style="light">
 
@@ -40,13 +49,79 @@
   background: #ffffff !important;
   min-height: 100vh;
 }
+/* En móvil: fondo liso (la cabeza va como logo en el flujo, no de fondo) */
+@media (max-width: 991.98px) {
+  html, body.login-page-mobile {
+    background: #e8ecf2 !important;
+  }
+  .login-cabeza-fondo {
+    display: none !important;
+  }
+}
+/* Logo de la cabeza: solo visible en móvil entre título y texto de credenciales */
+.login-logo-mobile {
+  display: none;
+  margin: 0 auto 1rem;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+}
+.login-logo-mobile img {
+  display: block;
+  width: 100px;
+  max-width: 100%;
+  height: auto;
+  max-height: 100px;
+  object-fit: contain;
+  margin: 0 auto;
+}
+/* Espaciador para bajar la cabeza: solo móvil, no afecta web */
+.login-logo-espacio-mobile {
+  display: none;
+}
+@media (max-width: 991.98px) {
+  .login-logo-mobile {
+    display: flex !important;
+    padding-top: 0 !important;
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+  }
+  .login-logo-espacio-mobile {
+    display: none !important;
+    height: 0 !important;
+    min-height: 0 !important;
+    overflow: hidden;
+  }
+  .login-page-mobile .sparta-title {
+    margin-bottom: 0 !important;
+  }
+  .login-page-mobile .login-heading {
+    margin-top: 0 !important;
+    margin-bottom: 0.5rem !important;
+  }
+  .login-page-mobile #formAuthentication {
+    margin-top: 0 !important;
+  }
+  .login-page-mobile #formAuthentication .form-group.mb-6,
+  .login-page-mobile #formAuthentication .mb-6 {
+    margin-bottom: 0.75rem !important;
+  }
+}
+@media (min-width: 992px) {
+  .login-logo-mobile {
+    display: none !important;
+  }
+  .login-logo-espacio-mobile {
+    display: none !important;
+  }
+}
 
 /* Contenedor principal */
 .authentication-inner {
   min-height: 100vh;
 }
 
-/* Columna izquierda */
+/* Columna izquierda (solo escritorio; en móvil la oculta Bootstrap d-none d-lg-flex) */
 .authentication-inner > div:first-child {
   display: flex;
   align-items: flex-end;
@@ -54,6 +129,14 @@
   padding-left: 40px;
   height: 100vh;
   overflow: hidden;
+}
+@media (max-width: 991.98px) {
+  .authentication-inner > div:first-child {
+    display: none !important;
+    width: 0 !important;
+    min-width: 0 !important;
+    overflow: hidden;
+  }
 }
 
 /* Imagen */
@@ -72,31 +155,34 @@
   align-items: center;
 }
 
-/* Contenedor interno */
+/* Contenedor interno: poco padding y espacio mínimo entre hijos */
 .authentication-bg .w-px-400 {
   width: 100%;
   max-width: 420px;
   padding: 0;
 }
+.authentication-bg .w-px-400 > * + * {
+  margin-top: 0.4rem;
+}
 
-/* Título principal: SPARTA ADMIN */
+/* Título principal: SPARTA ADMIN – poco margen para juntar con el resto */
 .sparta-title {
   font-family: 'Times New Roman', serif;
   font-size: 38px;
   letter-spacing: 4px;
   color: #1f2a44;
-  margin-bottom: 20px;
+  margin: 0 0 0.35rem 0;
   text-align: center;
   white-space: nowrap;
 }
 
-/* Encabezado LOGIN */
+/* Encabezado LOGIN – poco margen */
 .login-heading {
   font-family: 'Public Sans', sans-serif;
   font-size: 14px;
   font-weight: 400;
   color: #a09a9a;
-  margin-bottom: 30px;
+  margin: 0 0 0.35rem 0;
   text-align: center;
   letter-spacing: 1px;
   text-transform: none;
@@ -182,25 +268,131 @@
   width: auto;
 }
 
-/* RESPONSIVE FIX */
+/* MÓVIL: bloque fijo para que título/cabeza/form se muevan con padding */
 @media (max-width: 991.98px) {
-
-  .authentication-bg {
+  .authentication-wrapper.authentication-cover,
+  .authentication-wrapper.authentication-cover .authentication-inner {
+    display: flex !important;
+    min-height: 100vh !important;
+    width: 100% !important;
+  }
+  /* Fila: contenido arriba (no centrado), así el login puede subir o bajar con padding */
+  .authentication-inner.row {
+    flex-wrap: wrap;
+    width: 100%;
+    align-items: flex-start !important;
+  }
+  /* Columna del login: pegada arriba, poco padding */
+  .authentication-inner .authentication-bg {
+    display: flex !important;
+    flex: 1 1 100% !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
     justify-content: center;
     text-align: center;
+    padding: 0.5rem 0.75rem !important;
+    min-height: auto !important;
+    align-items: flex-start !important;
   }
-
+  .authentication-bg .w-px-400 {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+  .sparta-title {
+    font-size: 1.75rem;
+    white-space: normal;
+    word-break: break-word;
+    margin-top: 0;
+  }
 }
 
-/* Tarjeta de login – Liquid Glass sobre fondo blanco */
+/* Tarjeta de login – Liquid Glass, padding compacto */
 .authentication-bg .w-px-400 {
   background: rgba(255, 255, 255, 0.95) !important;
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
   border: 1px solid rgba(30, 41, 68, 0.12);
-  padding: 2.5rem 2rem;
+  padding: 1rem 1.5rem 1.25rem;
   border-radius: 20px;
   box-shadow: 0 4px 24px rgba(0,0,0,0.06), 0 0 0 1px rgba(30, 41, 68, 0.06);
+}
+
+/* MÓVIL: tarjeta centrada, compacta y moderna */
+@media (max-width: 991.98px) {
+  /* Centrar tarjeta verticalmente */
+  .authentication-inner .authentication-bg {
+    align-items: center !important;
+    min-height: 100vh !important;
+    padding: 1rem !important;
+  }
+  /* Tarjeta: más padding horizontal, sombra suave */
+  .authentication-bg .w-px-400 {
+    padding: 1.5rem 1.25rem 1.25rem !important;
+    border-radius: 24px !important;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.08), 0 0 0 1px rgba(30,41,68,0.08) !important;
+    max-width: 360px !important;
+  }
+  .authentication-bg .w-px-400 > * + * {
+    margin-top: 0.5rem !important;
+  }
+  /* Título más pequeño en móvil */
+  .login-page-mobile .w-px-400 .sparta-title,
+  body.login-page-mobile .w-px-400 h1.sparta-title {
+    margin: 0 !important;
+    font-size: 1.6rem !important;
+    letter-spacing: 3px !important;
+  }
+  .login-page-mobile .w-px-400 .login-logo-espacio-mobile {
+    display: none !important;
+  }
+  /* Logo: más grande para que destaque */
+  .login-page-mobile .w-px-400 .login-logo-mobile {
+    margin: 0.5rem 0 !important;
+    padding: 0 !important;
+  }
+  .login-page-mobile .w-px-400 .login-logo-mobile img {
+    max-height: 260px !important;
+    width: 260px !important;
+    filter: drop-shadow(0 4px 8px rgba(0,0,0,0.15));
+  }
+  /* Texto de credenciales */
+  .login-page-mobile .w-px-400 .login-heading,
+  body.login-page-mobile .w-px-400 h5.login-heading {
+    margin: 0 0 0.25rem 0 !important;
+    font-size: 13px !important;
+  }
+  /* Form */
+  .login-page-mobile .w-px-400 #formAuthentication {
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  .login-page-mobile .w-px-400 #formAuthentication .form-group.mb-6,
+  .login-page-mobile .w-px-400 #formAuthentication .mb-6 {
+    margin-bottom: 0.65rem !important;
+  }
+  .login-page-mobile .w-px-400 #formAuthentication .form-label {
+    font-size: 13px !important;
+    margin-bottom: 0.25rem !important;
+    color: #4b5563;
+  }
+  .login-page-mobile .w-px-400 #formAuthentication .form-control {
+    padding: 0.6rem 0.9rem !important;
+    font-size: 14px !important;
+    border-radius: 10px !important;
+  }
+  /* Botón más destacado */
+  .login-page-mobile .w-px-400 #btnLogin {
+    height: 44px !important;
+    font-size: 15px !important;
+    border-radius: 12px !important;
+    margin-top: 0.5rem !important;
+  }
+  .login-page-mobile .w-px-400 center {
+    margin: 0 !important;
+    padding: 0 !important;
+    display: block;
+  }
 }
 
 /* Campos con iconos */
@@ -260,27 +452,16 @@
   text-decoration: underline;
 }
 
-/* Marca de agua: cabeza del espartano detrás del login (solo cuando no se muestra la imagen grande = móvil) */
-body.login-page-mobile::before {
-  content: "";
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 0;
-  background: url("/assets/img/cabeza_spartan2.png") center center no-repeat;
-  background-size: 65% auto;
-  opacity: 0.45;
-  pointer-events: none;
-}
 body.login-page-mobile .authentication-wrapper {
   position: relative;
   z-index: 1;
 }
-@media (min-width: 992px) {
-  body.login-page-mobile::before {
-    display: none;
+/* En móvil el wrapper debe ser transparente para que se vea el fondo del body (cabeza) */
+@media (max-width: 991.98px) {
+  body.login-page-mobile .authentication-wrapper,
+  body.login-page-mobile .authentication-inner,
+  body.login-page-mobile .authentication-bg {
+    background: transparent !important;
   }
 }
 
@@ -288,7 +469,10 @@ body.login-page-mobile .authentication-wrapper {
 
 </head>
 
-<body class="login-page-mobile">
+<body class="login-page-mobile" data-cabeza-url="<?= htmlspecialchars($cabezaUrl, ENT_QUOTES, 'UTF-8') ?>" data-cabeza-fallback="<?= htmlspecialchars($cabezaUrlFallback, ENT_QUOTES, 'UTF-8') ?>">
+
+  <!-- Capa con la cabeza del espartano: fixed, z-index -1, solo móvil -->
+  <div class="login-cabeza-fondo" id="loginCabezaFondo" aria-hidden="true"></div>
 
   <div class="authentication-wrapper authentication-cover">
     <div class="authentication-inner row m-0">
@@ -310,16 +494,23 @@ body.login-page-mobile .authentication-wrapper {
       <div class="d-flex col-12 col-lg-6 col-xl-3 align-items-center authentication-bg p-0">
         <div class="w-px-400 mx-auto">
 
-          <!-- Título principal: SPARTA ADMIN -->
+          <!-- 1) Título arriba -->
           <h1 class="sparta-title">SPARTA LEDGER</h1>
 
-          <center>
-             <!-- Encabezado LOGIN -->
-          <h5 class="login-heading"><strong>Ingresa tus credenciales de acceso</strong></h5>
-            </center>
-         
+          <!-- Espaciador solo móvil: baja la cabeza (no se muestra en web) -->
+          <div class="login-logo-espacio-mobile" aria-hidden="true"></div>
 
-          <!-- FORM ORIGINAL — MODIFICADO -->
+          <!-- 2) Logo (cabeza espartano) solo en móvil -->
+          <div class="login-logo-mobile">
+            <img src="<?= htmlspecialchars($cabezaUrl, ENT_QUOTES, 'UTF-8') ?>" alt="" onerror="this.onerror=null; this.src='<?= htmlspecialchars($cabezaUrlFallback, ENT_QUOTES, 'UTF-8') ?>';" />
+          </div>
+
+          <!-- 3) Texto de credenciales -->
+          <center>
+            <h5 class="login-heading"><strong>Ingresa tus credenciales de acceso</strong></h5>
+          </center>
+
+          <!-- 4) Campos y botón -->
           <div id="formAuthentication">
 
             <div class="mb-6 form-group">
@@ -388,6 +579,25 @@ body.login-page-mobile .authentication-wrapper {
 
   <script src="/assets/js/main.js"></script>
 
+  <script>
+    (function() {
+      if (window.matchMedia && window.matchMedia('(max-width: 991.98px)').matches) {
+        var cuerpo = document.body;
+        var urlCabeza = cuerpo.getAttribute('data-cabeza-url');
+        var fallback = cuerpo.getAttribute('data-cabeza-fallback');
+        if (urlCabeza && fallback) {
+          var img = new Image();
+          img.onerror = function() {
+            cuerpo.style.backgroundImage = "url('" + fallback + "')";
+            cuerpo.style.backgroundSize = '70% auto';
+            cuerpo.style.backgroundPosition = 'center center';
+            cuerpo.style.backgroundRepeat = 'no-repeat';
+          };
+          img.src = urlCabeza;
+        }
+      }
+    })();
+  </script>
   <script>
     $(document).ready(function() {
       $('#togglePassword, #togglePassword i').click(function() {

@@ -1,0 +1,503 @@
+<<<<<<< HEAD
+2026-02-11 19:26:29 | idCredito=735641 | pagina=5
+  cmd: "C:\Users\amigo_j9s4pcx\AppData\Local\Programs\Python\Python314\python.exe" "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../scripts/pdf_media.py" --extract "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/pdf_735641_698d2c44b5ffb.pdf" --outdir "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/m735641_5_698d2c44b73e0" --page 5 2>&1
+  out_len: 303 | json_ok: 1 | archivos: 2 | json_error: No error
+  out_preview:
+{"archivos": [{"nombre": "media_p5_0.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m735641_5_698d2c44b73e0\\media_p5_0.mp4"}, {"nombre": "media_p5_1.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m735641_5_698d2c44b73e0\\media_p5_1.mp4"}]}
+=======
+2026-02-11 19:15:35 | idCredito=735641 | pagina=3
+  cmd: python "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../scripts/pdf_media.py" --extract "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\controllers/../storage/tmp_media/pdf_735641_698d29b748ead.pdf" --outdir "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\controllers/../storage/tmp_media/m735641_3_698d29b749361" --page 3 2>&1
+  out_len: 95 | json_ok: 0 | archivos: 0 | json_error: Syntax error
+  out_preview:
+'python' is not recognized as an internal or external command,
+operable program or batch file.
+
+---
+2026-02-11 19:18:42 | idCredito=735641 | pagina=3
+  cmd: python "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../scripts/pdf_media.py" --extract "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\controllers/../storage/tmp_media/pdf_735641_698d2a723ae7f.pdf" --outdir "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\controllers/../storage/tmp_media/m735641_3_698d2a723b2c3" --page 3 2>&1
+  out_len: 95 | json_ok: 0 | archivos: 0 | json_error: Syntax error
+  out_preview:
+'python' is not recognized as an internal or external command,
+operable program or batch file.
+>>>>>>> ab5e313 (Cambios pendientes antes de sincronizar)
+
+---
+2026-02-11 19:38:20 | idCredito=735641 | pagina=3
+  cmd: "C:\Users\amigo_j9s4pcx\AppData\Local\Programs\Python\Python314\python.exe" "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../scripts/pdf_media.py" --extract "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/pdf_735641_698d2f0c81a0f.pdf" --outdir "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/m735641_3_698d2f0c82c1a" --page 3 2>&1
+  out_len: 303 | json_ok: 1 | archivos: 2 | json_error: No error
+  out_preview:
+{"archivos": [{"nombre": "media_p3_0.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m735641_3_698d2f0c82c1a\\media_p3_0.mp4"}, {"nombre": "media_p3_1.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m735641_3_698d2f0c82c1a\\media_p3_1.mp4"}]}
+
+---
+<<<<<<< HEAD
+2026-02-11 19:46:37 | idCredito=735641 | pagina=4
+  cmd: "C:\Users\admin\AppData\Local\Programs\Python\Python312\python.exe" "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../scripts/pdf_media.py" --extract "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/pdf_735641_698d30fcbafb2.pdf" --outdir "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/m735641_4_698d30fcbb3e1" --page 4 2>&1
+  out_len: 303 | json_ok: 1 | archivos: 2 | json_error: No error
+  out_preview:
+{"archivos": [{"nombre": "media_p4_0.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m735641_4_698d30fcbb3e1\\media_p4_0.mp4"}, {"nombre": "media_p4_1.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m735641_4_698d30fcbb3e1\\media_p4_1.mp4"}]}
+=======
+2026-02-11 19:47:41 | idCredito=735641 | pagina=4
+  cmd: "C:\Users\amigo_j9s4pcx\AppData\Local\Programs\Python\Python314\python.exe" "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../scripts/pdf_media.py" --extract "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/pdf_735641_698d313d44e33.pdf" --outdir "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/m735641_4_698d313d45886" --page 4 2>&1
+  out_len: 303 | json_ok: 1 | archivos: 2 | json_error: No error
+  out_preview:
+{"archivos": [{"nombre": "media_p4_0.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m735641_4_698d313d45886\\media_p4_0.mp4"}, {"nombre": "media_p4_1.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m735641_4_698d313d45886\\media_p4_1.mp4"}]}
+>>>>>>> 1ae521b10c0488ed0b05e96a2e7be5d4e6455abe
+
+---
+<<<<<<< HEAD
+2026-02-11 19:51:12 | idCredito=735641 | pagina=6
+  cmd: "C:\Users\admin\AppData\Local\Programs\Python\Python312\python.exe" "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../scripts/pdf_media.py" --extract "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/pdf_735641_698d32107fdf3.pdf" --outdir "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/m735641_6_698d321080204" --page 6 2>&1
+  out_len: 303 | json_ok: 1 | archivos: 2 | json_error: No error
+  out_preview:
+{"archivos": [{"nombre": "media_p6_0.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m735641_6_698d321080204\\media_p6_0.mp4"}, {"nombre": "media_p6_1.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m735641_6_698d321080204\\media_p6_1.mp4"}]}
+
+---
+2026-02-11 19:56:02 | idCredito=996972 | pagina=4
+  cmd: "C:\Users\admin\AppData\Local\Programs\Python\Python312\python.exe" "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../scripts/pdf_media.py" --extract "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/pdf_996972_698d3332a1b0d.pdf" --outdir "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/m996972_4_698d3332a1efe" --page 4 2>&1
+  out_len: 303 | json_ok: 1 | archivos: 2 | json_error: No error
+  out_preview:
+{"archivos": [{"nombre": "media_p4_0.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m996972_4_698d3332a1efe\\media_p4_0.mp4"}, {"nombre": "media_p4_1.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m996972_4_698d3332a1efe\\media_p4_1.mp4"}]}
+
+---
+2026-02-11 20:03:08 | idCredito=756672 | pagina=4
+  cmd: "C:\Users\admin\AppData\Local\Programs\Python\Python312\python.exe" "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../scripts/pdf_media.py" --extract "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/pdf_756672_698d34dbb3bde.pdf" --outdir "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/m756672_4_698d34dbb4026" --page 4 2>&1
+  out_len: 303 | json_ok: 1 | archivos: 2 | json_error: No error
+  out_preview:
+{"archivos": [{"nombre": "media_p4_0.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m756672_4_698d34dbb4026\\media_p4_0.mp4"}, {"nombre": "media_p4_1.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m756672_4_698d34dbb4026\\media_p4_1.mp4"}]}
+
+---
+2026-02-11 20:07:21 | idCredito=1143891 | pagina=4
+  cmd: "C:\Users\admin\AppData\Local\Programs\Python\Python312\python.exe" "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../scripts/pdf_media.py" --extract "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/pdf_1143891_698d35d8dc7bb.pdf" --outdir "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/m1143891_4_698d35d8dcbcc" --page 4 2>&1
+  out_len: 305 | json_ok: 1 | archivos: 2 | json_error: No error
+  out_preview:
+{"archivos": [{"nombre": "media_p4_0.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m1143891_4_698d35d8dcbcc\\media_p4_0.mp4"}, {"nombre": "media_p4_1.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m1143891_4_698d35d8dcbcc\\media_p4_1.mp4"}]}
+
+---
+2026-02-11 20:10:13 | idCredito=1143891 | pagina=3
+  cmd: "C:\Users\admin\AppData\Local\Programs\Python\Python312\python.exe" "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../scripts/pdf_media.py" --extract "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/pdf_1143891_698d3684e46d5.pdf" --outdir "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/m1143891_3_698d3684e4b13" --page 3 2>&1
+  out_len: 305 | json_ok: 1 | archivos: 2 | json_error: No error
+  out_preview:
+{"archivos": [{"nombre": "media_p3_0.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m1143891_3_698d3684e4b13\\media_p3_0.mp4"}, {"nombre": "media_p3_1.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m1143891_3_698d3684e4b13\\media_p3_1.mp4"}]}
+
+---
+2026-02-11 20:10:45 | idCredito=1143891 | pagina=3
+  cmd: "C:\Users\admin\AppData\Local\Programs\Python\Python312\python.exe" "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../scripts/pdf_media.py" --extract "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/pdf_1143891_698d36a529f4e.pdf" --outdir "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/m1143891_3_698d36a52a3fe" --page 3 2>&1
+  out_len: 305 | json_ok: 1 | archivos: 2 | json_error: No error
+  out_preview:
+{"archivos": [{"nombre": "media_p3_0.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m1143891_3_698d36a52a3fe\\media_p3_0.mp4"}, {"nombre": "media_p3_1.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m1143891_3_698d36a52a3fe\\media_p3_1.mp4"}]}
+
+---
+2026-02-11 20:22:18 | idCredito=1145351 | pagina=12
+  cmd: "C:\Users\admin\AppData\Local\Programs\Python\Python312\python.exe" "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../scripts/pdf_media.py" --extract "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/pdf_1145351_698d395a73881.pdf" --outdir "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/m1145351_12_698d395a73d10" --page 12 2>&1
+  out_len: 311 | json_ok: 1 | archivos: 2 | json_error: No error
+  out_preview:
+{"archivos": [{"nombre": "media_p12_0.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m1145351_12_698d395a73d10\\media_p12_0.mp4"}, {"nombre": "media_p12_1.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m1145351_12_698d395a73d10\\media_p12_1.mp4"}]}
+
+---
+2026-02-11 21:17:35 | idCredito=1372803 | pagina=12
+  cmd: "C:\Users\admin\AppData\Local\Programs\Python\Python312\python.exe" "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../scripts/pdf_media.py" --extract "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/pdf_1372803_698d464f48f24.pdf" --outdir "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/m1372803_12_698d464f4939f" --page 12 2>&1
+  out_len: 311 | json_ok: 1 | archivos: 2 | json_error: No error
+  out_preview:
+{"archivos": [{"nombre": "media_p12_0.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m1372803_12_698d464f4939f\\media_p12_0.mp4"}, {"nombre": "media_p12_1.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m1372803_12_698d464f4939f\\media_p12_1.mp4"}]}
+
+---
+2026-02-11 21:58:37 | idCredito=1730982 | pagina=12
+  cmd: "C:\Users\admin\AppData\Local\Programs\Python\Python312\python.exe" "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../scripts/pdf_media.py" --extract "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/pdf_1730982_698d4fece1e47.pdf" --outdir "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/m1730982_12_698d4fece22ae" --page 12 2>&1
+  out_len: 311 | json_ok: 1 | archivos: 2 | json_error: No error
+  out_preview:
+{"archivos": [{"nombre": "media_p12_0.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m1730982_12_698d4fece22ae\\media_p12_0.mp4"}, {"nombre": "media_p12_1.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m1730982_12_698d4fece22ae\\media_p12_1.mp4"}]}
+
+---
+2026-02-12 09:15:45 | idCredito=736015 | pagina=12
+  cmd: "C:\Users\admin\AppData\Local\Programs\Python\Python312\python.exe" "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../scripts/pdf_media.py" --extract "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/pdf_736015_698deea179f7b.pdf" --outdir "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/m736015_12_698deea17a3f6" --page 12 2>&1
+  out_len: 309 | json_ok: 1 | archivos: 2 | json_error: No error
+  out_preview:
+{"archivos": [{"nombre": "media_p12_0.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m736015_12_698deea17a3f6\\media_p12_0.mp4"}, {"nombre": "media_p12_1.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m736015_12_698deea17a3f6\\media_p12_1.mp4"}]}
+
+---
+2026-02-12 15:58:43 | idCredito=1244454 | pagina=3
+  cmd: "C:\Users\admin\AppData\Local\Programs\Python\Python312\python.exe" "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../scripts/pdf_media.py" --extract "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/pdf_1244454_698e4d1327c7c.pdf" --outdir "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/m1244454_3_698e4d1328167" --page 3 2>&1
+  out_len: 305 | json_ok: 1 | archivos: 2 | json_error: No error
+  out_preview:
+{"archivos": [{"nombre": "media_p3_0.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m1244454_3_698e4d1328167\\media_p3_0.mp4"}, {"nombre": "media_p3_1.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m1244454_3_698e4d1328167\\media_p3_1.mp4"}]}
+
+---
+2026-02-12 16:24:47 | idCredito=536019 | pagina=12
+  cmd: "C:\Users\admin\AppData\Local\Programs\Python\Python312\python.exe" "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../scripts/pdf_media.py" --extract "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/pdf_536019_698e532ece442.pdf" --outdir "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/m536019_12_698e532ece987" --page 12 2>&1
+  out_len: 309 | json_ok: 1 | archivos: 2 | json_error: No error
+  out_preview:
+{"archivos": [{"nombre": "media_p12_0.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m536019_12_698e532ece987\\media_p12_0.mp4"}, {"nombre": "media_p12_1.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m536019_12_698e532ece987\\media_p12_1.mp4"}]}
+=======
+2026-02-12 14:17:57 | idCredito=735641 | pagina=3
+  cmd: "C:\Users\amigo_j9s4pcx\AppData\Local\Programs\Python\Python314\python.exe" "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../scripts/pdf_media.py" --extract "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/pdf_735641_698e3574b00ac.pdf" --outdir "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/m735641_3_698e3574b06bb" --page 3 2>&1
+  out_len: 303 | json_ok: 1 | archivos: 2 | json_error: No error
+  out_preview:
+{"archivos": [{"nombre": "media_p3_0.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m735641_3_698e3574b06bb\\media_p3_0.mp4"}, {"nombre": "media_p3_1.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m735641_3_698e3574b06bb\\media_p3_1.mp4"}]}
+>>>>>>> b582db9b43de3a2145556668b3c6c8ae00e4a863
+
+---
+<<<<<<< HEAD
+2026-02-13 20:26:28 | idCredito=944094 | pagina=6
+  cmd: "C:\Users\admin\AppData\Local\Programs\Python\Python312\python.exe" "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../scripts/pdf_media.py" --extract "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/pdf_944094_698fdd54165b3.pdf" --outdir "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/m944094_6_698fdd54169ff" --page 6 2>&1
+  out_len: 303 | json_ok: 1 | archivos: 2 | json_error: No error
+  out_preview:
+{"archivos": [{"nombre": "media_p6_0.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m944094_6_698fdd54169ff\\media_p6_0.mp4"}, {"nombre": "media_p6_1.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m944094_6_698fdd54169ff\\media_p6_1.mp4"}]}
+
+---
+2026-02-13 20:36:32 | idCredito=944094 | pagina=12
+  cmd: "C:\Users\admin\AppData\Local\Programs\Python\Python312\python.exe" "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../scripts/pdf_media.py" --extract "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/pdf_944094_698fdfb067500.pdf" --outdir "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/m944094_12_698fdfb0679dd" --page 12 2>&1
+  out_len: 309 | json_ok: 1 | archivos: 2 | json_error: No error
+  out_preview:
+{"archivos": [{"nombre": "media_p12_0.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m944094_12_698fdfb0679dd\\media_p12_0.mp4"}, {"nombre": "media_p12_1.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m944094_12_698fdfb0679dd\\media_p12_1.mp4"}]}
+
+---
+2026-02-14 17:56:37 | idCredito=1365977 | pagina=6
+  cmd: "C:\Users\admin\AppData\Local\Programs\Python\Python312\python.exe" "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../scripts/pdf_media.py" --extract "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/pdf_1365977_69910bb4cf238.pdf" --outdir "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/m1365977_6_69910bb4cf6d0" --page 6 2>&1
+  out_len: 305 | json_ok: 1 | archivos: 2 | json_error: No error
+  out_preview:
+{"archivos": [{"nombre": "media_p6_0.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m1365977_6_69910bb4cf6d0\\media_p6_0.mp4"}, {"nombre": "media_p6_1.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m1365977_6_69910bb4cf6d0\\media_p6_1.mp4"}]}
+
+---
+2026-02-15 00:21:22 | idCredito=1685512 | pagina=12
+  cmd: "C:\Users\admin\AppData\Local\Programs\Python\Python312\python.exe" "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../scripts/pdf_media.py" --extract "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/pdf_1685512_699165e1b7079.pdf" --outdir "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/m1685512_12_699165e1b7534" --page 12 2>&1
+  out_len: 311 | json_ok: 1 | archivos: 2 | json_error: No error
+  out_preview:
+{"archivos": [{"nombre": "media_p12_0.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m1685512_12_699165e1b7534\\media_p12_0.mp4"}, {"nombre": "media_p12_1.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m1685512_12_699165e1b7534\\media_p12_1.mp4"}]}
+
+---
+2026-02-15 21:43:19 | idCredito=306850 | pagina=3
+  cmd: "C:\Users\admin\AppData\Local\Programs\Python\Python312\python.exe" "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../scripts/pdf_media.py" --extract "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/pdf_306850_69929256b8041.pdf" --outdir "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/m306850_3_69929256b84c0" --page 3 2>&1
+  out_len: 303 | json_ok: 1 | archivos: 2 | json_error: No error
+  out_preview:
+{"archivos": [{"nombre": "media_p3_0.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m306850_3_69929256b84c0\\media_p3_0.mp4"}, {"nombre": "media_p3_1.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m306850_3_69929256b84c0\\media_p3_1.mp4"}]}
+=======
+2026-02-16 13:28:34 | idCredito=735641 | pagina=1
+  cmd: "C:\Users\amigo_j9s4pcx\AppData\Local\Programs\Python\Python314\python.exe" "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../scripts/pdf_media.py" --extract "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/pdf_735641_69936fe1a2531.pdf" --outdir "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/m735641_1_69936fe1a2982" --page 1 2>&1
+  out_len: 17 | json_ok: 1 | archivos: 0 | json_error: No error
+  out_preview:
+{"archivos": []}
+
+---
+2026-02-16 13:35:11 | idCredito=735641 | pagina=3
+  cmd: "C:\Users\amigo_j9s4pcx\AppData\Local\Programs\Python\Python314\python.exe" "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../scripts/pdf_media.py" --extract "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/pdf_735641_6993716f31423.pdf" --outdir "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/m735641_3_6993716f31dbb" --page 3 2>&1
+  out_len: 303 | json_ok: 1 | archivos: 2 | json_error: No error
+  out_preview:
+{"archivos": [{"nombre": "media_p3_0.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m735641_3_6993716f31dbb\\media_p3_0.mp4"}, {"nombre": "media_p3_1.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m735641_3_6993716f31dbb\\media_p3_1.mp4"}]}
+>>>>>>> 586908d80fe3baa3f9f63728804e40ea4c48a23a
+
+---
+2026-02-16 15:48:25 | idCredito=141052 | pagina=12
+  cmd: "C:\Users\admin\AppData\Local\Programs\Python\Python312\python.exe" "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../scripts/pdf_media.py" --extract "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/pdf_141052_699390a8c009d.pdf" --outdir "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/m141052_12_699390a8c045f" --page 12 2>&1
+  out_len: 162 | json_ok: 1 | archivos: 1 | json_error: No error
+  out_preview:
+{"archivos": [{"nombre": "media_p12_0.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m141052_12_699390a8c045f\\media_p12_0.mp4"}]}
+
+---
+2026-02-18 06:13:10 | idCredito=1514324 | pagina=12
+  cmd: "C:\Users\admin\AppData\Local\Programs\Python\Python312\python.exe" "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../scripts/pdf_media.py" --extract "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/pdf_1514324_6995acd5ac5d9.pdf" --outdir "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/m1514324_12_6995acd5aca00" --page 12 2>&1
+  out_len: 311 | json_ok: 1 | archivos: 2 | json_error: No error
+  out_preview:
+{"archivos": [{"nombre": "media_p12_0.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m1514324_12_6995acd5aca00\\media_p12_0.mp4"}, {"nombre": "media_p12_1.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m1514324_12_6995acd5aca00\\media_p12_1.mp4"}]}
+
+---
+2026-02-18 08:12:32 | idCredito=306850 | pagina=3
+  cmd: "C:\Users\admin\AppData\Local\Programs\Python\Python312\python.exe" "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../scripts/pdf_media.py" --extract "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/pdf_306850_6995c8cfdd0a0.pdf" --outdir "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/m306850_3_6995c8cfdd55a" --page 3 2>&1
+  out_len: 303 | json_ok: 1 | archivos: 2 | json_error: No error
+  out_preview:
+{"archivos": [{"nombre": "media_p3_0.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m306850_3_6995c8cfdd55a\\media_p3_0.mp4"}, {"nombre": "media_p3_1.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m306850_3_6995c8cfdd55a\\media_p3_1.mp4"}]}
+
+---
+2026-02-18 13:05:50 | idCredito=1683793 | pagina=12
+  cmd: "C:\Users\admin\AppData\Local\Programs\Python\Python312\python.exe" "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../scripts/pdf_media.py" --extract "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/pdf_1683793_69960d8dc2291.pdf" --outdir "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/m1683793_12_69960d8dc278e" --page 12 2>&1
+  out_len: 311 | json_ok: 1 | archivos: 2 | json_error: No error
+  out_preview:
+{"archivos": [{"nombre": "media_p12_0.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m1683793_12_69960d8dc278e\\media_p12_0.mp4"}, {"nombre": "media_p12_1.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m1683793_12_69960d8dc278e\\media_p12_1.mp4"}]}
+
+---
+2026-02-18 13:14:28 | idCredito=610773 | pagina=12
+  cmd: "C:\Users\admin\AppData\Local\Programs\Python\Python312\python.exe" "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../scripts/pdf_media.py" --extract "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/pdf_610773_69960f940a35c.pdf" --outdir "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/m610773_12_69960f940a7a6" --page 12 2>&1
+  out_len: 309 | json_ok: 1 | archivos: 2 | json_error: No error
+  out_preview:
+{"archivos": [{"nombre": "media_p12_0.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m610773_12_69960f940a7a6\\media_p12_0.mp4"}, {"nombre": "media_p12_1.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m610773_12_69960f940a7a6\\media_p12_1.mp4"}]}
+
+---
+2026-02-18 13:19:54 | idCredito=715134 | pagina=12
+  cmd: "C:\Users\admin\AppData\Local\Programs\Python\Python312\python.exe" "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../scripts/pdf_media.py" --extract "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/pdf_715134_699610da939a8.pdf" --outdir "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/m715134_12_699610da93de3" --page 12 2>&1
+  out_len: 309 | json_ok: 1 | archivos: 2 | json_error: No error
+  out_preview:
+{"archivos": [{"nombre": "media_p12_0.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m715134_12_699610da93de3\\media_p12_0.mp4"}, {"nombre": "media_p12_1.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m715134_12_699610da93de3\\media_p12_1.mp4"}]}
+
+---
+2026-02-18 14:50:20 | idCredito=339345 | pagina=12
+  cmd: "C:\Users\admin\AppData\Local\Programs\Python\Python312\python.exe" "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../scripts/pdf_media.py" --extract "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/pdf_339345_6996260c6fea7.pdf" --outdir "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/m339345_12_6996260c70332" --page 12 2>&1
+  out_len: 309 | json_ok: 1 | archivos: 2 | json_error: No error
+  out_preview:
+{"archivos": [{"nombre": "media_p12_0.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m339345_12_6996260c70332\\media_p12_0.mp4"}, {"nombre": "media_p12_1.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m339345_12_6996260c70332\\media_p12_1.mp4"}]}
+
+---
+2026-02-18 14:53:02 | idCredito=339345 | pagina=12
+  cmd: "C:\Users\admin\AppData\Local\Programs\Python\Python312\python.exe" "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../scripts/pdf_media.py" --extract "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/pdf_339345_699626ae160a4.pdf" --outdir "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/m339345_12_699626ae16560" --page 12 2>&1
+  out_len: 309 | json_ok: 1 | archivos: 2 | json_error: No error
+  out_preview:
+{"archivos": [{"nombre": "media_p12_0.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m339345_12_699626ae16560\\media_p12_0.mp4"}, {"nombre": "media_p12_1.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m339345_12_699626ae16560\\media_p12_1.mp4"}]}
+
+---
+2026-02-18 14:53:46 | idCredito=339345 | pagina=12
+  cmd: "C:\Users\admin\AppData\Local\Programs\Python\Python312\python.exe" "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../scripts/pdf_media.py" --extract "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/pdf_339345_699626da6e6ea.pdf" --outdir "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/m339345_12_699626da6eba9" --page 12 2>&1
+  out_len: 309 | json_ok: 1 | archivos: 2 | json_error: No error
+  out_preview:
+{"archivos": [{"nombre": "media_p12_0.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m339345_12_699626da6eba9\\media_p12_0.mp4"}, {"nombre": "media_p12_1.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m339345_12_699626da6eba9\\media_p12_1.mp4"}]}
+
+---
+2026-02-18 15:07:01 | idCredito=1383137 | pagina=12
+  cmd: "C:\Users\admin\AppData\Local\Programs\Python\Python312\python.exe" "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../scripts/pdf_media.py" --extract "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/pdf_1383137_699629f546080.pdf" --outdir "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/m1383137_12_699629f546529" --page 12 2>&1
+  out_len: 459 | json_ok: 1 | archivos: 3 | json_error: No error
+  out_preview:
+{"archivos": [{"nombre": "media_p12_0.bin", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m1383137_12_699629f546529\\media_p12_0.bin"}, {"nombre": "media_p12_1.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m1383137_12_699629f546529\\media_p12_1.mp4"}, {"nombre": "media_p12_2.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m1383137_12_699629f546529\\media_p12_2.mp4"}]}
+
+---
+2026-02-18 15:21:41 | idCredito=1460258 | pagina=12
+  cmd: "C:\Users\admin\AppData\Local\Programs\Python\Python312\python.exe" "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../scripts/pdf_media.py" --extract "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/pdf_1460258_69962d6534e4c.pdf" --outdir "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/m1460258_12_69962d65356ac" --page 12 2>&1
+  out_len: 311 | json_ok: 1 | archivos: 2 | json_error: No error
+  out_preview:
+{"archivos": [{"nombre": "media_p12_0.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m1460258_12_69962d65356ac\\media_p12_0.mp4"}, {"nombre": "media_p12_1.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m1460258_12_69962d65356ac\\media_p12_1.mp4"}]}
+
+---
+2026-02-18 15:48:03 | idCredito=1470974 | pagina=4
+  cmd: "C:\Users\admin\AppData\Local\Programs\Python\Python312\python.exe" "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../scripts/pdf_media.py" --extract "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/pdf_1470974_69963392d2d94.pdf" --outdir "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/m1470974_4_69963392d31c6" --page 4 2>&1
+  out_len: 305 | json_ok: 1 | archivos: 2 | json_error: No error
+  out_preview:
+{"archivos": [{"nombre": "media_p4_0.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m1470974_4_69963392d31c6\\media_p4_0.mp4"}, {"nombre": "media_p4_1.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m1470974_4_69963392d31c6\\media_p4_1.mp4"}]}
+
+---
+2026-02-18 15:51:56 | idCredito=1606077 | pagina=12
+  cmd: "C:\Users\admin\AppData\Local\Programs\Python\Python312\python.exe" "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../scripts/pdf_media.py" --extract "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/pdf_1606077_6996347c16c5d.pdf" --outdir "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/m1606077_12_6996347c17124" --page 12 2>&1
+  out_len: 311 | json_ok: 1 | archivos: 2 | json_error: No error
+  out_preview:
+{"archivos": [{"nombre": "media_p12_0.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m1606077_12_6996347c17124\\media_p12_0.mp4"}, {"nombre": "media_p12_1.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m1606077_12_6996347c17124\\media_p12_1.mp4"}]}
+
+---
+2026-02-18 16:15:12 | idCredito=1719527 | pagina=12
+  cmd: "C:\Users\admin\AppData\Local\Programs\Python\Python312\python.exe" "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../scripts/pdf_media.py" --extract "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/pdf_1719527_699639f055bfd.pdf" --outdir "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/m1719527_12_699639f056123" --page 12 2>&1
+  out_len: 311 | json_ok: 1 | archivos: 2 | json_error: No error
+  out_preview:
+{"archivos": [{"nombre": "media_p12_0.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m1719527_12_699639f056123\\media_p12_0.mp4"}, {"nombre": "media_p12_1.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m1719527_12_699639f056123\\media_p12_1.mp4"}]}
+
+---
+2026-02-18 16:17:18 | idCredito=701496 | pagina=4
+  cmd: "C:\Users\admin\AppData\Local\Programs\Python\Python312\python.exe" "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../scripts/pdf_media.py" --extract "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/pdf_701496_69963a6dc9a38.pdf" --outdir "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/m701496_4_69963a6dc9ed1" --page 4 2>&1
+  out_len: 303 | json_ok: 1 | archivos: 2 | json_error: No error
+  out_preview:
+{"archivos": [{"nombre": "media_p4_0.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m701496_4_69963a6dc9ed1\\media_p4_0.mp4"}, {"nombre": "media_p4_1.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m701496_4_69963a6dc9ed1\\media_p4_1.mp4"}]}
+
+---
+2026-02-18 16:18:48 | idCredito=701496 | pagina=4
+  cmd: "C:\Users\admin\AppData\Local\Programs\Python\Python312\python.exe" "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../scripts/pdf_media.py" --extract "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/pdf_701496_69963ac7c483d.pdf" --outdir "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/m701496_4_69963ac7c4f85" --page 4 2>&1
+  out_len: 303 | json_ok: 1 | archivos: 2 | json_error: No error
+  out_preview:
+{"archivos": [{"nombre": "media_p4_0.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m701496_4_69963ac7c4f85\\media_p4_0.mp4"}, {"nombre": "media_p4_1.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m701496_4_69963ac7c4f85\\media_p4_1.mp4"}]}
+
+---
+2026-02-18 17:56:51 | idCredito=246987 | pagina=3
+  cmd: "C:\Users\admin\AppData\Local\Programs\Python\Python312\python.exe" "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../scripts/pdf_media.py" --extract "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/pdf_246987_699651c386ce8.pdf" --outdir "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/m246987_3_699651c3871a7" --page 3 2>&1
+  out_len: 303 | json_ok: 1 | archivos: 2 | json_error: No error
+  out_preview:
+{"archivos": [{"nombre": "media_p3_0.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m246987_3_699651c3871a7\\media_p3_0.mp4"}, {"nombre": "media_p3_1.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m246987_3_699651c3871a7\\media_p3_1.mp4"}]}
+
+---
+2026-02-18 19:39:47 | idCredito=339345 | pagina=12
+  cmd: "C:\Users\admin\AppData\Local\Programs\Python\Python312\python.exe" "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../scripts/pdf_media.py" --extract "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/pdf_339345_699669e332bbd.pdf" --outdir "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/m339345_12_699669e3330b4" --page 12 2>&1
+  out_len: 309 | json_ok: 1 | archivos: 2 | json_error: No error
+  out_preview:
+{"archivos": [{"nombre": "media_p12_0.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m339345_12_699669e3330b4\\media_p12_0.mp4"}, {"nombre": "media_p12_1.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m339345_12_699669e3330b4\\media_p12_1.mp4"}]}
+
+---
+2026-02-18 23:34:27 | idCredito=1678375 | pagina=12
+  cmd: "C:\Users\admin\AppData\Local\Programs\Python\Python312\python.exe" "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../scripts/pdf_media.py" --extract "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/pdf_1678375_6996a0e2dce71.pdf" --outdir "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/m1678375_12_6996a0e2dd547" --page 12 2>&1
+  out_len: 311 | json_ok: 1 | archivos: 2 | json_error: No error
+  out_preview:
+{"archivos": [{"nombre": "media_p12_0.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m1678375_12_6996a0e2dd547\\media_p12_0.mp4"}, {"nombre": "media_p12_1.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m1678375_12_6996a0e2dd547\\media_p12_1.mp4"}]}
+
+---
+2026-02-19 07:49:18 | idCredito=681996 | pagina=6
+  cmd: "C:\Users\admin\AppData\Local\Programs\Python\Python312\python.exe" "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../scripts/pdf_media.py" --extract "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/pdf_681996_699714de776d5.pdf" --outdir "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/m681996_6_699714de77da7" --page 6 2>&1
+  out_len: 303 | json_ok: 1 | archivos: 2 | json_error: No error
+  out_preview:
+{"archivos": [{"nombre": "media_p6_0.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m681996_6_699714de77da7\\media_p6_0.mp4"}, {"nombre": "media_p6_1.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m681996_6_699714de77da7\\media_p6_1.mp4"}]}
+
+---
+2026-02-19 10:33:37 | idCredito=1204450 | pagina=3
+  cmd: "C:\Users\admin\AppData\Local\Programs\Python\Python312\python.exe" "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../scripts/pdf_media.py" --extract "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/pdf_1204450_69973b60e94b8.pdf" --outdir "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/m1204450_3_69973b60e990e" --page 3 2>&1
+  out_len: 305 | json_ok: 1 | archivos: 2 | json_error: No error
+  out_preview:
+{"archivos": [{"nombre": "media_p3_0.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m1204450_3_69973b60e990e\\media_p3_0.mp4"}, {"nombre": "media_p3_1.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m1204450_3_69973b60e990e\\media_p3_1.mp4"}]}
+
+---
+2026-02-19 10:49:24 | idCredito=1484873 | pagina=3
+  cmd: "C:\Users\admin\AppData\Local\Programs\Python\Python312\python.exe" "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../scripts/pdf_media.py" --extract "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/pdf_1484873_69973f1403e3a.pdf" --outdir "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/m1484873_3_69973f1404373" --page 3 2>&1
+  out_len: 305 | json_ok: 1 | archivos: 2 | json_error: No error
+  out_preview:
+{"archivos": [{"nombre": "media_p3_0.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m1484873_3_69973f1404373\\media_p3_0.mp4"}, {"nombre": "media_p3_1.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m1484873_3_69973f1404373\\media_p3_1.mp4"}]}
+
+---
+2026-02-19 16:07:27 | idCredito=941019 | pagina=3
+  cmd: "C:\Users\admin\AppData\Local\Programs\Python\Python312\python.exe" "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../scripts/pdf_media.py" --extract "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/pdf_941019_6997899f524fc.pdf" --outdir "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/m941019_3_6997899f5296d" --page 3 2>&1
+  out_len: 303 | json_ok: 1 | archivos: 2 | json_error: No error
+  out_preview:
+{"archivos": [{"nombre": "media_p3_0.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m941019_3_6997899f5296d\\media_p3_0.mp4"}, {"nombre": "media_p3_1.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m941019_3_6997899f5296d\\media_p3_1.mp4"}]}
+
+---
+2026-02-19 16:24:27 | idCredito=941019 | pagina=11
+  cmd: "C:\Users\admin\AppData\Local\Programs\Python\Python312\python.exe" "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../scripts/pdf_media.py" --extract "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/pdf_941019_69978d9ad5f3d.pdf" --outdir "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/m941019_11_69978d9ad6555" --page 11 2>&1
+  out_len: 603 | json_ok: 1 | archivos: 4 | json_error: No error
+  out_preview:
+{"archivos": [{"nombre": "media_p11_0.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m941019_11_69978d9ad6555\\media_p11_0.mp4"}, {"nombre": "media_p11_1.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m941019_11_69978d9ad6555\\media_p11_1.mp4"}, {"nombre": "media_p11_2.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m941019_11_69978d9ad6555\\media_p11_2.mp4"}, {"nombre": "media_p11_3.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m941019_11_69978d9ad6555\\media_p11_3.mp4"}]}
+
+---
+2026-02-19 16:24:39 | idCredito=941019 | pagina=11
+  cmd: "C:\Users\admin\AppData\Local\Programs\Python\Python312\python.exe" "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../scripts/pdf_media.py" --extract "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/pdf_941019_69978da75c0c2.pdf" --outdir "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/m941019_11_69978da75c610" --page 11 2>&1
+  out_len: 603 | json_ok: 1 | archivos: 4 | json_error: No error
+  out_preview:
+{"archivos": [{"nombre": "media_p11_0.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m941019_11_69978da75c610\\media_p11_0.mp4"}, {"nombre": "media_p11_1.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m941019_11_69978da75c610\\media_p11_1.mp4"}, {"nombre": "media_p11_2.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m941019_11_69978da75c610\\media_p11_2.mp4"}, {"nombre": "media_p11_3.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m941019_11_69978da75c610\\media_p11_3.mp4"}]}
+
+---
+2026-02-19 16:25:17 | idCredito=941019 | pagina=11
+  cmd: "C:\Users\admin\AppData\Local\Programs\Python\Python312\python.exe" "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../scripts/pdf_media.py" --extract "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/pdf_941019_69978dcd9f4a8.pdf" --outdir "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/m941019_11_69978dcd9f912" --page 11 2>&1
+  out_len: 603 | json_ok: 1 | archivos: 4 | json_error: No error
+  out_preview:
+{"archivos": [{"nombre": "media_p11_0.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m941019_11_69978dcd9f912\\media_p11_0.mp4"}, {"nombre": "media_p11_1.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m941019_11_69978dcd9f912\\media_p11_1.mp4"}, {"nombre": "media_p11_2.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m941019_11_69978dcd9f912\\media_p11_2.mp4"}, {"nombre": "media_p11_3.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m941019_11_69978dcd9f912\\media_p11_3.mp4"}]}
+
+---
+2026-02-19 16:25:51 | idCredito=941019 | pagina=11
+  cmd: "C:\Users\admin\AppData\Local\Programs\Python\Python312\python.exe" "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../scripts/pdf_media.py" --extract "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/pdf_941019_69978defa0dff.pdf" --outdir "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/m941019_11_69978defa12c4" --page 11 2>&1
+  out_len: 603 | json_ok: 1 | archivos: 4 | json_error: No error
+  out_preview:
+{"archivos": [{"nombre": "media_p11_0.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m941019_11_69978defa12c4\\media_p11_0.mp4"}, {"nombre": "media_p11_1.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m941019_11_69978defa12c4\\media_p11_1.mp4"}, {"nombre": "media_p11_2.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m941019_11_69978defa12c4\\media_p11_2.mp4"}, {"nombre": "media_p11_3.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m941019_11_69978defa12c4\\media_p11_3.mp4"}]}
+
+---
+2026-02-19 16:26:04 | idCredito=941019 | pagina=11
+  cmd: "C:\Users\admin\AppData\Local\Programs\Python\Python312\python.exe" "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../scripts/pdf_media.py" --extract "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/pdf_941019_69978dfbbd9a2.pdf" --outdir "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/m941019_11_69978dfbbdeb4" --page 11 2>&1
+  out_len: 603 | json_ok: 1 | archivos: 4 | json_error: No error
+  out_preview:
+{"archivos": [{"nombre": "media_p11_0.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m941019_11_69978dfbbdeb4\\media_p11_0.mp4"}, {"nombre": "media_p11_1.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m941019_11_69978dfbbdeb4\\media_p11_1.mp4"}, {"nombre": "media_p11_2.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m941019_11_69978dfbbdeb4\\media_p11_2.mp4"}, {"nombre": "media_p11_3.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m941019_11_69978dfbbdeb4\\media_p11_3.mp4"}]}
+
+---
+2026-02-19 17:03:14 | idCredito=1729387 | pagina=12
+  cmd: "C:\Users\admin\AppData\Local\Programs\Python\Python312\python.exe" "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../scripts/pdf_media.py" --extract "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/pdf_1729387_699796b2136d8.pdf" --outdir "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/m1729387_12_699796b213c33" --page 12 2>&1
+  out_len: 311 | json_ok: 1 | archivos: 2 | json_error: No error
+  out_preview:
+{"archivos": [{"nombre": "media_p12_0.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m1729387_12_699796b213c33\\media_p12_0.mp4"}, {"nombre": "media_p12_1.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m1729387_12_699796b213c33\\media_p12_1.mp4"}]}
+
+---
+2026-02-19 17:33:09 | idCredito=1435531 | pagina=4
+  cmd: "C:\Users\admin\AppData\Local\Programs\Python\Python312\python.exe" "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../scripts/pdf_media.py" --extract "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/pdf_1435531_69979db55ae0d.pdf" --outdir "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/m1435531_4_69979db55b260" --page 4 2>&1
+  out_len: 305 | json_ok: 1 | archivos: 2 | json_error: No error
+  out_preview:
+{"archivos": [{"nombre": "media_p4_0.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m1435531_4_69979db55b260\\media_p4_0.mp4"}, {"nombre": "media_p4_1.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m1435531_4_69979db55b260\\media_p4_1.mp4"}]}
+
+---
+2026-02-19 17:35:51 | idCredito=1435531 | pagina=5
+  cmd: "C:\Users\admin\AppData\Local\Programs\Python\Python312\python.exe" "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../scripts/pdf_media.py" --extract "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/pdf_1435531_69979e57045cf.pdf" --outdir "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/m1435531_5_69979e5704a37" --page 5 2>&1
+  out_len: 305 | json_ok: 1 | archivos: 2 | json_error: No error
+  out_preview:
+{"archivos": [{"nombre": "media_p5_0.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m1435531_5_69979e5704a37\\media_p5_0.mp4"}, {"nombre": "media_p5_1.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m1435531_5_69979e5704a37\\media_p5_1.mp4"}]}
+
+---
+2026-02-19 19:14:57 | idCredito=796533 | pagina=6
+  cmd: "C:\Users\admin\AppData\Local\Programs\Python\Python312\python.exe" "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../scripts/pdf_media.py" --extract "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/pdf_796533_6997b590bdff3.pdf" --outdir "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/m796533_6_6997b590be4db" --page 6 2>&1
+  out_len: 303 | json_ok: 1 | archivos: 2 | json_error: No error
+  out_preview:
+{"archivos": [{"nombre": "media_p6_0.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m796533_6_6997b590be4db\\media_p6_0.mp4"}, {"nombre": "media_p6_1.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m796533_6_6997b590be4db\\media_p6_1.mp4"}]}
+
+---
+2026-02-19 20:17:50 | idCredito=1682622 | pagina=12
+  cmd: "C:\Users\admin\AppData\Local\Programs\Python\Python312\python.exe" "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../scripts/pdf_media.py" --extract "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/pdf_1682622_6997c44e6b9d2.pdf" --outdir "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/m1682622_12_6997c44e6be89" --page 12 2>&1
+  out_len: 311 | json_ok: 1 | archivos: 2 | json_error: No error
+  out_preview:
+{"archivos": [{"nombre": "media_p12_0.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m1682622_12_6997c44e6be89\\media_p12_0.mp4"}, {"nombre": "media_p12_1.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m1682622_12_6997c44e6be89\\media_p12_1.mp4"}]}
+
+---
+2026-02-19 20:21:44 | idCredito=655988 | pagina=12
+  cmd: "C:\Users\admin\AppData\Local\Programs\Python\Python312\python.exe" "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../scripts/pdf_media.py" --extract "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/pdf_655988_6997c5385c166.pdf" --outdir "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/m655988_12_6997c5385c6dc" --page 12 2>&1
+  out_len: 309 | json_ok: 1 | archivos: 2 | json_error: No error
+  out_preview:
+{"archivos": [{"nombre": "media_p12_0.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m655988_12_6997c5385c6dc\\media_p12_0.mp4"}, {"nombre": "media_p12_1.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m655988_12_6997c5385c6dc\\media_p12_1.mp4"}]}
+
+---
+2026-02-19 20:26:04 | idCredito=1599862 | pagina=4
+  cmd: "C:\Users\admin\AppData\Local\Programs\Python\Python312\python.exe" "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../scripts/pdf_media.py" --extract "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/pdf_1599862_6997c63ba9067.pdf" --outdir "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/m1599862_4_6997c63ba965a" --page 4 2>&1
+  out_len: 305 | json_ok: 1 | archivos: 2 | json_error: No error
+  out_preview:
+{"archivos": [{"nombre": "media_p4_0.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m1599862_4_6997c63ba965a\\media_p4_0.mp4"}, {"nombre": "media_p4_1.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m1599862_4_6997c63ba965a\\media_p4_1.mp4"}]}
+
+---
+2026-02-19 20:55:39 | idCredito=1423485 | pagina=12
+  cmd: "C:\Users\admin\AppData\Local\Programs\Python\Python312\python.exe" "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../scripts/pdf_media.py" --extract "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/pdf_1423485_6997cd2b4d1cb.pdf" --outdir "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/m1423485_12_6997cd2b4d667" --page 12 2>&1
+  out_len: 311 | json_ok: 1 | archivos: 2 | json_error: No error
+  out_preview:
+{"archivos": [{"nombre": "media_p12_0.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m1423485_12_6997cd2b4d667\\media_p12_0.mp4"}, {"nombre": "media_p12_1.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m1423485_12_6997cd2b4d667\\media_p12_1.mp4"}]}
+
+---
+2026-02-19 20:57:35 | idCredito=1409153 | pagina=12
+  cmd: "C:\Users\admin\AppData\Local\Programs\Python\Python312\python.exe" "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../scripts/pdf_media.py" --extract "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/pdf_1409153_6997cd9f06ed0.pdf" --outdir "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/m1409153_12_6997cd9f07352" --page 12 2>&1
+  out_len: 311 | json_ok: 1 | archivos: 2 | json_error: No error
+  out_preview:
+{"archivos": [{"nombre": "media_p12_0.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m1409153_12_6997cd9f07352\\media_p12_0.mp4"}, {"nombre": "media_p12_1.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m1409153_12_6997cd9f07352\\media_p12_1.mp4"}]}
+
+---
+2026-02-19 21:01:42 | idCredito=1664964 | pagina=6
+  cmd: "C:\Users\admin\AppData\Local\Programs\Python\Python312\python.exe" "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../scripts/pdf_media.py" --extract "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/pdf_1664964_6997ce964b6d9.pdf" --outdir "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/m1664964_6_6997ce964bf3f" --page 6 2>&1
+  out_len: 305 | json_ok: 1 | archivos: 2 | json_error: No error
+  out_preview:
+{"archivos": [{"nombre": "media_p6_0.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m1664964_6_6997ce964bf3f\\media_p6_0.mp4"}, {"nombre": "media_p6_1.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m1664964_6_6997ce964bf3f\\media_p6_1.mp4"}]}
+
+---
+2026-02-19 21:27:36 | idCredito=1476975 | pagina=6
+  cmd: "C:\Users\admin\AppData\Local\Programs\Python\Python312\python.exe" "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../scripts/pdf_media.py" --extract "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/pdf_1476975_6997d4a838c14.pdf" --outdir "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/m1476975_6_6997d4a8390f8" --page 6 2>&1
+  out_len: 305 | json_ok: 1 | archivos: 2 | json_error: No error
+  out_preview:
+{"archivos": [{"nombre": "media_p6_0.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m1476975_6_6997d4a8390f8\\media_p6_0.mp4"}, {"nombre": "media_p6_1.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m1476975_6_6997d4a8390f8\\media_p6_1.mp4"}]}
+
+---
+2026-02-19 22:13:00 | idCredito=1476975 | pagina=12
+  cmd: "C:\Users\admin\AppData\Local\Programs\Python\Python312\python.exe" "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../scripts/pdf_media.py" --extract "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/pdf_1476975_6997df4bb1a60.pdf" --outdir "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/m1476975_12_6997df4bb1ef1" --page 12 2>&1
+  out_len: 311 | json_ok: 1 | archivos: 2 | json_error: No error
+  out_preview:
+{"archivos": [{"nombre": "media_p12_0.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m1476975_12_6997df4bb1ef1\\media_p12_0.mp4"}, {"nombre": "media_p12_1.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m1476975_12_6997df4bb1ef1\\media_p12_1.mp4"}]}
+
+---
+2026-02-19 23:11:59 | idCredito=102468 | pagina=12
+  cmd: "C:\Users\admin\AppData\Local\Programs\Python\Python312\python.exe" "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../scripts/pdf_media.py" --extract "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/pdf_102468_6997ed1f23747.pdf" --outdir "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/m102468_12_6997ed1f23c8f" --page 12 2>&1
+  out_len: 309 | json_ok: 1 | archivos: 2 | json_error: No error
+  out_preview:
+{"archivos": [{"nombre": "media_p12_0.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m102468_12_6997ed1f23c8f\\media_p12_0.mp4"}, {"nombre": "media_p12_1.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m102468_12_6997ed1f23c8f\\media_p12_1.mp4"}]}
+
+---
+2026-02-19 23:15:40 | idCredito=102468 | pagina=12
+  cmd: "C:\Users\admin\AppData\Local\Programs\Python\Python312\python.exe" "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../scripts/pdf_media.py" --extract "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/pdf_102468_6997edfbf3e31.pdf" --outdir "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/m102468_12_6997edfc0003d" --page 12 2>&1
+  out_len: 309 | json_ok: 1 | archivos: 2 | json_error: No error
+  out_preview:
+{"archivos": [{"nombre": "media_p12_0.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m102468_12_6997edfc0003d\\media_p12_0.mp4"}, {"nombre": "media_p12_1.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m102468_12_6997edfc0003d\\media_p12_1.mp4"}]}
+
+---
+2026-02-20 11:19:39 | idCredito=321735 | pagina=12
+  cmd: "C:\Users\admin\AppData\Local\Programs\Python\Python312\python.exe" "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../scripts/pdf_media.py" --extract "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/pdf_321735_699897ab75136.pdf" --outdir "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/m321735_12_699897ab755e3" --page 12 2>&1
+  out_len: 309 | json_ok: 1 | archivos: 2 | json_error: No error
+  out_preview:
+{"archivos": [{"nombre": "media_p12_0.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m321735_12_699897ab755e3\\media_p12_0.mp4"}, {"nombre": "media_p12_1.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m321735_12_699897ab755e3\\media_p12_1.mp4"}]}
+
+---
+2026-02-20 11:20:49 | idCredito=1477078 | pagina=12
+  cmd: "C:\Users\admin\AppData\Local\Programs\Python\Python312\python.exe" "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../scripts/pdf_media.py" --extract "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/pdf_1477078_699897f10a943.pdf" --outdir "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/m1477078_12_699897f10ae0f" --page 12 2>&1
+  out_len: 311 | json_ok: 1 | archivos: 2 | json_error: No error
+  out_preview:
+{"archivos": [{"nombre": "media_p12_0.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m1477078_12_699897f10ae0f\\media_p12_0.mp4"}, {"nombre": "media_p12_1.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m1477078_12_699897f10ae0f\\media_p12_1.mp4"}]}
+
+---
+2026-02-20 12:11:35 | idCredito=1243631 | pagina=4
+  cmd: "C:\Users\admin\AppData\Local\Programs\Python\Python312\python.exe" "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../scripts/pdf_media.py" --extract "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/pdf_1243631_6998a3d75a65b.pdf" --outdir "C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\controllers/../storage/tmp_media/m1243631_4_6998a3d75aae1" --page 4 2>&1
+  out_len: 305 | json_ok: 1 | archivos: 2 | json_error: No error
+  out_preview:
+{"archivos": [{"nombre": "media_p4_0.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m1243631_4_6998a3d75aae1\\media_p4_0.mp4"}, {"nombre": "media_p4_1.mp4", "path": "C:\\xampp\\htdocs\\sparta___SPARTA_SECRET_REDACTED__\\backend\\storage\\tmp_media\\m1243631_4_6998a3d75aae1\\media_p4_1.mp4"}]}
+
+---

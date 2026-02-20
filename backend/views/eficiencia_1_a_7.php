@@ -500,7 +500,6 @@ document.addEventListener("DOMContentLoaded", () => {
     
     function actualizarContadorRegistros(total) {
         // Opcional: mostrar contador de registros
-        console.log(`Total registros: ${total}`);
     }
     
     // ==========================================
@@ -523,7 +522,6 @@ document.addEventListener("DOMContentLoaded", () => {
     function exportarAExcel() {
         const datosExportar = datosFiltrados.length ? datosFiltrados : datosOriginales;
         // Implementar lógica de exportación
-        console.log('Exportando...', datosExportar);
     }
     
     // Botón de exportación
@@ -540,8 +538,6 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 document.addEventListener("DOMContentLoaded", () => {
-    console.log("Vista Eficiencia 1 a 7 lista para lógica JS");
-
     // ==========================================
     // FUNCIONALIDAD DE REDIMENSIONAR COLUMNAS
     // ==========================================

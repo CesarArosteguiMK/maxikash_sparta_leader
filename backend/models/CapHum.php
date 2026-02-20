@@ -179,6 +179,105 @@ class CapHum extends Model
         }
     }
 
+    /**
+     * Función optimizada para reporte de Capital Humano
+     * Los filtros se aplican directamente en SQL (más rápido)
+     */
+    public static function getGestoresParaReporte($filtros = [])
+    {
+        $departamento = $filtros['departamento'] ?? null;
+        $puesto = $filtros['puesto'] ?? null;
+        $estatus = $filtros['estatus'] ?? null;
+        $multipuesto = $filtros['multipuesto'] ?? null;
+
+        $params = [];
+        $whereConditions = ["p.estatus != 'Baja'"];
+
+        // Filtro por departamento
+        if (!empty($departamento)) {
+            $whereConditions[] = "d.nombre = :departamento";
+            $params['departamento'] = $departamento;
+        }
+
+        // Filtro por puesto
+        if (!empty($puesto)) {
+            $whereConditions[] = "pp.nombre = :puesto";
+            $params['puesto'] = $puesto;
+        }
+
+        // Filtro por estatus
+        if (!empty($estatus)) {
+            $whereConditions[] = "p.estatus = :estatus";
+            $params['estatus'] = $estatus;
+        }
+
+        // Filtro por multipuesto (subquery optimizada)
+        $multipuestoJoin = "";
+        if ($multipuesto === 'multiples') {
+            $whereConditions[] = "(SELECT COUNT(*) FROM asigna_puesto ap2 WHERE ap2.id_persona = p.id) > 1";
+        } elseif ($multipuesto === 'unico') {
+            $whereConditions[] = "(SELECT COUNT(*) FROM asigna_puesto ap2 WHERE ap2.id_persona = p.id) = 1";
+        }
+
+        $whereSQL = implode(" AND ", $whereConditions);
+
+        $query = <<<SQL
+        SELECT
+            p.id,
+            p.numero_empleado,
+            p.nombres,
+            p.segundo_nombre,
+            p.apellidop,
+            p.apellidom,
+            CONCAT_WS(' ', p.nombres, p.segundo_nombre, p.apellidop, p.apellidom) AS nombre_completo,
+            COALESCE(p.telefono_uno, '') AS telefono,
+        
+            pp.id AS id_puesto,
+            COALESCE(pp.nombre, 'Sin puesto') AS nombre_puesto,
+        
+            d.id AS id_departamento,
+            COALESCE(d.nombre, 'Sin departamento') AS nombre_departamento,
+        
+            COALESCE(
+                CONCAT_WS(' ', pj.nombres, pj.segundo_nombre, pj.apellidop, pj.apellidom),
+                'Sin jefe'
+            ) AS nombre_jefe,
+        
+            p.estatus,
+            COALESCE(p.user_name, 'Sin usuario') AS usuario
+        
+        FROM persona p
+        
+        LEFT JOIN asigna_puesto ap ON p.id = ap.id_persona
+        LEFT JOIN puesto pp ON pp.id = ap.id_puesto
+        LEFT JOIN departamento d ON d.id = pp.departamento_id
+        
+        LEFT JOIN (
+            SELECT a.id_persona, a.id_jefe
+            FROM asigna_jefe a
+            INNER JOIN (
+                SELECT id_persona, MAX(id) AS mid
+                FROM asigna_jefe
+                GROUP BY id_persona
+            ) m ON a.id_persona = m.id_persona AND a.id = m.mid
+        ) aj ON aj.id_persona = p.id
+        
+        LEFT JOIN persona pj ON pj.id = aj.id_jefe
+        
+        WHERE {$whereSQL}
+        
+        ORDER BY d.nombre ASC, pp.nombre ASC, p.nombres ASC
+        SQL;
+
+        try {
+            $db = new Database();
+            $r = $db->queryAll($query, $params);
+            return self::resultado(true, 'Gestores encontrados.', $r);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al obtener gestores.', null, $e->getMessage());
+        }
+    }
+
     public static function getPersonaDetalle($idPersona)
     {
         try {
@@ -455,16 +554,6 @@ class CapHum extends Model
             if ($documento && isset($documento['id'])) {
                 return (int)$documento['id'];
             }
-            
-            // Log para debugging - obtener todos los documentos para comparar
-            $todos = $db->queryAll("
-                SELECT id, nombre, clave
-                FROM __SPARTA_SECRET_REDACTED__.documentos
-                WHERE activo = 1
-                ORDER BY nombre
-            ");
-            $nombresDisponibles = array_column($todos, 'nombre');
-            error_log("Documento buscado: '" . $nombreDocumento . "' (longitud: " . strlen($nombreDocumento) . ") | Documentos disponibles: " . implode(' | ', $nombresDisponibles));
             
             return null;
             
@@ -1020,8 +1109,8 @@ class CapHum extends Model
             WHERE ap.id_puesto IN ($placeholdersStr)
               AND p.estatus != 'Baja'
             ORDER BY 
-                pp.nivel DESC,      -- primero: puesto de mayor nivel
-                nombre ASC          -- después: nombre de la persona
+                pp.nivel DESC,
+                nombre ASC
         SQL;
 
                 $personas = $db->queryAll($queryPersonas, $params);
@@ -1032,12 +1121,26 @@ class CapHum extends Model
             return self::resultado(false, 'Error al procesar la solicitud.', null, $e->getMessage());
         }
     }
-    public static function getConsultaPersonasJerarquia($id_persona)
+    public static function getConsultaPersonasJerarquia($id_persona, $id_departamento = 0)
     {
+        $id_persona = (int) $id_persona;
+        if ($id_persona <= 0) {
+            return self::resultado(false, 'ID de persona inválido.', null);
+        }
+        $id_departamento = (int) $id_departamento;
+        $filtroDepto = '';
+        if ($id_departamento > 0) {
+            $filtroDepto = " AND p.id IN (SELECT ap_in.id_persona FROM asigna_puesto ap_in INNER JOIN puesto pp_in ON pp_in.id = ap_in.id_puesto WHERE pp_in.departamento_id = $id_departamento)";
+        }
+        $filtroDepto2 = '';
+        if ($id_departamento > 0) {
+            $filtroDepto2 = " AND p2.id IN (SELECT ap_in.id_persona FROM asigna_puesto ap_in INNER JOIN puesto pp_in ON pp_in.id = ap_in.id_puesto WHERE pp_in.departamento_id = $id_departamento)";
+        }
+
         $query = <<<SQL
                WITH RECURSIVE Jerarquia AS (
 
-                -- NIVEL 1
+                -- NIVEL 1: un solo puesto por persona; opcionalmente solo personas con puesto en el departamento
                 SELECT 
                     p.id,
                     p.nombres,
@@ -1048,15 +1151,16 @@ class CapHum extends Model
                     aj.id_jefe,
                     1 AS nivel
                 FROM persona p
-                JOIN asigna_puesto ap ON p.id = ap.id_persona
+                JOIN (SELECT id_persona, MIN(id_puesto) AS id_puesto FROM asigna_puesto GROUP BY id_persona) ap ON p.id = ap.id_persona
                 JOIN puesto pp ON pp.id = ap.id_puesto
-                JOIN asigna_jefe aj ON p.id = aj.id_persona
+                JOIN (SELECT id_persona, MIN(id_jefe) AS id_jefe FROM asigna_jefe GROUP BY id_persona) aj ON p.id = aj.id_persona
                 WHERE p.estatus != 'Baja'
-                  AND aj.id_jefe = $id_persona  -- ← tu jefe raíz
+                  AND aj.id_jefe = $id_persona
+                  $filtroDepto
             
                 UNION ALL
             
-                -- NIVELES 2–4
+                -- NIVELES 2–4: un solo puesto y un solo jefe por persona; opcionalmente solo personas del departamento
                 SELECT 
                     p2.id,
                     p2.nombres,
@@ -1067,12 +1171,13 @@ class CapHum extends Model
                     aj2.id_jefe,
                     j.nivel + 1 AS nivel
                 FROM persona p2
-                JOIN asigna_puesto ap2 ON p2.id = ap2.id_persona
+                JOIN (SELECT id_persona, MIN(id_puesto) AS id_puesto FROM asigna_puesto GROUP BY id_persona) ap2 ON p2.id = ap2.id_persona
                 JOIN puesto pp2 ON pp2.id = ap2.id_puesto
-                JOIN asigna_jefe aj2 ON p2.id = aj2.id_persona
+                JOIN (SELECT id_persona, MIN(id_jefe) AS id_jefe FROM asigna_jefe GROUP BY id_persona) aj2 ON p2.id = aj2.id_persona
                 JOIN Jerarquia j ON aj2.id_jefe = j.id
                 WHERE p2.estatus != 'Baja'
                   AND j.nivel < 4
+                  $filtroDepto2
             )
             
             SELECT JSON_OBJECT(
@@ -1192,6 +1297,69 @@ class CapHum extends Model
             return self::resultado(false, 'Error al procesar la solicitud.', null, $e->getMessage());
         }
     }
+    /** Para organigrama: devuelve todos los departamentos (sin filtrar por gestor). */
+    public static function getTodosDepartamentos()
+    {
+        $query = <<<SQL
+            SELECT id, nombre
+            FROM departamento
+            ORDER BY nombre ASC
+        SQL;
+        try {
+            $db = new Database();
+            $r = $db->queryAll($query);
+            return self::resultado(true, 'Departamentos encontrados.', $r);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al obtener departamentos.', null, $e->getMessage());
+        }
+    }
+
+    /** Puestos asignados a una persona (para organigrama). Si id_departamento se pasa, solo puestos de ese departamento. */
+    public static function getPuestosPorPersona($id_persona, $id_departamento = 0)
+    {
+        $id_persona = (int) $id_persona;
+        if ($id_persona <= 0) {
+            return self::resultado(false, 'ID de persona inválido.', null);
+        }
+        $id_departamento = (int) $id_departamento;
+        $params = ['id_persona' => $id_persona];
+        $filtroDepto = '';
+        if ($id_departamento > 0) {
+            $filtroDepto = ' AND pp.departamento_id = :id_departamento';
+            $params['id_departamento'] = $id_departamento;
+        }
+        $query = <<<SQL
+            SELECT pp.id, pp.nombre
+            FROM asigna_puesto ap
+            INNER JOIN puesto pp ON pp.id = ap.id_puesto
+            WHERE ap.id_persona = :id_persona
+            $filtroDepto
+            ORDER BY pp.nombre ASC
+        SQL;
+        try {
+            $db = new Database();
+            $r = $db->queryAll($query, $params);
+            return self::resultado(true, 'Puestos encontrados.', $r ?: []);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al obtener puestos.', null, $e->getMessage());
+        }
+    }
+
+    /** Nombre del puesto por ID (para organigrama por cargo). */
+    public static function getNombrePuesto($id_puesto)
+    {
+        $id_puesto = (int) $id_puesto;
+        if ($id_puesto <= 0) return null;
+        $query = "SELECT nombre FROM puesto WHERE id = :id";
+        try {
+            $db = new Database();
+            $r = $db->queryAll($query, ['id' => $id_puesto]);
+            return isset($r[0]['nombre']) ? $r[0]['nombre'] : null;
+        } catch (\Exception $e) {
+            return null;
+        }
+    }
+
     ////////////////////////////////////////
     public static function getConsultaDepartamentoGestorOrganigrama($departamento)
     {
@@ -1405,7 +1573,7 @@ class CapHum extends Model
         $apellidop       = addslashes($data['apellidop']);
         $apellidom       = addslashes($data['apellidom']);
         $correo          = addslashes($data['correo'] ?? '');
-        $telefono_uno    = addslashes($data['telefono_uno'] ?? '');
+        $telefono_uno    = addslashes($data['telefono_uno'] ?? $data['telefono'] ?? '');
         $id_jefe         = (int)$data['jefe_id'];
         $id_puesto       = (int)$data['puesto_id'];
         $user_name       = addslashes($data['usuario']);
@@ -1454,23 +1622,17 @@ class CapHum extends Model
             // Si viene el array puestos_adicionales, usamos ese; si no, usamos el puesto_id tradicional
             $puestosAdicionales = $data['puestos_adicionales'] ?? null;
             
-            // 🔍 DEBUG: Log para verificar qué llega
-            error_log('🔍 UpdatePersona - puestos_adicionales recibido: ' . json_encode($puestosAdicionales));
-            
             if ($puestosAdicionales && is_array($puestosAdicionales) && count($puestosAdicionales) > 0) {
                 // Eliminar todos los puestos actuales
                 $db->queryOne("DELETE FROM asigna_puesto WHERE id_persona = $id_persona");
                 
                 // Insertar cada puesto del array
-                foreach ($puestosAdicionales as $index => $puesto) {
-                    error_log("🔍 Procesando puesto[$index]: " . json_encode($puesto));
+                foreach ($puestosAdicionales as $puesto) {
                     $puestoId = (int)$puesto['id_puesto'];
-                    error_log("🔍 id_puesto convertido a int: $puestoId");
                     $db->queryOne("
                         INSERT INTO asigna_puesto (id_persona, id_puesto)
                         VALUES ($id_persona, $puestoId)
                     ");
-                    error_log("✅ INSERT ejecutado: id_persona=$id_persona, id_puesto=$puestoId");
                 }
             } else {
                 // Comportamiento tradicional (un solo puesto)
@@ -1579,6 +1741,104 @@ class CapHum extends Model
 
         } catch (\Exception $e) {
             return self::resultado(false, 'Error al registrar la baja.', null, $e->getMessage());
+        }
+    }
+
+    /**
+     * Elimina por completo una persona y sus datos relacionados (solo si no tiene dependencias críticas).
+     * Orden: anular referencias en ticket, borrar tablas hijas, luego persona.
+     */
+    public static function eliminarPersonaCompleto($id_persona)
+    {
+        $id = (int) $id_persona;
+        if ($id < 1) {
+            return self::resultado(false, 'ID de persona inválido.');
+        }
+        try {
+            $db = new Database();
+            
+            // Iniciar transacción para garantizar integridad
+            $db->beginTransaction();
+            
+            try {
+                // ========== TICKETS (actualizar en lugar de eliminar para no perder historial) ==========
+                // 1) Tickets: dejar de referenciar a esta persona como creador
+                $db->CRUD("UPDATE ticket SET id_persona_creador = NULL WHERE id_persona_creador = $id");
+                
+                // 2) ticket_historico: desvincular gestor y asignado
+                try {
+                    $db->CRUD("UPDATE __SPARTA_SECRET_REDACTED__.ticket_historico SET gestor_id = NULL WHERE gestor_id = $id");
+                    $db->CRUD("UPDATE __SPARTA_SECRET_REDACTED__.ticket_historico SET usuario_asignado = NULL WHERE usuario_asignado = $id");
+                } catch (\Exception $e) { /* ignorar si no existe */ }
+                
+                // 3) Asignaciones de ticket
+                $db->CRUD("DELETE FROM asignacion_ticket WHERE id_persona_asignada = $id");
+                
+                // ========== MÓDULOS Y PERMISOS ==========
+                // 4) Módulos web
+                $db->CRUD("DELETE FROM asigna_modulo_web WHERE usuario_id = $id");
+                
+                // ========== JERARQUÍA Y ORGANIGRAMA ==========
+                // 5) asigna_jefe: eliminar como persona subordinada
+                try {
+                    $db->CRUD("DELETE FROM __SPARTA_SECRET_REDACTED__.asigna_jefe WHERE id_persona = $id");
+                } catch (\Exception $e) { /* ignorar si no existe */ }
+                
+                // 6) asigna_jefe: eliminar como jefe de otros (reasignar subordinados a NULL o eliminar)
+                try {
+                    $db->CRUD("DELETE FROM __SPARTA_SECRET_REDACTED__.asigna_jefe WHERE id_jefe = $id");
+                } catch (\Exception $e) { /* ignorar si no existe */ }
+                
+                // ========== ASIGNACIONES ==========
+                // 7) Puestos
+                $db->CRUD("DELETE FROM __SPARTA_SECRET_REDACTED__.asigna_puesto WHERE id_persona = $id");
+                
+                // 8) Bajas
+                $db->CRUD("DELETE FROM __SPARTA_SECRET_REDACTED__.baja_persona WHERE id_persona = $id");
+                
+                // 9) Legión
+                $db->CRUD("DELETE FROM __SPARTA_SECRET_REDACTED__.asigna_legion WHERE id_persona = $id");
+                
+                // ========== DOCUMENTOS ==========
+                // 10) Documentos cargados
+                $db->CRUD("DELETE FROM __SPARTA_SECRET_REDACTED__.carga_documento_persona WHERE id_persona = $id");
+                
+                // 11) documentos_persona
+                try {
+                    $db->CRUD("DELETE FROM __SPARTA_SECRET_REDACTED__.documentos_persona WHERE id_persona = $id");
+                } catch (\Exception $e) { /* ignorar si no existe */ }
+                
+                // ========== PERFIL ==========
+                // 12) Perfil (si existe la tabla)
+                try {
+                    $db->CRUD("DELETE FROM __SPARTA_SECRET_REDACTED__.perfil WHERE id_persona = $id");
+                } catch (\Exception $e) { /* ignorar si no existe */ }
+                
+                // ========== SABUESO / CHAT ==========
+                // 13) Chat / dictamen / evidencias
+                try {
+                    $db->CRUD("DELETE FROM chat WHERE id_persona = $id");
+                    $db->CRUD("DELETE FROM dictamen WHERE id_persona = $id");
+                    $db->CRUD("DELETE FROM ticket_evidencia WHERE id_persona = $id");
+                } catch (\Exception $e) { /* ignorar si no existen */ }
+                
+                // ========== FINALMENTE: ELIMINAR PERSONA ==========
+                // 14) Persona
+                $db->CRUD("DELETE FROM __SPARTA_SECRET_REDACTED__.persona WHERE id = $id");
+                
+                // Confirmar transacción
+                $db->commit();
+                
+                return self::resultado(true, 'Usuario eliminado del sistema correctamente.');
+                
+            } catch (\Exception $innerEx) {
+                // Revertir todo si algo falla
+                $db->rollback();
+                throw $innerEx;
+            }
+            
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al eliminar el usuario.', null, $e->getMessage());
         }
     }
 
@@ -1703,10 +1963,111 @@ class CapHum extends Model
         }
     }
 
+    /**
+     * Eliminar persona de forma segura (elimina todas las dependencias primero)
+     * Solo para administradores - usar con precaución
+     * @param int $id_persona
+     * @param bool $confirmar Si es false, solo muestra las dependencias sin eliminar
+     * @return array
+     */
+    public static function eliminarPersonaSeguro($id_persona, $confirmar = false)
+    {
+        $id_persona = (int) $id_persona;
+        if ($id_persona <= 0) {
+            return self::resultado(false, 'ID de persona inválido.');
+        }
 
-
-
-
-
+        try {
+            $db = new Database();
+            
+            // Verificar que la persona existe
+            $persona = $db->queryOne("SELECT id, nombre, apellido_paterno, apellido_materno FROM __SPARTA_SECRET_REDACTED__.persona WHERE id = :id", ['id' => $id_persona]);
+            if (!$persona) {
+                return self::resultado(false, 'Persona no encontrada.');
+            }
+            
+            $nombreCompleto = trim($persona['nombre'] . ' ' . $persona['apellido_paterno'] . ' ' . ($persona['apellido_materno'] ?? ''));
+            
+            // Buscar todas las dependencias
+            $dependencias = [];
+            
+            // 1. asigna_puesto
+            $count = $db->queryOne("SELECT COUNT(*) as c FROM __SPARTA_SECRET_REDACTED__.asigna_puesto WHERE id_persona = :id", ['id' => $id_persona]);
+            if ($count['c'] > 0) $dependencias['asigna_puesto'] = (int)$count['c'];
+            
+            // 2. asigna_jefe (como persona)
+            $count = $db->queryOne("SELECT COUNT(*) as c FROM __SPARTA_SECRET_REDACTED__.asigna_jefe WHERE id_persona = :id", ['id' => $id_persona]);
+            if ($count['c'] > 0) $dependencias['asigna_jefe_persona'] = (int)$count['c'];
+            
+            // 3. asigna_jefe (como jefe de otros)
+            $count = $db->queryOne("SELECT COUNT(*) as c FROM __SPARTA_SECRET_REDACTED__.asigna_jefe WHERE id_jefe = :id", ['id' => $id_persona]);
+            if ($count['c'] > 0) $dependencias['asigna_jefe_jefe'] = (int)$count['c'];
+            
+            // 4. asigna_legion
+            $count = $db->queryOne("SELECT COUNT(*) as c FROM __SPARTA_SECRET_REDACTED__.asigna_legion WHERE id_persona = :id", ['id' => $id_persona]);
+            if ($count['c'] > 0) $dependencias['asigna_legion'] = (int)$count['c'];
+            
+            // 5. baja_persona
+            $count = $db->queryOne("SELECT COUNT(*) as c FROM __SPARTA_SECRET_REDACTED__.baja_persona WHERE id_persona = :id", ['id' => $id_persona]);
+            if ($count['c'] > 0) $dependencias['baja_persona'] = (int)$count['c'];
+            
+            // 6. ticket_historico (gestor_id)
+            $count = $db->queryOne("SELECT COUNT(*) as c FROM __SPARTA_SECRET_REDACTED__.ticket_historico WHERE gestor_id = :id", ['id' => $id_persona]);
+            if ($count['c'] > 0) $dependencias['ticket_historico_gestor'] = (int)$count['c'];
+            
+            // 7. ticket_historico (usuario_asignado)
+            $count = $db->queryOne("SELECT COUNT(*) as c FROM __SPARTA_SECRET_REDACTED__.ticket_historico WHERE usuario_asignado = :id", ['id' => $id_persona]);
+            if ($count['c'] > 0) $dependencias['ticket_historico_asignado'] = (int)$count['c'];
+            
+            // 8. documentos_persona
+            $count = $db->queryOne("SELECT COUNT(*) as c FROM __SPARTA_SECRET_REDACTED__.documentos_persona WHERE id_persona = :id", ['id' => $id_persona]);
+            if ($count['c'] > 0) $dependencias['documentos_persona'] = (int)$count['c'];
+            
+            // Si solo es consulta (no confirmar), devolver dependencias
+            if (!$confirmar) {
+                return self::resultado(true, 'Dependencias encontradas para: ' . $nombreCompleto, [
+                    'id' => $id_persona,
+                    'nombre' => $nombreCompleto,
+                    'dependencias' => $dependencias,
+                    'total_dependencias' => array_sum($dependencias)
+                ]);
+            }
+            
+            // ELIMINAR - ejecutar en transacción
+            $db->beginTransaction();
+            
+            try {
+                // Eliminar en orden de dependencias
+                $db->CRUD("DELETE FROM __SPARTA_SECRET_REDACTED__.documentos_persona WHERE id_persona = :id", ['id' => $id_persona]);
+                $db->CRUD("DELETE FROM __SPARTA_SECRET_REDACTED__.asigna_legion WHERE id_persona = :id", ['id' => $id_persona]);
+                $db->CRUD("DELETE FROM __SPARTA_SECRET_REDACTED__.asigna_jefe WHERE id_persona = :id", ['id' => $id_persona]);
+                $db->CRUD("DELETE FROM __SPARTA_SECRET_REDACTED__.asigna_jefe WHERE id_jefe = :id", ['id' => $id_persona]);
+                $db->CRUD("DELETE FROM __SPARTA_SECRET_REDACTED__.asigna_puesto WHERE id_persona = :id", ['id' => $id_persona]);
+                $db->CRUD("DELETE FROM __SPARTA_SECRET_REDACTED__.baja_persona WHERE id_persona = :id", ['id' => $id_persona]);
+                
+                // Para tickets, en lugar de eliminar, ponemos NULL (para no perder historial)
+                $db->CRUD("UPDATE __SPARTA_SECRET_REDACTED__.ticket_historico SET gestor_id = NULL WHERE gestor_id = :id", ['id' => $id_persona]);
+                $db->CRUD("UPDATE __SPARTA_SECRET_REDACTED__.ticket_historico SET usuario_asignado = NULL WHERE usuario_asignado = :id", ['id' => $id_persona]);
+                
+                // Finalmente eliminar la persona
+                $db->CRUD("DELETE FROM __SPARTA_SECRET_REDACTED__.persona WHERE id = :id", ['id' => $id_persona]);
+                
+                $db->commit();
+                
+                return self::resultado(true, 'Persona eliminada correctamente: ' . $nombreCompleto, [
+                    'id' => $id_persona,
+                    'nombre' => $nombreCompleto,
+                    'dependencias_eliminadas' => $dependencias
+                ]);
+                
+            } catch (\Exception $e) {
+                $db->rollback();
+                throw $e;
+            }
+            
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al eliminar persona: ' . $e->getMessage());
+        }
+    }
 
 }

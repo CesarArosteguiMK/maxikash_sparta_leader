@@ -60,8 +60,6 @@ class CapHum extends Controller
                     // Guardar en variable global para otros usos
                     window.usuariosData = usuariosConsolidados;
                     
-                    console.log('📊 Usuarios consolidados:', usuariosConsolidados.length, 'de', resp.datos.length, 'registros');
-                    
                     // ==========================================
                     // MAPEAR DATOS CON SOPORTE PARA MÚLTIPLES PUESTOS
                     // ==========================================
@@ -300,57 +298,15 @@ class CapHum extends Controller
             
                     const persona = data.datos;
                     
-                    // Buscar si este usuario tiene múltiples puestos
+                    // Siempre mostrar sección de múltiples puestos para poder agregar más
                     const usuarioData = usuariosData.find(u => u.id === id);
-                    const tienePuestos = usuarioData && usuarioData.puestos && usuarioData.puestos.length > 1;
-                    
-                    // Mostrar/ocultar alerta y lista de múltiples puestos
-                    const alertaMultiples = document.getElementById('edit_alerta_multiples_puestos');
-                    const contenedorMultiples = document.getElementById('edit_contenedor_multiples_puestos');
                     const labelPrincipal = document.getElementById('edit_label_principal');
                     const labelPuestoPrincipal = document.getElementById('edit_label_puesto_principal');
-                    
-                    if (tienePuestos) {
-                        // Mostrar alerta y contenedor
-                        if (alertaMultiples) alertaMultiples.classList.remove('d-none');
-                        if (contenedorMultiples) contenedorMultiples.classList.remove('d-none');
-                        if (labelPrincipal) labelPrincipal.style.display = 'inline-block';
-                        if (labelPuestoPrincipal) labelPuestoPrincipal.style.display = 'inline-block';
-                        
-                        // Cargar gestión completa de puestos (nueva funcionalidad)
-                        if (typeof cargarPuestosUsuario === 'function') {
-                            cargarPuestosUsuario(id);
-                        } else {
-                            // Fallback: Generar lista simple de puestos
-                            const listaPuestos = document.getElementById('edit_lista_puestos');
-                            if (listaPuestos) {
-                                let html = '<div class="d-flex flex-column gap-2">';
-                                usuarioData.puestos.forEach((puesto, index) => {
-                                    const colorBadge = obtenerColorDepartamento(puesto.nombre_departamento);
-                                    const esPrincipal = index === 0;
-                                    html += `
-                                        <div class="d-flex align-items-center justify-content-between p-2 rounded" style="background: white;">
-                                            <div class="d-flex align-items-center gap-2">
-                                                <i class="fa fa-briefcase text-muted"></i>
-                                                <div>
-                                                    <div class="fw-semibold">${puesto.nombre_puesto}</div>
-                                                    <small class="text-muted">${puesto.nombre_departamento}</small>
-                                                </div>
-                                            </div>
-                                            ${esPrincipal ? '<span class="badge bg-primary">Principal</span>' : '<span class="badge bg-secondary">Secundario</span>'}
-                                        </div>
-                                    `;
-                                });
-                                html += '</div>';
-                                listaPuestos.innerHTML = html;
-                            }
-                        }
-                    } else {
-                        // Ocultar alerta y contenedor
-                        if (alertaMultiples) alertaMultiples.classList.add('d-none');
-                        if (contenedorMultiples) contenedorMultiples.classList.add('d-none');
-                        if (labelPrincipal) labelPrincipal.style.display = 'none';
-                        if (labelPuestoPrincipal) labelPuestoPrincipal.style.display = 'none';
+                    const tieneVarios = usuarioData && usuarioData.puestos && usuarioData.puestos.length > 1;
+                    if (labelPrincipal) labelPrincipal.style.display = tieneVarios ? 'inline-block' : 'none';
+                    if (labelPuestoPrincipal) labelPuestoPrincipal.style.display = tieneVarios ? 'inline-block' : 'none';
+                    if (typeof cargarPuestosUsuario === 'function') {
+                        cargarPuestosUsuario(id);
                     }
             
                     // CAMPOS TEXTO
@@ -595,6 +551,10 @@ class CapHum extends Controller
                 const idDepartamento = document.getElementById('edit_departamento_id').value;
                 if (!idDepartamento) return;
                 cargarComboJefeDirecto(idDepartamento, null, idPuesto || null);
+                if (typeof sincronizarPrincipalConListaPuestos === 'function') sincronizarPrincipalConListaPuestos();
+            });
+            document.getElementById('edit_departamento_id').addEventListener('change', function () {
+                if (typeof sincronizarPrincipalConListaPuestos === 'function') sincronizarPrincipalConListaPuestos();
             });
                 
            
@@ -1545,7 +1505,7 @@ class CapHum extends Controller
             }
             
             function onModuloChange(checkbox) {
-                console.log('Módulo:', checkbox.value, checkbox.checked);
+                // Módulo change handler
             }
             
             function baja_gestor(id) {
@@ -1583,9 +1543,6 @@ class CapHum extends Controller
                         }
                 
                        const persona = data.datos.persona; 
-                        // Debug rápido
-                        console.log('Persona:', persona);
-                
                         document.getElementById("edit_id").value = persona.id;
                         // Concatenar el nombre completo en el <p id="gestor">
                         document.getElementById("gestor").innerHTML = "<strong>Gestor:</strong> " + persona.nombres + " " + persona.apellidop + " " + persona.apellidom;
@@ -1623,8 +1580,6 @@ class CapHum extends Controller
                     }
             
                     const persona = resp.datos.persona;
-            
-                    console.log('Persona:', persona);
             
                     // ID oculto
                     document.getElementById("edit_id_ausencia").value = persona.id;
@@ -1759,9 +1714,6 @@ class CapHum extends Controller
             }
             
            function editarAusencia(idAusencia) {
-                
-                console.log("ID AUSENCIA AL EDITAR:",idAusencia);
-
                 if (!idAusencia) {
                     Swal.fire("Error", "Id de ausencia inválido", "error");
                     return;
@@ -2067,7 +2019,6 @@ class CapHum extends Controller
                 let puestosAdicionales = [];
                 if (typeof obtenerPuestosParaGuardar === 'function') {
                     puestosAdicionales = obtenerPuestosParaGuardar();
-                    console.log('🔍 CONTROLLER - puestosAdicionales obtenidos:', puestosAdicionales);
                 }
             
                 // 🔹 Payload
@@ -2085,10 +2036,8 @@ class CapHum extends Controller
                     id_legion: asignarLegion ? idLegion : null,
                     usuario: document.getElementById("edit_usuario").value,
                     contrasena: document.getElementById("edit_contrasena").value,
-                    puestos_adicionales: puestosAdicionales  // 🆕 Incluir múltiples puestos
+                    puestos_adicionales: puestosAdicionales
                 };
-                
-                console.log('📤 CONTROLLER - Payload completo a enviar:', payload);
             
                 fetch('/CapHum/updateGestorF', {
                     method: 'POST',
@@ -3306,8 +3255,6 @@ class CapHum extends Controller
                     params.fecha_fin = rangoFechasBajas.fin;
                 }
                 
-                console.log('Enviando parámetros de fecha:', params);
-                
                 // Enviar como JSON usando fetch directamente
                 fetch('/caphum/getBajas', {
                     method: 'POST',
@@ -3327,8 +3274,6 @@ class CapHum extends Controller
                     return res.json();
                 })
                 .then(resp => {
-                    console.log('Respuesta recibida:', resp);
-                    
                     // Si la respuesta no tiene success o es false, mostrar error
                     if (!resp || resp.success === false) {
                         const mensajeError = resp?.mensaje || resp?.error || "No se pudieron cargar las bajas";
@@ -3466,7 +3411,6 @@ class CapHum extends Controller
                     btn.classList.remove('active');
                 });
                 
-                console.log('Filtro limpiado, recargando todas las bajas...');
                 // Recargar todas las bajas sin filtro
                 getBajas();
             }
@@ -3556,12 +3500,10 @@ class CapHum extends Controller
                                     inicio: selectedDates[0].toISOString().split('T')[0],
                                     fin: selectedDates[1].toISOString().split('T')[0]
                                 };
-                                console.log('Rango de fechas seleccionado:', rangoFechasBajas);
                                 // Recargar datos con el filtro de fecha
                                 getBajas();
                             } else if (selectedDates.length === 0) {
                                 rangoFechasBajas = null;
-                                console.log('Filtro de fecha limpiado');
                                 // Recargar datos sin filtro
                                 getBajas();
                             }
@@ -3699,8 +3641,6 @@ class CapHum extends Controller
                 if (flatpickrInput && flatpickrInput._flatpickr) {
                     flatpickrInput._flatpickr.setDate([fechaInicio, fechaFin], false);
                 }
-                
-                console.log('Filtro rápido aplicado:', periodo, rangoFechasBajas);
                 
                 // Recargar datos con el filtro
                 getBajas();
@@ -5235,14 +5175,14 @@ class CapHum extends Controller
             </script>
         HTML;
 
-        $departamentos = CapHumDAO::getConsultaDepartamentoGestor($_SESSION['usuario_id']);
-
+        // Organigrama: mostrar todos los departamentos para que cualquier usuario pueda elegir uno
+        $departamentos = CapHumDAO::getTodosDepartamentos();
 
         $getDepartamentos = '<option disabled selected>Seleccione una opción</option>';
 
         if (!empty($departamentos['datos'])) {
             foreach ($departamentos['datos'] as $val2) {
-                $getDepartamentos .= '<option value="' . $val2['id'] . '">' . htmlspecialchars($val2['nombre'], ENT_QUOTES, 'UTF-8') . '</option>';
+                $getDepartamentos .= '<option value="' . (int)$val2['id'] . '">' . htmlspecialchars($val2['nombre'], ENT_QUOTES, 'UTF-8') . '</option>';
             }
         }
 
@@ -5275,11 +5215,33 @@ class CapHum extends Controller
         self::respuestaJSON($puestos);
     }
 
+    /** Puestos de una persona (para organigrama). Si idDepartamento se envía, solo puestos de ese departamento. */
+    public function getPuestosPorPersona()
+    {
+        $input = json_decode(file_get_contents("php://input"), true);
+        $idPersona = (int) ($input['idPersona'] ?? 0);
+        $idDepartamento = (int) ($input['idDepartamento'] ?? 0);
+        if ($idPersona <= 0) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'ID de persona requerido', 'datos' => []]);
+            return;
+        }
+        $resp = CapHumDAO::getPuestosPorPersona($idPersona, $idDepartamento);
+        self::respuestaJSON($resp);
+    }
+
     /// ESTA NO SE MUEVE 
     public function nivelJerarquicoColaborador($persona_id)
     {
-        // 1️⃣ Obtener organigrama desde la DAO
-        $personas = CapHumDAO::getConsultaPersonasJerarquia($persona_id);
+        $persona_id = (int) ($persona_id ?? 0);
+        if ($persona_id <= 0) {
+            header('Content-Type: application/json');
+            echo json_encode(['success' => false, 'mensaje' => 'ID de persona inválido']);
+            exit;
+        }
+        $id_departamento = isset($_GET['id_departamento']) ? (int) $_GET['id_departamento'] : 0;
+
+        // 1️⃣ Obtener organigrama desde la DAO (solo personas con puesto en el departamento si se envía)
+        $personas = CapHumDAO::getConsultaPersonasJerarquia($persona_id, $id_departamento);
         
         // 🔍 Debug: verificar qué se está devolviendo
         if (!$personas['success'] || empty($personas["datos"])) {
@@ -5292,9 +5254,10 @@ class CapHum extends Controller
             exit;
         }
         
-        $organigramaJson = $personas["datos"][0]["organigrama_json"] ?? null;
-        
-        if (!$organigramaJson) {
+        $primeraFila = $personas["datos"][0] ?? [];
+        $organigramaJson = $primeraFila["organigrama_json"] ?? $primeraFila["ORGANIGRAMA_JSON"] ?? null;
+
+        if ($organigramaJson === null || $organigramaJson === '') {
             header('Content-Type: application/json');
             echo json_encode([
                 "success" => false,
@@ -5305,22 +5268,36 @@ class CapHum extends Controller
         }
         
         $organigrama = json_decode($organigramaJson, true);
+        if (!is_array($organigrama)) {
+            header('Content-Type: application/json');
+            echo json_encode(['success' => false, 'mensaje' => 'Datos del organigrama no válidos']);
+            exit;
+        }
 
-        // 2️⃣ Construir filas para el OrgChart
+        // 2️⃣ Construir filas para el OrgChart (siempre al menos la raíz)
         $rows = [];
+        $this->idsYaAgregados = [];
+        $id_puesto = isset($_GET['id_puesto']) ? (int) $_GET['id_puesto'] : 0;
+        $nombrePuestoRaiz = $organigrama["nombre_puesto"] ?? '';
+        if ($id_puesto > 0) {
+            $nombrePuestoRaiz = CapHumDAO::getNombrePuesto($id_puesto) ?: $nombrePuestoRaiz;
+        }
 
-        // Raíz del organigrama
+        $idRaiz = (string)($organigrama["id_jefe"] ?? $persona_id);
+        $this->idsYaAgregados[$idRaiz] = true;
+
+        // Raíz del organigrama (evitar null para que el gráfico no falle)
         $rows[] = [
-            "id"     => (string)($organigrama["id_jefe"] ?? ''),    // ID como string
-            "nombre" => $organigrama["nombre_jefe"] ?? null,        // Nombre
-            "puesto" => $organigrama["nombre_puesto"] ?? null, // 👈
-            "jefe"   => null                                // Sin jefe
+            "id"     => $idRaiz,
+            "nombre" => $organigrama["nombre_jefe"] ?? '',
+            "puesto" => $nombrePuestoRaiz,
+            "jefe"   => null
         ];
 
-        // Subordinados de la raíz
+        // Subordinados de la raíz (recorrerArbol evita duplicados por id)
         if (!empty($organigrama["subordinados"])) {
             foreach ($organigrama["subordinados"] as $sub) {
-                $this->recorrerArbol($sub, $rows, (string)$organigrama["id_jefe"]);
+                $this->recorrerArbol($sub, $rows, $idRaiz);
             }
         }
 
@@ -5332,11 +5309,19 @@ class CapHum extends Controller
         ]);
         exit;
     }
+    private $idsYaAgregados = [];
+
     private function recorrerArbol($nodo, &$rows, $jefeId = null) {
+        $id = (string)($nodo["id"] ?? '');
+        if ($id === '') return;
+        /* Evitar duplicados por id (misma persona no debe aparecer dos veces en el organigrama) */
+        if (isset($this->idsYaAgregados[$id])) return;
+        $this->idsYaAgregados[$id] = true;
+
         $rows[] = [
-            "id"     => (string)$nodo["id"],
-            "nombre" => $nodo["nombre"],
-            "puesto" => $nodo["nombre_puesto"] ?? null, // 👈 YA VIENE DEL SQL
+            "id"     => $id,
+            "nombre" => $nodo["nombre"] ?? '',
+            "puesto" => $nodo["nombre_puesto"] ?? '',
             "jefe"   => $jefeId
         ];
 
@@ -5510,6 +5495,46 @@ class CapHum extends Controller
             ]);
         }
     }
+
+    /**
+     * Elimina por completo un usuario/persona del sistema (y sus datos relacionados).
+     */
+    /**
+     * Consultar dependencias de una persona antes de eliminarla
+     * Útil para saber qué tablas tienen referencias a esta persona
+     */
+    public function consultarDependenciasPersona()
+    {
+        $input = json_decode(file_get_contents('php://input'), true);
+        $id = isset($input['idPersona']) ? (int) $input['idPersona'] : 0;
+        if ($id < 1) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'ID de persona inválido.']);
+            return;
+        }
+        // Usar el método de consulta (confirmar = false)
+        $resultado = CapHumDAO::eliminarPersonaSeguro($id, false);
+        self::respuestaJSON($resultado);
+    }
+
+    /**
+     * Eliminar persona de forma segura (elimina todas las dependencias primero)
+     */
+    public function eliminarPersonaCompleto()
+    {
+        $input = json_decode(file_get_contents('php://input'), true);
+        $id = isset($input['idPersona']) ? (int) $input['idPersona'] : 0;
+        if ($id < 1) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'ID de persona inválido.']);
+            return;
+        }
+        $resultado = CapHumDAO::eliminarPersonaCompleto($id);
+        if ($resultado['success']) {
+            self::respuestaJSON(['success' => true, 'mensaje' => $resultado['mensaje'] ?? 'Usuario eliminado del sistema.']);
+        } else {
+            self::respuestaJSON(['success' => false, 'mensaje' => $resultado['mensaje'] ?? 'Error al eliminar.', 'error' => $resultado['error'] ?? null]);
+        }
+    }
+
     public function getPuestosDepartamento()
     {
         $input = json_decode(file_get_contents("php://input"), true);

@@ -105,27 +105,62 @@
     .select-search-option.no-results { padding: 1rem; text-align: center; color: #999; cursor: default; }
     .select-search-option.no-results:hover { background-color: transparent; }
 
+    /* Estilos solo al descargar imagen: alto contraste para que la PNG se vea bien */
+    #chart-container.organigrama-export {
+        background: #ffffff !important;
+        border-color: #cbd5e1 !important;
+    }
+    #chart-container.organigrama-export #orgTituloSeleccion {
+        color: #0f172a !important;
+        font-size: 1.1rem !important;
+        font-weight: 700 !important;
+        margin-bottom: 10px !important;
+    }
+    #chart-container.organigrama-export .google-visualization-orgchart-node {
+        background: #fff !important;
+        border: 1px solid #94a3b8 !important;
+        box-shadow: 0 2px 8px rgba(0,0,0,.12) !important;
+    }
+    #chart-container.organigrama-export .google-visualization-orgchart-node div,
+    #chart-container.organigrama-export .org-nombre {
+        color: #1e40af !important;
+    }
+    #chart-container.organigrama-export .org-puesto {
+        color: #475569 !important;
+    }
+    #chart-container.organigrama-export .google-visualization-orgchart-lineleft,
+    #chart-container.organigrama-export .google-visualization-orgchart-lineright,
+    #chart-container.organigrama-export .google-visualization-orgchart-linebottom,
+    #chart-container.organigrama-export .google-visualization-orgchart-line {
+        border-color: #64748b !important;
+    }
 </style>
 
 <h4 class="mb-4">Organigrama por Departamento</h4>
 
 <div class="card">
     <div class="card-body">
-        <!-- Fila 1: Departamento, Persona (máx rango), Nivel 1 (dinámico) -->
+        <!-- Fila 1: Departamento, Persona (máx rango), Puesto (si tiene varios), Nivel 1 (dinámico) -->
         <div class="row mb-3 align-items-end">
-            <div class="col-md-4 mb-3">
+            <div class="col-md-3 mb-3">
                 <label for="depSelect" class="form-label"><strong>Departamento:</strong></label>
                 <select id="depSelect" class="form-select">
                     <?php echo $Departamentos; ?>
                 </select>
             </div>
-            <div class="col-md-4 mb-3">
+            <div class="col-md-3 mb-3">
                 <label for="personaSelect" class="form-label"><strong>Selecciona persona (máximo rango):</strong></label>
                 <select id="personaSelect" class="form-select" disabled>
                     <option value="">-- Selecciona un departamento primero --</option>
                 </select>
             </div>
-            <div class="col-md-4 mb-3" id="personaLevel1Slot"><!-- Nivel 1 select se inyecta aquí --></div>
+            <div class="col-md-3 mb-3" id="personaPuestoSlot" style="display: none;">
+                <label for="personaPuestoSelect" class="form-label"><strong>Puesto (elegir):</strong></label>
+                <select id="personaPuestoSelect" class="form-select">
+                    <option value="">-- Selecciona un puesto --</option>
+                </select>
+            </div>
+            <div class="col-md-3 mb-3" id="personaLevel1Slot"><!-- Nivel 1 select se inyecta aquí --></div>
         </div>
         <!-- Filas siguientes: Nivel 2, 3, 4... (3 selects por fila) -->
         <div id="personaLevelsContainer" class="mb-4"></div>
@@ -442,7 +477,7 @@
             return id || null;
         }
 
-        function cargarOrganigramaDesdeRoot(personaId, luegoSubordinados) {
+        function cargarOrganigramaDesdeRoot(personaId, luegoSubordinados, idPuesto) {
             if (!personaId) {
                 document.getElementById("chart").innerHTML = "";
                 organigramaRows = [];
@@ -451,20 +486,33 @@
                 if (luegoSubordinados) luegoSubordinados([]);
                 return;
             }
-            fetch("/CapHum/nivelJerarquicoColaborador/" + personaId)
-                .then(function (res) { return res.json(); })
+            var url = "/CapHum/nivelJerarquicoColaborador/" + personaId;
+            var params = [];
+            if (idPuesto) params.push("id_puesto=" + encodeURIComponent(idPuesto));
+            var depId = document.getElementById("depSelect").value;
+            if (depId) params.push("id_departamento=" + encodeURIComponent(depId));
+            if (params.length) url += "?" + params.join("&");
+            fetch(url)
+                .then(function (res) {
+                    if (!res.ok) {
+                        throw new Error("Error " + res.status);
+                    }
+                    return res.json();
+                })
                 .then(function (res) {
                     if (!res.success) {
                         organigramaRows = [];
                         document.getElementById("btnGuardarOrganigrama").disabled = true;
                         document.getElementById("orgTituloSeleccion").textContent = "";
+                        var msg = (res.mensaje || "No se encontraron resultados");
                         if (typeof mostrarMensajeAll === 'function') {
-                            mostrarMensajeAll({ tipo: 'error', titulo: 'Error', mensaje: 'No se encontraron resultados' });
+                            mostrarMensajeAll({ tipo: 'error', titulo: 'Error', mensaje: msg });
                         }
                         if (luegoSubordinados) luegoSubordinados([]);
                         return;
                     }
-                    organigramaRows = res.rows || [];
+                    var rows = Array.isArray(res.rows) ? res.rows : [];
+                    organigramaRows = rows;
                     (function () {
                         var root = organigramaRows.find(function (r) { return r && (r.jefe === null || r.jefe === undefined); });
                         var titulo = "";
@@ -477,13 +525,38 @@
                     })();
                     var chartContainer = document.getElementById("chart");
                     chartContainer.innerHTML = "";
+                    if (rows.length === 0) {
+                        chartContainer.innerHTML = "<p class=\"text-muted\">No hay datos para mostrar.</p>";
+                        document.getElementById("btnGuardarOrganigrama").disabled = true;
+                        if (luegoSubordinados) luegoSubordinados([]);
+                        return;
+                    }
                     loadGoogleCharts(function () {
-                        drawOrgChart(res.rows, chartContainer);
+                        drawOrgChart(rows, chartContainer);
                     });
                     document.getElementById("btnGuardarOrganigrama").disabled = false;
                     var subs = getSubordinadosDirectos(personaId);
+                    /* Quitar duplicados por id (evitar nombres repetidos en el select de nivel) */
+                    var seen = {};
+                    subs = subs.filter(function (r) {
+                        var id = String(r.id);
+                        if (seen[id]) return false;
+                        seen[id] = true;
+                        return true;
+                    });
                     var subsConEquipo = subs.filter(function (op) { return getSubordinadosDirectos(op.id).length > 0; });
                     if (luegoSubordinados) luegoSubordinados(subsConEquipo);
+                })
+                .catch(function (err) {
+                    console.error("Organigrama:", err);
+                    organigramaRows = [];
+                    document.getElementById("chart").innerHTML = "";
+                    document.getElementById("btnGuardarOrganigrama").disabled = true;
+                    document.getElementById("orgTituloSeleccion").textContent = "";
+                    if (typeof mostrarMensajeAll === 'function') {
+                        mostrarMensajeAll({ tipo: 'error', titulo: 'Error', mensaje: 'No se pudo cargar el organigrama. Compruebe la conexión.' });
+                    }
+                    if (luegoSubordinados) luegoSubordinados([]);
                 });
         }
 
@@ -533,7 +606,12 @@
             opt0.value = "";
             opt0.textContent = "-- Selecciona --";
             sel.appendChild(opt0);
-            opciones.forEach(function (op) {
+            /* Evitar opciones duplicadas por id */
+            var seenId = {};
+            (opciones || []).forEach(function (op) {
+                var id = op && op.id != null ? String(op.id) : "";
+                if (!id || seenId[id]) return;
+                seenId[id] = true;
                 var opt = document.createElement("option");
                 opt.value = op.id;
                 opt.textContent = op.nombre || op.id;
@@ -676,6 +754,13 @@
             const dep_id = this.value;
             const personaSelect = document.getElementById("personaSelect");
 
+            /* Quitar rápido la selección de puesto si estaba visible de otra búsqueda */
+            var puestoSlot = document.getElementById("personaPuestoSlot");
+            var puestoSelect = document.getElementById("personaPuestoSelect");
+            puestoSlot.style.display = "none";
+            puestoSelect.innerHTML = "<option value=\"\">-- Selecciona un puesto --</option>";
+            puestoSelect.value = "";
+
             personaSelect.innerHTML = "<option>Cargando...</option>";
             personaSelect.disabled = true;
 
@@ -719,7 +804,7 @@
 
                     personaSelect.innerHTML = '<option value="">Selecciona una persona</option>';
                     personas.forEach(p => {
-                        personaSelect.innerHTML += `<option value="${p.id}">${p.nombre}</option>`;
+                        personaSelect.innerHTML += '<option value="' + p.id + '">' + p.nombre + '</option>';
                     });
 
                     personaSelect.disabled = false;
@@ -744,6 +829,10 @@
             var persona_id = this.value;
             document.getElementById("personaLevel1Slot").innerHTML = "";
             document.getElementById("personaLevelsContainer").innerHTML = "";
+            var puestoSlot = document.getElementById("personaPuestoSlot");
+            var puestoSelect = document.getElementById("personaPuestoSelect");
+            puestoSlot.style.display = "none";
+            puestoSelect.innerHTML = "<option value=\"\">-- Selecciona un puesto --</option>";
 
             if (!persona_id) {
                 document.getElementById("chart").innerHTML = "";
@@ -753,9 +842,62 @@
                 return;
             }
 
+            var dep_id = document.getElementById("depSelect").value;
+            fetch("/CapHum/getPuestosPorPersona", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ idPersona: persona_id, idDepartamento: dep_id || "" })
+            })
+                .then(function (res) { return res.json(); })
+                .then(function (data) {
+                    if (!data.success || !data.datos) {
+                        document.getElementById("chart").innerHTML = "<p class=\"text-muted\">No se pudieron cargar los puestos.</p>";
+                        return;
+                    }
+                    var puestos = Array.isArray(data.datos) ? data.datos : [];
+                    if (puestos.length === 0) {
+                        document.getElementById("chart").innerHTML = "<p class=\"text-muted\">Esta persona no tiene puestos asignados.</p>";
+                        return;
+                    }
+                    if (puestos.length === 1) {
+                        cargarOrganigramaDesdeRoot(persona_id, function (subsConEquipo) {
+                            if (subsConEquipo.length > 0) anadirSelectNivel(1, subsConEquipo);
+                        }, puestos[0].id);
+                        return;
+                    }
+                    puestoSlot.style.display = "block";
+                    puestos.forEach(function (p) {
+                        var opt = document.createElement("option");
+                        opt.value = p.id;
+                        opt.textContent = p.nombre;
+                        puestoSelect.appendChild(opt);
+                    });
+                    document.getElementById("chart").innerHTML = "<p class=\"text-muted\">Selecciona un puesto para ver el organigrama.</p>";
+                    document.getElementById("btnGuardarOrganigrama").disabled = true;
+                    document.getElementById("orgTituloSeleccion").textContent = "";
+                })
+                .catch(function (err) {
+                    console.error("Error al cargar puestos:", err);
+                    document.getElementById("chart").innerHTML = "<p class=\"text-muted\">Error al cargar puestos.</p>";
+                });
+        });
+
+        /* ============================= */
+        /*   SELECT PUESTO (cuando la persona tiene varios) */
+        /* ============================= */
+        document.getElementById("personaPuestoSelect").addEventListener("change", function () {
+            var persona_id = document.getElementById("personaSelect").value;
+            var id_puesto = this.value;
+            if (!persona_id || !id_puesto) {
+                document.getElementById("chart").innerHTML = "<p class=\"text-muted\">Selecciona un puesto para ver el organigrama.</p>";
+                document.getElementById("btnGuardarOrganigrama").disabled = true;
+                return;
+            }
+            document.getElementById("personaLevel1Slot").innerHTML = "";
+            document.getElementById("personaLevelsContainer").innerHTML = "";
             cargarOrganigramaDesdeRoot(persona_id, function (subsConEquipo) {
                 if (subsConEquipo.length > 0) anadirSelectNivel(1, subsConEquipo);
-            });
+            }, id_puesto);
         });
 
         /* ============================= */
@@ -768,6 +910,10 @@
             personaSelect.innerHTML = "<option value=\"\">-- Selecciona un departamento primero --</option>";
             personaSelect.disabled = true;
             personaSelect.value = "";
+            var personaPuestoSlot = document.getElementById("personaPuestoSlot");
+            var personaPuestoSelect = document.getElementById("personaPuestoSelect");
+            personaPuestoSlot.style.display = "none";
+            personaPuestoSelect.innerHTML = "<option value=\"\">-- Selecciona un puesto --</option>";
             document.getElementById("personaLevel1Slot").innerHTML = "";
             document.getElementById("personaLevelsContainer").innerHTML = "";
             document.getElementById("chart").innerHTML = "";
@@ -791,14 +937,68 @@
                 if (typeof Swal !== "undefined") Swal.fire("Error", "No se puede exportar la imagen. Recarga la página.", "error");
                 return;
             }
-            html2canvas(container, { scale: 2, useCORS: true, logging: false }).then(function (canvas) {
-                var link = document.createElement("a");
-                link.download = "organigrama.png";
-                link.href = canvas.toDataURL("image/png");
-                link.click();
-            }).catch(function (err) {
-                console.error("html2canvas:", err);
-                if (typeof Swal !== "undefined") Swal.fire("Error", "No se pudo generar la imagen.", "error");
+            /* Forzar estilos en línea para la captura (fondo blanco, título legible) */
+            var titulo = document.getElementById("orgTituloSeleccion");
+            var nodos = container.querySelectorAll(".google-visualization-orgchart-node");
+            var lineas = container.querySelectorAll("[class*='google-visualization-orgchart-line']");
+            var guardado = {
+                contBg: container.style.cssText,
+                tituloStyle: titulo ? titulo.style.cssText : "",
+                nodos: [],
+                lineas: []
+            };
+            container.style.setProperty("background", "#ffffff", "important");
+            container.style.setProperty("background-image", "none", "important");
+            if (titulo) {
+                titulo.style.setProperty("color", "#0f172a", "important");
+                titulo.style.setProperty("font-size", "1.1rem", "important");
+                titulo.style.setProperty("font-weight", "700", "important");
+            }
+            nodos.forEach(function (n) {
+                guardado.nodos.push(n.style.cssText);
+                n.style.setProperty("background", "#ffffff", "important");
+                n.style.setProperty("border-color", "#94a3b8", "important");
+                n.style.setProperty("color", "#1e293b", "important");
+            });
+            container.querySelectorAll(".org-nombre, .org-puesto").forEach(function (el) {
+                el.style.setProperty("color", "#1e40af", "important");
+            });
+            container.querySelectorAll(".org-puesto").forEach(function (el) {
+                el.style.setProperty("color", "#475569", "important");
+            });
+            lineas.forEach(function (el) {
+                guardado.lineas.push(el.style.cssText);
+                el.style.setProperty("border-color", "#64748b", "important");
+            });
+            requestAnimationFrame(function () {
+                requestAnimationFrame(function () {
+                    html2canvas(container, { scale: 2, useCORS: true, logging: false, allowTaint: false }).then(function (canvas) {
+                        container.style.cssText = guardado.contBg;
+                        if (titulo) titulo.style.cssText = guardado.tituloStyle;
+                        nodos.forEach(function (n, i) {
+                            n.style.cssText = guardado.nodos[i] || "";
+                        });
+                        container.querySelectorAll(".org-nombre, .org-puesto").forEach(function (el) { el.style.cssText = ""; });
+                        lineas.forEach(function (el, i) {
+                            el.style.cssText = guardado.lineas[i] || "";
+                        });
+                        var link = document.createElement("a");
+                        link.download = "organigrama.png";
+                        link.href = canvas.toDataURL("image/png");
+                        link.style.display = "none";
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                    }).catch(function (err) {
+                        container.style.cssText = guardado.contBg;
+                        if (titulo) titulo.style.cssText = guardado.tituloStyle;
+                        nodos.forEach(function (n, i) { n.style.cssText = guardado.nodos[i] || ""; });
+                        container.querySelectorAll(".org-nombre, .org-puesto").forEach(function (el) { el.style.cssText = ""; });
+                        lineas.forEach(function (n, i) { n.style.cssText = guardado.lineas[i] || ""; });
+                        console.error("html2canvas:", err);
+                        if (typeof Swal !== "undefined") Swal.fire("Error", "No se pudo generar la imagen.", "error");
+                    });
+                });
             });
         });
 
@@ -860,29 +1060,50 @@
         };
 
         function normalizarPuesto(puesto) {
-            return puesto
+            if (puesto == null || puesto === undefined) return '';
+            return String(puesto)
                 .replace(/-/g, '-')   // guion no separable
                 .replace(/\s+/g, ' ');
+        }
+
+        /** Escapa HTML para que nombres con &, <, >, ", ' no rompan el organigrama */
+        function escapeHtml(str) {
+            if (str == null || str === undefined) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        /** Escapa el id para uso dentro de onclick="abrirModal('...')" (evita que ids con apóstrofe o backslash rompan el JS) */
+        function escapeIdForAttr(id) {
+            if (id == null || id === undefined) return '';
+            return String(id).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
         }
 
         /* ============================= */
         /*   ORGANIGRAMA                 */
         /* ============================= */
         function drawOrgChart(rows, container) {
+            if (!rows || rows.length === 0) return;
             const data = new google.visualization.DataTable();
             data.addColumn("string", "Nombre");
             data.addColumn("string", "Jefe");
 
             rows.forEach(r => {
+                if (!r || r.id == null) return;
+                var idSafe = escapeIdForAttr(r.id);
+                var nombreSafe = escapeHtml(r.nombre != null ? r.nombre : '');
+                var puestoSafe = r.puesto ? escapeHtml(normalizarPuesto(r.puesto)) : '';
                 data.addRow([
                     {
                         v: String(r.id),
-                        f: `
-                        <div style="font-weight:bold;cursor:pointer;color:#2a6ebb"
-                             onclick="abrirModal('${r.id}')">
-                            ${r.nombre}
-                            ${r.puesto ? `<div class="org-puesto">${normalizarPuesto(r.puesto)}</div>` : ``}
-                        </div>`,
+                        f: '<div class="org-nombre" style="font-weight:bold;cursor:pointer;color:#2a6ebb" onclick="abrirModal(\'' + idSafe + '\')">' +
+                            nombreSafe +
+                            (puestoSafe ? '<div class="org-puesto">' + puestoSafe + '</div>' : '') +
+                            '</div>',
                         p: { collapsed: r.jefe !== null }
                     },
                     r.jefe

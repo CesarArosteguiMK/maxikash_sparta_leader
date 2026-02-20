@@ -473,7 +473,15 @@ document.addEventListener('DOMContentLoaded', function() {
         pageLength: 10,
         pagingType: 'full_numbers',
         language: {
-            url: 'https://cdn.datatables.net/plug-ins/1.11.5/i18n/es-ES.json',
+            emptyTable: "No hay datos disponibles",
+            info: "Mostrando _START_ a _END_ de _TOTAL_ registros",
+            infoEmpty: "Mostrando 0 a 0 de 0 registros",
+            infoFiltered: "(filtrado de _MAX_ registros)",
+            lengthMenu: "Mostrar _MENU_ registros",
+            loadingRecords: "Cargando...",
+            processing: "Procesando...",
+            search: "Buscar:",
+            zeroRecords: "No se encontraron resultados",
             paginate: {
                 first: '«',
                 previous: '‹',

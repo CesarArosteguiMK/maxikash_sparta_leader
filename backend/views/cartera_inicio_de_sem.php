@@ -347,8 +347,6 @@
 
 <script>
 document.addEventListener("DOMContentLoaded", () => {
-    console.log("Vista Cartera Inicio Semana lista para lógica JS");
-
     // ==========================================
     // FUNCIONALIDAD DE REDIMENSIONAR COLUMNAS
     // ==========================================

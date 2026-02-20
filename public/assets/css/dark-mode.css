@@ -476,6 +476,59 @@ body.dark-mode .btn-close {
     filter: invert(1) grayscale(100%) brightness(200%);
 }
 
+/* Modal visor de documentos en dark mode: fondo gris; canvas del PDF con fondo blanco y sin filtros para que el documento se lea bien */
+body.dark-mode #modalDocumento {
+    color-scheme: light;
+}
+body.dark-mode #modalDocumento .modal-dialog,
+body.dark-mode #modalDocumento .modal-content {
+    background: #1e293b !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    border: 1px solid #334155 !important;
+}
+body.dark-mode #modalDocumento .modal-header {
+    background: #334155 !important;
+    border-bottom: 1px solid #334155 !important;
+    color: #ffffff !important;
+}
+body.dark-mode #modalDocumento .modal-title {
+    color: #ffffff !important;
+}
+body.dark-mode #modalDocumento #documentoModalBody {
+    background: #334155 !important;
+    color: #e2e8f0 !important;
+    opacity: 1 !important;
+}
+body.dark-mode #modalDocumento #documentoPdfContainer {
+    background-color: #334155 !important;
+    opacity: 1 !important;
+}
+body.dark-mode #modalDocumento #pdfViewerContainer {
+    background: #475569 !important;
+    opacity: 1 !important;
+}
+/* Canvas del PDF: fondo blanco y sin filtros para que las letras no se vean transparentes (anula la regla global body.dark-mode canvas) */
+body.dark-mode #modalDocumento #pdfCanvas,
+body.dark-mode #modalDocumento canvas {
+    background: #ffffff !important;
+    opacity: 1 !important;
+    filter: none !important;
+}
+body.dark-mode #modalDocumento .btn-close-custom,
+body.dark-mode #modalDocumento .btn-close {
+    filter: brightness(0) invert(1) !important;
+}
+body.dark-mode #modalDocumento .btn-close-custom::before {
+    color: #ffffff !important;
+}
+body.dark-mode #modalDocumento #pdfControls,
+body.dark-mode #modalDocumento [id^="pdfOverlay"] {
+    background-color: rgba(30, 41, 59, 0.95) !important;
+    color: #ffffff !important;
+    border: 1px solid #475569 !important;
+}
+
 /* ==========================================
    OFFCANVAS
    ========================================== */
@@ -1377,7 +1430,7 @@ body.dark-mode img:not(.logo):not(.avatar):not([class*="icon"]) {
 /* Forzar color de texto oscuro en elementos comunes */
 body.dark-mode span,
 body.dark-mode label,
-body.dark-mode div:not(.btn):not(.badge):not(.alert),
+body.dark-mode div:not(.btn):not(.badge):not(.alert):not(.cp-quote-label):not(.cp-quote-author),
 body.dark-mode td,
 body.dark-mode th,
 body.dark-mode li {
@@ -3243,29 +3296,51 @@ body.dark-mode .select-search-wrapper .form-select {
     display: none !important;
 }
 
-/* Chart container */
+/* ========== Organigrama - Modo oscuro elegante ========== */
+/* Contenedor: gradiente sutil, borde y sombra */
 body.dark-mode #chart-container {
-    background-color: #252525 !important;
-    border-color: #3a3a3a !important;
+    background: linear-gradient(160deg, #1e293b 0%, #0f172a 50%, #0c1222 100%) !important;
+    border: 1px solid #334155 !important;
+    border-radius: 12px !important;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.04), 0 8px 32px rgba(0,0,0,.45) !important;
 }
 
 body.dark-mode #orgTituloSeleccion {
-    color: #e0e0e0 !important;
+    color: #e2e8f0 !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.02em !important;
+    text-shadow: 0 1px 2px rgba(0,0,0,.25) !important;
 }
 
-/* Nodos del organigrama */
+/* Nodos: gradiente, borde fino, sombra y esquinas redondeadas */
+body.dark-mode .google-visualization-orgchart-node {
+    background: linear-gradient(180deg, #334155 0%, #1e293b 100%) !important;
+    border: 1px solid #475569 !important;
+    border-radius: 10px !important;
+    box-shadow: 0 4px 14px rgba(0,0,0,.4), 0 1px 0 rgba(255,255,255,.06) inset !important;
+    transition: box-shadow .2s ease, border-color .2s ease !important;
+}
+
+body.dark-mode .google-visualization-orgchart-node:hover {
+    border-color: #64748b !important;
+    box-shadow: 0 6px 20px rgba(0,0,0,.5), 0 1px 0 rgba(255,255,255,.08) inset !important;
+}
+
+/* Nombre: azul suave */
 body.dark-mode .org-nombre {
-    color: #6ea8fe !important;
+    color: #93c5fd !important;
 }
 
 body.dark-mode .org-puesto {
-    color: #b8b8c1 !important;
+    color: #94a3b8 !important;
 }
 
-body.dark-mode .google-visualization-orgchart-node {
-    background-color: #303030 !important;
-    border-color: #3a3a3a !important;
-    color: #e0e0e0 !important;
+/* Líneas conectoras del árbol */
+body.dark-mode .google-visualization-orgchart-lineleft,
+body.dark-mode .google-visualization-orgchart-lineright,
+body.dark-mode .google-visualization-orgchart-linebottom,
+body.dark-mode .google-visualization-orgchart-line {
+    border-color: #475569 !important;
 }
 
 /* ==========================================
@@ -4813,5 +4888,20 @@ body.dark-mode .list-group-item:hover {
 body.dark-mode .list-group-item.active {
     background-color: #6ea8fe !important;
     color: #ffffff !important;
+}
+
+/* ==========================================
+   PANEL RELOJ - FRASE DEL DÍA
+   ========================================== */
+body.dark-mode .clock-panel .cp-quote div.cp-quote-label,
+body.dark-mode .cp-quote div.cp-quote-label,
+body.dark-mode div.cp-quote-label {
+    color: #d97706 !important;
+}
+
+body.dark-mode .clock-panel .cp-quote div.cp-quote-author,
+body.dark-mode .cp-quote div.cp-quote-author,
+body.dark-mode div.cp-quote-author {
+    color: #9ca3af !important;
 }
 }

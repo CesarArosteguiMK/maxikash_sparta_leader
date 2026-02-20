@@ -295,8 +295,6 @@
 
 <script>
 document.addEventListener("DOMContentLoaded", () => {
-    console.log("🚀 Vista Gestiones 1 a 7 - ENTERPRISE EDITION + WHATSAPP");
-
     // ==========================================
     // ✅ VARIABLES GLOBALES
     // ==========================================

@@ -301,8 +301,6 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('Vista Espartanos lista');
-
     // ==========================================
     // FUNCIONALIDAD DE REDIMENSIONAR COLUMNAS
     // ==========================================
@@ -349,12 +347,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Filtros
     document.getElementById('territorial-filter').addEventListener('change', function(e) {
-        console.log('Filtro territorial cambiado:', e.target.value);
         // Aquí conectarás con tu backend para filtrar datos
     });
 
     document.getElementById('bucket-filter').addEventListener('change', function(e) {
-        console.log('Filtro bucket cambiado:', e.target.value);
         // Aquí conectarás con tu backend para filtrar datos
     });
 

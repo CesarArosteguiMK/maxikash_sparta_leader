@@ -592,7 +592,6 @@ html.dark-mode .navbar .text-muted{color:#94a3b8 !important;}
     (function(){if(typeof flatpickr==='undefined')return;if(!flatpickr.l10ns)flatpickr.l10ns={};if(!flatpickr.l10ns.es){flatpickr.l10ns.es={weekdays:{shorthand:['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'],longhand:['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado']},months:{shorthand:['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'],longhand:['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']},firstDayOfWeek:1,ordinal:function(){return'.';}};}try{flatpickr.localize(flatpickr.l10ns.es);}catch(e){}})();
     </script>
     <script src="/assets/vendor/libs/fullcalendar/fullcalendar.js"></script>
-    <!-- <script src="/assets/vendor/libs/i18n/i18n.js"></script> -->
     <script src="/assets/vendor/libs/jkanban/jkanban.js"></script>
     <script src="/assets/vendor/libs/jquery-repeater/jquery-repeater.js"></script>
     <script src="/assets/vendor/libs/jquery-timepicker/jquery-timepicker.js"></script>

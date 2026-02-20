@@ -516,17 +516,10 @@
 
 <script>
 document.addEventListener("DOMContentLoaded", () => {
-    console.log("Dashboard KPI Total listo para lógica JS");
-
     // Aquí podrás:
     // 1. Cargar datos vía fetch()
     // 2. Filtrar según selects
     // 3. Recalcular KPIs dinámicamente
     // 4. Renderizar tablas dinámicamente
-
-    // Ejemplo básico: puedes integrar con los datos pasados desde el controlador
-    <?php if (!empty($data)): ?>
-        console.log("Datos disponibles:", <?= json_encode($data); ?>);
-    <?php endif; ?>
 });
 </script>

@@ -428,8 +428,6 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('Vista Simulación Avance de Buckets lista');
-
     // Función para cargar datos
     // async function loadSimulationData() {
     //     try {

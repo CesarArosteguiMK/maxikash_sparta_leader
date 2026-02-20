@@ -359,7 +359,6 @@ class Empresa extends Model
                 );
             }
 
-           /// var_dump($finalRows);
 
             return self::resultado(true, "Datos del corte obtenidos.", $finalRows);
 
@@ -556,7 +555,6 @@ class Empresa extends Model
             }
 
             
-           /// var_dump($finalRows);
 
             return self::resultado(true, "Datos del corte obtenidos.", $rows);
 

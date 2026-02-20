@@ -378,8 +378,6 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('Vista Avance de Buckets lista');
-
     // Función para cargar datos
     // async function loadBucketAdvanceData() {
     //     try {
