@@ -224,8 +224,6 @@
 
 <script>
 document.addEventListener("DOMContentLoaded", () => {
-    console.log("Vista Detalle Eficiencia lista para lógica JS");
-
     // Aquí podrás:
     // 1. Cargar datos vía fetch()
     // 2. Filtrar según selects

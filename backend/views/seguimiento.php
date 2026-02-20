@@ -452,7 +452,6 @@
 
     Object.keys(filters).forEach(key => {
         filters[key].addEventListener('change', function(e) {
-            console.log(`Filtro ${key} cambiado a:`, e.target.value);
             loadSeguimientoData();
         });
     });
@@ -478,7 +477,6 @@
             // Actualizar tabla principal
             // updateMainTable(data.records);
 
-            console.log('Datos de Seguimiento cargados');
         } catch (error) {
             console.error('Error cargando datos de seguimiento:', error);
         }
@@ -572,6 +570,5 @@
     }
 
     // Inicializar
-    console.log('Dashboard de Seguimiento inicializado');
     // loadSeguimientoData();
 </script>

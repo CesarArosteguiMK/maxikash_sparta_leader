@@ -1937,21 +1937,11 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
                         <select class="form-select" id="motivoBaja">
                             <option value="">-- Selecciona un motivo --</option>
                             <option value="Renuncia voluntaria">Renuncia voluntaria</option>
-                            <option value="Incumplimiento de objetivos">Incumplimiento de objetivos</option>
-                            <option value="Falta de asistencia">Falta de asistencia</option>
-                            <option value="Mutuo acuerdo">Mutuo acuerdo</option>
-                            <option value="Desempeño insuficiente">Desempeño insuficiente</option>
-                            <option value="Falta de puntualidad">Falta de puntualidad</option>
-                            <option value="Problemas disciplinarios">Problemas disciplinarios</option>
-                            <option value="Conflictos internos">Conflictos internos</option>
-                            <option value="Cambio de puesto">Cambio de puesto</option>
-                            <option value="Traslado a otra sucursal">Traslado a otra sucursal</option>
-                            <option value="Renuncia por motivos personales">Renuncia por motivos personales</option>
-                            <option value="Baja por salud">Baja por salud</option>
-                            <option value="Baja administrativa">Baja administrativa</option>
-                            <option value="Falta de capacitación">Falta de capacitación</option>
-                            <option value="Empleado duplicado">Empleado Duplicado</option>
-                            <option value="Otros">Otros</option>
+                            <option value="Falta de probidad">Falta de probidad</option>
+                            <option value="Faltas injustificadas">Faltas injustificadas</option>
+                            <option value="Bajo rendimiento">Bajo rendimiento</option>
+                            <option value="Cambio de área">Cambio de área</option>
+                            <option value="Conciliación">Conciliación</option>
                         </select>
                     </div>
 
@@ -2747,14 +2737,6 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
     // Actualizar los números en el DOM con animación
     animarNumero('kpi-departamentos', departamentos.size);
     animarNumero('kpi-puestos', puestos.size);
-
-    console.log('📊 Indicadores actualizados:', {
-      departamentos: departamentos.size,
-      puestos: puestos.size,
-      departamentoSeleccionado: departamentoSeleccionado || 'Ninguno',
-      puestoSeleccionado: puestoSeleccionado || 'Ninguno',
-      totalEmpleados: datos.length
-    });
   }
 
   /**
@@ -2801,8 +2783,6 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
     } else {
       ocultarIndicadorRol2();
     }
-
-    console.log('👥 Roles actualizados para', departamento + ':', puestosOrdenados);
   }
 
   /**
@@ -3608,13 +3588,6 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
     } else {
       ocultarIndicadorBajasPeriodo();
     }
-
-    console.log('📊 Indicadores de Bajas actualizados:', {
-      totalBajas: totalBajas,
-      departamentos: departamentosConBajas.length,
-      puestos: puestosConBajas.length,
-      tieneFiltroFecha: tieneFiltroFecha
-    });
   }
 
   /**
@@ -3959,9 +3932,6 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
   function consolidarUsuarios(usuarios) {
     const usuariosMap = new Map();
     
-    // 🔍 DEBUG: Ver una muestra de los datos crudos que llegan
-    console.log('🔍 [consolidarUsuarios] Muestra de datos RAW (primeros 3):', usuarios.slice(0, 3));
-    
     usuarios.forEach(usuario => {
       const id = usuario.id;
       
@@ -4017,8 +3987,6 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
         
         // Guardar los datos consolidados globalmente
         usuariosData = usuariosConsolidados;
-        
-        console.log('📊 Usuarios consolidados:', usuariosConsolidados.length, 'de', resp.datos.length, 'registros');
 
         // ==========================================
         // ACTUALIZAR INDICADORES (KPIs)
@@ -4225,18 +4193,14 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
    * este filtro muestra solo los puestos de ese departamento
    */
   function actualizarPuestosSegunDepartamento(departamentoSeleccionado) {
-    console.log('Actualizando puestos para departamento:', departamentoSeleccionado);
-
     const selectPuesto = document.getElementById('UserPlan');
 
     if (!selectPuesto) {
-      console.warn('Select UserPlan no encontrado');
       return;
     }
 
     // Si no hay departamento seleccionado, mostrar TODOS los puestos
     if (!departamentoSeleccionado) {
-      console.log('📌 Sin departamento seleccionado, mostrando todos los puestos');
 
       // Extraer todos los puestos únicos
       const todosPuestos = new Set();
@@ -4262,8 +4226,6 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
 
       // Resetear el select
       selectPuesto.value = '';
-
-      console.log('Se muestran todos los puestos:', Array.from(todosPuestos));
       return;
     }
 
@@ -4276,8 +4238,6 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
         puestosDelDepartamento.add(persona.nombre_puesto);
       }
     });
-
-    console.log('Puestos encontrados en', departamentoSeleccionado + ':', Array.from(puestosDelDepartamento));
 
     // Limpiar opciones previas (excepto la primera)
     const opciones = selectPuesto.querySelectorAll('option');
@@ -4295,8 +4255,6 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
 
     // Resetear el select de puestos
     selectPuesto.value = '';
-
-    console.log('UserPlan actualizado con', puestosDelDepartamento.size, 'puestos de', departamentoSeleccionado);
   }
 
   /**
@@ -4306,20 +4264,11 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
    * Filtra la tabla según los valores seleccionados
    */
   function aplicarFiltros() {
-    console.log('🔍 Aplicando filtros...');
-
     // Obtener valores seleccionados
     const departamentoSeleccionado = document.getElementById('UserRole').value;
     const puestoSeleccionado = document.getElementById('UserPlan').value;
     const estatusSeleccionado = document.getElementById('FilterTransaction').value;
     const multiplePuestosSeleccionado = document.getElementById('FilterMultiplePuestos').value;
-
-    console.log('Filtros activos:', {
-      departamento: departamentoSeleccionado || 'Todos',
-      puesto: puestoSeleccionado || 'Todos',
-      estatus: estatusSeleccionado || 'Todos',
-      multiplePuestos: multiplePuestosSeleccionado || 'Todos'
-    });
 
     // Filtrar datos
     const datosFiltrados = usuariosData.filter(persona => {
@@ -4351,8 +4300,6 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
 
       return true;
     });
-
-    console.log('Resultados filtrados:', datosFiltrados.length, 'registros de', usuariosData.length);
 
     // Actualizar contadores en el filtro de múltiples puestos
     const usuariosMultiples = usuariosData.filter(u => u.puestos && u.puestos.length > 1).length;
@@ -5411,14 +5358,6 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
     const puestoId = selectPuesto.value;
     const puestoNombre = selectPuesto.options[selectPuesto.selectedIndex]?.text;
     
-    // 🔍 DEBUG: Ver qué valores se están capturando
-    console.log('🔍 agregarNuevoPuesto() - Valores capturados:');
-    console.log('  - departamentoId:', departamentoId, '(tipo:', typeof departamentoId, ')');
-    console.log('  - departamentoNombre:', departamentoNombre);
-    console.log('  - puestoId:', puestoId, '(tipo:', typeof puestoId, ')');
-    console.log('  - puestoNombre:', puestoNombre);
-    console.log('  - Select options:', selectPuesto.selectedOptions[0]);
-    
     // Validar
     if (!departamentoId || !puestoId) {
       Swal.fire({
@@ -5453,11 +5392,7 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
       id_departamento: departamentoId
     };
     
-    console.log('📦 Objeto nuevoPuesto creado:', nuevoPuesto);
-    
     puestosUsuarioActual.push(nuevoPuesto);
-    
-    console.log('✅ puestosUsuarioActual después de agregar:', puestosUsuarioActual);
     
     // Si ahora tiene más de 1 puesto, mostrar panel
     if (puestosUsuarioActual.length > 1) {

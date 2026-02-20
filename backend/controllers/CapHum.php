@@ -60,8 +60,6 @@ class CapHum extends Controller
                     // Guardar en variable global para otros usos
                     window.usuariosData = usuariosConsolidados;
                     
-                    console.log('📊 Usuarios consolidados:', usuariosConsolidados.length, 'de', resp.datos.length, 'registros');
-                    
                     // ==========================================
                     // MAPEAR DATOS CON SOPORTE PARA MÚLTIPLES PUESTOS
                     // ==========================================
@@ -1507,7 +1505,7 @@ class CapHum extends Controller
             }
             
             function onModuloChange(checkbox) {
-                console.log('Módulo:', checkbox.value, checkbox.checked);
+                // Módulo change handler
             }
             
             function baja_gestor(id) {
@@ -1545,9 +1543,6 @@ class CapHum extends Controller
                         }
                 
                        const persona = data.datos.persona; 
-                        // Debug rápido
-                        console.log('Persona:', persona);
-                
                         document.getElementById("edit_id").value = persona.id;
                         // Concatenar el nombre completo en el <p id="gestor">
                         document.getElementById("gestor").innerHTML = "<strong>Gestor:</strong> " + persona.nombres + " " + persona.apellidop + " " + persona.apellidom;
@@ -1585,8 +1580,6 @@ class CapHum extends Controller
                     }
             
                     const persona = resp.datos.persona;
-            
-                    console.log('Persona:', persona);
             
                     // ID oculto
                     document.getElementById("edit_id_ausencia").value = persona.id;
@@ -1721,9 +1714,6 @@ class CapHum extends Controller
             }
             
            function editarAusencia(idAusencia) {
-                
-                console.log("ID AUSENCIA AL EDITAR:",idAusencia);
-
                 if (!idAusencia) {
                     Swal.fire("Error", "Id de ausencia inválido", "error");
                     return;
@@ -2029,7 +2019,6 @@ class CapHum extends Controller
                 let puestosAdicionales = [];
                 if (typeof obtenerPuestosParaGuardar === 'function') {
                     puestosAdicionales = obtenerPuestosParaGuardar();
-                    console.log('🔍 CONTROLLER - puestosAdicionales obtenidos:', puestosAdicionales);
                 }
             
                 // 🔹 Payload
@@ -2047,10 +2036,8 @@ class CapHum extends Controller
                     id_legion: asignarLegion ? idLegion : null,
                     usuario: document.getElementById("edit_usuario").value,
                     contrasena: document.getElementById("edit_contrasena").value,
-                    puestos_adicionales: puestosAdicionales  // 🆕 Incluir múltiples puestos
+                    puestos_adicionales: puestosAdicionales
                 };
-                
-                console.log('📤 CONTROLLER - Payload completo a enviar:', payload);
             
                 fetch('/CapHum/updateGestorF', {
                     method: 'POST',
@@ -3268,8 +3255,6 @@ class CapHum extends Controller
                     params.fecha_fin = rangoFechasBajas.fin;
                 }
                 
-                console.log('Enviando parámetros de fecha:', params);
-                
                 // Enviar como JSON usando fetch directamente
                 fetch('/caphum/getBajas', {
                     method: 'POST',
@@ -3289,8 +3274,6 @@ class CapHum extends Controller
                     return res.json();
                 })
                 .then(resp => {
-                    console.log('Respuesta recibida:', resp);
-                    
                     // Si la respuesta no tiene success o es false, mostrar error
                     if (!resp || resp.success === false) {
                         const mensajeError = resp?.mensaje || resp?.error || "No se pudieron cargar las bajas";
@@ -3428,7 +3411,6 @@ class CapHum extends Controller
                     btn.classList.remove('active');
                 });
                 
-                console.log('Filtro limpiado, recargando todas las bajas...');
                 // Recargar todas las bajas sin filtro
                 getBajas();
             }
@@ -3518,12 +3500,10 @@ class CapHum extends Controller
                                     inicio: selectedDates[0].toISOString().split('T')[0],
                                     fin: selectedDates[1].toISOString().split('T')[0]
                                 };
-                                console.log('Rango de fechas seleccionado:', rangoFechasBajas);
                                 // Recargar datos con el filtro de fecha
                                 getBajas();
                             } else if (selectedDates.length === 0) {
                                 rangoFechasBajas = null;
-                                console.log('Filtro de fecha limpiado');
                                 // Recargar datos sin filtro
                                 getBajas();
                             }
@@ -3661,8 +3641,6 @@ class CapHum extends Controller
                 if (flatpickrInput && flatpickrInput._flatpickr) {
                     flatpickrInput._flatpickr.setDate([fechaInicio, fechaFin], false);
                 }
-                
-                console.log('Filtro rápido aplicado:', periodo, rangoFechasBajas);
                 
                 // Recargar datos con el filtro
                 getBajas();
@@ -5520,6 +5498,26 @@ class CapHum extends Controller
 
     /**
      * Elimina por completo un usuario/persona del sistema (y sus datos relacionados).
+     */
+    /**
+     * Consultar dependencias de una persona antes de eliminarla
+     * Útil para saber qué tablas tienen referencias a esta persona
+     */
+    public function consultarDependenciasPersona()
+    {
+        $input = json_decode(file_get_contents('php://input'), true);
+        $id = isset($input['idPersona']) ? (int) $input['idPersona'] : 0;
+        if ($id < 1) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'ID de persona inválido.']);
+            return;
+        }
+        // Usar el método de consulta (confirmar = false)
+        $resultado = CapHumDAO::eliminarPersonaSeguro($id, false);
+        self::respuestaJSON($resultado);
+    }
+
+    /**
+     * Eliminar persona de forma segura (elimina todas las dependencias primero)
      */
     public function eliminarPersonaCompleto()
     {

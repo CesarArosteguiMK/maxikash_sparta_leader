@@ -1430,7 +1430,7 @@ body.dark-mode img:not(.logo):not(.avatar):not([class*="icon"]) {
 /* Forzar color de texto oscuro en elementos comunes */
 body.dark-mode span,
 body.dark-mode label,
-body.dark-mode div:not(.btn):not(.badge):not(.alert),
+body.dark-mode div:not(.btn):not(.badge):not(.alert):not(.cp-quote-label):not(.cp-quote-author),
 body.dark-mode td,
 body.dark-mode th,
 body.dark-mode li {
@@ -4888,5 +4888,20 @@ body.dark-mode .list-group-item:hover {
 body.dark-mode .list-group-item.active {
     background-color: #6ea8fe !important;
     color: #ffffff !important;
+}
+
+/* ==========================================
+   PANEL RELOJ - FRASE DEL DÍA
+   ========================================== */
+body.dark-mode .clock-panel .cp-quote div.cp-quote-label,
+body.dark-mode .cp-quote div.cp-quote-label,
+body.dark-mode div.cp-quote-label {
+    color: #d97706 !important;
+}
+
+body.dark-mode .clock-panel .cp-quote div.cp-quote-author,
+body.dark-mode .cp-quote div.cp-quote-author,
+body.dark-mode div.cp-quote-author {
+    color: #9ca3af !important;
 }
 }

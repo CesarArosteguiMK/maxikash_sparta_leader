@@ -179,6 +179,104 @@ class CapHum extends Model
         }
     }
 
+    /**
+     * Función optimizada para reporte de Capital Humano
+     * Los filtros se aplican directamente en SQL (más rápido)
+     */
+    public static function getGestoresParaReporte($filtros = [])
+    {
+        $departamento = $filtros['departamento'] ?? null;
+        $puesto = $filtros['puesto'] ?? null;
+        $estatus = $filtros['estatus'] ?? null;
+        $multipuesto = $filtros['multipuesto'] ?? null;
+
+        $params = [];
+        $whereConditions = ["p.estatus != 'Baja'"];
+
+        // Filtro por departamento
+        if (!empty($departamento)) {
+            $whereConditions[] = "d.nombre = :departamento";
+            $params['departamento'] = $departamento;
+        }
+
+        // Filtro por puesto
+        if (!empty($puesto)) {
+            $whereConditions[] = "pp.nombre = :puesto";
+            $params['puesto'] = $puesto;
+        }
+
+        // Filtro por estatus
+        if (!empty($estatus)) {
+            $whereConditions[] = "p.estatus = :estatus";
+            $params['estatus'] = $estatus;
+        }
+
+        // Filtro por multipuesto (subquery optimizada)
+        $multipuestoJoin = "";
+        if ($multipuesto === 'multiples') {
+            $whereConditions[] = "(SELECT COUNT(*) FROM asigna_puesto ap2 WHERE ap2.id_persona = p.id) > 1";
+        } elseif ($multipuesto === 'unico') {
+            $whereConditions[] = "(SELECT COUNT(*) FROM asigna_puesto ap2 WHERE ap2.id_persona = p.id) = 1";
+        }
+
+        $whereSQL = implode(" AND ", $whereConditions);
+
+        $query = <<<SQL
+        SELECT
+            p.id,
+            p.numero_empleado,
+            p.nombres,
+            p.segundo_nombre,
+            p.apellidop,
+            p.apellidom,
+            CONCAT_WS(' ', p.nombres, p.segundo_nombre, p.apellidop, p.apellidom) AS nombre_completo,
+        
+            pp.id AS id_puesto,
+            COALESCE(pp.nombre, 'Sin puesto') AS nombre_puesto,
+        
+            d.id AS id_departamento,
+            COALESCE(d.nombre, 'Sin departamento') AS nombre_departamento,
+        
+            COALESCE(
+                CONCAT_WS(' ', pj.nombres, pj.segundo_nombre, pj.apellidop, pj.apellidom),
+                'Sin jefe'
+            ) AS nombre_jefe,
+        
+            p.estatus,
+            COALESCE(p.user_name, 'Sin usuario') AS usuario
+        
+        FROM persona p
+        
+        LEFT JOIN asigna_puesto ap ON p.id = ap.id_persona
+        LEFT JOIN puesto pp ON pp.id = ap.id_puesto
+        LEFT JOIN departamento d ON d.id = pp.departamento_id
+        
+        LEFT JOIN (
+            SELECT a.id_persona, a.id_jefe
+            FROM asigna_jefe a
+            INNER JOIN (
+                SELECT id_persona, MAX(id) AS mid
+                FROM asigna_jefe
+                GROUP BY id_persona
+            ) m ON a.id_persona = m.id_persona AND a.id = m.mid
+        ) aj ON aj.id_persona = p.id
+        
+        LEFT JOIN persona pj ON pj.id = aj.id_jefe
+        
+        WHERE {$whereSQL}
+        
+        ORDER BY d.nombre ASC, pp.nombre ASC, p.nombres ASC
+        SQL;
+
+        try {
+            $db = new Database();
+            $r = $db->queryAll($query, $params);
+            return self::resultado(true, 'Gestores encontrados.', $r);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al obtener gestores.', null, $e->getMessage());
+        }
+    }
+
     public static function getPersonaDetalle($idPersona)
     {
         try {
@@ -455,16 +553,6 @@ class CapHum extends Model
             if ($documento && isset($documento['id'])) {
                 return (int)$documento['id'];
             }
-            
-            // Log para debugging - obtener todos los documentos para comparar
-            $todos = $db->queryAll("
-                SELECT id, nombre, clave
-                FROM __SPARTA_SECRET_REDACTED__.documentos
-                WHERE activo = 1
-                ORDER BY nombre
-            ");
-            $nombresDisponibles = array_column($todos, 'nombre');
-            error_log("Documento buscado: '" . $nombreDocumento . "' (longitud: " . strlen($nombreDocumento) . ") | Documentos disponibles: " . implode(' | ', $nombresDisponibles));
             
             return null;
             
@@ -1533,23 +1621,17 @@ class CapHum extends Model
             // Si viene el array puestos_adicionales, usamos ese; si no, usamos el puesto_id tradicional
             $puestosAdicionales = $data['puestos_adicionales'] ?? null;
             
-            // 🔍 DEBUG: Log para verificar qué llega
-            error_log('🔍 UpdatePersona - puestos_adicionales recibido: ' . json_encode($puestosAdicionales));
-            
             if ($puestosAdicionales && is_array($puestosAdicionales) && count($puestosAdicionales) > 0) {
                 // Eliminar todos los puestos actuales
                 $db->queryOne("DELETE FROM asigna_puesto WHERE id_persona = $id_persona");
                 
                 // Insertar cada puesto del array
-                foreach ($puestosAdicionales as $index => $puesto) {
-                    error_log("🔍 Procesando puesto[$index]: " . json_encode($puesto));
+                foreach ($puestosAdicionales as $puesto) {
                     $puestoId = (int)$puesto['id_puesto'];
-                    error_log("🔍 id_puesto convertido a int: $puestoId");
                     $db->queryOne("
                         INSERT INTO asigna_puesto (id_persona, id_puesto)
                         VALUES ($id_persona, $puestoId)
                     ");
-                    error_log("✅ INSERT ejecutado: id_persona=$id_persona, id_puesto=$puestoId");
                 }
             } else {
                 // Comportamiento tradicional (un solo puesto)
@@ -1673,37 +1755,87 @@ class CapHum extends Model
         }
         try {
             $db = new Database();
-            // 1) Tickets: dejar de referenciar a esta persona como creador (evitar FK)
-            $db->queryOne("UPDATE ticket SET id_persona_creador = NULL WHERE id_persona_creador = $id");
-            // 2) Asignaciones de ticket
-            $db->queryOne("DELETE FROM asignacion_ticket WHERE id_persona_asignada = $id");
-            // 3) Módulos web
-            $db->queryOne("DELETE FROM asigna_modulo_web WHERE usuario_id = $id");
-            // 4) Puestos
-            $db->queryOne("DELETE FROM __SPARTA_SECRET_REDACTED__.asigna_puesto WHERE id_persona = $id");
-            // 5) Bajas
-            $db->queryOne("DELETE FROM __SPARTA_SECRET_REDACTED__.baja_persona WHERE id_persona = $id");
-            // 6) Documentos cargados
-            $db->queryOne("DELETE FROM __SPARTA_SECRET_REDACTED__.carga_documento_persona WHERE id_persona = $id");
-            // 7) Legión
-            $db->queryOne("DELETE FROM __SPARTA_SECRET_REDACTED__.asigna_legion WHERE id_persona = $id");
-            // 8) Perfil (si existe la tabla)
+            
+            // Iniciar transacción para garantizar integridad
+            $db->beginTransaction();
+            
             try {
-                $db->queryOne("DELETE FROM __SPARTA_SECRET_REDACTED__.perfil WHERE id_persona = $id");
-            } catch (\Exception $e) {
-                // ignorar si no existe perfil
+                // ========== TICKETS (actualizar en lugar de eliminar para no perder historial) ==========
+                // 1) Tickets: dejar de referenciar a esta persona como creador
+                $db->CRUD("UPDATE ticket SET id_persona_creador = NULL WHERE id_persona_creador = $id");
+                
+                // 2) ticket_historico: desvincular gestor y asignado
+                try {
+                    $db->CRUD("UPDATE __SPARTA_SECRET_REDACTED__.ticket_historico SET gestor_id = NULL WHERE gestor_id = $id");
+                    $db->CRUD("UPDATE __SPARTA_SECRET_REDACTED__.ticket_historico SET usuario_asignado = NULL WHERE usuario_asignado = $id");
+                } catch (\Exception $e) { /* ignorar si no existe */ }
+                
+                // 3) Asignaciones de ticket
+                $db->CRUD("DELETE FROM asignacion_ticket WHERE id_persona_asignada = $id");
+                
+                // ========== MÓDULOS Y PERMISOS ==========
+                // 4) Módulos web
+                $db->CRUD("DELETE FROM asigna_modulo_web WHERE usuario_id = $id");
+                
+                // ========== JERARQUÍA Y ORGANIGRAMA ==========
+                // 5) asigna_jefe: eliminar como persona subordinada
+                try {
+                    $db->CRUD("DELETE FROM __SPARTA_SECRET_REDACTED__.asigna_jefe WHERE id_persona = $id");
+                } catch (\Exception $e) { /* ignorar si no existe */ }
+                
+                // 6) asigna_jefe: eliminar como jefe de otros (reasignar subordinados a NULL o eliminar)
+                try {
+                    $db->CRUD("DELETE FROM __SPARTA_SECRET_REDACTED__.asigna_jefe WHERE id_jefe = $id");
+                } catch (\Exception $e) { /* ignorar si no existe */ }
+                
+                // ========== ASIGNACIONES ==========
+                // 7) Puestos
+                $db->CRUD("DELETE FROM __SPARTA_SECRET_REDACTED__.asigna_puesto WHERE id_persona = $id");
+                
+                // 8) Bajas
+                $db->CRUD("DELETE FROM __SPARTA_SECRET_REDACTED__.baja_persona WHERE id_persona = $id");
+                
+                // 9) Legión
+                $db->CRUD("DELETE FROM __SPARTA_SECRET_REDACTED__.asigna_legion WHERE id_persona = $id");
+                
+                // ========== DOCUMENTOS ==========
+                // 10) Documentos cargados
+                $db->CRUD("DELETE FROM __SPARTA_SECRET_REDACTED__.carga_documento_persona WHERE id_persona = $id");
+                
+                // 11) documentos_persona
+                try {
+                    $db->CRUD("DELETE FROM __SPARTA_SECRET_REDACTED__.documentos_persona WHERE id_persona = $id");
+                } catch (\Exception $e) { /* ignorar si no existe */ }
+                
+                // ========== PERFIL ==========
+                // 12) Perfil (si existe la tabla)
+                try {
+                    $db->CRUD("DELETE FROM __SPARTA_SECRET_REDACTED__.perfil WHERE id_persona = $id");
+                } catch (\Exception $e) { /* ignorar si no existe */ }
+                
+                // ========== SABUESO / CHAT ==========
+                // 13) Chat / dictamen / evidencias
+                try {
+                    $db->CRUD("DELETE FROM chat WHERE id_persona = $id");
+                    $db->CRUD("DELETE FROM dictamen WHERE id_persona = $id");
+                    $db->CRUD("DELETE FROM ticket_evidencia WHERE id_persona = $id");
+                } catch (\Exception $e) { /* ignorar si no existen */ }
+                
+                // ========== FINALMENTE: ELIMINAR PERSONA ==========
+                // 14) Persona
+                $db->CRUD("DELETE FROM __SPARTA_SECRET_REDACTED__.persona WHERE id = $id");
+                
+                // Confirmar transacción
+                $db->commit();
+                
+                return self::resultado(true, 'Usuario eliminado del sistema correctamente.');
+                
+            } catch (\Exception $innerEx) {
+                // Revertir todo si algo falla
+                $db->rollback();
+                throw $innerEx;
             }
-            // 9) Chat / dictamen / evidencias (sabueso)
-            try {
-                $db->queryOne("DELETE FROM chat WHERE id_persona = $id");
-                $db->queryOne("DELETE FROM dictamen WHERE id_persona = $id");
-                $db->queryOne("DELETE FROM ticket_evidencia WHERE id_persona = $id");
-            } catch (\Exception $e) {
-                // ignorar si no existen
-            }
-            // 10) Persona
-            $db->queryOne("DELETE FROM __SPARTA_SECRET_REDACTED__.persona WHERE id = $id");
-            return self::resultado(true, 'Usuario eliminado del sistema correctamente.');
+            
         } catch (\Exception $e) {
             return self::resultado(false, 'Error al eliminar el usuario.', null, $e->getMessage());
         }
@@ -1830,10 +1962,111 @@ class CapHum extends Model
         }
     }
 
+    /**
+     * Eliminar persona de forma segura (elimina todas las dependencias primero)
+     * Solo para administradores - usar con precaución
+     * @param int $id_persona
+     * @param bool $confirmar Si es false, solo muestra las dependencias sin eliminar
+     * @return array
+     */
+    public static function eliminarPersonaSeguro($id_persona, $confirmar = false)
+    {
+        $id_persona = (int) $id_persona;
+        if ($id_persona <= 0) {
+            return self::resultado(false, 'ID de persona inválido.');
+        }
 
-
-
-
-
+        try {
+            $db = new Database();
+            
+            // Verificar que la persona existe
+            $persona = $db->queryOne("SELECT id, nombre, apellido_paterno, apellido_materno FROM __SPARTA_SECRET_REDACTED__.persona WHERE id = :id", ['id' => $id_persona]);
+            if (!$persona) {
+                return self::resultado(false, 'Persona no encontrada.');
+            }
+            
+            $nombreCompleto = trim($persona['nombre'] . ' ' . $persona['apellido_paterno'] . ' ' . ($persona['apellido_materno'] ?? ''));
+            
+            // Buscar todas las dependencias
+            $dependencias = [];
+            
+            // 1. asigna_puesto
+            $count = $db->queryOne("SELECT COUNT(*) as c FROM __SPARTA_SECRET_REDACTED__.asigna_puesto WHERE id_persona = :id", ['id' => $id_persona]);
+            if ($count['c'] > 0) $dependencias['asigna_puesto'] = (int)$count['c'];
+            
+            // 2. asigna_jefe (como persona)
+            $count = $db->queryOne("SELECT COUNT(*) as c FROM __SPARTA_SECRET_REDACTED__.asigna_jefe WHERE id_persona = :id", ['id' => $id_persona]);
+            if ($count['c'] > 0) $dependencias['asigna_jefe_persona'] = (int)$count['c'];
+            
+            // 3. asigna_jefe (como jefe de otros)
+            $count = $db->queryOne("SELECT COUNT(*) as c FROM __SPARTA_SECRET_REDACTED__.asigna_jefe WHERE id_jefe = :id", ['id' => $id_persona]);
+            if ($count['c'] > 0) $dependencias['asigna_jefe_jefe'] = (int)$count['c'];
+            
+            // 4. asigna_legion
+            $count = $db->queryOne("SELECT COUNT(*) as c FROM __SPARTA_SECRET_REDACTED__.asigna_legion WHERE id_persona = :id", ['id' => $id_persona]);
+            if ($count['c'] > 0) $dependencias['asigna_legion'] = (int)$count['c'];
+            
+            // 5. baja_persona
+            $count = $db->queryOne("SELECT COUNT(*) as c FROM __SPARTA_SECRET_REDACTED__.baja_persona WHERE id_persona = :id", ['id' => $id_persona]);
+            if ($count['c'] > 0) $dependencias['baja_persona'] = (int)$count['c'];
+            
+            // 6. ticket_historico (gestor_id)
+            $count = $db->queryOne("SELECT COUNT(*) as c FROM __SPARTA_SECRET_REDACTED__.ticket_historico WHERE gestor_id = :id", ['id' => $id_persona]);
+            if ($count['c'] > 0) $dependencias['ticket_historico_gestor'] = (int)$count['c'];
+            
+            // 7. ticket_historico (usuario_asignado)
+            $count = $db->queryOne("SELECT COUNT(*) as c FROM __SPARTA_SECRET_REDACTED__.ticket_historico WHERE usuario_asignado = :id", ['id' => $id_persona]);
+            if ($count['c'] > 0) $dependencias['ticket_historico_asignado'] = (int)$count['c'];
+            
+            // 8. documentos_persona
+            $count = $db->queryOne("SELECT COUNT(*) as c FROM __SPARTA_SECRET_REDACTED__.documentos_persona WHERE id_persona = :id", ['id' => $id_persona]);
+            if ($count['c'] > 0) $dependencias['documentos_persona'] = (int)$count['c'];
+            
+            // Si solo es consulta (no confirmar), devolver dependencias
+            if (!$confirmar) {
+                return self::resultado(true, 'Dependencias encontradas para: ' . $nombreCompleto, [
+                    'id' => $id_persona,
+                    'nombre' => $nombreCompleto,
+                    'dependencias' => $dependencias,
+                    'total_dependencias' => array_sum($dependencias)
+                ]);
+            }
+            
+            // ELIMINAR - ejecutar en transacción
+            $db->beginTransaction();
+            
+            try {
+                // Eliminar en orden de dependencias
+                $db->CRUD("DELETE FROM __SPARTA_SECRET_REDACTED__.documentos_persona WHERE id_persona = :id", ['id' => $id_persona]);
+                $db->CRUD("DELETE FROM __SPARTA_SECRET_REDACTED__.asigna_legion WHERE id_persona = :id", ['id' => $id_persona]);
+                $db->CRUD("DELETE FROM __SPARTA_SECRET_REDACTED__.asigna_jefe WHERE id_persona = :id", ['id' => $id_persona]);
+                $db->CRUD("DELETE FROM __SPARTA_SECRET_REDACTED__.asigna_jefe WHERE id_jefe = :id", ['id' => $id_persona]);
+                $db->CRUD("DELETE FROM __SPARTA_SECRET_REDACTED__.asigna_puesto WHERE id_persona = :id", ['id' => $id_persona]);
+                $db->CRUD("DELETE FROM __SPARTA_SECRET_REDACTED__.baja_persona WHERE id_persona = :id", ['id' => $id_persona]);
+                
+                // Para tickets, en lugar de eliminar, ponemos NULL (para no perder historial)
+                $db->CRUD("UPDATE __SPARTA_SECRET_REDACTED__.ticket_historico SET gestor_id = NULL WHERE gestor_id = :id", ['id' => $id_persona]);
+                $db->CRUD("UPDATE __SPARTA_SECRET_REDACTED__.ticket_historico SET usuario_asignado = NULL WHERE usuario_asignado = :id", ['id' => $id_persona]);
+                
+                // Finalmente eliminar la persona
+                $db->CRUD("DELETE FROM __SPARTA_SECRET_REDACTED__.persona WHERE id = :id", ['id' => $id_persona]);
+                
+                $db->commit();
+                
+                return self::resultado(true, 'Persona eliminada correctamente: ' . $nombreCompleto, [
+                    'id' => $id_persona,
+                    'nombre' => $nombreCompleto,
+                    'dependencias_eliminadas' => $dependencias
+                ]);
+                
+            } catch (\Exception $e) {
+                $db->rollback();
+                throw $e;
+            }
+            
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al eliminar persona: ' . $e->getMessage());
+        }
+    }
 
 }

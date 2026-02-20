@@ -247,7 +247,6 @@
 
     Object.keys(filters).forEach(key => {
         filters[key].addEventListener('change', function(e) {
-            console.log(`Filtro ${key} cambiado a:`, e.target.value);
             // Aquí llamarás a tu backend para filtrar los datos
             loadAuditoriaData();
         });
@@ -280,7 +279,6 @@
             // Actualizar tabla LEGACY
             // updateLegacyTable(data.legacy);
 
-            console.log('Datos de Auditoría cargados');
         } catch (error) {
             console.error('Error cargando datos de auditoría:', error);
         }
@@ -375,6 +373,5 @@
     }
 
     // Inicializar
-    console.log('Dashboard de Auditoría inicializado');
     // loadAuditoriaData();
 </script>
