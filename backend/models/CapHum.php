@@ -230,6 +230,7 @@ class CapHum extends Model
             p.apellidop,
             p.apellidom,
             CONCAT_WS(' ', p.nombres, p.segundo_nombre, p.apellidop, p.apellidom) AS nombre_completo,
+            COALESCE(p.telefono_uno, '') AS telefono,
         
             pp.id AS id_puesto,
             COALESCE(pp.nombre, 'Sin puesto') AS nombre_puesto,
@@ -1572,7 +1573,7 @@ class CapHum extends Model
         $apellidop       = addslashes($data['apellidop']);
         $apellidom       = addslashes($data['apellidom']);
         $correo          = addslashes($data['correo'] ?? '');
-        $telefono_uno    = addslashes($data['telefono_uno'] ?? '');
+        $telefono_uno    = addslashes($data['telefono_uno'] ?? $data['telefono'] ?? '');
         $id_jefe         = (int)$data['jefe_id'];
         $id_puesto       = (int)$data['puesto_id'];
         $user_name       = addslashes($data['usuario']);

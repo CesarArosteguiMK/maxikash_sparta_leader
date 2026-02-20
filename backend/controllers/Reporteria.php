@@ -340,6 +340,7 @@ public function getFiltrosCapitalHumano()
                 $data[] = [
                     'numero_empleado' => $u['numero_empleado'] ?? '',
                     'nombre_completo' => $nombreCompleto,
+                    'telefono' => $u['telefono'] ?? '',
                     'departamento' => $u['nombre_departamento'] ?? 'N/A',
                     'puesto' => $u['nombre_puesto'] ?? 'N/A',
                     'estatus' => $u['estatus'] ?? 'N/A',
@@ -352,6 +353,7 @@ public function getFiltrosCapitalHumano()
             $columnas = [
                 \PHPSpreadsheet::ColumnaExcel('numero_empleado', 'NÚMERO DE EMPLEADO'),
                 \PHPSpreadsheet::ColumnaExcel('nombre_completo', 'NOMBRE COMPLETO'),
+                \PHPSpreadsheet::ColumnaExcel('telefono', 'TELÉFONO'),
                 \PHPSpreadsheet::ColumnaExcel('departamento', 'DEPARTAMENTO'),
                 \PHPSpreadsheet::ColumnaExcel('puesto', 'PUESTO'),
                 \PHPSpreadsheet::ColumnaExcel('estatus', 'ESTATUS'),
