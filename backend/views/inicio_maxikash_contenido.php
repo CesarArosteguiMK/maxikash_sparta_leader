@@ -138,6 +138,50 @@ body.dark-mode .cp-quote-text{color:#fef3c7;}
 body.dark-mode .cp-quote-author{color:#fcd34d;}
 body.dark-mode .inicio-mkx .hero-datetime-icon{background:linear-gradient(135deg,rgba(200,214,43,0.35),rgba(200,214,43,0.12));border-color:rgba(200,214,43,0.4);box-shadow:0 2px 14px rgba(0,0,0,0.35),inset 0 1px 0 rgba(255,255,255,0.08);}
 body.dark-mode .inicio-mkx .hero-datetime-icon i{color:#c8d62b;filter:drop-shadow(0 1px 3px rgba(0,0,0,0.3));}
+
+/* Panel reloj – Responsive móvil */
+@media (max-width: 575.98px) {
+  .clock-panel{
+    width:calc(100vw - 24px);
+    max-width:340px;
+    border-radius:20px;
+  }
+  .cp-header{padding:20px 16px;}
+  .cp-time{font-size:42px;letter-spacing:1px;}
+  .cp-date{font-size:13px;}
+  .cp-weather{padding:14px 16px;gap:12px;}
+  .cp-weather-ico{font-size:30px;}
+  .cp-weather-temp{font-size:20px;}
+  .cp-calendar{padding:14px 16px;}
+  .cp-cal-month{font-size:14px;}
+  .cp-cal-nav button{width:26px;height:26px;font-size:11px;}
+  .cp-cal-d{font-size:11px;padding:6px 0;}
+  .cp-event-dot{width:4px;height:4px;}
+  .cp-quote{padding:14px 16px;}
+  .cp-quote-text{font-size:13px;}
+  .cp-quote-author{font-size:11px;}
+}
+
+@media (max-width: 400px) {
+  .clock-panel{
+    width:calc(100vw - 16px);
+    border-radius:18px;
+  }
+  .cp-header{padding:18px 14px;}
+  .cp-time{font-size:36px;}
+  .cp-date{font-size:12px;}
+  .cp-weather{padding:12px 14px;}
+  .cp-weather-ico{font-size:26px;}
+  .cp-weather-temp{font-size:18px;}
+  .cp-weather-label{font-size:10px;}
+  .cp-calendar{padding:12px 14px;}
+  .cp-cal-grid{gap:2px;}
+  .cp-cal-d{font-size:10px;padding:5px 0;border-radius:6px;}
+  .cp-cal-dn{font-size:9px;}
+  .cp-quote{padding:12px 14px;}
+  .cp-quote-label{font-size:8px;}
+  .cp-quote-text{font-size:12px;line-height:1.5;}
+}
 .inicio-mkx .sec-hd{display:flex;align-items:center;gap:10px;margin-bottom:14px;}
 .inicio-mkx .sec-txt{font-family:'Outfit',sans-serif;font-size:14px;font-weight:700;color:inherit;}
 .inicio-mkx .sec-line{flex:1;height:1px;background:var(--bs-border-color, #e2e8f0);}
@@ -486,21 +530,50 @@ body.dark-mode .inicio-mkx .qcard:hover::after{transform:scaleX(1);}
     }
   }
 
-  // Cargar clima real de CDMX (usando endpoint PHP)
+  // Clima con caché (30 minutos)
+  var weatherCache = { temp: null, code: null, time: 0 };
+  var WEATHER_CACHE_MS = 30 * 60 * 1000; // 30 minutos
+
   function loadCpWeather(){
     var elTemp = document.getElementById('cpWxTemp');
     var elIco = document.getElementById('cpWxIco');
     var elLabel = document.querySelector('.cp-weather-label');
     
+    // Verificar caché en localStorage
+    try {
+      var cached = localStorage.getItem('weatherCache');
+      if(cached){
+        var c = JSON.parse(cached);
+        if(c.time && (Date.now() - c.time) < WEATHER_CACHE_MS){
+          // Usar caché
+          elTemp.textContent = c.temp + '°C';
+          elIco.textContent = getWeatherEmoji(c.code);
+          if(elLabel) elLabel.textContent = 'Clima CDMX';
+          return;
+        }
+      }
+    } catch(e){}
+    
+    // Si ya está cargando o ya tiene datos recientes en memoria
+    if(weatherCache.temp && (Date.now() - weatherCache.time) < WEATHER_CACHE_MS){
+      elTemp.textContent = weatherCache.temp + '°C';
+      elIco.textContent = getWeatherEmoji(weatherCache.code);
+      if(elLabel) elLabel.textContent = 'Clima CDMX';
+      return;
+    }
+    
     // Mostrar cargando
     elTemp.textContent = 'Cargando...';
     elIco.textContent = '⏳';
     
-    // Usar nuestro endpoint PHP (evita CORS)
+    // Cargar desde servidor
     fetch('/clima/cdmx')
       .then(function(response){ return response.json(); })
       .then(function(data){
         if(data && data.success){
+          weatherCache = { temp: data.temperature, code: data.weather_code, time: Date.now() };
+          // Guardar en localStorage
+          try { localStorage.setItem('weatherCache', JSON.stringify(weatherCache)); } catch(e){}
           elTemp.textContent = data.temperature + '°C';
           elIco.textContent = getWeatherEmoji(data.weather_code);
           if(elLabel) elLabel.textContent = 'Clima CDMX';
@@ -514,6 +587,9 @@ body.dark-mode .inicio-mkx .qcard:hover::after{transform:scaleX(1);}
         elIco.textContent = '❓';
       });
   }
+
+  // Pre-cargar clima al inicio (en segundo plano)
+  setTimeout(loadCpWeather, 500);
 
   // Convertir código WMO a emoji
   function getWeatherEmoji(code){
