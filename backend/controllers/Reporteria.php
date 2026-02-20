@@ -302,63 +302,28 @@ public function getFiltrosCapitalHumano()
         
         try {
             // Obtener filtros de GET
-            $departamento = $_GET['departamento'] ?? null;
-            $puesto = $_GET['puesto'] ?? null;
-            $estatus = $_GET['estatus'] ?? null;
-            $multipuesto = $_GET['multipuesto'] ?? null;
+            $filtros = [
+                'departamento' => $_GET['departamento'] ?? null,
+                'puesto' => $_GET['puesto'] ?? null,
+                'estatus' => $_GET['estatus'] ?? null,
+                'multipuesto' => $_GET['multipuesto'] ?? null
+            ];
             
-            // Obtener datos base
-            $tieneDepartamento = in_array(10, $_SESSION['modulos'] ?? []);
-            $resultado = \Models\CapHum::getConsultaGestoresAll($_SESSION['usuario_id'], $tieneDepartamento);
-            
-            if (!$resultado['success'] || empty($resultado['datos'])) {
-                die('No se pudieron obtener los datos de usuarios');
+            // Verificar sesión
+            if (!isset($_SESSION['usuario_id'])) {
+                header('Content-Type: text/html; charset=utf-8');
+                die('Sesión no válida. Por favor inicia sesión nuevamente.');
             }
             
-            $usuarios = $resultado['datos'];
+            // OPTIMIZACIÓN: Filtros aplicados directamente en SQL (una sola consulta)
+            $resultado = \Models\CapHum::getGestoresParaReporte($filtros);
             
-            // Aplicar filtros en memoria
-            if ($departamento) {
-                $usuarios = array_filter($usuarios, fn($u) => 
-                    ($u['nombre_departamento'] ?? '') == $departamento
-                );
+            if (!$resultado['success']) {
+                header('Content-Type: text/html; charset=utf-8');
+                die('Error al obtener datos: ' . ($resultado['mensaje'] ?? 'Error desconocido'));
             }
             
-            if ($puesto) {
-                $usuarios = array_filter($usuarios, fn($u) => 
-                    ($u['nombre_puesto'] ?? '') == $puesto
-                );
-            }
-            
-            if ($estatus) {
-                $usuarios = array_filter($usuarios, fn($u) => 
-                    ($u['estatus'] ?? '') == $estatus
-                );
-            }
-            
-            // Filtro multipuesto (requiere subconsulta)
-            if ($multipuesto === 'multiples' || $multipuesto === 'unico') {
-                foreach ($usuarios as $key => $u) {
-                    $id_persona = $u['id'] ?? 0;
-                    if ($id_persona) {
-                        $db = new \Core\Database();
-                        $count = $db->queryOne("
-                            SELECT COUNT(*) as total 
-                            FROM __SPARTA_SECRET_REDACTED__.asigna_puesto 
-                            WHERE id_persona = :id
-                        ", ['id' => $id_persona]);
-                        
-                        $totalPuestos = $count['total'] ?? 1;
-                        
-                        if ($multipuesto === 'multiples' && $totalPuestos <= 1) {
-                            unset($usuarios[$key]);
-                        }
-                        if ($multipuesto === 'unico' && $totalPuestos > 1) {
-                            unset($usuarios[$key]);
-                        }
-                    }
-                }
-            }
+            $usuarios = $resultado['datos'] ?? [];
             
             if (empty($usuarios)) {
                 die('No hay usuarios para descargar con los filtros seleccionados');
@@ -429,8 +394,14 @@ public function getFiltrosCapitalHumano()
             exit;
             
         } catch (\Exception $e) {
-            error_log('Error en descargarUsuariosExcelCapitalHumano: ' . $e->getMessage());
-            die('Error al generar el archivo Excel: ' . $e->getMessage());
+            error_log('Error en descargarUsuariosExcelCapitalHumano: ' . $e->getMessage() . ' - ' . $e->getTraceAsString());
+            header('Content-Type: text/html; charset=utf-8');
+            echo '<div style="font-family: Arial; padding: 20px; text-align: center;">';
+            echo '<h2 style="color: #dc3545;">Error al generar Excel</h2>';
+            echo '<p>' . htmlspecialchars($e->getMessage()) . '</p>';
+            echo '<a href="javascript:history.back()" style="display: inline-block; padding: 10px 20px; background: #0d6efd; color: white; text-decoration: none; border-radius: 5px;">Volver</a>';
+            echo '</div>';
+            exit;
         }
     }
 

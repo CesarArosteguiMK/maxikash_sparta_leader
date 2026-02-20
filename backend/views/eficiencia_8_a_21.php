@@ -222,8 +222,6 @@
 
 <script>
 document.addEventListener("DOMContentLoaded", () => {
-    console.log("Vista Eficiencia 8 a 21 lista para lógica JS");
-
     // ==========================================
     // FUNCIONALIDAD DE REDIMENSIONAR COLUMNAS
     // ==========================================

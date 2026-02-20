@@ -259,8 +259,6 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('Reporte de Seguimiento a Promesas de Pago cargado');
-    
     // ==========================================
     // FUNCIONALIDAD DE REDIMENSIONAR COLUMNAS
     // ==========================================

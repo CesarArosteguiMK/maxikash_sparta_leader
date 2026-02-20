@@ -1,3 +1,46 @@
+<style>
+/* Estilos para botones de SweetAlert */
+.swal2-popup .btn-primary {
+    background-color: #0047bb !important;
+    border-color: #0047bb !important;
+    color: #fff !important;
+    padding: 0.5rem 1.5rem;
+    font-weight: 500;
+}
+.swal2-popup .btn-primary:hover {
+    background-color: #003a99 !important;
+    border-color: #003a99 !important;
+}
+.swal2-popup .btn-secondary {
+    background-color: #6c757d !important;
+    border-color: #6c757d !important;
+    color: #fff !important;
+    padding: 0.5rem 1.5rem;
+    font-weight: 500;
+}
+.swal2-popup .btn-secondary:hover {
+    background-color: #5a6268 !important;
+    border-color: #545b62 !important;
+}
+/* Dark mode */
+body.dark-mode .swal2-popup .btn-primary {
+    background-color: #3b82f6 !important;
+    border-color: #3b82f6 !important;
+}
+body.dark-mode .swal2-popup .btn-primary:hover {
+    background-color: #2563eb !important;
+    border-color: #2563eb !important;
+}
+body.dark-mode .swal2-popup .btn-secondary {
+    background-color: #64748b !important;
+    border-color: #64748b !important;
+}
+body.dark-mode .swal2-popup .btn-secondary:hover {
+    background-color: #475569 !important;
+    border-color: #475569 !important;
+}
+</style>
+
 <div class="card">
     <div class="card">
         <div class="row g-0 align-items-center">
@@ -204,7 +247,6 @@ function inicializarDataTableUsuarios() {
             }
         },
         language: {
-            url: 'https://cdn.datatables.net/plug-ins/1.11.5/i18n/es-ES.json',
             decimal: "",
             emptyTable: "No hay datos disponibles en la tabla",
             info: "Mostrando _START_ a _END_ de _TOTAL_ registros",
@@ -455,56 +497,36 @@ function descargarExcelUsuarios() {
         showCancelButton: true,
         confirmButtonText: '<i class="fas fa-download me-2"></i>Sí, descargar',
         cancelButtonText: 'Cancelar',
-        confirmButtonColor: '#0047bb',
-        cancelButtonColor: '#a1acb8',
         reverseButtons: true,
         customClass: {
-            confirmButton: 'btn',
-            cancelButton: 'btn'
-        }
+            confirmButton: 'btn btn-primary',
+            cancelButton: 'btn btn-secondary'
+        },
+        buttonsStyling: false
     }).then((result) => {
         if (result.isConfirmed) {
-            // ✅ USUARIO CONFIRMÓ - MOSTRAR LOADER
-            Swal.fire({
-                title: 'Generando reporte...',
-                html: '<div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;"></div><p style="margin-top: 1.5rem; color: #697a8d;">Por favor espera mientras se genera el archivo Excel</p>',
-                allowOutsideClick: false,
-                showConfirmButton: false,
-                didOpen: () => {
-                    // 📥 DESCARGA EN LA MISMA VENTANA (IFRAME SILENCIOSO)
-                    const url = '/Reporteria/descargarUsuariosExcelCapitalHumano?' + new URLSearchParams({
-                        ...(departamento && { departamento }),
-                        ...(puesto && { puesto }),
-                        ...(estatus && { estatus }),
-                        ...(multipuesto && { multipuesto })
-                    }).toString();
-                    
-                    const iframe = document.createElement('iframe');
-                    iframe.style.display = 'none';
-                    iframe.src = url;
-                    document.body.appendChild(iframe);
-                    
-                    // Cerrar loader y mostrar éxito
-                    setTimeout(() => {
-                        Swal.close();
-                        Swal.fire({
-                            icon: 'success',
-                            title: '¡Descarga iniciada!',
-                            text: 'El archivo se está descargando.',
-                            timer: 2000,
-                            showConfirmButton: false,
-                            timerProgressBar: true
-                        });
-                        
-                        // Limpiar iframe
-                        setTimeout(() => {
-                            if (iframe.parentNode) {
-                                iframe.parentNode.removeChild(iframe);
-                            }
-                        }, 5000);
-                    }, 2000);
-                }
-            });
+            // ✅ USUARIO CONFIRMÓ - INICIAR DESCARGA DIRECTA
+            const url = '/Reporteria/descargarUsuariosExcelCapitalHumano?' + new URLSearchParams({
+                ...(departamento && { departamento }),
+                ...(puesto && { puesto }),
+                ...(estatus && { estatus }),
+                ...(multipuesto && { multipuesto })
+            }).toString();
+            
+            // Descarga directa usando window.location
+            window.location.href = url;
+            
+            // Mostrar mensaje de éxito después de un breve momento
+            setTimeout(() => {
+                Swal.fire({
+                    icon: 'success',
+                    title: '¡Descarga iniciada!',
+                    text: 'El archivo Excel se está descargando.',
+                    timer: 2500,
+                    showConfirmButton: false,
+                    timerProgressBar: true
+                });
+            }, 500);
             
         } else if (result.dismiss === Swal.DismissReason.cancel) {
             // 🚫 USUARIO CANCELÓ - MENSAJE AMIGABLE
@@ -524,8 +546,6 @@ function descargarExcelUsuarios() {
 // 7. INICIALIZAR TODO
 // ============================================
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('🚀 Inicializando Reportería Capital Humano...');
-    
     inicializarDataTableUsuarios();
     cargarUsuariosCapitalHumano();
     

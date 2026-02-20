@@ -110,9 +110,9 @@ body.dark-mode .inicio-mkx .hero-badge .badge-dot{box-shadow:0 0 10px var(--yell
   background:linear-gradient(135deg,rgba(255,251,235,0.8),rgba(254,243,199,0.6));
   border-left:4px solid #f59e0b;
 }
-.cp-quote-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;color:#b45309;margin-bottom:8px;display:flex;align-items:center;gap:6px;}
+.cp-quote-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;color:#d97706;margin-bottom:8px;display:flex;align-items:center;gap:6px;}
 .cp-quote-text{font-size:14px;font-style:italic;color:#78350f;line-height:1.55;}
-.cp-quote-author{font-size:12px;color:#92400e;font-weight:500;margin-top:6px;}
+.cp-quote-author{font-size:12px;color:#6b7280;font-weight:500;margin-top:6px;}
 
 /* Dark mode para panel – Liquid Glass */
 body.dark-mode .clock-panel-overlay{background:rgba(0,0,0,.5);}
@@ -133,9 +133,9 @@ body.dark-mode .cp-cal-d{color:#94a3b8;}
 body.dark-mode .cp-cal-d.today{background:linear-gradient(135deg,#3b82f6,#2563eb);box-shadow:0 2px 10px rgba(59,130,246,0.4);}
 body.dark-mode .cp-event-dot{background:#fbbf24;box-shadow:0 0 6px rgba(251,191,36,0.6);}
 body.dark-mode .cp-quote{background:linear-gradient(135deg,rgba(66,32,6,0.7),rgba(120,53,15,0.5));border-left-color:#f59e0b;}
-body.dark-mode .cp-quote-label{color:#fbbf24;}
-body.dark-mode .cp-quote-text{color:#fef3c7;}
-body.dark-mode .cp-quote-author{color:#fcd34d;}
+body.dark-mode .clock-panel .cp-quote-label{color:#d97706 !important;}
+body.dark-mode .clock-panel .cp-quote-text{color:#fef3c7 !important;}
+body.dark-mode .clock-panel .cp-quote-author{color:#9ca3af !important;}
 body.dark-mode .inicio-mkx .hero-datetime-icon{background:linear-gradient(135deg,rgba(200,214,43,0.35),rgba(200,214,43,0.12));border-color:rgba(200,214,43,0.4);box-shadow:0 2px 14px rgba(0,0,0,0.35),inset 0 1px 0 rgba(255,255,255,0.08);}
 body.dark-mode .inicio-mkx .hero-datetime-icon i{color:#c8d62b;filter:drop-shadow(0 1px 3px rgba(0,0,0,0.3));}
 
@@ -297,9 +297,9 @@ body.dark-mode .inicio-mkx .qcard:hover::after{transform:scaleX(1);}
         <div class="cp-cal-grid" id="cpCalGrid"></div>
       </div>
       <div class="cp-quote">
-        <div class="cp-quote-label">💡 Frase del día</div>
+        <div class="cp-quote-label" style="color: #d97706 !important;">💡 Frase del día</div>
         <div class="cp-quote-text" id="cpQuoteText">"El éxito es la suma de pequeños esfuerzos repetidos día tras día."</div>
-        <div class="cp-quote-author" id="cpQuoteAuthor">— Robert Collier</div>
+        <div class="cp-quote-author" id="cpQuoteAuthor" style="color: #9ca3af !important;">— Robert Collier</div>
       </div>
     </div>
 
@@ -528,11 +528,27 @@ body.dark-mode .inicio-mkx .qcard:hover::after{transform:scaleX(1);}
       document.getElementById('cpQuoteText').textContent = '"' + todayQuote.t + '"';
       document.getElementById('cpQuoteAuthor').textContent = '— ' + todayQuote.a;
     }
+    
+    // Aplicar colores según modo (fix para dark mode)
+    applyQuoteColors();
+  }
+  
+  function applyQuoteColors(){
+    var isDark = document.body.classList.contains('dark-mode');
+    var labelEl = document.querySelector('.cp-quote-label');
+    var authorEl = document.getElementById('cpQuoteAuthor');
+    
+    if(labelEl){
+      labelEl.style.color = '#d97706'; // Amarillo medio (igual en ambos modos)
+    }
+    if(authorEl){
+      authorEl.style.color = isDark ? '#9ca3af' : '#6b7280'; // Gris
+    }
   }
 
-  // Clima con caché (30 minutos)
+  // Clima con caché (4 horas)
   var weatherCache = { temp: null, code: null, time: 0 };
-  var WEATHER_CACHE_MS = 30 * 60 * 1000; // 30 minutos
+  var WEATHER_CACHE_MS = 4 * 60 * 60 * 1000; // 4 horas
 
   function loadCpWeather(){
     var elTemp = document.getElementById('cpWxTemp');

@@ -41,7 +41,6 @@ class Departamentos extends Controller
               nombre: nuevoValor
             },
             onSuccess: (resp) => {
-              console.log('Departamento actualizado en BD:', resp);
               if (resp.success) {
                 // Actualizar también el título en la lista de tarjetas si es necesario
                 window.departamentoActivo && getDepartamentos();
@@ -110,7 +109,6 @@ class Departamentos extends Controller
           }
         
           element.contentEditable = false;
-          console.log('Puesto actualizado:', nuevoValor);
         }
         
         function cancelarEdicion(element) {
@@ -255,8 +253,6 @@ class Departamentos extends Controller
               id_departamento: idDepartamento
             },
             onSuccess: (resp) => {
-              console.log(resp);
-              
               const lista = document.getElementById('listaPuestos');
               lista.innerHTML = '';
         
@@ -324,7 +320,7 @@ class Departamentos extends Controller
             method: 'POST',
             data: { id_departamento: idDep, ordenes: ordenes },
             onSuccess: (resp) => {
-              if (resp && resp.success) console.log('Orden guardado.');
+              // Orden guardado
             },
             onError: (err) => console.error('Error al guardar orden:', err)
           });
@@ -483,21 +479,14 @@ class Departamentos extends Controller
               nombre: nuevoValor
             },
             onSuccess: (resp) => {
-              console.log('Puesto actualizado en BD:', resp);
+              // Puesto actualizado
             },
             onError: (err) => {
               console.error('Error al actualizar puesto:', err);
               // Revertir en caso de error
               element.textContent = valorOriginal;
             }
-          });
-        
-          console.log('Puesto actualizado localmente:', {
-            id_puesto: idPuesto,
-            nombre: nuevoValor,
-            departamento: window.departamentoActivo
-          });
-                  
+          });                  
         }
         
         /* Click en ícono lápiz */
@@ -573,9 +562,6 @@ class Departamentos extends Controller
                     
                     // Recargar lista de departamentos
                     getDepartamentos();
-                    
-                    // Mostrar notificación de éxito (opcional)
-                    console.log('Departamento creado exitosamente:', resp.mensaje);
                   } else {
                     errorDiv.textContent = resp.mensaje || 'Error al crear el departamento';
                     errorDiv.style.display = 'block';

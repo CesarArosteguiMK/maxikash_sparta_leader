@@ -314,8 +314,6 @@
 <!-- ========================================== -->
 <script>
 document.addEventListener("DOMContentLoaded", () => {
-    console.log("🚀 Vista Gestiones 8 a 21 inicializada");
-
     // ==========================================
     // ✅ MOSTRAR LOADER
     // ==========================================
@@ -377,9 +375,6 @@ document.addEventListener("DOMContentLoaded", () => {
     // ==========================================
     const datosIniciales = <?php echo json_encode($gestiones ?? []); ?>;
     const totalesIniciales = <?php echo json_encode($totales ?? []); ?>;
-
-    console.log("Datos jerárquicos recibidos:", datosIniciales);
-    console.log("Totales recibidos:", totalesIniciales);
 
     // ==========================================
     // FUNCIONES DE FORMATEO
@@ -561,7 +556,6 @@ document.addEventListener("DOMContentLoaded", () => {
     // FUNCIONES PARA FILTROS (PLACEHOLDER)
     // ==========================================
     function aplicarFiltros() {
-        console.log("Filtros aplicados");
         // Aquí iría la lógica para filtrar los datos actuales
     }
 

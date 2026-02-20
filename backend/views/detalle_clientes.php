@@ -206,8 +206,6 @@
 
 <script>
 document.addEventListener("DOMContentLoaded", () => {
-    console.log("Vista Detalle Clientes lista para lógica JS");
-
     // ==========================================
     // FUNCIONALIDAD DE REDIMENSIONAR COLUMNAS
     // ==========================================

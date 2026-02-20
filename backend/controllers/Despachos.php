@@ -22,8 +22,7 @@ class Despachos extends Controller
     {
         $script = <<<'HTML'
         <script>
-            console.log('✅ Controlador Despachos ejecutado correctamente');
-            console.log('📄 Vista: asignacion_creditosDespacho.php');
+            // Controlador Despachos inicializado
         </script>
         HTML;
         
