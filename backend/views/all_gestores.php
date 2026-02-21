@@ -1456,30 +1456,117 @@
   #modalEditPerfil.modal.show .modal-dialog {
     transform: translateY(0) !important;
   }
-
-  /* Overlay un poco más oscuro en móvil para mejor contraste */
-  #modalEditPerfil.modal .modal-backdrop,
-  body > .modal-backdrop {
-    background-color: rgba(0, 0, 0, 0.6) !important;
-  }
 }
 
 /* ─────────────────────────────────────────────
-   Evitar que el backdrop quede encima del modal de permisos/puestos.
-   Bootstrap mueve el modal a body, así que el modal debe tener z-index
-   mayor que .modal-backdrop (1050).
+   Modal permisos/puestos: sin backdrop de Bootstrap; overlay propio suave; encima de todo
    ───────────────────────────────────────────── */
 #modalEditPerfil.modal.show {
-  z-index: 1060 !important;
+  z-index: 99999 !important;
+  background: transparent !important;
 }
 #modalEditPerfil.modal.show .modal-dialog {
   z-index: 1;
   position: relative;
 }
-/* Si el modal sigue dentro del layout, subir el layout cuando esté abierto */
+/* Scrim detrás de modales (KPI Desglose + Edit Perfil): modo claro = scrim visible; modo oscuro = opaco para contorno */
+#customModalOverlay {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 99998 !important;
+  pointer-events: none !important;
+  transition: background-color 0.25s ease;
+}
+/* Modo claro: scrim más oscuro detrás del modal */
+#customModalOverlay {
+  background: rgba(0, 0, 0, 0.42) !important;
+}
+/* Modo oscuro: scrim más opaco para marcar bien el contorno del modal */
+body.dark-mode #customModalOverlay {
+  background: rgba(0, 0, 0, 0.88) !important;
+}
 body.modal-edit-perfil-open .layout-wrapper {
   position: relative;
   z-index: 1051 !important;
+}
+
+/* ─────────────────────────────────────────────
+   Modal Gestión: verse completo en pantalla (desktop y móvil)
+   ───────────────────────────────────────────── */
+#modalEditPerfil .modal-dialog {
+  max-height: 90vh;
+  margin: 1.75rem auto;
+  display: flex;
+  flex-direction: column;
+}
+#modalEditPerfil .modal-content {
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+#modalEditPerfil .modal-body {
+  overflow-y: auto;
+  overflow-x: hidden;
+  flex: 1 1 auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ─────────────────────────────────────────────
+   Modal KPI Desglose (Departamentos / Puestos / Total Empleados)
+   Por encima del scrim, tamaño controlado y scroll interno
+   ───────────────────────────────────────────── */
+#modalKpiDesglose.modal.show {
+  z-index: 99999 !important;
+  background: transparent !important;
+}
+#modalKpiDesglose.modal.show .modal-dialog {
+  z-index: 1;
+  position: relative;
+}
+#modalKpiDesglose .modal-dialog.modal-kpi-desglose {
+  max-height: 90vh;
+  margin: 1.75rem auto;
+  width: 100%;
+  max-width: 720px;
+  display: flex;
+  flex-direction: column;
+}
+#modalKpiDesglose .modal-content {
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 0.75rem;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+}
+#modalKpiDesglose .modal-header {
+  flex-shrink: 0;
+  padding: 1rem 1.25rem;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+}
+#modalKpiDesglose .modal-body {
+  overflow-y: auto;
+  overflow-x: hidden;
+  flex: 1 1 auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 1.25rem 1.5rem;
+}
+@media (min-width: 992px) {
+  #modalKpiDesglose .modal-dialog.modal-kpi-desglose {
+    max-width: 800px;
+  }
+}
+@media (max-width: 575.98px) {
+  #modalKpiDesglose .modal-dialog.modal-kpi-desglose {
+    margin: 0.5rem;
+    max-width: calc(100vw - 1rem);
+    max-height: 95vh;
+  }
+  #modalKpiDesglose .modal-content {
+    max-height: 95vh;
+  }
 }
 </style>
 
@@ -1631,18 +1718,18 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
             </div>
         </div>
 
-        <!-- MODAL: DESGLOSE DETALLADO DE INDICADORES -->
-        <div class="modal fade" id="modalKpiDesglose" tabindex="-1" aria-labelledby="modalKpiTitle" aria-hidden="true">
-            <div class="modal-dialog modal-lg modal-dialog-centered">
+        <!-- MODAL: DESGLOSE DETALLADO DE INDICADORES (Departamentos, Puestos, Total Empleados) -->
+        <div class="modal fade" id="modalKpiDesglose" tabindex="-1" aria-labelledby="modalKpiTitle" aria-hidden="true" data-bs-backdrop="false" data-bs-keyboard="true">
+            <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-xl modal-kpi-desglose">
                 <div class="modal-content">
-                    <div class="modal-header">
+                    <div class="modal-header border-bottom flex-shrink-0">
                         <h5 class="modal-title" id="modalKpiTitle">
                             <i class="bx bx-chart me-2"></i>
                             Desglose Detallado
                         </h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
                     </div>
-                    <div class="modal-body" id="modalKpiContent">
+                    <div class="modal-body py-4" id="modalKpiContent">
                         <!-- Contenido dinámico generado por JavaScript -->
                     </div>
                 </div>
@@ -2589,7 +2676,7 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
     <!-- =======================
       MODAL - GESTIÓN DE PERMISOS Y PUESTOS
  ======================== -->
-    <div class="modal fade" id="modalEditPerfil" tabindex="-1" aria-labelledby="modalEditPerfilLabel" aria-hidden="true">
+    <div class="modal fade" id="modalEditPerfil" tabindex="-1" aria-labelledby="modalEditPerfilLabel" aria-hidden="true" data-bs-backdrop="false" data-bs-keyboard="true">
         <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
             <div class="modal-content" style="border: none; box-shadow: 0 10px 40px rgba(0,0,0,0.12);">
                 <div class="modal-header" style="background: #f8f9fa; border-bottom: 2px solid #e9ecef; padding: 1.5rem;">
@@ -2678,32 +2765,6 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
             </div>
         </div>
     </div>
-
-    <script>
-    (function() {
-        var modalEl = document.getElementById('modalEditPerfil');
-        if (!modalEl) return;
-        function asegurarBackdropNoBloquea() {
-            modalEl.style.setProperty('z-index', '1060', 'important');
-            var backdrops = document.querySelectorAll('.modal-backdrop');
-            for (var i = 0; i < backdrops.length; i++) {
-                backdrops[i].style.setProperty('z-index', '1040', 'important');
-                backdrops[i].style.setProperty('pointer-events', 'none', 'important');
-            }
-        }
-        modalEl.addEventListener('show.bs.modal', function() { document.body.classList.add('modal-edit-perfil-open'); });
-        modalEl.addEventListener('shown.bs.modal', function() {
-            asegurarBackdropNoBloquea();
-            setTimeout(asegurarBackdropNoBloquea, 0);
-            setTimeout(asegurarBackdropNoBloquea, 50);
-            setTimeout(asegurarBackdropNoBloquea, 150);
-        });
-        modalEl.addEventListener('hidden.bs.modal', function() {
-            document.body.classList.remove('modal-edit-perfil-open');
-            modalEl.style.removeProperty('z-index');
-        });
-    })();
-    </script>
 
     <!-- =======================
       OFFCANVAS - EDITAR PERFIL PERMISOS (LEGACY - MANTENER POR COMPATIBILIDAD)
@@ -3714,6 +3775,73 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
         }
       });
     });
+
+    // Overlay suave compartido para modales sin backdrop de Bootstrap (KPI Desglose + Edit Perfil)
+    var customOverlayRefCount = 0;
+    function mostrarOverlaySuave() {
+      customOverlayRefCount++;
+      var el = document.getElementById('customModalOverlay');
+      if (!el) {
+        el = document.createElement('div');
+        el.id = 'customModalOverlay';
+        el.setAttribute('aria-hidden', 'true');
+        document.body.appendChild(el);
+      }
+      el.style.display = 'block';
+    }
+    function ocultarOverlaySuave() {
+      customOverlayRefCount--;
+      if (customOverlayRefCount <= 0) {
+        customOverlayRefCount = 0;
+        var el = document.getElementById('customModalOverlay');
+        if (el) el.style.display = 'none';
+      }
+    }
+
+    // Mover modal a body para que quede por encima del navbar (mismo stacking context que el layout)
+    function asegurarModalEnBody(modalEl) {
+      if (modalEl && modalEl.parentNode !== document.body) {
+        document.body.appendChild(modalEl);
+      }
+    }
+
+    // Modal Gestión de Permisos/Puestos: sin backdrop Bootstrap; overlay suave; encima de todo
+    (function() {
+      var modalEl = document.getElementById('modalEditPerfil');
+      if (!modalEl) return;
+      modalEl.addEventListener('show.bs.modal', function() {
+        asegurarModalEnBody(modalEl);
+        document.body.classList.add('modal-edit-perfil-open');
+        mostrarOverlaySuave();
+      });
+      modalEl.addEventListener('shown.bs.modal', function() {
+        modalEl.style.setProperty('z-index', '99999', 'important');
+      });
+      modalEl.addEventListener('hidden.bs.modal', function() {
+        document.body.classList.remove('modal-edit-perfil-open');
+        modalEl.style.removeProperty('z-index');
+        ocultarOverlaySuave();
+      });
+    })();
+
+    // Modal KPI Desglose: mismo overlay suave; encima de todo
+    (function() {
+      var modalKpi = document.getElementById('modalKpiDesglose');
+      if (!modalKpi) return;
+      modalKpi.addEventListener('show.bs.modal', function() {
+        asegurarModalEnBody(modalKpi);
+        document.body.classList.add('modal-kpi-desglose-open');
+        mostrarOverlaySuave();
+      });
+      modalKpi.addEventListener('shown.bs.modal', function() {
+        modalKpi.style.setProperty('z-index', '99999', 'important');
+      });
+      modalKpi.addEventListener('hidden.bs.modal', function() {
+        document.body.classList.remove('modal-kpi-desglose-open');
+        modalKpi.style.removeProperty('z-index');
+        ocultarOverlaySuave();
+      });
+    })();
   });
 
   /**

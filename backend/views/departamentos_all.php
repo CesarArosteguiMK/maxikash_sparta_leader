@@ -143,6 +143,35 @@
         background-color: rgba(76, 78, 100, 0.16);
     }
 
+    /* Modal detalle departamento: verse completo en pantalla */
+    #modalDetalleDepartamento .modal-dialog {
+        max-height: 90vh;
+        margin: 1.75rem auto;
+        display: flex;
+        flex-direction: column;
+    }
+    #modalDetalleDepartamento .modal-content {
+        max-height: 90vh;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+    #modalDetalleDepartamento .modal-body {
+        overflow-y: auto;
+        overflow-x: hidden;
+        flex: 1 1 auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    @media (max-width: 575.98px) {
+        #modalDetalleDepartamento .modal-dialog {
+            margin: 0.5rem;
+            max-width: calc(100vw - 1rem);
+        }
+        #modalDetalleDepartamento .modal-content {
+            max-height: 95vh;
+        }
+    }
+
 </style>
 
 
@@ -201,7 +230,7 @@
 
     <!-- Modal Detalle Departamento -->
     <div class="modal fade" id="modalDetalleDepartamento" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
             <div class="modal-content">
 
                 <!-- Header -->

@@ -622,11 +622,10 @@ class CapHum extends Controller
                         }
                     }
                     
-                    // Actualizar título del modal - título arriba: "Administrar puestos y módulos del usuario", subtítulo abajo con nombre/departamento/puesto en negrita
-                    document.getElementById("modalEditPerfilLabel").innerHTML = `
-                        <i class="fa fa-user-shield me-2" style="color: #495057;"></i>Administrar puestos y módulos del usuario
-                    `;
-                    document.getElementById("modalEditPerfil_subtitle").innerHTML = `Gestión de Permisos y Accesos para <strong>${nombreCompleto} / ${nombreDepartamento} / ${nombrePuesto}</strong>`;
+                    // Actualizar título del modal (solo ícono + texto fijo). Subtítulo con datos escapados para evitar HTML/script visible
+                    var esc = function(s) { if (s == null || s === undefined) return ''; return ('' + s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); };
+                    document.getElementById("modalEditPerfilLabel").innerHTML = '<i class="fa fa-user-shield me-2" style="color: #495057;"></i>Administrar puestos y módulos del usuario';
+                    document.getElementById("modalEditPerfil_subtitle").innerHTML = 'Gestión de Permisos y Accesos para <strong>' + esc(nombreCompleto) + ' / ' + esc(nombreDepartamento) + ' / ' + esc(nombrePuesto) + '</strong>';
             
                     renderPuestos(puestos);
                     renderModulos(perfiles.filter(m => (m.pestana || '') !== 'Permisos especiales'));
