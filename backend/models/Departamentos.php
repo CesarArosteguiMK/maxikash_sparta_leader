@@ -51,24 +51,32 @@ class Departamentos extends Model
 
     public static function getConsultaPuestos($id_departamento)
     {
-        // Cabecera JSON
         header('Content-Type: application/json; charset=utf-8');
+
+        $id_dep = $id_departamento !== null && $id_departamento !== '' ? (int) $id_departamento : 0;
+        if ($id_dep <= 0) {
+            echo json_encode([
+                "success" => true,
+                "mensaje" => "Puestos encontrados.",
+                "datos" => []
+            ]);
+            exit;
+        }
 
         try {
             $db = new Database();
             $r = $db->queryAll(
                 "
                 SELECT 
-                    id as id_puesto, nombre as puesto_nombre, '' as descripcion, :id_departamento as id_departamento
-                FROM puesto
-                WHERE departamento_id = :id_departamento
-                ORDER BY nivel DESC, id ASC
+                    p.id AS id_puesto, p.nombre AS puesto_nombre, '' AS descripcion, p.departamento_id AS id_departamento
+                FROM __SPARTA_SECRET_REDACTED__.puesto p
+                WHERE p.departamento_id = :id_departamento
+                ORDER BY p.nivel DESC, p.id ASC
             ",
-                ['id_departamento' => $id_departamento]
+                ['id_departamento' => $id_dep]
             );
             $datos = is_array($r) ? $r : [];
 
-            // echo JSON puro y nada más
             echo json_encode([
                 "success" => true,
                 "mensaje" => "Puestos encontrados.",
@@ -84,7 +92,7 @@ class Departamentos extends Model
             ]);
         }
 
-        exit; // <- Muy importante: evita que se imprima algo extra
+        exit;
     }
 
     public static function UpdateNombrePuesto($id_puesto, $nombre)

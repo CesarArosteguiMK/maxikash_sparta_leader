@@ -1463,6 +1463,24 @@
     background-color: rgba(0, 0, 0, 0.6) !important;
   }
 }
+
+/* ─────────────────────────────────────────────
+   Evitar que el backdrop quede encima del modal de permisos/puestos.
+   Bootstrap mueve el modal a body, así que el modal debe tener z-index
+   mayor que .modal-backdrop (1050).
+   ───────────────────────────────────────────── */
+#modalEditPerfil.modal.show {
+  z-index: 1060 !important;
+}
+#modalEditPerfil.modal.show .modal-dialog {
+  z-index: 1;
+  position: relative;
+}
+/* Si el modal sigue dentro del layout, subir el layout cuando esté abierto */
+body.modal-edit-perfil-open .layout-wrapper {
+  position: relative;
+  z-index: 1051 !important;
+}
 </style>
 
 
@@ -2660,6 +2678,32 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
             </div>
         </div>
     </div>
+
+    <script>
+    (function() {
+        var modalEl = document.getElementById('modalEditPerfil');
+        if (!modalEl) return;
+        function asegurarBackdropNoBloquea() {
+            modalEl.style.setProperty('z-index', '1060', 'important');
+            var backdrops = document.querySelectorAll('.modal-backdrop');
+            for (var i = 0; i < backdrops.length; i++) {
+                backdrops[i].style.setProperty('z-index', '1040', 'important');
+                backdrops[i].style.setProperty('pointer-events', 'none', 'important');
+            }
+        }
+        modalEl.addEventListener('show.bs.modal', function() { document.body.classList.add('modal-edit-perfil-open'); });
+        modalEl.addEventListener('shown.bs.modal', function() {
+            asegurarBackdropNoBloquea();
+            setTimeout(asegurarBackdropNoBloquea, 0);
+            setTimeout(asegurarBackdropNoBloquea, 50);
+            setTimeout(asegurarBackdropNoBloquea, 150);
+        });
+        modalEl.addEventListener('hidden.bs.modal', function() {
+            document.body.classList.remove('modal-edit-perfil-open');
+            modalEl.style.removeProperty('z-index');
+        });
+    })();
+    </script>
 
     <!-- =======================
       OFFCANVAS - EDITAR PERFIL PERMISOS (LEGACY - MANTENER POR COMPATIBILIDAD)

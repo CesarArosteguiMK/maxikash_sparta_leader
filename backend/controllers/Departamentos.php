@@ -246,12 +246,18 @@ class Departamentos extends Controller
         }
         
         function cargarPuestosDepartamento(idDepartamento) {
+          var id = idDepartamento != null ? Number(idDepartamento) : 0;
+          if (!id) {
+            var lista = document.getElementById('listaPuestos');
+            if (lista) lista.innerHTML = '<li class="text-center text-muted py-4">No hay puestos registrados</li>';
+            return;
+          }
           http.request({
             endpoint: "/departamentos/getPuestosPorDepartamento",
             method: "POST",
-            data: {
-              id_departamento: idDepartamento
-            },
+            contentType: "application/json; charset=UTF-8",
+            processData: false,
+            data: JSON.stringify({ id_departamento: id }),
             onSuccess: (resp) => {
               const lista = document.getElementById('listaPuestos');
               lista.innerHTML = '';
@@ -624,6 +630,11 @@ class Departamentos extends Controller
     public function getPuestosPorDepartamento()
     {
         $id_dep = $_POST['id_departamento'] ?? null;
+        if ($id_dep === null) {
+            $input = json_decode(file_get_contents('php://input'), true);
+            $id_dep = $input['id_departamento'] ?? null;
+        }
+        $id_dep = $id_dep !== null && $id_dep !== '' ? (int) $id_dep : null;
         self::respuestaJSON(DepartamentosDAO::getConsultaPuestos($id_dep));
     }
 
