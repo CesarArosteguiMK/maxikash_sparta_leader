@@ -371,10 +371,7 @@ body.dark-mode .inicio-iframe-monitor { background: #1e293b; }
       <div class="sec-hd"><span class="sec-txt">Gráficas, análisis y monitoreo</span><div class="sec-line"></div></div>
       <p class="inicio-analytics-intro text-muted small mb-3">Vista rápida de indicadores. Abre cada enlace debajo para ver el reporte completo.</p>
 
-      <!-- Vista rápida: iframes con pantallas de indicadores (gráficas y tablas reales) -->
-      <div class="inicio-vista-rapida mb-4">
-        <h6 class="fw-bold mb-2"><i class="fa-solid fa-chart-line me-1"></i>Vista rápida – Monitoreo</h6>
-        <div class="row g-3">
+      <div class="row g-3">
           <div class="col-12 col-lg-4">
             <div class="card h-100">
               <div class="card-header py-2 d-flex align-items-center justify-content-between">
@@ -409,7 +406,6 @@ body.dark-mode .inicio-iframe-monitor { background: #1e293b; }
             </div>
           </div>
         </div>
-      </div>
 
       <div class="sec-hd mt-4"><span class="sec-txt">Todos los accesos: reportes, análisis y monitoreo</span><div class="sec-line"></div></div>
       <div class="grid-cards" id="analyticsGrid">
@@ -743,7 +739,7 @@ body.dark-mode .inicio-iframe-monitor { background: #1e293b; }
     if(clockPanel.classList.contains('open')) updateClockPanel();
   }, 1000);
 
-  // Toggle Accesos rápidos ↔ Gráficas/Análisis (solo usuario 878)
+  // Toggle Accesos rápidos ↔ Gráficas/Análisis (usuarios 1 y 878)
   var btnToggle = document.getElementById('btnToggleAnalytics');
   var wrapAccesos = document.getElementById('inicio-accesos-wrap');
   var panelAnalytics = document.getElementById('inicio-panel-analytics');
