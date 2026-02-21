@@ -2515,24 +2515,47 @@ class CapHum extends Controller
         }
         function agregarArchivosReingreso(input) {
             archivosSeleccionadosReingreso = Array.from(input.files || []);
+            renderListaArchivosReingreso();
+        }
+        function renderListaArchivosReingreso() {
             var span = document.getElementById('reingreso_nombreArchivo');
             var list = document.getElementById('listaArchivosReingreso');
+            if (!list) return;
             if (archivosSeleccionadosReingreso.length === 0) {
                 span.textContent = 'No se ha seleccionado ningún archivo';
                 list.style.display = 'none';
+                list.innerHTML = '';
             } else {
                 span.textContent = archivosSeleccionadosReingreso.length + ' archivo(s) seleccionado(s)';
-                list.innerHTML = archivosSeleccionadosReingreso.map(function(f, i) { return '<div class="small">' + (i+1) + '. ' + f.name + '</div>'; }).join('');
+                list.innerHTML = archivosSeleccionadosReingreso.map(function(f, i) {
+                    return '<div class="d-flex align-items-center justify-content-between py-1 px-2 border rounded mb-1 small" style="background-color: rgba(0,0,0,0.03);">' +
+                        '<span><i class="fa fa-file-pdf text-danger me-1"></i>' + (i + 1) + '. ' + (f.name || 'archivo') + '</span>' +
+                        '<div class="d-flex gap-1">' +
+                        '<button type="button" class="btn btn-sm btn-outline-info py-0 px-1" onclick="verArchivoReingreso(' + i + ')" title="Ver PDF"><i class="fa fa-eye"></i></button>' +
+                        '<button type="button" class="btn btn-sm btn-outline-danger py-0 px-1" onclick="quitarArchivoReingreso(' + i + ')" title="Quitar de la lista"><i class="fa fa-times"></i></button>' +
+                        '</div></div>';
+                }).join('');
                 list.style.display = 'block';
             }
         }
+        function verArchivoReingreso(index) {
+            if (archivosSeleccionadosReingreso[index]) {
+                var url = URL.createObjectURL(archivosSeleccionadosReingreso[index]);
+                window.open(url, '_blank');
+            }
+        }
+        function quitarArchivoReingreso(index) {
+            archivosSeleccionadosReingreso.splice(index, 1);
+            renderListaArchivosReingreso();
+            document.getElementById('archivoPDFReingreso').value = '';
+        }
         function confirmarReingreso() {
-            var idPersona = document.getElementById('reingreso_id_persona').value;
-            var motivo = document.getElementById('motivoReingreso').value;
-            var descripcion = document.getElementById('reingreso_descripcion').value.trim();
-            if (!idPersona) { Swal.fire({ icon: 'warning', title: 'Atención', text: 'Falta el gestor.' }); return; }
-            if (!motivo) { Swal.fire({ icon: 'warning', title: 'Atención', text: 'Debes seleccionar un motivo de reingreso.' }); return; }
-            if (!descripcion) { Swal.fire({ icon: 'warning', title: 'Atención', text: 'Debes escribir la descripción del reingreso.' }); return; }
+            var motivo = (document.getElementById('motivoReingreso') && document.getElementById('motivoReingreso').value) || '';
+            var descripcion = (document.getElementById('reingreso_descripcion') && document.getElementById('reingreso_descripcion').value.trim()) || '';
+            var idPersona = (document.getElementById('reingreso_id_persona') && document.getElementById('reingreso_id_persona').value) || '';
+            if (!motivo) { Swal.fire({ icon: 'warning', title: 'Atención', text: 'Falta el motivo de reingreso. Selecciona un motivo.' }); return; }
+            if (!descripcion) { Swal.fire({ icon: 'warning', title: 'Atención', text: 'Falta la descripción del reingreso. Escribe la descripción.' }); return; }
+            if (!idPersona) { Swal.fire({ icon: 'warning', title: 'Atención', text: 'No se identificó al gestor. Cierra y vuelve a abrir desde el botón Reactivar.' }); return; }
             Swal.fire({ title: '¿Confirmar reingreso?', text: 'La persona pasará de Baja a Activo en la plantilla.', icon: 'question', showCancelButton: true, confirmButtonText: 'Sí, confirmar reingreso', cancelButtonText: 'Cancelar', reverseButtons: true }).then(function(result) {
                 if (!result.isConfirmed) return;
                 var formData = new FormData();
@@ -2548,10 +2571,12 @@ class CapHum extends Controller
                             bootstrap.Modal.getInstance(document.getElementById('modalReingreso')).hide();
                             if (typeof getBajas === 'function') getBajas();
                         } else {
-                            Swal.fire({ icon: 'error', title: 'Error', text: data.message || 'No se pudo registrar el reingreso.' });
+                            var errText = data.message || 'No se pudo registrar el reingreso.';
+                            if (data.error) errText += ' ' + data.error;
+                            Swal.fire({ icon: 'error', title: 'Error', text: errText });
                         }
                     })
-                    .catch(function() { Swal.fire({ icon: 'error', title: 'Error', text: 'Error de conexión.' }); });
+                    .catch(function(err) { Swal.fire({ icon: 'error', title: 'Error', text: 'Error de conexión. ' + (err.message || '') }); });
             });
         }
             
@@ -2827,7 +2852,9 @@ class CapHum extends Controller
                     'Certificado de Estudios': 13,
                     'Referencias Laborales': 14,
                     'Documento baja': 15,
-                    'Documento Baja': 15  // Compatibilidad con mayúscula
+                    'Documento Baja': 15,
+                    'Documento reingreso': 16,
+                    'Documento Reingreso': 16
                 };
                 return mapaDocumentos[nombre] || null;
             }
@@ -2844,9 +2871,11 @@ class CapHum extends Controller
                         const fechaFormateada = doc.fecha_carga || 'N/A';
                         const archivoEscapado = (doc.archivo || '').replace(/'/g, "\\'");
                         
+                        var contexto = obtenerContextoDocumento(doc.id_documento);
                         htmlTabla += `
                             <tr>
                                 <td>${obtenerNombreDocumento(doc.id_documento)}</td>
+                                <td>${contexto}</td>
                                 <td>${doc.archivo || 'N/A'}</td>
                                 <td>${fechaFormateada}</td>
                                 <td>
@@ -2875,7 +2904,7 @@ class CapHum extends Controller
                     });
                     tablaArchivos.innerHTML = htmlTabla;
                 } else {
-                    tablaArchivos.innerHTML = '<tr><td colspan="5" class="text-center text-muted">No hay archivos subidos</td></tr>';
+                    tablaArchivos.innerHTML = '<tr><td colspan="6" class="text-center text-muted">No hay archivos subidos</td></tr>';
                 }
                 
                 // Renderizar lista de archivos nuevos seleccionados (antes de subir)
@@ -2921,7 +2950,11 @@ class CapHum extends Controller
                 }
             }
             
-            // Función para obtener nombre del documento por ID (IDs reales de la BD)
+            function obtenerContextoDocumento(idDocumento) {
+                if (idDocumento == 15) return '<span class="badge bg-danger">Baja</span>';
+                if (idDocumento == 16) return '<span class="badge bg-success">Reingreso</span>';
+                return '<span class="badge bg-secondary">Gestión</span>';
+            }
             function obtenerNombreDocumento(idDocumento) {
                 const mapeo = {
                     8: 'CURP',
@@ -2931,7 +2964,8 @@ class CapHum extends Controller
                     12: 'Acta de Nacimiento',
                     13: 'Certificado de Estudios',
                     14: 'Referencias Laborales',
-                    15: 'Documento baja'
+                    15: 'Documento baja',
+                    16: 'Documento reingreso'
                 };
                 return mapeo[idDocumento] || 'Documento';
             }
@@ -3077,7 +3111,6 @@ class CapHum extends Controller
                 window.open(url, '_blank');
             }
             
-            // Mapeo directo de nombres de documentos a IDs (igual que en Bajas)
             const mapaDocumentosIds = {
                 'CURP': 8,
                 'Identificación Oficial (INE)': 9,
@@ -3086,7 +3119,8 @@ class CapHum extends Controller
                 'Acta de Nacimiento': 12,
                 'Certificado de Estudios': 13,
                 'Referencias Laborales': 14,
-                'Documento baja': 15
+                'Documento baja': 15,
+                'Documento reingreso': 16
             };
             
             // Función para subir documento de persona
@@ -3255,24 +3289,47 @@ class CapHum extends Controller
             }
             function agregarArchivosReingreso(input) {
                 archivosSeleccionadosReingreso = Array.from(input.files || []);
+                renderListaArchivosReingreso();
+            }
+            function renderListaArchivosReingreso() {
                 var span = document.getElementById('reingreso_nombreArchivo');
                 var list = document.getElementById('listaArchivosReingreso');
+                if (!list) return;
                 if (archivosSeleccionadosReingreso.length === 0) {
                     span.textContent = 'No se ha seleccionado ningún archivo';
                     list.style.display = 'none';
+                    list.innerHTML = '';
                 } else {
                     span.textContent = archivosSeleccionadosReingreso.length + ' archivo(s) seleccionado(s)';
-                    list.innerHTML = archivosSeleccionadosReingreso.map(function(f, i) { return '<div class="small">' + (i+1) + '. ' + f.name + '</div>'; }).join('');
+                    list.innerHTML = archivosSeleccionadosReingreso.map(function(f, i) {
+                        return '<div class="d-flex align-items-center justify-content-between py-1 px-2 border rounded mb-1 small" style="background-color: rgba(0,0,0,0.03);">' +
+                            '<span><i class="fa fa-file-pdf text-danger me-1"></i>' + (i + 1) + '. ' + (f.name || 'archivo') + '</span>' +
+                            '<div class="d-flex gap-1">' +
+                            '<button type="button" class="btn btn-sm btn-outline-info py-0 px-1" onclick="verArchivoReingreso(' + i + ')" title="Ver PDF"><i class="fa fa-eye"></i></button>' +
+                            '<button type="button" class="btn btn-sm btn-outline-danger py-0 px-1" onclick="quitarArchivoReingreso(' + i + ')" title="Quitar de la lista"><i class="fa fa-times"></i></button>' +
+                            '</div></div>';
+                    }).join('');
                     list.style.display = 'block';
                 }
             }
+            function verArchivoReingreso(index) {
+                if (archivosSeleccionadosReingreso[index]) {
+                    var url = URL.createObjectURL(archivosSeleccionadosReingreso[index]);
+                    window.open(url, '_blank');
+                }
+            }
+            function quitarArchivoReingreso(index) {
+                archivosSeleccionadosReingreso.splice(index, 1);
+                renderListaArchivosReingreso();
+                document.getElementById('archivoPDFReingreso').value = '';
+            }
             function confirmarReingreso() {
-                var idPersona = document.getElementById('reingreso_id_persona').value;
-                var motivo = document.getElementById('motivoReingreso').value;
-                var descripcion = document.getElementById('reingreso_descripcion').value.trim();
-                if (!idPersona) { Swal.fire({ icon: 'warning', title: 'Atención', text: 'Falta el gestor.' }); return; }
-                if (!motivo) { Swal.fire({ icon: 'warning', title: 'Atención', text: 'Debes seleccionar un motivo de reingreso.' }); return; }
-                if (!descripcion) { Swal.fire({ icon: 'warning', title: 'Atención', text: 'Debes escribir la descripción del reingreso.' }); return; }
+                var motivo = (document.getElementById('motivoReingreso') && document.getElementById('motivoReingreso').value) || '';
+                var descripcion = (document.getElementById('reingreso_descripcion') && document.getElementById('reingreso_descripcion').value.trim()) || '';
+                var idPersona = (document.getElementById('reingreso_id_persona') && document.getElementById('reingreso_id_persona').value) || '';
+                if (!motivo) { Swal.fire({ icon: 'warning', title: 'Atención', text: 'Falta el motivo de reingreso. Selecciona un motivo.' }); return; }
+                if (!descripcion) { Swal.fire({ icon: 'warning', title: 'Atención', text: 'Falta la descripción del reingreso. Escribe la descripción.' }); return; }
+                if (!idPersona) { Swal.fire({ icon: 'warning', title: 'Atención', text: 'No se identificó al gestor. Cierra y vuelve a abrir desde el botón Reactivar.' }); return; }
                 Swal.fire({ title: '¿Confirmar reingreso?', text: 'La persona pasará de Baja a Activo en la plantilla.', icon: 'question', showCancelButton: true, confirmButtonText: 'Sí, confirmar reingreso', cancelButtonText: 'Cancelar', reverseButtons: true }).then(function(result) {
                     if (!result.isConfirmed) return;
                     var formData = new FormData();
@@ -3288,10 +3345,12 @@ class CapHum extends Controller
                                 bootstrap.Modal.getInstance(document.getElementById('modalReingreso')).hide();
                                 if (typeof getBajas === 'function') getBajas();
                             } else {
-                                Swal.fire({ icon: 'error', title: 'Error', text: data.message || 'No se pudo registrar el reingreso.' });
+                                var errText = data.message || 'No se pudo registrar el reingreso.';
+                                if (data.error) errText += ' ' + data.error;
+                                Swal.fire({ icon: 'error', title: 'Error', text: errText });
                             }
-                        })
-                        .catch(function() { Swal.fire({ icon: 'error', title: 'Error', text: 'Error de conexión.' }); });
+                    })
+                    .catch(function(err) { Swal.fire({ icon: 'error', title: 'Error', text: 'Error de conexión. ' + (err.message || '') }); });
                 });
             }
             // ----- Fin reingreso -----
@@ -3577,9 +3636,9 @@ class CapHum extends Controller
                 $('.card-header.border-bottom').hide();
                 $('.row.justify-content-between.m-4').hide();
                 
-                // Ocultar panel de indicadores normal y mostrar panel de indicadores de Bajas
-                $('.row.m-4.mb-3').hide();  // Ocultar el panel de KPIs original
-                $('#panelIndicadoresBajas').show();  // Mostrar el panel de KPIs de Bajas
+                // Ocultar panel de indicadores de Gestión y mostrar panel de Bajas
+                $('#panelIndicadoresGestion').hide();
+                $('#panelIndicadoresBajas').show();
                 
                 // Mostrar filtro de fecha
                 $('#filtroFechaBajas').show();
@@ -4386,7 +4445,9 @@ class CapHum extends Controller
                     'Certificado de Estudios': 13,
                     'Referencias Laborales': 14,
                     'Documento baja': 15,
-                    'Documento Baja': 15  // Compatibilidad con mayúscula
+                    'Documento Baja': 15,
+                    'Documento reingreso': 16,
+                    'Documento Reingreso': 16
                 };
                 return mapaDocumentos[nombre] || null;
             }
@@ -4403,9 +4464,11 @@ class CapHum extends Controller
                         const fechaFormateada = doc.fecha_carga || 'N/A';
                         const archivoEscapado = (doc.archivo || '').replace(/'/g, "\\'");
                         
+                        var contexto = obtenerContextoDocumento(doc.id_documento);
                         htmlTabla += `
                             <tr>
                                 <td>${obtenerNombreDocumento(doc.id_documento)}</td>
+                                <td>${contexto}</td>
                                 <td>${doc.archivo || 'N/A'}</td>
                                 <td>${fechaFormateada}</td>
                                 <td>
@@ -4434,7 +4497,7 @@ class CapHum extends Controller
                     });
                     tablaArchivos.innerHTML = htmlTabla;
                 } else {
-                    tablaArchivos.innerHTML = '<tr><td colspan="5" class="text-center text-muted">No hay archivos subidos</td></tr>';
+                    tablaArchivos.innerHTML = '<tr><td colspan="6" class="text-center text-muted">No hay archivos subidos</td></tr>';
                 }
                 
                 // Renderizar lista de archivos nuevos seleccionados (antes de subir)
@@ -4480,7 +4543,11 @@ class CapHum extends Controller
                 }
             }
             
-            // Función para obtener nombre del documento por ID (IDs reales de la BD)
+            function obtenerContextoDocumento(idDocumento) {
+                if (idDocumento == 15) return '<span class="badge bg-danger">Baja</span>';
+                if (idDocumento == 16) return '<span class="badge bg-success">Reingreso</span>';
+                return '<span class="badge bg-secondary">Gestión</span>';
+            }
             function obtenerNombreDocumento(idDocumento) {
                 const mapeo = {
                     8: 'CURP',
@@ -4490,7 +4557,8 @@ class CapHum extends Controller
                     12: 'Acta de Nacimiento',
                     13: 'Certificado de Estudios',
                     14: 'Referencias Laborales',
-                    15: 'Documento baja'
+                    15: 'Documento baja',
+                    16: 'Documento reingreso'
                 };
                 return mapeo[idDocumento] || 'Documento';
             }
@@ -4636,7 +4704,6 @@ class CapHum extends Controller
                 window.open(url, '_blank');
             }
             
-            // Mapeo directo de nombres de documentos a IDs (igual que en Bajas)
             const mapaDocumentosIds = {
                 'CURP': 8,
                 'Identificación Oficial (INE)': 9,
@@ -4645,7 +4712,8 @@ class CapHum extends Controller
                 'Acta de Nacimiento': 12,
                 'Certificado de Estudios': 13,
                 'Referencias Laborales': 14,
-                'Documento baja': 15
+                'Documento baja': 15,
+                'Documento reingreso': 16
             };
             
             // Función para subir documento de persona
@@ -4873,6 +4941,7 @@ class CapHum extends Controller
             if (is_array($bajas) && count($bajas) > 0) {
                 $datos = array_map(function($p) {
                     return [
+                        'id' => $p['id'] ?? $p['numero_empleado'] ?? null,
                         'nombres' => $p['nombres'] ?? '',
                         'segundo_nombre' => $p['segundo_nombre'] ?? '',
                         'apellidop' => $p['apellidop'] ?? '',
@@ -5641,12 +5710,18 @@ class CapHum extends Controller
         }
 
         $rutasPDF = [];
-        if (!empty($_FILES['archivosPDF']['name'][0])) {
+        // Aceptar tanto 'archivosPDF' como 'archivosPDF[]' (según cómo PHP reciba el FormData)
+        $files = $_FILES['archivosPDF'] ?? $_FILES['archivosPDF[]'] ?? null;
+        if ($files && !empty($files['name'])) {
             $directorio = __DIR__ . '/../uploads/reingresos/';
             SecureUpload::ensureDir($directorio);
-            foreach ($_FILES['archivosPDF']['tmp_name'] as $i => $tmp) {
-                if ($_FILES['archivosPDF']['error'][$i] !== UPLOAD_ERR_OK) continue;
-                if (!SecureUpload::validateMime($tmp, SecureUpload::MIME_PDF)) continue;
+            $names = is_array($files['name']) ? $files['name'] : [$files['name']];
+            $tmpNames = is_array($files['tmp_name']) ? $files['tmp_name'] : [$files['tmp_name']];
+            $errors = is_array($files['error']) ? $files['error'] : [$files['error']];
+            foreach ($names as $i => $name) {
+                if (empty($name) || ($errors[$i] ?? UPLOAD_ERR_OK) !== UPLOAD_ERR_OK) continue;
+                $tmp = $tmpNames[$i] ?? '';
+                if (!is_uploaded_file($tmp) || !SecureUpload::validateMime($tmp, SecureUpload::MIME_PDF)) continue;
                 $nombreFinal = SecureUpload::generateSafeFilename('pdf');
                 $rutaFinal = $directorio . $nombreFinal;
                 if (move_uploaded_file($tmp, $rutaFinal)) {
@@ -5665,7 +5740,7 @@ class CapHum extends Controller
             'motivo_reingreso' => $motivo,
             'descripcion_reingreso' => $descripcion,
             'fecha_reingreso' => $fechaReingresoSql,
-            'usuario_reingreso' => $_SESSION['usuario_id'] ?? $_SESSION['usuario'] ?? '',
+            'usuario_reingreso' => (string)($_SESSION['usuario_id'] ?? $_SESSION['usuario'] ?? 'sistema'),
             'archivos' => $rutasPDF
         ];
 
@@ -5674,9 +5749,13 @@ class CapHum extends Controller
         if ($resultado['success']) {
             echo json_encode(['success' => true, 'message' => $resultado['mensaje'] ?? 'Reingreso registrado correctamente']);
         } else {
+            $msg = $resultado['mensaje'] ?? 'Error al registrar el reingreso';
+            if (!empty($resultado['error'])) {
+                $msg .= ' Detalle: ' . $resultado['error'];
+            }
             echo json_encode([
                 'success' => false,
-                'message' => $resultado['mensaje'] ?? 'Error al registrar el reingreso',
+                'message' => $msg,
                 'error' => $resultado['error'] ?? null
             ]);
         }

@@ -1514,9 +1514,9 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
         </div>
 
         <!-- =======================
-             PANEL DE INDICADORES
+             PANEL DE INDICADORES (GESTIÓN)
         ======================== -->
-        <div class="row m-4 mb-3">
+        <div id="panelIndicadoresGestion" class="row m-4 mb-3">
             <div class="col-12">
                 <div class="kpi-wrapper">
                     <!-- Indicador: Departamentos -->
@@ -2203,6 +2203,7 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
                             <option value="Comprobante de Domicilio">Comprobante de Domicilio</option>
                             <option value="CURP">CURP</option>
                             <option value="Documento baja">Documento baja</option>
+                            <option value="Documento reingreso">Documento reingreso</option>
                             <option value="Identificación Oficial (INE)">Identificación Oficial (INE)</option>
                             <option value="Referencias Laborales">Referencias Laborales</option>
                             <option value="RFC">RFC</option>
@@ -2245,6 +2246,7 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
                                 <thead class="table-dark">
                                     <tr>
                                         <th>Documento</th>
+                                        <th>Contexto</th>
                                         <th>Archivo</th>
                                         <th>Fecha de carga</th>
                                         <th>Válido</th>
@@ -2253,7 +2255,7 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
                                 </thead>
                                 <tbody id="cargarDocPersona_tablaArchivos">
                                     <tr>
-                                        <td colspan="5" class="text-center text-muted">No hay archivos subidos</td>
+                                        <td colspan="6" class="text-center text-muted">No hay archivos subidos</td>
                                     </tr>
                                 </tbody>
                             </table>

@@ -13,6 +13,27 @@ class Inicio extends Controller
         $this->validarActualizacionPassword();
         require_once dirname(__DIR__) . '/config/menu_accesos_inicio.php';
         $this->set('accesosRapidos', getAccesosRapidosDesdeModulos());
+
+        $usuarioId = (int) ($_SESSION['usuario_id'] ?? 0);
+        $mostrarBotonAnalytics = in_array($usuarioId, [1, 878], true);
+        $itemsAnalytics = [];
+        if ($mostrarBotonAnalytics) {
+            $modulos = $_SESSION['modulos'] ?? [];
+            foreach (getMenuItemsConfig() as $row) {
+                if (!empty($row['modulos']) && !array_intersect($row['modulos'], $modulos)) {
+                    continue;
+                }
+                $itemsAnalytics[] = [
+                    'url'   => $row['url'],
+                    'label' => $row['label'],
+                    'icon'  => $row['icon'],
+                    'bg'    => $row['bg'] ?? 'bg-blue',
+                ];
+            }
+        }
+        $this->set('mostrarBotonAnalytics', $mostrarBotonAnalytics);
+        $this->set('itemsAnalytics', $itemsAnalytics);
+
         self::render("inicio___SPARTA_SECRET_REDACTED___contenido", false);
     }
 

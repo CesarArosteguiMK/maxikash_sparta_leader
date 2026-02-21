@@ -1759,23 +1759,29 @@ class CapHum extends Model
             $db = new Database();
 
             $id_persona   = (int)($data['id_gestor'] ?? 0);
-            $motivo       = addslashes($data['motivo_reingreso'] ?? '');
-            $descripcion  = addslashes($data['descripcion_reingreso'] ?? '');
-            $fecha_reingreso = addslashes($data['fecha_reingreso'] ?? date('Y-m-d H:i:s'));
-            $usuario_reingreso = addslashes($data['usuario_reingreso'] ?? '');
+            $motivo       = (string)($data['motivo_reingreso'] ?? '');
+            $descripcion  = (string)($data['descripcion_reingreso'] ?? '');
+            $fecha_reingreso = (string)($data['fecha_reingreso'] ?? date('Y-m-d H:i:s'));
+            $usuario_reingreso = (string)($data['usuario_reingreso'] ?? 'sistema');
             $archivos    = $data['archivos'] ?? [];
 
             if ($id_persona < 1) {
                 return self::resultado(false, 'ID de persona inválido.');
             }
 
-            // 1) Insertar en reingresos
+            // 1) Insertar en reingresos (consultas preparadas para evitar errores por caracteres especiales)
             $db->queryOne("
                 INSERT INTO __SPARTA_SECRET_REDACTED__.reingresos
                 (id_persona, fecha_reingreso, motivo_reingreso, descripcion_reingreso, usuario_reingreso)
                 VALUES
-                ($id_persona, '$fecha_reingreso', '$motivo', '$descripcion', '$usuario_reingreso')
-            ");
+                (:id_persona, :fecha_reingreso, :motivo_reingreso, :descripcion_reingreso, :usuario_reingreso)
+            ", [
+                'id_persona' => $id_persona,
+                'fecha_reingreso' => $fecha_reingreso,
+                'motivo_reingreso' => $motivo,
+                'descripcion_reingreso' => $descripcion,
+                'usuario_reingreso' => $usuario_reingreso
+            ]);
 
             $result = $db->queryOne("SELECT LAST_INSERT_ID() AS id");
             $id_reingreso = isset($result['id']) ? (int)$result['id'] : null;
@@ -1786,21 +1792,24 @@ class CapHum extends Model
             // 2) Guardar cada archivo en carga_documento_persona (Documento Reingreso = 16)
             $id_documento = self::ID_DOCUMENTO_REINGRESO;
             foreach ($archivos as $archivo) {
-                $archivoEsc = addslashes($archivo);
                 $db->queryOne("
                     INSERT INTO __SPARTA_SECRET_REDACTED__.carga_documento_persona
                     (id_persona, id_documento, archivo, fecha_carga)
                     VALUES
-                    ($id_persona, $id_documento, '$archivoEsc', NOW())
-                ");
+                    (:id_persona, :id_documento, :archivo, NOW())
+                ", [
+                    'id_persona' => $id_persona,
+                    'id_documento' => $id_documento,
+                    'archivo' => (string)$archivo
+                ]);
             }
 
             // 3) Pasar a la plantilla: estatus = 'Activo'
             $db->queryOne("
                 UPDATE __SPARTA_SECRET_REDACTED__.persona
                 SET estatus = 'Activo'
-                WHERE id = $id_persona
-            ");
+                WHERE id = :id_persona
+            ", ['id_persona' => $id_persona]);
 
             return self::resultado(true, 'Reingreso registrado correctamente. La persona ha sido reactivada en la plantilla.');
         } catch (\Exception $e) {
@@ -1934,10 +1943,14 @@ class CapHum extends Model
         }
     }
 
+    /**
+     * Lista personas en estatus Baja: una fila por persona (solo la baja más reciente).
+     */
     public static function getConsultaBajas($fecha_inicio = null, $fecha_fin = null)
     {
         $query = <<<SQL
         SELECT
+            p.id,
             p.id AS numero_empleado,
             p.nombres,
             p.apellidop,
@@ -1952,6 +1965,11 @@ class CapHum extends Model
             p.user_name
         FROM __SPARTA_SECRET_REDACTED__.persona p
         INNER JOIN __SPARTA_SECRET_REDACTED__.baja_persona bp ON p.id = bp.id_persona
+        INNER JOIN (
+            SELECT id_persona, MAX(id) AS id_ultima_baja
+            FROM __SPARTA_SECRET_REDACTED__.baja_persona
+            GROUP BY id_persona
+        ) ult ON bp.id_persona = ult.id_persona AND bp.id = ult.id_ultima_baja
         LEFT JOIN __SPARTA_SECRET_REDACTED__.asigna_puesto ap ON p.id = ap.id_persona
         LEFT JOIN __SPARTA_SECRET_REDACTED__.puesto pu ON ap.id_puesto = pu.id
         LEFT JOIN __SPARTA_SECRET_REDACTED__.departamento d ON pu.departamento_id = d.id
@@ -1989,10 +2007,14 @@ class CapHum extends Model
         }
     }
 
-       public static function getConsultaBajasAvanzado($filtros = [])
+    /**
+     * Lista personas en estatus Baja (avanzado): una fila por persona (solo la baja más reciente).
+     */
+    public static function getConsultaBajasAvanzado($filtros = [])
     {
         $query = <<<SQL
         SELECT
+            p.id,
             p.id AS numero_empleado,
             p.nombres,
             p.apellidop,
@@ -2007,6 +2029,11 @@ class CapHum extends Model
             p.user_name
         FROM __SPARTA_SECRET_REDACTED__.persona p
         INNER JOIN __SPARTA_SECRET_REDACTED__.baja_persona bp ON p.id = bp.id_persona
+        INNER JOIN (
+            SELECT id_persona, MAX(id) AS id_ultima_baja
+            FROM __SPARTA_SECRET_REDACTED__.baja_persona
+            GROUP BY id_persona
+        ) ult ON bp.id_persona = ult.id_persona AND bp.id = ult.id_ultima_baja
         LEFT JOIN __SPARTA_SECRET_REDACTED__.asigna_puesto ap ON p.id = ap.id_persona
         LEFT JOIN __SPARTA_SECRET_REDACTED__.puesto pu ON ap.id_puesto = pu.id
         LEFT JOIN __SPARTA_SECRET_REDACTED__.departamento d ON pu.departamento_id = d.id

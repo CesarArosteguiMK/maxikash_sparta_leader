@@ -7,6 +7,8 @@ if (strpos($nombreCorto, ' ') !== false) {
     $nombreCorto = $partes[0] . ' ' . end($partes);
 }
 $accesosRapidos = $accesosRapidos ?? [];
+$mostrarBotonAnalytics = $mostrarBotonAnalytics ?? false;
+$itemsAnalytics = $itemsAnalytics ?? [];
 $logoUrl = '/assets/img/Logotipo-Maxikash-Outline.webp';
 
 $mensajesPorPuesto = [
@@ -247,6 +249,53 @@ body.dark-mode .inicio-mkx .qcard:hover::after{transform:scaleX(1);}
     padding: 3px 10px;
   }
 }
+
+/* Botón flotante Gráficas/Análisis (solo usuario 878) */
+.btn-toggle-analytics {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 9998;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: none;
+  background: linear-gradient(135deg, #1A52A8 0%, #1e40af 100%);
+  color: #fff;
+  box-shadow: 0 4px 16px rgba(26, 82, 168, 0.45);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  transition: all 0.25s ease;
+  font-size: 10px;
+  font-weight: 600;
+}
+.btn-toggle-analytics i {
+  font-size: 20px;
+}
+.btn-toggle-analytics:hover {
+  transform: scale(1.08);
+  box-shadow: 0 6px 24px rgba(26, 82, 168, 0.55);
+}
+.btn-toggle-analytics:active {
+  transform: scale(0.96);
+}
+body.dark-mode .btn-toggle-analytics {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  box-shadow: 0 4px 16px rgba(37, 99, 235, 0.4);
+}
+body.dark-mode .btn-toggle-analytics:hover {
+  box-shadow: 0 6px 24px rgba(37, 99, 235, 0.5);
+}
+
+/* Panel de gráficas/análisis (mismo estilo que accesos) */
+.inicio-panel-analytics .sec-txt { color: inherit; }
+.inicio-vista-rapida .card { border-radius: var(--r, 14px); overflow: hidden; }
+.inicio-iframe-monitor { display: block; background: #fff; }
+body.dark-mode .inicio-iframe-monitor { background: #1e293b; }
 </style>
 
 <div class="inicio-mkx">
@@ -303,17 +352,84 @@ body.dark-mode .inicio-mkx .qcard:hover::after{transform:scaleX(1);}
       </div>
     </div>
 
-    <div class="sec-hd"><span class="sec-txt">Accesos rápidos</span><div class="sec-line"></div></div>
-    <div class="grid-cards" id="cardsGrid">
-      <?php foreach ($accesosRapidos as $acc): ?>
-        <a class="qcard" href="<?= htmlspecialchars($acc['url']) ?>">
-          <div class="qico"><i class="<?= htmlspecialchars($acc['icon']) ?>"></i></div>
-          <div class="qt"><?= htmlspecialchars($acc['label']) ?></div>
-          <div class="qd">Ir a <?= htmlspecialchars($acc['label']) ?></div>
-          <div class="qarr">→</div>
-        </a>
-      <?php endforeach; ?>
+    <div id="inicio-accesos-wrap">
+      <div class="sec-hd"><span class="sec-txt">Accesos rápidos</span><div class="sec-line"></div></div>
+      <div class="grid-cards" id="cardsGrid">
+        <?php foreach ($accesosRapidos as $acc): ?>
+          <a class="qcard" href="<?= htmlspecialchars($acc['url']) ?>">
+            <div class="qico"><i class="<?= htmlspecialchars($acc['icon']) ?>"></i></div>
+            <div class="qt"><?= htmlspecialchars($acc['label']) ?></div>
+            <div class="qd">Ir a <?= htmlspecialchars($acc['label']) ?></div>
+            <div class="qarr">→</div>
+          </a>
+        <?php endforeach; ?>
+      </div>
     </div>
+
+    <?php if ($mostrarBotonAnalytics): ?>
+    <div id="inicio-panel-analytics" class="inicio-panel-analytics" style="display: none;">
+      <div class="sec-hd"><span class="sec-txt">Gráficas, análisis y monitoreo</span><div class="sec-line"></div></div>
+      <p class="inicio-analytics-intro text-muted small mb-3">Vista rápida de indicadores. Abre cada enlace debajo para ver el reporte completo.</p>
+
+      <!-- Vista rápida: iframes con pantallas de indicadores (gráficas y tablas reales) -->
+      <div class="inicio-vista-rapida mb-4">
+        <h6 class="fw-bold mb-2"><i class="fa-solid fa-chart-line me-1"></i>Vista rápida – Monitoreo</h6>
+        <div class="row g-3">
+          <div class="col-12 col-lg-4">
+            <div class="card h-100">
+              <div class="card-header py-2 d-flex align-items-center justify-content-between">
+                <span class="small fw-semibold">KPI Total</span>
+                <a href="/indicadores/kpiTotal" target="_blank" rel="noopener" class="btn btn-sm btn-outline-primary py-0 px-2" title="Abrir en pantalla completa">Abrir</a>
+              </div>
+              <div class="card-body p-0 overflow-hidden" style="height: 280px;">
+                <iframe src="/indicadores/kpiTotal" title="KPI Total" class="inicio-iframe-monitor" style="width:100%;height:100%;border:none;"></iframe>
+              </div>
+            </div>
+          </div>
+          <div class="col-12 col-lg-4">
+            <div class="card h-100">
+              <div class="card-header py-2 d-flex align-items-center justify-content-between">
+                <span class="small fw-semibold">Gestión 1-7</span>
+                <a href="/indicadores/gestiones1A7" target="_blank" rel="noopener" class="btn btn-sm btn-outline-primary py-0 px-2" title="Abrir en pantalla completa">Abrir</a>
+              </div>
+              <div class="card-body p-0 overflow-hidden" style="height: 280px;">
+                <iframe src="/indicadores/gestiones1A7" title="Gestión 1-7" class="inicio-iframe-monitor" style="width:100%;height:100%;border:none;"></iframe>
+              </div>
+            </div>
+          </div>
+          <div class="col-12 col-lg-4">
+            <div class="card h-100">
+              <div class="card-header py-2 d-flex align-items-center justify-content-between">
+                <span class="small fw-semibold">Eficiencia 1-7</span>
+                <a href="/indicadores/eficiencia1A7" target="_blank" rel="noopener" class="btn btn-sm btn-outline-primary py-0 px-2" title="Abrir en pantalla completa">Abrir</a>
+              </div>
+              <div class="card-body p-0 overflow-hidden" style="height: 280px;">
+                <iframe src="/indicadores/eficiencia1A7" title="Eficiencia 1-7" class="inicio-iframe-monitor" style="width:100%;height:100%;border:none;"></iframe>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="sec-hd mt-4"><span class="sec-txt">Todos los accesos: reportes, análisis y monitoreo</span><div class="sec-line"></div></div>
+      <div class="grid-cards" id="analyticsGrid">
+        <?php foreach ($itemsAnalytics as $item): ?>
+          <a class="qcard" href="<?= htmlspecialchars($item['url']) ?>">
+            <div class="qico"><i class="<?= htmlspecialchars($item['icon']) ?>"></i></div>
+            <div class="qt"><?= htmlspecialchars($item['label']) ?></div>
+            <div class="qd">Ir a <?= htmlspecialchars($item['label']) ?></div>
+            <div class="qarr">→</div>
+          </a>
+        <?php endforeach; ?>
+      </div>
+    </div>
+
+    <button type="button" id="btnToggleAnalytics" class="btn-toggle-analytics" title="Ver gráficas y análisis" aria-label="Alternar gráficas y análisis">
+      <i class="fa-solid fa-chart-line" id="btnToggleAnalyticsIcon"></i>
+      <span id="btnToggleAnalyticsText">Gráficas</span>
+    </button>
+    <?php endif; ?>
+
   </div>
 </div>
 
@@ -626,5 +742,31 @@ body.dark-mode .inicio-mkx .qcard:hover::after{transform:scaleX(1);}
   setInterval(function(){
     if(clockPanel.classList.contains('open')) updateClockPanel();
   }, 1000);
+
+  // Toggle Accesos rápidos ↔ Gráficas/Análisis (solo usuario 878)
+  var btnToggle = document.getElementById('btnToggleAnalytics');
+  var wrapAccesos = document.getElementById('inicio-accesos-wrap');
+  var panelAnalytics = document.getElementById('inicio-panel-analytics');
+  var iconToggle = document.getElementById('btnToggleAnalyticsIcon');
+  var textToggle = document.getElementById('btnToggleAnalyticsText');
+  if (btnToggle && wrapAccesos && panelAnalytics) {
+    var showingAnalytics = false;
+    btnToggle.addEventListener('click', function(){
+      showingAnalytics = !showingAnalytics;
+      if (showingAnalytics) {
+        wrapAccesos.style.display = 'none';
+        panelAnalytics.style.display = 'block';
+        if (iconToggle) { iconToggle.className = 'fa-solid fa-th-large'; }
+        if (textToggle) { textToggle.textContent = 'Accesos'; }
+        btnToggle.title = 'Ver accesos rápidos';
+      } else {
+        wrapAccesos.style.display = '';
+        panelAnalytics.style.display = 'none';
+        if (iconToggle) { iconToggle.className = 'fa-solid fa-chart-line'; }
+        if (textToggle) { textToggle.textContent = 'Gráficas'; }
+        btnToggle.title = 'Ver gráficas y análisis';
+      }
+    });
+  }
 })();
 </script>

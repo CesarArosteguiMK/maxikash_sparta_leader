@@ -15,6 +15,4 @@ CREATE TABLE IF NOT EXISTS __SPARTA_SECRET_REDACTED__.reingresos (
     CONSTRAINT fk_reingresos_persona FOREIGN KEY (id_persona) REFERENCES __SPARTA_SECRET_REDACTED__.persona(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Nota: Si existe catálogo de tipos de documento (ej. tabla que define id 15 = Baja),
--- agregar registro para id 16 = Documento Reingreso. Si no existe, carga_documento_persona
--- usa id_documento numérico; usar 16 para reingresos y crear carpeta uploads/reingresos.
+-- Los PDF de reingreso se guardan en __SPARTA_SECRET_REDACTED__.carga_documento_persona con id_documento = 16. Carpeta uploads/reingresos.
