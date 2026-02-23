@@ -742,7 +742,17 @@ class Segundometro extends Controller
     {
         try {
             $archivos = SegundometroDAO::obtenerArchivos();
-            
+            $errorLista = SegundometroDAO::getLastListError();
+
+            // Si la lista está vacía por un fallo SSH, devolver error para que la UI lo muestre
+            if (count($archivos) === 0 && $errorLista !== '') {
+                self::respuestaJSON([
+                    'success' => false,
+                    'mensaje' => 'No se pudieron listar los archivos: ' . $errorLista
+                ]);
+                return;
+            }
+
             self::respuestaJSON([
                 'success' => true,
                 'datos' => $archivos

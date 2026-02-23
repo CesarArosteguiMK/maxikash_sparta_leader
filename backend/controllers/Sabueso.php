@@ -1697,11 +1697,11 @@ SCRIPT;
         $idOrigenWhatsApp = TicketDAO::getIdOrigenWhatsApp();
         $idPersonaBot = TicketDAO::getIdPersonaBotWhatsApp();
         if ($idOrigenWhatsApp < 1) {
-            self::respuestaJSON(['success' => false, 'mensaje' => 'No está configurado el origen "WhatsApp". Ejecute backend/sql/ticket_whatsapp_setup.sql']);
+            self::respuestaJSON(['success' => false, 'mensaje' => 'No está configurado el origen "WhatsApp". Contacte al administrador para configurarlo en la base de datos.']);
             return;
         }
         if ($idPersonaBot < 1) {
-            self::respuestaJSON(['success' => false, 'mensaje' => 'No está configurado el usuario "Bot WhatsApp". Ejecute backend/sql/ticket_whatsapp_setup.sql']);
+            self::respuestaJSON(['success' => false, 'mensaje' => 'No está configurado el usuario "Bot WhatsApp". Contacte al administrador para configurarlo en la base de datos.']);
             return;
         }
 

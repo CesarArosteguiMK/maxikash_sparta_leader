@@ -1,4 +1,0 @@
--- NOTA: El orden de puestos se maneja con la columna existente "nivel".
--- No es necesario añadir la columna "orden".
--- Rango por departamento: nivel desde (departamento_id * 1000 + 1) hasta (departamento_id * 1000 + 999).
--- Ejemplo Admin Sistemas (departamento_id = 11): niveles 11001 a 11999 (mayor = primero en lista).
