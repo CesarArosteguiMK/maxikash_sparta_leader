@@ -69,14 +69,27 @@ class SegundometroDAO extends Model
         if ($cachedOpenSSH !== null) {
             return $cachedOpenSSH;
         }
-        if (@is_file(self::$SSH_KEY)) {
-            $cachedOpenSSH = self::$SSH_KEY;
-            return $cachedOpenSSH;
-        }
         $path = trim($config['ssh']['ssh_key'] ?? '');
-        if ($path !== '' && @is_file($path)) {
-            $cachedOpenSSH = $path;
-            return $cachedOpenSSH;
+        $candidatos = [];
+        if ($path !== '') {
+            $candidatos[] = $path;
+        }
+        if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
+            $candidatos[] = 'C:\\Users\\admin\\Downloads\\jesusssh4.unknown';
+            $userProfile = getenv('USERPROFILE');
+            if ($userProfile !== false && $userProfile !== '') {
+                $candidatos[] = $userProfile . '\\Downloads\\jesusssh4.unknown';
+            }
+        }
+        $candidatos[] = self::$SSH_KEY;
+        foreach ($candidatos as $p) {
+            if ($p === null || $p === '') {
+                continue;
+            }
+            if (@is_file($p) && @is_readable($p)) {
+                $cachedOpenSSH = $p;
+                return $p;
+            }
         }
         $cachedOpenSSH = self::$SSH_KEY;
         return $cachedOpenSSH;
