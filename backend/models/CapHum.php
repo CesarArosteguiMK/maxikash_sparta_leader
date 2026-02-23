@@ -62,7 +62,11 @@ class CapHum extends Model
             CASE 
                 WHEN p.user_name IS NULL THEN 'Sin usuario'
                 ELSE p.user_name
-            END AS usuario
+            END AS usuario,
+
+            COALESCE(pais.id, 0) AS id_pais,
+            COALESCE(pais.nombre, 'Sin país') AS nombre_pais,
+            COALESCE(pais.codigo_iso, 'xx') AS codigo_iso_pais
         
         FROM persona p
         
@@ -74,8 +78,10 @@ class CapHum extends Model
         
         LEFT JOIN departamento d 
                ON d.id = pp.departamento_id
+
+        LEFT JOIN paises pais
+               ON pais.id = p.id_pais
         
-        --  JEFE: una asignación por persona (la fila más reciente por id; si tiene fecha_fin pasada se muestra igual)
         LEFT JOIN (
             SELECT a.id_persona, a.id_jefe
             FROM asigna_jefe a
@@ -119,11 +125,15 @@ class CapHum extends Model
                 d.nombre AS nombre_departamento,
                 aj.id_jefe,
                 p.estatus,
+                COALESCE(pais.id, 0) AS id_pais,
+                COALESCE(pais.nombre, 'Sin país') AS nombre_pais,
+                COALESCE(pais.codigo_iso, 'xx') AS codigo_iso_pais,
                 1 AS nivel
             FROM persona p
             LEFT JOIN asigna_puesto ap ON p.id = ap.id_persona
             LEFT JOIN puesto pp ON pp.id = ap.id_puesto
             LEFT JOIN departamento d ON d.id = pp.departamento_id
+            LEFT JOIN paises pais ON pais.id = p.id_pais
             LEFT JOIN asigna_jefe aj 
                    ON p.id = aj.id_persona
                   AND (aj.fecha_fin IS NULL OR aj.fecha_fin >= CURDATE())
@@ -150,11 +160,15 @@ class CapHum extends Model
                 d2.nombre AS nombre_departamento,
                 aj2.id_jefe,
                 p2.estatus,
+                COALESCE(pais2.id, 0) AS id_pais,
+                COALESCE(pais2.nombre, 'Sin país') AS nombre_pais,
+                COALESCE(pais2.codigo_iso, 'xx') AS codigo_iso_pais,
                 j.nivel + 1 AS nivel
             FROM persona p2
             LEFT JOIN asigna_puesto ap2 ON p2.id = ap2.id_persona
             LEFT JOIN puesto pp2 ON pp2.id = ap2.id_puesto
             LEFT JOIN departamento d2 ON d2.id = pp2.departamento_id
+            LEFT JOIN paises pais2 ON pais2.id = p2.id_pais
             LEFT JOIN asigna_jefe aj2 
                    ON p2.id = aj2.id_persona
                   AND (aj2.fecha_fin IS NULL OR aj2.fecha_fin >= CURDATE())
@@ -1426,6 +1440,7 @@ class CapHum extends Model
         $user_name = addslashes($data['usuario']);
         $password = addslashes($data['contrasena']);
         $fecha_ingreso = !empty($data['fecha_ingreso']) ? addslashes($data['fecha_ingreso']) : null;
+        $id_pais = isset($data['id_pais']) && $data['id_pais'] !== '' ? (int) $data['id_pais'] : 1;
 
 
         try {
@@ -1433,17 +1448,15 @@ class CapHum extends Model
 
             $fecha_ingreso_sql = $fecha_ingreso !== null ? "'$fecha_ingreso'" : 'NULL';
 
-            // Fecha y hora de CDMX para fecha_registro
             $tz = new \DateTimeZone('America/Mexico_City');
             $fechaRegistro = (new \DateTime('now', $tz))->format('Y-m-d H:i:s');
             $fechaRegistro = addslashes($fechaRegistro);
 
-            // 1️⃣ Ejecutamos INSERT con queryOne() (fecha_registro = hora CDMX)
             $db->queryOne("
             INSERT INTO __SPARTA_SECRET_REDACTED__.persona
-            (nombres, segundo_nombre, apellidop, apellidom, numero_empleado, correo, telefono_uno, telefono_dos, estatus, user_name, password, fecha_ingreso, fecha_registro)
+            (nombres, segundo_nombre, apellidop, apellidom, numero_empleado, correo, telefono_uno, telefono_dos, estatus, user_name, password, fecha_ingreso, fecha_registro, id_pais)
             VALUES
-            ('$nombres', '$segundo_nombre', '$apellidop', '$apellidom', '$numero_empleado', '$correo', '$telefono_uno', '$telefono_dos', '$estatus', '$user_name', '$password', $fecha_ingreso_sql, '$fechaRegistro')
+            ('$nombres', '$segundo_nombre', '$apellidop', '$apellidom', '$numero_empleado', '$correo', '$telefono_uno', '$telefono_dos', '$estatus', '$user_name', '$password', $fecha_ingreso_sql, '$fechaRegistro', $id_pais)
         ");
 
 

@@ -17,22 +17,19 @@ class Departamentos extends Controller
         function inicioEdicionTitulo(element) {
           valorOriginal = element.textContent.trim();
         }
-        
+
         function guardarTituloDepartamento(element) {
           const nuevoValor = element.textContent.trim();
           const idDepartamento = element.dataset.departamentoId;
-        
-          // Si quedó vacío, revertimos al valor original
+
           if (!nuevoValor) {
             element.textContent = valorOriginal;
             element.contentEditable = false;
             return;
           }
-        
-          // Desactivamos edición
+
           element.contentEditable = false;
-        
-          // POST al backend
+
           http.request({
             endpoint: "/departamentos/UpdateNombreDepartamento",
             method: "POST",
@@ -42,27 +39,25 @@ class Departamentos extends Controller
             },
             onSuccess: (resp) => {
               if (resp.success) {
-                // Actualizar también el título en la lista de tarjetas si es necesario
                 window.departamentoActivo && getDepartamentos();
               }
             },
             onError: (err) => {
               console.error('Error al actualizar departamento:', err);
-              // Revertir en caso de error
               element.textContent = valorOriginal;
             }
           });
         }
-        
+
         function forzarEdicionTitulo(icono) {
           const titulo = icono.previousElementSibling;
           valorOriginal = titulo.textContent.trim();
           titulo.contentEditable = true;
           titulo.focus();
-        
+
           document.execCommand('selectAll', false, null);
           document.getSelection().collapseToEnd();
-        
+
           titulo.onkeydown = (e) => {
             if (e.key === 'Enter') {
               e.preventDefault();
@@ -73,21 +68,21 @@ class Departamentos extends Controller
               titulo.contentEditable = false;
             }
           };
-        
+
           titulo.onblur = () => guardarTituloDepartamento(titulo);
         }
-        
+
         /* ---------- PUESTOS ---------- */
         function editarPuesto(icon) {
           const nombre = icon.previousElementSibling;
-        
+
           valorOriginal = nombre.textContent.trim();
           nombre.contentEditable = true;
           nombre.focus();
-        
+
           document.execCommand('selectAll', false, null);
           document.getSelection().collapseToEnd();
-        
+
           nombre.onkeydown = (e) => {
             if (e.key === 'Enter') {
               e.preventDefault();
@@ -97,47 +92,45 @@ class Departamentos extends Controller
               cancelarEdicion(nombre);
             }
           };
-        
+
           nombre.onblur = () => guardarEdicion(nombre);
         }
-        
+
         function guardarEdicion(element) {
           const nuevoValor = element.textContent.trim();
-        
+
           if (!nuevoValor) {
             element.textContent = valorOriginal;
           }
-        
+
           element.contentEditable = false;
         }
-        
+
         function cancelarEdicion(element) {
           element.textContent = valorOriginal;
           element.contentEditable = false;
         }
-        
+
         /* ---------- NUEVO PUESTO ---------- */
         function mostrarInputNuevoPuesto() {
           document.getElementById('nuevoPuestoContainer').classList.remove('d-none');
           document.getElementById('inputNuevoPuesto').focus();
         }
-        
+
         function guardarNuevoPuesto() {
           const input = document.getElementById('inputNuevoPuesto');
           const id_departamento = document.getElementById('id_departamento').value.trim();
           const nombre = input.value.trim();
           if (!nombre) return;
-        
+
           const lista = document.getElementById('listaPuestos');
-        
-          // POST al backend para insertar el nuevo puesto
+
           http.request({
             endpoint: "/departamentos/InsertPuesto",
             method: "POST",
             data: { nombre: nombre, id_departamento: id_departamento },
             onSuccess: (resp) => {
               if (resp.success) {
-                // Recargar lista para que el nuevo puesto tenga número y sea arrastrable
                 cargarPuestosDepartamento(id_departamento);
                 input.value = '';
                 document.getElementById('nuevoPuestoContainer').classList.add('d-none');
@@ -150,37 +143,32 @@ class Departamentos extends Controller
             }
           });
         }
-        
+
         function abrirModalDepartamento(idDepartamento, nombreDepartamento) {
-          // Guardamos el ID activo (muy importante para después)
           window.departamentoActivo = idDepartamento;
-        
-          // Título del modal
+
           const titulo = document.getElementById('tituloDepartamento');
           titulo.textContent = nombreDepartamento;
           titulo.dataset.departamentoId = idDepartamento;
-          titulo.contentEditable = false; // Asegurar que no esté editable al inicio
-          
+          titulo.contentEditable = false;
+
           document.getElementById('id_departamento').value = idDepartamento;
-        
-          // Limpiamos lista
+
           const lista = document.getElementById('listaPuestos');
           lista.innerHTML = `
             <li class="text-center text-muted py-4">
               <i class="fa fa-spinner fa-spin me-2"></i> Cargando puestos...
             </li>
           `;
-        
-          // Abrimos modal de inmediato (UX PRO)
+
           const modal = new bootstrap.Modal(
             document.getElementById('modalDetalleDepartamento')
           );
           modal.show();
-        
-          // Cargamos puestos reales
+
           cargarPuestosDepartamento(idDepartamento);
         }
-        
+
         function eliminarDepartamento(idDepartamento, nombreDisplay) {
           const nombre = (nombreDisplay || 'este departamento').trim() || 'este departamento';
           if (!confirm('¿Eliminar el departamento "' + nombre + '"? Se borrarán también sus puestos. Esta acción no se puede deshacer.')) {
@@ -204,7 +192,7 @@ class Departamentos extends Controller
             }
           });
         }
-        
+
         function cerrarModalDepartamentoSiAbierto() {
           try {
             const modalEl = document.getElementById('modalDetalleDepartamento');
@@ -214,7 +202,7 @@ class Departamentos extends Controller
             }
           } catch (e) {}
         }
-        
+
         function eliminarDepartamentoDesdeModal() {
           const id = window.departamentoActivo;
           const tituloEl = document.getElementById('tituloDepartamento');
@@ -244,7 +232,7 @@ class Departamentos extends Controller
             }
           });
         }
-        
+
         function cargarPuestosDepartamento(idDepartamento) {
           var id = idDepartamento != null ? Number(idDepartamento) : 0;
           if (!id) {
@@ -261,7 +249,7 @@ class Departamentos extends Controller
             onSuccess: (resp) => {
               const lista = document.getElementById('listaPuestos');
               lista.innerHTML = '';
-        
+
               if (!resp.datos || resp.datos.length === 0) {
                 lista.innerHTML = `
                   <li class="text-center text-muted py-4">
@@ -270,7 +258,7 @@ class Departamentos extends Controller
                 `;
                 return;
               }
-        
+
               resp.datos.forEach((p, i) => {
                 lista.insertAdjacentHTML('beforeend', crearItemPuesto(p, i + 1));
               });
@@ -278,7 +266,7 @@ class Departamentos extends Controller
             }
           });
         }
-        
+
         function crearItemPuesto(p, numero) {
           const num = numero || 1;
           const nombreEsc = (p.puesto_nombre || '').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -303,7 +291,7 @@ class Departamentos extends Controller
             </li>
           `;
         }
-        
+
         function actualizarNumerosPuestos() {
           const lista = document.getElementById('listaPuestos');
           if (!lista) return;
@@ -313,7 +301,7 @@ class Departamentos extends Controller
             if (numSpan) numSpan.textContent = i + 1;
           });
         }
-        
+
         function guardarOrdenPuestos() {
           const idDep = document.getElementById('id_departamento').value;
           if (!idDep) return;
@@ -325,13 +313,11 @@ class Departamentos extends Controller
             endpoint: '/departamentos/UpdateOrdenPuestos',
             method: 'POST',
             data: { id_departamento: idDep, ordenes: ordenes },
-            onSuccess: (resp) => {
-              // Orden guardado
-            },
+            onSuccess: (resp) => {},
             onError: (err) => console.error('Error al guardar orden:', err)
           });
         }
-        
+
         function initDragDropPuestos() {
           const lista = document.getElementById('listaPuestos');
           if (!lista) return;
@@ -378,105 +364,169 @@ class Departamentos extends Controller
           });
         }
 
-
-
-        
-         const getDepartamentos = () => {
-            http.request({
-                endpoint: "/departamentos/getDepartamentos",
-                onSuccess: (resp) => {
-                    
-                    const container = $("#departamentosCards");
-                    container.empty();
-                    
-                    const imgUrl = "https://demos.themeselection.com/sneat-bootstrap-html-admin-template/assets/img/illustrations/lady-with-laptop-light.png";
-                    
-                    // Tarjetas de departamentos
-                    resp.datos.forEach(d => {
-                        const tarjeta = `
-                        <div class="col-xl-3 col-lg-6 col-md-6 mb-4">
-                            <div class="card h-100 shadow-sm rounded-3">
-                                <div class="row h-100 g-0">
-                                    <div class="col-sm-8 d-flex flex-column justify-content-center p-3">
-                                        <h5 class="mb-2">${d.departamento_nombre}</h5>
-                                        <p class="mb-0 text-muted small">Puestos: <strong>${d.total_puestos ?? 0}</strong></p>
-                                        <p class="mb-0 text-muted small">Personal: <strong>${d.total_personas ?? 0}</strong></p>
-                                        <p class="mb-3 text-muted small">Estado: <strong>${d.activo === 1 ? 'Activo' : 'Inactivo'}</strong></p>
-                                        <div class="d-flex justify-content-between align-items-center">
-                                            <button
-                                              type="button"
-                                              class="btn btn-sm btn-outline-primary fw-semibold text-uppercase"
-                                               onclick="abrirModalDepartamento(${d.departamento_id}, '${d.departamento_nombre.replace(/'/g, "\\'")}')">
-                                              Editar
-                                            </button>
-                                        </div>
-                                    </div>
-                                    <div class="col-sm-4 d-flex align-items-center justify-content-center p-1">
-                                        <img src="${d.img_url ?? imgUrl}" class="img-fluid" width="120" alt="${d.departamento_nombre}">
-                                    </div>
-                                </div>
-                            </div>
-                        </div>`;
-                        container.append(tarjeta);
-                    });
-                    
-                    // Tarjeta “Add New Departamento” igual que tu referencia
-                    const addNew = `
-                    <div class="col-xl-3 col-lg-6 col-md-6">
-                        <div class="card h-100 shadow-sm rounded-3">
-                            <div class="row h-100">
-                                <div class="col-sm-5">
-                                    <div class="d-flex align-items-end h-100 justify-content-center mt-sm-0 mt-4 ps-6">
-                                        <img src="${imgUrl}" class="img-fluid" alt="Image" width="120">
-                                    </div>
-                                </div>
-                                <div class="col-sm-7">
-                                    <div class="card-body text-sm-end text-center ps-sm-0">
-                                        <button data-bs-target="#addDepartamentoModal" data-bs-toggle="modal" class="btn btn-sm btn-primary mb-4 text-nowrap add-new-role">+ Nuevo Departamento</button>
-                                       <p class="mb-0 text-muted small">
-                                            Agrega un nuevo departamento si no existe.
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>`;
-                    container.append(addNew);
-
-                    
-                }
-            });
-        };
-        
-        $(document).ready(() => {
-            getDepartamentos();
-        });
-        
         /* =====================================================
-           INTEGRACIÓN SEGURA – EDICIÓN DE PUESTOS (NO ROMPE NADA)
+           DEPARTAMENTOS CON ACORDEONES POR PAÍS
            ===================================================== */
-        
-        /* Cuando entra en foco (guardamos valor original) */
+
+        const getDepartamentos = () => {
+          http.request({
+            endpoint: "/departamentos/getDepartamentos",
+            onSuccess: (resp) => {
+              http.request({
+                endpoint: "/departamentos/getPaisesActivos",
+                onSuccess: (respPaises) => {
+                  const container = document.getElementById('departamentosAccordion');
+                  if (!container) return;
+                  container.innerHTML = '';
+
+                  const imgUrl = "https://demos.themeselection.com/sneat-bootstrap-html-admin-template/assets/img/illustrations/lady-with-laptop-light.png";
+
+                  const gradientes = {
+                    'mx': 'linear-gradient(135deg, #006847, #009B3A)',
+                    'gt': 'linear-gradient(135deg, #4997D0, #2E6BA4)',
+                    'co': 'linear-gradient(135deg, #003893, #1A52A8)'
+                  };
+
+                  const grouped = {};
+                  resp.datos.forEach(d => {
+                    const iso = d.codigo_iso_pais || 'xx';
+                    if (!grouped[iso]) grouped[iso] = [];
+                    grouped[iso].push(d);
+                  });
+
+                  const paisesActivos = (respPaises.success && respPaises.datos) ? respPaises.datos : [];
+
+                  const paisesOrdenados = [];
+                  const isoAgregados = new Set();
+                  const ordenPrioridad = ['mx', 'gt', 'co'];
+
+                  ordenPrioridad.forEach(iso => {
+                    const pais = paisesActivos.find(p => p.codigo_iso === iso);
+                    if (pais) { paisesOrdenados.push(pais); isoAgregados.add(iso); }
+                  });
+                  paisesActivos.forEach(p => {
+                    if (!isoAgregados.has(p.codigo_iso)) { paisesOrdenados.push(p); isoAgregados.add(p.codigo_iso); }
+                  });
+
+                  paisesOrdenados.forEach((pais) => {
+                    const iso = pais.codigo_iso || 'xx';
+                    const deps = grouped[iso] || [];
+                    const gradient = gradientes[iso] || 'linear-gradient(135deg, #6c757d, #495057)';
+
+                    let cardsHTML = '';
+                    deps.forEach(d => {
+                      const nombreSafe = (d.departamento_nombre || '').replace(/'/g, "\\'");
+                      cardsHTML += `
+                      <div class="col-xl-3 col-lg-6 col-md-6 mb-4">
+                        <div class="card h-100 rounded-3 dept-card">
+                          <div class="row h-100 g-0">
+                            <div class="col-sm-8 d-flex flex-column justify-content-center p-3">
+                              <h5 class="mb-2">${d.departamento_nombre}</h5>
+                              <p class="mb-0 text-muted small">Puestos: <strong>${d.total_puestos ?? 0}</strong></p>
+                              <p class="mb-0 text-muted small">Personal: <strong>${d.total_personas ?? 0}</strong></p>
+                              <p class="mb-3 text-muted small">Estado: <strong>${Number(d.activo) === 1 ? 'Activo' : 'Inactivo'}</strong></p>
+                              <div class="d-flex justify-content-between align-items-center">
+                                <button type="button" class="btn btn-sm btn-outline-primary fw-semibold text-uppercase"
+                                   onclick="abrirModalDepartamento(${d.departamento_id}, '${nombreSafe}')">
+                                  Editar
+                                </button>
+                              </div>
+                            </div>
+                            <div class="col-sm-4 d-flex align-items-center justify-content-center p-1">
+                              <img src="${d.img_url ?? imgUrl}" class="img-fluid" width="120" alt="${d.departamento_nombre}">
+                            </div>
+                          </div>
+                        </div>
+                      </div>`;
+                    });
+
+                    const bodyContent = deps.length > 0
+                      ? `<div class="row g-4">${cardsHTML}</div>`
+                      : `<div class="text-center text-muted py-4"><i class="fa fa-inbox fa-2x mb-2 d-block"></i>No hay departamentos registrados en ${pais.nombre}.</div>`;
+
+                    const accordionItem = `
+                    <div class="accordion-item mb-3">
+                      <h2 class="accordion-header" id="heading-${iso}">
+                        <button class="accordion-button collapsed fw-bold" type="button"
+                                data-bs-toggle="collapse" data-bs-target="#collapse-${iso}"
+                                aria-expanded="false" aria-controls="collapse-${iso}"
+                                style="background: ${gradient}; color: #fff; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);">
+                          <span class="fi fi-${iso} fis me-3" style="font-size: 1.5rem; border-radius: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.25);"></span>
+                          <span class="me-auto">${pais.nombre}</span>
+                          <span class="badge">${deps.length} depto${deps.length !== 1 ? 's' : ''}</span>
+                        </button>
+                      </h2>
+                      <div id="collapse-${iso}" class="accordion-collapse collapse"
+                           aria-labelledby="heading-${iso}" data-bs-parent="#departamentosAccordion">
+                        <div class="accordion-body">
+                          ${bodyContent}
+                        </div>
+                      </div>
+                    </div>`;
+
+                    container.insertAdjacentHTML('beforeend', accordionItem);
+                  });
+
+                  if (container.innerHTML === '') {
+                    container.innerHTML = '<div class="text-center text-muted py-5">No hay países activos ni departamentos registrados.</div>';
+                  }
+                }
+              });
+            }
+          });
+        };
+
+        function abrirModalNuevoDepartamento() {
+          const select = document.getElementById('addDepartamentoPaisId');
+          select.innerHTML = '<option value="">-- Selecciona un país --</option>';
+          select.classList.remove('is-invalid');
+          document.getElementById('errorPais').style.display = 'none';
+
+          http.request({
+            endpoint: "/departamentos/getPaisesActivos",
+            onSuccess: (resp) => {
+              if (resp.success && resp.datos) {
+                resp.datos.forEach(p => {
+                  const iso = p.codigo_iso || 'xx';
+                  select.insertAdjacentHTML('beforeend',
+                    `<option value="${p.id}">${p.nombre}</option>`
+                  );
+                });
+              }
+              const modal = new bootstrap.Modal(document.getElementById('addDepartamentoModal'));
+              modal.show();
+            },
+            onError: () => {
+              const modal = new bootstrap.Modal(document.getElementById('addDepartamentoModal'));
+              modal.show();
+            }
+          });
+        }
+
+        $(document).ready(() => {
+          getDepartamentos();
+        });
+
+        /* =====================================================
+           EDICIÓN DE PUESTOS
+           ===================================================== */
+
         function inicioEdicion(element) {
           valorOriginal = element.textContent.trim();
         }
-        
-        /* Guardar puesto desde blur */
+
         function guardarPuesto(element) {
           const nuevoValor = element.textContent.trim();
           const idPuesto = element.dataset.puestoId;
-        
-          // Si quedó vacío, revertimos al valor original
+
           if (!nuevoValor) {
             element.textContent = valorOriginal;
             element.contentEditable = false;
             return;
           }
-        
-          // Desactivamos edición
+
           element.contentEditable = false;
-        
-          // POST al backend
+
           http.request({
             endpoint: "/departamentos/getActualizaNombrePues",
             method: "POST",
@@ -484,27 +534,23 @@ class Departamentos extends Controller
               id_puesto: idPuesto,
               nombre: nuevoValor
             },
-            onSuccess: (resp) => {
-              // Puesto actualizado
-            },
+            onSuccess: (resp) => {},
             onError: (err) => {
               console.error('Error al actualizar puesto:', err);
-              // Revertir en caso de error
               element.textContent = valorOriginal;
             }
-          });                  
+          });
         }
-        
-        /* Click en ícono lápiz */
+
         function forzarEdicion(icono) {
           const nombre = icono.previousElementSibling;
           valorOriginal = nombre.textContent.trim();
           nombre.contentEditable = true;
           nombre.focus();
-        
+
           document.execCommand('selectAll', false, null);
           document.getSelection().collapseToEnd();
-        
+
           nombre.onkeydown = (e) => {
             if (e.key === 'Enter') {
               e.preventDefault();
@@ -514,63 +560,77 @@ class Departamentos extends Controller
               cancelarEdicion(nombre);
             }
           };
-        
+
           nombre.onblur = () => guardarPuesto(nombre);
         }
-        
+
         /* =====================================================
            NUEVO DEPARTAMENTO - FORMULARIO MODAL
            ===================================================== */
-        
-        // Manejar submit del formulario de nuevo departamento
+
         $(document).ready(function() {
           const form = document.getElementById('addDepartamentoForm');
-          
+
           if (form) {
             form.addEventListener('submit', function(e) {
               e.preventDefault();
-              
+
+              const selectPais = document.getElementById('addDepartamentoPaisId');
               const input = document.getElementById('modalNombreDepartamento');
               const nombre = input.value.trim();
-              const errorDiv = document.getElementById('errorNombre');
-              
-              // Validación
-              if (!nombre) {
-                errorDiv.textContent = 'El nombre del departamento es requerido';
-                errorDiv.style.display = 'block';
-                input.classList.add('is-invalid');
-                return;
+              const idPais = selectPais.value;
+              const errorNombre = document.getElementById('errorNombre');
+              const errorPais = document.getElementById('errorPais');
+
+              let valid = true;
+
+              if (!idPais) {
+                errorPais.textContent = 'Debes seleccionar un país';
+                errorPais.style.display = 'block';
+                selectPais.classList.add('is-invalid');
+                valid = false;
+              } else {
+                errorPais.style.display = 'none';
+                selectPais.classList.remove('is-invalid');
               }
-              
-              // Limpiar errores
-              errorDiv.style.display = 'none';
-              input.classList.remove('is-invalid');
-              
-              // Deshabilitar botón mientras se procesa
+
+              if (!nombre) {
+                errorNombre.textContent = 'El nombre del departamento es requerido';
+                errorNombre.style.display = 'block';
+                input.classList.add('is-invalid');
+                valid = false;
+              } else {
+                errorNombre.style.display = 'none';
+                input.classList.remove('is-invalid');
+              }
+
+              if (!valid) return;
+
               const submitBtn = form.querySelector('button[type="submit"]');
               const originalText = submitBtn.innerHTML;
               submitBtn.disabled = true;
               submitBtn.innerHTML = '<i class="fa fa-spinner fa-spin me-2"></i>Guardando...';
-              
-              // POST al backend
+
               http.request({
                 endpoint: "/departamentos/InsertDepartamento",
                 method: "POST",
-                data: { nombre },
+                data: { nombre, id_pais: idPais },
                 onSuccess: (resp) => {
                   if (resp.success) {
-                    // Cerrar modal
                     const modal = bootstrap.Modal.getInstance(document.getElementById('addDepartamentoModal'));
                     modal.hide();
-                    
-                    // Limpiar formulario
                     form.reset();
-                    
-                    // Recargar lista de departamentos
                     getDepartamentos();
+                    Swal.fire({
+                      icon: 'success',
+                      title: 'Departamento creado',
+                      text: resp.mensaje,
+                      timer: 2000,
+                      showConfirmButton: false
+                    });
                   } else {
-                    errorDiv.textContent = resp.mensaje || 'Error al crear el departamento';
-                    errorDiv.style.display = 'block';
+                    errorNombre.textContent = resp.mensaje || 'Error al crear el departamento';
+                    errorNombre.style.display = 'block';
                     input.classList.add('is-invalid');
                     submitBtn.disabled = false;
                     submitBtn.innerHTML = originalText;
@@ -578,35 +638,43 @@ class Departamentos extends Controller
                 },
                 onError: (err) => {
                   console.error('Error al crear departamento:', err);
-                  errorDiv.textContent = 'Error de conexión. Intenta nuevamente.';
-                  errorDiv.style.display = 'block';
+                  errorNombre.textContent = 'Error de conexión. Intenta nuevamente.';
+                  errorNombre.style.display = 'block';
                   input.classList.add('is-invalid');
                   submitBtn.disabled = false;
                   submitBtn.innerHTML = originalText;
                 }
               });
             });
-            
-            // Limpiar errores al escribir
-            const input = document.getElementById('modalNombreDepartamento');
-            if (input) {
-              input.addEventListener('input', function() {
+
+            const inputNombre = document.getElementById('modalNombreDepartamento');
+            if (inputNombre) {
+              inputNombre.addEventListener('input', function() {
                 this.classList.remove('is-invalid');
                 document.getElementById('errorNombre').style.display = 'none';
               });
             }
-            
-            // Limpiar formulario al cerrar modal
+
+            const selectPais = document.getElementById('addDepartamentoPaisId');
+            if (selectPais) {
+              selectPais.addEventListener('change', function() {
+                this.classList.remove('is-invalid');
+                document.getElementById('errorPais').style.display = 'none';
+              });
+            }
+
             $('#addDepartamentoModal').on('hidden.bs.modal', function() {
               form.reset();
-              const errorDiv = document.getElementById('errorNombre');
-              errorDiv.style.display = 'none';
-              const input = document.getElementById('modalNombreDepartamento');
-              input.classList.remove('is-invalid');
+              document.getElementById('errorNombre').style.display = 'none';
+              document.getElementById('errorPais').style.display = 'none';
+              document.getElementById('modalNombreDepartamento').classList.remove('is-invalid');
+              document.getElementById('addDepartamentoPaisId').classList.remove('is-invalid');
+              const submitBtn = form.querySelector('button[type="submit"]');
+              submitBtn.disabled = false;
+              submitBtn.innerHTML = '<i class="fa fa-save me-2"></i>Guardar';
             });
           }
         });
-
 
         </script>
         HTML;
@@ -627,6 +695,7 @@ class Departamentos extends Controller
         $id_departamento = $_POST['id_departamento'] ?? null;
         self::respuestaJSON(DepartamentosDAO::InsertPuestos($nombre, $id_departamento));
     }
+
     public function getPuestosPorDepartamento()
     {
         $id_dep = $_POST['id_departamento'] ?? null;
@@ -645,9 +714,6 @@ class Departamentos extends Controller
         self::respuestaJSON(DepartamentosDAO::UpdateNombrePuesto($id_pues, $nombre));
     }
 
-    /**
-     * Actualizar orden de puestos (drag and drop)
-     */
     public function UpdateOrdenPuestos()
     {
         $id_departamento = $_POST['id_departamento'] ?? null;
@@ -661,7 +727,8 @@ class Departamentos extends Controller
     public function InsertDepartamento()
     {
         $nombre = $_POST['nombre'] ?? null;
-        self::respuestaJSON(DepartamentosDAO::InsertDepartamento($nombre));
+        $id_pais = $_POST['id_pais'] ?? 1;
+        self::respuestaJSON(DepartamentosDAO::InsertDepartamento($nombre, $id_pais));
     }
 
     public function UpdateNombreDepartamento()
@@ -671,14 +738,19 @@ class Departamentos extends Controller
         self::respuestaJSON(DepartamentosDAO::UpdateNombreDepartamento($id_departamento, $nombre));
     }
 
-    /**
-     * Eliminar departamento (y sus puestos). Solo si no tiene personal asignado.
-     */
     public function eliminarDepartamento()
     {
         $input = json_decode(file_get_contents('php://input'), true);
         $id = isset($input['id_departamento']) ? (int) $input['id_departamento'] : (int) ($_POST['id_departamento'] ?? 0);
         DepartamentosDAO::eliminarDepartamento($id);
+    }
+
+    public function getPaisesActivos()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        $datos = \Models\Paises::getPaisesActivos();
+        echo json_encode(['success' => true, 'datos' => $datos]);
+        exit;
     }
 
 }

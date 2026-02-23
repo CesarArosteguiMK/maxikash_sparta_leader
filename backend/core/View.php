@@ -229,6 +229,11 @@ function getMenu()
                                     'modulos' => [10]
                             ],
                             [
+                                    'label' => 'Países',
+                                    'url' => '/paises/consulta',
+                                    'modulos' => [41]
+                            ],
+                            [
                                     'label' => 'Equivalencia puestos',
                                     'url' => '/equivalencias/consulta',
                                     'modulos' => [17]
@@ -363,7 +368,7 @@ html.dark-mode .navbar .text-muted{color:#94a3b8 !important;}
 
     <!-- Icons -->
     <link rel="stylesheet" href="/assets/vendor/fonts/fontawesome.css" />
-    <!-- <link rel="stylesheet" href="/assets/vendor/fonts/flag-icons.css" /> -->
+    <link rel="stylesheet" href="/assets/vendor/fonts/flag-icons.css" />
 
     <!-- Preload resources -->
     <link rel="preload" href="/assets/img/wait.svg" as="image">

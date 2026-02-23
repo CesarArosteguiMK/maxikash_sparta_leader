@@ -101,6 +101,16 @@ class CapHum extends Controller
                             `;
                         }
                         
+                        const codigoIsoPais = p.codigo_iso_pais || 'xx';
+                        const nombrePais = p.nombre_pais || 'Sin país';
+                        const sedeHTML = `
+                            <small class="d-inline-flex align-items-center gap-1 mt-1 px-2 py-1 sede-glass-badge" title="${nombrePais}"
+                                   style="background: rgba(255,255,255,0.7); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); border: 1px solid rgba(0,0,0,0.06); border-radius: 6px;">
+                              <span class="text-muted fw-semibold" style="font-size: 0.75rem;">Sede:</span>
+                              <span class="fi fi-${codigoIsoPais} fis" style="font-size: 1.1rem; border-radius: 2px; box-shadow: 0 1px 3px rgba(0,0,0,0.15);"></span>
+                            </small>
+                        `;
+
                         return {
                             nombre: `
                                 <div class="fw-semibold">
@@ -116,6 +126,7 @@ class CapHum extends Controller
                                 ${tienePuestos ? '<span class="badge bg-info mt-1" style="font-size: 0.65rem;"><i class="fa fa-layer-group me-1"></i>Múltiples puestos</span>' : ''}
                             `.trim(),
                             departamento: `
+                                ${sedeHTML}
                                 ${puestosHTML}
                                 <hr class="my-2">
                                 <small class="text-muted d-flex align-items-center gap-1">
@@ -2317,6 +2328,7 @@ class CapHum extends Controller
                 const apellidop = document.getElementById('add_apellidop').value.trim();
                 const apellidom = document.getElementById('add_apellidom').value.trim();
                 const telefono = document.getElementById('add_telefono').value.trim();
+                const id_pais = document.getElementById('add_id_pais').value;
                 const id_puesto = document.getElementById('add_id_puesto').value;
                 const departamento_id = document.getElementById('add_departamento_id').value;
                 const id_jefe = document.getElementById('add_id_jefe').value;
@@ -2335,7 +2347,7 @@ class CapHum extends Controller
                 if (!telefono) return Swal.fire('Error', 'El teléfono es obligatorio', 'error');
                 if (!fecha_ingreso) return Swal.fire('Error', 'La fecha de ingreso es obligatoria', 'error');
 
-                // 🔴 Validar relaciones
+                if (!id_pais) return Swal.fire('Error', 'Debe seleccionar un país (sede)', 'error');
                 if (!id_puesto) return Swal.fire('Error', 'Debe seleccionar un puesto', 'error');
                 if (!departamento_id) return Swal.fire('Error', 'Debe seleccionar un departamento', 'error');
             
@@ -2360,13 +2372,13 @@ class CapHum extends Controller
                         'Accept': 'application/json'
                     },
                     body: JSON.stringify({
-                        
                         nombres,
                         segundo_nombre,
                         apellidop,
                         apellidom,
                         telefono,
                         fecha_ingreso,
+                        id_pais: id_pais || 1,
                         id_puesto,
                         departamento_id,
                         id_jefe: id_jefe || null,
@@ -2396,7 +2408,7 @@ class CapHum extends Controller
 
             // Limpiar formulario Agregar Usuario al cerrar el offcanvas (Cancelar o X)
             function limpiarFormularioAgregarUsuario() {
-                const ids = ['add_nombres', 'add_apellidop', 'add_apellidom', 'add_telefono', 'add_usuario', 'add_contrasena', 'add_num_telefono'];
+                const ids = ['add_nombres', 'add_apellidop', 'add_apellidom', 'add_telefono', 'add_usuario', 'add_contrasena', 'add_num_telefono', 'add_id_pais'];
                 ids.forEach(id => {
                     const el = document.getElementById(id);
                     if (el) el.value = '';
@@ -3260,6 +3272,7 @@ class CapHum extends Controller
         self::set("titulo", "Gestión de Usuarios");
         self::set("script", $script);
         self::set("departamento", $departamento);
+        self::set("paisesActivos", \Models\Paises::getPaisesActivos());
         self::set("miUsuarioId", (int) $_SESSION['usuario_id']);
         self::set("puedeEditarTodos", $puedeEditarTodos);
         self::render("all_gestores");
@@ -3358,8 +3371,17 @@ class CapHum extends Controller
             http.request({
                 endpoint: "/caphum/getUsuarios",
                 onSuccess: (resp) => {
-                    // Mapear datos como objeto para usar 'columns.data' en DataTables
-                    const datos = resp.datos.map(p => ({
+                    const datos = resp.datos.map(p => {
+                        const codisoP = p.codigo_iso_pais || 'xx';
+                        const nomPaisP = p.nombre_pais || 'Sin país';
+                        const sedeBadge = `
+                            <small class="d-inline-flex align-items-center gap-1 mt-1 px-2 py-1 sede-glass-badge" title="${nomPaisP}"
+                                   style="background: rgba(255,255,255,0.7); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); border: 1px solid rgba(0,0,0,0.06); border-radius: 6px;">
+                              <span class="text-muted fw-semibold" style="font-size: 0.75rem;">Sede:</span>
+                              <span class="fi fi-${codisoP} fis" style="font-size: 1.1rem; border-radius: 2px; box-shadow: 0 1px 3px rgba(0,0,0,0.15);"></span>
+                            </small>
+                        `;
+                        return {
                         nombre: `
                             <div class="fw-semibold">
                                # ${p.numero_empleado}
@@ -3373,6 +3395,7 @@ class CapHum extends Controller
                             </small>
                         `.trim(),
                         departamento:`
+                            ${sedeBadge}
                             <small class="text-muted d-flex align-items-center gap-1">
                                 <i class="fa fa-building"></i>
                                 ${p.nombre_departamento}
@@ -3381,11 +3404,10 @@ class CapHum extends Controller
                                 <i class="fa fa-briefcase"></i>
                                 ${p.nombre_puesto}
                             </small>
-                            <hr>
+                            <hr class="my-2">
                             <small class="text-muted d-flex align-items-center gap-1">
-                                <i class="fa fa-user"> </i>Nombre del jefe:<br>
-                                
-                            </small><small>${p.nombre_jefe} </small>
+                                <i class="fa fa-user"></i>Jefe: <strong class="ms-1">${p.nombre_jefe || 'Sin jefe'}</strong>
+                            </small>
                         `.trim(),
                         estatus: p.estatus,
                        acciones: `
@@ -3406,7 +3428,8 @@ class CapHum extends Controller
                                 <i class="fa fa-lock" style="color: #007bff;"></i>
                             </button>
                         </div>`
-                    }));
+                    };
+                    });
         
                     // Actualizar DataTable
                     const tabla = $('#historialUsuarios').DataTable();
@@ -4871,10 +4894,13 @@ class CapHum extends Controller
                 'apellidom' => $p['apellidom'] ?? '',
                 'nombre_departamento' => $p['nombre_departamento'] ?? '',
                 'nombre_puesto' => $p['nombre_puesto'] ?? '',
-                'id_puesto' => $p['id_puesto'] ?? null,  // 🔧 FIX: Agregar ID del puesto
-                'id_departamento' => $p['id_departamento'] ?? null,  // 🔧 FIX: Agregar ID del departamento
+                'id_puesto' => $p['id_puesto'] ?? null,
+                'id_departamento' => $p['id_departamento'] ?? null,
                 'estatus' => $p['estatus'] ?? '',
                 'usuario' => $p['usuario'] ?? '',
+                'id_pais' => $p['id_pais'] ?? 0,
+                'nombre_pais' => $p['nombre_pais'] ?? 'Sin país',
+                'codigo_iso_pais' => $p['codigo_iso_pais'] ?? 'xx',
             ];
         }, $usuarios);
 

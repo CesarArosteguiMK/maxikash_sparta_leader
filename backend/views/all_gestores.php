@@ -1568,6 +1568,14 @@ body.modal-edit-perfil-open .layout-wrapper {
     max-height: 95vh;
   }
 }
+
+/* Sede badge: Liquid Glass dark mode */
+body.dark-mode .sede-glass-badge {
+    background: rgba(30, 41, 59, 0.7) !important;
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    border-color: rgba(51, 65, 85, 0.4) !important;
+}
 </style>
 
 
@@ -1997,6 +2005,18 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
                 <div class="mb-2">
                     <label class="form-label">Teléfono *</label>
                     <input type="text" id="add_telefono" class="form-control phone-mask" oninput="this.value = this.value.replace(/[^0-9]/g, '')" onblur="validarTelefono('add_telefono')" maxlength="10">
+                </div>
+
+                <div class="mb-2">
+                    <label class="form-label">País (Sede) *</label>
+                    <select id="add_id_pais" class="form-select">
+                        <option value="">Seleccione un país</option>
+                        <?php foreach (($paisesActivos ?? []) as $pais): ?>
+                            <option value="<?= htmlspecialchars($pais['id']) ?>" data-iso="<?= htmlspecialchars($pais['codigo_iso']) ?>">
+                                <?= htmlspecialchars($pais['nombre']) ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
                 </div>
 
                 <div class="mb-2">
@@ -4648,7 +4668,7 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
         puestosHTML = '<div class="d-flex flex-column gap-2">';
         
         puestosVisible.forEach((puesto, index) => {
-          const esPrincipal = index === 0; // El primer puesto es el principal
+          const esPrincipal = index === 0;
           const colorBadge = obtenerColorDepartamento(puesto.nombre_departamento);
           const iconoPuesto = esPrincipal ? '⭐' : '📎';
           const claseBadge = esPrincipal ? 'badge-puesto-principal' : 'badge-puesto-secundario';
@@ -4682,7 +4702,6 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
         
         puestosHTML += '</div>';
       } else {
-        // Un solo puesto, mostrar formato tradicional
         puestosHTML = `
           <small class="text-muted d-flex align-items-center gap-1">
             <i class="fa fa-building"></i>
@@ -4694,6 +4713,16 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
           </small>
         `;
       }
+
+      const codigoIsoPais = p.codigo_iso_pais || 'xx';
+      const nombrePais = p.nombre_pais || 'Sin país';
+      const sedeHTML = `
+        <small class="d-inline-flex align-items-center gap-1 mt-1 px-2 py-1 sede-glass-badge" title="${nombrePais}"
+               style="background: rgba(255,255,255,0.7); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); border: 1px solid rgba(0,0,0,0.06); border-radius: 6px;">
+          <span class="text-muted fw-semibold" style="font-size: 0.75rem;">Sede:</span>
+          <span class="fi fi-${codigoIsoPais} fis" style="font-size: 1.1rem; border-radius: 2px; box-shadow: 0 1px 3px rgba(0,0,0,0.15);"></span>
+        </small>
+      `;
       
       return {
         nombre: `
@@ -4710,6 +4739,7 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
           ${tienePuestos ? `<span class="badge badge-multipuesto-indicator mt-1"><i class="fa fa-layer-group me-1"></i>${p.puestos.length} Puestos Asignados</span>` : ''}
         `.trim(),
         departamento: `
+          ${sedeHTML}
           ${puestosHTML}
           <hr class="my-2">
           <small class="text-muted d-flex align-items-center gap-1">

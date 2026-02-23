@@ -9,7 +9,6 @@ class Departamentos extends Model
 {
     public static function getConsultaDepartamentos()
     {
-        // Cabecera JSON
         header('Content-Type: application/json; charset=utf-8');
 
         try {
@@ -21,16 +20,19 @@ class Departamentos extends Model
                     d.nombre AS departamento_nombre,
                     COUNT(DISTINCT p.id) AS total_puestos,
                     COUNT(DISTINCT a.id_persona) AS total_personas,
-                    d.activo, d.img_url
+                    d.activo, d.img_url,
+                    d.id_pais,
+                    COALESCE(pa.nombre, 'Sin país') AS nombre_pais,
+                    COALESCE(pa.codigo_iso, 'xx') AS codigo_iso_pais
                 FROM departamento d
                 LEFT JOIN puesto p ON p.departamento_id = d.id
                 LEFT JOIN asigna_puesto a ON a.id_puesto = p.id
-                GROUP BY d.id, d.nombre
-                ORDER BY d.nombre;
+                LEFT JOIN paises pa ON pa.id = d.id_pais
+                GROUP BY d.id, d.nombre, d.id_pais, pa.nombre, pa.codigo_iso
+                ORDER BY FIELD(pa.codigo_iso, 'mx', 'gt', 'co'), d.nombre;
             ");
             $datos = is_array($r) ? $r : [];
 
-            // echo JSON puro y nada más
             echo json_encode([
                 "success" => true,
                 "mensaje" => "Departamentos encontrados.",
@@ -46,7 +48,7 @@ class Departamentos extends Model
             ]);
         }
 
-        exit; // <- Muy importante: evita que se imprima algo extra
+        exit;
     }
 
     public static function getConsultaPuestos($id_departamento)
@@ -236,25 +238,51 @@ class Departamentos extends Model
         exit; // <- Muy importante: evita que se imprima algo extra
     }
 
-    public static function InsertDepartamento($nombre)
+    public static function InsertDepartamento($nombre, $id_pais = 1)
     {
-        // Cabecera JSON
         header('Content-Type: application/json; charset=utf-8');
 
         try {
             $db = new Database();
-            $db->CRUD(
-                "INSERT INTO __SPARTA_SECRET_REDACTED__.departamento (id, nombre, activo, img_url) VALUES (null, :nombre, 1, NULL)",
-                ['nombre' => $nombre]
-            );
-            $r = true;
-            $datos = is_array($r) ? $r : [];
+            $id_pais = (int) $id_pais;
+            if ($id_pais < 1) $id_pais = 1;
 
-            // echo JSON puro y nada más
+            $nombre = trim($nombre);
+            if (empty($nombre)) {
+                echo json_encode([
+                    "success" => false,
+                    "mensaje" => "El nombre del departamento es requerido.",
+                    "datos" => []
+                ]);
+                exit;
+            }
+
+            $existe = $db->queryOne(
+                "SELECT id FROM __SPARTA_SECRET_REDACTED__.departamento 
+                 WHERE LOWER(TRIM(nombre)) = LOWER(:nombre) AND id_pais = :id_pais",
+                ['nombre' => $nombre, 'id_pais' => $id_pais]
+            );
+
+            if ($existe) {
+                $pais = $db->queryOne("SELECT nombre FROM paises WHERE id = :id", ['id' => $id_pais]);
+                $paisNombre = $pais['nombre'] ?? 'el país seleccionado';
+                echo json_encode([
+                    "success" => false,
+                    "mensaje" => "Ya existe un departamento llamado \"{$nombre}\" en {$paisNombre}.",
+                    "datos" => []
+                ]);
+                exit;
+            }
+
+            $db->CRUD(
+                "INSERT INTO __SPARTA_SECRET_REDACTED__.departamento (id, nombre, activo, img_url, id_pais) VALUES (null, :nombre, 1, NULL, :id_pais)",
+                ['nombre' => $nombre, 'id_pais' => $id_pais]
+            );
+
             echo json_encode([
                 "success" => true,
                 "mensaje" => "Departamento insertado correctamente.",
-                "datos" => $datos
+                "datos" => []
             ]);
 
         } catch (\Exception $e) {
@@ -266,7 +294,7 @@ class Departamentos extends Model
             ]);
         }
 
-        exit; // <- Muy importante: evita que se imprima algo extra
+        exit;
     }
 
     public static function UpdateNombreDepartamento($id_departamento, $nombre)
