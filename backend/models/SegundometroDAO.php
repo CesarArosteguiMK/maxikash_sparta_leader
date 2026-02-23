@@ -213,13 +213,14 @@ class SegundometroDAO extends Model
 
         // Modo por ejecutable real: si la ruta contiene "plink" → Plink (opciones + clave .ppk); si no → OpenSSH
         $isPlink = (stripos($sshCommand, 'plink') !== false);
+        $inicioConPlink = $isPlink;
         $configFile = __DIR__ . DIRECTORY_SEPARATOR . '..' . DIRECTORY_SEPARATOR . 'config' . DIRECTORY_SEPARATOR . 'config.ini';
+        $ppkProyecto = __DIR__ . DIRECTORY_SEPARATOR . '..' . DIRECTORY_SEPARATOR . 'config' . DIRECTORY_SEPARATOR . 'ssh' . DIRECTORY_SEPARATOR . 'jesusssh4.ppk';
 
         // Si está en modo Plink: usar clave .ppk; si no existe o no es legible, probar .ppk en carpeta ssh del proyecto; si tampoco, pasar a OpenSSH
         $keyPlink = $isPlink ? self::getSSHKey(true) : null;
         if ($isPlink) {
             if (!@is_file($keyPlink) || !@is_readable($keyPlink)) {
-                $ppkProyecto = __DIR__ . DIRECTORY_SEPARATOR . '..' . DIRECTORY_SEPARATOR . 'config' . DIRECTORY_SEPARATOR . 'ssh' . DIRECTORY_SEPARATOR . 'jesusssh4.ppk';
                 if (@is_file($ppkProyecto) && @is_readable($ppkProyecto)) {
                     $keyPlink = $ppkProyecto;
                 } else {
@@ -231,8 +232,22 @@ class SegundometroDAO extends Model
             }
         }
 
-        $sshKeyEscaped = escapeshellarg($isPlink ? $keyPlink : self::getSSHKey(false));
+        $keyFinal = $isPlink ? $keyPlink : self::getSSHKey(false);
+        $sshKeyEscaped = escapeshellarg($keyFinal);
         $comandoEscapado = escapeshellarg($comando);
+
+        $logFile = __DIR__ . DIRECTORY_SEPARATOR . '..' . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'logs' . DIRECTORY_SEPARATOR . 'ssh_debug.log';
+        $logLines = ["\n=== " . date('Y-m-d H:i:s') . " ==="];
+        $logLines[] = "Modo: " . ($isPlink ? "Plink (PuTTY)" : "OpenSSH (fallback)");
+        $logLines[] = "Ejecutable: " . $sshCommand;
+        $logLines[] = "Clave usada: " . $keyFinal;
+        if (!$isPlink && $inicioConPlink) {
+            $logLines[] = "Motivo fallback a OpenSSH: .ppk no usada - existe=" . (@is_file($ppkProyecto) ? 'si' : 'no') . " legible=" . (@is_readable($ppkProyecto) ? 'si' : 'no') . " ruta=" . $ppkProyecto;
+        }
+        if (!$isPlink && (strpos($keyFinal, '.unknown') !== false || strpos($keyFinal, '.pem') !== false)) {
+            $logLines[] = "Si el error es 'UNPROTECTED PRIVATE KEY': restringir permisos de la clave (en backend/config/ssh ejecutar setup.bat como Admin o: icacls jesusssh4.unknown /inheritance:r /grant:r \"NT AUTHORITY\\SYSTEM:(R)\")";
+        }
+        @file_put_contents($logFile, implode("\n", $logLines) . "\n", FILE_APPEND);
 
         if ($isPlink) {
             // Plink en -batch exige host key cacheada; -hostkey <fingerprint> evita "Cannot confirm a host key in batch mode"
@@ -266,9 +281,7 @@ class SegundometroDAO extends Model
             );
         }
         
-        // DEBUG temporal: logging del comando real y resultado
-        $logFile = __DIR__ . DIRECTORY_SEPARATOR . '..' . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'logs' . DIRECTORY_SEPARATOR . 'ssh_debug.log';
-        @file_put_contents($logFile, "\n=== " . date('Y-m-d H:i:s') . " ===\n", FILE_APPEND);
+        // Log comando y resultado
         @file_put_contents($logFile, "Comando: $sshComando\n", FILE_APPEND);
         
         // exec() devuelve código de salida real: 0 = éxito (sudo cp, sudo rm no imprimen nada y antes se consideraban error)
