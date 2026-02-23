@@ -6,7 +6,8 @@ $usuario = $_SESSION['nombre'] ?? 'Usuario';
 // Cache-busting para CSS: mismo estilo en todos los navegadores (evita caché vieja en otros equipos)
 $__demoCss = realpath(__DIR__ . '/../../public/assets/css/demo.css');
 $__darkCss = realpath(__DIR__ . '/../../public/assets/css/dark-mode.css');
-$__assetsVer = ($__demoCss ? filemtime($__demoCss) : '') . ($__darkCss ? '.' . filemtime($__darkCss) : '');
+$__swalGlassCss = realpath(__DIR__ . '/../../public/assets/css/swal-liquid-glass.css');
+$__assetsVer = ($__demoCss ? filemtime($__demoCss) : '') . ($__darkCss ? '.' . filemtime($__darkCss) : '') . ($__swalGlassCss ? '.' . filemtime($__swalGlassCss) : '');
 if ($__assetsVer === '.' || $__assetsVer === '') $__assetsVer = (string) time();
 
 function getMenu()
@@ -413,6 +414,7 @@ html.dark-mode .navbar .text-muted{color:#94a3b8 !important;}
     <link rel="stylesheet" href="/assets/vendor/libs/shepherd/shepherd.css">
     <link rel="stylesheet" href="/assets/vendor/libs/spinkit/spinkit.css">
     <link rel="stylesheet" href="/assets/vendor/libs/sweetalert2/sweetalert2.css">
+    <link rel="stylesheet" href="/assets/css/swal-liquid-glass.css?v=<?= $__assetsVer ?>">
     <link rel="stylesheet" href="/assets/vendor/libs/swiper/swiper.css">
     <link rel="stylesheet" href="/assets/vendor/libs/tagify/tagify.css">
     <link rel="stylesheet" href="/assets/vendor/libs/typeahead-js/typeahead.css">
