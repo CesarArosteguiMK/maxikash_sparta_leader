@@ -103,19 +103,27 @@ class SegundometroDAO extends Model
     private static function getSSHCommand()
     {
         static $cached = null;
+        $configFile = __DIR__ . '/../config/config.ini';
+        $config = is_file($configFile) ? @parse_ini_file($configFile, true) : false;
+        $config = is_array($config) ? $config : [];
+        $usePlink = !empty($config['ssh']['ssh_use_plink']);
+        // Si el config pide Plink pero lo cacheado es OpenSSH, invalidar caché.
+        if ($usePlink && $cached !== null && $cached !== '' && stripos($cached, 'plink') === false) {
+            $cached = null;
+        }
         if ($cached !== null) {
             return $cached === '' ? null : $cached;
         }
-        $configFile = __DIR__ . '/../config/config.ini';
-        if (is_file($configFile)) {
-            $config = @parse_ini_file($configFile, true);
-            if (is_array($config)) {
-                $usePlink = !empty($config['ssh']['ssh_use_plink']);
-                if ($usePlink) {
-                    $path = trim($config['ssh']['ssh_command_plink'] ?? $config['ssh']['ssh_command'] ?? '');
-                } else {
-                    $path = trim($config['ssh']['ssh_command'] ?? '');
+        if (!empty($config['ssh'])) {
+            if ($usePlink) {
+                $path = trim($config['ssh']['ssh_command_plink'] ?? $config['ssh']['ssh_command'] ?? '');
+                // Con ssh_use_plink=1 siempre usar esa ruta; no caer a OpenSSH si el exe no existe.
+                if ($path !== '') {
+                    $cached = $path;
+                    return $path;
                 }
+            } else {
+                $path = trim($config['ssh']['ssh_command'] ?? '');
                 if ($path !== '' && @is_file($path)) {
                     $cached = $path;
                     return $path;
