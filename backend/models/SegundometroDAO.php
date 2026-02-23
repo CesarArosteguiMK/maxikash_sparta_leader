@@ -51,14 +51,14 @@ class SegundometroDAO extends Model
             if ($cachedPlink !== null) {
                 return $cachedPlink;
             }
-            // Plink exige clave .ppk (PuTTY). Probar en orden: config, luego carpeta ssh del proyecto (que exista y sea legible).
+            // Plink exige clave .ppk. Orden: config, luego backend/config/ssh/jesusssh4.ppk. Usar la primera que EXISTA (intentar aunque is_readable falle).
             $ppkProyecto = __DIR__ . '/../config/ssh/jesusssh4.ppk';
             $candidatosPpk = array_filter([
                 trim($config['ssh']['ssh_key_plink'] ?? ''),
                 $ppkProyecto,
             ]);
             foreach ($candidatosPpk as $p) {
-                if ($p !== '' && @is_file($p) && @is_readable($p)) {
+                if ($p !== '' && @is_file($p)) {
                     $cachedPlink = $p;
                     return $p;
                 }
@@ -68,8 +68,12 @@ class SegundometroDAO extends Model
             return $cachedPlink;
         }
 
-        if ($cachedOpenSSH !== null) {
+        // No usar nunca clave en Downloads; invalidar caché si estaba guardada ahí.
+        if ($cachedOpenSSH !== null && stripos($cachedOpenSSH, 'Downloads') === false) {
             return $cachedOpenSSH;
+        }
+        if ($cachedOpenSSH !== null) {
+            $cachedOpenSSH = null;
         }
         $path = trim($config['ssh']['ssh_key'] ?? '');
         // Solo clave en backend/config/ssh (nunca usar rutas en Downloads).
@@ -217,17 +221,15 @@ class SegundometroDAO extends Model
         $configFile = __DIR__ . DIRECTORY_SEPARATOR . '..' . DIRECTORY_SEPARATOR . 'config' . DIRECTORY_SEPARATOR . 'config.ini';
         $ppkProyecto = __DIR__ . DIRECTORY_SEPARATOR . '..' . DIRECTORY_SEPARATOR . 'config' . DIRECTORY_SEPARATOR . 'ssh' . DIRECTORY_SEPARATOR . 'jesusssh4.ppk';
 
-        // Si está en modo Plink: usar clave .ppk; si no existe o no es legible, probar .ppk en carpeta ssh del proyecto; si tampoco, pasar a OpenSSH
+        // Con ssh_use_plink=1: usar Plink si la .ppk EXISTE (aunque no sea legible por PHP). Solo pasar a OpenSSH si la .ppk no existe.
         $keyPlink = $isPlink ? self::getSSHKey(true) : null;
-        if ($isPlink) {
-            if (!@is_file($keyPlink) || !@is_readable($keyPlink)) {
-                if (@is_file($ppkProyecto) && @is_readable($ppkProyecto)) {
-                    $keyPlink = $ppkProyecto;
-                } else {
-                    $sshCommand = self::getSSHCommandOpenSSH($configFile);
-                    if ($sshCommand !== null) {
-                        $isPlink = false;
-                    }
+        if ($isPlink && !@is_file($keyPlink)) {
+            if (@is_file($ppkProyecto)) {
+                $keyPlink = $ppkProyecto;
+            } else {
+                $sshCommand = self::getSSHCommandOpenSSH($configFile);
+                if ($sshCommand !== null) {
+                    $isPlink = false;
                 }
             }
         }
@@ -283,20 +285,44 @@ class SegundometroDAO extends Model
         
         // Log comando y resultado
         @file_put_contents($logFile, "Comando: $sshComando\n", FILE_APPEND);
-        
-        // exec() devuelve código de salida real: 0 = éxito (sudo cp, sudo rm no imprimen nada y antes se consideraban error)
+
         $outputLines = [];
         $returnVar = -1;
         exec($sshComando, $outputLines, $returnVar);
         $outputStr = trim(implode("\n", $outputLines));
-        
+
         @file_put_contents($logFile, "Output: " . ($outputStr !== '' ? $outputStr : 'NULL') . "\n", FILE_APPEND);
         @file_put_contents($logFile, "Return code: $returnVar\n", FILE_APPEND);
-        
-        // Éxito = código 0. Si falla, error = salida del comando (o mensaje genérico si vacío)
+
+        // Si usamos Plink y falló: reintentar con OpenSSH (clave .unknown) como fallback
+        if ($isPlink && $returnVar !== 0) {
+            $sshCommandOpen = self::getSSHCommandOpenSSH($configFile);
+            if ($sshCommandOpen !== null) {
+                $keyOpen = self::getSSHKey(false);
+                $knownHosts = self::getSSHKnownHostsFile();
+                $comandoOpen = sprintf(
+                    '%s -i %s -o StrictHostKeyChecking=no -o UserKnownHostsFile=%s -o ConnectTimeout=10 -o BatchMode=yes %s@%s %s 2>&1',
+                    escapeshellarg($sshCommandOpen),
+                    escapeshellarg($keyOpen),
+                    $knownHosts,
+                    self::$SSH_USER,
+                    self::$SSH_HOST,
+                    $comandoEscapado
+                );
+                @file_put_contents($logFile, "[Reintento con OpenSSH] Comando: $comandoOpen\n", FILE_APPEND);
+                $outputLines2 = [];
+                $returnVar2 = -1;
+                exec($comandoOpen, $outputLines2, $returnVar2);
+                $outputStr2 = trim(implode("\n", $outputLines2));
+                @file_put_contents($logFile, "Output: " . ($outputStr2 !== '' ? $outputStr2 : 'NULL') . "\nReturn code: $returnVar2\n", FILE_APPEND);
+                $outputStr = $outputStr2;
+                $returnVar = $returnVar2;
+            }
+        }
+
         $success = ($returnVar === 0);
         $errorStr = $success ? '' : ($outputStr !== '' ? $outputStr : 'Comando remoto falló (código ' . $returnVar . ')');
-        
+
         return [
             'success' => $success,
             'output' => $outputStr,
