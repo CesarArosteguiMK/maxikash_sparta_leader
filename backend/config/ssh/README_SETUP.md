@@ -12,11 +12,14 @@ cd sparta___SPARTA_SECRET_REDACTED__
 
 2. Instalar credenciales SSH
 
-Solicita al administrador el archivo de la llave privada (jesusssh4.unknown) y colócalo en la siguiente ruta:
+Solicita al administrador los archivos de llave y colócalos en:
 
     📂 Ruta: backend/config/ssh/
 
-    ⚠️ Importante: No cambies el nombre del archivo.
+    - **jesusssh4.unknown** – clave en formato OpenSSH (para diagnóstico o si usas OpenSSH).
+    - **jesusssh4.ppk** – clave en formato PuTTY. Si en config.ini tienes `ssh_use_plink = 1`, hace falta este archivo. Puedes generarlo con PuTTYgen: Conversions → Import key (elegir jesusssh4.unknown) → Save private key.
+
+    ⚠️ No cambies los nombres de los archivos.
 
 3. Configurar permisos automáticos
 
