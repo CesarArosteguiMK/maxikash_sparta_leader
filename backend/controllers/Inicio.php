@@ -14,6 +14,8 @@ class Inicio extends Controller
         require_once dirname(__DIR__) . '/config/menu_accesos_inicio.php';
         $accesosRapidos = getAccesosRapidosDesdeModulos();
         $this->set('accesosRapidos', $accesosRapidos);
+        // Botones de diagnóstico (Segundómetro y BD alternas): solo usuario con id 1
+        $this->set('mostrarDiagnosticoAdmin', (isset($_SESSION['usuario_id']) && (int)$_SESSION['usuario_id'] === 1));
 
         self::render("inicio___SPARTA_SECRET_REDACTED___contenido", false);
     }
@@ -21,9 +23,16 @@ class Inicio extends Controller
     /**
      * Diagnóstico de conexión a BD direcciones alternas (__SPARTA_SECRET_REDACTED__): SSL, permisos, análisis por pasos.
      * No asume rutas fijas; usa la misma lógica que DatabaseGeo (__DIR__ del core) y comprueba también desde backend/.
+     * Solo accesible para usuario con id 1.
      */
     public function diagnosticoConexiones()
     {
+        if ((int)($_SESSION['usuario_id'] ?? 0) !== 1) {
+            http_response_code(403);
+            header('Content-Type: text/html; charset=utf-8');
+            echo '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Acceso denegado</title></head><body><h1>403 Acceso denegado</h1><p>Esta herramienta solo está disponible para el administrador.</p></body></html>';
+            exit;
+        }
         header('Content-Type: text/html; charset=utf-8');
 
         // Ruta que usa DatabaseGeo (desde backend/core → backend/BD)
@@ -233,6 +242,39 @@ class Inicio extends Controller
         }
         $lines[] = '';
 
+        // --- Si está conectado: listar tablas y consulta de prueba ---
+        if ($connected && $db !== null) {
+            $lines[] = '--- Tablas en __SPARTA_SECRET_REDACTED__ (SHOW TABLES) ---';
+            $rowsTables = $db->queryAll('SHOW TABLES');
+            $tables = [];
+            foreach ($rowsTables as $r) {
+                $tables[] = reset($r);
+            }
+            $numTables = count($tables);
+            $lines[] = 'Número de tablas: ' . $numTables;
+            if ($numTables > 0) {
+                $lines[] = 'Tablas: ' . implode(', ', array_slice($tables, 0, 25));
+                if ($numTables > 25) {
+                    $lines[] = '  (... y ' . ($numTables - 25) . ' más)';
+                }
+            }
+
+            $lines[] = '';
+            $lines[] = '--- Consulta de prueba (SELECT 1) ---';
+            $rowTest = $db->queryOne('SELECT 1 AS test');
+            $lines[] = ($rowTest && isset($rowTest['test'])) ? 'OK (SELECT 1 devuelve: ' . $rowTest['test'] . ')' : 'Error o sin resultado';
+
+            $lines[] = '';
+            $lines[] = '--- Consulta oferta_coordenada (tabla usada por la app) ---';
+            $rowCount = $db->queryOne('SELECT COUNT(*) AS total FROM oferta_coordenada');
+            if ($rowCount !== null && isset($rowCount['total'])) {
+                $lines[] = 'Filas en oferta_coordenada: ' . $rowCount['total'];
+            } else {
+                $lines[] = 'Tabla oferta_coordenada no existe o error al contar';
+            }
+            $lines[] = '';
+        }
+
         // --- Interpretación de errores PDO ---
         $lines[] = '--- Interpretación de errores PDO ---';
         $lines[] = 'Código 2002: no se pudo establecer conexión TCP (timeout, firewall, IP no autorizada).';
@@ -357,10 +399,17 @@ class Inicio extends Controller
     }
 
     /**
-     * Ejecuta diagnóstico completo del sistema Segundómetro
+     * Ejecuta diagnóstico completo del sistema Segundómetro (SSH, path, listar archivos, etc.).
+     * Solo accesible para usuario con id 1.
      */
     public function diagnosticoSegundometro()
     {
+        if ((int)($_SESSION['usuario_id'] ?? 0) !== 1) {
+            http_response_code(403);
+            header('Content-Type: text/html; charset=utf-8');
+            echo '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Acceso denegado</title></head><body><h1>403 Acceso denegado</h1><p>Esta herramienta solo está disponible para el administrador.</p></body></html>';
+            exit;
+        }
         $scriptPath = __DIR__ . '/../scripts/diagnostico_segundometro.php';
         
         if (!file_exists($scriptPath)) {

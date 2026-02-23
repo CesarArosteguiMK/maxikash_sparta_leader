@@ -9,6 +9,7 @@ if (strpos($nombreCorto, ' ') !== false) {
 $accesosRapidos = $accesosRapidos ?? [];
 $mostrarBotonAnalytics = $mostrarBotonAnalytics ?? false;
 $itemsAnalytics = $itemsAnalytics ?? [];
+$mostrarDiagnosticoAdmin = $mostrarDiagnosticoAdmin ?? false;
 $logoUrl = '/assets/img/Logotipo-Maxikash-Outline.webp';
 
 $mensajesPorPuesto = [
@@ -296,6 +297,57 @@ body.dark-mode .btn-toggle-analytics:hover {
 .inicio-vista-rapida .card { border-radius: var(--r, 14px); overflow: hidden; }
 .inicio-iframe-monitor { display: block; background: #fff; }
 body.dark-mode .inicio-iframe-monitor { background: #1e293b; }
+
+/* Botones de diagnóstico (solo usuario id 1): Segundómetro y BD alternas */
+.inicio-btn-diagnostico-wrap {
+  position: fixed;
+  bottom: 24px;
+  left: 24px;
+  z-index: 9997;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: center;
+}
+.inicio-btn-diagnostico {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  border: none;
+  color: #fff;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  transition: all 0.25s ease;
+  font-size: 9px;
+  font-weight: 600;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.25);
+  text-decoration: none;
+  line-height: 1.2;
+}
+.inicio-btn-diagnostico i { font-size: 18px; }
+.inicio-btn-diagnostico:hover {
+  transform: scale(1.08);
+  box-shadow: 0 6px 20px rgba(0,0,0,0.35);
+}
+.inicio-btn-diagnostico:active { transform: scale(0.96); }
+.inicio-btn-diagnostico-segundo {
+  background: linear-gradient(135deg, #0d9488 0%, #0f766e 100%);
+}
+.inicio-btn-diagnostico-segundo:hover { box-shadow: 0 6px 20px rgba(13, 148, 136, 0.5); }
+.inicio-btn-diagnostico-bd {
+  background: linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%);
+}
+.inicio-btn-diagnostico-bd:hover { box-shadow: 0 6px 20px rgba(124, 58, 237, 0.5); }
+body.dark-mode .inicio-btn-diagnostico-segundo {
+  background: linear-gradient(135deg, #14b8a6 0%, #0d9488 100%);
+}
+body.dark-mode .inicio-btn-diagnostico-bd {
+  background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%);
+}
 </style>
 
 <div class="inicio-mkx">
@@ -424,6 +476,19 @@ body.dark-mode .inicio-iframe-monitor { background: #1e293b; }
       <i class="fa-solid fa-chart-line" id="btnToggleAnalyticsIcon"></i>
       <span id="btnToggleAnalyticsText">Gráficas</span>
     </button>
+    <?php endif; ?>
+
+    <?php if (!empty($mostrarDiagnosticoAdmin)): ?>
+    <div class="inicio-btn-diagnostico-wrap" aria-label="Diagnósticos de fallos (solo admin)">
+      <a href="/inicio/diagnosticoSegundometro" target="_blank" rel="noopener" class="inicio-btn-diagnostico inicio-btn-diagnostico-segundo" title="Diagnóstico: reportes Segundómetro (SSH, path, listar archivos). Analiza dónde puede estar la falla.">
+        <i class="fa-solid fa-stopwatch"></i>
+        <span>Segundo.</span>
+      </a>
+      <a href="/inicio/diagnosticoConexiones" target="_blank" rel="noopener" class="inicio-btn-diagnostico inicio-btn-diagnostico-bd" title="Diagnóstico: BD alternas (__SPARTA_SECRET_REDACTED__, SSL, certificados, red). Analiza dónde puede estar la falla.">
+        <i class="fa-solid fa-database"></i>
+        <span>BD alternas</span>
+      </a>
+    </div>
     <?php endif; ?>
 
   </div>

@@ -181,8 +181,9 @@ $reporte[] = "2. COMANDO SSH";
 $reporte[] = str_repeat("-", 47);
 
 if (function_exists('exec') && !in_array('exec', $disabledFunctions)) {
-    // Buscar ssh en el sistema
-    $whichSsh = ejecutarComando('which ssh');
+    // Buscar ssh en el sistema (Windows: where.exe, Linux: which)
+    $cmdWhich = (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') ? 'where.exe ssh' : 'which ssh';
+    $whichSsh = ejecutarComando($cmdWhich);
     if ($whichSsh['success'] && !empty(trim($whichSsh['output']))) {
         agregarResultado('SSH', 'Comando ssh', 'OK', 'Encontrado en PATH', trim($whichSsh['output']));
         $reporte[] = "  ✅ ssh encontrado: " . trim($whichSsh['output']);
@@ -441,6 +442,46 @@ if (file_exists($segDAO)) {
 }
 
 $reporte[] = "";
+$reporte[] = "  [Test C] Config.ini [ssh] completo (todas las claves que usa el DAO)...";
+$configFile = $RAIZ . '/config/config.ini';
+if (is_file($configFile)) {
+    $config = @parse_ini_file($configFile, true);
+    $sshKeys = ['ssh_command', 'ssh_key', 'ssh_use_plink', 'ssh_command_plink', 'ssh_key_plink', 'ssh_hostkey'];
+    foreach ($sshKeys as $k) {
+        $v = isset($config['ssh'][$k]) ? trim($config['ssh'][$k]) : '(no definido)';
+        if ($v !== '(no definido)' && strlen($v) > 60) {
+            $v = substr($v, 0, 57) . '...';
+        }
+        $reporte[] = "     [ssh] $k = " . $v;
+    }
+} else {
+    $reporte[] = "     ⚠️  config.ini no existe";
+}
+
+$reporte[] = "";
+$reporte[] = "  [Test D] Prueba real: SegundometroDAO::obtenerArchivos() (mismo flujo que 'cargar reportes')...";
+if (file_exists($segDAO) && class_exists('Models\SegundometroDAO', false)) {
+    try {
+        $archivos = \Models\SegundometroDAO::obtenerArchivos();
+        $num = is_array($archivos) ? count($archivos) : 0;
+        if ($num > 0) {
+            agregarResultado('DAO', 'obtenerArchivos()', 'OK', "Devuelve $num archivo(s) (carga de reportes OK)");
+            $reporte[] = "  ✅ obtenerArchivos() devuelve $num archivo(s)";
+            $primero = $archivos[0];
+            $reporte[] = "     Primer archivo: " . (isset($primero['nombre']) ? $primero['nombre'] : json_encode($primero));
+        } else {
+            agregarResultado('DAO', 'obtenerArchivos()', 'WARNING', 'Devuelve 0 archivos (puede ser normal si no hay reportes hoy/ayer)');
+            $reporte[] = "  ⚠️  obtenerArchivos() devuelve 0 archivos (revisar si hay mega_rpt_*.csv.zip hoy/ayer en el servidor)";
+        }
+    } catch (\Throwable $e) {
+        agregarResultado('DAO', 'obtenerArchivos()', 'ERROR', 'Excepción al ejecutar', $e->getMessage());
+        $reporte[] = "  ❌ Error: " . $e->getMessage();
+    }
+} else {
+    $reporte[] = "  ⚠️  No se pudo invocar (DAO no cargado)";
+}
+
+$reporte[] = "";
 
 // ============================================
 // 6. VARIABLES DE ENTORNO Y CONTEXTO
@@ -573,6 +614,17 @@ $directorios = [
     'Models' => $RAIZ . '/models',
     'Controllers' => $RAIZ . '/controllers'
 ];
+$reporte[] = "  (Storage logs: aquí se escribe ssh_debug.log y diagnostico_segundometro_*.txt)";
+$reporte[] = "";
+
+$sshDebugLog = $LOG_DIR . DIRECTORY_SEPARATOR . 'ssh_debug.log';
+if (is_file($sshDebugLog)) {
+    $reporte[] = "  Archivo ssh_debug.log: Existe | Tamaño: " . number_format(filesize($sshDebugLog)) . " bytes";
+    $reporte[] = "    (Última modificación: " . date('Y-m-d H:i:s', filemtime($sshDebugLog)) . ")";
+} else {
+    $reporte[] = "  Archivo ssh_debug.log: No existe (se crea al usar SegundometroDAO)";
+}
+$reporte[] = "";
 
 foreach ($directorios as $nombre => $ruta) {
     if (is_dir($ruta)) {
