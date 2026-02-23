@@ -72,18 +72,11 @@ class SegundometroDAO extends Model
             return $cachedOpenSSH;
         }
         $path = trim($config['ssh']['ssh_key'] ?? '');
-        $candidatos = [];
-        if ($path !== '') {
-            $candidatos[] = $path;
+        // Solo clave en backend/config/ssh (nunca usar rutas en Downloads).
+        if ($path !== '' && stripos($path, 'Downloads') !== false) {
+            $path = '';
         }
-        if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
-            $candidatos[] = 'C:\\Users\\admin\\Downloads\\jesusssh4.unknown';
-            $userProfile = getenv('USERPROFILE');
-            if ($userProfile !== false && $userProfile !== '') {
-                $candidatos[] = $userProfile . '\\Downloads\\jesusssh4.unknown';
-            }
-        }
-        $candidatos[] = self::$SSH_KEY;
+        $candidatos = array_filter([$path !== '' ? $path : null, self::$SSH_KEY]);
         foreach ($candidatos as $p) {
             if ($p === null || $p === '') {
                 continue;
