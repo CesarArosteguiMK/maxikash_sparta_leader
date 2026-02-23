@@ -95,56 +95,56 @@ class SegundometroDAO extends Model
     }
     
     /**
-     * Detecta la ruta del ejecutable SSH (cacheada).
-     * 1) Si en config.ini existe [ssh] ssh_command (ruta absoluta), se usa esa.
-     * 2) Si no, se intenta detectar: en Windows "where ssh", en Linux "which ssh".
-     * En el servidor, si "ssh" no está en PATH, añada en config.ini la ruta.
+     * Detecta la ruta del ejecutable SSH/Plink (cacheada).
+     * Con ssh_use_plink=1 devuelve SIEMPRE plink. Sin fallback a OpenSSH.
      */
     private static function getSSHCommand()
     {
         static $cached = null;
-        $configFile = __DIR__ . '/../config/config.ini';
-        $config = is_file($configFile) ? @parse_ini_file($configFile, true) : false;
-        $config = is_array($config) ? $config : [];
-        $usePlink = !empty($config['ssh']['ssh_use_plink']);
-        // Si el config pide Plink pero lo cacheado es OpenSSH, invalidar caché.
-        if ($usePlink && $cached !== null && $cached !== '' && stripos($cached, 'plink') === false) {
-            $cached = null;
-        }
         if ($cached !== null) {
             return $cached === '' ? null : $cached;
         }
-        if (!empty($config['ssh'])) {
-            if ($usePlink) {
-                $path = trim($config['ssh']['ssh_command_plink'] ?? $config['ssh']['ssh_command'] ?? '');
-                // Con ssh_use_plink=1 siempre usar esa ruta; no caer a OpenSSH si el exe no existe.
-                if ($path !== '') {
-                    $cached = $path;
-                    return $path;
-                }
-            } else {
-                $path = trim($config['ssh']['ssh_command'] ?? '');
-                if ($path !== '' && @is_file($path)) {
-                    $cached = $path;
-                    return $path;
-                }
+        $configFile = __DIR__ . '/../config/config.ini';
+        $config = is_file($configFile) ? @parse_ini_file($configFile, true) : false;
+        $config = is_array($config) ? $config : [];
+
+        // --- Plink (PuTTY) ---
+        if (!empty($config['ssh']['ssh_use_plink'])) {
+            $path = trim($config['ssh']['ssh_command_plink'] ?? '');
+            if ($path !== '') {
+                $cached = $path;
+                return $path;
             }
+            // Intentar plink.exe en el mismo directorio que XAMPP
+            $default = 'C:\\xampp\\plink.exe';
+            if (@is_file($default)) {
+                $cached = $default;
+                return $default;
+            }
+            $cached = '';
+            return null;
+        }
+
+        // --- OpenSSH (solo si ssh_use_plink NO está activo) ---
+        $path = trim($config['ssh']['ssh_command'] ?? '');
+        if ($path !== '' && @is_file($path)) {
+            $cached = $path;
+            return $path;
         }
         $isWindows = strtoupper(substr(PHP_OS, 0, 3)) === 'WIN';
-        $candidates = $isWindows 
-            ? ['where.exe ssh', 'C:\Windows\System32\OpenSSH\ssh.exe']
+        $candidates = $isWindows
+            ? ['where.exe ssh', 'C:\\Windows\\System32\\OpenSSH\\ssh.exe']
             : ['which ssh', '/usr/bin/ssh', '/bin/ssh'];
-        
         foreach ($candidates as $cmd) {
             if (strpos($cmd, ' ') !== false) {
                 $out = @shell_exec($cmd . ' 2>&1');
-                $path = $out ? trim(explode("\n", $out)[0]) : '';
+                $p = $out ? trim(explode("\n", $out)[0]) : '';
             } else {
-                $path = $cmd;
+                $p = $cmd;
             }
-            if ($path !== '' && @is_file($path)) {
-                $cached = $path;
-                return $path;
+            if ($p !== '' && @is_file($p)) {
+                $cached = $p;
+                return $p;
             }
         }
         if (!$isWindows) {
@@ -164,52 +164,8 @@ class SegundometroDAO extends Model
     }
 
     /**
-     * Obtener ruta del ejecutable OpenSSH (ssh) para fallback cuando Plink está configurado pero falta la .ppk.
-     * Usa [ssh] ssh_command del config (ruta a ssh.exe) o detección automática.
-     * @param string $configFile Ruta a config.ini
-     * @return string|null Ruta a ssh.exe o null
-     */
-    private static function getSSHCommandOpenSSH($configFile)
-    {
-        if (is_file($configFile)) {
-            $config = @parse_ini_file($configFile, true);
-            if (is_array($config)) {
-                $path = trim($config['ssh']['ssh_command'] ?? '');
-                if ($path !== '' && @is_file($path) && stripos($path, 'plink') === false) {
-                    return $path;
-                }
-            }
-        }
-        $isWindows = strtoupper(substr(PHP_OS, 0, 3)) === 'WIN';
-        if ($isWindows) {
-            $out = @shell_exec('where.exe ssh 2>&1');
-            $first = $out ? trim(explode("\n", $out)[0]) : '';
-            if ($first !== '' && @is_file($first)) {
-                return $first;
-            }
-            $default = 'C:\\Windows\\System32\\OpenSSH\\ssh.exe';
-            if (@is_file($default)) {
-                return $default;
-            }
-        } else {
-            $out = @shell_exec('which ssh 2>&1');
-            $first = $out ? trim(explode("\n", $out)[0]) : '';
-            if ($first !== '') {
-                return $first;
-            }
-            if (@is_file('/usr/bin/ssh')) {
-                return '/usr/bin/ssh';
-            }
-            return 'ssh';
-        }
-        return null;
-    }
-
-    /**
-     * Ejecutar comando SSH remoto
-     * 
-     * @param string $comando Comando a ejecutar en el servidor remoto
-     * @return array ['success' => bool, 'output' => string, 'error' => string]
+     * Ejecutar comando SSH remoto.
+     * Con ssh_use_plink=1: usa SOLO Plink + .ppk. Sin fallback a OpenSSH.
      */
     private static function ejecutarSSH($comando)
     {
@@ -218,61 +174,35 @@ class SegundometroDAO extends Model
             return [
                 'success' => false,
                 'output' => '',
-                'error' => 'SSH no encontrado. Configure [ssh] ssh_command en backend/config/config.ini con la ruta al ejecutable.',
+                'error' => 'SSH/Plink no encontrado. Configure [ssh] en backend/config/config.ini.',
                 'return_code' => 127
             ];
         }
 
-        // Modo por ejecutable real: si la ruta contiene "plink" → Plink (opciones + clave .ppk); si no → OpenSSH
         $isPlink = (stripos($sshCommand, 'plink') !== false);
-        $inicioConPlink = $isPlink;
-        $configFile = __DIR__ . DIRECTORY_SEPARATOR . '..' . DIRECTORY_SEPARATOR . 'config' . DIRECTORY_SEPARATOR . 'config.ini';
-        $ppkProyecto = __DIR__ . DIRECTORY_SEPARATOR . '..' . DIRECTORY_SEPARATOR . 'config' . DIRECTORY_SEPARATOR . 'ssh' . DIRECTORY_SEPARATOR . 'jesusssh4.ppk';
-
-        // Con ssh_use_plink=1: usar Plink si la .ppk EXISTE (aunque no sea legible por PHP). Solo pasar a OpenSSH si la .ppk no existe.
-        $keyPlink = $isPlink ? self::getSSHKey(true) : null;
-        if ($isPlink && !@is_file($keyPlink)) {
-            if (@is_file($ppkProyecto)) {
-                $keyPlink = $ppkProyecto;
-            } else {
-                $sshCommand = self::getSSHCommandOpenSSH($configFile);
-                if ($sshCommand !== null) {
-                    $isPlink = false;
-                }
-            }
-        }
-
-        $keyFinal = $isPlink ? $keyPlink : self::getSSHKey(false);
-        $sshKeyEscaped = escapeshellarg($keyFinal);
+        $configFile = __DIR__ . '/../config/config.ini';
+        $keyFinal = self::getSSHKey($isPlink ? true : false);
         $comandoEscapado = escapeshellarg($comando);
 
-        $logFile = __DIR__ . DIRECTORY_SEPARATOR . '..' . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'logs' . DIRECTORY_SEPARATOR . 'ssh_debug.log';
+        // Log
+        $logFile = __DIR__ . '/../storage/logs/ssh_debug.log';
         $logLines = ["\n=== " . date('Y-m-d H:i:s') . " ==="];
-        $logLines[] = "Modo: " . ($isPlink ? "Plink (PuTTY)" : "OpenSSH (fallback)");
+        $logLines[] = "Modo: " . ($isPlink ? "Plink (PuTTY)" : "OpenSSH");
         $logLines[] = "Ejecutable: " . $sshCommand;
-        $logLines[] = "Clave usada: " . $keyFinal;
-        if (!$isPlink && $inicioConPlink) {
-            $logLines[] = "Motivo fallback a OpenSSH: .ppk no usada - existe=" . (@is_file($ppkProyecto) ? 'si' : 'no') . " legible=" . (@is_readable($ppkProyecto) ? 'si' : 'no') . " ruta=" . $ppkProyecto;
-        }
-        if (!$isPlink && (strpos($keyFinal, '.unknown') !== false || strpos($keyFinal, '.pem') !== false)) {
-            $logLines[] = "Si el error es 'UNPROTECTED PRIVATE KEY': restringir permisos de la clave (en backend/config/ssh ejecutar setup.bat como Admin o: icacls jesusssh4.unknown /inheritance:r /grant:r \"NT AUTHORITY\\SYSTEM:(R)\")";
-        }
-        @file_put_contents($logFile, implode("\n", $logLines) . "\n", FILE_APPEND);
+        $logLines[] = "Clave: " . $keyFinal;
+        $logLines[] = "Existe clave: " . (@is_file($keyFinal) ? 'SI' : 'NO');
 
         if ($isPlink) {
-            // Plink en -batch exige host key cacheada; -hostkey <fingerprint> evita "Cannot confirm a host key in batch mode"
             $hostkey = '';
-            if (is_file($configFile)) {
-                $cfg = @parse_ini_file($configFile, true);
-                $hk = trim($cfg['ssh']['ssh_hostkey'] ?? '');
-                if ($hk !== '') {
-                    $hostkey = ' -hostkey ' . escapeshellarg($hk);
-                }
+            $cfg = (is_file($configFile) && is_array($c = @parse_ini_file($configFile, true))) ? $c : [];
+            $hk = trim($cfg['ssh']['ssh_hostkey'] ?? '');
+            if ($hk !== '') {
+                $hostkey = ' -hostkey ' . escapeshellarg($hk);
             }
             $sshComando = sprintf(
                 '%s -i %s%s -batch %s@%s %s 2>&1',
                 escapeshellarg($sshCommand),
-                $sshKeyEscaped,
+                escapeshellarg($keyFinal),
                 $hostkey,
                 self::$SSH_USER,
                 self::$SSH_HOST,
@@ -283,58 +213,29 @@ class SegundometroDAO extends Model
             $sshComando = sprintf(
                 '%s -i %s -o StrictHostKeyChecking=no -o UserKnownHostsFile=%s -o ConnectTimeout=10 -o BatchMode=yes -o ServerAliveInterval=5 %s@%s %s 2>&1',
                 escapeshellarg($sshCommand),
-                $sshKeyEscaped,
+                escapeshellarg($keyFinal),
                 $knownHosts,
                 self::$SSH_USER,
                 self::$SSH_HOST,
                 $comandoEscapado
             );
         }
-        
-        // Log comando y resultado
-        @file_put_contents($logFile, "Comando: $sshComando\n", FILE_APPEND);
+
+        $logLines[] = "Comando: " . $sshComando;
+        @file_put_contents($logFile, implode("\n", $logLines) . "\n", FILE_APPEND);
 
         $outputLines = [];
         $returnVar = -1;
         exec($sshComando, $outputLines, $returnVar);
         $outputStr = trim(implode("\n", $outputLines));
 
-        @file_put_contents($logFile, "Output: " . ($outputStr !== '' ? $outputStr : 'NULL') . "\n", FILE_APPEND);
-        @file_put_contents($logFile, "Return code: $returnVar\n", FILE_APPEND);
-
-        // Si usamos Plink y falló: reintentar con OpenSSH (clave .unknown) como fallback
-        if ($isPlink && $returnVar !== 0) {
-            $sshCommandOpen = self::getSSHCommandOpenSSH($configFile);
-            if ($sshCommandOpen !== null) {
-                $keyOpen = self::getSSHKey(false);
-                $knownHosts = self::getSSHKnownHostsFile();
-                $comandoOpen = sprintf(
-                    '%s -i %s -o StrictHostKeyChecking=no -o UserKnownHostsFile=%s -o ConnectTimeout=10 -o BatchMode=yes %s@%s %s 2>&1',
-                    escapeshellarg($sshCommandOpen),
-                    escapeshellarg($keyOpen),
-                    $knownHosts,
-                    self::$SSH_USER,
-                    self::$SSH_HOST,
-                    $comandoEscapado
-                );
-                @file_put_contents($logFile, "[Reintento con OpenSSH] Comando: $comandoOpen\n", FILE_APPEND);
-                $outputLines2 = [];
-                $returnVar2 = -1;
-                exec($comandoOpen, $outputLines2, $returnVar2);
-                $outputStr2 = trim(implode("\n", $outputLines2));
-                @file_put_contents($logFile, "Output: " . ($outputStr2 !== '' ? $outputStr2 : 'NULL') . "\nReturn code: $returnVar2\n", FILE_APPEND);
-                $outputStr = $outputStr2;
-                $returnVar = $returnVar2;
-            }
-        }
+        @file_put_contents($logFile, "Output: " . ($outputStr !== '' ? $outputStr : 'NULL') . "\nReturn code: $returnVar\n", FILE_APPEND);
 
         $success = ($returnVar === 0);
-        $errorStr = $success ? '' : ($outputStr !== '' ? $outputStr : 'Comando remoto falló (código ' . $returnVar . ')');
-
         return [
             'success' => $success,
             'output' => $outputStr,
-            'error' => $errorStr,
+            'error' => $success ? '' : ($outputStr !== '' ? $outputStr : 'Comando remoto falló (código ' . $returnVar . ')'),
             'return_code' => $returnVar
         ];
     }
