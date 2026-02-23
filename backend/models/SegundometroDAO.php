@@ -51,17 +51,19 @@ class SegundometroDAO extends Model
             if ($cachedPlink !== null) {
                 return $cachedPlink;
             }
-            // Plink exige clave .ppk (PuTTY), no OpenSSH PEM
-            $path = trim($config['ssh']['ssh_key_plink'] ?? '');
-            if ($path !== '' && @is_file($path)) {
-                $cachedPlink = $path;
-                return $cachedPlink;
-            }
+            // Plink exige clave .ppk (PuTTY). Probar en orden: config, luego carpeta ssh del proyecto (que exista y sea legible).
             $ppkProyecto = __DIR__ . '/../config/ssh/jesusssh4.ppk';
-            if (@is_file($ppkProyecto)) {
-                $cachedPlink = $ppkProyecto;
-                return $cachedPlink;
+            $candidatosPpk = array_filter([
+                trim($config['ssh']['ssh_key_plink'] ?? ''),
+                $ppkProyecto,
+            ]);
+            foreach ($candidatosPpk as $p) {
+                if ($p !== '' && @is_file($p) && @is_readable($p)) {
+                    $cachedPlink = $p;
+                    return $p;
+                }
             }
+            $path = trim($config['ssh']['ssh_key_plink'] ?? '');
             $cachedPlink = $path !== '' ? $path : $ppkProyecto;
             return $cachedPlink;
         }
@@ -220,18 +222,23 @@ class SegundometroDAO extends Model
         $isPlink = (stripos($sshCommand, 'plink') !== false);
         $configFile = __DIR__ . DIRECTORY_SEPARATOR . '..' . DIRECTORY_SEPARATOR . 'config' . DIRECTORY_SEPARATOR . 'config.ini';
 
-        // Si está en modo Plink pero la clave .ppk no existe o no se puede leer, usar OpenSSH con la clave .unknown
+        // Si está en modo Plink: usar clave .ppk; si no existe o no es legible, probar .ppk en carpeta ssh del proyecto; si tampoco, pasar a OpenSSH
+        $keyPlink = $isPlink ? self::getSSHKey(true) : null;
         if ($isPlink) {
-            $keyPlink = self::getSSHKey(true);
             if (!@is_file($keyPlink) || !@is_readable($keyPlink)) {
-                $sshCommand = self::getSSHCommandOpenSSH($configFile);
-                if ($sshCommand !== null) {
-                    $isPlink = false;
+                $ppkProyecto = __DIR__ . DIRECTORY_SEPARATOR . '..' . DIRECTORY_SEPARATOR . 'config' . DIRECTORY_SEPARATOR . 'ssh' . DIRECTORY_SEPARATOR . 'jesusssh4.ppk';
+                if (@is_file($ppkProyecto) && @is_readable($ppkProyecto)) {
+                    $keyPlink = $ppkProyecto;
+                } else {
+                    $sshCommand = self::getSSHCommandOpenSSH($configFile);
+                    if ($sshCommand !== null) {
+                        $isPlink = false;
+                    }
                 }
             }
         }
 
-        $sshKeyEscaped = escapeshellarg(self::getSSHKey($isPlink));
+        $sshKeyEscaped = escapeshellarg($isPlink ? $keyPlink : self::getSSHKey(false));
         $comandoEscapado = escapeshellarg($comando);
 
         if ($isPlink) {
