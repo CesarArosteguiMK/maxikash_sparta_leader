@@ -374,6 +374,7 @@ JS;
                     "fechaRegistro"       => $p["fechaDeposito"] ?? ($p["fechaRegistro"] ?? null),
                     "montoPagoOriginal"   => $montoPago,
                     "extemporaneos"       => $extemporaneos,
+                    "_extOrig"            => $extemporaneos,
                     "_extemporaneo_aplicado" => false
                 ];
             }
@@ -527,6 +528,11 @@ JS;
                 // Solo hay "notas de cargo" si quedó algo después de excluir gasto cobranza
                 $hayNotasCargos = array_sum($notasCargoPorFecha) > 0;
             }
+            // ═══════════════════════════════════════════════════════════════════════════════
+            // BLOQUE DE CONTRACARGOS — NO MODIFICAR SIN REVISIÓN EXHAUSTIVA
+            // Lachy dedicó mucho esfuerzo a que este flujo funcione correctamente en todos los casos.
+            // Cualquier cambio puede romper emparejamiento, sobrantes y fechas de cierre.
+            // ═══════════════════════════════════════════════════════════════════════════════
             // Post-process contracargos: reconstruir flujo de pagos.
             // Las notas de cargo vienen desglosadas (capital, interés, comisión, resguardo)
             // pero representan UN contracargo por fecha. Se usa notasCargoPorFecha (sumado)
@@ -673,7 +679,7 @@ JS;
                     $pool = [];
                     foreach ($plById as $idP => $pl) {
                         if (isset($idPagosCC[$idP])) continue;
-                        $remaining = round((float)($pl['montoPagoOriginal'] ?? 0) - (float)($pl['extemporaneos'] ?? 0), 2);
+                        $remaining = round((float)($pl['montoPagoOriginal'] ?? 0) - (float)($pl['_extOrig'] ?? $pl['extemporaneos'] ?? 0), 2);
                         $usedBefore = round($aplicadoAnterior[$idP] ?? 0, 2);
                         $available = round($remaining - $usedBefore, 2);
                         if ($available <= 0.009) continue;
@@ -685,7 +691,7 @@ JS;
                                 break;
                             }
                         }
-                        if (!$hasAffectedCuota) continue;
+                        if (!$hasAffectedCuota && $usedBefore <= 0.009) continue;
 
                         $pool[] = [
                             'idPago'    => $idP,
@@ -3538,6 +3544,27 @@ public function descargar()
         }
 
         $resultado = EstadoCuentaDAO::getGastosCobranza($idCredito);    
+        self::respuestaJSON($resultado);
+    }
+
+
+    /**
+     * Guarda la condonación parcial de un gasto de cobranza (monto + motivo).
+     * POST: id_gastos_cobranza, monto_parcial, motivo
+     */
+    public function guardarCondonacionParcialGasto()
+    {
+        $input = json_decode(file_get_contents("php://input"), true);
+        $idGasto = $input['id_gastos_cobranza'] ?? null;
+        $montoParcial = $input['monto_parcial'] ?? null;
+        $motivo = $input['motivo'] ?? '';
+
+        if (empty($idGasto)) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'ID de gasto requerido']);
+            return;
+        }
+
+        $resultado = EstadoCuentaDAO::updateCondonacionParcialGasto($idGasto, $montoParcial, $motivo);
         self::respuestaJSON($resultado);
     }
 

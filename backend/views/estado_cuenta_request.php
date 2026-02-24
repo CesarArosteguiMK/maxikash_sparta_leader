@@ -909,11 +909,56 @@ if ($cuotasContratadas > 0) {
     }
     
     .modal-backdrop {
-        z-index: 1050 !important;
+        z-index: 1089 !important;
     }
     
     .modal-backdrop.show {
         opacity: 0.5 !important;
+        background: rgba(0, 0, 0, 0.5) !important;
+    }
+    
+    /* Scrim propio para Condonar / Condonación parcial (por encima de todo el layout) */
+    .scrim-condonar-estado-cuenta {
+        z-index: 9998 !important;
+        background: rgba(0, 0, 0, 0.5) !important;
+    }
+
+    /* Alertas (SweetAlert) por encima de los modales Condonar / Condonación parcial */
+    body.modal-condonar-open .swal2-container,
+    body.modal-condonar-parcial-open .swal2-container {
+        z-index: 10001 !important;
+    }
+
+    /* Liquid glass + scrim: modales Condonar y Condonación parcial */
+    #modalCondonar .modal-content,
+    #modalCondonarParcial .modal-content {
+        background: rgba(255, 255, 255, 0.85) !important;
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        border-radius: 12px;
+    }
+    #modalCondonar .modal-header,
+    #modalCondonarParcial .modal-header {
+        background: rgba(255, 255, 255, 0.4) !important;
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+        border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+        border-radius: 12px 12px 0 0;
+    }
+    #modalCondonar .modal-body,
+    #modalCondonarParcial .modal-body {
+        background: rgba(255, 255, 255, 0.5) !important;
+        backdrop-filter: blur(6px);
+        -webkit-backdrop-filter: blur(6px);
+    }
+    #modalCondonar .modal-footer,
+    #modalCondonarParcial .modal-footer {
+        background: rgba(255, 255, 255, 0.4) !important;
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+        border-top: 1px solid rgba(0, 0, 0, 0.06);
+        border-radius: 0 0 12px 12px;
     }
 
     /* ==========================
@@ -2097,7 +2142,7 @@ body.dark-mode .cuotas-table .contracargo-valor { color: #fb923c !important; fon
 
 </div>
 
-<div class="modal fade" id="modalCondonar" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="modalCondonar" tabindex="-1" aria-hidden="true" data-bs-backdrop="false" data-bs-keyboard="true">
     <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content">
 
@@ -2192,11 +2237,48 @@ body.dark-mode .cuotas-table .contracargo-valor { color: #fb923c !important; fon
                 <button class="btn btn-secondary" data-bs-dismiss="modal" >
                     Cancelar
                 </button>
-                <button class="btn btn-success" onclick="confirmarCondonacion(<?= htmlspecialchars($dataEstadoCuenta["idCredito"] ?? '') ?>)">
+                <button class="btn btn-success" id="btnCondonarTotal" disabled
+                    onclick="confirmarCondonacion(<?= htmlspecialchars($dataEstadoCuenta["idCredito"] ?? '') ?>)">
                     <i class="fa fa-check me-1"></i>Condonar
                 </button>
             </div>
 
+        </div>
+    </div>
+</div>
+
+<!-- Modal Condonación parcial (Editar) -->
+<div class="modal fade" id="modalCondonarParcial" tabindex="-1" aria-hidden="true" data-bs-backdrop="false" data-bs-keyboard="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-warning bg-opacity-10">
+                <h5 class="modal-title">
+                    <i class="fa fa-edit text-warning me-2"></i>
+                    Condonación parcial
+                </h5>
+                <button class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="condonarParcial_idGasto" value="">
+                <input type="hidden" id="condonarParcial_idCredito" value="">
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Monto a condonar parcialmente ($)</label>
+                    <input type="number" id="condonarParcial_monto" class="form-control" min="0.01" step="0.01" placeholder="0.00">
+                    <small class="text-muted">Máximo: $<span id="condonarParcial_montoMax">0.00</span></small>
+                </div>
+                <div class="mb-0">
+                    <label class="form-label fw-semibold">Motivo de la condonación parcial <span class="text-danger">*</span></label>
+                    <textarea id="condonarParcial_motivo" class="form-control" rows="4" minlength="100"
+                        placeholder="Describa la promoción o razón de la condonación a detalle (mínimo 100 caracteres, 8 palabras)..."></textarea>
+                    <small class="text-muted"><span id="condonarParcial_motivoCount">0</span>/100 caracteres · Mínimo 8 palabras</small>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button class="btn btn-warning" id="btnCondonarParcialAceptar">
+                    <i class="fa fa-check me-1"></i>Aceptar
+                </button>
+            </div>
         </div>
     </div>
 </div>
@@ -3000,7 +3082,7 @@ body.dark-mode .cuotas-table .contracargo-valor { color: #fb923c !important; fon
 
         tabla.innerHTML = `
         <tr>
-            <td colspan="4" class="text-center text-muted">
+            <td colspan="7" class="text-center text-muted">
                 Cargando gastos...
             </td>
         </tr>
@@ -3032,7 +3114,7 @@ body.dark-mode .cuotas-table .contracargo-valor { color: #fb923c !important; fon
                 if (!Array.isArray(gastos) || gastos.length === 0) {
                     tabla.innerHTML = `
                     <tr>
-                        <td colspan="4" class="text-center text-muted">
+                        <td colspan="7" class="text-center text-muted">
                             No hay gastos de cobranza
                         </td>
                     </tr>
@@ -3041,31 +3123,67 @@ body.dark-mode .cuotas-table .contracargo-valor { color: #fb923c !important; fon
                     return;
                 }
 
-                gastos.forEach(g => {
+                document.getElementById('modalCondonar').dataset.idCredito = idCredito;
+
+                gastos.forEach((g, index) => {
+                    const idGasto = g.id_gasto;
+                    const montoOrig = parseFloat(g.monto_original ?? g.monto ?? 0);
+                    const montoEfectivo = parseFloat(g.monto ?? 0);
+                    const parcialMonto = parseFloat(g.condonacion_parcial_monto ?? 0);
+                    const parcialMotivo = (g.condonacion_parcial_motivo || '').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                    const tieneParcial = parcialMonto > 0;
+                    const montoFaltaCondonar = tieneParcial ? (montoOrig - parcialMonto) : montoEfectivo;
+                    const anteriorTieneParcial = index === 0 || (parseFloat(gastos[index - 1].condonacion_parcial_monto ?? 0) > 0);
+                    const puedeParcial = anteriorTieneParcial;
+                    const montoCelda = tieneParcial
+                        ? `<span class="text-decoration-line-through text-muted">$${montoOrig.toFixed(2)}</span><br><strong>$${montoEfectivo.toFixed(2)}</strong>`
+                        : `$${montoEfectivo.toFixed(2)}`;
+                    const tooltipParcialTxt = tieneParcial
+                        ? (() => {
+                            const motivo = (g.condonacion_parcial_motivo || '').trim();
+                            const motivoCorto = motivo.length > 350 ? motivo.substring(0, 350) + '...' : motivo;
+                            return 'Monto condonado: $' + parcialMonto.toFixed(2) + '\n\nMotivo:\n' + motivoCorto;
+                        })()
+                        : '';
+                    const tooltipParcialEsc = tooltipParcialTxt
+                        .replace(/&/g, '&amp;')
+                        .replace(/"/g, '&quot;')
+                        .replace(/'/g, '&#39;')
+                        .replace(/</g, '&lt;')
+                        .replace(/>/g, '&gt;')
+                        .replace(/\n/g, '&#10;');
+
+                    const iconoParcialHtml = tieneParcial
+                        ? '<span class="info-condonacion-parcial text-info" style="cursor:pointer;" title="' + tooltipParcialEsc + '" data-monto="' + parcialMonto.toFixed(2) + '" data-motivo="' + (g.condonacion_parcial_motivo || '').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;').substring(0, 500) + '"><i class="fa fa-info-circle" aria-hidden="true"></i></span>'
+                        : '';
 
                     tabla.innerHTML += `
-                    <tr>
+                    <tr data-id-gasto="${idGasto}" data-tiene-parcial="${tieneParcial ? '1' : '0'}" data-puede-parcial="${puedeParcial ? '1' : '0'}">
                         <td>
                             <input type="checkbox"
                                class="form-check-input chk-condona"
-                               data-id="${g.id_gasto}"
-                               data-monto="${parseFloat(g.monto).toFixed(2)}"
+                               data-id="${idGasto}"
+                               data-monto="${montoFaltaCondonar.toFixed(2)}"
                                onchange="recalcularCondonacion()">
                         </td>
                         <td>${g.semana}</td>
                         <td>${g.periodo}</td>
                         <td>${g.parcialidad != null && g.parcialidad !== '' ? g.parcialidad : '-'}</td>
-                        
                         <td>$${parseFloat(g.cuota).toFixed(2)}</td>
-                        <td>$${parseFloat(g.monto).toFixed(2)}</td>
+                        <td>${montoCelda}</td>
                         <td>
-                            <button style="display: none;" class="btn btn-sm btn-outline-primary" onclick="editarGastoCobranza(${g.id_gastos_cobranza})">  <i class="fa fa-edit"></i> </button>
+                            ${tieneParcial ? iconoParcialHtml : !puedeParcial ? `<span class="text-muted small" title="Primero debe aplicar condonación parcial o total a la semana anterior.">Primero semana anterior</span>` : `
+                            <button class="btn btn-sm btn-outline-primary btn-editar-condonar-parcial d-none"
+                                data-id-gasto="${idGasto}"
+                                data-monto-original="${montoOrig.toFixed(2)}"
+                                data-condonacion-parcial-monto="${parcialMonto.toFixed(2)}"
+                                data-condonacion-parcial-motivo="${parcialMotivo}"
+                                title="Editar"
+                                onclick="editarGastoCobranza(this)">
+                                <i class="fa fa-edit"></i>
+                            </button>
+                            `}
                         </td>
-
-
-
-
-
                     </tr>
                 `;
                 });
@@ -3073,6 +3191,10 @@ body.dark-mode .cuotas-table .contracargo-valor { color: #fb923c !important; fon
                 const totalSinCondonar = gastos.reduce((acc, g) => acc + parseFloat(g.monto || 0), 0);
                 document.getElementById('montoTotalSinCondonar').textContent = totalSinCondonar.toFixed(2);
 
+                const btnCondonarTotal = document.getElementById('btnCondonarTotal');
+                if (btnCondonarTotal) btnCondonarTotal.disabled = true;
+
+                recalcularCondonacion();
             })
             .catch(err => {
                 console.error("ERROR consultaGastosCondonables:", err);
@@ -3084,12 +3206,16 @@ body.dark-mode .cuotas-table .contracargo-valor { color: #fb923c !important; fon
         const modal = new bootstrap.Modal(
             document.getElementById('modalCondonar')
         );
+        document.getElementById('modalCondonarParcial').addEventListener('hidden.bs.modal', function () {
+            document.body.classList.remove('modal-condonar-parcial-open');
+        });
         modal.show();
     }
 
     function recalcularCondonacion() {
 
         const checks = document.querySelectorAll('.chk-condona:checked');
+        const btnCondonarTotal = document.getElementById('btnCondonarTotal');
 
         let total = 0;
 
@@ -3099,7 +3225,132 @@ body.dark-mode .cuotas-table .contracargo-valor { color: #fb923c !important; fon
 
         document.getElementById('countCondonados').textContent = checks.length;
         document.getElementById('montoCondonar').textContent = total.toFixed(2);
+
+        if (btnCondonarTotal) {
+            btnCondonarTotal.disabled = checks.length === 0;
+        }
+
+        document.querySelectorAll('#tablaGastos tr[data-id-gasto]').forEach(tr => {
+            const chk = tr.querySelector('.chk-condona');
+            const btn = tr.querySelector('.btn-editar-condonar-parcial');
+            if (!btn || tr.dataset.tieneParcial === '1') return;
+            if (tr.dataset.puedeParcial !== '1') return;
+            if (chk && chk.checked) btn.classList.remove('d-none');
+            else btn.classList.add('d-none');
+        });
     }
+
+    document.addEventListener('click', function(e) {
+        const el = e.target.closest('.info-condonacion-parcial');
+        if (!el) return;
+        e.preventDefault();
+        e.stopPropagation();
+        const monto = el.getAttribute('data-monto') || '0';
+        let motivo = (el.getAttribute('data-motivo') || '').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>');
+        motivo = motivo.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        Swal.fire({
+            title: 'Condonación parcial',
+            html: '<p class="text-start"><strong>Monto condonado:</strong> $' + monto + '</p><p class="text-start mt-2"><strong>Motivo:</strong></p><p class="text-start text-muted small" style="white-space:pre-wrap;">' + (motivo || '—') + '</p>',
+            icon: 'info',
+            confirmButtonText: 'Entendido',
+            width: '480px'
+        });
+    });
+
+    function editarGastoCobranza(btn) {
+        const idGasto = btn.getAttribute('data-id-gasto');
+        const montoOriginal = parseFloat(btn.getAttribute('data-monto-original') || 0);
+        const idCredito = document.getElementById('modalCondonar').dataset.idCredito || '';
+        document.getElementById('condonarParcial_idGasto').value = idGasto;
+        document.getElementById('condonarParcial_idCredito').value = idCredito;
+        document.getElementById('condonarParcial_montoMax').textContent = montoOriginal.toFixed(2);
+        document.getElementById('condonarParcial_monto').value = btn.getAttribute('data-condonacion-parcial-monto') || '';
+        document.getElementById('condonarParcial_monto').max = montoOriginal;
+        document.getElementById('condonarParcial_motivo').value = (btn.getAttribute('data-condonacion-parcial-motivo') || '').replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>');
+        document.getElementById('condonarParcial_motivoCount').textContent = document.getElementById('condonarParcial_motivo').value.length;
+        const modalParcial = new bootstrap.Modal(document.getElementById('modalCondonarParcial'));
+        modalParcial.show();
+    }
+
+    document.getElementById('condonarParcial_motivo').addEventListener('input', function() {
+        document.getElementById('condonarParcial_motivoCount').textContent = this.value.length;
+    });
+
+    document.getElementById('btnCondonarParcialAceptar').addEventListener('click', function() {
+        const idGasto = document.getElementById('condonarParcial_idGasto').value;
+        const idCredito = document.getElementById('condonarParcial_idCredito').value;
+        const montoParcial = parseFloat(document.getElementById('condonarParcial_monto').value || 0);
+        const motivo = document.getElementById('condonarParcial_motivo').value.trim();
+        const montoMax = parseFloat(document.getElementById('condonarParcial_montoMax').textContent || 0);
+
+        if (!idGasto || !idCredito) {
+            Swal.fire('Error', 'Datos de gasto o crédito no disponibles.', 'error');
+            return;
+        }
+
+        // Ambos son obligatorios para poder dar Aceptar
+        const faltaMonto = montoParcial <= 0;
+        const faltaMotivo = motivo.length < 100;
+        if (faltaMonto && faltaMotivo) {
+            Swal.fire('Atención', 'Debe completar el monto a condonar y el motivo de condonación (mínimo 100 caracteres) para continuar.', 'warning');
+            return;
+        }
+        if (faltaMonto) {
+            Swal.fire('Atención', 'Debe indicar el monto a condonar (mayor a 0 y menor al monto total del gasto).', 'warning');
+            return;
+        }
+        if (faltaMotivo) {
+            Swal.fire('Atención', 'Debe completar el motivo de condonación con al menos 100 caracteres.', 'warning');
+            return;
+        }
+        if (montoParcial >= montoMax) {
+            Swal.fire('Atención', 'El monto a condonar debe ser menor al monto total del gasto.', 'warning');
+            return;
+        }
+        // Mismo criterio que el backend: no mismo carácter repetido (ej. xxx, XXXXX)
+        if (/(.)\1{2,}/u.test(motivo)) {
+            Swal.fire('Atención', 'El motivo no puede contener la misma letra o carácter repetido muchas veces. Describe la promoción o razón con palabras normales.', 'warning');
+            return;
+        }
+        // Mínimo 8 palabras
+        const palabras = motivo.split(/\s+/).filter(Boolean);
+        if (palabras.length < 8) {
+            Swal.fire('Atención', 'El motivo debe incluir al menos 8 palabras describiendo la promoción o razón de la condonación.', 'warning');
+            return;
+        }
+
+        Swal.fire({
+            title: '¿Aplicar condonación parcial?',
+            text: 'Se registrará la condonación parcial de $' + montoParcial.toFixed(2) + '. ¿Continuar?',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Sí, aplicar',
+            cancelButtonText: 'Cancelar'
+        }).then((result) => {
+            if (!result.isConfirmed) return;
+
+            fetch('/EstadoCuenta/guardarCondonacionParcialGasto', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                body: JSON.stringify({
+                    id_gastos_cobranza: idGasto,
+                    monto_parcial: montoParcial,
+                    motivo: motivo
+                })
+            })
+                .then(res => res.json())
+                .then(resp => {
+                    if (!resp.success) {
+                        Swal.fire('Error', resp.mensaje || 'Error al guardar', 'error');
+                        return;
+                    }
+                    Swal.fire('Guardado', resp.mensaje || 'Condonación parcial guardada.', 'success');
+                    bootstrap.Modal.getInstance(document.getElementById('modalCondonarParcial')).hide();
+                    consultaGastosCondonables(idCredito);
+                })
+                .catch(() => Swal.fire('Error', 'Error de conexión', 'error'));
+        });
+    });
 
     // Función para abrir el modal de direcciones
     function abrirModalDirecciones() {
@@ -3129,6 +3380,106 @@ body.dark-mode .cuotas-table .contracargo-valor { color: #fb923c !important; fon
         if (modalElement && modalElement.parentElement !== document.body) {
             document.body.appendChild(modalElement);
         }
+        // Scrim propio: crear capa fija por encima de todo el layout; modales se mueven a body
+        const mc = document.getElementById('modalCondonar');
+        const mp = document.getElementById('modalCondonarParcial');
+        const SCRIM_ID = 'scrim-condonar-estado-cuenta';
+        const SCRIM_Z = 9998;
+        const MODAL_CONDO_Z = 9999;
+        const MODAL_PARCIAL_Z = 10000;
+
+        function getOrCreateScrim() {
+            var el = document.getElementById(SCRIM_ID);
+            if (el && el.parentNode) return el;
+            el = document.createElement('div');
+            el.id = SCRIM_ID;
+            el.setAttribute('aria-hidden', 'true');
+            el.style.cssText = 'position:fixed;inset:0;z-index:' + SCRIM_Z + ';background:rgba(0,0,0,0.5);pointer-events:auto;';
+            el.className = 'scrim-condonar-estado-cuenta';
+            return el;
+        }
+        function removeScrim() {
+            var el = document.getElementById(SCRIM_ID);
+            if (el && el.parentNode) el.parentNode.removeChild(el);
+        }
+        function moveModalToBody(modalEl, z) {
+            if (!modalEl || modalEl.parentNode === document.body) return;
+            document.body.appendChild(modalEl);
+            modalEl.style.setProperty('z-index', String(z), 'important');
+            var p = modalEl.parentElement;
+            while (p && p !== document.body) {
+                p.style.setProperty('z-index', String(z), 'important');
+                p = p.parentElement;
+            }
+        }
+
+        if (mc) {
+            mc.addEventListener('show.bs.modal', function () {
+                document.body.classList.add('modal-condonar-open', 'modal-open');
+                var scrim = getOrCreateScrim();
+                if (!scrim.parentNode) document.body.appendChild(scrim);
+                moveModalToBody(mc, MODAL_CONDO_Z);
+            });
+            mc.addEventListener('shown.bs.modal', function () {
+                mc.style.setProperty('z-index', String(MODAL_CONDO_Z), 'important');
+                var p = mc.parentElement;
+                while (p && p !== document.body) {
+                    p.style.setProperty('z-index', String(MODAL_CONDO_Z), 'important');
+                    p = p.parentElement;
+                }
+            });
+            mc.addEventListener('hidden.bs.modal', function () {
+                document.body.classList.remove('modal-condonar-open', 'modal-condonar-parcial-open');
+                if (!document.body.classList.contains('modal-condonar-parcial-open')) document.body.classList.remove('modal-open');
+                removeScrim();
+                mc.style.removeProperty('z-index');
+                var p = mc.parentElement;
+                while (p && p !== document.body) {
+                    p.style.removeProperty('z-index');
+                    p = p.parentElement;
+                }
+            });
+        }
+        if (mp) {
+            mp.addEventListener('show.bs.modal', function () {
+                document.body.classList.add('modal-condonar-parcial-open', 'modal-open');
+                var scrim = getOrCreateScrim();
+                if (!scrim.parentNode) document.body.appendChild(scrim);
+                moveModalToBody(mp, MODAL_PARCIAL_Z);
+                if (mc && mc.parentNode !== document.body) moveModalToBody(mc, MODAL_CONDO_Z);
+            });
+            mp.addEventListener('shown.bs.modal', function () {
+                var scrim = document.getElementById(SCRIM_ID);
+                if (scrim) scrim.style.setProperty('z-index', String(SCRIM_Z), 'important');
+                if (mc) {
+                    mc.style.setProperty('z-index', String(MODAL_CONDO_Z), 'important');
+                    var p = mc.parentElement;
+                    while (p && p !== document.body) {
+                        p.style.setProperty('z-index', String(MODAL_CONDO_Z), 'important');
+                        p = p.parentElement;
+                    }
+                }
+                mp.style.setProperty('z-index', String(MODAL_PARCIAL_Z), 'important');
+                var q = mp.parentElement;
+                while (q && q !== document.body) {
+                    q.style.setProperty('z-index', String(MODAL_PARCIAL_Z), 'important');
+                    q = q.parentElement;
+                }
+            });
+            mp.addEventListener('hidden.bs.modal', function () {
+                document.body.classList.remove('modal-condonar-parcial-open');
+                if (!document.body.classList.contains('modal-condonar-open')) {
+                    document.body.classList.remove('modal-open');
+                    removeScrim();
+                }
+                mp.style.removeProperty('z-index');
+                var q = mp.parentElement;
+                while (q && q !== document.body) {
+                    q.style.removeProperty('z-index');
+                    q = q.parentElement;
+                }
+            });
+        }
     });
 
 
@@ -3144,6 +3495,19 @@ body.dark-mode .cuotas-table .contracargo-valor { color: #fb923c !important; fon
 
         if (!comentario) {
             Swal.fire("Atención", "El motivo de la condonación es obligatorio", "warning");
+            return;
+        }
+        if (comentario.length < 100) {
+            Swal.fire("Atención", "El motivo debe tener al menos 100 caracteres.", "warning");
+            return;
+        }
+        if (/(.)\1{2,}/u.test(comentario)) {
+            Swal.fire("Atención", "El motivo no puede contener la misma letra o carácter repetido muchas veces. Describe con palabras normales.", "warning");
+            return;
+        }
+        const palabras = comentario.split(/\s+/).filter(Boolean);
+        if (palabras.length < 8) {
+            Swal.fire("Atención", "El motivo debe incluir al menos 8 palabras describiendo la condonación.", "warning");
             return;
         }
 

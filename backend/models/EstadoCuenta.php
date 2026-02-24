@@ -707,6 +707,8 @@ public static function obtenerReportesDictamenParaDescarga($fechaInicio, $fechaF
             periodo_inicio,
             periodo_fin,
             monto_valor,
+            COALESCE(condonacion_parcial_monto, 0) AS condonacion_parcial_monto,
+            condonacion_parcial_motivo,
             cuota,
             parcialidad,
             Fecha_primer_vencimiento
@@ -719,8 +721,41 @@ public static function obtenerReportesDictamenParaDescarga($fechaInicio, $fechaF
         try {
             $db = new DatabaseSegundometro();
             $r = $db->queryAll($query, ['id_credito' => $idCredito]);
+        } catch (\Exception $e) {
+            // Si falla por columnas nuevas no existentes, intentar sin ellas
+            $queryFallback = "
+            SELECT
+                id_gastos_cobranza,
+                SEMANA,
+                periodo_inicio,
+                periodo_fin,
+                monto_valor,
+                cuota,
+                parcialidad,
+                Fecha_primer_vencimiento
+            FROM `__SPARTA_SECRET_REDACTED__`.gastos_cobranza
+            WHERE Id_credito = :id_credito
+              AND (condonado IS NULL OR condonado = 0)
+            ORDER BY periodo_inicio ASC
+            ";
+            try {
+                $db = new DatabaseSegundometro();
+                $r = $db->queryAll($queryFallback, ['id_credito' => $idCredito]);
+                foreach ($r as $i => $row) {
+                    $r[$i]['condonacion_parcial_monto'] = 0;
+                    $r[$i]['condonacion_parcial_motivo'] = '';
+                }
+            } catch (\Exception $e2) {
+                return self::resultado(
+                    false,
+                    'Error al consultar gastos de cobranza',
+                    [],
+                    $e2->getMessage()
+                );
+            }
+        }
 
-            // Formateo para el frontend
+        try {
             $datos = array_map(function ($row) {
                 
                 // 🔴 NUEVA PRIORIDAD 1️⃣: Calcular por fechas (correcto)
@@ -742,13 +777,20 @@ public static function obtenerReportesDictamenParaDescarga($fechaInicio, $fechaF
                     $parcialidadCalculada = $numeroSemana - 3; // Offset mágico (no confiable, solo fallback)
                 }
 
+                $montoValor = (float)$row['monto_valor'];
+                $parcialMonto = (float)($row['condonacion_parcial_monto'] ?? 0);
+                $montoEfectivo = round($montoValor - $parcialMonto, 2);
+
                 return [
                     'id_gasto' => (int)$row['id_gastos_cobranza'],
                     'semana'   => $row['SEMANA'],
                     'periodo' => date('d/m/Y', strtotime($row['periodo_inicio'])) .
                         ' - ' .
                         date('d/m/Y', strtotime($row['periodo_fin'])),
-                    'monto'   => (float)$row['monto_valor'],
+                    'monto'    => $montoEfectivo,
+                    'monto_original' => $montoValor,
+                    'condonacion_parcial_monto' => $parcialMonto,
+                    'condonacion_parcial_motivo' => $row['condonacion_parcial_motivo'] ?? '',
                     'cuota'   => (float)$row['cuota'],
                     // Si ambos cálculos fallan, usar el campo de BD como último recurso
                     'parcialidad' => $parcialidadCalculada ?? ($row['parcialidad'] ?? null)
@@ -874,4 +916,111 @@ public static function obtenerReportesDictamenParaDescarga($fechaInicio, $fechaF
         }
     }
 
+    /**
+     * Valida que el motivo de condonación parcial tenga al menos 100 caracteres y no sea texto sin sentido
+     * (evita rellenado con repeticiones, tecleo aleatorio, etc.).
+     *
+     * @param string $motivo
+     * @return array [ true ] o [ false, 'mensaje_error' ]
+     */
+    public static function validarMotivoCondonacionParcial($motivo)
+    {
+        $motivo = trim((string) $motivo);
+        if (strlen($motivo) < 100) {
+            return [false, 'El motivo debe tener al menos 100 caracteres.'];
+        }
+        // Evitar mismo carácter repetido (ej. xxx, aaaa)
+        if (preg_match('/(.)\1{2,}/u', $motivo)) {
+            return [false, 'El motivo no puede contener la misma letra o carácter repetido muchas veces.'];
+        }
+        // Proporción de caracteres únicos: si es muy baja, es probablemente relleno (ej. xxxxx, aaaaa)
+        // En español normal se repiten muchas letras (e, a, o, r), por eso usamos umbral bajo (0.15)
+        $len = mb_strlen($motivo);
+        $unicos = count(array_unique(preg_split('//u', $motivo, -1, PREG_SPLIT_NO_EMPTY)));
+        if ($len > 0 && ($unicos / $len) < 0.15) {
+            return [false, 'El motivo debe describir con claridad la promoción o razón de la condonación (evita rellenar con caracteres repetidos).'];
+        }
+        // Mínimo de palabras (promoción a detalle)
+        $palabras = preg_split('/\s+/u', $motivo, -1, PREG_SPLIT_NO_EMPTY);
+        if (count($palabras) < 8) {
+            return [false, 'El motivo debe incluir al menos 8 palabras describiendo la promoción o razón de la condonación.'];
+        }
+        // Rechazar patrones típicos de teclado (qwerty, asdf, 1234, etc.)
+        $patrones = ['/qwerty/ui', '/asdfgh/ui', '/zxcvbn/ui', '/12345678/ui', '/abcdefgh/ui'];
+        foreach ($patrones as $pat) {
+            if (preg_match($pat, $motivo)) {
+                return [false, 'El motivo debe describir la promoción o razón real de la condonación, no secuencias de teclado.'];
+            }
+        }
+        // Palabras coherentes: en español toda palabra tiene al menos una vocal. Rechazar si hay palabras largas sin vocales (ej. asjbasjfb)
+        $vocales = 'aáeéiíoóuúAÁEÉIÍOÓUÚ';
+        $palabrasLargasSinVocal = 0;
+        foreach ($palabras as $p) {
+            $pLen = mb_strlen($p);
+            if ($pLen >= 4) {
+                $tieneVocal = (bool) preg_match('/[' . $vocales . ']/u', $p);
+                if (!$tieneVocal) {
+                    $palabrasLargasSinVocal++;
+                }
+            }
+        }
+        if ($palabrasLargasSinVocal >= 2) {
+            return [false, 'El motivo debe usar palabras con sentido (evita cadenas sin vocales como "asjbasjfb"). Describe la promoción o razón de la condonación.'];
+        }
+        // Proporción de vocales en el texto: en español suele ser ~45%. Si es muy baja, huele a tecleo aleatorio
+        $numVocales = preg_match_all('/[' . $vocales . ']/u', $motivo);
+        if ($len > 0 && ($numVocales / $len) < 0.20) {
+            return [false, 'El motivo debe describir la promoción o razón con palabras comprensibles (evita cadenas sin sentido).'];
+        }
+        return [true];
+    }
+
+    /**
+     * Guarda la condonación parcial de un gasto de cobranza (monto condonado parcialmente + motivo).
+     *
+     * @param int    $id_gastos_cobranza
+     * @param float  $monto_parcial
+     * @param string $motivo
+     * @return array resultado()
+     */
+    public static function updateCondonacionParcialGasto($id_gastos_cobranza, $monto_parcial, $motivo)
+    {
+        $validacion = self::validarMotivoCondonacionParcial($motivo);
+        if (!$validacion[0]) {
+            return self::resultado(false, $validacion[1]);
+        }
+        $monto_parcial = round((float) $monto_parcial, 2);
+        if ($monto_parcial <= 0) {
+            return self::resultado(false, 'El monto a condonar parcialmente debe ser mayor a cero.');
+        }
+        $id_gastos_cobranza = (int) $id_gastos_cobranza;
+        if ($id_gastos_cobranza <= 0) {
+            return self::resultado(false, 'ID de gasto inválido.');
+        }
+        try {
+            $db = new DatabaseSegundometro();
+            $row = $db->queryOne(
+                "SELECT monto_valor FROM `__SPARTA_SECRET_REDACTED__`.gastos_cobranza WHERE id_gastos_cobranza = :id",
+                ['id' => $id_gastos_cobranza]
+            );
+            if (!$row) {
+                return self::resultado(false, 'No se encontró el gasto de cobranza.');
+            }
+            $montoMax = (float) $row['monto_valor'];
+            if ($monto_parcial >= $montoMax) {
+                return self::resultado(false, 'El monto parcial no puede ser mayor o igual al monto total del gasto. Para condonación total usa el botón Condonar.');
+            }
+            $db->CRUD(
+                "UPDATE `__SPARTA_SECRET_REDACTED__`.gastos_cobranza SET condonacion_parcial_monto = :monto, condonacion_parcial_motivo = :motivo WHERE id_gastos_cobranza = :id",
+                [
+                    'monto'  => $monto_parcial,
+                    'motivo' => $motivo,
+                    'id'     => $id_gastos_cobranza
+                ]
+            );
+            return self::resultado(true, 'Condonación parcial guardada correctamente.');
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al guardar la condonación parcial', null, $e->getMessage());
+        }
+    }
 }
