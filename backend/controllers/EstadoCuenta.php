@@ -374,6 +374,7 @@ JS;
                     "fechaRegistro"       => $p["fechaDeposito"] ?? ($p["fechaRegistro"] ?? null),
                     "montoPagoOriginal"   => $montoPago,
                     "extemporaneos"       => $extemporaneos,
+                    "_extOrig"            => $extemporaneos,
                     "_extemporaneo_aplicado" => false
                 ];
             }
@@ -673,7 +674,7 @@ JS;
                     $pool = [];
                     foreach ($plById as $idP => $pl) {
                         if (isset($idPagosCC[$idP])) continue;
-                        $remaining = round((float)($pl['montoPagoOriginal'] ?? 0) - (float)($pl['extemporaneos'] ?? 0), 2);
+                        $remaining = round((float)($pl['montoPagoOriginal'] ?? 0) - (float)($pl['_extOrig'] ?? $pl['extemporaneos'] ?? 0), 2);
                         $usedBefore = round($aplicadoAnterior[$idP] ?? 0, 2);
                         $available = round($remaining - $usedBefore, 2);
                         if ($available <= 0.009) continue;
@@ -685,7 +686,7 @@ JS;
                                 break;
                             }
                         }
-                        if (!$hasAffectedCuota) continue;
+                        if (!$hasAffectedCuota && $usedBefore <= 0.009) continue;
 
                         $pool[] = [
                             'idPago'    => $idP,
