@@ -21,6 +21,15 @@
  *   4. Nombre: "Cronjob Morosidad"
  *   5. Click en "Guardar" y copia la URL generada
  *   6. Pégala en config.ini (NUNCA en el código fuente)
+ * 
+ * EJECUCIÓN EN MODO DE PRUEBAS (DRY-RUN):
+ * 
+ * C:\xampp\php\php.exe insertar_moras_martes.php
+ * 
+ * 
+ * EJECUCIÓN FORZADA (FORCE):
+ * 
+ * 
  */
 
 // ============================================
