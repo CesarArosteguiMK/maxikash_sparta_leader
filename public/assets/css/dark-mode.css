@@ -2849,26 +2849,81 @@ body.dark-mode #modalDirecciones .modal-title {
     color: #ffffff !important;
 }
 
-/* Modales de condonar y dictaminar */
+/* Modales de condonar y dictaminar — Liquid glass en dark mode */
 body.dark-mode #modalCondonar .modal-content,
+body.dark-mode #modalCondonarParcial .modal-content,
 body.dark-mode #modalDictamen .modal-content,
 body.dark-mode #modalNotas .modal-content {
-    background-color: #252525 !important;
+    background: rgba(30, 30, 35, 0.88) !important;
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
     color: #e0e0e0 !important;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
 }
 
 body.dark-mode #modalCondonar .modal-header,
+body.dark-mode #modalCondonarParcial .modal-header,
 body.dark-mode #modalDictamen .modal-header,
 body.dark-mode #modalNotas .modal-header {
-    background-color: #303030 !important;
-    border-bottom-color: #3a3a3a !important;
+    background: rgba(40, 40, 48, 0.7) !important;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-bottom-color: rgba(255, 255, 255, 0.08) !important;
+    border-radius: 12px 12px 0 0;
 }
 
 body.dark-mode #modalCondonar .modal-footer,
+body.dark-mode #modalCondonarParcial .modal-footer,
 body.dark-mode #modalDictamen .modal-footer,
 body.dark-mode #modalNotas .modal-footer {
-    background-color: #303030 !important;
-    border-top-color: #3a3a3a !important;
+    background: rgba(40, 40, 48, 0.7) !important;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-top-color: rgba(255, 255, 255, 0.08) !important;
+    border-radius: 0 0 12px 12px;
+}
+
+body.dark-mode #modalCondonar .modal-body,
+body.dark-mode #modalCondonarParcial .modal-body {
+    background: rgba(28, 28, 34, 0.6) !important;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+}
+
+/* Scrim borroso: al abrir modal Condonar (dark) — por encima del layout, bloquea clics */
+body.dark-mode.modal-condonar-open .modal-backdrop.show {
+    z-index: 1089 !important;
+    opacity: 0.55 !important;
+    background: rgba(0, 0, 0, 0.5) !important;
+    pointer-events: auto !important;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+}
+
+/* Scrim propio estado cuenta (Condonar / Condonación parcial) en dark */
+body.dark-mode .scrim-condonar-estado-cuenta {
+    background: rgba(0, 0, 0, 0.55) !important;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+}
+
+body.dark-mode.modal-condonar-open #modalCondonar.modal.show {
+    z-index: 1095 !important;
+}
+
+/* Scrim más opaco cuando hay modal encima (Condonación parcial) — segundo backdrop detrás del modal parcial */
+body.dark-mode.modal-condonar-parcial-open .modal-backdrop.show:last-of-type {
+    z-index: 1090 !important;
+    opacity: 0.8 !important;
+    background: rgba(0, 0, 0, 0.65) !important;
+    pointer-events: auto !important;
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+}
+
+body.dark-mode.modal-condonar-parcial-open #modalCondonarParcial.modal.show {
+    z-index: 1100 !important;
 }
 
 /* Reference cards dentro del modal RFC */
@@ -3585,9 +3640,9 @@ body:not(.dark-mode) .timeline-item::before {
    SABUESO PANEL ADMIN - MODAL RASTREO
    ========================================== */
 
-/* En modo oscuro: backdrop no intercepta clics, menos opaco (quitar sensación de neblina) */
-body.dark-mode .modal-backdrop,
-body.dark-mode .modal-backdrop.show {
+/* En modo oscuro: backdrop no intercepta clics, menos opaco (quitar sensación de neblina) — no aplicar en estado cuenta (Condonar/Parcial) */
+body.dark-mode:not(.modal-condonar-open):not(.modal-condonar-parcial-open) .modal-backdrop,
+body.dark-mode:not(.modal-condonar-open):not(.modal-condonar-parcial-open) .modal-backdrop.show {
     z-index: 1000 !important;
     pointer-events: none !important;
     opacity: 0.25 !important;
