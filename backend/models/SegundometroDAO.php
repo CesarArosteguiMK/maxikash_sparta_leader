@@ -23,7 +23,19 @@ class SegundometroDAO extends Model
     // /config/ssh/jesusssh4.unknown = Entra a config/ssh 
 
     private static $DIRECTORIO_REMOTO = '/home/usuariossftp/s2/mega_reporte';
-    
+
+    /** Último error al listar archivos (SSH o vacío), para mostrar en la UI */
+    private static $lastListError = '';
+
+    /**
+     * Devuelve el último error de obtenerArchivos() (SSH fallido, etc.) para mostrarlo en la interfaz.
+     * @return string
+     */
+    public static function getLastListError()
+    {
+        return self::$lastListError;
+    }
+
     /**
      * Ruta de la clave SSH (cacheada). Con Plink usa .ppk; con OpenSSH usa PEM/.unknown.
      * @param bool|null $forPlink true = clave .ppk (Plink), false = clave PEM (OpenSSH), null = decidir por config (retrocompat)
@@ -39,42 +51,52 @@ class SegundometroDAO extends Model
             if ($cachedPlink !== null) {
                 return $cachedPlink;
             }
-            // Plink exige clave .ppk (PuTTY), no OpenSSH PEM
-            $path = trim($config['ssh']['ssh_key_plink'] ?? '');
-            if ($path !== '' && @is_file($path)) {
-                $cachedPlink = $path;
-                return $cachedPlink;
-            }
+            // Plink exige clave .ppk. Orden: config, luego backend/config/ssh/jesusssh4.ppk. Usar la primera que EXISTA (intentar aunque is_readable falle).
             $ppkProyecto = __DIR__ . '/../config/ssh/jesusssh4.ppk';
-            if (@is_file($ppkProyecto)) {
-                $cachedPlink = $ppkProyecto;
-                return $cachedPlink;
+            $candidatosPpk = array_filter([
+                trim($config['ssh']['ssh_key_plink'] ?? ''),
+                $ppkProyecto,
+            ]);
+            foreach ($candidatosPpk as $p) {
+                if ($p !== '' && @is_file($p)) {
+                    $cachedPlink = $p;
+                    return $p;
+                }
             }
+            $path = trim($config['ssh']['ssh_key_plink'] ?? '');
             $cachedPlink = $path !== '' ? $path : $ppkProyecto;
             return $cachedPlink;
         }
 
-        if ($cachedOpenSSH !== null) {
+        // No usar nunca clave en Downloads; invalidar caché si estaba guardada ahí.
+        if ($cachedOpenSSH !== null && stripos($cachedOpenSSH, 'Downloads') === false) {
             return $cachedOpenSSH;
         }
-        if (@is_file(self::$SSH_KEY)) {
-            $cachedOpenSSH = self::$SSH_KEY;
-            return $cachedOpenSSH;
+        if ($cachedOpenSSH !== null) {
+            $cachedOpenSSH = null;
         }
         $path = trim($config['ssh']['ssh_key'] ?? '');
-        if ($path !== '' && @is_file($path)) {
-            $cachedOpenSSH = $path;
-            return $cachedOpenSSH;
+        // Solo clave en backend/config/ssh (nunca usar rutas en Downloads).
+        if ($path !== '' && stripos($path, 'Downloads') !== false) {
+            $path = '';
+        }
+        $candidatos = array_filter([$path !== '' ? $path : null, self::$SSH_KEY]);
+        foreach ($candidatos as $p) {
+            if ($p === null || $p === '') {
+                continue;
+            }
+            if (@is_file($p) && @is_readable($p)) {
+                $cachedOpenSSH = $p;
+                return $p;
+            }
         }
         $cachedOpenSSH = self::$SSH_KEY;
         return $cachedOpenSSH;
     }
     
     /**
-     * Detecta la ruta del ejecutable SSH (cacheada).
-     * 1) Si en config.ini existe [ssh] ssh_command (ruta absoluta), se usa esa.
-     * 2) Si no, se intenta detectar: en Windows "where ssh", en Linux "which ssh".
-     * En el servidor, si "ssh" no está en PATH, añada en config.ini la ruta.
+     * Detecta la ruta del ejecutable SSH/Plink (cacheada).
+     * Con ssh_use_plink=1 devuelve SIEMPRE plink. Sin fallback a OpenSSH.
      */
     private static function getSSHCommand()
     {
@@ -83,36 +105,46 @@ class SegundometroDAO extends Model
             return $cached === '' ? null : $cached;
         }
         $configFile = __DIR__ . '/../config/config.ini';
-        if (is_file($configFile)) {
-            $config = @parse_ini_file($configFile, true);
-            if (is_array($config)) {
-                $usePlink = !empty($config['ssh']['ssh_use_plink']);
-                if ($usePlink) {
-                    $path = trim($config['ssh']['ssh_command_plink'] ?? $config['ssh']['ssh_command'] ?? '');
-                } else {
-                    $path = trim($config['ssh']['ssh_command'] ?? '');
-                }
-                if ($path !== '' && @is_file($path)) {
-                    $cached = $path;
-                    return $path;
-                }
+        $config = is_file($configFile) ? @parse_ini_file($configFile, true) : false;
+        $config = is_array($config) ? $config : [];
+
+        // --- Plink (PuTTY) ---
+        if (!empty($config['ssh']['ssh_use_plink'])) {
+            $path = trim($config['ssh']['ssh_command_plink'] ?? '');
+            if ($path !== '') {
+                $cached = $path;
+                return $path;
             }
+            // Intentar plink.exe en el mismo directorio que XAMPP
+            $default = 'C:\\xampp\\plink.exe';
+            if (@is_file($default)) {
+                $cached = $default;
+                return $default;
+            }
+            $cached = '';
+            return null;
+        }
+
+        // --- OpenSSH (solo si ssh_use_plink NO está activo) ---
+        $path = trim($config['ssh']['ssh_command'] ?? '');
+        if ($path !== '' && @is_file($path)) {
+            $cached = $path;
+            return $path;
         }
         $isWindows = strtoupper(substr(PHP_OS, 0, 3)) === 'WIN';
-        $candidates = $isWindows 
-            ? ['where.exe ssh', 'C:\Windows\System32\OpenSSH\ssh.exe']
+        $candidates = $isWindows
+            ? ['where.exe ssh', 'C:\\Windows\\System32\\OpenSSH\\ssh.exe']
             : ['which ssh', '/usr/bin/ssh', '/bin/ssh'];
-        
         foreach ($candidates as $cmd) {
             if (strpos($cmd, ' ') !== false) {
                 $out = @shell_exec($cmd . ' 2>&1');
-                $path = $out ? trim(explode("\n", $out)[0]) : '';
+                $p = $out ? trim(explode("\n", $out)[0]) : '';
             } else {
-                $path = $cmd;
+                $p = $cmd;
             }
-            if ($path !== '' && @is_file($path)) {
-                $cached = $path;
-                return $path;
+            if ($p !== '' && @is_file($p)) {
+                $cached = $p;
+                return $p;
             }
         }
         if (!$isWindows) {
@@ -130,12 +162,10 @@ class SegundometroDAO extends Model
     {
         return (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') ? 'NUL' : '/dev/null';
     }
-    
+
     /**
-     * Ejecutar comando SSH remoto
-     * 
-     * @param string $comando Comando a ejecutar en el servidor remoto
-     * @return array ['success' => bool, 'output' => string, 'error' => string]
+     * Ejecutar comando SSH remoto.
+     * Con ssh_use_plink=1: usa SOLO Plink + .ppk. Sin fallback a OpenSSH.
      */
     private static function ejecutarSSH($comando)
     {
@@ -144,32 +174,35 @@ class SegundometroDAO extends Model
             return [
                 'success' => false,
                 'output' => '',
-                'error' => 'SSH no encontrado. Configure [ssh] ssh_command en backend/config/config.ini con la ruta al ejecutable.',
+                'error' => 'SSH/Plink no encontrado. Configure [ssh] en backend/config/config.ini.',
                 'return_code' => 127
             ];
         }
 
-        // Modo por ejecutable real: si la ruta contiene "plink" → Plink (opciones + clave .ppk); si no → OpenSSH
         $isPlink = (stripos($sshCommand, 'plink') !== false);
-        $sshKeyEscaped = escapeshellarg(self::getSSHKey($isPlink));
+        $configFile = __DIR__ . '/../config/config.ini';
+        $keyFinal = self::getSSHKey($isPlink ? true : false);
         $comandoEscapado = escapeshellarg($comando);
-        
-        $configFile = __DIR__ . DIRECTORY_SEPARATOR . '..' . DIRECTORY_SEPARATOR . 'config' . DIRECTORY_SEPARATOR . 'config.ini';
-        
+
+        // Log
+        $logFile = __DIR__ . '/../storage/logs/ssh_debug.log';
+        $logLines = ["\n=== " . date('Y-m-d H:i:s') . " ==="];
+        $logLines[] = "Modo: " . ($isPlink ? "Plink (PuTTY)" : "OpenSSH");
+        $logLines[] = "Ejecutable: " . $sshCommand;
+        $logLines[] = "Clave: " . $keyFinal;
+        $logLines[] = "Existe clave: " . (@is_file($keyFinal) ? 'SI' : 'NO');
+
         if ($isPlink) {
-            // Plink en -batch exige host key cacheada; -hostkey <fingerprint> evita "Cannot confirm a host key in batch mode"
             $hostkey = '';
-            if (is_file($configFile)) {
-                $cfg = @parse_ini_file($configFile, true);
-                $hk = trim($cfg['ssh']['ssh_hostkey'] ?? '');
-                if ($hk !== '') {
-                    $hostkey = ' -hostkey ' . escapeshellarg($hk);
-                }
+            $cfg = (is_file($configFile) && is_array($c = @parse_ini_file($configFile, true))) ? $c : [];
+            $hk = trim($cfg['ssh']['ssh_hostkey'] ?? '');
+            if ($hk !== '') {
+                $hostkey = ' -hostkey ' . escapeshellarg($hk);
             }
             $sshComando = sprintf(
                 '%s -i %s%s -batch %s@%s %s 2>&1',
                 escapeshellarg($sshCommand),
-                $sshKeyEscaped,
+                escapeshellarg($keyFinal),
                 $hostkey,
                 self::$SSH_USER,
                 self::$SSH_HOST,
@@ -180,36 +213,29 @@ class SegundometroDAO extends Model
             $sshComando = sprintf(
                 '%s -i %s -o StrictHostKeyChecking=no -o UserKnownHostsFile=%s -o ConnectTimeout=10 -o BatchMode=yes -o ServerAliveInterval=5 %s@%s %s 2>&1',
                 escapeshellarg($sshCommand),
-                $sshKeyEscaped,
+                escapeshellarg($keyFinal),
                 $knownHosts,
                 self::$SSH_USER,
                 self::$SSH_HOST,
                 $comandoEscapado
             );
         }
-        
-        // DEBUG temporal: logging del comando real y resultado
-        $logFile = __DIR__ . DIRECTORY_SEPARATOR . '..' . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'logs' . DIRECTORY_SEPARATOR . 'ssh_debug.log';
-        @file_put_contents($logFile, "\n=== " . date('Y-m-d H:i:s') . " ===\n", FILE_APPEND);
-        @file_put_contents($logFile, "Comando: $sshComando\n", FILE_APPEND);
-        
-        // exec() devuelve código de salida real: 0 = éxito (sudo cp, sudo rm no imprimen nada y antes se consideraban error)
+
+        $logLines[] = "Comando: " . $sshComando;
+        @file_put_contents($logFile, implode("\n", $logLines) . "\n", FILE_APPEND);
+
         $outputLines = [];
         $returnVar = -1;
         exec($sshComando, $outputLines, $returnVar);
         $outputStr = trim(implode("\n", $outputLines));
-        
-        @file_put_contents($logFile, "Output: " . ($outputStr !== '' ? $outputStr : 'NULL') . "\n", FILE_APPEND);
-        @file_put_contents($logFile, "Return code: $returnVar\n", FILE_APPEND);
-        
-        // Éxito = código 0. Si falla, error = salida del comando (o mensaje genérico si vacío)
+
+        @file_put_contents($logFile, "Output: " . ($outputStr !== '' ? $outputStr : 'NULL') . "\nReturn code: $returnVar\n", FILE_APPEND);
+
         $success = ($returnVar === 0);
-        $errorStr = $success ? '' : ($outputStr !== '' ? $outputStr : 'Comando remoto falló (código ' . $returnVar . ')');
-        
         return [
             'success' => $success,
             'output' => $outputStr,
-            'error' => $errorStr,
+            'error' => $success ? '' : ($outputStr !== '' ? $outputStr : 'Comando remoto falló (código ' . $returnVar . ')'),
             'return_code' => $returnVar
         ];
     }
@@ -223,21 +249,24 @@ class SegundometroDAO extends Model
     public static function obtenerArchivos()
     {
         $archivos = [];
-        
+        self::$lastListError = '';
+
         try {
-            // Solo hoy y ayer (2 días: el que vivimos + el anterior)
+            // Solo hoy y ayer (formato nombre: mega_rpt_YYYYMMDD_HH_MM_SS.csv.zip)
             $fechaLimite = date('Ymd', strtotime('-1 day'));
-            
+
             // ls -l para obtener owner (col 3), size (col 5), filename (col 9)
             $comandoListar = sprintf(
                 "cd %s && ls -l mega_rpt_*.csv.zip 2>/dev/null",
                 escapeshellarg(self::$DIRECTORIO_REMOTO)
             );
-            
+
             $resultado = self::ejecutarSSH($comandoListar);
-            
+
             if (!$resultado['success']) {
-                error_log("Error SSH al listar archivos: " . $resultado['error']);
+                $err = $resultado['error'] ?? 'Error desconocido al conectar por SSH';
+                self::$lastListError = $err;
+                error_log("Error SSH al listar archivos: " . $err);
                 return [];
             }
             
@@ -254,11 +283,10 @@ class SegundometroDAO extends Model
                 $owner = $partes[2];
                 $sizeBytes = (int) $partes[4];
                 $nombreArchivo = basename($partes[8]);
-                
+                // Formato real del megareporte: mega_rpt_YYYYMMDD_HH_MM_SS.csv.zip
                 if (!preg_match('/mega_rpt_(\d{8})_(\d{2})_(\d{2})_(\d{2})\.csv\.zip/', $nombreArchivo, $matches)) {
                     continue;
                 }
-                
                 $fechaArchivo = $matches[1];
                 $hora = $matches[2];
                 $minuto = $matches[3];
@@ -320,12 +348,11 @@ class SegundometroDAO extends Model
      */
     public static function copiarConSegundoAdelantado($nombreArchivo)
     {
-        // Validar formato del nombre de archivo
+        // Formato real: mega_rpt_YYYYMMDD_HH_MM_SS.csv.zip
         if (!preg_match('/mega_rpt_(\d{8})_(\d{2})_(\d{2})_(\d{2})\.csv\.zip/', $nombreArchivo, $matches)) {
             throw new \Exception('Formato de archivo inválido');
         }
-        
-        $fecha = $matches[1]; // YYYYMMDD
+        $fecha = $matches[1];
         $hora = (int)$matches[2];
         $minuto = (int)$matches[3];
         $segundo = (int)$matches[4];
@@ -471,7 +498,7 @@ class SegundometroDAO extends Model
         if (!preg_match('/^mega_rpt_\d{8}_\d{2}_\d{2}_\d{2}\.csv\.zip$/', $nombreArchivo)) {
             throw new \Exception('Formato de archivo inválido');
         }
-        
+
         $rutaRemota = self::$DIRECTORIO_REMOTO . '/' . $nombreArchivo;
         $tempDir = rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR);
         $nombreLocal = 'segundometro_' . uniqid() . '_' . $nombreArchivo;
@@ -803,7 +830,7 @@ class SegundometroDAO extends Model
         if (!preg_match('/^mega_rpt_\d{8}_\d{2}_\d{2}_\d{2}\.csv\.zip$/', $nombreArchivo)) {
             throw new \Exception('Formato de archivo inválido');
         }
-        
+
         // Listar SOLO este archivo (nombre entre comillas para no expandir glob)
         $comandoLs = sprintf(
             "cd %s && ls -l %s 2>/dev/null",

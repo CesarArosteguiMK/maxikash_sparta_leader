@@ -7,7 +7,7 @@ Las claves de API (Gemini, OpenAI, Google Maps, etc.) se guardan en la tabla `co
 Ejecutar una vez en la BD `__SPARTA_SECRET_REDACTED__`:
 
 ```sql
--- backend/sql/config_api_plain.sql
+-- Crear tabla config_api (ejecutar una vez en __SPARTA_SECRET_REDACTED__)
 CREATE TABLE IF NOT EXISTS config_api (
   clave VARCHAR(64) NOT NULL PRIMARY KEY,
   valor TEXT NOT NULL DEFAULT '',
