@@ -497,6 +497,344 @@ JS;
                 ];
             }
 
+            // Notas de cargo por fecha: solo desde datosNotasCargos, EXCLUYENDO gasto cobranza/extemporáneos (esos vienen en datosPagos y se muestran aparte)
+            $notasCargoPorFecha = [];
+            $hayNotasCargos = false;
+            $listaNotasCargos = $estadoCuenta['datosNotasCargos'] ?? [];
+            if (is_array($listaNotasCargos) && count($listaNotasCargos) > 0) {
+                foreach ($listaNotasCargos as $nota) {
+                    $concepto = (string) ($nota['concepto'] ?? '');
+                    $conceptoUpper = mb_strtoupper($concepto);
+                    // No sumar gasto cobranza ni extemporáneos: ya se muestran como "Gasto cobranza" desde datosPagos
+                    if (strpos($conceptoUpper, 'GASTO') !== false && strpos($conceptoUpper, 'COBRANZA') !== false) {
+                        continue;
+                    }
+                    if (strpos($conceptoUpper, 'EXTEMPORANEO') !== false || strpos($conceptoUpper, 'EXTEMPORÁNEO') !== false) {
+                        continue;
+                    }
+                    $fechaNota = $nota['fechaMovimiento'] ?? $nota['fechaVencimiento'] ?? null;
+                    if ($fechaNota !== null && $fechaNota !== '') {
+                        $fechaNorm = date('Y-m-d', strtotime($fechaNota));
+                        if (!isset($notasCargoPorFecha[$fechaNorm])) {
+                            $notasCargoPorFecha[$fechaNorm] = 0.0;
+                        }
+                        $notasCargoPorFecha[$fechaNorm] += $this->safe_float($nota['monto'] ?? 0, 0);
+                    }
+                }
+                foreach (array_keys($notasCargoPorFecha) as $k) {
+                    $notasCargoPorFecha[$k] = round($notasCargoPorFecha[$k], 2);
+                }
+                // Solo hay "notas de cargo" si quedó algo después de excluir gasto cobranza
+                $hayNotasCargos = array_sum($notasCargoPorFecha) > 0;
+            }
+            // Post-process contracargos: reconstruir flujo de pagos.
+            // Las notas de cargo vienen desglosadas (capital, interés, comisión, resguardo)
+            // pero representan UN contracargo por fecha. Se usa notasCargoPorFecha (sumado)
+            // para emparejar cada fecha con el pago revertido, y se redistribuye el dinero
+            // legítimo desde la cuota más antigua con déficit.
+            if ($hayNotasCargos && !empty($tabla)) {
+                // Mapeo cuota_num → índice en $tabla
+                $cuotaNumToIdx = [];
+                for ($ci = 0; $ci < count($tabla); $ci++) {
+                    $cuotaNumToIdx[$tabla[$ci]['cuota']] = $ci;
+                }
+
+                // Lookup rápido de pagos_list por idPago
+                $plById = [];
+                foreach ($pagos_list as $pl) {
+                    $idP = $pl['idPago'] ?? null;
+                    if ($idP) $plById[$idP] = $pl;
+                }
+
+                // ── PASO 1: Recopilar TODOS los pagos (aplicados + invisibles de la API) ──
+                $todosLosPagos = [];
+                for ($ci = 0; $ci < count($tabla); $ci++) {
+                    foreach ($tabla[$ci]['aplicados'] as $ap) {
+                        $idP = $ap['idPago'] ?? null;
+                        if (!$idP) continue;
+                        $fp = $ap['fechaRegistro'] ?? null;
+                        if (!$fp) continue;
+                        if (!isset($todosLosPagos[$idP])) {
+                            $todosLosPagos[$idP] = [
+                                'fecha'      => date('Y-m-d', strtotime($fp)),
+                                'cuotaIdx'   => $ci,
+                                'montoTotal' => 0,
+                            ];
+                        }
+                        $todosLosPagos[$idP]['montoTotal'] += (float)($ap['aplicado'] ?? 0);
+                    }
+                }
+
+                // Pagos invisibles: existentes en la API pero nunca aplicados a ninguna cuota
+                foreach ($plById as $idP => $pl) {
+                    if (isset($todosLosPagos[$idP])) continue;
+                    $fp = $pl['fechaRegistro'] ?? null;
+                    if (!$fp) continue;
+                    $firstIdx = null;
+                    foreach ($pl['cuotas'] ?? [] as $cn) {
+                        if (isset($cuotaNumToIdx[$cn])) {
+                            $idx = $cuotaNumToIdx[$cn];
+                            if ($firstIdx === null || $idx < $firstIdx) $firstIdx = $idx;
+                        }
+                    }
+                    if ($firstIdx === null) continue;
+                    $todosLosPagos[$idP] = [
+                        'fecha'      => date('Y-m-d', strtotime($fp)),
+                        'cuotaIdx'   => $firstIdx,
+                        'montoTotal' => round((float)($pl['remaining'] ?? 0), 2),
+                        'invisible'  => true,
+                    ];
+                }
+
+                $pagosParaMatch = [];
+                foreach ($todosLosPagos as $idP => $info) {
+                    $pagosParaMatch[] = [
+                        'idPago'     => $idP,
+                        'fecha'      => $info['fecha'],
+                        'cuotaIdx'   => $info['cuotaIdx'],
+                        'montoTotal' => round($info['montoTotal'], 2),
+                    ];
+                }
+                usort($pagosParaMatch, function ($a, $b) {
+                    return strtotime($b['fecha']) <=> strtotime($a['fecha']);
+                });
+
+                // ── PASO 2-3: Emparejar cada FECHA de contracargo (sumada) con un pago ──
+                $idPagosCC = [];
+                $ccMarkers = [];
+
+                $ccFechasOrdenadas = [];
+                foreach ($notasCargoPorFecha as $fn => $monto) {
+                    if ($monto > 0) $ccFechasOrdenadas[$fn] = round($monto, 2);
+                }
+                ksort($ccFechasOrdenadas);
+
+                foreach ($ccFechasOrdenadas as $ccFn => $ccMonto) {
+                    $matched = false;
+
+                    // Prioridad 1a: misma fecha + monto similar (±$5)
+                    foreach ($pagosParaMatch as $pg) {
+                        if (isset($idPagosCC[$pg['idPago']])) continue;
+                        if ($pg['fecha'] !== $ccFn) continue;
+                        if (abs($pg['montoTotal'] - $ccMonto) > 5) continue;
+                        $idPagosCC[$pg['idPago']] = true;
+                        $ccMarkers[] = ['cuotaIdx' => $pg['cuotaIdx'], 'monto' => $ccMonto, 'fecha' => $ccFn, 'idPago' => $pg['idPago']];
+                        $matched = true;
+                        break;
+                    }
+                    if ($matched) continue;
+
+                    // Prioridad 1b: misma fecha, cualquier monto
+                    foreach ($pagosParaMatch as $pg) {
+                        if (isset($idPagosCC[$pg['idPago']])) continue;
+                        if ($pg['fecha'] !== $ccFn) continue;
+                        $idPagosCC[$pg['idPago']] = true;
+                        $ccMarkers[] = ['cuotaIdx' => $pg['cuotaIdx'], 'monto' => $ccMonto, 'fecha' => $ccFn, 'idPago' => $pg['idPago']];
+                        $matched = true;
+                        break;
+                    }
+                    if ($matched) continue;
+
+                    // Prioridad 2: spillover — pago anterior con monto similar (±$5)
+                    foreach ($pagosParaMatch as $pg) {
+                        if (isset($idPagosCC[$pg['idPago']])) continue;
+                        if ($pg['fecha'] >= $ccFn) continue;
+                        if (abs($pg['montoTotal'] - $ccMonto) > 5) continue;
+                        $idPagosCC[$pg['idPago']] = true;
+                        $ccMarkers[] = ['cuotaIdx' => $pg['cuotaIdx'], 'monto' => $ccMonto, 'fecha' => $ccFn, 'idPago' => $pg['idPago']];
+                        break;
+                    }
+                }
+
+                if (!empty($idPagosCC)) {
+                    // ── PASO 4: Primera cuota afectada ──
+                    $primeraCuota = PHP_INT_MAX;
+                    foreach ($ccMarkers as $mk) {
+                        $primeraCuota = min($primeraCuota, $mk['cuotaIdx']);
+                    }
+
+                    // Montos aplicados ANTES de la zona afectada (se descuentan del pool)
+                    $aplicadoAnterior = [];
+                    for ($ci = 0; $ci < $primeraCuota; $ci++) {
+                        foreach ($tabla[$ci]['aplicados'] as $ap) {
+                            $idP = $ap['idPago'] ?? null;
+                            if ($idP) {
+                                $aplicadoAnterior[$idP] = ($aplicadoAnterior[$idP] ?? 0) + (float)($ap['aplicado'] ?? 0);
+                            }
+                        }
+                    }
+
+                    // ── PASO 5: Limpiar todas las entradas de cuotas afectadas ──
+                    for ($ci = $primeraCuota; $ci < count($tabla); $ci++) {
+                        $tabla[$ci]['aplicados'] = [];
+                    }
+
+                    // ── PASO 5b: Pool desde pagos_list (remaining − aplicadoAnterior) ──
+                    $pool = [];
+                    foreach ($plById as $idP => $pl) {
+                        if (isset($idPagosCC[$idP])) continue;
+                        $remaining = round((float)($pl['montoPagoOriginal'] ?? 0) - (float)($pl['extemporaneos'] ?? 0), 2);
+                        $usedBefore = round($aplicadoAnterior[$idP] ?? 0, 2);
+                        $available = round($remaining - $usedBefore, 2);
+                        if ($available <= 0.009) continue;
+
+                        $hasAffectedCuota = false;
+                        foreach ($pl['cuotas'] ?? [] as $cn) {
+                            if (isset($cuotaNumToIdx[$cn]) && $cuotaNumToIdx[$cn] >= $primeraCuota) {
+                                $hasAffectedCuota = true;
+                                break;
+                            }
+                        }
+                        if (!$hasAffectedCuota) continue;
+
+                        $pool[] = [
+                            'idPago'    => $idP,
+                            'total'     => $available,
+                            'fechaRegistro' => $pl['fechaRegistro'],
+                            'esSobranteDesdeAntes' => $usedBefore > 0,
+                        ];
+                    }
+                    usort($pool, function ($a, $b) {
+                        return strtotime($a['fechaRegistro']) <=> strtotime($b['fechaRegistro']);
+                    });
+
+                    // ── PASO 6: Re-aplicar pagos legítimos desde la cuota más antigua ──
+                    $curCuota = $primeraCuota;
+                    foreach ($pool as $pg) {
+                        $rem = round($pg['total'], 2);
+                        $primera = true;
+                        $sobrante = $pg['esSobranteDesdeAntes'];
+
+                        while ($rem > 0 && $curCuota < count($tabla)) {
+                            $totalLeg = 0;
+                            foreach ($tabla[$curCuota]['aplicados'] as $ap) {
+                                $totalLeg += (float)($ap['aplicado'] ?? 0);
+                            }
+                            $def = round($tabla[$curCuota]['monto_cargo'] - $totalLeg, 2);
+                            if ($def <= 0) { $curCuota++; continue; }
+
+                            $apl = min($rem, $def);
+                            $tabla[$curCuota]['aplicados'][] = [
+                                'idPago'        => $pg['idPago'],
+                                'montoPago'     => round($rem, 2),
+                                'aplicado'      => round($apl, 2),
+                                'fechaRegistro' => $pg['fechaRegistro'],
+                                'fechaPago'     => $tabla[$curCuota]['fecha'],
+                                'diasMora'      => null,
+                                'extemporaneos' => 0,
+                                'es_sobrante'   => $sobrante || !$primera,
+                            ];
+
+                            $rem = round($rem - $apl, 2);
+                            $primera = false;
+                            $sobrante = true;
+
+                            $totalLeg += $apl;
+                            if ($totalLeg >= $tabla[$curCuota]['monto_cargo']) $curCuota++;
+                        }
+                    }
+
+                    // ── PASO 7: Fecha de cierre de cada cuota (fecha del último pago legítimo si está llena) ──
+                    $closingDates = [];
+                    for ($ci = $primeraCuota; $ci < count($tabla); $ci++) {
+                        $totalLeg = 0;
+                        $maxTs = null;
+                        foreach ($tabla[$ci]['aplicados'] as $ap) {
+                            $totalLeg += (float)($ap['aplicado'] ?? 0);
+                            $fr = $ap['fechaRegistro'] ?? null;
+                            if ($fr) {
+                                $ts = strtotime($fr);
+                                if ($maxTs === null || $ts > $maxTs) $maxTs = $ts;
+                            }
+                        }
+                        if ($totalLeg >= $tabla[$ci]['monto_cargo'] - 0.009 && $maxTs !== null) {
+                            $closingDates[$ci] = date('Y-m-d', $maxTs);
+                        } else {
+                            $closingDates[$ci] = null;
+                        }
+                    }
+
+                    // ── PASO 8: Colocar CC'd + contracargo en la cuota activa según fecha de cierre ──
+                    foreach ($ccMarkers as $mk) {
+                        $ccDate = $mk['fecha'];
+                        $idPCC = $mk['idPago'];
+
+                        $targetCuota = null;
+                        for ($ci = $primeraCuota; $ci < count($tabla); $ci++) {
+                            $cd = $closingDates[$ci] ?? null;
+                            if ($cd === null || $ccDate <= $cd) {
+                                $targetCuota = $ci;
+                                break;
+                            }
+                        }
+                        if ($targetCuota === null) {
+                            for ($ci = count($tabla) - 1; $ci >= $primeraCuota; $ci--) {
+                                if ($closingDates[$ci] === null) { $targetCuota = $ci; break; }
+                            }
+                            if ($targetCuota === null) $targetCuota = count($tabla) - 1;
+                        }
+
+                        $ccPl = $plById[$idPCC] ?? null;
+                        $ccFechaReg = $mk['fecha'];
+                        if ($ccPl) {
+                            $montoReal = round((float)($ccPl['montoPagoOriginal'] ?? $ccPl['montoPago'] ?? 0), 2);
+                            $ccFechaReg = $ccPl['fechaRegistro'];
+                            $tabla[$targetCuota]['aplicados'][] = [
+                                'idPago'        => $idPCC,
+                                'montoPago'     => $montoReal,
+                                'aplicado'      => round(min($montoReal, $tabla[$targetCuota]['monto_cargo']), 2),
+                                'fechaRegistro' => $ccFechaReg,
+                                'es_sobrante'   => false,
+                                'cc_invalido'   => true,
+                            ];
+                        }
+
+                        $tabla[$targetCuota]['aplicados'][] = [
+                            'tipo'          => 'contracargo',
+                            'montoPago'     => $mk['monto'],
+                            'aplicado'      => $mk['monto'],
+                            'fechaRegistro' => $mk['fecha'],
+                            '_sortDate'     => $ccFechaReg,
+                        ];
+                    }
+
+                    // ── PASO 9: Recalcular totales (solo pagos legítimos) ──
+                    for ($ci = $primeraCuota; $ci < count($tabla); $ci++) {
+                        $total = 0;
+                        foreach ($tabla[$ci]['aplicados'] as $ap) {
+                            if (!empty($ap['cc_invalido'])) continue;
+                            if (isset($ap['tipo']) && $ap['tipo'] === 'contracargo') continue;
+                            $total += (float)($ap['aplicado'] ?? 0);
+                        }
+                        $tabla[$ci]['total_pagado'] = round($total, 2);
+                        $tabla[$ci]['pendiente'] = round(max($tabla[$ci]['monto_cargo'] - $total, 0), 2);
+                    }
+
+                    // ── PASO 10: Ordenar aplicados (CC'd+contracargo juntos, luego cronológico) ──
+                    for ($ci = $primeraCuota; $ci < count($tabla); $ci++) {
+                        usort($tabla[$ci]['aplicados'], function ($a, $b) {
+                            $fa = isset($a['_sortDate']) ? $a['_sortDate'] : ($a['fechaRegistro'] ?? '9999-99-99');
+                            $fb = isset($b['_sortDate']) ? $b['_sortDate'] : ($b['fechaRegistro'] ?? '9999-99-99');
+                            $cmp = strtotime($fa) <=> strtotime($fb);
+                            if ($cmp !== 0) return $cmp;
+                            $ordA = !empty($a['cc_invalido']) ? 0 : ((isset($a['tipo']) && $a['tipo'] === 'contracargo') ? 1 : 2);
+                            $ordB = !empty($b['cc_invalido']) ? 0 : ((isset($b['tipo']) && $b['tipo'] === 'contracargo') ? 1 : 2);
+                            return $ordA <=> $ordB;
+                        });
+                    }
+
+                    // Descontar montos consumidos de notasCargoPorFecha
+                    foreach ($ccMarkers as $mk) {
+                        if (isset($notasCargoPorFecha[$mk['fecha']])) {
+                            $notasCargoPorFecha[$mk['fecha']] = round(max($notasCargoPorFecha[$mk['fecha']] - $mk['monto'], 0), 2);
+                        }
+                    }
+                }
+            }
+
+            self::set("notasCargoPorFecha", $notasCargoPorFecha);
+            self::set("hayNotasCargos", $hayNotasCargos);
+
             if (
                 !isset($resultado['data']['idCredito']) ||
                 $resultado['data']['idCredito'] === null ||
@@ -505,6 +843,8 @@ JS;
                 self::set("titulo", "Sin resultados para solicitud");
                 self::set("errorGestiones", "No se encontraron resultados");
                 self::set("tabla", $tabla);
+                self::set("notasCargoPorFecha", []);
+                self::set("hayNotasCargos", false);
                 return self::render("__SPARTA_SECRET_REDACTED___request");
             }
             if (empty($resultado["data"]["idCredito"])) {
@@ -512,6 +852,8 @@ JS;
                 self::set("titulo", "Sin resultados para solicitud");
                 self::set("errorGestiones", "No se encontraron resultados");
                 self::set("tabla", $tabla);
+                self::set("notasCargoPorFecha", []);
+                self::set("hayNotasCargos", false);
 
                 return self::render("__SPARTA_SECRET_REDACTED___request");
 

@@ -48,7 +48,7 @@
         </div>
     </div>
 
-    <!-- Botón Truncar y Monitorear -->
+    <!-- Botón Truncar, Monitorear y Diagnóstico -->
     <div class="row mb-3">
         <div class="col-12">
             <button type="button" class="btn btn-truncar-segundometro" id="btnTruncarSegundometro" disabled title="Disponible solo los martes de 7:00 a 9:30 AM (CDMX)">
@@ -56,6 +56,9 @@
             </button>
             <button type="button" class="btn btn-monitorear-segundometro ms-2" id="btnMonitorearSegundometro" title="Abrir monitoreo en vivo en esta página. Usa «Minimizar» en el panel para usar Truncar y otros botones sin cortar el stream.">
                 <i class="fa fa-terminal me-2"></i>Monitorear
+            </button>
+            <button type="button" class="btn btn-diagnostico-ssh ms-2" id="btnDiagnosticoSSH" title="Diagnóstico: prueba SSH (Plink / OpenSSH), llaves, permisos, listado, descarga y monitoreo">
+                <i class="fa fa-stethoscope me-2"></i>Diagnóstico SSH
             </button>
             <span class="ms-3 align-middle" id="wrapLinkTruncarPrueba" style="display: none;">
                 <a href="#" id="linkTruncarModoPrueba" class="small text-muted" title="Habilita el botón Truncar para probar (sin restricción de horario). Recarga la página con ?truncar_test=1">Habilitar Truncar para pruebas</a>
@@ -213,6 +216,25 @@
         color: #4a423a;
     }
 
+    /* Botón Diagnóstico SSH: tono azul-oscuro profesional */
+    .btn-diagnostico-ssh {
+        font-weight: 600;
+        padding: 0.5rem 1rem;
+        transition: background-color 0.25s ease, box-shadow 0.25s ease, color 0.25s ease, border-color 0.25s ease;
+        background: linear-gradient(135deg, #5c6bc0 0%, #3f51b5 100%);
+        border: 1px solid rgba(63, 81, 181, 0.6);
+        color: #fff;
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+    }
+    .btn-diagnostico-ssh:hover {
+        background: linear-gradient(135deg, #7986cb 0%, #5c6bc0 100%);
+        color: #fff;
+        box-shadow: 0 2px 8px rgba(63, 81, 181, 0.35);
+    }
+    .btn-diagnostico-ssh .fa-stethoscope {
+        color: #e8eaf6;
+    }
+
     /* Modo oscuro: Truncar y Monitorear con estilo consistente (relleno sólido, buen contraste) */
     body.dark-mode .btn-truncar-segundometro:disabled {
         background: rgba(0, 180, 200, 0.2);
@@ -255,6 +277,18 @@
     }
     body.dark-mode .btn-monitorear-segundometro .fa-terminal {
         color: #4a423a !important;
+    }
+
+    /* Diagnóstico SSH: modo oscuro */
+    body.dark-mode .btn-diagnostico-ssh {
+        background: linear-gradient(135deg, #5c6bc0 0%, #3949ab 100%) !important;
+        border: 1px solid rgba(92, 107, 192, 0.5) !important;
+        color: #fff !important;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
+    }
+    body.dark-mode .btn-diagnostico-ssh:hover {
+        background: linear-gradient(135deg, #7986cb 0%, #5c6bc0 100%) !important;
+        box-shadow: 0 4px 12px rgba(63, 81, 181, 0.4) !important;
     }
 
     /* Badge contador de archivos - texto negro/oscuro */

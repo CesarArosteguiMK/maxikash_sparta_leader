@@ -542,6 +542,79 @@ class Segundometro extends Controller
                 }
             }
 
+            async function ejecutarDiagnosticoSSH() {
+                Swal.fire({
+                    title: 'Ejecutando diagnóstico SSH...',
+                    html: '<div class="text-center"><i class="fa fa-spinner fa-spin fa-2x text-primary mb-3"></i><p class="text-muted">Probando configuración, llaves, conectividad, permisos y funciones.</p><p class="text-muted small">Esto puede tardar unos segundos...</p></div>',
+                    allowOutsideClick: false,
+                    showConfirmButton: false,
+                    didOpen: () => { Swal.showLoading(); }
+                });
+                try {
+                    const response = await fetch('/segundometro/diagnosticoSSH', {
+                        method: 'GET',
+                        headers: { 'Front-Request': 'true' }
+                    });
+                    const data = await response.json();
+                    if (!data.success) throw new Error(data.mensaje || 'Error desconocido');
+                    const pruebas = data.pruebas || [];
+                    const totalOk = pruebas.filter(p => p.ok).length;
+                    const totalFail = pruebas.filter(p => !p.ok).length;
+                    const esc = s => (s||'').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+                    const grupos = {local:'Pruebas locales (verifican tu PC)',remoto:'Pruebas remotas (verifican el servidor — 1 sola conexión SSH)',bd:'Pruebas de base de datos (verifican MySQL)'};
+                    const grupoIcono = {local:'fa-laptop',remoto:'fa-server',bd:'fa-database'};
+
+                    let html = '<div class="text-start" style="max-height:65vh; overflow-y:auto;">';
+                    html += '<div class="alert ' + (totalFail === 0 ? 'alert-success' : 'alert-warning') + ' py-2 mb-3">';
+                    html += '<strong>' + (totalFail === 0 ? 'Todas las pruebas pasaron' : totalFail + ' prueba(s) con problemas') + '</strong>';
+                    html += ' — ' + totalOk + '/' + pruebas.length + ' OK';
+                    html += '</div>';
+
+                    var grupoActual = '';
+                    var num = 0;
+                    pruebas.forEach(function(p) {
+                        num++;
+                        var g = p.grupo || 'local';
+                        if (g !== grupoActual) {
+                            if (grupoActual !== '') html += '</tbody></table>';
+                            grupoActual = g;
+                            html += '<div class="fw-bold text-primary mt-3 mb-1" style="font-size:0.8rem;"><i class="fa ' + (grupoIcono[g]||'fa-cog') + ' me-1"></i>' + (grupos[g]||g) + '</div>';
+                            html += '<table class="table table-sm table-bordered mb-0" style="font-size:0.82rem;">';
+                            html += '<thead class="table-light"><tr><th width="26">#</th><th width="26"></th><th>Prueba</th><th>Detalle</th></tr></thead><tbody>';
+                        }
+                        var icono = p.ok ? '<i class="fa fa-check-circle text-success"></i>' : '<i class="fa fa-times-circle text-danger"></i>';
+                        var tooltip = p.ayuda ? ' title="' + esc(p.ayuda) + (p.cubre ? ' | Cubre: ' + esc(p.cubre) : '') + '"' : '';
+                        var cubreBadge = p.cubre ? ' <span class="badge bg-light text-dark border" style="font-size:0.7rem;font-weight:400;">' + esc(p.cubre) + '</span>' : '';
+                        html += '<tr' + tooltip + ' style="cursor:help;"><td class="text-muted text-center" style="font-size:0.75rem;">' + num + '</td><td class="text-center">' + icono + '</td><td class="fw-semibold">' + esc(p.nombre) + cubreBadge + '</td><td class="text-muted small" style="word-break:break-all;">' + esc(p.detalle) + '</td></tr>';
+                    });
+                    if (grupoActual !== '') html += '</tbody></table>';
+
+                    html += '<details class="mt-3"><summary class="fw-bold text-secondary" style="font-size:0.8rem;cursor:pointer;"><i class="fa fa-book me-1"></i>Referencia: cobertura por botón</summary>';
+                    html += '<div class="mt-2 small text-muted" style="font-size:0.78rem;">';
+                    html += '<table class="table table-sm table-bordered mb-0">';
+                    html += '<thead class="table-light"><tr><th>Botón</th><th>Pruebas que lo cubren</th></tr></thead><tbody>';
+                    html += '<tr><td><i class="fa fa-list me-1"></i>Listar archivos</td><td>9, 11, 12</td></tr>';
+                    html += '<tr><td><i class="fa fa-copy me-1"></i>Copiar +1s</td><td>9, 10, 15, 17</td></tr>';
+                    html += '<tr><td><i class="fa fa-trash me-1"></i>Eliminar</td><td>9, 10, 16, 17</td></tr>';
+                    html += '<tr><td><i class="fa fa-download me-1"></i>Descargar</td><td>9, 18</td></tr>';
+                    html += '<tr><td><i class="fa fa-terminal me-1"></i>Monitorear</td><td>9, 10, 13, 14</td></tr>';
+                    html += '<tr><td><i class="fa fa-cut me-1"></i>Truncar</td><td>19, 20</td></tr>';
+                    html += '</tbody></table>';
+                    html += '</div></details>';
+                    html += '</div>';
+
+                    Swal.fire({
+                        title: 'Diagnóstico SSH',
+                        html: html,
+                        width: '820px',
+                        confirmButtonText: 'Cerrar',
+                        icon: totalFail === 0 ? 'success' : 'warning'
+                    });
+                } catch (error) {
+                    Swal.fire({ icon: 'error', title: 'Error en diagnóstico', text: error.message || 'No se pudo ejecutar el diagnóstico', confirmButtonText: 'Cerrar' });
+                }
+            }
+
             document.addEventListener('DOMContentLoaded', function() {
                 actualizarEstadoBotonTruncar();
                 listarArchivos(false);
@@ -550,6 +623,8 @@ class Segundometro extends Controller
                 segundometroEstadoInterval = setInterval(function() { if (!document.hidden) actualizarEstadoReportes(); }, 60000);
                 var btnTruncar = document.getElementById('btnTruncarSegundometro');
                 if (btnTruncar) btnTruncar.addEventListener('click', truncarSegundometro);
+                var btnDiag = document.getElementById('btnDiagnosticoSSH');
+                if (btnDiag) btnDiag.addEventListener('click', ejecutarDiagnosticoSSH);
                 var linkPrueba = document.getElementById('linkTruncarModoPrueba');
                 if (linkPrueba) {
                     if (esTruncarModoPrueba()) {
@@ -905,6 +980,26 @@ class Segundometro extends Controller
             self::respuestaJSON([
                 'success' => false,
                 'mensaje' => 'Error: ' . $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
+     * Diagnóstico completo SSH: prueba config, llaves, conectividad, permisos, listado, descarga, monitoreo.
+     * Devuelve JSON con lista de pruebas y resultado de cada una.
+     */
+    public function diagnosticoSSH()
+    {
+        try {
+            $resultados = SegundometroDAO::diagnosticoSSH();
+            self::respuestaJSON([
+                'success' => true,
+                'pruebas' => $resultados
+            ]);
+        } catch (\Exception $e) {
+            self::respuestaJSON([
+                'success' => false,
+                'mensaje' => 'Error al ejecutar diagnóstico: ' . $e->getMessage()
             ]);
         }
     }
