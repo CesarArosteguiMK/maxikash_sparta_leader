@@ -72,6 +72,111 @@ if ($cuotasContratadas > 0) {
     }
 
     /* ==========================
+       LIQUID GLASS – Estado de Cuenta (sidebar, tabla, métricas, cards)
+   ========================== */
+    /* Sidebar: card exterior (la que envuelve todo) y card avatar */
+    .estado-cuenta-page .sidebar-cliente > .card,
+    .estado-cuenta-page .sidebar-cliente .card,
+    .estado-cuenta-page .sidebar-cliente .user-avatar-section .card {
+        background: rgba(255, 255, 255, 0.88) !important;
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+        border-radius: 14px !important;
+    }
+    html.dark-mode .estado-cuenta-page .sidebar-cliente > .card,
+    html.dark-mode .estado-cuenta-page .sidebar-cliente .card,
+    html.dark-mode .estado-cuenta-page .sidebar-cliente .user-avatar-section .card,
+    body.dark-mode .estado-cuenta-page .sidebar-cliente > .card,
+    body.dark-mode .estado-cuenta-page .sidebar-cliente .card,
+    body.dark-mode .estado-cuenta-page .sidebar-cliente .user-avatar-section .card {
+        background: rgba(30, 41, 59, 0.88) !important;
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+        border-radius: 14px !important;
+    }
+    /* Sidebar: badges IDs, barra de progreso y bloques de métricas redondeados (Liquid Glass) */
+    .estado-cuenta-page .sidebar-cliente .badge-container-ids .badge {
+        border-radius: 10px !important;
+    }
+    .estado-cuenta-page .sidebar-cliente .user-avatar-section .progress {
+        border-radius: 10px !important;
+        overflow: hidden;
+    }
+    .estado-cuenta-page .sidebar-cliente .user-avatar-section .progress-bar {
+        border-radius: 10px !important;
+    }
+    .estado-cuenta-page .sidebar-cliente .d-flex.justify-content-between.my-3 > div {
+        border-radius: 12px !important;
+    }
+    .estado-cuenta-page .sidebar-cliente .btn-outline-primary {
+        border-radius: 12px !important;
+    }
+    .estado-cuenta-page .col-xl-8 .card {
+        background: rgba(255, 255, 255, 0.9) !important;
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+        border-radius: 14px;
+        overflow: hidden;
+    }
+    html.dark-mode .estado-cuenta-page .col-xl-8 .card,
+    body.dark-mode .estado-cuenta-page .col-xl-8 .card {
+        background: rgba(30, 41, 59, 0.9) !important;
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border-radius: 14px;
+    }
+    .estado-cuenta-page .tabla-scrollable {
+        background: rgba(255, 255, 255, 0.85) !important;
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+    }
+    .estado-cuenta-page .tabla-scrollable thead th {
+        background: rgba(255, 255, 255, 0.92) !important;
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+    }
+    html.dark-mode .estado-cuenta-page .tabla-scrollable,
+    body.dark-mode .estado-cuenta-page .tabla-scrollable {
+        background: rgba(30, 41, 59, 0.85) !important;
+    }
+    html.dark-mode .estado-cuenta-page .tabla-scrollable thead th,
+    body.dark-mode .estado-cuenta-page .tabla-scrollable thead th {
+        background: rgba(30, 41, 59, 0.95) !important;
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+    }
+    .estado-cuenta-page .reference-card {
+        background: rgba(255, 255, 255, 0.9) !important;
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+    }
+    html.dark-mode .estado-cuenta-page .reference-card,
+    body.dark-mode .estado-cuenta-page .reference-card {
+        background: rgba(30, 41, 59, 0.9) !important;
+    }
+    .estado-cuenta-page .col-xl-8.col-lg-7 .d-flex.justify-content-around.flex-wrap.my-6 {
+        background: rgba(248, 249, 250, 0.9) !important;
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+    }
+    .estado-cuenta-page .col-xl-8.col-lg-7 .d-flex.justify-content-around.flex-wrap.my-6 > div {
+        background: rgba(255, 255, 255, 0.85) !important;
+        backdrop-filter: blur(6px);
+        -webkit-backdrop-filter: blur(6px);
+    }
+    html.dark-mode .estado-cuenta-page .col-xl-8.col-lg-7 .d-flex.justify-content-around.flex-wrap.my-6,
+    body.dark-mode .estado-cuenta-page .col-xl-8.col-lg-7 .d-flex.justify-content-around.flex-wrap.my-6 {
+        background: rgba(30, 41, 59, 0.7) !important;
+    }
+    html.dark-mode .estado-cuenta-page .col-xl-8.col-lg-7 .d-flex.justify-content-around.flex-wrap.my-6 > div,
+    body.dark-mode .estado-cuenta-page .col-xl-8.col-lg-7 .d-flex.justify-content-around.flex-wrap.my-6 > div {
+        background: rgba(51, 65, 85, 0.8) !important;
+    }
+
+    /* ==========================
        SIDEBAR
        ========================== */
     @media (min-width: 992px) {
@@ -456,8 +561,19 @@ if ($cuotasContratadas > 0) {
 
     .cuotas-table .badge {
         font-size: 0.70rem !important;
-        padding: 0.35em 0.5em !important;
-        border-radius: 6px;
+        padding: 0.35em 0.6em !important;
+        border-radius: 10px;
+        font-weight: 500;
+    }
+
+    /* Contenedor tabla: esquinas redondeadas (Liquid Glass); sin overflow:hidden para no romper el scroll */
+    .estado-cuenta-page .tabla-scrollable {
+        border-radius: 14px;
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+    }
+    html.dark-mode .estado-cuenta-page .tabla-scrollable,
+    body.dark-mode .estado-cuenta-page .tabla-scrollable {
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.2);
     }
 
     /* ==========================
@@ -471,14 +587,12 @@ if ($cuotasContratadas > 0) {
             position: sticky;
             top: 120px;
             z-index: 5;
-            background: #fff;
             scrollbar-gutter: stable both-edges;
         }
 
         .tabla-scrollable thead th {
             position: sticky;
             top: 0;
-            background: #fff;
             z-index: 8;
         }
     }
@@ -525,6 +639,7 @@ if ($cuotasContratadas > 0) {
         .cuotas-table .badge {
             font-size: 0.6rem !important;
             padding: 0.25em 0.4em !important;
+            border-radius: 8px;
         }
     }
 
@@ -570,7 +685,6 @@ if ($cuotasContratadas > 0) {
 
     /* ===== Reference WOW Card ===== */
     .reference-card {
-        background: #fff;
         border-radius: 14px;
         padding: 1.25rem 1.25rem 1.4rem;
         position: relative;
@@ -1023,7 +1137,6 @@ if ($cuotasContratadas > 0) {
    /* MOD: Añadir padding a métricas horizontales */
    .col-xl-8.col-lg-7 .d-flex.justify-content-around.flex-wrap.my-6 {
        padding: 1rem 1.25rem !important;
-       background-color: #f8f9fa;
        border-radius: 10px;
        margin: 1.5rem 0 !important;
        border: 1px solid #e9ecef;
@@ -1031,7 +1144,6 @@ if ($cuotasContratadas > 0) {
    
    .col-xl-8.col-lg-7 .d-flex.justify-content-around.flex-wrap.my-6 > div {
        padding: 0.5rem 0.75rem;
-       background: white;
        border-radius: 8px;
        border: 1px solid #f0f0f0;
        box-shadow: 0 2px 4px rgba(0,0,0,0.03);
@@ -1248,10 +1360,30 @@ body:not(.dark-mode) .btn-notas:hover {
     color: #d39e00 !important;
 }
 </style>
+<style>
+/* Pagos del Cliente: Pago, Sobrante, Aplicado, Contracargo (modo claro y oscuro) */
+.cuotas-table .etiqueta-pago { color: #0d6efd !important; }
+.cuotas-table .etiqueta-sobrante { color: #6c757d !important; font-weight: bold; }
+.cuotas-table .etiqueta-aplicado { color: #05611d !important; }
+.cuotas-table .contracargo-label { color: #d35400 !important; font-weight: 700; }
+.cuotas-table .contracargo-valor { color: #d35400 !important; font-weight: 600; }
+.cuotas-table .pago-revertido { text-decoration: line-through; opacity: 0.5; }
+/* Modo oscuro: colores visibles sobre fondo oscuro */
+html.dark-mode .cuotas-table .etiqueta-pago,
+body.dark-mode .cuotas-table .etiqueta-pago { color: #7eb8ff !important; }
+html.dark-mode .cuotas-table .etiqueta-sobrante,
+body.dark-mode .cuotas-table .etiqueta-sobrante { color: #94a3b8 !important; font-weight: bold; }
+html.dark-mode .cuotas-table .etiqueta-aplicado,
+body.dark-mode .cuotas-table .etiqueta-aplicado { color: #4ade80 !important; }
+html.dark-mode .cuotas-table .contracargo-label,
+body.dark-mode .cuotas-table .contracargo-label { color: #fb923c !important; font-weight: 700; }
+html.dark-mode .cuotas-table .contracargo-valor,
+body.dark-mode .cuotas-table .contracargo-valor { color: #fb923c !important; font-weight: 600; }
+</style>
 
 </style>
 
-<div class="row">
+<div class="row estado-cuenta-page">
 
   <!-- SIDEBAR CLIENTE -->
 <div class="col-xl-4 col-lg-5 order-1 order-lg-0 sidebar-cliente">
@@ -1759,18 +1891,33 @@ body:not(.dark-mode) .btn-notas:hover {
                             }
                         }
 
-                        // Calcular días de mora:
-                        //  - Si la cuota tiene saldo pendiente (pendiente > 0): siempre en tiempo real = días desde vencimiento hasta hoy.
-                        //  - Si la cuota está pagada (pendiente <= 0): usar raw_cargo['diasMora'] si existe, si no la mora al momento del pago.
+                        // Detectar si esta cuota tiene contracargo (afecta cálculo de mora)
+                        $tieneContracargo = false;
+                        $lastPagoDateReal = null;
+                        foreach ($aplicados as $a) {
+                            if (isset($a['tipo']) && $a['tipo'] === 'contracargo') {
+                                $tieneContracargo = true;
+                                continue;
+                            }
+                            if (!empty($a['cc_invalido'])) continue;
+                            if (!empty($a['fechaRegistro'])) {
+                                $ts = strtotime($a['fechaRegistro']);
+                                if ($ts && (!$lastPagoDateReal || $ts > strtotime($lastPagoDateReal))) {
+                                    $lastPagoDateReal = $a['fechaRegistro'];
+                                }
+                            }
+                        }
+
                         $fechaVenc = $fecha ? strtotime($fecha) : false;
                         $diasMora = 0;
                         if ($fechaVenc) {
                             if ($pendiente > 0) {
-                                // Cuota con saldo pendiente: mora en tiempo real (cada día que pasa suma un día de mora).
                                 $diasMora = max(0, (int) floor((time() - $fechaVenc) / 86400));
                             } else {
-                                // Cuota pagada: mora al momento del pago (o la que traiga la API).
-                                if (isset($raw_cargo['diasMora']) && $raw_cargo['diasMora'] !== null) {
+                                if ($tieneContracargo && $lastPagoDateReal) {
+                                    $diff = floor((strtotime($lastPagoDateReal) - $fechaVenc) / 86400);
+                                    $diasMora = max(0, (int) $diff);
+                                } elseif (isset($raw_cargo['diasMora']) && $raw_cargo['diasMora'] !== null) {
                                     $diasMora = (int) $raw_cargo['diasMora'];
                                 } elseif ($lastPagoDate) {
                                     $diff = floor((strtotime($lastPagoDate) - $fechaVenc) / 86400);
@@ -1800,14 +1947,19 @@ body:not(.dark-mode) .btn-notas:hover {
                                 <ul class="ps-3 mb-0">
                                     <?php if (!empty($aplicados)): ?>
                                         <?php foreach ($aplicados as $pago): ?>
+                                            <?php if (isset($pago['tipo']) && $pago['tipo'] === 'contracargo'): ?>
+                                            <li>
+                                                <span class="contracargo-label">Contracargo:</span> <span class="contracargo-valor">-<?= format_currency($pago['montoPago'] ?? 0) ?></span><?php if (!empty($pago['fechaRegistro'])): ?> - <span class="text-muted fecha-pago"><?= htmlspecialchars(format_date($pago['fechaRegistro'])) ?></span><?php endif; ?>
+                                            </li>
+                                            <?php else: ?>
                                             <?php
                                             $pago_monto = safe($pago['montoPago'], 0.0);
                                             $pago_fecha = safe($pago['fechaRegistro'], $pago['fechaPago'] ?? null);
                                             $extemporaneos = isset($pago['extemporaneos']) ? (float)$pago['extemporaneos'] : 0.0;
                                             $es_sobrante = !empty($pago['es_sobrante']);
-                                            // Siempre mostrar lo que se aplicó a ESTA cuota (chunk), no el total del depósito: Pago 670 con cuota 666 → Aplicado 666; sobrante 4 + pago 670 → aplicado 662 a esta cuota.
                                             $pago_aplicado = safe($pago['aplicado'], 0.0);
                                             $es_gasto_cobranza = !empty($pago['gasto_cobranza']);
+                                            $es_cc_invalido = !empty($pago['cc_invalido']);
                                             if ($es_gasto_cobranza) {
                                                 $etiqueta = 'Gasto de Cobranza';
                                                 $etiqueta_aplicado = 'Aplicado';
@@ -1815,21 +1967,32 @@ body:not(.dark-mode) .btn-notas:hover {
                                                 $etiqueta = $es_sobrante ? 'Sobrante' : 'Pago';
                                                 $etiqueta_aplicado = $es_sobrante ? 'Aplicado Sobrante' : 'Aplicado';
                                             }
+                                            $liClass = $es_gasto_cobranza ? 'text-danger' : ($es_cc_invalido ? 'pago-revertido' : '');
                                             ?>
-                                            <li<?= $es_gasto_cobranza ? ' class="text-danger"' : '' ?>>
+                                            <li<?= $liClass ? " class=\"$liClass\"" : '' ?>>
                                                 <?php if ($es_gasto_cobranza): ?>
                                                 <span class="text-danger"><?= htmlspecialchars($etiqueta) ?>: <?= format_currency($pago_monto) ?> - <?= htmlspecialchars($etiqueta_aplicado) ?>: <?= format_currency($pago_aplicado) ?> - <?= htmlspecialchars(format_date($pago_fecha)) ?></span>
                                                 <?php else: ?>
-                                                <span><?php if ($etiqueta === 'Pago'): ?><span style="color:#0d6efd;">Pago</span><?php elseif ($etiqueta === 'Sobrante'): ?><span style="color:#6c757d;font-weight:bold;">Sobrante</span><?php else: ?><?= htmlspecialchars($etiqueta) ?><?php endif; ?>: <?= format_currency($pago_monto) ?></span> -
-                                                <span style="color:#05611d;"><?= htmlspecialchars($etiqueta_aplicado) ?>: <?= format_currency($pago_aplicado) ?></span> -
+                                                <span><?php if ($etiqueta === 'Pago'): ?><span class="etiqueta-pago">Pago</span><?php elseif ($etiqueta === 'Sobrante'): ?><span class="etiqueta-sobrante">Sobrante</span><?php else: ?><?= htmlspecialchars($etiqueta) ?><?php endif; ?>: <?= format_currency($pago_monto) ?></span> -
+                                                <span class="etiqueta-aplicado"><?= htmlspecialchars($etiqueta_aplicado) ?>: <?= format_currency($pago_aplicado) ?></span> -
                                                 <span class="text-muted fecha-pago"><?= htmlspecialchars(format_date($pago_fecha)) ?></span>
                                                 <?php endif; ?>
                                             </li>
+                                            <?php
+                                            // Notas de cargo residuales (no procesadas como contracargo)
+                                            $hayNotasCargos = $hayNotasCargos ?? false;
+                                            $notasCargoPorFecha = $notasCargoPorFecha ?? [];
+                                            $fechaNorm = $pago_fecha ? date('Y-m-d', strtotime($pago_fecha)) : '';
+                                            $totalNotaCargo = ($hayNotasCargos && $fechaNorm !== '' && isset($notasCargoPorFecha[$fechaNorm])) ? (float)$notasCargoPorFecha[$fechaNorm] : 0;
+                                            if ($totalNotaCargo > 0): ?>
+                                            <li><span class="contracargo-label">Contracargo:</span> <span class="contracargo-valor">-<?= format_currency($totalNotaCargo) ?></span></li>
+                                            <?php endif; ?>
                                             <?php if (!$es_gasto_cobranza && $extemporaneos > 0): ?>
                                             <li class="text-danger">
                                                 <span class="text-danger">Gasto cobranza: <?= format_currency($extemporaneos) ?></span> -
                                                 <span class="text-muted fecha-pago"><?= htmlspecialchars(format_date($pago_fecha)) ?></span>
                                             </li>
+                                            <?php endif; ?>
                                             <?php endif; ?>
                                         <?php endforeach; ?>
                                     <?php else: ?>

@@ -96,7 +96,8 @@ class SegundometroDAO extends Model
     
     /**
      * Detecta la ruta del ejecutable SSH/Plink (cacheada).
-     * Con ssh_use_plink=1 devuelve SIEMPRE plink. Sin fallback a OpenSSH.
+     * Con ssh_use_plink=1: usa Plink SI Y SOLO SI la llave .ppk existe.
+     * Si la .ppk no existe, hace fallback automático a OpenSSH.
      */
     private static function getSSHCommand()
     {
@@ -107,25 +108,31 @@ class SegundometroDAO extends Model
         $configFile = __DIR__ . '/../config/config.ini';
         $config = is_file($configFile) ? @parse_ini_file($configFile, true) : false;
         $config = is_array($config) ? $config : [];
+        $logFile = __DIR__ . '/../storage/logs/ssh_debug.log';
 
-        // --- Plink (PuTTY) ---
+        // --- Plink (PuTTY) --- solo si la llave .ppk existe
         if (!empty($config['ssh']['ssh_use_plink'])) {
-            $path = trim($config['ssh']['ssh_command_plink'] ?? '');
-            if ($path !== '') {
-                $cached = $path;
-                return $path;
+            $ppkConfig = trim($config['ssh']['ssh_key_plink'] ?? '');
+            $ppkProyecto = __DIR__ . '/../config/ssh/jesusssh4.ppk';
+            $ppkFound = ($ppkConfig !== '' && @is_file($ppkConfig)) || @is_file($ppkProyecto);
+
+            if ($ppkFound) {
+                $path = trim($config['ssh']['ssh_command_plink'] ?? '');
+                if ($path !== '' && @is_file($path)) {
+                    $cached = $path;
+                    return $path;
+                }
+                $default = 'C:\\xampp\\plink.exe';
+                if (@is_file($default)) {
+                    $cached = $default;
+                    return $default;
+                }
             }
-            // Intentar plink.exe en el mismo directorio que XAMPP
-            $default = 'C:\\xampp\\plink.exe';
-            if (@is_file($default)) {
-                $cached = $default;
-                return $default;
-            }
-            $cached = '';
-            return null;
+            // .ppk no encontrada o Plink no disponible -> fallback a OpenSSH
+            @file_put_contents($logFile, "\n[" . date('Y-m-d H:i:s') . "] FALLBACK: ssh_use_plink=1 pero .ppk no encontrada (" . ($ppkConfig ?: $ppkProyecto) . "). Usando OpenSSH.\n", FILE_APPEND);
         }
 
-        // --- OpenSSH (solo si ssh_use_plink NO está activo) ---
+        // --- OpenSSH (fallback automático cuando .ppk no existe, o modo normal) ---
         $path = trim($config['ssh']['ssh_command'] ?? '');
         if ($path !== '' && @is_file($path)) {
             $cached = $path;
@@ -165,7 +172,7 @@ class SegundometroDAO extends Model
 
     /**
      * Ejecutar comando SSH remoto.
-     * Con ssh_use_plink=1: usa SOLO Plink + .ppk. Sin fallback a OpenSSH.
+     * Con ssh_use_plink=1: usa Plink + .ppk si la .ppk existe; si no, fallback automático a OpenSSH.
      */
     private static function ejecutarSSH($comando)
     {
@@ -962,6 +969,7 @@ class SegundometroDAO extends Model
     /**
      * Devuelve el comando shell completo para ejecutar monitorear.sh por streaming (timeout 1 h en remoto).
      * Usado por el controlador para proc_open y enviar SSE. Retorna null si SSH no está disponible.
+     * Nota: getSSHCommand() ya se encarga del fallback Plink->OpenSSH cuando .ppk no existe.
      * @return string|null
      */
     public static function getComandoMonitorearParaStream()
@@ -982,7 +990,6 @@ class SegundometroDAO extends Model
                     $hostkey = ' -hostkey ' . escapeshellarg($hk);
                 }
             }
-            // -t fuerza PTY en el servidor para que la salida sea line-buffered y llegue en vivo al stream
             return sprintf(
                 '%s -i %s%s -t -batch %s@%s %s',
                 escapeshellarg($sshCommand),
@@ -1175,5 +1182,354 @@ class SegundometroDAO extends Model
             }
         }
         return $estados;
+    }
+
+    /**
+     * Diagnóstico completo de conectividad SSH para el Shell Segundómetro.
+     * Prueba: config, detección de método, clave, conectividad, permisos, listado, descarga, monitoreo.
+     * @return array Lista de pruebas con ['nombre', 'ok', 'detalle']
+     */
+    public static function diagnosticoSSH()
+    {
+        $resultados = [];
+        $configFile = __DIR__ . '/../config/config.ini';
+        $config = (is_file($configFile) && is_array($c = @parse_ini_file($configFile, true))) ? $c : [];
+        $sshSection = $config['ssh'] ?? [];
+
+        // 1. Configuración leída
+        $usePlink = !empty($sshSection['ssh_use_plink']);
+        $resultados[] = [
+            'nombre' => 'config.ini [ssh]',
+            'ok' => true,
+            'detalle' => 'ssh_use_plink = ' . ($usePlink ? '1 (Plink preferido)' : '0 (OpenSSH)'),
+            'ayuda' => 'PHP puede leer la configuración SSH',
+            'grupo' => 'local',
+        ];
+
+        // 2. Llave .ppk
+        $ppkConfig = trim($sshSection['ssh_key_plink'] ?? '');
+        $ppkProyecto = __DIR__ . '/../config/ssh/jesusssh4.ppk';
+        $ppkExiste = ($ppkConfig !== '' && @is_file($ppkConfig)) || @is_file($ppkProyecto);
+        $ppkUsada = ($ppkConfig !== '' && @is_file($ppkConfig)) ? $ppkConfig : ((@is_file($ppkProyecto)) ? $ppkProyecto : ($ppkConfig ?: $ppkProyecto));
+        $resultados[] = [
+            'nombre' => 'Llave .ppk',
+            'ok' => $ppkExiste,
+            'detalle' => $ppkExiste
+                ? 'Encontrada: ' . $ppkUsada
+                : 'NO encontrada (' . ($ppkConfig ?: $ppkProyecto) . '). Si ssh_use_plink=1, se hará fallback a OpenSSH.',
+            'ayuda' => 'El archivo de clave Plink existe en disco',
+            'grupo' => 'local',
+        ];
+
+        // 3. Llave OpenSSH (.unknown / PEM)
+        $keyOpenSSH = trim($sshSection['ssh_key'] ?? '');
+        $keyProyecto = __DIR__ . '/../config/ssh/jesusssh4.unknown';
+        $opensshExiste = ($keyOpenSSH !== '' && @is_file($keyOpenSSH)) || @is_file($keyProyecto);
+        $opensshUsada = ($keyOpenSSH !== '' && @is_file($keyOpenSSH)) ? $keyOpenSSH : ((@is_file($keyProyecto)) ? $keyProyecto : ($keyOpenSSH ?: $keyProyecto));
+        $resultados[] = [
+            'nombre' => 'Llave OpenSSH',
+            'ok' => $opensshExiste,
+            'detalle' => $opensshExiste
+                ? 'Encontrada: ' . $opensshUsada
+                : 'NO encontrada (' . ($keyOpenSSH ?: $keyProyecto) . ')',
+            'ayuda' => 'El archivo de clave OpenSSH existe en disco',
+            'grupo' => 'local',
+        ];
+
+        // 4. Método elegido
+        $sshCmd = self::getSSHCommand();
+        $isPlink = $sshCmd !== null && (stripos($sshCmd, 'plink') !== false);
+        $metodo = $sshCmd === null ? 'NINGUNO' : ($isPlink ? 'Plink (PuTTY)' : 'OpenSSH');
+        $fallback = ($usePlink && !$isPlink && $sshCmd !== null);
+        $detalleMetodo = 'Ejecutable: ' . ($sshCmd ?? 'no encontrado');
+        if ($fallback) {
+            $detalleMetodo .= ' | FALLBACK activo: config dice Plink pero .ppk no existe, usando OpenSSH';
+        }
+        $resultados[] = [
+            'nombre' => 'Método SSH elegido',
+            'ok' => $sshCmd !== null,
+            'detalle' => $metodo . ' | ' . $detalleMetodo,
+            'ayuda' => 'La lógica Plink/OpenSSH/Fallback funciona correctamente',
+            'grupo' => 'local',
+        ];
+
+        // 5. Clave usada
+        $keyFinal = $sshCmd !== null ? self::getSSHKey($isPlink) : null;
+        $keyFinalExiste = $keyFinal !== null && @is_file($keyFinal);
+        $resultados[] = [
+            'nombre' => 'Clave SSH activa',
+            'ok' => $keyFinalExiste,
+            'detalle' => ($keyFinal ?? 'N/A') . ' | Existe: ' . ($keyFinalExiste ? 'SÍ' : 'NO'),
+            'ayuda' => 'La clave que se va a usar realmente existe',
+            'grupo' => 'local',
+        ];
+
+        // 6. Plink.exe disponible
+        $plinkPath = trim($sshSection['ssh_command_plink'] ?? '');
+        $plinkDefault = 'C:\\xampp\\plink.exe';
+        $plinkDisponible = ($plinkPath !== '' && @is_file($plinkPath)) || @is_file($plinkDefault);
+        $resultados[] = [
+            'nombre' => 'Plink.exe disponible',
+            'ok' => $plinkDisponible,
+            'detalle' => $plinkDisponible
+                ? 'Encontrado: ' . ((@is_file($plinkPath) ? $plinkPath : $plinkDefault))
+                : 'NO encontrado (' . ($plinkPath ?: $plinkDefault) . ')',
+            'ayuda' => 'Ejecutable Plink disponible',
+            'grupo' => 'local',
+        ];
+
+        // 7. OpenSSH ssh.exe disponible
+        $sshPath = trim($sshSection['ssh_command'] ?? '');
+        $sshDefault = 'C:\\Windows\\System32\\OpenSSH\\ssh.exe';
+        $sshDisponible = ($sshPath !== '' && @is_file($sshPath)) || @is_file($sshDefault);
+        $resultados[] = [
+            'nombre' => 'OpenSSH ssh.exe disponible',
+            'ok' => $sshDisponible,
+            'detalle' => $sshDisponible
+                ? 'Encontrado: ' . ((@is_file($sshPath) ? $sshPath : $sshDefault))
+                : 'NO encontrado',
+            'ayuda' => 'Ejecutable OpenSSH disponible (para fallback)',
+            'grupo' => 'local',
+        ];
+
+        // 8. pscp.exe disponible
+        $pscpPath = trim($sshSection['ssh_pscp'] ?? '');
+        $pscpDefault = 'C:\\xampp\\pscp.exe';
+        $pscpDisponible = ($pscpPath !== '' && @is_file($pscpPath)) || @is_file($pscpDefault);
+        $resultados[] = [
+            'nombre' => 'pscp.exe disponible (descarga Plink)',
+            'ok' => $pscpDisponible,
+            'detalle' => $pscpDisponible
+                ? 'Encontrado: ' . ((@is_file($pscpPath) ? $pscpPath : $pscpDefault))
+                : 'NO encontrado (si se usa Plink, descarga usará fallback plink+cat)',
+            'ayuda' => 'Ejecutable para descargar archivos disponible',
+            'grupo' => 'local',
+        ];
+
+        if ($sshCmd === null) {
+            $resultados[] = ['nombre' => 'Conectividad SSH', 'ok' => false, 'detalle' => 'No se puede probar: SSH/Plink no disponible', 'ayuda' => '', 'grupo' => 'remoto'];
+            return $resultados;
+        }
+
+        // 9-17. Todas las pruebas remotas en UN SOLO comando SSH (evita rate limiting del servidor).
+        // Plink en Windows no maneja saltos de línea en el argumento; usar separadores ";" en una sola línea.
+        $dir = self::$DIRECTORIO_REMOTO;
+        $dirEsc = str_replace("'", "'\\''", $dir);
+        $tmpFile = '.diag_test_' . time() . '.tmp';
+        $scriptRemoto = 'echo ---ECHO_TEST---; echo DIAGNOSTICO_OK;'
+            . ' echo ---SUDO_TEST---; sudo echo SUDO_OK 2>&1;'
+            . ' echo ---DIR_TEST---; ls -d \'' . $dirEsc . '\' 2>&1;'
+            . ' echo ---LS_TEST---; cd \'' . $dirEsc . '\' && ls -lt mega_rpt_*.csv.zip 2>/dev/null | head -5;'
+            . ' echo ---LS_END---;'
+            . ' echo ---MON_TEST---; test -f /home/jesus/scripts/monitorear.sh && echo MON_EXISTE || echo MON_NO_EXISTE;'
+            . ' echo ---MON_EXEC---; sudo bash -n /home/jesus/scripts/monitorear.sh 2>&1 && echo MON_SYNTAX_OK || echo MON_SYNTAX_FAIL;'
+            . ' echo ---CP_TEST---; sudo cp --help > /dev/null 2>&1 && echo CP_OK || echo CP_FAIL;'
+            . ' echo ---RM_TEST---; sudo rm --help > /dev/null 2>&1 && echo RM_OK || echo RM_FAIL;'
+            . ' echo ---WRITE_TEST---; cd \'' . $dirEsc . '\' && sudo touch ' . $tmpFile . ' 2>&1 && sudo rm -f ' . $tmpFile . ' 2>&1 && echo WRITE_OK || echo WRITE_FAIL;'
+            . ' echo ---FIN_DIAG---';
+        $testAll = self::ejecutarSSH($scriptRemoto);
+        $rawOutput = $testAll['output'] ?? '';
+
+        $extraerSeccion = function ($marca, $marcaFin = null) use ($rawOutput) {
+            $inicio = strpos($rawOutput, $marca);
+            if ($inicio === false) return '';
+            $inicio += strlen($marca);
+            if ($marcaFin !== null) {
+                $fin = strpos($rawOutput, $marcaFin, $inicio);
+                if ($fin === false) return trim(substr($rawOutput, $inicio));
+                return trim(substr($rawOutput, $inicio, $fin - $inicio));
+            }
+            $fin = strpos($rawOutput, '---', $inicio);
+            if ($fin === false) return trim(substr($rawOutput, $inicio));
+            return trim(substr($rawOutput, $inicio, $fin - $inicio));
+        };
+
+        // 9. Conectividad
+        $secEcho = $extraerSeccion('---ECHO_TEST---');
+        $echoOk = strpos($secEcho, 'DIAGNOSTICO_OK') !== false;
+        $resultados[] = [
+            'nombre' => 'Conectividad SSH (echo)',
+            'ok' => $echoOk,
+            'detalle' => $echoOk ? 'Conexión exitosa al servidor ' . self::$SSH_HOST . ' como ' . self::$SSH_USER : 'FALLO: ' . ($testAll['error'] ?: $rawOutput ?: 'sin respuesta'),
+            'ayuda' => 'La llave SSH funciona, el servidor acepta la conexión',
+            'cubre' => 'Listar, Copiar, Eliminar, Descargar, Monitorear',
+            'grupo' => 'remoto',
+        ];
+
+        if (!$echoOk) {
+            $resultados[] = ['nombre' => 'Pruebas restantes', 'ok' => false, 'detalle' => 'Omitidas porque la conexión básica falló', 'ayuda' => '', 'grupo' => 'remoto'];
+            return $resultados;
+        }
+
+        // 10. sudo
+        $secSudo = $extraerSeccion('---SUDO_TEST---');
+        $sudoOk = strpos($secSudo, 'SUDO_OK') !== false;
+        $resultados[] = [
+            'nombre' => 'Permisos sudo',
+            'ok' => $sudoOk,
+            'detalle' => $sudoOk ? 'sudo funciona sin contraseña (NOPASSWD)' : 'FALLO: ' . $secSudo,
+            'ayuda' => 'El usuario puede ejecutar comandos como root',
+            'cubre' => 'Copiar, Eliminar, Monitorear',
+            'grupo' => 'remoto',
+        ];
+
+        // 11. Directorio
+        $secDir = $extraerSeccion('---DIR_TEST---');
+        $dirOk = strpos($secDir, $dir) !== false;
+        $resultados[] = [
+            'nombre' => 'Directorio remoto',
+            'ok' => $dirOk,
+            'detalle' => $dirOk ? 'Accesible: ' . $dir : 'FALLO: ' . $secDir,
+            'ayuda' => 'El directorio /home/usuariossftp/s2/mega_reporte existe',
+            'cubre' => 'Listar, Copiar, Eliminar',
+            'grupo' => 'remoto',
+        ];
+
+        // 12. Listar archivos
+        $secLs = $extraerSeccion('---LS_TEST---', '---LS_END---');
+        $lsOk = $secLs !== '';
+        $lineas = $lsOk ? count(array_filter(explode("\n", $secLs))) : 0;
+        $resultados[] = [
+            'nombre' => 'Listar archivos (ls -lt)',
+            'ok' => $lsOk,
+            'detalle' => $lsOk ? $lineas . ' archivo(s) encontrados' : 'Sin archivos mega_rpt_*.csv.zip (directorio vacío o sin reportes recientes)',
+            'ayuda' => 'Hay archivos mega_rpt_*.csv.zip y se pueden leer',
+            'cubre' => 'Listar archivos',
+            'grupo' => 'remoto',
+        ];
+
+        // 13. monitorear.sh existe
+        $secMon = $extraerSeccion('---MON_TEST---');
+        $monExiste = strpos($secMon, 'MON_EXISTE') !== false && strpos($secMon, 'MON_NO_EXISTE') === false;
+        $resultados[] = [
+            'nombre' => 'Script monitorear.sh (existe)',
+            'ok' => $monExiste,
+            'detalle' => $monExiste ? 'Existe en /home/jesus/scripts/monitorear.sh' : 'NO encontrado en el servidor',
+            'ayuda' => 'El script de monitoreo está en el servidor',
+            'cubre' => 'Monitorear',
+            'grupo' => 'remoto',
+        ];
+
+        // 14. monitorear.sh ejecutable
+        $secMonExec = $extraerSeccion('---MON_EXEC---');
+        $monSyntaxOk = strpos($secMonExec, 'MON_SYNTAX_OK') !== false;
+        $resultados[] = [
+            'nombre' => 'Script monitorear.sh (ejecutable)',
+            'ok' => $monSyntaxOk,
+            'detalle' => $monSyntaxOk ? 'Sintaxis bash correcta y ejecutable con sudo' : 'FALLO: ' . ($monExiste ? $secMonExec : 'no existe'),
+            'ayuda' => 'El script no tiene errores de sintaxis bash',
+            'cubre' => 'Monitorear',
+            'grupo' => 'remoto',
+        ];
+
+        // 15. sudo cp
+        $secCp = $extraerSeccion('---CP_TEST---');
+        $cpOk = strpos($secCp, 'CP_OK') !== false;
+        $resultados[] = [
+            'nombre' => 'Permiso sudo cp (copiar +1s)',
+            'ok' => $cpOk,
+            'detalle' => $cpOk ? 'sudo cp disponible' : 'FALLO: ' . $secCp,
+            'ayuda' => 'El comando copiar funciona con permisos root',
+            'cubre' => 'Copiar +1s',
+            'grupo' => 'remoto',
+        ];
+
+        // 16. sudo rm
+        $secRm = $extraerSeccion('---RM_TEST---');
+        $rmOk = strpos($secRm, 'RM_OK') !== false;
+        $resultados[] = [
+            'nombre' => 'Permiso sudo rm (eliminar)',
+            'ok' => $rmOk,
+            'detalle' => $rmOk ? 'sudo rm disponible' : 'FALLO: ' . $secRm,
+            'ayuda' => 'El comando eliminar funciona con permisos root',
+            'cubre' => 'Eliminar',
+            'grupo' => 'remoto',
+        ];
+
+        // 17. Escritura real
+        $secWrite = $extraerSeccion('---WRITE_TEST---');
+        $writeOk = strpos($secWrite, 'WRITE_OK') !== false;
+        $resultados[] = [
+            'nombre' => 'Escritura en directorio remoto',
+            'ok' => $writeOk,
+            'detalle' => $writeOk
+                ? 'sudo touch/rm funciona en ' . $dir . ' (copiar y eliminar archivos OK)'
+                : 'FALLO: no se puede escribir/borrar en el directorio: ' . $secWrite,
+            'ayuda' => 'Crea y borra un archivo temporal en el directorio real',
+            'cubre' => 'Copiar +1s, Eliminar',
+            'grupo' => 'remoto',
+        ];
+
+        // 18. Descarga
+        $descargaOk = false;
+        $descargaDetalle = '';
+        if ($isPlink) {
+            if ($pscpDisponible) {
+                $descargaOk = true;
+                $descargaDetalle = 'pscp disponible para descarga';
+            } else {
+                $descargaOk = true;
+                $descargaDetalle = 'pscp NO disponible, se usará fallback plink+cat (funcional pero más lento)';
+            }
+        } else {
+            $scpTest = @shell_exec('where.exe scp 2>&1');
+            $scpPath = $scpTest ? trim(explode("\n", $scpTest)[0]) : '';
+            $descargaOk = ($scpPath !== '' && @is_file($scpPath));
+            $descargaDetalle = $descargaOk ? 'scp encontrado: ' . $scpPath : 'scp NO encontrado en el sistema';
+        }
+        $resultados[] = [
+            'nombre' => 'Capacidad de descarga (local)',
+            'ok' => $descargaOk,
+            'detalle' => $descargaDetalle,
+            'ayuda' => 'pscp/scp existe para transferir archivos',
+            'cubre' => 'Descargar',
+            'grupo' => 'bd',
+        ];
+
+        // 19. BD MySQL
+        $dbOk = false;
+        $dbDetalle = '';
+        try {
+            $db = new DatabaseSegundometro();
+            $row = $db->queryOne('SELECT 1 AS test');
+            $dbOk = ($row && isset($row['test']) && $row['test'] == 1);
+            $dbDetalle = $dbOk ? 'Conexión MySQL exitosa (__SPARTA_HOST_REDACTED__, __SPARTA_SECRET_REDACTED__)' : 'Conectó pero SELECT 1 falló';
+        } catch (\Throwable $e) {
+            $dbDetalle = 'FALLO: ' . $e->getMessage();
+        }
+        $resultados[] = [
+            'nombre' => 'Base de datos (Truncar/Estado)',
+            'ok' => $dbOk,
+            'detalle' => $dbDetalle,
+            'ayuda' => 'Conexión a __SPARTA_HOST_REDACTED__ __SPARTA_SECRET_REDACTED__ funciona',
+            'cubre' => 'Truncar, Estado reportes',
+            'grupo' => 'bd',
+        ];
+
+        // 20. Tabla Semana
+        $tablaOk = false;
+        $tablaDetalle = '';
+        if ($dbOk) {
+            try {
+                $db2 = new DatabaseSegundometro();
+                $row2 = $db2->queryOne('SELECT COUNT(*) AS total FROM tbl_segundometro_semana');
+                $tablaOk = ($row2 !== null);
+                $tablaDetalle = $tablaOk ? 'tbl_segundometro_semana accesible (' . ($row2['total'] ?? 0) . ' registros)' : 'Tabla no accesible';
+            } catch (\Throwable $e) {
+                $tablaDetalle = 'FALLO: ' . $e->getMessage();
+            }
+        } else {
+            $tablaDetalle = 'Omitida: BD no disponible';
+        }
+        $resultados[] = [
+            'nombre' => 'Tabla Semana (Truncar)',
+            'ok' => $tablaOk,
+            'detalle' => $tablaDetalle,
+            'ayuda' => 'tbl_segundometro_semana existe y es accesible',
+            'cubre' => 'Truncar',
+            'grupo' => 'bd',
+        ];
+
+        return $resultados;
     }
 }
