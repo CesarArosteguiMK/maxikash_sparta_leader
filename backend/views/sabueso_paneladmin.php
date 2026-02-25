@@ -180,6 +180,14 @@
     #modalRastreoCredito .rastreo-seccion-dictamen:hover {
         box-shadow: 0 14px 20px -3px rgba(0, 0, 0, 0.1), 0 6px 10px -2px rgba(0, 0, 0, 0.06) !important;
     }
+    #modalRastreoCredito .rastreo-seccion-dictamen.dictamen-solo-lectura select,
+    #modalRastreoCredito .rastreo-seccion-dictamen.dictamen-solo-lectura textarea,
+    #modalRastreoCredito .rastreo-seccion-dictamen.dictamen-solo-lectura .evidencia-slot-add,
+    #modalRastreoCredito .rastreo-seccion-dictamen.dictamen-solo-lectura .evidencia-foto-quitar {
+        pointer-events: none;
+        opacity: 0.75;
+    }
+    #modalRastreoCredito .rastreo-seccion-dictamen.dictamen-solo-lectura { cursor: default; }
     /* Hero IA: SIN franja morada (obligatorio). Caja y encabezado sin borde superior morado. */
     #modalRastreoCredito .rastreo-col-centro .rastreo-ia-box,
     #modalRastreoCredito .rastreo-ia-box.rastreo-centro-card,
@@ -267,6 +275,8 @@
     #modalRastreoCredito .rastreo-bitacora-titulo { border-bottom: 3px solid #334155 !important; padding-bottom: 0.5rem; margin-bottom: 0.5rem; }
     #modalRastreoCredito #btnBitacoraAmpliar { min-width: 32px; min-height: 32px; display: inline-flex; align-items: center; justify-content: center; }
     #modalRastreoCredito #btnBitacoraAmpliar:hover { color: #4f46e5; border-color: #4f46e5; }
+    #modalRastreoCredito #btnDictamenAmpliar { min-width: 32px; min-height: 32px; display: inline-flex; align-items: center; justify-content: center; }
+    #modalRastreoCredito #btnDictamenAmpliar:hover { color: #4f46e5; border-color: #4f46e5; }
     #modalRastreoCredito .rastreo-seccion-direcciones > .d-flex.mb-2 .fw-semibold.small.text-muted,
     #modalRastreoCredito .rastreo-seccion-gestiones > .d-flex.mb-2 .fw-semibold.small.text-muted,
     #modalRastreoCredito .rastreo-seccion-evidencias > .d-flex.mb-2 .fw-semibold.small.text-muted,
@@ -347,6 +357,11 @@
     #modalRastreoCredito .rastreo-bitacora-input-wrap { padding: 0.25rem 0; margin-top: auto; flex-shrink: 0; }
     #modalRastreoCredito .rastreo-dictamen-form .form-label { margin-bottom: 0.25rem; }
     #modalRastreoCredito .rastreo-dictamen-form .evidencia-slot { width: 100%; aspect-ratio: 1; max-height: 100px; }
+    /* Botones Dictamen en panel (mismos colores que en modal ampliada) */
+    #modalRastreoCredito .btn-dictamen-borrador { background: linear-gradient(135deg, #0d9488 0%, #0f766e 100%); border-color: #0d9488; color: #fff; }
+    #modalRastreoCredito .btn-dictamen-borrador:hover { background: linear-gradient(135deg, #0f766e 0%, #115e59 100%); border-color: #0f766e; color: #fff; }
+    #modalRastreoCredito .btn-dictamen-enviar { background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%); border-color: #4f46e5; color: #fff; }
+    #modalRastreoCredito .btn-dictamen-enviar:hover { background: linear-gradient(135deg, #4338ca 0%, #4f46e5 100%); border-color: #4338ca; color: #fff; }
     /* Bloque Direcciones maxi app: todo (intro + lista + mapa) dentro del bloque con scroll; el mapa no se sale */
     #modalRastreoCredito #rastreoDirecciones { display: flex; flex-direction: column; min-height: 0; flex: 1; overflow-y: auto; overflow-x: hidden; }
     #modalRastreoCredito #rastreoDirecciones .rastreo-mapa-wrap { flex-shrink: 0; min-height: 200px; height: 200px; display: flex; flex-direction: column; margin-top: 0.5rem; }
@@ -386,9 +401,54 @@
     #modalBitacoraAmpliada .bitacora-msg-header strong { color: #334155; font-size: 0.8rem; }
     #modalBitacoraAmpliada .bitacora-msg-mine .bitacora-msg-header { color: rgba(255,255,255,0.9); }
     #modalBitacoraAmpliada .bitacora-msg-mine .bitacora-msg-header strong { color: #fff; }
+    /* Tamaño grande para el modal de bitácora ampliada (un poco más chico) */
+    #modalBitacoraAmpliada .modal-dialog.modal-bitacora-ampliada { max-width: 80vw; width: 80vw; max-height: 78vh; height: 78vh; margin: 1rem auto; }
+    #modalBitacoraAmpliada .modal-content { display: flex; flex-direction: column; min-height: 0; }
+    #modalBitacoraAmpliada .modal-body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+    #modalBitacoraAmpliada .bitacora-ampliada-mensajes { flex: 1; min-height: 320px; font-size: 1rem; line-height: 1.5; }
+    #modalBitacoraAmpliada .bitacora-msg { margin-bottom: 1rem; }
+    #modalBitacoraAmpliada .bitacora-avatar { width: 40px; height: 40px; min-width: 40px; font-size: 0.9rem; }
+    #modalBitacoraAmpliada .bitacora-msg-header { font-size: 0.85rem; }
+    #modalBitacoraAmpliada .bitacora-msg-header strong { font-size: 1rem; }
+    #modalBitacoraAmpliada .bitacora-bubble { padding: 0.65rem 1rem; font-size: 1rem; }
+    /* Modal Dictamen ampliada: más grande y botones con color */
+    #modalDictamenAmpliada .modal-dialog.modal-dictamen-ampliada { max-width: 90vw; width: 800px; }
+    @media (min-width: 992px) {
+        #modalDictamenAmpliada .modal-dialog.modal-dictamen-ampliada { width: 840px; max-width: 90vw; }
+    }
+    @media (min-width: 1200px) {
+        #modalDictamenAmpliada .modal-dialog.modal-dictamen-ampliada { width: 920px; }
+    }
+    #modalDictamenAmpliada .btn-dictamen-borrador { background: linear-gradient(135deg, #0d9488 0%, #0f766e 100%); border-color: #0d9488; color: #fff; }
+    #modalDictamenAmpliada .btn-dictamen-borrador:hover { background: linear-gradient(135deg, #0f766e 0%, #115e59 100%); border-color: #0f766e; color: #fff; }
+    #modalDictamenAmpliada .btn-dictamen-enviar { background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%); border-color: #4f46e5; color: #fff; }
+    #modalDictamenAmpliada .btn-dictamen-enviar:hover { background: linear-gradient(135deg, #4338ca 0%, #4f46e5 100%); border-color: #4338ca; color: #fff; }
+    /* Evidencia dinámica: un Añadir fijo + fotos que se van corriendo */
+    .evidencia-dinamica-wrap { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 0.5rem; }
+    .evidencia-slot-add { flex-shrink: 0; width: 100px; height: 100px; min-width: 100px; min-height: 100px; border: 2px dashed #cbd5e1; border-radius: 12px; background: rgba(241, 245, 249, 0.9); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.25rem; cursor: pointer; transition: border-color 0.2s, background 0.2s; }
+    .evidencia-slot-add:hover { border-color: #6366f1; background: rgba(99, 102, 241, 0.08); }
+    .evidencia-slot-add i.fa-plus { font-size: 1.5rem; color: #94a3b8; }
+    .evidencia-slot-add:hover i.fa-plus { color: #6366f1; }
+    .evidencia-slot-add .evidencia-slot-label { font-size: 0.7rem; color: #94a3b8; }
+    .evidencia-slot-add:hover .evidencia-slot-label { color: #6366f1; }
+    .evidencia-fotos-list { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: flex-start; min-height: 0; }
+    .evidencia-foto-item { position: relative; flex-shrink: 0; width: 100px; height: 100px; min-width: 100px; min-height: 100px; border-radius: 12px; overflow: hidden; border: 1px solid #e2e8f0; background: #f1f5f9; cursor: pointer; transition: transform 0.2s ease, box-shadow 0.25s ease, border-color 0.2s ease; }
+    .evidencia-foto-item:hover { transform: scale(1.06); box-shadow: 0 8px 20px rgba(0,0,0,0.15); border-color: #6366f1; }
+    .evidencia-foto-item img { width: 100%; height: 100%; object-fit: cover; display: block; pointer-events: none; }
+    .evidencia-foto-item .evidencia-foto-ver { position: absolute; inset: 0; background: rgba(99, 102, 241, 0.35); display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.2s ease; pointer-events: none; }
+    .evidencia-foto-item .evidencia-foto-ver i { font-size: 1.75rem; color: #fff; text-shadow: 0 1px 4px rgba(0,0,0,0.4); }
+    .evidencia-foto-item:hover .evidencia-foto-ver { opacity: 1; }
+    .evidencia-foto-item .evidencia-foto-quitar { position: absolute; top: 2px; right: 2px; width: 22px; height: 22px; border-radius: 50%; background: rgba(0,0,0,0.6); color: #fff; border: none; padding: 0; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; cursor: pointer; opacity: 0.9; z-index: 2; }
+    .evidencia-foto-item .evidencia-foto-quitar:hover { background: #dc2626; opacity: 1; }
+    /* Modal ver evidencia dictamen (lightbox) */
+    #modalVerEvidenciaDictamen .modal-content { border: none; border-radius: 12px; overflow: visible; box-shadow: 0 12px 40px rgba(0,0,0,0.25); }
+    #modalVerEvidenciaDictamen #modalVerEvidenciaDictamenImg { transition: opacity 0.2s ease; }
+    @keyframes evidenciaVerEntrada { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
     #tablaTicketsPanel th:nth-child(6) { min-width: 10rem; white-space: nowrap; }
     #tablaTicketsPanel .d-flex.flex-wrap.gap-1 { flex-wrap: wrap; gap: 0.35rem !important; }
     #tablaTicketsPanel .d-flex.flex-wrap.gap-1 .btn { flex-shrink: 0; }
+    #tablaTicketsPanel tr.fila-dictamen-enviado { border-left: 3px solid #0d6efd; }
+    #tablaTicketsPanel .btn-dictamen-ojito { cursor: pointer; }
     @media (max-width: 768px) {
         #tablaTicketsPanel .table-responsive { overflow-x: auto; -webkit-overflow-scrolling: touch; }
     }
@@ -457,27 +517,6 @@
     #modalEvidenciaRastreo .modal-body .text-muted {
         color: #94a3b8 !important;
         font-size: 0.85rem;
-    }
-    #modalEvidenciaRastreo .evidencia-comentario-texto {
-        word-break: break-word;
-        overflow-wrap: break-word;
-        max-width: 100%;
-        white-space: pre-wrap;
-    }
-    #modalEvidenciaRastreo #evidenciaComentarioModal {
-        color: #ffffff !important;
-        background-color: #4a5568 !important;
-        border-color: #718096 !important;
-        resize: none;
-        max-height: 120px;
-    }
-    #modalEvidenciaRastreo #evidenciaComentarioModal::placeholder {
-        color: #a0aec0 !important;
-    }
-    #modalEvidenciaRastreo .evidencia-comentario-counter {
-        font-size: 0.75rem;
-        color: #94a3b8 !important;
-        margin-top: 0.25rem;
     }
     #modalEvidenciaRastreo .modal-footer {
         background: #1e293b;
@@ -572,6 +611,7 @@
                     <th>Fechas</th>
                     <th>Quién levantó</th>
                     <th>Asignado a</th>
+                    <th></th>
                     <th>Acciones</th>
                 </tr>
             </thead>
@@ -591,6 +631,7 @@
                 <button type="button" class="btn-close btn-close-sm ms-auto" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
             <div class="modal-body py-3">
+                <input type="hidden" id="rastreoIdTicketActual" value="" data-id-ticket="">
                 <!-- Encabezado: columna izquierda = datos cliente + ticket; columna derecha = quién levantó / cuando / asignado -->
                 <div class="rastreo-header-grid">
                     <div class="rastreo-header-left">
@@ -678,9 +719,12 @@
                             </div>
                         </div>
                         <div class="rastreo-seccion-dictamen p-3 d-flex flex-column">
-                            <div class="d-flex align-items-center gap-2 mb-2 rastreo-bitacora-titulo">
-                                <i class="fa-solid fa-file-lines text-primary"></i>
-                                <span class="fw-semibold small text-muted">Dictamen</span>
+                            <div class="d-flex align-items-center justify-content-between gap-2 mb-2 rastreo-bitacora-titulo">
+                                <div class="d-flex align-items-center gap-2">
+                                    <i class="fa-solid fa-file-lines text-primary"></i>
+                                    <span class="fw-semibold small text-muted">Dictamen</span>
+                                </div>
+                                <button type="button" class="btn btn-sm btn-outline-secondary p-1" id="btnDictamenAmpliar" title="Ampliar dictamen" aria-label="Ampliar dictamen"><i class="fa-solid fa-expand"></i></button>
                             </div>
                             <div class="rastreo-dictamen-form">
                                 <div class="mb-2">
@@ -699,30 +743,17 @@
                                 </div>
                                 <div class="mb-2">
                                     <span class="form-label small fw-semibold text-muted d-block mb-1">Evidencia</span>
-                                    <div class="row g-2" id="rastreoDictamenEvidenciasSlots">
-                                        <div class="col-6 col-md-4">
-                                            <div class="evidencia-slot evidencia-slot-dictamen" data-slot="0" role="button" tabindex="0" title="Añadir foto">
-                                                <i class="fa-solid fa-plus"></i>
-                                                <span class="evidencia-slot-label">Añadir</span>
-                                            </div>
+                                    <div class="evidencia-dinamica-wrap" id="rastreoDictamenEvidenciasWrap">
+                                        <div class="evidencia-slot evidencia-slot-add" id="rastreoDictamenEvidenciaAdd" role="button" tabindex="0" title="Añadir foto">
+                                            <i class="fa-solid fa-plus"></i>
+                                            <span class="evidencia-slot-label">Añadir</span>
                                         </div>
-                                        <div class="col-6 col-md-4">
-                                            <div class="evidencia-slot evidencia-slot-dictamen" data-slot="1" role="button" tabindex="0" title="Añadir foto">
-                                                <i class="fa-solid fa-plus"></i>
-                                                <span class="evidencia-slot-label">Añadir</span>
-                                            </div>
-                                        </div>
-                                        <div class="col-6 col-md-4">
-                                            <div class="evidencia-slot evidencia-slot-dictamen" data-slot="2" role="button" tabindex="0" title="Añadir foto">
-                                                <i class="fa-solid fa-plus"></i>
-                                                <span class="evidencia-slot-label">Añadir</span>
-                                            </div>
-                                        </div>
+                                        <div class="evidencia-fotos-list" id="rastreoDictamenEvidenciasFotos"></div>
                                     </div>
                                 </div>
                                 <div class="d-flex gap-2 flex-wrap mt-2">
-                                    <button type="button" class="btn btn-sm btn-outline-secondary" id="btnDictamenGuardarBorrador" title="Guardar borrador"><i class="fa-solid fa-save me-1"></i>Guardar borrador</button>
-                                    <button type="button" class="btn btn-sm btn-primary" id="btnDictamenEnviarGestor" title="Enviar al gestor"><i class="fa-solid fa-paper-plane me-1"></i>Enviar al gestor</button>
+                                    <button type="button" class="btn btn-sm btn-dictamen-borrador" id="btnDictamenGuardarBorrador" title="Guardar borrador"><i class="fa-solid fa-save me-1"></i>Guardar borrador</button>
+                                    <button type="button" class="btn btn-sm btn-dictamen-enviar" id="btnDictamenEnviarGestor" title="Enviar al gestor"><i class="fa-solid fa-paper-plane me-1"></i>Enviar al gestor</button>
                                 </div>
                             </div>
                         </div>
@@ -843,6 +874,50 @@
     </div>
 </div>
 
+<!-- Modal Dictamen ampliada: formulario en grande -->
+<div class="modal fade" id="modalDictamenAmpliada" tabindex="-1" aria-labelledby="modalDictamenAmpliadaLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-dictamen-ampliada modal-lg">
+        <div class="modal-content">
+            <div class="modal-header py-2 d-flex align-items-center">
+                <h6 class="modal-title mb-0"><i class="fa-solid fa-file-lines me-2"></i>Dictamen – Vista ampliada</h6>
+                <button type="button" class="btn-close btn-close-sm ms-auto" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div class="rastreo-dictamen-form-ampliada">
+                    <div class="mb-3">
+                        <label for="rastreoDictamenAmpliadaCombo" class="form-label fw-semibold text-muted">Tipo de dictamen <span class="text-danger">*</span></label>
+                        <select class="form-select" id="rastreoDictamenAmpliadaCombo" required aria-required="true">
+                            <option value="">Seleccione...</option>
+                            <option value="localizado">Localizado</option>
+                            <option value="no_localizado">No localizado</option>
+                            <option value="promesa_pago">Promesa de pago</option>
+                            <option value="otro">Otro</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="rastreoDictamenAmpliadaDescripcion" class="form-label fw-semibold text-muted">Descripción <span class="text-danger">*</span></label>
+                        <textarea class="form-control" id="rastreoDictamenAmpliadaDescripcion" rows="5" placeholder="Escriba la descripción..." required aria-required="true" maxlength="1000"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <span class="form-label fw-semibold text-muted d-block mb-2">Evidencia</span>
+                        <div class="evidencia-dinamica-wrap" id="rastreoDictamenAmpliadaEvidenciasWrap">
+                            <div class="evidencia-slot evidencia-slot-add" id="rastreoDictamenAmpliadaEvidenciaAdd" role="button" tabindex="0" title="Añadir foto">
+                                <i class="fa-solid fa-plus"></i>
+                                <span class="evidencia-slot-label">Añadir</span>
+                            </div>
+                            <div class="evidencia-fotos-list" id="rastreoDictamenAmpliadaEvidenciasFotos"></div>
+                        </div>
+                    </div>
+                    <div class="d-flex gap-2 flex-wrap mt-3">
+                        <button type="button" class="btn btn-dictamen-borrador" id="btnDictamenAmpliadaGuardarBorrador" title="Guardar borrador"><i class="fa-solid fa-save me-1"></i>Guardar borrador</button>
+                        <button type="button" class="btn btn-dictamen-enviar" id="btnDictamenAmpliadaEnviarGestor" title="Enviar al gestor"><i class="fa-solid fa-paper-plane me-1"></i>Enviar al gestor</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Modal mapa grande (90% pantalla): se abre al hacer clic en el mapa pequeño -->
 <div class="modal fade" id="modalMapaGrande" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered h-90">
@@ -875,7 +950,48 @@
 
 <!-- Input oculto para subir evidencias -->
 <input type="file" id="inputEvidenciaRastreo" accept="image/*" style="display: none;">
-<input type="file" id="inputEvidenciaDictamen" accept="image/*" style="display: none;">
+<input type="file" id="inputEvidenciaDictamen" accept="image/*" multiple style="display: none;">
+
+<!-- Modal ver evidencia dictamen (lightbox): solo imagen + cerrar -->
+<div class="modal fade" id="modalVerEvidenciaDictamen" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered p-0 border-0" style="max-width: min(92vw, 700px);">
+        <div class="modal-content border-0 shadow-lg bg-transparent">
+            <button type="button" class="btn btn-link position-absolute top-0 end-0 text-white bg-dark bg-opacity-50 rounded-circle p-2 m-2 z-1" style="width: 36px; height: 36px; line-height: 1;" data-bs-dismiss="modal" aria-label="Cerrar"><i class="fa-solid fa-times"></i></button>
+            <img id="modalVerEvidenciaDictamenImg" src="" alt="Evidencia" class="img-fluid rounded" style="max-height: 85vh; width: auto; display: block;">
+        </div>
+    </div>
+</div>
+
+<!-- Modal Detalle del dictamen (Panel Admin: clic en ojito) -->
+<div class="modal fade" id="modalDetalleDictamen" tabindex="-1" aria-labelledby="modalDetalleDictamenLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content modal-content-glass">
+            <div class="modal-header py-2 d-flex align-items-center">
+                <h5 class="modal-title mb-0" id="modalDetalleDictamenLabel"><i class="fa-solid fa-file-lines me-2"></i>Detalle del dictamen</h5>
+                <button type="button" class="btn-close btn-close-sm ms-auto" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body p-0">
+                <div class="row g-0">
+                    <div class="col-12 col-md-5 bg-light bg-opacity-50 p-3 border-end">
+                        <div class="dictamen-detalle-imagen-principal mb-2 rounded overflow-hidden bg-dark bg-opacity-10" style="min-height: 200px;">
+                            <img id="modalDetalleDictamenImgPrincipal" src="" alt="Evidencia" class="img-fluid w-100" style="object-fit: contain; max-height: 280px;">
+                        </div>
+                        <div class="d-flex flex-wrap gap-2 dictamen-detalle-miniaturas" id="modalDetalleDictamenMiniaturas"></div>
+                    </div>
+                    <div class="col-12 col-md-7 p-4">
+                        <div class="mb-3"><span class="text-muted small">Tipo</span><div id="modalDetalleDictamenTipo" class="fw-semibold"></div></div>
+                        <div class="mb-3"><span class="text-muted small">Descripción</span><div id="modalDetalleDictamenDescripcion" class="text-break"></div></div>
+                        <div class="mb-2"><span class="text-muted small">Enviado</span><div id="modalDetalleDictamenEnviado" class="small"></div></div>
+                        <div><span class="text-muted small">Visto por gestor</span><div id="modalDetalleDictamenVisto" class="small"></div></div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer py-2">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"><i class="fa-solid fa-times me-1"></i>Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
 
 <!-- Modal evidencia: ver imagen + Eliminar / Cerrar, o cargar si está vacío -->
 <div class="modal fade" id="modalEvidenciaRastreo" tabindex="-1" aria-hidden="true">
@@ -947,7 +1063,7 @@
 <script>
 (function() {
     var SCRIM_Z = 1060;
-    var CHILD_MODALS = ['modalAsignarA', 'modalAnaliticaSpatial', 'modalAnaliticaPayments', 'modalAnaliticaCompliance', 'modalLecturaIA', 'modalEvidenciaVerificacion', 'modalPrediccionIA', 'modalMapaGrande', 'modalMapaAlternasGrande', 'modalEvidenciaRastreo', 'modalBitacoraAmpliada'];
+    var CHILD_MODALS = ['modalAsignarA', 'modalAnaliticaSpatial', 'modalAnaliticaPayments', 'modalAnaliticaCompliance', 'modalLecturaIA', 'modalEvidenciaVerificacion', 'modalPrediccionIA', 'modalMapaGrande', 'modalMapaAlternasGrande', 'modalEvidenciaRastreo', 'modalBitacoraAmpliada', 'modalDictamenAmpliada', 'modalVerEvidenciaDictamen', 'modalDetalleDictamen'];
     var scrimEl = null;
     var parentModal = null;
     function getOrCreateScrim() {
@@ -1060,6 +1176,10 @@
         return;
     }
     $(document).ready(function() {
+        var apiBase = (function(){ var p = window.location.pathname || ''; var i = p.indexOf('/sabueso'); return i !== -1 ? p.substring(0, i) : ''; })();
+        var urlSubirEvidencia = (apiBase || '') + '/sabueso/subirEvidenciaTicket';
+        var evidenciasEliminadas = [];
+
         $('#modalRastreoCredito').on('shown.bs.modal', function() {
             var id = typeof idCreditoRastreoActual !== 'undefined' ? idCreditoRastreoActual : null;
             var btn = $('#btnResumenAnaliticaIA');
@@ -1078,6 +1198,308 @@
             var $destino = $('#rastreoBitacoraAmpliadaContenido');
             if ($origen.length && $destino.length) { $destino.html($origen.html()); }
         });
+
+        $('#btnDictamenAmpliar').on('click', function() {
+            $('#rastreoDictamenAmpliadaCombo').val($('#rastreoDictamenCombo').val() || '');
+            $('#rastreoDictamenAmpliadaDescripcion').val($('#rastreoDictamenDescripcion').val() || '');
+            $('#modalDictamenAmpliada').modal('show');
+        });
+        $('#modalDictamenAmpliada').on('shown.bs.modal', function() {
+            $('#rastreoDictamenAmpliadaCombo').val($('#rastreoDictamenCombo').val() || '');
+            $('#rastreoDictamenAmpliadaDescripcion').val($('#rastreoDictamenDescripcion').val() || '');
+        });
+        $('#modalDictamenAmpliada').on('hidden.bs.modal', function() {
+            $('#rastreoDictamenCombo').val($('#rastreoDictamenAmpliadaCombo').val() || '');
+            $('#rastreoDictamenDescripcion').val($('#rastreoDictamenAmpliadaDescripcion').val() || '');
+        });
+
+        (function evidenciaDictamenDinamica() {
+            var inputEl = document.getElementById('inputEvidenciaDictamen');
+            var evidenciaTarget = 'panel';
+            function getList() { return evidenciaTarget === 'ampliada' ? $('#rastreoDictamenAmpliadaEvidenciasFotos') : $('#rastreoDictamenEvidenciasFotos'); }
+            $('#rastreoDictamenEvidenciaAdd').on('click', function() { evidenciaTarget = 'panel'; if (inputEl) inputEl.click(); });
+            $('#rastreoDictamenAmpliadaEvidenciaAdd').on('click', function() { evidenciaTarget = 'ampliada'; if (inputEl) inputEl.click(); });
+            $(inputEl).on('change', function() {
+                var files = this.files;
+                var $list = getList();
+                if (!files || !files.length) return;
+                for (var i = 0; i < files.length; i++) {
+                    var f = files[i];
+                    if (!f.type.match(/^image\//)) continue;
+                    var url = URL.createObjectURL(f);
+                    var $item = $('<div class="evidencia-foto-item" title="Clic para ver en grande"><span class="evidencia-foto-ver"><i class="fa-solid fa-magnifying-glass-plus"></i></span><img src="" alt=""><button type="button" class="evidencia-foto-quitar" aria-label="Quitar"><i class="fa-solid fa-times"></i></button></div>');
+                    $item.find('img').attr('src', url);
+                    $item.data('url', url);
+                    $item.data('file', f);
+                    $item.on('click', function(e) {
+                        if ($(e.target).closest('.evidencia-foto-quitar').length) return;
+                        var src = $item.find('img').attr('src');
+                        if (src) {
+                            $('#modalVerEvidenciaDictamenImg').attr('src', src);
+                            $('#modalVerEvidenciaDictamen').modal('show');
+                        }
+                    });
+                    $item.find('.evidencia-foto-quitar').on('click', function(e) {
+                        e.stopPropagation();
+                        var u = $item.data('url');
+                        if (u) try { URL.revokeObjectURL(u); } catch(err) {}
+                        $item.remove();
+                        $(document).trigger('dictamen-evidencia-cambio');
+                    });
+                    $list.append($item);
+                }
+                this.value = '';
+                $(document).trigger('dictamen-evidencia-cambio');
+            });
+            $('#modalVerEvidenciaDictamen').on('hidden.bs.modal', function() {
+                $('#modalVerEvidenciaDictamenImg').attr('src', '');
+            });
+        })();
+
+        function rellenarEvidenciasDictamen(idTicket) {
+            if (!idTicket || typeof http === 'undefined') return;
+            evidenciasEliminadas = [];
+            $('#rastreoDictamenEvidenciasFotos, #rastreoDictamenAmpliadaEvidenciasFotos').empty();
+            http.request({
+                endpoint: '/sabueso/getEvidenciasTicket',
+                metodo: 'POST',
+                data: JSON.stringify({ id_ticket: idTicket }),
+                contentType: 'application/json',
+                processData: false,
+                onSuccess: function(r) {
+                    var list = (r.success && r.datos) ? r.datos : [];
+                    list.forEach(function(e) {
+                        var url = (apiBase || '') + (e.url || ('/sabueso/verEvidencia?id=' + (e.id || '')));
+                        var idEv = e.id;
+                        function crearItem() {
+                            var $it = $('<div class="evidencia-foto-item" title="Clic para ver en grande"><span class="evidencia-foto-ver"><i class="fa-solid fa-magnifying-glass-plus"></i></span><img src="" alt=""><button type="button" class="evidencia-foto-quitar" aria-label="Quitar"><i class="fa-solid fa-times"></i></button></div>');
+                            $it.find('img').attr('src', url);
+                            if (idEv) $it.data('id-evidencia', idEv);
+                            $it.on('click', function(ev) {
+                                if ($(ev.target).closest('.evidencia-foto-quitar').length) return;
+                                var s = $it.find('img').attr('src');
+                                if (s) { $('#modalVerEvidenciaDictamenImg').attr('src', s); $('#modalVerEvidenciaDictamen').modal('show'); }
+                            });
+                            $it.find('.evidencia-foto-quitar').on('click', function(ev) {
+                                ev.stopPropagation();
+                                var idE = $it.data('id-evidencia');
+                                if (idE) evidenciasEliminadas.push(idE);
+                                $it.remove();
+                                $(document).trigger('dictamen-evidencia-cambio');
+                            });
+                            return $it;
+                        }
+                        $('#rastreoDictamenEvidenciasFotos').append(crearItem());
+                        $('#rastreoDictamenAmpliadaEvidenciasFotos').append(crearItem());
+                    });
+                }
+            });
+        }
+
+        function guardarDictamenBorradorUI() {
+            var idTicket = parseInt($('#rastreoIdTicketActual').val() || $('#rastreoIdTicketActual').attr('data-id-ticket') || $('#modalRastreoCredito').attr('data-id-ticket') || '', 10) || (typeof window.ticketIdRastreoActual !== 'undefined' ? window.ticketIdRastreoActual : null);
+            if (!idTicket && typeof ticketIdRastreoActual !== 'undefined') idTicket = ticketIdRastreoActual;
+            if (!idTicket || isNaN(idTicket)) {
+                if (typeof Swal !== 'undefined') Swal.fire({ icon: 'warning', title: 'No hay ticket', text: 'No se identificó el ticket. Cierre el modal de rastreo y ábralo de nuevo desde la tabla.' });
+                return;
+            }
+            if (typeof http === 'undefined') return;
+            var tipo = $('#rastreoDictamenCombo').val();
+            var desc = ($('#rastreoDictamenDescripcion').val() || '').trim();
+            if (!tipo || !desc) { if (typeof Swal !== 'undefined') Swal.fire({ icon: 'warning', title: 'Faltan datos', text: 'Seleccione tipo y escriba la descripción.' }); return; }
+            var archivosPendientes = [];
+            var vistos = {};
+            $('#rastreoDictamenEvidenciasFotos .evidencia-foto-item').each(function() { var f = $(this).data('file'); if (f) { var k = f.name + '_' + f.size; if (!vistos[k]) { vistos[k] = true; archivosPendientes.push(f); } } });
+            $('#rastreoDictamenAmpliadaEvidenciasFotos .evidencia-foto-item').each(function() { var f = $(this).data('file'); if (f) { var k = f.name + '_' + f.size; if (!vistos[k]) { vistos[k] = true; archivosPendientes.push(f); } } });
+            var eliminadasPendientes = evidenciasEliminadas.slice();
+            evidenciasEliminadas = [];
+            function eliminarSiguiente(idx) {
+                if (idx >= eliminadasPendientes.length) {
+                    subirSiguiente(0);
+                    return;
+                }
+                http.request({
+                    endpoint: '/sabueso/eliminarEvidenciaTicket',
+                    metodo: 'POST',
+                    data: JSON.stringify({ id_evidencia: eliminadasPendientes[idx] }),
+                    contentType: 'application/json',
+                    processData: false,
+                    showLoader: false,
+                    onSuccess: function() { eliminarSiguiente(idx + 1); },
+                    onError: function() { eliminarSiguiente(idx + 1); }
+                });
+            }
+            function subirSiguiente(indice) {
+                if (indice >= archivosPendientes.length) {
+                    enviarBorrador();
+                    return;
+                }
+                var fd = new FormData();
+                fd.append('id_ticket', idTicket);
+                fd.append('evidencia', archivosPendientes[indice]);
+                $.ajax({
+                    url: urlSubirEvidencia,
+                    type: 'POST',
+                    data: fd,
+                    processData: false,
+                    contentType: false,
+                    success: function(r) {
+                        if (r.success) subirSiguiente(indice + 1);
+                        else { if (typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: 'Error al subir evidencia', text: (r && r.mensaje) || 'No se pudo subir la imagen.' }); }
+                    },
+                    error: function(xhr) {
+                        var msg = 'No se pudo subir la evidencia.';
+                        try {
+                            var j = xhr.responseJSON || (xhr.responseText ? JSON.parse(xhr.responseText) : null);
+                            if (j && j.mensaje) msg = j.mensaje;
+                        } catch (e) {}
+                        if (typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: 'Error al subir evidencia', text: msg });
+                    }
+                });
+            }
+            function enviarBorrador() {
+            http.request({
+                endpoint: '/sabueso/guardarDictamenBorrador',
+                metodo: 'POST',
+                data: JSON.stringify({ id_ticket: idTicket, tipo: tipo, descripcion: desc }),
+                contentType: 'application/json',
+                processData: false,
+                showLoader: false,
+                onSuccess: function(r) {
+                    if (r.success) {
+                        var esActualizacion = r.mensaje && (r.mensaje + '').toLowerCase().indexOf('actualizado') !== -1;
+                        if (typeof Swal !== 'undefined') {
+                            Swal.fire({
+                                icon: 'success',
+                                title: esActualizacion ? 'Dictamen actualizado' : 'Mensaje guardado',
+                                text: esActualizacion ? 'La información del dictamen se actualizó correctamente.' : 'El borrador se guardó correctamente.',
+                                timer: 2500,
+                                showConfirmButton: true
+                            }).then(function() {
+                                cargarDictamenRastreo();
+                                if (typeof getTicketsPanelAdmin === 'function') getTicketsPanelAdmin();
+                                if (typeof rellenarEvidenciasDictamen === 'function') rellenarEvidenciasDictamen(idTicket);
+                            });
+                        } else {
+                            cargarDictamenRastreo();
+                            if (typeof getTicketsPanelAdmin === 'function') getTicketsPanelAdmin();
+                            if (typeof rellenarEvidenciasDictamen === 'function') rellenarEvidenciasDictamen(idTicket);
+                        }
+                    } else { var msg = r.mensaje || 'No se pudo guardar.'; if (r.error) msg += ' Detalle: ' + r.error; if (typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: 'Error', text: msg }); }
+                },
+                onError: function(e) { if (typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: 'Error', text: (e && e.mensaje) || 'No se pudo guardar.' }); }
+            });
+            }
+            eliminarSiguiente(0);
+        }
+        function enviarDictamenGestorUI() {
+            var idTicket = parseInt($('#rastreoIdTicketActual').val() || $('#rastreoIdTicketActual').attr('data-id-ticket') || $('#modalRastreoCredito').attr('data-id-ticket') || '', 10) || (typeof window.ticketIdRastreoActual !== 'undefined' ? window.ticketIdRastreoActual : null);
+            if (!idTicket && typeof ticketIdRastreoActual !== 'undefined') idTicket = ticketIdRastreoActual;
+            if (!idTicket || isNaN(idTicket)) {
+                if (typeof Swal !== 'undefined') Swal.fire({ icon: 'warning', title: 'No hay ticket', text: 'No se identificó el ticket. Cierre el modal de rastreo y ábralo de nuevo desde la tabla.' });
+                return;
+            }
+            if (typeof http === 'undefined') return;
+            var tipo = $('#rastreoDictamenCombo').val();
+            var desc = ($('#rastreoDictamenDescripcion').val() || '').trim();
+            if (!tipo || !desc) { if (typeof Swal !== 'undefined') Swal.fire({ icon: 'warning', title: 'Faltan datos', text: 'Seleccione tipo y escriba la descripción antes de enviar.' }); return; }
+            http.request({
+                endpoint: '/sabueso/enviarDictamenGestor',
+                metodo: 'POST',
+                data: JSON.stringify({ id_ticket: idTicket }),
+                contentType: 'application/json',
+                processData: false,
+                showLoader: false,
+                onSuccess: function(r) {
+                    if (r.success) {
+                        if (typeof Swal !== 'undefined') {
+                            Swal.fire({ icon: 'success', title: 'Mensaje enviado', text: 'El dictamen fue enviado al gestor correctamente.', timer: 2500, showConfirmButton: true }).then(function() {
+                                cargarDictamenRastreo();
+                                if (typeof getTicketsPanelAdmin === 'function') getTicketsPanelAdmin();
+                            });
+                        } else {
+                            cargarDictamenRastreo();
+                            if (typeof getTicketsPanelAdmin === 'function') getTicketsPanelAdmin();
+                        }
+                    } else { if (typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: 'Error', text: r.mensaje || 'No se pudo enviar.' }); }
+                },
+                onError: function(e) { if (typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: 'Error', text: (e && e.mensaje) || 'No se pudo enviar.' }); }
+            });
+        }
+        function marcarDictamenConCambios() {
+            if ($('#btnDictamenGuardarBorrador').data('saved') === '1' && !$('.rastreo-seccion-dictamen').hasClass('dictamen-solo-lectura')) {
+                $('#btnDictamenGuardarBorrador, #btnDictamenAmpliadaGuardarBorrador').prop('disabled', false).html('<i class="fa-solid fa-save me-1"></i>Guardar borrador').removeData('saved');
+            }
+        }
+        $('#rastreoDictamenCombo').on('change', marcarDictamenConCambios);
+        $('#rastreoDictamenDescripcion').on('input', marcarDictamenConCambios);
+        $(document).on('dictamen-evidencia-cambio', marcarDictamenConCambios);
+
+        $('#btnDictamenGuardarBorrador').on('click', function() { guardarDictamenBorradorUI(); });
+        $('#btnDictamenEnviarGestor').on('click', function() { enviarDictamenGestorUI(); });
+        $('#btnDictamenAmpliadaGuardarBorrador').on('click', function() { $('#rastreoDictamenCombo').val($('#rastreoDictamenAmpliadaCombo').val()); $('#rastreoDictamenDescripcion').val($('#rastreoDictamenAmpliadaDescripcion').val()); guardarDictamenBorradorUI(); });
+        $('#btnDictamenAmpliadaEnviarGestor').on('click', function() { $('#rastreoDictamenCombo').val($('#rastreoDictamenAmpliadaCombo').val()); $('#rastreoDictamenDescripcion').val($('#rastreoDictamenAmpliadaDescripcion').val()); enviarDictamenGestorUI(); });
+
+        $('#tablaTicketsPanel').on('draw.dt', function() {
+            var tabla;
+            try { tabla = $(this).DataTable(); } catch(ex) { return; }
+            tabla.rows().every(function() {
+                var d = this.data();
+                var node = this.node();
+                if (!d || !node) return;
+                if (d._dictamen_estado === 'enviado_al_gestor') {
+                    $(node).addClass('fila-dictamen-enviado').attr('data-id-ticket', d._id_ticket || '');
+                }
+            });
+            $('#tablaTicketsPanel [data-bs-toggle="tooltip"]').tooltip();
+        });
+        $(document).on('click', '#tablaTicketsPanel .btn-dictamen-ojito, #tablaTicketsPanel .fa-eye, #tablaTicketsPanel .fa-eye-slash', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            var id = $(this).closest('[data-id-ticket]').attr('data-id-ticket') || $(this).closest('tr').attr('data-id-ticket');
+            if (id && window.abrirModalDetalleDictamen) window.abrirModalDetalleDictamen(parseInt(id, 10));
+        });
+        window.abrirModalDetalleDictamen = function(idTicket) {
+            if (!idTicket || typeof http === 'undefined') return;
+            $('#modalDetalleDictamenImgPrincipal').attr('src', '');
+            $('#modalDetalleDictamenMiniaturas').empty();
+            $('#modalDetalleDictamenTipo, #modalDetalleDictamenDescripcion, #modalDetalleDictamenEnviado, #modalDetalleDictamenVisto').text('');
+            $('#modalDetalleDictamen').modal('show');
+            http.request({
+                endpoint: '/sabueso/getDictamenDetalle',
+                metodo: 'POST',
+                data: JSON.stringify({ id_ticket: idTicket }),
+                contentType: 'application/json',
+                processData: false,
+                onSuccess: function(r) {
+                    if (!r.success || !r.datos) {
+                        $('#modalDetalleDictamenTipo').text(r.mensaje || 'No se pudo cargar.');
+                        return;
+                    }
+                    var d = r.datos;
+                    var dm = d.dictamen || {};
+                    $('#modalDetalleDictamenTipo').text(dm.tipo || '—');
+                    $('#modalDetalleDictamenDescripcion').text(dm.descripcion || '—');
+                    $('#modalDetalleDictamenEnviado').text(dm.fecha_actualizacion ? (new Date(dm.fecha_actualizacion).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })) : '—');
+                    var vistoStr = dm.fecha_visto_gestor ? (new Date(dm.fecha_visto_gestor).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })) : '';
+                    if (vistoStr && (dm.visto_gestor_nombre || '').trim()) vistoStr = 'Por ' + (dm.visto_gestor_nombre || '').trim() + ' el ' + vistoStr;
+                    $('#modalDetalleDictamenVisto').text(vistoStr || 'No visto');
+                    var evidencias = d.evidencias || [];
+                    var url0 = evidencias[0] && evidencias[0].url ? ((typeof apiBase !== 'undefined' ? apiBase : '') + evidencias[0].url) : '';
+                    $('#modalDetalleDictamenImgPrincipal').attr('src', url0);
+                    var $min = $('#modalDetalleDictamenMiniaturas');
+                    evidencias.forEach(function(ev) {
+                        var url = (typeof apiBase !== 'undefined' ? apiBase : '') + (ev.url || '');
+                        var $thumb = $('<div class="rounded overflow-hidden border" style="width: 60px; height: 60px; cursor: pointer;"><img src="' + url.replace(/"/g, '&quot;') + '" alt="" class="img-fluid w-100 h-100" style="object-fit: cover;"></div>');
+                        $thumb.on('click', function() { $('#modalDetalleDictamenImgPrincipal').attr('src', url); });
+                        $min.append($thumb);
+                    });
+                    http.request({ endpoint: '/sabueso/marcarDictamenVisto', metodo: 'POST', data: JSON.stringify({ id_ticket: idTicket }), contentType: 'application/json', processData: false });
+                    getTicketsPanelAdmin();
+                },
+                onError: function() { $('#modalDetalleDictamenTipo').text('Error al cargar.'); }
+            });
+        };
 
         $('#modalPrediccionIA').on('shown.bs.modal', function() {
             var isDark = document.body && document.body.classList.contains('dark-mode');

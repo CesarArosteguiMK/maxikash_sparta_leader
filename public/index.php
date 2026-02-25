@@ -12,7 +12,7 @@ header('X-Frame-Options: SAMEORIGIN');
 header('X-Content-Type-Options: nosniff');
 header('X-XSS-Protection: 1; mode=block');
 header('Referrer-Policy: strict-origin-when-cross-origin');
-header('Content-Security-Policy: default-src \'self\'; script-src \'self\' \'unsafe-inline\' \'unsafe-eval\' https://maps.googleapis.com https://*.googleapis.com https://www.gstatic.com https://*.gstatic.com https://cdnjs.cloudflare.com; style-src \'self\' \'unsafe-inline\' https://fonts.googleapis.com https://fonts.gstatic.com https://www.gstatic.com https://*.gstatic.com https://cdnjs.cloudflare.com; font-src \'self\' https://fonts.gstatic.com https://www.gstatic.com https://*.gstatic.com; img-src \'self\' data: https: blob: http://98.90.194.116; connect-src \'self\' https://*.googleapis.com https://*.gstatic.com http://98.90.194.116; frame-src \'self\' https://www.google.com https://maps.google.com https://*.google.com; frame-ancestors \'self\';');
+header('Content-Security-Policy: default-src \'self\'; script-src \'self\' \'unsafe-inline\' \'unsafe-eval\' https://maps.googleapis.com https://*.googleapis.com https://www.gstatic.com https://*.gstatic.com https://cdnjs.cloudflare.com; style-src \'self\' \'unsafe-inline\' https://fonts.googleapis.com https://fonts.gstatic.com https://www.gstatic.com https://*.gstatic.com https://cdnjs.cloudflare.com; font-src \'self\' data: https://fonts.gstatic.com https://www.gstatic.com https://*.gstatic.com; img-src \'self\' data: https: blob: http://98.90.194.116; connect-src \'self\' https://*.googleapis.com https://*.gstatic.com http://98.90.194.116 https://nominatim.openstreetmap.org; frame-src \'self\' https://www.google.com https://maps.google.com https://*.google.com; frame-ancestors \'self\';');
 if (!empty($_SERVER['HTTPS']) && strtolower($_SERVER['HTTPS']) !== 'off') {
     header('Strict-Transport-Security: max-age=31536000; includeSubDomains; preload');
 }
@@ -191,6 +191,8 @@ $rutasModulos = [
     'reporteria/resumencallcenter' => [6], 'reporteria/layoutlegacy' => [7], 'reporteria/reporteCapitalHumano' => [21],
     'condonaciones/historial' => [15],
     'sabueso/ticket' => [18], 'sabueso/paneladmin' => [19], 'sabueso/cerradoEliminado' => [19],
+    'sabueso/guardardictamenborrador' => [19], 'sabueso/enviardictamengestor' => [19], 'sabueso/getdictamendetalle' => [18, 19], 'sabueso/marcardictamenvisto' => [18, 19], 'sabueso/getdictamenactualticket' => [19],
+    'sabueso/subirevidenciaticket' => [19], 'sabueso/getevidenciasticket' => [19], 'sabueso/eliminarevidenciaticket' => [19], 'sabueso/verevidencia' => [19],
     'despachos/asignacioncreditosdespacho' => [20], 'departamentos/consulta' => [10], 'equivalencias/consulta' => [17],
     'segundometro/shell' => [16],
 ];

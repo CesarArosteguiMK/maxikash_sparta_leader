@@ -829,6 +829,9 @@ body.dark-mode .inicio-btn-diagnostico-bd {
       wrap.appendChild(el);
     }
     document.body.appendChild(wrap);
+    var moneySound = new Audio('/assets/audio/coins.mp3');
+    moneySound.volume = 0.5;
+    moneySound.play().catch(function(){});
     setTimeout(function(){
       if (wrap.parentNode) wrap.parentNode.removeChild(wrap);
     }, 5500);

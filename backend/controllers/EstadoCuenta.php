@@ -1225,6 +1225,12 @@ JS;
                                 title: 'Documento registrado',
                                 text: data.mensaje || 'El documento se guardo correctamente.'
                             });
+
+                            // Volver a ejecutar la búsqueda para que se muestre el documento recién subido
+                            const btnBuscarRef = document.getElementById('btnBuscar');
+                            if (btnBuscarRef) {
+                                setTimeout(function() { btnBuscarRef.click(); }, 800);
+                            }
                         } catch (error) {
                             Swal.close();
                             Swal.fire('Error', 'No se pudo registrar el documento', 'error');
@@ -3827,7 +3833,11 @@ public function descargar()
             return;
         }
 
-        $nombreArchivo = \Core\SecureUpload::generateSafeFilename($extension);
+        $tipoSeguro = preg_replace('/[^A-Z0-9_-]/', '_', (string)$tipoDocumento);
+        if ($tipoSeguro === '') {
+            $tipoSeguro = 'DOC';
+        }
+        $nombreArchivo = $idSeguro . '_' . $tipoSeguro . '_' . date('Ymd_His') . '.' . $extension;
         $rutaCompleta = $directorioBase . '/' . $nombreArchivo;
         $rutaRelativa = 'uploads/documentos/doc_cliente/' . $nombreArchivo;
 
