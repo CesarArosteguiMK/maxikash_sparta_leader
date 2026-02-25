@@ -238,6 +238,29 @@ class Paises extends Controller
                 btn.disabled = false;
                 btn.innerHTML = '<i class="fa fa-save me-2"></i>Guardar';
             });
+
+            // Easter egg: triple clic en bandera mexicana → speedy.mp3
+            (function() {
+                var paisesCards = document.getElementById('paisesCards');
+                if (!paisesCards) return;
+                var clickCount = 0;
+                var resetTimer = null;
+                paisesCards.addEventListener('click', function(e) {
+                    var flag = e.target.closest('.fi-mx');
+                    if (!flag) return;
+                    clickCount++;
+                    if (clickCount === 3) {
+                        clickCount = 0;
+                        if (resetTimer) clearTimeout(resetTimer);
+                        var audio = new Audio('/assets/audio/speedy.mp3');
+                        audio.volume = 0.5;
+                        audio.play().catch(function(){});
+                        return;
+                    }
+                    if (resetTimer) clearTimeout(resetTimer);
+                    resetTimer = setTimeout(function() { clickCount = 0; }, 600);
+                });
+            })();
         });
         </script>
         HTML;

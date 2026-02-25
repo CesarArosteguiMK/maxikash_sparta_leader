@@ -461,7 +461,7 @@ html.dark-mode .navbar .text-muted{color:#94a3b8 !important;}
             <!-- Menu -->
             <aside id="layout-menu" class="layout-menu menu-vertical menu bg-menu-theme">
                 <div class="app-brand demo">
-                    <a href="/Inicio" class="app-brand-link w-100">
+                    <a href="/Inicio" class="app-brand-link w-100" id="sidebarLogoEaster">
                         <span class="app-brand-logo demo w-100 app-brand-img">
                             <img src="/assets/img/Logotipo-Maxikash-Outline.webp" alt="Maxikash" class="sidebar-logo" />
                         </span>
@@ -505,7 +505,7 @@ html.dark-mode .navbar .text-muted{color:#94a3b8 !important;}
                                     data-bs-toggle="dropdown">
                                     <div class="d-flex">
                                         <div class="flex-shrink-0 me-3">
-                                            <div class="avatar avatar-online">
+                                            <div class="avatar avatar-online" id="navbarAvatarEaster">
                                                 <img src="<?= $_SESSION['foto_perfil']; ?>" alt class="w-px-40 h-px-40 rounded-circle object-fit-cover" />
                                             </div>
                                         </div>
@@ -563,6 +563,49 @@ html.dark-mode .navbar .text-muted{color:#94a3b8 !important;}
         <div class="drag-target"></div>
     </div>
     <!-- / Layout wrapper -->
+
+    <!-- Modal Easter egg: video Spartan (triple clic en logo) -->
+    <style>
+    /* Animación de entrada del modal Spartan */
+    #modalSpartanVideo .modal-content { border: 2px solid rgba(180, 83, 9, 0.6); box-shadow: 0 0 40px rgba(180, 83, 9, 0.25); transform: scale(0.85); opacity: 0; transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s ease; }
+    #modalSpartanVideo.show .modal-content { transform: scale(1); opacity: 1; }
+    #modalSpartanVideo .spartan-badge { background: linear-gradient(135deg, #b45309 0%, #92400e 100%); color: #fff; font-weight: 700; letter-spacing: 0.08em; padding: 6px 14px; border-radius: 20px; font-size: 0.85rem; display: inline-block; margin-bottom: 12px; opacity: 0; animation: spartanBadgeIn 0.5s ease 0.2s forwards; }
+    @keyframes spartanBadgeIn { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
+    /* Efecto burst en tercer clic */
+    .spartan-burst { position: fixed; left: 0; top: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10003; }
+    .spartan-burst .spartan-burst-dot { position: absolute; width: 8px; height: 8px; background: #b45309; border-radius: 50%; box-shadow: 0 0 12px #b45309; animation: spartanBurst 0.6s ease-out forwards; }
+    @keyframes spartanBurst { 0% { opacity: 1; transform: translate(-50%, -50%) scale(1); } 100% { opacity: 0; transform: translate(-50%, -50%) translate(var(--tx), var(--ty)) scale(0); } }
+    /* Konami code: mensaje espartano (más grande, palpitaciones) + fuegos artificiales + calaveras */
+    .konami-message { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 10005; background: linear-gradient(135deg, #1e293b 0%, #334155 100%); color: #fbbf24; padding: 32px 64px; border-radius: 20px; font-size: 2.5rem; font-weight: 800; box-shadow: 0 20px 60px rgba(0,0,0,0.5); border: 3px solid #b45309; opacity: 0; animation: konamiMessageIn 0.4s ease forwards; pointer-events: none; text-align: center; }
+    .konami-message .konami-calaveras { font-size: 1.8rem; letter-spacing: 0.2em; margin-bottom: 4px; }
+    .konami-message.konami-visible { animation: konamiMessageIn 0.4s ease forwards, konamiHeartbeat 0.9s ease-in-out 0.5s infinite; }
+    @keyframes konamiMessageIn { 0% { opacity: 0; transform: translate(-50%, -50%) scale(0.8); } 100% { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
+    @keyframes konamiHeartbeat { 0%, 100% { transform: translate(-50%, -50%) scale(1); } 50% { transform: translate(-50%, -50%) scale(1.08); } }
+    @keyframes konamiMessageOut { 0% { opacity: 1; transform: translate(-50%, -50%) scale(1); } 100% { opacity: 0; transform: translate(-50%, -50%) scale(0.9); } }
+    .konami-firework { position: absolute; width: 14px; height: 14px; border-radius: 50%; pointer-events: none; box-shadow: 0 0 12px 2px currentColor, 0 0 24px currentColor; }
+    @keyframes konamiFireworkBurst { 0% { opacity: 1; transform: translate(-50%, -50%) scale(1); } 100% { opacity: 0; transform: translate(calc(-50% + var(--fw-tx)), calc(-50% + var(--fw-ty))) scale(0.4); } }
+    @keyframes konamiFall{0%{transform:translateY(0) rotate(0deg);opacity:1;}100%{transform:translateY(100vh) rotate(720deg);opacity:0.3;}}
+    /* Easter egg: triple clic en avatar → mensaje oculto */
+    .avatar-easter-toast { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 10006; background: linear-gradient(135deg, #1e293b 0%, #334155 100%); color: #fbbf24; padding: 24px 40px; border-radius: 16px; font-size: 1.25rem; font-weight: 700; box-shadow: 0 16px 48px rgba(0,0,0,0.4); border: 2px solid #b45309; opacity: 0; animation: avatarEasterIn 0.35s ease forwards; pointer-events: none; text-align: center; }
+    .avatar-easter-toast .avatar-easter-emoji { font-size: 3rem; display: block; margin-bottom: 8px; }
+    .avatar-easter-toast .avatar-easter-gif { width: 200px; height: auto; max-height: 140px; object-fit: contain; display: block; margin: 0 auto 12px; border-radius: 8px; }
+    @keyframes avatarEasterIn { 0% { opacity: 0; transform: translate(-50%, -50%) scale(0.7); } 100% { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
+    @keyframes avatarEasterOut { 0% { opacity: 1; transform: translate(-50%, -50%) scale(1); } 100% { opacity: 0; transform: translate(-50%, -50%) scale(0.9); } }
+    </style>
+    <div class="modal fade" id="modalSpartanVideo" tabindex="-1" aria-hidden="true" data-bs-backdrop="true" data-bs-keyboard="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content bg-dark">
+                <div class="modal-header border-secondary flex-column align-items-start">
+                    <span class="spartan-badge">⚔ ¡Spartan!</span>
+                    <h5 class="modal-title text-white w-100"><i class="fa fa-play-circle me-2"></i>Video</h5>
+                    <button type="button" class="btn-close btn-close-white position-absolute top-0 end-0 m-3" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body p-0">
+                    <video id="spartanVideoPlayer" class="w-100" controls playsinline src="/assets/img/spartan_video.mp4"></video>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- Core JS -->
     <script src="/assets/vendor/libs/jquery/jquery.js"></script>
@@ -627,6 +670,186 @@ html.dark-mode .navbar .text-muted{color:#94a3b8 !important;}
     <!-- Page JS -->
     <script src="/assets/js/comunes.js"></script>
     <script src="/assets/js/componentes.js"></script>
+
+    <!-- Easter egg: triple clic en logo del sidebar → video Spartan -->
+    <script>
+    (function(){
+        var logo = document.getElementById('sidebarLogoEaster');
+        var modalEl = document.getElementById('modalSpartanVideo');
+        var videoEl = document.getElementById('spartanVideoPlayer');
+        if (!logo || !modalEl || !videoEl) return;
+        var clickCount = 0;
+        var resetTimer = null;
+        var navTimer = null;
+
+        function playSpartanSound() {
+            try {
+                var ctx = new (window.AudioContext || window.webkitAudioContext)();
+                var osc = ctx.createOscillator();
+                var gain = ctx.createGain();
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.frequency.setValueAtTime(523.25, ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(784, ctx.currentTime + 0.08);
+                gain.gain.setValueAtTime(0.15, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.15);
+                osc.start(ctx.currentTime);
+                osc.stop(ctx.currentTime + 0.15);
+            } catch (e) {}
+        }
+
+        function burstAt(x, y) {
+            var wrap = document.createElement('div');
+            wrap.className = 'spartan-burst';
+            var angles = [0, 45, 90, 135, 180, 225, 270, 315, 22, 67, 112, 202, 248];
+            for (var i = 0; i < 12; i++) {
+                var a = (angles[i] || i * 30) * Math.PI / 180;
+                var dist = 50 + Math.random() * 70;
+                var tx = Math.cos(a) * dist + 'px';
+                var ty = Math.sin(a) * dist + 'px';
+                var dot = document.createElement('span');
+                dot.className = 'spartan-burst-dot';
+                dot.style.left = x + 'px';
+                dot.style.top = y + 'px';
+                dot.style.setProperty('--tx', tx);
+                dot.style.setProperty('--ty', ty);
+                wrap.appendChild(dot);
+            }
+            document.body.appendChild(wrap);
+            setTimeout(function(){ if (wrap.parentNode) wrap.parentNode.removeChild(wrap); }, 700);
+        }
+
+        logo.addEventListener('click', function(e){
+            e.preventDefault();
+            clickCount++;
+            if (clickCount === 3) {
+                clickCount = 0;
+                if (resetTimer) clearTimeout(resetTimer);
+                if (navTimer) clearTimeout(navTimer);
+                burstAt(e.clientX, e.clientY);
+                playSpartanSound();
+                setTimeout(function(){
+                    var modal = typeof bootstrap !== 'undefined' && bootstrap.Modal ? new bootstrap.Modal(modalEl) : null;
+                    if (modal) modal.show();
+                    videoEl.currentTime = 0;
+                    videoEl.play();
+                }, 220);
+                return;
+            }
+            if (resetTimer) clearTimeout(resetTimer);
+            resetTimer = setTimeout(function(){ clickCount = 0; }, 600);
+            if (navTimer) clearTimeout(navTimer);
+            if (clickCount === 1) navTimer = setTimeout(function(){
+                if (clickCount === 1) window.location.href = '/Inicio';
+            }, 400);
+        });
+        modalEl.addEventListener('hidden.bs.modal', function(){ videoEl.pause(); });
+    })();
+    </script>
+
+    <!-- Easter egg: Konami code (↑↑↓↓←→←→BA) → confetti + mensaje + sonido -->
+    <script>
+    (function(){
+        var konamiCodes = [38, 38, 40, 40, 37, 39, 37, 39, 66, 65];
+        var konamiKeys = ['ArrowUp', 'ArrowUp', 'ArrowDown', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowLeft', 'ArrowRight', 'b', 'a'];
+        var idx = 0;
+        document.addEventListener('keydown', function(e){
+            var keyOk = (e.keyCode === konamiCodes[idx]) || (e.key === konamiKeys[idx]);
+            if (keyOk) {
+                idx++;
+                if (idx === konamiCodes.length) {
+                    idx = 0;
+                    konamiTrigger();
+                }
+            } else {
+                idx = 0;
+            }
+        });
+        function konamiTrigger(){
+            if (document.getElementById('konamiConfettiWrap')) return;
+            var mexicanColors = ['#006847', '#ffffff', '#ce1126', '#b45309', '#fbbf24', '#d97706', '#f59e0b', '#fef3c7', '#92400e'];
+            var wrap = document.createElement('div');
+            wrap.id = 'konamiConfettiWrap';
+            wrap.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:10003;overflow:hidden;';
+            for (var i = 0; i < 200; i++) {
+                var p = document.createElement('div');
+                p.style.cssText = 'position:absolute;width:' + (8 + Math.random() * 8) + 'px;height:' + (8 + Math.random() * 8) + 'px;left:' + (Math.random() * 100) + '%;top:-30px;background:' + mexicanColors[Math.floor(Math.random() * mexicanColors.length)] + ';border-radius:2px;animation:konamiFall ' + (2.2 + Math.random() * 2) + 's linear forwards;animation-delay:' + (Math.random() * 0.6) + 's;';
+                wrap.appendChild(p);
+            }
+            var calaveraEmojis = ['💀', '🇲🇽', '🎉', '💀', '🇲🇽'];
+            for (var c = 0; c < 35; c++) {
+                var cp = document.createElement('div');
+                cp.style.cssText = 'position:absolute;left:' + (Math.random() * 100) + '%;top:-40px;font-size:' + (14 + Math.random() * 18) + 'px;animation:konamiFall ' + (2.5 + Math.random() * 2) + 's linear forwards;animation-delay:' + (Math.random() * 0.8) + 's;';
+                cp.textContent = calaveraEmojis[Math.floor(Math.random() * calaveraEmojis.length)];
+                wrap.appendChild(cp);
+            }
+            var fireworkColors = ['#006847', '#ce1126', '#fbbf24', '#ffffff', '#f59e0b', '#ff6b35', '#fbbf24'];
+            var fwPositions = [0.08, 0.22, 0.38, 0.5, 0.62, 0.78, 0.92, 0.15, 0.45, 0.75, 0.28, 0.58];
+            for (var f = 0; f < 12; f++) {
+                var fx = fwPositions[f] * 100;
+                var fy = 12 + Math.random() * 12;
+                var fwWrap = document.createElement('div');
+                fwWrap.style.cssText = 'position:absolute;left:' + fx + '%;top:' + fy + '%;width:0;height:0;pointer-events:none;';
+                var numRays = 42 + Math.floor(Math.random() * 20);
+                var distBase = 120 + Math.random() * 80;
+                for (var r = 0; r < numRays; r++) {
+                    var angle = (r / numRays) * Math.PI * 2 + Math.random() * 0.5;
+                    var dist = distBase + Math.random() * 60;
+                    var tx = Math.cos(angle) * dist + 'px';
+                    var ty = Math.sin(angle) * dist - 30 + 'px';
+                    var dot = document.createElement('div');
+                    dot.className = 'konami-firework';
+                    dot.style.cssText = 'left:0;top:0;background:' + fireworkColors[Math.floor(Math.random() * fireworkColors.length)] + ';color:' + fireworkColors[Math.floor(Math.random() * fireworkColors.length)] + ';animation:konamiFireworkBurst ' + (1.4 + Math.random() * 0.5) + 's ease-out ' + (f * 0.18) + 's forwards;--fw-tx:' + tx + ';--fw-ty:' + ty + ';';
+                    fwWrap.appendChild(dot);
+                }
+                wrap.appendChild(fwWrap);
+            }
+            document.body.appendChild(wrap);
+            setTimeout(function(){ if (wrap.parentNode) wrap.parentNode.removeChild(wrap); }, 5500);
+            var msg = document.createElement('div');
+            msg.className = 'konami-message';
+            msg.innerHTML = '<div class="konami-calaveras">💀 💀 💀</div>¡Bienvenido, espartano!<br><span style="font-size:0.55em;opacity:0.95;">🇲🇽 ¡Arriba México! 🇲🇽</span>';
+            document.body.appendChild(msg);
+            setTimeout(function(){ msg.classList.add('konami-visible'); }, 400);
+            setTimeout(function(){ msg.style.animation = 'konamiMessageOut 0.5s ease forwards'; msg.classList.remove('konami-visible'); }, 2600);
+            setTimeout(function(){ if (msg.parentNode) msg.parentNode.removeChild(msg); }, 3200);
+            var spartaAudio = new Audio('/assets/audio/thisissparta.swf.mp3');
+            spartaAudio.volume = 0.9;
+            spartaAudio.play().catch(function(){});
+        }
+    })();
+    </script>
+
+    <!-- Easter egg: triple clic en avatar del navbar → mensaje oculto -->
+    <script>
+    (function(){
+        var avatar = document.getElementById('navbarAvatarEaster');
+        if (!avatar) return;
+        var clickCount = 0;
+        var resetTimer = null;
+        avatar.addEventListener('click', function(e){
+            clickCount++;
+            if (clickCount === 3) {
+                clickCount = 0;
+                if (resetTimer) clearTimeout(resetTimer);
+                var toast = document.createElement('div');
+                toast.className = 'avatar-easter-toast';
+                var gifUrl = 'https://media.tenor.com/hGkcP-O1iFwAAAAM/awoo-awoo-300.gif';
+                toast.innerHTML = '<img class="avatar-easter-gif" src="' + gifUrl + '" alt="Spartans" /><span>¡Eres parte del equipo!</span>';
+                document.body.appendChild(toast);
+                var gritoAudio = new Audio('/assets/audio/grito-guerra-.mp3');
+                gritoAudio.play().catch(function(){});
+                setTimeout(function(){
+                    toast.style.animation = 'avatarEasterOut 0.4s ease forwards';
+                    setTimeout(function(){ if (toast.parentNode) toast.parentNode.removeChild(toast); }, 400);
+                }, 3000);
+                return;
+            }
+            if (resetTimer) clearTimeout(resetTimer);
+            resetTimer = setTimeout(function(){ clickCount = 0; }, 600);
+        });
+    })();
+    </script>
 
     <!-- Dark Mode Script -->
     <script>
