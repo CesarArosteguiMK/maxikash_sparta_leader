@@ -1847,8 +1847,8 @@
         function esFAD_DOCConPermisoControl() {
             return typeof window.tienePermisoControlFAD_DOC !== 'undefined' && window.tienePermisoControlFAD_DOC && typeof window.tipoDocumentoActual !== 'undefined' && window.tipoDocumentoActual === 'FAD_DOC';
         }
-        // true = botón "Ver videos" siempre habilitado (para pruebas en servidor); false = solo habilitado en páginas con medios
-        var SIEMPRE_HABILITAR_BOTON_VIDEOS = false;
+        // true = botón "Ver videos" siempre habilitado; al hacer clic se consulta la página actual y se muestran los videos si existen
+        var SIEMPRE_HABILITAR_BOTON_VIDEOS = true;
         function actualizarBotonVideosMedia() {
             const btn = document.getElementById('pdfVideosBtn');
             const sep = document.getElementById('pdfVideosSep');
@@ -1863,8 +1863,8 @@
             const paginas = window.paginasConMediaFAD_DOC;
             const paginaActual = typeof pageNumFactura !== 'undefined' ? pageNumFactura : 1;
             const tieneVideosEnPagina = Array.isArray(paginas) && paginas.indexOf(paginaActual) !== -1;
-            btn.disabled = SIEMPRE_HABILITAR_BOTON_VIDEOS ? false : !tieneVideosEnPagina;
-            btn.title = SIEMPRE_HABILITAR_BOTON_VIDEOS ? 'Ver videos / audio (siempre habilitado para pruebas)' : (tieneVideosEnPagina ? 'Ver videos / audio de esta página' : 'No hay videos en esta página');
+            btn.disabled = false;
+            btn.title = tieneVideosEnPagina ? 'Ver videos / audio de esta página' : 'Ver videos / audio de esta página (si no hay medios se mostrará un mensaje)';
         }
 
         function actualizarBotonDescargarFAD() {
