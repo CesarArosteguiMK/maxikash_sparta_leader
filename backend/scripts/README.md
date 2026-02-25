@@ -102,31 +102,3 @@ python_path = /usr/bin/python3
 
 Obtener la ruta en Windows (ejecutar en CMD o PowerShell):  
 `py -3 -c "import sys; print(sys.executable)"`
-
-### Si el vídeo no se detecta en la página (depuración)
-
-Cuando abres un FAD_DOC y el sistema no detecta vídeo en la página, revisa:
-
-1. **Log de inspección** (qué páginas tienen medios):  
-   `backend/storage/logs/paginas_media_debug.log`  
-   - Se escribe cada vez que se carga un FAD_DOC (llamada a `paginasConMedia`).  
-   - Ahí verás: `idCredito`, ruta del PDF, salida de Python (`stdout`), errores (`stderr`) y el array `paginasConMedia` obtenido.  
-   - Si `stdout` está vacío o `stderr` tiene mensajes (p. ej. "PyMuPDF no instalado"), ese es el fallo.  
-   - Si `paginasConMedia` es `[]` pero el PDF sí tiene vídeo, el script no está reconociendo las anotaciones (tipo o tamaño mínimo).
-
-2. **Log de extracción** (al hacer clic en "Ver videos"):  
-   `backend/storage/logs/extraer_videos_debug.log`  
-   - Se escribe al pulsar el botón de videos.  
-   - Incluye el comando ejecutado, la salida de Python y cuántos archivos se extrajeron.  
-   - Si `archivos: 0`, la extracción no encontró medios (p. ej. por el mínimo de 100 KB por archivo).
-
-3. **Probar el script a mano** (con un PDF concreto):  
-   - Guarda una copia del PDF FAD_DOC en disco (o usa la ruta que salga en `paginas_media_debug.log`).  
-   - Inspección:  
-     `"C:\Program Files\Python314\python.exe" backend/scripts/pdf_media.py --inspect "ruta\al\archivo.pdf"`  
-     Debe imprimir algo como `{"paginasConMedia": [1, 2]}`.  
-   - Extracción (ej. página 1):  
-     `"C:\Program Files\Python314\python.exe" backend/scripts/pdf_media.py --extract "ruta\al\archivo.pdf" --outdir backend/storage/tmp_media/prueba --page 1`  
-     Revisa si se crean archivos en `backend/storage/tmp_media/prueba`.  
-   - Si en consola aparece "PyMuPDF no instalado" o otro error, instala/actualiza:  
-     `"C:\Program Files\Python314\python.exe" -m pip install pymupdf`
