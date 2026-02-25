@@ -20,6 +20,21 @@
     #chart-container .organigrama-header {
         flex-shrink: 0;
         margin-bottom: 8px;
+        background: transparent;
+        padding: 0;
+    }
+    #chart-container .organigrama-titulo-linea {
+        font-size: 1rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        margin-bottom: 8px;
+        color: #4a4a4a;
+        font-weight: 600;
+    }
+    body.dark-mode #chart-container .organigrama-titulo-linea { color: #94a3b8; }
+    #chart-container .organigrama-header #organigrama-historial-puestos {
+        margin-top: 0;
     }
     #chart-container .organigrama-chart-scroll {
         flex: 1;
@@ -62,7 +77,6 @@
         border-top-color: #818cf8;
     }
     #organigrama-historial-puestos {
-        margin-top: 8px;
         padding: 10px 14px;
         background: rgba(0, 0, 0, 0.04);
         border: 1px solid rgba(0, 0, 0, 0.08);
@@ -78,8 +92,16 @@
     #organigrama-historial-puestos .historial-linea {
         display: flex;
         justify-content: space-between;
+        align-items: baseline;
+        gap: 0.75rem;
         padding: 2px 0;
         border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+    }
+    #organigrama-historial-puestos .historial-linea span:first-child { flex: 1; min-width: 0; }
+    #organigrama-historial-puestos .historial-linea .historial-numero {
+        flex-shrink: 0;
+        font-weight: 600;
+        margin-left: 0.25rem;
     }
     #organigrama-historial-puestos .historial-linea:last-child { border-bottom: none; }
     body.dark-mode #organigrama-historial-puestos {
@@ -148,7 +170,6 @@
     #orgTituloSeleccion {
         color: #4a4a4a;
         font-weight: 600;
-        margin-bottom: 8px;
     }
 
     /* Select con búsqueda (persona y niveles) */
@@ -291,10 +312,10 @@
             <button id="zoom-in">+</button>
         </div>
 
-        <!-- Cuadro del organigrama: título + historial (fijo) + chart (scroll/zoom). El historial no se incluye en la imagen. -->
+        <!-- Cuadro del organigrama: título + historial fijos debajo, luego chart (scroll/zoom). El historial no se mueve con el diagrama. -->
         <div id="chart-container" class="mt-4">
             <div class="organigrama-header">
-                <div id="orgTituloSeleccion" class="mb-2"></div>
+                <div id="orgTituloSeleccion" class="organigrama-titulo-linea"></div>
                 <div id="organigrama-historial-puestos" class="no-export" style="display: none;" aria-label="Historial de puestos del organigrama actual"></div>
             </div>
             <div class="organigrama-chart-scroll">
@@ -624,7 +645,35 @@
             return "<div class=\"organigrama-msg-glass\"><p class=\"mb-0\">" + (typeof escapeHtml === "function" ? escapeHtml(t) : t) + "</p></div>";
         }
 
-        /** Historial de puestos: cuenta por nombre de puesto en el organigrama actual. No se exporta en la imagen. */
+        /** Orden de puestos por nivel (como en menú departamento). Se rellena al cargar puestos del departamento. */
+        var ordenPuestosPorNivel = [];
+        /** Obtiene el orden jerárquico de puestos del departamento (mismo que menú departamento) y luego actualiza el historial. */
+        function cargarOrdenPuestosYActualizarHistorial() {
+            var depSelect = document.getElementById("depSelect");
+            var depId = depSelect ? depSelect.value : "";
+            if (!depId) {
+                ordenPuestosPorNivel = [];
+                actualizarHistorialPuestos();
+                return;
+            }
+            fetch("/departamentos/getPuestosPorDepartamento", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ id_departamento: depId })
+            })
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    ordenPuestosPorNivel = (data.datos && Array.isArray(data.datos))
+                        ? data.datos.map(function (d) { return (d.puesto_nombre || d.nombre || "").trim(); }).filter(Boolean)
+                        : [];
+                    actualizarHistorialPuestos();
+                })
+                .catch(function () {
+                    ordenPuestosPorNivel = [];
+                    actualizarHistorialPuestos();
+                });
+        }
+        /** Historial de puestos: cuenta por nombre de puesto. Orden = mismo que menú departamento (por nivel). Separación clara entre puesto y número. */
         function actualizarHistorialPuestos() {
             var el = document.getElementById("organigrama-historial-puestos");
             if (!el) return;
@@ -639,8 +688,16 @@
                 var nombrePuesto = (r.puesto || r.nombre_puesto || "").trim() || "Sin puesto";
                 counts[nombrePuesto] = (counts[nombrePuesto] || 0) + 1;
             });
-            var lineas = Object.keys(counts).sort().map(function (puesto) {
-                return "<div class=\"historial-linea\"><span>" + escapeHtml(puesto) + "</span><strong>" + counts[puesto] + "</strong></div>";
+            var puestosOrdenados = Object.keys(counts).sort(function (a, b) {
+                var ia = ordenPuestosPorNivel.indexOf(a);
+                var ib = ordenPuestosPorNivel.indexOf(b);
+                if (ia === -1 && ib === -1) return a.localeCompare(b);
+                if (ia === -1) return 1;
+                if (ib === -1) return -1;
+                return ia - ib;
+            });
+            var lineas = puestosOrdenados.map(function (puesto) {
+                return "<div class=\"historial-linea\"><span>" + escapeHtml(puesto) + "</span><span class=\"historial-numero\">: " + counts[puesto] + "</span></div>";
             });
             el.innerHTML = "<div class=\"historial-titulo\">Historial de puestos</div>" + lineas.join("");
             el.style.display = lineas.length ? "block" : "none";
@@ -711,7 +768,7 @@
                         }
                         document.getElementById("orgTituloSeleccion").textContent = titulo;
                     })();
-                    actualizarHistorialPuestos();
+                    cargarOrdenPuestosYActualizarHistorial();
                     if (rows.length === 0) {
                         mostrarLoadingOrganigrama(false);
                         chartContainer.innerHTML = getOrganigramaMsgGlassHtml("No hay datos para mostrar.");
