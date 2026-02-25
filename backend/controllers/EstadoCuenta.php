@@ -3250,7 +3250,28 @@ public function descargar()
             exit;
         }
         $path = $info['path'];
-        $out = $this->ejecutarPdfMediaInspect($script, $path);
+        $result = $this->ejecutarPdfMediaInspect($script, $path);
+        $out = is_array($result) ? ($result['stdout'] ?? '') : (string) $result;
+        $stderr = is_array($result) ? ($result['stderr'] ?? '') : '';
+
+        // Log de depuración: inspección (qué páginas tienen video)
+        $logDir = __DIR__ . '/../storage/logs';
+        if (is_dir($logDir)) {
+            $logFile = $logDir . '/paginas_media_debug.log';
+            $outPreview = strlen($out) > 1500 ? substr($out, 0, 1500) . '...[truncado]' : $out;
+            $errPreview = strlen($stderr) > 1000 ? substr($stderr, 0, 1000) . '...[truncado]' : $stderr;
+            $json = $out !== '' ? @json_decode(trim($out), true) : null;
+            $paginas = ($json && isset($json['paginasConMedia'])) ? $json['paginasConMedia'] : [];
+            $logLine = date('Y-m-d H:i:s') . " | paginasConMedia | idCredito=$id\n"
+                . "  pdf_path: " . (is_file($path) ? $path : 'temp') . "\n"
+                . "  stdout_length: " . strlen($out) . " | stderr_length: " . strlen($stderr) . "\n"
+                . "  paginasConMedia: " . json_encode($paginas) . "\n"
+                . "  stdout_preview:\n" . $outPreview . "\n"
+                . ($stderr !== '' ? "  stderr:\n" . $errPreview . "\n" : "")
+                . "---\n";
+            @file_put_contents($logFile, $logLine, FILE_APPEND | LOCK_EX);
+        }
+
         if ($info['isTemp']) @unlink($path);
         if ($out === null || $out === '') {
             echo json_encode(['success' => true, 'paginasConMedia' => []]);
@@ -3311,16 +3332,17 @@ public function descargar()
 
     /**
      * Ejecuta pdf_media.py --inspect para obtener páginas con medios. Usa proc_open con ruta de Python detectada o fallback shell_exec.
+     * Devuelve array ['stdout' => string, 'stderr' => string] para poder registrar errores de Python; si solo se necesita el texto, usar ['stdout'].
      */
     private function ejecutarPdfMediaInspect($scriptPath, $pdfPath)
     {
         $rutaPdf = realpath($pdfPath);
         if ($rutaPdf === false || !is_file($rutaPdf)) {
-            return null;
+            return ['stdout' => '', 'stderr' => 'PDF no encontrado o ruta inválida'];
         }
         $rutaScript = realpath($scriptPath);
         if ($rutaScript === false || !is_file($rutaScript)) {
-            return null;
+            return ['stdout' => '', 'stderr' => 'Script pdf_media.py no encontrado'];
         }
         $interpretes = array_filter(array_merge(
             [self::getPythonExecutable()],
@@ -3347,11 +3369,14 @@ public function descargar()
             }
             fclose($pipes[0]);
             $stdout = stream_get_contents($pipes[1]);
+            $stderr = stream_get_contents($pipes[2]);
             fclose($pipes[1]);
             fclose($pipes[2]);
             proc_close($proc);
-            if ($stdout !== false && $stdout !== '' && trim($stdout) !== '') {
-                return $stdout;
+            $stdout = ($stdout !== false) ? $stdout : '';
+            $stderr = ($stderr !== false) ? $stderr : '';
+            if ($stdout !== '' && trim($stdout) !== '') {
+                return ['stdout' => $stdout, 'stderr' => $stderr];
             }
         }
         // Fallback: shell_exec con ruta de Python detectada o comandos por nombre
@@ -3362,15 +3387,18 @@ public function descargar()
             $cmd = escapeshellarg($pythonPath) . ' ' . $escScript . ' --inspect ' . $escPdf . ' 2>&1';
             $out = @shell_exec($cmd);
             if ($out !== null && $out !== '' && trim($out) !== '') {
-                return $out;
+                return ['stdout' => $out, 'stderr' => ''];
             }
         }
         $out = @shell_exec('py ' . $escScript . ' --inspect ' . $escPdf . ' 2>&1');
         if ($out !== null && $out !== '' && trim($out) !== '') {
-            return $out;
+            return ['stdout' => $out, 'stderr' => ''];
         }
         $out = @shell_exec('python ' . $escScript . ' --inspect ' . $escPdf . ' 2>&1');
-        return ($out !== null && $out !== '' && trim($out) !== '') ? $out : null;
+        return [
+            'stdout' => ($out !== null && $out !== '') ? trim($out) : '',
+            'stderr' => ''
+        ];
     }
 
     /**
