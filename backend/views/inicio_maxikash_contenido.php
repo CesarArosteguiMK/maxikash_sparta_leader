@@ -59,6 +59,16 @@ body.dark-mode .inicio-mkx .hero-badge .badge-dot{box-shadow:0 0 10px var(--yell
 .inicio-mkx .hero-datetime-date{font-size:0.8rem;opacity:0.95;margin-top:2px;color:rgba(255,255,255,0.9);}
 @keyframes hero-clock-pulse{0%,100%{transform:scale(1);box-shadow:0 2px 12px rgba(0,0,0,0.12),0 0 0 0 rgba(200,214,43,0.4);}50%{transform:scale(1.08);box-shadow:0 4px 16px rgba(0,0,0,0.18),0 0 20px 4px rgba(200,214,43,0.5);}}
 
+/* Easter egg: modo cuco (5 clics rápidos en el reloj) */
+.inicio-mkx .hero-datetime{position:relative;}
+.inicio-mkx .hero-datetime .cuckoo-bird{position:absolute;left:24px;top:6px;font-size:2.25rem;opacity:0;pointer-events:none;transform:translateY(8px);transition:opacity .2s, transform .2s;z-index:2;}
+.inicio-mkx .hero-datetime.cuckoo-mode .cuckoo-bird{opacity:1;transform:translateY(0);}
+.inicio-mkx .hero-datetime.cuckoo-mode .cuckoo-bird.cuckoo-peek{animation:hero-cuckoo-peek 0.4s ease-out;}
+@keyframes hero-cuckoo-peek{0%{transform:translateY(0);}40%{transform:translateY(-6px);}100%{transform:translateY(0);}}
+.inicio-mkx .hero-datetime.cuckoo-mode .hero-datetime-icon{animation:hero-cuckoo-swing 0.5s ease-in-out infinite;}
+.inicio-mkx .hero-datetime.cuckoo-mode .hero-datetime-time{font-size:1.1rem;font-style:italic;}
+@keyframes hero-cuckoo-swing{0%,100%{transform:rotate(-12deg);}50%{transform:rotate(12deg);}}
+
 /* Panel reloj desplegable – Liquid Glass */
 .clock-panel-overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:9998;display:none;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);}
 .clock-panel-overlay.open{display:block;animation:overlayIn .25s ease;}
@@ -106,7 +116,15 @@ body.dark-mode .inicio-mkx .hero-badge .badge-dot{box-shadow:0 0 10px var(--yell
 .cp-cal-d{font-size:12px;padding:7px 0;border-radius:8px;color:#64748b;transition:all .15s;position:relative;}
 .cp-cal-d.empty{visibility:hidden;}
 .cp-cal-d.today{background:linear-gradient(135deg,#1A52A8,#2563eb);color:#fff;font-weight:700;box-shadow:0 2px 8px rgba(26,82,168,0.35);}
-.cp-cal-d.quincena:not(.today){background:rgba(34,197,94,0.22);color:#15803d;font-weight:600;border:1px solid rgba(34,197,94,0.35);}
+.cp-cal-d.quincena:not(.today){color:inherit;cursor:pointer;}
+.cp-cal-d.quincena:not(.today) .cp-quincena-dot{position:absolute;bottom:2px;left:50%;transform:translateX(-50%);width:4px;height:4px;background:rgba(34,197,94,0.7);border-radius:50%;}
+/* Easter egg: lluvia de dinero (doble clic en día quincena) */
+.cp-money-rain{position:fixed;inset:0;z-index:10001;pointer-events:none;overflow:hidden;}
+.cp-money-rain .cp-money-item{position:absolute;top:-30px;font-size:18px;opacity:0.9;animation:cp-money-fall 4s linear forwards;}
+@keyframes cp-money-fall{0%{transform:translateY(0) rotate(0deg);opacity:0.9;}100%{transform:translateY(100vh) rotate(360deg);opacity:0.2;}}
+/* Billete desvaneciente al doble clic (estilo condonar) */
+.cp-billete-fade{position:fixed;font-size:2rem;animation:cp-billete-fade 1.2s ease-out forwards;pointer-events:none;z-index:10002;}
+@keyframes cp-billete-fade{0%{opacity:1;transform:translate(-50%,-50%) scale(1);}100%{opacity:0;transform:translate(-50%,-50%) translateY(-100px) scale(0.5);}}
 .cp-event-dot{position:absolute;bottom:2px;left:50%;transform:translateX(-50%);width:5px;height:5px;background:#f59e0b;border-radius:50%;box-shadow:0 0 4px rgba(245,158,11,0.5);}
 .cp-cal-d.today .cp-event-dot{background:#fff;box-shadow:0 0 4px rgba(255,255,255,0.5);}
 .cp-quote{
@@ -135,7 +153,7 @@ body.dark-mode .cp-cal-nav button{background:rgba(255,255,255,0.1);border-color:
 body.dark-mode .cp-cal-nav button:hover{background:#3b82f6;color:#fff;border-color:#3b82f6;}
 body.dark-mode .cp-cal-d{color:#94a3b8;}
 body.dark-mode .cp-cal-d.today{background:linear-gradient(135deg,#3b82f6,#2563eb);box-shadow:0 2px 10px rgba(59,130,246,0.4);}
-body.dark-mode .cp-cal-d.quincena:not(.today){background:rgba(34,197,94,0.25);color:#4ade80;border-color:rgba(34,197,94,0.4);}
+body.dark-mode .cp-cal-d.quincena:not(.today) .cp-quincena-dot{background:rgba(74,222,128,0.75);}
 body.dark-mode .cp-event-dot{background:#fbbf24;box-shadow:0 0 6px rgba(251,191,36,0.6);}
 body.dark-mode .cp-quote{background:linear-gradient(135deg,rgba(66,32,6,0.7),rgba(120,53,15,0.5));border-left-color:#f59e0b;}
 body.dark-mode .clock-panel .cp-quote-label{color:#d97706 !important;}
@@ -368,6 +386,7 @@ body.dark-mode .inicio-btn-diagnostico-bd {
       </div>
       <div class="hero-datetime" id="btnOpenClockPanel" title="Ver más información">
         <span class="hero-datetime-icon"><i class="fa-solid fa-clock"></i></span>
+        <span class="cuckoo-bird" id="cuckooBird" aria-hidden="true">🐦</span>
         <div>
           <div class="hero-datetime-time" id="inicioTime">--:--</div>
           <div class="hero-datetime-date" id="inicioDate">--</div>
@@ -507,6 +526,7 @@ body.dark-mode .inicio-btn-diagnostico-bd {
   
   // Actualizar hora del hero (CDMX)
   function updateInicioDateTime(){
+    if (window._cuckooActive) return;
     var elTime = document.getElementById('inicioTime');
     var elDate = document.getElementById('inicioDate');
     if (!elTime || !elDate) return;
@@ -664,10 +684,76 @@ body.dark-mode .inicio-btn-diagnostico-bd {
 
   btnOpen.addEventListener('click', function(e){
     e.stopPropagation();
-    openPanel();
+    var now = Date.now();
+    if (!btnOpen._clockClicks) btnOpen._clockClicks = { count: 0, firstAt: 0, resetTimer: null, openTimer: null };
+    var data = btnOpen._clockClicks;
+    data.count++;
+    if (data.resetTimer) clearTimeout(data.resetTimer);
+    data.resetTimer = setTimeout(function(){ data.count = 0; }, 2000);
+    if (data.count >= 5) {
+      data.count = 0;
+      if (data.openTimer) clearTimeout(data.openTimer);
+      startCuckooMode();
+      return;
+    }
+    if (data.count === 1) {
+      if (data.openTimer) clearTimeout(data.openTimer);
+      data.openTimer = setTimeout(function(){
+        if (btnOpen._clockClicks && btnOpen._clockClicks.count >= 1 && btnOpen._clockClicks.count < 5) openPanel();
+      }, 320);
+    } else if (data.count > 1) {
+      if (data.openTimer) clearTimeout(data.openTimer);
+      data.openTimer = null;
+    }
   });
   clockOverlay.addEventListener('click', closePanel);
   clockPanel.addEventListener('click', function(e){ e.stopPropagation(); });
+
+  // Easter egg: modo cuco (pajarito + ¡Cú-cú!) tras 5 clics rápidos en el reloj. Sonido: public/assets/audio/cuckoo.mp3 en bucle con pausa entre repeticiones.
+  function startCuckooMode() {
+    var elTime = document.getElementById('inicioTime');
+    var bird = document.getElementById('cuckooBird');
+    if (!elTime || !btnOpen) return;
+    window._cuckooActive = true;
+    btnOpen.classList.add('cuckoo-mode');
+    var cuckooAudio = new Audio('/assets/audio/cuckoo.mp3');
+    cuckooAudio.volume = 0.8;
+    var pausaEntreRepeticiones = 350;
+    var cuckooSigueActivo = true;
+    function reproducirUnaVez() {
+      if (!cuckooSigueActivo) return;
+      cuckooAudio.currentTime = 0;
+      cuckooAudio.play().catch(function(){});
+    }
+    function enCucuEnded() {
+      if (!cuckooSigueActivo) return;
+      setTimeout(reproducirUnaVez, pausaEntreRepeticiones);
+    }
+    cuckooAudio.addEventListener('ended', enCucuEnded);
+    reproducirUnaVez();
+    var count = 0;
+    function tick() {
+      elTime.textContent = count % 2 === 0 ? '¡Cú-' : 'cú!';
+      if (bird) {
+        bird.classList.remove('cuckoo-peek');
+        void bird.offsetWidth;
+        bird.classList.add('cuckoo-peek');
+      }
+      count++;
+    }
+    tick();
+    var iv = setInterval(tick, 500);
+    setTimeout(function() {
+      clearInterval(iv);
+      cuckooSigueActivo = false;
+      cuckooAudio.pause();
+      cuckooAudio.currentTime = 0;
+      cuckooAudio.removeEventListener('ended', enCucuEnded);
+      btnOpen.classList.remove('cuckoo-mode');
+      window._cuckooActive = false;
+      updateInicioDateTime();
+    }, 8000);
+  }
 
   // Actualizar hora del panel (CDMX)
   function updateClockPanel(){
@@ -697,7 +783,8 @@ body.dark-mode .inicio-btn-diagnostico-bd {
       var eventKey = (cpCm + 1) + '-' + d;
       var hasEvent = EVENTOS_MX[eventKey];
       var eventDot = hasEvent ? '<span class="cp-event-dot" title="' + hasEvent + '"></span>' : '';
-      h += '<div class="' + c + '" title="' + (quincenaDays.indexOf(d) !== -1 ? 'Día de pago quincena' : '') + '">' + d + eventDot + '</div>';
+      var quincenaDot = (quincenaDays.indexOf(d) !== -1) ? '<span class="cp-quincena-dot" aria-hidden="true"></span>' : '';
+      h += '<div class="' + c + '" title="' + (quincenaDays.indexOf(d) !== -1 ? 'Día de pago quincena (doble clic)' : '') + '">' + d + eventDot + quincenaDot + '</div>';
     }
     document.getElementById('cpCalGrid').innerHTML = h;
   }
@@ -711,6 +798,41 @@ body.dark-mode .inicio-btn-diagnostico-bd {
 
   document.getElementById('cpCalPrev').addEventListener('click', function(){ cpChMonth(-1); });
   document.getElementById('cpCalNext').addEventListener('click', function(){ cpChMonth(1); });
+
+  // Easter egg: doble clic en día quincena → billete desvaneciente + lluvia de dinero
+  document.getElementById('cpCalGrid').addEventListener('dblclick', function(e){
+    var cell = e.target.closest('.cp-cal-d.quincena');
+    if (!cell) return;
+    var wrap = document.getElementById('cpMoneyRainWrap');
+    if (wrap) return;
+
+    // Billete desvaneciente en el punto del clic (como condonar)
+    var billete = document.createElement('div');
+    billete.className = 'cp-billete-fade';
+    billete.innerHTML = '💵';
+    billete.style.left = e.clientX + 'px';
+    billete.style.top = e.clientY + 'px';
+    document.body.appendChild(billete);
+    setTimeout(function(){ if (billete.parentNode) billete.parentNode.removeChild(billete); }, 1300);
+
+    wrap = document.createElement('div');
+    wrap.id = 'cpMoneyRainWrap';
+    wrap.className = 'cp-money-rain';
+    var chars = ['$', '💰', '💵', '¢', '💲', '💴'];
+    for (var i = 0; i < 120; i++) {
+      var el = document.createElement('span');
+      el.className = 'cp-money-item';
+      el.textContent = chars[Math.floor(Math.random() * chars.length)];
+      el.style.left = (Math.random() * 100) + '%';
+      el.style.animationDelay = (Math.random() * 1.5) + 's';
+      el.style.fontSize = (16 + Math.random() * 16) + 'px';
+      wrap.appendChild(el);
+    }
+    document.body.appendChild(wrap);
+    setTimeout(function(){
+      if (wrap.parentNode) wrap.parentNode.removeChild(wrap);
+    }, 5500);
+  });
 
   // Frase del día (random, sin repetir por 5 días)
   function loadCpQuote(){

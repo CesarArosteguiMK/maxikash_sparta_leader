@@ -24,12 +24,12 @@
  * 
  * EJECUCIÓN EN MODO DE PRUEBAS (DRY-RUN):
  * 
- * C:\xampp\php\php.exe insertar_moras_martes.php
+ * C:\xampp\php\php.exe insertar_moras_martes.php --dry-run
  * 
  * 
  * EJECUCIÓN FORZADA (FORCE):
  * 
- * 
+ * C:\xampp\php\php.exe insertar_moras_martes.php
  */
 
 // ============================================
@@ -393,7 +393,7 @@ class CronMorosidad
             $this->logger->error("ERROR CRÍTICO: " . $e->getMessage());
             $this->logger->error("Stack trace: " . $e->getTraceAsString());
             
-            // 🔒 ROLLBACK en caso de error crítico (confirmación de seguridad)
+            //  ROLLBACK en caso de error crítico (confirmación de seguridad)
             try {
                 $this->db->rollback();
                 $this->logger->warning("ROLLBACK de seguridad ejecutado - Todos los cambios fueron revertidos");
@@ -498,11 +498,11 @@ class CronMorosidad
         $periodoInicio = date('Y-m-d', strtotime("{$anio}W" . str_pad($numeroSemana, 2, '0', STR_PAD_LEFT) . "1")); // Lunes
         $periodoFin = date('Y-m-d', strtotime("{$anio}W" . str_pad($numeroSemana, 2, '0', STR_PAD_LEFT) . "7")); // Domingo
 
-        // 🔒 INICIAR TRANSACCIÓN
+        //  INICIAR TRANSACCIÓN
         $this->logger->info("Iniciando transacción de base de datos...");
         $this->db->beginTransaction();
 
-        // 📦 PROCESAR EN LOTES DE 500
+        //  PROCESAR EN LOTES DE 500
         $tamañoLote = 500;
         $lotes = array_chunk($creditos, $tamañoLote);
         $totalLotes = count($lotes);
@@ -626,7 +626,7 @@ class CronMorosidad
             }
         }
 
-        // 🔒 COMMIT DE LA TRANSACCIÓN
+        //  COMMIT DE LA TRANSACCIÓN
         try {
             $this->db->commit();
             $this->logger->success("Transacción COMMIT exitoso - Cambios guardados permanentemente");

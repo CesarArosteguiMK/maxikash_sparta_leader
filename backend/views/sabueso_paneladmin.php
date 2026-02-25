@@ -265,6 +265,8 @@
     #modalRastreoCredito .rastreo-seccion-evidencias > .d-flex.mb-2,
     #modalRastreoCredito .rastreo-seccion-bitacora > .d-flex.mb-2 { font-weight: 700; color: #374151; letter-spacing: 0.04em; text-transform: uppercase; font-size: 0.75rem; border-bottom: 1px solid #F3F4F6; padding-bottom: 0.5rem; margin-bottom: 0.75rem; line-height: 1.4; }
     #modalRastreoCredito .rastreo-bitacora-titulo { border-bottom: 3px solid #334155 !important; padding-bottom: 0.5rem; margin-bottom: 0.5rem; }
+    #modalRastreoCredito #btnBitacoraAmpliar { min-width: 32px; min-height: 32px; display: inline-flex; align-items: center; justify-content: center; }
+    #modalRastreoCredito #btnBitacoraAmpliar:hover { color: #4f46e5; border-color: #4f46e5; }
     #modalRastreoCredito .rastreo-seccion-direcciones > .d-flex.mb-2 .fw-semibold.small.text-muted,
     #modalRastreoCredito .rastreo-seccion-gestiones > .d-flex.mb-2 .fw-semibold.small.text-muted,
     #modalRastreoCredito .rastreo-seccion-evidencias > .d-flex.mb-2 .fw-semibold.small.text-muted,
@@ -342,10 +344,9 @@
     #modalRastreoCredito #rastreoBitacoraInput { border-radius: 24px; border: 1px solid #e2e8f0; padding: 0.5rem 1rem; font-size: 0.9rem; }
     #modalRastreoCredito #rastreoBitacoraInput:focus { border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15); }
     #modalRastreoCredito #rastreoBitacoraEnviar { border-radius: 50%; width: 38px; height: 38px; min-width: 38px; padding: 0; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-    #modalRastreoCredito .rastreo-bitacora-input-wrap,
-    #modalRastreoCredito .rastreo-dictamen-input-wrap { padding: 0.25rem 0; margin-top: auto; flex-shrink: 0; }
-    #modalRastreoCredito #rastreoDictamenInput { border-radius: 24px; border: 1px solid #e2e8f0; padding: 0.5rem 1rem; font-size: 0.9rem; }
-    #modalRastreoCredito #rastreoDictamenInput:focus { border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15); }
+    #modalRastreoCredito .rastreo-bitacora-input-wrap { padding: 0.25rem 0; margin-top: auto; flex-shrink: 0; }
+    #modalRastreoCredito .rastreo-dictamen-form .form-label { margin-bottom: 0.25rem; }
+    #modalRastreoCredito .rastreo-dictamen-form .evidencia-slot { width: 100%; aspect-ratio: 1; max-height: 100px; }
     /* Bloque Direcciones maxi app: todo (intro + lista + mapa) dentro del bloque con scroll; el mapa no se sale */
     #modalRastreoCredito #rastreoDirecciones { display: flex; flex-direction: column; min-height: 0; flex: 1; overflow-y: auto; overflow-x: hidden; }
     #modalRastreoCredito #rastreoDirecciones .rastreo-mapa-wrap { flex-shrink: 0; min-height: 200px; height: 200px; display: flex; flex-direction: column; margin-top: 0.5rem; }
@@ -372,12 +373,34 @@
     #modalRastreoCredito .evidencia-slot img { width: 100%; height: 100%; object-fit: cover; }
     #modalRastreoCredito .evidencia-slot:hover { border-color: #6366f1; background: rgba(99, 102, 241, 0.06); }
     #modalRastreoCredito .evidencia-slot:hover i.fa-plus { color: #6366f1; }
+    /* Modal Bitácora ampliada: mismos estilos de mensajes que en el panel */
+    #modalBitacoraAmpliada .bitacora-msg { display: flex; gap: 0.5rem; margin-bottom: 0.65rem; align-items: flex-end; }
+    #modalBitacoraAmpliada .bitacora-msg.bitacora-msg-mine { flex-direction: row-reverse; }
+    #modalBitacoraAmpliada .bitacora-avatar { width: 28px; height: 28px; min-width: 28px; border-radius: 50%; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 600; flex-shrink: 0; font-size: 0.65rem; }
+    #modalBitacoraAmpliada .rastreo-seccion-bitacora .bitacora-avatar,
+    #modalBitacoraAmpliada .bitacora-msg:not(.bitacora-msg-mine) .bitacora-avatar { background: linear-gradient(135deg, #94a3b8 0%, #64748b 100%); }
+    #modalBitacoraAmpliada .bitacora-msg-mine .bitacora-avatar { background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%); }
+    #modalBitacoraAmpliada .bitacora-bubble { background: #f1f5f9; border-radius: 14px 14px 14px 4px; padding: 0.5rem 0.85rem; max-width: 100%; color: #334155; }
+    #modalBitacoraAmpliada .bitacora-msg-mine .bitacora-bubble { background: linear-gradient(135deg, #818cf8 0%, #6366f1 100%); color: #fff; border-radius: 14px 14px 4px 14px; }
+    #modalBitacoraAmpliada .bitacora-msg-header { font-size: 0.7rem; color: #64748b; margin-bottom: 0.2rem; }
+    #modalBitacoraAmpliada .bitacora-msg-header strong { color: #334155; font-size: 0.8rem; }
+    #modalBitacoraAmpliada .bitacora-msg-mine .bitacora-msg-header { color: rgba(255,255,255,0.9); }
+    #modalBitacoraAmpliada .bitacora-msg-mine .bitacora-msg-header strong { color: #fff; }
     #tablaTicketsPanel th:nth-child(6) { min-width: 10rem; white-space: nowrap; }
     #tablaTicketsPanel .d-flex.flex-wrap.gap-1 { flex-wrap: wrap; gap: 0.35rem !important; }
     #tablaTicketsPanel .d-flex.flex-wrap.gap-1 .btn { flex-shrink: 0; }
     @media (max-width: 768px) {
         #tablaTicketsPanel .table-responsive { overflow-x: auto; -webkit-overflow-scrolling: touch; }
     }
+    /* Easter egg Panel Admin: icono sabueso + toast */
+    .sabueso-easter-icon { color: #94a3b8; font-size: 0.95rem; cursor: pointer; transition: transform 0.2s, color 0.2s; opacity: 0.85; }
+    .sabueso-easter-icon:hover { color: #0d9488; transform: scale(1.15); opacity: 1; }
+    body.dark-mode .sabueso-easter-icon { color: #64748b; }
+    body.dark-mode .sabueso-easter-icon:hover { color: #2dd4bf; }
+    .sabueso-easter-toast { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 1060; background: linear-gradient(135deg, #0f766e 0%, #0d9488 50%, #14b8a6 100%); color: #fff; padding: 20px 36px; border-radius: 16px; font-size: 1.1rem; font-weight: 600; box-shadow: 0 16px 48px rgba(13, 148, 136, 0.35); border: 2px solid rgba(255,255,255,0.3); opacity: 0; animation: sabuesoToastIn 0.35s ease forwards; pointer-events: none; text-align: center; }
+    .sabueso-easter-toast .sabueso-toast-emoji { font-size: 2.5rem; display: block; margin-bottom: 8px; }
+    @keyframes sabuesoToastIn { 0% { opacity: 0; transform: translate(-50%, -50%) scale(0.8); } 100% { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
+    @keyframes sabuesoToastOut { 0% { opacity: 1; transform: translate(-50%, -50%) scale(1); } 100% { opacity: 0; transform: translate(-50%, -50%) scale(0.95); } }
     /* Modal evidencia: z-index se fija por JS al abrir para quedar por delante de Iniciar rastreo */
     #modalEvidenciaRastreo .modal-dialog {
         max-width: 95vw;
@@ -519,11 +542,9 @@
         #modalRastreoCredito #rastreoDirecciones .rastreo-mapa-wrap #rastreoMapaLeaflet { min-height: 120px; }
         /* Touch: botones mínimo 44px para dedo */
         #modalRastreoCredito #rastreoBitacoraEnviar,
-        #modalRastreoCredito #rastreoDictamenEnviar,
         #modalRastreoCredito .rastreo-bitacora-input-wrap .btn,
-        #modalRastreoCredito .rastreo-dictamen-input-wrap .btn { min-width: 44px; min-height: 44px; width: 44px; height: 44px; }
-        #modalRastreoCredito #rastreoBitacoraInput,
-        #modalRastreoCredito #rastreoDictamenInput { min-height: 44px; padding: 0.5rem 1rem; }
+        #modalRastreoCredito .rastreo-dictamen-form .btn { min-width: 44px; min-height: 44px; }
+        #modalRastreoCredito #rastreoBitacoraInput { min-height: 44px; padding: 0.5rem 1rem; }
         #modalRastreoCredito .btn-analizar-ia,
         #modalRastreoCredito #btnResumirUbicacionesIA,
         #modalRastreoCredito .modal-footer .btn { min-height: 44px; padding: 0.5rem 1rem; }
@@ -536,6 +557,7 @@
     <div class="card-header border-bottom">
         <h5 class="card-title mb-0">
             <i class="fa-solid fa-list me-2"></i>Panel Admin – Todos los tickets
+            <i class="fa-solid fa-dog ms-2 sabueso-easter-icon" id="sabuesoPanelEaster" aria-hidden="true"></i>
         </h5>
     </div>
     <div class="card-datatable table-responsive">
@@ -640,9 +662,12 @@
                     </div>
                     <div class="rastreo-col-bitacora-wrap">
                         <div class="rastreo-seccion-bitacora p-3 d-flex flex-column">
-                            <div class="d-flex align-items-center gap-2 mb-2 rastreo-bitacora-titulo">
-                                <i class="fa-solid fa-comments text-primary"></i>
-                                <span class="fw-semibold small text-muted">Bitácora</span>
+                            <div class="d-flex align-items-center justify-content-between gap-2 mb-2 rastreo-bitacora-titulo">
+                                <div class="d-flex align-items-center gap-2">
+                                    <i class="fa-solid fa-comments text-primary"></i>
+                                    <span class="fw-semibold small text-muted">Bitácora</span>
+                                </div>
+                                <button type="button" class="btn btn-sm btn-outline-secondary btn-sm p-1" id="btnBitacoraAmpliar" title="Ampliar bitácora" aria-label="Ampliar bitácora"><i class="fa-solid fa-expand"></i></button>
                             </div>
                             <div id="rastreoBitacoraContenido" class="small flex-grow-1 overflow-auto mb-2" style="min-height: 72px;">
                                 <!-- Mensajes con avatar por JS -->
@@ -657,12 +682,48 @@
                                 <i class="fa-solid fa-file-lines text-primary"></i>
                                 <span class="fw-semibold small text-muted">Dictamen</span>
                             </div>
-                            <div id="rastreoDictamenContenido" class="small flex-grow-1 overflow-auto mb-2" style="min-height: 72px;">
-                                <!-- Mensajes dictamen por JS -->
-                            </div>
-                            <div class="d-flex gap-2 align-items-center rastreo-dictamen-input-wrap">
-                                <input type="text" class="form-control form-control-sm" id="rastreoDictamenInput" placeholder="Escribir dictamen..." maxlength="500">
-                                <button type="button" class="btn btn-sm btn-primary flex-shrink-0" id="rastreoDictamenEnviar" title="Enviar"><i class="fa-solid fa-paper-plane"></i></button>
+                            <div class="rastreo-dictamen-form">
+                                <div class="mb-2">
+                                    <label for="rastreoDictamenCombo" class="form-label small fw-semibold text-muted mb-1">Tipo de dictamen <span class="text-danger">*</span></label>
+                                    <select class="form-select form-select-sm" id="rastreoDictamenCombo" required aria-required="true">
+                                        <option value="">Seleccione...</option>
+                                        <option value="localizado">Localizado</option>
+                                        <option value="no_localizado">No localizado</option>
+                                        <option value="promesa_pago">Promesa de pago</option>
+                                        <option value="otro">Otro</option>
+                                    </select>
+                                </div>
+                                <div class="mb-2">
+                                    <label for="rastreoDictamenDescripcion" class="form-label small fw-semibold text-muted mb-1">Descripción <span class="text-danger">*</span></label>
+                                    <textarea class="form-control form-control-sm" id="rastreoDictamenDescripcion" rows="3" placeholder="Escriba la descripción..." required aria-required="true" maxlength="1000"></textarea>
+                                </div>
+                                <div class="mb-2">
+                                    <span class="form-label small fw-semibold text-muted d-block mb-1">Evidencia</span>
+                                    <div class="row g-2" id="rastreoDictamenEvidenciasSlots">
+                                        <div class="col-6 col-md-4">
+                                            <div class="evidencia-slot evidencia-slot-dictamen" data-slot="0" role="button" tabindex="0" title="Añadir foto">
+                                                <i class="fa-solid fa-plus"></i>
+                                                <span class="evidencia-slot-label">Añadir</span>
+                                            </div>
+                                        </div>
+                                        <div class="col-6 col-md-4">
+                                            <div class="evidencia-slot evidencia-slot-dictamen" data-slot="1" role="button" tabindex="0" title="Añadir foto">
+                                                <i class="fa-solid fa-plus"></i>
+                                                <span class="evidencia-slot-label">Añadir</span>
+                                            </div>
+                                        </div>
+                                        <div class="col-6 col-md-4">
+                                            <div class="evidencia-slot evidencia-slot-dictamen" data-slot="2" role="button" tabindex="0" title="Añadir foto">
+                                                <i class="fa-solid fa-plus"></i>
+                                                <span class="evidencia-slot-label">Añadir</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="d-flex gap-2 flex-wrap mt-2">
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" id="btnDictamenGuardarBorrador" title="Guardar borrador"><i class="fa-solid fa-save me-1"></i>Guardar borrador</button>
+                                    <button type="button" class="btn btn-sm btn-primary" id="btnDictamenEnviarGestor" title="Enviar al gestor"><i class="fa-solid fa-paper-plane me-1"></i>Enviar al gestor</button>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -761,6 +822,27 @@
     </div>
 </div>
 
+<!-- Modal Bitácora ampliada: ver mensajes y escribir en grande -->
+<div class="modal fade" id="modalBitacoraAmpliada" tabindex="-1" aria-labelledby="modalBitacoraAmpliadaLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-bitacora-ampliada">
+        <div class="modal-content h-100">
+            <div class="modal-header py-2 d-flex align-items-center">
+                <h6 class="modal-title mb-0"><i class="fa-solid fa-comments me-2"></i>Bitácora – Vista ampliada</h6>
+                <button type="button" class="btn-close btn-close-sm ms-auto" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body p-3 d-flex flex-column flex-grow-1 min-h-0">
+                <div id="rastreoBitacoraAmpliadaContenido" class="bitacora-ampliada-mensajes overflow-auto mb-3">
+                    <!-- Se copia el contenido de la bitácora al abrir -->
+                </div>
+                <div class="d-flex gap-2 align-items-center flex-shrink-0 border-top pt-2">
+                    <input type="text" class="form-control form-control-lg" id="rastreoBitacoraAmpliadaInput" placeholder="Escribir mensaje..." maxlength="500">
+                    <button type="button" class="btn btn-primary flex-shrink-0" id="rastreoBitacoraAmpliadaEnviar" title="Enviar"><i class="fa-solid fa-paper-plane"></i></button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Modal mapa grande (90% pantalla): se abre al hacer clic en el mapa pequeño -->
 <div class="modal fade" id="modalMapaGrande" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered h-90">
@@ -793,6 +875,7 @@
 
 <!-- Input oculto para subir evidencias -->
 <input type="file" id="inputEvidenciaRastreo" accept="image/*" style="display: none;">
+<input type="file" id="inputEvidenciaDictamen" accept="image/*" style="display: none;">
 
 <!-- Modal evidencia: ver imagen + Eliminar / Cerrar, o cargar si está vacío -->
 <div class="modal fade" id="modalEvidenciaRastreo" tabindex="-1" aria-hidden="true">
@@ -864,7 +947,7 @@
 <script>
 (function() {
     var SCRIM_Z = 1060;
-    var CHILD_MODALS = ['modalAsignarA', 'modalAnaliticaSpatial', 'modalAnaliticaPayments', 'modalAnaliticaCompliance', 'modalLecturaIA', 'modalEvidenciaVerificacion', 'modalPrediccionIA', 'modalMapaGrande', 'modalMapaAlternasGrande', 'modalEvidenciaRastreo'];
+    var CHILD_MODALS = ['modalAsignarA', 'modalAnaliticaSpatial', 'modalAnaliticaPayments', 'modalAnaliticaCompliance', 'modalLecturaIA', 'modalEvidenciaVerificacion', 'modalPrediccionIA', 'modalMapaGrande', 'modalMapaAlternasGrande', 'modalEvidenciaRastreo', 'modalBitacoraAmpliada'];
     var scrimEl = null;
     var parentModal = null;
     function getOrCreateScrim() {
@@ -983,6 +1066,19 @@
             if (id) { btn.show(); } else { btn.hide(); }
         }).on('hidden.bs.modal', function() { $('#btnResumenAnaliticaIA').hide(); });
 
+        $('#btnBitacoraAmpliar').on('click', function() {
+            var $origen = $('#rastreoBitacoraContenido');
+            var $destino = $('#rastreoBitacoraAmpliadaContenido');
+            if ($origen.length && $destino.length) { $destino.html($origen.html()); }
+            $('#rastreoBitacoraAmpliadaInput').val($('#rastreoBitacoraInput').val() || '');
+            $('#modalBitacoraAmpliada').modal('show');
+        });
+        $('#modalBitacoraAmpliada').on('shown.bs.modal', function() {
+            var $origen = $('#rastreoBitacoraContenido');
+            var $destino = $('#rastreoBitacoraAmpliadaContenido');
+            if ($origen.length && $destino.length) { $destino.html($origen.html()); }
+        });
+
         $('#modalPrediccionIA').on('shown.bs.modal', function() {
             var isDark = document.body && document.body.classList.contains('dark-mode');
             if (isDark) {
@@ -1021,6 +1117,39 @@
                 }
             });
         });
+    });
+})();
+</script>
+<script>
+(function() {
+    var el = document.getElementById('sabuesoPanelEaster');
+    if (!el) return;
+    var count = 0, t = null;
+    el.addEventListener('click', function() {
+        count++;
+        if (count === 3) {
+            count = 0;
+            if (t) clearTimeout(t);
+            var toast = document.createElement('div');
+            toast.className = 'sabueso-easter-toast';
+            toast.innerHTML = '<span class="sabueso-toast-emoji">🐕</span>¡El sabueso está en la pista!';
+            document.body.appendChild(toast);
+            var audio = new Audio('/assets/audio/bark.mp3');
+            audio.volume = 0.5;
+            audio.play().catch(function(){});
+            var closed = false;
+            function closeToast() {
+                if (closed) return;
+                closed = true;
+                toast.style.animation = 'sabuesoToastOut 0.4s ease forwards';
+                setTimeout(function() { if (toast.parentNode) toast.parentNode.removeChild(toast); }, 400);
+            }
+            audio.addEventListener('ended', closeToast);
+            audio.addEventListener('error', function() { setTimeout(closeToast, 2500); });
+            return;
+        }
+        if (t) clearTimeout(t);
+        t = setTimeout(function() { count = 0; }, 600);
     });
 })();
 </script>
