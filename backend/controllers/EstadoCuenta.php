@@ -374,6 +374,7 @@ JS;
                     "fechaRegistro"       => $p["fechaDeposito"] ?? ($p["fechaRegistro"] ?? null),
                     "montoPagoOriginal"   => $montoPago,
                     "extemporaneos"       => $extemporaneos,
+                    "_extOrig"            => $extemporaneos,
                     "_extemporaneo_aplicado" => false
                 ];
             }
@@ -527,6 +528,11 @@ JS;
                 // Solo hay "notas de cargo" si quedó algo después de excluir gasto cobranza
                 $hayNotasCargos = array_sum($notasCargoPorFecha) > 0;
             }
+            // ═══════════════════════════════════════════════════════════════════════════════
+            // BLOQUE DE CONTRACARGOS — NO MODIFICAR SIN REVISIÓN EXHAUSTIVA
+            // Lachy dedicó mucho esfuerzo a que este flujo funcione correctamente en todos los casos.
+            // Cualquier cambio puede romper emparejamiento, sobrantes y fechas de cierre.
+            // ═══════════════════════════════════════════════════════════════════════════════
             // Post-process contracargos: reconstruir flujo de pagos.
             // Las notas de cargo vienen desglosadas (capital, interés, comisión, resguardo)
             // pero representan UN contracargo por fecha. Se usa notasCargoPorFecha (sumado)
@@ -673,7 +679,7 @@ JS;
                     $pool = [];
                     foreach ($plById as $idP => $pl) {
                         if (isset($idPagosCC[$idP])) continue;
-                        $remaining = round((float)($pl['montoPagoOriginal'] ?? 0) - (float)($pl['extemporaneos'] ?? 0), 2);
+                        $remaining = round((float)($pl['montoPagoOriginal'] ?? 0) - (float)($pl['_extOrig'] ?? $pl['extemporaneos'] ?? 0), 2);
                         $usedBefore = round($aplicadoAnterior[$idP] ?? 0, 2);
                         $available = round($remaining - $usedBefore, 2);
                         if ($available <= 0.009) continue;
@@ -685,7 +691,7 @@ JS;
                                 break;
                             }
                         }
-                        if (!$hasAffectedCuota) continue;
+                        if (!$hasAffectedCuota && $usedBefore <= 0.009) continue;
 
                         $pool[] = [
                             'idPago'    => $idP,
@@ -3244,7 +3250,9 @@ public function descargar()
             exit;
         }
         $path = $info['path'];
-        $out = $this->ejecutarPdfMediaInspect($script, $path);
+        $result = $this->ejecutarPdfMediaInspect($script, $path);
+        $out = is_array($result) ? ($result['stdout'] ?? '') : (string) $result;
+
         if ($info['isTemp']) @unlink($path);
         if ($out === null || $out === '') {
             echo json_encode(['success' => true, 'paginasConMedia' => []]);
@@ -3305,16 +3313,17 @@ public function descargar()
 
     /**
      * Ejecuta pdf_media.py --inspect para obtener páginas con medios. Usa proc_open con ruta de Python detectada o fallback shell_exec.
+     * Devuelve array ['stdout' => string, 'stderr' => string] para poder registrar errores de Python; si solo se necesita el texto, usar ['stdout'].
      */
     private function ejecutarPdfMediaInspect($scriptPath, $pdfPath)
     {
         $rutaPdf = realpath($pdfPath);
         if ($rutaPdf === false || !is_file($rutaPdf)) {
-            return null;
+            return ['stdout' => '', 'stderr' => 'PDF no encontrado o ruta inválida'];
         }
         $rutaScript = realpath($scriptPath);
         if ($rutaScript === false || !is_file($rutaScript)) {
-            return null;
+            return ['stdout' => '', 'stderr' => 'Script pdf_media.py no encontrado'];
         }
         $interpretes = array_filter(array_merge(
             [self::getPythonExecutable()],
@@ -3341,11 +3350,14 @@ public function descargar()
             }
             fclose($pipes[0]);
             $stdout = stream_get_contents($pipes[1]);
+            $stderr = stream_get_contents($pipes[2]);
             fclose($pipes[1]);
             fclose($pipes[2]);
             proc_close($proc);
-            if ($stdout !== false && $stdout !== '' && trim($stdout) !== '') {
-                return $stdout;
+            $stdout = ($stdout !== false) ? $stdout : '';
+            $stderr = ($stderr !== false) ? $stderr : '';
+            if ($stdout !== '' && trim($stdout) !== '') {
+                return ['stdout' => $stdout, 'stderr' => $stderr];
             }
         }
         // Fallback: shell_exec con ruta de Python detectada o comandos por nombre
@@ -3356,15 +3368,18 @@ public function descargar()
             $cmd = escapeshellarg($pythonPath) . ' ' . $escScript . ' --inspect ' . $escPdf . ' 2>&1';
             $out = @shell_exec($cmd);
             if ($out !== null && $out !== '' && trim($out) !== '') {
-                return $out;
+                return ['stdout' => $out, 'stderr' => ''];
             }
         }
         $out = @shell_exec('py ' . $escScript . ' --inspect ' . $escPdf . ' 2>&1');
         if ($out !== null && $out !== '' && trim($out) !== '') {
-            return $out;
+            return ['stdout' => $out, 'stderr' => ''];
         }
         $out = @shell_exec('python ' . $escScript . ' --inspect ' . $escPdf . ' 2>&1');
-        return ($out !== null && $out !== '' && trim($out) !== '') ? $out : null;
+        return [
+            'stdout' => ($out !== null && $out !== '') ? trim($out) : '',
+            'stderr' => ''
+        ];
     }
 
     /**
@@ -3408,19 +3423,6 @@ public function descargar()
         $out = @shell_exec($cmd);
         if ($info['isTemp']) @unlink($info['path']);
         $json = $out ? @json_decode(trim($out), true) : null;
-        // Log para depurar extracción de videos en servidor (quitar cuando se resuelva)
-        $logDir = __DIR__ . '/../storage/logs';
-        if (is_dir($logDir)) {
-            $logFile = $logDir . '/extraer_videos_debug.log';
-            $outPreview = $out === null ? '(shell_exec devolvió null)' : (strlen($out) > 2000 ? substr($out, 0, 2000) . '...[truncado]' : $out);
-            $jsonOk = $json && is_array($json);
-            $archivosCount = $jsonOk && isset($json['archivos']) ? count($json['archivos']) : 0;
-            $logLine = date('Y-m-d H:i:s') . " | idCredito=$id | pagina=" . ($pagina ?? 'all') . "\n"
-                . "  cmd: " . $cmd . "\n"
-                . "  out_len: " . ($out === null ? 'null' : strlen($out)) . " | json_ok: " . ($jsonOk ? '1' : '0') . " | archivos: " . $archivosCount . " | json_error: " . json_last_error_msg() . "\n"
-                . "  out_preview:\n" . $outPreview . "\n---\n";
-            @file_put_contents($logFile, $logLine, FILE_APPEND | LOCK_EX);
-        }
         if (!$json || empty($json['archivos'])) {
             @array_map('unlink', glob($outdir . '/*') ?: []);
             @rmdir($outdir);
@@ -3538,6 +3540,27 @@ public function descargar()
         }
 
         $resultado = EstadoCuentaDAO::getGastosCobranza($idCredito);    
+        self::respuestaJSON($resultado);
+    }
+
+
+    /**
+     * Guarda la condonación parcial de un gasto de cobranza (monto + motivo).
+     * POST: id_gastos_cobranza, monto_parcial, motivo
+     */
+    public function guardarCondonacionParcialGasto()
+    {
+        $input = json_decode(file_get_contents("php://input"), true);
+        $idGasto = $input['id_gastos_cobranza'] ?? null;
+        $montoParcial = $input['monto_parcial'] ?? null;
+        $motivo = $input['motivo'] ?? '';
+
+        if (empty($idGasto)) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'ID de gasto requerido']);
+            return;
+        }
+
+        $resultado = EstadoCuentaDAO::updateCondonacionParcialGasto($idGasto, $montoParcial, $motivo);
         self::respuestaJSON($resultado);
     }
 

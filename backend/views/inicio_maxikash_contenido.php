@@ -106,6 +106,7 @@ body.dark-mode .inicio-mkx .hero-badge .badge-dot{box-shadow:0 0 10px var(--yell
 .cp-cal-d{font-size:12px;padding:7px 0;border-radius:8px;color:#64748b;transition:all .15s;position:relative;}
 .cp-cal-d.empty{visibility:hidden;}
 .cp-cal-d.today{background:linear-gradient(135deg,#1A52A8,#2563eb);color:#fff;font-weight:700;box-shadow:0 2px 8px rgba(26,82,168,0.35);}
+.cp-cal-d.quincena:not(.today){background:rgba(34,197,94,0.22);color:#15803d;font-weight:600;border:1px solid rgba(34,197,94,0.35);}
 .cp-event-dot{position:absolute;bottom:2px;left:50%;transform:translateX(-50%);width:5px;height:5px;background:#f59e0b;border-radius:50%;box-shadow:0 0 4px rgba(245,158,11,0.5);}
 .cp-cal-d.today .cp-event-dot{background:#fff;box-shadow:0 0 4px rgba(255,255,255,0.5);}
 .cp-quote{
@@ -134,6 +135,7 @@ body.dark-mode .cp-cal-nav button{background:rgba(255,255,255,0.1);border-color:
 body.dark-mode .cp-cal-nav button:hover{background:#3b82f6;color:#fff;border-color:#3b82f6;}
 body.dark-mode .cp-cal-d{color:#94a3b8;}
 body.dark-mode .cp-cal-d.today{background:linear-gradient(135deg,#3b82f6,#2563eb);box-shadow:0 2px 10px rgba(59,130,246,0.4);}
+body.dark-mode .cp-cal-d.quincena:not(.today){background:rgba(34,197,94,0.25);color:#4ade80;border-color:rgba(34,197,94,0.4);}
 body.dark-mode .cp-event-dot{background:#fbbf24;box-shadow:0 0 6px rgba(251,191,36,0.6);}
 body.dark-mode .cp-quote{background:linear-gradient(135deg,rgba(66,32,6,0.7),rgba(120,53,15,0.5));border-left-color:#f59e0b;}
 body.dark-mode .clock-panel .cp-quote-label{color:#d97706 !important;}
@@ -633,6 +635,20 @@ body.dark-mode .inicio-btn-diagnostico-bd {
     '12-31': 'Fin de Año'
   };
 
+  // Días de pago quincena: 15 y fin de mes; si caen sábado o domingo → viernes anterior
+  function getQuincenaPaymentDays(year, month) {
+    var d15 = new Date(year, month, 15);
+    var dow15 = d15.getDay(); // 0=Dom, 6=Sab
+    var pay15 = (dow15 === 0) ? 13 : (dow15 === 6) ? 14 : 15;
+
+    var lastDay = new Date(year, month + 1, 0).getDate();
+    var dLast = new Date(year, month, lastDay);
+    var dowLast = dLast.getDay();
+    var payLast = (dowLast === 0) ? lastDay - 2 : (dowLast === 6) ? lastDay - 1 : lastDay;
+
+    return pay15 === payLast ? [pay15] : [pay15, payLast];
+  }
+
   function openPanel(){
     clockPanel.classList.add('open');
     clockOverlay.classList.add('open');
@@ -662,7 +678,7 @@ body.dark-mode .inicio-btn-diagnostico-bd {
     document.getElementById('cpDate').textContent = dias[n.getDay()] + ', ' + n.getDate() + ' de ' + meses[n.getMonth()] + ' ' + n.getFullYear();
   }
 
-  // Calendario con eventos (puntos)
+  // Calendario con eventos (puntos) y días de pago quincena
   function renderCpCal(){
     var MN = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
     document.getElementById('cpCalMonth').textContent = MN[cpCm] + ' ' + cpCy;
@@ -670,16 +686,18 @@ body.dark-mode .inicio-btn-diagnostico-bd {
     var tot = new Date(cpCy, cpCm+1, 0).getDate();
     var now = getCDMXDate();
     var td = (now.getMonth() === cpCm && now.getFullYear() === cpCy) ? now.getDate() : -1;
+    var quincenaDays = getQuincenaPaymentDays(cpCy, cpCm);
     var dns = ['D','L','M','X','J','V','S'];
     var h = dns.map(function(d){ return '<div class="cp-cal-dn">' + d + '</div>'; }).join('');
     for (var i = 0; i < fd; i++) h += '<div class="cp-cal-d empty"></div>';
     for (var d = 1; d <= tot; d++){
       var c = 'cp-cal-d';
       if (d === td) c += ' today';
+      if (quincenaDays.indexOf(d) !== -1) c += ' quincena';
       var eventKey = (cpCm + 1) + '-' + d;
       var hasEvent = EVENTOS_MX[eventKey];
       var eventDot = hasEvent ? '<span class="cp-event-dot" title="' + hasEvent + '"></span>' : '';
-      h += '<div class="' + c + '">' + d + eventDot + '</div>';
+      h += '<div class="' + c + '" title="' + (quincenaDays.indexOf(d) !== -1 ? 'Día de pago quincena' : '') + '">' + d + eventDot + '</div>';
     }
     document.getElementById('cpCalGrid').innerHTML = h;
   }
