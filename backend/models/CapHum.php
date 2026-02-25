@@ -1441,6 +1441,8 @@ class CapHum extends Model
         $password = addslashes($data['contrasena']);
         $fecha_ingreso = !empty($data['fecha_ingreso']) ? addslashes($data['fecha_ingreso']) : null;
         $id_pais = isset($data['id_pais']) && $data['id_pais'] !== '' ? (int) $data['id_pais'] : 1;
+        $id_div_nivel1 = isset($data['id_div_nivel1']) && $data['id_div_nivel1'] !== '' ? (int)$data['id_div_nivel1'] : 'NULL';
+        $id_div_nivel2 = isset($data['id_div_nivel2']) && $data['id_div_nivel2'] !== '' ? (int)$data['id_div_nivel2'] : 'NULL';
 
 
         try {
@@ -1454,9 +1456,9 @@ class CapHum extends Model
 
             $db->queryOne("
             INSERT INTO __SPARTA_SECRET_REDACTED__.persona
-            (nombres, segundo_nombre, apellidop, apellidom, numero_empleado, correo, telefono_uno, telefono_dos, estatus, user_name, password, fecha_ingreso, fecha_registro, id_pais)
+            (nombres, segundo_nombre, apellidop, apellidom, numero_empleado, correo, telefono_uno, telefono_dos, estatus, user_name, password, fecha_ingreso, fecha_registro, id_pais, id_div_nivel1, id_div_nivel2)
             VALUES
-            ('$nombres', '$segundo_nombre', '$apellidop', '$apellidom', '$numero_empleado', '$correo', '$telefono_uno', '$telefono_dos', '$estatus', '$user_name', '$password', $fecha_ingreso_sql, '$fechaRegistro', $id_pais)
+            ('$nombres', '$segundo_nombre', '$apellidop', '$apellidom', '$numero_empleado', '$correo', '$telefono_uno', '$telefono_dos', '$estatus', '$user_name', '$password', $fecha_ingreso_sql, '$fechaRegistro', $id_pais, $id_div_nivel1, $id_div_nivel2)
         ");
 
 
@@ -1593,6 +1595,8 @@ class CapHum extends Model
         $id_puesto       = (int)$data['puesto_id'];
         $user_name       = addslashes($data['usuario']);
         $password        = addslashes($data['contrasena']);
+        $id_div_nivel1 = isset($data['id_div_nivel1']) && $data['id_div_nivel1'] !== '' ? (int)$data['id_div_nivel1'] : 'NULL';
+        $id_div_nivel2 = isset($data['id_div_nivel2']) && $data['id_div_nivel2'] !== '' ? (int)$data['id_div_nivel2'] : 'NULL';
 
         try {
             $db = new Database();
@@ -1608,7 +1612,9 @@ class CapHum extends Model
                 correo        = '$correo',
                 telefono_uno  = '$telefono_uno',
                 user_name     = '$user_name',
-                password      = '$password'
+                password      = '$password',
+                id_div_nivel1  = $id_div_nivel1,
+                id_div_nivel2  = $id_div_nivel2
             WHERE id = $id_persona
         ");
 
@@ -2205,5 +2211,67 @@ class CapHum extends Model
             return self::resultado(false, 'Error al eliminar persona: ' . $e->getMessage());
         }
     }
+
+    /**
+ * Obtener estados/divisiones nivel 1 por país
+ */
+public static function getEstadosPorPais($id_pais)
+{
+    $id_pais = (int) $id_pais;
+
+    $query = <<<SQL
+    SELECT
+        da.id,
+        da.nombre,
+        da.codigo_interno,
+        dat.nombre  AS tipo_label,
+        dat.codigo  AS tipo_codigo
+    FROM divisiones_administrativas da
+    INNER JOIN division_administrativa_tipos dat ON dat.id = da.id_tipo
+    WHERE da.id_pais = $id_pais
+      AND da.nivel   = 1
+      AND da.activo  = 1
+    ORDER BY da.nombre ASC
+    SQL;
+
+    try {
+        $db = new Database();
+        $r  = $db->queryAll($query);
+        return self::resultado(true, 'Estados encontrados.', $r);
+    } catch (\Exception $e) {
+        return self::resultado(false, 'Error al obtener estados.', null, $e->getMessage());
+    }
+}
+
+/**
+ * Obtener municipios/alcaldías nivel 2 por estado/división padre
+ */
+public static function getMunicipiosPorEstado($id_estado)
+{
+    $id_estado = (int) $id_estado;
+
+    $query = <<<SQL
+    SELECT
+        da.id,
+        da.nombre,
+        da.codigo_interno,
+        dat.nombre  AS tipo_label,
+        dat.codigo  AS tipo_codigo
+    FROM divisiones_administrativas da
+    INNER JOIN division_administrativa_tipos dat ON dat.id = da.id_tipo
+    WHERE da.id_padre = $id_estado
+      AND da.nivel    = 2
+      AND da.activo   = 1
+    ORDER BY da.nombre ASC
+    SQL;
+
+    try {
+        $db = new Database();
+        $r  = $db->queryAll($query);
+        return self::resultado(true, 'Municipios encontrados.', $r);
+    } catch (\Exception $e) {
+        return self::resultado(false, 'Error al obtener municipios.', null, $e->getMessage());
+    }
+}
 
 }
