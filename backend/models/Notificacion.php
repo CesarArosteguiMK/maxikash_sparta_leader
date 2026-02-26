@@ -1,0 +1,321 @@
+<?php
+
+namespace Models;
+
+use Core\Database;
+use Core\Model;
+
+class Notificacion extends Model
+{
+    /**
+     * Obtiene los id_persona que tienen al menos uno de los módulos indicados (ej. 18, 19 = Sabueso).
+     */
+    public static function getPersonasConModulos(array $moduloIds): array
+    {
+        if (empty($moduloIds)) {
+            return [];
+        }
+        try {
+            $db = new Database();
+            $placeholders = implode(',', array_fill(0, count($moduloIds), '?'));
+            $rows = $db->queryAll(
+                "SELECT DISTINCT usuario_id FROM asigna_modulo_web WHERE modulo_web_id IN ($placeholders)",
+                $moduloIds
+            );
+            return array_values(array_unique(array_column($rows ?: [], 'usuario_id')));
+        } catch (\Exception $e) {
+            return [];
+        }
+    }
+
+    /**
+     * Crea una notificación para una persona.
+     */
+    public static function crear(int $idPersona, string $tipo, string $mensaje, ?int $idTicket = null): bool
+    {
+        if ($idPersona < 1 || $tipo === '' || $mensaje === '') {
+            return false;
+        }
+        $mensaje = mb_substr($mensaje, 0, 500);
+        try {
+            $db = new Database();
+            $db->CRUD(
+                "INSERT INTO notificacion (id_persona, tipo, mensaje, id_ticket, leida) VALUES (:id_persona, :tipo, :mensaje, :id_ticket, 0)",
+                [
+                    'id_persona' => $idPersona,
+                    'tipo'       => $tipo,
+                    'mensaje'    => $mensaje,
+                    'id_ticket'  => $idTicket
+                ]
+            );
+            return true;
+        } catch (\Exception $e) {
+            return false;
+        }
+    }
+
+    /**
+     * Crea la misma notificación para varias personas (ej. equipo Sabueso).
+     */
+    public static function crearParaPersonas(array $idPersonas, string $tipo, string $mensaje, ?int $idTicket = null): void
+    {
+        foreach ($idPersonas as $id) {
+            $id = (int)$id;
+            if ($id > 0) {
+                self::crear($id, $tipo, $mensaje, $idTicket);
+            }
+        }
+    }
+
+    /**
+     * Lista notificaciones para una persona (no leídas primero, luego por fecha descendente).
+     * Ejecuta purga y sync una sola vez y devuelve lista + total no leídas en una sola ronda a BD.
+     */
+    public static function listarParaPersona(int $idPersona, int $limite = 50): array
+    {
+        if ($idPersona < 1) {
+            return [];
+        }
+        self::purgarAntiguas(5);
+        self::syncDictamenNoVisto($idPersona);
+        try {
+            $db = new Database();
+            $rows = $db->queryAll(
+                "SELECT id, tipo, mensaje, id_ticket, leida, fecha_creacion 
+                 FROM notificacion 
+                 WHERE id_persona = :id_persona 
+                 ORDER BY leida ASC, fecha_creacion DESC 
+                 LIMIT " . (int)$limite,
+                ['id_persona' => $idPersona]
+            );
+            return is_array($rows) ? $rows : [];
+        } catch (\Exception $e) {
+            return [];
+        }
+    }
+
+    /**
+     * Lista notificaciones y total no leídas en una sola petición (purga y sync una vez).
+     * Uso: listar() en el controlador para no duplicar purgarAntiguas ni syncDictamenNoVisto.
+     */
+    public static function listarConTotal(int $idPersona, int $limite = 50): array
+    {
+        if ($idPersona < 1) {
+            return ['lista' => [], 'total_no_leidas' => 0];
+        }
+        self::purgarAntiguas(5);
+        self::syncDictamenNoVisto($idPersona);
+        try {
+            $db = new Database();
+            $rows = $db->queryAll(
+                "SELECT id, tipo, mensaje, id_ticket, leida, fecha_creacion 
+                 FROM notificacion 
+                 WHERE id_persona = :id_persona 
+                 ORDER BY leida ASC, fecha_creacion DESC 
+                 LIMIT " . (int)$limite,
+                ['id_persona' => $idPersona]
+            );
+            $lista = is_array($rows) ? $rows : [];
+            $r = $db->queryOne(
+                "SELECT COUNT(*) AS total FROM notificacion WHERE id_persona = :id_persona AND leida = 0",
+                ['id_persona' => $idPersona]
+            );
+            $totalNoLeidas = (int)($r['total'] ?? 0);
+            return ['lista' => $lista, 'total_no_leidas' => $totalNoLeidas];
+        } catch (\Exception $e) {
+            return ['lista' => [], 'total_no_leidas' => 0];
+        }
+    }
+
+    /**
+     * Cuenta no leídas para una persona.
+     */
+    public static function contarNoLeidas(int $idPersona): int
+    {
+        if ($idPersona < 1) {
+            return 0;
+        }
+        self::purgarAntiguas(5);
+        self::syncDictamenNoVisto($idPersona);
+        try {
+            $db = new Database();
+            $r = $db->queryOne(
+                "SELECT COUNT(*) AS total FROM notificacion WHERE id_persona = :id_persona AND leida = 0",
+                ['id_persona' => $idPersona]
+            );
+            return (int)($r['total'] ?? 0);
+        } catch (\Exception $e) {
+            return 0;
+        }
+    }
+
+    /**
+     * Elimina notificaciones con más de $dias días para no acumular indefinidamente.
+     * Se ejecuta como máximo una vez por minuto por sesión para no ralentizar cada petición.
+     */
+    public static function purgarAntiguas(int $dias = 5): void
+    {
+        if ($dias < 1) {
+            return;
+        }
+        $key = 'notif_purga_ts';
+        $now = time();
+        if (isset($_SESSION[$key]) && ($now - (int)$_SESSION[$key]) < 60) {
+            return;
+        }
+        try {
+            $db = new Database();
+            $db->CRUD(
+                "DELETE FROM notificacion WHERE fecha_creacion < DATE_SUB(NOW(), INTERVAL :dias DAY)",
+                ['dias' => $dias]
+            );
+            $_SESSION[$key] = $now;
+        } catch (\Exception $e) {
+            // silenciar
+        }
+    }
+
+    /**
+     * Si reactivaron la alerta del dictamen en BD (fecha_visto_gestor = NULL), vuelve a marcar
+     * la notificación "dictamen_enviado" como no leída (o crea una si no existía) para que la campana avise.
+     */
+    public static function syncDictamenNoVisto(int $idPersona): void
+    {
+        if ($idPersona < 1) {
+            return;
+        }
+        try {
+            $db = new Database();
+            $rows = $db->queryAll(
+                "SELECT t.id_ticket FROM ticket t 
+                 INNER JOIN dictamen d ON d.id_ticket = t.id_ticket AND d.estado = 'enviado_al_gestor' AND d.fecha_visto_gestor IS NULL 
+                 WHERE t.id_persona_creador = :id_persona AND (t.activo = 1 OR t.activo IS NULL)",
+                ['id_persona' => $idPersona]
+            );
+            if (empty($rows)) {
+                return;
+            }
+            $ids = array_values(array_unique(array_map('intval', array_column($rows, 'id_ticket'))));
+            $ids = array_filter($ids);
+            if (empty($ids)) {
+                return;
+            }
+            // Marcar como no leídas las que ya existen (parámetros nombrados para Database)
+            $placeholders = [];
+            $params = ['id_persona' => $idPersona];
+            foreach ($ids as $i => $id) {
+                $key = 'id_' . $i;
+                $placeholders[] = ':' . $key;
+                $params[$key] = $id;
+            }
+            $placeholdersStr = implode(',', $placeholders);
+            $db->CRUD(
+                "UPDATE notificacion SET leida = 0 WHERE id_persona = :id_persona AND tipo = 'dictamen_enviado' AND id_ticket IN ($placeholdersStr)",
+                $params
+            );
+            // Obtener en una sola consulta los id_ticket que ya tienen notificación
+            $existentes = $db->queryAll(
+                "SELECT id_ticket FROM notificacion WHERE id_persona = :id_persona AND tipo = 'dictamen_enviado' AND id_ticket IN ($placeholdersStr)",
+                $params
+            );
+            $idsExistentes = array_flip(array_map('intval', array_column($existentes ?: [], 'id_ticket')));
+            foreach ($ids as $idTicket) {
+                if (isset($idsExistentes[$idTicket])) {
+                    continue;
+                }
+                $db->CRUD(
+                    "INSERT INTO notificacion (id_persona, tipo, mensaje, id_ticket, leida) VALUES (:id_persona, 'dictamen_enviado', 'Dictamen enviado (pendiente de revisar)', :id_ticket, 0)",
+                    ['id_persona' => $idPersona, 'id_ticket' => $idTicket]
+                );
+            }
+        } catch (\Exception $e) {
+            // silenciar; no romper listado ni conteo
+        }
+    }
+
+    /**
+     * Diagnóstico para campana: sesión, tickets con dictamen no visto, filas en notificacion.
+     * No lanza excepciones; devuelve info para depurar por qué no se activa la notificación.
+     */
+    public static function debugSync(int $idPersona): array
+    {
+        $out = [
+            'id_persona'       => $idPersona,
+            'tickets_no_visto' => [],
+            'notificaciones'   => [],
+            'tabla_notificacion_existe' => null,
+            'tabla_ticket_existe'       => null,
+            'tabla_dictamen_existe'     => null,
+            'error'            => null,
+        ];
+        if ($idPersona < 1) {
+            $out['error'] = 'id_persona inválido';
+            return $out;
+        }
+        try {
+            $db = new Database();
+            $out['tabla_notificacion_existe'] = (bool) $db->queryOne("SELECT 1 FROM notificacion LIMIT 1");
+            $out['tabla_ticket_existe']       = (bool) $db->queryOne("SELECT 1 FROM ticket LIMIT 1");
+            $out['tabla_dictamen_existe']     = (bool) $db->queryOne("SELECT 1 FROM dictamen LIMIT 1");
+        } catch (\Exception $e) {
+            $out['error'] = 'Al verificar tablas: ' . $e->getMessage();
+            return $out;
+        }
+        try {
+            $rows = $db->queryAll(
+                "SELECT t.id_ticket, t.id_persona_creador, t.activo FROM ticket t 
+                 INNER JOIN dictamen d ON d.id_ticket = t.id_ticket AND d.estado = 'enviado_al_gestor' AND d.fecha_visto_gestor IS NULL 
+                 WHERE t.id_persona_creador = :id_persona AND (t.activo = 1 OR t.activo IS NULL)",
+                ['id_persona' => $idPersona]
+            );
+            $out['tickets_no_visto'] = is_array($rows) ? $rows : [];
+        } catch (\Exception $e) {
+            $out['error'] = 'Al buscar tickets: ' . $e->getMessage();
+            return $out;
+        }
+        try {
+            $db = new Database();
+            $out['notificaciones'] = $db->queryAll(
+                "SELECT id, tipo, mensaje, id_ticket, leida, fecha_creacion FROM notificacion WHERE id_persona = :id_persona ORDER BY fecha_creacion DESC LIMIT 20",
+                ['id_persona' => $idPersona]
+            ) ?: [];
+        } catch (\Exception $e) {
+            $out['error'] = ($out['error'] ? $out['error'] . '; ' : '') . 'Al listar notificaciones: ' . $e->getMessage();
+        }
+        return $out;
+    }
+
+    public static function marcarLeida(int $idNotificacion, int $idPersona): bool
+    {
+        if ($idNotificacion < 1 || $idPersona < 1) {
+            return false;
+        }
+        try {
+            $db = new Database();
+            $db->CRUD(
+                "UPDATE notificacion SET leida = 1 WHERE id = :id AND id_persona = :id_persona",
+                ['id' => $idNotificacion, 'id_persona' => $idPersona]
+            );
+            return true;
+        } catch (\Exception $e) {
+            return false;
+        }
+    }
+
+    /**
+     * Marca todas las notificaciones de una persona como leídas.
+     */
+    public static function marcarTodasLeidas(int $idPersona): bool
+    {
+        if ($idPersona < 1) {
+            return false;
+        }
+        try {
+            $db = new Database();
+            $db->CRUD("UPDATE notificacion SET leida = 1 WHERE id_persona = :id_persona", ['id_persona' => $idPersona]);
+            return true;
+        } catch (\Exception $e) {
+            return false;
+        }
+    }
+}

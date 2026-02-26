@@ -442,6 +442,48 @@ html.dark-mode .navbar .text-muted{color:#94a3b8 !important;}
     body.dark-mode .navbar-dropdown .dropdown-item.user-dropdown-dark:hover i { color: #a78bfa !important; }
     </style>
 
+    <!-- Campana de notificaciones: estilos + liquid glass dropdown -->
+    <style>
+    .nav-notif-wrap { position: relative; }
+    .nav-notif-wrap .nav-link { padding: 0.5rem 0.75rem !important; }
+    .nav-notif-bell { font-size: 1.35rem; color: var(--bs-body-color, #566a7f); transition: color 0.2s ease, transform 0.2s ease; }
+    .nav-notif-wrap:hover .nav-notif-bell { color: #696cff; }
+    /* Campana con pendientes: color llamativo y pulso */
+    .nav-notif-bell.has-unread { color: #dc3545 !important; }
+    .nav-notif-wrap:hover .nav-notif-bell.has-unread { color: #e4606d !important; }
+    .nav-notif-bell-pulse { animation: notifBellPulse 1.2s ease-in-out infinite; }
+    @keyframes notifBellPulse { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.12); opacity: 0.92; } }
+    /* Badge: número de no leídas — rojo fuerte para que se note */
+    .nav-notif-badge { position: absolute; top: -4px; right: -4px; min-width: 1.25rem; height: 1.25rem; padding: 0 5px; font-size: 0.7rem; font-weight: 700; line-height: 1.25rem; border-radius: 50%; background: #dc3545 !important; color: #fff !important; text-align: center; border: 2px solid var(--bs-body-bg, #fff); box-shadow: 0 0 0 1px rgba(220,53,69,0.5); }
+    body.dark-mode .nav-notif-badge { border-color: rgba(30,41,59,0.95); }
+    .dropdown-menu-notif-glass { background: rgba(255, 255, 255, 0.88) !important; backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.5) !important; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(255, 255, 255, 0.3) inset !important; min-width: 320px; max-width: 380px; max-height: 70vh; overflow: hidden; padding: 0 !important; display: none; flex-direction: column; }
+    .nav-notif-wrap.dropdown.show .dropdown-menu-notif-glass { display: flex !important; }
+    .dropdown-menu-notif-glass .notif-header { flex-shrink: 0; padding: 0.75rem 1rem; border-bottom: 1px solid rgba(0,0,0,0.08); font-weight: 600; display: flex; align-items: center; justify-content: space-between; }
+    .dropdown-menu-notif-glass .notif-body { overflow-y: auto; flex: 1; }
+    .dropdown-menu-notif-glass .notif-body.notif-sin-lista { overflow: hidden; }
+    .dropdown-menu-notif-glass .notif-item { padding: 0.65rem 1rem; border-bottom: 1px solid rgba(0,0,0,0.06); cursor: pointer; transition: background 0.15s ease; white-space: normal; }
+    .dropdown-menu-notif-glass .notif-item:hover { background: rgba(105, 108, 255, 0.08); }
+    /* No leída: fondo destacado y borde izquierdo */
+    .dropdown-menu-notif-glass .notif-item.notif-no-leida { background: rgba(220, 53, 69, 0.08); border-left: 3px solid #dc3545; font-weight: 500; }
+    /* Leída: estilo más suave */
+    .dropdown-menu-notif-glass .notif-item:not(.notif-no-leida) { background: transparent; opacity: 0.85; }
+    .dropdown-menu-notif-glass .notif-item:not(.notif-no-leida) .notif-text { color: #697a8d; }
+    .dropdown-menu-notif-glass .notif-item .notif-text { font-size: 0.875rem; }
+    .dropdown-menu-notif-glass .notif-item .notif-time { font-size: 0.75rem; color: #697a8d; margin-top: 2px; }
+    .dropdown-menu-notif-glass .notif-empty { padding: 1.25rem 1rem; text-align: center; color: #697a8d; font-size: 0.875rem; }
+    body.dark-mode .dropdown-menu-notif-glass { background: rgba(30, 41, 59, 0.92) !important; border-color: rgba(71, 85, 105, 0.5) !important; box-shadow: 0 8px 32px rgba(0,0,0,0.4), 0 0 0 1px rgba(51, 65, 85, 0.3) inset !important; }
+    body.dark-mode .dropdown-menu-notif-glass .notif-header { border-color: rgba(255,255,255,0.1); color: #f1f5f9; }
+    body.dark-mode .dropdown-menu-notif-glass .notif-item { border-color: rgba(255,255,255,0.06); }
+    body.dark-mode .dropdown-menu-notif-glass .notif-item:hover { background: rgba(129, 140, 248, 0.15); }
+    body.dark-mode .dropdown-menu-notif-glass .notif-item.notif-no-leida { background: rgba(220, 53, 69, 0.15); border-left-color: #f87171; }
+    body.dark-mode .dropdown-menu-notif-glass .notif-item.notif-no-leida::before { background: #f87171; }
+    body.dark-mode .dropdown-menu-notif-glass .notif-item:not(.notif-no-leida) .notif-text { color: #94a3b8; }
+    body.dark-mode .dropdown-menu-notif-glass .notif-item .notif-time { color: #94a3b8; }
+    body.dark-mode .dropdown-menu-notif-glass .notif-empty { color: #94a3b8; }
+    body.dark-mode .nav-notif-bell { color: #e2e8f0; }
+    body.dark-mode .nav-notif-wrap:hover .nav-notif-bell { color: #818cf8; }
+    </style>
+
     <!-- Helpers -->
     <script src="/assets/vendor/js/helpers.js"></script>
     <!--! Template customizer & Theme config files MUST be included after core stylesheets and helpers.js in the <head> section -->
@@ -497,6 +539,24 @@ html.dark-mode .navbar .text-muted{color:#94a3b8 !important;}
 
                     <div class="navbar-nav-right d-flex align-items-center" id="navbar-collapse">
                         <ul class="navbar-nav flex-row align-items-center ms-auto">
+                            <!-- Notificaciones (campana) -->
+                            <li class="nav-item nav-notif-wrap dropdown me-2">
+                                <a class="nav-link dropdown-toggle hide-arrow p-0" href="javascript:void(0);" data-bs-toggle="dropdown" id="navbarNotifToggle" aria-expanded="false">
+                                    <span class="position-relative d-inline-block">
+                                        <i class="fa-solid fa-bell nav-notif-bell" id="navbarNotifIcon"></i>
+                                        <span class="nav-notif-badge position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" id="navbarNotifBadge" style="display: none;">0</span>
+                                    </span>
+                                </a>
+                                <ul class="dropdown-menu dropdown-menu-end dropdown-menu-notif-glass shadow-lg" id="navbarNotifDropdown">
+                                    <li class="notif-header list-unstyled mb-0">
+                                        <span><i class="fa-solid fa-bell me-2"></i>Notificaciones</span>
+                                        <button type="button" class="btn btn-sm btn-link p-0 text-primary" id="navbarNotifMarcarTodas" title="Marcar todas como leídas" style="display: none;">Marcar leídas</button>
+                                    </li>
+                                    <li class="notif-body list-unstyled mb-0" id="navbarNotifBody">
+                                        <div class="notif-empty py-4"><i class="fa-solid fa-inbox d-block mb-2 opacity-50"></i>Cargando…</div>
+                                    </li>
+                                </ul>
+                            </li>
                             <!-- User Panel -->
                             <li class="nav-item navbar-dropdown dropdown-user dropdown">
                                 <a
@@ -670,6 +730,220 @@ html.dark-mode .navbar .text-muted{color:#94a3b8 !important;}
     <!-- Page JS -->
     <script src="/assets/js/comunes.js"></script>
     <script src="/assets/js/componentes.js"></script>
+
+    <!-- Campana de notificaciones: cargar lista, badge, marcar leídas, sonido -->
+    <script>
+    (function(){
+        var badgeEl = document.getElementById('navbarNotifBadge');
+        var iconEl = document.getElementById('navbarNotifIcon');
+        var bodyEl = document.getElementById('navbarNotifBody');
+        var btnMarcarTodas = document.getElementById('navbarNotifMarcarTodas');
+        var dropdownEl = document.getElementById('navbarNotifDropdown');
+        var notifToggle = document.getElementById('navbarNotifToggle');
+        var soundInterval = null;
+        var audioNotif = null;
+        var NOTIF_SOUND_URL = '/assets/audio/notification.mp3';
+        var NOTIF_BEEP_INTERVAL_MS = 1500;
+        function notifUrl(path) {
+            var p = (path || "").replace(/^\//, "").replace(/\/$/, "");
+            var base = location.pathname.replace(/\/[^/]*$/, "") || "/";
+            var pathPart = (base === "/" || base === "") ? "/" : (base.endsWith("/") ? base : base + "/");
+            return location.origin + pathPart + "index.php?url=" + encodeURIComponent(p || "notificaciones/listar");
+        }
+        if (!badgeEl || !bodyEl) return;
+
+        function setNotifBody(html) {
+            try { if (bodyEl) bodyEl.innerHTML = html; } catch (e) {}
+        }
+
+        function playNotifSound() {
+            try {
+                if (!audioNotif) {
+                    audioNotif = new Audio(NOTIF_SOUND_URL);
+                }
+                if (audioNotif.paused) {
+                    audioNotif.currentTime = 0;
+                    audioNotif.play().catch(function(){});
+                } else {
+                    audioNotif.currentTime = 0;
+                    audioNotif.play().catch(function(){});
+                }
+            } catch (e) {}
+        }
+
+        function stopNotifSound() {
+            if (soundInterval) {
+                clearInterval(soundInterval);
+                soundInterval = null;
+            }
+        }
+
+        function startNotifSoundIfUnread(totalNoLeidas) {
+            if ((totalNoLeidas | 0) <= 0) {
+                stopNotifSound();
+                return;
+            }
+            if (soundInterval) return;
+            playNotifSound();
+            soundInterval = setInterval(playNotifSound, NOTIF_BEEP_INTERVAL_MS);
+        }
+
+        function formatNotifTime(dateStr) {
+            if (!dateStr) return '';
+            var d = new Date(dateStr);
+            var now = new Date();
+            var diff = (now - d) / 60000;
+            if (diff < 1) return 'Ahora';
+            if (diff < 60) return Math.floor(diff) + ' min';
+            if (diff < 1440) return Math.floor(diff / 60) + ' h';
+            return d.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+        }
+
+        function renderNotificaciones(datos, totalNoLeidas) {
+            var list = Array.isArray(datos) ? datos : [];
+            if (bodyEl) bodyEl.classList.toggle('notif-sin-lista', list.length === 0);
+            if (list.length === 0) {
+                bodyEl.innerHTML = '<div class="notif-empty py-4"><i class="fa-solid fa-inbox d-block mb-2 opacity-50"></i>Sin notificaciones</div>';
+            } else {
+                var html = '';
+                list.forEach(function(n){
+                    var cls = n.leida == 0 ? ' notif-no-leida' : '';
+                    var time = formatNotifTime(n.fecha_creacion);
+                    var idTicket = n.id_ticket ? (n.id_ticket | 0) : 0;
+                    html += '<div class="notif-item' + cls + '" data-id="' + (n.id|0) + '" data-id-ticket="' + idTicket + '" data-leida="' + (n.leida|0) + '">';
+                    html += '<div class="notif-text">' + (n.mensaje || '').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>';
+                    html += '<div class="notif-time">' + time + '</div></div>';
+                });
+                bodyEl.innerHTML = html;
+                bodyEl.querySelectorAll('.notif-item').forEach(function(el){
+                    el.addEventListener('click', function(){
+                        var id = parseInt(el.getAttribute('data-id'), 10);
+                        if (id > 0 && el.getAttribute('data-leida') === '0') marcarUnaLeida(id);
+                        el.classList.remove('notif-no-leida');
+                        el.setAttribute('data-leida', '1');
+                        el.style.transition = 'opacity 0.25s ease, transform 0.25s ease';
+                        el.style.opacity = '0';
+                        el.style.transform = 'translateX(8px)';
+                        setTimeout(function(){ if (el.parentNode) el.remove(); actualizarSoloBadge(); }, 280);
+                    });
+                });
+            }
+            if (totalNoLeidas > 0) {
+                badgeEl.textContent = totalNoLeidas > 99 ? '99+' : totalNoLeidas;
+                badgeEl.style.display = 'inline-block';
+                if (iconEl) { iconEl.classList.add('nav-notif-bell-pulse'); iconEl.classList.add('has-unread'); }
+                if (btnMarcarTodas) btnMarcarTodas.style.display = 'inline-block';
+                startNotifSoundIfUnread(totalNoLeidas);
+            } else {
+                badgeEl.style.display = 'none';
+                if (iconEl) { iconEl.classList.remove('nav-notif-bell-pulse'); iconEl.classList.remove('has-unread'); }
+                if (btnMarcarTodas) btnMarcarTodas.style.display = 'none';
+                stopNotifSound();
+            }
+        }
+
+        function marcarUnaLeida(id) {
+            fetch(notifUrl('/notificaciones/marcarLeida'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id_notificacion: id }), credentials: 'same-origin' })
+                .then(function(r){ return r.json(); })
+                .then(function(){ actualizarSoloBadge(); });
+        }
+
+        function actualizarSoloBadge() {
+            fetch(notifUrl('/notificaciones/listar'), { method: 'GET', credentials: 'same-origin' })
+                .then(function(r){ return r.ok ? r.json() : null; })
+                .then(function(res){
+                    if (res && res.total_no_leidas !== undefined) {
+                        var total = res.total_no_leidas | 0;
+                        if (total > 0) {
+                            badgeEl.textContent = total > 99 ? '99+' : total;
+                            badgeEl.style.display = 'inline-block';
+                            if (iconEl) { iconEl.classList.add('nav-notif-bell-pulse'); iconEl.classList.add('has-unread'); }
+                            if (btnMarcarTodas) btnMarcarTodas.style.display = 'inline-block';
+                            startNotifSoundIfUnread(total);
+                        } else {
+                            badgeEl.style.display = 'none';
+                            if (iconEl) { iconEl.classList.remove('nav-notif-bell-pulse'); iconEl.classList.remove('has-unread'); }
+                            if (btnMarcarTodas) btnMarcarTodas.style.display = 'none';
+                            stopNotifSound();
+                        }
+                    }
+                })
+                .catch(function(){});
+        }
+
+        function cargarNotificaciones() {
+            setNotifBody('<div class="notif-empty py-4"><i class="fa-solid fa-spinner fa-spin d-block mb-2 opacity-50"></i>Cargando…</div>');
+            if (bodyEl) bodyEl.classList.add('notif-sin-lista');
+            var timeout = setTimeout(function(){
+                if (bodyEl) bodyEl.classList.add('notif-sin-lista');
+                setNotifBody('<div class="notif-empty py-4"><i class="fa-solid fa-exclamation-triangle d-block mb-2 opacity-50"></i>Timeout al cargar</div>');
+            }, 8000);
+            var url = notifUrl("/notificaciones/listar");
+            fetch(url, { method: "GET", credentials: "same-origin" })
+                .then(function(r){
+                    if (!r.ok) throw new Error("HTTP " + r.status);
+                    return r.text();
+                })
+                .then(function(text){
+                    clearTimeout(timeout);
+                    var res;
+                    try { res = JSON.parse(text); } catch (e) {
+                        if (bodyEl) bodyEl.classList.add('notif-sin-lista');
+                        setNotifBody('<div class="notif-empty py-4"><i class="fa-solid fa-code d-block mb-2 opacity-50"></i>Respuesta no válida</div>');
+                        return;
+                    }
+                    var list = (res && res.success && res.datos) ? res.datos : (Array.isArray(res) ? res : []);
+                    var totalNoLeidas = (res && res.total_no_leidas !== undefined) ? (res.total_no_leidas | 0) : 0;
+                    renderNotificaciones(list, totalNoLeidas);
+                    if (totalNoLeidas > 0) {
+                        fetch(notifUrl("/notificaciones/marcarTodasLeidas"), { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}", credentials: "same-origin" })
+                            .then(function(r){ return r.json(); })
+                            .then(function(m){
+                                if (m && m.success) {
+                                    badgeEl.style.display = "none";
+                                    if (iconEl) { iconEl.classList.remove("nav-notif-bell-pulse"); iconEl.classList.remove("has-unread"); }
+                                    if (btnMarcarTodas) btnMarcarTodas.style.display = "none";
+                                    stopNotifSound();
+                                    list.forEach(function(n){ n.leida = 1; });
+                                    renderNotificaciones(list, 0);
+                                }
+                            })
+                            .catch(function(){});
+                    }
+                })
+                .catch(function(){
+                    clearTimeout(timeout);
+                    if (bodyEl) bodyEl.classList.add('notif-sin-lista');
+                    setNotifBody('<div class="notif-empty py-4"><i class="fa-solid fa-wifi d-block mb-2 opacity-50"></i>Error de conexión</div>');
+                });
+        }
+
+        if (dropdownEl && typeof bootstrap !== 'undefined') {
+            var bsDropdown = bootstrap.Dropdown.getInstance(notifToggle) || new bootstrap.Dropdown(notifToggle || document.getElementById('navbarNotifToggle'));
+            var dropdownContainer = notifToggle ? notifToggle.closest('.dropdown') : null;
+            (dropdownContainer || dropdownEl).addEventListener('show.bs.dropdown', function(){ cargarNotificaciones(); });
+            var parentLi = notifToggle ? notifToggle.closest('.dropdown') : null;
+            if (parentLi) {
+                parentLi.addEventListener('show.bs.dropdown', function(){ stopNotifSound(); });
+            }
+        }
+
+        if (btnMarcarTodas) {
+            btnMarcarTodas.addEventListener('click', function(e){
+                e.preventDefault();
+                e.stopPropagation();
+                fetch(notifUrl('/notificaciones/marcarTodasLeidas'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}', credentials: 'same-origin' })
+                    .then(function(r){ return r.json(); })
+                    .then(function(res){ if (res.success) cargarNotificaciones(); });
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', function(){
+            actualizarSoloBadge();
+            setInterval(actualizarSoloBadge, 60000);
+        });
+    })();
+    </script>
 
     <!-- Easter egg: triple clic en logo del sidebar → video Spartan -->
     <script>

@@ -7,6 +7,21 @@
     .credito-modal-item { display: flex; flex-direction: column; gap: 0.15rem; }
     .credito-modal-item .fw-medium { word-break: break-word; }
     #modalDatosCredito .modal-dialog { max-width: 400px; }
+    /* Alerta dictamen enviado en menú Ticket */
+    #tablaTickets tr.fila-dictamen-enviado { cursor: pointer; border-left: 4px solid #0d6efd; }
+    #tablaTickets tr.fila-dictamen-no-visto {
+        animation: filaDictamenRedPulseTicket 1s ease-in-out infinite;
+        border-left: 5px solid #dc3545 !important;
+        border-right: 2px solid rgba(220, 53, 69, 0.6) !important;
+        box-shadow: inset 0 0 0 2px rgba(220, 53, 69, 0.35), 0 0 12px rgba(220, 53, 69, 0.25);
+        background: linear-gradient(90deg, rgba(220, 53, 69, 0.12) 0%, rgba(220, 53, 69, 0.02%) 100%) !important;
+    }
+    @keyframes filaDictamenRedPulseTicket {
+        0%, 100% { box-shadow: inset 0 0 0 2px rgba(220, 53, 69, 0.35), 0 0 12px rgba(220, 53, 69, 0.2); }
+        50%  { box-shadow: inset 0 0 0 2px rgba(220, 53, 69, 0.55), 0 0 20px rgba(220, 53, 69, 0.45); }
+    }
+    #tablaTickets tbody tr.fila-dictamen-enviado:hover { background-color: rgba(13, 110, 253, 0.08) !important; }
+    #tablaTickets tbody tr.fila-dictamen-no-visto:hover { background: linear-gradient(90deg, rgba(220, 53, 69, 0.18) 0%, rgba(220, 53, 69, 0.04%) 100%) !important; }
 </style>
 <div class="card">
     <div class="card-header border-bottom d-flex flex-wrap justify-content-between align-items-center">
@@ -36,6 +51,7 @@
                     <th>Prioridad</th>
                     <th>Crédito</th>
                     <th>Fechas</th>
+                    <th></th>
                     <th>Acciones</th>
                 </tr>
             </thead>
@@ -47,7 +63,7 @@
 <!-- Modal Levantar ticket -->
 <div class="modal fade" id="modalLevantarTicket" tabindex="-1" aria-labelledby="modalLevantarTicketLabel" aria-hidden="true" data-bs-backdrop="static">
     <div class="modal-dialog modal-lg modal-dialog-scrollable">
-        <div class="modal-content">
+        <div class="modal-content modal-content-glass">
             <div class="modal-header border-bottom">
                 <h5 class="modal-title" id="modalLevantarTicketLabel">
                     <i class="fa-solid fa-ticket me-2"></i>Levantar ticket
@@ -106,7 +122,7 @@
 <!-- Modal datos del crédito (búsqueda por ID) - compacto vertical -->
 <div class="modal fade" id="modalDatosCredito" tabindex="-1" aria-labelledby="modalDatosCreditoLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content shadow-sm">
+        <div class="modal-content modal-content-glass shadow-sm">
             <div class="modal-header py-2 border-bottom">
                 <h6 class="modal-title text-primary mb-0" id="modalDatosCreditoLabel">
                     <i class="fa-solid fa-user-tag me-2"></i>Datos del crédito
@@ -121,6 +137,37 @@
                 <button type="button" class="btn btn-sm btn-primary" onclick="usarCreditoEnTicket()" title="Abrir formulario de ticket con este ID ya rellenado">
                     <i class="fa-solid fa-check me-1"></i>Usar este crédito
                 </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Detalle del dictamen (menú Ticket): ver dictamen enviado -->
+<div class="modal fade" id="modalDetalleDictamen" tabindex="-1" aria-labelledby="modalDetalleDictamenLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content modal-content-glass">
+            <div class="modal-header py-2 d-flex align-items-center">
+                <h5 class="modal-title mb-0" id="modalDetalleDictamenLabel"><i class="fa-solid fa-file-lines me-2"></i>Detalle del dictamen</h5>
+                <button type="button" class="btn-close btn-close-sm ms-auto" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body p-0">
+                <div class="row g-0">
+                    <div class="col-12 col-md-5 bg-light bg-opacity-50 p-3 border-end">
+                        <div class="dictamen-detalle-imagen-principal mb-2 rounded overflow-hidden bg-dark bg-opacity-10" style="min-height: 200px;">
+                            <img id="modalDetalleDictamenImgPrincipal" src="" alt="Evidencia" class="img-fluid w-100" style="object-fit: contain; max-height: 280px;">
+                        </div>
+                        <div class="d-flex flex-wrap gap-2 dictamen-detalle-miniaturas" id="modalDetalleDictamenMiniaturas"></div>
+                    </div>
+                    <div class="col-12 col-md-7 p-4">
+                        <div class="mb-3"><span class="text-muted small">Tipo</span><div id="modalDetalleDictamenTipo" class="fw-semibold"></div></div>
+                        <div class="mb-3"><span class="text-muted small">Descripción</span><div id="modalDetalleDictamenDescripcion" class="text-break"></div></div>
+                        <div class="mb-2"><span class="text-muted small">Enviado</span><div id="modalDetalleDictamenEnviado" class="small"></div></div>
+                        <div><span class="text-muted small">Visto por gestor</span><div id="modalDetalleDictamenVisto" class="small"></div></div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer py-2">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"><i class="fa-solid fa-times me-1"></i>Cerrar</button>
             </div>
         </div>
     </div>

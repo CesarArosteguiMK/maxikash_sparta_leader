@@ -18,7 +18,8 @@ class Ticket extends Model
         $baseSelect = "SELECT t.id_ticket, t.folio, t.id_credito, t.descripcion_inicial, t.fecha_creacion, t.fecha_vencimiento, " .
             "tt.nombre AS tipo_ticket_nombre, et.nombre AS estado_ticket_nombre, pt.nombre AS prioridad_nombre, ot.nombre AS origen_nombre, " .
             "CONCAT(TRIM(IFNULL(p.nombres, '')), ' ', TRIM(IFNULL(p.apellidop, ''))) AS creador_nombre, " .
-            "CONCAT(TRIM(IFNULL(pa.nombres, '')), ' ', TRIM(IFNULL(pa.apellidop, ''))) AS asignado_nombre " .
+            "CONCAT(TRIM(IFNULL(pa.nombres, '')), ' ', TRIM(IFNULL(pa.apellidop, ''))) AS asignado_nombre, " .
+            "dm.dictamen_estado, dm.dictamen_fecha_visto, dm.dictamen_fecha_envio " .
             "FROM ticket t " .
             "INNER JOIN tipo_ticket tt ON t.id_tipo_ticket = tt.id_tipo_ticket " .
             "INNER JOIN estado_ticket et ON t.id_estado_ticket = et.id_estado_ticket " .
@@ -26,7 +27,8 @@ class Ticket extends Model
             "INNER JOIN origen_ticket ot ON t.id_origen_ticket = ot.id_origen_ticket " .
             "INNER JOIN persona p ON t.id_persona_creador = p.id " .
             "LEFT JOIN asignacion_ticket at ON at.id_ticket = t.id_ticket AND (at.activo = 1 OR at.activo IS NULL) " .
-            "LEFT JOIN persona pa ON at.id_persona_asignada = pa.id ";
+            "LEFT JOIN persona pa ON at.id_persona_asignada = pa.id " .
+            "LEFT JOIN (SELECT d.id_ticket, d.estado AS dictamen_estado, d.fecha_visto_gestor AS dictamen_fecha_visto, d.fecha_actualizacion AS dictamen_fecha_envio FROM dictamen d INNER JOIN (SELECT id_ticket, MAX(id) AS mid FROM dictamen GROUP BY id_ticket) mx ON d.id_ticket = mx.id_ticket AND d.id = mx.mid) dm ON dm.id_ticket = t.id_ticket ";
 
         $params = [];
         if ($soloDelUsuario) {
@@ -704,6 +706,66 @@ class Ticket extends Model
     }
 
     /**
+     * ID de la última persona asignada al ticket (para notificaciones de dictamen enviado).
+     */
+    public static function getUltimoAsignadoIdPorTicket(int $idTicket): int
+    {
+        if ($idTicket < 1) {
+            return 0;
+        }
+        try {
+            $db = new Database();
+            $row = $db->queryOne(
+                "SELECT at.id_persona_asignada FROM asignacion_ticket at WHERE at.id_ticket = :id ORDER BY at.fecha_asignacion DESC LIMIT 1",
+                ['id' => $idTicket]
+            );
+            return $row ? (int)$row['id_persona_asignada'] : 0;
+        } catch (\Exception $e) {
+            return 0;
+        }
+    }
+
+    /**
+     * ID del creador del ticket (quien levantó el ticket = gestor que recibe el dictamen en menú Ticket).
+     */
+    public static function getCreadorIdPorTicket(int $idTicket): int
+    {
+        if ($idTicket < 1) {
+            return 0;
+        }
+        try {
+            $db = new Database();
+            $row = $db->queryOne(
+                "SELECT id_persona_creador FROM ticket WHERE id_ticket = :id AND (activo = 1 OR activo IS NULL) LIMIT 1",
+                ['id' => $idTicket]
+            );
+            return $row ? (int)$row['id_persona_creador'] : 0;
+        } catch (\Exception $e) {
+            return 0;
+        }
+    }
+
+    /**
+     * ID de la persona que envió el dictamen al gestor (autor del dictamen enviado) para notificación "dictamen revisado".
+     */
+    public static function getDictamenAutorIdPorTicket(int $idTicket): int
+    {
+        if ($idTicket < 1) {
+            return 0;
+        }
+        try {
+            $db = new Database();
+            $row = $db->queryOne(
+                "SELECT id_persona FROM dictamen WHERE id_ticket = :id AND estado = 'enviado_al_gestor' ORDER BY fecha_creacion DESC LIMIT 1",
+                ['id' => $idTicket]
+            );
+            return $row ? (int)$row['id_persona'] : 0;
+        } catch (\Exception $e) {
+            return 0;
+        }
+    }
+
+    /**
      * Mensajes del chat (bitácora) por ticket.
      */
     public static function getChatPorTicket($idTicket)
@@ -790,7 +852,7 @@ class Ticket extends Model
         try {
             $db = new Database();
             $rows = $db->queryAll(
-                "SELECT d.id, d.id_ticket, d.id_persona, d.mensaje, d.fecha_creacion, " .
+                "SELECT d.id, d.id_ticket, d.id_persona, d.descripcion AS mensaje, d.fecha_creacion, " .
                 "CONCAT(TRIM(IFNULL(p.nombres,'')), ' ', TRIM(IFNULL(p.apellidop,''))) AS persona_nombre " .
                 "FROM dictamen d INNER JOIN persona p ON d.id_persona = p.id " .
                 "WHERE d.id_ticket = :id_ticket ORDER BY d.fecha_creacion ASC",
@@ -803,7 +865,7 @@ class Ticket extends Model
     }
 
     /**
-     * Agregar mensaje de dictamen al ticket.
+     * Agregar mensaje de dictamen al ticket (usa descripcion; tipo=otro, estado=borrador).
      */
     public static function agregarDictamen($idTicket, $idPersona, $mensaje)
     {
@@ -821,8 +883,8 @@ class Ticket extends Model
             $tz = new \DateTimeZone('America/Mexico_City');
             $now = (new \DateTime('now', $tz))->format('Y-m-d H:i:s');
             $db->CRUD(
-                "INSERT INTO dictamen (id_ticket, id_persona, mensaje, fecha_creacion) VALUES (:id_ticket, :id_persona, :mensaje, :fecha_creacion)",
-                ['id_ticket' => $tid, 'id_persona' => $pid, 'mensaje' => $msg, 'fecha_creacion' => $now]
+                "INSERT INTO dictamen (id_ticket, id_persona, tipo, descripcion, estado, fecha_creacion, fecha_actualizacion) VALUES (:id_ticket, :id_persona, 'otro', :descripcion, 'borrador', :fecha_creacion, :fecha_actualizacion)",
+                ['id_ticket' => $tid, 'id_persona' => $pid, 'descripcion' => $msg, 'fecha_creacion' => $now, 'fecha_actualizacion' => $now]
             );
             return self::resultado(true, 'Dictamen guardado.');
         } catch (\Exception $e) {
@@ -853,6 +915,180 @@ class Ticket extends Model
     }
 
     /**
+     * Obtiene el dictamen actual (último por ticket) para prellenar formulario y estado del botón.
+     * Incluye tipo, descripcion, estado, fecha_creacion, fecha_actualizacion.
+     */
+    public static function getDictamenActualPorTicket($idTicket)
+    {
+        $id = (int)$idTicket;
+        if ($id < 1) {
+            return self::resultado(false, 'ID de ticket inválido.', null);
+        }
+        try {
+            $db = new Database();
+            $row = $db->queryOne(
+                "SELECT d.id, d.id_ticket, d.id_persona, d.tipo, d.descripcion, d.estado, d.fecha_creacion, d.fecha_actualizacion, d.fecha_visto_gestor " .
+                "FROM dictamen d WHERE d.id_ticket = :id_ticket ORDER BY d.fecha_creacion DESC LIMIT 1",
+                ['id_ticket' => $id]
+            );
+            return self::resultado(true, 'OK', $row ?: null);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al obtener dictamen.', null, $e->getMessage());
+        }
+    }
+
+    /**
+     * Guardar dictamen como borrador (insert o update). tipo y descripcion obligatorios.
+     */
+    public static function guardarDictamenBorrador($idTicket, $idPersona, $tipo, $descripcion)
+    {
+        $tid = (int)$idTicket;
+        $pid = (int)$idPersona;
+        $tipo = trim((string)$tipo);
+        $descripcion = trim((string)$descripcion);
+        if ($tid < 1 || $pid < 1 || $tipo === '' || $descripcion === '') {
+            return self::resultado(false, 'Faltan tipo o descripción.');
+        }
+        if (strlen($descripcion) > 2000) {
+            return self::resultado(false, 'Descripción demasiado larga.');
+        }
+        try {
+            $db = new Database();
+            $tz = new \DateTimeZone('America/Mexico_City');
+            $now = (new \DateTime('now', $tz))->format('Y-m-d H:i:s');
+            $actual = $db->queryOne("SELECT id FROM dictamen WHERE id_ticket = :id_ticket AND estado = 'borrador' ORDER BY fecha_creacion DESC LIMIT 1", ['id_ticket' => $tid]);
+            if ($actual && !empty($actual['id'])) {
+                $db->CRUD(
+                    "UPDATE dictamen SET tipo = :tipo, descripcion = :descripcion, fecha_actualizacion = :fecha_actualizacion WHERE id = :id",
+                    ['tipo' => $tipo, 'descripcion' => $descripcion, 'fecha_actualizacion' => $now, 'id' => (int)$actual['id']]
+                );
+                return self::resultado(true, 'Borrador actualizado.', ['id_dictamen' => (int)$actual['id']]);
+            }
+            $db->CRUD(
+                "INSERT INTO dictamen (id_ticket, id_persona, tipo, descripcion, estado, fecha_creacion, fecha_actualizacion) VALUES (:id_ticket, :id_persona, :tipo, :descripcion, 'borrador', :fecha_creacion, :fecha_actualizacion)",
+                ['id_ticket' => $tid, 'id_persona' => $pid, 'tipo' => $tipo, 'descripcion' => $descripcion, 'fecha_creacion' => $now, 'fecha_actualizacion' => $now]
+            );
+            $lastId = $db->queryOne("SELECT LAST_INSERT_ID() AS id");
+            return self::resultado(true, 'Borrador guardado.', ['id_dictamen' => (int)($lastId['id'] ?? 0)]);
+        } catch (\Exception $e) {
+            $msg = $e->getMessage();
+            $logDir = __DIR__ . '/../storage/logs';
+            if (is_dir($logDir)) {
+                @file_put_contents($logDir . '/dictamen_error.log', '[' . date('Y-m-d H:i:s') . '] ' . $msg . "\n", FILE_APPEND | LOCK_EX);
+            }
+            $mensajeUsuario = 'Error al guardar borrador.';
+            if (stripos($msg, 'Unknown column') !== false || stripos($msg, 'column') !== false && stripos($msg, 'exist') !== false) {
+                $mensajeUsuario = 'Faltan columnas en la tabla dictamen. Ejecute la migración: backend/migrations/alter_dictamen_nuevo_flujo.sql';
+            }
+            return self::resultado(false, $mensajeUsuario, null, $msg);
+        }
+    }
+
+    /**
+     * Marcar el dictamen del ticket como enviado al gestor (estado = enviado_al_gestor).
+     */
+    public static function enviarDictamenGestor($idTicket)
+    {
+        $tid = (int)$idTicket;
+        if ($tid < 1) {
+            return self::resultado(false, 'ID de ticket inválido.');
+        }
+        try {
+            $db = new Database();
+            $tz = new \DateTimeZone('America/Mexico_City');
+            $now = (new \DateTime('now', $tz))->format('Y-m-d H:i:s');
+            $actual = $db->queryOne("SELECT id FROM dictamen WHERE id_ticket = :id_ticket ORDER BY fecha_creacion DESC LIMIT 1", ['id_ticket' => $tid]);
+            if (!$actual || empty($actual['id'])) {
+                return self::resultado(false, 'No hay dictamen para enviar. Guarde un borrador primero.');
+            }
+            $db->CRUD(
+                "UPDATE dictamen SET estado = 'enviado_al_gestor', fecha_actualizacion = :fecha_actualizacion WHERE id = :id",
+                ['fecha_actualizacion' => $now, 'id' => (int)$actual['id']]
+            );
+            return self::resultado(true, 'Dictamen enviado al gestor.');
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al enviar dictamen.', null, $e->getMessage());
+        }
+    }
+
+    /**
+     * Detalle del dictamen para el modal del gestor (tipo, descripción, fechas, evidencias del ticket).
+     */
+    public static function getDictamenDetallePorTicket($idTicket)
+    {
+        $id = (int)$idTicket;
+        if ($id < 1) {
+            return self::resultado(false, 'ID de ticket inválido.', null);
+        }
+        try {
+            $db = new Database();
+            try {
+                $dictamen = $db->queryOne(
+                    "SELECT d.id, d.id_ticket, d.tipo, d.descripcion, d.estado, d.fecha_creacion, d.fecha_actualizacion, d.fecha_visto_gestor, d.id_persona_visto_gestor, " .
+                    "CONCAT(TRIM(IFNULL(pv.nombres,'')), ' ', TRIM(IFNULL(pv.apellidop,''))) AS visto_gestor_nombre " .
+                    "FROM dictamen d " .
+                    "LEFT JOIN persona pv ON d.id_persona_visto_gestor = pv.id " .
+                    "WHERE d.id_ticket = :id_ticket AND d.estado = 'enviado_al_gestor' ORDER BY d.fecha_creacion DESC LIMIT 1",
+                    ['id_ticket' => $id]
+                );
+            } catch (\Exception $e) {
+                $dictamen = $db->queryOne(
+                    "SELECT d.id, d.id_ticket, d.tipo, d.descripcion, d.estado, d.fecha_creacion, d.fecha_actualizacion, d.fecha_visto_gestor " .
+                    "FROM dictamen d WHERE d.id_ticket = :id_ticket AND d.estado = 'enviado_al_gestor' ORDER BY d.fecha_creacion DESC LIMIT 1",
+                    ['id_ticket' => $id]
+                );
+            }
+            $evidencias = $db->queryAll("SELECT id, ruta_archivo, nombre_original, fecha_subida FROM ticket_evidencia WHERE id_ticket = :id_ticket ORDER BY fecha_subida ASC", ['id_ticket' => $id]);
+            return self::resultado(true, 'OK', [
+                'dictamen' => $dictamen ?: null,
+                'evidencias' => is_array($evidencias) ? $evidencias : [],
+            ]);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al obtener detalle.', null, $e->getMessage());
+        }
+    }
+
+    /**
+     * Marca fecha_visto_gestor = NOW() y id_persona_visto_gestor cuando el gestor abre el modal del dictamen.
+     * @param int $idTicket
+     * @param int $idPersona ID de la persona (gestor) que abre el dictamen (sesión).
+     */
+    public static function marcarDictamenVisto($idTicket, $idPersona = 0)
+    {
+        $tid = (int)$idTicket;
+        if ($tid < 1) {
+            return self::resultado(false, 'ID de ticket inválido.');
+        }
+        $pid = (int)$idPersona;
+        try {
+            $db = new Database();
+            $tz = new \DateTimeZone('America/Mexico_City');
+            $now = (new \DateTime('now', $tz))->format('Y-m-d H:i:s');
+            $ok = false;
+            if ($pid > 0) {
+                try {
+                    $db->CRUD(
+                        "UPDATE dictamen SET fecha_visto_gestor = :fecha, id_persona_visto_gestor = :id_persona WHERE id_ticket = :id_ticket AND estado = 'enviado_al_gestor'",
+                        ['fecha' => $now, 'id_persona' => $pid, 'id_ticket' => $tid]
+                    );
+                    $ok = true;
+                } catch (\Exception $e) {
+                    // Columna id_persona_visto_gestor puede no existir aún; guardar al menos la fecha
+                }
+            }
+            if (!$ok) {
+                $db->CRUD(
+                    "UPDATE dictamen SET fecha_visto_gestor = :fecha WHERE id_ticket = :id_ticket AND estado = 'enviado_al_gestor'",
+                    ['fecha' => $now, 'id_ticket' => $tid]
+                );
+            }
+            return self::resultado(true, 'OK');
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error.', null, $e->getMessage());
+        }
+    }
+
+    /**
      * Lista de evidencias (imágenes) por ticket.
      */
     public static function getEvidenciasPorTicket($idTicket)
@@ -864,7 +1100,7 @@ class Ticket extends Model
         try {
             $db = new Database();
             $rows = $db->queryAll(
-                "SELECT id, id_ticket, id_persona, ruta_archivo, nombre_original, comentario, fecha_subida FROM ticket_evidencia WHERE id_ticket = :id_ticket ORDER BY fecha_subida ASC",
+                "SELECT id, id_ticket, id_persona, ruta_archivo, nombre_original, fecha_subida FROM ticket_evidencia WHERE id_ticket = :id_ticket ORDER BY fecha_subida ASC",
                 ['id_ticket' => $id]
             );
             return self::resultado(true, 'OK', is_array($rows) ? $rows : []);
@@ -874,15 +1110,14 @@ class Ticket extends Model
     }
 
     /**
-     * Guardar registro de evidencia (ruta ya guardada en disco). Comentario opcional.
+     * Guardar registro de evidencia (ruta ya guardada en disco).
      */
-    public static function guardarEvidencia($idTicket, $idPersona, $rutaArchivo, $nombreOriginal, $comentario = null)
+    public static function guardarEvidencia($idTicket, $idPersona, $rutaArchivo, $nombreOriginal)
     {
         $tid = (int)$idTicket;
         $pid = (int)$idPersona;
         $ruta = trim((string)$rutaArchivo);
         $nombre = trim((string)$nombreOriginal) ?: 'imagen';
-        $com = $comentario !== null ? trim((string)$comentario) : '';
         if ($tid < 1 || $pid < 1 || $ruta === '') {
             return self::resultado(false, 'Datos inválidos.', null);
         }
@@ -891,8 +1126,8 @@ class Ticket extends Model
             $tz = new \DateTimeZone('America/Mexico_City');
             $now = (new \DateTime('now', $tz))->format('Y-m-d H:i:s');
             $db->CRUD(
-                "INSERT INTO ticket_evidencia (id_ticket, id_persona, ruta_archivo, nombre_original, comentario, fecha_subida) VALUES (:id_ticket, :id_persona, :ruta_archivo, :nombre_original, :comentario, :fecha_subida)",
-                ['id_ticket' => $tid, 'id_persona' => $pid, 'ruta_archivo' => $ruta, 'nombre_original' => $nombre, 'comentario' => $com ?: null, 'fecha_subida' => $now]
+                "INSERT INTO ticket_evidencia (id_ticket, id_persona, ruta_archivo, nombre_original, fecha_subida) VALUES (:id_ticket, :id_persona, :ruta_archivo, :nombre_original, :fecha_subida)",
+                ['id_ticket' => $tid, 'id_persona' => $pid, 'ruta_archivo' => $ruta, 'nombre_original' => $nombre, 'fecha_subida' => $now]
             );
             $lastId = $db->queryOne("SELECT LAST_INSERT_ID() AS id");
             return self::resultado(true, 'Evidencia guardada.', ['id' => $lastId['id'] ?? null]);

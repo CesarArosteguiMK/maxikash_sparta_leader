@@ -39,3 +39,17 @@ body.dark-mode div:where(.swal2-container) div:where(.swal2-popup).swal2-loading
 body.dark-mode div:where(.swal2-container) div:where(.swal2-loader) {
     border-color: #818cf8 transparent #818cf8 transparent !important;
 }
+
+/* Modales Bootstrap: Liquid Glass (ej. Detalle dictamen Sabueso) */
+.modal-content.modal-content-glass {
+    background: rgba(255, 255, 255, 0.88) !important;
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.5) !important;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(255, 255, 255, 0.3) inset;
+}
+body.dark-mode .modal-content.modal-content-glass {
+    background: rgba(30, 41, 59, 0.92) !important;
+    border-color: rgba(71, 85, 105, 0.5) !important;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(51, 65, 85, 0.3) inset;
+}
