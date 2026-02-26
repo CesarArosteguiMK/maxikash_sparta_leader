@@ -3713,3 +3713,45 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     })();
 </script>
+
+<script>
+(function(){
+    var style=document.createElement('style');
+    style.textContent='.estado-cuenta-easter-wrap{position:fixed;inset:0;z-index:1058;pointer-events:none;overflow:hidden}.estado-cuenta-easter-money{position:absolute;left:0;top:0;font-size:20px;pointer-events:none;opacity:0;animation:ecMoneyBurst 1.3s ease-out forwards}.estado-cuenta-easter-toast{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:1060;background:linear-gradient(135deg,#166534 0%,#22c55e 50%,#4ade80 100%);color:#fff;padding:20px 40px;border-radius:16px;font-size:1.15rem;font-weight:700;box-shadow:0 16px 48px rgba(34,197,94,0.4);border:2px solid rgba(255,255,255,0.3);opacity:0;animation:estadoCuentaEasterIn .4s ease forwards;pointer-events:none;text-align:center}.estado-cuenta-easter-toast .estado-cuenta-easter-emoji{font-size:2rem;display:block;margin-bottom:6px}@keyframes ecMoneyBurst{0%{opacity:1;transform:translate(-50%,-50%) scale(1)}100%{opacity:0;transform:translate(calc(-50% + var(--ec-tx)), calc(-50% + var(--ec-ty))) scale(0.5)}}@keyframes estadoCuentaEasterIn{0%{opacity:0;transform:translate(-50%,-50%) scale(0.8)}100%{opacity:1;transform:translate(-50%,-50%) scale(1)}}@keyframes estadoCuentaEasterOut{0%{opacity:1;transform:translate(-50%,-50%) scale(1)}100%{opacity:0;transform:translate(-50%,-50%) scale(0.95)}}';
+    document.head.appendChild(style);
+    document.addEventListener("keydown",function(e){
+        if(!e.ctrlKey||!e.shiftKey||(e.key!=="E"&&e.keyCode!==69))return;
+        e.preventDefault();
+        var wrap=document.createElement("div");
+        wrap.className="estado-cuenta-easter-wrap";
+        var moneyEmojis=["\uD83D\uDCB0","\uD83D\uDCB5","\uD83D\uDCB4"];
+        var positions=[[0.2,0.25],[0.5,0.2],[0.75,0.3],[0.35,0.55]];
+        for(var f=0;f<4;f++){
+            var fw=document.createElement("div");
+            fw.style.cssText="position:absolute;left:"+(positions[f][0]*100)+"%;top:"+(positions[f][1]*100)+"%;width:0;height:0;";
+            var num=28+Math.floor(Math.random()*12);
+            var dist=90+Math.random()*50;
+            for(var r=0;r<num;r++){
+                var angle=(r/num)*Math.PI*2+Math.random()*0.4;
+                var tx=Math.cos(angle)*dist+"px";
+                var ty=Math.sin(angle)*dist+"px";
+                var sp=document.createElement("span");
+                sp.className="estado-cuenta-easter-money";
+                sp.textContent=moneyEmojis[Math.floor(Math.random()*moneyEmojis.length)];
+                sp.style.animationDelay=(f*0.15)+"s";
+                sp.style.setProperty("--ec-tx",tx);
+                sp.style.setProperty("--ec-ty",ty);
+                fw.appendChild(sp);
+            }
+            wrap.appendChild(fw);
+        }
+        document.body.appendChild(wrap);
+        var t=document.createElement("div");
+        t.className="estado-cuenta-easter-toast";
+        t.innerHTML='<span class="estado-cuenta-easter-emoji">\uD83D\uDCB0</span> \u00A1Cuenta al d\u00EDa, espartano!';
+        document.body.appendChild(t);
+        try{var a=new Audio("/assets/audio/coins.mp3");a.volume=0.45;a.play().catch(function(){});setTimeout(function(){a.pause();a.currentTime=0;},2200);}catch(e){}
+        setTimeout(function(){t.style.animation="estadoCuentaEasterOut .35s ease forwards";setTimeout(function(){if(t.parentNode)t.parentNode.removeChild(t);if(wrap.parentNode)wrap.parentNode.removeChild(wrap);},350);},2800);
+    });
+})();
+</script>

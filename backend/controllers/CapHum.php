@@ -5,6 +5,7 @@ namespace Controllers;
 use Core\Controller;
 use Core\SecureUpload;
 use Models\CapHum as CapHumDAO;
+use Models\Candidatos as CandidatosDAO;
 
 class CapHum extends Controller
 {
@@ -215,7 +216,7 @@ class CapHum extends Controller
                                 `.trim(),
                                 estatus: `
                                     <div class="fw-semibold d-flex align-items-center gap-2" style="color: #dc3545 !important;">
-                                        <i class="fa fa-ban" style="color: #dc3545 !important;"></i>
+                                        <span class="bajas-easter-ghost-trigger" style="cursor:pointer;display:inline-flex;align-items:center;" title="Mantén pulsado"><i class="fa fa-ban" style="color: #dc3545 !important;"></i></span>
                                         <span style="color: #dc3545 !important;">Baja</span>
                                     </div>
                                     <div class="text-muted small d-flex align-items-center gap-2 mt-1">
@@ -2485,7 +2486,7 @@ class CapHum extends Controller
                     { data: null, defaultContent: '', className: 'control', orderable: false },
                     { data: 'nombres', title: 'Nombres' },
                     { data: 'puesto', title: 'Puesto' },
-                    { data: 'estatus', title: 'Estatus' },
+                    { data: 'estatus', title: 'Estatus', render: function(d) { return d != null ? d : ''; } },
                     { data: 'motivos', title: 'Motivos de baja' },
                     { data: 'usuario', title: 'Usuario' },
                     { data: 'acciones', title: 'Acciones', orderable: false }
@@ -3294,6 +3295,101 @@ class CapHum extends Controller
         self::set("puedeEditarTodos", $puedeEditarTodos);
         self::render("all_gestores");
     }
+
+    /** Vista Candidatos (Capital Humano). */
+    public function candidatos()
+    {
+        $departamento = CapHumDAO::getConsultaDepartamentoGestor($_SESSION['usuario_id']);
+        $script = '<script>
+        document.addEventListener("DOMContentLoaded", function() {
+            if ($("#tablaCandidatos").length && $.fn.DataTable && !$.fn.DataTable.isDataTable("#tablaCandidatos")) {
+                $("#tablaCandidatos").DataTable({ responsive: true, order: [[0, "asc"]], columnDefs: [ { orderable: false, targets: 4 } ] });
+            }
+            getCandidatos();
+            var form = document.getElementById("formAgregarCandidato");
+            if (form) form.addEventListener("submit", function(e) { e.preventDefault(); guardarCandidato(); });
+            var selDepto = document.getElementById("candidato_id_departamento");
+            if (selDepto) selDepto.addEventListener("change", function() {
+                var idDepto = this.value;
+                var selPuesto = document.getElementById("candidato_id_puesto");
+                if (!selPuesto) return;
+                selPuesto.innerHTML = "<option value=\"\">Seleccione un puesto</option>";
+                if (!idDepto) return;
+                fetch("/CapHum/getPuestos?departamento=" + encodeURIComponent(idDepto)).then(function(r){ return r.json(); }).then(function(res){
+                    if (res.success && res.datos) res.datos.forEach(function(p){ selPuesto.appendChild(new Option(p.nombre, p.id)); });
+                });
+            });
+        });
+        function getCandidatos() {
+            var estatus = (document.getElementById("filterEstatus") && document.getElementById("filterEstatus").value) || "";
+            var params = estatus ? "?estatus=" + encodeURIComponent(estatus) : "";
+            fetch("/CapHum/getCandidatos" + params).then(function(r){ return r.json(); }).then(function(res){
+                if (!res.success || !res.datos) return;
+                var tabla = $("#tablaCandidatos").DataTable();
+                tabla.clear();
+                res.datos.forEach(function(c){
+                    var nombre = [c.nombres, c.segundo_nombre, c.apellidop, c.apellidom].filter(Boolean).join(" ");
+                    var contacto = (c.email || "") + (c.telefono ? " | " + c.telefono : "");
+                    var puestoDepto = (c.nombre_puesto || "-") + " / " + (c.nombre_departamento || "-");
+                    var acciones = "<button class=\"btn btn-sm btn-primary me-1\" onclick=\"editarCandidato(" + c.id + ")\" title=\"Editar\"><i class=\"fa fa-edit\"></i></button><button class=\"btn btn-sm btn-danger\" onclick=\"eliminarCandidato(" + c.id + ")\" title=\"Eliminar\"><i class=\"fa fa-trash\"></i></button>";
+                    tabla.row.add([nombre, contacto, puestoDepto, c.estatus || "Por evaluar", acciones]);
+                });
+                tabla.draw();
+            });
+        }
+        function guardarCandidato() {
+            var form = document.getElementById("formAgregarCandidato");
+            if (!form) return;
+            var data = { nombres: form.nombres.value.trim(), segundo_nombre: (form.segundo_nombre && form.segundo_nombre.value.trim()) || "", apellidop: form.apellidop.value.trim(), apellidom: (form.apellidom && form.apellidom.value.trim()) || "", email: (form.email && form.email.value.trim()) || "", telefono: (form.telefono && form.telefono.value.trim()) || "", id_departamento: (form.id_departamento && form.id_departamento.value) || null, id_puesto: (form.id_puesto && form.id_puesto.value) || null, estatus: "Por evaluar", notas: (form.notas && form.notas.value.trim()) || null };
+            if (!data.nombres || !data.apellidop) { if (typeof Swal !== "undefined") Swal.fire({ icon: "warning", title: "Faltan datos", text: "Nombres y apellido paterno son obligatorios." }); return; }
+            fetch("/CapHum/guardarCandidato", { method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" }, body: JSON.stringify(data) }).then(function(r){ return r.json(); }).then(function(res){
+                if (res.success) { if (typeof Swal !== "undefined") Swal.fire({ icon: "success", title: "Listo", text: res.mensaje || "Candidato registrado." }); var m = document.getElementById("modalAgregarCandidato"); if (m && typeof bootstrap !== "undefined") bootstrap.Modal.getInstance(m).hide(); form.reset(); getCandidatos(); } else { if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "Error", text: res.mensaje || res.error || "No se pudo guardar." }); }
+            });
+        }
+        function editarCandidato(id) { getCandidatos(); }
+        function eliminarCandidato(id) {
+            if (typeof Swal === "undefined") { if (confirm("¿Eliminar candidato?")) fetch("/CapHum/eliminarCandidato", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: id }) }).then(function(r){ return r.json(); }).then(function(d){ if (d.success) getCandidatos(); }); return; }
+            Swal.fire({ title: "¿Eliminar?", text: "Se eliminará el candidato.", icon: "warning", showCancelButton: true }).then(function(r){ if (r.isConfirmed) fetch("/CapHum/eliminarCandidato", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: id }) }).then(function(res){ return res.json(); }).then(function(d){ if (d.success) { Swal.fire({ icon: "success", text: d.mensaje }); getCandidatos(); } else Swal.fire({ icon: "error", text: d.mensaje || d.error }); }); });
+        }
+        </script>';
+        self::set("titulo", "Candidatos");
+        self::set("script", $script);
+        self::set("departamento", $departamento);
+        self::render("candidatos");
+    }
+
+    public function getCandidatos()
+    {
+        header("Content-Type: application/json");
+        $estatus = isset($_GET["estatus"]) ? trim($_GET["estatus"]) : null;
+        $id_departamento = isset($_GET["id_departamento"]) ? (int) $_GET["id_departamento"] : null;
+        $id_puesto = isset($_GET["id_puesto"]) ? (int) $_GET["id_puesto"] : null;
+        $resultado = CandidatosDAO::getAll($estatus, $id_departamento, $id_puesto);
+        echo json_encode($resultado);
+        exit;
+    }
+
+    public function guardarCandidato()
+    {
+        header("Content-Type: application/json");
+        $raw = file_get_contents("php://input");
+        $data = json_decode($raw, true) ?: [];
+        $resultado = CandidatosDAO::insert($data);
+        echo json_encode($resultado);
+        exit;
+    }
+
+    public function eliminarCandidato()
+    {
+        header("Content-Type: application/json");
+        $raw = file_get_contents("php://input");
+        $body = json_decode($raw, true) ?: [];
+        $id = isset($body["id"]) ? (int) $body["id"] : 0;
+        $resultado = CandidatosDAO::delete($id);
+        echo json_encode($resultado);
+        exit;
+    }
+
     public function bajas()
     {
         // Reutilizar el mismo script de gestion() pero cambiando solo la inicialización
@@ -3541,7 +3637,7 @@ class CapHum extends Controller
                             `.trim(),
                             estatus: `
                                 <div class="fw-semibold d-flex align-items-center gap-2" style="color: #dc3545 !important;">
-                                    <i class="fa fa-ban" style="color: #dc3545 !important;"></i>
+                                    <span class="bajas-easter-ghost-trigger" style="cursor:pointer;display:inline-flex;align-items:center;" title="Mantén pulsado"> <i class="fa fa-ban" style="color: #dc3545 !important;"></i></span>
                                     <span style="color: #dc3545 !important;">Baja</span>
                                 </div>
                                 <div class="text-muted small d-flex align-items-center gap-2 mt-1">
@@ -3746,7 +3842,7 @@ class CapHum extends Controller
                         { data: null, defaultContent: '', className: 'control', orderable: false },
                         { data: 'nombres', title: 'Nombres' },
                         { data: 'puesto', title: 'Puesto' },
-                        { data: 'estatus', title: 'Estatus' },
+                        { data: 'estatus', title: 'Estatus', render: function(d) { return d != null ? d : ''; } },
                         { data: 'motivos', title: 'Motivos de baja' },
                         { data: 'usuario', title: 'Usuario' },
                         { data: 'acciones', title: 'Acciones', orderable: false }
@@ -4885,6 +4981,12 @@ class CapHum extends Controller
             }
         </script>
         HTML;
+
+        // Easter egg Bajas: Ctrl+Shift+B -> "Adios espartano" + carabelas; mousedown en icono Baja -> boo.mp3 + fantasma
+        // Código en /assets/js/bajas-easter.js para evitar "</script>" inline y error "Unexpected token '<'"
+        $bajasEaster = '<style>.bajas-easter-wrap{position:fixed;inset:0;z-index:1058;pointer-events:none;overflow:hidden}.bajas-easter-caravel{position:absolute;font-size:3.2rem;opacity:0.95;pointer-events:none;top:12%;left:2%;animation:bajasCaravelSail 4.5s linear 0s forwards}.bajas-easter-caravel:nth-child(2){top:26%;left:2%;animation-delay:0.3s}.bajas-easter-caravel:nth-child(3){top:42%;left:2%;animation-delay:0.1s}.bajas-easter-caravel:nth-child(4){top:58%;left:2%;animation-delay:0.5s}.bajas-easter-caravel:nth-child(5){top:74%;left:2%;animation-delay:0.2s}.bajas-easter-caravel:nth-child(6){top:18%;left:2%;animation-delay:0.7s}.bajas-easter-caravel:nth-child(7){top:52%;left:2%;animation-delay:0.4s}.bajas-easter-caravel:nth-child(8){top:34%;left:2%;animation-delay:0.15s}@keyframes bajasCaravelSail{0%{transform:translateX(0) rotate(-5deg);opacity:0.92}100%{transform:translateX(100vw) rotate(5deg);opacity:0.88}}.bajas-easter-toast{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:1060;background:linear-gradient(135deg,#1e293b 0%,#334155 100%);color:#fbbf24;padding:24px 48px;border-radius:16px;font-size:1.2rem;font-weight:700;box-shadow:0 16px 48px rgba(0,0,0,0.4);border:2px solid #b45309;opacity:0;animation:bajasEasterIn .35s ease forwards;pointer-events:none;text-align:center}.bajas-easter-toast .bajas-easter-emoji{font-size:2.5rem;display:block;margin-bottom:8px}@keyframes bajasEasterIn{0%{opacity:0;transform:translate(-50%,-50%) scale(0.8)}100%{opacity:1;transform:translate(-50%,-50%) scale(1)}}@keyframes bajasEasterOut{0%{opacity:1;transform:translate(-50%,-50%) scale(1)}100%{opacity:0;transform:translate(-50%,-50%) scale(0.9)}}.bajas-ghost-float{position:fixed;z-index:1062;pointer-events:none;font-size:2rem;opacity:0;animation:bajasGhostRise 2.6s ease-out forwards}.bajas-ghost-float .bajas-ghost-emoji{display:block;text-shadow:0 0 20px rgba(255,255,255,0.6);filter:drop-shadow(0 0 8px rgba(255,255,255,0.4))}@keyframes bajasGhostRise{0%{opacity:0.95;transform:translate(-50%,-50%) scale(0.4)}15%{opacity:1;transform:translate(-50%,-60px) scale(1.2)}40%{opacity:1;transform:translate(-50%,-140px) scale(2.8)}70%{opacity:0.9;transform:translate(-50%,-260px) scale(4.5)}100%{opacity:0;transform:translate(-50%,-400px) scale(8)}}</style>';
+        $bajasEaster .= '<script src="/assets/js/bajas-easter.js"></script>';
+        $scriptGestion .= "\n" . $bajasEaster;
 
         self::set("titulo", "Personas dadas de baja");
         self::set("script", $scriptGestion);

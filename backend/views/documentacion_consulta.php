@@ -6,6 +6,16 @@
     .documentacion-card .card-body {
         border-radius: 0 0 1rem 1rem;
     }
+    .doc-easter-icon{color:#94a3b8;font-size:0.9rem;cursor:pointer;opacity:0.85;transition:color .2s, transform .2s}
+    .doc-easter-icon:hover{color:#696cff;transform:scale(1.1)}
+    .doc-easter-wrap{position:fixed;inset:0;z-index:1048;pointer-events:none;overflow:hidden}
+    .doc-easter-paper{position:absolute;bottom:-20px;width:8px;height:14px;background:linear-gradient(180deg,#fff 0%,#e0e7ff 100%);border-radius:1px;box-shadow:0 1px 3px rgba(0,0,0,0.15);pointer-events:none;opacity:0.9}
+    @keyframes docEasterFloat{0%{opacity:0.9;transform:translateY(0) rotate(0deg)}100%{opacity:0;transform:translateY(-120vh) rotate(15deg)}}
+    .doc-easter-toast{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:1050;background:linear-gradient(135deg,#1e3a8a 0%,#2563eb 50%,#3b82f6 100%);color:#fff;padding:22px 40px;border-radius:16px;font-size:1.15rem;font-weight:700;box-shadow:0 16px 48px rgba(37,99,235,0.45), 0 0 0 2px rgba(255,255,255,0.2);border:none;opacity:0;animation:docEasterIn .4s cubic-bezier(0.34,1.56,0.64,1) forwards;pointer-events:none;text-align:center}
+    .doc-easter-toast .doc-easter-emoji{font-size:2rem;display:block;margin-bottom:6px;animation:docEasterBounce .5s ease-in-out infinite alternate}
+    @keyframes docEasterBounce{0%{transform:translateY(0)}100%{transform:translateY(-4px)}}
+    @keyframes docEasterIn{0%{opacity:0;transform:translate(-50%,-50%) scale(0.6)}100%{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+    @keyframes docEasterOut{0%{opacity:1;transform:translate(-50%,-50%) scale(1)}100%{opacity:0;transform:translate(-50%,-50%) scale(0.95)}}
 </style>
 
 <div class="container py-4">
@@ -13,7 +23,7 @@
     <!-- Título -->
     <div class="row mb-3">
         <div class="col-12">
-            <h4 class="mb-0">Documentación Clientes Entrega</h4>
+            <h4 class="mb-0">Documentación Clientes Entrega <i class="fa-solid fa-file-lines ms-2 doc-easter-icon" id="docEasterTrigger" aria-hidden="true"></i></h4>
             <p class="text-muted small">Busca por nombre o por ID de crédito</p>
         </div>
     </div>
@@ -4518,6 +4528,49 @@
         }
 
     </script>
+
+<script>
+(function(){
+    var el=document.getElementById('docEasterTrigger');
+    if(!el)return;
+    var timer=null;
+    function show(){
+        var wrap=document.createElement('div');
+        wrap.className='doc-easter-wrap';
+        for(var i=0;i<30;i++){
+            var p=document.createElement('div');
+            p.className='doc-easter-paper';
+            p.style.left=(5+Math.random()*90)+'%';
+            p.style.width=(6+Math.random()*10)+'px';
+            p.style.height=(12+Math.random()*16)+'px';
+            p.style.animation='docEasterFloat '+(2.5+Math.random()*1.5)+'s ease-out '+(Math.random()*0.4)+'s forwards';
+            wrap.appendChild(p);
+        }
+        document.body.appendChild(wrap);
+        var t=document.createElement('div');
+        t.className='doc-easter-toast';
+        t.innerHTML='<span class="doc-easter-emoji">\uD83D\uDCCB</span> \u00A1Todo documentado, espartano!';
+        document.body.appendChild(t);
+        var animDuration=2600;
+        try{
+            var a=new Audio('/assets/audio/doc_ready.wav');
+            a.volume=0.5;
+            a.loop=true;
+            a.play().catch(function(){var b=new Audio('/assets/audio/notification.mp3');b.volume=0.5;b.play().catch(function(){});});
+            setTimeout(function(){a.pause();a.currentTime=0;},animDuration);
+        }catch(e){}
+        setTimeout(function(){t.style.animation='docEasterOut .35s ease forwards';setTimeout(function(){if(t.parentNode)t.parentNode.removeChild(t);if(wrap.parentNode)wrap.parentNode.removeChild(wrap);},350);},animDuration);
+    }
+    function start(){timer=setTimeout(show,700);}
+    function cancel(){if(timer){clearTimeout(timer);timer=null}}
+    el.addEventListener('mousedown',start);
+    el.addEventListener('mouseup',cancel);
+    el.addEventListener('mouseleave',cancel);
+    el.addEventListener('touchstart',function(e){e.preventDefault();start();});
+    el.addEventListener('touchend',function(e){e.preventDefault();cancel();});
+    el.addEventListener('touchcancel',cancel);
+})();
+</script>
 
 </div>
 
