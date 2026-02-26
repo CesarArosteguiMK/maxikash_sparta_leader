@@ -815,168 +815,190 @@ HTML;
      * ===== REPORTES SABUESOS (Fase 2) =====
      * 1️⃣ REPORTE 1: Tickets (solo del usuario actual)
      */
-    public function descargarReporteSabuesos1()
-    {
-        try {
-            // Limpiar buffer
-            while (ob_get_level()) {
-                ob_end_clean();
-            }
+  public function descargarReporteSabuesos1()
+{
+    try {
+        while (ob_get_level()) {
+            ob_end_clean();
+        }
 
-            $usuarioId = (int)($_SESSION['usuario_id'] ?? 0);
-            if ($usuarioId < 1) {
-                http_response_code(401);
-                echo json_encode(['error' => 'Sesión no válida']);
-                exit;
-            }
-
-            // Obtener datos usando el modelo (solo tickets del usuario)
-            $resultado = \Models\Ticket::getListaTickets($usuarioId, true);
-            
-            if (!$resultado['success'] || empty($resultado['datos'])) {
-                http_response_code(404);
-                echo json_encode(['error' => 'No hay tickets disponibles']);
-                exit;
-            }
-
-            $datos = $resultado['datos'];
-
-            // Definir columnas para el Excel
-            $columnas = [
-                \PHPSpreadsheet::ColumnaExcel('folio', 'FOLIO'),
-                \PHPSpreadsheet::ColumnaExcel('id_credito', 'ID CRÉDITO'),
-                \PHPSpreadsheet::ColumnaExcel('tipo_ticket_nombre', 'TIPO DE TICKET'),
-                \PHPSpreadsheet::ColumnaExcel('estado_ticket_nombre', 'ESTADO'),
-                \PHPSpreadsheet::ColumnaExcel('prioridad_nombre', 'PRIORIDAD'),
-                \PHPSpreadsheet::ColumnaExcel('descripcion_inicial', 'DESCRIPCIÓN'),
-                \PHPSpreadsheet::ColumnaExcel('origen_nombre', 'ORIGEN'),
-                \PHPSpreadsheet::ColumnaExcel('fecha_creacion', 'FECHA CREACIÓN'),
-                \PHPSpreadsheet::ColumnaExcel('fecha_vencimiento', 'FECHA VENCIMIENTO'),
-                \PHPSpreadsheet::ColumnaExcel('creador_nombre', 'LEVANTADO POR'),
-                \PHPSpreadsheet::ColumnaExcel('asignado_nombre', 'ASIGNADO A'),
-                \PHPSpreadsheet::ColumnaExcel('dictamen_estado', 'ESTADO DICTAMEN'),
-                \PHPSpreadsheet::ColumnaExcel('dictamen_fecha_visto', 'DICTAMEN VISTO'),
-            ];
-
-            // Formatear datos
-            $datosFormateados = array_map(function($ticket) {
-                return [
-                    'folio' => $ticket['folio'] ?? '—',
-                    'id_credito' => $ticket['id_credito'] ?? '—',
-                    'tipo_ticket_nombre' => $ticket['tipo_ticket_nombre'] ?? '—',
-                    'estado_ticket_nombre' => $ticket['estado_ticket_nombre'] ?? '—',
-                    'prioridad_nombre' => $ticket['prioridad_nombre'] ?? '—',
-                    'descripcion_inicial' => $ticket['descripcion_inicial'] ?? '—',
-                    'origen_nombre' => $ticket['origen_nombre'] ?? '—',
-                    'fecha_creacion' => isset($ticket['fecha_creacion']) ? date('Y-m-d H:i', strtotime($ticket['fecha_creacion'])) : '—',
-                    'fecha_vencimiento' => isset($ticket['fecha_vencimiento']) ? date('Y-m-d', strtotime($ticket['fecha_vencimiento'])) : '—',
-                    'creador_nombre' => $ticket['creador_nombre'] ?? '—',
-                    'asignado_nombre' => $ticket['asignado_nombre'] ?? '—',
-                    'dictamen_estado' => $ticket['dictamen_estado'] ?? '—',
-                    'dictamen_fecha_visto' => isset($ticket['dictamen_fecha_visto']) ? date('Y-m-d H:i', strtotime($ticket['dictamen_fecha_visto'])) : '—',
-                ];
-            }, $datos);
-
-            // Descargar Excel
-            \PHPSpreadsheet::DescargaExcel(
-                "Reporte_Tickets_" . date('Y-m-d_His'),
-                "Tickets Activos",
-                "Tickets",
-                $columnas,
-                $datosFormateados
-            );
-
-            exit;
-        } catch (\Exception $e) {
-            error_log('Error en descargarReporteSabuesos1: ' . $e->getMessage());
-            http_response_code(500);
-            echo json_encode(['error' => 'Error al generar el reporte: ' . $e->getMessage()]);
+        $usuarioId = (int)($_SESSION['usuario_id'] ?? 0);
+        if ($usuarioId < 1) {
+            http_response_code(401);
+            echo json_encode(['error' => 'Sesión no válida']);
             exit;
         }
+
+        $resultado = \Models\Ticket::getListaTickets($usuarioId, true);
+        
+        if (!$resultado['success'] || empty($resultado['datos'])) {
+            http_response_code(404);
+            echo json_encode(['error' => 'No hay tickets disponibles']);
+            exit;
+        }
+
+        $datos = $resultado['datos'];
+
+        $columnas = [
+            \PHPSpreadsheet::ColumnaExcel('folio', 'FOLIO'),
+            \PHPSpreadsheet::ColumnaExcel('id_credito', 'ID CRÉDITO'),
+            \PHPSpreadsheet::ColumnaExcel('nombre_cliente', 'NOMBRE CLIENTE'),          //  NUEVO
+            \PHPSpreadsheet::ColumnaExcel('tipo_ticket_nombre', 'TIPO DE TICKET'),
+            \PHPSpreadsheet::ColumnaExcel('estado_ticket_nombre', 'ESTADO'),
+            \PHPSpreadsheet::ColumnaExcel('prioridad_nombre', 'PRIORIDAD'),
+            \PHPSpreadsheet::ColumnaExcel('descripcion_inicial', 'DESCRIPCIÓN'),
+            \PHPSpreadsheet::ColumnaExcel('origen_nombre', 'ORIGEN'),
+            \PHPSpreadsheet::ColumnaExcel('fecha_creacion', 'FECHA CREACIÓN'),
+            \PHPSpreadsheet::ColumnaExcel('fecha_vencimiento', 'FECHA VENCIMIENTO'),
+            \PHPSpreadsheet::ColumnaExcel('fecha_respuesta', 'FECHA RESPUESTA'),        //  NUEVO
+            \PHPSpreadsheet::ColumnaExcel('minutos_respuesta', 'MINUTOS EN CONTESTAR'), //  NUEVO
+            \PHPSpreadsheet::ColumnaExcel('creador_nombre', 'LEVANTADO POR'),
+            \PHPSpreadsheet::ColumnaExcel('asignado_nombre', 'ASIGNADO A'),
+            \PHPSpreadsheet::ColumnaExcel('dictamen_estado', 'ÚLTIMO DICTAMEN'),
+            \PHPSpreadsheet::ColumnaExcel('dictamen_fecha_visto', 'DICTAMEN VISTO'),
+        ];
+
+        $datosFormateados = array_map(function($ticket) {
+            // Calcular minutos entre creación y respuesta
+            $minutos = '—';
+            if (!empty($ticket['fecha_creacion']) && !empty($ticket['dictamen_fecha_envio'])) {
+                $inicio = strtotime($ticket['fecha_creacion']);
+                $fin    = strtotime($ticket['dictamen_fecha_envio']);
+                if ($fin > $inicio) {
+                    $minutos = round(($fin - $inicio) / 60);
+                }
+            }
+
+            return [
+                'folio'                  =>     $ticket['folio'] ?? '—',
+                'id_credito'             =>     $ticket['id_credito'] ?? '—',
+                'nombre_cliente'         =>     $ticket['nombre_cliente'] ?? '—',              //  NUEVO
+                'tipo_ticket_nombre'     =>     $ticket['tipo_ticket_nombre'] ?? '—',
+                'estado_ticket_nombre'   =>     $ticket['estado_ticket_nombre'] ?? '—',
+                'prioridad_nombre'       =>     $ticket['prioridad_nombre'] ?? '—',
+                'descripcion_inicial'    =>     $ticket['descripcion_inicial'] ?? '—',
+                'origen_nombre'          =>     $ticket['origen_nombre'] ?? '—',
+                'fecha_creacion'         =>     isset($ticket['fecha_creacion']) ? date('Y-m-d H:i', strtotime($ticket['fecha_creacion'])) : '—',
+                'fecha_vencimiento'      =>     isset($ticket['fecha_vencimiento']) ? date('Y-m-d', strtotime($ticket['fecha_vencimiento'])) : '—',
+                'fecha_respuesta'        =>     isset($ticket['dictamen_fecha_envio']) ? date('Y-m-d H:i', strtotime($ticket['dictamen_fecha_envio'])) : '—', //  NUEVO
+                'minutos_respuesta'      =>     $minutos,                                      //  NUEVO
+                'creador_nombre'         =>     $ticket['creador_nombre'] ?? '—',
+                'asignado_nombre'        =>     $ticket['asignado_nombre'] ?? '—',
+                'dictamen_estado'        =>     $ticket['dictamen_estado'] ?? '—',
+                'dictamen_fecha_visto'   =>     isset($ticket['dictamen_fecha_visto']) ? date('Y-m-d H:i', strtotime($ticket['dictamen_fecha_visto'])) : '—',
+            ];
+        }, $datos);
+
+        \PHPSpreadsheet::DescargaExcel(
+            "Reporte_Tickets_" . date('Y-m-d_His'),
+            "Tickets Activos",
+            "Tickets",
+            $columnas,
+            $datosFormateados
+        );
+
+        exit;
+    } catch (\Exception $e) {
+        error_log('Error en descargarReporteSabuesos1: ' . $e->getMessage());
+        http_response_code(500);
+        echo json_encode(['error' => 'Error al generar el reporte: ' . $e->getMessage()]);
+        exit;
     }
+}
 
     /**
      * 2️⃣ REPORTE 2: Panel Admin (todos los tickets del sistema)
      */
-    public function descargarReporteSabuesos2()
-    {
-        try {
-            // Limpiar buffer
-            while (ob_get_level()) {
-                ob_end_clean();
-            }
+   public function descargarReporteSabuesos2()
+{
+    try {
+        while (ob_get_level()) {
+            ob_end_clean();
+        }
 
-            $usuarioId = (int)($_SESSION['usuario_id'] ?? 0);
-            if ($usuarioId < 1) {
-                http_response_code(401);
-                echo json_encode(['error' => 'Sesión no válida']);
-                exit;
-            }
-
-            // Obtener datos usando el modelo (TODOS los tickets)
-            $resultado = \Models\Ticket::getListaTickets($usuarioId, false);
-            
-            if (!$resultado['success'] || empty($resultado['datos'])) {
-                http_response_code(404);
-                echo json_encode(['error' => 'No hay tickets disponibles']);
-                exit;
-            }
-
-            $datos = $resultado['datos'];
-
-            // Definir columnas para el Excel (incluye creador_nombre para todos)
-            $columnas = [
-                \PHPSpreadsheet::ColumnaExcel('folio', 'FOLIO'),
-                \PHPSpreadsheet::ColumnaExcel('id_credito', 'ID CRÉDITO'),
-                \PHPSpreadsheet::ColumnaExcel('tipo_ticket_nombre', 'TIPO DE TICKET'),
-                \PHPSpreadsheet::ColumnaExcel('estado_ticket_nombre', 'ESTADO'),
-                \PHPSpreadsheet::ColumnaExcel('prioridad_nombre', 'PRIORIDAD'),
-                \PHPSpreadsheet::ColumnaExcel('descripcion_inicial', 'DESCRIPCIÓN'),
-                \PHPSpreadsheet::ColumnaExcel('origen_nombre', 'ORIGEN'),
-                \PHPSpreadsheet::ColumnaExcel('fecha_creacion', 'FECHA CREACIÓN'),
-                \PHPSpreadsheet::ColumnaExcel('fecha_vencimiento', 'FECHA VENCIMIENTO'),
-                \PHPSpreadsheet::ColumnaExcel('creador_nombre', 'LEVANTADO POR'),
-                \PHPSpreadsheet::ColumnaExcel('asignado_nombre', 'ASIGNADO A'),
-                \PHPSpreadsheet::ColumnaExcel('dictamen_estado', 'ESTADO DICTAMEN'),
-                \PHPSpreadsheet::ColumnaExcel('dictamen_fecha_visto', 'DICTAMEN VISTO'),
-            ];
-
-            // Formatear datos
-            $datosFormateados = array_map(function($ticket) {
-                return [
-                    'folio' => $ticket['folio'] ?? '—',
-                    'id_credito' => $ticket['id_credito'] ?? '—',
-                    'tipo_ticket_nombre' => $ticket['tipo_ticket_nombre'] ?? '—',
-                    'estado_ticket_nombre' => $ticket['estado_ticket_nombre'] ?? '—',
-                    'prioridad_nombre' => $ticket['prioridad_nombre'] ?? '—',
-                    'descripcion_inicial' => $ticket['descripcion_inicial'] ?? '—',
-                    'origen_nombre' => $ticket['origen_nombre'] ?? '—',
-                    'fecha_creacion' => isset($ticket['fecha_creacion']) ? date('Y-m-d H:i', strtotime($ticket['fecha_creacion'])) : '—',
-                    'fecha_vencimiento' => isset($ticket['fecha_vencimiento']) ? date('Y-m-d', strtotime($ticket['fecha_vencimiento'])) : '—',
-                    'creador_nombre' => $ticket['creador_nombre'] ?? '—',
-                    'asignado_nombre' => $ticket['asignado_nombre'] ?? '—',
-                    'dictamen_estado' => $ticket['dictamen_estado'] ?? '—',
-                    'dictamen_fecha_visto' => isset($ticket['dictamen_fecha_visto']) ? date('Y-m-d H:i', strtotime($ticket['dictamen_fecha_visto'])) : '—',
-                ];
-            }, $datos);
-
-            // Descargar Excel
-            \PHPSpreadsheet::DescargaExcel(
-                "Reporte_PanelAdmin_" . date('Y-m-d_His'),
-                "Panel Administrativo",
-                "Admin",
-                $columnas,
-                $datosFormateados
-            );
-
-            exit;
-        } catch (\Exception $e) {
-            error_log('Error en descargarReporteSabuesos2: ' . $e->getMessage());
-            http_response_code(500);
-            echo json_encode(['error' => 'Error al generar el reporte: ' . $e->getMessage()]);
+        $usuarioId = (int)($_SESSION['usuario_id'] ?? 0);
+        if ($usuarioId < 1) {
+            http_response_code(401);
+            echo json_encode(['error' => 'Sesión no válida']);
             exit;
         }
+
+        $resultado = \Models\Ticket::getListaTickets($usuarioId, false);
+        
+        if (!$resultado['success'] || empty($resultado['datos'])) {
+            http_response_code(404);
+            echo json_encode(['error' => 'No hay tickets disponibles']);
+            exit;
+        }
+
+        $datos = $resultado['datos'];
+
+        $columnas = [
+            \PHPSpreadsheet::ColumnaExcel('folio', 'FOLIO'),
+            \PHPSpreadsheet::ColumnaExcel('id_credito', 'ID CRÉDITO'),
+            \PHPSpreadsheet::ColumnaExcel('nombre_cliente', 'NOMBRE CLIENTE'),          //  NUEVO
+            \PHPSpreadsheet::ColumnaExcel('tipo_ticket_nombre', 'TIPO DE TICKET'),
+            \PHPSpreadsheet::ColumnaExcel('estado_ticket_nombre', 'ESTADO'),
+            \PHPSpreadsheet::ColumnaExcel('prioridad_nombre', 'PRIORIDAD'),
+            \PHPSpreadsheet::ColumnaExcel('descripcion_inicial', 'DESCRIPCIÓN'),
+            \PHPSpreadsheet::ColumnaExcel('origen_nombre', 'ORIGEN'),
+            \PHPSpreadsheet::ColumnaExcel('fecha_creacion', 'FECHA CREACIÓN'),
+            \PHPSpreadsheet::ColumnaExcel('fecha_vencimiento', 'FECHA VENCIMIENTO'),
+            \PHPSpreadsheet::ColumnaExcel('fecha_respuesta', 'FECHA RESPUESTA'),        //  NUEVO
+            \PHPSpreadsheet::ColumnaExcel('minutos_respuesta', 'MINUTOS EN CONTESTAR'), //  NUEVO
+            \PHPSpreadsheet::ColumnaExcel('creador_nombre', 'LEVANTADO POR'),
+            \PHPSpreadsheet::ColumnaExcel('asignado_nombre', 'ASIGNADO A'),
+            \PHPSpreadsheet::ColumnaExcel('dictamen_estado', 'ÚLTIMO DICTAMEN'),
+            \PHPSpreadsheet::ColumnaExcel('dictamen_fecha_visto', 'DICTAMEN VISTO'),
+        ];
+
+        $datosFormateados = array_map(function($ticket) {
+            // Calcular minutos entre creación y respuesta
+            $minutos = '—';
+            if (!empty($ticket['fecha_creacion']) && !empty($ticket['dictamen_fecha_envio'])) {
+                $inicio = strtotime($ticket['fecha_creacion']);
+                $fin    = strtotime($ticket['dictamen_fecha_envio']);
+                if ($fin > $inicio) {
+                    $minutos = round(($fin - $inicio) / 60);
+                }
+            }
+
+            return [
+                'folio'               => $ticket['folio'] ?? '—',
+                'id_credito'          => $ticket['id_credito'] ?? '—',
+                'nombre_cliente'      => $ticket['nombre_cliente'] ?? '—',              //  NUEVO
+                'tipo_ticket_nombre'  => $ticket['tipo_ticket_nombre'] ?? '—',
+                'estado_ticket_nombre'=> $ticket['estado_ticket_nombre'] ?? '—',
+                'prioridad_nombre'    => $ticket['prioridad_nombre'] ?? '—',
+                'descripcion_inicial' => $ticket['descripcion_inicial'] ?? '—',
+                'origen_nombre'       => $ticket['origen_nombre'] ?? '—',
+                'fecha_creacion'      => isset($ticket['fecha_creacion']) ? date('Y-m-d H:i', strtotime($ticket['fecha_creacion'])) : '—',
+                'fecha_vencimiento'   => isset($ticket['fecha_vencimiento']) ? date('Y-m-d', strtotime($ticket['fecha_vencimiento'])) : '—',
+                'fecha_respuesta'     => isset($ticket['dictamen_fecha_envio']) ? date('Y-m-d H:i', strtotime($ticket['dictamen_fecha_envio'])) : '—', //  NUEVO
+                'minutos_respuesta'   => $minutos,                                      //  NUEVO
+                'creador_nombre'      => $ticket['creador_nombre'] ?? '—',
+                'asignado_nombre'     => $ticket['asignado_nombre'] ?? '—',
+                'dictamen_estado'     => $ticket['dictamen_estado'] ?? '—',
+                'dictamen_fecha_visto'=> isset($ticket['dictamen_fecha_visto']) ? date('Y-m-d H:i', strtotime($ticket['dictamen_fecha_visto'])) : '—',
+            ];
+        }, $datos);
+
+        \PHPSpreadsheet::DescargaExcel(
+            "Reporte_PanelAdmin_" . date('Y-m-d_His'),
+            "Panel Administrativo",
+            "Admin",
+            $columnas,
+            $datosFormateados
+        );
+
+        exit;
+    } catch (\Exception $e) {
+        error_log('Error en descargarReporteSabuesos2: ' . $e->getMessage());
+        http_response_code(500);
+        echo json_encode(['error' => 'Error al generar el reporte: ' . $e->getMessage()]);
+        exit;
     }
+}
 
     /**
      * 3️⃣ REPORTE 3: Cerrado/Eliminado (tickets históricos)
