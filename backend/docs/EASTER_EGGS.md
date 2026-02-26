@@ -44,6 +44,7 @@ Listado de **todos** los Easter eggs: nombre, cómo activarlos, qué hacen y dó
 | Nombre | Cómo activarlo | Qué hace | Dónde |
 |--------|----------------|----------|--------|
 | **Herramientas listas** | Long press (~700 ms) en el icono llave 🔧 del título | Partículas verdes/ámbar + toast “¡Herramientas listas!” + llave girando + `tool_ready.mp3` (corte 2,8 s) | Gestiones → Consulta gestiones de los créditos |
+| **Llegamos a los 300** | Atajo **Ctrl+Shift+3** | Overlay épico estilo 300: "300" gigante, "¡Sumemos más, llegamos a los 300!" + `grito-guerra-.mp3` | Cualquier página (temática Gestión); atajo global |
 
 ---
 
@@ -93,7 +94,7 @@ Listado de **todos** los Easter eggs: nombre, cómo activarlos, qué hacen y dó
 
 - **Triple clic:** logo sidebar (video), avatar (espartanos), bandera México, icono perro Sabueso, icono teléfono Call Center, título Organigrama.
 - **Long press:** icono llave Gestiones, icono documento Documentación.
-- **Atajo teclado:** Ctrl+Shift+S (Shell), Ctrl+Shift+B (Bajas), **Ctrl+Shift+E (Estado de cuenta)**, Konami (↑↑↓↓←→←→BA).
+- **Atajo teclado:** Ctrl+Shift+S (Shell), Ctrl+Shift+B (Bajas), Ctrl+Shift+E (Estado de cuenta), **Ctrl+Shift+3 (Gestión – 300)**, Konami (↑↑↓↓←→←→BA).
 - **Clics rápidos / doble clic:** reloj cuco (5 clics), lluvia dinero (doble clic día quincena).
 - **Al cargar vista:** ~~Estado de cuenta~~ (ahora por Ctrl+Shift+E).
 

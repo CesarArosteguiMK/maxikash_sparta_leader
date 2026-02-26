@@ -27,6 +27,7 @@ if (!function_exists('getMenuItemsConfig')) {
             ['url' => '/indicadores/auditoria2', 'label' => 'Auditoría 2', 'icon' => 'fa-solid fa-chart-line', 'bg' => 'bg-orange', 'modulos' => [38]],
             ['url' => '/indicadores/seguimiento', 'label' => 'Seguimiento', 'icon' => 'fa-solid fa-chart-line', 'bg' => 'bg-orange', 'modulos' => [39]],
             ['url' => '/caphum/gestion', 'label' => 'Capital Humano - Gestión', 'icon' => 'fa-solid fa-users', 'bg' => 'bg-purple', 'modulos' => [4]],
+            ['url' => '/caphum/candidatos', 'label' => 'Candidatos', 'icon' => 'fa-solid fa-users', 'bg' => 'bg-purple', 'modulos' => [42]],
             ['url' => '/caphum/bajas', 'label' => 'Bajas', 'icon' => 'fa-solid fa-users', 'bg' => 'bg-purple', 'modulos' => [13]],
             ['url' => '/caphum/organigrama', 'label' => 'Organigrama', 'icon' => 'fa-solid fa-users', 'bg' => 'bg-purple', 'modulos' => [5]],
             ['url' => '/reporteria/resumencallcenter', 'label' => 'Resumen Call Center', 'icon' => 'fa-solid fa-file', 'bg' => 'bg-orange', 'modulos' => [6]],

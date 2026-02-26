@@ -137,6 +137,7 @@ class CapHum extends Controller
                             estatus: p.estatus,
                             acciones: (() => {
                                 const puedeEditar = window.puedeEditarTodos;
+                                const puedePermisos = window.puedeGestionarPermisos;
                                 return `
                                 <div class="d-flex flex-wrap gap-1" style="min-width: fit-content;">
                                     ${puedeEditar
@@ -157,9 +158,9 @@ class CapHum extends Controller
                                     <button class="btn btn-sm btn-danger" onclick="baja_gestor(${p.id})" title="Dar de baja">
                                         <i class="fa fa-user-slash"></i>
                                     </button>
-                                    <button class="btn btn-sm" style="background-color: #D2D755; color: white;" onclick="edit_perfil(${p.id})" title="${tienePuestos ? 'Permisos (Gestionar múltiples puestos)' : 'Permisos'}">
+                                    ${puedePermisos ? `<button class="btn btn-sm" style="background-color: #D2D755; color: white;" onclick="edit_perfil(${p.id})" title="${tienePuestos ? 'Permisos (Gestionar múltiples puestos)' : 'Permisos'}">
                                         <i class="fa fa-lock" style="color: #007bff;"></i>
-                                    </button>
+                                    </button>` : ''}
                                 </div>`;
                             })()
                         };
@@ -579,25 +580,34 @@ class CapHum extends Controller
                 
            
             let currentPersonaId = null;
+            let perfilAbortController = null;
             
             function edit_perfil(id) {
-                currentPersonaId = id;
-            
-                if (!id) {
+                var idPersonaRevisado = parseInt(id, 10);
+                if (!idPersonaRevisado) {
                     Swal.fire("Error", "ID inválido", "error");
                     return;
                 }
-            
+                currentPersonaId = idPersonaRevisado;
+
+                if (perfilAbortController) {
+                    perfilAbortController.abort();
+                }
+                perfilAbortController = new AbortController();
+                const signal = perfilAbortController.signal;
+
                 fetch('/CapHum/getDetallesPerfil', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                         'Accept': 'application/json'
                     },
-                    body: JSON.stringify({ idPersona: id })
+                    body: JSON.stringify({ idPersona: idPersonaRevisado }),
+                    signal: signal
                 })
                 .then(res => res.json())
                 .then(data => {
+                    if (perfilAbortController !== null && signal.aborted) return;
             
                     if (!data.success) {
                         Swal.fire("Error", data.mensaje, "error");
@@ -610,35 +620,32 @@ class CapHum extends Controller
                     }
             
                     const persona  = data.datos.persona || {};
+                    if (Number(persona.id) !== currentPersonaId) return;
+            
                     const perfiles = data.datos.perfiles || [];
                     const puestos  = data.datos.puestos  || [];
-            
+                    const asignacionActual = data.datos.asignacion_actual || {};
+
                     const nombreCompleto = [
                         persona.nombres,
                         persona.apellidop,
                         persona.apellidom
                     ].filter(Boolean).join(' ');
-            
+
                     document.getElementById("edit_perfil_id").value = persona.id ?? '';
                     document.getElementById("edit_perfil_nombres").value = nombreCompleto;
-                    
-                    // Obtener departamento y puesto del primer puesto asignado, o del primer puesto disponible
-                    let nombreDepartamento = 'Sin departamento';
-                    let nombrePuesto = 'Sin puesto';
-                    const puestoAsignado = puestos.find(p => Number(p.asignado_flag) === 1);
-                    if (puestoAsignado) {
-                        if (puestoAsignado.nombre_departamento) {
-                            nombreDepartamento = puestoAsignado.nombre_departamento;
-                        }
-                        if (puestoAsignado.nombre_puesto) {
-                            nombrePuesto = puestoAsignado.nombre_puesto;
-                        }
-                    } else if (puestos.length > 0) {
-                        if (puestos[0].nombre_departamento) {
-                            nombreDepartamento = puestos[0].nombre_departamento;
-                        }
-                        if (puestos[0].nombre_puesto) {
-                            nombrePuesto = puestos[0].nombre_puesto;
+
+                    // Subtítulo: usar asignación real (asigna_puesto) si existe; si no, fallback a puestos del perfil
+                    let nombreDepartamento = asignacionActual.nombre_departamento || 'Sin departamento';
+                    let nombrePuesto = asignacionActual.nombre_puesto || 'Sin puesto';
+                    if (nombreDepartamento === 'Sin departamento' && nombrePuesto === 'Sin puesto') {
+                        const puestoAsignado = puestos.find(p => Number(p.asignado_flag) === 1);
+                        if (puestoAsignado) {
+                            nombreDepartamento = puestoAsignado.nombre_departamento || nombreDepartamento;
+                            nombrePuesto = puestoAsignado.nombre_puesto || nombrePuesto;
+                        } else if (puestos.length > 0) {
+                            nombreDepartamento = puestos[0].nombre_departamento || nombreDepartamento;
+                            nombrePuesto = puestos[0].nombre_puesto || nombrePuesto;
                         }
                     }
                     
@@ -667,6 +674,7 @@ class CapHum extends Controller
                     modal.show();
                 })
                 .catch(err => {
+                    if (err.name === 'AbortError') return;
                     console.error(err);
                     Swal.fire("Error", "No se pudo cargar la información", "error");
                 });
@@ -676,11 +684,12 @@ class CapHum extends Controller
                PUESTOS
             ========================= */
             function renderPuestos(puestos) {
-            
-                const container = document.getElementById('puestos-form');
+
+                const container = document.getElementById('modal-edit-perfil-puestos-form') || document.getElementById('puestos-form');
+                if (!container) return;
                 container.innerHTML = '';
-            
-                if (!puestos.length) {
+
+            if (!puestos.length) {
                     container.innerHTML = `<div class="text-muted small">No hay puestos asignados</div>`;
                     return;
                 }
@@ -793,8 +802,8 @@ class CapHum extends Controller
                MÓDULOS
             ========================= */
             function renderModulos(perfiles) {
-            
-                const container = document.getElementById('modulos-form');
+
+                const container = document.getElementById('modal-edit-perfil-modulos-form') || document.getElementById('modulos-form');
                 if (!container) return;
                 container.innerHTML = '';
             
@@ -817,7 +826,7 @@ class CapHum extends Controller
             }
             
             function renderPermisosEspeciales(perfiles) {
-                const container = document.getElementById('permisos-especiales-form');
+                const container = document.getElementById('modal-edit-perfil-permisos-especiales-form') || document.getElementById('permisos-especiales-form');
                 if (!container) return;
                 container.innerHTML = '';
                 if (!perfiles || perfiles.length === 0) {
@@ -839,7 +848,9 @@ class CapHum extends Controller
                 22: 'fa fa-cloud-download',
                 23: 'fa fa-calendar-alt',
                 24: 'fa fa-file-pdf',
-                '24': 'fa fa-file-pdf'
+                '24': 'fa fa-file-pdf',
+                43: 'fa fa-key',
+                '43': 'fa fa-key'
             };
             function crearFilaModulo(mod) {
                 const tr = document.createElement('tr');
@@ -923,9 +934,10 @@ class CapHum extends Controller
             ========================= */
            function renderPuestos(puestos) {
 
-            const container = document.getElementById('puestos-form');
+            const container = document.getElementById('modal-edit-perfil-puestos-form') || document.getElementById('puestos-form');
+            if (!container) return;
             container.innerHTML = '';
-        
+
             if (!puestos || puestos.length === 0) {
                 container.innerHTML = `<div class="text-muted small text-center py-3">No hay puestos disponibles</div>`;
                 return;
@@ -968,7 +980,7 @@ class CapHum extends Controller
             ========================= */
             const accordion = document.createElement('div');
             accordion.className = 'accordion';
-            accordion.id = 'accordionPuestos';
+            accordion.id = 'modalEditPerfilAccordionPuestos';
             accordion.style.cssText = '--bs-accordion-border-radius: 0.5rem;';
         
             let index = 0;
@@ -1009,7 +1021,7 @@ class CapHum extends Controller
                     </h2>
                     <div id="collapse_${accId}"
                          class="accordion-collapse collapse"
-                         data-bs-parent="#accordionPuestos">
+                         data-bs-parent="#modalEditPerfilAccordionPuestos">
                         <div class="accordion-body p-3" style="background-color: #ffffff; max-height: 450px; overflow-y: auto;"></div>
                     </div>
                 `;
@@ -1211,29 +1223,51 @@ class CapHum extends Controller
                 });
             }
             
-            // Función para expandir todos los acordeones
+            // Función para expandir/colapsar todos los acordeones de puestos
             function expandirTodosPuestos() {
-                const accordion = document.getElementById('accordionPuestos');
+                const accordion = document.getElementById('modalEditPerfilAccordionPuestos') || document.getElementById('accordionPuestos');
                 if (!accordion) return;
-                
+
                 const collapses = accordion.querySelectorAll('.accordion-collapse');
                 const isAllExpanded = Array.from(collapses).every(c => c.classList.contains('show'));
-                
+
+                if (!isAllExpanded) {
+                    collapses.forEach(collapse => {
+                        collapse.removeAttribute('data-bs-parent');
+                    });
+                }
+
                 collapses.forEach(collapse => {
-                    if (isAllExpanded) {
-                        collapse.classList.remove('show');
-                        const button = collapse.previousElementSibling?.querySelector('.accordion-button');
-                        if (button) button.classList.add('collapsed');
+                    const btn = document.querySelector(`[data-bs-target="#${collapse.id}"]`);
+                    if (typeof bootstrap !== 'undefined' && bootstrap.Collapse) {
+                        const bsCollapse = bootstrap.Collapse.getInstance(collapse) || new bootstrap.Collapse(collapse, { toggle: false });
+                        if (isAllExpanded) {
+                            bsCollapse.hide();
+                            if (btn) { btn.classList.add('collapsed'); btn.setAttribute('aria-expanded', 'false'); }
+                        } else {
+                            bsCollapse.show();
+                            if (btn) { btn.classList.remove('collapsed'); btn.setAttribute('aria-expanded', 'true'); }
+                        }
                     } else {
-                        collapse.classList.add('show');
-                        const button = collapse.previousElementSibling?.querySelector('.accordion-button');
-                        if (button) button.classList.remove('collapsed');
+                        if (isAllExpanded) {
+                            collapse.classList.remove('show');
+                            if (btn) { btn.classList.add('collapsed'); btn.setAttribute('aria-expanded', 'false'); }
+                        } else {
+                            collapse.classList.add('show');
+                            if (btn) { btn.classList.remove('collapsed'); btn.setAttribute('aria-expanded', 'true'); }
+                        }
                     }
                 });
-                
-                const btnExpandir = event?.target || document.querySelector('[onclick="expandirTodosPuestos()"]');
+
+                if (isAllExpanded) {
+                    collapses.forEach(collapse => {
+                        collapse.setAttribute('data-bs-parent', '#modalEditPerfilAccordionPuestos');
+                    });
+                }
+
+                const btnExpandir = document.querySelector('#modalEditPerfil #tabPuestos button[onclick="expandirTodosPuestos()"]') || document.querySelector('#tabPuestos button[onclick="expandirTodosPuestos()"]') || (typeof event !== 'undefined' && event.target);
                 if (btnExpandir) {
-                    btnExpandir.innerHTML = isAllExpanded 
+                    btnExpandir.innerHTML = isAllExpanded
                         ? '<i class="fa fa-expand me-1"></i>Expandir Departamentos'
                         : '<i class="fa fa-compress me-1"></i>Colapsar Departamentos';
                 }
@@ -1254,17 +1288,17 @@ class CapHum extends Controller
                 
                 // Recopilar puestos seleccionados
                 const puestosSeleccionados = [];
-                const checkboxesPuestos = document.querySelectorAll('#puestos-form input[type="checkbox"]:checked');
+                const modulosAsignar = [];
+                const modulosEliminar = [];
+                const puestosForm = document.getElementById('modal-edit-perfil-puestos-form') || document.getElementById('puestos-form');
+                const modulosForm = document.getElementById('modal-edit-perfil-modulos-form') || document.getElementById('modulos-form');
+                const checkboxesPuestos = puestosForm ? puestosForm.querySelectorAll('input[type="checkbox"]:checked') : [];
+                const checkboxesModulos = modulosForm ? modulosForm.querySelectorAll('input[type="checkbox"]') : [];
                 checkboxesPuestos.forEach(cb => {
                     if (cb.value) {
                         puestosSeleccionados.push(parseInt(cb.value));
                     }
                 });
-                
-                // Recopilar módulos seleccionados y no seleccionados
-                const modulosAsignar = [];
-                const modulosEliminar = [];
-                const checkboxesModulos = document.querySelectorAll('#modulos-form input[type="checkbox"]');
                 checkboxesModulos.forEach(cb => {
                     if (cb.value) {
                         if (cb.checked) {
@@ -1376,7 +1410,8 @@ class CapHum extends Controller
             ========================= */
             function renderModulos(perfiles) {
             
-                const container = document.getElementById('modulos-form');
+                const container = document.getElementById('modal-edit-perfil-modulos-form') || document.getElementById('modulos-form');
+                if (!container) return;
                 container.innerHTML = '';
             
                 if (!perfiles || perfiles.length === 0) {
@@ -3286,6 +3321,7 @@ class CapHum extends Controller
         $departamento = CapHumDAO::getConsultaDepartamentoGestor($_SESSION['usuario_id']);
         $modulos = $_SESSION['modulos'] ?? [];
         $puedeEditarTodos = in_array(10, $modulos);
+        $puedeGestionarPermisos = in_array(43, $modulos);
 
         self::set("titulo", "Gestión de Usuarios");
         self::set("script", $script);
@@ -3293,6 +3329,7 @@ class CapHum extends Controller
         self::set("paisesActivos", \Models\Paises::getPaisesActivos());
         self::set("miUsuarioId", (int) $_SESSION['usuario_id']);
         self::set("puedeEditarTodos", $puedeEditarTodos);
+        self::set("puedeGestionarPermisos", $puedeGestionarPermisos);
         self::render("all_gestores");
     }
 
@@ -3319,6 +3356,8 @@ class CapHum extends Controller
                     if (res.success && res.datos) res.datos.forEach(function(p){ selPuesto.appendChild(new Option(p.nombre, p.id)); });
                 });
             });
+            var filterEstatus = document.getElementById("filterEstatus");
+            if (filterEstatus) filterEstatus.addEventListener("change", function() { getCandidatos(); });
         });
         function getCandidatos() {
             var estatus = (document.getElementById("filterEstatus") && document.getElementById("filterEstatus").value) || "";
@@ -3537,9 +3576,9 @@ class CapHum extends Controller
                             <button class="btn btn-sm btn-danger" onclick="baja_gestor(${p.id})" title="Dar de baja">
                                 <i class="fa fa-user-slash"></i>
                             </button>
-                            <button class="btn btn-sm" style="background-color: #D2D755; color: white;" onclick="edit_perfil(${p.id})" title="Permisos">
+                            ${(typeof window.puedeGestionarPermisos !== 'undefined' && window.puedeGestionarPermisos) ? `<button class="btn btn-sm" style="background-color: #D2D755; color: white;" onclick="edit_perfil(${p.id})" title="Permisos">
                                 <i class="fa fa-lock" style="color: #007bff;"></i>
-                            </button>
+                            </button>` : ''}
                         </div>`
                     };
                     });
@@ -4988,9 +5027,13 @@ class CapHum extends Controller
         $bajasEaster .= '<script src="/assets/js/bajas-easter.js"></script>';
         $scriptGestion .= "\n" . $bajasEaster;
 
+        $modulos = $_SESSION['modulos'] ?? [];
         self::set("titulo", "Personas dadas de baja");
         self::set("script", $scriptGestion);
         self::set("departamento", ['datos' => []]); // Array vacío para no romper la vista
+        self::set("puedeEditarTodos", in_array(10, $modulos));
+        self::set("puedeGestionarPermisos", in_array(43, $modulos));
+        self::set("miUsuarioId", (int) ($_SESSION['usuario_id'] ?? 0));
         self::render("all_gestores");
     }
 
@@ -5284,7 +5327,8 @@ class CapHum extends Controller
     public function getDetallesPerfil()
     {
         $input = json_decode(file_get_contents("php://input"), true);
-        $idPersona = $input['idPersona'] ?? null;
+        // Siempre usar el id de la persona que se está revisando (fila en Gestión), nunca el de la sesión
+        $idPersona = isset($input['idPersona']) ? (int) $input['idPersona'] : null;
 
         if (!$idPersona) {
             self::respuestaJSON([

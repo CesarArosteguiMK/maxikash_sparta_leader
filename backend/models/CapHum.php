@@ -699,6 +699,11 @@ class CapHum extends Model
 
     public static function getPersonaDetallePerfil($idPersona)
     {
+        $idPersona = (int) $idPersona;
+        if ($idPersona <= 0) {
+            return self::resultado(false, 'ID de persona inválido.', null);
+        }
+
         try {
             $db = new Database();
 
@@ -756,16 +761,29 @@ class CapHum extends Model
             ORDER BY d.id, p.nivel desc
         SQL;
 
+            $query_asignacion_actual = <<<SQL
+            SELECT 
+                d.nombre AS nombre_departamento,
+                pp.nombre AS nombre_puesto
+            FROM asigna_puesto ap
+            INNER JOIN puesto pp ON pp.id = ap.id_puesto
+            LEFT JOIN departamento d ON d.id = pp.departamento_id
+            WHERE ap.id_persona = $idPersona
+            ORDER BY pp.nivel ASC
+            LIMIT 1
+        SQL;
 
 
             $persona = $db->queryOne($query);
             $perfiles = $db->queryAll($query_perfiles);
             $puestos = $db->queryAll($query_puestos);
+            $asignacionActual = $db->queryOne($query_asignacion_actual);
 
             return self::resultado(true, 'Persona encontrada.', [
                 'persona' => $persona,
                 'perfiles' => $perfiles,
-                'puestos' => $puestos
+                'puestos' => $puestos,
+                'asignacion_actual' => $asignacionActual
             ]);
 
         } catch (\Exception $e) {

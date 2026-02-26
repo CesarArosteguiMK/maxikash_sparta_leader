@@ -148,7 +148,7 @@ class login extends Controller
             $_SESSION['last_session_check'] = time();
 
             // 🔐 MÓDULOS PERMITIDOS
-            $_SESSION['modulos'] = LoginDao::getModulosUsuario($datos['id']);
+            $_SESSION['modulos'] = array_values(array_map('intval', (array) LoginDao::getModulosUsuario($datos['id'])));
 
             $_SESSION['foto_perfil'] = "/assets/img/misc/user.svg";
             $perfil = PerfilDao::getByPersonaId($datos['id']);
