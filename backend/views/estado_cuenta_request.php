@@ -1374,6 +1374,109 @@ body:not(.dark-mode) .sidebar-cliente .info-compact .info-label span:last-child 
 body:not(.dark-mode) .sidebar-cliente .info-compact i.fa-lg {
     color: #6c757d !important;
 }
+
+/* ========== ESTADO DE CUENTA - MODO CLARO (sidebar completo visible) ========== */
+html:not(.dark-mode) .estado-cuenta-page .sidebar-cliente,
+body:not(.dark-mode) .estado-cuenta-page .sidebar-cliente {
+    --ec-light-bg: #ffffff;
+    --ec-light-border: #dee2e6;
+    --ec-text: #212529;
+    --ec-text-muted: #6c757d;
+}
+/* Cards del sidebar: fondo sólido y texto oscuro */
+html:not(.dark-mode) .estado-cuenta-page .sidebar-cliente > .card,
+html:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .card,
+body:not(.dark-mode) .estado-cuenta-page .sidebar-cliente > .card,
+body:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .card {
+    background: var(--ec-light-bg) !important;
+    color: var(--ec-text) !important;
+}
+html:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .card-body,
+body:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .card-body {
+    color: var(--ec-text) !important;
+}
+/* Sección avatar: nombre, RFC, teléfono, badges */
+html:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .user-avatar-section .h6,
+body:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .user-avatar-section .h6 {
+    color: var(--ec-text) !important;
+}
+html:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .user-avatar-section small,
+body:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .user-avatar-section small {
+    color: var(--ec-text-muted) !important;
+}
+html:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .user-avatar-section .btn-link,
+body:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .user-avatar-section .btn-link {
+    color: #0d6efd !important;
+}
+/* Separadores y líneas (hr) visibles en modo claro */
+html:not(.dark-mode) .estado-cuenta-page .sidebar-cliente hr,
+body:not(.dark-mode) .estado-cuenta-page .sidebar-cliente hr {
+    border-color: var(--ec-light-border) !important;
+    opacity: 1;
+}
+/* Bloque Estatus Crédito y Saldo Total Vencido: texto y etiquetas */
+html:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .d-flex.justify-content-between.my-3 h5,
+body:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .d-flex.justify-content-between.my-3 h5 {
+    color: var(--ec-text) !important;
+}
+html:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .d-flex.justify-content-between.my-3 span.small,
+body:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .d-flex.justify-content-between.my-3 span.small {
+    color: var(--ec-text-muted) !important;
+}
+/* Iconos de los bloques (Estatus / Saldo): fondo sólido y icono blanco para buen contraste */
+html:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .avatar-initial.bg-label-info,
+body:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .avatar-initial.bg-label-info {
+    background-color: #0dcaf0 !important;
+    color: #fff !important;
+}
+html:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .avatar-initial.bg-label-info .fa,
+body:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .avatar-initial.bg-label-info i {
+    color: #fff !important;
+}
+html:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .avatar-initial.bg-label-danger,
+body:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .avatar-initial.bg-label-danger {
+    background-color: #dc3545 !important;
+    color: #fff !important;
+}
+html:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .avatar-initial.bg-label-danger .fa,
+body:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .avatar-initial.bg-label-danger i {
+    color: #fff !important;
+}
+/* Título "Información del Crédito" */
+html:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .card-text.text-body-secondary,
+body:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .card-text.text-body-secondary {
+    color: var(--ec-text-muted) !important;
+}
+/* Lista info-compact: labels y valores */
+html:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .info-compact .info-label span:first-child,
+body:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .info-compact .info-label span:first-child {
+    color: #495057 !important;
+}
+html:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .info-compact .info-label span:last-child,
+body:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .info-compact .info-label span:last-child {
+    color: var(--ec-text) !important;
+}
+html:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .info-compact i.fa-lg,
+body:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .info-compact i.fa-lg {
+    color: var(--ec-text-muted) !important;
+}
+/* Acordeón móvil: mismo contenido, mismo estilo en modo claro */
+html:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .accordion-body,
+body:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .accordion-body {
+    background: var(--ec-light-bg) !important;
+    color: var(--ec-text) !important;
+}
+html:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .accordion-body .fw-medium,
+html:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .accordion-body span,
+body:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .accordion-body .fw-medium,
+body:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .accordion-body span {
+    color: var(--ec-text) !important;
+}
+html:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .accordion-button:not(.collapsed),
+body:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .accordion-button:not(.collapsed) {
+    background: #f8f9fa !important;
+    color: var(--ec-text) !important;
+}
 </style>
 <style>
 /* Restaurar colores de botones de acción en modo claro */
@@ -1424,8 +1527,6 @@ html.dark-mode .cuotas-table .contracargo-label,
 body.dark-mode .cuotas-table .contracargo-label { color: #fb923c !important; font-weight: 700; }
 html.dark-mode .cuotas-table .contracargo-valor,
 body.dark-mode .cuotas-table .contracargo-valor { color: #fb923c !important; font-weight: 600; }
-</style>
-
 </style>
 
 <div class="row estado-cuenta-page">
@@ -1994,7 +2095,8 @@ body.dark-mode .cuotas-table .contracargo-valor { color: #fb923c !important; fon
                                         <?php foreach ($aplicados as $pago): ?>
                                             <?php if (isset($pago['tipo']) && $pago['tipo'] === 'contracargo'): ?>
                                             <li>
-                                                <span class="contracargo-label">Contracargo:</span> <span class="contracargo-valor">-<?= format_currency($pago['montoPago'] ?? 0) ?></span><?php if (!empty($pago['fechaRegistro'])): ?> - <span class="text-muted fecha-pago"><?= htmlspecialchars(format_date($pago['fechaRegistro'])) ?></span><?php endif; ?>
+                                                <?php $etiquetaCargo = (!empty($pago['concepto_display']) && $pago['concepto_display'] === 'reembolso') ? 'Reembolso' : 'Contracargo'; ?>
+                                                <span class="contracargo-label"><?= htmlspecialchars($etiquetaCargo) ?>:</span> <span class="contracargo-valor">-<?= format_currency($pago['montoPago'] ?? 0) ?></span><?php if (!empty($pago['fechaRegistro'])): ?> - <span class="text-muted fecha-pago"><?= htmlspecialchars(format_date($pago['fechaRegistro'])) ?></span><?php endif; ?>
                                             </li>
                                             <?php else: ?>
                                             <?php
@@ -2027,10 +2129,12 @@ body.dark-mode .cuotas-table .contracargo-valor { color: #fb923c !important; fon
                                             // Notas de cargo residuales (no procesadas como contracargo)
                                             $hayNotasCargos = $hayNotasCargos ?? false;
                                             $notasCargoPorFecha = $notasCargoPorFecha ?? [];
+                                            $esReembolsoPorFecha = $esReembolsoPorFecha ?? [];
                                             $fechaNorm = $pago_fecha ? date('Y-m-d', strtotime($pago_fecha)) : '';
                                             $totalNotaCargo = ($hayNotasCargos && $fechaNorm !== '' && isset($notasCargoPorFecha[$fechaNorm])) ? (float)$notasCargoPorFecha[$fechaNorm] : 0;
+                                            $etiquetaCargoResidual = (!empty($esReembolsoPorFecha[$fechaNorm])) ? 'Reembolso' : 'Contracargo';
                                             if ($totalNotaCargo > 0): ?>
-                                            <li><span class="contracargo-label">Contracargo:</span> <span class="contracargo-valor">-<?= format_currency($totalNotaCargo) ?></span></li>
+                                            <li><span class="contracargo-label"><?= htmlspecialchars($etiquetaCargoResidual) ?>:</span> <span class="contracargo-valor">-<?= format_currency($totalNotaCargo) ?></span></li>
                                             <?php endif; ?>
                                             <?php if (!$es_gasto_cobranza && $extemporaneos > 0): ?>
                                             <li class="text-danger">
@@ -3712,4 +3816,46 @@ document.addEventListener('DOMContentLoaded', function() {
             document.body.appendChild(modalElement);
         }
     })();
+</script>
+
+<script>
+(function(){
+    var style=document.createElement('style');
+    style.textContent='.estado-cuenta-easter-wrap{position:fixed;inset:0;z-index:1058;pointer-events:none;overflow:hidden}.estado-cuenta-easter-money{position:absolute;left:0;top:0;font-size:20px;pointer-events:none;opacity:0;animation:ecMoneyBurst 1.3s ease-out forwards}.estado-cuenta-easter-toast{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:1060;background:linear-gradient(135deg,#166534 0%,#22c55e 50%,#4ade80 100%);color:#fff;padding:20px 40px;border-radius:16px;font-size:1.15rem;font-weight:700;box-shadow:0 16px 48px rgba(34,197,94,0.4);border:2px solid rgba(255,255,255,0.3);opacity:0;animation:estadoCuentaEasterIn .4s ease forwards;pointer-events:none;text-align:center}.estado-cuenta-easter-toast .estado-cuenta-easter-emoji{font-size:2rem;display:block;margin-bottom:6px}@keyframes ecMoneyBurst{0%{opacity:1;transform:translate(-50%,-50%) scale(1)}100%{opacity:0;transform:translate(calc(-50% + var(--ec-tx)), calc(-50% + var(--ec-ty))) scale(0.5)}}@keyframes estadoCuentaEasterIn{0%{opacity:0;transform:translate(-50%,-50%) scale(0.8)}100%{opacity:1;transform:translate(-50%,-50%) scale(1)}}@keyframes estadoCuentaEasterOut{0%{opacity:1;transform:translate(-50%,-50%) scale(1)}100%{opacity:0;transform:translate(-50%,-50%) scale(0.95)}}';
+    document.head.appendChild(style);
+    document.addEventListener("keydown",function(e){
+        if(!e.ctrlKey||!e.shiftKey||(e.key!=="E"&&e.keyCode!==69))return;
+        e.preventDefault();
+        var wrap=document.createElement("div");
+        wrap.className="estado-cuenta-easter-wrap";
+        var moneyEmojis=["\uD83D\uDCB0","\uD83D\uDCB5","\uD83D\uDCB4"];
+        var positions=[[0.2,0.25],[0.5,0.2],[0.75,0.3],[0.35,0.55]];
+        for(var f=0;f<4;f++){
+            var fw=document.createElement("div");
+            fw.style.cssText="position:absolute;left:"+(positions[f][0]*100)+"%;top:"+(positions[f][1]*100)+"%;width:0;height:0;";
+            var num=28+Math.floor(Math.random()*12);
+            var dist=90+Math.random()*50;
+            for(var r=0;r<num;r++){
+                var angle=(r/num)*Math.PI*2+Math.random()*0.4;
+                var tx=Math.cos(angle)*dist+"px";
+                var ty=Math.sin(angle)*dist+"px";
+                var sp=document.createElement("span");
+                sp.className="estado-cuenta-easter-money";
+                sp.textContent=moneyEmojis[Math.floor(Math.random()*moneyEmojis.length)];
+                sp.style.animationDelay=(f*0.15)+"s";
+                sp.style.setProperty("--ec-tx",tx);
+                sp.style.setProperty("--ec-ty",ty);
+                fw.appendChild(sp);
+            }
+            wrap.appendChild(fw);
+        }
+        document.body.appendChild(wrap);
+        var t=document.createElement("div");
+        t.className="estado-cuenta-easter-toast";
+        t.innerHTML='<span class="estado-cuenta-easter-emoji">\uD83D\uDCB0</span> \u00A1Cuenta al d\u00EDa, espartano!';
+        document.body.appendChild(t);
+        try{var a=new Audio("/assets/audio/coins.mp3");a.volume=0.45;a.play().catch(function(){});setTimeout(function(){a.pause();a.currentTime=0;},2200);}catch(e){}
+        setTimeout(function(){t.style.animation="estadoCuentaEasterOut .35s ease forwards";setTimeout(function(){if(t.parentNode)t.parentNode.removeChild(t);if(wrap.parentNode)wrap.parentNode.removeChild(wrap);},350);},2800);
+    });
+})();
 </script>

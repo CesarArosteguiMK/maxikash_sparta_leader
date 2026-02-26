@@ -274,9 +274,19 @@
         border-color: rgba(105, 108, 255, 0.25);
         border-top-color: #818cf8;
     }
+    /* Easter egg: triple clic en título → "El equipo espartano" + fuegos + espadas (script separado, no toca el organigrama) */
+    #organigramaEasterTitle { cursor: default; }
+    .org-easter-toast { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 1052; background: rgba(30, 41, 59, 0.95); color: #fbbf24; padding: 18px 32px; border-radius: 12px; font-size: 1.05rem; font-weight: 600; box-shadow: 0 8px 32px rgba(0,0,0,0.25); border: 1px solid rgba(251, 191, 36, 0.4); opacity: 0; animation: orgEasterIn 0.35s ease forwards; pointer-events: none; text-align: center; }
+    .org-easter-toast .org-easter-swords { font-size: 1.4rem; letter-spacing: 0.25em; display: inline-block; animation: orgEasterSwordsPulse 0.6s ease-in-out infinite; }
+    @keyframes orgEasterIn { 0% { opacity: 0; transform: translate(-50%, -50%) scale(0.9); } 100% { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
+    @keyframes orgEasterOut { 0% { opacity: 1; transform: translate(-50%, -50%) scale(1); } 100% { opacity: 0; transform: translate(-50%, -50%) scale(0.95); } }
+    @keyframes orgEasterSwordsPulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.9; transform: scale(1.08); } }
+    .org-easter-fw-wrap { position: fixed; inset: 0; z-index: 1048; pointer-events: none; overflow: hidden; }
+    .org-easter-fw-dot { position: absolute; width: 12px; height: 12px; border-radius: 50%; pointer-events: none; box-shadow: 0 0 10px 2px currentColor, 0 0 20px currentColor; }
+    @keyframes orgEasterFwBurst { 0% { opacity: 1; transform: translate(-50%, -50%) scale(1); } 100% { opacity: 0; transform: translate(calc(-50% + var(--ofw-tx)), calc(-50% + var(--ofw-ty))) scale(0.3); } }
 </style>
 
-<h4 class="mb-4">Organigrama por Departamento</h4>
+<h4 class="mb-4" id="organigramaEasterTitle">Organigrama por Departamento</h4>
 
 <div class="card">
     <div class="card-body">
@@ -359,7 +369,7 @@
                 </div>
 
                 <div class="mb-2">
-                    <label class="form-label">Nombres *</label>
+                    <label class="form-label">Nombre *</label>
                     <input type="text" id="edit_nombres" class="form-control" oninput="this.value = this.value.replace(/[^A-Za-zÁÉÍÓÚáéíóúÑñ\s]/g, '').replace(/^\s+/, '').replace(/\s{2,}/g, ' ').toUpperCase()" onblur="this.value = this.value.trim()" style="text-transform: uppercase;">
                 </div>
 
@@ -1408,10 +1418,74 @@
         chart.style.transform = `scale(${scale})`;
     });
 
-
-
-
-
+</script>
+<!-- Easter egg Organigrama: script separado para no interferir con la lógica del organigrama -->
+<script>
+(function() {
+    function initOrgEaster() {
+        try {
+            var el = document.getElementById('organigramaEasterTitle');
+            if (!el) return;
+            var count = 0, t = null;
+            el.addEventListener('click', function() {
+                count++;
+                if (count === 3) {
+                    count = 0;
+                    if (t) clearTimeout(t);
+                    var durationMs = 2500;
+                    var wrap = document.createElement('div');
+                    wrap.className = 'org-easter-fw-wrap';
+                    var colors = ['#fbbf24', '#f59e0b', '#006847', '#ce1126', '#ffffff', '#6366f1'];
+                    var positions = [0.12, 0.28, 0.5, 0.72, 0.88, 0.35, 0.65];
+                    for (var f = 0; f < 7; f++) {
+                        var fwWrap = document.createElement('div');
+                        fwWrap.style.cssText = 'position:absolute;left:' + (positions[f] * 100) + '%;top:' + (15 + Math.random() * 20) + '%;width:0;height:0;';
+                        var numRays = 28 + Math.floor(Math.random() * 16);
+                        var distBase = 90 + Math.random() * 50;
+                        for (var r = 0; r < numRays; r++) {
+                            var angle = (r / numRays) * Math.PI * 2 + Math.random() * 0.4;
+                            var dist = distBase + Math.random() * 40;
+                            var tx = Math.cos(angle) * dist + 'px';
+                            var ty = Math.sin(angle) * dist - 20 + 'px';
+                            var dot = document.createElement('div');
+                            dot.className = 'org-easter-fw-dot';
+                            dot.style.cssText = 'left:0;top:0;background:' + colors[Math.floor(Math.random() * colors.length)] + ';color:' + colors[Math.floor(Math.random() * colors.length)] + ';animation:orgEasterFwBurst ' + (1.2 + Math.random() * 0.4) + 's ease-out ' + (f * 0.12) + 's forwards;--ofw-tx:' + tx + ';--ofw-ty:' + ty + ';';
+                            fwWrap.appendChild(dot);
+                        }
+                        wrap.appendChild(fwWrap);
+                    }
+                    document.body.appendChild(wrap);
+                    var toast = document.createElement('div');
+                    toast.className = 'org-easter-toast';
+                    toast.innerHTML = '<span class="org-easter-swords">\u2694\uFE0F</span> El equipo espartano <span class="org-easter-swords">\u2694\uFE0F</span>';
+                    document.body.appendChild(toast);
+                    var audio = new Audio('/assets/audio/fireworks.mp3');
+                    audio.volume = 0.5;
+                    audio.play().catch(function(){});
+                    function replay() { audio.currentTime = 0; audio.play().catch(function(){}); }
+                    audio.addEventListener('ended', replay);
+                    setTimeout(function() {
+                        audio.pause();
+                        audio.removeEventListener('ended', replay);
+                        toast.style.animation = 'orgEasterOut 0.35s ease forwards';
+                        setTimeout(function() {
+                            if (toast.parentNode) toast.parentNode.removeChild(toast);
+                            if (wrap.parentNode) wrap.parentNode.removeChild(wrap);
+                        }, 350);
+                    }, durationMs);
+                    return;
+                }
+                if (t) clearTimeout(t);
+                t = setTimeout(function() { count = 0; }, 600);
+            });
+        } catch (e) { console.warn('Org Easter egg:', e); }
+    }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initOrgEaster);
+    } else {
+        initOrgEaster();
+    }
+})();
 </script>
 
 

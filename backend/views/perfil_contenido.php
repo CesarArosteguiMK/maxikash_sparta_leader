@@ -73,7 +73,7 @@ body.dark-mode .pf-mkx .pf-readonly.form-control{border-bottom-color:rgba(255,25
         <div class="row g-3 mb-3">
           <div class="col-md-6">
             <div class="pf-field">
-              <label for="nombre" class="form-label">Nombre(s)</label>
+              <label for="nombre" class="form-label">Nombre</label>
               <input type="text" id="nombre" name="nombre" class="form-control pf-readonly" value="<?= htmlspecialchars($nombreVal) ?>" placeholder="Nombre(s)" readonly />
             </div>
           </div>

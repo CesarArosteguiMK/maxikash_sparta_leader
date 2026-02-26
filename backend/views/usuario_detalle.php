@@ -229,7 +229,7 @@
                     </div>
                     <form class="row g-6" onsubmit="return false">
                         <div class="col-12 col-md-4">
-                            <label class="form-label" for="modalEditUserFirstName">Nombre(s)</label>
+                            <label class="form-label" for="modalEditUserFirstName">Nombre</label>
                             <input type="text" id="modalEditUserFirstName" name="modalEditUserFirstName" class="form-control" placeholder="John" value="John" oninput="this.value = this.value.replace(/[^A-Za-zÁÉÍÓÚáéíóúÑñ\s]/g, '').replace(/^\s+/, '').replace(/\s{2,}/g, ' ').toUpperCase()" onblur="this.value = this.value.trim()" style="text-transform: uppercase;">
                         </div>
                         <div class="col-12 col-md-4">

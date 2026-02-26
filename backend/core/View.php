@@ -138,6 +138,11 @@ function getMenu()
                                     'modulos' => [4]
                             ],
                             [
+                                'label' => 'Candidatos',
+                                'url' => '/caphum/candidatos',
+                                'modulos' => [42]
+                            ],
+                            [
                                 'label' => 'Bajas',
                                 'url' => '/caphum/bajas',
                                 'modulos' => [13]
@@ -156,6 +161,11 @@ function getMenu()
                                     'label' => 'Resumen Call Center',
                                     'url' => '/reporteria/resumencallcenter',
                                     'modulos' => [6]
+                            ],
+                            [
+                                    'label' => 'Sabuesos',
+                                    'url' => '/reporteria/sabuesos',
+                                    'modulos' => [18, 19]
                             ],
                             [
                                     'label' => 'Layout Legacy',
@@ -635,16 +645,29 @@ html.dark-mode .navbar .text-muted{color:#94a3b8 !important;}
     .spartan-burst { position: fixed; left: 0; top: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10003; }
     .spartan-burst .spartan-burst-dot { position: absolute; width: 8px; height: 8px; background: #b45309; border-radius: 50%; box-shadow: 0 0 12px #b45309; animation: spartanBurst 0.6s ease-out forwards; }
     @keyframes spartanBurst { 0% { opacity: 1; transform: translate(-50%, -50%) scale(1); } 100% { opacity: 0; transform: translate(-50%, -50%) translate(var(--tx), var(--ty)) scale(0); } }
-    /* Konami code: mensaje espartano (más grande, palpitaciones) + fuegos artificiales + calaveras */
-    .konami-message { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 10005; background: linear-gradient(135deg, #1e293b 0%, #334155 100%); color: #fbbf24; padding: 32px 64px; border-radius: 20px; font-size: 2.5rem; font-weight: 800; box-shadow: 0 20px 60px rgba(0,0,0,0.5); border: 3px solid #b45309; opacity: 0; animation: konamiMessageIn 0.4s ease forwards; pointer-events: none; text-align: center; }
-    .konami-message .konami-calaveras { font-size: 1.8rem; letter-spacing: 0.2em; margin-bottom: 4px; }
-    .konami-message.konami-visible { animation: konamiMessageIn 0.4s ease forwards, konamiHeartbeat 0.9s ease-in-out 0.5s infinite; }
-    @keyframes konamiMessageIn { 0% { opacity: 0; transform: translate(-50%, -50%) scale(0.8); } 100% { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
-    @keyframes konamiHeartbeat { 0%, 100% { transform: translate(-50%, -50%) scale(1); } 50% { transform: translate(-50%, -50%) scale(1.08); } }
-    @keyframes konamiMessageOut { 0% { opacity: 1; transform: translate(-50%, -50%) scale(1); } 100% { opacity: 0; transform: translate(-50%, -50%) scale(0.9); } }
-    .konami-firework { position: absolute; width: 14px; height: 14px; border-radius: 50%; pointer-events: none; box-shadow: 0 0 12px 2px currentColor, 0 0 24px currentColor; }
-    @keyframes konamiFireworkBurst { 0% { opacity: 1; transform: translate(-50%, -50%) scale(1); } 100% { opacity: 0; transform: translate(calc(-50% + var(--fw-tx)), calc(-50% + var(--fw-ty))) scale(0.4); } }
-    @keyframes konamiFall{0%{transform:translateY(0) rotate(0deg);opacity:1;}100%{transform:translateY(100vh) rotate(720deg);opacity:0.3;}}
+    /* Konami code: épico – overlay flash, mensaje grande, palpitaciones, más fuegos */
+    .konami-overlay { position: fixed; inset: 0; z-index: 10004; pointer-events: none; background: radial-gradient(ellipse at center, rgba(251,191,36,0.4) 0%, rgba(180,83,9,0.2) 40%, rgba(0,0,0,0.85) 100%); opacity: 0; animation: konamiOverlayIn 0.5s ease forwards; }
+    @keyframes konamiOverlayIn { 0% { opacity: 0; } 20% { opacity: 1; } 100% { opacity: 0.95; } }
+    @keyframes konamiOverlayOut { 0% { opacity: 0.95; } 100% { opacity: 0; } }
+    .konami-message { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 10005; background: linear-gradient(135deg, #0f172a 0%, #1e293b 30%, #334155 100%); color: #fbbf24; padding: 40px 80px; border-radius: 24px; font-size: 3rem; font-weight: 900; box-shadow: 0 0 80px rgba(251,191,36,0.35), 0 25px 80px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.1); border: 3px solid #b45309; opacity: 0; animation: konamiMessageIn 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; pointer-events: none; text-align: center; letter-spacing: 0.02em; text-shadow: 0 0 30px rgba(251,191,36,0.6), 0 0 60px rgba(180,83,9,0.3); }
+    .konami-message .konami-calaveras { font-size: 2.4rem; letter-spacing: 0.3em; margin-bottom: 8px; display: block; animation: konamiSkullPulse 0.5s ease-in-out infinite alternate; }
+    .konami-message.konami-visible { animation: konamiMessageIn 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards, konamiHeartbeat 0.7s ease-in-out 0.3s infinite; text-shadow: 0 0 40px rgba(251,191,36,0.8), 0 0 80px rgba(180,83,9,0.4); }
+    @keyframes konamiSkullPulse { 0% { opacity: 1; transform: scale(1); } 100% { opacity: 0.9; transform: scale(1.1); } }
+    @keyframes konamiMessageIn { 0% { opacity: 0; transform: translate(-50%, -50%) scale(0.3); filter: blur(8px); } 100% { opacity: 1; transform: translate(-50%, -50%) scale(1); filter: blur(0); } }
+    @keyframes konamiHeartbeat { 0%, 100% { transform: translate(-50%, -50%) scale(1); } 50% { transform: translate(-50%, -50%) scale(1.06); } }
+    @keyframes konamiMessageOut { 0% { opacity: 1; transform: translate(-50%, -50%) scale(1); } 100% { opacity: 0; transform: translate(-50%, -50%) scale(1.1); } }
+    .konami-firework { position: absolute; width: 16px; height: 16px; border-radius: 50%; pointer-events: none; box-shadow: 0 0 16px 3px currentColor, 0 0 32px currentColor; }
+    @keyframes konamiFireworkBurst { 0% { opacity: 1; transform: translate(-50%, -50%) scale(1); } 100% { opacity: 0; transform: translate(calc(-50% + var(--fw-tx)), calc(-50% + var(--fw-ty))) scale(0.3); } }
+    @keyframes konamiFall{0%{transform:translateY(0) rotate(0deg);opacity:1;}100%{transform:translateY(100vh) rotate(720deg);opacity:0.35;}}
+    body.konami-shake { animation: konamiShake 0.4s ease-out; }
+    @keyframes konamiShake { 0%, 100% { transform: translateX(0); } 15% { transform: translateX(-8px); } 30% { transform: translateX(8px); } 45% { transform: translateX(-5px); } 60% { transform: translateX(5px); } 75% { transform: translateX(-2px); } }
+    /* Konami: dos espadas que chocan y terminan cruzadas */
+    .konami-swords-wrap { position: fixed; left: 50%; top: 42%; transform: translate(-50%, -50%); z-index: 10007; pointer-events: none; width: 180px; height: 120px; }
+    .konami-sword { position: absolute; font-size: 4rem; line-height: 1; transform-origin: 50% 85%; opacity: 0; }
+    .konami-sword-left { left: 0; top: 50%; transform: translate(0, -50%) rotate(-70deg); animation: konamiSwordClashLeft 1.4s ease-out 0.2s forwards; }
+    .konami-sword-right { right: 0; top: 50%; transform: translate(0, -50%) rotate(70deg); animation: konamiSwordClashRight 1.4s ease-out 0.2s forwards; }
+    @keyframes konamiSwordClashLeft { 0% { opacity: 0; transform: translate(0, -50%) rotate(-70deg) translateX(-20px); } 25% { opacity: 1; transform: translate(0, -50%) rotate(-45deg) translateX(8px) scale(1.05); } 45% { opacity: 1; transform: translate(0, -50%) rotate(-40deg) translateX(2px) scale(0.98); } 100% { opacity: 1; transform: translate(0, -50%) rotate(-135deg); } }
+    @keyframes konamiSwordClashRight { 0% { opacity: 0; transform: translate(0, -50%) rotate(70deg) translateX(20px); } 25% { opacity: 1; transform: translate(0, -50%) rotate(45deg) translateX(-8px) scale(1.05); } 45% { opacity: 1; transform: translate(0, -50%) rotate(40deg) translateX(-2px) scale(0.98); } 100% { opacity: 1; transform: translate(0, -50%) rotate(135deg); } }
     /* Easter egg: triple clic en avatar → mensaje oculto */
     .avatar-easter-toast { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 10006; background: linear-gradient(135deg, #1e293b 0%, #334155 100%); color: #fbbf24; padding: 24px 40px; border-radius: 16px; font-size: 1.25rem; font-weight: 700; box-shadow: 0 16px 48px rgba(0,0,0,0.4); border: 2px solid #b45309; opacity: 0; animation: avatarEasterIn 0.35s ease forwards; pointer-events: none; text-align: center; }
     .avatar-easter-toast .avatar-easter-emoji { font-size: 3rem; display: block; margin-bottom: 8px; }
@@ -730,6 +753,7 @@ html.dark-mode .navbar .text-muted{color:#94a3b8 !important;}
     <!-- Page JS -->
     <script src="/assets/js/comunes.js"></script>
     <script src="/assets/js/componentes.js"></script>
+    <script src="/assets/js/gestiones-300-easter.js"></script>
 
     <!-- Campana de notificaciones: cargar lista, badge, marcar leídas, sonido -->
     <script>
@@ -1041,52 +1065,64 @@ html.dark-mode .navbar .text-muted{color:#94a3b8 !important;}
         });
         function konamiTrigger(){
             if (document.getElementById('konamiConfettiWrap')) return;
-            var mexicanColors = ['#006847', '#ffffff', '#ce1126', '#b45309', '#fbbf24', '#d97706', '#f59e0b', '#fef3c7', '#92400e'];
+            document.body.classList.add('konami-shake');
+            setTimeout(function(){ document.body.classList.remove('konami-shake'); }, 450);
+            var overlay = document.createElement('div');
+            overlay.className = 'konami-overlay';
+            overlay.id = 'konamiOverlay';
+            document.body.appendChild(overlay);
+            setTimeout(function(){ overlay.style.animation = 'konamiOverlayOut 0.8s ease forwards'; setTimeout(function(){ if (overlay.parentNode) overlay.parentNode.removeChild(overlay); }, 850); }, 3200);
+            var mexicanColors = ['#006847', '#ffffff', '#ce1126', '#b45309', '#fbbf24', '#d97706', '#f59e0b', '#fef3c7', '#92400e', '#fcd34d', '#f97316'];
             var wrap = document.createElement('div');
             wrap.id = 'konamiConfettiWrap';
             wrap.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:10003;overflow:hidden;';
-            for (var i = 0; i < 200; i++) {
+            for (var i = 0; i < 320; i++) {
                 var p = document.createElement('div');
-                p.style.cssText = 'position:absolute;width:' + (8 + Math.random() * 8) + 'px;height:' + (8 + Math.random() * 8) + 'px;left:' + (Math.random() * 100) + '%;top:-30px;background:' + mexicanColors[Math.floor(Math.random() * mexicanColors.length)] + ';border-radius:2px;animation:konamiFall ' + (2.2 + Math.random() * 2) + 's linear forwards;animation-delay:' + (Math.random() * 0.6) + 's;';
+                p.style.cssText = 'position:absolute;width:' + (10 + Math.random() * 12) + 'px;height:' + (10 + Math.random() * 12) + 'px;left:' + (Math.random() * 100) + '%;top:-40px;background:' + mexicanColors[Math.floor(Math.random() * mexicanColors.length)] + ';border-radius:3px;animation:konamiFall ' + (2.4 + Math.random() * 2.2) + 's linear forwards;animation-delay:' + (Math.random() * 0.8) + 's;';
                 wrap.appendChild(p);
             }
-            var calaveraEmojis = ['💀', '🇲🇽', '🎉', '💀', '🇲🇽'];
-            for (var c = 0; c < 35; c++) {
+            var calaveraEmojis = ['💀', '🇲🇽', '🎉', '⚔', '💀', '🇲🇽', '🔥', '💀'];
+            for (var c = 0; c < 50; c++) {
                 var cp = document.createElement('div');
-                cp.style.cssText = 'position:absolute;left:' + (Math.random() * 100) + '%;top:-40px;font-size:' + (14 + Math.random() * 18) + 'px;animation:konamiFall ' + (2.5 + Math.random() * 2) + 's linear forwards;animation-delay:' + (Math.random() * 0.8) + 's;';
+                cp.style.cssText = 'position:absolute;left:' + (Math.random() * 100) + '%;top:-50px;font-size:' + (18 + Math.random() * 22) + 'px;animation:konamiFall ' + (2.8 + Math.random() * 2) + 's linear forwards;animation-delay:' + (Math.random() * 1) + 's;';
                 cp.textContent = calaveraEmojis[Math.floor(Math.random() * calaveraEmojis.length)];
                 wrap.appendChild(cp);
             }
-            var fireworkColors = ['#006847', '#ce1126', '#fbbf24', '#ffffff', '#f59e0b', '#ff6b35', '#fbbf24'];
-            var fwPositions = [0.08, 0.22, 0.38, 0.5, 0.62, 0.78, 0.92, 0.15, 0.45, 0.75, 0.28, 0.58];
-            for (var f = 0; f < 12; f++) {
+            var fireworkColors = ['#006847', '#ce1126', '#fbbf24', '#ffffff', '#f59e0b', '#ff6b35', '#fbbf24', '#22c55e'];
+            var fwPositions = [0.05, 0.18, 0.32, 0.5, 0.68, 0.82, 0.95, 0.12, 0.25, 0.42, 0.58, 0.75, 0.88, 0.22, 0.48, 0.72];
+            for (var f = 0; f < 16; f++) {
                 var fx = fwPositions[f] * 100;
-                var fy = 12 + Math.random() * 12;
+                var fy = 8 + Math.random() * 18;
                 var fwWrap = document.createElement('div');
                 fwWrap.style.cssText = 'position:absolute;left:' + fx + '%;top:' + fy + '%;width:0;height:0;pointer-events:none;';
-                var numRays = 42 + Math.floor(Math.random() * 20);
-                var distBase = 120 + Math.random() * 80;
+                var numRays = 48 + Math.floor(Math.random() * 24);
+                var distBase = 140 + Math.random() * 100;
                 for (var r = 0; r < numRays; r++) {
-                    var angle = (r / numRays) * Math.PI * 2 + Math.random() * 0.5;
-                    var dist = distBase + Math.random() * 60;
+                    var angle = (r / numRays) * Math.PI * 2 + Math.random() * 0.6;
+                    var dist = distBase + Math.random() * 80;
                     var tx = Math.cos(angle) * dist + 'px';
-                    var ty = Math.sin(angle) * dist - 30 + 'px';
+                    var ty = Math.sin(angle) * dist - 40 + 'px';
                     var dot = document.createElement('div');
                     dot.className = 'konami-firework';
-                    dot.style.cssText = 'left:0;top:0;background:' + fireworkColors[Math.floor(Math.random() * fireworkColors.length)] + ';color:' + fireworkColors[Math.floor(Math.random() * fireworkColors.length)] + ';animation:konamiFireworkBurst ' + (1.4 + Math.random() * 0.5) + 's ease-out ' + (f * 0.18) + 's forwards;--fw-tx:' + tx + ';--fw-ty:' + ty + ';';
+                    dot.style.cssText = 'left:0;top:0;background:' + fireworkColors[Math.floor(Math.random() * fireworkColors.length)] + ';color:' + fireworkColors[Math.floor(Math.random() * fireworkColors.length)] + ';animation:konamiFireworkBurst ' + (1.6 + Math.random() * 0.6) + 's ease-out ' + (f * 0.12) + 's forwards;--fw-tx:' + tx + ';--fw-ty:' + ty + ';';
                     fwWrap.appendChild(dot);
                 }
                 wrap.appendChild(fwWrap);
             }
             document.body.appendChild(wrap);
-            setTimeout(function(){ if (wrap.parentNode) wrap.parentNode.removeChild(wrap); }, 5500);
+            setTimeout(function(){ if (wrap.parentNode) wrap.parentNode.removeChild(wrap); }, 6500);
+            var swordsWrap = document.createElement('div');
+            swordsWrap.className = 'konami-swords-wrap';
+            swordsWrap.innerHTML = '<span class="konami-sword konami-sword-left" aria-hidden="true">⚔</span><span class="konami-sword konami-sword-right" aria-hidden="true">⚔</span>';
+            document.body.appendChild(swordsWrap);
+            setTimeout(function(){ if (swordsWrap.parentNode) swordsWrap.parentNode.removeChild(swordsWrap); }, 1800);
             var msg = document.createElement('div');
             msg.className = 'konami-message';
-            msg.innerHTML = '<div class="konami-calaveras">💀 💀 💀</div>¡Bienvenido, espartano!<br><span style="font-size:0.55em;opacity:0.95;">🇲🇽 ¡Arriba México! 🇲🇽</span>';
+            msg.innerHTML = '<span class="konami-calaveras">💀 💀 💀</span>¡BIENVENIDO, ESPARTANO!<br><span style="font-size:0.5em;opacity:0.95;letter-spacing:0.15em;">🇲🇽 ¡ARRIBA MÉXICO! 🇲🇽</span>';
             document.body.appendChild(msg);
-            setTimeout(function(){ msg.classList.add('konami-visible'); }, 400);
-            setTimeout(function(){ msg.style.animation = 'konamiMessageOut 0.5s ease forwards'; msg.classList.remove('konami-visible'); }, 2600);
-            setTimeout(function(){ if (msg.parentNode) msg.parentNode.removeChild(msg); }, 3200);
+            setTimeout(function(){ msg.classList.add('konami-visible'); }, 350);
+            setTimeout(function(){ msg.style.animation = 'konamiMessageOut 0.6s ease forwards'; msg.classList.remove('konami-visible'); }, 3600);
+            setTimeout(function(){ if (msg.parentNode) msg.parentNode.removeChild(msg); }, 4300);
             var spartaAudio = new Audio('/assets/audio/thisissparta.swf.mp3');
             spartaAudio.volume = 0.9;
             spartaAudio.play().catch(function(){});
