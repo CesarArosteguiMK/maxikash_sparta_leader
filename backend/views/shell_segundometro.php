@@ -297,4 +297,107 @@
         background-color: #ffffff !important;
         font-weight: 600;
     }
+    /* Easter egg Shell: Ctrl+Shift+S → toast + lluvia Matrix */
+    .shell-easter-wrap{position:fixed;inset:0;z-index:1046;pointer-events:none;overflow:hidden}
+    .shell-easter-matrix-canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+    .shell-easter-scan{position:absolute;left:0;right:0;height:3px;background:linear-gradient(90deg,transparent,rgba(0,255,136,0.6),transparent);box-shadow:0 0 20px 4px rgba(0,255,136,0.5);animation:shellEasterScan 1.2s linear infinite}
+    @keyframes shellEasterScan{0%{top:0;opacity:0.6}50%{opacity:1}100%{top:100%;opacity:0.6}}
+    .shell-easter-toast{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:1050;background:#0d1117;color:#00ff88;padding:18px 32px;border-radius:10px;font-size:1.05rem;font-weight:600;font-family:'Consolas','Monaco','Courier New',monospace;box-shadow:0 0 40px rgba(0,255,136,0.25), 0 0 80px rgba(0,255,136,0.1), inset 0 0 0 1px rgba(0,255,136,0.2);border:1px solid #00ff8840;opacity:0;pointer-events:none;text-align:left;min-width:220px;overflow:hidden;animation:shellEasterIn .3s ease forwards, shellEasterGlow 2s ease-in-out infinite .3s}
+    @keyframes shellEasterGlow{0%,100%{box-shadow:0 0 30px rgba(0,255,136,0.2), 0 0 60px rgba(0,255,136,0.08), inset 0 0 0 1px rgba(0,255,136,0.2)}50%{box-shadow:0 0 50px rgba(0,255,136,0.4), 0 0 100px rgba(0,255,136,0.15), inset 0 0 0 1px rgba(0,255,136,0.35)}}
+    .shell-easter-toast .shell-easter-cursor{display:inline-block;width:3px;height:1.1em;background:#00ff88;margin-left:2px;vertical-align:text-bottom;animation:shellEasterBlink 0.8s step-end infinite;box-shadow:0 0 8px #00ff88}
+    @keyframes shellEasterBlink{0%,50%{opacity:1}51%,100%{opacity:0}}
+    @keyframes shellEasterIn{0%{opacity:0;transform:translate(-50%,-50%) scale(0.9)}100%{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+    @keyframes shellEasterOut{0%{opacity:1;transform:translate(-50%,-50%) scale(1)}100%{opacity:0;transform:translate(-50%,-50%) scale(0.95)}}
 </style>
+
+<script>
+(function(){
+    function beep(freq,dur){
+        try{
+            var ctx=new (window.AudioContext||window.webkitAudioContext)();
+            var osc=ctx.createOscillator();
+            var gain=ctx.createGain();
+            osc.connect(gain);gain.connect(ctx.destination);
+            osc.frequency.value=freq||880;osc.type='sine';
+            gain.gain.setValueAtTime(0.12,ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01,ctx.currentTime+(dur||0.06));
+            osc.start(ctx.currentTime);osc.stop(ctx.currentTime+(dur||0.06));
+        }catch(e){}
+    }
+    function show(){
+        var msg='$ Shell listo';
+        var wrap=document.createElement('div');
+        wrap.className='shell-easter-wrap';
+        var canvas=document.createElement('canvas');
+        canvas.className='shell-easter-matrix-canvas';
+        var ctx=canvas.getContext('2d');
+        var w=canvas.width=window.innerWidth;
+        var h=canvas.height=window.innerHeight;
+        window.addEventListener('resize',function(){w=canvas.width=window.innerWidth;h=canvas.height=window.innerHeight;});
+        wrap.appendChild(canvas);
+        var scan=document.createElement('div');
+        scan.className='shell-easter-scan';
+        wrap.appendChild(scan);
+        document.body.appendChild(wrap);
+        var chars='0__SPARTA_PASSWORD_REDACTED__ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+        var fontSize=14;
+        var cols=Math.floor(w/fontSize);
+        var drops=[];
+        for(var c=0;c<cols;c++)drops[c]=Math.random()*h/fontSize;
+        var rafId;
+        function draw(){
+            if(!wrap.parentNode)return;
+            ctx.fillStyle='rgba(0,8,12,0.08)';
+            ctx.fillRect(0,0,w,h);
+            ctx.font=fontSize+'px "Consolas","Monaco",monospace';
+            for(var c=0;c<cols;c++){
+                var headChar=chars[Math.floor(Math.random()*chars.length)];
+                ctx.fillStyle='#00ff88';
+                ctx.fillText(headChar,c*fontSize,drops[c]*fontSize);
+                ctx.fillStyle='rgba(0,255,136,0.25)';
+                for(var t=1;t<=8;t++){
+                    var idx=Math.max(0,drops[c]-t);
+                    if(idx>=0)ctx.fillText(chars[Math.floor(Math.random()*chars.length)],c*fontSize,idx*fontSize);
+                }
+                drops[c]+=0.5+Math.random()*0.8;
+                if(drops[c]*fontSize>h+40)drops[c]=0;
+            }
+            rafId=requestAnimationFrame(draw);
+        }
+        draw();
+        var container=document.createElement('div');
+        container.className='shell-easter-toast';
+        var span=document.createElement('span');
+        span.className='shell-easter-text';
+        var cursor=document.createElement('span');
+        cursor.className='shell-easter-cursor';
+        container.appendChild(span);
+        container.appendChild(cursor);
+        document.body.appendChild(container);
+        beep(880,0.05);
+        var i=0;
+        function type(){
+            if(i<=msg.length){
+                span.textContent=msg.slice(0,i);
+                i++;
+                if(i<=msg.length)beep(660,0.03);
+                setTimeout(type,70);
+            }else{
+                beep(1100,0.08);
+                setTimeout(function(){
+                    cancelAnimationFrame(rafId);
+                    container.style.animation='shellEasterOut .3s ease forwards';
+                    setTimeout(function(){
+                        if(container.parentNode)container.parentNode.removeChild(container);
+                        if(wrap.parentNode)wrap.parentNode.removeChild(wrap);
+                    },300);
+                },2000);
+            }
+        }
+        type();
+    }
+    document.addEventListener('keydown',function(e){
+        if(e.ctrlKey&&e.shiftKey&&(e.key==='S'||e.keyCode===83)){e.preventDefault();show();}
+    });
+})();
+</script>
