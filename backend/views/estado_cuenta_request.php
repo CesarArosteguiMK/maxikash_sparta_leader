@@ -1374,6 +1374,109 @@ body:not(.dark-mode) .sidebar-cliente .info-compact .info-label span:last-child 
 body:not(.dark-mode) .sidebar-cliente .info-compact i.fa-lg {
     color: #6c757d !important;
 }
+
+/* ========== ESTADO DE CUENTA - MODO CLARO (sidebar completo visible) ========== */
+html:not(.dark-mode) .estado-cuenta-page .sidebar-cliente,
+body:not(.dark-mode) .estado-cuenta-page .sidebar-cliente {
+    --ec-light-bg: #ffffff;
+    --ec-light-border: #dee2e6;
+    --ec-text: #212529;
+    --ec-text-muted: #6c757d;
+}
+/* Cards del sidebar: fondo sólido y texto oscuro */
+html:not(.dark-mode) .estado-cuenta-page .sidebar-cliente > .card,
+html:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .card,
+body:not(.dark-mode) .estado-cuenta-page .sidebar-cliente > .card,
+body:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .card {
+    background: var(--ec-light-bg) !important;
+    color: var(--ec-text) !important;
+}
+html:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .card-body,
+body:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .card-body {
+    color: var(--ec-text) !important;
+}
+/* Sección avatar: nombre, RFC, teléfono, badges */
+html:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .user-avatar-section .h6,
+body:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .user-avatar-section .h6 {
+    color: var(--ec-text) !important;
+}
+html:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .user-avatar-section small,
+body:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .user-avatar-section small {
+    color: var(--ec-text-muted) !important;
+}
+html:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .user-avatar-section .btn-link,
+body:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .user-avatar-section .btn-link {
+    color: #0d6efd !important;
+}
+/* Separadores y líneas (hr) visibles en modo claro */
+html:not(.dark-mode) .estado-cuenta-page .sidebar-cliente hr,
+body:not(.dark-mode) .estado-cuenta-page .sidebar-cliente hr {
+    border-color: var(--ec-light-border) !important;
+    opacity: 1;
+}
+/* Bloque Estatus Crédito y Saldo Total Vencido: texto y etiquetas */
+html:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .d-flex.justify-content-between.my-3 h5,
+body:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .d-flex.justify-content-between.my-3 h5 {
+    color: var(--ec-text) !important;
+}
+html:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .d-flex.justify-content-between.my-3 span.small,
+body:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .d-flex.justify-content-between.my-3 span.small {
+    color: var(--ec-text-muted) !important;
+}
+/* Iconos de los bloques (Estatus / Saldo): fondo sólido y icono blanco para buen contraste */
+html:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .avatar-initial.bg-label-info,
+body:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .avatar-initial.bg-label-info {
+    background-color: #0dcaf0 !important;
+    color: #fff !important;
+}
+html:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .avatar-initial.bg-label-info .fa,
+body:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .avatar-initial.bg-label-info i {
+    color: #fff !important;
+}
+html:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .avatar-initial.bg-label-danger,
+body:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .avatar-initial.bg-label-danger {
+    background-color: #dc3545 !important;
+    color: #fff !important;
+}
+html:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .avatar-initial.bg-label-danger .fa,
+body:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .avatar-initial.bg-label-danger i {
+    color: #fff !important;
+}
+/* Título "Información del Crédito" */
+html:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .card-text.text-body-secondary,
+body:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .card-text.text-body-secondary {
+    color: var(--ec-text-muted) !important;
+}
+/* Lista info-compact: labels y valores */
+html:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .info-compact .info-label span:first-child,
+body:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .info-compact .info-label span:first-child {
+    color: #495057 !important;
+}
+html:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .info-compact .info-label span:last-child,
+body:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .info-compact .info-label span:last-child {
+    color: var(--ec-text) !important;
+}
+html:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .info-compact i.fa-lg,
+body:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .info-compact i.fa-lg {
+    color: var(--ec-text-muted) !important;
+}
+/* Acordeón móvil: mismo contenido, mismo estilo en modo claro */
+html:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .accordion-body,
+body:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .accordion-body {
+    background: var(--ec-light-bg) !important;
+    color: var(--ec-text) !important;
+}
+html:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .accordion-body .fw-medium,
+html:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .accordion-body span,
+body:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .accordion-body .fw-medium,
+body:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .accordion-body span {
+    color: var(--ec-text) !important;
+}
+html:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .accordion-button:not(.collapsed),
+body:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .accordion-button:not(.collapsed) {
+    background: #f8f9fa !important;
+    color: var(--ec-text) !important;
+}
 </style>
 <style>
 /* Restaurar colores de botones de acción en modo claro */
@@ -1424,8 +1527,6 @@ html.dark-mode .cuotas-table .contracargo-label,
 body.dark-mode .cuotas-table .contracargo-label { color: #fb923c !important; font-weight: 700; }
 html.dark-mode .cuotas-table .contracargo-valor,
 body.dark-mode .cuotas-table .contracargo-valor { color: #fb923c !important; font-weight: 600; }
-</style>
-
 </style>
 
 <div class="row estado-cuenta-page">
@@ -1994,7 +2095,8 @@ body.dark-mode .cuotas-table .contracargo-valor { color: #fb923c !important; fon
                                         <?php foreach ($aplicados as $pago): ?>
                                             <?php if (isset($pago['tipo']) && $pago['tipo'] === 'contracargo'): ?>
                                             <li>
-                                                <span class="contracargo-label">Contracargo:</span> <span class="contracargo-valor">-<?= format_currency($pago['montoPago'] ?? 0) ?></span><?php if (!empty($pago['fechaRegistro'])): ?> - <span class="text-muted fecha-pago"><?= htmlspecialchars(format_date($pago['fechaRegistro'])) ?></span><?php endif; ?>
+                                                <?php $etiquetaCargo = (!empty($pago['concepto_display']) && $pago['concepto_display'] === 'reembolso') ? 'Reembolso' : 'Contracargo'; ?>
+                                                <span class="contracargo-label"><?= htmlspecialchars($etiquetaCargo) ?>:</span> <span class="contracargo-valor">-<?= format_currency($pago['montoPago'] ?? 0) ?></span><?php if (!empty($pago['fechaRegistro'])): ?> - <span class="text-muted fecha-pago"><?= htmlspecialchars(format_date($pago['fechaRegistro'])) ?></span><?php endif; ?>
                                             </li>
                                             <?php else: ?>
                                             <?php
@@ -2027,10 +2129,12 @@ body.dark-mode .cuotas-table .contracargo-valor { color: #fb923c !important; fon
                                             // Notas de cargo residuales (no procesadas como contracargo)
                                             $hayNotasCargos = $hayNotasCargos ?? false;
                                             $notasCargoPorFecha = $notasCargoPorFecha ?? [];
+                                            $esReembolsoPorFecha = $esReembolsoPorFecha ?? [];
                                             $fechaNorm = $pago_fecha ? date('Y-m-d', strtotime($pago_fecha)) : '';
                                             $totalNotaCargo = ($hayNotasCargos && $fechaNorm !== '' && isset($notasCargoPorFecha[$fechaNorm])) ? (float)$notasCargoPorFecha[$fechaNorm] : 0;
+                                            $etiquetaCargoResidual = (!empty($esReembolsoPorFecha[$fechaNorm])) ? 'Reembolso' : 'Contracargo';
                                             if ($totalNotaCargo > 0): ?>
-                                            <li><span class="contracargo-label">Contracargo:</span> <span class="contracargo-valor">-<?= format_currency($totalNotaCargo) ?></span></li>
+                                            <li><span class="contracargo-label"><?= htmlspecialchars($etiquetaCargoResidual) ?>:</span> <span class="contracargo-valor">-<?= format_currency($totalNotaCargo) ?></span></li>
                                             <?php endif; ?>
                                             <?php if (!$es_gasto_cobranza && $extemporaneos > 0): ?>
                                             <li class="text-danger">

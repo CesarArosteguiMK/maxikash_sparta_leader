@@ -4,6 +4,7 @@ namespace Controllers;
 
 use Core\Controller;
 use Core\SecureUpload;
+use Core\OcrIdentidad;
 use Models\CapHum as CapHumDAO;
 use Models\Candidatos as CandidatosDAO;
 
@@ -3337,63 +3338,17 @@ class CapHum extends Controller
     public function candidatos()
     {
         $departamento = CapHumDAO::getConsultaDepartamentoGestor($_SESSION['usuario_id']);
-        $script = '<script>
-        document.addEventListener("DOMContentLoaded", function() {
-            if ($("#tablaCandidatos").length && $.fn.DataTable && !$.fn.DataTable.isDataTable("#tablaCandidatos")) {
-                $("#tablaCandidatos").DataTable({ responsive: true, order: [[0, "asc"]], columnDefs: [ { orderable: false, targets: 4 } ] });
-            }
-            getCandidatos();
-            var form = document.getElementById("formAgregarCandidato");
-            if (form) form.addEventListener("submit", function(e) { e.preventDefault(); guardarCandidato(); });
-            var selDepto = document.getElementById("candidato_id_departamento");
-            if (selDepto) selDepto.addEventListener("change", function() {
-                var idDepto = this.value;
-                var selPuesto = document.getElementById("candidato_id_puesto");
-                if (!selPuesto) return;
-                selPuesto.innerHTML = "<option value=\"\">Seleccione un puesto</option>";
-                if (!idDepto) return;
-                fetch("/CapHum/getPuestos?departamento=" + encodeURIComponent(idDepto)).then(function(r){ return r.json(); }).then(function(res){
-                    if (res.success && res.datos) res.datos.forEach(function(p){ selPuesto.appendChild(new Option(p.nombre, p.id)); });
-                });
-            });
-            var filterEstatus = document.getElementById("filterEstatus");
-            if (filterEstatus) filterEstatus.addEventListener("change", function() { getCandidatos(); });
-        });
-        function getCandidatos() {
-            var estatus = (document.getElementById("filterEstatus") && document.getElementById("filterEstatus").value) || "";
-            var params = estatus ? "?estatus=" + encodeURIComponent(estatus) : "";
-            fetch("/CapHum/getCandidatos" + params).then(function(r){ return r.json(); }).then(function(res){
-                if (!res.success || !res.datos) return;
-                var tabla = $("#tablaCandidatos").DataTable();
-                tabla.clear();
-                res.datos.forEach(function(c){
-                    var nombre = [c.nombres, c.segundo_nombre, c.apellidop, c.apellidom].filter(Boolean).join(" ");
-                    var contacto = (c.email || "") + (c.telefono ? " | " + c.telefono : "");
-                    var puestoDepto = (c.nombre_puesto || "-") + " / " + (c.nombre_departamento || "-");
-                    var acciones = "<button class=\"btn btn-sm btn-primary me-1\" onclick=\"editarCandidato(" + c.id + ")\" title=\"Editar\"><i class=\"fa fa-edit\"></i></button><button class=\"btn btn-sm btn-danger\" onclick=\"eliminarCandidato(" + c.id + ")\" title=\"Eliminar\"><i class=\"fa fa-trash\"></i></button>";
-                    tabla.row.add([nombre, contacto, puestoDepto, c.estatus || "Por evaluar", acciones]);
-                });
-                tabla.draw();
-            });
-        }
-        function guardarCandidato() {
-            var form = document.getElementById("formAgregarCandidato");
-            if (!form) return;
-            var data = { nombres: form.nombres.value.trim(), segundo_nombre: (form.segundo_nombre && form.segundo_nombre.value.trim()) || "", apellidop: form.apellidop.value.trim(), apellidom: (form.apellidom && form.apellidom.value.trim()) || "", email: (form.email && form.email.value.trim()) || "", telefono: (form.telefono && form.telefono.value.trim()) || "", id_departamento: (form.id_departamento && form.id_departamento.value) || null, id_puesto: (form.id_puesto && form.id_puesto.value) || null, estatus: "Por evaluar", notas: (form.notas && form.notas.value.trim()) || null };
-            if (!data.nombres || !data.apellidop) { if (typeof Swal !== "undefined") Swal.fire({ icon: "warning", title: "Faltan datos", text: "Nombres y apellido paterno son obligatorios." }); return; }
-            fetch("/CapHum/guardarCandidato", { method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" }, body: JSON.stringify(data) }).then(function(r){ return r.json(); }).then(function(res){
-                if (res.success) { if (typeof Swal !== "undefined") Swal.fire({ icon: "success", title: "Listo", text: res.mensaje || "Candidato registrado." }); var m = document.getElementById("modalAgregarCandidato"); if (m && typeof bootstrap !== "undefined") bootstrap.Modal.getInstance(m).hide(); form.reset(); getCandidatos(); } else { if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "Error", text: res.mensaje || res.error || "No se pudo guardar." }); }
-            });
-        }
-        function editarCandidato(id) { getCandidatos(); }
-        function eliminarCandidato(id) {
-            if (typeof Swal === "undefined") { if (confirm("¿Eliminar candidato?")) fetch("/CapHum/eliminarCandidato", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: id }) }).then(function(r){ return r.json(); }).then(function(d){ if (d.success) getCandidatos(); }); return; }
-            Swal.fire({ title: "¿Eliminar?", text: "Se eliminará el candidato.", icon: "warning", showCancelButton: true }).then(function(r){ if (r.isConfirmed) fetch("/CapHum/eliminarCandidato", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: id }) }).then(function(res){ return res.json(); }).then(function(d){ if (d.success) { Swal.fire({ icon: "success", text: d.mensaje }); getCandidatos(); } else Swal.fire({ icon: "error", text: d.mensaje || d.error }); }); });
-        }
-        </script>';
+        $candidatosResult = CandidatosDAO::getAll(null, null, null);
+        $candidatos = (isset($candidatosResult['success']) && $candidatosResult['success'] && !empty($candidatosResult['datos']))
+            ? $candidatosResult['datos']
+            : [];
+
         self::set("titulo", "Candidatos");
-        self::set("script", $script);
+        self::set("script", '');
         self::set("departamento", $departamento);
+        self::set("paisesActivos", \Models\Paises::getPaisesActivos());
+        self::set("listaJefes", CapHumDAO::getListaPersonasParaJefe());
+        self::set("candidatos", $candidatos);
         self::render("candidatos");
     }
 
@@ -3404,6 +3359,20 @@ class CapHum extends Controller
         $id_departamento = isset($_GET["id_departamento"]) ? (int) $_GET["id_departamento"] : null;
         $id_puesto = isset($_GET["id_puesto"]) ? (int) $_GET["id_puesto"] : null;
         $resultado = CandidatosDAO::getAll($estatus, $id_departamento, $id_puesto);
+        echo json_encode($resultado);
+        exit;
+    }
+
+    /** Obtener un candidato por ID (para reenviar postulación). */
+    public function getCandidato($id = null)
+    {
+        header("Content-Type: application/json");
+        $id = (int) $id;
+        if ($id <= 0) {
+            echo json_encode(self::resultado(false, 'ID inválido.', null));
+            exit;
+        }
+        $resultado = CandidatosDAO::getById($id);
         echo json_encode($resultado);
         exit;
     }
@@ -3427,6 +3396,387 @@ class CapHum extends Controller
         $resultado = CandidatosDAO::delete($id);
         echo json_encode($resultado);
         exit;
+    }
+
+    /** Actualizar candidato existente. */
+    public function actualizarCandidato()
+    {
+        header("Content-Type: application/json");
+        $raw = file_get_contents("php://input");
+        $data = json_decode($raw, true) ?: [];
+        $id = isset($data["id"]) ? (int) $data["id"] : 0;
+        if ($id <= 0) {
+            echo json_encode(self::resultado(false, 'ID de candidato requerido.', null));
+            exit;
+        }
+        $resultado = CandidatosDAO::update($id, $data);
+        echo json_encode($resultado);
+        exit;
+    }
+
+    /** Enviar correo de postulación al candidato. */
+    public function enviarPostulacionCandidato()
+    {
+        header("Content-Type: application/json");
+        $raw = file_get_contents("php://input");
+        $body = json_decode($raw, true) ?: [];
+        $id = isset($body["id"]) ? (int) $body["id"] : 0;
+        $email = isset($body["email"]) ? trim($body["email"]) : "";
+        if ($id <= 0 || $email === "") {
+            echo json_encode(self::resultado(false, "Datos insuficientes.", null));
+            return;
+        }
+        $candidatoRes = CandidatosDAO::getById($id);
+        if (!$candidatoRes['success'] || empty($candidatoRes['datos'])) {
+            echo json_encode(self::resultado(false, "Candidato no encontrado.", null));
+            return;
+        }
+        $c = $candidatoRes['datos'];
+        $nombreCompleto = trim(implode(' ', [
+            $c['nombres'] ?? '',
+            $c['segundo_nombre'] ?? '',
+            $c['apellidop'] ?? '',
+            $c['apellidom'] ?? ''
+        ]));
+        $puesto = $c['nombre_puesto'] ?? 'N/A';
+        $departamento = $c['nombre_departamento'] ?? 'N/A';
+        $destino = filter_var($email, FILTER_VALIDATE_EMAIL) ? $email : ($c['email'] ?? '');
+        if ($destino === '') {
+            echo json_encode(self::resultado(false, "Correo del candidato no válido.", null));
+            return;
+        }
+
+        $asunto = "Confirmación de postulación - " . ($c['nombre_puesto'] ?? 'Vacante');
+        $mensajeHtml = "<!DOCTYPE html><html><head><meta charset='UTF-8'></head><body style='font-family: Arial, sans-serif; line-height: 1.6; color: #333;'>";
+        $mensajeHtml .= "<h2 style='color: #1a52a8;'>Confirmación de postulación</h2>";
+        $mensajeHtml .= "<p>Estimado(a) <strong>" . htmlspecialchars($nombreCompleto) . "</strong>,</p>";
+        $mensajeHtml .= "<p>Su postulación ha sido recibida correctamente.</p>";
+        $mensajeHtml .= "<p><strong>Puesto solicitado:</strong> " . htmlspecialchars($puesto) . "<br>";
+        $mensajeHtml .= "<strong>Departamento:</strong> " . htmlspecialchars($departamento) . "</p>";
+        $mensajeHtml .= "<p>Nos pondremos en contacto con usted en caso de que su perfil sea seleccionado.</p>";
+        $mensajeHtml .= "<p>Saludos cordiales,<br>Recursos Humanos</p></body></html>";
+
+        $enviado = $this->enviarCorreo($destino, $asunto, $mensajeHtml, $nombreCompleto);
+        if ($enviado) {
+            echo json_encode(self::resultado(true, "Postulación enviada por correo correctamente.", null));
+        } else {
+            echo json_encode(self::resultado(false, "No se pudo enviar el correo. Revise la configuración del servidor de correo.", null));
+        }
+        exit;
+    }
+
+    /**
+     * Obtener o crear token para link de subida de documentos del candidato (JSON).
+     * Requiere sesión. Retorna { success, token, url }.
+     */
+    public function getTokenDocumentosCandidato()
+    {
+        header("Content-Type: application/json");
+        $raw = file_get_contents("php://input");
+        $body = json_decode($raw, true) ?: [];
+        $id = isset($body["id"]) ? (int) $body["id"] : 0;
+        if ($id <= 0) {
+            echo json_encode(self::resultado(false, "ID de candidato requerido.", null));
+            return;
+        }
+        $res = CandidatosDAO::getOrCreateTokenDocumentos($id);
+        if (!$res['success']) {
+            echo json_encode($res);
+            return;
+        }
+        $base = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http') . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost');
+        $url = $base . '/CapHum/subirDocumentosCandidato/' . $res['datos'];
+        echo json_encode(self::resultado(true, 'OK', ['token' => $res['datos'], 'url' => $url]));
+        exit;
+    }
+
+    /**
+     * Vista pública para subir documentos del candidato (acceso por token en URL).
+     * No requiere login. GET: muestra formulario; POST: recibe archivos.
+     */
+    public function subirDocumentosCandidato($token = null)
+    {
+        $token = $token ?? (isset($_GET['token']) ? trim($_GET['token']) : '');
+        if ($token === '') {
+            $this->subirDocumentosCandidatoError('Enlace no válido.');
+            return;
+        }
+
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $this->subirDocumentosCandidatoProcesar($token);
+            return;
+        }
+
+        $res = CandidatosDAO::getCandidatoPorToken($token);
+        if (!$res['success'] || empty($res['datos'])) {
+            $this->subirDocumentosCandidatoError($res['mensaje'] ?? 'Enlace no válido o expirado.');
+            return;
+        }
+        $candidato = $res['datos'];
+        $nombreCompleto = trim(($candidato['nombres'] ?? '') . ' ' . ($candidato['apellidop'] ?? '') . ' ' . ($candidato['apellidom'] ?? ''));
+        $this->set('token', $token);
+        $this->set('nombre_candidato', $nombreCompleto);
+        $this->set('id_candidato', $candidato['id_candidato']);
+        $this->render('subir_documentos_candidato', true);
+    }
+
+    /**
+     * Descarga un documento para el candidato (carta no adeudo o solicitud interna prellenada).
+     * No requiere login. URL: /CapHum/descargarDocumentoCandidato/{token}/{tipo}
+     * tipo = carta_no_adeudo | solicitud_interna
+     */
+    public function descargarDocumentoCandidato($token = null, $tipo = null)
+    {
+        $token = trim($token ?? '');
+        $tipo = strtolower(trim($tipo ?? ''));
+        if ($token === '' || !in_array($tipo, ['carta_no_adeudo', 'solicitud_interna'], true)) {
+            header('HTTP/1.0 400 Bad Request');
+            echo 'Enlace no válido.';
+            return;
+        }
+        $res = CandidatosDAO::getCandidatoPorToken($token);
+        if (!$res['success'] || empty($res['datos'])) {
+            header('HTTP/1.0 404 Not Found');
+            echo 'Enlace no válido o expirado.';
+            return;
+        }
+        $id_candidato = (int) $res['datos']['id_candidato'];
+        $dirPlantillas = defined('RAIZ') ? (RAIZ . '/storage/plantillas_candidatos') : (__DIR__ . '/../storage/plantillas_candidatos');
+
+        if ($tipo === 'carta_no_adeudo') {
+            $archivo = $dirPlantillas . '/carta_no_adeudo_infonavit_fonacot.pdf';
+            if (!is_file($archivo)) {
+                header('HTTP/1.0 404 Not Found');
+                echo 'Documento no disponible. Contacte al área de Recursos Humanos.';
+                return;
+            }
+            header('Content-Type: application/pdf');
+            header('Content-Disposition: attachment; filename="Carta_No_Adeudo_INFONAVIT_FONACOT.pdf"');
+            readfile($archivo);
+            return;
+        }
+
+        if ($tipo === 'solicitud_interna') {
+            $plantilla = $dirPlantillas . '/solicitud_interna___SPARTA_SECRET_REDACTED__.pdf';
+            if (!is_file($plantilla)) {
+                header('HTTP/1.0 404 Not Found');
+                echo 'Documento no disponible. Contacte al área de Recursos Humanos.';
+                return;
+            }
+            $candidatoRes = CandidatosDAO::getById($id_candidato);
+            $c = $candidatoRes['success'] && !empty($candidatoRes['datos']) ? $candidatoRes['datos'] : $res['datos'];
+            $nombreCompleto = trim(implode(' ', [
+                $c['nombres'] ?? '',
+                $c['segundo_nombre'] ?? '',
+                $c['apellidop'] ?? '',
+                $c['apellidom'] ?? ''
+            ]));
+            $email = $c['email'] ?? '';
+            $telefono = $c['telefono'] ?? '';
+            $puesto = $c['nombre_puesto'] ?? '';
+            $departamento = $c['nombre_departamento'] ?? '';
+            $fecha = date('d/m/Y');
+
+            $autoload = defined('RAIZ') ? (RAIZ . '/libs/mpdf/vendor/autoload.php') : (__DIR__ . '/../libs/mpdf/vendor/autoload.php');
+            if (!is_file($autoload)) {
+                header('HTTP/1.0 500 Internal Server Error');
+                echo 'Error de configuración.';
+                return;
+            }
+            require_once $autoload;
+            try {
+                $mpdf = new \Mpdf\Mpdf(['tempDir' => sys_get_temp_dir()]);
+                $mpdf->setSourceFile($plantilla);
+                $tplId = $mpdf->importPage(1);
+                $mpdf->AddPage();
+                $mpdf->useTemplate($tplId);
+                $mpdf->SetFont('helvetica', '', 10);
+                $mpdf->SetTextColor(0, 0, 0);
+
+                // Posiciones en mm (x = margen izquierdo, y = desde arriba). Ajustar según solicitud_interna___SPARTA_SECRET_REDACTED__.pdf
+                $posiciones = [
+                    ['x' => 30, 'y' => 58, 'texto' => $nombreCompleto],
+                    ['x' => 30, 'y' => 66, 'texto' => $email],
+                    ['x' => 30, 'y' => 74, 'texto' => $telefono],
+                    ['x' => 30, 'y' => 82, 'texto' => $puesto],
+                    ['x' => 30, 'y' => 90, 'texto' => $departamento],
+                    ['x' => 30, 'y' => 98, 'texto' => $fecha],
+                ];
+                foreach ($posiciones as $p) {
+                    $mpdf->SetXY($p['x'], $p['y']);
+                    $mpdf->Write(0, $p['texto']);
+                }
+                $mpdf->Output('Solicitud_Interna_Maxikash.pdf', 'D');
+            } catch (\Throwable $e) {
+                header('HTTP/1.0 500 Internal Server Error');
+                echo 'Error al generar el documento.';
+            }
+            return;
+        }
+    }
+
+    private function subirDocumentosCandidatoError($mensaje)
+    {
+        $this->set('error_mensaje', $mensaje);
+        $this->set('token', '');
+        $this->render('subir_documentos_candidato', true);
+    }
+
+    private function subirDocumentosCandidatoProcesar($token)
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        $res = CandidatosDAO::getCandidatoPorToken($token);
+        if (!$res['success'] || empty($res['datos'])) {
+            echo json_encode(self::resultado(false, $res['mensaje'] ?? 'Enlace no válido.'));
+            return;
+        }
+        $id_candidato = (int) $res['datos']['id_candidato'];
+
+        $tiposDocumento = [
+            1  => 'SOLICITUD INTERNA',
+            2  => 'CV O SOLICITUD DE TRABAJO',
+            3  => 'ACTA DE NACIMIENTO',
+            4  => 'CURP',
+            5  => 'IDENTIFICACIÓN OFICIAL',
+            6  => 'COMPROBANTE DE DOMICILIO',
+            7  => 'CONSTANCIA DE SITUACION FISCAL',
+            8  => 'NÚMERO DE SEGURIDAD SOCIAL',
+            9  => 'HOJA DE RETENCION FONACOT O INFONAVIT',
+            10 => 'ESTADO DE CUENTA',
+        ];
+
+        $dirBase = defined('RAIZ') ? (RAIZ . '/storage/candidatos_documentos') : (__DIR__ . '/../storage/candidatos_documentos');
+        $dirCandidato = $dirBase . '/' . $id_candidato;
+        if (!is_dir($dirBase)) {
+            @mkdir($dirBase, 0755, true);
+        }
+        if (!is_dir($dirCandidato)) {
+            @mkdir($dirCandidato, 0755, true);
+        }
+        $guardados = 0;
+        $errores = [];
+        $permitidos = ['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png'];
+
+        for ($i = 1; $i <= 10; $i++) {
+            $key = 'archivo_' . $i;
+            if (!isset($_FILES[$key]) || $_FILES[$key]['error'] !== UPLOAD_ERR_OK || $_FILES[$key]['size'] <= 0) {
+                continue;
+            }
+            $nombreOriginal = basename($_FILES[$key]['name'] ?? '');
+            $ext = strtolower(pathinfo($nombreOriginal, PATHINFO_EXTENSION));
+            if (!in_array($ext, $permitidos)) {
+                $errores[] = ($tiposDocumento[$i] ?? $key) . ': tipo no permitido';
+                continue;
+            }
+            $nombreUnico = date('YmdHis') . '_' . $i . '_' . preg_replace('/[^a-zA-Z0-9._-]/', '', $nombreOriginal);
+            $rutaDestino = $dirCandidato . '/' . $nombreUnico;
+            if (!move_uploaded_file($_FILES[$key]['tmp_name'], $rutaDestino)) {
+                $errores[] = $tiposDocumento[$i] ?? $key;
+                continue;
+            }
+            $rutaRelativa = 'candidatos_documentos/' . $id_candidato . '/' . $nombreUnico;
+            $tipoNombre = $tiposDocumento[$i] ?? '';
+
+            if ($i === 5) {
+                $ocrValidator = new OcrIdentidad(null, $dirBase);
+                $candidatoParaOcr = null;
+                $candidatoRes = CandidatosDAO::getById($id_candidato);
+                if ($candidatoRes['success'] && !empty($candidatoRes['datos'])) {
+                    $c = $candidatoRes['datos'];
+                    $candidatoParaOcr = [
+                        'nombres' => $c['nombres'] ?? '',
+                        'apellidop' => $c['apellidop'] ?? '',
+                        'apellidom' => $c['apellidom'] ?? '',
+                        'curp' => $c['curp'] ?? '',
+                    ];
+                }
+                $validacion = $ocrValidator->validarDocumentoIdentidad($rutaDestino, $candidatoParaOcr);
+                if (!$validacion['valido']) {
+                    @unlink($rutaDestino);
+                    $errores[] = 'IDENTIFICACIÓN OFICIAL: ' . $validacion['mensaje'];
+                    continue;
+                }
+            }
+
+            $guardar = CandidatosDAO::guardarDocumento($id_candidato, $nombreOriginal, $rutaRelativa, $tipoNombre);
+            if ($guardar['success']) {
+                $guardados++;
+            }
+        }
+        if ($guardados > 0) {
+            echo json_encode(self::resultado(true, 'Se subieron ' . $guardados . ' documento(s) correctamente.', ['guardados' => $guardados]));
+        } else {
+            echo json_encode(self::resultado(false, count($errores) ? implode(', ', $errores) : 'No se envió ningún archivo. Selecciona al menos un documento.'));
+        }
+        exit;
+    }
+
+    /**
+     * Envía un correo HTML usando PHPMailer (mail() o SMTP según configuración).
+     * @param string $para Email del destinatario
+     * @param string $asunto Asunto
+     * @param string $cuerpoHtml Cuerpo en HTML
+     * @param string $nombreDestinatario Nombre para el encabezado
+     * @return bool
+     */
+    private function enviarCorreo($para, $asunto, $cuerpoHtml, $nombreDestinatario = '')
+    {
+        $autoload = defined('RAIZ') ? (RAIZ . '/libs/PHPMailer/vendor/autoload.php') : (__DIR__ . '/../libs/PHPMailer/vendor/autoload.php');
+        if (!is_file($autoload)) {
+            error_log('CapHum::enviarCorreo: PHPMailer autoload no encontrado: ' . $autoload);
+            return false;
+        }
+        require_once $autoload;
+
+        $config = defined('CONFIGURACION') && is_array(CONFIGURACION) ? CONFIGURACION : [];
+        $mailFrom = $config['mail_from'] ?? $config['mail']['mail_from'] ?? null;
+        $mailFromName = $config['mail_from_name'] ?? $config['mail']['mail_from_name'] ?? 'Recursos Humanos';
+        $smtpHost = $config['smtp_host'] ?? $config['mail']['smtp_host'] ?? '';
+        $smtpUser = $config['smtp_user'] ?? $config['mail']['smtp_user'] ?? '';
+        $smtpPass = $config['smtp_pass'] ?? $config['mail']['smtp_pass'] ?? '';
+        $smtpPort = (int) ($config['smtp_port'] ?? $config['mail']['smtp_port'] ?? 587);
+        $smtpSecure = $config['smtp_secure'] ?? $config['mail']['smtp_secure'] ?? 'tls';
+
+        try {
+            $mail = new \PHPMailer\PHPMailer\PHPMailer(true);
+            $mail->CharSet = 'UTF-8';
+            $mail->Encoding = 'base64';
+            $langPath = defined('RAIZ') ? (RAIZ . '/libs/PHPMailer/vendor/phpmailer/phpmailer/language/') : (__DIR__ . '/../libs/PHPMailer/vendor/phpmailer/phpmailer/language/');
+            if (is_dir($langPath)) {
+                $mail->setLanguage('es', $langPath);
+            }
+            $mail->isHTML(true);
+            $mail->Subject = $asunto;
+            $mail->Body    = $cuerpoHtml;
+            $mail->AltBody = strip_tags(preg_replace('/<br\s*\/?>/i', "\n", $cuerpoHtml));
+            $mail->addAddress($para, $nombreDestinatario ?: '');
+
+            if ($mailFrom) {
+                $mail->setFrom($mailFrom, $mailFromName);
+            }
+
+            if ($smtpHost !== '' && $smtpUser !== '') {
+                $mail->isSMTP();
+                $mail->Host       = $smtpHost;
+                $mail->SMTPAuth   = true;
+                $mail->Username   = $smtpUser;
+                $mail->Password   = $smtpPass;
+                $mail->Port       = $smtpPort;
+                if (strtolower($smtpSecure) === 'tls') {
+                    $mail->SMTPSecure = \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
+                } elseif (strtolower($smtpSecure) === 'ssl') {
+                    $mail->SMTPSecure = \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_SMTPS;
+                }
+            } else {
+                $mail->isMail();
+            }
+
+            $mail->send();
+            return true;
+        } catch (\Exception $e) {
+            error_log('CapHum::enviarCorreo: ' . $e->getMessage());
+            return false;
+        }
     }
 
     public function bajas()
@@ -5493,6 +5843,21 @@ public function getMunicipios()
             return;
         }
 
+        // Deduplicar por id de persona (quien tiene dos cargos no debe salir dos veces)
+        $deduplicarPorPersona = function ($lista) {
+            if (!is_array($lista) || empty($lista)) return $lista;
+            $vistos = [];
+            $out = [];
+            foreach ($lista as $row) {
+                $id = isset($row['id']) ? (int) $row['id'] : 0;
+                if ($id && !isset($vistos[$id])) {
+                    $vistos[$id] = true;
+                    $out[] = $row;
+                }
+            }
+            return array_values($out);
+        };
+
         // 1) Si hay puesto seleccionado: jefes por nivel (mismo departamento, nivel superior)
         if ($idPuesto) {
             $porPuesto = CapHumDAO::getConsultaGestoresPorPuesto($idPuesto);
@@ -5504,6 +5869,7 @@ public function getMunicipios()
                         'nombre_puesto' => $row['puesto'] ?? $row['nombre_puesto'] ?? ''
                     ];
                 }, $porPuesto['datos']);
+                $datos = $deduplicarPorPersona($datos);
                 self::respuestaJSON(['success' => true, 'mensaje' => 'Jefes encontrados.', 'datos' => $datos]);
                 return;
             }
@@ -5512,7 +5878,8 @@ public function getMunicipios()
         // 2) Jefes por es_jefe=1 en el departamento (o puesto id 8)
         $detalles = CapHumDAO::getConsultaJefe($idDepartamento);
         if ($detalles['success'] && !empty($detalles['datos'])) {
-            self::respuestaJSON($detalles);
+            $datos = $deduplicarPorPersona($detalles['datos']);
+            self::respuestaJSON(['success' => true, 'mensaje' => $detalles['mensaje'] ?? 'Jefes encontrados.', 'datos' => $datos]);
             return;
         }
 
@@ -5526,6 +5893,7 @@ public function getMunicipios()
                     'nombre_puesto' => $row['nombre_puesto'] ?? $row['puesto'] ?? ''
                 ];
             }, $porDepto['datos']);
+            $datos = $deduplicarPorPersona($datos);
             self::respuestaJSON(['success' => true, 'mensaje' => 'Personas del departamento.', 'datos' => $datos]);
             return;
         }
