@@ -54,15 +54,31 @@ class Login extends Model
 
     public static function getModulosUsuario($idPersona)
     {
+        $idPersona = (int) $idPersona;
+        if ($idPersona <= 0) {
+            return [];
+        }
+
         $query = <<<SQL
         SELECT modulo_web_id
         FROM asigna_modulo_web
         WHERE usuario_id = :idPersona
-    SQL;
+        SQL;
 
-        $db = new Database();
-        $rows = $db->queryAll($query, ['idPersona' => $idPersona]);
+        try {
+            $db = new Database();
+            $rows = $db->queryAll($query, ['idPersona' => $idPersona]);
+        } catch (\Exception $e) {
+            return [];
+        }
 
-        return array_column($rows, 'modulo_web_id');
+        $ids = [];
+        foreach ($rows as $row) {
+            $id = $row['modulo_web_id'] ?? $row['MODULO_WEB_ID'] ?? null;
+            if ($id !== null && $id !== '') {
+                $ids[] = (int) $id;
+            }
+        }
+        return array_values(array_unique($ids));
     }
 }

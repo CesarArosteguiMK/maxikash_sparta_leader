@@ -1582,6 +1582,7 @@ body.dark-mode .sede-glass-badge {
 <script>
 window.miUsuarioId = <?= json_encode((int)($miUsuarioId ?? 0)) ?>;
 window.puedeEditarTodos = <?= json_encode(!empty($puedeEditarTodos ?? false)) ?>;
+window.puedeGestionarPermisos = <?= json_encode(!empty($puedeGestionarPermisos ?? false)) ?>;
 window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? [])) ?>;
 </script>
 <div class="content-wrapper">
@@ -2772,7 +2773,7 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
                             </div>
 
                             <div id="modulos-container" style="overflow-y: visible;">
-                                <div id="modulos-form"></div>
+                                <div id="modal-edit-perfil-modulos-form"></div>
                             </div>
                         </div>
 
@@ -2791,7 +2792,7 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
                             </div>
 
                             <div id="puestos-container" style="max-height: 500px; overflow-y: auto;">
-                                <div id="puestos-form"></div>
+                                <div id="modal-edit-perfil-puestos-form"></div>
                             </div>
                         </div>
 
@@ -2804,7 +2805,7 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
                                 </div>
                             </div>
                             <div id="permisos-especiales-container" style="overflow-y: visible; margin-left: 1.25rem; padding-left: 0.5rem; border-left: 2px solid #e9ecef;">
-                                <div id="permisos-especiales-form"></div>
+                                <div id="modal-edit-perfil-permisos-especiales-form"></div>
                             </div>
                         </div>
                     </div>

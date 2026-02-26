@@ -107,19 +107,3 @@ $departamento = $departamento ?? ['datos' => []];
 .btn-action-size { height: 36px; padding: 0.375rem 0.75rem; font-size: 0.875rem; display: inline-flex; align-items: center; gap: 0.375rem; }
 #tablaCandidatos thead th { background-color: rgba(105, 108, 255, 0.1); font-weight: 600; }
 </style>
-
-<script>
-(function(){
-    if (typeof $ !== "undefined" && $.fn.DataTable) {
-        $("#filterEstatus").on("change", function() { getCandidatos(); });
-        if (!$("#tablaCandidatos").length) return;
-        if ($.fn.DataTable.isDataTable("#tablaCandidatos")) return;
-        $("#tablaCandidatos").DataTable({
-            responsive: true,
-            order: [[0, "asc"]],
-            language: { url: "/assets/vendor/libs/datatables-bs5/i18n/es-ES.mjs" },
-            columnDefs: [ { orderable: false, targets: 4 } ]
-        });
-    }
-})();
-</script>
