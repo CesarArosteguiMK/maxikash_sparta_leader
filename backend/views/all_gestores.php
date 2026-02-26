@@ -2019,6 +2019,20 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
                     </select>
                 </div>
 
+                <div class="mb-2" id="div_add_estado" style="display:none;">
+    <label class="form-label" id="label_add_estado">Estado *</label>
+    <select id="add_id_div_nivel1" class="form-select" disabled>
+        <option value="">Seleccione un estado</option>
+    </select>
+</div>
+
+<div class="mb-2" id="div_add_municipio" style="display:none;">
+    <label class="form-label" id="label_add_municipio">Municipio *</label>
+    <select id="add_id_div_nivel2" class="form-select" disabled>
+        <option value="">Seleccione un municipio</option>
+    </select>
+</div>
+
                 <div class="mb-2">
                     <label class="form-label">Departamento *</label>
                     <select id="add_departamento_id" class="form-select">
@@ -2536,6 +2550,20 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
                     <label class="form-label">Teléfono *</label>
                     <input type="text" id="edit_telefono" class="form-control phone-mask" oninput="this.value = this.value.replace(/[^0-9]/g, '')" onblur="validarTelefono('edit_telefono')" maxlength="10">
                 </div>
+
+                <div class="mb-2" id="div_edit_estado" style="display:none;">
+    <label class="form-label" id="label_edit_estado">Estado</label>
+    <select id="edit_id_div_nivel1" class="form-select">
+        <option value="">Seleccione un estado</option>
+    </select>
+</div>
+
+<div class="mb-2" id="div_edit_municipio" style="display:none;">
+    <label class="form-label" id="label_edit_municipio">Municipio</label>
+    <select id="edit_id_div_nivel2" class="form-select">
+        <option value="">Seleccione un municipio</option>
+    </select>
+</div>
 
                 <!-- Alerta informativa de múltiples puestos -->
                 <div class="alert alert-info d-none mb-3" id="edit_alerta_multiples_puestos" style="background: linear-gradient(135deg, #3b82f6 0%, #60a5fa 100%); border: none; color: white;">
@@ -5868,5 +5896,202 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
       }
     });
   }
+
+  /**
+ * ==========================================
+ * CASCADA GEOGRÁFICA: País → Estado → Municipio
+ * ==========================================
+ */
+
+// Etiquetas dinámicas por país (agrega más según necesites)
+const labelsPorPais = {
+    1: { nivel1: 'Estado',      nivel2: 'Alcaldía / Municipio' }, // México
+    2: { nivel1: 'Departamento', nivel2: 'Municipio' },           // Guatemala
+    3: { nivel1: 'Departamento', nivel2: 'Municipio' },           // Colombia
+};
+
+/**
+ * Cargar estados al cambiar país (formulario AGREGAR)
+ */
+document.addEventListener('DOMContentLoaded', function () {
+
+    const selectPaisAdd = document.getElementById('add_id_pais');
+    if (selectPaisAdd) {
+        selectPaisAdd.addEventListener('change', function () {
+            const idPais = this.value;
+            resetCascadaAdd();
+
+            if (!idPais) return;
+
+            // Actualizar etiquetas según país
+            actualizarLabels(idPais, 'add');
+
+            // Cargar estados
+            cargarEstados(idPais, 'add_id_div_nivel1', function () {
+                document.getElementById('div_add_estado').style.display = '';
+                document.getElementById('add_id_div_nivel1').disabled = false;
+            });
+        });
+    }
+
+    const selectEstadoAdd = document.getElementById('add_id_div_nivel1');
+    if (selectEstadoAdd) {
+        selectEstadoAdd.addEventListener('change', function () {
+            const idEstado = this.value;
+
+            // Resetear municipio
+            const selMun = document.getElementById('add_id_div_nivel2');
+            selMun.innerHTML = '<option value="">Seleccione...</option>';
+            selMun.disabled = true;
+            document.getElementById('div_add_municipio').style.display = 'none';
+
+            if (!idEstado) return;
+
+            cargarMunicipios(idEstado, 'add_id_div_nivel2', function () {
+                document.getElementById('div_add_municipio').style.display = '';
+                document.getElementById('add_id_div_nivel2').disabled = false;
+            });
+        });
+    }
+
+    // ===================================
+    // EVENTO LISTENER PARA EDITAR USUARIO
+    // ===================================
+    const selectEstadoEdit = document.getElementById('edit_id_div_nivel1');
+    if (selectEstadoEdit) {
+        selectEstadoEdit.addEventListener('change', function () {
+            const idEstado = this.value;
+
+            // Resetear municipio
+            const selMun = document.getElementById('edit_id_div_nivel2');
+            selMun.innerHTML = '<option value="">Seleccione...</option>';
+            selMun.disabled = true;
+            document.getElementById('div_edit_municipio').style.display = 'none';
+
+            if (!idEstado) return;
+
+            cargarMunicipios(idEstado, 'edit_id_div_nivel2', function () {
+                document.getElementById('div_edit_municipio').style.display = '';
+                document.getElementById('edit_id_div_nivel2').disabled = false;
+            });
+        });
+    }
+});
+
+/**
+ * Resetear cascada del formulario agregar
+ */
+function resetCascadaAdd() {
+    const selEstado = document.getElementById('add_id_div_nivel1');
+    const selMun    = document.getElementById('add_id_div_nivel2');
+
+    selEstado.innerHTML = '<option value="">Seleccione...</option>';
+    selEstado.disabled  = true;
+    selMun.innerHTML    = '<option value="">Seleccione...</option>';
+    selMun.disabled     = true;
+
+    document.getElementById('div_add_estado').style.display    = 'none';
+    document.getElementById('div_add_municipio').style.display = 'none';
+}
+
+/**
+ * Actualizar etiquetas según país
+ */
+function actualizarLabels(idPais, prefix) {
+    const labels = labelsPorPais[idPais] || { nivel1: 'Estado', nivel2: 'Municipio' };
+    const labelN1 = document.getElementById(`label_${prefix}_estado`);
+    const labelN2 = document.getElementById(`label_${prefix}_municipio`);
+    if (labelN1) labelN1.textContent = labels.nivel1 + ' *';
+    if (labelN2) labelN2.textContent = labels.nivel2 + ' *';
+}
+
+/**
+ * Cargar estados via fetch
+ */
+function cargarEstados(idPais, selectId, onSuccess) {
+    const select = document.getElementById(selectId);
+    select.innerHTML = '<option value="">Cargando...</option>';
+
+    fetch('/CapHum/getEstados', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id_pais: idPais })
+    })
+    .then(r => r.json())
+    .then(data => {
+        select.innerHTML = '<option value="">Seleccione...</option>';
+        if (data.success && data.datos) {
+            data.datos.forEach(e => {
+                const opt = document.createElement('option');
+                opt.value       = e.id;
+                opt.textContent = e.nombre;
+                select.appendChild(opt);
+            });
+        }
+        if (onSuccess) onSuccess();
+    })
+    .catch(() => {
+        select.innerHTML = '<option value="">Error al cargar</option>';
+    });
+}
+
+/**
+ * Cargar municipios via fetch
+ */
+function cargarMunicipios(idEstado, selectId, onSuccess) {
+    const select = document.getElementById(selectId);
+    select.innerHTML = '<option value="">Cargando...</option>';
+
+    fetch('/CapHum/getMunicipios', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id_estado: idEstado })
+    })
+    .then(r => r.json())
+    .then(data => {
+        select.innerHTML = '<option value="">Seleccione...</option>';
+        if (data.success && data.datos) {
+            data.datos.forEach(m => {
+                const opt = document.createElement('option');
+                opt.value       = m.id;
+                opt.textContent = m.nombre;
+                select.appendChild(opt);
+            });
+        }
+        if (onSuccess) onSuccess();
+    })
+    .catch(() => {
+        select.innerHTML = '<option value="">Error al cargar</option>';
+    });
+}
+
+/**
+ * Precargar cascada en el offcanvas EDITAR
+ * (llamar desde la función editar() después de poblar el formulario)
+ */
+function precargarCascadaEdit(idPais, idEstado, idMunicipio) {
+    if (!idPais) {
+        document.getElementById('div_edit_estado').style.display    = 'none';
+        document.getElementById('div_edit_municipio').style.display = 'none';
+        return;
+    }
+
+    actualizarLabels(idPais, 'edit');
+
+    cargarEstados(idPais, 'edit_id_div_nivel1', function () {
+        document.getElementById('div_edit_estado').style.display = '';
+
+        if (idEstado) {
+            document.getElementById('edit_id_div_nivel1').value = idEstado;
+
+            cargarMunicipios(idEstado, 'edit_id_div_nivel2', function () {
+                document.getElementById('div_edit_municipio').style.display = '';
+                if (idMunicipio) {
+                    document.getElementById('edit_id_div_nivel2').value = idMunicipio;
+                }
+            });
+        }
+    });
+}
 
 </script>
