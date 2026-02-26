@@ -5953,6 +5953,29 @@ document.addEventListener('DOMContentLoaded', function () {
             });
         });
     }
+
+    // ===================================
+    // EVENTO LISTENER PARA EDITAR USUARIO
+    // ===================================
+    const selectEstadoEdit = document.getElementById('edit_id_div_nivel1');
+    if (selectEstadoEdit) {
+        selectEstadoEdit.addEventListener('change', function () {
+            const idEstado = this.value;
+
+            // Resetear municipio
+            const selMun = document.getElementById('edit_id_div_nivel2');
+            selMun.innerHTML = '<option value="">Seleccione...</option>';
+            selMun.disabled = true;
+            document.getElementById('div_edit_municipio').style.display = 'none';
+
+            if (!idEstado) return;
+
+            cargarMunicipios(idEstado, 'edit_id_div_nivel2', function () {
+                document.getElementById('div_edit_municipio').style.display = '';
+                document.getElementById('edit_id_div_nivel2').disabled = false;
+            });
+        });
+    }
 });
 
 /**

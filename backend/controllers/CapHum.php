@@ -1847,7 +1847,7 @@ class CapHum extends Controller
                     document.getElementById("id_ausencia").value = '';
                     document.getElementById("btnGuardarAusencia").innerText = "Guardar ausencia";
             
-                    // ✅ LIMPIEZA CENTRALIZADA
+                    //  LIMPIEZA CENTRALIZADA
                     limpiarFormularioAusencia();
                     // Refrescar tabla
                     cargarAusencias(idPersona);
@@ -1897,7 +1897,7 @@ class CapHum extends Controller
                 }).then((result) => {
                     if (result.isConfirmed) {
             
-                        // 🧠 Crear FormData
+                        //  Crear FormData
                         const formData = new FormData();
                         formData.append("idGestor", idGestor);
                         formData.append("motivo", motivoSelect);
@@ -1908,7 +1908,7 @@ class CapHum extends Controller
                             formData.append('archivosPDF[]', file);
                         });
             
-                        // 🚀 Enviar al controlador
+                        //  Enviar al controlador
                         fetch('/CapHum/registrarBaja', {
                             method: 'POST',
                             body: formData
@@ -1924,7 +1924,7 @@ class CapHum extends Controller
             
                                 $("#modalBajas").modal("hide");
             
-                                // 🧹 Limpieza
+                                //  Limpieza
                                 archivosSeleccionados = [];
                                 const listEl = document.getElementById("listaArchivos");
                                 if (listEl) { listEl.innerHTML = ""; listEl.style.display = "none"; }
@@ -2014,7 +2014,7 @@ class CapHum extends Controller
                 const id_div_nivel1 = document.getElementById('edit_id_div_nivel1')?.value || null;
                 const id_div_nivel2 = document.getElementById('edit_id_div_nivel2')?.value || null;
 
-                // 🔴 VALIDACIONES OBLIGATORIAS
+                //  VALIDACIONES OBLIGATORIAS
                 if (!departamento) {
                     Swal.fire("Falta información", "Debes seleccionar un departamento", "warning");
                     return;
@@ -2355,7 +2355,7 @@ class CapHum extends Controller
                 const id_div_nivel2 = document.getElementById('add_id_div_nivel2')?.value || null;
             
             
-                // 🔴 Validaciones obligatorias (todos los campos)
+                //  Validaciones obligatorias (todos los campos)
                 if (!nombres) return Swal.fire('Error', 'Los nombres son obligatorios', 'error');
                 if (!apellidop) return Swal.fire('Error', 'El apellido paterno es obligatorio', 'error');
                 if (!apellidom) return Swal.fire('Error', 'El apellido materno es obligatorio', 'error');
@@ -2371,7 +2371,7 @@ class CapHum extends Controller
                     return Swal.fire('Error', 'Jefe inválido', 'error');
                 }
                 
-                // 🔴 Validar legión: si el checkbox está marcado, debe seleccionar una legión
+                //  Validar legión: si el checkbox está marcado, debe seleccionar una legión
                 if (asignarLegion && !id_legion) {
                     return Swal.fire('Error', 'Debe seleccionar una legión', 'error');
                 }
@@ -5402,7 +5402,7 @@ public function getMunicipios()
     }
     public function updateGestorF()
     {
-        session_start(); // 🔴 IMPORTANTE
+        session_start(); //  IMPORTANTE
         header('Content-Type: application/json; charset=utf-8');
 
         // Mismo permiso que Gestiones: solo quien tiene Configuración - Departamentos (módulo 10) puede editar
@@ -5423,13 +5423,13 @@ public function getMunicipios()
                 'success' => false,
                 'mensaje' => 'Datos incompletos'
             ]);
-            exit; // 🔴 CLAVE
+            exit; //  CLAVE
         }
 
         $resultado = CapHumDAO::UpdatePersona($input);
 
         echo json_encode($resultado);
-        exit; // 🔴 CLAVE
+        exit; //  CLAVE
     }
 
     ///////
@@ -5683,7 +5683,7 @@ public function getMunicipios()
         $motivo      = $_POST['motivo'] ?? null;
         $descripcion = $_POST['descripcion'] ?? null;
 
-        // ✅ Validaciones obligatorias
+        //  Validaciones obligatorias
         if (empty($idGestor)) {
             echo json_encode([
                 'success' => false,
@@ -5745,7 +5745,7 @@ public function getMunicipios()
             'usuario_baja' => $_SESSION['usuario_id']
         ];
 
-        // 🧠 Llamar al modelo / DAO
+        //  Llamar al modelo / DAO
         $resultado = CapHumDAO::registrarBajaGestor($data);
 
         if ($resultado['success']) {
