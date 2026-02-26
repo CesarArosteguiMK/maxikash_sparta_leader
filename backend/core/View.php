@@ -158,6 +158,11 @@ function getMenu()
                                     'modulos' => [6]
                             ],
                             [
+                                    'label' => 'Sabuesos',
+                                    'url' => '/reporteria/sabuesos',
+                                    'modulos' => [18, 19]
+                            ],
+                            [
                                     'label' => 'Layout Legacy',
                                     'url' => '/reporteria/layoutlegacy',
                                     'modulos' => [7]
