@@ -1338,6 +1338,25 @@ class CapHum extends Model
             return self::resultado(false, 'Error al procesar la solicitud.', null, $e->getMessage());
         }
     }
+
+    /** Lista de personas para select "Posible jefe" en candidatos. */
+    public static function getListaPersonasParaJefe()
+    {
+        $query = <<<SQL
+            SELECT id, CONCAT(TRIM(COALESCE(nombres,'')), ' ', TRIM(COALESCE(apellidop,'')), ' ', TRIM(COALESCE(apellidom,''))) AS nombre
+            FROM persona
+            WHERE estatus IS NULL OR estatus != 'Baja'
+            ORDER BY nombres, apellidop, apellidom
+        SQL;
+        try {
+            $db = new Database();
+            $r = $db->queryAll($query);
+            return is_array($r) ? $r : [];
+        } catch (\Exception $e) {
+            return [];
+        }
+    }
+
     /** Para organigrama: devuelve todos los departamentos (sin filtrar por gestor). */
     public static function getTodosDepartamentos()
     {

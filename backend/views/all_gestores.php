@@ -1978,7 +1978,7 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
                 </div>
 
                 <div class="mb-2">
-                    <label class="form-label">Nombres *</label>
+                    <label class="form-label">Nombre *</label>
                     <input type="text" id="add_nombres" class="form-control" oninput="this.value = this.value.replace(/[^A-Za-zÁÉÍÓÚáéíóúÑñ\s]/g, '').replace(/^\s+/, '').replace(/\s{2,}/g, ' ').toUpperCase()" onblur="this.value = this.value.trim()" style="text-transform: uppercase;">
                 </div>
 
@@ -2191,12 +2191,15 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
                         <label for="motivoReingreso" class="form-label"><strong>Motivo del reingreso:</strong></label>
                         <select class="form-select" id="motivoReingreso">
                             <option value="">-- Selecciona un motivo --</option>
-                            <option value="Reincorporación">Reincorporación</option>
-                            <option value="Nuevo contrato">Nuevo contrato</option>
-                            <option value="Cambio de área">Cambio de área</option>
-                            <option value="Solicitud del empleado">Solicitud del empleado</option>
-                            <option value="Decisión de la empresa">Decisión de la empresa</option>
-                            <option value="Otro">Otro</option>
+                            <option value="ILOCALIZABLE">ILOCALIZABLE</option>
+                            <option value="LOCALIZABLE EN DOMICILIO PRINCIPAL">LOCALIZABLE EN DOMICILIO PRINCIPAL</option>
+                            <option value="LOCALIZABLE EN DOMICILIO ALTERNO (FIRMA, BURO Y FRACTURA)">LOCALIZABLE EN DOMICILIO ALTERNO (FIRMA, BURO Y FRACTURA)</option>
+                            <option value="LOCALIZABLE EN DOMICILIO DE RIESGO">LOCALIZABLE EN DOMICILIO DE RIESGO</option>
+                            <option value="GESTIÓN INCOMPLETA">GESTIÓN INCOMPLETA</option>
+                            <option value="DUAL || ZONIFICACIÓN">DUAL || ZONIFICACIÓN</option>
+                            <option value="FALTA VISITAR DOMICILIOS ALTERNOS">FALTA VISITAR DOMICILIOS ALTERNOS</option>
+                            <option value="FALTA INTENSIDAD DE GESTIÓN">FALTA INTENSIDAD DE GESTIÓN</option>
+                            <option value="GESTIONADA VÍA TELEFÓNICA">GESTIONADA VÍA TELEFÓNICA</option>
                         </select>
                     </div>
 
@@ -2522,7 +2525,7 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
                 </div>
 
                 <div class="mb-2">
-                    <label class="form-label">Nombres *</label>
+                    <label class="form-label">Nombre *</label>
                     <input type="text" id="edit_nombres" class="form-control" oninput="this.value = this.value.replace(/[^A-Za-zÁÉÍÓÚáéíóúÑñ\s]/g, '').replace(/^\s+/, '').replace(/\s{2,}/g, ' ').toUpperCase()" onblur="this.value = this.value.trim()" style="text-transform: uppercase;">
                 </div>
 
@@ -2823,7 +2826,7 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
         <div class="offcanvas-body p-4">
 
             <div class="mb-3">
-                <label class="form-label fw-semibold">Nombres *</label>
+                <label class="form-label fw-semibold">Nombre *</label>
                 <input type="text" id="edit_perfil_nombres" class="form-control" readonly>
             </div>
 
