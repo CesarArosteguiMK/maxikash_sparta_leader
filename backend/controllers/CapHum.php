@@ -5063,6 +5063,8 @@ class CapHum extends Controller
                 'id_pais' => $p['id_pais'] ?? 0,
                 'nombre_pais' => $p['nombre_pais'] ?? 'Sin país',
                 'codigo_iso_pais' => $p['codigo_iso_pais'] ?? 'xx',
+                'fecha_ingreso' => $p['fecha_ingreso'] ?? null,
+                'fecha_registro' => $p['fecha_registro'] ?? null,
             ];
         }, $usuarios);
 

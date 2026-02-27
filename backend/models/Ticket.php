@@ -1168,4 +1168,41 @@ class Ticket extends Model
             return self::resultado(false, 'Error al eliminar evidencia.', null, $e->getMessage());
         }
     }
+
+    /**
+ * Obtiene nombre_cliente desde __SPARTA_SECRET_REDACTED__ para un listado de id_credito.
+ * Exclusivo para reportes — no afecta el flujo normal de tickets.
+ * @param array $idsCredito Array de id_credito
+ * @return array ['id_credito' => 'nombre_cliente', ...]
+ */
+public static function getNombresClienteParaReporte(array $idsCredito): array
+{
+    if (empty($idsCredito)) {
+        return [];
+    }
+
+    // Filtrar nulls y duplicados
+    $ids = array_unique(array_filter(array_map('intval', $idsCredito)));
+    if (empty($ids)) {
+        return [];
+    }
+
+    try {
+        $placeholders = implode(',', $ids); // Son enteros, seguro sin PDO
+        $db = new Database();
+        $rows = $db->queryAll(
+            "SELECT id_credito, nombre_cliente 
+             FROM `__SPARTA_SECRET_REDACTED__`.tbl_segundometro_semana 
+             WHERE id_credito IN ($placeholders)"
+        );
+        $mapa = [];
+        foreach (is_array($rows) ? $rows : [] as $row) {
+            $mapa[(int)$row['id_credito']] = $row['nombre_cliente'] ?? '—';
+        }
+        return $mapa;
+    } catch (\Exception $e) {
+        error_log('getNombresClienteParaReporte error: ' . $e->getMessage());
+        return [];
+    }
+}
 }

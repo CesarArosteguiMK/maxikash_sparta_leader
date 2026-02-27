@@ -66,7 +66,10 @@ class CapHum extends Model
 
             COALESCE(pais.id, 0) AS id_pais,
             COALESCE(pais.nombre, 'Sin país') AS nombre_pais,
-            COALESCE(pais.codigo_iso, 'xx') AS codigo_iso_pais
+            COALESCE(pais.codigo_iso, 'xx') AS codigo_iso_pais,
+
+            p.fecha_ingreso,
+            p.fecha_registro
         
         FROM persona p
         
@@ -128,6 +131,8 @@ class CapHum extends Model
                 COALESCE(pais.id, 0) AS id_pais,
                 COALESCE(pais.nombre, 'Sin país') AS nombre_pais,
                 COALESCE(pais.codigo_iso, 'xx') AS codigo_iso_pais,
+                p.fecha_ingreso,
+                p.fecha_registro,
                 1 AS nivel
             FROM persona p
             LEFT JOIN asigna_puesto ap ON p.id = ap.id_persona
@@ -163,6 +168,8 @@ class CapHum extends Model
                 COALESCE(pais2.id, 0) AS id_pais,
                 COALESCE(pais2.nombre, 'Sin país') AS nombre_pais,
                 COALESCE(pais2.codigo_iso, 'xx') AS codigo_iso_pais,
+                p2.fecha_ingreso,
+                p2.fecha_registro,
                 j.nivel + 1 AS nivel
             FROM persona p2
             LEFT JOIN asigna_puesto ap2 ON p2.id = ap2.id_persona

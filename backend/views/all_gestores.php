@@ -817,331 +817,260 @@
         max-width: 150px;
     }
 
-    .kpi-card {
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        height: 100%;
-        background: #ffffff;
-        border: none;
-        border-radius: 0.5rem;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-        position: relative;
-        overflow: hidden;
-        cursor: pointer;
+    /* =====================================================
+       KPI PANEL — REDISEÑO v3
+       Modos: Estándar | Visión (donut) | Mini-stat
+       ===================================================== */
+
+    /* ── Toolbar ── */
+    .kpi-toolbar { display:flex; align-items:center; gap:0.5rem; margin-bottom:0.65rem; flex-wrap:wrap; }
+
+    .kpi-toggle-btn {
+        display:inline-flex; align-items:center; gap:0.35rem;
+        background:#fff; border:1px solid rgba(99,102,241,0.18); border-radius:8px;
+        padding:0.38rem 0.85rem; cursor:pointer;
+        font-size:0.78rem; font-weight:600; color:#6366f1;
+        box-shadow:0 1px 4px rgba(99,102,241,0.07);
+        transition:background 0.2s, box-shadow 0.2s;
+        user-select:none; white-space:nowrap;
+    }
+    .kpi-toggle-btn:hover { background:rgba(99,102,241,0.06); box-shadow:0 2px 10px rgba(99,102,241,0.13); }
+    .kpi-toggle-btn .kpi-chevron { font-size:1rem; transition:transform 0.35s cubic-bezier(0.4,0,0.2,1); display:flex; }
+    .kpi-toggle-btn.open .kpi-chevron { transform:rotate(180deg); }
+    .kpi-toggle-btn .kpi-dot { width:6px; height:6px; border-radius:50%; background:#6366f1; flex-shrink:0; }
+
+    .kpi-toolbar-sep { width:1px; height:20px; background:rgba(99,102,241,0.12); flex-shrink:0; }
+
+    .kpi-view-btn {
+        display:inline-flex; align-items:center; justify-content:center; gap:0.3rem;
+        min-width:32px; height:32px; background:#fff; padding:0 0.5rem;
+        border:1px solid rgba(99,102,241,0.12); border-radius:7px;
+        cursor:pointer; color:#6b7280; font-size:0.75rem; font-weight:600;
+        transition:all 0.2s; user-select:none; position:relative;
+    }
+    .kpi-view-btn:hover { background:rgba(99,102,241,0.06); color:#6366f1; border-color:rgba(99,102,241,0.3); }
+    .kpi-view-btn.active { background:#6366f1; border-color:#6366f1; color:white; box-shadow:0 2px 8px rgba(99,102,241,0.3); }
+    .kpi-view-btn .kpi-btn-text { font-size:0.7rem; font-weight:600; white-space:nowrap; }
+    .kpi-view-btn.active .kpi-btn-text { color:white; }
+    .kpi-view-btn::after {
+        content:attr(data-tip); position:absolute; bottom:calc(100% + 6px); left:50%; transform:translateX(-50%);
+        background:#1e1b4b; color:#f4f5fb; font-size:0.65rem; font-weight:600;
+        white-space:nowrap; padding:0.25rem 0.5rem; border-radius:5px;
+        opacity:0; pointer-events:none; transition:opacity 0.15s; z-index:200;
+    }
+    .kpi-view-btn:hover::after { opacity:1; }
+
+    .kpi-reset-btn {
+        display:inline-flex; align-items:center; gap:0.3rem;
+        background:transparent; border:1px solid transparent; border-radius:7px;
+        padding:0.38rem 0.6rem; cursor:pointer;
+        font-size:0.72rem; font-weight:600; color:#6b7280;
+        transition:all 0.2s; user-select:none;
+    }
+    .kpi-reset-btn:hover { color:#ef4444; border-color:rgba(239,68,68,0.25); background:rgba(239,68,68,0.05); }
+
+    /* ── Panel colapsable ── */
+    .kpi-collapsible { display:grid; grid-template-rows:0fr; transition:grid-template-rows 0.4s cubic-bezier(0.4,0,0.2,1), opacity 0.35s ease; opacity:0; }
+    .kpi-collapsible.open { grid-template-rows:1fr; opacity:1; }
+    .kpi-collapsible-inner { overflow:hidden; }
+
+    /* ── Fila de 3 celdas ── */
+    .kpi-row-new { display:grid; grid-template-columns:repeat(3,1fr); gap:0.85rem; padding-bottom:0.25rem; }
+
+    /* ── Celda base ── */
+    .kpi-cell {
+        background:#fff; border-radius:14px;
+        border:1px solid rgba(99,102,241,0.12);
+        box-shadow:0 2px 16px rgba(99,102,241,0.08),0 1px 4px rgba(0,0,0,0.04);
+        position:relative; overflow:hidden; cursor:pointer;
+        transition:transform 0.25s cubic-bezier(0.4,0,0.2,1), box-shadow 0.25s, border-color 0.25s;
+        opacity:0; transform:translateY(14px);
+    }
+    .kpi-cell.revealed { animation:kpiCellReveal 0.45s cubic-bezier(0.34,1.3,0.64,1) forwards; }
+    @keyframes kpiCellReveal {
+        from { opacity:0; transform:translateY(14px) scale(0.97); }
+        to   { opacity:1; transform:translateY(0) scale(1); }
+    }
+    .kpi-cell:hover { transform:translateY(-3px); box-shadow:0 8px 28px rgba(99,102,241,0.13),0 2px 8px rgba(0,0,0,0.06); border-color:rgba(99,102,241,0.28); }
+    .kpi-cell::after {
+        content:''; position:absolute; bottom:0; left:0; right:0; height:3px;
+        border-radius:0 0 14px 14px; background:var(--cell-accent);
+        transform:scaleX(0); transform-origin:left; transition:transform 0.3s cubic-bezier(0.4,0,0.2,1);
+    }
+    .kpi-cell:hover::after { transform:scaleX(1); }
+    .kpi-cell::before {
+        content:''; position:absolute; inset:0;
+        background:radial-gradient(ellipse at 30% 50%, var(--cell-glow) 0%, transparent 70%);
+        opacity:0; transition:opacity 0.4s; pointer-events:none;
+    }
+    .kpi-cell:hover::before { opacity:1; }
+
+    /* Colores por tipo */
+    .kpi-cell.tipo-dep    { --cell-accent:#6366f1; --cell-glow:rgba(99,102,241,0.06);  --cell-icon:#6366f1; --cell-num:#4f46e5; }
+    .kpi-cell.tipo-puesto { --cell-accent:#10b981; --cell-glow:rgba(16,185,129,0.06); --cell-icon:#10b981; --cell-num:#059669; }
+    .kpi-cell.tipo-total  { --cell-accent:#f59e0b; --cell-glow:rgba(245,158,11,0.07);  --cell-icon:#f59e0b; --cell-num:#d97706; }
+
+    /* ── Elementos comunes ── */
+    .kpi-cell-top { display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:0.85rem; }
+    .kpi-icon-wrap {
+        border-radius:9px; background:color-mix(in srgb,var(--cell-icon) 10%,transparent);
+        display:flex; align-items:center; justify-content:center; color:var(--cell-icon); flex-shrink:0;
+        transition:transform 0.3s cubic-bezier(0.34,1.56,0.64,1), background 0.3s;
+    }
+    .kpi-cell:hover .kpi-icon-wrap { transform:scale(1.12) rotate(-4deg); background:color-mix(in srgb,var(--cell-icon) 18%,transparent); }
+    .kpi-cell-status {
+        font-size:0.62rem; font-weight:600; letter-spacing:0.06em; text-transform:uppercase;
+        color:var(--cell-icon); background:color-mix(in srgb,var(--cell-icon) 10%,transparent);
+        border-radius:20px; padding:0.18rem 0.55rem; opacity:0.85;
+    }
+    .kpi-num { font-size:1.85rem; font-weight:700; line-height:1; color:var(--cell-num); }
+    .kpi-lbl { font-size:0.73rem; font-weight:500; color:#6b7280; margin-top:0.3rem; }
+    .kpi-bar-track { margin-top:0.9rem; height:3px; background:color-mix(in srgb,var(--cell-icon) 12%,transparent); border-radius:99px; overflow:hidden; }
+    .kpi-bar-fill  { height:100%; width:0%; background:var(--cell-icon); border-radius:99px; transition:width 1s cubic-bezier(0.4,0,0.2,1) 0.3s; }
+
+    /* ════ MODO ESTÁNDAR ════ */
+    .kpi-row-new.mode-default .kpi-cell { padding:1.15rem 1.25rem 1.05rem; }
+    .kpi-row-new.mode-default .kpi-icon-wrap { width:36px; height:36px; font-size:1.15rem; }
+    .kpi-row-new.mode-default .donut-block  { display:none !important; }
+    .kpi-row-new.mode-default .kpi-stats-grid-new { display:none !important; }
+
+    /* ════ MODO MINI-STAT ════ */
+    .kpi-row-new.mode-ministat .kpi-cell { padding:1rem 1.1rem; }
+    .kpi-row-new.mode-ministat .kpi-cell-top { margin-bottom:0.65rem; }
+    .kpi-row-new.mode-ministat .kpi-cell-top .kpi-cell-status { display:none; }
+    .kpi-row-new.mode-ministat .kpi-icon-wrap { width:28px; height:28px; font-size:0.95rem; }
+    .kpi-row-new.mode-ministat .kpi-cell-title { font-size:0.7rem; font-weight:600; color:#6b7280; text-transform:uppercase; letter-spacing:0.03em; align-self:center; }
+    .kpi-row-new.mode-ministat .kpi-num      { display:none !important; }
+    .kpi-row-new.mode-ministat .kpi-lbl      { display:none !important; }
+    .kpi-row-new.mode-ministat .kpi-bar-track{ display:none !important; }
+    .kpi-row-new.mode-ministat .donut-block  { display:none !important; }
+    .kpi-row-new.mode-ministat .kpi-stats-grid-new { display:grid !important; }
+    .kpi-cell-title { display:none; }
+    .kpi-stats-grid-new { display:none; grid-template-columns:1fr 1px 1fr; align-items:center; }
+    .kpi-stat-item { padding:0 0.5rem; }
+    .kpi-stat-item:first-child { padding-left:0; }
+    /* Mini-stat empleados: total + ingresos/bajas */
+    .kpi-stats-emp { display:none; align-items:center; gap:0.5rem; }
+    .kpi-row-new.mode-ministat .kpi-stats-emp { display:flex !important; }
+    .kpi-emp-total-wrap { display:flex; flex-direction:column; justify-content:center; flex:0 0 auto; }
+    .kpi-emp-total-val { font-size:2rem; font-weight:700; color:var(--cell-num); line-height:1; }
+    .kpi-emp-total-lbl { font-size:0.6rem; font-weight:600; color:#6b7280; text-transform:uppercase; letter-spacing:0.04em; }
+    .kpi-emp-div { width:1px; height:40px; background:linear-gradient(180deg,transparent,rgba(99,102,241,0.18),transparent); flex-shrink:0; }
+    .kpi-emp-side { display:flex; flex-direction:column; gap:0.3rem; flex:1; padding-left:0.3rem; }
+    .kpi-emp-row { display:flex; align-items:center; gap:0.25rem; }
+    .kpi-emp-arrow-up   { color:#10b981; font-size:0.95rem; line-height:1; display:flex; }
+    .kpi-emp-arrow-down { color:#ef4444; font-size:0.95rem; line-height:1; display:flex; }
+    .kpi-emp-num { font-size:1rem; font-weight:700; color:var(--cell-num); line-height:1; min-width:1.5ch; }
+    .kpi-emp-side-lbl { font-size:0.6rem; color:#6b7280; font-weight:500; }
+    .kpi-stat-ingr { color:#10b981 !important; }
+    .kpi-ingr-arrow { color:#10b981; font-size:0.75rem; vertical-align:middle; display:inline-flex; align-items:center; }
+    .kpi-stat-val { font-size:1.4rem; font-weight:700; color:var(--cell-num); line-height:1; display:flex; align-items:center; gap:0.1rem; }
+    .kpi-stat-lbl { font-size:0.62rem; font-weight:500; color:#6b7280; margin-top:0.15rem; }
+    .kpi-stat-div { width:1px; height:32px; align-self:center; background:linear-gradient(180deg,transparent,rgba(99,102,241,0.15),transparent); }
+    .kpi-arrow-up   { color:#10b981; font-size:1.1rem; line-height:1; display:flex; align-items:center; }
+    .kpi-arrow-down { color:#ef4444; font-size:1.1rem; line-height:1; display:flex; align-items:center; }
+
+    /* ════ MODO VISIÓN (donut) ════ */
+    .kpi-row-new.mode-vision .kpi-cell { padding:1.1rem 1.25rem 1rem; }
+    .kpi-row-new.mode-vision .kpi-cell-top    { display:none !important; }
+    .kpi-row-new.mode-vision .kpi-num         { display:none !important; }
+    .kpi-row-new.mode-vision .kpi-lbl         { display:none !important; }
+    .kpi-row-new.mode-vision .kpi-bar-track   { display:none !important; }
+    .kpi-row-new.mode-vision .kpi-stats-grid-new { display:none !important; }
+    .kpi-row-new.mode-vision .donut-block { display:flex !important; flex-direction:column; align-items:center; gap:0.65rem; }
+    .donut-block { display:none; }
+
+    .donut-header { width:100%; display:flex; align-items:center; justify-content:space-between; }
+    .donut-title  { font-size:0.7rem; font-weight:600; text-transform:uppercase; letter-spacing:0.07em; color:#6b7280; }
+    .donut-svg-wrap {
+        position:relative; display:inline-flex; align-items:center; justify-content:center;
+        width:96px; height:96px;
+    }
+    .donut-svg { width:96px; height:96px; transform:rotate(-90deg); overflow:visible; }
+    .donut-track { fill:none; stroke:color-mix(in srgb,var(--cell-icon) 12%,transparent); stroke-width:8; stroke-linecap:round; }
+    .donut-arc {
+        fill:none; stroke:var(--cell-icon); stroke-width:8; stroke-linecap:round;
+        stroke-dasharray:0 226.2;
+        transition:stroke-dasharray 1.1s cubic-bezier(0.4,0,0.2,1);
+        filter:drop-shadow(0 0 4px color-mix(in srgb,var(--cell-icon) 40%,transparent));
+    }
+    .kpi-cell:hover .donut-arc {
+        filter:drop-shadow(0 0 8px color-mix(in srgb,var(--cell-icon) 60%,transparent));
+        stroke-width:9;
+    }
+    .donut-center-icon {
+        position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+        font-size:1.35rem; color:var(--cell-icon);
+        transition:transform 0.3s cubic-bezier(0.34,1.56,0.64,1);
+    }
+    .kpi-cell:hover .donut-center-icon { transform:scale(1.18); }
+    .donut-footer { display:flex; align-items:center; justify-content:center; gap:0.35rem; width:100%; }
+    .donut-stats { display:grid; grid-template-columns:1fr 1px 1fr; align-items:center; width:100%; margin-top:0.35rem; padding-top:0.35rem; border-top:1px solid color-mix(in srgb,var(--cell-icon) 12%,transparent); }
+    .donut-trend {
+        display:inline-flex; align-items:center; gap:0.2rem;
+        font-size:0.7rem; font-weight:700; padding:0.2rem 0.5rem; border-radius:5px;
+    }
+    .donut-trend.up     { color:#059669; background:rgba(16,185,129,0.1); }
+    .donut-trend.down   { color:#dc2626; background:rgba(239,68,68,0.1); }
+    .donut-trend.steady { color:var(--cell-icon); background:color-mix(in srgb,var(--cell-icon) 10%,transparent); }
+    .donut-trend-label  { font-size:0.68rem; color:#6b7280; font-weight:500; }
+
+    /* ── Tooltip del donut ── */
+    .kpi-donut-tooltip {
+        position:fixed; z-index:9999; pointer-events:none;
+        background:#1e1b4b; color:#f4f5fb;
+        font-size:0.7rem; font-weight:600;
+        padding:0.3rem 0.65rem; border-radius:7px;
+        box-shadow:0 4px 16px rgba(0,0,0,0.18);
+        white-space:nowrap; opacity:0; transform:translateY(4px);
+        transition:opacity 0.15s, transform 0.15s;
+    }
+    .kpi-donut-tooltip.visible { opacity:1; transform:translateY(0); }
+    .kpi-donut-tooltip::after {
+        content:''; position:absolute; top:100%; left:50%; transform:translateX(-50%);
+        border:5px solid transparent; border-top-color:#1e1b4b;
     }
 
-    /* Borde superior colorido */
-    .kpi-card::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        height: 4px;
-        background: linear-gradient(90deg, var(--kpi-color-start), var(--kpi-color-end));
-        transition: height 0.3s ease;
-    }
+    /* ── Swap animation ── */
+    @keyframes kpiModeFade { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
+    .kpi-cell.mode-swap { animation:kpiModeFade 0.32s ease forwards; }
 
-    .kpi-card:hover {
-        transform: translateY(-5px) scale(1.02);
-        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.15), 0 10px 10px -5px rgba(0, 0, 0, 0.1);
-    }
+    /* ── Dark mode ── */
+    body.dark-mode .kpi-cell             { background:#1a1d2e; border-color:rgba(99,102,241,0.18); box-shadow:0 2px 16px rgba(0,0,0,0.35),0 1px 4px rgba(0,0,0,0.2); }
+    body.dark-mode .kpi-toggle-btn,
+    body.dark-mode .kpi-view-btn         { background:#1a1d2e; }
+    body.dark-mode .kpi-donut-tooltip    { background:#e8eaff; color:#0f1117; }
+    body.dark-mode .kpi-donut-tooltip::after { border-top-color:#e8eaff; }
+    body.dark-mode .kpi-lbl,
+    body.dark-mode .kpi-stat-lbl,
+    body.dark-mode .kpi-emp-total-lbl,
+    body.dark-mode .kpi-emp-side-lbl,
+    body.dark-mode .donut-title,
+    body.dark-mode .donut-trend-label,
+    body.dark-mode .kpi-cell-title       { color:#8b90b0; }
+    body.dark-mode .kpi-stat-ingr        { color:#10b981 !important; }
+    body.dark-mode .kpi-ingr-arrow       { color:#10b981 !important; }
 
-    .kpi-card:hover::before {
-        height: 6px;
-    }
-
-    /* Colores específicos para cada tipo de indicador */
-    .kpi-card.tipo-departamento {
-        --kpi-color-start: #4F46E5;
-        --kpi-color-end: #6366F1;
-    }
-
-    .kpi-card.tipo-puesto {
-        --kpi-color-start: #10B981;
-        --kpi-color-end: #34D399;
-    }
-
-    .kpi-card.tipo-rol {
-        --kpi-color-start: #8B5CF6;
-        --kpi-color-end: #A78BFA;
-    }
-
-    .kpi-card.tipo-total {
-        --kpi-color-start: #F59E0B;
-        --kpi-color-end: #FBBF24;
-    }
-
-    .kpi-card.tipo-especifico {
-        --kpi-color-start: #EF4444;
-        --kpi-color-end: #F87171;
-    }
-
-    /* Colores para KPIs de Bajas - Tema rojo/naranja/oscuro */
-    #panelIndicadoresBajas .kpi-card.tipo-total {
-        --kpi-color-start: #DC2626;
-        --kpi-color-end: #EF4444;
-    }
-
-    #panelIndicadoresBajas .kpi-card.tipo-departamento {
-        --kpi-color-start: #EA580C;
-        --kpi-color-end: #F97316;
-    }
-
-    #panelIndicadoresBajas .kpi-card.tipo-puesto {
-        --kpi-color-start: #D97706;
-        --kpi-color-end: #F59E0B;
-    }
-
-    #panelIndicadoresBajas .kpi-card.tipo-especifico {
-        --kpi-color-start: #7C2D12;
-        --kpi-color-end: #9A3412;
-    }
-
-    /* Estilos para botones de filtros rápidos */
-    .btn-filtro-rapido {
-        transition: all 0.3s ease;
-        font-size: 0.9rem;
-        padding: 0.5rem 1rem;
-        border-width: 2px;
-    }
-
-    .btn-filtro-rapido:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
-    }
-
-    .btn-filtro-rapido.active {
-        background-color: #0d6efd !important;
-        color: white !important;
-        border-color: #0d6efd !important;
-        box-shadow: 0 4px 12px rgba(13, 110, 253, 0.3);
-    }
-
-    .btn-filtro-rapido.btn-outline-success.active {
-        background-color: #198754 !important;
-        border-color: #198754 !important;
-        box-shadow: 0 4px 12px rgba(25, 135, 84, 0.3);
-    }
-
-    .kpi-card .card-body {
-        position: relative;
-        padding: 0.75rem 0.7rem;
-        text-align: center;
-    }
-
-    .kpi-number {
-        font-size: 1.3rem;
-        font-weight: 700;
-        line-height: 1;
-        margin-bottom: 0.3rem;
-        background: linear-gradient(135deg, var(--kpi-color-start), var(--kpi-color-end));
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
-        font-family: 'Segoe UI', system-ui, sans-serif;
-        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        transition: all 0.3s ease;
-    }
-
-    .kpi-card:hover .kpi-number {
-        transform: scale(1.1);
-        filter: brightness(1.2);
-    }
-
-    /* Animación de pulso para números actualizados */
-    @keyframes pulse-update {
-        0%, 100% {
-            transform: scale(1);
-        }
-        50% {
-            transform: scale(1.15);
-        }
-    }
-
-    .kpi-number.updating {
-        animation: pulse-update 0.5s ease-in-out;
-    }
-
-    .kpi-label {
-        font-size: 0.55rem;
-        color: #64748B;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        margin-bottom: 0;
-        line-height: 1.2;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-
-    .kpi-icon {
-        font-size: 1.2rem;
-        opacity: 0.15;
-        position: absolute;
-        right: 0.5rem;
-        top: 0.5rem;
-        color: var(--kpi-color-start);
-        transition: all 0.3s ease;
-    }
-
-    .kpi-card:hover .kpi-icon {
-        opacity: 0.25;
-        transform: scale(1.1) rotate(5deg);
-    }
-
-    /* Patrón de fondo sutil */
-    .kpi-card::after {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background-image: 
-            radial-gradient(circle at 2px 2px, rgba(0, 0, 0, 0.02) 1px, transparent 1px);
-        background-size: 20px 20px;
-        pointer-events: none;
-        opacity: 0.5;
-    }
-
-    /* Separadores entre indicadores */
-    .kpi-separator {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        padding: 0 0.3rem;
-    }
-
-    .kpi-separator .line {
-        width: 1px;
-        height: 35px;
-        background: linear-gradient(180deg, transparent, rgba(148, 163, 184, 0.4), transparent);
-    }
-
-    /* Responsive para tablets */
-    @media (max-width: 991px) {
-        .kpi-item {
-            min-width: 110px;
-            max-width: 140px;
-        }
-
-        .kpi-number {
-            font-size: 1.15rem;
-        }
-        
-        .kpi-label {
-            font-size: 0.52rem;
-        }
-        
-        .kpi-separator .line {
-            height: 30px;
-        }
-    }
-
-    /* Responsive para móviles - Grid simétrico 2x2 */
+    /* ── Responsive móvil ── */
     @media (max-width: 767px) {
-        .kpi-wrapper {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 0.5rem;
-            justify-items: stretch;
-        }
-
-        .kpi-item {
-            min-width: unset;
-            max-width: unset;
-            width: 100%;
-        }
-
-        .kpi-separator {
-            display: none !important;
-        }
-
-        .kpi-number {
-            font-size: 1.05rem;
-        }
-        
-        .kpi-label {
-            font-size: 0.5rem;
-            white-space: normal;
-        }
-        
-        .kpi-card .card-body {
-            padding: 0.6rem;
-        }
+        .kpi-row-new { grid-template-columns:1fr 1fr; }
+        .kpi-toolbar { gap:0.4rem; }
+        .kpi-view-btn { padding:0 0.3rem; font-size:0.65rem; }
+        .kpi-view-btn .kpi-btn-text { display:none; } /* Ocultar texto en móvil, solo íconos */
+        .kpi-num { font-size:1.5rem; }
     }
-
-    /* Para móviles muy pequeños - una columna */
     @media (max-width: 480px) {
-        .kpi-wrapper {
-            grid-template-columns: 1fr;
-        }
+        .kpi-row-new { grid-template-columns:1fr; }
     }
 
-    /* ===== TOOLTIPS ENRIQUECIDOS ===== */
-    .kpi-tooltip {
-        position: fixed;
-        background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
-        color: #ffffff;
-        padding: 0.75rem 1rem;
-        border-radius: 0.5rem;
-        font-size: 0.75rem;
-        z-index: 9999;
-        pointer-events: none;
-        opacity: 0;
-        transition: opacity 0.2s ease;
-        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
-        min-width: 200px;
-        max-width: 300px;
+    /* ── Conservar estilos de filtros rápidos ── */
+    .btn-filtro-rapido {
+        transition: all 0.3s ease; font-size: 0.9rem;
+        padding: 0.5rem 1rem; border-width: 2px;
     }
-
-    .kpi-tooltip.show {
-        opacity: 1;
-    }
-
-    /* Flecha del tooltip removida para diseño flotante limpio */
-    /*
-    .kpi-tooltip::before {
-        content: '';
-        position: absolute;
-        bottom: -6px;
-        left: 50%;
-        transform: translateX(-50%);
-        width: 0;
-        height: 0;
-        border-left: 6px solid transparent;
-        border-right: 6px solid transparent;
-        border-top: 6px solid #1e293b;
-    }
-    */
-
-    .kpi-tooltip-title {
-        font-weight: 700;
-        margin-bottom: 0.4rem;
-        color: #fbbf24;
-        font-size: 0.8rem;
-    }
-
-    .kpi-tooltip-item {
-        display: flex;
-        justify-content: space-between;
-        padding: 0.2rem 0;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-    }
-
-    .kpi-tooltip-item:last-child {
-        border-bottom: none;
-    }
-
-    .kpi-tooltip-label {
-        color: #cbd5e1;
-    }
-
-    .kpi-tooltip-value {
-        font-weight: 600;
-        color: #fff;
-    }
+    .btn-filtro-rapido:hover { transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0,0,0,0.15); }
+    .btn-filtro-rapido.active { background-color:#0d6efd !important; color:white !important; border-color:#0d6efd !important; box-shadow:0 4px 12px rgba(13,110,253,0.3); }
+    .btn-filtro-rapido.btn-outline-success.active { background-color:#198754 !important; border-color:#198754 !important; box-shadow:0 4px 12px rgba(25,135,84,0.3); }
 
     /* ===== MODAL DE DESGLOSE ===== */
     .stat-card {
@@ -1628,125 +1557,190 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
         </div>
 
         <!-- =======================
-             PANEL DE INDICADORES (GESTIÓN)
+             PANEL DE INDICADORES (GESTIÓN) — REDISEÑO v3
         ======================== -->
-        <div id="panelIndicadoresGestion" class="row m-4 mb-3">
-            <div class="col-12">
-                <div class="kpi-wrapper">
-                    <!-- Indicador: Departamentos -->
-                    <div class="kpi-item">
-                        <div class="card kpi-card tipo-departamento shadow-sm h-100" data-tipo="departamentos">
-                            <div class="card-body">
-                                <i class="bx bx-buildings kpi-icon"></i>
-                                <div class="kpi-number" id="kpi-departamentos">0</div>
-                                <div class="kpi-label">Departamentos</div>
-                            </div>
-                        </div>
-                    </div>
 
-                    <!-- Separador -->
-                    <div class="kpi-separator">
-                        <div class="line"></div>
-                    </div>
+        <!-- Tooltip global para donuts -->
+        <div class="kpi-donut-tooltip" id="kpiDonutTooltip"></div>
 
-                    <!-- Indicador: Puestos -->
-                    <div class="kpi-item">
-                        <div class="card kpi-card tipo-puesto shadow-sm h-100" data-tipo="puestos">
-                            <div class="card-body">
-                                <i class="bx bx-briefcase kpi-icon"></i>
-                                <div class="kpi-number" id="kpi-puestos">0</div>
-                                <div class="kpi-label">Puestos</div>
-                            </div>
-                        </div>
-                    </div>
+        <div id="panelIndicadoresGestion" class="px-4 pt-3 pb-2">
 
-                    <!-- Separador Dinámico 1 -->
-                    <div class="kpi-separator" id="separator-rol1" style="display: none;">
-                        <div class="line"></div>
-                    </div>
+            <!-- TOOLBAR: toggle + modos + reset -->
+            <div class="kpi-toolbar">
+                <button class="kpi-toggle-btn open" id="kpiToggleBtn" onclick="kpiTogglePanel()">
+                    <span class="kpi-dot"></span>
+                    Indicadores
+                    <i class="bx bx-chevron-down kpi-chevron"></i>
+                </button>
 
-                    <!-- Indicador Dinámico 1: Rol específico -->
-                    <div class="kpi-item" id="kpi-rol1-container" style="display: none;">
-                        <div class="card kpi-card tipo-rol shadow-sm h-100" data-tipo="rol1">
-                            <div class="card-body">
-                                <i class="bx bx-user-circle kpi-icon"></i>
-                                <div class="kpi-number" id="kpi-rol1-numero">0</div>
-                                <div class="kpi-label" id="kpi-rol1-label" title="">Rol 1</div>
-                            </div>
-                        </div>
-                    </div>
+                <div class="kpi-toolbar-sep"></div>
 
-                    <!-- Separador Dinámico 2 -->
-                    <div class="kpi-separator" id="separator-rol2" style="display: none;">
-                        <div class="line"></div>
-                    </div>
+                <button class="kpi-view-btn active" id="vbtn-default"  onclick="kpiSetMode('default')"  data-tip="Vista Estándar">
+                    <i class="bx bx-layout"></i>
+                    <span class="kpi-btn-text">Estándar</span>
+                </button>
+                <button class="kpi-view-btn"        id="vbtn-vision"   onclick="kpiSetMode('vision')"   data-tip="Vista de Donut Charts">
+                    <i class="bx bx-doughnut-chart"></i>
+                    <span class="kpi-btn-text">Donut</span>
+                </button>
+                <button class="kpi-view-btn"        id="vbtn-ministat" onclick="kpiSetMode('ministat')" data-tip="Vista Mini-Stat Compacta">
+                    <i class="bx bx-columns"></i>
+                    <span class="kpi-btn-text">Mini-Stat</span>
+                </button>
 
-                    <!-- Indicador Dinámico 2: Rol específico -->
-                    <div class="kpi-item" id="kpi-rol2-container" style="display: none;">
-                        <div class="card kpi-card tipo-rol shadow-sm h-100" data-tipo="rol2">
-                            <div class="card-body">
-                                <i class="bx bx-user-check kpi-icon"></i>
-                                <div class="kpi-number" id="kpi-rol2-numero">0</div>
-                                <div class="kpi-label" id="kpi-rol2-label" title="">Rol 2</div>
-                            </div>
-                        </div>
-                    </div>
+                <div class="kpi-toolbar-sep"></div>
 
-                    <!-- Separador Empleados -->
-                    <div class="kpi-separator" id="separator-empleados" style="display: none;">
-                        <div class="line"></div>
-                    </div>
-
-                    <!-- Indicador: Total de Empleados (Dinámico según filtros) -->
-                    <div class="kpi-item" id="kpi-total-empleados-container" style="display: none;">
-                        <div class="card kpi-card tipo-total shadow-sm h-100" data-tipo="total">
-                            <div class="card-body">
-                                <i class="bx bx-group kpi-icon"></i>
-                                <div class="kpi-number" id="kpi-total-empleados">0</div>
-                                <div class="kpi-label" id="kpi-total-empleados-label" title="">Total Empleados</div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Separador Empleados Puesto -->
-                    <div class="kpi-separator" id="separator-empleados-puesto" style="display: none;">
-                        <div class="line"></div>
-                    </div>
-
-                    <!-- Indicador: Empleados por Puesto -->
-                    <div class="kpi-item" id="kpi-empleados-container" style="display: none;">
-                        <div class="card kpi-card tipo-especifico shadow-sm h-100" data-tipo="puesto-especifico">
-                            <div class="card-body">
-                                <i class="bx bx-user-pin kpi-icon"></i>
-                                <div class="kpi-number" id="kpi-empleados-puesto">0</div>
-                                <div class="kpi-label" id="kpi-empleados-label" title="">Empleados</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                <button class="kpi-reset-btn" onclick="kpiResetPrefs()">
+                    <i class="bx bx-rotate-left"></i>
+                    Restablecer
+                </button>
             </div>
-        </div>
 
-        <!-- MODAL: DESGLOSE DETALLADO DE INDICADORES (Departamentos, Puestos, Total Empleados) -->
-        <div class="modal fade" id="modalKpiDesglose" tabindex="-1" aria-labelledby="modalKpiTitle" aria-hidden="true" data-bs-backdrop="false" data-bs-keyboard="true">
-            <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-xl modal-kpi-desglose">
-                <div class="modal-content">
-                    <div class="modal-header border-bottom flex-shrink-0">
-                        <h5 class="modal-title" id="modalKpiTitle">
-                            <i class="bx bx-chart me-2"></i>
-                            Desglose Detallado
-                        </h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-                    </div>
-                    <div class="modal-body py-4" id="modalKpiContent">
-                        <!-- Contenido dinámico generado por JavaScript -->
-                    </div>
+            <!-- Panel colapsable -->
+            <div class="kpi-collapsible open" id="kpiCollapsible">
+                <div class="kpi-collapsible-inner">
+                    <div class="kpi-row-new mode-default" id="kpiRowNew">
+
+                        <!-- ░░ DEPARTAMENTOS ░░ -->
+                        <div class="kpi-cell tipo-dep" id="kpi-cell-dep" data-tipo="departamentos">
+                            <div class="kpi-cell-top">
+                                <div class="kpi-icon-wrap" style="width:36px;height:36px;font-size:1.15rem"><i class="bx bx-buildings"></i></div>
+                                <span class="kpi-cell-status">Activos</span>
+                            </div>
+                            <div class="kpi-num" id="kpi-departamentos">0</div>
+                            <div class="kpi-lbl">Departamentos</div>
+                            <div class="kpi-bar-track"><div class="kpi-bar-fill" id="kpi-bar-dep"></div></div>
+                            <!-- mini-stat -->
+                            <span class="kpi-cell-title">Departamentos</span>
+                            <div class="kpi-stats-grid-new">
+                                <div class="kpi-stat-item"><div class="kpi-stat-val" id="kpi-ms-dep-a">0</div><div class="kpi-stat-lbl">Activos</div></div>
+                                <div class="kpi-stat-div"></div>
+                                <div class="kpi-stat-item"><div class="kpi-stat-val" id="kpi-ms-dep-b">0</div><div class="kpi-stat-lbl">Sin jefe</div></div>
+                            </div>
+                            <!-- visión donut -->
+                            <div class="donut-block">
+                                <div class="donut-header">
+                                    <span class="donut-title">Departamentos</span>
+                                    <span class="kpi-cell-status">Activos</span>
+                                </div>
+                                <div class="donut-svg-wrap"
+                                     onmouseenter="kpiShowTooltip(event, document.getElementById('kpi-departamentos').textContent + ' departamentos activos')"
+                                     onmouseleave="kpiHideTooltip()"
+                                     onmousemove="kpiMoveTooltip(event)">
+                                    <svg class="donut-svg" viewBox="0 0 88 88">
+                                        <circle class="donut-track" cx="44" cy="44" r="36"/>
+                                        <circle class="donut-arc" id="kpi-arc-dep" cx="44" cy="44" r="36"/>
+                                    </svg>
+                                    <div class="donut-center-icon"><i class="bx bx-buildings"></i></div>
+                                </div>
+                                <div class="donut-footer">
+                                    <span class="donut-trend up" id="kpi-trend-dep"><i class="bx bx-trending-up"></i>—</span>
+                                    <span class="donut-trend-label">más puestos</span>
+                                </div>
+                                <div class="donut-stats">
+                                    <div class="kpi-stat-item"><div class="kpi-stat-val" id="kpi-dv-dep-a">0</div><div class="kpi-stat-lbl">Activos</div></div>
+                                    <div class="kpi-stat-div"></div>
+                                    <div class="kpi-stat-item"><div class="kpi-stat-val" id="kpi-dv-dep-b">0</div><div class="kpi-stat-lbl">Sin jefe</div></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- ░░ PUESTOS ░░ -->
+                        <div class="kpi-cell tipo-puesto" id="kpi-cell-puesto" data-tipo="puestos">
+                            <div class="kpi-cell-top">
+                                <div class="kpi-icon-wrap" style="width:36px;height:36px;font-size:1.15rem"><i class="bx bx-briefcase"></i></div>
+                                <span class="kpi-cell-status">Únicos</span>
+                            </div>
+                            <div class="kpi-num" id="kpi-puestos">0</div>
+                            <div class="kpi-lbl">Puestos</div>
+                            <div class="kpi-bar-track"><div class="kpi-bar-fill" id="kpi-bar-puesto"></div></div>
+                            <!-- mini-stat -->
+                            <span class="kpi-cell-title">Puestos</span>
+                            <div class="kpi-stats-grid-new">
+                                <div class="kpi-stat-item"><div class="kpi-stat-val" id="kpi-ms-puesto-a">0</div><div class="kpi-stat-lbl">Total</div></div>
+                                <div class="kpi-stat-div"></div>
+                                <div class="kpi-stat-item"><div class="kpi-stat-val" id="kpi-ms-puesto-b">0</div><div class="kpi-stat-lbl">Compartidos</div></div>
+                            </div>
+                            <!-- visión donut -->
+                            <div class="donut-block">
+                                <div class="donut-header">
+                                    <span class="donut-title">Puestos</span>
+                                    <span class="kpi-cell-status">Únicos</span>
+                                </div>
+                                <div class="donut-svg-wrap"
+                                     onmouseenter="kpiShowTooltip(event, document.getElementById('kpi-puestos').textContent + ' puestos únicos')"
+                                     onmouseleave="kpiHideTooltip()"
+                                     onmousemove="kpiMoveTooltip(event)">
+                                    <svg class="donut-svg" viewBox="0 0 88 88">
+                                        <circle class="donut-track" cx="44" cy="44" r="36"/>
+                                        <circle class="donut-arc" id="kpi-arc-puesto" cx="44" cy="44" r="36"/>
+                                    </svg>
+                                    <div class="donut-center-icon"><i class="bx bx-briefcase"></i></div>
+                                </div>
+                                <div class="donut-footer">
+                                    <span class="donut-trend steady" id="kpi-trend-puesto"><i class="bx bx-user-pin"></i>—</span>
+                                    <span class="donut-trend-label">más empleados</span>
+                                </div>
+                                <div class="donut-stats">
+                                    <div class="kpi-stat-item"><div class="kpi-stat-val" id="kpi-dv-pst-a">0</div><div class="kpi-stat-lbl">Total</div></div>
+                                    <div class="kpi-stat-div"></div>
+                                    <div class="kpi-stat-item"><div class="kpi-stat-val" id="kpi-dv-pst-b">0</div><div class="kpi-stat-lbl">Compartidos</div></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- ░░ TOTAL EMPLEADOS ░░ -->
+                        <div class="kpi-cell tipo-total" id="kpi-cell-total" data-tipo="total">
+                            <div class="kpi-cell-top">
+                                <div class="kpi-icon-wrap" style="width:36px;height:36px;font-size:1.15rem"><i class="bx bx-group"></i></div>
+                                <span class="kpi-cell-status">Total</span>
+                            </div>
+                            <div class="kpi-num" id="kpi-total-empleados">0</div>
+                            <div class="kpi-lbl" id="kpi-total-empleados-label">Total Empleados</div>
+                            <div class="kpi-bar-track"><div class="kpi-bar-fill" id="kpi-bar-total"></div></div>
+                            <!-- mini-stat -->
+                            <span class="kpi-cell-title">Empleados</span>
+                            <div class="kpi-stats-grid-new">
+                                <div class="kpi-stat-item"><div class="kpi-stat-val" id="kpi-ms-total-main">0</div><div class="kpi-stat-lbl">Total</div></div>
+                                <div class="kpi-stat-div"></div>
+                                <div class="kpi-stat-item">
+                                    <div class="kpi-stat-val kpi-stat-ingr" id="kpi-ms-ingresos">0</div>
+                                    <div class="kpi-stat-lbl"><span class="kpi-ingr-arrow"><i class="bx bx-up-arrow-alt"></i></span> Ingresos</div>
+                                </div>
+                            </div>
+                            <!-- visión donut -->
+                            <div class="donut-block">
+                                <div class="donut-header">
+                                    <span class="donut-title">Empleados</span>
+                                    <span class="kpi-cell-status">Total</span>
+                                </div>
+                                <div class="donut-svg-wrap"
+                                     onmouseenter="kpiShowTooltip(event, document.getElementById('kpi-total-empleados').textContent + ' empleados activos')"
+                                     onmouseleave="kpiHideTooltip()"
+                                     onmousemove="kpiMoveTooltip(event)">
+                                    <svg class="donut-svg" viewBox="0 0 88 88">
+                                        <circle class="donut-track" cx="44" cy="44" r="36"/>
+                                        <circle class="donut-arc" id="kpi-arc-total" cx="44" cy="44" r="36"/>
+                                    </svg>
+                                    <div class="donut-center-icon"><i class="bx bx-group"></i></div>
+                                </div>
+                                <div class="donut-footer">
+                                    <span class="donut-trend up" id="kpi-trend-total"><i class="bx bx-trending-up"></i>—</span>
+                                    <span class="donut-trend-label">del total activo</span>
+                                </div>
+                                <div class="donut-stats">
+                                    <div class="kpi-stat-item"><div class="kpi-stat-val" id="kpi-dv-emp-a">0</div><div class="kpi-stat-lbl">Total</div></div>
+                                    <div class="kpi-stat-div"></div>
+                                    <div class="kpi-stat-item"><div class="kpi-stat-val kpi-stat-ingr" id="kpi-dv-emp-b">0</div><div class="kpi-stat-lbl"><span class="kpi-ingr-arrow"><i class="bx bx-up-arrow-alt"></i></span> Ingresos</div></div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div><!-- /kpi-row-new -->
                 </div>
-            </div>
-        </div>
+            </div><!-- /kpi-collapsible -->
 
-        <!-- Tooltip personalizado -->
-        <div class="kpi-tooltip" id="kpiTooltip"></div>
+        </div><!-- /panelIndicadoresGestion -->
 
         <!-- =======================
              PANEL DE INDICADORES PARA BAJAS (oculto por defecto)
@@ -2941,6 +2935,12 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
       ocultarIndicadorEmpleados();
       ocultarIndicadorTotalEmpleados();
       ocultarIndicadoresRoles();
+      
+      // Limpiar también el mini-stat de sin jefe
+      if (typeof kpiUpdateValues === 'function') {
+        kpiUpdateValues({ depSinJefe: 0 });
+      }
+      
       return;
     }
 
@@ -2959,6 +2959,46 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
         puestos.add(persona.nombre_puesto);
       }
     });
+
+    // PUESTOS COMPARTIDOS: puestos con más de 1 empleado asignado
+    const puestoConteo = {};
+    datos.forEach(persona => {
+      const p = persona.nombre_puesto;
+      if (p && p !== 'Sin puesto') puestoConteo[p] = (puestoConteo[p] || 0) + 1;
+    });
+    const puestosCompartidos = Object.values(puestoConteo).filter(c => c > 1).length;
+
+    // EMPLEADOS SIN JEFE: Contar aquellos sin jefe asignado (comparación case-insensitive)
+    const empleadosSinJefe = datos.filter(persona => {
+      if (!persona.nombre_jefe) return true;
+      const jefe = persona.nombre_jefe.trim();
+      if (jefe === '') return true;
+      return jefe.toLowerCase() === 'sin jefe';
+    }).length;
+
+    // INGRESOS DEL MES: fecha_ingreso del mes actual; fallback a fecha_registro si no existe
+    const ahora = new Date();
+    const mesActual  = ahora.getMonth();   // 0-based
+    const anioActual = ahora.getFullYear();
+    const ingresosEsteMes = datos.filter(persona => {
+      // Prioridad 1: fecha_ingreso (la que el usuario llenó al registrar al empleado)
+      const fechaPrimaria = persona.fecha_ingreso || null;
+      // Prioridad 2: fecha_registro (cuándo fue dado de alta en el sistema)
+      const fechaFallback = persona.fecha_registro || null;
+      const fechaUsar = fechaPrimaria || fechaFallback;
+      if (!fechaUsar) return false;
+      const d = new Date(fechaUsar);
+      return !isNaN(d) && d.getMonth() === mesActual && d.getFullYear() === anioActual;
+    }).length;
+
+    // BAJAS DEL MES: del array global de bajas (datosBajasGlobal)
+    // Se usa la cantidad total del mes actual si está disponible
+    const bajasEsteMes = (typeof datosBajasGlobal !== 'undefined' ? datosBajasGlobal : []).filter(baja => {
+      const fechaCampo = baja.fecha_baja || baja.fecha_ingreso || baja.fecha_registro || null;
+      if (!fechaCampo) return false;
+      const d = new Date(fechaCampo);
+      return d.getMonth() === mesActual && d.getFullYear() === anioActual;
+    }).length;
 
     // Obtener filtros actuales
     const departamentoSeleccionado = document.getElementById('UserRole').value;
@@ -3000,6 +3040,52 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
     // Actualizar los números en el DOM con animación
     animarNumero('kpi-departamentos', departamentos.size);
     animarNumero('kpi-puestos', puestos.size);
+
+    // INTEGRACIÓN CON SISTEMA KPI v3: Actualizar el nuevo panel con todos los datos
+    if (typeof kpiUpdateValues === 'function') {
+      // El total de empleados es simplemente la cantidad de datos que se pasaron (ya filtrados)
+      const totalEmpleados = datos.length;
+
+      // TOP DEP POR PUESTOS DISTINTOS
+      const puestosPorDep = {};
+      datos.forEach(function(p) {
+        const dep = p.nombre_departamento, pst = p.nombre_puesto;
+        if (dep && pst && pst !== 'Sin puesto') {
+          if (!puestosPorDep[dep]) puestosPorDep[dep] = new Set();
+          puestosPorDep[dep].add(pst);
+        }
+      });
+      let topDepNombre = '—', topDepCnt = 0;
+      Object.keys(puestosPorDep).forEach(function(dep) {
+        if (puestosPorDep[dep].size > topDepCnt) { topDepCnt = puestosPorDep[dep].size; topDepNombre = dep; }
+      });
+
+      // TOP PUESTO POR CANTIDAD DE EMPLEADOS
+      let topPuestoNombre = '—', topPuestoCnt = 0;
+      Object.keys(puestoConteo).forEach(function(pst) {
+        if (puestoConteo[pst] > topPuestoCnt) { topPuestoCnt = puestoConteo[pst]; topPuestoNombre = pst; }
+      });
+
+      // % INGRESOS DEL MES respecto al total de empleados
+      const pctIngresos = totalEmpleados > 0 ? Math.round((ingresosEsteMes / totalEmpleados) * 100) : 0;
+
+      const datosKPI = {
+        dep: departamentos.size,
+        puesto: puestos.size,
+        total: totalEmpleados,
+        depSinJefe: empleadosSinJefe,
+        puestoCompartidos: puestosCompartidos,
+        ingresosEsteMes: ingresosEsteMes,
+        bajasEsteMes: bajasEsteMes,
+        topDepNombre: topDepNombre,
+        topPuestoNombre: topPuestoNombre,
+        pctIngresos: pctIngresos,
+        arcDep: Math.min(100, (departamentos.size / 20) * 100),
+        arcPuesto: Math.min(100, (puestos.size / 50) * 100),
+        arcTotal: Math.min(100, (totalEmpleados / 200) * 100)
+      };
+      kpiUpdateValues(datosKPI);
+    }
   }
 
   /**
@@ -3057,22 +3143,32 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
     const container = document.getElementById('kpi-rol1-container');
     const label = document.getElementById('kpi-rol1-label');
     const separador = document.getElementById('separator-rol1');
-    
+
     if (container && label) {
       container.style.display = '';
-      
+
       // Añadir tooltip con nombre completo
       label.setAttribute('title', nombrePuesto);
-      
+
       // Truncar nombre si es muy largo
       let labelText = nombrePuesto;
       if (labelText.length > 18) {
         labelText = nombrePuesto.substring(0, 15) + '...';
       }
       label.textContent = labelText;
-      
+
       animarNumero('kpi-rol1-numero', cantidad);
-      
+
+      // INTEGRACIÓN CON SISTEMA KPI v3
+      if (typeof kpiUpdateValues === 'function') {
+        const datosKPI = {
+          rol1: cantidad,
+          rol1Label: labelText,
+          arcRol1: Math.min(100, (cantidad / 50) * 100)
+        };
+        kpiUpdateValues(datosKPI);
+      }
+
       if (separador) {
         separador.style.display = '';
       }
@@ -3088,22 +3184,32 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
     const container = document.getElementById('kpi-rol2-container');
     const label = document.getElementById('kpi-rol2-label');
     const separador = document.getElementById('separator-rol2');
-    
+
     if (container && label) {
       container.style.display = '';
-      
+
       // Añadir tooltip con nombre completo
       label.setAttribute('title', nombrePuesto);
-      
+
       // Truncar nombre si es muy largo
       let labelText = nombrePuesto;
       if (labelText.length > 18) {
         labelText = nombrePuesto.substring(0, 15) + '...';
       }
       label.textContent = labelText;
-      
+
       animarNumero('kpi-rol2-numero', cantidad);
-      
+
+      // INTEGRACIÓN CON SISTEMA KPI v3
+      if (typeof kpiUpdateValues === 'function') {
+        const datosKPI = {
+          rol2: cantidad,
+          rol2Label: labelText,
+          arcRol2: Math.min(100, (cantidad / 50) * 100)
+        };
+        kpiUpdateValues(datosKPI);
+      }
+
       if (separador) {
         separador.style.display = '';
       }
@@ -3118,9 +3224,19 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
   function ocultarIndicadorRol1() {
     const container = document.getElementById('kpi-rol1-container');
     const separador = document.getElementById('separator-rol1');
-    
+
     if (container) container.style.display = 'none';
     if (separador) separador.style.display = 'none';
+
+    // INTEGRACIÓN CON SISTEMA KPI v3: Limpiar valores
+    if (typeof kpiUpdateValues === 'function') {
+      const datosKPI = {
+        rol1: undefined,
+        rol1Label: '',
+        arcRol1: 0
+      };
+      kpiUpdateValues(datosKPI);
+    }
   }
 
   /**
@@ -3131,9 +3247,19 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
   function ocultarIndicadorRol2() {
     const container = document.getElementById('kpi-rol2-container');
     const separador = document.getElementById('separator-rol2');
-    
+
     if (container) container.style.display = 'none';
     if (separador) separador.style.display = 'none';
+
+    // INTEGRACIÓN CON SISTEMA KPI v3: Limpiar valores
+    if (typeof kpiUpdateValues === 'function') {
+      const datosKPI = {
+        rol2: undefined,
+        rol2Label: '',
+        arcRol2: 0
+      };
+      kpiUpdateValues(datosKPI);
+    }
   }
 
   /**
@@ -3155,22 +3281,32 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
     const container = document.getElementById('kpi-total-empleados-container');
     const label = document.getElementById('kpi-total-empleados-label');
     const separador = document.getElementById('separator-empleados');
-    
+
     if (container && label) {
       container.style.display = '';
-      
+
       // Añadir tooltip con texto completo
       label.setAttribute('title', labelTexto);
-      
+
       // Truncar si es muy largo
       let textoFinal = labelTexto;
       if (labelTexto.length > 22) {
         textoFinal = labelTexto.substring(0, 19) + '...';
       }
       label.textContent = textoFinal;
-      
+
       animarNumero('kpi-total-empleados', cantidad);
-      
+
+      // INTEGRACIÓN CON SISTEMA KPI v3: Actualizar también el nuevo panel
+      if (typeof kpiUpdateValues === 'function') {
+        // Solo actualizar el total, los otros valores se mantienen
+        const datosKPI = {
+          total: cantidad,
+          arcTotal: Math.min(100, (cantidad / 200) * 100)
+        };
+        kpiUpdateValues(datosKPI);
+      }
+
       // Mostrar separador
       if (separador) {
         separador.style.display = '';
@@ -3186,9 +3322,18 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
   function ocultarIndicadorTotalEmpleados() {
     const container = document.getElementById('kpi-total-empleados-container');
     const separador = document.getElementById('separator-empleados');
-    
+
     if (container) container.style.display = 'none';
     if (separador) separador.style.display = 'none';
+
+    // INTEGRACIÓN CON SISTEMA KPI v3: Limpiar valores
+    if (typeof kpiUpdateValues === 'function') {
+      const datosKPI = {
+        total: 0,
+        arcTotal: 0
+      };
+      kpiUpdateValues(datosKPI);
+    }
   }
 
   /**
@@ -6094,5 +6239,285 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio) {
         }
     });
 }
+
+/* ============================================================
+   KPI PANEL v3 — Estándar | Visión | Mini-stat
+   ============================================================ */
+(function() {
+    var CIRC         = 2 * Math.PI * 36; // 226.19
+    var STORAGE_MODE = 'kpi_view_mode_gestores';
+    var STORAGE_OPEN = 'kpi_panel_open_gestores';
+    var DEFAULT_MODE = 'default';
+
+    var kpiCurrentMode = localStorage.getItem(STORAGE_MODE) || DEFAULT_MODE;
+    var kpiPanelOpen   = localStorage.getItem(STORAGE_OPEN) !== 'false';
+
+    /* ── Contador animado ── */
+    function kpiAnimateCounter(el, target, dur, delay) {
+        if (!el) return;
+        dur   = dur   || 900;
+        delay = delay || 0;
+        setTimeout(function() {
+            var start = performance.now();
+            var ease  = function(t) { return t < 0.5 ? 2*t*t : -1+(4-2*t)*t; };
+            (function tick(now) {
+                var p = Math.min((now - start) / dur, 1);
+                el.textContent = Math.round(target * ease(p));
+                if (p < 1) requestAnimationFrame(tick);
+                else el.textContent = target;
+            })(performance.now());
+        }, delay);
+    }
+
+    /* ── Barra ── */
+    function kpiAnimateBar(id, pct, delay) {
+        var el = document.getElementById(id);
+        if (!el) return;
+        el.style.width = '0%';
+        setTimeout(function() { el.style.width = pct + '%'; }, (delay || 0) + 80);
+    }
+
+    /* ── Donut ── */
+    function kpiAnimateDonut(arcId, pct, delay) {
+        var el = document.getElementById(arcId);
+        if (!el) return;
+        el.style.strokeDasharray = '0 ' + CIRC;
+        setTimeout(function() {
+            var filled = (pct / 100) * CIRC;
+            el.style.strokeDasharray = filled + ' ' + (CIRC - filled);
+        }, (delay || 0) + 100);
+    }
+
+    function kpiResetDonuts() {
+        ['dep','puesto','total'].forEach(function(k) {
+            var el = document.getElementById('kpi-arc-' + k);
+            if (el) el.style.strokeDasharray = '0 ' + CIRC;
+        });
+    }
+
+    /* ── Tooltip donut ── */
+    var _kpiTooltip = null;
+    function _getTooltip() {
+        if (!_kpiTooltip) _kpiTooltip = document.getElementById('kpiDonutTooltip');
+        return _kpiTooltip;
+    }
+    window.kpiShowTooltip = function(e, text) {
+        var t = _getTooltip(); if (!t) return;
+        t.textContent = text;
+        t.classList.add('visible');
+        window.kpiMoveTooltip(e);
+    };
+    window.kpiMoveTooltip = function(e) {
+        var t = _getTooltip(); if (!t) return;
+        t.style.left = (e.clientX - t.offsetWidth / 2) + 'px';
+        t.style.top  = (e.clientY - t.offsetHeight - 14) + 'px';
+    };
+    window.kpiHideTooltip = function() {
+        var t = _getTooltip(); if (t) t.classList.remove('visible');
+    };
+
+    /* ── Revelar celdas ── */
+    function kpiRevealCells() {
+        document.querySelectorAll('#kpiRowNew .kpi-cell').forEach(function(c, i) {
+            c.style.opacity   = '0';
+            c.style.transform = 'translateY(14px)';
+            c.classList.remove('revealed', 'mode-swap');
+            setTimeout(function() { c.classList.add('revealed'); }, i * 80);
+        });
+        kpiAnimateBar('kpi-bar-dep',    75,  80);
+        kpiAnimateBar('kpi-bar-puesto', 55, 160);
+        kpiAnimateBar('kpi-bar-total',  90, 240);
+        if (kpiCurrentMode === 'vision') {
+            kpiAnimateDonut('kpi-arc-dep',    75,  80);
+            kpiAnimateDonut('kpi-arc-puesto', 55, 160);
+            kpiAnimateDonut('kpi-arc-total',  90, 240);
+        }
+    }
+
+    /* ── Aplicar modo ── */
+    function kpiApplyMode(mode, animate) {
+        var row = document.getElementById('kpiRowNew');
+        if (!row) return;
+        row.classList.remove('mode-default', 'mode-vision', 'mode-ministat');
+        row.classList.add('mode-' + mode);
+
+        ['default','vision','ministat'].forEach(function(m) {
+            var btn = document.getElementById('vbtn-' + m);
+            if (btn) btn.classList.toggle('active', m === mode);
+        });
+
+        document.querySelectorAll('#kpiRowNew .kpi-cell-title').forEach(function(el) {
+            el.style.display = mode === 'ministat' ? 'block' : 'none';
+        });
+
+        if (animate) {
+            document.querySelectorAll('#kpiRowNew .kpi-cell').forEach(function(c, i) {
+                c.classList.remove('mode-swap');
+                void c.offsetWidth;
+                c.style.animationDelay = (i * 0.06) + 's';
+                c.classList.add('mode-swap');
+            });
+            if (mode === 'default') {
+                kpiAnimateBar('kpi-bar-dep',    75,  60);
+                kpiAnimateBar('kpi-bar-puesto', 55, 120);
+                kpiAnimateBar('kpi-bar-total',  90, 180);
+            }
+            if (mode === 'vision') {
+                kpiResetDonuts();
+                setTimeout(function() {
+                    kpiAnimateDonut('kpi-arc-dep',    75,  60);
+                    kpiAnimateDonut('kpi-arc-puesto', 55, 130);
+                    kpiAnimateDonut('kpi-arc-total',  90, 200);
+                }, 120);
+            }
+        }
+    }
+
+    /* ── Público ── */
+    window.kpiSetMode = function(mode) {
+        kpiCurrentMode = mode;
+        localStorage.setItem(STORAGE_MODE, mode);
+        kpiApplyMode(mode, true);
+    };
+
+    window.kpiTogglePanel = function() {
+        kpiPanelOpen = !kpiPanelOpen;
+        localStorage.setItem(STORAGE_OPEN, kpiPanelOpen);
+        var panel = document.getElementById('kpiCollapsible');
+        var btn   = document.getElementById('kpiToggleBtn');
+        if (panel) panel.classList.toggle('open', kpiPanelOpen);
+        if (btn)   btn.classList.toggle('open',   kpiPanelOpen);
+        if (kpiPanelOpen) setTimeout(kpiRevealCells, 60);
+    };
+
+    window.kpiResetPrefs = function() {
+        localStorage.removeItem(STORAGE_MODE);
+        localStorage.removeItem(STORAGE_OPEN);
+        kpiCurrentMode = DEFAULT_MODE;
+        kpiPanelOpen   = true;
+        var panel = document.getElementById('kpiCollapsible');
+        var btn   = document.getElementById('kpiToggleBtn');
+        if (panel) panel.classList.add('open');
+        if (btn)   btn.classList.add('open');
+        kpiApplyMode(DEFAULT_MODE, true);
+        setTimeout(kpiRevealCells, 60);
+    };
+
+    /* ── Actualizar valores (llamar desde el código existente) ──
+       Reemplaza las asignaciones directas a kpi-departamentos,
+       kpi-puestos y kpi-total-empleados con esta función.
+
+       Ejemplo de uso:
+         kpiUpdateValues({ dep: 12, puesto: 28, total: 147,
+                           arcDep: 75, arcPuesto: 55, arcTotal: 90 });
+    ── */
+    window.kpiUpdateValues = function(data) {
+        var numDep    = document.getElementById('kpi-departamentos');
+        var numPuesto = document.getElementById('kpi-puestos');
+        var numTotal  = document.getElementById('kpi-total-empleados');
+        var numRol1   = document.getElementById('kpi-rol1-numero');
+        var numRol2   = document.getElementById('kpi-rol2-numero');
+
+        if (numDep    && data.dep    !== undefined) kpiAnimateCounter(numDep,    data.dep,    600,  0);
+        if (numPuesto && data.puesto !== undefined) kpiAnimateCounter(numPuesto, data.puesto, 600, 60);
+        if (numTotal  && data.total  !== undefined) kpiAnimateCounter(numTotal,  data.total,  700, 120);
+        if (numRol1   && data.rol1   !== undefined) kpiAnimateCounter(numRol1,   data.rol1,   600, 180);
+        if (numRol2   && data.rol2   !== undefined) kpiAnimateCounter(numRol2,   data.rol2,   600, 240);
+
+        // Actualizar labels de roles si se proporcionan
+        if (data.rol1Label && document.getElementById('kpi-rol1-label')) {
+            document.getElementById('kpi-rol1-label').textContent = data.rol1Label;
+        }
+        if (data.rol2Label && document.getElementById('kpi-rol2-label')) {
+            document.getElementById('kpi-rol2-label').textContent = data.rol2Label;
+        }
+
+        // Reflejar en mini-stat
+        var msDa  = document.getElementById('kpi-ms-dep-a');
+        var msDb  = document.getElementById('kpi-ms-dep-b');
+        var msPa  = document.getElementById('kpi-ms-puesto-a');
+        var msPb  = document.getElementById('kpi-ms-puesto-b');
+        var msMain   = document.getElementById('kpi-ms-total-main');
+        var msIngr   = document.getElementById('kpi-ms-ingresos');
+        if (msDa   && data.dep               !== undefined) msDa.textContent  = data.dep;
+        if (msDb   && data.depSinJefe        !== undefined) msDb.textContent  = data.depSinJefe;
+        if (msPa   && data.puesto            !== undefined) msPa.textContent  = data.puesto;
+        if (msPb   && data.puestoCompartidos !== undefined) msPb.textContent  = data.puestoCompartidos;
+        if (msMain && data.total             !== undefined) msMain.textContent = data.total;
+        if (msIngr && data.ingresosEsteMes   !== undefined) msIngr.textContent = data.ingresosEsteMes;
+
+        // Reflejar en donut-stats
+        var dvDepA = document.getElementById('kpi-dv-dep-a');
+        var dvDepB = document.getElementById('kpi-dv-dep-b');
+        var dvPstA = document.getElementById('kpi-dv-pst-a');
+        var dvPstB = document.getElementById('kpi-dv-pst-b');
+        var dvEmpA = document.getElementById('kpi-dv-emp-a');
+        var dvEmpB = document.getElementById('kpi-dv-emp-b');
+        if (dvDepA && data.dep               !== undefined) dvDepA.textContent = data.dep;
+        if (dvDepB && data.depSinJefe        !== undefined) dvDepB.textContent = data.depSinJefe;
+        if (dvPstA && data.puesto            !== undefined) dvPstA.textContent = data.puesto;
+        if (dvPstB && data.puestoCompartidos !== undefined) dvPstB.textContent = data.puestoCompartidos;
+        if (dvEmpA && data.total             !== undefined) dvEmpA.textContent = data.total;
+        if (dvEmpB && data.ingresosEsteMes   !== undefined) dvEmpB.textContent = data.ingresosEsteMes;
+
+        // Actualizar badges de tendencia en donuts
+        var _trunc = function(s, n) { return s && s.length > n ? s.substring(0, n - 1) + '…' : (s || '—'); };
+        var trendDep    = document.getElementById('kpi-trend-dep');
+        var trendPuesto = document.getElementById('kpi-trend-puesto');
+        var trendTotal  = document.getElementById('kpi-trend-total');
+        if (trendDep && data.topDepNombre !== undefined) {
+            trendDep.innerHTML = '<i class="bx bx-buildings"></i>' + _trunc(data.topDepNombre, 16);
+            trendDep.title = data.topDepNombre;
+        }
+        if (trendPuesto && data.topPuestoNombre !== undefined) {
+            trendPuesto.innerHTML = '<i class="bx bx-user-pin"></i>' + _trunc(data.topPuestoNombre, 16);
+            trendPuesto.title = data.topPuestoNombre;
+        }
+        if (trendTotal && data.pctIngresos !== undefined) {
+            trendTotal.innerHTML = '<i class="bx bx-trending-up"></i>' + data.pctIngresos + '%';
+        }
+
+        var bDep    = data.arcDep    !== undefined ? data.arcDep    : 75;
+        var bPuesto = data.arcPuesto !== undefined ? data.arcPuesto : 55;
+        var bTotal  = data.arcTotal  !== undefined ? data.arcTotal  : 90;
+        var bRol1   = data.arcRol1   !== undefined ? data.arcRol1   : 65;
+        var bRol2   = data.arcRol2   !== undefined ? data.arcRol2   : 45;
+
+        kpiAnimateBar('kpi-bar-dep',    bDep,     0);
+        kpiAnimateBar('kpi-bar-puesto', bPuesto, 60);
+        kpiAnimateBar('kpi-bar-total',  bTotal,  120);
+
+        if (kpiCurrentMode === 'vision') {
+            kpiResetDonuts();
+            setTimeout(function() {
+                kpiAnimateDonut('kpi-arc-dep',    bDep,     0);
+                kpiAnimateDonut('kpi-arc-puesto', bPuesto, 70);
+                kpiAnimateDonut('kpi-arc-total',  bTotal,  140);
+                if (data.rol1 !== undefined) kpiAnimateDonut('kpi-arc-rol1', bRol1, 210);
+                if (data.rol2 !== undefined) kpiAnimateDonut('kpi-arc-rol2', bRol2, 280);
+            }, 100);
+        }
+    };
+
+    /* ── Init ── */
+    document.addEventListener('DOMContentLoaded', function() {
+        var panel = document.getElementById('kpiCollapsible');
+        var btn   = document.getElementById('kpiToggleBtn');
+        if (panel) panel.classList.toggle('open', kpiPanelOpen);
+        if (btn)   btn.classList.toggle('open',   kpiPanelOpen);
+        kpiApplyMode(kpiCurrentMode, false);
+        if (kpiPanelOpen) setTimeout(kpiRevealCells, 120);
+
+        // Conectar celdas al modal de desglose existente
+        document.querySelectorAll('#kpiRowNew .kpi-cell').forEach(function(cell) {
+            cell.addEventListener('click', function() {
+                var tipo = this.getAttribute('data-tipo');
+                if (typeof mostrarDesgloseKpi === 'function') mostrarDesgloseKpi(tipo);
+                else if (typeof openKpiModal   === 'function') openKpiModal(tipo);
+            });
+        }); 
+    });
+
+})(); /* fin KPI panel v3 */
 
 </script>

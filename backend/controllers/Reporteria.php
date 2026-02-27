@@ -858,7 +858,11 @@ HTML;
             \PHPSpreadsheet::ColumnaExcel('dictamen_fecha_visto', 'DICTAMEN VISTO'),
         ];
 
-        $datosFormateados = array_map(function($ticket) {
+        // Obtener nombres de clientes para el reporte
+        $idsCredito = array_column($datos, 'id_credito');
+        $mapaClientes = \Models\Ticket::getNombresClienteParaReporte($idsCredito);
+
+        $datosFormateados = array_map(function($ticket) use ($mapaClientes) {
             // Calcular minutos entre creación y respuesta
             $minutos = '—';
             if (!empty($ticket['fecha_creacion']) && !empty($ticket['dictamen_fecha_envio'])) {
@@ -872,7 +876,7 @@ HTML;
             return [
                 'folio'                  =>     $ticket['folio'] ?? '—',
                 'id_credito'             =>     $ticket['id_credito'] ?? '—',
-                'nombre_cliente'         =>     $ticket['nombre_cliente'] ?? '—',              //  NUEVO
+                'nombre_cliente' => $mapaClientes[(int)($ticket['id_credito'] ?? 0)] ?? '—',              //  NUEVO
                 'tipo_ticket_nombre'     =>     $ticket['tipo_ticket_nombre'] ?? '—',
                 'estado_ticket_nombre'   =>     $ticket['estado_ticket_nombre'] ?? '—',
                 'prioridad_nombre'       =>     $ticket['prioridad_nombre'] ?? '—',
@@ -952,7 +956,11 @@ HTML;
             \PHPSpreadsheet::ColumnaExcel('dictamen_fecha_visto', 'DICTAMEN VISTO'),
         ];
 
-        $datosFormateados = array_map(function($ticket) {
+        // Obtener nombres de clientes para el reporte
+        $idsCredito = array_column($datos, 'id_credito');
+        $mapaClientes = \Models\Ticket::getNombresClienteParaReporte($idsCredito);
+        
+        $datosFormateados = array_map(function($ticket) use ($mapaClientes) {
             // Calcular minutos entre creación y respuesta
             $minutos = '—';
             if (!empty($ticket['fecha_creacion']) && !empty($ticket['dictamen_fecha_envio'])) {
@@ -966,7 +974,7 @@ HTML;
             return [
                 'folio'               => $ticket['folio'] ?? '—',
                 'id_credito'          => $ticket['id_credito'] ?? '—',
-                'nombre_cliente'      => $ticket['nombre_cliente'] ?? '—',              //  NUEVO
+                'nombre_cliente'      => $mapaClientes[(int)($ticket['id_credito'] ?? 0)] ?? '—',              //  NUEVO
                 'tipo_ticket_nombre'  => $ticket['tipo_ticket_nombre'] ?? '—',
                 'estado_ticket_nombre'=> $ticket['estado_ticket_nombre'] ?? '—',
                 'prioridad_nombre'    => $ticket['prioridad_nombre'] ?? '—',
