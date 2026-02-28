@@ -839,7 +839,20 @@
     .kpi-toggle-btn.open .kpi-chevron { transform:rotate(180deg); }
     .kpi-toggle-btn .kpi-dot { width:6px; height:6px; border-radius:50%; background:#6366f1; flex-shrink:0; }
 
-    .kpi-toolbar-sep { width:1px; height:20px; background:rgba(99,102,241,0.12); flex-shrink:0; }
+    .kpi-toolbar-sep { width:1px; height:20px; background:rgba(99,102,241,0.12); flex-shrink:0; transition:opacity 0.28s ease, transform 0.33s cubic-bezier(0.4,0,0.2,1); }
+    .kpi-toolbar-sep.kpi-sep-hidden { opacity:0; transform:scaleY(0); pointer-events:none; }
+
+    #kpiViewControls {
+        display:flex; align-items:center; gap:0.5rem; flex-wrap:nowrap;
+        overflow:hidden;
+        max-width:700px; opacity:1; transform:translateX(0);
+        transition:max-width 0.38s cubic-bezier(0.4,0,0.2,1),
+                   opacity    0.28s ease,
+                   transform  0.33s cubic-bezier(0.4,0,0.2,1);
+    }
+    #kpiViewControls.kpi-vc-hidden {
+        max-width:0; opacity:0; transform:translateX(-22px); pointer-events:none;
+    }
 
     .kpi-view-btn {
         display:inline-flex; align-items:center; justify-content:center; gap:0.3rem;
@@ -881,8 +894,10 @@
     .kpi-cell {
         background:#fff; border-radius:14px;
         border:1px solid rgba(99,102,241,0.12);
-        box-shadow:0 2px 16px rgba(99,102,241,0.08),0 1px 4px rgba(0,0,0,0.04);
+        box-shadow:0 2px 16px rgba(99,102,241,0.08),0 1px 4px rgba(0,0,0,0.04),
+                   inset 4px 0 0 var(--cell-accent);
         position:relative; overflow:hidden; cursor:pointer;
+        min-height:190px;
         transition:transform 0.25s cubic-bezier(0.4,0,0.2,1), box-shadow 0.25s, border-color 0.25s;
         opacity:0; transform:translateY(14px);
     }
@@ -891,7 +906,7 @@
         from { opacity:0; transform:translateY(14px) scale(0.97); }
         to   { opacity:1; transform:translateY(0) scale(1); }
     }
-    .kpi-cell:hover { transform:translateY(-3px); box-shadow:0 8px 28px rgba(99,102,241,0.13),0 2px 8px rgba(0,0,0,0.06); border-color:rgba(99,102,241,0.28); }
+    .kpi-cell:hover { transform:translateY(-3px); box-shadow:0 8px 28px rgba(99,102,241,0.13),0 2px 8px rgba(0,0,0,0.06),inset 4px 0 0 var(--cell-accent); border-color:rgba(99,102,241,0.28); }
     .kpi-cell::after {
         content:''; position:absolute; bottom:0; left:0; right:0; height:3px;
         border-radius:0 0 14px 14px; background:var(--cell-accent);
@@ -912,12 +927,58 @@
 
     /* ── Elementos comunes ── */
     .kpi-cell-top { display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:0.85rem; }
+    /* ── kpi-icon-wrap: círculo coloreado, estilo __SPARTA_SECRET_REDACTED__ ── */
     .kpi-icon-wrap {
-        border-radius:9px; background:color-mix(in srgb,var(--cell-icon) 10%,transparent);
-        display:flex; align-items:center; justify-content:center; color:var(--cell-icon); flex-shrink:0;
-        transition:transform 0.3s cubic-bezier(0.34,1.56,0.64,1), background 0.3s;
+      border-radius:50%;
+      display:flex; align-items:center; justify-content:center; flex-shrink:0;
+      transition:transform 0.3s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.3s;
     }
-    .kpi-cell:hover .kpi-icon-wrap { transform:scale(1.12) rotate(-4deg); background:color-mix(in srgb,var(--cell-icon) 18%,transparent); }
+    /* Forzar que los <i> de Boxicons se dibujen (font + display) */
+    .kpi-icon-wrap i {
+      font-family:'boxicons' !important;
+      font-style:normal;
+      font-weight:400 !important;
+      font-size:inherit !important;
+      color:inherit !important;
+      line-height:1;
+      display:inline-block !important;
+      text-shadow:0 0 8px currentColor;
+      position:relative;
+      z-index:1;
+    }
+
+    /* Colores por tipo — light mode */
+    .kpi-cell.tipo-dep    .kpi-icon-wrap { background:#ede9fe; border:1px solid #c4b5fd; color:#6366f1; box-shadow:0 3px 10px rgba(99,102,241,0.28); }
+    .kpi-cell.tipo-puesto .kpi-icon-wrap { background:#d1fae5; border:1px solid #6ee7b7; color:#059669; box-shadow:0 3px 10px rgba(16,185,129,0.28); }
+    .kpi-cell.tipo-total  .kpi-icon-wrap { background:#fef3c7; border:1px solid #fcd34d; color:#d97706; box-shadow:0 3px 10px rgba(245,158,11,0.28); }
+
+    /* Tamaño del icono según modo */
+    .kpi-row-new.mode-default  .kpi-icon-wrap i { font-size:1.25rem !important; display:inline-block !important; }
+    .kpi-row-new.mode-ministat .kpi-icon-wrap i { font-size:1rem   !important; display:inline-block !important; }
+
+    /* Hover */
+    .kpi-cell.tipo-dep:hover    .kpi-icon-wrap { transform:scale(1.12) rotate(-4deg); box-shadow:0 6px 18px rgba(99,102,241,0.45); }
+    .kpi-cell.tipo-puesto:hover .kpi-icon-wrap { transform:scale(1.12) rotate(-4deg); box-shadow:0 6px 18px rgba(16,185,129,0.45); }
+    .kpi-cell.tipo-total:hover  .kpi-icon-wrap { transform:scale(1.12) rotate(-4deg); box-shadow:0 6px 18px rgba(245,158,11,0.45); }
+
+    /* Dark mode */
+    body.dark-mode .kpi-cell.tipo-dep    .kpi-icon-wrap { background:rgba(99,102,241,0.18); border-color:rgba(99,102,241,0.4); color:#a5b4fc !important; box-shadow:0 3px 10px rgba(99,102,241,0.35); }
+    body.dark-mode .kpi-cell.tipo-puesto .kpi-icon-wrap { background:rgba(16,185,129,0.18); border-color:rgba(16,185,129,0.4); color:#6ee7b7 !important; box-shadow:0 3px 10px rgba(16,185,129,0.35); }
+    body.dark-mode .kpi-cell.tipo-total  .kpi-icon-wrap { background:rgba(245,158,11,0.18); border-color:rgba(245,158,11,0.4); color:#fcd34d !important; box-shadow:0 3px 10px rgba(245,158,11,0.35); }
+    body.dark-mode .kpi-cell.tipo-dep    .kpi-icon-wrap i { color:#a5b4fc !important; }
+    body.dark-mode .kpi-cell.tipo-puesto .kpi-icon-wrap i { color:#6ee7b7 !important; }
+    body.dark-mode .kpi-cell.tipo-total  .kpi-icon-wrap i { color:#fcd34d !important; }
+
+    /* ── Icono decorativo esquina superior izquierda ── */
+    .kpi-corner-icon {
+        position:absolute; top:6px; left:8px;
+        font-size:4.2rem; line-height:1;
+        color:var(--cell-icon); opacity:0.07;
+        pointer-events:none; user-select:none; z-index:0;
+        transition:opacity 0.4s ease, transform 0.4s cubic-bezier(0.34,1.56,0.64,1);
+    }
+    .kpi-cell:hover .kpi-corner-icon { opacity:0.13; transform:scale(1.08) rotate(-6deg); }
+    .kpi-row-new.mode-vision .kpi-corner-icon { display:none !important; }
     .kpi-cell-status {
         font-size:0.62rem; font-weight:600; letter-spacing:0.06em; text-transform:uppercase;
         color:var(--cell-icon); background:color-mix(in srgb,var(--cell-icon) 10%,transparent);
@@ -930,21 +991,34 @@
 
     /* ════ MODO ESTÁNDAR ════ */
     .kpi-row-new.mode-default .kpi-cell { padding:1.15rem 1.25rem 1.05rem; }
-    .kpi-row-new.mode-default .kpi-icon-wrap { width:36px; height:36px; font-size:1.15rem; }
+    /* Ocultar icono y círculo en modo Estándar */
+    .kpi-row-new.mode-default .kpi-icon-wrap { display:none !important; }
+    .kpi-row-new.mode-default .kpi-corner-icon { display:none !important; }
     .kpi-row-new.mode-default .donut-block  { display:none !important; }
     .kpi-row-new.mode-default .kpi-stats-grid-new { display:none !important; }
 
     /* ════ MODO MINI-STAT ════ */
-    .kpi-row-new.mode-ministat .kpi-cell { padding:1rem 1.1rem; }
-    .kpi-row-new.mode-ministat .kpi-cell-top { margin-bottom:0.65rem; }
+    .kpi-row-new.mode-ministat .kpi-cell { padding:1.15rem 1.25rem 1.05rem; }
+    .kpi-row-new.mode-ministat .kpi-cell-top { margin-bottom:0.85rem; }
     .kpi-row-new.mode-ministat .kpi-cell-top .kpi-cell-status { display:none; }
-    .kpi-row-new.mode-ministat .kpi-icon-wrap { width:28px; height:28px; font-size:0.95rem; }
-    .kpi-row-new.mode-ministat .kpi-cell-title { font-size:0.7rem; font-weight:600; color:#6b7280; text-transform:uppercase; letter-spacing:0.03em; align-self:center; }
+    /* Ocultar icono y círculo en modo Mini-Stat */
+    .kpi-row-new.mode-ministat .kpi-icon-wrap { display:none !important; }
+    .kpi-row-new.mode-ministat .kpi-corner-icon { display:none !important; }
+    .kpi-row-new.mode-ministat .kpi-cell-title { font-size:0.7rem; font-weight:600; color:#6b7280; text-transform:uppercase; letter-spacing:0.03em; align-self:center; display:block; margin-bottom:0.2rem; }
     .kpi-row-new.mode-ministat .kpi-num      { display:none !important; }
     .kpi-row-new.mode-ministat .kpi-lbl      { display:none !important; }
-    .kpi-row-new.mode-ministat .kpi-bar-track{ display:none !important; }
+    .kpi-row-new.mode-ministat .kpi-bar-track{ display:block !important; margin-top:auto; padding-top:0.55rem; }
     .kpi-row-new.mode-ministat .donut-block  { display:none !important; }
     .kpi-row-new.mode-ministat .kpi-stats-grid-new { display:grid !important; }
+    /* % badge below B-value */
+    .kpi-ms-pct { font-size:0.62rem; font-weight:600; color:#9ca3af; margin-top:0.18rem; line-height:1.2; }
+    .kpi-ms-pct.ok     { color:#10b981; }
+    .kpi-ms-pct.warn   { color:#f59e0b; }
+    .kpi-ms-pct.danger { color:#ef4444; }
+    body.dark-mode .kpi-ms-pct        { color:#6b7280; }
+    body.dark-mode .kpi-ms-pct.ok     { color:#34d399; }
+    body.dark-mode .kpi-ms-pct.warn   { color:#fbbf24; }
+    body.dark-mode .kpi-ms-pct.danger { color:#f87171; }
     .kpi-cell-title { display:none; }
     .kpi-stats-grid-new { display:none; grid-template-columns:1fr 1px 1fr; align-items:center; }
     .kpi-stat-item { padding:0 0.5rem; }
@@ -964,14 +1038,15 @@
     .kpi-emp-side-lbl { font-size:0.6rem; color:#6b7280; font-weight:500; }
     .kpi-stat-ingr { color:#10b981 !important; }
     .kpi-ingr-arrow { color:#10b981; font-size:0.75rem; vertical-align:middle; display:inline-flex; align-items:center; }
-    .kpi-stat-val { font-size:1.4rem; font-weight:700; color:var(--cell-num); line-height:1; display:flex; align-items:center; gap:0.1rem; }
-    .kpi-stat-lbl { font-size:0.62rem; font-weight:500; color:#6b7280; margin-top:0.15rem; }
-    .kpi-stat-div { width:1px; height:32px; align-self:center; background:linear-gradient(180deg,transparent,rgba(99,102,241,0.15),transparent); }
+    .kpi-stat-val { font-size:1.85rem; font-weight:700; color:var(--cell-num); line-height:1; display:flex; align-items:center; gap:0.1rem; }
+    .kpi-stat-lbl { font-size:0.62rem; font-weight:500; color:#6b7280; margin-top:0.2rem; }
+    .kpi-stat-div { width:1px; height:40px; align-self:center; background:linear-gradient(180deg,transparent,rgba(99,102,241,0.15),transparent); }
+    .kpi-stats-grid-new { display:none; grid-template-columns:1fr 1px 1fr; align-items:center; margin-top:0.65rem; }
     .kpi-arrow-up   { color:#10b981; font-size:1.1rem; line-height:1; display:flex; align-items:center; }
     .kpi-arrow-down { color:#ef4444; font-size:1.1rem; line-height:1; display:flex; align-items:center; }
 
     /* ════ MODO VISIÓN (donut) ════ */
-    .kpi-row-new.mode-vision .kpi-cell { padding:1.1rem 1.25rem 1rem; }
+    .kpi-row-new.mode-vision .kpi-cell { padding:1.1rem 1.25rem 1rem; min-height:unset; }
     .kpi-row-new.mode-vision .kpi-cell-top    { display:none !important; }
     .kpi-row-new.mode-vision .kpi-num         { display:none !important; }
     .kpi-row-new.mode-vision .kpi-lbl         { display:none !important; }
@@ -1036,7 +1111,7 @@
     .kpi-cell.mode-swap { animation:kpiModeFade 0.32s ease forwards; }
 
     /* ── Dark mode ── */
-    body.dark-mode .kpi-cell             { background:#1a1d2e; border-color:rgba(99,102,241,0.18); box-shadow:0 2px 16px rgba(0,0,0,0.35),0 1px 4px rgba(0,0,0,0.2); }
+    body.dark-mode .kpi-cell             { background:#1a1d2e; border-color:rgba(99,102,241,0.18); box-shadow:0 2px 16px rgba(0,0,0,0.35),0 1px 4px rgba(0,0,0,0.2),inset 4px 0 0 var(--cell-accent); }
     body.dark-mode .kpi-toggle-btn,
     body.dark-mode .kpi-view-btn         { background:#1a1d2e; }
     body.dark-mode .kpi-donut-tooltip    { background:#e8eaff; color:#0f1117; }
@@ -1050,6 +1125,11 @@
     body.dark-mode .kpi-cell-title       { color:#8b90b0; }
     body.dark-mode .kpi-stat-ingr        { color:#10b981 !important; }
     body.dark-mode .kpi-ingr-arrow       { color:#10b981 !important; }
+
+    /* Celda clickeable */
+    .kpi-cell { cursor: pointer; }
+    .kpi-cell::after { content:''; position:absolute; inset:0; border-radius:inherit; background:transparent; transition:background 0.18s; pointer-events:none; }
+    .kpi-cell:active::after { background:rgba(0,0,0,0.06); }
 
     /* ── Responsive móvil ── */
     @media (max-width: 767px) {
@@ -1573,8 +1653,9 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
                     <i class="bx bx-chevron-down kpi-chevron"></i>
                 </button>
 
-                <div class="kpi-toolbar-sep"></div>
+                <div class="kpi-toolbar-sep" id="kpiViewControlsSep"></div>
 
+                <div id="kpiViewControls">
                 <button class="kpi-view-btn active" id="vbtn-default"  onclick="kpiSetMode('default')"  data-tip="Vista Estándar">
                     <i class="bx bx-layout"></i>
                     <span class="kpi-btn-text">Estándar</span>
@@ -1594,6 +1675,7 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
                     <i class="bx bx-rotate-left"></i>
                     Restablecer
                 </button>
+                </div>
             </div>
 
             <!-- Panel colapsable -->
@@ -1603,8 +1685,9 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
 
                         <!-- ░░ DEPARTAMENTOS ░░ -->
                         <div class="kpi-cell tipo-dep" id="kpi-cell-dep" data-tipo="departamentos">
+                            <span class="kpi-corner-icon"><i class="bx bx-buildings"></i></span>
                             <div class="kpi-cell-top">
-                                <div class="kpi-icon-wrap" style="width:36px;height:36px;font-size:1.15rem"><i class="bx bx-buildings"></i></div>
+                                <div class="kpi-icon-wrap"><i class="bx bx-buildings"></i></div>
                                 <span class="kpi-cell-status">Activos</span>
                             </div>
                             <div class="kpi-num" id="kpi-departamentos">0</div>
@@ -1615,7 +1698,7 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
                             <div class="kpi-stats-grid-new">
                                 <div class="kpi-stat-item"><div class="kpi-stat-val" id="kpi-ms-dep-a">0</div><div class="kpi-stat-lbl">Activos</div></div>
                                 <div class="kpi-stat-div"></div>
-                                <div class="kpi-stat-item"><div class="kpi-stat-val" id="kpi-ms-dep-b">0</div><div class="kpi-stat-lbl">Sin jefe</div></div>
+                                <div class="kpi-stat-item"><div class="kpi-stat-val" id="kpi-ms-dep-b">0</div><div class="kpi-ms-pct" id="kpi-ms-pct-dep">—</div><div class="kpi-stat-lbl">Sin jefe</div></div>
                             </div>
                             <!-- visión donut -->
                             <div class="donut-block">
@@ -1647,8 +1730,9 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
 
                         <!-- ░░ PUESTOS ░░ -->
                         <div class="kpi-cell tipo-puesto" id="kpi-cell-puesto" data-tipo="puestos">
+                            <span class="kpi-corner-icon"><i class="bx bx-briefcase"></i></span>
                             <div class="kpi-cell-top">
-                                <div class="kpi-icon-wrap" style="width:36px;height:36px;font-size:1.15rem"><i class="bx bx-briefcase"></i></div>
+                                <div class="kpi-icon-wrap"><i class="bx bx-briefcase"></i></div>
                                 <span class="kpi-cell-status">Únicos</span>
                             </div>
                             <div class="kpi-num" id="kpi-puestos">0</div>
@@ -1659,7 +1743,7 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
                             <div class="kpi-stats-grid-new">
                                 <div class="kpi-stat-item"><div class="kpi-stat-val" id="kpi-ms-puesto-a">0</div><div class="kpi-stat-lbl">Total</div></div>
                                 <div class="kpi-stat-div"></div>
-                                <div class="kpi-stat-item"><div class="kpi-stat-val" id="kpi-ms-puesto-b">0</div><div class="kpi-stat-lbl">Compartidos</div></div>
+                                <div class="kpi-stat-item"><div class="kpi-stat-val" id="kpi-ms-puesto-b">0</div><div class="kpi-ms-pct" id="kpi-ms-pct-pst">—</div><div class="kpi-stat-lbl">Compartidos</div></div>
                             </div>
                             <!-- visión donut -->
                             <div class="donut-block">
@@ -1691,8 +1775,9 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
 
                         <!-- ░░ TOTAL EMPLEADOS ░░ -->
                         <div class="kpi-cell tipo-total" id="kpi-cell-total" data-tipo="total">
+                            <span class="kpi-corner-icon"><i class="bx bx-group"></i></span>
                             <div class="kpi-cell-top">
-                                <div class="kpi-icon-wrap" style="width:36px;height:36px;font-size:1.15rem"><i class="bx bx-group"></i></div>
+                                <div class="kpi-icon-wrap"><i class="bx bx-group"></i></div>
                                 <span class="kpi-cell-status">Total</span>
                             </div>
                             <div class="kpi-num" id="kpi-total-empleados">0</div>
@@ -1705,6 +1790,7 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
                                 <div class="kpi-stat-div"></div>
                                 <div class="kpi-stat-item">
                                     <div class="kpi-stat-val kpi-stat-ingr" id="kpi-ms-ingresos">0</div>
+                                    <div class="kpi-ms-pct kpi-stat-ingr" id="kpi-ms-pct-emp">—</div>
                                     <div class="kpi-stat-lbl"><span class="kpi-ingr-arrow"><i class="bx bx-up-arrow-alt"></i></span> Ingresos</div>
                                 </div>
                             </div>
@@ -1741,6 +1827,23 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
             </div><!-- /kpi-collapsible -->
 
         </div><!-- /panelIndicadoresGestion -->
+
+<!-- =============================================
+     MODAL KPI — Desglose por indicador
+============================================= -->
+<div class="modal fade" id="modalKpiDesglose" tabindex="-1" aria-labelledby="modalKpiDesgloseLabel" aria-hidden="true" data-bs-backdrop="false">
+  <div class="modal-dialog modal-kpi-desglose">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title fw-bold" id="modalKpiTitle"><i class="bx bx-bar-chart me-2"></i>Desglose</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <div class="modal-body" id="modalKpiContent">
+        <p class="text-muted text-center py-4"><i class="bx bx-loader-alt bx-spin me-2"></i>Cargando…</p>
+      </div>
+    </div>
+  </div>
+</div>
 
         <!-- =======================
              PANEL DE INDICADORES PARA BAJAS (oculto por defecto)
@@ -3627,27 +3730,49 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
   }
 
   function generarModalDepartamentos(datos) {
-    const conteo = {};
+    // Puestos distintos por departamento
+    const depPuestosMap = {};
+    const depEmpleadosMap = {};
     datos.forEach(u => {
-      if (u.nombre_departamento && u.nombre_departamento !== 'Sin departamento') {
-        conteo[u.nombre_departamento] = (conteo[u.nombre_departamento] || 0) + 1;
+      const dept = u.nombre_departamento;
+      const puesto = u.nombre_puesto;
+      if (dept && dept !== 'Sin departamento') {
+        if (!depPuestosMap[dept])   depPuestosMap[dept]   = new Set();
+        if (!depEmpleadosMap[dept]) depEmpleadosMap[dept] = 0;
+        depEmpleadosMap[dept]++;
+        if (puesto && puesto !== 'Sin puesto') depPuestosMap[dept].add(puesto);
       }
     });
-    
-    const departamentos = Object.entries(conteo)
-      .sort((a, b) => b[1] - a[1])
-      .map(([dept, cantidad]) => ({ dept, cantidad }));
-    
-    const total = departamentos.length;
-    const totalEmpleados = datos.length;
-    const promedio = (totalEmpleados / total).toFixed(1);
-    
+
+    // Total de puestos distintos en toda la organización
+    const allPuestos = new Set();
+    datos.forEach(u => { if (u.nombre_puesto && u.nombre_puesto !== 'Sin puesto') allPuestos.add(u.nombre_puesto); });
+    const totalPuestosOrg = allPuestos.size;
+
+    const departamentos = Object.keys(depPuestosMap)
+      .map(dept => ({
+        dept,
+        puestos:   depPuestosMap[dept].size,
+        empleados: depEmpleadosMap[dept] || 0
+      }))
+      .sort((a, b) => b.puestos - a.puestos);
+
+    const totalDeps      = departamentos.length;
+    const totalEmpleados = datos.filter(u => u.nombre_departamento && u.nombre_departamento !== 'Sin departamento').length;
+    const maxPuestos     = departamentos.length ? departamentos[0].puestos : 1;
+
     let html = `
       <div class="row mb-3">
         <div class="col-md-4">
           <div class="stat-card" data-color="indigo">
-            <div class="stat-label"><i class="bx bx-buildings me-1"></i>Total Departamentos</div>
-            <div class="stat-value">${total}</div>
+            <div class="stat-label"><i class="bx bx-buildings me-1"></i>Departamentos</div>
+            <div class="stat-value">${totalDeps}</div>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="stat-card" data-color="indigo">
+            <div class="stat-label"><i class="bx bx-briefcase me-1"></i>Puestos únicos</div>
+            <div class="stat-value">${totalPuestosOrg}</div>
           </div>
         </div>
         <div class="col-md-4">
@@ -3656,55 +3781,53 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
             <div class="stat-value">${totalEmpleados}</div>
           </div>
         </div>
-        <div class="col-md-4">
-          <div class="stat-card" data-color="indigo">
-            <div class="stat-label"><i class="bx bx-trending-up me-1"></i>Promedio por Dept.</div>
-            <div class="stat-value">${promedio}</div>
-          </div>
-        </div>
       </div>
-      
-      <h6 class="mb-3 fw-bold text-indigo"><i class="bx bx-bar-chart me-2"></i>Distribución de Empleados</h6>
+
+      <h6 class="mb-3 fw-bold"><i class="bx bx-bar-chart me-2"></i>Puestos por Departamento</h6>
       <div class="table-responsive">
-        <table class="table table-hover table-sm">
+        <table class="table table-hover table-sm align-middle">
           <thead class="table-header-indigo">
             <tr>
-              <th>#</th>
+              <th class="text-center" style="width:2rem">#</th>
               <th>Departamento</th>
-              <th class="text-center">Empleados</th>
-              <th class="text-center">% del Total</th>
-              <th>Distribución</th>
+              <th class="text-center" style="width:6rem">Puestos</th>
+              <th class="text-center" style="width:5rem">% del total</th>
+              <th style="min-width:120px">Ocupación</th>
             </tr>
           </thead>
           <tbody>
     `;
-    
+
     departamentos.forEach((item, index) => {
-      const porcentaje = ((item.cantidad / totalEmpleados) * 100).toFixed(1);
+      const pct      = totalPuestosOrg > 0 ? ((item.puestos / totalPuestosOrg) * 100).toFixed(1) : '0.0';
+      const barWidth = maxPuestos  > 0 ? ((item.puestos / maxPuestos) * 100).toFixed(1)  : '0';
+      const badgeCol = index === 0 ? '#4F46E5' : '#6366F1';
       html += `
         <tr>
-          <td>${index + 1}</td>
-          <td><strong>${item.dept}</strong></td>
-          <td class="text-center"><span class="badge badge-count" style="background: linear-gradient(135deg, #4F46E5, #6366F1);">${item.cantidad}</span></td>
-          <td class="text-center"><strong>${porcentaje}%</strong></td>
+          <td class="text-center text-muted" style="font-size:.75rem">${index + 1}</td>
           <td>
-            <div class="progress" style="height: 6px;">
-              <div class="progress-bar progress-bar-kpi" role="progressbar" 
-                   style="width: ${porcentaje}%; background: linear-gradient(90deg, #4F46E5, #6366F1);" 
-                   aria-valuenow="${porcentaje}" aria-valuemin="0" aria-valuemax="100"></div>
+            <strong>${item.dept}</strong>
+            <div style="font-size:.68rem;color:#94a3b8;margin-top:1px">${item.empleados} empleado${item.empleados !== 1?'s':''}</div>
+          </td>
+          <td class="text-center">
+            <span class="badge badge-count" style="background:linear-gradient(135deg,${badgeCol},#818CF8)">${item.puestos}</span>
+          </td>
+          <td class="text-center fw-bold">${pct}%</td>
+          <td>
+            <div class="progress" style="height:8px;border-radius:4px;background:#e2e8f0">
+              <div class="progress-bar progress-bar-kpi" role="progressbar"
+                   style="width:${barWidth}%;background:linear-gradient(90deg,#4F46E5,#818CF8);border-radius:4px;"
+                   aria-valuenow="${barWidth}" aria-valuemin="0" aria-valuemax="100">
+              </div>
             </div>
           </td>
         </tr>
       `;
     });
-    
-    html += `
-          </tbody>
-        </table>
-      </div>
-    `;
-    
-    return { titulo: 'Departamentos - Análisis Completo', html };
+
+    html += `</tbody></table></div>`;
+
+    return { titulo: 'Departamentos — Puestos por área', html };
   }
 
   function generarModalPuestos(datos) {
@@ -6386,24 +6509,21 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio) {
     window.kpiTogglePanel = function() {
         kpiPanelOpen = !kpiPanelOpen;
         localStorage.setItem(STORAGE_OPEN, kpiPanelOpen);
-        var panel = document.getElementById('kpiCollapsible');
-        var btn   = document.getElementById('kpiToggleBtn');
-        if (panel) panel.classList.toggle('open', kpiPanelOpen);
-        if (btn)   btn.classList.toggle('open',   kpiPanelOpen);
+        var panel    = document.getElementById('kpiCollapsible');
+        var btn      = document.getElementById('kpiToggleBtn');
+        var controls = document.getElementById('kpiViewControls');
+        var sep      = document.getElementById('kpiViewControlsSep');
+        if (panel)    panel.classList.toggle('open', kpiPanelOpen);
+        if (btn)      btn.classList.toggle('open',   kpiPanelOpen);
+        if (controls) controls.classList.toggle('kpi-vc-hidden', !kpiPanelOpen);
+        if (sep)      sep.classList.toggle('kpi-sep-hidden',     !kpiPanelOpen);
         if (kpiPanelOpen) setTimeout(kpiRevealCells, 60);
     };
 
     window.kpiResetPrefs = function() {
         localStorage.removeItem(STORAGE_MODE);
         localStorage.removeItem(STORAGE_OPEN);
-        kpiCurrentMode = DEFAULT_MODE;
-        kpiPanelOpen   = true;
-        var panel = document.getElementById('kpiCollapsible');
-        var btn   = document.getElementById('kpiToggleBtn');
-        if (panel) panel.classList.add('open');
-        if (btn)   btn.classList.add('open');
-        kpiApplyMode(DEFAULT_MODE, true);
-        setTimeout(kpiRevealCells, 60);
+        location.reload();
     };
 
     /* ── Actualizar valores (llamar desde el código existente) ──
@@ -6448,6 +6568,25 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio) {
         if (msPb   && data.puestoCompartidos !== undefined) msPb.textContent  = data.puestoCompartidos;
         if (msMain && data.total             !== undefined) msMain.textContent = data.total;
         if (msIngr && data.ingresosEsteMes   !== undefined) msIngr.textContent = data.ingresosEsteMes;
+
+        // % badges con semáforo
+        var pctDepEl = document.getElementById('kpi-ms-pct-dep');
+        var pctPstEl = document.getElementById('kpi-ms-pct-pst');
+        var pctEmpEl = document.getElementById('kpi-ms-pct-emp');
+        if (pctDepEl && data.dep !== undefined && data.depSinJefe !== undefined) {
+            var _pDep = data.dep > 0 ? Math.round((data.depSinJefe / data.dep) * 100) : 0;
+            pctDepEl.textContent = _pDep + '% sin jefe';
+            pctDepEl.className = 'kpi-ms-pct ' + (data.depSinJefe === 0 ? 'ok' : data.depSinJefe <= 2 ? 'warn' : 'danger');
+        }
+        if (pctPstEl && data.puesto !== undefined && data.puestoCompartidos !== undefined) {
+            var _pPst = data.puesto > 0 ? Math.round((data.puestoCompartidos / data.puesto) * 100) : 0;
+            pctPstEl.textContent = _pPst + '% compartidos';
+            pctPstEl.className = 'kpi-ms-pct';
+        }
+        if (pctEmpEl && data.pctIngresos !== undefined) {
+            pctEmpEl.textContent = data.pctIngresos + '% del total';
+            pctEmpEl.className = 'kpi-ms-pct kpi-stat-ingr';
+        }
 
         // Reflejar en donut-stats
         var dvDepA = document.getElementById('kpi-dv-dep-a');
@@ -6504,19 +6643,24 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio) {
 
     /* ── Init ── */
     document.addEventListener('DOMContentLoaded', function() {
-        var panel = document.getElementById('kpiCollapsible');
-        var btn   = document.getElementById('kpiToggleBtn');
+        var panel    = document.getElementById('kpiCollapsible');
+        var btn      = document.getElementById('kpiToggleBtn');
+        var controls = document.getElementById('kpiViewControls');
+        var sep      = document.getElementById('kpiViewControlsSep');
         if (panel) panel.classList.toggle('open', kpiPanelOpen);
         if (btn)   btn.classList.toggle('open',   kpiPanelOpen);
+        if (controls) controls.classList.toggle('kpi-vc-hidden', !kpiPanelOpen);
+        if (sep)      sep.classList.toggle('kpi-sep-hidden',     !kpiPanelOpen);
         kpiApplyMode(kpiCurrentMode, false);
         if (kpiPanelOpen) setTimeout(kpiRevealCells, 120);
 
         // Conectar celdas al modal de desglose existente
         document.querySelectorAll('#kpiRowNew .kpi-cell').forEach(function(cell) {
-            cell.addEventListener('click', function() {
+            cell.addEventListener('click', function(e) {
+                // Ignorar clicks en botones internos
+                if (e.target.closest('button, a, input, select')) return;
                 var tipo = this.getAttribute('data-tipo');
-                if (typeof mostrarDesgloseKpi === 'function') mostrarDesgloseKpi(tipo);
-                else if (typeof openKpiModal   === 'function') openKpiModal(tipo);
+                if (tipo && typeof abrirModalDesglose === 'function') abrirModalDesglose(tipo);
             });
         }); 
     });
