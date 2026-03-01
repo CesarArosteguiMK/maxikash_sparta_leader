@@ -540,6 +540,7 @@ body.dark-mode .inicio-btn-diagnostico-bd {
   }
   updateInicioDateTime();
   setInterval(updateInicioDateTime, 1000);
+  loadCpQuote(); // Frase del día desde servidor (misma para todos)
 
   // Panel reloj
   var btnOpen = document.getElementById('btnOpenClockPanel');
@@ -549,96 +550,25 @@ body.dark-mode .inicio-btn-diagnostico-bd {
   var cpCy = cdmxNow.getFullYear();
   var cpCm = cdmxNow.getMonth();
 
-  // Frases cargadas desde archivo (fallback incluido)
-  var QUOTES = [];
-  var todayQuote = null;
-
-  // Cargar frases desde el archivo JSON
-  fetch('/backend/config/frases_motivacionales.json')
-    .then(function(r){ return r.json(); })
-    .then(function(data){
-      if(data && data.frases && data.frases.length > 0){
-        QUOTES = data.frases.map(function(f, idx){ return { id: idx, t: f.texto, a: f.autor }; });
-        todayQuote = selectTodayQuote();
-      }
-    })
-    .catch(function(){
-      // Fallback si no carga el archivo
-      QUOTES = [
-        { id: 0, t:'El éxito es la suma de pequeños esfuerzos repetidos día tras día.', a:'Robert Collier' },
-        { id: 1, t:'La actitud es la pequeña cosa que hace una gran diferencia.', a:'Winston Churchill' },
-        { id: 2, t:'Siempre parece imposible hasta que se hace.', a:'Nelson Mandela' }
-      ];
-      todayQuote = selectTodayQuote();
-    });
-
-  // Sistema de frases sin repetir por 5 días
-  function getTodayKey(){
-    var n = getCDMXDate();
-    return n.getFullYear() + '-' + (n.getMonth()+1) + '-' + n.getDate();
-  }
-
-  function getUsedQuotes(){
-    try {
-      var stored = localStorage.getItem('usedQuotes');
-      return stored ? JSON.parse(stored) : {};
-    } catch(e){ return {}; }
-  }
-
-  function saveUsedQuotes(used){
-    try {
-      localStorage.setItem('usedQuotes', JSON.stringify(used));
-    } catch(e){}
-  }
-
-  function selectTodayQuote(){
-    var todayKey = getTodayKey();
-    var used = getUsedQuotes();
-    
-    // Si ya hay una frase guardada para hoy, usarla
-    if(used[todayKey] && used[todayKey].quote){
-      var savedQuote = QUOTES.find(function(q){ return q.id === used[todayKey].quote.id; });
-      if(savedQuote) return savedQuote;
-    }
-    
-    // Limpiar frases usadas con más de 5 días
-    var now = getCDMXDate();
-    var fiveDaysAgo = new Date(now);
-    fiveDaysAgo.setDate(fiveDaysAgo.getDate() - 5);
-    
-    var recentlyUsedIds = [];
-    Object.keys(used).forEach(function(dateKey){
-      var parts = dateKey.split('-');
-      var usedDate = new Date(parts[0], parts[1]-1, parts[2]);
-      if(usedDate >= fiveDaysAgo && dateKey !== todayKey){
-        if(used[dateKey].quote && typeof used[dateKey].quote.id !== 'undefined'){
-          recentlyUsedIds.push(used[dateKey].quote.id);
+  // Frase del día: misma para todos (servidor elige por fecha CDMX)
+  function loadCpQuote(){
+    var elText = document.getElementById('cpQuoteText');
+    var elAuthor = document.getElementById('cpQuoteAuthor');
+    if(!elText || !elAuthor) return;
+    fetch('/inicio/fraseDelDia')
+      .then(function(r){ return r.json(); })
+      .then(function(data){
+        if(data && (data.success || data.texto)){
+          elText.textContent = '"' + (data.texto || 'El éxito es la suma de pequeños esfuerzos repetidos día tras día.') + '"';
+          elAuthor.textContent = '— ' + (data.autor || 'Robert Collier');
         }
-      } else if(usedDate < fiveDaysAgo){
-        // Eliminar registros antiguos (más de 5 días)
-        delete used[dateKey];
-      }
-    });
-    
-    // Filtrar frases disponibles (no usadas en últimos 5 días)
-    var availableQuotes = QUOTES.filter(function(q){
-      return recentlyUsedIds.indexOf(q.id) === -1;
-    });
-    
-    // Si no hay frases disponibles, usar todas
-    if(availableQuotes.length === 0){
-      availableQuotes = QUOTES;
-    }
-    
-    // Seleccionar una frase random
-    var randomIndex = Math.floor(Math.random() * availableQuotes.length);
-    var selectedQuote = availableQuotes[randomIndex];
-    
-    // Guardar la frase de hoy
-    used[todayKey] = { quote: { id: selectedQuote.id, t: selectedQuote.t, a: selectedQuote.a } };
-    saveUsedQuotes(used);
-    
-    return selectedQuote;
+        applyQuoteColors();
+      })
+      .catch(function(){
+        elText.textContent = '"El éxito es la suma de pequeños esfuerzos repetidos día tras día."';
+        elAuthor.textContent = '— Robert Collier';
+        applyQuoteColors();
+      });
   }
 
   // Días festivos/eventos de México (mes, día) - los puntos en el calendario
@@ -837,38 +767,18 @@ body.dark-mode .inicio-btn-diagnostico-bd {
     }, 5500);
   });
 
-  // Frase del día (random, sin repetir por 5 días)
-  function loadCpQuote(){
-    // Si no hay frase seleccionada aún, intentar seleccionar
-    if(!todayQuote && QUOTES.length > 0){
-      todayQuote = selectTodayQuote();
-    }
-    
-    if(todayQuote){
-      document.getElementById('cpQuoteText').textContent = '"' + todayQuote.t + '"';
-      document.getElementById('cpQuoteAuthor').textContent = '— ' + todayQuote.a;
-    }
-    
-    // Aplicar colores según modo (fix para dark mode)
-    applyQuoteColors();
-  }
+  // Frase del día (cargada desde servidor: misma para todos) — loadCpQuote() definida arriba con fetch /inicio/fraseDelDia
   
   function applyQuoteColors(){
     var isDark = document.body.classList.contains('dark-mode');
     var labelEl = document.querySelector('.cp-quote-label');
     var authorEl = document.getElementById('cpQuoteAuthor');
-    
-    if(labelEl){
-      labelEl.style.color = '#d97706'; // Amarillo medio (igual en ambos modos)
-    }
-    if(authorEl){
-      authorEl.style.color = isDark ? '#9ca3af' : '#6b7280'; // Gris
-    }
+    if(labelEl) labelEl.style.color = '#d97706';
+    if(authorEl) authorEl.style.color = isDark ? '#9ca3af' : '#6b7280';
   }
 
-  // Clima con caché (4 horas)
   var weatherCache = { temp: null, code: null, time: 0 };
-  var WEATHER_CACHE_MS = 4 * 60 * 60 * 1000; // 4 horas
+  var WEATHER_CACHE_MS = 2 * 60 * 60 * 1000; // 2 horas
 
   function loadCpWeather(){
     var elTemp = document.getElementById('cpWxTemp');

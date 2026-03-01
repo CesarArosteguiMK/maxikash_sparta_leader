@@ -17,6 +17,11 @@
                         </div>
                         <div class="col-md-4 text-end">
                             <small class="text-muted"><i class="fa fa-sync-alt me-1"></i>Actualización al abrir y en ventanas 7:31, 9:31, 11:31, 13:31, 14:31, 16:31, 18:31, 20:31, 23:50 (CDMX)</small>
+                            <div class="mt-2 small">
+                                <span class="text-muted"><i class="fa fa-clock me-1"></i>Hora del servidor (CDMX):</span>
+                                <strong id="segundometroHoraServidor" class="ms-1">—</strong>
+                                <span class="text-muted ms-1" title="Para revisar desfase del reloj del servidor">(revisar desfase)</span>
+                            </div>
                         </div>
                     </div>
                 </div>

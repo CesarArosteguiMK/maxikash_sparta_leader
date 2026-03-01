@@ -3376,6 +3376,7 @@
         let pdfDoc = null;
         let currentPage = 1;
         let pdfScale = 1.0;
+        const PDF_SUPERSAMPLING = 2.0; // Render a mayor resolución y mostrar reducido = texto más nítido (sin cambiar tamaño visual)
         const zoomLevelEl = document.getElementById('pdfZoomLevel');
         let pdfTotalPages = 0;
         
@@ -3678,11 +3679,10 @@
                 }
                 const ctx = canvas.getContext('2d');
                 const dpr = Math.min(window.devicePixelRatio || 1, 2.5);
-                
-                // Calcular dimensiones: escala por DPR para texto nítido (más píxeles), tamaño de pantalla en CSS
-                const viewport = page.getViewport({scale: scaleFactura * dpr});
-                const displayWidth = viewport.width / dpr;
-                const displayHeight = viewport.height / dpr;
+                // Calcular dimensiones: escala por DPR + supersampling para texto nítido (PDF_SUPERSAMPLING definido arriba)
+                const viewport = page.getViewport({scale: scaleFactura * PDF_SUPERSAMPLING * dpr});
+                const displayWidth = viewport.width / (PDF_SUPERSAMPLING * dpr);
+                const displayHeight = viewport.height / (PDF_SUPERSAMPLING * dpr);
                 
                 canvas.height = viewport.height;
                 canvas.width = viewport.width;
@@ -4401,9 +4401,9 @@
                 const documentoWrapper = document.getElementById('documentoWrapper');
                 const page = await pdfDoc.getPage(pageNum);
                 const dpr = Math.min(window.devicePixelRatio || 1, 2.5);
-                const viewport = page.getViewport({ scale: pdfScale * dpr });
-                const displayWidth = viewport.width / dpr;
-                const displayHeight = viewport.height / dpr;
+                const viewport = page.getViewport({ scale: pdfScale * PDF_SUPERSAMPLING * dpr });
+                const displayWidth = viewport.width / (PDF_SUPERSAMPLING * dpr);
+                const displayHeight = viewport.height / (PDF_SUPERSAMPLING * dpr);
 
                 pdfCanvas.height = viewport.height;
                 pdfCanvas.width = viewport.width;
