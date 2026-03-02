@@ -43,6 +43,7 @@ function getMenu()
                     ]
             ],
         
+            /* MÓDULO INDICADORES — deshabilitado temporalmente (comentar para re-activar)
             'Indicadores' => [
                     'icono' => 'fa-solid fa-chart-line',
                     'subItems' => [
@@ -128,6 +129,7 @@ function getMenu()
                         ]
                     ]
             ],
+            */
             
             'Capital Humano' => [
                     'icono' => 'fa-solid fa-users',
