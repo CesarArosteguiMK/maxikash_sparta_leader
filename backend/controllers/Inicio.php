@@ -14,10 +14,55 @@ class Inicio extends Controller
         require_once dirname(__DIR__) . '/config/menu_accesos_inicio.php';
         $accesosRapidos = getAccesosRapidosDesdeModulos();
         $this->set('accesosRapidos', $accesosRapidos);
-        // Botones de diagnóstico (Segundómetro y BD alternas): solo usuario con id 1
-        $this->set('mostrarDiagnosticoAdmin', (isset($_SESSION['usuario_id']) && (int)$_SESSION['usuario_id'] === 1));
+        // Botones de diagnóstico (Segundómetro y BD alternas): solo usuario id 1 y si config lo permite
+        $configInicio = (is_file($cfg = dirname(__DIR__) . '/config/config.ini') && is_array($c = @parse_ini_file($cfg, true))) ? ($c['inicio'] ?? []) : [];
+        $mostrarDiagnosticoAdmin = (isset($_SESSION['usuario_id']) && (int)$_SESSION['usuario_id'] === 1)
+            && !empty($configInicio['mostrar_botones_diagnostico']);
+        $this->set('mostrarDiagnosticoAdmin', $mostrarDiagnosticoAdmin);
 
         self::render("inicio___SPARTA_SECRET_REDACTED___contenido", false);
+    }
+
+    /**
+     * Frase del día: misma frase para todos los usuarios (por fecha CDMX).
+     * Lee backend/config/frases_motivacionales.json y devuelve una frase por día.
+     * Respuesta JSON: { success: true, texto: "...", autor: "..." }
+     */
+    public function fraseDelDia()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        $path = dirname(__DIR__) . '/config/frases_motivacionales.json';
+        if (!is_file($path) || !is_readable($path)) {
+            echo json_encode([
+                'success' => false,
+                'texto'   => 'El éxito es la suma de pequeños esfuerzos repetidos día tras día.',
+                'autor'   => 'Robert Collier'
+            ]);
+            return;
+        }
+        $json = @file_get_contents($path);
+        $data = $json ? @json_decode($json, true) : null;
+        $frases = isset($data['frases']) && is_array($data['frases']) ? $data['frases'] : [];
+        if (empty($frases)) {
+            echo json_encode([
+                'success' => true,
+                'texto'   => 'El éxito es la suma de pequeños esfuerzos repetidos día tras día.',
+                'autor'   => 'Robert Collier'
+            ]);
+            return;
+        }
+        $tz = new \DateTimeZone('America/Mexico_City');
+        $now = new \DateTime('now', $tz);
+        $key = $now->format('Y-m-d');
+        $idx = abs(crc32($key)) % count($frases);
+        $f = $frases[$idx];
+        $texto = isset($f['texto']) ? (string) $f['texto'] : '';
+        $autor = isset($f['autor']) ? (string) $f['autor'] : '';
+        echo json_encode([
+            'success' => true,
+            'texto'   => $texto,
+            'autor'   => $autor
+        ]);
     }
 
     /**
