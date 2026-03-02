@@ -965,7 +965,7 @@ JS;
 
                 self::set("dataCliente", $cliente);
                 self::set("dataEstadoCuenta", $estadoCuenta);
-                self::set("dataOtrosDatos", $otrosDatos);
+                self::set("dataOtrosDatos", $otrosDatos); //Recurso Front
                 self::set("direcciones", $respDAO);
                 self::set("referencias", $referencias);
                 self::set("notas", $notas);
