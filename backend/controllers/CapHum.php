@@ -4163,6 +4163,11 @@ class CapHum extends Controller
                 // Ocultar panel de indicadores de Gestión y mostrar panel de Bajas
                 $('#panelIndicadoresGestion').hide();
                 $('#panelIndicadoresBajas').show();
+
+                // Revelar celdas KPI ahora que el panel es visible
+                if (typeof window.kpiRevealCellsB === 'function') {
+                    setTimeout(window.kpiRevealCellsB, 120);
+                }
                 
                 // Mostrar filtro de fecha
                 $('#filtroFechaBajas').show();

@@ -842,7 +842,7 @@
     .kpi-toolbar-sep { width:1px; height:20px; background:rgba(99,102,241,0.12); flex-shrink:0; transition:opacity 0.28s ease, transform 0.33s cubic-bezier(0.4,0,0.2,1); }
     .kpi-toolbar-sep.kpi-sep-hidden { opacity:0; transform:scaleY(0); pointer-events:none; }
 
-    #kpiViewControls {
+    #kpiViewControls, #kpiViewControlsB {
         display:flex; align-items:center; gap:0.5rem; flex-wrap:nowrap;
         overflow:hidden;
         max-width:700px; opacity:1; transform:translateX(0);
@@ -850,7 +850,7 @@
                    opacity    0.28s ease,
                    transform  0.33s cubic-bezier(0.4,0,0.2,1);
     }
-    #kpiViewControls.kpi-vc-hidden {
+    #kpiViewControls.kpi-vc-hidden, #kpiViewControlsB.kpi-vc-hidden {
         max-width:0; opacity:0; transform:translateX(-22px); pointer-events:none;
     }
 
@@ -968,6 +968,23 @@
     body.dark-mode .kpi-cell.tipo-dep    .kpi-icon-wrap i { color:#a5b4fc !important; }
     body.dark-mode .kpi-cell.tipo-puesto .kpi-icon-wrap i { color:#6ee7b7 !important; }
     body.dark-mode .kpi-cell.tipo-total  .kpi-icon-wrap i { color:#fcd34d !important; }
+
+    /* ═══ KPI células Bajas — paleta roja / naranja / morada ═══ */
+    .kpi-cell.tipo-baja-total  { --cell-accent:#ef4444; --cell-glow:rgba(239,68,68,0.07);   --cell-icon:#ef4444; --cell-num:#dc2626; }
+    .kpi-cell.tipo-baja-dep    { --cell-accent:#f97316; --cell-glow:rgba(249,115,22,0.07);  --cell-icon:#f97316; --cell-num:#ea580c; }
+    .kpi-cell.tipo-baja-puesto { --cell-accent:#8b5cf6; --cell-glow:rgba(139,92,246,0.07); --cell-icon:#8b5cf6; --cell-num:#7c3aed; }
+    .kpi-cell.tipo-baja-total  .kpi-icon-wrap { background:#fee2e2; border:1px solid #fca5a5; color:#dc2626; box-shadow:0 3px 10px rgba(239,68,68,0.28); }
+    .kpi-cell.tipo-baja-dep    .kpi-icon-wrap { background:#ffedd5; border:1px solid #fdba74; color:#ea580c; box-shadow:0 3px 10px rgba(249,115,22,0.28); }
+    .kpi-cell.tipo-baja-puesto .kpi-icon-wrap { background:#ede9fe; border:1px solid #c4b5fd; color:#7c3aed; box-shadow:0 3px 10px rgba(139,92,246,0.28); }
+    .kpi-cell.tipo-baja-total:hover  .kpi-icon-wrap { transform:scale(1.12) rotate(-4deg); box-shadow:0 6px 18px rgba(239,68,68,0.45); }
+    .kpi-cell.tipo-baja-dep:hover    .kpi-icon-wrap { transform:scale(1.12) rotate(-4deg); box-shadow:0 6px 18px rgba(249,115,22,0.45); }
+    .kpi-cell.tipo-baja-puesto:hover .kpi-icon-wrap { transform:scale(1.12) rotate(-4deg); box-shadow:0 6px 18px rgba(139,92,246,0.45); }
+    body.dark-mode .kpi-cell.tipo-baja-total  .kpi-icon-wrap { background:rgba(239,68,68,0.18);  border-color:rgba(239,68,68,0.4);  color:#fca5a5 !important; box-shadow:0 3px 10px rgba(239,68,68,0.35); }
+    body.dark-mode .kpi-cell.tipo-baja-dep    .kpi-icon-wrap { background:rgba(249,115,22,0.18); border-color:rgba(249,115,22,0.4); color:#fdba74 !important; box-shadow:0 3px 10px rgba(249,115,22,0.35); }
+    body.dark-mode .kpi-cell.tipo-baja-puesto .kpi-icon-wrap { background:rgba(139,92,246,0.18); border-color:rgba(139,92,246,0.4); color:#c4b5fd !important; box-shadow:0 3px 10px rgba(139,92,246,0.35); }
+    body.dark-mode .kpi-cell.tipo-baja-total  .kpi-icon-wrap i { color:#fca5a5 !important; }
+    body.dark-mode .kpi-cell.tipo-baja-dep    .kpi-icon-wrap i { color:#fdba74 !important; }
+    body.dark-mode .kpi-cell.tipo-baja-puesto .kpi-icon-wrap i { color:#c4b5fd !important; }
 
     /* ── Icono decorativo esquina superior izquierda ── */
     .kpi-corner-icon {
@@ -1523,7 +1540,7 @@ body.modal-edit-perfil-open .layout-wrapper {
 
 /* ─────────────────────────────────────────────
    Modal KPI Desglose (Departamentos / Puestos / Total Empleados)
-   Por encima del scrim, tamaño controlado y scroll interno
+   Template: Liquid Glass — consistente con #modalReingreso
    ───────────────────────────────────────────── */
 #modalKpiDesglose.modal.show {
   z-index: 99999 !important;
@@ -1534,26 +1551,31 @@ body.modal-edit-perfil-open .layout-wrapper {
   position: relative;
 }
 #modalKpiDesglose .modal-dialog.modal-kpi-desglose {
-  max-height: 90vh;
-  margin: 1.75rem auto;
-  width: 100%;
   max-width: 720px;
-  display: flex;
-  flex-direction: column;
 }
-#modalKpiDesglose .modal-content {
+@media (min-width: 992px) {
+  #modalKpiDesglose .modal-dialog.modal-kpi-desglose {
+    max-width: 800px;
+  }
+}
+#modalKpiDesglose .modal-kpi-desglose-glass {
+  background: rgba(255, 255, 255, 0.92) !important;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-radius: 1rem;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
   max-height: 90vh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  border-radius: 0.75rem;
-  box-shadow: 0 20px 60px rgba(0,0,0,0.15);
 }
 #modalKpiDesglose .modal-header {
+  background: rgba(0, 0, 0, 0.03) !important;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 1rem 1rem 0 0;
   flex-shrink: 0;
   padding: 1rem 1.25rem;
-  background: #f8fafc;
-  border-bottom: 1px solid #e2e8f0;
 }
 #modalKpiDesglose .modal-body {
   overflow-y: auto;
@@ -1562,19 +1584,45 @@ body.modal-edit-perfil-open .layout-wrapper {
   -webkit-overflow-scrolling: touch;
   padding: 1.25rem 1.5rem;
 }
-@media (min-width: 992px) {
-  #modalKpiDesglose .modal-dialog.modal-kpi-desglose {
-    max-width: 800px;
-  }
+#modalKpiDesglose .modal-footer {
+  background: rgba(0, 0, 0, 0.03) !important;
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 0 0 1rem 1rem;
+  flex-shrink: 0;
+}
+/* Dark mode */
+body.dark-mode #modalKpiDesglose .modal-kpi-desglose-glass {
+  background: rgba(30, 41, 59, 0.92) !important;
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+body.dark-mode #modalKpiDesglose .modal-header {
+  background: rgba(51, 65, 85, 0.6) !important;
+  border-bottom-color: rgba(255, 255, 255, 0.08);
+}
+body.dark-mode #modalKpiDesglose .modal-footer {
+  background: rgba(51, 65, 85, 0.6) !important;
+  border-top-color: rgba(255, 255, 255, 0.08);
 }
 @media (max-width: 575.98px) {
   #modalKpiDesglose .modal-dialog.modal-kpi-desglose {
     margin: 0.5rem;
     max-width: calc(100vw - 1rem);
+  }
+  #modalKpiDesglose .modal-kpi-desglose-glass {
     max-height: 95vh;
   }
-  #modalKpiDesglose .modal-content {
-    max-height: 95vh;
+  #modalKpiDesglose .modal-body {
+    padding: 1rem;
+  }
+  #modalKpiDesglose .modal-footer {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+  }
+  #modalKpiDesglose .modal-footer .btn {
+    flex: 1 1 auto;
+    min-width: 0;
   }
 }
 
@@ -1832,8 +1880,8 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
      MODAL KPI — Desglose por indicador
 ============================================= -->
 <div class="modal fade" id="modalKpiDesglose" tabindex="-1" aria-labelledby="modalKpiDesgloseLabel" aria-hidden="true" data-bs-backdrop="false">
-  <div class="modal-dialog modal-kpi-desglose">
-    <div class="modal-content">
+  <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-kpi-desglose">
+    <div class="modal-content modal-kpi-desglose-glass">
       <div class="modal-header">
         <h5 class="modal-title fw-bold" id="modalKpiTitle"><i class="bx bx-bar-chart me-2"></i>Desglose</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
@@ -1841,79 +1889,14 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
       <div class="modal-body" id="modalKpiContent">
         <p class="text-muted text-center py-4"><i class="bx bx-loader-alt bx-spin me-2"></i>Cargando…</p>
       </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+      </div>
     </div>
   </div>
 </div>
 
-        <!-- =======================
-             PANEL DE INDICADORES PARA BAJAS (oculto por defecto)
-        ======================== -->
-        <div id="panelIndicadoresBajas" style="display: none;" class="row m-4 mb-3">
-            <div class="col-12">
-                <div class="kpi-wrapper">
-                    <!-- Indicador: Total de Bajas -->
-                    <div class="kpi-item">
-                        <div class="card kpi-card tipo-total shadow-sm h-100" data-tipo="total-bajas">
-                            <div class="card-body">
-                                <i class="bx bx-user-x kpi-icon"></i>
-                                <div class="kpi-number" id="kpi-bajas-total">0</div>
-                                <div class="kpi-label">Total de Bajas</div>
-                            </div>
-                        </div>
-                    </div>
 
-                    <!-- Separador -->
-                    <div class="kpi-separator">
-                        <div class="line"></div>
-                    </div>
-
-                    <!-- Indicador: Bajas Departamentales -->
-                    <div class="kpi-item">
-                        <div class="card kpi-card tipo-departamento shadow-sm h-100" data-tipo="depto-bajas" style="cursor: pointer;" id="kpi-bajas-departamentos">
-                            <div class="card-body">
-                                <i class="bx bx-buildings kpi-icon"></i>
-                                <div class="kpi-number" id="kpi-bajas-depto-numero">0</div>
-                                <div class="kpi-label">Bajas Departamental</div>
-                                
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Separador -->
-                    <div class="kpi-separator">
-                        <div class="line"></div>
-                    </div>
-
-                    <!-- Indicador: Bajas por Puesto -->
-                    <div class="kpi-item">
-                        <div class="card kpi-card tipo-puesto shadow-sm h-100" data-tipo="puesto-bajas" style="cursor: pointer;" id="kpi-bajas-puestos">
-                            <div class="card-body">
-                                <i class="bx bx-briefcase kpi-icon"></i>
-                                <div class="kpi-number" id="kpi-bajas-puesto-numero">0</div>
-                                <div class="kpi-label">Bajas por Puesto</div>
-                               
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Separador (para bajas del período) -->
-                    <div class="kpi-separator" id="separator-bajas-periodo" style="display: none;">
-                        <div class="line"></div>
-                    </div>
-
-                    <!-- Indicador: Bajas del Período (visible solo con filtro de fecha) -->
-                    <div class="kpi-item" id="kpi-bajas-periodo-container" style="display: none;">
-                        <div class="card kpi-card tipo-especifico shadow-sm h-100" data-tipo="periodo-bajas">
-                            <div class="card-body">
-                                <i class="bx bx-calendar-event kpi-icon"></i>
-                                <div class="kpi-number" id="kpi-bajas-periodo-numero">0</div>
-                                <div class="kpi-label" id="kpi-bajas-periodo-label" title="">Bajas del Período</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
 
         <!-- =======================
              BOTONES DE ACCIÓN
@@ -2014,6 +1997,189 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
                                 </div>
                             </div>
                         </div>
+
+                        <!-- =======================
+                             PANEL DE INDICADORES DE BAJAS (reposicionado)
+                        ======================== -->
+                        <div class="mt-3 mb-1">
+                            <!-- Tooltip global para donuts (Bajas) -->
+                            <div class="kpi-donut-tooltip" id="kpiDonutTooltipB"></div>
+
+                            <div id="panelIndicadoresBajas" style="display: none;">
+
+                                <!-- TOOLBAR: toggle + modos + reset -->
+                                <div class="kpi-toolbar">
+                                    <button class="kpi-toggle-btn open" id="kpiToggleBtnB" onclick="kpiTogglePanelB()">
+                                        <span class="kpi-dot" style="background:#ef4444;"></span>
+                                        Indicadores de Bajas
+                                        <i class="bx bx-chevron-down kpi-chevron"></i>
+                                    </button>
+
+                                    <div class="kpi-toolbar-sep" id="kpiViewControlsSepB"></div>
+
+                                    <div id="kpiViewControlsB">
+                                        <button class="kpi-view-btn active" id="vbtn-default-b"  onclick="kpiSetModeB('default')"  data-tip="Vista Estándar">
+                                            <i class="bx bx-layout"></i>
+                                            <span class="kpi-btn-text">Estándar</span>
+                                        </button>
+                                        <button class="kpi-view-btn" id="vbtn-vision-b" onclick="kpiSetModeB('vision')" data-tip="Vista de Donut Charts">
+                                            <i class="bx bx-doughnut-chart"></i>
+                                            <span class="kpi-btn-text">Donut</span>
+                                        </button>
+                                        <button class="kpi-view-btn" id="vbtn-ministat-b" onclick="kpiSetModeB('ministat')" data-tip="Vista Mini-Stat Compacta">
+                                            <i class="bx bx-columns"></i>
+                                            <span class="kpi-btn-text">Mini-Stat</span>
+                                        </button>
+                                        <div class="kpi-toolbar-sep"></div>
+                                        <button class="kpi-reset-btn" onclick="kpiResetPrefsB()">
+                                            <i class="bx bx-rotate-left"></i>
+                                            Restablecer
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- Panel colapsable -->
+                                <div class="kpi-collapsible open" id="kpiCollapsibleB">
+                                    <div class="kpi-collapsible-inner">
+                                        <div class="kpi-row-new mode-default" id="kpiRowNewB">
+
+                                            <!-- ░░ TOTAL BAJAS ░░ -->
+                                            <div class="kpi-cell tipo-baja-total" id="kpi-cell-b-total" data-tipo="bajas-total">
+                                                <span class="kpi-corner-icon"><i class="bx bx-user-x"></i></span>
+                                                <div class="kpi-cell-top">
+                                                    <div class="kpi-icon-wrap"><i class="bx bx-user-x"></i></div>
+                                                    <span class="kpi-cell-status">Total</span>
+                                                </div>
+                                                <div class="kpi-num" id="kpi-b-total">0</div>
+                                                <div class="kpi-lbl">Total Bajas</div>
+                                                <div class="kpi-bar-track"><div class="kpi-bar-fill" id="kpi-bar-b-total"></div></div>
+                                                <span class="kpi-cell-title">Total Bajas</span>
+                                                <div class="kpi-stats-grid-new">
+                                                    <div class="kpi-stat-item"><div class="kpi-stat-val" id="kpi-ms-b-total-a">0</div><div class="kpi-stat-lbl">Total</div></div>
+                                                    <div class="kpi-stat-div"></div>
+                                                    <div class="kpi-stat-item"><div class="kpi-stat-val" id="kpi-ms-b-total-b">0</div><div class="kpi-ms-pct" id="kpi-ms-pct-b-total">—</div><div class="kpi-stat-lbl" id="kpi-ms-b-total-lbl">Este mes</div></div>
+                                                </div>
+                                                <div class="donut-block">
+                                                    <div class="donut-header">
+                                                        <span class="donut-title">Total Bajas</span>
+                                                        <span class="kpi-cell-status">Total</span>
+                                                    </div>
+                                                    <div class="donut-svg-wrap"
+                                                         onmouseenter="kpiShowTooltipB(event, document.getElementById('kpi-b-total').textContent + ' bajas registradas')"
+                                                         onmouseleave="kpiHideTooltipB()"
+                                                         onmousemove="kpiMoveTooltipB(event)">
+                                                        <svg class="donut-svg" viewBox="0 0 88 88">
+                                                            <circle class="donut-track" cx="44" cy="44" r="36"/>
+                                                            <circle class="donut-arc" id="kpi-arc-b-total" cx="44" cy="44" r="36"/>
+                                                        </svg>
+                                                        <div class="donut-center-icon"><i class="bx bx-user-x"></i></div>
+                                                    </div>
+                                                    <div class="donut-footer">
+                                                        <span class="donut-trend down" id="kpi-trend-b-total"><i class="bx bx-trending-down"></i>—</span>
+                                                        <span class="donut-trend-label" id="kpi-trend-b-total-lbl">este mes</span>
+                                                    </div>
+                                                    <div class="donut-stats">
+                                                        <div class="kpi-stat-item"><div class="kpi-stat-val" id="kpi-dv-b-total-a">0</div><div class="kpi-stat-lbl">Total</div></div>
+                                                        <div class="kpi-stat-div"></div>
+                                                        <div class="kpi-stat-item"><div class="kpi-stat-val" id="kpi-dv-b-total-b">0</div><div class="kpi-stat-lbl" id="kpi-dv-b-total-lbl">Este mes</div></div>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <!-- ░░ DEPARTAMENTOS AFECTADOS ░░ -->
+                                            <div class="kpi-cell tipo-baja-dep" id="kpi-cell-b-dep" data-tipo="bajas-dep">
+                                                <span class="kpi-corner-icon"><i class="bx bx-buildings"></i></span>
+                                                <div class="kpi-cell-top">
+                                                    <div class="kpi-icon-wrap"><i class="bx bx-buildings"></i></div>
+                                                    <span class="kpi-cell-status">Afectados</span>
+                                                </div>
+                                                <div class="kpi-num" id="kpi-b-dep">0</div>
+                                                <div class="kpi-lbl">Departamentos</div>
+                                                <div class="kpi-bar-track"><div class="kpi-bar-fill" id="kpi-bar-b-dep"></div></div>
+                                                <span class="kpi-cell-title">Departamentos</span>
+                                                <div class="kpi-stats-grid-new">
+                                                    <div class="kpi-stat-item"><div class="kpi-stat-val" id="kpi-ms-b-dep-a">0</div><div class="kpi-stat-lbl">Afectados</div></div>
+                                                    <div class="kpi-stat-div"></div>
+                                                    <div class="kpi-stat-item"><div class="kpi-stat-val" id="kpi-ms-b-dep-b">0</div><div class="kpi-ms-pct" id="kpi-ms-pct-b-dep">—</div><div class="kpi-stat-lbl">Top bajas</div></div>
+                                                </div>
+                                                <div class="donut-block">
+                                                    <div class="donut-header">
+                                                        <span class="donut-title">Departamentos</span>
+                                                        <span class="kpi-cell-status">Afectados</span>
+                                                    </div>
+                                                    <div class="donut-svg-wrap"
+                                                         onmouseenter="kpiShowTooltipB(event, document.getElementById('kpi-b-dep').textContent + ' departamentos con bajas')"
+                                                         onmouseleave="kpiHideTooltipB()"
+                                                         onmousemove="kpiMoveTooltipB(event)">
+                                                        <svg class="donut-svg" viewBox="0 0 88 88">
+                                                            <circle class="donut-track" cx="44" cy="44" r="36"/>
+                                                            <circle class="donut-arc" id="kpi-arc-b-dep" cx="44" cy="44" r="36"/>
+                                                        </svg>
+                                                        <div class="donut-center-icon"><i class="bx bx-buildings"></i></div>
+                                                    </div>
+                                                    <div class="donut-footer">
+                                                        <span class="donut-trend down" id="kpi-trend-b-dep"><i class="bx bx-buildings"></i>—</span>
+                                                        <span class="donut-trend-label">con más bajas</span>
+                                                    </div>
+                                                    <div class="donut-stats">
+                                                        <div class="kpi-stat-item"><div class="kpi-stat-val" id="kpi-dv-b-dep-a">0</div><div class="kpi-stat-lbl">Afectados</div></div>
+                                                        <div class="kpi-stat-div"></div>
+                                                        <div class="kpi-stat-item"><div class="kpi-stat-val" id="kpi-dv-b-dep-b">0</div><div class="kpi-stat-lbl">Top bajas</div></div>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <!-- ░░ PUESTOS AFECTADOS ░░ -->
+                                            <div class="kpi-cell tipo-baja-puesto" id="kpi-cell-b-puesto" data-tipo="bajas-puesto">
+                                                <span class="kpi-corner-icon"><i class="bx bx-briefcase"></i></span>
+                                                <div class="kpi-cell-top">
+                                                    <div class="kpi-icon-wrap"><i class="bx bx-briefcase"></i></div>
+                                                    <span class="kpi-cell-status">Afectados</span>
+                                                </div>
+                                                <div class="kpi-num" id="kpi-b-puesto">0</div>
+                                                <div class="kpi-lbl">Puestos</div>
+                                                <div class="kpi-bar-track"><div class="kpi-bar-fill" id="kpi-bar-b-puesto"></div></div>
+                                                <span class="kpi-cell-title">Puestos</span>
+                                                <div class="kpi-stats-grid-new">
+                                                    <div class="kpi-stat-item"><div class="kpi-stat-val" id="kpi-ms-b-puesto-a">0</div><div class="kpi-stat-lbl">Afectados</div></div>
+                                                    <div class="kpi-stat-div"></div>
+                                                    <div class="kpi-stat-item"><div class="kpi-stat-val" id="kpi-ms-b-puesto-b">0</div><div class="kpi-ms-pct" id="kpi-ms-pct-b-puesto">—</div><div class="kpi-stat-lbl">Top bajas</div></div>
+                                                </div>
+                                                <div class="donut-block">
+                                                    <div class="donut-header">
+                                                        <span class="donut-title">Puestos</span>
+                                                        <span class="kpi-cell-status">Afectados</span>
+                                                    </div>
+                                                    <div class="donut-svg-wrap"
+                                                         onmouseenter="kpiShowTooltipB(event, document.getElementById('kpi-b-puesto').textContent + ' puestos con bajas')"
+                                                         onmouseleave="kpiHideTooltipB()"
+                                                         onmousemove="kpiMoveTooltipB(event)">
+                                                        <svg class="donut-svg" viewBox="0 0 88 88">
+                                                            <circle class="donut-track" cx="44" cy="44" r="36"/>
+                                                            <circle class="donut-arc" id="kpi-arc-b-puesto" cx="44" cy="44" r="36"/>
+                                                        </svg>
+                                                        <div class="donut-center-icon"><i class="bx bx-briefcase"></i></div>
+                                                    </div>
+                                                    <div class="donut-footer">
+                                                        <span class="donut-trend down" id="kpi-trend-b-puesto"><i class="bx bx-briefcase"></i>—</span>
+                                                        <span class="donut-trend-label">con más bajas</span>
+                                                    </div>
+                                                    <div class="donut-stats">
+                                                        <div class="kpi-stat-item"><div class="kpi-stat-val" id="kpi-dv-b-puesto-a">0</div><div class="kpi-stat-lbl">Afectados</div></div>
+                                                        <div class="kpi-stat-div"></div>
+                                                        <div class="kpi-stat-item"><div class="kpi-stat-val" id="kpi-dv-b-puesto-b">0</div><div class="kpi-stat-lbl">Top bajas</div></div>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                        </div><!-- /kpi-row-new -->
+                                    </div>
+                                </div><!-- /kpi-collapsible -->
+
+                            </div><!-- /panelIndicadoresBajas -->
+                        </div><!-- /panel-bajas-wrapper -->
+
+                        <div class="mb-5"></div>
 
                         <!-- Botones de Acción -->
                         <div class="row g-3">
@@ -4178,34 +4344,68 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
    * Calcula y muestra los 4 indicadores del módulo de Bajas
    */
   function actualizarIndicadoresBajas(datosBajas, tieneFiltroFecha = false) {
-    // Guardar datos globalmente para los modales
     datosBajasGlobal = datosBajas || [];
 
     if (!datosBajas || datosBajas.length === 0) {
-      document.getElementById('kpi-bajas-total').textContent = '0';
-      document.getElementById('kpi-bajas-depto-numero').textContent = '0';
-      document.getElementById('kpi-bajas-puesto-numero').textContent = '0';
-      ocultarIndicadorBajasPeriodo();
+      if (typeof kpiUpdateValuesBajas === 'function') {
+        kpiUpdateValuesBajas({ total: 0, dep: 0, puesto: 0, bajasRef: 0, refLabel: 'Este mes',
+          topDepNombre: '—', topDepBajas: 0, topPuestoNombre: '—', topPuestoBajas: 0,
+          arcTotal: 0, arcDep: 0, arcPuesto: 0 });
+      }
       return;
     }
 
-    // 1. TOTAL DE BAJAS
     const totalBajas = datosBajas.length;
-    animarNumero('kpi-bajas-total', totalBajas);
 
-    // 2. CONTEO TOTAL DE DEPARTAMENTOS CON BAJAS
-    const departamentosConBajas = obtenerTodosDepartamentosBajas(datosBajas);
-    animarNumero('kpi-bajas-depto-numero', departamentosConBajas.length);
+    // ── DEPARTAMENTOS AFECTADOS ──
+    const depConteo = {};
+    datosBajas.forEach(baja => {
+      const d = baja.departamento;
+      if (d && d !== 'N/A' && d !== 'Sin departamento') depConteo[d] = (depConteo[d] || 0) + 1;
+    });
+    const depAfectados   = Object.keys(depConteo).length;
+    const topDepEntry    = Object.entries(depConteo).sort((a, b) => b[1] - a[1])[0] || ['—', 0];
+    const topDepNombre   = topDepEntry[0];
+    const topDepBajas    = topDepEntry[1];
 
-    // 3. CONTEO TOTAL DE PUESTOS CON BAJAS
-    const puestosConBajas = obtenerTodosPuestosBajas(datosBajas);
-    animarNumero('kpi-bajas-puesto-numero', puestosConBajas.length);
+    // ── PUESTOS AFECTADOS ──
+    const puestoConteo = {};
+    datosBajas.forEach(baja => {
+      const p = baja.nombre_puesto;
+      if (p && p !== 'N/A' && p !== 'Sin puesto') puestoConteo[p] = (puestoConteo[p] || 0) + 1;
+    });
+    const puestosAfectados = Object.keys(puestoConteo).length;
+    const topPuestoEntry   = Object.entries(puestoConteo).sort((a, b) => b[1] - a[1])[0] || ['—', 0];
+    const topPuestoNombre  = topPuestoEntry[0];
+    const topPuestoBajas   = topPuestoEntry[1];
 
-    // 4. BAJAS DEL PERÍODO (solo si hay filtro de fecha)
+    // ── BAJAS DEL MES / PERÍODO ──
+    const ahora = new Date();
+    const mesActual = ahora.getMonth(), anioActual = ahora.getFullYear();
+    let bajasRef = 0, refLabel = 'Este mes';
     if (tieneFiltroFecha && rangoFechasBajas) {
-      mostrarIndicadorBajasPeriodo(totalBajas, rangoFechasBajas);
+      bajasRef = totalBajas;
+      try {
+        const fi = new Date(rangoFechasBajas.inicio + 'T00:00:00').toLocaleDateString('es-MX', { day: '2-digit', month: 'short' });
+        const ff = new Date(rangoFechasBajas.fin   + 'T00:00:00').toLocaleDateString('es-MX', { day: '2-digit', month: 'short' });
+        refLabel = fi + '–' + ff;
+      } catch(e) { refLabel = 'Período'; }
     } else {
-      ocultarIndicadorBajasPeriodo();
+      bajasRef = datosBajas.filter(b => {
+        const f = new Date(b.fecha_baja || b.fecha_ingreso || b.fecha_registro || null);
+        return !isNaN(f) && f.getMonth() === mesActual && f.getFullYear() === anioActual;
+      }).length;
+    }
+
+    // ── PORCENTAJES PARA BARRAS / DONUTS ──
+    const arcTotal  = Math.min(100, totalBajas);
+    const arcDep    = Math.min(100, (depAfectados  / 20) * 100);
+    const arcPuesto = Math.min(100, (puestosAfectados / 50) * 100);
+
+    if (typeof kpiUpdateValuesBajas === 'function') {
+      kpiUpdateValuesBajas({ total: totalBajas, dep: depAfectados, puesto: puestosAfectados,
+        bajasRef, refLabel, topDepNombre, topDepBajas, topPuestoNombre, topPuestoBajas,
+        arcTotal, arcDep, arcPuesto });
     }
   }
 
@@ -4282,40 +4482,10 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
   /**
    * MOSTRAR INDICADOR DE BAJAS DEL PERÍODO
    */
-  function mostrarIndicadorBajasPeriodo(cantidad, rangoFechas) {
-    const container = document.getElementById('kpi-bajas-periodo-container');
-    const separador = document.getElementById('separator-bajas-periodo');
-    const label = document.getElementById('kpi-bajas-periodo-label');
-
-    if (container && label) {
-      container.style.display = '';
-      
-      // Formatear las fechas para el label
-      const fechaInicio = new Date(rangoFechas.inicio).toLocaleDateString('es-MX', { day: '2-digit', month: 'short' });
-      const fechaFin = new Date(rangoFechas.fin).toLocaleDateString('es-MX', { day: '2-digit', month: 'short' });
-      const labelText = `${fechaInicio} - ${fechaFin}`;
-      
-      label.textContent = labelText;
-      label.setAttribute('title', `Bajas del ${rangoFechas.inicio} al ${rangoFechas.fin}`);
-      
-      animarNumero('kpi-bajas-periodo-numero', cantidad);
-      
-      if (separador) {
-        separador.style.display = '';
-      }
-    }
-  }
-
-  /**
-   * OCULTAR INDICADOR DE BAJAS DEL PERÍODO
-   */
-  function ocultarIndicadorBajasPeriodo() {
-    const container = document.getElementById('kpi-bajas-periodo-container');
-    const separador = document.getElementById('separator-bajas-periodo');
-    
-    if (container) container.style.display = 'none';
-    if (separador) separador.style.display = 'none';
-  }
+  // Compatibilidad: estas funciones ya no manejan el DOM directamente;
+  // la lógica de período está integrada en actualizarIndicadoresBajas → kpiUpdateValuesBajas.
+  function mostrarIndicadorBajasPeriodo(cantidad, rangoFechas) { /* integrado en kpiUpdateValuesBajas */ }
+  function ocultarIndicadorBajasPeriodo() { /* integrado en kpiUpdateValuesBajas */ }
 
   /**
    * ACTUALIZAR LABEL DE KPI (con truncado de texto)
@@ -4516,7 +4686,26 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
       contenidoModal = generarModalBajasDepartamentales(datosBajasGlobal);
     } else if (tipo === 'puestos') {
       contenidoModal = generarModalBajasPorPuesto(datosBajasGlobal);
+    } else if (tipo === 'total') {
+      const totalB = datosBajasGlobal.length;
+      const ahora  = new Date();
+      const bajasHoy = datosBajasGlobal.filter(b => {
+        const f = new Date(b.fecha_baja || b.fecha_ingreso || b.fecha_registro || null);
+        return !isNaN(f) && f.getMonth() === ahora.getMonth() && f.getFullYear() === ahora.getFullYear();
+      }).length;
+      contenidoModal = {
+        titulo: `<i class="bx bx-user-x me-2"></i>Total de Bajas — Resumen`,
+        html: `
+          <div class="row mb-3">
+            <div class="col-md-4"><div class="stat-card" data-color="red"><div class="stat-label"><i class="bx bx-user-x me-1"></i>Total Bajas</div><div class="stat-value">${totalB}</div></div></div>
+            <div class="col-md-4"><div class="stat-card" data-color="red"><div class="stat-label"><i class="bx bx-calendar me-1"></i>Este mes</div><div class="stat-value">${bajasHoy}</div></div></div>
+            <div class="col-md-4"><div class="stat-card" data-color="red"><div class="stat-label"><i class="bx bx-trending-down me-1"></i>% del mes</div><div class="stat-value">${totalB > 0 ? ((bajasHoy/totalB)*100).toFixed(1) : 0}%</div></div></div>
+          </div>
+          <p class="text-muted small text-center mt-3"><i class="bx bx-info-circle me-1"></i>Haz clic en <strong>Departamentos</strong> o <strong>Puestos</strong> para ver el desglose detallado.</p>`
+      };
     }
+
+    if (!contenidoModal) return;
 
     // Actualizar el modal
     document.getElementById('modalKpiTitle').innerHTML = contenidoModal.titulo;
@@ -6666,5 +6855,286 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio) {
     });
 
 })(); /* fin KPI panel v3 */
+
+/* ============================================================
+   KPI PANEL BAJAS v3 — Espejo del panel de Gestión para Bajas
+   IDs sufijados con "B"; localStorage: kpi_*_bajas
+   ============================================================ */
+(function() {
+    var CIRC         = 2 * Math.PI * 36;
+    var STORAGE_MODE = 'kpi_view_mode_bajas';
+    var STORAGE_OPEN = 'kpi_panel_open_bajas';
+    var DEFAULT_MODE = 'default';
+
+    var kpiCurrentModeB = localStorage.getItem(STORAGE_MODE) || DEFAULT_MODE;
+    var kpiPanelOpenB   = localStorage.getItem(STORAGE_OPEN) !== 'false';
+
+    function kpiAnimateCounterB(el, target, dur, delay) {
+        if (!el) return;
+        dur = dur || 900; delay = delay || 0;
+        setTimeout(function() {
+            var start = performance.now();
+            var ease  = function(t) { return t < 0.5 ? 2*t*t : -1+(4-2*t)*t; };
+            (function tick(now) {
+                var p = Math.min((now - start) / dur, 1);
+                el.textContent = Math.round(target * ease(p));
+                if (p < 1) requestAnimationFrame(tick);
+                else el.textContent = target;
+            })(performance.now());
+        }, delay);
+    }
+
+    function kpiAnimateBarB(id, pct, delay) {
+        var el = document.getElementById(id);
+        if (!el) return;
+        el.style.width = '0%';
+        setTimeout(function() { el.style.width = pct + '%'; }, (delay || 0) + 80);
+    }
+
+    function kpiAnimateDonutB(arcId, pct, delay) {
+        var el = document.getElementById(arcId);
+        if (!el) return;
+        el.style.strokeDasharray = '0 ' + CIRC;
+        setTimeout(function() {
+            var filled = (pct / 100) * CIRC;
+            el.style.strokeDasharray = filled + ' ' + (CIRC - filled);
+        }, (delay || 0) + 100);
+    }
+
+    function kpiResetDonutsB() {
+        ['b-total','b-dep','b-puesto'].forEach(function(k) {
+            var el = document.getElementById('kpi-arc-' + k);
+            if (el) el.style.strokeDasharray = '0 ' + CIRC;
+        });
+    }
+
+    var _kpiTooltipB = null;
+    function _getTooltipB() {
+        if (!_kpiTooltipB) _kpiTooltipB = document.getElementById('kpiDonutTooltipB');
+        return _kpiTooltipB;
+    }
+    window.kpiShowTooltipB = function(e, text) {
+        var t = _getTooltipB(); if (!t) return;
+        t.textContent = text; t.classList.add('visible');
+        window.kpiMoveTooltipB(e);
+    };
+    window.kpiMoveTooltipB = function(e) {
+        var t = _getTooltipB(); if (!t) return;
+        t.style.left = (e.clientX - t.offsetWidth / 2) + 'px';
+        t.style.top  = (e.clientY - t.offsetHeight - 14) + 'px';
+    };
+    window.kpiHideTooltipB = function() {
+        var t = _getTooltipB(); if (t) t.classList.remove('visible');
+    };
+
+    function kpiRevealCellsB() {
+        document.querySelectorAll('#kpiRowNewB .kpi-cell').forEach(function(c, i) {
+            c.style.opacity   = '0';
+            c.style.transform = 'translateY(14px)';
+            c.classList.remove('revealed', 'mode-swap');
+            setTimeout(function() { c.classList.add('revealed'); }, i * 80);
+        });
+        kpiAnimateBarB('kpi-bar-b-total',  80,   80);
+        kpiAnimateBarB('kpi-bar-b-dep',    60,  160);
+        kpiAnimateBarB('kpi-bar-b-puesto', 45,  240);
+        if (kpiCurrentModeB === 'vision') {
+            kpiAnimateDonutB('kpi-arc-b-total',  80,  80);
+            kpiAnimateDonutB('kpi-arc-b-dep',    60, 160);
+            kpiAnimateDonutB('kpi-arc-b-puesto', 45, 240);
+        }
+    }
+
+    function kpiApplyModeB(mode, animate) {
+        var row = document.getElementById('kpiRowNewB');
+        if (!row) return;
+        row.classList.remove('mode-default', 'mode-vision', 'mode-ministat');
+        row.classList.add('mode-' + mode);
+        ['default','vision','ministat'].forEach(function(m) {
+            var btn = document.getElementById('vbtn-' + m + '-b');
+            if (btn) btn.classList.toggle('active', m === mode);
+        });
+        document.querySelectorAll('#kpiRowNewB .kpi-cell-title').forEach(function(el) {
+            el.style.display = mode === 'ministat' ? 'block' : 'none';
+        });
+        if (animate) {
+            document.querySelectorAll('#kpiRowNewB .kpi-cell').forEach(function(c, i) {
+                c.classList.remove('mode-swap'); void c.offsetWidth;
+                c.style.animationDelay = (i * 0.06) + 's';
+                c.classList.add('mode-swap');
+            });
+            if (mode === 'vision') {
+                kpiResetDonutsB();
+                setTimeout(function() {
+                    kpiAnimateDonutB('kpi-arc-b-total',  80,  60);
+                    kpiAnimateDonutB('kpi-arc-b-dep',    60, 130);
+                    kpiAnimateDonutB('kpi-arc-b-puesto', 45, 200);
+                }, 120);
+            }
+        }
+    }
+
+    window.kpiSetModeB = function(mode) {
+        kpiCurrentModeB = mode;
+        localStorage.setItem(STORAGE_MODE, mode);
+        kpiApplyModeB(mode, true);
+    };
+
+    window.kpiTogglePanelB = function() {
+        kpiPanelOpenB = !kpiPanelOpenB;
+        localStorage.setItem(STORAGE_OPEN, kpiPanelOpenB);
+        var panel    = document.getElementById('kpiCollapsibleB');
+        var btn      = document.getElementById('kpiToggleBtnB');
+        var controls = document.getElementById('kpiViewControlsB');
+        var sep      = document.getElementById('kpiViewControlsSepB');
+        if (panel)    panel.classList.toggle('open', kpiPanelOpenB);
+        if (btn)      btn.classList.toggle('open',   kpiPanelOpenB);
+        if (controls) controls.classList.toggle('kpi-vc-hidden', !kpiPanelOpenB);
+        if (sep)      sep.classList.toggle('kpi-sep-hidden',     !kpiPanelOpenB);
+        if (kpiPanelOpenB) setTimeout(kpiRevealCellsB, 60);
+    };
+
+    window.kpiResetPrefsB = function() {
+        localStorage.removeItem(STORAGE_MODE);
+        localStorage.removeItem(STORAGE_OPEN);
+        location.reload();
+    };
+
+    window.kpiUpdateValuesBajas = function(data) {
+        var _trunc = function(s, n) { return s && s.length > n ? s.substring(0, n-1) + '\u2026' : (s || '\u2014'); };
+
+        // Números principales
+        var elTotal  = document.getElementById('kpi-b-total');
+        var elDep    = document.getElementById('kpi-b-dep');
+        var elPuesto = document.getElementById('kpi-b-puesto');
+        if (elTotal  && data.total  !== undefined) kpiAnimateCounterB(elTotal,  data.total,  600,   0);
+        if (elDep    && data.dep    !== undefined) kpiAnimateCounterB(elDep,    data.dep,    600,  60);
+        if (elPuesto && data.puesto !== undefined) kpiAnimateCounterB(elPuesto, data.puesto, 600, 120);
+
+        // Mini-stat: Total Bajas
+        var msTA = document.getElementById('kpi-ms-b-total-a');
+        var msTB = document.getElementById('kpi-ms-b-total-b');
+        var msTL = document.getElementById('kpi-ms-b-total-lbl');
+        var msPT = document.getElementById('kpi-ms-pct-b-total');
+        if (msTA && data.total    !== undefined) msTA.textContent = data.total;
+        if (msTB && data.bajasRef !== undefined) msTB.textContent = data.bajasRef;
+        if (msTL && data.refLabel !== undefined) msTL.textContent = data.refLabel;
+        if (msPT && data.total !== undefined && data.bajasRef !== undefined) {
+            var _p = data.total > 0 ? ((data.bajasRef / data.total) * 100).toFixed(1) : 0;
+            msPT.textContent = _p + '%';
+            msPT.className   = 'kpi-ms-pct ' + (_p > 30 ? 'danger' : _p > 10 ? 'warn' : 'ok');
+        }
+
+        // Mini-stat: Departamentos
+        var msDA = document.getElementById('kpi-ms-b-dep-a');
+        var msDB = document.getElementById('kpi-ms-b-dep-b');
+        var msPD = document.getElementById('kpi-ms-pct-b-dep');
+        if (msDA && data.dep        !== undefined) msDA.textContent = data.dep;
+        if (msDB && data.topDepBajas !== undefined) msDB.textContent = data.topDepBajas;
+        if (msPD && data.topDepNombre !== undefined) {
+            msPD.textContent = _trunc(data.topDepNombre, 14);
+            msPD.className   = 'kpi-ms-pct';
+            msPD.title       = data.topDepNombre;
+        }
+
+        // Mini-stat: Puestos
+        var msPA = document.getElementById('kpi-ms-b-puesto-a');
+        var msPB = document.getElementById('kpi-ms-b-puesto-b');
+        var msPP = document.getElementById('kpi-ms-pct-b-puesto');
+        if (msPA && data.puesto         !== undefined) msPA.textContent = data.puesto;
+        if (msPB && data.topPuestoBajas  !== undefined) msPB.textContent = data.topPuestoBajas;
+        if (msPP && data.topPuestoNombre !== undefined) {
+            msPP.textContent = _trunc(data.topPuestoNombre, 14);
+            msPP.className   = 'kpi-ms-pct';
+            msPP.title       = data.topPuestoNombre;
+        }
+
+        // Donut-stats: Total
+        var dvTA = document.getElementById('kpi-dv-b-total-a');
+        var dvTB = document.getElementById('kpi-dv-b-total-b');
+        var dvTL = document.getElementById('kpi-dv-b-total-lbl');
+        if (dvTA && data.total    !== undefined) dvTA.textContent = data.total;
+        if (dvTB && data.bajasRef !== undefined) dvTB.textContent = data.bajasRef;
+        if (dvTL && data.refLabel !== undefined) dvTL.textContent = data.refLabel;
+
+        // Donut-stats: Departamentos
+        var dvDA = document.getElementById('kpi-dv-b-dep-a');
+        var dvDB = document.getElementById('kpi-dv-b-dep-b');
+        if (dvDA && data.dep         !== undefined) dvDA.textContent = data.dep;
+        if (dvDB && data.topDepBajas  !== undefined) dvDB.textContent = data.topDepBajas;
+
+        // Donut-stats: Puestos
+        var dvPA = document.getElementById('kpi-dv-b-puesto-a');
+        var dvPB = document.getElementById('kpi-dv-b-puesto-b');
+        if (dvPA && data.puesto         !== undefined) dvPA.textContent = data.puesto;
+        if (dvPB && data.topPuestoBajas  !== undefined) dvPB.textContent = data.topPuestoBajas;
+
+        // Tendencias en donuts
+        var trendTotal  = document.getElementById('kpi-trend-b-total');
+        var trendTotalL = document.getElementById('kpi-trend-b-total-lbl');
+        var trendDep    = document.getElementById('kpi-trend-b-dep');
+        var trendPuesto = document.getElementById('kpi-trend-b-puesto');
+        if (trendTotal  && data.bajasRef !== undefined) {
+            trendTotal.innerHTML = '<i class="bx bx-trending-down"></i>' + data.bajasRef;
+        }
+        if (trendTotalL && data.refLabel !== undefined) trendTotalL.textContent = data.refLabel;
+        if (trendDep    && data.topDepNombre    !== undefined) {
+            trendDep.innerHTML = '<i class="bx bx-buildings"></i>' + _trunc(data.topDepNombre, 16);
+            trendDep.title = data.topDepNombre;
+        }
+        if (trendPuesto && data.topPuestoNombre !== undefined) {
+            trendPuesto.innerHTML = '<i class="bx bx-briefcase"></i>' + _trunc(data.topPuestoNombre, 16);
+            trendPuesto.title = data.topPuestoNombre;
+        }
+
+        // Barras
+        var bTotal  = data.arcTotal  !== undefined ? data.arcTotal  : 80;
+        var bDep    = data.arcDep    !== undefined ? data.arcDep    : 60;
+        var bPuesto = data.arcPuesto !== undefined ? data.arcPuesto : 45;
+        kpiAnimateBarB('kpi-bar-b-total',  bTotal,   0);
+        kpiAnimateBarB('kpi-bar-b-dep',    bDep,    60);
+        kpiAnimateBarB('kpi-bar-b-puesto', bPuesto, 120);
+
+        // Donuts (solo si está en modo vision)
+        if (kpiCurrentModeB === 'vision') {
+            kpiResetDonutsB();
+            setTimeout(function() {
+                kpiAnimateDonutB('kpi-arc-b-total',  bTotal,    0);
+                kpiAnimateDonutB('kpi-arc-b-dep',    bDep,    70);
+                kpiAnimateDonutB('kpi-arc-b-puesto', bPuesto, 140);
+            }, 100);
+        }
+    };
+
+    window.kpiRevealCellsB = kpiRevealCellsB;
+
+    /* ── Init ── */
+    document.addEventListener('DOMContentLoaded', function() {
+        // Restaurar estado open/closed del panel (idéntico al panel de Gestión)
+        var panel    = document.getElementById('kpiCollapsibleB');
+        var btn      = document.getElementById('kpiToggleBtnB');
+        var controls = document.getElementById('kpiViewControlsB');
+        var sep      = document.getElementById('kpiViewControlsSepB');
+        if (panel)    panel.classList.toggle('open', kpiPanelOpenB);
+        if (btn)      btn.classList.toggle('open',   kpiPanelOpenB);
+        if (controls) controls.classList.toggle('kpi-vc-hidden', !kpiPanelOpenB);
+        if (sep)      sep.classList.toggle('kpi-sep-hidden',     !kpiPanelOpenB);
+        kpiApplyModeB(kpiCurrentModeB, false);
+        // NOTA: kpiRevealCellsB se llama desde inicializarBajas() DESPUÉS de que
+        // el panel sea visible, porque las transiciones CSS no corren con display:none
+
+        // Conectar celdas al modal de desglose de Bajas
+        document.querySelectorAll('#kpiRowNewB .kpi-cell').forEach(function(cell) {
+            cell.addEventListener('click', function(e) {
+                if (e.target.closest('button, a, input, select')) return;
+                var tipo = this.getAttribute('data-tipo');
+                if (!tipo) return;
+                if (tipo === 'bajas-dep')    { if (typeof abrirModalBajas === 'function') abrirModalBajas('departamentos'); }
+                else if (tipo === 'bajas-puesto') { if (typeof abrirModalBajas === 'function') abrirModalBajas('puestos'); }
+                else if (tipo === 'bajas-total')  { if (typeof abrirModalBajas === 'function') abrirModalBajas('total'); }
+            });
+        });
+    });
+
+})(); /* fin KPI panel Bajas v3 */
 
 </script>
