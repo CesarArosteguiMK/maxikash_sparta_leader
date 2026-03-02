@@ -352,6 +352,15 @@ JS;
             $pagos = $estadoCuenta["datosPagos"] ?? [];
             if (!is_array($pagos)) $pagos = [];
 
+            // Máxima cuota que existe en los cargos (por concepto o idCargo). Si un pago trae numeroCuotaSemanal > este máximo (ej. 63 cuando solo hay 45 filas), se hace que también aplique a la última cuota.
+            $maxCuotaEnCargos = 0;
+            foreach ($cargos as $c) {
+                $concepto = $c["concepto"] ?? "";
+                $n = $this->extraer_numero_cuota($concepto);
+                if ($n === null) $n = $this->safe_int($c["idCargo"] ?? 0, 0);
+                if ($n > $maxCuotaEnCargos) $maxCuotaEnCargos = $n;
+            }
+
             $pagos_list = [];
 
             // -------------------------
@@ -364,6 +373,12 @@ JS;
                 $monto_real     = max($montoPago - $extemporaneos, 0);
 
                 $cuotas = $this->parse_cuotas_field($p["numeroCuotaSemanal"] ?? null);
+                if ($maxCuotaEnCargos > 0 && !empty($cuotas)) {
+                    $maxEnPago = max($cuotas);
+                    if ($maxEnPago > $maxCuotaEnCargos && !in_array($maxCuotaEnCargos, $cuotas)) {
+                        $cuotas[] = $maxCuotaEnCargos;
+                    }
+                }
 
                 $pagos_list[] = [
                     "idPago"              => $p["idPago"] ?? null,

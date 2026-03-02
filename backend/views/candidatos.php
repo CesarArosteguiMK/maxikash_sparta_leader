@@ -233,15 +233,26 @@ $candidatos = $candidatos ?? [];
             </div>
             <div class="modal-body resumen-candidato-modal-body">
                 <div id="resumenPostulacionTexto" class="resumen-candidato-card mb-4"></div>
-                <div id="bloqueLinkDocumentos" class="mb-3" style="display: none;">
-                    <label class="form-label fw-semibold small text-uppercase text-body-secondary">Link para subir documentos</label>
-                    <div class="d-flex gap-2 align-items-center flex-wrap">
-                        <input type="text" class="form-control form-control-sm" id="inputUrlDocumentos" readonly placeholder="Se generará al enviar o al reenviar">
-                        <button type="button" class="btn btn-outline-primary btn-sm" id="btnCopiarUrlDocumentos" title="Copiar URL">
-                            <i class="bx bx-copy me-1"></i> Copiar URL
-                        </button>
+                <div id="bloqueLinkDocumentos" class="mb-3 link-documentos-block" style="display: none;">
+                    <div class="link-documentos-card">
+                        <div class="link-documentos-label">Enlace para que el candidato suba sus documentos</div>
+                        <div class="link-documentos-url-box">
+                            <span class="link-documentos-url-icon" aria-hidden="true">
+                                <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>
+                            </span>
+                            <input type="text" class="link-documentos-url-input" id="inputUrlDocumentos" readonly placeholder="Se generará al enviar o al reenviar" title="">
+                        </div>
+                        <div class="link-documentos-actions">
+                            <button type="button" class="link-documentos-btn link-documentos-btn-copy" id="btnCopiarUrlDocumentos" title="Copiar URL">
+                                <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+                                Copiar URL
+                            </button>
+                            <button type="button" class="link-documentos-btn link-documentos-btn-open" id="btnAbrirUrlDocumentos" title="Abrir en nueva pestaña">
+                                <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                                Abrir URL
+                            </button>
+                        </div>
                     </div>
-                    <small class="text-muted">Comparte este enlace con el candidato para que suba sus documentos.</small>
                 </div>
                 <div class="d-flex justify-content-end justify-content-md-center pt-2">
                     <button type="button" class="btn btn-primary btn-enviar-postulacion px-4 py-2" id="btnEnviarPostulacion" onclick="enviarPostulacionAlCandidato()">
@@ -252,6 +263,8 @@ $candidatos = $candidatos ?? [];
         </div>
     </div>
 </div>
+
+<div class="link-documentos-toast" id="toastUrlDocumentos" role="status" aria-live="polite">✓ URL copiada al portapapeles</div>
 
 <style>
 /* Offcanvas candidato siempre visible por encima del layout */
@@ -266,6 +279,148 @@ body.dark-mode #offcanvasAddCandidato #btnSubmitCandidato.btn-primary:hover { ba
 #offcanvasAddCandidato #btnSubmitCandidato.btn-success:hover { background-color: #85e34b !important; border-color: #85e34b !important; color: #fff !important; }
 body.dark-mode #offcanvasAddCandidato #btnSubmitCandidato.btn-success { background-color: #22c55e !important; border-color: #22c55e !important; color: #fff !important; }
 body.dark-mode #offcanvasAddCandidato #btnSubmitCandidato.btn-success:hover { background-color: #4ade80 !important; border-color: #4ade80 !important; color: #fff !important; }
+
+/* Bloque enlace documentos: estilo tipo card oscuro (referencia URL component) */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
+.link-documentos-block { font-family: 'Inter', 'Public Sans', system-ui, sans-serif; }
+.link-documentos-card {
+    background: #1a1b26;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 20px;
+    padding: 28px 24px;
+    width: 100%;
+    box-shadow: 0 0 0 1px rgba(255,255,255,0.04), 0 12px 40px rgba(0, 0, 0, 0.35);
+}
+body:not(.dark-mode) .link-documentos-card {
+    background: #f0f2f5;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+.link-documentos-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.45);
+    margin-bottom: 12px;
+}
+body:not(.dark-mode) .link-documentos-label { color: rgba(0, 0, 0, 0.5); }
+.link-documentos-url-box {
+    display: flex;
+    align-items: center;
+    background: #252633;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    padding: 14px 18px;
+    gap: 10px;
+    margin-bottom: 20px;
+    transition: border-color 0.2s, background-color 0.2s;
+}
+.link-documentos-url-box:focus-within {
+    border-color: rgba(139, 92, 246, 0.45);
+    background: #2a2b38;
+}
+body:not(.dark-mode) .link-documentos-url-box {
+    background: #fff;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+body:not(.dark-mode) .link-documentos-url-box:focus-within {
+    border-color: rgba(139, 92, 246, 0.35);
+    box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.1);
+}
+.link-documentos-url-icon { color: rgba(255,255,255,0.4); flex-shrink: 0; }
+body:not(.dark-mode) .link-documentos-url-icon { color: rgba(0, 0, 0, 0.4); }
+.link-documentos-url-input {
+    background: none;
+    border: none;
+    outline: none;
+    color: rgba(255, 255, 255, 0.9);
+    font-family: ui-monospace, 'SF Mono', 'Cascadia Code', monospace;
+    font-size: 13.5px;
+    font-weight: 400;
+    letter-spacing: 0.01em;
+    width: 100%;
+    text-overflow: ellipsis;
+    overflow: hidden;
+}
+.link-documentos-url-input::placeholder { color: rgba(255, 255, 255, 0.3); }
+body:not(.dark-mode) .link-documentos-url-input { color: rgba(0, 0, 0, 0.85); }
+body:not(.dark-mode) .link-documentos-url-input::placeholder { color: rgba(0, 0, 0, 0.4); }
+.link-documentos-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.link-documentos-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 13px 18px;
+    border-radius: 12px;
+    font-family: inherit;
+    font-size: 13.5px;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    cursor: pointer;
+    border: none;
+    transition: all 0.2s ease;
+    position: relative;
+    overflow: hidden;
+}
+.link-documentos-btn::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    transition: opacity 0.2s;
+    background: white;
+}
+.link-documentos-btn:hover::before { opacity: 0.05; }
+.link-documentos-btn:active::before { opacity: 0.1; }
+.link-documentos-btn svg { width: 15px; height: 15px; flex-shrink: 0; }
+.link-documentos-btn-copy {
+    background: rgba(139, 92, 246, 0.12);
+    color: #a78bfa;
+    border: 1px solid rgba(139, 92, 246, 0.2);
+}
+.link-documentos-btn-copy:hover {
+    background: rgba(139, 92, 246, 0.18);
+    border-color: rgba(139, 92, 246, 0.4);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px rgba(139, 92, 246, 0.15);
+}
+.link-documentos-btn-open {
+    background: linear-gradient(135deg, #7c3aed, #6d28d9);
+    color: #fff;
+    border: 1px solid rgba(139, 92, 246, 0.3);
+}
+.link-documentos-btn-open:hover {
+    background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 24px rgba(124, 58, 237, 0.35);
+}
+.link-documentos-toast {
+    position: fixed;
+    bottom: 32px;
+    left: 50%;
+    transform: translateX(-50%) translateY(12px);
+    background: #1e1e2e;
+    border: 1px solid rgba(139, 92, 246, 0.25);
+    color: #a78bfa;
+    font-size: 13px;
+    font-weight: 500;
+    padding: 10px 20px;
+    border-radius: 30px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+    opacity: 0;
+    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    pointer-events: none;
+    white-space: nowrap;
+    z-index: 9999;
+}
+.link-documentos-toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+}
+
 /* Cancelar: mantener estilo secundario visible en modo oscuro */
 body.dark-mode #offcanvasAddCandidato .btn-outline-secondary { border-color: rgba(148, 163, 184, 0.5) !important; color: #94a3b8 !important; }
 body.dark-mode #offcanvasAddCandidato .btn-outline-secondary:hover { background-color: rgba(71, 85, 105, 0.5) !important; border-color: #64748b !important; color: #e2e8f0 !important; }
@@ -366,6 +521,34 @@ body.dark-mode .btn-enviar-postulacion:hover { box-shadow: 0 6px 20px rgba(99, 1
 </style>
 
 <script>
+var APP_BASE = <?= json_encode(isset($appBasePath) && $appBasePath !== '' ? rtrim($appBasePath, '/') : '') ?>;
+function getAppBase() {
+    var path = window.location.pathname || "";
+    path = path.replace(/\/CapHum\/.*$/, "").replace(/index\.php.*$/, "").replace(/\/$/, "");
+    return path || "";
+}
+function capHumUrl(path) {
+    var base = (typeof APP_BASE === "string" && APP_BASE) ? APP_BASE : getAppBase();
+    var segment = (path.charAt(0) === "/" ? path : "/" + path);
+    return base + segment;
+}
+function capHumUrlRel(path) {
+    var pathname = window.location.pathname || "";
+    var base = pathname.indexOf("index.php") !== -1
+        ? pathname.replace(/index\.php.*$/, "").replace(/\/$/, "")
+        : getAppBase();
+    base = base || "";
+    var segment = path.charAt(0) === "/" ? path.slice(1) : path;
+    return base + (base ? "/" : "") + segment;
+}
+/** URL explícita para el router: evita que rutas "bonitas" devuelvan HTML en vez de JSON. Usa origin para no violar CSP. */
+function capHumApiUrl(route) {
+    var origin = window.location.origin;
+    var base = (typeof APP_BASE === "string" && APP_BASE) ? APP_BASE : getAppBase();
+    base = (base && base !== "/") ? base.replace(/\/$/, "") : "";
+    var path = (base ? base + "/" : "/") + "index.php?url=" + encodeURIComponent(route);
+    return origin + path;
+}
 (function() {
     function initCandidatos() {
         if (!document.getElementById("tablaCandidatos")) return;
@@ -553,8 +736,8 @@ function toggleLegionCandidato() {
 
 function getCandidatos() {
     var estatus = (document.getElementById("filterEstatus") && document.getElementById("filterEstatus").value) || "";
-    var params = estatus ? "?estatus=" + encodeURIComponent(estatus) : "";
-    fetch("/CapHum/getCandidatos" + params).then(function(r){ return r.json(); }).then(function(res){
+    var params = estatus ? "&estatus=" + encodeURIComponent(estatus) : "";
+    fetch(capHumApiUrl("CapHum/getCandidatos") + params).then(function(r){ return r.json(); }).then(function(res){
         if (!res.success || !res.datos) return;
         var $ = window.jQuery || window.$;
         if (!$ || !$.fn.DataTable) return;
@@ -618,7 +801,8 @@ function actualizarKPIsCandidatos(datos) {
 
 function abrirModalReenviarPostulacion(idCandidato) {
     window._candidatoDatosEnvio = null;
-    fetch("/CapHum/getCandidato/" + idCandidato).then(function(r){ return r.json(); }).then(function(res){
+    var url = capHumApiUrl("CapHum/getCandidato/" + idCandidato);
+    fetch(url).then(function(r){ return r.json(); }).then(function(res){
         if (!res.success || !res.datos) {
             if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "Error", text: "No se encontró el candidato." });
             return;
@@ -669,11 +853,12 @@ function cargarLinkDocumentosCandidato(idCandidato) {
     var bloque = document.getElementById("bloqueLinkDocumentos");
     var input = document.getElementById("inputUrlDocumentos");
     if (!bloque || !input) return;
-    fetch("/CapHum/getTokenDocumentosCandidato", { method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" }, body: JSON.stringify({ id: idCandidato }) })
+    fetch(capHumApiUrl("CapHum/getTokenDocumentosCandidato"), { method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" }, body: JSON.stringify({ id: idCandidato }) })
         .then(function(r){ return r.json(); })
         .then(function(res){
             if (res.success && res.datos && res.datos.url) {
                 input.value = res.datos.url;
+                input.setAttribute("title", res.datos.url);
                 bloque.style.display = "block";
             }
         })
@@ -686,26 +871,52 @@ function initCopiarUrlDocumentos() {
     if (!btn || !input) return;
     if (btn._copiarBound) return;
     btn._copiarBound = true;
+
+    function showToastUrl(msg) {
+        var t = document.getElementById("toastUrlDocumentos");
+        if (!t) return;
+        t.textContent = msg;
+        t.classList.add("show");
+        setTimeout(function() { t.classList.remove("show"); }, 2200);
+    }
+
     btn.addEventListener("click", function() {
         var url = input.value;
-        if (!url) return;
+        if (!url) { showToastUrl("⚠ Ingresa una URL primero"); return; }
         if (navigator.clipboard && navigator.clipboard.writeText) {
             navigator.clipboard.writeText(url).then(function() {
-                if (typeof Swal !== "undefined") Swal.fire({ icon: "success", title: "Copiado", text: "URL copiada al portapapeles.", timer: 1500, showConfirmButton: false });
-                else alert("URL copiada.");
-            }).catch(function() { fallbackCopiar(url); });
+                showToastUrl("✓  URL copiada al portapapeles");
+            }).catch(function() {
+                input.select();
+                input.setSelectionRange(0, 99999);
+                try {
+                    document.execCommand("copy");
+                    showToastUrl("✓  URL copiada al portapapeles");
+                } catch (e) {
+                    if (typeof Swal !== "undefined") Swal.fire({ icon: "success", title: "Copiado", text: "URL copiada.", timer: 1500, showConfirmButton: false });
+                }
+            });
         } else {
-            fallbackCopiar(url);
+            input.select();
+            input.setSelectionRange(0, 99999);
+            try {
+                document.execCommand("copy");
+                showToastUrl("✓  URL copiada al portapapeles");
+            } catch (e) {
+                if (typeof Swal !== "undefined") Swal.fire({ icon: "success", title: "Copiado", text: "URL copiada.", timer: 1500, showConfirmButton: false });
+            }
         }
     });
-    function fallbackCopiar(texto) {
-        input.select();
-        input.setSelectionRange(0, 99999);
-        try {
-            document.execCommand("copy");
-            if (typeof Swal !== "undefined") Swal.fire({ icon: "success", title: "Copiado", text: "URL copiada al portapapeles.", timer: 1500, showConfirmButton: false });
-            else alert("URL copiada.");
-        } catch (e) {}
+
+    var btnAbrir = document.getElementById("btnAbrirUrlDocumentos");
+    if (btnAbrir && !btnAbrir._abrirBound) {
+        btnAbrir._abrirBound = true;
+        btnAbrir.addEventListener("click", function() {
+            var url = input.value;
+            if (!url) return;
+            if (!/^https?:\/\//i.test(url)) url = "https://" + url;
+            window.open(url, "_blank", "noopener,noreferrer");
+        });
     }
 }
 
@@ -718,7 +929,7 @@ function editarCandidato(id) {
         btnSubmit.innerHTML = "<i class=\"bx bx-edit-alt me-1\"></i> Actualizar";
         btnSubmit.className = "btn btn-success me-2";
     }
-    fetch("/CapHum/getCandidato/" + id).then(function(r){ return r.json(); }).then(function(res){
+    fetch(capHumApiUrl("CapHum/getCandidato/" + id)).then(function(r){ return r.json(); }).then(function(res){
         if (!res.success || !res.datos) {
             if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "Error", text: "No se encontró el candidato." });
             return;
@@ -916,28 +1127,41 @@ function enviarPostulacionAlCandidato() {
     btn.disabled = true;
     btn.innerHTML = "<i class='bx bx-loader-alt bx-spin me-2'></i> Enviando...";
 
-    if (window._candidatoReenviarId && window._candidatoReenviarEmail) {
-        fetch("/CapHum/enviarPostulacionCandidato", { method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" }, body: JSON.stringify({ id: window._candidatoReenviarId, email: window._candidatoReenviarEmail }) })
-        .then(function(r){ return r.json(); })
-        .then(function(res){
+    if (window._candidatoReenviarId) {
+        var urlReenviar = capHumApiUrl("CapHum/enviarPostulacionCandidato");
+        fetch(urlReenviar, { method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" }, body: JSON.stringify({ id: window._candidatoReenviarId, email: window._candidatoReenviarEmail || "" }) })
+        .then(function(r){
+            return r.text().then(function(text) {
+                var res;
+                try { res = text ? JSON.parse(text) : {}; } catch (e) { res = null; }
+                return { ok: r.ok, status: r.status, res: res, raw: text };
+            });
+        })
+        .then(function(o){
+            var res = o.res;
             window._candidatoReenviarId = null;
             window._candidatoReenviarEmail = null;
             btn.disabled = false;
-            btn.innerHTML = "<i class='bx bx-send me-2'></i> Enviar postulación al candidato";
-            if (res.success) {
+            btn.innerHTML = "<i class='bx bx-send me-2'></i> Reenviar postulación por correo";
+            if (!res && !o.ok) {
+                if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "Error", text: "El servidor respondió con " + o.status + ". Compruebe la consola (F12) o que la URL sea correcta." });
+                if (console && console.error) console.error("Reenviar correo: respuesta no JSON", o.status, o.raw ? o.raw.substring(0, 300) : "");
+                return;
+            }
+            if (res && res.success) {
                 if (typeof Swal !== "undefined") Swal.fire({ icon: "success", title: "Listo", text: "Correo de postulación reenviado correctamente." });
                 getCandidatos();
                 setTimeout(function() { bootstrap.Modal.getInstance(document.getElementById("modalResumenPostulacion")).hide(); }, 1500);
             } else {
-                if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "Error", text: res.mensaje || "No se pudo enviar el correo." });
+                if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "Error", text: (res && res.mensaje) ? res.mensaje : "No se pudo enviar el correo." });
             }
         })
-        .catch(function(){
-            window._candidatoReenviarId = null;
-            window._candidatoReenviarEmail = null;
+        .catch(function(err){
             btn.disabled = false;
-            btn.innerHTML = "<i class='bx bx-send me-2'></i> Enviar postulación al candidato";
-            if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "Error", text: "Error de conexión." });
+            btn.innerHTML = "<i class='bx bx-send me-2'></i> Reenviar postulación por correo";
+            var msg = (err && err.message) ? err.message : "Error de conexión.";
+            if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "Error", text: msg });
+            if (console && console.error) console.error("Reenviar correo:", urlReenviar, err);
         });
         return;
     }
@@ -951,22 +1175,36 @@ function enviarPostulacionAlCandidato() {
     }
 
     var form = document.getElementById("formAgregarCandidato");
-    fetch("/CapHum/guardarCandidato", { method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" }, body: JSON.stringify(data) })
+    fetch(capHumApiUrl("CapHum/guardarCandidato"), { method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" }, body: JSON.stringify(data) })
     .then(function(r){ return r.json(); })
     .then(function(res){
         if (res.success) {
             window._candidatoDatosEnvio = null;
-            fetch("/CapHum/enviarPostulacionCandidato", { method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" }, body: JSON.stringify({ id: res.datos && res.datos.id, email: data.email }) })
+            var idCand = res.datos && res.datos.id;
+            cargarLinkDocumentosCandidato(idCand);
+            fetch(capHumApiUrl("CapHum/enviarPostulacionCandidato"), { method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" }, body: JSON.stringify({ id: idCand, email: data.email }) })
             .then(function(r2){ return r2.json(); })
-            .then(function() {});
-            btn.innerHTML = "<i class=\"bx bx-check me-2\"></i> Enviada postulación";
-            if (typeof Swal !== "undefined") Swal.fire({ icon: "success", title: "Listo", text: "Candidato registrado y postulación enviada por correo." });
-            cargarLinkDocumentosCandidato(res.datos && res.datos.id);
+            .then(function(resMail){
+                btn.disabled = false;
+                btn.innerHTML = "<i class=\"bx bx-send me-2\"></i> Enviar postulación al candidato";
+                if (resMail && resMail.success) {
+                    btn.innerHTML = "<i class=\"bx bx-check me-2\"></i> Enviada postulación";
+                    if (typeof Swal !== "undefined") Swal.fire({ icon: "success", title: "Listo", text: "Candidato registrado y correo enviado. El enlace para subir documentos está en el correo y arriba." });
+                } else {
+                    if (typeof Swal !== "undefined") Swal.fire({ icon: "warning", title: "Candidato guardado", text: (resMail && resMail.mensaje) ? "El correo no se envió: " + resMail.mensaje + ". Configure [mail] en backend/config/config.ini para SMTP o revise que mail() funcione." : "El correo no se pudo enviar. Use el enlace de arriba para compartir con el candidato." });
+                }
+                getCandidatos();
+                setTimeout(function() { bootstrap.Modal.getInstance(document.getElementById("modalResumenPostulacion")).hide(); }, 2500);
+            })
+            .catch(function(){
+                btn.disabled = false;
+                btn.innerHTML = "<i class=\"bx bx-send me-2\"></i> Enviar postulación al candidato";
+                if (typeof Swal !== "undefined") Swal.fire({ icon: "warning", title: "Candidato guardado", text: "El correo no se pudo enviar (error de conexión). Use el enlace de arriba para compartir con el candidato." });
+                getCandidatos();
+            });
             if (form) form.reset();
             var fpInput = document.getElementById("candidato_fecha_postulacion");
             if (fpInput && fpInput._flatpickr) fpInput._flatpickr.setDate(new Date(), true);
-            getCandidatos();
-            setTimeout(function() { bootstrap.Modal.getInstance(document.getElementById("modalResumenPostulacion")).hide(); }, 1500);
         } else {
             btn.disabled = false;
             btn.innerHTML = "<i class='bx bx-send me-2'></i> Enviar postulación al candidato";

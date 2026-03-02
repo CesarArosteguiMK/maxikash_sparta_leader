@@ -1,5 +1,5 @@
 /**
- * Easter egg Bajas: Ctrl+Shift+B (carabelas + adiós) y mousedown en icono Baja (fantasma + boo).
+ * Easter egg Bajas: Ctrl+Shift+B (carabelas + adiós) y long-press 1,5 s en icono Baja (fantasma + boo).
  */
 (function () {
     "use strict";
@@ -39,10 +39,16 @@
         }, dur);
     });
 
-    // ----- Fantasma + boo (mousedown en .bajas-easter-ghost-trigger) -----
-    var ghostAnimMs = 2600; // mismo que animation bajasGhostRise (2.6s)
+    // ----- Fantasma + boo: long-press 1,5 s en .bajas-easter-ghost-trigger -----
+    var ghostHoldMs = 1500;
+    var ghostAnimMs = 3200;
+    var ghostTimer = null;
+    var ghostJustTriggered = false;
+
     function runBoo(trg) {
         if (!trg) return;
+        ghostJustTriggered = true;
+        setTimeout(function () { ghostJustTriggered = false; }, 400);
         var r = trg.getBoundingClientRect();
         var ghost = document.createElement("div");
         ghost.className = "bajas-ghost-float";
@@ -59,11 +65,55 @@
             if (ghost.parentNode) ghost.parentNode.removeChild(ghost);
         }, ghostAnimMs);
     }
+
+    function startHold(ev) {
+        var trg = ev.target.closest(".bajas-easter-ghost-trigger");
+        if (!trg || ghostTimer) return;
+        ev.preventDefault();
+        ev.stopPropagation();
+        ghostTimer = setTimeout(function () {
+            ghostTimer = null;
+            runBoo(trg);
+        }, ghostHoldMs);
+    }
+
+    function cancelHold() {
+        if (ghostTimer) {
+            clearTimeout(ghostTimer);
+            ghostTimer = null;
+        }
+    }
+
+    document.addEventListener("click", function (e) {
+        var trg = e.target.closest(".bajas-easter-ghost-trigger");
+        if (!trg || !ghostJustTriggered) return;
+        e.preventDefault();
+        e.stopPropagation();
+    }, true);
+
     document.addEventListener("mousedown", function (e) {
         var trg = e.target.closest(".bajas-easter-ghost-trigger");
         if (!trg) return;
-        e.preventDefault();
-        e.stopPropagation();
-        runBoo(trg);
+        startHold(e);
     }, true);
+
+    document.addEventListener("mouseup", cancelHold);
+    document.addEventListener("mouseout", function (e) {
+        if (e.target.closest(".bajas-easter-ghost-trigger") && (!e.relatedTarget || !e.relatedTarget.closest(".bajas-easter-ghost-trigger")))
+            cancelHold();
+    });
+
+    document.addEventListener("touchstart", function (e) {
+        var trg = e.target.closest(".bajas-easter-ghost-trigger");
+        if (!trg) return;
+        e.preventDefault();
+        startHold(e);
+    }, { passive: false });
+
+    document.addEventListener("touchend", function (e) {
+        e.preventDefault();
+        cancelHold();
+    }, { passive: false });
+
+    document.addEventListener("touchcancel", cancelHold);
 })();

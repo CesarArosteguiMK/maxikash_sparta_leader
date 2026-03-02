@@ -753,7 +753,6 @@ html.dark-mode .navbar .text-muted{color:#94a3b8 !important;}
     <!-- Page JS -->
     <script src="/assets/js/comunes.js"></script>
     <script src="/assets/js/componentes.js"></script>
-    <script src="/assets/js/gestiones-300-easter.js"></script>
 
     <!-- Campana de notificaciones: cargar lista, badge, marcar leídas, sonido -->
     <script>

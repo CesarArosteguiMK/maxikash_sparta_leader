@@ -10,6 +10,9 @@ use Models\Candidatos as CandidatosDAO;
 
 class CapHum extends Controller
 {
+    /** Último error de enviarCorreo para mostrarlo en la respuesta JSON */
+    private $enviarCorreoUltimoError = '';
+
     public function gestion()
     {
         $script = <<<'HTML'
@@ -218,7 +221,7 @@ class CapHum extends Controller
                                 `.trim(),
                                 estatus: `
                                     <div class="fw-semibold d-flex align-items-center gap-2" style="color: #dc3545 !important;">
-                                        <span class="bajas-easter-ghost-trigger" style="cursor:pointer;display:inline-flex;align-items:center;" title="Mantén pulsado"><i class="fa fa-ban" style="color: #dc3545 !important;"></i></span>
+                                        <span class="bajas-easter-ghost-trigger" style="cursor:pointer;display:inline-flex;align-items:center;" title="Mantén pulsado 1,5 s"><i class="fa fa-ban" style="color: #dc3545 !important;"></i></span>
                                         <span style="color: #dc3545 !important;">Baja</span>
                                     </div>
                                     <div class="text-muted small d-flex align-items-center gap-2 mt-1">
@@ -3319,6 +3322,8 @@ class CapHum extends Controller
             
         </script>
         HTML;
+        // Easter egg "300" solo en Capital Humano → Gestión (Ctrl+Shift+3)
+        $script .= "\n" . '<script src="/assets/js/gestiones-300-easter.js"></script>';
         $departamento = CapHumDAO::getConsultaDepartamentoGestor($_SESSION['usuario_id']);
         $modulos = $_SESSION['modulos'] ?? [];
         $puedeEditarTodos = in_array(10, $modulos);
@@ -3349,6 +3354,7 @@ class CapHum extends Controller
         self::set("paisesActivos", \Models\Paises::getPaisesActivos());
         self::set("listaJefes", CapHumDAO::getListaPersonasParaJefe());
         self::set("candidatos", $candidatos);
+        self::set("appBasePath", rtrim(dirname($_SERVER['SCRIPT_NAME'] ?? ''), '/') ?: '');
         self::render("candidatos");
     }
 
@@ -3369,7 +3375,7 @@ class CapHum extends Controller
         header("Content-Type: application/json");
         $id = (int) $id;
         if ($id <= 0) {
-            echo json_encode(self::resultado(false, 'ID inválido.', null));
+            echo json_encode(self::respuesta(false, 'ID inválido.', null));
             exit;
         }
         $resultado = CandidatosDAO::getById($id);
@@ -3383,6 +3389,9 @@ class CapHum extends Controller
         $raw = file_get_contents("php://input");
         $data = json_decode($raw, true) ?: [];
         $resultado = CandidatosDAO::insert($data);
+        if ($resultado['success'] && !empty($resultado['datos']['id'])) {
+            CandidatosDAO::getOrCreateTokenDocumentos($resultado['datos']['id']);
+        }
         echo json_encode($resultado);
         exit;
     }
@@ -3406,7 +3415,7 @@ class CapHum extends Controller
         $data = json_decode($raw, true) ?: [];
         $id = isset($data["id"]) ? (int) $data["id"] : 0;
         if ($id <= 0) {
-            echo json_encode(self::resultado(false, 'ID de candidato requerido.', null));
+            echo json_encode(self::respuesta(false, 'ID de candidato requerido.', null));
             exit;
         }
         $resultado = CandidatosDAO::update($id, $data);
@@ -3422,13 +3431,13 @@ class CapHum extends Controller
         $body = json_decode($raw, true) ?: [];
         $id = isset($body["id"]) ? (int) $body["id"] : 0;
         $email = isset($body["email"]) ? trim($body["email"]) : "";
-        if ($id <= 0 || $email === "") {
-            echo json_encode(self::resultado(false, "Datos insuficientes.", null));
+        if ($id <= 0) {
+            echo json_encode(self::respuesta(false, "Datos insuficientes.", null));
             return;
         }
         $candidatoRes = CandidatosDAO::getById($id);
         if (!$candidatoRes['success'] || empty($candidatoRes['datos'])) {
-            echo json_encode(self::resultado(false, "Candidato no encontrado.", null));
+            echo json_encode(self::respuesta(false, "Candidato no encontrado.", null));
             return;
         }
         $c = $candidatoRes['datos'];
@@ -3442,25 +3451,117 @@ class CapHum extends Controller
         $departamento = $c['nombre_departamento'] ?? 'N/A';
         $destino = filter_var($email, FILTER_VALIDATE_EMAIL) ? $email : ($c['email'] ?? '');
         if ($destino === '') {
-            echo json_encode(self::resultado(false, "Correo del candidato no válido.", null));
+            echo json_encode(self::respuesta(false, "Correo del candidato no válido.", null));
             return;
         }
 
-        $asunto = "Confirmación de postulación - " . ($c['nombre_puesto'] ?? 'Vacante');
-        $mensajeHtml = "<!DOCTYPE html><html><head><meta charset='UTF-8'></head><body style='font-family: Arial, sans-serif; line-height: 1.6; color: #333;'>";
-        $mensajeHtml .= "<h2 style='color: #1a52a8;'>Confirmación de postulación</h2>";
-        $mensajeHtml .= "<p>Estimado(a) <strong>" . htmlspecialchars($nombreCompleto) . "</strong>,</p>";
-        $mensajeHtml .= "<p>Su postulación ha sido recibida correctamente.</p>";
-        $mensajeHtml .= "<p><strong>Puesto solicitado:</strong> " . htmlspecialchars($puesto) . "<br>";
-        $mensajeHtml .= "<strong>Departamento:</strong> " . htmlspecialchars($departamento) . "</p>";
-        $mensajeHtml .= "<p>Nos pondremos en contacto con usted en caso de que su perfil sea seleccionado.</p>";
-        $mensajeHtml .= "<p>Saludos cordiales,<br>Recursos Humanos</p></body></html>";
+        $resToken = CandidatosDAO::getOrCreateTokenDocumentos($id);
+        $urlDocumentos = '';
+        if ($resToken['success'] && !empty($resToken['datos'])) {
+            $base = $this->obtenerBaseUrlApp();
+            $urlDocumentos = rtrim($base, '/') . '/CapHum/subirDocumentosCandidato/' . $resToken['datos'];
+        }
 
-        $enviado = $this->enviarCorreo($destino, $asunto, $mensajeHtml, $nombreCompleto);
+        $asunto = "Documentación requerida — Postulación de " . $nombreCompleto . " para " . $puesto;
+        $diasLimite = 7;
+        $contacto = '';
+        $configFile = defined('RAIZ') ? (RAIZ . '/config/config.ini') : (__DIR__ . '/../config/config.ini');
+        if (is_file($configFile)) {
+            $full = @parse_ini_file($configFile, true);
+            $mailSection = is_array($full['mail'] ?? null) ? $full['mail'] : [];
+            $diasLimite = (int) ($mailSection['dias_limite_documentos'] ?? 7);
+            $contacto = trim($mailSection['mail_contacto'] ?? $mailSection['mail_from'] ?? '');
+        }
+        if ($contacto === '') {
+            $contacto = 'lazaro.gonzalez@__SPARTA_SECRET_REDACTED__.com';
+        }
+        $fechaLimiteObj = new \DateTime('now', new \DateTimeZone('America/Mexico_City'));
+        $fechaLimiteObj->modify('+' . $diasLimite . ' days');
+        $fechaLimite = $fechaLimiteObj->format('d/m/Y');
+        $telefono = $c['telefono'] ?? '';
+        // Ruta del logo para incrustar en el correo (cid:) — prioridad: logo_correo.png (sin fondo), luego logo___SPARTA_SECRET_REDACTED__.png
+        $dirPublic = defined('RAIZ') ? dirname(RAIZ) . '/public' : (__DIR__ . '/../../public');
+        $rutaLogoInline = null;
+        if (is_file($dirPublic . '/assets/img/logo_correo.png')) {
+            $rutaLogoInline = realpath($dirPublic . '/assets/img/logo_correo.png');
+        } elseif (is_file($dirPublic . '/assets/img/logo___SPARTA_SECRET_REDACTED__.png')) {
+            $rutaLogoInline = realpath($dirPublic . '/assets/img/logo___SPARTA_SECRET_REDACTED__.png');
+        } elseif (is_file($dirPublic . '/assets/img/Logotipo-Maxikash-Outline.webp')) {
+            $rutaLogoInline = realpath($dirPublic . '/assets/img/Logotipo-Maxikash-Outline.webp');
+        } elseif (is_file($dirPublic . '/assets/img/logo.svg')) {
+            $rutaLogoInline = realpath($dirPublic . '/assets/img/logo.svg');
+        }
+        $logoSrc = $rutaLogoInline ? 'cid:logo__SPARTA_SECRET_REDACTED__' : (rtrim($base, '/') . '/assets/img/logo_correo.png');
+
+        $mensajeHtml = '<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Postulación MaxiKash</title>
+</head>
+<body style="margin:0; padding:0; background-color:#e8eef4; font-family: \'Segoe UI\', Tahoma, Geneva, Verdana, sans-serif;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color:#e8eef4;">
+    <tr>
+      <td align="center" style="padding: 32px 16px;">
+        <table role="presentation" width="600" cellspacing="0" cellpadding="0" style="max-width:600px; width:100%; background-color:#ffffff; border-radius:8px; box-shadow: 0 2px 12px rgba(0,0,0,0.08);">
+          <!-- Encabezado: título + logo -->
+          <tr>
+            <td style="background-color:#1e3a5f; padding: 24px 12px 24px 32px; border-radius: 8px 8px 0 0;">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                <tr>
+                  <td style="vertical-align: middle;">
+                    <h1 style="margin:0; color:#ffffff; font-size: 22px; font-weight: 600; letter-spacing: 0.5px;">MaxiKash — Capital Humano</h1>
+                    <p style="margin: 6px 0 0 0; color: rgba(255,255,255,0.9); font-size: 14px;">Postulación recibida</p>
+                  </td>
+                  <td style="vertical-align: middle; text-align: right; width: 160px; padding-left: 16px; padding-right: 8px;">
+                    <img src="' . htmlspecialchars($logoSrc) . '" alt="MaxiKash" width="160" height="auto" style="display:block; max-height: 70px; width: auto; height: auto; margin-left: auto; margin-right: 0;" />
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <!-- Cuerpo -->
+          <tr>
+            <td style="padding: 32px;">
+              <p style="margin:0 0 16px 0; color:#1a202c; font-size: 16px; line-height: 1.6;">Estimado/a <strong>' . htmlspecialchars($nombreCompleto) . '</strong>,</p>
+              <p style="margin:0 0 16px 0; color:#2d3748; font-size: 15px; line-height: 1.6;">Gracias por postular al puesto de <strong>' . htmlspecialchars($puesto) . '</strong> en el departamento de <strong>' . htmlspecialchars($departamento) . '</strong>. Hemos recibido su solicitud; su número telefónico registrado es: <strong>' . htmlspecialchars($telefono) . '</strong>.</p>
+              <p style="margin:0 0 12px 0; color:#2d3748; font-size: 15px; line-height: 1.6;">Para completar su postulación, acceda al siguiente enlace y cargue los documentos solicitados:</p>
+              <p style="margin:0 0 24px 0;">
+                <a href="' . htmlspecialchars($urlDocumentos) . '" style="display:inline-block; padding: 12px 24px; background-color:#2c5282; color:#ffffff !important; text-decoration:none; font-weight: 600; font-size: 14px; border-radius: 6px;">Abrir enlace para subir documentos</a>
+              </p>
+              <p style="margin:0 0 24px 0; color:#2d3748; font-size: 15px; line-height: 1.6;">Por favor suba la documentación a más tardar el <strong>' . htmlspecialchars($fechaLimite) . '</strong>. Si tiene algún problema con la carga, contáctenos en <a href="mailto:' . htmlspecialchars($contacto) . '" style="color:#2c5282; text-decoration:none;">' . htmlspecialchars($contacto) . '</a>.</p>
+              <!-- Firma -->
+              <table role="presentation" cellspacing="0" cellpadding="0" style="margin-top: 28px; padding-top: 20px; border-top: 1px solid #e2e8f0;">
+                <tr>
+                  <td>
+                    <p style="margin:0 0 4px 0; color:#2d3748; font-size: 15px;">Atentamente,</p>
+                    <p style="margin:0 0 2px 0; color:#1a202c; font-size: 15px; font-weight: 600;">Capital Humano, Cobranza</p>
+                    <p style="margin:0; color:#2c5282; font-size: 15px; font-weight: 600;">MaxiKash</p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <!-- Pie: no responder -->
+          <tr>
+            <td style="padding: 16px 32px 24px 32px; background-color:#f7fafc; border-radius: 0 0 8px 8px; border-top: 1px solid #e2e8f0;">
+              <p style="margin:0; color:#718096; font-size: 12px; line-height: 1.5;">Este correo fue generado automáticamente. Por favor <strong>no responda directamente a este mensaje</strong>; para cualquier duda o aclaración utilice el correo de contacto indicado en el mensaje.</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>';
+
+        $enviado = $this->enviarCorreo($destino, $asunto, $mensajeHtml, $nombreCompleto, $rutaLogoInline);
         if ($enviado) {
-            echo json_encode(self::resultado(true, "Postulación enviada por correo correctamente.", null));
+            echo json_encode(self::respuesta(true, "Postulación enviada por correo correctamente.", null));
         } else {
-            echo json_encode(self::resultado(false, "No se pudo enviar el correo. Revise la configuración del servidor de correo.", null));
+            $msg = $this->enviarCorreoUltimoError ?: "No se pudo enviar el correo. Configure SMTP en backend/config/config.ini, sección [mail] (smtp_host, smtp_user, smtp_pass).";
+            echo json_encode(self::respuesta(false, $msg, null));
         }
         exit;
     }
@@ -3476,7 +3577,7 @@ class CapHum extends Controller
         $body = json_decode($raw, true) ?: [];
         $id = isset($body["id"]) ? (int) $body["id"] : 0;
         if ($id <= 0) {
-            echo json_encode(self::resultado(false, "ID de candidato requerido.", null));
+            echo json_encode(self::respuesta(false, "ID de candidato requerido.", null));
             return;
         }
         $res = CandidatosDAO::getOrCreateTokenDocumentos($id);
@@ -3484,9 +3585,9 @@ class CapHum extends Controller
             echo json_encode($res);
             return;
         }
-        $base = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http') . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost');
-        $url = $base . '/CapHum/subirDocumentosCandidato/' . $res['datos'];
-        echo json_encode(self::resultado(true, 'OK', ['token' => $res['datos'], 'url' => $url]));
+        $base = $this->obtenerBaseUrlApp();
+        $url = rtrim($base, '/') . '/CapHum/subirDocumentosCandidato/' . $res['datos'];
+        echo json_encode(self::respuesta(true, 'OK', ['token' => $res['datos'], 'url' => $url]));
         exit;
     }
 
@@ -3521,15 +3622,82 @@ class CapHum extends Controller
     }
 
     /**
+     * Llenar solicitud en línea: muestra el formulario HTML (solicitud___SPARTA_SECRET_REDACTED___v3) con datos del candidato prellenados.
+     * No requiere login. URL: /CapHum/llenarSolicitudEnLinea/{token}
+     */
+    public function llenarSolicitudEnLinea($token = null)
+    {
+        $token = trim($token ?? '');
+        if ($token === '') {
+            header('HTTP/1.0 400 Bad Request');
+            echo 'Enlace no válido.';
+            return;
+        }
+        $res = CandidatosDAO::getCandidatoPorToken($token);
+        if (!$res['success'] || empty($res['datos'])) {
+            header('HTTP/1.0 404 Not Found');
+            echo 'Enlace no válido o expirado.';
+            return;
+        }
+        $id_candidato = (int) $res['datos']['id_candidato'];
+        $candidatoRes = CandidatosDAO::getById($id_candidato);
+        $c = ($candidatoRes['success'] && !empty($candidatoRes['datos'])) ? $candidatoRes['datos'] : $res['datos'];
+        $fechaYmd = date('Y-m-d');
+        $datosParaForm = [
+            'fecha'      => $fechaYmd,
+            'puesto'     => trim($c['nombre_puesto'] ?? ''),
+            'ap_paterno' => trim($c['apellidop'] ?? ''),
+            'ap_materno' => trim($c['apellidom'] ?? ''),
+            'nombres'    => trim($c['nombres'] ?? '') . (trim($c['segundo_nombre'] ?? '') !== '' ? ' ' . trim($c['segundo_nombre']) : ''),
+            'telefono'   => trim($c['telefono'] ?? ''),
+            'correo'     => trim($c['email'] ?? ''),
+            'departamento' => trim($c['nombre_departamento'] ?? ''),
+        ];
+        $dirPlantillas = defined('RAIZ') ? (RAIZ . '/storage/plantillas_candidatos') : (__DIR__ . '/../storage/plantillas_candidatos');
+        $htmlPath = $dirPlantillas . '/solicitud_llenar.html';
+        if (!is_file($htmlPath)) {
+            header('HTTP/1.0 404 Not Found');
+            echo 'Formulario no disponible. Contacte al área de Recursos Humanos.';
+            return;
+        }
+        $html = file_get_contents($htmlPath);
+        $script = '<script>window.__CANDIDATO__=' . json_encode($datosParaForm) . ';document.addEventListener("DOMContentLoaded",function(){var d=window.__CANDIDATO__||{};["fecha","puesto","ap_paterno","ap_materno","nombres","telefono","correo"].forEach(function(id){var el=document.getElementById(id);if(el&&d[id]!==undefined)el.value=d[id]||"";});});</script>';
+        $html = str_replace('</body>', $script . "\n</body>", $html);
+        header('Content-Type: text/html; charset=UTF-8');
+        echo $html;
+    }
+
+    /**
+     * Sirve la plantilla PDF con AcroForm (curp_1..curp_18) para que el formulario "Llenar solicitud en línea" la use al generar el documento.
+     * No requiere login. URL: /CapHum/obtenerPlantillaSolicitudPdf
+     */
+    public function obtenerPlantillaSolicitudPdf()
+    {
+        $dirPlantillas = defined('RAIZ') ? (RAIZ . '/storage/plantillas_candidatos') : (__DIR__ . '/../storage/plantillas_candidatos');
+        $archivo = $dirPlantillas . '/solicitud_interna___SPARTA_SECRET_REDACTED___AcroForm.pdf';
+        if (!is_file($archivo)) {
+            header('HTTP/1.0 404 Not Found');
+            echo 'Plantilla no disponible.';
+            return;
+        }
+        header('Content-Type: application/pdf');
+        header('Cache-Control: public, max-age=3600');
+        readfile($archivo);
+    }
+
+    /**
      * Descarga un documento para el candidato (carta no adeudo o solicitud interna prellenada).
      * No requiere login. URL: /CapHum/descargarDocumentoCandidato/{token}/{tipo}
-     * tipo = carta_no_adeudo | solicitud_interna
+     * tipo = carta_no_adeudo | solicitud_interna | solicitud_llenar
+     * - solicitud_interna: descarga la plantilla en blanco (solicitud_interna___SPARTA_SECRET_REDACTED__.pdf, sin AcroForm)
+     *   para que el candidato la llene como quiera (a mano o en computadora).
+     * - solicitud_llenar: abre en el navegador el PDF con AcroForm para llenar en línea (legacy).
      */
     public function descargarDocumentoCandidato($token = null, $tipo = null)
     {
         $token = trim($token ?? '');
         $tipo = strtolower(trim($tipo ?? ''));
-        if ($token === '' || !in_array($tipo, ['carta_no_adeudo', 'solicitud_interna'], true)) {
+        if ($token === '' || !in_array($tipo, ['carta_no_adeudo', 'solicitud_interna', 'solicitud_llenar'], true)) {
             header('HTTP/1.0 400 Bad Request');
             echo 'Enlace no válido.';
             return;
@@ -3556,63 +3724,206 @@ class CapHum extends Controller
             return;
         }
 
-        if ($tipo === 'solicitud_interna') {
-            $plantilla = $dirPlantillas . '/solicitud_interna___SPARTA_SECRET_REDACTED__.pdf';
-            if (!is_file($plantilla)) {
+        // PDF con AcroForm para llenar en línea en el navegador (solicitud_interna___SPARTA_SECRET_REDACTED___AcroForm.pdf)
+        if ($tipo === 'solicitud_llenar') {
+            $archivo = $dirPlantillas . '/solicitud_interna___SPARTA_SECRET_REDACTED___AcroForm.pdf';
+            if (!is_file($archivo)) {
                 header('HTTP/1.0 404 Not Found');
                 echo 'Documento no disponible. Contacte al área de Recursos Humanos.';
                 return;
             }
-            $candidatoRes = CandidatosDAO::getById($id_candidato);
-            $c = $candidatoRes['success'] && !empty($candidatoRes['datos']) ? $candidatoRes['datos'] : $res['datos'];
-            $nombreCompleto = trim(implode(' ', [
-                $c['nombres'] ?? '',
-                $c['segundo_nombre'] ?? '',
-                $c['apellidop'] ?? '',
-                $c['apellidom'] ?? ''
-            ]));
-            $email = $c['email'] ?? '';
-            $telefono = $c['telefono'] ?? '';
-            $puesto = $c['nombre_puesto'] ?? '';
-            $departamento = $c['nombre_departamento'] ?? '';
-            $fecha = date('d/m/Y');
-
-            $autoload = defined('RAIZ') ? (RAIZ . '/libs/mpdf/vendor/autoload.php') : (__DIR__ . '/../libs/mpdf/vendor/autoload.php');
-            if (!is_file($autoload)) {
-                header('HTTP/1.0 500 Internal Server Error');
-                echo 'Error de configuración.';
-                return;
-            }
-            require_once $autoload;
-            try {
-                $mpdf = new \Mpdf\Mpdf(['tempDir' => sys_get_temp_dir()]);
-                $mpdf->setSourceFile($plantilla);
-                $tplId = $mpdf->importPage(1);
-                $mpdf->AddPage();
-                $mpdf->useTemplate($tplId);
-                $mpdf->SetFont('helvetica', '', 10);
-                $mpdf->SetTextColor(0, 0, 0);
-
-                // Posiciones en mm (x = margen izquierdo, y = desde arriba). Ajustar según solicitud_interna___SPARTA_SECRET_REDACTED__.pdf
-                $posiciones = [
-                    ['x' => 30, 'y' => 58, 'texto' => $nombreCompleto],
-                    ['x' => 30, 'y' => 66, 'texto' => $email],
-                    ['x' => 30, 'y' => 74, 'texto' => $telefono],
-                    ['x' => 30, 'y' => 82, 'texto' => $puesto],
-                    ['x' => 30, 'y' => 90, 'texto' => $departamento],
-                    ['x' => 30, 'y' => 98, 'texto' => $fecha],
-                ];
-                foreach ($posiciones as $p) {
-                    $mpdf->SetXY($p['x'], $p['y']);
-                    $mpdf->Write(0, $p['texto']);
-                }
-                $mpdf->Output('Solicitud_Interna_Maxikash.pdf', 'D');
-            } catch (\Throwable $e) {
-                header('HTTP/1.0 500 Internal Server Error');
-                echo 'Error al generar el documento.';
-            }
+            header('Content-Type: application/pdf');
+            header('Content-Disposition: inline; filename="Solicitud_Interna_Maxikash_llenar.pdf"');
+            readfile($archivo);
             return;
         }
+
+        if ($tipo === 'solicitud_interna') {
+            // Plantilla en blanco (sin AcroForm): el candidato la llena como quiera (a mano o en computadora)
+            $archivo = $dirPlantillas . '/solicitud_interna___SPARTA_SECRET_REDACTED__.pdf';
+            if (!is_file($archivo)) {
+                header('HTTP/1.0 404 Not Found');
+                echo 'Documento no disponible. Contacte al área de Recursos Humanos.';
+                return;
+            }
+            header('Content-Type: application/pdf');
+            header('Content-Disposition: attachment; filename="Solicitud_Interna_Maxikash.pdf"');
+            readfile($archivo);
+            return;
+        }
+    }
+
+    /**
+     * Datos del candidato para rellenar la solicitud PDF (todos los que tengamos).
+     */
+    private function datosCandidatoParaSolicitudPdf($c)
+    {
+        $nombreCompleto = trim(implode(' ', [
+            $c['nombres'] ?? '',
+            $c['segundo_nombre'] ?? '',
+            $c['apellidop'] ?? '',
+            $c['apellidom'] ?? ''
+        ]));
+        return [
+            'nombre_completo' => $nombreCompleto,
+            'nombres'         => trim($c['nombres'] ?? ''),
+            'segundo_nombre'  => trim($c['segundo_nombre'] ?? ''),
+            'apellidop'       => trim($c['apellidop'] ?? ''),
+            'apellidom'       => trim($c['apellidom'] ?? ''),
+            'email'           => trim($c['email'] ?? ''),
+            'telefono'        => trim($c['telefono'] ?? ''),
+            'puesto'          => trim($c['nombre_puesto'] ?? ''),
+            'departamento'    => trim($c['nombre_departamento'] ?? ''),
+            'fecha'           => date('d/m/Y'),
+            'curp'            => trim($c['curp'] ?? ''),
+        ];
+    }
+
+    /**
+     * Rellena el PDF con AcroForm usando los datos del candidato.
+     * Usa pdftk si está disponible y config/campos_solicitud_pdf.ini para mapear nombres de campo.
+     * @param string $rutaPdf Ruta absoluta al PDF con formulario (ej. solicitud_interna___SPARTA_SECRET_REDACTED___AcroForm.pdf)
+     * @param array $datosCandidato Array de clave => valor (nombre_completo, email, etc.)
+     * @param string $dirConfig Directorio donde está config (para campos_solicitud_pdf.ini)
+     * @return string|null PDF binario rellenado o null si falla o pdftk no disponible
+     */
+    private function rellenarPdfAcroFormConDatos($rutaPdf, array $datosCandidato, $dirConfig)
+    {
+        $configFile = $dirConfig . '/config.ini';
+        $pdftkPath = null;
+        if (is_file($configFile)) {
+            $cfg = @parse_ini_file($configFile, true);
+            $pdftkPath = isset($cfg['pdf']['pdftk_path']) ? trim($cfg['pdf']['pdftk_path']) : null;
+        }
+        if ($pdftkPath === null || $pdftkPath === '') {
+            $pdftkPath = 'pdftk';
+            // En Windows pdftk suele no estar en PATH; intentar rutas habituales
+            if (DIRECTORY_SEPARATOR === '\\' || (defined('PHP_OS_FAMILY') && strtoupper(substr(PHP_OS_FAMILY, 0, 3)) === 'WIN')) {
+                $rutasWindows = [
+                    'C:\\Program Files (x86)\\PDFtk Server\\bin\\pdftk.exe',
+                    'C:\\Program Files\\PDFtk Server\\bin\\pdftk.exe',
+                    'C:\\pdftk\\bin\\pdftk.exe',
+                ];
+                foreach ($rutasWindows as $r) {
+                    if (is_file($r)) {
+                        $pdftkPath = $r;
+                        break;
+                    }
+                }
+            }
+        }
+        $rutaPdf = str_replace('\\', '/', realpath($rutaPdf));
+        if ($rutaPdf === false || !is_file($rutaPdf)) {
+            return null;
+        }
+
+        // Mapeo: nombre_campo_pdf => clave en $datosCandidato
+        $mapeo = $this->mapeoCamposSolicitudPdf($dirConfig);
+        $fieldValues = [];
+        foreach ($mapeo as $nombreCampoPdf => $claveDato) {
+            if (array_key_exists($claveDato, $datosCandidato)) {
+                $v = $datosCandidato[$claveDato];
+                if ($v !== '' && $v !== null) {
+                    $fieldValues[$nombreCampoPdf] = $v;
+                }
+            }
+        }
+        // CURP: repartir cada carácter en curp_1, curp_2, ... curp_18 (cuadros del PDF)
+        if (!empty($datosCandidato['curp'])) {
+            $curp = strtoupper(preg_replace('/[^A-Z0-9]/', '', (string) $datosCandidato['curp']));
+            $len = min(18, strlen($curp));
+            for ($i = 1; $i <= 18; $i++) {
+                $fieldValues['curp_' . $i] = ($i <= $len) ? $curp[$i - 1] : '';
+            }
+        }
+        if (empty($fieldValues)) {
+            return null;
+        }
+
+        $fdf = $this->generarFdfCampos($fieldValues);
+        if ($fdf === '') {
+            return null;
+        }
+
+        $tempDir = defined('RAIZ') ? (RAIZ . '/storage/tmp_mpdf') : (__DIR__ . '/../storage/tmp_mpdf');
+        if (!is_dir($tempDir)) {
+            @mkdir($tempDir, 0755, true);
+        }
+        if (!is_dir($tempDir)) {
+            $tempDir = sys_get_temp_dir();
+        }
+        $fdfFile = $tempDir . '/solicitud_' . uniqid('', true) . '.fdf';
+        $outFile = $tempDir . '/solicitud_' . uniqid('', true) . '.pdf';
+        $written = @file_put_contents($fdfFile, $fdf);
+        if ($written === false) {
+            return null;
+        }
+
+        $cmd = sprintf(
+            '%s %s fill_form %s output %s 2>&1',
+            escapeshellarg($pdftkPath),
+            escapeshellarg($rutaPdf),
+            escapeshellarg($fdfFile),
+            escapeshellarg($outFile)
+        );
+        $output = [];
+        $ret = 0;
+        @exec($cmd, $output, $ret);
+        @unlink($fdfFile);
+        if ($ret !== 0 || !is_file($outFile)) {
+            if (is_file($outFile)) {
+                @unlink($outFile);
+            }
+            error_log('CapHum::rellenarPdfAcroFormConDatos pdftk failed: ret=' . $ret . ' cmd=' . $cmd . ' output=' . implode(' ', $output));
+            return null;
+        }
+        $pdfContent = @file_get_contents($outFile);
+        @unlink($outFile);
+        return $pdfContent !== false ? $pdfContent : null;
+    }
+
+    /**
+     * Mapeo nombre_campo_pdf => clave_dato_candidato.
+     * Si existe config/campos_solicitud_pdf.ini [campos] se usa; si no, mapeo por defecto.
+     */
+    private function mapeoCamposSolicitudPdf($dirConfig)
+    {
+        $ini = $dirConfig . '/campos_solicitud_pdf.ini';
+        if (is_file($ini)) {
+            $parsed = @parse_ini_file($ini, true);
+            if (!empty($parsed['campos']) && is_array($parsed['campos'])) {
+                return $parsed['campos'];
+            }
+        }
+        return [
+            'nombre_completo' => 'nombre_completo',
+            'email'           => 'email',
+            'telefono'        => 'telefono',
+            'puesto'          => 'puesto',
+            'departamento'    => 'departamento',
+            'fecha'           => 'fecha',
+        ];
+    }
+
+    /**
+     * Genera contenido FDF para rellenar campos del PDF (sintaxis FDF 1.2).
+     * Escapa correctamente los valores para el formato ( \ ( ) ).
+     */
+    private function generarFdfCampos(array $fieldValues)
+    {
+        $entries = [];
+        foreach ($fieldValues as $name => $value) {
+            $nameEscaped = $this->escapeFdfString((string) $name);
+            $valueEscaped = $this->escapeFdfString((string) $value);
+            $entries[] = "<< /T ($nameEscaped) /V ($valueEscaped) >>";
+        }
+        $fields = "[\n" . implode("\n", $entries) . "\n]";
+        return "%FDF-1.2\n1 0 obj\n<< /FDF << /Fields $fields >> >>\nendobj\ntrailer\n<< /Root 1 0 R >>\n%%EOF";
+    }
+
+    private function escapeFdfString($s)
+    {
+        return str_replace([ '\\', '(', ')' ], [ '\\\\', '\\(', '\\)' ], $s);
     }
 
     private function subirDocumentosCandidatoError($mensaje)
@@ -3622,12 +3933,89 @@ class CapHum extends Controller
         $this->render('subir_documentos_candidato', true);
     }
 
+    /**
+     * URL base de la aplicación (para enlaces de documentos y correos).
+     * Si en config.ini [app] base_url está definida se usa; si no, la petición actual.
+     */
+    private function obtenerBaseUrlApp()
+    {
+        $configFile = defined('RAIZ') ? (RAIZ . '/config/config.ini') : (__DIR__ . '/../config/config.ini');
+        if (is_file($configFile)) {
+            $config = @parse_ini_file($configFile, true);
+            $base = trim($config['app']['base_url'] ?? '');
+            if ($base !== '') {
+                return $base;
+            }
+        }
+        return (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http')
+            . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost');
+    }
+
+    /**
+     * Llama a la API de verificación de documentos (Python). Solo para imágenes.
+     * @param string $rutaArchivo Ruta absoluta al archivo ya subido
+     * @param string $ext Extensión del archivo (jpg, jpeg, png, etc.)
+     * @return array|null ['resultado' => 'ORIGINAL'|'REVISION_MANUAL'|'RECHAZADO', 'mensaje' => string, 'score' => int] o null si no hay API configurada o hay error (usar fallback OcrIdentidad)
+     */
+    private function verificarDocumentoIdentidadApi($rutaArchivo, $ext)
+    {
+        $configFile = defined('RAIZ') ? (RAIZ . '/backend/config/config.ini') : (__DIR__ . '/../config/config.ini');
+        if (!is_file($configFile)) {
+            return null;
+        }
+        $config = @parse_ini_file($configFile, true);
+        $apiUrl = trim($config['doc_verificacion']['api_url'] ?? '');
+        $apiKey = trim($config['doc_verificacion']['api_key'] ?? '');
+        if ($apiUrl === '' || $apiKey === '') {
+            return null;
+        }
+        $mime = [
+            'jpg' => 'image/jpeg',
+            'jpeg' => 'image/jpeg',
+            'png' => 'image/png',
+            'webp' => 'image/webp',
+            'tiff' => 'image/tiff',
+        ];
+        $cfile = new \CURLFile($rutaArchivo, $mime[$ext] ?? 'application/octet-stream', basename($rutaArchivo));
+        $post = ['imagen' => $cfile];
+        $ch = curl_init($apiUrl);
+        curl_setopt_array($ch, [
+            CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => $post,
+            CURLOPT_HTTPHEADER => [
+                'X-API-Key: ' . $apiKey,
+            ],
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT => 45,
+            CURLOPT_CONNECTTIMEOUT => 10,
+        ]);
+        $body = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $err = curl_error($ch);
+        curl_close($ch);
+        if ($err !== '' || $httpCode !== 200 || $body === false || $body === '') {
+            return null;
+        }
+        $data = json_decode($body, true);
+        if (!is_array($data) || !isset($data['resultado'])) {
+            return null;
+        }
+        $resultado = $data['resultado'];
+        $mensaje = $data['recomendacion'] ?? $data['detail'] ?? 'Verificación completada';
+        $score = (int) ($data['score_autenticidad'] ?? 0);
+        return [
+            'resultado' => $resultado,
+            'mensaje' => $mensaje,
+            'score' => $score,
+        ];
+    }
+
     private function subirDocumentosCandidatoProcesar($token)
     {
         header('Content-Type: application/json; charset=utf-8');
         $res = CandidatosDAO::getCandidatoPorToken($token);
         if (!$res['success'] || empty($res['datos'])) {
-            echo json_encode(self::resultado(false, $res['mensaje'] ?? 'Enlace no válido.'));
+            echo json_encode(self::respuesta(false, $res['mensaje'] ?? 'Enlace no válido.'));
             return;
         }
         $id_candidato = (int) $res['datos']['id_candidato'];
@@ -3657,12 +4045,38 @@ class CapHum extends Controller
         $errores = [];
         $permitidos = ['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png'];
 
+        // Validar que todos los documentos obligatorios estén presentes (incl. reverso de ID)
+        $faltan = [];
+        for ($i = 1; $i <= 10; $i++) {
+            $tiene = (isset($_FILES['archivo_' . $i]) && $_FILES['archivo_' . $i]['error'] === UPLOAD_ERR_OK && $_FILES['archivo_' . $i]['size'] > 0)
+                || (isset($_FILES['archivo_' . $i . '_foto']) && $_FILES['archivo_' . $i . '_foto']['error'] === UPLOAD_ERR_OK && $_FILES['archivo_' . $i . '_foto']['size'] > 0);
+            if (!$tiene) {
+                $faltan[] = $tiposDocumento[$i] ?? 'Documento ' . $i;
+            }
+            if ($i === 5) {
+                $tieneReverso = isset($_FILES['archivo_5_reverso']) && $_FILES['archivo_5_reverso']['error'] === UPLOAD_ERR_OK && $_FILES['archivo_5_reverso']['size'] > 0;
+                if (!$tieneReverso) {
+                    $faltan[] = 'IDENTIFICACIÓN OFICIAL (reverso)';
+                }
+            }
+        }
+        if (!empty($faltan)) {
+            echo json_encode(self::respuesta(false, 'Faltan documentos obligatorios: ' . implode(', ', $faltan)));
+            exit;
+        }
+
         for ($i = 1; $i <= 10; $i++) {
             $key = 'archivo_' . $i;
+            $fileKey = $key;
             if (!isset($_FILES[$key]) || $_FILES[$key]['error'] !== UPLOAD_ERR_OK || $_FILES[$key]['size'] <= 0) {
-                continue;
+                $keyFoto = 'archivo_' . $i . '_foto';
+                if (isset($_FILES[$keyFoto]) && $_FILES[$keyFoto]['error'] === UPLOAD_ERR_OK && $_FILES[$keyFoto]['size'] > 0) {
+                    $fileKey = $keyFoto;
+                } else {
+                    continue;
+                }
             }
-            $nombreOriginal = basename($_FILES[$key]['name'] ?? '');
+            $nombreOriginal = basename($_FILES[$fileKey]['name'] ?? '');
             $ext = strtolower(pathinfo($nombreOriginal, PATHINFO_EXTENSION));
             if (!in_array($ext, $permitidos)) {
                 $errores[] = ($tiposDocumento[$i] ?? $key) . ': tipo no permitido';
@@ -3670,7 +4084,7 @@ class CapHum extends Controller
             }
             $nombreUnico = date('YmdHis') . '_' . $i . '_' . preg_replace('/[^a-zA-Z0-9._-]/', '', $nombreOriginal);
             $rutaDestino = $dirCandidato . '/' . $nombreUnico;
-            if (!move_uploaded_file($_FILES[$key]['tmp_name'], $rutaDestino)) {
+            if (!move_uploaded_file($_FILES[$fileKey]['tmp_name'], $rutaDestino)) {
                 $errores[] = $tiposDocumento[$i] ?? $key;
                 continue;
             }
@@ -3678,23 +4092,35 @@ class CapHum extends Controller
             $tipoNombre = $tiposDocumento[$i] ?? '';
 
             if ($i === 5) {
-                $ocrValidator = new OcrIdentidad(null, $dirBase);
-                $candidatoParaOcr = null;
-                $candidatoRes = CandidatosDAO::getById($id_candidato);
-                if ($candidatoRes['success'] && !empty($candidatoRes['datos'])) {
-                    $c = $candidatoRes['datos'];
-                    $candidatoParaOcr = [
-                        'nombres' => $c['nombres'] ?? '',
-                        'apellidop' => $c['apellidop'] ?? '',
-                        'apellidom' => $c['apellidom'] ?? '',
-                        'curp' => $c['curp'] ?? '',
-                    ];
-                }
-                $validacion = $ocrValidator->validarDocumentoIdentidad($rutaDestino, $candidatoParaOcr);
-                if (!$validacion['valido']) {
-                    @unlink($rutaDestino);
-                    $errores[] = 'IDENTIFICACIÓN OFICIAL: ' . $validacion['mensaje'];
-                    continue;
+                $formatosApi = ['jpg', 'jpeg', 'png', 'webp', 'tiff'];
+                $validacionApi = in_array($ext, $formatosApi, true)
+                    ? $this->verificarDocumentoIdentidadApi($rutaDestino, $ext)
+                    : null;
+                if ($validacionApi !== null) {
+                    if ($validacionApi['resultado'] === 'RECHAZADO') {
+                        @unlink($rutaDestino);
+                        $errores[] = 'IDENTIFICACIÓN OFICIAL: ' . $validacionApi['mensaje'];
+                        continue;
+                    }
+                } else {
+                    $ocrValidator = new OcrIdentidad(null, $dirBase);
+                    $candidatoParaOcr = null;
+                    $candidatoRes = CandidatosDAO::getById($id_candidato);
+                    if ($candidatoRes['success'] && !empty($candidatoRes['datos'])) {
+                        $c = $candidatoRes['datos'];
+                        $candidatoParaOcr = [
+                            'nombres' => $c['nombres'] ?? '',
+                            'apellidop' => $c['apellidop'] ?? '',
+                            'apellidom' => $c['apellidom'] ?? '',
+                            'curp' => $c['curp'] ?? '',
+                        ];
+                    }
+                    $validacion = $ocrValidator->validarDocumentoIdentidad($rutaDestino, $candidatoParaOcr);
+                    if (!$validacion['valido']) {
+                        @unlink($rutaDestino);
+                        $errores[] = 'IDENTIFICACIÓN OFICIAL: ' . $validacion['mensaje'];
+                        continue;
+                    }
                 }
             }
 
@@ -3703,40 +4129,227 @@ class CapHum extends Controller
                 $guardados++;
             }
         }
+
+        // Reverso de identificación oficial (sin validación OCR)
+        if (isset($_FILES['archivo_5_reverso']) && $_FILES['archivo_5_reverso']['error'] === UPLOAD_ERR_OK && $_FILES['archivo_5_reverso']['size'] > 0) {
+            $nombreOriginal = basename($_FILES['archivo_5_reverso']['name'] ?? '');
+            $ext = strtolower(pathinfo($nombreOriginal, PATHINFO_EXTENSION));
+            if (in_array($ext, $permitidos)) {
+                $nombreUnico = date('YmdHis') . '_5_reverso_' . preg_replace('/[^a-zA-Z0-9._-]/', '', $nombreOriginal);
+                $rutaDestino = $dirCandidato . '/' . $nombreUnico;
+                if (move_uploaded_file($_FILES['archivo_5_reverso']['tmp_name'], $rutaDestino)) {
+                    $rutaRelativa = 'candidatos_documentos/' . $id_candidato . '/' . $nombreUnico;
+                    $guardar = CandidatosDAO::guardarDocumento($id_candidato, $nombreOriginal, $rutaRelativa, 'IDENTIFICACIÓN OFICIAL (REVERSO)');
+                    if ($guardar['success']) {
+                        $guardados++;
+                    }
+                }
+            }
+        }
+
         if ($guardados > 0) {
-            echo json_encode(self::resultado(true, 'Se subieron ' . $guardados . ' documento(s) correctamente.', ['guardados' => $guardados]));
+            echo json_encode(self::respuesta(true, 'Se subieron ' . $guardados . ' documento(s) correctamente.', ['guardados' => $guardados]));
         } else {
-            echo json_encode(self::resultado(false, count($errores) ? implode(', ', $errores) : 'No se envió ningún archivo. Selecciona al menos un documento.'));
+            echo json_encode(self::respuesta(false, count($errores) ? implode(', ', $errores) : 'No se envió ningún archivo. Selecciona al menos un documento.'));
         }
         exit;
     }
 
     /**
-     * Envía un correo HTML usando PHPMailer (mail() o SMTP según configuración).
+     * Lee variables MAIL_* del archivo .env en la raíz del proyecto (sin depender de getenv/putenv).
+     * @return array<string, string>
+     */
+    private function leerEnvMail(): array
+    {
+        $env = [];
+        $root = defined('RAIZ') ? dirname(RAIZ) : (__DIR__ . '/../..');
+        $envFile = $root . '/.env';
+        if (!is_file($envFile) || !is_readable($envFile)) {
+            return $env;
+        }
+        $lines = @file($envFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+        if (!is_array($lines)) {
+            return $env;
+        }
+        foreach ($lines as $line) {
+            $line = trim($line);
+            if ($line === '' || strpos($line, '#') === 0) {
+                continue;
+            }
+            $eq = strpos($line, '=');
+            if ($eq === false) {
+                continue;
+            }
+            $key = trim(substr($line, 0, $eq));
+            if ($key === '' || strpos($key, 'MAIL_') !== 0) {
+                continue;
+            }
+            $value = trim(str_replace(["\r", "\n"], '', substr($line, $eq + 1)));
+            if (preg_match('/^["\'](.+)["\']\s*$/s', $value, $m)) {
+                $value = trim($m[1]);
+            }
+            $env[$key] = $value;
+        }
+        return $env;
+    }
+
+    /**
+     * Envía un correo HTML usando PHPMailer (solo SMTP).
      * @param string $para Email del destinatario
      * @param string $asunto Asunto
      * @param string $cuerpoHtml Cuerpo en HTML
      * @param string $nombreDestinatario Nombre para el encabezado
+     * @param string|null $rutaLogoInline Ruta absoluta al logo para incrustar (cid:) — si existe se adjunta y se usa cid:logo__SPARTA_SECRET_REDACTED__ en el HTML
      * @return bool
      */
-    private function enviarCorreo($para, $asunto, $cuerpoHtml, $nombreDestinatario = '')
+    private function enviarCorreo($para, $asunto, $cuerpoHtml, $nombreDestinatario = '', $rutaLogoInline = null)
     {
         $autoload = defined('RAIZ') ? (RAIZ . '/libs/PHPMailer/vendor/autoload.php') : (__DIR__ . '/../libs/PHPMailer/vendor/autoload.php');
         if (!is_file($autoload)) {
+            $this->enviarCorreoUltimoError = 'PHPMailer no encontrado.';
             error_log('CapHum::enviarCorreo: PHPMailer autoload no encontrado: ' . $autoload);
             return false;
         }
         require_once $autoload;
 
+        // Prioridad: .env leído directo (evita fallos getenv en Windows) → config.ini [mail]
+        $envMail = $this->leerEnvMail();
         $config = defined('CONFIGURACION') && is_array(CONFIGURACION) ? CONFIGURACION : [];
-        $mailFrom = $config['mail_from'] ?? $config['mail']['mail_from'] ?? null;
-        $mailFromName = $config['mail_from_name'] ?? $config['mail']['mail_from_name'] ?? 'Recursos Humanos';
-        $smtpHost = $config['smtp_host'] ?? $config['mail']['smtp_host'] ?? '';
-        $smtpUser = $config['smtp_user'] ?? $config['mail']['smtp_user'] ?? '';
-        $smtpPass = $config['smtp_pass'] ?? $config['mail']['smtp_pass'] ?? '';
-        $smtpPort = (int) ($config['smtp_port'] ?? $config['mail']['smtp_port'] ?? 587);
-        $smtpSecure = $config['smtp_secure'] ?? $config['mail']['smtp_secure'] ?? 'tls';
+        $mailSection = [];
+        $configFile = defined('RAIZ') ? (RAIZ . '/config/config.ini') : (__DIR__ . '/../config/config.ini');
+        if (is_file($configFile)) {
+            $full = @parse_ini_file($configFile, true);
+            $mailSection = is_array($full['mail'] ?? null) ? $full['mail'] : [];
+        }
 
+        $get = function ($key, $iniKey, $default = '') use ($envMail, $mailSection, $config) {
+            $v = $envMail[$key] ?? $mailSection[$iniKey] ?? $config[$iniKey] ?? $default;
+            return is_string($v) ? $v : (string) $v;
+        };
+
+        $mailFrom     = trim($get('MAIL_FROM', 'mail_from', ''));
+        $mailFromName = trim($get('MAIL_FROM_NAME', 'mail_from_name', 'Recursos Humanos'));
+        $smtpHost     = trim($get('MAIL_SMTP_HOST', 'smtp_host', ''));
+        $smtpUser     = trim($get('MAIL_SMTP_USER', 'smtp_user', ''));
+        $smtpPassRaw  = $get('MAIL_SMTP_PASS', 'smtp_pass', '');
+        // Contraseña de aplicación Gmail: 16 caracteres sin espacios; solo ASCII para evitar caracteres invisibles
+        $smtpPass    = preg_replace('/\s+/', '', $smtpPassRaw);
+        $smtpPass    = preg_replace('/[^\x20-\x7E]/', '', $smtpPass);
+        $smtpPass    = trim($smtpPass);
+        $smtpPort    = (int) ($get('MAIL_SMTP_PORT', 'smtp_port', '587') ?: 587);
+        $smtpSecure  = strtolower(trim($get('MAIL_SMTP_SECURE', 'smtp_secure', 'tls')));
+        $driver      = strtolower(trim($get('MAIL_DRIVER', 'mail_driver', 'smtp')));
+        $fromEmail   = $mailFrom !== '' ? $mailFrom : $smtpUser;
+        $fromName    = $mailFromName !== '' ? $mailFromName : 'Recursos Humanos';
+
+        // --- SendGrid: solo API key, sin SMTP ni puertos (recomendado en Windows/XAMPP) ---
+        if ($driver === 'sendgrid') {
+            $apiKey = trim($get('MAIL_SENDGRID_API_KEY', 'sendgrid_api_key', ''));
+            if ($apiKey === '' || $fromEmail === '') {
+                $this->enviarCorreoUltimoError = 'Con MAIL_DRIVER=sendgrid configure MAIL_SENDGRID_API_KEY y MAIL_FROM en .env. Cree cuenta en sendgrid.com, verifique el remitente y genere una API key.';
+                return false;
+            }
+            $payload = [
+                'personalizations' => [['to' => [['email' => $para, 'name' => $nombreDestinatario ?: $para]]]],
+                'from'             => ['email' => $fromEmail, 'name' => $fromName],
+                'subject'          => $asunto,
+                'content'          => [['type' => 'text/html', 'value' => $cuerpoHtml]],
+            ];
+            if ($rutaLogoInline !== null && is_file($rutaLogoInline)) {
+                $payload['attachments'] = [[
+                    'content'      => base64_encode(file_get_contents($rutaLogoInline)),
+                    'type'         => (strtolower(pathinfo($rutaLogoInline, PATHINFO_EXTENSION)) === 'svg') ? 'image/svg+xml' : 'image/png',
+                    'filename'     => 'logo.png',
+                    'disposition'  => 'inline',
+                    'content_id'   => 'logo__SPARTA_SECRET_REDACTED__',
+                ]];
+            }
+            $ch = curl_init('https://api.sendgrid.com/v3/mail/send');
+            curl_setopt_array($ch, [
+                CURLOPT_POST            => true,
+                CURLOPT_POSTFIELDS      => json_encode($payload),
+                CURLOPT_HTTPHEADER      => [
+                    'Authorization: Bearer ' . $apiKey,
+                    'Content-Type: application/json',
+                ],
+                CURLOPT_RETURNTRANSFER  => true,
+                CURLOPT_TIMEOUT         => 15,
+            ]);
+            $response = curl_exec($ch);
+            $httpCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $curlErr  = curl_error($ch);
+            curl_close($ch);
+            if ($curlErr !== '') {
+                $this->enviarCorreoUltimoError = 'SendGrid: ' . $curlErr;
+                return false;
+            }
+            if ($httpCode === 202) {
+                $this->enviarCorreoUltimoError = '';
+                return true;
+            }
+            $errBody = is_string($response) ? $response : '';
+            $decoded = json_decode($errBody, true);
+            $msg    = isset($decoded['errors'][0]['message']) ? $decoded['errors'][0]['message'] : ($errBody ?: "HTTP {$httpCode}");
+            $this->enviarCorreoUltimoError = 'SendGrid: ' . $msg;
+            return false;
+        }
+
+        // --- PHP mail(): útil en servidores donde ya está configurado (no suele funcionar en XAMPP) ---
+        if ($driver === 'mail') {
+            if ($fromEmail === '') {
+                $this->enviarCorreoUltimoError = 'Con MAIL_DRIVER=mail configure MAIL_FROM en .env.';
+                return false;
+            }
+            $headers = "From: " . ($fromName ? "\"{$fromName}\" " : '') . "<{$fromEmail}>\r\n";
+            $headers .= "Content-Type: text/html; charset=UTF-8\r\n";
+            $ok = @mail($para, $asunto, $cuerpoHtml, $headers);
+            if (!$ok) {
+                $this->enviarCorreoUltimoError = 'mail() falló. En XAMPP/Windows suele no estar configurado; use MAIL_DRIVER=sendgrid (recomendado) o smtp.';
+                return false;
+            }
+            $this->enviarCorreoUltimoError = '';
+            return true;
+        }
+
+        // --- SMTP (PHPMailer) ---
+        // Gmail: por defecto usamos 465/SSL (más fiable en Windows). Para probar 587/TLS pon MAIL_GMAIL_FORCE_587=1 en .env
+        if ($smtpHost === 'smtp.gmail.com') {
+            $force587 = !empty($envMail['MAIL_GMAIL_FORCE_587']) && trim($envMail['MAIL_GMAIL_FORCE_587']) !== '0';
+            if (!$force587 && ($smtpPort === 587 || $smtpSecure === 'tls')) {
+                $smtpPort   = 465;
+                $smtpSecure = 'ssl';
+            }
+        }
+        $smtpConfigurado = $smtpHost !== '' && $smtpUser !== '';
+        if (!$smtpConfigurado) {
+            $this->enviarCorreoUltimoError = 'Para enviar correos configure .env: MAIL_DRIVER=sendgrid + MAIL_SENDGRID_API_KEY (recomendado), o SMTP (smtp_host, smtp_user, smtp_pass).';
+            return false;
+        }
+        if ($smtpPass === '') {
+            $this->enviarCorreoUltimoError = 'Contraseña SMTP vacía. O use MAIL_DRIVER=sendgrid con API key para evitar SMTP.';
+            return false;
+        }
+
+        // Diagnóstico: confirmar qué valores usamos (sin escribir la contraseña)
+        $rootEnv     = defined('RAIZ') ? dirname(RAIZ) : (__DIR__ . '/../..');
+        $envPath     = $rootEnv . '/.env';
+        $fromEnv     = isset($envMail['MAIL_SMTP_USER']) ? 'sí' : 'no';
+        $passLen     = strlen($smtpPass);
+        $passLenRaw  = strlen(trim($smtpPassRaw));
+        error_log(sprintf(
+            'CapHum SMTP: env=%s exists=%s host=%s port=%s user=%s pass_len=%d pass_raw_len=%d secure=%s from_env=%s',
+            $envPath,
+            is_file($envPath) ? 'y' : 'n',
+            $smtpHost,
+            $smtpPort,
+            $smtpUser,
+            $passLen,
+            $passLenRaw,
+            $smtpSecure,
+            $fromEnv
+        ));
+
+        $smtpDebugLog = '';
         try {
             $mail = new \PHPMailer\PHPMailer\PHPMailer(true);
             $mail->CharSet = 'UTF-8';
@@ -3751,29 +4364,58 @@ class CapHum extends Controller
             $mail->AltBody = strip_tags(preg_replace('/<br\s*\/?>/i', "\n", $cuerpoHtml));
             $mail->addAddress($para, $nombreDestinatario ?: '');
 
-            if ($mailFrom) {
-                $mail->setFrom($mailFrom, $mailFromName);
+            if ($mailFrom !== '') {
+                $mail->setFrom($mailFrom, $mailFromName ?: 'Recursos Humanos');
+            } else {
+                $mail->setFrom($smtpUser, $mailFromName ?: 'Recursos Humanos');
+            }
+            if ($rutaLogoInline !== null && is_file($rutaLogoInline)) {
+                $mail->addEmbeddedImage($rutaLogoInline, 'logo__SPARTA_SECRET_REDACTED__', 'logo.png');
             }
 
-            if ($smtpHost !== '' && $smtpUser !== '') {
-                $mail->isSMTP();
-                $mail->Host       = $smtpHost;
-                $mail->SMTPAuth   = true;
-                $mail->Username   = $smtpUser;
-                $mail->Password   = $smtpPass;
-                $mail->Port       = $smtpPort;
-                if (strtolower($smtpSecure) === 'tls') {
-                    $mail->SMTPSecure = \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
-                } elseif (strtolower($smtpSecure) === 'ssl') {
-                    $mail->SMTPSecure = \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_SMTPS;
-                }
+            $mail->isSMTP();
+            $mail->Host       = $smtpHost;
+            $mail->SMTPAuth   = true;
+            $mail->Username   = $smtpUser;
+            $mail->Password   = $smtpPass;
+            $mail->Port       = $smtpPort;
+            if ($smtpSecure === 'ssl') {
+                $mail->SMTPSecure = \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_SMTPS;
             } else {
-                $mail->isMail();
+                $mail->SMTPSecure = \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
             }
+            // Gmail: forzar AUTH LOGIN (evita CRAM-MD5 que a veces falla) y relajar verificación SSL en Windows por si el CA falla
+            if ($smtpHost === 'smtp.gmail.com') {
+                $mail->AuthType = 'LOGIN';
+                $mail->SMTPOptions = [
+                    'ssl' => [
+                        'verify_peer'       => false,
+                        'verify_peer_name'  => false,
+                    ],
+                ];
+            }
+
+            $smtpDebugLog = '';
+            $mail->SMTPDebug = 2;
+            $mail->Debugoutput = function ($str) use (&$smtpDebugLog) {
+                $smtpDebugLog .= $str . "\n";
+            };
 
             $mail->send();
+            $this->enviarCorreoUltimoError = '';
             return true;
         } catch (\Exception $e) {
+            $msg = $e->getMessage();
+            // En el log guardamos la respuesta SMTP completa para ver el 535 exacto de Gmail
+            if ($smtpDebugLog !== '') {
+                error_log('CapHum SMTP debug (últimas líneas): ' . trim(substr($smtpDebugLog, -800)));
+                $lines = explode("\n", $smtpDebugLog);
+                $lastLine = trim($lines[count($lines) - 1] ?? '');
+                if (strpos($lastLine, '535') !== false || stripos($lastLine, 'auth') !== false) {
+                    $msg .= "\n\nGmail rechazó usuario/contraseña. Compruebe: 1) Contraseña de aplicación (no la de la cuenta). 2) Verificación en 2 pasos activada. 3) Si es Google Workspace, el admin debe permitir contraseñas de aplicación. Se está usando puerto 465/SSL y AUTH LOGIN.";
+                }
+            }
+            $this->enviarCorreoUltimoError = $msg;
             error_log('CapHum::enviarCorreo: ' . $e->getMessage());
             return false;
         }
@@ -4026,7 +4668,7 @@ class CapHum extends Controller
                             `.trim(),
                             estatus: `
                                 <div class="fw-semibold d-flex align-items-center gap-2" style="color: #dc3545 !important;">
-                                    <span class="bajas-easter-ghost-trigger" style="cursor:pointer;display:inline-flex;align-items:center;" title="Mantén pulsado"> <i class="fa fa-ban" style="color: #dc3545 !important;"></i></span>
+                                    <span class="bajas-easter-ghost-trigger" style="cursor:pointer;display:inline-flex;align-items:center;" title="Mantén pulsado 1,5 s"> <i class="fa fa-ban" style="color: #dc3545 !important;"></i></span>
                                     <span style="color: #dc3545 !important;">Baja</span>
                                 </div>
                                 <div class="text-muted small d-flex align-items-center gap-2 mt-1">
@@ -5373,7 +6015,7 @@ class CapHum extends Controller
 
         // Easter egg Bajas: Ctrl+Shift+B -> "Adios espartano" + carabelas; mousedown en icono Baja -> boo.mp3 + fantasma
         // Código en /assets/js/bajas-easter.js para evitar "</script>" inline y error "Unexpected token '<'"
-        $bajasEaster = '<style>.bajas-easter-wrap{position:fixed;inset:0;z-index:1058;pointer-events:none;overflow:hidden}.bajas-easter-caravel{position:absolute;font-size:3.2rem;opacity:0.95;pointer-events:none;top:12%;left:2%;animation:bajasCaravelSail 4.5s linear 0s forwards}.bajas-easter-caravel:nth-child(2){top:26%;left:2%;animation-delay:0.3s}.bajas-easter-caravel:nth-child(3){top:42%;left:2%;animation-delay:0.1s}.bajas-easter-caravel:nth-child(4){top:58%;left:2%;animation-delay:0.5s}.bajas-easter-caravel:nth-child(5){top:74%;left:2%;animation-delay:0.2s}.bajas-easter-caravel:nth-child(6){top:18%;left:2%;animation-delay:0.7s}.bajas-easter-caravel:nth-child(7){top:52%;left:2%;animation-delay:0.4s}.bajas-easter-caravel:nth-child(8){top:34%;left:2%;animation-delay:0.15s}@keyframes bajasCaravelSail{0%{transform:translateX(0) rotate(-5deg);opacity:0.92}100%{transform:translateX(100vw) rotate(5deg);opacity:0.88}}.bajas-easter-toast{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:1060;background:linear-gradient(135deg,#1e293b 0%,#334155 100%);color:#fbbf24;padding:24px 48px;border-radius:16px;font-size:1.2rem;font-weight:700;box-shadow:0 16px 48px rgba(0,0,0,0.4);border:2px solid #b45309;opacity:0;animation:bajasEasterIn .35s ease forwards;pointer-events:none;text-align:center}.bajas-easter-toast .bajas-easter-emoji{font-size:2.5rem;display:block;margin-bottom:8px}@keyframes bajasEasterIn{0%{opacity:0;transform:translate(-50%,-50%) scale(0.8)}100%{opacity:1;transform:translate(-50%,-50%) scale(1)}}@keyframes bajasEasterOut{0%{opacity:1;transform:translate(-50%,-50%) scale(1)}100%{opacity:0;transform:translate(-50%,-50%) scale(0.9)}}.bajas-ghost-float{position:fixed;z-index:1062;pointer-events:none;font-size:2rem;opacity:0;animation:bajasGhostRise 2.6s ease-out forwards}.bajas-ghost-float .bajas-ghost-emoji{display:block;text-shadow:0 0 20px rgba(255,255,255,0.6);filter:drop-shadow(0 0 8px rgba(255,255,255,0.4))}@keyframes bajasGhostRise{0%{opacity:0.95;transform:translate(-50%,-50%) scale(0.4)}15%{opacity:1;transform:translate(-50%,-60px) scale(1.2)}40%{opacity:1;transform:translate(-50%,-140px) scale(2.8)}70%{opacity:0.9;transform:translate(-50%,-260px) scale(4.5)}100%{opacity:0;transform:translate(-50%,-400px) scale(8)}}</style>';
+        $bajasEaster = '<style>.bajas-easter-wrap{position:fixed;inset:0;z-index:1058;pointer-events:none;overflow:hidden}.bajas-easter-caravel{position:absolute;font-size:3.2rem;opacity:0.95;pointer-events:none;top:12%;left:2%;animation:bajasCaravelSail 4.5s linear 0s forwards}.bajas-easter-caravel:nth-child(2){top:26%;left:2%;animation-delay:0.3s}.bajas-easter-caravel:nth-child(3){top:42%;left:2%;animation-delay:0.1s}.bajas-easter-caravel:nth-child(4){top:58%;left:2%;animation-delay:0.5s}.bajas-easter-caravel:nth-child(5){top:74%;left:2%;animation-delay:0.2s}.bajas-easter-caravel:nth-child(6){top:18%;left:2%;animation-delay:0.7s}.bajas-easter-caravel:nth-child(7){top:52%;left:2%;animation-delay:0.4s}.bajas-easter-caravel:nth-child(8){top:34%;left:2%;animation-delay:0.15s}@keyframes bajasCaravelSail{0%{transform:translateX(0) rotate(-5deg);opacity:0.92}100%{transform:translateX(100vw) rotate(5deg);opacity:0.88}}.bajas-easter-toast{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:1060;background:linear-gradient(135deg,#1e293b 0%,#334155 100%);color:#fbbf24;padding:24px 48px;border-radius:16px;font-size:1.2rem;font-weight:700;box-shadow:0 16px 48px rgba(0,0,0,0.4);border:2px solid #b45309;opacity:0;animation:bajasEasterIn .35s ease forwards;pointer-events:none;text-align:center}.bajas-easter-toast .bajas-easter-emoji{font-size:2.5rem;display:block;margin-bottom:8px}@keyframes bajasEasterIn{0%{opacity:0;transform:translate(-50%,-50%) scale(0.8)}100%{opacity:1;transform:translate(-50%,-50%) scale(1)}}@keyframes bajasEasterOut{0%{opacity:1;transform:translate(-50%,-50%) scale(1)}100%{opacity:0;transform:translate(-50%,-50%) scale(0.9)}}.bajas-ghost-float{position:fixed;z-index:1062;pointer-events:none;font-size:2rem;opacity:0;animation:bajasGhostRise 3.2s ease-out forwards}.bajas-ghost-float .bajas-ghost-emoji{display:block;text-shadow:0 0 20px rgba(255,255,255,0.6);filter:drop-shadow(0 0 8px rgba(255,255,255,0.4))}@keyframes bajasGhostRise{0%{opacity:0.95;transform:translate(-50%,-50%) scale(0.4)}15%{opacity:1;transform:translate(-50%,-60px) scale(1.2)}40%{opacity:1;transform:translate(-50%,-140px) scale(2.8)}70%{opacity:0.9;transform:translate(-50%,-260px) scale(4.5)}100%{opacity:0;transform:translate(-50%,-400px) scale(8)}}</style>';
         $bajasEaster .= '<script src="/assets/js/bajas-easter.js"></script>';
         $scriptGestion .= "\n" . $bajasEaster;
 

@@ -32,6 +32,7 @@ public/test_geo_ssl.php
 
 # ========== Medios temporales y logs ==========
 backend/storage/tmp_media/
+backend/storage/tmp_mpdf/
 backend/storage/logs/*.log
 backend/storage/logs/*
 !backend/storage/logs/.gitkeep

@@ -24,7 +24,25 @@ if (!empty($_SERVER['HTTPS']) && strtolower($_SERVER['HTTPS']) !== 'off') {
 */
 define('RAIZ', dirname(__DIR__) . '/backend');
 
-
+// Cargar .env si existe — solo variables MAIL_* para no afectar DB ni otras configs
+$envFile = dirname(__DIR__) . '/.env';
+if (is_file($envFile) && is_readable($envFile)) {
+    $lines = @file($envFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    if (is_array($lines)) {
+        foreach ($lines as $line) {
+            $line = trim($line);
+            if ($line === '' || strpos($line, '#') === 0) continue;
+            $eq = strpos($line, '=');
+            if ($eq === false) continue;
+            $key = trim(substr($line, 0, $eq));
+            if ($key === '' || strpos($key, 'MAIL_') !== 0) continue;
+            $value = trim(str_replace(["\r", "\n"], '', substr($line, $eq + 1)));
+            if (preg_match('/^["\'](.+)["\']\s*$/', $value, $m)) $value = trim($m[1]);
+            putenv($key . '=' . $value);
+            $_ENV[$key] = $value;
+        }
+    }
+}
 
 define('CONFIGURACION', parse_ini_file(RAIZ . '/config/config.ini'));
 define('CONTROLADORES', RAIZ . '/controllers');
@@ -147,7 +165,15 @@ $esDescargarDocCandidato = isset($urlSolicitada[0], $urlSolicitada[1])
     && strtolower($urlSolicitada[0]) === 'caphum'
     && strtolower($urlSolicitada[1]) === 'descargardocumentocandidato';
 
-if ((!isset($_SESSION['login']) && !$esCrearTicketWhatsApp && !$esSubirDocCandidato && !$esDescargarDocCandidato) || strtolower($urlSolicitada[0]) === strtolower(LOGIN)) {
+$esLlenarSolicitudEnLinea = isset($urlSolicitada[0], $urlSolicitada[1])
+    && strtolower($urlSolicitada[0]) === 'caphum'
+    && strtolower($urlSolicitada[1]) === 'llenarsolicitudenlinea';
+
+$esObtenerPlantillaSolicitudPdf = isset($urlSolicitada[0], $urlSolicitada[1])
+    && strtolower($urlSolicitada[0]) === 'caphum'
+    && strtolower($urlSolicitada[1]) === 'obtenerplantillasolicitudpdf';
+
+if ((!isset($_SESSION['login']) && !$esCrearTicketWhatsApp && !$esSubirDocCandidato && !$esDescargarDocCandidato && !$esLlenarSolicitudEnLinea && !$esObtenerPlantillaSolicitudPdf) || strtolower($urlSolicitada[0]) === strtolower(LOGIN)) {
     $login = 'Controllers\\' . LOGIN;
     $login = new $login;
 
