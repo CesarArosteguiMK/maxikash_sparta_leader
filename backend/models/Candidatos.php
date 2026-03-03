@@ -25,10 +25,9 @@ class Candidatos extends Model
                 c.id_departamento,
                 c.estatus,
                 c.notas,
-<<<<<<< HEAD
-=======
+                c.estatus,
+                c.notas,
                 c.postulacion_enviada,
->>>>>>> 609f4c827579b9f7fdfa55f652e91ba318875f5f
                 c.fecha_registro,
                 c.fecha_actualizacion,
                 p.nombre AS nombre_puesto,
@@ -82,12 +81,7 @@ class Candidatos extends Model
                 c.apellidom,
                 c.email,
                 c.telefono,
-<<<<<<< HEAD
-                c.id_puesto,
-                c.id_departamento,
-                c.estatus,
-                c.notas,
-=======
+                c.telefono,
                 c.id_pais,
                 c.id_puesto,
                 c.id_departamento,
@@ -99,7 +93,6 @@ class Candidatos extends Model
                 c.estatus,
                 c.notas,
                 c.postulacion_enviada,
->>>>>>> 609f4c827579b9f7fdfa55f652e91ba318875f5f
                 c.fecha_registro,
                 c.fecha_actualizacion,
                 p.nombre AS nombre_puesto,
@@ -122,11 +115,7 @@ class Candidatos extends Model
     }
 
     /**
-<<<<<<< HEAD
-     * Insertar nuevo candidato.
-=======
      * Insertar nuevo candidato (con postulación enviada y datos de postulación).
->>>>>>> 609f4c827579b9f7fdfa55f652e91ba318875f5f
      */
     public static function insert($data)
     {
@@ -136,15 +125,6 @@ class Candidatos extends Model
             return self::resultado(false, 'Nombres y apellido paterno son obligatorios.', null);
         }
 
-<<<<<<< HEAD
-        $query = <<<SQL
-            INSERT INTO candidatos (
-                nombres, segundo_nombre, apellidop, apellidom,
-                email, telefono, id_puesto, id_departamento, estatus, notas
-            ) VALUES (
-                :nombres, :segundo_nombre, :apellidop, :apellidom,
-                :email, :telefono, :id_puesto, :id_departamento, :estatus, :notas
-=======
         $postulacionEnviada = !empty($data['postulacion_enviada']) ? 1 : 0;
         $fechaEnviada = $postulacionEnviada ? (date('Y-m-d H:i:s')) : null;
 
@@ -159,7 +139,6 @@ class Candidatos extends Model
                 :email, :telefono, :id_pais, :id_puesto, :id_departamento, :id_posible_jefe,
                 :fecha_postulacion, :id_legion, :usuario, :contrasena,
                 :postulacion_enviada, :fecha_postulacion_enviada, :estatus, :notas
->>>>>>> 609f4c827579b9f7fdfa55f652e91ba318875f5f
             )
         SQL;
         $params = [
@@ -169,10 +148,6 @@ class Candidatos extends Model
             'apellidom' => trim($data['apellidom'] ?? '') ?: null,
             'email' => trim($data['email'] ?? '') ?: null,
             'telefono' => trim($data['telefono'] ?? '') ?: null,
-<<<<<<< HEAD
-            'id_puesto' => !empty($data['id_puesto']) ? (int) $data['id_puesto'] : null,
-            'id_departamento' => !empty($data['id_departamento']) ? (int) $data['id_departamento'] : null,
-=======
             'id_pais' => !empty($data['id_pais']) ? (int) $data['id_pais'] : null,
             'id_puesto' => !empty($data['id_puesto']) ? (int) $data['id_puesto'] : null,
             'id_departamento' => !empty($data['id_departamento']) ? (int) $data['id_departamento'] : null,
@@ -183,7 +158,6 @@ class Candidatos extends Model
             'contrasena' => trim($data['contrasena'] ?? '') ?: null,
             'postulacion_enviada' => $postulacionEnviada,
             'fecha_postulacion_enviada' => $fechaEnviada,
->>>>>>> 609f4c827579b9f7fdfa55f652e91ba318875f5f
             'estatus' => trim($data['estatus'] ?? '') ?: 'Por evaluar',
             'notas' => trim($data['notas'] ?? '') ?: null,
         ];
@@ -223,10 +197,6 @@ class Candidatos extends Model
                 apellidom = :apellidom,
                 email = :email,
                 telefono = :telefono,
-<<<<<<< HEAD
-                id_puesto = :id_puesto,
-                id_departamento = :id_departamento,
-=======
                 id_pais = :id_pais,
                 id_puesto = :id_puesto,
                 id_departamento = :id_departamento,
@@ -235,7 +205,6 @@ class Candidatos extends Model
                 id_legion = :id_legion,
                 usuario = :usuario,
                 contrasena = :contrasena,
->>>>>>> 609f4c827579b9f7fdfa55f652e91ba318875f5f
                 estatus = :estatus,
                 notas = :notas
             WHERE id = :id
@@ -248,10 +217,6 @@ class Candidatos extends Model
             'apellidom' => trim($data['apellidom'] ?? '') ?: null,
             'email' => trim($data['email'] ?? '') ?: null,
             'telefono' => trim($data['telefono'] ?? '') ?: null,
-<<<<<<< HEAD
-            'id_puesto' => !empty($data['id_puesto']) ? (int) $data['id_puesto'] : null,
-            'id_departamento' => !empty($data['id_departamento']) ? (int) $data['id_departamento'] : null,
-=======
             'id_pais' => !empty($data['id_pais']) ? (int) $data['id_pais'] : null,
             'id_puesto' => !empty($data['id_puesto']) ? (int) $data['id_puesto'] : null,
             'id_departamento' => !empty($data['id_departamento']) ? (int) $data['id_departamento'] : null,
@@ -260,7 +225,6 @@ class Candidatos extends Model
             'id_legion' => !empty($data['id_legion']) ? (int) $data['id_legion'] : null,
             'usuario' => isset($data['usuario']) ? (trim($data['usuario']) ?: null) : null,
             'contrasena' => isset($data['contrasena']) ? (trim($data['contrasena']) ?: null) : null,
->>>>>>> 609f4c827579b9f7fdfa55f652e91ba318875f5f
             'estatus' => trim($data['estatus'] ?? '') ?: 'Por evaluar',
             'notas' => trim($data['notas'] ?? '') ?: null,
         ];
@@ -291,9 +255,7 @@ class Candidatos extends Model
             return self::resultado(false, 'Error al eliminar candidato.', null, $e->getMessage());
         }
     }
-<<<<<<< HEAD
-=======
-
+    
     /**
      * Obtener o crear token único para link de subida de documentos del candidato.
      * Retorna el token (string) para construir la URL.
@@ -386,11 +348,90 @@ class Candidatos extends Model
         }
         try {
             $db = new Database();
-            $lista = $db->queryAll("SELECT id, tipo_documento, nombre_archivo, ruta_archivo, fecha_carga FROM candidato_documento WHERE id_candidato = :id ORDER BY fecha_carga DESC", ['id' => $id_candidato]);
+            $lista = $db->queryAll("SELECT id, id_candidato, tipo_documento, nombre_archivo, ruta_archivo, fecha_carga FROM candidato_documento WHERE id_candidato = :id ORDER BY fecha_carga DESC", ['id' => $id_candidato]);
             return self::resultado(true, 'Documentos encontrados.', $lista ?: []);
         } catch (\Exception $e) {
             return self::resultado(false, 'Error al listar documentos.', [], $e->getMessage());
         }
     }
->>>>>>> 609f4c827579b9f7fdfa55f652e91ba318875f5f
+
+    /**
+     * Obtener un documento por ID (para verificar y servir/eliminar).
+     */
+    public static function getDocumentoById($id_documento)
+    {
+        $id_documento = (int) $id_documento;
+        if ($id_documento <= 0) {
+            return self::resultado(false, 'ID inválido.', null);
+        }
+        try {
+            $db = new Database();
+            $row = $db->queryOne("SELECT id, id_candidato, tipo_documento, nombre_archivo, ruta_archivo FROM candidato_documento WHERE id = :id", ['id' => $id_documento]);
+            return self::resultado(true, $row ? 'OK' : 'No encontrado.', $row);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error.', null, $e->getMessage());
+        }
+    }
+
+    /**
+     * Eliminar un documento del expediente (por ID).
+     */
+    public static function eliminarDocumento($id_documento)
+    {
+        $id_documento = (int) $id_documento;
+        if ($id_documento <= 0) {
+            return self::resultado(false, 'ID inválido.');
+        }
+        try {
+            $db = new Database();
+            $db->CRUD("DELETE FROM candidato_documento WHERE id = :id", ['id' => $id_documento]);
+            return self::resultado(true, 'Documento eliminado.');
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al eliminar.', null, $e->getMessage());
+        }
+    }
+
+    /**
+     * Guardar el último resultado de verificación de expediente (API validar-expediente).
+     * @param int $id_candidato
+     * @param string|null $jsonResultado JSON del resultado (checks_ok, alertas, todo_coincide, etc.)
+     */
+    public static function updateVerificacionExpediente($id_candidato, $jsonResultado)
+    {
+        $id_candidato = (int) $id_candidato;
+        if ($id_candidato <= 0) {
+            return;
+        }
+        try {
+            $db = new Database();
+            $db->CRUD(
+                "UPDATE candidatos SET ultima_verificacion_expediente = :json WHERE id = :id",
+                ['id' => $id_candidato, 'json' => $jsonResultado === null ? null : (is_string($jsonResultado) ? $jsonResultado : json_encode($jsonResultado))]
+            );
+        } catch (\Exception $e) {
+            // Columna puede no existir si no se ejecutó la migración
+        }
+    }
+
+    /**
+     * Obtener el último resultado de verificación de expediente (JSON decodificado o null).
+     */
+    public static function getVerificacionExpediente($id_candidato)
+    {
+        $id_candidato = (int) $id_candidato;
+        if ($id_candidato <= 0) {
+            return null;
+        }
+        try {
+            $db = new Database();
+            $row = $db->queryOne("SELECT ultima_verificacion_expediente FROM candidatos WHERE id = :id", ['id' => $id_candidato]);
+            if (!$row || empty($row['ultima_verificacion_expediente'])) {
+                return null;
+            }
+            $decoded = json_decode($row['ultima_verificacion_expediente'], true);
+            return is_array($decoded) ? $decoded : null;
+        } catch (\Exception $e) {
+            return null;
+        }
+    }
 }

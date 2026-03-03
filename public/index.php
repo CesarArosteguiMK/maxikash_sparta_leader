@@ -12,7 +12,11 @@ header('X-Frame-Options: SAMEORIGIN');
 header('X-Content-Type-Options: nosniff');
 header('X-XSS-Protection: 1; mode=block');
 header('Referrer-Policy: strict-origin-when-cross-origin');
+<<<<<<< HEAD
 header('Content-Security-Policy: default-src \'self\'; script-src \'self\' \'unsafe-inline\' \'unsafe-eval\' https://maps.googleapis.com https://*.googleapis.com https://www.gstatic.com https://*.gstatic.com https://cdnjs.cloudflare.com https://www.youtube.com https://s.ytimg.com; style-src \'self\' \'unsafe-inline\' https://fonts.googleapis.com https://fonts.gstatic.com https://www.gstatic.com https://cdnjs.cloudflare.com; font-src \'self\' data: https://fonts.gstatic.com https://www.gstatic.com https://*.gstatic.com; img-src \'self\' data: https: blob: http://98.90.194.116; connect-src \'self\' webpack: https://*.googleapis.com https://*.gstatic.com http://98.90.194.116 https://nominatim.openstreetmap.org https://*.youtube.com; frame-src \'self\' https://www.google.com https://maps.google.com https://*.google.com https://www.youtube.com https://*.youtube.com; frame-ancestors \'self\';');
+=======
+header('Content-Security-Policy: default-src \'self\'; script-src \'self\' \'unsafe-inline\' \'unsafe-eval\' https://maps.googleapis.com https://*.googleapis.com https://www.gstatic.com https://*.gstatic.com https://cdnjs.cloudflare.com; style-src \'self\' \'unsafe-inline\' https://fonts.googleapis.com https://fonts.gstatic.com https://www.gstatic.com https://*.gstatic.com https://cdnjs.cloudflare.com; font-src \'self\' data: https://fonts.gstatic.com https://www.gstatic.com https://*.gstatic.com; img-src \'self\' data: https: blob: http://98.90.194.116; connect-src \'self\' https://*.googleapis.com https://*.gstatic.com http://98.90.194.116 https://nominatim.openstreetmap.org http://localhost:8000 http://127.0.0.1:8000; frame-src \'self\' https://www.google.com https://maps.google.com https://*.google.com; frame-ancestors \'self\';');
+>>>>>>> a5b30149d69594b4ed52ef6a0e1d9e95138b34fb
 if (!empty($_SERVER['HTTPS']) && strtolower($_SERVER['HTTPS']) !== 'off') {
     header('Strict-Transport-Security: max-age=31536000; includeSubDomains; preload');
 }
@@ -24,7 +28,25 @@ if (!empty($_SERVER['HTTPS']) && strtolower($_SERVER['HTTPS']) !== 'off') {
 */
 define('RAIZ', dirname(__DIR__) . '/backend');
 
-
+// Cargar .env si existe — solo variables MAIL_* para no afectar DB ni otras configs
+$envFile = dirname(__DIR__) . '/.env';
+if (is_file($envFile) && is_readable($envFile)) {
+    $lines = @file($envFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    if (is_array($lines)) {
+        foreach ($lines as $line) {
+            $line = trim($line);
+            if ($line === '' || strpos($line, '#') === 0) continue;
+            $eq = strpos($line, '=');
+            if ($eq === false) continue;
+            $key = trim(substr($line, 0, $eq));
+            if ($key === '' || strpos($key, 'MAIL_') !== 0) continue;
+            $value = trim(str_replace(["\r", "\n"], '', substr($line, $eq + 1)));
+            if (preg_match('/^["\'](.+)["\']\s*$/', $value, $m)) $value = trim($m[1]);
+            putenv($key . '=' . $value);
+            $_ENV[$key] = $value;
+        }
+    }
+}
 
 define('CONFIGURACION', parse_ini_file(RAIZ . '/config/config.ini'));
 define('CONTROLADORES', RAIZ . '/controllers');
@@ -147,7 +169,15 @@ $esDescargarDocCandidato = isset($urlSolicitada[0], $urlSolicitada[1])
     && strtolower($urlSolicitada[0]) === 'caphum'
     && strtolower($urlSolicitada[1]) === 'descargardocumentocandidato';
 
-if ((!isset($_SESSION['login']) && !$esCrearTicketWhatsApp && !$esSubirDocCandidato && !$esDescargarDocCandidato) || strtolower($urlSolicitada[0]) === strtolower(LOGIN)) {
+$esLlenarSolicitudEnLinea = isset($urlSolicitada[0], $urlSolicitada[1])
+    && strtolower($urlSolicitada[0]) === 'caphum'
+    && strtolower($urlSolicitada[1]) === 'llenarsolicitudenlinea';
+
+$esObtenerPlantillaSolicitudPdf = isset($urlSolicitada[0], $urlSolicitada[1])
+    && strtolower($urlSolicitada[0]) === 'caphum'
+    && strtolower($urlSolicitada[1]) === 'obtenerplantillasolicitudpdf';
+
+if ((!isset($_SESSION['login']) && !$esCrearTicketWhatsApp && !$esSubirDocCandidato && !$esDescargarDocCandidato && !$esLlenarSolicitudEnLinea && !$esObtenerPlantillaSolicitudPdf) || strtolower($urlSolicitada[0]) === strtolower(LOGIN)) {
     $login = 'Controllers\\' . LOGIN;
     $login = new $login;
 
@@ -195,7 +225,7 @@ $rutasModulos = [
     'indicadores/detalleClientes' => [30], 'indicadores/detalleEficiencia' => [31], 'indicadores/carteraInicioSem' => [32],
     'indicadores/seguimientoPromesasPago' => [33], 'indicadores/espartanos' => [34], 'indicadores/matrizBuckets' => [35],
     'indicadores/matrizBucketsMas1' => [36], 'indicadores/auditoria' => [37], 'indicadores/auditoria2' => [38], 'indicadores/seguimiento' => [39],
-    'caphum/gestion' => [4], 'caphum/candidatos' => [42], 'caphum/getcandidatos' => [42], 'caphum/getcandidato' => [42], 'caphum/guardarcandidato' => [42], 'caphum/actualizarcandidato' => [42], 'caphum/eliminarcandidato' => [42], 'caphum/enviarpostulacioncandidato' => [42], 'caphum/gettokendocumentoscandidato' => [42], 'caphum/bajas' => [13], 'caphum/organigrama' => [5], 'caphum/niveljerarquicocolaborador' => [5], 'caphum/getpuestospersona' => [5],
+    'caphum/gestion' => [4], 'caphum/candidatos' => [42], 'caphum/getcandidatos' => [42], 'caphum/getcandidato' => [42], 'caphum/guardarcandidato' => [42], 'caphum/actualizarcandidato' => [42], 'caphum/eliminarcandidato' => [42], 'caphum/enviarpostulacioncandidato' => [42], 'caphum/gettokendocumentoscandidato' => [42], 'caphum/getdocumentoscandidatolist' => [42], 'caphum/verdocumentocandidato' => [42], 'caphum/eliminardocumentocandidato' => [42], 'caphum/bajas' => [13], 'caphum/organigrama' => [5], 'caphum/niveljerarquicocolaborador' => [5], 'caphum/getpuestospersona' => [5],
     'reporteria/resumencallcenter' => [6], 'reporteria/sabuesos' => [18, 19], 'reporteria/descargarReporteSabuesos1' => [18], 'reporteria/descargarReporteSabuesos2' => [19], 'reporteria/descargarReporteSabuesos3' => [19], 'reporteria/layoutlegacy' => [7], 'reporteria/reporteCapitalHumano' => [21],
     'condonaciones/historial' => [15],
     'sabueso/ticket' => [18], 'sabueso/paneladmin' => [19], 'sabueso/cerradoEliminado' => [19],

@@ -1,8 +1,39 @@
 # OCR para documento de identificación oficial
 
-La subida del documento **IDENTIFICACIÓN OFICIAL** (INE, Pasaporte, Residencia Temporal/Permanente) puede validarse por OCR si en el servidor está instalado **Tesseract OCR**.
+La subida del documento **IDENTIFICACIÓN OFICIAL** (INE, Pasaporte, Residencia Temporal/Permanente) se valida de dos formas (en orden):
 
-## Qué hace la validación
+1. **API de verificación de documentos** (Python, en `backend/API`): si en `backend/config/config.ini` está configurada la sección `[doc_verificacion]` con `api_url` y `api_key`, y el archivo es una **imagen** (JPG, PNG, WEBP, TIFF), se envía a la API. Si el resultado es **RECHAZADO**, el documento no se guarda. Si es **ORIGINAL** o **REVISION_MANUAL**, se acepta.
+2. **Fallback OCR local (Tesseract):** si la API no está configurada, no responde o el archivo es PDF/DOC/DOCX, se usa la clase `OcrIdentidad` (Tesseract) como antes.
+
+## Configuración de la API de verificación
+
+En `backend/config/config.ini`:
+
+```ini
+[doc_verificacion]
+api_url = "http://127.0.0.1:8000/api/v1/verificar"
+api_key = "sparta-__SPARTA_SECRET_REDACTED__-doc-verificacion-key"
+```
+
+- **api_url:** URL base del endpoint de verificación (sin barra final).
+- **api_key:** debe coincidir con la configurada en la API Python (`master_api_key` o variable de entorno).
+
+Para levantar la API (desde `backend/API`): ver `backend/API/README.md` (venv, `uvicorn app.main:app --host 0.0.0.0 --port 8000`, o Docker).
+
+### Configuración en servidor (rutas/URLs)
+
+En **servidor** (cuando la app no se abre por localhost), configura en `backend/config/config.ini`:
+
+- **[app] base_url**  
+  URL pública con la que abren la aplicación. Se usa para el **enlace de subida de documentos** que se envía al candidato.  
+  Ejemplos: `https://tudominio.com`, `https://tudominio.com/sparta___SPARTA_SECRET_REDACTED__/public`.  
+  Si está vacía, se usa el host de la petición (puede fallar detrás de proxy o en puertos no estándar).
+
+- **[doc_verificacion] api_url**  
+  URL completa donde corre la API de verificación (Python).  
+  En servidor: `http://localhost:8000/api/v1/verificar` si la API corre en el mismo equipo, o `https://api.tudominio.com/api/v1/verificar` si está en otro servicio.
+
+## Qué hace la validación (OCR local / Tesseract)
 
 - **Extrae texto** del documento (imagen o primera página del PDF).
 - **Detecta el tipo** de documento: INE, Pasaporte, Residencia Temporal, Residencia Temporal (acumulativa), Residencia Permanente.

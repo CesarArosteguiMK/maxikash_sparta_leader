@@ -2031,8 +2031,17 @@ body.dark-mode .cuotas-table .contracargo-valor { color: #fb923c !important; fon
                     </thead>
 
                     <tbody>
+                    <?php
+                    $dataEstadoCuenta = $dataEstadoCuenta ?? [];
+                    $statusCreditoRaw = trim((string)($dataEstadoCuenta['statusCredito'] ?? ''));
+                    $creditoSaldado = (mb_strtoupper($statusCreditoRaw) === 'SALDADO');
+                    $totalCuotas = count($tabla);
+                    $idxCuota = 0;
+                    ?>
                     <?php foreach ($tabla as $fila): ?>
                         <?php
+                        $idxCuota++;
+                        $esUltimaCuota = ($idxCuota === $totalCuotas);
                         // Datos de la fila
                         $cuota = safe($fila['cuota'], '—');
                         $fecha = safe($fila['fecha'], null);
@@ -2089,7 +2098,9 @@ body.dark-mode .cuotas-table .contracargo-valor { color: #fb923c !important; fon
                         }
 
                         // Construir badge
-                        if ($pendiente <= 0) {
+                        if ($creditoSaldado && $esUltimaCuota) {
+                            $badge = '<span class="badge bg-success px-3 py-2">Crédito saldado</span>';
+                        } elseif ($pendiente <= 0) {
                             // pago completo
                             $badge = '<span class="badge bg-success px-3 py-2">Pago completo</span>';
                             if ($diasMora > 0) {
@@ -2162,6 +2173,9 @@ body.dark-mode .cuotas-table .contracargo-valor { color: #fb923c !important; fon
                                         <?php endforeach; ?>
                                     <?php else: ?>
                                         <!-- Sin pagos -->
+                                    <?php endif; ?>
+                                    <?php if ($creditoSaldado && $esUltimaCuota && !empty($aplicados)): ?>
+                                        <p class="mb-0 mt-2 text-success small fw-semibold">Crédito saldado — Pago total</p>
                                     <?php endif; ?>
                                 </ul>
                             </td>
