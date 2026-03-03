@@ -166,3 +166,11 @@ class ErrorResponse(BaseModel):
     error: str
     detalle: Optional[str] = None
     codigo: str
+
+
+class VerificacionCalidadResponse(BaseModel):
+    """Respuesta de la verificación ligera (calidad + opcional frente/reverso)."""
+    ok: bool = Field(description="True si la imagen pasa la revisión ligera")
+    mensaje: str = Field(description="Mensaje para mostrar al usuario")
+    alertas: List[str] = Field(default_factory=list, description="Lista de alertas si las hay")
+    lado_detectado: Optional[str] = Field(None, description="frente | reverso | indeterminado")

@@ -81,7 +81,6 @@ class Candidatos extends Model
                 c.apellidom,
                 c.email,
                 c.telefono,
-                c.telefono,
                 c.id_pais,
                 c.id_puesto,
                 c.id_departamento,
@@ -312,28 +311,95 @@ class Candidatos extends Model
 
     /**
      * Registrar un documento subido por el candidato (vía link).
+     * Si se pasan $contenido y $mime_type, el archivo se guarda en la BD (contenido LONGBLOB)
+     * y se sirve desde ahí para que cargue más rápido (como carga_documento_persona).
+     *
      * @param string $tipo_documento Nombre del tipo (ej. SOLICITUD INTERNA, CURP, etc.)
+     * @param string|null $contenido Contenido binario del archivo (opcional). Si se pasa, se guarda en BD.
+     * @param string|null $mime_type application/pdf, image/jpeg, etc. (opcional, recomendado si hay contenido)
      */
-    public static function guardarDocumento($id_candidato, $nombre_archivo, $ruta_archivo, $tipo_documento = '')
+    public static function guardarDocumento($id_candidato, $nombre_archivo, $ruta_archivo, $tipo_documento = '', $contenido = null, $mime_type = null)
     {
         $id_candidato = (int) $id_candidato;
-        if ($id_candidato <= 0 || trim($nombre_archivo ?? '') === '' || trim($ruta_archivo ?? '') === '') {
+        if ($id_candidato <= 0 || trim($nombre_archivo ?? '') === '') {
             return self::resultado(false, 'Datos incompletos.');
+        }
+        if ($contenido === null && trim($ruta_archivo ?? '') === '') {
+            return self::resultado(false, 'Indica ruta_archivo o contenido.');
         }
         try {
             $db = new Database();
-            $db->CRUD(
-                "INSERT INTO candidato_documento (id_candidato, tipo_documento, nombre_archivo, ruta_archivo) VALUES (:id_candidato, :tipo_documento, :nombre_archivo, :ruta_archivo)",
-                [
-                    'id_candidato' => $id_candidato,
-                    'tipo_documento' => trim($tipo_documento ?? ''),
-                    'nombre_archivo' => $nombre_archivo,
-                    'ruta_archivo' => $ruta_archivo
-                ]
-            );
+            if ($contenido !== null) {
+                $ruta = trim($ruta_archivo ?? '');
+                $db->queryOne(
+                    "INSERT INTO candidato_documento (id_candidato, tipo_documento, nombre_archivo, ruta_archivo, contenido, mime_type) VALUES (:id_candidato, :tipo_documento, :nombre_archivo, :ruta_archivo, :contenido, :mime_type)",
+                    [
+                        'id_candidato' => $id_candidato,
+                        'tipo_documento' => trim($tipo_documento ?? ''),
+                        'nombre_archivo' => $nombre_archivo,
+                        'ruta_archivo' => $ruta,
+                        'contenido' => $contenido,
+                        'mime_type' => $mime_type !== null ? trim($mime_type) : null
+                    ]
+                );
+            } else {
+                $db->CRUD(
+                    "INSERT INTO candidato_documento (id_candidato, tipo_documento, nombre_archivo, ruta_archivo) VALUES (:id_candidato, :tipo_documento, :nombre_archivo, :ruta_archivo)",
+                    [
+                        'id_candidato' => $id_candidato,
+                        'tipo_documento' => trim($tipo_documento ?? ''),
+                        'nombre_archivo' => $nombre_archivo,
+                        'ruta_archivo' => $ruta_archivo
+                    ]
+                );
+            }
             return self::resultado(true, 'Documento guardado correctamente.');
         } catch (\Exception $e) {
             return self::resultado(false, 'Error al guardar documento.', null, $e->getMessage());
+        }
+    }
+
+    /**
+     * Obtener solo ruta y nombre de un documento (sin contenido). Para servir desde disco sin cargar LONGBLOB.
+     */
+    public static function getDocumentoRutaSolo($id_documento)
+    {
+        $id_documento = (int) $id_documento;
+        if ($id_documento <= 0) {
+            return self::resultado(false, 'ID inválido.', null);
+        }
+        try {
+            $db = new Database();
+            $row = $db->queryOne(
+                "SELECT nombre_archivo, ruta_archivo FROM candidato_documento WHERE id = :id",
+                ['id' => $id_documento]
+            );
+            return self::resultado(true, $row ? 'OK' : 'No encontrado.', $row);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error.', null, $e->getMessage());
+        }
+    }
+
+    /**
+     * Obtener contenido de un documento para servirlo (ver/descargar).
+     * Devuelve nombre_archivo, contenido (LONGBLOB), mime_type.
+     * Si el registro tiene contenido en BD se usa; si no, contenido será null (servir desde ruta_archivo en disco).
+     */
+    public static function getDocumentoContenidoParaVer($id_documento)
+    {
+        $id_documento = (int) $id_documento;
+        if ($id_documento <= 0) {
+            return self::resultado(false, 'ID inválido.', null);
+        }
+        try {
+            $db = new Database();
+            $row = $db->queryOne(
+                "SELECT id, nombre_archivo, contenido, mime_type, ruta_archivo FROM candidato_documento WHERE id = :id",
+                ['id' => $id_documento]
+            );
+            return self::resultado(true, $row ? 'OK' : 'No encontrado.', $row);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error.', null, $e->getMessage());
         }
     }
 
@@ -348,7 +414,7 @@ class Candidatos extends Model
         }
         try {
             $db = new Database();
-            $lista = $db->queryAll("SELECT id, id_candidato, tipo_documento, nombre_archivo, ruta_archivo, fecha_carga FROM candidato_documento WHERE id_candidato = :id ORDER BY fecha_carga DESC", ['id' => $id_candidato]);
+            $lista = $db->queryAll("SELECT id, id_candidato, tipo_documento, nombre_archivo, ruta_archivo, fecha_carga, validado, fecha_validado FROM candidato_documento WHERE id_candidato = :id ORDER BY fecha_carga DESC", ['id' => $id_candidato]);
             return self::resultado(true, 'Documentos encontrados.', $lista ?: []);
         } catch (\Exception $e) {
             return self::resultado(false, 'Error al listar documentos.', [], $e->getMessage());
@@ -366,7 +432,7 @@ class Candidatos extends Model
         }
         try {
             $db = new Database();
-            $row = $db->queryOne("SELECT id, id_candidato, tipo_documento, nombre_archivo, ruta_archivo FROM candidato_documento WHERE id = :id", ['id' => $id_documento]);
+            $row = $db->queryOne("SELECT id, id_candidato, tipo_documento, nombre_archivo, ruta_archivo, validado FROM candidato_documento WHERE id = :id", ['id' => $id_documento]);
             return self::resultado(true, $row ? 'OK' : 'No encontrado.', $row);
         } catch (\Exception $e) {
             return self::resultado(false, 'Error.', null, $e->getMessage());
@@ -388,6 +454,41 @@ class Candidatos extends Model
             return self::resultado(true, 'Documento eliminado.');
         } catch (\Exception $e) {
             return self::resultado(false, 'Error al eliminar.', null, $e->getMessage());
+        }
+    }
+
+    /**
+     * Eliminar todos los documentos de un candidato (solo registros en BD).
+     * Los archivos en disco deben borrarse desde el controlador.
+     */
+    public static function eliminarDocumentosDeCandidato($id_candidato)
+    {
+        $id_candidato = (int) $id_candidato;
+        if ($id_candidato <= 0) {
+            return self::resultado(false, 'ID inválido.');
+        }
+        try {
+            $db = new Database();
+            $db->CRUD("DELETE FROM candidato_documento WHERE id_candidato = :id", ['id' => $id_candidato]);
+            return self::resultado(true, 'Documentación eliminada.');
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al eliminar documentación.', null, $e->getMessage());
+        }
+    }
+
+    /**
+     * Eliminar el token de enlace de documentos del candidato (para no dejar huérfanos).
+     */
+    public static function eliminarTokenDocumentosCandidato($id_candidato)
+    {
+        $id_candidato = (int) $id_candidato;
+        if ($id_candidato <= 0) {
+            return;
+        }
+        try {
+            $db = new Database();
+            $db->CRUD("DELETE FROM candidato_documento_token WHERE id_candidato = :id", ['id' => $id_candidato]);
+        } catch (\Exception $e) {
         }
     }
 
@@ -432,6 +533,65 @@ class Candidatos extends Model
             return is_array($decoded) ? $decoded : null;
         } catch (\Exception $e) {
             return null;
+        }
+    }
+
+    /**
+     * Marcar/desmarcar un documento como validado por Capital Humano.
+     */
+    public static function toggleValidadoDocumento($id_documento, $validado)
+    {
+        $id_documento = (int) $id_documento;
+        $validado = $validado ? 1 : 0;
+        if ($id_documento <= 0) {
+            return self::resultado(false, 'ID inválido.');
+        }
+        try {
+            $db = new Database();
+            $db->CRUD(
+                "UPDATE candidato_documento SET validado = :v, fecha_validado = " . ($validado ? "NOW()" : "NULL") . " WHERE id = :id",
+                ['id' => $id_documento, 'v' => $validado]
+            );
+            return self::resultado(true, $validado ? 'Documento validado.' : 'Validación retirada.');
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al actualizar.', null, $e->getMessage());
+        }
+    }
+
+    /**
+     * Contar documentos validados vs total de un candidato.
+     */
+    public static function contarValidados($id_candidato)
+    {
+        $id_candidato = (int) $id_candidato;
+        if ($id_candidato <= 0) {
+            return ['total' => 0, 'validados' => 0];
+        }
+        try {
+            $db = new Database();
+            $r = $db->queryOne(
+                "SELECT COUNT(*) AS total, SUM(validado) AS validados FROM candidato_documento WHERE id_candidato = :id",
+                ['id' => $id_candidato]
+            );
+            return ['total' => (int) ($r['total'] ?? 0), 'validados' => (int) ($r['validados'] ?? 0)];
+        } catch (\Exception $e) {
+            return ['total' => 0, 'validados' => 0];
+        }
+    }
+
+    /**
+     * Actualizar estatus del candidato.
+     */
+    public static function updateEstatus($id_candidato, $estatus)
+    {
+        $id_candidato = (int) $id_candidato;
+        if ($id_candidato <= 0 || trim($estatus) === '') {
+            return;
+        }
+        try {
+            $db = new Database();
+            $db->CRUD("UPDATE candidatos SET estatus = :e, fecha_actualizacion = NOW() WHERE id = :id", ['id' => $id_candidato, 'e' => trim($estatus)]);
+        } catch (\Exception $e) {
         }
     }
 }

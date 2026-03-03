@@ -1,0 +1,32 @@
+---
+description: Respetar la arquitectura existente en vistas CapHum (Gestión, Candidatos)
+globs: backend/controllers/CapHum.php, backend/views/*candidatos*.php, backend/views/all_gestores.php
+alwaysApply: false
+---
+
+# Arquitectura CapHum – listados
+
+Al crear o modificar pantallas de listado en CapHum (ej. Gestión, Candidatos), **respetar siempre la arquitectura ya existente**.
+
+## Patrón obligatorio
+
+1. **Controlador**
+   - Construir el script de la pantalla en PHP (heredoc o método privado) y pasarlo con `self::set("script", $script)`.
+   - No pasar arrays de datos para rellenar la tabla desde PHP; los datos se cargan por AJAX.
+
+2. **Carga de datos**
+   - Usar `http.request()` de `comunes.js` con `endpoint`, `metodo`, `data` y `onSuccess`.
+   - Ejemplo: `http.request({ endpoint: "/caphum/getCandidatos", metodo: "GET", data: { estatus, id_departamento, id_puesto }, onSuccess: (resp) => { ... } })`.
+
+3. **Vista**
+   - Misma estructura que Gestión (`all_gestores.php`):
+     - `content-wrapper` → `card` → `card-header` "Filtros de búsqueda" → `row` con selects (ej. UserRole, UserPlan, FilterTransaction).
+     - Panel de indicadores con clases `kpi-toolbar`, `kpi-collapsible`, `kpi-row-new`, `kpi-cell`.
+     - Fila de botones (`row justify-content-between m-4`) con botón principal (ej. Agregar Candidato).
+     - Tabla: `card-datatable table-responsive` → tabla con clase `dt-responsive table border-top` y **`<tbody></tbody>` vacío**.
+   - La tabla se rellena en el script del controlador: mapear `resp.datos` a filas y usar `tabla.clear().rows.add(datos).draw()`.
+
+4. **DataTable**
+   - Inicializar en el script del controlador sobre la tabla vacía; al recibir datos en `onSuccess`, actualizar KPIs y rellenar la tabla.
+
+No introducir arquitecturas nuevas (p. ej. cargar datos en PHP y pintar filas en la vista, o usar otro patrón de llamadas AJAX).

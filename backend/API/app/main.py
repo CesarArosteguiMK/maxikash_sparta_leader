@@ -82,10 +82,10 @@ async def startup():
     temp_dir = settings.temp_upload_dir or os.path.join(tempfile.gettempdir(), "doc_verificacion")
     os.makedirs(temp_dir, exist_ok=True)
     os.makedirs("logs", exist_ok=True)
-    logger.info(f"🚀 {settings.app_name} v{settings.app_version} iniciado")
-    logger.info(f"📋 Docs: http://localhost:8000/docs")
+    logger.info(f"{settings.app_name} v{settings.app_version} iniciado")
+    logger.info(f"Docs: http://localhost:8000/docs")
 
 
 @app.on_event("shutdown")
 async def shutdown():
-    logger.info("👋 Servidor detenido")
+    logger.info("Servidor detenido")

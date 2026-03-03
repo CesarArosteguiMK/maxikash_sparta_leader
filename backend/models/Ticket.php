@@ -978,7 +978,7 @@ class Ticket extends Model
             }
             $mensajeUsuario = 'Error al guardar borrador.';
             if (stripos($msg, 'Unknown column') !== false || stripos($msg, 'column') !== false && stripos($msg, 'exist') !== false) {
-                $mensajeUsuario = 'Faltan columnas en la tabla dictamen. Ejecute la migración: backend/migrations/alter_dictamen_nuevo_flujo.sql';
+                $mensajeUsuario = 'Faltan columnas en la tabla dictamen. Contacte al administrador para aplicar los cambios de esquema.';
             }
             return self::resultado(false, $mensajeUsuario, null, $msg);
         }

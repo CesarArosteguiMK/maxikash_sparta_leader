@@ -4556,7 +4556,7 @@
             var a=new Audio('/assets/audio/doc_ready.wav');
             a.volume=0.5;
             a.loop=true;
-            a.play().catch(function(){var b=new Audio('/assets/audio/notification.mp3');b.volume=0.5;b.play().catch(function(){});});
+            a.play().catch(function(){var b=new Audio('/assets/audio/ring2.mp3');b.volume=0.5;b.play().catch(function(){});});
             setTimeout(function(){a.pause();a.currentTime=0;},animDuration);
         }catch(e){}
         setTimeout(function(){t.style.animation='docEasterOut .35s ease forwards';setTimeout(function(){if(t.parentNode)t.parentNode.removeChild(t);if(wrap.parentNode)wrap.parentNode.removeChild(wrap);},350);},animDuration);

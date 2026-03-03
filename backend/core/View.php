@@ -774,7 +774,7 @@ html.dark-mode .navbar .text-muted{color:#94a3b8 !important;}
         var notifToggle = document.getElementById('navbarNotifToggle');
         var soundInterval = null;
         var audioNotif = null;
-        var NOTIF_SOUND_URL = '/assets/audio/notification.mp3';
+        var NOTIF_SOUND_URL = '/assets/audio/ring2.mp3';
         var NOTIF_BEEP_INTERVAL_MS = 1500;
         function notifUrl(path) {
             var p = (path || "").replace(/^\//, "").replace(/\/$/, "");
@@ -817,7 +817,7 @@ html.dark-mode .navbar .text-muted{color:#94a3b8 !important;}
             }
             if (soundInterval) return;
             playNotifSound();
-            soundInterval = setInterval(playNotifSound, NOTIF_BEEP_INTERVAL_MS);
+            // Una sola vez: no repetir en ciclo (emergencia).
         }
 
         function formatNotifTime(dateStr) {

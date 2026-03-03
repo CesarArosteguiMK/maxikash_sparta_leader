@@ -1,12 +1,14 @@
 # app/services/verificacion.py
 """Orquestador: combina todas las capas y calcula score final."""
 import asyncio
+import re
 import time
 from loguru import logger
 from typing import Optional
 
 from app.models.schemas import (
     VerificacionResponse,
+    VerificacionCalidadResponse,
     TipoDocumento,
     ResultadoVerificacion,
     Checks,
@@ -83,11 +85,44 @@ class VerificacionService:
         except Exception as e:
             logger.warning(f"Comprobación de tipo de documento (no-ID) falló: {e}")
 
-        check_meta = self.metadata_analyzer.analyze(image_bytes)
-        check_forense = self.forense_analyzer.analyze(image_bytes)
-        check_geo = self.geometry_analyzer.analyze(image_bytes, tipo_doc)
-        check_ocr = self.ocr_analyzer.analyze(image_bytes, tipo_doc)
-        check_barcode = self.barcode_analyzer.analyze(image_bytes, tipo_doc)
+        def _safe_meta():
+            try:
+                return self.metadata_analyzer.analyze(image_bytes)
+            except Exception as e:
+                logger.exception(f"Metadata analyzer falló: {e}")
+                return CheckMetadatos(ok=False, score=0.5, alertas=[f"Error: {str(e)}"])
+        def _safe_forense():
+            try:
+                return self.forense_analyzer.analyze(image_bytes)
+            except Exception as e:
+                logger.exception(f"Forense analyzer falló: {e}")
+                return CheckForense(ok=False, score=0.5, alertas=[f"Error: {str(e)}"])
+        def _safe_geo():
+            try:
+                return self.geometry_analyzer.analyze(image_bytes, tipo_doc)
+            except Exception as e:
+                logger.exception(f"Geometry analyzer falló: {e}")
+                return CheckGeometria(ok=False, score=0.5, alertas=[f"Error: {str(e)}"])
+        def _safe_ocr():
+            try:
+                return self.ocr_analyzer.analyze(image_bytes, tipo_doc)
+            except Exception as e:
+                logger.exception(f"OCR analyzer falló: {e}")
+                return CheckOCR(ok=False, score=0.3, alertas=[f"Error OCR: {str(e)}"])
+        def _safe_barcode():
+            try:
+                return self.barcode_analyzer.analyze(image_bytes, tipo_doc)
+            except Exception as e:
+                logger.exception(f"Barcode analyzer falló: {e}")
+                return CheckCodigos(ok=False, score=0.5, alertas=[f"Error: {str(e)}"])
+
+        check_meta, check_forense, check_geo, check_ocr, check_barcode = await asyncio.gather(
+            asyncio.to_thread(_safe_meta),
+            asyncio.to_thread(_safe_forense),
+            asyncio.to_thread(_safe_geo),
+            asyncio.to_thread(_safe_ocr),
+            asyncio.to_thread(_safe_barcode),
+        )
 
         if self.ml_classifier:
             check_ml = self.ml_classifier.analyze(image_bytes)
@@ -132,6 +167,10 @@ class VerificacionService:
             resultado = ResultadoVerificacion.RECHAZADO
             confianza = "ALTA" if score_final < 30 else "MEDIA"
             recomendacion = "Documento rechazado. Alta probabilidad de ser copia, alterado o falso."
+        # Imágenes que no son documento (ej. foto genérica, dibujo) suelen quedar < 75
+        if score_final < 75:
+            resultado = ResultadoVerificacion.RECHAZADO
+            recomendacion = "El documento no fue reconocido como identificación oficial válida. Sube una imagen clara del frente o reverso de tu INE o residencia."
 
         alertas_globales = []
         if check_meta.es_screenshot:
@@ -168,6 +207,166 @@ class VerificacionService:
             alertas_globales=alertas_globales,
             recomendacion=recomendacion,
         )
+
+    async def verificar_calidad(
+        self,
+        image_bytes: bytes,
+        lado_esperado: Optional[str] = None,
+    ) -> VerificacionCalidadResponse:
+        """
+        Revisión ligera: forense (brillo, borroso) y opcionalmente comprueba frente/reverso.
+        Si lado_esperado es 'frente' o 'reverso', se hace un OCR rápido al inicio para rechazar
+        de inmediato lo que no sea identificación (evita timeouts con fotos de videojuegos, etc.).
+        """
+        inicio = time.time()
+        texto_ocr_previo: Optional[str] = None
+
+        if lado_esperado in ("frente", "reverso"):
+            try:
+                texto_ocr_previo = await asyncio.to_thread(
+                    self.ocr_analyzer.extraer_texto_rapido, image_bytes
+                )
+            except Exception as e:
+                logger.warning(f"OCR previo (verificación ligera) falló: {e}")
+            if texto_ocr_previo and len(texto_ocr_previo.strip()) >= 30:
+                msg_no_id = self.comprobante_analyzer.parece_que_no_es_identificacion(texto_ocr_previo)
+                if msg_no_id:
+                    return VerificacionCalidadResponse(
+                        ok=False,
+                        mensaje=msg_no_id,
+                        alertas=[],
+                        lado_detectado=None,
+                    )
+                if not self._parece_identificacion(texto_ocr_previo):
+                    return VerificacionCalidadResponse(
+                        ok=False,
+                        mensaje="No se detectó un documento de identificación. Sube el frente o reverso de tu INE o residencia.",
+                        alertas=[],
+                        lado_detectado=None,
+                    )
+            else:
+                return VerificacionCalidadResponse(
+                    ok=False,
+                    mensaje="No se detectó un documento de identificación. Sube el frente o reverso de tu INE o residencia.",
+                    alertas=[],
+                    lado_detectado=None,
+                )
+
+        try:
+            check_forense = await asyncio.to_thread(
+                self.forense_analyzer.analyze, image_bytes
+            )
+        except Exception as e:
+            logger.exception(f"Verificación calidad (forense) falló: {e}")
+            return VerificacionCalidadResponse(
+                ok=False,
+                mensaje="No se pudo analizar la imagen. Intenta de nuevo.",
+                alertas=[str(e)],
+            )
+        ok = check_forense.ok and not check_forense.brillo_excesivo and not check_forense.borroso
+        if check_forense.brillo_excesivo:
+            mensaje = (
+                "Imagen con demasiado brillo o reflejo. "
+                "Repite la captura evitando luz directa y reflejos."
+            )
+        elif check_forense.borroso:
+            mensaje = (
+                "Imagen borrosa o desenfocada. "
+                "Repite la captura asegurando que el documento se vea nítido."
+            )
+        elif check_forense.moire_detectado:
+            ok = False
+            mensaje = "La imagen parece ser una foto de pantalla. Captura el documento directamente."
+        elif ok:
+            mensaje = "Imagen aceptada. Puedes subirla."
+        else:
+            mensaje = check_forense.alertas[0] if check_forense.alertas else "Calidad de imagen insuficiente. Repite la captura."
+
+        lado_detectado: Optional[str] = None
+        if ok and lado_esperado in ("frente", "reverso"):
+            try:
+                if texto_ocr_previo and len(texto_ocr_previo.strip()) >= 30:
+                    lado_detectado = self._detectar_lado_desde_texto(texto_ocr_previo)
+                else:
+                    lado_detectado = await asyncio.to_thread(
+                        self._detectar_lado_rapido, image_bytes
+                    )
+                if lado_detectado == "reverso" and lado_esperado == "frente":
+                    ok = False
+                    mensaje = "Debe subir la parte de frente de la identificación, no el reverso."
+                elif lado_detectado == "frente" and lado_esperado == "reverso":
+                    ok = False
+                    mensaje = "Debe subir la parte de atrás (reverso) de la identificación, no el frente."
+                elif lado_detectado == "indeterminado":
+                    ok = False
+                    mensaje = "No se detectó un documento de identificación. Sube el frente o reverso de tu INE o residencia."
+            except Exception as e:
+                logger.warning(f"Detección frente/reverso falló: {e}")
+
+        tiempo_ms = int((time.time() - inicio) * 1000)
+        logger.info(f"Verificación calidad - ok={ok} - lado={lado_detectado} - {tiempo_ms}ms")
+        return VerificacionCalidadResponse(
+            ok=ok,
+            mensaje=mensaje,
+            alertas=check_forense.alertas or [],
+            lado_detectado=lado_detectado,
+        )
+
+    def _parece_identificacion(self, texto: str) -> bool:
+        """True si el texto tiene indicios de ser INE o residencia (MRZ, CURP, CREDENCIAL, INM, etc.)."""
+        if not texto or len(texto.strip()) < 30:
+            return False
+        t = texto.upper()
+        if re.search(r"[A-Z0-9<]{20,}", t) and re.search(r"<{2,}|[A-Z]{2,}<+[A-Z]", t):
+            return True
+        if re.search(r"CURP|CLAVE\s+DE\s+ELECTOR|CREDENCIAL\s+PARA\s+VOTAR|INSTITUTO\s+NACIONAL\s+ELECTORAL", t):
+            return True
+        if re.search(r"RESIDENCIA\s+TEMPORAL|RESIDENTE\s+TEMPORAL|INM\s|MIGRACION|NUE\s*[\.:\s]*\d", t):
+            return True
+        if re.search(r"SECCION\s*\d|SECCI[OÓ]N\s*\d", t) and re.search(r"ELECTORAL|CREDENCIAL", t):
+            return True
+        return False
+
+    def _detectar_lado_desde_texto(self, texto: str) -> str:
+        """Misma lógica que _detectar_lado_rapido pero usando texto ya extraído (evita doble OCR)."""
+        if not texto or len(texto.strip()) < 30:
+            return "indeterminado"
+        texto_upper = texto.upper()
+        lineas_mrz = re.findall(r"[A-Z0-9<]{20,}", texto_upper)
+        tiene_mrz = False
+        if lineas_mrz:
+            concatenado = "".join(lineas_mrz)
+            if concatenado.count("<") >= 2 and ("<<" in concatenado or re.search(r"[A-Z]{2,}<+[A-Z]", concatenado)):
+                tiene_mrz = True
+        if tiene_mrz:
+            return "reverso"
+        tiene_curp = bool(re.search(r"CURP|CLAVE\s+UNICA\s+DE\s+POBLACION", texto_upper))
+        tiene_clave_elector = bool(re.search(r"CLAVE\s+DE\s+ELECTOR|CLAVE\s+ELECTOR", texto_upper))
+        tiene_seccion = bool(re.search(r"SECCION\s*\d|SECCI[OÓ]N\s*\d", texto_upper))
+        tiene_ine_header = bool(re.search(
+            r"CREDENCIAL\s+PARA\s+VOTAR|INSTITUTO\s+NACIONAL\s+ELECTORAL|ELECTORAL", texto_upper
+        ))
+        tiene_residencia = bool(re.search(
+            r"RESIDENCIA\s+TEMPORAL|RESIDENTE\s+TEMPORAL|INM\s|MIGRACION|NUE\s*[\.:\s]*\d", texto_upper
+        ))
+        if tiene_curp or tiene_clave_elector or (tiene_seccion and tiene_ine_header):
+            return "frente"
+        if tiene_residencia and not tiene_mrz:
+            return "frente"
+        return "indeterminado"
+
+    def _detectar_lado_rapido(self, image_bytes: bytes) -> str:
+        """
+        OCR rápido para saber si la imagen es frente o reverso.
+        Reverso: tiene zona MRZ (líneas largas con < y alfanuméricos).
+        Frente: tiene marcadores típicos del frente (CURP, CLAVE DE ELECTOR, SECCION, etc.)
+        y no MRZ claro. No basta con INSTITUTO/CREDENCIAL porque el reverso también los trae.
+        """
+        try:
+            texto = self.ocr_analyzer.extraer_texto_raw(image_bytes)
+        except Exception:
+            return "indeterminado"
+        return self._detectar_lado_desde_texto(texto or "")
 
     def _auto_detectar_tipo(self, image_bytes: bytes) -> TipoDocumento:
         try:

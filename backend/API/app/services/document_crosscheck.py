@@ -68,6 +68,92 @@ def _nombres_coinciden(n1: str, n2: str) -> bool:
     return len(comunes) >= 2
 
 
+def _texto_de_pdf(pdf_bytes: bytes) -> str:
+    """Extrae todo el texto de un PDF. Devuelve '' si falla."""
+    if not PYMUPDF_AVAILABLE:
+        return ""
+    try:
+        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+        texto = ""
+        for page in doc:
+            texto += page.get_text() + "\n"
+        doc.close()
+        return texto or ""
+    except Exception:
+        return ""
+
+
+def es_documento_nss(pdf_bytes: bytes) -> bool:
+    """True si el PDF es constancia de NSS del IMSS (texto identificativo)."""
+    t = _texto_de_pdf(pdf_bytes).upper()
+    if not t:
+        return False
+    # Instituto Mexicano del Seguro Social + Asignación de Número de Seguridad Social u Homoclave
+    if "INSTITUTO MEXICANO DEL SEGURO SOCIAL" not in t:
+        return False
+    if "ASIGNACIÓN DE NÚMERO DE SEGURIDAD SOCIAL" in t or "ASIGNACION DE NUMERO DE SEGURIDAD SOCIAL" in t:
+        return True
+    if "HOMOCLAVE" in t or "HOMOCLAVE DEL TRAMITE" in t or re.search(r"IMSS-\d{2}-\d{3}", t):
+        return True
+    return False
+
+
+def es_documento_curp(pdf_bytes: bytes) -> bool:
+    """True si el PDF es constancia de CURP (RENAPO)."""
+    t = _texto_de_pdf(pdf_bytes).upper()
+    t = t.replace("Á", "A").replace("É", "E").replace("Í", "I").replace("Ó", "O").replace("Ú", "U")
+    if not t:
+        return False
+    # Constancia + Clave única / CURP / registro de población
+    if "CONSTANCIA" in t and ("CLAVE UNICA" in t or "CURP" in t or "REGISTRO DE POBLACION" in t):
+        return True
+    # Estados Unidos Mexicanos + Constancia (formato oficial)
+    if "ESTADOS UNIDOS MEXICANOS" in t and "CONSTANCIA" in t:
+        return True
+    # RENAPO (emisor) + constancia o CURP
+    if "RENAPO" in t and ("CONSTANCIA" in t or "CURP" in t):
+        return True
+    return False
+
+
+def es_documento_constancia_fiscal(pdf_bytes: bytes) -> bool:
+    """True si el PDF es constancia de situación fiscal (SAT)."""
+    t = _texto_de_pdf(pdf_bytes).upper()
+    t = t.replace("Á", "A").replace("É", "E").replace("Í", "I").replace("Ó", "O").replace("Ú", "U")
+    if not t:
+        return False
+    if "CONSTANCIA DE SITUACION FISCAL" in t:
+        return True
+    if "CEDULA DE IDENTIFICACION FISCAL" in t:
+        return True
+    return False
+
+
+def es_documento_acta_nacimiento(pdf_bytes: bytes) -> bool:
+    """True si el PDF parece acta/certificado de nacimiento (texto identificativo)."""
+    t = _texto_de_pdf(pdf_bytes).upper()
+    t = t.replace("Á", "A").replace("É", "E").replace("Í", "I").replace("Ó", "O").replace("Ú", "U")
+    if not t:
+        return False
+    # Frases exactas
+    if "ACTA DE NACIMIENTO" in t or "CERTIFICADO DE NACIMIENTO" in t or "CERTIDIFCADO DE NACIMIENTO" in t:
+        return True
+    if "CERTIFICACION DE NACIMIENTO" in t:
+        return True
+    # Variantes: acta + nacimiento, certificado + nacimiento, registro civil + nacimiento
+    if ("ACTA" in t or "ACTA N" in t or "ACTA NUMERO" in t) and "NACIMIENTO" in t:
+        return True
+    if "CERTIFICADO" in t and "NACIMIENTO" in t:
+        return True
+    if "REGISTRO CIVIL" in t and "NACIMIENTO" in t:
+        return True
+    if ("INSCRIPCION" in t or "INSCRITO" in t or "SE INSCRIBE" in t) and "NACIMIENTO" in t:
+        return True
+    if "NACIDO" in t and ("REGISTRO" in t or "ACTA" in t or "LIBRO" in t or "FOLIO" in t):
+        return True
+    return False
+
+
 def extraer_datos_curp_pdf(pdf_bytes: bytes) -> Dict[str, Any]:
     """Extrae nombre, CURP y fecha de emisión de la constancia CURP (PDF RENAPO).
     Estructura del PDF RENAPO:

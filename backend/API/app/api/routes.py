@@ -2,6 +2,7 @@
 """
 Endpoints de la API REST.
 """
+import asyncio
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, Query, Body
 from fastapi.security.api_key import APIKeyHeader
 from typing import Optional
@@ -9,7 +10,7 @@ from loguru import logger
 
 import time
 from app.models.schemas import (
-    VerificacionResponse, TipoDocumento, ErrorResponse, ComprobanteResponse
+    VerificacionResponse, VerificacionCalidadResponse, TipoDocumento, ErrorResponse, ComprobanteResponse
 )
 from app.services.verificacion import VerificacionService
 from app.services.comprobante_analyzer import ComprobanteAnalyzer
@@ -19,6 +20,7 @@ from app.services.document_crosscheck import (
     extraer_datos_curp_pdf, extraer_datos_nss_pdf,
     extraer_datos_constancia_fiscal, extraer_datos_acta_nacimiento,
     validacion_cruzada,
+    es_documento_nss, es_documento_curp, es_documento_constancia_fiscal, es_documento_acta_nacimiento,
 )
 from app.core.config import get_settings
 
@@ -111,6 +113,47 @@ async def verificar_documento(
 
 
 @router.post(
+    "/verificar-calidad",
+    response_model=VerificacionCalidadResponse,
+    summary="Verificación ligera de calidad de imagen (identificación)",
+    description="""
+    Primera revisión rápida: comprueba que la imagen no esté borrosa,
+    sin exceso de brillo/reflejos y que parezca un documento.
+    Si se envía **lado_esperado** (frente o reverso), además valida que la imagen
+    corresponda a ese lado (MRZ = reverso, CURP/CREDENCIAL = frente).
+    """,
+    tags=["Verificación"]
+)
+async def verificar_calidad_documento(
+    imagen: UploadFile = File(..., description="Imagen del documento (frente o reverso)"),
+    lado_esperado: Optional[str] = Query(None, description="Si es 'frente' o 'reverso', se valida que la imagen sea de ese lado"),
+    api_key: str = Depends(verificar_api_key)
+):
+    validar_imagen(imagen)
+    image_bytes = await imagen.read()
+    if len(image_bytes) == 0:
+        raise HTTPException(status_code=400, detail="Imagen vacía")
+    if len(image_bytes) > MAX_SIZE_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail=f"Imagen muy grande. Máximo {settings.max_image_size_mb}MB"
+        )
+    if lado_esperado is not None and lado_esperado not in ("frente", "reverso"):
+        lado_esperado = None
+    try:
+        service = VerificacionService()
+        return await service.verificar_calidad(image_bytes, lado_esperado=lado_esperado)
+    except Exception as e:
+        logger.exception(f"Error en verificación calidad: {e}")
+        return VerificacionCalidadResponse(
+            ok=False,
+            mensaje="No se pudo verificar la imagen. Intenta de nuevo.",
+            alertas=[str(e)],
+            lado_detectado=None,
+        )
+
+
+@router.post(
     "/verificar-comprobante",
     response_model=ComprobanteResponse,
     summary="Verificar comprobante de domicilio",
@@ -155,15 +198,32 @@ async def verificar_comprobante(
         if check.alertas:
             recomendacion = check.alertas[0]
 
+        tipo_label = ""
+        if check.tipo_comprobante == "CFE_LUZ":
+            tipo_label = "luz (CFE)"
+        elif check.tipo_comprobante == "AGUA":
+            tipo_label = "agua"
+        elif check.tipo_comprobante == "GAS":
+            tipo_label = "gas"
+        elif check.tipo_comprobante == "TELEFONO_INTERNET":
+            tipo_label = "teléfono o internet"
+        elif check.tipo_comprobante == "BANCO":
+            tipo_label = "banco"
+        elif check.tipo_comprobante == "PREDIAL":
+            tipo_label = "predial"
+        elif check.tipo_comprobante:
+            tipo_label = (check.tipo_comprobante or "").replace("_", " ").title()
+        prefijo = f"Comprobante de {tipo_label} rechazado: " if tipo_label else "Comprobante rechazado: "
+
         if check.es_reciente is False:
             resultado = "RECHAZADO"
-            recomendacion = f"Comprobante con {check.meses_antiguedad or 0} meses de antigüedad. Se requiere máximo 3 meses."
+            recomendacion = prefijo + f"tiene {check.meses_antiguedad or 0} meses de antigüedad. Se requiere máximo 3 meses."
         elif check.es_reciente is None and not check.fecha_documento:
             resultado = "RECHAZADO"
-            recomendacion = "No se detectó fecha en el comprobante. La fecha debe ser visible y el documento tener máximo 3 meses de antigüedad."
+            recomendacion = prefijo + "no se pudo verificar la fecha o tiene más de 3 meses de antigüedad."
         elif score >= 75 and check.es_reciente is True:
             resultado = "APROBADO"
-            recomendacion = "Comprobante válido y reciente. Puede procesarse."
+            recomendacion = f"Comprobante de {tipo_label} válido y reciente. Puede procesarse." if tipo_label else "Comprobante válido y reciente. Puede procesarse."
         elif score >= 50:
             resultado = "REVISION_MANUAL"
             recomendacion = "Comprobante requiere revisión manual."
@@ -218,35 +278,100 @@ async def verificar_nss_documento(
     api_key: str = Depends(verificar_api_key)
 ):
     if not documento.filename or not documento.filename.lower().endswith(".pdf"):
-        raise HTTPException(status_code=400, detail="Se requiere un archivo PDF")
+        raise HTTPException(status_code=400, detail="Se requiere un archivo PDF de constancia de NSS")
     file_bytes = await documento.read()
     if len(file_bytes) == 0:
         raise HTTPException(status_code=400, detail="Documento vacío")
+    if not es_documento_nss(file_bytes):
+        return {"nss_extraido": None, "valido": False, "mensaje": "El documento no es la constancia de NSS del IMSS. Sube el PDF de la constancia de número de seguridad social."}
     nss_extraido = extraer_nss_de_pdf(file_bytes)
     if nss_extraido is None:
-        return {"nss_extraido": None, "valido": False, "mensaje": "No se encontró un NSS de 11 dígitos en el documento"}
+        return {"nss_extraido": None, "valido": False, "mensaje": "No se encontró un NSS de 11 dígitos en el documento. Sube la constancia de NSS del IMSS."}
     valido, mensaje = validar_nss(nss_extraido)
     return {"nss_extraido": nss_extraido, "valido": valido, "mensaje": mensaje}
 
 
 @router.post(
-    "/verificar-curp-documento",
-    summary="Extraer y validar CURP desde PDF (constancia RENAPO)",
-    description="Sube un PDF de constancia de CURP (ej. CURP.pdf). Se extrae el CURP del texto y se valida. Retorna curp_extraido, valido, mensaje y vigencia (es_reciente, meses_antiguedad).",
+    "/verificar-acta-documento",
+    summary="Verificar que el PDF sea un acta de nacimiento",
+    description="Sube un PDF de acta de nacimiento certificada. Verifica que contenga nombre y/o fecha de nacimiento propios del acta. Rechaza constancias de NSS u otros documentos.",
     tags=["Utilidades"]
 )
-async def verificar_curp_documento(
-    documento: UploadFile = File(..., description="PDF constancia de CURP (ej. CURP.pdf)"),
+async def verificar_acta_documento(
+    documento: UploadFile = File(..., description="PDF de acta de nacimiento certificada"),
     api_key: str = Depends(verificar_api_key)
 ):
     if not documento.filename or not documento.filename.lower().endswith(".pdf"):
-        raise HTTPException(status_code=400, detail="Se requiere un archivo PDF")
+        raise HTTPException(status_code=400, detail="Se requiere un archivo PDF de acta de nacimiento")
     file_bytes = await documento.read()
     if len(file_bytes) == 0:
         raise HTTPException(status_code=400, detail="Documento vacío")
+    if es_documento_nss(file_bytes):
+        return {"valido": False, "mensaje": "El documento es una constancia de NSS del IMSS. En este campo solo se acepta el acta de nacimiento certificada en PDF."}
+    datos = extraer_datos_acta_nacimiento(file_bytes)
+    # Muy flexible: si el extractor obtuvo fecha o nombre (incluso con baja confianza, ej. escaneos/manuscritos), aceptar
+    if datos.get("fecha_nacimiento") or datos.get("nombre"):
+        return {"valido": True, "mensaje": "Acta de nacimiento verificada.", "nombre": datos.get("nombre"), "fecha_nacimiento": datos.get("fecha_nacimiento")}
+    # Si hay texto extraído y coincide con acta por encabezados, aceptar
+    if datos.get("texto_extraido") and es_documento_acta_nacimiento(file_bytes):
+        return {"valido": True, "mensaje": "Acta de nacimiento verificada.", "nombre": datos.get("nombre"), "fecha_nacimiento": datos.get("fecha_nacimiento")}
+    # Documento con texto que parece acta pero no se pudo extraer fecha/nombre (ej. manuscrito muy cerrado)
+    if es_documento_acta_nacimiento(file_bytes):
+        return {"valido": True, "mensaje": "Acta de nacimiento verificada (revisión manual recomendada).", "nombre": None, "fecha_nacimiento": None}
+    if datos.get("texto_extraido"):
+        return {"valido": False, "mensaje": "No se pudo leer nombre ni fecha en el documento. Sube el PDF del acta certificada (evita imágenes muy borrosas o manuscritas)."}
+    return {"valido": False, "mensaje": "El documento no es un acta de nacimiento. Sube el PDF del acta certificada."}
+
+
+@router.post(
+    "/verificar-constancia-fiscal-documento",
+    summary="Verificar que el PDF sea constancia de situación fiscal (SAT)",
+    description="Sube un PDF de constancia de situación fiscal del SAT. Verifica que contenga RFC y/o CURP.",
+    tags=["Utilidades"]
+)
+async def verificar_constancia_fiscal_documento(
+    documento: UploadFile = File(..., description="PDF de constancia de situación fiscal (SAT)"),
+    api_key: str = Depends(verificar_api_key)
+):
+    if not documento.filename or not documento.filename.lower().endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="Se requiere un archivo PDF de constancia de situación fiscal")
+    file_bytes = await documento.read()
+    if len(file_bytes) == 0:
+        raise HTTPException(status_code=400, detail="Documento vacío")
+    if es_documento_nss(file_bytes):
+        return {"valido": False, "mensaje": "El documento es la constancia de NSS del IMSS. En este campo solo se acepta la constancia de situación fiscal del SAT (descargada del portal del SAT)."}
+    if not es_documento_constancia_fiscal(file_bytes):
+        return {"valido": False, "mensaje": "El documento no es una constancia de situación fiscal del SAT. Sube el PDF descargado del portal del SAT."}
+    datos = extraer_datos_constancia_fiscal(file_bytes)
+    if datos.get("rfc") or (datos.get("curp") and validar_curp(datos["curp"])[0]):
+        return {"valido": True, "mensaje": "Constancia fiscal verificada.", "rfc": datos.get("rfc"), "curp": datos.get("curp")}
+    return {"valido": False, "mensaje": "El documento no parece ser una constancia de situación fiscal del SAT. Sube el PDF descargado del portal del SAT."}
+
+
+@router.post(
+    "/verificar-curp-documento",
+    summary="Extraer y validar CURP desde PDF (constancia RENAPO)",
+    description="Sube un PDF de constancia de CURP (ej. CURP.pdf). Se extrae el CURP del texto y se valida. No acepta constancia fiscal ni otros documentos.",
+    tags=["Utilidades"]
+)
+async def verificar_curp_documento(
+    documento: UploadFile = File(..., description="PDF constancia de CURP (RENAPO, no constancia fiscal)"),
+    api_key: str = Depends(verificar_api_key)
+):
+    if not documento.filename or not documento.filename.lower().endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="Se requiere un archivo PDF de constancia de CURP")
+    file_bytes = await documento.read()
+    if len(file_bytes) == 0:
+        raise HTTPException(status_code=400, detail="Documento vacío")
+    if es_documento_nss(file_bytes):
+        return {"curp_extraido": None, "valido": False, "mensaje": "El documento es la constancia de NSS del IMSS. En este campo solo se acepta la constancia de CURP del RENAPO.", "es_reciente": None, "meses_antiguedad": None, "fecha_emision": None}
+    if es_documento_constancia_fiscal(file_bytes):
+        return {"curp_extraido": None, "valido": False, "mensaje": "El documento es una constancia de situación fiscal (SAT). En este campo solo se acepta la constancia de CURP del RENAPO.", "es_reciente": None, "meses_antiguedad": None, "fecha_emision": None}
+    if not es_documento_curp(file_bytes):
+        return {"curp_extraido": None, "valido": False, "mensaje": "El documento no es una constancia de CURP. Sube el PDF de la constancia del RENAPO.", "es_reciente": None, "meses_antiguedad": None, "fecha_emision": None}
     curp_extraido = extraer_curp_de_pdf(file_bytes)
     if curp_extraido is None:
-        return {"curp_extraido": None, "valido": False, "mensaje": "No se encontró un CURP válido en el documento",
+        return {"curp_extraido": None, "valido": False, "mensaje": "No se encontró un CURP válido en el documento. Sube la constancia de CURP del RENAPO.",
                 "es_reciente": None, "meses_antiguedad": None, "fecha_emision": None}
     valido, mensaje = validar_curp(curp_extraido)
     datos = extraer_datos_curp_pdf(file_bytes)
@@ -311,17 +436,19 @@ async def validar_expediente(
     try:
         inicio = time.time()
         service = VerificacionService()
-        res_frente = await service.verificar(frente_bytes, tipo_documento)
-        res_reverso = await service.verificar(reverso_bytes, tipo_documento)
+        res_frente, res_reverso = await asyncio.gather(
+            service.verificar(frente_bytes, tipo_documento),
+            service.verificar(reverso_bytes, tipo_documento),
+        )
 
         ocr_f = res_frente.checks.ocr_campos
         ocr_r = res_reverso.checks.ocr_campos
         calidad = res_frente.checks.forense.calidad_foto
 
-        datos_curp = extraer_datos_curp_pdf(curp_pdf_bytes) if curp_pdf_bytes else None
-        datos_nss = extraer_datos_nss_pdf(nss_pdf_bytes) if nss_pdf_bytes else None
-        datos_fiscal = extraer_datos_constancia_fiscal(fiscal_pdf_bytes) if fiscal_pdf_bytes else None
-        datos_acta = extraer_datos_acta_nacimiento(acta_pdf_bytes) if acta_pdf_bytes else None
+        datos_curp = await asyncio.to_thread(extraer_datos_curp_pdf, curp_pdf_bytes) if curp_pdf_bytes else None
+        datos_nss = await asyncio.to_thread(extraer_datos_nss_pdf, nss_pdf_bytes) if nss_pdf_bytes else None
+        datos_fiscal = await asyncio.to_thread(extraer_datos_constancia_fiscal, fiscal_pdf_bytes) if fiscal_pdf_bytes else None
+        datos_acta = await asyncio.to_thread(extraer_datos_acta_nacimiento, acta_pdf_bytes) if acta_pdf_bytes else None
 
         resultado = validacion_cruzada(
             id_frente_curp=ocr_f.curp.get("valor") if ocr_f.curp else None,

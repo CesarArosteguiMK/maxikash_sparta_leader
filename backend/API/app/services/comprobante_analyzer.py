@@ -17,30 +17,129 @@ from app.models.schemas import CheckComprobante, TipoComprobante
 
 EMPRESAS_CONOCIDAS = {
     TipoComprobante.CFE_LUZ: {
-        "patrones": [r"COMISI[OÓ]N FEDERAL DE ELECTRICIDAD", r"CFE\s*3708", r"RFC:\s*CFE"],
+        "patrones": [
+            r"COMISI[OÓ]N FEDERAL DE ELECTRICIDAD",
+            r"CFE\s*3708",
+            r"RFC:\s*CFE",
+            r"\bCFE\b",
+            r"SUMINISTRO\s+EL[EÉ]CTRICO",
+            r"ELECTRICIDAD\s+.*(?:RECIBO|PAGO|FACTURA)",
+            r"RECIBO\s+DE\s+PAGO\s+.*(?:ELECTRICIDAD|CFE|LUZ)",
+            r"L[EÉ]CTURA\s+(?:ANTERIOR|ACTUAL)",
+            r"KWH\s*[\(\)]",
+            r"KILOWATTS?\s+(?:HORA|CONSUMIDOS)",
+            r"TARIFA\s+(?:DAC|1|2|3)\b",
+            r"DEMANDA\s+CONTRACTUAL",
+            r"L[IÍ]NEA\s+DE\s+TRANSMISI[OÓ]N",
+            r"FIDE\s*[\(\)]",
+            r"Luz\s+CFE",
+            r"ENERG[IÍ]A\s+EL[EÉ]CTRICA",
+        ],
         "nombre": "CFE / Luz",
     },
     TipoComprobante.AGUA: {
-        "patrones": [r"SISTEMA DE AGUAS", r"SACMEX", r"SIAPA", r"COMISI[OÓ]N\s+ESTATAL\s+DE\s+AGUA",
-                      r"ORGANISMO\s+DE\s+AGUA", r"JUNTA\s+DE\s+AGUA"],
+        "patrones": [
+            r"SISTEMA\s+DE\s+AGUAS",
+            r"SACMEX",
+            r"SIAPA",
+            r"COMISI[OÓ]N\s+ESTATAL\s+DE\s+AGUA",
+            r"ORGANISMO\s+DE\s+AGUA",
+            r"JUNTA\s+DE\s+AGUA",
+            r"AGUA\s+POTABLE",
+            r"RECIBO\s+DE\s+AGUA",
+            r"PAGO\s+DE\s+AGUA",
+            r"SERVICIO\s+DE\s+AGUA",
+            r"CONAGUA",
+            r"OPERADORA\s+DE\s+AGUA",
+            r"CAPAMA",
+            r"COMISI[OÓ]N\s+(?:NACIONAL|ESTATAL)\s+DEL\s+AGUA",
+            r"M[EÉ]TROS?\s+C[UÚ]BICOS?\s+DE\s+AGUA",
+            r"CONSUMO\s+DE\s+AGUA",
+            r"DRENAJE\s+Y\s+ALCANTARILLADO",
+        ],
         "nombre": "Agua",
     },
     TipoComprobante.GAS: {
-        "patrones": [r"GAS NATURAL", r"NATURGY", r"CALMEX\s+GAS"],
+        "patrones": [
+            r"GAS NATURAL",
+            r"NATURGY",
+            r"CALMEX\s+GAS",
+            r"RECIBO\s+DE\s+GAS",
+            r"GAS\s+(?:NATURAL|LP|DOMICILIARIO)",
+            r"TANQUE\s+ESTACIONARIO",
+            r"PEMEX\s+GAS",
+            r"GAS\s+LICUADO",
+            r"METROS?\s+C[UÚ]BICOS?\s+.*GAS",
+            r"CONSUMO\s+DE\s+GAS",
+            r"REPSOL",
+            r"GAS\s+EXPRESS",
+        ],
         "nombre": "Gas",
     },
     TipoComprobante.TELEFONO_INTERNET: {
-        "patrones": [r"TEL[EÉ]FONOS DE M[EÉ]XICO", r"TELMEX", r"MEGACABLE", r"IZZI",
-                      r"TOTALPLAY", r"AXTEL"],
+        "patrones": [
+            r"TEL[EÉ]FONOS DE M[EÉ]XICO",
+            r"TELMEX",
+            r"MEGACABLE",
+            r"IZZI",
+            r"TOTALPLAY",
+            r"AXTEL",
+            r"RECIBO\s+.*(?:TEL[EÉ]FONO|INTERNET|TELEVISI[OÓ]N)",
+            r"SERVICIO\s+DE\s+(?:TELEFON[IÍ]A|INTERNET|CABLE)",
+            r"PAQUETE\s+(?:TRIPLE|DOBLE)\s+PLAY",
+            r"FACTURA\s+.*(?:TELMEX|IZZI|TOTALPLAY|MEGACABLE)",
+            r"SKY\s+",
+            r"DISH\s+",
+            r"STAR TV",
+            r"INFINITUM",
+            r"INTERNET\s+(?:ILIMITADO|FIBRA)",
+            r"TELEFON[IÍ]A\s+FIJA",
+        ],
         "nombre": "Teléfono / Internet",
     },
     TipoComprobante.BANCO: {
-        "patrones": [r"ESTADO DE CUENTA", r"BBVA", r"SANTANDER", r"BANORTE", r"HSBC",
-                      r"SCOTIABANK", r"CITIBANAMEX", r"BANCO AZTECA", r"INBURSA"],
+        "patrones": [
+            r"ESTADO\s+DE\s+CUENTA",
+            r"BBVA",
+            r"BANCO\s+BBVA",
+            r"SANTANDER",
+            r"BANORTE",
+            r"HSBC",
+            r"SCOTIABANK",
+            r"CITIBANAMEX",
+            r"CITI\s+BANAMEX",
+            r"BANCO\s+AZTECA",
+            r"INBURSA",
+            r"BANCO\s+DEL\s+BIENESTAR",
+            r"BANCOPPEL",
+            r"BANCO\s+REGIONAL",
+            r"AFIRME",
+            r"BANCO\s+MIFEL",
+            r"CLABE\s+INTERBANCARIA",
+            r"CLABE\s*\d{18}",
+            r"TARJETA\s+.*(?:D[EÉ]BITO|CR[EÉ]DITO)",
+            r"CUENTA\s+BANCARIA",
+            r"N[UÚ]MERO\s+DE\s+CUENTA\s*\d{10,}",
+            r"SUCURSAL\s+\d+",
+            r"BANCO\s+[A-Z]+",
+        ],
         "nombre": "Banco",
     },
     TipoComprobante.PREDIAL: {
-        "patrones": [r"PREDIAL", r"IMPUESTO PREDIAL", r"TESORER[IÍ]A"],
+        "patrones": [
+            r"PREDIAL",
+            r"IMPUESTO\s+PREDIAL",
+            r"TESORER[IÍ]A",
+            r"PAGO\s+PREDIAL",
+            r"CATASTRO",
+            r"CONTRIBUYENTE\s+.*(?:PREDIAL|INMUEBLE)",
+            r"DESCRIPCI[OÓ]N\s+DEL\s+INMUEBLE",
+            r"CLAVE\s+CATASTRAL",
+            r"ADMINISTRACI[OÓ]N\s+DE\s+INGRESOS",
+            r"COBRO\s+DE\s+PREDIAL",
+            r"RECIBO\s+DE\s+PREDIAL",
+            r"Gobierno\s+(?:Municipal|Estatal).*predial",
+        ],
         "nombre": "Predial",
     },
 }
@@ -73,14 +172,16 @@ class ComprobanteAnalyzer:
         r"PASAPORTE|PASSPORT",
     ]
 
-    # Patrones que indican CONSTANCIA FISCAL (SAT), no comprobante de domicilio
+    # Patrones que indican CONSTANCIA FISCAL (SAT), no comprobante de domicilio.
+    # No usar solo "RFC:" porque recibos de luz, agua y banco también muestran el RFC del titular.
     PATRONES_CONSTANCIA_FISCAL = [
         r"CONSTANCIA\s+DE\s+SITUACI[OÓ]N\s+FISCAL",
         r"SERVICIO\s+DE\s+ADMINISTRACI[OÓ]N\s+TRIBUTARIA",
         r"SAT\s*M[EÉ]XICO",
-        r"CLAVE\s+DE\s+REGISTRO\s+FEDERAL",
-        r"RFC\s*:\s*[A-Z&Ñ]{3,4}\d{6}[A-Z0-9]{3}",
+        r"CLAVE\s+DE\s+REGISTRO\s+FEDERAL\s+DE\s+CONTRIBUYENTES",
         r"ADMINISTRACI[OÓ]N\s+TRIBUTARIA",
+        r"PRESENTE\s+CONSTANCIA\s+SE\s+HACE\s+DE\s+CONOCER",
+        r"PORTAL\s+DEL\s+SAT",
     ]
 
     # Patrones que indican CONSTANCIA CURP (RENAPO), no comprobante
@@ -118,6 +219,12 @@ class ComprobanteAnalyzer:
         if not texto or len(texto) < 20:
             return None
         texto_upper = texto.upper()
+
+        # Primero: si parece un comprobante de domicilio (luz, agua, banco, etc.), no rechazar
+        tipo_comprobante, _ = self._detectar_tipo_empresa(texto_upper)
+        if tipo_comprobante is not None:
+            return None
+
         for pat in self.PATRONES_IDENTIFICACION:
             if re.search(pat, texto_upper, re.IGNORECASE):
                 return (
@@ -334,6 +441,33 @@ class ComprobanteAnalyzer:
             for patron in info["patrones"]:
                 if re.search(patron, texto, re.IGNORECASE):
                     return tipo, info["nombre"]
+        # Fallback: inferir por palabras clave cuando el texto no tiene nombre de empresa claro
+        tipo_fallback, nombre_fallback = self._detectar_tipo_por_claves(texto)
+        if tipo_fallback:
+            return tipo_fallback, nombre_fallback
+        return None, None
+
+    def _detectar_tipo_por_claves(self, texto: str):
+        """Inferir tipo de comprobante por palabras clave cuando no hay match de empresa."""
+        t = texto.upper()
+        # Luz: KWH, kilowatts, tarifa DAC, lectura anterior/actual
+        if re.search(r"\bKWH\b|\bKILOWATTS?\b|L[EÉ]CTURA\s+(?:ANTERIOR|ACTUAL)|TARIFA\s+DAC", t) or re.search(r"CFE|ELECTRICIDAD", t):
+            return TipoComprobante.CFE_LUZ, "CFE / Luz"
+        # Agua: m³ agua, consumo agua, drenaje
+        if re.search(r"M[EÉ]TROS?\s+C[UÚ]BICOS?|CONSUMO\s+DE\s+AGUA|DRENAJE|AGUA\s+POTABLE", t) and not re.search(r"\bGAS\b", t):
+            return TipoComprobante.AGUA, "Agua"
+        # Gas: m³ gas, gas natural, tanque
+        if re.search(r"\bGAS\b|TANQUE\s+ESTACIONARIO|GAS\s+LP|PEMEX\s+GAS", t):
+            return TipoComprobante.GAS, "Gas"
+        # Banco: CLABE, estado de cuenta, número de cuenta largo, sucursal
+        if re.search(r"CLABE|ESTADO\s+DE\s+CUENTA|N[UÚ]MERO\s+DE\s+CUENTA|SUCURSAL\s+\d+|TARJETA\s+(?:D[EÉ]BITO|CR[EÉ]DITO)", t):
+            return TipoComprobante.BANCO, "Banco"
+        # Predial: clave catastral, impuesto predial, contribuyente inmueble
+        if re.search(r"CLAVE\s+CATASTRAL|IMPUESTO\s+PREDIAL|CONTRIBUYENTE.*INMUEBLE|PAGO\s+PREDIAL", t):
+            return TipoComprobante.PREDIAL, "Predial"
+        # Teléfono/Internet: número telefónico, paquete, internet, factura telmex/izi/totalplay
+        if re.search(r"PAQUETE\s+(?:TRIPLE|DOBLE)|INTERNET\s+ILIMITADO|TELEFON[IÍ]A|N[UÚ]MERO\s+TELEF[OÓ]NICO|TELMEX|IZZI|TOTALPLAY|MEGACABLE", t):
+            return TipoComprobante.TELEFONO_INTERNET, "Teléfono / Internet"
         return None, None
 
     def _extraer_nombre_titular(self, texto: str, tipo: Optional[TipoComprobante]) -> Optional[str]:
@@ -387,31 +521,44 @@ class ComprobanteAnalyzer:
 
     def _extraer_fecha_documento(self, texto: str):
         """
-        Extrae la fecha del comprobante usando solo fechas con contexto de vigencia:
-        límite de pago, fecha de impresión/generado, corte, periodo facturado (fin).
-        Usa la MÁS RECIENTE de esas para no rechazar por números que parezcan fechas (ej. 16-07-28).
+        Extrae la fecha del comprobante usando fechas con contexto de vigencia.
+        Prioriza LÍMITE DE PAGO y CORTE A PARTIR (del recibo, p. ej. "29 FEB 2025")
+        para no usar por error fechas de texto genérico en otras páginas (ej. "Corte a partir del 29 NOV 2025").
         """
         texto_upper = texto.upper()
         candidatos = []
+        candidatos_canonicos = []  # Solo LÍMITE DE PAGO y CORTE A PARTIR con dos puntos (recibo)
 
-        def add_dmy(dia: int, mes_str: str, anio: int, etiqueta: str):
+        def add_dmy(dia: int, mes_str: str, anio: int, etiqueta: str, canonico: bool = False):
             mes = MESES_ES.get(mes_str)
             if mes and 1 <= dia <= 31 and 2015 <= anio <= 2030:
                 fecha = datetime(anio, mes, dia)
                 candidatos.append((f"{dia:02d}/{mes:02d}/{anio}", fecha, etiqueta))
+                if canonico:
+                    candidatos_canonicos.append((f"{dia:02d}/{mes:02d}/{anio}", fecha, etiqueta))
 
-        def add_dmy_num(dia: int, mes: int, anio: int, etiqueta: str):
+        def add_dmy_num(dia: int, mes: int, anio: int, etiqueta: str, canonico: bool = False):
             if 1 <= mes <= 12 and 1 <= dia <= 31 and 2015 <= anio <= 2030:
                 if anio < 100:
                     anio += 2000
                 fecha = datetime(anio, mes, dia)
                 candidatos.append((f"{dia:02d}/{mes:02d}/{anio}", fecha, etiqueta))
+                if canonico:
+                    candidatos_canonicos.append((f"{dia:02d}/{mes:02d}/{anio}", fecha, etiqueta))
 
-        # Límite de pago: 28 NOV 2025
-        m = re.search(r"L[IÍ]MITE\s+DE\s+PAGO\s*:\s*(\d{1,2})\s+([A-Z]{3,})\s+(\d{4})", texto_upper)
+        # Límite de pago: 28 FEB 2025 o 28FEB 2026 (espacio opcional entre día y mes)
+        m = re.search(r"L[IÍ]MITE\s+DE\s+PAGO\s*:\s*(\d{1,2})\s*([A-Z]{3,})\s+(\d{4})", texto_upper)
         if m:
             try:
-                add_dmy(int(m.group(1)), m.group(2).upper()[:3], int(m.group(3)), "limite_pago")
+                add_dmy(int(m.group(1)), m.group(2).upper()[:3], int(m.group(3)), "limite_pago", canonico=True)
+            except (ValueError, KeyError):
+                pass
+
+        # CORTE A PARTIR: 29 FEB 2025 o 29FEB 2026 (espacio opcional entre día y mes)
+        m = re.search(r"CORTE\s+A\s+PARTIR\s*:\s*(\d{1,2})\s*([A-Z]{3,})\s+(\d{4})", texto_upper)
+        if m:
+            try:
+                add_dmy(int(m.group(1)), m.group(2).upper()[:3], int(m.group(3)), "corte", canonico=True)
             except (ValueError, KeyError):
                 pass
 
@@ -431,15 +578,16 @@ class ComprobanteAnalyzer:
             except (ValueError, KeyError):
                 pass
 
-        # Corte a partir del / Fecha de corte
-        m = re.search(r"CORTE\s+(?:A\s+PARTIR\s+(?:DEL?\s+)?|:)\s*(\d{1,2})\s+([A-Z]{3,})\s+(\d{4})", texto_upper)
-        if m:
-            try:
-                add_dmy(int(m.group(1)), m.group(2).upper()[:3], int(m.group(3)), "corte")
-            except (ValueError, KeyError):
-                pass
+        # Corte a partir del (sin dos puntos; puede ser texto genérico en otra página) — solo si no hay canonicos
+        if not candidatos_canonicos:
+            m = re.search(r"CORTE\s+A\s+PARTIR\s+(?:DEL?\s+)?(\d{1,2})\s+([A-Z]{3,})\s+(\d{4})", texto_upper)
+            if m:
+                try:
+                    add_dmy(int(m.group(1)), m.group(2).upper()[:3], int(m.group(3)), "corte_del")
+                except (ValueError, KeyError):
+                    pass
 
-        # Periodo facturado: fin del periodo (ej. 10 NOV 25)
+        # Periodo facturado: fin del periodo (ej. 10 FEB 25)
         m = re.search(r"PERIODO\s+(?:FACTURADO|DE\s+CONSUMO)\s*:\s*\d{1,2}\s+[A-Z]{3}\s+\d{2,4}\s*[-aA]\s*(\d{1,2})\s+([A-Z]{3,})\s+(\d{2,4})", texto_upper)
         if m:
             try:
@@ -459,7 +607,7 @@ class ComprobanteAnalyzer:
                 pass
 
         if not candidatos:
-            # Fallback: cualquier fecha razonable en el documento y usar la más reciente
+            # Fallback: cualquier fecha razonable en el documento
             for m in re.finditer(r"(\d{1,2})[/-](\d{1,2})[/-](\d{4})", texto_upper):
                 try:
                     add_dmy_num(int(m.group(1)), int(m.group(2)), int(m.group(3)), "fallback")
@@ -473,8 +621,9 @@ class ComprobanteAnalyzer:
 
         if not candidatos:
             return None, None
-        # Usar la fecha MÁS RECIENTE entre las de contexto de vigencia
-        fecha_str, fecha_obj, _ = max(candidatos, key=lambda x: x[1])
+        # Usar fechas canónicas del recibo (LÍMITE DE PAGO / CORTE A PARTIR :) si existen; si no, la más reciente
+        elegir = candidatos_canonicos if candidatos_canonicos else candidatos
+        fecha_str, fecha_obj, _ = max(elegir, key=lambda x: x[1])
         return fecha_str, fecha_obj
 
     def _verificar_antiguedad(self, fecha: Optional[datetime]):
