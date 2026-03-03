@@ -5114,6 +5114,11 @@ class CapHum extends Controller
                 // Ocultar panel de indicadores de Gestión y mostrar panel de Bajas
                 $('#panelIndicadoresGestion').hide();
                 $('#panelIndicadoresBajas').show();
+
+                // Revelar celdas KPI ahora que el panel es visible
+                if (typeof window.kpiRevealCellsB === 'function') {
+                    setTimeout(window.kpiRevealCellsB, 120);
+                }
                 
                 // Mostrar filtro de fecha
                 $('#filtroFechaBajas').show();
@@ -6364,6 +6369,8 @@ class CapHum extends Controller
                 'id_pais' => $p['id_pais'] ?? 0,
                 'nombre_pais' => $p['nombre_pais'] ?? 'Sin país',
                 'codigo_iso_pais' => $p['codigo_iso_pais'] ?? 'xx',
+                'fecha_ingreso' => $p['fecha_ingreso'] ?? null,
+                'fecha_registro' => $p['fecha_registro'] ?? null,
             ];
         }, $usuarios);
 

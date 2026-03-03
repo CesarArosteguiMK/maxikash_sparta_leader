@@ -43,6 +43,7 @@ function getMenu()
                     ]
             ],
         
+            /* MÓDULO INDICADORES — deshabilitado temporalmente (comentar para re-activar)
             'Indicadores' => [
                     'icono' => 'fa-solid fa-chart-line',
                     'subItems' => [
@@ -128,6 +129,7 @@ function getMenu()
                         ]
                     ]
             ],
+            */
             
             'Capital Humano' => [
                     'icono' => 'fa-solid fa-users',
@@ -380,9 +382,6 @@ html.dark-mode .navbar .text-muted{color:#94a3b8 !important;}
     <!-- Icons -->
     <link rel="stylesheet" href="/assets/vendor/fonts/fontawesome.css" />
     <link rel="stylesheet" href="/assets/vendor/fonts/flag-icons.css" />
-
-    <!-- Preload resources -->
-    <link rel="preload" href="/assets/img/wait.svg" as="image">
 
     <!-- Core CSS -->
     <link rel="stylesheet" href="/assets/vendor/css/core.css" />

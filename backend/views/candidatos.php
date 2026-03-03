@@ -6,28 +6,26 @@ $candidatos = $candidatos ?? [];
 ?>
 <div class="content-wrapper">
     <div class="card">
-        <!-- Filtros -->
-        <div class="card-header border-bottom">
-            <h5 class="card-title mb-0">Nuevos Candidatos</h5>
-            <div class="row pt-3 g-2">
-                <div class="col-md-4">
-                    <select id="filterEstatus" class="form-select form-select-sm">
-                        <option value="">Todos los estatus</option>
-                        <option value="Por evaluar">Por evaluar</option>
-                        <option value="En entrevista">En entrevista</option>
-                        <option value="Contratado">Contratado</option>
-                        <option value="Descartado">Descartado</option>
-                    </select>
-                </div>
-                <div class="col-md-2">
-                    <button type="button" class="btn btn-primary btn-sm" id="btnFiltrarCandidatos" onclick="getCandidatos()">
-                        <i class="fa fa-filter"></i> Filtrar
-                    </button>
-                </div>
+        <div class="card-header border-bottom d-flex flex-wrap align-items-center justify-content-between gap-2">
+            <h5 class="card-title mb-0">Candidatos</h5>
+            <div class="d-flex align-items-center gap-2">
+                <select id="filterEstatus" class="form-select form-select-sm" style="max-width: 180px;">
+                    <option value="">Todos los estatus</option>
+                    <option value="Por evaluar">Por evaluar</option>
+                    <option value="En entrevista">En entrevista</option>
+                    <option value="Contratado">Contratado</option>
+                    <option value="Descartado">Descartado</option>
+                </select>
+                <button type="button" class="btn btn-primary btn-action-size" id="btnFiltrarCandidatos" onclick="getCandidatos()">
+                    <i class="fa fa-filter"></i>
+                    <span class="d-inline-block">Filtrar</span>
+                </button>
+                <button type="button" class="btn btn-primary btn-action-size" data-bs-toggle="offcanvas" data-bs-target="#offcanvasAddCandidato">
+                    <i class="bx bx-plus"></i>
+                    <span class="d-inline-block">Agregar Candidato</span>
+                </button>
             </div>
         </div>
-
-        <!-- KPIs (mismo tamaño que Gestión y Bajas) -->
         <?php
         $totalCand = count($candidatos);
         $porEvaluar = count(array_filter($candidatos, function($c) { return ($c['estatus'] ?? '') === 'Por evaluar'; }));
@@ -68,19 +66,6 @@ $candidatos = $candidatos ?? [];
                 </div>
             </div>
         </div>
-
-        <!-- Botón Agregar Candidato (sin Plantilla) -->
-        <div class="row justify-content-between m-4">
-            <div class="col-8"></div>
-            <div class="col-4 d-flex align-items-end justify-content-end">
-                <button type="button" class="btn btn-primary add-new btn-action-size"
-                    data-bs-toggle="offcanvas" data-bs-target="#offcanvasAddCandidato">
-                    <i class="bx bx-plus me-2"></i>
-                    <span class="d-inline-block">Agregar Candidato</span>
-                </button>
-            </div>
-        </div>
-
         <!-- Tabla -->
         <div class="card-datatable table-responsive">
             <table id="tablaCandidatos" class="table table-bordered table-hover border-top" style="width:100%">
@@ -121,6 +106,8 @@ $candidatos = $candidatos ?? [];
             </table>
         </div>
     </div>
+</div>
+
 </div>
 
 <!-- Modal Documentación del candidato -->
@@ -287,6 +274,8 @@ $candidatos = $candidatos ?? [];
 <div class="link-documentos-toast" id="toastUrlDocumentos" role="status" aria-live="polite">✓ URL copiada al portapapeles</div>
 
 <style>
+.btn-action-size { height: 36px; padding: 0.375rem 0.75rem; font-size: 0.875rem; display: inline-flex; align-items: center; gap: 0.375rem; }
+#tablaCandidatos thead th { background-color: rgba(105, 108, 255, 0.1); font-weight: 600; }
 /* Offcanvas candidato siempre visible por encima del layout */
 #offcanvasAddCandidato.offcanvas { z-index: 1060 !important; }
 .offcanvas-backdrop { z-index: 1055 !important; }

@@ -1106,6 +1106,12 @@ class SegundometroDAO extends Model
     }
 
     /**
+     * Segundos desde la hora del reporte para considerar "procesando" antes de consultar BD.
+     * Tras este tiempo se consulta la BD y se muestra ok/error.
+     */
+    private static $ESTADO_PROCESANDO_SEGUNDOS = 240; // 4 minutos
+
+    /**
      * Estado de reportes consultando solo BD (sin SSH).
      * BD: __SPARTA_SECRET_REDACTED__, tabla: tbl_segundometro_semana, columnas Dias_mora_Dia_HH_MM con slots fijos.
      * La hora del archivo se mapea al slot correspondiente (ej. 16_31 → 16_30).
@@ -1152,7 +1158,7 @@ class SegundometroDAO extends Model
             $slot = self::horaArchivoASlot($hh, $mm);
             $columna = 'Dias_mora_' . $diaStr . '_' . $slot;
             $diffSegundos = $ahora->getTimestamp() - $tiempoReporte->getTimestamp();
-            if ($diffSegundos < 240) {
+            if ($diffSegundos < self::$ESTADO_PROCESANDO_SEGUNDOS) {
                 $estados[$nombre] = 'procesando';
                 continue;
             }

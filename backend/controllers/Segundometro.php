@@ -366,7 +366,16 @@ class Segundometro extends Controller
                 if (nombresPendientes.length === 0) return;
                 fetch('/segundometro/estadoReportes', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Front-Request': 'true' }, body: JSON.stringify({ nombres: nombresPendientes }) })
                     .then(function(r){ return r.json(); })
-                    .then(function(data){ if (data.success && data.estados) { for (var k in data.estados) estadoReportesCache[k] = data.estados[k]; renderArchivos(archivosActuales, estadoReportesCache); } })
+                    .then(function(data){
+                        if (data.success && data.estados) {
+                            for (var k in data.estados) estadoReportesCache[k] = data.estados[k];
+                            renderArchivos(archivosActuales, estadoReportesCache);
+                        }
+                        if (data.hora_servidor_cdmx) {
+                            var el = document.getElementById('segundometroHoraServidor');
+                            if (el) el.textContent = data.hora_servidor_cdmx;
+                        }
+                    })
                     .catch(function(){});
             }
             function programarRefrescos() {
@@ -621,6 +630,8 @@ class Segundometro extends Controller
                 programarRefrescos();
                 setTimeout(function(){ actualizarEstadoReportes(); }, 2500);
                 segundometroEstadoInterval = setInterval(function() { if (!document.hidden) actualizarEstadoReportes(); }, 60000);
+                // Hora del servidor (CDMX) para revisar desfase del reloj — se actualiza también con estadoReportes; aquí por si no hay archivos pendientes
+                fetch('/segundometro/horaServidor', { headers: { 'Front-Request': 'true' } }).then(function(r){ return r.json(); }).then(function(d){ if (d.hora_servidor_cdmx) { var el = document.getElementById('segundometroHoraServidor'); if (el) el.textContent = d.hora_servidor_cdmx; } }).catch(function(){});
                 var btnTruncar = document.getElementById('btnTruncarSegundometro');
                 if (btnTruncar) btnTruncar.addEventListener('click', truncarSegundometro);
                 var btnDiag = document.getElementById('btnDiagnosticoSSH');
@@ -1005,6 +1016,17 @@ class Segundometro extends Controller
     }
 
     /**
+     * Hora del servidor en CDMX (para revisar desfase del reloj). GET → { hora_servidor_cdmx: "Y-m-d H:i:s T" }
+     */
+    public function horaServidor()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        $tz = new \DateTimeZone('America/Mexico_City');
+        $hora = (new \DateTime('now', $tz))->format('Y-m-d H:i:s T');
+        echo json_encode(['success' => true, 'hora_servidor_cdmx' => $hora]);
+    }
+
+    /**
      * Estado de reportes por BD (sin SSH). POST con { nombres: [...] } → { estados: { nombre: 'ok'|'error'|'procesando' } }
      */
     public function estadoReportes()
@@ -1022,9 +1044,12 @@ class Segundometro extends Controller
                 $nombres = $_POST['nombres'];
             }
             $estados = SegundometroDAO::obtenerEstadoReportesPorBD($nombres);
+            $tz = new \DateTimeZone('America/Mexico_City');
+            $horaServidorCDMX = (new \DateTime('now', $tz))->format('Y-m-d H:i:s T');
             self::respuestaJSON([
                 'success' => true,
-                'estados' => $estados
+                'estados' => $estados,
+                'hora_servidor_cdmx' => $horaServidorCDMX
             ]);
         } catch (\Exception $e) {
             self::respuestaJSON([

@@ -25,6 +25,8 @@ class Candidatos extends Model
                 c.id_departamento,
                 c.estatus,
                 c.notas,
+                c.estatus,
+                c.notas,
                 c.postulacion_enviada,
                 c.fecha_registro,
                 c.fecha_actualizacion,
@@ -78,6 +80,7 @@ class Candidatos extends Model
                 c.apellidop,
                 c.apellidom,
                 c.email,
+                c.telefono,
                 c.telefono,
                 c.id_pais,
                 c.id_puesto,
@@ -252,7 +255,7 @@ class Candidatos extends Model
             return self::resultado(false, 'Error al eliminar candidato.', null, $e->getMessage());
         }
     }
-
+    
     /**
      * Obtener o crear token único para link de subida de documentos del candidato.
      * Retorna el token (string) para construir la URL.
