@@ -233,6 +233,16 @@ function getMenu()
                             ]
                     ]
             ],
+            'Onboarding' => [
+                    'icono' => 'fa-solid fa-graduation-cap',
+                    'subItems' => [
+                            [
+                                    'label' => 'Curso Onboarding',
+                                    'url' => '/onboarding/index',
+                                    'modulos' => []
+                            ]
+                    ]
+            ],
             'Configuración' => [
                     'icono' => 'fa-solid fa-cog',
                     'subItems' => [

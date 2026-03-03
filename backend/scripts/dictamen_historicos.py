@@ -68,18 +68,18 @@ def traer_base1(engine):
     print("📥 [1/4] Trayendo dictámenes Base 1 (__SPARTA_SECRET_REDACTED__.legacy_historico)...")
 
     query = """
-        SELECT id_credit, dictamen_for, fecha_dictamen, rn
+        SELECT id_credit, comentarios_generales, fecha_dictamen, rn
         FROM (
             SELECT
                 id_credit,
-                dictamen_for,
+                comentarios_generales,
                 fecha_dictamen,
                 ROW_NUMBER() OVER (
                     PARTITION BY id_credit
                     ORDER BY fecha_dictamen DESC
                 ) AS rn
             FROM __SPARTA_SECRET_REDACTED__.legacy_historico
-            WHERE contacto = 'Campo'
+            WHERE contacto != 'Campo' 
         ) ranked
         WHERE rn <= 15
     """
@@ -97,18 +97,18 @@ def traer_base2(engine):
     print("📥 [2/4] Trayendo dictámenes Base 2 (__SPARTA_SECRET_REDACTED__.base_clientes)...")
 
     query = """
-        SELECT id_credito, dictamen_campo, fecha_carga_base, rn
+        SELECT id_credito, dictamen_ccc, fecha_carga_base, rn
         FROM (
             SELECT
                 id_credito,
-                dictamen_campo,
+                dictamen_ccc,
                 fecha_carga_base,
                 ROW_NUMBER() OVER (
                     PARTITION BY id_credito
                     ORDER BY fecha_carga_base DESC
                 ) AS rn
             FROM `__SPARTA_SECRET_REDACTED__`.base_clientes
-            WHERE contacto = 'Campo'
+            WHERE contacto = 'Telefono'
         ) ranked
         WHERE rn <= 15
     """
@@ -133,7 +133,7 @@ def procesar(df_reporte, df_base1, df_base2):
     # dict { id_credit: [dictamen1, dictamen2, ...] }
     grp1 = (
         df_base1.sort_values(["id_credit", "rn"])
-                .groupby("id_credit")["dictamen_for"]
+                .groupby("id_credit")["comentarios_generales"]
                 .apply(list).to_dict()
     )
 
@@ -142,7 +142,7 @@ def procesar(df_reporte, df_base1, df_base2):
     if not df_base2.empty:
         grp2 = (
             df_base2.sort_values(["id_credito", "rn"])
-                    .groupby("id_credito")["dictamen_campo"]
+                    .groupby("id_credito")["dictamen_ccc"]
                     .apply(list).to_dict()
         )
 
