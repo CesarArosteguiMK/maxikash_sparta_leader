@@ -9,20 +9,13 @@ from loguru import logger
 from datetime import datetime
 
 from app.models.schemas import CheckOCR, TipoDocumento
-from app.utils.curp_validator import validar_curp
+from app.utils.curp_validator import validar_curp, extraer_datos_curp
 from app.core.config import get_settings
 
 
 def _tesseract_cmd():
     s = get_settings()
-    c = getattr(s, "tesseract_cmd", None) or ""
-    if c and c != "/usr/bin/tesseract":
-        return c
-    try:
-        pytesseract.get_tesseract_version()
-        return None
-    except Exception:
-        return "tesseract"
+    return getattr(s, "tesseract_cmd", None) or "tesseract"
 
 
 class OCRAnalyzer:
@@ -42,7 +35,8 @@ class OCRAnalyzer:
                 TipoDocumento.RESIDENCIA_PERMANENTE,
             ]:
                 mrz_text = self._extraer_mrz_dedicado(image_bytes)
-                texto_con_mrz = texto_completo + "\n" + mrz_text
+                zona_datos = self._extraer_texto_zona_datos(image_bytes)
+                texto_con_mrz = texto_completo + "\n" + zona_datos + "\n" + mrz_text
                 return self._validar_residencia(texto_con_mrz, tipo_doc)
             else:
                 return self._validacion_generica(texto_completo)
@@ -82,15 +76,46 @@ class OCRAnalyzer:
         texto = pytesseract.image_to_string(img, config=f"--oem 3 --psm 6 -l {lang}")
         return texto.upper()
 
+    def _extraer_texto_psm(self, img: Image.Image, psm: int, lang: str = "spa+eng") -> str:
+        texto = pytesseract.image_to_string(img, config=f"--oem 3 --psm {psm} -l {lang}")
+        return texto.upper()
+
     def _extraer_mejor_texto(self, image_bytes: bytes) -> str:
+        """Extrae texto con varias variantes de imagen y PSM para maximizar detección (CURP, clave, etc.)."""
         img_cv = self._base_cv(image_bytes)
         variantes = self._variants(img_cv)
-        mejor = ""
+        textos = []
+        # PSM 6=bloque, 3=auto, 4=columna, 11=texto disperso (robusto para credenciales)
         for v in variantes:
-            t = self._extraer_texto(v)
-            if len(t.strip()) > len(mejor.strip()):
-                mejor = t
-        return mejor
+            for psm in (6, 3, 4, 11):
+                t = self._extraer_texto_psm(v, psm)
+                if t.strip():
+                    textos.append(t)
+        if not textos:
+            return ""
+        todo = "\n".join(textos)
+        return todo.upper()
+
+    def _extraer_texto_zona_datos(self, image_bytes: bytes) -> str:
+        """Recorta la zona derecha de la imagen (donde suelen estar CURP, NUE, fechas) y aplica OCR.
+        Reduce ruido de foto/logos para mejorar lectura de campos."""
+        img_cv = self._base_cv(image_bytes)
+        h, w = img_cv.shape[:2]
+        # Zona aprox. 40% ancho a la derecha (campos de datos en credenciales INM/INE)
+        x_ini = int(w * 0.38)
+        zona = img_cv[:, x_ini:]
+        gray = cv2.cvtColor(zona, cv2.COLOR_BGR2GRAY)
+        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+        enhanced = clahe.apply(gray)
+        textos = []
+        for psm in (11, 6, 4):
+            t = pytesseract.image_to_string(
+                Image.fromarray(enhanced),
+                config=f"--oem 3 --psm {psm} -l spa+eng"
+            ).upper().strip()
+            if t:
+                textos.append(t)
+        return "\n".join(textos) if textos else ""
 
     def _extraer_mrz_dedicado(self, image_bytes: bytes) -> str:
         """Recorta el 35% inferior de la imagen (zona MRZ) y aplica OCR optimizado."""
@@ -121,17 +146,38 @@ class OCRAnalyzer:
     def extraer_texto_raw(self, image_bytes: bytes) -> str:
         return self._extraer_mejor_texto(image_bytes)
 
+    def _buscar_curp_ine(self, texto_compacto: str):
+        """Busca candidatos a CURP de 18 caracteres con posibles confusiones OCR (0/O, 1/I) y corrige."""
+        # Candidatos: 4 letras + 6 dígitos + H/M + 5 letras + 2 alfanum
+        patron = re.compile(
+            r"[A-Z0-9]{4}[0-9]{6}[HM0-9][A-Z0-9]{5}[A-Z0-9]{2}",
+            re.IGNORECASE
+        )
+        for m in patron.finditer(texto_compacto):
+            raw = m.group().upper()
+            if len(raw) != 18:
+                continue
+            corregido = self._corregir_curp(raw)
+            if validar_curp(corregido)[0]:
+                return corregido
+        return None
+
     def _validar_ine(self, texto: str) -> CheckOCR:
         alertas = []
         score = 1.0
         campos_detectados = 0
         campos_validos = 0
+        texto_compacto = re.sub(r"\s+", "", texto)
 
-        curp_match = re.search(r"[A-Z]{4}\d{6}[HM][A-Z]{5}[A-Z0-9]\d", texto)
+        # CURP: patrón estricto primero; si no, buscar 18 chars alfanuméricos y corregir confusiones OCR
         curp_resultado = None
+        curp_match = re.search(r"[A-Z]{4}\d{6}[HM][A-Z]{5}[A-Z0-9]{2}", texto_compacto)
         if curp_match:
-            campos_detectados += 1
             curp_valor = curp_match.group()
+        else:
+            curp_valor = self._buscar_curp_ine(texto_compacto)
+        if curp_valor:
+            campos_detectados += 1
             es_valido, mensaje = validar_curp(curp_valor)
             curp_resultado = {"valor": curp_valor, "valido": es_valido, "detalle": mensaje}
             if es_valido:
@@ -143,17 +189,20 @@ class OCRAnalyzer:
             alertas.append("CURP no detectado")
             score -= 0.15
 
-        clave_match = re.search(r"[A-Z]{6}\d{8}[HM]\d{3}", texto)
+        # Clave de elector: 6 letras + 8 dígitos + H/M + 3 dígitos (18 chars); permitir espacios
         clave_resultado = None
+        clave_match = re.search(r"[A-Z]{6}\d{8}[HM]\d{3}", texto_compacto)
+        if not clave_match:
+            clave_match = re.search(r"[A-Z0-9]{6}\d{8}[HM0-9]\d{3}", texto_compacto)
         if clave_match:
-            campos_detectados += 1
             clave_valor = clave_match.group()
-            es_valida = len(clave_valor) == 18
-            clave_resultado = {"valor": clave_valor, "formato": es_valida}
-            if es_valida:
+            if len(clave_valor) == 18:
+                clave_resultado = {"valor": clave_valor, "formato": True}
+                campos_detectados += 1
                 campos_validos += 1
             else:
-                alertas.append("Clave de elector formato incorrecto")
+                clave_resultado = {"valor": clave_valor, "formato": False}
+                campos_detectados += 1
                 score -= 0.15
         else:
             alertas.append("Clave de elector no detectada")
@@ -220,10 +269,16 @@ class OCRAnalyzer:
 
     @staticmethod
     def _corregir_curp(raw: str) -> str:
-        """Corrige confusiones comunes de Tesseract en CURP (18 chars).
-        Estructura: AAAA######H/MAAAAA##
-        Posiciones 0-3: letras, 4-9: dígitos, 10: H/M, 11-15: letras, 16: dígito, 17: alfanum.
-        Usa el validador oficial para elegir la mejor corrección."""
+        """Corrige confusiones OCR en CURP (18 chars).
+
+        Reglas según RENAPO:
+          Pos 0-3: letras    Pos 4-9: dígitos (AAMMDD)    Pos 10: H/M
+          Pos 11-12: estado  Pos 13-15: consonantes internas
+          Pos 16: homoclave — dígito (pre-2000) o letra (2000+)
+          Pos 17: dígito verificador (0-9; en CURPs recientes puede ser A-Z)
+
+        Detecta el siglo por el código de año para saber si pos 16 debe ser
+        letra o dígito, y genera combinaciones ambiguas para pos 16-17."""
         c = list(raw.upper().strip())
         if len(c) < 17:
             return raw
@@ -238,36 +293,63 @@ class OCRAnalyzer:
         for i in [0, 1, 2, 3, 11, 12, 13, 14, 15]:
             if i < len(c) and c[i] in digit_to_letter:
                 c[i] = digit_to_letter[c[i]]
-        if len(c) >= 17 and c[16] in letter_to_digit:
-            c[16] = letter_to_digit[c[16]]
+
+        year_code = -1
+        try:
+            year_code = int("".join(c[4:6]))
+        except ValueError:
+            pass
+        probably_2000_plus = 0 <= year_code <= 30
+
+        if probably_2000_plus:
+            if c[16].isdigit() and c[16] in digit_to_letter:
+                c[16] = digit_to_letter[c[16]]
+        else:
+            if c[16] in letter_to_digit:
+                c[16] = letter_to_digit[c[16]]
 
         base = "".join(c)
-        if len(base) == 18:
-            es_valido, _ = validar_curp(base)
-            if es_valido:
-                return base
+        if len(base) == 18 and validar_curp(base)[0]:
+            return base
 
         if len(c) >= 18:
-            ambiguous_digit_options = {
+            ambig = {
                 "O": ["0"], "S": ["9", "5"], "I": ["1"], "Z": ["2"],
                 "B": ["8"], "G": ["9", "6"], "D": ["0"], "Q": ["9", "0"],
             }
-            orig_17 = raw.upper().strip()[17] if len(raw.strip()) >= 18 else c[17]
-            candidates = [orig_17]
-            if orig_17 in ambiguous_digit_options:
-                candidates = ambiguous_digit_options[orig_17]
-            candidates.extend([str(d) for d in range(10)])
+            orig = list(raw.upper().strip()[:18])
+
+            if probably_2000_plus:
+                p16_opts = [c[16]]
+                if orig[16].isdigit() and orig[16] in digit_to_letter:
+                    p16_opts.insert(0, digit_to_letter[orig[16]])
+                p16_opts += [chr(i) for i in range(ord("A"), ord("Z") + 1)]
+                p16_opts += [str(d) for d in range(10)]
+            else:
+                p16_opts = [c[16]]
+                if orig[16] in ambig:
+                    p16_opts = list(ambig[orig[16]]) + p16_opts
+                p16_opts += [str(d) for d in range(10)]
+
+            p17_opts = []
+            if orig[17] in ambig:
+                p17_opts = list(ambig[orig[17]])
+            p17_opts += [str(d) for d in range(10)]
+            p17_opts += [chr(i) for i in range(ord("A"), ord("Z") + 1)]
+
             seen = set()
-            for ch17 in candidates:
-                if ch17 in seen:
-                    continue
-                seen.add(ch17)
-                test = list(c)
-                test[17] = ch17
-                candidate = "".join(test)
-                es_valido, _ = validar_curp(candidate)
-                if es_valido:
-                    return candidate
+            for ch16 in p16_opts:
+                for ch17 in p17_opts:
+                    key = (ch16, ch17)
+                    if key in seen:
+                        continue
+                    seen.add(key)
+                    test = list(c)
+                    test[16] = ch16
+                    test[17] = ch17
+                    candidate = "".join(test)
+                    if validar_curp(candidate)[0]:
+                        return candidate
 
         return base
 
@@ -295,24 +377,40 @@ class OCRAnalyzer:
         for linea in lineas_mrz + [all_mrz]:
             linea = linea.replace(" ", "")
 
-            name_match = re.search(r"([A-Z]{2,})<+([A-Z]{2,})(?:<+([A-Z]{2,}))?<", linea)
+            # Nombre completo: APELLIDO1<APELLIDO2<<NOMBRE1<NOMBRE2< (ej. GONZALEZ<LEYVA<<LAZARO<RAUDEL<)
+            name_match = re.search(r"([A-Z]{2,})<+([A-Z]{2,})<<([A-Z]+(?:<[A-Z]+)*)", linea)
             if name_match and "apellido_paterno" not in resultado:
                 apellido = name_match.group(1)
-                segundo = name_match.group(2) or ""
-                nombre = name_match.group(3) or ""
+                segundo = name_match.group(2)
+                nombre_raw = name_match.group(3).rstrip("<")
+                nombre = " ".join(nombre_raw.split("<")) if nombre_raw else ""
                 if len(apellido) >= 2:
                     resultado["apellido_paterno"] = apellido
-                    if segundo and nombre:
-                        resultado["apellido_materno"] = segundo
-                        resultado["nombre"] = nombre
-                    elif segundo:
-                        resultado["nombre"] = segundo
+                    resultado["apellido_materno"] = segundo
+                    resultado["nombre"] = nombre or segundo
+                if nombre:
+                    resultado["nombre_completo"] = f"{apellido} {segundo} {nombre}".strip()
+
+            # Fallback nombre con regex más corta
+            if "nombre_completo" not in resultado:
+                name_match = re.search(r"([A-Z]{2,})<+([A-Z]{2,})(?:<+([A-Z]{2,}))?<", linea)
+                if name_match and "apellido_paterno" not in resultado:
+                    apellido = name_match.group(1)
+                    segundo = name_match.group(2) or ""
+                    nombre = name_match.group(3) or ""
+                    if len(apellido) >= 2:
+                        resultado["apellido_paterno"] = apellido
+                        if segundo:
+                            resultado["apellido_materno"] = segundo
+                        if nombre:
+                            resultado["nombre"] = nombre
+                        resultado["nombre_completo"] = f"{apellido} {segundo} {nombre}".strip()
 
             doc_match = re.search(r"I<MEX(\d{8})", linea)
             if doc_match and "numero_documento" not in resultado:
                 resultado["numero_documento"] = doc_match.group(1)
 
-            fecha_match = re.search(r"(\d{6})[MF](\d{6})", linea)
+            fecha_match = re.search(r"(\d{6})\d?[MF](\d{6})", linea)
             if fecha_match and "fecha_nacimiento" not in resultado:
                 nac_raw = fecha_match.group(1)
                 venc_raw = fecha_match.group(2)
@@ -334,6 +432,106 @@ class OCRAnalyzer:
 
         return resultado
 
+    def _extraer_curp_cerca_de_etiqueta(self, texto_norm: str):
+        """Extrae CURP cuando aparece junto a la etiqueta 'CURP' o 'CLAVE UNICA'. Robusto para el frente.
+        Solo usa ventana de texto tras la etiqueta; no inventa desde MRZ."""
+        etiquetas = [
+            r"CURP\s*[\.:\s]*",
+            r"CLAVE\s+UNICA\s*[\.:\s]*",
+            r"CL\.?\s*UNICA\s*[\.:\s]*",
+        ]
+        for et in etiquetas:
+            for m in re.finditer(et, texto_norm, re.IGNORECASE):
+                fin = m.end()
+                # Ventana amplia (hasta 50 chars) por si hay salto de línea entre etiqueta y valor
+                ventana = texto_norm[fin:fin + 50]
+                ventana_compacta = re.sub(r"\s+", "", ventana)
+                if len(ventana_compacta) < 18:
+                    continue
+                estricto = re.search(r"[A-Z]{4}\d{6}[HM][A-Z]{5}[A-Z0-9]{2}", ventana_compacta)
+                if estricto:
+                    raw = estricto.group()
+                    if validar_curp(raw)[0]:
+                        return raw
+                    corregido = self._corregir_curp(raw)
+                    if validar_curp(corregido)[0]:
+                        return corregido
+                # Una letra en zona de 6 dígitos (ej. O por 0)
+                flex = re.search(r"[A-Z]{4}[A-Z0-9]{6}[HM][A-Z0-9]{5}[A-Z0-9]{2}", ventana_compacta)
+                if flex:
+                    raw = flex.group()
+                    if len(raw) == 18:
+                        corregido = self._corregir_curp(raw)
+                        if validar_curp(corregido)[0]:
+                            return corregido
+                flex2 = re.search(r"[A-Z0-9]{4}\d{6}[HM][A-Z0-9]{5}[A-Z0-9]{2}", ventana_compacta)
+                if flex2:
+                    raw = flex2.group()
+                    if len(raw) == 18:
+                        corregido = self._corregir_curp(raw)
+                        if validar_curp(corregido)[0]:
+                            return corregido
+                # Ultra-flexible: 4 letras seguidas de 14 alfanuméricos (cubre cualquier confusión OCR)
+                ultra = re.search(r"[A-Z]{4}[A-Z0-9]{14}", ventana_compacta)
+                if ultra:
+                    raw = ultra.group()[:18]
+                    corregido = self._corregir_curp(raw)
+                    if validar_curp(corregido)[0]:
+                        return corregido
+        # Fallback: buscar primera coincidencia estricta o corregible en todo el texto
+        # solo si hay contexto de documento (CURP o RESIDENTE) para no coger MRZ
+        if "CURP" in texto_norm or "RESIDENTE" in texto_norm or "CLAVE UNICA" in texto_norm.upper():
+            for m in re.finditer(r"[A-Z]{4}\d{6}[HM][A-Z]{5}[A-Z0-9]{2}", texto_norm):
+                raw = m.group()
+                if validar_curp(raw)[0]:
+                    return raw
+                corregido = self._corregir_curp(raw)
+                if validar_curp(corregido)[0]:
+                    return corregido
+            # Patrón que permite una letra en zona de 6 dígitos (OCR lee O como 0)
+            for m in re.finditer(r"[A-Z]{4}[A-Z0-9]{6}[HM][A-Z0-9]{5}[A-Z0-9]{2}", texto_norm):
+                raw = m.group()
+                if len(raw) != 18:
+                    continue
+                pos = m.start()
+                linea_start = texto_norm.rfind("\n", 0, pos) + 1
+                linea_end = texto_norm.find("\n", pos)
+                if linea_end == -1:
+                    linea_end = len(texto_norm)
+                linea = texto_norm[linea_start:linea_end]
+                if re.search(r"\d{6}[MF]\d{6}", linea) and linea.count("<") >= 2:
+                    continue
+                corregido = self._corregir_curp(raw)
+                if validar_curp(corregido)[0]:
+                    return corregido
+        return None
+
+    @staticmethod
+    def _extraer_nombre_ocr(texto_norm: str) -> str:
+        """Extrae nombre del titular del texto OCR (no MRZ).
+        Busca cerca de etiquetas NOMBRE/NAME y limpia."""
+        labels = [
+            r"NOMBRE[S]?\s*[/|]\s*NAME\s*[\.:\s]*",
+            r"NOMBRE[S]?\s*[\.:\s]+",
+            r"NAME\s*[\.:\s]+",
+        ]
+        for lbl in labels:
+            for m in re.finditer(lbl, texto_norm, re.IGNORECASE):
+                ventana = texto_norm[m.end():m.end() + 100]
+                for delim in ["NACIONALIDAD", "NATIONALITY", "COUNTRY", "FECHA", "CURP", "NUE", "PERMISO"]:
+                    idx = ventana.upper().find(delim)
+                    if 0 < idx:
+                        ventana = ventana[:idx]
+                nombre = re.sub(r"[^A-Z\s]", "", ventana).strip()
+                nombre = re.sub(r"\s+", " ", nombre)
+                partes = nombre.split()
+                while partes and len(partes[0]) <= 2:
+                    partes.pop(0)
+                nombre = " ".join(partes)
+                if len(nombre) >= 4 and " " in nombre:
+                    return nombre
+        return None
+
     def _validar_residencia(self, texto: str, tipo_doc: TipoDocumento) -> CheckOCR:
         alertas = []
         score = 1.0
@@ -341,20 +539,25 @@ class OCRAnalyzer:
         campos_validos = 0
         texto_norm = self._normalizar(texto)
 
+        # Patrones para número de documento (NUE). Preferir "NUE:" y extraer solo los dígitos (group(1)).
         num_patterns = [
-            r"\d{2}[A-Z]\d{6,10}",
-            r"SEGOB[\-\s]*INM[\-\s]*(\d{6,12})",
-            r"(?:NO|NUM|NUE)[\.:\s]+(\d{6,15})",
-            r"0{4,}\d{5,}",
+            (r"NUE\s*[\.:\s]*(\d{11,15})", True),   # NUE: 0000002848625 → 0000002848625
+            (r"(?:NO\.|NUM|NUMERO)\s*[\.:\s]*(\d{6,15})", True),
+            (r"SEGOB[\-\s]*INM[\-\s]*(\d{6,12})", True),
+            (r"I<MEX(\d{8,12})", True),             # MRZ
+            (r"\b(\d{2}[A-Z]\d{6,10})\b", True),    # fallback formato corto
+            (r"0{4,}\d{5,}", False),                # sin grupo, valor completo
         ]
         num_doc_resultado = None
-        for pat in num_patterns:
+        for pat, use_group in num_patterns:
             m = re.search(pat, texto_norm)
             if m:
-                campos_detectados += 1
-                campos_validos += 1
-                num_doc_resultado = {"valor": m.group(), "formato": True}
-                break
+                valor = m.group(1).strip() if use_group and m.lastindex else m.group().strip()
+                if valor and len(valor) >= 6:
+                    campos_detectados += 1
+                    campos_validos += 1
+                    num_doc_resultado = {"valor": valor, "formato": True}
+                    break
         if not num_doc_resultado:
             alertas.append("Número de documento INM no detectado")
             score -= 0.10
@@ -389,20 +592,65 @@ class OCRAnalyzer:
             alertas.append(f"Tipo de residencia '{tipo_doc.value}' no confirmado en texto")
             score -= 0.10
 
-        curp_match = re.search(r"[A-Z0-9]{4}\d{4,6}[A-Z0-9]{2}[HM][A-Z0-9]{5}[A-Z0-9]{1,2}", texto_norm)
-        curp_resultado = None
-        if curp_match:
+        # CURP: 1) Extracción por etiqueta (robusta en frente); 2) líneas no-MRZ; 3) full-text estricto.
+        curp_resultado = self._extraer_curp_cerca_de_etiqueta(texto_norm)
+        if curp_resultado:
+            curp_resultado = {"valor": curp_resultado, "detectado": True}
+        if not curp_resultado:
+            lineas = [ln.strip() for ln in texto_norm.split("\n") if ln.strip()]
+            for linea in lineas:
+                if re.search(r"\d{6}[MF]\d{6}", linea) and linea.count("<") >= 2:
+                    continue
+                curp_match = re.search(r"[A-Z]{4}\d{6}[HM][A-Z]{5}[A-Z0-9]{2}", linea)
+                if curp_match:
+                    raw = curp_match.group()
+                    if len(raw) != 18:
+                        continue
+                    es_valido, _ = validar_curp(raw)
+                    if es_valido:
+                        curp_resultado = {"valor": raw, "detectado": True}
+                        break
+                    curp_corregido = self._corregir_curp(raw)
+                    if curp_corregido != raw and validar_curp(curp_corregido)[0]:
+                        curp_resultado = {"valor": curp_corregido, "detectado": True}
+                        break
+            if not curp_resultado:
+                for linea in lineas:
+                    if re.search(r"\d{6}[MF]\d{6}", linea) and linea.count("<") >= 2:
+                        continue
+                    match_flex = re.search(r"[A-Z0-9]{4}\d{6}[HM][A-Z0-9]{5}[A-Z0-9]{2}", linea)
+                    if match_flex:
+                        raw = match_flex.group()
+                        if len(raw) != 18:
+                            continue
+                        corregido = self._corregir_curp(raw)
+                        if validar_curp(corregido)[0]:
+                            curp_resultado = {"valor": corregido, "detectado": True}
+                            break
+            if not curp_resultado:
+                curp_match_any = re.search(r"[A-Z]{4}\d{6}[HM][A-Z]{5}[A-Z0-9]{2}", texto_norm)
+                if curp_match_any:
+                    raw = curp_match_any.group()
+                    if validar_curp(raw)[0]:
+                        curp_resultado = {"valor": raw, "detectado": True}
+        if curp_resultado:
             campos_detectados += 1
-            curp_val = self._corregir_curp(curp_match.group())
-            curp_resultado = {"valor": curp_val, "detectado": True}
             campos_validos += 1
 
         mrz = self._parsear_mrz(texto_norm)
+        mrz_nombre_completo = None
+        mrz_fecha_nacimiento = None
         if mrz:
-            if "nombre" in mrz:
+            if mrz.get("nombre_completo"):
+                mrz_nombre_completo = mrz["nombre_completo"]
+            elif mrz.get("nombre") or mrz.get("apellido_paterno"):
+                mrz_nombre_completo = f"{mrz.get('apellido_paterno', '')} {mrz.get('apellido_materno', '')} {mrz.get('nombre', '')}".strip()
+            if mrz.get("fecha_nacimiento"):
+                mrz_fecha_nacimiento = mrz["fecha_nacimiento"]
+            if "nombre" in mrz or "nombre_completo" in mrz:
                 campos_detectados += 1
                 campos_validos += 1
-                alertas.append(f"MRZ: {mrz.get('apellido_paterno', '')}<{mrz.get('apellido_materno', '')}<<{mrz.get('nombre', '')}")
+                alertas.append(f"MRZ nombre: {mrz_nombre_completo or (mrz.get('apellido_paterno', '') + '<' + mrz.get('apellido_materno', '') + '<<' + mrz.get('nombre', ''))}")
             if "numero_documento" in mrz and not num_doc_resultado:
                 campos_detectados += 1
                 campos_validos += 1
@@ -444,6 +692,38 @@ class OCRAnalyzer:
             alertas.append("Fechas de expedición/vencimiento no detectadas")
             score -= 0.10
 
+        nombre_ocr = self._extraer_nombre_ocr(texto_norm)
+        fecha_nacimiento_curp = None
+        if curp_resultado and curp_resultado.get("valor"):
+            datos_curp = extraer_datos_curp(curp_resultado["valor"])
+            if datos_curp.get("fecha_nacimiento"):
+                fecha_nacimiento_curp = datos_curp["fecha_nacimiento"]
+
+        cotejo = None
+        if mrz_nombre_completo and nombre_ocr:
+            n_front = set(nombre_ocr.upper().split())
+            n_mrz = set(mrz_nombre_completo.upper().split())
+            coinciden = n_front & n_mrz
+            nombre_ok = len(coinciden) >= 2
+            cotejo = {"nombre_coincide": nombre_ok, "palabras_comunes": sorted(coinciden)}
+            if nombre_ok:
+                alertas.append("Cotejo nombre frente↔reverso: COINCIDE")
+            else:
+                alertas.append(f"Cotejo nombre frente↔reverso: NO COINCIDE (frente={nombre_ocr}, MRZ={mrz_nombre_completo})")
+                score -= 0.10
+        if mrz_fecha_nacimiento and fecha_nacimiento_curp:
+            fecha_ok = mrz_fecha_nacimiento == fecha_nacimiento_curp
+            if cotejo is None:
+                cotejo = {}
+            cotejo["fecha_nacimiento_coincide"] = fecha_ok
+            cotejo["curp_fecha"] = fecha_nacimiento_curp
+            cotejo["mrz_fecha"] = mrz_fecha_nacimiento
+            if fecha_ok:
+                alertas.append("Cotejo fecha nacimiento CURP↔MRZ: COINCIDE")
+            else:
+                alertas.append(f"Cotejo fecha nacimiento CURP↔MRZ: NO COINCIDE ({fecha_nacimiento_curp} vs {mrz_fecha_nacimiento})")
+                score -= 0.10
+
         score = max(0.0, min(1.0, score))
         return CheckOCR(
             ok=score >= 0.5,
@@ -452,6 +732,11 @@ class OCRAnalyzer:
             tipo_residencia=tipo_resultado,
             fecha_expedicion=fecha_exp,
             fecha_vencimiento=fecha_venc,
+            nombre_ocr=nombre_ocr,
+            fecha_nacimiento_curp=fecha_nacimiento_curp,
+            mrz_nombre_completo=mrz_nombre_completo,
+            mrz_fecha_nacimiento=mrz_fecha_nacimiento,
+            cotejo_frente_reverso=cotejo,
             campos_detectados=campos_detectados,
             campos_validos=campos_validos,
             alertas=alertas,
@@ -459,7 +744,7 @@ class OCRAnalyzer:
         )
 
     def _validacion_generica(self, texto: str) -> CheckOCR:
-        curp_match = re.search(r"[A-Z]{4}\d{6}[HM][A-Z]{5}[A-Z0-9]\d", texto)
+        curp_match = re.search(r"[A-Z]{4}\d{6}[HM][A-Z]{5}[A-Z0-9]{2}", texto)
         curp_resultado = None
         if curp_match:
             es_valido, _ = validar_curp(curp_match.group())

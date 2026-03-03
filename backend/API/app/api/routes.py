@@ -2,7 +2,7 @@
 """
 Endpoints de la API REST.
 """
-from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, Query
+from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, Query, Body
 from fastapi.security.api_key import APIKeyHeader
 from typing import Optional
 from loguru import logger
@@ -13,6 +13,13 @@ from app.models.schemas import (
 )
 from app.services.verificacion import VerificacionService
 from app.services.comprobante_analyzer import ComprobanteAnalyzer
+from app.utils.nss_validator import validar_nss, extraer_nss_de_pdf
+from app.utils.curp_validator import validar_curp, extraer_curp_de_pdf
+from app.services.document_crosscheck import (
+    extraer_datos_curp_pdf, extraer_datos_nss_pdf,
+    extraer_datos_constancia_fiscal, extraer_datos_acta_nacimiento,
+    validacion_cruzada,
+)
 from app.core.config import get_settings
 
 router = APIRouter()
@@ -143,19 +150,23 @@ async def verificar_comprobante(
         tiempo_ms = int((time.time() - inicio) * 1000)
 
         score = round(check.score * 100)
-        if score >= 75 and check.es_reciente:
+        resultado = "RECHAZADO"
+        recomendacion = "Comprobante no válido o no se pudo verificar."
+        if check.alertas:
+            recomendacion = check.alertas[0]
+
+        if check.es_reciente is False:
+            resultado = "RECHAZADO"
+            recomendacion = f"Comprobante con {check.meses_antiguedad or 0} meses de antigüedad. Se requiere máximo 3 meses."
+        elif check.es_reciente is None and not check.fecha_documento:
+            resultado = "RECHAZADO"
+            recomendacion = "No se detectó fecha en el comprobante. La fecha debe ser visible y el documento tener máximo 3 meses de antigüedad."
+        elif score >= 75 and check.es_reciente is True:
             resultado = "APROBADO"
             recomendacion = "Comprobante válido y reciente. Puede procesarse."
         elif score >= 50:
             resultado = "REVISION_MANUAL"
             recomendacion = "Comprobante requiere revisión manual."
-        else:
-            resultado = "RECHAZADO"
-            recomendacion = "Comprobante no válido o no se pudo verificar."
-
-        if check.es_reciente is False:
-            resultado = "RECHAZADO"
-            recomendacion = f"Comprobante con {check.meses_antiguedad} meses de antigüedad. Máximo 3 meses."
 
         return ComprobanteResponse(
             tipo_comprobante=check.tipo_comprobante,
@@ -174,6 +185,182 @@ async def verificar_comprobante(
     except Exception as e:
         logger.exception(f"Error en verificación de comprobante: {e}")
         raise HTTPException(status_code=500, detail=f"Error procesando comprobante: {str(e)}")
+
+
+@router.post(
+    "/verificar-nss",
+    summary="Validar NSS (formato y dígito verificador)",
+    description="Valida que un NSS tenga 11 dígitos y que el dígito verificador sea correcto. No consulta IMSS. Número de prueba desde NSS.pdf: 03239629730.",
+    tags=["Utilidades"]
+)
+async def verificar_nss(
+    body: dict = Body(..., example={"nss": "03239629730"}),
+    api_key: str = Depends(verificar_api_key)
+):
+    """
+    Recibe JSON con clave 'nss'. Retorna si el formato y dígito verificador son válidos.
+    """
+    nss = body.get("nss") if isinstance(body, dict) else None
+    if nss is None:
+        raise HTTPException(status_code=400, detail="Falta el campo 'nss' en el cuerpo")
+    valido, mensaje = validar_nss(str(nss))
+    return {"valido": valido, "mensaje": mensaje}
+
+
+@router.post(
+    "/verificar-nss-documento",
+    summary="Extraer y validar NSS desde PDF (constancia IMSS)",
+    description="Sube un PDF (ej. NSS.pdf). Se extrae el NSS de 11 dígitos del texto y se valida. Retorna nss_extraido, valido y mensaje.",
+    tags=["Utilidades"]
+)
+async def verificar_nss_documento(
+    documento: UploadFile = File(..., description="PDF de constancia de NSS (ej. NSS.pdf)"),
+    api_key: str = Depends(verificar_api_key)
+):
+    if not documento.filename or not documento.filename.lower().endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="Se requiere un archivo PDF")
+    file_bytes = await documento.read()
+    if len(file_bytes) == 0:
+        raise HTTPException(status_code=400, detail="Documento vacío")
+    nss_extraido = extraer_nss_de_pdf(file_bytes)
+    if nss_extraido is None:
+        return {"nss_extraido": None, "valido": False, "mensaje": "No se encontró un NSS de 11 dígitos en el documento"}
+    valido, mensaje = validar_nss(nss_extraido)
+    return {"nss_extraido": nss_extraido, "valido": valido, "mensaje": mensaje}
+
+
+@router.post(
+    "/verificar-curp-documento",
+    summary="Extraer y validar CURP desde PDF (constancia RENAPO)",
+    description="Sube un PDF de constancia de CURP (ej. CURP.pdf). Se extrae el CURP del texto y se valida. Retorna curp_extraido, valido, mensaje y vigencia (es_reciente, meses_antiguedad).",
+    tags=["Utilidades"]
+)
+async def verificar_curp_documento(
+    documento: UploadFile = File(..., description="PDF constancia de CURP (ej. CURP.pdf)"),
+    api_key: str = Depends(verificar_api_key)
+):
+    if not documento.filename or not documento.filename.lower().endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="Se requiere un archivo PDF")
+    file_bytes = await documento.read()
+    if len(file_bytes) == 0:
+        raise HTTPException(status_code=400, detail="Documento vacío")
+    curp_extraido = extraer_curp_de_pdf(file_bytes)
+    if curp_extraido is None:
+        return {"curp_extraido": None, "valido": False, "mensaje": "No se encontró un CURP válido en el documento",
+                "es_reciente": None, "meses_antiguedad": None, "fecha_emision": None}
+    valido, mensaje = validar_curp(curp_extraido)
+    datos = extraer_datos_curp_pdf(file_bytes)
+    return {
+        "curp_extraido": curp_extraido,
+        "valido": valido,
+        "mensaje": mensaje,
+        "es_reciente": datos.get("es_reciente"),
+        "meses_antiguedad": datos.get("meses_antiguedad"),
+        "fecha_emision": datos.get("fecha_emision"),
+    }
+
+
+@router.post(
+    "/validar-expediente",
+    summary="Validación cruzada de expediente completo",
+    description="""
+    Sube todos los documentos del candidato y el sistema cruza CURP, nombre y fecha
+    de nacimiento entre ellos. Documentos requeridos: frente y reverso de la
+    identificación oficial. Documentos opcionales: CURP.pdf, NSS.pdf,
+    constancia_fiscal.pdf, acta_nacimiento.pdf.
+
+    **Reglas:**
+    - Si la foto de la identificación tiene brillo excesivo o está borrosa → RECHAZADA.
+    - CURP y nombre se comparan entre: ID, CURP.pdf, constancia fiscal, NSS.
+    - Fecha de nacimiento se compara entre: CURP (decodificado), MRZ reverso, acta.
+    - Si el CURP de la ID no coincide con el del documento CURP pero el nombre sí
+      → se usa el CURP del documento oficial (sobremontado).
+    - La constancia CURP debe tener máximo 3 meses de descargada.
+    """,
+    tags=["Verificación"]
+)
+async def validar_expediente(
+    frente: UploadFile = File(..., description="Imagen del frente de la identificación"),
+    reverso: UploadFile = File(..., description="Imagen del reverso de la identificación"),
+    documento_curp: Optional[UploadFile] = File(None, description="PDF constancia CURP"),
+    documento_nss: Optional[UploadFile] = File(None, description="PDF constancia NSS"),
+    constancia_fiscal: Optional[UploadFile] = File(None, description="PDF constancia de situación fiscal"),
+    acta_nacimiento: Optional[UploadFile] = File(None, description="PDF acta de nacimiento"),
+    tipo_documento: Optional[TipoDocumento] = Query(
+        TipoDocumento.RESIDENCIA_TEMPORAL,
+        description="Tipo de documento de identificación"
+    ),
+    api_key: str = Depends(verificar_api_key)
+):
+    frente_bytes = await frente.read()
+    reverso_bytes = await reverso.read()
+    if not frente_bytes or not reverso_bytes:
+        raise HTTPException(status_code=400, detail="Frente y reverso de la identificación son requeridos")
+
+    async def _leer_pdf(upload: Optional[UploadFile]) -> Optional[bytes]:
+        if upload and upload.filename and upload.filename.lower().endswith(".pdf"):
+            data = await upload.read()
+            return data if data else None
+        return None
+
+    curp_pdf_bytes = await _leer_pdf(documento_curp)
+    nss_pdf_bytes = await _leer_pdf(documento_nss)
+    fiscal_pdf_bytes = await _leer_pdf(constancia_fiscal)
+    acta_pdf_bytes = await _leer_pdf(acta_nacimiento)
+
+    try:
+        inicio = time.time()
+        service = VerificacionService()
+        res_frente = await service.verificar(frente_bytes, tipo_documento)
+        res_reverso = await service.verificar(reverso_bytes, tipo_documento)
+
+        ocr_f = res_frente.checks.ocr_campos
+        ocr_r = res_reverso.checks.ocr_campos
+        calidad = res_frente.checks.forense.calidad_foto
+
+        datos_curp = extraer_datos_curp_pdf(curp_pdf_bytes) if curp_pdf_bytes else None
+        datos_nss = extraer_datos_nss_pdf(nss_pdf_bytes) if nss_pdf_bytes else None
+        datos_fiscal = extraer_datos_constancia_fiscal(fiscal_pdf_bytes) if fiscal_pdf_bytes else None
+        datos_acta = extraer_datos_acta_nacimiento(acta_pdf_bytes) if acta_pdf_bytes else None
+
+        resultado = validacion_cruzada(
+            id_frente_curp=ocr_f.curp.get("valor") if ocr_f.curp else None,
+            id_frente_nombre=ocr_f.nombre_ocr,
+            id_frente_fecha_nac_curp=ocr_f.fecha_nacimiento_curp,
+            id_reverso_mrz_nombre=ocr_r.mrz_nombre_completo,
+            id_reverso_mrz_fecha_nac=ocr_r.mrz_fecha_nacimiento,
+            calidad_foto=calidad,
+            datos_curp_pdf=datos_curp,
+            datos_nss=datos_nss,
+            datos_fiscal=datos_fiscal,
+            datos_acta=datos_acta,
+        )
+
+        tiempo_ms = int((time.time() - inicio) * 1000)
+
+        return {
+            **resultado,
+            "identificacion_frente_score": res_frente.score_autenticidad,
+            "identificacion_reverso_score": res_reverso.score_autenticidad,
+            "documentos_procesados": {
+                "identificacion_frente": True,
+                "identificacion_reverso": True,
+                "curp_pdf": datos_curp is not None,
+                "nss_pdf": datos_nss is not None,
+                "constancia_fiscal": datos_fiscal is not None,
+                "acta_nacimiento": datos_acta is not None,
+            },
+            "datos_extraidos": {
+                "curp_pdf": datos_curp,
+                "nss_pdf": datos_nss,
+                "constancia_fiscal": datos_fiscal,
+                "acta_nacimiento": datos_acta,
+            },
+            "tiempo_proceso_ms": tiempo_ms,
+        }
+    except Exception as e:
+        logger.exception(f"Error en validación de expediente: {e}")
+        raise HTTPException(status_code=500, detail=f"Error en validación: {str(e)}")
 
 
 @router.get(

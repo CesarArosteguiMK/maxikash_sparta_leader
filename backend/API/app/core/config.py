@@ -1,8 +1,19 @@
 # app/core/config.py
 """Configuración central. Carga desde .env; valores por defecto permiten arranque sin .env."""
+import os
+import sys
 from pydantic_settings import BaseSettings
 from functools import lru_cache
 from typing import List
+
+
+def _default_tesseract_cmd() -> str:
+    if sys.platform == "win32":
+        win_path = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+        if os.path.isfile(win_path):
+            return win_path
+    return "tesseract"
+
 
 class Settings(BaseSettings):
     # App
@@ -23,8 +34,8 @@ class Settings(BaseSettings):
     # Redis (opcional)
     redis_url: str = "redis://localhost:6379/0"
 
-    # Tesseract (en Windows usar PATH o definir TESSERACT_CMD en .env con ruta completa)
-    tesseract_cmd: str = "/usr/bin/tesseract"
+    # Tesseract (en Windows auto-detecta; definir TESSERACT_CMD en .env para override)
+    tesseract_cmd: str = _default_tesseract_cmd()
 
 
     # Google Vision (opcional)
@@ -54,8 +65,8 @@ class Settings(BaseSettings):
     temp_upload_dir: str = "/tmp/doc_verificacion"
     delete_temp_after_seconds: int = 300
 
-    # CORS (permitir origen del frontend PHP)
-    cors_origins: str = "http://localhost:3000,http://localhost,http://127.0.0.1"
+    # CORS (permitir origen del frontend PHP / Sparta Ledger)
+    cors_origins: str = "http://localhost:3000,http://localhost,http://localhost:8086,http://127.0.0.1,http://127.0.0.1:8086"
 
     @property
     def allowed_extensions_list(self) -> List[str]:

@@ -11,12 +11,18 @@ from app.models.schemas import (
     ResultadoVerificacion,
     Checks,
     CheckML,
+    CheckMetadatos,
+    CheckForense,
+    CheckGeometria,
+    CheckOCR,
+    CheckCodigos,
 )
 from app.services.metadata_analyzer import MetadataAnalyzer
 from app.services.forense_analyzer import ForenseAnalyzer
 from app.services.geometry_analyzer import GeometryAnalyzer
 from app.services.ocr_analyzer import OCRAnalyzer
 from app.services.barcode_analyzer import BarcodeAnalyzer
+from app.services.comprobante_analyzer import ComprobanteAnalyzer
 from app.core.config import get_settings
 
 
@@ -28,6 +34,7 @@ class VerificacionService:
         self.geometry_analyzer = GeometryAnalyzer()
         self.ocr_analyzer = OCRAnalyzer()
         self.barcode_analyzer = BarcodeAnalyzer()
+        self.comprobante_analyzer = ComprobanteAnalyzer()
         self.ml_classifier = None
         if self.settings.use_ml_classifier:
             try:
@@ -49,6 +56,32 @@ class VerificacionService:
         if tipo_doc is None:
             tipo_doc = await asyncio.to_thread(self._auto_detectar_tipo, image_bytes)
             logger.info(f"Tipo auto-detectado: {tipo_doc}")
+
+        # Rechazar si el documento subido no es identificación (comprobante, constancia fiscal, CURP, NSS, acta)
+        try:
+            texto_ocr = await asyncio.to_thread(self.ocr_analyzer.extraer_texto_raw, image_bytes)
+            msg_no_id = self.comprobante_analyzer.parece_que_no_es_identificacion(texto_ocr or "")
+            if msg_no_id:
+                tiempo_ms = int((time.time() - inicio) * 1000)
+                return VerificacionResponse(
+                    documento_tipo=tipo_doc,
+                    score_autenticidad=0,
+                    resultado=ResultadoVerificacion.RECHAZADO,
+                    confianza="ALTA",
+                    tiempo_proceso_ms=tiempo_ms,
+                    checks=Checks(
+                        metadatos=CheckMetadatos(ok=False, score=0.0),
+                        forense=CheckForense(ok=False, score=0.0),
+                        geometria=CheckGeometria(ok=False, score=0.0),
+                        ocr_campos=CheckOCR(ok=False, alertas=[msg_no_id], score=0.0),
+                        codigo_barras=CheckCodigos(ok=False, score=0.0),
+                        ml_classifier=CheckML(ok=False, score=0.0),
+                    ),
+                    alertas_globales=[msg_no_id],
+                    recomendacion=msg_no_id,
+                )
+        except Exception as e:
+            logger.warning(f"Comprobación de tipo de documento (no-ID) falló: {e}")
 
         check_meta = self.metadata_analyzer.analyze(image_bytes)
         check_forense = self.forense_analyzer.analyze(image_bytes)

@@ -1,13 +1,22 @@
 # app/utils/curp_validator.py
 """
 Validador de CURP (Clave Única de Registro de Población)
-Implementa el algoritmo oficial de la SEGOB.
+Implementa el algoritmo oficial de la SEGOB / RENAPO.
+
+Estructura de 18 posiciones:
+  Pos 1-4:   Letras (iniciales del nombre)
+  Pos 5-10:  Dígitos (fecha AAMMDD)
+  Pos 11:    Sexo (H / M)
+  Pos 12-13: Entidad federativa (2 letras)
+  Pos 14-16: Consonantes internas (letras)
+  Pos 17:    Homoclave – dígito (0-9) para nacidos <2000,
+             letra (A-Z) para nacidos >=2000
+  Pos 18:    Dígito verificador (0-9, puede ser A-Z en CURPs recientes)
 """
 import re
 from typing import Tuple
 
 
-# Palabras inconvenientes que el algoritmo CURP reemplaza
 PALABRAS_INCONVENIENTES = [
     "BACA", "BAKA", "BUEI", "BUEY", "CACA", "CACO", "CAGA", "CAGO",
     "CAKA", "CAKO", "COGE", "COGI", "COJA", "COJE", "COJI", "COJO",
@@ -21,24 +30,36 @@ PALABRAS_INCONVENIENTES = [
     "TETA", "VACA", "VAGA", "VAGO", "VAKA", "VUEI", "VUEY", "WUEI", "WUEY"
 ]
 
-# Patrón regex del CURP
 PATRON_CURP = re.compile(
-    r'^[A-Z]{1}[AEIOU]{1}[A-Z]{2}'   # Apellido paterno (4 chars)
-    r'\d{2}'                            # Año nacimiento
-    r'(0[1-9]|1[0-2])'                 # Mes nacimiento
-    r'(0[1-9]|[12]\d|3[01])'           # Día nacimiento
-    r'[HM]{1}'                          # Sexo
-    r'(AS|BC|BS|CC|CL|CM|CS|CH|DF|DG|GT|GR|HG|JC|MC|MN|MS|NT|NL|OC|PL|QT|QR|SP|SL|SR|TC|TS|TL|VZ|YN|ZS|NE)'  # Estado
-    r'[B-DF-HJ-NP-TV-Z]{3}'           # Consonantes internas
-    r'[A-Z0-9]{1}'                      # Dígito verificador
+    r'^[A-Z]{1}[AEIOU]{1}[A-Z]{2}'       # Pos 1-4: letras nombre
+    r'\d{2}'                                # Pos 5-6: año
+    r'(0[1-9]|1[0-2])'                     # Pos 7-8: mes
+    r'(0[1-9]|[12]\d|3[01])'               # Pos 9-10: día
+    r'[HM]{1}'                              # Pos 11: sexo
+    r'(AS|BC|BS|CC|CL|CM|CS|CH|DF|DG|GT|GR|HG|JC|MC|MN|MS|NT|NL|OC|PL|QT|QR|SP|SL|SR|TC|TS|TL|VZ|YN|ZS|NE)'
+    r'[B-DF-HJ-NP-TV-Z]{3}'               # Pos 14-16: consonantes internas
+    r'[A-Z0-9]{1}'                          # Pos 17: homoclave (dígito o letra según siglo)
+    r'[A-Z0-9]{1}'                          # Pos 18: dígito verificador
     r'$'
 )
+
+_UMBRAL_SIGLO_XXI = 30
+
+
+def _es_nacido_2000_plus(curp: str) -> bool:
+    """Determina si el CURP corresponde a alguien nacido en 2000+.
+    Códigos de año 00-30 son ambiguos; la posición 17 (letra vs dígito)
+    desambigua el siglo."""
+    year_code = int(curp[4:6])
+    if year_code > _UMBRAL_SIGLO_XXI:
+        return False
+    return curp[16].isalpha()
 
 
 def validar_curp(curp: str) -> Tuple[bool, str]:
     """
-    Valida un CURP mexicano.
-    
+    Valida un CURP mexicano (18 caracteres).
+
     Returns:
         Tuple[bool, str]: (es_valido, mensaje)
     """
@@ -53,11 +74,21 @@ def validar_curp(curp: str) -> Tuple[bool, str]:
     if not PATRON_CURP.match(curp):
         return False, "CURP no coincide con el formato oficial"
 
-    # Verificar que las primeras 4 letras no sean palabra inconveniente
+    year_code = int(curp[4:6])
+    if year_code > _UMBRAL_SIGLO_XXI:
+        if not curp[16].isdigit():
+            return False, (
+                f"Posición 17 debe ser dígito para nacidos antes del 2000 "
+                f"(año={year_code}, encontrado='{curp[16]}')"
+            )
+        if not curp[17].isdigit():
+            return False, (
+                f"Posición 18 debe ser dígito verificador numérico "
+                f"(año={year_code}, encontrado='{curp[17]}')"
+            )
+
     primeras_4 = curp[:4]
     if primeras_4 in PALABRAS_INCONVENIENTES:
-        # Esto es válido en CURP, el algoritmo las reemplaza con X en 2da posición
-        # No es error, solo informativo
         pass
 
     return True, "CURP válido"
@@ -93,10 +124,11 @@ def extraer_datos_curp(curp: str) -> dict:
     sexo_code = curp[10]
     estado_code = curp[11:13]
 
-    # Determinar siglo
     año_completo = int(año)
-    if año_completo >= 0 and año_completo <= 24:
+    if _es_nacido_2000_plus(curp):
         año_completo += 2000
+    elif año_completo <= _UMBRAL_SIGLO_XXI:
+        año_completo += 2000 if curp[16].isalpha() else 1900
     else:
         año_completo += 1900
 

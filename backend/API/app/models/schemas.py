@@ -52,6 +52,8 @@ class CheckForense(BaseModel):
     compresion_uniforme: bool = True
     brillo_excesivo: bool = False
     porcentaje_sobreexpuesto: float = Field(default=0.0, description="% de pixeles sobreexpuestos")
+    borroso: bool = Field(False, description="Imagen con posible desenfoque (revisar captura)")
+    calidad_foto: str = Field("ok", description="Resumen: ok | revisar_brillo | revisar_borroso | revisar_brillo_y_borroso")
     alertas: List[str] = []
     score: float = Field(ge=0.0, le=1.0)
 
@@ -76,6 +78,11 @@ class CheckOCR(BaseModel):
     tipo_residencia: Optional[Dict[str, Any]] = None
     fecha_expedicion: Optional[Dict[str, Any]] = None
     fecha_vencimiento: Optional[Dict[str, Any]] = None
+    nombre_ocr: Optional[str] = Field(None, description="Nombre extraído del texto OCR (frente)")
+    fecha_nacimiento_curp: Optional[str] = Field(None, description="Fecha nacimiento decodificada del CURP detectado")
+    mrz_nombre_completo: Optional[str] = Field(None, description="Nombre completo del MRZ (reverso) para cotejar con frente")
+    mrz_fecha_nacimiento: Optional[str] = Field(None, description="Fecha nacimiento del MRZ (ej. 12/01/1996) para cotejar con frente")
+    cotejo_frente_reverso: Optional[Dict[str, Any]] = Field(None, description="Comparación automática frente vs reverso")
     campos_detectados: int = 0
     campos_validos: int = 0
     alertas: List[str] = []

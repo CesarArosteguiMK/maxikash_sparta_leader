@@ -7,6 +7,7 @@ use Core\SecureUpload;
 use Core\OcrIdentidad;
 use Models\CapHum as CapHumDAO;
 use Models\Candidatos as CandidatosDAO;
+use Models\Notificacion;
 
 class CapHum extends Controller
 {
@@ -3614,10 +3615,36 @@ class CapHum extends Controller
             return;
         }
         $candidato = $res['datos'];
+        $id_candidato = (int) $candidato['id_candidato'];
         $nombreCompleto = trim(($candidato['nombres'] ?? '') . ' ' . ($candidato['apellidop'] ?? '') . ' ' . ($candidato['apellidom'] ?? ''));
+        $tiposNombre = [
+            'SOLICITUD INTERNA' => 1, 'CV O SOLICITUD DE TRABAJO' => 2, 'ACTA DE NACIMIENTO' => 3, 'ACTA DE NACIMIENTO Certificada' => 3, 'CURP' => 4,
+            'IDENTIFICACIÓN OFICIAL' => 5, 'COMPROBANTE DE DOMICILIO' => 6, 'CONSTANCIA DE SITUACION FISCAL' => 7,
+            'NÚMERO DE SEGURIDAD SOCIAL' => 8, 'HOJA DE RETENCION FONACOT O INFONAVIT' => 9, 'ESTADO DE CUENTA' => 10,
+        ];
+        $documentos_subidos = [];
+        $resDocs = CandidatosDAO::getDocumentosCandidato($id_candidato);
+        if ($resDocs['success'] && !empty($resDocs['datos'])) {
+            foreach ($resDocs['datos'] as $d) {
+                $tipo = trim($d['tipo_documento'] ?? '');
+                if ($tipo === 'IDENTIFICACIÓN OFICIAL (REVERSO)') {
+                    $documentos_subidos['5_reverso'] = $d;
+                } elseif (isset($tiposNombre[$tipo])) {
+                    $documentos_subidos[$tiposNombre[$tipo]] = $d;
+                }
+            }
+        }
+        $expediente_completo = (count($documentos_subidos) >= 11
+            && isset($documentos_subidos['5_reverso'])
+            && isset($documentos_subidos[1]) && isset($documentos_subidos[2]) && isset($documentos_subidos[3])
+            && isset($documentos_subidos[4]) && isset($documentos_subidos[5]) && isset($documentos_subidos[6])
+            && isset($documentos_subidos[7]) && isset($documentos_subidos[8]) && isset($documentos_subidos[9])
+            && isset($documentos_subidos[10]));
         $this->set('token', $token);
         $this->set('nombre_candidato', $nombreCompleto);
-        $this->set('id_candidato', $candidato['id_candidato']);
+        $this->set('id_candidato', $id_candidato);
+        $this->set('documentos_subidos', $documentos_subidos);
+        $this->set('expediente_completo', $expediente_completo);
         $this->render('subir_documentos_candidato', true);
     }
 
@@ -3934,6 +3961,95 @@ class CapHum extends Controller
     }
 
     /**
+     * Listar documentos del expediente de un candidato (JSON). Requiere módulo Candidatos.
+     * GET: id_candidato (query).
+     */
+    public function getDocumentosCandidatoList()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        $id_candidato = (int) ($_GET['id_candidato'] ?? 0);
+        if ($id_candidato <= 0) {
+            echo json_encode(self::respuesta(false, 'id_candidato inválido.'));
+            return;
+        }
+        $res = CandidatosDAO::getDocumentosCandidato($id_candidato);
+        if (!$res['success']) {
+            echo json_encode(self::respuesta(false, $res['mensaje'] ?? 'Error.', $res['datos'] ?? []));
+            return;
+        }
+        $documentos = $res['datos'] ?? [];
+        $verificacion = CandidatosDAO::getVerificacionExpediente($id_candidato);
+        $payload = ['documentos' => $documentos];
+        if ($verificacion !== null) {
+            $payload['verificacion_expediente'] = $verificacion;
+        }
+        echo json_encode(self::respuesta(true, 'OK', $payload));
+    }
+
+    /**
+     * Abrir/descargar un documento del expediente. Requiere módulo Candidatos.
+     * GET: id (id del registro candidato_documento).
+     */
+    public function verDocumentoCandidato($id = null)
+    {
+        $id_doc = (int) ($id ?? $_GET['id'] ?? 0);
+        if ($id_doc <= 0) {
+            header('HTTP/1.0 400 Bad Request');
+            echo 'ID inválido';
+            return;
+        }
+        $res = CandidatosDAO::getDocumentoById($id_doc);
+        if (!$res['success'] || empty($res['datos'])) {
+            header('HTTP/1.0 404 Not Found');
+            echo 'Documento no encontrado';
+            return;
+        }
+        $doc = $res['datos'];
+        $storageRoot = defined('RAIZ') ? (RAIZ . '/storage') : (__DIR__ . '/../storage');
+        $rutaRel = trim($doc['ruta_archivo'] ?? '');
+        $path = $storageRoot . '/' . $rutaRel;
+        if (!is_file($path)) {
+            header('HTTP/1.0 404 Not Found');
+            echo 'Archivo no encontrado';
+            return;
+        }
+        $nombre = $doc['nombre_archivo'] ?? basename($path);
+        $ext = strtolower(pathinfo($nombre, PATHINFO_EXTENSION));
+        $mimes = ['pdf' => 'application/pdf', 'jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg', 'png' => 'image/png', 'doc' => 'application/msword', 'docx' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+        header('Content-Type: ' . ($mimes[$ext] ?? 'application/octet-stream'));
+        header('Content-Disposition: inline; filename="' . str_replace('"', '\\"', $nombre) . '"');
+        header('Content-Length: ' . filesize($path));
+        readfile($path);
+    }
+
+    /**
+     * Eliminar un documento del expediente. Requiere módulo Candidatos.
+     * POST o GET: id (id del registro candidato_documento).
+     */
+    public function eliminarDocumentoCandidato()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        $id_doc = (int) ($_POST['id'] ?? $_GET['id'] ?? 0);
+        if ($id_doc <= 0) {
+            echo json_encode(self::respuesta(false, 'ID inválido.'));
+            return;
+        }
+        $res = CandidatosDAO::getDocumentoById($id_doc);
+        if (!$res['success'] || empty($res['datos'])) {
+            echo json_encode(self::respuesta(false, 'Documento no encontrado.'));
+            return;
+        }
+        $doc = $res['datos'];
+        $storageRoot = defined('RAIZ') ? (RAIZ . '/storage') : (__DIR__ . '/../storage');
+        $path = $storageRoot . '/' . trim($doc['ruta_archivo'] ?? '');
+        CandidatosDAO::eliminarDocumento($id_doc);
+        if ($path !== '' && is_file($path)) {
+            @unlink($path);
+        }
+        echo json_encode(self::respuesta(true, 'Documento eliminado.'));
+    }
+
+    /**
      * URL base de la aplicación (para enlaces de documentos y correos).
      * Si en config.ini [app] base_url está definida se usa; si no, la petición actual.
      */
@@ -3949,6 +4065,61 @@ class CapHum extends Controller
         }
         return (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http')
             . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost');
+    }
+
+    /**
+     * Llama a la API validar-expediente (Python) con frente, reverso y PDFs del expediente.
+     * @param array $rutas ['frente' => ruta, 'reverso' => ruta, 'curp' => ruta|null, 'nss' => ruta|null, 'constancia_fiscal' => ruta|null, 'acta_nacimiento' => ruta|null]
+     * @return array|null Respuesta JSON de la API o null si no configurada/error
+     */
+    private function validarExpedienteApi(array $rutas)
+    {
+        $configFile = defined('RAIZ') ? (RAIZ . '/backend/config/config.ini') : (__DIR__ . '/../config/config.ini');
+        if (!is_file($configFile)) {
+            return null;
+        }
+        $config = @parse_ini_file($configFile, true);
+        $apiUrlVerificar = trim($config['doc_verificacion']['api_url'] ?? '');
+        $apiKey = trim($config['doc_verificacion']['api_key'] ?? '');
+        if ($apiUrlVerificar === '' || $apiKey === '') {
+            return null;
+        }
+        $baseUrl = preg_replace('#/verificar\s*$#', '', $apiUrlVerificar);
+        $urlExp = rtrim($baseUrl, '/') . '/validar-expediente';
+        $post = [
+            'tipo_documento' => 'RESIDENCIA_TEMPORAL',
+        ];
+        $mimeImg = ['jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg', 'png' => 'image/png', 'webp' => 'image/webp', 'tiff' => 'image/tiff'];
+        foreach (['frente', 'reverso'] as $key) {
+            if (empty($rutas[$key]) || !is_file($rutas[$key])) {
+                return null;
+            }
+            $ext = strtolower(pathinfo($rutas[$key], PATHINFO_EXTENSION));
+            $post[$key] = new \CURLFile($rutas[$key], $mimeImg[$ext] ?? 'application/octet-stream', basename($rutas[$key]));
+        }
+        $pdfKeys = ['documento_curp' => 'curp', 'documento_nss' => 'nss', 'constancia_fiscal' => 'constancia_fiscal', 'acta_nacimiento' => 'acta_nacimiento'];
+        foreach ($pdfKeys as $formKey => $pathKey) {
+            if (!empty($rutas[$pathKey]) && is_file($rutas[$pathKey])) {
+                $post[$formKey] = new \CURLFile($rutas[$pathKey], 'application/pdf', basename($rutas[$pathKey]));
+            }
+        }
+        $ch = curl_init($urlExp);
+        curl_setopt_array($ch, [
+            CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => $post,
+            CURLOPT_HTTPHEADER => ['X-API-Key: ' . $apiKey],
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT => 120,
+            CURLOPT_CONNECTTIMEOUT => 15,
+        ]);
+        $body = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        if ($httpCode !== 200 || $body === false || $body === '') {
+            return null;
+        }
+        $data = json_decode($body, true);
+        return is_array($data) ? $data : null;
     }
 
     /**
@@ -4023,7 +4194,7 @@ class CapHum extends Controller
         $tiposDocumento = [
             1  => 'SOLICITUD INTERNA',
             2  => 'CV O SOLICITUD DE TRABAJO',
-            3  => 'ACTA DE NACIMIENTO',
+            3  => 'ACTA DE NACIMIENTO Certificada',
             4  => 'CURP',
             5  => 'IDENTIFICACIÓN OFICIAL',
             6  => 'COMPROBANTE DE DOMICILIO',
@@ -4032,36 +4203,70 @@ class CapHum extends Controller
             9  => 'HOJA DE RETENCION FONACOT O INFONAVIT',
             10 => 'ESTADO DE CUENTA',
         ];
+        $slugPorTipo = [
+            1 => 'solicitud_interna', 2 => 'cv', 3 => 'acta_nacimiento', 4 => 'curp',
+            5 => 'identificacion_frente', 6 => 'comprobante_domicilio', 7 => 'constancia_fiscal',
+            8 => 'nss', 9 => 'hoja_retencion', 10 => '__SPARTA_SECRET_REDACTED__',
+        ];
 
-        $dirBase = defined('RAIZ') ? (RAIZ . '/storage/candidatos_documentos') : (__DIR__ . '/../storage/candidatos_documentos');
-        $dirCandidato = $dirBase . '/' . $id_candidato;
+        $dirBase = defined('RAIZ') ? (RAIZ . '/storage/candidatos') : (__DIR__ . '/../storage/candidatos');
+        $dirExpediente = $dirBase . '/' . $id_candidato . '/expediente';
         if (!is_dir($dirBase)) {
             @mkdir($dirBase, 0755, true);
         }
-        if (!is_dir($dirCandidato)) {
-            @mkdir($dirCandidato, 0755, true);
+        if (!is_dir(dirname($dirExpediente))) {
+            @mkdir(dirname($dirExpediente), 0755, true);
+        }
+        if (!is_dir($dirExpediente)) {
+            @mkdir($dirExpediente, 0755, true);
         }
         $guardados = 0;
         $errores = [];
         $permitidos = ['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png'];
+        $rutasParaValidar = ['frente' => null, 'reverso' => null, 'curp' => null, 'nss' => null, 'constancia_fiscal' => null, 'acta_nacimiento' => null];
 
-        // Validar que todos los documentos obligatorios estén presentes (incl. reverso de ID)
-        $faltan = [];
-        for ($i = 1; $i <= 10; $i++) {
-            $tiene = (isset($_FILES['archivo_' . $i]) && $_FILES['archivo_' . $i]['error'] === UPLOAD_ERR_OK && $_FILES['archivo_' . $i]['size'] > 0)
-                || (isset($_FILES['archivo_' . $i . '_foto']) && $_FILES['archivo_' . $i . '_foto']['error'] === UPLOAD_ERR_OK && $_FILES['archivo_' . $i . '_foto']['size'] > 0);
-            if (!$tiene) {
-                $faltan[] = $tiposDocumento[$i] ?? 'Documento ' . $i;
-            }
-            if ($i === 5) {
-                $tieneReverso = isset($_FILES['archivo_5_reverso']) && $_FILES['archivo_5_reverso']['error'] === UPLOAD_ERR_OK && $_FILES['archivo_5_reverso']['size'] > 0;
-                if (!$tieneReverso) {
-                    $faltan[] = 'IDENTIFICACIÓN OFICIAL (reverso)';
+        // Documentos ya subidos (no exigir ni permitir reemplazo)
+        $yaSubidos = [];
+        $listaDocsExistentes = [];
+        $resDocs = CandidatosDAO::getDocumentosCandidato($id_candidato);
+        if ($resDocs['success'] && !empty($resDocs['datos'])) {
+            $listaDocsExistentes = $resDocs['datos'];
+            foreach ($resDocs['datos'] as $d) {
+                $tipo = trim($d['tipo_documento'] ?? '');
+                if ($tipo === 'IDENTIFICACIÓN OFICIAL (REVERSO)') {
+                    $yaSubidos['5_reverso'] = true;
+                } else {
+                    $num = array_search($tipo, $tiposDocumento, true);
+                    if ($num !== false) {
+                        $yaSubidos[(int) $num] = true;
+                    }
                 }
             }
         }
-        if (!empty($faltan)) {
-            echo json_encode(self::respuesta(false, 'Faltan documentos obligatorios: ' . implode(', ', $faltan)));
+        $storageRoot = defined('RAIZ') ? (RAIZ . '/storage') : (__DIR__ . '/../storage');
+
+        // Envío parcial: solo exigir que venga al menos un archivo nuevo (el candidato puede subir el resto después)
+        $tieneAlgunoNuevo = false;
+        for ($i = 1; $i <= 10; $i++) {
+            if (!empty($yaSubidos[$i])) {
+                continue;
+            }
+            $tiene = (isset($_FILES['archivo_' . $i]) && $_FILES['archivo_' . $i]['error'] === UPLOAD_ERR_OK && $_FILES['archivo_' . $i]['size'] > 0)
+                || (isset($_FILES['archivo_' . $i . '_foto']) && $_FILES['archivo_' . $i . '_foto']['error'] === UPLOAD_ERR_OK && $_FILES['archivo_' . $i . '_foto']['size'] > 0);
+            if ($tiene) {
+                $tieneAlgunoNuevo = true;
+                break;
+            }
+            if ($i === 5 && empty($yaSubidos['5_reverso'])) {
+                $tieneReverso = isset($_FILES['archivo_5_reverso']) && $_FILES['archivo_5_reverso']['error'] === UPLOAD_ERR_OK && $_FILES['archivo_5_reverso']['size'] > 0;
+                if ($tieneReverso) {
+                    $tieneAlgunoNuevo = true;
+                    break;
+                }
+            }
+        }
+        if (!$tieneAlgunoNuevo) {
+            echo json_encode(self::respuesta(false, 'Selecciona al menos un documento para subir. Puedes enviar el resto más adelante.'));
             exit;
         }
 
@@ -4082,16 +4287,18 @@ class CapHum extends Controller
                 $errores[] = ($tiposDocumento[$i] ?? $key) . ': tipo no permitido';
                 continue;
             }
-            $nombreUnico = date('YmdHis') . '_' . $i . '_' . preg_replace('/[^a-zA-Z0-9._-]/', '', $nombreOriginal);
-            $rutaDestino = $dirCandidato . '/' . $nombreUnico;
+            $slug = $slugPorTipo[$i] ?? ('doc_' . $i);
+            $nombreArchivo = $slug . '.' . $ext;
+            $rutaDestino = $dirExpediente . '/' . $nombreArchivo;
             if (!move_uploaded_file($_FILES[$fileKey]['tmp_name'], $rutaDestino)) {
                 $errores[] = $tiposDocumento[$i] ?? $key;
                 continue;
             }
-            $rutaRelativa = 'candidatos_documentos/' . $id_candidato . '/' . $nombreUnico;
+            $rutaRelativa = 'candidatos/' . $id_candidato . '/expediente/' . $nombreArchivo;
             $tipoNombre = $tiposDocumento[$i] ?? '';
 
             if ($i === 5) {
+                $rutasParaValidar['frente'] = $rutaDestino;
                 $formatosApi = ['jpg', 'jpeg', 'png', 'webp', 'tiff'];
                 $validacionApi = in_array($ext, $formatosApi, true)
                     ? $this->verificarDocumentoIdentidadApi($rutaDestino, $ext)
@@ -4099,6 +4306,7 @@ class CapHum extends Controller
                 if ($validacionApi !== null) {
                     if ($validacionApi['resultado'] === 'RECHAZADO') {
                         @unlink($rutaDestino);
+                        $rutasParaValidar['frente'] = null;
                         $errores[] = 'IDENTIFICACIÓN OFICIAL: ' . $validacionApi['mensaje'];
                         continue;
                     }
@@ -4118,10 +4326,23 @@ class CapHum extends Controller
                     $validacion = $ocrValidator->validarDocumentoIdentidad($rutaDestino, $candidatoParaOcr);
                     if (!$validacion['valido']) {
                         @unlink($rutaDestino);
+                        $rutasParaValidar['frente'] = null;
                         $errores[] = 'IDENTIFICACIÓN OFICIAL: ' . $validacion['mensaje'];
                         continue;
                     }
                 }
+            }
+            if ($i === 3) {
+                $rutasParaValidar['acta_nacimiento'] = $rutaDestino;
+            }
+            if ($i === 4) {
+                $rutasParaValidar['curp'] = $rutaDestino;
+            }
+            if ($i === 7) {
+                $rutasParaValidar['constancia_fiscal'] = $rutaDestino;
+            }
+            if ($i === 8) {
+                $rutasParaValidar['nss'] = $rutaDestino;
             }
 
             $guardar = CandidatosDAO::guardarDocumento($id_candidato, $nombreOriginal, $rutaRelativa, $tipoNombre);
@@ -4130,15 +4351,16 @@ class CapHum extends Controller
             }
         }
 
-        // Reverso de identificación oficial (sin validación OCR)
+        // Reverso de identificación oficial → expediente/identificacion_reverso.{ext}
         if (isset($_FILES['archivo_5_reverso']) && $_FILES['archivo_5_reverso']['error'] === UPLOAD_ERR_OK && $_FILES['archivo_5_reverso']['size'] > 0) {
             $nombreOriginal = basename($_FILES['archivo_5_reverso']['name'] ?? '');
             $ext = strtolower(pathinfo($nombreOriginal, PATHINFO_EXTENSION));
             if (in_array($ext, $permitidos)) {
-                $nombreUnico = date('YmdHis') . '_5_reverso_' . preg_replace('/[^a-zA-Z0-9._-]/', '', $nombreOriginal);
-                $rutaDestino = $dirCandidato . '/' . $nombreUnico;
+                $nombreArchivo = 'identificacion_reverso.' . $ext;
+                $rutaDestino = $dirExpediente . '/' . $nombreArchivo;
                 if (move_uploaded_file($_FILES['archivo_5_reverso']['tmp_name'], $rutaDestino)) {
-                    $rutaRelativa = 'candidatos_documentos/' . $id_candidato . '/' . $nombreUnico;
+                    $rutasParaValidar['reverso'] = $rutaDestino;
+                    $rutaRelativa = 'candidatos/' . $id_candidato . '/expediente/' . $nombreArchivo;
                     $guardar = CandidatosDAO::guardarDocumento($id_candidato, $nombreOriginal, $rutaRelativa, 'IDENTIFICACIÓN OFICIAL (REVERSO)');
                     if ($guardar['success']) {
                         $guardados++;
@@ -4147,8 +4369,95 @@ class CapHum extends Controller
             }
         }
 
+        // Rellenar rutas ya existentes para validar expediente (frente/reverso/PDFs)
+        foreach ($listaDocsExistentes as $d) {
+            $rutaRel = trim($d['ruta_archivo'] ?? '');
+            if ($rutaRel === '' || !is_file($storageRoot . '/' . $rutaRel)) {
+                continue;
+            }
+            $pathAbs = $storageRoot . '/' . $rutaRel;
+            $tipo = trim($d['tipo_documento'] ?? '');
+            if ($tipo === 'IDENTIFICACIÓN OFICIAL' && $rutasParaValidar['frente'] === null) {
+                $rutasParaValidar['frente'] = $pathAbs;
+            } elseif ($tipo === 'IDENTIFICACIÓN OFICIAL (REVERSO)' && $rutasParaValidar['reverso'] === null) {
+                $rutasParaValidar['reverso'] = $pathAbs;
+            } elseif ($tipo === 'CURP' && $rutasParaValidar['curp'] === null) {
+                $rutasParaValidar['curp'] = $pathAbs;
+            } elseif ($tipo === 'NÚMERO DE SEGURIDAD SOCIAL' && $rutasParaValidar['nss'] === null) {
+                $rutasParaValidar['nss'] = $pathAbs;
+            } elseif ($tipo === 'CONSTANCIA DE SITUACION FISCAL' && $rutasParaValidar['constancia_fiscal'] === null) {
+                $rutasParaValidar['constancia_fiscal'] = $pathAbs;
+            } elseif (($tipo === 'ACTA DE NACIMIENTO' || $tipo === 'ACTA DE NACIMIENTO Certificada') && $rutasParaValidar['acta_nacimiento'] === null) {
+                $rutasParaValidar['acta_nacimiento'] = $pathAbs;
+            }
+        }
+
+        $payload = ['guardados' => $guardados];
         if ($guardados > 0) {
-            echo json_encode(self::respuesta(true, 'Se subieron ' . $guardados . ' documento(s) correctamente.', ['guardados' => $guardados]));
+            $tiposNombre = [
+                'SOLICITUD INTERNA' => 1, 'CV O SOLICITUD DE TRABAJO' => 2, 'ACTA DE NACIMIENTO' => 3, 'ACTA DE NACIMIENTO Certificada' => 3, 'CURP' => 4,
+                'IDENTIFICACIÓN OFICIAL' => 5, 'COMPROBANTE DE DOMICILIO' => 6, 'CONSTANCIA DE SITUACION FISCAL' => 7,
+                'NÚMERO DE SEGURIDAD SOCIAL' => 8, 'HOJA DE RETENCION FONACOT O INFONAVIT' => 9, 'ESTADO DE CUENTA' => 10,
+            ];
+            $documentosSubidosPayload = [];
+            $resDocsNuevo = CandidatosDAO::getDocumentosCandidato($id_candidato);
+            if ($resDocsNuevo['success'] && !empty($resDocsNuevo['datos'])) {
+                foreach ($resDocsNuevo['datos'] as $d) {
+                    $tipo = trim($d['tipo_documento'] ?? '');
+                    if ($tipo === 'IDENTIFICACIÓN OFICIAL (REVERSO)') {
+                        $documentosSubidosPayload['5_reverso'] = ['nombre_archivo' => $d['nombre_archivo'] ?? 'reverso'];
+                    } elseif (isset($tiposNombre[$tipo])) {
+                        $documentosSubidosPayload[$tiposNombre[$tipo]] = ['nombre_archivo' => $d['nombre_archivo'] ?? 'documento'];
+                    }
+                }
+            }
+            $payload['documentos_subidos'] = $documentosSubidosPayload;
+            $expedienteCompleto = (count($documentosSubidosPayload) >= 11
+                && isset($documentosSubidosPayload['5_reverso'])
+                && isset($documentosSubidosPayload[1]) && isset($documentosSubidosPayload[2]) && isset($documentosSubidosPayload[3])
+                && isset($documentosSubidosPayload[4]) && isset($documentosSubidosPayload[5]) && isset($documentosSubidosPayload[6])
+                && isset($documentosSubidosPayload[7]) && isset($documentosSubidosPayload[8]) && isset($documentosSubidosPayload[9])
+                && isset($documentosSubidosPayload[10]));
+            $payload['expediente_completo'] = $expedienteCompleto;
+            if ($expedienteCompleto) {
+                $candidatoRes = CandidatosDAO::getById($id_candidato);
+                $nombreCompleto = 'Candidato';
+                if ($candidatoRes['success'] && !empty($candidatoRes['datos'])) {
+                    $c = $candidatoRes['datos'];
+                    $nombreCompleto = trim(($c['nombres'] ?? '') . ' ' . ($c['apellidop'] ?? '') . ' ' . ($c['apellidom'] ?? ''));
+                    if ($nombreCompleto === '') {
+                        $nombreCompleto = 'Candidato';
+                    }
+                }
+                $mensaje = 'El candidato ' . $nombreCompleto . ' ha cargado todos los documentos.';
+                $idPersonas = Notificacion::getPersonasConModulos([42]);
+                if (empty($idPersonas)) {
+                    error_log('CapHum: expediente completo pero ningún usuario con módulo 42 (Candidatos). Asigne el módulo a al menos un usuario para recibir notificaciones.');
+                } else {
+                    Notificacion::crearParaPersonas($idPersonas, 'candidato_expediente_completo', $mensaje, null);
+                }
+            }
+        }
+        if ($guardados > 0 && $rutasParaValidar['frente'] && $rutasParaValidar['reverso']) {
+            $resultadoApi = $this->validarExpedienteApi($rutasParaValidar);
+            if ($resultadoApi !== null) {
+                $payload['validacion_expediente'] = [
+                    'todo_coincide' => $resultadoApi['todo_coincide'] ?? false,
+                    'foto_rechazada' => $resultadoApi['foto_rechazada'] ?? false,
+                    'curp_definitivo' => $resultadoApi['curp_definitivo'] ?? null,
+                    'checks_ok' => $resultadoApi['checks_ok'] ?? 0,
+                    'checks_totales' => $resultadoApi['checks_totales'] ?? 0,
+                    'alertas' => $resultadoApi['alertas'] ?? [],
+                    'identificacion_frente_score' => $resultadoApi['identificacion_frente_score'] ?? null,
+                    'identificacion_reverso_score' => $resultadoApi['identificacion_reverso_score'] ?? null,
+                    'comparaciones' => $resultadoApi['comparaciones'] ?? null,
+                ];
+                CandidatosDAO::updateVerificacionExpediente($id_candidato, $payload['validacion_expediente']);
+            }
+        }
+
+        if ($guardados > 0) {
+            echo json_encode(self::respuesta(true, 'Se subieron ' . $guardados . ' documento(s) correctamente.', $payload));
         } else {
             echo json_encode(self::respuesta(false, count($errores) ? implode(', ', $errores) : 'No se envió ningún archivo. Selecciona al menos un documento.'));
         }

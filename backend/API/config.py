@@ -58,7 +58,7 @@ class Settings(BaseSettings):
     delete_temp_after_seconds: int = 300
 
     # CORS
-    cors_origins: str = "http://localhost:3000"
+    cors_origins: str = "http://localhost:3000,http://localhost,http://localhost:8086,http://127.0.0.1:8086"
 
     @property
     def allowed_extensions_list(self) -> List[str]:

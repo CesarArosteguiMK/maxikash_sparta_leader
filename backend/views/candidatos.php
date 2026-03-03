@@ -111,6 +111,7 @@ $candidatos = $candidatos ?? [];
                                 <div class="d-flex flex-wrap gap-1 align-items-center">
                                     <button type="button" class="btn btn-sm btn-primary btn-editar-candidato" data-id="<?= $id ?>" title="Editar"><i class="fa fa-edit"></i></button>
                                     <button type="button" class="btn btn-sm btn-info text-white btn-reenviar-candidato" data-id="<?= $id ?>" title="Reenviar correo"><i class="fa fa-envelope"></i></button>
+                                    <button type="button" class="btn btn-sm btn-secondary btn-documentacion-candidato" data-id="<?= $id ?>" data-nombre="<?= htmlspecialchars($nombre) ?>" title="Documentación"><i class="fa fa-folder-open"></i></button>
                                     <button type="button" class="btn btn-sm btn-danger btn-eliminar-candidato" data-id="<?= $id ?>" title="Eliminar"><i class="fa fa-trash"></i></button>
                                 </div>
                             </td>
@@ -118,6 +119,25 @@ $candidatos = $candidatos ?? [];
                     <?php endforeach; ?>
                 </tbody>
             </table>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Documentación del candidato -->
+<div class="modal fade" id="modalDocumentacionCandidato" tabindex="-1" aria-labelledby="modalDocumentacionCandidatoLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalDocumentacionCandidatoLabel"><i class="fa fa-folder-open me-2"></i>Documentación</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted small mb-3" id="modalDocumentacionCandidatoNombre"></p>
+                <div id="modalDocumentacionCandidatoVerificacion" class="mb-3 d-none"></div>
+                <div id="modalDocumentacionCandidatoCargando" class="text-center py-4 text-muted">Cargando…</div>
+                <div id="modalDocumentacionCandidatoVacio" class="text-center py-4 text-muted d-none">No hay documentos subidos.</div>
+                <div id="modalDocumentacionCandidatoLista" class="list-group"></div>
+            </div>
         </div>
     </div>
 </div>
@@ -752,6 +772,7 @@ function getCandidatos() {
             var acciones = "<div class=\"d-flex flex-wrap gap-1 align-items-center\">" +
                 "<button type=\"button\" class=\"btn btn-sm btn-primary btn-editar-candidato\" data-id=\"" + id + "\" title=\"Editar\"><i class=\"fa fa-edit\"></i></button>" +
                 "<button type=\"button\" class=\"btn btn-sm btn-info text-white btn-reenviar-candidato\" data-id=\"" + id + "\" title=\"Reenviar correo\"><i class=\"fa fa-envelope\"></i></button>" +
+                "<button type=\"button\" class=\"btn btn-sm btn-secondary btn-documentacion-candidato\" data-id=\"" + id + "\" data-nombre=\"" + (nombre || "").replace(/\"/g, "&quot;") + "\" title=\"Documentación\"><i class=\"fa fa-folder-open\"></i></button>" +
                 "<button type=\"button\" class=\"btn btn-sm btn-danger btn-eliminar-candidato\" data-id=\"" + id + "\" title=\"Eliminar\"><i class=\"fa fa-trash\"></i></button>" +
                 "</div>";
             tabla.row.add([nombre, contacto, puestoDepto, c.estatus || "Por evaluar", acciones]);
@@ -781,6 +802,15 @@ function candidatosTableClick(e) {
         if (id) window.abrirModalReenviarPostulacion(parseInt(id, 10));
         return;
     }
+    btn = target.closest(".btn-documentacion-candidato");
+    if (btn) {
+        e.preventDefault();
+        e.stopPropagation();
+        var id = btn.getAttribute("data-id");
+        var nombre = btn.getAttribute("data-nombre") || "";
+        if (id) abrirModalDocumentacionCandidato(parseInt(id, 10), nombre);
+        return;
+    }
     btn = target.closest(".btn-eliminar-candidato");
     if (btn) {
         e.preventDefault();
@@ -797,6 +827,124 @@ function actualizarKPIsCandidatos(datos) {
     document.getElementById("kpi-total-candidatos").textContent = total;
     document.getElementById("kpi-por-evaluar").textContent = porEvaluar;
     document.getElementById("kpi-postulaciones-enviadas").textContent = enviadas;
+}
+
+function abrirModalDocumentacionCandidato(idCandidato, nombreCandidato) {
+    var modal = document.getElementById("modalDocumentacionCandidato");
+    var label = document.getElementById("modalDocumentacionCandidatoNombre");
+    var bloqueVerif = document.getElementById("modalDocumentacionCandidatoVerificacion");
+    var lista = document.getElementById("modalDocumentacionCandidatoLista");
+    var cargando = document.getElementById("modalDocumentacionCandidatoCargando");
+    var vacio = document.getElementById("modalDocumentacionCandidatoVacio");
+    if (label) label.textContent = nombreCandidato ? "Candidato: " + nombreCandidato : "";
+    if (bloqueVerif) { bloqueVerif.classList.add("d-none"); bloqueVerif.innerHTML = ""; }
+    if (cargando) cargando.classList.remove("d-none");
+    if (vacio) vacio.classList.add("d-none");
+    lista.innerHTML = "";
+    var bsModal = modal && window.bootstrap && window.bootstrap.Modal ? new window.bootstrap.Modal(modal) : null;
+    if (bsModal) bsModal.show();
+
+    function renderVerificacion(v) {
+        if (!bloqueVerif || !v) return;
+        bloqueVerif.classList.remove("d-none");
+        var scoreFrente = v.identificacion_frente_score != null ? v.identificacion_frente_score + "%" : "—";
+        var scoreReverso = v.identificacion_reverso_score != null ? v.identificacion_reverso_score + "%" : "—";
+        var ok = v.checks_ok !== undefined && v.checks_totales !== undefined ? v.checks_ok + " / " + v.checks_totales : "";
+        var todoCoincide = v.todo_coincide === true ? "Sí" : (v.todo_coincide === false ? "No" : "—");
+        var alertas = Array.isArray(v.alertas) && v.alertas.length ? v.alertas.join(" · ") : "";
+        var html = "<div class=\"card border shadow-none\"><div class=\"card-header py-2 bg-light\"><strong><i class=\"fa fa-check-double me-1\"></i>Resultados de verificación API</strong></div><div class=\"card-body py-2 small\">";
+        html += "<div class=\"row g-2 mb-2\">";
+        html += "<div class=\"col-6 col-md-3\"><span class=\"text-muted d-block\">Score ID (frente)</span><strong class=\"text-primary\">" + scoreFrente + "</strong></div>";
+        html += "<div class=\"col-6 col-md-3\"><span class=\"text-muted d-block\">Score ID (reverso)</span><strong class=\"text-primary\">" + scoreReverso + "</strong></div>";
+        html += "<div class=\"col-6 col-md-3\"><span class=\"text-muted d-block\">Checks aprobados</span><strong>" + (ok || "—") + "</strong></div>";
+        html += "<div class=\"col-6 col-md-3\"><span class=\"text-muted d-block\">Datos coinciden</span><strong>" + todoCoincide + "</strong></div>";
+        html += "</div>";
+        if (v.comparaciones && typeof v.comparaciones === "object") {
+            var comp = v.comparaciones;
+            var lineas = [];
+            var labels = {
+                "nombre_frente_vs_reverso": "Nombre ID vs Reverso",
+                "fecha_nac_curp_vs_mrz": "Fecha nac. CURP vs MRZ",
+                "nombre_id_vs_curp_pdf": "Nombre ID vs CURP PDF",
+                "curp_vs_fiscal": "CURP vs Constancia fiscal",
+                "nombre_vs_fiscal": "Nombre vs Constancia fiscal",
+                "curp_vs_nss": "CURP vs NSS",
+                "nombre_vs_nss": "Nombre vs NSS",
+                "nombre_vs_acta": "Nombre vs Acta",
+                "fecha_nac_vs_acta": "Fecha nac. vs Acta",
+                "curp_id_vs_documento": "CURP ID vs documento"
+            };
+            Object.keys(comp).forEach(function(k) {
+                var c = comp[k];
+                if (!c || typeof c !== "object") return;
+                if (c.coincide !== undefined) lineas.push((labels[k] || k) + ": " + (c.coincide ? "✓ Coincide" : "✗ No coincide"));
+                else if (c.es_reciente !== undefined) lineas.push("CURP PDF antigüedad: " + (c.es_reciente ? "Reciente" : (c.meses_antiguedad || "?") + " meses"));
+            });
+            if (lineas.length) html += "<div class=\"border-top pt-2 mt-1\"><span class=\"text-muted d-block mb-1\">Relación entre documentos</span><div class=\"d-flex flex-wrap gap-2\">" + lineas.map(function(l){ return "<span class=\"badge bg-light text-dark border\">" + l + "</span>"; }).join("") + "</div></div>";
+        }
+        if (alertas) html += "<div class=\"mt-1 text-warning\"><span class=\"text-muted\">Alertas:</span> " + alertas + "</div>";
+        html += "</div></div>";
+        bloqueVerif.innerHTML = html;
+    }
+
+    function renderLista(datos) {
+        if (cargando) cargando.classList.add("d-none");
+        lista.innerHTML = "";
+        if (!datos || datos.length === 0) {
+            if (vacio) vacio.classList.remove("d-none");
+            return;
+        }
+        if (vacio) vacio.classList.add("d-none");
+        datos.forEach(function(d) {
+            var item = document.createElement("div");
+            item.className = "list-group-item list-group-item-action d-flex justify-content-between align-items-center";
+            var fecha = d.fecha_carga ? new Date(d.fecha_carga).toLocaleDateString("es-MX") : "";
+            item.innerHTML = "<div><strong>" + (d.tipo_documento || "Documento") + "</strong><br><small class=\"text-muted\">" + (d.nombre_archivo || "") + (fecha ? " · " + fecha : "") + "</small></div>" +
+                "<div class=\"d-flex gap-1\">" +
+                "<a href=\"/CapHum/verDocumentoCandidato/" + d.id + "\" target=\"_blank\" class=\"btn btn-sm btn-outline-primary\" title=\"Abrir\"><i class=\"fa fa-eye\"></i></a>" +
+                "<button type=\"button\" class=\"btn btn-sm btn-outline-danger btn-eliminar-doc-candidato\" data-id=\"" + d.id + "\" title=\"Eliminar\"><i class=\"fa fa-trash\"></i></button>" +
+                "</div>";
+            lista.appendChild(item);
+        });
+        lista.querySelectorAll(".btn-eliminar-doc-candidato").forEach(function(btn) {
+            btn.addEventListener("click", function() {
+                var idDoc = parseInt(btn.getAttribute("data-id"), 10);
+                if (typeof Swal !== "undefined") {
+                    Swal.fire({ title: "¿Eliminar documento?", text: "Se quitará del expediente.", icon: "warning", showCancelButton: true, confirmButtonText: "Sí, eliminar", cancelButtonText: "Cancelar" }).then(function(r) {
+                        if (r.isConfirmed) eliminarDocYRecargar(idDoc);
+                    });
+                } else if (confirm("¿Eliminar este documento?")) eliminarDocYRecargar(idDoc);
+            });
+        });
+    }
+
+    function eliminarDocYRecargar(idDoc) {
+        fetch("/CapHum/eliminarDocumentoCandidato", {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded", "X-Requested-With": "XMLHttpRequest" },
+            body: "id=" + idDoc
+        }).then(function(r){ return r.json(); }).then(function(res) {
+            if (res.success) {
+                if (typeof Swal !== "undefined") Swal.fire({ icon: "success", title: "Eliminado", text: res.mensaje || "Documento eliminado." });
+                cargarDocumentos();
+            } else {
+                if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "Error", text: res.mensaje || "No se pudo eliminar." });
+            }
+        }).catch(function() {
+            if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "Error", text: "Error de conexión." });
+        });
+    }
+
+    function cargarDocumentos() {
+        fetch("/CapHum/getDocumentosCandidatoList?id_candidato=" + idCandidato).then(function(r){ return r.json(); }).then(function(res) {
+            var docs = (res.datos && res.datos.documentos) ? res.datos.documentos : (res.datos && Array.isArray(res.datos) ? res.datos : []);
+            var verif = (res.datos && res.datos.verificacion_expediente) ? res.datos.verificacion_expediente : null;
+            renderLista(docs);
+            renderVerificacion(verif);
+        }).catch(function() { renderLista([]); });
+    }
+
+    cargarDocumentos();
 }
 
 function abrirModalReenviarPostulacion(idCandidato) {

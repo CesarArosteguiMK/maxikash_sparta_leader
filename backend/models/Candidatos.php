@@ -345,10 +345,90 @@ class Candidatos extends Model
         }
         try {
             $db = new Database();
-            $lista = $db->queryAll("SELECT id, tipo_documento, nombre_archivo, ruta_archivo, fecha_carga FROM candidato_documento WHERE id_candidato = :id ORDER BY fecha_carga DESC", ['id' => $id_candidato]);
+            $lista = $db->queryAll("SELECT id, id_candidato, tipo_documento, nombre_archivo, ruta_archivo, fecha_carga FROM candidato_documento WHERE id_candidato = :id ORDER BY fecha_carga DESC", ['id' => $id_candidato]);
             return self::resultado(true, 'Documentos encontrados.', $lista ?: []);
         } catch (\Exception $e) {
             return self::resultado(false, 'Error al listar documentos.', [], $e->getMessage());
+        }
+    }
+
+    /**
+     * Obtener un documento por ID (para verificar y servir/eliminar).
+     */
+    public static function getDocumentoById($id_documento)
+    {
+        $id_documento = (int) $id_documento;
+        if ($id_documento <= 0) {
+            return self::resultado(false, 'ID inválido.', null);
+        }
+        try {
+            $db = new Database();
+            $row = $db->queryOne("SELECT id, id_candidato, tipo_documento, nombre_archivo, ruta_archivo FROM candidato_documento WHERE id = :id", ['id' => $id_documento]);
+            return self::resultado(true, $row ? 'OK' : 'No encontrado.', $row);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error.', null, $e->getMessage());
+        }
+    }
+
+    /**
+     * Eliminar un documento del expediente (por ID).
+     */
+    public static function eliminarDocumento($id_documento)
+    {
+        $id_documento = (int) $id_documento;
+        if ($id_documento <= 0) {
+            return self::resultado(false, 'ID inválido.');
+        }
+        try {
+            $db = new Database();
+            $db->CRUD("DELETE FROM candidato_documento WHERE id = :id", ['id' => $id_documento]);
+            return self::resultado(true, 'Documento eliminado.');
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al eliminar.', null, $e->getMessage());
+        }
+    }
+
+    /**
+     * Guardar el último resultado de verificación de expediente (API validar-expediente).
+     * @param int $id_candidato
+     * @param string|null $jsonResultado JSON del resultado (checks_ok, alertas, todo_coincide, etc.)
+     */
+    public static function updateVerificacionExpediente($id_candidato, $jsonResultado)
+    {
+        $id_candidato = (int) $id_candidato;
+        if ($id_candidato <= 0) {
+            return;
+        }
+        try {
+            $db = new Database();
+            $db->CRUD(
+                "UPDATE candidatos SET ultima_verificacion_expediente = :json WHERE id = :id",
+                ['id' => $id_candidato, 'json' => $jsonResultado === null ? null : (is_string($jsonResultado) ? $jsonResultado : json_encode($jsonResultado))]
+            );
+        } catch (\Exception $e) {
+            // Columna puede no existir si no se ejecutó la migración
+        }
+    }
+
+    /**
+     * Obtener el último resultado de verificación de expediente (JSON decodificado o null).
+     */
+    public static function getVerificacionExpediente($id_candidato)
+    {
+        $id_candidato = (int) $id_candidato;
+        if ($id_candidato <= 0) {
+            return null;
+        }
+        try {
+            $db = new Database();
+            $row = $db->queryOne("SELECT ultima_verificacion_expediente FROM candidatos WHERE id = :id", ['id' => $id_candidato]);
+            if (!$row || empty($row['ultima_verificacion_expediente'])) {
+                return null;
+            }
+            $decoded = json_decode($row['ultima_verificacion_expediente'], true);
+            return is_array($decoded) ? $decoded : null;
+        } catch (\Exception $e) {
+            return null;
         }
     }
 }

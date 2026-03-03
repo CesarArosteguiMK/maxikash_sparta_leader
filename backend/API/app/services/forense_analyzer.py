@@ -46,6 +46,15 @@ class ForenseAnalyzer:
                     "Repita la captura en un lugar con menos luz directa o reflejo."
                 )
                 score -= 0.50
+            borroso = self._detectar_borroso(img_cv)
+            if borroso:
+                alertas.append(
+                    "Imagen borrosa o desenfocada. Repita la captura asegurando que el documento se vea nítido."
+                )
+                score -= 0.30
+            calidad_foto = self._resumen_calidad_foto(
+                brillo_excesivo, borroso, pct_sobreexpuesto
+            )
             score = max(0.0, min(1.0, score))
             return CheckForense(
                 ok=score >= 0.5,
@@ -56,6 +65,8 @@ class ForenseAnalyzer:
                 compresion_uniforme=compresion_uniforme,
                 brillo_excesivo=brillo_excesivo,
                 porcentaje_sobreexpuesto=round(pct_sobreexpuesto, 2),
+                borroso=borroso,
+                calidad_foto=calidad_foto,
                 alertas=alertas,
                 score=round(score, 3)
             )
@@ -132,6 +143,24 @@ class ForenseAnalyzer:
             (glare_grande and pct_saturado > 5.0)
         )
         return es_excesivo, pct_saturado
+
+    def _detectar_borroso(self, img: np.ndarray) -> bool:
+        """Detecta si la imagen está borrosa/desenfocada (Laplacian variance baja)."""
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        laplacian_var = cv2.Laplacian(gray, cv2.CV_64F).var()
+        return bool(laplacian_var < 100.0)
+
+    def _resumen_calidad_foto(
+        self, brillo_excesivo: bool, borroso: bool, pct_sobreexpuesto: float
+    ) -> str:
+        """Resumen de calidad de foto para revisión (sin identificar persona)."""
+        if brillo_excesivo and borroso:
+            return "revisar_brillo_y_borroso"
+        if brillo_excesivo or pct_sobreexpuesto > 20:
+            return "revisar_brillo"
+        if borroso:
+            return "revisar_borroso"
+        return "ok"
 
     def _analizar_ruido(self, img: np.ndarray) -> bool:
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY).astype(float)

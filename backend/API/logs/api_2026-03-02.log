@@ -1,0 +1,138 @@
+2026-03-02 10:58:32.859 | INFO     | app.main:startup:85 - 🚀 Doc Verificacion API v1.0.0 iniciado
+2026-03-02 10:58:32.869 | INFO     | app.main:startup:86 - 📋 Docs: http://localhost:8000/docs
+2026-03-02 10:58:57.168 | INFO     | app.api.routes:verificar_documento:93 - Verificando documento - tipo: TipoDocumento.RESIDENCIA_TEMPORAL - tamaño: 422.4KB
+2026-03-02 10:58:57.169 | INFO     | app.services.verificacion:verificar:47 - Iniciando verificación - tipo: TipoDocumento.RESIDENCIA_TEMPORAL
+2026-03-02 10:59:11.263 | INFO     | app.services.verificacion:verificar:119 - Verificación completada - Score: 77 - Resultado: ResultadoVerificacion.ORIGINAL - 14094ms
+2026-03-02 11:02:09.333 | INFO     | app.main:startup:85 - 🚀 Doc Verificacion API v1.0.0 iniciado
+2026-03-02 11:02:09.335 | INFO     | app.main:startup:86 - 📋 Docs: http://localhost:8000/docs
+2026-03-02 11:02:36.930 | INFO     | app.api.routes:verificar_comprobante:138 - Verificando comprobante - archivo: comprobante_domicilio.pdf - tamaño: 295.8KB
+2026-03-02 11:02:43.195 | INFO     | app.api.routes:verificar_documento:93 - Verificando documento - tipo: TipoDocumento.INE_NUEVA - tamaño: 299.6KB
+2026-03-02 11:02:43.195 | INFO     | app.services.verificacion:verificar:47 - Iniciando verificación - tipo: TipoDocumento.INE_NUEVA
+2026-03-02 11:03:00.654 | INFO     | app.services.verificacion:verificar:119 - Verificación completada - Score: 80 - Resultado: ResultadoVerificacion.ORIGINAL - 17458ms
+2026-03-02 11:05:37.073 | INFO     | app.api.routes:verificar_documento:93 - Verificando documento - tipo: TipoDocumento.INE_NUEVA - tamaño: 422.4KB
+2026-03-02 11:05:37.073 | INFO     | app.services.verificacion:verificar:47 - Iniciando verificación - tipo: TipoDocumento.INE_NUEVA
+2026-03-02 11:05:47.203 | INFO     | app.services.verificacion:verificar:119 - Verificación completada - Score: 77 - Resultado: ResultadoVerificacion.ORIGINAL - 10129ms
+2026-03-02 11:07:04.982 | INFO     | app.api.routes:verificar_comprobante:138 - Verificando comprobante - archivo: comprobante_domicilio.pdf - tamaño: 295.8KB
+2026-03-02 11:07:13.863 | INFO     | app.main:startup:85 - 🚀 Doc Verificacion API v1.0.0 iniciado
+2026-03-02 11:07:13.865 | INFO     | app.main:startup:86 - 📋 Docs: http://localhost:8000/docs
+2026-03-02 11:07:24.602 | INFO     | app.api.routes:verificar_comprobante:138 - Verificando comprobante - archivo: comprobante_domicilio.pdf - tamaño: 295.8KB
+2026-03-02 11:37:12.344 | INFO     | app.main:startup:85 - 🚀 Doc Verificacion API v1.0.0 iniciado
+2026-03-02 11:37:12.347 | INFO     | app.main:startup:86 - 📋 Docs: http://localhost:8000/docs
+2026-03-02 11:37:48.742 | INFO     | app.api.routes:verificar_documento:93 - Verificando documento - tipo: TipoDocumento.RESIDENCIA_TEMPORAL - tamaño: 299.6KB
+2026-03-02 11:37:48.742 | INFO     | app.services.verificacion:verificar:47 - Iniciando verificación - tipo: TipoDocumento.RESIDENCIA_TEMPORAL
+2026-03-02 11:38:11.912 | INFO     | app.services.verificacion:verificar:119 - Verificación completada - Score: 93 - Resultado: ResultadoVerificacion.ORIGINAL - 23169ms
+2026-03-02 11:38:17.982 | INFO     | app.api.routes:verificar_documento:93 - Verificando documento - tipo: TipoDocumento.RESIDENCIA_TEMPORAL - tamaño: 422.4KB
+2026-03-02 11:38:17.983 | INFO     | app.services.verificacion:verificar:47 - Iniciando verificación - tipo: TipoDocumento.RESIDENCIA_TEMPORAL
+2026-03-02 11:38:40.296 | INFO     | app.services.verificacion:verificar:119 - Verificación completada - Score: 81 - Resultado: ResultadoVerificacion.ORIGINAL - 22313ms
+2026-03-02 11:39:37.895 | INFO     | app.main:startup:85 - 🚀 Doc Verificacion API v1.0.0 iniciado
+2026-03-02 11:39:37.898 | INFO     | app.main:startup:86 - 📋 Docs: http://localhost:8000/docs
+2026-03-02 11:39:58.767 | INFO     | app.api.routes:verificar_documento:93 - Verificando documento - tipo: TipoDocumento.RESIDENCIA_TEMPORAL - tamaño: 299.6KB
+2026-03-02 11:39:58.767 | INFO     | app.services.verificacion:verificar:47 - Iniciando verificación - tipo: TipoDocumento.RESIDENCIA_TEMPORAL
+2026-03-02 11:40:19.613 | INFO     | app.services.verificacion:verificar:119 - Verificación completada - Score: 93 - Resultado: ResultadoVerificacion.ORIGINAL - 20845ms
+2026-03-02 12:09:30.343 | INFO     | app.main:startup:85 - 🚀 Doc Verificacion API v1.0.0 iniciado
+2026-03-02 12:09:30.347 | INFO     | app.main:startup:86 - 📋 Docs: http://localhost:8000/docs
+2026-03-02 12:09:40.854 | INFO     | app.api.routes:verificar_documento:93 - Verificando documento - tipo: TipoDocumento.RESIDENCIA_TEMPORAL - tamaño: 299.6KB
+2026-03-02 12:09:40.854 | INFO     | app.services.verificacion:verificar:47 - Iniciando verificación - tipo: TipoDocumento.RESIDENCIA_TEMPORAL
+2026-03-02 12:10:02.418 | INFO     | app.services.verificacion:verificar:119 - Verificación completada - Score: 93 - Resultado: ResultadoVerificacion.ORIGINAL - 21563ms
+2026-03-02 12:11:00.370 | INFO     | app.main:startup:85 - 🚀 Doc Verificacion API v1.0.0 iniciado
+2026-03-02 12:11:00.373 | INFO     | app.main:startup:86 - 📋 Docs: http://localhost:8000/docs
+2026-03-02 12:22:59.804 | INFO     | app.main:startup:85 - 🚀 Doc Verificacion API v1.0.0 iniciado
+2026-03-02 12:22:59.806 | INFO     | app.main:startup:86 - 📋 Docs: http://localhost:8000/docs
+2026-03-02 12:23:21.705 | INFO     | app.api.routes:verificar_documento:93 - Verificando documento - tipo: TipoDocumento.RESIDENCIA_TEMPORAL - tamaño: 299.6KB
+2026-03-02 12:23:21.705 | INFO     | app.services.verificacion:verificar:47 - Iniciando verificación - tipo: TipoDocumento.RESIDENCIA_TEMPORAL
+2026-03-02 12:23:45.827 | INFO     | app.services.verificacion:verificar:119 - Verificación completada - Score: 93 - Resultado: ResultadoVerificacion.ORIGINAL - 24122ms
+2026-03-02 12:23:45.830 | INFO     | app.api.routes:verificar_documento:93 - Verificando documento - tipo: TipoDocumento.RESIDENCIA_TEMPORAL - tamaño: 422.4KB
+2026-03-02 12:23:45.830 | INFO     | app.services.verificacion:verificar:47 - Iniciando verificación - tipo: TipoDocumento.RESIDENCIA_TEMPORAL
+2026-03-02 12:24:08.088 | INFO     | app.services.verificacion:verificar:119 - Verificación completada - Score: 81 - Resultado: ResultadoVerificacion.ORIGINAL - 22258ms
+2026-03-02 12:24:37.632 | INFO     | app.api.routes:verificar_documento:93 - Verificando documento - tipo: TipoDocumento.RESIDENCIA_TEMPORAL - tamaño: 422.4KB
+2026-03-02 12:24:37.633 | INFO     | app.services.verificacion:verificar:47 - Iniciando verificación - tipo: TipoDocumento.RESIDENCIA_TEMPORAL
+2026-03-02 12:25:00.941 | INFO     | app.services.verificacion:verificar:119 - Verificación completada - Score: 81 - Resultado: ResultadoVerificacion.ORIGINAL - 23308ms
+2026-03-02 12:25:11.495 | INFO     | app.main:startup:85 - 🚀 Doc Verificacion API v1.0.0 iniciado
+2026-03-02 12:25:11.498 | INFO     | app.main:startup:86 - 📋 Docs: http://localhost:8000/docs
+2026-03-02 12:25:22.480 | INFO     | app.api.routes:verificar_documento:93 - Verificando documento - tipo: TipoDocumento.RESIDENCIA_TEMPORAL - tamaño: 422.4KB
+2026-03-02 12:25:22.480 | INFO     | app.services.verificacion:verificar:47 - Iniciando verificación - tipo: TipoDocumento.RESIDENCIA_TEMPORAL
+2026-03-02 12:25:44.764 | INFO     | app.services.verificacion:verificar:119 - Verificación completada - Score: 81 - Resultado: ResultadoVerificacion.ORIGINAL - 22283ms
+2026-03-02 12:46:39.190 | INFO     | app.main:startup:85 - 🚀 Doc Verificacion API v1.0.0 iniciado
+2026-03-02 12:46:39.192 | INFO     | app.main:startup:86 - 📋 Docs: http://localhost:8000/docs
+2026-03-02 12:46:56.017 | INFO     | app.api.routes:verificar_documento:93 - Verificando documento - tipo: TipoDocumento.RESIDENCIA_TEMPORAL - tamaño: 299.6KB
+2026-03-02 12:46:56.017 | INFO     | app.services.verificacion:verificar:47 - Iniciando verificación - tipo: TipoDocumento.RESIDENCIA_TEMPORAL
+2026-03-02 12:47:26.365 | INFO     | app.services.verificacion:verificar:119 - Verificación completada - Score: 93 - Resultado: ResultadoVerificacion.ORIGINAL - 30347ms
+2026-03-02 12:47:33.649 | INFO     | app.api.routes:verificar_documento:93 - Verificando documento - tipo: TipoDocumento.RESIDENCIA_TEMPORAL - tamaño: 422.4KB
+2026-03-02 12:47:33.649 | INFO     | app.services.verificacion:verificar:47 - Iniciando verificación - tipo: TipoDocumento.RESIDENCIA_TEMPORAL
+2026-03-02 12:48:00.377 | INFO     | app.services.verificacion:verificar:119 - Verificación completada - Score: 81 - Resultado: ResultadoVerificacion.ORIGINAL - 26727ms
+2026-03-02 12:48:06.570 | INFO     | app.services.verificacion:verificar:47 - Iniciando verificación - tipo: TipoDocumento.RESIDENCIA_TEMPORAL
+2026-03-02 12:48:32.049 | INFO     | app.services.verificacion:verificar:119 - Verificación completada - Score: 93 - Resultado: ResultadoVerificacion.ORIGINAL - 25478ms
+2026-03-02 12:48:32.049 | INFO     | app.services.verificacion:verificar:47 - Iniciando verificación - tipo: TipoDocumento.RESIDENCIA_TEMPORAL
+2026-03-02 12:48:53.935 | INFO     | app.services.verificacion:verificar:119 - Verificación completada - Score: 81 - Resultado: ResultadoVerificacion.ORIGINAL - 21885ms
+2026-03-02 13:05:16.606 | INFO     | app.main:startup:85 - 🚀 Doc Verificacion API v1.0.0 iniciado
+2026-03-02 13:05:16.608 | INFO     | app.main:startup:86 - 📋 Docs: http://localhost:8000/docs
+2026-03-02 13:05:45.543 | INFO     | app.api.routes:cotejar_documento:275 - Documento CURP: extraido=GOLL960112HNENYZ09
+2026-03-02 13:05:45.543 | INFO     | app.services.verificacion:verificar:47 - Iniciando verificación - tipo: TipoDocumento.RESIDENCIA_TEMPORAL
+2026-03-02 13:06:18.510 | INFO     | app.services.verificacion:verificar:119 - Verificación completada - Score: 93 - Resultado: ResultadoVerificacion.ORIGINAL - 32966ms
+2026-03-02 13:06:18.510 | INFO     | app.services.verificacion:verificar:47 - Iniciando verificación - tipo: TipoDocumento.RESIDENCIA_TEMPORAL
+2026-03-02 13:06:40.961 | INFO     | app.services.verificacion:verificar:119 - Verificación completada - Score: 81 - Resultado: ResultadoVerificacion.ORIGINAL - 22450ms
+2026-03-02 13:07:12.583 | INFO     | app.api.routes:cotejar_documento:275 - Documento CURP: extraido=GOLL960112HNENYZ09
+2026-03-02 13:07:12.584 | INFO     | app.services.verificacion:verificar:47 - Iniciando verificación - tipo: TipoDocumento.RESIDENCIA_TEMPORAL
+2026-03-02 13:07:38.402 | INFO     | app.services.verificacion:verificar:119 - Verificación completada - Score: 93 - Resultado: ResultadoVerificacion.ORIGINAL - 25818ms
+2026-03-02 13:07:38.402 | INFO     | app.services.verificacion:verificar:47 - Iniciando verificación - tipo: TipoDocumento.RESIDENCIA_TEMPORAL
+2026-03-02 13:08:01.511 | INFO     | app.services.verificacion:verificar:119 - Verificación completada - Score: 81 - Resultado: ResultadoVerificacion.ORIGINAL - 23108ms
+2026-03-02 13:31:44.160 | INFO     | app.main:startup:85 - 🚀 Doc Verificacion API v1.0.0 iniciado
+2026-03-02 13:31:44.163 | INFO     | app.main:startup:86 - 📋 Docs: http://localhost:8000/docs
+2026-03-02 13:32:03.483 | INFO     | app.services.verificacion:verificar:47 - Iniciando verificación - tipo: TipoDocumento.RESIDENCIA_TEMPORAL
+2026-03-02 13:32:29.563 | INFO     | app.services.verificacion:verificar:119 - Verificación completada - Score: 93 - Resultado: ResultadoVerificacion.ORIGINAL - 26079ms
+2026-03-02 13:32:29.563 | INFO     | app.services.verificacion:verificar:47 - Iniciando verificación - tipo: TipoDocumento.RESIDENCIA_TEMPORAL
+2026-03-02 13:32:51.792 | INFO     | app.services.verificacion:verificar:119 - Verificación completada - Score: 81 - Resultado: ResultadoVerificacion.ORIGINAL - 22228ms
+2026-03-02 13:58:53.822 | INFO     | app.main:startup:85 - 🚀 Doc Verificacion API v1.0.0 iniciado
+2026-03-02 13:58:53.824 | INFO     | app.main:startup:86 - 📋 Docs: http://localhost:8000/docs
+2026-03-02 14:00:23.180 | INFO     | app.services.verificacion:verificar:47 - Iniciando verificación - tipo: TipoDocumento.RESIDENCIA_TEMPORAL
+2026-03-02 14:00:38.931 | INFO     | app.services.verificacion:verificar:119 - Verificación completada - Score: 93 - Resultado: ResultadoVerificacion.ORIGINAL - 15751ms
+2026-03-02 14:00:38.932 | INFO     | app.services.verificacion:verificar:47 - Iniciando verificación - tipo: TipoDocumento.RESIDENCIA_TEMPORAL
+2026-03-02 14:00:53.786 | INFO     | app.services.verificacion:verificar:119 - Verificación completada - Score: 81 - Resultado: ResultadoVerificacion.ORIGINAL - 14854ms
+2026-03-02 14:01:01.328 | INFO     | app.services.document_crosscheck:extraer_datos_acta_nacimiento:365 - Acta nacimiento - texto extraído (1780 chars)
+2026-03-02 14:07:19.169 | INFO     | app.main:startup:85 - 🚀 Doc Verificacion API v1.0.0 iniciado
+2026-03-02 14:07:19.170 | INFO     | app.main:startup:86 - 📋 Docs: http://localhost:8000/docs
+2026-03-02 14:10:19.242 | INFO     | app.main:startup:85 - 🚀 Doc Verificacion API v1.0.0 iniciado
+2026-03-02 14:10:19.244 | INFO     | app.main:startup:86 - 📋 Docs: http://localhost:8000/docs
+2026-03-02 14:10:31.677 | INFO     | app.services.verificacion:verificar:47 - Iniciando verificación - tipo: TipoDocumento.RESIDENCIA_TEMPORAL
+2026-03-02 14:10:46.271 | INFO     | app.services.verificacion:verificar:119 - Verificación completada - Score: 93 - Resultado: ResultadoVerificacion.ORIGINAL - 14594ms
+2026-03-02 14:10:46.272 | INFO     | app.services.verificacion:verificar:47 - Iniciando verificación - tipo: TipoDocumento.RESIDENCIA_TEMPORAL
+2026-03-02 14:11:01.011 | INFO     | app.services.verificacion:verificar:119 - Verificación completada - Score: 81 - Resultado: ResultadoVerificacion.ORIGINAL - 14739ms
+2026-03-02 14:12:59.596 | INFO     | app.services.document_crosscheck:extraer_datos_acta_nacimiento:509 - Acta nacimiento multi-pasada: 18 pasadas, 1 fechas, 2 nombres
+2026-03-02 14:58:17.960 | INFO     | app.services.verificacion:verificar:47 - Iniciando verificación - tipo: TipoDocumento.RESIDENCIA_TEMPORAL
+2026-03-02 14:58:33.464 | INFO     | app.services.verificacion:verificar:119 - Verificación completada - Score: 93 - Resultado: ResultadoVerificacion.ORIGINAL - 15503ms
+2026-03-02 14:58:33.464 | INFO     | app.services.verificacion:verificar:47 - Iniciando verificación - tipo: TipoDocumento.RESIDENCIA_TEMPORAL
+2026-03-02 14:58:48.619 | INFO     | app.services.verificacion:verificar:119 - Verificación completada - Score: 81 - Resultado: ResultadoVerificacion.ORIGINAL - 15154ms
+2026-03-02 15:00:48.182 | INFO     | app.services.document_crosscheck:extraer_datos_acta_nacimiento:509 - Acta nacimiento multi-pasada: 18 pasadas, 1 fechas, 2 nombres
+2026-03-02 15:00:53.087 | INFO     | app.api.routes:verificar_documento:99 - Verificando documento - tipo: TipoDocumento.RESIDENCIA_TEMPORAL - tamaño: 299.6KB
+2026-03-02 15:00:53.087 | INFO     | app.services.verificacion:verificar:47 - Iniciando verificación - tipo: TipoDocumento.RESIDENCIA_TEMPORAL
+2026-03-02 15:01:12.628 | INFO     | app.services.verificacion:verificar:119 - Verificación completada - Score: 93 - Resultado: ResultadoVerificacion.ORIGINAL - 19540ms
+2026-03-02 17:04:07.187 | INFO     | main:startup:85 - 🚀 Doc Verificacion API v1.0.0 iniciado
+2026-03-02 17:04:07.192 | INFO     | main:startup:86 - 📋 Docs: http://localhost:8000/docs
+2026-03-02 17:04:46.160 | INFO     | app.api.routes:verificar_documento:99 - Verificando documento - tipo: TipoDocumento.RESIDENCIA_TEMPORAL - tamaño: 299.6KB
+2026-03-02 17:04:46.160 | INFO     | app.services.verificacion:verificar:47 - Iniciando verificación - tipo: TipoDocumento.RESIDENCIA_TEMPORAL
+2026-03-02 17:05:01.641 | INFO     | app.services.verificacion:verificar:119 - Verificación completada - Score: 93 - Resultado: ResultadoVerificacion.ORIGINAL - 15480ms
+2026-03-02 17:05:19.741 | INFO     | app.api.routes:verificar_documento:99 - Verificando documento - tipo: TipoDocumento.RESIDENCIA_TEMPORAL - tamaño: 128.7KB
+2026-03-02 17:05:19.741 | INFO     | app.services.verificacion:verificar:47 - Iniciando verificación - tipo: TipoDocumento.RESIDENCIA_TEMPORAL
+2026-03-02 17:05:25.134 | INFO     | app.services.verificacion:verificar:119 - Verificación completada - Score: 66 - Resultado: ResultadoVerificacion.RECHAZADO - 5392ms
+2026-03-02 17:05:37.919 | INFO     | app.api.routes:verificar_documento:99 - Verificando documento - tipo: TipoDocumento.RESIDENCIA_TEMPORAL - tamaño: 422.4KB
+2026-03-02 17:05:37.919 | INFO     | app.services.verificacion:verificar:47 - Iniciando verificación - tipo: TipoDocumento.RESIDENCIA_TEMPORAL
+2026-03-02 17:05:52.612 | INFO     | app.services.verificacion:verificar:119 - Verificación completada - Score: 81 - Resultado: ResultadoVerificacion.ORIGINAL - 14692ms
+2026-03-02 17:08:40.648 | INFO     | app.api.routes:verificar_comprobante:144 - Verificando comprobante - archivo: comprobante_domicilio.pdf - tamaño: 295.8KB
+2026-03-02 17:17:01.283 | INFO     | main:shutdown:91 - 👋 Servidor detenido
+2026-03-02 18:17:36.769 | INFO     | main:startup:85 - 🚀 Doc Verificacion API v1.0.0 iniciado
+2026-03-02 18:17:36.770 | INFO     | main:startup:86 - 📋 Docs: http://localhost:8000/docs
+2026-03-02 18:17:59.545 | INFO     | app.api.routes:verificar_comprobante:144 - Verificando comprobante - archivo: comprobante_domicilio.pdf - tamaño: 295.8KB
+2026-03-02 18:19:11.660 | INFO     | app.api.routes:verificar_comprobante:144 - Verificando comprobante - archivo: comprobante_domicilio.pdf - tamaño: 295.8KB
+2026-03-02 18:20:23.535 | INFO     | app.api.routes:verificar_comprobante:144 - Verificando comprobante - archivo: inverso.jpeg - tamaño: 422.4KB
+2026-03-02 18:22:35.533 | INFO     | main:shutdown:91 - 👋 Servidor detenido
+2026-03-02 18:22:36.431 | INFO     | main:startup:85 - 🚀 Doc Verificacion API v1.0.0 iniciado
+2026-03-02 18:22:36.433 | INFO     | main:startup:86 - 📋 Docs: http://localhost:8000/docs
+2026-03-02 18:27:35.544 | INFO     | main:shutdown:91 - 👋 Servidor detenido
+2026-03-02 18:27:36.590 | INFO     | main:startup:85 - 🚀 Doc Verificacion API v1.0.0 iniciado
+2026-03-02 18:27:36.591 | INFO     | main:startup:86 - 📋 Docs: http://localhost:8000/docs
+2026-03-02 18:29:11.916 | INFO     | main:shutdown:91 - 👋 Servidor detenido
+2026-03-02 18:29:19.006 | INFO     | app.main:startup:85 - 🚀 Doc Verificacion API v1.0.0 iniciado
+2026-03-02 18:29:19.009 | INFO     | app.main:startup:86 - 📋 Docs: http://localhost:8000/docs
+2026-03-02 18:29:49.744 | INFO     | app.api.routes:verificar_comprobante:144 - Verificando comprobante - archivo: constancia_fiscal.pdf - tamaño: 133.3KB
+2026-03-02 18:30:04.643 | INFO     | app.api.routes:verificar_comprobante:144 - Verificando comprobante - archivo: frente.jpeg - tamaño: 299.6KB
+2026-03-02 18:30:13.498 | INFO     | app.api.routes:verificar_comprobante:144 - Verificando comprobante - archivo: comprobante_domicilio.pdf - tamaño: 295.8KB
