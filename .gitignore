@@ -37,6 +37,23 @@ backend/storage/logs/*.log
 backend/storage/logs/*
 !backend/storage/logs/.gitkeep
 
+# ========== API Python (backend/API) – no subir ==========
+backend/API/logs/
+backend/API/.env
+backend/API/venv/
+backend/API/.venv/
+backend/API/**/__pycache__/
+backend/API/*.zip
+backend/API/files.zip
+backend/API/models/
+backend/API/temp/
+backend/API/tmp/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+
 # ========== Rate limiting (login) ==========
 backend/storage/rate_limit/
 !backend/storage/rate_limit/.gitkeep
