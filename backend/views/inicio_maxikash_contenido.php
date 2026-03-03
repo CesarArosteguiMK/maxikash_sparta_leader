@@ -221,6 +221,11 @@ body.dark-mode .inicio-mkx .qcard:hover::after{transform:scaleX(1);}
 .inicio-mkx .qd{font-size:12px;opacity:.85;}
 .inicio-mkx .qarr{position:absolute;top:15px;right:13px;width:21px;height:21px;border-radius:6px;background:#f1f5f9;display:flex;align-items:center;justify-content:center;font-size:11px;opacity:0;transition:all .2s;}
 .inicio-mkx .qcard:hover .qarr{opacity:1;background:var(--blue);color:#fff;}
+/* Easter: mano saludando (long-press en icono mano) */
+.inicio-easter-hand-wrap{position:fixed;inset:0;z-index:10050;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.4);backdrop-filter:blur(6px);pointer-events:none;opacity:0;animation:inicioHandOverlayIn .35s ease-out forwards;}
+.inicio-easter-hand-wrap .inicio-easter-hand-ico{font-size:clamp(5rem,18vw,10rem);color:#C8D62B;text-shadow:0 4px 20px rgba(0,0,0,0.3);animation:inicioHandWave 0.5s ease-in-out 6 forwards;}
+@keyframes inicioHandOverlayIn{0%{opacity:0}100%{opacity:1}}
+@keyframes inicioHandWave{0%,100%{transform:rotate(-18deg)}50%{transform:rotate(18deg)}}
 /* Hero responsive para celular */
 @media (max-width: 991.98px) {
   .inicio-mkx .hero {
@@ -381,7 +386,7 @@ body.dark-mode .inicio-btn-diagnostico-bd {
       </div>
       <div class="hero-content">
         <div class="hero-badge"><span class="badge-dot"></span><span id="heroBadge"><?= htmlspecialchars($puestoUsuario) ?></span></div>
-        <h1 class="hero-title">¡Hola, <?= htmlspecialchars($nombreCorto) ?>! 👋</h1>
+        <h1 class="hero-title">¡Hola, <?= htmlspecialchars($nombreCorto) ?>! <span class="inicio-easter-hand-trigger" title="Mantén pulsado" role="button" tabindex="0" style="cursor:pointer;display:inline-block;user-select:none;">👋</span></h1>
         <p class="hero-desc"><?= htmlspecialchars($heroDesc) ?></p>
       </div>
       <div class="hero-datetime" id="btnOpenClockPanel" title="Ver más información">
@@ -856,6 +861,53 @@ body.dark-mode .inicio-btn-diagnostico-bd {
   setInterval(function(){
     if(clockPanel.classList.contains('open')) updateClockPanel();
   }, 1000);
+
+  // Easter: long-press (~1.5s) en icono de la mano -> mano grande saludando + hola.mp3
+  (function(){
+    var HOLD_MS = 1500;
+    var timer = null;
+    var handJustTriggered = false;
+    function runHandEaster(e){
+      e.preventDefault();
+      e.stopPropagation();
+      handJustTriggered = true;
+      setTimeout(function(){ handJustTriggered = false; }, 400);
+      var wrap = document.createElement('div');
+      wrap.className = 'inicio-easter-hand-wrap';
+      wrap.setAttribute('aria-hidden', 'true');
+      var ico = document.createElement('span');
+      ico.className = 'inicio-easter-hand-ico';
+      ico.innerHTML = '\uD83D\uDC4B';
+      wrap.appendChild(ico);
+      document.body.appendChild(wrap);
+      var audio = new Audio('/assets/audio/hola.mp3');
+      audio.volume = 0.6;
+      audio.play().catch(function(){});
+      var dur = 3200;
+      setTimeout(function(){ audio.pause(); audio.currentTime = 0; }, dur);
+      setTimeout(function(){
+        wrap.style.opacity = '0';
+        wrap.style.transition = 'opacity .3s ease';
+        setTimeout(function(){ if(wrap.parentNode) wrap.parentNode.removeChild(wrap); }, 350);
+      }, dur);
+    }
+    function startHold(ev){ if(timer) return; timer = setTimeout(function(){ timer = null; runHandEaster(ev); }, HOLD_MS); }
+    function cancelHold(){ if(timer){ clearTimeout(timer); timer = null; } }
+    document.addEventListener('click', function(e){
+      var trg = e.target.closest('.inicio-easter-hand-trigger');
+      if(!trg || !handJustTriggered) return;
+      e.preventDefault();
+      e.stopPropagation();
+    }, true);
+    document.querySelectorAll('.inicio-easter-hand-trigger').forEach(function(el){
+      el.addEventListener('mousedown', function(ev){ startHold(ev); }, false);
+      el.addEventListener('mouseup', cancelHold);
+      el.addEventListener('mouseleave', cancelHold);
+      el.addEventListener('touchstart', function(ev){ ev.preventDefault(); startHold(ev); }, { passive: false });
+      el.addEventListener('touchend', function(ev){ ev.preventDefault(); cancelHold(); }, { passive: false });
+      el.addEventListener('touchcancel', cancelHold);
+    });
+  })();
 
   // Toggle Accesos rápidos ↔ Gráficas/Análisis (usuarios 1 y 878)
   var btnToggle = document.getElementById('btnToggleAnalytics');

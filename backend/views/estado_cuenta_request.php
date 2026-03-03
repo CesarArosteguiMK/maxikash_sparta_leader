@@ -290,9 +290,9 @@ if ($cuotasContratadas > 0) {
        display: grid;
        grid-template-columns: auto 1fr;
        align-items: center;
-       gap: 0.5rem;
-       margin-bottom: 0.5rem;
-       padding: 0.25rem 0;
+       gap: 0.35rem;
+       margin-bottom: 0.15rem;
+       padding: 0.1rem 0;
    }
 
    .sidebar-cliente .info-compact i.fa-lg {
@@ -309,7 +309,7 @@ if ($cuotasContratadas > 0) {
        justify-content: space-between;
        align-items: center;
        width: 100%;
-       min-height: 1.5rem;
+       min-height: 1rem;
    }
 
    .sidebar-cliente .info-compact .info-label span:first-child {
@@ -337,8 +337,8 @@ if ($cuotasContratadas > 0) {
    @media (max-width: 768px) {
        .sidebar-cliente .info-compact li {
            grid-template-columns: 1.2rem 1fr;
-           gap: 0.4rem;
-           margin-bottom: 0.6rem;
+           gap: 0.3rem;
+           margin-bottom: 0.15rem;
        }
        
        .sidebar-cliente .info-compact i.fa-lg {
@@ -1641,6 +1641,14 @@ body.dark-mode .cuotas-table .contracargo-valor { color: #fb923c !important; fon
             <span>$<?= number_format($dataEstadoCuenta["montoOtorgado"] ?? 0, 2, '.', ',') ?></span>
         </div>
     </li>
+
+    <li>
+        <i class="fa fa-money-bill-wave fa-lg"></i>
+        <div class="info-label">
+            <span class="fw-medium">Saldo Total Pagado:</span>
+            <span><?= format_currency((float)($dataEstadoCuenta["montoOtorgado"] ?? 0) - (float)($dataOtrosDatos["saldoTotalVigente"] ?? 0)) ?></span>
+        </div>
+    </li>
     
     <li>
         <i class="fa fa-list-ol fa-lg"></i>
@@ -1666,6 +1674,14 @@ body.dark-mode .cuotas-table .contracargo-valor { color: #fb923c !important; fon
         </div>
     </li>
     
+    <li>
+        <i class="fa fa-credit-card fa-lg"></i>
+        <div class="info-label">
+            <span class="fw-medium">Saldo Vigente Capital:</span>
+            <span><?= format_currency($dataOtrosDatos["saldoVigenteCapital"] ?? 0) ?></span>
+        </div>
+    </li>
+
     <li>
         <i class="fa fa-credit-card fa-lg"></i>
         <div class="info-label">
@@ -1723,7 +1739,7 @@ body.dark-mode .cuotas-table .contracargo-valor { color: #fb923c !important; fon
             <span><?= format_date($dataEstadoCuenta["fechaLiquidacion"] ?? null) ?></span>
         </div>
     </li>
-    
+
     <br>
     
     <button type="button"
@@ -2015,8 +2031,17 @@ body.dark-mode .cuotas-table .contracargo-valor { color: #fb923c !important; fon
                     </thead>
 
                     <tbody>
+                    <?php
+                    $dataEstadoCuenta = $dataEstadoCuenta ?? [];
+                    $statusCreditoRaw = trim((string)($dataEstadoCuenta['statusCredito'] ?? ''));
+                    $creditoSaldado = (mb_strtoupper($statusCreditoRaw) === 'SALDADO');
+                    $totalCuotas = count($tabla);
+                    $idxCuota = 0;
+                    ?>
                     <?php foreach ($tabla as $fila): ?>
                         <?php
+                        $idxCuota++;
+                        $esUltimaCuota = ($idxCuota === $totalCuotas);
                         // Datos de la fila
                         $cuota = safe($fila['cuota'], '—');
                         $fecha = safe($fila['fecha'], null);
@@ -2073,7 +2098,9 @@ body.dark-mode .cuotas-table .contracargo-valor { color: #fb923c !important; fon
                         }
 
                         // Construir badge
-                        if ($pendiente <= 0) {
+                        if ($creditoSaldado && $esUltimaCuota) {
+                            $badge = '<span class="badge bg-success px-3 py-2">Crédito saldado</span>';
+                        } elseif ($pendiente <= 0) {
                             // pago completo
                             $badge = '<span class="badge bg-success px-3 py-2">Pago completo</span>';
                             if ($diasMora > 0) {
@@ -2146,6 +2173,9 @@ body.dark-mode .cuotas-table .contracargo-valor { color: #fb923c !important; fon
                                         <?php endforeach; ?>
                                     <?php else: ?>
                                         <!-- Sin pagos -->
+                                    <?php endif; ?>
+                                    <?php if ($creditoSaldado && $esUltimaCuota && !empty($aplicados)): ?>
+                                        <p class="mb-0 mt-2 text-success small fw-semibold">Crédito saldado — Pago total</p>
                                     <?php endif; ?>
                                 </ul>
                             </td>

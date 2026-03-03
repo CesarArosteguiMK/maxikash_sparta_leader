@@ -43,6 +43,7 @@ function getMenu()
                     ]
             ],
         
+            /* MÓDULO INDICADORES — deshabilitado temporalmente (comentar para re-activar)
             'Indicadores' => [
                     'icono' => 'fa-solid fa-chart-line',
                     'subItems' => [
@@ -128,6 +129,7 @@ function getMenu()
                         ]
                     ]
             ],
+            */
             
             'Capital Humano' => [
                     'icono' => 'fa-solid fa-users',
@@ -228,6 +230,16 @@ function getMenu()
                                     'label' => 'Asignación de Créditos',
                                     'url' => '/Despachos/AsignacionCreditosDespacho',
                                     'modulos' => [20]
+                            ]
+                    ]
+            ],
+            'Onboarding' => [
+                    'icono' => 'fa-solid fa-graduation-cap',
+                    'subItems' => [
+                            [
+                                    'label' => 'Curso Onboarding',
+                                    'url' => '/onboarding/index',
+                                    'modulos' => []
                             ]
                     ]
             ],
@@ -750,7 +762,6 @@ html.dark-mode .navbar .text-muted{color:#94a3b8 !important;}
     <!-- Page JS -->
     <script src="/assets/js/comunes.js"></script>
     <script src="/assets/js/componentes.js"></script>
-    <script src="/assets/js/gestiones-300-easter.js"></script>
 
     <!-- Campana de notificaciones: cargar lista, badge, marcar leídas, sonido -->
     <script>
