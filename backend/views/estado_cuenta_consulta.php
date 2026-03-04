@@ -48,15 +48,88 @@
         background-color: #e0e0ff !important;
         border-color: #696cff !important;
     }
+
+    /* ═════════════════════════════════════════════════════════════
+       IDENTIFICADOR VISUAL - BANDERA MÉXICO
+       ═════════════════════════════════════════════════════════════ */
+    .bandera-lateral-mexico {
+        position: fixed;
+        left: 0;
+        top: 50%;
+        transform: translateY(-50%);
+        z-index: 1000;
+        background: linear-gradient(135deg, #006847 0%, #ce1126 100%);
+        padding: 12px 10px;
+        border-radius: 0 12px 12px 0;
+        box-shadow: 4px 0 15px rgba(206, 17, 38, 0.4);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+        transition: all 0.3s ease;
+        min-width: 80px;
+    }
+
+    .bandera-lateral-mexico:hover {
+        padding-left: 14px;
+        box-shadow: 6px 0 20px rgba(206, 17, 38, 0.6);
+    }
+
+    .bandera-lateral-mexico .fi {
+        font-size: 2.8rem;
+        filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
+    }
+
+    .bandera-lateral-mexico .texto-pais {
+        color: white;
+        font-weight: 700;
+        font-size: 0.75rem;
+        letter-spacing: 1px;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        text-align: center;
+        line-height: 1.2;
+    }
+
+    /* Responsive: ocultar en móviles */
+    @media (max-width: 768px) {
+        .bandera-lateral-mexico {
+            display: none;
+        }
+    }
+
+    /* Badge identificador en el título */
+    .badge-mexico {
+        background: linear-gradient(135deg, #006847 0%, #ce1126 100%);
+        color: white;
+        font-weight: 600;
+        padding: 0.4em 0.8em;
+        border-radius: 8px;
+        font-size: 0.75rem;
+        letter-spacing: 0.5px;
+        box-shadow: 0 2px 8px rgba(206, 17, 38, 0.3);
+    }
 </style>
 
+<!-- SweetAlert2 CDN -->
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+<!-- Bandera lateral izquierda - Identificador México -->
+<div class="bandera-lateral-mexico">
+    <span class="fi fi-mx fis"></span>
+    <span class="texto-pais">MÉXICO</span>
+</div>
 
 <div class="container py-4">
 
     <!-- Título -->
     <div class="row mb-3">
         <div class="col-12">
-            <h4 class="mb-0">Estado de Cuenta</h4>
+            <div class="d-flex align-items-center gap-2">
+                <h4 class="mb-0">Estado de Cuenta</h4>
+                <span class="badge badge-mexico">
+                    <i class="fa-solid fa-flag me-1"></i> MÉXICO
+                </span>
+            </div>
             <p class="text-muted small">Busca por nombre o por ID de crédito</p>
         </div>
     </div>
@@ -86,8 +159,11 @@
                 </div>
             </div>
 
-            <div class="col-4 d-flex align-items-end justify-content-end">
-                <button id="btnResetFiltros" class="btn btn-outline-secondary me-2" type="button">Limpiar</button>
+            <div class="col-4 d-flex align-items-end justify-content-end gap-2">
+                <button id="btnCambioPais" class="btn btn-outline-info" type="button">
+                    <i class="fa-solid fa-globe me-1"></i> Selecciona País
+                </button>
+                <button id="btnResetFiltros" class="btn btn-outline-secondary" type="button">Limpiar</button>
             </div>
         </div>
 
@@ -149,6 +225,94 @@
 </div>
 <script>
     document.addEventListener('DOMContentLoaded', () => {
+        
+        // ═══════════════════════════════════════════════════════════
+        // BOTÓN CAMBIAR PAÍS
+        // ═══════════════════════════════════════════════════════════
+        document.getElementById('btnCambioPais').addEventListener('click', () => {
+            Swal.fire({
+                title: '<i class="fa-solid fa-globe"></i> Selecciona un País',
+                html: `
+                    <style>
+                        .pais-card-modal {
+                            background: rgba(255, 255, 255, 0.9);
+                            border: 1px solid rgba(0, 0, 0, 0.1);
+                            border-radius: 12px;
+                            cursor: pointer;
+                            transition: all 0.25s ease;
+                            overflow: hidden;
+                        }
+                        .pais-card-modal:hover {
+                            transform: translateY(-4px);
+                            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+                        }
+                        .pais-card-header-modal {
+                            height: 100px;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                        }
+                        .pais-card-body-modal {
+                            padding: 1rem;
+                            text-align: center;
+                        }
+                        .pais-card-body-modal h5 {
+                            color: #212529;
+                        }
+                        .pais-card-body-modal p {
+                            color: #6c757d;
+                        }
+                        
+                        /* Dark Mode */
+                        body.dark-mode .pais-card-modal {
+                            background: rgba(40, 48, 70, 0.95);
+                            border: 1px solid rgba(255, 255, 255, 0.1);
+                        }
+                        body.dark-mode .pais-card-modal:hover {
+                            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+                        }
+                        body.dark-mode .pais-card-body-modal h5 {
+                            color: #e2e8f0;
+                        }
+                        body.dark-mode .pais-card-body-modal p {
+                            color: #94a3b8;
+                        }
+                    </style>
+                    <div class="row g-3 mt-2">
+                        <div class="col-6">
+                            <div class="pais-card-modal" onclick="window.location.href='/EstadoCuenta/Consulta'">
+                                <div class="pais-card-header-modal" style="background: linear-gradient(135deg, #006847 0%, #ce1126 100%);">
+                                    <span class="fi fi-mx fis" style="font-size: 3.5rem; border-radius: 50%; box-shadow: 0 4px 15px rgba(0,0,0,0.3);"></span>
+                                </div>
+                                <div class="pais-card-body-modal">
+                                    <h5 class="fw-bold mb-1" style="font-size: 1.1rem;">México</h5>
+                                    <p class="text-muted small mb-0">Código: MX</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="pais-card-modal" onclick="window.location.href='/EstadoCuenta/Guatemala'">
+                                <div class="pais-card-header-modal" style="background: linear-gradient(135deg, #4997d0 0%, #357abd 100%);">
+                                    <span class="fi fi-gt fis" style="font-size: 3.5rem; border-radius: 50%; box-shadow: 0 4px 15px rgba(0,0,0,0.3);"></span>
+                                </div>
+                                <div class="pais-card-body-modal">
+                                    <h5 class="fw-bold mb-1" style="font-size: 1.1rem;">Guatemala</h5>
+                                    <p class="text-muted small mb-0">Código: GT</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `,
+                showConfirmButton: false,
+                showCloseButton: true,
+                width: '600px',
+                padding: '2rem',
+                customClass: {
+                    closeButton: 'btn-close'
+                }
+            });
+        });
+        
         // Calendario fecha de corte: mismo formato que otros calendarios del proyecto (flatpickr)
         const fechaCorteInput = document.getElementById('fechaCorte');
         if (fechaCorteInput && typeof flatpickr !== 'undefined') {

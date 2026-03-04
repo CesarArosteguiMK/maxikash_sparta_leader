@@ -8,6 +8,7 @@ if (!function_exists('getMenuItemsConfig')) {
     {
         return [
             ['url' => '/estadocuenta/consulta', 'label' => 'Estados de Cuenta', 'icon' => 'fa-solid fa-sack-dollar', 'bg' => 'bg-yellow', 'modulos' => [1]],
+            ['url' => '/estadocuenta/guatemala', 'label' => 'Estados de Cuenta - Guatemala', 'icon' => 'fa-solid fa-flag', 'bg' => 'bg-success', 'modulos' => [1]],
             ['url' => '/estadocuenta/documentacion', 'label' => 'Documentación', 'icon' => 'fa-solid fa-sack-dollar', 'bg' => 'bg-yellow', 'modulos' => [2]],
             ['url' => '/gestiones/seguimiento', 'label' => 'Histórico Gestiones', 'icon' => 'fa-solid fa-screwdriver-wrench', 'bg' => 'bg-green', 'modulos' => [3]],
             ['url' => '/indicadores/kpiTotal', 'label' => 'KPI Total', 'icon' => 'fa-solid fa-chart-line', 'bg' => 'bg-orange', 'modulos' => [40]],

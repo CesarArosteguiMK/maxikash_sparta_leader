@@ -15,7 +15,7 @@ class Ticket extends Model
      */
     public static function getListaTickets($idUsuario, $soloDelUsuario = true)
     {
-        $baseSelect = "SELECT t.id_ticket, t.folio, t.id_credito, t.descripcion_inicial, t.fecha_creacion, t.fecha_vencimiento, " .
+        $baseSelect = "SELECT DISTINCT t.id_ticket, t.folio, t.id_credito, t.descripcion_inicial, t.fecha_creacion, t.fecha_vencimiento, " .
             "tt.nombre AS tipo_ticket_nombre, et.nombre AS estado_ticket_nombre, pt.nombre AS prioridad_nombre, ot.nombre AS origen_nombre, " .
             "CONCAT(TRIM(IFNULL(p.nombres, '')), ' ', TRIM(IFNULL(p.apellidop, ''))) AS creador_nombre, " .
             "CONCAT(TRIM(IFNULL(pa.nombres, '')), ' ', TRIM(IFNULL(pa.apellidop, ''))) AS asignado_nombre, " .
@@ -26,7 +26,7 @@ class Ticket extends Model
             "INNER JOIN prioridad_ticket pt ON t.id_prioridad = pt.id_prioridad " .
             "INNER JOIN origen_ticket ot ON t.id_origen_ticket = ot.id_origen_ticket " .
             "INNER JOIN persona p ON t.id_persona_creador = p.id " .
-            "LEFT JOIN asignacion_ticket at ON at.id_ticket = t.id_ticket AND (at.activo = 1 OR at.activo IS NULL) " .
+            "LEFT JOIN (SELECT at1.id_ticket, at1.id_persona_asignada FROM asignacion_ticket at1 INNER JOIN (SELECT id_ticket, MAX(fecha_asignacion) AS max_fecha FROM asignacion_ticket WHERE (activo = 1 OR activo IS NULL) GROUP BY id_ticket) at2 ON at1.id_ticket = at2.id_ticket AND at1.fecha_asignacion = at2.max_fecha WHERE (at1.activo = 1 OR at1.activo IS NULL)) at ON at.id_ticket = t.id_ticket " .
             "LEFT JOIN persona pa ON at.id_persona_asignada = pa.id " .
             "LEFT JOIN (SELECT d.id_ticket, d.estado AS dictamen_estado, d.fecha_visto_gestor AS dictamen_fecha_visto, d.fecha_actualizacion AS dictamen_fecha_envio FROM dictamen d INNER JOIN (SELECT id_ticket, MAX(id) AS mid FROM dictamen GROUP BY id_ticket) mx ON d.id_ticket = mx.id_ticket AND d.id = mx.mid) dm ON dm.id_ticket = t.id_ticket ";
 
@@ -50,6 +50,7 @@ class Ticket extends Model
         $orderBy = " ORDER BY t.fecha_creacion DESC";
 
         $lastException = null;
+        $lastErrorMsg = '';
         foreach ($whereCandidates as $where) {
             try {
                 $rows = $db->queryAll($baseSelect . $where . $orderBy, $params);
@@ -57,10 +58,14 @@ class Ticket extends Model
                 return self::resultado(true, 'Tickets encontrados.', $datos);
             } catch (\Exception $e) {
                 $lastException = $e;
+                $lastErrorMsg = $e->getMessage();
                 continue;
             }
         }
-        return self::resultado(false, 'Error al consultar tickets.', null, $lastException ? $lastException->getMessage() : '');
+        // Si todos los intentos fallaron, devolver el error con más detalle
+        $errorDetalle = $lastException ? $lastException->getMessage() : 'Error desconocido';
+        error_log("Error en getListaTickets: " . $errorDetalle);
+        return self::resultado(false, 'Error al consultar tickets: ' . $errorDetalle, null, $errorDetalle);
     }
 
     /**
@@ -122,27 +127,11 @@ class Ticket extends Model
     /**
      * Inserta un ticket. Folio TCK-XXXX secuencial, id_ticket = siguiente ID disponible.
      * Todos los campos son obligatorios: tipo, prioridad, origen, id_credito, descripción, fecha_vencimiento.
+     * Usa transacciones y reintentos para evitar condiciones de carrera y IDs duplicados.
      */
     public static function crear($datos, $idPersonaCreador)
     {
         $db = new Database();
-
-        // Siguiente id_ticket disponible (reutilizar huecos si se borraron tickets)
-        $rows = $db->queryAll("SELECT id_ticket FROM ticket ORDER BY id_ticket");
-        $usados = is_array($rows) ? array_column($rows, 'id_ticket') : [];
-        $siguienteId = 1;
-        while (in_array($siguienteId, $usados, true)) {
-            $siguienteId++;
-        }
-
-        $ultimo = $db->queryOne(
-            "SELECT folio FROM ticket WHERE folio LIKE 'TCK-%' ORDER BY id_ticket DESC LIMIT 1"
-        );
-        $num = 1;
-        if ($ultimo && !empty($ultimo['folio']) && preg_match('/^TCK-(\d+)$/', trim($ultimo['folio']), $m)) {
-            $num = (int)$m[1] + 1;
-        }
-        $folio = 'TCK-' . str_pad((string)$num, 4, '0', STR_PAD_LEFT);
 
         $idTipo = (int)($datos['id_tipo_ticket'] ?? 0);
         $idPrioridad = (int)($datos['id_prioridad'] ?? 0);
@@ -173,38 +162,97 @@ class Ticket extends Model
         $tz = new \DateTimeZone('America/Mexico_City');
         $now = (new \DateTime('now', $tz))->format('Y-m-d H:i:s');
 
-        $query = <<<SQL
-            INSERT INTO ticket (
-                id_ticket, folio, id_tipo_ticket, id_estado_ticket, id_prioridad, id_origen_ticket,
-                id_credito, descripcion_inicial, fecha_creacion, fecha_vencimiento,
-                id_persona_creador, activo
-            ) VALUES (
-                :id_ticket, :folio, :id_tipo_ticket, :id_estado_ticket, :id_prioridad, :id_origen_ticket,
-                :id_credito, :descripcion_inicial, :fecha_creacion, :fecha_vencimiento,
-                :id_persona_creador, 1
-            )
-        SQL;
+        // Intentar crear el ticket con reintentos para evitar condiciones de carrera
+        $maxIntentos = 3;
+        $intento = 0;
+        
+        while ($intento < $maxIntentos) {
+            try {
+                $db->beginTransaction();
+                
+                // Obtener siguiente ID disponible usando MAX (más eficiente) con bloqueo para evitar condiciones de carrera
+                $maxRow = $db->queryOne("SELECT MAX(id_ticket) AS max_id FROM ticket FOR UPDATE");
+                $maxId = $maxRow && isset($maxRow['max_id']) && $maxRow['max_id'] !== null ? (int)$maxRow['max_id'] : 0;
+                $siguienteId = $maxId + 1;
 
-        $params = [
-            'id_ticket'            => $siguienteId,
-            'folio'                => $folio,
-            'id_tipo_ticket'       => $idTipo,
-            'id_estado_ticket'     => $idEstado,
-            'id_prioridad'         => $idPrioridad,
-            'id_origen_ticket'     => $idOrigen,
-            'id_credito'           => $idCredito,
-            'descripcion_inicial'  => $descripcion,
-            'fecha_creacion'       => $now,
-            'fecha_vencimiento'    => $fechaVenc,
-            'id_persona_creador'   => (int)$idPersonaCreador,
-        ];
+                // Obtener siguiente número de folio usando una consulta SQL optimizada
+                // Extrae el número máximo directamente en SQL sin traer todos los registros
+                $maxFolioRow = $db->queryOne("
+                    SELECT MAX(CAST(SUBSTRING(folio, 5) AS UNSIGNED)) AS max_num 
+                    FROM ticket 
+                    WHERE folio LIKE 'TCK-%' 
+                    FOR UPDATE
+                ");
+                $maxNum = $maxFolioRow && isset($maxFolioRow['max_num']) && $maxFolioRow['max_num'] !== null ? (int)$maxFolioRow['max_num'] : 0;
+                $num = $maxNum + 1;
+                $folio = 'TCK-' . str_pad((string)$num, 4, '0', STR_PAD_LEFT);
+                
+                // Verificar que el folio no exista (solo una verificación rápida)
+                $folioExiste = $db->queryOne("SELECT 1 FROM ticket WHERE folio = :folio LIMIT 1", ['folio' => $folio]);
+                if ($folioExiste) {
+                    // Si el folio existe, buscar el siguiente disponible (raro, pero por si acaso)
+                    $num++;
+                    $folio = 'TCK-' . str_pad((string)$num, 4, '0', STR_PAD_LEFT);
+                    $folioExiste = $db->queryOne("SELECT 1 FROM ticket WHERE folio = :folio LIMIT 1", ['folio' => $folio]);
+                    // Si aún existe, incrementar una vez más (no hacer loop infinito)
+                    if ($folioExiste) {
+                        $num++;
+                        $folio = 'TCK-' . str_pad((string)$num, 4, '0', STR_PAD_LEFT);
+                    }
+                }
 
-        try {
-            $db->CRUD($query, $params);
-            return self::resultado(true, 'Ticket creado correctamente.', ['folio' => $folio, 'id_ticket' => $siguienteId]);
-        } catch (\Exception $e) {
-            return self::resultado(false, 'Error al crear el ticket.', null, $e->getMessage());
+                $query = <<<SQL
+                    INSERT INTO ticket (
+                        id_ticket, folio, id_tipo_ticket, id_estado_ticket, id_prioridad, id_origen_ticket,
+                        id_credito, descripcion_inicial, fecha_creacion, fecha_vencimiento,
+                        id_persona_creador, activo
+                    ) VALUES (
+                        :id_ticket, :folio, :id_tipo_ticket, :id_estado_ticket, :id_prioridad, :id_origen_ticket,
+                        :id_credito, :descripcion_inicial, :fecha_creacion, :fecha_vencimiento,
+                        :id_persona_creador, 1
+                    )
+                SQL;
+
+                $params = [
+                    'id_ticket'            => $siguienteId,
+                    'folio'                => $folio,
+                    'id_tipo_ticket'       => $idTipo,
+                    'id_estado_ticket'     => $idEstado,
+                    'id_prioridad'         => $idPrioridad,
+                    'id_origen_ticket'     => $idOrigen,
+                    'id_credito'           => $idCredito,
+                    'descripcion_inicial'  => $descripcion,
+                    'fecha_creacion'       => $now,
+                    'fecha_vencimiento'    => $fechaVenc,
+                    'id_persona_creador'   => (int)$idPersonaCreador,
+                ];
+
+                $db->CRUD($query, $params);
+                $db->commit();
+                
+                return self::resultado(true, 'Ticket creado correctamente.', ['folio' => $folio, 'id_ticket' => $siguienteId]);
+                
+            } catch (\Exception $e) {
+                $db->rollback();
+                
+                // Si es error de clave duplicada, reintentar
+                $errorMsg = $e->getMessage();
+                if (strpos($errorMsg, 'Duplicate entry') !== false || strpos($errorMsg, '1062') !== false) {
+                    $intento++;
+                    if ($intento >= $maxIntentos) {
+                        return self::resultado(false, 'Error al crear el ticket: no se pudo generar un ID único después de varios intentos.', null, $errorMsg);
+                    }
+                    // Esperar un tiempo aleatorio corto antes de reintentar (evitar contención)
+                    usleep(rand(10000, 50000)); // 10-50ms
+                    continue;
+                }
+                
+                // Si es otro tipo de error, retornar inmediatamente
+                return self::resultado(false, 'Error al crear el ticket.', null, $errorMsg);
+            }
         }
+        
+        return self::resultado(false, 'Error al crear el ticket: se agotaron los intentos.', null);
     }
 
     /**

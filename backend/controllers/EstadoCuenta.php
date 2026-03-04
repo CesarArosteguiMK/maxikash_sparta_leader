@@ -68,7 +68,7 @@ class EstadoCuenta extends Controller
         $tienePermisoFechaCorte = in_array(23, $modulosActuales);
         // --- JS COMPLETO EN EL CONTROLADOR ---
         $script = <<<JS
-    <script>
+      <script>
         var tienePermisoRegistrarDocumentos = TienePermisoRegistrarDocumentos_PLACEHOLDER;
         var tienePermisoFechaCorte = TienePermisoFechaCorte_PLACEHOLDER;
         document.addEventListener("DOMContentLoaded", () => {
@@ -4507,4 +4507,972 @@ public function descargarReporteDictamen()
             ]
         ]);
     }
+
+    ///////////////////////////////////////////// GUATEMALA - Estado de Cuenta con soporte multipaís ///////////////////////////7
+
+    public function Guatemala()
+    {
+        $idUsuario = (int) ($_SESSION['usuario_id'] ?? 0);
+        $modulosActuales = $idUsuario ? LoginDAO::getModulosUsuario($idUsuario) : [];
+        $tienePermisoRegistrarDocumentos = in_array(21, $modulosActuales);
+        $tienePermisoFechaCorte = in_array(23, $modulosActuales);
+        // --- JS COMPLETO EN EL CONTROLADOR ---
+        $script = <<<JS
+      <script>
+        var tienePermisoRegistrarDocumentos = TienePermisoRegistrarDocumentos_PLACEHOLDER;
+        var tienePermisoFechaCorte = TienePermisoFechaCorte_PLACEHOLDER;
+        document.addEventListener("DOMContentLoaded", () => {
+
+            // Mostrar calendario de fecha de corte si tiene permiso
+            if (tienePermisoFechaCorte) {
+                const divFechaCorte = document.getElementById('divFechaCorte');
+                if (divFechaCorte) divFechaCorte.style.display = 'block';
+            }
+        
+            // Cambiar entre ID y Nombre
+            function actualizarInputs() {
+                    const modo = document.querySelector('input[name="modoBusqueda"]:checked')?.value;
+                    const divNombre = document.getElementById('divNombre');
+                    const divID = document.getElementById('divID');
+                    
+                    // Verificar que los elementos existan antes de acceder a sus propiedades
+                    if (divNombre) {
+                        divNombre.style.display = modo === 'nombre' ? 'block' : 'none';
+                    }
+                    if (divID) {
+                        divID.style.display = modo === 'id' ? 'block' : 'none';
+                    }
+            }
+            
+            document.querySelectorAll('input[name="modoBusqueda"]').forEach(el =>
+                el.addEventListener('change', actualizarInputs)
+            );
+            
+            // Solo agregar el event listener si el modal existe
+            const modalDirecciones = document.getElementById('modalDirecciones');
+            if (modalDirecciones) {
+                modalDirecciones.addEventListener('shown.bs.modal', function() {
+                    // No ejecutar actualizarInputs cuando se abre el modal de direcciones
+                    // ya que ese modal no tiene los elementos divNombre y divID
+                });
+            }
+
+        
+            // Botón limpiar filtros
+            document.getElementById("btnResetFiltros").addEventListener("click", () => {
+                document.getElementById("idCredito").value = "";
+                document.getElementById("nombre").value = "";
+                const fechaCorteInput = document.getElementById("fechaCorte");
+                if (fechaCorteInput) fechaCorteInput.value = "";
+                document.getElementById("modoID").checked = true;
+                actualizarInputs();
+            });
+        
+            // Validación antes de enviar
+            document.getElementById("formBusqueda").addEventListener("submit", async e => {
+                e.preventDefault();
+                
+                const modo = document.querySelector('input[name="modoBusqueda"]:checked')?.value;
+                const idCredito       = document.getElementById("idCredito").value.trim();
+                const nombre          = document.getElementById("nombre").value.trim();
+                const idCreditoLista  = document.getElementById("idCreditoLista").value.trim();
+        
+                // =========================
+                // MODO ID
+                // =========================
+                if (modo === "id") {
+            
+                    if (idCredito === "") {
+                        return Swal.fire({
+                            icon: "warning",
+                            title: "Falta el ID de crédito",
+                            text: "Por favor ingresa el ID del crédito."
+                        });
+                    }
+            
+                    // Limpieza defensiva
+                    document.getElementById("idCreditoLista").value = "";
+                    document.getElementById("nombre").value = "";
+                }
+            
+                // =========================
+                // MODO NOMBRE
+                // =========================
+                if (modo === "nombre") {
+            
+                    if (nombre === "") {
+                        return Swal.fire({
+                            icon: "warning",
+                            title: "Falta el nombre",
+                            text: "Escribe y selecciona un cliente de la lista."
+                        });
+                    }
+            
+                    if (idCreditoLista === "") {
+                        return Swal.fire({
+                            icon: "warning",
+                            title: "Cliente no seleccionado",
+                            text: "Debes seleccionar un cliente del listado, no solo escribirlo."
+                        });
+                    }
+            
+                    // Limpieza defensiva
+                    document.getElementById("idCredito").value = "";
+                }
+            
+                // =========================
+                // LOADING
+                // =========================
+                Swal.fire({
+                    title: "Validando ID de crédito...",
+                    text: "Espere un momento por favor.",
+                    allowOutsideClick: false,
+                    allowEscapeKey: false,
+                    didOpen: () => Swal.showLoading()
+                });
+
+                // =========================
+                // VALIDAR ID ANTES DE ENVIAR
+                // =========================
+                try {
+                    const formData = new FormData();
+                    if (modo === "id") {
+                        formData.append("idCredito", idCredito);
+                    } else {
+                        formData.append("nombre", nombre);
+                        formData.append("idCreditoLista", idCreditoLista);
+                    }
+                    formData.append("modoBusqueda", modo);
+
+                    const response = await fetch("/EstadoCuenta/validarCredito", {
+                        method: "POST",
+                        body: formData
+                    });
+
+                    const result = await response.json();
+
+                    if (!result.success) {
+                        Swal.close();
+                        return Swal.fire({
+                            icon: "error",
+                            title: "ID de crédito incorrecto",
+                            html: "<div style='text-align: center; padding: 10px;'><p style='font-size: 16px; margin-bottom: 15px; color: #333;'><strong>El ID de crédito ingresado no existe o no es válido.</strong></p><p style='font-size: 14px; color: #666;'>Por favor verifícalo y vuelve a intentar.</p></div>",
+                            confirmButtonText: "Entendido",
+                            confirmButtonColor: "#dc3545",
+                            width: "500px",
+                            buttonsStyling: true,
+                            customClass: {
+                                popup: 'animated bounceIn',
+                                title: 'text-danger',
+                                confirmButton: 'btn-elegant-error'
+                            },
+                            showClass: {
+                                popup: 'animate__animated animate__fadeInDown'
+                            },
+                            hideClass: {
+                                popup: 'animate__animated animate__fadeOutUp'
+                            }
+                        }).then(() => {
+                            // Agregar estilos personalizados al botón después de que se renderice
+                            setTimeout(() => {
+                                const confirmBtn = document.querySelector('.swal2-confirm');
+                                if (confirmBtn) {
+                                    confirmBtn.style.cssText = `
+                                        background: linear-gradient(135deg, #dc3545 0%, #c82333 100%) !important;
+                                        border: none !important;
+                                        border-radius: 8px !important;
+                                        padding: 12px 30px !important;
+                                        font-size: 15px !important;
+                                        font-weight: 600 !important;
+                                        letter-spacing: 0.5px !important;
+                                        box-shadow: 0 4px 15px rgba(220, 53, 69, 0.3) !important;
+                                        transition: all 0.3s ease !important;
+                                        text-transform: uppercase !important;
+                                    `;
+                                    confirmBtn.addEventListener('mouseenter', function() {
+                                        this.style.transform = 'translateY(-2px)';
+                                        this.style.boxShadow = '0 6px 20px rgba(220, 53, 69, 0.4)';
+                                    });
+                                    confirmBtn.addEventListener('mouseleave', function() {
+                                        this.style.transform = 'translateY(0)';
+                                        this.style.boxShadow = '0 4px 15px rgba(220, 53, 69, 0.3)';
+                                    });
+                                }
+                            }, 100);
+                        });
+                    }
+
+                    // Si la validación es exitosa, mostrar loading y enviar el formulario
+                    Swal.fire({
+                        title: "Procesando solicitud...",
+                        text: "Espere un momento por favor.",
+                        allowOutsideClick: false,
+                        allowEscapeKey: false,
+                        didOpen: () => Swal.showLoading()
+                    });
+
+                    // Enviar el formulario usando submit() nativo (no dispara el evento submit)
+                    const form = e.target;
+                    form.submit();
+
+                } catch (error) {
+                    Swal.close();
+                    console.error("Error al validar:", error);
+                    Swal.fire({
+                        icon: "error",
+                        title: "Error de conexión",
+                        text: "No se pudo validar el ID de crédito. Por favor intenta nuevamente."
+                    });
+                }
+            });
+        
+        });
+        
+
+        </script>
+JS;
+
+        // Script de error - solo se ejecuta cuando hay un error
+        $script_error = <<<JS
+        <script>
+                document.addEventListener('DOMContentLoaded',()=>mostrarMensajeAll({tipo:'error',titulo:'Error de busqueda',mensaje:'No se encontraron resultados'}));
+        </script>
+JS;
+
+
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+
+            $idCredito = $_POST['idCredito'] ?? null;
+            $nombre = $_POST['nombre'] ?? null;
+            $idCreditoLista = $_POST['idCreditoLista'] ?? null;
+            $fechaCortePost = isset($_POST['fechaCorte']) ? trim((string) $_POST['fechaCorte']) : null;
+            if ($fechaCortePost === '') $fechaCortePost = null;
+            // Si tiene permiso de fecha de corte personalizada y envió una fecha válida (pasada o hoy), usarla
+            if ($tienePermisoFechaCorte && $fechaCortePost && preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaCortePost) && $fechaCortePost <= date('Y-m-d')) {
+                $fechaHoy = $fechaCortePost;
+            } else {
+                $fechaHoy = date('Y-m-d');
+            }
+            error_log('[EstadoCuenta GUATEMALA] POST fechaCorte=' . ($fechaCortePost ?? 'null') . ', permisoFechaCorte=' . ($tienePermisoFechaCorte ? '1' : '0') . ', fechaUsada=' . $fechaHoy);
+
+            if($nombre != null && $idCreditoLista != null)
+            {
+                $resultado = $this->api___SPARTA_SECRET_REDACTED__($idCreditoLista, $fechaHoy);
+                $respDAO = EmpresasDAO::getConsultaDireccionEstadoCuenta($idCreditoLista);
+                $referencias = EmpresasDAO::getConsultaReferenciasEstadoCuenta($idCreditoLista);
+                $notas = EmpresasDAO::getNotasNum($idCreditoLista);
+            }
+            else
+            {
+                $resultado =  $this->api___SPARTA_SECRET_REDACTED__($idCredito, $fechaHoy);
+                $respDAO = EmpresasDAO::getConsultaDireccionEstadoCuenta($idCredito);
+                $referencias = EmpresasDAO::getConsultaReferenciasEstadoCuenta($idCredito);
+                $notas = EmpresasDAO::getNotasNum($idCredito);
+            }
+
+            // Registrar en auditoría: usuario (email), crédito, fecha de corte, éxito/error
+            $idConsultado = ($nombre != null && $idCreditoLista != null) ? $idCreditoLista : $idCredito;
+            $usuarioEmail = (string) ($_SESSION['usuario'] ?? '');
+            EstadoCuentaDAO::registrarAuditoria(
+                $usuarioEmail,
+                $idConsultado,
+                $fechaHoy,
+                !empty($resultado['ok']) ? 1 : 0,
+                isset($resultado['error']) ? $resultado['error'] : null
+            );
+
+            // VALIDACIÓN DE PAÍS - Soporte multipaís Guatemala
+            $paisData = EstadoCuentaDAO::getPaisCredito($idConsultado);
+
+            // Si el país está inactivo, mostrar vista de error
+            if (!empty($paisData['id_pais']) && $paisData['pais_activo'] == 0) {
+                self::set("titulo", "País inactivo");
+                self::set("nombrePais", $paisData['nombre_pais']);
+                self::set("codigoIsoPais", $paisData['codigo_iso']);
+                self::set("errorPais", "Este crédito pertenece a {$paisData['nombre_pais']}, que actualmente está inactivo en el sistema. No es posible consultar el estado de cuenta en este momento.");
+                self::set("idCredito", $idConsultado);
+                return self::render("__SPARTA_SECRET_REDACTED___pais_inactivo");
+            }
+
+            //$GestionesAll = GestionesDao::getAllGestiones($idCredito, $nombre);
+            //$resultado =  $this->api___SPARTA_SECRET_REDACTED__($idCredito, "2025-12-04");
+            // variables para guardar por bloques los arrreglos
+            // ---------------------------------------------------------------
+            // 1. Extraemos las secciones del JSON original
+            // ---------------------------------------------------------------
+            $cliente = $resultado['data']['datosCliente'];
+            $estadoCuenta = $resultado['data'];
+            $otrosDatos = $resultado['data']['datosSaldos'];
+            //$datosCargos = $resultado['data']['datosCargos'];
+            //$datosPagos = $resultado['data']['datosPagos'];
+
+            // ---------------------------------------------------------------
+            // 2. Crear estructura base para cada cuota con la información del cargo
+            // ---------------------------------------------------------------
+            $cargos = $estadoCuenta["datosCargos"] ?? [];
+            if (!is_array($cargos)) $cargos = [];
+
+            $pagos = $estadoCuenta["datosPagos"] ?? [];
+            if (!is_array($pagos)) $pagos = [];
+
+            // Máxima cuota que existe en los cargos (por concepto o idCargo). Si un pago trae numeroCuotaSemanal > este máximo (ej. 63 cuando solo hay 45 filas), se hace que también aplique a la última cuota.
+            $maxCuotaEnCargos = 0;
+            foreach ($cargos as $c) {
+                $concepto = $c["concepto"] ?? "";
+                $n = $this->extraer_numero_cuota($concepto);
+                if ($n === null) $n = $this->safe_int($c["idCargo"] ?? 0, 0);
+                if ($n > $maxCuotaEnCargos) $maxCuotaEnCargos = $n;
+            }
+
+            $pagos_list = [];
+
+            // -------------------------
+            // PREPARAR PAGOS
+            // -------------------------
+            foreach ($pagos as $p) {
+
+                $montoPago      = $this->safe_float($p["montoPago"] ?? 0);
+                $extemporaneos  = $this->safe_float($p["extemporaneos"] ?? 0);
+                $monto_real     = max($montoPago - $extemporaneos, 0);
+
+                $cuotas = $this->parse_cuotas_field($p["numeroCuotaSemanal"] ?? null);
+                if ($maxCuotaEnCargos > 0 && !empty($cuotas)) {
+                    $maxEnPago = max($cuotas);
+                    if ($maxEnPago > $maxCuotaEnCargos && !in_array($maxCuotaEnCargos, $cuotas)) {
+                        $cuotas[] = $maxCuotaEnCargos;
+                    }
+                }
+
+                $pagos_list[] = [
+                    "idPago"              => $p["idPago"] ?? null,
+                    "remaining"           => round($monto_real, 2),
+                    "cuotas"              => $cuotas,
+                    "fechaValor"          => $p["fechaValor"] ?? null,
+                    // *** fechaRegistro usa fechaDeposito si viene ***
+                    "fechaRegistro"       => $p["fechaDeposito"] ?? ($p["fechaRegistro"] ?? null),
+                    "montoPagoOriginal"   => $montoPago,
+                    "extemporaneos"       => $extemporaneos,
+                    "_extOrig"            => $extemporaneos,
+                    "_extemporaneo_aplicado" => false
+                ];
+            }
+
+            // -------------------------
+            // ORDENAR CARGOS POR idCargo
+            // -------------------------
+            usort($cargos, function($a, $b){
+                return $this->safe_int($a["idCargo"] ?? 0) <=> $this->safe_int($b["idCargo"] ?? 0);
+            });
+
+            $tabla = [];
+
+            // -------------------------
+            // PROCESAR CARGOS
+            // -------------------------
+            foreach ($cargos as $cargo_idx => $cargo) {
+
+                $concepto = $cargo["concepto"] ?? "";
+                $cuota_num = $this->extraer_numero_cuota($concepto);
+
+                if ($cuota_num === null) {
+                    $cuota_num = $this->safe_int($cargo["idCargo"] ?? 0);
+                }
+
+                $monto_cargo   = $this->safe_float($cargo["monto"] ?? 0);
+                // Monto de la siguiente cuota (si existe): para priorizar liquidarla antes de cobrar Gasto de Cobranza.
+                $siguiente_cargo = $cargos[$cargo_idx + 1] ?? null;
+                $monto_siguiente_cuota = $siguiente_cargo ? $this->safe_float($siguiente_cargo["monto"] ?? 0) : 0;
+                $capital       = $this->safe_float($cargo["capital"] ?? 0);
+                $interes       = $this->safe_float($cargo["interes"] ?? 0);
+                $seguro_total  = $this->safe_float($cargo["seguroBienes"] ?? 0)
+                    + $this->safe_float($cargo["seguroVida"] ?? 0)
+                    + $this->safe_float($cargo["seguroDesempleo"] ?? 0);
+
+                $fecha_venc = $cargo["fechaVencimiento"] ?? ($cargo["fechaVenc"] ?? null);
+
+                $monto_restante_cargo = $monto_cargo;
+                $aplicados = [];
+
+                // -------------------------
+                // Índices de pagos que aplican a esta cuota, ordenados para dejar más sobrante a la siguiente: primero los que NO incluyen cuota N+1, después los que sí (24,25).
+                // Así no "gastamos" todo el pago (24,25) en la 24 y dejamos más para la 25.
+                // -------------------------
+                $siguiente_cuota = $cuota_num + 1;
+                $indices_aplicables = [];
+                foreach ($pagos_list as $idx => $p) {
+                    if (in_array($cuota_num, $p["cuotas"] ?? [])) {
+                        $indices_aplicables[] = $idx;
+                    }
+                }
+                usort($indices_aplicables, function ($a, $b) use ($pagos_list, $siguiente_cuota) {
+                    $tiene_siguiente_a = in_array($siguiente_cuota, $pagos_list[$a]["cuotas"] ?? []);
+                    $tiene_siguiente_b = in_array($siguiente_cuota, $pagos_list[$b]["cuotas"] ?? []);
+                    return ($tiene_siguiente_a ? 1 : 0) <=> ($tiene_siguiente_b ? 1 : 0);
+                });
+
+                // -------------------------
+                // APLICAR PAGOS A ESTE CARGO (en el orden calculado)
+                // -------------------------
+                foreach ($indices_aplicables as $idx) {
+                    $pago = &$pagos_list[$idx];
+
+                    // --- Aplicar monto real (remaining) a la cuota primero ---
+                    $aplico_remaining_esta_cuota = false;
+                    if ($monto_restante_cargo > 0 && $pago["remaining"] > 0) {
+
+                        $remaining_al_inicio = round($pago["remaining"], 2);
+                        $aplicar = min($pago["remaining"], $monto_restante_cargo);
+                        $ext_api = round($pago["extemporaneos"] ?? 0, 2);
+                        $monto_real_pago = round(($pago["montoPagoOriginal"] ?? 0) - $ext_api, 2);
+                        // Es sobrante solo cuando aplicamos el "resto" de un pago que ya se usó en parte en OTRA cuota (remaining < monto real). No cuando la diferencia con el original es solo extemporáneos/gasto cobranza.
+                        $es_sobrante_remaining = ($remaining_al_inicio < $monto_real_pago);
+                        // Mostrar monto real del depósito solo cuando es la primera aplicación; si ya se usó en cuota anterior, mostrar el resto que llegó.
+                        $monto_mostrar = $es_sobrante_remaining ? $remaining_al_inicio : round($pago["montoPagoOriginal"] ?? $pago["remaining"], 2);
+                        $aplicado_total_pago = round(($pago["montoPagoOriginal"] ?? 0) - $ext_api, 2);
+                        $aplicados[] = [
+                            "idPago"            => $pago["idPago"],
+                            "montoPago"        => $monto_mostrar,
+                            "aplicado"         => round($aplicar, 2),
+                            "aplicadoTotalPago" => $aplicado_total_pago,
+                            "fechaRegistro"    => $pago["fechaRegistro"],
+                            "fechaPago"        => $fecha_venc,
+                            "diasMora"         => null,
+                            "extemporaneos"    => $ext_api,
+                            "es_sobrante"      => $es_sobrante_remaining
+                        ];
+
+                        $aplico_remaining_esta_cuota = true;
+                        // restar de pago y cargo
+                        $pago["remaining"]        = round($pago["remaining"] - $aplicar, 2);
+                        $monto_restante_cargo     = round($monto_restante_cargo - $aplicar, 2);
+                    }
+
+                    // --- Actualizar remaining del pago. Los extemporáneos (gasto cobranza) NO se suman al sobrante: no van al crédito, solo se cobran. Solo arrastramos lo que sobra del monto real. ---
+                    $pago["remaining"] = round($pago["remaining"], 2);
+                    $pago["extemporaneos"] = 0;
+                    $pago["_extemporaneo_aplicado"] = true;
+                }
+                unset($pago);
+
+                // -------------------------
+                // CÁLCULOS FINALES
+                // -------------------------
+                $total_aplicado = round($monto_cargo - $monto_restante_cargo, 2);
+                $pendiente      = round(max($monto_cargo - $total_aplicado, 0), 2);
+                $excedente      = round(max($total_aplicado - $monto_cargo, 0), 2);
+
+                $tabla[] = [
+                    "cuota"         => $cuota_num,
+                    "fecha"         => $fecha_venc,
+                    "monto_cargo"   => round($monto_cargo, 2),
+                    "capital"       => round($capital, 2),
+                    "interes"       => round($interes, 2),
+                    "seguro"        => round($seguro_total, 2),
+                    "aplicados"     => $aplicados,
+                    "total_pagado"  => $total_aplicado,
+                    "pendiente"     => $pendiente,
+                    "excedente"     => $excedente,
+                    "raw_cargo"     => $cargo
+                ];
+            }
+
+            // Notas de cargo por fecha: solo desde datosNotasCargos, EXCLUYENDO gasto cobranza/extemporáneos (esos vienen en datosPagos y se muestran aparte)
+            $notasCargoPorFecha = [];
+            $esReembolsoPorFecha = [];
+            $hayNotasCargos = false;
+            $listaNotasCargos = $estadoCuenta['datosNotasCargos'] ?? [];
+            if (is_array($listaNotasCargos) && count($listaNotasCargos) > 0) {
+                foreach ($listaNotasCargos as $nota) {
+                    $concepto = (string) ($nota['concepto'] ?? '');
+                    $conceptoUpper = mb_strtoupper($concepto);
+                    // No sumar gasto cobranza ni extemporáneos: ya se muestran como "Gasto cobranza" desde datosPagos
+                    if (strpos($conceptoUpper, 'GASTO') !== false && strpos($conceptoUpper, 'COBRANZA') !== false) {
+                        continue;
+                    }
+                    if (strpos($conceptoUpper, 'EXTEMPORANEO') !== false || strpos($conceptoUpper, 'EXTEMPORÁNEO') !== false) {
+                        continue;
+                    }
+                    $fechaNota = $nota['fechaMovimiento'] ?? $nota['fechaVencimiento'] ?? null;
+                    if ($fechaNota !== null && $fechaNota !== '') {
+                        $fechaNorm = date('Y-m-d', strtotime($fechaNota));
+                        if (!isset($notasCargoPorFecha[$fechaNorm])) {
+                            $notasCargoPorFecha[$fechaNorm] = 0.0;
+                        }
+                        $notasCargoPorFecha[$fechaNorm] += $this->safe_float($nota['monto'] ?? 0, 0);
+                        if (strpos($conceptoUpper, 'REEMBOLSO') !== false) {
+                            $esReembolsoPorFecha[$fechaNorm] = true;
+                        }
+                    }
+                }
+                foreach (array_keys($notasCargoPorFecha) as $k) {
+                    $notasCargoPorFecha[$k] = round($notasCargoPorFecha[$k], 2);
+                }
+                // Solo hay "notas de cargo" si quedó algo después de excluir gasto cobranza
+                $hayNotasCargos = array_sum($notasCargoPorFecha) > 0;
+            }
+            // ═══════════════════════════════════════════════════════════════════════════════
+            // BLOQUE DE CONTRACARGOS — NO MODIFICAR SIN REVISIÓN EXHAUSTIVA
+            // Lachy dedicó mucho esfuerzo a que este flujo funcione correctamente en todos los casos.
+            // Cualquier cambio puede romper emparejamiento, sobrantes y fechas de cierre.
+            // ═══════════════════════════════════════════════════════════════════════════════
+            // Post-process contracargos: reconstruir flujo de pagos.
+            // Las notas de cargo vienen desglosadas (capital, interés, comisión, resguardo)
+            // pero representan UN contracargo por fecha. Se usa notasCargoPorFecha (sumado)
+            // para emparejar cada fecha con el pago revertido, y se redistribuye el dinero
+            // legítimo desde la cuota más antigua con déficit.
+            if ($hayNotasCargos && !empty($tabla)) {
+                // Mapeo cuota_num → índice en $tabla
+                $cuotaNumToIdx = [];
+                for ($ci = 0; $ci < count($tabla); $ci++) {
+                    $cuotaNumToIdx[$tabla[$ci]['cuota']] = $ci;
+                }
+
+                // Lookup rápido de pagos_list por idPago
+                $plById = [];
+                foreach ($pagos_list as $pl) {
+                    $idP = $pl['idPago'] ?? null;
+                    if ($idP) $plById[$idP] = $pl;
+                }
+
+                // Último pago desde la tabla (para caso especial: cargo sin pago posterior)
+                $ultimoPagoDesdeTabla = null;
+                $maxFechaTs = null;
+                for ($ci = 0; $ci < count($tabla); $ci++) {
+                    foreach ($tabla[$ci]['aplicados'] as $ap) {
+                        $idP = $ap['idPago'] ?? null;
+                        if (!$idP) continue;
+                        $fr = $ap['fechaRegistro'] ?? null;
+                        if (!$fr) continue;
+                        $ts = strtotime($fr);
+                        if ($ts === false) continue;
+                        if ($maxFechaTs === null || $ts > $maxFechaTs) {
+                            $maxFechaTs = $ts;
+                            $ultimoPagoDesdeTabla = [
+                                'fecha'    => date('Y-m-d', $ts),
+                                'idPago'   => $idP,
+                                'cuotaIdx' => $ci,
+                            ];
+                        }
+                    }
+                }
+
+                // ── PASO 1: Recopilar TODOS los pagos (aplicados + invisibles de la API) ──
+                $todosLosPagos = [];
+                for ($ci = 0; $ci < count($tabla); $ci++) {
+                    foreach ($tabla[$ci]['aplicados'] as $ap) {
+                        $idP = $ap['idPago'] ?? null;
+                        if (!$idP) continue;
+                        $fp = $ap['fechaRegistro'] ?? null;
+                        if (!$fp) continue;
+                        if (!isset($todosLosPagos[$idP])) {
+                            $todosLosPagos[$idP] = [
+                                'fecha'      => date('Y-m-d', strtotime($fp)),
+                                'cuotaIdx'   => $ci,
+                                'montoTotal' => 0,
+                            ];
+                        }
+                        $todosLosPagos[$idP]['montoTotal'] += (float)($ap['aplicado'] ?? 0);
+                    }
+                }
+
+                // Pagos invisibles: existentes en la API pero nunca aplicados a ninguna cuota
+                foreach ($plById as $idP => $pl) {
+                    if (isset($todosLosPagos[$idP])) continue;
+                    $fp = $pl['fechaRegistro'] ?? null;
+                    if (!$fp) continue;
+                    $firstIdx = null;
+                    foreach ($pl['cuotas'] ?? [] as $cn) {
+                        if (isset($cuotaNumToIdx[$cn])) {
+                            $idx = $cuotaNumToIdx[$cn];
+                            if ($firstIdx === null || $idx < $firstIdx) $firstIdx = $idx;
+                        }
+                    }
+                    if ($firstIdx === null) continue;
+                    $todosLosPagos[$idP] = [
+                        'fecha'      => date('Y-m-d', strtotime($fp)),
+                        'cuotaIdx'   => $firstIdx,
+                        'montoTotal' => round((float)($pl['remaining'] ?? 0), 2),
+                        'invisible'  => true,
+                    ];
+                }
+
+                $pagosParaMatch = [];
+                foreach ($todosLosPagos as $idP => $info) {
+                    $pagosParaMatch[] = [
+                        'idPago'     => $idP,
+                        'fecha'      => $info['fecha'],
+                        'cuotaIdx'   => $info['cuotaIdx'],
+                        'montoTotal' => round($info['montoTotal'], 2),
+                    ];
+                }
+                usort($pagosParaMatch, function ($a, $b) {
+                    return strtotime($b['fecha']) <=> strtotime($a['fecha']);
+                });
+
+                // ── PASO 2-3: Emparejar cada FECHA de contracargo (sumada) con un pago ──
+                $idPagosCC = [];
+                $ccMarkers = [];
+
+                $ccFechasOrdenadas = [];
+                foreach ($notasCargoPorFecha as $fn => $monto) {
+                    if ($monto > 0) $ccFechasOrdenadas[$fn] = round($monto, 2);
+                }
+                ksort($ccFechasOrdenadas);
+
+                foreach ($ccFechasOrdenadas as $ccFn => $ccMonto) {
+                    $matched = false;
+
+                    // Prioridad 1a: misma fecha + monto similar (±$5)
+                    foreach ($pagosParaMatch as $pg) {
+                        if (isset($idPagosCC[$pg['idPago']])) continue;
+                        if ($pg['fecha'] !== $ccFn) continue;
+                        if (abs($pg['montoTotal'] - $ccMonto) > 5) continue;
+                        $idPagosCC[$pg['idPago']] = true;
+                        $ccMarkers[] = ['cuotaIdx' => $pg['cuotaIdx'], 'monto' => $ccMonto, 'fecha' => $ccFn, 'idPago' => $pg['idPago'], 'esReembolso' => !empty($esReembolsoPorFecha[$ccFn])];
+                        $matched = true;
+                        break;
+                    }
+                    if ($matched) continue;
+
+                    // Prioridad 1b: misma fecha, cualquier monto
+                    foreach ($pagosParaMatch as $pg) {
+                        if (isset($idPagosCC[$pg['idPago']])) continue;
+                        if ($pg['fecha'] !== $ccFn) continue;
+                        $idPagosCC[$pg['idPago']] = true;
+                        $ccMarkers[] = ['cuotaIdx' => $pg['cuotaIdx'], 'monto' => $ccMonto, 'fecha' => $ccFn, 'idPago' => $pg['idPago'], 'esReembolso' => !empty($esReembolsoPorFecha[$ccFn])];
+                        $matched = true;
+                        break;
+                    }
+                    if ($matched) continue;
+
+                    // Prioridad 2: spillover — pago anterior con monto similar (±$5)
+                    foreach ($pagosParaMatch as $pg) {
+                        if (isset($idPagosCC[$pg['idPago']])) continue;
+                        if ($pg['fecha'] >= $ccFn) continue;
+                        if (abs($pg['montoTotal'] - $ccMonto) > 5) continue;
+                        $idPagosCC[$pg['idPago']] = true;
+                        $ccMarkers[] = ['cuotaIdx' => $pg['cuotaIdx'], 'monto' => $ccMonto, 'fecha' => $ccFn, 'idPago' => $pg['idPago'], 'esReembolso' => !empty($esReembolsoPorFecha[$ccFn])];
+                        $matched = true;
+                        break;
+                    }
+                    if ($matched) continue;
+
+                    // CASO ESPECIAL — Contracargo sin pago posterior: la nota de cargo tiene fecha posterior al último pago.
+                    // Se aplica el contracargo en la última fecha en que el cliente pagó (mismo flujo que contracargo, solo condición distinta).
+                    if (!$matched) {
+                        $fechaRef = $ultimoPagoDesdeTabla['fecha'] ?? null;
+                        if ($fechaRef === null && !empty($pagosParaMatch)) {
+                            $fechaRef = $pagosParaMatch[0]['fecha'];
+                        }
+                        if ($fechaRef !== null && $ccFn > $fechaRef) {
+                            $candidato = null;
+                            if ($ultimoPagoDesdeTabla !== null && $ultimoPagoDesdeTabla['fecha'] < $ccFn && !isset($idPagosCC[$ultimoPagoDesdeTabla['idPago']])) {
+                                $candidato = $ultimoPagoDesdeTabla;
+                            }
+                            if ($candidato === null && !empty($pagosParaMatch)) {
+                                foreach ($pagosParaMatch as $pg) {
+                                    if (isset($idPagosCC[$pg['idPago']])) continue;
+                                    if ($pg['fecha'] >= $ccFn) continue;
+                                    $candidato = ['fecha' => $pg['fecha'], 'idPago' => $pg['idPago'], 'cuotaIdx' => $pg['cuotaIdx']];
+                                    break;
+                                }
+                            }
+                            if ($candidato !== null) {
+                                $idPagosCC[$candidato['idPago']] = true;
+                                $ccMarkers[] = ['cuotaIdx' => $candidato['cuotaIdx'], 'monto' => $ccMonto, 'fecha' => $ccFn, 'idPago' => $candidato['idPago'], 'esReembolso' => !empty($esReembolsoPorFecha[$ccFn])];
+                            }
+                        }
+                    }
+                }
+
+                if (!empty($idPagosCC)) {
+                    // Monto total de contracargo por idPago (varios markers pueden apuntar al mismo pago)
+                    $montoContracargoPorPago = [];
+                    foreach ($ccMarkers as $mk) {
+                        $idP = $mk['idPago'] ?? null;
+                        if ($idP) {
+                            $montoContracargoPorPago[$idP] = ($montoContracargoPorPago[$idP] ?? 0) + (float)($mk['monto'] ?? 0);
+                        }
+                    }
+                    foreach (array_keys($montoContracargoPorPago) as $idP) {
+                        $montoContracargoPorPago[$idP] = round($montoContracargoPorPago[$idP], 2);
+                    }
+
+                    // ── PASO 4: Primera cuota afectada ──
+                    $primeraCuota = PHP_INT_MAX;
+                    foreach ($ccMarkers as $mk) {
+                        $primeraCuota = min($primeraCuota, $mk['cuotaIdx']);
+                    }
+
+                    // Montos aplicados ANTES de la zona afectada (se descuentan del pool)
+                    $aplicadoAnterior = [];
+                    for ($ci = 0; $ci < $primeraCuota; $ci++) {
+                        foreach ($tabla[$ci]['aplicados'] as $ap) {
+                            $idP = $ap['idPago'] ?? null;
+                            if ($idP) {
+                                $aplicadoAnterior[$idP] = ($aplicadoAnterior[$idP] ?? 0) + (float)($ap['aplicado'] ?? 0);
+                            }
+                        }
+                    }
+
+                    // ── PASO 5: Limpiar todas las entradas de cuotas afectadas ──
+                    for ($ci = $primeraCuota; $ci < count($tabla); $ci++) {
+                        $tabla[$ci]['aplicados'] = [];
+                    }
+
+                    // ── PASO 5b: Pool desde pagos_list (remaining − aplicadoAnterior); si el pago tiene contracargo parcial, entra al pool solo el sobrante (remaining − contracargo) ──
+                    $pool = [];
+                    foreach ($plById as $idP => $pl) {
+                        $remaining = round((float)($pl['montoPagoOriginal'] ?? 0) - (float)($pl['_extOrig'] ?? $pl['extemporaneos'] ?? 0), 2);
+                        $usedBefore = round($aplicadoAnterior[$idP] ?? 0, 2);
+                        $contracargoTotal = isset($montoContracargoPorPago[$idP]) ? round($montoContracargoPorPago[$idP], 2) : 0;
+                        if (isset($idPagosCC[$idP])) {
+                            // Pago con contracargo: solo el sobrante (lo que no fue revertido) entra al pool
+                            $available = round($remaining - $usedBefore - $contracargoTotal, 2);
+                            if ($available <= 0.009) continue;
+                            $hasAffectedCuota = true;
+                        } else {
+                            $available = round($remaining - $usedBefore, 2);
+                            if ($available <= 0.009) continue;
+                            $hasAffectedCuota = false;
+                            foreach ($pl['cuotas'] ?? [] as $cn) {
+                                if (isset($cuotaNumToIdx[$cn]) && $cuotaNumToIdx[$cn] >= $primeraCuota) {
+                                    $hasAffectedCuota = true;
+                                    break;
+                                }
+                            }
+                            if (!$hasAffectedCuota && $usedBefore <= 0.009) continue;
+                        }
+
+                        $pool[] = [
+                            'idPago'    => $idP,
+                            'total'     => $available,
+                            'fechaRegistro' => $pl['fechaRegistro'],
+                            'esSobranteDesdeAntes' => $usedBefore > 0,
+                        ];
+                    }
+                    usort($pool, function ($a, $b) {
+                        return strtotime($a['fechaRegistro']) <=> strtotime($b['fechaRegistro']);
+                    });
+
+                    // ── PASO 6: Re-aplicar pagos legítimos desde la cuota más antigua ──
+                    $curCuota = $primeraCuota;
+                    foreach ($pool as $pg) {
+                        $rem = round($pg['total'], 2);
+                        $primera = true;
+                        $sobrante = $pg['esSobranteDesdeAntes'];
+
+                        while ($rem > 0 && $curCuota < count($tabla)) {
+                            $totalLeg = 0;
+                            foreach ($tabla[$curCuota]['aplicados'] as $ap) {
+                                $totalLeg += (float)($ap['aplicado'] ?? 0);
+                            }
+                            $def = round($tabla[$curCuota]['monto_cargo'] - $totalLeg, 2);
+                            if ($def <= 0) { $curCuota++; continue; }
+
+                            $apl = min($rem, $def);
+                            $montoParaMostrar = round($rem, 2);
+                            if ($primera && isset($idPagosCC[$pg['idPago']])) {
+                                $plPago = $plById[$pg['idPago']] ?? null;
+                                if ($plPago !== null) {
+                                    $montoParaMostrar = round((float)($plPago['montoPagoOriginal'] ?? $plPago['montoPago'] ?? 0), 2);
+                                }
+                            }
+                            $tabla[$curCuota]['aplicados'][] = [
+                                'idPago'        => $pg['idPago'],
+                                'montoPago'     => $montoParaMostrar,
+                                'aplicado'      => round($apl, 2),
+                                'fechaRegistro' => $pg['fechaRegistro'],
+                                'fechaPago'     => $tabla[$curCuota]['fecha'],
+                                'diasMora'      => null,
+                                'extemporaneos' => 0,
+                                'es_sobrante'   => $sobrante || !$primera,
+                            ];
+
+                            $rem = round($rem - $apl, 2);
+                            $primera = false;
+                            $sobrante = true;
+
+                            $totalLeg += $apl;
+                            if ($totalLeg >= $tabla[$curCuota]['monto_cargo']) $curCuota++;
+                        }
+                    }
+
+                    // ── PASO 7: Fecha de cierre de cada cuota (fecha del último pago legítimo si está llena) ──
+                    $closingDates = [];
+                    for ($ci = $primeraCuota; $ci < count($tabla); $ci++) {
+                        $totalLeg = 0;
+                        $maxTs = null;
+                        foreach ($tabla[$ci]['aplicados'] as $ap) {
+                            $totalLeg += (float)($ap['aplicado'] ?? 0);
+                            $fr = $ap['fechaRegistro'] ?? null;
+                            if ($fr) {
+                                $ts = strtotime($fr);
+                                if ($maxTs === null || $ts > $maxTs) $maxTs = $ts;
+                            }
+                        }
+                        if ($totalLeg >= $tabla[$ci]['monto_cargo'] - 0.009 && $maxTs !== null) {
+                            $closingDates[$ci] = date('Y-m-d', $maxTs);
+                        } else {
+                            $closingDates[$ci] = null;
+                        }
+                    }
+
+                    // ── PASO 8: Colocar CC'd + contracargo en la cuota activa. Preferir la primera cuota donde ese pago (idPCC) quedó aplicado (así pago y contracargo salen en la misma cuota que “pagó”). ──
+                    foreach ($ccMarkers as $mk) {
+                        $ccDate = $mk['fecha'];
+                        $idPCC = $mk['idPago'];
+
+                        $targetCuota = null;
+                        $targetCuotaPorAplicado = false;
+                        for ($ci = $primeraCuota; $ci < count($tabla); $ci++) {
+                            foreach ($tabla[$ci]['aplicados'] as $ap) {
+                                if (($ap['idPago'] ?? null) == $idPCC) {
+                                    $targetCuota = $ci;
+                                    $targetCuotaPorAplicado = true;
+                                    break 2;
+                                }
+                            }
+                        }
+                        if ($targetCuota === null) {
+                            for ($ci = $primeraCuota; $ci < count($tabla); $ci++) {
+                                $cd = $closingDates[$ci] ?? null;
+                                if ($cd === null || $ccDate <= $cd) {
+                                    $targetCuota = $ci;
+                                    break;
+                                }
+                            }
+                        }
+                        if ($targetCuota === null) {
+                            for ($ci = count($tabla) - 1; $ci >= $primeraCuota; $ci--) {
+                                if ($closingDates[$ci] === null) { $targetCuota = $ci; break; }
+                            }
+                            if ($targetCuota === null) $targetCuota = count($tabla) - 1;
+                        }
+
+                        $ccPl = $plById[$idPCC] ?? null;
+                        $ccFechaReg = $mk['fecha'];
+                        if ($ccPl && !$targetCuotaPorAplicado) {
+                            $montoReal = round((float)($ccPl['montoPagoOriginal'] ?? $ccPl['montoPago'] ?? 0), 2);
+                            $ccFechaReg = $ccPl['fechaRegistro'];
+                            $tabla[$targetCuota]['aplicados'][] = [
+                                'idPago'        => $idPCC,
+                                'montoPago'     => $montoReal,
+                                'aplicado'      => round(min($montoReal, $tabla[$targetCuota]['monto_cargo']), 2),
+                                'fechaRegistro' => $ccFechaReg,
+                                'es_sobrante'   => false,
+                                'cc_invalido'   => true,
+                            ];
+                        } elseif ($ccPl) {
+                            $ccFechaReg = $ccPl['fechaRegistro'];
+                        }
+
+                        $tabla[$targetCuota]['aplicados'][] = [
+                            'tipo'            => 'contracargo',
+                            'montoPago'       => $mk['monto'],
+                            'aplicado'        => $mk['monto'],
+                            'fechaRegistro'   => $mk['fecha'],
+                            '_sortDate'       => $ccFechaReg,
+                            'concepto_display'=> !empty($mk['esReembolso']) ? 'reembolso' : 'contracargo',
+                        ];
+                    }
+
+                    // ── PASO 9: Recalcular totales (solo pagos legítimos) ──
+                    for ($ci = $primeraCuota; $ci < count($tabla); $ci++) {
+                        $total = 0;
+                        foreach ($tabla[$ci]['aplicados'] as $ap) {
+                            if (!empty($ap['cc_invalido'])) continue;
+                            if (isset($ap['tipo']) && $ap['tipo'] === 'contracargo') continue;
+                            $total += (float)($ap['aplicado'] ?? 0);
+                        }
+                        $tabla[$ci]['total_pagado'] = round($total, 2);
+                        $tabla[$ci]['pendiente'] = round(max($tabla[$ci]['monto_cargo'] - $total, 0), 2);
+                    }
+
+                    // ── PASO 10: Ordenar aplicados (pago primero, luego contracargo/reembolso, por fecha) ──
+                    for ($ci = $primeraCuota; $ci < count($tabla); $ci++) {
+                        usort($tabla[$ci]['aplicados'], function ($a, $b) {
+                            $fa = isset($a['_sortDate']) ? $a['_sortDate'] : ($a['fechaRegistro'] ?? '9999-99-99');
+                            $fb = isset($b['_sortDate']) ? $b['_sortDate'] : ($b['fechaRegistro'] ?? '9999-99-99');
+                            $cmp = strtotime($fa) <=> strtotime($fb);
+                            if ($cmp !== 0) return $cmp;
+                            $ordA = !empty($a['cc_invalido']) ? 0 : ((isset($a['tipo']) && $a['tipo'] === 'contracargo') ? 2 : 1);
+                            $ordB = !empty($b['cc_invalido']) ? 0 : ((isset($b['tipo']) && $b['tipo'] === 'contracargo') ? 2 : 1);
+                            return $ordA <=> $ordB;
+                        });
+                    }
+
+                    // Descontar montos consumidos de notasCargoPorFecha
+                    foreach ($ccMarkers as $mk) {
+                        if (isset($notasCargoPorFecha[$mk['fecha']])) {
+                            $notasCargoPorFecha[$mk['fecha']] = round(max($notasCargoPorFecha[$mk['fecha']] - $mk['monto'], 0), 2);
+                        }
+                    }
+                }
+            }
+
+            self::set("notasCargoPorFecha", $notasCargoPorFecha);
+            self::set("esReembolsoPorFecha", $esReembolsoPorFecha ?? []);
+            self::set("hayNotasCargos", $hayNotasCargos);
+
+            if (
+                !isset($resultado['data']['idCredito']) ||
+                $resultado['data']['idCredito'] === null ||
+                $resultado['data']['idCredito'] === ''
+            ) {
+                self::set("titulo", "Sin resultados para solicitud");
+                self::set("errorGestiones", "No se encontraron resultados");
+                self::set("tabla", $tabla);
+                self::set("notasCargoPorFecha", []);
+                self::set("esReembolsoPorFecha", []);
+                self::set("hayNotasCargos", false);
+                self::set("paisData", $paisData); // Pasar datos del país incluso en error
+                return self::render("__SPARTA_SECRET_REDACTED___guatemala");
+            }
+            if (empty($resultado["data"]["idCredito"])) {
+
+                self::set("titulo", "Sin resultados para solicitud");
+                self::set("errorGestiones", "No se encontraron resultados");
+                self::set("tabla", $tabla);
+                self::set("notasCargoPorFecha", []);
+                self::set("esReembolsoPorFecha", []);
+                self::set("hayNotasCargos", false);
+                self::set("paisData", $paisData); // Pasar datos del país incluso en error
+
+                return self::render("__SPARTA_SECRET_REDACTED___guatemala");
+
+            } else {
+
+                self::set("dataCliente", $cliente);
+                self::set("dataEstadoCuenta", $estadoCuenta);
+                self::set("dataOtrosDatos", $otrosDatos); //Recurso Front
+                self::set("direcciones", $respDAO);
+                self::set("referencias", $referencias);
+                self::set("notas", $notas);
+                self::set("paisData", $paisData); // NUEVO: Pasar datos del país a la vista
+                self::set("titulo", "Resultado de la solicitud");
+                $scriptConPermiso = str_replace('TienePermisoRegistrarDocumentos_PLACEHOLDER', json_encode($tienePermisoRegistrarDocumentos), $script);
+                $scriptConPermiso = str_replace('TienePermisoFechaCorte_PLACEHOLDER', json_encode($tienePermisoFechaCorte), $scriptConPermiso);
+                self::set("script", $scriptConPermiso);
+                self::set("tabla", $tabla);
+
+                return self::render("__SPARTA_SECRET_REDACTED___guatemala");
+            }
+
+
+        }
+
+        # -----------------------------
+        # GET NORMAL (menú Estados de cuentas Guatemala: sin país en GET, usar default México)
+        # -----------------------------
+        self::set("titulo", "Estados de Cuenta - Guatemala");
+        // Default a México para el formulario de consulta
+        self::set("paisData", ['nombre_pais' => 'México', 'codigo_iso' => 'mx', 'pais_activo' => 1]);
+        $scriptConsulta = str_replace('TienePermisoRegistrarDocumentos_PLACEHOLDER', json_encode(false), $script);
+        $scriptConsulta = str_replace('TienePermisoFechaCorte_PLACEHOLDER', json_encode($tienePermisoFechaCorte), $scriptConsulta);
+        self::set("script", $scriptConsulta);
+        return self::render("__SPARTA_SECRET_REDACTED___guatemala_consulta");
+    }
+    
+    // MARKER_GUATEMALA_FIN_CLASE
 }

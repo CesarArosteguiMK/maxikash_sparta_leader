@@ -1023,4 +1023,53 @@ public static function obtenerReportesDictamenParaDescarga($fechaInicio, $fechaF
             return self::resultado(false, 'Error al guardar la condonación parcial', null, $e->getMessage());
         }
     }
+
+    /**
+     * Obtiene el país asociado a un crédito mediante id_persona.
+     * Importante: el id_credito corresponde al id de persona en la tabla persona.
+     *
+     * @param int $idCreditoID del crédito (id de persona)
+     * @return array Datos del país: id_pais, nombre_pais, codigo_iso, pais_activo
+     */
+    public static function getPaisCredito($idCredito)
+    {
+        $qry = "
+            SELECT 
+                p.id_pais,
+                COALESCE(pais.nombre, 'México') AS nombre_pais,
+                COALESCE(pais.codigo_iso, 'mx') AS codigo_iso,
+                COALESCE(pais.activo, 1) AS pais_activo
+            FROM persona p
+            LEFT JOIN paises pais ON pais.id = p.id_pais
+            WHERE p.id = :id_credito
+            LIMIT 1
+        ";
+        $val = ['id_credito' => (int) $idCredito];
+        
+        try {
+            $db = new Database();
+            $r = $db->queryOne($qry, $val);
+            
+            // Si no se encuentra el crédito o no tiene país asignado, default a México
+            if (!$r || empty($r['nombre_pais'])) {
+                return [
+                    'id_pais' => null,
+                    'nombre_pais' => 'México',
+                    'codigo_iso' => 'mx',
+                    'pais_activo' => 1
+                ];
+            }
+            
+            return $r;
+        } catch (\Exception $e) {
+            // En caso de error, retornar México por defecto
+            error_log("[EstadoCuenta::getPaisCredito] Error: " . $e->getMessage());
+            return [
+                'id_pais' => null,
+                'nombre_pais' => 'México',
+                'codigo_iso' => 'mx',
+                'pais_activo' => 1
+            ];
+        }
+    }
 }
