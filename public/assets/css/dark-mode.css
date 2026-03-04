@@ -4382,20 +4382,23 @@ body.dark-mode #modalMapaAlternasGrande .rastreo-filtro-gestor-overlay .form-che
     background-color: #404040 !important;
     border-color: #606070 !important;
 }
-/* Leyenda: colores como en modo claro (Rosa, Verde, Carmelita, Azul, Gestores) */
-body.dark-mode #modalMapaAlternasGrande .rastreo-leyenda-mapa-grande .d-block:nth-child(1) span[style*="color"] {
+/* Leyenda: colores como en modo claro (Rosa, Verde, Carmelita, Azul, Negro, Gestores) - forzar con !important */
+body.dark-mode #modalMapaAlternasGrande .rastreo-leyenda-mapa-grande .rastreo-leyenda-item[data-tipo-leyenda="casa"] span[style*="color"] {
     color: #ec4899 !important;
 }
-body.dark-mode #modalMapaAlternasGrande .rastreo-leyenda-mapa-grande .d-block:nth-child(2) span[style*="color"] {
+body.dark-mode #modalMapaAlternasGrande .rastreo-leyenda-mapa-grande .rastreo-leyenda-item[data-tipo-leyenda="otroDomicilio"] span[style*="color"] {
     color: #22c55e !important;
 }
-body.dark-mode #modalMapaAlternasGrande .rastreo-leyenda-mapa-grande .d-block:nth-child(3) span[style*="color"] {
+body.dark-mode #modalMapaAlternasGrande .rastreo-leyenda-mapa-grande .rastreo-leyenda-item[data-tipo-leyenda="agencia"] span[style*="color"] {
     color: #b8860b !important;
 }
-body.dark-mode #modalMapaAlternasGrande .rastreo-leyenda-mapa-grande .d-block:nth-child(4) span[style*="color"] {
+body.dark-mode #modalMapaAlternasGrande .rastreo-leyenda-mapa-grande .rastreo-leyenda-item[data-tipo-leyenda="maxiApp"] span[style*="color"] {
     color: #2563eb !important;
 }
-body.dark-mode #modalMapaAlternasGrande .rastreo-leyenda-mapa-grande .d-block:nth-child(5) span {
+body.dark-mode #modalMapaAlternasGrande .rastreo-leyenda-mapa-grande .rastreo-leyenda-item[data-tipo-leyenda="megareporte"] span[style*="color"] {
+    color: #000000 !important;
+}
+body.dark-mode #modalMapaAlternasGrande .rastreo-leyenda-mapa-grande .d-block:not(.rastreo-leyenda-item) span {
     color: #d4d4e0 !important;
 }
 
