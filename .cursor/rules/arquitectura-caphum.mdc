@@ -28,5 +28,6 @@ Al crear o modificar pantallas de listado en CapHum (ej. Gestión, Candidatos), 
 
 4. **DataTable**
    - Inicializar en el script del controlador sobre la tabla vacía; al recibir datos en `onSuccess`, actualizar KPIs y rellenar la tabla.
+   - **Misma lógica que Gestión:** usar `configuraTabla(selector, { registrosPorPagina, columns })` de `comunes.js`; primera columna de la tabla = `<th></th>` (control responsive); columnas definidas por nombre (`data: 'nombre'`, etc.); filas como **objetos** (p. ej. `{ nombre, contacto, puestoDepto, estatus, acciones }`), no arrays.
 
 No introducir arquitecturas nuevas (p. ej. cargar datos en PHP y pintar filas en la vista, o usar otro patrón de llamadas AJAX).

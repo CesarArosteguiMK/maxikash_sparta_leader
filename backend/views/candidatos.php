@@ -93,6 +93,7 @@ $listaJefes = $listaJefes ?? [];
             <table id="tablaCandidatos" class="dt-responsive table border-top" style="width:100%">
                 <thead>
                     <tr>
+                        <th></th>
                         <th>Nombre</th>
                         <th>Contacto</th>
                         <th>Puesto / Departamento</th>
@@ -597,6 +598,14 @@ window.puedeGestionarCandidatos = <?= json_encode(!empty($puedeGestionarCandidat
             document._candidatosClickBound = true;
             document.addEventListener("click", candidatosTableClick);
             var docPrefetchTimer = null;
+            function prefetchDocumentacion(id) {
+                if (!id) return;
+                if (window._documentacionCache && window._documentacionCache.id === id) return;
+                var sep = capHumApiUrl("CapHum/getDocumentosCandidatoList").indexOf("?") !== -1 ? "&" : "?";
+                fetch(capHumApiUrl("CapHum/getDocumentosCandidatoList") + sep + "id_candidato=" + id).then(function(r){ return r.json(); }).then(function(res) {
+                    if (res.success && res.datos) window._documentacionCache = { id: id, data: res.datos };
+                }).catch(function(){});
+            }
             document.addEventListener("mouseover", function(ev) {
                 var btn = ev.target && ev.target.closest ? ev.target.closest(".btn-documentacion-candidato") : null;
                 if (!btn) {
@@ -609,11 +618,14 @@ window.puedeGestionarCandidatos = <?= json_encode(!empty($puedeGestionarCandidat
                 if (docPrefetchTimer) clearTimeout(docPrefetchTimer);
                 docPrefetchTimer = setTimeout(function() {
                     docPrefetchTimer = null;
-                    var sep = capHumApiUrl("CapHum/getDocumentosCandidatoList").indexOf("?") !== -1 ? "&" : "?";
-                    fetch(capHumApiUrl("CapHum/getDocumentosCandidatoList") + sep + "id_candidato=" + id).then(function(r){ return r.json(); }).then(function(res) {
-                        if (res.success && res.datos) window._documentacionCache = { id: id, data: res.datos };
-                    }).catch(function(){});
+                    prefetchDocumentacion(id);
                 }, 50);
+            });
+            document.addEventListener("mousedown", function(ev) {
+                var btn = ev.target && ev.target.closest ? ev.target.closest(".btn-documentacion-candidato") : null;
+                if (!btn) return;
+                var id = btn.getAttribute("data-id");
+                prefetchDocumentacion(id);
             });
         }
 
@@ -1069,7 +1081,9 @@ function abrirModalDocumentacionCandidato(idCandidato, nombreCandidato, cachedPa
     }
 
     function cargarDocumentos() {
-        fetch("/CapHum/getDocumentosCandidatoList?id_candidato=" + idCandidato).then(function(r){ return r.json(); }).then(function(res) {
+        var sep = (typeof capHumApiUrl === "function" ? capHumApiUrl("CapHum/getDocumentosCandidatoList") : "/CapHum/getDocumentosCandidatoList").indexOf("?") !== -1 ? "&" : "?";
+        var urlDoc = (typeof capHumApiUrl === "function" ? capHumApiUrl("CapHum/getDocumentosCandidatoList") : "/CapHum/getDocumentosCandidatoList") + sep + "id_candidato=" + idCandidato;
+        fetch(urlDoc).then(function(r){ return r.json(); }).then(function(res) {
             var docs = (res.datos && res.datos.documentos) ? res.datos.documentos : (res.datos && Array.isArray(res.datos) ? res.datos : []);
             var verif = (res.datos && res.datos.verificacion_expediente) ? res.datos.verificacion_expediente : null;
             var metricas = (res.datos && res.datos.metricas) ? res.datos.metricas : null;

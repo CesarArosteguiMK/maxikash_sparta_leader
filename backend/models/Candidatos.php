@@ -353,6 +353,7 @@ class Candidatos extends Model
                     ]
                 );
             }
+            self::invalidateDocumentacionCache($id_candidato);
             return self::resultado(true, 'Documento guardado correctamente.');
         } catch (\Exception $e) {
             return self::resultado(false, 'Error al guardar documento.', null, $e->getMessage());
@@ -512,6 +513,7 @@ class Candidatos extends Model
         } catch (\Exception $e) {
             // Columna puede no existir si no se ejecutó la migración
         }
+        self::invalidateDocumentacionCache($id_candidato);
     }
 
     /**
@@ -533,6 +535,54 @@ class Candidatos extends Model
             return is_array($decoded) ? $decoded : null;
         } catch (\Exception $e) {
             return null;
+        }
+    }
+
+    /**
+     * Documentos + verificación en una sola conexión (para listado Documentación, optimizado).
+     * @return array{documentos: array, verificacion: array|null}
+     */
+    public static function getDocumentosYVerificacion($id_candidato)
+    {
+        $id_candidato = (int) $id_candidato;
+        if ($id_candidato <= 0) {
+            return ['documentos' => [], 'verificacion' => null];
+        }
+        try {
+            $db = new Database();
+            $documentos = $db->queryAll(
+                "SELECT id, id_candidato, tipo_documento, nombre_archivo, ruta_archivo, fecha_carga, validado, fecha_validado FROM candidato_documento WHERE id_candidato = :id ORDER BY fecha_carga DESC",
+                ['id' => $id_candidato]
+            );
+            $documentos = $documentos ?: [];
+            $row = $db->queryOne("SELECT ultima_verificacion_expediente FROM candidatos WHERE id = :id", ['id' => $id_candidato]);
+            $verificacion = null;
+            if ($row && !empty($row['ultima_verificacion_expediente'])) {
+                $decoded = json_decode($row['ultima_verificacion_expediente'], true);
+                $verificacion = is_array($decoded) ? $decoded : null;
+            }
+            return ['documentos' => $documentos, 'verificacion' => $verificacion];
+        } catch (\Exception $e) {
+            return ['documentos' => [], 'verificacion' => null];
+        }
+    }
+
+    /**
+     * Invalidar caché de listado documentación para un candidato (al subir/eliminar doc o actualizar verificación).
+     */
+    public static function invalidateDocumentacionCache($id_candidato)
+    {
+        $id_candidato = (int) $id_candidato;
+        if ($id_candidato <= 0) {
+            return;
+        }
+        $cacheDir = defined('RAIZ') ? (RAIZ . '/storage/cache') : (__DIR__ . '/../storage/cache');
+        $file = $cacheDir . '/doc_candidato_' . $id_candidato . '.json';
+        if (is_file($file)) {
+            @unlink($file);
+        }
+        if (function_exists('apcu_delete')) {
+            @apcu_delete('doc_candidato_' . $id_candidato);
         }
     }
 

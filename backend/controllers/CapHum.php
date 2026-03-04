@@ -3416,7 +3416,13 @@ class CapHum extends Controller
                         '<button type="button" class="btn btn-sm btn-danger btn-eliminar-candidato" data-id="' + id + '" title="Eliminar"><i class="fa fa-trash"></i></button></div>';
                     var est = c.estatus || "Por evaluar";
                     var estBadge = est === "Validado" ? "bg-success" : (est === "Por evaluar" ? "bg-warning text-dark" : "bg-secondary");
-                    return [nombre, contacto, puestoDepto, '<span class="badge ' + estBadge + '">' + est + '</span>', acciones];
+                    return {
+                        nombre: nombre,
+                        contacto: contacto,
+                        puestoDepto: puestoDepto,
+                        estatus: '<span class="badge ' + estBadge + '">' + est + '</span>',
+                        acciones: acciones
+                    };
                 });
                 var tabla = jQuery("#tablaCandidatos").DataTable();
                 if (tabla) { tabla.clear().rows.add(datos).draw(); }
@@ -3470,19 +3476,16 @@ class CapHum extends Controller
         var \$ = window.jQuery || window.\$;
         if (!\$ || !\$.fn.DataTable) return;
         if (!\$.fn.DataTable.isDataTable("#tablaCandidatos")) {
-            \$("#tablaCandidatos").DataTable({
-                responsive: false,
-                order: [[0, "asc"]],
-                columnDefs: [{ orderable: false, targets: 4 }],
-                language: {
-                    search: "Buscar:",
-                    lengthMenu: "Mostrar _MENU_ registros",
-                    info: "Mostrando _START_ a _END_ de _TOTAL_ registros",
-                    infoEmpty: "Mostrando 0 a 0 de 0 registros",
-                    infoFiltered: "(filtrado de _MAX_ registros)",
-                    paginate: { first: "Primera", last: "Última", next: "Siguiente", previous: "Anterior" },
-                    zeroRecords: "No hay registros"
-                }
+            configuraTabla("#tablaCandidatos", {
+                registrosPorPagina: 10,
+                columns: [
+                    { data: null, defaultContent: '', className: 'control', orderable: false },
+                    { data: 'nombre', title: 'Nombre' },
+                    { data: 'contacto', title: 'Contacto' },
+                    { data: 'puestoDepto', title: 'Puesto / Departamento' },
+                    { data: 'estatus', title: 'Estatus', render: function(d) { return d != null ? d : ''; } },
+                    { data: 'acciones', title: 'Acciones', orderable: false }
+                ]
             });
         }
         getCandidatos();
@@ -4178,6 +4181,7 @@ SCR;
     /**
      * Listar documentos del expediente de un candidato (JSON). Requiere módulo Candidatos.
      * GET: id_candidato (query).
+     * Optimizado: una sola conexión DB, caché 45s (file o APCu), invalidación al subir/eliminar/verificar.
      */
     public function getDocumentosCandidatoList()
     {
@@ -4187,13 +4191,32 @@ SCR;
             echo json_encode(self::respuesta(false, 'id_candidato inválido.'));
             return;
         }
-        $res = CandidatosDAO::getDocumentosCandidato($id_candidato);
-        if (!$res['success']) {
-            echo json_encode(self::respuesta(false, $res['mensaje'] ?? 'Error.', $res['datos'] ?? []));
-            return;
+
+        $cacheDir = defined('RAIZ') ? (RAIZ . '/storage/cache') : (__DIR__ . '/../storage/cache');
+        $cacheKey = 'doc_candidato_' . $id_candidato;
+        $ttl = 45;
+
+        if (function_exists('apcu_fetch')) {
+            $cached = @apcu_fetch($cacheKey);
+            if ($cached !== false && is_array($cached) && isset($cached['ts']) && (time() - $cached['ts']) <= $ttl && isset($cached['json'])) {
+                echo $cached['json'];
+                return;
+            }
+        } else {
+            $cacheFile = $cacheDir . '/' . $cacheKey . '.json';
+            if (is_file($cacheFile) && (time() - filemtime($cacheFile)) <= $ttl) {
+                $raw = @file_get_contents($cacheFile);
+                if ($raw !== false && $raw !== '') {
+                    echo $raw;
+                    return;
+                }
+            }
         }
-        $documentos = $res['datos'] ?? [];
-        $verificacion = CandidatosDAO::getVerificacionExpediente($id_candidato);
+
+        $data = CandidatosDAO::getDocumentosYVerificacion($id_candidato);
+        $documentos = $data['documentos'] ?? [];
+        $verificacion = $data['verificacion'] ?? null;
+
         $payload = ['documentos' => $documentos];
         if ($verificacion !== null) {
             $payload['verificacion_expediente'] = $verificacion;
@@ -4240,7 +4263,20 @@ SCR;
             'porcentaje' => $totalRequeridos > 0 ? min(100, (int) round(($totalActual / $totalRequeridos) * 100)) : 0,
             'expediente_completo' => $expedienteCompleto,
         ];
-        echo json_encode(self::respuesta(true, 'OK', $payload));
+
+        $json = json_encode(self::respuesta(true, 'OK', $payload));
+
+        if (function_exists('apcu_store')) {
+            @apcu_store($cacheKey, ['ts' => time(), 'json' => $json], $ttl);
+        } else {
+            if (!is_dir($cacheDir)) {
+                @mkdir($cacheDir, 0755, true);
+            }
+            $cacheFile = $cacheDir . '/' . $cacheKey . '.json';
+            @file_put_contents($cacheFile, $json, LOCK_EX);
+        }
+
+        echo $json;
     }
 
     /**
@@ -4426,6 +4462,7 @@ SCR;
         $idCand = (int) ($doc['id_candidato'] ?? 0);
         if ($idCand > 0) {
             CandidatosDAO::updateVerificacionExpediente($idCand, null);
+            CandidatosDAO::invalidateDocumentacionCache($idCand);
         }
         echo json_encode(self::respuesta(true, 'Documento eliminado.'));
     }

@@ -150,7 +150,8 @@ SCRIPT;
             }
         }
         function cargarDictamenRastreo() {
-            if (!ticketIdRastreoActual) { $(\'#rastreoDictamenContenido\').html(\'<span class="text-muted">Seleccione un ticket.</span>\'); $(\'#rastreoDictamenCombo\').val(\'\'); $(\'#rastreoDictamenDescripcion\').val(\'\'); $(\'#btnDictamenEnviarGestor, #btnDictamenAmpliadaEnviarGestor\').prop(\'disabled\', false).html(\'<i class="fa-solid fa-paper-plane me-1"></i>Enviar al gestor\'); $(\'#btnDictamenGuardarBorrador, #btnDictamenAmpliadaGuardarBorrador\').prop(\'disabled\', false).html(\'<i class="fa-solid fa-save me-1"></i>Guardar borrador\').removeData(\'saved\'); $(\'#rastreoDictamenCombo, #rastreoDictamenDescripcion, #rastreoDictamenEvidenciaAdd, #rastreoDictamenAmpliadaEvidenciaAdd\').prop(\'disabled\', false); $(\'.rastreo-seccion-dictamen\').removeClass(\'dictamen-solo-lectura\'); return; }
+            if (!ticketIdRastreoActual) { $(\'#rastreoDictamenContenido\').html(\'<span class="text-muted">Seleccione un ticket.</span>\'); $(\'#rastreoDictamenCombo\').val(\'\'); $(\'#rastreoDictamenDescripcion\').val(\'\'); $(\'#btnDictamenEnviarGestor, #btnDictamenAmpliadaEnviarGestor\').prop(\'disabled\', false).html(\'<i class="fa-solid fa-paper-plane me-1"></i>Enviar al gestor\'); $(\'#rastreoDictamenCombo, #rastreoDictamenDescripcion, #rastreoDictamenEvidenciaAdd, #rastreoDictamenAmpliadaEvidenciaAdd\').prop(\'disabled\', false); $(\'.rastreo-seccion-dictamen\').removeClass(\'dictamen-solo-lectura\'); return; }
+            if (typeof rellenarEvidenciasDictamen === \'function\') rellenarEvidenciasDictamen(ticketIdRastreoActual);
             http.request({ endpoint: "/sabueso/getDictamenActualTicket", metodo: "POST", data: JSON.stringify({ id_ticket: ticketIdRastreoActual }), contentType: "application/json", processData: false, onSuccess: function(r) {
                 var d = (r.success && r.datos) ? r.datos : null;
                 $(\'#rastreoDictamenCombo\').val(d && d.tipo ? d.tipo : \'\');
@@ -160,26 +161,22 @@ SCRIPT;
                 var estado = (d && d.estado) ? d.estado : \'\';
                 if (estado === \'enviado_al_gestor\') {
                     $(\'#rastreoDictamenCombo, #rastreoDictamenDescripcion, #rastreoDictamenAmpliadaCombo, #rastreoDictamenAmpliadaDescripcion, #rastreoDictamenEvidenciaAdd, #rastreoDictamenAmpliadaEvidenciaAdd\').prop(\'disabled\', true);
-                    $(\'#btnDictamenGuardarBorrador, #btnDictamenAmpliadaGuardarBorrador\').prop(\'disabled\', true).html(\'<i class="fa-solid fa-check me-1"></i>Guardado\').removeData(\'saved\');
                     $(\'#btnDictamenEnviarGestor, #btnDictamenAmpliadaEnviarGestor\').prop(\'disabled\', true).html(\'<i class="fa-solid fa-check me-1"></i>Dictamen enviado\');
                     $(\'.rastreo-seccion-dictamen\').addClass(\'dictamen-solo-lectura\');
                     var fEnv = (d.fecha_actualizacion ? new Date(d.fecha_actualizacion).toLocaleString(\'es-MX\', { day: \'2-digit\', month: \'2-digit\', year: \'numeric\', hour: \'2-digit\', minute: \'2-digit\' }) : \'—\');
                     $(\'#rastreoDictamenContenido\').html(\'<div class="small"><strong>Dictamen enviado al gestor</strong><br><span class="text-muted">Tipo: \' + (d.tipo || \'—\') + \'</span><br><span class="text-muted">Descripción: \' + (d.descripcion || \'\').replace(/</g, \'&lt;\').replace(/>/g, \'&gt;\') + \'</span><br><span class="text-muted">Enviado: \' + fEnv + \'</span></div>\');
                 } else if (d && (d.tipo || d.descripcion)) {
                     $(\'#rastreoDictamenCombo, #rastreoDictamenDescripcion, #rastreoDictamenAmpliadaCombo, #rastreoDictamenAmpliadaDescripcion, #rastreoDictamenEvidenciaAdd, #rastreoDictamenAmpliadaEvidenciaAdd\').prop(\'disabled\', false);
-                    $(\'#btnDictamenGuardarBorrador, #btnDictamenAmpliadaGuardarBorrador\').prop(\'disabled\', true).html(\'<i class="fa-solid fa-check me-1"></i>Guardado\').data(\'saved\', \'1\');
                     $(\'#btnDictamenEnviarGestor, #btnDictamenAmpliadaEnviarGestor\').prop(\'disabled\', false).html(\'<i class="fa-solid fa-paper-plane me-1"></i>Enviar al gestor\');
                     $(\'.rastreo-seccion-dictamen\').removeClass(\'dictamen-solo-lectura\');
                     var fAct = (d.fecha_actualizacion ? new Date(d.fecha_actualizacion).toLocaleString(\'es-MX\', { day: \'2-digit\', month: \'2-digit\', hour: \'2-digit\', minute: \'2-digit\' }) : \'—\');
                     $(\'#rastreoDictamenContenido\').html(\'<div class="small text-success"><strong>Borrador guardado</strong> \' + fAct + \'<br><span class="text-muted">Tipo: \' + (d.tipo || \'—\') + \'</span><br><span class="text-muted">Descripción: \' + (d.descripcion || \'\').replace(/</g, \'&lt;\').replace(/>/g, \'&gt;\') + \'</span></div>\');
                 } else {
                     $(\'#rastreoDictamenCombo, #rastreoDictamenDescripcion, #rastreoDictamenAmpliadaCombo, #rastreoDictamenAmpliadaDescripcion, #rastreoDictamenEvidenciaAdd, #rastreoDictamenAmpliadaEvidenciaAdd\').prop(\'disabled\', false);
-                    $(\'#btnDictamenGuardarBorrador, #btnDictamenAmpliadaGuardarBorrador\').prop(\'disabled\', false).html(\'<i class="fa-solid fa-save me-1"></i>Guardar borrador\').removeData(\'saved\');
                     $(\'#btnDictamenEnviarGestor, #btnDictamenAmpliadaEnviarGestor\').prop(\'disabled\', false).html(\'<i class="fa-solid fa-paper-plane me-1"></i>Enviar al gestor\');
                     $(\'.rastreo-seccion-dictamen\').removeClass(\'dictamen-solo-lectura\');
-                    $(\'#rastreoDictamenContenido\').html(\'<span class="text-muted">Complete el formulario y guarde un borrador o envíe al gestor.</span>\');
+                    $(\'#rastreoDictamenContenido\').html(\'<span class="text-muted">Amplíe el dictamen para completar tipo, descripción y evidencia. Se guarda automáticamente.</span>\');
                 }
-                if (typeof rellenarEvidenciasDictamen === \'function\') rellenarEvidenciasDictamen(ticketIdRastreoActual);
             } });
         }
         function eliminarMensajeDictamen(idMensaje) {
@@ -3961,19 +3958,28 @@ SCRIPT;
     }
 
     /**
-     * API: eliminar evidencia.
+     * API: eliminar evidencia. La evidencia es única por ticket; se valida que pertenezca al ticket indicado.
      */
     public function eliminarEvidenciaTicket()
     {
         $raw = file_get_contents('php://input');
         $datos = json_decode($raw, true) ?: [];
         $idEvidencia = (int)($datos['id_evidencia'] ?? 0);
+        $idTicket = isset($datos['id_ticket']) ? (int)$datos['id_ticket'] : 0;
         if ($idEvidencia < 1) {
             self::respuestaJSON(['success' => false, 'mensaje' => 'ID de evidencia requerido.']);
             return;
         }
         $row = TicketDAO::getEvidenciaPorId($idEvidencia);
-        if ($row && !empty($row['ruta_archivo'])) {
+        if (!$row) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'Evidencia no encontrada.']);
+            return;
+        }
+        if ($idTicket > 0 && (int)($row['id_ticket'] ?? 0) !== $idTicket) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'La evidencia no pertenece a este ticket.']);
+            return;
+        }
+        if (!empty($row['ruta_archivo'])) {
             $path = __DIR__ . '/../uploads/' . $row['ruta_archivo'];
             if (is_file($path)) {
                 @unlink($path);

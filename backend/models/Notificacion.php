@@ -116,7 +116,6 @@ class Notificacion extends Model
             return [];
         }
         self::purgarAntiguas(5);
-        self::syncDictamenNoVisto($idPersona);
         try {
             $db = new Database();
             $rows = $db->queryAll(
@@ -135,7 +134,7 @@ class Notificacion extends Model
 
     /**
      * Lista notificaciones y total no leídas en una sola petición (purga y sync una vez).
-     * Uso: listar() en el controlador para no duplicar purgarAntiguas ni syncDictamenNoVisto.
+     * Uso: listar() en el controlador (purga una vez, luego listado + conteo). No se ejecuta sync para no tocar leída.
      */
     public static function listarConTotal(int $idPersona, int $limite = 50): array
     {
@@ -143,7 +142,6 @@ class Notificacion extends Model
             return ['lista' => [], 'total_no_leidas' => 0];
         }
         self::purgarAntiguas(5);
-        self::syncDictamenNoVisto($idPersona);
         try {
             $db = new Database();
             $rows = $db->queryAll(
@@ -175,7 +173,6 @@ class Notificacion extends Model
             return 0;
         }
         self::purgarAntiguas(5);
-        self::syncDictamenNoVisto($idPersona);
         try {
             $db = new Database();
             $r = $db->queryOne(
@@ -216,7 +213,7 @@ class Notificacion extends Model
 
     /**
      * Crea notificaciones "dictamen_enviado" para tickets con dictamen no visto que aún no tengan notificación.
-     * No vuelve a marcar como no leídas las que ya están leídas: si ya se leyó, se queda leída.
+     * No se llama desde listar/contar para que nada fuerce leída=0. Solo usar desde cron o desde el flujo que envía dictamen si se necesita rellenar faltantes.
      */
     public static function syncDictamenNoVisto(int $idPersona): void
     {
