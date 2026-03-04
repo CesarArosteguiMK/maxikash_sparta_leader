@@ -50,18 +50,18 @@
     }
 
     /* ═════════════════════════════════════════════════════════════
-       IDENTIFICADOR VISUAL - BANDERA MÉXICO
+       IDENTIFICADOR VISUAL - BANDERA GUATEMALA
        ═════════════════════════════════════════════════════════════ */
-    .bandera-lateral-mexico {
+    .bandera-lateral-guatemala {
         position: fixed;
         left: 0;
         top: 50%;
         transform: translateY(-50%);
         z-index: 1000;
-        background: linear-gradient(135deg, #006847 0%, #ce1126 100%);
+        background: linear-gradient(135deg, #4997d0 0%, #357abd 100%);
         padding: 12px 10px;
         border-radius: 0 12px 12px 0;
-        box-shadow: 4px 0 15px rgba(206, 17, 38, 0.4);
+        box-shadow: 4px 0 15px rgba(73, 151, 208, 0.4);
         display: flex;
         flex-direction: column;
         align-items: center;
@@ -70,17 +70,17 @@
         min-width: 80px;
     }
 
-    .bandera-lateral-mexico:hover {
+    .bandera-lateral-guatemala:hover {
         padding-left: 14px;
-        box-shadow: 6px 0 20px rgba(206, 17, 38, 0.6);
+        box-shadow: 6px 0 20px rgba(73, 151, 208, 0.6);
     }
 
-    .bandera-lateral-mexico .fi {
+    .bandera-lateral-guatemala .fi {
         font-size: 2.8rem;
         filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
     }
 
-    .bandera-lateral-mexico .texto-pais {
+    .bandera-lateral-guatemala .texto-pais {
         color: white;
         font-weight: 700;
         font-size: 0.75rem;
@@ -92,31 +92,31 @@
 
     /* Responsive: ocultar en móviles */
     @media (max-width: 768px) {
-        .bandera-lateral-mexico {
+        .bandera-lateral-guatemala {
             display: none;
         }
     }
 
     /* Badge identificador en el título */
-    .badge-mexico {
-        background: linear-gradient(135deg, #006847 0%, #ce1126 100%);
+    .badge-guatemala {
+        background: linear-gradient(135deg, #4997d0 0%, #357abd 100%);
         color: white;
         font-weight: 600;
         padding: 0.4em 0.8em;
         border-radius: 8px;
         font-size: 0.75rem;
         letter-spacing: 0.5px;
-        box-shadow: 0 2px 8px rgba(206, 17, 38, 0.3);
+        box-shadow: 0 2px 8px rgba(73, 151, 208, 0.3);
     }
 </style>
 
 <!-- SweetAlert2 CDN -->
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
-<!-- Bandera lateral izquierda - Identificador México -->
-<div class="bandera-lateral-mexico">
-    <span class="fi fi-mx fis"></span>
-    <span class="texto-pais">MÉXICO</span>
+<!-- Bandera lateral izquierda - Identificador Guatemala -->
+<div class="bandera-lateral-guatemala">
+    <span class="fi fi-gt fis"></span>
+    <span class="texto-pais">GUATEMALA</span>
 </div>
 
 <div class="container py-4">
@@ -126,8 +126,8 @@
         <div class="col-12">
             <div class="d-flex align-items-center gap-2">
                 <h4 class="mb-0">Estado de Cuenta</h4>
-                <span class="badge badge-mexico">
-                    <i class="fa-solid fa-flag me-1"></i> MÉXICO
+                <span class="badge badge-guatemala">
+                    <i class="fa-solid fa-flag me-1"></i> GUATEMALA
                 </span>
             </div>
             <p class="text-muted small">Busca por nombre o por ID de crédito</p>
@@ -420,10 +420,3 @@
     });
 
 </script>
-
-
-
-
-
-
-

@@ -236,6 +236,9 @@
     </div>
 </div>
 
+<!-- Logger System -->
+<script src="/assets/js/loger/logger.js"></script>
+
 <script>
     // Event listeners para los filtros
     const filters = {
@@ -280,7 +283,7 @@
             // updateLegacyTable(data.legacy);
 
         } catch (error) {
-            console.error('Error cargando datos de auditoría:', error);
+            Logger.error('Error cargando datos de auditoría', { error });
         }
     }
 
