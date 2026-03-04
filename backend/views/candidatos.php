@@ -93,6 +93,7 @@ $listaJefes = $listaJefes ?? [];
             <table id="tablaCandidatos" class="dt-responsive table border-top" style="width:100%">
                 <thead>
                     <tr>
+                        <th></th>
                         <th>Nombre</th>
                         <th>Contacto</th>
                         <th>Puesto / Departamento</th>

@@ -3416,7 +3416,13 @@ class CapHum extends Controller
                         '<button type="button" class="btn btn-sm btn-danger btn-eliminar-candidato" data-id="' + id + '" title="Eliminar"><i class="fa fa-trash"></i></button></div>';
                     var est = c.estatus || "Por evaluar";
                     var estBadge = est === "Validado" ? "bg-success" : (est === "Por evaluar" ? "bg-warning text-dark" : "bg-secondary");
-                    return [nombre, contacto, puestoDepto, '<span class="badge ' + estBadge + '">' + est + '</span>', acciones];
+                    return {
+                        nombre: nombre,
+                        contacto: contacto,
+                        puestoDepto: puestoDepto,
+                        estatus: '<span class="badge ' + estBadge + '">' + est + '</span>',
+                        acciones: acciones
+                    };
                 });
                 var tabla = jQuery("#tablaCandidatos").DataTable();
                 if (tabla) { tabla.clear().rows.add(datos).draw(); }
@@ -3470,19 +3476,16 @@ class CapHum extends Controller
         var \$ = window.jQuery || window.\$;
         if (!\$ || !\$.fn.DataTable) return;
         if (!\$.fn.DataTable.isDataTable("#tablaCandidatos")) {
-            \$("#tablaCandidatos").DataTable({
-                responsive: false,
-                order: [[0, "asc"]],
-                columnDefs: [{ orderable: false, targets: 4 }],
-                language: {
-                    search: "Buscar:",
-                    lengthMenu: "Mostrar _MENU_ registros",
-                    info: "Mostrando _START_ a _END_ de _TOTAL_ registros",
-                    infoEmpty: "Mostrando 0 a 0 de 0 registros",
-                    infoFiltered: "(filtrado de _MAX_ registros)",
-                    paginate: { first: "Primera", last: "Última", next: "Siguiente", previous: "Anterior" },
-                    zeroRecords: "No hay registros"
-                }
+            configuraTabla("#tablaCandidatos", {
+                registrosPorPagina: 10,
+                columns: [
+                    { data: null, defaultContent: '', className: 'control', orderable: false },
+                    { data: 'nombre', title: 'Nombre' },
+                    { data: 'contacto', title: 'Contacto' },
+                    { data: 'puestoDepto', title: 'Puesto / Departamento' },
+                    { data: 'estatus', title: 'Estatus', render: function(d) { return d != null ? d : ''; } },
+                    { data: 'acciones', title: 'Acciones', orderable: false }
+                ]
             });
         }
         getCandidatos();
