@@ -997,9 +997,14 @@ class Ticket extends Model
             $db = new Database();
             $tz = new \DateTimeZone('America/Mexico_City');
             $now = (new \DateTime('now', $tz))->format('Y-m-d H:i:s');
-            $actual = $db->queryOne("SELECT id FROM dictamen WHERE id_ticket = :id_ticket ORDER BY fecha_creacion DESC LIMIT 1", ['id_ticket' => $tid]);
+            $actual = $db->queryOne("SELECT id, tipo, descripcion FROM dictamen WHERE id_ticket = :id_ticket ORDER BY fecha_creacion DESC LIMIT 1", ['id_ticket' => $tid]);
             if (!$actual || empty($actual['id'])) {
                 return self::resultado(false, 'No hay dictamen para enviar. Guarde un borrador primero.');
+            }
+            $tipo = trim((string)($actual['tipo'] ?? ''));
+            $descripcion = trim((string)($actual['descripcion'] ?? ''));
+            if ($tipo === '' || $descripcion === '') {
+                return self::resultado(false, 'Debe seleccionar el tipo de dictamen y escribir una descripción antes de enviar al gestor.');
             }
             $db->CRUD(
                 "UPDATE dictamen SET estado = 'enviado_al_gestor', fecha_actualizacion = :fecha_actualizacion WHERE id = :id",

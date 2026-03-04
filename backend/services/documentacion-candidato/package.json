@@ -1,0 +1,19 @@
+{
+  "name": "documentacion-candidato-api",
+  "version": "1.0.0",
+  "description": "Microservicio rápido para listar documentación de candidato (evita arranque PHP).",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "mysql2": "^3.6.5"
+  },
+  "optionalDependencies": {
+    "dotenv": "^16.3.1"
+  }
+}

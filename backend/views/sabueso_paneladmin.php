@@ -344,8 +344,12 @@
     #modalRastreoCredito .bitacora-msg-mine .bitacora-msg-header strong { color: #fff; }
     #modalRastreoCredito .bitacora-msg-header { font-size: 0.7rem; color: #64748b; margin-bottom: 0.2rem; }
     #modalRastreoCredito .bitacora-msg-header strong { color: #334155; font-size: 0.8rem; }
-    #modalRastreoCredito .bitacora-btn-delete { flex-shrink: 0; opacity: 1; }
-    #modalRastreoCredito .bitacora-msg-mine .bitacora-btn-delete { color: rgba(255,255,255,0.95) !important; }
+    #modalRastreoCredito .bitacora-btn-delete { flex-shrink: 0; opacity: 1; color: #dc2626 !important; }
+    #modalRastreoCredito .bitacora-btn-delete i { color: #dc2626 !important; }
+    #modalRastreoCredito .bitacora-btn-delete:hover { color: #b91c1c !important; }
+    #modalRastreoCredito .bitacora-btn-delete:hover i { color: #b91c1c !important; }
+    #modalRastreoCredito .bitacora-msg-mine .bitacora-btn-delete { color: #dc2626 !important; }
+    #modalRastreoCredito .bitacora-msg-mine .bitacora-btn-delete i { color: #dc2626 !important; }
     /* Scrim entre modales: padre abajo, scrim en medio, hijo encima */
     #modalRastreoCredito.modal-below-scrim { z-index: 1045 !important; }
     .modal-scrim { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1060; pointer-events: auto; }
@@ -411,6 +415,32 @@
     #modalBitacoraAmpliada .bitacora-msg-header { font-size: 0.85rem; }
     #modalBitacoraAmpliada .bitacora-msg-header strong { font-size: 1rem; }
     #modalBitacoraAmpliada .bitacora-bubble { padding: 0.65rem 1rem; font-size: 1rem; }
+    #modalBitacoraAmpliada .bitacora-btn-delete,
+    #modalBitacoraAmpliada .bitacora-btn-delete i { color: #dc2626 !important; }
+    #modalBitacoraAmpliada .bitacora-btn-delete:hover,
+    #modalBitacoraAmpliada .bitacora-btn-delete:hover i { color: #b91c1c !important; }
+    /* Modo oscuro: modal Bitácora ampliada */
+    body.dark-mode #modalBitacoraAmpliada .modal-content { background: #1e293b; border-color: #334155; }
+    body.dark-mode #modalBitacoraAmpliada .modal-header { background: #1e293b; border-bottom-color: #334155; color: #f1f5f9; }
+    body.dark-mode #modalBitacoraAmpliada .modal-header .btn-close { filter: invert(1); opacity: 0.8; }
+    body.dark-mode #modalBitacoraAmpliada .modal-body { background: #1e293b; color: #e2e8f0; }
+    body.dark-mode #modalBitacoraAmpliada .bitacora-ampliada-mensajes { background: #1e293b; color: #e2e8f0; }
+    body.dark-mode #modalBitacoraAmpliada .bitacora-bubble { background: #334155; color: #e2e8f0; border: 1px solid #475569; }
+    body.dark-mode #modalBitacoraAmpliada .bitacora-msg-mine .bitacora-bubble { background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%); color: #fff; border-color: transparent; }
+    body.dark-mode #modalBitacoraAmpliada .bitacora-msg-header { color: #94a3b8; }
+    body.dark-mode #modalBitacoraAmpliada .bitacora-msg-header strong { color: #f1f5f9; }
+    body.dark-mode #modalBitacoraAmpliada .bitacora-msg-mine .bitacora-msg-header { color: rgba(255,255,255,0.9); }
+    body.dark-mode #modalBitacoraAmpliada .bitacora-msg-mine .bitacora-msg-header strong { color: #fff; }
+    body.dark-mode #modalBitacoraAmpliada .bitacora-msg:not(.bitacora-msg-mine) .bitacora-avatar { background: linear-gradient(135deg, #64748b 0%, #475569 100%); }
+    body.dark-mode #modalBitacoraAmpliada .bitacora-btn-delete,
+    body.dark-mode #modalBitacoraAmpliada .bitacora-btn-delete i { color: #dc2626 !important; }
+    body.dark-mode #modalBitacoraAmpliada .bitacora-btn-delete:hover,
+    body.dark-mode #modalBitacoraAmpliada .bitacora-btn-delete:hover i { color: #b91c1c !important; }
+    body.dark-mode #modalBitacoraAmpliada .bitacora-msg-mine .bitacora-avatar { background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%); }
+    body.dark-mode #modalBitacoraAmpliada .border-top { border-color: #334155 !important; }
+    body.dark-mode #modalBitacoraAmpliada .form-control { background: #334155; border-color: #475569; color: #f1f5f9; }
+    body.dark-mode #modalBitacoraAmpliada .form-control::placeholder { color: #94a3b8; }
+    body.dark-mode #modalBitacoraAmpliada .form-control:focus { background: #334155; border-color: #6366f1; color: #f1f5f9; }
     /* Modal Dictamen ampliada: más grande y botones con color */
     #modalDictamenAmpliada .modal-dialog.modal-dictamen-ampliada { max-width: 90vw; width: 800px; }
     @media (min-width: 992px) {
@@ -440,6 +470,9 @@
     .evidencia-foto-item:hover .evidencia-foto-ver { opacity: 1; }
     .evidencia-foto-item .evidencia-foto-quitar { position: absolute; top: 2px; right: 2px; width: 22px; height: 22px; border-radius: 50%; background: rgba(0,0,0,0.6); color: #fff; border: none; padding: 0; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; cursor: pointer; opacity: 0.9; z-index: 2; }
     .evidencia-foto-item .evidencia-foto-quitar:hover { background: #dc2626; opacity: 1; }
+    .evidencia-foto-item.evidencia-loading .evidencia-foto-cargando { display: flex; }
+    .evidencia-foto-item.evidencia-loading img { opacity: 0; }
+    .evidencia-foto-item .evidencia-foto-cargando { position: absolute; inset: 0; background: #f1f5f9; display: none; align-items: center; justify-content: center; font-size: 0.65rem; color: #94a3b8; pointer-events: none; }
     /* Modal ver evidencia dictamen (lightbox) */
     #modalVerEvidenciaDictamen .modal-content { border: none; border-radius: 12px; overflow: visible; box-shadow: 0 12px 40px rgba(0,0,0,0.25); }
     #modalVerEvidenciaDictamen #modalVerEvidenciaDictamenImg { transition: opacity 0.2s ease; }
@@ -719,14 +752,16 @@
                             </div>
                         </div>
                         <div class="rastreo-seccion-dictamen p-3 d-flex flex-column">
-                            <div class="d-flex align-items-center justify-content-between gap-2 mb-2 rastreo-bitacora-titulo">
-                                <div class="d-flex align-items-center gap-2">
-                                    <i class="fa-solid fa-file-lines text-primary"></i>
-                                    <span class="fw-semibold small text-muted">Dictamen</span>
-                                </div>
-                                <button type="button" class="btn btn-sm btn-outline-secondary p-1" id="btnDictamenAmpliar" title="Ampliar dictamen" aria-label="Ampliar dictamen"><i class="fa-solid fa-expand"></i></button>
+                            <div class="rastreo-dictamen-minimizado d-flex align-items-center justify-content-center flex-grow-1" style="min-height: 72px;">
+                                <button type="button" class="btn btn-sm btn-outline-primary" id="btnDictamenAmpliar" title="Ampliar dictamen" aria-label="Ampliar dictamen"><i class="fa-solid fa-expand me-1"></i>Ampliar dictamen</button>
                             </div>
-                            <div class="rastreo-dictamen-form">
+                            <div class="rastreo-dictamen-form d-none" id="rastreoDictamenFormCompleto">
+                                <div class="d-flex align-items-center justify-content-between gap-2 mb-2 rastreo-bitacora-titulo">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <i class="fa-solid fa-file-lines text-primary"></i>
+                                        <span class="fw-semibold small text-muted">Dictamen</span>
+                                    </div>
+                                </div>
                                 <div class="mb-2">
                                     <label for="rastreoDictamenCombo" class="form-label small fw-semibold text-muted mb-1">Tipo de dictamen <span class="text-danger">*</span></label>
                                     <select class="form-select form-select-sm" id="rastreoDictamenCombo" required aria-required="true">
@@ -752,7 +787,6 @@
                                     </div>
                                 </div>
                                 <div class="d-flex gap-2 flex-wrap mt-2">
-                                    <button type="button" class="btn btn-sm btn-dictamen-borrador" id="btnDictamenGuardarBorrador" title="Guardar borrador"><i class="fa-solid fa-save me-1"></i>Guardar borrador</button>
                                     <button type="button" class="btn btn-sm btn-dictamen-enviar" id="btnDictamenEnviarGestor" title="Enviar al gestor"><i class="fa-solid fa-paper-plane me-1"></i>Enviar al gestor</button>
                                 </div>
                             </div>
@@ -909,7 +943,6 @@
                         </div>
                     </div>
                     <div class="d-flex gap-2 flex-wrap mt-3">
-                        <button type="button" class="btn btn-dictamen-borrador" id="btnDictamenAmpliadaGuardarBorrador" title="Guardar borrador"><i class="fa-solid fa-save me-1"></i>Guardar borrador</button>
                         <button type="button" class="btn btn-dictamen-enviar" id="btnDictamenAmpliadaEnviarGestor" title="Enviar al gestor"><i class="fa-solid fa-paper-plane me-1"></i>Enviar al gestor</button>
                     </div>
                 </div>
@@ -1063,7 +1096,7 @@
 <script>
 (function() {
     var SCRIM_Z = 1060;
-    var CHILD_MODALS = ['modalAsignarA', 'modalAnaliticaSpatial', 'modalAnaliticaPayments', 'modalAnaliticaCompliance', 'modalLecturaIA', 'modalEvidenciaVerificacion', 'modalPrediccionIA', 'modalMapaGrande', 'modalMapaAlternasGrande', 'modalEvidenciaRastreo', 'modalBitacoraAmpliada', 'modalDictamenAmpliada', 'modalVerEvidenciaDictamen', 'modalDetalleDictamen'];
+    var CHILD_MODALS = ['modalAsignarA', 'modalAnaliticaSpatial', 'modalAnaliticaPayments', 'modalAnaliticaCompliance', 'modalLecturaIA', 'modalEvidenciaVerificacion', 'modalPrediccionIA', 'modalMapaGrande', 'modalMapaAlternasGrande', 'modalEvidenciaRastreo', 'modalBitacoraAmpliada', 'modalDictamenAmpliada', 'modalDetalleDictamen'];
     var scrimEl = null;
     var parentModal = null;
     function getOrCreateScrim() {
@@ -1163,6 +1196,25 @@
                 el.addEventListener('hidden.bs.modal', onChildModalHidden);
             }
         });
+        var verEvidenciaEl = document.getElementById('modalVerEvidenciaDictamen');
+        if (verEvidenciaEl) {
+            verEvidenciaEl.addEventListener('shown.bs.modal', function() {
+                verEvidenciaEl.style.setProperty('z-index', '1080', 'important');
+                var d = verEvidenciaEl.querySelector('.modal-dialog');
+                if (d) d.style.setProperty('z-index', '1080', 'important');
+                if (verEvidenciaEl.parentNode !== document.body) document.body.appendChild(verEvidenciaEl);
+                var backdrops = document.querySelectorAll('.modal-backdrop');
+                for (var b = 0; b < backdrops.length; b++) backdrops[b].style.setProperty('z-index', '1075', 'important');
+            });
+            verEvidenciaEl.addEventListener('hidden.bs.modal', function() {
+                verEvidenciaEl.style.removeProperty('z-index');
+                var d = verEvidenciaEl.querySelector('.modal-dialog');
+                if (d) d.style.removeProperty('z-index');
+                var backdrops = document.querySelectorAll('.modal-backdrop');
+                for (var b = 0; b < backdrops.length; b++) backdrops[b].style.removeProperty('z-index');
+                if (scrimEl && scrimEl.parentNode) scrimEl.parentNode.removeChild(scrimEl);
+            });
+        }
     }
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', bindModals);
@@ -1207,6 +1259,8 @@
         $('#modalDictamenAmpliada').on('shown.bs.modal', function() {
             $('#rastreoDictamenAmpliadaCombo').val($('#rastreoDictamenCombo').val() || '');
             $('#rastreoDictamenAmpliadaDescripcion').val($('#rastreoDictamenDescripcion').val() || '');
+            var idTicket = (typeof ticketIdRastreoActual !== 'undefined' && ticketIdRastreoActual) ? ticketIdRastreoActual : (parseInt($('#rastreoIdTicketActual').val() || $('#modalRastreoCredito').attr('data-id-ticket') || '', 10) || null);
+            if (idTicket && typeof rellenarEvidenciasDictamen === 'function') rellenarEvidenciasDictamen(idTicket);
         });
         $('#modalDictamenAmpliada').on('hidden.bs.modal', function() {
             $('#rastreoDictamenCombo').val($('#rastreoDictamenAmpliadaCombo').val() || '');
@@ -1227,8 +1281,10 @@
                     var f = files[i];
                     if (!f.type.match(/^image\//)) continue;
                     var url = URL.createObjectURL(f);
-                    var $item = $('<div class="evidencia-foto-item" title="Clic para ver en grande"><span class="evidencia-foto-ver"><i class="fa-solid fa-magnifying-glass-plus"></i></span><img src="" alt=""><button type="button" class="evidencia-foto-quitar" aria-label="Quitar"><i class="fa-solid fa-times"></i></button></div>');
+                    var $item = $('<div class="evidencia-foto-item evidencia-loading" title="Clic para ver en grande"><span class="evidencia-foto-cargando">Cargando…</span><span class="evidencia-foto-ver"><i class="fa-solid fa-magnifying-glass-plus"></i></span><img src="" alt="" decoding="async"><button type="button" class="evidencia-foto-quitar" aria-label="Quitar"><i class="fa-solid fa-times"></i></button></div>');
                     $item.find('img').attr('src', url);
+                    $item.find('img').on('load', function() { $item.removeClass('evidencia-loading'); });
+                    $item.find('img').on('error', function() { $item.removeClass('evidencia-loading'); });
                     $item.data('url', url);
                     $item.data('file', f);
                     $item.on('click', function(e) {
@@ -1272,8 +1328,10 @@
                         var url = (apiBase || '') + (e.url || ('/sabueso/verEvidencia?id=' + (e.id || '')));
                         var idEv = e.id;
                         function crearItem() {
-                            var $it = $('<div class="evidencia-foto-item" title="Clic para ver en grande"><span class="evidencia-foto-ver"><i class="fa-solid fa-magnifying-glass-plus"></i></span><img src="" alt=""><button type="button" class="evidencia-foto-quitar" aria-label="Quitar"><i class="fa-solid fa-times"></i></button></div>');
+                            var $it = $('<div class="evidencia-foto-item evidencia-loading" title="Clic para ver en grande"><span class="evidencia-foto-cargando">Cargando…</span><span class="evidencia-foto-ver"><i class="fa-solid fa-magnifying-glass-plus"></i></span><img src="" alt="" decoding="async"><button type="button" class="evidencia-foto-quitar" aria-label="Quitar"><i class="fa-solid fa-times"></i></button></div>');
                             $it.find('img').attr('src', url);
+                            $it.find('img').on('load', function() { $it.removeClass('evidencia-loading'); });
+                            $it.find('img').on('error', function() { $it.removeClass('evidencia-loading'); });
                             if (idEv) $it.data('id-evidencia', idEv);
                             $it.on('click', function(ev) {
                                 if ($(ev.target).closest('.evidencia-foto-quitar').length) return;
@@ -1296,17 +1354,20 @@
             });
         }
 
-        function guardarDictamenBorradorUI() {
+        function guardarDictamenBorradorUI(silent) {
             var idTicket = parseInt($('#rastreoIdTicketActual').val() || $('#rastreoIdTicketActual').attr('data-id-ticket') || $('#modalRastreoCredito').attr('data-id-ticket') || '', 10) || (typeof window.ticketIdRastreoActual !== 'undefined' ? window.ticketIdRastreoActual : null);
             if (!idTicket && typeof ticketIdRastreoActual !== 'undefined') idTicket = ticketIdRastreoActual;
             if (!idTicket || isNaN(idTicket)) {
-                if (typeof Swal !== 'undefined') Swal.fire({ icon: 'warning', title: 'No hay ticket', text: 'No se identificó el ticket. Cierre el modal de rastreo y ábralo de nuevo desde la tabla.' });
+                if (!silent && typeof Swal !== 'undefined') Swal.fire({ icon: 'warning', title: 'No hay ticket', text: 'No se identificó el ticket. Cierre el modal de rastreo y ábralo de nuevo desde la tabla.' });
                 return;
             }
             if (typeof http === 'undefined') return;
             var tipo = $('#rastreoDictamenCombo').val();
             var desc = ($('#rastreoDictamenDescripcion').val() || '').trim();
-            if (!tipo || !desc) { if (typeof Swal !== 'undefined') Swal.fire({ icon: 'warning', title: 'Faltan datos', text: 'Seleccione tipo y escriba la descripción.' }); return; }
+            if (!tipo || !desc) {
+                if (!silent && typeof Swal !== 'undefined') Swal.fire({ icon: 'warning', title: 'Faltan datos', text: 'Seleccione tipo y escriba la descripción.' });
+                return;
+            }
             var archivosPendientes = [];
             var vistos = {};
             $('#rastreoDictamenEvidenciasFotos .evidencia-foto-item').each(function() { var f = $(this).data('file'); if (f) { var k = f.name + '_' + f.size; if (!vistos[k]) { vistos[k] = true; archivosPendientes.push(f); } } });
@@ -1321,7 +1382,7 @@
                 http.request({
                     endpoint: '/sabueso/eliminarEvidenciaTicket',
                     metodo: 'POST',
-                    data: JSON.stringify({ id_evidencia: eliminadasPendientes[idx] }),
+                    data: JSON.stringify({ id_evidencia: eliminadasPendientes[idx], id_ticket: idTicket }),
                     contentType: 'application/json',
                     processData: false,
                     showLoader: false,
@@ -1367,11 +1428,11 @@
                 showLoader: false,
                 onSuccess: function(r) {
                     if (r.success) {
-                        var esActualizacion = r.mensaje && (r.mensaje + '').toLowerCase().indexOf('actualizado') !== -1;
-                        if (typeof Swal !== 'undefined') {
+                        if (!silent && typeof Swal !== 'undefined') {
+                            var esActualizacion = r.mensaje && (r.mensaje + '').toLowerCase().indexOf('actualizado') !== -1;
                             Swal.fire({
                                 icon: 'success',
-                                title: esActualizacion ? 'Dictamen actualizado' : 'Mensaje guardado',
+                                title: esActualizacion ? 'Dictamen actualizado' : 'Guardado',
                                 text: esActualizacion ? 'La información del dictamen se actualizó correctamente.' : 'El borrador se guardó correctamente.',
                                 timer: 2500,
                                 showConfirmButton: true
@@ -1385,9 +1446,9 @@
                             if (typeof getTicketsPanelAdmin === 'function') getTicketsPanelAdmin();
                             if (typeof rellenarEvidenciasDictamen === 'function') rellenarEvidenciasDictamen(idTicket);
                         }
-                    } else { var msg = r.mensaje || 'No se pudo guardar.'; if (r.error) msg += ' Detalle: ' + r.error; if (typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: 'Error', text: msg }); }
+                    } else { var msg = r.mensaje || 'No se pudo guardar.'; if (r.error) msg += ' Detalle: ' + r.error; if (!silent && typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: 'Error', text: msg }); }
                 },
-                onError: function(e) { if (typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: 'Error', text: (e && e.mensaje) || 'No se pudo guardar.' }); }
+                onError: function(e) { if (!silent && typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: 'Error', text: (e && e.mensaje) || 'No se pudo guardar.' }); }
             });
             }
             eliminarSiguiente(0);
@@ -1426,20 +1487,29 @@
                 onError: function(e) { if (typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: 'Error', text: (e && e.mensaje) || 'No se pudo enviar.' }); }
             });
         }
-        function marcarDictamenConCambios() {
-            if ($('#btnDictamenGuardarBorrador').data('saved') === '1' && !$('.rastreo-seccion-dictamen').hasClass('dictamen-solo-lectura')) {
-                $('#btnDictamenGuardarBorrador, #btnDictamenAmpliadaGuardarBorrador').prop('disabled', false).html('<i class="fa-solid fa-save me-1"></i>Guardar borrador').removeData('saved');
-            }
+        var dictamenAutoguardadoTimer = null;
+        function programarAutoguardadoDictamen() {
+            if (dictamenAutoguardadoTimer) clearTimeout(dictamenAutoguardadoTimer);
+            dictamenAutoguardadoTimer = setTimeout(function() { dictamenAutoguardadoTimer = null; guardarDictamenBorradorUI(true); }, 800);
         }
-        $('#rastreoDictamenCombo').on('change', marcarDictamenConCambios);
-        $('#rastreoDictamenDescripcion').on('input', marcarDictamenConCambios);
-        $(document).on('dictamen-evidencia-cambio', marcarDictamenConCambios);
+        $('#rastreoDictamenCombo, #rastreoDictamenAmpliadaCombo').on('change', function() {
+            if ($(this).attr('id') === 'rastreoDictamenAmpliadaCombo') $('#rastreoDictamenCombo').val($(this).val());
+            else $('#rastreoDictamenAmpliadaCombo').val($(this).val());
+            programarAutoguardadoDictamen();
+        });
+        $('#rastreoDictamenDescripcion, #rastreoDictamenAmpliadaDescripcion').on('input', function() {
+            if ($(this).attr('id') === 'rastreoDictamenAmpliadaDescripcion') $('#rastreoDictamenDescripcion').val($(this).val());
+            else $('#rastreoDictamenAmpliadaDescripcion').val($(this).val());
+            programarAutoguardadoDictamen();
+        });
+        $(document).on('dictamen-evidencia-cambio', programarAutoguardadoDictamen);
 
-        $('#btnDictamenGuardarBorrador').on('click', function() { guardarDictamenBorradorUI(); });
         $('#btnDictamenEnviarGestor').on('click', function() { enviarDictamenGestorUI(); });
-        $('#btnDictamenAmpliadaGuardarBorrador').on('click', function() { $('#rastreoDictamenCombo').val($('#rastreoDictamenAmpliadaCombo').val()); $('#rastreoDictamenDescripcion').val($('#rastreoDictamenAmpliadaDescripcion').val()); guardarDictamenBorradorUI(); });
-        $('#btnDictamenAmpliadaEnviarGestor').on('click', function() { $('#rastreoDictamenCombo').val($('#rastreoDictamenAmpliadaCombo').val()); $('#rastreoDictamenDescripcion').val($('#rastreoDictamenAmpliadaDescripcion').val()); enviarDictamenGestorUI(); });
-
+        $('#btnDictamenAmpliadaEnviarGestor').on('click', function() {
+            $('#rastreoDictamenCombo').val($('#rastreoDictamenAmpliadaCombo').val());
+            $('#rastreoDictamenDescripcion').val($('#rastreoDictamenAmpliadaDescripcion').val());
+            enviarDictamenGestorUI();
+        });
         $('#tablaTicketsPanel').on('draw.dt', function() {
             var tabla;
             try { tabla = $(this).DataTable(); } catch(ex) { return; }
