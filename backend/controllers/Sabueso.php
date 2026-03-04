@@ -568,12 +568,27 @@ SCRIPT;
             }
             var conU = (typeof rastreoConUbicacion !== \'undefined\' ? rastreoConUbicacion : (puntosGestores && puntosGestores.length) ? puntosGestores.length : 0);
             var totG = (typeof rastreoTotalGestiones !== \'undefined\' ? rastreoTotalGestiones : 0) || conU;
-            var leyendaGrandeHtml = \'<span class="d-block">Rosa = <span style="color:#ec4899;font-weight:600">CASA.</span></span>\' +
-                \'<span class="d-block">Verde = <span style="color:#22c55e;font-weight:600">Otro domicilio.</span></span>\' +
-                \'<span class="d-block">Carmelita = <span style="color:#b8860b;font-weight:600">Agencia.</span></span>\' +
-                \'<span class="d-block">Azul = <span style="color:#2563eb;font-weight:600">maxi app.</span></span>\' +
-                \'<span class="d-block">Gestores = <span style="font-weight:600">cada asesor con su color.</span></span>\' +
-                \'<span class="d-block rastreo-leyenda-conteo" style="color:#0f172a;font-weight:700">\' + conU + \' de \' + totG + \' con ubicación.</span>\';
+            var tiposPresentes = { casa: false, otroDomicilio: false, agencia: false, maxiApp: false, gestores: false };
+            if (puntosGeo && puntosGeo.length) {
+                puntosGeo.forEach(function(p) {
+                    var d = (p.donde_firma || \'\').toString().trim().toUpperCase();
+                    if (d.indexOf(\'CASA\') !== -1) tiposPresentes.casa = true;
+                    else if (d.indexOf(\'AGENCIA\') !== -1) tiposPresentes.agencia = true;
+                    else tiposPresentes.otroDomicilio = true;
+                });
+            }
+            if (puntosMaxiApp && puntosMaxiApp.length) {
+                var esPuntos = puntosMaxiApp[0] && (puntosMaxiApp[0].latitud !== undefined || puntosMaxiApp[0].lat !== undefined);
+                if (esPuntos) tiposPresentes.maxiApp = true;
+            }
+            if (puntosGestores && puntosGestores.length) tiposPresentes.gestores = true;
+            var leyendaGrandeHtml = \'\';
+            if (tiposPresentes.casa) leyendaGrandeHtml += \'<span class="d-block">Rosa = <span style="color:#ec4899;font-weight:600">CASA.</span></span>\';
+            if (tiposPresentes.otroDomicilio) leyendaGrandeHtml += \'<span class="d-block">Verde = <span style="color:#22c55e;font-weight:600">Otro domicilio.</span></span>\';
+            if (tiposPresentes.agencia) leyendaGrandeHtml += \'<span class="d-block">Carmelita = <span style="color:#b8860b;font-weight:600">Agencia.</span></span>\';
+            if (tiposPresentes.maxiApp) leyendaGrandeHtml += \'<span class="d-block">Azul = <span style="color:#2563eb;font-weight:600">maxi app.</span></span>\';
+            if (tiposPresentes.gestores) leyendaGrandeHtml += \'<span class="d-block">Gestores = <span style="font-weight:600">cada asesor con su color.</span></span>\';
+            leyendaGrandeHtml += \'<span class="d-block rastreo-leyenda-conteo" style="color:#0f172a;font-weight:700">\' + conU + \' de \' + totG + \' con ubicación.</span>\';
             if (puntosGestores && puntosGestores.length) {
                 var seenGG = {}, nombresGG = [];
                 puntosGestores.forEach(function(g) { var n = (g.nombre || \'—\').trim() || \'—\'; if (!seenGG[n]) { seenGG[n] = true; nombresGG.push(n); } });
