@@ -2,73 +2,95 @@
 $departamento = $departamento ?? ['datos' => []];
 $paisesActivos = $paisesActivos ?? [];
 $listaJefes = $listaJefes ?? [];
-$candidatos = $candidatos ?? [];
 ?>
 <div class="content-wrapper">
+
     <div class="card">
-        <div class="card-header border-bottom d-flex flex-wrap align-items-center justify-content-between gap-2">
-            <h5 class="card-title mb-0">Candidatos</h5>
-            <div class="d-flex align-items-center gap-2">
-                <select id="filterEstatus" class="form-select form-select-sm" style="max-width: 180px;">
-                    <option value="">Todos los estatus</option>
-                    <option value="Por evaluar">Por evaluar</option>
-                    <option value="En entrevista">En entrevista</option>
-                    <option value="Contratado">Contratado</option>
-                    <option value="Descartado">Descartado</option>
-                </select>
-                <button type="button" class="btn btn-primary btn-action-size" id="btnFiltrarCandidatos" onclick="getCandidatos()">
-                    <i class="fa fa-filter"></i>
-                    <span class="d-inline-block">Filtrar</span>
-                </button>
-                <button type="button" class="btn btn-primary btn-action-size" data-bs-toggle="offcanvas" data-bs-target="#offcanvasAddCandidato">
-                    <i class="bx bx-plus"></i>
-                    <span class="d-inline-block">Agregar Candidato</span>
-                </button>
+
+        <div class="card-header border-bottom">
+            <h5 class="card-title mb-0">Filtros de búsqueda</h5>
+            <div class="row pt-4 g-6">
+                <div class="col-md-3">
+                    <select id="UserRole" class="form-select text-capitalize">
+                        <option value="">Selecciona Departamento</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <select id="UserPlan" class="form-select text-capitalize">
+                        <option value="">Selecciona Puesto</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <select id="FilterTransaction" class="form-select text-capitalize">
+                        <option value="">Selecciona Estatus</option>
+                        <option value="Por evaluar">Por evaluar</option>
+                        <option value="En entrevista">En entrevista</option>
+                        <option value="Contratado">Contratado</option>
+                        <option value="Descartado">Descartado</option>
+                        <option value="Validado">Validado</option>
+                    </select>
+                </div>
             </div>
         </div>
-        <?php
-        $totalCand = count($candidatos);
-        $porEvaluar = count(array_filter($candidatos, function($c) { return ($c['estatus'] ?? '') === 'Por evaluar'; }));
-        $postulacionesEnviadas = count(array_filter($candidatos, function($c) { return !empty($c['postulacion_enviada']); }));
-        ?>
-        <div id="panelIndicadoresCandidatos" class="row m-4 mb-3">
-            <div class="col-12">
-                <div class="kpi-wrapper">
-                    <div class="kpi-item">
-                        <div class="card kpi-card kpi-candidatos-total shadow-sm h-100">
-                            <div class="card-body">
-                                <i class="bx bx-group kpi-icon"></i>
-                                <div class="kpi-number" id="kpi-total-candidatos"><?= $totalCand ?></div>
-                                <div class="kpi-label">Total Candidatos</div>
+
+        <div id="panelIndicadoresCandidatos" class="px-4 pt-3 pb-2">
+            <div class="kpi-toolbar">
+                <button class="kpi-toggle-btn open" type="button" id="kpiToggleBtnCandidatos" onclick="kpiTogglePanelCandidatos()">
+                    <span class="kpi-dot"></span>
+                    Indicadores
+                    <i class="bx bx-chevron-down kpi-chevron"></i>
+                </button>
+            </div>
+            <div class="kpi-collapsible open" id="kpiCollapsibleCandidatos">
+                <div class="kpi-collapsible-inner">
+                    <div class="kpi-row-new mode-default">
+                        <div class="kpi-cell tipo-total revealed" id="kpi-cell-cand-total">
+                            <span class="kpi-corner-icon"><i class="bx bx-group"></i></span>
+                            <div class="kpi-cell-top">
+                                <div class="kpi-icon-wrap"><i class="bx bx-group"></i></div>
+                                <span class="kpi-cell-status">Total</span>
                             </div>
+                            <div class="kpi-num" id="kpi-total-candidatos">0</div>
+                            <div class="kpi-lbl">Total Candidatos</div>
+                            <div class="kpi-bar-track"><div class="kpi-bar-fill" id="kpi-bar-cand-total"></div></div>
                         </div>
-                    </div>
-                    <div class="kpi-separator"><div class="line"></div></div>
-                    <div class="kpi-item">
-                        <div class="card kpi-card kpi-candidatos-evaluar shadow-sm h-100">
-                            <div class="card-body">
-                                <i class="bx bx-user-plus kpi-icon"></i>
-                                <div class="kpi-number" id="kpi-por-evaluar"><?= $porEvaluar ?></div>
-                                <div class="kpi-label">Por evaluar</div>
+                        <div class="kpi-cell tipo-puesto revealed" id="kpi-cell-cand-evaluar">
+                            <span class="kpi-corner-icon"><i class="bx bx-user-plus"></i></span>
+                            <div class="kpi-cell-top">
+                                <div class="kpi-icon-wrap"><i class="bx bx-user-plus"></i></div>
+                                <span class="kpi-cell-status">Por evaluar</span>
                             </div>
+                            <div class="kpi-num" id="kpi-por-evaluar">0</div>
+                            <div class="kpi-lbl">Por evaluar</div>
+                            <div class="kpi-bar-track"><div class="kpi-bar-fill" id="kpi-bar-cand-evaluar"></div></div>
                         </div>
-                    </div>
-                    <div class="kpi-separator"><div class="line"></div></div>
-                    <div class="kpi-item">
-                        <div class="card kpi-card kpi-candidatos-enviadas shadow-sm h-100">
-                            <div class="card-body">
-                                <i class="bx bx-send kpi-icon"></i>
-                                <div class="kpi-number" id="kpi-postulaciones-enviadas"><?= $postulacionesEnviadas ?></div>
-                                <div class="kpi-label">Postulaciones enviadas</div>
+                        <div class="kpi-cell tipo-dep revealed" id="kpi-cell-cand-enviadas">
+                            <span class="kpi-corner-icon"><i class="bx bx-send"></i></span>
+                            <div class="kpi-cell-top">
+                                <div class="kpi-icon-wrap"><i class="bx bx-send"></i></div>
+                                <span class="kpi-cell-status">Enviadas</span>
                             </div>
+                            <div class="kpi-num" id="kpi-postulaciones-enviadas">0</div>
+                            <div class="kpi-lbl">Postulaciones enviadas</div>
+                            <div class="kpi-bar-track"><div class="kpi-bar-fill" id="kpi-bar-cand-enviadas"></div></div>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
-        <!-- Tabla -->
+
+        <div class="row justify-content-between m-4">
+            <div class="col-8"></div>
+            <div class="col-4 d-flex align-items-end justify-content-end gap-2">
+                <button type="button" class="btn btn-primary add-new btn-action-size" data-bs-toggle="offcanvas" data-bs-target="#offcanvasAddCandidato">
+                    <i class="icon-base bx bx-plus icon-sm me-sm-2"></i>
+                    <span class="d-inline-block">Agregar Candidato</span>
+                </button>
+            </div>
+        </div>
+
         <div class="card-datatable table-responsive">
-            <table id="tablaCandidatos" class="table table-bordered table-hover border-top" style="width:100%">
+            <table id="tablaCandidatos" class="dt-responsive table border-top" style="width:100%">
                 <thead>
                     <tr>
                         <th>Nombre</th>
@@ -78,41 +100,15 @@ $candidatos = $candidatos ?? [];
                         <th class="col-acciones-candidatos">Acciones</th>
                     </tr>
                 </thead>
-                <tbody>
-                    <?php foreach ($candidatos as $c): ?>
-                        <?php
-                        $nombre = trim(implode(' ', array_filter([$c['nombres'] ?? '', $c['segundo_nombre'] ?? '', $c['apellidop'] ?? '', $c['apellidom'] ?? ''])));
-                        $contacto = ($c['email'] ?? '') . (isset($c['telefono']) && $c['telefono'] !== '' ? ' | ' . $c['telefono'] : '');
-                        $puestoDepto = ($c['nombre_puesto'] ?? '-') . ' / ' . ($c['nombre_departamento'] ?? '-');
-                        $estatus = $c['estatus'] ?? 'Por evaluar';
-                        $id = (int)($c['id'] ?? 0);
-                        ?>
-                        <tr>
-                            <td><?= htmlspecialchars($nombre) ?></td>
-                            <td><?= htmlspecialchars($contacto) ?></td>
-                            <td><?= htmlspecialchars($puestoDepto) ?></td>
-                            <td><?= htmlspecialchars($estatus) ?></td>
-                            <td>
-                                <div class="d-flex flex-wrap gap-1 align-items-center">
-                                    <button type="button" class="btn btn-sm btn-primary btn-editar-candidato" data-id="<?= $id ?>" title="Editar"><i class="fa fa-edit"></i></button>
-                                    <button type="button" class="btn btn-sm btn-info text-white btn-reenviar-candidato" data-id="<?= $id ?>" title="Reenviar correo"><i class="fa fa-envelope"></i></button>
-                                    <button type="button" class="btn btn-sm btn-secondary btn-documentacion-candidato" data-id="<?= $id ?>" data-nombre="<?= htmlspecialchars($nombre) ?>" title="Documentación"><i class="fa fa-folder-open"></i></button>
-                                    <button type="button" class="btn btn-sm btn-danger btn-eliminar-candidato" data-id="<?= $id ?>" title="Eliminar"><i class="fa fa-trash"></i></button>
-                                </div>
-                            </td>
-                        </tr>
-                    <?php endforeach; ?>
-                </tbody>
+                <tbody></tbody>
             </table>
         </div>
     </div>
 </div>
 
-</div>
-
 <!-- Modal Documentación del candidato -->
 <div class="modal fade" id="modalDocumentacionCandidato" tabindex="-1" aria-labelledby="modalDocumentacionCandidatoLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable" style="max-width: 85%;">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="modalDocumentacionCandidatoLabel"><i class="fa fa-folder-open me-2"></i>Documentación</h5>
@@ -120,7 +116,9 @@ $candidatos = $candidatos ?? [];
             </div>
             <div class="modal-body">
                 <p class="text-muted small mb-3" id="modalDocumentacionCandidatoNombre"></p>
+                <div id="modalDocumentacionCandidatoMetricas" class="mb-3 d-none"></div>
                 <div id="modalDocumentacionCandidatoVerificacion" class="mb-3 d-none"></div>
+                <div id="modalDocumentacionCandidatoAccionVerificar" class="mb-3 d-none"></div>
                 <div id="modalDocumentacionCandidatoCargando" class="text-center py-4 text-muted">Cargando…</div>
                 <div id="modalDocumentacionCandidatoVacio" class="text-center py-4 text-muted d-none">No hay documentos subidos.</div>
                 <div id="modalDocumentacionCandidatoLista" class="list-group"></div>
@@ -279,6 +277,9 @@ $candidatos = $candidatos ?? [];
 /* Offcanvas candidato siempre visible por encima del layout */
 #offcanvasAddCandidato.offcanvas { z-index: 1060 !important; }
 .offcanvas-backdrop { z-index: 1055 !important; }
+/* Scrim borroso detrás del modal (Documentación, Resumen postulación, etc.) */
+.modal-backdrop { backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+.modal-backdrop.show { backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
 /* Botón Guardar/Actualizar con color visible en modo claro y oscuro */
 #offcanvasAddCandidato #btnSubmitCandidato.btn-primary { background-color: #696cff !important; border-color: #696cff !important; color: #fff !important; }
 #offcanvasAddCandidato #btnSubmitCandidato.btn-primary:hover { background-color: #5f61e6 !important; border-color: #5f61e6 !important; color: #fff !important; }
@@ -437,41 +438,80 @@ body.dark-mode #offcanvasAddCandidato .btn-outline-secondary:hover { background-
 #offcanvasAddCandidato #btnSubmitCandidato { min-width: 120px; font-weight: 600; }
 #offcanvasAddCandidato .btn-outline-secondary:hover { background-color: #6c757d; color: #fff; }
 .btn-action-size { height: 36px; padding: 0.375rem 0.75rem; font-size: 0.875rem; display: inline-flex; align-items: center; gap: 0.375rem; }
-/* KPIs mismo tamaño que Gestión y Bajas */
-#panelIndicadoresCandidatos .kpi-wrapper { display: flex; justify-content: center; align-items: stretch; flex-wrap: wrap; gap: 0; }
-#panelIndicadoresCandidatos .kpi-item { flex: 0 1 auto; min-width: 120px; max-width: 150px; }
-#panelIndicadoresCandidatos .kpi-card { border-radius: 0.5rem; border: none; position: relative; overflow: hidden; background: #fff; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06); }
-#panelIndicadoresCandidatos .kpi-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 4px; background: linear-gradient(90deg, var(--kpi-color-start), var(--kpi-color-end)); }
-#panelIndicadoresCandidatos .kpi-card .card-body { padding: 0.75rem 0.7rem; text-align: center; position: relative; }
-#panelIndicadoresCandidatos .kpi-number { font-size: 1.3rem; font-weight: 700; line-height: 1; margin-bottom: 0.3rem; background: linear-gradient(135deg, var(--kpi-color-start), var(--kpi-color-end)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
-#panelIndicadoresCandidatos .kpi-label { font-size: 0.55rem; color: #64748B; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; line-height: 1.2; }
-#panelIndicadoresCandidatos .kpi-icon { font-size: 1.2rem; opacity: 0.15; position: absolute; right: 0.5rem; top: 0.5rem; color: var(--kpi-color-start); }
-#panelIndicadoresCandidatos .kpi-candidatos-total { --kpi-color-start: #4F46E5; --kpi-color-end: #6366F1; }
-#panelIndicadoresCandidatos .kpi-candidatos-evaluar { --kpi-color-start: #10B981; --kpi-color-end: #34D399; }
-#panelIndicadoresCandidatos .kpi-candidatos-enviadas { --kpi-color-start: #F59E0B; --kpi-color-end: #FBBF24; }
-#panelIndicadoresCandidatos .kpi-separator { display: flex; align-items: center; justify-content: center; padding: 0 0.3rem; }
-#panelIndicadoresCandidatos .kpi-separator .line { width: 1px; height: 35px; background: linear-gradient(180deg, transparent, rgba(148, 163, 184, 0.4), transparent); }
-@media (max-width: 991px) {
-    #panelIndicadoresCandidatos .kpi-item { min-width: 110px; max-width: 140px; }
-    #panelIndicadoresCandidatos .kpi-number { font-size: 1.15rem; }
-    #panelIndicadoresCandidatos .kpi-label { font-size: 0.52rem; }
-    #panelIndicadoresCandidatos .kpi-separator .line { height: 30px; }
+/* Panel de indicadores Candidatos — mismos estilos que Gestión (kpi-toolbar, kpi-cell, kpi-num, kpi-lbl) */
+#panelIndicadoresCandidatos .kpi-toolbar { display:flex; align-items:center; gap:0.5rem; margin-bottom:0.65rem; flex-wrap:wrap; }
+#panelIndicadoresCandidatos .kpi-toggle-btn {
+    display:inline-flex; align-items:center; gap:0.35rem;
+    background:#fff; border:1px solid rgba(99,102,241,0.18); border-radius:8px;
+    padding:0.38rem 0.85rem; cursor:pointer;
+    font-size:0.78rem; font-weight:600; color:#6366f1;
+    box-shadow:0 1px 4px rgba(99,102,241,0.07);
+    transition:background 0.2s, box-shadow 0.2s;
+    user-select:none; white-space:nowrap;
 }
+#panelIndicadoresCandidatos .kpi-toggle-btn:hover { background:rgba(99,102,241,0.06); box-shadow:0 2px 10px rgba(99,102,241,0.13); }
+#panelIndicadoresCandidatos .kpi-toggle-btn .kpi-chevron { font-size:1rem; transition:transform 0.35s cubic-bezier(0.4,0,0.2,1); display:flex; }
+#panelIndicadoresCandidatos .kpi-toggle-btn.open .kpi-chevron { transform:rotate(180deg); }
+#panelIndicadoresCandidatos .kpi-toggle-btn .kpi-dot { width:6px; height:6px; border-radius:50%; background:#6366f1; flex-shrink:0; }
+#panelIndicadoresCandidatos .kpi-collapsible { display:grid; grid-template-rows:0fr; transition:grid-template-rows 0.4s cubic-bezier(0.4,0,0.2,1), opacity 0.35s ease; opacity:0; }
+#panelIndicadoresCandidatos .kpi-collapsible.open { grid-template-rows:1fr; opacity:1; }
+#panelIndicadoresCandidatos .kpi-collapsible-inner { overflow:hidden; }
+#panelIndicadoresCandidatos .kpi-row-new { display:grid; grid-template-columns:repeat(3,1fr); gap:0.85rem; padding-bottom:0.25rem; }
+#panelIndicadoresCandidatos .kpi-cell {
+    background:#fff; border-radius:14px;
+    border:1px solid rgba(99,102,241,0.12);
+    box-shadow:0 2px 16px rgba(99,102,241,0.08),0 1px 4px rgba(0,0,0,0.04), inset 4px 0 0 var(--cell-accent);
+    position:relative; overflow:hidden; cursor:pointer;
+    min-height:190px;
+    transition:transform 0.25s cubic-bezier(0.4,0,0.2,1), box-shadow 0.25s, border-color 0.25s;
+}
+#panelIndicadoresCandidatos .kpi-cell.revealed { animation:kpiCellRevealCand 0.45s cubic-bezier(0.34,1.3,0.64,1) forwards; }
+@keyframes kpiCellRevealCand {
+    from { opacity:0; transform:translateY(14px) scale(0.97); }
+    to   { opacity:1; transform:translateY(0) scale(1); }
+}
+#panelIndicadoresCandidatos .kpi-cell:hover { transform:translateY(-3px); box-shadow:0 8px 28px rgba(99,102,241,0.13),0 2px 8px rgba(0,0,0,0.06),inset 4px 0 0 var(--cell-accent); border-color:rgba(99,102,241,0.28); }
+#panelIndicadoresCandidatos .kpi-cell.tipo-dep    { --cell-accent:#6366f1; --cell-glow:rgba(99,102,241,0.06);  --cell-icon:#6366f1; --cell-num:#4f46e5; }
+#panelIndicadoresCandidatos .kpi-cell.tipo-puesto { --cell-accent:#10b981; --cell-glow:rgba(16,185,129,0.06); --cell-icon:#10b981; --cell-num:#059669; }
+#panelIndicadoresCandidatos .kpi-cell.tipo-total  { --cell-accent:#f59e0b; --cell-glow:rgba(245,158,11,0.07);  --cell-icon:#f59e0b; --cell-num:#d97706; }
+#panelIndicadoresCandidatos .kpi-cell-top { display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:0.85rem; }
+#panelIndicadoresCandidatos .kpi-icon-wrap {
+    border-radius:50%; display:flex; align-items:center; justify-content:center; flex-shrink:0;
+    transition:transform 0.3s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.3s;
+}
+#panelIndicadoresCandidatos .kpi-icon-wrap i { font-family:'boxicons' !important; font-style:normal; font-weight:400 !important; font-size:inherit !important; color:inherit !important; line-height:1; display:inline-block !important; }
+#panelIndicadoresCandidatos .kpi-cell.tipo-dep    .kpi-icon-wrap { background:#ede9fe; border:1px solid #c4b5fd; color:#6366f1; box-shadow:0 3px 10px rgba(99,102,241,0.28); }
+#panelIndicadoresCandidatos .kpi-cell.tipo-puesto .kpi-icon-wrap { background:#d1fae5; border:1px solid #6ee7b7; color:#059669; box-shadow:0 3px 10px rgba(16,185,129,0.28); }
+#panelIndicadoresCandidatos .kpi-cell.tipo-total  .kpi-icon-wrap { background:#fef3c7; border:1px solid #fcd34d; color:#d97706; box-shadow:0 3px 10px rgba(245,158,11,0.28); }
+#panelIndicadoresCandidatos .kpi-row-new.mode-default .kpi-icon-wrap { display:none !important; }
+#panelIndicadoresCandidatos .kpi-corner-icon {
+    position:absolute; top:6px; left:8px;
+    font-size:4.2rem; line-height:1;
+    color:var(--cell-icon); opacity:0.07;
+    pointer-events:none; user-select:none; z-index:0;
+    transition:opacity 0.4s ease, transform 0.4s cubic-bezier(0.34,1.56,0.64,1);
+}
+#panelIndicadoresCandidatos .kpi-row-new.mode-default .kpi-corner-icon { display:none !important; }
+#panelIndicadoresCandidatos .kpi-cell-status {
+    font-size:0.62rem; font-weight:600; letter-spacing:0.06em; text-transform:uppercase;
+    color:var(--cell-icon); background:color-mix(in srgb,var(--cell-icon) 10%,transparent);
+    border-radius:20px; padding:0.18rem 0.55rem; opacity:0.85;
+}
+#panelIndicadoresCandidatos .kpi-num { font-size:1.85rem; font-weight:700; line-height:1; color:var(--cell-num); }
+#panelIndicadoresCandidatos .kpi-lbl { font-size:0.73rem; font-weight:500; color:#6b7280; margin-top:0.3rem; }
+#panelIndicadoresCandidatos .kpi-bar-track { margin-top:0.9rem; height:3px; background:color-mix(in srgb,var(--cell-icon) 12%,transparent); border-radius:99px; overflow:hidden; }
+#panelIndicadoresCandidatos .kpi-bar-fill  { height:100%; width:0%; background:var(--cell-icon); border-radius:99px; transition:width 1s cubic-bezier(0.4,0,0.2,1) 0.3s; }
+#panelIndicadoresCandidatos .kpi-row-new.mode-default .kpi-cell { padding:1.15rem 1.25rem 1.05rem; }
 @media (max-width: 767px) {
-    #panelIndicadoresCandidatos .kpi-wrapper { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; justify-items: stretch; }
-    #panelIndicadoresCandidatos .kpi-item { min-width: unset; max-width: unset; width: 100%; }
-    #panelIndicadoresCandidatos .kpi-separator { display: none !important; }
-    #panelIndicadoresCandidatos .kpi-number { font-size: 1.05rem; }
-    #panelIndicadoresCandidatos .kpi-label { font-size: 0.5rem; white-space: normal; }
-    #panelIndicadoresCandidatos .kpi-card .card-body { padding: 0.6rem; }
+    #panelIndicadoresCandidatos .kpi-row-new { grid-template-columns:1fr 1fr; }
+    #panelIndicadoresCandidatos .kpi-num { font-size:1.5rem; }
 }
 @media (max-width: 480px) {
-    #panelIndicadoresCandidatos .kpi-wrapper { grid-template-columns: 1fr; }
+    #panelIndicadoresCandidatos .kpi-row-new { grid-template-columns:1fr; }
 }
-/* Modo oscuro - KPIs Candidatos */
-body.dark-mode #panelIndicadoresCandidatos .kpi-card { background: rgba(30, 41, 59, 0.6); box-shadow: 0 4px 6px rgba(0,0,0,0.2); }
-body.dark-mode #panelIndicadoresCandidatos .kpi-label { color: #94a3b8; }
-body.dark-mode #panelIndicadoresCandidatos .kpi-separator .line { background: rgba(148, 163, 184, 0.3); }
+body.dark-mode #panelIndicadoresCandidatos .kpi-cell { background:#1a1d2e; border-color:rgba(99,102,241,0.18); box-shadow:0 2px 16px rgba(0,0,0,0.35),0 1px 4px rgba(0,0,0,0.2),inset 4px 0 0 var(--cell-accent); }
+body.dark-mode #panelIndicadoresCandidatos .kpi-toggle-btn { background:#1a1d2e; }
+body.dark-mode #panelIndicadoresCandidatos .kpi-lbl { color:#8b90b0; }
 /* Modo oscuro - Offcanvas Nuevo Candidato */
 body.dark-mode #offcanvasAddCandidato { background: #1e293b; border-left: 1px solid rgba(148, 163, 184, 0.2); }
 body.dark-mode #offcanvasAddCandidato .offcanvas-header { border-bottom-color: rgba(148, 163, 184, 0.2); }
@@ -516,12 +556,21 @@ body.dark-mode .btn-enviar-postulacion:hover { box-shadow: 0 6px 20px rgba(99, 1
     .modal-resumen-candidato .resumen-candidato-modal-body .d-flex { justify-content: stretch !important; }
     .btn-enviar-postulacion { width: 100%; justify-content: center; }
 }
-/* Calendario Flatpickr - mismo que Gestión */
+/* Calendario Flatpickr - solo hasta hoy; modo claro legible */
 .fecha-postulacion-wrapper.fecha-acta-wrapper { position: relative; z-index: 1; }
 #candidato_fecha_postulacion { width: 100%; cursor: pointer; }
 .flatpickr-calendar .flatpickr-monthDropdown-months { appearance: none !important; background-image: none !important; -webkit-appearance: none; -moz-appearance: none; }
-.flatpickr-calendar { z-index: 99999 !important; position: fixed !important; transform: scale(1.12); transform-origin: top left; }
+.flatpickr-calendar { z-index: 99999 !important; position: fixed !important; transform: scale(1.12); transform-origin: top left; background: #fff !important; border: 1px solid rgba(0,0,0,0.12) !important; box-shadow: 0 4px 20px rgba(0,0,0,0.15) !important; }
 .flatpickr-calendar.open { display: block !important; visibility: visible !important; opacity: 1 !important; }
+body:not(.dark-mode) .flatpickr-calendar { background: #fff !important; }
+body:not(.dark-mode) .flatpickr-calendar .flatpickr-day { color: #374151 !important; }
+body:not(.dark-mode) .flatpickr-calendar .flatpickr-day.flatpickr-disabled { color: #9ca3af !important; background: #f3f4f6 !important; cursor: not-allowed !important; }
+body:not(.dark-mode) .flatpickr-calendar .flatpickr-day.selected { background: #696cff !important; border-color: #696cff !important; color: #fff !important; }
+body:not(.dark-mode) .flatpickr-calendar .flatpickr-day.today { border-color: #696cff !important; border-width: 2px !important; font-weight: 600 !important; background: #eef2ff !important; color: #4338ca !important; }
+body:not(.dark-mode) .flatpickr-calendar .flatpickr-day.today:hover { background: #c7d2fe !important; border-color: #696cff !important; color: #3730a3 !important; }
+body:not(.dark-mode) .flatpickr-calendar .flatpickr-day:hover:not(.flatpickr-disabled) { background: #f3f4f6 !important; }
+body:not(.dark-mode) .flatpickr-calendar .flatpickr-current-month { color: #111827 !important; }
+body:not(.dark-mode) .flatpickr-calendar .flatpickr-weekdays { color: #6b7280 !important; }
 .flatpickr-calendar .flatpickr-day.today { border-color: #696cff !important; border-width: 2px !important; font-weight: 600 !important; background-color: #f0f0ff !important; }
 .flatpickr-calendar .flatpickr-day.today:hover { background-color: #e0e0ff !important; border-color: #696cff !important; }
 #tablaCandidatos thead th { background-color: rgba(105, 108, 255, 0.1); font-weight: 600; }
@@ -530,56 +579,10 @@ body.dark-mode .btn-enviar-postulacion:hover { box-shadow: 0 6px 20px rgba(99, 1
 </style>
 
 <script>
-var APP_BASE = <?= json_encode(isset($appBasePath) && $appBasePath !== '' ? rtrim($appBasePath, '/') : '') ?>;
-function getAppBase() {
-    var path = window.location.pathname || "";
-    path = path.replace(/\/CapHum\/.*$/, "").replace(/index\.php.*$/, "").replace(/\/$/, "");
-    return path || "";
-}
-function capHumUrl(path) {
-    var base = (typeof APP_BASE === "string" && APP_BASE) ? APP_BASE : getAppBase();
-    var segment = (path.charAt(0) === "/" ? path : "/" + path);
-    return base + segment;
-}
-function capHumUrlRel(path) {
-    var pathname = window.location.pathname || "";
-    var base = pathname.indexOf("index.php") !== -1
-        ? pathname.replace(/index\.php.*$/, "").replace(/\/$/, "")
-        : getAppBase();
-    base = base || "";
-    var segment = path.charAt(0) === "/" ? path.slice(1) : path;
-    return base + (base ? "/" : "") + segment;
-}
-/** URL explícita para el router: evita que rutas "bonitas" devuelvan HTML en vez de JSON. Usa origin para no violar CSP. */
-function capHumApiUrl(route) {
-    var origin = window.location.origin;
-    var base = (typeof APP_BASE === "string" && APP_BASE) ? APP_BASE : getAppBase();
-    base = (base && base !== "/") ? base.replace(/\/$/, "") : "";
-    var path = (base ? base + "/" : "/") + "index.php?url=" + encodeURIComponent(route);
-    return origin + path;
-}
+window.puedeGestionarCandidatos = <?= json_encode(!empty($puedeGestionarCandidatos ?? false)) ?>;
 (function() {
     function initCandidatos() {
         if (!document.getElementById("tablaCandidatos")) return;
-        var $ = window.jQuery || window.$;
-        if ($ && $.fn.DataTable && !$.fn.DataTable.isDataTable("#tablaCandidatos")) {
-            $("#tablaCandidatos").DataTable({
-                responsive: false,
-                order: [[0, "asc"]],
-                columnDefs: [ { orderable: false, targets: 4 } ],
-                language: {
-                    search: "Buscar:",
-                    lengthMenu: "Mostrar _MENU_ registros",
-                    info: "Mostrando _START_ a _END_ de _TOTAL_ registros",
-                    infoEmpty: "Mostrando 0 a 0 de 0 registros",
-                    infoFiltered: "(filtrado de _MAX_ registros)",
-                    paginate: { first: "Primera", last: "Última", next: "Siguiente", previous: "Anterior" },
-                    zeroRecords: "No hay registros"
-                }
-            });
-        }
-        getCandidatos();
-
         var form = document.getElementById("formAgregarCandidato");
         if (form && !form._candidatosBound) {
             form._candidatosBound = true;
@@ -593,6 +596,25 @@ function capHumApiUrl(route) {
         if (!document._candidatosClickBound) {
             document._candidatosClickBound = true;
             document.addEventListener("click", candidatosTableClick);
+            var docPrefetchTimer = null;
+            document.addEventListener("mouseover", function(ev) {
+                var btn = ev.target && ev.target.closest ? ev.target.closest(".btn-documentacion-candidato") : null;
+                if (!btn) {
+                    if (docPrefetchTimer) { clearTimeout(docPrefetchTimer); docPrefetchTimer = null; }
+                    return;
+                }
+                var id = btn.getAttribute("data-id");
+                if (!id) return;
+                if (window._documentacionCache && window._documentacionCache.id === id) return;
+                if (docPrefetchTimer) clearTimeout(docPrefetchTimer);
+                docPrefetchTimer = setTimeout(function() {
+                    docPrefetchTimer = null;
+                    var sep = capHumApiUrl("CapHum/getDocumentosCandidatoList").indexOf("?") !== -1 ? "&" : "?";
+                    fetch(capHumApiUrl("CapHum/getDocumentosCandidatoList") + sep + "id_candidato=" + id).then(function(r){ return r.json(); }).then(function(res) {
+                        if (res.success && res.datos) window._documentacionCache = { id: id, data: res.datos };
+                    }).catch(function(){});
+                }, 50);
+            });
         }
 
         var offcanvasEl = document.getElementById("offcanvasAddCandidato");
@@ -659,7 +681,7 @@ function capHumApiUrl(route) {
         });
         // Cargar posibles jefes por departamento (se refina al elegir puesto)
         if (selJefe) {
-            selJefe.innerHTML = "<option value=''>Cargando...</option>";
+            selJefe.innerHTML = "<option value=''>—</option>";
             fetch("/CapHum/getJefeDirecto", {
                 method: "POST",
                 headers: { "Content-Type": "application/json", "Accept": "application/json" },
@@ -682,7 +704,7 @@ function capHumApiUrl(route) {
         var selDepto = document.getElementById("candidato_id_departamento");
         var selJefe = document.getElementById("candidato_id_posible_jefe");
         if (!selJefe || !selDepto) return;
-        selJefe.innerHTML = "<option value=''>Cargando...</option>";
+        selJefe.innerHTML = "<option value=''>—</option>";
         var idDepto = selDepto.value;
         if (!idDepto) { selJefe.innerHTML = "<option value=''>Seleccione departamento y puesto primero</option>"; return; }
         fetch("/CapHum/getJefeDirecto", {
@@ -699,9 +721,6 @@ function capHumApiUrl(route) {
             });
         }).catch(function(){ selJefe.innerHTML = "<option value=''>Seleccione posible jefe</option>"; });
     });
-
-    var filterEstatus = document.getElementById("filterEstatus");
-    if (filterEstatus) filterEstatus.addEventListener("change", function() { getCandidatos(); });
 
     var btnAddCandidato = document.querySelector("[data-bs-target=\"#offcanvasAddCandidato\"]");
     if (btnAddCandidato) btnAddCandidato.addEventListener("click", function() {
@@ -728,6 +747,7 @@ function initFlatpickrFechaPostulacion() {
     flatpickr(input, {
         dateFormat: "Y-m-d",
         defaultDate: hoy,
+        maxDate: hoy,
         allowInput: false,
         clickOpens: true,
         appendTo: document.body,
@@ -741,34 +761,6 @@ function toggleLegionCandidato() {
     var chk = document.getElementById("candidato_asignar_legion");
     div.style.display = chk && chk.checked ? "block" : "none";
     if (!chk.checked) document.getElementById("candidato_id_legion").value = "";
-}
-
-function getCandidatos() {
-    var estatus = (document.getElementById("filterEstatus") && document.getElementById("filterEstatus").value) || "";
-    var params = estatus ? "&estatus=" + encodeURIComponent(estatus) : "";
-    fetch(capHumApiUrl("CapHum/getCandidatos") + params).then(function(r){ return r.json(); }).then(function(res){
-        if (!res.success || !res.datos) return;
-        var $ = window.jQuery || window.$;
-        if (!$ || !$.fn.DataTable) return;
-        var tabla = $("#tablaCandidatos").DataTable();
-        if (!tabla) return;
-        tabla.clear();
-        res.datos.forEach(function(c){
-            var nombre = [c.nombres, c.segundo_nombre, c.apellidop, c.apellidom].filter(Boolean).join(" ");
-            var contacto = (c.email || "") + (c.telefono ? " | " + c.telefono : "");
-            var puestoDepto = (c.nombre_puesto || "-") + " / " + (c.nombre_departamento || "-");
-            var id = (c.id || 0).toString();
-            var acciones = "<div class=\"d-flex flex-wrap gap-1 align-items-center\">" +
-                "<button type=\"button\" class=\"btn btn-sm btn-primary btn-editar-candidato\" data-id=\"" + id + "\" title=\"Editar\"><i class=\"fa fa-edit\"></i></button>" +
-                "<button type=\"button\" class=\"btn btn-sm btn-info text-white btn-reenviar-candidato\" data-id=\"" + id + "\" title=\"Reenviar correo\"><i class=\"fa fa-envelope\"></i></button>" +
-                "<button type=\"button\" class=\"btn btn-sm btn-secondary btn-documentacion-candidato\" data-id=\"" + id + "\" data-nombre=\"" + (nombre || "").replace(/\"/g, "&quot;") + "\" title=\"Documentación\"><i class=\"fa fa-folder-open\"></i></button>" +
-                "<button type=\"button\" class=\"btn btn-sm btn-danger btn-eliminar-candidato\" data-id=\"" + id + "\" title=\"Eliminar\"><i class=\"fa fa-trash\"></i></button>" +
-                "</div>";
-            tabla.row.add([nombre, contacto, puestoDepto, c.estatus || "Por evaluar", acciones]);
-        });
-        tabla.draw();
-        actualizarKPIsCandidatos(res.datos);
-    });
 }
 
 function candidatosTableClick(e) {
@@ -797,7 +789,8 @@ function candidatosTableClick(e) {
         e.stopPropagation();
         var id = btn.getAttribute("data-id");
         var nombre = btn.getAttribute("data-nombre") || "";
-        if (id) abrirModalDocumentacionCandidato(parseInt(id, 10), nombre);
+        var cached = (window._documentacionCache && window._documentacionCache.id === id) ? window._documentacionCache.data : null;
+        if (id) abrirModalDocumentacionCandidato(parseInt(id, 10), nombre, cached);
         return;
     }
     btn = target.closest(".btn-eliminar-candidato");
@@ -809,74 +802,180 @@ function candidatosTableClick(e) {
     }
 }
 
-function actualizarKPIsCandidatos(datos) {
-    var total = (datos && datos.length) || 0;
-    var porEvaluar = (datos && datos.filter(function(c){ return (c.estatus || "") === "Por evaluar"; }).length) || 0;
-    var enviadas = (datos && datos.filter(function(c){ return c.postulacion_enviada == 1; }).length) || 0;
-    document.getElementById("kpi-total-candidatos").textContent = total;
-    document.getElementById("kpi-por-evaluar").textContent = porEvaluar;
-    document.getElementById("kpi-postulaciones-enviadas").textContent = enviadas;
-}
-
-function abrirModalDocumentacionCandidato(idCandidato, nombreCandidato) {
+function abrirModalDocumentacionCandidato(idCandidato, nombreCandidato, cachedPayload) {
     var modal = document.getElementById("modalDocumentacionCandidato");
     var label = document.getElementById("modalDocumentacionCandidatoNombre");
     var bloqueVerif = document.getElementById("modalDocumentacionCandidatoVerificacion");
+    var bloqueMetricas = document.getElementById("modalDocumentacionCandidatoMetricas");
+    var bloqueAccionVerificar = document.getElementById("modalDocumentacionCandidatoAccionVerificar");
     var lista = document.getElementById("modalDocumentacionCandidatoLista");
     var cargando = document.getElementById("modalDocumentacionCandidatoCargando");
     var vacio = document.getElementById("modalDocumentacionCandidatoVacio");
     if (label) label.textContent = nombreCandidato ? "Candidato: " + nombreCandidato : "";
     if (bloqueVerif) { bloqueVerif.classList.add("d-none"); bloqueVerif.innerHTML = ""; }
-    if (cargando) cargando.classList.remove("d-none");
-    if (vacio) vacio.classList.add("d-none");
+    if (bloqueMetricas) { bloqueMetricas.classList.add("d-none"); bloqueMetricas.innerHTML = ""; }
+    if (bloqueAccionVerificar) bloqueAccionVerificar.classList.add("d-none");
+    if (cachedPayload && cachedPayload.documentos) {
+        if (cargando) cargando.classList.add("d-none");
+        if (vacio) vacio.classList.add("d-none");
+    } else {
+        if (cargando) cargando.classList.remove("d-none");
+        if (vacio) vacio.classList.add("d-none");
+    }
     lista.innerHTML = "";
     var bsModal = modal && window.bootstrap && window.bootstrap.Modal ? new window.bootstrap.Modal(modal) : null;
     if (bsModal) bsModal.show();
 
+    if (cachedPayload && (cachedPayload.documentos || cachedPayload.metricas)) {
+        var docs = cachedPayload.documentos || [];
+        var verif = cachedPayload.verificacion_expediente || null;
+        var metricas = cachedPayload.metricas || null;
+        renderLista(docs, verif);
+        renderMetricas(metricas);
+        if (bloqueAccionVerificar) bloqueAccionVerificar.classList.add("d-none");
+        if (verif) {
+            if (bloqueVerif) { bloqueVerif.classList.remove("d-none"); bloqueVerif.innerHTML = ""; }
+            renderVerificacion(verif);
+        } else if (metricas && metricas.expediente_completo && bloqueVerif) {
+            bloqueVerif.classList.remove("d-none");
+            bloqueVerif.innerHTML = "<div class=\"alert alert-info small mb-0\"><i class=\"fa fa-hourglass-half me-1\"></i>Verificación en proceso.</div>";
+        }
+    }
+
+    function renderMetricas(m) {
+        if (!bloqueMetricas || !m) return;
+        bloqueMetricas.classList.remove("d-none");
+        var total = m.total_documentos != null ? m.total_documentos : 0;
+        var requeridos = m.documentos_requeridos != null ? m.documentos_requeridos : 11;
+        var pct = m.porcentaje != null ? m.porcentaje : (requeridos > 0 ? Math.min(100, Math.round((total / requeridos) * 100)) : 0);
+        var completo = m.expediente_completo === true;
+        var html = "<div class=\"card border shadow-none\"><div class=\"card-header py-2 bg-light\"><strong><i class=\"fa fa-chart-pie me-1\"></i>Métricas del expediente</strong></div><div class=\"card-body py-2 small\">";
+        html += "<p class=\"text-muted mb-2\">Resumen de documentación recibida (cuántos documentos obligatorios ha subido el candidato).</p>";
+        html += "<div class=\"row g-2 align-items-center\">";
+        html += "<div class=\"col-6 col-md-4\"><span class=\"text-muted d-block\">Documentos subidos</span><strong class=\"text-primary\">" + total + " de " + requeridos + "</strong></div>";
+        html += "<div class=\"col-6 col-md-4\"><span class=\"text-muted d-block\">Avance</span><strong>" + pct + "%</strong>";
+        if (pct < 100) html += " <div class=\"progress mt-1\" style=\"height:6px;\"><div class=\"progress-bar\" role=\"progressbar\" style=\"width:" + pct + "%\" aria-valuenow=\"" + pct + "\" aria-valuemin=\"0\" aria-valuemax=\"100\"></div></div>";
+        html += "</div>";
+        html += "<div class=\"col-6 col-md-4\"><span class=\"text-muted d-block\">Expediente completo</span><strong class=\"" + (completo ? "text-success" : "text-secondary") + "\">" + (completo ? "Sí" : "No") + "</strong></div>";
+        html += "</div></div></div>";
+        bloqueMetricas.innerHTML = html;
+    }
+
     function renderVerificacion(v) {
         if (!bloqueVerif || !v) return;
         bloqueVerif.classList.remove("d-none");
-        var scoreFrente = v.identificacion_frente_score != null ? v.identificacion_frente_score + "%" : "—";
-        var scoreReverso = v.identificacion_reverso_score != null ? v.identificacion_reverso_score + "%" : "—";
-        var ok = v.checks_ok !== undefined && v.checks_totales !== undefined ? v.checks_ok + " / " + v.checks_totales : "";
-        var todoCoincide = v.todo_coincide === true ? "Sí" : (v.todo_coincide === false ? "No" : "—");
-        var alertas = Array.isArray(v.alertas) && v.alertas.length ? v.alertas.join(" · ") : "";
-        var html = "<div class=\"card border shadow-none\"><div class=\"card-header py-2 bg-light\"><strong><i class=\"fa fa-check-double me-1\"></i>Resultados de verificación API</strong></div><div class=\"card-body py-2 small\">";
-        html += "<div class=\"row g-2 mb-2\">";
-        html += "<div class=\"col-6 col-md-3\"><span class=\"text-muted d-block\">Score ID (frente)</span><strong class=\"text-primary\">" + scoreFrente + "</strong></div>";
-        html += "<div class=\"col-6 col-md-3\"><span class=\"text-muted d-block\">Score ID (reverso)</span><strong class=\"text-primary\">" + scoreReverso + "</strong></div>";
-        html += "<div class=\"col-6 col-md-3\"><span class=\"text-muted d-block\">Checks aprobados</span><strong>" + (ok || "—") + "</strong></div>";
-        html += "<div class=\"col-6 col-md-3\"><span class=\"text-muted d-block\">Datos coinciden</span><strong>" + todoCoincide + "</strong></div>";
+        var scoreFrente = v.identificacion_frente_score != null ? Number(v.identificacion_frente_score) : null;
+        var scoreReverso = v.identificacion_reverso_score != null ? Number(v.identificacion_reverso_score) : null;
+        var checksOk = v.checks_ok != null ? parseInt(v.checks_ok, 10) : null;
+        var checksTotales = v.checks_totales != null ? parseInt(v.checks_totales, 10) : null;
+        var todoCoincide = v.todo_coincide === true;
+        var alertas = Array.isArray(v.alertas) && v.alertas.length ? v.alertas : [];
+
+        var confianzaNum = null;
+        if (scoreFrente != null && scoreReverso != null) {
+            confianzaNum = Math.round((scoreFrente + scoreReverso) / 2);
+        } else if (scoreFrente != null) {
+            confianzaNum = scoreFrente;
+        } else if (scoreReverso != null) {
+            confianzaNum = scoreReverso;
+        } else if (checksTotales > 0 && checksOk != null) {
+            confianzaNum = Math.round((checksOk / checksTotales) * 100);
+        }
+        var confianzaTexto = confianzaNum != null ? confianzaNum + "%" : "—";
+        var confianzaClase = "text-secondary";
+        if (confianzaNum != null) {
+            if (confianzaNum >= 80) confianzaClase = "text-success";
+            else if (confianzaNum >= 50) confianzaClase = "text-warning";
+            else confianzaClase = "text-danger";
+        }
+
+        var html = "<div class=\"card border shadow-none\"><div class=\"card-header py-2 bg-light\"><strong><i class=\"fa fa-shield-alt me-1\"></i>Resultado de la verificación API</strong></div><div class=\"card-body py-2 small\">";
+        html += "<div class=\"row g-2 mb-2 align-items-center\">";
+        html += "<div class=\"col-6 col-md\"><span class=\"text-muted d-block\">Confianza</span><strong class=\"fs-6 " + confianzaClase + "\">" + confianzaTexto + "</strong></div>";
+        html += "<div class=\"col-6 col-md\"><span class=\"text-muted d-block\">Frente</span><strong class=\"text-primary\">" + (scoreFrente != null ? scoreFrente + "%" : "—") + "</strong></div>";
+        html += "<div class=\"col-6 col-md\"><span class=\"text-muted d-block\">Reverso</span><strong class=\"text-primary\">" + (scoreReverso != null ? scoreReverso + "%" : "—") + "</strong></div>";
+        html += "<div class=\"col-6 col-md\"><span class=\"text-muted d-block\">Checks</span><strong>" + (checksOk != null && checksTotales != null ? checksOk + "/" + checksTotales : "—") + "</strong></div>";
+        html += "<div class=\"col-6 col-md\"><span class=\"text-muted d-block\">Coinciden</span><strong class=\"" + (todoCoincide ? "text-success" : (v.todo_coincide === false ? "text-danger" : "text-secondary")) + "\">" + (v.todo_coincide === true ? "Sí" : (v.todo_coincide === false ? "No" : "—")) + "</strong></div>";
         html += "</div>";
+
+        var lineasComparaciones = [];
         if (v.comparaciones && typeof v.comparaciones === "object") {
             var comp = v.comparaciones;
-            var lineas = [];
             var labels = {
-                "nombre_frente_vs_reverso": "Nombre ID vs Reverso",
-                "fecha_nac_curp_vs_mrz": "Fecha nac. CURP vs MRZ",
-                "nombre_id_vs_curp_pdf": "Nombre ID vs CURP PDF",
-                "curp_vs_fiscal": "CURP vs Constancia fiscal",
-                "nombre_vs_fiscal": "Nombre vs Constancia fiscal",
-                "curp_vs_nss": "CURP vs NSS",
-                "nombre_vs_nss": "Nombre vs NSS",
-                "nombre_vs_acta": "Nombre vs Acta",
-                "fecha_nac_vs_acta": "Fecha nac. vs Acta",
-                "curp_id_vs_documento": "CURP ID vs documento"
+                "nombre_frente_vs_reverso": "Nombre en INE = Nombre en reverso",
+                "fecha_nac_curp_vs_mrz": "Fecha nac. (CURP) = Fecha en reverso",
+                "nombre_id_vs_curp_pdf": "Nombre en INE = Nombre en CURP PDF",
+                "curp_vs_fiscal": "CURP = Constancia fiscal",
+                "nombre_vs_fiscal": "Nombre = Constancia fiscal",
+                "curp_vs_nss": "CURP = NSS",
+                "nombre_vs_nss": "Nombre = NSS",
+                "nombre_vs_acta": "Nombre = Acta de nacimiento",
+                "fecha_nac_vs_acta": "Fecha nac. = Acta",
+                "curp_id_vs_documento": "CURP en INE = Otro documento"
             };
             Object.keys(comp).forEach(function(k) {
                 var c = comp[k];
                 if (!c || typeof c !== "object") return;
-                if (c.coincide !== undefined) lineas.push((labels[k] || k) + ": " + (c.coincide ? "✓ Coincide" : "✗ No coincide"));
-                else if (c.es_reciente !== undefined) lineas.push("CURP PDF antigüedad: " + (c.es_reciente ? "Reciente" : (c.meses_antiguedad || "?") + " meses"));
+                if (c.coincide !== undefined) lineasComparaciones.push((labels[k] || k) + ": " + (c.coincide ? "✓ Coincide" : "✗ No coincide"));
+                else if (c.es_reciente !== undefined) lineasComparaciones.push("CURP PDF: " + (c.es_reciente ? "Reciente" : (c.meses_antiguedad || "?") + " meses"));
             });
-            if (lineas.length) html += "<div class=\"border-top pt-2 mt-1\"><span class=\"text-muted d-block mb-1\">Relación entre documentos</span><div class=\"d-flex flex-wrap gap-2\">" + lineas.map(function(l){ return "<span class=\"badge bg-light text-dark border\">" + l + "</span>"; }).join("") + "</div></div>";
         }
-        if (alertas) html += "<div class=\"mt-1 text-warning\"><span class=\"text-muted\">Alertas:</span> " + alertas + "</div>";
+        if (lineasComparaciones.length) {
+            var btnId = "btnVerComparaciones_" + (Math.random().toString(36).slice(2, 9));
+            html += "<div class=\"border-top pt-2 mt-2\"><button type=\"button\" class=\"btn btn-sm btn-outline-secondary\" id=\"" + btnId + "\" title=\"Ver comparaciones entre documentos\"><i class=\"fa fa-list-ul me-1\"></i>Ver comparaciones entre documentos</button></div>";
+        }
+        if (alertas.length) {
+            html += "<div class=\"mt-2 pt-2 border-top\"><span class=\"text-muted d-block mb-1\"><strong>Alertas</strong></span><ul class=\"mb-0 ps-3\"><li class=\"text-warning\">" + alertas.join("</li><li class=\"text-warning\">") + "</li></ul></div>";
+        }
         html += "</div></div>";
         bloqueVerif.innerHTML = html;
+
+        if (lineasComparaciones.length && window.bootstrap && window.bootstrap.Popover) {
+            var btnComp = document.getElementById(btnId);
+            if (btnComp) {
+                var popContent = "<div class=\"text-start small\" style=\"min-width: 280px;\"><p class=\"text-muted mb-2\"><strong>Comparaciones entre documentos</strong><br><span class=\"text-muted\">(que los datos del candidato coincidan en todos)</span></p><ul class=\"list-unstyled mb-0\">" + lineasComparaciones.map(function(l) {
+                    var ok = l.indexOf("✓") !== -1 || l.indexOf("Reciente") !== -1;
+                    return "<li class=\"py-1 border-bottom border-light\"><i class=\"fa fa-" + (ok ? "check-circle text-success" : "times-circle text-danger") + " me-2\"></i>" + l + "</li>";
+                }).join("") + "</ul></div>";
+                new window.bootstrap.Popover(btnComp, { content: popContent, html: true, trigger: "click", placement: "bottom", container: "body" });
+            }
+        }
     }
 
-    function renderLista(datos) {
+    function badgeVerificacion(tipoDoc, v) {
+        if (!v || !tipoDoc) return "";
+        var t = (tipoDoc + "").trim().toUpperCase();
+        if (t.indexOf("REVERSO") !== -1) {
+            var r = v.identificacion_reverso_score;
+            if (r == null) return "";
+            return "<span class=\"badge bg-primary ms-1\" title=\"Veracidad con el candidato\">" + r + "%</span>";
+        }
+        if (t === "IDENTIFICACIÓN OFICIAL" || t === "IDENTIFICACION OFICIAL") {
+            var s = v.identificacion_frente_score;
+            if (s == null) return "";
+            return "<span class=\"badge bg-primary ms-1\" title=\"Veracidad con el candidato\">" + s + "%</span>";
+        }
+        var comp = v.comparaciones || {};
+        if (t.indexOf("CURP") !== -1 && t.indexOf("ACTA") === -1) {
+            var c1 = comp.nombre_id_vs_curp_pdf || comp.curp_id_vs_documento;
+            if (c1 && c1.coincide !== undefined) return c1.coincide ? "<span class=\"badge bg-success ms-1\" title=\"Coincide con INE\">Coincide</span>" : "<span class=\"badge bg-danger ms-1\" title=\"No coincide\">No coincide</span>";
+        }
+        if (t.indexOf("CONSTANCIA") !== -1 || t.indexOf("FISCAL") !== -1) {
+            var c2 = comp.curp_vs_fiscal || comp.nombre_vs_fiscal;
+            if (c2 && c2.coincide !== undefined) return c2.coincide ? "<span class=\"badge bg-success ms-1\">Coincide</span>" : "<span class=\"badge bg-danger ms-1\">No coincide</span>";
+        }
+        if (t.indexOf("NSS") !== -1 || t.indexOf("SEGURIDAD SOCIAL") !== -1) {
+            var c3 = comp.curp_vs_nss || comp.nombre_vs_nss;
+            if (c3 && c3.coincide !== undefined) return c3.coincide ? "<span class=\"badge bg-success ms-1\">Coincide</span>" : "<span class=\"badge bg-danger ms-1\">No coincide</span>";
+        }
+        if (t.indexOf("ACTA") !== -1) {
+            var c4 = comp.nombre_vs_acta || comp.fecha_nac_vs_acta;
+            if (c4 && c4.coincide !== undefined) return c4.coincide ? "<span class=\"badge bg-success ms-1\">Coincide</span>" : "<span class=\"badge bg-danger ms-1\">No coincide</span>";
+        }
+        return "";
+    }
+
+    function renderLista(datos, verif) {
         if (cargando) cargando.classList.add("d-none");
         lista.innerHTML = "";
         if (!datos || datos.length === 0) {
@@ -888,12 +987,57 @@ function abrirModalDocumentacionCandidato(idCandidato, nombreCandidato) {
             var item = document.createElement("div");
             item.className = "list-group-item list-group-item-action d-flex justify-content-between align-items-center";
             var fecha = d.fecha_carga ? new Date(d.fecha_carga).toLocaleDateString("es-MX") : "";
-            item.innerHTML = "<div><strong>" + (d.tipo_documento || "Documento") + "</strong><br><small class=\"text-muted\">" + (d.nombre_archivo || "") + (fecha ? " · " + fecha : "") + "</small></div>" +
-                "<div class=\"d-flex gap-1\">" +
+            var badge = badgeVerificacion(d.tipo_documento, verif);
+            var esValidado = parseInt(d.validado || 0, 10) === 1;
+            var btnValidarClase = esValidado ? "btn-success" : "btn-outline-success";
+            var btnValidarIcon = esValidado ? "fa-check-circle" : "fa-check";
+            var btnValidarTitle = esValidado ? "Validado — clic para retirar" : "Marcar como validado";
+            if (esValidado) {
+                item.style.borderLeft = "3px solid #198754";
+                item.style.background = "#f0fdf4";
+            }
+            var btnEliminarHtml = esValidado
+                ? "<span class=\"btn btn-sm btn-outline-secondary disabled\" title=\"No se puede eliminar un documento validado\"><i class=\"fa fa-trash\"></i></span>"
+                : "<button type=\"button\" class=\"btn btn-sm btn-outline-danger btn-eliminar-doc-candidato\" data-id=\"" + d.id + "\" title=\"Eliminar\"><i class=\"fa fa-trash\"></i></button>";
+            item.innerHTML = "<div class=\"d-flex align-items-center flex-wrap\"><div><strong>" + (d.tipo_documento || "Documento") + "</strong>" + (esValidado ? " <span class=\"badge bg-success ms-1\">Validado</span>" : "") + "<br><small class=\"text-muted\">" + (d.nombre_archivo || "") + (fecha ? " · " + fecha : "") + "</small></div>" + badge + "</div>" +
+                "<div class=\"d-flex gap-1 align-items-center\">" +
+                "<button type=\"button\" class=\"btn btn-sm " + btnValidarClase + " btn-validar-doc-candidato\" data-id=\"" + d.id + "\" data-validado=\"" + (esValidado ? 1 : 0) + "\" title=\"" + btnValidarTitle + "\"><i class=\"fa " + btnValidarIcon + "\"></i></button>" +
                 "<a href=\"/CapHum/verDocumentoCandidato/" + d.id + "\" target=\"_blank\" class=\"btn btn-sm btn-outline-primary\" title=\"Abrir\"><i class=\"fa fa-eye\"></i></a>" +
-                "<button type=\"button\" class=\"btn btn-sm btn-outline-danger btn-eliminar-doc-candidato\" data-id=\"" + d.id + "\" title=\"Eliminar\"><i class=\"fa fa-trash\"></i></button>" +
+                btnEliminarHtml +
                 "</div>";
             lista.appendChild(item);
+        });
+        lista.querySelectorAll(".btn-validar-doc-candidato").forEach(function(btn) {
+            btn.addEventListener("click", function() {
+                var idDoc = parseInt(btn.getAttribute("data-id"), 10);
+                var actual = parseInt(btn.getAttribute("data-validado"), 10);
+                var iconEl = btn.querySelector("i");
+                var iconClass = iconEl ? iconEl.className : "";
+                btn.disabled = true;
+                if (iconEl) { iconEl.className = "fa fa-spinner fa-spin"; }
+
+                fetch("/CapHum/validarDocumentoCandidato", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/x-www-form-urlencoded", "X-Requested-With": "XMLHttpRequest" },
+                    body: "id=" + idDoc + "&validado=" + (actual ? 0 : 1)
+                }).then(function(r){ return r.json(); }).then(function(res) {
+                    btn.disabled = false;
+                    if (iconEl) iconEl.className = iconClass;
+                    if (res.success) {
+                        cargarDocumentos();
+                        if (typeof getCandidatos === "function") getCandidatos();
+                        if (res.datos && res.datos.todos_validados) {
+                            if (typeof Swal !== "undefined") Swal.fire({ icon: "success", title: "Expediente validado", text: "Todos los documentos han sido validados. El estatus del candidato cambió a Validado.", timer: 3000, showConfirmButton: false });
+                        }
+                    } else {
+                        if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "Error", text: res.mensaje || "No se pudo actualizar." });
+                    }
+                }).catch(function() {
+                    btn.disabled = false;
+                    if (iconEl) iconEl.className = iconClass;
+                    if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "Error", text: "Error de conexión." });
+                });
+            });
         });
         lista.querySelectorAll(".btn-eliminar-doc-candidato").forEach(function(btn) {
             btn.addEventListener("click", function() {
@@ -928,8 +1072,24 @@ function abrirModalDocumentacionCandidato(idCandidato, nombreCandidato) {
         fetch("/CapHum/getDocumentosCandidatoList?id_candidato=" + idCandidato).then(function(r){ return r.json(); }).then(function(res) {
             var docs = (res.datos && res.datos.documentos) ? res.datos.documentos : (res.datos && Array.isArray(res.datos) ? res.datos : []);
             var verif = (res.datos && res.datos.verificacion_expediente) ? res.datos.verificacion_expediente : null;
-            renderLista(docs);
-            renderVerificacion(verif);
+            var metricas = (res.datos && res.datos.metricas) ? res.datos.metricas : null;
+            renderLista(docs, verif);
+            renderMetricas(metricas);
+
+            if (bloqueAccionVerificar) bloqueAccionVerificar.classList.add("d-none");
+
+            if (verif) {
+                if (bloqueVerif) {
+                    bloqueVerif.classList.remove("d-none");
+                    bloqueVerif.innerHTML = "<div class=\"alert alert-success small mb-0\"><i class=\"fa fa-check-circle me-1\"></i>Expediente verificado automáticamente. Los resultados se muestran en cada documento.</div>";
+                }
+                renderVerificacion(verif);
+            } else if (metricas && metricas.expediente_completo) {
+                if (bloqueVerif) {
+                    bloqueVerif.classList.remove("d-none");
+                    bloqueVerif.innerHTML = "<div class=\"alert alert-info small mb-0\"><i class=\"fa fa-hourglass-half me-1\"></i>La verificación automática se está procesando en segundo plano. Los resultados aparecerán aquí cuando estén listos.</div>";
+                }
+            }
         }).catch(function() { renderLista([]); });
     }
 
@@ -1101,7 +1261,7 @@ function editarCandidato(id) {
         var selPuesto = document.getElementById("candidato_id_puesto");
         var selJefe = document.getElementById("candidato_id_posible_jefe");
         selPuesto.innerHTML = "<option value=''>Seleccione puesto</option>";
-        selJefe.innerHTML = "<option value=''>Cargando...</option>";
+        selJefe.innerHTML = "<option value=''>—</option>";
 
         setTimeout(function() { abrirOffcanvasCandidato(); }, 0);
 
@@ -1168,6 +1328,7 @@ function guardarCandidatoEdicion() {
     if (!id) return;
     var data = buildCandidatoPayloadFromForm();
     data.id = id;
+
     fetch("/CapHum/actualizarCandidato", { method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" }, body: JSON.stringify(data) })
     .then(function(r){ return r.json(); })
     .then(function(res){
@@ -1205,33 +1366,62 @@ function guardarCandidatoAbrirResumen() {
         return;
     }
 
-    var nombreCompleto = [data.nombres, data.segundo_nombre, data.apellidop, data.apellidom].filter(Boolean).join(" ");
-    var puestoTexto = (document.getElementById("candidato_id_puesto") && document.getElementById("candidato_id_puesto").selectedIndex >= 0) ? document.getElementById("candidato_id_puesto").options[document.getElementById("candidato_id_puesto").selectedIndex].text : "—";
-    var deptoTexto = (document.getElementById("candidato_id_departamento") && document.getElementById("candidato_id_departamento").selectedIndex >= 0) ? document.getElementById("candidato_id_departamento").options[document.getElementById("candidato_id_departamento").selectedIndex].text : "—";
-    var html = buildResumenCandidatoHTML({
-        nombreCompleto: nombreCompleto || "—",
-        telefono: (data.telefono ? "(" + data.telefono + ")" : "—"),
-        email: data.email || "—",
-        puesto: puestoTexto,
-        departamento: deptoTexto
+    var btnSubmit = document.getElementById("btnSubmitCandidato");
+    if (btnSubmit) { btnSubmit.disabled = true; }
+
+    fetch(capHumApiUrl("CapHum/guardarCandidato"), { method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" }, body: JSON.stringify(data) })
+    .then(function(r){ return r.json(); })
+    .then(function(res){
+        if (btnSubmit) { btnSubmit.disabled = false; btnSubmit.innerHTML = "<i class=\"bx bx-save me-1\"></i> Guardar"; }
+        if (!res.success) {
+            if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "Error", text: res.mensaje || res.error || "No se pudo guardar." });
+            return;
+        }
+        var idCand = res.datos && res.datos.id;
+        if (!idCand) return;
+
+        window._candidatoNuevoId = idCand;
+        window._candidatoNuevoEmail = data.email || "";
+        window._candidatoDatosEnvio = null;
+        window._candidatoReenviarId = null;
+        window._candidatoReenviarEmail = null;
+
+        var nombreCompleto = [data.nombres, data.segundo_nombre, data.apellidop, data.apellidom].filter(Boolean).join(" ");
+        var puestoTexto = (document.getElementById("candidato_id_puesto") && document.getElementById("candidato_id_puesto").selectedIndex >= 0) ? document.getElementById("candidato_id_puesto").options[document.getElementById("candidato_id_puesto").selectedIndex].text : "—";
+        var deptoTexto = (document.getElementById("candidato_id_departamento") && document.getElementById("candidato_id_departamento").selectedIndex >= 0) ? document.getElementById("candidato_id_departamento").options[document.getElementById("candidato_id_departamento").selectedIndex].text : "—";
+        var html = buildResumenCandidatoHTML({
+            nombreCompleto: nombreCompleto || "—",
+            telefono: (data.telefono ? "(" + data.telefono + ")" : "—"),
+            email: data.email || "—",
+            puesto: puestoTexto,
+            departamento: deptoTexto
+        });
+        document.getElementById("resumenPostulacionTexto").innerHTML = html;
+        document.getElementById("btnEnviarPostulacion").disabled = false;
+        document.getElementById("btnEnviarPostulacion").innerHTML = "<i class='bx bx-send me-2'></i> Enviar postulación al candidato";
+
+        var bloqueLink = document.getElementById("bloqueLinkDocumentos");
+        var inputUrl = document.getElementById("inputUrlDocumentos");
+        if (bloqueLink) bloqueLink.style.display = "none";
+        if (inputUrl) inputUrl.value = "";
+
+        cargarLinkDocumentosCandidato(idCand);
+
+        var offcanvas = document.getElementById("offcanvasAddCandidato");
+        if (offcanvas && typeof bootstrap !== "undefined") bootstrap.Offcanvas.getInstance(offcanvas).hide();
+        var modal = new bootstrap.Modal(document.getElementById("modalResumenPostulacion"));
+        modal.show();
+
+        if (form) form.reset();
+        var fpInput = document.getElementById("candidato_fecha_postulacion");
+        if (fpInput && fpInput._flatpickr) fpInput._flatpickr.setDate(new Date(), true);
+        getCandidatos();
+    })
+    .catch(function(){
+        if (typeof Swal !== "undefined") Swal.close();
+        if (btnSubmit) { btnSubmit.disabled = false; btnSubmit.innerHTML = "<i class=\"bx bx-save me-1\"></i> Guardar"; }
+        if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "Error", text: "Error de conexión." });
     });
-    document.getElementById("resumenPostulacionTexto").innerHTML = html;
-    document.getElementById("btnEnviarPostulacion").disabled = false;
-    document.getElementById("btnEnviarPostulacion").innerHTML = "<i class='bx bx-send me-2'></i> Enviar postulación al candidato";
-
-    var bloqueLink = document.getElementById("bloqueLinkDocumentos");
-    var inputUrl = document.getElementById("inputUrlDocumentos");
-    if (bloqueLink) bloqueLink.style.display = "none";
-    if (inputUrl) inputUrl.value = "";
-
-    window._candidatoDatosEnvio = data;
-    window._candidatoReenviarId = null;
-    window._candidatoReenviarEmail = null;
-
-    var offcanvas = document.getElementById("offcanvasAddCandidato");
-    if (offcanvas && typeof bootstrap !== "undefined") bootstrap.Offcanvas.getInstance(offcanvas).hide();
-    var modal = new bootstrap.Modal(document.getElementById("modalResumenPostulacion"));
-    modal.show();
 }
 
 function buildCandidatoPayloadFromForm() {
@@ -1299,6 +1489,33 @@ function enviarPostulacionAlCandidato() {
             var msg = (err && err.message) ? err.message : "Error de conexión.";
             if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "Error", text: msg });
             if (console && console.error) console.error("Reenviar correo:", urlReenviar, err);
+        });
+        return;
+    }
+
+    if (window._candidatoNuevoId) {
+        var idCand = window._candidatoNuevoId;
+        var email = window._candidatoNuevoEmail || "";
+        fetch(capHumApiUrl("CapHum/enviarPostulacionCandidato"), { method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" }, body: JSON.stringify({ id: idCand, email: email }) })
+        .then(function(r){ return r.json(); })
+        .then(function(resMail){
+            window._candidatoNuevoId = null;
+            window._candidatoNuevoEmail = null;
+            btn.disabled = false;
+            if (resMail && resMail.success) {
+                btn.innerHTML = "<i class=\"bx bx-check me-2\"></i> Enviada postulación";
+                if (typeof Swal !== "undefined") Swal.fire({ icon: "success", title: "Listo", text: "Correo enviado. El enlace para subir documentos está en el correo y arriba." });
+            } else {
+                btn.innerHTML = "<i class='bx bx-send me-2'></i> Enviar postulación al candidato";
+                if (typeof Swal !== "undefined") Swal.fire({ icon: "warning", title: "Correo no enviado", text: (resMail && resMail.mensaje) ? resMail.mensaje : "Configure [mail] en backend/config/config.ini para SMTP. Use el enlace de arriba para compartir con el candidato." });
+            }
+            getCandidatos();
+            setTimeout(function() { bootstrap.Modal.getInstance(document.getElementById("modalResumenPostulacion")).hide(); }, 2500);
+        })
+        .catch(function(){
+            btn.disabled = false;
+            btn.innerHTML = "<i class='bx bx-send me-2'></i> Enviar postulación al candidato";
+            if (typeof Swal !== "undefined") Swal.fire({ icon: "warning", title: "Error", text: "El correo no se pudo enviar. Use el enlace de arriba para compartir con el candidato." });
         });
         return;
     }

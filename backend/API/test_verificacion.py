@@ -157,6 +157,72 @@ class TestAPIEndpoints:
             )
         assert response.status_code == 422  # Validation error
 
+    async def test_verificar_calidad_sin_api_key(self):
+        """verificar-calidad sin API key debe retornar 403."""
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+            response = await client.post("/api/v1/verificar-calidad")
+        assert response.status_code == 403
+
+    async def test_verificar_calidad_con_imagen(self, api_headers, imagen_test_bytes):
+        """verificar-calidad con imagen devuelve ok, mensaje y alertas."""
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+            response = await client.post(
+                "/api/v1/verificar-calidad",
+                headers=api_headers,
+                files={"imagen": ("test.jpg", imagen_test_bytes, "image/jpeg")},
+            )
+        assert response.status_code == 200
+        data = response.json()
+        assert "ok" in data
+        assert "mensaje" in data
+        assert "alertas" in data
+        assert isinstance(data["ok"], bool)
+        assert isinstance(data["mensaje"], str)
+        assert isinstance(data["alertas"], list)
+        # Imagen blanca suele dar brillo excesivo -> ok False; al menos mensaje no vacío
+        if not data["ok"]:
+            assert len(data["mensaje"]) > 0
+
+
+# ============================================================
+# TESTS VERIFICACIÓN CALIDAD (LIGERA)
+# ============================================================
+
+@pytest.mark.asyncio
+class TestVerificacionCalidad:
+    """Tests del endpoint y servicio verificar-calidad."""
+
+    async def test_servicio_verificar_calidad_imagen_blanca(self):
+        """Servicio verificar_calidad con imagen blanca devuelve ok=False por brillo."""
+        from PIL import Image
+        import io
+        from app.services.verificacion import VerificacionService
+        img = Image.new("RGB", (400, 300), color=(255, 255, 255))
+        buf = io.BytesIO()
+        img.save(buf, "JPEG")
+        image_bytes = buf.getvalue()
+        service = VerificacionService()
+        result = await service.verificar_calidad(image_bytes)
+        assert result.ok is False
+        assert "brillo" in result.mensaje.lower() or "brillo" in " ".join(result.alertas).lower()
+
+    async def test_servicio_verificar_calidad_imagen_oscura(self):
+        """Servicio verificar_calidad con imagen gris devuelve estructura correcta."""
+        from PIL import Image
+        import io
+        from app.services.verificacion import VerificacionService
+        img = Image.new("RGB", (400, 300), color=(120, 120, 120))
+        buf = io.BytesIO()
+        img.save(buf, "JPEG", quality=85)
+        image_bytes = buf.getvalue()
+        service = VerificacionService()
+        result = await service.verificar_calidad(image_bytes)
+        assert hasattr(result, "ok")
+        assert hasattr(result, "mensaje")
+        assert hasattr(result, "alertas")
+
 
 # ============================================================
 # FIXTURES

@@ -96,6 +96,27 @@ class OCRAnalyzer:
         todo = "\n".join(textos)
         return todo.upper()
 
+    def extraer_texto_rapido(self, image_bytes: bytes, max_ancho: int = 1200) -> str:
+        """
+        Una sola pasada de OCR para verificación ligera. Evita timeout en imágenes que no son documento
+        (bosque, videojuego, etc.) al no ejecutar las 12 pasadas de _extraer_mejor_texto.
+        """
+        try:
+            img_cv = cv2.imdecode(np.frombuffer(image_bytes, np.uint8), cv2.IMREAD_COLOR)
+            if img_cv is None:
+                return ""
+            h, w = img_cv.shape[:2]
+            if w > max_ancho:
+                scale = max_ancho / w
+                img_cv = cv2.resize(img_cv, None, fx=scale, fy=scale, interpolation=cv2.INTER_AREA)
+            gray = cv2.cvtColor(img_cv, cv2.COLOR_BGR2GRAY)
+            img_pil = Image.fromarray(gray)
+            texto = pytesseract.image_to_string(img_pil, config="--oem 3 --psm 3 -l spa+eng")
+            return (texto or "").upper()
+        except Exception as e:
+            logger.debug(f"OCR rápido falló: {e}")
+            return ""
+
     def _extraer_texto_zona_datos(self, image_bytes: bytes) -> str:
         """Recorta la zona derecha de la imagen (donde suelen estar CURP, NUE, fechas) y aplica OCR.
         Reduce ruido de foto/logos para mejorar lectura de campos."""

@@ -8,6 +8,11 @@ use Core\Model;
 class Notificacion extends Model
 {
     /**
+     * Regla: ninguna parte del código debe forzar una notificación a "no leída" (leida=0).
+     * Las nuevas se insertan con leida=0; al leerlas se actualiza a leida=1 y así se quedan.
+     */
+
+    /**
      * Obtiene los id_persona que tienen al menos uno de los módulos indicados (ej. 18, 19 = Sabueso).
      */
     public static function getPersonasConModulos(array $moduloIds): array
@@ -17,10 +22,17 @@ class Notificacion extends Model
         }
         try {
             $db = new Database();
-            $placeholders = implode(',', array_fill(0, count($moduloIds), '?'));
+            $params = [];
+            $placeholders = [];
+            foreach ($moduloIds as $i => $id) {
+                $key = 'mod_' . $i;
+                $placeholders[] = ':' . $key;
+                $params[$key] = (int) $id;
+            }
+            $placeholdersStr = implode(',', $placeholders);
             $rows = $db->queryAll(
-                "SELECT DISTINCT usuario_id FROM asigna_modulo_web WHERE modulo_web_id IN ($placeholders)",
-                $moduloIds
+                "SELECT DISTINCT usuario_id FROM asigna_modulo_web WHERE modulo_web_id IN ($placeholdersStr)",
+                $params
             );
             return array_values(array_unique(array_column($rows ?: [], 'usuario_id')));
         } catch (\Exception $e) {
@@ -30,11 +42,18 @@ class Notificacion extends Model
 
     /**
      * Crea una notificación para una persona.
+     * Para tipos Sabueso (con id_ticket): solo una notificación por (persona, tipo, ticket). No duplica.
+     * Para otros (ej. candidato_expediente_completo sin id_ticket): puede repetirse si el evento se da de nuevo (ej. re-subida de documentos).
      */
     public static function crear(int $idPersona, string $tipo, string $mensaje, ?int $idTicket = null): bool
     {
         if ($idPersona < 1 || $tipo === '' || $mensaje === '') {
             return false;
+        }
+        if ($idTicket !== null && $idTicket > 0) {
+            if (self::yaExisteParaTicket($idPersona, $tipo, $idTicket)) {
+                return true;
+            }
         }
         $mensaje = mb_substr($mensaje, 0, 500);
         try {
@@ -49,6 +68,26 @@ class Notificacion extends Model
                 ]
             );
             return true;
+        } catch (\Exception $e) {
+            return false;
+        }
+    }
+
+    /**
+     * Sabueso: evita duplicar notificación para el mismo (persona, tipo, ticket).
+     */
+    public static function yaExisteParaTicket(int $idPersona, string $tipo, int $idTicket): bool
+    {
+        if ($idPersona < 1 || $tipo === '' || $idTicket < 1) {
+            return false;
+        }
+        try {
+            $db = new Database();
+            $r = $db->queryOne(
+                "SELECT 1 FROM notificacion WHERE id_persona = :id_persona AND tipo = :tipo AND id_ticket = :id_ticket LIMIT 1",
+                ['id_persona' => $idPersona, 'tipo' => $tipo, 'id_ticket' => $idTicket]
+            );
+            return !empty($r);
         } catch (\Exception $e) {
             return false;
         }
@@ -176,8 +215,8 @@ class Notificacion extends Model
     }
 
     /**
-     * Si reactivaron la alerta del dictamen en BD (fecha_visto_gestor = NULL), vuelve a marcar
-     * la notificación "dictamen_enviado" como no leída (o crea una si no existía) para que la campana avise.
+     * Crea notificaciones "dictamen_enviado" para tickets con dictamen no visto que aún no tengan notificación.
+     * No vuelve a marcar como no leídas las que ya están leídas: si ya se leyó, se queda leída.
      */
     public static function syncDictamenNoVisto(int $idPersona): void
     {
@@ -200,20 +239,15 @@ class Notificacion extends Model
             if (empty($ids)) {
                 return;
             }
-            // Marcar como no leídas las que ya existen (parámetros nombrados para Database)
             $placeholders = [];
             $params = ['id_persona' => $idPersona];
             foreach ($ids as $i => $id) {
-                $key = 'id_' . $i;
-                $placeholders[] = ':' . $key;
-                $params[$key] = $id;
+                $pk = 'id_' . $i;
+                $placeholders[] = ':' . $pk;
+                $params[$pk] = $id;
             }
             $placeholdersStr = implode(',', $placeholders);
-            $db->CRUD(
-                "UPDATE notificacion SET leida = 0 WHERE id_persona = :id_persona AND tipo = 'dictamen_enviado' AND id_ticket IN ($placeholdersStr)",
-                $params
-            );
-            // Obtener en una sola consulta los id_ticket que ya tienen notificación
+            // Solo crear notificaciones nuevas para tickets que aún no tienen. No tocar las que ya están leídas.
             $existentes = $db->queryAll(
                 "SELECT id_ticket FROM notificacion WHERE id_persona = :id_persona AND tipo = 'dictamen_enviado' AND id_ticket IN ($placeholdersStr)",
                 $params

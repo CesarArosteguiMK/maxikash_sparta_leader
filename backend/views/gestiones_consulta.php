@@ -116,7 +116,7 @@
         try{
             var a=new Audio('/assets/audio/tool_ready.mp3');
             a.volume=0.6;
-            a.play().catch(function(){var b=new Audio('/assets/audio/notification.mp3');b.volume=0.6;b.play().catch(function(){});});
+            a.play().catch(function(){var b=new Audio('/assets/audio/ring2.mp3');b.volume=0.6;b.play().catch(function(){});});
             setTimeout(function(){a.pause();a.currentTime=0;},animDuration);
         }catch(e){}
         setTimeout(function(){
