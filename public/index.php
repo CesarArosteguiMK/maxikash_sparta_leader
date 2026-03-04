@@ -214,7 +214,7 @@ if (!method_exists($controlador, $metodo)) recursoNoDisponible();
 |--------------------------------------------------------------------------
 */
 $rutasModulos = [
-    'estadocuenta/consulta' => [1], 'estadocuenta/documentacion' => [2], 'estadocuenta/reporteDictamen' => [14],
+    'estadocuenta/consulta' => [1], 'estadocuenta/guatemala' => [1], 'estadocuenta/documentacion' => [2], 'estadocuenta/reporteDictamen' => [14],
     'gestiones/seguimiento' => [3],
     'indicadores/kpiTotal' => [40], 'indicadores/gestiones1A7' => [24], 'indicadores/eficiencia1A7' => [25],
     'indicadores/gestiones8A21' => [26], 'indicadores/eficiencia8A21' => [27], 'indicadores/seguimientoIntensidad' => [29],
