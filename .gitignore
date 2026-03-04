@@ -57,3 +57,9 @@ backend/API/tmp/
 # ========== Rate limiting (login) ==========
 backend/storage/rate_limit/
 !backend/storage/rate_limit/.gitkeep
+
+# ========== API Agente Segundómetro (no subir) ==========
+backend/services/segundometro-agent/
+
+# ========== Pruebas OCR (no subir) ==========
+pruebas_OCR/
