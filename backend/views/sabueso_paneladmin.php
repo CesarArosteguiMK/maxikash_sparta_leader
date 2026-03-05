@@ -1554,14 +1554,51 @@
                     var vistoStr = dm.fecha_visto_gestor ? (new Date(dm.fecha_visto_gestor).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })) : '';
                     if (vistoStr && (dm.visto_gestor_nombre || '').trim()) vistoStr = 'Por ' + (dm.visto_gestor_nombre || '').trim() + ' el ' + vistoStr;
                     $('#modalDetalleDictamenVisto').text(vistoStr || 'No visto');
+
+                    // IMPORTANTE: d.evidencias contiene SOLO las evidencias del ticket específico (idTicket)
+                    // El backend filtra por WHERE id_ticket = :id_ticket, así que no hay riesgo de mezclar evidencias de otros tickets
                     var evidencias = d.evidencias || [];
-                    var url0 = evidencias[0] && evidencias[0].url ? ((typeof apiBase !== 'undefined' ? apiBase : '') + evidencias[0].url) : '';
-                    $('#modalDetalleDictamenImgPrincipal').attr('src', url0);
+                    var $imgPrincipal = $('#modalDetalleDictamenImgPrincipal');
                     var $min = $('#modalDetalleDictamenMiniaturas');
+
+                    // Limpiar contenido previo
+                    $min.empty();
+
+                    // Si no hay evidencias, mostrar mensaje y salir
+                    if (!evidencias || evidencias.length === 0) {
+                        $imgPrincipal.attr('src', '').parent().html('<div class="d-flex align-items-center justify-content-center h-100 text-muted"><i class="fa-solid fa-image me-2"></i>Sin evidencias</div>');
+                        return;
+                    }
+
+                    // Usar la URL que viene del backend directamente (ya viene formateada como /sabueso/verEvidencia?id=X)
+                    var url0 = evidencias[0] && evidencias[0].url ? evidencias[0].url : '';
+
+                    // Si no hay URL pero hay ID, construirla (por si acaso)
+                    if (!url0 && evidencias[0] && evidencias[0].id) {
+                        url0 = '/sabueso/verEvidencia?id=' + evidencias[0].id;
+                    }
+
+                    // Establecer imagen principal
+                    if (url0) {
+                        $imgPrincipal.attr('src', url0);
+                    } else {
+                        $imgPrincipal.attr('src', '').parent().html('<div class="d-flex align-items-center justify-content-center h-100 text-muted"><i class="fa-solid fa-image me-2"></i>Sin imagen disponible</div>');
+                    }
+
+                    // Crear miniaturas
                     evidencias.forEach(function(ev) {
-                        var url = (typeof apiBase !== 'undefined' ? apiBase : '') + (ev.url || '');
+                        var url = ev.url || '';
+                        // Si no hay URL pero hay ID, construirla
+                        if (!url && ev.id) {
+                            url = '/sabueso/verEvidencia?id=' + ev.id;
+                        }
+
+                        if (!url) return; // Saltar si no hay URL válida
+
                         var $thumb = $('<div class="rounded overflow-hidden border" style="width: 60px; height: 60px; cursor: pointer;"><img src="' + url.replace(/"/g, '&quot;') + '" alt="" class="img-fluid w-100 h-100" style="object-fit: cover;"></div>');
-                        $thumb.on('click', function() { $('#modalDetalleDictamenImgPrincipal').attr('src', url); });
+                        $thumb.on('click', function() {
+                            $imgPrincipal.attr('src', url);
+                        });
                         $min.append($thumb);
                     });
                     http.request({ endpoint: '/sabueso/marcarDictamenVisto', metodo: 'POST', data: JSON.stringify({ id_ticket: idTicket }), contentType: 'application/json', processData: false });

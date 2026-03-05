@@ -3343,264 +3343,425 @@ class CapHum extends Controller
     /** Vista Candidatos (Capital Humano). Misma arquitectura que Gestión: heredoc con el script, self::set("script"), self::render. */
     public function candidatos()
     {
-        $departamento = CapHumDAO::getConsultaDepartamentoGestor($_SESSION['usuario_id']);
-        $modulos = $_SESSION['modulos'] ?? [];
-        $puedeGestionarCandidatos = in_array(42, $modulos);
+        $script = <<<'HTML'
+        <script>
+        
+            // Estado del módulo candidatos
+            var candidatoEditId = null;
+            var candidatoNuevoId = null;
+            var candidatoNuevoEmail = null;
+            var candidatoReenviarId = null;
+            var candidatoReenviarEmail = null;
+            var candidatoDatosEnvio = null;
+            var candidatosFiltrosLlenos = false;
+            
+            // Eager Loading: Map global con todos los candidatos y sus documentos precargados
+            if (!window.candidatosDataMap) {
+                window.candidatosDataMap = new Map();
+            }
 
-        $script = <<<'SCR'
-<script>
-    // Estado del módulo candidatos
-    let candidatoEditId = null;
-    let candidatoNuevoId = null;
-    let candidatoNuevoEmail = null;
-    let candidatoReenviarId = null;
-    let candidatoReenviarEmail = null;
-    let candidatoDatosEnvio = null;
-    let documentacionCache = null;
-    let candidatosFiltrosLlenos = false;
-    let docPrefetchTimer = null;
+            function actualizarIndicadoresCandidatos(datos) {
+                var total = (datos && datos.length) || 0;
+                var porEvaluar = (datos && datos.filter(function(c){ return (c.estatus || "") === "Por evaluar"; }).length) || 0;
+                var enviadas = (datos && datos.filter(function(c){ return c.postulacion_enviada == 1; }).length) || 0;
+                var elTotal = document.getElementById("kpi-total-candidatos");
+                var elPorEval = document.getElementById("kpi-por-evaluar");
+                var elEnviadas = document.getElementById("kpi-postulaciones-enviadas");
+                if (elTotal) elTotal.textContent = total;
+                if (elPorEval) elPorEval.textContent = porEvaluar;
+                if (elEnviadas) elEnviadas.textContent = enviadas;
+            }
 
-    function actualizarIndicadoresCandidatos(datos) {
-        var total = (datos && datos.length) || 0;
-        var porEvaluar = (datos && datos.filter(function(c){ return (c.estatus || "") === "Por evaluar"; }).length) || 0;
-        var enviadas = (datos && datos.filter(function(c){ return c.postulacion_enviada == 1; }).length) || 0;
-        var elTotal = document.getElementById("kpi-total-candidatos");
-        var elPorEval = document.getElementById("kpi-por-evaluar");
-        var elEnviadas = document.getElementById("kpi-postulaciones-enviadas");
-        if (elTotal) elTotal.textContent = total;
-        if (elPorEval) elPorEval.textContent = porEvaluar;
-        if (elEnviadas) elEnviadas.textContent = enviadas;
-    }
+            function getCandidatos() {
+                var selDepto = document.getElementById("UserRole");
+                var selPuesto = document.getElementById("UserPlan");
+                var selEstatus = document.getElementById("FilterTransaction");
+                var data = {};
+                if (selEstatus && selEstatus.value) data.estatus = selEstatus.value;
+                if (selDepto && selDepto.value) data.id_departamento = selDepto.value;
+                if (selPuesto && selPuesto.value) data.id_puesto = selPuesto.value;
 
-    function getCandidatos() {
-        var selDepto = document.getElementById("UserRole");
-        var selPuesto = document.getElementById("UserPlan");
-        var selEstatus = document.getElementById("FilterTransaction");
-        var data = {};
-        if (selEstatus && selEstatus.value) data.estatus = selEstatus.value;
-        if (selDepto && selDepto.value) data.id_departamento = selDepto.value;
-        if (selPuesto && selPuesto.value) data.id_puesto = selPuesto.value;
-
-        http.request({
-            endpoint: "/caphum/getCandidatos",
-            metodo: "GET",
-            data: data,
-            onSuccess: function(resp) {
-                if (!resp.success || !resp.datos) return;
-                actualizarIndicadoresCandidatos(resp.datos);
-                var datos = resp.datos.map(function(c) {
-                    var nombre = [c.nombres, c.segundo_nombre, c.apellidop, c.apellidom].filter(Boolean).join(" ");
-                    var contacto = (c.email || "") + (c.telefono ? " | " + c.telefono : "");
-                    var puestoDepto = (c.nombre_puesto || "-") + " / " + (c.nombre_departamento || "-");
-                    var id = (c.id || 0).toString();
-                    var acciones = '<div class="d-flex flex-wrap gap-1 align-items-center">' +
-                        '<button type="button" class="btn btn-sm btn-primary btn-editar-candidato" data-id="' + id + '" title="Editar"><i class="fa fa-edit"></i></button>' +
-                        '<button type="button" class="btn btn-sm btn-info text-white btn-reenviar-candidato" data-id="' + id + '" title="Reenviar correo"><i class="fa fa-envelope"></i></button>' +
-                        '<button type="button" class="btn btn-sm btn-secondary btn-documentacion-candidato" data-id="' + id + '" data-nombre="' + (nombre || "").replace(/"/g, "&quot;") + '" title="Documentación"><i class="fa fa-folder-open"></i></button>' +
-                        '<button type="button" class="btn btn-sm btn-danger btn-eliminar-candidato" data-id="' + id + '" title="Eliminar"><i class="fa fa-trash"></i></button></div>';
-                    var est = c.estatus || "Por evaluar";
-                    var estBadge = est === "Validado" ? "bg-success" : (est === "Por evaluar" ? "bg-warning text-dark" : "bg-secondary");
-                    return {
-                        nombre: nombre,
-                        contacto: contacto,
-                        puestoDepto: puestoDepto,
-                        estatus: '<span class="badge ' + estBadge + '">' + est + '</span>',
-                        acciones: acciones
-                    };
-                });
-                var tabla = jQuery("#tablaCandidatos").DataTable();
-                if (tabla) { tabla.clear().rows.add(datos).draw(); }
-
-                if (candidatosFiltrosLlenos) return;
-                candidatosFiltrosLlenos = true;
-                var deptMap = {};
-                var puestoMap = {};
-                resp.datos.forEach(function(c) {
-                    if (c.id_departamento && c.nombre_departamento) deptMap[c.id_departamento] = c.nombre_departamento;
-                    if (c.id_puesto && c.nombre_puesto) puestoMap[c.id_puesto] = c.nombre_puesto;
-                });
-                var selD = document.getElementById("UserRole");
-                var selP = document.getElementById("UserPlan");
-                if (selD) {
-                    var opts = selD.querySelectorAll("option");
-                    for (var i = opts.length - 1; i >= 1; i--) opts[i].remove();
-                    for (var k in deptMap) {
-                        var o = document.createElement("option");
-                        o.value = k;
-                        o.textContent = deptMap[k];
-                        selD.appendChild(o);
+                http.request({
+                    endpoint: "/caphum/getCandidatos",
+                    metodo: "GET",
+                    data: data,
+                    onSuccess: function(resp) {
+                        try {
+                            if (!resp || !resp.success || !resp.datos) {
+                                console.warn('getCandidatos: respuesta vacía o sin éxito', resp);
+                                return;
+                            }
+                            
+                            if (!Array.isArray(resp.datos)) {
+                                console.error('getCandidatos: resp.datos no es un array', resp);
+                                return;
+                            }
+                            
+                            actualizarIndicadoresCandidatos(resp.datos);
+                            
+                            // ==========================================
+                            // CONSOLIDAR CANDIDATOS (ESTRUCTURA IDÉNTICA A GESTIÓN)
+                            // ==========================================
+                            var candidatosMap = new Map();
+                            
+                            resp.datos.forEach(function(candidato) {
+                                var id = candidato.id;
+                                
+                                if (!id) {
+                                    console.warn('getCandidatos: candidato sin ID', candidato);
+                                    return;
+                                }
+                                
+                                if (!candidatosMap.has(id)) {
+                                    // Primera vez que vemos este candidato - copiar todas las propiedades manualmente
+                                    var candidatoConsolidado = {
+                                        id: candidato.id,
+                                        nombres: candidato.nombres,
+                                        segundo_nombre: candidato.segundo_nombre,
+                                        apellidop: candidato.apellidop,
+                                        apellidom: candidato.apellidom,
+                                        email: candidato.email,
+                                        telefono: candidato.telefono,
+                                        id_puesto: candidato.id_puesto,
+                                        nombre_puesto: candidato.nombre_puesto,
+                                        nombre_departamento: candidato.nombre_departamento,
+                                        id_departamento: candidato.id_departamento,
+                                        estatus: candidato.estatus,
+                                        postulacion_enviada: candidato.postulacion_enviada,
+                                        fecha_registro: candidato.fecha_registro,
+                                        fecha_actualizacion: candidato.fecha_actualizacion,
+                                        documentos: candidato.documentos || [],
+                                        verificacion_expediente: candidato.verificacion_expediente || null,
+                                        metricas: candidato.metricas || null,
+                                        puestos: [{
+                                            id_puesto: candidato.id_puesto,
+                                            nombre_puesto: candidato.nombre_puesto,
+                                            nombre_departamento: candidato.nombre_departamento,
+                                            id_departamento: candidato.id_departamento
+                                        }]
+                                    };
+                                    candidatosMap.set(id, candidatoConsolidado);
+                                } else {
+                                    // Ya existe, agregar nuevo puesto (por si acaso hay duplicados)
+                                    var candidatoExistente = candidatosMap.get(id);
+                                    if (candidatoExistente && candidatoExistente.puestos) {
+                                        var puestoExiste = candidatoExistente.puestos.some(function(p) {
+                                            return p.id_puesto === candidato.id_puesto && 
+                                                   p.nombre_departamento === candidato.nombre_departamento;
+                                        });
+                                        
+                                        if (!puestoExiste) {
+                                            candidatoExistente.puestos.push({
+                                                id_puesto: candidato.id_puesto,
+                                                nombre_puesto: candidato.nombre_puesto,
+                                                nombre_departamento: candidato.nombre_departamento,
+                                                id_departamento: candidato.id_departamento
+                                            });
+                                        }
+                                    }
+                                }
+                            });
+                            
+                            var candidatosConsolidados = Array.from(candidatosMap.values());
+                            
+                            // Guardar en variable global para otros usos
+                            window.candidatosData = candidatosConsolidados;
+                            
+                            // Eager Loading: Guardar todos los candidatos con sus documentos en el Map global
+                            if (window.candidatosDataMap) {
+                                window.candidatosDataMap.clear();
+                            } else {
+                                window.candidatosDataMap = new Map();
+                            }
+                            candidatosConsolidados.forEach(function(c) {
+                                if (c.id) {
+                                    var docPayload = {
+                                        documentos: c.documentos || [],
+                                        verificacion_expediente: c.verificacion_expediente || null,
+                                        metricas: c.metricas || null
+                                    };
+                                    window.candidatosDataMap.set(parseInt(c.id, 10), docPayload);
+                                }
+                            });
+                            
+                            // ==========================================
+                            // MAPEAR DATOS PARA LA TABLA (ESTRUCTURA IDÉNTICA A GESTIÓN)
+                            // ==========================================
+                            var datos = candidatosConsolidados.map(function(c) {
+                                var nombre = [c.nombres, c.segundo_nombre, c.apellidop, c.apellidom].filter(Boolean).join(" ");
+                                var tienePuestos = c.puestos && c.puestos.length > 1;
+                                var contacto = (c.email || "") + (c.telefono ? " | " + c.telefono : "");
+                                
+                                // Generar HTML para puesto/departamento
+                                var puestoDeptoHTML = "";
+                                if (tienePuestos) {
+                                    puestoDeptoHTML = '<div class="d-flex flex-column gap-1">';
+                                    c.puestos.forEach(function(puesto) {
+                                        puestoDeptoHTML += '<small class="text-muted d-flex align-items-center gap-1">' +
+                                            '<i class="fa fa-building"></i>' +
+                                            (puesto.nombre_departamento || 'Sin departamento') +
+                                            '</small>' +
+                                            '<small class="text-muted d-flex align-items-center gap-1">' +
+                                            '<i class="fa fa-briefcase"></i>' +
+                                            (puesto.nombre_puesto || 'Sin puesto') +
+                                            '</small>';
+                                    });
+                                    puestoDeptoHTML += '</div>';
+                                } else {
+                                    puestoDeptoHTML = '<small class="text-muted d-flex align-items-center gap-1">' +
+                                        '<i class="fa fa-building"></i>' +
+                                        (c.nombre_departamento || 'Sin departamento') +
+                                        '</small>' +
+                                        '<small class="text-muted d-flex align-items-center gap-1">' +
+                                        '<i class="fa fa-briefcase"></i>' +
+                                        (c.nombre_puesto || 'Sin puesto') +
+                                        '</small>';
+                                }
+                                
+                                var id = (c.id || 0).toString();
+                                var est = c.estatus || "Por evaluar";
+                                var estBadge = est === "Validado" ? "bg-success" : (est === "Por evaluar" ? "bg-warning text-dark" : "bg-secondary");
+                                
+                                var acciones = '<div class="d-flex flex-wrap gap-1 align-items-center">' +
+                                    '<button type="button" class="btn btn-sm btn-primary btn-editar-candidato" data-id="' + id + '" title="Editar"><i class="fa fa-edit"></i></button>' +
+                                    '<button type="button" class="btn btn-sm btn-info text-white btn-reenviar-candidato" data-id="' + id + '" title="Reenviar correo"><i class="fa fa-envelope"></i></button>' +
+                                    '<button type="button" class="btn btn-sm btn-secondary btn-documentacion-candidato" data-id="' + id + '" data-nombre="' + (nombre || "").replace(/"/g, "&quot;") + '" title="Documentación"><i class="fa fa-folder-open"></i></button>' +
+                                    '<button type="button" class="btn btn-sm btn-danger btn-eliminar-candidato" data-id="' + id + '" title="Eliminar"><i class="fa fa-trash"></i></button></div>';
+                                
+                                return {
+                                    nombre: nombre,
+                                    contacto: contacto,
+                                    puestoDepto: puestoDeptoHTML.trim(),
+                                    estatus: '<span class="badge ' + estBadge + '">' + est + '</span>',
+                                    acciones: acciones
+                                };
+                            });
+                            
+                            // Actualizar DataTable (usando $ como en Gestión)
+                            try {
+                                var tabla = $('#tablaCandidatos').DataTable();
+                                if (tabla) {
+                                    tabla.clear().rows.add(datos).draw();
+                                } else {
+                                    console.error('getCandidatos: No se pudo obtener la instancia de DataTable');
+                                }
+                            } catch (error) {
+                                console.error('getCandidatos: Error al actualizar DataTable', error);
+                            }
+                            
+                            // Llenar filtros solo la primera vez
+                            if (!candidatosFiltrosLlenos) {
+                                candidatosFiltrosLlenos = true;
+                                var deptMap = {};
+                                var puestoMap = {};
+                                candidatosConsolidados.forEach(function(c) {
+                                    if (c.id_departamento && c.nombre_departamento) deptMap[c.id_departamento] = c.nombre_departamento;
+                                    if (c.id_puesto && c.nombre_puesto) puestoMap[c.id_puesto] = c.nombre_puesto;
+                                });
+                                var selD = document.getElementById("UserRole");
+                                var selP = document.getElementById("UserPlan");
+                                if (selD) {
+                                    var opts = selD.querySelectorAll("option");
+                                    for (var i = opts.length - 1; i >= 1; i--) opts[i].remove();
+                                    for (var k in deptMap) {
+                                        var o = document.createElement("option");
+                                        o.value = k;
+                                        o.textContent = deptMap[k];
+                                        selD.appendChild(o);
+                                    }
+                                }
+                                if (selP) {
+                                    var opts = selP.querySelectorAll("option");
+                                    for (var i = opts.length - 1; i >= 1; i--) opts[i].remove();
+                                    for (var k in puestoMap) {
+                                        var o = document.createElement("option");
+                                        o.value = k;
+                                        o.textContent = puestoMap[k];
+                                        selP.appendChild(o);
+                                    }
+                                }
+                            }
+                        } catch (error) {
+                            console.error('getCandidatos: Error en el procesamiento', error);
+                            if (typeof Swal !== "undefined") {
+                                Swal.fire({
+                                    icon: "error",
+                                    title: "Error",
+                                    text: "Error al procesar los candidatos. Revisa la consola (F12)."
+                                });
+                            }
+                        }
+                    },
+                    onError: function(err) {
+                        console.error('getCandidatos: Error en la petición', err);
+                        if (typeof Swal !== "undefined") {
+                            Swal.fire({
+                                icon: "error",
+                                title: "Error",
+                                text: "Error al cargar los candidatos. Por favor, recarga la página."
+                            });
+                        }
                     }
+                });
+            }
+
+            function kpiTogglePanelCandidatos() {
+                var pan = document.getElementById("kpiCollapsibleCandidatos");
+                var btn = document.getElementById("kpiToggleBtnCandidatos");
+                if (!pan || !btn) return;
+                pan.classList.toggle("open");
+                btn.classList.toggle("open");
+            }
+
+            function initFlatpickrFechaPostulacion() {
+                var input = document.getElementById("candidato_fecha_postulacion");
+                if (!input || typeof flatpickr === "undefined") return;
+                if (input._flatpickr) return;
+                var hoy = new Date().toISOString().slice(0, 10);
+                flatpickr(input, { dateFormat: "Y-m-d", defaultDate: hoy, maxDate: hoy, allowInput: false, clickOpens: true, appendTo: document.body, static: false, locale: (typeof flatpickr !== "undefined" && flatpickr.l10ns && flatpickr.l10ns.es) ? flatpickr.l10ns.es : undefined });
+            }
+
+            function toggleLegionCandidato() {
+                var div = document.getElementById("div_candidato_legion"); var chk = document.getElementById("candidato_asignar_legion");
+                div.style.display = chk && chk.checked ? "block" : "none";
+                if (!chk.checked) document.getElementById("candidato_id_legion").value = "";
+            }
+
+            function candidatosTableClick(e) {
+                var target = e.target; var tabla = document.getElementById("tablaCandidatos");
+                if (!tabla || !tabla.contains(target)) return;
+                var btn = target.closest(".btn-editar-candidato");
+                if (btn) { e.preventDefault(); e.stopPropagation(); var id = btn.getAttribute("data-id"); if (id) editarCandidato(parseInt(id, 10)); return; }
+                btn = target.closest(".btn-reenviar-candidato");
+                if (btn) { e.preventDefault(); e.stopPropagation(); var id = btn.getAttribute("data-id"); if (id) abrirModalReenviarPostulacion(parseInt(id, 10)); return; }
+                btn = target.closest(".btn-documentacion-candidato");
+                if (btn) { e.preventDefault(); e.stopPropagation(); var id = btn.getAttribute("data-id"); var nombre = btn.getAttribute("data-nombre") || ""; if (id) abrirModalDocumentacionCandidato(parseInt(id, 10), nombre); return; }
+                btn = target.closest(".btn-eliminar-candidato");
+                if (btn) { e.preventDefault(); e.stopPropagation(); var id = btn.getAttribute("data-id"); if (id) eliminarCandidato(parseInt(id, 10)); }
+            }
+
+            function renderMetricasDoc(bloqueMetricas, m) {
+                if (!bloqueMetricas || !m) return;
+                bloqueMetricas.classList.remove("d-none");
+                var total = m.total_documentos != null ? m.total_documentos : 0;
+                var requeridos = m.documentos_requeridos != null ? m.documentos_requeridos : 11;
+                var pct = m.porcentaje != null ? m.porcentaje : (requeridos > 0 ? Math.min(100, Math.round((total / requeridos) * 100)) : 0);
+                var completo = m.expediente_completo === true;
+                var html = "<div class=\"card border shadow-none\"><div class=\"card-header py-2 bg-light\"><strong><i class=\"fa fa-chart-pie me-1\"></i>Métricas del expediente</strong></div><div class=\"card-body py-2 small\">";
+                html += "<p class=\"text-muted mb-2\">Resumen de documentación recibida (cuántos documentos obligatorios ha subido el candidato).</p>";
+                html += "<div class=\"row g-2 align-items-center\">";
+                html += "<div class=\"col-6 col-md-4\"><span class=\"text-muted d-block\">Documentos subidos</span><strong class=\"text-primary\">" + total + " de " + requeridos + "</strong></div>";
+                html += "<div class=\"col-6 col-md-4\"><span class=\"text-muted d-block\">Avance</span><strong>" + pct + "%</strong>";
+                if (pct < 100) html += " <div class=\"progress mt-1\" style=\"height:6px;\"><div class=\"progress-bar\" role=\"progressbar\" style=\"width:" + pct + "%\" aria-valuenow=\"" + pct + "\" aria-valuemin=\"0\" aria-valuemax=\"100\"></div></div>";
+                html += "</div>";
+                html += "<div class=\"col-6 col-md-4\"><span class=\"text-muted d-block\">Expediente completo</span><strong class=\"" + (completo ? "text-success" : "text-secondary") + "\">" + (completo ? "Sí" : "No") + "</strong></div>";
+                html += "</div></div></div>";
+                bloqueMetricas.innerHTML = html;
+            }
+
+            function renderVerificacionDoc(bloqueVerif, v) {
+                if (!bloqueVerif || !v) return;
+                bloqueVerif.classList.remove("d-none");
+                var scoreFrente = v.identificacion_frente_score != null ? Number(v.identificacion_frente_score) : null;
+                var scoreReverso = v.identificacion_reverso_score != null ? Number(v.identificacion_reverso_score) : null;
+                var checksOk = v.checks_ok != null ? parseInt(v.checks_ok, 10) : null;
+                var checksTotales = v.checks_totales != null ? parseInt(v.checks_totales, 10) : null;
+                var todoCoincide = v.todo_coincide === true;
+                var alertas = Array.isArray(v.alertas) && v.alertas.length ? v.alertas : [];
+                var confianzaNum = null;
+                if (scoreFrente != null && scoreReverso != null) { confianzaNum = Math.round((scoreFrente + scoreReverso) / 2); }
+                else if (scoreFrente != null) { confianzaNum = scoreFrente; }
+                else if (scoreReverso != null) { confianzaNum = scoreReverso; }
+                else if (checksTotales > 0 && checksOk != null) { confianzaNum = Math.round((checksOk / checksTotales) * 100); }
+                var confianzaTexto = confianzaNum != null ? confianzaNum + "%" : "—";
+                var confianzaClase = "text-secondary";
+                if (confianzaNum != null) {
+                    if (confianzaNum >= 80) confianzaClase = "text-success";
+                    else if (confianzaNum >= 50) confianzaClase = "text-warning";
+                    else confianzaClase = "text-danger";
                 }
-                if (selP) {
-                    var opts = selP.querySelectorAll("option");
-                    for (var i = opts.length - 1; i >= 1; i--) opts[i].remove();
-                    for (var k in puestoMap) {
-                        var o = document.createElement("option");
-                        o.value = k;
-                        o.textContent = puestoMap[k];
-                        selP.appendChild(o);
+                var html = "<div class=\"card border shadow-none\"><div class=\"card-header py-2 bg-light\"><strong><i class=\"fa fa-shield-alt me-1\"></i>Resultado de la verificación API</strong></div><div class=\"card-body py-2 small\">";
+                html += "<div class=\"row g-2 mb-2 align-items-center\">";
+                html += "<div class=\"col-6 col-md\"><span class=\"text-muted d-block\">Confianza</span><strong class=\"fs-6 " + confianzaClase + "\">" + confianzaTexto + "</strong></div>";
+                html += "<div class=\"col-6 col-md\"><span class=\"text-muted d-block\">Frente</span><strong class=\"text-primary\">" + (scoreFrente != null ? scoreFrente + "%" : "—") + "</strong></div>";
+                html += "<div class=\"col-6 col-md\"><span class=\"text-muted d-block\">Reverso</span><strong class=\"text-primary\">" + (scoreReverso != null ? scoreReverso + "%" : "—") + "</strong></div>";
+                html += "<div class=\"col-6 col-md\"><span class=\"text-muted d-block\">Checks</span><strong>" + (checksOk != null && checksTotales != null ? checksOk + "/" + checksTotales : "—") + "</strong></div>";
+                html += "<div class=\"col-6 col-md\"><span class=\"text-muted d-block\">Coinciden</span><strong class=\"" + (todoCoincide ? "text-success" : (v.todo_coincide === false ? "text-danger" : "text-secondary")) + "\">" + (v.todo_coincide === true ? "Sí" : (v.todo_coincide === false ? "No" : "—")) + "</strong></div>";
+                html += "</div>";
+                var lineasComparaciones = [];
+                if (v.comparaciones && typeof v.comparaciones === "object") {
+                    var comp = v.comparaciones;
+                    var labels = { "nombre_frente_vs_reverso": "Nombre en INE = Nombre en reverso", "fecha_nac_curp_vs_mrz": "Fecha nac. (CURP) = Fecha en reverso", "nombre_id_vs_curp_pdf": "Nombre en INE = Nombre en CURP PDF", "curp_vs_fiscal": "CURP = Constancia fiscal", "nombre_vs_fiscal": "Nombre = Constancia fiscal", "curp_vs_nss": "CURP = NSS", "nombre_vs_nss": "Nombre = NSS", "nombre_vs_acta": "Nombre = Acta de nacimiento", "fecha_nac_vs_acta": "Fecha nac. = Acta", "curp_id_vs_documento": "CURP en INE = Otro documento" };
+                    Object.keys(comp).forEach(function(k) {
+                        var c = comp[k];
+                        if (!c || typeof c !== "object") return;
+                        if (c.coincide !== undefined) lineasComparaciones.push((labels[k] || k) + ": " + (c.coincide ? "✔ Coincide" : "✘ No coincide"));
+                        else if (c.es_reciente !== undefined) lineasComparaciones.push("CURP PDF: " + (c.es_reciente ? "Reciente" : (c.meses_antiguedad || "?") + " meses"));
+                    });
+                }
+                var btnId = "";
+                if (lineasComparaciones.length) {
+                    btnId = "btnVerComparaciones_" + (Math.random().toString(36).slice(2, 9));
+                    html += "<div class=\"border-top pt-2 mt-2\"><button type=\"button\" class=\"btn btn-sm btn-outline-secondary\" id=\"" + btnId + "\" title=\"Ver comparaciones entre documentos\"><i class=\"fa fa-list-ul me-1\"></i>Ver comparaciones entre documentos</button></div>";
+                }
+                if (alertas.length) {
+                    html += "<div class=\"mt-2 pt-2 border-top\"><span class=\"text-muted d-block mb-1\"><strong>Alertas</strong></span><ul class=\"mb-0 ps-3\"><li class=\"text-warning\">" + alertas.join("</li><li class=\"text-warning\">") + "</li></ul></div>";
+                }
+                html += "</div></div>";
+                bloqueVerif.innerHTML = html;
+                if (lineasComparaciones.length && window.bootstrap && window.bootstrap.Popover) {
+                    var btnComp = document.getElementById(btnId);
+                    if (btnComp) {
+                        var popContent = "<div class=\"text-start small\" style=\"min-width: 280px;\"><p class=\"text-muted mb-2\"><strong>Comparaciones entre documentos</strong><br><span class=\"text-muted\">(que los datos del candidato coincidan en todos)</span></p><ul class=\"list-unstyled mb-0\">" + lineasComparaciones.map(function(l) { var ok = l.indexOf("✔") !== -1 || l.indexOf("Reciente") !== -1; return "<li class=\"py-1 border-bottom border-light\"><i class=\"fa fa-" + (ok ? "check-circle text-success" : "times-circle text-danger") + " me-2\"></i>" + l + "</li>"; }).join("") + "</ul></div>";
+                        new window.bootstrap.Popover(btnComp, { content: popContent, html: true, trigger: "click", placement: "bottom", container: "body" });
                     }
                 }
             }
-        });
-    }
 
-    function kpiTogglePanelCandidatos() {
-        var pan = document.getElementById("kpiCollapsibleCandidatos");
-        var btn = document.getElementById("kpiToggleBtnCandidatos");
-        if (!pan || !btn) return;
-        pan.classList.toggle("open");
-        btn.classList.toggle("open");
-    }
-
-    function initFlatpickrFechaPostulacion() {
-        var input = document.getElementById("candidato_fecha_postulacion");
-        if (!input || typeof flatpickr === "undefined") return;
-        if (input._flatpickr) return;
-        var hoy = new Date().toISOString().slice(0, 10);
-        flatpickr(input, { dateFormat: "Y-m-d", defaultDate: hoy, maxDate: hoy, allowInput: false, clickOpens: true, appendTo: document.body, static: false, locale: (typeof flatpickr !== "undefined" && flatpickr.l10ns && flatpickr.l10ns.es) ? flatpickr.l10ns.es : undefined });
-    }
-
-    function toggleLegionCandidato() {
-        var div = document.getElementById("div_candidato_legion"); var chk = document.getElementById("candidato_asignar_legion");
-        div.style.display = chk && chk.checked ? "block" : "none";
-        if (!chk.checked) document.getElementById("candidato_id_legion").value = "";
-    }
-
-    function candidatosTableClick(e) {
-        var target = e.target; var tabla = document.getElementById("tablaCandidatos");
-        if (!tabla || !tabla.contains(target)) return;
-        var btn = target.closest(".btn-editar-candidato");
-        if (btn) { e.preventDefault(); e.stopPropagation(); var id = btn.getAttribute("data-id"); if (id) editarCandidato(parseInt(id, 10)); return; }
-        btn = target.closest(".btn-reenviar-candidato");
-        if (btn) { e.preventDefault(); e.stopPropagation(); var id = btn.getAttribute("data-id"); if (id) abrirModalReenviarPostulacion(parseInt(id, 10)); return; }
-        btn = target.closest(".btn-documentacion-candidato");
-        if (btn) { e.preventDefault(); e.stopPropagation(); var id = btn.getAttribute("data-id"); var nombre = btn.getAttribute("data-nombre") || ""; var cached = (documentacionCache && documentacionCache.id === id) ? documentacionCache.data : null; if (id) abrirModalDocumentacionCandidato(parseInt(id, 10), nombre, cached); return; }
-        btn = target.closest(".btn-eliminar-candidato");
-        if (btn) { e.preventDefault(); e.stopPropagation(); var id = btn.getAttribute("data-id"); if (id) eliminarCandidato(parseInt(id, 10)); }
-    }
-
-    function renderMetricasDoc(bloqueMetricas, m) {
-        if (!bloqueMetricas || !m) return;
-        bloqueMetricas.classList.remove("d-none");
-        var total = m.total_documentos != null ? m.total_documentos : 0;
-        var requeridos = m.documentos_requeridos != null ? m.documentos_requeridos : 11;
-        var pct = m.porcentaje != null ? m.porcentaje : (requeridos > 0 ? Math.min(100, Math.round((total / requeridos) * 100)) : 0);
-        var completo = m.expediente_completo === true;
-        var html = "<div class=\"card border shadow-none\"><div class=\"card-header py-2 bg-light\"><strong><i class=\"fa fa-chart-pie me-1\"></i>Métricas del expediente</strong></div><div class=\"card-body py-2 small\">";
-        html += "<p class=\"text-muted mb-2\">Resumen de documentación recibida (cuántos documentos obligatorios ha subido el candidato).</p>";
-        html += "<div class=\"row g-2 align-items-center\">";
-        html += "<div class=\"col-6 col-md-4\"><span class=\"text-muted d-block\">Documentos subidos</span><strong class=\"text-primary\">" + total + " de " + requeridos + "</strong></div>";
-        html += "<div class=\"col-6 col-md-4\"><span class=\"text-muted d-block\">Avance</span><strong>" + pct + "%</strong>";
-        if (pct < 100) html += " <div class=\"progress mt-1\" style=\"height:6px;\"><div class=\"progress-bar\" role=\"progressbar\" style=\"width:" + pct + "%\" aria-valuenow=\"" + pct + "\" aria-valuemin=\"0\" aria-valuemax=\"100\"></div></div>";
-        html += "</div>";
-        html += "<div class=\"col-6 col-md-4\"><span class=\"text-muted d-block\">Expediente completo</span><strong class=\"" + (completo ? "text-success" : "text-secondary") + "\">" + (completo ? "Sí" : "No") + "</strong></div>";
-        html += "</div></div></div>";
-        bloqueMetricas.innerHTML = html;
-    }
-
-    function renderVerificacionDoc(bloqueVerif, v) {
-        if (!bloqueVerif || !v) return;
-        bloqueVerif.classList.remove("d-none");
-        var scoreFrente = v.identificacion_frente_score != null ? Number(v.identificacion_frente_score) : null;
-        var scoreReverso = v.identificacion_reverso_score != null ? Number(v.identificacion_reverso_score) : null;
-        var checksOk = v.checks_ok != null ? parseInt(v.checks_ok, 10) : null;
-        var checksTotales = v.checks_totales != null ? parseInt(v.checks_totales, 10) : null;
-        var todoCoincide = v.todo_coincide === true;
-        var alertas = Array.isArray(v.alertas) && v.alertas.length ? v.alertas : [];
-        var confianzaNum = null;
-        if (scoreFrente != null && scoreReverso != null) { confianzaNum = Math.round((scoreFrente + scoreReverso) / 2); }
-        else if (scoreFrente != null) { confianzaNum = scoreFrente; }
-        else if (scoreReverso != null) { confianzaNum = scoreReverso; }
-        else if (checksTotales > 0 && checksOk != null) { confianzaNum = Math.round((checksOk / checksTotales) * 100); }
-        var confianzaTexto = confianzaNum != null ? confianzaNum + "%" : "—";
-        var confianzaClase = "text-secondary";
-        if (confianzaNum != null) {
-            if (confianzaNum >= 80) confianzaClase = "text-success";
-            else if (confianzaNum >= 50) confianzaClase = "text-warning";
-            else confianzaClase = "text-danger";
-        }
-        var html = "<div class=\"card border shadow-none\"><div class=\"card-header py-2 bg-light\"><strong><i class=\"fa fa-shield-alt me-1\"></i>Resultado de la verificación API</strong></div><div class=\"card-body py-2 small\">";
-        html += "<div class=\"row g-2 mb-2 align-items-center\">";
-        html += "<div class=\"col-6 col-md\"><span class=\"text-muted d-block\">Confianza</span><strong class=\"fs-6 " + confianzaClase + "\">" + confianzaTexto + "</strong></div>";
-        html += "<div class=\"col-6 col-md\"><span class=\"text-muted d-block\">Frente</span><strong class=\"text-primary\">" + (scoreFrente != null ? scoreFrente + "%" : "—") + "</strong></div>";
-        html += "<div class=\"col-6 col-md\"><span class=\"text-muted d-block\">Reverso</span><strong class=\"text-primary\">" + (scoreReverso != null ? scoreReverso + "%" : "—") + "</strong></div>";
-        html += "<div class=\"col-6 col-md\"><span class=\"text-muted d-block\">Checks</span><strong>" + (checksOk != null && checksTotales != null ? checksOk + "/" + checksTotales : "—") + "</strong></div>";
-        html += "<div class=\"col-6 col-md\"><span class=\"text-muted d-block\">Coinciden</span><strong class=\"" + (todoCoincide ? "text-success" : (v.todo_coincide === false ? "text-danger" : "text-secondary")) + "\">" + (v.todo_coincide === true ? "Sí" : (v.todo_coincide === false ? "No" : "—")) + "</strong></div>";
-        html += "</div>";
-        var lineasComparaciones = [];
-        if (v.comparaciones && typeof v.comparaciones === "object") {
-            var comp = v.comparaciones;
-            var labels = { "nombre_frente_vs_reverso": "Nombre en INE = Nombre en reverso", "fecha_nac_curp_vs_mrz": "Fecha nac. (CURP) = Fecha en reverso", "nombre_id_vs_curp_pdf": "Nombre en INE = Nombre en CURP PDF", "curp_vs_fiscal": "CURP = Constancia fiscal", "nombre_vs_fiscal": "Nombre = Constancia fiscal", "curp_vs_nss": "CURP = NSS", "nombre_vs_nss": "Nombre = NSS", "nombre_vs_acta": "Nombre = Acta de nacimiento", "fecha_nac_vs_acta": "Fecha nac. = Acta", "curp_id_vs_documento": "CURP en INE = Otro documento" };
-            Object.keys(comp).forEach(function(k) {
-                var c = comp[k];
-                if (!c || typeof c !== "object") return;
-                if (c.coincide !== undefined) lineasComparaciones.push((labels[k] || k) + ": " + (c.coincide ? "✔ Coincide" : "✘ No coincide"));
-                else if (c.es_reciente !== undefined) lineasComparaciones.push("CURP PDF: " + (c.es_reciente ? "Reciente" : (c.meses_antiguedad || "?") + " meses"));
-            });
-        }
-        var btnId = "";
-        if (lineasComparaciones.length) {
-            btnId = "btnVerComparaciones_" + (Math.random().toString(36).slice(2, 9));
-            html += "<div class=\"border-top pt-2 mt-2\"><button type=\"button\" class=\"btn btn-sm btn-outline-secondary\" id=\"" + btnId + "\" title=\"Ver comparaciones entre documentos\"><i class=\"fa fa-list-ul me-1\"></i>Ver comparaciones entre documentos</button></div>";
-        }
-        if (alertas.length) {
-            html += "<div class=\"mt-2 pt-2 border-top\"><span class=\"text-muted d-block mb-1\"><strong>Alertas</strong></span><ul class=\"mb-0 ps-3\"><li class=\"text-warning\">" + alertas.join("</li><li class=\"text-warning\">") + "</li></ul></div>";
-        }
-        html += "</div></div>";
-        bloqueVerif.innerHTML = html;
-        if (lineasComparaciones.length && window.bootstrap && window.bootstrap.Popover) {
-            var btnComp = document.getElementById(btnId);
-            if (btnComp) {
-                var popContent = "<div class=\"text-start small\" style=\"min-width: 280px;\"><p class=\"text-muted mb-2\"><strong>Comparaciones entre documentos</strong><br><span class=\"text-muted\">(que los datos del candidato coincidan en todos)</span></p><ul class=\"list-unstyled mb-0\">" + lineasComparaciones.map(function(l) { var ok = l.indexOf("✔") !== -1 || l.indexOf("Reciente") !== -1; return "<li class=\"py-1 border-bottom border-light\"><i class=\"fa fa-" + (ok ? "check-circle text-success" : "times-circle text-danger") + " me-2\"></i>" + l + "</li>"; }).join("") + "</ul></div>";
-                new window.bootstrap.Popover(btnComp, { content: popContent, html: true, trigger: "click", placement: "bottom", container: "body" });
+            function badgeVerificacionDoc(tipoDoc, v) {
+                if (!v || !tipoDoc) return "";
+                var t = (tipoDoc + "").trim().toUpperCase();
+                if (t.indexOf("REVERSO") !== -1) { var r = v.identificacion_reverso_score; if (r == null) return ""; return "<span class=\"badge bg-primary ms-1\" title=\"Veracidad con el candidato\">" + r + "%</span>"; }
+                if (t === "IDENTIFICACIÓN OFICIAL" || t === "IDENTIFICACION OFICIAL") { var s = v.identificacion_frente_score; if (s == null) return ""; return "<span class=\"badge bg-primary ms-1\" title=\"Veracidad con el candidato\">" + s + "%</span>"; }
+                var comp = v.comparaciones || {};
+                if (t.indexOf("CURP") !== -1 && t.indexOf("ACTA") === -1) { var c1 = comp.nombre_id_vs_curp_pdf || comp.curp_id_vs_documento; if (c1 && c1.coincide !== undefined) return c1.coincide ? "<span class=\"badge bg-success ms-1\" title=\"Coincide con INE\">Coincide</span>" : "<span class=\"badge bg-danger ms-1\" title=\"No coincide\">No coincide</span>"; }
+                if (t.indexOf("CONSTANCIA") !== -1 || t.indexOf("FISCAL") !== -1) { var c2 = comp.curp_vs_fiscal || comp.nombre_vs_fiscal; if (c2 && c2.coincide !== undefined) return c2.coincide ? "<span class=\"badge bg-success ms-1\">Coincide</span>" : "<span class=\"badge bg-danger ms-1\">No coincide</span>"; }
+                if (t.indexOf("NSS") !== -1 || t.indexOf("SEGURIDAD SOCIAL") !== -1) { var c3 = comp.curp_vs_nss || comp.nombre_vs_nss; if (c3 && c3.coincide !== undefined) return c3.coincide ? "<span class=\"badge bg-success ms-1\">Coincide</span>" : "<span class=\"badge bg-danger ms-1\">No coincide</span>"; }
+                if (t.indexOf("ACTA") !== -1) { var c4 = comp.nombre_vs_acta || comp.fecha_nac_vs_acta; if (c4 && c4.coincide !== undefined) return c4.coincide ? "<span class=\"badge bg-success ms-1\">Coincide</span>" : "<span class=\"badge bg-danger ms-1\">No coincide</span>"; }
+                return "";
             }
-        }
-    }
 
-    function badgeVerificacionDoc(tipoDoc, v) {
-        if (!v || !tipoDoc) return "";
-        var t = (tipoDoc + "").trim().toUpperCase();
-        if (t.indexOf("REVERSO") !== -1) { var r = v.identificacion_reverso_score; if (r == null) return ""; return "<span class=\"badge bg-primary ms-1\" title=\"Veracidad con el candidato\">" + r + "%</span>"; }
-        if (t === "IDENTIFICACIÓN OFICIAL" || t === "IDENTIFICACION OFICIAL") { var s = v.identificacion_frente_score; if (s == null) return ""; return "<span class=\"badge bg-primary ms-1\" title=\"Veracidad con el candidato\">" + s + "%</span>"; }
-        var comp = v.comparaciones || {};
-        if (t.indexOf("CURP") !== -1 && t.indexOf("ACTA") === -1) { var c1 = comp.nombre_id_vs_curp_pdf || comp.curp_id_vs_documento; if (c1 && c1.coincide !== undefined) return c1.coincide ? "<span class=\"badge bg-success ms-1\" title=\"Coincide con INE\">Coincide</span>" : "<span class=\"badge bg-danger ms-1\" title=\"No coincide\">No coincide</span>"; }
-        if (t.indexOf("CONSTANCIA") !== -1 || t.indexOf("FISCAL") !== -1) { var c2 = comp.curp_vs_fiscal || comp.nombre_vs_fiscal; if (c2 && c2.coincide !== undefined) return c2.coincide ? "<span class=\"badge bg-success ms-1\">Coincide</span>" : "<span class=\"badge bg-danger ms-1\">No coincide</span>"; }
-        if (t.indexOf("NSS") !== -1 || t.indexOf("SEGURIDAD SOCIAL") !== -1) { var c3 = comp.curp_vs_nss || comp.nombre_vs_nss; if (c3 && c3.coincide !== undefined) return c3.coincide ? "<span class=\"badge bg-success ms-1\">Coincide</span>" : "<span class=\"badge bg-danger ms-1\">No coincide</span>"; }
-        if (t.indexOf("ACTA") !== -1) { var c4 = comp.nombre_vs_acta || comp.fecha_nac_vs_acta; if (c4 && c4.coincide !== undefined) return c4.coincide ? "<span class=\"badge bg-success ms-1\">Coincide</span>" : "<span class=\"badge bg-danger ms-1\">No coincide</span>"; }
-        return "";
-    }
+            function eliminarDocYRecargarModal(idDoc, idCandidato) {
+                fetch("/caphum/eliminarDocumentoCandidato", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded", "X-Requested-With": "XMLHttpRequest" }, body: "id=" + idDoc })
+                .then(function(r){ return r.json(); }).then(function(res) {
+                    if (res.success) { if (typeof Swal !== "undefined") Swal.fire({ icon: "success", title: "Eliminado", text: res.mensaje || "Documento eliminado." }); cargarDocumentosModal(idCandidato); }
+                    else { if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "Error", text: res.mensaje || "No se pudo eliminar." }); }
+                }).catch(function() { if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "Error", text: "Error de conexión." }); });
+            }
 
-    function eliminarDocYRecargarModal(idDoc, idCandidato) {
-        fetch("/caphum/eliminarDocumentoCandidato", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded", "X-Requested-With": "XMLHttpRequest" }, body: "id=" + idDoc })
-        .then(function(r){ return r.json(); }).then(function(res) {
-            if (res.success) { if (typeof Swal !== "undefined") Swal.fire({ icon: "success", title: "Eliminado", text: res.mensaje || "Documento eliminado." }); cargarDocumentosModal(idCandidato); }
-            else { if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "Error", text: res.mensaje || "No se pudo eliminar." }); }
-        }).catch(function() { if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "Error", text: "Error de conexión." }); });
-    }
-
-    function renderListaDocumentos(lista, cargando, vacio, datos, verif, idCandidato) {
-        if (!lista) return;
-        if (cargando) cargando.classList.add("d-none");
-        lista.innerHTML = "";
-        if (!datos || datos.length === 0) { if (vacio) vacio.classList.remove("d-none"); return; }
-        if (vacio) vacio.classList.add("d-none");
-        datos.forEach(function(d) {
-            var item = document.createElement("div");
+            function renderListaDocumentos(lista, cargando, vacio, datos, verif, idCandidato) {
+                if (!lista) return;
+                if (cargando) cargando.classList.add("d-none");
+                lista.innerHTML = "";
+                if (!datos || datos.length === 0) { if (vacio) vacio.classList.remove("d-none"); return; }
+                if (vacio) vacio.classList.add("d-none");
+                datos.forEach(function(d) {
+                    var item = document.createElement("div");
             item.className = "list-group-item list-group-item-action d-flex justify-content-between align-items-center";
             var fecha = d.fecha_carga ? new Date(d.fecha_carga).toLocaleDateString("es-MX") : "";
             var badge = badgeVerificacionDoc(d.tipo_documento, verif);
             var esValidado = parseInt(d.validado || 0, 10) === 1;
             var btnValidarClase = esValidado ? "btn-success" : "btn-outline-success";
             var btnValidarIcon = esValidado ? "fa-check-circle" : "fa-check";
-            var btnValidarTitle = esValidado ? "Validado — clic para retirar" : "Marcar como validado";
+            var btnValidarTitle = esValidado ? "Documento validado" : "Marcar como validado";
+            var btnValidarDisabled = esValidado ? " disabled" : "";
             if (esValidado) { item.style.borderLeft = "3px solid #198754"; item.style.background = "#f0fdf4"; }
             var btnEliminarHtml = esValidado
                 ? "<span class=\"btn btn-sm btn-outline-secondary disabled\" title=\"No se puede eliminar un documento validado\"><i class=\"fa fa-trash\"></i></span>"
                 : "<button type=\"button\" class=\"btn btn-sm btn-outline-danger btn-eliminar-doc-candidato\" data-id=\"" + d.id + "\" title=\"Eliminar\"><i class=\"fa fa-trash\"></i></button>";
             item.innerHTML = "<div class=\"d-flex align-items-center flex-wrap\"><div><strong>" + (d.tipo_documento || "Documento") + "</strong>" + (esValidado ? " <span class=\"badge bg-success ms-1\">Validado</span>" : "") + "<br><small class=\"text-muted\">" + (d.nombre_archivo || "") + (fecha ? " · " + fecha : "") + "</small></div>" + badge + "</div>" +
                 "<div class=\"d-flex gap-1 align-items-center\">" +
-                "<button type=\"button\" class=\"btn btn-sm " + btnValidarClase + " btn-validar-doc-candidato\" data-id=\"" + d.id + "\" data-validado=\"" + (esValidado ? 1 : 0) + "\" title=\"" + btnValidarTitle + "\"><i class=\"fa " + btnValidarIcon + "\"></i></button>" +
+                "<button type=\"button\" class=\"btn btn-sm " + btnValidarClase + " btn-validar-doc-candidato\"" + btnValidarDisabled + " data-id=\"" + d.id + "\" data-validado=\"" + (esValidado ? 1 : 0) + "\" title=\"" + btnValidarTitle + "\"><i class=\"fa " + btnValidarIcon + "\"></i></button>" +
                 "<a href=\"/caphum/verDocumentoCandidato/" + d.id + "\" target=\"_blank\" class=\"btn btn-sm btn-outline-primary\" title=\"Abrir\"><i class=\"fa fa-eye\"></i></a>" +
                 btnEliminarHtml + "</div>";
             lista.appendChild(item);
@@ -3618,9 +3779,30 @@ class CapHum extends Controller
                     btn.disabled = false;
                     if (iconEl) iconEl.className = iconClass;
                     if (res.success) {
+                        var nuevoEstado = res.datos && res.datos.validado === 1;
+                        var mensajeValidacion = nuevoEstado ? "Documento validado correctamente." : "Validación retirada del documento.";
+                        if (typeof Swal !== "undefined") {
+                            Swal.fire({ 
+                                icon: nuevoEstado ? "success" : "info", 
+                                title: nuevoEstado ? "Documento validado" : "Validación retirada", 
+                                text: mensajeValidacion, 
+                                timer: 3000, 
+                                showConfirmButton: false 
+                            });
+                        }
                         cargarDocumentosModal(idCandidato);
                         if (typeof getCandidatos === "function") getCandidatos();
-                        if (res.datos && res.datos.todos_validados) { if (typeof Swal !== "undefined") Swal.fire({ icon: "success", title: "Expediente validado", text: "Todos los documentos han sido validados. El estatus del candidato cambió a Validado.", timer: 3000, showConfirmButton: false }); }
+                        if (res.datos && res.datos.todos_validados) { 
+                            setTimeout(function() {
+                                if (typeof Swal !== "undefined") Swal.fire({ 
+                                    icon: "success", 
+                                    title: "Expediente validado", 
+                                    text: "Todos los documentos han sido validados. El estatus del candidato cambió a Validado.", 
+                                    timer: 3000, 
+                                    showConfirmButton: false 
+                                }); 
+                            }, 3500);
+                        }
                     } else { if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "Error", text: res.mensaje || "No se pudo actualizar." }); }
                 }).catch(function() { btn.disabled = false; if (iconEl) iconEl.className = iconClass; if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "Error", text: "Error de conexión." }); });
             });
@@ -3632,108 +3814,216 @@ class CapHum extends Controller
                 else if (confirm("¿Eliminar este documento?")) eliminarDocYRecargarModal(idDoc, idCandidato);
             });
         });
-    }
+        }
 
-    function cargarDocumentosModal(idCandidato) {
-        var lista = document.getElementById("modalDocumentacionCandidatoLista");
-        var cargando = document.getElementById("modalDocumentacionCandidatoCargando");
-        var vacio = document.getElementById("modalDocumentacionCandidatoVacio");
-        var bloqueVerif = document.getElementById("modalDocumentacionCandidatoVerificacion");
-        var bloqueMetricas = document.getElementById("modalDocumentacionCandidatoMetricas");
-        var bloqueAccionVerificar = document.getElementById("modalDocumentacionCandidatoAccionVerificar");
-        fetch("/caphum/getDocumentosCandidatoList?id_candidato=" + idCandidato).then(function(r){ return r.json(); }).then(function(res) {
-            var docs = (res.datos && res.datos.documentos) ? res.datos.documentos : (res.datos && Array.isArray(res.datos) ? res.datos : []);
-            var verif = (res.datos && res.datos.verificacion_expediente) ? res.datos.verificacion_expediente : null;
-            var metricas = (res.datos && res.datos.metricas) ? res.datos.metricas : null;
-            renderListaDocumentos(lista, cargando, vacio, docs, verif, idCandidato);
-            renderMetricasDoc(bloqueMetricas, metricas);
-            if (bloqueAccionVerificar) bloqueAccionVerificar.classList.add("d-none");
-            if (verif) {
-                if (bloqueVerif) { bloqueVerif.classList.remove("d-none"); bloqueVerif.innerHTML = "<div class=\"alert alert-success small mb-0\"><i class=\"fa fa-check-circle me-1\"></i>Expediente verificado automáticamente. Los resultados se muestran en cada documento.</div>"; }
-                renderVerificacionDoc(bloqueVerif, verif);
-            } else if (metricas && metricas.expediente_completo) {
-                if (bloqueVerif) { bloqueVerif.classList.remove("d-none"); bloqueVerif.innerHTML = "<div class=\"alert alert-info small mb-0\"><i class=\"fa fa-hourglass-half me-1\"></i>La verificación automática se está procesando en segundo plano. Los resultados aparecerán aquí cuando estén listos.</div>"; }
+            function actualizarDocumentosEnMap(idCandidato, docPayload) {
+                // Actualizar el Map global con los nuevos datos del candidato
+                if (window.candidatosDataMap && idCandidato) {
+                    window.candidatosDataMap.set(idCandidato, docPayload);
+                }
             }
-        }).catch(function() { renderListaDocumentos(lista, cargando, vacio, [], null, idCandidato); });
-    }
 
-    function abrirModalDocumentacionCandidato(idCandidato, nombreCandidato, cachedPayload) {
-        var modal = document.getElementById("modalDocumentacionCandidato");
-        var label = document.getElementById("modalDocumentacionCandidatoNombre");
-        var bloqueVerif = document.getElementById("modalDocumentacionCandidatoVerificacion");
-        var bloqueMetricas = document.getElementById("modalDocumentacionCandidatoMetricas");
-        var bloqueAccionVerificar = document.getElementById("modalDocumentacionCandidatoAccionVerificar");
-        var lista = document.getElementById("modalDocumentacionCandidatoLista");
-        var cargando = document.getElementById("modalDocumentacionCandidatoCargando");
-        var vacio = document.getElementById("modalDocumentacionCandidatoVacio");
-        if (label) label.textContent = nombreCandidato ? "Candidato: " + nombreCandidato : "";
-        if (bloqueVerif) { bloqueVerif.classList.add("d-none"); bloqueVerif.innerHTML = ""; }
-        if (bloqueMetricas) { bloqueMetricas.classList.add("d-none"); bloqueMetricas.innerHTML = ""; }
-        if (bloqueAccionVerificar) bloqueAccionVerificar.classList.add("d-none");
-        if (cachedPayload && cachedPayload.documentos) { if (cargando) cargando.classList.add("d-none"); if (vacio) vacio.classList.add("d-none"); }
-        else { if (cargando) cargando.classList.remove("d-none"); if (vacio) vacio.classList.add("d-none"); }
-        if (lista) lista.innerHTML = "";
-        var bsModal = modal && window.bootstrap && window.bootstrap.Modal ? new window.bootstrap.Modal(modal) : null;
-        if (bsModal) bsModal.show();
-        if (cachedPayload && (cachedPayload.documentos || cachedPayload.metricas)) {
-            var docs = cachedPayload.documentos || [];
-            var verif = cachedPayload.verificacion_expediente || null;
-            var metricas = cachedPayload.metricas || null;
-            renderListaDocumentos(lista, cargando, vacio, docs, verif, idCandidato);
-            renderMetricasDoc(bloqueMetricas, metricas);
-            if (bloqueAccionVerificar) bloqueAccionVerificar.classList.add("d-none");
-            if (verif) { if (bloqueVerif) { bloqueVerif.classList.remove("d-none"); bloqueVerif.innerHTML = ""; } renderVerificacionDoc(bloqueVerif, verif); }
-            else if (metricas && metricas.expediente_completo && bloqueVerif) { bloqueVerif.classList.remove("d-none"); bloqueVerif.innerHTML = "<div class=\"alert alert-info small mb-0\"><i class=\"fa fa-hourglass-half me-1\"></i>Verificación en proceso.</div>"; }
-        } else { cargarDocumentosModal(idCandidato); }
-    }
+            function cargarDocumentosModal(idCandidato) {
+                var lista = document.getElementById("modalDocumentacionCandidatoLista");
+                var cargando = document.getElementById("modalDocumentacionCandidatoCargando");
+                var vacio = document.getElementById("modalDocumentacionCandidatoVacio");
+                var bloqueVerif = document.getElementById("modalDocumentacionCandidatoVerificacion");
+                var bloqueMetricas = document.getElementById("modalDocumentacionCandidatoMetricas");
+                var bloqueAccionVerificar = document.getElementById("modalDocumentacionCandidatoAccionVerificar");
+                fetch("/caphum/getDocumentosCandidatoList?id_candidato=" + idCandidato).then(function(r){ return r.json(); }).then(function(res) {
+                    var docs = (res.datos && res.datos.documentos) ? res.datos.documentos : (res.datos && Array.isArray(res.datos) ? res.datos : []);
+                    var verif = (res.datos && res.datos.verificacion_expediente) ? res.datos.verificacion_expediente : null;
+                    var metricas = (res.datos && res.datos.metricas) ? res.datos.metricas : null;
+                    
+                    // Actualizar el Map global con los nuevos datos
+                    actualizarDocumentosEnMap(idCandidato, {
+                        documentos: docs,
+                        verificacion_expediente: verif,
+                        metricas: metricas
+                    });
+                    
+                    renderListaDocumentos(lista, cargando, vacio, docs, verif, idCandidato);
+                    renderMetricasDoc(bloqueMetricas, metricas);
+                    if (bloqueAccionVerificar) bloqueAccionVerificar.classList.add("d-none");
+                    if (verif) {
+                        if (bloqueVerif) { bloqueVerif.classList.remove("d-none"); bloqueVerif.innerHTML = "<div class=\"alert alert-success small mb-0\"><i class=\"fa fa-check-circle me-1\"></i>Expediente verificado automáticamente. Los resultados se muestran en cada documento.</div>"; }
+                        renderVerificacionDoc(bloqueVerif, verif);
+                    } else if (metricas && metricas.expediente_completo) {
+                        if (bloqueVerif) { bloqueVerif.classList.remove("d-none"); bloqueVerif.innerHTML = "<div class=\"alert alert-info small mb-0\"><i class=\"fa fa-hourglass-half me-1\"></i>La verificación automática se está procesando en segundo plano. Los resultados aparecerán aquí cuando estén listos.</div>"; }
+                    }
+                }).catch(function() { renderListaDocumentos(lista, cargando, vacio, [], null, idCandidato); });
+            }
 
-    function abrirModalReenviarPostulacion(idCandidato) {
+            function abrirModalDocumentacionCandidato(idCandidato, nombreCandidato) {
+                var modal = document.getElementById("modalDocumentacionCandidato");
+                var label = document.getElementById("modalDocumentacionCandidatoNombre");
+                var bloqueVerif = document.getElementById("modalDocumentacionCandidatoVerificacion");
+                var bloqueMetricas = document.getElementById("modalDocumentacionCandidatoMetricas");
+                var bloqueAccionVerificar = document.getElementById("modalDocumentacionCandidatoAccionVerificar");
+                var lista = document.getElementById("modalDocumentacionCandidatoLista");
+                var cargando = document.getElementById("modalDocumentacionCandidatoCargando");
+                var vacio = document.getElementById("modalDocumentacionCandidatoVacio");
+                if (label) label.textContent = nombreCandidato ? "Candidato: " + nombreCandidato : "";
+                if (bloqueVerif) { bloqueVerif.classList.add("d-none"); bloqueVerif.innerHTML = ""; }
+                if (bloqueMetricas) { bloqueMetricas.classList.add("d-none"); bloqueMetricas.innerHTML = ""; }
+                if (bloqueAccionVerificar) bloqueAccionVerificar.classList.add("d-none");
+                if (lista) lista.innerHTML = "";
+                
+                // Eager Loading: Obtener datos del Map global (sin peticiones de red - INSTANTÁNEO)
+                var docPayload = window.candidatosDataMap && window.candidatosDataMap.get(idCandidato) ? window.candidatosDataMap.get(idCandidato) : null;
+                
+                if (docPayload) {
+                    // Datos disponibles instantáneamente desde memoria
+                    if (cargando) cargando.classList.add("d-none");
+                    if (vacio) vacio.classList.add("d-none");
+                    
+                    var docs = docPayload.documentos || [];
+                    var verif = docPayload.verificacion_expediente || null;
+                    var metricas = docPayload.metricas || null;
+                    
+                    renderListaDocumentos(lista, cargando, vacio, docs, verif, idCandidato);
+                    renderMetricasDoc(bloqueMetricas, metricas);
+                    if (bloqueAccionVerificar) bloqueAccionVerificar.classList.add("d-none");
+                    if (verif) {
+                        if (bloqueVerif) { bloqueVerif.classList.remove("d-none"); bloqueVerif.innerHTML = ""; }
+                        renderVerificacionDoc(bloqueVerif, verif);
+                    } else if (metricas && metricas.expediente_completo && bloqueVerif) {
+                        bloqueVerif.classList.remove("d-none");
+                        bloqueVerif.innerHTML = "<div class=\"alert alert-info small mb-0\"><i class=\"fa fa-hourglass-half me-1\"></i>Verificación en proceso.</div>";
+                    }
+                } else {
+                    // Si no hay datos en memoria (no debería pasar con Eager Loading), mostrar vacío
+                    if (cargando) cargando.classList.add("d-none");
+                    if (vacio) vacio.classList.remove("d-none");
+                    if (lista) lista.innerHTML = "";
+                }
+                
+                var bsModal = modal && window.bootstrap && window.bootstrap.Modal ? new window.bootstrap.Modal(modal) : null;
+                if (bsModal) bsModal.show();
+            }
+
+            function abrirModalReenviarPostulacion(idCandidato) {
         candidatoDatosEnvio = null;
-        fetch("/caphum/getCandidato/" + idCandidato).then(function(r){ return r.json(); }).then(function(res){
-            if (!res.success || !res.datos) { if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "Error", text: "No se encontró el candidato." }); return; }
-            var c = res.datos;
-            var nombreCompleto = [c.nombres, c.segundo_nombre, c.apellidop, c.apellidom].filter(Boolean).join(" ");
-            document.getElementById("resumenPostulacionTexto").innerHTML = buildResumenCandidatoHTML({ nombreCompleto: nombreCompleto || "—", telefono: (c.telefono ? "(" + c.telefono + ")" : "—"), email: c.email || "—", puesto: c.nombre_puesto || "—", departamento: c.nombre_departamento || "—" });
-            document.getElementById("btnEnviarPostulacion").disabled = false;
-            document.getElementById("btnEnviarPostulacion").innerHTML = "<i class='bx bx-send me-2'></i> Reenviar postulación por correo";
-            candidatoReenviarId = c.id;
-            candidatoReenviarEmail = c.email || "";
-            var modal = new bootstrap.Modal(document.getElementById("modalResumenPostulacion"));
-            modal.show();
-            cargarLinkDocumentosCandidato(c.id);
-        }).catch(function(){ if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "Error", text: "No se pudo cargar el candidato." }); });
-    }
+        
+        // Intentar obtener datos desde la memoria primero (eager loading)
+        var candidato = null;
+        if (window.candidatosData && Array.isArray(window.candidatosData)) {
+            candidato = window.candidatosData.find(function(c) {
+                return c.id === idCandidato || parseInt(c.id, 10) === idCandidato;
+            });
+        }
+        
+        if (candidato) {
+            // Usar datos de memoria
+            var nombreCompleto = [candidato.nombres, candidato.segundo_nombre, candidato.apellidop, candidato.apellidom].filter(Boolean).join(" ");
+            var resumenEl = document.getElementById("resumenPostulacionTexto");
+            if (resumenEl) {
+                resumenEl.innerHTML = buildResumenCandidatoHTML({ 
+                    nombreCompleto: nombreCompleto || "—", 
+                    telefono: (candidato.telefono ? "(" + candidato.telefono + ")" : "—"), 
+                    email: candidato.email || "—", 
+                    puesto: candidato.nombre_puesto || "—", 
+                    departamento: candidato.nombre_departamento || "—" 
+                });
+            }
+            var btnEnviar = document.getElementById("btnEnviarPostulacion");
+            if (btnEnviar) {
+                btnEnviar.disabled = false;
+                btnEnviar.innerHTML = "<i class='bx bx-send me-2'></i> Reenviar postulación por correo";
+            }
+            candidatoReenviarId = candidato.id || idCandidato;
+            candidatoReenviarEmail = candidato.email || "";
+            var modalEl = document.getElementById("modalResumenPostulacion");
+            if (modalEl) {
+                var modal = new bootstrap.Modal(modalEl);
+                modal.show();
+            }
+            cargarLinkDocumentosCandidato(candidato.id || idCandidato);
+        } else {
+            // Fallback: obtener desde el servidor
+            fetch("/caphum/getCandidato/" + idCandidato)
+                .then(function(r) { 
+                    if (!r.ok) {
+                        throw new Error("Error HTTP: " + r.status);
+                    }
+                    return r.json(); 
+                })
+                .then(function(res) {
+                    if (!res || !res.success || !res.datos) { 
+                        if (typeof Swal !== "undefined") {
+                            Swal.fire({ icon: "error", title: "Error", text: "No se encontró el candidato." }); 
+                        }
+                        return; 
+                    }
+                    var c = res.datos;
+                    var nombreCompleto = [c.nombres, c.segundo_nombre, c.apellidop, c.apellidom].filter(Boolean).join(" ");
+                    var resumenEl = document.getElementById("resumenPostulacionTexto");
+                    if (resumenEl) {
+                        resumenEl.innerHTML = buildResumenCandidatoHTML({ 
+                            nombreCompleto: nombreCompleto || "—", 
+                            telefono: (c.telefono ? "(" + c.telefono + ")" : "—"), 
+                            email: c.email || "—", 
+                            puesto: c.nombre_puesto || "—", 
+                            departamento: c.nombre_departamento || "—" 
+                        });
+                    }
+                    var btnEnviar = document.getElementById("btnEnviarPostulacion");
+                    if (btnEnviar) {
+                        btnEnviar.disabled = false;
+                        btnEnviar.innerHTML = "<i class='bx bx-send me-2'></i> Reenviar postulación por correo";
+                    }
+                    candidatoReenviarId = c.id;
+                    candidatoReenviarEmail = c.email || "";
+                    var modalEl = document.getElementById("modalResumenPostulacion");
+                    if (modalEl) {
+                        var modal = new bootstrap.Modal(modalEl);
+                        modal.show();
+                    }
+                    cargarLinkDocumentosCandidato(c.id);
+                })
+                .catch(function(err) { 
+                    console.error("Error al cargar candidato:", err);
+                    if (typeof Swal !== "undefined") {
+                        Swal.fire({ 
+                            icon: "error", 
+                            title: "Error", 
+                            text: "No se pudo cargar el candidato. " + (err.message || "Error de conexión.") 
+                        }); 
+                    }
+                });
+        }
+        }
 
-    function buildResumenCandidatoHTML(o) {
+            function buildResumenCandidatoHTML(o) {
         var n = o.nombreCompleto || "—"; var t = o.telefono || "—"; var e = o.email || "—"; var p = o.puesto || "—"; var d = o.departamento || "—";
         return "<div class=\"resumen-row\"><span class=\"resumen-label\">Candidato</span><span class=\"resumen-value\">" + escapeHtml(n) + "</span></div>" +
             "<div class=\"resumen-row\"><span class=\"resumen-label\">Teléfono</span><span class=\"resumen-value\">" + escapeHtml(t) + "</span></div>" +
             "<div class=\"resumen-row\"><span class=\"resumen-label\">Correo</span><span class=\"resumen-value\">" + escapeHtml(e) + "</span></div>" +
             "<div class=\"resumen-row\"><span class=\"resumen-label\">Puesto</span><span class=\"resumen-value\">" + escapeHtml(p) + "</span></div>" +
             "<div class=\"resumen-row\"><span class=\"resumen-label\">Departamento</span><span class=\"resumen-value\">" + escapeHtml(d) + "</span></div>";
-    }
+        }
 
-    function escapeHtml(s) {
+            function escapeHtml(s) {
         if (!s) return ""; var div = document.createElement("div"); div.textContent = s; return div.innerHTML;
-    }
+        }
 
-    function cargarLinkDocumentosCandidato(idCandidato) {
+            function cargarLinkDocumentosCandidato(idCandidato) {
         if (!idCandidato) return;
         var bloque = document.getElementById("bloqueLinkDocumentos");
         var input = document.getElementById("inputUrlDocumentos");
         if (!bloque || !input) return;
         fetch("/caphum/getTokenDocumentosCandidato", { method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" }, body: JSON.stringify({ id: idCandidato }) })
             .then(function(r){ return r.json(); }).then(function(res){ if (res.success && res.datos && res.datos.url) { input.value = res.datos.url; input.setAttribute("title", res.datos.url); bloque.style.display = "block"; } }).catch(function(){});
-    }
+        }
 
-    function showToastUrl(msg) {
+            function showToastUrl(msg) {
         var t = document.getElementById("toastUrlDocumentos");
         if (!t) return;
         t.textContent = msg; t.classList.add("show");
         setTimeout(function() { t.classList.remove("show"); }, 2200);
-    }
+        }
 
-    function initCopiarUrlDocumentos() {
+            function initCopiarUrlDocumentos() {
         var btn = document.getElementById("btnCopiarUrlDocumentos");
         var input = document.getElementById("inputUrlDocumentos");
         if (!btn || !input) return;
@@ -3751,9 +4041,9 @@ class CapHum extends Controller
             btnAbrir._abrirBound = true;
             btnAbrir.addEventListener("click", function() { var url = input.value; if (!url) return; if (!/^https?:\/\//i.test(url)) url = "https://" + url; window.open(url, "_blank", "noopener,noreferrer"); });
         }
-    }
+        }
 
-    function editarCandidato(id) {
+            function editarCandidato(id) {
         candidatoEditId = id;
         var titulo = document.getElementById("offcanvasCandidatoTitulo");
         if (titulo) titulo.textContent = "Editar Candidato";
@@ -3803,17 +4093,17 @@ class CapHum extends Controller
             })
             .catch(function(){ if (selJefe) selJefe.innerHTML = "<option value=''>Seleccione posible jefe</option>"; });
         }).catch(function(){ if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "Error", text: "No se pudo cargar el candidato." }); });
-    }
+        }
 
-    function abrirOffcanvasCandidato() {
+            function abrirOffcanvasCandidato() {
         var el = document.getElementById("offcanvasAddCandidato");
         if (!el) return;
         if (el.parentNode !== document.body) document.body.appendChild(el);
         if (typeof bootstrap !== "undefined" && bootstrap.Offcanvas) { var inst = bootstrap.Offcanvas.getOrCreateInstance(el); if (inst) inst.show(); }
         else { el.classList.add("show"); el.setAttribute("aria-hidden", "false"); var back = document.createElement("div"); back.className = "offcanvas-backdrop fade show"; back.style.cssText = "position:fixed;top:0;left:0;z-index:1040;width:100vw;height:100vh;background:#000;opacity:0.5;"; back.setAttribute("data-bs-dismiss", "offcanvas"); document.body.appendChild(back); }
-    }
+        }
 
-    function guardarCandidatoEdicion() {
+            function guardarCandidatoEdicion() {
         var form = document.getElementById("formAgregarCandidato");
         if (!form || !form.checkValidity()) { form.reportValidity(); return; }
         var id = candidatoEditId; if (!id) return;
@@ -3834,9 +4124,9 @@ class CapHum extends Controller
                 getCandidatos();
             } else { if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "Error", text: res.mensaje || "No se pudo actualizar." }); }
         }).catch(function(){ if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "Error", text: "Error de conexión." }); });
-    }
+        }
 
-    function guardarCandidatoAbrirResumen() {
+            function guardarCandidatoAbrirResumen() {
         var form = document.getElementById("formAgregarCandidato");
         if (!form || !form.checkValidity()) { form.reportValidity(); return; }
         var data = buildCandidatoPayloadFromForm();
@@ -3866,9 +4156,9 @@ class CapHum extends Controller
             if (fpInput && fpInput._flatpickr) fpInput._flatpickr.setDate(new Date(), true);
             getCandidatos();
         }).catch(function(){ if (typeof Swal !== "undefined") Swal.close(); if (btnSubmit) { btnSubmit.disabled = false; btnSubmit.innerHTML = "<i class=\"bx bx-save me-1\"></i> Guardar"; } if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "Error", text: "Error de conexión." }); });
-    }
+        }
 
-    function buildCandidatoPayloadFromForm() {
+            function buildCandidatoPayloadFromForm() {
         var form = document.getElementById("formAgregarCandidato"); if (!form) return {};
         return {
             nombres: (form.nombres && form.nombres.value.trim()) || "",
@@ -3887,9 +4177,9 @@ class CapHum extends Controller
             contrasena: (form.contrasena && form.contrasena.value.trim()) || "",
             estatus: "Por evaluar", notas: null, postulacion_enviada: 1
         };
-    }
+        }
 
-    function enviarPostulacionAlCandidato() {
+            function enviarPostulacionAlCandidato() {
         var btn = document.getElementById("btnEnviarPostulacion");
         if (btn.disabled) return;
         btn.disabled = true; btn.innerHTML = "<i class='bx bx-loader-alt bx-spin me-2'></i> Enviando...";
@@ -3934,24 +4224,15 @@ class CapHum extends Controller
                 if (form) form.reset(); var fpInput = document.getElementById("candidato_fecha_postulacion"); if (fpInput && fpInput._flatpickr) fpInput._flatpickr.setDate(new Date(), true);
             } else { btn.disabled = false; btn.innerHTML = "<i class='bx bx-send me-2'></i> Enviar postulación al candidato"; if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "Error", text: res.mensaje || res.error || "No se pudo guardar." }); }
         }).catch(function(){ btn.disabled = false; btn.innerHTML = "<i class='bx bx-send me-2'></i> Enviar postulación al candidato"; if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "Error", text: "Error de conexión." }); });
-    }
+        }
 
-    function eliminarCandidato(id) {
+            function eliminarCandidato(id) {
         if (typeof Swal === "undefined") { if (confirm("¿Eliminar candidato?")) fetch("/caphum/eliminarCandidato", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: id }) }).then(function(r){ return r.json(); }).then(function(d){ if (d.success) getCandidatos(); }); return; }
         Swal.fire({ title: "¿Eliminar?", text: "Se eliminará el candidato.", icon: "warning", showCancelButton: true }).then(function(r){ if (r.isConfirmed) fetch("/caphum/eliminarCandidato", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: id }) }).then(function(res){ return res.json(); }).then(function(d){ if (d.success) { Swal.fire({ icon: "success", text: d.mensaje }); getCandidatos(); } else Swal.fire({ icon: "error", text: d.mensaje || d.error }); }); });
-    }
+        }
 
-    function prefetchDocumentacion(id) {
-        if (!id) return;
-        if (documentacionCache && documentacionCache.id === id) return;
-        var urlBase = "/caphum/getDocumentosCandidatoList";
-        var sep = urlBase.indexOf("?") !== -1 ? "&" : "?";
-        fetch(urlBase + sep + "id_candidato=" + id).then(function(r){ return r.json(); }).then(function(res) {
-            if (res.success && res.datos) documentacionCache = { id: id, data: res.datos };
-        }).catch(function(){});
-    }
 
-    $(document).ready(function() {
+        $(document).ready(function() {
         configuraTabla("#tablaCandidatos", {
             registrosPorPagina: 10,
             columns: [
@@ -3973,15 +4254,6 @@ class CapHum extends Controller
         var form = document.getElementById("formAgregarCandidato");
         if (form) { form.addEventListener("submit", function(e) { e.preventDefault(); if (candidatoEditId) guardarCandidatoEdicion(); else guardarCandidatoAbrirResumen(); }); }
         document.addEventListener("click", candidatosTableClick);
-        document.addEventListener("mouseover", function(ev) {
-            var btn = ev.target && ev.target.closest ? ev.target.closest(".btn-documentacion-candidato") : null;
-            if (!btn) { if (docPrefetchTimer) { clearTimeout(docPrefetchTimer); docPrefetchTimer = null; } return; }
-            var id = btn.getAttribute("data-id"); if (!id) return;
-            if (documentacionCache && documentacionCache.id === id) return;
-            if (docPrefetchTimer) clearTimeout(docPrefetchTimer);
-            docPrefetchTimer = setTimeout(function() { docPrefetchTimer = null; prefetchDocumentacion(id); }, 50);
-        });
-        document.addEventListener("mousedown", function(ev) { var btn = ev.target && ev.target.closest ? ev.target.closest(".btn-documentacion-candidato") : null; if (!btn) return; prefetchDocumentacion(btn.getAttribute("data-id")); });
         var offcanvasEl = document.getElementById("offcanvasAddCandidato");
         if (offcanvasEl) {
             offcanvasEl.addEventListener("show.bs.offcanvas", function() { var btnSubmit = document.getElementById("btnSubmitCandidato"); if (!btnSubmit) return; if (candidatoEditId) { btnSubmit.innerHTML = "<i class=\"bx bx-edit-alt me-1\"></i> Actualizar"; btnSubmit.className = "btn btn-success me-2"; } else { btnSubmit.innerHTML = "<i class=\"bx bx-save me-1\"></i> Guardar"; btnSubmit.className = "btn btn-primary me-2"; } });
@@ -4023,16 +4295,20 @@ class CapHum extends Controller
         if (btnAddCandidato) btnAddCandidato.addEventListener("click", function() { candidatoEditId = null; document.getElementById("offcanvasCandidatoTitulo").textContent = "Nuevo Candidato"; });
         initFlatpickrFechaPostulacion();
         initCopiarUrlDocumentos();
-    });
-</script>
-SCR;
+        });
+        </script>
+        HTML;
+        
+        $departamento = CapHumDAO::getConsultaDepartamentoGestor($_SESSION['usuario_id']);
+        $modulos = $_SESSION['modulos'] ?? [];
+        $puedeGestionarCandidatos = in_array(42, $modulos);
 
         self::set("titulo", "Candidatos");
+        self::set("script", $script);
         self::set("puedeGestionarCandidatos", $puedeGestionarCandidatos);
         self::set("departamento", $departamento);
         self::set("paisesActivos", \Models\Paises::getPaisesActivos());
         self::set("listaJefes", CapHumDAO::getListaPersonasParaJefe());
-        self::set("script", $script);
         self::render("candidatos");
     }
 
@@ -4043,6 +4319,75 @@ SCR;
         $id_departamento = isset($_GET["id_departamento"]) ? (int) $_GET["id_departamento"] : null;
         $id_puesto = isset($_GET["id_puesto"]) ? (int) $_GET["id_puesto"] : null;
         $resultado = CandidatosDAO::getAll($estatus, $id_departamento, $id_puesto);
+        
+        // Eager Loading: Incluir documentos, verificación y métricas de cada candidato
+        if ($resultado['success'] && !empty($resultado['datos']) && is_array($resultado['datos'])) {
+            $tiposRequeridos = [
+                'SOLICITUD INTERNA' => 1, 'CV O SOLICITUD DE TRABAJO' => 2, 'ACTA DE NACIMIENTO' => 3, 'ACTA DE NACIMIENTO Certificada' => 3,
+                'CURP' => 4, 'IDENTIFICACIÓN OFICIAL' => 5, 'IDENTIFICACIÓN OFICIAL (REVERSO)' => '5_reverso',
+                'COMPROBANTE DE DOMICILIO' => 6, 'CONSTANCIA DE SITUACION FISCAL' => 7, 'NÚMERO DE SEGURIDAD SOCIAL' => 8,
+                'HOJA DE RETENCION FONACOT O INFONAVIT' => 9, 'ESTADO DE CUENTA' => 10,
+            ];
+            $normalize = function ($s) {
+                $s = trim(mb_strtoupper($s ?? ''));
+                $s = str_replace(['Í', 'Ó', 'Ú', 'Á', 'É', 'Ñ'], ['I', 'O', 'U', 'A', 'E', 'N'], $s);
+                return preg_replace('/\s+/', ' ', $s);
+            };
+            
+            foreach ($resultado['datos'] as &$candidato) {
+                $id_candidato = (int) ($candidato['id'] ?? 0);
+                if ($id_candidato > 0) {
+                    $docData = CandidatosDAO::getDocumentosYVerificacion($id_candidato);
+                    $documentos = $docData['documentos'] ?? [];
+                    $candidato['documentos'] = $documentos;
+                    
+                    if (isset($docData['verificacion']) && $docData['verificacion'] !== null) {
+                        $candidato['verificacion_expediente'] = $docData['verificacion'];
+                    }
+                    
+                    // Calcular métricas
+                    $clavesUnicas = [];
+                    foreach ($documentos as $d) {
+                        $tipo = $normalize($d['tipo_documento'] ?? '');
+                        if ($tipo === 'IDENTIFICACION OFICIAL (REVERSO)') {
+                            $clavesUnicas['5_reverso'] = true;
+                        } else {
+                            foreach ($tiposRequeridos as $nombre => $num) {
+                                if ($num === '5_reverso') continue;
+                                $nombreNorm = $normalize($nombre);
+                                if ($tipo === $nombreNorm || strpos($tipo, $nombreNorm) !== false || strpos($nombreNorm, $tipo) !== false) {
+                                    $clavesUnicas[is_string($num) ? $num : $num] = true;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    $totalRequeridos = 11;
+                    $totalActual = count($clavesUnicas);
+                    $expedienteCompleto = ($totalActual >= $totalRequeridos
+                        && isset($clavesUnicas['5_reverso'])
+                        && isset($clavesUnicas[1]) && isset($clavesUnicas[2]) && isset($clavesUnicas[3]) && isset($clavesUnicas[4])
+                        && isset($clavesUnicas[5]) && isset($clavesUnicas[6]) && isset($clavesUnicas[7]) && isset($clavesUnicas[8])
+                        && isset($clavesUnicas[9]) && isset($clavesUnicas[10]));
+                    $candidato['metricas'] = [
+                        'total_documentos' => $totalActual,
+                        'documentos_requeridos' => $totalRequeridos,
+                        'porcentaje' => $totalRequeridos > 0 ? min(100, (int) round(($totalActual / $totalRequeridos) * 100)) : 0,
+                        'expediente_completo' => $expedienteCompleto,
+                    ];
+                } else {
+                    $candidato['documentos'] = [];
+                    $candidato['metricas'] = [
+                        'total_documentos' => 0,
+                        'documentos_requeridos' => 11,
+                        'porcentaje' => 0,
+                        'expediente_completo' => false,
+                    ];
+                }
+            }
+            unset($candidato); // Liberar referencia
+        }
+        
         echo json_encode($resultado);
         exit;
     }
