@@ -95,12 +95,50 @@ class Notificacion extends Model
 
     /**
      * Crea la misma notificación para varias personas (ej. equipo Sabueso).
+     * Usa un solo INSERT con múltiples filas cuando hay id_ticket para no bloquear la respuesta.
      */
     public static function crearParaPersonas(array $idPersonas, string $tipo, string $mensaje, ?int $idTicket = null): void
     {
-        foreach ($idPersonas as $id) {
-            $id = (int)$id;
-            if ($id > 0) {
+        $idPersonas = array_values(array_unique(array_map('intval', $idPersonas)));
+        $idPersonas = array_filter($idPersonas, function ($id) {
+            return $id > 0;
+        });
+        if (empty($idPersonas)) {
+            return;
+        }
+        $mensaje = mb_substr($mensaje, 0, 500);
+        try {
+            $db = new Database();
+            if ($idTicket !== null && $idTicket > 0) {
+                $paramsExist = ['tipo' => $tipo, 'id_ticket' => $idTicket];
+                $placeholders = [];
+                foreach ($idPersonas as $i => $id) {
+                    $key = 'id_' . $i;
+                    $paramsExist[$key] = $id;
+                    $placeholders[] = ":$key";
+                }
+                $placeholdersStr = implode(',', $placeholders);
+                $stmt = $db->queryAll(
+                    "SELECT id_persona FROM notificacion WHERE tipo = :tipo AND id_ticket = :id_ticket AND id_persona IN ($placeholdersStr)",
+                    $paramsExist
+                );
+                $yaExisten = is_array($stmt) ? array_column($stmt, 'id_persona') : [];
+                $idPersonas = array_values(array_diff($idPersonas, $yaExisten));
+            }
+            if (empty($idPersonas)) {
+                return;
+            }
+            $values = [];
+            $params = ['tipo' => $tipo, 'mensaje' => $mensaje, 'id_ticket' => $idTicket];
+            foreach ($idPersonas as $i => $id) {
+                $key = 'id_' . $i;
+                $params[$key] = $id;
+                $values[] = "(:$key, :tipo, :mensaje, :id_ticket, 0)";
+            }
+            $sql = "INSERT INTO notificacion (id_persona, tipo, mensaje, id_ticket, leida) VALUES " . implode(', ', $values);
+            $db->CRUD($sql, $params);
+        } catch (\Exception $e) {
+            foreach ($idPersonas as $id) {
                 self::crear($id, $tipo, $mensaje, $idTicket);
             }
         }
@@ -119,10 +157,10 @@ class Notificacion extends Model
         try {
             $db = new Database();
             $rows = $db->queryAll(
-                "SELECT id, tipo, mensaje, id_ticket, leida, fecha_creacion 
-                 FROM notificacion 
-                 WHERE id_persona = :id_persona 
-                 ORDER BY leida ASC, fecha_creacion DESC 
+                "SELECT id, tipo, mensaje, id_ticket, leida, fecha_creacion
+                 FROM notificacion
+                 WHERE id_persona = :id_persona
+                 ORDER BY leida ASC, fecha_creacion DESC
                  LIMIT " . (int)$limite,
                 ['id_persona' => $idPersona]
             );
@@ -145,10 +183,10 @@ class Notificacion extends Model
         try {
             $db = new Database();
             $rows = $db->queryAll(
-                "SELECT id, tipo, mensaje, id_ticket, leida, fecha_creacion 
-                 FROM notificacion 
-                 WHERE id_persona = :id_persona 
-                 ORDER BY leida ASC, fecha_creacion DESC 
+                "SELECT id, id_persona, tipo, mensaje, id_ticket, leida, fecha_creacion
+                 FROM notificacion
+                 WHERE id_persona = :id_persona
+                 ORDER BY leida ASC, fecha_creacion DESC
                  LIMIT " . (int)$limite,
                 ['id_persona' => $idPersona]
             );
@@ -223,8 +261,8 @@ class Notificacion extends Model
         try {
             $db = new Database();
             $rows = $db->queryAll(
-                "SELECT t.id_ticket FROM ticket t 
-                 INNER JOIN dictamen d ON d.id_ticket = t.id_ticket AND d.estado = 'enviado_al_gestor' AND d.fecha_visto_gestor IS NULL 
+                "SELECT t.id_ticket FROM ticket t
+                 INNER JOIN dictamen d ON d.id_ticket = t.id_ticket AND d.estado = 'enviado_al_gestor' AND d.fecha_visto_gestor IS NULL
                  WHERE t.id_persona_creador = :id_persona AND (t.activo = 1 OR t.activo IS NULL)",
                 ['id_persona' => $idPersona]
             );
@@ -294,8 +332,8 @@ class Notificacion extends Model
         }
         try {
             $rows = $db->queryAll(
-                "SELECT t.id_ticket, t.id_persona_creador, t.activo FROM ticket t 
-                 INNER JOIN dictamen d ON d.id_ticket = t.id_ticket AND d.estado = 'enviado_al_gestor' AND d.fecha_visto_gestor IS NULL 
+                "SELECT t.id_ticket, t.id_persona_creador, t.activo FROM ticket t
+                 INNER JOIN dictamen d ON d.id_ticket = t.id_ticket AND d.estado = 'enviado_al_gestor' AND d.fecha_visto_gestor IS NULL
                  WHERE t.id_persona_creador = :id_persona AND (t.activo = 1 OR t.activo IS NULL)",
                 ['id_persona' => $idPersona]
             );

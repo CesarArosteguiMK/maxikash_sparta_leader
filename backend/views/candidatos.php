@@ -28,6 +28,7 @@ $listaJefes = $listaJefes ?? [];
                         <option value="Contratado">Contratado</option>
                         <option value="Descartado">Descartado</option>
                         <option value="Validado">Validado</option>
+                        <option value="Proceso cerrado">Proceso cerrado</option>
                     </select>
                 </div>
             </div>
@@ -120,9 +121,64 @@ $listaJefes = $listaJefes ?? [];
                 <div id="modalDocumentacionCandidatoMetricas" class="mb-3 d-none"></div>
                 <div id="modalDocumentacionCandidatoVerificacion" class="mb-3 d-none"></div>
                 <div id="modalDocumentacionCandidatoAccionVerificar" class="mb-3 d-none"></div>
+                <div id="modalDocumentacionCandidatoAccionesProceso" class="mb-3 d-none"></div>
                 <div id="modalDocumentacionCandidatoCargando" class="text-center py-4 text-muted">Cargando…</div>
                 <div id="modalDocumentacionCandidatoVacio" class="text-center py-4 text-muted d-none">No hay documentos subidos.</div>
                 <div id="modalDocumentacionCandidatoLista" class="list-group"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Cerrar proceso del candidato -->
+<div class="modal fade" id="modalCerrarProcesoCandidato" tabindex="-1" aria-labelledby="modalCerrarProcesoCandidatoLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalCerrarProcesoCandidatoLabel"><i class="fa fa-times-circle me-2"></i>Cerrar proceso</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted small mb-3">Indica el motivo por el que no se continúa con el proceso de este candidato.</p>
+                <input type="hidden" id="cerrarProcesoIdCandidato" value="">
+                <div class="mb-3">
+                    <label for="cerrarProcesoMotivo" class="form-label">Motivo <span class="text-danger">*</span></label>
+                    <select id="cerrarProcesoMotivo" class="form-select" required>
+                        <option value="">Selecciona un motivo</option>
+                        <option value="no_cubre_perfil">No cubre el perfil</option>
+                        <option value="desistio">Desistió</option>
+                        <option value="sin_info_a_tiempo">No dio información a tiempo</option>
+                        <option value="otro">Otro</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label for="cerrarProcesoDescripcion" class="form-label">Descripción (opcional)</label>
+                    <textarea id="cerrarProcesoDescripcion" class="form-control" rows="3" placeholder="Detalles adicionales..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-outline-danger" id="btnConfirmarCerrarProceso"><i class="fa fa-check me-1"></i>Confirmar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Confirmar RRHH dio de alta en nómina (tras Continuar proceso) -->
+<div class="modal fade" id="modalConfirmarAltaNomina" tabindex="-1" aria-labelledby="modalConfirmarAltaNominaLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalConfirmarAltaNominaLabel"><i class="fa fa-user-check me-2"></i>Confirmar alta en nómina</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-0">Confirma que Recursos Humanos ya dio de alta al candidato en nómina.</p>
+                <input type="hidden" id="confirmarAltaNominaIdCandidato" value="">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" id="btnConfirmarAltaNominaNo">No</button>
+                <button type="button" class="btn btn-primary" id="btnConfirmarAltaNominaSi"><i class="fa fa-check me-1"></i>Sí</button>
             </div>
         </div>
     </div>

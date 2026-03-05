@@ -42,7 +42,7 @@ function getMenu()
                             ]
                     ]
             ],
-        
+
             /* MÓDULO INDICADORES — deshabilitado temporalmente (comentar para re-activar)
             'Indicadores' => [
                     'icono' => 'fa-solid fa-chart-line',
@@ -130,7 +130,7 @@ function getMenu()
                     ]
             ],
             */
-            
+
             'Capital Humano' => [
                     'icono' => 'fa-solid fa-users',
                     'subItems' => [
@@ -175,7 +175,7 @@ function getMenu()
                                     'modulos' => [7]
                             ],
 
-                            
+
 
 
                             [
@@ -188,9 +188,9 @@ function getMenu()
                                         'label' => 'Reporte CH',
                                         'url' => '/reporteria/reporteCapitalHumano',
                                         'modulos' => [21]
-                           ]                                   
+                           ]
 
-                            
+
                     ]
             ],
             'Condonaciones' => [
@@ -239,7 +239,7 @@ function getMenu()
                             [
                                     'label' => 'Curso Onboarding',
                                     'url' => '/onboarding/index',
-                                    'modulos' => []
+                                    'modulos' => [44]
                             ]
                     ]
             ],
@@ -268,7 +268,7 @@ function getMenu()
                             ]
                     ]
             ],
-            
+
     ];
 
     $menu = '';
@@ -763,6 +763,19 @@ html.dark-mode .navbar .text-muted{color:#94a3b8 !important;}
     <script src="/assets/js/comunes.js"></script>
     <script src="/assets/js/componentes.js"></script>
 
+    <!-- Linkify: convierte URLs en texto a enlaces clicables (descripción dictamen Sabueso) -->
+    <script>
+    window.linkifyDescripcionDictamen = function(text) {
+        if (!text || (String(text).trim() === '')) return '—';
+        var esc = String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        var urlRegex = /(https?:\/\/[^\s<>"'\]]+|maps\.google[^\s<>"'\]]*|goo\.gl\/[^\s<>"'\]]+)/gi;
+        return esc.replace(urlRegex, function(url) {
+            var href = url.replace(/&amp;/g, '&');
+            return '<a href="' + href.replace(/"/g, '&quot;') + '" target="_blank" rel="noopener noreferrer">' + url + '</a>';
+        });
+    };
+    </script>
+
     <!-- Campana de notificaciones: cargar lista, badge, marcar leídas, sonido -->
     <script>
     (function(){
@@ -1177,14 +1190,14 @@ html.dark-mode .navbar .text-muted{color:#94a3b8 !important;}
             const icon = document.getElementById('darkModeIcon');
             const text = document.getElementById('darkModeText');
             const toggle = document.getElementById('darkModeToggle');
-            
+
             if (isDark) {
                 document.documentElement.classList.add('dark-mode');
                 body.classList.add('dark-mode');
                 if (icon) { icon.className = 'fa-solid fa-sun dark-mode-icon'; }
                 if (text) text.textContent = 'Apariencia (modo claro)';
                 if (toggle) toggle.classList.add('active-dark');
-                
+
                 fixInlineStyles();
             } else {
                 document.documentElement.classList.remove('dark-mode');
@@ -1192,7 +1205,7 @@ html.dark-mode .navbar .text-muted{color:#94a3b8 !important;}
                 if (icon) { icon.className = 'fa-solid fa-moon dark-mode-icon'; }
                 if (text) text.textContent = 'Apariencia (modo oscuro)';
                 if (toggle) toggle.classList.remove('active-dark');
-                
+
                 restoreOriginalStyles();
             }
         }
@@ -1293,7 +1306,7 @@ html.dark-mode .navbar .text-muted{color:#94a3b8 !important;}
                     el.style.backgroundColor = '#1e293b';
                     el.style.color = '#e0e0e0';
                 }
-                
+
                 // Eliminar fondos blancos de cualquier hijo
                 if (el.style.backgroundColor === 'rgb(255, 255, 255)' || el.style.backgroundColor === '#fff' || el.style.backgroundColor === 'white') {
                     if (!el.classList.contains('btn-primary') && !el.classList.contains('btn-success') && !el.classList.contains('btn-danger')) {
@@ -1307,18 +1320,18 @@ html.dark-mode .navbar .text-muted{color:#94a3b8 !important;}
             const elementsWithGradient = document.querySelectorAll('[style*="linear-gradient"], [style*="radial-gradient"]');
             elementsWithGradient.forEach(el => {
                 // Saltar elementos de KPIs
-                if (el.classList.contains('kpi-card') || 
-                    el.classList.contains('kpi-number') || 
+                if (el.classList.contains('kpi-card') ||
+                    el.classList.contains('kpi-number') ||
                     el.closest('.kpi-card') ||
                     el.classList.contains('kpi-separator')) {
                     return;
                 }
-                
+
                 const style = el.getAttribute('style');
                 if (style) {
                     // Eliminar cualquier gradiente del estilo inline
                     let newStyle = style.replace(/background(-image)?:\s*(?:linear|radial)-gradient\([^)]+\)\s*;?/gi, '');
-                    
+
                     // Si el elemento tiene clases específicas, asignar colores sólidos
                     if (el.classList.contains('table-header-indigo')) {
                         newStyle += '; background: #4F46E5 !important;';
@@ -1336,7 +1349,7 @@ html.dark-mode .navbar .text-muted{color:#94a3b8 !important;}
                         // Para otros elementos, usar color oscuro por defecto
                         newStyle += '; background: #1e293b !important;';
                     }
-                    
+
                     el.setAttribute('style', newStyle);
                     el.style.backgroundImage = 'none';
                 }
@@ -1409,14 +1422,14 @@ html.dark-mode .navbar .text-muted{color:#94a3b8 !important;}
             const isDarkByClass = document.body.classList.contains('dark-mode');
             const isDark = isDarkStored || isDarkByClass;
             applyDarkMode(isDark);
-            
+
             // Re-aplicar cuando se abren modales o se actualiza contenido dinámico
             const observer = new MutationObserver(function(mutations) {
                 if (document.body.classList.contains('dark-mode')) {
                     fixInlineStyles();
                 }
             });
-            
+
             observer.observe(document.body, {
                 childList: true,
                 subtree: true
