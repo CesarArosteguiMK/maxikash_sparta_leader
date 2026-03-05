@@ -1409,11 +1409,12 @@
                     onError: function() { if (onCompletado) onCompletado('No se pudo eliminar una evidencia.'); else eliminarSiguiente(idx + 1); }
                 });
             }
-            function subirSiguiente(indice) {
+            function subirSiguiente(indice, intentos) {
                 if (indice >= archivosPendientes.length) {
                     enviarBorrador();
                     return;
                 }
+                intentos = intentos || 0;
                 var fd = new FormData();
                 fd.append('id_ticket', idTicket);
                 fd.append('evidencia', archivosPendientes[indice]);
@@ -1424,10 +1425,22 @@
                     processData: false,
                     contentType: false,
                     success: function(r) {
-                        if (r.success) subirSiguiente(indice + 1);
-                        else { if (!silent && typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: 'Error al subir evidencia', text: (r && r.mensaje) || 'No se pudo subir la imagen.' }); if (onCompletado) onCompletado((r && r.mensaje) || 'No se pudo subir la imagen.'); }
+                        if (r.success) {
+                            subirSiguiente(indice + 1, 0);
+                        } else if (intentos < 1) {
+                            // Reintento automático (1 vez) ante error del servidor
+                            setTimeout(function() { subirSiguiente(indice, intentos + 1); }, 600);
+                        } else {
+                            if (!silent && typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: 'Error al subir evidencia', text: (r && r.mensaje) || 'No se pudo subir la imagen.' });
+                            if (onCompletado) onCompletado((r && r.mensaje) || 'No se pudo subir la imagen.');
+                        }
                     },
                     error: function(xhr) {
+                        if (intentos < 1) {
+                            // Reintento automático (1 vez) ante error de red/timeout
+                            setTimeout(function() { subirSiguiente(indice, intentos + 1); }, 600);
+                            return;
+                        }
                         var msg = 'No se pudo subir la evidencia.';
                         try {
                             var j = xhr.responseJSON || (xhr.responseText ? JSON.parse(xhr.responseText) : null);
@@ -1473,6 +1486,7 @@
             eliminarSiguiente(0);
         }
         function enviarDictamenGestorUI() {
+            // 1️⃣ Resolver idTicket antes de cualquier otra acción
             var idTicket = parseInt($('#rastreoIdTicketActual').val() || $('#rastreoIdTicketActual').attr('data-id-ticket') || $('#modalRastreoCredito').attr('data-id-ticket') || '', 10) || (typeof window.ticketIdRastreoActual !== 'undefined' ? window.ticketIdRastreoActual : null);
             if (!idTicket && typeof ticketIdRastreoActual !== 'undefined') idTicket = ticketIdRastreoActual;
             if (!idTicket || isNaN(idTicket)) {
@@ -1484,16 +1498,20 @@
             var desc = ($('#rastreoDictamenDescripcion').val() || '').trim();
             if (!tipo || !desc) { if (typeof Swal !== 'undefined') Swal.fire({ icon: 'warning', title: 'Faltan datos', text: 'Seleccione tipo y escriba la descripción antes de enviar.' }); return; }
 
+            // 2️⃣ Cancelar el autoguardado pendiente para evitar dos guardados simultáneos
+            if (dictamenAutoguardadoTimer) { clearTimeout(dictamenAutoguardadoTimer); dictamenAutoguardadoTimer = null; }
+
             if (typeof Swal !== 'undefined') {
                 Swal.fire({
                     title: 'Se está enviando el dictamen',
-                    text: 'Por favor espere. Se guardará la información y se enviará al gestor.',
+                    text: 'Por favor espere. Se guardarán las fotos y la información antes de enviar al gestor.',
                     allowOutsideClick: false,
                     allowEscapeKey: false,
                     showConfirmButton: false,
                     didOpen: function() { if (Swal.showLoading) Swal.showLoading(); }
                 });
             }
+            // 3️⃣ Flush completo (fotos pendientes + borrador), con reintentos ante fallos de subida
             guardarDictamenBorradorUI(true, function(err) {
                 if (err) {
                     if (typeof Swal !== 'undefined') {

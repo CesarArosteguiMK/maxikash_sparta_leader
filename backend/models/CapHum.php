@@ -1177,11 +1177,23 @@ class CapHum extends Model
         if ($id_departamento > 0) {
             $filtroDepto2 = " AND p2.id IN (SELECT ap_in.id_persona FROM asigna_puesto ap_in INNER JOIN puesto pp_in ON pp_in.id = ap_in.id_puesto WHERE pp_in.departamento_id = $id_departamento)";
         }
+        // Un puesto por persona: si hay departamento, solo puestos de ese departamento y el de mayor rango (menor nivel)
+        // Sin departamento: cualquier puesto, desempate por MIN(id_puesto)
+        // Con departamento: el puesto de MAYOR nivel (mayor rango) en ese departamento; desempate por MIN(id_puesto)
+        $subqueryPuesto = "SELECT id_persona, MIN(id_puesto) AS id_puesto FROM asigna_puesto GROUP BY id_persona";
+        if ($id_departamento > 0) {
+            $subqueryPuesto = "SELECT ap.id_persona, MIN(ap.id_puesto) AS id_puesto FROM asigna_puesto ap "
+                . "INNER JOIN puesto pp ON pp.id = ap.id_puesto AND pp.departamento_id = $id_departamento "
+                . "INNER JOIN (SELECT ap2.id_persona, MAX(pp2.nivel) AS max_nivel FROM asigna_puesto ap2 INNER JOIN puesto pp2 ON pp2.id = ap2.id_puesto AND pp2.departamento_id = $id_departamento GROUP BY ap2.id_persona) sel ON sel.id_persona = ap.id_persona AND pp.nivel = sel.max_nivel "
+                . "GROUP BY ap.id_persona";
+        }
+        $filtroPuestoRaiz = $id_departamento > 0 ? " AND pp.departamento_id = $id_departamento" : '';
+        $orderPuestoRaiz = $id_departamento > 0 ? " ORDER BY pp.nivel DESC" : '';
 
         $query = <<<SQL
                WITH RECURSIVE Jerarquia AS (
 
-                -- NIVEL 1: un solo puesto por persona; opcionalmente solo personas con puesto en el departamento
+                -- NIVEL 1: un solo puesto por persona (del departamento si se filtró); solo personas con puesto en el departamento
                 SELECT
                     p.id,
                     p.nombres,
@@ -1192,7 +1204,7 @@ class CapHum extends Model
                     aj.id_jefe,
                     1 AS nivel
                 FROM persona p
-                JOIN (SELECT id_persona, MIN(id_puesto) AS id_puesto FROM asigna_puesto GROUP BY id_persona) ap ON p.id = ap.id_persona
+                JOIN ($subqueryPuesto) ap ON p.id = ap.id_persona
                 JOIN puesto pp ON pp.id = ap.id_puesto
                 JOIN (SELECT id_persona, MIN(id_jefe) AS id_jefe FROM asigna_jefe GROUP BY id_persona) aj ON p.id = aj.id_persona
                 WHERE p.estatus != 'Baja'
@@ -1201,7 +1213,7 @@ class CapHum extends Model
 
                 UNION ALL
 
-                -- NIVELES 2–4: un solo puesto y un solo jefe por persona; opcionalmente solo personas del departamento
+                -- NIVELES 2–4: un solo puesto por persona (del departamento si se filtró); solo personas del departamento
                 SELECT
                     p2.id,
                     p2.nombres,
@@ -1212,7 +1224,7 @@ class CapHum extends Model
                     aj2.id_jefe,
                     j.nivel + 1 AS nivel
                 FROM persona p2
-                JOIN (SELECT id_persona, MIN(id_puesto) AS id_puesto FROM asigna_puesto GROUP BY id_persona) ap2 ON p2.id = ap2.id_persona
+                JOIN ($subqueryPuesto) ap2 ON p2.id = ap2.id_persona
                 JOIN puesto pp2 ON pp2.id = ap2.id_puesto
                 JOIN (SELECT id_persona, MIN(id_jefe) AS id_jefe FROM asigna_jefe GROUP BY id_persona) aj2 ON p2.id = aj2.id_persona
                 JOIN Jerarquia j ON aj2.id_jefe = j.id
@@ -1233,7 +1245,8 @@ class CapHum extends Model
                     FROM persona p
                     INNER JOIN asigna_puesto ap ON ap.id_persona = p.id
                     INNER JOIN puesto pp ON pp.id = ap.id_puesto
-                    WHERE p.id = $id_persona
+                    WHERE p.id = $id_persona $filtroPuestoRaiz
+                    $orderPuestoRaiz
                     LIMIT 1
                 ),
                 'subordinados', (
