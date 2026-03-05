@@ -15,7 +15,7 @@
         border-right: 2px solid rgba(220, 53, 69, 0.6) !important;
         box-shadow: inset 0 0 0 2px rgba(220, 53, 69, 0.35), 0 0 12px rgba(220, 53, 69, 0.25);
         background: linear-gradient(90deg, rgba(220, 53, 69, 0.12) 0%, rgba(220, 53, 69, 0.02%) 100%) !important;
-    } 
+    }
     @keyframes filaDictamenRedPulseTicket {
         0%, 100% { box-shadow: inset 0 0 0 2px rgba(220, 53, 69, 0.35), 0 0 12px rgba(220, 53, 69, 0.2); }
         50%  { box-shadow: inset 0 0 0 2px rgba(220, 53, 69, 0.55), 0 0 20px rgba(220, 53, 69, 0.45); }
@@ -111,8 +111,8 @@
             </div>
             <div class="modal-footer border-top">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-primary" onclick="enviarLevantarTicket()">
-                    <i class="fa-solid fa-check me-1"></i>Levantar ticket
+                <button type="button" class="btn btn-primary" id="btnLevantarTicket" onclick="enviarLevantarTicket()">
+                    <span id="btnLevantarTicketText"><i class="fa-solid fa-check me-1"></i>Levantar ticket</span>
                 </button>
             </div>
         </div>
@@ -168,6 +168,21 @@
             </div>
             <div class="modal-footer py-2">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"><i class="fa-solid fa-times me-1"></i>Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal ver evidencia en grande (vista Ticket) -->
+<div class="modal fade" id="modalVerEvidenciaDictamenTicket" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-xl">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <h6 class="modal-title"><i class="fa-solid fa-expand me-2"></i>Evidencia</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body text-center p-0">
+                <img id="modalVerEvidenciaDictamenTicketImg" src="" alt="Evidencia" class="img-fluid rounded" style="max-height: 85vh; width: auto;">
             </div>
         </div>
     </div>

@@ -65,7 +65,7 @@ require_once LIBRERIAS . '/PhpSpreadsheet/vendor/autoload.php';
 */
 spl_autoload_register(function ($archivo) {
     // Ignorar clases que maneja el vendor de PhpSpreadsheet
-    if (strpos($archivo, 'PhpOffice\\') === 0 || 
+    if (strpos($archivo, 'PhpOffice\\') === 0 ||
         strpos($archivo, 'ZipStream\\') === 0 ||
         strpos($archivo, 'Psr\\') === 0) {
         return;
@@ -221,7 +221,7 @@ $rutasModulos = [
     'indicadores/detalleClientes' => [30], 'indicadores/detalleEficiencia' => [31], 'indicadores/carteraInicioSem' => [32],
     'indicadores/seguimientoPromesasPago' => [33], 'indicadores/espartanos' => [34], 'indicadores/matrizBuckets' => [35],
     'indicadores/matrizBucketsMas1' => [36], 'indicadores/auditoria' => [37], 'indicadores/auditoria2' => [38], 'indicadores/seguimiento' => [39],
-    'caphum/gestion' => [4], 'caphum/candidatos' => [42], 'caphum/getcandidatos' => [42], 'caphum/getcandidato' => [42], 'caphum/guardarcandidato' => [42], 'caphum/actualizarcandidato' => [42], 'caphum/eliminarcandidato' => [42], 'caphum/enviarpostulacioncandidato' => [42], 'caphum/gettokendocumentoscandidato' => [42], 'caphum/getdocumentoscandidatolist' => [42], 'caphum/verificarexpedientecandidato' => [42], 'caphum/verdocumentocandidato' => [42], 'caphum/eliminardocumentocandidato' => [42], 'caphum/validardocumentocandidato' => [42], 'caphum/bajas' => [13], 'caphum/organigrama' => [5], 'caphum/niveljerarquicocolaborador' => [5], 'caphum/getpuestospersona' => [5],
+    'caphum/gestion' => [4], 'caphum/candidatos' => [42], 'caphum/getcandidatos' => [42], 'caphum/getcandidato' => [42], 'caphum/guardarcandidato' => [42], 'caphum/actualizarcandidato' => [42], 'caphum/eliminarcandidato' => [42], 'caphum/enviarpostulacioncandidato' => [42], 'caphum/gettokendocumentoscandidato' => [42], 'caphum/getdocumentoscandidatolist' => [42], 'caphum/verificarexpedientecandidato' => [42], 'caphum/verdocumentocandidato' => [42], 'caphum/eliminardocumentocandidato' => [42], 'caphum/validardocumentocandidato' => [42], 'caphum/cerrarprocesocandidato' => [42], 'caphum/continuarprocesocandidato' => [42], 'caphum/pasarcandidatoagestion' => [42], 'caphum/bajas' => [13], 'caphum/organigrama' => [5], 'caphum/niveljerarquicocolaborador' => [5], 'caphum/getpuestospersona' => [5],
     'reporteria/resumencallcenter' => [6], 'reporteria/sabuesos' => [18, 19], 'reporteria/descargarReporteSabuesos1' => [18], 'reporteria/descargarReporteSabuesos2' => [19], 'reporteria/descargarReporteSabuesos3' => [19], 'reporteria/layoutlegacy' => [7], 'reporteria/reporteCapitalHumano' => [21],
     'condonaciones/historial' => [15],
     'sabueso/ticket' => [18], 'sabueso/paneladmin' => [19], 'sabueso/cerradoEliminado' => [19],
@@ -229,6 +229,7 @@ $rutasModulos = [
     'sabueso/subirevidenciaticket' => [19], 'sabueso/getevidenciasticket' => [19], 'sabueso/eliminarevidenciaticket' => [19], 'sabueso/verevidencia' => [19],
     'despachos/asignacioncreditosdespacho' => [20], 'departamentos/consulta' => [10], 'equivalencias/consulta' => [17],
     'segundometro/shell' => [16],
+    'onboarding/index' => [44],
 ];
 $controladoresModulos = ['segundometro' => [16]];
 $path = strtolower(trim($controladorArchivo)) . '/' . strtolower(trim($metodo));

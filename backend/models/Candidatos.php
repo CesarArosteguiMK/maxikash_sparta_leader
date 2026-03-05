@@ -254,7 +254,7 @@ class Candidatos extends Model
             return self::resultado(false, 'Error al eliminar candidato.', null, $e->getMessage());
         }
     }
-    
+
     /**
      * Obtener o crear token único para link de subida de documentos del candidato.
      * Retorna el token (string) para construir la URL.
@@ -306,6 +306,75 @@ class Candidatos extends Model
             return self::resultado(true, 'Candidato encontrado.', $row);
         } catch (\Exception $e) {
             return self::resultado(false, 'Error al validar enlace.', null, $e->getMessage());
+        }
+    }
+
+    /**
+     * Crea token para confirmación de alta en nómina (enlace en correo a RRHH).
+     * Retorna token y expira en 7 días.
+     */
+    public static function createTokenConfirmacionAlta($id_candidato)
+    {
+        $id_candidato = (int) $id_candidato;
+        if ($id_candidato <= 0) {
+            return self::resultado(false, 'ID de candidato inválido.', null);
+        }
+        try {
+            $db = new Database();
+            $token = bin2hex(random_bytes(32));
+            $db->CRUD(
+                "INSERT INTO candidato_confirmacion_alta_token (token, id_candidato, expira) VALUES (:token, :id_candidato, DATE_ADD(NOW(), INTERVAL 7 DAY))",
+                ['token' => $token, 'id_candidato' => $id_candidato]
+            );
+            return self::resultado(true, 'Token creado.', $token);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al crear token.', null, $e->getMessage());
+        }
+    }
+
+    /**
+     * Obtiene id_candidato por token de confirmación alta nómina. Válido si no usado y no expirado.
+     */
+    public static function getPorTokenConfirmacionAlta($token)
+    {
+        $token = trim($token ?? '');
+        if ($token === '') {
+            return self::resultado(false, 'Enlace no válido.', null);
+        }
+        try {
+            $db = new Database();
+            $row = $db->queryOne(
+                "SELECT id_candidato FROM candidato_confirmacion_alta_token WHERE token = :token AND usado = 0 AND expira > NOW() LIMIT 1",
+                ['token' => $token]
+            );
+            if (!$row) {
+                return self::resultado(false, 'Enlace no válido, ya usado o expirado.', null);
+            }
+            return self::resultado(true, 'OK', (int) $row['id_candidato']);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al validar enlace.', null, $e->getMessage());
+        }
+    }
+
+    /**
+     * Marca token de confirmación alta nómina como usado (respuesta si o no).
+     */
+    public static function marcarTokenConfirmacionAltaUsado($token, $respuesta)
+    {
+        $token = trim($token ?? '');
+        $respuesta = strtolower(trim($respuesta ?? '')) === 'si' ? 'si' : 'no';
+        if ($token === '') {
+            return false;
+        }
+        try {
+            $db = new Database();
+            $db->CRUD(
+                "UPDATE candidato_confirmacion_alta_token SET usado = 1, respuesta = :respuesta, fecha_uso = NOW() WHERE token = :token",
+                ['respuesta' => $respuesta, 'token' => $token]
+            );
+            return true;
+        } catch (\Exception $e) {
+            return false;
         }
     }
 
@@ -642,6 +711,38 @@ class Candidatos extends Model
             $db = new Database();
             $db->CRUD("UPDATE candidatos SET estatus = :e, fecha_actualizacion = NOW() WHERE id = :id", ['id' => $id_candidato, 'e' => trim($estatus)]);
         } catch (\Exception $e) {
+        }
+    }
+
+    /**
+     * Cerrar proceso del candidato: guarda motivo, descripción y actualiza estatus a "Proceso cerrado".
+     * Requiere que existan las columnas proceso_cerrado, motivo_cierre, descripcion_cierre, fecha_cierre.
+     *
+     * @param int $id_candidato
+     * @param string $motivo Clave del motivo (ej. no_cubre_perfil, desistio, sin_info_a_tiempo, otro)
+     * @param string|null $descripcion Descripción opcional
+     * @return array { success, mensaje, datos?, error? }
+     */
+    public static function cerrarProceso($id_candidato, $motivo, $descripcion = null)
+    {
+        $id_candidato = (int) $id_candidato;
+        if ($id_candidato <= 0) {
+            return self::resultado(false, 'ID de candidato inválido.', null);
+        }
+        $motivo = trim($motivo ?? '');
+        if ($motivo === '') {
+            return self::resultado(false, 'El motivo del cierre es obligatorio.', null);
+        }
+        $descripcion = trim($descripcion ?? '') ?: null;
+        try {
+            $db = new Database();
+            $db->CRUD(
+                "UPDATE candidatos SET proceso_cerrado = 1, motivo_cierre = :motivo, descripcion_cierre = :descripcion, fecha_cierre = NOW(), estatus = 'Proceso cerrado', fecha_actualizacion = NOW() WHERE id = :id",
+                ['id' => $id_candidato, 'motivo' => $motivo, 'descripcion' => $descripcion]
+            );
+            return self::resultado(true, 'Proceso cerrado correctamente.', ['id' => $id_candidato]);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al cerrar el proceso.', null, $e->getMessage());
         }
     }
 }
