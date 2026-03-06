@@ -3661,6 +3661,10 @@ body.dark-mode .modal,
 body.dark-mode .modal.show {
     z-index: 9999 !important;
 }
+/* Modal Cerrar proceso (candidatos): siempre encima del scrim; scrim entre Documentación y este modal */
+body.dark-mode #modalCerrarProcesoCandidato.modal.show {
+    z-index: 99999 !important;
+}
 body.dark-mode .modal.show .modal-dialog {
     z-index: 1;
     pointer-events: auto;
@@ -4982,15 +4986,15 @@ body.dark-mode .highlight-change {
 }
 
 @keyframes highlight-pulse-dark {
-    0% { 
+    0% {
         background-color: #2d6a4f;
         transform: scale(1);
     }
-    50% { 
+    50% {
         background-color: #40916c;
         transform: scale(1.02);
     }
-    100% { 
+    100% {
         background-color: transparent;
         transform: scale(1);
     }

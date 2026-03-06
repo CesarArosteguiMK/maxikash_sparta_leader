@@ -3361,6 +3361,31 @@ class CapHum extends Controller
                 window.candidatosDataMap = new Map();
             }
 
+            /* ── KPI Candidatos: contador animado (misma lógica que Gestión kpiAnimateCounter) ── */
+            function kpiAnimateCounterCand(el, target, dur, delay) {
+                if (!el) return;
+                dur   = dur   || 600;
+                delay = delay || 0;
+                setTimeout(function() {
+                    var start = performance.now();
+                    var ease  = function(t) { return t < 0.5 ? 2*t*t : -1+(4-2*t)*t; };
+                    (function tick(now) {
+                        var p = Math.min((now - start) / dur, 1);
+                        el.textContent = Math.round(target * ease(p));
+                        if (p < 1) requestAnimationFrame(tick);
+                        else el.textContent = target;
+                    })(performance.now());
+                }, delay);
+            }
+
+            /* ── KPI Candidatos: barra animada (misma lógica que Gestión kpiAnimateBar) ── */
+            function kpiAnimateBarCand(id, pct, delay) {
+                var el = document.getElementById(id);
+                if (!el) return;
+                el.style.width = '0%';
+                setTimeout(function() { el.style.width = (pct != null ? pct : 0) + '%'; }, (delay || 0) + 80);
+            }
+
             function actualizarIndicadoresCandidatos(datos) {
                 var total = (datos && datos.length) || 0;
                 var porEvaluar = (datos && datos.filter(function(c){ return (c.estatus || "") === "Por evaluar"; }).length) || 0;
@@ -3368,9 +3393,32 @@ class CapHum extends Controller
                 var elTotal = document.getElementById("kpi-total-candidatos");
                 var elPorEval = document.getElementById("kpi-por-evaluar");
                 var elEnviadas = document.getElementById("kpi-postulaciones-enviadas");
-                if (elTotal) elTotal.textContent = total;
-                if (elPorEval) elPorEval.textContent = porEvaluar;
-                if (elEnviadas) elEnviadas.textContent = enviadas;
+                if (elTotal) kpiAnimateCounterCand(elTotal, total, 600, 0);
+                if (elPorEval) kpiAnimateCounterCand(elPorEval, porEvaluar, 600, 60);
+                if (elEnviadas) kpiAnimateCounterCand(elEnviadas, enviadas, 600, 120);
+                var pctTotal = total > 0 ? 100 : 0;
+                var pctEvaluar = total > 0 ? Math.min(100, Math.round((porEvaluar / total) * 100)) : 0;
+                var pctEnviadas = total > 0 ? Math.min(100, Math.round((enviadas / total) * 100)) : 0;
+                kpiAnimateBarCand("kpi-bar-cand-total",    pctTotal,   80);
+                kpiAnimateBarCand("kpi-bar-cand-evaluar",  pctEvaluar, 160);
+                kpiAnimateBarCand("kpi-bar-cand-enviadas", pctEnviadas, 240);
+                var msTotal = document.getElementById("kpi-ms-cand-total");
+                var msEval = document.getElementById("kpi-ms-cand-evaluar");
+                var msEnv = document.getElementById("kpi-ms-cand-enviadas");
+                var dvTotal = document.getElementById("kpi-dv-cand-total");
+                var dvEval = document.getElementById("kpi-dv-cand-evaluar");
+                var dvEnv = document.getElementById("kpi-dv-cand-enviadas");
+                if (msTotal) msTotal.textContent = total;
+                if (msEval) msEval.textContent = porEvaluar;
+                if (msEnv) msEnv.textContent = enviadas;
+                if (dvTotal) dvTotal.textContent = total;
+                if (dvEval) dvEval.textContent = porEvaluar;
+                if (dvEnv) dvEnv.textContent = enviadas;
+                if (kpiCandCurrentMode === "vision") {
+                    kpiAnimateDonutCand("kpi-arc-cand-total", pctTotal, 80);
+                    kpiAnimateDonutCand("kpi-arc-cand-evaluar", pctEvaluar, 160);
+                    kpiAnimateDonutCand("kpi-arc-cand-enviadas", pctEnviadas, 240);
+                }
             }
 
             function getCandidatos() {
@@ -3609,10 +3657,84 @@ class CapHum extends Controller
             function kpiTogglePanelCandidatos() {
                 var pan = document.getElementById("kpiCollapsibleCandidatos");
                 var btn = document.getElementById("kpiToggleBtnCandidatos");
+                var controls = document.getElementById("kpiViewControlsCand");
+                var sep = document.getElementById("kpiViewControlsSepCand");
                 if (!pan || !btn) return;
-                pan.classList.toggle("open");
-                btn.classList.toggle("open");
+                var isOpen = pan.classList.toggle("open");
+                btn.classList.toggle("open", isOpen);
+                if (controls) controls.classList.toggle("kpi-vc-hidden", !isOpen);
+                if (sep) sep.classList.toggle("kpi-sep-hidden", !isOpen);
+                kpiCandPanelOpen = isOpen;
+                if (typeof localStorage !== "undefined") localStorage.setItem(KPI_CAND_STORAGE_OPEN, isOpen);
             }
+
+            var KPI_CAND_STORAGE_MODE = "kpi_cand_mode";
+            var KPI_CAND_STORAGE_OPEN = "kpi_cand_open";
+            var kpiCandCurrentMode = (typeof localStorage !== "undefined" && localStorage.getItem(KPI_CAND_STORAGE_MODE)) || "default";
+            var kpiCandPanelOpen = (typeof localStorage !== "undefined" && localStorage.getItem(KPI_CAND_STORAGE_OPEN) !== "false");
+
+            function kpiAnimateDonutCand(arcId, pct, delay) {
+                var el = document.getElementById(arcId);
+                if (!el) return;
+                var CIRC = 2 * Math.PI * 36;
+                el.style.strokeDasharray = "0 " + CIRC;
+                setTimeout(function() {
+                    var filled = (pct / 100) * CIRC;
+                    el.style.strokeDasharray = filled + " " + (CIRC - filled);
+                }, (delay || 0) + 100);
+            }
+
+            function kpiApplyModeCand(mode, animate) {
+                var row = document.getElementById("kpiRowNewCand");
+                if (!row) return;
+                row.classList.remove("mode-default", "mode-vision", "mode-ministat");
+                row.classList.add("mode-" + mode);
+                ["default", "vision", "ministat"].forEach(function(m) {
+                    var btn = document.getElementById("vbtn-cand-" + (m === "default" ? "default" : m === "vision" ? "vision" : "ministat"));
+                    if (btn) btn.classList.toggle("active", m === mode);
+                });
+                if (animate && mode === "vision") {
+                    var total = parseInt(document.getElementById("kpi-total-candidatos").textContent, 10) || 0;
+                    var porEval = parseInt(document.getElementById("kpi-por-evaluar").textContent, 10) || 0;
+                    var enviadas = parseInt(document.getElementById("kpi-postulaciones-enviadas").textContent, 10) || 0;
+                    var pctTotal = total > 0 ? 100 : 0;
+                    var pctEval = total > 0 ? Math.min(100, Math.round((porEval / total) * 100)) : 0;
+                    var pctEnv = total > 0 ? Math.min(100, Math.round((enviadas / total) * 100)) : 0;
+                    kpiAnimateDonutCand("kpi-arc-cand-total", pctTotal, 80);
+                    kpiAnimateDonutCand("kpi-arc-cand-evaluar", pctEval, 160);
+                    kpiAnimateDonutCand("kpi-arc-cand-enviadas", pctEnv, 240);
+                }
+            }
+
+            function kpiSetModeCand(mode) {
+                kpiCandCurrentMode = mode;
+                if (typeof localStorage !== "undefined") localStorage.setItem(KPI_CAND_STORAGE_MODE, mode);
+                kpiApplyModeCand(mode, true);
+            }
+
+            function kpiResetPrefsCand() {
+                if (typeof localStorage !== "undefined") {
+                    localStorage.removeItem(KPI_CAND_STORAGE_MODE);
+                    localStorage.removeItem(KPI_CAND_STORAGE_OPEN);
+                }
+                location.reload();
+            }
+
+            (function applyKpiCandInitialState() {
+                function run() {
+                    var pan = document.getElementById("kpiCollapsibleCandidatos");
+                    var btn = document.getElementById("kpiToggleBtnCandidatos");
+                    var controls = document.getElementById("kpiViewControlsCand");
+                    var sep = document.getElementById("kpiViewControlsSepCand");
+                    if (pan) pan.classList.toggle("open", kpiCandPanelOpen);
+                    if (btn) btn.classList.toggle("open", kpiCandPanelOpen);
+                    if (controls) controls.classList.toggle("kpi-vc-hidden", !kpiCandPanelOpen);
+                    if (sep) sep.classList.toggle("kpi-sep-hidden", !kpiCandPanelOpen);
+                    kpiApplyModeCand(kpiCandCurrentMode, false);
+                }
+                if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", run);
+                else run();
+            })();
 
             function initFlatpickrFechaPostulacion() {
                 var input = document.getElementById("candidato_fecha_postulacion");
@@ -3759,11 +3881,30 @@ class CapHum extends Controller
                 lista.innerHTML = "";
                 if (!datos || datos.length === 0) { if (vacio) vacio.classList.remove("d-none"); return; }
                 if (vacio) vacio.classList.add("d-none");
+                function escHtml(s) { var t = String(s === null || s === undefined ? "" : s); return t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
                 datos.forEach(function(d) {
                     var item = document.createElement("div");
             item.className = "list-group-item list-group-item-action d-flex justify-content-between align-items-center";
             var fecha = d.fecha_carga ? new Date(d.fecha_carga).toLocaleDateString("es-MX") : "";
             var badge = badgeVerificacionDoc(d.tipo_documento, verif);
+            var tooltipFiscalHtml = "";
+            var tipoNorm = (d.tipo_documento || "").toUpperCase();
+            if ((tipoNorm.indexOf("FISCAL") !== -1 || tipoNorm.indexOf("SITUACION") !== -1) && d.verificacion_fiscal && typeof d.verificacion_fiscal === "object") {
+                var v = d.verificacion_fiscal;
+                var filas = [
+                    ["RFC", v.rfc],
+                    ["CURP", v.curp],
+                    ["Fecha emisión", v.fecha_emision],
+                    ["Meses antigüedad", v.meses_antiguedad != null ? v.meses_antiguedad : "-"],
+                    ["Vigencia ≤2 meses", v.vigencia_ok ? "Sí" : "No"],
+                    ["Actividad Asalariado", v.actividad_asalariado ? "Sí" : "No"],
+                    ["Régimen Sueldos y Salarios", v.regimen_sueldos_salarios ? "Sí" : "No"]
+                ];
+                var tableHtml = "<table class=\"table table-sm table-bordered mb-0\"><tbody>";
+                filas.forEach(function(r) { tableHtml += "<tr><td class=\"text-muted\">" + escHtml(r[0]) + "</td><td>" + escHtml(r[1]) + "</td></tr>"; });
+                tableHtml += "</tbody></table>";
+                tooltipFiscalHtml = " <span class=\"ms-1\" data-bs-toggle=\"tooltip\" data-bs-html=\"true\" data-bs-title=\"" + tableHtml.replace(/"/g, "&quot;") + "\"><i class=\"fa fa-info-circle text-info\"></i></span>";
+            }
             var esValidado = parseInt(d.validado || 0, 10) === 1;
             var btnValidarClase = esValidado ? "btn-success" : "btn-outline-success";
             var btnValidarIcon = esValidado ? "fa-check-circle" : "fa-check";
@@ -3773,13 +3914,14 @@ class CapHum extends Controller
             var btnEliminarHtml = esValidado
                 ? "<span class=\"btn btn-sm btn-outline-secondary disabled\" title=\"No se puede eliminar un documento validado\"><i class=\"fa fa-trash\"></i></span>"
                 : "<button type=\"button\" class=\"btn btn-sm btn-outline-danger btn-eliminar-doc-candidato\" data-id=\"" + d.id + "\" title=\"Eliminar\"><i class=\"fa fa-trash\"></i></button>";
-            item.innerHTML = "<div class=\"d-flex align-items-center flex-wrap\"><div><strong>" + (d.tipo_documento || "Documento") + "</strong>" + (esValidado ? " <span class=\"badge bg-success ms-1\">Validado</span>" : "") + "<br><small class=\"text-muted\">" + (d.nombre_archivo || "") + (fecha ? " · " + fecha : "") + "</small></div>" + badge + "</div>" +
+            item.innerHTML = "<div class=\"d-flex align-items-center flex-wrap\"><div><strong>" + (d.tipo_documento || "Documento") + "</strong>" + tooltipFiscalHtml + (esValidado ? " <span class=\"badge bg-success ms-1\">Validado</span>" : "") + "<br><small class=\"text-muted\">" + (d.nombre_archivo || "") + (fecha ? " · " + fecha : "") + "</small></div>" + badge + "</div>" +
                 "<div class=\"d-flex gap-1 align-items-center\">" +
                 "<button type=\"button\" class=\"btn btn-sm " + btnValidarClase + " btn-validar-doc-candidato\"" + btnValidarDisabled + " data-id=\"" + d.id + "\" data-validado=\"" + (esValidado ? 1 : 0) + "\" title=\"" + btnValidarTitle + "\"><i class=\"fa " + btnValidarIcon + "\"></i></button>" +
                 "<a href=\"/caphum/verDocumentoCandidato/" + d.id + "\" target=\"_blank\" class=\"btn btn-sm btn-outline-primary\" title=\"Abrir\"><i class=\"fa fa-eye\"></i></a>" +
                 btnEliminarHtml + "</div>";
             lista.appendChild(item);
         });
+        lista.querySelectorAll("[data-bs-toggle=\"tooltip\"]").forEach(function(el) { if (typeof bootstrap !== "undefined" && bootstrap.Tooltip) { new bootstrap.Tooltip(el); } });
         lista.querySelectorAll(".btn-validar-doc-candidato").forEach(function(btn) {
             btn.addEventListener("click", function() {
                 var idDoc = parseInt(btn.getAttribute("data-id"), 10);
@@ -4288,8 +4430,30 @@ class CapHum extends Controller
             if (sel) sel.value = "";
             if (ta) ta.value = "";
             var modalEl = document.getElementById("modalCerrarProcesoCandidato");
-            if (modalEl && window.bootstrap && window.bootstrap.Modal) { var m = new window.bootstrap.Modal(modalEl); m.show(); }
+            if (modalEl && window.bootstrap && window.bootstrap.Modal) {
+                var isDark = document.body.classList.contains("dark-mode");
+                var opts = isDark ? { backdrop: false } : {};
+                var m = new window.bootstrap.Modal(modalEl, opts);
+                m.show();
+            }
         }
+        (function() {
+            var modalCerrar = document.getElementById("modalCerrarProcesoCandidato");
+            if (!modalCerrar) return;
+            modalCerrar.addEventListener("shown.bs.modal", function() {
+                if (document.body.classList.contains("dark-mode")) return;
+                var backdrops = document.querySelectorAll(".modal-backdrop");
+                var zScrim = "1094";
+                for (var i = 0; i < backdrops.length; i++) {
+                    if (i === backdrops.length - 1) {
+                        backdrops[i].style.setProperty("z-index", zScrim, "important");
+                    } else {
+                        backdrops[i].style.setProperty("z-index", "1089", "important");
+                    }
+                }
+                modalCerrar.style.setProperty("z-index", "10050", "important");
+            });
+        })();
         var btnConfirmarCerrar = document.getElementById("btnConfirmarCerrarProceso");
         if (btnConfirmarCerrar) {
             btnConfirmarCerrar.addEventListener("click", function() {
@@ -4321,25 +4485,59 @@ class CapHum extends Controller
             });
         }
         function ejecutarContinuarProceso(idCandidato) {
-            if (typeof Swal !== "undefined") {
-                Swal.fire({ title: "Enviando correo...", text: "Procesando el envío del correo.", allowOutsideClick: false, allowEscapeKey: false, didOpen: function() { Swal.showLoading(); } });
+            if (typeof Swal === "undefined") {
+                if (confirm("¿Ya RRHH le dio de alta a la nómina del candidato?")) {
+                    fetch("/caphum/pasarCandidatoAGestion", { method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" }, body: JSON.stringify({ id_candidato: idCandidato }) })
+                        .then(function(r){ return r.json(); })
+                        .then(function(res) {
+                            if (res.success) {
+                                var modalDoc = document.getElementById("modalDocumentacionCandidato");
+                                if (modalDoc && window.bootstrap && window.bootstrap.Modal) { var instDoc = window.bootstrap.Modal.getInstance(modalDoc); if (instDoc) instDoc.hide(); }
+                                if (typeof getCandidatos === "function") getCandidatos();
+                                alert("Listo. Se envió el correo de bienvenida al candidato con el enlace al Onboarding.");
+                            } else alert(res.mensaje || "Error al dar de alta.");
+                        });
+                } else {
+                    alert("Para continuar el proceso el candidato debe tener alta en nómina por RRHH. Cuando ya le hayan dado de alta, vuelve a hacer clic en Continuar proceso.");
+                }
+                return;
             }
-            fetch("/caphum/continuarProcesoCandidato", { method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" }, body: JSON.stringify({ id_candidato: idCandidato }) })
-                .then(function(r){ return r.json(); })
-                .then(function(res) {
-                    if (typeof Swal !== "undefined") { Swal.close(); }
-                    if (res.success) {
-                        var modalDoc = document.getElementById("modalDocumentacionCandidato");
-                        if (modalDoc && window.bootstrap && window.bootstrap.Modal) { var instDoc = window.bootstrap.Modal.getInstance(modalDoc); if (instDoc) instDoc.hide(); }
-                        if (typeof getCandidatos === "function") getCandidatos();
-                        if (typeof Swal !== "undefined") Swal.fire({ icon: "success", title: "Correo enviado", text: res.mensaje || "Se envió el correo de confirmación a RRHH. Debe hacer clic en Sí o No en el correo para continuar." });
-                    } else {
-                        if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "Error", text: res.mensaje || "No se pudo enviar el correo." });
-                    }
-                })
-                .catch(function() {
-                    if (typeof Swal !== "undefined") { Swal.close(); Swal.fire({ icon: "error", title: "Error", text: "Error de conexión." }); }
-                });
+            Swal.fire({
+                title: "¿Ya RRHH le dio de alta a la nómina del candidato?",
+                icon: "question",
+                showCancelButton: true,
+                confirmButtonText: "Sí",
+                cancelButtonText: "No",
+                confirmButtonColor: "#198754",
+                cancelButtonColor: "#6c757d"
+            }).then(function(result) {
+                if (result.isConfirmed) {
+                    Swal.fire({ title: "Procesando...", text: "Dando de alta en Gestión y enviando correo de bienvenida.", allowOutsideClick: false, allowEscapeKey: false, didOpen: function() { Swal.showLoading(); } });
+                    fetch("/caphum/pasarCandidatoAGestion", { method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" }, body: JSON.stringify({ id_candidato: idCandidato }) })
+                        .then(function(r){ return r.json(); })
+                        .then(function(res) {
+                            Swal.close();
+                            if (res.success) {
+                                var modalDoc = document.getElementById("modalDocumentacionCandidato");
+                                if (modalDoc && window.bootstrap && window.bootstrap.Modal) { var instDoc = window.bootstrap.Modal.getInstance(modalDoc); if (instDoc) instDoc.hide(); }
+                                if (typeof getCandidatos === "function") getCandidatos();
+                                Swal.fire({ icon: "success", title: "¡Listo!", text: "Bienvenido a MaxiKash. Se envió el correo al candidato con el enlace para entrar al Onboarding. El colaborador ya está dado de alta en Gestión." });
+                            } else {
+                                Swal.fire({ icon: "error", title: "Error", text: res.mensaje || "No se pudo dar de alta en Gestión." });
+                            }
+                        })
+                        .catch(function() {
+                            Swal.close();
+                            Swal.fire({ icon: "error", title: "Error", text: "Error de conexión." });
+                        });
+                } else {
+                    Swal.fire({
+                        icon: "info",
+                        title: "Alta en nómina requerida",
+                        text: "Para continuar el proceso el candidato debe tener alta en nómina por RRHH. Cuando ya le hayan dado de alta, vuelve a hacer clic en Continuar proceso."
+                    });
+                }
+            });
         }
         var btnAltaNominaNo = document.getElementById("btnConfirmarAltaNominaNo");
         if (btnAltaNominaNo) {
@@ -5804,16 +6002,17 @@ class CapHum extends Controller
             }
             $logoSrc = $rutaLogoInline ? 'cid:logo__SPARTA_SECRET_REDACTED__' : (rtrim($base, '/') . '/assets/img/logo_correo.png');
             $urlPlataforma = rtrim($base, '/') . '/';
+            $urlOnboarding = rtrim($base, '/') . '/onboarding/index';
             $cuerpoBienvenida = '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Bienvenida</title></head><body style="margin:0; padding:0; background-color:#e8eef4; font-family: \'Segoe UI\', Tahoma, sans-serif;">
   <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color:#e8eef4;"><tr><td align="center" style="padding: 32px 16px;">
     <table role="presentation" width="600" cellspacing="0" cellpadding="0" style="max-width:600px; background-color:#ffffff; border-radius:8px; box-shadow: 0 2px 12px rgba(0,0,0,0.08);">
-      <tr><td style="background-color:#1e3a5f; padding: 24px 32px; border-radius: 8px 8px 0 0;"><h1 style="margin:0; color:#ffffff; font-size: 22px;">MaxiKash</h1><p style="margin: 6px 0 0 0; color: rgba(255,255,255,0.9); font-size: 14px;">Bienvenida</p></td></tr>
+      <tr><td style="background-color:#1e3a5f; padding: 24px 32px; border-radius: 8px 8px 0 0;"><h1 style="margin:0; color:#ffffff; font-size: 22px;">Bienvenido(a) a MaxiKash</h1><p style="margin: 6px 0 0 0; color: rgba(255,255,255,0.9); font-size: 14px;">Ya formas parte del equipo</p></td></tr>
       <tr><td style="padding: 32px;">
         <p style="margin:0 0 16px 0; color:#1a202c; font-size: 16px;">Hola <strong>' . htmlspecialchars($nombreCompleto) . '</strong>,</p>
         <p style="margin:0 0 16px 0; color:#2d3748; font-size: 15px; line-height: 1.6;">Nos da mucho gusto darte la bienvenida a Maxikash. Ya formas parte del equipo.</p>
-        <p style="margin:0 0 16px 0; color:#2d3748; font-size: 15px; line-height: 1.6;">Para comenzar, entra a la plataforma con tu usuario y contraseña y revisa el apartado de <strong>Onboarding</strong>, donde encontrarás información importante para tu incorporación.</p>
-        <p style="margin: 24px 0 16px 0;"><a href="' . htmlspecialchars($urlPlataforma) . '" style="display:inline-block; padding: 12px 24px; background-color:#1e3a5f; color:#ffffff !important; text-decoration:none; border-radius: 6px; font-weight: 600;">Acceder a la plataforma</a></p>
-        <p style="margin:0 0 8px 0; color:#2d3748; font-size: 15px;">Cualquier duda, contacta a Recursos Humanos.</p>
+        <p style="margin:0 0 20px 0; color:#2d3748; font-size: 15px; line-height: 1.6;">Para comenzar, entra al <strong>Onboarding</strong> donde encontrarás la información importante para tu incorporación.</p>
+        <p style="margin: 24px 0 16px 0;"><a href="' . htmlspecialchars($urlOnboarding) . '" style="display:inline-block; padding: 14px 28px; background-color:#1e3a5f; color:#ffffff !important; text-decoration:none; border-radius: 8px; font-weight: 600; font-size: 16px;">Entrar al Onboarding</a></p>
+        <p style="margin:0 0 8px 0; color:#718096; font-size: 14px;">También puedes <a href="' . htmlspecialchars($urlPlataforma) . '" style="color:#2c5282;">acceder a la plataforma</a> con tu usuario y contraseña.</p>
         <p style="margin: 24px 0 0 0; color:#1a202c; font-size: 15px; font-weight: 600;">¡Bienvenido(a)!<br>Equipo de Capital Humano – Maxikash</p>
       </td></tr>
       <tr><td style="padding: 16px 32px 24px; background-color:#f7fafc; border-radius: 0 0 8px 8px; border-top: 1px solid #e2e8f0;"><p style="margin:0; color:#718096; font-size: 12px;">Correo generado automáticamente.</p></td></tr>
@@ -5924,6 +6123,46 @@ class CapHum extends Controller
             return ['error' => 'La API devolvió una respuesta inválida.'];
         }
         return $data;
+    }
+
+    /**
+     * Llama a la API verificar-constancia-fiscal-documento (Python) con el PDF de constancia fiscal.
+     * @param string $rutaPdf Ruta absoluta al PDF ya subido
+     * @return array|null Respuesta JSON decodificada (valido, mensaje, rfc, curp, fecha_emision, meses_antiguedad, vigencia_ok, actividad_asalariado, regimen_sueldos_salarios); null si error de config/conexión
+     */
+    private function verificarConstanciaFiscalApi($rutaPdf)
+    {
+        $configFile = defined('RAIZ') ? (RAIZ . '/config/config.ini') : (__DIR__ . '/../config/config.ini');
+        if (!is_file($configFile)) {
+            return null;
+        }
+        $config = @parse_ini_file($configFile, true);
+        $apiUrl = trim($config['doc_verificacion']['api_url'] ?? '');
+        $apiKey = trim($config['doc_verificacion']['api_key'] ?? '');
+        if ($apiUrl === '' || $apiKey === '') {
+            return null;
+        }
+        $baseUrl = preg_replace('#/verificar\s*$#', '', $apiUrl);
+        $url = rtrim($baseUrl, '/') . '/verificar-constancia-fiscal-documento';
+        $cfile = new \CURLFile($rutaPdf, 'application/pdf', basename($rutaPdf));
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => ['documento' => $cfile],
+            CURLOPT_HTTPHEADER => ['X-API-Key: ' . $apiKey],
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT => 30,
+            CURLOPT_CONNECTTIMEOUT => 5,
+        ]);
+        $body = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlErr = curl_error($ch);
+        curl_close($ch);
+        if ($body === false || $httpCode !== 200) {
+            return ['valido' => false, 'mensaje' => $curlErr ?: 'La API no respondió correctamente (HTTP ' . $httpCode . ').'];
+        }
+        $data = json_decode($body, true);
+        return is_array($data) ? $data : null;
     }
 
     /**
@@ -6145,6 +6384,10 @@ class CapHum extends Controller
                 $errores[] = ($tiposDocumento[$i] ?? $key) . ': tipo no permitido';
                 continue;
             }
+            if ($i === 6 && $ext !== 'pdf') {
+                $errores[] = 'COMPROBANTE DE DOMICILIO: solo se acepta archivo PDF.';
+                continue;
+            }
             $slug = $slugPorTipo[$i] ?? ('doc_' . $i);
             $nombreArchivo = $slug . '.' . $ext;
             $rutaDestino = $dirExpediente . '/' . $nombreArchivo;
@@ -6155,8 +6398,19 @@ class CapHum extends Controller
             $rutaRelativa = 'candidatos/' . $id_candidato . '/expediente/' . $nombreArchivo;
             $tipoNombre = $tiposDocumento[$i] ?? '';
 
+            $verificacionFiscalJson = null;
+            if ($i === 7 && $ext === 'pdf') {
+                $apiFiscal = $this->verificarConstanciaFiscalApi($rutaDestino);
+                if ($apiFiscal === null || empty($apiFiscal['valido'])) {
+                    @unlink($rutaDestino);
+                    $errores[] = 'CONSTANCIA DE SITUACIÓN FISCAL: ' . ($apiFiscal['mensaje'] ?? 'No se pudo verificar el documento.');
+                    continue;
+                }
+                $verificacionFiscalJson = json_encode($apiFiscal);
+            }
+
             // Misma estrategia que carga_documento_persona: solo guardar ruta en BD, archivo en disco (sin BLOB = rápido).
-            $guardar = CandidatosDAO::guardarDocumento($id_candidato, $nombreOriginal, $rutaRelativa, $tipoNombre);
+            $guardar = CandidatosDAO::guardarDocumento($id_candidato, $nombreOriginal, $rutaRelativa, $tipoNombre, null, null, $verificacionFiscalJson);
             if ($guardar['success']) {
                 $guardados++;
             }

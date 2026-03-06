@@ -386,8 +386,9 @@ class Candidatos extends Model
      * @param string $tipo_documento Nombre del tipo (ej. SOLICITUD INTERNA, CURP, etc.)
      * @param string|null $contenido Contenido binario del archivo (opcional). Si se pasa, se guarda en BD.
      * @param string|null $mime_type application/pdf, image/jpeg, etc. (opcional, recomendado si hay contenido)
+     * @param string|null $verificacion_fiscal_json JSON con resultado de verificación constancia fiscal (solo tipo CONSTANCIA DE SITUACION FISCAL)
      */
-    public static function guardarDocumento($id_candidato, $nombre_archivo, $ruta_archivo, $tipo_documento = '', $contenido = null, $mime_type = null)
+    public static function guardarDocumento($id_candidato, $nombre_archivo, $ruta_archivo, $tipo_documento = '', $contenido = null, $mime_type = null, $verificacion_fiscal_json = null)
     {
         $id_candidato = (int) $id_candidato;
         if ($id_candidato <= 0 || trim($nombre_archivo ?? '') === '') {
@@ -400,25 +401,26 @@ class Candidatos extends Model
             $db = new Database();
             if ($contenido !== null) {
                 $ruta = trim($ruta_archivo ?? '');
-                $db->queryOne(
-                    "INSERT INTO candidato_documento (id_candidato, tipo_documento, nombre_archivo, ruta_archivo, contenido, mime_type) VALUES (:id_candidato, :tipo_documento, :nombre_archivo, :ruta_archivo, :contenido, :mime_type)",
-                    [
-                        'id_candidato' => $id_candidato,
-                        'tipo_documento' => trim($tipo_documento ?? ''),
-                        'nombre_archivo' => $nombre_archivo,
-                        'ruta_archivo' => $ruta,
-                        'contenido' => $contenido,
-                        'mime_type' => $mime_type !== null ? trim($mime_type) : null
-                    ]
-                );
+                $sql = "INSERT INTO candidato_documento (id_candidato, tipo_documento, nombre_archivo, ruta_archivo, contenido, mime_type, verificacion_fiscal_json) VALUES (:id_candidato, :tipo_documento, :nombre_archivo, :ruta_archivo, :contenido, :mime_type, :verificacion_fiscal_json)";
+                $params = [
+                    'id_candidato' => $id_candidato,
+                    'tipo_documento' => trim($tipo_documento ?? ''),
+                    'nombre_archivo' => $nombre_archivo,
+                    'ruta_archivo' => $ruta,
+                    'contenido' => $contenido,
+                    'mime_type' => $mime_type !== null ? trim($mime_type) : null,
+                    'verificacion_fiscal_json' => $verificacion_fiscal_json,
+                ];
+                $db->queryOne($sql, $params);
             } else {
                 $db->CRUD(
-                    "INSERT INTO candidato_documento (id_candidato, tipo_documento, nombre_archivo, ruta_archivo) VALUES (:id_candidato, :tipo_documento, :nombre_archivo, :ruta_archivo)",
+                    "INSERT INTO candidato_documento (id_candidato, tipo_documento, nombre_archivo, ruta_archivo, verificacion_fiscal_json) VALUES (:id_candidato, :tipo_documento, :nombre_archivo, :ruta_archivo, :verificacion_fiscal_json)",
                     [
                         'id_candidato' => $id_candidato,
                         'tipo_documento' => trim($tipo_documento ?? ''),
                         'nombre_archivo' => $nombre_archivo,
-                        'ruta_archivo' => $ruta_archivo
+                        'ruta_archivo' => $ruta_archivo,
+                        'verificacion_fiscal_json' => $verificacion_fiscal_json
                     ]
                 );
             }
@@ -484,7 +486,7 @@ class Candidatos extends Model
         }
         try {
             $db = new Database();
-            $lista = $db->queryAll("SELECT id, id_candidato, tipo_documento, nombre_archivo, ruta_archivo, fecha_carga, validado, fecha_validado FROM candidato_documento WHERE id_candidato = :id ORDER BY fecha_carga DESC", ['id' => $id_candidato]);
+            $lista = $db->queryAll("SELECT id, id_candidato, tipo_documento, nombre_archivo, ruta_archivo, fecha_carga, validado, fecha_validado, verificacion_fiscal_json FROM candidato_documento WHERE id_candidato = :id ORDER BY fecha_carga DESC", ['id' => $id_candidato]);
             return self::resultado(true, 'Documentos encontrados.', $lista ?: []);
         } catch (\Exception $e) {
             return self::resultado(false, 'Error al listar documentos.', [], $e->getMessage());
@@ -620,10 +622,19 @@ class Candidatos extends Model
         try {
             $db = new Database();
             $documentos = $db->queryAll(
-                "SELECT id, id_candidato, tipo_documento, nombre_archivo, ruta_archivo, fecha_carga, validado, fecha_validado FROM candidato_documento WHERE id_candidato = :id ORDER BY fecha_carga DESC",
+                "SELECT id, id_candidato, tipo_documento, nombre_archivo, ruta_archivo, fecha_carga, validado, fecha_validado, verificacion_fiscal_json FROM candidato_documento WHERE id_candidato = :id ORDER BY fecha_carga DESC",
                 ['id' => $id_candidato]
             );
             $documentos = $documentos ?: [];
+            foreach ($documentos as &$d) {
+                if (!empty($d['verificacion_fiscal_json'])) {
+                    $dec = json_decode($d['verificacion_fiscal_json'], true);
+                    $d['verificacion_fiscal'] = is_array($dec) ? $dec : null;
+                } else {
+                    $d['verificacion_fiscal'] = null;
+                }
+            }
+            unset($d);
             $row = $db->queryOne("SELECT ultima_verificacion_expediente FROM candidatos WHERE id = :id", ['id' => $id_candidato]);
             $verificacion = null;
             if ($row && !empty($row['ultima_verificacion_expediente'])) {

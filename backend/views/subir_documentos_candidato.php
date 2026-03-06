@@ -464,9 +464,10 @@ $documentos = [
                     <input type="hidden" name="token" value="<?= htmlspecialchars($token) ?>">
                     <?php
                     $urlBaseDescarga = '/CapHum/descargarDocumentoCandidato/' . urlencode($token);
-                    $documentosConFoto = [5, 6];
+                    // Sin botón "Tomar foto": identificación oficial (5) y comprobante (6) solo por archivo.
+                    $documentosConFoto = [];
                     $reversoIdSubido = isset($documentos_subidos['5_reverso']);
-                    $docsSoloPdf = [3, 4, 7, 8]; // acta, CURP, constancia fiscal, NSS
+                    $docsSoloPdf = [3, 4, 6, 7, 8]; // acta, CURP, comprobante domicilio, constancia fiscal, NSS
                     foreach ($documentos as $num => $nombreDoc):
                         $esSolicitud = ($num === 1);
                         $esCartaAdeudo = ($num === 9);
