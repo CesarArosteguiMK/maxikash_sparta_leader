@@ -56,15 +56,15 @@ def validar_imagen(file: UploadFile) -> None:
     response_model=VerificacionResponse,
     summary="Verificar autenticidad de documento",
     description="""
-    Analiza una imagen de documento oficial mexicano y determina si es original, 
+    Analiza una imagen de documento oficial mexicano y determina si es original,
     requiere revisión manual, o debe ser rechazado.
-    
+
     **Documentos soportados:**
     - INE / Credencial para Votar (nueva y anterior)
     - Residencia Temporal INM
-    - Residencia Temporal Acumulativa INM  
+    - Residencia Temporal Acumulativa INM
     - Residencia Permanente INM
-    
+
     **Capas de análisis:**
     1. Metadatos del archivo (15%)
     2. Análisis forense ELA + moiré (20%)
@@ -161,7 +161,7 @@ async def verificar_calidad_documento(
     Analiza un comprobante de domicilio (PDF o imagen) y extrae:
     nombre del titular, dirección, fecha, tipo de servicio.
     Verifica que no tenga más de 3 meses de antigüedad.
-    
+
     **Formatos soportados:** PDF, JPG, PNG
     **Tipos reconocidos:** CFE/Luz, Agua, Gas, Teléfono/Internet, Banco, Predial
     """,
@@ -326,7 +326,7 @@ async def verificar_acta_documento(
 @router.post(
     "/verificar-constancia-fiscal-documento",
     summary="Verificar que el PDF sea constancia de situación fiscal (SAT)",
-    description="Sube un PDF de constancia de situación fiscal del SAT. Verifica que contenga RFC y/o CURP.",
+    description="Sube un PDF de constancia de situación fiscal del SAT. Verifica: vigencia (máx 2 meses desde fecha de emisión), actividad económica Asalariado y régimen Sueldos y Salarios.",
     tags=["Utilidades"]
 )
 async def verificar_constancia_fiscal_documento(
@@ -343,9 +343,58 @@ async def verificar_constancia_fiscal_documento(
     if not es_documento_constancia_fiscal(file_bytes):
         return {"valido": False, "mensaje": "El documento no es una constancia de situación fiscal del SAT. Sube el PDF descargado del portal del SAT."}
     datos = extraer_datos_constancia_fiscal(file_bytes)
-    if datos.get("rfc") or (datos.get("curp") and validar_curp(datos["curp"])[0]):
-        return {"valido": True, "mensaje": "Constancia fiscal verificada.", "rfc": datos.get("rfc"), "curp": datos.get("curp")}
-    return {"valido": False, "mensaje": "El documento no parece ser una constancia de situación fiscal del SAT. Sube el PDF descargado del portal del SAT."}
+
+    # Vigencia: máximo 2 meses desde "Lugar y Fecha de Emisión"
+    meses = datos.get("meses_antiguedad")
+    if meses is not None and meses > 2.0:
+        return {
+            "valido": False,
+            "mensaje": "La constancia no puede tener más de 2 meses de antigüedad. Descarga una nueva constancia en el portal del SAT.",
+            "fecha_emision": datos.get("fecha_emision"),
+            "meses_antiguedad": meses,
+            "vigencia_ok": False,
+            "actividad_asalariado": datos.get("actividad_economica_asalariado"),
+            "regimen_sueldos_salarios": datos.get("regimen_sueldos_salarios"),
+        }
+
+    # Actividad económica debe ser "Asalariado"
+    if not datos.get("actividad_economica_asalariado"):
+        return {
+            "valido": False,
+            "mensaje": "La constancia debe tener Actividad Económica 'Asalariado'. Verifica que en el PDF aparezca Asalariado en la sección Actividades Económicas.",
+            "fecha_emision": datos.get("fecha_emision"),
+            "meses_antiguedad": meses,
+            "vigencia_ok": meses is None or meses <= 2.0,
+            "actividad_asalariado": False,
+            "regimen_sueldos_salarios": datos.get("regimen_sueldos_salarios"),
+        }
+
+    # Régimen debe incluir "Régimen de Sueldos y Salarios e Ingresos Asimilados a Salarios"
+    if not datos.get("regimen_sueldos_salarios"):
+        return {
+            "valido": False,
+            "mensaje": "La constancia debe incluir 'Régimen de Sueldos y Salarios e Ingresos Asimilados a Salarios' en la sección Regímenes (normalmente en la segunda página).",
+            "fecha_emision": datos.get("fecha_emision"),
+            "meses_antiguedad": meses,
+            "vigencia_ok": meses is None or meses <= 2.0,
+            "actividad_asalariado": True,
+            "regimen_sueldos_salarios": False,
+        }
+
+    if not (datos.get("rfc") or (datos.get("curp") and validar_curp(datos["curp"])[0])):
+        return {"valido": False, "mensaje": "El documento no parece ser una constancia de situación fiscal del SAT. Sube el PDF descargado del portal del SAT."}
+
+    return {
+        "valido": True,
+        "mensaje": "Constancia fiscal verificada.",
+        "rfc": datos.get("rfc"),
+        "curp": datos.get("curp"),
+        "fecha_emision": datos.get("fecha_emision"),
+        "meses_antiguedad": meses,
+        "vigencia_ok": True,
+        "actividad_asalariado": True,
+        "regimen_sueldos_salarios": True,
+    }
 
 
 @router.post(

@@ -1,0 +1,22 @@
+# EditorConfig es un estándar para mantener estilos de código consistentes
+# https://editorconfig.org
+
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.php]
+charset = utf-8
+# CRÍTICO: Sin BOM para archivos PHP
+# El BOM rompe la declaración de namespace en PHP
+
+[*.{js,json,css,html,htm}]
+charset = utf-8
+
+[*.md]
+trim_trailing_whitespace = false
+

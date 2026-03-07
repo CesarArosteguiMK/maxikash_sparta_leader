@@ -28,6 +28,7 @@ $listaJefes = $listaJefes ?? [];
                         <option value="Contratado">Contratado</option>
                         <option value="Descartado">Descartado</option>
                         <option value="Validado">Validado</option>
+                        <option value="Proceso cerrado">Proceso cerrado</option>
                     </select>
                 </div>
             </div>
@@ -40,10 +41,30 @@ $listaJefes = $listaJefes ?? [];
                     Indicadores
                     <i class="bx bx-chevron-down kpi-chevron"></i>
                 </button>
+                <div class="kpi-toolbar-sep" id="kpiViewControlsSepCand"></div>
+                <div id="kpiViewControlsCand">
+                    <button class="kpi-view-btn active" id="vbtn-cand-default" onclick="kpiSetModeCand('default')" data-tip="Vista Estándar">
+                        <i class="bx bx-layout"></i>
+                        <span class="kpi-btn-text">Estándar</span>
+                    </button>
+                    <button class="kpi-view-btn" id="vbtn-cand-vision" onclick="kpiSetModeCand('vision')" data-tip="Vista Donut">
+                        <i class="bx bx-doughnut-chart"></i>
+                        <span class="kpi-btn-text">Donut</span>
+                    </button>
+                    <button class="kpi-view-btn" id="vbtn-cand-ministat" onclick="kpiSetModeCand('ministat')" data-tip="Vista Mini-Stat">
+                        <i class="bx bx-columns"></i>
+                        <span class="kpi-btn-text">Mini-Stat</span>
+                    </button>
+                    <div class="kpi-toolbar-sep"></div>
+                    <button class="kpi-reset-btn" onclick="kpiResetPrefsCand()">
+                        <i class="bx bx-rotate-left"></i>
+                        Restablecer
+                    </button>
+                </div>
             </div>
             <div class="kpi-collapsible open" id="kpiCollapsibleCandidatos">
                 <div class="kpi-collapsible-inner">
-                    <div class="kpi-row-new mode-default">
+                    <div class="kpi-row-new mode-default" id="kpiRowNewCand">
                         <div class="kpi-cell tipo-total revealed" id="kpi-cell-cand-total">
                             <span class="kpi-corner-icon"><i class="bx bx-group"></i></span>
                             <div class="kpi-cell-top">
@@ -53,6 +74,26 @@ $listaJefes = $listaJefes ?? [];
                             <div class="kpi-num" id="kpi-total-candidatos">0</div>
                             <div class="kpi-lbl">Total Candidatos</div>
                             <div class="kpi-bar-track"><div class="kpi-bar-fill" id="kpi-bar-cand-total"></div></div>
+                            <span class="kpi-cell-title">Total Candidatos</span>
+                            <div class="kpi-stats-grid-new">
+                                <div class="kpi-stat-item"><div class="kpi-stat-val" id="kpi-ms-cand-total">0</div><div class="kpi-stat-lbl">Total</div></div>
+                            </div>
+                            <div class="donut-block">
+                                <div class="donut-header">
+                                    <span class="donut-title">Total Candidatos</span>
+                                    <span class="kpi-cell-status">Total</span>
+                                </div>
+                                <div class="donut-svg-wrap">
+                                    <svg class="donut-svg" viewBox="0 0 88 88">
+                                        <circle class="donut-track" cx="44" cy="44" r="36"/>
+                                        <circle class="donut-arc" id="kpi-arc-cand-total" cx="44" cy="44" r="36"/>
+                                    </svg>
+                                    <div class="donut-center-icon"><i class="bx bx-group"></i></div>
+                                </div>
+                                <div class="donut-stats">
+                                    <div class="kpi-stat-item"><div class="kpi-stat-val" id="kpi-dv-cand-total">0</div><div class="kpi-stat-lbl">Total</div></div>
+                                </div>
+                            </div>
                         </div>
                         <div class="kpi-cell tipo-puesto revealed" id="kpi-cell-cand-evaluar">
                             <span class="kpi-corner-icon"><i class="bx bx-user-plus"></i></span>
@@ -63,6 +104,26 @@ $listaJefes = $listaJefes ?? [];
                             <div class="kpi-num" id="kpi-por-evaluar">0</div>
                             <div class="kpi-lbl">Por evaluar</div>
                             <div class="kpi-bar-track"><div class="kpi-bar-fill" id="kpi-bar-cand-evaluar"></div></div>
+                            <span class="kpi-cell-title">Por evaluar</span>
+                            <div class="kpi-stats-grid-new">
+                                <div class="kpi-stat-item"><div class="kpi-stat-val" id="kpi-ms-cand-evaluar">0</div><div class="kpi-stat-lbl">Por evaluar</div></div>
+                            </div>
+                            <div class="donut-block">
+                                <div class="donut-header">
+                                    <span class="donut-title">Por evaluar</span>
+                                    <span class="kpi-cell-status">Por evaluar</span>
+                                </div>
+                                <div class="donut-svg-wrap">
+                                    <svg class="donut-svg" viewBox="0 0 88 88">
+                                        <circle class="donut-track" cx="44" cy="44" r="36"/>
+                                        <circle class="donut-arc" id="kpi-arc-cand-evaluar" cx="44" cy="44" r="36"/>
+                                    </svg>
+                                    <div class="donut-center-icon"><i class="bx bx-user-plus"></i></div>
+                                </div>
+                                <div class="donut-stats">
+                                    <div class="kpi-stat-item"><div class="kpi-stat-val" id="kpi-dv-cand-evaluar">0</div><div class="kpi-stat-lbl">Por evaluar</div></div>
+                                </div>
+                            </div>
                         </div>
                         <div class="kpi-cell tipo-dep revealed" id="kpi-cell-cand-enviadas">
                             <span class="kpi-corner-icon"><i class="bx bx-send"></i></span>
@@ -73,6 +134,26 @@ $listaJefes = $listaJefes ?? [];
                             <div class="kpi-num" id="kpi-postulaciones-enviadas">0</div>
                             <div class="kpi-lbl">Postulaciones enviadas</div>
                             <div class="kpi-bar-track"><div class="kpi-bar-fill" id="kpi-bar-cand-enviadas"></div></div>
+                            <span class="kpi-cell-title">Postulaciones enviadas</span>
+                            <div class="kpi-stats-grid-new">
+                                <div class="kpi-stat-item"><div class="kpi-stat-val" id="kpi-ms-cand-enviadas">0</div><div class="kpi-stat-lbl">Enviadas</div></div>
+                            </div>
+                            <div class="donut-block">
+                                <div class="donut-header">
+                                    <span class="donut-title">Enviadas</span>
+                                    <span class="kpi-cell-status">Enviadas</span>
+                                </div>
+                                <div class="donut-svg-wrap">
+                                    <svg class="donut-svg" viewBox="0 0 88 88">
+                                        <circle class="donut-track" cx="44" cy="44" r="36"/>
+                                        <circle class="donut-arc" id="kpi-arc-cand-enviadas" cx="44" cy="44" r="36"/>
+                                    </svg>
+                                    <div class="donut-center-icon"><i class="bx bx-send"></i></div>
+                                </div>
+                                <div class="donut-stats">
+                                    <div class="kpi-stat-item"><div class="kpi-stat-val" id="kpi-dv-cand-enviadas">0</div><div class="kpi-stat-lbl">Enviadas</div></div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -120,9 +201,64 @@ $listaJefes = $listaJefes ?? [];
                 <div id="modalDocumentacionCandidatoMetricas" class="mb-3 d-none"></div>
                 <div id="modalDocumentacionCandidatoVerificacion" class="mb-3 d-none"></div>
                 <div id="modalDocumentacionCandidatoAccionVerificar" class="mb-3 d-none"></div>
+                <div id="modalDocumentacionCandidatoAccionesProceso" class="mb-3 d-none"></div>
                 <div id="modalDocumentacionCandidatoCargando" class="text-center py-4 text-muted">Cargando…</div>
                 <div id="modalDocumentacionCandidatoVacio" class="text-center py-4 text-muted d-none">No hay documentos subidos.</div>
                 <div id="modalDocumentacionCandidatoLista" class="list-group"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Cerrar proceso del candidato -->
+<div class="modal fade modal-cerrar-proceso" id="modalCerrarProcesoCandidato" tabindex="-1" aria-labelledby="modalCerrarProcesoCandidatoLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalCerrarProcesoCandidatoLabel"><i class="fa fa-times-circle me-2"></i>Cerrar proceso</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted small mb-3">Indica el motivo por el que no se continúa con el proceso de este candidato.</p>
+                <input type="hidden" id="cerrarProcesoIdCandidato" value="">
+                <div class="mb-3">
+                    <label for="cerrarProcesoMotivo" class="form-label">Motivo <span class="text-danger">*</span></label>
+                    <select id="cerrarProcesoMotivo" class="form-select" required>
+                        <option value="">Selecciona un motivo</option>
+                        <option value="no_cubre_perfil">No cubre el perfil</option>
+                        <option value="desistio">Desistió</option>
+                        <option value="sin_info_a_tiempo">No dio información a tiempo</option>
+                        <option value="otro">Otro</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label for="cerrarProcesoDescripcion" class="form-label">Descripción (opcional)</label>
+                    <textarea id="cerrarProcesoDescripcion" class="form-control" rows="3" placeholder="Detalles adicionales..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-outline-danger" id="btnConfirmarCerrarProceso"><i class="fa fa-check me-1"></i>Confirmar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Confirmar RRHH dio de alta en nómina (tras Continuar proceso) -->
+<div class="modal fade" id="modalConfirmarAltaNomina" tabindex="-1" aria-labelledby="modalConfirmarAltaNominaLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalConfirmarAltaNominaLabel"><i class="fa fa-user-check me-2"></i>Confirmar alta en nómina</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-0">Confirma que Recursos Humanos ya dio de alta al candidato en nómina.</p>
+                <input type="hidden" id="confirmarAltaNominaIdCandidato" value="">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" id="btnConfirmarAltaNominaNo">No</button>
+                <button type="button" class="btn btn-primary" id="btnConfirmarAltaNominaSi"><i class="fa fa-check me-1"></i>Sí</button>
             </div>
         </div>
     </div>
@@ -441,6 +577,49 @@ body.dark-mode #offcanvasAddCandidato .btn-outline-secondary:hover { background-
 .btn-action-size { height: 36px; padding: 0.375rem 0.75rem; font-size: 0.875rem; display: inline-flex; align-items: center; gap: 0.375rem; }
 /* Panel de indicadores Candidatos — mismos estilos que Gestión (kpi-toolbar, kpi-cell, kpi-num, kpi-lbl) */
 #panelIndicadoresCandidatos .kpi-toolbar { display:flex; align-items:center; gap:0.5rem; margin-bottom:0.65rem; flex-wrap:wrap; }
+#panelIndicadoresCandidatos .kpi-toolbar-sep { width:1px; height:20px; background:rgba(99,102,241,0.12); flex-shrink:0; transition:opacity 0.28s ease, transform 0.33s cubic-bezier(0.4,0,0.2,1); }
+#panelIndicadoresCandidatos .kpi-toolbar-sep.kpi-sep-hidden { opacity:0; transform:scaleY(0); pointer-events:none; }
+#panelIndicadoresCandidatos #kpiViewControlsCand { display:flex; align-items:center; gap:0.5rem; flex-wrap:nowrap; overflow:hidden; max-width:700px; opacity:1; transform:translateX(0); transition:max-width 0.38s cubic-bezier(0.4,0,0.2,1), opacity 0.28s ease, transform 0.33s cubic-bezier(0.4,0,0.2,1); }
+#panelIndicadoresCandidatos #kpiViewControlsCand.kpi-vc-hidden { max-width:0; opacity:0; transform:translateX(-22px); pointer-events:none; }
+#panelIndicadoresCandidatos .kpi-view-btn { display:inline-flex; align-items:center; justify-content:center; gap:0.3rem; min-width:32px; height:32px; background:#fff; padding:0 0.5rem; border:1px solid rgba(99,102,241,0.12); border-radius:7px; cursor:pointer; color:#6b7280; font-size:0.75rem; font-weight:600; transition:all 0.2s; user-select:none; position:relative; }
+#panelIndicadoresCandidatos .kpi-view-btn:hover { background:rgba(99,102,241,0.06); color:#6366f1; border-color:rgba(99,102,241,0.3); }
+#panelIndicadoresCandidatos .kpi-view-btn.active { background:#6366f1; border-color:#6366f1; color:white; box-shadow:0 2px 8px rgba(99,102,241,0.3); }
+#panelIndicadoresCandidatos .kpi-view-btn .kpi-btn-text { font-size:0.7rem; font-weight:600; white-space:nowrap; }
+#panelIndicadoresCandidatos .kpi-reset-btn { display:inline-flex; align-items:center; gap:0.3rem; background:transparent; border:1px solid transparent; border-radius:7px; padding:0.38rem 0.6rem; cursor:pointer; font-size:0.72rem; font-weight:600; color:#6b7280; transition:all 0.2s; user-select:none; }
+#panelIndicadoresCandidatos .kpi-reset-btn:hover { color:#ef4444; border-color:rgba(239,68,68,0.25); background:rgba(239,68,68,0.05); }
+#panelIndicadoresCandidatos .kpi-cell-title { display:none; }
+#panelIndicadoresCandidatos .kpi-stats-grid-new { display:none; grid-template-columns:1fr; align-items:center; margin-top:0.65rem; }
+#panelIndicadoresCandidatos .kpi-stat-val { font-size:1.85rem; font-weight:700; color:var(--cell-num); line-height:1; }
+#panelIndicadoresCandidatos .kpi-stat-lbl { font-size:0.62rem; font-weight:500; color:#6b7280; margin-top:0.2rem; }
+#panelIndicadoresCandidatos .kpi-row-new.mode-ministat .kpi-cell-top { display:none !important; }
+#panelIndicadoresCandidatos .kpi-row-new.mode-ministat .kpi-cell-top .kpi-cell-status { display:none; }
+#panelIndicadoresCandidatos .kpi-row-new.mode-ministat .kpi-icon-wrap { display:none !important; }
+#panelIndicadoresCandidatos .kpi-row-new.mode-ministat .kpi-corner-icon { display:none !important; }
+#panelIndicadoresCandidatos .kpi-row-new.mode-ministat .kpi-cell { display:flex !important; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:1.5rem 1.25rem !important; min-height:160px; }
+#panelIndicadoresCandidatos .kpi-row-new.mode-ministat .kpi-cell-title { font-size:0.68rem; font-weight:700; color:#6b7280; text-transform:uppercase; letter-spacing:0.08em; display:block; margin-bottom:0.75rem; line-height:1.2; }
+#panelIndicadoresCandidatos .kpi-row-new.mode-ministat .kpi-num { display:none !important; }
+#panelIndicadoresCandidatos .kpi-row-new.mode-ministat .kpi-lbl { display:none !important; }
+#panelIndicadoresCandidatos .kpi-row-new.mode-ministat .kpi-bar-track { display:block !important; margin-top:0.75rem; padding-top:0.5rem; width:100%; }
+#panelIndicadoresCandidatos .kpi-row-new.mode-ministat .donut-block { display:none !important; }
+#panelIndicadoresCandidatos .kpi-row-new.mode-ministat .kpi-stats-grid-new { display:flex !important; flex-direction:column; align-items:center; gap:0.25rem; margin-top:0; }
+#panelIndicadoresCandidatos .kpi-row-new.mode-ministat .kpi-stat-val { font-size:2.25rem; font-weight:800; color:var(--cell-num); line-height:1; letter-spacing:-0.02em; }
+#panelIndicadoresCandidatos .kpi-row-new.mode-ministat .kpi-stat-lbl { font-size:0.7rem; font-weight:500; color:#6b7280; margin-top:0.15rem; }
+#panelIndicadoresCandidatos .kpi-row-new.mode-vision .kpi-cell { padding:1.1rem 1.25rem 1rem; min-height:unset; }
+#panelIndicadoresCandidatos .kpi-row-new.mode-vision .kpi-cell-top { display:none !important; }
+#panelIndicadoresCandidatos .kpi-row-new.mode-vision .kpi-num { display:none !important; }
+#panelIndicadoresCandidatos .kpi-row-new.mode-vision .kpi-lbl { display:none !important; }
+#panelIndicadoresCandidatos .kpi-row-new.mode-vision .kpi-bar-track { display:none !important; }
+#panelIndicadoresCandidatos .kpi-row-new.mode-vision .kpi-stats-grid-new { display:none !important; }
+#panelIndicadoresCandidatos .kpi-row-new.mode-vision .donut-block { display:flex !important; flex-direction:column; align-items:center; gap:0.65rem; }
+#panelIndicadoresCandidatos .donut-block { display:none; }
+#panelIndicadoresCandidatos .donut-header { width:100%; display:flex; align-items:center; justify-content:space-between; }
+#panelIndicadoresCandidatos .donut-title { font-size:0.7rem; font-weight:600; text-transform:uppercase; letter-spacing:0.07em; color:#6b7280; }
+#panelIndicadoresCandidatos .donut-svg-wrap { position:relative; display:inline-flex; align-items:center; justify-content:center; width:96px; height:96px; }
+#panelIndicadoresCandidatos .donut-svg { width:96px; height:96px; transform:rotate(-90deg); overflow:visible; }
+#panelIndicadoresCandidatos .donut-track { fill:none; stroke:color-mix(in srgb,var(--cell-icon) 12%,transparent); stroke-width:8; stroke-linecap:round; }
+#panelIndicadoresCandidatos .donut-arc { fill:none; stroke:var(--cell-icon); stroke-width:8; stroke-linecap:round; stroke-dasharray:0 226.2; transition:stroke-dasharray 1.1s cubic-bezier(0.4,0,0.2,1); filter:drop-shadow(0 0 4px color-mix(in srgb,var(--cell-icon) 40%,transparent)); }
+#panelIndicadoresCandidatos .donut-center-icon { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:1.35rem; color:var(--cell-icon); }
+#panelIndicadoresCandidatos .donut-stats { display:grid; grid-template-columns:1fr; align-items:center; width:100%; margin-top:0.35rem; padding-top:0.35rem; border-top:1px solid color-mix(in srgb,var(--cell-icon) 12%,transparent); }
 #panelIndicadoresCandidatos .kpi-toggle-btn {
     display:inline-flex; align-items:center; gap:0.35rem;
     background:#fff; border:1px solid rgba(99,102,241,0.18); border-radius:8px;
@@ -511,8 +690,20 @@ body.dark-mode #offcanvasAddCandidato .btn-outline-secondary:hover { background-
     #panelIndicadoresCandidatos .kpi-row-new { grid-template-columns:1fr; }
 }
 body.dark-mode #panelIndicadoresCandidatos .kpi-cell { background:#1a1d2e; border-color:rgba(99,102,241,0.18); box-shadow:0 2px 16px rgba(0,0,0,0.35),0 1px 4px rgba(0,0,0,0.2),inset 4px 0 0 var(--cell-accent); }
-body.dark-mode #panelIndicadoresCandidatos .kpi-toggle-btn { background:#1a1d2e; }
+body.dark-mode #panelIndicadoresCandidatos .kpi-toggle-btn { background:#1a1d2e; border-color:rgba(99,102,241,0.35); color:#a5b4fc; }
+body.dark-mode #panelIndicadoresCandidatos .kpi-toggle-btn:hover { background:rgba(99,102,241,0.12); border-color:rgba(99,102,241,0.5); color:#c7d2fe; }
+body.dark-mode #panelIndicadoresCandidatos .kpi-toolbar-sep { background:rgba(148,163,184,0.25); }
+body.dark-mode #panelIndicadoresCandidatos .kpi-view-btn { background:#1a1d2e; border-color:rgba(99,102,241,0.25); color:#94a3b8; }
+body.dark-mode #panelIndicadoresCandidatos .kpi-view-btn:hover { background:rgba(99,102,241,0.15); color:#c7d2fe; border-color:rgba(99,102,241,0.4); }
+body.dark-mode #panelIndicadoresCandidatos .kpi-view-btn.active { background:#6366f1; border-color:#6366f1; color:#fff; box-shadow:0 2px 12px rgba(99,102,241,0.4); }
+body.dark-mode #panelIndicadoresCandidatos .kpi-view-btn.active .kpi-btn-text { color:#fff; }
+body.dark-mode #panelIndicadoresCandidatos .kpi-reset-btn { color:#94a3b8; }
+body.dark-mode #panelIndicadoresCandidatos .kpi-reset-btn:hover { color:#f87171; background:rgba(239,68,68,0.12); border-color:rgba(239,68,68,0.35); }
 body.dark-mode #panelIndicadoresCandidatos .kpi-lbl { color:#8b90b0; }
+body.dark-mode #panelIndicadoresCandidatos .kpi-cell-title { color:#8b90b0; }
+body.dark-mode #panelIndicadoresCandidatos .kpi-stat-lbl { color:#8b90b0; }
+body.dark-mode #panelIndicadoresCandidatos .kpi-row-new.mode-ministat .kpi-cell-title { color:#94a3b8; }
+body.dark-mode #panelIndicadoresCandidatos .kpi-row-new.mode-ministat .kpi-stat-lbl { color:#94a3b8; }
 /* Modo oscuro - Offcanvas Nuevo Candidato */
 body.dark-mode #offcanvasAddCandidato { background: #1e293b; border-left: 1px solid rgba(148, 163, 184, 0.2); }
 body.dark-mode #offcanvasAddCandidato .offcanvas-header { border-bottom-color: rgba(148, 163, 184, 0.2); }
@@ -531,6 +722,163 @@ body.dark-mode #modalResumenPostulacion .modal-header { border-bottom-color: rgb
 body.dark-mode #modalResumenPostulacion .modal-title { color: #f1f5f9; }
 body.dark-mode #modalResumenPostulacion .modal-body { color: #e2e8f0; }
 body.dark-mode #modalResumenPostulacion .btn-close { filter: none; }
+
+/* Modal Cerrar proceso: por encima de Documentación y de su scrim.
+   Orden: Documentación (1090) → scrim (1094/10049) → modal Cerrar (99999 por JS/CSS). */
+#modalCerrarProcesoCandidato.modal,
+#modalCerrarProcesoCandidato.modal.show { z-index: 99999 !important; }
+body.dark-mode #modalCerrarProcesoCandidato.modal.show { z-index: 99999 !important; }
+#modalCerrarProcesoCandidato .modal-dialog { position: relative; z-index: 1 !important; }
+/* Mantener Documentación por debajo del scrim de Cerrar cuando hay dos modales */
+#modalDocumentacionCandidato.modal.show { z-index: 1090 !important; }
+
+/* Modal Cerrar proceso: identidad visual distinta al de Documentación (diálogo de acción, no panel) */
+#modalCerrarProcesoCandidato.modal-cerrar-proceso .modal-dialog { max-width: 420px; }
+/* Liquid Glass + acento rojo (modo claro) */
+#modalCerrarProcesoCandidato.modal-cerrar-proceso .modal-content {
+    border-radius: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    background: rgba(255, 255, 255, 0.92) !important;
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    box-shadow: 0 24px 48px rgba(0,0,0,0.12), 0 0 0 1px rgba(255,255,255,0.4) inset, 0 0 0 1px rgba(220, 53, 69, 0.12);
+    overflow: visible;
+}
+#modalCerrarProcesoCandidato.modal-cerrar-proceso .modal-header {
+    background: linear-gradient(135deg, rgba(220, 53, 69, 0.1) 0%, rgba(220, 53, 69, 0.04) 100%);
+    border-bottom: 2px solid rgba(220, 53, 69, 0.3);
+    padding: 1rem 1.25rem;
+    overflow: visible;
+}
+#modalCerrarProcesoCandidato.modal-cerrar-proceso .modal-title {
+    color: #b91c1c;
+    font-weight: 600;
+    font-size: 1.1rem;
+}
+#modalCerrarProcesoCandidato.modal-cerrar-proceso .modal-title .fa-times-circle { opacity: 0.9; }
+#modalCerrarProcesoCandidato.modal-cerrar-proceso .modal-body {
+    padding: 1.25rem 1.25rem 1rem;
+    background: transparent;
+}
+#modalCerrarProcesoCandidato.modal-cerrar-proceso .modal-footer {
+    background: rgba(248, 249, 250, 0.8);
+    border-top: 1px solid rgba(220, 53, 69, 0.12);
+    padding: 1rem 1.25rem;
+    gap: 0.5rem;
+}
+/* Modo oscuro: Liquid Glass + mismos colores “bonitos” que en claro (rojo/ámbar) */
+body.dark-mode #modalCerrarProcesoCandidato.modal-cerrar-proceso .modal-content {
+    background: rgba(30, 41, 59, 0.92) !important;
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-color: rgba(71, 85, 105, 0.6);
+    box-shadow: 0 24px 48px rgba(0,0,0,0.4), 0 0 0 1px rgba(51, 65, 85, 0.4) inset, 0 0 0 1px rgba(248, 113, 113, 0.2);
+}
+body.dark-mode #modalCerrarProcesoCandidato.modal-cerrar-proceso .modal-header {
+    background: linear-gradient(135deg, rgba(248, 113, 113, 0.18) 0%, rgba(220, 38, 38, 0.08) 100%);
+    border-bottom-color: rgba(248, 113, 113, 0.4);
+}
+body.dark-mode #modalCerrarProcesoCandidato.modal-cerrar-proceso .modal-title { color: #fca5a5; }
+body.dark-mode #modalCerrarProcesoCandidato.modal-cerrar-proceso .modal-body {
+    background: transparent;
+    color: #e2e8f0;
+}
+body.dark-mode #modalCerrarProcesoCandidato.modal-cerrar-proceso .modal-body .text-muted { color: #94a3b8 !important; }
+body.dark-mode #modalCerrarProcesoCandidato.modal-cerrar-proceso .modal-footer {
+    background: rgba(15, 23, 42, 0.7);
+    border-top-color: rgba(248, 113, 113, 0.2);
+}
+/* Botón cerrar (X): que no sea negro puro en oscuro, estilo glass */
+body.dark-mode #modalCerrarProcesoCandidato.modal-cerrar-proceso .modal-header .btn-close {
+    background: rgba(248, 113, 113, 0.2) !important;
+    border: 1px solid rgba(248, 113, 113, 0.35) !important;
+    border-radius: 8px;
+    opacity: 1;
+    filter: none;
+    color: #fca5a5;
+    --bs-btn-close-color: #fca5a5;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23fca5a5'%3e%3cpath d='M.293.293a1 1 0 011.414 0L8 6.586 14.293.293a1 1 0 111.414 1.414L9.414 8l6.293 6.293a1 1 0 01-1.414 1.414L8 9.414l-6.293 6.293a1 1 0 01-1.414-1.414L6.586 8 .293 1.707a1 1 0 010-1.414z'/%3e%3c/svg%3e") !important;
+}
+body.dark-mode #modalCerrarProcesoCandidato.modal-cerrar-proceso .modal-header .btn-close:hover {
+    background: rgba(248, 113, 113, 0.35) !important;
+    border-color: rgba(248, 113, 113, 0.5) !important;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23fecaca'%3e%3cpath d='M.293.293a1 1 0 011.414 0L8 6.586 14.293.293a1 1 0 111.414 1.414L9.414 8l6.293 6.293a1 1 0 01-1.414 1.414L8 9.414l-6.293 6.293a1 1 0 01-1.414-1.414L6.586 8 .293 1.707a1 1 0 010-1.414z'/%3e%3c/svg%3e") !important;
+}
+/* Cancelar: estilo “orange-gold” en oscuro como en claro */
+body.dark-mode #modalCerrarProcesoCandidato.modal-cerrar-proceso .modal-footer .btn-outline-secondary {
+    color: #fbbf24 !important;
+    border-color: #f59e0b !important;
+    background: transparent !important;
+}
+body.dark-mode #modalCerrarProcesoCandidato.modal-cerrar-proceso .modal-footer .btn-outline-secondary:hover {
+    color: #fcd34d !important;
+    border-color: #fbbf24 !important;
+    background: rgba(251, 191, 36, 0.15) !important;
+}
+/* Confirmar: rojo sólido en oscuro, igual que en claro */
+body.dark-mode #modalCerrarProcesoCandidato.modal-cerrar-proceso .modal-footer .btn-outline-danger,
+body.dark-mode #modalCerrarProcesoCandidato.modal-cerrar-proceso .modal-footer #btnConfirmarCerrarProceso {
+    background: #dc3545 !important;
+    border-color: #dc3545 !important;
+    color: #fff !important;
+}
+body.dark-mode #modalCerrarProcesoCandidato.modal-cerrar-proceso .modal-footer .btn-outline-danger:hover,
+body.dark-mode #modalCerrarProcesoCandidato.modal-cerrar-proceso .modal-footer #btnConfirmarCerrarProceso:hover {
+    background: #c82333 !important;
+    border-color: #bd2130 !important;
+    color: #fff !important;
+}
+
+/* Modal Documentación: nitidez y legibilidad (evitar sensación de borroso) */
+#modalDocumentacionCandidato .modal-content {
+    background: #fff !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+#modalDocumentacionCandidato .modal-body {
+    background: #fff !important;
+    color: #212529;
+}
+#modalDocumentacionCandidato #modalDocumentacionCandidatoLista {
+    background: #f8f9fa !important;
+    border-radius: 8px;
+    border: 1px solid rgba(0,0,0,0.08);
+    max-height: 50vh;
+    overflow-y: auto;
+}
+#modalDocumentacionCandidato #modalDocumentacionCandidatoLista::-webkit-scrollbar { width: 10px; }
+#modalDocumentacionCandidato #modalDocumentacionCandidatoLista::-webkit-scrollbar-track { background: #e9ecef; border-radius: 5px; }
+#modalDocumentacionCandidato #modalDocumentacionCandidatoLista::-webkit-scrollbar-thumb { background: #adb5bd; border-radius: 5px; }
+#modalDocumentacionCandidato #modalDocumentacionCandidatoLista .list-group-item {
+    background: #fff !important;
+    border-color: rgba(0,0,0,0.08);
+    border-left-width: 3px;
+}
+#modalDocumentacionCandidato #modalDocumentacionCandidatoLista .btn { opacity: 1; }
+/* Modo oscuro: fondo sólido y contraste para que no se vea borroso */
+body.dark-mode #modalDocumentacionCandidato .modal-content {
+    background: #1e293b !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    border: 1px solid rgba(148, 163, 184, 0.25);
+}
+body.dark-mode #modalDocumentacionCandidato .modal-body {
+    background: #1e293b !important;
+    color: #e2e8f0;
+}
+body.dark-mode #modalDocumentacionCandidato #modalDocumentacionCandidatoLista {
+    background: #0f172a !important;
+    border-color: rgba(148, 163, 184, 0.2);
+}
+body.dark-mode #modalDocumentacionCandidato #modalDocumentacionCandidatoLista::-webkit-scrollbar-track { background: #334155; }
+body.dark-mode #modalDocumentacionCandidato #modalDocumentacionCandidatoLista::-webkit-scrollbar-thumb { background: #64748b; }
+body.dark-mode #modalDocumentacionCandidato #modalDocumentacionCandidatoLista .list-group-item {
+    background: #1e293b !important;
+    border-color: rgba(148, 163, 184, 0.15);
+    color: #e2e8f0;
+}
+body.dark-mode #modalDocumentacionCandidato #modalDocumentacionCandidatoLista .list-group-item small.text-muted { color: #94a3b8 !important; }
+body.dark-mode #modalDocumentacionCandidato #modalDocumentacionCandidatoLista .btn { opacity: 1; filter: none; }
 
 /* Modal Resumen Candidato - mejora visual (modo claro y oscuro) */
 .modal-resumen-candidato .modal-content { border-radius: 14px; overflow: visible; box-shadow: 0 20px 50px rgba(0,0,0,0.15); }
@@ -581,1013 +929,4 @@ body:not(.dark-mode) .flatpickr-calendar .flatpickr-weekdays { color: #6b7280 !i
 
 <script>
 window.puedeGestionarCandidatos = <?= json_encode(!empty($puedeGestionarCandidatos ?? false)) ?>;
-(function() {
-    function initCandidatos() {
-        if (!document.getElementById("tablaCandidatos")) return;
-        var form = document.getElementById("formAgregarCandidato");
-        if (form && !form._candidatosBound) {
-            form._candidatosBound = true;
-            form.addEventListener("submit", function(e) {
-                e.preventDefault();
-                if (window._candidatoEditId) guardarCandidatoEdicion();
-                else guardarCandidatoAbrirResumen();
-            });
-        }
-
-        if (!document._candidatosClickBound) {
-            document._candidatosClickBound = true;
-            document.addEventListener("click", candidatosTableClick);
-            var docPrefetchTimer = null;
-            function prefetchDocumentacion(id) {
-                if (!id) return;
-                if (window._documentacionCache && window._documentacionCache.id === id) return;
-                var sep = capHumApiUrl("CapHum/getDocumentosCandidatoList").indexOf("?") !== -1 ? "&" : "?";
-                fetch(capHumApiUrl("CapHum/getDocumentosCandidatoList") + sep + "id_candidato=" + id).then(function(r){ return r.json(); }).then(function(res) {
-                    if (res.success && res.datos) window._documentacionCache = { id: id, data: res.datos };
-                }).catch(function(){});
-            }
-            document.addEventListener("mouseover", function(ev) {
-                var btn = ev.target && ev.target.closest ? ev.target.closest(".btn-documentacion-candidato") : null;
-                if (!btn) {
-                    if (docPrefetchTimer) { clearTimeout(docPrefetchTimer); docPrefetchTimer = null; }
-                    return;
-                }
-                var id = btn.getAttribute("data-id");
-                if (!id) return;
-                if (window._documentacionCache && window._documentacionCache.id === id) return;
-                if (docPrefetchTimer) clearTimeout(docPrefetchTimer);
-                docPrefetchTimer = setTimeout(function() {
-                    docPrefetchTimer = null;
-                    prefetchDocumentacion(id);
-                }, 50);
-            });
-            document.addEventListener("mousedown", function(ev) {
-                var btn = ev.target && ev.target.closest ? ev.target.closest(".btn-documentacion-candidato") : null;
-                if (!btn) return;
-                var id = btn.getAttribute("data-id");
-                prefetchDocumentacion(id);
-            });
-        }
-
-        var offcanvasEl = document.getElementById("offcanvasAddCandidato");
-        if (offcanvasEl && !offcanvasEl._candidatosOffcanvasBound) {
-            offcanvasEl._candidatosOffcanvasBound = true;
-            offcanvasEl.addEventListener("show.bs.offcanvas", function() {
-                var btnSubmit = document.getElementById("btnSubmitCandidato");
-                if (!btnSubmit) return;
-                if (window._candidatoEditId) {
-                    btnSubmit.innerHTML = "<i class=\"bx bx-edit-alt me-1\"></i> Actualizar";
-                    btnSubmit.className = "btn btn-success me-2";
-                } else {
-                    btnSubmit.innerHTML = "<i class=\"bx bx-save me-1\"></i> Guardar";
-                    btnSubmit.className = "btn btn-primary me-2";
-                }
-            });
-            offcanvasEl.addEventListener("hidden.bs.offcanvas", function() {
-                var form = document.getElementById("formAgregarCandidato");
-                if (form) {
-                    form.reset();
-                    window._candidatoEditId = null;
-                }
-                var titulo = document.getElementById("offcanvasCandidatoTitulo");
-                if (titulo) titulo.textContent = "Nuevo Candidato";
-                var btnSubmit = document.getElementById("btnSubmitCandidato");
-                if (btnSubmit) {
-                    btnSubmit.innerHTML = "<i class=\"bx bx-save me-1\"></i> Guardar";
-                    btnSubmit.className = "btn btn-primary me-2";
-                }
-                var fpInput = document.getElementById("candidato_fecha_postulacion");
-                if (fpInput && fpInput._flatpickr) fpInput._flatpickr.setDate(new Date(), true);
-                var divLegion = document.getElementById("div_candidato_legion");
-                var chkLegion = document.getElementById("candidato_asignar_legion");
-                var selLegion = document.getElementById("candidato_id_legion");
-                if (divLegion) divLegion.style.display = "none";
-                if (chkLegion) chkLegion.checked = false;
-                if (selLegion) selLegion.value = "";
-                var selPuesto = document.getElementById("candidato_id_puesto");
-                var selJefe = document.getElementById("candidato_id_posible_jefe");
-                if (selPuesto) selPuesto.innerHTML = "<option value=''>Seleccione puesto</option>";
-                if (selJefe) selJefe.innerHTML = "<option value=''>Seleccione departamento y puesto primero</option>";
-            });
-        }
-
-        var selDepto = document.getElementById("candidato_id_departamento");
-    if (selDepto) selDepto.addEventListener("change", function() {
-        var idDepto = this.value;
-        var selPuesto = document.getElementById("candidato_id_puesto");
-        var selJefe = document.getElementById("candidato_id_posible_jefe");
-        if (selPuesto) selPuesto.innerHTML = "<option value=''>Seleccione puesto</option>";
-        if (selJefe) selJefe.innerHTML = "<option value=''>Seleccione departamento y puesto primero</option>";
-        if (!idDepto) return;
-        fetch("/CapHum/getPuestos", {
-            method: "POST",
-            headers: { "Content-Type": "application/json", "Accept": "application/json" },
-            body: JSON.stringify({ id_departamento: idDepto })
-        }).then(function(r){ return r.json(); }).then(function(res){
-            if (res.success && res.datos) res.datos.forEach(function(p){
-                var opt = document.createElement("option");
-                opt.value = p.id;
-                opt.textContent = p.nombre || p.puesto_nombre || "";
-                selPuesto.appendChild(opt);
-            });
-        });
-        // Cargar posibles jefes por departamento (se refina al elegir puesto)
-        if (selJefe) {
-            selJefe.innerHTML = "<option value=''>—</option>";
-            fetch("/CapHum/getJefeDirecto", {
-                method: "POST",
-                headers: { "Content-Type": "application/json", "Accept": "application/json" },
-                body: JSON.stringify({ id_departamento: idDepto, id_puesto: null })
-            }).then(function(r){ return r.json(); }).then(function(res){
-                selJefe.innerHTML = "<option value=''>Seleccione posible jefe</option>";
-                if (res.success && res.datos && res.datos.length) res.datos.forEach(function(j){
-                    var opt = document.createElement("option");
-                    opt.value = j.id;
-                    opt.textContent = (j.nombre_completo || "").trim() || "ID " + j.id;
-                    selJefe.appendChild(opt);
-                });
-            }).catch(function(){ selJefe.innerHTML = "<option value=''>Seleccione posible jefe</option>"; });
-        }
-    });
-
-    var selPuesto = document.getElementById("candidato_id_puesto");
-    if (selPuesto) selPuesto.addEventListener("change", function() {
-        var idPuesto = this.value;
-        var selDepto = document.getElementById("candidato_id_departamento");
-        var selJefe = document.getElementById("candidato_id_posible_jefe");
-        if (!selJefe || !selDepto) return;
-        selJefe.innerHTML = "<option value=''>—</option>";
-        var idDepto = selDepto.value;
-        if (!idDepto) { selJefe.innerHTML = "<option value=''>Seleccione departamento y puesto primero</option>"; return; }
-        fetch("/CapHum/getJefeDirecto", {
-            method: "POST",
-            headers: { "Content-Type": "application/json", "Accept": "application/json" },
-            body: JSON.stringify({ id_departamento: idDepto, id_puesto: idPuesto || null })
-        }).then(function(r){ return r.json(); }).then(function(res){
-            selJefe.innerHTML = "<option value=''>Seleccione posible jefe</option>";
-            if (res.success && res.datos && res.datos.length) res.datos.forEach(function(j){
-                var opt = document.createElement("option");
-                opt.value = j.id;
-                opt.textContent = (j.nombre_completo || "").trim() || "ID " + j.id;
-                selJefe.appendChild(opt);
-            });
-        }).catch(function(){ selJefe.innerHTML = "<option value=''>Seleccione posible jefe</option>"; });
-    });
-
-    var btnAddCandidato = document.querySelector("[data-bs-target=\"#offcanvasAddCandidato\"]");
-    if (btnAddCandidato) btnAddCandidato.addEventListener("click", function() {
-        window._candidatoEditId = null;
-        document.getElementById("offcanvasCandidatoTitulo").textContent = "Nuevo Candidato";
-    });
-
-    initFlatpickrFechaPostulacion();
-    initCopiarUrlDocumentos();
-    }
-
-    if (document.readyState === "loading") {
-        document.addEventListener("DOMContentLoaded", initCandidatos);
-    } else {
-        initCandidatos();
-    }
-})();
-
-function initFlatpickrFechaPostulacion() {
-    var input = document.getElementById("candidato_fecha_postulacion");
-    if (!input || typeof flatpickr === "undefined") return;
-    if (input._flatpickr) return;
-    var hoy = new Date().toISOString().slice(0, 10);
-    flatpickr(input, {
-        dateFormat: "Y-m-d",
-        defaultDate: hoy,
-        maxDate: hoy,
-        allowInput: false,
-        clickOpens: true,
-        appendTo: document.body,
-        static: false,
-        locale: (typeof flatpickr !== "undefined" && flatpickr.l10ns && flatpickr.l10ns.es) ? flatpickr.l10ns.es : undefined
-    });
-}
-
-function toggleLegionCandidato() {
-    var div = document.getElementById("div_candidato_legion");
-    var chk = document.getElementById("candidato_asignar_legion");
-    div.style.display = chk && chk.checked ? "block" : "none";
-    if (!chk.checked) document.getElementById("candidato_id_legion").value = "";
-}
-
-function candidatosTableClick(e) {
-    var target = e.target;
-    var tabla = document.getElementById("tablaCandidatos");
-    if (!tabla || !tabla.contains(target)) return;
-    var btn = target.closest(".btn-editar-candidato");
-    if (btn) {
-        e.preventDefault();
-        e.stopPropagation();
-        var id = btn.getAttribute("data-id");
-        if (id) window.editarCandidato(parseInt(id, 10));
-        return;
-    }
-    btn = target.closest(".btn-reenviar-candidato");
-    if (btn) {
-        e.preventDefault();
-        e.stopPropagation();
-        var id = btn.getAttribute("data-id");
-        if (id) window.abrirModalReenviarPostulacion(parseInt(id, 10));
-        return;
-    }
-    btn = target.closest(".btn-documentacion-candidato");
-    if (btn) {
-        e.preventDefault();
-        e.stopPropagation();
-        var id = btn.getAttribute("data-id");
-        var nombre = btn.getAttribute("data-nombre") || "";
-        var cached = (window._documentacionCache && window._documentacionCache.id === id) ? window._documentacionCache.data : null;
-        if (id) abrirModalDocumentacionCandidato(parseInt(id, 10), nombre, cached);
-        return;
-    }
-    btn = target.closest(".btn-eliminar-candidato");
-    if (btn) {
-        e.preventDefault();
-        e.stopPropagation();
-        var id = btn.getAttribute("data-id");
-        if (id) window.eliminarCandidato(parseInt(id, 10));
-    }
-}
-
-function abrirModalDocumentacionCandidato(idCandidato, nombreCandidato, cachedPayload) {
-    var modal = document.getElementById("modalDocumentacionCandidato");
-    var label = document.getElementById("modalDocumentacionCandidatoNombre");
-    var bloqueVerif = document.getElementById("modalDocumentacionCandidatoVerificacion");
-    var bloqueMetricas = document.getElementById("modalDocumentacionCandidatoMetricas");
-    var bloqueAccionVerificar = document.getElementById("modalDocumentacionCandidatoAccionVerificar");
-    var lista = document.getElementById("modalDocumentacionCandidatoLista");
-    var cargando = document.getElementById("modalDocumentacionCandidatoCargando");
-    var vacio = document.getElementById("modalDocumentacionCandidatoVacio");
-    if (label) label.textContent = nombreCandidato ? "Candidato: " + nombreCandidato : "";
-    if (bloqueVerif) { bloqueVerif.classList.add("d-none"); bloqueVerif.innerHTML = ""; }
-    if (bloqueMetricas) { bloqueMetricas.classList.add("d-none"); bloqueMetricas.innerHTML = ""; }
-    if (bloqueAccionVerificar) bloqueAccionVerificar.classList.add("d-none");
-    if (cachedPayload && cachedPayload.documentos) {
-        if (cargando) cargando.classList.add("d-none");
-        if (vacio) vacio.classList.add("d-none");
-    } else {
-        if (cargando) cargando.classList.remove("d-none");
-        if (vacio) vacio.classList.add("d-none");
-    }
-    lista.innerHTML = "";
-    var bsModal = modal && window.bootstrap && window.bootstrap.Modal ? new window.bootstrap.Modal(modal) : null;
-    if (bsModal) bsModal.show();
-
-    if (cachedPayload && (cachedPayload.documentos || cachedPayload.metricas)) {
-        var docs = cachedPayload.documentos || [];
-        var verif = cachedPayload.verificacion_expediente || null;
-        var metricas = cachedPayload.metricas || null;
-        renderLista(docs, verif);
-        renderMetricas(metricas);
-        if (bloqueAccionVerificar) bloqueAccionVerificar.classList.add("d-none");
-        if (verif) {
-            if (bloqueVerif) { bloqueVerif.classList.remove("d-none"); bloqueVerif.innerHTML = ""; }
-            renderVerificacion(verif);
-        } else if (metricas && metricas.expediente_completo && bloqueVerif) {
-            bloqueVerif.classList.remove("d-none");
-            bloqueVerif.innerHTML = "<div class=\"alert alert-info small mb-0\"><i class=\"fa fa-hourglass-half me-1\"></i>Verificación en proceso.</div>";
-        }
-    }
-
-    function renderMetricas(m) {
-        if (!bloqueMetricas || !m) return;
-        bloqueMetricas.classList.remove("d-none");
-        var total = m.total_documentos != null ? m.total_documentos : 0;
-        var requeridos = m.documentos_requeridos != null ? m.documentos_requeridos : 11;
-        var pct = m.porcentaje != null ? m.porcentaje : (requeridos > 0 ? Math.min(100, Math.round((total / requeridos) * 100)) : 0);
-        var completo = m.expediente_completo === true;
-        var html = "<div class=\"card border shadow-none\"><div class=\"card-header py-2 bg-light\"><strong><i class=\"fa fa-chart-pie me-1\"></i>Métricas del expediente</strong></div><div class=\"card-body py-2 small\">";
-        html += "<p class=\"text-muted mb-2\">Resumen de documentación recibida (cuántos documentos obligatorios ha subido el candidato).</p>";
-        html += "<div class=\"row g-2 align-items-center\">";
-        html += "<div class=\"col-6 col-md-4\"><span class=\"text-muted d-block\">Documentos subidos</span><strong class=\"text-primary\">" + total + " de " + requeridos + "</strong></div>";
-        html += "<div class=\"col-6 col-md-4\"><span class=\"text-muted d-block\">Avance</span><strong>" + pct + "%</strong>";
-        if (pct < 100) html += " <div class=\"progress mt-1\" style=\"height:6px;\"><div class=\"progress-bar\" role=\"progressbar\" style=\"width:" + pct + "%\" aria-valuenow=\"" + pct + "\" aria-valuemin=\"0\" aria-valuemax=\"100\"></div></div>";
-        html += "</div>";
-        html += "<div class=\"col-6 col-md-4\"><span class=\"text-muted d-block\">Expediente completo</span><strong class=\"" + (completo ? "text-success" : "text-secondary") + "\">" + (completo ? "Sí" : "No") + "</strong></div>";
-        html += "</div></div></div>";
-        bloqueMetricas.innerHTML = html;
-    }
-
-    function renderVerificacion(v) {
-        if (!bloqueVerif || !v) return;
-        bloqueVerif.classList.remove("d-none");
-        var scoreFrente = v.identificacion_frente_score != null ? Number(v.identificacion_frente_score) : null;
-        var scoreReverso = v.identificacion_reverso_score != null ? Number(v.identificacion_reverso_score) : null;
-        var checksOk = v.checks_ok != null ? parseInt(v.checks_ok, 10) : null;
-        var checksTotales = v.checks_totales != null ? parseInt(v.checks_totales, 10) : null;
-        var todoCoincide = v.todo_coincide === true;
-        var alertas = Array.isArray(v.alertas) && v.alertas.length ? v.alertas : [];
-
-        var confianzaNum = null;
-        if (scoreFrente != null && scoreReverso != null) {
-            confianzaNum = Math.round((scoreFrente + scoreReverso) / 2);
-        } else if (scoreFrente != null) {
-            confianzaNum = scoreFrente;
-        } else if (scoreReverso != null) {
-            confianzaNum = scoreReverso;
-        } else if (checksTotales > 0 && checksOk != null) {
-            confianzaNum = Math.round((checksOk / checksTotales) * 100);
-        }
-        var confianzaTexto = confianzaNum != null ? confianzaNum + "%" : "—";
-        var confianzaClase = "text-secondary";
-        if (confianzaNum != null) {
-            if (confianzaNum >= 80) confianzaClase = "text-success";
-            else if (confianzaNum >= 50) confianzaClase = "text-warning";
-            else confianzaClase = "text-danger";
-        }
-
-        var html = "<div class=\"card border shadow-none\"><div class=\"card-header py-2 bg-light\"><strong><i class=\"fa fa-shield-alt me-1\"></i>Resultado de la verificación API</strong></div><div class=\"card-body py-2 small\">";
-        html += "<div class=\"row g-2 mb-2 align-items-center\">";
-        html += "<div class=\"col-6 col-md\"><span class=\"text-muted d-block\">Confianza</span><strong class=\"fs-6 " + confianzaClase + "\">" + confianzaTexto + "</strong></div>";
-        html += "<div class=\"col-6 col-md\"><span class=\"text-muted d-block\">Frente</span><strong class=\"text-primary\">" + (scoreFrente != null ? scoreFrente + "%" : "—") + "</strong></div>";
-        html += "<div class=\"col-6 col-md\"><span class=\"text-muted d-block\">Reverso</span><strong class=\"text-primary\">" + (scoreReverso != null ? scoreReverso + "%" : "—") + "</strong></div>";
-        html += "<div class=\"col-6 col-md\"><span class=\"text-muted d-block\">Checks</span><strong>" + (checksOk != null && checksTotales != null ? checksOk + "/" + checksTotales : "—") + "</strong></div>";
-        html += "<div class=\"col-6 col-md\"><span class=\"text-muted d-block\">Coinciden</span><strong class=\"" + (todoCoincide ? "text-success" : (v.todo_coincide === false ? "text-danger" : "text-secondary")) + "\">" + (v.todo_coincide === true ? "Sí" : (v.todo_coincide === false ? "No" : "—")) + "</strong></div>";
-        html += "</div>";
-
-        var lineasComparaciones = [];
-        if (v.comparaciones && typeof v.comparaciones === "object") {
-            var comp = v.comparaciones;
-            var labels = {
-                "nombre_frente_vs_reverso": "Nombre en INE = Nombre en reverso",
-                "fecha_nac_curp_vs_mrz": "Fecha nac. (CURP) = Fecha en reverso",
-                "nombre_id_vs_curp_pdf": "Nombre en INE = Nombre en CURP PDF",
-                "curp_vs_fiscal": "CURP = Constancia fiscal",
-                "nombre_vs_fiscal": "Nombre = Constancia fiscal",
-                "curp_vs_nss": "CURP = NSS",
-                "nombre_vs_nss": "Nombre = NSS",
-                "nombre_vs_acta": "Nombre = Acta de nacimiento",
-                "fecha_nac_vs_acta": "Fecha nac. = Acta",
-                "curp_id_vs_documento": "CURP en INE = Otro documento"
-            };
-            Object.keys(comp).forEach(function(k) {
-                var c = comp[k];
-                if (!c || typeof c !== "object") return;
-                if (c.coincide !== undefined) lineasComparaciones.push((labels[k] || k) + ": " + (c.coincide ? "✓ Coincide" : "✗ No coincide"));
-                else if (c.es_reciente !== undefined) lineasComparaciones.push("CURP PDF: " + (c.es_reciente ? "Reciente" : (c.meses_antiguedad || "?") + " meses"));
-            });
-        }
-        if (lineasComparaciones.length) {
-            var btnId = "btnVerComparaciones_" + (Math.random().toString(36).slice(2, 9));
-            html += "<div class=\"border-top pt-2 mt-2\"><button type=\"button\" class=\"btn btn-sm btn-outline-secondary\" id=\"" + btnId + "\" title=\"Ver comparaciones entre documentos\"><i class=\"fa fa-list-ul me-1\"></i>Ver comparaciones entre documentos</button></div>";
-        }
-        if (alertas.length) {
-            html += "<div class=\"mt-2 pt-2 border-top\"><span class=\"text-muted d-block mb-1\"><strong>Alertas</strong></span><ul class=\"mb-0 ps-3\"><li class=\"text-warning\">" + alertas.join("</li><li class=\"text-warning\">") + "</li></ul></div>";
-        }
-        html += "</div></div>";
-        bloqueVerif.innerHTML = html;
-
-        if (lineasComparaciones.length && window.bootstrap && window.bootstrap.Popover) {
-            var btnComp = document.getElementById(btnId);
-            if (btnComp) {
-                var popContent = "<div class=\"text-start small\" style=\"min-width: 280px;\"><p class=\"text-muted mb-2\"><strong>Comparaciones entre documentos</strong><br><span class=\"text-muted\">(que los datos del candidato coincidan en todos)</span></p><ul class=\"list-unstyled mb-0\">" + lineasComparaciones.map(function(l) {
-                    var ok = l.indexOf("✓") !== -1 || l.indexOf("Reciente") !== -1;
-                    return "<li class=\"py-1 border-bottom border-light\"><i class=\"fa fa-" + (ok ? "check-circle text-success" : "times-circle text-danger") + " me-2\"></i>" + l + "</li>";
-                }).join("") + "</ul></div>";
-                new window.bootstrap.Popover(btnComp, { content: popContent, html: true, trigger: "click", placement: "bottom", container: "body" });
-            }
-        }
-    }
-
-    function badgeVerificacion(tipoDoc, v) {
-        if (!v || !tipoDoc) return "";
-        var t = (tipoDoc + "").trim().toUpperCase();
-        if (t.indexOf("REVERSO") !== -1) {
-            var r = v.identificacion_reverso_score;
-            if (r == null) return "";
-            return "<span class=\"badge bg-primary ms-1\" title=\"Veracidad con el candidato\">" + r + "%</span>";
-        }
-        if (t === "IDENTIFICACIÓN OFICIAL" || t === "IDENTIFICACION OFICIAL") {
-            var s = v.identificacion_frente_score;
-            if (s == null) return "";
-            return "<span class=\"badge bg-primary ms-1\" title=\"Veracidad con el candidato\">" + s + "%</span>";
-        }
-        var comp = v.comparaciones || {};
-        if (t.indexOf("CURP") !== -1 && t.indexOf("ACTA") === -1) {
-            var c1 = comp.nombre_id_vs_curp_pdf || comp.curp_id_vs_documento;
-            if (c1 && c1.coincide !== undefined) return c1.coincide ? "<span class=\"badge bg-success ms-1\" title=\"Coincide con INE\">Coincide</span>" : "<span class=\"badge bg-danger ms-1\" title=\"No coincide\">No coincide</span>";
-        }
-        if (t.indexOf("CONSTANCIA") !== -1 || t.indexOf("FISCAL") !== -1) {
-            var c2 = comp.curp_vs_fiscal || comp.nombre_vs_fiscal;
-            if (c2 && c2.coincide !== undefined) return c2.coincide ? "<span class=\"badge bg-success ms-1\">Coincide</span>" : "<span class=\"badge bg-danger ms-1\">No coincide</span>";
-        }
-        if (t.indexOf("NSS") !== -1 || t.indexOf("SEGURIDAD SOCIAL") !== -1) {
-            var c3 = comp.curp_vs_nss || comp.nombre_vs_nss;
-            if (c3 && c3.coincide !== undefined) return c3.coincide ? "<span class=\"badge bg-success ms-1\">Coincide</span>" : "<span class=\"badge bg-danger ms-1\">No coincide</span>";
-        }
-        if (t.indexOf("ACTA") !== -1) {
-            var c4 = comp.nombre_vs_acta || comp.fecha_nac_vs_acta;
-            if (c4 && c4.coincide !== undefined) return c4.coincide ? "<span class=\"badge bg-success ms-1\">Coincide</span>" : "<span class=\"badge bg-danger ms-1\">No coincide</span>";
-        }
-        return "";
-    }
-
-    function renderLista(datos, verif) {
-        if (cargando) cargando.classList.add("d-none");
-        lista.innerHTML = "";
-        if (!datos || datos.length === 0) {
-            if (vacio) vacio.classList.remove("d-none");
-            return;
-        }
-        if (vacio) vacio.classList.add("d-none");
-        datos.forEach(function(d) {
-            var item = document.createElement("div");
-            item.className = "list-group-item list-group-item-action d-flex justify-content-between align-items-center";
-            var fecha = d.fecha_carga ? new Date(d.fecha_carga).toLocaleDateString("es-MX") : "";
-            var badge = badgeVerificacion(d.tipo_documento, verif);
-            var esValidado = parseInt(d.validado || 0, 10) === 1;
-            var btnValidarClase = esValidado ? "btn-success" : "btn-outline-success";
-            var btnValidarIcon = esValidado ? "fa-check-circle" : "fa-check";
-            var btnValidarTitle = esValidado ? "Validado — clic para retirar" : "Marcar como validado";
-            if (esValidado) {
-                item.style.borderLeft = "3px solid #198754";
-                item.style.background = "#f0fdf4";
-            }
-            var btnEliminarHtml = esValidado
-                ? "<span class=\"btn btn-sm btn-outline-secondary disabled\" title=\"No se puede eliminar un documento validado\"><i class=\"fa fa-trash\"></i></span>"
-                : "<button type=\"button\" class=\"btn btn-sm btn-outline-danger btn-eliminar-doc-candidato\" data-id=\"" + d.id + "\" title=\"Eliminar\"><i class=\"fa fa-trash\"></i></button>";
-            item.innerHTML = "<div class=\"d-flex align-items-center flex-wrap\"><div><strong>" + (d.tipo_documento || "Documento") + "</strong>" + (esValidado ? " <span class=\"badge bg-success ms-1\">Validado</span>" : "") + "<br><small class=\"text-muted\">" + (d.nombre_archivo || "") + (fecha ? " · " + fecha : "") + "</small></div>" + badge + "</div>" +
-                "<div class=\"d-flex gap-1 align-items-center\">" +
-                "<button type=\"button\" class=\"btn btn-sm " + btnValidarClase + " btn-validar-doc-candidato\" data-id=\"" + d.id + "\" data-validado=\"" + (esValidado ? 1 : 0) + "\" title=\"" + btnValidarTitle + "\"><i class=\"fa " + btnValidarIcon + "\"></i></button>" +
-                "<a href=\"/CapHum/verDocumentoCandidato/" + d.id + "\" target=\"_blank\" class=\"btn btn-sm btn-outline-primary\" title=\"Abrir\"><i class=\"fa fa-eye\"></i></a>" +
-                btnEliminarHtml +
-                "</div>";
-            lista.appendChild(item);
-        });
-        lista.querySelectorAll(".btn-validar-doc-candidato").forEach(function(btn) {
-            btn.addEventListener("click", function() {
-                var idDoc = parseInt(btn.getAttribute("data-id"), 10);
-                var actual = parseInt(btn.getAttribute("data-validado"), 10);
-                var iconEl = btn.querySelector("i");
-                var iconClass = iconEl ? iconEl.className : "";
-                btn.disabled = true;
-                if (iconEl) { iconEl.className = "fa fa-spinner fa-spin"; }
-
-                fetch("/CapHum/validarDocumentoCandidato", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/x-www-form-urlencoded", "X-Requested-With": "XMLHttpRequest" },
-                    body: "id=" + idDoc + "&validado=" + (actual ? 0 : 1)
-                }).then(function(r){ return r.json(); }).then(function(res) {
-                    btn.disabled = false;
-                    if (iconEl) iconEl.className = iconClass;
-                    if (res.success) {
-                        cargarDocumentos();
-                        if (typeof getCandidatos === "function") getCandidatos();
-                        if (res.datos && res.datos.todos_validados) {
-                            if (typeof Swal !== "undefined") Swal.fire({ icon: "success", title: "Expediente validado", text: "Todos los documentos han sido validados. El estatus del candidato cambió a Validado.", timer: 3000, showConfirmButton: false });
-                        }
-                    } else {
-                        if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "Error", text: res.mensaje || "No se pudo actualizar." });
-                    }
-                }).catch(function() {
-                    btn.disabled = false;
-                    if (iconEl) iconEl.className = iconClass;
-                    if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "Error", text: "Error de conexión." });
-                });
-            });
-        });
-        lista.querySelectorAll(".btn-eliminar-doc-candidato").forEach(function(btn) {
-            btn.addEventListener("click", function() {
-                var idDoc = parseInt(btn.getAttribute("data-id"), 10);
-                if (typeof Swal !== "undefined") {
-                    Swal.fire({ title: "¿Eliminar documento?", text: "Se quitará del expediente.", icon: "warning", showCancelButton: true, confirmButtonText: "Sí, eliminar", cancelButtonText: "Cancelar" }).then(function(r) {
-                        if (r.isConfirmed) eliminarDocYRecargar(idDoc);
-                    });
-                } else if (confirm("¿Eliminar este documento?")) eliminarDocYRecargar(idDoc);
-            });
-        });
-    }
-
-    function eliminarDocYRecargar(idDoc) {
-        fetch("/CapHum/eliminarDocumentoCandidato", {
-            method: "POST",
-            headers: { "Content-Type": "application/x-www-form-urlencoded", "X-Requested-With": "XMLHttpRequest" },
-            body: "id=" + idDoc
-        }).then(function(r){ return r.json(); }).then(function(res) {
-            if (res.success) {
-                if (typeof Swal !== "undefined") Swal.fire({ icon: "success", title: "Eliminado", text: res.mensaje || "Documento eliminado." });
-                cargarDocumentos();
-            } else {
-                if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "Error", text: res.mensaje || "No se pudo eliminar." });
-            }
-        }).catch(function() {
-            if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "Error", text: "Error de conexión." });
-        });
-    }
-
-    function cargarDocumentos() {
-        var sep = (typeof capHumApiUrl === "function" ? capHumApiUrl("CapHum/getDocumentosCandidatoList") : "/CapHum/getDocumentosCandidatoList").indexOf("?") !== -1 ? "&" : "?";
-        var urlDoc = (typeof capHumApiUrl === "function" ? capHumApiUrl("CapHum/getDocumentosCandidatoList") : "/CapHum/getDocumentosCandidatoList") + sep + "id_candidato=" + idCandidato;
-        fetch(urlDoc).then(function(r){ return r.json(); }).then(function(res) {
-            var docs = (res.datos && res.datos.documentos) ? res.datos.documentos : (res.datos && Array.isArray(res.datos) ? res.datos : []);
-            var verif = (res.datos && res.datos.verificacion_expediente) ? res.datos.verificacion_expediente : null;
-            var metricas = (res.datos && res.datos.metricas) ? res.datos.metricas : null;
-            renderLista(docs, verif);
-            renderMetricas(metricas);
-
-            if (bloqueAccionVerificar) bloqueAccionVerificar.classList.add("d-none");
-
-            if (verif) {
-                if (bloqueVerif) {
-                    bloqueVerif.classList.remove("d-none");
-                    bloqueVerif.innerHTML = "<div class=\"alert alert-success small mb-0\"><i class=\"fa fa-check-circle me-1\"></i>Expediente verificado automáticamente. Los resultados se muestran en cada documento.</div>";
-                }
-                renderVerificacion(verif);
-            } else if (metricas && metricas.expediente_completo) {
-                if (bloqueVerif) {
-                    bloqueVerif.classList.remove("d-none");
-                    bloqueVerif.innerHTML = "<div class=\"alert alert-info small mb-0\"><i class=\"fa fa-hourglass-half me-1\"></i>La verificación automática se está procesando en segundo plano. Los resultados aparecerán aquí cuando estén listos.</div>";
-                }
-            }
-        }).catch(function() { renderLista([]); });
-    }
-
-    cargarDocumentos();
-}
-
-function abrirModalReenviarPostulacion(idCandidato) {
-    window._candidatoDatosEnvio = null;
-    var url = capHumApiUrl("CapHum/getCandidato/" + idCandidato);
-    fetch(url).then(function(r){ return r.json(); }).then(function(res){
-        if (!res.success || !res.datos) {
-            if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "Error", text: "No se encontró el candidato." });
-            return;
-        }
-        var c = res.datos;
-        var nombreCompleto = [c.nombres, c.segundo_nombre, c.apellidop, c.apellidom].filter(Boolean).join(" ");
-        var html = buildResumenCandidatoHTML({
-            nombreCompleto: nombreCompleto || "—",
-            telefono: (c.telefono ? "(" + c.telefono + ")" : "—"),
-            email: c.email || "—",
-            puesto: c.nombre_puesto || "—",
-            departamento: c.nombre_departamento || "—"
-        });
-        document.getElementById("resumenPostulacionTexto").innerHTML = html;
-        document.getElementById("btnEnviarPostulacion").disabled = false;
-        document.getElementById("btnEnviarPostulacion").innerHTML = "<i class='bx bx-send me-2'></i> Reenviar postulación por correo";
-        window._candidatoReenviarId = c.id;
-        window._candidatoReenviarEmail = c.email || "";
-        var modal = new bootstrap.Modal(document.getElementById("modalResumenPostulacion"));
-        modal.show();
-        cargarLinkDocumentosCandidato(c.id);
-    }).catch(function(){
-        if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "Error", text: "No se pudo cargar el candidato." });
-    });
-}
-
-function buildResumenCandidatoHTML(o) {
-    var n = o.nombreCompleto || "—";
-    var t = o.telefono || "—";
-    var e = o.email || "—";
-    var p = o.puesto || "—";
-    var d = o.departamento || "—";
-    return "<div class=\"resumen-row\"><span class=\"resumen-label\">Candidato</span><span class=\"resumen-value\">" + escapeHtml(n) + "</span></div>" +
-        "<div class=\"resumen-row\"><span class=\"resumen-label\">Teléfono</span><span class=\"resumen-value\">" + escapeHtml(t) + "</span></div>" +
-        "<div class=\"resumen-row\"><span class=\"resumen-label\">Correo</span><span class=\"resumen-value\">" + escapeHtml(e) + "</span></div>" +
-        "<div class=\"resumen-row\"><span class=\"resumen-label\">Puesto</span><span class=\"resumen-value\">" + escapeHtml(p) + "</span></div>" +
-        "<div class=\"resumen-row\"><span class=\"resumen-label\">Departamento</span><span class=\"resumen-value\">" + escapeHtml(d) + "</span></div>";
-}
-function escapeHtml(s) {
-    if (!s) return "";
-    var div = document.createElement("div");
-    div.textContent = s;
-    return div.innerHTML;
-}
-
-function cargarLinkDocumentosCandidato(idCandidato) {
-    if (!idCandidato) return;
-    var bloque = document.getElementById("bloqueLinkDocumentos");
-    var input = document.getElementById("inputUrlDocumentos");
-    if (!bloque || !input) return;
-    fetch(capHumApiUrl("CapHum/getTokenDocumentosCandidato"), { method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" }, body: JSON.stringify({ id: idCandidato }) })
-        .then(function(r){ return r.json(); })
-        .then(function(res){
-            if (res.success && res.datos && res.datos.url) {
-                input.value = res.datos.url;
-                input.setAttribute("title", res.datos.url);
-                bloque.style.display = "block";
-            }
-        })
-        .catch(function(){});
-}
-
-function initCopiarUrlDocumentos() {
-    var btn = document.getElementById("btnCopiarUrlDocumentos");
-    var input = document.getElementById("inputUrlDocumentos");
-    if (!btn || !input) return;
-    if (btn._copiarBound) return;
-    btn._copiarBound = true;
-
-    function showToastUrl(msg) {
-        var t = document.getElementById("toastUrlDocumentos");
-        if (!t) return;
-        t.textContent = msg;
-        t.classList.add("show");
-        setTimeout(function() { t.classList.remove("show"); }, 2200);
-    }
-
-    btn.addEventListener("click", function() {
-        var url = input.value;
-        if (!url) { showToastUrl("⚠ Ingresa una URL primero"); return; }
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-            navigator.clipboard.writeText(url).then(function() {
-                showToastUrl("✓  URL copiada al portapapeles");
-            }).catch(function() {
-                input.select();
-                input.setSelectionRange(0, 99999);
-                try {
-                    document.execCommand("copy");
-                    showToastUrl("✓  URL copiada al portapapeles");
-                } catch (e) {
-                    if (typeof Swal !== "undefined") Swal.fire({ icon: "success", title: "Copiado", text: "URL copiada.", timer: 1500, showConfirmButton: false });
-                }
-            });
-        } else {
-            input.select();
-            input.setSelectionRange(0, 99999);
-            try {
-                document.execCommand("copy");
-                showToastUrl("✓  URL copiada al portapapeles");
-            } catch (e) {
-                if (typeof Swal !== "undefined") Swal.fire({ icon: "success", title: "Copiado", text: "URL copiada.", timer: 1500, showConfirmButton: false });
-            }
-        }
-    });
-
-    var btnAbrir = document.getElementById("btnAbrirUrlDocumentos");
-    if (btnAbrir && !btnAbrir._abrirBound) {
-        btnAbrir._abrirBound = true;
-        btnAbrir.addEventListener("click", function() {
-            var url = input.value;
-            if (!url) return;
-            if (!/^https?:\/\//i.test(url)) url = "https://" + url;
-            window.open(url, "_blank", "noopener,noreferrer");
-        });
-    }
-}
-
-function editarCandidato(id) {
-    window._candidatoEditId = id;
-    var titulo = document.getElementById("offcanvasCandidatoTitulo");
-    if (titulo) titulo.textContent = "Editar Candidato";
-    var btnSubmit = document.getElementById("btnSubmitCandidato");
-    if (btnSubmit) {
-        btnSubmit.innerHTML = "<i class=\"bx bx-edit-alt me-1\"></i> Actualizar";
-        btnSubmit.className = "btn btn-success me-2";
-    }
-    fetch(capHumApiUrl("CapHum/getCandidato/" + id)).then(function(r){ return r.json(); }).then(function(res){
-        if (!res.success || !res.datos) {
-            if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "Error", text: "No se encontró el candidato." });
-            return;
-        }
-        var c = res.datos;
-        var form = document.getElementById("formAgregarCandidato");
-        if (!form) return;
-        if (form.nombres) form.nombres.value = c.nombres || "";
-        if (form.segundo_nombre) form.segundo_nombre.value = c.segundo_nombre || "";
-        if (form.apellidop) form.apellidop.value = c.apellidop || "";
-        if (form.apellidom) form.apellidom.value = c.apellidom || "";
-        if (form.telefono) form.telefono.value = c.telefono || "";
-        if (form.email) form.email.value = c.email || "";
-        if (form.id_pais) form.id_pais.value = c.id_pais || "";
-        if (form.id_departamento) form.id_departamento.value = c.id_departamento || "";
-        if (form.usuario) form.usuario.value = c.usuario || "";
-        if (form.contrasena) form.contrasena.value = c.contrasena || "";
-        var fpInput = document.getElementById("candidato_fecha_postulacion");
-        if (fpInput && c.fecha_postulacion) fpInput.value = c.fecha_postulacion;
-        var chkLegion = document.getElementById("candidato_asignar_legion");
-        var divLegion = document.getElementById("div_candidato_legion");
-        var selLegion = document.getElementById("candidato_id_legion");
-        if (c.id_legion) {
-            if (chkLegion) chkLegion.checked = true;
-            if (divLegion) divLegion.style.display = "block";
-            if (selLegion) selLegion.value = c.id_legion;
-        } else {
-            if (chkLegion) chkLegion.checked = false;
-            if (divLegion) divLegion.style.display = "none";
-            if (selLegion) selLegion.value = "";
-        }
-        var selPuesto = document.getElementById("candidato_id_puesto");
-        var selJefe = document.getElementById("candidato_id_posible_jefe");
-        selPuesto.innerHTML = "<option value=''>Seleccione puesto</option>";
-        selJefe.innerHTML = "<option value=''>—</option>";
-
-        setTimeout(function() { abrirOffcanvasCandidato(); }, 0);
-
-        if (!c.id_departamento) {
-            selJefe.innerHTML = "<option value=''>Seleccione departamento y puesto primero</option>";
-            return;
-        }
-        fetch("/CapHum/getPuestos", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id_departamento: c.id_departamento }) })
-        .then(function(r){ return r.json(); })
-        .then(function(rPuestos){
-            if (rPuestos.success && rPuestos.datos) rPuestos.datos.forEach(function(p){
-                var opt = document.createElement("option");
-                opt.value = p.id;
-                opt.textContent = p.nombre || "";
-                selPuesto.appendChild(opt);
-            });
-            selPuesto.value = c.id_puesto || "";
-            return fetch("/CapHum/getJefeDirecto", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id_departamento: c.id_departamento, id_puesto: c.id_puesto || null }) });
-        })
-        .then(function(r){ return r.json(); })
-        .then(function(rJefes){
-            if (!selJefe) return;
-            selJefe.innerHTML = "<option value=''>Seleccione posible jefe</option>";
-            if (rJefes && rJefes.success && rJefes.datos) rJefes.datos.forEach(function(j){
-                var opt = document.createElement("option");
-                opt.value = j.id;
-                opt.textContent = (j.nombre_completo || "").trim() || "ID " + j.id;
-                selJefe.appendChild(opt);
-            });
-            selJefe.value = c.id_posible_jefe || "";
-        })
-        .catch(function(){
-            if (selJefe) selJefe.innerHTML = "<option value=''>Seleccione posible jefe</option>";
-        });
-    }).catch(function(){
-        if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "Error", text: "No se pudo cargar el candidato." });
-    });
-}
-
-function abrirOffcanvasCandidato() {
-    var el = document.getElementById("offcanvasAddCandidato");
-    if (!el) return;
-    if (el.parentNode !== document.body) {
-        document.body.appendChild(el);
-    }
-    if (typeof bootstrap !== "undefined" && bootstrap.Offcanvas) {
-        var inst = bootstrap.Offcanvas.getOrCreateInstance(el);
-        if (inst) inst.show();
-    } else {
-        el.classList.add("show");
-        el.setAttribute("aria-hidden", "false");
-        var back = document.createElement("div");
-        back.className = "offcanvas-backdrop fade show";
-        back.style.cssText = "position:fixed;top:0;left:0;z-index:1040;width:100vw;height:100vh;background:#000;opacity:0.5;";
-        back.setAttribute("data-bs-dismiss", "offcanvas");
-        document.body.appendChild(back);
-    }
-}
-
-function guardarCandidatoEdicion() {
-    var form = document.getElementById("formAgregarCandidato");
-    if (!form || !form.checkValidity()) { form.reportValidity(); return; }
-    var id = window._candidatoEditId;
-    if (!id) return;
-    var data = buildCandidatoPayloadFromForm();
-    data.id = id;
-
-    fetch("/CapHum/actualizarCandidato", { method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" }, body: JSON.stringify(data) })
-    .then(function(r){ return r.json(); })
-    .then(function(res){
-        if (res.success) {
-            if (typeof Swal !== "undefined") Swal.fire({ icon: "success", title: "Listo", text: "Candidato actualizado correctamente." });
-            window._candidatoEditId = null;
-            document.getElementById("offcanvasCandidatoTitulo").textContent = "Nuevo Candidato";
-            var btnSubmit = document.getElementById("btnSubmitCandidato");
-            if (btnSubmit) {
-                btnSubmit.innerHTML = "<i class=\"bx bx-save me-1\"></i> Guardar";
-                btnSubmit.className = "btn btn-primary me-2";
-            }
-            form.reset();
-            var fpInput = document.getElementById("candidato_fecha_postulacion");
-            if (fpInput && fpInput._flatpickr) fpInput._flatpickr.setDate(new Date(), true);
-            var inst = bootstrap.Offcanvas.getInstance(document.getElementById("offcanvasAddCandidato"));
-            if (inst) inst.hide();
-            getCandidatos();
-        } else {
-            if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "Error", text: res.mensaje || "No se pudo actualizar." });
-        }
-    })
-    .catch(function(){
-        if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "Error", text: "Error de conexión." });
-    });
-}
-
-function guardarCandidatoAbrirResumen() {
-    var form = document.getElementById("formAgregarCandidato");
-    if (!form || !form.checkValidity()) { form.reportValidity(); return; }
-
-    var data = buildCandidatoPayloadFromForm();
-    if (!data.nombres || !data.apellidop) {
-        if (typeof Swal !== "undefined") Swal.fire({ icon: "warning", title: "Faltan datos", text: "Nombre y apellido paterno son obligatorios." });
-        return;
-    }
-
-    var btnSubmit = document.getElementById("btnSubmitCandidato");
-    if (btnSubmit) { btnSubmit.disabled = true; }
-
-    fetch(capHumApiUrl("CapHum/guardarCandidato"), { method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" }, body: JSON.stringify(data) })
-    .then(function(r){ return r.json(); })
-    .then(function(res){
-        if (btnSubmit) { btnSubmit.disabled = false; btnSubmit.innerHTML = "<i class=\"bx bx-save me-1\"></i> Guardar"; }
-        if (!res.success) {
-            if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "Error", text: res.mensaje || res.error || "No se pudo guardar." });
-            return;
-        }
-        var idCand = res.datos && res.datos.id;
-        if (!idCand) return;
-
-        window._candidatoNuevoId = idCand;
-        window._candidatoNuevoEmail = data.email || "";
-        window._candidatoDatosEnvio = null;
-        window._candidatoReenviarId = null;
-        window._candidatoReenviarEmail = null;
-
-        var nombreCompleto = [data.nombres, data.segundo_nombre, data.apellidop, data.apellidom].filter(Boolean).join(" ");
-        var puestoTexto = (document.getElementById("candidato_id_puesto") && document.getElementById("candidato_id_puesto").selectedIndex >= 0) ? document.getElementById("candidato_id_puesto").options[document.getElementById("candidato_id_puesto").selectedIndex].text : "—";
-        var deptoTexto = (document.getElementById("candidato_id_departamento") && document.getElementById("candidato_id_departamento").selectedIndex >= 0) ? document.getElementById("candidato_id_departamento").options[document.getElementById("candidato_id_departamento").selectedIndex].text : "—";
-        var html = buildResumenCandidatoHTML({
-            nombreCompleto: nombreCompleto || "—",
-            telefono: (data.telefono ? "(" + data.telefono + ")" : "—"),
-            email: data.email || "—",
-            puesto: puestoTexto,
-            departamento: deptoTexto
-        });
-        document.getElementById("resumenPostulacionTexto").innerHTML = html;
-        document.getElementById("btnEnviarPostulacion").disabled = false;
-        document.getElementById("btnEnviarPostulacion").innerHTML = "<i class='bx bx-send me-2'></i> Enviar postulación al candidato";
-
-        var bloqueLink = document.getElementById("bloqueLinkDocumentos");
-        var inputUrl = document.getElementById("inputUrlDocumentos");
-        if (bloqueLink) bloqueLink.style.display = "none";
-        if (inputUrl) inputUrl.value = "";
-
-        cargarLinkDocumentosCandidato(idCand);
-
-        var offcanvas = document.getElementById("offcanvasAddCandidato");
-        if (offcanvas && typeof bootstrap !== "undefined") bootstrap.Offcanvas.getInstance(offcanvas).hide();
-        var modal = new bootstrap.Modal(document.getElementById("modalResumenPostulacion"));
-        modal.show();
-
-        if (form) form.reset();
-        var fpInput = document.getElementById("candidato_fecha_postulacion");
-        if (fpInput && fpInput._flatpickr) fpInput._flatpickr.setDate(new Date(), true);
-        getCandidatos();
-    })
-    .catch(function(){
-        if (typeof Swal !== "undefined") Swal.close();
-        if (btnSubmit) { btnSubmit.disabled = false; btnSubmit.innerHTML = "<i class=\"bx bx-save me-1\"></i> Guardar"; }
-        if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "Error", text: "Error de conexión." });
-    });
-}
-
-function buildCandidatoPayloadFromForm() {
-    var form = document.getElementById("formAgregarCandidato");
-    if (!form) return {};
-    return {
-        nombres: (form.nombres && form.nombres.value.trim()) || "",
-        segundo_nombre: (form.segundo_nombre && form.segundo_nombre.value.trim()) || "",
-        apellidop: (form.apellidop && form.apellidop.value.trim()) || "",
-        apellidom: (form.apellidom && form.apellidom.value.trim()) || "",
-        email: (form.email && form.email.value.trim()) || "",
-        telefono: (form.telefono && form.telefono.value.trim()) || "",
-        id_pais: (form.id_pais && form.id_pais.value) || null,
-        id_departamento: (form.id_departamento && form.id_departamento.value) || null,
-        id_puesto: (form.id_puesto && form.id_puesto.value) || null,
-        id_posible_jefe: (form.id_posible_jefe && form.id_posible_jefe.value) || null,
-        fecha_postulacion: (form.fecha_postulacion && form.fecha_postulacion.value) || null,
-        id_legion: document.getElementById("candidato_asignar_legion") && document.getElementById("candidato_asignar_legion").checked && document.getElementById("candidato_id_legion") && document.getElementById("candidato_id_legion").value ? document.getElementById("candidato_id_legion").value : null,
-        usuario: (form.usuario && form.usuario.value.trim()) || "",
-        contrasena: (form.contrasena && form.contrasena.value.trim()) || "",
-        estatus: "Por evaluar",
-        notas: null,
-        postulacion_enviada: 1
-    };
-}
-
-function enviarPostulacionAlCandidato() {
-    var btn = document.getElementById("btnEnviarPostulacion");
-    if (btn.disabled) return;
-    btn.disabled = true;
-    btn.innerHTML = "<i class='bx bx-loader-alt bx-spin me-2'></i> Enviando...";
-
-    if (window._candidatoReenviarId) {
-        var urlReenviar = capHumApiUrl("CapHum/enviarPostulacionCandidato");
-        fetch(urlReenviar, { method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" }, body: JSON.stringify({ id: window._candidatoReenviarId, email: window._candidatoReenviarEmail || "" }) })
-        .then(function(r){
-            return r.text().then(function(text) {
-                var res;
-                try { res = text ? JSON.parse(text) : {}; } catch (e) { res = null; }
-                return { ok: r.ok, status: r.status, res: res, raw: text };
-            });
-        })
-        .then(function(o){
-            var res = o.res;
-            window._candidatoReenviarId = null;
-            window._candidatoReenviarEmail = null;
-            btn.disabled = false;
-            btn.innerHTML = "<i class='bx bx-send me-2'></i> Reenviar postulación por correo";
-            if (!res && !o.ok) {
-                if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "Error", text: "El servidor respondió con " + o.status + ". Compruebe la consola (F12) o que la URL sea correcta." });
-                if (console && console.error) console.error("Reenviar correo: respuesta no JSON", o.status, o.raw ? o.raw.substring(0, 300) : "");
-                return;
-            }
-            if (res && res.success) {
-                if (typeof Swal !== "undefined") Swal.fire({ icon: "success", title: "Listo", text: "Correo de postulación reenviado correctamente." });
-                getCandidatos();
-                setTimeout(function() { bootstrap.Modal.getInstance(document.getElementById("modalResumenPostulacion")).hide(); }, 1500);
-            } else {
-                if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "Error", text: (res && res.mensaje) ? res.mensaje : "No se pudo enviar el correo." });
-            }
-        })
-        .catch(function(err){
-            btn.disabled = false;
-            btn.innerHTML = "<i class='bx bx-send me-2'></i> Reenviar postulación por correo";
-            var msg = (err && err.message) ? err.message : "Error de conexión.";
-            if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "Error", text: msg });
-            if (console && console.error) console.error("Reenviar correo:", urlReenviar, err);
-        });
-        return;
-    }
-
-    if (window._candidatoNuevoId) {
-        var idCand = window._candidatoNuevoId;
-        var email = window._candidatoNuevoEmail || "";
-        fetch(capHumApiUrl("CapHum/enviarPostulacionCandidato"), { method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" }, body: JSON.stringify({ id: idCand, email: email }) })
-        .then(function(r){ return r.json(); })
-        .then(function(resMail){
-            window._candidatoNuevoId = null;
-            window._candidatoNuevoEmail = null;
-            btn.disabled = false;
-            if (resMail && resMail.success) {
-                btn.innerHTML = "<i class=\"bx bx-check me-2\"></i> Enviada postulación";
-                if (typeof Swal !== "undefined") Swal.fire({ icon: "success", title: "Listo", text: "Correo enviado. El enlace para subir documentos está en el correo y arriba." });
-            } else {
-                btn.innerHTML = "<i class='bx bx-send me-2'></i> Enviar postulación al candidato";
-                if (typeof Swal !== "undefined") Swal.fire({ icon: "warning", title: "Correo no enviado", text: (resMail && resMail.mensaje) ? resMail.mensaje : "Configure [mail] en backend/config/config.ini para SMTP. Use el enlace de arriba para compartir con el candidato." });
-            }
-            getCandidatos();
-            setTimeout(function() { bootstrap.Modal.getInstance(document.getElementById("modalResumenPostulacion")).hide(); }, 2500);
-        })
-        .catch(function(){
-            btn.disabled = false;
-            btn.innerHTML = "<i class='bx bx-send me-2'></i> Enviar postulación al candidato";
-            if (typeof Swal !== "undefined") Swal.fire({ icon: "warning", title: "Error", text: "El correo no se pudo enviar. Use el enlace de arriba para compartir con el candidato." });
-        });
-        return;
-    }
-
-    var data = window._candidatoDatosEnvio || buildCandidatoPayloadFromForm();
-    if (!data.nombres || !data.apellidop) {
-        btn.disabled = false;
-        btn.innerHTML = "<i class='bx bx-send me-2'></i> Enviar postulación al candidato";
-        if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "Error", text: "Nombre y apellido paterno son obligatorios." });
-        return;
-    }
-
-    var form = document.getElementById("formAgregarCandidato");
-    fetch(capHumApiUrl("CapHum/guardarCandidato"), { method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" }, body: JSON.stringify(data) })
-    .then(function(r){ return r.json(); })
-    .then(function(res){
-        if (res.success) {
-            window._candidatoDatosEnvio = null;
-            var idCand = res.datos && res.datos.id;
-            cargarLinkDocumentosCandidato(idCand);
-            fetch(capHumApiUrl("CapHum/enviarPostulacionCandidato"), { method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" }, body: JSON.stringify({ id: idCand, email: data.email }) })
-            .then(function(r2){ return r2.json(); })
-            .then(function(resMail){
-                btn.disabled = false;
-                btn.innerHTML = "<i class=\"bx bx-send me-2\"></i> Enviar postulación al candidato";
-                if (resMail && resMail.success) {
-                    btn.innerHTML = "<i class=\"bx bx-check me-2\"></i> Enviada postulación";
-                    if (typeof Swal !== "undefined") Swal.fire({ icon: "success", title: "Listo", text: "Candidato registrado y correo enviado. El enlace para subir documentos está en el correo y arriba." });
-                } else {
-                    if (typeof Swal !== "undefined") Swal.fire({ icon: "warning", title: "Candidato guardado", text: (resMail && resMail.mensaje) ? "El correo no se envió: " + resMail.mensaje + ". Configure [mail] en backend/config/config.ini para SMTP o revise que mail() funcione." : "El correo no se pudo enviar. Use el enlace de arriba para compartir con el candidato." });
-                }
-                getCandidatos();
-                setTimeout(function() { bootstrap.Modal.getInstance(document.getElementById("modalResumenPostulacion")).hide(); }, 2500);
-            })
-            .catch(function(){
-                btn.disabled = false;
-                btn.innerHTML = "<i class=\"bx bx-send me-2\"></i> Enviar postulación al candidato";
-                if (typeof Swal !== "undefined") Swal.fire({ icon: "warning", title: "Candidato guardado", text: "El correo no se pudo enviar (error de conexión). Use el enlace de arriba para compartir con el candidato." });
-                getCandidatos();
-            });
-            if (form) form.reset();
-            var fpInput = document.getElementById("candidato_fecha_postulacion");
-            if (fpInput && fpInput._flatpickr) fpInput._flatpickr.setDate(new Date(), true);
-        } else {
-            btn.disabled = false;
-            btn.innerHTML = "<i class='bx bx-send me-2'></i> Enviar postulación al candidato";
-            if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "Error", text: res.mensaje || res.error || "No se pudo guardar." });
-        }
-    })
-    .catch(function(){
-        btn.disabled = false;
-        btn.innerHTML = "<i class='bx bx-send me-2'></i> Enviar postulación al candidato";
-        if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "Error", text: "Error de conexión." });
-    });
-}
-
-function eliminarCandidato(id) {
-    if (typeof Swal === "undefined") { if (confirm("¿Eliminar candidato?")) fetch("/CapHum/eliminarCandidato", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: id }) }).then(function(r){ return r.json(); }).then(function(d){ if (d.success) getCandidatos(); }); return; }
-    Swal.fire({ title: "¿Eliminar?", text: "Se eliminará el candidato.", icon: "warning", showCancelButton: true }).then(function(r){ if (r.isConfirmed) fetch("/CapHum/eliminarCandidato", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: id }) }).then(function(res){ return res.json(); }).then(function(d){ if (d.success) { Swal.fire({ icon: "success", text: d.mensaje }); getCandidatos(); } else Swal.fire({ icon: "error", text: d.mensaje || d.error }); }); });
-}
 </script>

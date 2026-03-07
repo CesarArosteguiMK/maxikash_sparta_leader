@@ -279,17 +279,19 @@ def extraer_datos_nss_pdf(pdf_bytes: bytes) -> Dict[str, Any]:
 
 
 def extraer_datos_constancia_fiscal(pdf_bytes: bytes) -> Dict[str, Any]:
-    """Extrae nombre, CURP, RFC y fecha de emisión de la constancia fiscal (SAT).
+    """Extrae nombre, CURP, RFC, fecha de emisión, vigencia (máx 2 meses),
+    actividad económica Asalariado y régimen Sueldos y Salarios de la constancia fiscal (SAT).
     Estructura del PDF SAT:
-      'CURP:\nGOLL960112HNENYZ09'
-      'RFC:\nGOLL960112976'
-      'Nombre (s):\nLAZARO RAUDEL'
-      'Primer Apellido:\nGONZALEZ'
-      'Segundo Apellido:\nLEYVA'
-      'GUSTAVO A MADERO , CIUDAD DE MEXICO A 06 DE\nENERO DE 2026'
+      Página 1: Cédula + "Lugar y Fecha de Emisión" (ej. NEZAHUALCOYOTL, MEXICO A 20 DE FEBRERO DE 2026)
+      Página 2: Actividades Económicas (debe incluir "Asalariado") y Regímenes (debe incluir "Sueldos y Salarios")
     """
-    resultado = {"nombre": None, "curp": None, "rfc": None,
-                 "fecha_emision": None, "es_reciente": None, "meses_antiguedad": None}
+    resultado = {
+        "nombre": None, "curp": None, "rfc": None,
+        "fecha_emision": None, "es_reciente": None, "meses_antiguedad": None,
+        "vigencia_ok": None,
+        "actividad_economica_asalariado": False,
+        "regimen_sueldos_salarios": False,
+    }
     if not PYMUPDF_AVAILABLE:
         return resultado
     try:
@@ -302,6 +304,8 @@ def extraer_datos_constancia_fiscal(pdf_bytes: bytes) -> Dict[str, Any]:
         return resultado
 
     lineas = [ln.strip() for ln in texto.split("\n")]
+    texto_upper = texto.upper()
+    texto_norm = texto_upper.replace("Á", "A").replace("É", "E").replace("Í", "I").replace("Ó", "O").replace("Ú", "U")
 
     curp_m = re.search(r"CURP:\s*\n?\s*([A-Z0-9]{18})", texto, re.IGNORECASE)
     if curp_m:
@@ -342,7 +346,16 @@ def extraer_datos_constancia_fiscal(pdf_bytes: bytes) -> Dict[str, Any]:
         diff = hoy - fecha
         meses = diff.days / 30.44
         resultado["meses_antiguedad"] = round(meses, 1)
-        resultado["es_reciente"] = meses <= 3.0
+        resultado["es_reciente"] = meses <= 2.0
+        resultado["vigencia_ok"] = meses <= 2.0
+
+    # Actividad Económica: debe decir "Asalariado" (tabla Actividades Económicas, normalmente pág 2)
+    if "ASALARIADO" in texto_norm:
+        resultado["actividad_economica_asalariado"] = True
+
+    # Régimen: debe incluir "Régimen de Sueldos y Salarios e Ingresos Asimilados a Salarios"
+    if "SUELDOS Y SALARIOS" in texto_norm or "SUELDOS Y SALARIOS E INGRESOS ASIMILADOS" in texto_norm:
+        resultado["regimen_sueldos_salarios"] = True
 
     return resultado
 

@@ -9,20 +9,31 @@ class Notificaciones extends Controller
 {
     /**
      * GET/POST: lista notificaciones del usuario actual y cuenta de no leídas.
-     * Una sola ronda a BD (purga + sync una vez, luego listado + conteo).
+     * Solo se devuelven notificaciones donde id_persona = usuario en sesión (usuario_id, coherente con creación).
      */
     public function listar()
     {
-        $idPersona = (int)($_SESSION['persona_id'] ?? $_SESSION['usuario_id'] ?? 0);
-        if ($idPersona < 1) {
+        $idUsuario = (int)($_SESSION['usuario_id'] ?? 0);
+        if ($idUsuario < 1) {
             self::respuestaJSON(['success' => false, 'mensaje' => 'Sesión inválida.', 'datos' => [], 'total_no_leidas' => 0]);
             return;
         }
-        $result = Notificacion::listarConTotal($idPersona, 50);
+        $result = Notificacion::listarConTotal($idUsuario, 50);
+        $lista = is_array($result['lista']) ? $result['lista'] : [];
+        $lista = array_values(array_filter($lista, function ($n) use ($idUsuario) {
+            return (int)($n['id_persona'] ?? 0) === $idUsuario;
+        }));
+        foreach ($lista as &$n) {
+            unset($n['id_persona']);
+        }
+        unset($n);
+        $totalNoLeidas = count(array_filter($lista, function ($n) {
+            return (int)($n['leida'] ?? 0) === 0;
+        }));
         self::respuestaJSON([
             'success'         => true,
-            'datos'           => $result['lista'],
-            'total_no_leidas' => $result['total_no_leidas']
+            'datos'           => $lista,
+            'total_no_leidas' => $totalNoLeidas
         ]);
     }
 
@@ -31,8 +42,8 @@ class Notificaciones extends Controller
      */
     public function marcarLeida()
     {
-        $idPersona = (int)($_SESSION['persona_id'] ?? $_SESSION['usuario_id'] ?? 0);
-        if ($idPersona < 1) {
+        $idUsuario = (int)($_SESSION['usuario_id'] ?? 0);
+        if ($idUsuario < 1) {
             self::respuestaJSON(['success' => false, 'mensaje' => 'Sesión inválida.']);
             return;
         }
@@ -43,7 +54,7 @@ class Notificaciones extends Controller
             self::respuestaJSON(['success' => false, 'mensaje' => 'ID de notificación requerido.']);
             return;
         }
-        $ok = Notificacion::marcarLeida($idNotif, $idPersona);
+        $ok = Notificacion::marcarLeida($idNotif, $idUsuario);
         self::respuestaJSON(['success' => $ok, 'mensaje' => $ok ? 'OK' : 'No se pudo actualizar.']);
     }
 
@@ -52,12 +63,12 @@ class Notificaciones extends Controller
      */
     public function marcarTodasLeidas()
     {
-        $idPersona = (int)($_SESSION['persona_id'] ?? $_SESSION['usuario_id'] ?? 0);
-        if ($idPersona < 1) {
+        $idUsuario = (int)($_SESSION['usuario_id'] ?? 0);
+        if ($idUsuario < 1) {
             self::respuestaJSON(['success' => false, 'mensaje' => 'Sesión inválida.']);
             return;
         }
-        $ok = Notificacion::marcarTodasLeidas($idPersona);
+        $ok = Notificacion::marcarTodasLeidas($idUsuario);
         self::respuestaJSON(['success' => $ok, 'mensaje' => $ok ? 'OK' : 'No se pudo actualizar.']);
     }
 

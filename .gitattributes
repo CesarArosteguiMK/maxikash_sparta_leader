@@ -1,0 +1,24 @@
+# Git attributes para asegurar que los archivos se guarden correctamente
+# https://git-scm.com/docs/gitattributes
+
+# Todos los archivos PHP deben ser UTF-8 SIN BOM
+*.php text eol=lf charset=utf-8
+
+# Archivos de texto en general
+*.js text eol=lf charset=utf-8
+*.json text eol=lf charset=utf-8
+*.css text eol=lf charset=utf-8
+*.html text eol=lf charset=utf-8
+*.htm text eol=lf charset=utf-8
+*.md text eol=lf charset=utf-8
+*.txt text eol=lf charset=utf-8
+
+# Archivos binarios
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.pdf binary
+*.zip binary
+*.exe binary
+

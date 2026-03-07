@@ -3661,6 +3661,10 @@ body.dark-mode .modal,
 body.dark-mode .modal.show {
     z-index: 9999 !important;
 }
+/* Modal Cerrar proceso (candidatos): siempre encima del scrim; scrim entre Documentación y este modal */
+body.dark-mode #modalCerrarProcesoCandidato.modal.show {
+    z-index: 99999 !important;
+}
 body.dark-mode .modal.show .modal-dialog {
     z-index: 1;
     pointer-events: auto;
@@ -4382,20 +4386,23 @@ body.dark-mode #modalMapaAlternasGrande .rastreo-filtro-gestor-overlay .form-che
     background-color: #404040 !important;
     border-color: #606070 !important;
 }
-/* Leyenda: colores como en modo claro (Rosa, Verde, Carmelita, Azul, Gestores) */
-body.dark-mode #modalMapaAlternasGrande .rastreo-leyenda-mapa-grande .d-block:nth-child(1) span[style*="color"] {
+/* Leyenda: colores como en modo claro (Rosa, Verde, Carmelita, Azul, Negro, Gestores) - forzar con !important */
+body.dark-mode #modalMapaAlternasGrande .rastreo-leyenda-mapa-grande .rastreo-leyenda-item[data-tipo-leyenda="casa"] span[style*="color"] {
     color: #ec4899 !important;
 }
-body.dark-mode #modalMapaAlternasGrande .rastreo-leyenda-mapa-grande .d-block:nth-child(2) span[style*="color"] {
+body.dark-mode #modalMapaAlternasGrande .rastreo-leyenda-mapa-grande .rastreo-leyenda-item[data-tipo-leyenda="otroDomicilio"] span[style*="color"] {
     color: #22c55e !important;
 }
-body.dark-mode #modalMapaAlternasGrande .rastreo-leyenda-mapa-grande .d-block:nth-child(3) span[style*="color"] {
+body.dark-mode #modalMapaAlternasGrande .rastreo-leyenda-mapa-grande .rastreo-leyenda-item[data-tipo-leyenda="agencia"] span[style*="color"] {
     color: #b8860b !important;
 }
-body.dark-mode #modalMapaAlternasGrande .rastreo-leyenda-mapa-grande .d-block:nth-child(4) span[style*="color"] {
+body.dark-mode #modalMapaAlternasGrande .rastreo-leyenda-mapa-grande .rastreo-leyenda-item[data-tipo-leyenda="maxiApp"] span[style*="color"] {
     color: #2563eb !important;
 }
-body.dark-mode #modalMapaAlternasGrande .rastreo-leyenda-mapa-grande .d-block:nth-child(5) span {
+body.dark-mode #modalMapaAlternasGrande .rastreo-leyenda-mapa-grande .rastreo-leyenda-item[data-tipo-leyenda="megareporte"] span[style*="color"] {
+    color: #000000 !important;
+}
+body.dark-mode #modalMapaAlternasGrande .rastreo-leyenda-mapa-grande .d-block:not(.rastreo-leyenda-item) span {
     color: #d4d4e0 !important;
 }
 
@@ -4979,15 +4986,15 @@ body.dark-mode .highlight-change {
 }
 
 @keyframes highlight-pulse-dark {
-    0% { 
+    0% {
         background-color: #2d6a4f;
         transform: scale(1);
     }
-    50% { 
+    50% {
         background-color: #40916c;
         transform: scale(1.02);
     }
-    100% { 
+    100% {
         background-color: transparent;
         transform: scale(1);
     }

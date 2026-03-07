@@ -254,7 +254,7 @@ class Candidatos extends Model
             return self::resultado(false, 'Error al eliminar candidato.', null, $e->getMessage());
         }
     }
-    
+
     /**
      * Obtener o crear token único para link de subida de documentos del candidato.
      * Retorna el token (string) para construir la URL.
@@ -310,6 +310,75 @@ class Candidatos extends Model
     }
 
     /**
+     * Crea token para confirmación de alta en nómina (enlace en correo a RRHH).
+     * Retorna token y expira en 7 días.
+     */
+    public static function createTokenConfirmacionAlta($id_candidato)
+    {
+        $id_candidato = (int) $id_candidato;
+        if ($id_candidato <= 0) {
+            return self::resultado(false, 'ID de candidato inválido.', null);
+        }
+        try {
+            $db = new Database();
+            $token = bin2hex(random_bytes(32));
+            $db->CRUD(
+                "INSERT INTO candidato_confirmacion_alta_token (token, id_candidato, expira) VALUES (:token, :id_candidato, DATE_ADD(NOW(), INTERVAL 7 DAY))",
+                ['token' => $token, 'id_candidato' => $id_candidato]
+            );
+            return self::resultado(true, 'Token creado.', $token);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al crear token.', null, $e->getMessage());
+        }
+    }
+
+    /**
+     * Obtiene id_candidato por token de confirmación alta nómina. Válido si no usado y no expirado.
+     */
+    public static function getPorTokenConfirmacionAlta($token)
+    {
+        $token = trim($token ?? '');
+        if ($token === '') {
+            return self::resultado(false, 'Enlace no válido.', null);
+        }
+        try {
+            $db = new Database();
+            $row = $db->queryOne(
+                "SELECT id_candidato FROM candidato_confirmacion_alta_token WHERE token = :token AND usado = 0 AND expira > NOW() LIMIT 1",
+                ['token' => $token]
+            );
+            if (!$row) {
+                return self::resultado(false, 'Enlace no válido, ya usado o expirado.', null);
+            }
+            return self::resultado(true, 'OK', (int) $row['id_candidato']);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al validar enlace.', null, $e->getMessage());
+        }
+    }
+
+    /**
+     * Marca token de confirmación alta nómina como usado (respuesta si o no).
+     */
+    public static function marcarTokenConfirmacionAltaUsado($token, $respuesta)
+    {
+        $token = trim($token ?? '');
+        $respuesta = strtolower(trim($respuesta ?? '')) === 'si' ? 'si' : 'no';
+        if ($token === '') {
+            return false;
+        }
+        try {
+            $db = new Database();
+            $db->CRUD(
+                "UPDATE candidato_confirmacion_alta_token SET usado = 1, respuesta = :respuesta, fecha_uso = NOW() WHERE token = :token",
+                ['respuesta' => $respuesta, 'token' => $token]
+            );
+            return true;
+        } catch (\Exception $e) {
+            return false;
+        }
+    }
+
+    /**
      * Registrar un documento subido por el candidato (vía link).
      * Si se pasan $contenido y $mime_type, el archivo se guarda en la BD (contenido LONGBLOB)
      * y se sirve desde ahí para que cargue más rápido (como carga_documento_persona).
@@ -317,8 +386,9 @@ class Candidatos extends Model
      * @param string $tipo_documento Nombre del tipo (ej. SOLICITUD INTERNA, CURP, etc.)
      * @param string|null $contenido Contenido binario del archivo (opcional). Si se pasa, se guarda en BD.
      * @param string|null $mime_type application/pdf, image/jpeg, etc. (opcional, recomendado si hay contenido)
+     * @param string|null $verificacion_fiscal_json JSON con resultado de verificación constancia fiscal (solo tipo CONSTANCIA DE SITUACION FISCAL)
      */
-    public static function guardarDocumento($id_candidato, $nombre_archivo, $ruta_archivo, $tipo_documento = '', $contenido = null, $mime_type = null)
+    public static function guardarDocumento($id_candidato, $nombre_archivo, $ruta_archivo, $tipo_documento = '', $contenido = null, $mime_type = null, $verificacion_fiscal_json = null)
     {
         $id_candidato = (int) $id_candidato;
         if ($id_candidato <= 0 || trim($nombre_archivo ?? '') === '') {
@@ -331,25 +401,26 @@ class Candidatos extends Model
             $db = new Database();
             if ($contenido !== null) {
                 $ruta = trim($ruta_archivo ?? '');
-                $db->queryOne(
-                    "INSERT INTO candidato_documento (id_candidato, tipo_documento, nombre_archivo, ruta_archivo, contenido, mime_type) VALUES (:id_candidato, :tipo_documento, :nombre_archivo, :ruta_archivo, :contenido, :mime_type)",
-                    [
-                        'id_candidato' => $id_candidato,
-                        'tipo_documento' => trim($tipo_documento ?? ''),
-                        'nombre_archivo' => $nombre_archivo,
-                        'ruta_archivo' => $ruta,
-                        'contenido' => $contenido,
-                        'mime_type' => $mime_type !== null ? trim($mime_type) : null
-                    ]
-                );
+                $sql = "INSERT INTO candidato_documento (id_candidato, tipo_documento, nombre_archivo, ruta_archivo, contenido, mime_type, verificacion_fiscal_json) VALUES (:id_candidato, :tipo_documento, :nombre_archivo, :ruta_archivo, :contenido, :mime_type, :verificacion_fiscal_json)";
+                $params = [
+                    'id_candidato' => $id_candidato,
+                    'tipo_documento' => trim($tipo_documento ?? ''),
+                    'nombre_archivo' => $nombre_archivo,
+                    'ruta_archivo' => $ruta,
+                    'contenido' => $contenido,
+                    'mime_type' => $mime_type !== null ? trim($mime_type) : null,
+                    'verificacion_fiscal_json' => $verificacion_fiscal_json,
+                ];
+                $db->queryOne($sql, $params);
             } else {
                 $db->CRUD(
-                    "INSERT INTO candidato_documento (id_candidato, tipo_documento, nombre_archivo, ruta_archivo) VALUES (:id_candidato, :tipo_documento, :nombre_archivo, :ruta_archivo)",
+                    "INSERT INTO candidato_documento (id_candidato, tipo_documento, nombre_archivo, ruta_archivo, verificacion_fiscal_json) VALUES (:id_candidato, :tipo_documento, :nombre_archivo, :ruta_archivo, :verificacion_fiscal_json)",
                     [
                         'id_candidato' => $id_candidato,
                         'tipo_documento' => trim($tipo_documento ?? ''),
                         'nombre_archivo' => $nombre_archivo,
-                        'ruta_archivo' => $ruta_archivo
+                        'ruta_archivo' => $ruta_archivo,
+                        'verificacion_fiscal_json' => $verificacion_fiscal_json
                     ]
                 );
             }
@@ -415,7 +486,7 @@ class Candidatos extends Model
         }
         try {
             $db = new Database();
-            $lista = $db->queryAll("SELECT id, id_candidato, tipo_documento, nombre_archivo, ruta_archivo, fecha_carga, validado, fecha_validado FROM candidato_documento WHERE id_candidato = :id ORDER BY fecha_carga DESC", ['id' => $id_candidato]);
+            $lista = $db->queryAll("SELECT id, id_candidato, tipo_documento, nombre_archivo, ruta_archivo, fecha_carga, validado, fecha_validado, verificacion_fiscal_json FROM candidato_documento WHERE id_candidato = :id ORDER BY fecha_carga DESC", ['id' => $id_candidato]);
             return self::resultado(true, 'Documentos encontrados.', $lista ?: []);
         } catch (\Exception $e) {
             return self::resultado(false, 'Error al listar documentos.', [], $e->getMessage());
@@ -551,10 +622,19 @@ class Candidatos extends Model
         try {
             $db = new Database();
             $documentos = $db->queryAll(
-                "SELECT id, id_candidato, tipo_documento, nombre_archivo, ruta_archivo, fecha_carga, validado, fecha_validado FROM candidato_documento WHERE id_candidato = :id ORDER BY fecha_carga DESC",
+                "SELECT id, id_candidato, tipo_documento, nombre_archivo, ruta_archivo, fecha_carga, validado, fecha_validado, verificacion_fiscal_json FROM candidato_documento WHERE id_candidato = :id ORDER BY fecha_carga DESC",
                 ['id' => $id_candidato]
             );
             $documentos = $documentos ?: [];
+            foreach ($documentos as &$d) {
+                if (!empty($d['verificacion_fiscal_json'])) {
+                    $dec = json_decode($d['verificacion_fiscal_json'], true);
+                    $d['verificacion_fiscal'] = is_array($dec) ? $dec : null;
+                } else {
+                    $d['verificacion_fiscal'] = null;
+                }
+            }
+            unset($d);
             $row = $db->queryOne("SELECT ultima_verificacion_expediente FROM candidatos WHERE id = :id", ['id' => $id_candidato]);
             $verificacion = null;
             if ($row && !empty($row['ultima_verificacion_expediente'])) {
@@ -642,6 +722,38 @@ class Candidatos extends Model
             $db = new Database();
             $db->CRUD("UPDATE candidatos SET estatus = :e, fecha_actualizacion = NOW() WHERE id = :id", ['id' => $id_candidato, 'e' => trim($estatus)]);
         } catch (\Exception $e) {
+        }
+    }
+
+    /**
+     * Cerrar proceso del candidato: guarda motivo, descripción y actualiza estatus a "Proceso cerrado".
+     * Requiere que existan las columnas proceso_cerrado, motivo_cierre, descripcion_cierre, fecha_cierre.
+     *
+     * @param int $id_candidato
+     * @param string $motivo Clave del motivo (ej. no_cubre_perfil, desistio, sin_info_a_tiempo, otro)
+     * @param string|null $descripcion Descripción opcional
+     * @return array { success, mensaje, datos?, error? }
+     */
+    public static function cerrarProceso($id_candidato, $motivo, $descripcion = null)
+    {
+        $id_candidato = (int) $id_candidato;
+        if ($id_candidato <= 0) {
+            return self::resultado(false, 'ID de candidato inválido.', null);
+        }
+        $motivo = trim($motivo ?? '');
+        if ($motivo === '') {
+            return self::resultado(false, 'El motivo del cierre es obligatorio.', null);
+        }
+        $descripcion = trim($descripcion ?? '') ?: null;
+        try {
+            $db = new Database();
+            $db->CRUD(
+                "UPDATE candidatos SET proceso_cerrado = 1, motivo_cierre = :motivo, descripcion_cierre = :descripcion, fecha_cierre = NOW(), estatus = 'Proceso cerrado', fecha_actualizacion = NOW() WHERE id = :id",
+                ['id' => $id_candidato, 'motivo' => $motivo, 'descripcion' => $descripcion]
+            );
+            return self::resultado(true, 'Proceso cerrado correctamente.', ['id' => $id_candidato]);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al cerrar el proceso.', null, $e->getMessage());
         }
     }
 }

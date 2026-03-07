@@ -238,7 +238,8 @@ const configuraTabla = (
         ordenar = true,
         responsive = true,
         registrosPorPagina = 10,
-        columns = null // <-- columnas personalizadas
+        columns = null, // <-- columnas personalizadas
+        order = undefined  // orden inicial DataTables, ej. [[1, 'desc']]
     } = {}
 ) => {
 
@@ -263,7 +264,7 @@ const configuraTabla = (
             [10, 40, "Todos"]
         ],
         pageLength: registrosPorPagina,
-        order: [],
+        order: order !== undefined ? order : [],
         autoWidth: false,
         columns: columns,
         language: {

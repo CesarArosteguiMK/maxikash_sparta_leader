@@ -187,6 +187,11 @@
         pointer-events: none;
         opacity: 0.75;
     }
+    #modalDictamenAmpliada .rastreo-dictamen-form-ampliada.dictamen-solo-lectura .evidencia-slot-add,
+    #modalDictamenAmpliada .rastreo-dictamen-form-ampliada.dictamen-solo-lectura .evidencia-foto-quitar {
+        pointer-events: none;
+        opacity: 0.75;
+    }
     #modalRastreoCredito .rastreo-seccion-dictamen.dictamen-solo-lectura { cursor: default; }
     /* Hero IA: SIN franja morada (obligatorio). Caja y encabezado sin borde superior morado. */
     #modalRastreoCredito .rastreo-col-centro .rastreo-ia-box,
@@ -1179,10 +1184,17 @@
             if (parentModal) parentModal.classList.remove('modal-below-scrim');
             if (scrimEl && scrimEl.parentNode) scrimEl.parentNode.removeChild(scrimEl);
             document.body.style.overflow = '';
+            // Evitar scrim/backdrop colgado: si no queda ningún modal hijo, quitar backdrops sobrantes
+            var openModals = document.querySelectorAll('.modal.show');
+            if (openModals.length <= 1) {
+                document.querySelectorAll('.modal-backdrop').forEach(function(b) { b.remove(); });
+            }
         }
     }
     function onParentModalHidden() {
         cleanupScrim();
+        document.querySelectorAll('.modal-backdrop').forEach(function(b) { b.remove(); });
+        document.body.style.overflow = '';
     }
     function bindModals() {
         parentModal = document.getElementById('modalRastreoCredito');
@@ -1213,6 +1225,7 @@
                 var backdrops = document.querySelectorAll('.modal-backdrop');
                 for (var b = 0; b < backdrops.length; b++) backdrops[b].style.removeProperty('z-index');
                 if (scrimEl && scrimEl.parentNode) scrimEl.parentNode.removeChild(scrimEl);
+                $('#modalVerEvidenciaDictamenImg').attr('src', '');
             });
         }
     }
@@ -1271,8 +1284,8 @@
             var inputEl = document.getElementById('inputEvidenciaDictamen');
             var evidenciaTarget = 'panel';
             function getList() { return evidenciaTarget === 'ampliada' ? $('#rastreoDictamenAmpliadaEvidenciasFotos') : $('#rastreoDictamenEvidenciasFotos'); }
-            $('#rastreoDictamenEvidenciaAdd').on('click', function() { evidenciaTarget = 'panel'; if (inputEl) inputEl.click(); });
-            $('#rastreoDictamenAmpliadaEvidenciaAdd').on('click', function() { evidenciaTarget = 'ampliada'; if (inputEl) inputEl.click(); });
+            $('#rastreoDictamenEvidenciaAdd').on('click', function() { evidenciaTarget = 'panel'; if ($('.rastreo-seccion-dictamen').hasClass('dictamen-solo-lectura')) return; if (inputEl) inputEl.click(); });
+            $('#rastreoDictamenAmpliadaEvidenciaAdd').on('click', function() { evidenciaTarget = 'ampliada'; if ($('.rastreo-dictamen-form-ampliada').hasClass('dictamen-solo-lectura')) return; if (inputEl) inputEl.click(); });
             $(inputEl).on('change', function() {
                 var files = this.files;
                 var $list = getList();
@@ -1322,6 +1335,7 @@
                 data: JSON.stringify({ id_ticket: idTicket }),
                 contentType: 'application/json',
                 processData: false,
+                showLoader: false,
                 onSuccess: function(r) {
                     var list = (r.success && r.datos) ? r.datos : [];
                     list.forEach(function(e) {
@@ -1354,18 +1368,23 @@
             });
         }
 
-        function guardarDictamenBorradorUI(silent) {
+        function guardarDictamenBorradorUI(silent, onCompletado) {
             var idTicket = parseInt($('#rastreoIdTicketActual').val() || $('#rastreoIdTicketActual').attr('data-id-ticket') || $('#modalRastreoCredito').attr('data-id-ticket') || '', 10) || (typeof window.ticketIdRastreoActual !== 'undefined' ? window.ticketIdRastreoActual : null);
             if (!idTicket && typeof ticketIdRastreoActual !== 'undefined') idTicket = ticketIdRastreoActual;
             if (!idTicket || isNaN(idTicket)) {
                 if (!silent && typeof Swal !== 'undefined') Swal.fire({ icon: 'warning', title: 'No hay ticket', text: 'No se identificó el ticket. Cierre el modal de rastreo y ábralo de nuevo desde la tabla.' });
+                if (onCompletado) onCompletado('No se identificó el ticket.');
                 return;
             }
-            if (typeof http === 'undefined') return;
+            if (typeof http === 'undefined') {
+                if (onCompletado) onCompletado('Error de configuración.');
+                return;
+            }
             var tipo = $('#rastreoDictamenCombo').val();
             var desc = ($('#rastreoDictamenDescripcion').val() || '').trim();
             if (!tipo || !desc) {
                 if (!silent && typeof Swal !== 'undefined') Swal.fire({ icon: 'warning', title: 'Faltan datos', text: 'Seleccione tipo y escriba la descripción.' });
+                if (onCompletado) onCompletado('Faltan tipo o descripción.');
                 return;
             }
             var archivosPendientes = [];
@@ -1387,14 +1406,15 @@
                     processData: false,
                     showLoader: false,
                     onSuccess: function() { eliminarSiguiente(idx + 1); },
-                    onError: function() { eliminarSiguiente(idx + 1); }
+                    onError: function() { if (onCompletado) onCompletado('No se pudo eliminar una evidencia.'); else eliminarSiguiente(idx + 1); }
                 });
             }
-            function subirSiguiente(indice) {
+            function subirSiguiente(indice, intentos) {
                 if (indice >= archivosPendientes.length) {
                     enviarBorrador();
                     return;
                 }
+                intentos = intentos || 0;
                 var fd = new FormData();
                 fd.append('id_ticket', idTicket);
                 fd.append('evidencia', archivosPendientes[indice]);
@@ -1405,16 +1425,29 @@
                     processData: false,
                     contentType: false,
                     success: function(r) {
-                        if (r.success) subirSiguiente(indice + 1);
-                        else { if (typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: 'Error al subir evidencia', text: (r && r.mensaje) || 'No se pudo subir la imagen.' }); }
+                        if (r.success) {
+                            subirSiguiente(indice + 1, 0);
+                        } else if (intentos < 1) {
+                            // Reintento automático (1 vez) ante error del servidor
+                            setTimeout(function() { subirSiguiente(indice, intentos + 1); }, 600);
+                        } else {
+                            if (!silent && typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: 'Error al subir evidencia', text: (r && r.mensaje) || 'No se pudo subir la imagen.' });
+                            if (onCompletado) onCompletado((r && r.mensaje) || 'No se pudo subir la imagen.');
+                        }
                     },
                     error: function(xhr) {
+                        if (intentos < 1) {
+                            // Reintento automático (1 vez) ante error de red/timeout
+                            setTimeout(function() { subirSiguiente(indice, intentos + 1); }, 600);
+                            return;
+                        }
                         var msg = 'No se pudo subir la evidencia.';
                         try {
                             var j = xhr.responseJSON || (xhr.responseText ? JSON.parse(xhr.responseText) : null);
                             if (j && j.mensaje) msg = j.mensaje;
                         } catch (e) {}
-                        if (typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: 'Error al subir evidencia', text: msg });
+                        if (!silent && typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: 'Error al subir evidencia', text: msg });
+                        if (onCompletado) onCompletado(msg);
                     }
                 });
             }
@@ -1442,18 +1475,18 @@
                                 if (typeof rellenarEvidenciasDictamen === 'function') rellenarEvidenciasDictamen(idTicket);
                             });
                         } else {
-                            cargarDictamenRastreo();
-                            if (typeof getTicketsPanelAdmin === 'function') getTicketsPanelAdmin();
-                            if (typeof rellenarEvidenciasDictamen === 'function') rellenarEvidenciasDictamen(idTicket);
+                            // Autoguardado silencioso: no recargar ni refrescar para no interrumpir la escritura ni mostrar "Procesando su petición"
                         }
-                    } else { var msg = r.mensaje || 'No se pudo guardar.'; if (r.error) msg += ' Detalle: ' + r.error; if (!silent && typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: 'Error', text: msg }); }
+                        if (onCompletado) onCompletado(null);
+                    } else { var msg = r.mensaje || 'No se pudo guardar.'; if (r.error) msg += ' Detalle: ' + r.error; if (!silent && typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: 'Error', text: msg }); if (onCompletado) onCompletado(msg); }
                 },
-                onError: function(e) { if (!silent && typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: 'Error', text: (e && e.mensaje) || 'No se pudo guardar.' }); }
+                onError: function(e) { if (!silent && typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: 'Error', text: (e && e.mensaje) || 'No se pudo guardar.' }); if (onCompletado) onCompletado((e && e.mensaje) || 'No se pudo guardar.'); }
             });
             }
             eliminarSiguiente(0);
         }
         function enviarDictamenGestorUI() {
+            // 1️⃣ Resolver idTicket antes de cualquier otra acción
             var idTicket = parseInt($('#rastreoIdTicketActual').val() || $('#rastreoIdTicketActual').attr('data-id-ticket') || $('#modalRastreoCredito').attr('data-id-ticket') || '', 10) || (typeof window.ticketIdRastreoActual !== 'undefined' ? window.ticketIdRastreoActual : null);
             if (!idTicket && typeof ticketIdRastreoActual !== 'undefined') idTicket = ticketIdRastreoActual;
             if (!idTicket || isNaN(idTicket)) {
@@ -1464,27 +1497,54 @@
             var tipo = $('#rastreoDictamenCombo').val();
             var desc = ($('#rastreoDictamenDescripcion').val() || '').trim();
             if (!tipo || !desc) { if (typeof Swal !== 'undefined') Swal.fire({ icon: 'warning', title: 'Faltan datos', text: 'Seleccione tipo y escriba la descripción antes de enviar.' }); return; }
-            http.request({
-                endpoint: '/sabueso/enviarDictamenGestor',
-                metodo: 'POST',
-                data: JSON.stringify({ id_ticket: idTicket }),
-                contentType: 'application/json',
-                processData: false,
-                showLoader: false,
-                onSuccess: function(r) {
-                    if (r.success) {
-                        if (typeof Swal !== 'undefined') {
-                            Swal.fire({ icon: 'success', title: 'Mensaje enviado', text: 'El dictamen fue enviado al gestor correctamente.', timer: 2500, showConfirmButton: true }).then(function() {
-                                cargarDictamenRastreo();
+
+            // 2️⃣ Cancelar el autoguardado pendiente para evitar dos guardados simultáneos
+            if (dictamenAutoguardadoTimer) { clearTimeout(dictamenAutoguardadoTimer); dictamenAutoguardadoTimer = null; }
+
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    title: 'Se está enviando el dictamen',
+                    text: 'Por favor espere. Se guardarán las fotos y la información antes de enviar al gestor.',
+                    allowOutsideClick: false,
+                    allowEscapeKey: false,
+                    showConfirmButton: false,
+                    didOpen: function() { if (Swal.showLoading) Swal.showLoading(); }
+                });
+            }
+            // 3️⃣ Flush completo (fotos pendientes + borrador), con reintentos ante fallos de subida
+            guardarDictamenBorradorUI(true, function(err) {
+                if (err) {
+                    if (typeof Swal !== 'undefined') {
+                        Swal.close();
+                        Swal.fire({ icon: 'error', title: 'Error al guardar', text: err });
+                    }
+                    return;
+                }
+                http.request({
+                    endpoint: '/sabueso/enviarDictamenGestor',
+                    metodo: 'POST',
+                    data: JSON.stringify({ id_ticket: idTicket }),
+                    contentType: 'application/json',
+                    processData: false,
+                    showLoader: false,
+                    onSuccess: function(r) {
+                        if (typeof Swal !== 'undefined') Swal.close();
+                        if (r.success) {
+                            if (typeof Swal !== 'undefined') {
+                                Swal.fire({ icon: 'success', title: 'Dictamen enviado', text: 'El dictamen fue enviado al gestor correctamente.', timer: 2500, showConfirmButton: true }).then(function() {
+                                    $('#modalDictamenAmpliada').modal('hide');
+                                    if (typeof getTicketsPanelAdmin === 'function') getTicketsPanelAdmin();
+                                });
+                            } else {
+                                $('#modalDictamenAmpliada').modal('hide');
                                 if (typeof getTicketsPanelAdmin === 'function') getTicketsPanelAdmin();
-                            });
-                        } else {
-                            cargarDictamenRastreo();
-                            if (typeof getTicketsPanelAdmin === 'function') getTicketsPanelAdmin();
-                        }
-                    } else { if (typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: 'Error', text: r.mensaje || 'No se pudo enviar.' }); }
-                },
-                onError: function(e) { if (typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: 'Error', text: (e && e.mensaje) || 'No se pudo enviar.' }); }
+                            }
+                        } else { if (typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: 'Error', text: r.mensaje || 'No se pudo enviar.' }); }
+                    },
+                    onError: function(e) {
+                        if (typeof Swal !== 'undefined') { Swal.close(); Swal.fire({ icon: 'error', title: 'Error', text: (e && e.mensaje) || 'No se pudo enviar.' }); }
+                    }
+                });
             });
         }
         var dictamenAutoguardadoTimer = null;
@@ -1501,8 +1561,15 @@
             if ($(this).attr('id') === 'rastreoDictamenAmpliadaDescripcion') $('#rastreoDictamenDescripcion').val($(this).val());
             else $('#rastreoDictamenAmpliadaDescripcion').val($(this).val());
             programarAutoguardadoDictamen();
+            habilitarBotonEnviarDictamen();
         });
         $(document).on('dictamen-evidencia-cambio', programarAutoguardadoDictamen);
+        function habilitarBotonEnviarDictamen() {
+            if ($('.rastreo-seccion-dictamen').hasClass('dictamen-solo-lectura')) return;
+            $('#btnDictamenEnviarGestor').prop('disabled', false).html('<i class="fa-solid fa-paper-plane me-1"></i>Enviar al gestor');
+            $('#btnDictamenAmpliadaEnviarGestor').prop('disabled', false).html('<i class="fa-solid fa-paper-plane me-1"></i>Enviar al gestor');
+        }
+        $(document).on('dictamen-evidencia-cambio', habilitarBotonEnviarDictamen);
 
         $('#btnDictamenEnviarGestor').on('click', function() { enviarDictamenGestorUI(); });
         $('#btnDictamenAmpliadaEnviarGestor').on('click', function() {
@@ -1531,7 +1598,7 @@
         });
         window.abrirModalDetalleDictamen = function(idTicket) {
             if (!idTicket || typeof http === 'undefined') return;
-            $('#modalDetalleDictamenImgPrincipal').attr('src', '');
+            $('#modalDetalleDictamen .dictamen-detalle-imagen-principal').html('<img id="modalDetalleDictamenImgPrincipal" src="" alt="Evidencia" class="img-fluid w-100" style="object-fit: contain; max-height: 280px;">');
             $('#modalDetalleDictamenMiniaturas').empty();
             $('#modalDetalleDictamenTipo, #modalDetalleDictamenDescripcion, #modalDetalleDictamenEnviado, #modalDetalleDictamenVisto').text('');
             $('#modalDetalleDictamen').modal('show');
@@ -1549,19 +1616,53 @@
                     var d = r.datos;
                     var dm = d.dictamen || {};
                     $('#modalDetalleDictamenTipo').text(dm.tipo || '—');
-                    $('#modalDetalleDictamenDescripcion').text(dm.descripcion || '—');
+                    $('#modalDetalleDictamenDescripcion').html(window.linkifyDescripcionDictamen ? window.linkifyDescripcionDictamen(dm.descripcion) : $('<div>').text(dm.descripcion || '—').html());
                     $('#modalDetalleDictamenEnviado').text(dm.fecha_actualizacion ? (new Date(dm.fecha_actualizacion).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })) : '—');
                     var vistoStr = dm.fecha_visto_gestor ? (new Date(dm.fecha_visto_gestor).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })) : '';
                     if (vistoStr && (dm.visto_gestor_nombre || '').trim()) vistoStr = 'Por ' + (dm.visto_gestor_nombre || '').trim() + ' el ' + vistoStr;
                     $('#modalDetalleDictamenVisto').text(vistoStr || 'No visto');
+
+                    // IMPORTANTE: d.evidencias contiene SOLO las evidencias del ticket específico (idTicket)
+                    // El backend filtra por WHERE id_ticket = :id_ticket, así que no hay riesgo de mezclar evidencias de otros tickets
                     var evidencias = d.evidencias || [];
-                    var url0 = evidencias[0] && evidencias[0].url ? ((typeof apiBase !== 'undefined' ? apiBase : '') + evidencias[0].url) : '';
-                    $('#modalDetalleDictamenImgPrincipal').attr('src', url0);
+                    var $containerImg = $('#modalDetalleDictamen .dictamen-detalle-imagen-principal');
                     var $min = $('#modalDetalleDictamenMiniaturas');
+
+                    // Limpiar contenido previo
+                    $min.empty();
+
+                    // Si no hay evidencias, mostrar mensaje y salir
+                    if (!evidencias || evidencias.length === 0) {
+                        $containerImg.html('<div class="d-flex align-items-center justify-content-center h-100 text-muted" style="min-height:200px;"><i class="fa-solid fa-image me-2"></i>Sin evidencias</div>');
+                        return;
+                    }
+
+                    // Usar apiBase para subruta (ej. /sparta___SPARTA_SECRET_REDACTED__/public/)
+                    var url0 = (apiBase || '') + (evidencias[0].url || ('/sabueso/verEvidencia?id=' + (evidencias[0].id || '')));
+
+                    // Restaurar img en el contenedor por si antes se mostró "Sin evidencias"
+                    $containerImg.html('<img id="modalDetalleDictamenImgPrincipal" src="" alt="Evidencia" class="img-fluid w-100" style="object-fit: contain; max-height: 280px; cursor: pointer;">');
+                    var $imgPrincipal = $('#modalDetalleDictamenImgPrincipal');
+                    $imgPrincipal.attr('src', url0).on('click', function() {
+                        if (url0 && $('#modalVerEvidenciaDictamen').length) {
+                            $('#modalVerEvidenciaDictamenImg').attr('src', url0);
+                            $('#modalVerEvidenciaDictamen').modal('show');
+                        }
+                    });
+
+                    // Crear miniaturas (con apiBase y clic para ver en grande)
                     evidencias.forEach(function(ev) {
-                        var url = (typeof apiBase !== 'undefined' ? apiBase : '') + (ev.url || '');
+                        var url = (apiBase || '') + (ev.url || ('/sabueso/verEvidencia?id=' + (ev.id || '')));
+                        if (!url) return;
+
                         var $thumb = $('<div class="rounded overflow-hidden border" style="width: 60px; height: 60px; cursor: pointer;"><img src="' + url.replace(/"/g, '&quot;') + '" alt="" class="img-fluid w-100 h-100" style="object-fit: cover;"></div>');
-                        $thumb.on('click', function() { $('#modalDetalleDictamenImgPrincipal').attr('src', url); });
+                        $thumb.on('click', function() {
+                            $imgPrincipal.attr('src', url);
+                            if ($('#modalVerEvidenciaDictamen').length) {
+                                $('#modalVerEvidenciaDictamenImg').attr('src', url);
+                                $('#modalVerEvidenciaDictamen').modal('show');
+                            }
+                        });
                         $min.append($thumb);
                     });
                     http.request({ endpoint: '/sabueso/marcarDictamenVisto', metodo: 'POST', data: JSON.stringify({ id_ticket: idTicket }), contentType: 'application/json', processData: false });

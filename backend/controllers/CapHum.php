@@ -18,7 +18,7 @@ class CapHum extends Controller
     {
         $script = <<<'HTML'
         <script>
-        
+
             const getUsuarios = () => {
             http.request({
                 endpoint: "/caphum/getUsuarios",
@@ -27,10 +27,10 @@ class CapHum extends Controller
                     // CONSOLIDAR USUARIOS CON MÚLTIPLES PUESTOS
                     // ==========================================
                     const usuariosMap = new Map();
-                    
+
                     resp.datos.forEach(usuario => {
                         const id = usuario.id;
-                        
+
                         if (!usuariosMap.has(id)) {
                             // Primera vez que vemos este usuario
                             usuariosMap.set(id, {
@@ -45,11 +45,11 @@ class CapHum extends Controller
                         } else {
                             // Ya existe, agregar nuevo puesto
                             const usuarioExistente = usuariosMap.get(id);
-                            const puestoExiste = usuarioExistente.puestos.some(p => 
-                                p.id_puesto === usuario.id_puesto && 
+                            const puestoExiste = usuarioExistente.puestos.some(p =>
+                                p.id_puesto === usuario.id_puesto &&
                                 p.nombre_departamento === usuario.nombre_departamento
                             );
-                            
+
                             if (!puestoExiste) {
                                 usuarioExistente.puestos.push({
                                     id_puesto: usuario.id_puesto,
@@ -60,19 +60,19 @@ class CapHum extends Controller
                             }
                         }
                     });
-                    
+
                     const usuariosConsolidados = Array.from(usuariosMap.values());
-                    
+
                     // Guardar en variable global para otros usos
                     window.usuariosData = usuariosConsolidados;
-                    
+
                     // ==========================================
                     // MAPEAR DATOS CON SOPORTE PARA MÚLTIPLES PUESTOS
                     // ==========================================
                     const datos = usuariosConsolidados.map(p => {
                         const nombreCompleto = [p.nombres, p.segundo_nombre, p.apellidop, p.apellidom].filter(x => x).join(' ');
                         const tienePuestos = p.puestos && p.puestos.length > 1;
-                        
+
                         // Generar badges para múltiples puestos con departamentos
                         let puestosHTML = '';
                         if (tienePuestos) {
@@ -84,8 +84,8 @@ class CapHum extends Controller
                                         <small class="text-muted fw-semibold" style="font-size: 0.7rem;">
                                             <i class="fa fa-building me-1"></i>${puesto.nombre_departamento}
                                         </small>
-                                        <span class="badge badge-puesto-multiple" 
-                                              style="background: ${colorBadge}; font-size: 0.75rem; width: fit-content;" 
+                                        <span class="badge badge-puesto-multiple"
+                                              style="background: ${colorBadge}; font-size: 0.75rem; width: fit-content;"
                                               title="${puesto.nombre_puesto}">
                                             <i class="fa fa-briefcase me-1"></i>${puesto.nombre_puesto}
                                         </span>
@@ -106,7 +106,7 @@ class CapHum extends Controller
                                 </small>
                             `;
                         }
-                        
+
                         const codigoIsoPais = p.codigo_iso_pais || 'xx';
                         const nombrePais = p.nombre_pais || 'Sin país';
                         const sedeHTML = `
@@ -170,14 +170,14 @@ class CapHum extends Controller
                             })()
                         };
                     });
-        
+
                     // Actualizar DataTable
                     const tabla = $('#historialUsuarios').DataTable();
                     tabla.clear().rows.add(datos).draw();
                 }
             });
         };
-        
+
             const getBajas = () => {
                 // Preparar parámetros con filtro de fecha si existe
                 const params = {};
@@ -185,7 +185,7 @@ class CapHum extends Controller
                     params.fecha_inicio = rangoFechasBajas.inicio;
                     params.fecha_fin = rangoFechasBajas.fin;
                 }
-                
+
                 http.request({
                     endpoint: "/caphum/getBajas",
                     data: params,
@@ -194,7 +194,7 @@ class CapHum extends Controller
                         // Mapear datos con el nuevo formato de columnas
                         const datos = resp.datos.map(p => {
                             const nombreCompleto = [p.nombres, p.segundo_nombre, p.apellidop, p.apellidom].filter(x => x).join(' ');
-                            
+
                             return {
                                 nombres: `
                                     <div class="fw-semibold d-flex align-items-center gap-2">
@@ -252,7 +252,7 @@ class CapHum extends Controller
                                 `.trim()
                             };
                         });
-            
+
                         // Actualizar DataTable
                         const tabla = $('#historialUsuarios').DataTable();
                         tabla.clear().rows.add(datos).draw();
@@ -263,7 +263,7 @@ class CapHum extends Controller
                     }
                 });
             };
-            
+
             function setModoEdicion() {
                 const rowContrasena = document.getElementById('edit_row_contrasena');
                 const titulo = document.getElementById('offcanvasEditUserTitle');
@@ -289,15 +289,15 @@ class CapHum extends Controller
                 }
             }
             function editar(id) {
-            
+
                 if (!id) {
                     Swal.fire("Error", "ID inválido", "error");
                     return;
                 }
-            
+
                 resetEditCombos();
                 setModoEdicion();
-            
+
                 fetch('/CapHum/getDetalles', {
                     method: 'POST',
                     headers: {
@@ -308,14 +308,14 @@ class CapHum extends Controller
                 })
                 .then(res => res.json())
                 .then(data => {
-            
+
                     if (!data.success) {
                         Swal.fire("Error", data.mensaje, "error");
                         return;
                     }
-            
+
                     const persona = data.datos;
-                    
+
                     // Siempre mostrar sección de múltiples puestos para poder agregar más
                     const usuarioData = usuariosData.find(u => u.id === id);
                     const labelPrincipal = document.getElementById('edit_label_principal');
@@ -326,7 +326,7 @@ class CapHum extends Controller
                     if (typeof cargarPuestosUsuario === 'function') {
                         cargarPuestosUsuario(id);
                     }
-            
+
                     // CAMPOS TEXTO
                     document.getElementById("edit_num_empleado").value = persona.numero_empleado ?? '';
                     document.getElementById("edit_id").value = persona.id ?? '';
@@ -337,18 +337,18 @@ class CapHum extends Controller
                     document.getElementById("edit_telefono").value = persona.telefono ?? '';
                     document.getElementById("edit_usuario").value = persona.user_name ?? '';
                     document.getElementById("edit_contrasena").value = persona.password ?? '';
-            
+
                     // 1️⃣ DEPARTAMENTOS (SIEMPRE)
                     cargarDepartamentosCombo(null, persona.id_departamento);
-            
+
                     // 2️⃣ PUESTOS (SOLO SI HAY DEPARTAMENTO)
                     if (persona.id_departamento) {
                         cargarPuestosCombo(persona.id_departamento, persona.id_puesto);
-            
+
                         // 3️⃣ JEFE (SOLO SI HAY DEPARTAMENTO; con puesto para Legal/Abogado etc.)
                         cargarComboJefeDirecto(persona.id_departamento, persona.id_jefe, persona.id_puesto);
                     }
-            
+
                     // 4️⃣ LEGIÓN
                     const checkLegion = document.getElementById('edit_asignar_legion');
                     const divLegion = document.getElementById('edit_div_select_legion');
@@ -365,7 +365,7 @@ class CapHum extends Controller
                              persona.id_div_nivel2
                          );
                     }
-            
+
                     // MOSTRAR OFFCANVAS
                     const offcanvas = new bootstrap.Offcanvas(
                         document.getElementById('offcanvasEditUser')
@@ -433,15 +433,15 @@ class CapHum extends Controller
             const dep = document.getElementById('edit_departamento_id');
             const puesto = document.getElementById('edit_id_puesto');
             const jefe = document.getElementById('edit_id_jefe');
-        
+
             dep.innerHTML = '<option value="">Seleccione un departamento</option>';
-        
+
             puesto.innerHTML = '<option value="">Seleccione un puesto</option>';
             puesto.disabled = true;
-        
+
             jefe.innerHTML = '<option value="">Seleccione un jefe</option>';
             jefe.disabled = true;
-        
+
             const checkLegion = document.getElementById('edit_asignar_legion');
             const divLegion = document.getElementById('edit_div_select_legion');
             const selectLegion = document.getElementById('edit_id_legion');
@@ -449,7 +449,7 @@ class CapHum extends Controller
             if (selectLegion) selectLegion.value = '';
             if (divLegion) divLegion.style.display = 'none';
         }
-        
+
             function toggleSelectLegionEdit() {
                 const checkbox = document.getElementById('edit_asignar_legion');
                 const divSelect = document.getElementById('edit_div_select_legion');
@@ -459,7 +459,7 @@ class CapHum extends Controller
                     if (!checkbox.checked) selectLegion.value = '';
                 }
             }
-        
+
             function cargarDepartamentosCombo(id, seleccionado = null) {
                     fetch('/CapHum/getDepartamento', {
                         method: 'POST',
@@ -468,29 +468,29 @@ class CapHum extends Controller
                     })
                     .then(res => res.json())
                     .then(data => {
-                
+
                         if (!data.success) {
                             Swal.fire("Error", data.mensaje, "error");
                             return;
                         }
-                
+
                         const select = document.getElementById('edit_departamento_id');
                         select.innerHTML = '<option value="">Seleccione un departamento</option>';
-                
+
                         data.datos.forEach(dep => {
                             const option = document.createElement('option');
                             option.value = dep.id;
                             option.textContent = dep.nombre;
-                
+
                             if (String(dep.id) === String(seleccionado)) {
                                 option.selected = true;
                             }
-                
+
                             select.appendChild(option);
                         });
                     });
                 }
-                
+
             function cargarPuestosCombo(id_departamento, seleccionado = null) {
                     fetch('/CapHum/getPuestos', {
                         method: 'POST',
@@ -499,32 +499,32 @@ class CapHum extends Controller
                     })
                     .then(res => res.json())
                     .then(data => {
-                
+
                         if (!data.success) {
                             Swal.fire("Error", data.mensaje, "error");
                             return;
                         }
-                
+
                         const select = document.getElementById('edit_id_puesto');
                         select.disabled = false;
                         select.innerHTML = '<option value="">Seleccione un puesto</option>';
-                
+
                         data.datos.forEach(puesto => {
                             const option = document.createElement('option');
                             option.value = puesto.id;
                             option.textContent = puesto.nombre;
-                
+
                             if (String(puesto.id) === String(seleccionado)) {
                                 option.selected = true;
                             }
-                
+
                             select.appendChild(option);
                         });
                     });
                 }
-                
+
             function cargarComboJefeDirecto(id_departamento, seleccionado = null, id_puesto = null) {
-                 fetch('/CapHum/getJefeDirecto', 
+                 fetch('/CapHum/getJefeDirecto',
                     {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -532,16 +532,16 @@ class CapHum extends Controller
                     })
                     .then(res => res.json())
                     .then(data => {
-                
+
                         if (!data.success) {
                             Swal.fire("Error", data.mensaje, "error");
                             return;
                         }
-                
+
                         const select = $('#edit_id_jefe');
                         select.prop('disabled', false);
                         select.empty().append(new Option('Seleccione un jefe', '', false, false));
-                
+
                         data.datos.forEach(jefe => {
                             select.append(new Option(
                                 jefe.nombre_completo,
@@ -550,24 +550,24 @@ class CapHum extends Controller
                                 String(jefe.id) === String(seleccionado)
                             ));
                         });
-                
+
                         select.trigger('change'); // 🔥 clave para Select2
                     });
                 }
-                
+
             document.getElementById('edit_departamento_id').addEventListener('change', function () {
                 const idDepartamento = this.value;
                 const puesto = document.getElementById('edit_id_puesto');
                 const jefe = document.getElementById('edit_id_jefe');
-            
+
                 puesto.innerHTML = '<option value="">Seleccione un puesto</option>';
                 puesto.disabled = true;
-            
+
                 jefe.innerHTML = '<option value="">Seleccione un jefe</option>';
                 jefe.disabled = true;
-            
+
                 if (!idDepartamento) return;
-            
+
                 cargarPuestosCombo(idDepartamento);
                 cargarComboJefeDirecto(idDepartamento, null, null);
             });
@@ -582,11 +582,11 @@ class CapHum extends Controller
             document.getElementById('edit_departamento_id').addEventListener('change', function () {
                 if (typeof sincronizarPrincipalConListaPuestos === 'function') sincronizarPrincipalConListaPuestos();
             });
-                
-           
+
+
             let currentPersonaId = null;
             let perfilAbortController = null;
-            
+
             function edit_perfil(id) {
                 var idPersonaRevisado = parseInt(id, 10);
                 if (!idPersonaRevisado) {
@@ -613,20 +613,20 @@ class CapHum extends Controller
                 .then(res => res.json())
                 .then(data => {
                     if (perfilAbortController !== null && signal.aborted) return;
-            
+
                     if (!data.success) {
                         Swal.fire("Error", data.mensaje, "error");
                         return;
                     }
-            
+
                     if (!data.datos) {
                         Swal.fire("Error", "No se encontraron datos de la persona.", "error");
                         return;
                     }
-            
+
                     const persona  = data.datos.persona || {};
                     if (Number(persona.id) !== currentPersonaId) return;
-            
+
                     const perfiles = data.datos.perfiles || [];
                     const puestos  = data.datos.puestos  || [];
                     const asignacionActual = data.datos.asignacion_actual || {};
@@ -653,20 +653,20 @@ class CapHum extends Controller
                             nombrePuesto = puestos[0].nombre_puesto || nombrePuesto;
                         }
                     }
-                    
+
                     // Actualizar título del modal (solo ícono + texto fijo). Subtítulo con datos escapados para evitar HTML/script visible
                     var esc = function(s) { if (s == null || s === undefined) return ''; return ('' + s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); };
                     document.getElementById("modalEditPerfilLabel").innerHTML = '<i class="fa fa-user-shield me-2" style="color: #495057;"></i>Administrar puestos y módulos del usuario';
                     document.getElementById("modalEditPerfil_subtitle").innerHTML = 'Gestión de Permisos y Accesos para <strong>' + esc(nombreCompleto) + ' / ' + esc(nombreDepartamento) + ' / ' + esc(nombrePuesto) + '</strong>';
-            
+
                     renderPuestos(puestos);
                     renderModulos(perfiles.filter(m => (m.pestana || '') !== 'Permisos especiales'));
                     renderPermisosEspeciales(perfiles.filter(m => (m.pestana || '') === 'Permisos especiales'));
-            
+
                     // Abrir modal en lugar de offcanvas
                     const modalEl = document.getElementById('modalEditPerfil');
                     const modal = new bootstrap.Modal(modalEl);
-                    
+
                     // Prevenir el warning de aria-hidden removiendo el focus del botón de cerrar antes de mostrar
                     modalEl.addEventListener('shown.bs.modal', function() {
                         // Mover el focus al primer elemento interactivo dentro del modal body
@@ -675,7 +675,7 @@ class CapHum extends Controller
                             setTimeout(() => firstInput.focus(), 100);
                         }
                     }, { once: true });
-                    
+
                     modal.show();
                 })
                 .catch(err => {
@@ -684,7 +684,7 @@ class CapHum extends Controller
                     Swal.fire("Error", "No se pudo cargar la información", "error");
                 });
             }
-            
+
             /* =========================
                PUESTOS
             ========================= */
@@ -698,39 +698,39 @@ class CapHum extends Controller
                     container.innerHTML = `<div class="text-muted small">No hay puestos asignados</div>`;
                     return;
                 }
-            
+
                 const table = document.createElement('table');
                 table.className = 'table table-flush-spacing mb-0 border-top';
-            
+
                 const tbody = document.createElement('tbody');
-            
+
                 puestos.forEach(puesto => {
-            
+
                     const tr = document.createElement('tr');
-            
+
                     // Nombre + descripción
                     const tdName = document.createElement('td');
                     tdName.className = 'fw-medium text-heading';
-            
+
                     const nombre = document.createElement('div');
                     nombre.innerText =
                         puesto.nombre_puesto ||
                         puesto.puesto_nombre ||
                         'Puesto sin nombre';
-            
+
                     const desc = document.createElement('small');
                     desc.className = 'text-muted d-block fs-7';
                     desc.innerText = puesto.descripcion ?? '';
-            
+
                     tdName.append(nombre, desc);
-            
+
                     // Checkbox
                     const tdCheck = document.createElement('td');
                     tdCheck.className = 'text-end';
-            
+
                     const divCheck = document.createElement('div');
                     divCheck.className = 'form-check mb-0';
-            
+
                     const checkbox = document.createElement('input');
                     checkbox.type = 'checkbox';
                     checkbox.className = 'form-check-input';
@@ -739,33 +739,33 @@ class CapHum extends Controller
                         puesto.id_puesto ||
                         puesto.puesto_id ||
                         '';
-            
+
                     checkbox.onchange = () => onPuestoChange(checkbox);
-            
+
                     const label = document.createElement('label');
                     label.className = 'form-check-label';
                     label.innerText = 'Asignar';
-            
+
                     divCheck.append(checkbox, label);
                     tdCheck.appendChild(divCheck);
-            
+
                     tr.append(tdName, tdCheck);
                     tbody.appendChild(tr);
                 });
-            
+
                 table.appendChild(tbody);
                 container.appendChild(table);
             }
-            
+
             function onPuestoChange(checkbox) {
                 if (!checkbox || !currentPersonaId) return;
-            
+
                 const payload = {
                     idPersona: currentPersonaId,
                     idPuesto: checkbox.value,
                     asignado: checkbox.checked ? 1 : 0
                 };
-            
+
                 fetch('/caphum/actualizarPuestoPerfil', {
                     method: 'POST',
                     headers: {
@@ -782,11 +782,11 @@ class CapHum extends Controller
                         Swal.fire("Error", data.mensaje || "No se pudo actualizar", "error");
                         return;
                     }
-            
+
                     // ALERTA SEGÚN ACCIÓN - igual que módulos
                     Swal.fire({
                         icon: 'success',
-                        title: checkbox.checked 
+                        title: checkbox.checked
                             ? 'Asignación correcta'
                             : 'Asignación eliminada',
                         text: checkbox.checked
@@ -802,7 +802,7 @@ class CapHum extends Controller
                     Swal.fire("Error", "No se pudo actualizar el puesto", "error");
                 });
             }
-            
+
             /* =========================
                MÓDULOS
             ========================= */
@@ -811,13 +811,13 @@ class CapHum extends Controller
                 const container = document.getElementById('modal-edit-perfil-modulos-form') || document.getElementById('modulos-form');
                 if (!container) return;
                 container.innerHTML = '';
-            
+
                 const modulosPorPestana = {};
                 perfiles.forEach(m => {
                     if (!modulosPorPestana[m.pestana]) modulosPorPestana[m.pestana] = [];
                     modulosPorPestana[m.pestana].push(m);
                 });
-            
+
                 const table = document.createElement('table');
                 table.className = 'table table-flush-spacing mb-0 border-top';
                 const tbody = document.createElement('tbody');
@@ -829,7 +829,7 @@ class CapHum extends Controller
                 table.appendChild(tbody);
                 container.appendChild(table);
             }
-            
+
             function renderPermisosEspeciales(perfiles) {
                 const container = document.getElementById('modal-edit-perfil-permisos-especiales-form') || document.getElementById('permisos-especiales-form');
                 if (!container) return;
@@ -847,7 +847,7 @@ class CapHum extends Controller
                 table.appendChild(tbody);
                 container.appendChild(table);
             }
-            
+
             const iconosPermisosEspeciales = {
                 21: 'fa fa-file-upload',
                 22: 'fa fa-cloud-download',
@@ -903,7 +903,7 @@ class CapHum extends Controller
                 tr.append(tdName, tdCheck);
                 return tr;
             }
-            
+
             function onModuloChange(checkbox) {
                 if (!checkbox || !currentPersonaId) return;
                 const payload = {
@@ -933,7 +933,7 @@ class CapHum extends Controller
             }
 
 
-            
+
             /* =========================
                RENDER PUESTOS
             ========================= */
@@ -947,12 +947,12 @@ class CapHum extends Controller
                 container.innerHTML = `<div class="text-muted small text-center py-3">No hay puestos disponibles</div>`;
                 return;
             }
-        
+
             /* =========================
                AGRUPAR POR ID_DEPARTAMENTO Y ORDENAR
             ========================= */
             const puestosPorDepto = {};
-        
+
             puestos.forEach(puesto => {
                 const deptoId = puesto.id_departamento ?? 0;
                 if (!puestosPorDepto[deptoId]) {
@@ -963,7 +963,7 @@ class CapHum extends Controller
                 }
                 puestosPorDepto[deptoId].puestos.push(puesto);
             });
-            
+
             // Ordenar puestos dentro de cada departamento por nivel (mayor a menor)
             Object.keys(puestosPorDepto).forEach(deptoId => {
                 puestosPorDepto[deptoId].puestos.sort((a, b) => {
@@ -972,14 +972,14 @@ class CapHum extends Controller
                     return nivelB - nivelA; // Mayor nivel primero
                 });
             });
-            
+
             // Ordenar departamentos alfabéticamente
             const deptosOrdenados = Object.keys(puestosPorDepto).sort((a, b) => {
                 const nombreA = puestosPorDepto[a].nombre.toLowerCase();
                 const nombreB = puestosPorDepto[b].nombre.toLowerCase();
                 return nombreA.localeCompare(nombreB);
             });
-        
+
             /* =========================
                CREAR ACORDEÓN MEJORADO
             ========================= */
@@ -987,24 +987,24 @@ class CapHum extends Controller
             accordion.className = 'accordion';
             accordion.id = 'modalEditPerfilAccordionPuestos';
             accordion.style.cssText = '--bs-accordion-border-radius: 0.5rem;';
-        
+
             let index = 0;
-        
+
             deptosOrdenados.forEach(deptoId => {
-        
+
                 const deptoData = puestosPorDepto[deptoId];
                 const puestosDepto = deptoData.puestos;
                 const deptoNombre = deptoData.nombre;
-        
+
                 const accId = `depto_${deptoId}`;
-        
+
                 const item = document.createElement('div');
                 item.className = 'accordion-item';
                 item.style.border = '1px solid #dee2e6';
                 item.style.marginBottom = '0.75rem';
                 item.style.borderRadius = '0.5rem';
                 item.style.overflow = 'hidden';
-        
+
                 item.innerHTML = `
                     <h2 class="accordion-header" id="heading_${accId}">
                         <button class="accordion-button collapsed"
@@ -1030,28 +1030,28 @@ class CapHum extends Controller
                         <div class="accordion-body p-3" style="background-color: #ffffff; max-height: 450px; overflow-y: auto;"></div>
                     </div>
                 `;
-        
+
                 /* =========================
                    TABLA MEJORADA CON MEJOR ESTRUCTURA
                 ========================= */
                 const body = item.querySelector('.accordion-body');
-        
+
                 const table = document.createElement('table');
                 table.className = 'table table-hover mb-0';
                 table.style.fontSize = '0.9rem';
                 table.style.borderCollapse = 'separate';
                 table.style.borderSpacing = '0';
-        
+
                 const tbody = document.createElement('tbody');
-        
+
                 puestosDepto.forEach((puesto, puestoIndex) => {
-        
+
                     const tr = document.createElement('tr');
                     tr.style.borderBottom = puestoIndex < puestosDepto.length - 1 ? '1px solid #e9ecef' : 'none';
                     tr.style.transition = 'all 0.3s ease';
                     tr.style.cursor = 'pointer';
                     tr.style.borderLeft = '3px solid transparent';
-                    
+
                     tr.onmouseenter = () => {
                         tr.style.backgroundColor = '#f8f9fa';
                         tr.style.borderLeftColor = '#495057';
@@ -1062,17 +1062,17 @@ class CapHum extends Controller
                         tr.style.borderLeftColor = 'transparent';
                         tr.style.transform = 'translateX(0)';
                     };
-        
+
                     const tdName = document.createElement('td');
                     tdName.className = 'fw-medium';
                     tdName.style.padding = '0.75rem';
                     tdName.style.verticalAlign = 'middle';
-        
+
                     const nombreDiv = document.createElement('div');
                     nombreDiv.style.display = 'flex';
                     nombreDiv.style.alignItems = 'center';
                     nombreDiv.style.gap = '0.5rem';
-                    
+
                     // Icono según nivel - diseño en blanco y negro (aún más pequeño)
                     const icono = document.createElement('div');
                     icono.style.width = '18px';
@@ -1083,7 +1083,7 @@ class CapHum extends Controller
                     icono.style.justifyContent = 'center';
                     icono.style.flexShrink = '0';
                     icono.style.border = '1.5px solid #dee2e6';
-                    
+
                     const nivel = puesto.nivel ?? 0;
                     const iconoInner = document.createElement('i');
                     if (nivel >= 5) {
@@ -1109,35 +1109,35 @@ class CapHum extends Controller
                         icono.title = 'Nivel Operativo';
                     }
                     icono.appendChild(iconoInner);
-                    
+
                     const nombre = document.createElement('span');
                     nombre.innerText = puesto.nombre_puesto || puesto.puesto_nombre || 'Puesto sin nombre';
                     nombre.style.fontWeight = '600';
                     nombre.style.color = '#2c3e50';
                     nombre.style.fontSize = '0.95rem';
-                    
+
                     nombreDiv.append(icono, nombre);
-        
+
                     const desc = document.createElement('small');
                     desc.className = 'text-muted d-block mt-1';
                     desc.style.fontSize = '0.75rem';
                     desc.innerText = puesto.descripcion ?? '';
-        
+
                     tdName.append(nombreDiv, desc);
-        
+
                     const tdCheck = document.createElement('td');
                     tdCheck.className = 'text-end';
                     tdCheck.style.padding = '0.75rem';
                     tdCheck.style.verticalAlign = 'middle';
                     tdCheck.style.width = '130px';
-        
+
                     const divCheck = document.createElement('div');
                     divCheck.className = 'form-check mb-0';
                     divCheck.style.display = 'flex';
                     divCheck.style.alignItems = 'center';
                     divCheck.style.justifyContent = 'flex-end';
                     divCheck.style.gap = '0.5rem';
-        
+
                     const checkbox = document.createElement('input');
                     checkbox.type = 'checkbox';
                     checkbox.className = 'form-check-input';
@@ -1147,50 +1147,50 @@ class CapHum extends Controller
                     checkbox.style.cursor = 'pointer';
                     checkbox.style.width = '1.1em';
                     checkbox.style.height = '1.1em';
-        
+
                     const label = document.createElement('label');
                     label.className = 'form-check-label';
-                    label.innerHTML = checkbox.checked 
+                    label.innerHTML = checkbox.checked
                         ? '<span class="badge bg-success rounded-pill px-3 py-1"><i class="fa fa-check me-1"></i>Asignado</span>'
                         : '<span class="badge bg-secondary rounded-pill px-3 py-1">Asignar</span>';
                     label.style.cursor = 'pointer';
                     label.style.userSelect = 'none';
-                    
+
                     // Actualizar label cuando cambia el checkbox
                     checkbox.addEventListener('change', function() {
-                        label.innerHTML = this.checked 
+                        label.innerHTML = this.checked
                             ? '<span class="badge bg-success rounded-pill px-3 py-1"><i class="fa fa-check me-1"></i>Asignado</span>'
                             : '<span class="badge bg-secondary rounded-pill px-3 py-1">Asignar</span>';
                     });
-        
+
                     divCheck.append(checkbox, label);
                     tdCheck.appendChild(divCheck);
-        
+
                     tr.append(tdName, tdCheck);
                     tbody.appendChild(tr);
                 });
-        
+
                 table.appendChild(tbody);
                 body.appendChild(table);
-        
+
                 accordion.appendChild(item);
                 index++;
             });
-        
+
             container.appendChild(accordion);
         }
 
 
-            
+
             function onPuestoChange(checkbox) {
                 if (!checkbox || !currentPersonaId) return;
-            
+
                 const payload = {
                     idPersona: currentPersonaId,
                     idPuesto: checkbox.value,
                     asignado: checkbox.checked ? 1 : 0
                 };
-            
+
                 fetch('/caphum/actualizarPuestoPerfil', {
                     method: 'POST',
                     headers: {
@@ -1207,11 +1207,11 @@ class CapHum extends Controller
                         Swal.fire("Error", data.mensaje || "No se pudo actualizar", "error");
                         return;
                     }
-            
+
                     // ALERTA SEGÚN ACCIÓN - igual que módulos
                     Swal.fire({
                         icon: 'success',
-                        title: checkbox.checked 
+                        title: checkbox.checked
                             ? 'Asignación correcta'
                             : 'Asignación eliminada',
                         text: checkbox.checked
@@ -1227,7 +1227,7 @@ class CapHum extends Controller
                     Swal.fire("Error", "No se pudo actualizar el puesto", "error");
                 });
             }
-            
+
             // Función para expandir/colapsar todos los acordeones de puestos
             function expandirTodosPuestos() {
                 const accordion = document.getElementById('modalEditPerfilAccordionPuestos') || document.getElementById('accordionPuestos');
@@ -1277,11 +1277,11 @@ class CapHum extends Controller
                         : '<i class="fa fa-compress me-1"></i>Colapsar Departamentos';
                 }
             }
-            
+
             // Función para guardar permisos
             function guardarPermisos() {
                 const personaId = document.getElementById('edit_perfil_id').value;
-                
+
                 if (!personaId) {
                     Swal.fire({
                         icon: 'error',
@@ -1290,7 +1290,7 @@ class CapHum extends Controller
                     });
                     return;
                 }
-                
+
                 // Recopilar puestos seleccionados
                 const puestosSeleccionados = [];
                 const modulosAsignar = [];
@@ -1313,7 +1313,7 @@ class CapHum extends Controller
                         }
                     }
                 });
-                
+
                 Swal.fire({
                     title: 'Guardando cambios...',
                     text: 'Por favor espera',
@@ -1322,7 +1322,7 @@ class CapHum extends Controller
                         Swal.showLoading();
                     }
                 });
-                
+
                 // Guardar puestos
                 fetch('/caphum/guardarPermisosPuestos', {
                     method: 'POST',
@@ -1340,10 +1340,10 @@ class CapHum extends Controller
                     if (!respPuestos.success) {
                         throw new Error(respPuestos.mensaje || 'Error al guardar puestos');
                     }
-                    
+
                     // Guardar módulos (asignar y eliminar)
                     const promesasModulos = [];
-                    
+
                     // Asignar módulos
                     modulosAsignar.forEach(moduloId => {
                         promesasModulos.push(
@@ -1361,7 +1361,7 @@ class CapHum extends Controller
                             }).then(res => res.json())
                         );
                     });
-                    
+
                     // Eliminar módulos
                     modulosEliminar.forEach(moduloId => {
                         promesasModulos.push(
@@ -1379,7 +1379,7 @@ class CapHum extends Controller
                             }).then(res => res.json())
                         );
                     });
-                    
+
                     return Promise.all(promesasModulos);
                 })
                 .then(() => {
@@ -1393,7 +1393,7 @@ class CapHum extends Controller
                         const modalEl = document.getElementById('modalEditPerfil');
                         const modal = bootstrap.Modal.getInstance(modalEl);
                         if (modal) modal.hide();
-                        
+
                         // Recargar la tabla si es necesario
                         if (typeof getUsuarios === 'function') {
                             getUsuarios();
@@ -1409,33 +1409,33 @@ class CapHum extends Controller
                     });
                 });
             }
-            
+
             /* =========================
                RENDER MÓDULOS
             ========================= */
             function renderModulos(perfiles) {
-            
+
                 const container = document.getElementById('modal-edit-perfil-modulos-form') || document.getElementById('modulos-form');
                 if (!container) return;
                 container.innerHTML = '';
-            
+
                 if (!perfiles || perfiles.length === 0) {
                     container.innerHTML = `<div class="text-muted small text-center py-4">No hay módulos disponibles</div>`;
                     return;
                 }
-            
+
                 const modulosPorPestana = {};
                 perfiles.forEach(m => {
                     if (!modulosPorPestana[m.pestana]) modulosPorPestana[m.pestana] = [];
                     modulosPorPestana[m.pestana].push(m);
                 });
-            
+
                 const table = document.createElement('table');
                 table.className = 'table table-hover mb-0';
                 table.style.fontSize = '0.9rem';
-            
+
                 const tbody = document.createElement('tbody');
-            
+
                 const iconosModulos = {
                     1: 'fa fa-file-invoice-dollar', 2: 'fa fa-folder-open', 3: 'fa fa-screwdriver-wrench',
                     4: 'fa fa-users', 5: 'fa fa-sitemap', 6: 'fa fa-chart-bar', 7: 'fa fa-file-alt',
@@ -1444,18 +1444,19 @@ class CapHum extends Controller
                     21: 'fa fa-file-alt', 24: 'fa fa-chart-line', 25: 'fa fa-chart-line', 26: 'fa fa-chart-line',
                     27: 'fa fa-chart-line', 29: 'fa fa-chart-line', 30: 'fa fa-chart-line', 31: 'fa fa-chart-line',
                     32: 'fa fa-chart-line', 33: 'fa fa-chart-line', 34: 'fa fa-chart-line', 35: 'fa fa-chart-line',
-                    36: 'fa fa-chart-line', 37: 'fa fa-chart-line', 38: 'fa fa-chart-line', 39: 'fa fa-chart-line', 40: 'fa fa-chart-line'
+                    36: 'fa fa-chart-line', 37: 'fa fa-chart-line', 38: 'fa fa-chart-line', 39: 'fa fa-chart-line', 40: 'fa fa-chart-line',
+                    41: 'fa fa-globe', 42: 'fa fa-users', 44: 'fa fa-graduation-cap'
                 };
-            
+
                 Object.keys(modulosPorPestana).forEach(pestana => {
                     modulosPorPestana[pestana].forEach((mod, modIndex) => {
-            
+
                         const tr = document.createElement('tr');
                         tr.style.transition = 'all 0.3s ease';
                         tr.style.cursor = 'pointer';
                         tr.style.borderLeft = '3px solid transparent';
                         tr.style.borderBottom = '1px solid #e9ecef';
-                        
+
                         tr.onmouseenter = () => {
                             tr.style.backgroundColor = '#f8f9fa';
                             tr.style.borderLeftColor = '#495057';
@@ -1466,17 +1467,17 @@ class CapHum extends Controller
                             tr.style.borderLeftColor = 'transparent';
                             tr.style.transform = 'translateX(0)';
                         };
-            
+
                         const tdName = document.createElement('td');
                         tdName.className = 'fw-medium';
                         tdName.style.padding = '0.875rem';
                         tdName.style.verticalAlign = 'middle';
-            
+
                         const nombreDiv = document.createElement('div');
                         nombreDiv.style.display = 'flex';
                         nombreDiv.style.alignItems = 'center';
                         nombreDiv.style.gap = '0.75rem';
-                        
+
                         const modId = mod.modulo_id != null ? mod.modulo_id : mod.id;
                         const iconClass = iconosModulos[modId] || iconosModulos[Number(modId)] || 'fa fa-cube';
                         const iconoModulo = document.createElement('div');
@@ -1490,43 +1491,43 @@ class CapHum extends Controller
                         iconoModulo.style.alignItems = 'center';
                         iconoModulo.style.justifyContent = 'center';
                         iconoModulo.style.flexShrink = '0';
-                        
+
                         const iconoInner = document.createElement('i');
                         iconoInner.className = iconClass;
                         iconoInner.style.color = '#1A52A8';
                         iconoInner.style.fontSize = '1rem';
                         iconoInner.title = mod.modulo_nombre ?? '';
                         iconoModulo.appendChild(iconoInner);
-            
+
                         const nombre = document.createElement('span');
                         nombre.innerText = mod.modulo_nombre ?? 'Módulo';
                         nombre.style.fontWeight = '600';
                         nombre.style.color = '#2c3e50';
                         nombre.style.fontSize = '0.95rem';
-                        
+
                         nombreDiv.appendChild(iconoModulo);
                         nombreDiv.appendChild(nombre);
-            
+
                         const desc = document.createElement('small');
                         desc.className = 'text-muted d-block mt-1';
                         desc.style.fontSize = '0.75rem';
                         desc.innerText = mod.descripcion ?? '';
-            
+
                         tdName.append(nombreDiv, desc);
-            
+
                         const tdCheck = document.createElement('td');
                         tdCheck.className = 'text-end';
                         tdCheck.style.padding = '0.875rem';
                         tdCheck.style.verticalAlign = 'middle';
                         tdCheck.style.width = '130px';
-            
+
                         const divCheck = document.createElement('div');
                         divCheck.className = 'form-check mb-0';
                         divCheck.style.display = 'flex';
                         divCheck.style.alignItems = 'center';
                         divCheck.style.justifyContent = 'flex-end';
                         divCheck.style.gap = '0.5rem';
-            
+
                         const checkbox = document.createElement('input');
                         checkbox.type = 'checkbox';
                         checkbox.className = 'form-check-input';
@@ -1536,43 +1537,43 @@ class CapHum extends Controller
                         checkbox.style.cursor = 'pointer';
                         checkbox.style.width = '1.1em';
                         checkbox.style.height = '1.1em';
-            
+
                         const label = document.createElement('label');
                         label.className = 'form-check-label';
-                        label.innerHTML = checkbox.checked 
+                        label.innerHTML = checkbox.checked
                             ? '<span class="badge bg-success rounded-pill px-3 py-1"><i class="fa fa-check me-1"></i>Asignado</span>'
                             : '<span class="badge bg-secondary rounded-pill px-3 py-1">Asignar</span>';
                         label.style.cursor = 'pointer';
                         label.style.userSelect = 'none';
-                        
+
                         checkbox.addEventListener('change', function() {
-                            label.innerHTML = this.checked 
+                            label.innerHTML = this.checked
                                 ? '<span class="badge bg-success rounded-pill px-3 py-1"><i class="fa fa-check me-1"></i>Asignado</span>'
                                 : '<span class="badge bg-secondary rounded-pill px-3 py-1">Asignar</span>';
                         });
-            
+
                         divCheck.append(checkbox, label);
                         tdCheck.appendChild(divCheck);
-            
+
                         tr.append(tdName, tdCheck);
                         tbody.appendChild(tr);
                     });
                 });
-            
+
                 table.appendChild(tbody);
                 container.appendChild(table);
             }
-            
+
             function onModuloChange(checkbox) {
                 // Módulo change handler
             }
-            
+
             function baja_gestor(id) {
                     if (!id) {
                         Swal.fire("Error", "ID inválido", "error");
                         return;
                     }
-                
+
                     // Limpiar campos del modal antes de cargar nueva información
                     document.getElementById("motivoBaja").value = "";
                     document.getElementById("motivoBajaDescripcion").value = "";
@@ -1583,7 +1584,7 @@ class CapHum extends Controller
                     if (spanBaja) spanBaja.textContent = "No se ha seleccionado ningún archivo";
                     archivosSeleccionados = [];
                     document.getElementById("gestor").innerHTML = "<strong>Gestor:</strong> ";
-                
+
                     fetch('/CapHum/getDetallesPerfil', {
                         method: 'POST',
                         headers: {
@@ -1600,12 +1601,12 @@ class CapHum extends Controller
                             Swal.fire("Error", data.mensaje, "error");
                             return;
                         }
-                
-                       const persona = data.datos.persona; 
+
+                       const persona = data.datos.persona;
                         document.getElementById("edit_id").value = persona.id;
                         // Concatenar el nombre completo en el <p id="gestor">
                         document.getElementById("gestor").innerHTML = "<strong>Gestor:</strong> " + persona.nombres + " " + persona.apellidop + " " + persona.apellidom;
-                        
+
                         $("#modalBajas").modal("show");
                     })
                     .catch(err => {
@@ -1613,13 +1614,13 @@ class CapHum extends Controller
                         Swal.fire("Error", "No se pudo cargar la información", "error");
                     });
         }
-        
-            function registra_ausencia(id) {            
+
+            function registra_ausencia(id) {
                 if (!id) {
                     Swal.fire("Error", "ID inválido", "error");
                     return;
                 }
-            
+
                 fetch('/CapHum/getDetallesPerfil', {
                     method: 'POST',
                     headers: {
@@ -1632,31 +1633,31 @@ class CapHum extends Controller
                 })
                 .then(res => res.json())
                 .then(resp => {
-            
+
                     if (!resp.success) {
                         Swal.fire("Error", resp.mensaje, "error");
                         return;
                     }
-            
+
                     const persona = resp.datos.persona;
-            
+
                     // ID oculto
                     document.getElementById("edit_id_ausencia").value = persona.id;
-            
+
                     // Nombre del gestor
                     document.getElementById("gestor_ausencia").innerHTML =
                         `<strong>Gestor:</strong> ${persona.nombres} ${persona.apellidop} ${persona.apellidom}`;
-            
+
                     // Limpiar formulario
                     document.getElementById("razonAusencia").value = "";
                     document.getElementById("fechaInicio").value = "";
                     document.getElementById("fechaFin").value = "";
                     document.getElementById("descripcionAusencia").value = "";
-            
+
                     // Cargar catálogo y tabla
                     cargarRazones();
                     cargarAusencias(persona.id);
-            
+
                     // Mostrar modal correcto
                     $("#modalAuscencia").modal("show");
                 })
@@ -1665,7 +1666,7 @@ class CapHum extends Controller
                     Swal.fire("Error", "No se pudo cargar la información", "error");
                 });
             }
-            
+
             function initFlatpickrAusencia() {
                 var inpInicio = document.getElementById("fechaInicio");
                 var inpFin = document.getElementById("fechaFin");
@@ -1683,7 +1684,7 @@ class CapHum extends Controller
                 flatpickr(inpInicio, opts);
                 flatpickr(inpFin, opts);
             }
-            
+
             function cargarAusencias(idPersona) {
             fetch('/CapHum/getAusenciasPersona', {
                 method: 'POST',
@@ -1697,17 +1698,17 @@ class CapHum extends Controller
             })
             .then(res => res.json())
             .then(resp => {
-        
+
                 if (!resp.success) {
                     Swal.fire("Error", resp.mensaje, "error");
                     return;
                 }
-        
+
                 const tbody = document.getElementById("tablaAusencias");
                 tbody.innerHTML = "";
-        
+
                 const data = resp.datos;
-        
+
                 if (!Array.isArray(data) || data.length === 0) {
                     tbody.innerHTML = `
                         <tr>
@@ -1717,7 +1718,7 @@ class CapHum extends Controller
                         </tr>`;
                     return;
                 }
-        
+
                 data.forEach(a => {
                     tbody.innerHTML += `
                         <tr>
@@ -1741,26 +1742,26 @@ class CapHum extends Controller
                 console.error("ERROR cargarAusencias:", err);
             });
         }
-        
+
            function cargarRazones() {
 
                 fetch('/CapHum/getRazonesAusencia')
                     .then(res => res.json())
                     .then(resp => {
-            
+
                         if (!resp.success) {
                             Swal.fire("Error", resp.mensaje, "error");
                             return;
                         }
-            
+
                         if (!Array.isArray(resp.datos)) {
                             console.error("resp.datos no es array", resp);
                             return;
                         }
-            
+
                         const select = document.getElementById('razonAusencia');
                         select.innerHTML = '<option value="">-- Selecciona --</option>';
-            
+
                         resp.datos.forEach(r => {
                             select.innerHTML += `
                                 <option value="${r.id}">${r.nombre}</option>
@@ -1771,13 +1772,13 @@ class CapHum extends Controller
                         console.error("ERROR cargarRazones:", err);
                     });
             }
-            
+
            function editarAusencia(idAusencia) {
                 if (!idAusencia) {
                     Swal.fire("Error", "Id de ausencia inválido", "error");
                     return;
                 }
-            
+
                 fetch('/CapHum/getAusenciaById', {
                     method: 'POST',
                     headers: {
@@ -1788,18 +1789,18 @@ class CapHum extends Controller
                 })
                 .then(res => res.json())
                 .then(resp => {
-            
+
                     if (!resp.success) {
                         Swal.fire("Error", resp.mensaje, "error");
                         return;
                     }
-            
+
                     const a = resp.datos;
-            
+
                     // 🔹 Modo edición
                     document.getElementById("id_ausencia").value = a.id;
                     document.getElementById("razonAusencia").value = a.id_razon;
-            
+
                     // 🔹 Fechas formato Flatpickr (Y-m-d H:i)
                     var fi = (a.fecha_inicio || '').toString().substring(0, 16);
                     var ff = (a.fecha_fin || '').toString().substring(0, 16);
@@ -1807,15 +1808,15 @@ class CapHum extends Controller
                     document.getElementById("fechaFin").value = ff;
                     if (document.getElementById("fechaInicio")._flatpickr) document.getElementById("fechaInicio")._flatpickr.setDate(fi, false);
                     if (document.getElementById("fechaFin")._flatpickr) document.getElementById("fechaFin")._flatpickr.setDate(ff, false);
-            
+
                     document.getElementById("descripcionAusencia").value = a.descripcion ?? '';
-            
+
                     // 🔹 Cambiar texto del botón
                     document.getElementById("btnGuardarAusencia").innerText = "Actualizar ausencia";
-            
+
                     // 🔹 Cargar documentos asociados
                     //cargarDocumentosAusencia(a.id);
-            
+
                     // 🔹 Mostrar modal
                     $("#modalAusencia").modal("show");
                 })
@@ -1833,10 +1834,10 @@ class CapHum extends Controller
                 if (elInicio) { elInicio.value = ''; if (elInicio._flatpickr) elInicio._flatpickr.clear(); }
                 if (elFin) { elFin.value = ''; if (elFin._flatpickr) elFin._flatpickr.clear(); }
                 document.getElementById("descripcionAusencia").value = '';
-            
+
                 // Texto del botón
                 document.getElementById("btnGuardarAusencia").innerText = "Guardar ausencia";
-            
+
                 // Texto del gestor (opcional)
                 const gestor = document.getElementById("gestor");
                 if (gestor) {
@@ -1844,7 +1845,7 @@ class CapHum extends Controller
                 }
             }
 
-            
+
            function guardarAusencia() {
 
                 const idAusencia = document.getElementById("id_ausencia").value;
@@ -1853,7 +1854,7 @@ class CapHum extends Controller
                 const fechaInicio = document.getElementById("fechaInicio").value;
                 const fechaFin    = document.getElementById("fechaFin").value;
                 const descripcion = document.getElementById("descripcionAusencia").value;
-            
+
                 const payload = {
                     idPersona,
                     idRazon,
@@ -1862,8 +1863,8 @@ class CapHum extends Controller
                     descripcion,
                     idAusencia
                 };
-            
-            
+
+
                 fetch('/CapHum/guardarAusencia', {
                     method: 'POST',
                     headers: {
@@ -1874,20 +1875,20 @@ class CapHum extends Controller
                 })
                 .then(res => res.json())
                 .then(resp => {
-            
+
                     if (!resp.success) {
                         Swal.fire("Error", resp.mensaje, "error");
                         return;
                     }
-            
+
                     Swal.fire("Éxito", resp.mensaje, "success");
-            
+
                     $("#modalAusencia").modal("hide");
-            
+
                     // Limpieza
                     document.getElementById("id_ausencia").value = '';
                     document.getElementById("btnGuardarAusencia").innerText = "Guardar ausencia";
-            
+
                     //  LIMPIEZA CENTRALIZADA
                     limpiarFormularioAusencia();
                     // Refrescar tabla
@@ -1901,12 +1902,12 @@ class CapHum extends Controller
 
 
 
-            
+
            function confirmarBaja() {
                 const idGestor = document.getElementById("edit_id").value;
                 const motivoSelect = document.getElementById("motivoBaja").value;
                 const descripcion = document.getElementById("motivoBajaDescripcion").value;
-            
+
                 // Validaciones
                 if (!motivoSelect) {
                     Swal.fire({
@@ -1916,7 +1917,7 @@ class CapHum extends Controller
                     });
                     return;
                 }
-            
+
                 if (descripcion.trim() === "") {
                     Swal.fire({
                         icon: 'warning',
@@ -1925,7 +1926,7 @@ class CapHum extends Controller
                     });
                     return;
                 }
-            
+
                 // Confirmación antes de enviar
                 Swal.fire({
                     title: '¿Confirmar baja?',
@@ -1937,18 +1938,18 @@ class CapHum extends Controller
                     reverseButtons: true
                 }).then((result) => {
                     if (result.isConfirmed) {
-            
+
                         //  Crear FormData
                         const formData = new FormData();
                         formData.append("idGestor", idGestor);
                         formData.append("motivo", motivoSelect);
                         formData.append("descripcion", descripcion);
-            
+
                         // 📎 Archivos múltiples (AQUÍ ESTÁ EL CAMBIO)
                         archivosSeleccionados.forEach(file => {
                             formData.append('archivosPDF[]', file);
                         });
-            
+
                         //  Enviar al controlador
                         fetch('/CapHum/registrarBaja', {
                             method: 'POST',
@@ -1962,9 +1963,9 @@ class CapHum extends Controller
                                     title: '¡Listo!',
                                     text: 'La baja se registró correctamente.'
                                 });
-            
+
                                 $("#modalBajas").modal("hide");
-            
+
                                 //  Limpieza
                                 archivosSeleccionados = [];
                                 const listEl = document.getElementById("listaArchivos");
@@ -1990,19 +1991,19 @@ class CapHum extends Controller
                     }
                 });
             }
-            
-           
 
-            
+
+
+
             function onModuloChange(checkbox) {
                 if (!checkbox || currentPersonaId === null) return;
-            
+
                 const payload = {
                     idPersona: currentPersonaId,
                     modulo_id: checkbox.value,
                     asignado: checkbox.checked ? 1 : 0
                 };
-            
+
                 fetch('/CapHum/PerfilCheckBoxEstado', {
                     method: 'POST',
                     headers: {
@@ -2013,19 +2014,19 @@ class CapHum extends Controller
                 })
                 .then(res => res.json())
                 .then(data => {
-            
+
                     if (!data.success) {
                         // Revertimos el checkbox si falla
                         checkbox.checked = !checkbox.checked;
-            
+
                         Swal.fire("Error", data.mensaje || "No se pudo actualizar", "error");
                         return;
                     }
-            
+
                     // ALERTA SEGÚN ACCIÓN
                     Swal.fire({
                         icon: 'success',
-                        title: checkbox.checked 
+                        title: checkbox.checked
                             ? 'Asignación correcta'
                             : 'Asignación eliminada',
                         text: checkbox.checked
@@ -2037,14 +2038,14 @@ class CapHum extends Controller
                 })
                 .catch(err => {
                     console.error(err);
-            
+
                     // Revertimos el checkbox si hay error
                     checkbox.checked = !checkbox.checked;
-            
+
                     Swal.fire("Error", "Error de comunicación con el servidor", "error");
                 });
             }
-            
+
             function UpdateGestor() {
 
                 const departamento = document.getElementById("edit_departamento_id").value;  // <---- esta es la linea 2009
@@ -2124,7 +2125,7 @@ class CapHum extends Controller
                 });
             }
 
-                
+
             document.getElementById('add_departamento_id').addEventListener('change', function () {
 
                 const idDepartamento = this.value;
@@ -2135,9 +2136,9 @@ class CapHum extends Controller
                 selectPuesto.disabled = true;
                 selectJefe.innerHTML = '<option value="">Seleccione un jefe</option>';
                 selectJefe.disabled = true;
-            
+
                 if (!idDepartamento) return;
-            
+
                 fetch('/CapHum/getPuestos', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -2163,7 +2164,7 @@ class CapHum extends Controller
                     Swal.fire("Error", "No se pudieron cargar los puestos", "error");
                 });
             });
-            
+
             function cargarJefeComboAdd(idDepartamento, idPuesto, selectJefe) {
                 if (!selectJefe) selectJefe = document.getElementById('add_id_jefe');
                 selectJefe.innerHTML = '<option value="">Seleccione un jefe</option>';
@@ -2192,21 +2193,21 @@ class CapHum extends Controller
                     Swal.fire("Error", "No se pudieron cargar los jefes", "error");
                 });
             }
-            
+
             document.getElementById('add_id_puesto').addEventListener('change', function () {
                 const idPuesto = this.value;
                 const idDepartamento = document.getElementById('add_departamento_id').value;
                 const selectJefe = document.getElementById('add_id_jefe');
                 if (!idDepartamento) return;
                 cargarJefeComboAdd(idDepartamento, idPuesto || null, selectJefe);
-            }); 
-            
+            });
+
             // Función para mostrar/ocultar el select de legión
             function toggleSelectLegion() {
                 const checkbox = document.getElementById('add_asignar_legion');
                 const divSelect = document.getElementById('div_select_legion');
                 const selectLegion = document.getElementById('add_id_legion');
-                
+
                 if (checkbox.checked) {
                     divSelect.style.display = 'block';
                 } else {
@@ -2214,11 +2215,11 @@ class CapHum extends Controller
                     selectLegion.value = ''; // Limpiar selección si se desmarca
                 }
             }
-            
+
             // Variable para almacenar los event listeners y poder removerlos
             let fechaInputClickHandler = null;
             let fechaWrapperClickHandler = null;
-            
+
             function configurarMaxFechaIngreso() {
                 // Esperar un poco para asegurar que el input esté disponible
                 setTimeout(() => {
@@ -2227,24 +2228,24 @@ class CapHum extends Controller
                         console.warn('Wrapper de fecha no encontrado');
                         return;
                     }
-                    
+
                     let oldInput = document.getElementById('add_fecha_ingreso');
                     if (!oldInput) {
                         console.warn('Input de fecha no encontrado');
                         return;
                     }
-                    
+
                     // Remover event listeners anteriores si existen
                     if (fechaInputClickHandler && oldInput) {
                         oldInput.removeEventListener('click', fechaInputClickHandler);
                         fechaInputClickHandler = null;
                     }
-                    
+
                     if (wrapper && fechaWrapperClickHandler) {
                         wrapper.removeEventListener('click', fechaWrapperClickHandler);
                         fechaWrapperClickHandler = null;
                     }
-                    
+
                     // Intentar destruir instancia anterior de forma segura
                     try {
                         if (oldInput._flatpickr) {
@@ -2263,10 +2264,10 @@ class CapHum extends Controller
                     } catch (e) {
                         // Ignorar errores al destruir
                     }
-                    
+
                     // Guardar el valor actual si existe
                     const currentValue = oldInput.value || '';
-                    
+
                     // Crear un nuevo input completamente limpio
                     const newInput = document.createElement('input');
                     newInput.type = 'text';
@@ -2274,10 +2275,10 @@ class CapHum extends Controller
                     newInput.className = 'form-control';
                     newInput.placeholder = 'YYYY-MM-DD';
                     newInput.value = currentValue;
-                    
+
                     // Reemplazar el input viejo con el nuevo
                     oldInput.parentNode.replaceChild(newInput, oldInput);
-                    
+
                     // Pequeño delay para asegurar que el DOM se actualice
                     setTimeout(() => {
                         const input = document.getElementById('add_fecha_ingreso');
@@ -2285,12 +2286,12 @@ class CapHum extends Controller
                             console.warn('Nuevo input no encontrado después del reemplazo');
                             return;
                         }
-                        
+
                         // Calcular fecha máxima (hoy + 1 día)
                         const hoy = new Date();
                         hoy.setDate(hoy.getDate() + 1);
                         const fechaMax = hoy.toISOString().split('T')[0];
-                        
+
                         // Inicializar Flatpickr si está disponible
                         if (typeof flatpickr !== 'undefined') {
                             try {
@@ -2304,7 +2305,7 @@ class CapHum extends Controller
                                     appendTo: document.body,
                                     static: false
                                 });
-                                
+
                                 // Asegurar que el calendario tenga z-index alto después de renderizarse
                                 setTimeout(() => {
                                     if (fp && fp.calendarContainer) {
@@ -2314,7 +2315,7 @@ class CapHum extends Controller
                                         fp.calendarContainer.style.opacity = '1';
                                     }
                                 }, 100);
-                                
+
                                 // Crear handler para el click en el input
                                 fechaInputClickHandler = function(e) {
                                     e.preventDefault();
@@ -2332,9 +2333,9 @@ class CapHum extends Controller
                                         }
                                     }, 10);
                                 };
-                                
+
                                 input.addEventListener('click', fechaInputClickHandler);
-                                
+
                                 // También en el wrapper
                                 if (wrapper) {
                                     fechaWrapperClickHandler = function(e) {
@@ -2357,8 +2358,8 @@ class CapHum extends Controller
                                     };
                                     wrapper.addEventListener('click', fechaWrapperClickHandler);
                                 }
-                                
-                                
+
+
                             } catch (error) {
                                 console.error('Error al inicializar Flatpickr:', error);
                                 // Fallback si hay error
@@ -2374,7 +2375,7 @@ class CapHum extends Controller
                     }, 50); // Delay corto para asegurar que el DOM se actualice
                 }, 200);
             }
-            
+
             function guardarGestor() {
                 const nombres = document.getElementById('add_nombres').value.trim();
                 const segundo_nombre = document.getElementById('add_segundo_nombre').value.trim();
@@ -2387,15 +2388,15 @@ class CapHum extends Controller
                 const id_jefe = document.getElementById('add_id_jefe').value;
                 const asignarLegion = document.getElementById('add_asignar_legion').checked;
                 const id_legion = document.getElementById('add_id_legion').value;
-                
+
                 const usuario = document.getElementById('add_usuario').value.trim();
                 const contrasena = document.getElementById('add_contrasena').value.trim();
                 const fecha_ingreso = document.getElementById('add_fecha_ingreso').value.trim() || null;
 
                 const id_div_nivel1 = document.getElementById('add_id_div_nivel1')?.value || null;
                 const id_div_nivel2 = document.getElementById('add_id_div_nivel2')?.value || null;
-            
-            
+
+
                 //  Validaciones obligatorias (todos los campos)
                 if (!nombres) return Swal.fire('Error', 'Los nombres son obligatorios', 'error');
                 if (!apellidop) return Swal.fire('Error', 'El apellido paterno es obligatorio', 'error');
@@ -2406,24 +2407,24 @@ class CapHum extends Controller
                 if (!id_pais) return Swal.fire('Error', 'Debe seleccionar un país (sede)', 'error');
                 if (!id_puesto) return Swal.fire('Error', 'Debe seleccionar un puesto', 'error');
                 if (!departamento_id) return Swal.fire('Error', 'Debe seleccionar un departamento', 'error');
-            
+
                 // ⚠️ jefe puede ser null, solo valida si viene
                 if (id_jefe && isNaN(id_jefe)) {
                     return Swal.fire('Error', 'Jefe inválido', 'error');
                 }
-                
+
                 //  Validar legión: si el checkbox está marcado, debe seleccionar una legión
                 if (asignarLegion && !id_legion) {
                     return Swal.fire('Error', 'Debe seleccionar una legión', 'error');
                 }
-                
+
                 if (!usuario) return Swal.fire('Error', 'Usuario obligatorio', 'error');
                 if (!contrasena) return Swal.fire('Error', 'Ingresa una contraseña', 'error');
-            
-            
+
+
                 fetch('/CapHum/getInsertarGestor', {
                     method: 'POST',
-                    headers: { 
+                    headers: {
                         'Content-Type': 'application/json',
                         'Accept': 'application/json'
                     },
@@ -2454,7 +2455,7 @@ class CapHum extends Controller
                     if (!data.success) {
                         return Swal.fire('Error', data.mensaje, 'error');
                     }
-            
+
                     Swal.fire('Éxito', data.mensaje, 'success')
                         .then(() => location.reload());
                 })
@@ -2493,7 +2494,7 @@ class CapHum extends Controller
                 const divLegion = document.getElementById('div_select_legion');
                 if (divLegion) divLegion.style.display = 'none';
             }
-            
+
             $(document).ready(() => {
                 // Inicializar DataTable con columnas explícitas
                 configuraTabla("#historialUsuarios", { registrosPorPagina: 10 });
@@ -2512,15 +2513,15 @@ class CapHum extends Controller
                     offcanvasAdd.addEventListener('hidden.bs.offcanvas', limpiarFormularioAgregarUsuario);
                 }
             });
-        
+
         // Función para inicializar vista de bajas (se llama desde bajas())
         function inicializarBajas() {
             // Ocultar filtros y botón agregar
             $('.card-header.border-bottom').hide();
             $('.row.justify-content-between.m-4').hide();
-            
+
             // Inicializar DataTable con las nuevas columnas
-            const tabla = configuraTabla("#historialUsuarios", { 
+            const tabla = configuraTabla("#historialUsuarios", {
                 registrosPorPagina: 10,
                 columns: [
                     { data: null, defaultContent: '', className: 'control', orderable: false },
@@ -2532,7 +2533,7 @@ class CapHum extends Controller
                     { data: 'acciones', title: 'Acciones', orderable: false }
                 ]
             });
-            
+
             // Asegurar que el select muestre el valor correcto después de la inicialización
             // Usamos drawCallback para asegurar que se ejecute después del renderizado
             tabla.on('draw.dt', function() {
@@ -2541,7 +2542,7 @@ class CapHum extends Controller
                     select.val('10');
                 }
             });
-            
+
             // También lo establecemos inmediatamente después de la inicialización
             setTimeout(function() {
                 const select = $('select[name="historialUsuarios_length"]');
@@ -2549,10 +2550,10 @@ class CapHum extends Controller
                     select.val('10');
                 }
             }, 50);
-            
+
             getBajas();
         }
-        
+
         // Función placeholder para editar baja (por ahora no hace nada)
         function editarBaja(registroBaja) {
             Swal.fire({
@@ -2648,13 +2649,13 @@ class CapHum extends Controller
                     .catch(function(err) { Swal.fire({ icon: 'error', title: 'Error', text: 'Error de conexión. ' + (err.message || '') }); });
             });
         }
-            
+
             let archivosSeleccionados = [];
 
             function seleccionarArchivoBajaModal() {
                 document.getElementById("archivoPDF").click();
             }
-            
+
             function verArchivoCargadoBajaModal(index) {
                 const file = archivosSeleccionados[index];
                 if (file) {
@@ -2662,7 +2663,7 @@ class CapHum extends Controller
                     window.open(url, "_blank");
                 }
             }
-            
+
             document.getElementById("archivoPDF").addEventListener("change", function (e) {
                 const nuevosArchivos = Array.from(e.target.files || []);
                 nuevosArchivos.forEach(file => {
@@ -2674,7 +2675,7 @@ class CapHum extends Controller
                 renderArchivos();
                 this.value = "";
             });
-            
+
             function renderArchivos() {
                 const lista = document.getElementById("listaArchivos");
                 const spanBaja = document.getElementById("bajaModal_nombreArchivo");
@@ -2707,7 +2708,7 @@ class CapHum extends Controller
                     `;
                 });
             }
-            
+
             function eliminarArchivo(index) {
                 archivosSeleccionados.splice(index, 1);
                 renderArchivos();
@@ -2716,21 +2717,21 @@ class CapHum extends Controller
             // ==========================================
             // FUNCIONES PARA CARGAR DOCUMENTOS DE PERSONA (GESTIÓN)
             // ==========================================
-            
+
             // Array para almacenar archivos seleccionados (Gestión)
             let archivosSeleccionadosPersona = [];
             let archivosSubidosPersona = [];
-            
+
             // Alias para el botón "Ver archivo" de la tabla (recibe id de persona)
             function verArchivo(idPersona) {
                 cargarDocumentoPersona(idPersona);
             }
-            
+
             // Función para abrir modal de cargar documento de persona
             function cargarDocumentoPersona(button) {
                 let idPersona, nombreCompleto;
                 const esIdDirecto = typeof button === 'number' || (typeof button === 'string' && button !== '' && !isNaN(Number(button)));
-                
+
                 if (esIdDirecto) {
                     idPersona = String(button);
                     nombreCompleto = 'N/A';
@@ -2754,27 +2755,27 @@ class CapHum extends Controller
                         return;
                     }
                 }
-                
+
                 // Guardar el ID de persona en un campo oculto del modal
                 document.getElementById('cargarDocPersona_idPersona').value = idPersona || '';
                 document.getElementById('cargarDocPersona_nombrePersona').textContent = 'Persona: ' + (nombreCompleto || 'N/A');
-                
+
                 // Limpiar el select y el input de archivo
                 const selectTipo = document.getElementById('cargarDocPersona_tipoDocumento');
                 selectTipo.value = '';
                 document.getElementById('cargarDocPersona_archivo').value = '';
                 document.getElementById('cargarDocPersona_nombreArchivo').textContent = 'No se ha seleccionado ningún archivo';
-                
+
                 // Limpiar la lista de archivos nuevos
                 archivosSeleccionadosPersona = [];
                 document.getElementById('cargarDocPersona_listaArchivos').style.display = 'none';
-                
+
                 // Primero resetear todas las opciones del select para que sean visibles
                 Array.from(selectTipo.options).forEach(option => {
                     option.style.display = 'block';
                     option.disabled = false;
                 });
-                
+
                 // Cargar archivos existentes (esto actualizará el select automáticamente ocultando los únicos ya subidos)
                 if (idPersona) {
                     cargarArchivosExistentesPersona(idPersona);
@@ -2782,17 +2783,17 @@ class CapHum extends Controller
                     // Si no hay ID, al menos actualizar el select para mostrar todas las opciones
                     actualizarSelectDocumentos();
                 }
-                
+
                 // Actualizar el atributo multiple del input file según el tipo de documento
                 const inputFile = document.getElementById('cargarDocPersona_archivo');
-                
+
                 // Remover listeners anteriores si existen para evitar duplicados
                 const nuevoSelectTipo = selectTipo.cloneNode(true);
                 selectTipo.parentNode.replaceChild(nuevoSelectTipo, selectTipo);
-                
+
                 // Actualizar la referencia al nuevo elemento
                 const selectTipoActualizado = document.getElementById('cargarDocPersona_tipoDocumento');
-                
+
                 selectTipoActualizado.addEventListener('change', function() {
                     const tipoDoc = this.value;
                     if (tipoDoc && !permiteMultiplesArchivos(tipoDoc)) {
@@ -2801,24 +2802,24 @@ class CapHum extends Controller
                     } else {
                         inputFile.setAttribute('multiple', 'multiple');
                     }
-                    
+
                     // Limpiar archivos seleccionados cuando cambia el tipo
                     archivosSeleccionadosPersona = [];
                     inputFile.value = '';
                     document.getElementById('cargarDocPersona_nombreArchivo').textContent = 'No se ha seleccionado ningún archivo';
                     document.getElementById('cargarDocPersona_listaArchivos').style.display = 'none';
                 });
-                
+
                 // Mostrar modal
                 const modal = new bootstrap.Modal(document.getElementById('modalCargarDocumentoPersona'));
                 modal.show();
             }
-            
+
             // Función para seleccionar archivo
             function seleccionarArchivoDocumentoPersona() {
                 document.getElementById('cargarDocPersona_archivo').click();
             }
-            
+
             // Tipos de documentos que solo permiten un archivo
             const documentosUnicos = [
                 'Acta de Nacimiento',
@@ -2828,16 +2829,16 @@ class CapHum extends Controller
                 'Identificación Oficial (INE)',
                 'RFC'
             ];
-            
+
             // Función para verificar si un tipo de documento permite múltiples archivos
             function permiteMultiplesArchivos(tipoDocumento) {
                 return !documentosUnicos.includes(tipoDocumento);
             }
-            
+
             // Función para agregar archivo a la lista
             function agregarArchivoListaPersona(input) {
                 const tipoDocumento = document.getElementById('cargarDocPersona_tipoDocumento').value;
-                
+
                 if (!tipoDocumento) {
                     Swal.fire({
                         icon: 'warning',
@@ -2847,14 +2848,14 @@ class CapHum extends Controller
                     input.value = '';
                     return;
                 }
-                
+
                 // Verificar si ya existe un documento de este tipo subido
                 const esUnico = !permiteMultiplesArchivos(tipoDocumento);
                 if (esUnico) {
                     // Verificar si ya hay un archivo de este tipo en los archivos subidos
                     const idDocumento = obtenerIdDocumentoPorNombre(tipoDocumento);
                     const existeDocumento = archivosSubidosPersona.some(doc => doc.id_documento === idDocumento);
-                    
+
                     if (existeDocumento) {
                         Swal.fire({
                             icon: 'warning',
@@ -2864,7 +2865,7 @@ class CapHum extends Controller
                         input.value = '';
                         return;
                     }
-                    
+
                     // Verificar si ya hay un archivo seleccionado de este tipo
                     if (archivosSeleccionadosPersona.length > 0) {
                         Swal.fire({
@@ -2876,10 +2877,10 @@ class CapHum extends Controller
                         return;
                     }
                 }
-                
+
                 if (input.files && input.files.length > 0) {
                     const archivosValidos = [];
-                    
+
                     Array.from(input.files).forEach(file => {
                         if (file.type === 'application/pdf') {
                             // Si es documento único, solo permitir un archivo
@@ -2894,22 +2895,22 @@ class CapHum extends Controller
                             archivosValidos.push(file);
                         }
                     });
-                    
+
                     // Agregar archivos válidos
                     archivosValidos.forEach(file => {
                         archivosSeleccionadosPersona.push(file);
                     });
-                    
+
                     // Actualizar contador
                     const count = archivosSeleccionadosPersona.length;
-                    document.getElementById('cargarDocPersona_nombreArchivo').textContent = 
+                    document.getElementById('cargarDocPersona_nombreArchivo').textContent =
                         count > 0 ? `${count} archivo(s) seleccionado(s)` : 'No se ha seleccionado ningún archivo';
-                    
+
                     // Renderizar lista
                     renderArchivosSubidosPersona();
                 }
             }
-            
+
             // Función auxiliar para obtener ID de documento (usando IDs reales de la BD)
             function obtenerIdDocumentoPorNombre(nombre) {
                 const mapaDocumentos = {
@@ -2927,19 +2928,19 @@ class CapHum extends Controller
                 };
                 return mapaDocumentos[nombre] || null;
             }
-            
+
             // Función para renderizar archivos
             function renderArchivosSubidosPersona() {
                 const listaArchivos = document.getElementById('cargarDocPersona_listaArchivos');
                 const tablaArchivos = document.getElementById('cargarDocPersona_tablaArchivos');
-                
+
                 // Renderizar tabla de archivos subidos
                 if (archivosSubidosPersona.length > 0) {
                     let htmlTabla = '';
                     archivosSubidosPersona.forEach(doc => {
                         const fechaFormateada = doc.fecha_carga || 'N/A';
                         const archivoEscapado = (doc.archivo || '').replace(/'/g, "\\'");
-                        
+
                         var contexto = obtenerContextoDocumento(doc.id_documento);
                         htmlTabla += `
                             <tr>
@@ -2951,18 +2952,18 @@ class CapHum extends Controller
                                     <span class="badge bg-success">Sí</span>
                                 </td>
                                 <td>
-                                    <button 
-                                        type="button" 
-                                        class="btn btn-sm btn-info me-1" 
-                                        onclick="verArchivoSubidoPersona('${archivoEscapado}')" 
+                                    <button
+                                        type="button"
+                                        class="btn btn-sm btn-info me-1"
+                                        onclick="verArchivoSubidoPersona('${archivoEscapado}')"
                                         title="Ver archivo"
                                     >
                                         Ver
                                     </button>
-                                    <button 
-                                        type="button" 
-                                        class="btn btn-sm btn-danger" 
-                                        onclick="eliminarArchivoSubidoPersona(${doc.id}, '${archivoEscapado}')" 
+                                    <button
+                                        type="button"
+                                        class="btn btn-sm btn-danger"
+                                        onclick="eliminarArchivoSubidoPersona(${doc.id}, '${archivoEscapado}')"
                                         title="Eliminar archivo"
                                     >
                                         <i class="fa fa-trash"></i>
@@ -2975,7 +2976,7 @@ class CapHum extends Controller
                 } else {
                     tablaArchivos.innerHTML = '<tr><td colspan="6" class="text-center text-muted">No hay archivos subidos</td></tr>';
                 }
-                
+
                 // Renderizar lista de archivos nuevos seleccionados (antes de subir)
                 if (archivosSeleccionadosPersona.length > 0) {
                     listaArchivos.style.display = 'block';
@@ -2991,19 +2992,19 @@ class CapHum extends Controller
                                     </span>
                                 </div>
                                 <div class="d-flex gap-1">
-                                    <button 
-                                        type="button" 
-                                        class="btn btn-sm btn-info p-1" 
-                                        onclick="verArchivoCargadoPersona(${index})" 
+                                    <button
+                                        type="button"
+                                        class="btn btn-sm btn-info p-1"
+                                        onclick="verArchivoCargadoPersona(${index})"
                                         title="Ver archivo"
                                         style="width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;"
                                     >
                                         <i class="fa fa-eye" style="font-size: 12px;"></i>
                                     </button>
-                                    <button 
-                                        type="button" 
-                                        class="btn btn-sm btn-danger p-1" 
-                                        onclick="eliminarArchivoCargadoPersona(${index})" 
+                                    <button
+                                        type="button"
+                                        class="btn btn-sm btn-danger p-1"
+                                        onclick="eliminarArchivoCargadoPersona(${index})"
                                         title="Eliminar archivo"
                                         style="width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;"
                                     >
@@ -3018,7 +3019,7 @@ class CapHum extends Controller
                     listaArchivos.style.display = 'none';
                 }
             }
-            
+
             function obtenerContextoDocumento(idDocumento) {
                 if (idDocumento == 15) return '<span class="badge bg-danger">Baja</span>';
                 if (idDocumento == 16) return '<span class="badge bg-success">Reingreso</span>';
@@ -3038,12 +3039,12 @@ class CapHum extends Controller
                 };
                 return mapeo[idDocumento] || 'Documento';
             }
-            
+
             // Función para actualizar el select de documentos, ocultando los únicos que ya están subidos
             function actualizarSelectDocumentos() {
                 const selectTipo = document.getElementById('cargarDocPersona_tipoDocumento');
                 if (!selectTipo) return;
-                
+
                 // Obtener todos los IDs de documentos únicos que ya están subidos
                 const documentosUnicosSubidos = new Set();
                 archivosSubidosPersona.forEach(doc => {
@@ -3054,14 +3055,14 @@ class CapHum extends Controller
                         documentosUnicosSubidos.add(nombreDoc);
                     }
                 });
-                
+
                 // Verificar si el valor actual del select es un documento único ya subido
                 const valorActual = selectTipo.value;
                 if (valorActual && !permiteMultiplesArchivos(valorActual) && documentosUnicosSubidos.has(valorActual)) {
                     // Si el documento seleccionado es único y ya está subido, limpiar el select
                     selectTipo.value = '';
                 }
-                
+
                 // Recorrer todas las opciones del select
                 Array.from(selectTipo.options).forEach(option => {
                     const valor = option.value;
@@ -3075,7 +3076,7 @@ class CapHum extends Controller
                     }
                 });
             }
-            
+
             // Función para cargar archivos existentes
             function cargarArchivosExistentesPersona(idPersona) {
                 fetch('/caphum/getDocumentosPersona?id_persona=' + idPersona)
@@ -3099,16 +3100,16 @@ class CapHum extends Controller
                         actualizarSelectDocumentos();
                     });
             }
-            
+
             // Función para eliminar archivo cargado (nuevo, antes de subir)
             function eliminarArchivoCargadoPersona(index) {
                 archivosSeleccionadosPersona.splice(index, 1);
                 const count = archivosSeleccionadosPersona.length;
-                document.getElementById('cargarDocPersona_nombreArchivo').textContent = 
+                document.getElementById('cargarDocPersona_nombreArchivo').textContent =
                     count > 0 ? `${count} archivo(s) seleccionado(s)` : 'No se ha seleccionado ningún archivo';
                 renderArchivosSubidosPersona();
             }
-            
+
             // Función para eliminar archivo subido (ya en BD)
             function eliminarArchivoSubidoPersona(idDocumento, nombreArchivo) {
                 Swal.fire({
@@ -3124,7 +3125,7 @@ class CapHum extends Controller
                     if (result.isConfirmed) {
                         const formData = new FormData();
                         formData.append('id_documento', idDocumento);
-                        
+
                         fetch('/caphum/eliminarDocumentoPersona', {
                             method: 'POST',
                             body: formData
@@ -3139,7 +3140,7 @@ class CapHum extends Controller
                                     timer: 2000,
                                     showConfirmButton: false
                                 });
-                                
+
                                 // Recargar lista (esto también actualizará el select)
                                 const idPersona = document.getElementById('cargarDocPersona_idPersona').value;
                                 if (idPersona) {
@@ -3164,7 +3165,7 @@ class CapHum extends Controller
                     }
                 });
             }
-            
+
             // Función para ver un archivo nuevo (no subido)
             function verArchivoCargadoPersona(index) {
                 const file = archivosSeleccionadosPersona[index];
@@ -3173,13 +3174,13 @@ class CapHum extends Controller
                     window.open(url, '_blank');
                 }
             }
-            
+
             // Función para ver un archivo ya subido
             function verArchivoSubidoPersona(nombreArchivo) {
                 const url = '/caphum/verDocumentoPersona?archivo=' + encodeURIComponent(nombreArchivo);
                 window.open(url, '_blank');
             }
-            
+
             const mapaDocumentosIds = {
                 'CURP': 8,
                 'Identificación Oficial (INE)': 9,
@@ -3191,12 +3192,12 @@ class CapHum extends Controller
                 'Documento baja': 15,
                 'Documento reingreso': 16
             };
-            
+
             // Función para subir documento de persona
             function subirDocumentoPersona() {
                 const tipoDocumento = document.getElementById('cargarDocPersona_tipoDocumento').value;
                 const idPersona = document.getElementById('cargarDocPersona_idPersona').value;
-                
+
                 if (!tipoDocumento) {
                     Swal.fire({
                         icon: 'warning',
@@ -3205,7 +3206,7 @@ class CapHum extends Controller
                     });
                     return;
                 }
-                
+
                 // Obtener ID del documento usando el mapeo directo
                 const idDocumento = mapaDocumentosIds[tipoDocumento];
                 if (!idDocumento) {
@@ -3216,7 +3217,7 @@ class CapHum extends Controller
                     });
                     return;
                 }
-                
+
                 if (archivosSeleccionadosPersona.length === 0) {
                     Swal.fire({
                         icon: 'warning',
@@ -3225,7 +3226,7 @@ class CapHum extends Controller
                     });
                     return;
                 }
-                
+
                 if (!idPersona) {
                     Swal.fire({
                         icon: 'error',
@@ -3234,7 +3235,7 @@ class CapHum extends Controller
                     });
                     return;
                 }
-                
+
                 // Mostrar loading
                 Swal.fire({
                     title: 'Subiendo archivos...',
@@ -3244,17 +3245,17 @@ class CapHum extends Controller
                         Swal.showLoading();
                     }
                 });
-                
+
                 // Crear FormData
                 const formData = new FormData();
                 formData.append('id_persona', idPersona);
                 formData.append('id_documento', idDocumento);  // Enviar ID directamente
-                
+
                 // Agregar archivos
                 archivosSeleccionadosPersona.forEach((file) => {
                     formData.append('archivosPDF[]', file);
                 });
-                
+
                 // Enviar al servidor
                 fetch('/caphum/subirDocumentosPersona', {
                     method: 'POST',
@@ -3275,7 +3276,7 @@ class CapHum extends Controller
                 })
                 .then(resp => {
                     Swal.close();
-                    
+
                     if (resp.success) {
                         Swal.fire({
                             icon: 'success',
@@ -3284,13 +3285,13 @@ class CapHum extends Controller
                             timer: 2000,
                             showConfirmButton: false
                         });
-                        
+
                         // Limpiar archivos seleccionados
                         archivosSeleccionadosPersona = [];
                         document.getElementById('cargarDocPersona_archivo').value = '';
                         document.getElementById('cargarDocPersona_nombreArchivo').textContent = 'No se ha seleccionado ningún archivo';
                         document.getElementById('cargarDocPersona_listaArchivos').style.display = 'none';
-                        
+
                         // Si es un documento único, limpiar el select de tipo de documento
                         // (Referencias Laborales y Documento baja permiten múltiples, así que no se limpian)
                         if (!permiteMultiplesArchivos(tipoDocumento)) {
@@ -3299,7 +3300,7 @@ class CapHum extends Controller
                                 selectTipoDoc.value = '';
                             }
                         }
-                        
+
                         // Recargar lista de archivos (esto también actualizará el select ocultando los únicos ya subidos)
                         cargarArchivosExistentesPersona(idPersona);
                     } else {
@@ -3320,7 +3321,7 @@ class CapHum extends Controller
                     });
                 });
             }
-            
+
         </script>
         HTML;
         // Easter egg "300" solo en Capital Humano → Gestión (Ctrl+Shift+3)
@@ -3340,154 +3341,1071 @@ class CapHum extends Controller
         self::render("all_gestores");
     }
 
-    /** Vista Candidatos (Capital Humano). Misma arquitectura que Gestión: script en controlador, http.request, tabla tbody vacío. */
+    /** Vista Candidatos (Capital Humano). Misma arquitectura que Gestión: heredoc con el script, self::set("script"), self::render. */
     public function candidatos()
     {
-        $departamento = CapHumDAO::getConsultaDepartamentoGestor($_SESSION['usuario_id']);
-        $modulos = $_SESSION['modulos'] ?? [];
-        $puedeGestionarCandidatos = in_array(42, $modulos);
+        $script = <<<'HTML'
+        <script>
 
-        self::set("titulo", "Candidatos");
-        self::set("puedeGestionarCandidatos", $puedeGestionarCandidatos);
-        $appBasePath = rtrim(dirname($_SERVER['SCRIPT_NAME'] ?? ''), '/') ?: '';
-        self::set("appBasePath", $appBasePath);
-        self::set("departamento", $departamento);
-        self::set("paisesActivos", \Models\Paises::getPaisesActivos());
-        self::set("listaJefes", CapHumDAO::getListaPersonasParaJefe());
+            // Estado del módulo candidatos
+            var candidatoEditId = null;
+            var candidatoNuevoId = null;
+            var candidatoNuevoEmail = null;
+            var candidatoReenviarId = null;
+            var candidatoReenviarEmail = null;
+            var candidatoDatosEnvio = null;
+            var candidatosFiltrosLlenos = false;
 
-        $script = $this->buildScriptCandidatos($appBasePath);
-        self::set("script", $script);
-        self::render("candidatos");
-    }
+            // Eager Loading: Map global con todos los candidatos y sus documentos precargados
+            if (!window.candidatosDataMap) {
+                window.candidatosDataMap = new Map();
+            }
 
-    /** Construye el script de la vista Candidatos (http.request, DataTable, KPIs, filtros). */
-    private function buildScriptCandidatos($appBasePath)
-    {
-        $appBaseJson = json_encode($appBasePath);
-        return <<<SCR
-<script>
-(function() {
-    var APP_BASE = {$appBaseJson};
-    function capHumApiUrl(route) {
-        var base = (typeof APP_BASE === "string" && APP_BASE) ? APP_BASE : "";
-        base = (base && base !== "/") ? base.replace(/\/$/, "") : "";
-        var path = (base ? base + "/" : "/") + "index.php?url=" + encodeURIComponent(route);
-        return (window.location.origin || "") + path;
-    }
-    window.capHumApiUrl = capHumApiUrl;
+            /* ── KPI Candidatos: contador animado (misma lógica que Gestión kpiAnimateCounter) ── */
+            function kpiAnimateCounterCand(el, target, dur, delay) {
+                if (!el) return;
+                dur   = dur   || 600;
+                delay = delay || 0;
+                setTimeout(function() {
+                    var start = performance.now();
+                    var ease  = function(t) { return t < 0.5 ? 2*t*t : -1+(4-2*t)*t; };
+                    (function tick(now) {
+                        var p = Math.min((now - start) / dur, 1);
+                        el.textContent = Math.round(target * ease(p));
+                        if (p < 1) requestAnimationFrame(tick);
+                        else el.textContent = target;
+                    })(performance.now());
+                }, delay);
+            }
 
-    function actualizarIndicadoresCandidatos(datos) {
-        var total = (datos && datos.length) || 0;
-        var porEvaluar = (datos && datos.filter(function(c){ return (c.estatus || "") === "Por evaluar"; }).length) || 0;
-        var enviadas = (datos && datos.filter(function(c){ return c.postulacion_enviada == 1; }).length) || 0;
-        var elTotal = document.getElementById("kpi-total-candidatos");
-        var elPorEval = document.getElementById("kpi-por-evaluar");
-        var elEnviadas = document.getElementById("kpi-postulaciones-enviadas");
-        if (elTotal) elTotal.textContent = total;
-        if (elPorEval) elPorEval.textContent = porEvaluar;
-        if (elEnviadas) elEnviadas.textContent = enviadas;
-    }
+            /* ── KPI Candidatos: barra animada (misma lógica que Gestión kpiAnimateBar) ── */
+            function kpiAnimateBarCand(id, pct, delay) {
+                var el = document.getElementById(id);
+                if (!el) return;
+                el.style.width = '0%';
+                setTimeout(function() { el.style.width = (pct != null ? pct : 0) + '%'; }, (delay || 0) + 80);
+            }
 
-    function getCandidatos() {
-        var selDepto = document.getElementById("UserRole");
-        var selPuesto = document.getElementById("UserPlan");
-        var selEstatus = document.getElementById("FilterTransaction");
-        var data = {};
-        if (selEstatus && selEstatus.value) data.estatus = selEstatus.value;
-        if (selDepto && selDepto.value) data.id_departamento = selDepto.value;
-        if (selPuesto && selPuesto.value) data.id_puesto = selPuesto.value;
-
-        http.request({
-            endpoint: "/caphum/getCandidatos",
-            metodo: "GET",
-            data: data,
-            onSuccess: function(resp) {
-                if (!resp.success || !resp.datos) return;
-                actualizarIndicadoresCandidatos(resp.datos);
-                var datos = resp.datos.map(function(c) {
-                    var nombre = [c.nombres, c.segundo_nombre, c.apellidop, c.apellidom].filter(Boolean).join(" ");
-                    var contacto = (c.email || "") + (c.telefono ? " | " + c.telefono : "");
-                    var puestoDepto = (c.nombre_puesto || "-") + " / " + (c.nombre_departamento || "-");
-                    var id = (c.id || 0).toString();
-                    var acciones = '<div class="d-flex flex-wrap gap-1 align-items-center">' +
-                        '<button type="button" class="btn btn-sm btn-primary btn-editar-candidato" data-id="' + id + '" title="Editar"><i class="fa fa-edit"></i></button>' +
-                        '<button type="button" class="btn btn-sm btn-info text-white btn-reenviar-candidato" data-id="' + id + '" title="Reenviar correo"><i class="fa fa-envelope"></i></button>' +
-                        '<button type="button" class="btn btn-sm btn-secondary btn-documentacion-candidato" data-id="' + id + '" data-nombre="' + (nombre || "").replace(/"/g, "&quot;") + '" title="Documentación"><i class="fa fa-folder-open"></i></button>' +
-                        '<button type="button" class="btn btn-sm btn-danger btn-eliminar-candidato" data-id="' + id + '" title="Eliminar"><i class="fa fa-trash"></i></button></div>';
-                    var est = c.estatus || "Por evaluar";
-                    var estBadge = est === "Validado" ? "bg-success" : (est === "Por evaluar" ? "bg-warning text-dark" : "bg-secondary");
-                    return {
-                        nombre: nombre,
-                        contacto: contacto,
-                        puestoDepto: puestoDepto,
-                        estatus: '<span class="badge ' + estBadge + '">' + est + '</span>',
-                        acciones: acciones
-                    };
-                });
-                var tabla = jQuery("#tablaCandidatos").DataTable();
-                if (tabla) { tabla.clear().rows.add(datos).draw(); }
-
-                if (window._candidatosFiltrosLlenos) return;
-                window._candidatosFiltrosLlenos = true;
-                var deptMap = {};
-                var puestoMap = {};
-                resp.datos.forEach(function(c) {
-                    if (c.id_departamento && c.nombre_departamento) deptMap[c.id_departamento] = c.nombre_departamento;
-                    if (c.id_puesto && c.nombre_puesto) puestoMap[c.id_puesto] = c.nombre_puesto;
-                });
-                var selD = document.getElementById("UserRole");
-                var selP = document.getElementById("UserPlan");
-                if (selD) {
-                    var opts = selD.querySelectorAll("option");
-                    for (var i = opts.length - 1; i >= 1; i--) opts[i].remove();
-                    for (var k in deptMap) {
-                        var o = document.createElement("option");
-                        o.value = k;
-                        o.textContent = deptMap[k];
-                        selD.appendChild(o);
-                    }
+            function actualizarIndicadoresCandidatos(datos) {
+                var total = (datos && datos.length) || 0;
+                var porEvaluar = (datos && datos.filter(function(c){ return (c.estatus || "") === "Por evaluar"; }).length) || 0;
+                var enviadas = (datos && datos.filter(function(c){ return c.postulacion_enviada == 1; }).length) || 0;
+                var elTotal = document.getElementById("kpi-total-candidatos");
+                var elPorEval = document.getElementById("kpi-por-evaluar");
+                var elEnviadas = document.getElementById("kpi-postulaciones-enviadas");
+                if (elTotal) kpiAnimateCounterCand(elTotal, total, 600, 0);
+                if (elPorEval) kpiAnimateCounterCand(elPorEval, porEvaluar, 600, 60);
+                if (elEnviadas) kpiAnimateCounterCand(elEnviadas, enviadas, 600, 120);
+                var pctTotal = total > 0 ? 100 : 0;
+                var pctEvaluar = total > 0 ? Math.min(100, Math.round((porEvaluar / total) * 100)) : 0;
+                var pctEnviadas = total > 0 ? Math.min(100, Math.round((enviadas / total) * 100)) : 0;
+                kpiAnimateBarCand("kpi-bar-cand-total",    pctTotal,   80);
+                kpiAnimateBarCand("kpi-bar-cand-evaluar",  pctEvaluar, 160);
+                kpiAnimateBarCand("kpi-bar-cand-enviadas", pctEnviadas, 240);
+                var msTotal = document.getElementById("kpi-ms-cand-total");
+                var msEval = document.getElementById("kpi-ms-cand-evaluar");
+                var msEnv = document.getElementById("kpi-ms-cand-enviadas");
+                var dvTotal = document.getElementById("kpi-dv-cand-total");
+                var dvEval = document.getElementById("kpi-dv-cand-evaluar");
+                var dvEnv = document.getElementById("kpi-dv-cand-enviadas");
+                if (msTotal) msTotal.textContent = total;
+                if (msEval) msEval.textContent = porEvaluar;
+                if (msEnv) msEnv.textContent = enviadas;
+                if (dvTotal) dvTotal.textContent = total;
+                if (dvEval) dvEval.textContent = porEvaluar;
+                if (dvEnv) dvEnv.textContent = enviadas;
+                if (kpiCandCurrentMode === "vision") {
+                    kpiAnimateDonutCand("kpi-arc-cand-total", pctTotal, 80);
+                    kpiAnimateDonutCand("kpi-arc-cand-evaluar", pctEvaluar, 160);
+                    kpiAnimateDonutCand("kpi-arc-cand-enviadas", pctEnviadas, 240);
                 }
-                if (selP) {
-                    var opts = selP.querySelectorAll("option");
-                    for (var i = opts.length - 1; i >= 1; i--) opts[i].remove();
-                    for (var k in puestoMap) {
-                        var o = document.createElement("option");
-                        o.value = k;
-                        o.textContent = puestoMap[k];
-                        selP.appendChild(o);
+            }
+
+            function getCandidatos() {
+                var selDepto = document.getElementById("UserRole");
+                var selPuesto = document.getElementById("UserPlan");
+                var selEstatus = document.getElementById("FilterTransaction");
+                var data = {};
+                if (selEstatus && selEstatus.value) data.estatus = selEstatus.value;
+                if (selDepto && selDepto.value) data.id_departamento = selDepto.value;
+                if (selPuesto && selPuesto.value) data.id_puesto = selPuesto.value;
+
+                http.request({
+                    endpoint: "/caphum/getCandidatos",
+                    metodo: "GET",
+                    data: data,
+                    onSuccess: function(resp) {
+                        try {
+                            if (!resp || !resp.success || !resp.datos) {
+                                console.warn('getCandidatos: respuesta vacía o sin éxito', resp);
+                                return;
+                            }
+
+                            if (!Array.isArray(resp.datos)) {
+                                console.error('getCandidatos: resp.datos no es un array', resp);
+                                return;
+                            }
+
+                            actualizarIndicadoresCandidatos(resp.datos);
+
+                            // ==========================================
+                            // CONSOLIDAR CANDIDATOS (ESTRUCTURA IDÉNTICA A GESTIÓN)
+                            // ==========================================
+                            var candidatosMap = new Map();
+
+                            resp.datos.forEach(function(candidato) {
+                                var id = candidato.id;
+
+                                if (!id) {
+                                    console.warn('getCandidatos: candidato sin ID', candidato);
+                                    return;
+                                }
+
+                                if (!candidatosMap.has(id)) {
+                                    // Primera vez que vemos este candidato - copiar todas las propiedades manualmente
+                                    var candidatoConsolidado = {
+                                        id: candidato.id,
+                                        nombres: candidato.nombres,
+                                        segundo_nombre: candidato.segundo_nombre,
+                                        apellidop: candidato.apellidop,
+                                        apellidom: candidato.apellidom,
+                                        email: candidato.email,
+                                        telefono: candidato.telefono,
+                                        id_puesto: candidato.id_puesto,
+                                        nombre_puesto: candidato.nombre_puesto,
+                                        nombre_departamento: candidato.nombre_departamento,
+                                        id_departamento: candidato.id_departamento,
+                                        estatus: candidato.estatus,
+                                        postulacion_enviada: candidato.postulacion_enviada,
+                                        fecha_registro: candidato.fecha_registro,
+                                        fecha_actualizacion: candidato.fecha_actualizacion,
+                                        documentos: candidato.documentos || [],
+                                        verificacion_expediente: candidato.verificacion_expediente || null,
+                                        metricas: candidato.metricas || null,
+                                        puestos: [{
+                                            id_puesto: candidato.id_puesto,
+                                            nombre_puesto: candidato.nombre_puesto,
+                                            nombre_departamento: candidato.nombre_departamento,
+                                            id_departamento: candidato.id_departamento
+                                        }]
+                                    };
+                                    candidatosMap.set(id, candidatoConsolidado);
+                                } else {
+                                    // Ya existe, agregar nuevo puesto (por si acaso hay duplicados)
+                                    var candidatoExistente = candidatosMap.get(id);
+                                    if (candidatoExistente && candidatoExistente.puestos) {
+                                        var puestoExiste = candidatoExistente.puestos.some(function(p) {
+                                            return p.id_puesto === candidato.id_puesto &&
+                                                   p.nombre_departamento === candidato.nombre_departamento;
+                                        });
+
+                                        if (!puestoExiste) {
+                                            candidatoExistente.puestos.push({
+                                                id_puesto: candidato.id_puesto,
+                                                nombre_puesto: candidato.nombre_puesto,
+                                                nombre_departamento: candidato.nombre_departamento,
+                                                id_departamento: candidato.id_departamento
+                                            });
+                                        }
+                                    }
+                                }
+                            });
+
+                            var candidatosConsolidados = Array.from(candidatosMap.values());
+
+                            // Guardar en variable global para otros usos
+                            window.candidatosData = candidatosConsolidados;
+
+                            // Eager Loading: Guardar todos los candidatos con sus documentos en el Map global
+                            if (window.candidatosDataMap) {
+                                window.candidatosDataMap.clear();
+                            } else {
+                                window.candidatosDataMap = new Map();
+                            }
+                            candidatosConsolidados.forEach(function(c) {
+                                if (c.id) {
+                                    var docPayload = {
+                                        documentos: c.documentos || [],
+                                        verificacion_expediente: c.verificacion_expediente || null,
+                                        metricas: c.metricas || null
+                                    };
+                                    window.candidatosDataMap.set(parseInt(c.id, 10), docPayload);
+                                }
+                            });
+
+                            // ==========================================
+                            // MAPEAR DATOS PARA LA TABLA (ESTRUCTURA IDÉNTICA A GESTIÓN)
+                            // ==========================================
+                            var datos = candidatosConsolidados.map(function(c) {
+                                var nombre = [c.nombres, c.segundo_nombre, c.apellidop, c.apellidom].filter(Boolean).join(" ");
+                                var tienePuestos = c.puestos && c.puestos.length > 1;
+                                var contacto = (c.email || "") + (c.telefono ? " | " + c.telefono : "");
+
+                                // Generar HTML para puesto/departamento
+                                var puestoDeptoHTML = "";
+                                if (tienePuestos) {
+                                    puestoDeptoHTML = '<div class="d-flex flex-column gap-1">';
+                                    c.puestos.forEach(function(puesto) {
+                                        puestoDeptoHTML += '<small class="text-muted d-flex align-items-center gap-1">' +
+                                            '<i class="fa fa-building"></i>' +
+                                            (puesto.nombre_departamento || 'Sin departamento') +
+                                            '</small>' +
+                                            '<small class="text-muted d-flex align-items-center gap-1">' +
+                                            '<i class="fa fa-briefcase"></i>' +
+                                            (puesto.nombre_puesto || 'Sin puesto') +
+                                            '</small>';
+                                    });
+                                    puestoDeptoHTML += '</div>';
+                                } else {
+                                    puestoDeptoHTML = '<small class="text-muted d-flex align-items-center gap-1">' +
+                                        '<i class="fa fa-building"></i>' +
+                                        (c.nombre_departamento || 'Sin departamento') +
+                                        '</small>' +
+                                        '<small class="text-muted d-flex align-items-center gap-1">' +
+                                        '<i class="fa fa-briefcase"></i>' +
+                                        (c.nombre_puesto || 'Sin puesto') +
+                                        '</small>';
+                                }
+
+                                var id = (c.id || 0).toString();
+                                var est = c.estatus || "Por evaluar";
+                                var estBadge = est === "Validado" ? "bg-success" : (est === "Por evaluar" ? "bg-warning text-dark" : (est === "Proceso cerrado" ? "bg-dark" : "bg-secondary"));
+
+                                var acciones = '<div class="d-flex flex-wrap gap-1 align-items-center">' +
+                                    '<button type="button" class="btn btn-sm btn-primary btn-editar-candidato" data-id="' + id + '" title="Editar"><i class="fa fa-edit"></i></button>' +
+                                    '<button type="button" class="btn btn-sm btn-info text-white btn-reenviar-candidato" data-id="' + id + '" title="Reenviar correo"><i class="fa fa-envelope"></i></button>' +
+                                    '<button type="button" class="btn btn-sm btn-secondary btn-documentacion-candidato" data-id="' + id + '" data-nombre="' + (nombre || "").replace(/"/g, "&quot;") + '" title="Documentación"><i class="fa fa-folder-open"></i></button>' +
+                                    '<button type="button" class="btn btn-sm btn-danger btn-eliminar-candidato" data-id="' + id + '" title="Eliminar"><i class="fa fa-trash"></i></button></div>';
+
+                                return {
+                                    nombre: nombre,
+                                    contacto: contacto,
+                                    puestoDepto: puestoDeptoHTML.trim(),
+                                    estatus: '<span class="badge ' + estBadge + '">' + est + '</span>',
+                                    acciones: acciones
+                                };
+                            });
+
+                            // Actualizar DataTable (usando $ como en Gestión)
+                            try {
+                                var tabla = $('#tablaCandidatos').DataTable();
+                                if (tabla) {
+                                    tabla.clear().rows.add(datos).draw();
+                                } else {
+                                    console.error('getCandidatos: No se pudo obtener la instancia de DataTable');
+                                }
+                            } catch (error) {
+                                console.error('getCandidatos: Error al actualizar DataTable', error);
+                            }
+
+                            // Llenar filtros solo la primera vez
+                            if (!candidatosFiltrosLlenos) {
+                                candidatosFiltrosLlenos = true;
+                                var deptMap = {};
+                                var puestoMap = {};
+                                candidatosConsolidados.forEach(function(c) {
+                                    if (c.id_departamento && c.nombre_departamento) deptMap[c.id_departamento] = c.nombre_departamento;
+                                    if (c.id_puesto && c.nombre_puesto) puestoMap[c.id_puesto] = c.nombre_puesto;
+                                });
+                                var selD = document.getElementById("UserRole");
+                                var selP = document.getElementById("UserPlan");
+                                if (selD) {
+                                    var opts = selD.querySelectorAll("option");
+                                    for (var i = opts.length - 1; i >= 1; i--) opts[i].remove();
+                                    for (var k in deptMap) {
+                                        var o = document.createElement("option");
+                                        o.value = k;
+                                        o.textContent = deptMap[k];
+                                        selD.appendChild(o);
+                                    }
+                                }
+                                if (selP) {
+                                    var opts = selP.querySelectorAll("option");
+                                    for (var i = opts.length - 1; i >= 1; i--) opts[i].remove();
+                                    for (var k in puestoMap) {
+                                        var o = document.createElement("option");
+                                        o.value = k;
+                                        o.textContent = puestoMap[k];
+                                        selP.appendChild(o);
+                                    }
+                                }
+                            }
+                        } catch (error) {
+                            console.error('getCandidatos: Error en el procesamiento', error);
+                            if (typeof Swal !== "undefined") {
+                                Swal.fire({
+                                    icon: "error",
+                                    title: "Error",
+                                    text: "Error al procesar los candidatos. Revisa la consola (F12)."
+                                });
+                            }
+                        }
+                    },
+                    onError: function(err) {
+                        console.error('getCandidatos: Error en la petición', err);
+                        if (typeof Swal !== "undefined") {
+                            Swal.fire({
+                                icon: "error",
+                                title: "Error",
+                                text: "Error al cargar los candidatos. Por favor, recarga la página."
+                            });
+                        }
+                    }
+                });
+            }
+
+            function kpiTogglePanelCandidatos() {
+                var pan = document.getElementById("kpiCollapsibleCandidatos");
+                var btn = document.getElementById("kpiToggleBtnCandidatos");
+                var controls = document.getElementById("kpiViewControlsCand");
+                var sep = document.getElementById("kpiViewControlsSepCand");
+                if (!pan || !btn) return;
+                var isOpen = pan.classList.toggle("open");
+                btn.classList.toggle("open", isOpen);
+                if (controls) controls.classList.toggle("kpi-vc-hidden", !isOpen);
+                if (sep) sep.classList.toggle("kpi-sep-hidden", !isOpen);
+                kpiCandPanelOpen = isOpen;
+                if (typeof localStorage !== "undefined") localStorage.setItem(KPI_CAND_STORAGE_OPEN, isOpen);
+            }
+
+            var KPI_CAND_STORAGE_MODE = "kpi_cand_mode";
+            var KPI_CAND_STORAGE_OPEN = "kpi_cand_open";
+            var kpiCandCurrentMode = (typeof localStorage !== "undefined" && localStorage.getItem(KPI_CAND_STORAGE_MODE)) || "default";
+            var kpiCandPanelOpen = (typeof localStorage !== "undefined" && localStorage.getItem(KPI_CAND_STORAGE_OPEN) !== "false");
+
+            function kpiAnimateDonutCand(arcId, pct, delay) {
+                var el = document.getElementById(arcId);
+                if (!el) return;
+                var CIRC = 2 * Math.PI * 36;
+                el.style.strokeDasharray = "0 " + CIRC;
+                setTimeout(function() {
+                    var filled = (pct / 100) * CIRC;
+                    el.style.strokeDasharray = filled + " " + (CIRC - filled);
+                }, (delay || 0) + 100);
+            }
+
+            function kpiApplyModeCand(mode, animate) {
+                var row = document.getElementById("kpiRowNewCand");
+                if (!row) return;
+                row.classList.remove("mode-default", "mode-vision", "mode-ministat");
+                row.classList.add("mode-" + mode);
+                ["default", "vision", "ministat"].forEach(function(m) {
+                    var btn = document.getElementById("vbtn-cand-" + (m === "default" ? "default" : m === "vision" ? "vision" : "ministat"));
+                    if (btn) btn.classList.toggle("active", m === mode);
+                });
+                if (animate && mode === "vision") {
+                    var total = parseInt(document.getElementById("kpi-total-candidatos").textContent, 10) || 0;
+                    var porEval = parseInt(document.getElementById("kpi-por-evaluar").textContent, 10) || 0;
+                    var enviadas = parseInt(document.getElementById("kpi-postulaciones-enviadas").textContent, 10) || 0;
+                    var pctTotal = total > 0 ? 100 : 0;
+                    var pctEval = total > 0 ? Math.min(100, Math.round((porEval / total) * 100)) : 0;
+                    var pctEnv = total > 0 ? Math.min(100, Math.round((enviadas / total) * 100)) : 0;
+                    kpiAnimateDonutCand("kpi-arc-cand-total", pctTotal, 80);
+                    kpiAnimateDonutCand("kpi-arc-cand-evaluar", pctEval, 160);
+                    kpiAnimateDonutCand("kpi-arc-cand-enviadas", pctEnv, 240);
+                }
+            }
+
+            function kpiSetModeCand(mode) {
+                kpiCandCurrentMode = mode;
+                if (typeof localStorage !== "undefined") localStorage.setItem(KPI_CAND_STORAGE_MODE, mode);
+                kpiApplyModeCand(mode, true);
+            }
+
+            function kpiResetPrefsCand() {
+                if (typeof localStorage !== "undefined") {
+                    localStorage.removeItem(KPI_CAND_STORAGE_MODE);
+                    localStorage.removeItem(KPI_CAND_STORAGE_OPEN);
+                }
+                location.reload();
+            }
+
+            (function applyKpiCandInitialState() {
+                function run() {
+                    var pan = document.getElementById("kpiCollapsibleCandidatos");
+                    var btn = document.getElementById("kpiToggleBtnCandidatos");
+                    var controls = document.getElementById("kpiViewControlsCand");
+                    var sep = document.getElementById("kpiViewControlsSepCand");
+                    if (pan) pan.classList.toggle("open", kpiCandPanelOpen);
+                    if (btn) btn.classList.toggle("open", kpiCandPanelOpen);
+                    if (controls) controls.classList.toggle("kpi-vc-hidden", !kpiCandPanelOpen);
+                    if (sep) sep.classList.toggle("kpi-sep-hidden", !kpiCandPanelOpen);
+                    kpiApplyModeCand(kpiCandCurrentMode, false);
+                }
+                if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", run);
+                else run();
+            })();
+
+            function initFlatpickrFechaPostulacion() {
+                var input = document.getElementById("candidato_fecha_postulacion");
+                if (!input || typeof flatpickr === "undefined") return;
+                if (input._flatpickr) return;
+                var hoy = new Date().toISOString().slice(0, 10);
+                flatpickr(input, { dateFormat: "Y-m-d", defaultDate: hoy, maxDate: hoy, allowInput: false, clickOpens: true, appendTo: document.body, static: false, locale: (typeof flatpickr !== "undefined" && flatpickr.l10ns && flatpickr.l10ns.es) ? flatpickr.l10ns.es : undefined });
+            }
+
+            function toggleLegionCandidato() {
+                var div = document.getElementById("div_candidato_legion"); var chk = document.getElementById("candidato_asignar_legion");
+                div.style.display = chk && chk.checked ? "block" : "none";
+                if (!chk.checked) document.getElementById("candidato_id_legion").value = "";
+            }
+
+            function candidatosTableClick(e) {
+                var target = e.target; var tabla = document.getElementById("tablaCandidatos");
+                if (!tabla || !tabla.contains(target)) return;
+                var btn = target.closest(".btn-editar-candidato");
+                if (btn) { e.preventDefault(); e.stopPropagation(); var id = btn.getAttribute("data-id"); if (id) editarCandidato(parseInt(id, 10)); return; }
+                btn = target.closest(".btn-reenviar-candidato");
+                if (btn) { e.preventDefault(); e.stopPropagation(); var id = btn.getAttribute("data-id"); if (id) abrirModalReenviarPostulacion(parseInt(id, 10)); return; }
+                btn = target.closest(".btn-documentacion-candidato");
+                if (btn) { e.preventDefault(); e.stopPropagation(); var id = btn.getAttribute("data-id"); var nombre = btn.getAttribute("data-nombre") || ""; if (id) abrirModalDocumentacionCandidato(parseInt(id, 10), nombre); return; }
+                btn = target.closest(".btn-eliminar-candidato");
+                if (btn) { e.preventDefault(); e.stopPropagation(); var id = btn.getAttribute("data-id"); if (id) eliminarCandidato(parseInt(id, 10)); }
+            }
+
+            function renderMetricasDoc(bloqueMetricas, m) {
+                if (!bloqueMetricas || !m) return;
+                bloqueMetricas.classList.remove("d-none");
+                var total = m.total_documentos != null ? m.total_documentos : 0;
+                var requeridos = m.documentos_requeridos != null ? m.documentos_requeridos : 11;
+                var pct = m.porcentaje != null ? m.porcentaje : (requeridos > 0 ? Math.min(100, Math.round((total / requeridos) * 100)) : 0);
+                var completo = m.expediente_completo === true;
+                var html = "<div class=\"card border shadow-none\"><div class=\"card-header py-2 bg-light\"><strong><i class=\"fa fa-chart-pie me-1\"></i>Métricas del expediente</strong></div><div class=\"card-body py-2 small\">";
+                html += "<p class=\"text-muted mb-2\">Resumen de documentación recibida (cuántos documentos obligatorios ha subido el candidato).</p>";
+                html += "<div class=\"row g-2 align-items-center\">";
+                html += "<div class=\"col-6 col-md-4\"><span class=\"text-muted d-block\">Documentos subidos</span><strong class=\"text-primary\">" + total + " de " + requeridos + "</strong></div>";
+                html += "<div class=\"col-6 col-md-4\"><span class=\"text-muted d-block\">Avance</span><strong>" + pct + "%</strong>";
+                if (pct < 100) html += " <div class=\"progress mt-1\" style=\"height:6px;\"><div class=\"progress-bar\" role=\"progressbar\" style=\"width:" + pct + "%\" aria-valuenow=\"" + pct + "\" aria-valuemin=\"0\" aria-valuemax=\"100\"></div></div>";
+                html += "</div>";
+                html += "<div class=\"col-6 col-md-4\"><span class=\"text-muted d-block\">Expediente completo</span><strong class=\"" + (completo ? "text-success" : "text-secondary") + "\">" + (completo ? "Sí" : "No") + "</strong></div>";
+                html += "</div></div></div>";
+                bloqueMetricas.innerHTML = html;
+            }
+
+            function renderAccionesProcesoCandidato(bloqueAccionesProceso, metricas, idCandidato) {
+                if (!bloqueAccionesProceso) return;
+                var validados = metricas && metricas.validados != null ? parseInt(metricas.validados, 10) : 0;
+                var requeridos = metricas && metricas.documentos_requeridos != null ? parseInt(metricas.documentos_requeridos, 10) : 11;
+                if (validados >= requeridos && requeridos >= 11) {
+                    bloqueAccionesProceso.classList.remove("d-none");
+                    bloqueAccionesProceso.innerHTML = "<div class=\"card border shadow-none\"><div class=\"card-body py-3\"><p class=\"text-muted small mb-3\">Los 11 documentos han sido validados. Elige una acción:</p><div class=\"d-flex flex-wrap gap-2\"><button type=\"button\" class=\"btn btn-outline-danger btn-cerrar-proceso-candidato\" data-id=\"" + idCandidato + "\"><i class=\"fa fa-times-circle me-1\"></i>Cerrar proceso</button><button type=\"button\" class=\"btn btn-primary btn-continuar-proceso-candidato\" data-id=\"" + idCandidato + "\"><i class=\"fa fa-check-circle me-1\"></i>Continuar proceso</button></div></div></div>";
+                } else {
+                    bloqueAccionesProceso.classList.add("d-none");
+                    bloqueAccionesProceso.innerHTML = "";
+                }
+            }
+
+            function renderVerificacionDoc(bloqueVerif, v) {
+                if (!bloqueVerif || !v) return;
+                bloqueVerif.classList.remove("d-none");
+                var scoreFrente = v.identificacion_frente_score != null ? Number(v.identificacion_frente_score) : null;
+                var scoreReverso = v.identificacion_reverso_score != null ? Number(v.identificacion_reverso_score) : null;
+                var checksOk = v.checks_ok != null ? parseInt(v.checks_ok, 10) : null;
+                var checksTotales = v.checks_totales != null ? parseInt(v.checks_totales, 10) : null;
+                var todoCoincide = v.todo_coincide === true;
+                var alertas = Array.isArray(v.alertas) && v.alertas.length ? v.alertas : [];
+                var confianzaNum = null;
+                if (scoreFrente != null && scoreReverso != null) { confianzaNum = Math.round((scoreFrente + scoreReverso) / 2); }
+                else if (scoreFrente != null) { confianzaNum = scoreFrente; }
+                else if (scoreReverso != null) { confianzaNum = scoreReverso; }
+                else if (checksTotales > 0 && checksOk != null) { confianzaNum = Math.round((checksOk / checksTotales) * 100); }
+                var confianzaTexto = confianzaNum != null ? confianzaNum + "%" : "—";
+                var confianzaClase = "text-secondary";
+                if (confianzaNum != null) {
+                    if (confianzaNum >= 80) confianzaClase = "text-success";
+                    else if (confianzaNum >= 50) confianzaClase = "text-warning";
+                    else confianzaClase = "text-danger";
+                }
+                var html = "<div class=\"card border shadow-none\"><div class=\"card-header py-2 bg-light\"><strong><i class=\"fa fa-shield-alt me-1\"></i>Resultado de la verificación API</strong></div><div class=\"card-body py-2 small\">";
+                html += "<div class=\"row g-2 mb-2 align-items-center\">";
+                html += "<div class=\"col-6 col-md\"><span class=\"text-muted d-block\">Confianza</span><strong class=\"fs-6 " + confianzaClase + "\">" + confianzaTexto + "</strong></div>";
+                html += "<div class=\"col-6 col-md\"><span class=\"text-muted d-block\">Frente</span><strong class=\"text-primary\">" + (scoreFrente != null ? scoreFrente + "%" : "—") + "</strong></div>";
+                html += "<div class=\"col-6 col-md\"><span class=\"text-muted d-block\">Reverso</span><strong class=\"text-primary\">" + (scoreReverso != null ? scoreReverso + "%" : "—") + "</strong></div>";
+                html += "<div class=\"col-6 col-md\"><span class=\"text-muted d-block\">Checks</span><strong>" + (checksOk != null && checksTotales != null ? checksOk + "/" + checksTotales : "—") + "</strong></div>";
+                html += "<div class=\"col-6 col-md\"><span class=\"text-muted d-block\">Coinciden</span><strong class=\"" + (todoCoincide ? "text-success" : (v.todo_coincide === false ? "text-danger" : "text-secondary")) + "\">" + (v.todo_coincide === true ? "Sí" : (v.todo_coincide === false ? "No" : "—")) + "</strong></div>";
+                html += "</div>";
+                var lineasComparaciones = [];
+                if (v.comparaciones && typeof v.comparaciones === "object") {
+                    var comp = v.comparaciones;
+                    var labels = { "nombre_frente_vs_reverso": "Nombre en INE = Nombre en reverso", "fecha_nac_curp_vs_mrz": "Fecha nac. (CURP) = Fecha en reverso", "nombre_id_vs_curp_pdf": "Nombre en INE = Nombre en CURP PDF", "curp_vs_fiscal": "CURP = Constancia fiscal", "nombre_vs_fiscal": "Nombre = Constancia fiscal", "curp_vs_nss": "CURP = NSS", "nombre_vs_nss": "Nombre = NSS", "nombre_vs_acta": "Nombre = Acta de nacimiento", "fecha_nac_vs_acta": "Fecha nac. = Acta", "curp_id_vs_documento": "CURP en INE = Otro documento" };
+                    Object.keys(comp).forEach(function(k) {
+                        var c = comp[k];
+                        if (!c || typeof c !== "object") return;
+                        if (c.coincide !== undefined) lineasComparaciones.push((labels[k] || k) + ": " + (c.coincide ? "✔ Coincide" : "✘ No coincide"));
+                        else if (c.es_reciente !== undefined) lineasComparaciones.push("CURP PDF: " + (c.es_reciente ? "Reciente" : (c.meses_antiguedad || "?") + " meses"));
+                    });
+                }
+                var btnId = "";
+                if (lineasComparaciones.length) {
+                    btnId = "btnVerComparaciones_" + (Math.random().toString(36).slice(2, 9));
+                    html += "<div class=\"border-top pt-2 mt-2\"><button type=\"button\" class=\"btn btn-sm btn-outline-secondary\" id=\"" + btnId + "\" title=\"Ver comparaciones entre documentos\"><i class=\"fa fa-list-ul me-1\"></i>Ver comparaciones entre documentos</button></div>";
+                }
+                if (alertas.length) {
+                    html += "<div class=\"mt-2 pt-2 border-top\"><span class=\"text-muted d-block mb-1\"><strong>Alertas</strong></span><ul class=\"mb-0 ps-3\"><li class=\"text-warning\">" + alertas.join("</li><li class=\"text-warning\">") + "</li></ul></div>";
+                }
+                html += "</div></div>";
+                bloqueVerif.innerHTML = html;
+                if (lineasComparaciones.length && window.bootstrap && window.bootstrap.Popover) {
+                    var btnComp = document.getElementById(btnId);
+                    if (btnComp) {
+                        var popContent = "<div class=\"text-start small\" style=\"min-width: 280px;\"><p class=\"text-muted mb-2\"><strong>Comparaciones entre documentos</strong><br><span class=\"text-muted\">(que los datos del candidato coincidan en todos)</span></p><ul class=\"list-unstyled mb-0\">" + lineasComparaciones.map(function(l) { var ok = l.indexOf("✔") !== -1 || l.indexOf("Reciente") !== -1; return "<li class=\"py-1 border-bottom border-light\"><i class=\"fa fa-" + (ok ? "check-circle text-success" : "times-circle text-danger") + " me-2\"></i>" + l + "</li>"; }).join("") + "</ul></div>";
+                        new window.bootstrap.Popover(btnComp, { content: popContent, html: true, trigger: "click", placement: "bottom", container: "body" });
                     }
                 }
             }
+
+            function badgeVerificacionDoc(tipoDoc, v) {
+                if (!v || !tipoDoc) return "";
+                var t = (tipoDoc + "").trim().toUpperCase();
+                if (t.indexOf("REVERSO") !== -1) { var r = v.identificacion_reverso_score; if (r == null) return ""; return "<span class=\"badge bg-primary ms-1\" title=\"Veracidad con el candidato\">" + r + "%</span>"; }
+                if (t === "IDENTIFICACIÓN OFICIAL" || t === "IDENTIFICACION OFICIAL") { var s = v.identificacion_frente_score; if (s == null) return ""; return "<span class=\"badge bg-primary ms-1\" title=\"Veracidad con el candidato\">" + s + "%</span>"; }
+                var comp = v.comparaciones || {};
+                if (t.indexOf("CURP") !== -1 && t.indexOf("ACTA") === -1) { var c1 = comp.nombre_id_vs_curp_pdf || comp.curp_id_vs_documento; if (c1 && c1.coincide !== undefined) return c1.coincide ? "<span class=\"badge bg-success ms-1\" title=\"Coincide con INE\">Coincide</span>" : "<span class=\"badge bg-danger ms-1\" title=\"No coincide\">No coincide</span>"; }
+                if (t.indexOf("CONSTANCIA") !== -1 || t.indexOf("FISCAL") !== -1) { var c2 = comp.curp_vs_fiscal || comp.nombre_vs_fiscal; if (c2 && c2.coincide !== undefined) return c2.coincide ? "<span class=\"badge bg-success ms-1\">Coincide</span>" : "<span class=\"badge bg-danger ms-1\">No coincide</span>"; }
+                if (t.indexOf("NSS") !== -1 || t.indexOf("SEGURIDAD SOCIAL") !== -1) { var c3 = comp.curp_vs_nss || comp.nombre_vs_nss; if (c3 && c3.coincide !== undefined) return c3.coincide ? "<span class=\"badge bg-success ms-1\">Coincide</span>" : "<span class=\"badge bg-danger ms-1\">No coincide</span>"; }
+                if (t.indexOf("ACTA") !== -1) { var c4 = comp.nombre_vs_acta || comp.fecha_nac_vs_acta; if (c4 && c4.coincide !== undefined) return c4.coincide ? "<span class=\"badge bg-success ms-1\">Coincide</span>" : "<span class=\"badge bg-danger ms-1\">No coincide</span>"; }
+                return "";
+            }
+
+            function eliminarDocYRecargarModal(idDoc, idCandidato) {
+                fetch("/caphum/eliminarDocumentoCandidato", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded", "X-Requested-With": "XMLHttpRequest" }, body: "id=" + idDoc })
+                .then(function(r){ return r.json(); }).then(function(res) {
+                    if (res.success) { if (typeof Swal !== "undefined") Swal.fire({ icon: "success", title: "Eliminado", text: res.mensaje || "Documento eliminado." }); cargarDocumentosModal(idCandidato); }
+                    else { if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "Error", text: res.mensaje || "No se pudo eliminar." }); }
+                }).catch(function() { if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "Error", text: "Error de conexión." }); });
+            }
+
+            function renderListaDocumentos(lista, cargando, vacio, datos, verif, idCandidato) {
+                if (!lista) return;
+                if (cargando) cargando.classList.add("d-none");
+                lista.innerHTML = "";
+                if (!datos || datos.length === 0) { if (vacio) vacio.classList.remove("d-none"); return; }
+                if (vacio) vacio.classList.add("d-none");
+                function escHtml(s) { var t = String(s === null || s === undefined ? "" : s); return t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
+                datos.forEach(function(d) {
+                    var item = document.createElement("div");
+            item.className = "list-group-item list-group-item-action d-flex justify-content-between align-items-center";
+            var fecha = d.fecha_carga ? new Date(d.fecha_carga).toLocaleDateString("es-MX") : "";
+            var badge = badgeVerificacionDoc(d.tipo_documento, verif);
+            var tooltipFiscalHtml = "";
+            var tipoNorm = (d.tipo_documento || "").toUpperCase();
+            if ((tipoNorm.indexOf("FISCAL") !== -1 || tipoNorm.indexOf("SITUACION") !== -1) && d.verificacion_fiscal && typeof d.verificacion_fiscal === "object") {
+                var v = d.verificacion_fiscal;
+                var filas = [
+                    ["RFC", v.rfc],
+                    ["CURP", v.curp],
+                    ["Fecha emisión", v.fecha_emision],
+                    ["Meses antigüedad", v.meses_antiguedad != null ? v.meses_antiguedad : "-"],
+                    ["Vigencia ≤2 meses", v.vigencia_ok ? "Sí" : "No"],
+                    ["Actividad Asalariado", v.actividad_asalariado ? "Sí" : "No"],
+                    ["Régimen Sueldos y Salarios", v.regimen_sueldos_salarios ? "Sí" : "No"]
+                ];
+                var tableHtml = "<table class=\"table table-sm table-bordered mb-0\"><tbody>";
+                filas.forEach(function(r) { tableHtml += "<tr><td class=\"text-muted\">" + escHtml(r[0]) + "</td><td>" + escHtml(r[1]) + "</td></tr>"; });
+                tableHtml += "</tbody></table>";
+                tooltipFiscalHtml = " <span class=\"ms-1\" data-bs-toggle=\"tooltip\" data-bs-html=\"true\" data-bs-title=\"" + tableHtml.replace(/"/g, "&quot;") + "\"><i class=\"fa fa-info-circle text-info\"></i></span>";
+            }
+            var esValidado = parseInt(d.validado || 0, 10) === 1;
+            var btnValidarClase = esValidado ? "btn-success" : "btn-outline-success";
+            var btnValidarIcon = esValidado ? "fa-check-circle" : "fa-check";
+            var btnValidarTitle = esValidado ? "Documento validado" : "Marcar como validado";
+            var btnValidarDisabled = esValidado ? " disabled" : "";
+            if (esValidado) { item.style.borderLeft = "3px solid #198754"; item.style.background = "#f0fdf4"; }
+            var btnEliminarHtml = esValidado
+                ? "<span class=\"btn btn-sm btn-outline-secondary disabled\" title=\"No se puede eliminar un documento validado\"><i class=\"fa fa-trash\"></i></span>"
+                : "<button type=\"button\" class=\"btn btn-sm btn-outline-danger btn-eliminar-doc-candidato\" data-id=\"" + d.id + "\" title=\"Eliminar\"><i class=\"fa fa-trash\"></i></button>";
+            item.innerHTML = "<div class=\"d-flex align-items-center flex-wrap\"><div><strong>" + (d.tipo_documento || "Documento") + "</strong>" + tooltipFiscalHtml + (esValidado ? " <span class=\"badge bg-success ms-1\">Validado</span>" : "") + "<br><small class=\"text-muted\">" + (d.nombre_archivo || "") + (fecha ? " · " + fecha : "") + "</small></div>" + badge + "</div>" +
+                "<div class=\"d-flex gap-1 align-items-center\">" +
+                "<button type=\"button\" class=\"btn btn-sm " + btnValidarClase + " btn-validar-doc-candidato\"" + btnValidarDisabled + " data-id=\"" + d.id + "\" data-validado=\"" + (esValidado ? 1 : 0) + "\" title=\"" + btnValidarTitle + "\"><i class=\"fa " + btnValidarIcon + "\"></i></button>" +
+                "<a href=\"/caphum/verDocumentoCandidato/" + d.id + "\" target=\"_blank\" class=\"btn btn-sm btn-outline-primary\" title=\"Abrir\"><i class=\"fa fa-eye\"></i></a>" +
+                btnEliminarHtml + "</div>";
+            lista.appendChild(item);
         });
-    }
-    window.getCandidatos = getCandidatos;
+        lista.querySelectorAll("[data-bs-toggle=\"tooltip\"]").forEach(function(el) { if (typeof bootstrap !== "undefined" && bootstrap.Tooltip) { new bootstrap.Tooltip(el); } });
+        lista.querySelectorAll(".btn-validar-doc-candidato").forEach(function(btn) {
+            btn.addEventListener("click", function() {
+                var idDoc = parseInt(btn.getAttribute("data-id"), 10);
+                var actual = parseInt(btn.getAttribute("data-validado"), 10);
+                var iconEl = btn.querySelector("i");
+                var iconClass = iconEl ? iconEl.className : "";
+                btn.disabled = true;
+                if (iconEl) { iconEl.className = "fa fa-spinner fa-spin"; }
+                fetch("/caphum/validarDocumentoCandidato", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded", "X-Requested-With": "XMLHttpRequest" }, body: "id=" + idDoc + "&validado=" + (actual ? 0 : 1) })
+                .then(function(r){ return r.json(); }).then(function(res) {
+                    btn.disabled = false;
+                    if (iconEl) iconEl.className = iconClass;
+                    if (res.success) {
+                        var nuevoEstado = res.datos && res.datos.validado === 1;
+                        var mensajeValidacion = nuevoEstado ? "Documento validado correctamente." : "Validación retirada del documento.";
+                        if (typeof Swal !== "undefined") {
+                            Swal.fire({
+                                icon: nuevoEstado ? "success" : "info",
+                                title: nuevoEstado ? "Documento validado" : "Validación retirada",
+                                text: mensajeValidacion,
+                                timer: 3000,
+                                showConfirmButton: false
+                            });
+                        }
+                        cargarDocumentosModal(idCandidato);
+                        if (typeof getCandidatos === "function") getCandidatos();
+                        if (res.datos && res.datos.todos_validados) {
+                            setTimeout(function() {
+                                if (typeof Swal !== "undefined") Swal.fire({
+                                    icon: "success",
+                                    title: "Expediente validado",
+                                    text: "Todos los documentos han sido validados. El estatus del candidato cambió a Validado.",
+                                    timer: 3000,
+                                    showConfirmButton: false
+                                });
+                            }, 3500);
+                        }
+                    } else { if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "Error", text: res.mensaje || "No se pudo actualizar." }); }
+                }).catch(function() { btn.disabled = false; if (iconEl) iconEl.className = iconClass; if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "Error", text: "Error de conexión." }); });
+            });
+        });
+        lista.querySelectorAll(".btn-eliminar-doc-candidato").forEach(function(btn) {
+            btn.addEventListener("click", function() {
+                var idDoc = parseInt(btn.getAttribute("data-id"), 10);
+                if (typeof Swal !== "undefined") { Swal.fire({ title: "¿Eliminar documento?", text: "Se quitará del expediente.", icon: "warning", showCancelButton: true, confirmButtonText: "Sí, eliminar", cancelButtonText: "Cancelar" }).then(function(r) { if (r.isConfirmed) eliminarDocYRecargarModal(idDoc, idCandidato); }); }
+                else if (confirm("¿Eliminar este documento?")) eliminarDocYRecargarModal(idDoc, idCandidato);
+            });
+        });
+        }
 
-    function kpiTogglePanelCandidatos() {
-        var pan = document.getElementById("kpiCollapsibleCandidatos");
-        var btn = document.getElementById("kpiToggleBtnCandidatos");
-        if (!pan || !btn) return;
-        pan.classList.toggle("open");
-        btn.classList.toggle("open");
-    }
-    window.kpiTogglePanelCandidatos = kpiTogglePanelCandidatos;
+            function actualizarDocumentosEnMap(idCandidato, docPayload) {
+                // Actualizar el Map global con los nuevos datos del candidato
+                if (window.candidatosDataMap && idCandidato) {
+                    window.candidatosDataMap.set(idCandidato, docPayload);
+                }
+            }
 
-    function initCandidatosPage() {
-        if (!document.getElementById("tablaCandidatos")) return;
-        var \$ = window.jQuery || window.\$;
-        if (!\$ || !\$.fn.DataTable) return;
-        if (!\$.fn.DataTable.isDataTable("#tablaCandidatos")) {
-            configuraTabla("#tablaCandidatos", {
-                registrosPorPagina: 10,
-                columns: [
-                    { data: null, defaultContent: '', className: 'control', orderable: false },
-                    { data: 'nombre', title: 'Nombre' },
-                    { data: 'contacto', title: 'Contacto' },
-                    { data: 'puestoDepto', title: 'Puesto / Departamento' },
-                    { data: 'estatus', title: 'Estatus', render: function(d) { return d != null ? d : ''; } },
-                    { data: 'acciones', title: 'Acciones', orderable: false }
-                ]
+            function cargarDocumentosModal(idCandidato) {
+                var lista = document.getElementById("modalDocumentacionCandidatoLista");
+                var cargando = document.getElementById("modalDocumentacionCandidatoCargando");
+                var vacio = document.getElementById("modalDocumentacionCandidatoVacio");
+                var bloqueVerif = document.getElementById("modalDocumentacionCandidatoVerificacion");
+                var bloqueMetricas = document.getElementById("modalDocumentacionCandidatoMetricas");
+                var bloqueAccionVerificar = document.getElementById("modalDocumentacionCandidatoAccionVerificar");
+                var bloqueAccionesProceso = document.getElementById("modalDocumentacionCandidatoAccionesProceso");
+                fetch("/caphum/getDocumentosCandidatoList?id_candidato=" + idCandidato).then(function(r){ return r.json(); }).then(function(res) {
+                    var docs = (res.datos && res.datos.documentos) ? res.datos.documentos : (res.datos && Array.isArray(res.datos) ? res.datos : []);
+                    var verif = (res.datos && res.datos.verificacion_expediente) ? res.datos.verificacion_expediente : null;
+                    var metricas = (res.datos && res.datos.metricas) ? res.datos.metricas : null;
+
+                    // Actualizar el Map global con los nuevos datos
+                    actualizarDocumentosEnMap(idCandidato, {
+                        documentos: docs,
+                        verificacion_expediente: verif,
+                        metricas: metricas
+                    });
+
+                    renderListaDocumentos(lista, cargando, vacio, docs, verif, idCandidato);
+                    renderMetricasDoc(bloqueMetricas, metricas);
+                    renderAccionesProcesoCandidato(bloqueAccionesProceso, metricas, idCandidato);
+                    if (bloqueAccionVerificar) bloqueAccionVerificar.classList.add("d-none");
+                    if (verif) {
+                        if (bloqueVerif) { bloqueVerif.classList.remove("d-none"); bloqueVerif.innerHTML = "<div class=\"alert alert-success small mb-0\"><i class=\"fa fa-check-circle me-1\"></i>Expediente verificado automáticamente. Los resultados se muestran en cada documento.</div>"; }
+                        renderVerificacionDoc(bloqueVerif, verif);
+                    } else if (metricas && metricas.expediente_completo) {
+                        if (bloqueVerif) { bloqueVerif.classList.remove("d-none"); bloqueVerif.innerHTML = "<div class=\"alert alert-info small mb-0\"><i class=\"fa fa-hourglass-half me-1\"></i>La verificación automática se está procesando en segundo plano. Los resultados aparecerán aquí cuando estén listos.</div>"; }
+                    }
+                }).catch(function() { renderListaDocumentos(lista, cargando, vacio, [], null, idCandidato); if (bloqueAccionesProceso) { bloqueAccionesProceso.classList.add("d-none"); bloqueAccionesProceso.innerHTML = ""; } });
+            }
+
+            function abrirModalDocumentacionCandidato(idCandidato, nombreCandidato) {
+                var modal = document.getElementById("modalDocumentacionCandidato");
+                var label = document.getElementById("modalDocumentacionCandidatoNombre");
+                var bloqueVerif = document.getElementById("modalDocumentacionCandidatoVerificacion");
+                var bloqueMetricas = document.getElementById("modalDocumentacionCandidatoMetricas");
+                var bloqueAccionVerificar = document.getElementById("modalDocumentacionCandidatoAccionVerificar");
+                var bloqueAccionesProceso = document.getElementById("modalDocumentacionCandidatoAccionesProceso");
+                var lista = document.getElementById("modalDocumentacionCandidatoLista");
+                var cargando = document.getElementById("modalDocumentacionCandidatoCargando");
+                var vacio = document.getElementById("modalDocumentacionCandidatoVacio");
+                if (label) label.textContent = nombreCandidato ? "Candidato: " + nombreCandidato : "";
+                if (bloqueVerif) { bloqueVerif.classList.add("d-none"); bloqueVerif.innerHTML = ""; }
+                if (bloqueMetricas) { bloqueMetricas.classList.add("d-none"); bloqueMetricas.innerHTML = ""; }
+                if (bloqueAccionVerificar) bloqueAccionVerificar.classList.add("d-none");
+                if (bloqueAccionesProceso) { bloqueAccionesProceso.classList.add("d-none"); bloqueAccionesProceso.innerHTML = ""; }
+                if (lista) lista.innerHTML = "";
+
+                // Eager Loading: Obtener datos del Map global (sin peticiones de red - INSTANTÁNEO)
+                var docPayload = window.candidatosDataMap && window.candidatosDataMap.get(idCandidato) ? window.candidatosDataMap.get(idCandidato) : null;
+
+                if (docPayload) {
+                    // Datos disponibles instantáneamente desde memoria
+                    if (cargando) cargando.classList.add("d-none");
+                    if (vacio) vacio.classList.add("d-none");
+
+                    var docs = docPayload.documentos || [];
+                    var verif = docPayload.verificacion_expediente || null;
+                    var metricas = docPayload.metricas || null;
+
+                    renderListaDocumentos(lista, cargando, vacio, docs, verif, idCandidato);
+                    renderMetricasDoc(bloqueMetricas, metricas);
+                    renderAccionesProcesoCandidato(bloqueAccionesProceso, metricas, idCandidato);
+                    if (bloqueAccionVerificar) bloqueAccionVerificar.classList.add("d-none");
+                    if (verif) {
+                        if (bloqueVerif) { bloqueVerif.classList.remove("d-none"); bloqueVerif.innerHTML = ""; }
+                        renderVerificacionDoc(bloqueVerif, verif);
+                    } else if (metricas && metricas.expediente_completo && bloqueVerif) {
+                        bloqueVerif.classList.remove("d-none");
+                        bloqueVerif.innerHTML = "<div class=\"alert alert-info small mb-0\"><i class=\"fa fa-hourglass-half me-1\"></i>Verificación en proceso.</div>";
+                    }
+                } else {
+                    // Si no hay datos en memoria (no debería pasar con Eager Loading), mostrar vacío
+                    if (cargando) cargando.classList.add("d-none");
+                    if (vacio) vacio.classList.remove("d-none");
+                    if (lista) lista.innerHTML = "";
+                    if (bloqueAccionesProceso) { bloqueAccionesProceso.classList.add("d-none"); bloqueAccionesProceso.innerHTML = ""; }
+                }
+
+                var bsModal = modal && window.bootstrap && window.bootstrap.Modal ? new window.bootstrap.Modal(modal) : null;
+                if (bsModal) bsModal.show();
+            }
+
+            function abrirModalReenviarPostulacion(idCandidato) {
+        candidatoDatosEnvio = null;
+
+        // Intentar obtener datos desde la memoria primero (eager loading)
+        var candidato = null;
+        if (window.candidatosData && Array.isArray(window.candidatosData)) {
+            candidato = window.candidatosData.find(function(c) {
+                return c.id === idCandidato || parseInt(c.id, 10) === idCandidato;
             });
         }
+
+        if (candidato) {
+            // Usar datos de memoria
+            var nombreCompleto = [candidato.nombres, candidato.segundo_nombre, candidato.apellidop, candidato.apellidom].filter(Boolean).join(" ");
+            var resumenEl = document.getElementById("resumenPostulacionTexto");
+            if (resumenEl) {
+                resumenEl.innerHTML = buildResumenCandidatoHTML({
+                    nombreCompleto: nombreCompleto || "—",
+                    telefono: (candidato.telefono ? "(" + candidato.telefono + ")" : "—"),
+                    email: candidato.email || "—",
+                    puesto: candidato.nombre_puesto || "—",
+                    departamento: candidato.nombre_departamento || "—"
+                });
+            }
+            var btnEnviar = document.getElementById("btnEnviarPostulacion");
+            if (btnEnviar) {
+                btnEnviar.disabled = false;
+                btnEnviar.innerHTML = "<i class='bx bx-send me-2'></i> Reenviar postulación por correo";
+            }
+            candidatoReenviarId = candidato.id || idCandidato;
+            candidatoReenviarEmail = candidato.email || "";
+            var modalEl = document.getElementById("modalResumenPostulacion");
+            if (modalEl) {
+                var modal = new bootstrap.Modal(modalEl);
+                modal.show();
+            }
+            cargarLinkDocumentosCandidato(candidato.id || idCandidato);
+        } else {
+            // Fallback: obtener desde el servidor
+            fetch("/caphum/getCandidato/" + idCandidato)
+                .then(function(r) {
+                    if (!r.ok) {
+                        throw new Error("Error HTTP: " + r.status);
+                    }
+                    return r.json();
+                })
+                .then(function(res) {
+                    if (!res || !res.success || !res.datos) {
+                        if (typeof Swal !== "undefined") {
+                            Swal.fire({ icon: "error", title: "Error", text: "No se encontró el candidato." });
+                        }
+                        return;
+                    }
+                    var c = res.datos;
+                    var nombreCompleto = [c.nombres, c.segundo_nombre, c.apellidop, c.apellidom].filter(Boolean).join(" ");
+                    var resumenEl = document.getElementById("resumenPostulacionTexto");
+                    if (resumenEl) {
+                        resumenEl.innerHTML = buildResumenCandidatoHTML({
+                            nombreCompleto: nombreCompleto || "—",
+                            telefono: (c.telefono ? "(" + c.telefono + ")" : "—"),
+                            email: c.email || "—",
+                            puesto: c.nombre_puesto || "—",
+                            departamento: c.nombre_departamento || "—"
+                        });
+                    }
+                    var btnEnviar = document.getElementById("btnEnviarPostulacion");
+                    if (btnEnviar) {
+                        btnEnviar.disabled = false;
+                        btnEnviar.innerHTML = "<i class='bx bx-send me-2'></i> Reenviar postulación por correo";
+                    }
+                    candidatoReenviarId = c.id;
+                    candidatoReenviarEmail = c.email || "";
+                    var modalEl = document.getElementById("modalResumenPostulacion");
+                    if (modalEl) {
+                        var modal = new bootstrap.Modal(modalEl);
+                        modal.show();
+                    }
+                    cargarLinkDocumentosCandidato(c.id);
+                })
+                .catch(function(err) {
+                    console.error("Error al cargar candidato:", err);
+                    if (typeof Swal !== "undefined") {
+                        Swal.fire({
+                            icon: "error",
+                            title: "Error",
+                            text: "No se pudo cargar el candidato. " + (err.message || "Error de conexión.")
+                        });
+                    }
+                });
+        }
+        }
+
+            function buildResumenCandidatoHTML(o) {
+        var n = o.nombreCompleto || "—"; var t = o.telefono || "—"; var e = o.email || "—"; var p = o.puesto || "—"; var d = o.departamento || "—";
+        return "<div class=\"resumen-row\"><span class=\"resumen-label\">Candidato</span><span class=\"resumen-value\">" + escapeHtml(n) + "</span></div>" +
+            "<div class=\"resumen-row\"><span class=\"resumen-label\">Teléfono</span><span class=\"resumen-value\">" + escapeHtml(t) + "</span></div>" +
+            "<div class=\"resumen-row\"><span class=\"resumen-label\">Correo</span><span class=\"resumen-value\">" + escapeHtml(e) + "</span></div>" +
+            "<div class=\"resumen-row\"><span class=\"resumen-label\">Puesto</span><span class=\"resumen-value\">" + escapeHtml(p) + "</span></div>" +
+            "<div class=\"resumen-row\"><span class=\"resumen-label\">Departamento</span><span class=\"resumen-value\">" + escapeHtml(d) + "</span></div>";
+        }
+
+            function escapeHtml(s) {
+        if (!s) return ""; var div = document.createElement("div"); div.textContent = s; return div.innerHTML;
+        }
+
+            function cargarLinkDocumentosCandidato(idCandidato) {
+        if (!idCandidato) return;
+        var bloque = document.getElementById("bloqueLinkDocumentos");
+        var input = document.getElementById("inputUrlDocumentos");
+        if (!bloque || !input) return;
+        fetch("/caphum/getTokenDocumentosCandidato", { method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" }, body: JSON.stringify({ id: idCandidato }) })
+            .then(function(r){ return r.json(); }).then(function(res){ if (res.success && res.datos && res.datos.url) { input.value = res.datos.url; input.setAttribute("title", res.datos.url); bloque.style.display = "block"; } }).catch(function(){});
+        }
+
+            function showToastUrl(msg) {
+        var t = document.getElementById("toastUrlDocumentos");
+        if (!t) return;
+        t.textContent = msg; t.classList.add("show");
+        setTimeout(function() { t.classList.remove("show"); }, 2200);
+        }
+
+            function initCopiarUrlDocumentos() {
+        var btn = document.getElementById("btnCopiarUrlDocumentos");
+        var input = document.getElementById("inputUrlDocumentos");
+        if (!btn || !input) return;
+        if (btn._copiarBound) return;
+        btn._copiarBound = true;
+        btn.addEventListener("click", function() {
+            var url = input.value;
+            if (!url) { showToastUrl("⚠ Ingresa una URL primero"); return; }
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(url).then(function() { showToastUrl("✔  URL copiada al portapapeles"); }).catch(function() { input.select(); input.setSelectionRange(0, 99999); try { document.execCommand("copy"); showToastUrl("✔  URL copiada al portapapeles"); } catch (e) { if (typeof Swal !== "undefined") Swal.fire({ icon: "success", title: "Copiado", text: "URL copiada.", timer: 1500, showConfirmButton: false }); } });
+            } else { input.select(); input.setSelectionRange(0, 99999); try { document.execCommand("copy"); showToastUrl("✔  URL copiada al portapapeles"); } catch (e) { if (typeof Swal !== "undefined") Swal.fire({ icon: "success", title: "Copiado", text: "URL copiada.", timer: 1500, showConfirmButton: false }); } }
+        });
+        var btnAbrir = document.getElementById("btnAbrirUrlDocumentos");
+        if (btnAbrir && !btnAbrir._abrirBound) {
+            btnAbrir._abrirBound = true;
+            btnAbrir.addEventListener("click", function() { var url = input.value; if (!url) return; if (!/^https?:\/\//i.test(url)) url = "https://" + url; window.open(url, "_blank", "noopener,noreferrer"); });
+        }
+        }
+
+            function editarCandidato(id) {
+        candidatoEditId = id;
+        var titulo = document.getElementById("offcanvasCandidatoTitulo");
+        if (titulo) titulo.textContent = "Editar Candidato";
+        var btnSubmit = document.getElementById("btnSubmitCandidato");
+        if (btnSubmit) { btnSubmit.innerHTML = "<i class=\"bx bx-edit-alt me-1\"></i> Actualizar"; btnSubmit.className = "btn btn-success me-2"; }
+        fetch("/caphum/getCandidato/" + id).then(function(r){ return r.json(); }).then(function(res){
+            if (!res.success || !res.datos) { if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "Error", text: "No se encontró el candidato." }); return; }
+            var c = res.datos;
+            var form = document.getElementById("formAgregarCandidato");
+            if (!form) return;
+            if (form.nombres) form.nombres.value = c.nombres || "";
+            if (form.segundo_nombre) form.segundo_nombre.value = c.segundo_nombre || "";
+            if (form.apellidop) form.apellidop.value = c.apellidop || "";
+            if (form.apellidom) form.apellidom.value = c.apellidom || "";
+            if (form.telefono) form.telefono.value = c.telefono || "";
+            if (form.email) form.email.value = c.email || "";
+            if (form.id_pais) form.id_pais.value = c.id_pais || "";
+            if (form.id_departamento) form.id_departamento.value = c.id_departamento || "";
+            if (form.usuario) form.usuario.value = c.usuario || "";
+            if (form.contrasena) form.contrasena.value = c.contrasena || "";
+            var fpInput = document.getElementById("candidato_fecha_postulacion");
+            if (fpInput && c.fecha_postulacion) fpInput.value = c.fecha_postulacion;
+            var chkLegion = document.getElementById("candidato_asignar_legion");
+            var divLegion = document.getElementById("div_candidato_legion");
+            var selLegion = document.getElementById("candidato_id_legion");
+            if (c.id_legion) { if (chkLegion) chkLegion.checked = true; if (divLegion) divLegion.style.display = "block"; if (selLegion) selLegion.value = c.id_legion; }
+            else { if (chkLegion) chkLegion.checked = false; if (divLegion) divLegion.style.display = "none"; if (selLegion) selLegion.value = ""; }
+            var selPuesto = document.getElementById("candidato_id_puesto");
+            var selJefe = document.getElementById("candidato_id_posible_jefe");
+            selPuesto.innerHTML = "<option value=''>Seleccione puesto</option>";
+            selJefe.innerHTML = "<option value=''>—</option>";
+            setTimeout(function() { abrirOffcanvasCandidato(); }, 0);
+            if (!c.id_departamento) { selJefe.innerHTML = "<option value=''>Seleccione departamento y puesto primero</option>"; return; }
+            fetch("/caphum/getPuestos", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id_departamento: c.id_departamento }) })
+            .then(function(r){ return r.json(); })
+            .then(function(rPuestos){
+                if (rPuestos.success && rPuestos.datos) rPuestos.datos.forEach(function(p){ var opt = document.createElement("option"); opt.value = p.id; opt.textContent = p.nombre || ""; selPuesto.appendChild(opt); });
+                selPuesto.value = c.id_puesto || "";
+                return fetch("/caphum/getJefeDirecto", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id_departamento: c.id_departamento, id_puesto: c.id_puesto || null }) });
+            })
+            .then(function(r){ return r.json(); })
+            .then(function(rJefes){
+                if (!selJefe) return;
+                selJefe.innerHTML = "<option value=''>Seleccione posible jefe</option>";
+                if (rJefes && rJefes.success && rJefes.datos) rJefes.datos.forEach(function(j){ var opt = document.createElement("option"); opt.value = j.id; opt.textContent = (j.nombre_completo || "").trim() || "ID " + j.id; selJefe.appendChild(opt); });
+                selJefe.value = c.id_posible_jefe || "";
+            })
+            .catch(function(){ if (selJefe) selJefe.innerHTML = "<option value=''>Seleccione posible jefe</option>"; });
+        }).catch(function(){ if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "Error", text: "No se pudo cargar el candidato." }); });
+        }
+
+            function abrirOffcanvasCandidato() {
+        var el = document.getElementById("offcanvasAddCandidato");
+        if (!el) return;
+        if (el.parentNode !== document.body) document.body.appendChild(el);
+        if (typeof bootstrap !== "undefined" && bootstrap.Offcanvas) { var inst = bootstrap.Offcanvas.getOrCreateInstance(el); if (inst) inst.show(); }
+        else { el.classList.add("show"); el.setAttribute("aria-hidden", "false"); var back = document.createElement("div"); back.className = "offcanvas-backdrop fade show"; back.style.cssText = "position:fixed;top:0;left:0;z-index:1040;width:100vw;height:100vh;background:#000;opacity:0.5;"; back.setAttribute("data-bs-dismiss", "offcanvas"); document.body.appendChild(back); }
+        }
+
+            function guardarCandidatoEdicion() {
+        var form = document.getElementById("formAgregarCandidato");
+        if (!form || !form.checkValidity()) { form.reportValidity(); return; }
+        var id = candidatoEditId; if (!id) return;
+        var data = buildCandidatoPayloadFromForm(); data.id = id;
+        fetch("/caphum/actualizarCandidato", { method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" }, body: JSON.stringify(data) })
+        .then(function(r){ return r.json(); }).then(function(res){
+            if (res.success) {
+                if (typeof Swal !== "undefined") Swal.fire({ icon: "success", title: "Listo", text: "Candidato actualizado correctamente." });
+                candidatoEditId = null;
+                document.getElementById("offcanvasCandidatoTitulo").textContent = "Nuevo Candidato";
+                var btnSubmit = document.getElementById("btnSubmitCandidato");
+                if (btnSubmit) { btnSubmit.innerHTML = "<i class=\"bx bx-save me-1\"></i> Guardar"; btnSubmit.className = "btn btn-primary me-2"; }
+                form.reset();
+                var fpInput = document.getElementById("candidato_fecha_postulacion");
+                if (fpInput && fpInput._flatpickr) fpInput._flatpickr.setDate(new Date(), true);
+                var inst = bootstrap.Offcanvas.getInstance(document.getElementById("offcanvasAddCandidato"));
+                if (inst) inst.hide();
+                getCandidatos();
+            } else { if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "Error", text: res.mensaje || "No se pudo actualizar." }); }
+        }).catch(function(){ if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "Error", text: "Error de conexión." }); });
+        }
+
+            function guardarCandidatoAbrirResumen() {
+        var form = document.getElementById("formAgregarCandidato");
+        if (!form || !form.checkValidity()) { form.reportValidity(); return; }
+        var data = buildCandidatoPayloadFromForm();
+        if (!data.nombres || !data.apellidop) { if (typeof Swal !== "undefined") Swal.fire({ icon: "warning", title: "Faltan datos", text: "Nombre y apellido paterno son obligatorios." }); return; }
+        var btnSubmit = document.getElementById("btnSubmitCandidato");
+        if (btnSubmit) { btnSubmit.disabled = true; }
+        fetch("/caphum/guardarCandidato", { method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" }, body: JSON.stringify(data) })
+        .then(function(r){ return r.json(); }).then(function(res){
+            if (btnSubmit) { btnSubmit.disabled = false; btnSubmit.innerHTML = "<i class=\"bx bx-save me-1\"></i> Guardar"; }
+            if (!res.success) { if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "Error", text: res.mensaje || res.error || "No se pudo guardar." }); return; }
+            var idCand = res.datos && res.datos.id; if (!idCand) return;
+            candidatoNuevoId = idCand; candidatoNuevoEmail = data.email || ""; candidatoDatosEnvio = null; candidatoReenviarId = null; candidatoReenviarEmail = null;
+            var nombreCompleto = [data.nombres, data.segundo_nombre, data.apellidop, data.apellidom].filter(Boolean).join(" ");
+            var puestoTexto = (document.getElementById("candidato_id_puesto") && document.getElementById("candidato_id_puesto").selectedIndex >= 0) ? document.getElementById("candidato_id_puesto").options[document.getElementById("candidato_id_puesto").selectedIndex].text : "—";
+            var deptoTexto = (document.getElementById("candidato_id_departamento") && document.getElementById("candidato_id_departamento").selectedIndex >= 0) ? document.getElementById("candidato_id_departamento").options[document.getElementById("candidato_id_departamento").selectedIndex].text : "—";
+            document.getElementById("resumenPostulacionTexto").innerHTML = buildResumenCandidatoHTML({ nombreCompleto: nombreCompleto || "—", telefono: (data.telefono ? "(" + data.telefono + ")" : "—"), email: data.email || "—", puesto: puestoTexto, departamento: deptoTexto });
+            document.getElementById("btnEnviarPostulacion").disabled = false;
+            document.getElementById("btnEnviarPostulacion").innerHTML = "<i class='bx bx-send me-2'></i> Enviar postulación al candidato";
+            var bloqueLink = document.getElementById("bloqueLinkDocumentos"); var inputUrl = document.getElementById("inputUrlDocumentos");
+            if (bloqueLink) bloqueLink.style.display = "none"; if (inputUrl) inputUrl.value = "";
+            cargarLinkDocumentosCandidato(idCand);
+            var offcanvas = document.getElementById("offcanvasAddCandidato");
+            if (offcanvas && typeof bootstrap !== "undefined") bootstrap.Offcanvas.getInstance(offcanvas).hide();
+            var modal = new bootstrap.Modal(document.getElementById("modalResumenPostulacion")); modal.show();
+            if (form) form.reset();
+            var fpInput = document.getElementById("candidato_fecha_postulacion");
+            if (fpInput && fpInput._flatpickr) fpInput._flatpickr.setDate(new Date(), true);
+            getCandidatos();
+        }).catch(function(){ if (typeof Swal !== "undefined") Swal.close(); if (btnSubmit) { btnSubmit.disabled = false; btnSubmit.innerHTML = "<i class=\"bx bx-save me-1\"></i> Guardar"; } if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "Error", text: "Error de conexión." }); });
+        }
+
+            function buildCandidatoPayloadFromForm() {
+        var form = document.getElementById("formAgregarCandidato"); if (!form) return {};
+        return {
+            nombres: (form.nombres && form.nombres.value.trim()) || "",
+            segundo_nombre: (form.segundo_nombre && form.segundo_nombre.value.trim()) || "",
+            apellidop: (form.apellidop && form.apellidop.value.trim()) || "",
+            apellidom: (form.apellidom && form.apellidom.value.trim()) || "",
+            email: (form.email && form.email.value.trim()) || "",
+            telefono: (form.telefono && form.telefono.value.trim()) || "",
+            id_pais: (form.id_pais && form.id_pais.value) || null,
+            id_departamento: (form.id_departamento && form.id_departamento.value) || null,
+            id_puesto: (form.id_puesto && form.id_puesto.value) || null,
+            id_posible_jefe: (form.id_posible_jefe && form.id_posible_jefe.value) || null,
+            fecha_postulacion: (form.fecha_postulacion && form.fecha_postulacion.value) || null,
+            id_legion: document.getElementById("candidato_asignar_legion") && document.getElementById("candidato_asignar_legion").checked && document.getElementById("candidato_id_legion") && document.getElementById("candidato_id_legion").value ? document.getElementById("candidato_id_legion").value : null,
+            usuario: (form.usuario && form.usuario.value.trim()) || "",
+            contrasena: (form.contrasena && form.contrasena.value.trim()) || "",
+            estatus: "Por evaluar", notas: null, postulacion_enviada: 1
+        };
+        }
+
+            function enviarPostulacionAlCandidato() {
+        var btn = document.getElementById("btnEnviarPostulacion");
+        if (btn.disabled) return;
+        btn.disabled = true; btn.innerHTML = "<i class='bx bx-loader-alt bx-spin me-2'></i> Enviando...";
+        if (candidatoReenviarId) {
+            var urlReenviar = "/caphum/enviarPostulacionCandidato";
+            fetch(urlReenviar, { method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" }, body: JSON.stringify({ id: candidatoReenviarId, email: candidatoReenviarEmail || "" }) })
+            .then(function(r){ return r.text().then(function(text) { var res; try { res = text ? JSON.parse(text) : {}; } catch (e) { res = null; } return { ok: r.ok, status: r.status, res: res, raw: text }; }); })
+            .then(function(o){
+                var res = o.res; candidatoReenviarId = null; candidatoReenviarEmail = null; btn.disabled = false;
+                btn.innerHTML = "<i class='bx bx-send me-2'></i> Reenviar postulación por correo";
+                if (!res && !o.ok) { if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "Error", text: "El servidor respondió con " + o.status + ". Compruebe la consola (F12) o que la URL sea correcta." }); return; }
+                if (res && res.success) { if (typeof Swal !== "undefined") Swal.fire({ icon: "success", title: "Listo", text: "Correo de postulación reenviado correctamente." }); getCandidatos(); setTimeout(function() { bootstrap.Modal.getInstance(document.getElementById("modalResumenPostulacion")).hide(); }, 1500); }
+                else { if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "Error", text: (res && res.mensaje) ? res.mensaje : "No se pudo enviar el correo." }); }
+            }).catch(function(err){ btn.disabled = false; btn.innerHTML = "<i class='bx bx-send me-2'></i> Reenviar postulación por correo"; if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "Error", text: (err && err.message) ? err.message : "Error de conexión." }); });
+            return;
+        }
+        if (candidatoNuevoId) {
+            var idCand = candidatoNuevoId; var email = candidatoNuevoEmail || "";
+            fetch("/caphum/enviarPostulacionCandidato", { method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" }, body: JSON.stringify({ id: idCand, email: email }) })
+            .then(function(r){ return r.json(); }).then(function(resMail){
+                candidatoNuevoId = null; candidatoNuevoEmail = null; btn.disabled = false;
+                if (resMail && resMail.success) { btn.innerHTML = "<i class=\"bx bx-check me-2\"></i> Enviada postulación"; if (typeof Swal !== "undefined") Swal.fire({ icon: "success", title: "Listo", text: "Correo enviado. El enlace para subir documentos está en el correo y arriba." }); }
+                else { btn.innerHTML = "<i class='bx bx-send me-2'></i> Enviar postulación al candidato"; if (typeof Swal !== "undefined") Swal.fire({ icon: "warning", title: "Correo no enviado", text: (resMail && resMail.mensaje) ? resMail.mensaje : "Configure [mail] en backend/config/config.ini para SMTP. Use el enlace de arriba para compartir con el candidato." }); }
+                getCandidatos(); setTimeout(function() { bootstrap.Modal.getInstance(document.getElementById("modalResumenPostulacion")).hide(); }, 2500);
+            }).catch(function(){ btn.disabled = false; btn.innerHTML = "<i class='bx bx-send me-2'></i> Enviar postulación al candidato"; if (typeof Swal !== "undefined") Swal.fire({ icon: "warning", title: "Error", text: "El correo no se pudo enviar. Use el enlace de arriba para compartir con el candidato." }); });
+            return;
+        }
+        var data = candidatoDatosEnvio || buildCandidatoPayloadFromForm();
+        if (!data.nombres || !data.apellidop) { btn.disabled = false; btn.innerHTML = "<i class='bx bx-send me-2'></i> Enviar postulación al candidato"; if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "Error", text: "Nombre y apellido paterno son obligatorios." }); return; }
+        var form = document.getElementById("formAgregarCandidato");
+        fetch("/caphum/guardarCandidato", { method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" }, body: JSON.stringify(data) })
+        .then(function(r){ return r.json(); }).then(function(res){
+            if (res.success) {
+                candidatoDatosEnvio = null; var idCand = res.datos && res.datos.id; cargarLinkDocumentosCandidato(idCand);
+                fetch("/caphum/enviarPostulacionCandidato", { method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" }, body: JSON.stringify({ id: idCand, email: data.email }) })
+                .then(function(r2){ return r2.json(); }).then(function(resMail){
+                    btn.disabled = false; btn.innerHTML = "<i class=\"bx bx-send me-2\"></i> Enviar postulación al candidato";
+                    if (resMail && resMail.success) { btn.innerHTML = "<i class=\"bx bx-check me-2\"></i> Enviada postulación"; if (typeof Swal !== "undefined") Swal.fire({ icon: "success", title: "Listo", text: "Candidato registrado y correo enviado. El enlace para subir documentos está en el correo y arriba." }); }
+                    else { if (typeof Swal !== "undefined") Swal.fire({ icon: "warning", title: "Candidato guardado", text: (resMail && resMail.mensaje) ? "El correo no se envió: " + resMail.mensaje + ". Configure [mail] en backend/config/config.ini para SMTP o revise que mail() funcione." : "El correo no se pudo enviar. Use el enlace de arriba para compartir con el candidato." }); }
+                    getCandidatos(); setTimeout(function() { bootstrap.Modal.getInstance(document.getElementById("modalResumenPostulacion")).hide(); }, 2500);
+                }).catch(function(){ btn.disabled = false; btn.innerHTML = "<i class=\"bx bx-send me-2\"></i> Enviar postulación al candidato"; if (typeof Swal !== "undefined") Swal.fire({ icon: "warning", title: "Candidato guardado", text: "El correo no se pudo enviar (error de conexión). Use el enlace de arriba para compartir con el candidato." }); getCandidatos(); });
+                if (form) form.reset(); var fpInput = document.getElementById("candidato_fecha_postulacion"); if (fpInput && fpInput._flatpickr) fpInput._flatpickr.setDate(new Date(), true);
+            } else { btn.disabled = false; btn.innerHTML = "<i class='bx bx-send me-2'></i> Enviar postulación al candidato"; if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "Error", text: res.mensaje || res.error || "No se pudo guardar." }); }
+        }).catch(function(){ btn.disabled = false; btn.innerHTML = "<i class='bx bx-send me-2'></i> Enviar postulación al candidato"; if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "Error", text: "Error de conexión." }); });
+        }
+
+            function eliminarCandidato(id) {
+        if (typeof Swal === "undefined") { if (confirm("¿Eliminar candidato?")) fetch("/caphum/eliminarCandidato", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: id }) }).then(function(r){ return r.json(); }).then(function(d){ if (d.success) getCandidatos(); }); return; }
+        Swal.fire({ title: "¿Eliminar?", text: "Se eliminará el candidato.", icon: "warning", showCancelButton: true }).then(function(r){ if (r.isConfirmed) fetch("/caphum/eliminarCandidato", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: id }) }).then(function(res){ return res.json(); }).then(function(d){ if (d.success) { Swal.fire({ icon: "success", text: d.mensaje }); getCandidatos(); } else Swal.fire({ icon: "error", text: d.mensaje || d.error }); }); });
+        }
+
+
+        $(document).ready(function() {
+        configuraTabla("#tablaCandidatos", {
+            registrosPorPagina: 10,
+            columns: [
+                { data: null, defaultContent: '', className: 'control', orderable: false },
+                { data: 'nombre', title: 'Nombre' },
+                { data: 'contacto', title: 'Contacto' },
+                { data: 'puestoDepto', title: 'Puesto / Departamento' },
+                { data: 'estatus', title: 'Estatus', render: function(d) { return d != null ? d : ''; } },
+                { data: 'acciones', title: 'Acciones', orderable: false }
+            ]
+        });
         getCandidatos();
         var selDepto = document.getElementById("UserRole");
         var selPuesto = document.getElementById("UserPlan");
@@ -3495,16 +4413,219 @@ class CapHum extends Controller
         if (selDepto) selDepto.addEventListener("change", function() { getCandidatos(); });
         if (selPuesto) selPuesto.addEventListener("change", function() { getCandidatos(); });
         if (selEstatus) selEstatus.addEventListener("change", function() { getCandidatos(); });
-    }
+        var form = document.getElementById("formAgregarCandidato");
+        if (form) { form.addEventListener("submit", function(e) { e.preventDefault(); if (candidatoEditId) guardarCandidatoEdicion(); else guardarCandidatoAbrirResumen(); }); }
+        document.addEventListener("click", candidatosTableClick);
+        document.addEventListener("click", function(e) {
+            var btn = e.target.closest(".btn-cerrar-proceso-candidato");
+            if (btn) { e.preventDefault(); e.stopPropagation(); var id = btn.getAttribute("data-id"); if (id) abrirModalCerrarProceso(parseInt(id, 10)); }
+            btn = e.target.closest(".btn-continuar-proceso-candidato");
+            if (btn) { e.preventDefault(); e.stopPropagation(); var id = btn.getAttribute("data-id"); if (id) ejecutarContinuarProceso(parseInt(id, 10)); }
+        });
+        function abrirModalCerrarProceso(idCandidato) {
+            var hid = document.getElementById("cerrarProcesoIdCandidato");
+            var sel = document.getElementById("cerrarProcesoMotivo");
+            var ta = document.getElementById("cerrarProcesoDescripcion");
+            if (hid) hid.value = idCandidato || "";
+            if (sel) sel.value = "";
+            if (ta) ta.value = "";
+            var modalEl = document.getElementById("modalCerrarProcesoCandidato");
+            if (modalEl && window.bootstrap && window.bootstrap.Modal) {
+                var isDark = document.body.classList.contains("dark-mode");
+                var opts = isDark ? { backdrop: false } : {};
+                var m = new window.bootstrap.Modal(modalEl, opts);
+                m.show();
+            }
+        }
+        (function() {
+            var modalCerrar = document.getElementById("modalCerrarProcesoCandidato");
+            if (!modalCerrar) return;
+            modalCerrar.addEventListener("shown.bs.modal", function() {
+                if (document.body.classList.contains("dark-mode")) return;
+                var backdrops = document.querySelectorAll(".modal-backdrop");
+                var zScrim = "1094";
+                for (var i = 0; i < backdrops.length; i++) {
+                    if (i === backdrops.length - 1) {
+                        backdrops[i].style.setProperty("z-index", zScrim, "important");
+                    } else {
+                        backdrops[i].style.setProperty("z-index", "1089", "important");
+                    }
+                }
+                modalCerrar.style.setProperty("z-index", "10050", "important");
+            });
+        })();
+        var btnConfirmarCerrar = document.getElementById("btnConfirmarCerrarProceso");
+        if (btnConfirmarCerrar) {
+            btnConfirmarCerrar.addEventListener("click", function() {
+                var idInput = document.getElementById("cerrarProcesoIdCandidato");
+                var idCandidato = idInput ? parseInt(idInput.value, 10) : 0;
+                var motivoSelect = document.getElementById("cerrarProcesoMotivo");
+                var motivo = motivoSelect ? (motivoSelect.value || "").trim() : "";
+                var descInput = document.getElementById("cerrarProcesoDescripcion");
+                var descripcion = descInput ? (descInput.value || "").trim() : null;
+                if (idCandidato <= 0) { if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "Error", text: "ID de candidato no válido." }); return; }
+                if (!motivo) { if (typeof Swal !== "undefined") Swal.fire({ icon: "warning", title: "Requerido", text: "Selecciona un motivo para el cierre." }); return; }
+                btnConfirmarCerrar.disabled = true;
+                fetch("/caphum/cerrarProcesoCandidato", { method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" }, body: JSON.stringify({ id_candidato: idCandidato, motivo: motivo, descripcion: descripcion || null }) })
+                    .then(function(r){ return r.json(); })
+                    .then(function(res) {
+                        btnConfirmarCerrar.disabled = false;
+                        if (res.success) {
+                            var modalCerrar = document.getElementById("modalCerrarProcesoCandidato");
+                            var modalDoc = document.getElementById("modalDocumentacionCandidato");
+                            if (modalCerrar && window.bootstrap && window.bootstrap.Modal) { var inst = window.bootstrap.Modal.getInstance(modalCerrar); if (inst) inst.hide(); }
+                            if (modalDoc && window.bootstrap && window.bootstrap.Modal) { var instDoc = window.bootstrap.Modal.getInstance(modalDoc); if (instDoc) instDoc.hide(); }
+                            if (typeof getCandidatos === "function") getCandidatos();
+                            if (typeof Swal !== "undefined") Swal.fire({ icon: "success", title: "Listo", text: res.mensaje || "Proceso cerrado correctamente." });
+                        } else {
+                            if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "Error", text: res.mensaje || "No se pudo cerrar el proceso." });
+                        }
+                    })
+                    .catch(function() { btnConfirmarCerrar.disabled = false; if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "Error", text: "Error de conexión." }); });
+            });
+        }
+        function ejecutarContinuarProceso(idCandidato) {
+            if (typeof Swal === "undefined") {
+                if (confirm("¿Ya RRHH le dio de alta a la nómina del candidato?")) {
+                    fetch("/caphum/pasarCandidatoAGestion", { method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" }, body: JSON.stringify({ id_candidato: idCandidato }) })
+                        .then(function(r){ return r.json(); })
+                        .then(function(res) {
+                            if (res.success) {
+                                var modalDoc = document.getElementById("modalDocumentacionCandidato");
+                                if (modalDoc && window.bootstrap && window.bootstrap.Modal) { var instDoc = window.bootstrap.Modal.getInstance(modalDoc); if (instDoc) instDoc.hide(); }
+                                if (typeof getCandidatos === "function") getCandidatos();
+                                alert("Listo. Se envió el correo de bienvenida al candidato con el enlace al Onboarding.");
+                            } else alert(res.mensaje || "Error al dar de alta.");
+                        });
+                } else {
+                    alert("Para continuar el proceso el candidato debe tener alta en nómina por RRHH. Cuando ya le hayan dado de alta, vuelve a hacer clic en Continuar proceso.");
+                }
+                return;
+            }
+            Swal.fire({
+                title: "¿Ya RRHH le dio de alta a la nómina del candidato?",
+                icon: "question",
+                showCancelButton: true,
+                confirmButtonText: "Sí",
+                cancelButtonText: "No",
+                confirmButtonColor: "#198754",
+                cancelButtonColor: "#6c757d"
+            }).then(function(result) {
+                if (result.isConfirmed) {
+                    Swal.fire({ title: "Procesando...", text: "Dando de alta en Gestión y enviando correo de bienvenida.", allowOutsideClick: false, allowEscapeKey: false, didOpen: function() { Swal.showLoading(); } });
+                    fetch("/caphum/pasarCandidatoAGestion", { method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" }, body: JSON.stringify({ id_candidato: idCandidato }) })
+                        .then(function(r){ return r.json(); })
+                        .then(function(res) {
+                            Swal.close();
+                            if (res.success) {
+                                var modalDoc = document.getElementById("modalDocumentacionCandidato");
+                                if (modalDoc && window.bootstrap && window.bootstrap.Modal) { var instDoc = window.bootstrap.Modal.getInstance(modalDoc); if (instDoc) instDoc.hide(); }
+                                if (typeof getCandidatos === "function") getCandidatos();
+                                Swal.fire({ icon: "success", title: "¡Listo!", text: "Bienvenido a MaxiKash. Se envió el correo al candidato con el enlace para entrar al Onboarding. El colaborador ya está dado de alta en Gestión." });
+                            } else {
+                                Swal.fire({ icon: "error", title: "Error", text: res.mensaje || "No se pudo dar de alta en Gestión." });
+                            }
+                        })
+                        .catch(function() {
+                            Swal.close();
+                            Swal.fire({ icon: "error", title: "Error", text: "Error de conexión." });
+                        });
+                } else {
+                    Swal.fire({
+                        icon: "info",
+                        title: "Alta en nómina requerida",
+                        text: "Para continuar el proceso el candidato debe tener alta en nómina por RRHH. Cuando ya le hayan dado de alta, vuelve a hacer clic en Continuar proceso."
+                    });
+                }
+            });
+        }
+        var btnAltaNominaNo = document.getElementById("btnConfirmarAltaNominaNo");
+        if (btnAltaNominaNo) {
+            btnAltaNominaNo.addEventListener("click", function() {
+                var modalAlta = document.getElementById("modalConfirmarAltaNomina");
+                if (modalAlta && window.bootstrap && window.bootstrap.Modal) { var inst = window.bootstrap.Modal.getInstance(modalAlta); if (inst) inst.hide(); }
+                if (typeof Swal !== "undefined") Swal.fire({ icon: "info", title: "Alta en nómina", text: "No puedes continuar hasta que RRHH dé de alta al candidato en nómina." });
+            });
+        }
+        var btnAltaNominaSi = document.getElementById("btnConfirmarAltaNominaSi");
+        if (btnAltaNominaSi) {
+            btnAltaNominaSi.addEventListener("click", function() {
+                var idInput = document.getElementById("confirmarAltaNominaIdCandidato");
+                var idCandidato = idInput ? parseInt(idInput.value, 10) : 0;
+                if (idCandidato <= 0) { if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "Error", text: "ID de candidato no válido." }); return; }
+                btnAltaNominaSi.disabled = true;
+                fetch("/caphum/pasarCandidatoAGestion", { method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" }, body: JSON.stringify({ id_candidato: idCandidato }) })
+                    .then(function(r){ return r.json(); })
+                    .then(function(res) {
+                        btnAltaNominaSi.disabled = false;
+                        var modalAlta = document.getElementById("modalConfirmarAltaNomina");
+                        if (modalAlta && window.bootstrap && window.bootstrap.Modal) { var inst = window.bootstrap.Modal.getInstance(modalAlta); if (inst) inst.hide(); }
+                        if (res.success) {
+                            if (typeof getCandidatos === "function") getCandidatos();
+                            if (typeof Swal !== "undefined") Swal.fire({ icon: "success", title: "¡Listo!", text: "Bienvenido a Maxikash. El colaborador ha sido dado de alta en Gestión y se le envió el correo de bienvenida. Ya tiene acceso al menú de Onboarding." });
+                        } else {
+                            if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "Error", text: res.mensaje || "No se pudo dar de alta en Gestión." });
+                        }
+                    })
+                    .catch(function() { btnAltaNominaSi.disabled = false; if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "Error", text: "Error de conexión." }); });
+            });
+        }
+        var offcanvasEl = document.getElementById("offcanvasAddCandidato");
+        if (offcanvasEl) {
+            offcanvasEl.addEventListener("show.bs.offcanvas", function() { var btnSubmit = document.getElementById("btnSubmitCandidato"); if (!btnSubmit) return; if (candidatoEditId) { btnSubmit.innerHTML = "<i class=\"bx bx-edit-alt me-1\"></i> Actualizar"; btnSubmit.className = "btn btn-success me-2"; } else { btnSubmit.innerHTML = "<i class=\"bx bx-save me-1\"></i> Guardar"; btnSubmit.className = "btn btn-primary me-2"; } });
+            offcanvasEl.addEventListener("hidden.bs.offcanvas", function() {
+                var form = document.getElementById("formAgregarCandidato"); if (form) { form.reset(); candidatoEditId = null; }
+                var titulo = document.getElementById("offcanvasCandidatoTitulo"); if (titulo) titulo.textContent = "Nuevo Candidato";
+                var btnSubmit = document.getElementById("btnSubmitCandidato"); if (btnSubmit) { btnSubmit.innerHTML = "<i class=\"bx bx-save me-1\"></i> Guardar"; btnSubmit.className = "btn btn-primary me-2"; }
+                var fpInput = document.getElementById("candidato_fecha_postulacion"); if (fpInput && fpInput._flatpickr) fpInput._flatpickr.setDate(new Date(), true);
+                var divLegion = document.getElementById("div_candidato_legion"); var chkLegion = document.getElementById("candidato_asignar_legion"); var selLegion = document.getElementById("candidato_id_legion");
+                if (divLegion) divLegion.style.display = "none"; if (chkLegion) chkLegion.checked = false; if (selLegion) selLegion.value = "";
+                var selPuesto = document.getElementById("candidato_id_puesto"); var selJefe = document.getElementById("candidato_id_posible_jefe");
+                if (selPuesto) selPuesto.innerHTML = "<option value=''>Seleccione puesto</option>"; if (selJefe) selJefe.innerHTML = "<option value=''>Seleccione departamento y puesto primero</option>";
+            });
+        }
+        var selDeptoForm = document.getElementById("candidato_id_departamento");
+        if (selDeptoForm) selDeptoForm.addEventListener("change", function() {
+            var idDepto = this.value;
+            var selPuesto = document.getElementById("candidato_id_puesto"); var selJefe = document.getElementById("candidato_id_posible_jefe");
+            if (selPuesto) selPuesto.innerHTML = "<option value=''>Seleccione puesto</option>"; if (selJefe) selJefe.innerHTML = "<option value=''>Seleccione departamento y puesto primero</option>";
+            if (!idDepto) return;
+            fetch("/caphum/getPuestos", { method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" }, body: JSON.stringify({ id_departamento: idDepto }) })
+                .then(function(r){ return r.json(); }).then(function(res){ if (res.success && res.datos) res.datos.forEach(function(p){ var opt = document.createElement("option"); opt.value = p.id; opt.textContent = p.nombre || p.puesto_nombre || ""; selPuesto.appendChild(opt); }); });
+            if (selJefe) {
+                selJefe.innerHTML = "<option value=''>—</option>";
+                fetch("/caphum/getJefeDirecto", { method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" }, body: JSON.stringify({ id_departamento: idDepto, id_puesto: null }) })
+                    .then(function(r){ return r.json(); }).then(function(res){ selJefe.innerHTML = "<option value=''>Seleccione posible jefe</option>"; if (res.success && res.datos && res.datos.length) res.datos.forEach(function(j){ var opt = document.createElement("option"); opt.value = j.id; opt.textContent = (j.nombre_completo || "").trim() || "ID " + j.id; selJefe.appendChild(opt); }); }).catch(function(){ selJefe.innerHTML = "<option value=''>Seleccione posible jefe</option>"; });
+            }
+        });
+        var selPuestoForm = document.getElementById("candidato_id_puesto");
+        if (selPuestoForm) selPuestoForm.addEventListener("change", function() {
+            var idPuesto = this.value; var selDepto = document.getElementById("candidato_id_departamento"); var selJefe = document.getElementById("candidato_id_posible_jefe");
+            if (!selJefe || !selDepto) return;
+            selJefe.innerHTML = "<option value=''>—</option>"; var idDepto = selDepto.value;
+            if (!idDepto) { selJefe.innerHTML = "<option value=''>Seleccione departamento y puesto primero</option>"; return; }
+            fetch("/caphum/getJefeDirecto", { method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" }, body: JSON.stringify({ id_departamento: idDepto, id_puesto: idPuesto || null }) })
+                .then(function(r){ return r.json(); }).then(function(res){ selJefe.innerHTML = "<option value=''>Seleccione posible jefe</option>"; if (res.success && res.datos && res.datos.length) res.datos.forEach(function(j){ var opt = document.createElement("option"); opt.value = j.id; opt.textContent = (j.nombre_completo || "").trim() || "ID " + j.id; selJefe.appendChild(opt); }); }).catch(function(){ selJefe.innerHTML = "<option value=''>Seleccione posible jefe</option>"; });
+        });
+        var btnAddCandidato = document.querySelector("[data-bs-target=\"#offcanvasAddCandidato\"]");
+        if (btnAddCandidato) btnAddCandidato.addEventListener("click", function() { candidatoEditId = null; document.getElementById("offcanvasCandidatoTitulo").textContent = "Nuevo Candidato"; });
+        initFlatpickrFechaPostulacion();
+        initCopiarUrlDocumentos();
+        });
+        </script>
+        HTML;
 
-    if (document.readyState === "loading") {
-        document.addEventListener("DOMContentLoaded", initCandidatosPage);
-    } else {
-        initCandidatosPage();
-    }
-})();
-</script>
-SCR;
+        $departamento = CapHumDAO::getConsultaDepartamentoGestor($_SESSION['usuario_id']);
+        $modulos = $_SESSION['modulos'] ?? [];
+        $puedeGestionarCandidatos = in_array(42, $modulos);
+
+        self::set("titulo", "Candidatos");
+        self::set("script", $script);
+        self::set("puedeGestionarCandidatos", $puedeGestionarCandidatos);
+        self::set("departamento", $departamento);
+        self::set("paisesActivos", \Models\Paises::getPaisesActivos());
+        self::set("listaJefes", CapHumDAO::getListaPersonasParaJefe());
+        self::render("candidatos");
     }
 
     public function getCandidatos()
@@ -3514,6 +4635,78 @@ SCR;
         $id_departamento = isset($_GET["id_departamento"]) ? (int) $_GET["id_departamento"] : null;
         $id_puesto = isset($_GET["id_puesto"]) ? (int) $_GET["id_puesto"] : null;
         $resultado = CandidatosDAO::getAll($estatus, $id_departamento, $id_puesto);
+
+        // Eager Loading: Incluir documentos, verificación y métricas de cada candidato
+        if ($resultado['success'] && !empty($resultado['datos']) && is_array($resultado['datos'])) {
+            $tiposRequeridos = [
+                'SOLICITUD INTERNA' => 1, 'CV O SOLICITUD DE TRABAJO' => 2, 'ACTA DE NACIMIENTO' => 3, 'ACTA DE NACIMIENTO Certificada' => 3,
+                'CURP' => 4, 'IDENTIFICACIÓN OFICIAL' => 5, 'IDENTIFICACIÓN OFICIAL (REVERSO)' => '5_reverso',
+                'COMPROBANTE DE DOMICILIO' => 6, 'CONSTANCIA DE SITUACION FISCAL' => 7, 'NÚMERO DE SEGURIDAD SOCIAL' => 8,
+                'HOJA DE RETENCION FONACOT O INFONAVIT' => 9, 'ESTADO DE CUENTA' => 10,
+            ];
+            $normalize = function ($s) {
+                $s = trim(mb_strtoupper($s ?? ''));
+                $s = str_replace(['Í', 'Ó', 'Ú', 'Á', 'É', 'Ñ'], ['I', 'O', 'U', 'A', 'E', 'N'], $s);
+                return preg_replace('/\s+/', ' ', $s);
+            };
+
+            foreach ($resultado['datos'] as &$candidato) {
+                $id_candidato = (int) ($candidato['id'] ?? 0);
+                if ($id_candidato > 0) {
+                    $docData = CandidatosDAO::getDocumentosYVerificacion($id_candidato);
+                    $documentos = $docData['documentos'] ?? [];
+                    $candidato['documentos'] = $documentos;
+
+                    if (isset($docData['verificacion']) && $docData['verificacion'] !== null) {
+                        $candidato['verificacion_expediente'] = $docData['verificacion'];
+                    }
+
+                    // Calcular métricas
+                    $clavesUnicas = [];
+                    foreach ($documentos as $d) {
+                        $tipo = $normalize($d['tipo_documento'] ?? '');
+                        if ($tipo === 'IDENTIFICACION OFICIAL (REVERSO)') {
+                            $clavesUnicas['5_reverso'] = true;
+                        } else {
+                            foreach ($tiposRequeridos as $nombre => $num) {
+                                if ($num === '5_reverso') continue;
+                                $nombreNorm = $normalize($nombre);
+                                if ($tipo === $nombreNorm || strpos($tipo, $nombreNorm) !== false || strpos($nombreNorm, $tipo) !== false) {
+                                    $clavesUnicas[is_string($num) ? $num : $num] = true;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    $totalRequeridos = 11;
+                    $totalActual = count($clavesUnicas);
+                    $expedienteCompleto = ($totalActual >= $totalRequeridos
+                        && isset($clavesUnicas['5_reverso'])
+                        && isset($clavesUnicas[1]) && isset($clavesUnicas[2]) && isset($clavesUnicas[3]) && isset($clavesUnicas[4])
+                        && isset($clavesUnicas[5]) && isset($clavesUnicas[6]) && isset($clavesUnicas[7]) && isset($clavesUnicas[8])
+                        && isset($clavesUnicas[9]) && isset($clavesUnicas[10]));
+                    $conteoValidados = CandidatosDAO::contarValidados($id_candidato);
+                    $candidato['metricas'] = [
+                        'total_documentos' => $totalActual,
+                        'documentos_requeridos' => $totalRequeridos,
+                        'porcentaje' => $totalRequeridos > 0 ? min(100, (int) round(($totalActual / $totalRequeridos) * 100)) : 0,
+                        'expediente_completo' => $expedienteCompleto,
+                        'validados' => (int) ($conteoValidados['validados'] ?? 0),
+                    ];
+                } else {
+                    $candidato['documentos'] = [];
+                    $candidato['metricas'] = [
+                        'total_documentos' => 0,
+                        'documentos_requeridos' => 11,
+                        'porcentaje' => 0,
+                        'expediente_completo' => false,
+                        'validados' => 0,
+                    ];
+                }
+            }
+            unset($candidato); // Liberar referencia
+        }
+
         echo json_encode($resultado);
         exit;
     }
@@ -3668,10 +4861,16 @@ SCR;
             $full = @parse_ini_file($configFile, true);
             $mailSection = is_array($full['mail'] ?? null) ? $full['mail'] : [];
             $diasLimite = (int) ($mailSection['dias_limite_documentos'] ?? 7);
-            $contacto = trim($mailSection['mail_contacto'] ?? $mailSection['mail_from'] ?? '');
+            $contacto = trim($mailSection['mail_contacto'] ?? '');
+        if ($contacto === '' || !filter_var($contacto, FILTER_VALIDATE_EMAIL)) {
+            $contacto = trim($mailSection['smtp_user'] ?? $mailSection['mail_from'] ?? '');
         }
-        if ($contacto === '') {
-            $contacto = 'lazaro.gonzalez@__SPARTA_SECRET_REDACTED__.com';
+        if ($contacto === '' || !filter_var($contacto, FILTER_VALIDATE_EMAIL)) {
+            $contacto = 'lrgonzalez033@gmail.com';
+        }
+        }
+        if ($contacto === '' || !filter_var($contacto, FILTER_VALIDATE_EMAIL)) {
+            $contacto = 'lrgonzalez033@gmail.com';
         }
         $fechaLimiteObj = new \DateTime('now', new \DateTimeZone('America/Mexico_City'));
         $fechaLimiteObj->modify('+' . $diasLimite . ' days');
@@ -4263,6 +5462,8 @@ SCR;
             'porcentaje' => $totalRequeridos > 0 ? min(100, (int) round(($totalActual / $totalRequeridos) * 100)) : 0,
             'expediente_completo' => $expedienteCompleto,
         ];
+        $conteoValidados = CandidatosDAO::contarValidados($id_candidato);
+        $payload['metricas']['validados'] = (int) ($conteoValidados['validados'] ?? 0);
 
         $json = json_encode(self::respuesta(true, 'OK', $payload));
 
@@ -4500,12 +5701,327 @@ SCR;
         } else {
             CandidatosDAO::updateEstatus($idCand, 'Por evaluar');
         }
+        CandidatosDAO::invalidateDocumentacionCache($idCand);
         echo json_encode(self::respuesta(true, $upd['mensaje'], [
             'validado' => $nuevoValor,
             'todos_validados' => $todosValidados,
             'validados' => $conteo['validados'],
             'total' => $conteo['total'],
         ]));
+    }
+
+    /**
+     * Cerrar proceso del candidato (modal "Cerrar proceso"). Requiere módulo Candidatos.
+     * POST JSON: id_candidato, motivo, descripcion (opcional).
+     */
+    public function cerrarProcesoCandidato()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        $raw = file_get_contents('php://input');
+        $body = json_decode($raw, true) ?: [];
+        $id_candidato = (int) ($body['id_candidato'] ?? $body['id'] ?? 0);
+        $motivo = trim($body['motivo'] ?? '');
+        $descripcion = isset($body['descripcion']) ? trim($body['descripcion']) : null;
+        if ($id_candidato <= 0) {
+            echo json_encode(self::respuesta(false, 'ID de candidato inválido.'));
+            return;
+        }
+        $motivosPermitidos = ['no_cubre_perfil', 'desistio', 'sin_info_a_tiempo', 'otro'];
+        if ($motivo === '' || !in_array($motivo, $motivosPermitidos, true)) {
+            echo json_encode(self::respuesta(false, 'Selecciona un motivo válido para el cierre.'));
+            return;
+        }
+        $resultado = CandidatosDAO::cerrarProceso($id_candidato, $motivo, $descripcion);
+        if ($resultado['success']) {
+            CandidatosDAO::invalidateDocumentacionCache($id_candidato);
+        }
+        echo json_encode($resultado);
+        exit;
+    }
+
+    /**
+     * Continuar proceso: envía un solo correo al candidato (documentación validada) y responde success.
+     * El front mostrará después el modal "¿RRHH dio de alta en nómina?" (Sí/No). Requiere módulo Candidatos.
+     * POST JSON: id_candidato (o id).
+     */
+    public function continuarProcesoCandidato()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        $raw = file_get_contents('php://input');
+        $body = json_decode($raw, true) ?: [];
+        $id_candidato = (int) ($body['id_candidato'] ?? $body['id'] ?? 0);
+        if ($id_candidato <= 0) {
+            echo json_encode(self::respuesta(false, 'ID de candidato inválido.'));
+            return;
+        }
+        $candidatoRes = CandidatosDAO::getById($id_candidato);
+        if (!$candidatoRes['success'] || empty($candidatoRes['datos'])) {
+            echo json_encode(self::respuesta(false, 'Candidato no encontrado.'));
+            return;
+        }
+        $c = $candidatoRes['datos'];
+        $nombreCompleto = trim(implode(' ', [
+            $c['nombres'] ?? '',
+            $c['segundo_nombre'] ?? '',
+            $c['apellidop'] ?? '',
+            $c['apellidom'] ?? ''
+        ]));
+        $destino = trim($c['email'] ?? '');
+        if ($destino === '' || !filter_var($destino, FILTER_VALIDATE_EMAIL)) {
+            echo json_encode(self::respuesta(false, 'Correo del candidato no válido.'));
+            return;
+        }
+
+        $configFile = defined('RAIZ') ? (RAIZ . '/config/config.ini') : (__DIR__ . '/../config/config.ini');
+        $config = is_file($configFile) ? @parse_ini_file($configFile, true) : [];
+        $mailSection = is_array($config['mail'] ?? null) ? $config['mail'] : [];
+        $contacto = trim($mailSection['mail_contacto'] ?? '');
+        if ($contacto === '' || !filter_var($contacto, FILTER_VALIDATE_EMAIL)) {
+            $contacto = trim($mailSection['smtp_user'] ?? $mailSection['mail_from'] ?? '');
+        }
+        if ($contacto === '' || !filter_var($contacto, FILTER_VALIDATE_EMAIL)) {
+            $contacto = 'lrgonzalez033@gmail.com';
+        }
+
+        $dirPublic = defined('RAIZ') ? dirname(RAIZ) . '/public' : (__DIR__ . '/../../public');
+        $base = $this->obtenerBaseUrlApp();
+        $baseUrl = rtrim($base, '/');
+        $rutaLogoInline = null;
+        if (is_file($dirPublic . '/assets/img/logo_correo.png')) {
+            $rutaLogoInline = realpath($dirPublic . '/assets/img/logo_correo.png');
+        } elseif (is_file($dirPublic . '/assets/img/logo___SPARTA_SECRET_REDACTED__.png')) {
+            $rutaLogoInline = realpath($dirPublic . '/assets/img/logo___SPARTA_SECRET_REDACTED__.png');
+        } elseif (is_file($dirPublic . '/assets/img/Logotipo-Maxikash-Outline.webp')) {
+            $rutaLogoInline = realpath($dirPublic . '/assets/img/Logotipo-Maxikash-Outline.webp');
+        } elseif (is_file($dirPublic . '/assets/img/logo.svg')) {
+            $rutaLogoInline = realpath($dirPublic . '/assets/img/logo.svg');
+        }
+        $logoSrc = $rutaLogoInline ? 'cid:logo__SPARTA_SECRET_REDACTED__' : ($baseUrl . '/assets/img/logo_correo.png');
+
+        $nombreMayusculas = mb_strtoupper($nombreCompleto, 'UTF-8');
+        $asunto = 'Tu documentación fue validada – Siguiente paso en tu proceso con Maxikash';
+        $mensajeHtml = '<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Documentación validada</title>
+</head>
+<body style="margin:0; padding:0; background-color:#e8eef4; font-family: \'Segoe UI\', Tahoma, Geneva, Verdana, sans-serif;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color:#e8eef4;">
+    <tr>
+      <td align="center" style="padding: 32px 16px;">
+        <table role="presentation" width="600" cellspacing="0" cellpadding="0" style="max-width:600px; width:100%; background-color:#ffffff; border-radius:8px; box-shadow: 0 2px 12px rgba(0,0,0,0.08);">
+          <tr>
+            <td style="background-color:#1e3a5f; padding: 24px 12px 24px 32px; border-radius: 8px 8px 0 0;">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                <tr>
+                  <td style="vertical-align: middle;">
+                    <h1 style="margin:0; color:#ffffff; font-size: 22px; font-weight: 600;">MaxiKash — Capital Humano</h1>
+                    <p style="margin: 6px 0 0 0; color: rgba(255,255,255,0.9); font-size: 14px;">Documentación validada</p>
+                  </td>
+                  <td style="vertical-align: middle; text-align: right; width: 160px;"><img src="' . htmlspecialchars($logoSrc) . '" alt="MaxiKash" width="160" height="auto" style="max-height: 70px; width: auto;" /></td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 32px;">
+              <p style="margin:0 0 16px 0; color:#1a202c; font-size: 16px; line-height: 1.6;">Hola ' . htmlspecialchars($nombreMayusculas) . ',</p>
+              <p style="margin:0 0 16px 0; color:#2d3748; font-size: 15px; line-height: 1.6;">Te informamos que hemos revisado y validado correctamente toda tu documentación. Estás listo(a) para continuar con el proceso.</p>
+              <p style="margin:0 0 16px 0; color:#2d3748; font-size: 15px; line-height: 1.6;">En los próximos días se le indicará los siguientes pasos.</p>
+              <p style="margin:0 0 24px 0; color:#2d3748; font-size: 15px; line-height: 1.6;">Si tiene algún problema con la carga, contáctenos en <a href="mailto:' . htmlspecialchars($contacto) . '" style="color:#2c5282; text-decoration:none;">' . htmlspecialchars($contacto) . '</a>.</p>
+              <table role="presentation" cellspacing="0" cellpadding="0" style="margin-top: 28px; padding-top: 20px; border-top: 1px solid #e2e8f0;">
+                <tr><td><p style="margin:0 0 4px 0; color:#2d3748; font-size: 15px;">Saludos,</p><p style="margin:0; color:#1a202c; font-size: 15px; font-weight: 600;">Equipo de Capital Humano – Maxikash</p></td></tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 16px 32px 24px 32px; background-color:#f7fafc; border-radius: 0 0 8px 8px; border-top: 1px solid #e2e8f0;">
+              <p style="margin:0; color:#718096; font-size: 12px; line-height: 1.5;">Este correo fue generado automáticamente. Por favor <strong>no responda directamente a este mensaje</strong>; para cualquier duda o aclaración utilice el correo de contacto indicado en el mensaje.</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>';
+
+        $enviado = $this->enviarCorreo($destino, $asunto, $mensajeHtml, $nombreCompleto, $rutaLogoInline);
+        if ($enviado) {
+            echo json_encode(self::respuesta(true, 'Correo enviado al candidato correctamente.', ['id_candidato' => $id_candidato]));
+        } else {
+            $msg = $this->enviarCorreoUltimoError ?: 'No se pudo enviar el correo.';
+            echo json_encode(self::respuesta(false, $msg, null));
+        }
+        exit;
+    }
+
+    /**
+     * Pasar candidato a Gestión: crea persona en __SPARTA_SECRET_REDACTED__, envía correo de bienvenida y actualiza candidato a Contratado.
+     * Se llama desde el sistema (modal) o desde el enlace del correo (confirmarAltaNomina). Requiere módulo Candidatos si se llama por POST.
+     * POST JSON: id_candidato (o id).
+     */
+    public function pasarCandidatoAGestion()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        $raw = file_get_contents('php://input');
+        $body = json_decode($raw, true) ?: [];
+        $id_candidato = (int) ($body['id_candidato'] ?? $body['id'] ?? 0);
+        if ($id_candidato <= 0) {
+            echo json_encode(self::respuesta(false, 'ID de candidato inválido.'));
+            return;
+        }
+        $result = $this->ejecutarAltaCandidatoEnGestion($id_candidato);
+        if ($result['success']) {
+            echo json_encode(self::respuesta(true, 'Colaborador dado de alta en Gestión correctamente. Se envió el correo de bienvenida.', ['id_persona' => $result['id_persona'] ?? 0, 'id_candidato' => $result['id_candidato']]));
+        } else {
+            echo json_encode(self::respuesta(false, $result['mensaje'] ?? 'Error al dar de alta en Gestión.'));
+        }
+        exit;
+    }
+
+    /**
+     * Confirmación de alta en nómina desde el correo (enlace Sí/No). No requiere sesión.
+     * GET: token, respuesta (si|no). Si respuesta=si ejecuta pasar a Gestión y muestra página de éxito.
+     */
+    public function confirmarAltaNomina()
+    {
+        header('Content-Type: text/html; charset=utf-8');
+        $token = trim($_GET['token'] ?? '');
+        $respuesta = strtolower(trim($_GET['respuesta'] ?? ''));
+        if ($token === '') {
+            $this->mostrarPaginaConfirmacionAlta(false, 'Enlace no válido.');
+            return;
+        }
+        $resToken = CandidatosDAO::getPorTokenConfirmacionAlta($token);
+        if (!$resToken['success']) {
+            $this->mostrarPaginaConfirmacionAlta(false, $resToken['mensaje'] ?? 'Enlace no válido o expirado.');
+            return;
+        }
+        $id_candidato = $resToken['datos'];
+        CandidatosDAO::marcarTokenConfirmacionAltaUsado($token, $respuesta);
+        if ($respuesta !== 'si') {
+            $this->mostrarPaginaConfirmacionAlta(true, 'Su respuesta ha sido registrada. No se realizó el alta en Gestión en este momento.', false);
+            return;
+        }
+        $result = $this->ejecutarAltaCandidatoEnGestion($id_candidato);
+        if ($result['success']) {
+            $this->mostrarPaginaConfirmacionAlta(true, 'El colaborador ha sido dado de alta en Gestión correctamente. Se envió el correo de bienvenida y ya tiene acceso al menú de Onboarding.');
+        } else {
+            $this->mostrarPaginaConfirmacionAlta(false, $result['mensaje'] ?? 'Error al dar de alta en Gestión.');
+        }
+    }
+
+    /**
+     * Página HTML de resultado para confirmación de alta en nómina (desde enlace del correo).
+     * @param bool $exito
+     * @param string $mensaje
+     * @param bool $mostrarBoton Si false, no se muestra el botón "Ir al sistema" (p. ej. cuando la respuesta fue No).
+     */
+    private function mostrarPaginaConfirmacionAlta($exito, $mensaje, $mostrarBoton = true)
+    {
+        $titulo = $exito ? 'Listo' : 'Error';
+        $clase = $exito ? 'success' : 'error';
+        $base = $this->obtenerBaseUrlApp();
+        echo '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>' . htmlspecialchars($titulo) . '</title>';
+        echo '<style>body{font-family:\'Segoe UI\',Tahoma,sans-serif;background:#e8eef4;margin:0;padding:24px;display:flex;align-items:center;justify-content:center;min-height:100vh;}';
+        echo '.box{max-width:480px;background:#fff;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,0.1);padding:32px;text-align:center;}';
+        echo '.success .icon{color:#22c55e;font-size:48px;}.error .icon{color:#ef4444;font-size:48px;}';
+        echo 'h1{font-size:1.35rem;color:#1a202c;margin:0 0 16px 0;}p{color:#4a5568;line-height:1.6;margin:0 0 24px 0;}';
+        echo 'a{display:inline-block;padding:10px 20px;background:#1e3a5f;color:#fff!important;text-decoration:none;border-radius:8px;font-weight:600;}</style></head><body>';
+        echo '<div class="box ' . $clase . '"><div class="icon">' . ($exito ? '✓' : '✕') . '</div>';
+        echo '<h1>' . htmlspecialchars($titulo) . '</h1><p>' . nl2br(htmlspecialchars($mensaje)) . '</p>';
+        if ($mostrarBoton) {
+            echo '<a href="' . htmlspecialchars(rtrim($base, '/') . '/') . '">Ir al sistema</a>';
+        }
+        echo '</div></body></html>';
+    }
+
+    /**
+     * Lógica común: alta de candidato en Gestión (persona, módulo Onboarding, correo bienvenida).
+     * @return array { success, mensaje, id_persona?, id_candidato }
+     */
+    private function ejecutarAltaCandidatoEnGestion($id_candidato)
+    {
+        $id_candidato = (int) $id_candidato;
+        if ($id_candidato <= 0) {
+            return ['success' => false, 'mensaje' => 'ID de candidato inválido.'];
+        }
+        $candidatoRes = CandidatosDAO::getById($id_candidato);
+        if (!$candidatoRes['success'] || empty($candidatoRes['datos'])) {
+            return ['success' => false, 'mensaje' => 'Candidato no encontrado.'];
+        }
+        $c = $candidatoRes['datos'];
+        $numero_empleado = trim($c['numero_empleado'] ?? '');
+        if ($numero_empleado === '') {
+            $numero_empleado = 'PEND';
+        }
+        $fechaIngreso = (new \DateTime('now', new \DateTimeZone('America/Mexico_City')))->format('Y-m-d');
+        $dataPersona = [
+            'nombres'       => $c['nombres'] ?? '',
+            'segundo_nombre'=> $c['segundo_nombre'] ?? '',
+            'apellidop'     => $c['apellidop'] ?? '',
+            'apellidom'     => $c['apellidom'] ?? '',
+            'numero_empleado' => $numero_empleado,
+            'correo'        => $c['email'] ?? '',
+            'telefono'      => $c['telefono'] ?? '',
+            'id_puesto'     => $c['id_puesto'] ?? 0,
+            'id_jefe'       => !empty($c['id_posible_jefe']) ? (int) $c['id_posible_jefe'] : '',
+            'usuario'       => $c['usuario'] ?? '',
+            'contrasena'    => $c['contrasena'] ?? '',
+            'estatus'       => 'Activo',
+            'fecha_ingreso' => $fechaIngreso,
+            'id_pais'       => !empty($c['id_pais']) ? (int) $c['id_pais'] : 1,
+        ];
+        if (!empty($c['id_legion'])) {
+            $dataPersona['asignar_legion'] = true;
+            $dataPersona['id_legion'] = (int) $c['id_legion'];
+        }
+        $resInsert = CapHumDAO::insertPersona($dataPersona);
+        if (!$resInsert['success']) {
+            return ['success' => false, 'mensaje' => $resInsert['mensaje'] ?? 'Error al dar de alta en Gestión.'];
+        }
+        $id_persona = isset($resInsert['datos']['id']) ? (int) $resInsert['datos']['id'] : 0;
+        CandidatosDAO::updateEstatus($id_candidato, 'Contratado');
+        $resModulo = CapHumDAO::asignarSoloModuloOnboarding($id_persona);
+        if (!$resModulo['success']) {
+            return ['success' => false, 'mensaje' => $resModulo['mensaje'] ?? 'Error al asignar permiso de Onboarding.'];
+        }
+        $nombreCompleto = trim(implode(' ', [$c['nombres'] ?? '', $c['segundo_nombre'] ?? '', $c['apellidop'] ?? '', $c['apellidom'] ?? '']));
+        $destino = trim($c['email'] ?? '');
+        if ($destino !== '' && filter_var($destino, FILTER_VALIDATE_EMAIL)) {
+            $base = $this->obtenerBaseUrlApp();
+            $dirPublic = defined('RAIZ') ? dirname(RAIZ) . '/public' : (__DIR__ . '/../../public');
+            $rutaLogoInline = null;
+            if (is_file($dirPublic . '/assets/img/logo_correo.png')) {
+                $rutaLogoInline = realpath($dirPublic . '/assets/img/logo_correo.png');
+            } elseif (is_file($dirPublic . '/assets/img/logo___SPARTA_SECRET_REDACTED__.png')) {
+                $rutaLogoInline = realpath($dirPublic . '/assets/img/logo___SPARTA_SECRET_REDACTED__.png');
+            }
+            $logoSrc = $rutaLogoInline ? 'cid:logo__SPARTA_SECRET_REDACTED__' : (rtrim($base, '/') . '/assets/img/logo_correo.png');
+            $urlPlataforma = rtrim($base, '/') . '/';
+            $urlOnboarding = rtrim($base, '/') . '/onboarding/index';
+            $cuerpoBienvenida = '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Bienvenida</title></head><body style="margin:0; padding:0; background-color:#e8eef4; font-family: \'Segoe UI\', Tahoma, sans-serif;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color:#e8eef4;"><tr><td align="center" style="padding: 32px 16px;">
+    <table role="presentation" width="600" cellspacing="0" cellpadding="0" style="max-width:600px; background-color:#ffffff; border-radius:8px; box-shadow: 0 2px 12px rgba(0,0,0,0.08);">
+      <tr><td style="background-color:#1e3a5f; padding: 24px 32px; border-radius: 8px 8px 0 0;"><h1 style="margin:0; color:#ffffff; font-size: 22px;">Bienvenido(a) a MaxiKash</h1><p style="margin: 6px 0 0 0; color: rgba(255,255,255,0.9); font-size: 14px;">Ya formas parte del equipo</p></td></tr>
+      <tr><td style="padding: 32px;">
+        <p style="margin:0 0 16px 0; color:#1a202c; font-size: 16px;">Hola <strong>' . htmlspecialchars($nombreCompleto) . '</strong>,</p>
+        <p style="margin:0 0 16px 0; color:#2d3748; font-size: 15px; line-height: 1.6;">Nos da mucho gusto darte la bienvenida a Maxikash. Ya formas parte del equipo.</p>
+        <p style="margin:0 0 20px 0; color:#2d3748; font-size: 15px; line-height: 1.6;">Para comenzar, entra al <strong>Onboarding</strong> donde encontrarás la información importante para tu incorporación.</p>
+        <p style="margin: 24px 0 16px 0;"><a href="' . htmlspecialchars($urlOnboarding) . '" style="display:inline-block; padding: 14px 28px; background-color:#1e3a5f; color:#ffffff !important; text-decoration:none; border-radius: 8px; font-weight: 600; font-size: 16px;">Entrar al Onboarding</a></p>
+        <p style="margin:0 0 8px 0; color:#718096; font-size: 14px;">También puedes <a href="' . htmlspecialchars($urlPlataforma) . '" style="color:#2c5282;">acceder a la plataforma</a> con tu usuario y contraseña.</p>
+        <p style="margin: 24px 0 0 0; color:#1a202c; font-size: 15px; font-weight: 600;">¡Bienvenido(a)!<br>Equipo de Capital Humano – Maxikash</p>
+      </td></tr>
+      <tr><td style="padding: 16px 32px 24px; background-color:#f7fafc; border-radius: 0 0 8px 8px; border-top: 1px solid #e2e8f0;"><p style="margin:0; color:#718096; font-size: 12px;">Correo generado automáticamente.</p></td></tr>
+    </table>
+  </td></tr></table>
+</body></html>';
+            $this->enviarCorreo($destino, 'Bienvenido(a) a Maxikash', $cuerpoBienvenida, $nombreCompleto, $rutaLogoInline);
+        }
+        return ['success' => true, 'mensaje' => 'OK', 'id_persona' => $id_persona, 'id_candidato' => $id_candidato];
     }
 
     /**
@@ -4607,6 +6123,46 @@ SCR;
             return ['error' => 'La API devolvió una respuesta inválida.'];
         }
         return $data;
+    }
+
+    /**
+     * Llama a la API verificar-constancia-fiscal-documento (Python) con el PDF de constancia fiscal.
+     * @param string $rutaPdf Ruta absoluta al PDF ya subido
+     * @return array|null Respuesta JSON decodificada (valido, mensaje, rfc, curp, fecha_emision, meses_antiguedad, vigencia_ok, actividad_asalariado, regimen_sueldos_salarios); null si error de config/conexión
+     */
+    private function verificarConstanciaFiscalApi($rutaPdf)
+    {
+        $configFile = defined('RAIZ') ? (RAIZ . '/config/config.ini') : (__DIR__ . '/../config/config.ini');
+        if (!is_file($configFile)) {
+            return null;
+        }
+        $config = @parse_ini_file($configFile, true);
+        $apiUrl = trim($config['doc_verificacion']['api_url'] ?? '');
+        $apiKey = trim($config['doc_verificacion']['api_key'] ?? '');
+        if ($apiUrl === '' || $apiKey === '') {
+            return null;
+        }
+        $baseUrl = preg_replace('#/verificar\s*$#', '', $apiUrl);
+        $url = rtrim($baseUrl, '/') . '/verificar-constancia-fiscal-documento';
+        $cfile = new \CURLFile($rutaPdf, 'application/pdf', basename($rutaPdf));
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => ['documento' => $cfile],
+            CURLOPT_HTTPHEADER => ['X-API-Key: ' . $apiKey],
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT => 30,
+            CURLOPT_CONNECTTIMEOUT => 5,
+        ]);
+        $body = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlErr = curl_error($ch);
+        curl_close($ch);
+        if ($body === false || $httpCode !== 200) {
+            return ['valido' => false, 'mensaje' => $curlErr ?: 'La API no respondió correctamente (HTTP ' . $httpCode . ').'];
+        }
+        $data = json_decode($body, true);
+        return is_array($data) ? $data : null;
     }
 
     /**
@@ -4828,6 +6384,10 @@ SCR;
                 $errores[] = ($tiposDocumento[$i] ?? $key) . ': tipo no permitido';
                 continue;
             }
+            if ($i === 6 && $ext !== 'pdf') {
+                $errores[] = 'COMPROBANTE DE DOMICILIO: solo se acepta archivo PDF.';
+                continue;
+            }
             $slug = $slugPorTipo[$i] ?? ('doc_' . $i);
             $nombreArchivo = $slug . '.' . $ext;
             $rutaDestino = $dirExpediente . '/' . $nombreArchivo;
@@ -4838,8 +6398,19 @@ SCR;
             $rutaRelativa = 'candidatos/' . $id_candidato . '/expediente/' . $nombreArchivo;
             $tipoNombre = $tiposDocumento[$i] ?? '';
 
+            $verificacionFiscalJson = null;
+            if ($i === 7 && $ext === 'pdf') {
+                $apiFiscal = $this->verificarConstanciaFiscalApi($rutaDestino);
+                if ($apiFiscal === null || empty($apiFiscal['valido'])) {
+                    @unlink($rutaDestino);
+                    $errores[] = 'CONSTANCIA DE SITUACIÓN FISCAL: ' . ($apiFiscal['mensaje'] ?? 'No se pudo verificar el documento.');
+                    continue;
+                }
+                $verificacionFiscalJson = json_encode($apiFiscal);
+            }
+
             // Misma estrategia que carga_documento_persona: solo guardar ruta en BD, archivo en disco (sin BLOB = rápido).
-            $guardar = CandidatosDAO::guardarDocumento($id_candidato, $nombreOriginal, $rutaRelativa, $tipoNombre);
+            $guardar = CandidatosDAO::guardarDocumento($id_candidato, $nombreOriginal, $rutaRelativa, $tipoNombre, null, null, $verificacionFiscalJson);
             if ($guardar['success']) {
                 $guardados++;
             }
@@ -5376,7 +6947,7 @@ SCR;
         // Primero obtenemos el script de gestion() y lo modificamos
         $scriptGestion = <<<'HTML'
         <script>
-        
+
             // ----- Reingreso (modal Reactivar): necesario en vista Bajas -----
             var archivosSeleccionadosReingreso = [];
             function abrirModalReingreso(idPersona, nombreCompleto) {
@@ -5459,7 +7030,7 @@ SCR;
                 });
             }
             // ----- Fin reingreso -----
-        
+
             const getUsuarios = () => {
             http.request({
                 endpoint: "/caphum/getUsuarios",
@@ -5523,17 +7094,17 @@ SCR;
                         </div>`
                     };
                     });
-        
+
                     // Actualizar DataTable
                     const tabla = $('#historialUsuarios').DataTable();
                     tabla.clear().rows.add(datos).draw();
                 }
             });
         };
-        
+
             // Variable global para almacenar el rango de fechas seleccionado
             let rangoFechasBajas = null;
-            
+
             const getBajas = () => {
                 // Preparar parámetros con filtro de fecha si existe
                 const params = {};
@@ -5541,7 +7112,7 @@ SCR;
                     params.fecha_inicio = rangoFechasBajas.inicio;
                     params.fecha_fin = rangoFechasBajas.fin;
                 }
-                
+
                 // Enviar como JSON usando fetch directamente
                 fetch('/caphum/getBajas', {
                     method: 'POST',
@@ -5573,7 +7144,7 @@ SCR;
                         });
                         return;
                     }
-                    
+
                     // Verificar que resp.datos existe y es un array
                     if (!resp.datos || !Array.isArray(resp.datos)) {
                         console.error('resp.datos no es un array:', resp.datos);
@@ -5585,11 +7156,11 @@ SCR;
                         });
                         return;
                     }
-                    
+
                     // Mapear datos con el nuevo formato de columnas
                     const datos = resp.datos.map(p => {
                         const nombreCompleto = [p.nombres, p.segundo_nombre, p.apellidop, p.apellidom].filter(x => x).join(' ');
-                        
+
                         return {
                             nombres: `
                                 <div class="fw-semibold d-flex align-items-center gap-2">
@@ -5645,9 +7216,9 @@ SCR;
                                     <button class="btn btn-sm btn-success" onclick="abrirModalReingreso(${p.id}, '${(nombreCompleto || '').replace(/'/g, "\\'")}')" title="Reactivar (registrar reingreso)" aria-label="Reactivar">
                                         <i class="fa fa-user-check"></i>
                                     </button>
-                                    <button class="btn btn-sm btn-info" onclick="cargarDocumentoBaja(this)" 
-                                        data-registro-baja="${p.registro_baja ?? ''}" 
-                                        data-nombre="${nombreCompleto.replace(/"/g, '&quot;')}" 
+                                    <button class="btn btn-sm btn-info" onclick="cargarDocumentoBaja(this)"
+                                        data-registro-baja="${p.registro_baja ?? ''}"
+                                        data-nombre="${nombreCompleto.replace(/"/g, '&quot;')}"
                                         title="Cargar documento" aria-label="Cargar documento">
                                         <i class="fa fa-file"></i>
                                     </button>
@@ -5655,10 +7226,10 @@ SCR;
                             `.trim()
                         };
                     });
-                    
+
                     // Actualizar KPIs de Bajas
                     actualizarIndicadoresBajas(resp.datos, rangoFechasBajas !== null);
-        
+
                     // Actualizar DataTable
                     const tabla = $('#historialUsuarios').DataTable();
                     if (tabla) {
@@ -5682,12 +7253,12 @@ SCR;
                     Swal.fire("Error", "No se pudieron cargar las bajas: " + err.message, "error");
                 });
             };
-            
+
             // Función para limpiar el filtro de fecha
             function limpiarFiltroBajas() {
                 // Limpiar la variable global
                 rangoFechasBajas = null;
-                
+
                 // Limpiar el input de flatpickr
                 const flatpickrInput = document.getElementById('flatpickr-range-bajas');
                 if (flatpickrInput) {
@@ -5697,16 +7268,16 @@ SCR;
                     // También limpiar el valor del input directamente
                     flatpickrInput.value = '';
                 }
-                
+
                 // Remover clase active de todos los botones de filtro rápido
                 document.querySelectorAll('.btn-filtro-rapido').forEach(btn => {
                     btn.classList.remove('active');
                 });
-                
+
                 // Recargar todas las bajas sin filtro
                 getBajas();
             }
-            
+
             // Función para descargar las bajas en Excel
             function descargarBajasExcel() {
                 // Preparar parámetros con filtro de fecha si existe (igual que getBajas)
@@ -5715,17 +7286,17 @@ SCR;
                     params.fecha_inicio = rangoFechasBajas.inicio;
                     params.fecha_fin = rangoFechasBajas.fin;
                 }
-                
+
                 // Construir URL con parámetros
                 let url = '/caphum/descargarBajasExcel';
                 const queryParams = new URLSearchParams();
                 if (params.fecha_inicio) queryParams.append('fecha_inicio', params.fecha_inicio);
                 if (params.fecha_fin) queryParams.append('fecha_fin', params.fecha_fin);
-                
+
                 if (queryParams.toString()) {
                     url += '?' + queryParams.toString();
                 }
-                
+
                 // Mostrar mensaje de carga
                 Swal.fire({
                     title: 'Generando Excel...',
@@ -5735,22 +7306,22 @@ SCR;
                         Swal.showLoading();
                     }
                 });
-                
+
                 // Descargar el archivo
                 window.location.href = url;
-                
+
                 // Cerrar el mensaje después de un momento
                 setTimeout(() => {
                     Swal.close();
                 }, 2000);
             }
-            
+
             // Función para inicializar vista de bajas
             function inicializarBajas() {
                 // Ocultar filtros y botón agregar
                 $('.card-header.border-bottom').hide();
                 $('.row.justify-content-between.m-4').hide();
-                
+
                 // Ocultar panel de indicadores de Gestión y mostrar panel de Bajas
                 $('#panelIndicadoresGestion').hide();
                 $('#panelIndicadoresBajas').show();
@@ -5759,17 +7330,17 @@ SCR;
                 if (typeof window.kpiRevealCellsB === 'function') {
                     setTimeout(window.kpiRevealCellsB, 120);
                 }
-                
+
                 // Mostrar filtro de fecha
                 $('#filtroFechaBajas').show();
-                
+
                 // Inicializar flatpickr para rango de fechas
                 const flatpickrInput = document.getElementById('flatpickr-range-bajas');
                 if (flatpickrInput && typeof flatpickr !== 'undefined') {
                     // Obtener fecha de hoy para limitar el máximo
                     const hoy = new Date();
                     hoy.setHours(23, 59, 59, 999); // Fin del día de hoy
-                    
+
                     flatpickr(flatpickrInput, {
                         mode: 'range',
                         dateFormat: 'Y-m-d',
@@ -5792,7 +7363,7 @@ SCR;
                                 document.querySelectorAll('.btn-filtro-rapido').forEach(btn => {
                                     btn.classList.remove('active');
                                 });
-                                
+
                                 rangoFechasBajas = {
                                     inicio: selectedDates[0].toISOString().split('T')[0],
                                     fin: selectedDates[1].toISOString().split('T')[0]
@@ -5807,21 +7378,21 @@ SCR;
                         }
                     });
                 }
-                
+
                 // Agregar evento al botón limpiar
                 const btnLimpiar = document.getElementById('btnLimpiarFiltroBajas');
                 if (btnLimpiar) {
                     btnLimpiar.addEventListener('click', limpiarFiltroBajas);
                 }
-                
+
                 // Agregar evento al botón descargar
                 const btnDescargar = document.getElementById('btnDescargarBajas');
                 if (btnDescargar) {
                     btnDescargar.addEventListener('click', descargarBajasExcel);
                 }
-                
+
                 // Inicializar DataTable con las nuevas columnas
-                const tabla = configuraTabla("#historialUsuarios", { 
+                const tabla = configuraTabla("#historialUsuarios", {
                     registrosPorPagina: 10,
                     columns: [
                         { data: null, defaultContent: '', className: 'control', orderable: false },
@@ -5833,9 +7404,9 @@ SCR;
                         { data: 'acciones', title: 'Acciones', orderable: false }
                     ]
                 });
-                
+
                 // Buscador de nombres desactivado por ahora
-                
+
                 // Asegurar que el select muestre el valor correcto después de la inicialización
                 tabla.on('draw.dt', function() {
                     const select = $('select[name="historialUsuarios_length"]');
@@ -5843,14 +7414,14 @@ SCR;
                         select.val('10');
                     }
                 });
-                
+
                 setTimeout(function() {
                     const select = $('select[name="historialUsuarios_length"]');
                     if (select.length) {
                         select.val('10');
                     }
                 }, 50);
-                
+
                 // Agregar event listeners para los KPIs de Bajas
                 const kpiDepartamentos = document.getElementById('kpi-bajas-departamentos');
                 if (kpiDepartamentos) {
@@ -5858,14 +7429,14 @@ SCR;
                         abrirModalBajas('departamentos');
                     });
                 }
-                
+
                 const kpiPuestos = document.getElementById('kpi-bajas-puestos');
                 if (kpiPuestos) {
                     kpiPuestos.addEventListener('click', function() {
                         abrirModalBajas('puestos');
                     });
                 }
-                
+
                 // Agregar event listeners para los filtros rápidos
                 const botonesFiltroRapido = document.querySelectorAll('.btn-filtro-rapido');
                 botonesFiltroRapido.forEach(boton => {
@@ -5873,26 +7444,26 @@ SCR;
                         aplicarFiltroRapido(this.getAttribute('data-periodo'));
                     });
                 });
-                
+
                 getBajas();
             }
-            
+
             // Función para aplicar filtros rápidos
             function aplicarFiltroRapido(periodo) {
                 const hoy = new Date();
                 let fechaInicio, fechaFin;
-                
+
                 // Remover clase active de todos los botones
                 document.querySelectorAll('.btn-filtro-rapido').forEach(btn => {
                     btn.classList.remove('active');
                 });
-                
+
                 // Agregar clase active al botón seleccionado
                 const botonActivo = document.querySelector(`[data-periodo="${periodo}"]`);
                 if (botonActivo) {
                     botonActivo.classList.add('active');
                 }
-                
+
                 switch(periodo) {
                     case 'ultimo-mes':
                         fechaInicio = new Date(hoy.getFullYear(), hoy.getMonth() - 1, hoy.getDate());
@@ -5919,7 +7490,7 @@ SCR;
                         getBajas();
                         return;
                 }
-                
+
                 // Formatear fechas
                 const formatoFecha = (fecha) => {
                     const year = fecha.getFullYear();
@@ -5927,44 +7498,44 @@ SCR;
                     const day = String(fecha.getDate()).padStart(2, '0');
                     return `${year}-${month}-${day}`;
                 };
-                
+
                 rangoFechasBajas = {
                     inicio: formatoFecha(fechaInicio),
                     fin: formatoFecha(fechaFin)
                 };
-                
+
                 // Actualizar el flatpickr visualmente
                 const flatpickrInput = document.getElementById('flatpickr-range-bajas');
                 if (flatpickrInput && flatpickrInput._flatpickr) {
                     flatpickrInput._flatpickr.setDate([fechaInicio, fechaFin], false);
                 }
-                
+
                 // Recargar datos con el filtro
                 getBajas();
             }
-            
+
             // Array para almacenar archivos ya subidos
             let archivosSubidos = [];
-            
+
             // Función para abrir modal de cargar documento
             function cargarDocumentoBaja(button) {
                 // Obtener datos del botón
                 const registroBaja = button.getAttribute('data-registro-baja');
                 const nombreCompleto = button.getAttribute('data-nombre');
-                
+
                 // Guardar el registro de baja en un campo oculto del modal
                 document.getElementById('cargarDoc_registroBaja').value = registroBaja || '';
                 document.getElementById('cargarDoc_nombrePersona').textContent = 'Persona: ' + (nombreCompleto || 'N/A');
-                
+
                 // Limpiar el select y el input de archivo
                 document.getElementById('cargarDoc_tipoDocumento').value = 'Documento Baja';
                 document.getElementById('cargarDoc_archivo').value = '';
                 document.getElementById('cargarDoc_nombreArchivo').textContent = 'No se ha seleccionado ningún archivo';
-                
+
                 // Limpiar la lista de archivos nuevos
                 archivosSeleccionados = [];
                 document.getElementById('cargarDoc_listaArchivos').style.display = 'none';
-                
+
                 // Cargar archivos existentes
                 if (registroBaja) {
                     cargarArchivosExistentes(registroBaja);
@@ -5976,18 +7547,18 @@ SCR;
                         </tr>
                     `;
                 }
-                
+
                 // Abrir el modal
                 $('#modalCargarDocumentoBaja').modal('show');
             }
-            
+
             // Función para cargar archivos existentes
             function cargarArchivosExistentes(registroBaja) {
                 fetch('/caphum/getDocumentosBaja?registro_baja=' + registroBaja)
-                    .then(res => res.json())                
+                    .then(res => res.json())
                     .then(resp => {
                         if (resp.success && resp.datos) {
-                            archivosSubidos = resp.datos;                                                                                                       
+                            archivosSubidos = resp.datos;
                             renderizarArchivosSubidos();
                         } else {
                             archivosSubidos = [];
@@ -6000,7 +7571,7 @@ SCR;
                         renderizarArchivosSubidos();
                     });
             }
-            
+
             // Función para formatear fecha
             function formatearFecha(fechaStr) {
                 if (!fechaStr) return 'N/A';
@@ -6016,12 +7587,12 @@ SCR;
                     return fechaStr;
                 }
             }
-            
+
             // Función para renderizar archivos ya subidos en tabla
             function renderizarArchivosSubidos() {
                 const tablaArchivos = document.getElementById('cargarDoc_tablaArchivos');
                 const listaArchivos = document.getElementById('cargarDoc_listaArchivos');
-                
+
                 // Renderizar tabla de archivos subidos
                 if (archivosSubidos.length === 0) {
                     tablaArchivos.innerHTML = `
@@ -6044,18 +7615,18 @@ SCR;
                                     <span class="badge bg-success">Sí</span>
                                 </td>
                                 <td>
-                                    <button 
-                                        type="button" 
-                                        class="btn btn-sm btn-info me-1" 
-                                        onclick="verArchivoSubido('${archivoEscapado}')" 
+                                    <button
+                                        type="button"
+                                        class="btn btn-sm btn-info me-1"
+                                        onclick="verArchivoSubido('${archivoEscapado}')"
                                         title="Ver archivo"
                                     >
                                         Ver
                                     </button>
-                                    <button 
-                                        type="button" 
-                                        class="btn btn-sm btn-danger" 
-                                        onclick="eliminarArchivoSubido(${doc.id}, '${archivoEscapado}')" 
+                                    <button
+                                        type="button"
+                                        class="btn btn-sm btn-danger"
+                                        onclick="eliminarArchivoSubido(${doc.id}, '${archivoEscapado}')"
                                         title="Eliminar archivo"
                                     >
                                         <i class="fa fa-trash"></i>
@@ -6066,7 +7637,7 @@ SCR;
                     });
                     tablaArchivos.innerHTML = htmlTabla;
                 }
-                
+
                 // Renderizar lista de archivos nuevos seleccionados (antes de subir)
                 if (archivosSeleccionados.length > 0) {
                     listaArchivos.style.display = 'block';
@@ -6082,19 +7653,19 @@ SCR;
                                     </span>
                                 </div>
                                 <div class="d-flex align-items-center gap-2">
-                                    <button 
-                                        type="button" 
-                                        class="btn btn-sm btn-info p-1" 
-                                        onclick="verArchivoCargado(${index})" 
+                                    <button
+                                        type="button"
+                                        class="btn btn-sm btn-info p-1"
+                                        onclick="verArchivoCargado(${index})"
                                         title="Ver archivo"
                                         style="width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;"
                                     >
                                         <i class="fa fa-eye" style="font-size: 12px;"></i>
                                     </button>
-                                    <button 
-                                        type="button" 
-                                        class="btn btn-sm btn-danger p-1" 
-                                        onclick="eliminarArchivoCargado(${index})" 
+                                    <button
+                                        type="button"
+                                        class="btn btn-sm btn-danger p-1"
+                                        onclick="eliminarArchivoCargado(${index})"
                                         title="Eliminar archivo"
                                         style="width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;"
                                     >
@@ -6110,20 +7681,20 @@ SCR;
                     listaArchivos.innerHTML = '';
                 }
             }
-            
+
             // Array para almacenar los archivos seleccionados
             let archivosSeleccionados = [];
-            
+
             // Función para seleccionar archivo
             function seleccionarArchivoDocumento() {
                 document.getElementById('cargarDoc_archivo').click();
             }
-            
+
             // Función para agregar archivos a la lista
             function agregarArchivoLista(input) {
                 const listaArchivos = document.getElementById('cargarDoc_listaArchivos');
                 const nombreArchivoSpan = document.getElementById('cargarDoc_nombreArchivo');
-                
+
                 if (input.files && input.files.length > 0) {
                     // Agregar nuevos archivos al array
                     for (let i = 0; i < input.files.length; i++) {
@@ -6134,38 +7705,38 @@ SCR;
                             archivosSeleccionados.push(file);
                         }
                     }
-                    
+
                     // Actualizar el texto
                     if (archivosSeleccionados.length > 0) {
                         nombreArchivoSpan.textContent = archivosSeleccionados.length + ' archivo(s) seleccionado(s)';
                     } else {
                         nombreArchivoSpan.textContent = 'No se ha seleccionado ningún archivo';
                     }
-                    
+
                     // Renderizar la lista
                     renderizarArchivosSubidos();
                 } else {
                     nombreArchivoSpan.textContent = 'No se ha seleccionado ningún archivo';
                 }
             }
-            
-            
+
+
             // Función para eliminar un archivo de la lista (nuevo, no subido)
             function eliminarArchivoCargado(index) {
                 archivosSeleccionados.splice(index, 1);
                 renderizarArchivosSubidos();
-                
+
                 const nombreArchivoSpan = document.getElementById('cargarDoc_nombreArchivo');
                 if (archivosSeleccionados.length > 0) {
                     nombreArchivoSpan.textContent = archivosSeleccionados.length + ' archivo(s) seleccionado(s)';
                 } else {
                     nombreArchivoSpan.textContent = 'No se ha seleccionado ningún archivo';
                 }
-                
+
                 // Limpiar el input file
                 document.getElementById('cargarDoc_archivo').value = '';
             }
-            
+
             // Función para eliminar un archivo ya subido
             function eliminarArchivoSubido(idDocumento, nombreArchivo) {
                 Swal.fire({
@@ -6179,7 +7750,7 @@ SCR;
                     if (result.isConfirmed) {
                         const formData = new FormData();
                         formData.append('id_documento', idDocumento);
-                        
+
                         fetch('/caphum/eliminarDocumentoBaja', {
                             method: 'POST',
                             body: formData
@@ -6194,7 +7765,7 @@ SCR;
                                     timer: 2000,
                                     showConfirmButton: false
                                 });
-                                
+
                                 // Recargar la lista de archivos
                                 const registroBaja = document.getElementById('cargarDoc_registroBaja').value;
                                 if (registroBaja) {
@@ -6226,7 +7797,7 @@ SCR;
                     }
                 });
             }
-            
+
             // Función para ver un archivo nuevo (no subido)
             function verArchivoCargado(index) {
                 const file = archivosSeleccionados[index];
@@ -6237,13 +7808,13 @@ SCR;
                     window.open(url, '_blank');
                 }
             }
-            
+
             // Función para ver un archivo ya subido
             function verArchivoSubido(nombreArchivo) {
                 const url = '/caphum/verDocumentoBaja?archivo=' + encodeURIComponent(nombreArchivo);
                 window.open(url, '_blank');
             }
-            
+
             // Función para marcar archivo como verificado
             function marcarArchivoVerificado(index) {
                 const file = archivosSeleccionados[index];
@@ -6257,12 +7828,12 @@ SCR;
                     });
                 }
             }
-            
+
             // Función para subir documento
             function subirDocumentoBaja() {
                 const tipoDocumento = document.getElementById('cargarDoc_tipoDocumento').value;
                 const registroBaja = document.getElementById('cargarDoc_registroBaja').value;
-                
+
                 if (!tipoDocumento) {
                     Swal.fire({
                         icon: 'warning',
@@ -6271,7 +7842,7 @@ SCR;
                     });
                     return;
                 }
-                
+
                 if (archivosSeleccionados.length === 0) {
                     Swal.fire({
                         icon: 'warning',
@@ -6280,7 +7851,7 @@ SCR;
                     });
                     return;
                 }
-                
+
                 if (!registroBaja) {
                     Swal.fire({
                         icon: 'error',
@@ -6289,7 +7860,7 @@ SCR;
                     });
                     return;
                 }
-                
+
                 // Mostrar loading
                 Swal.fire({
                     title: 'Subiendo archivos...',
@@ -6299,16 +7870,16 @@ SCR;
                         Swal.showLoading();
                     }
                 });
-                
+
                 // Crear FormData
                 const formData = new FormData();
                 formData.append('registro_baja', registroBaja);
-                
+
                 // Agregar archivos
                 archivosSeleccionados.forEach((file, index) => {
                     formData.append('archivosPDF[]', file);
                 });
-                
+
                 // Enviar al servidor
                 fetch('/caphum/subirDocumentosBaja', {
                     method: 'POST',
@@ -6317,7 +7888,7 @@ SCR;
                 .then(res => res.json())
                 .then(resp => {
                     Swal.close();
-                    
+
                     if (resp.success) {
                         Swal.fire({
                             icon: 'success',
@@ -6326,12 +7897,12 @@ SCR;
                             timer: 2000,
                             showConfirmButton: false
                         });
-                        
+
                         // Limpiar archivos seleccionados
                         archivosSeleccionados = [];
                         document.getElementById('cargarDoc_archivo').value = '';
                         document.getElementById('cargarDoc_nombreArchivo').textContent = 'No se ha seleccionado ningún archivo';
-                        
+
                         // Recargar lista de archivos
                         cargarArchivosExistentes(registroBaja);
                     } else {
@@ -6352,29 +7923,29 @@ SCR;
                     });
                 });
             }
-            
+
             $(document).ready(() => {
                 inicializarBajas();
             });
-            
+
             // ==========================================
             // FUNCIONES PARA CARGAR DOCUMENTOS DE PERSONA (GESTIÓN)
             // ==========================================
-            
+
             // Array para almacenar archivos seleccionados (Gestión)
             let archivosSeleccionadosPersona = [];
             let archivosSubidosPersona = [];
-            
+
             // Alias para el botón "Ver archivo" de la tabla (recibe id de persona)
             function verArchivo(idPersona) {
                 cargarDocumentoPersona(idPersona);
             }
-            
+
             // Función para abrir modal de cargar documento de persona
             function cargarDocumentoPersona(button) {
                 let idPersona, nombreCompleto;
                 const esIdDirecto = typeof button === 'number' || (typeof button === 'string' && button !== '' && !isNaN(Number(button)));
-                
+
                 if (esIdDirecto) {
                     idPersona = String(button);
                     nombreCompleto = 'N/A';
@@ -6398,27 +7969,27 @@ SCR;
                         return;
                     }
                 }
-                
+
                 // Guardar el ID de persona en un campo oculto del modal
                 document.getElementById('cargarDocPersona_idPersona').value = idPersona || '';
                 document.getElementById('cargarDocPersona_nombrePersona').textContent = 'Persona: ' + (nombreCompleto || 'N/A');
-                
+
                 // Limpiar el select y el input de archivo
                 const selectTipo = document.getElementById('cargarDocPersona_tipoDocumento');
                 selectTipo.value = '';
                 document.getElementById('cargarDocPersona_archivo').value = '';
                 document.getElementById('cargarDocPersona_nombreArchivo').textContent = 'No se ha seleccionado ningún archivo';
-                
+
                 // Limpiar la lista de archivos nuevos
                 archivosSeleccionadosPersona = [];
                 document.getElementById('cargarDocPersona_listaArchivos').style.display = 'none';
-                
+
                 // Primero resetear todas las opciones del select para que sean visibles
                 Array.from(selectTipo.options).forEach(option => {
                     option.style.display = 'block';
                     option.disabled = false;
                 });
-                
+
                 // Cargar archivos existentes (esto actualizará el select automáticamente ocultando los únicos ya subidos)
                 if (idPersona) {
                     cargarArchivosExistentesPersona(idPersona);
@@ -6426,17 +7997,17 @@ SCR;
                     // Si no hay ID, al menos actualizar el select para mostrar todas las opciones
                     actualizarSelectDocumentos();
                 }
-                
+
                 // Actualizar el atributo multiple del input file según el tipo de documento
                 const inputFile = document.getElementById('cargarDocPersona_archivo');
-                
+
                 // Remover listeners anteriores si existen para evitar duplicados
                 const nuevoSelectTipo = selectTipo.cloneNode(true);
                 selectTipo.parentNode.replaceChild(nuevoSelectTipo, selectTipo);
-                
+
                 // Actualizar la referencia al nuevo elemento
                 const selectTipoActualizado = document.getElementById('cargarDocPersona_tipoDocumento');
-                
+
                 selectTipoActualizado.addEventListener('change', function() {
                     const tipoDoc = this.value;
                     if (tipoDoc && !permiteMultiplesArchivos(tipoDoc)) {
@@ -6445,24 +8016,24 @@ SCR;
                     } else {
                         inputFile.setAttribute('multiple', 'multiple');
                     }
-                    
+
                     // Limpiar archivos seleccionados cuando cambia el tipo
                     archivosSeleccionadosPersona = [];
                     inputFile.value = '';
                     document.getElementById('cargarDocPersona_nombreArchivo').textContent = 'No se ha seleccionado ningún archivo';
                     document.getElementById('cargarDocPersona_listaArchivos').style.display = 'none';
                 });
-                
+
                 // Mostrar modal
                 const modal = new bootstrap.Modal(document.getElementById('modalCargarDocumentoPersona'));
                 modal.show();
             }
-            
+
             // Función para seleccionar archivo
             function seleccionarArchivoDocumentoPersona() {
                 document.getElementById('cargarDocPersona_archivo').click();
             }
-            
+
             // Tipos de documentos que solo permiten un archivo
             const documentosUnicos = [
                 'Acta de Nacimiento',
@@ -6472,16 +8043,16 @@ SCR;
                 'Identificación Oficial (INE)',
                 'RFC'
             ];
-            
+
             // Función para verificar si un tipo de documento permite múltiples archivos
             function permiteMultiplesArchivos(tipoDocumento) {
                 return !documentosUnicos.includes(tipoDocumento);
             }
-            
+
             // Función para agregar archivo a la lista
             function agregarArchivoListaPersona(input) {
                 const tipoDocumento = document.getElementById('cargarDocPersona_tipoDocumento').value;
-                
+
                 if (!tipoDocumento) {
                     Swal.fire({
                         icon: 'warning',
@@ -6491,14 +8062,14 @@ SCR;
                     input.value = '';
                     return;
                 }
-                
+
                 // Verificar si ya existe un documento de este tipo subido
                 const esUnico = !permiteMultiplesArchivos(tipoDocumento);
                 if (esUnico) {
                     // Verificar si ya hay un archivo de este tipo en los archivos subidos
                     const idDocumento = obtenerIdDocumentoPorNombre(tipoDocumento);
                     const existeDocumento = archivosSubidosPersona.some(doc => doc.id_documento === idDocumento);
-                    
+
                     if (existeDocumento) {
                         Swal.fire({
                             icon: 'warning',
@@ -6508,7 +8079,7 @@ SCR;
                         input.value = '';
                         return;
                     }
-                    
+
                     // Verificar si ya hay un archivo seleccionado de este tipo
                     if (archivosSeleccionadosPersona.length > 0) {
                         Swal.fire({
@@ -6520,10 +8091,10 @@ SCR;
                         return;
                     }
                 }
-                
+
                 if (input.files && input.files.length > 0) {
                     const archivosValidos = [];
-                    
+
                     Array.from(input.files).forEach(file => {
                         if (file.type === 'application/pdf') {
                             // Si es documento único, solo permitir un archivo
@@ -6538,22 +8109,22 @@ SCR;
                             archivosValidos.push(file);
                         }
                     });
-                    
+
                     // Agregar archivos válidos
                     archivosValidos.forEach(file => {
                         archivosSeleccionadosPersona.push(file);
                     });
-                    
+
                     // Actualizar contador
                     const count = archivosSeleccionadosPersona.length;
-                    document.getElementById('cargarDocPersona_nombreArchivo').textContent = 
+                    document.getElementById('cargarDocPersona_nombreArchivo').textContent =
                         count > 0 ? `${count} archivo(s) seleccionado(s)` : 'No se ha seleccionado ningún archivo';
-                    
+
                     // Renderizar lista
                     renderArchivosSubidosPersona();
                 }
             }
-            
+
             // Función auxiliar para obtener ID de documento (usando IDs reales de la BD)
             function obtenerIdDocumentoPorNombre(nombre) {
                 const mapaDocumentos = {
@@ -6571,19 +8142,19 @@ SCR;
                 };
                 return mapaDocumentos[nombre] || null;
             }
-            
+
             // Función para renderizar archivos
             function renderArchivosSubidosPersona() {
                 const listaArchivos = document.getElementById('cargarDocPersona_listaArchivos');
                 const tablaArchivos = document.getElementById('cargarDocPersona_tablaArchivos');
-                
+
                 // Renderizar tabla de archivos subidos
                 if (archivosSubidosPersona.length > 0) {
                     let htmlTabla = '';
                     archivosSubidosPersona.forEach(doc => {
                         const fechaFormateada = doc.fecha_carga || 'N/A';
                         const archivoEscapado = (doc.archivo || '').replace(/'/g, "\\'");
-                        
+
                         var contexto = obtenerContextoDocumento(doc.id_documento);
                         htmlTabla += `
                             <tr>
@@ -6595,18 +8166,18 @@ SCR;
                                     <span class="badge bg-success">Sí</span>
                                 </td>
                                 <td>
-                                    <button 
-                                        type="button" 
-                                        class="btn btn-sm btn-info me-1" 
-                                        onclick="verArchivoSubidoPersona('${archivoEscapado}')" 
+                                    <button
+                                        type="button"
+                                        class="btn btn-sm btn-info me-1"
+                                        onclick="verArchivoSubidoPersona('${archivoEscapado}')"
                                         title="Ver archivo"
                                     >
                                         Ver
                                     </button>
-                                    <button 
-                                        type="button" 
-                                        class="btn btn-sm btn-danger" 
-                                        onclick="eliminarArchivoSubidoPersona(${doc.id}, '${archivoEscapado}')" 
+                                    <button
+                                        type="button"
+                                        class="btn btn-sm btn-danger"
+                                        onclick="eliminarArchivoSubidoPersona(${doc.id}, '${archivoEscapado}')"
                                         title="Eliminar archivo"
                                     >
                                         <i class="fa fa-trash"></i>
@@ -6619,7 +8190,7 @@ SCR;
                 } else {
                     tablaArchivos.innerHTML = '<tr><td colspan="6" class="text-center text-muted">No hay archivos subidos</td></tr>';
                 }
-                
+
                 // Renderizar lista de archivos nuevos seleccionados (antes de subir)
                 if (archivosSeleccionadosPersona.length > 0) {
                     listaArchivos.style.display = 'block';
@@ -6635,19 +8206,19 @@ SCR;
                                     </span>
                                 </div>
                                 <div class="d-flex gap-1">
-                                    <button 
-                                        type="button" 
-                                        class="btn btn-sm btn-info p-1" 
-                                        onclick="verArchivoCargadoPersona(${index})" 
+                                    <button
+                                        type="button"
+                                        class="btn btn-sm btn-info p-1"
+                                        onclick="verArchivoCargadoPersona(${index})"
                                         title="Ver archivo"
                                         style="width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;"
                                     >
                                         <i class="fa fa-eye" style="font-size: 12px;"></i>
                                     </button>
-                                    <button 
-                                        type="button" 
-                                        class="btn btn-sm btn-danger p-1" 
-                                        onclick="eliminarArchivoCargadoPersona(${index})" 
+                                    <button
+                                        type="button"
+                                        class="btn btn-sm btn-danger p-1"
+                                        onclick="eliminarArchivoCargadoPersona(${index})"
                                         title="Eliminar archivo"
                                         style="width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;"
                                     >
@@ -6662,7 +8233,7 @@ SCR;
                     listaArchivos.style.display = 'none';
                 }
             }
-            
+
             function obtenerContextoDocumento(idDocumento) {
                 if (idDocumento == 15) return '<span class="badge bg-danger">Baja</span>';
                 if (idDocumento == 16) return '<span class="badge bg-success">Reingreso</span>';
@@ -6682,12 +8253,12 @@ SCR;
                 };
                 return mapeo[idDocumento] || 'Documento';
             }
-            
+
             // Función para actualizar el select de documentos, ocultando los únicos que ya están subidos
             function actualizarSelectDocumentos() {
                 const selectTipo = document.getElementById('cargarDocPersona_tipoDocumento');
                 if (!selectTipo) return;
-                
+
                 // Obtener todos los IDs de documentos únicos que ya están subidos
                 const documentosUnicosSubidos = new Set();
                 archivosSubidosPersona.forEach(doc => {
@@ -6698,14 +8269,14 @@ SCR;
                         documentosUnicosSubidos.add(nombreDoc);
                     }
                 });
-                
+
                 // Verificar si el valor actual del select es un documento único ya subido
                 const valorActual = selectTipo.value;
                 if (valorActual && !permiteMultiplesArchivos(valorActual) && documentosUnicosSubidos.has(valorActual)) {
                     // Si el documento seleccionado es único y ya está subido, limpiar el select
                     selectTipo.value = '';
                 }
-                
+
                 // Recorrer todas las opciones del select
                 Array.from(selectTipo.options).forEach(option => {
                     const valor = option.value;
@@ -6719,7 +8290,7 @@ SCR;
                     }
                 });
             }
-            
+
             // Función para cargar archivos existentes
             function cargarArchivosExistentesPersona(idPersona) {
                 fetch('/caphum/getDocumentosPersona?id_persona=' + idPersona)
@@ -6743,16 +8314,16 @@ SCR;
                         actualizarSelectDocumentos();
                     });
             }
-            
+
             // Función para eliminar archivo cargado (nuevo, antes de subir)
             function eliminarArchivoCargadoPersona(index) {
                 archivosSeleccionadosPersona.splice(index, 1);
                 const count = archivosSeleccionadosPersona.length;
-                document.getElementById('cargarDocPersona_nombreArchivo').textContent = 
+                document.getElementById('cargarDocPersona_nombreArchivo').textContent =
                     count > 0 ? `${count} archivo(s) seleccionado(s)` : 'No se ha seleccionado ningún archivo';
                 renderArchivosSubidosPersona();
             }
-            
+
             // Función para eliminar archivo subido (ya en BD)
             function eliminarArchivoSubidoPersona(idDocumento, nombreArchivo) {
                 Swal.fire({
@@ -6768,7 +8339,7 @@ SCR;
                     if (result.isConfirmed) {
                         const formData = new FormData();
                         formData.append('id_documento', idDocumento);
-                        
+
                         fetch('/caphum/eliminarDocumentoPersona', {
                             method: 'POST',
                             body: formData
@@ -6783,7 +8354,7 @@ SCR;
                                     timer: 2000,
                                     showConfirmButton: false
                                 });
-                                
+
                                 // Recargar lista (esto también actualizará el select)
                                 const idPersona = document.getElementById('cargarDocPersona_idPersona').value;
                                 if (idPersona) {
@@ -6808,7 +8379,7 @@ SCR;
                     }
                 });
             }
-            
+
             // Función para ver un archivo nuevo (no subido)
             function verArchivoCargadoPersona(index) {
                 const file = archivosSeleccionadosPersona[index];
@@ -6817,13 +8388,13 @@ SCR;
                     window.open(url, '_blank');
                 }
             }
-            
+
             // Función para ver un archivo ya subido
             function verArchivoSubidoPersona(nombreArchivo) {
                 const url = '/caphum/verDocumentoPersona?archivo=' + encodeURIComponent(nombreArchivo);
                 window.open(url, '_blank');
             }
-            
+
             const mapaDocumentosIds = {
                 'CURP': 8,
                 'Identificación Oficial (INE)': 9,
@@ -6835,12 +8406,12 @@ SCR;
                 'Documento baja': 15,
                 'Documento reingreso': 16
             };
-            
+
             // Función para subir documento de persona
             function subirDocumentoPersona() {
                 const tipoDocumento = document.getElementById('cargarDocPersona_tipoDocumento').value;
                 const idPersona = document.getElementById('cargarDocPersona_idPersona').value;
-                
+
                 if (!tipoDocumento) {
                     Swal.fire({
                         icon: 'warning',
@@ -6849,7 +8420,7 @@ SCR;
                     });
                     return;
                 }
-                
+
                 // Obtener ID del documento usando el mapeo directo
                 const idDocumento = mapaDocumentosIds[tipoDocumento];
                 if (!idDocumento) {
@@ -6860,7 +8431,7 @@ SCR;
                     });
                     return;
                 }
-                
+
                 if (archivosSeleccionadosPersona.length === 0) {
                     Swal.fire({
                         icon: 'warning',
@@ -6869,7 +8440,7 @@ SCR;
                     });
                     return;
                 }
-                
+
                 if (!idPersona) {
                     Swal.fire({
                         icon: 'error',
@@ -6878,7 +8449,7 @@ SCR;
                     });
                     return;
                 }
-                
+
                 // Mostrar loading
                 Swal.fire({
                     title: 'Subiendo archivos...',
@@ -6888,17 +8459,17 @@ SCR;
                         Swal.showLoading();
                     }
                 });
-                
+
                 // Crear FormData
                 const formData = new FormData();
                 formData.append('id_persona', idPersona);
                 formData.append('id_documento', idDocumento);  // Enviar ID directamente
-                
+
                 // Agregar archivos
                 archivosSeleccionadosPersona.forEach((file) => {
                     formData.append('archivosPDF[]', file);
                 });
-                
+
                 // Enviar al servidor
                 fetch('/caphum/subirDocumentosPersona', {
                     method: 'POST',
@@ -6919,7 +8490,7 @@ SCR;
                 })
                 .then(resp => {
                     Swal.close();
-                    
+
                     if (resp.success) {
                         Swal.fire({
                             icon: 'success',
@@ -6928,13 +8499,13 @@ SCR;
                             timer: 2000,
                             showConfirmButton: false
                         });
-                        
+
                         // Limpiar archivos seleccionados
                         archivosSeleccionadosPersona = [];
                         document.getElementById('cargarDocPersona_archivo').value = '';
                         document.getElementById('cargarDocPersona_nombreArchivo').textContent = 'No se ha seleccionado ningún archivo';
                         document.getElementById('cargarDocPersona_listaArchivos').style.display = 'none';
-                        
+
                         // Si es un documento único, limpiar el select de tipo de documento
                         // (Referencias Laborales y Documento baja permiten múltiples, así que no se limpian)
                         if (!permiteMultiplesArchivos(tipoDocumento)) {
@@ -6943,7 +8514,7 @@ SCR;
                                 selectTipoDoc.value = '';
                             }
                         }
-                        
+
                         // Recargar lista de archivos (esto también actualizará el select ocultando los únicos ya subidos)
                         cargarArchivosExistentesPersona(idPersona);
                     } else {
@@ -7028,7 +8599,7 @@ SCR;
             $input = json_decode(file_get_contents("php://input"), true);
             $fecha_inicio = $input['fecha_inicio'] ?? null;
             $fecha_fin = $input['fecha_fin'] ?? null;
-            
+
             // Validar formato de fechas si se proporcionan
             if ($fecha_inicio && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha_inicio)) {
                 self::respuestaJSON([
@@ -7037,7 +8608,7 @@ SCR;
                 ]);
                 return;
             }
-            
+
             if ($fecha_fin && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha_fin)) {
                 self::respuestaJSON([
                     'success' => false,
@@ -7045,9 +8616,9 @@ SCR;
                 ]);
                 return;
             }
-            
+
             $resultado = CapHumDAO::getConsultaBajas($fecha_inicio, $fecha_fin);
-            
+
             // Verificar si hubo error en el DAO
             if (!$resultado) {
                 self::respuestaJSON([
@@ -7057,7 +8628,7 @@ SCR;
                 ]);
                 return;
             }
-            
+
             // El método resultado devuelve ['success' => bool, 'mensaje' => string, 'datos' => array]
             if (!isset($resultado['success']) || $resultado['success'] === false) {
                 self::respuestaJSON([
@@ -7068,7 +8639,7 @@ SCR;
                 ]);
                 return;
             }
-            
+
             $bajas = $resultado['datos'] ?? [];
 
             // Preparar array compatible con frontend con todos los nuevos campos
@@ -7112,7 +8683,7 @@ SCR;
         }
     }
 
-    
+
 
     public function descargarBajasExcel()
     {
@@ -7120,35 +8691,35 @@ SCR;
         while (ob_get_level()) {
             ob_end_clean();
         }
-        
+
         try {
             // Obtener parámetros de fecha del GET
             $fecha_inicio = $_GET['fecha_inicio'] ?? null;
             $fecha_fin = $_GET['fecha_fin'] ?? null;
-            
+
             // Validar formato de fechas si se proporcionan
             if ($fecha_inicio && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha_inicio)) {
                 die('Formato de fecha de inicio inválido');
             }
-            
+
             if ($fecha_fin && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha_fin)) {
                 die('Formato de fecha de fin inválido');
             }
-            
+
             // Obtener las bajas con los mismos filtros
             $resultado = CapHumDAO::getConsultaBajas($fecha_inicio, $fecha_fin);
-            
+
             // Verificar si hubo error
             if (!$resultado || !isset($resultado['success']) || !$resultado['success']) {
                 die('Error al obtener las bajas: ' . ($resultado['mensaje'] ?? 'Error desconocido'));
             }
-            
+
             $bajas = $resultado['datos'] ?? [];
-            
+
             if (empty($bajas)) {
                 die('No hay bajas para descargar');
             }
-            
+
             // Preparar datos para Excel
             $data = [];
             foreach ($bajas as $baja) {
@@ -7161,7 +8732,7 @@ SCR;
                         // Mantener el formato original si hay error
                     }
                 }
-                
+
                 $data[] = [
                     'external_id' => $baja['external_id'] ?? '',
                     'numero_empleado' => $baja['numero_empleado'] ?? '',
@@ -7175,7 +8746,7 @@ SCR;
                     'user_name' => $baja['user_name'] ?? 'N/A'
                 ];
             }
-            
+
             // Definir columnas para Excel
             $columnas = [
                 \PHPSpreadsheet::ColumnaExcel('external_id', 'External ID'),
@@ -7189,7 +8760,7 @@ SCR;
                 \PHPSpreadsheet::ColumnaExcel('descripcion', 'DESCRIPCIÓN'),
                 \PHPSpreadsheet::ColumnaExcel('user_name', 'USUARIO')
             ];
-            
+
             // Generar nombre del archivo
             $nombreArchivo = 'Bajas';
             if ($fecha_inicio && $fecha_fin) {
@@ -7200,7 +8771,7 @@ SCR;
                 $nombreArchivo .= '_hasta_' . $fecha_fin;
             }
             $nombreArchivo .= '_' . date('Y-m-d');
-            
+
             // Descargar Excel directamente
             \PHPSpreadsheet::DescargaExcel(
                 $nombreArchivo,
@@ -7209,7 +8780,7 @@ SCR;
                 $columnas,
                 $data
             );
-            
+
             // Terminar ejecución para que no se agregue nada extra
             exit;
         } catch (\Exception $e) {
@@ -7549,7 +9120,7 @@ public function getMunicipios()
     {
         $script = <<<HTML
             <script>
-               
+
             </script>
         HTML;
 
@@ -7607,7 +9178,7 @@ public function getMunicipios()
         self::respuestaJSON($resp);
     }
 
-    /// ESTA NO SE MUEVE 
+    /// ESTA NO SE MUEVE
     public function nivelJerarquicoColaborador($persona_id)
     {
         $persona_id = (int) ($persona_id ?? 0);
@@ -7620,7 +9191,7 @@ public function getMunicipios()
 
         // 1️⃣ Obtener organigrama desde la DAO (solo personas con puesto en el departamento si se envía)
         $personas = CapHumDAO::getConsultaPersonasJerarquia($persona_id, $id_departamento);
-        
+
         // 🔍 Debug: verificar qué se está devolviendo
         if (!$personas['success'] || empty($personas["datos"])) {
             header('Content-Type: application/json');
@@ -7631,7 +9202,7 @@ public function getMunicipios()
             ]);
             exit;
         }
-        
+
         $primeraFila = $personas["datos"][0] ?? [];
         $organigramaJson = $primeraFila["organigrama_json"] ?? $primeraFila["ORGANIGRAMA_JSON"] ?? null;
 
@@ -7644,7 +9215,7 @@ public function getMunicipios()
             ]);
             exit;
         }
-        
+
         $organigrama = json_decode($organigramaJson, true);
         if (!is_array($organigrama)) {
             header('Content-Type: application/json');
@@ -8016,7 +9587,7 @@ public function getMunicipios()
     {
         try {
             $registro_baja = $_GET['registro_baja'] ?? null;
-            
+
             if (!$registro_baja) {
                 self::respuestaJSON([
                     'success' => false,
@@ -8025,10 +9596,10 @@ public function getMunicipios()
                 ]);
                 return;
             }
-            
+
             $resultado = CapHumDAO::getDocumentosBaja($registro_baja);
             self::respuestaJSON($resultado);
-            
+
         } catch (\Exception $e) {
             self::respuestaJSON([
                 'success' => false,
@@ -8067,7 +9638,7 @@ public function getMunicipios()
     {
         try {
             $registro_baja = $_POST['registro_baja'] ?? null;
-            
+
             if (!$registro_baja) {
                 self::respuestaJSON([
                     'success' => false,
@@ -8075,7 +9646,7 @@ public function getMunicipios()
                 ]);
                 return;
             }
-            
+
             if (empty($_FILES['archivosPDF']['name'][0])) {
                 self::respuestaJSON([
                     'success' => false,
@@ -8083,7 +9654,7 @@ public function getMunicipios()
                 ]);
                 return;
             }
-            
+
             $directorio = __DIR__ . '/../uploads/bajas/';
             SecureUpload::ensureDir($directorio);
 
@@ -8102,7 +9673,7 @@ public function getMunicipios()
                     $archivosGuardados[] = $nombreFinal;
                 }
             }
-            
+
             if (empty($archivosGuardados)) {
                 self::respuestaJSON([
                     'success' => false,
@@ -8110,11 +9681,11 @@ public function getMunicipios()
                 ]);
                 return;
             }
-            
+
             // Guardar en base de datos
             $resultado = CapHumDAO::guardarDocumentosBaja($registro_baja, $archivosGuardados);
             self::respuestaJSON($resultado);
-            
+
         } catch (\Exception $e) {
             self::respuestaJSON([
                 'success' => false,
@@ -8130,7 +9701,7 @@ public function getMunicipios()
     {
         try {
             $id_documento = $_POST['id_documento'] ?? null;
-            
+
             if (!$id_documento) {
                 self::respuestaJSON([
                     'success' => false,
@@ -8138,10 +9709,10 @@ public function getMunicipios()
                 ]);
                 return;
             }
-            
+
             $resultado = CapHumDAO::eliminarDocumentoBaja($id_documento);
             self::respuestaJSON($resultado);
-            
+
         } catch (\Exception $e) {
             self::respuestaJSON([
                 'success' => false,
@@ -8157,44 +9728,44 @@ public function getMunicipios()
     {
         try {
             $nombreArchivo = $_GET['archivo'] ?? null;
-            
+
             if (!$nombreArchivo) {
                 http_response_code(400);
                 echo 'Nombre de archivo requerido';
                 exit;
             }
-            
+
             // Validar que el nombre del archivo no contenga rutas relativas (seguridad)
             if (strpos($nombreArchivo, '..') !== false || strpos($nombreArchivo, '/') !== false) {
                 http_response_code(403);
                 echo 'Nombre de archivo inválido';
                 exit;
             }
-            
+
             $rutaArchivo = __DIR__ . '/../uploads/bajas/' . basename($nombreArchivo);
-            
+
             if (!file_exists($rutaArchivo)) {
                 http_response_code(404);
                 echo 'Archivo no encontrado';
                 exit;
             }
-            
+
             // Limpiar buffer
             while (ob_get_level()) {
                 ob_end_clean();
             }
-            
+
             // Establecer headers para PDF
             header('Content-Type: application/pdf');
             header('Content-Disposition: inline; filename="' . basename($nombreArchivo) . '"');
             header('Content-Length: ' . filesize($rutaArchivo));
             header('Cache-Control: private, max-age=0, must-revalidate');
             header('Pragma: public');
-            
+
             // Leer y enviar el archivo
             readfile($rutaArchivo);
             exit;
-            
+
         } catch (\Exception $e) {
             http_response_code(500);
             echo 'Error al cargar el archivo: ' . $e->getMessage();
@@ -8387,10 +9958,10 @@ public function getMunicipios()
     {
         try {
             $input = json_decode(file_get_contents("php://input"), true);
-            
+
             $idPersona = $input['idPersona'] ?? null;
             $puestos = $input['puestos'] ?? [];
-            
+
             if (!$idPersona) {
                 self::respuestaJSON([
                     'success' => false,
@@ -8398,19 +9969,19 @@ public function getMunicipios()
                 ]);
                 return;
             }
-            
+
             $db = new \Core\Database();
-            
+
             try {
                 $db->beginTransaction();
-                
+
                 // Eliminar permisos actuales
                 $idPersonaEsc = addslashes($idPersona);
                 $db->queryOne("
                     DELETE FROM privilegios_departamento
                     WHERE idPersona = $idPersonaEsc
                 ");
-                
+
                 // Insertar nuevos permisos
                 if (!empty($puestos)) {
                     foreach ($puestos as $idPuesto) {
@@ -8421,19 +9992,19 @@ public function getMunicipios()
                         ");
                     }
                 }
-                
+
                 $db->commit();
-                
+
                 self::respuestaJSON([
                     'success' => true,
                     'mensaje' => 'Permisos guardados correctamente'
                 ]);
-                
+
             } catch (\Exception $e) {
                 $db->rollback();
                 throw $e;
             }
-            
+
         } catch (\Exception $e) {
             self::respuestaJSON([
                 'success' => false,
@@ -8449,11 +10020,11 @@ public function getMunicipios()
     {
         try {
             $input = json_decode(file_get_contents("php://input"), true);
-            
+
             $idPersona = $input['idPersona'] ?? null;
             $idPuesto = $input['idPuesto'] ?? null;
             $asignado = $input['asignado'] ?? 0;
-            
+
             if (!$idPersona || !$idPuesto) {
                 self::respuestaJSON([
                     'success' => false,
@@ -8461,14 +10032,14 @@ public function getMunicipios()
                 ]);
                 return;
             }
-            
+
             $db = new \Core\Database();
-            
+
             if ($asignado === 1) {
                 // Verificar si ya existe
                 $idPersonaEsc = addslashes($idPersona);
                 $idPuestoEsc = addslashes($idPuesto);
-                
+
                 $existe = $db->queryOne("
                     SELECT id
                     FROM privilegios_departamento
@@ -8476,7 +10047,7 @@ public function getMunicipios()
                       AND idPuesto = $idPuestoEsc
                     LIMIT 1
                 ");
-                
+
                 if (!$existe) {
                     // Insertar si no existe
                     $db->queryOne("
@@ -8484,29 +10055,29 @@ public function getMunicipios()
                         VALUES ($idPersonaEsc, $idPuestoEsc)
                     ");
                 }
-                
+
                 self::respuestaJSON([
                     'success' => true,
                     'mensaje' => 'Puesto asignado correctamente'
                 ]);
-                
+
             } else {
                 // Eliminar asignación
                 $idPersonaEsc = addslashes($idPersona);
                 $idPuestoEsc = addslashes($idPuesto);
-                
+
                 $db->queryOne("
                     DELETE FROM privilegios_departamento
                     WHERE idPersona = $idPersonaEsc
                       AND idPuesto = $idPuestoEsc
                 ");
-                
+
                 self::respuestaJSON([
                     'success' => true,
                     'mensaje' => 'Puesto eliminado correctamente'
                 ]);
             }
-            
+
         } catch (\Exception $e) {
             self::respuestaJSON([
                 'success' => false,
