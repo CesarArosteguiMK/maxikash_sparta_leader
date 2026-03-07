@@ -329,13 +329,115 @@
             });
         }
 
+        const alertaBusqueda = <?= json_encode($alertaBusqueda ?? null, JSON_UNESCAPED_UNICODE) ?>;
+        if (alertaBusqueda) {
+            Swal.fire(alertaBusqueda);
+        }
+
+        function actualizarInputs() {
+            const modo = document.querySelector('input[name="modoBusqueda"]:checked')?.value;
+            const divNombre = document.getElementById('divNombre');
+            const divID = document.getElementById('divID');
+
+            if (divNombre) divNombre.style.display = modo === 'nombre' ? 'block' : 'none';
+            if (divID) divID.style.display = modo === 'id' ? 'block' : 'none';
+        }
+
+        document.querySelectorAll('input[name="modoBusqueda"]').forEach(el =>
+            el.addEventListener('change', actualizarInputs)
+        );
+        actualizarInputs();
+
+        const btnResetFiltros = document.getElementById('btnResetFiltros');
+        if (btnResetFiltros) {
+            btnResetFiltros.addEventListener('click', () => {
+                const idCreditoEl = document.getElementById('idCredito');
+                const nombreEl = document.getElementById('nombre');
+                const idCreditoListaEl = document.getElementById('idCreditoLista');
+                const fechaCorteEl = document.getElementById('fechaCorte');
+                const modoID = document.getElementById('modoID');
+
+                if (idCreditoEl) idCreditoEl.value = '';
+                if (nombreEl) nombreEl.value = '';
+                if (idCreditoListaEl) idCreditoListaEl.value = '';
+                if (fechaCorteEl) fechaCorteEl.value = '';
+                if (modoID) modoID.checked = true;
+
+                actualizarInputs();
+            });
+        }
+
+        const formBusqueda = document.getElementById('formBusqueda');
+        if (formBusqueda) {
+            formBusqueda.addEventListener('submit', function(e) {
+                e.preventDefault();
+
+                const modo = document.querySelector('input[name="modoBusqueda"]:checked')?.value;
+                const idCreditoEl = document.getElementById('idCredito');
+                const nombreEl = document.getElementById('nombre');
+                const idCreditoListaEl = document.getElementById('idCreditoLista');
+
+                const idCredito = (idCreditoEl?.value || '').trim();
+                const nombre = (nombreEl?.value || '').trim();
+                const idCreditoLista = (idCreditoListaEl?.value || '').trim();
+
+                if (modo === 'id') {
+                    if (idCredito === '') {
+                        return Swal.fire({
+                            icon: 'warning',
+                            title: 'Falta el ID de crédito',
+                            text: 'Por favor ingresa el ID del crédito.'
+                        });
+                    }
+
+                    if (idCreditoListaEl) idCreditoListaEl.value = '';
+                    if (nombreEl) nombreEl.value = '';
+                }
+
+                if (modo === 'nombre') {
+                    if (nombre === '') {
+                        return Swal.fire({
+                            icon: 'warning',
+                            title: 'Falta el nombre',
+                            text: 'Escribe y selecciona un cliente de la lista.'
+                        });
+                    }
+
+                    if (idCreditoLista === '') {
+                        return Swal.fire({
+                            icon: 'warning',
+                            title: 'Cliente no seleccionado',
+                            text: 'Debes seleccionar un cliente del listado, no solo escribirlo.'
+                        });
+                    }
+
+                    if (idCreditoEl) idCreditoEl.value = '';
+                }
+
+                Swal.fire({
+                    title: 'Validando ID de crédito...',
+                    text: 'Espere un momento por favor.',
+                    allowOutsideClick: false,
+                    allowEscapeKey: false,
+                    didOpen: () => Swal.showLoading()
+                });
+
+                formBusqueda.submit();
+            });
+        }
+
         const input = document.getElementById('nombre');
         const lista = document.getElementById('listaResultados');
+
+        if (!input || !lista) return;
 
         let debounce = null;
         let controller = null;
 
         input.addEventListener('keyup', () => {
+            const idCreditoListaInput = document.getElementById('idCreditoLista');
+            if (idCreditoListaInput) idCreditoListaInput.value = '';
+
             const termino = input.value.trim();
             clearTimeout(debounce);
 

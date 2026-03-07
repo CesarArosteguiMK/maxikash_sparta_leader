@@ -329,6 +329,11 @@
             });
         }
 
+        const alertaBusqueda = <?= json_encode($alertaBusqueda ?? null, JSON_UNESCAPED_UNICODE) ?>;
+        if (alertaBusqueda) {
+            Swal.fire(alertaBusqueda);
+        }
+
         const input = document.getElementById('nombre');
         const lista = document.getElementById('listaResultados');
 

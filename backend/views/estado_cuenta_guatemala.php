@@ -1,6 +1,5 @@
 <?php
 session_start();
-// vista___SPARTA_SECRET_REDACTED__.php
 date_default_timezone_set('America/Mexico_City');
 
 /* ----------------------
@@ -21,6 +20,46 @@ function safe($v, $default = null) {
 
 /* Asegurar que $tabla exista */
 if (!isset($tabla) || !is_array($tabla)) $tabla = [];
+
+/* ----------------------
+   Parsear datos Guatemala
+   ---------------------- */
+$datosCliente    = [];
+$datosAdicionales = [];
+
+/* Fila directa de registro_croop (pkey_credito, pkey_cliente, request_cliente, etc.) */
+$regGuat     = $datosGuat['datos'][0] ?? [];
+$pkeyCredito = $regGuat['pkey_credito'] ?? '';
+$pkeyCliente = $regGuat['pkey_cliente'] ?? '';
+
+/* Parsear request_cliente desde la fila de Guatemala */
+if (!empty($regGuat['request_cliente'])) {
+    $datosCliente = json_decode($regGuat['request_cliente'], true) ?? [];
+}
+
+/* Construir nombre completo — las claves del JSON Guatemala son Nombre, APP, APM */
+$nombreCliente = trim(
+    ($datosCliente['Nombre'] ?? '') . ' ' .
+    ($datosCliente['APP']    ?? '') . ' ' .
+    ($datosCliente['APM']    ?? '')
+);
+if (empty($nombreCliente)) {
+    /* Fallback a nombre_completo de referencias (__SPARTA_SECRET_REDACTED__) si existe */
+    $nombreCliente = $referencias['datos'][0]['nombre_completo'] ?? '';
+}
+
+if (!empty($regGuat['request_adicional'])) {
+    $adicionales = json_decode($regGuat['request_adicional'], true) ?? [];
+    foreach ($adicionales as $item) {
+        $datosAdicionales[$item['nombre']] = $item['valor'];
+    }
+}
+
+/* Parsear domicilio desde request_domicilio de registro_croop */
+$domicilioGuat = [];
+if (!empty($regGuat['request_domicilio'])) {
+    $domicilioGuat = json_decode($regGuat['request_domicilio'], true) ?? [];
+}
 
 $fechaUltimoPagoCompleto = null;
 
@@ -52,18 +91,72 @@ foreach ($tabla as $fila) {
 }
 
 
-$cuotasContratadas = (int)($dataOtrosDatos["cuotasContratadas"] ?? 0);
-$cuotasPagadas     = (int)($dataOtrosDatos["cuotasPagadas"] ?? 0);
-$cuotasFaltantes = $cuotasContratadas - $cuotasPagadas;
+/* ----------- CROOP API: Saldos del contrato (Bandera=445) ----------- */
+$saldoGT = [];
+if (!empty($apiSaldos) && is_array($apiSaldos)) {
+    foreach ($apiSaldos as $s) {
+        if (isset($s['PKey']) && (string)$s['PKey'] === (string)$pkeyCredito) {
+            $saldoGT = $s;
+            break;
+        }
+    }
+    if (empty($saldoGT)) $saldoGT = $apiSaldos[0] ?? [];
+}
+
+/* ----------- CROOP API: Tabla de amortización (Bandera=401) ----------- */
+$amortRows   = is_array($apiAmortizacion ?? null) ? ($apiAmortizacion ?? []) : [];
+$totalCuotas = count($amortRows);
+$primeraFila = $amortRows[0] ?? [];
+$ultimaFila  = !empty($amortRows) ? $amortRows[array_key_last($amortRows)] : [];
+
+/* Helper: convierte "$8,674.99" → float */
+$parseMontoGT = function($v) { return (float)preg_replace('/[^0-9.]/', '', $v ?? '0'); };
+
+/* Poblar $dataEstadoCuenta — referenciado en el HTML */
+$dataEstadoCuenta = [
+    'statusCredito'     => $saldoGT['StatusDesc']         ?? '',
+    'montoOtorgado'     => $parseMontoGT($saldoGT['ValorCredito']     ?? ''),
+    'fechaInicio'       => $primeraFila['FechaGeneracion'] ?? null,
+    'primerVencimiento' => $primeraFila['FechaLimitePago'] ?? null,
+    'ultimoVencimiento' => $ultimaFila['FechaLimitePago']  ?? null,
+    'fechaLiquidacion'  => null,
+];
+
+/* Poblar $dataOtrosDatos — referenciado en el HTML */
+$dataOtrosDatos = [
+    'saldoTotalVencido'   => $parseMontoGT($saldoGT['PagosVencidosMonto']  ?? ''),
+    'saldoTotalVigente'   => $parseMontoGT($saldoGT['CapitalPendientePago'] ?? ''),
+    'cuotasContratadas'   => $totalCuotas,
+    'cuotasPagadas'       => (int)($saldoGT['PagosRealizados']             ?? 0),
+    'saldoVigenteCapital' => $parseMontoGT($saldoGT['CapitalPendientePago'] ?? ''),
+    'saldoParaLiquidarV2' => $parseMontoGT($saldoGT['TotalLiquidar']        ?? ''),
+    'diasMoraMaximo'      => 0,
+    'diasMora'            => 0,
+];
+
+$cuotasContratadas = (int)$dataOtrosDatos['cuotasContratadas'];
+$cuotasPagadas     = (int)$dataOtrosDatos['cuotasPagadas'];
+$cuotasFaltantes   = $cuotasContratadas - $cuotasPagadas;
 
 $porcentajeAvance = 0;
 if ($cuotasContratadas > 0) {
     $porcentajeAvance = min(100, round(($cuotasPagadas / $cuotasContratadas) * 100));
 }
 ?>
+<script>
+/* ============================================================
+   DEBUG CROOP API — visible en DevTools > Console
+   ============================================================ */
+console.group('%c[CROOP DEBUG]', 'color:#0ea5e9;font-weight:bold;font-size:13px');
+console.log('Trace general:',   <?= json_encode($debugCroop ?? [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) ?>);
+console.log('saldoGT (445):',   <?= json_encode($saldoGT ?? [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) ?>);
+console.log('amortizacion (401) primeras 3 filas:', <?= json_encode(array_slice($amortRows ?? [], 0, 3), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) ?>);
+console.log('dataEstadoCuenta:', <?= json_encode($dataEstadoCuenta ?? [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) ?>);
+console.log('dataOtrosDatos:',  <?= json_encode($dataOtrosDatos ?? [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) ?>);
+console.groupEnd();
+</script>
 
 <style>
-    
     /* ==========================
    GLOBAL
    ========================== */
@@ -72,9 +165,8 @@ if ($cuotasContratadas > 0) {
     }
 
     /* ==========================
-       LIQUID GLASS – Estado de Cuenta (sidebar, tabla, métricas, cards)
+       LIQUID GLASS
    ========================== */
-    /* Sidebar: card exterior (la que envuelve todo) y card avatar */
     .estado-cuenta-page .sidebar-cliente > .card,
     .estado-cuenta-page .sidebar-cliente .card,
     .estado-cuenta-page .sidebar-cliente .user-avatar-section .card {
@@ -96,7 +188,6 @@ if ($cuotasContratadas > 0) {
         box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
         border-radius: 14px !important;
     }
-    /* Sidebar: badges IDs, barra de progreso y bloques de métricas redondeados (Liquid Glass) */
     .estado-cuenta-page .sidebar-cliente .badge-container-ids .badge {
         border-radius: 10px !important;
     }
@@ -194,11 +285,6 @@ if ($cuotasContratadas > 0) {
         }
     }
 
-    /* ==========================
-       SIDEBAR COMPLETO - ZOOM RESPONSIVE
-   ========================== */
-
-    /* 1. CONTENEDOR PRINCIPAL */
     .sidebar-cliente .card-body {
         padding: 1rem !important;
     }
@@ -209,7 +295,6 @@ if ($cuotasContratadas > 0) {
         }
     }
 
-    /* 2. SECCIÓN AVATAR (optimizada) */
     .user-avatar-section .card {
         margin-bottom: 1rem !important;
         transition: all 0.2s ease;
@@ -219,7 +304,6 @@ if ($cuotasContratadas > 0) {
         padding: 0.75rem !important;
     }
 
-    /* Badges en línea con zoom */
     .badge-container-ids {
         display: flex;
         flex-wrap: wrap;
@@ -238,7 +322,6 @@ if ($cuotasContratadas > 0) {
         transition: all 0.2s ease;
     }
 
-    /* Escalado de fuentes con zoom */
     .user-avatar-section .h6 {
         font-size: 1rem;
         line-height: 1.3;
@@ -256,7 +339,6 @@ if ($cuotasContratadas > 0) {
         gap: 0.5rem;
     }
 
-    /* 3. MÉTRICAS (flex escalable) */
     .sidebar-cliente .d-flex.justify-content-between.my-3 {
         flex-wrap: wrap;
         gap: 0.75rem;
@@ -277,110 +359,53 @@ if ($cuotasContratadas > 0) {
         font-size: 0.75rem;
     }
 
-    /* ==========================
-   INFORMACIÓN DEL CRÉDITO - VERSIÓN UNIFICADA (GRID)
-   ========================== */
+    .sidebar-cliente .info-compact {
+        margin: 0.75rem 0;
+    }
 
-   /* Base para todos los dispositivos */
-   .sidebar-cliente .info-compact {
-       margin: 0.75rem 0;
-   }
+    .sidebar-cliente .info-compact li {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        align-items: center;
+        gap: 0.35rem;
+        margin-bottom: 0.15rem;
+        padding: 0.1rem 0;
+    }
 
-   .sidebar-cliente .info-compact li {
-       display: grid;
-       grid-template-columns: auto 1fr;
-       align-items: center;
-       gap: 0.35rem;
-       margin-bottom: 0.15rem;
-       padding: 0.1rem 0;
-   }
+    .sidebar-cliente .info-compact i.fa-lg {
+        grid-column: 1;
+        text-align: center;
+        font-size: 0.9rem;
+        color: #6c757d;
+        width: 1.2rem;
+    }
 
-   .sidebar-cliente .info-compact i.fa-lg {
-       grid-column: 1;
-       text-align: center;
-       font-size: 0.9rem;
-       color: #6c757d;
-       width: 1.2rem;
-   }
+    .sidebar-cliente .info-compact .info-label {
+        grid-column: 2;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        width: 100%;
+        min-height: 1rem;
+    }
 
-   .sidebar-cliente .info-compact .info-label {
-       grid-column: 2;
-       display: flex;
-       justify-content: space-between;
-       align-items: center;
-       width: 100%;
-       min-height: 1rem;
-   }
+    .sidebar-cliente .info-compact .info-label span:first-child {
+        font-weight: 500;
+        color: #495057;
+        white-space: nowrap;
+        font-size: 0.85rem;
+    }
 
-   .sidebar-cliente .info-compact .info-label span:first-child {
-       font-weight: 500;
-       color: #495057;
-       white-space: nowrap;
-       font-size: 0.85rem;
-   }
+    .sidebar-cliente .info-compact .info-label span:last-child {
+        font-weight: 600;
+        color: #212529;
+        text-align: right;
+        padding-left: 1rem;
+        white-space: nowrap;
+        font-size: 0.85rem;
+        min-width: max-content;
+    }
 
-   .sidebar-cliente .info-compact .info-label span:last-child {
-       font-weight: 600;
-       color: #212529;
-       text-align: right;
-       padding-left: 1rem;
-       white-space: nowrap;
-       font-size: 0.85rem;
-       min-width: max-content;
-   }
-
-   /* ==========================
-      RESPONSIVE - INFO COMPACT
-   ========================== */
-
-   /* Tablet */
-   @media (max-width: 768px) {
-       .sidebar-cliente .info-compact li {
-           grid-template-columns: 1.2rem 1fr;
-           gap: 0.3rem;
-           margin-bottom: 0.15rem;
-       }
-       
-       .sidebar-cliente .info-compact i.fa-lg {
-           font-size: 0.85rem;
-       }
-       
-       .sidebar-cliente .info-compact .info-label span:first-child {
-           font-size: 0.8rem;
-       }
-       
-       .sidebar-cliente .info-compact .info-label span:last-child {
-           font-size: 0.85rem;
-           padding-left: 0.75rem;
-       }
-   }
-
-   /* Móviles pequeños */
-   @media (max-width: 400px) {
-       .sidebar-cliente .info-compact li {
-           grid-template-columns: 1rem 1fr;
-           gap: 0.3rem;
-       }
-       
-       .sidebar-cliente .info-compact i.fa-lg {
-           font-size: 0.8rem;
-       }
-       
-       .sidebar-cliente .info-compact .info-label {
-           flex-direction: column;
-           align-items: flex-start;
-           gap: 0.1rem;
-       }
-       
-       .sidebar-cliente .info-compact .info-label span:last-child {
-           text-align: left;
-           padding-left: 0;
-           width: 100%;
-           font-size: 0.8rem;
-       }
-   }
-
-    /* 5. BOTÓN REFERENCIAS */
     .sidebar-cliente .btn-outline-primary {
         padding: 0.6rem 1.25rem !important;
         font-size: 0.85rem;
@@ -396,166 +421,66 @@ if ($cuotasContratadas > 0) {
         margin-right: 0.5rem;
     }
 
-    /* ==========================
-       AJUSTES ESPECÍFICOS POR NIVEL DE ZOOM
-   ========================== */
-
-    /* Zoom ~125% */
     @media (max-width: 1600px) {
-        .sidebar-cliente .card-body {
-            padding: 0.9rem !important;
-        }
-        
-        .badge-container-ids .badge {
-            font-size: 0.7rem;
-            padding: 0.35em 0.6em;
-        }
-        
-        .user-avatar-section .h6 {
-            font-size: 0.95rem;
-        }
-        
+        .sidebar-cliente .card-body { padding: 0.9rem !important; }
+        .badge-container-ids .badge { font-size: 0.7rem; padding: 0.35em 0.6em; }
+        .user-avatar-section .h6 { font-size: 0.95rem; }
         .sidebar-cliente .info-compact .info-label span:first-child,
-        .sidebar-cliente .info-compact .info-label span:last-child {
-            font-size: 0.8rem;
-        }
-        
-        .sidebar-cliente .d-flex.justify-content-between.my-3 h5 {
-            font-size: 0.9rem;
-        }
+        .sidebar-cliente .info-compact .info-label span:last-child { font-size: 0.8rem; }
+        .sidebar-cliente .d-flex.justify-content-between.my-3 h5 { font-size: 0.9rem; }
     }
 
-    /* Zoom ~150% */
     @media (max-width: 1400px) {
-        .sidebar-cliente .card-body {
-            padding: 0.8rem !important;
-        }
-        
-        .user-avatar-section .card .card-body {
-            padding: 0.6rem !important;
-        }
-        
-        .badge-container-ids .badge {
-            font-size: 0.65rem;
-            padding: 0.3em 0.5em;
-        }
-        
-        .user-avatar-section .h6 {
-            font-size: 0.9rem;
-        }
-        
-        .sidebar-cliente .info-compact li {
-            margin-bottom: 0.4rem;
-        }
-        
+        .sidebar-cliente .card-body { padding: 0.8rem !important; }
+        .user-avatar-section .card .card-body { padding: 0.6rem !important; }
+        .badge-container-ids .badge { font-size: 0.65rem; padding: 0.3em 0.5em; }
+        .user-avatar-section .h6 { font-size: 0.9rem; }
+        .sidebar-cliente .info-compact li { margin-bottom: 0.4rem; }
         .sidebar-cliente .info-compact .info-label span:first-child,
-        .sidebar-cliente .info-compact .info-label span:last-child {
-            font-size: 0.75rem;
-        }
-        
-        .sidebar-cliente .info-compact i.fa-lg {
-            font-size: 0.85rem !important;
-        }
-        
-        .sidebar-cliente .d-flex.justify-content-between.my-3 h5 {
-            font-size: 0.85rem;
-        }
-        
-        .sidebar-cliente .btn-outline-primary {
-            font-size: 0.8rem;
-            padding: 0.5rem 1rem !important;
-        }
+        .sidebar-cliente .info-compact .info-label span:last-child { font-size: 0.75rem; }
+        .sidebar-cliente .info-compact i.fa-lg { font-size: 0.85rem !important; }
+        .sidebar-cliente .d-flex.justify-content-between.my-3 h5 { font-size: 0.85rem; }
+        .sidebar-cliente .btn-outline-primary { font-size: 0.8rem; padding: 0.5rem 1rem !important; }
     }
 
-    /* Zoom ~175%+ */
     @media (max-width: 1200px) {
-        .badge-container-ids {
-            flex-direction: column;
-            gap: 0.3rem;
-        }
-        
-        .badge-container-ids .badge {
-            width: 100%;
-            max-width: 100%;
-            text-align: center;
-        }
-        
-        .sidebar-cliente .d-flex.justify-content-between.my-3 > div {
-            flex: 1 1 100%;
-        }
+        .badge-container-ids { flex-direction: column; gap: 0.3rem; }
+        .badge-container-ids .badge { width: 100%; max-width: 100%; text-align: center; }
+        .sidebar-cliente .d-flex.justify-content-between.my-3 > div { flex: 1 1 100%; }
     }
-
-    /* ==========================
-       CORRECCIÓN MÓVIL - SIDEBAR GENERAL
-   ========================== */
 
     @media (max-width: 768px) {
-        .sidebar-cliente .card-body {
-            padding: 0.75rem !important;
-        }
-        
-        .badge-container-ids {
-            flex-direction: row;
-            gap: 0.5rem;
-        }
-        
-        .badge-container-ids .badge {
-            flex: 1 1 calc(50% - 0.5rem);
-            max-width: calc(50% - 0.5rem);
-        }
-        
-        .sidebar-cliente .d-flex.justify-content-between.my-3 {
-            flex-direction: column;
-            gap: 0.5rem;
-        }
-        
-        .sidebar-cliente .btn-outline-primary {
-            padding: 0.5rem 1rem !important;
-            margin: 0.5rem 0.25rem !important;
-            width: calc(100% - 0.5rem) !important;
-        }
+        .sidebar-cliente .card-body { padding: 0.75rem !important; }
+        .badge-container-ids { flex-direction: row; gap: 0.5rem; }
+        .badge-container-ids .badge { flex: 1 1 calc(50% - 0.5rem); max-width: calc(50% - 0.5rem); }
+        .sidebar-cliente .d-flex.justify-content-between.my-3 { flex-direction: column; gap: 0.5rem; }
+        .sidebar-cliente .btn-outline-primary { padding: 0.5rem 1rem !important; margin: 0.5rem 0.25rem !important; width: calc(100% - 0.5rem) !important; }
     }
 
-    /* ==========================
-       ASEGURAR VISIBILIDAD BOTONES HEADER
-   ========================== */
-   
-   /* MOD: Asegurar que los botones del header sean visibles */
-   .col-xl-8.col-lg-7 .d-flex.justify-content-between.align-items-center.mb-3 > .d-flex.gap-2 {
-       display: flex !important;
-       visibility: visible !important;
-       opacity: 1 !important;
-   }
-   
-   .btn-dictaminar,
-   .btn-condonar,
-   .btn-notas {
-       display: flex !important;
-       visibility: visible !important;
-   }
-   
-   .btn-outline-secondary {
-       display: inline-flex !important;
-   }
+    .col-xl-8.col-lg-7 .d-flex.justify-content-between.align-items-center.mb-3 > .d-flex.gap-2 {
+        display: flex !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+    }
+
+    .btn-dictaminar, .btn-condonar, .btn-notas {
+        display: flex !important;
+        visibility: visible !important;
+    }
+
+    .btn-outline-secondary { display: inline-flex !important; }
 
     /* ==========================
-       TABLA ESTILOS
+       TABLA
        ========================== */
-    .cuotas-table,
-    .cuotas-table td,
-    .cuotas-table th {
-        color: #000 !important;
-    }
+    .cuotas-table, .cuotas-table td, .cuotas-table th { color: #000 !important; }
 
-    .cuotas-table td,
-    .cuotas-table th {
+    .cuotas-table td, .cuotas-table th {
         font-size: 0.80rem !important;
         line-height: 1.1rem;
     }
 
-    .cuotas-table ul li,
-    .cuotas-table .fecha-pago,
-    .cuotas-table .fecha-cuota {
+    .cuotas-table ul li, .cuotas-table .fecha-pago, .cuotas-table .fecha-cuota {
         font-size: 0.75rem !important;
     }
 
@@ -566,19 +491,11 @@ if ($cuotasContratadas > 0) {
         font-weight: 500;
     }
 
-    /* Contenedor tabla: esquinas redondeadas (Liquid Glass); sin overflow:hidden para no romper el scroll */
     .estado-cuenta-page .tabla-scrollable {
         border-radius: 14px;
         box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
     }
-    html.dark-mode .estado-cuenta-page .tabla-scrollable,
-    body.dark-mode .estado-cuenta-page .tabla-scrollable {
-        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.2);
-    }
 
-    /* ==========================
-       TABLA SCROLL DESKTOP
-       ========================== */
     @media (min-width: 992px) {
         .tabla-scrollable {
             max-height: calc(97.5vh - 240px);
@@ -589,7 +506,6 @@ if ($cuotasContratadas > 0) {
             z-index: 5;
             scrollbar-gutter: stable both-edges;
         }
-
         .tabla-scrollable thead th {
             position: sticky;
             top: 0;
@@ -597,93 +513,34 @@ if ($cuotasContratadas > 0) {
         }
     }
 
-    /* ==========================
-       MOBILE / TABLET (ANTI-LAG)
-       ========================== */
     @media (max-width: 991px) {
-
-        /* quitar sticky */
-        .tabla-scrollable,
-        .tabla-scrollable thead th {
-            position: static !important;
-            top: auto !important;
-        }
-
-        .tabla-scrollable {
-            max-height: none;
-            overflow-x: auto;
-            overflow-y: visible;
-            -webkit-overflow-scrolling: touch;
-        }
-
-        .cuotas-table {
-            min-width: 780px;
-        }
+        .tabla-scrollable, .tabla-scrollable thead th { position: static !important; top: auto !important; }
+        .tabla-scrollable { max-height: none; overflow-x: auto; overflow-y: visible; -webkit-overflow-scrolling: touch; }
+        .cuotas-table { min-width: 780px; }
     }
 
-    /* ==========================
-       MOBILE COMPACT
-       ========================== */
     @media (max-width: 768px) {
-        .cuotas-table td,
-        .cuotas-table th {
-            font-size: 0.65rem !important;
-            padding: 0.35rem 0.4rem !important;
-        }
-
-        .cuotas-table ul li {
-            font-size: 0.6rem !important;
-            line-height: 0.9rem;
-        }
-
-        .cuotas-table .badge {
-            font-size: 0.6rem !important;
-            padding: 0.25em 0.4em !important;
-            border-radius: 8px;
-        }
+        .cuotas-table td, .cuotas-table th { font-size: 0.65rem !important; padding: 0.35rem 0.4rem !important; }
+        .cuotas-table ul li { font-size: 0.6rem !important; line-height: 0.9rem; }
+        .cuotas-table .badge { font-size: 0.6rem !important; padding: 0.25em 0.4em !important; border-radius: 8px; }
     }
 
-    /* ==========================
-   LAPTOP GRANDE (1536 x 864 aprox)
-   ========================== */
     @media (min-width: 1400px) and (max-height: 900px) {
-
-        .sidebar-cliente {
-            top: 110px;
-        }
-
-        .tabla-scrollable {
-            top: 110px;
-            max-height: calc(100vh - 220px);
-        }
-
+        .sidebar-cliente { top: 110px; }
+        .tabla-scrollable { top: 110px; max-height: calc(100vh - 220px); }
     }
 
     @media (min-width: 1400px) and (max-width: 1599px) and (max-height: 900px) {
-
         .sidebar-cliente .info-compact .info-label span:first-child,
-        .sidebar-cliente .info-compact .info-label span:last-child {
-            font-size: 0.72rem !important;
-        }
-
-        .sidebar-cliente .info-compact i.fa-lg {
-            font-size: 0.85rem !important;
-        }
-
+        .sidebar-cliente .info-compact .info-label span:last-child { font-size: 0.72rem !important; }
+        .sidebar-cliente .info-compact i.fa-lg { font-size: 0.85rem !important; }
     }
 
-    @media (max-width: 991px) {
-        .cuotas-table {
-            min-width: 900px;
-        }
-    }
+    @media (max-width: 991px) { .cuotas-table { min-width: 900px; } }
 
-    .cuotas-table {
-        table-layout: fixed;
-        width: 100%;
-    }
+    .cuotas-table { table-layout: fixed; width: 100%; }
 
-    /* ===== Reference WOW Card ===== */
+    /* ===== Reference Card ===== */
     .reference-card {
         border-radius: 14px;
         padding: 1.25rem 1.25rem 1.4rem;
@@ -692,831 +549,169 @@ if ($cuotasContratadas > 0) {
         box-shadow: 0 6px 18px rgba(0,0,0,.08);
         transition: transform .25s ease, box-shadow .25s ease;
     }
-
-    .reference-card:hover {
-        transform: translateY(-6px);
-        box-shadow: 0 14px 34px rgba(0,0,0,.18);
-    }
-
-    /* Header */
-    .reference-header {
-        display: flex;
-        align-items: center;
-        gap: .6rem;
-        font-weight: 600;
-        font-size: .95rem;
-        margin-bottom: .5rem;
-    }
-
-    /* Divider line */
-    .reference-divider {
-        border-top: 1px dashed rgba(0,0,0,.15);
-        margin: .6rem 0 .8rem;
-    }
-
-    /* Info rows */
-    .info-line {
-        display: flex;
-        justify-content: space-between;
-        font-size: .82rem;
-        padding: .25rem 0;
-    }
-
-    .info-line span {
-        color: #6c757d;
-    }
-
-    .info-line strong {
-        font-weight: 600;
-        color: #212529;
-    }
-
-    /* Badge top-right */
-    .reference-badge {
-        position: absolute;
-        top: 12px;
-        right: 14px;
-        font-size: .65rem;
-    }
-
+    .reference-card:hover { transform: translateY(-6px); box-shadow: 0 14px 34px rgba(0,0,0,.18); }
+    .reference-header { display: flex; align-items: center; gap: .6rem; font-weight: 600; font-size: .95rem; margin-bottom: .5rem; }
+    .reference-divider { border-top: 1px dashed rgba(0,0,0,.15); margin: .6rem 0 .8rem; }
+    .info-line { display: flex; justify-content: space-between; font-size: .82rem; padding: .25rem 0; }
+    .info-line span { color: #6c757d; }
+    .info-line strong { font-weight: 600; color: #212529; }
+    .reference-badge { position: absolute; top: 12px; right: 14px; font-size: .65rem; }
 
     /* ==========================
-   NOTAS - ESTILO POST-IT
+   NOTAS
    ========================== */
+    .nota-card { background: #fff9db; border-left: 6px solid #f0ad4e; border-radius: 10px; padding: 14px 16px; box-shadow: 0 6px 14px rgba(0,0,0,.12); position: relative; transition: transform .2s ease, box-shadow .2s ease; }
+    .nota-card:hover { transform: translateY(-4px); box-shadow: 0 12px 28px rgba(0,0,0,.2); }
+    .nota-fecha { font-size: .7rem; color: #856404; margin-bottom: 6px; }
+    .nota-texto { font-size: .85rem; color: #212529; margin-bottom: 10px; white-space: pre-wrap; }
+    .nota-autor { font-size: .7rem; color: #6c757d; text-align: right; }
 
-    .nota-card {
-        background: #fff9db;
-        border-left: 6px solid #f0ad4e;
-        border-radius: 10px;
-        padding: 14px 16px;
-        box-shadow: 0 6px 14px rgba(0,0,0,.12);
-        position: relative;
-        transition: transform .2s ease, box-shadow .2s ease;
-    }
+    .btn-notas { width: 42px; height: 42px; border-radius: 50%; background: #fff3cd; border: 1px solid #ffecb5; color: #f0ad4e; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 10px rgba(240,173,78,.35); transition: all .25s ease; }
+    .btn-notas i { font-size: 1.1rem; }
+    .btn-notas:hover { background: #ffe69c; color: #d39e00; transform: translateY(-2px); box-shadow: 0 8px 18px rgba(240,173,78,.55); }
+    .btn-notas .badge { font-size: .6rem; padding: .35em .45em; }
 
-    .nota-card:hover {
-        transform: translateY(-4px);
-        box-shadow: 0 12px 28px rgba(0,0,0,.2);
-    }
+    .btn-condonar { width: 42px; height: 42px; border-radius: 50%; background: #e6f4ea; border: 1px solid #b7dfc3; color: #28a745; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 10px rgba(40,167,69,.35); transition: all .25s ease; }
+    .btn-condonar i { font-size: 1.1rem; }
+    .btn-condonar:hover { background: #c8ead3; color: #1e7e34; transform: translateY(-2px); box-shadow: 0 8px 18px rgba(40,167,69,.55); }
 
-    .nota-fecha {
-        font-size: .7rem;
-        color: #856404;
-        margin-bottom: 6px;
-    }
+    .billete { position: fixed; font-size: 1.5rem; animation: volarBillete 1s ease-out forwards; pointer-events: none; z-index: 9999; }
+    @keyframes volarBillete { 0% { opacity: 1; transform: translateY(0) scale(1); } 100% { opacity: 0; transform: translateY(-120px) scale(.4); } }
 
-    .nota-texto {
-        font-size: .85rem;
-        color: #212529;
-        margin-bottom: 10px;
-        white-space: pre-wrap;
-    }
+    .btn-dictaminar { width: 42px; height: 42px; border-radius: 50%; background: #e7f0ff; border: 1px solid #b6d4fe; color: #0d6efd; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 10px rgba(13,110,253,.35); transition: all .25s ease; }
+    .btn-dictaminar i { font-size: 1.1rem; }
+    .btn-dictaminar:hover { background: #cfe2ff; color: #084298; transform: translateY(-2px); box-shadow: 0 8px 18px rgba(13,110,253,.55); }
 
-    .nota-autor {
-        font-size: .7rem;
-        color: #6c757d;
-        text-align: right;
-    }
-
-    /* ==========================
-   BOTÓN ICONO NOTAS
-   ========================== */
-
-    .btn-notas {
-        width: 42px;
-        height: 42px;
-        border-radius: 50%;
-        background: #fff3cd;
-        border: 1px solid #ffecb5;
-        color: #f0ad4e;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        box-shadow: 0 4px 10px rgba(240,173,78,.35);
-        transition: all .25s ease;
-    }
-
-    .btn-notas i {
-        font-size: 1.1rem;
-    }
-
-    .btn-notas:hover {
-        background: #ffe69c;
-        color: #d39e00;
-        transform: translateY(-2px);
-        box-shadow: 0 8px 18px rgba(240,173,78,.55);
-    }
-
-    /* Badge notificaciones */
-    .btn-notas .badge {
-        font-size: .6rem;
-        padding: .35em .45em;
-    }
-
-    /* ==========================
-   BOTÓN ICONO CONDONAR
-   ========================== */
-    .btn-condonar {
-        width: 42px;
-        height: 42px;
-        border-radius: 50%;
-        background: #e6f4ea;
-        border: 1px solid #b7dfc3;
-        color: #28a745;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        box-shadow: 0 4px 10px rgba(40,167,69,.35);
-        transition: all .25s ease;
-    }
-
-    .btn-condonar i {
-        font-size: 1.1rem;
-    }
-
-    .btn-condonar:hover {
-        background: #c8ead3;
-        color: #1e7e34;
-        transform: translateY(-2px);
-        box-shadow: 0 8px 18px rgba(40,167,69,.55);
-    }
-
-    /* Billete volando */
-    .billete {
-        position: fixed;
-        font-size: 1.5rem;
-        animation: volarBillete 1s ease-out forwards;
-        pointer-events: none;
-        z-index: 9999;
-    }
-
-    @keyframes volarBillete {
-        0% {
-            opacity: 1;
-            transform: translateY(0) scale(1);
-        }
-        100% {
-            opacity: 0;
-            transform: translateY(-120px) scale(.4);
-        }
-    }
-
-
-    /* ==========================
-   BOTÓN ICONO DICTAMINAR
-   ========================== */
-    .btn-dictaminar {
-        width: 42px;
-        height: 42px;
-        border-radius: 50%;
-        background: #e7f0ff;
-        border: 1px solid #b6d4fe;
-        color: #0d6efd;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        box-shadow: 0 4px 10px rgba(13,110,253,.35);
-        transition: all .25s ease;
-    }
-
-    .btn-dictaminar i {
-        font-size: 1.1rem;
-    }
-
-    .btn-dictaminar:hover {
-        background: #cfe2ff;
-        color: #084298;
-        transform: translateY(-2px);
-        box-shadow: 0 8px 18px rgba(13,110,253,.55);
-    }
-
-    /* ==========================
-       MODAL DIRECCIONES - Asegurar que se muestre
-       ========================== */
-    #modalDirecciones {
-        z-index: 1055 !important;
-    }
-    
-    #modalDirecciones.show {
-        display: block !important;
-        opacity: 1 !important;
-        visibility: visible !important;
-    }
-    
-    #modalDirecciones .modal-dialog {
-        z-index: 1056 !important;
-        margin: 1.75rem auto !important;
-    }
-    
-    .modal-backdrop {
-        z-index: 1089 !important;
-    }
-    
-    .modal-backdrop.show {
-        opacity: 0.5 !important;
-        background: rgba(0, 0, 0, 0.5) !important;
-    }
-    
-    /* Scrim propio para Condonar / Condonación parcial (por encima de todo el layout) */
-    .scrim-condonar-estado-cuenta {
-        z-index: 9998 !important;
-        background: rgba(0, 0, 0, 0.5) !important;
-    }
-
-    /* Alertas (SweetAlert) por encima de los modales Condonar / Condonación parcial */
+    #modalDirecciones { z-index: 1055 !important; }
+    #modalDirecciones.show { display: block !important; opacity: 1 !important; visibility: visible !important; }
+    #modalDirecciones .modal-dialog { z-index: 1056 !important; margin: 1.75rem auto !important; }
+    .modal-backdrop { z-index: 1089 !important; }
+    .modal-backdrop.show { opacity: 0.5 !important; background: rgba(0, 0, 0, 0.5) !important; }
+    .scrim-condonar-estado-cuenta { z-index: 9998 !important; background: rgba(0, 0, 0, 0.5) !important; }
     body.modal-condonar-open .swal2-container,
-    body.modal-condonar-parcial-open .swal2-container {
-        z-index: 10001 !important;
-    }
+    body.modal-condonar-parcial-open .swal2-container { z-index: 10001 !important; }
 
-    /* Liquid glass + scrim: modales Condonar y Condonación parcial */
-    #modalCondonar .modal-content,
-    #modalCondonarParcial .modal-content {
-        background: rgba(255, 255, 255, 0.85) !important;
-        backdrop-filter: blur(12px);
-        -webkit-backdrop-filter: blur(12px);
-        border: 1px solid rgba(255, 255, 255, 0.3);
-        border-radius: 12px;
-    }
-    #modalCondonar .modal-header,
-    #modalCondonarParcial .modal-header {
-        background: rgba(255, 255, 255, 0.4) !important;
-        backdrop-filter: blur(8px);
-        -webkit-backdrop-filter: blur(8px);
-        border-bottom: 1px solid rgba(0, 0, 0, 0.06);
-        border-radius: 12px 12px 0 0;
-    }
-    #modalCondonar .modal-body,
-    #modalCondonarParcial .modal-body {
-        background: rgba(255, 255, 255, 0.5) !important;
-        backdrop-filter: blur(6px);
-        -webkit-backdrop-filter: blur(6px);
-    }
-    #modalCondonar .modal-footer,
-    #modalCondonarParcial .modal-footer {
-        background: rgba(255, 255, 255, 0.4) !important;
-        backdrop-filter: blur(8px);
-        -webkit-backdrop-filter: blur(8px);
-        border-top: 1px solid rgba(0, 0, 0, 0.06);
-        border-radius: 0 0 12px 12px;
+    #modalCondonar .modal-content, #modalCondonarParcial .modal-content { background: rgba(255, 255, 255, 0.85) !important; backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 12px; }
+    #modalCondonar .modal-header, #modalCondonarParcial .modal-header { background: rgba(255, 255, 255, 0.4) !important; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); border-bottom: 1px solid rgba(0, 0, 0, 0.06); border-radius: 12px 12px 0 0; }
+    #modalCondonar .modal-body, #modalCondonarParcial .modal-body { background: rgba(255, 255, 255, 0.5) !important; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+    #modalCondonar .modal-footer, #modalCondonarParcial .modal-footer { background: rgba(255, 255, 255, 0.4) !important; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); border-top: 1px solid rgba(0, 0, 0, 0.06); border-radius: 0 0 12px 12px; }
+
+    @media (max-width: 576px) {
+        .sidebar-cliente { order: -1 !important; margin-bottom: 1rem; }
+        .col-xl-8.col-lg-7 { order: 1 !important; }
+        .row { margin-bottom: 0.5rem; }
+        .sidebar-cliente .card { margin-bottom: 0.75rem !important; }
+        .badge-container-ids .badge { font-size: 0.65rem !important; padding: 0.35em 0.5em !important; }
+        .col-xl-8.col-lg-7 .d-flex.justify-content-between.align-items-center.mb-3 { flex-direction: column; align-items: flex-start; margin-bottom: 0.75rem !important; }
+        .col-xl-8.col-lg-7 .d-flex.justify-content-between.align-items-center.mb-3 h5 { font-size: 0.85rem; margin-bottom: 0.5rem; width: 100%; }
+        .btn-notas, .btn-condonar, .btn-dictaminar { width: 36px !important; height: 36px !important; }
+        .btn-notas i, .btn-condonar i, .btn-dictaminar i { font-size: 0.9rem !important; }
+        .col-xl-8.col-lg-7 .d-flex.justify-content-around.flex-wrap.my-6 > div { flex: 1 1 calc(50% - 0.5rem); margin-bottom: 0.5rem; gap: 0.5rem; }
+        .col-xl-8.col-lg-7 .d-flex.justify-content-around.flex-wrap.my-6 h5 { font-size: 0.8rem; }
+        .col-xl-8.col-lg-7 .d-flex.justify-content-around.flex-wrap.my-6 span { font-size: 0.7rem; }
+        .tabla-scrollable { margin-top: 0.5rem; }
+        .cuotas-table td, .cuotas-table th { font-size: 0.6rem !important; padding: 0.3rem !important; }
+        .cuotas-table .badge { font-size: 0.55rem !important; padding: 0.2em 0.3em !important; }
     }
 
     /* ==========================
-       MÓVIL VERTICAL - ORDEN CORRECTO
+   ACORDEÓN
    ========================== */
-   @media (max-width: 576px) {
-       .sidebar-cliente {
-           order: -1 !important;
-           margin-bottom: 1rem;
-       }
-       
-       .col-xl-8.col-lg-7 {
-           order: 1 !important;
-       }
-       
-       .row {
-           margin-bottom: 0.5rem;
-       }
-       
-       .sidebar-cliente .card {
-           margin-bottom: 0.75rem !important;
-       }
-       
-       .badge-container-ids .badge {
-           font-size: 0.65rem !important;
-           padding: 0.35em 0.5em !important;
-       }
-       
-       .col-xl-8.col-lg-7 .d-flex.justify-content-between.align-items-center.mb-3 {
-           flex-direction: column;
-           align-items: flex-start;
-           margin-bottom: 0.75rem !important;
-       }
-       
-       .col-xl-8.col-lg-7 .d-flex.justify-content-between.align-items-center.mb-3 h5 {
-           font-size: 0.85rem;
-           margin-bottom: 0.5rem;
-           width: 100%;
-       }
-       
-       .btn-notas, .btn-condonar, .btn-dictaminar {
-           width: 36px !important;
-           height: 36px !important;
-       }
-       
-       .btn-notas i, .btn-condonar i, .btn-dictaminar i {
-           font-size: 0.9rem !important;
-       }
-       
-       .col-xl-8.col-lg-7 .d-flex.justify-content-around.flex-wrap.my-6 > div {
-           flex: 1 1 calc(50% - 0.5rem);
-           margin-bottom: 0.5rem;
-           gap: 0.5rem;
-       }
-       
-       .col-xl-8.col-lg-7 .d-flex.justify-content-around.flex-wrap.my-6 h5 {
-           font-size: 0.8rem;
-       }
-       
-       .col-xl-8.col-lg-7 .d-flex.justify-content-around.flex-wrap.my-6 span {
-           font-size: 0.7rem;
-       }
-       
-       .tabla-scrollable {
-           margin-top: 0.5rem;
-       }
-       
-       .cuotas-table td,
-       .cuotas-table th {
-           font-size: 0.6rem !important;
-           padding: 0.3rem !important;
-       }
-       
-       .cuotas-table .badge {
-           font-size: 0.55rem !important;
-           padding: 0.2em 0.3em !important;
-       }
-   }
+    .accordion-button::after { display: none !important; }
+    .accordion-flush.custom-accordion { border: none; background: transparent; margin-top: 1.5rem !important; padding-top: 0.5rem; border-top: 1px solid rgba(0,0,0,0.05); }
+    .accordion-button { background-color: #f8f9fa !important; border: 1px solid #dee2e6 !important; border-radius: 8px !important; padding: 0.75rem 1rem !important; font-weight: 500; transition: all 0.3s ease; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+    .accordion-button:not(.collapsed) { background-color: #e7f1ff !important; border-color: #b6d4fe !important; color: #0d6efd; box-shadow: 0 4px 8px rgba(13,110,253,0.1); }
+    .accordion-button:focus { box-shadow: 0 0 0 3px rgba(13,110,253,0.25) !important; border-color: #86b7fe !important; }
+    .accordion-arrow { transition: transform 0.3s ease; font-size: 0.85rem; color: #6c757d; margin-left: auto; }
+    .accordion-button:not(.collapsed) .accordion-arrow { transform: rotate(180deg); color: #0d6efd; }
+    .accordion-collapse { border: none !important; }
+    .accordion-body { background-color: transparent; padding: 1rem !important; }
+    .accordion-body .d-flex.justify-content-between.my-3 { margin-top: 0.75rem !important; margin-bottom: 1rem !important; }
+    .accordion-body .info-compact { margin: 0.75rem 0 !important; }
+    .accordion-body .btn-outline-primary { margin: 1.25rem 0.75rem 0.75rem 0.75rem !important; padding: 0.65rem 1.5rem !important; width: calc(100% - 1.5rem) !important; }
+    .accordion-collapse { transition: all 0.35s ease !important; }
+    .accordion-body { animation: fadeIn 0.3s ease; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
 
-    /* ==========================
-       ACORDEÓN PERSONALIZADO - VERSIÓN ÚNICA
-   ========================== */
+    .col-xl-8.col-lg-7 .d-flex.justify-content-around.flex-wrap.my-6 { padding: 1rem 1.25rem !important; border-radius: 10px; margin: 1.5rem 0 !important; border: 1px solid #e9ecef; gap: 1rem !important; }
+    .col-xl-8.col-lg-7 .d-flex.justify-content-around.flex-wrap.my-6 > div { padding: 0.5rem 0.75rem; border-radius: 8px; border: 1px solid #f0f0f0; box-shadow: 0 2px 4px rgba(0,0,0,0.03); }
 
-   .accordion-button::after {
-       display: none !important;
-   }
-
-   .accordion-flush.custom-accordion {
-       border: none;
-       background: transparent;
-       margin-top: 1.5rem !important; /* MOD: Más margen superior */
-       padding-top: 0.5rem;
-       border-top: 1px solid rgba(0,0,0,0.05);
-   }
-
-   .accordion-button {
-       background-color: #f8f9fa !important;
-       border: 1px solid #dee2e6 !important;
-       border-radius: 8px !important;
-       padding: 0.75rem 1rem !important;
-       font-weight: 500;
-       transition: all 0.3s ease;
-       box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-   }
-
-   .accordion-button:not(.collapsed) {
-       background-color: #e7f1ff !important;
-       border-color: #b6d4fe !important;
-       color: #0d6efd;
-       box-shadow: 0 4px 8px rgba(13,110,253,0.1);
-   }
-
-   .accordion-button:focus {
-       box-shadow: 0 0 0 3px rgba(13,110,253,0.25) !important;
-       border-color: #86b7fe !important;
-   }
-
-   .accordion-arrow {
-       transition: transform 0.3s ease;
-       font-size: 0.85rem;
-       color: #6c757d;
-       margin-left: auto;
-   }
-
-   .accordion-button:not(.collapsed) .accordion-arrow {
-       transform: rotate(180deg);
-       color: #0d6efd;
-   }
-
-   .accordion-collapse {
-       border: none !important;
-   }
-
-   .accordion-body {
-       background-color: transparent;
-       padding: 1rem !important; /* MOD: Padding interno */
-   }
-
-   .accordion-body .d-flex.justify-content-between.my-3 {
-       margin-top: 0.75rem !important;
-       margin-bottom: 1rem !important;
-   }
-
-   .accordion-body .info-compact {
-       margin: 0.75rem 0 !important;
-   }
-   
-   .accordion-body .btn-outline-primary {
-       margin: 1.25rem 0.75rem 0.75rem 0.75rem !important;
-       padding: 0.65rem 1.5rem !important;
-       width: calc(100% - 1.5rem) !important;
-   }
-
-   @media (max-width: 768px) {
-       .accordion-button {
-           padding: 0.6rem 0.8rem !important;
-           font-size: 0.9rem;
-       }
-       
-       .accordion-button i.fa-info-circle {
-           font-size: 0.9rem;
-       }
-       
-       .accordion-arrow {
-           font-size: 0.8rem;
-       }
-       
-       .accordion-body {
-           padding: 0.75rem !important;
-       }
-   }
-
-   @media (max-width: 576px) {
-       .accordion-button {
-           padding: 0.5rem 0.7rem !important;
-           font-size: 0.85rem;
-       }
-       
-       .accordion-button span.fw-semibold {
-           font-size: 0.85rem;
-       }
-       
-       .accordion-arrow {
-           font-size: 0.75rem;
-       }
-       
-       .accordion-body {
-           padding: 0.5rem !important;
-       }
-       
-       .accordion-body .btn-outline-primary {
-           margin: 1rem 0.5rem 0.5rem 0.5rem !important;
-           padding: 0.55rem 1.25rem !important;
-           width: calc(100% - 1rem) !important;
-       }
-   }
-
-   .accordion-collapse {
-       transition: all 0.35s ease !important;
-   }
-
-   .accordion-body {
-       animation: fadeIn 0.3s ease;
-   }
-
-   @keyframes fadeIn {
-       from {
-           opacity: 0;
-           transform: translateY(-10px);
-       }
-       to {
-           opacity: 1;
-           transform: translateY(0);
-       }
-   }
-
-    /* ==========================
-       PADDING MÉTRICAS HORIZONTALES (Cuota Semanal, etc.)
-   ========================== */
-   
-   /* MOD: Añadir padding a métricas horizontales */
-   .col-xl-8.col-lg-7 .d-flex.justify-content-around.flex-wrap.my-6 {
-       padding: 1rem 1.25rem !important;
-       border-radius: 10px;
-       margin: 1.5rem 0 !important;
-       border: 1px solid #e9ecef;
-   }
-   
-   .col-xl-8.col-lg-7 .d-flex.justify-content-around.flex-wrap.my-6 > div {
-       padding: 0.5rem 0.75rem;
-       border-radius: 8px;
-       border: 1px solid #f0f0f0;
-       box-shadow: 0 2px 4px rgba(0,0,0,0.03);
-   }
-   
-   .col-xl-8.col-lg-7 .d-flex.justify-content-around.flex-wrap.my-6 {
-       gap: 1rem !important;
-   }
-   
-   @media (max-width: 768px) {
-       .col-xl-8.col-lg-7 .d-flex.justify-content-around.flex-wrap.my-6 {
-           padding: 0.75rem !important;
-       }
-       
-       .col-xl-8.col-lg-7 .d-flex.justify-content-around.flex-wrap.my-6 > div {
-           padding: 0.4rem 0.6rem;
-       }
-   }
-
-   /* ==========================
-   ALINEACIÓN PERFECTA MÓVIL - INFO CRÉDITO
-   ========================== */
-
-@media (max-width: 768px) {
-    /* Contenedor principal ajustado */
-    .sidebar-cliente .info-compact {
-        margin: 0.5rem 0;
-        padding: 0 0.25rem;
+    @media (max-width: 768px) {
+        .col-xl-8.col-lg-7 .d-flex.justify-content-around.flex-wrap.my-6 { padding: 0.75rem !important; }
+        .col-xl-8.col-lg-7 .d-flex.justify-content-around.flex-wrap.my-6 > div { padding: 0.4rem 0.6rem; }
+        .sidebar-cliente .info-compact li { display: grid !important; grid-template-columns: 1.2rem minmax(140px, 1fr) auto; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; padding: 0.2rem 0; }
+        .sidebar-cliente .info-compact i.fa-lg { grid-column: 1; font-size: 0.85rem; text-align: center; width: 1.2rem; }
+        .sidebar-cliente .info-compact .info-label { display: flex !important; justify-content: space-between; align-items: center; width: 100%; }
+        .sidebar-cliente .info-compact .info-label span:first-child { flex: 1; text-align: left; padding-right: 1rem; overflow: hidden; text-overflow: ellipsis; font-size: 0.8rem; }
+        .sidebar-cliente .info-compact .info-label span:last-child { flex-shrink: 0; text-align: right; min-width: 100px; font-family: 'SF Mono', Monaco, Consolas, 'Liberation Mono', monospace; font-size: 0.85rem; }
     }
-    
-    /* Cada item con grid de 2 columnas */
-    .sidebar-cliente .info-compact li {
-        display: grid !important;
-        grid-template-columns: 1.2rem minmax(140px, 1fr) auto;
-        align-items: center;
-        gap: 0.5rem;
-        margin-bottom: 0.5rem;
-        padding: 0.2rem 0;
-    }
-    
-    /* Icono en columna 1 */
-    .sidebar-cliente .info-compact i.fa-lg {
-        grid-column: 1;
-        font-size: 0.85rem;
-        text-align: center;
-        width: 1.2rem;
-    }
-    
-    /* Etiqueta (texto) en columna 2 */
-    .sidebar-cliente .info-compact .info-label span:first-child {
-        grid-column: 2;
-        font-size: 0.8rem;
-        font-weight: 500;
-        color: #495057;
-        white-space: nowrap;
-        text-align: left;
-        padding-right: 0.5rem;
-        min-width: 140px;
-    }
-    
-    /* Valor (número) en columna 3 - ALINEADO A LA DERECHA */
-    .sidebar-cliente .info-compact .info-label span:last-child {
-        grid-column: 3;
-        font-size: 0.85rem;
-        font-weight: 600;
-        color: #212529;
-        text-align: right !important;
-        white-space: nowrap;
-        padding-left: 0;
-        min-width: max-content;
-        margin-left: auto;
-    }
-    
-    /* Para items monetarios (con $) */
-    .sidebar-cliente .info-compact .info-label span:last-child:contains("$") {
-        letter-spacing: -0.5px; /* Compactar números con $ */
-    }
-}
 
-/* Móviles muy pequeños (≤ 400px) */
-@media (max-width: 400px) {
-    .sidebar-cliente .info-compact li {
-        grid-template-columns: 1rem minmax(120px, 1fr) auto;
-        gap: 0.4rem;
+    @media (max-width: 400px) {
+        .sidebar-cliente .info-compact li { grid-template-columns: 1rem minmax(120px, 1fr) auto; gap: 0.4rem; }
+        .sidebar-cliente .info-compact i.fa-lg { font-size: 0.8rem; width: 1rem; }
+        .sidebar-cliente .info-compact .info-label span:first-child { font-size: 0.75rem; min-width: 120px; }
+        .sidebar-cliente .info-compact .info-label span:last-child { font-size: 0.8rem; }
     }
-    
-    .sidebar-cliente .info-compact i.fa-lg {
-        font-size: 0.8rem;
-        width: 1rem;
-    }
-    
-    .sidebar-cliente .info-compact .info-label span:first-child {
-        font-size: 0.75rem;
-        min-width: 120px;
-    }
-    
-    .sidebar-cliente .info-compact .info-label span:last-child {
-        font-size: 0.8rem;
-    }
-}
 
-/* ==========================
-   ALINEACIÓN ESPECÍFICA PARA VALORES MONETARIOS
-   ========================== */
-
-/* Asegurar que valores con decimales se alineen perfectamente */
-.sidebar-cliente .info-compact .info-label span:last-child {
-    font-family: 'Segoe UI', 'Roboto', 'SF Mono', Monaco, Consolas, monospace;
-    font-variant-numeric: tabular-nums; /* Números con ancho fijo */
-}
-
-/* Para móvil, forzar alineación decimal */
-@media (max-width: 768px) {
-    .sidebar-cliente .info-compact .info-label {
-        display: grid !important;
-        grid-template-columns: 1fr auto;
-        width: 100%;
-        gap: 0.5rem;
-    }
-    
-    /* Asegurar que la etiqueta ocupe espacio disponible */
-    .sidebar-cliente .info-compact .info-label span:first-child {
-        text-align: right; /* Alinear etiquetas a la derecha también */
-        padding-right: 0.75rem;
-    }
-    
-    /* Valores con ancho fijo para alineación perfecta */
-    .sidebar-cliente .info-compact .info-label span:last-child {
-        min-width: 100px;
-        text-align: left; /* Cambiar a izquierda para alineación con : */
-    }
-}
-
-
-
-
-/* ==========================
-   VERSIÓN ALTERNATIVA - USANDO FLEXBOX PARA ALINEACIÓN
-   ========================== */
-
-/* Si grid no funciona bien, probar con flexbox */
-@media (max-width: 768px) {
-    .sidebar-cliente .info-compact .info-label {
-        display: flex !important;
-        justify-content: space-between;
-        align-items: center;
-        width: 100%;
-    }
-    
-    .sidebar-cliente .info-compact .info-label span:first-child {
-        flex: 1;
-        text-align: left;
-        padding-right: 1rem;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-    
-    .sidebar-cliente .info-compact .info-label span:last-child {
-        flex-shrink: 0;
-        text-align: right;
-        min-width: 100px;
-        font-family: 'SF Mono', Monaco, Consolas, 'Liberation Mono', monospace;
-    }
-}
-
+    .sidebar-cliente .info-compact .info-label span:last-child { font-family: 'Segoe UI', 'Roboto', 'SF Mono', Monaco, Consolas, monospace; font-variant-numeric: tabular-nums; }
 </style>
 <style>
-/* Restaurar colores de métricas en modo claro */
 body:not(.dark-mode) .d-flex.justify-content-around.flex-wrap.my-6 h5,
-body:not(.dark-mode) .d-flex.justify-content-between.my-3 h5 {
-    color: #212529 !important;
-}
+body:not(.dark-mode) .d-flex.justify-content-between.my-3 h5 { color: #212529 !important; }
 body:not(.dark-mode) .d-flex.justify-content-around.flex-wrap.my-6 span,
-body:not(.dark-mode) .d-flex.justify-content-between.my-3 span.small {
-    color: #6c757d !important;
-}
-body:not(.dark-mode) .sidebar-cliente .info-compact .info-label span:first-child {
-    color: #495057 !important;
-}
-body:not(.dark-mode) .sidebar-cliente .info-compact .info-label span:last-child {
-    color: #212529 !important;
-}
-body:not(.dark-mode) .sidebar-cliente .info-compact i.fa-lg {
-    color: #6c757d !important;
-}
+body:not(.dark-mode) .d-flex.justify-content-between.my-3 span.small { color: #6c757d !important; }
+body:not(.dark-mode) .sidebar-cliente .info-compact .info-label span:first-child { color: #495057 !important; }
+body:not(.dark-mode) .sidebar-cliente .info-compact .info-label span:last-child { color: #212529 !important; }
+body:not(.dark-mode) .sidebar-cliente .info-compact i.fa-lg { color: #6c757d !important; }
 
-/* ========== ESTADO DE CUENTA - MODO CLARO (sidebar completo visible) ========== */
 html:not(.dark-mode) .estado-cuenta-page .sidebar-cliente,
 body:not(.dark-mode) .estado-cuenta-page .sidebar-cliente {
-    --ec-light-bg: #ffffff;
-    --ec-light-border: #dee2e6;
-    --ec-text: #212529;
-    --ec-text-muted: #6c757d;
+    --ec-light-bg: #ffffff; --ec-light-border: #dee2e6; --ec-text: #212529; --ec-text-muted: #6c757d;
 }
-/* Cards del sidebar: fondo sólido y texto oscuro */
 html:not(.dark-mode) .estado-cuenta-page .sidebar-cliente > .card,
 html:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .card,
 body:not(.dark-mode) .estado-cuenta-page .sidebar-cliente > .card,
-body:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .card {
-    background: var(--ec-light-bg) !important;
-    color: var(--ec-text) !important;
-}
+body:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .card { background: var(--ec-light-bg) !important; color: var(--ec-text) !important; }
 html:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .card-body,
-body:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .card-body {
-    color: var(--ec-text) !important;
-}
-/* Sección avatar: nombre, RFC, teléfono, badges */
+body:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .card-body { color: var(--ec-text) !important; }
 html:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .user-avatar-section .h6,
-body:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .user-avatar-section .h6 {
-    color: var(--ec-text) !important;
-}
+body:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .user-avatar-section .h6 { color: var(--ec-text) !important; }
 html:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .user-avatar-section small,
-body:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .user-avatar-section small {
-    color: var(--ec-text-muted) !important;
-}
+body:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .user-avatar-section small { color: var(--ec-text-muted) !important; }
 html:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .user-avatar-section .btn-link,
-body:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .user-avatar-section .btn-link {
-    color: #0d6efd !important;
-}
-/* Separadores y líneas (hr) visibles en modo claro */
+body:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .user-avatar-section .btn-link { color: #0d6efd !important; }
 html:not(.dark-mode) .estado-cuenta-page .sidebar-cliente hr,
-body:not(.dark-mode) .estado-cuenta-page .sidebar-cliente hr {
-    border-color: var(--ec-light-border) !important;
-    opacity: 1;
-}
-/* Bloque Estatus Crédito y Saldo Total Vencido: texto y etiquetas */
+body:not(.dark-mode) .estado-cuenta-page .sidebar-cliente hr { border-color: var(--ec-light-border) !important; opacity: 1; }
 html:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .d-flex.justify-content-between.my-3 h5,
-body:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .d-flex.justify-content-between.my-3 h5 {
-    color: var(--ec-text) !important;
-}
+body:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .d-flex.justify-content-between.my-3 h5 { color: var(--ec-text) !important; }
 html:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .d-flex.justify-content-between.my-3 span.small,
-body:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .d-flex.justify-content-between.my-3 span.small {
-    color: var(--ec-text-muted) !important;
-}
-/* Iconos de los bloques (Estatus / Saldo): fondo sólido y icono blanco para buen contraste */
-html:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .avatar-initial.bg-label-info,
-body:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .avatar-initial.bg-label-info {
-    background-color: #0dcaf0 !important;
-    color: #fff !important;
-}
-html:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .avatar-initial.bg-label-info .fa,
-body:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .avatar-initial.bg-label-info i {
-    color: #fff !important;
-}
-html:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .avatar-initial.bg-label-danger,
-body:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .avatar-initial.bg-label-danger {
-    background-color: #dc3545 !important;
-    color: #fff !important;
-}
-html:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .avatar-initial.bg-label-danger .fa,
-body:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .avatar-initial.bg-label-danger i {
-    color: #fff !important;
-}
-/* Título "Información del Crédito" */
-html:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .card-text.text-body-secondary,
-body:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .card-text.text-body-secondary {
-    color: var(--ec-text-muted) !important;
-}
-/* Lista info-compact: labels y valores */
+body:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .d-flex.justify-content-between.my-3 span.small { color: var(--ec-text-muted) !important; }
 html:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .info-compact .info-label span:first-child,
-body:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .info-compact .info-label span:first-child {
-    color: #495057 !important;
-}
+body:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .info-compact .info-label span:first-child { color: #495057 !important; }
 html:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .info-compact .info-label span:last-child,
-body:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .info-compact .info-label span:last-child {
-    color: var(--ec-text) !important;
-}
+body:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .info-compact .info-label span:last-child { color: var(--ec-text) !important; }
 html:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .info-compact i.fa-lg,
-body:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .info-compact i.fa-lg {
-    color: var(--ec-text-muted) !important;
-}
-/* Acordeón móvil: mismo contenido, mismo estilo en modo claro */
+body:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .info-compact i.fa-lg { color: var(--ec-text-muted) !important; }
 html:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .accordion-body,
-body:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .accordion-body {
-    background: var(--ec-light-bg) !important;
-    color: var(--ec-text) !important;
-}
-html:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .accordion-body .fw-medium,
-html:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .accordion-body span,
-body:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .accordion-body .fw-medium,
-body:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .accordion-body span {
-    color: var(--ec-text) !important;
-}
+body:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .accordion-body { background: var(--ec-light-bg) !important; color: var(--ec-text) !important; }
 html:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .accordion-button:not(.collapsed),
-body:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .accordion-button:not(.collapsed) {
-    background: #f8f9fa !important;
-    color: var(--ec-text) !important;
-}
+body:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .accordion-button:not(.collapsed) { background: #f8f9fa !important; color: var(--ec-text) !important; }
 </style>
 <style>
-/* Restaurar colores de botones de acción en modo claro */
-body:not(.dark-mode) .btn-dictaminar {
-    background: #e7f0ff !important;
-    border: 1px solid #b6d4fe !important;
-    color: #0d6efd !important;
-}
-body:not(.dark-mode) .btn-dictaminar:hover {
-    background: #cfe2ff !important;
-    color: #084298 !important;
-}
-body:not(.dark-mode) .btn-condonar {
-    background: #e6f4ea !important;
-    border: 1px solid #b7dfc3 !important;
-    color: #28a745 !important;
-}
-body:not(.dark-mode) .btn-condonar:hover {
-    background: #c8ead3 !important;
-    color: #1e7e34 !important;
-}
-body:not(.dark-mode) .btn-notas {
-    background: #fff3cd !important;
-    border: 1px solid #ffecb5 !important;
-    color: #f0ad4e !important;
-}
-body:not(.dark-mode) .btn-notas:hover {
-    background: #ffe69c !important;
-    color: #d39e00 !important;
-}
+body:not(.dark-mode) .btn-dictaminar { background: #e7f0ff !important; border: 1px solid #b6d4fe !important; color: #0d6efd !important; }
+body:not(.dark-mode) .btn-dictaminar:hover { background: #cfe2ff !important; color: #084298 !important; }
+body:not(.dark-mode) .btn-condonar { background: #e6f4ea !important; border: 1px solid #b7dfc3 !important; color: #28a745 !important; }
+body:not(.dark-mode) .btn-condonar:hover { background: #c8ead3 !important; color: #1e7e34 !important; }
+body:not(.dark-mode) .btn-notas { background: #fff3cd !important; border: 1px solid #ffecb5 !important; color: #f0ad4e !important; }
+body:not(.dark-mode) .btn-notas:hover { background: #ffe69c !important; color: #d39e00 !important; }
 </style>
 <style>
-/* Pagos del Cliente: Pago, Sobrante, Aplicado, Contracargo (modo claro y oscuro) */
 .cuotas-table .etiqueta-pago { color: #0d6efd !important; }
 .cuotas-table .etiqueta-sobrante { color: #6c757d !important; font-weight: bold; }
 .cuotas-table .etiqueta-aplicado { color: #05611d !important; }
 .cuotas-table .contracargo-label { color: #d35400 !important; font-weight: 700; }
 .cuotas-table .contracargo-valor { color: #d35400 !important; font-weight: 600; }
 .cuotas-table .pago-revertido { text-decoration: line-through; opacity: 0.5; }
-/* Modo oscuro: colores visibles sobre fondo oscuro */
 html.dark-mode .cuotas-table .etiqueta-pago,
 body.dark-mode .cuotas-table .etiqueta-pago { color: #7eb8ff !important; }
 html.dark-mode .cuotas-table .etiqueta-sobrante,
@@ -1528,83 +723,27 @@ body.dark-mode .cuotas-table .contracargo-label { color: #fb923c !important; fon
 html.dark-mode .cuotas-table .contracargo-valor,
 body.dark-mode .cuotas-table .contracargo-valor { color: #fb923c !important; font-weight: 600; }
 
-/* ═══════════════════════════════════════════════════════════════════
-   IDENTIFICADOR VISUAL DE PAÍS - GUATEMALA
-   Barra superior y colores distintivos para diferenciar de México
-   ═══════════════════════════════════════════════════════════════════ */
-
-/* Barra superior identificadora del país (colores de bandera Guatemala: azul y blanco) */
-.identificador-pais-guatemala {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 5px;
-    background: linear-gradient(90deg, #4997d0 0%, #4997d0 33.33%, #ffffff 33.33%, #ffffff 66.66%, #4997d0 66.66%, #4997d0 100%);
-    z-index: 9999;
-    box-shadow: 0 2px 6px rgba(73, 151, 208, 0.3);
-}
-
-/* Ajustar el body para no quedar cubierto por la barra */
-body.identificador-activo {
-    padding-top: 5px;
-}
-
-/* Banner del país con colores personalizados según país */
-.banner-pais-guatemala {
-    background: linear-gradient(135deg, #e3f2fd 0%, #fff 100%) !important;
-    border-left: 5px solid #4997d0 !important;
-    border-bottom: 2px solid rgba(73, 151, 208, 0.2) !important;
-}
-
-/* Badge especial para Guatemala */
-.badge-pais-guatemala {
-    background: linear-gradient(135deg, #4997d0 0%, #357abd 100%) !important;
-    color: white !important;
-    font-weight: 600;
-    padding: 0.5em 1em;
-    border-radius: 8px;
-    box-shadow: 0 4px 12px rgba(73, 151, 208, 0.4);
-    font-size: 0.85rem;
-    letter-spacing: 0.5px;
-}
-
-/* Acentos en cards para Guatemala */
-.estado-cuenta-page.pais-guatemala .card {
-    border-left: 3px solid transparent;
-}
-
-.estado-cuenta-page.pais-guatemala .sidebar-cliente > .card {
-    border-left-color: #4997d0;
-}
-
-/* Color primario ajustado para Guatemala */
-.estado-cuenta-page.pais-guatemala .badge-container-ids .badge.bg-label-primary {
-    background: rgba(73, 151, 208, 0.15) !important;
-    color: #357abd !important;
-}
-
-.estado-cuenta-page.pais-guatemala .border-primary {
-    border-color: #4997d0 !important;
-}
-
+.identificador-pais-guatemala { position: fixed; top: 0; left: 0; right: 0; height: 5px; background: linear-gradient(90deg, #4997d0 0%, #4997d0 33.33%, #ffffff 33.33%, #ffffff 66.66%, #4997d0 66.66%, #4997d0 100%); z-index: 9999; box-shadow: 0 2px 6px rgba(73, 151, 208, 0.3); }
+body.identificador-activo { padding-top: 5px; }
+.banner-pais-guatemala { background: linear-gradient(135deg, #e3f2fd 0%, #fff 100%) !important; border-left: 5px solid #4997d0 !important; border-bottom: 2px solid rgba(73, 151, 208, 0.2) !important; }
+.badge-pais-guatemala { background: linear-gradient(135deg, #4997d0 0%, #357abd 100%) !important; color: white !important; font-weight: 600; padding: 0.5em 1em; border-radius: 8px; box-shadow: 0 4px 12px rgba(73, 151, 208, 0.4); font-size: 0.85rem; letter-spacing: 0.5px; }
+.estado-cuenta-page.pais-guatemala .card { border-left: 3px solid transparent; }
+.estado-cuenta-page.pais-guatemala .sidebar-cliente > .card { border-left-color: #4997d0; }
+.estado-cuenta-page.pais-guatemala .badge-container-ids .badge.bg-label-primary { background: rgba(73, 151, 208, 0.15) !important; color: #357abd !important; }
+.estado-cuenta-page.pais-guatemala .border-primary { border-color: #4997d0 !important; }
 </style>
 
 <?php
-// País del crédito (datos proporcionados desde el controlador)
 $paisCodigo = $paisData['codigo_iso'] ?? 'mx';
 $paisNombre = $paisData['nombre_pais'] ?? 'México';
 $paisActivo = $paisData['pais_activo'] ?? 1;
-
-// Determinar clase CSS según país
 $clasePais = strtolower($paisCodigo) === 'gt' ? 'pais-guatemala' : 'pais-' . strtolower($paisCodigo);
-$colorBanner = strtolower($paisCodigo) === 'gt' ? '#4997d0' : '#d32f2f'; // Azul Guatemala, Rojo México
-$gradienteBanner = strtolower($paisCodigo) === 'gt' 
+$colorBanner = strtolower($paisCodigo) === 'gt' ? '#4997d0' : '#d32f2f';
+$gradienteBanner = strtolower($paisCodigo) === 'gt'
     ? 'linear-gradient(135deg, rgba(227, 242, 253, 0.95) 0%, rgba(255, 255, 255, 0.92) 100%)'
     : 'linear-gradient(135deg, rgba(255, 235, 238, 0.95) 0%, rgba(255, 255, 255, 0.92) 100%)';
 ?>
 
-<!-- Barra identificadora superior (solo Guatemala) -->
 <?php if (strtolower($paisCodigo) === 'gt'): ?>
 <div class="identificador-pais-guatemala"></div>
 <script>document.body.classList.add('identificador-activo');</script>
@@ -1617,34 +756,24 @@ $gradienteBanner = strtolower($paisCodigo) === 'gt'
     <div class="card border-0 shadow-sm banner-pais-<?= strtolower($paisCodigo) ?>" style="background: <?= $gradienteBanner ?>; backdrop-filter: blur(10px); border-radius: 16px; overflow: hidden; border-left: 5px solid <?= $colorBanner ?>;">
       <div class="card-body py-3">
         <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
-          <!-- Izquierda: Bandera + Título -->
           <div class="d-flex align-items-center gap-3">
             <div class="d-flex align-items-center justify-content-center" style="width: 64px; height: 64px; background: rgba(255,255,255,0.9); border-radius: 12px; box-shadow: 0 4px 14px rgba(0,0,0,0.1); border: 2px solid <?= $colorBanner ?>;">
               <span class="fi fi-<?= htmlspecialchars($paisCodigo) ?> fis" style="font-size: 2.5rem; line-height: 1;"></span>
             </div>
             <div>
               <div class="d-flex align-items-center gap-2 mb-1">
-                <h4 class="mb-0" style="font-weight: 700; color: #2c3e50; font-size: 1.5rem;">
-                  Estado de Cuenta
-                </h4>
+                <h4 class="mb-0" style="font-weight: 700; color: #2c3e50; font-size: 1.5rem;">Estado de Cuenta</h4>
                 <?php if (strtolower($paisCodigo) === 'gt'): ?>
-                <span class="badge badge-pais-guatemala">
-                  <i class="fa-solid fa-flag me-1"></i> GUATEMALA
-                </span>
+                <span class="badge badge-pais-guatemala"><i class="fa-solid fa-flag me-1"></i> GUATEMALA</span>
                 <?php elseif (strtolower($paisCodigo) === 'mx'): ?>
-                <span class="badge" style="background: linear-gradient(135deg, #006847 0%, #ce1126 100%); color: white; font-weight: 600; padding: 0.5em 1em; border-radius: 8px;">
-                  <i class="fa-solid fa-flag me-1"></i> MÉXICO
-                </span>
+                <span class="badge" style="background: linear-gradient(135deg, #006847 0%, #ce1126 100%); color: white; font-weight: 600; padding: 0.5em 1em; border-radius: 8px;"><i class="fa-solid fa-flag me-1"></i> MÉXICO</span>
                 <?php endif; ?>
               </div>
               <p class="mb-0 text-muted" style="font-size: 0.95rem; font-weight: 500;">
-                <i class="fa-solid fa-location-dot me-1"></i>
-                <?= htmlspecialchars($paisNombre) ?>
+                <i class="fa-solid fa-location-dot me-1"></i><?= htmlspecialchars($paisNombre) ?>
               </p>
             </div>
           </div>
-
-          <!-- Derecha: Badge Estado -->
           <div>
             <?php if ($paisActivo == 1): ?>
               <span class="badge bg-success" style="font-size: 0.9rem; padding: 0.6em 1.2em; border-radius: 10px; box-shadow: 0 4px 10px rgba(40,167,69,0.3);">
@@ -1662,74 +791,55 @@ $gradienteBanner = strtolower($paisCodigo) === 'gt'
   </div>
 
   <!-- SIDEBAR CLIENTE -->
-<div class="col-xl-4 col-lg-5 order-1 order-lg-0 sidebar-cliente">
+  <div class="col-xl-4 col-lg-5 order-1 order-lg-0 sidebar-cliente">
     <div class="card mb-6">
         <div class="card-body">
-            
-            <!-- SECCIÓN AVATAR/DATOS BÁSICOS (SIEMPRE VISIBLE) -->
+
+            <!-- SECCIÓN AVATAR -->
             <div class="user-avatar-section">
                 <div class="card mb-3 border border-2 border-primary rounded primary-shadow">
                     <div class="card-body">
-                        <!-- Badges IDs -->
                         <div class="badge-container-ids">
-                            <span class="badge bg-label-primary">ID Crédito: <?= htmlspecialchars($dataEstadoCuenta["idCredito"] ?? '') ?></span>
-                            <span class="badge bg-label-secondary">ID Cliente: <?= htmlspecialchars($dataCliente["idCliente"] ?? '') ?></span>
+                            <span class="badge bg-label-primary">ID Crédito: <?= htmlspecialchars($pkeyCredito) ?></span>
+                            <span class="badge bg-label-secondary">ID Cliente: <?= htmlspecialchars($pkeyCliente) ?></span>
                         </div>
-                        
-                        <!-- Nombre -->
                         <div class="d-flex justify-content-between align-items-center mb-1">
-                            <span class="h6 mb-0"> <?= htmlspecialchars($dataCliente["nombreCliente"] ?? '') ?></span>
+                            <span class="h6 mb-0"><?= htmlspecialchars($nombreCliente) ?></span>
                         </div>
-                        
-                        <!-- Barra de progreso -->
                         <div class="progress mb-1" title="<?= $porcentajeAvance ?>%">
-                            <div class="progress-bar bg-primary"
-                                 role="progressbar"
+                            <div class="progress-bar bg-primary" role="progressbar"
                                  style="width: <?= $porcentajeAvance ?>%;"
-                                 aria-valuenow="<?= $porcentajeAvance ?>"
-                                 aria-valuemin="0"
-                                 aria-valuemax="100">
+                                 aria-valuenow="<?= $porcentajeAvance ?>" aria-valuemin="0" aria-valuemax="100">
                             </div>
                         </div>
-                        
-                        <!-- Teléfono y dirección -->
                         <small class="d-flex align-items-center gap-2">
                             <i class="fa fa-phone text-primary"></i>
                             <?php
-                            $cel = preg_replace('/\D/', '', $dataCliente["celular"] ?? '');
+                            $cel = preg_replace('/\D/', '', $datosCliente["celular"] ?? $datosCliente["telefono"] ?? '');
                             if (strlen($cel) === 10) {
-                                $cel = sprintf(
-                                    "(%s) %s-%s",
-                                    substr($cel, 0, 2),
-                                    substr($cel, 2, 4),
-                                    substr($cel, 6, 4)
-                                );
+                                $cel = sprintf("(%s) %s-%s", substr($cel, 0, 2), substr($cel, 2, 4), substr($cel, 6, 4));
+                            } elseif (strlen($cel) === 8) {
+                                $cel = sprintf("%s-%s", substr($cel, 0, 4), substr($cel, 4, 4));
                             }
                             echo htmlspecialchars($cel);
                             ?>
-                            
                             <i class="fa fa-location text-primary"></i>
-                            <button type="button"
-                                    class="btn btn-link text-primary p-0"
-                                    data-bs-toggle="modal"
-                                    data-bs-target="#modalDirecciones"
+                            <button type="button" class="btn btn-link text-primary p-0"
+                                    data-bs-toggle="modal" data-bs-target="#modalDirecciones"
                                     onclick="abrirModalDirecciones()">
                                 Direcciones
                             </button>
                             <span class="text-nowrap">
                                 <i class="fa fa-id-card text-primary"></i>
-                                RFC: <?= htmlspecialchars(trim($referencias['datos'][0]['rfc'] ?? '') ?: '—') ?>
+                                RFC: <?= htmlspecialchars(trim($datosCliente['RFC'] ?? '') ?: '—') ?>
                             </span>
                         </small>
                     </div>
                 </div>
             </div>
-            
-            <!-- ================================
-               VERSIÓN DESKTOP (SIN ACORDEÓN)
-            ================================ -->
+
+            <!-- VERSIÓN DESKTOP -->
             <div class="d-none d-lg-block desktop-info">
-                <!-- MÉTRICAS -->
                 <div class="d-flex justify-content-between flex-nowrap my-3 gap-1 gap-md-1">
                     <div class="d-flex align-items-center gap-3">
                         <div class="avatar">
@@ -1738,13 +848,10 @@ $gradienteBanner = strtolower($paisCodigo) === 'gt'
                             </div>
                         </div>
                         <div class="text-truncate">
-                            <h5 class="mb-0 text-truncate">
-                                <?= htmlspecialchars($dataEstadoCuenta["statusCredito"] ?? '') ?>
-                            </h5>
+                            <h5 class="mb-0 text-truncate"><?= htmlspecialchars($dataEstadoCuenta["statusCredito"] ?? '') ?></h5>
                             <span class="small">Estatus Crédito</span>
                         </div>
                     </div>
-                    
                     <div class="d-flex align-items-center gap-3">
                         <div class="avatar">
                             <div class="avatar-initial bg-label-danger rounded w-px-40 h-px-40">
@@ -1752,148 +859,131 @@ $gradienteBanner = strtolower($paisCodigo) === 'gt'
                             </div>
                         </div>
                         <div class="text-end text-truncate">
-                            <h5 class="mb-0 text-truncate">
-                                <?= format_currency($dataOtrosDatos["saldoTotalVencido"] ?? 0) ?>
-                            </h5>
+                            <h5 class="mb-0 text-truncate"><?= format_currency($dataOtrosDatos["saldoTotalVencido"] ?? 0) ?></h5>
                             <span class="small">Saldo Total Vencido</span>
                         </div>
                     </div>
                 </div>
-                
-                <!-- INFORMACIÓN DEL CRÉDITO -->
-              <hr class="my-2 w-100">
-<small class="card-text text-uppercase text-body-secondary small">Información del Crédito</small>
-<ul class="list-unstyled my-1 py-1 info-compact">
-    <li>
-        <i class="fa fa-money-bill fa-lg"></i>
-        <div class="info-label">
-            <span class="fw-medium">Monto Otorgado:</span>
-            <span>$<?= number_format($dataEstadoCuenta["montoOtorgado"] ?? 0, 2, '.', ',') ?></span>
-        </div>
-    </li>
 
-    <li>
-        <i class="fa fa-money-bill-wave fa-lg"></i>
-        <div class="info-label">
-            <span class="fw-medium">Saldo Total Pagado:</span>
-            <span><?= format_currency((float)($dataEstadoCuenta["montoOtorgado"] ?? 0) - (float)($dataOtrosDatos["saldoTotalVigente"] ?? 0)) ?></span>
-        </div>
-    </li>
-    
-    <li>
-        <i class="fa fa-list-ol fa-lg"></i>
-        <div class="info-label">
-            <span class="fw-medium">Cuotas Contratadas:</span>
-            <span><?= htmlspecialchars($dataOtrosDatos["cuotasContratadas"] ?? '') ?> cuotas</span>
-        </div>
-    </li>
-    
-    <li>
-        <i class="fa fa-check-circle fa-lg"></i>
-        <div class="info-label">
-            <span class="fw-medium">Cuotas Pagadas:</span>
-            <span><?= htmlspecialchars($dataOtrosDatos["cuotasPagadas"] ?? '') ?> cuotas</span>
-        </div>
-    </li>
-    
-    <li>
-        <i class="fa fa-hourglass fa-lg"></i>
-        <div class="info-label">
-            <span class="fw-medium">Cuotas Faltantes:</span>
-            <span><?= $cuotasFaltantes ?> cuotas</span>
-        </div>
-    </li>
-    
-    <li>
-        <i class="fa fa-credit-card fa-lg"></i>
-        <div class="info-label">
-            <span class="fw-medium">Saldo Vigente Capital:</span>
-            <span><?= format_currency($dataOtrosDatos["saldoVigenteCapital"] ?? 0) ?></span>
-        </div>
-    </li>
+                <hr class="my-2 w-100">
+                <small class="card-text text-uppercase text-body-secondary small">Información del Crédito</small>
+                <ul class="list-unstyled my-1 py-1 info-compact">
+                    <li>
+                        <i class="fa fa-money-bill fa-lg"></i>
+                        <div class="info-label">
+                            <span class="fw-medium">Monto Otorgado:</span>
+                            <span>$<?= number_format($dataEstadoCuenta["montoOtorgado"] ?? 0, 2, '.', ',') ?></span>
+                        </div>
+                    </li>
+                    <li>
+                        <i class="fa fa-money-bill-wave fa-lg"></i>
+                        <div class="info-label">
+                            <span class="fw-medium">Saldo Total Pagado:</span>
+                            <span><?= format_currency((float)($dataEstadoCuenta["montoOtorgado"] ?? 0) - (float)($dataOtrosDatos["saldoTotalVigente"] ?? 0)) ?></span>
+                        </div>
+                    </li>
+                    <li>
+                        <i class="fa fa-list-ol fa-lg"></i>
+                        <div class="info-label">
+                            <span class="fw-medium">Cuotas Contratadas:</span>
+                            <span><?= htmlspecialchars($dataOtrosDatos["cuotasContratadas"] ?? '') ?> cuotas</span>
+                        </div>
+                    </li>
+                    <li>
+                        <i class="fa fa-check-circle fa-lg"></i>
+                        <div class="info-label">
+                            <span class="fw-medium">Cuotas Pagadas:</span>
+                            <span><?= htmlspecialchars($dataOtrosDatos["cuotasPagadas"] ?? '') ?> cuotas</span>
+                        </div>
+                    </li>
+                    <li>
+                        <i class="fa fa-hourglass fa-lg"></i>
+                        <div class="info-label">
+                            <span class="fw-medium">Cuotas Faltantes:</span>
+                            <span><?= $cuotasFaltantes ?> cuotas</span>
+                        </div>
+                    </li>
+                    <li>
+                        <i class="fa fa-credit-card fa-lg"></i>
+                        <div class="info-label">
+                            <span class="fw-medium">Saldo Vigente Capital:</span>
+                            <span><?= format_currency($dataOtrosDatos["saldoVigenteCapital"] ?? 0) ?></span>
+                        </div>
+                    </li>
+                    <li>
+                        <i class="fa fa-credit-card fa-lg"></i>
+                        <div class="info-label">
+                            <span class="fw-medium">Saldo para Liquidar:</span>
+                            <span><?= format_currency($dataOtrosDatos["saldoParaLiquidarV2"] ?? 0) ?></span>
+                        </div>
+                    </li>
+                    <li>
+                        <i class="fa fa-exclamation-triangle fa-lg"></i>
+                        <div class="info-label">
+                            <span class="fw-medium">Mora Máximo:</span>
+                            <span><?= htmlspecialchars($dataOtrosDatos["diasMoraMaximo"] ?? 0) ?> días</span>
+                        </div>
+                    </li>
+                    <li>
+                        <i class="fa fa-clock fa-lg"></i>
+                        <div class="info-label">
+                            <span class="fw-medium">Mora:</span>
+                            <span><?= htmlspecialchars($dataOtrosDatos["diasMora"] ?? 0) ?> días</span>
+                        </div>
+                    </li>
+                    <li>
+                        <i class="fa fa-calendar-alt fa-lg"></i>
+                        <div class="info-label">
+                            <span class="fw-medium">Fecha Inicio:</span>
+                            <span><?= format_date($dataEstadoCuenta["fechaInicio"] ?? null) ?></span>
+                        </div>
+                    </li>
 
-    <li>
-        <i class="fa fa-credit-card fa-lg"></i>
-        <div class="info-label">
-            <span class="fw-medium">Saldo para Liquidar:</span>
-            <span><?= format_currency($dataOtrosDatos["saldoParaLiquidarV2"] ?? 0) ?></span>
-        </div>
-    </li>
-    
-    <li>
-        <i class="fa fa-exclamation-triangle fa-lg"></i>
-        <div class="info-label">
-            <span class="fw-medium">Mora Máximo:</span>
-            <span><?= htmlspecialchars($dataOtrosDatos["diasMoraMaximo"] ?? 0) ?> días</span>
-        </div>
-    </li>
-    
-    <li>
-        <i class="fa fa-clock fa-lg"></i>
-        <div class="info-label">
-            <span class="fw-medium">Mora:</span>
-            <span><?= htmlspecialchars($dataOtrosDatos["diasMora"] ?? 0) ?> días</span>
-        </div>
-    </li>
-    
-    <li>
-        <i class="fa fa-calendar-alt fa-lg"></i>
-        <div class="info-label">
-            <span class="fw-medium">Fecha Inicio:</span>
-            <span><?= format_date($dataEstadoCuenta["fechaInicio"] ?? null) ?></span>
-        </div>
-    </li>
-    
-    <hr class="my-2 w-100">
-    
-    <li>
-        <i class="fa fa-calendar-day fa-lg"></i>
-        <div class="info-label">
-            <span class="fw-medium">Primer Vencimiento:</span>
-            <span><?= format_date($dataEstadoCuenta["primerVencimiento"] ?? null) ?></span>
-        </div>
-    </li>
-    
-    <li>
-        <i class="fa fa-calendar-check fa-lg"></i>
-        <div class="info-label">
-            <span class="fw-medium">Último Vencimiento:</span>
-            <span><?= format_date($dataEstadoCuenta["ultimoVencimiento"] ?? null) ?></span>
-        </div>
-    </li>
-    
-    <li>
-        <i class="fa fa-calendar-check fa-lg"></i>
-        <div class="info-label">
-            <span class="fw-medium">Fecha de Liquidación:</span>
-            <span><?= format_date($dataEstadoCuenta["fechaLiquidacion"] ?? null) ?></span>
-        </div>
-    </li>
+                    <hr class="my-2 w-100">
 
-    <br>
-    
-    <button type="button"
-            class="btn btn-outline-primary w-100 d-flex align-items-center justify-content-center gap-2 py-2"
-            data-bs-toggle="modal" data-bs-target="#modalRFC">
-        <i class="fa fa-id-card fa-lg"></i>
-        <strong>Ver referencias del cliente</strong>
-    </button>
-</ul>
+                    <li>
+                        <i class="fa fa-calendar-day fa-lg"></i>
+                        <div class="info-label">
+                            <span class="fw-medium">Primer Vencimiento:</span>
+                            <span><?= format_date($dataEstadoCuenta["primerVencimiento"] ?? null) ?></span>
+                        </div>
+                    </li>
+                    <li>
+                        <i class="fa fa-calendar-check fa-lg"></i>
+                        <div class="info-label">
+                            <span class="fw-medium">Último Vencimiento:</span>
+                            <span><?= format_date($dataEstadoCuenta["ultimoVencimiento"] ?? null) ?></span>
+                        </div>
+                    </li>
+                    <li>
+                        <i class="fa fa-calendar-check fa-lg"></i>
+                        <div class="info-label">
+                            <span class="fw-medium">Fecha de Liquidación:</span>
+                            <span><?= format_date($dataEstadoCuenta["fechaLiquidacion"] ?? null) ?></span>
+                        </div>
+                    </li>
+
+
+
+                    <button type="button"
+                            class="btn btn-outline-primary w-100 d-flex align-items-center justify-content-center gap-2 py-2"
+                            data-bs-toggle="modal" data-bs-target="#modalRFC">
+                        <i class="fa fa-id-card fa-lg"></i>
+                        <strong>Ver referencias del cliente</strong>
+                    </button>
+                </ul>
             </div>
-            
-            <!-- ================================
-               VERSIÓN MÓVIL (CON ACORDEÓN)
-            ================================ -->
+
+            <!-- VERSIÓN MÓVIL -->
             <div class="d-lg-none mobile-info">
                 <div class="accordion accordion-flush custom-accordion" id="accordionInfoCredito">
                     <div class="accordion-item">
-                        <!-- HEADER DEL ACORDEÓN -->
                         <h2 class="accordion-header" id="headingInfoCredito">
-                            <button class="accordion-button collapsed p-3" 
-                                    type="button" 
-                                    data-bs-toggle="collapse" 
-                                    data-bs-target="#collapseInfoCredito" 
-                                    aria-expanded="false" 
+                            <button class="accordion-button collapsed p-3"
+                                    type="button"
+                                    data-bs-toggle="collapse"
+                                    data-bs-target="#collapseInfoCredito"
+                                    aria-expanded="false"
                                     aria-controls="collapseInfoCredito">
                                 <div class="d-flex align-items-center w-100">
                                     <i class="fa fa-info-circle me-2 text-primary"></i>
@@ -1902,15 +992,11 @@ $gradienteBanner = strtolower($paisCodigo) === 'gt'
                                 </div>
                             </button>
                         </h2>
-                        
-                        <!-- CONTENIDO DEL ACORDEÓN -->
-                        <div id="collapseInfoCredito" 
-                             class="accordion-collapse collapse" 
-                             aria-labelledby="headingInfoCredito" 
+                        <div id="collapseInfoCredito"
+                             class="accordion-collapse collapse"
+                             aria-labelledby="headingInfoCredito"
                              data-bs-parent="#accordionInfoCredito">
                             <div class="accordion-body p-0 pt-3">
-                                
-                                <!-- MÉTRICAS -->
                                 <div class="d-flex justify-content-between flex-nowrap my-3 gap-1 gap-md-1">
                                     <div class="d-flex align-items-center gap-3">
                                         <div class="avatar">
@@ -1919,13 +1005,10 @@ $gradienteBanner = strtolower($paisCodigo) === 'gt'
                                             </div>
                                         </div>
                                         <div class="text-truncate">
-                                            <h5 class="mb-0 text-truncate">
-                                                <?= htmlspecialchars($dataEstadoCuenta["statusCredito"] ?? '') ?>
-                                            </h5>
+                                            <h5 class="mb-0 text-truncate"><?= htmlspecialchars($dataEstadoCuenta["statusCredito"] ?? '') ?></h5>
                                             <span class="small">Estatus Crédito</span>
                                         </div>
                                     </div>
-                                    
                                     <div class="d-flex align-items-center gap-3">
                                         <div class="avatar">
                                             <div class="avatar-initial bg-label-danger rounded w-px-40 h-px-40">
@@ -1933,88 +1016,76 @@ $gradienteBanner = strtolower($paisCodigo) === 'gt'
                                             </div>
                                         </div>
                                         <div class="text-end text-truncate">
-                                            <h5 class="mb-0 text-truncate">
-                                                <?= format_currency($dataOtrosDatos["saldoTotalVencido"] ?? 0) ?>
-                                            </h5>
+                                            <h5 class="mb-0 text-truncate"><?= format_currency($dataOtrosDatos["saldoTotalVencido"] ?? 0) ?></h5>
                                             <span class="small">Saldo Total Vencido</span>
                                         </div>
                                     </div>
                                 </div>
-                                
-                                <!-- INFORMACIÓN DEL CRÉDITO -->
+
                                 <hr class="my-2 w-100">
                                 <small class="card-text text-uppercase text-body-secondary small">Información del Crédito</small>
                                 <ul class="list-unstyled my-1 py-1 info-compact">
                                     <li class="d-flex align-items-center mb-2">
                                         <i class="fa fa-money-bill fa-lg"></i>
                                         <span class="fw-medium mx-2">Monto Otorgado:</span>
-                                        <span>$37,759.20</span>
+                                        <span>$<?= number_format($dataEstadoCuenta["montoOtorgado"] ?? 0, 2, '.', ',') ?></span>
                                     </li>
-                                    
                                     <li class="d-flex align-items-center mb-2">
                                         <i class="fa fa-list-ol fa-lg"></i>
                                         <span class="fw-medium mx-2">Cuotas Contratadas:</span>
                                         <span><?= htmlspecialchars($dataOtrosDatos["cuotasContratadas"] ?? '') ?> cuotas</span>
                                     </li>
-                                    
                                     <li class="d-flex align-items-center mb-2">
                                         <i class="fa fa-check-circle fa-lg"></i>
                                         <span class="fw-medium mx-2">Cuotas Pagadas:</span>
                                         <span><?= htmlspecialchars($dataOtrosDatos["cuotasPagadas"] ?? '') ?> cuotas</span>
                                     </li>
-                                    
                                     <li class="d-flex align-items-center mb-2">
                                         <i class="fa fa-hourglass fa-lg"></i>
                                         <span class="fw-medium mx-2">Cuotas Faltantes:</span>
                                         <span><?= $cuotasFaltantes ?> cuotas</span>
                                     </li>
-                                    
                                     <li class="d-flex align-items-center mb-2">
                                         <i class="fa fa-credit-card fa-lg"></i>
                                         <span class="fw-medium mx-2">Saldo para Liquidar:</span>
                                         <span><?= format_currency($dataOtrosDatos["saldoParaLiquidarV2"] ?? 0) ?></span>
                                     </li>
-                                    
                                     <li class="d-flex align-items-center mb-2">
                                         <i class="fa fa-exclamation-triangle fa-lg"></i>
                                         <span class="fw-medium mx-2">Mora Máximo:</span>
                                         <span><?= htmlspecialchars($dataOtrosDatos["diasMoraMaximo"] ?? 0) ?> días</span>
                                     </li>
-                                    
                                     <li class="d-flex align-items-center mb-2">
                                         <i class="fa fa-clock fa-lg"></i>
                                         <span class="fw-medium mx-2">Mora:</span>
                                         <span><?= htmlspecialchars($dataOtrosDatos["diasMora"] ?? 0) ?> días</span>
                                     </li>
-                                    
                                     <li class="d-flex align-items-center mb-2">
                                         <i class="fa fa-calendar-alt fa-lg"></i>
                                         <span class="fw-medium mx-2">Fecha Inicio:</span>
                                         <span><?= format_date($dataEstadoCuenta["fechaInicio"] ?? null) ?></span>
                                     </li>
-                                    
+
                                     <hr class="my-2 w-100">
-                                    
+
                                     <li class="d-flex align-items-center mb-2">
                                         <i class="fa fa-calendar-day fa-lg"></i>
                                         <span class="fw-medium mx-2">Primer Vencimiento:</span>
                                         <span><?= format_date($dataEstadoCuenta["primerVencimiento"] ?? null) ?></span>
                                     </li>
-                                    
                                     <li class="d-flex align-items-center mb-2">
                                         <i class="fa fa-calendar-check fa-lg"></i>
                                         <span class="fw-medium mx-2">Último Vencimiento:</span>
                                         <span><?= format_date($dataEstadoCuenta["ultimoVencimiento"] ?? null) ?></span>
                                     </li>
-                                    
                                     <li class="d-flex align-items-center mb-2">
                                         <i class="fa fa-calendar-check fa-lg"></i>
                                         <span class="fw-medium mx-2">Fecha de Liquidación:</span>
                                         <span><?= format_date($dataEstadoCuenta["fechaLiquidacion"] ?? null) ?></span>
                                     </li>
-                                    
-                                    <br>
-                                    
+
+
+
                                     <button type="button"
                                             class="btn btn-outline-primary w-100 d-flex align-items-center justify-content-center gap-2 py-2"
                                             data-bs-toggle="modal" data-bs-target="#modalRFC">
@@ -2022,101 +1093,62 @@ $gradienteBanner = strtolower($paisCodigo) === 'gt'
                                         <strong>Ver referencias del cliente</strong>
                                     </button>
                                 </ul>
-                                
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
-            
+
         </div>
     </div>
-</div>
+  </div>
 
     <!-- CONTENIDO PRINCIPAL -->
     <div class="col-xl-8 col-lg-7 order-0 order-lg-1" style="position: relative;">
-        
-        <!-- Sello identificador del país (solo Guatemala) -->
-        <?php if (strtolower($paisCodigo) === 'gt'): ?>
-        <div style="position: absolute; top: 10px; right: 20px; z-index: 10; opacity: 0.15; pointer-events: none;">
-            <div style="text-align: center; transform: rotate(-15deg);">
-                <span class="fi fi-gt" style="font-size: 8rem; filter: drop-shadow(0 4px 8px rgba(73, 151, 208, 0.5));"></span>
-                <div style="font-size: 2rem; font-weight: 900; color: #4997d0; letter-spacing: 3px; margin-top: -20px;">
-                    GUATEMALA
-                </div>
-            </div>
-        </div>
-        <?php endif; ?>
-        
+
+
+
         <div class="d-flex justify-content-between align-items-center mb-3">
             <div class="d-flex align-items-center gap-2">
                 <h5 class="mb-0">Resumen general de pagos del cliente</h5>
-                <?php if (strtolower($paisCodigo) === 'gt'): ?>
-                <span class="badge" style="background: #4997d0; color: white; font-size: 0.7rem; vertical-align: middle;">
-                    <i class="fa-solid fa-globe"></i> GT
-                </span>
-                <?php endif; ?>
             </div>
 
             <div class="d-flex gap-2">
-                <!-- BOTÓN DICTAMINAR -->
-                <?php if (
-                        isset($_SESSION['departamento'], $_SESSION['usuario_id']) &&
-                        ($_SESSION['departamento'] == 2 || $_SESSION['usuario_id'] == 1)
-                ): ?>
-                    <button type="button"
-                            class="btn btn-dictaminar position-relative"
-                            data-bs-toggle="modal"
-                            data-bs-target="#modalDictamen"
-                            title="Dictaminar llamada">
+                <?php if (isset($_SESSION['departamento'], $_SESSION['usuario_id']) && ($_SESSION['departamento'] == 2 || $_SESSION['usuario_id'] == 1)): ?>
+                    <button type="button" class="btn btn-dictaminar position-relative"
+                            data-bs-toggle="modal" data-bs-target="#modalDictamen" title="Dictaminar llamada">
                         <i class="fa fa-headset"></i>
                     </button>
                 <?php endif; ?>
 
-                <!-- BOTÓN CONDONAR -->
-                <?php if (
-                        isset($_SESSION['departamento'], $_SESSION['usuario_id']) &&
-                        (in_array((int)$_SESSION['departamento'], [2, 9], true)|| $_SESSION['usuario_id'] == 1)
-                ): ?>
-                    <button type="button"
-                            class="btn btn-condonar position-relative"
+                <?php if (isset($_SESSION['departamento'], $_SESSION['usuario_id']) && (in_array((int)$_SESSION['departamento'], [2, 9], true) || $_SESSION['usuario_id'] == 1)): ?>
+                    <button type="button" class="btn btn-condonar position-relative"
                             title="Condonar gastos de cobranza"
                             onclick="consultaGastosCondonables(<?= htmlspecialchars($dataEstadoCuenta["idCredito"] ?? '') ?>)">
                         <i class="fa fa-hand-holding-usd"></i>
                     </button>
                 <?php endif; ?>
 
-                <!-- BOTÓN NOTAS (ICONO) -->
-                <?php if (
-                        isset($_SESSION['departamento'], $_SESSION['usuario_id']) &&
-                        ($_SESSION['departamento'] == 2 || $_SESSION['usuario_id'] == 1)
-                ): ?>
-                    <button type="button"
-                            class="btn btn-notas position-relative"
+                <?php if (isset($_SESSION['departamento'], $_SESSION['usuario_id']) && ($_SESSION['departamento'] == 2 || $_SESSION['usuario_id'] == 1)): ?>
+                    <button type="button" class="btn btn-notas position-relative"
                             title="Notas del cliente"
                             onclick="consultaNotas(<?= htmlspecialchars($dataEstadoCuenta["idCredito"] ?? '') ?>)">
-
                         <i class="fa fa-sticky-note"></i>
-
-                        <span id="badgeNotas"
-                              class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
-            <?= htmlspecialchars($notas['datos'][0]['num'] ?? '') ?>
-        </span>
+                        <span id="badgeNotas" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+                            <?= htmlspecialchars($notas['datos'][0]['num'] ?? '') ?>
+                        </span>
                     </button>
                 <?php endif; ?>
 
-
-                <a href="/estadocuenta/consulta" class="btn btn-outline-secondary d-flex align-items-center gap-1">
+                <a href="/EstadoCuenta/Guatemala" class="btn btn-outline-secondary d-flex align-items-center gap-1">
                     <i class="fa fa-search"></i>
                     <span>Nueva consulta</span>
                 </a>
             </div>
         </div>
 
-
         <div class="card mb-6">
             <div class="d-flex justify-content-around flex-wrap my-6 gap-0 gap-md-3">
-
                 <div class="d-flex align-items-center me-5 gap-4">
                     <div class="avatar">
                         <div class="avatar-initial bg-label-success rounded w-px-40 h-px-40">
@@ -2128,7 +1160,6 @@ $gradienteBanner = strtolower($paisCodigo) === 'gt'
                         <span>Cuota Semanal</span>
                     </div>
                 </div>
-
                 <div class="d-flex align-items-center gap-4">
                     <div class="avatar">
                         <div class="avatar-initial bg-label-primary rounded w-px-40 h-px-40">
@@ -2136,16 +1167,10 @@ $gradienteBanner = strtolower($paisCodigo) === 'gt'
                         </div>
                     </div>
                     <div>
-                        <h5 class="mb-0">
-                            <?= $fechaUltimoPagoCompleto
-                                    ? format_date($fechaUltimoPagoCompleto)
-                                    : '—'
-                            ?>
-                        </h5>
+                        <h5 class="mb-0"><?= $fechaUltimoPagoCompleto ? format_date($fechaUltimoPagoCompleto) : '—' ?></h5>
                         <span>Último Pago</span>
                     </div>
                 </div>
-
                 <div class="d-flex align-items-center gap-4">
                     <div class="avatar">
                         <div class="avatar-initial bg-label-facebook rounded w-px-40 h-px-40">
@@ -2165,11 +1190,10 @@ $gradienteBanner = strtolower($paisCodigo) === 'gt'
                     <colgroup>
                         <col style="width: 9%">
                         <col style="width: 18%">
-                        <col style="width: 20"> <!-- 👈 PAGOS DEL CLIENTE (énfasis) -->
+                        <col style="width: 20%">
                         <col style="width: 12%">
                         <col style="width: 18%">
                     </colgroup>
-
                     <thead class="border-top">
                     <tr>
                         <th class="text-nowrap text-center">Cuota</th>
@@ -2179,7 +1203,6 @@ $gradienteBanner = strtolower($paisCodigo) === 'gt'
                         <th class="text-nowrap text-center">Estatus</th>
                     </tr>
                     </thead>
-
                     <tbody>
                     <?php
                     $dataEstadoCuenta = $dataEstadoCuenta ?? [];
@@ -2192,7 +1215,6 @@ $gradienteBanner = strtolower($paisCodigo) === 'gt'
                         <?php
                         $idxCuota++;
                         $esUltimaCuota = ($idxCuota === $totalCuotas);
-                        // Datos de la fila
                         $cuota = safe($fila['cuota'], '—');
                         $fecha = safe($fila['fecha'], null);
                         $monto_cargo = safe($fila['monto_cargo'], 0.0);
@@ -2201,7 +1223,6 @@ $gradienteBanner = strtolower($paisCodigo) === 'gt'
                         $pendiente = safe($fila['pendiente'], 0.0);
                         $raw_cargo = safe($fila['raw_cargo'], []);
 
-                        // Calcular fecha de último pago aplicado (si existe)
                         $lastPagoDate = null;
                         foreach ($aplicados as $a) {
                             if (!empty($a['fechaRegistro'])) {
@@ -2212,14 +1233,10 @@ $gradienteBanner = strtolower($paisCodigo) === 'gt'
                             }
                         }
 
-                        // Detectar si esta cuota tiene contracargo (afecta cálculo de mora)
                         $tieneContracargo = false;
                         $lastPagoDateReal = null;
                         foreach ($aplicados as $a) {
-                            if (isset($a['tipo']) && $a['tipo'] === 'contracargo') {
-                                $tieneContracargo = true;
-                                continue;
-                            }
+                            if (isset($a['tipo']) && $a['tipo'] === 'contracargo') { $tieneContracargo = true; continue; }
                             if (!empty($a['cc_invalido'])) continue;
                             if (!empty($a['fechaRegistro'])) {
                                 $ts = strtotime($a['fechaRegistro']);
@@ -2247,11 +1264,9 @@ $gradienteBanner = strtolower($paisCodigo) === 'gt'
                             }
                         }
 
-                        // Construir badge
                         if ($creditoSaldado && $esUltimaCuota) {
                             $badge = '<span class="badge bg-success px-3 py-2">Crédito saldado</span>';
                         } elseif ($pendiente <= 0) {
-                            // pago completo
                             $badge = '<span class="badge bg-success px-3 py-2">Pago completo</span>';
                             if ($diasMora > 0) {
                                 $badge = '<span class="badge bg-danger px-3 py-2">Pago completo<br>' . htmlspecialchars($diasMora) . ' día' . ($diasMora>1?'s':'') . ' de mora</span>';
@@ -2265,7 +1280,6 @@ $gradienteBanner = strtolower($paisCodigo) === 'gt'
                         <tr>
                             <td><?= htmlspecialchars($cuota) ?></td>
                             <td class="fecha-cuota"><span class="fa fa-calendar"></span> <?= htmlspecialchars(format_date($fecha)) ?> <br> <u><?= format_currency($monto_cargo) ?></u></td>
-
                             <td>
                                 <ul class="ps-3 mb-0">
                                     <?php if (!empty($aplicados)): ?>
@@ -2303,7 +1317,6 @@ $gradienteBanner = strtolower($paisCodigo) === 'gt'
                                                 <?php endif; ?>
                                             </li>
                                             <?php
-                                            // Notas de cargo residuales (no procesadas como contracargo)
                                             $hayNotasCargos = $hayNotasCargos ?? false;
                                             $notasCargoPorFecha = $notasCargoPorFecha ?? [];
                                             $esReembolsoPorFecha = $esReembolsoPorFecha ?? [];
@@ -2321,8 +1334,6 @@ $gradienteBanner = strtolower($paisCodigo) === 'gt'
                                             <?php endif; ?>
                                             <?php endif; ?>
                                         <?php endforeach; ?>
-                                    <?php else: ?>
-                                        <!-- Sin pagos -->
                                     <?php endif; ?>
                                     <?php if ($creditoSaldado && $esUltimaCuota && !empty($aplicados)): ?>
                                         <p class="mb-0 mt-2 text-success small fw-semibold">Crédito saldado — Pago total</p>
@@ -2336,30 +1347,24 @@ $gradienteBanner = strtolower($paisCodigo) === 'gt'
                     </tbody>
                 </table>
             </div>
-
         </div>
     </div>
 
     <?php
-    // Preparar referencias dinámicamente
     $datosRef = $referencias['datos'][0] ?? [];
     $referenciasList = [];
-
     for ($i = 1; $i <= 3; $i++) {
         $nombreKey = "nombre_completo_referencia{$i}";
         $telefonoKey = "telefono_referencia{$i}";
-
         if (!empty($datosRef[$nombreKey])) {
             $referenciasList[] = [
-                    'nombre' => $datosRef[$nombreKey],
-                    'telefono' => $datosRef[$telefonoKey] ?? '—',
-                    'tipo' => $i === 1 ? 'Principal' : "Referencia {$i}",
-                    'icono' => $i === 1 ? 'fa-user text-success' : ($i === 2 ? 'fa-user-friends text-primary' : 'fa-user-tie text-warning')
+                'nombre' => $datosRef[$nombreKey],
+                'telefono' => $datosRef[$telefonoKey] ?? '—',
+                'tipo' => $i === 1 ? 'Principal' : "Referencia {$i}",
+                'icono' => $i === 1 ? 'fa-user text-success' : ($i === 2 ? 'fa-user-friends text-primary' : 'fa-user-tie text-warning')
             ];
         }
     }
-
-    // RFC global
     $rfcCliente = $datosRef["rfc"] ?? '—';
     ?>
 
@@ -2367,121 +1372,77 @@ $gradienteBanner = strtolower($paisCodigo) === 'gt'
     <div class="modal fade" id="modalRFC" tabindex="-1" aria-labelledby="modalRFCLabel" aria-hidden="true">
         <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
             <div class="modal-content">
-
-                <!-- Header -->
                 <div class="modal-header">
                     <h5 class="modal-title" id="modalRFCLabel">
-                        <i class="fa fa-id-card text-primary me-2"></i>
-                        Referencias del Cliente
+                        <i class="fa fa-id-card text-primary me-2"></i>Referencias del Cliente
                     </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
-
-                <!-- Body -->
                 <div class="modal-body">
                     <div class="row g-4">
-
                         <?php foreach ($referenciasList as $index => $r): ?>
                             <div class="col-md-<?= 12 / max(count($referenciasList), 1) ?>">
                                 <div class="reference-card">
                                     <?php if($index === 0): ?>
                                         <span class="badge bg-success reference-badge"><?= htmlspecialchars($r['tipo']) ?></span>
                                     <?php endif; ?>
-
                                     <div class="reference-header">
                                         <i class="fa <?= $r['icono'] ?>"></i>
                                         <?= htmlspecialchars($r['tipo']) ?>
                                     </div>
-
                                     <div class="reference-divider"></div>
-
                                     <div class="info-line">
                                         <span>Nombre: </span>
                                         <strong><?= htmlspecialchars($r['nombre']) ?></strong>
                                     </div>
-
                                     <div class="info-line">
                                         <span>Teléfono: </span>
                                         <strong><?= htmlspecialchars($r['telefono']) ?></strong>
                                     </div>
-                                    
                                 </div>
                             </div>
                         <?php endforeach; ?>
-
                     </div>
                 </div>
-
-                <!-- Footer -->
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                        Cerrar
-                    </button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
                 </div>
-
             </div>
         </div>
     </div>
 
-
 </div>
 
+<!-- Modal Condonar -->
 <div class="modal fade" id="modalCondonar" tabindex="-1" aria-hidden="true" data-bs-backdrop="false" data-bs-keyboard="true">
     <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content">
-
-            <!-- Header -->
             <div class="modal-header bg-success bg-opacity-10">
-                <h5 class="modal-title">
-                    <i class="fa fa-hand-holding-usd text-success me-2"></i>
-                    Condonar gastos de cobranza
-                </h5>
+                <h5 class="modal-title"><i class="fa fa-hand-holding-usd text-success me-2"></i>Condonar gastos de cobranza</h5>
                 <button class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-
-            <!-- Body -->
             <div class="modal-body">
-                <!-- Resumen -->
                 <div class="row mb-3">
-
                     <?php
-                    $hideStyle = (
-                            isset($_SESSION['departamento']) &&
-                            (
-                                    (int)$_SESSION['departamento'] === 9
-                            )
-                    ) ? 'style="display:none;"' : '';
+                    $hideStyle = (isset($_SESSION['departamento']) && (int)$_SESSION['departamento'] === 9) ? 'style="display:none;"' : '';
                     ?>
-
-                        <div class="col-md-4" id="boxSeleccionados" <?= $hideStyle ?>>
-                            <div class="alert alert-success py-2 mb-2">
-                                <strong>Seleccionados:</strong>
-                                <span id="countCondonados">0</span>
-                            </div>
-                        </div>
-
-                        <div class="col-md-4" id="boxMonto" <?= $hideStyle ?>>
-                            <div class="alert alert-warning py-2 mb-2">
-                                <strong>Monto a condonar:</strong>
-                                $<span id="montoCondonar">0.00</span>
-                            </div>
-                        </div>
-
-
-                    <div class="col-md-4">
-                        <div class="alert alert-danger py-2 mb-2 d-flex justify-content-between align-items-center">
-                            <span class="fw-semibold text-dark">
-                                Total gastos cobranza sin condonar:
-                            </span>
-                                                <span class="fw-bold text-danger">
-                                $<span id="montoTotalSinCondonar">0.00</span>
-                            </span>
+                    <div class="col-md-4" id="boxSeleccionados" <?= $hideStyle ?>>
+                        <div class="alert alert-success py-2 mb-2">
+                            <strong>Seleccionados:</strong> <span id="countCondonados">0</span>
                         </div>
                     </div>
-
+                    <div class="col-md-4" id="boxMonto" <?= $hideStyle ?>>
+                        <div class="alert alert-warning py-2 mb-2">
+                            <strong>Monto a condonar:</strong> $<span id="montoCondonar">0.00</span>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="alert alert-danger py-2 mb-2 d-flex justify-content-between align-items-center">
+                            <span class="fw-semibold text-dark">Total gastos cobranza sin condonar:</span>
+                            <span class="fw-bold text-danger">$<span id="montoTotalSinCondonar">0.00</span></span>
+                        </div>
+                    </div>
                 </div>
-
-                <!-- Tabla -->
                 <div class="table-responsive">
                     <table class="table table-hover align-middle mb-0">
                         <thead class="table-light">
@@ -2491,55 +1452,35 @@ $gradienteBanner = strtolower($paisCodigo) === 'gt'
                             <th>Periodo</th>
                             <th>Parcialidad</th>
                             <th># Cuota</th>
-                            <th class="">Monto</th>
-                            <th class=""></th>
+                            <th>Monto</th>
+                            <th></th>
                         </tr>
                         </thead>
-                        <tbody id="tablaGastos">
-                        <!-- Se llena dinámicamente -->
-                        </tbody>
+                        <tbody id="tablaGastos"></tbody>
                     </table>
                 </div>
-
-                <!-- Motivo -->
                 <div class="mt-3" <?= $hideStyle ?>>
-                    <label class="form-label fw-semibold">
-                        Motivo de la condonación (convenio de pago) <span class="text-danger">*</span>
-                    </label>
-                    <textarea
-                            id="descripcionCondonacion"
-                            class="form-control"
-                            rows="3"
-                            placeholder="Describe el motivo de la condonación..."
-                    ></textarea>
+                    <label class="form-label fw-semibold">Motivo de la condonación (convenio de pago) <span class="text-danger">*</span></label>
+                    <textarea id="descripcionCondonacion" class="form-control" rows="3" placeholder="Describe el motivo de la condonación..."></textarea>
                 </div>
-
             </div>
-
-            <!-- Footer -->
             <div class="modal-footer" <?= $hideStyle ?>>
-                <button class="btn btn-secondary" data-bs-dismiss="modal" >
-                    Cancelar
-                </button>
+                <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
                 <button class="btn btn-success" id="btnCondonarTotal" disabled
                     onclick="confirmarCondonacion(<?= htmlspecialchars($dataEstadoCuenta["idCredito"] ?? '') ?>)">
                     <i class="fa fa-check me-1"></i>Condonar
                 </button>
             </div>
-
         </div>
     </div>
 </div>
 
-<!-- Modal Condonación parcial (Editar) -->
+<!-- Modal Condonación Parcial -->
 <div class="modal fade" id="modalCondonarParcial" tabindex="-1" aria-hidden="true" data-bs-backdrop="false" data-bs-keyboard="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header bg-warning bg-opacity-10">
-                <h5 class="modal-title">
-                    <i class="fa fa-edit text-warning me-2"></i>
-                    Condonación parcial
-                </h5>
+                <h5 class="modal-title"><i class="fa fa-edit text-warning me-2"></i>Condonación parcial</h5>
                 <button class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
@@ -2559,336 +1500,272 @@ $gradienteBanner = strtolower($paisCodigo) === 'gt'
             </div>
             <div class="modal-footer">
                 <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button class="btn btn-warning" id="btnCondonarParcialAceptar">
-                    <i class="fa fa-check me-1"></i>Aceptar
-                </button>
+                <button class="btn btn-warning" id="btnCondonarParcialAceptar"><i class="fa fa-check me-1"></i>Aceptar</button>
             </div>
         </div>
     </div>
 </div>
 
+<!-- Modal Dictamen -->
 <div class="modal fade" id="modalDictamen" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content shadow-lg">
-
-            <!-- HEADER -->
             <div class="modal-header bg-primary bg-opacity-10">
-                <h5 class="modal-title">
-                    <i class="fa fa-headset text-primary me-2"></i>
-                    Dictaminar llamada
-                </h5>
+                <h5 class="modal-title"><i class="fa fa-headset text-primary me-2"></i>Dictaminar llamada</h5>
                 <button class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-
-            <!-- BODY -->
             <div class="modal-body">
-
-
-                <input
-                        type="hidden"
-                        id="idCredito_dictamen"
-                        name="idCredito_dictamen"
-                        value="<?= htmlspecialchars($dataEstadoCuenta['idCredito'] ?? '') ?>"
-            </div>
-
-                <!-- FILA 1 -->
+                <input type="hidden" id="idCredito_dictamen" name="idCredito_dictamen"
+                       value="<?= htmlspecialchars($dataEstadoCuenta['idCredito'] ?? '') ?>">
                 <div class="row g-3">
                     <div class="col-md-4">
                         <label class="form-label fw-semibold">Tipo contacto</label>
                         <select id="tipo_contacto" class="form-select"></select>
                     </div>
-
                     <div class="col-md-4">
                         <label class="form-label fw-semibold">Resultado</label>
                         <select id="resultado_contacto" class="form-select" disabled></select>
                     </div>
-
                     <div class="col-md-4">
                         <label class="form-label fw-semibold">Dictamen</label>
                         <select id="dictamen" class="form-select" disabled></select>
                     </div>
                 </div>
-
-                <!-- FILA 2 -->
                 <div class="row g-3 mt-1">
-                    <div class="row g-3 mt-1">
-                        <div class="col-md-4">
-                            <label class="form-label fw-semibold">Tipo motivo no pago</label>
-                            <select id="tipo_motivo_no_pago" class="form-select">
-                                <option value="">No aplica</option>
-                            </select>
-                        </div>
-
-                        <div class="col-md-4">
-                            <label class="form-label fw-semibold">Motivo no pago</label>
-                            <select id="motivo_no_pago" class="form-select" disabled>
-                                <option value="">Seleccione motivo</option>
-                            </select>
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label fw-semibold">Plataforma</label>
-                            <select id="plataforma" class="form-select"></select>
-                        </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">Tipo motivo no pago</label>
+                        <select id="tipo_motivo_no_pago" class="form-select"><option value="">No aplica</option></select>
                     </div>
-
-
-
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">Motivo no pago</label>
+                        <select id="motivo_no_pago" class="form-select" disabled><option value="">Seleccione motivo</option></select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">Plataforma</label>
+                        <select id="plataforma" class="form-select"></select>
+                    </div>
+                </div>
+                <div class="row g-3 mt-1">
                     <div class="col-md-4">
                         <label class="form-label fw-semibold">Fuente ingresos</label>
-                        <input type="text" id="fuente_ingresos" class="form-control"
-                               placeholder="Ej. Sueldo, negocio propio">
+                        <input type="text" id="fuente_ingresos" class="form-control" placeholder="Ej. Sueldo, negocio propio">
                     </div>
                 </div>
-
-
-
-                <!-- COMENTARIOS -->
                 <div class="mt-3">
                     <label class="form-label fw-semibold">Comentarios</label>
-                    <textarea id="comentarios" rows="3"
-                              class="form-control"
-                              placeholder="Detalle de la gestión..."></textarea>
+                    <textarea id="comentarios" rows="3" class="form-control" placeholder="Detalle de la gestión..."></textarea>
                 </div>
-
             </div>
-
-            <!-- FOOTER -->
             <div class="modal-footer">
                 <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button class="btn btn-primary" onclick="guardarDictamen()">
-                    <i class="fa fa-save me-1"></i>Guardar dictamen
-                </button>
+                <button class="btn btn-primary" onclick="guardarDictamen()"><i class="fa fa-save me-1"></i>Guardar dictamen</button>
             </div>
-
         </div>
     </div>
 </div>
 
-
-
+<!-- Modal Notas -->
 <div class="modal fade" id="modalNotas" tabindex="-1" aria-labelledby="modalNotasLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content">
-
-            <!-- Header -->
             <div class="modal-header bg-warning bg-opacity-10">
-                <h5 class="modal-title" id="modalNotasLabel">
-                    <i class="fa fa-sticky-note text-warning me-2"></i>
-                    Notas del Cliente
-                </h5>
+                <h5 class="modal-title" id="modalNotasLabel"><i class="fa fa-sticky-note text-warning me-2"></i>Notas del Cliente</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-
-            <!-- Body -->
             <div class="modal-body">
-
-
-
-                <!-- Nueva nota -->
                 <div class="mb-3">
                     <label class="form-label fw-semibold">Agregar nota</label>
-                    <textarea id="notaTexto"
-                              class="form-control"
-                              rows="3"
-                              placeholder="Escribe aquí cualquier nota, acuerdo, promesa, comentario del cliente..."></textarea>
-
-
+                    <textarea id="notaTexto" class="form-control" rows="3" placeholder="Escribe aquí cualquier nota, acuerdo, promesa, comentario del cliente..."></textarea>
                 </div>
-
-                <div class="mb-3">
-                <input
-                        type="hidden"
-                        id="idCredito_note"
-                        name="idCredito_note"
-                        value="<?= htmlspecialchars($dataEstadoCuenta['idCredito'] ?? '') ?>"
-                </div>
-
-
-
+                <input type="hidden" id="idCredito_note" name="idCredito_note" value="<?= htmlspecialchars($dataEstadoCuenta['idCredito'] ?? '') ?>">
                 <div class="text-end mb-4">
-                    <button class="btn btn-warning" onclick="agregarNota()">
-                        <i class="fa fa-plus me-1"></i>Agregar nota
-                    </button>
+                    <button class="btn btn-warning" onclick="agregarNota()"><i class="fa fa-plus me-1"></i>Agregar nota</button>
                 </div>
-
                 <hr>
-
-                <!-- Listado de notas -->
                 <div id="contenedorNotas" class="row g-3">
-
-                    <!-- Nota ejemplo -->
                     <div class="col-md-6">
                         <div class="nota-card">
-                            <div class="nota-fecha">
-                                <i class="fa fa-clock"></i> 13/01/2026 10:32
-                            </div>
-                            <p class="nota-texto">
-                                Cliente comenta que pagará el viernes por la tarde.
-                            </p>
-                            <div class="nota-autor">
-                                <i class="fa fa-user"></i> Sistema
-                            </div>
+                            <div class="nota-fecha"><i class="fa fa-clock"></i> 13/01/2026 10:32</div>
+                            <p class="nota-texto">Cliente comenta que pagará el viernes por la tarde.</p>
+                            <div class="nota-autor"><i class="fa fa-user"></i> Sistema</div>
                         </div>
                     </div>
-
                 </div>
-
             </div>
-
-            <!-- Footer -->
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                    Cerrar
-                </button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
             </div>
-
         </div>
     </div>
 </div>
 
+<!-- Modal Call Center -->
 <div class="modal fade" id="modalCallCenter" tabindex="-1" aria-labelledby="modalCallCenterLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
-
             <div class="modal-header">
-                <h5 class="modal-title" id="modalCallCenterLabel">
-                    <i class="fa fa-headset me-2"></i>
-                    Call Center
-                </h5>
+                <h5 class="modal-title" id="modalCallCenterLabel"><i class="fa fa-headset me-2"></i>Call Center</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
-
             <div class="modal-body text-center py-4">
                 <i class="fa fa-tools fa-3x text-warning mb-3"></i>
                 <h6 class="mb-2">Funcionalidad en mantenimiento</h6>
-                <p class="text-muted mb-0">
-                    Se encuentra temporalmente en mantenimiento.
-                    <br>
-                    Por favor, intenta más tarde.
-                </p>
+                <p class="text-muted mb-0">Se encuentra temporalmente en mantenimiento.<br>Por favor, intenta más tarde.</p>
             </div>
-
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                    Cerrar
-                </button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
             </div>
-
         </div>
     </div>
 </div>
 
+<!-- Modal Direcciones -->
+<div class="modal fade" id="modalDirecciones" tabindex="-1" aria-labelledby="modalDireccionesLabel" aria-hidden="true" style="position: fixed; z-index: 1055;">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalDireccionesLabel">
+                    <i class="fa fa-map-marker-alt me-2 text-primary"></i>Direcciones del Cliente
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body py-4">
+                <div class="row g-3">
+                    <?php if (!empty($domicilioGuat)): ?>
+                    <div class="col-12">
+                        <div class="card shadow-sm border">
+                            <div class="card-header bg-light d-flex align-items-center gap-2">
+                                <i class="fa fa-home text-success"></i>
+                                <strong>Domicilio Registrado</strong>
+                                <span class="badge bg-success ms-auto">Principal</span>
+                            </div>
+                            <div class="card-body">
+                                <div class="row g-3">
+                                    <?php if (!empty($domicilioGuat['Calle_Numero'])): ?>
+                                    <div class="col-md-6">
+                                        <small class="text-muted d-block">Calle</small>
+                                        <strong><?= htmlspecialchars($domicilioGuat['Calle_Numero']) ?></strong>
+                                    </div>
+                                    <?php endif; ?>
+                                    <?php if (!empty($domicilioGuat['NumExt'])): ?>
+                                    <div class="col-md-3">
+                                        <small class="text-muted d-block">Núm. Ext.</small>
+                                        <strong><?= htmlspecialchars($domicilioGuat['NumExt']) ?></strong>
+                                    </div>
+                                    <?php endif; ?>
+                                    <?php if (!empty($domicilioGuat['NumInt']) && $domicilioGuat['NumInt'] !== 'N/A'): ?>
+                                    <div class="col-md-3">
+                                        <small class="text-muted d-block">Núm. Int.</small>
+                                        <strong><?= htmlspecialchars($domicilioGuat['NumInt']) ?></strong>
+                                    </div>
+                                    <?php endif; ?>
+                                    <?php if (!empty($domicilioGuat['Colonia'])): ?>
+                                    <div class="col-md-6">
+                                        <small class="text-muted d-block">Colonia / Sector</small>
+                                        <strong><?= htmlspecialchars($domicilioGuat['Colonia']) ?></strong>
+                                    </div>
+                                    <?php endif; ?>
+                                    <?php if (!empty($domicilioGuat['Codigo_Postal'])): ?>
+                                    <div class="col-md-3">
+                                        <small class="text-muted d-block">Código Postal</small>
+                                        <strong><?= htmlspecialchars($domicilioGuat['Codigo_Postal']) ?></strong>
+                                    </div>
+                                    <?php endif; ?>
+                                    <?php
+                                        // Ciudad tiene formato "CIUDAD,DEPARTAMENTO,ID,ZONA"
+                                        $ciudadPartes = explode(',', $domicilioGuat['Ciudad'] ?? '');
+                                        $ciudadNombre = trim($ciudadPartes[0] ?? '');
+                                        $deptoNombre  = trim($ciudadPartes[1] ?? '');
+                                    ?>
+                                    <?php if ($ciudadNombre): ?>
+                                    <div class="col-md-6">
+                                        <small class="text-muted d-block">Ciudad</small>
+                                        <strong><?= htmlspecialchars($ciudadNombre) ?></strong>
+                                    </div>
+                                    <?php endif; ?>
+                                    <?php if ($deptoNombre): ?>
+                                    <div class="col-md-6">
+                                        <small class="text-muted d-block">Departamento</small>
+                                        <strong><?= htmlspecialchars($deptoNombre) ?></strong>
+                                    </div>
+                                    <?php endif; ?>
+                                    <?php if (!empty($domicilioGuat['Lada_Tel_Casa'])): ?>
+                                    <div class="col-md-6">
+                                        <small class="text-muted d-block"><i class="fa fa-phone me-1"></i>Tel. Casa</small>
+                                        <strong><?= htmlspecialchars($domicilioGuat['Lada_Tel_Casa']) ?></strong>
+                                    </div>
+                                    <?php endif; ?>
+                                    <?php if (!empty($domicilioGuat['Lada_Tel_Oficina'])): ?>
+                                    <div class="col-md-6">
+                                        <small class="text-muted d-block"><i class="fa fa-building me-1"></i>Tel. Oficina</small>
+                                        <strong><?= htmlspecialchars($domicilioGuat['Lada_Tel_Oficina']) ?></strong>
+                                    </div>
+                                    <?php endif; ?>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <?php else: ?>
+                    <div class="col-12">
+                        <div class="alert alert-info text-center">
+                            <i class="fa fa-info-circle me-2"></i>
+                            <strong>No se encontraron direcciones</strong>
+                            <p class="mb-0 mt-2">No hay dirección registrada para este cliente.</p>
+                        </div>
+                    </div>
+                    <?php endif; ?>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
 <script>
-
     function actualizarContadorNotas() {
-
         const badge = document.getElementById('badgeNotas');
         if (!badge) return;
-
         const cards = document.querySelectorAll('#contenedorNotas .nota-card');
-
-        // Solo recalcular si el usuario YA interactuó
-        if (!document.getElementById('modalNotas')?.classList.contains('show')) {
-            return;
-        }
-
+        if (!document.getElementById('modalNotas')?.classList.contains('show')) return;
         const total = cards.length;
-
         badge.textContent = total;
         badge.style.display = total > 0 ? 'inline-block' : 'none';
     }
 
-
     function agregarNota() {
-
         const notaInput = document.getElementById('notaTexto');
         const nota = notaInput.value.trim();
         const id_credito = document.getElementById('idCredito_note')?.value;
-
-
-        if (!nota) {
-            Swal.fire("Atención", "Escribe una nota antes de guardar", "warning");
-            return;
-        }
-
+        if (!nota) { Swal.fire("Atención", "Escribe una nota antes de guardar", "warning"); return; }
         fetch('/EstadoCuenta/AddNote', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                nota: nota,
-                id_credito: id_credito // 🔴 DEBE EXISTIR
-            })
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ nota: nota, id_credito: id_credito })
         })
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error('Error HTTP ' + response.status);
-                }
-                return response.json();
-            })
-            .then(data => {
-
-                if (!data.success) {
-                    Swal.fire("Error", data.mensaje, "error");
-                    return;
-                }
-
-                // 👉 Insertar nota visualmente
-                const contenedor = document.getElementById('contenedorNotas');
-                const fecha = new Date().toLocaleString('es-MX');
-                const usuarioNota = data.data?.usuario ?? 'Operador';
-
-                const col = document.createElement('div');
-                col.className = 'col-md-6';
-
-                col.innerHTML = `
-            <div class="nota-card animate__animated animate__fadeInUp">
-                <div class="nota-fecha">
-                    <i class="fa fa-clock"></i> ${fecha}
-                </div>
-                <p class="nota-texto">${nota}</p>
-                <div class="nota-autor">
-                    <i class="fa fa-user"></i> ${usuarioNota ?? 'Operador'}
-                </div>
-            </div>
-        `;
-
-                contenedor.prepend(col);
-
-                // Limpiar input
-                notaInput.value = '';
-
-                // Actualizar contador si existe
-                if (typeof actualizarContadorNotas === 'function') {
-                    actualizarContadorNotas();
-                }
-
-                Swal.fire({
-                    icon: 'success',
-                    title: 'Nota guardada',
-                    timer: 1200,
-                    showConfirmButton: false
-                });
-
-            })
-            .catch(error => {
-                console.error(error);
-                Swal.fire("Error", "Error de conexión con el servidor", "error");
-            });
+        .then(response => { if (!response.ok) throw new Error('Error HTTP ' + response.status); return response.json(); })
+        .then(data => {
+            if (!data.success) { Swal.fire("Error", data.mensaje, "error"); return; }
+            const contenedor = document.getElementById('contenedorNotas');
+            const fecha = new Date().toLocaleString('es-MX');
+            const usuarioNota = data.data?.usuario ?? 'Operador';
+            const col = document.createElement('div');
+            col.className = 'col-md-6';
+            col.innerHTML = `<div class="nota-card animate__animated animate__fadeInUp"><div class="nota-fecha"><i class="fa fa-clock"></i> ${fecha}</div><p class="nota-texto">${nota}</p><div class="nota-autor"><i class="fa fa-user"></i> ${usuarioNota}</div></div>`;
+            contenedor.prepend(col);
+            notaInput.value = '';
+            if (typeof actualizarContadorNotas === 'function') actualizarContadorNotas();
+            Swal.fire({ icon: 'success', title: 'Nota guardada', timer: 1200, showConfirmButton: false });
+        })
+        .catch(error => { console.error(error); Swal.fire("Error", "Error de conexión con el servidor", "error"); });
     }
 
-
-
     function actualizarResumenCondonacion() {
-        let total = 0;
-        let count = 0;
-
-        document.querySelectorAll('.chk-condona:checked').forEach(chk => {
-            total += parseFloat(chk.dataset.monto);
-            count++;
-        });
-
+        let total = 0, count = 0;
+        document.querySelectorAll('.chk-condona:checked').forEach(chk => { total += parseFloat(chk.dataset.monto); count++; });
         document.getElementById('countCondonados').textContent = count;
         document.getElementById('montoCondonar').textContent = total.toFixed(2);
     }
@@ -2900,620 +1777,244 @@ $gradienteBanner = strtolower($paisCodigo) === 'gt'
         b.style.left = x + 'px';
         b.style.top = y + 'px';
         document.body.appendChild(b);
-
         setTimeout(() => b.remove(), 1000);
     }
 
     document.addEventListener('change', function (e) {
         if (e.target.classList.contains('chk-condona')) {
             actualizarResumenCondonacion();
-
-            if (e.target.checked) {
-                const rect = e.target.getBoundingClientRect();
-                lanzarBillete(rect.left, rect.top);
-            }
+            if (e.target.checked) { const rect = e.target.getBoundingClientRect(); lanzarBillete(rect.left, rect.top); }
         }
     });
-
 
     function consultaNotas(idCredito) {
-
-        if (!idCredito) {
-            Swal.fire("Error", "Id de crédito inválido", "error");
-            return;
-        }
-
+        if (!idCredito) { Swal.fire("Error", "Id de crédito inválido", "error"); return; }
         const contenedor = document.getElementById('contenedorNotas');
-        contenedor.innerHTML = `
-        <div class="col-12 text-center text-muted">
-            Cargando notas...
-        </div>
-    `;
-
+        contenedor.innerHTML = '<div class="col-12 text-center text-muted">Cargando notas...</div>';
         fetch('/EstadoCuenta/getNotasCredito', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json'
-            },
-            body: JSON.stringify({
-                idCredito: idCredito
-            })
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body: JSON.stringify({ idCredito: idCredito })
         })
-            .then(res => res.json())
-            .then(resp => {
-
-                if (!resp.success) {
-                    Swal.fire("Error", resp.mensaje, "error");
-                    contenedor.innerHTML = '';
-                    return;
-                }
-
-                const notas = resp.datos ?? resp.data ?? [];
-
-                contenedor.innerHTML = '';
-
-                if (!Array.isArray(notas) || notas.length === 0) {
-                    contenedor.innerHTML = `
-                <div class="col-12 text-center text-muted">
-                    Sin notas registradas
-                </div>
-            `;
-                    return;
-                }
-
-                notas.forEach(n => {
-
-                    contenedor.innerHTML += `
-                <div class="col-md-6">
-                    <div class="nota-card animate__animated animate__fadeInUp">
-                        <div class="nota-fecha">
-                            <i class="fa fa-clock"></i> ${n.created_at}
-                        </div>
-                        <p class="nota-texto">
-                            ${n.nota}
-                        </p>
-                        <div class="nota-autor">
-                            <i class="fa fa-user"></i> ${n.usuario ?? 'Sistema'}
-                        </div>
-                    </div>
-                </div>
-            `;
-                });
-
-            })
-            .catch(err => {
-                console.error("ERROR consultaNotas:", err);
-                Swal.fire("Error", "Error de conexión con el servidor", "error");
-                contenedor.innerHTML = '';
+        .then(res => res.json())
+        .then(resp => {
+            if (!resp.success) { Swal.fire("Error", resp.mensaje, "error"); contenedor.innerHTML = ''; return; }
+            const notas = resp.datos ?? resp.data ?? [];
+            contenedor.innerHTML = '';
+            if (!Array.isArray(notas) || notas.length === 0) {
+                contenedor.innerHTML = '<div class="col-12 text-center text-muted">Sin notas registradas</div>';
+                return;
+            }
+            notas.forEach(n => {
+                contenedor.innerHTML += `<div class="col-md-6"><div class="nota-card animate__animated animate__fadeInUp"><div class="nota-fecha"><i class="fa fa-clock"></i> ${n.created_at}</div><p class="nota-texto">${n.nota}</p><div class="nota-autor"><i class="fa fa-user"></i> ${n.usuario ?? 'Sistema'}</div></div></div>`;
             });
-
-        // 👉 Abrir modal SIEMPRE (aunque esté cargando)
-        const modal = new bootstrap.Modal(
-            document.getElementById('modalNotas')
-        );
+        })
+        .catch(err => { console.error("ERROR consultaNotas:", err); Swal.fire("Error", "Error de conexión con el servidor", "error"); contenedor.innerHTML = ''; });
+        const modal = new bootstrap.Modal(document.getElementById('modalNotas'));
         modal.show();
     }
-
-
-
-    const modalDictamen = document.getElementById('modalDictamen');
-
-    modalDictamen.addEventListener('shown.bs.modal', function (event) {
-
-        const button = event.relatedTarget;
-        const idCredito = button.getAttribute('data-idcredito');
-
-        // Guardar el id crédito
-        document.getElementById('id_credito').value = idCredito;
-
-        // Inicializar combos
-        initDictamenModal();
-    });
-
-
 
     const tipoContactoSelect      = document.getElementById('tipo_contacto');
     const resultadoContactoSelect = document.getElementById('resultado_contacto');
     const dictamenSelect          = document.getElementById('dictamen');
     const plataformaSelect        = document.getElementById('plataforma');
-
-    const tipoMotivoSelect   = document.getElementById('tipo_motivo_no_pago');
-    const motivoNoPagoSelect = document.getElementById('motivo_no_pago');
+    const tipoMotivoSelect        = document.getElementById('tipo_motivo_no_pago');
+    const motivoNoPagoSelect      = document.getElementById('motivo_no_pago');
 
     function cargarTiposContacto() {
-        fetch('/EstadoCuenta/getTiposContacto')
-            .then(res => res.json())
-            .then(resp => {
-                if (!resp.success) {
-                    console.error(resp.mensaje);
-                    return;
-                }
-
-                tipoContactoSelect.innerHTML =
-                    '<option value="">Seleccione tipo de contacto</option>';
-
-                resp.datos.forEach(item => {
-                    tipoContactoSelect.innerHTML +=
-                        `<option value="${item.id}">${item.nombre}</option>`;
-                });
-            })
-            .catch(err => console.error(err));
+        fetch('/EstadoCuenta/getTiposContacto').then(res => res.json()).then(resp => {
+            if (!resp.success) return;
+            tipoContactoSelect.innerHTML = '<option value="">Seleccione tipo de contacto</option>';
+            resp.datos.forEach(item => { tipoContactoSelect.innerHTML += `<option value="${item.id}">${item.nombre}</option>`; });
+        }).catch(err => console.error(err));
     }
 
     function cargarResultadosContacto(tipoContactoId) {
-
-        resultadoContactoSelect.innerHTML =
-            '<option value="">Cargando...</option>';
+        resultadoContactoSelect.innerHTML = '<option value="">Cargando...</option>';
         resultadoContactoSelect.disabled = true;
-
-        dictamenSelect.innerHTML =
-            '<option value="">Seleccione dictamen</option>';
+        dictamenSelect.innerHTML = '<option value="">Seleccione dictamen</option>';
         dictamenSelect.disabled = true;
-
         fetch('/EstadoCuenta/getResultadosContacto', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ tipo_contacto_id: tipoContactoId })
-        })
-            .then(res => res.json())
-            .then(resp => {
-                if (!resp.success) {
-                    console.error(resp.mensaje);
-                    return;
-                }
-
-                resultadoContactoSelect.innerHTML =
-                    '<option value="">Seleccione resultado</option>';
-
-                resp.datos.forEach(item => {
-                    resultadoContactoSelect.innerHTML +=
-                        `<option value="${item.id}">${item.nombre}</option>`;
-                });
-
-                resultadoContactoSelect.disabled = false;
-            })
-            .catch(err => console.error(err));
+        }).then(res => res.json()).then(resp => {
+            if (!resp.success) return;
+            resultadoContactoSelect.innerHTML = '<option value="">Seleccione resultado</option>';
+            resp.datos.forEach(item => { resultadoContactoSelect.innerHTML += `<option value="${item.id}">${item.nombre}</option>`; });
+            resultadoContactoSelect.disabled = false;
+        }).catch(err => console.error(err));
     }
 
-
-    tipoContactoSelect.addEventListener('change', function () {
-        if (this.value) {
-            cargarResultadosContacto(this.value);
-        }
-    });
+    tipoContactoSelect.addEventListener('change', function () { if (this.value) cargarResultadosContacto(this.value); });
 
     function cargarDictamenes(resultadoContactoId) {
-
-        dictamenSelect.innerHTML =
-            '<option value="">Cargando...</option>';
+        dictamenSelect.innerHTML = '<option value="">Cargando...</option>';
         dictamenSelect.disabled = true;
-
         fetch('/EstadoCuenta/getDictamenes', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ resultado_contacto_id: resultadoContactoId })
-        })
-            .then(res => res.json())
-            .then(resp => {
-                if (!resp.success) {
-                    console.error(resp.mensaje);
-                    return;
-                }
-
-                dictamenSelect.innerHTML =
-                    '<option value="">Seleccione dictamen</option>';
-
-                resp.datos.forEach(item => {
-                    dictamenSelect.innerHTML +=
-                        `<option value="${item.id}">${item.nombre}</option>`;
-                });
-
-                dictamenSelect.disabled = false;
-            })
-            .catch(err => console.error(err));
+        }).then(res => res.json()).then(resp => {
+            if (!resp.success) return;
+            dictamenSelect.innerHTML = '<option value="">Seleccione dictamen</option>';
+            resp.datos.forEach(item => { dictamenSelect.innerHTML += `<option value="${item.id}">${item.nombre}</option>`; });
+            dictamenSelect.disabled = false;
+        }).catch(err => console.error(err));
     }
 
-
-    resultadoContactoSelect.addEventListener('change', function () {
-        if (this.value) {
-            cargarDictamenes(this.value);
-        }
-    });
-
-    function cargarMotivosNoPago() {
-        fetch('/EstadoCuenta/getMotivosNoPago')
-            .then(res => res.json())
-            .then(resp => {
-                if (!resp.success) {
-                    console.error(resp.mensaje);
-                    return;
-                }
-
-                motivoNoPagoSelect.innerHTML =
-                    '<option value="">No aplica</option>';
-
-                resp.datos.forEach(item => {
-                    motivoNoPagoSelect.innerHTML +=
-                        `<option value="${item.id}">${item.descripcion}</option>`;
-                });
-            })
-            .catch(err => console.error(err));
-    }
-
+    resultadoContactoSelect.addEventListener('change', function () { if (this.value) cargarDictamenes(this.value); });
 
     function cargarPlataformas() {
-        fetch('/EstadoCuenta/getPlataformas')
-            .then(res => res.json())
-            .then(resp => {
-                if (!resp.success) {
-                    console.error(resp.mensaje);
-                    return;
-                }
-
-                plataformaSelect.innerHTML =
-                    '<option value="">Seleccione plataforma</option>';
-
-                resp.datos.forEach(item => {
-                    plataformaSelect.innerHTML +=
-                        `<option value="${item.id}">${item.nombre}</option>`;
-                });
-            })
-            .catch(err => console.error(err));
+        fetch('/EstadoCuenta/getPlataformas').then(res => res.json()).then(resp => {
+            if (!resp.success) return;
+            plataformaSelect.innerHTML = '<option value="">Seleccione plataforma</option>';
+            resp.datos.forEach(item => { plataformaSelect.innerHTML += `<option value="${item.id}">${item.nombre}</option>`; });
+        }).catch(err => console.error(err));
     }
 
+    function cargarTiposMotivoNoPago() {
+        fetch('/EstadoCuenta/getTiposMotivoNoPago').then(res => res.json()).then(resp => {
+            if (!resp.success) return;
+            tipoMotivoSelect.innerHTML = '<option value="">No aplica</option>';
+            resp.datos.forEach(item => { tipoMotivoSelect.innerHTML += `<option value="${item.id}">${item.nombre}</option>`; });
+        });
+    }
+
+    function cargarMotivosNoPagoPorTipo(tipoId) {
+        motivoNoPagoSelect.innerHTML = '<option value="">Cargando...</option>';
+        motivoNoPagoSelect.disabled = true;
+        if (!tipoId) { motivoNoPagoSelect.innerHTML = '<option value="">Seleccione motivo</option>'; return; }
+        fetch('/EstadoCuenta/getMotivosNoPagoPorTipo', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tipo_motivo_id: tipoId })
+        }).then(res => res.json()).then(resp => {
+            if (!resp.success) return;
+            motivoNoPagoSelect.innerHTML = '<option value="">Seleccione motivo</option>';
+            resp.datos.forEach(item => { motivoNoPagoSelect.innerHTML += `<option value="${item.id}">${item.descripcion}</option>`; });
+            motivoNoPagoSelect.disabled = false;
+        });
+    }
+
+    tipoMotivoSelect.addEventListener('change', function () { cargarMotivosNoPagoPorTipo(this.value); });
 
     function initDictamenModal() {
         cargarTiposContacto();
         cargarPlataformas();
-        cargarTiposMotivoNoPago(); // 👈 NUEVO
+        cargarTiposMotivoNoPago();
     }
 
-    document.getElementById('modalDictamen')
-        .addEventListener('shown.bs.modal', initDictamenModal);
-
-    function cargarTiposMotivoNoPago() {
-        fetch('/EstadoCuenta/getTiposMotivoNoPago')
-            .then(res => res.json())
-            .then(resp => {
-                if (!resp.success) return;
-
-                tipoMotivoSelect.innerHTML =
-                    '<option value="">No aplica</option>';
-
-                resp.datos.forEach(item => {
-                    tipoMotivoSelect.innerHTML +=
-                        `<option value="${item.id}">${item.nombre}</option>`;
-                });
-            });
-    }
-
-    function cargarMotivosNoPagoPorTipo(tipoId) {
-
-        motivoNoPagoSelect.innerHTML =
-            '<option value="">Cargando...</option>';
-        motivoNoPagoSelect.disabled = true;
-
-        if (!tipoId) {
-            motivoNoPagoSelect.innerHTML =
-                '<option value="">Seleccione motivo</option>';
-            return;
-        }
-
-        fetch('/EstadoCuenta/getMotivosNoPagoPorTipo', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ tipo_motivo_id: tipoId })
-        })
-            .then(res => res.json())
-            .then(resp => {
-                if (!resp.success) return;
-
-                motivoNoPagoSelect.innerHTML =
-                    '<option value="">Seleccione motivo</option>';
-
-                resp.datos.forEach(item => {
-                    motivoNoPagoSelect.innerHTML +=
-                        `<option value="${item.id}">${item.descripcion}</option>`;
-                });
-
-                motivoNoPagoSelect.disabled = false;
-            });
-    }
-
-    tipoMotivoSelect.addEventListener('change', function () {
-        cargarMotivosNoPagoPorTipo(this.value);
-    });
+    document.getElementById('modalDictamen').addEventListener('shown.bs.modal', initDictamenModal);
 
     function guardarDictamen() {
-
         const id_credito = document.getElementById('idCredito_dictamen')?.value;
-
         const tipoContacto = document.getElementById('tipo_contacto').value;
         const resultadoContacto = document.getElementById('resultado_contacto').value;
         const dictamen = document.getElementById('dictamen').value;
-
         const tipoMotivo = document.getElementById('tipo_motivo_no_pago').value;
         const motivoNoPago = document.getElementById('motivo_no_pago').value;
-
         const plataforma = document.getElementById('plataforma').value;
         const fuenteIngresos = document.getElementById('fuente_ingresos').value.trim();
         const comentarios = document.getElementById('comentarios').value.trim();
 
-        // 🔴 VALIDACIONES
-        if (!id_credito) {
-            Swal.fire("Error", "No se detectó el crédito", "error");
-            return;
-        }
+        if (!id_credito) { Swal.fire("Error", "No se detectó el crédito", "error"); return; }
+        if (!tipoContacto) { Swal.fire("Atención", "Selecciona el tipo de contacto", "warning"); return; }
+        if (!resultadoContacto) { Swal.fire("Atención", "Selecciona el resultado del contacto", "warning"); return; }
+        if (!dictamen) { Swal.fire("Atención", "Selecciona el dictamen", "warning"); return; }
+        if (tipoMotivo && !motivoNoPago) { Swal.fire("Atención", "Selecciona el motivo de no pago", "warning"); return; }
+        if (!fuenteIngresos) { Swal.fire("Atención", "La fuente de ingresos son obligatorios", "warning"); return; }
+        if (!comentarios) { Swal.fire("Atención", "Los comentarios son obligatorios", "warning"); return; }
 
-        if (!tipoContacto) {
-            Swal.fire("Atención", "Selecciona el tipo de contacto", "warning");
-            return;
-        }
-
-        if (!resultadoContacto) {
-            Swal.fire("Atención", "Selecciona el resultado del contacto", "warning");
-            return;
-        }
-
-        if (!dictamen) {
-            Swal.fire("Atención", "Selecciona el dictamen", "warning");
-            return;
-        }
-
-        // 👉 Motivo no pago SOLO si aplica
-        if (tipoMotivo && !motivoNoPago) {
-            Swal.fire("Atención", "Selecciona el motivo de no pago", "warning");
-            return;
-        }
-
-        if (!fuenteIngresos) {
-            Swal.fire("Atención", "La fuente de ingresos son obligatorios", "warning");
-            return;
-        }
-
-        if (!comentarios) {
-            Swal.fire("Atención", "Los comentarios son obligatorios", "warning");
-            return;
-        }
-
-        // 🔄 ENVÍO
         fetch('/EstadoCuenta/guardarDictamen', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                id_credito: id_credito,
-                tipo_contacto_id: tipoContacto,
-                resultado_contacto_id: resultadoContacto,
-                dictamen_id: dictamen,
-                tipo_motivo_no_pago_id: tipoMotivo || null,
-                motivo_no_pago_id: motivoNoPago || null,
-                plataforma_id: plataforma || null,
-                fuente_ingresos: fuenteIngresos,
-                comentarios: comentarios
-            })
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id_credito, tipo_contacto_id: tipoContacto, resultado_contacto_id: resultadoContacto, dictamen_id: dictamen, tipo_motivo_no_pago_id: tipoMotivo || null, motivo_no_pago_id: motivoNoPago || null, plataforma_id: plataforma || null, fuente_ingresos: fuenteIngresos, comentarios })
         })
-            .then(res => {
-                if (!res.ok) throw new Error('Error HTTP ' + res.status);
-                return res.json();
-            })
-            .then(resp => {
-
-                if (!resp.success) {
-                    Swal.fire("Error", resp.mensaje, "error");
-                    return;
-                }
-
-                Swal.fire({
-                    icon: 'success',
-                    title: 'Dictamen guardado',
-                    timer: 1300,
-                    showConfirmButton: false
-                });
-
-                // 🔄 Limpiar formulario
-                limpiarFormularioDictamen();
-
-                // ❌ Cerrar modal
-                const modal = bootstrap.Modal.getInstance(
-                    document.getElementById('modalDictamen')
-                );
-                modal.hide();
-
-            })
-            .catch(err => {
-                console.error(err);
-                Swal.fire("Error", "Error de conexión con el servidor", "error");
-            });
+        .then(res => { if (!res.ok) throw new Error('Error HTTP ' + res.status); return res.json(); })
+        .then(resp => {
+            if (!resp.success) { Swal.fire("Error", resp.mensaje, "error"); return; }
+            Swal.fire({ icon: 'success', title: 'Dictamen guardado', timer: 1300, showConfirmButton: false });
+            limpiarFormularioDictamen();
+            bootstrap.Modal.getInstance(document.getElementById('modalDictamen')).hide();
+        })
+        .catch(err => { console.error(err); Swal.fire("Error", "Error de conexión con el servidor", "error"); });
     }
 
     function limpiarFormularioDictamen() {
-
         document.getElementById('tipo_contacto').value = '';
         document.getElementById('resultado_contacto').innerHTML = '';
         document.getElementById('resultado_contacto').disabled = true;
-
         document.getElementById('dictamen').innerHTML = '';
         document.getElementById('dictamen').disabled = true;
-
         document.getElementById('tipo_motivo_no_pago').value = '';
-        document.getElementById('motivo_no_pago').innerHTML =
-            '<option value="">Seleccione motivo</option>';
+        document.getElementById('motivo_no_pago').innerHTML = '<option value="">Seleccione motivo</option>';
         document.getElementById('motivo_no_pago').disabled = true;
-
         document.getElementById('plataforma').value = '';
         document.getElementById('fuente_ingresos').value = '';
         document.getElementById('comentarios').value = '';
     }
 
-
-
     function consultaGastosCondonables(idCredito) {
-
-        if (!idCredito) {
-            Swal.fire("Error", "Id de crédito inválido", "error");
-            return;
-        }
-
+        if (!idCredito) { Swal.fire("Error", "Id de crédito inválido", "error"); return; }
         const tabla = document.getElementById('tablaGastos');
-        const countSpan = document.getElementById('countCondonados');
-        const montoSpan = document.getElementById('montoCondonar');
-
-        // Reset visual
-        countSpan.textContent = 0;
-        montoSpan.textContent = '0.00';
+        document.getElementById('countCondonados').textContent = 0;
+        document.getElementById('montoCondonar').textContent = '0.00';
         document.getElementById('montoTotalSinCondonar').textContent = '0.00';
-
-        tabla.innerHTML = `
-        <tr>
-            <td colspan="7" class="text-center text-muted">
-                Cargando gastos...
-            </td>
-        </tr>
-    `;
-
+        tabla.innerHTML = '<tr><td colspan="7" class="text-center text-muted">Cargando gastos...</td></tr>';
         fetch('/EstadoCuenta/getGastosCobranza', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json'
-            },
-            body: JSON.stringify({
-                idCredito: idCredito
-            })
+            method: 'POST', headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body: JSON.stringify({ idCredito })
         })
-            .then(res => res.json())
-            .then(resp => {
-
-                if (!resp.success) {
-                    Swal.fire("Error", resp.mensaje, "error");
-                    tabla.innerHTML = '';
-                    return;
-                }
-
-                const gastos = resp.datos ?? resp.data ?? [];
-
-                tabla.innerHTML = '';
-
-                if (!Array.isArray(gastos) || gastos.length === 0) {
-                    tabla.innerHTML = `
-                    <tr>
-                        <td colspan="7" class="text-center text-muted">
-                            No hay gastos de cobranza
-                        </td>
-                    </tr>
-                `;
-                    document.getElementById('montoTotalSinCondonar').textContent = '0.00';
-                    return;
-                }
-
-                document.getElementById('modalCondonar').dataset.idCredito = idCredito;
-
-                gastos.forEach((g, index) => {
-                    const idGasto = g.id_gasto;
-                    const montoOrig = parseFloat(g.monto_original ?? g.monto ?? 0);
-                    const montoEfectivo = parseFloat(g.monto ?? 0);
-                    const parcialMonto = parseFloat(g.condonacion_parcial_monto ?? 0);
-                    const parcialMotivo = (g.condonacion_parcial_motivo || '').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                    const tieneParcial = parcialMonto > 0;
-                    const montoFaltaCondonar = tieneParcial ? (montoOrig - parcialMonto) : montoEfectivo;
-                    const anteriorTieneParcial = index === 0 || (parseFloat(gastos[index - 1].condonacion_parcial_monto ?? 0) > 0);
-                    const puedeParcial = anteriorTieneParcial;
-                    const montoCelda = tieneParcial
-                        ? `<span class="text-decoration-line-through text-muted">$${montoOrig.toFixed(2)}</span><br><strong>$${montoEfectivo.toFixed(2)}</strong>`
-                        : `$${montoEfectivo.toFixed(2)}`;
-                    const tooltipParcialTxt = tieneParcial
-                        ? (() => {
-                            const motivo = (g.condonacion_parcial_motivo || '').trim();
-                            const motivoCorto = motivo.length > 350 ? motivo.substring(0, 350) + '...' : motivo;
-                            return 'Monto condonado: $' + parcialMonto.toFixed(2) + '\n\nMotivo:\n' + motivoCorto;
-                        })()
-                        : '';
-                    const tooltipParcialEsc = tooltipParcialTxt
-                        .replace(/&/g, '&amp;')
-                        .replace(/"/g, '&quot;')
-                        .replace(/'/g, '&#39;')
-                        .replace(/</g, '&lt;')
-                        .replace(/>/g, '&gt;')
-                        .replace(/\n/g, '&#10;');
-
-                    const iconoParcialHtml = tieneParcial
-                        ? '<span class="info-condonacion-parcial text-info" style="cursor:pointer;" title="' + tooltipParcialEsc + '" data-monto="' + parcialMonto.toFixed(2) + '" data-motivo="' + (g.condonacion_parcial_motivo || '').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;').substring(0, 500) + '"><i class="fa fa-info-circle" aria-hidden="true"></i></span>'
-                        : '';
-
-                    tabla.innerHTML += `
-                    <tr data-id-gasto="${idGasto}" data-tiene-parcial="${tieneParcial ? '1' : '0'}" data-puede-parcial="${puedeParcial ? '1' : '0'}">
-                        <td>
-                            <input type="checkbox"
-                               class="form-check-input chk-condona"
-                               data-id="${idGasto}"
-                               data-monto="${montoFaltaCondonar.toFixed(2)}"
-                               onchange="recalcularCondonacion()">
-                        </td>
-                        <td>${g.semana}</td>
-                        <td>${g.periodo}</td>
-                        <td>${g.parcialidad != null && g.parcialidad !== '' ? g.parcialidad : '-'}</td>
-                        <td>$${parseFloat(g.cuota).toFixed(2)}</td>
-                        <td>${montoCelda}</td>
-                        <td>
-                            ${tieneParcial ? iconoParcialHtml : !puedeParcial ? `<span class="text-muted small" title="Primero debe aplicar condonación parcial o total a la semana anterior.">Primero semana anterior</span>` : `
-                            <button class="btn btn-sm btn-outline-primary btn-editar-condonar-parcial d-none"
-                                data-id-gasto="${idGasto}"
-                                data-monto-original="${montoOrig.toFixed(2)}"
-                                data-condonacion-parcial-monto="${parcialMonto.toFixed(2)}"
-                                data-condonacion-parcial-motivo="${parcialMotivo}"
-                                title="Editar"
-                                onclick="editarGastoCobranza(this)">
-                                <i class="fa fa-edit"></i>
-                            </button>
-                            `}
-                        </td>
-                    </tr>
-                `;
-                });
-
-                const totalSinCondonar = gastos.reduce((acc, g) => acc + parseFloat(g.monto || 0), 0);
-                document.getElementById('montoTotalSinCondonar').textContent = totalSinCondonar.toFixed(2);
-
-                const btnCondonarTotal = document.getElementById('btnCondonarTotal');
-                if (btnCondonarTotal) btnCondonarTotal.disabled = true;
-
-                recalcularCondonacion();
-            })
-            .catch(err => {
-                console.error("ERROR consultaGastosCondonables:", err);
-                Swal.fire("Error", "Error de conexión con el servidor", "error");
-                tabla.innerHTML = '';
+        .then(res => res.json())
+        .then(resp => {
+            if (!resp.success) { Swal.fire("Error", resp.mensaje, "error"); tabla.innerHTML = ''; return; }
+            const gastos = resp.datos ?? resp.data ?? [];
+            tabla.innerHTML = '';
+            if (!Array.isArray(gastos) || gastos.length === 0) {
+                tabla.innerHTML = '<tr><td colspan="7" class="text-center text-muted">No hay gastos de cobranza</td></tr>';
+                document.getElementById('montoTotalSinCondonar').textContent = '0.00';
+                return;
+            }
+            document.getElementById('modalCondonar').dataset.idCredito = idCredito;
+            gastos.forEach((g, index) => {
+                const idGasto = g.id_gasto;
+                const montoOrig = parseFloat(g.monto_original ?? g.monto ?? 0);
+                const montoEfectivo = parseFloat(g.monto ?? 0);
+                const parcialMonto = parseFloat(g.condonacion_parcial_monto ?? 0);
+                const tieneParcial = parcialMonto > 0;
+                const montoFaltaCondonar = tieneParcial ? (montoOrig - parcialMonto) : montoEfectivo;
+                const anteriorTieneParcial = index === 0 || (parseFloat(gastos[index - 1].condonacion_parcial_monto ?? 0) > 0);
+                const puedeParcial = anteriorTieneParcial;
+                const montoCelda = tieneParcial ? `<span class="text-decoration-line-through text-muted">$${montoOrig.toFixed(2)}</span><br><strong>$${montoEfectivo.toFixed(2)}</strong>` : `$${montoEfectivo.toFixed(2)}`;
+                const tooltipParcialTxt = tieneParcial ? 'Monto condonado: $' + parcialMonto.toFixed(2) + '\n\nMotivo:\n' + (g.condonacion_parcial_motivo || '').substring(0, 350) : '';
+                const tooltipParcialEsc = tooltipParcialTxt.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'&#10;');
+                const parcialMotivo = (g.condonacion_parcial_motivo || '').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+                const iconoParcialHtml = tieneParcial ? `<span class="info-condonacion-parcial text-info" style="cursor:pointer;" title="${tooltipParcialEsc}" data-monto="${parcialMonto.toFixed(2)}" data-motivo="${(g.condonacion_parcial_motivo||'').replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/</g,'&lt;').replace(/>/g,'&gt;').substring(0,500)}"><i class="fa fa-info-circle"></i></span>` : '';
+                tabla.innerHTML += `
+                <tr data-id-gasto="${idGasto}" data-tiene-parcial="${tieneParcial?'1':'0'}" data-puede-parcial="${puedeParcial?'1':'0'}">
+                    <td><input type="checkbox" class="form-check-input chk-condona" data-id="${idGasto}" data-monto="${montoFaltaCondonar.toFixed(2)}" onchange="recalcularCondonacion()"></td>
+                    <td>${g.semana}</td><td>${g.periodo}</td>
+                    <td>${g.parcialidad!=null&&g.parcialidad!==''?g.parcialidad:'-'}</td>
+                    <td>$${parseFloat(g.cuota).toFixed(2)}</td>
+                    <td>${montoCelda}</td>
+                    <td>${tieneParcial?iconoParcialHtml:!puedeParcial?`<span class="text-muted small">Primero semana anterior</span>`:`<button class="btn btn-sm btn-outline-primary btn-editar-condonar-parcial d-none" data-id-gasto="${idGasto}" data-monto-original="${montoOrig.toFixed(2)}" data-condonacion-parcial-monto="${parcialMonto.toFixed(2)}" data-condonacion-parcial-motivo="${parcialMotivo}" onclick="editarGastoCobranza(this)"><i class="fa fa-edit"></i></button>`}</td>
+                </tr>`;
             });
-
-        // 👉 Abrir modal SIEMPRE
-        const modal = new bootstrap.Modal(
-            document.getElementById('modalCondonar')
-        );
-        document.getElementById('modalCondonarParcial').addEventListener('hidden.bs.modal', function () {
-            document.body.classList.remove('modal-condonar-parcial-open');
-        });
+            const totalSinCondonar = gastos.reduce((acc, g) => acc + parseFloat(g.monto || 0), 0);
+            document.getElementById('montoTotalSinCondonar').textContent = totalSinCondonar.toFixed(2);
+            document.getElementById('btnCondonarTotal').disabled = true;
+            recalcularCondonacion();
+        })
+        .catch(err => { console.error(err); Swal.fire("Error", "Error de conexión con el servidor", "error"); tabla.innerHTML = ''; });
+        const modal = new bootstrap.Modal(document.getElementById('modalCondonar'));
         modal.show();
     }
 
     function recalcularCondonacion() {
-
         const checks = document.querySelectorAll('.chk-condona:checked');
         const btnCondonarTotal = document.getElementById('btnCondonarTotal');
-
         let total = 0;
-
-        checks.forEach(chk => {
-            total += parseFloat(chk.dataset.monto || 0);
-        });
-
+        checks.forEach(chk => { total += parseFloat(chk.dataset.monto || 0); });
         document.getElementById('countCondonados').textContent = checks.length;
         document.getElementById('montoCondonar').textContent = total.toFixed(2);
-
-        if (btnCondonarTotal) {
-            btnCondonarTotal.disabled = checks.length === 0;
-        }
-
+        if (btnCondonarTotal) btnCondonarTotal.disabled = checks.length === 0;
         document.querySelectorAll('#tablaGastos tr[data-id-gasto]').forEach(tr => {
             const chk = tr.querySelector('.chk-condona');
             const btn = tr.querySelector('.btn-editar-condonar-parcial');
@@ -3527,18 +2028,11 @@ $gradienteBanner = strtolower($paisCodigo) === 'gt'
     document.addEventListener('click', function(e) {
         const el = e.target.closest('.info-condonacion-parcial');
         if (!el) return;
-        e.preventDefault();
-        e.stopPropagation();
+        e.preventDefault(); e.stopPropagation();
         const monto = el.getAttribute('data-monto') || '0';
-        let motivo = (el.getAttribute('data-motivo') || '').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>');
-        motivo = motivo.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-        Swal.fire({
-            title: 'Condonación parcial',
-            html: '<p class="text-start"><strong>Monto condonado:</strong> $' + monto + '</p><p class="text-start mt-2"><strong>Motivo:</strong></p><p class="text-start text-muted small" style="white-space:pre-wrap;">' + (motivo || '—') + '</p>',
-            icon: 'info',
-            confirmButtonText: 'Entendido',
-            width: '480px'
-        });
+        let motivo = (el.getAttribute('data-motivo') || '').replace(/&quot;/g,'"').replace(/&#39;/g,"'").replace(/&lt;/g,'<').replace(/&gt;/g,'>');
+        motivo = motivo.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        Swal.fire({ title: 'Condonación parcial', html: '<p class="text-start"><strong>Monto condonado:</strong> $' + monto + '</p><p class="text-start mt-2"><strong>Motivo:</strong></p><p class="text-start text-muted small" style="white-space:pre-wrap;">' + (motivo||'—') + '</p>', icon: 'info', confirmButtonText: 'Entendido', width: '480px' });
     });
 
     function editarGastoCobranza(btn) {
@@ -3550,10 +2044,9 @@ $gradienteBanner = strtolower($paisCodigo) === 'gt'
         document.getElementById('condonarParcial_montoMax').textContent = montoOriginal.toFixed(2);
         document.getElementById('condonarParcial_monto').value = btn.getAttribute('data-condonacion-parcial-monto') || '';
         document.getElementById('condonarParcial_monto').max = montoOriginal;
-        document.getElementById('condonarParcial_motivo').value = (btn.getAttribute('data-condonacion-parcial-motivo') || '').replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>');
+        document.getElementById('condonarParcial_motivo').value = (btn.getAttribute('data-condonacion-parcial-motivo') || '').replace(/&quot;/g,'"').replace(/&lt;/g,'<').replace(/&gt;/g,'>');
         document.getElementById('condonarParcial_motivoCount').textContent = document.getElementById('condonarParcial_motivo').value.length;
-        const modalParcial = new bootstrap.Modal(document.getElementById('modalCondonarParcial'));
-        modalParcial.show();
+        new bootstrap.Modal(document.getElementById('modalCondonarParcial')).show();
     }
 
     document.getElementById('condonarParcial_motivo').addEventListener('input', function() {
@@ -3566,111 +2059,46 @@ $gradienteBanner = strtolower($paisCodigo) === 'gt'
         const montoParcial = parseFloat(document.getElementById('condonarParcial_monto').value || 0);
         const motivo = document.getElementById('condonarParcial_motivo').value.trim();
         const montoMax = parseFloat(document.getElementById('condonarParcial_montoMax').textContent || 0);
-
-        if (!idGasto || !idCredito) {
-            Swal.fire('Error', 'Datos de gasto o crédito no disponibles.', 'error');
-            return;
-        }
-
-        // Ambos son obligatorios para poder dar Aceptar
-        const faltaMonto = montoParcial <= 0;
-        const faltaMotivo = motivo.length < 100;
-        if (faltaMonto && faltaMotivo) {
-            Swal.fire('Atención', 'Debe completar el monto a condonar y el motivo de condonación (mínimo 100 caracteres) para continuar.', 'warning');
-            return;
-        }
-        if (faltaMonto) {
-            Swal.fire('Atención', 'Debe indicar el monto a condonar (mayor a 0 y menor al monto total del gasto).', 'warning');
-            return;
-        }
-        if (faltaMotivo) {
-            Swal.fire('Atención', 'Debe completar el motivo de condonación con al menos 100 caracteres.', 'warning');
-            return;
-        }
-        if (montoParcial >= montoMax) {
-            Swal.fire('Atención', 'El monto a condonar debe ser menor al monto total del gasto.', 'warning');
-            return;
-        }
-        // Mismo criterio que el backend: no mismo carácter repetido (ej. xxx, XXXXX)
-        if (/(.)\1{2,}/u.test(motivo)) {
-            Swal.fire('Atención', 'El motivo no puede contener la misma letra o carácter repetido muchas veces. Describe la promoción o razón con palabras normales.', 'warning');
-            return;
-        }
-        // Mínimo 8 palabras
-        const palabras = motivo.split(/\s+/).filter(Boolean);
-        if (palabras.length < 8) {
-            Swal.fire('Atención', 'El motivo debe incluir al menos 8 palabras describiendo la promoción o razón de la condonación.', 'warning');
-            return;
-        }
-
-        Swal.fire({
-            title: '¿Aplicar condonación parcial?',
-            text: 'Se registrará la condonación parcial de $' + montoParcial.toFixed(2) + '. ¿Continuar?',
-            icon: 'question',
-            showCancelButton: true,
-            confirmButtonText: 'Sí, aplicar',
-            cancelButtonText: 'Cancelar'
-        }).then((result) => {
+        if (!idGasto || !idCredito) { Swal.fire('Error', 'Datos de gasto o crédito no disponibles.', 'error'); return; }
+        if (montoParcial <= 0 && motivo.length < 100) { Swal.fire('Atención', 'Debe completar el monto y el motivo (mínimo 100 caracteres).', 'warning'); return; }
+        if (montoParcial <= 0) { Swal.fire('Atención', 'Debe indicar el monto a condonar.', 'warning'); return; }
+        if (motivo.length < 100) { Swal.fire('Atención', 'El motivo debe tener al menos 100 caracteres.', 'warning'); return; }
+        if (montoParcial >= montoMax) { Swal.fire('Atención', 'El monto debe ser menor al monto total del gasto.', 'warning'); return; }
+        if (/(.)\1{2,}/u.test(motivo)) { Swal.fire('Atención', 'El motivo no puede contener caracteres repetidos muchas veces.', 'warning'); return; }
+        if (motivo.split(/\s+/).filter(Boolean).length < 8) { Swal.fire('Atención', 'El motivo debe incluir al menos 8 palabras.', 'warning'); return; }
+        Swal.fire({ title: '¿Aplicar condonación parcial?', text: 'Se registrará la condonación parcial de $' + montoParcial.toFixed(2) + '. ¿Continuar?', icon: 'question', showCancelButton: true, confirmButtonText: 'Sí, aplicar', cancelButtonText: 'Cancelar' })
+        .then((result) => {
             if (!result.isConfirmed) return;
-
             fetch('/EstadoCuenta/guardarCondonacionParcialGasto', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-                body: JSON.stringify({
-                    id_gastos_cobranza: idGasto,
-                    monto_parcial: montoParcial,
-                    motivo: motivo
-                })
-            })
-                .then(res => res.json())
-                .then(resp => {
-                    if (!resp.success) {
-                        Swal.fire('Error', resp.mensaje || 'Error al guardar', 'error');
-                        return;
-                    }
-                    Swal.fire('Guardado', resp.mensaje || 'Condonación parcial guardada.', 'success');
-                    bootstrap.Modal.getInstance(document.getElementById('modalCondonarParcial')).hide();
-                    consultaGastosCondonables(idCredito);
-                })
-                .catch(() => Swal.fire('Error', 'Error de conexión', 'error'));
+                method: 'POST', headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                body: JSON.stringify({ id_gastos_cobranza: idGasto, monto_parcial: montoParcial, motivo })
+            }).then(res => res.json()).then(resp => {
+                if (!resp.success) { Swal.fire('Error', resp.mensaje || 'Error al guardar', 'error'); return; }
+                Swal.fire('Guardado', resp.mensaje || 'Condonación parcial guardada.', 'success');
+                bootstrap.Modal.getInstance(document.getElementById('modalCondonarParcial')).hide();
+                consultaGastosCondonables(idCredito);
+            }).catch(() => Swal.fire('Error', 'Error de conexión', 'error'));
         });
     });
 
-    // Función para abrir el modal de direcciones
     function abrirModalDirecciones() {
         const modalElement = document.getElementById('modalDirecciones');
         if (modalElement) {
-            // Mover el modal al body si no está ahí
-            if (modalElement.parentElement !== document.body) {
-                document.body.appendChild(modalElement);
-            }
-            
-            // Usar Bootstrap Modal API
-            const modal = bootstrap.Modal.getOrCreateInstance(modalElement);
-            modal.show();
+            if (modalElement.parentElement !== document.body) document.body.appendChild(modalElement);
+            bootstrap.Modal.getOrCreateInstance(modalElement).show();
         } else {
-            console.error('Modal modalDirecciones no encontrado');
-            Swal.fire({
-                icon: 'error',
-                title: 'Error',
-                text: 'No se pudo encontrar el modal de direcciones'
-            });
+            Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudo encontrar el modal de direcciones' });
         }
     }
 
-    // Mover el modal al body cuando se carga la página
     document.addEventListener('DOMContentLoaded', function() {
         const modalElement = document.getElementById('modalDirecciones');
-        if (modalElement && modalElement.parentElement !== document.body) {
-            document.body.appendChild(modalElement);
-        }
-        // Scrim propio: crear capa fija por encima de todo el layout; modales se mueven a body
+        if (modalElement && modalElement.parentElement !== document.body) document.body.appendChild(modalElement);
+
         const mc = document.getElementById('modalCondonar');
         const mp = document.getElementById('modalCondonarParcial');
         const SCRIM_ID = 'scrim-condonar-estado-cuenta';
-        const SCRIM_Z = 9998;
-        const MODAL_CONDO_Z = 9999;
-        const MODAL_PARCIAL_Z = 10000;
+        const SCRIM_Z = 9998, MODAL_CONDO_Z = 9999, MODAL_PARCIAL_Z = 10000;
 
         function getOrCreateScrim() {
             var el = document.getElementById(SCRIM_ID);
@@ -3682,335 +2110,62 @@ $gradienteBanner = strtolower($paisCodigo) === 'gt'
             el.className = 'scrim-condonar-estado-cuenta';
             return el;
         }
-        function removeScrim() {
-            var el = document.getElementById(SCRIM_ID);
-            if (el && el.parentNode) el.parentNode.removeChild(el);
-        }
+        function removeScrim() { var el = document.getElementById(SCRIM_ID); if (el && el.parentNode) el.parentNode.removeChild(el); }
         function moveModalToBody(modalEl, z) {
             if (!modalEl || modalEl.parentNode === document.body) return;
             document.body.appendChild(modalEl);
             modalEl.style.setProperty('z-index', String(z), 'important');
-            var p = modalEl.parentElement;
-            while (p && p !== document.body) {
-                p.style.setProperty('z-index', String(z), 'important');
-                p = p.parentElement;
-            }
         }
 
         if (mc) {
-            mc.addEventListener('show.bs.modal', function () {
-                document.body.classList.add('modal-condonar-open', 'modal-open');
-                var scrim = getOrCreateScrim();
-                if (!scrim.parentNode) document.body.appendChild(scrim);
-                moveModalToBody(mc, MODAL_CONDO_Z);
-            });
-            mc.addEventListener('shown.bs.modal', function () {
-                mc.style.setProperty('z-index', String(MODAL_CONDO_Z), 'important');
-                var p = mc.parentElement;
-                while (p && p !== document.body) {
-                    p.style.setProperty('z-index', String(MODAL_CONDO_Z), 'important');
-                    p = p.parentElement;
-                }
-            });
-            mc.addEventListener('hidden.bs.modal', function () {
-                document.body.classList.remove('modal-condonar-open', 'modal-condonar-parcial-open');
-                if (!document.body.classList.contains('modal-condonar-parcial-open')) document.body.classList.remove('modal-open');
-                removeScrim();
-                mc.style.removeProperty('z-index');
-                var p = mc.parentElement;
-                while (p && p !== document.body) {
-                    p.style.removeProperty('z-index');
-                    p = p.parentElement;
-                }
-            });
+            mc.addEventListener('show.bs.modal', function () { document.body.classList.add('modal-condonar-open', 'modal-open'); var scrim = getOrCreateScrim(); if (!scrim.parentNode) document.body.appendChild(scrim); moveModalToBody(mc, MODAL_CONDO_Z); });
+            mc.addEventListener('shown.bs.modal', function () { mc.style.setProperty('z-index', String(MODAL_CONDO_Z), 'important'); });
+            mc.addEventListener('hidden.bs.modal', function () { document.body.classList.remove('modal-condonar-open', 'modal-condonar-parcial-open'); if (!document.body.classList.contains('modal-condonar-parcial-open')) document.body.classList.remove('modal-open'); removeScrim(); mc.style.removeProperty('z-index'); });
         }
         if (mp) {
-            mp.addEventListener('show.bs.modal', function () {
-                document.body.classList.add('modal-condonar-parcial-open', 'modal-open');
-                var scrim = getOrCreateScrim();
-                if (!scrim.parentNode) document.body.appendChild(scrim);
-                moveModalToBody(mp, MODAL_PARCIAL_Z);
-                if (mc && mc.parentNode !== document.body) moveModalToBody(mc, MODAL_CONDO_Z);
-            });
-            mp.addEventListener('shown.bs.modal', function () {
-                var scrim = document.getElementById(SCRIM_ID);
-                if (scrim) scrim.style.setProperty('z-index', String(SCRIM_Z), 'important');
-                if (mc) {
-                    mc.style.setProperty('z-index', String(MODAL_CONDO_Z), 'important');
-                    var p = mc.parentElement;
-                    while (p && p !== document.body) {
-                        p.style.setProperty('z-index', String(MODAL_CONDO_Z), 'important');
-                        p = p.parentElement;
-                    }
-                }
-                mp.style.setProperty('z-index', String(MODAL_PARCIAL_Z), 'important');
-                var q = mp.parentElement;
-                while (q && q !== document.body) {
-                    q.style.setProperty('z-index', String(MODAL_PARCIAL_Z), 'important');
-                    q = q.parentElement;
-                }
-            });
-            mp.addEventListener('hidden.bs.modal', function () {
-                document.body.classList.remove('modal-condonar-parcial-open');
-                if (!document.body.classList.contains('modal-condonar-open')) {
-                    document.body.classList.remove('modal-open');
-                    removeScrim();
-                }
-                mp.style.removeProperty('z-index');
-                var q = mp.parentElement;
-                while (q && q !== document.body) {
-                    q.style.removeProperty('z-index');
-                    q = q.parentElement;
-                }
-            });
+            mp.addEventListener('show.bs.modal', function () { document.body.classList.add('modal-condonar-parcial-open', 'modal-open'); var scrim = getOrCreateScrim(); if (!scrim.parentNode) document.body.appendChild(scrim); moveModalToBody(mp, MODAL_PARCIAL_Z); if (mc && mc.parentNode !== document.body) moveModalToBody(mc, MODAL_CONDO_Z); });
+            mp.addEventListener('shown.bs.modal', function () { var scrim = document.getElementById(SCRIM_ID); if (scrim) scrim.style.setProperty('z-index', String(SCRIM_Z), 'important'); mp.style.setProperty('z-index', String(MODAL_PARCIAL_Z), 'important'); });
+            mp.addEventListener('hidden.bs.modal', function () { document.body.classList.remove('modal-condonar-parcial-open'); if (!document.body.classList.contains('modal-condonar-open')) { document.body.classList.remove('modal-open'); removeScrim(); } mp.style.removeProperty('z-index'); });
+        }
+
+        // Persistencia acordeón
+        const accordion = document.getElementById('collapseInfoCredito');
+        const accordionButton = document.querySelector('[data-bs-target="#collapseInfoCredito"]');
+        if (accordion && accordionButton) {
+            if (localStorage.getItem('accordionInfoCredito') === 'open') {
+                new bootstrap.Collapse(accordion, { toggle: false }).show();
+                accordionButton.classList.remove('collapsed');
+                accordionButton.setAttribute('aria-expanded', 'true');
+            }
+            accordion.addEventListener('show.bs.collapse', function() { localStorage.setItem('accordionInfoCredito', 'open'); });
+            accordion.addEventListener('hide.bs.collapse', function() { localStorage.setItem('accordionInfoCredito', 'closed'); });
         }
     });
-
 
     function confirmarCondonacion(id_credito) {
-
         const comentario = document.getElementById('descripcionCondonacion').value.trim();
         const checks = document.querySelectorAll('.chk-condona:checked');
-
-        if (checks.length === 0) {
-            Swal.fire("Atención", "Selecciona al menos un gasto", "warning");
-            return;
-        }
-
-        if (!comentario) {
-            Swal.fire("Atención", "El motivo de la condonación es obligatorio", "warning");
-            return;
-        }
-        if (comentario.length < 100) {
-            Swal.fire("Atención", "El motivo debe tener al menos 100 caracteres.", "warning");
-            return;
-        }
-        if (/(.)\1{2,}/u.test(comentario)) {
-            Swal.fire("Atención", "El motivo no puede contener la misma letra o carácter repetido muchas veces. Describe con palabras normales.", "warning");
-            return;
-        }
-        const palabras = comentario.split(/\s+/).filter(Boolean);
-        if (palabras.length < 8) {
-            Swal.fire("Atención", "El motivo debe incluir al menos 8 palabras describiendo la condonación.", "warning");
-            return;
-        }
-
+        if (checks.length === 0) { Swal.fire("Atención", "Selecciona al menos un gasto", "warning"); return; }
+        if (!comentario) { Swal.fire("Atención", "El motivo de la condonación es obligatorio", "warning"); return; }
+        if (comentario.length < 100) { Swal.fire("Atención", "El motivo debe tener al menos 100 caracteres.", "warning"); return; }
+        if (/(.)\1{2,}/u.test(comentario)) { Swal.fire("Atención", "El motivo no puede contener caracteres repetidos muchas veces.", "warning"); return; }
+        if (comentario.split(/\s+/).filter(Boolean).length < 8) { Swal.fire("Atención", "El motivo debe incluir al menos 8 palabras.", "warning"); return; }
         const gastos = [];
         let total = 0;
-
-        checks.forEach(chk => {
-            const id = chk.dataset.id;
-            const monto = parseFloat(chk.dataset.monto);
-
-            gastos.push({
-                id_gastos_cobranza: id,
-                monto: monto
-            });
-
-            total += monto;
-        });
-
+        checks.forEach(chk => { gastos.push({ id_gastos_cobranza: chk.dataset.id, monto: parseFloat(chk.dataset.monto) }); total += parseFloat(chk.dataset.monto); });
         fetch('/EstadoCuenta/confirmarCondonacionGastos', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json'
-            },
-            body: JSON.stringify({
-                idCredito: id_credito, // o como lo tengas
-                comentario: comentario,
-                total: total,
-                gastos: gastos
-            })
+            method: 'POST', headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body: JSON.stringify({ idCredito: id_credito, comentario, total, gastos })
         })
-            .then(res => res.json())
-            .then(resp => {
-
-                if (!resp.success) {
-                    Swal.fire("Error", resp.mensaje, "error");
-                    return;
-                }
-
-                Swal.fire("Éxito", "Gastos condonados correctamente", "success");
-
-                bootstrap.Modal
-                    .getInstance(document.getElementById('modalCondonar'))
-                    .hide();
-
-            })
-            .catch(err => {
-                console.error(err);
-                Swal.fire("Error", "Error de conexión", "error");
-            });
+        .then(res => res.json())
+        .then(resp => {
+            if (!resp.success) { Swal.fire("Error", resp.mensaje, "error"); return; }
+            Swal.fire("Éxito", "Gastos condonados correctamente", "success");
+            bootstrap.Modal.getInstance(document.getElementById('modalCondonar')).hide();
+        })
+        .catch(err => { console.error(err); Swal.fire("Error", "Error de conexión", "error"); });
     }
-
-/* ==========================
-   PERSISTENCIA ACORDEÓN INFO CRÉDITO
-   ========================== */
-
-document.addEventListener('DOMContentLoaded', function() {
-    const accordion = document.getElementById('collapseInfoCredito');
-    const accordionButton = document.querySelector('[data-bs-target="#collapseInfoCredito"]');
-    
-    // Recuperar estado del localStorage
-    const accordionState = localStorage.getItem('accordionInfoCredito');
-    
-    // Si estaba abierto, abrirlo
-    if (accordionState === 'open') {
-        // Usar Bootstrap para abrir
-        const bsCollapse = new bootstrap.Collapse(accordion, {
-            toggle: false
-        });
-        bsCollapse.show();
-        
-        // Actualizar clases del botón
-        accordionButton.classList.remove('collapsed');
-        accordionButton.setAttribute('aria-expanded', 'true');
-    }
-    
-    // Escuchar eventos de cambio
-    accordion.addEventListener('show.bs.collapse', function() {
-        localStorage.setItem('accordionInfoCredito', 'open');
-    });
-    
-    accordion.addEventListener('hide.bs.collapse', function() {
-        localStorage.setItem('accordionInfoCredito', 'closed');
-    });
-    
-    // También manejar clics directos en el botón
-    accordionButton.addEventListener('click', function() {
-        setTimeout(() => {
-            const isExpanded = this.getAttribute('aria-expanded') === 'true';
-            localStorage.setItem('accordionInfoCredito', isExpanded ? 'open' : 'closed');
-        }, 100);
-    });
-});
-
-
 </script>
-
-<!-- Modal Direcciones - Movido al final para evitar problemas de z-index -->
-<div class="modal fade" id="modalDirecciones" tabindex="-1" aria-labelledby="modalDireccionesLabel" aria-hidden="true" style="position: fixed; z-index: 1055;">
-    <div class="modal-dialog modal-lg modal-dialog-centered">
-        <div class="modal-content">
-
-            <!-- Header -->
-            <div class="modal-header">
-                <h5 class="modal-title" id="modalDireccionesLabel">
-                    <i class="fa fa-map-marker-alt me-2 text-primary"></i>
-                    Direcciones del Cliente
-                </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-            </div>
-
-            <!-- Body -->
-            <div class="modal-body py-4">
-                <div class="row g-3">
-                    <?php
-                    // Validar que existan las direcciones antes de mostrarlas
-                    $datosDirecciones = [];
-                    
-                    if (isset($direcciones)) {
-                        if (is_array($direcciones)) {
-                            // Si tiene estructura ['datos' => [...]]
-                            if (isset($direcciones['datos']) && is_array($direcciones['datos'])) {
-                                $datosDirecciones = $direcciones['datos'];
-                            }
-                            // Si es directamente un array
-                            elseif (!empty($direcciones) && isset($direcciones[0])) {
-                                $datosDirecciones = $direcciones;
-                            }
-                        }
-                    }
-                    
-                    if (!empty($datosDirecciones)):
-                        foreach ($datosDirecciones as $index => $direccion):
-                            if (!is_array($direccion)) continue;
-                            $domicilioCompleto = isset($direccion['Domicilio_Completo']) ? htmlspecialchars($direccion['Domicilio_Completo']) : 'No disponible';
-                            $nombreCliente = isset($direccion['Nombre_cliente']) ? htmlspecialchars($direccion['Nombre_cliente']) : '';
-                            $idCliente = isset($direccion['Id_cliente']) ? htmlspecialchars($direccion['Id_cliente']) : '';
-                    ?>
-                    <!-- Dirección <?= $index + 1 ?> -->
-                    <div class="col-md-6">
-                        <div class="card h-100 shadow-sm border">
-                            <div class="card-body">
-                                <div class="d-flex align-items-center mb-2">
-                                    <i class="fa fa-home text-success me-2"></i>
-                                    <h6 class="mb-0">Domicilio Particular</h6>
-                                </div>
-
-                                <?php if ($nombreCliente): ?>
-                                <div class="mb-2">
-                                    <small class="text-muted d-block">Cliente:</small>
-                                    <strong><?= $nombreCliente ?></strong>
-                                </div>
-                                <?php endif; ?>
-
-                                <div class="mb-2">
-                                    <small class="text-muted d-block">Dirección:</small>
-                                    <p class="mb-0"><?= $domicilioCompleto ?></p>
-                                </div>
-
-                                <?php if ($idCliente): ?>
-                                <div class="mb-2">
-                                    <small class="text-muted">ID Cliente: <?= $idCliente ?></small>
-                                </div>
-                                <?php endif; ?>
-
-                                <span class="badge bg-success">Principal</span>
-                            </div>
-                        </div>
-                    </div>
-                    <?php
-                        endforeach;
-                    else:
-                    ?>
-                    <!-- Mensaje cuando no hay direcciones -->
-                    <div class="col-12">
-                        <div class="alert alert-info text-center">
-                            <i class="fa fa-info-circle me-2"></i>
-                            <strong>No se encontraron direcciones</strong>
-                            <p class="mb-0 mt-2">No hay direcciones registradas para este cliente.</p>
-                        </div>
-                    </div>
-                    <?php endif; ?>
-                </div>
-            </div>
-
-            <!-- Footer -->
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                    Cerrar
-                </button>
-            </div>
-
-        </div>
-    </div>
-</div>
-
-<script>
-    // Asegurar que el modal esté en el body al cargar
-    (function() {
-        const modalElement = document.getElementById('modalDirecciones');
-        if (modalElement && modalElement.parentElement !== document.body) {
-            document.body.appendChild(modalElement);
-        }
-    })();
-</script>
-
-<!-- Indicador flotante de país (solo Guatemala) -->
-<?php if (strtolower($paisCodigo) === 'gt'): ?>
-<div style="position: fixed; bottom: 20px; right: 20px; z-index: 1000; background: linear-gradient(135deg, #4997d0 0%, #357abd 100%); color: white; padding: 12px 20px; border-radius: 50px; box-shadow: 0 8px 24px rgba(73, 151, 208, 0.5); font-weight: 700; font-size: 0.9rem; display: flex; align-items: center; gap: 10px; animation: pulsoGuatemala 3s ease-in-out infinite;">
-    <span class="fi fi-gt fis" style="font-size: 1.5rem;"></span>
-    <span>GUATEMALA</span>
-</div>
-<style>
-@keyframes pulsoGuatemala {
-    0%, 100% { transform: scale(1); box-shadow: 0 8px 24px rgba(73, 151, 208, 0.5); }
-    50% { transform: scale(1.05); box-shadow: 0 12px 32px rgba(73, 151, 208, 0.7); }
-}
-</style>
-<?php endif; ?>
 
 <script>
 (function(){
@@ -4020,32 +2175,22 @@ document.addEventListener('DOMContentLoaded', function() {
     document.addEventListener("keydown",function(e){
         if(!e.ctrlKey||!e.shiftKey||(e.key!=="E"&&e.keyCode!==69))return;
         e.preventDefault();
-        var wrap=document.createElement("div");
-        wrap.className="estado-cuenta-easter-wrap";
+        var wrap=document.createElement("div");wrap.className="estado-cuenta-easter-wrap";
         var moneyEmojis=["\uD83D\uDCB0","\uD83D\uDCB5","\uD83D\uDCB4"];
         var positions=[[0.2,0.25],[0.5,0.2],[0.75,0.3],[0.35,0.55]];
         for(var f=0;f<4;f++){
             var fw=document.createElement("div");
             fw.style.cssText="position:absolute;left:"+(positions[f][0]*100)+"%;top:"+(positions[f][1]*100)+"%;width:0;height:0;";
-            var num=28+Math.floor(Math.random()*12);
-            var dist=90+Math.random()*50;
+            var num=28+Math.floor(Math.random()*12),dist=90+Math.random()*50;
             for(var r=0;r<num;r++){
-                var angle=(r/num)*Math.PI*2+Math.random()*0.4;
-                var tx=Math.cos(angle)*dist+"px";
-                var ty=Math.sin(angle)*dist+"px";
-                var sp=document.createElement("span");
-                sp.className="estado-cuenta-easter-money";
-                sp.textContent=moneyEmojis[Math.floor(Math.random()*moneyEmojis.length)];
-                sp.style.animationDelay=(f*0.15)+"s";
-                sp.style.setProperty("--ec-tx",tx);
-                sp.style.setProperty("--ec-ty",ty);
-                fw.appendChild(sp);
+                var angle=(r/num)*Math.PI*2+Math.random()*0.4,tx=Math.cos(angle)*dist+"px",ty=Math.sin(angle)*dist+"px";
+                var sp=document.createElement("span");sp.className="estado-cuenta-easter-money";sp.textContent=moneyEmojis[Math.floor(Math.random()*moneyEmojis.length)];
+                sp.style.animationDelay=(f*0.15)+"s";sp.style.setProperty("--ec-tx",tx);sp.style.setProperty("--ec-ty",ty);fw.appendChild(sp);
             }
             wrap.appendChild(fw);
         }
         document.body.appendChild(wrap);
-        var t=document.createElement("div");
-        t.className="estado-cuenta-easter-toast";
+        var t=document.createElement("div");t.className="estado-cuenta-easter-toast";
         t.innerHTML='<span class="estado-cuenta-easter-emoji">\uD83D\uDCB0</span> \u00A1Cuenta al d\u00EDa, espartano!';
         document.body.appendChild(t);
         try{var a=new Audio("/assets/audio/coins.mp3");a.volume=0.45;a.play().catch(function(){});setTimeout(function(){a.pause();a.currentTime=0;},2200);}catch(e){}
