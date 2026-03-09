@@ -2,12 +2,31 @@
 
 namespace Models;
 
+use Core\DatabaseSegundometro;
 use Core\Model;
 use Core\Database;
 use Core\DatabaseLegacy;
 
 class Gestiones extends Model
 {
+
+    public static function getDetalleGestion($credito, $nombre)
+    {
+        $mysqli = new DatabaseSegundometro();
+
+        $query = <<<SQL
+        SELECT id_credito, Nombre_cliente, Codigo_postal_1, Celular, Referencia_stp, cuota
+        FROM tbl_segundometro_histo
+        WHERE id_credito = $credito
+        LIMIT 1;
+SQL;
+
+        $res_u = $mysqli->queryAll($query);
+
+
+
+        return $res_u;
+    }
     public static function getAllGestionesaa($credito, $nombre)
     {
         $mysqli = new Database();
@@ -81,27 +100,27 @@ SQL;
         $mysqli = new DatabaseLegacy(); // conexión LEGACY
 
         $query = <<<SQL
-    SELECT 
+        SELECT
         'LEGACY' AS app,
         '' AS id,
         '' AS id_team,
         ut.name AS team_supervisor,
-        c.id AS id_base,
-        c.name AS nombre_base,
-        c.start_date AS fecha_carga_base,
+        '' AS id_base,
+        lh.campana AS nombre_base,
+        lh.fecha_dictamen AS fecha_carga_base,
         '' AS id_registro,
         '' AS id_key,
         '' AS estatus,
-        u.name AS usuario_asignado,
-        u.name AS nombre_cliente,
-        t.credit_number AS id_credito,
+        lh.nombre_usuario AS usuario_asignado,
+         lh.nombre_usuario AS nombre_cliente,
+        lh.id_credit AS id_credito,
         '' AS cuenta_clabe,
-        u.name AS nombre_completo_cliente,
+        '' AS nombre_completo_cliente,
         '' AS pago_semanal,
         '' AS pagos_vencidos,
         '' AS deuda_total,
         '' AS codigo_gestor,
-        u.name AS usuario,
+        lh.nombre_usuario AS usuario,
         '' AS telefono_celular,
         '' AS cp,
         '' AS direccion,
@@ -116,13 +135,31 @@ SQL;
         '' AS referencia_personal2,
         '' AS parentesco2,
         '' AS telefono_referencia2,
-        '' AS contacto,
-        '' AS medio_contactacion_ccc,
-        '' AS medio_contactacion_campo,
-        '' AS dictamen_campo,
-        o.nombre_opcion AS dictamen_ccc,
-        '' AS promesa_pago,
-        '' AS motivo_negativa,
+        CASE
+            WHEN lh.contacto = 'telefono' THEN 'telefono'
+            WHEN lh.contacto = 'whatsapp' THEN 'telefono'
+            ELSE                               'campo'
+        END AS contacto,
+        CASE
+            WHEN lh.contacto = 'telefono' THEN 'llamada telefonica'
+            WHEN lh.contacto = 'whatsapp' THEN 'Whatsapp'
+            WHEN lh.contacto = 'campo'    THEN '0'
+            ELSE ''
+        END AS medio_contactacion_ccc,
+        CASE
+            WHEN lh.contacto = 'campo' THEN 'domicilio del cliente'
+            ELSE '0'
+        END AS medio_contactacion_campo,
+        CASE
+            WHEN lh.contacto = 'campo' THEN lh.comentarios_generales
+            ELSE ''
+        END AS dictamen_campo,
+        CASE
+            WHEN lh.contacto IN ('telefono', 'whatsapp') THEN lh.comentarios_generales
+            ELSE ''
+        END AS dictamen_ccc,
+        lh.hora_de_promesa_de_pago AS promesa_pago,
+        lh.motivo_de_no_de_pago AS motivo_negativa,
         '' AS porque_atraso_pago,
         '' AS con_quien_mala_experiencia,
         NOW() AS fecha_hora,
@@ -139,31 +176,28 @@ SQL;
         '' AS video,
         '' AS device_imei,
         NOW() AS fecha_sistema,
-        d.created_at AS fecha_dispositivo,
-        d.lng AS longitud,
-        d.lat AS latitud,
-        '' AS ubicacion_usuario,
+        lh.fecha_dictamen AS fecha_dispositivo,
+        NULL AS longitud,
+        NULL AS latitud,
+        CONCAT(lh.lat, ',', lh.lng) AS ubicacion_usuario,
         '' AS fake_gps,
         '' AS secure_area,
         '' AS images
-    FROM tasks t
-    INNER JOIN campaigns c ON t.campaign_id = c.id
-    INNER JOIN users u ON t.current_user_id = u.id
-    INNER JOIN dictums d ON d.task_id = t.id
-    INNER JOIN opcionesdictamen o ON o.id = d.opciondictamen_id
-    LEFT JOIN users ut ON ut.id = 
+    FROM legacy_historico lh
+    LEFT JOIN users u ON u.name = lh.nombre_usuario
+    LEFT JOIN users ut ON ut.id =
         CASE
             WHEN u.supervisor_id IS NOT NULL THEN u.supervisor_id
             WHEN u.subgerente_id IS NOT NULL THEN u.subgerente_id
             WHEN u.gerente_id IS NOT NULL THEN u.gerente_id
             ELSE u.subdirector_id
         END
-    WHERE t.credit_number = :credito
-    ORDER BY d.created_at DESC
+    WHERE lh.id_credit = :credito
+    ORDER BY lh.fecha_dictamen DESC;
 SQL;
 
         $legacyData = $mysqli->queryAll($query, ['credito' => $credito]);
-        
+
         // Si no hay datos de Legacy, retornar vacío
         if (empty($legacyData)) {
             return [];
@@ -171,7 +205,7 @@ SQL;
 
         // Obtener datos complementarios de Sky Logic
         $skyData = self::getSkyLogicComplementData($credito);
-        
+
         // Si hay datos de Sky Logic, completar los campos vacíos de Legacy
         if (!empty($skyData)) {
             foreach ($legacyData as &$legacyRow) {
@@ -188,9 +222,9 @@ SQL;
     private static function getSkyLogicComplementData($credito)
     {
         $db = new Database();
-        
+
         $query = <<<SQL
-    SELECT 
+    SELECT
         telefono_celular, cp, direccion, cuenta_clabe,
         pago_semanal, pagos_vencidos, deuda_total,
         referencia_personal1, parentesco1, telefono_referencia1,
@@ -200,7 +234,7 @@ SQL;
         estatus, direccion_ine, direccion_actual,
         promesa_pago, porque_atraso_pago, motivo_negativa,
         images, ubicacion_usuario
-    FROM base_clientes 
+    FROM base_clientes
     WHERE id_credito = :credito
     ORDER BY fecha_dispositivo DESC
     LIMIT 1
@@ -244,8 +278,8 @@ SQL;
         $mysqli = new Database();
 
         $query = <<<SQL
-    SELECT 
-        'Sky Logic *' as app, 
+    SELECT
+        'Sky Logic *' as app,
         id, id_team, team_supervisor, id_base, nombre_base, fecha_carga_base,
         id_registro, id_key, estatus, usuario_asignado, nombre_cliente, id_credito,
         cuenta_clabe, nombre_completo_cliente, pago_semanal, pagos_vencidos,
