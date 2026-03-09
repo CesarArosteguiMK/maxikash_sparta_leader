@@ -37,22 +37,10 @@ backend/storage/logs/*.log
 backend/storage/logs/*
 !backend/storage/logs/.gitkeep
 
-# ========== API Python (backend/API) – no subir ==========
-backend/API/logs/
-backend/API/.env
-backend/API/venv/
-backend/API/.venv/
-backend/API/**/__pycache__/
-backend/API/*.zip
-backend/API/files.zip
-backend/API/models/
-backend/API/temp/
-backend/API/tmp/
-*.pyc
-*.pyo
-*.pyd
-.Python
-*.so
+# ========== API Python (backend/API) – no subir nada de la API ==========
+backend/API/
+
+# (si antes tenías entradas concretas aquí, la carpeta completa las cubre)
 
 # ========== Rate limiting (login) ==========
 backend/storage/rate_limit/
@@ -61,5 +49,5 @@ backend/storage/rate_limit/
 # ========== API Agente Segundómetro (no subir) ==========
 backend/services/segundometro-agent/
 
-# ========== Pruebas OCR (no subir) ==========
+# ========== Pruebas OCR (no subir; puedes copiar archivos nuevos, no se subirán) ==========
 pruebas_OCR/
