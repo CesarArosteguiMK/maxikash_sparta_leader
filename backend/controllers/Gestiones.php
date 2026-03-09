@@ -14,55 +14,62 @@ class Gestiones extends Controller
         // --- JS COMPLETO EN EL CONTROLADOR ---
         $script = <<<JS
         <script>
-        
+
         document.addEventListener("DOMContentLoaded", () => {
-        
-            // Cambiar entre ID y Nombre
+
+            // Cambiar entre ID y Nombre (solo en página de consulta con formulario)
             function actualizarInputs() {
                     const modo = document.querySelector('input[name="modoBusqueda"]:checked')?.value;
-                    document.getElementById('divNombre').style.display = modo === 'nombre' ? 'block' : 'none';
-                    document.getElementById('divID').style.display = modo === 'id' ? 'block' : 'none';
+                    const divNombre = document.getElementById('divNombre');
+                    const divID = document.getElementById('divID');
+                    if (divNombre) divNombre.style.display = modo === 'nombre' ? 'block' : 'none';
+                    if (divID) divID.style.display = modo === 'id' ? 'block' : 'none';
             }
-        
+
             document.querySelectorAll('input[name="modoBusqueda"]').forEach(el =>
                 el.addEventListener('change', actualizarInputs)
             );
             actualizarInputs();
-        
-            // Botón limpiar filtros
-            document.getElementById("btnResetFiltros").addEventListener("click", () => {
-                document.getElementById("idCredito").value = "";
-                document.getElementById("nombre").value = "";
-                document.getElementById("modoID").checked = true;
-                actualizarInputs();
-            });
-        
-            // Validación antes de enviar
-            document.getElementById("formBusqueda").addEventListener("submit", e => {
-                const idCredito = document.getElementById("idCredito").value.trim();
-                const modo = document.querySelector('input[name="modoBusqueda"]:checked')?.value;
-        
-                if (modo === "id" && idCredito === "") {
-                    e.preventDefault();
-                    return Swal.fire({
-                        icon: "warning",
-                        title: "Falta el ID Crédito",
-                        text: "Por favor ingresa el ID del crédito."
-                    });
-                }
-        
-                // Loading
-                Swal.fire({
-                    title: "Procesando solicitud...",
-                    text: "Espere un momento por favor.",
-                    allowOutsideClick: false,
-                    allowEscapeKey: false,
-                    didOpen: () => Swal.showLoading()
+
+            const btnReset = document.getElementById("btnResetFiltros");
+            if (btnReset) {
+                btnReset.addEventListener("click", () => {
+                    const idCredito = document.getElementById("idCredito");
+                    const nombre = document.getElementById("nombre");
+                    const modoID = document.getElementById("modoID");
+                    if (idCredito) idCredito.value = "";
+                    if (nombre) nombre.value = "";
+                    if (modoID) modoID.checked = true;
+                    actualizarInputs();
                 });
-            });
-        
+            }
+
+            const formBusqueda = document.getElementById("formBusqueda");
+            if (formBusqueda) {
+                formBusqueda.addEventListener("submit", e => {
+                    const idCredito = document.getElementById("idCredito")?.value?.trim() ?? "";
+                    const modo = document.querySelector('input[name="modoBusqueda"]:checked')?.value;
+
+                    if (modo === "id" && idCredito === "") {
+                        e.preventDefault();
+                        return Swal.fire({
+                            icon: "warning",
+                            title: "Falta el ID Crédito",
+                            text: "Por favor ingresa el ID del crédito."
+                        });
+                    }
+
+                    Swal.fire({
+                        title: "Procesando solicitud...",
+                        text: "Espere un momento por favor.",
+                        allowOutsideClick: false,
+                        allowEscapeKey: false,
+                        didOpen: () => Swal.showLoading()
+                    });
+                });
+            }
+
         });
-        
 
         </script>
 JS;
