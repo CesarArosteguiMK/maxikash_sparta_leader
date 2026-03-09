@@ -789,6 +789,28 @@ html.dark-mode .navbar .text-muted{color:#94a3b8 !important;}
         var audioNotif = null;
         var NOTIF_SOUND_URL = '/assets/audio/ring2.mp3';
         var NOTIF_BEEP_INTERVAL_MS = 1500;
+        var NOTIF_SOUND_PLAYED_KEY = 'sparta_notif_sound_played_ids';
+        var NOTIF_SOUND_PLAYED_MAX = 100;
+
+        function getNotifSoundPlayedIds() {
+            try {
+                var raw = localStorage.getItem(NOTIF_SOUND_PLAYED_KEY);
+                var arr = raw ? JSON.parse(raw) : [];
+                return Array.isArray(arr) ? arr : [];
+            } catch (e) { return []; }
+        }
+
+        function setNotifSoundPlayedIds(ids) {
+            try {
+                var prev = getNotifSoundPlayedIds();
+                var set = {};
+                prev.forEach(function(id){ set[id] = true; });
+                ids.forEach(function(id){ if (id > 0) set[id] = true; });
+                var merged = Object.keys(set).map(Number).filter(function(id){ return id > 0; });
+                if (merged.length > NOTIF_SOUND_PLAYED_MAX) merged = merged.slice(-NOTIF_SOUND_PLAYED_MAX);
+                localStorage.setItem(NOTIF_SOUND_PLAYED_KEY, JSON.stringify(merged));
+            } catch (e) {}
+        }
         function notifUrl(path) {
             var p = (path || "").replace(/^\//, "").replace(/\/$/, "");
             var base = location.pathname.replace(/\/[^/]*$/, "") || "/";
@@ -823,14 +845,22 @@ html.dark-mode .navbar .text-muted{color:#94a3b8 !important;}
             }
         }
 
-        function startNotifSoundIfUnread(totalNoLeidas) {
+        function startNotifSoundIfUnread(totalNoLeidas, list) {
             if ((totalNoLeidas | 0) <= 0) {
                 stopNotifSound();
                 return;
             }
-            if (soundInterval) return;
+            var idsNoLeidos = (Array.isArray(list) ? list : [])
+                .filter(function(n){ return (n.leida | 0) === 0; })
+                .map(function(n){ return n.id | 0; })
+                .filter(function(id){ return id > 0; });
+            var played = getNotifSoundPlayedIds();
+            var playedSet = {};
+            played.forEach(function(id){ playedSet[id] = true; });
+            var hayNuevos = idsNoLeidos.some(function(id){ return !playedSet[id]; });
+            if (!hayNuevos) return;
             playNotifSound();
-            // Una sola vez: no repetir en ciclo (emergencia).
+            setNotifSoundPlayedIds(idsNoLeidos);
         }
 
         function formatNotifTime(dateStr) {
@@ -878,7 +908,7 @@ html.dark-mode .navbar .text-muted{color:#94a3b8 !important;}
                 badgeEl.style.display = 'inline-block';
                 if (iconEl) { iconEl.classList.add('nav-notif-bell-pulse'); iconEl.classList.add('has-unread'); }
                 if (btnMarcarTodas) btnMarcarTodas.style.display = 'inline-block';
-                startNotifSoundIfUnread(totalNoLeidas);
+                startNotifSoundIfUnread(totalNoLeidas, list);
             } else {
                 badgeEl.style.display = 'none';
                 if (iconEl) { iconEl.classList.remove('nav-notif-bell-pulse'); iconEl.classList.remove('has-unread'); }
@@ -904,7 +934,7 @@ html.dark-mode .navbar .text-muted{color:#94a3b8 !important;}
                             badgeEl.style.display = 'inline-block';
                             if (iconEl) { iconEl.classList.add('nav-notif-bell-pulse'); iconEl.classList.add('has-unread'); }
                             if (btnMarcarTodas) btnMarcarTodas.style.display = 'inline-block';
-                            startNotifSoundIfUnread(total);
+                            startNotifSoundIfUnread(total, res.datos || []);
                         } else {
                             badgeEl.style.display = 'none';
                             if (iconEl) { iconEl.classList.remove('nav-notif-bell-pulse'); iconEl.classList.remove('has-unread'); }

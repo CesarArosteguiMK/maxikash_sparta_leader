@@ -2005,7 +2005,8 @@ JS;
         if ($resultado['success'] ?? false) {
             $idTicket = (int)($resultado['datos']['id_ticket'] ?? 0);
             $nombreCreador = trim($_SESSION['usuario_nombre'] ?? 'Alguien');
-            $personasSabueso = Notificacion::getPersonasConModulos([19]);
+            // Solo el usuario 797 recibe notificación al abrir un ticket (requerimiento negocio).
+            $personasSabueso = [797];
             Notificacion::crearParaPersonas($personasSabueso, 'ticket_levantado', 'Ticket nuevo levantado por ' . $nombreCreador, $idTicket > 0 ? $idTicket : null);
         }
         self::respuestaJSON([
