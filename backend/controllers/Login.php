@@ -3,7 +3,6 @@
 namespace Controllers;
 
 use Core\Controller;
-use Core\LoginRateLimit;
 use Models\Login as LoginDao;
 use Models\Perfil as PerfilDao;
 
@@ -101,7 +100,7 @@ class login extends Controller
                     $("#btnLogin").on("click", (e) => {
                         e.preventDefault()
                         e.target.setAttribute("disabled", true)
-                        
+
                         validacion.validate().then((validacion) => {
                             if (validacion === "Valid") validaUsuario(e.target)
                             else e.target.removeAttribute("disabled")
@@ -119,12 +118,6 @@ class login extends Controller
     public function validaUsuario()
     {
         $respuesta = self::respuesta(false, 'Credenciales incorrectas.');
-
-        $rateCheck = LoginRateLimit::check();
-        if ($rateCheck[0] === false) {
-            $respuesta = self::respuesta(false, $rateCheck[1] ?? 'Demasiados intentos.');
-            self::respuestaJSON($respuesta);
-        }
 
         $validacion = LoginDao::validaUsuario($_POST);
 
@@ -158,12 +151,9 @@ class login extends Controller
                 $_SESSION['foto_perfil'] = "/CapHum/getFotoPersona?personaId={$datos['FOTO']}";
             }
 
-            LoginRateLimit::clear();
             $respuesta = self::respuesta(true, 'Bienvenido', [
                 'url' => '/' . VISTA_DEFECTO
             ]);
-        } else {
-            LoginRateLimit::recordFailure();
         }
 
         self::respuestaJSON($respuesta);
