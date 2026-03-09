@@ -34,10 +34,7 @@
         </div>
     </div>
 
-    <?php
-    // Primer registro para el resumen
-    $r = $gestiones[0];
-    ?>
+    <?php $r = $detalle[0] ?? []; ?>
 
     <!-- CARD GLOBAL -->
     <div class="card shadow-sm mb-4">
@@ -66,16 +63,12 @@
                     </thead>
                     <tbody>
                     <tr>
-                        <td><?= $r["nombre_completo_cliente"] ?></td>
-                        <td><?= $r["id_credito"] ?></td>
-                        <td><?= $r["cp"] ?></td>
-                        <td><?= $r["telefono_celular"] ?></td>
-                        <td><?= $r["cuenta_clabe"] ?></td>
-                        <td><?= $r["pago_semanal"] ?></td>
-                        <?php /* CAMPOS OPCIONALES - Descomentar si se requieren:
-                        <td><?= $r["pagos_vencidos"] ?></td>
-                        <td>$<?= number_format($r["deuda_total"], 2) ?></td>
-                        */ ?>
+                        <td><?= $r["Nombre_cliente"] ?? "" ?></td>
+                        <td><?= $r["id_credito"] ?? "" ?></td>
+                        <td><?= $r["Codigo_postal_1"] ?? "" ?></td>
+                        <td><?= $r["Celular"] ?? "" ?></td>
+                        <td><?= $r["Referencia_stp"] ?? "" ?></td>
+                        <td><?= $r["cuota"] ?? "" ?></td>
                     </tr>
                     </tbody>
                 </table>
@@ -103,12 +96,16 @@
                                     data-bs-target="#collapse<?= $i ?>">
                                <span class="badge-app <?= ($g['app'] === 'LEGACY') ? 'legacy' : 'sky-logic' ?>">
                                     <?= $g["app"] ?>
-                                </span> -
+                                </span>
+                                <i class="fa fa-briefcase me-1 ms-1" title="Portafolio" aria-hidden="true"></i>
                                 <?= $g["nombre_cliente"] ?> —
-                                <?= $g["dictamen_ccc"] ?> —
-                                <?= $g["fecha_dispositivo"] ?> —
-                                <?= $g["nombre_base"] ?> —
-                                <?= ($g["medio_contactacion_ccc"] == "0") ? "CAMPO" : "TELEFONICO" ?>
+                                <?= mb_strtoupper($g["contacto"]) ?> —
+                                <?= (mb_strtoupper($g["contacto"]) == "TELEFONO")
+                                        ? mb_strtoupper($g["dictamen_ccc"]) . " — "
+                                        : mb_strtoupper($g["dictamen_campo"]) . " — " ?>
+
+                                <?= $g["fecha_dispositivo"]?> —
+                                <?= $g["nombre_base"] ?>
                             </button>
                         </h2>
 
@@ -125,16 +122,14 @@
                                         <thead class="table-light">
                                         <tr>
                                             <th>Supervisor</th>
-                                            <th>ID Base</th>
                                             <th>Nombre Base</th>
-                                            <th>Fecha Carga</th>
+                                            <th>Fecha carga base</th>
                                             <th>Usuario asignado</th>
                                         </tr>
                                         </thead>
                                         <tbody>
                                         <tr>
                                             <td><?= $g["team_supervisor"] ?></td>
-                                            <td><?= $g["id_base"] ?></td>
                                             <td><?= $g["nombre_base"] ?></td>
                                             <td><?= $g["fecha_carga_base"] ?></td>
                                             <td><?= $g["usuario_asignado"] ?></td>
@@ -151,25 +146,24 @@
                                     $g["dictamen_campo"] ||
                                     $g["dictamen_ccc"]
                                 ): ?>
-
+                                    <?php
+                                    $medioContactacion = $g["medio_contactacion_ccc"] ?: $g["medio_contactacion_campo"] ?: '—';
+                                    $dictamen = $g["dictamen_ccc"] ?: $g["dictamen_campo"] ?: '—';
+                                    ?>
                                     <h6 class="fw-bold">Contactación y dictamen</h6>
 
                                     <div class="table-responsive mb-4">
                                         <table class="table table-bordered table-striped">
                                             <thead class="table-light">
                                             <tr>
-                                                <?php if ($g["medio_contactacion_ccc"]): ?><th>Medio CCC</th><?php endif; ?>
-                                                <?php if ($g["dictamen_ccc"]): ?><th>Dictamen CCC</th><?php endif; ?>
-                                                <?php if ($g["medio_contactacion_campo"]): ?><th>Medio Campo</th><?php endif; ?>
-                                                <?php if ($g["dictamen_campo"]): ?><th>Dictamen Campo</th><?php endif; ?>
+                                                <th>MEDIO DE CONTACTACION</th>
+                                                <th>DICTAMEN</th>
                                             </tr>
                                             </thead>
                                             <tbody>
                                             <tr>
-                                                <?php if ($g["medio_contactacion_ccc"]): ?><td><?= $g["medio_contactacion_ccc"] ?></td><?php endif; ?>
-                                                <?php if ($g["dictamen_ccc"]): ?><td><?= $g["dictamen_ccc"] ?></td><?php endif; ?>
-                                                <?php if ($g["medio_contactacion_campo"]): ?><td><?= $g["medio_contactacion_campo"] ?></td><?php endif; ?>
-                                                <?php if ($g["dictamen_campo"]): ?><td><?= $g["dictamen_campo"] ?></td><?php endif; ?>
+                                                <td><?= htmlspecialchars($medioContactacion) ?></td>
+                                                <td><?= htmlspecialchars($dictamen) ?></td>
                                             </tr>
                                             </tbody>
                                         </table>
@@ -177,27 +171,6 @@
 
                                 <?php endif; ?>
 
-
-                                <!-- DIRECCIONES -->
-                                <?php if ($g["direccion"] || $g["direccion_actual"]): ?>
-                                    <h6 class="fw-bold">Direcciones</h6>
-                                    <div class="table-responsive mb-4">
-                                        <table class="table table-bordered table-striped">
-                                            <thead class="table-light">
-                                            <tr>
-                                                <?php if ($g["direccion"]): ?><th>Dirección Principal</th><?php endif; ?>
-                                                <?php if ($g["direccion_actual"]): ?><th>Dirección Actual</th><?php endif; ?>
-                                            </tr>
-                                            </thead>
-                                            <tbody>
-                                            <tr>
-                                                <?php if ($g["direccion"]): ?><td><?= $g["direccion"] ?></td><?php endif; ?>
-                                                <?php if ($g["direccion_actual"]): ?><td><?= $g["direccion_actual"] ?></td><?php endif; ?>
-                                            </tr>
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                <?php endif; ?>
 
                                 <!-- PROMESAS -->
                                 <h6 class="fw-bold">Promesas y comentarios</h6>

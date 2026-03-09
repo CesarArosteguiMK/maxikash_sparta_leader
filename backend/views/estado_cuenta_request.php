@@ -63,7 +63,7 @@ if ($cuotasContratadas > 0) {
 ?>
 
 <style>
-    
+
     /* ==========================
    GLOBAL
    ========================== */
@@ -340,15 +340,15 @@ if ($cuotasContratadas > 0) {
            gap: 0.3rem;
            margin-bottom: 0.15rem;
        }
-       
+
        .sidebar-cliente .info-compact i.fa-lg {
            font-size: 0.85rem;
        }
-       
+
        .sidebar-cliente .info-compact .info-label span:first-child {
            font-size: 0.8rem;
        }
-       
+
        .sidebar-cliente .info-compact .info-label span:last-child {
            font-size: 0.85rem;
            padding-left: 0.75rem;
@@ -361,17 +361,17 @@ if ($cuotasContratadas > 0) {
            grid-template-columns: 1rem 1fr;
            gap: 0.3rem;
        }
-       
+
        .sidebar-cliente .info-compact i.fa-lg {
            font-size: 0.8rem;
        }
-       
+
        .sidebar-cliente .info-compact .info-label {
            flex-direction: column;
            align-items: flex-start;
            gap: 0.1rem;
        }
-       
+
        .sidebar-cliente .info-compact .info-label span:last-child {
            text-align: left;
            padding-left: 0;
@@ -405,21 +405,21 @@ if ($cuotasContratadas > 0) {
         .sidebar-cliente .card-body {
             padding: 0.9rem !important;
         }
-        
+
         .badge-container-ids .badge {
             font-size: 0.7rem;
             padding: 0.35em 0.6em;
         }
-        
+
         .user-avatar-section .h6 {
             font-size: 0.95rem;
         }
-        
+
         .sidebar-cliente .info-compact .info-label span:first-child,
         .sidebar-cliente .info-compact .info-label span:last-child {
             font-size: 0.8rem;
         }
-        
+
         .sidebar-cliente .d-flex.justify-content-between.my-3 h5 {
             font-size: 0.9rem;
         }
@@ -430,37 +430,37 @@ if ($cuotasContratadas > 0) {
         .sidebar-cliente .card-body {
             padding: 0.8rem !important;
         }
-        
+
         .user-avatar-section .card .card-body {
             padding: 0.6rem !important;
         }
-        
+
         .badge-container-ids .badge {
             font-size: 0.65rem;
             padding: 0.3em 0.5em;
         }
-        
+
         .user-avatar-section .h6 {
             font-size: 0.9rem;
         }
-        
+
         .sidebar-cliente .info-compact li {
             margin-bottom: 0.4rem;
         }
-        
+
         .sidebar-cliente .info-compact .info-label span:first-child,
         .sidebar-cliente .info-compact .info-label span:last-child {
             font-size: 0.75rem;
         }
-        
+
         .sidebar-cliente .info-compact i.fa-lg {
             font-size: 0.85rem !important;
         }
-        
+
         .sidebar-cliente .d-flex.justify-content-between.my-3 h5 {
             font-size: 0.85rem;
         }
-        
+
         .sidebar-cliente .btn-outline-primary {
             font-size: 0.8rem;
             padding: 0.5rem 1rem !important;
@@ -473,13 +473,13 @@ if ($cuotasContratadas > 0) {
             flex-direction: column;
             gap: 0.3rem;
         }
-        
+
         .badge-container-ids .badge {
             width: 100%;
             max-width: 100%;
             text-align: center;
         }
-        
+
         .sidebar-cliente .d-flex.justify-content-between.my-3 > div {
             flex: 1 1 100%;
         }
@@ -493,22 +493,22 @@ if ($cuotasContratadas > 0) {
         .sidebar-cliente .card-body {
             padding: 0.75rem !important;
         }
-        
+
         .badge-container-ids {
             flex-direction: row;
             gap: 0.5rem;
         }
-        
+
         .badge-container-ids .badge {
             flex: 1 1 calc(50% - 0.5rem);
             max-width: calc(50% - 0.5rem);
         }
-        
+
         .sidebar-cliente .d-flex.justify-content-between.my-3 {
             flex-direction: column;
             gap: 0.5rem;
         }
-        
+
         .sidebar-cliente .btn-outline-primary {
             padding: 0.5rem 1rem !important;
             margin: 0.5rem 0.25rem !important;
@@ -519,21 +519,21 @@ if ($cuotasContratadas > 0) {
     /* ==========================
        ASEGURAR VISIBILIDAD BOTONES HEADER
    ========================== */
-   
+
    /* MOD: Asegurar que los botones del header sean visibles */
    .col-xl-8.col-lg-7 .d-flex.justify-content-between.align-items-center.mb-3 > .d-flex.gap-2 {
        display: flex !important;
        visibility: visible !important;
        opacity: 1 !important;
    }
-   
+
    .btn-dictaminar,
    .btn-condonar,
    .btn-notas {
        display: flex !important;
        visibility: visible !important;
    }
-   
+
    .btn-outline-secondary {
        display: inline-flex !important;
    }
@@ -894,29 +894,14 @@ if ($cuotasContratadas > 0) {
        MODAL DIRECCIONES - Asegurar que se muestre
        ========================== */
     #modalDirecciones {
-        z-index: 1055 !important;
+        z-index: 1090 !important;
     }
-    
-    #modalDirecciones.show {
-        display: block !important;
-        opacity: 1 !important;
-        visibility: visible !important;
-    }
-    
+
     #modalDirecciones .modal-dialog {
-        z-index: 1056 !important;
+        z-index: 1091 !important;
         margin: 1.75rem auto !important;
     }
-    
-    .modal-backdrop {
-        z-index: 1089 !important;
-    }
-    
-    .modal-backdrop.show {
-        opacity: 0.5 !important;
-        background: rgba(0, 0, 0, 0.5) !important;
-    }
-    
+
     /* Scrim propio para Condonar / Condonación parcial (por encima de todo el layout) */
     .scrim-condonar-estado-cuenta {
         z-index: 9998 !important;
@@ -969,69 +954,69 @@ if ($cuotasContratadas > 0) {
            order: -1 !important;
            margin-bottom: 1rem;
        }
-       
+
        .col-xl-8.col-lg-7 {
            order: 1 !important;
        }
-       
+
        .row {
            margin-bottom: 0.5rem;
        }
-       
+
        .sidebar-cliente .card {
            margin-bottom: 0.75rem !important;
        }
-       
+
        .badge-container-ids .badge {
            font-size: 0.65rem !important;
            padding: 0.35em 0.5em !important;
        }
-       
+
        .col-xl-8.col-lg-7 .d-flex.justify-content-between.align-items-center.mb-3 {
            flex-direction: column;
            align-items: flex-start;
            margin-bottom: 0.75rem !important;
        }
-       
+
        .col-xl-8.col-lg-7 .d-flex.justify-content-between.align-items-center.mb-3 h5 {
            font-size: 0.85rem;
            margin-bottom: 0.5rem;
            width: 100%;
        }
-       
+
        .btn-notas, .btn-condonar, .btn-dictaminar {
            width: 36px !important;
            height: 36px !important;
        }
-       
+
        .btn-notas i, .btn-condonar i, .btn-dictaminar i {
            font-size: 0.9rem !important;
        }
-       
+
        .col-xl-8.col-lg-7 .d-flex.justify-content-around.flex-wrap.my-6 > div {
            flex: 1 1 calc(50% - 0.5rem);
            margin-bottom: 0.5rem;
            gap: 0.5rem;
        }
-       
+
        .col-xl-8.col-lg-7 .d-flex.justify-content-around.flex-wrap.my-6 h5 {
            font-size: 0.8rem;
        }
-       
+
        .col-xl-8.col-lg-7 .d-flex.justify-content-around.flex-wrap.my-6 span {
            font-size: 0.7rem;
        }
-       
+
        .tabla-scrollable {
            margin-top: 0.5rem;
        }
-       
+
        .cuotas-table td,
        .cuotas-table th {
            font-size: 0.6rem !important;
            padding: 0.3rem !important;
        }
-       
+
        .cuotas-table .badge {
            font-size: 0.55rem !important;
            padding: 0.2em 0.3em !important;
@@ -1105,7 +1090,7 @@ if ($cuotasContratadas > 0) {
    .accordion-body .info-compact {
        margin: 0.75rem 0 !important;
    }
-   
+
    .accordion-body .btn-outline-primary {
        margin: 1.25rem 0.75rem 0.75rem 0.75rem !important;
        padding: 0.65rem 1.5rem !important;
@@ -1117,15 +1102,15 @@ if ($cuotasContratadas > 0) {
            padding: 0.6rem 0.8rem !important;
            font-size: 0.9rem;
        }
-       
+
        .accordion-button i.fa-info-circle {
            font-size: 0.9rem;
        }
-       
+
        .accordion-arrow {
            font-size: 0.8rem;
        }
-       
+
        .accordion-body {
            padding: 0.75rem !important;
        }
@@ -1136,19 +1121,19 @@ if ($cuotasContratadas > 0) {
            padding: 0.5rem 0.7rem !important;
            font-size: 0.85rem;
        }
-       
+
        .accordion-button span.fw-semibold {
            font-size: 0.85rem;
        }
-       
+
        .accordion-arrow {
            font-size: 0.75rem;
        }
-       
+
        .accordion-body {
            padding: 0.5rem !important;
        }
-       
+
        .accordion-body .btn-outline-primary {
            margin: 1rem 0.5rem 0.5rem 0.5rem !important;
            padding: 0.55rem 1.25rem !important;
@@ -1178,7 +1163,7 @@ if ($cuotasContratadas > 0) {
     /* ==========================
        PADDING MÉTRICAS HORIZONTALES (Cuota Semanal, etc.)
    ========================== */
-   
+
    /* MOD: Añadir padding a métricas horizontales */
    .col-xl-8.col-lg-7 .d-flex.justify-content-around.flex-wrap.my-6 {
        padding: 1rem 1.25rem !important;
@@ -1186,23 +1171,23 @@ if ($cuotasContratadas > 0) {
        margin: 1.5rem 0 !important;
        border: 1px solid #e9ecef;
    }
-   
+
    .col-xl-8.col-lg-7 .d-flex.justify-content-around.flex-wrap.my-6 > div {
        padding: 0.5rem 0.75rem;
        border-radius: 8px;
        border: 1px solid #f0f0f0;
        box-shadow: 0 2px 4px rgba(0,0,0,0.03);
    }
-   
+
    .col-xl-8.col-lg-7 .d-flex.justify-content-around.flex-wrap.my-6 {
        gap: 1rem !important;
    }
-   
+
    @media (max-width: 768px) {
        .col-xl-8.col-lg-7 .d-flex.justify-content-around.flex-wrap.my-6 {
            padding: 0.75rem !important;
        }
-       
+
        .col-xl-8.col-lg-7 .d-flex.justify-content-around.flex-wrap.my-6 > div {
            padding: 0.4rem 0.6rem;
        }
@@ -1218,7 +1203,7 @@ if ($cuotasContratadas > 0) {
         margin: 0.5rem 0;
         padding: 0 0.25rem;
     }
-    
+
     /* Cada item con grid de 2 columnas */
     .sidebar-cliente .info-compact li {
         display: grid !important;
@@ -1228,7 +1213,7 @@ if ($cuotasContratadas > 0) {
         margin-bottom: 0.5rem;
         padding: 0.2rem 0;
     }
-    
+
     /* Icono en columna 1 */
     .sidebar-cliente .info-compact i.fa-lg {
         grid-column: 1;
@@ -1236,7 +1221,7 @@ if ($cuotasContratadas > 0) {
         text-align: center;
         width: 1.2rem;
     }
-    
+
     /* Etiqueta (texto) en columna 2 */
     .sidebar-cliente .info-compact .info-label span:first-child {
         grid-column: 2;
@@ -1248,7 +1233,7 @@ if ($cuotasContratadas > 0) {
         padding-right: 0.5rem;
         min-width: 140px;
     }
-    
+
     /* Valor (número) en columna 3 - ALINEADO A LA DERECHA */
     .sidebar-cliente .info-compact .info-label span:last-child {
         grid-column: 3;
@@ -1261,7 +1246,7 @@ if ($cuotasContratadas > 0) {
         min-width: max-content;
         margin-left: auto;
     }
-    
+
     /* Para items monetarios (con $) */
     .sidebar-cliente .info-compact .info-label span:last-child:contains("$") {
         letter-spacing: -0.5px; /* Compactar números con $ */
@@ -1274,17 +1259,17 @@ if ($cuotasContratadas > 0) {
         grid-template-columns: 1rem minmax(120px, 1fr) auto;
         gap: 0.4rem;
     }
-    
+
     .sidebar-cliente .info-compact i.fa-lg {
         font-size: 0.8rem;
         width: 1rem;
     }
-    
+
     .sidebar-cliente .info-compact .info-label span:first-child {
         font-size: 0.75rem;
         min-width: 120px;
     }
-    
+
     .sidebar-cliente .info-compact .info-label span:last-child {
         font-size: 0.8rem;
     }
@@ -1308,13 +1293,13 @@ if ($cuotasContratadas > 0) {
         width: 100%;
         gap: 0.5rem;
     }
-    
+
     /* Asegurar que la etiqueta ocupe espacio disponible */
     .sidebar-cliente .info-compact .info-label span:first-child {
         text-align: right; /* Alinear etiquetas a la derecha también */
         padding-right: 0.75rem;
     }
-    
+
     /* Valores con ancho fijo para alineación perfecta */
     .sidebar-cliente .info-compact .info-label span:last-child {
         min-width: 100px;
@@ -1337,7 +1322,7 @@ if ($cuotasContratadas > 0) {
         align-items: center;
         width: 100%;
     }
-    
+
     .sidebar-cliente .info-compact .info-label span:first-child {
         flex: 1;
         text-align: left;
@@ -1345,7 +1330,7 @@ if ($cuotasContratadas > 0) {
         overflow: hidden;
         text-overflow: ellipsis;
     }
-    
+
     .sidebar-cliente .info-compact .info-label span:last-child {
         flex-shrink: 0;
         text-align: right;
@@ -1535,7 +1520,7 @@ body.dark-mode .cuotas-table .contracargo-valor { color: #fb923c !important; fon
 <div class="col-xl-4 col-lg-5 order-1 order-lg-0 sidebar-cliente">
     <div class="card mb-6">
         <div class="card-body">
-            
+
             <!-- SECCIÓN AVATAR/DATOS BÁSICOS (SIEMPRE VISIBLE) -->
             <div class="user-avatar-section">
                 <div class="card mb-3 border border-2 border-primary rounded primary-shadow">
@@ -1545,12 +1530,12 @@ body.dark-mode .cuotas-table .contracargo-valor { color: #fb923c !important; fon
                             <span class="badge bg-label-primary">ID Crédito: <?= htmlspecialchars($dataEstadoCuenta["idCredito"] ?? '') ?></span>
                             <span class="badge bg-label-secondary">ID Cliente: <?= htmlspecialchars($dataCliente["idCliente"] ?? '') ?></span>
                         </div>
-                        
+
                         <!-- Nombre -->
                         <div class="d-flex justify-content-between align-items-center mb-1">
                             <span class="h6 mb-0"> <?= htmlspecialchars($dataCliente["nombreCliente"] ?? '') ?></span>
                         </div>
-                        
+
                         <!-- Barra de progreso -->
                         <div class="progress mb-1" title="<?= $porcentajeAvance ?>%">
                             <div class="progress-bar bg-primary"
@@ -1561,7 +1546,7 @@ body.dark-mode .cuotas-table .contracargo-valor { color: #fb923c !important; fon
                                  aria-valuemax="100">
                             </div>
                         </div>
-                        
+
                         <!-- Teléfono y dirección -->
                         <small class="d-flex align-items-center gap-2">
                             <i class="fa fa-phone text-primary"></i>
@@ -1577,12 +1562,10 @@ body.dark-mode .cuotas-table .contracargo-valor { color: #fb923c !important; fon
                             }
                             echo htmlspecialchars($cel);
                             ?>
-                            
+
                             <i class="fa fa-location text-primary"></i>
                             <button type="button"
                                     class="btn btn-link text-primary p-0"
-                                    data-bs-toggle="modal"
-                                    data-bs-target="#modalDirecciones"
                                     onclick="abrirModalDirecciones()">
                                 Direcciones
                             </button>
@@ -1594,7 +1577,7 @@ body.dark-mode .cuotas-table .contracargo-valor { color: #fb923c !important; fon
                     </div>
                 </div>
             </div>
-            
+
             <!-- ================================
                VERSIÓN DESKTOP (SIN ACORDEÓN)
             ================================ -->
@@ -1614,7 +1597,7 @@ body.dark-mode .cuotas-table .contracargo-valor { color: #fb923c !important; fon
                             <span class="small">Estatus Crédito</span>
                         </div>
                     </div>
-                    
+
                     <div class="d-flex align-items-center gap-3">
                         <div class="avatar">
                             <div class="avatar-initial bg-label-danger rounded w-px-40 h-px-40">
@@ -1629,7 +1612,7 @@ body.dark-mode .cuotas-table .contracargo-valor { color: #fb923c !important; fon
                         </div>
                     </div>
                 </div>
-                
+
                 <!-- INFORMACIÓN DEL CRÉDITO -->
               <hr class="my-2 w-100">
 <small class="card-text text-uppercase text-body-secondary small">Información del Crédito</small>
@@ -1649,7 +1632,7 @@ body.dark-mode .cuotas-table .contracargo-valor { color: #fb923c !important; fon
             <span><?= format_currency((float)($dataEstadoCuenta["montoOtorgado"] ?? 0) - (float)($dataOtrosDatos["saldoTotalVigente"] ?? 0)) ?></span>
         </div>
     </li>
-    
+
     <li>
         <i class="fa fa-list-ol fa-lg"></i>
         <div class="info-label">
@@ -1657,7 +1640,7 @@ body.dark-mode .cuotas-table .contracargo-valor { color: #fb923c !important; fon
             <span><?= htmlspecialchars($dataOtrosDatos["cuotasContratadas"] ?? '') ?> cuotas</span>
         </div>
     </li>
-    
+
     <li>
         <i class="fa fa-check-circle fa-lg"></i>
         <div class="info-label">
@@ -1665,7 +1648,7 @@ body.dark-mode .cuotas-table .contracargo-valor { color: #fb923c !important; fon
             <span><?= htmlspecialchars($dataOtrosDatos["cuotasPagadas"] ?? '') ?> cuotas</span>
         </div>
     </li>
-    
+
     <li>
         <i class="fa fa-hourglass fa-lg"></i>
         <div class="info-label">
@@ -1673,7 +1656,7 @@ body.dark-mode .cuotas-table .contracargo-valor { color: #fb923c !important; fon
             <span><?= $cuotasFaltantes ?> cuotas</span>
         </div>
     </li>
-    
+
     <li>
         <i class="fa fa-credit-card fa-lg"></i>
         <div class="info-label">
@@ -1689,7 +1672,7 @@ body.dark-mode .cuotas-table .contracargo-valor { color: #fb923c !important; fon
             <span><?= format_currency($dataOtrosDatos["saldoParaLiquidarV2"] ?? 0) ?></span>
         </div>
     </li>
-    
+
     <li>
         <i class="fa fa-exclamation-triangle fa-lg"></i>
         <div class="info-label">
@@ -1697,7 +1680,7 @@ body.dark-mode .cuotas-table .contracargo-valor { color: #fb923c !important; fon
             <span><?= htmlspecialchars($dataOtrosDatos["diasMoraMaximo"] ?? 0) ?> días</span>
         </div>
     </li>
-    
+
     <li>
         <i class="fa fa-clock fa-lg"></i>
         <div class="info-label">
@@ -1705,7 +1688,7 @@ body.dark-mode .cuotas-table .contracargo-valor { color: #fb923c !important; fon
             <span><?= htmlspecialchars($dataOtrosDatos["diasMora"] ?? 0) ?> días</span>
         </div>
     </li>
-    
+
     <li>
         <i class="fa fa-calendar-alt fa-lg"></i>
         <div class="info-label">
@@ -1713,9 +1696,9 @@ body.dark-mode .cuotas-table .contracargo-valor { color: #fb923c !important; fon
             <span><?= format_date($dataEstadoCuenta["fechaInicio"] ?? null) ?></span>
         </div>
     </li>
-    
+
     <hr class="my-2 w-100">
-    
+
     <li>
         <i class="fa fa-calendar-day fa-lg"></i>
         <div class="info-label">
@@ -1723,7 +1706,7 @@ body.dark-mode .cuotas-table .contracargo-valor { color: #fb923c !important; fon
             <span><?= format_date($dataEstadoCuenta["primerVencimiento"] ?? null) ?></span>
         </div>
     </li>
-    
+
     <li>
         <i class="fa fa-calendar-check fa-lg"></i>
         <div class="info-label">
@@ -1731,7 +1714,7 @@ body.dark-mode .cuotas-table .contracargo-valor { color: #fb923c !important; fon
             <span><?= format_date($dataEstadoCuenta["ultimoVencimiento"] ?? null) ?></span>
         </div>
     </li>
-    
+
     <li>
         <i class="fa fa-calendar-check fa-lg"></i>
         <div class="info-label">
@@ -1741,7 +1724,7 @@ body.dark-mode .cuotas-table .contracargo-valor { color: #fb923c !important; fon
     </li>
 
     <br>
-    
+
     <button type="button"
             class="btn btn-outline-primary w-100 d-flex align-items-center justify-content-center gap-2 py-2"
             data-bs-toggle="modal" data-bs-target="#modalRFC">
@@ -1750,7 +1733,7 @@ body.dark-mode .cuotas-table .contracargo-valor { color: #fb923c !important; fon
     </button>
 </ul>
             </div>
-            
+
             <!-- ================================
                VERSIÓN MÓVIL (CON ACORDEÓN)
             ================================ -->
@@ -1759,11 +1742,11 @@ body.dark-mode .cuotas-table .contracargo-valor { color: #fb923c !important; fon
                     <div class="accordion-item">
                         <!-- HEADER DEL ACORDEÓN -->
                         <h2 class="accordion-header" id="headingInfoCredito">
-                            <button class="accordion-button collapsed p-3" 
-                                    type="button" 
-                                    data-bs-toggle="collapse" 
-                                    data-bs-target="#collapseInfoCredito" 
-                                    aria-expanded="false" 
+                            <button class="accordion-button collapsed p-3"
+                                    type="button"
+                                    data-bs-toggle="collapse"
+                                    data-bs-target="#collapseInfoCredito"
+                                    aria-expanded="false"
                                     aria-controls="collapseInfoCredito">
                                 <div class="d-flex align-items-center w-100">
                                     <i class="fa fa-info-circle me-2 text-primary"></i>
@@ -1772,14 +1755,14 @@ body.dark-mode .cuotas-table .contracargo-valor { color: #fb923c !important; fon
                                 </div>
                             </button>
                         </h2>
-                        
+
                         <!-- CONTENIDO DEL ACORDEÓN -->
-                        <div id="collapseInfoCredito" 
-                             class="accordion-collapse collapse" 
-                             aria-labelledby="headingInfoCredito" 
+                        <div id="collapseInfoCredito"
+                             class="accordion-collapse collapse"
+                             aria-labelledby="headingInfoCredito"
                              data-bs-parent="#accordionInfoCredito">
                             <div class="accordion-body p-0 pt-3">
-                                
+
                                 <!-- MÉTRICAS -->
                                 <div class="d-flex justify-content-between flex-nowrap my-3 gap-1 gap-md-1">
                                     <div class="d-flex align-items-center gap-3">
@@ -1795,7 +1778,7 @@ body.dark-mode .cuotas-table .contracargo-valor { color: #fb923c !important; fon
                                             <span class="small">Estatus Crédito</span>
                                         </div>
                                     </div>
-                                    
+
                                     <div class="d-flex align-items-center gap-3">
                                         <div class="avatar">
                                             <div class="avatar-initial bg-label-danger rounded w-px-40 h-px-40">
@@ -1810,7 +1793,7 @@ body.dark-mode .cuotas-table .contracargo-valor { color: #fb923c !important; fon
                                         </div>
                                     </div>
                                 </div>
-                                
+
                                 <!-- INFORMACIÓN DEL CRÉDITO -->
                                 <hr class="my-2 w-100">
                                 <small class="card-text text-uppercase text-body-secondary small">Información del Crédito</small>
@@ -1820,71 +1803,71 @@ body.dark-mode .cuotas-table .contracargo-valor { color: #fb923c !important; fon
                                         <span class="fw-medium mx-2">Monto Otorgado:</span>
                                         <span>$37,759.20</span>
                                     </li>
-                                    
+
                                     <li class="d-flex align-items-center mb-2">
                                         <i class="fa fa-list-ol fa-lg"></i>
                                         <span class="fw-medium mx-2">Cuotas Contratadas:</span>
                                         <span><?= htmlspecialchars($dataOtrosDatos["cuotasContratadas"] ?? '') ?> cuotas</span>
                                     </li>
-                                    
+
                                     <li class="d-flex align-items-center mb-2">
                                         <i class="fa fa-check-circle fa-lg"></i>
                                         <span class="fw-medium mx-2">Cuotas Pagadas:</span>
                                         <span><?= htmlspecialchars($dataOtrosDatos["cuotasPagadas"] ?? '') ?> cuotas</span>
                                     </li>
-                                    
+
                                     <li class="d-flex align-items-center mb-2">
                                         <i class="fa fa-hourglass fa-lg"></i>
                                         <span class="fw-medium mx-2">Cuotas Faltantes:</span>
                                         <span><?= $cuotasFaltantes ?> cuotas</span>
                                     </li>
-                                    
+
                                     <li class="d-flex align-items-center mb-2">
                                         <i class="fa fa-credit-card fa-lg"></i>
                                         <span class="fw-medium mx-2">Saldo para Liquidar:</span>
                                         <span><?= format_currency($dataOtrosDatos["saldoParaLiquidarV2"] ?? 0) ?></span>
                                     </li>
-                                    
+
                                     <li class="d-flex align-items-center mb-2">
                                         <i class="fa fa-exclamation-triangle fa-lg"></i>
                                         <span class="fw-medium mx-2">Mora Máximo:</span>
                                         <span><?= htmlspecialchars($dataOtrosDatos["diasMoraMaximo"] ?? 0) ?> días</span>
                                     </li>
-                                    
+
                                     <li class="d-flex align-items-center mb-2">
                                         <i class="fa fa-clock fa-lg"></i>
                                         <span class="fw-medium mx-2">Mora:</span>
                                         <span><?= htmlspecialchars($dataOtrosDatos["diasMora"] ?? 0) ?> días</span>
                                     </li>
-                                    
+
                                     <li class="d-flex align-items-center mb-2">
                                         <i class="fa fa-calendar-alt fa-lg"></i>
                                         <span class="fw-medium mx-2">Fecha Inicio:</span>
                                         <span><?= format_date($dataEstadoCuenta["fechaInicio"] ?? null) ?></span>
                                     </li>
-                                    
+
                                     <hr class="my-2 w-100">
-                                    
+
                                     <li class="d-flex align-items-center mb-2">
                                         <i class="fa fa-calendar-day fa-lg"></i>
                                         <span class="fw-medium mx-2">Primer Vencimiento:</span>
                                         <span><?= format_date($dataEstadoCuenta["primerVencimiento"] ?? null) ?></span>
                                     </li>
-                                    
+
                                     <li class="d-flex align-items-center mb-2">
                                         <i class="fa fa-calendar-check fa-lg"></i>
                                         <span class="fw-medium mx-2">Último Vencimiento:</span>
                                         <span><?= format_date($dataEstadoCuenta["ultimoVencimiento"] ?? null) ?></span>
                                     </li>
-                                    
+
                                     <li class="d-flex align-items-center mb-2">
                                         <i class="fa fa-calendar-check fa-lg"></i>
                                         <span class="fw-medium mx-2">Fecha de Liquidación:</span>
                                         <span><?= format_date($dataEstadoCuenta["fechaLiquidacion"] ?? null) ?></span>
                                     </li>
-                                    
+
                                     <br>
-                                    
+
                                     <button type="button"
                                             class="btn btn-outline-primary w-100 d-flex align-items-center justify-content-center gap-2 py-2"
                                             data-bs-toggle="modal" data-bs-target="#modalRFC">
@@ -1892,13 +1875,13 @@ body.dark-mode .cuotas-table .contracargo-valor { color: #fb923c !important; fon
                                         <strong>Ver referencias del cliente</strong>
                                     </button>
                                 </ul>
-                                
+
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
-            
+
         </div>
     </div>
 </div>
@@ -2254,7 +2237,7 @@ body.dark-mode .cuotas-table .contracargo-valor { color: #fb923c !important; fon
                                         <span>Teléfono: </span>
                                         <strong><?= htmlspecialchars($r['telefono']) ?></strong>
                                     </div>
-                                    
+
                                 </div>
                             </div>
                         <?php endforeach; ?>
@@ -3489,23 +3472,28 @@ body.dark-mode .cuotas-table .contracargo-valor { color: #fb923c !important; fon
     // Función para abrir el modal de direcciones
     function abrirModalDirecciones() {
         const modalElement = document.getElementById('modalDirecciones');
-        if (modalElement) {
-            // Mover el modal al body si no está ahí
-            if (modalElement.parentElement !== document.body) {
-                document.body.appendChild(modalElement);
-            }
-            
-            // Usar Bootstrap Modal API
-            const modal = bootstrap.Modal.getOrCreateInstance(modalElement);
-            modal.show();
-        } else {
-            console.error('Modal modalDirecciones no encontrado');
-            Swal.fire({
-                icon: 'error',
-                title: 'Error',
-                text: 'No se pudo encontrar el modal de direcciones'
-            });
+        if (!modalElement) {
+            Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudo encontrar el modal de direcciones' });
+            return;
         }
+        // Limpiar cualquier backdrop huérfano antes de abrir
+        document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
+        document.body.classList.remove('modal-open');
+        document.body.style.removeProperty('overflow');
+        document.body.style.removeProperty('padding-right');
+
+        if (modalElement.parentElement !== document.body) document.body.appendChild(modalElement);
+
+        const modalInstance = bootstrap.Modal.getOrCreateInstance(modalElement, { backdrop: true, keyboard: true });
+        modalInstance.show();
+
+        modalElement.addEventListener('hidden.bs.modal', function onHide() {
+            document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
+            document.body.classList.remove('modal-open');
+            document.body.style.removeProperty('overflow');
+            document.body.style.removeProperty('padding-right');
+            modalElement.removeEventListener('hidden.bs.modal', onHide);
+        });
     }
 
     // Mover el modal al body cuando se carga la página
@@ -3701,10 +3689,10 @@ body.dark-mode .cuotas-table .contracargo-valor { color: #fb923c !important; fon
 document.addEventListener('DOMContentLoaded', function() {
     const accordion = document.getElementById('collapseInfoCredito');
     const accordionButton = document.querySelector('[data-bs-target="#collapseInfoCredito"]');
-    
+
     // Recuperar estado del localStorage
     const accordionState = localStorage.getItem('accordionInfoCredito');
-    
+
     // Si estaba abierto, abrirlo
     if (accordionState === 'open') {
         // Usar Bootstrap para abrir
@@ -3712,21 +3700,21 @@ document.addEventListener('DOMContentLoaded', function() {
             toggle: false
         });
         bsCollapse.show();
-        
+
         // Actualizar clases del botón
         accordionButton.classList.remove('collapsed');
         accordionButton.setAttribute('aria-expanded', 'true');
     }
-    
+
     // Escuchar eventos de cambio
     accordion.addEventListener('show.bs.collapse', function() {
         localStorage.setItem('accordionInfoCredito', 'open');
     });
-    
+
     accordion.addEventListener('hide.bs.collapse', function() {
         localStorage.setItem('accordionInfoCredito', 'closed');
     });
-    
+
     // También manejar clics directos en el botón
     accordionButton.addEventListener('click', function() {
         setTimeout(() => {
@@ -3759,7 +3747,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     <?php
                     // Validar que existan las direcciones antes de mostrarlas
                     $datosDirecciones = [];
-                    
+
                     if (isset($direcciones)) {
                         if (is_array($direcciones)) {
                             // Si tiene estructura ['datos' => [...]]
@@ -3772,7 +3760,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             }
                         }
                     }
-                    
+
                     if (!empty($datosDirecciones)):
                         foreach ($datosDirecciones as $index => $direccion):
                             if (!is_array($direccion)) continue;
