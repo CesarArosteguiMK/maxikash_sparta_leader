@@ -6,6 +6,7 @@ use Core\DatabaseSegundometro;
 use Core\Model;
 use Core\Database;
 use Core\DatabaseAWS;
+use Core\DatabaseMaxiGuat;
 
 class EstadoCuenta extends Model
 {
@@ -1033,6 +1034,7 @@ public static function obtenerReportesDictamenParaDescarga($fechaInicio, $fechaF
      */
     public static function getPaisCredito($idCredito)
     {
+        error_log("[getPaisCredito] Buscando país para crédito ID: " . $idCredito);
         $qry = "
             SELECT 
                 p.id_pais,
@@ -1049,9 +1051,11 @@ public static function obtenerReportesDictamenParaDescarga($fechaInicio, $fechaF
         try {
             $db = new Database();
             $r = $db->queryOne($qry, $val);
+            error_log("[getPaisCredito] Resultado query: " . ($r ? json_encode($r) : 'NULL'));
             
             // Si no se encuentra el crédito o no tiene país asignado, default a México
             if (!$r || empty($r['nombre_pais'])) {
+                error_log("[getPaisCredito] No encontrado o NULL, retornando México por defecto");
                 return [
                     'id_pais' => null,
                     'nombre_pais' => 'México',
@@ -1060,6 +1064,7 @@ public static function obtenerReportesDictamenParaDescarga($fechaInicio, $fechaF
                 ];
             }
             
+            error_log("[getPaisCredito] País encontrado: " . $r['nombre_pais'] . " (" . $r['codigo_iso'] . ")");
             return $r;
         } catch (\Exception $e) {
             // En caso de error, retornar México por defecto
@@ -1070,6 +1075,144 @@ public static function obtenerReportesDictamenParaDescarga($fechaInicio, $fechaF
                 'codigo_iso' => 'mx',
                 'pais_activo' => 1
             ];
+        }
+    }
+
+    /**
+     * Consultar datos de crédito/cliente desde Guatemala (registro_croop)
+     * Busca por pkey_credito o pkey_cliente
+     * 
+     * @param int $idCredito ID del crédito (pkey_credito)
+     * @param int|null $idCliente ID del cliente (pkey_cliente) - opcional
+     * @return array Resultado con datos parseados
+     */
+    public static function getDatosGuatemala($idCredito = null, $idCliente = null)
+    {
+        error_log("[getDatosGuatemala] INICIO - idCredito=$idCredito, idCliente=$idCliente");
+        try {
+            error_log("[getDatosGuatemala] Intentando crear conexión DatabaseMaxiGuat...");
+            $db = new DatabaseMaxiGuat();
+            error_log("[getDatosGuatemala] Conexión creada exitosamente");
+            
+            // Construir query dinámicamente según parámetros
+            if ($idCredito) {
+                $qry = "
+                    SELECT 
+                        id_croop,
+                        fk_oferta,
+                        fk_persona,
+                        pkey_cliente,
+                        pkey_credito,
+                        request_cliente,
+                        response_cliente,
+                        request_credito,
+                        response_credito,
+                        request_adicional,
+                        response_adicional,
+                        fecha_registro_cliente,
+                        fecha_registro_credito,
+                        fecha_registro_adicional,
+                        estatus
+                    FROM registro_croop
+                    WHERE pkey_credito = :id
+                    LIMIT 1
+                ";
+                $val = ['id' => $idCredito];
+                error_log("[getDatosGuatemala] Query por CREDITO: " . json_encode($val));
+            } elseif ($idCliente) {
+                $qry = "
+                    SELECT 
+                        id_croop,
+                        fk_oferta,
+                        fk_persona,
+                        pkey_cliente,
+                        pkey_credito,
+                        request_cliente,
+                        response_cliente,
+                        request_credito,
+                        response_credito,
+                        request_adicional,
+                        response_adicional,
+                        fecha_registro_cliente,
+                        fecha_registro_credito,
+                        fecha_registro_adicional,
+                        estatus
+                    FROM registro_croop
+                    WHERE pkey_cliente = :id
+                    LIMIT 1
+                ";
+                $val = ['id' => $idCliente];
+                error_log("[getDatosGuatemala] Query por CLIENTE: " . json_encode($val));
+            } else {
+                error_log("[getDatosGuatemala] ERROR: No se proporcionó ID");
+                return self::resultado(false, 'Se requiere ID de crédito o cliente');
+            }
+
+            error_log("[getDatosGuatemala] Ejecutando queryOne...");
+            $registro = $db->queryOne($qry, $val);
+            error_log("[getDatosGuatemala] Resultado query: " . ($registro ? 'ENCONTRADO' : 'NULL'));
+
+            if (!$registro) {
+                error_log("[getDatosGuatemala] No se encontró registro para ID: " . json_encode($val));
+                return self::resultado(false, 'No se encontró registro en Guatemala');
+            }
+            
+            error_log("[getDatosGuatemala] Registro encontrado, pkey_credito=" . ($registro['pkey_credito'] ?? 'null'));
+
+            // Parsear JSONs
+            $requestCliente = json_decode($registro['request_cliente'] ?? '{}', true);
+            $requestAdicional = json_decode($registro['request_adicional'] ?? '[]', true);
+            $responseCliente = json_decode($registro['response_cliente'] ?? '{}', true);
+
+            // Construir estructura de datos
+            $datosCliente = [
+                'idCredito' => $registro['pkey_credito'],
+                'idCliente' => $registro['pkey_cliente'],
+                'nombres' => $requestCliente['Nombre'] ?? '',
+                'apellidoPaterno' => $requestCliente['APP'] ?? '',
+                'apellidoMaterno' => $requestCliente['APM'] ?? '',
+                'nombreCliente' => trim(
+                    ($requestCliente['Nombre'] ?? '') . ' ' . 
+                    ($requestCliente['APP'] ?? '') . ' ' . 
+                    ($requestCliente['APM'] ?? '')
+                ),
+                'email' => $requestCliente['Email'] ?? '',
+                'celular' => $requestCliente['Celular'] ?? '',
+                'fechaNacimiento' => $requestCliente['Fecha_Nac'] ?? '',
+                'ciudad' => $requestCliente['Ciudad'] ?? '',
+                'calleNumero' => $requestCliente['Calle_Numero'] ?? '',
+                'codigoPostal' => $requestCliente['Codigo_Postal'] ?? '',
+                'nacionalidad' => $requestCliente['FK_Nacionalidad'] ?? '',
+                'paisResidencia' => $requestCliente['FK_PaisResidencia'] ?? '',
+                'genero' => $requestCliente['FK_Genero'] ?? '',
+                'rfc' => $requestCliente['RFC'] ?? '',
+                'curp' => $requestCliente['CURP'] ?? '',
+            ];
+
+            // Parsear datos adicionales (array de objetos)
+            $datosAdicionales = [];
+            if (is_array($requestAdicional)) {
+                foreach ($requestAdicional as $item) {
+                    if (isset($item['nombre']) && isset($item['valor'])) {
+                        $datosAdicionales[$item['nombre']] = $item['valor'];
+                    }
+                }
+            }
+
+            error_log("[getDatosGuatemala] Datos parseados exitosamente, nombreCliente=" . $datosCliente['nombreCliente']);
+            return self::resultado(true, 'Datos encontrados', [
+                'registro' => $registro,
+                'datosCliente' => $datosCliente,
+                'datosAdicionales' => $datosAdicionales,
+                'requestCliente' => $requestCliente,
+                'requestAdicional' => $requestAdicional,
+                'responseCliente' => $responseCliente
+            ]);
+
+        } catch (\Exception $e) {
+            error_log("[getDatosGuatemala] EXCEPTION: " . $e->getMessage());
+            error_log("[getDatosGuatemala] Stack trace: " . $e->getTraceAsString());
+            return self::resultado(false, 'Error al consultar datos de Guatemala', null, $e->getMessage());
         }
     }
 }

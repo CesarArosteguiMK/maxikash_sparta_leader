@@ -4,6 +4,7 @@ namespace Models;
 
 use Core\Model;
 use Core\Database;
+use Core\DatabaseMaxiGuat;
 use Core\DatabaseSegundometro;
 use Core\DatabaseAWS;
 use Core\DatabaseLegacy;
@@ -113,6 +114,22 @@ class Empresa extends Model
 
         try {
             $db = new \core\DatabaseMaxiProd();
+            $r = $db->queryAll($query, $params);
+            return self::resultado(true, 'Dirección encontrada.', $r);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al procesar la solicitud.', null, $e->getMessage());
+        }
+    }
+
+    public static function getGuatemalaEstadoCuenta($id_credito)
+    {
+        $query = <<<SQL
+               SELECT * FROM registro_croop WHERE pkey_credito = :id_credito
+        SQL;
+        $params = ['id_credito' => $id_credito];
+
+        try {
+            $db = new \core\DatabaseMaxiGuat();
             $r = $db->queryAll($query, $params);
             return self::resultado(true, 'Dirección encontrada.', $r);
         } catch (\Exception $e) {
