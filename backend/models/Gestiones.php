@@ -2,12 +2,31 @@
 
 namespace Models;
 
+use Core\DatabaseSegundometro;
 use Core\Model;
 use Core\Database;
 use Core\DatabaseLegacy;
 
 class Gestiones extends Model
 {
+
+    public static function getDetalleGestion($credito, $nombre)
+    {
+        $mysqli = new DatabaseSegundometro();
+
+        $query = <<<SQL
+        SELECT id_credito, Nombre_cliente, Codigo_postal_1, Celular, Referencia_stp, cuota
+        FROM tbl_segundometro_histo
+        WHERE id_credito = $credito
+        LIMIT 1;
+SQL;
+
+        $res_u = $mysqli->queryAll($query);
+
+
+
+        return $res_u;
+    }
     public static function getAllGestionesaa($credito, $nombre)
     {
         $mysqli = new Database();

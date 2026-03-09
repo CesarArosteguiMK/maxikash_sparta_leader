@@ -88,6 +88,7 @@ JS;
             $nombre = $_POST['nombre'] ?? null;
 
             $GestionesAll = GestionesDao::getAllGestiones($idCredito, $nombre);
+            $detalle = GestionesDAO::getDetalleGestion($idCredito, $nombre);
 
             if (empty($GestionesAll)) {
                 self::set("titulo", "Sin resultados para solicitud");
@@ -98,6 +99,7 @@ JS;
             }
 
             self::set("gestiones", $GestionesAll);
+            self::set("detalle", $detalle);
             self::set("titulo", "Resultado de la solicitud");
             self::set("script", $script);
             return self::render("gestiones_request");

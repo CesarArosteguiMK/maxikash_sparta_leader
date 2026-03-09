@@ -34,10 +34,7 @@
         </div>
     </div>
 
-    <?php
-    // Primer registro para el resumen
-    $r = $gestiones[0];
-    ?>
+    <?php $r = $detalle[0] ?? []; ?>
 
     <!-- CARD GLOBAL -->
     <div class="card shadow-sm mb-4">
@@ -66,16 +63,12 @@
                     </thead>
                     <tbody>
                     <tr>
-                        <td><?= $r["nombre_completo_cliente"] ?></td>
-                        <td><?= $r["id_credito"] ?></td>
-                        <td><?= $r["cp"] ?></td>
-                        <td><?= $r["telefono_celular"] ?></td>
-                        <td><?= $r["cuenta_clabe"] ?></td>
-                        <td><?= $r["pago_semanal"] ?></td>
-                        <?php /* CAMPOS OPCIONALES - Descomentar si se requieren:
-                        <td><?= $r["pagos_vencidos"] ?></td>
-                        <td>$<?= number_format($r["deuda_total"], 2) ?></td>
-                        */ ?>
+                        <td><?= $r["Nombre_cliente"] ?? "" ?></td>
+                        <td><?= $r["id_credito"] ?? "" ?></td>
+                        <td><?= $r["Codigo_postal_1"] ?? "" ?></td>
+                        <td><?= $r["Celular"] ?? "" ?></td>
+                        <td><?= $r["Referencia_stp"] ?? "" ?></td>
+                        <td><?= $r["cuota"] ?? "" ?></td>
                     </tr>
                     </tbody>
                 </table>
