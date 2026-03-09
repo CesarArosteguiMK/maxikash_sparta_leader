@@ -21,8 +21,8 @@ class Empresa extends Model
                    aj.id_jefe
             FROM persona p
             JOIN asigna_puesto ap ON p.id = ap.id_persona
-            LEFT JOIN asigna_jefe aj 
-                  ON p.id = aj.id_persona 
+            LEFT JOIN asigna_jefe aj
+                  ON p.id = aj.id_persona
                  AND (aj.fecha_fin IS NULL OR aj.fecha_fin >= CURDATE())
             WHERE p.estatus != 'Baja'
             LIMIT 1
@@ -44,8 +44,8 @@ class Empresa extends Model
     public static function getConsultaPorNombre($nombre)
     {
         $query = <<<SQL
-           SELECT Id_credito, Nombre_cliente 
-            FROM tbl_segundometro_semana 
+           SELECT Id_credito, Nombre_cliente
+            FROM tbl_segundometro_semana
             WHERE Nombre_cliente LIKE :nombre
             LIMIT 10
         SQL;
@@ -64,12 +64,12 @@ class Empresa extends Model
     public static function getConsultaDireccionEstadoCuenta($id_credito)
     {
         $query = <<<SQL
-           SELECT 
+           SELECT
                Domicilio_Completo,
                Id_credito,
                Id_cliente,
                Nombre_cliente
-           FROM tbl_segundometro_semana 
+           FROM tbl_segundometro_semana
            WHERE Id_credito = :id_credito
            LIMIT 1
         SQL;
@@ -87,7 +87,7 @@ class Empresa extends Model
     public static function getConsultaReferenciasEstadoCuenta($id_credito)
     {
         $query = <<<SQL
-               SELECT 
+               SELECT
             o.id_oferta AS id_credito,
             CONCAT(p.primer_nombre, ' ', p.apellido_paterno, ' ', p.apellido_materno) AS nombre_completo,
             COALESCE(p.rfc, '') AS rfc,
@@ -213,7 +213,7 @@ class Empresa extends Model
             $db = new DatabaseSegundometro();
 
             $cols = $db->queryAll("
-            SELECT COLUMN_NAME 
+            SELECT COLUMN_NAME
             FROM information_schema.COLUMNS
             WHERE TABLE_SCHEMA = '__SPARTA_SECRET_REDACTED__'
               AND TABLE_NAME = 'tbl_segundometro_semana'
@@ -300,25 +300,25 @@ class Empresa extends Model
             $db = new DatabaseSegundometro();
 
             $sqlGoogle = "
-            SELECT 
+            SELECT
                 Id_credito as Id_oferta,
-                CONCAT(Id_credito, '_', Id_cliente) AS id_original, 
-                Celular AS Telefono, 
-                'Transferencia' AS fideicomiso, 
+                CONCAT(Id_credito, '_', Id_cliente) AS id_original,
+                Celular AS Telefono,
+                'Transferencia' AS fideicomiso,
                 Id_cliente AS mkm,
-                Id_credito AS id_credit, 
-                nombre_cliente AS nombre, 
+                Id_credito AS id_credit,
+                nombre_cliente AS nombre,
                 1 AS pagos_vencidos,
                 saldo_vencido_inicio AS monto_vencido,
-                '' AS bucket, 
-                '' AS fecha_de_pago, 
+                '' AS bucket,
+                '' AS fecha_de_pago,
                 '' AS telefono_1,
-                'Transferencia' AS tipoo_de_pago, 
+                'Transferencia' AS tipoo_de_pago,
                 Referencia_stp AS clabe,
-                'STP' AS banco, 
+                'STP' AS banco,
                 '' AS atributo_segmento
             FROM tbl_segundometro_semana
-            WHERE 
+            WHERE
                 $corte BETWEEN 1 AND 7
                 AND Bucket_Morosidad_Real = 'b) 1 a 7 dias'
             ORDER BY KT
@@ -353,7 +353,7 @@ class Empresa extends Model
                 $idsText = "(" . implode(",", $chunk) . ")";
 
                 $sqlAWS = "
-                SELECT 
+                SELECT
                     o.id_oferta,
                     CONCAT(p.primer_nombre, ' ', p.apellido_paterno, ' ', p.apellido_materno) AS nombre_completo,
                     CONCAT(p2.nombre_referencia1, ' ', p2.apellido_paterno_referencia1, ' ', p2.apellido_materno_referencia1) AS nombre_completo_referencia1,
@@ -409,7 +409,7 @@ class Empresa extends Model
             $db = new Database();
 
             $query = <<<SQL
-            SELECT 
+            SELECT
                 p.*,
                 ap.id_puesto, dd.nombre as departamento, dd.id as id_departamento, aj.id_jefe, p.password
             FROM persona p
@@ -432,7 +432,7 @@ class Empresa extends Model
 
     public static function descargarReporteLegacy()
     {
-        
+
         try {
 
             /* -------------------------------------------------
@@ -442,7 +442,7 @@ class Empresa extends Model
 
             $sql = "
         WITH RECURSIVE
-        
+
         /* 1) Relación vigente persona -> jefe */
         aj_vigente AS (
             SELECT id_persona, id_jefe
@@ -450,7 +450,7 @@ class Empresa extends Model
             WHERE fecha_fin IS NULL
                OR fecha_fin >= CURDATE()
         ),
-        
+
         /* 2) Jerarquía completa */
         jerarquia AS (
             /* jefe inmediato */
@@ -461,9 +461,9 @@ class Empresa extends Model
             FROM persona p
             LEFT JOIN aj_vigente aj
                    ON aj.id_persona = p.id
-        
+
             UNION ALL
-        
+
             /* jefes hacia arriba */
             SELECT
                 j.persona_id,
@@ -475,109 +475,109 @@ class Empresa extends Model
             WHERE j.jefe_id IS NOT NULL
               AND j.lvl < 10
         ),
-        
+
         /* 3) Detalle del jefe + puesto legacy */
         jerarquia_detalle AS (
             SELECT
                 j.persona_id,
                 j.jefe_id,
                 j.lvl,
-        
+
                 pj.numero_empleado AS jefe_numero_empleado,
                 TRIM(CONCAT_WS(' ', pj.apellidop, pj.apellidom, pj.nombres, pj.segundo_nombre)) AS jefe_nombre,
-        
+
                 elp.id_puesto_legacy AS jefe_puesto_legacy
             FROM jerarquia j
             JOIN persona pj
                  ON pj.id = j.jefe_id
-        
+
             LEFT JOIN asigna_puesto apj
                    ON apj.id_persona = j.jefe_id
-        
+
             LEFT JOIN equivalencias_legacy_puestos elp
                    ON elp.id_puesto = apj.id_puesto
         ),
-        
+
         /* 4) Línea completa de mando */
         linea_jefes AS (
             SELECT
                 persona_id,
-        
+
                 MAX(CASE WHEN jefe_puesto_legacy = 2 THEN jefe_numero_empleado END) AS supervisor_id,
                 MAX(CASE WHEN jefe_puesto_legacy = 2 THEN jefe_nombre END)          AS supervisor_nombre,
-        
+
                 MAX(CASE WHEN jefe_puesto_legacy = 3 THEN jefe_numero_empleado END) AS subgerente_id,
                 MAX(CASE WHEN jefe_puesto_legacy = 3 THEN jefe_nombre END)          AS subgerente_nombre,
-        
+
                 MAX(CASE WHEN jefe_puesto_legacy = 4 THEN jefe_numero_empleado END) AS gerente_id,
                 MAX(CASE WHEN jefe_puesto_legacy = 4 THEN jefe_nombre END)          AS gerente_nombre,
-        
+
                 MAX(CASE WHEN jefe_puesto_legacy = 5 THEN jefe_numero_empleado END) AS subdirector_id,
                 MAX(CASE WHEN jefe_puesto_legacy = 5 THEN jefe_nombre END)          AS subdirector_nombre
-        
+
             FROM jerarquia_detalle
             GROUP BY persona_id
         )
-        
+
         SELECT
             p.numero_empleado AS external_id,
             p.user_name       AS username,
-        
+
             TRIM(CONCAT_WS(' ', p.apellidop, p.apellidom, p.nombres, p.segundo_nombre)) AS name,
-        
+
             p.password AS password,
             '' AS legion,
-        
+
             /* role legacy */
             pl.clave AS role,
-        
+
             '' AS color,
-        
+
             /* línea jerárquica */
             lj.supervisor_id,
             COALESCE(lj.supervisor_nombre, '')   AS supervisor_nombre,
-        
+
             lj.subgerente_id,
             COALESCE(lj.subgerente_nombre, '')   AS subgerente_nombre,
-        
+
             lj.gerente_id,
             COALESCE(lj.gerente_nombre, '')      AS gerente_nombre,
-        
+
             lj.subdirector_id,
             COALESCE(lj.subdirector_nombre, '')  AS subdirector_nombre,
-        
+
             '' AS city,
             '' AS state,
             '' AS municipality,
             '' AS settlement_tupe,
             '' AS postal_code
-        
+
         FROM persona p
-        
+
         /* puesto del usuario */
         JOIN asigna_puesto ap
              ON ap.id_persona = p.id
-        
+
         JOIN puesto pp
              ON pp.id = ap.id_puesto
-        
+
         /* 🔴 FILTRO REAL POR DEPARTAMENTO */
         JOIN departamento d
              ON d.id = pp.departamento_id
             AND d.id IN (3, 13, 4, 8)
-        
+
         /* equivalencia legacy */
         LEFT JOIN equivalencias_legacy_puestos el
                ON el.id_puesto = pp.id
-        
+
         LEFT JOIN puestos_legacy pl
                ON pl.id = el.id_puesto_legacy
-        
+
         LEFT JOIN linea_jefes lj
                ON lj.persona_id = p.id
-        
+
         WHERE p.estatus <> 'Baja'
-        
+
         ORDER BY COALESCE(pp.nivel, 999) ASC;
 
         ";
@@ -589,7 +589,7 @@ class Empresa extends Model
                 return self::resultado(false, "No hay datos para el corte seleccionado ().", []);
             }
 
-            
+
 
             return self::resultado(true, "Datos del corte obtenidos.", $rows);
 
