@@ -138,9 +138,9 @@
     <div class="card estado-cuenta-card">
 
         <!-- Filtros -->
-        <div class="row justify-content-between m-4">
+        <div class="row justify-content-between m-4 g-2">
 
-            <div class="col-8">
+            <div class="col-12 col-md-8">
                 <label class="form-label">Filtro</label>
                 <div class="input-group input-group-merge">
 
@@ -159,7 +159,7 @@
                 </div>
             </div>
 
-            <div class="col-4 d-flex align-items-end justify-content-end gap-2">
+            <div class="col-12 col-md-4 d-flex align-items-end justify-content-start justify-content-md-end gap-2 mt-2 mt-md-0">
                 <button id="btnCambioPais" class="btn btn-outline-info" type="button">
                     <i class="fa-solid fa-globe me-1"></i> Selecciona País
                 </button>
@@ -225,7 +225,7 @@
 </div>
 <script>
     document.addEventListener('DOMContentLoaded', () => {
-        
+
         // ═══════════════════════════════════════════════════════════
         // BOTÓN CAMBIAR PAÍS
         // ═══════════════════════════════════════════════════════════
@@ -262,7 +262,7 @@
                         .pais-card-body-modal p {
                             color: #6c757d;
                         }
-                        
+
                         /* Dark Mode */
                         body.dark-mode .pais-card-modal {
                             background: rgba(40, 48, 70, 0.95);
@@ -312,7 +312,7 @@
                 }
             });
         });
-        
+
         // Calendario fecha de corte: mismo formato que otros calendarios del proyecto (flatpickr)
         const fechaCorteInput = document.getElementById('fechaCorte');
         if (fechaCorteInput && typeof flatpickr !== 'undefined') {
