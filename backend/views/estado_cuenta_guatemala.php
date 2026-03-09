@@ -6,7 +6,7 @@ date_default_timezone_set('America/Mexico_City');
    Helpers locales
    ---------------------- */
 function format_currency($v) {
-    return '$' . number_format((float)$v, 2, '.', ',');
+    return 'Q' . number_format((float)$v, 2, '.', ',');
 }
 function format_date($d, $fallback = '—') {
     if (!$d) return $fallback;
@@ -55,10 +55,22 @@ if (!empty($regGuat['request_adicional'])) {
     }
 }
 
-/* Parsear domicilio desde request_domicilio de registro_croop */
+/* Parsear domicilio desde request_act_credito de registro_croop */
 $domicilioGuat = [];
-if (!empty($regGuat['request_domicilio'])) {
-    $domicilioGuat = json_decode($regGuat['request_domicilio'], true) ?? [];
+if (!empty($regGuat['request_act_credito'])) {
+    $domicilioGuat = json_decode($regGuat['request_act_credito'], true) ?? [];
+}
+
+/* Dirección adicional desde request_cliente (datos al momento del registro) */
+$direccionClienteGuat = [];
+if (!empty($datosCliente['Ciudad']) || !empty($datosCliente['Calle_Numero'])) {
+    $direccionClienteGuat = [
+        'Calle_Numero'  => $datosCliente['Calle_Numero']   ?? '',
+        'Ciudad'        => $datosCliente['Ciudad']          ?? '',
+        'Codigo_Postal' => $datosCliente['Codigo_Postal']   ?? '',
+        'FK_Estado'     => $datosCliente['FK_Estado']       ?? '',
+        'FK_Delegacion' => $datosCliente['FK_Delegacion']   ?? '',
+    ];
 }
 
 $fechaUltimoPagoCompleto = null;
@@ -765,6 +777,7 @@ $gradienteBanner = strtolower($paisCodigo) === 'gt'
                 <h4 class="mb-0" style="font-weight: 700; color: #2c3e50; font-size: 1.5rem;">Estado de Cuenta</h4>
                 <?php if (strtolower($paisCodigo) === 'gt'): ?>
                 <span class="badge badge-pais-guatemala"><i class="fa-solid fa-flag me-1"></i> GUATEMALA</span>
+                <strong>Recuerda que estamos cobrando en Quetzales!</strong>
                 <?php elseif (strtolower($paisCodigo) === 'mx'): ?>
                 <span class="badge" style="background: linear-gradient(135deg, #006847 0%, #ce1126 100%); color: white; font-weight: 600; padding: 0.5em 1em; border-radius: 8px;"><i class="fa-solid fa-flag me-1"></i> MÉXICO</span>
                 <?php endif; ?>
@@ -844,7 +857,7 @@ $gradienteBanner = strtolower($paisCodigo) === 'gt'
                     <div class="d-flex align-items-center gap-3">
                         <div class="avatar">
                             <div class="avatar-initial bg-label-info rounded w-px-40 h-px-40">
-                                <i class="fa fa-dollar"></i>
+                                <span style="font-weight:700;font-size:1.1rem;">Q</span>
                             </div>
                         </div>
                         <div class="text-truncate">
@@ -855,7 +868,7 @@ $gradienteBanner = strtolower($paisCodigo) === 'gt'
                     <div class="d-flex align-items-center gap-3">
                         <div class="avatar">
                             <div class="avatar-initial bg-label-danger rounded w-px-40 h-px-40">
-                                <i class="fa fa-dollar"></i>
+                                <span style="font-weight:700;font-size:1.1rem;">Q</span>
                             </div>
                         </div>
                         <div class="text-end text-truncate">
@@ -872,7 +885,7 @@ $gradienteBanner = strtolower($paisCodigo) === 'gt'
                         <i class="fa fa-money-bill fa-lg"></i>
                         <div class="info-label">
                             <span class="fw-medium">Monto Otorgado:</span>
-                            <span>$<?= number_format($dataEstadoCuenta["montoOtorgado"] ?? 0, 2, '.', ',') ?></span>
+                            <span>Q<?= number_format($dataEstadoCuenta["montoOtorgado"] ?? 0, 2, '.', ',') ?></span>
                         </div>
                     </li>
                     <li>
@@ -1001,7 +1014,7 @@ $gradienteBanner = strtolower($paisCodigo) === 'gt'
                                     <div class="d-flex align-items-center gap-3">
                                         <div class="avatar">
                                             <div class="avatar-initial bg-label-info rounded w-px-40 h-px-40">
-                                                <i class="fa fa-dollar"></i>
+                                                <span style="font-weight:700;font-size:1.1rem;">Q</span>
                                             </div>
                                         </div>
                                         <div class="text-truncate">
@@ -1012,7 +1025,7 @@ $gradienteBanner = strtolower($paisCodigo) === 'gt'
                                     <div class="d-flex align-items-center gap-3">
                                         <div class="avatar">
                                             <div class="avatar-initial bg-label-danger rounded w-px-40 h-px-40">
-                                                <i class="fa fa-dollar"></i>
+                                                <span style="font-weight:700;font-size:1.1rem;">Q</span>
                                             </div>
                                         </div>
                                         <div class="text-end text-truncate">
@@ -1028,7 +1041,7 @@ $gradienteBanner = strtolower($paisCodigo) === 'gt'
                                     <li class="d-flex align-items-center mb-2">
                                         <i class="fa fa-money-bill fa-lg"></i>
                                         <span class="fw-medium mx-2">Monto Otorgado:</span>
-                                        <span>$<?= number_format($dataEstadoCuenta["montoOtorgado"] ?? 0, 2, '.', ',') ?></span>
+                                        <span>Q<?= number_format($dataEstadoCuenta["montoOtorgado"] ?? 0, 2, '.', ',') ?></span>
                                     </li>
                                     <li class="d-flex align-items-center mb-2">
                                         <i class="fa fa-list-ol fa-lg"></i>
@@ -1152,7 +1165,7 @@ $gradienteBanner = strtolower($paisCodigo) === 'gt'
                 <div class="d-flex align-items-center me-5 gap-4">
                     <div class="avatar">
                         <div class="avatar-initial bg-label-success rounded w-px-40 h-px-40">
-                            <i class="fa fa-dollar-sign"></i>
+                            <span style="font-weight:700;font-size:1.1rem;">Q</span>
                         </div>
                     </div>
                     <div>
@@ -1358,10 +1371,39 @@ $gradienteBanner = strtolower($paisCodigo) === 'gt'
         $telefonoKey = "telefono_referencia{$i}";
         if (!empty($datosRef[$nombreKey])) {
             $referenciasList[] = [
-                'nombre' => $datosRef[$nombreKey],
+                'nombre'   => $datosRef[$nombreKey],
                 'telefono' => $datosRef[$telefonoKey] ?? '—',
-                'tipo' => $i === 1 ? 'Principal' : "Referencia {$i}",
-                'icono' => $i === 1 ? 'fa-user text-success' : ($i === 2 ? 'fa-user-friends text-primary' : 'fa-user-tie text-warning')
+                'email'    => '',
+                'tipo'     => $i === 1 ? 'Principal' : "Referencia {$i}",
+                'icono'    => $i === 1 ? 'fa-user text-success' : ($i === 2 ? 'fa-user-friends text-primary' : 'fa-user-tie text-warning')
+            ];
+        }
+    }
+    /* Fallback Guatemala: si no hay referencias de __SPARTA_SECRET_REDACTED__, usar datos del cliente desde CROOP */
+    if (empty($referenciasList) && !empty($datosCliente)) {
+        $referenciasList[] = [
+            'nombre'   => $nombreCliente ?: '—',
+            'telefono' => $datosCliente['Celular'] ?? '—',
+            'email'    => $datosCliente['Email']   ?? '',
+            'tipo'     => 'Cliente',
+            'icono'    => 'fa-user text-success',
+        ];
+        if (!empty($datosAdicionales['CUI'])) {
+            $referenciasList[] = [
+                'nombre'   => 'CUI / DPI: ' . $datosAdicionales['CUI'],
+                'telefono' => $datosAdicionales['DPI'] ?? '—',
+                'email'    => '',
+                'tipo'     => 'Documento',
+                'icono'    => 'fa-id-badge text-warning',
+            ];
+        }
+        if (!empty($datosAdicionales['DISTRIBUIDOR'])) {
+            $referenciasList[] = [
+                'nombre'   => $datosAdicionales['DISTRIBUIDOR'],
+                'telefono' => $datosAdicionales['SUCURSAL'] ?? '—',
+                'email'    => '',
+                'tipo'     => 'Distribuidor',
+                'icono'    => 'fa-store text-primary',
             ];
         }
     }
@@ -1399,6 +1441,12 @@ $gradienteBanner = strtolower($paisCodigo) === 'gt'
                                         <span>Teléfono: </span>
                                         <strong><?= htmlspecialchars($r['telefono']) ?></strong>
                                     </div>
+                                    <?php if (!empty($r['email'])): ?>
+                                    <div class="info-line">
+                                        <span>Email: </span>
+                                        <strong><?= htmlspecialchars($r['email']) ?></strong>
+                                    </div>
+                                    <?php endif; ?>
                                 </div>
                             </div>
                         <?php endforeach; ?>
@@ -1439,7 +1487,7 @@ $gradienteBanner = strtolower($paisCodigo) === 'gt'
                     <div class="col-md-4">
                         <div class="alert alert-danger py-2 mb-2 d-flex justify-content-between align-items-center">
                             <span class="fw-semibold text-dark">Total gastos cobranza sin condonar:</span>
-                            <span class="fw-bold text-danger">$<span id="montoTotalSinCondonar">0.00</span></span>
+                            <span class="fw-bold text-danger">Q<span id="montoTotalSinCondonar">0.00</span></span>
                         </div>
                     </div>
                 </div>
@@ -1699,6 +1747,76 @@ $gradienteBanner = strtolower($paisCodigo) === 'gt'
                                     <div class="col-md-6">
                                         <small class="text-muted d-block"><i class="fa fa-building me-1"></i>Tel. Oficina</small>
                                         <strong><?= htmlspecialchars($domicilioGuat['Lada_Tel_Oficina']) ?></strong>
+                                    </div>
+                                    <?php endif; ?>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <?php if (!empty($datosCliente['Email']) || !empty($datosCliente['Celular'])): ?>
+                    <div class="col-12">
+                        <div class="card shadow-sm border border-info">
+                            <div class="card-header bg-light d-flex align-items-center gap-2">
+                                <i class="fa fa-address-card text-info"></i>
+                                <strong>Datos de Contacto del Cliente</strong>
+                            </div>
+                            <div class="card-body">
+                                <div class="row g-3">
+                                    <?php if (!empty($datosCliente['Celular'])): ?>
+                                    <div class="col-md-6">
+                                        <small class="text-muted d-block"><i class="fa fa-mobile-alt me-1"></i>Celular</small>
+                                        <strong><?= htmlspecialchars($datosCliente['Celular']) ?></strong>
+                                    </div>
+                                    <?php endif; ?>
+                                    <?php if (!empty($datosCliente['Email'])): ?>
+                                    <div class="col-md-6">
+                                        <small class="text-muted d-block"><i class="fa fa-envelope me-1"></i>Email</small>
+                                        <strong><?= htmlspecialchars($datosCliente['Email']) ?></strong>
+                                    </div>
+                                    <?php endif; ?>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <?php endif; ?>
+                    <?php elseif (!empty($direccionClienteGuat)): ?>
+                    <!-- Fallback: dirección desde request_cliente -->
+                    <div class="col-12">
+                        <div class="card shadow-sm border">
+                            <div class="card-header bg-light d-flex align-items-center gap-2">
+                                <i class="fa fa-map-pin text-primary"></i>
+                                <strong>Domicilio del Solicitante</strong>
+                                <span class="badge bg-secondary ms-auto">Desde solicitud</span>
+                            </div>
+                            <div class="card-body">
+                                <div class="row g-3">
+                                    <?php if (!empty($direccionClienteGuat['Calle_Numero'])): ?>
+                                    <div class="col-md-6">
+                                        <small class="text-muted d-block">Calle / Número</small>
+                                        <strong><?= htmlspecialchars($direccionClienteGuat['Calle_Numero']) ?></strong>
+                                    </div>
+                                    <?php endif; ?>
+                                    <?php if (!empty($direccionClienteGuat['Codigo_Postal'])): ?>
+                                    <div class="col-md-3">
+                                        <small class="text-muted d-block">Código Postal</small>
+                                        <strong><?= htmlspecialchars($direccionClienteGuat['Codigo_Postal']) ?></strong>
+                                    </div>
+                                    <?php endif; ?>
+                                    <?php
+                                        $cpGuat = explode(',', $direccionClienteGuat['Ciudad'] ?? '');
+                                        $ciudadGuat = trim($cpGuat[0] ?? '');
+                                        $deptoGuat  = trim($cpGuat[1] ?? '');
+                                    ?>
+                                    <?php if ($ciudadGuat): ?>
+                                    <div class="col-md-6">
+                                        <small class="text-muted d-block">Ciudad</small>
+                                        <strong><?= htmlspecialchars($ciudadGuat) ?></strong>
+                                    </div>
+                                    <?php endif; ?>
+                                    <?php if ($deptoGuat): ?>
+                                    <div class="col-md-6">
+                                        <small class="text-muted d-block">Departamento</small>
+                                        <strong><?= htmlspecialchars($deptoGuat) ?></strong>
                                     </div>
                                     <?php endif; ?>
                                 </div>
