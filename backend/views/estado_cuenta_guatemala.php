@@ -594,10 +594,8 @@ console.groupEnd();
     .btn-dictaminar i { font-size: 1.1rem; }
     .btn-dictaminar:hover { background: #cfe2ff; color: #084298; transform: translateY(-2px); box-shadow: 0 8px 18px rgba(13,110,253,.55); }
 
-    #modalDirecciones { z-index: 1055 !important; }
-    #modalDirecciones.show { display: block !important; opacity: 1 !important; visibility: visible !important; }
-    #modalDirecciones .modal-dialog { z-index: 1056 !important; margin: 1.75rem auto !important; }
-    .modal-backdrop { z-index: 1089 !important; }
+    #modalDirecciones { z-index: 1090 !important; }
+    #modalDirecciones .modal-dialog { z-index: 1091 !important; margin: 1.75rem auto !important; }
     .modal-backdrop.show { opacity: 0.5 !important; background: rgba(0, 0, 0, 0.5) !important; }
     .scrim-condonar-estado-cuenta { z-index: 9998 !important; background: rgba(0, 0, 0, 0.5) !important; }
     body.modal-condonar-open .swal2-container,
@@ -838,7 +836,6 @@ $gradienteBanner = strtolower($paisCodigo) === 'gt'
                             ?>
                             <i class="fa fa-location text-primary"></i>
                             <button type="button" class="btn btn-link text-primary p-0"
-                                    data-bs-toggle="modal" data-bs-target="#modalDirecciones"
                                     onclick="abrirModalDirecciones()">
                                 Direcciones
                             </button>
@@ -2201,12 +2198,29 @@ $gradienteBanner = strtolower($paisCodigo) === 'gt'
 
     function abrirModalDirecciones() {
         const modalElement = document.getElementById('modalDirecciones');
-        if (modalElement) {
-            if (modalElement.parentElement !== document.body) document.body.appendChild(modalElement);
-            bootstrap.Modal.getOrCreateInstance(modalElement).show();
-        } else {
+        if (!modalElement) {
             Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudo encontrar el modal de direcciones' });
+            return;
         }
+        // Limpiar cualquier backdrop huérfano antes de abrir
+        document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
+        document.body.classList.remove('modal-open');
+        document.body.style.removeProperty('overflow');
+        document.body.style.removeProperty('padding-right');
+
+        if (modalElement.parentElement !== document.body) document.body.appendChild(modalElement);
+
+        const modalInstance = bootstrap.Modal.getOrCreateInstance(modalElement, { backdrop: true, keyboard: true });
+        modalInstance.show();
+
+        // Al cerrar, limpiar estado por si acaso
+        modalElement.addEventListener('hidden.bs.modal', function onHide() {
+            document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
+            document.body.classList.remove('modal-open');
+            document.body.style.removeProperty('overflow');
+            document.body.style.removeProperty('padding-right');
+            modalElement.removeEventListener('hidden.bs.modal', onHide);
+        });
     }
 
     document.addEventListener('DOMContentLoaded', function() {
