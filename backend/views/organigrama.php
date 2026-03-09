@@ -1,9 +1,10 @@
 <style>
     #chart-container {
         width: 100%;
-        max-height: 600px;
+        max-height: 680px;
         display: flex;
         flex-direction: column;
+        position: relative;
         border: 1px solid rgba(0, 0, 0, 0.08);
         padding: 10px;
         background: rgba(255, 255, 255, 0.6);
@@ -18,29 +19,60 @@
         box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
     }
     #chart-container .organigrama-header {
+        position: relative;
+        z-index: 6;
+        display: block;
         flex-shrink: 0;
         margin-bottom: 8px;
         background: transparent;
         padding: 0;
+        pointer-events: auto;
     }
     #chart-container .organigrama-titulo-linea {
         font-size: 1rem;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
-        margin-bottom: 8px;
+        margin-bottom: 0;
+        display: inline-block;
+        width: fit-content;
+        max-width: 100%;
+        padding: 0.32rem 0.62rem;
+        border-radius: 9px;
+        border: 1px solid rgba(255, 255, 255, 0.52);
+        background: rgba(255, 255, 255, 0.24);
+        backdrop-filter: blur(6px);
+        -webkit-backdrop-filter: blur(6px);
         color: #4a4a4a;
         font-weight: 600;
     }
-    body.dark-mode #chart-container .organigrama-titulo-linea { color: #94a3b8; }
-    #chart-container .organigrama-header #organigrama-historial-puestos {
-        margin-top: 0;
+    body.dark-mode #chart-container .organigrama-titulo-linea {
+        color: #cbd5e1;
+        border-color: rgba(148, 163, 184, 0.35);
+        background: rgba(15, 23, 42, 0.42);
+    }
+    #chart-container > #organigrama-historial-puestos {
+        position: absolute;
+        left: 10px;
+        top: 46px;
+        z-index: 5;
+        margin: 0;
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.12);
+    }
+    body.dark-mode #chart-container > #organigrama-historial-puestos {
+        box-shadow: 0 2px 16px rgba(0, 0, 0, 0.35);
     }
     #chart-container .organigrama-chart-scroll {
         flex: 1;
-        min-height: 200px;
+        min-height: 260px;
         overflow: auto;
         position: relative;
+        z-index: 1;
+    }
+    @media (max-width: 991.98px) {
+        #chart-container .organigrama-titulo-linea {
+            max-width: 100%;
+        }
     }
     /* Overlay de carga: sin cuadro visible, no depende del zoom (está fuera de #chart) */
     #organigrama-loading-overlay {
@@ -218,6 +250,25 @@
         font-size: 1.1rem !important;
         font-weight: 700 !important;
         margin-bottom: 10px !important;
+        background: transparent !important;
+        border: 0 !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+        padding: 0 !important;
+        max-width: 100% !important;
+    }
+    #chart-container.organigrama-export .organigrama-header {
+        position: static !important;
+        z-index: auto !important;
+        display: block !important;
+        pointer-events: auto !important;
+        margin-bottom: 8px !important;
+    }
+    #chart-container.organigrama-export #organigrama-historial-puestos {
+        position: static !important;
+        top: auto !important;
+        left: auto !important;
+        margin-bottom: 8px !important;
     }
     #chart-container.organigrama-export .google-visualization-orgchart-node {
         background: #fff !important;
@@ -326,8 +377,8 @@
         <div id="chart-container" class="mt-4">
             <div class="organigrama-header">
                 <div id="orgTituloSeleccion" class="organigrama-titulo-linea"></div>
-                <div id="organigrama-historial-puestos" class="no-export" style="display: none;" aria-label="Historial de puestos del organigrama actual"></div>
             </div>
+            <div id="organigrama-historial-puestos" class="no-export" style="display: none;" aria-label="Historial de puestos del organigrama actual"></div>
             <div class="organigrama-chart-scroll">
                 <div id="organigrama-loading-overlay" class="organigrama-loading-overlay" aria-live="polite"></div>
                 <div id="chart"></div>
@@ -470,19 +521,19 @@
     function validarTelefono(fieldId) {
         const input = document.getElementById(fieldId);
         const telefono = input.value;
-        
+
         // Solo validar si tiene 10 dígitos
         if (telefono.length !== 10) {
             return;
         }
-        
+
         // Verificar patrones repetitivos
         // Ejemplo: 3333333333, 1111111111
         const todosIguales = /^(\d)\1{9}$/.test(telefono);
-        
+
         // Ejemplo: 1212121212, 4242424242
         const patron2Digitos = /^(\d{2})\1{4}$/.test(telefono);
-        
+
         if (todosIguales || patron2Digitos) {
             Swal.fire({
                 icon: 'error',

@@ -78,13 +78,13 @@ class EstadoCuenta extends Controller
                 const divFechaCorte = document.getElementById('divFechaCorte');
                 if (divFechaCorte) divFechaCorte.style.display = 'block';
             }
-        
+
             // Cambiar entre ID y Nombre
             function actualizarInputs() {
                     const modo = document.querySelector('input[name="modoBusqueda"]:checked')?.value;
                     const divNombre = document.getElementById('divNombre');
                     const divID = document.getElementById('divID');
-                    
+
                     // Verificar que los elementos existan antes de acceder a sus propiedades
                     if (divNombre) {
                         divNombre.style.display = modo === 'nombre' ? 'block' : 'none';
@@ -93,11 +93,11 @@ class EstadoCuenta extends Controller
                         divID.style.display = modo === 'id' ? 'block' : 'none';
                     }
             }
-            
+
             document.querySelectorAll('input[name="modoBusqueda"]').forEach(el =>
                 el.addEventListener('change', actualizarInputs)
             );
-            
+
             // Solo agregar el event listener si el modal existe
             const modalDirecciones = document.getElementById('modalDirecciones');
             if (modalDirecciones) {
@@ -107,7 +107,7 @@ class EstadoCuenta extends Controller
                 });
             }
 
-        
+
             // Botón limpiar filtros
             document.getElementById("btnResetFiltros").addEventListener("click", () => {
                 document.getElementById("idCredito").value = "";
@@ -117,21 +117,21 @@ class EstadoCuenta extends Controller
                 document.getElementById("modoID").checked = true;
                 actualizarInputs();
             });
-        
+
             // Validación antes de enviar
             document.getElementById("formBusqueda").addEventListener("submit", async e => {
                 e.preventDefault();
-                
+
                 const modo = document.querySelector('input[name="modoBusqueda"]:checked')?.value;
                 const idCredito       = document.getElementById("idCredito").value.trim();
                 const nombre          = document.getElementById("nombre").value.trim();
                 const idCreditoLista  = document.getElementById("idCreditoLista").value.trim();
-        
+
                 // =========================
                 // MODO ID
                 // =========================
                 if (modo === "id") {
-            
+
                     if (idCredito === "") {
                         return Swal.fire({
                             icon: "warning",
@@ -139,17 +139,17 @@ class EstadoCuenta extends Controller
                             text: "Por favor ingresa el ID del crédito."
                         });
                     }
-            
+
                     // Limpieza defensiva
                     document.getElementById("idCreditoLista").value = "";
                     document.getElementById("nombre").value = "";
                 }
-            
+
                 // =========================
                 // MODO NOMBRE
                 // =========================
                 if (modo === "nombre") {
-            
+
                     if (nombre === "") {
                         return Swal.fire({
                             icon: "warning",
@@ -157,7 +157,7 @@ class EstadoCuenta extends Controller
                             text: "Escribe y selecciona un cliente de la lista."
                         });
                     }
-            
+
                     if (idCreditoLista === "") {
                         return Swal.fire({
                             icon: "warning",
@@ -165,11 +165,11 @@ class EstadoCuenta extends Controller
                             text: "Debes seleccionar un cliente del listado, no solo escribirlo."
                         });
                     }
-            
+
                     // Limpieza defensiva
                     document.getElementById("idCredito").value = "";
                 }
-            
+
                 // =========================
                 // LOADING
                 // =========================
@@ -275,9 +275,9 @@ class EstadoCuenta extends Controller
                     });
                 }
             });
-        
+
         });
-        
+
 
         </script>
 JS;
@@ -1308,10 +1308,10 @@ JS;
                         });
 
                         try {
-                            const endpoint = tipoDocumento === 'INE' 
-                                ? '/EstadoCuenta/registrarINE' 
+                            const endpoint = tipoDocumento === 'INE'
+                                ? '/EstadoCuenta/registrarINE'
                                 : '/EstadoCuenta/registrarDocumentoCliente';
-                            
+
                             const response = await fetch(endpoint, {
                                 method: 'POST',
                                 body: formData
@@ -1350,7 +1350,7 @@ JS;
                         }
                     });
                 }
-            
+
                 // Botón limpiar filtros
                 const btnResetFiltros = document.getElementById('btnResetFiltros');
                 if (btnResetFiltros) {
@@ -1365,7 +1365,7 @@ JS;
                         if (nombre) {
                             nombre.value = '';
                         }
-                        
+
                         // Resetear select de tipo de documento
                         const tipoDocumento = document.getElementById('tipoDocumento');
                         if (tipoDocumento) {
@@ -1373,32 +1373,32 @@ JS;
                         }
                     });
                 }
-            
+
                 const btnBuscar = document.getElementById('btnBuscar');
                 const form = document.getElementById('formBusqueda');
-            
+
                 if (!btnBuscar || !form) {
                     console.error('Elementos del formulario no encontrados');
                     return;
                 }
-            
+
                 // Escuchar clic del botón en lugar del submit del formulario
                 btnBuscar.addEventListener('click', function(e) {
                     e.preventDefault();
                     e.stopPropagation();
-            
+
                     const idInput = document.getElementById('idCredito');
                     const tipoSelect = document.getElementById('tipoDocumento');
-                    
+
                     if (!idInput || !tipoSelect) {
                         console.error('Campos del formulario no encontrados');
                         Swal.fire('Error', 'Error al acceder a los campos del formulario', 'error');
                         return;
                     }
-            
+
                     const id   = idInput.value.trim();
                     const tipo = tipoSelect.value;
-            
+
                     // Validar que el ID no esté vacío
                     if (!id) {
                         Swal.fire({
@@ -1408,7 +1408,7 @@ JS;
                         });
                         return;
                     }
-            
+
                     // Validar que se haya seleccionado un tipo de documento
                     if (!tipo) {
                         Swal.fire({
@@ -1418,7 +1418,7 @@ JS;
                         });
                         return;
                     }
-            
+
                     // ====== LIMPIAR CONTENEDORES ANTES DE CARGAR NUEVO DOCUMENTO ======
                     const limpiarContenedoresDocumento = function() {
                         // Limpiar canvas de PDF
@@ -1431,37 +1431,37 @@ JS;
                             canvas.width = 0;
                             canvas.height = 0;
                         }
-                        
+
                         // Ocultar TODOS los contenedores
                         const pdfContainer = document.getElementById('documentoPdfContainer');
                         if (pdfContainer) pdfContainer.style.display = 'none';
-                        
+
                         const imgContainer = document.getElementById('documentoImagenContainer');
                         if (imgContainer) imgContainer.style.display = 'none';
-                        
+
                         const embedContainer = document.getElementById('visorPdfEmbed');
                         if (embedContainer) {
                             embedContainer.style.display = 'none';
                             embedContainer.innerHTML = '';
                         }
-                        
+
                         const visorLegacy = document.getElementById('visorDocumento');
                         if (visorLegacy) {
                             visorLegacy.style.display = 'none';
                             visorLegacy.src = '';
                         }
-                        
+
                         // Limpiar imagen de documentos
                         const imgDocumento = document.getElementById('imgDocumento');
                         if (imgDocumento) {
                             imgDocumento.src = '';
                             imgDocumento.style.display = 'none';
                         }
-                        
+
                         // Ocultar controles de PDF
                         const pdfControls = document.getElementById('pdfControls');
                         if (pdfControls) pdfControls.style.display = 'none';
-                        
+
                         // Resetear variables globales de PDF si existen
                         if (typeof pdfDocFactura !== 'undefined' && pdfDocFactura) {
                             pdfDocFactura = null;
@@ -1470,7 +1470,7 @@ JS;
                             pageNumFactura = 1;
                         }
                     };
-                    
+
                     // Primero validar que el ID de crédito exista (API estado de cuenta)
                     Swal.fire({
                         title: 'Validando crédito',
@@ -1526,7 +1526,7 @@ JS;
                     .then(function(data) {
                         if (!data) return;
                         Swal.close();
-            
+
                         if (!data.success) {
                             const mensaje = data.mensaje || '';
                             const esSinDocumento = mensaje.indexOf('no tiene') !== -1 && mensaje.indexOf('registrado') !== -1;
@@ -1562,39 +1562,39 @@ JS;
                             }
                             return;
                         }
-            
+
                         // Si es INE, mostrar ambas imágenes (frente y reverso)
                         if (data.tipo === 'INE') {
                             const imgFrente = document.getElementById('imgINEfrente');
                             const imgReverso = document.getElementById('imgINEreverso');
-                            
+
                             // Desactivar descarga en imágenes del INE
                             if (typeof desactivarDescargaImagen === 'function') {
                                 if (imgFrente) desactivarDescargaImagen(imgFrente);
                                 if (imgReverso) desactivarDescargaImagen(imgReverso);
                             }
-                            
+
                             // Configurar imágenes con carga desde servidor (sin descarga)
                             imgFrente.src = data.frente;
                             imgReverso.src = data.reverso;
-                            
+
                             // LIMPIAR el atributo de marcas "SIN VALOR" del overlay pdfWatermark si existe
                             // INE usa imágenes, no PDF.js, por lo que no debe tener este atributo
                             const watermark = document.getElementById('pdfWatermark');
                             if (watermark) {
                                 watermark.removeAttribute('data-marcas-sin-valor');
                             }
-                            
+
                             // Crear marcas de agua inmediatamente y después de que las imágenes se carguen
                             const crearMarcasAguaINE = function() {
                                 if (typeof crearMarcasAgua === 'function') {
                                     crearMarcasAgua();
                                 }
                             };
-                            
+
                             // Crear marcas de agua inmediatamente
                             setTimeout(crearMarcasAguaINE, 100);
-                            
+
                             imgFrente.onload = function() {
                                 // Desactivar descarga después de cargar
                                 if (typeof desactivarDescargaImagen === 'function') {
@@ -1602,7 +1602,7 @@ JS;
                                 }
                                 setTimeout(crearMarcasAguaINE, 300);
                             };
-                            
+
                             imgReverso.onload = function() {
                                 // Desactivar descarga después de cargar
                                 if (typeof desactivarDescargaImagen === 'function') {
@@ -1610,58 +1610,58 @@ JS;
                                 }
                                 setTimeout(crearMarcasAguaINE, 300);
                             };
-                            
+
                             // Mostrar modal de INE
                             const modalINE = document.getElementById('modalINE');
                             const bsModal = new bootstrap.Modal(modalINE);
                             bsModal.show();
-                            
+
                             // Las marcas de agua se crearán automáticamente cuando el modal se muestre
                             // gracias al listener en documentacion_consulta.php
-                        } 
+                        }
                         // Para FAD_DOC, EVIDENCIA, FACTURA, CONTRATO - usar visor de imágenes con marca de agua
                         else if (data.tipo && data.url) {
                             const imgContainer = document.getElementById('documentoImagenContainer');
                             const pdfContainer = document.getElementById('documentoPdfContainer');
                             const imgDocumento = document.getElementById('imgDocumento');
                             const iframeDocumento = document.getElementById('iframeDocumento');
-                            
+
                             if (!imgContainer || !pdfContainer) {
                                 Swal.fire('Error', 'No se pudo cargar el visor de documentos', 'error');
                                 return;
                             }
-                            
+
                             // Determinar si es PDF o imagen
                             // Si tiene extension pdf o la URL contiene .pdf o esImagen es false explícitamente
                             // O si la URL es de Google Viewer (significa que es PDF)
-                            const esPdf = (data.extension === 'pdf') || 
-                                         (data.url && (data.url.includes('.pdf') || data.url.includes('docs.google.com/gview'))) || 
+                            const esPdf = (data.extension === 'pdf') ||
+                                         (data.url && (data.url.includes('.pdf') || data.url.includes('docs.google.com/gview'))) ||
                                          (data.archivo && data.archivo.toLowerCase().endsWith('.pdf')) ||
                                          (data.esImagen === false);
-                            
+
                             if (esPdf) {
                                 // Para FACTURA, FAD_DOC, CONTRATO y EVIDENCIA, usar PDF.js con la misma función cargarPDFFactura
                                 if (data.tipo === 'FACTURA' || data.tipo === 'FAD_DOC' || data.tipo === 'CONTRATO' || data.tipo === 'EVIDENCIA') {
                                     // Usar PDF.js para FACTURA, FAD_DOC, VALIDACIONES y EVIDENCIA con cargarPDFFactura
                                     const tipoNombre = data.tipo === 'FACTURA' ? 'FACTURA' : (data.tipo === 'FAD_DOC' ? 'FAD_DOC' : (data.tipo === 'EVIDENCIA' ? 'EVIDENCIA' : 'VALIDACIONES'));
-                                    
+
                                     // Asegurar que el contenedor de visor simple esté oculto
                                     const embedContainer = document.getElementById('visorPdfEmbed');
                                     if (embedContainer) {
                                         embedContainer.style.display = 'none';
                                     }
-                                    
+
                                     imgContainer.style.display = 'none';
-                                    
+
                                     const visorLegacy = document.getElementById('visorDocumento');
                                     if (visorLegacy) {
                                         visorLegacy.style.display = 'none';
                                     }
-                                    
+
                                     // Usar EXACTAMENTE la misma lógica que EVIDENCIA
                                     // IMPORTANTE: Usar directamente la URL que viene del backend (ya es el proxy local)
                                     let pdfUrl = data.url;
-                                    
+
                                     // Solo procesar si viene de Google Viewer
                                     if (pdfUrl.includes('docs.google.com/gview')) {
                                         try {
@@ -1673,7 +1673,7 @@ JS;
                                         } catch (e) {
                                         }
                                     }
-                                    
+
                                     // NO reconstruir la URL si ya es una URL relativa del proxy local
                                     // El backend ya devuelve la URL correcta del proxy: /estadocuenta/verDocumento?fileName=...
                                     // Solo reconstruir si es una URL absoluta del S3 y no incluye el proxy
@@ -1689,8 +1689,8 @@ JS;
                                             console.warn('No se pudo convertir URL a proxy local:', e);
                                         }
                                     }
-                                    
-                                    
+
+
                                     if (typeof cargarPDFFactura === 'function') {
                                         window.tipoDocumentoActual = data.tipo;
                                         window.urlDocumentoActual = pdfUrl;
@@ -1708,7 +1708,7 @@ JS;
                                         console.error('PDF.js no está cargado o la función cargarPDFFactura no existe');
                                         Swal.fire('Error', 'El visor de PDF no está disponible', 'error');
                                     }
-                                    
+
                                     // Los controles de zoom ya están en el HTML y se mostrarán automáticamente
                                     // El header se ocultará desde cargarPDFConPDFjs cuando se muestre el modal
                                 }
@@ -1719,31 +1719,31 @@ JS;
                                         'FACTURA': 'FACTURA',
                                         'CONTRATO': 'VALIDACIONES'
                                     };
-                                    
+
                                     // Obtener el modal element primero
                                     const modalElement = document.getElementById('modalDocumento');
                                     if (!modalElement) {
                                         Swal.fire('Error', 'No se encontró el modal de documentos', 'error');
                                         return;
                                     }
-                                    
+
                                     // Ocultar contenedores de imagen y PDF.js
                                     imgContainer.style.display = 'none';
                                     pdfContainer.style.display = 'none';
-                                    
+
                                     // Obtener el contenedor del modal
                                     const modalBody = document.getElementById('documentoModalBody');
                                     if (!modalBody) {
                                         Swal.fire('Error', 'No se encontró el contenedor del modal', 'error');
                                         return;
                                     }
-                                    
+
                                     // Ocultar el iframe legacy si existe
                                     const visorLegacy = document.getElementById('visorDocumento');
                                     if (visorLegacy) {
                                         visorLegacy.style.display = 'none';
                                     }
-                                    
+
                                     // Crear o reutilizar un contenedor para el embed
                                     let embedContainer = document.getElementById('visorPdfEmbed');
                                     if (!embedContainer) {
@@ -1752,10 +1752,10 @@ JS;
                                         embedContainer.style.cssText = 'position: absolute; top: 0; left: 0; right: 0; bottom: 0; width: 100%; height: 100%; display: none; overflow: auto; background-color: #525252;';
                                         modalBody.appendChild(embedContainer);
                                     }
-                                    
+
                                     // Limpiar contenido anterior
                                     embedContainer.innerHTML = '';
-                                    
+
                                     // Asegurar que el contenedor esté visible y tenga el tamaño correcto
                                     embedContainer.style.display = 'block';
                                     embedContainer.style.position = 'absolute';
@@ -1767,27 +1767,27 @@ JS;
                                     embedContainer.style.height = '100%';
                                     embedContainer.style.overflow = 'auto';
                                     embedContainer.style.backgroundColor = '#525252';
-                                    
+
                                     // Crear wrapper para el PDF
                                     // Este wrapper se ajustará cuando se haga zoom
                                     const pdfWrapper = document.createElement('div');
                                     pdfWrapper.id = 'pdfWrapperContrato';
                                     pdfWrapper.style.cssText = 'position: relative; top: 0; left: 0; width: 100%; height: 100%;';
-                                    
+
                                     // Crear contenedor con marca de agua (similar a las imágenes)
                                     const watermarkContainer = document.createElement('div');
                                     watermarkContainer.className = 'watermark-container';
                                     watermarkContainer.style.cssText = 'position: relative; width: 100%; height: 100%; display: block;';
-                                    
+
                                     // Crear iframe para visualizar el PDF (más control que embed)
                                     const iframePdf = document.createElement('iframe');
-                                    
+
                                     // Para VALIDACIONES OK (CONTRATO), agregar parámetros de zoom para que se abra sin zoom excesivo
                                     // Para FAD_DOC, ocultar la barra de herramientas
                                     // Para FACTURA, MOSTRAR la barra de herramientas
                                     let pdfUrl = data.url;
                                     const separator = pdfUrl.includes('#') ? '&' : '#';
-                                    
+
                                     if (data.tipo === 'CONTRATO') {
                                         // Agregar parámetros para controlar el zoom inicial
                                         // #view=FitH ajusta el PDF al ancho de la ventana sin zoom excesivo
@@ -1797,18 +1797,18 @@ JS;
                                         // Para FAD_DOC, ocultar la barra de herramientas
                                         pdfUrl = pdfUrl + separator + 'toolbar=0';
                                     }
-                                    
+
                                     iframePdf.src = pdfUrl;
                                     iframePdf.style.cssText = 'position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0; display: block; pointer-events: auto;';
                                     iframePdf.setAttribute('type', 'application/pdf');
                                     iframePdf.setAttribute('frameborder', '0');
                                     iframePdf.setAttribute('scrolling', 'auto');
-                                    
+
                                     // Manejar errores de carga del iframe
                                     iframePdf.addEventListener('error', function(e) {
                                         Swal.fire('Error', 'No se pudo cargar el documento PDF', 'error');
                                     });
-                                    
+
                                     // Crear overlay para marcas de agua que cubra todo el visor
                                     // Este overlay se colocará directamente en el embedContainer para cubrir todo
                                     const watermarkOverlay = document.createElement('div');
@@ -1816,18 +1816,18 @@ JS;
                                     watermarkOverlay.id = 'watermarkOverlayPdf';
                                     // Permitir overflow visible y mantener las franjas rojas del CSS
                                     watermarkOverlay.style.cssText = 'position: absolute; top: 0; left: 0; right: 0; bottom: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; overflow: visible;';
-                                    
+
                                     // Crear overlay de protección que bloquea el click derecho y el menú superior
                                     // Este overlay tiene dos partes: una para el menú superior y otra invisible para bloquear click derecho
-                                    
+
                                     // Overlay para bloquear SOLO click derecho en el menú superior (primeros 60px)
                                     // Usar pointer-events: none para permitir clicks izquierdos en el menú
                                     const menuOverlay = document.createElement('div');
                                     menuOverlay.id = 'pdfMenuOverlay';
-                                    
+
                                     // Para otros tipos, mantener el comportamiento original
                                     menuOverlay.style.cssText = 'position: absolute; top: 0; left: 0; width: 100%; height: 60px; z-index: 20; background: transparent; pointer-events: none;';
-                                    
+
                                     // Solo bloquear click derecho en el área del menú (parte superior)
                                     // Capturar en fase de captura para bloquear antes de que llegue al iframe
                                     embedContainer.addEventListener('contextmenu', function(e) {
@@ -1841,7 +1841,7 @@ JS;
                                             return false;
                                         }
                                     }, true);
-                                    
+
                                     // Bloquear SOLO click derecho en el contenedor (permite clicks izquierdos y scroll)
                                     embedContainer.addEventListener('contextmenu', function(e) {
                                         // Solo bloquear si es click derecho
@@ -1850,7 +1850,7 @@ JS;
                                         e.stopImmediatePropagation();
                                         return false;
                                     }, true);
-                                    
+
                                     watermarkContainer.addEventListener('contextmenu', function(e) {
                                         // Solo bloquear si es click derecho
                                         e.preventDefault();
@@ -1858,7 +1858,7 @@ JS;
                                         e.stopImmediatePropagation();
                                         return false;
                                     }, true);
-                                    
+
                                     // Bloquear SOLO mousedown del botón derecho en embedContainer
                                     embedContainer.addEventListener('mousedown', function(e) {
                                         if (e.button === 2) { // SOLO botón derecho
@@ -1869,7 +1869,7 @@ JS;
                                         }
                                         // Permitir clicks izquierdos (button === 0) - no hacer nada
                                     }, true);
-                                    
+
                                     // Bloquear SOLO mouseup del botón derecho en embedContainer
                                     embedContainer.addEventListener('mouseup', function(e) {
                                         if (e.button === 2) { // SOLO botón derecho
@@ -1880,27 +1880,27 @@ JS;
                                         }
                                         // Permitir clicks izquierdos - no hacer nada
                                     }, true);
-                                    
+
                                     // Overlay de protección que bloquea SOLO click derecho pero permite click izquierdo y scroll
                                     // Usamos pointer-events: none para que NO bloquee clicks izquierdos ni scroll
                                     // Pero capturamos eventos en fase de captura para bloquear SOLO el click derecho
                                     const protectionOverlay = document.createElement('div');
                                     protectionOverlay.id = 'pdfProtectionOverlay';
                                     protectionOverlay.style.cssText = 'position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 30; background: transparent; pointer-events: none;';
-                                    
+
                                     // IMPORTANTE: Como el overlay tiene pointer-events: none, los eventos pasan a través
                                     // Por eso capturamos en el contenedor padre (embedContainer) en fase de captura
                                     // para bloquear SOLO el click derecho antes de que llegue al iframe
-                                    
+
                                     // El menuOverlay ya no necesita listeners porque tiene pointer-events: none
                                     // Los clicks pasan a través y se bloquean en embedContainer
-                                    
+
                                     // También capturar en el documento para mayor seguridad (máxima prioridad)
                                     const contextMenuHandler = function(e) {
                                         // Solo bloquear si el evento viene del área del PDF
                                         const target = e.target;
-                                        if (embedContainer.contains(target) || 
-                                            watermarkContainer.contains(target) || 
+                                        if (embedContainer.contains(target) ||
+                                            watermarkContainer.contains(target) ||
                                             pdfWrapper.contains(target) ||
                                             iframePdf.contains(target) ||
                                             protectionOverlay.contains(target) ||
@@ -1913,13 +1913,13 @@ JS;
                                     };
                                     // Usar capture phase y alta prioridad
                                     document.addEventListener('contextmenu', contextMenuHandler, { capture: true, passive: false });
-                                    
+
                                     // También capturar mousedown del botón derecho a nivel de documento
                                     const mouseDownHandler = function(e) {
                                         if (e.button === 2) { // Botón derecho
                                             const target = e.target;
-                                            if (embedContainer.contains(target) || 
-                                                watermarkContainer.contains(target) || 
+                                            if (embedContainer.contains(target) ||
+                                                watermarkContainer.contains(target) ||
                                                 pdfWrapper.contains(target) ||
                                                 iframePdf.contains(target) ||
                                                 protectionOverlay.contains(target) ||
@@ -1932,12 +1932,12 @@ JS;
                                         }
                                     };
                                     document.addEventListener('mousedown', mouseDownHandler, { capture: true, passive: false });
-                                    
+
                                     // También bloquear a nivel de window para máxima seguridad
                                     const windowContextMenuHandler = function(e) {
                                         const target = e.target;
-                                        if (embedContainer.contains(target) || 
-                                            watermarkContainer.contains(target) || 
+                                        if (embedContainer.contains(target) ||
+                                            watermarkContainer.contains(target) ||
                                             pdfWrapper.contains(target) ||
                                             iframePdf.contains(target) ||
                                             protectionOverlay.contains(target) ||
@@ -1949,28 +1949,28 @@ JS;
                                         }
                                     };
                                     window.addEventListener('contextmenu', windowContextMenuHandler, { capture: true, passive: false });
-                                    
+
                                     // Limpiar todos los listeners cuando se cierre el modal
                                     modalElement.addEventListener('hidden.bs.modal', function() {
                                         document.removeEventListener('contextmenu', contextMenuHandler, { capture: true });
                                         document.removeEventListener('mousedown', mouseDownHandler, { capture: true });
                                         window.removeEventListener('contextmenu', windowContextMenuHandler, { capture: true });
                                     }, { once: true });
-                                    
+
                                     // Bloquear click derecho también en el iframe directamente (ya está arriba, pero lo mantenemos)
                                     // Nota: Estos listeners ya están definidos arriba en la sección de protección reforzada
-                                    
+
                                     // Bloquear arrastrar archivos
                                     protectionOverlay.addEventListener('dragover', function(e) {
                                         e.preventDefault();
                                         return false;
                                     }, true);
-                                    
+
                                     protectionOverlay.addEventListener('drop', function(e) {
                                         e.preventDefault();
                                         return false;
                                     }, true);
-                                    
+
                                     // Bloquear atajos de teclado en el contenedor
                                     embedContainer.addEventListener('keydown', function(e) {
                                         // Bloquear Ctrl+S, Ctrl+P, F12, etc.
@@ -1983,7 +1983,7 @@ JS;
                                             return false;
                                         }
                                     }, true);
-                                    
+
                                     // Intentar bloquear el menú del PDF dentro del iframe cuando se carga
                                     iframePdf.addEventListener('load', function() {
                                         try {
@@ -1997,7 +1997,7 @@ JS;
                                                     e.stopImmediatePropagation();
                                                     return false;
                                                 }, true);
-                                                
+
                                                 // Bloquear mousedown del botón derecho dentro del iframe
                                                 iframeDoc.addEventListener('mousedown', function(e) {
                                                     if (e.button === 2) {
@@ -2007,13 +2007,13 @@ JS;
                                                         return false;
                                                     }
                                                 }, true);
-                                                
+
                                                 // Bloquear otros eventos dentro del iframe
                                                 iframeDoc.addEventListener('selectstart', function(e) {
                                                     e.preventDefault();
                                                     return false;
                                                 }, true);
-                                                
+
                                                 // Bloquear también en el body del iframe
                                                 if (iframeDoc.body) {
                                                     iframeDoc.body.addEventListener('contextmenu', function(e) {
@@ -2022,7 +2022,7 @@ JS;
                                                         e.stopImmediatePropagation();
                                                         return false;
                                                     }, true);
-                                                    
+
                                                     iframeDoc.body.addEventListener('mousedown', function(e) {
                                                         if (e.button === 2) {
                                                             e.preventDefault();
@@ -2038,23 +2038,23 @@ JS;
                                             // El overlay de protección seguirá funcionando
                                         }
                                     });
-                                    
+
                                     // Agregar elementos al contenedor (orden importante: iframe abajo, overlays arriba)
                                     watermarkContainer.appendChild(iframePdf);
                                     pdfWrapper.appendChild(watermarkContainer);
-                                    
+
                                     // Agregar overlays de protección al contenedor principal
                                     // IMPORTANTE: El protectionOverlay debe ir DESPUÉS del menuOverlay para tener mayor z-index
                                     pdfWrapper.appendChild(menuOverlay); // Bloquea clicks en el menú superior
                                     pdfWrapper.appendChild(protectionOverlay); // Bloquea click derecho en todo (z-index más alto)
-                                    
+
                                     embedContainer.appendChild(pdfWrapper);
-                                    
+
                                     // Agregar overlay de marca de agua directamente al embedContainer para que cubra todo
                                     embedContainer.appendChild(watermarkOverlay);
-                                    
+
                                     // REFORZAR PROTECCIÓN CONTRA CLICK DERECHO - Múltiples capas de protección
-                                    
+
                                     // 1. Bloquear en el contenedor principal (embedContainer)
                                     embedContainer.addEventListener('contextmenu', function(e) {
                                         e.preventDefault();
@@ -2062,7 +2062,7 @@ JS;
                                         e.stopImmediatePropagation();
                                         return false;
                                     }, true);
-                                    
+
                                     // 2. Bloquear en el pdfWrapper
                                     pdfWrapper.addEventListener('contextmenu', function(e) {
                                         e.preventDefault();
@@ -2070,10 +2070,10 @@ JS;
                                         e.stopImmediatePropagation();
                                         return false;
                                     }, true);
-                                    
+
                                     // 3. Bloquear también con mousedown para capturar antes del contextmenu (ya está arriba, no duplicar)
                                     // Los listeners de mousedown ya están definidos arriba en embedContainer
-                                    
+
                                     // Bloquear SOLO click derecho en pdfWrapper
                                     pdfWrapper.addEventListener('mousedown', function(e) {
                                         if (e.button === 2) { // SOLO botón derecho
@@ -2084,7 +2084,7 @@ JS;
                                         }
                                         // Permitir clicks izquierdos - no hacer nada
                                     }, true);
-                                    
+
                                     // Bloquear SOLO click derecho en iframePdf
                                     iframePdf.addEventListener('mousedown', function(e) {
                                         if (e.button === 2) { // SOLO botón derecho
@@ -2095,7 +2095,7 @@ JS;
                                         }
                                         // Permitir clicks izquierdos - no hacer nada
                                     }, true);
-                                    
+
                                     // 4. Bloquear también en el overlay de marca de agua
                                     watermarkOverlay.addEventListener('contextmenu', function(e) {
                                         e.preventDefault();
@@ -2103,7 +2103,7 @@ JS;
                                         e.stopImmediatePropagation();
                                         return false;
                                     }, true);
-                                    
+
                                     watermarkOverlay.addEventListener('mousedown', function(e) {
                                         if (e.button === 2) { // Botón derecho del mouse
                                             e.preventDefault();
@@ -2112,7 +2112,7 @@ JS;
                                             return false;
                                         }
                                     }, true);
-                                    
+
                                     // Para VALIDACIONES OK (CONTRATO), FAD_DOC y FACTURACION OK (FACTURA), agregar controles de zoom
                                     // IMPORTANTE: Las variables embedContainer, pdfWrapper, watermarkContainer deben estar en scope
                                     if (data.tipo === 'CONTRATO' || data.tipo === 'FAD_DOC' || data.tipo === 'FACTURA') {
@@ -2120,79 +2120,79 @@ JS;
                                         let currentZoom = 1.0;
                                         const minZoom = 0.5;
                                         const maxZoom = 3.0;
-                                        
+
                                         // Asegurar que tenemos referencias a los elementos necesarios
                                         const zoomEmbedContainer = embedContainer;
                                         const zoomPdfWrapper = pdfWrapper;
                                         const zoomWatermarkContainer = watermarkContainer;
-                                        
+
                                         // Crear contenedor de controles de zoom
                                         const zoomControls = document.createElement('div');
                                         zoomControls.id = 'zoomControls' + data.tipo; // ID único por tipo
                                         zoomControls.style.cssText = 'position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background-color: rgba(0,0,0,0.7); padding: 10px 20px; border-radius: 25px; z-index: 1000; display: flex; align-items: center; gap: 15px;';
-                                        
+
                                         // Botón zoom out
                                         const btnZoomOut = document.createElement('button');
                                         btnZoomOut.className = 'btn btn-sm btn-light';
                                         btnZoomOut.innerHTML = '<i class="fa fa-search-minus"></i>';
                                         btnZoomOut.style.cssText = 'min-width: 40px;';
                                         btnZoomOut.title = 'Alejar';
-                                        
+
                                         // Indicador de zoom
                                         const zoomLevel = document.createElement('span');
                                         zoomLevel.id = 'zoomLevel' + data.tipo; // ID único por tipo
                                         zoomLevel.style.cssText = 'color: white; font-size: 0.9rem; min-width: 60px; text-align: center;';
                                         zoomLevel.textContent = '100%';
-                                        
+
                                         // Botón zoom in
                                         const btnZoomIn = document.createElement('button');
                                         btnZoomIn.className = 'btn btn-sm btn-light';
                                         btnZoomIn.innerHTML = '<i class="fa fa-search-plus"></i>';
                                         btnZoomIn.style.cssText = 'min-width: 40px;';
                                         btnZoomIn.title = 'Acercar';
-                                        
+
                                         // Botón reset
                                         const btnReset = document.createElement('button');
                                         btnReset.className = 'btn btn-sm btn-light';
                                         btnReset.innerHTML = '<i class="fa fa-undo"></i>';
                                         btnReset.style.cssText = 'min-width: 40px;';
                                         btnReset.title = 'Restablecer zoom';
-                                        
+
                                         // Función para aplicar zoom
                                         const applyZoom = function() {
                                             // Usar las referencias locales para asegurar que funcionen
                                             const container = zoomEmbedContainer;
                                             const wrapper = zoomPdfWrapper;
                                             const watermarkContainer = zoomWatermarkContainer;
-                                            
+
                                             // Obtener las dimensiones actuales del contenedor visible (el modal se mantiene igual)
                                             const containerWidth = container.clientWidth || container.offsetWidth;
                                             const containerHeight = container.clientHeight || container.offsetHeight;
-                                            
+
                                             if (containerWidth === 0 || containerHeight === 0) {
                                                 // Si las dimensiones no están disponibles aún, intentar de nuevo
                                                 setTimeout(applyZoom, 100);
                                                 return;
                                             }
-                                            
+
                                             // Guardar la posición actual de scroll antes del cambio
                                             const scrollLeftBefore = container.scrollLeft;
                                             const scrollTopBefore = container.scrollTop;
-                                            
+
                                             // Calcular el centro visual actual (posición de scroll + mitad del viewport)
                                             const centerXBefore = scrollLeftBefore + (containerWidth / 2);
                                             const centerYBefore = scrollTopBefore + (containerHeight / 2);
-                                            
+
                                             // IMPORTANTE: El wrapper debe tener el tamaño escalado para que el scroll funcione
                                             const scaledWidth = containerWidth * currentZoom;
                                             const scaledHeight = containerHeight * currentZoom;
-                                            
+
                                             // El wrapper necesita tener el tamaño escalado para permitir scroll correcto
                                             wrapper.style.width = scaledWidth + 'px';
                                             wrapper.style.height = scaledHeight + 'px';
                                             wrapper.style.minWidth = scaledWidth + 'px';
                                             wrapper.style.minHeight = scaledHeight + 'px';
-                                            
+
                                             // CORRECCIÓN: El watermarkContainer NO debe escalarse
                                             // Mantiene su tamaño base sin transform
                                             watermarkContainer.style.position = 'absolute';
@@ -2202,7 +2202,7 @@ JS;
                                             watermarkContainer.style.height = containerHeight + 'px';
                                             watermarkContainer.style.transform = '';
                                             watermarkContainer.style.transformOrigin = '';
-                                            
+
                                             // CORRECCIÓN: Aplicar zoom SOLO al iframe del PDF usando transform scale
                                             // Esto evita que la marca de agua se escale
                                             const iframePdf = watermarkContainer.querySelector('iframe');
@@ -2214,35 +2214,35 @@ JS;
                                                 iframePdf.style.transform = `scale(\${currentZoom})`;
                                                 iframePdf.style.transformOrigin = 'top left';
                                             }
-                                            
+
                                             // Asegurar que el contenedor tenga overflow para scroll
                                             container.style.overflow = 'auto';
-                                            
+
                                             // Actualizar el indicador de zoom
                                             zoomLevel.textContent = Math.round(currentZoom * 100) + '%';
-                                            
+
                                             // Actualizar marcas de agua después del zoom (sin escalar)
                                             setTimeout(() => {
                                                 if (typeof crearMarcasAgua === 'function') {
                                                     crearMarcasAgua();
                                                 }
                                             }, 100);
-                                            
+
                                             // Ajustar la posición de scroll después del zoom para mantener el centro visual
                                             setTimeout(() => {
                                                 // Calcular la nueva posición de scroll para mantener el centro visual
                                                 const newScrollLeft = centerXBefore - (containerWidth / 2);
                                                 const newScrollTop = centerYBefore - (containerHeight / 2);
-                                                
+
                                                 // Asegurar que no exceda los límites
                                                 const maxScrollLeft = Math.max(0, container.scrollWidth - containerWidth);
                                                 const maxScrollTop = Math.max(0, container.scrollHeight - containerHeight);
-                                                
+
                                                 container.scrollLeft = Math.max(0, Math.min(newScrollLeft, maxScrollLeft));
                                                 container.scrollTop = Math.max(0, Math.min(newScrollTop, maxScrollTop));
                                             }, 50);
                                         };
-                                        
+
                                         // Event listeners para los botones
                                         btnZoomOut.addEventListener('click', function(e) {
                                             e.preventDefault();
@@ -2252,7 +2252,7 @@ JS;
                                                 applyZoom();
                                             }
                                         });
-                                        
+
                                         btnZoomIn.addEventListener('click', function(e) {
                                             e.preventDefault();
                                             e.stopPropagation();
@@ -2261,26 +2261,26 @@ JS;
                                                 applyZoom();
                                             }
                                         });
-                                        
+
                                         btnReset.addEventListener('click', function(e) {
                                             e.preventDefault();
                                             e.stopPropagation();
                                             currentZoom = 1.0;
                                             applyZoom();
                                         });
-                                        
+
                                         // Agregar botones al contenedor
                                         zoomControls.appendChild(btnZoomOut);
                                         zoomControls.appendChild(zoomLevel);
                                         zoomControls.appendChild(btnZoomIn);
                                         zoomControls.appendChild(btnReset);
-                                        
+
                                         // Agregar controles al modal body
                                         const modalBody = document.getElementById('documentoModalBody');
                                         if (modalBody) {
                                             modalBody.appendChild(zoomControls);
                                         }
-                                        
+
                                         // Limpiar controles cuando se cierre el modal
                                         modalElement.addEventListener('hidden.bs.modal', function() {
                                             const controls = document.getElementById('zoomControls' + data.tipo);
@@ -2308,7 +2308,7 @@ JS;
                                                 iframePdf.style.transformOrigin = '';
                                             }
                                         }, { once: true });
-                                        
+
                                         // Zoom con rueda del mouse (Ctrl + scroll) usando la referencia local
                                         zoomEmbedContainer.addEventListener('wheel', function(e) {
                                             if (e.ctrlKey || e.metaKey) {
@@ -2328,7 +2328,7 @@ JS;
                                                 }
                                             }
                                         }, { passive: false });
-                                        
+
                                         // Aplicar zoom inicial después de que el iframe se cargue
                                         const applyInitialZoom = function() {
                                             // Pequeño delay para asegurar que el iframe esté completamente cargado y el DOM esté listo
@@ -2336,25 +2336,25 @@ JS;
                                                 applyZoom();
                                             }, 300);
                                         };
-                                        
+
                                         // Aplicar zoom cuando el iframe se carga
                                         iframePdf.addEventListener('load', applyInitialZoom, { once: true });
-                                        
+
                                         // También aplicar zoom inicial inmediatamente si el iframe ya está cargado
                                         if (iframePdf.complete || iframePdf.readyState === 'complete') {
                                             applyInitialZoom();
                                         }
                                     }
-                                    
+
                                     // Asegurar que el contenedor esté visible
                                     embedContainer.style.display = 'block';
-                                    
+
                                     // También prevenir click derecho en el contenedor
                                     embedContainer.addEventListener('contextmenu', function(e) {
                                         e.preventDefault();
                                         return false;
                                     }, true);
-                                    
+
                                     // Crear marcas de agua después de que el iframe se cargue
                                     iframePdf.addEventListener('load', function() {
                                         setTimeout(() => {
@@ -2363,18 +2363,18 @@ JS;
                                             }
                                         }, 500);
                                     });
-                                    
+
                                     // Actualizar título del modal según el tipo
                                     const modalTitle = document.querySelector('#modalDocumento .modal-title');
                                     if (modalTitle) {
                                         modalTitle.textContent = tipoNombre[data.tipo] || data.tipo;
                                     }
-                                    
+
                                     // Prevenir atajos de teclado para descargar
                                     if (typeof prevenirAtajosDescarga === 'function') {
                                         prevenirAtajosDescarga('modalDocumento');
                                     }
-                                    
+
                                     // Crear marcas de agua cuando el modal se muestre completamente
                                     modalElement.addEventListener('shown.bs.modal', function() {
                                         // Llamar múltiples veces para asegurar que se generen correctamente
@@ -2400,7 +2400,7 @@ JS;
                                             }
                                         }, 2500);
                                     }, { once: true });
-                                    
+
                                     // Limpiar cuando se cierre el modal
                                     modalElement.addEventListener('hidden.bs.modal', function() {
                                         // Limpiar el contenedor
@@ -2411,7 +2411,7 @@ JS;
                                             if (iframe) {
                                                 iframe.src = '';
                                             }
-                                            
+
                                             // Remover los overlays de protección
                                             const protectionOverlay = document.getElementById('pdfProtectionOverlay');
                                             if (protectionOverlay) {
@@ -2421,27 +2421,27 @@ JS;
                                             if (menuOverlay) {
                                                 menuOverlay.remove();
                                             }
-                                            
+
                                             embedContainer.innerHTML = '';
                                             embedContainer.style.display = 'none';
                                         }
-                                        
+
                                         // Asegurar que el body no tenga clases bloqueantes
                                         document.body.classList.remove('modal-open');
                                         document.body.style.overflow = '';
                                         document.body.style.paddingRight = '';
-                                        
+
                                         // Remover overlays de Bootstrap si existen
                                         const backdrops = document.querySelectorAll('.modal-backdrop');
                                         backdrops.forEach(backdrop => backdrop.remove());
                                     }, { once: true });
-                                    
+
                                     // Mostrar modal después de un pequeño delay para asegurar que todo esté configurado
                                     setTimeout(() => {
                                         const modal = new bootstrap.Modal(modalElement);
                                         modal.show();
                                     }, 100);
-                                    
+
                                 } else {
                                     // No debería llegar aquí - todos los tipos de PDF usan el bloque de arriba con FACTURA
                                     console.error('Tipo de documento PDF no reconocido:', data.tipo);
@@ -2482,7 +2482,7 @@ JS;
                                     Swal.fire('Error', 'El documento debe ser un archivo PDF o imagen válida.', 'error');
                                 }
                             }
-                            
+
                             // Actualizar título del modal según el tipo
                             const modalTitle = document.querySelector('#modalDocumento .modal-title');
                             if (modalTitle) {
@@ -2494,7 +2494,7 @@ JS;
                                 };
                                 modalTitle.textContent = tipoNombre[data.tipo] || 'Documento';
                             }
-                            
+
                             // El modal se muestra automáticamente desde cargarPDFFactura
                         } else {
                             Swal.fire({
@@ -2511,7 +2511,7 @@ JS;
                         Swal.fire('Error', msg.indexOf('HTTP') === 0 ? 'El servidor respondió con error. ' + msg : 'Error de comunicación. ' + msg, 'error');
                     });
                 });
-            
+
             });
             </script>
 
@@ -2648,25 +2648,25 @@ public function descargar()
         $consultarBDTerceraForma = function ($idCredito, $tipoDocumento) {
     try {
         error_log("3RA FORMA - Consultando BD via DAO: ID=$idCredito, TIPO=$tipoDocumento");
-        
+
         // Mapeo correcto según tu BD
         $tiposBD = [
             'FACTURA' => 'FACTURA',      // BD: FACTURA
-            'CONTRATO' => 'VALIDACIONES', // BD: VALIDACIONES  
+            'CONTRATO' => 'VALIDACIONES', // BD: VALIDACIONES
             'FAD_DOC' => 'FAD',          // BD: FAD
             'EVIDENCIA' => 'EVIDENCIA',  // BD: EVIDENCIA
         ];
-        
+
         $tipoBD = $tiposBD[$tipoDocumento] ?? null;
-        
+
         if (!$tipoBD) {
             error_log("3RA FORMA - Tipo no mapeado: $tipoDocumento");
             return null;
         }
-        
+
         // ¡IMPORTANTE! Usar el DAO como lo hace FAD_DOC y EVIDENCIA
         // Pero con una pequeña modificación para aceptar todos los tipos
-        
+
         if ($tipoDocumento === 'FAD_DOC' || $tipoDocumento === 'EVIDENCIA') {
             // Para estos tipos, usar el DAO existente
             $res = EstadoCuentaDAO::obtenerDocumentoOferta($idCredito, $tipoDocumento);
@@ -2675,16 +2675,16 @@ public function descargar()
             // O mejor, modificar el DAO para aceptar todos los tipos
             $res = $this->consultarDocumentoGenerico($idCredito, $tipoBD);
         }
-        
+
         if ($res['success'] && isset($res['datos']['nombre_archivo']) && !empty($res['datos']['nombre_archivo'])) {
             $nombreArchivo = $res['datos']['nombre_archivo'];
             error_log("3RA FORMA - Encontrado via DAO: " . $nombreArchivo);
             return $nombreArchivo;
         }
-        
+
         error_log("3RA FORMA - No encontrado via DAO");
         return null;
-        
+
     } catch (\Throwable $e) {
         error_log("3RA FORMA - Error en DAO: " . $e->getMessage());
         return null;
@@ -2693,12 +2693,12 @@ public function descargar()
 
         $buscarLocal = function ($idCredito, $tipoDocumento) {
             $directorioBase = __DIR__ . '/../../uploads/documentos/doc_cliente';
-            
+
             if (!is_dir($directorioBase)) {
                 error_log("1RA FORMA - Directorio NO existe: {$directorioBase}");
                 return null;
             }
-            
+
             error_log("1RA FORMA - Buscando local: ID=$idCredito, TIPO=$tipoDocumento");
 
             $idSeguro = preg_replace('/[^0-9]/', '', (string)$idCredito);
@@ -2737,7 +2737,7 @@ public function descargar()
                 $archivoReverso = basename($archivosReverso[0]);
 
                 error_log("1RA FORMA - INE encontrado localmente: $archivoFrente, $archivoReverso");
-                
+
                 return [
                     'esINE' => true,
                     'archivoFrente' => $archivoFrente,
@@ -2752,7 +2752,7 @@ public function descargar()
             // Para otros documentos, búsqueda normal
             $patron = $directorioBase . '/' . $idSeguro . '_' . $tipoSeguro . '_*.{pdf,jpg,jpeg,png}';
             $archivos = glob($patron, GLOB_BRACE);
-            
+
             if (!$archivos) {
                 error_log("1RA FORMA - No encontrado localmente");
                 return null;
@@ -2766,9 +2766,9 @@ public function descargar()
             $archivo = basename($rutaCompleta);
             $extension = strtolower(pathinfo($archivo, PATHINFO_EXTENSION));
             $esImagen = in_array($extension, ['jpg', 'jpeg', 'png'], true);
-            
+
             error_log("1RA FORMA - Encontrado localmente: $archivo");
-            
+
             return [
                 'archivo' => $archivo,
                 'extension' => $extension,
@@ -2780,7 +2780,7 @@ public function descargar()
         // ---------------- FACTURA ----------------
         if ($tipo === 'FACTURA') {
             error_log("=== PROCESANDO FACTURA ===");
-            
+
             $local = $buscarLocal($id, $tipo);
             if ($local) {
                 error_log("FACTURA $id - RESULTADO: 1RA FORMA (Local)");
@@ -2795,14 +2795,14 @@ public function descargar()
                 ]);
                 exit;
             }
-            
+
             error_log("FACTURA $id - 1RA FORMA falló, probando 2DA FORMA...");
             $fileName = "FACTURA/{$id}_factura.pdf";
             if (!$existeEnS3($fileName)) {
                 error_log("FACTURA $id - 2DA FORMA falló, probando 3RA FORMA...");
-                
+
                 $nombreBD = $consultarBDTerceraForma($id, 'FACTURA');
-                
+
                 if ($nombreBD) {
                     $fileNameBD = "FACTURA/" . $nombreBD;
                     if ($existeEnS3($fileNameBD)) {
@@ -2823,7 +2823,7 @@ public function descargar()
                         error_log("FACTURA $id - 3RA FORMA: Encontrado en BD pero no en S3: $fileNameBD");
                     }
                 }
-                
+
                 error_log("FACTURA $id - RESULTADO: 3 FORMAS FALLIDAS");
                 $this->registrarAuditoriaDocumento($id, $tipo, $nombreDoc, 0, "Este ID de crédito no tiene {$nombreDoc} registrado.");
                 echo json_encode([
@@ -2832,7 +2832,7 @@ public function descargar()
                 ]);
                 exit;
             }
-            
+
             error_log("FACTURA $id - RESULTADO: 2DA FORMA (S3 estándar)");
             $this->registrarAuditoriaDocumento($id, $tipo, $nombreDoc, 1, null);
             $fileUrl = "/estadocuenta/verDocumento?fileName=" . urlencode($fileName);
@@ -2851,7 +2851,7 @@ public function descargar()
         // ---------------- CONTRATO ----------------
         elseif ($tipo === 'CONTRATO') {
             error_log("=== PROCESANDO CONTRATO/VALIDACIONES ===");
-            
+
             $local = $buscarLocal($id, $tipo);
             if ($local) {
                 error_log("CONTRATO $id - RESULTADO: 1RA FORMA (Local)");
@@ -2866,14 +2866,14 @@ public function descargar()
                 ]);
                 exit;
             }
-            
+
             error_log("CONTRATO $id - 1RA FORMA falló, probando 2DA FORMA...");
             $fileName = "VALIDACIONES/{$id}_validaciones.pdf";
             if (!$existeEnS3($fileName)) {
                 error_log("CONTRATO $id - 2DA FORMA falló, probando 3RA FORMA...");
-                
+
                 $nombreBD = $consultarBDTerceraForma($id, 'CONTRATO');
-                
+
                 if ($nombreBD) {
                     $fileNameBD = "VALIDACIONES/" . $nombreBD;
                     if ($existeEnS3($fileNameBD)) {
@@ -2894,7 +2894,7 @@ public function descargar()
                         error_log("CONTRATO $id - 3RA FORMA: Encontrado en BD pero no en S3: $fileNameBD");
                     }
                 }
-                
+
                 error_log("CONTRATO $id - RESULTADO: 3 FORMAS FALLIDAS");
                 $this->registrarAuditoriaDocumento($id, $tipo, $nombreDoc, 0, "Este ID de crédito no tiene {$nombreDoc} registrado.");
                 echo json_encode([
@@ -2903,7 +2903,7 @@ public function descargar()
                 ]);
                 exit;
             }
-            
+
             error_log("CONTRATO $id - RESULTADO: 2DA FORMA (S3 estándar)");
             $this->registrarAuditoriaDocumento($id, $tipo, $nombreDoc, 1, null);
             $fileUrl = "/estadocuenta/verDocumento?fileName=" . urlencode($fileName);
@@ -2922,7 +2922,7 @@ public function descargar()
         // ---------------- INE ----------------
         elseif ($tipo === 'INE') {
             error_log("=== PROCESANDO INE ===");
-            
+
             // Buscar primero localmente
             $local = $buscarLocal($id, $tipo);
             if ($local && isset($local['esINE']) && $local['esINE'] === true) {
@@ -3010,7 +3010,7 @@ public function descargar()
             curl_exec($chR);
             $codeR = (int) curl_getinfo($chR, CURLINFO_HTTP_CODE);
             curl_close($chR);
-            
+
             if ($codeF !== 200 || $codeR !== 200) {
                 error_log("INE $id - 2DA FORMA falló (imágenes no encontradas), probando 3RA FORMA (persona_documentos)...");
                 $resINE = EstadoCuentaDAO::obtenerINEPersonaDocumentos($id);
@@ -3049,7 +3049,7 @@ public function descargar()
         // ---------------- FAD_DOC ----------------
         elseif ($tipo === 'FAD_DOC') {
             error_log("=== PROCESANDO FAD_DOC ===");
-            
+
             $local = $buscarLocal($id, $tipo);
             if ($local) {
                 error_log("FAD_DOC $id - RESULTADO: 1RA FORMA (Local)");
@@ -3064,7 +3064,7 @@ public function descargar()
                 ]);
                 exit;
             }
-            
+
             // Primero intentar DAO (2da forma actual)
             error_log("FAD_DOC $id - 1RA FORMA falló, probando 2DA FORMA (DAO)...");
             try {
@@ -3080,14 +3080,14 @@ public function descargar()
                 $archivo = basename($res['datos']['nombre_archivo']);
                 $archivo = str_replace(['doc_cliente/', 'doc_cliente\\'], '', $archivo);
                 $archivo = basename($archivo);
-                
+
                 $carpeta = 'FAD';
                 $extension = strtolower(pathinfo($archivo, PATHINFO_EXTENSION));
                 $esImagen = in_array($extension, ['jpg', 'jpeg', 'png', 'gif']);
-                
+
                 $fileName = "{$carpeta}/{$archivo}";
                 $fileUrl = "/estadocuenta/verDocumento?fileName=" . urlencode($fileName);
-                
+
                 echo json_encode([
                     'success' => true,
                     'tipo' => $tipo,
@@ -3099,11 +3099,11 @@ public function descargar()
                 ]);
                 exit;
             }
-            
+
             // Si DAO falla, intentar 3RA FORMA
             error_log("FAD_DOC $id - 2DA FORMA (DAO) falló, probando 3RA FORMA...");
             $nombreBD = $consultarBDTerceraForma($id, 'FAD_DOC');
-            
+
             if ($nombreBD) {
                 $fileNameBD = "FAD/" . $nombreBD;
                 if ($existeEnS3($fileNameBD)) {
@@ -3111,7 +3111,7 @@ public function descargar()
                     $this->registrarAuditoriaDocumento($id, $tipo, $nombreDoc, 1, null);
                     $extension = strtolower(pathinfo($nombreBD, PATHINFO_EXTENSION));
                     $esImagen = in_array($extension, ['jpg', 'jpeg', 'png', 'gif']);
-                    
+
                     $fileUrl = "/estadocuenta/verDocumento?fileName=" . urlencode($fileNameBD);
                     echo json_encode([
                         'success' => true,
@@ -3127,7 +3127,7 @@ public function descargar()
                     error_log("FAD_DOC $id - 3RA FORMA: Encontrado en BD pero no en S3: $fileNameBD");
                 }
             }
-            
+
             error_log("FAD_DOC $id - RESULTADO: 3 FORMAS FALLIDAS");
             $this->registrarAuditoriaDocumento($id, $tipo, $nombreDoc, 0, "Este ID de crédito no tiene {$nombreDoc} registrado en ninguna ubicación.");
             echo json_encode([
@@ -3140,7 +3140,7 @@ public function descargar()
         // ---------------- EVIDENCIA ----------------
         elseif ($tipo === 'EVIDENCIA') {
             error_log("=== PROCESANDO EVIDENCIA ===");
-            
+
             $local = $buscarLocal($id, $tipo);
             if ($local) {
                 error_log("EVIDENCIA $id - RESULTADO: 1RA FORMA (Local)");
@@ -3155,7 +3155,7 @@ public function descargar()
                 ]);
                 exit;
             }
-            
+
             // Primero intentar DAO (2da forma actual)
             error_log("EVIDENCIA $id - 1RA FORMA falló, probando 2DA FORMA (DAO)...");
             try {
@@ -3171,14 +3171,14 @@ public function descargar()
                 $archivo = basename($res['datos']['nombre_archivo']);
                 $archivo = str_replace(['doc_cliente/', 'doc_cliente\\'], '', $archivo);
                 $archivo = basename($archivo);
-                
+
                 $carpeta = 'EVIDENCIA';
                 $extension = strtolower(pathinfo($archivo, PATHINFO_EXTENSION));
                 $esImagen = in_array($extension, ['jpg', 'jpeg', 'png', 'gif']);
-                
+
                 $fileName = "{$carpeta}/{$archivo}";
                 $fileUrl = "/estadocuenta/verDocumento?fileName=" . urlencode($fileName);
-                
+
                 echo json_encode([
                     'success' => true,
                     'tipo' => $tipo,
@@ -3190,11 +3190,11 @@ public function descargar()
                 ]);
                 exit;
             }
-            
+
             // Si DAO falla, intentar 3RA FORMA
             error_log("EVIDENCIA $id - 2DA FORMA (DAO) falló, probando 3RA FORMA...");
             $nombreBD = $consultarBDTerceraForma($id, 'EVIDENCIA');
-            
+
             if ($nombreBD) {
                 $fileNameBD = "EVIDENCIA/" . $nombreBD;
                 if ($existeEnS3($fileNameBD)) {
@@ -3202,7 +3202,7 @@ public function descargar()
                     $this->registrarAuditoriaDocumento($id, $tipo, $nombreDoc, 1, null);
                     $extension = strtolower(pathinfo($nombreBD, PATHINFO_EXTENSION));
                     $esImagen = in_array($extension, ['jpg', 'jpeg', 'png', 'gif']);
-                    
+
                     $fileUrl = "/estadocuenta/verDocumento?fileName=" . urlencode($fileNameBD);
                     echo json_encode([
                         'success' => true,
@@ -3218,7 +3218,7 @@ public function descargar()
                     error_log("EVIDENCIA $id - 3RA FORMA: Encontrado en BD pero no en S3: $fileNameBD");
                 }
             }
-            
+
             error_log("EVIDENCIA $id - RESULTADO: 3 FORMAS FALLIDAS");
             $this->registrarAuditoriaDocumento($id, $tipo, $nombreDoc, 0, "Este ID de crédito no tiene {$nombreDoc} registrado en ninguna ubicación.");
             echo json_encode([
@@ -3254,6 +3254,16 @@ public function descargar()
         exit;
     }
 }
+
+    /**
+     * Devuelve ruta a un archivo PDF de FAD_DOC para el id dado.
+     * Retorna ['path' => ruta absoluta, 'isTemp' => true si hay que borrarla después] o null.
+     * Público para uso desde Sabueso (extracción Información de Ingresos).
+     */
+    public function getRutaPdfFAD_DOC($idCredito)
+    {
+        return $this->getPdfPathForFAD_DOC($idCredito);
+    }
 
     /**
      * Devuelve ruta a un archivo PDF de FAD_DOC para el id dado.
@@ -3658,7 +3668,7 @@ public function descargar()
             return;
         }
 
-        $resultado = EstadoCuentaDAO::getGastosCobranza($idCredito);    
+        $resultado = EstadoCuentaDAO::getGastosCobranza($idCredito);
         self::respuestaJSON($resultado);
     }
 
@@ -3808,30 +3818,30 @@ public function descargar()
         exit;
     }
 
-    
+
 
     public function buscarReporteDictamen()
 {
 
-    
+
     // DEBUG: Log de entrada
-    
-    
+
+
     header('Content-Type: application/json');
-    
+
     // Verificar sesión EXPLÍCITAMENTE
     session_start(); // Asegurar que la sesión esté iniciada
     if (!isset($_SESSION['usuario_id'])) {
         error_log('ERROR: No hay usuario_id en sesión - Redirigiría a login');
         // NO redirijas aquí, devuelve JSON error
         echo json_encode([
-            'success' => false, 
+            'success' => false,
             'mensaje' => 'Sesión expirada',
             'code' => 'SESSION_EXPIRED'
         ]);
         return;
     }
-    
+
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
         error_log('ERROR: Método no permitido: ' . $_SERVER['REQUEST_METHOD']);
         echo json_encode(['success' => false, 'mensaje' => 'Método no permitido']);
@@ -3839,31 +3849,31 @@ public function descargar()
     }
 
     header('Content-Type: application/json');
-    
+
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
         echo json_encode(['success' => false, 'mensaje' => 'Método no permitido']);
         return;
     }
-    
+
     $fechaInicio = $_POST['fechaInicio'] ?? '';
     $fechaFin = $_POST['fechaFin'] ?? '';
-    
+
     // Validar fechas
     if (empty($fechaInicio) || empty($fechaFin)) {
         echo json_encode(['success' => false, 'mensaje' => 'Fechas requeridas']);
         return;
     }
-    
+
     // Validar formato de fechas
-    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaInicio) || 
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaInicio) ||
         !preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaFin)) {
         echo json_encode(['success' => false, 'mensaje' => 'Formato de fecha inválido']);
         return;
     }
-    
+
     // Usar tu modelo existente
     $resultado = EstadoCuentaDAO::obtenerReportesDictamenPorFecha($fechaInicio, $fechaFin);
-    
+
     // Retornar como JSON
     if ($resultado['success']) {
         echo json_encode([
@@ -3879,7 +3889,7 @@ public function descargar()
         ]);
     }
 
-    
+
 }
 
     public function registrarDocumentoCliente()
@@ -4128,7 +4138,7 @@ public function descargar()
         header('Content-Length: ' . filesize($rutaCompleta));
         header('Content-Disposition: inline; filename="' . $archivo . '"');
         header('Cache-Control: public, max-age=3600');
-        
+
         // Leer y enviar el archivo
         readfile($rutaCompleta);
         exit;
@@ -4199,7 +4209,7 @@ public function descargar()
     public function verDocumento()
     {
         $fileName = $_GET['fileName'] ?? '';
-        
+
         if (empty($fileName)) {
             http_response_code(404);
             echo "Archivo no especificado";
@@ -4208,16 +4218,16 @@ public function descargar()
 
         // Decodificar el fileName si viene codificado
         $fileName = urldecode($fileName);
-        
+
         $s3Url = "http://98.90.194.116/audit-app-0.0.1-SNAPSHOT_1/s3/downloadS3File?fileName=" . urlencode($fileName);
 
         // Determinar Content-Type basado en extensión
         $ext = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
         $contentType = 'application/octet-stream';
-        
+
         switch ($ext) {
             case 'pdf': $contentType = 'application/pdf'; break;
-            case 'jpg': 
+            case 'jpg':
             case 'jpeg': $contentType = 'image/jpeg'; break;
             case 'png': $contentType = 'image/png'; break;
             case 'gif': $contentType = 'image/gif'; break;
@@ -4233,7 +4243,7 @@ public function descargar()
             CURLOPT_TIMEOUT => 30,
             CURLOPT_HEADER => false, // No incluir headers en la respuesta
         ]);
-        
+
         $data = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         $error = curl_error($ch);
@@ -4257,11 +4267,11 @@ public function descargar()
         header("Content-Length: " . strlen($data));
         header("Cache-Control: public, max-age=3600");
         header("Pragma: public");
-        
+
         // Headers CORS si es necesario
         header("Access-Control-Allow-Origin: *");
         header("Access-Control-Allow-Methods: GET");
-        
+
         echo $data;
         exit;
     }
@@ -4275,30 +4285,30 @@ public function descargarReporteDictamen()
     while (ob_get_level()) {
         ob_end_clean();
     }
-    
+
     try {
         // Obtener parámetros de fecha del GET
         $fechaInicio = $_GET['fechaInicio'] ?? null;
         $fechaFin = $_GET['fechaFin'] ?? null;
-        
+
         // Validar fechas
         if (empty($fechaInicio) || empty($fechaFin)) {
             die('Fechas requeridas');
         }
-        
+
         // Validar formato de fechas
-        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaInicio) || 
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaInicio) ||
             !preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaFin)) {
             die('Formato de fecha inválido. Use YYYY-MM-DD');
         }
-        
+
         // Obtener datos del reporte
         $reportes = EstadoCuentaDAO::obtenerReportesDictamenParaDescarga($fechaInicio, $fechaFin);
-        
+
         if (empty($reportes)) {
             die('No hay datos para descargar en el rango de fechas especificado');
         }
-        
+
         // Preparar datos para Excel
         $data = [];
         foreach ($reportes as $reporte) {
@@ -4311,7 +4321,7 @@ public function descargarReporteDictamen()
                     // Mantener el formato original si hay error
                 }
             }
-            
+
             $data[] = [
                 'id_dictamen' => $reporte['id_dictamen'] ?? '',
                 'fecha_registro' => $fechaRegistro,
@@ -4329,7 +4339,7 @@ public function descargarReporteDictamen()
                 'agente' => $reporte['agente'] ?? ''
             ];
         }
-        
+
         // Definir columnas para Excel
         $columnas = [
             \PHPSpreadsheet::ColumnaExcel('id_dictamen', 'ID DICTAMEN'),
@@ -4347,10 +4357,10 @@ public function descargarReporteDictamen()
             \PHPSpreadsheet::ColumnaExcel('comentarios', 'COMENTARIOS'),
             \PHPSpreadsheet::ColumnaExcel('agente', 'AGENTE')
         ];
-        
+
         // Generar nombre del archivo
         $nombreArchivo = 'Dictamen_Llamadas_' . $fechaInicio . '_a_' . $fechaFin . '_' . date('Y-m-d');
-        
+
         // Descargar Excel directamente usando PHPSpreadsheet
         \PHPSpreadsheet::DescargaExcel(
             $nombreArchivo,
@@ -4359,7 +4369,7 @@ public function descargarReporteDictamen()
             $columnas,
             $data
         );
-        
+
         // Terminar ejecución para que no se agregue nada extra
         exit;
     } catch (\Exception $e) {
@@ -4528,13 +4538,13 @@ public function descargarReporteDictamen()
                 const divFechaCorte = document.getElementById('divFechaCorte');
                 if (divFechaCorte) divFechaCorte.style.display = 'block';
             }
-        
+
             // Cambiar entre ID y Nombre
             function actualizarInputs() {
                     const modo = document.querySelector('input[name="modoBusqueda"]:checked')?.value;
                     const divNombre = document.getElementById('divNombre');
                     const divID = document.getElementById('divID');
-                    
+
                     // Verificar que los elementos existan antes de acceder a sus propiedades
                     if (divNombre) {
                         divNombre.style.display = modo === 'nombre' ? 'block' : 'none';
@@ -4543,11 +4553,11 @@ public function descargarReporteDictamen()
                         divID.style.display = modo === 'id' ? 'block' : 'none';
                     }
             }
-            
+
             document.querySelectorAll('input[name="modoBusqueda"]').forEach(el =>
                 el.addEventListener('change', actualizarInputs)
             );
-            
+
             // Solo agregar el event listener si el modal existe
             const modalDirecciones = document.getElementById('modalDirecciones');
             if (modalDirecciones) {
@@ -4557,7 +4567,7 @@ public function descargarReporteDictamen()
                 });
             }
 
-        
+
             // Botón limpiar filtros
             document.getElementById("btnResetFiltros").addEventListener("click", () => {
                 document.getElementById("idCredito").value = "";
@@ -4567,21 +4577,21 @@ public function descargarReporteDictamen()
                 document.getElementById("modoID").checked = true;
                 actualizarInputs();
             });
-        
+
             // Validación antes de enviar
             document.getElementById("formBusqueda").addEventListener("submit", async e => {
                 e.preventDefault();
-                
+
                 const modo = document.querySelector('input[name="modoBusqueda"]:checked')?.value;
                 const idCredito       = document.getElementById("idCredito").value.trim();
                 const nombre          = document.getElementById("nombre").value.trim();
                 const idCreditoLista  = document.getElementById("idCreditoLista").value.trim();
-        
+
                 // =========================
                 // MODO ID
                 // =========================
                 if (modo === "id") {
-            
+
                     if (idCredito === "") {
                         return Swal.fire({
                             icon: "warning",
@@ -4589,17 +4599,17 @@ public function descargarReporteDictamen()
                             text: "Por favor ingresa el ID del crédito."
                         });
                     }
-            
+
                     // Limpieza defensiva
                     document.getElementById("idCreditoLista").value = "";
                     document.getElementById("nombre").value = "";
                 }
-            
+
                 // =========================
                 // MODO NOMBRE
                 // =========================
                 if (modo === "nombre") {
-            
+
                     if (nombre === "") {
                         return Swal.fire({
                             icon: "warning",
@@ -4607,7 +4617,7 @@ public function descargarReporteDictamen()
                             text: "Escribe y selecciona un cliente de la lista."
                         });
                     }
-            
+
                     if (idCreditoLista === "") {
                         return Swal.fire({
                             icon: "warning",
@@ -4615,11 +4625,11 @@ public function descargarReporteDictamen()
                             text: "Debes seleccionar un cliente del listado, no solo escribirlo."
                         });
                     }
-            
+
                     // Limpieza defensiva
                     document.getElementById("idCredito").value = "";
                 }
-            
+
                 // =========================
                 // LOADING
                 // =========================
@@ -4725,9 +4735,9 @@ public function descargarReporteDictamen()
                     });
                 }
             });
-        
+
         });
-        
+
 
         </script>
 JS;
@@ -5473,6 +5483,6 @@ JS;
         self::set("script", $scriptConsulta);
         return self::render("__SPARTA_SECRET_REDACTED___guatemala_consulta");
     }
-    
+
     // MARKER_GUATEMALA_FIN_CLASE
 }
