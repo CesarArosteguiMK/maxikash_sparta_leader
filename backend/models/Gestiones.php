@@ -93,7 +93,7 @@ SQL;
         '' AS id_key,
         '' AS estatus,
         lh.nombre_usuario AS usuario_asignado,
-        '' AS nombre_cliente,
+         lh.nombre_usuario AS nombre_cliente,
         lh.id_credit AS id_credito,
         '' AS cuenta_clabe,
         '' AS nombre_completo_cliente,

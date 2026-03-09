@@ -106,9 +106,12 @@
                                 </span>
                                 <i class="fa fa-briefcase me-1 ms-1" title="Portafolio" aria-hidden="true"></i>
                                 <?= $g["nombre_cliente"] ?> —
-                                <?= ($g["medio_contactacion_ccc"] == "0") ? "CAMPO" : "TELEFONICO" ?> —
-                                <?= $g["dictamen_ccc"] ?> —
-                                <?= $g["fecha_dispositivo"] ?> —
+                                <?= mb_strtoupper($g["contacto"]) ?> —
+                                <?= (mb_strtoupper($g["contacto"]) == "TELEFONO")
+                                        ? mb_strtoupper($g["dictamen_ccc"]) . " — "
+                                        : mb_strtoupper($g["dictamen_campo"]) . " — " ?>
+
+                                <?= $g["fecha_dispositivo"]?> —
                                 <?= $g["nombre_base"] ?>
                             </button>
                         </h2>
