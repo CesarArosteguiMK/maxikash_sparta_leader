@@ -78,13 +78,13 @@ class EstadoCuenta extends Controller
                 const divFechaCorte = document.getElementById('divFechaCorte');
                 if (divFechaCorte) divFechaCorte.style.display = 'block';
             }
-        
+
             // Cambiar entre ID y Nombre
             function actualizarInputs() {
                     const modo = document.querySelector('input[name="modoBusqueda"]:checked')?.value;
                     const divNombre = document.getElementById('divNombre');
                     const divID = document.getElementById('divID');
-                    
+
                     // Verificar que los elementos existan antes de acceder a sus propiedades
                     if (divNombre) {
                         divNombre.style.display = modo === 'nombre' ? 'block' : 'none';
@@ -93,11 +93,11 @@ class EstadoCuenta extends Controller
                         divID.style.display = modo === 'id' ? 'block' : 'none';
                     }
             }
-            
+
             document.querySelectorAll('input[name="modoBusqueda"]').forEach(el =>
                 el.addEventListener('change', actualizarInputs)
             );
-            
+
             // Solo agregar el event listener si el modal existe
             const modalDirecciones = document.getElementById('modalDirecciones');
             if (modalDirecciones) {
@@ -107,7 +107,7 @@ class EstadoCuenta extends Controller
                 });
             }
 
-        
+
             // Botón limpiar filtros
             document.getElementById("btnResetFiltros").addEventListener("click", () => {
                 document.getElementById("idCredito").value = "";
@@ -117,21 +117,21 @@ class EstadoCuenta extends Controller
                 document.getElementById("modoID").checked = true;
                 actualizarInputs();
             });
-        
+
             // Validación antes de enviar
             document.getElementById("formBusqueda").addEventListener("submit", async e => {
                 e.preventDefault();
-                
+
                 const modo = document.querySelector('input[name="modoBusqueda"]:checked')?.value;
                 const idCredito       = document.getElementById("idCredito").value.trim();
                 const nombre          = document.getElementById("nombre").value.trim();
                 const idCreditoLista  = document.getElementById("idCreditoLista").value.trim();
-        
+
                 // =========================
                 // MODO ID
                 // =========================
                 if (modo === "id") {
-            
+
                     if (idCredito === "") {
                         return Swal.fire({
                             icon: "warning",
@@ -139,17 +139,17 @@ class EstadoCuenta extends Controller
                             text: "Por favor ingresa el ID del crédito."
                         });
                     }
-            
+
                     // Limpieza defensiva
                     document.getElementById("idCreditoLista").value = "";
                     document.getElementById("nombre").value = "";
                 }
-            
+
                 // =========================
                 // MODO NOMBRE
                 // =========================
                 if (modo === "nombre") {
-            
+
                     if (nombre === "") {
                         return Swal.fire({
                             icon: "warning",
@@ -157,7 +157,7 @@ class EstadoCuenta extends Controller
                             text: "Escribe y selecciona un cliente de la lista."
                         });
                     }
-            
+
                     if (idCreditoLista === "") {
                         return Swal.fire({
                             icon: "warning",
@@ -165,11 +165,11 @@ class EstadoCuenta extends Controller
                             text: "Debes seleccionar un cliente del listado, no solo escribirlo."
                         });
                     }
-            
+
                     // Limpieza defensiva
                     document.getElementById("idCredito").value = "";
                 }
-            
+
                 // =========================
                 // LOADING
                 // =========================
@@ -203,6 +203,15 @@ class EstadoCuenta extends Controller
 
                     if (!result.success) {
                         Swal.close();
+
+                        if (result.tipo === "credito_guatemala") {
+                            return Swal.fire({
+                                title: "Crédito de Guatemala",
+                                html: "<div style='text-align:center;'><div style='margin-bottom:12px;'><span class='fi fi-gt fis' style='font-size:2.8rem;'></span></div><p style='margin:0; font-size:14px; color:#666;'>El crédito ingresado pertenece a Guatemala. Consulta este ID en Estado de Cuenta Guatemala.</p></div>",
+                                confirmButtonText: "Entendido"
+                            });
+                        }
+
                         return Swal.fire({
                             icon: "error",
                             title: "ID de crédito incorrecto",
@@ -275,9 +284,9 @@ class EstadoCuenta extends Controller
                     });
                 }
             });
-        
+
         });
-        
+
 
         </script>
 JS;
@@ -304,6 +313,27 @@ JS;
                 $fechaHoy = date('Y-m-d');
             }
             error_log('[EstadoCuenta Consulta] POST fechaCorte=' . ($fechaCortePost ?? 'null') . ', permisoFechaCorte=' . ($tienePermisoFechaCorte ? '1' : '0') . ', fechaUsada=' . $fechaHoy);
+
+            // Validación cruzada MX -> GT: si no existe en México, verificar Guatemala para mostrar alerta amigable.
+            $idConsultado = ($nombre != null && $idCreditoLista != null) ? $idCreditoLista : $idCredito;
+            if (!empty($idConsultado)) {
+                $referenciasMxPrevias = EmpresasDAO::getConsultaReferenciasEstadoCuenta($idConsultado);
+                if (empty($referenciasMxPrevias['datos'])) {
+                    $datosGuatPrevios = EmpresasDAO::getGuatemalaEstadoCuenta($idConsultado);
+                    if (!empty($datosGuatPrevios['datos'])) {
+                        self::set("titulo", "Estados de Cuenta");
+                        $scriptConsulta = str_replace('TienePermisoRegistrarDocumentos_PLACEHOLDER', json_encode(false), $script);
+                        $scriptConsulta = str_replace('TienePermisoFechaCorte_PLACEHOLDER', json_encode($tienePermisoFechaCorte), $scriptConsulta);
+                        self::set("script", $scriptConsulta);
+                        self::set("alertaBusqueda", [
+                            'title' => 'Crédito de Guatemala',
+                            'html' => "<div style='text-align:center;'><div style='margin-bottom:12px;'><span class='fi fi-gt fis' style='font-size:2.8rem;'></span></div><p style='margin:0; font-size:14px; color:#666;'>El crédito ingresado pertenece a Guatemala. Consulta este ID en Estado de Cuenta Guatemala.</p></div>",
+                            'confirmButtonText' => 'Entendido'
+                        ]);
+                        return self::render("__SPARTA_SECRET_REDACTED___consulta");
+                    }
+                }
+            }
 
             if($nombre != null && $idCreditoLista != null)
             {
@@ -1027,6 +1057,20 @@ JS;
             return;
         }
 
+        // Validación cruzada MX -> GT para dar mensaje de país correcto.
+        $referenciasMx = EmpresasDAO::getConsultaReferenciasEstadoCuenta($idAValidar);
+        if (empty($referenciasMx['datos'])) {
+            $datosGuat = EmpresasDAO::getGuatemalaEstadoCuenta($idAValidar);
+            if (!empty($datosGuat['datos'])) {
+                self::respuestaJSON([
+                    'success' => false,
+                    'tipo' => 'credito_guatemala',
+                    'mensaje' => 'El crédito pertenece a Guatemala'
+                ]);
+                return;
+            }
+        }
+
         // Validar con la API
         $resultado = $this->api___SPARTA_SECRET_REDACTED__($idAValidar, $fechaHoy);
 
@@ -1308,10 +1352,10 @@ JS;
                         });
 
                         try {
-                            const endpoint = tipoDocumento === 'INE' 
-                                ? '/EstadoCuenta/registrarINE' 
+                            const endpoint = tipoDocumento === 'INE'
+                                ? '/EstadoCuenta/registrarINE'
                                 : '/EstadoCuenta/registrarDocumentoCliente';
-                            
+
                             const response = await fetch(endpoint, {
                                 method: 'POST',
                                 body: formData
@@ -1350,7 +1394,7 @@ JS;
                         }
                     });
                 }
-            
+
                 // Botón limpiar filtros
                 const btnResetFiltros = document.getElementById('btnResetFiltros');
                 if (btnResetFiltros) {
@@ -1365,7 +1409,7 @@ JS;
                         if (nombre) {
                             nombre.value = '';
                         }
-                        
+
                         // Resetear select de tipo de documento
                         const tipoDocumento = document.getElementById('tipoDocumento');
                         if (tipoDocumento) {
@@ -1373,32 +1417,32 @@ JS;
                         }
                     });
                 }
-            
+
                 const btnBuscar = document.getElementById('btnBuscar');
                 const form = document.getElementById('formBusqueda');
-            
+
                 if (!btnBuscar || !form) {
                     console.error('Elementos del formulario no encontrados');
                     return;
                 }
-            
+
                 // Escuchar clic del botón en lugar del submit del formulario
                 btnBuscar.addEventListener('click', function(e) {
                     e.preventDefault();
                     e.stopPropagation();
-            
+
                     const idInput = document.getElementById('idCredito');
                     const tipoSelect = document.getElementById('tipoDocumento');
-                    
+
                     if (!idInput || !tipoSelect) {
                         console.error('Campos del formulario no encontrados');
                         Swal.fire('Error', 'Error al acceder a los campos del formulario', 'error');
                         return;
                     }
-            
+
                     const id   = idInput.value.trim();
                     const tipo = tipoSelect.value;
-            
+
                     // Validar que el ID no esté vacío
                     if (!id) {
                         Swal.fire({
@@ -1408,7 +1452,7 @@ JS;
                         });
                         return;
                     }
-            
+
                     // Validar que se haya seleccionado un tipo de documento
                     if (!tipo) {
                         Swal.fire({
@@ -1418,7 +1462,7 @@ JS;
                         });
                         return;
                     }
-            
+
                     // ====== LIMPIAR CONTENEDORES ANTES DE CARGAR NUEVO DOCUMENTO ======
                     const limpiarContenedoresDocumento = function() {
                         // Limpiar canvas de PDF
@@ -1431,37 +1475,37 @@ JS;
                             canvas.width = 0;
                             canvas.height = 0;
                         }
-                        
+
                         // Ocultar TODOS los contenedores
                         const pdfContainer = document.getElementById('documentoPdfContainer');
                         if (pdfContainer) pdfContainer.style.display = 'none';
-                        
+
                         const imgContainer = document.getElementById('documentoImagenContainer');
                         if (imgContainer) imgContainer.style.display = 'none';
-                        
+
                         const embedContainer = document.getElementById('visorPdfEmbed');
                         if (embedContainer) {
                             embedContainer.style.display = 'none';
                             embedContainer.innerHTML = '';
                         }
-                        
+
                         const visorLegacy = document.getElementById('visorDocumento');
                         if (visorLegacy) {
                             visorLegacy.style.display = 'none';
                             visorLegacy.src = '';
                         }
-                        
+
                         // Limpiar imagen de documentos
                         const imgDocumento = document.getElementById('imgDocumento');
                         if (imgDocumento) {
                             imgDocumento.src = '';
                             imgDocumento.style.display = 'none';
                         }
-                        
+
                         // Ocultar controles de PDF
                         const pdfControls = document.getElementById('pdfControls');
                         if (pdfControls) pdfControls.style.display = 'none';
-                        
+
                         // Resetear variables globales de PDF si existen
                         if (typeof pdfDocFactura !== 'undefined' && pdfDocFactura) {
                             pdfDocFactura = null;
@@ -1470,7 +1514,7 @@ JS;
                             pageNumFactura = 1;
                         }
                     };
-                    
+
                     // Primero validar que el ID de crédito exista (API estado de cuenta)
                     Swal.fire({
                         title: 'Validando crédito',
@@ -1526,7 +1570,7 @@ JS;
                     .then(function(data) {
                         if (!data) return;
                         Swal.close();
-            
+
                         if (!data.success) {
                             const mensaje = data.mensaje || '';
                             const esSinDocumento = mensaje.indexOf('no tiene') !== -1 && mensaje.indexOf('registrado') !== -1;
@@ -1562,39 +1606,39 @@ JS;
                             }
                             return;
                         }
-            
+
                         // Si es INE, mostrar ambas imágenes (frente y reverso)
                         if (data.tipo === 'INE') {
                             const imgFrente = document.getElementById('imgINEfrente');
                             const imgReverso = document.getElementById('imgINEreverso');
-                            
+
                             // Desactivar descarga en imágenes del INE
                             if (typeof desactivarDescargaImagen === 'function') {
                                 if (imgFrente) desactivarDescargaImagen(imgFrente);
                                 if (imgReverso) desactivarDescargaImagen(imgReverso);
                             }
-                            
+
                             // Configurar imágenes con carga desde servidor (sin descarga)
                             imgFrente.src = data.frente;
                             imgReverso.src = data.reverso;
-                            
+
                             // LIMPIAR el atributo de marcas "SIN VALOR" del overlay pdfWatermark si existe
                             // INE usa imágenes, no PDF.js, por lo que no debe tener este atributo
                             const watermark = document.getElementById('pdfWatermark');
                             if (watermark) {
                                 watermark.removeAttribute('data-marcas-sin-valor');
                             }
-                            
+
                             // Crear marcas de agua inmediatamente y después de que las imágenes se carguen
                             const crearMarcasAguaINE = function() {
                                 if (typeof crearMarcasAgua === 'function') {
                                     crearMarcasAgua();
                                 }
                             };
-                            
+
                             // Crear marcas de agua inmediatamente
                             setTimeout(crearMarcasAguaINE, 100);
-                            
+
                             imgFrente.onload = function() {
                                 // Desactivar descarga después de cargar
                                 if (typeof desactivarDescargaImagen === 'function') {
@@ -1602,7 +1646,7 @@ JS;
                                 }
                                 setTimeout(crearMarcasAguaINE, 300);
                             };
-                            
+
                             imgReverso.onload = function() {
                                 // Desactivar descarga después de cargar
                                 if (typeof desactivarDescargaImagen === 'function') {
@@ -1610,58 +1654,58 @@ JS;
                                 }
                                 setTimeout(crearMarcasAguaINE, 300);
                             };
-                            
+
                             // Mostrar modal de INE
                             const modalINE = document.getElementById('modalINE');
                             const bsModal = new bootstrap.Modal(modalINE);
                             bsModal.show();
-                            
+
                             // Las marcas de agua se crearán automáticamente cuando el modal se muestre
                             // gracias al listener en documentacion_consulta.php
-                        } 
+                        }
                         // Para FAD_DOC, EVIDENCIA, FACTURA, CONTRATO - usar visor de imágenes con marca de agua
                         else if (data.tipo && data.url) {
                             const imgContainer = document.getElementById('documentoImagenContainer');
                             const pdfContainer = document.getElementById('documentoPdfContainer');
                             const imgDocumento = document.getElementById('imgDocumento');
                             const iframeDocumento = document.getElementById('iframeDocumento');
-                            
+
                             if (!imgContainer || !pdfContainer) {
                                 Swal.fire('Error', 'No se pudo cargar el visor de documentos', 'error');
                                 return;
                             }
-                            
+
                             // Determinar si es PDF o imagen
                             // Si tiene extension pdf o la URL contiene .pdf o esImagen es false explícitamente
                             // O si la URL es de Google Viewer (significa que es PDF)
-                            const esPdf = (data.extension === 'pdf') || 
-                                         (data.url && (data.url.includes('.pdf') || data.url.includes('docs.google.com/gview'))) || 
+                            const esPdf = (data.extension === 'pdf') ||
+                                         (data.url && (data.url.includes('.pdf') || data.url.includes('docs.google.com/gview'))) ||
                                          (data.archivo && data.archivo.toLowerCase().endsWith('.pdf')) ||
                                          (data.esImagen === false);
-                            
+
                             if (esPdf) {
                                 // Para FACTURA, FAD_DOC, CONTRATO y EVIDENCIA, usar PDF.js con la misma función cargarPDFFactura
                                 if (data.tipo === 'FACTURA' || data.tipo === 'FAD_DOC' || data.tipo === 'CONTRATO' || data.tipo === 'EVIDENCIA') {
                                     // Usar PDF.js para FACTURA, FAD_DOC, VALIDACIONES y EVIDENCIA con cargarPDFFactura
                                     const tipoNombre = data.tipo === 'FACTURA' ? 'FACTURA' : (data.tipo === 'FAD_DOC' ? 'FAD_DOC' : (data.tipo === 'EVIDENCIA' ? 'EVIDENCIA' : 'VALIDACIONES'));
-                                    
+
                                     // Asegurar que el contenedor de visor simple esté oculto
                                     const embedContainer = document.getElementById('visorPdfEmbed');
                                     if (embedContainer) {
                                         embedContainer.style.display = 'none';
                                     }
-                                    
+
                                     imgContainer.style.display = 'none';
-                                    
+
                                     const visorLegacy = document.getElementById('visorDocumento');
                                     if (visorLegacy) {
                                         visorLegacy.style.display = 'none';
                                     }
-                                    
+
                                     // Usar EXACTAMENTE la misma lógica que EVIDENCIA
                                     // IMPORTANTE: Usar directamente la URL que viene del backend (ya es el proxy local)
                                     let pdfUrl = data.url;
-                                    
+
                                     // Solo procesar si viene de Google Viewer
                                     if (pdfUrl.includes('docs.google.com/gview')) {
                                         try {
@@ -1673,7 +1717,7 @@ JS;
                                         } catch (e) {
                                         }
                                     }
-                                    
+
                                     // NO reconstruir la URL si ya es una URL relativa del proxy local
                                     // El backend ya devuelve la URL correcta del proxy: /estadocuenta/verDocumento?fileName=...
                                     // Solo reconstruir si es una URL absoluta del S3 y no incluye el proxy
@@ -1689,8 +1733,8 @@ JS;
                                             console.warn('No se pudo convertir URL a proxy local:', e);
                                         }
                                     }
-                                    
-                                    
+
+
                                     if (typeof cargarPDFFactura === 'function') {
                                         window.tipoDocumentoActual = data.tipo;
                                         window.urlDocumentoActual = pdfUrl;
@@ -1708,7 +1752,7 @@ JS;
                                         console.error('PDF.js no está cargado o la función cargarPDFFactura no existe');
                                         Swal.fire('Error', 'El visor de PDF no está disponible', 'error');
                                     }
-                                    
+
                                     // Los controles de zoom ya están en el HTML y se mostrarán automáticamente
                                     // El header se ocultará desde cargarPDFConPDFjs cuando se muestre el modal
                                 }
@@ -1719,31 +1763,31 @@ JS;
                                         'FACTURA': 'FACTURA',
                                         'CONTRATO': 'VALIDACIONES'
                                     };
-                                    
+
                                     // Obtener el modal element primero
                                     const modalElement = document.getElementById('modalDocumento');
                                     if (!modalElement) {
                                         Swal.fire('Error', 'No se encontró el modal de documentos', 'error');
                                         return;
                                     }
-                                    
+
                                     // Ocultar contenedores de imagen y PDF.js
                                     imgContainer.style.display = 'none';
                                     pdfContainer.style.display = 'none';
-                                    
+
                                     // Obtener el contenedor del modal
                                     const modalBody = document.getElementById('documentoModalBody');
                                     if (!modalBody) {
                                         Swal.fire('Error', 'No se encontró el contenedor del modal', 'error');
                                         return;
                                     }
-                                    
+
                                     // Ocultar el iframe legacy si existe
                                     const visorLegacy = document.getElementById('visorDocumento');
                                     if (visorLegacy) {
                                         visorLegacy.style.display = 'none';
                                     }
-                                    
+
                                     // Crear o reutilizar un contenedor para el embed
                                     let embedContainer = document.getElementById('visorPdfEmbed');
                                     if (!embedContainer) {
@@ -1752,10 +1796,10 @@ JS;
                                         embedContainer.style.cssText = 'position: absolute; top: 0; left: 0; right: 0; bottom: 0; width: 100%; height: 100%; display: none; overflow: auto; background-color: #525252;';
                                         modalBody.appendChild(embedContainer);
                                     }
-                                    
+
                                     // Limpiar contenido anterior
                                     embedContainer.innerHTML = '';
-                                    
+
                                     // Asegurar que el contenedor esté visible y tenga el tamaño correcto
                                     embedContainer.style.display = 'block';
                                     embedContainer.style.position = 'absolute';
@@ -1767,27 +1811,27 @@ JS;
                                     embedContainer.style.height = '100%';
                                     embedContainer.style.overflow = 'auto';
                                     embedContainer.style.backgroundColor = '#525252';
-                                    
+
                                     // Crear wrapper para el PDF
                                     // Este wrapper se ajustará cuando se haga zoom
                                     const pdfWrapper = document.createElement('div');
                                     pdfWrapper.id = 'pdfWrapperContrato';
                                     pdfWrapper.style.cssText = 'position: relative; top: 0; left: 0; width: 100%; height: 100%;';
-                                    
+
                                     // Crear contenedor con marca de agua (similar a las imágenes)
                                     const watermarkContainer = document.createElement('div');
                                     watermarkContainer.className = 'watermark-container';
                                     watermarkContainer.style.cssText = 'position: relative; width: 100%; height: 100%; display: block;';
-                                    
+
                                     // Crear iframe para visualizar el PDF (más control que embed)
                                     const iframePdf = document.createElement('iframe');
-                                    
+
                                     // Para VALIDACIONES OK (CONTRATO), agregar parámetros de zoom para que se abra sin zoom excesivo
                                     // Para FAD_DOC, ocultar la barra de herramientas
                                     // Para FACTURA, MOSTRAR la barra de herramientas
                                     let pdfUrl = data.url;
                                     const separator = pdfUrl.includes('#') ? '&' : '#';
-                                    
+
                                     if (data.tipo === 'CONTRATO') {
                                         // Agregar parámetros para controlar el zoom inicial
                                         // #view=FitH ajusta el PDF al ancho de la ventana sin zoom excesivo
@@ -1797,18 +1841,18 @@ JS;
                                         // Para FAD_DOC, ocultar la barra de herramientas
                                         pdfUrl = pdfUrl + separator + 'toolbar=0';
                                     }
-                                    
+
                                     iframePdf.src = pdfUrl;
                                     iframePdf.style.cssText = 'position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0; display: block; pointer-events: auto;';
                                     iframePdf.setAttribute('type', 'application/pdf');
                                     iframePdf.setAttribute('frameborder', '0');
                                     iframePdf.setAttribute('scrolling', 'auto');
-                                    
+
                                     // Manejar errores de carga del iframe
                                     iframePdf.addEventListener('error', function(e) {
                                         Swal.fire('Error', 'No se pudo cargar el documento PDF', 'error');
                                     });
-                                    
+
                                     // Crear overlay para marcas de agua que cubra todo el visor
                                     // Este overlay se colocará directamente en el embedContainer para cubrir todo
                                     const watermarkOverlay = document.createElement('div');
@@ -1816,18 +1860,18 @@ JS;
                                     watermarkOverlay.id = 'watermarkOverlayPdf';
                                     // Permitir overflow visible y mantener las franjas rojas del CSS
                                     watermarkOverlay.style.cssText = 'position: absolute; top: 0; left: 0; right: 0; bottom: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; overflow: visible;';
-                                    
+
                                     // Crear overlay de protección que bloquea el click derecho y el menú superior
                                     // Este overlay tiene dos partes: una para el menú superior y otra invisible para bloquear click derecho
-                                    
+
                                     // Overlay para bloquear SOLO click derecho en el menú superior (primeros 60px)
                                     // Usar pointer-events: none para permitir clicks izquierdos en el menú
                                     const menuOverlay = document.createElement('div');
                                     menuOverlay.id = 'pdfMenuOverlay';
-                                    
+
                                     // Para otros tipos, mantener el comportamiento original
                                     menuOverlay.style.cssText = 'position: absolute; top: 0; left: 0; width: 100%; height: 60px; z-index: 20; background: transparent; pointer-events: none;';
-                                    
+
                                     // Solo bloquear click derecho en el área del menú (parte superior)
                                     // Capturar en fase de captura para bloquear antes de que llegue al iframe
                                     embedContainer.addEventListener('contextmenu', function(e) {
@@ -1841,7 +1885,7 @@ JS;
                                             return false;
                                         }
                                     }, true);
-                                    
+
                                     // Bloquear SOLO click derecho en el contenedor (permite clicks izquierdos y scroll)
                                     embedContainer.addEventListener('contextmenu', function(e) {
                                         // Solo bloquear si es click derecho
@@ -1850,7 +1894,7 @@ JS;
                                         e.stopImmediatePropagation();
                                         return false;
                                     }, true);
-                                    
+
                                     watermarkContainer.addEventListener('contextmenu', function(e) {
                                         // Solo bloquear si es click derecho
                                         e.preventDefault();
@@ -1858,7 +1902,7 @@ JS;
                                         e.stopImmediatePropagation();
                                         return false;
                                     }, true);
-                                    
+
                                     // Bloquear SOLO mousedown del botón derecho en embedContainer
                                     embedContainer.addEventListener('mousedown', function(e) {
                                         if (e.button === 2) { // SOLO botón derecho
@@ -1869,7 +1913,7 @@ JS;
                                         }
                                         // Permitir clicks izquierdos (button === 0) - no hacer nada
                                     }, true);
-                                    
+
                                     // Bloquear SOLO mouseup del botón derecho en embedContainer
                                     embedContainer.addEventListener('mouseup', function(e) {
                                         if (e.button === 2) { // SOLO botón derecho
@@ -1880,27 +1924,27 @@ JS;
                                         }
                                         // Permitir clicks izquierdos - no hacer nada
                                     }, true);
-                                    
+
                                     // Overlay de protección que bloquea SOLO click derecho pero permite click izquierdo y scroll
                                     // Usamos pointer-events: none para que NO bloquee clicks izquierdos ni scroll
                                     // Pero capturamos eventos en fase de captura para bloquear SOLO el click derecho
                                     const protectionOverlay = document.createElement('div');
                                     protectionOverlay.id = 'pdfProtectionOverlay';
                                     protectionOverlay.style.cssText = 'position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 30; background: transparent; pointer-events: none;';
-                                    
+
                                     // IMPORTANTE: Como el overlay tiene pointer-events: none, los eventos pasan a través
                                     // Por eso capturamos en el contenedor padre (embedContainer) en fase de captura
                                     // para bloquear SOLO el click derecho antes de que llegue al iframe
-                                    
+
                                     // El menuOverlay ya no necesita listeners porque tiene pointer-events: none
                                     // Los clicks pasan a través y se bloquean en embedContainer
-                                    
+
                                     // También capturar en el documento para mayor seguridad (máxima prioridad)
                                     const contextMenuHandler = function(e) {
                                         // Solo bloquear si el evento viene del área del PDF
                                         const target = e.target;
-                                        if (embedContainer.contains(target) || 
-                                            watermarkContainer.contains(target) || 
+                                        if (embedContainer.contains(target) ||
+                                            watermarkContainer.contains(target) ||
                                             pdfWrapper.contains(target) ||
                                             iframePdf.contains(target) ||
                                             protectionOverlay.contains(target) ||
@@ -1913,13 +1957,13 @@ JS;
                                     };
                                     // Usar capture phase y alta prioridad
                                     document.addEventListener('contextmenu', contextMenuHandler, { capture: true, passive: false });
-                                    
+
                                     // También capturar mousedown del botón derecho a nivel de documento
                                     const mouseDownHandler = function(e) {
                                         if (e.button === 2) { // Botón derecho
                                             const target = e.target;
-                                            if (embedContainer.contains(target) || 
-                                                watermarkContainer.contains(target) || 
+                                            if (embedContainer.contains(target) ||
+                                                watermarkContainer.contains(target) ||
                                                 pdfWrapper.contains(target) ||
                                                 iframePdf.contains(target) ||
                                                 protectionOverlay.contains(target) ||
@@ -1932,12 +1976,12 @@ JS;
                                         }
                                     };
                                     document.addEventListener('mousedown', mouseDownHandler, { capture: true, passive: false });
-                                    
+
                                     // También bloquear a nivel de window para máxima seguridad
                                     const windowContextMenuHandler = function(e) {
                                         const target = e.target;
-                                        if (embedContainer.contains(target) || 
-                                            watermarkContainer.contains(target) || 
+                                        if (embedContainer.contains(target) ||
+                                            watermarkContainer.contains(target) ||
                                             pdfWrapper.contains(target) ||
                                             iframePdf.contains(target) ||
                                             protectionOverlay.contains(target) ||
@@ -1949,28 +1993,28 @@ JS;
                                         }
                                     };
                                     window.addEventListener('contextmenu', windowContextMenuHandler, { capture: true, passive: false });
-                                    
+
                                     // Limpiar todos los listeners cuando se cierre el modal
                                     modalElement.addEventListener('hidden.bs.modal', function() {
                                         document.removeEventListener('contextmenu', contextMenuHandler, { capture: true });
                                         document.removeEventListener('mousedown', mouseDownHandler, { capture: true });
                                         window.removeEventListener('contextmenu', windowContextMenuHandler, { capture: true });
                                     }, { once: true });
-                                    
+
                                     // Bloquear click derecho también en el iframe directamente (ya está arriba, pero lo mantenemos)
                                     // Nota: Estos listeners ya están definidos arriba en la sección de protección reforzada
-                                    
+
                                     // Bloquear arrastrar archivos
                                     protectionOverlay.addEventListener('dragover', function(e) {
                                         e.preventDefault();
                                         return false;
                                     }, true);
-                                    
+
                                     protectionOverlay.addEventListener('drop', function(e) {
                                         e.preventDefault();
                                         return false;
                                     }, true);
-                                    
+
                                     // Bloquear atajos de teclado en el contenedor
                                     embedContainer.addEventListener('keydown', function(e) {
                                         // Bloquear Ctrl+S, Ctrl+P, F12, etc.
@@ -1983,7 +2027,7 @@ JS;
                                             return false;
                                         }
                                     }, true);
-                                    
+
                                     // Intentar bloquear el menú del PDF dentro del iframe cuando se carga
                                     iframePdf.addEventListener('load', function() {
                                         try {
@@ -1997,7 +2041,7 @@ JS;
                                                     e.stopImmediatePropagation();
                                                     return false;
                                                 }, true);
-                                                
+
                                                 // Bloquear mousedown del botón derecho dentro del iframe
                                                 iframeDoc.addEventListener('mousedown', function(e) {
                                                     if (e.button === 2) {
@@ -2007,13 +2051,13 @@ JS;
                                                         return false;
                                                     }
                                                 }, true);
-                                                
+
                                                 // Bloquear otros eventos dentro del iframe
                                                 iframeDoc.addEventListener('selectstart', function(e) {
                                                     e.preventDefault();
                                                     return false;
                                                 }, true);
-                                                
+
                                                 // Bloquear también en el body del iframe
                                                 if (iframeDoc.body) {
                                                     iframeDoc.body.addEventListener('contextmenu', function(e) {
@@ -2022,7 +2066,7 @@ JS;
                                                         e.stopImmediatePropagation();
                                                         return false;
                                                     }, true);
-                                                    
+
                                                     iframeDoc.body.addEventListener('mousedown', function(e) {
                                                         if (e.button === 2) {
                                                             e.preventDefault();
@@ -2038,23 +2082,23 @@ JS;
                                             // El overlay de protección seguirá funcionando
                                         }
                                     });
-                                    
+
                                     // Agregar elementos al contenedor (orden importante: iframe abajo, overlays arriba)
                                     watermarkContainer.appendChild(iframePdf);
                                     pdfWrapper.appendChild(watermarkContainer);
-                                    
+
                                     // Agregar overlays de protección al contenedor principal
                                     // IMPORTANTE: El protectionOverlay debe ir DESPUÉS del menuOverlay para tener mayor z-index
                                     pdfWrapper.appendChild(menuOverlay); // Bloquea clicks en el menú superior
                                     pdfWrapper.appendChild(protectionOverlay); // Bloquea click derecho en todo (z-index más alto)
-                                    
+
                                     embedContainer.appendChild(pdfWrapper);
-                                    
+
                                     // Agregar overlay de marca de agua directamente al embedContainer para que cubra todo
                                     embedContainer.appendChild(watermarkOverlay);
-                                    
+
                                     // REFORZAR PROTECCIÓN CONTRA CLICK DERECHO - Múltiples capas de protección
-                                    
+
                                     // 1. Bloquear en el contenedor principal (embedContainer)
                                     embedContainer.addEventListener('contextmenu', function(e) {
                                         e.preventDefault();
@@ -2062,7 +2106,7 @@ JS;
                                         e.stopImmediatePropagation();
                                         return false;
                                     }, true);
-                                    
+
                                     // 2. Bloquear en el pdfWrapper
                                     pdfWrapper.addEventListener('contextmenu', function(e) {
                                         e.preventDefault();
@@ -2070,10 +2114,10 @@ JS;
                                         e.stopImmediatePropagation();
                                         return false;
                                     }, true);
-                                    
+
                                     // 3. Bloquear también con mousedown para capturar antes del contextmenu (ya está arriba, no duplicar)
                                     // Los listeners de mousedown ya están definidos arriba en embedContainer
-                                    
+
                                     // Bloquear SOLO click derecho en pdfWrapper
                                     pdfWrapper.addEventListener('mousedown', function(e) {
                                         if (e.button === 2) { // SOLO botón derecho
@@ -2084,7 +2128,7 @@ JS;
                                         }
                                         // Permitir clicks izquierdos - no hacer nada
                                     }, true);
-                                    
+
                                     // Bloquear SOLO click derecho en iframePdf
                                     iframePdf.addEventListener('mousedown', function(e) {
                                         if (e.button === 2) { // SOLO botón derecho
@@ -2095,7 +2139,7 @@ JS;
                                         }
                                         // Permitir clicks izquierdos - no hacer nada
                                     }, true);
-                                    
+
                                     // 4. Bloquear también en el overlay de marca de agua
                                     watermarkOverlay.addEventListener('contextmenu', function(e) {
                                         e.preventDefault();
@@ -2103,7 +2147,7 @@ JS;
                                         e.stopImmediatePropagation();
                                         return false;
                                     }, true);
-                                    
+
                                     watermarkOverlay.addEventListener('mousedown', function(e) {
                                         if (e.button === 2) { // Botón derecho del mouse
                                             e.preventDefault();
@@ -2112,7 +2156,7 @@ JS;
                                             return false;
                                         }
                                     }, true);
-                                    
+
                                     // Para VALIDACIONES OK (CONTRATO), FAD_DOC y FACTURACION OK (FACTURA), agregar controles de zoom
                                     // IMPORTANTE: Las variables embedContainer, pdfWrapper, watermarkContainer deben estar en scope
                                     if (data.tipo === 'CONTRATO' || data.tipo === 'FAD_DOC' || data.tipo === 'FACTURA') {
@@ -2120,79 +2164,79 @@ JS;
                                         let currentZoom = 1.0;
                                         const minZoom = 0.5;
                                         const maxZoom = 3.0;
-                                        
+
                                         // Asegurar que tenemos referencias a los elementos necesarios
                                         const zoomEmbedContainer = embedContainer;
                                         const zoomPdfWrapper = pdfWrapper;
                                         const zoomWatermarkContainer = watermarkContainer;
-                                        
+
                                         // Crear contenedor de controles de zoom
                                         const zoomControls = document.createElement('div');
                                         zoomControls.id = 'zoomControls' + data.tipo; // ID único por tipo
                                         zoomControls.style.cssText = 'position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background-color: rgba(0,0,0,0.7); padding: 10px 20px; border-radius: 25px; z-index: 1000; display: flex; align-items: center; gap: 15px;';
-                                        
+
                                         // Botón zoom out
                                         const btnZoomOut = document.createElement('button');
                                         btnZoomOut.className = 'btn btn-sm btn-light';
                                         btnZoomOut.innerHTML = '<i class="fa fa-search-minus"></i>';
                                         btnZoomOut.style.cssText = 'min-width: 40px;';
                                         btnZoomOut.title = 'Alejar';
-                                        
+
                                         // Indicador de zoom
                                         const zoomLevel = document.createElement('span');
                                         zoomLevel.id = 'zoomLevel' + data.tipo; // ID único por tipo
                                         zoomLevel.style.cssText = 'color: white; font-size: 0.9rem; min-width: 60px; text-align: center;';
                                         zoomLevel.textContent = '100%';
-                                        
+
                                         // Botón zoom in
                                         const btnZoomIn = document.createElement('button');
                                         btnZoomIn.className = 'btn btn-sm btn-light';
                                         btnZoomIn.innerHTML = '<i class="fa fa-search-plus"></i>';
                                         btnZoomIn.style.cssText = 'min-width: 40px;';
                                         btnZoomIn.title = 'Acercar';
-                                        
+
                                         // Botón reset
                                         const btnReset = document.createElement('button');
                                         btnReset.className = 'btn btn-sm btn-light';
                                         btnReset.innerHTML = '<i class="fa fa-undo"></i>';
                                         btnReset.style.cssText = 'min-width: 40px;';
                                         btnReset.title = 'Restablecer zoom';
-                                        
+
                                         // Función para aplicar zoom
                                         const applyZoom = function() {
                                             // Usar las referencias locales para asegurar que funcionen
                                             const container = zoomEmbedContainer;
                                             const wrapper = zoomPdfWrapper;
                                             const watermarkContainer = zoomWatermarkContainer;
-                                            
+
                                             // Obtener las dimensiones actuales del contenedor visible (el modal se mantiene igual)
                                             const containerWidth = container.clientWidth || container.offsetWidth;
                                             const containerHeight = container.clientHeight || container.offsetHeight;
-                                            
+
                                             if (containerWidth === 0 || containerHeight === 0) {
                                                 // Si las dimensiones no están disponibles aún, intentar de nuevo
                                                 setTimeout(applyZoom, 100);
                                                 return;
                                             }
-                                            
+
                                             // Guardar la posición actual de scroll antes del cambio
                                             const scrollLeftBefore = container.scrollLeft;
                                             const scrollTopBefore = container.scrollTop;
-                                            
+
                                             // Calcular el centro visual actual (posición de scroll + mitad del viewport)
                                             const centerXBefore = scrollLeftBefore + (containerWidth / 2);
                                             const centerYBefore = scrollTopBefore + (containerHeight / 2);
-                                            
+
                                             // IMPORTANTE: El wrapper debe tener el tamaño escalado para que el scroll funcione
                                             const scaledWidth = containerWidth * currentZoom;
                                             const scaledHeight = containerHeight * currentZoom;
-                                            
+
                                             // El wrapper necesita tener el tamaño escalado para permitir scroll correcto
                                             wrapper.style.width = scaledWidth + 'px';
                                             wrapper.style.height = scaledHeight + 'px';
                                             wrapper.style.minWidth = scaledWidth + 'px';
                                             wrapper.style.minHeight = scaledHeight + 'px';
-                                            
+
                                             // CORRECCIÓN: El watermarkContainer NO debe escalarse
                                             // Mantiene su tamaño base sin transform
                                             watermarkContainer.style.position = 'absolute';
@@ -2202,7 +2246,7 @@ JS;
                                             watermarkContainer.style.height = containerHeight + 'px';
                                             watermarkContainer.style.transform = '';
                                             watermarkContainer.style.transformOrigin = '';
-                                            
+
                                             // CORRECCIÓN: Aplicar zoom SOLO al iframe del PDF usando transform scale
                                             // Esto evita que la marca de agua se escale
                                             const iframePdf = watermarkContainer.querySelector('iframe');
@@ -2214,35 +2258,35 @@ JS;
                                                 iframePdf.style.transform = `scale(\${currentZoom})`;
                                                 iframePdf.style.transformOrigin = 'top left';
                                             }
-                                            
+
                                             // Asegurar que el contenedor tenga overflow para scroll
                                             container.style.overflow = 'auto';
-                                            
+
                                             // Actualizar el indicador de zoom
                                             zoomLevel.textContent = Math.round(currentZoom * 100) + '%';
-                                            
+
                                             // Actualizar marcas de agua después del zoom (sin escalar)
                                             setTimeout(() => {
                                                 if (typeof crearMarcasAgua === 'function') {
                                                     crearMarcasAgua();
                                                 }
                                             }, 100);
-                                            
+
                                             // Ajustar la posición de scroll después del zoom para mantener el centro visual
                                             setTimeout(() => {
                                                 // Calcular la nueva posición de scroll para mantener el centro visual
                                                 const newScrollLeft = centerXBefore - (containerWidth / 2);
                                                 const newScrollTop = centerYBefore - (containerHeight / 2);
-                                                
+
                                                 // Asegurar que no exceda los límites
                                                 const maxScrollLeft = Math.max(0, container.scrollWidth - containerWidth);
                                                 const maxScrollTop = Math.max(0, container.scrollHeight - containerHeight);
-                                                
+
                                                 container.scrollLeft = Math.max(0, Math.min(newScrollLeft, maxScrollLeft));
                                                 container.scrollTop = Math.max(0, Math.min(newScrollTop, maxScrollTop));
                                             }, 50);
                                         };
-                                        
+
                                         // Event listeners para los botones
                                         btnZoomOut.addEventListener('click', function(e) {
                                             e.preventDefault();
@@ -2252,7 +2296,7 @@ JS;
                                                 applyZoom();
                                             }
                                         });
-                                        
+
                                         btnZoomIn.addEventListener('click', function(e) {
                                             e.preventDefault();
                                             e.stopPropagation();
@@ -2261,26 +2305,26 @@ JS;
                                                 applyZoom();
                                             }
                                         });
-                                        
+
                                         btnReset.addEventListener('click', function(e) {
                                             e.preventDefault();
                                             e.stopPropagation();
                                             currentZoom = 1.0;
                                             applyZoom();
                                         });
-                                        
+
                                         // Agregar botones al contenedor
                                         zoomControls.appendChild(btnZoomOut);
                                         zoomControls.appendChild(zoomLevel);
                                         zoomControls.appendChild(btnZoomIn);
                                         zoomControls.appendChild(btnReset);
-                                        
+
                                         // Agregar controles al modal body
                                         const modalBody = document.getElementById('documentoModalBody');
                                         if (modalBody) {
                                             modalBody.appendChild(zoomControls);
                                         }
-                                        
+
                                         // Limpiar controles cuando se cierre el modal
                                         modalElement.addEventListener('hidden.bs.modal', function() {
                                             const controls = document.getElementById('zoomControls' + data.tipo);
@@ -2308,7 +2352,7 @@ JS;
                                                 iframePdf.style.transformOrigin = '';
                                             }
                                         }, { once: true });
-                                        
+
                                         // Zoom con rueda del mouse (Ctrl + scroll) usando la referencia local
                                         zoomEmbedContainer.addEventListener('wheel', function(e) {
                                             if (e.ctrlKey || e.metaKey) {
@@ -2328,7 +2372,7 @@ JS;
                                                 }
                                             }
                                         }, { passive: false });
-                                        
+
                                         // Aplicar zoom inicial después de que el iframe se cargue
                                         const applyInitialZoom = function() {
                                             // Pequeño delay para asegurar que el iframe esté completamente cargado y el DOM esté listo
@@ -2336,25 +2380,25 @@ JS;
                                                 applyZoom();
                                             }, 300);
                                         };
-                                        
+
                                         // Aplicar zoom cuando el iframe se carga
                                         iframePdf.addEventListener('load', applyInitialZoom, { once: true });
-                                        
+
                                         // También aplicar zoom inicial inmediatamente si el iframe ya está cargado
                                         if (iframePdf.complete || iframePdf.readyState === 'complete') {
                                             applyInitialZoom();
                                         }
                                     }
-                                    
+
                                     // Asegurar que el contenedor esté visible
                                     embedContainer.style.display = 'block';
-                                    
+
                                     // También prevenir click derecho en el contenedor
                                     embedContainer.addEventListener('contextmenu', function(e) {
                                         e.preventDefault();
                                         return false;
                                     }, true);
-                                    
+
                                     // Crear marcas de agua después de que el iframe se cargue
                                     iframePdf.addEventListener('load', function() {
                                         setTimeout(() => {
@@ -2363,18 +2407,18 @@ JS;
                                             }
                                         }, 500);
                                     });
-                                    
+
                                     // Actualizar título del modal según el tipo
                                     const modalTitle = document.querySelector('#modalDocumento .modal-title');
                                     if (modalTitle) {
                                         modalTitle.textContent = tipoNombre[data.tipo] || data.tipo;
                                     }
-                                    
+
                                     // Prevenir atajos de teclado para descargar
                                     if (typeof prevenirAtajosDescarga === 'function') {
                                         prevenirAtajosDescarga('modalDocumento');
                                     }
-                                    
+
                                     // Crear marcas de agua cuando el modal se muestre completamente
                                     modalElement.addEventListener('shown.bs.modal', function() {
                                         // Llamar múltiples veces para asegurar que se generen correctamente
@@ -2400,7 +2444,7 @@ JS;
                                             }
                                         }, 2500);
                                     }, { once: true });
-                                    
+
                                     // Limpiar cuando se cierre el modal
                                     modalElement.addEventListener('hidden.bs.modal', function() {
                                         // Limpiar el contenedor
@@ -2411,7 +2455,7 @@ JS;
                                             if (iframe) {
                                                 iframe.src = '';
                                             }
-                                            
+
                                             // Remover los overlays de protección
                                             const protectionOverlay = document.getElementById('pdfProtectionOverlay');
                                             if (protectionOverlay) {
@@ -2421,27 +2465,27 @@ JS;
                                             if (menuOverlay) {
                                                 menuOverlay.remove();
                                             }
-                                            
+
                                             embedContainer.innerHTML = '';
                                             embedContainer.style.display = 'none';
                                         }
-                                        
+
                                         // Asegurar que el body no tenga clases bloqueantes
                                         document.body.classList.remove('modal-open');
                                         document.body.style.overflow = '';
                                         document.body.style.paddingRight = '';
-                                        
+
                                         // Remover overlays de Bootstrap si existen
                                         const backdrops = document.querySelectorAll('.modal-backdrop');
                                         backdrops.forEach(backdrop => backdrop.remove());
                                     }, { once: true });
-                                    
+
                                     // Mostrar modal después de un pequeño delay para asegurar que todo esté configurado
                                     setTimeout(() => {
                                         const modal = new bootstrap.Modal(modalElement);
                                         modal.show();
                                     }, 100);
-                                    
+
                                 } else {
                                     // No debería llegar aquí - todos los tipos de PDF usan el bloque de arriba con FACTURA
                                     console.error('Tipo de documento PDF no reconocido:', data.tipo);
@@ -2482,7 +2526,7 @@ JS;
                                     Swal.fire('Error', 'El documento debe ser un archivo PDF o imagen válida.', 'error');
                                 }
                             }
-                            
+
                             // Actualizar título del modal según el tipo
                             const modalTitle = document.querySelector('#modalDocumento .modal-title');
                             if (modalTitle) {
@@ -2494,7 +2538,7 @@ JS;
                                 };
                                 modalTitle.textContent = tipoNombre[data.tipo] || 'Documento';
                             }
-                            
+
                             // El modal se muestra automáticamente desde cargarPDFFactura
                         } else {
                             Swal.fire({
@@ -2511,7 +2555,7 @@ JS;
                         Swal.fire('Error', msg.indexOf('HTTP') === 0 ? 'El servidor respondió con error. ' + msg : 'Error de comunicación. ' + msg, 'error');
                     });
                 });
-            
+
             });
             </script>
 
@@ -2648,25 +2692,25 @@ public function descargar()
         $consultarBDTerceraForma = function ($idCredito, $tipoDocumento) {
     try {
         error_log("3RA FORMA - Consultando BD via DAO: ID=$idCredito, TIPO=$tipoDocumento");
-        
+
         // Mapeo correcto según tu BD
         $tiposBD = [
             'FACTURA' => 'FACTURA',      // BD: FACTURA
-            'CONTRATO' => 'VALIDACIONES', // BD: VALIDACIONES  
+            'CONTRATO' => 'VALIDACIONES', // BD: VALIDACIONES
             'FAD_DOC' => 'FAD',          // BD: FAD
             'EVIDENCIA' => 'EVIDENCIA',  // BD: EVIDENCIA
         ];
-        
+
         $tipoBD = $tiposBD[$tipoDocumento] ?? null;
-        
+
         if (!$tipoBD) {
             error_log("3RA FORMA - Tipo no mapeado: $tipoDocumento");
             return null;
         }
-        
+
         // ¡IMPORTANTE! Usar el DAO como lo hace FAD_DOC y EVIDENCIA
         // Pero con una pequeña modificación para aceptar todos los tipos
-        
+
         if ($tipoDocumento === 'FAD_DOC' || $tipoDocumento === 'EVIDENCIA') {
             // Para estos tipos, usar el DAO existente
             $res = EstadoCuentaDAO::obtenerDocumentoOferta($idCredito, $tipoDocumento);
@@ -2675,16 +2719,16 @@ public function descargar()
             // O mejor, modificar el DAO para aceptar todos los tipos
             $res = $this->consultarDocumentoGenerico($idCredito, $tipoBD);
         }
-        
+
         if ($res['success'] && isset($res['datos']['nombre_archivo']) && !empty($res['datos']['nombre_archivo'])) {
             $nombreArchivo = $res['datos']['nombre_archivo'];
             error_log("3RA FORMA - Encontrado via DAO: " . $nombreArchivo);
             return $nombreArchivo;
         }
-        
+
         error_log("3RA FORMA - No encontrado via DAO");
         return null;
-        
+
     } catch (\Throwable $e) {
         error_log("3RA FORMA - Error en DAO: " . $e->getMessage());
         return null;
@@ -2693,12 +2737,12 @@ public function descargar()
 
         $buscarLocal = function ($idCredito, $tipoDocumento) {
             $directorioBase = __DIR__ . '/../../uploads/documentos/doc_cliente';
-            
+
             if (!is_dir($directorioBase)) {
                 error_log("1RA FORMA - Directorio NO existe: {$directorioBase}");
                 return null;
             }
-            
+
             error_log("1RA FORMA - Buscando local: ID=$idCredito, TIPO=$tipoDocumento");
 
             $idSeguro = preg_replace('/[^0-9]/', '', (string)$idCredito);
@@ -2737,7 +2781,7 @@ public function descargar()
                 $archivoReverso = basename($archivosReverso[0]);
 
                 error_log("1RA FORMA - INE encontrado localmente: $archivoFrente, $archivoReverso");
-                
+
                 return [
                     'esINE' => true,
                     'archivoFrente' => $archivoFrente,
@@ -2752,7 +2796,7 @@ public function descargar()
             // Para otros documentos, búsqueda normal
             $patron = $directorioBase . '/' . $idSeguro . '_' . $tipoSeguro . '_*.{pdf,jpg,jpeg,png}';
             $archivos = glob($patron, GLOB_BRACE);
-            
+
             if (!$archivos) {
                 error_log("1RA FORMA - No encontrado localmente");
                 return null;
@@ -2766,9 +2810,9 @@ public function descargar()
             $archivo = basename($rutaCompleta);
             $extension = strtolower(pathinfo($archivo, PATHINFO_EXTENSION));
             $esImagen = in_array($extension, ['jpg', 'jpeg', 'png'], true);
-            
+
             error_log("1RA FORMA - Encontrado localmente: $archivo");
-            
+
             return [
                 'archivo' => $archivo,
                 'extension' => $extension,
@@ -2780,7 +2824,7 @@ public function descargar()
         // ---------------- FACTURA ----------------
         if ($tipo === 'FACTURA') {
             error_log("=== PROCESANDO FACTURA ===");
-            
+
             $local = $buscarLocal($id, $tipo);
             if ($local) {
                 error_log("FACTURA $id - RESULTADO: 1RA FORMA (Local)");
@@ -2795,14 +2839,14 @@ public function descargar()
                 ]);
                 exit;
             }
-            
+
             error_log("FACTURA $id - 1RA FORMA falló, probando 2DA FORMA...");
             $fileName = "FACTURA/{$id}_factura.pdf";
             if (!$existeEnS3($fileName)) {
                 error_log("FACTURA $id - 2DA FORMA falló, probando 3RA FORMA...");
-                
+
                 $nombreBD = $consultarBDTerceraForma($id, 'FACTURA');
-                
+
                 if ($nombreBD) {
                     $fileNameBD = "FACTURA/" . $nombreBD;
                     if ($existeEnS3($fileNameBD)) {
@@ -2823,7 +2867,7 @@ public function descargar()
                         error_log("FACTURA $id - 3RA FORMA: Encontrado en BD pero no en S3: $fileNameBD");
                     }
                 }
-                
+
                 error_log("FACTURA $id - RESULTADO: 3 FORMAS FALLIDAS");
                 $this->registrarAuditoriaDocumento($id, $tipo, $nombreDoc, 0, "Este ID de crédito no tiene {$nombreDoc} registrado.");
                 echo json_encode([
@@ -2832,7 +2876,7 @@ public function descargar()
                 ]);
                 exit;
             }
-            
+
             error_log("FACTURA $id - RESULTADO: 2DA FORMA (S3 estándar)");
             $this->registrarAuditoriaDocumento($id, $tipo, $nombreDoc, 1, null);
             $fileUrl = "/estadocuenta/verDocumento?fileName=" . urlencode($fileName);
@@ -2851,7 +2895,7 @@ public function descargar()
         // ---------------- CONTRATO ----------------
         elseif ($tipo === 'CONTRATO') {
             error_log("=== PROCESANDO CONTRATO/VALIDACIONES ===");
-            
+
             $local = $buscarLocal($id, $tipo);
             if ($local) {
                 error_log("CONTRATO $id - RESULTADO: 1RA FORMA (Local)");
@@ -2866,14 +2910,14 @@ public function descargar()
                 ]);
                 exit;
             }
-            
+
             error_log("CONTRATO $id - 1RA FORMA falló, probando 2DA FORMA...");
             $fileName = "VALIDACIONES/{$id}_validaciones.pdf";
             if (!$existeEnS3($fileName)) {
                 error_log("CONTRATO $id - 2DA FORMA falló, probando 3RA FORMA...");
-                
+
                 $nombreBD = $consultarBDTerceraForma($id, 'CONTRATO');
-                
+
                 if ($nombreBD) {
                     $fileNameBD = "VALIDACIONES/" . $nombreBD;
                     if ($existeEnS3($fileNameBD)) {
@@ -2894,7 +2938,7 @@ public function descargar()
                         error_log("CONTRATO $id - 3RA FORMA: Encontrado en BD pero no en S3: $fileNameBD");
                     }
                 }
-                
+
                 error_log("CONTRATO $id - RESULTADO: 3 FORMAS FALLIDAS");
                 $this->registrarAuditoriaDocumento($id, $tipo, $nombreDoc, 0, "Este ID de crédito no tiene {$nombreDoc} registrado.");
                 echo json_encode([
@@ -2903,7 +2947,7 @@ public function descargar()
                 ]);
                 exit;
             }
-            
+
             error_log("CONTRATO $id - RESULTADO: 2DA FORMA (S3 estándar)");
             $this->registrarAuditoriaDocumento($id, $tipo, $nombreDoc, 1, null);
             $fileUrl = "/estadocuenta/verDocumento?fileName=" . urlencode($fileName);
@@ -2922,7 +2966,7 @@ public function descargar()
         // ---------------- INE ----------------
         elseif ($tipo === 'INE') {
             error_log("=== PROCESANDO INE ===");
-            
+
             // Buscar primero localmente
             $local = $buscarLocal($id, $tipo);
             if ($local && isset($local['esINE']) && $local['esINE'] === true) {
@@ -3010,7 +3054,7 @@ public function descargar()
             curl_exec($chR);
             $codeR = (int) curl_getinfo($chR, CURLINFO_HTTP_CODE);
             curl_close($chR);
-            
+
             if ($codeF !== 200 || $codeR !== 200) {
                 error_log("INE $id - 2DA FORMA falló (imágenes no encontradas), probando 3RA FORMA (persona_documentos)...");
                 $resINE = EstadoCuentaDAO::obtenerINEPersonaDocumentos($id);
@@ -3049,7 +3093,7 @@ public function descargar()
         // ---------------- FAD_DOC ----------------
         elseif ($tipo === 'FAD_DOC') {
             error_log("=== PROCESANDO FAD_DOC ===");
-            
+
             $local = $buscarLocal($id, $tipo);
             if ($local) {
                 error_log("FAD_DOC $id - RESULTADO: 1RA FORMA (Local)");
@@ -3064,7 +3108,7 @@ public function descargar()
                 ]);
                 exit;
             }
-            
+
             // Primero intentar DAO (2da forma actual)
             error_log("FAD_DOC $id - 1RA FORMA falló, probando 2DA FORMA (DAO)...");
             try {
@@ -3080,14 +3124,14 @@ public function descargar()
                 $archivo = basename($res['datos']['nombre_archivo']);
                 $archivo = str_replace(['doc_cliente/', 'doc_cliente\\'], '', $archivo);
                 $archivo = basename($archivo);
-                
+
                 $carpeta = 'FAD';
                 $extension = strtolower(pathinfo($archivo, PATHINFO_EXTENSION));
                 $esImagen = in_array($extension, ['jpg', 'jpeg', 'png', 'gif']);
-                
+
                 $fileName = "{$carpeta}/{$archivo}";
                 $fileUrl = "/estadocuenta/verDocumento?fileName=" . urlencode($fileName);
-                
+
                 echo json_encode([
                     'success' => true,
                     'tipo' => $tipo,
@@ -3099,11 +3143,11 @@ public function descargar()
                 ]);
                 exit;
             }
-            
+
             // Si DAO falla, intentar 3RA FORMA
             error_log("FAD_DOC $id - 2DA FORMA (DAO) falló, probando 3RA FORMA...");
             $nombreBD = $consultarBDTerceraForma($id, 'FAD_DOC');
-            
+
             if ($nombreBD) {
                 $fileNameBD = "FAD/" . $nombreBD;
                 if ($existeEnS3($fileNameBD)) {
@@ -3111,7 +3155,7 @@ public function descargar()
                     $this->registrarAuditoriaDocumento($id, $tipo, $nombreDoc, 1, null);
                     $extension = strtolower(pathinfo($nombreBD, PATHINFO_EXTENSION));
                     $esImagen = in_array($extension, ['jpg', 'jpeg', 'png', 'gif']);
-                    
+
                     $fileUrl = "/estadocuenta/verDocumento?fileName=" . urlencode($fileNameBD);
                     echo json_encode([
                         'success' => true,
@@ -3127,7 +3171,7 @@ public function descargar()
                     error_log("FAD_DOC $id - 3RA FORMA: Encontrado en BD pero no en S3: $fileNameBD");
                 }
             }
-            
+
             error_log("FAD_DOC $id - RESULTADO: 3 FORMAS FALLIDAS");
             $this->registrarAuditoriaDocumento($id, $tipo, $nombreDoc, 0, "Este ID de crédito no tiene {$nombreDoc} registrado en ninguna ubicación.");
             echo json_encode([
@@ -3140,7 +3184,7 @@ public function descargar()
         // ---------------- EVIDENCIA ----------------
         elseif ($tipo === 'EVIDENCIA') {
             error_log("=== PROCESANDO EVIDENCIA ===");
-            
+
             $local = $buscarLocal($id, $tipo);
             if ($local) {
                 error_log("EVIDENCIA $id - RESULTADO: 1RA FORMA (Local)");
@@ -3155,7 +3199,7 @@ public function descargar()
                 ]);
                 exit;
             }
-            
+
             // Primero intentar DAO (2da forma actual)
             error_log("EVIDENCIA $id - 1RA FORMA falló, probando 2DA FORMA (DAO)...");
             try {
@@ -3171,14 +3215,14 @@ public function descargar()
                 $archivo = basename($res['datos']['nombre_archivo']);
                 $archivo = str_replace(['doc_cliente/', 'doc_cliente\\'], '', $archivo);
                 $archivo = basename($archivo);
-                
+
                 $carpeta = 'EVIDENCIA';
                 $extension = strtolower(pathinfo($archivo, PATHINFO_EXTENSION));
                 $esImagen = in_array($extension, ['jpg', 'jpeg', 'png', 'gif']);
-                
+
                 $fileName = "{$carpeta}/{$archivo}";
                 $fileUrl = "/estadocuenta/verDocumento?fileName=" . urlencode($fileName);
-                
+
                 echo json_encode([
                     'success' => true,
                     'tipo' => $tipo,
@@ -3190,11 +3234,11 @@ public function descargar()
                 ]);
                 exit;
             }
-            
+
             // Si DAO falla, intentar 3RA FORMA
             error_log("EVIDENCIA $id - 2DA FORMA (DAO) falló, probando 3RA FORMA...");
             $nombreBD = $consultarBDTerceraForma($id, 'EVIDENCIA');
-            
+
             if ($nombreBD) {
                 $fileNameBD = "EVIDENCIA/" . $nombreBD;
                 if ($existeEnS3($fileNameBD)) {
@@ -3202,7 +3246,7 @@ public function descargar()
                     $this->registrarAuditoriaDocumento($id, $tipo, $nombreDoc, 1, null);
                     $extension = strtolower(pathinfo($nombreBD, PATHINFO_EXTENSION));
                     $esImagen = in_array($extension, ['jpg', 'jpeg', 'png', 'gif']);
-                    
+
                     $fileUrl = "/estadocuenta/verDocumento?fileName=" . urlencode($fileNameBD);
                     echo json_encode([
                         'success' => true,
@@ -3218,7 +3262,7 @@ public function descargar()
                     error_log("EVIDENCIA $id - 3RA FORMA: Encontrado en BD pero no en S3: $fileNameBD");
                 }
             }
-            
+
             error_log("EVIDENCIA $id - RESULTADO: 3 FORMAS FALLIDAS");
             $this->registrarAuditoriaDocumento($id, $tipo, $nombreDoc, 0, "Este ID de crédito no tiene {$nombreDoc} registrado en ninguna ubicación.");
             echo json_encode([
@@ -3254,6 +3298,16 @@ public function descargar()
         exit;
     }
 }
+
+    /**
+     * Devuelve ruta a un archivo PDF de FAD_DOC para el id dado.
+     * Retorna ['path' => ruta absoluta, 'isTemp' => true si hay que borrarla después] o null.
+     * Público para uso desde Sabueso (extracción Información de Ingresos).
+     */
+    public function getRutaPdfFAD_DOC($idCredito)
+    {
+        return $this->getPdfPathForFAD_DOC($idCredito);
+    }
 
     /**
      * Devuelve ruta a un archivo PDF de FAD_DOC para el id dado.
@@ -3658,7 +3712,7 @@ public function descargar()
             return;
         }
 
-        $resultado = EstadoCuentaDAO::getGastosCobranza($idCredito);    
+        $resultado = EstadoCuentaDAO::getGastosCobranza($idCredito);
         self::respuestaJSON($resultado);
     }
 
@@ -3808,30 +3862,30 @@ public function descargar()
         exit;
     }
 
-    
+
 
     public function buscarReporteDictamen()
 {
 
-    
+
     // DEBUG: Log de entrada
-    
-    
+
+
     header('Content-Type: application/json');
-    
+
     // Verificar sesión EXPLÍCITAMENTE
     session_start(); // Asegurar que la sesión esté iniciada
     if (!isset($_SESSION['usuario_id'])) {
         error_log('ERROR: No hay usuario_id en sesión - Redirigiría a login');
         // NO redirijas aquí, devuelve JSON error
         echo json_encode([
-            'success' => false, 
+            'success' => false,
             'mensaje' => 'Sesión expirada',
             'code' => 'SESSION_EXPIRED'
         ]);
         return;
     }
-    
+
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
         error_log('ERROR: Método no permitido: ' . $_SERVER['REQUEST_METHOD']);
         echo json_encode(['success' => false, 'mensaje' => 'Método no permitido']);
@@ -3839,31 +3893,31 @@ public function descargar()
     }
 
     header('Content-Type: application/json');
-    
+
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
         echo json_encode(['success' => false, 'mensaje' => 'Método no permitido']);
         return;
     }
-    
+
     $fechaInicio = $_POST['fechaInicio'] ?? '';
     $fechaFin = $_POST['fechaFin'] ?? '';
-    
+
     // Validar fechas
     if (empty($fechaInicio) || empty($fechaFin)) {
         echo json_encode(['success' => false, 'mensaje' => 'Fechas requeridas']);
         return;
     }
-    
+
     // Validar formato de fechas
-    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaInicio) || 
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaInicio) ||
         !preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaFin)) {
         echo json_encode(['success' => false, 'mensaje' => 'Formato de fecha inválido']);
         return;
     }
-    
+
     // Usar tu modelo existente
     $resultado = EstadoCuentaDAO::obtenerReportesDictamenPorFecha($fechaInicio, $fechaFin);
-    
+
     // Retornar como JSON
     if ($resultado['success']) {
         echo json_encode([
@@ -3879,7 +3933,7 @@ public function descargar()
         ]);
     }
 
-    
+
 }
 
     public function registrarDocumentoCliente()
@@ -4128,7 +4182,7 @@ public function descargar()
         header('Content-Length: ' . filesize($rutaCompleta));
         header('Content-Disposition: inline; filename="' . $archivo . '"');
         header('Cache-Control: public, max-age=3600');
-        
+
         // Leer y enviar el archivo
         readfile($rutaCompleta);
         exit;
@@ -4199,7 +4253,7 @@ public function descargar()
     public function verDocumento()
     {
         $fileName = $_GET['fileName'] ?? '';
-        
+
         if (empty($fileName)) {
             http_response_code(404);
             echo "Archivo no especificado";
@@ -4208,16 +4262,16 @@ public function descargar()
 
         // Decodificar el fileName si viene codificado
         $fileName = urldecode($fileName);
-        
+
         $s3Url = "http://98.90.194.116/audit-app-0.0.1-SNAPSHOT_1/s3/downloadS3File?fileName=" . urlencode($fileName);
 
         // Determinar Content-Type basado en extensión
         $ext = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
         $contentType = 'application/octet-stream';
-        
+
         switch ($ext) {
             case 'pdf': $contentType = 'application/pdf'; break;
-            case 'jpg': 
+            case 'jpg':
             case 'jpeg': $contentType = 'image/jpeg'; break;
             case 'png': $contentType = 'image/png'; break;
             case 'gif': $contentType = 'image/gif'; break;
@@ -4233,7 +4287,7 @@ public function descargar()
             CURLOPT_TIMEOUT => 30,
             CURLOPT_HEADER => false, // No incluir headers en la respuesta
         ]);
-        
+
         $data = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         $error = curl_error($ch);
@@ -4257,11 +4311,11 @@ public function descargar()
         header("Content-Length: " . strlen($data));
         header("Cache-Control: public, max-age=3600");
         header("Pragma: public");
-        
+
         // Headers CORS si es necesario
         header("Access-Control-Allow-Origin: *");
         header("Access-Control-Allow-Methods: GET");
-        
+
         echo $data;
         exit;
     }
@@ -4275,30 +4329,30 @@ public function descargarReporteDictamen()
     while (ob_get_level()) {
         ob_end_clean();
     }
-    
+
     try {
         // Obtener parámetros de fecha del GET
         $fechaInicio = $_GET['fechaInicio'] ?? null;
         $fechaFin = $_GET['fechaFin'] ?? null;
-        
+
         // Validar fechas
         if (empty($fechaInicio) || empty($fechaFin)) {
             die('Fechas requeridas');
         }
-        
+
         // Validar formato de fechas
-        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaInicio) || 
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaInicio) ||
             !preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaFin)) {
             die('Formato de fecha inválido. Use YYYY-MM-DD');
         }
-        
+
         // Obtener datos del reporte
         $reportes = EstadoCuentaDAO::obtenerReportesDictamenParaDescarga($fechaInicio, $fechaFin);
-        
+
         if (empty($reportes)) {
             die('No hay datos para descargar en el rango de fechas especificado');
         }
-        
+
         // Preparar datos para Excel
         $data = [];
         foreach ($reportes as $reporte) {
@@ -4311,7 +4365,7 @@ public function descargarReporteDictamen()
                     // Mantener el formato original si hay error
                 }
             }
-            
+
             $data[] = [
                 'id_dictamen' => $reporte['id_dictamen'] ?? '',
                 'fecha_registro' => $fechaRegistro,
@@ -4329,7 +4383,7 @@ public function descargarReporteDictamen()
                 'agente' => $reporte['agente'] ?? ''
             ];
         }
-        
+
         // Definir columnas para Excel
         $columnas = [
             \PHPSpreadsheet::ColumnaExcel('id_dictamen', 'ID DICTAMEN'),
@@ -4347,10 +4401,10 @@ public function descargarReporteDictamen()
             \PHPSpreadsheet::ColumnaExcel('comentarios', 'COMENTARIOS'),
             \PHPSpreadsheet::ColumnaExcel('agente', 'AGENTE')
         ];
-        
+
         // Generar nombre del archivo
         $nombreArchivo = 'Dictamen_Llamadas_' . $fechaInicio . '_a_' . $fechaFin . '_' . date('Y-m-d');
-        
+
         // Descargar Excel directamente usando PHPSpreadsheet
         \PHPSpreadsheet::DescargaExcel(
             $nombreArchivo,
@@ -4359,7 +4413,7 @@ public function descargarReporteDictamen()
             $columnas,
             $data
         );
-        
+
         // Terminar ejecución para que no se agregue nada extra
         exit;
     } catch (\Exception $e) {
@@ -4510,969 +4564,188 @@ public function descargarReporteDictamen()
 
     ///////////////////////////////////////////// GUATEMALA - Estado de Cuenta con soporte multipaís ///////////////////////////7
 
-    public function Guatemala()
-    {
-        $idUsuario = (int) ($_SESSION['usuario_id'] ?? 0);
-        $modulosActuales = $idUsuario ? LoginDAO::getModulosUsuario($idUsuario) : [];
-        $tienePermisoRegistrarDocumentos = in_array(21, $modulosActuales);
-        $tienePermisoFechaCorte = in_array(23, $modulosActuales);
-        // --- JS COMPLETO EN EL CONTROLADOR ---
-        $script = <<<JS
-      <script>
-        var tienePermisoRegistrarDocumentos = TienePermisoRegistrarDocumentos_PLACEHOLDER;
-        var tienePermisoFechaCorte = TienePermisoFechaCorte_PLACEHOLDER;
-        document.addEventListener("DOMContentLoaded", () => {
+public function Guatemala()
+{
+    $idCreditoLista = null;
+    $referencias = [];
+    $datosGuat = [];
+    $alertaBusqueda = null;
 
-            // Mostrar calendario de fecha de corte si tiene permiso
-            if (tienePermisoFechaCorte) {
-                const divFechaCorte = document.getElementById('divFechaCorte');
-                if (divFechaCorte) divFechaCorte.style.display = 'block';
-            }
-        
-            // Cambiar entre ID y Nombre
-            function actualizarInputs() {
-                    const modo = document.querySelector('input[name="modoBusqueda"]:checked')?.value;
-                    const divNombre = document.getElementById('divNombre');
-                    const divID = document.getElementById('divID');
-                    
-                    // Verificar que los elementos existan antes de acceder a sus propiedades
-                    if (divNombre) {
-                        divNombre.style.display = modo === 'nombre' ? 'block' : 'none';
-                    }
-                    if (divID) {
-                        divID.style.display = modo === 'id' ? 'block' : 'none';
-                    }
-            }
-            
-            document.querySelectorAll('input[name="modoBusqueda"]').forEach(el =>
-                el.addEventListener('change', actualizarInputs)
-            );
-            
-            // Solo agregar el event listener si el modal existe
-            const modalDirecciones = document.getElementById('modalDirecciones');
-            if (modalDirecciones) {
-                modalDirecciones.addEventListener('shown.bs.modal', function() {
-                    // No ejecutar actualizarInputs cuando se abre el modal de direcciones
-                    // ya que ese modal no tiene los elementos divNombre y divID
-                });
-            }
+    $alertaCreditoInvalido = [
+        'icon' => 'error',
+        'title' => 'ID de crédito incorrecto',
+        'html' => "<div style='text-align: center; padding: 10px;'><p style='font-size: 16px; margin-bottom: 15px; color: #333;'><strong>El ID de crédito ingresado no existe en Guatemala o no es válido.</strong></p><p style='font-size: 14px; color: #666;'>Por favor verifícalo y vuelve a intentar.</p></div>",
+        'confirmButtonText' => 'Entendido',
+        'confirmButtonColor' => '#dc3545',
+        'width' => '500px'
+    ];
 
-        
-            // Botón limpiar filtros
-            document.getElementById("btnResetFiltros").addEventListener("click", () => {
-                document.getElementById("idCredito").value = "";
-                document.getElementById("nombre").value = "";
-                const fechaCorteInput = document.getElementById("fechaCorte");
-                if (fechaCorteInput) fechaCorteInput.value = "";
-                document.getElementById("modoID").checked = true;
-                actualizarInputs();
-            });
-        
-            // Validación antes de enviar
-            document.getElementById("formBusqueda").addEventListener("submit", async e => {
-                e.preventDefault();
-                
-                const modo = document.querySelector('input[name="modoBusqueda"]:checked')?.value;
-                const idCredito       = document.getElementById("idCredito").value.trim();
-                const nombre          = document.getElementById("nombre").value.trim();
-                const idCreditoLista  = document.getElementById("idCreditoLista").value.trim();
-        
-                // =========================
-                // MODO ID
-                // =========================
-                if (modo === "id") {
-            
-                    if (idCredito === "") {
-                        return Swal.fire({
-                            icon: "warning",
-                            title: "Falta el ID de crédito",
-                            text: "Por favor ingresa el ID del crédito."
-                        });
-                    }
-            
-                    // Limpieza defensiva
-                    document.getElementById("idCreditoLista").value = "";
-                    document.getElementById("nombre").value = "";
-                }
-            
-                // =========================
-                // MODO NOMBRE
-                // =========================
-                if (modo === "nombre") {
-            
-                    if (nombre === "") {
-                        return Swal.fire({
-                            icon: "warning",
-                            title: "Falta el nombre",
-                            text: "Escribe y selecciona un cliente de la lista."
-                        });
-                    }
-            
-                    if (idCreditoLista === "") {
-                        return Swal.fire({
-                            icon: "warning",
-                            title: "Cliente no seleccionado",
-                            text: "Debes seleccionar un cliente del listado, no solo escribirlo."
-                        });
-                    }
-            
-                    // Limpieza defensiva
-                    document.getElementById("idCredito").value = "";
-                }
-            
-                // =========================
-                // LOADING
-                // =========================
-                Swal.fire({
-                    title: "Validando ID de crédito...",
-                    text: "Espere un momento por favor.",
-                    allowOutsideClick: false,
-                    allowEscapeKey: false,
-                    didOpen: () => Swal.showLoading()
-                });
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        $modo = $_POST['modoBusqueda'] ?? 'id';
 
-                // =========================
-                // VALIDAR ID ANTES DE ENVIAR
-                // =========================
-                try {
-                    const formData = new FormData();
-                    if (modo === "id") {
-                        formData.append("idCredito", idCredito);
-                    } else {
-                        formData.append("nombre", nombre);
-                        formData.append("idCreditoLista", idCreditoLista);
-                    }
-                    formData.append("modoBusqueda", modo);
-
-                    const response = await fetch("/EstadoCuenta/validarCredito", {
-                        method: "POST",
-                        body: formData
-                    });
-
-                    const result = await response.json();
-
-                    if (!result.success) {
-                        Swal.close();
-                        return Swal.fire({
-                            icon: "error",
-                            title: "ID de crédito incorrecto",
-                            html: "<div style='text-align: center; padding: 10px;'><p style='font-size: 16px; margin-bottom: 15px; color: #333;'><strong>El ID de crédito ingresado no existe o no es válido.</strong></p><p style='font-size: 14px; color: #666;'>Por favor verifícalo y vuelve a intentar.</p></div>",
-                            confirmButtonText: "Entendido",
-                            confirmButtonColor: "#dc3545",
-                            width: "500px",
-                            buttonsStyling: true,
-                            customClass: {
-                                popup: 'animated bounceIn',
-                                title: 'text-danger',
-                                confirmButton: 'btn-elegant-error'
-                            },
-                            showClass: {
-                                popup: 'animate__animated animate__fadeInDown'
-                            },
-                            hideClass: {
-                                popup: 'animate__animated animate__fadeOutUp'
-                            }
-                        }).then(() => {
-                            // Agregar estilos personalizados al botón después de que se renderice
-                            setTimeout(() => {
-                                const confirmBtn = document.querySelector('.swal2-confirm');
-                                if (confirmBtn) {
-                                    confirmBtn.style.cssText = `
-                                        background: linear-gradient(135deg, #dc3545 0%, #c82333 100%) !important;
-                                        border: none !important;
-                                        border-radius: 8px !important;
-                                        padding: 12px 30px !important;
-                                        font-size: 15px !important;
-                                        font-weight: 600 !important;
-                                        letter-spacing: 0.5px !important;
-                                        box-shadow: 0 4px 15px rgba(220, 53, 69, 0.3) !important;
-                                        transition: all 0.3s ease !important;
-                                        text-transform: uppercase !important;
-                                    `;
-                                    confirmBtn.addEventListener('mouseenter', function() {
-                                        this.style.transform = 'translateY(-2px)';
-                                        this.style.boxShadow = '0 6px 20px rgba(220, 53, 69, 0.4)';
-                                    });
-                                    confirmBtn.addEventListener('mouseleave', function() {
-                                        this.style.transform = 'translateY(0)';
-                                        this.style.boxShadow = '0 4px 15px rgba(220, 53, 69, 0.3)';
-                                    });
-                                }
-                            }, 100);
-                        });
-                    }
-
-                    // Si la validación es exitosa, mostrar loading y enviar el formulario
-                    Swal.fire({
-                        title: "Procesando solicitud...",
-                        text: "Espere un momento por favor.",
-                        allowOutsideClick: false,
-                        allowEscapeKey: false,
-                        didOpen: () => Swal.showLoading()
-                    });
-
-                    // Enviar el formulario usando submit() nativo (no dispara el evento submit)
-                    const form = e.target;
-                    form.submit();
-
-                } catch (error) {
-                    Swal.close();
-                    console.error("Error al validar:", error);
-                    Swal.fire({
-                        icon: "error",
-                        title: "Error de conexión",
-                        text: "No se pudo validar el ID de crédito. Por favor intenta nuevamente."
-                    });
-                }
-            });
-        
-        });
-        
-
-        </script>
-JS;
-
-        // Script de error - solo se ejecuta cuando hay un error
-        $script_error = <<<JS
-        <script>
-                document.addEventListener('DOMContentLoaded',()=>mostrarMensajeAll({tipo:'error',titulo:'Error de busqueda',mensaje:'No se encontraron resultados'}));
-        </script>
-JS;
-
-
-        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-
-            $idCredito = $_POST['idCredito'] ?? null;
-            $nombre = $_POST['nombre'] ?? null;
+        if ($modo === 'id') {
+            $idCreditoLista = $_POST['idCredito'] ?? null;
+        } else {
             $idCreditoLista = $_POST['idCreditoLista'] ?? null;
-            $fechaCortePost = isset($_POST['fechaCorte']) ? trim((string) $_POST['fechaCorte']) : null;
-            if ($fechaCortePost === '') $fechaCortePost = null;
-            // Si tiene permiso de fecha de corte personalizada y envió una fecha válida (pasada o hoy), usarla
-            if ($tienePermisoFechaCorte && $fechaCortePost && preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaCortePost) && $fechaCortePost <= date('Y-m-d')) {
-                $fechaHoy = $fechaCortePost;
-            } else {
-                $fechaHoy = date('Y-m-d');
-            }
-            error_log('[EstadoCuenta GUATEMALA] POST fechaCorte=' . ($fechaCortePost ?? 'null') . ', permisoFechaCorte=' . ($tienePermisoFechaCorte ? '1' : '0') . ', fechaUsada=' . $fechaHoy);
-
-            if($nombre != null && $idCreditoLista != null)
-            {
-                $resultado = $this->api___SPARTA_SECRET_REDACTED__($idCreditoLista, $fechaHoy);
-                $respDAO = EmpresasDAO::getConsultaDireccionEstadoCuenta($idCreditoLista);
-                $referencias = EmpresasDAO::getConsultaReferenciasEstadoCuenta($idCreditoLista);
-                $notas = EmpresasDAO::getNotasNum($idCreditoLista);
-            }
-            else
-            {
-                $resultado =  $this->api___SPARTA_SECRET_REDACTED__($idCredito, $fechaHoy);
-                $respDAO = EmpresasDAO::getConsultaDireccionEstadoCuenta($idCredito);
-                $referencias = EmpresasDAO::getConsultaReferenciasEstadoCuenta($idCredito);
-                $notas = EmpresasDAO::getNotasNum($idCredito);
-            }
-
-            // Registrar en auditoría: usuario (email), crédito, fecha de corte, éxito/error
-            $idConsultado = ($nombre != null && $idCreditoLista != null) ? $idCreditoLista : $idCredito;
-            $usuarioEmail = (string) ($_SESSION['usuario'] ?? '');
-            EstadoCuentaDAO::registrarAuditoria(
-                $usuarioEmail,
-                $idConsultado,
-                $fechaHoy,
-                !empty($resultado['ok']) ? 1 : 0,
-                isset($resultado['error']) ? $resultado['error'] : null
-            );
-
-            // VALIDACIÓN DE PAÍS - Soporte multipaís Guatemala
-            $paisData = EstadoCuentaDAO::getPaisCredito($idConsultado);
-
-            // Si el país está inactivo, mostrar vista de error
-            if (!empty($paisData['id_pais']) && $paisData['pais_activo'] == 0) {
-                self::set("titulo", "País inactivo");
-                self::set("nombrePais", $paisData['nombre_pais']);
-                self::set("codigoIsoPais", $paisData['codigo_iso']);
-                self::set("errorPais", "Este crédito pertenece a {$paisData['nombre_pais']}, que actualmente está inactivo en el sistema. No es posible consultar el estado de cuenta en este momento.");
-                self::set("idCredito", $idConsultado);
-                return self::render("__SPARTA_SECRET_REDACTED___pais_inactivo");
-            }
-
-            //$GestionesAll = GestionesDao::getAllGestiones($idCredito, $nombre);
-            //$resultado =  $this->api___SPARTA_SECRET_REDACTED__($idCredito, "2025-12-04");
-            // variables para guardar por bloques los arrreglos
-            // ---------------------------------------------------------------
-            // 1. Extraemos las secciones del JSON original
-            // ---------------------------------------------------------------
-            $cliente = $resultado['data']['datosCliente'];
-            $estadoCuenta = $resultado['data'];
-            $otrosDatos = $resultado['data']['datosSaldos'];
-            //$datosCargos = $resultado['data']['datosCargos'];
-            //$datosPagos = $resultado['data']['datosPagos'];
-
-            // ---------------------------------------------------------------
-            // 2. Crear estructura base para cada cuota con la información del cargo
-            // ---------------------------------------------------------------
-            $cargos = $estadoCuenta["datosCargos"] ?? [];
-            if (!is_array($cargos)) $cargos = [];
-
-            $pagos = $estadoCuenta["datosPagos"] ?? [];
-            if (!is_array($pagos)) $pagos = [];
-
-            // Máxima cuota que existe en los cargos (por concepto o idCargo). Si un pago trae numeroCuotaSemanal > este máximo (ej. 63 cuando solo hay 45 filas), se hace que también aplique a la última cuota.
-            $maxCuotaEnCargos = 0;
-            foreach ($cargos as $c) {
-                $concepto = $c["concepto"] ?? "";
-                $n = $this->extraer_numero_cuota($concepto);
-                if ($n === null) $n = $this->safe_int($c["idCargo"] ?? 0, 0);
-                if ($n > $maxCuotaEnCargos) $maxCuotaEnCargos = $n;
-            }
-
-            $pagos_list = [];
-
-            // -------------------------
-            // PREPARAR PAGOS
-            // -------------------------
-            foreach ($pagos as $p) {
-
-                $montoPago      = $this->safe_float($p["montoPago"] ?? 0);
-                $extemporaneos  = $this->safe_float($p["extemporaneos"] ?? 0);
-                $monto_real     = max($montoPago - $extemporaneos, 0);
-
-                $cuotas = $this->parse_cuotas_field($p["numeroCuotaSemanal"] ?? null);
-                if ($maxCuotaEnCargos > 0 && !empty($cuotas)) {
-                    $maxEnPago = max($cuotas);
-                    if ($maxEnPago > $maxCuotaEnCargos && !in_array($maxCuotaEnCargos, $cuotas)) {
-                        $cuotas[] = $maxCuotaEnCargos;
-                    }
-                }
-
-                $pagos_list[] = [
-                    "idPago"              => $p["idPago"] ?? null,
-                    "remaining"           => round($monto_real, 2),
-                    "cuotas"              => $cuotas,
-                    "fechaValor"          => $p["fechaValor"] ?? null,
-                    // *** fechaRegistro usa fechaDeposito si viene ***
-                    "fechaRegistro"       => $p["fechaDeposito"] ?? ($p["fechaRegistro"] ?? null),
-                    "montoPagoOriginal"   => $montoPago,
-                    "extemporaneos"       => $extemporaneos,
-                    "_extOrig"            => $extemporaneos,
-                    "_extemporaneo_aplicado" => false
-                ];
-            }
-
-            // -------------------------
-            // ORDENAR CARGOS POR idCargo
-            // -------------------------
-            usort($cargos, function($a, $b){
-                return $this->safe_int($a["idCargo"] ?? 0) <=> $this->safe_int($b["idCargo"] ?? 0);
-            });
-
-            $tabla = [];
-
-            // -------------------------
-            // PROCESAR CARGOS
-            // -------------------------
-            foreach ($cargos as $cargo_idx => $cargo) {
-
-                $concepto = $cargo["concepto"] ?? "";
-                $cuota_num = $this->extraer_numero_cuota($concepto);
-
-                if ($cuota_num === null) {
-                    $cuota_num = $this->safe_int($cargo["idCargo"] ?? 0);
-                }
-
-                $monto_cargo   = $this->safe_float($cargo["monto"] ?? 0);
-                // Monto de la siguiente cuota (si existe): para priorizar liquidarla antes de cobrar Gasto de Cobranza.
-                $siguiente_cargo = $cargos[$cargo_idx + 1] ?? null;
-                $monto_siguiente_cuota = $siguiente_cargo ? $this->safe_float($siguiente_cargo["monto"] ?? 0) : 0;
-                $capital       = $this->safe_float($cargo["capital"] ?? 0);
-                $interes       = $this->safe_float($cargo["interes"] ?? 0);
-                $seguro_total  = $this->safe_float($cargo["seguroBienes"] ?? 0)
-                    + $this->safe_float($cargo["seguroVida"] ?? 0)
-                    + $this->safe_float($cargo["seguroDesempleo"] ?? 0);
-
-                $fecha_venc = $cargo["fechaVencimiento"] ?? ($cargo["fechaVenc"] ?? null);
-
-                $monto_restante_cargo = $monto_cargo;
-                $aplicados = [];
-
-                // -------------------------
-                // Índices de pagos que aplican a esta cuota, ordenados para dejar más sobrante a la siguiente: primero los que NO incluyen cuota N+1, después los que sí (24,25).
-                // Así no "gastamos" todo el pago (24,25) en la 24 y dejamos más para la 25.
-                // -------------------------
-                $siguiente_cuota = $cuota_num + 1;
-                $indices_aplicables = [];
-                foreach ($pagos_list as $idx => $p) {
-                    if (in_array($cuota_num, $p["cuotas"] ?? [])) {
-                        $indices_aplicables[] = $idx;
-                    }
-                }
-                usort($indices_aplicables, function ($a, $b) use ($pagos_list, $siguiente_cuota) {
-                    $tiene_siguiente_a = in_array($siguiente_cuota, $pagos_list[$a]["cuotas"] ?? []);
-                    $tiene_siguiente_b = in_array($siguiente_cuota, $pagos_list[$b]["cuotas"] ?? []);
-                    return ($tiene_siguiente_a ? 1 : 0) <=> ($tiene_siguiente_b ? 1 : 0);
-                });
-
-                // -------------------------
-                // APLICAR PAGOS A ESTE CARGO (en el orden calculado)
-                // -------------------------
-                foreach ($indices_aplicables as $idx) {
-                    $pago = &$pagos_list[$idx];
-
-                    // --- Aplicar monto real (remaining) a la cuota primero ---
-                    $aplico_remaining_esta_cuota = false;
-                    if ($monto_restante_cargo > 0 && $pago["remaining"] > 0) {
-
-                        $remaining_al_inicio = round($pago["remaining"], 2);
-                        $aplicar = min($pago["remaining"], $monto_restante_cargo);
-                        $ext_api = round($pago["extemporaneos"] ?? 0, 2);
-                        $monto_real_pago = round(($pago["montoPagoOriginal"] ?? 0) - $ext_api, 2);
-                        // Es sobrante solo cuando aplicamos el "resto" de un pago que ya se usó en parte en OTRA cuota (remaining < monto real). No cuando la diferencia con el original es solo extemporáneos/gasto cobranza.
-                        $es_sobrante_remaining = ($remaining_al_inicio < $monto_real_pago);
-                        // Mostrar monto real del depósito solo cuando es la primera aplicación; si ya se usó en cuota anterior, mostrar el resto que llegó.
-                        $monto_mostrar = $es_sobrante_remaining ? $remaining_al_inicio : round($pago["montoPagoOriginal"] ?? $pago["remaining"], 2);
-                        $aplicado_total_pago = round(($pago["montoPagoOriginal"] ?? 0) - $ext_api, 2);
-                        $aplicados[] = [
-                            "idPago"            => $pago["idPago"],
-                            "montoPago"        => $monto_mostrar,
-                            "aplicado"         => round($aplicar, 2),
-                            "aplicadoTotalPago" => $aplicado_total_pago,
-                            "fechaRegistro"    => $pago["fechaRegistro"],
-                            "fechaPago"        => $fecha_venc,
-                            "diasMora"         => null,
-                            "extemporaneos"    => $ext_api,
-                            "es_sobrante"      => $es_sobrante_remaining
-                        ];
-
-                        $aplico_remaining_esta_cuota = true;
-                        // restar de pago y cargo
-                        $pago["remaining"]        = round($pago["remaining"] - $aplicar, 2);
-                        $monto_restante_cargo     = round($monto_restante_cargo - $aplicar, 2);
-                    }
-
-                    // --- Actualizar remaining del pago. Los extemporáneos (gasto cobranza) NO se suman al sobrante: no van al crédito, solo se cobran. Solo arrastramos lo que sobra del monto real. ---
-                    $pago["remaining"] = round($pago["remaining"], 2);
-                    $pago["extemporaneos"] = 0;
-                    $pago["_extemporaneo_aplicado"] = true;
-                }
-                unset($pago);
-
-                // -------------------------
-                // CÁLCULOS FINALES
-                // -------------------------
-                $total_aplicado = round($monto_cargo - $monto_restante_cargo, 2);
-                $pendiente      = round(max($monto_cargo - $total_aplicado, 0), 2);
-                $excedente      = round(max($total_aplicado - $monto_cargo, 0), 2);
-
-                $tabla[] = [
-                    "cuota"         => $cuota_num,
-                    "fecha"         => $fecha_venc,
-                    "monto_cargo"   => round($monto_cargo, 2),
-                    "capital"       => round($capital, 2),
-                    "interes"       => round($interes, 2),
-                    "seguro"        => round($seguro_total, 2),
-                    "aplicados"     => $aplicados,
-                    "total_pagado"  => $total_aplicado,
-                    "pendiente"     => $pendiente,
-                    "excedente"     => $excedente,
-                    "raw_cargo"     => $cargo
-                ];
-            }
-
-            // Notas de cargo por fecha: solo desde datosNotasCargos, EXCLUYENDO gasto cobranza/extemporáneos (esos vienen en datosPagos y se muestran aparte)
-            $notasCargoPorFecha = [];
-            $esReembolsoPorFecha = [];
-            $hayNotasCargos = false;
-            $listaNotasCargos = $estadoCuenta['datosNotasCargos'] ?? [];
-            if (is_array($listaNotasCargos) && count($listaNotasCargos) > 0) {
-                foreach ($listaNotasCargos as $nota) {
-                    $concepto = (string) ($nota['concepto'] ?? '');
-                    $conceptoUpper = mb_strtoupper($concepto);
-                    // No sumar gasto cobranza ni extemporáneos: ya se muestran como "Gasto cobranza" desde datosPagos
-                    if (strpos($conceptoUpper, 'GASTO') !== false && strpos($conceptoUpper, 'COBRANZA') !== false) {
-                        continue;
-                    }
-                    if (strpos($conceptoUpper, 'EXTEMPORANEO') !== false || strpos($conceptoUpper, 'EXTEMPORÁNEO') !== false) {
-                        continue;
-                    }
-                    $fechaNota = $nota['fechaMovimiento'] ?? $nota['fechaVencimiento'] ?? null;
-                    if ($fechaNota !== null && $fechaNota !== '') {
-                        $fechaNorm = date('Y-m-d', strtotime($fechaNota));
-                        if (!isset($notasCargoPorFecha[$fechaNorm])) {
-                            $notasCargoPorFecha[$fechaNorm] = 0.0;
-                        }
-                        $notasCargoPorFecha[$fechaNorm] += $this->safe_float($nota['monto'] ?? 0, 0);
-                        if (strpos($conceptoUpper, 'REEMBOLSO') !== false) {
-                            $esReembolsoPorFecha[$fechaNorm] = true;
-                        }
-                    }
-                }
-                foreach (array_keys($notasCargoPorFecha) as $k) {
-                    $notasCargoPorFecha[$k] = round($notasCargoPorFecha[$k], 2);
-                }
-                // Solo hay "notas de cargo" si quedó algo después de excluir gasto cobranza
-                $hayNotasCargos = array_sum($notasCargoPorFecha) > 0;
-            }
-            // ═══════════════════════════════════════════════════════════════════════════════
-            // BLOQUE DE CONTRACARGOS — NO MODIFICAR SIN REVISIÓN EXHAUSTIVA
-            // Lachy dedicó mucho esfuerzo a que este flujo funcione correctamente en todos los casos.
-            // Cualquier cambio puede romper emparejamiento, sobrantes y fechas de cierre.
-            // ═══════════════════════════════════════════════════════════════════════════════
-            // Post-process contracargos: reconstruir flujo de pagos.
-            // Las notas de cargo vienen desglosadas (capital, interés, comisión, resguardo)
-            // pero representan UN contracargo por fecha. Se usa notasCargoPorFecha (sumado)
-            // para emparejar cada fecha con el pago revertido, y se redistribuye el dinero
-            // legítimo desde la cuota más antigua con déficit.
-            if ($hayNotasCargos && !empty($tabla)) {
-                // Mapeo cuota_num → índice en $tabla
-                $cuotaNumToIdx = [];
-                for ($ci = 0; $ci < count($tabla); $ci++) {
-                    $cuotaNumToIdx[$tabla[$ci]['cuota']] = $ci;
-                }
-
-                // Lookup rápido de pagos_list por idPago
-                $plById = [];
-                foreach ($pagos_list as $pl) {
-                    $idP = $pl['idPago'] ?? null;
-                    if ($idP) $plById[$idP] = $pl;
-                }
-
-                // Último pago desde la tabla (para caso especial: cargo sin pago posterior)
-                $ultimoPagoDesdeTabla = null;
-                $maxFechaTs = null;
-                for ($ci = 0; $ci < count($tabla); $ci++) {
-                    foreach ($tabla[$ci]['aplicados'] as $ap) {
-                        $idP = $ap['idPago'] ?? null;
-                        if (!$idP) continue;
-                        $fr = $ap['fechaRegistro'] ?? null;
-                        if (!$fr) continue;
-                        $ts = strtotime($fr);
-                        if ($ts === false) continue;
-                        if ($maxFechaTs === null || $ts > $maxFechaTs) {
-                            $maxFechaTs = $ts;
-                            $ultimoPagoDesdeTabla = [
-                                'fecha'    => date('Y-m-d', $ts),
-                                'idPago'   => $idP,
-                                'cuotaIdx' => $ci,
-                            ];
-                        }
-                    }
-                }
-
-                // ── PASO 1: Recopilar TODOS los pagos (aplicados + invisibles de la API) ──
-                $todosLosPagos = [];
-                for ($ci = 0; $ci < count($tabla); $ci++) {
-                    foreach ($tabla[$ci]['aplicados'] as $ap) {
-                        $idP = $ap['idPago'] ?? null;
-                        if (!$idP) continue;
-                        $fp = $ap['fechaRegistro'] ?? null;
-                        if (!$fp) continue;
-                        if (!isset($todosLosPagos[$idP])) {
-                            $todosLosPagos[$idP] = [
-                                'fecha'      => date('Y-m-d', strtotime($fp)),
-                                'cuotaIdx'   => $ci,
-                                'montoTotal' => 0,
-                            ];
-                        }
-                        $todosLosPagos[$idP]['montoTotal'] += (float)($ap['aplicado'] ?? 0);
-                    }
-                }
-
-                // Pagos invisibles: existentes en la API pero nunca aplicados a ninguna cuota
-                foreach ($plById as $idP => $pl) {
-                    if (isset($todosLosPagos[$idP])) continue;
-                    $fp = $pl['fechaRegistro'] ?? null;
-                    if (!$fp) continue;
-                    $firstIdx = null;
-                    foreach ($pl['cuotas'] ?? [] as $cn) {
-                        if (isset($cuotaNumToIdx[$cn])) {
-                            $idx = $cuotaNumToIdx[$cn];
-                            if ($firstIdx === null || $idx < $firstIdx) $firstIdx = $idx;
-                        }
-                    }
-                    if ($firstIdx === null) continue;
-                    $todosLosPagos[$idP] = [
-                        'fecha'      => date('Y-m-d', strtotime($fp)),
-                        'cuotaIdx'   => $firstIdx,
-                        'montoTotal' => round((float)($pl['remaining'] ?? 0), 2),
-                        'invisible'  => true,
-                    ];
-                }
-
-                $pagosParaMatch = [];
-                foreach ($todosLosPagos as $idP => $info) {
-                    $pagosParaMatch[] = [
-                        'idPago'     => $idP,
-                        'fecha'      => $info['fecha'],
-                        'cuotaIdx'   => $info['cuotaIdx'],
-                        'montoTotal' => round($info['montoTotal'], 2),
-                    ];
-                }
-                usort($pagosParaMatch, function ($a, $b) {
-                    return strtotime($b['fecha']) <=> strtotime($a['fecha']);
-                });
-
-                // ── PASO 2-3: Emparejar cada FECHA de contracargo (sumada) con un pago ──
-                $idPagosCC = [];
-                $ccMarkers = [];
-
-                $ccFechasOrdenadas = [];
-                foreach ($notasCargoPorFecha as $fn => $monto) {
-                    if ($monto > 0) $ccFechasOrdenadas[$fn] = round($monto, 2);
-                }
-                ksort($ccFechasOrdenadas);
-
-                foreach ($ccFechasOrdenadas as $ccFn => $ccMonto) {
-                    $matched = false;
-
-                    // Prioridad 1a: misma fecha + monto similar (±$5)
-                    foreach ($pagosParaMatch as $pg) {
-                        if (isset($idPagosCC[$pg['idPago']])) continue;
-                        if ($pg['fecha'] !== $ccFn) continue;
-                        if (abs($pg['montoTotal'] - $ccMonto) > 5) continue;
-                        $idPagosCC[$pg['idPago']] = true;
-                        $ccMarkers[] = ['cuotaIdx' => $pg['cuotaIdx'], 'monto' => $ccMonto, 'fecha' => $ccFn, 'idPago' => $pg['idPago'], 'esReembolso' => !empty($esReembolsoPorFecha[$ccFn])];
-                        $matched = true;
-                        break;
-                    }
-                    if ($matched) continue;
-
-                    // Prioridad 1b: misma fecha, cualquier monto
-                    foreach ($pagosParaMatch as $pg) {
-                        if (isset($idPagosCC[$pg['idPago']])) continue;
-                        if ($pg['fecha'] !== $ccFn) continue;
-                        $idPagosCC[$pg['idPago']] = true;
-                        $ccMarkers[] = ['cuotaIdx' => $pg['cuotaIdx'], 'monto' => $ccMonto, 'fecha' => $ccFn, 'idPago' => $pg['idPago'], 'esReembolso' => !empty($esReembolsoPorFecha[$ccFn])];
-                        $matched = true;
-                        break;
-                    }
-                    if ($matched) continue;
-
-                    // Prioridad 2: spillover — pago anterior con monto similar (±$5)
-                    foreach ($pagosParaMatch as $pg) {
-                        if (isset($idPagosCC[$pg['idPago']])) continue;
-                        if ($pg['fecha'] >= $ccFn) continue;
-                        if (abs($pg['montoTotal'] - $ccMonto) > 5) continue;
-                        $idPagosCC[$pg['idPago']] = true;
-                        $ccMarkers[] = ['cuotaIdx' => $pg['cuotaIdx'], 'monto' => $ccMonto, 'fecha' => $ccFn, 'idPago' => $pg['idPago'], 'esReembolso' => !empty($esReembolsoPorFecha[$ccFn])];
-                        $matched = true;
-                        break;
-                    }
-                    if ($matched) continue;
-
-                    // CASO ESPECIAL — Contracargo sin pago posterior: la nota de cargo tiene fecha posterior al último pago.
-                    // Se aplica el contracargo en la última fecha en que el cliente pagó (mismo flujo que contracargo, solo condición distinta).
-                    if (!$matched) {
-                        $fechaRef = $ultimoPagoDesdeTabla['fecha'] ?? null;
-                        if ($fechaRef === null && !empty($pagosParaMatch)) {
-                            $fechaRef = $pagosParaMatch[0]['fecha'];
-                        }
-                        if ($fechaRef !== null && $ccFn > $fechaRef) {
-                            $candidato = null;
-                            if ($ultimoPagoDesdeTabla !== null && $ultimoPagoDesdeTabla['fecha'] < $ccFn && !isset($idPagosCC[$ultimoPagoDesdeTabla['idPago']])) {
-                                $candidato = $ultimoPagoDesdeTabla;
-                            }
-                            if ($candidato === null && !empty($pagosParaMatch)) {
-                                foreach ($pagosParaMatch as $pg) {
-                                    if (isset($idPagosCC[$pg['idPago']])) continue;
-                                    if ($pg['fecha'] >= $ccFn) continue;
-                                    $candidato = ['fecha' => $pg['fecha'], 'idPago' => $pg['idPago'], 'cuotaIdx' => $pg['cuotaIdx']];
-                                    break;
-                                }
-                            }
-                            if ($candidato !== null) {
-                                $idPagosCC[$candidato['idPago']] = true;
-                                $ccMarkers[] = ['cuotaIdx' => $candidato['cuotaIdx'], 'monto' => $ccMonto, 'fecha' => $ccFn, 'idPago' => $candidato['idPago'], 'esReembolso' => !empty($esReembolsoPorFecha[$ccFn])];
-                            }
-                        }
-                    }
-                }
-
-                if (!empty($idPagosCC)) {
-                    // Monto total de contracargo por idPago (varios markers pueden apuntar al mismo pago)
-                    $montoContracargoPorPago = [];
-                    foreach ($ccMarkers as $mk) {
-                        $idP = $mk['idPago'] ?? null;
-                        if ($idP) {
-                            $montoContracargoPorPago[$idP] = ($montoContracargoPorPago[$idP] ?? 0) + (float)($mk['monto'] ?? 0);
-                        }
-                    }
-                    foreach (array_keys($montoContracargoPorPago) as $idP) {
-                        $montoContracargoPorPago[$idP] = round($montoContracargoPorPago[$idP], 2);
-                    }
-
-                    // ── PASO 4: Primera cuota afectada ──
-                    $primeraCuota = PHP_INT_MAX;
-                    foreach ($ccMarkers as $mk) {
-                        $primeraCuota = min($primeraCuota, $mk['cuotaIdx']);
-                    }
-
-                    // Montos aplicados ANTES de la zona afectada (se descuentan del pool)
-                    $aplicadoAnterior = [];
-                    for ($ci = 0; $ci < $primeraCuota; $ci++) {
-                        foreach ($tabla[$ci]['aplicados'] as $ap) {
-                            $idP = $ap['idPago'] ?? null;
-                            if ($idP) {
-                                $aplicadoAnterior[$idP] = ($aplicadoAnterior[$idP] ?? 0) + (float)($ap['aplicado'] ?? 0);
-                            }
-                        }
-                    }
-
-                    // ── PASO 5: Limpiar todas las entradas de cuotas afectadas ──
-                    for ($ci = $primeraCuota; $ci < count($tabla); $ci++) {
-                        $tabla[$ci]['aplicados'] = [];
-                    }
-
-                    // ── PASO 5b: Pool desde pagos_list (remaining − aplicadoAnterior); si el pago tiene contracargo parcial, entra al pool solo el sobrante (remaining − contracargo) ──
-                    $pool = [];
-                    foreach ($plById as $idP => $pl) {
-                        $remaining = round((float)($pl['montoPagoOriginal'] ?? 0) - (float)($pl['_extOrig'] ?? $pl['extemporaneos'] ?? 0), 2);
-                        $usedBefore = round($aplicadoAnterior[$idP] ?? 0, 2);
-                        $contracargoTotal = isset($montoContracargoPorPago[$idP]) ? round($montoContracargoPorPago[$idP], 2) : 0;
-                        if (isset($idPagosCC[$idP])) {
-                            // Pago con contracargo: solo el sobrante (lo que no fue revertido) entra al pool
-                            $available = round($remaining - $usedBefore - $contracargoTotal, 2);
-                            if ($available <= 0.009) continue;
-                            $hasAffectedCuota = true;
-                        } else {
-                            $available = round($remaining - $usedBefore, 2);
-                            if ($available <= 0.009) continue;
-                            $hasAffectedCuota = false;
-                            foreach ($pl['cuotas'] ?? [] as $cn) {
-                                if (isset($cuotaNumToIdx[$cn]) && $cuotaNumToIdx[$cn] >= $primeraCuota) {
-                                    $hasAffectedCuota = true;
-                                    break;
-                                }
-                            }
-                            if (!$hasAffectedCuota && $usedBefore <= 0.009) continue;
-                        }
-
-                        $pool[] = [
-                            'idPago'    => $idP,
-                            'total'     => $available,
-                            'fechaRegistro' => $pl['fechaRegistro'],
-                            'esSobranteDesdeAntes' => $usedBefore > 0,
-                        ];
-                    }
-                    usort($pool, function ($a, $b) {
-                        return strtotime($a['fechaRegistro']) <=> strtotime($b['fechaRegistro']);
-                    });
-
-                    // ── PASO 6: Re-aplicar pagos legítimos desde la cuota más antigua ──
-                    $curCuota = $primeraCuota;
-                    foreach ($pool as $pg) {
-                        $rem = round($pg['total'], 2);
-                        $primera = true;
-                        $sobrante = $pg['esSobranteDesdeAntes'];
-
-                        while ($rem > 0 && $curCuota < count($tabla)) {
-                            $totalLeg = 0;
-                            foreach ($tabla[$curCuota]['aplicados'] as $ap) {
-                                $totalLeg += (float)($ap['aplicado'] ?? 0);
-                            }
-                            $def = round($tabla[$curCuota]['monto_cargo'] - $totalLeg, 2);
-                            if ($def <= 0) { $curCuota++; continue; }
-
-                            $apl = min($rem, $def);
-                            $montoParaMostrar = round($rem, 2);
-                            if ($primera && isset($idPagosCC[$pg['idPago']])) {
-                                $plPago = $plById[$pg['idPago']] ?? null;
-                                if ($plPago !== null) {
-                                    $montoParaMostrar = round((float)($plPago['montoPagoOriginal'] ?? $plPago['montoPago'] ?? 0), 2);
-                                }
-                            }
-                            $tabla[$curCuota]['aplicados'][] = [
-                                'idPago'        => $pg['idPago'],
-                                'montoPago'     => $montoParaMostrar,
-                                'aplicado'      => round($apl, 2),
-                                'fechaRegistro' => $pg['fechaRegistro'],
-                                'fechaPago'     => $tabla[$curCuota]['fecha'],
-                                'diasMora'      => null,
-                                'extemporaneos' => 0,
-                                'es_sobrante'   => $sobrante || !$primera,
-                            ];
-
-                            $rem = round($rem - $apl, 2);
-                            $primera = false;
-                            $sobrante = true;
-
-                            $totalLeg += $apl;
-                            if ($totalLeg >= $tabla[$curCuota]['monto_cargo']) $curCuota++;
-                        }
-                    }
-
-                    // ── PASO 7: Fecha de cierre de cada cuota (fecha del último pago legítimo si está llena) ──
-                    $closingDates = [];
-                    for ($ci = $primeraCuota; $ci < count($tabla); $ci++) {
-                        $totalLeg = 0;
-                        $maxTs = null;
-                        foreach ($tabla[$ci]['aplicados'] as $ap) {
-                            $totalLeg += (float)($ap['aplicado'] ?? 0);
-                            $fr = $ap['fechaRegistro'] ?? null;
-                            if ($fr) {
-                                $ts = strtotime($fr);
-                                if ($maxTs === null || $ts > $maxTs) $maxTs = $ts;
-                            }
-                        }
-                        if ($totalLeg >= $tabla[$ci]['monto_cargo'] - 0.009 && $maxTs !== null) {
-                            $closingDates[$ci] = date('Y-m-d', $maxTs);
-                        } else {
-                            $closingDates[$ci] = null;
-                        }
-                    }
-
-                    // ── PASO 8: Colocar CC'd + contracargo en la cuota activa. Preferir la primera cuota donde ese pago (idPCC) quedó aplicado (así pago y contracargo salen en la misma cuota que “pagó”). ──
-                    foreach ($ccMarkers as $mk) {
-                        $ccDate = $mk['fecha'];
-                        $idPCC = $mk['idPago'];
-
-                        $targetCuota = null;
-                        $targetCuotaPorAplicado = false;
-                        for ($ci = $primeraCuota; $ci < count($tabla); $ci++) {
-                            foreach ($tabla[$ci]['aplicados'] as $ap) {
-                                if (($ap['idPago'] ?? null) == $idPCC) {
-                                    $targetCuota = $ci;
-                                    $targetCuotaPorAplicado = true;
-                                    break 2;
-                                }
-                            }
-                        }
-                        if ($targetCuota === null) {
-                            for ($ci = $primeraCuota; $ci < count($tabla); $ci++) {
-                                $cd = $closingDates[$ci] ?? null;
-                                if ($cd === null || $ccDate <= $cd) {
-                                    $targetCuota = $ci;
-                                    break;
-                                }
-                            }
-                        }
-                        if ($targetCuota === null) {
-                            for ($ci = count($tabla) - 1; $ci >= $primeraCuota; $ci--) {
-                                if ($closingDates[$ci] === null) { $targetCuota = $ci; break; }
-                            }
-                            if ($targetCuota === null) $targetCuota = count($tabla) - 1;
-                        }
-
-                        $ccPl = $plById[$idPCC] ?? null;
-                        $ccFechaReg = $mk['fecha'];
-                        if ($ccPl && !$targetCuotaPorAplicado) {
-                            $montoReal = round((float)($ccPl['montoPagoOriginal'] ?? $ccPl['montoPago'] ?? 0), 2);
-                            $ccFechaReg = $ccPl['fechaRegistro'];
-                            $tabla[$targetCuota]['aplicados'][] = [
-                                'idPago'        => $idPCC,
-                                'montoPago'     => $montoReal,
-                                'aplicado'      => round(min($montoReal, $tabla[$targetCuota]['monto_cargo']), 2),
-                                'fechaRegistro' => $ccFechaReg,
-                                'es_sobrante'   => false,
-                                'cc_invalido'   => true,
-                            ];
-                        } elseif ($ccPl) {
-                            $ccFechaReg = $ccPl['fechaRegistro'];
-                        }
-
-                        $tabla[$targetCuota]['aplicados'][] = [
-                            'tipo'            => 'contracargo',
-                            'montoPago'       => $mk['monto'],
-                            'aplicado'        => $mk['monto'],
-                            'fechaRegistro'   => $mk['fecha'],
-                            '_sortDate'       => $ccFechaReg,
-                            'concepto_display'=> !empty($mk['esReembolso']) ? 'reembolso' : 'contracargo',
-                        ];
-                    }
-
-                    // ── PASO 9: Recalcular totales (solo pagos legítimos) ──
-                    for ($ci = $primeraCuota; $ci < count($tabla); $ci++) {
-                        $total = 0;
-                        foreach ($tabla[$ci]['aplicados'] as $ap) {
-                            if (!empty($ap['cc_invalido'])) continue;
-                            if (isset($ap['tipo']) && $ap['tipo'] === 'contracargo') continue;
-                            $total += (float)($ap['aplicado'] ?? 0);
-                        }
-                        $tabla[$ci]['total_pagado'] = round($total, 2);
-                        $tabla[$ci]['pendiente'] = round(max($tabla[$ci]['monto_cargo'] - $total, 0), 2);
-                    }
-
-                    // ── PASO 10: Ordenar aplicados (pago primero, luego contracargo/reembolso, por fecha) ──
-                    for ($ci = $primeraCuota; $ci < count($tabla); $ci++) {
-                        usort($tabla[$ci]['aplicados'], function ($a, $b) {
-                            $fa = isset($a['_sortDate']) ? $a['_sortDate'] : ($a['fechaRegistro'] ?? '9999-99-99');
-                            $fb = isset($b['_sortDate']) ? $b['_sortDate'] : ($b['fechaRegistro'] ?? '9999-99-99');
-                            $cmp = strtotime($fa) <=> strtotime($fb);
-                            if ($cmp !== 0) return $cmp;
-                            $ordA = !empty($a['cc_invalido']) ? 0 : ((isset($a['tipo']) && $a['tipo'] === 'contracargo') ? 2 : 1);
-                            $ordB = !empty($b['cc_invalido']) ? 0 : ((isset($b['tipo']) && $b['tipo'] === 'contracargo') ? 2 : 1);
-                            return $ordA <=> $ordB;
-                        });
-                    }
-
-                    // Descontar montos consumidos de notasCargoPorFecha
-                    foreach ($ccMarkers as $mk) {
-                        if (isset($notasCargoPorFecha[$mk['fecha']])) {
-                            $notasCargoPorFecha[$mk['fecha']] = round(max($notasCargoPorFecha[$mk['fecha']] - $mk['monto'], 0), 2);
-                        }
-                    }
-                }
-            }
-
-            self::set("notasCargoPorFecha", $notasCargoPorFecha);
-            self::set("esReembolsoPorFecha", $esReembolsoPorFecha ?? []);
-            self::set("hayNotasCargos", $hayNotasCargos);
-
-            if (
-                !isset($resultado['data']['idCredito']) ||
-                $resultado['data']['idCredito'] === null ||
-                $resultado['data']['idCredito'] === ''
-            ) {
-                self::set("titulo", "Sin resultados para solicitud");
-                self::set("errorGestiones", "No se encontraron resultados");
-                self::set("tabla", $tabla);
-                self::set("notasCargoPorFecha", []);
-                self::set("esReembolsoPorFecha", []);
-                self::set("hayNotasCargos", false);
-                self::set("paisData", $paisData); // Pasar datos del país incluso en error
-                return self::render("__SPARTA_SECRET_REDACTED___guatemala");
-            }
-            if (empty($resultado["data"]["idCredito"])) {
-
-                self::set("titulo", "Sin resultados para solicitud");
-                self::set("errorGestiones", "No se encontraron resultados");
-                self::set("tabla", $tabla);
-                self::set("notasCargoPorFecha", []);
-                self::set("esReembolsoPorFecha", []);
-                self::set("hayNotasCargos", false);
-                self::set("paisData", $paisData); // Pasar datos del país incluso en error
-
-                return self::render("__SPARTA_SECRET_REDACTED___guatemala");
-
-            } else {
-
-                self::set("dataCliente", $cliente);
-                self::set("dataEstadoCuenta", $estadoCuenta);
-                self::set("dataOtrosDatos", $otrosDatos); //Recurso Front
-                self::set("direcciones", $respDAO);
-                self::set("referencias", $referencias);
-                self::set("notas", $notas);
-                self::set("paisData", $paisData); // NUEVO: Pasar datos del país a la vista
-                self::set("titulo", "Resultado de la solicitud");
-                $scriptConPermiso = str_replace('TienePermisoRegistrarDocumentos_PLACEHOLDER', json_encode($tienePermisoRegistrarDocumentos), $script);
-                $scriptConPermiso = str_replace('TienePermisoFechaCorte_PLACEHOLDER', json_encode($tienePermisoFechaCorte), $scriptConPermiso);
-                self::set("script", $scriptConPermiso);
-                self::set("tabla", $tabla);
-
-                return self::render("__SPARTA_SECRET_REDACTED___guatemala");
-            }
-
-
         }
 
-        # -----------------------------
-        # GET NORMAL (menú Estados de cuentas Guatemala: sin país en GET, usar default México)
-        # -----------------------------
-        self::set("titulo", "Estados de Cuenta - Guatemala");
-        // Default a México para el formulario de consulta
-        self::set("paisData", ['nombre_pais' => 'México', 'codigo_iso' => 'mx', 'pais_activo' => 1]);
-        $scriptConsulta = str_replace('TienePermisoRegistrarDocumentos_PLACEHOLDER', json_encode(false), $script);
-        $scriptConsulta = str_replace('TienePermisoFechaCorte_PLACEHOLDER', json_encode($tienePermisoFechaCorte), $scriptConsulta);
-        self::set("script", $scriptConsulta);
-        return self::render("__SPARTA_SECRET_REDACTED___guatemala_consulta");
+        if ($idCreditoLista) {
+            // 1) Prioridad Guatemala: si existe aquí, se procesa como GT aunque exista el mismo ID en MX.
+            $datosGuat = EmpresasDAO::getGuatemalaEstadoCuenta($idCreditoLista);
+
+            if (!empty($datosGuat['datos'])) {
+                // Llamadas a CROOP API (Bandera=445 saldos, Bandera=401 amortización)
+                $pkeyCredito     = $datosGuat['datos'][0]['pkey_credito'] ?? null;
+                $reqCliente      = json_decode($datosGuat['datos'][0]['request_cliente'] ?? '{}', true) ?? [];
+                $fkEmpresa       = $reqCliente['FK_Empresa'] ?? null;
+                $apiSaldos       = [];
+                $apiAmortizacion = [];
+                $debugCroop      = [
+                    'idCreditoLista'    => $idCreditoLista,
+                    'pkeyCredito'       => $pkeyCredito,
+                    'fkEmpresa'         => $fkEmpresa,
+                    'datosGuat_count'   => count($datosGuat['datos'] ?? []),
+                    'referencias_count' => 0,
+                    'login_ok'          => false,
+                    'token_preview'     => null,
+                    'saldos_count'      => 0,
+                    'saldos_raw'        => null,
+                    'amort_count'       => 0,
+                    'amort_raw_first'   => null,
+                    'error'             => null,
+                ];
+
+                if ($pkeyCredito) {
+                    $loginResult = $this->croop_login();
+                    $croopToken  = $loginResult['token'] ?? null;
+
+                    $debugCroop['login_ok'] = !empty($croopToken);
+                    $debugCroop['token_preview'] = $croopToken ? substr($croopToken, 0, 20) . '...' : null;
+                    $debugCroop['login_http_code'] = $loginResult['http_code'] ?? null;
+                    $debugCroop['login_curl_error'] = $loginResult['curl_error'] ?? null;
+                    $debugCroop['login_success'] = $loginResult['success'] ?? false;
+                    $debugCroop['login_raw'] = $loginResult['raw'] ?? null;
+
+                    if ($croopToken) {
+                        $saldosPath = "clsCredito/Listar?Bandera=445&PKey={$pkeyCredito}";
+                        if ($fkEmpresa) $saldosPath .= "&FK_Empresa={$fkEmpresa}";
+
+                        $apiSaldos = $this->croop_get($saldosPath, $croopToken);
+                        $apiAmortizacion = $this->croop_get("clsCredito/Listar?Bandera=401&PKey={$pkeyCredito}", $croopToken);
+
+                        $debugCroop['saldos_count'] = count($apiSaldos);
+                        $debugCroop['saldos_raw'] = $apiSaldos[0] ?? null;
+                        $debugCroop['amort_count'] = count($apiAmortizacion);
+                        $debugCroop['amort_raw_first'] = $apiAmortizacion[0] ?? null;
+                    } else {
+                        $debugCroop['error'] = 'Login fallido: token null';
+                    }
+                } else {
+                    $debugCroop['error'] = 'pkeyCredito es null — no se llamó a CROOP';
+                }
+
+                self::set("titulo", "Estado de Cuenta - Guatemala");
+                self::set("paisData", ['nombre_pais' => 'Guatemala', 'codigo_iso' => 'gt', 'pais_activo' => 1]);
+                self::set("referencias", []);
+                self::set("datosGuat", $datosGuat);
+                self::set("apiSaldos", $apiSaldos);
+                self::set("apiAmortizacion", $apiAmortizacion);
+                self::set("debugCroop", $debugCroop);
+                return self::render("__SPARTA_SECRET_REDACTED___guatemala");
+            }
+
+            // 2) Si no existe en GT, validar en México para mostrar alerta de país incorrecto.
+            $referencias = EmpresasDAO::getConsultaReferenciasEstadoCuenta($idCreditoLista);
+            if (!empty($referencias['datos'])) {
+                $alertaBusqueda = [
+                    'title' => 'Crédito de México',
+                    'html' => "<div style='text-align:center;'><div style='margin-bottom:12px;'><span class='fi fi-mx fis' style='font-size:2.8rem;'></span></div><p style='margin:0; font-size:14px; color:#666;'>El crédito ingresado pertenece a México. Consulta este ID en Estado de Cuenta México.</p></div>",
+                    'confirmButtonText' => 'Entendido'
+                ];
+            } else {
+                $alertaBusqueda = $alertaCreditoInvalido;
+            }
+        } else {
+            $alertaBusqueda = [
+                'icon' => 'warning',
+                'title' => 'Falta el ID de crédito',
+                'text' => 'Por favor ingresa el ID del crédito.'
+            ];
+        }
     }
-    
-    // MARKER_GUATEMALA_FIN_CLASE
+
+    // GET o sin resultados → mostrar formulario de búsqueda
+    self::set("titulo", "Estados de Cuenta - Guatemala");
+    self::set("paisData", ['nombre_pais' => 'Guatemala', 'codigo_iso' => 'gt', 'pais_activo' => 1]);
+    if (!empty($alertaBusqueda)) {
+        self::set("alertaBusqueda", $alertaBusqueda);
+    }
+    return self::render("__SPARTA_SECRET_REDACTED___guatemala_consulta");
+}
+
+/* ----------------------------------------------------------------
+   CROOP API — helpers internos
+   ---------------------------------------------------------------- */
+private function croop_login(): array
+{
+    $ch = curl_init("https://apides.croop.mx:8085/api/access/Signin");
+    curl_setopt_array($ch, [
+        CURLOPT_POST           => true,
+        CURLOPT_POSTFIELDS     => json_encode([
+            "Email"     => "admin_mk@mail.com",
+            "Password"  => "\$Max12025\$",
+            "IPAddress" => "200.188.109.202",
+            "UserAgent" => "Mozilla/5.0",
+            "ServerURL" => "https://croopone.gear.host/login.aspx",
+        ]),
+        CURLOPT_HTTPHEADER     => [
+            "Content-Type: application/json",
+            "AppID: eae76274-0727-e811-9456-22000a244a86",
+            "Cache-Control: no-cache",
+        ],
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT        => 15,
+        CURLOPT_SSL_VERIFYPEER => false,
+        CURLOPT_SSL_VERIFYHOST => 0,
+    ]);
+    $response = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $curlError = curl_error($ch);
+    curl_close($ch);
+
+    $json  = $response ? (json_decode($response, true) ?? []) : [];
+    $token = $json['Token'] ?? null;
+
+    return [
+        'token'      => $token,
+        'http_code'  => $httpCode,
+        'curl_error' => $curlError ?: null,
+        'raw'        => $response ? substr($response, 0, 300) : null,
+        'success'    => !empty($json['Success']),
+    ];
+}
+
+private function croop_get(string $path, string $token): array
+{
+    $url = "https://apides.croop.mx:8085/api/" . ltrim($path, '/');
+    $ch = curl_init($url);
+    curl_setopt_array($ch, [
+        CURLOPT_HTTPHEADER     => [
+            "AppID: eae76274-0727-e811-9456-22000a244a86",
+            "Token: {$token}",
+        ],
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT        => 15,
+        CURLOPT_SSL_VERIFYPEER => false,
+        CURLOPT_SSL_VERIFYHOST => 0,
+    ]);
+    $response = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $curlError = curl_error($ch);
+    curl_close($ch);
+    if (!$response) return ['__debug_error' => $curlError, '__http_code' => $httpCode];
+    $json = json_decode($response, true);
+    return is_array($json) ? $json : ['__debug_raw' => substr($response, 0, 300), '__http_code' => $httpCode];
+}
+
 }

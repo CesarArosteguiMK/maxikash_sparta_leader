@@ -26,7 +26,6 @@ const TIPOS_REQUERIDOS = {
   'ACTA DE NACIMIENTO Certificada': 3,
   'CURP': 4,
   'IDENTIFICACIÓN OFICIAL': 5,
-  'IDENTIFICACIÓN OFICIAL (REVERSO)': '5_reverso',
   'COMPROBANTE DE DOMICILIO': 6,
   'CONSTANCIA DE SITUACION FISCAL': 7,
   'NÚMERO DE SEGURIDAD SOCIAL': 8,
@@ -45,24 +44,18 @@ function buildMetricas(documentos) {
   const clavesUnicas = {};
   for (const d of documentos) {
     const tipo = normalize(d.tipo_documento || '');
-    if (tipo === 'IDENTIFICACION OFICIAL (REVERSO)') {
-      clavesUnicas['5_reverso'] = true;
-    } else {
-      for (const [nombre, num] of Object.entries(TIPOS_REQUERIDOS)) {
-        if (num === '5_reverso') continue;
-        const nombreNorm = normalize(nombre);
-        if (tipo === nombreNorm || tipo.includes(nombreNorm) || nombreNorm.includes(tipo)) {
-          clavesUnicas[typeof num === 'string' ? num : num] = true;
-          break;
-        }
+    for (const [nombre, num] of Object.entries(TIPOS_REQUERIDOS)) {
+      const nombreNorm = normalize(nombre);
+      if (tipo === nombreNorm || tipo.includes(nombreNorm) || nombreNorm.includes(tipo)) {
+        clavesUnicas[typeof num === 'string' ? num : num] = true;
+        break;
       }
     }
   }
-  const totalRequeridos = 11;
+  const totalRequeridos = 10;
   const totalActual = Object.keys(clavesUnicas).length;
   const expedienteCompleto =
     totalActual >= totalRequeridos &&
-    clavesUnicas['5_reverso'] &&
     [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].every((n) => clavesUnicas[n]);
   return {
     total_documentos: totalActual,
