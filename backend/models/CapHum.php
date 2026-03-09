@@ -855,6 +855,38 @@ class CapHum extends Model
         }
     }
 
+    /**
+     * Puestos de un departamento que la persona puede asignar: solo los que tiene en privilegios_departamento.
+     * Usado en Gestión de Usuarios (Agregar/Editar Puesto) para que solo se listen puestos a los que el usuario en sesión tiene acceso.
+     */
+    public static function getConsultaPuestosParaGestor($departamento, $id_persona)
+    {
+        $departamento = $departamento !== null ? (int) $departamento : 0;
+        $id_persona = (int) $id_persona;
+        if ($departamento <= 0 || $id_persona <= 0) {
+            return self::resultado(true, 'Puestos encontrados.', []);
+        }
+
+        // Mismo criterio que getConsultaDepartamentoGestor: pd.idPersona y puesto por departamento
+        $query = <<<SQL
+        SELECT DISTINCT
+            p.id, p.nombre, p.nivel, d.nombre as departamento
+        FROM privilegios_departamento pd
+        INNER JOIN puesto p ON p.id = pd.idPuesto
+        INNER JOIN departamento d ON d.id = p.departamento_id
+        WHERE pd.idPersona = $id_persona AND d.id = :departamento
+        ORDER BY p.nivel ASC, p.nombre ASC
+        SQL;
+
+        try {
+            $db = new Database();
+            $r = $db->queryAll($query, ['departamento' => $departamento]);
+            return self::resultado(true, 'Puestos encontrados.', $r ?: []);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al procesar la solicitud.', null, $e->getMessage());
+        }
+    }
+
     public static function getRazonesAusencia()
     {
         // Query base
@@ -1156,6 +1188,16 @@ class CapHum extends Model
 
                 $personas = $db->queryAll($queryPersonas, $params);
 
+            // Una sola entrada por persona (evitar duplicados cuando tiene varios puestos en el departamento)
+            $byPersonId = [];
+            foreach ($personas as $row) {
+                $id = (int) ($row['id'] ?? 0);
+                if ($id && !isset($byPersonId[$id])) {
+                    $byPersonId[$id] = $row;
+                }
+            }
+            $personas = array_values($byPersonId);
+
             return self::resultado(true, 'Personas de mayor rango encontradas.', $personas);
 
         } catch (\Exception $e) {
@@ -1321,17 +1363,12 @@ class CapHum extends Model
             return self::resultado(false, 'Error al procesar la solicitud.', null, $e->getMessage());
         }
     }
-    ////////////////////////////////////////ES EL DE ADMIN
+    /** Departamentos que el usuario puede usar (asignar/cambiar): solo los que tienen puestos en privilegios_departamento para ESE usuario. */
     public static function getConsultaDepartamentoGestor($perfil_id)
     {
-        if($perfil_id == 1 OR $perfil_id == 2 OR $perfil_id == 3 OR $perfil_id == 396){
-            $complet = '';
-        }
-        else
-        {
-            $complet = 'WHERE pd.idPersona = ' . $perfil_id;
+        $perfil_id = (int) $perfil_id;
+        $complet = $perfil_id > 0 ? 'WHERE pd.idPersona = ' . $perfil_id : '';
 
-        }
         $query = <<<SQL
            SELECT DISTINCT d.*
             FROM privilegios_departamento pd

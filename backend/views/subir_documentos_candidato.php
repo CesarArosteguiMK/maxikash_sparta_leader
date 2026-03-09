@@ -228,6 +228,9 @@ $documentos = [
         .descarga-doc .btn-descarga + .btn-descarga {
             margin-left: 0.5rem;
         }
+        .carta-parrafo-mano details[open] summary .fa-chevron-right {
+            transform: rotate(90deg);
+        }
         .btn-tomar-foto {
             white-space: nowrap;
         }
@@ -466,18 +469,16 @@ $documentos = [
                     $urlBaseDescarga = '/CapHum/descargarDocumentoCandidato/' . urlencode($token);
                     // Sin botón "Tomar foto": identificación oficial (5) y comprobante (6) solo por archivo.
                     $documentosConFoto = [];
-                    $reversoIdSubido = isset($documentos_subidos['5_reverso']);
-                    $docsSoloPdf = [3, 4, 6, 7, 8]; // acta, CURP, comprobante domicilio, constancia fiscal, NSS
+                    $docsSoloPdf = [3, 4, 5, 6, 7, 8, 10]; // acta, CURP, identificación, comprobante, constancia fiscal, NSS, estado de cuenta
                     foreach ($documentos as $num => $nombreDoc):
                         $esSolicitud = ($num === 1);
                         $esCartaAdeudo = ($num === 9);
                         $permiteFoto = in_array($num, $documentosConFoto, true);
                         $soloPdf = in_array($num, $docsSoloPdf, true);
-                        $soloImagenId = ($num === 5);
                         $yaSubido = isset($documentos_subidos[$num]);
                     ?>
                     <div class="form-group" data-doc-num="<?= $num ?>">
-                        <label for="archivo_<?= $num ?>"><?= $num ?>. <?= htmlspecialchars($nombreDoc) ?><?= $num === 5 ? ' <span class="text-muted" style="font-weight:400;">(frente y reverso obligatorios)</span>' : '' ?></label>
+                        <label for="archivo_<?= $num ?>"><?= $num ?>. <?= htmlspecialchars($nombreDoc) ?><?= $num === 5 ? ' <span class="text-muted" style="font-weight:400;">(un solo archivo PDF con frente y reverso)</span>' : '' ?></label>
                         <?php if ($yaSubido): ?>
                         <div class="doc-ya-subido py-2 px-3 rounded" style="background:#e8f5e9;color:#2e7d32;">
                             <i class="fa fa-check-circle me-1"></i> Ya subido: <?= htmlspecialchars($documentos_subidos[$num]['nombre_archivo'] ?? 'documento') ?>
@@ -493,16 +494,26 @@ $documentos = [
                         <?php elseif ($esCartaAdeudo): ?>
                         <div class="descarga-doc mb-2">
                             <a href="<?= htmlspecialchars($urlBaseDescarga) ?>/carta_no_adeudo" class="btn-descarga" target="_blank" rel="noopener"><i class="fa fa-download me-1"></i> Descargar carta de no adeudo</a>
-                            <span class="d-block small-text mt-1">Si no tienes hoja de retención, descarga esta carta, fírmala y súbela.</span>
+                            <p class="small-text mt-2 mb-1">Si tienes crédito INFONAVIT o FONACOT y no tienes la hoja de retención: descarga la carta, llénala, fírmala y copia <strong>a mano</strong> en ella el texto que se indica abajo. Luego súbela aquí.</p>
+                            <details class="carta-parrafo-mano mt-2" style="border:1px solid #dee2e6;border-radius:8px;background:#fafafa;">
+                                <summary style="padding:0.5rem 0.75rem;cursor:pointer;font-size:0.9rem;list-style:none;display:flex;align-items:center;gap:0.35rem;">
+                                    <i class="fa fa-chevron-right" style="transition:transform 0.2s;"></i>
+                                    <span><strong>Ver texto que debes copiar a mano en la carta</strong></span>
+                                </summary>
+                                <div class="px-3 pb-3 pt-1" style="font-size:0.88rem;line-height:1.5;">
+                                    <p class="mb-2">Yo ___________ declaro tener activo el crédito (INFONAVIT o FONACOT) con número _________________ en el cual tengo una cuota fija de $__________________ y será ajustado en mi salario acorde a la normativa vigente, inclusive si hay un acumulado pendiente.</p>
+                                    <p class="text-muted small mb-0">Primer espacio: nombre completo. Segundo: número de crédito. Tercero: monto de la cuota. <strong>Debe estar escrito a mano por usted.</strong></p>
+                                </div>
+                            </details>
                         </div>
                         <?php endif; ?>
                         <div class="d-flex flex-wrap gap-2 align-items-center">
-                            <input type="file" class="form-control-file" id="archivo_<?= $num ?>" name="archivo_<?= $num ?>" accept="<?= $soloImagenId ? 'image/*' : ($soloPdf ? '.pdf' : '.pdf,.doc,.docx,.jpg,.jpeg,.png') ?>">
+                            <input type="file" class="form-control-file" id="archivo_<?= $num ?>" name="archivo_<?= $num ?>" accept="<?= $soloPdf ? '.pdf' : '.pdf,.doc,.docx,.jpg,.jpeg,.png' ?>">
                             <?php if ($num === 4): ?>
                             <span id="curp-verificado" class="doc-check-inline" style="display:none;color:#2e7d32;font-weight:600;"><i class="fa fa-check-circle me-1"></i> CURP verificado</span>
                             <?php endif; ?>
                             <?php if ($num === 5): ?>
-                            <span id="id-verificado-frente" class="doc-check-inline" style="display:none;color:#2e7d32;font-weight:600;"><i class="fa fa-check-circle me-1"></i> Frente verificado</span>
+                            <span id="id-verificado-frente" class="doc-check-inline" style="display:none;color:#2e7d32;font-weight:600;"><i class="fa fa-check-circle me-1"></i> Identificación verificada</span>
                             <?php endif; ?>
                             <?php if ($num === 6): ?>
                             <span id="comp-verificado" class="doc-check-inline" style="display:none;color:#2e7d32;font-weight:600;"><i class="fa fa-check-circle me-1"></i> Comprobante verificado</span>
@@ -520,38 +531,9 @@ $documentos = [
                             </button>
                             <?php endif; ?>
                         </div>
-                        <?php if ($num === 5 && !$yaSubido && !$reversoIdSubido): ?>
-                        <div class="mt-2">
-                            <label for="archivo_5_reverso" class="d-block mb-1" style="font-size:0.85rem;font-weight:600;color:#4a5568;">Reverso</label>
-                            <div class="d-flex flex-wrap gap-2 align-items-center">
-                                <input type="file" class="form-control-file" id="archivo_5_reverso" name="archivo_5_reverso" accept="image/*">
-                                <span id="id-verificado-reverso" class="doc-check-inline" style="display:none;color:#2e7d32;font-weight:600;"><i class="fa fa-check-circle me-1"></i> Reverso verificado</span>
-                            </div>
-                        </div>
-                        <?php endif; ?>
                         <?php endif; ?>
                     </div>
                     <?php endforeach; ?>
-                    <?php
-                    $reversoSubido = isset($documentos_subidos['5_reverso']);
-                    $frenteSubido = isset($documentos_subidos[5]);
-                    if ($reversoSubido): ?>
-                    <div class="form-group">
-                        <label>Identificación oficial (reverso)</label>
-                        <div class="doc-ya-subido py-2 px-3 rounded" style="background:#e8f5e9;color:#2e7d32;">
-                            <i class="fa fa-check-circle me-1"></i> Ya subido: <?= htmlspecialchars($documentos_subidos['5_reverso']['nombre_archivo'] ?? 'reverso') ?>
-                        </div>
-                        <input type="hidden" name="archivo_5_reverso_ya_subido" value="1">
-                    </div>
-                    <?php elseif ($frenteSubido): ?>
-                    <div class="form-group" data-doc="5_reverso" id="formGroupReverso">
-                        <label for="archivo_5_reverso">Identificación oficial (reverso)</label>
-                        <div class="d-flex flex-wrap gap-2 align-items-center">
-                            <input type="file" class="form-control-file" id="archivo_5_reverso" name="archivo_5_reverso" accept="image/*">
-                            <span id="id-verificado-reverso" class="doc-check-inline" style="display:none;color:#2e7d32;font-weight:600;"><i class="fa fa-check-circle me-1"></i> Reverso verificado</span>
-                        </div>
-                    </div>
-                    <?php endif; ?>
                     <p class="small-text">Puedes subir los documentos por partes: envía los que tengas ahora y el resto después. Los que ya enviaste no se pueden cambiar. Formatos: PDF, JPG, PNG.</p>
                     <button type="submit" class="btn-submit" id="btnEnviar">Subir documentos</button>
                 </form>
@@ -1772,12 +1754,10 @@ $documentos = [
                 if (msg) (window.showResultado || function(){})(msg, null, 'La constancia de CURP debe ser verificada antes de enviar. Solo se acepta constancia CURP del RENAPO.', true);
                 return;
             }
-            if (docRequiereVerificacion('archivo_5', 'id-verificado-frente')) {
-                if (msg) (window.showResultado || function(){})(msg, null, 'La identificación (frente) debe ser verificada antes de enviar. Sube solo el frente de tu INE o residencia.', true);
-                return;
-            }
-            if (docRequiereVerificacion('archivo_5_reverso', 'id-verificado-reverso')) {
-                if (msg) (window.showResultado || function(){})(msg, null, 'El reverso de la identificación debe ser verificado antes de enviar. Debe ser la parte de atrás del documento.', true);
+            var input5 = document.getElementById('archivo_5');
+            var esPdfId = input5 && input5.files && input5.files.length > 0 && (input5.files[0].name || '').toLowerCase().endsWith('.pdf');
+            if (!esPdfId && docRequiereVerificacion('archivo_5', 'id-verificado-frente')) {
+                if (msg) (window.showResultado || function(){})(msg, null, 'La identificación debe ser verificada antes de enviar. Sube un PDF con frente y reverso de tu INE o residencia.', true);
                 return;
             }
             if (docRequiereVerificacion('archivo_7', 'fiscal-verificado')) {

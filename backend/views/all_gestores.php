@@ -162,7 +162,7 @@
       align-items: center;
       gap: 0.375rem;
     }
-    
+
     /* Contador en filtros */
     .filter-counter {
         display: inline-block;
@@ -174,7 +174,7 @@
         font-weight: 600;
         margin-left: 0.5rem;
     }
-    
+
     /* Filtro activo con feedback visual mejorado */
     .form-select.filter-active {
         border-color: #6366f1 !important;
@@ -387,18 +387,18 @@
         line-height: 1.5;
         color: #697a8d;
     }
-    
+
     /* ===== MEJORAS UX: BADGES INTERACTIVOS ===== */
     .badge-puesto-multiple {
         transition: all 0.3s ease;
         cursor: help;
     }
-    
+
     .badge-puesto-multiple:hover {
         transform: translateY(-2px);
         box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
     }
-    
+
     /* Animación fade-in para tabla */
     @keyframes fadeInRow {
         from {
@@ -410,7 +410,7 @@
             transform: translateY(0);
         }
     }
-    
+
     /* Indicador de múltiples puestos en acciones - MEJORADO */
     .indicator-multiples-puestos {
         position: absolute;
@@ -431,7 +431,7 @@
         z-index: 10;
         border: 2px solid white;
     }
-    
+
     @keyframes pulseIndicator {
         0%, 100% {
             transform: scale(1);
@@ -442,7 +442,7 @@
             box-shadow: 0 4px 12px rgba(245, 158, 11, 0.7);
         }
     }
-    
+
     /* Badge para puesto PRINCIPAL */
     .badge-puesto-principal {
         background: linear-gradient(135deg, #2563eb, #1d4ed8) !important;
@@ -458,13 +458,13 @@
         gap: 0.375rem;
         transition: all 0.3s ease;
     }
-    
+
     .badge-puesto-principal:hover {
         background: linear-gradient(135deg, #1d4ed8, #1e40af) !important;
         transform: translateY(-1px);
         box-shadow: 0 4px 8px rgba(37, 99, 235, 0.3) !important;
     }
-    
+
     /* Badge para puestos SECUNDARIOS */
     .badge-puesto-secundario {
         background: linear-gradient(135deg, #10B981, #34D399) !important;
@@ -480,13 +480,13 @@
         gap: 0.25rem;
         transition: all 0.3s ease;
     }
-    
+
     .badge-puesto-secundario:hover {
         background: linear-gradient(135deg, #059669, #10B981) !important;
         transform: translateY(-1px);
         box-shadow: 0 3px 6px rgba(16, 185, 129, 0.3) !important;
     }
-    
+
     /* Badge para usuario con múltiples puestos */
     .badge-multipuesto-indicator {
         background: linear-gradient(135deg, #10B981, #34D399) !important;
@@ -498,7 +498,7 @@
         letter-spacing: 0.025rem;
         animation: fadeInUp 0.5s ease;
     }
-    
+
     @keyframes fadeInUp {
         from {
             opacity: 0;
@@ -509,18 +509,18 @@
             transform: translateY(0);
         }
     }
-    
+
     /* Contenedor de puestos colapsable */
     .puestos-collapse-container {
         max-height: 200px;
         overflow: hidden;
         transition: max-height 0.4s ease;
     }
-    
+
     .puestos-collapse-container.expanded {
         max-height: 1000px;
     }
-    
+
     /* Botón ver más puestos */
     .btn-ver-mas-puestos {
         font-size: 0.7rem;
@@ -533,12 +533,12 @@
         transition: all 0.3s ease;
         margin-top: 0.5rem;
     }
-    
+
     .btn-ver-mas-puestos:hover {
         background: linear-gradient(135deg, #475569, #64748b);
         transform: translateX(2px);
     }
-    
+
     /* Departamento label pequeño */
     .departamento-label {
         font-size: 0.7rem;
@@ -549,17 +549,17 @@
         align-items: center;
         gap: 0.25rem;
     }
-    
+
     /* Mejorar el botón con indicador */
     .btn-with-indicator {
         position: relative;
         overflow: visible !important;
     }
-    
+
     /* ==========================================
      * ESTILOS PARA GESTIÓN DE MÚLTIPLES PUESTOS EN MODAL DE EDICIÓN
      * ========================================== */
-    
+
     /* Item de puesto en el panel de gestión */
     .puesto-item {
         display: flex;
@@ -572,31 +572,31 @@
         border-radius: 0.375rem;
         transition: all 0.2s ease;
     }
-    
+
     .puesto-item:hover {
         border-color: #cbd5e1;
         box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
     }
-    
+
     .puesto-item.principal {
         border-color: #93c5fd;
         background: rgba(147, 197, 253, 0.05);
     }
-    
+
     .puesto-item-content {
         display: flex;
         align-items: center;
         gap: 0.75rem;
         flex: 1;
     }
-    
+
     .puesto-item-info {
         display: flex;
         flex-direction: column;
         gap: 0.125rem;
         flex: 1;
     }
-    
+
     .puesto-item-departamento {
         font-size: 0.7rem;
         color: #6b7280;
@@ -605,7 +605,7 @@
         align-items: center;
         gap: 0.25rem;
     }
-    
+
     .puesto-item-nombre {
         font-size: 0.8rem;
         color: #1f2937;
@@ -614,7 +614,7 @@
         align-items: center;
         gap: 0.375rem;
     }
-    
+
     .puesto-item-badge {
         font-size: 0.65rem;
         padding: 0.125rem 0.4rem;
@@ -623,12 +623,12 @@
         background: #3b82f6;
         color: white;
     }
-    
+
     .puesto-item-actions {
         display: flex;
         gap: 0.375rem;
     }
-    
+
     .btn-eliminar-puesto {
         width: 28px;
         height: 28px;
@@ -644,19 +644,19 @@
         cursor: pointer;
         transition: all 0.2s;
     }
-    
+
     .btn-eliminar-puesto:hover {
         background: rgba(220, 38, 38, 0.35);
         border-color: rgba(220, 38, 38, 0.6);
         transform: scale(1.05);
     }
-    
+
     .btn-eliminar-puesto:disabled {
         background: #f3f4f6;
         color: #d1d5db;
         cursor: not-allowed;
     }
-    
+
     .btn-editar-puesto {
         width: 28px;
         height: 28px;
@@ -671,12 +671,12 @@
         transition: all 0.2s ease;
         font-size: 0.8rem;
     }
-    
+
     .btn-editar-puesto:hover {
         background: #f59e0b;
         color: white;
     }
-    
+
     /* Modo oscuro: ítems y botones de múltiples puestos */
     body.dark-mode #edit_lista_puestos {
         background: #1e293b !important;
@@ -728,18 +728,18 @@
     body.dark-mode .no-puestos-message {
         color: #94a3b8;
     }
-    
+
     /* Panel de agregar puesto */
     #edit_panel_agregar_puesto {
         animation: slideDown 0.3s ease;
     }
-    
+
     /* Panel de editar puesto */
     #edit_panel_editar_puesto {
         animation: slideDown 0.3s ease;
         border-width: 2px !important;
     }
-    
+
     @keyframes slideDown {
         from {
             opacity: 0;
@@ -750,26 +750,26 @@
             transform: translateY(0);
         }
     }
-    
+
     /* Scrollbar personalizado para lista de puestos */
     #edit_lista_puestos::-webkit-scrollbar {
         width: 8px;
     }
-    
+
     #edit_lista_puestos::-webkit-scrollbar-track {
         background: #f1f1f1;
         border-radius: 10px;
     }
-    
+
     #edit_lista_puestos::-webkit-scrollbar-thumb {
         background: #cbd5e1;
         border-radius: 10px;
     }
-    
+
     #edit_lista_puestos::-webkit-scrollbar-thumb:hover {
         background: #94a3b8;
     }
-    
+
     /* Mensaje cuando no hay puestos */
     .no-puestos-message {
         text-align: center;
@@ -777,7 +777,7 @@
         color: #9ca3af;
         font-size: 0.875rem;
     }
-    
+
     .no-puestos-message i {
         font-size: 2rem;
         margin-bottom: 0.5rem;
@@ -790,12 +790,12 @@
         box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
         z-index: 10;
     }
-    
+
     /* Estilo para botones de acción con indicador */
     .btn-with-indicator {
         position: relative;
     }
-    
+
     /* Mejora en filtros - feedback visual */
     .filter-active {
         border: 2px solid #10b981 !important;
@@ -1673,7 +1673,7 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
                         <option value="">Selecciona Estatus</option>
                     </select>
                 </div>
-                
+
                 <div class="col-md-3">
                     <select id="FilterMultiplePuestos" class="form-select text-capitalize">
                         <option value="">Todos los usuarios</option>
@@ -1916,7 +1916,7 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
                     <i class="bx bx-download icon-sm me-sm-2"></i>
                     <span class="d-inline-block">Plantilla</span>
                 </button>
-                
+
                 <!-- Botón Agregar Usuario -->
                 <button
                   type="button"
@@ -1943,10 +1943,10 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
                                 <label class="form-label fw-semibold">
                                     <i class="fa fa-calendar-alt me-2"></i>Rango de Fechas Personalizado
                                 </label>
-                                <input 
-                                    type="text" 
-                                    id="flatpickr-range-bajas" 
-                                    class="form-control" 
+                                <input
+                                    type="text"
+                                    id="flatpickr-range-bajas"
+                                    class="form-control"
                                     placeholder="Selecciona un rango de fechas personalizado"
                                 />
                             </div>
@@ -1959,36 +1959,36 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
                                     <i class="fa fa-bolt me-2"></i>Filtros Rápidos
                                 </label>
                                 <div class="d-flex flex-wrap gap-2">
-                                    <button 
-                                        type="button" 
+                                    <button
+                                        type="button"
                                         class="btn btn-outline-primary btn-filtro-rapido"
                                         data-periodo="ultimo-mes"
                                     >
                                         <i class="fa fa-calendar-day me-1"></i>Último Mes
                                     </button>
-                                    <button 
-                                        type="button" 
+                                    <button
+                                        type="button"
                                         class="btn btn-outline-primary btn-filtro-rapido"
                                         data-periodo="ultimos-3-meses"
                                     >
                                         <i class="fa fa-calendar-week me-1"></i>Últimos 3 Meses
                                     </button>
-                                    <button 
-                                        type="button" 
+                                    <button
+                                        type="button"
                                         class="btn btn-outline-primary btn-filtro-rapido"
                                         data-periodo="ultimos-6-meses"
                                     >
                                         <i class="fa fa-calendar me-1"></i>Últimos 6 Meses
                                     </button>
-                                    <button 
-                                        type="button" 
+                                    <button
+                                        type="button"
                                         class="btn btn-outline-primary btn-filtro-rapido"
                                         data-periodo="ano-actual"
                                     >
                                         <i class="fa fa-calendar-alt me-1"></i>Año Actual
                                     </button>
-                                    <button 
-                                        type="button" 
+                                    <button
+                                        type="button"
                                         class="btn btn-outline-success btn-filtro-rapido"
                                         data-periodo="todo"
                                     >
@@ -2184,17 +2184,17 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
                         <!-- Botones de Acción -->
                         <div class="row g-3">
                             <div class="col-12 d-flex gap-2 justify-content-end">
-                                <button 
-                                    type="button" 
-                                    id="btnLimpiarFiltroBajas" 
+                                <button
+                                    type="button"
+                                    id="btnLimpiarFiltroBajas"
                                     class="btn text-white"
                                     style="background-color: #d2d755; border-color: #d2d755;"
                                 >
                                     <i class="fa fa-times me-2"></i>Limpiar Filtro
                                 </button>
-                                <button 
-                                    type="button" 
-                                    id="btnDescargarBajas" 
+                                <button
+                                    type="button"
+                                    id="btnDescargarBajas"
                                     class="btn text-white"
                                     style="background-color: #0047bb; border-color: #0047bb;"
                                 >
@@ -2525,16 +2525,16 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
                     <div class="mb-3">
                         <label class="form-label"><strong>Archivo:</strong></label>
                         <div class="d-flex gap-2 align-items-center mb-2">
-                            <input 
-                                type="file" 
-                                id="cargarDoc_archivo" 
-                                class="form-control d-none" 
+                            <input
+                                type="file"
+                                id="cargarDoc_archivo"
+                                class="form-control d-none"
                                 onchange="agregarArchivoLista(this)"
                                 accept=".pdf"
                                 multiple
                             />
-                            <button 
-                                type="button" 
+                            <button
+                                type="button"
                                 class="btn btn-outline-primary"
                                 onclick="seleccionarArchivoDocumento()"
                             >
@@ -2619,15 +2619,15 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
                     <div class="mb-3">
                         <label class="form-label"><strong>Archivo:</strong></label>
                         <div class="d-flex gap-2 align-items-center mb-2">
-                            <input 
-                                type="file" 
-                                id="cargarDocPersona_archivo" 
-                                class="form-control d-none" 
+                            <input
+                                type="file"
+                                id="cargarDocPersona_archivo"
+                                class="form-control d-none"
                                 onchange="agregarArchivoListaPersona(this)"
                                 accept=".pdf"
                             />
-                            <button 
-                                type="button" 
+                            <button
+                                type="button"
                                 class="btn btn-outline-primary"
                                 onclick="seleccionarArchivoDocumentoPersona()"
                             >
@@ -2848,7 +2848,7 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
                     <label class="form-label fw-semibold">
                         <i class="fa fa-layer-group me-1"></i>Gestión de Puestos Asignados
                     </label>
-                    
+
                     <!-- Lista de puestos con opciones de gestión -->
                     <div id="edit_lista_puestos" class="border rounded p-3 mb-2" style="background: #f8f9fa; max-height: 400px; overflow-y: auto;">
                         <!-- Los puestos se agregarán dinámicamente aquí con este formato:
@@ -2859,7 +2859,7 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
                         </div>
                         -->
                     </div>
-                    
+
                     <!-- Botón para agregar nuevo puesto -->
                     <div class="d-flex gap-2 align-items-center">
                         <button type="button" class="btn btn-sm btn-outline-success" onclick="mostrarAgregarPuesto()">
@@ -2870,7 +2870,7 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
                             El primer puesto es el principal
                         </small>
                     </div>
-                    
+
                     <!-- Panel para agregar nuevo puesto (oculto por defecto) -->
                     <div id="edit_panel_agregar_puesto" class="mt-3 p-3 border rounded d-none" style="background: #fff;">
                         <h6 class="mb-3">
@@ -2899,7 +2899,7 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
                             </button>
                         </div>
                     </div>
-                    
+
                     <!-- Panel para editar puesto existente (oculto por defecto) -->
                     <div id="edit_panel_editar_puesto" class="mt-3 p-3 border rounded d-none" style="background: #fffbea; border-color: #fbbf24 !important;">
                         <h6 class="mb-3">
@@ -3046,7 +3046,7 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
                         <!-- TAB PUESTOS -->
                         <div class="tab-pane fade" id="tabPuestos" role="tabpanel">
                             <input type="hidden" id="edit_perfil_id">
-                            
+
                             <div class="d-flex justify-content-between align-items-center mb-4">
                                 <div>
                                     <h6 class="mb-1 fw-bold">Puestos Disponibles</h6>
@@ -3163,19 +3163,19 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
   function validarTelefono(fieldId) {
     const input = document.getElementById(fieldId);
     const telefono = input.value;
-    
+
     // Solo validar si tiene 10 dígitos
     if (telefono.length !== 10) {
       return;
     }
-    
+
     // Verificar patrones repetitivos
     // Ejemplo: 3333333333, 1111111111
     const todosIguales = /^(\d)\1{9}$/.test(telefono);
-    
+
     // Ejemplo: 1212121212, 4242424242
     const patron2Digitos = /^(\d{2})\1{4}$/.test(telefono);
-    
+
     if (todosIguales || patron2Digitos) {
       Swal.fire({
         icon: 'error',
@@ -3207,12 +3207,12 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
       ocultarIndicadorEmpleados();
       ocultarIndicadorTotalEmpleados();
       ocultarIndicadoresRoles();
-      
+
       // Limpiar también el mini-stat de sin jefe
       if (typeof kpiUpdateValues === 'function') {
         kpiUpdateValues({ depSinJefe: 0 });
       }
-      
+
       return;
     }
 
@@ -3292,7 +3292,7 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
       // Mostrar: Departamentos, Puestos, Roles Dinámicos, Total Empleados del Departamento
       actualizarIndicadoresRoles(datos, departamentoSeleccionado);
       ocultarIndicadorEmpleados();
-      
+
       const empleadosDepartamento = datos.filter(p => p.nombre_departamento === departamentoSeleccionado).length;
       mostrarIndicadorTotalEmpleados(empleadosDepartamento, 'Empleados en ' + departamentoSeleccionado);
     }
@@ -3302,8 +3302,8 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
       // OCULTAR roles dinámicos para evitar redundancia
       ocultarIndicadoresRoles();
       ocultarIndicadorTotalEmpleados();
-      
-      const empleadosEnPuesto = datos.filter(persona => 
+
+      const empleadosEnPuesto = datos.filter(persona =>
         persona.nombre_puesto === puestoSeleccionado
       ).length;
       mostrarIndicadorEmpleados(puestoSeleccionado, empleadosEnPuesto);
@@ -3369,7 +3369,7 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
    */
   function actualizarIndicadoresRoles(datos, departamento) {
     // Filtrar solo personas del departamento seleccionado
-    const empleadosDepartamento = datos.filter(persona => 
+    const empleadosDepartamento = datos.filter(persona =>
       persona.nombre_departamento === departamento
     );
 
@@ -3617,22 +3617,22 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
     const container = document.getElementById('kpi-empleados-container');
     const label = document.getElementById('kpi-empleados-label');
     const separador = document.getElementById('separator-empleados-puesto');
-    
+
     if (container) {
       container.style.display = '';
-      
+
       // Añadir tooltip con nombre completo
       label.setAttribute('title', 'Empleados en ' + nombrePuesto);
-      
+
       // Truncar nombre del puesto si es muy largo
       let labelText = 'Empleados en ' + nombrePuesto;
       if (labelText.length > 25) {
         labelText = 'Empleados: ' + nombrePuesto.substring(0, 15) + '...';
       }
       label.textContent = labelText;
-      
+
       animarNumero('kpi-empleados-puesto', cantidad);
-      
+
       // Mostrar separador en desktop
       if (separador) {
         separador.style.display = '';
@@ -3648,11 +3648,11 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
   function ocultarIndicadorEmpleados() {
     const container = document.getElementById('kpi-empleados-container');
     const separador = document.getElementById('separator-empleados-puesto');
-    
+
     if (container) {
       container.style.display = 'none';
     }
-    
+
     if (separador) {
       separador.style.display = 'none';
     }
@@ -3676,13 +3676,13 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
 
     const valorActual = parseInt(elemento.textContent) || 0;
     const diferencia = valorFinal - valorActual;
-    
+
     // Si no hay cambio, solo actualizar sin animación
     if (diferencia === 0) {
       elemento.textContent = valorFinal;
       return;
     }
-    
+
     const duracion = 500; // milisegundos
     const pasos = 20;
     const incremento = diferencia / pasos;
@@ -3710,14 +3710,14 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
   function mostrarTooltip(elemento, tipo) {
     const tooltip = document.getElementById('kpiTooltip');
     if (!tooltip) return;
-    
+
     const rect = elemento.getBoundingClientRect();
-    
+
     let contenido = generarContenidoTooltip(tipo);
     tooltip.innerHTML = contenido;
     tooltip.style.visibility = 'hidden';
     tooltip.classList.add('show');
-    
+
     // Posicionar respecto al viewport (tooltip debe estar en document.body). Centrar arriba de la tarjeta.
     requestAnimationFrame(function() {
       const w = tooltip.offsetWidth;
@@ -3743,7 +3743,7 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
 
   function generarContenidoTooltip(tipo) {
     const datos = usuariosData || [];
-    
+
     switch(tipo) {
       case 'departamentos':
         const depts = [...new Set(datos.filter(u => u.nombre_departamento && u.nombre_departamento !== 'Sin departamento').map(u => u.nombre_departamento))];
@@ -3764,7 +3764,7 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
           </div>
           <div style="margin-top: 0.5rem; font-size: 0.7rem; color: #94a3b8; text-align: center;">Click para ver desglose</div>
         `;
-      
+
       case 'puestos':
         const puestos = [...new Set(datos.filter(u => u.nombre_puesto && u.nombre_puesto !== 'Sin puesto').map(u => u.nombre_puesto))];
         const topPuesto = obtenerTopPuesto(datos);
@@ -3784,7 +3784,7 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
           </div>
           <div style="margin-top: 0.5rem; font-size: 0.7rem; color: #94a3b8; text-align: center;">Click para ver desglose</div>
         `;
-      
+
       case 'total':
         const departamentoActual = document.getElementById('UserRole')?.value || '';
         return `
@@ -3803,7 +3803,7 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
           </div>
           <div style="margin-top: 0.5rem; font-size: 0.7rem; color: #94a3b8; text-align: center;">Click para ver listado</div>
         `;
-      
+
       default:
         return `
           <div class="kpi-tooltip-title">📈 Estadísticas</div>
@@ -3844,7 +3844,7 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
     const modal = new bootstrap.Modal(document.getElementById('modalKpiDesglose'));
     const modalTitle = document.getElementById('modalKpiTitle');
     const modalContent = document.getElementById('modalKpiContent');
-    
+
     // Configurar íconos según tipo
     const iconos = {
       'departamentos': 'bx-buildings',
@@ -3854,7 +3854,7 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
       'total': 'bx-group',
       'puesto-especifico': 'bx-user-pin'
     };
-    
+
     const colores = {
       'departamentos': 'indigo',
       'puestos': 'emerald',
@@ -3863,21 +3863,21 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
       'total': 'amber',
       'puesto-especifico': 'red'
     };
-    
+
     const icono = iconos[tipo] || 'bx-chart';
     const color = colores[tipo] || 'indigo';
-    
+
     // Generar contenido según tipo
     const contenido = generarContenidoModal(tipo, color);
     modalTitle.innerHTML = `<i class="bx ${icono} me-2"></i>${contenido.titulo}`;
     modalContent.innerHTML = contenido.html;
-    
+
     modal.show();
   }
 
   function generarContenidoModal(tipo, color) {
     const datos = usuariosData || [];
-    
+
     switch(tipo) {
       case 'departamentos':
         return generarModalDepartamentos(datos);
@@ -4003,14 +4003,14 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
         conteo[u.nombre_puesto] = (conteo[u.nombre_puesto] || 0) + 1;
       }
     });
-    
+
     const puestos = Object.entries(conteo)
       .sort((a, b) => b[1] - a[1])
       .map(([puesto, cantidad]) => ({ puesto, cantidad }));
-    
+
     const total = puestos.length;
     const totalEmpleados = datos.length;
-    
+
     let html = `
       <div class="row mb-3">
         <div class="col-md-6">
@@ -4026,7 +4026,7 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
           </div>
         </div>
       </div>
-      
+
       <h6 class="mb-3 fw-bold"><i class="bx bx-bar-chart me-2"></i>Distribución por Puesto</h6>
       <div class="table-responsive">
         <table class="table table-hover table-sm">
@@ -4041,7 +4041,7 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
           </thead>
           <tbody>
     `;
-    
+
     puestos.forEach((item, index) => {
       const porcentaje = ((item.cantidad / totalEmpleados) * 100).toFixed(1);
       html += `
@@ -4052,20 +4052,20 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
           <td class="text-center"><strong>${porcentaje}%</strong></td>
           <td>
             <div class="progress" style="height: 6px;">
-              <div class="progress-bar progress-bar-kpi" role="progressbar" 
+              <div class="progress-bar progress-bar-kpi" role="progressbar"
                    style="width: ${porcentaje}%; background: linear-gradient(90deg, #10B981, #34D399);"></div>
             </div>
           </td>
         </tr>
       `;
     });
-    
+
     html += `
           </tbody>
         </table>
       </div>
     `;
-    
+
     return { titulo: 'Puestos - Análisis Completo', html };
   }
 
@@ -4073,7 +4073,7 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
     const activos = datos.filter(u => u.estatus === 'Activo').length;
     const inactivos = datos.length - activos;
     const porcentajeActivos = ((activos / datos.length) * 100).toFixed(1);
-    
+
     let html = `
       <div class="row mb-3">
         <div class="col-md-4">
@@ -4095,7 +4095,7 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
           </div>
         </div>
       </div>
-      
+
       <h6 class="mb-3 fw-bold"><i class="bx bx-list-ul me-2"></i>Listado de Empleados</h6>
       <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
         <table class="table table-sm table-hover">
@@ -4109,7 +4109,7 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
           </thead>
           <tbody>
     `;
-    
+
     datos.forEach(u => {
       const badgeClass = u.estatus === 'Activo' ? 'bg-success' : 'bg-secondary';
       const nombreCompleto = [u.nombres, u.segundo_nombre, u.apellidop, u.apellidom].filter(x => x).join(' ') || 'N/A';
@@ -4122,20 +4122,20 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
         </tr>
       `;
     });
-    
+
     html += `
           </tbody>
         </table>
       </div>
     `;
-    
+
     return { titulo: 'Total de Empleados', html };
   }
 
   function generarModalRol(tipo, datos) {
     const label = document.getElementById(`kpi-${tipo}-label`).textContent;
     const empleadosRol = datos.filter(u => u.nombre_puesto === label);
-    
+
     let html = `
       <div class="row mb-3">
         <div class="col-md-12">
@@ -4145,7 +4145,7 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
           </div>
         </div>
       </div>
-      
+
       <h6 class="mb-3 fw-bold"><i class="bx bx-list-ul me-2"></i>Listado de ${label}</h6>
       <div class="table-responsive">
         <table class="table table-hover table-sm">
@@ -4158,7 +4158,7 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
           </thead>
           <tbody>
     `;
-    
+
     empleadosRol.forEach(u => {
       const badgeClass = u.estatus === 'Activo' ? 'bg-success' : 'bg-secondary';
       const nombreCompleto = [u.nombres, u.segundo_nombre, u.apellidop, u.apellidom].filter(x => x).join(' ') || 'N/A';
@@ -4170,20 +4170,20 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
         </tr>
       `;
     });
-    
+
     html += `
           </tbody>
         </table>
       </div>
     `;
-    
+
     return { titulo: `${label} - Desglose`, html };
   }
 
   function generarModalPuestoEspecifico(datos) {
     const puestoSeleccionado = document.getElementById('UserPlan')?.value || '';
     const empleadosPuesto = datos.filter(u => u.nombre_puesto === puestoSeleccionado);
-    
+
     let html = `
       <div class="row mb-3">
         <div class="col-md-12">
@@ -4193,7 +4193,7 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
           </div>
         </div>
       </div>
-      
+
       <h6 class="mb-3 fw-bold"><i class="bx bx-list-ul me-2"></i>Listado Completo</h6>
       <div class="table-responsive">
         <table class="table table-hover table-sm">
@@ -4206,7 +4206,7 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
           </thead>
           <tbody>
     `;
-    
+
     empleadosPuesto.forEach(u => {
       const badgeClass = u.estatus === 'Activo' ? 'bg-success' : 'bg-secondary';
       const nombreCompleto = [u.nombres, u.segundo_nombre, u.apellidop, u.apellidom].filter(x => x).join(' ') || 'N/A';
@@ -4218,13 +4218,13 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
         </tr>
       `;
     });
-    
+
     html += `
           </tbody>
         </table>
       </div>
     `;
-    
+
     return { titulo: `${puestoSeleccionado} - Empleados`, html };
   }
 
@@ -4243,16 +4243,16 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
     // Agregar eventos a todas las tarjetas KPI
     document.querySelectorAll('.kpi-card').forEach(card => {
       const tipo = card.getAttribute('data-tipo');
-      
+
       // Evento hover para tooltip
       card.addEventListener('mouseenter', function() {
         mostrarTooltip(this, tipo);
       });
-      
+
       card.addEventListener('mouseleave', function() {
         ocultarTooltip();
       });
-      
+
       // Evento click para modal
       card.addEventListener('click', function() {
         ocultarTooltip();
@@ -4495,7 +4495,7 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
     if (!elemento) return;
 
     elemento.setAttribute('title', texto);
-    
+
     let textoMostrado = texto;
     if (texto.length > maxLength) {
       textoMostrado = texto.substring(0, maxLength - 3) + '...';
@@ -4545,7 +4545,7 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
           </div>
         </div>
       </div>
-      
+
       <h6 class="mb-3 fw-bold text-danger"><i class="bx bx-bar-chart me-2"></i>Top Departamentos con más Bajas</h6>
       <div class="table-responsive">
         <table class="table table-hover table-sm">
@@ -4571,8 +4571,8 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
           <td class="text-center"><strong>${porcentaje}%</strong></td>
           <td>
             <div class="progress" style="height: 6px;">
-              <div class="progress-bar progress-bar-kpi" role="progressbar" 
-                   style="width: ${porcentaje}%; background: linear-gradient(90deg, #DC2626, #EF4444);" 
+              <div class="progress-bar progress-bar-kpi" role="progressbar"
+                   style="width: ${porcentaje}%; background: linear-gradient(90deg, #DC2626, #EF4444);"
                    aria-valuenow="${porcentaje}" aria-valuemin="0" aria-valuemax="100"></div>
             </div>
           </td>
@@ -4624,7 +4624,7 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
           </div>
         </div>
       </div>
-      
+
       <h6 class="mb-3 fw-bold" style="color: #D97706;"><i class="bx bx-bar-chart me-2"></i>Top Puestos con más Bajas</h6>
       <div class="table-responsive">
         <table class="table table-hover table-sm">
@@ -4650,7 +4650,7 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
           <td class="text-center"><strong>${porcentaje}%</strong></td>
           <td>
             <div class="progress" style="height: 6px;">
-              <div class="progress-bar progress-bar-kpi" role="progressbar" 
+              <div class="progress-bar progress-bar-kpi" role="progressbar"
                    style="width: ${porcentaje}%; background: linear-gradient(90deg, #D97706, #F59E0B);"></div>
             </div>
           </td>
@@ -4729,7 +4729,7 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
 
   // Variable global para almacenar todos los usuarios
   let usuariosData = [];
-  
+
   /**
    * ==========================================
    * CONSOLIDAR USUARIOS CON MÚLTIPLES PUESTOS
@@ -4739,10 +4739,10 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
    */
   function consolidarUsuarios(usuarios) {
     const usuariosMap = new Map();
-    
+
     usuarios.forEach(usuario => {
       const id = usuario.id;
-      
+
       if (!usuariosMap.has(id)) {
         // Primera vez que vemos este usuario, crear estructura
         usuariosMap.set(id, {
@@ -4760,11 +4760,11 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
       } else {
         // Ya existe, agregar nuevo puesto si no está duplicado
         const usuarioExistente = usuariosMap.get(id);
-        const puestoExiste = usuarioExistente.puestos.some(p => 
-          p.id_puesto === usuario.id_puesto && 
+        const puestoExiste = usuarioExistente.puestos.some(p =>
+          p.id_puesto === usuario.id_puesto &&
           p.nombre_departamento === usuario.nombre_departamento
         );
-        
+
         if (!puestoExiste) {
           usuarioExistente.puestos.push({
             id_puesto: usuario.id_puesto,
@@ -4775,7 +4775,7 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
         }
       }
     });
-    
+
     return Array.from(usuariosMap.values());
   }
 
@@ -4792,7 +4792,7 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
 
         // Consolidar usuarios con múltiples puestos
         const usuariosConsolidados = consolidarUsuarios(resp.datos);
-        
+
         // Guardar los datos consolidados globalmente
         usuariosData = usuariosConsolidados;
 
@@ -4902,7 +4902,7 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
             aplicarFiltros();
           });
         }
-        
+
         // ==========================================
         // INICIALIZAR FILTRO DE MÚLTIPLES PUESTOS
         // ==========================================
@@ -4933,14 +4933,14 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
       selectMultiple.value = 'multiples';
       aplicarFeedbackVisualFiltro(selectMultiple);
       aplicarFiltros();
-      
+
       // Scroll suave hacia la tabla
       setTimeout(() => {
         document.getElementById('historialUsuarios')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }, 300);
     }
   }
-  
+
   /**
    * ==========================================
    * EXPANDIR PUESTOS
@@ -4950,13 +4950,13 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
   function expandirPuestos(userId) {
     const usuario = usuariosData.find(u => u.id === userId);
     if (!usuario || !usuario.puestos) return;
-    
+
     let puestosHTML = '<div class="d-flex flex-column gap-2">';
     usuario.puestos.forEach((puesto, index) => {
       const esPrincipal = index === 0;
       const iconoPuesto = esPrincipal ? '⭐' : '📎';
       const claseBadge = esPrincipal ? 'badge-puesto-principal' : 'badge-puesto-secundario';
-      
+
       puestosHTML += `
         <div class="d-flex flex-column" style="gap: 0.25rem;">
           <small class="departamento-label">
@@ -4972,9 +4972,9 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
       `;
     });
     puestosHTML += '</div>';
-    
+
     const nombreCompleto = [usuario.nombres, usuario.segundo_nombre, usuario.apellidop, usuario.apellidom].filter(x => x).join(' ');
-    
+
     Swal.fire({
       title: `<i class="fa fa-layer-group me-2"></i>${usuario.puestos.length} Puestos Asignados`,
       html: `
@@ -5094,7 +5094,7 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
       if (estatusSeleccionado && persona.estatus !== estatusSeleccionado) {
         return false;
       }
-      
+
       // Filtro MÚLTIPLES PUESTOS
       if (multiplePuestosSeleccionado) {
         const tienePuestos = persona.puestos && persona.puestos.length > 1;
@@ -5112,7 +5112,7 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
     // Actualizar contadores en el filtro de múltiples puestos
     const usuariosMultiples = usuariosData.filter(u => u.puestos && u.puestos.length > 1).length;
     const usuariosUnicos = usuariosData.length - usuariosMultiples;
-    
+
     // Actualizar el texto del select con los contadores
     const selectMultiple = document.getElementById('FilterMultiplePuestos');
     if (selectMultiple) {
@@ -5136,7 +5136,7 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
   function actualizarTabla(datos) {
     // Si estamos usando DataTables
     const tabla = $('#historialUsuarios').DataTable();
-    
+
     if (!tabla) {
       console.warn(' DataTable no inicializado');
       return;
@@ -5146,28 +5146,28 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
     const datosFormateados = datos.map(p => {
       const nombreCompleto = [p.nombres, p.segundo_nombre, p.apellidop, p.apellidom].filter(x => x).join(' ');
       const tienePuestos = p.puestos && p.puestos.length > 1;
-      
+
       // Generar badges para múltiples puestos con JERARQUÍA VISUAL
       let puestosHTML = '';
       if (tienePuestos) {
         const totalPuestos = p.puestos.length;
         const mostrarDirecto = totalPuestos <= 3;
         const puestosVisible = mostrarDirecto ? p.puestos : p.puestos.slice(0, 2);
-        
+
         puestosHTML = '<div class="d-flex flex-column gap-2">';
-        
+
         puestosVisible.forEach((puesto, index) => {
           const esPrincipal = index === 0;
           const colorBadge = obtenerColorDepartamento(puesto.nombre_departamento);
           const iconoPuesto = esPrincipal ? '⭐' : '📎';
           const claseBadge = esPrincipal ? 'badge-puesto-principal' : 'badge-puesto-secundario';
-          
+
           puestosHTML += `
             <div class="d-flex flex-column" style="gap: 0.25rem;">
               <small class="departamento-label">
                 <i class="fa fa-building"></i>${puesto.nombre_departamento}
               </small>
-              <span class="badge ${claseBadge}" 
+              <span class="badge ${claseBadge}"
                     title="${esPrincipal ? 'Puesto Principal' : 'Puesto Secundario'}: ${puesto.nombre_puesto}">
                 <span style="font-size: 0.9rem;">${iconoPuesto}</span>
                 <i class="fa fa-briefcase"></i>
@@ -5177,18 +5177,18 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
             </div>
           `;
         });
-        
+
         // Botón "ver más" si hay más de 3 puestos
         if (!mostrarDirecto) {
           const puestosRestantes = totalPuestos - 2;
           puestosHTML += `
-            <button class="btn-ver-mas-puestos" onclick="expandirPuestos(${p.id})" 
+            <button class="btn-ver-mas-puestos" onclick="expandirPuestos(${p.id})"
                     title="Ver ${puestosRestantes} puesto(s) más">
               <i class="fa fa-plus-circle me-1"></i>Ver ${puestosRestantes} más
             </button>
           `;
         }
-        
+
         puestosHTML += '</div>';
       } else {
         puestosHTML = `
@@ -5212,7 +5212,7 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
           <span class="fi fi-${codigoIsoPais} fis" style="font-size: 1.1rem; border-radius: 2px; box-shadow: 0 1px 3px rgba(0,0,0,0.15);"></span>
         </small>
       `;
-      
+
       return {
         nombre: `
           <div class="fw-semibold">
@@ -5303,7 +5303,7 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
         .catch(() => Swal.fire('Error', 'Error de conexión.', 'error'));
     });
   }
-  
+
   /**
    * ==========================================
    * OBTENER COLOR PARA BADGE DE DEPARTAMENTO
@@ -5319,7 +5319,7 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
       'Sistemas': 'linear-gradient(135deg, #8b5cf6, #a78bfa)',
       'Contabilidad': 'linear-gradient(135deg, #14b8a6, #2dd4bf)'
     };
-    
+
     return colores[departamento] || 'linear-gradient(135deg, #64748b, #94a3b8)';
   }
 
@@ -5336,7 +5336,7 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
       selectElement.classList.remove('filter-active');
     }
   }
-  
+
   /**
    * ==========================================
    * INICIALIZAR FEEDBACK VISUAL EN FILTROS
@@ -5375,7 +5375,7 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
       this.options = [];
       this.selectedValue = '';
       this.isOpen = false;
-      
+
       this.init();
     }
 
@@ -5383,39 +5383,39 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
       // Crear el wrapper
       this.wrapper = document.createElement('div');
       this.wrapper.className = 'select-search-wrapper';
-      
+
       // Insertar wrapper antes del select
       this.select.parentNode.insertBefore(this.wrapper, this.select);
-      
+
       // Mover el select dentro del wrapper
       this.wrapper.appendChild(this.select);
-      
+
       // Crear el display
       this.display = document.createElement('div');
       this.display.className = 'select-search-display';
       this.display.textContent = this.select.options[this.select.selectedIndex]?.text || 'Seleccione una opción';
       this.wrapper.appendChild(this.display);
-      
+
       // Crear el dropdown
       this.dropdown = document.createElement('div');
       this.dropdown.className = 'select-search-dropdown';
       this.wrapper.appendChild(this.dropdown);
-      
+
       // Crear el input de búsqueda
       this.searchInput = document.createElement('input');
       this.searchInput.type = 'text';
       this.searchInput.className = 'select-search-input';
       this.searchInput.placeholder = 'Buscar...';
       this.dropdown.appendChild(this.searchInput);
-      
+
       // Crear el contenedor de opciones
       this.optionsContainer = document.createElement('div');
       this.optionsContainer.className = 'select-search-options';
       this.dropdown.appendChild(this.optionsContainer);
-      
+
       // Cargar opciones iniciales
       this.loadOptions();
-      
+
       // Eventos
       this.attachEvents();
     }
@@ -5435,7 +5435,7 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
 
     renderOptions(filteredOptions) {
       this.optionsContainer.innerHTML = '';
-      
+
       if (filteredOptions.length === 0) {
         const noResults = document.createElement('div');
         noResults.className = 'select-search-option no-results';
@@ -5443,21 +5443,21 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
         this.optionsContainer.appendChild(noResults);
         return;
       }
-      
+
       filteredOptions.forEach(option => {
         const optionDiv = document.createElement('div');
         optionDiv.className = 'select-search-option';
         optionDiv.textContent = option.text;
         optionDiv.dataset.value = option.value;
-        
+
         if (option.value === this.selectedValue) {
           optionDiv.classList.add('selected');
         }
-        
+
         optionDiv.addEventListener('click', () => {
           this.selectOption(option);
         });
-        
+
         this.optionsContainer.appendChild(optionDiv);
       });
     }
@@ -5466,11 +5466,11 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
       this.selectedValue = option.value;
       this.select.value = option.value;
       this.display.textContent = option.text;
-      
+
       // Disparar evento change en el select original
       const event = new Event('change', { bubbles: true });
       this.select.dispatchEvent(event);
-      
+
       this.close();
     }
 
@@ -5498,28 +5498,28 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
           this.open();
         }
       });
-      
+
       // Input de búsqueda
       this.searchInput.addEventListener('input', (e) => {
         const searchTerm = e.target.value.toLowerCase().trim();
-        const filtered = this.options.filter(option => 
+        const filtered = this.options.filter(option =>
           option.text.toLowerCase().includes(searchTerm)
         );
         this.renderOptions(filtered);
       });
-      
+
       // Evitar que el click en el dropdown lo cierre
       this.dropdown.addEventListener('click', (e) => {
         e.stopPropagation();
       });
-      
+
       // Cerrar al hacer click fuera
       document.addEventListener('click', () => {
         if (this.isOpen) {
           this.close();
         }
       });
-      
+
       // Observer para detectar cambios en el select original
       const observer = new MutationObserver(() => {
         this.loadOptions();
@@ -5530,7 +5530,7 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
           this.selectedValue = selectedOption.value;
         }
       });
-      
+
       observer.observe(this.select, {
         childList: true,
         subtree: true
@@ -5567,14 +5567,14 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
       const addJefeSelect = document.getElementById('add_id_jefe');
       if (addJefeSelect) {
         searchableSelectAddJefe = new SearchableSelect(addJefeSelect);
-        
+
       }
-      
+
       // Inicializar select de "Editar Usuario"
       const editJefeSelect = document.getElementById('edit_id_jefe');
       if (editJefeSelect) {
         searchableSelectEditJefe = new SearchableSelect(editJefeSelect);
-        
+
       }
     }, 500);
   });
@@ -5584,22 +5584,22 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
    * GESTIÓN DE MÚLTIPLES PUESTOS - FUNCIONES
    * ==========================================
    */
-  
+
   // Variable global para almacenar los puestos del usuario actual
   let puestosUsuarioActual = [];
   let usuarioEditandoId = null;
   let todosLosDepartamentos = [];
   let todosLosPuestos = [];
-  
+
   /**
    * Cargar puestos del usuario en el panel de edición
    */
   function cargarPuestosUsuario(usuarioId) {
     usuarioEditandoId = usuarioId;
     const usuario = usuariosData.find(u => u.id === usuarioId);
-    
+
     if (!usuario) return;
-    
+
     if (usuario.puestos && usuario.puestos.length > 0) {
       puestosUsuarioActual = JSON.parse(JSON.stringify(usuario.puestos));
     } else {
@@ -5614,7 +5614,7 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
     mostrarContenedorPuestos(true);
     renderizarListaPuestos();
   }
-  
+
   /**
    * Mostrar/ocultar alerta de múltiples puestos
    */
@@ -5628,7 +5628,7 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
       }
     }
   }
-  
+
   /**
    * Mostrar/ocultar contenedor de gestión de puestos
    */
@@ -5642,16 +5642,16 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
       }
     }
   }
-  
+
   /**
    * Renderizar la lista de puestos con opciones de gestión
    */
   function renderizarListaPuestos() {
     const listaPuestos = document.getElementById('edit_lista_puestos');
     if (!listaPuestos) return;
-    
+
     listaPuestos.innerHTML = '';
-    
+
     if (puestosUsuarioActual.length === 0) {
       listaPuestos.innerHTML = `
         <div class="no-puestos-message">
@@ -5661,15 +5661,15 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
       `;
       return;
     }
-    
+
     puestosUsuarioActual.forEach((puesto, index) => {
       const esPrincipal = index === 0;
       const puedeEliminar = puestosUsuarioActual.length > 1;
-      
+
       const puestoItem = document.createElement('div');
       puestoItem.className = 'puesto-item mb-2';
       puestoItem.dataset.puestoIndex = index;
-      
+
       puestoItem.innerHTML = `
         <div class="d-flex align-items-center justify-content-between w-100">
           <div class="flex-grow-1">
@@ -5691,30 +5691,30 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
           </div>
         </div>
       `;
-      
+
       listaPuestos.appendChild(puestoItem);
     });
   }
-  
+
   /**
    * Editar un puesto existente
    */
   function editarPuesto(index) {
     const puesto = puestosUsuarioActual[index];
     if (!puesto) return;
-    
+
     // Guardar el índice que estamos editando
     window.puestoEditandoIndex = index;
-    
+
     // Abrir panel de edición
     const panel = document.getElementById('edit_panel_editar_puesto');
     if (!panel) return;
-    
+
     panel.classList.remove('d-none');
-    
+
     // Cargar datos actuales
     cargarDepartamentosParaEditar();
-    
+
     // Esperar a que se carguen los departamentos y luego seleccionar
     setTimeout(() => {
       const selectDept = document.getElementById('edit_editar_departamento');
@@ -5731,14 +5731,14 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
       }
     }, 300);
   }
-  
+
   /**
    * Confirmar eliminación de puesto
    */
   function confirmarEliminarPuesto(index) {
     const puesto = puestosUsuarioActual[index];
     const esPrincipal = index === 0;
-    
+
     Swal.fire({
       title: '¿Eliminar este puesto?',
       html: `
@@ -5760,13 +5760,13 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
       }
     });
   }
-  
+
   /**
    * Eliminar puesto
    */
   function eliminarPuesto(index) {
     const puestoEliminado = puestosUsuarioActual.splice(index, 1)[0];
-    
+
     // Si queda solo un puesto, ocultar el panel de gestión
     if (puestosUsuarioActual.length === 1) {
       mostrarAlertaMultiplesPuestos(false);
@@ -5775,63 +5775,64 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
       renderizarListaPuestos();
     }
   }
-  
+
   /**
    * Mostrar panel para agregar nuevo puesto
    */
   function mostrarAgregarPuesto() {
     const panel = document.getElementById('edit_panel_agregar_puesto');
     if (!panel) return;
-    
+
     panel.classList.remove('d-none');
     cargarDepartamentosParaAgregar();
-    
+
     // Limpiar selects
     document.getElementById('edit_nuevo_departamento').value = '';
     document.getElementById('edit_nuevo_puesto').value = '';
   }
-  
+
   /**
    * Cancelar agregar puesto
    */
   function cancelarAgregarPuesto() {
     const panel = document.getElementById('edit_panel_agregar_puesto');
     if (!panel) return;
-    
+
     panel.classList.add('d-none');
-    
+
     // Limpiar selects
     document.getElementById('edit_nuevo_departamento').value = '';
     document.getElementById('edit_nuevo_puesto').value = '';
     document.getElementById('edit_nuevo_jefe').value = '';
   }
-  
+
   /**
    * Cancelar editar puesto
    */
   function cancelarEditarPuesto() {
     const panel = document.getElementById('edit_panel_editar_puesto');
     if (!panel) return;
-    
+
     panel.classList.add('d-none');
-    
+
     // Limpiar selects
     document.getElementById('edit_editar_departamento').value = '';
     document.getElementById('edit_editar_puesto').value = '';
     document.getElementById('edit_editar_jefe').value = '';
     window.puestoEditandoIndex = null;
   }
-  
+
   /**
-   * Cargar departamentos en el select para agregar puesto
+   * Cargar departamentos en el select para agregar puesto.
+   * Solo departamentos a los que el usuario en sesión tiene acceso (privilegios_departamento).
    */
   function cargarDepartamentosParaAgregar() {
     const select = document.getElementById('edit_nuevo_departamento');
     if (!select) return;
-    
+
     select.innerHTML = '<option value="">Seleccione un departamento</option>';
     const agregados = new Map();
-    
+
     if (window.todosDepartamentosBackend && Array.isArray(window.todosDepartamentosBackend)) {
       window.todosDepartamentosBackend.forEach(d => {
         const id = d.id || d.departamento_id;
@@ -5839,16 +5840,6 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
         if (id && nombre) {
           agregados.set(Number(id), nombre);
         }
-      });
-    }
-    if (typeof usuariosData !== 'undefined') {
-      usuariosData.forEach(u => {
-        const list = u.puestos && u.puestos.length > 0 ? u.puestos : (u.id_departamento ? [{ id_departamento: u.id_departamento, nombre_departamento: u.nombre_departamento }] : []);
-        list.forEach(p => {
-          const id = p.id_departamento;
-          const nombre = p.nombre_departamento || '';
-          if (id && nombre && nombre !== 'Sin departamento') agregados.set(Number(id), nombre);
-        });
       });
     }
     Array.from(agregados.entries()).sort((a, b) => a[1].localeCompare(b[1])).forEach(([id, nombre]) => {
@@ -5859,24 +5850,24 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
       select.appendChild(option);
     });
   }
-  
+
   /**
    * Cargar puestos según departamento seleccionado (desde backend: todos los puestos del departamento).
    */
   function cargarPuestosParaAgregar() {
     const selectDept = document.getElementById('edit_nuevo_departamento');
     const selectPuesto = document.getElementById('edit_nuevo_puesto');
-    
+
     if (!selectDept || !selectPuesto) return;
-    
+
     const departamentoId = selectDept.value;
-    
+
     // Limpiar select de puestos
     selectPuesto.innerHTML = '<option value="">Seleccione un puesto</option>';
-    
+
     if (!departamentoId) return;
-    
-    fetch('/CapHum/getPuestos', {
+
+    fetch('/CapHum/getPuestosParaGestor', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id_departamento: departamentoId })
@@ -5914,24 +5905,24 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
         });
       });
   }
-  
+
   /**
    * Cargar jefes según departamento seleccionado para agregar
    */
   function cargarJefesParaAgregar() {
     const selectDept = document.getElementById('edit_nuevo_departamento');
     const selectJefe = document.getElementById('edit_nuevo_jefe');
-    
+
     if (!selectDept || !selectJefe) return;
-    
+
     const departamentoId = selectDept.value;
     const departamentoNombre = selectDept.options[selectDept.selectedIndex]?.dataset.nombre;
-    
+
     // Limpiar select de jefes
     selectJefe.innerHTML = '<option value="">Seleccione un jefe</option>';
-    
+
     if (!departamentoId) return;
-    
+
     // Obtener jefes del mismo departamento
     const jefes = [];
     usuariosData.forEach(u => {
@@ -5942,10 +5933,10 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
         });
       }
     });
-    
+
     // Ordenar por nombre
     jefes.sort((a, b) => a.nombre.localeCompare(b.nombre));
-    
+
     // Agregar opciones
     jefes.forEach(jefe => {
       const option = document.createElement('option');
@@ -5954,52 +5945,36 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
       selectJefe.appendChild(option);
     });
   }
-  
+
   /**
-   * Cargar departamentos para editar puesto
+   * Cargar departamentos para editar puesto.
+   * Solo departamentos a los que el usuario en sesión tiene acceso (privilegios_departamento).
    */
   function cargarDepartamentosParaEditar() {
     const select = document.getElementById('edit_editar_departamento');
     if (!select) return;
-    
-    // Limpiar opciones excepto la primera
+
     select.innerHTML = '<option value="">Seleccione un departamento</option>';
-    
-    // 🔧 FIX: Obtener departamentos únicos desde el array puestos[]
-    const departamentos = new Set();
-    usuariosData.forEach(u => {
-      // Si el usuario tiene múltiples puestos, iterar el array puestos[]
-      if (u.puestos && u.puestos.length > 0) {
-        u.puestos.forEach(puesto => {
-          if (puesto.nombre_departamento && puesto.nombre_departamento !== 'Sin departamento') {
-            departamentos.add(JSON.stringify({
-              id: puesto.id_departamento,
-              nombre: puesto.nombre_departamento
-            }));
-          }
-        });
-      } else {
-        // Fallback para usuarios sin consolidar
-        if (u.nombre_departamento && u.nombre_departamento !== 'Sin departamento') {
-          departamentos.add(JSON.stringify({
-            id: u.id_departamento,
-            nombre: u.nombre_departamento
-          }));
+    const agregados = new Map();
+
+    if (window.todosDepartamentosBackend && Array.isArray(window.todosDepartamentosBackend)) {
+      window.todosDepartamentosBackend.forEach(d => {
+        const id = d.id || d.departamento_id;
+        const nombre = d.nombre || d.departamento_nombre || '';
+        if (id && nombre) {
+          agregados.set(Number(id), nombre);
         }
-      }
-    });
-    
-    // Agregar opciones
-    Array.from(departamentos).forEach(deptStr => {
-      const dept = JSON.parse(deptStr);
+      });
+    }
+    Array.from(agregados.entries()).sort((a, b) => a[1].localeCompare(b[1])).forEach(([id, nombre]) => {
       const option = document.createElement('option');
-      option.value = dept.id;
-      option.textContent = dept.nombre;
-      option.dataset.nombre = dept.nombre;
+      option.value = id;
+      option.textContent = nombre;
+      option.dataset.nombre = nombre;
       select.appendChild(option);
     });
   }
-  
+
   /**
    * Cargar puestos para editar según departamento (desde backend: todos los puestos del departamento).
    * @param {string|number|null} puestoIdToSelect - Si se pasa, tras cargar se selecciona este id en el select.
@@ -6007,18 +5982,18 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
   function cargarPuestosParaEditar(puestoIdToSelect) {
     const selectDept = document.getElementById('edit_editar_departamento');
     const selectPuesto = document.getElementById('edit_editar_puesto');
-    
+
     if (!selectDept || !selectPuesto) return;
-    
+
     const departamentoId = selectDept.value;
-    
+
     // Limpiar select de puestos
     selectPuesto.innerHTML = '<option value="">Seleccione un puesto</option>';
-    
+
     if (!departamentoId) return;
-    
+
     // Cargar todos los puestos del departamento desde el backend (no solo los que tienen usuarios asignados)
-    fetch('/CapHum/getPuestos', {
+    fetch('/CapHum/getPuestosParaGestor', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id_departamento: departamentoId })
@@ -6065,24 +6040,24 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
         }
       });
   }
-  
+
   /**
    * Cargar jefes para editar según departamento
    */
   function cargarJefesParaEditar() {
     const selectDept = document.getElementById('edit_editar_departamento');
     const selectJefe = document.getElementById('edit_editar_jefe');
-    
+
     if (!selectDept || !selectJefe) return;
-    
+
     const departamentoId = selectDept.value;
     const departamentoNombre = selectDept.options[selectDept.selectedIndex]?.dataset.nombre;
-    
+
     // Limpiar select de jefes
     selectJefe.innerHTML = '<option value="">Seleccione un jefe</option>';
-    
+
     if (!departamentoId) return;
-    
+
     // Obtener jefes del mismo departamento
     const jefes = [];
     usuariosData.forEach(u => {
@@ -6093,10 +6068,10 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
         });
       }
     });
-    
+
     // Ordenar por nombre
     jefes.sort((a, b) => a.nombre.localeCompare(b.nombre));
-    
+
     // Agregar opciones
     jefes.forEach(jefe => {
       const option = document.createElement('option');
@@ -6105,24 +6080,24 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
       selectJefe.appendChild(option);
     });
   }
-  
+
   /**
    * Guardar cambios de edición de puesto
    */
   function guardarEdicionPuesto() {
     const index = window.puestoEditandoIndex;
     if (index === null || index === undefined) return;
-    
+
     const selectDept = document.getElementById('edit_editar_departamento');
     const selectPuesto = document.getElementById('edit_editar_puesto');
-    
+
     if (!selectDept || !selectPuesto) return;
-    
+
     const departamentoId = selectDept.value;
     const departamentoNombre = selectDept.options[selectDept.selectedIndex]?.dataset.nombre;
     const puestoId = selectPuesto.value;
     const puestoNombre = selectPuesto.options[selectPuesto.selectedIndex]?.text;
-    
+
     // Validar
     if (!departamentoId || !puestoId) {
       Swal.fire({
@@ -6133,12 +6108,12 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
       });
       return;
     }
-    
+
     // Verificar si ya existe otro puesto con los mismos datos (excepto el que estamos editando)
-    const yaExiste = puestosUsuarioActual.some((p, i) => 
+    const yaExiste = puestosUsuarioActual.some((p, i) =>
       i !== index && p.id_puesto == puestoId && p.id_departamento == departamentoId
     );
-    
+
     if (yaExiste) {
       Swal.fire({
         icon: 'info',
@@ -6148,7 +6123,7 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
       });
       return;
     }
-    
+
     // Actualizar el puesto
     puestosUsuarioActual[index] = {
       id_puesto: puestoId,
@@ -6156,26 +6131,26 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
       nombre_departamento: departamentoNombre,
       id_departamento: departamentoId
     };
-    
+
     // Re-renderizar
     renderizarListaPuestos();
     cancelarEditarPuesto();
   }
-  
+
   /**
    * Agregar nuevo puesto a la lista
    */
   function agregarNuevoPuesto() {
     const selectDept = document.getElementById('edit_nuevo_departamento');
     const selectPuesto = document.getElementById('edit_nuevo_puesto');
-    
+
     if (!selectDept || !selectPuesto) return;
-    
+
     const departamentoId = selectDept.value;
     const departamentoNombre = selectDept.options[selectDept.selectedIndex]?.dataset.nombre;
     const puestoId = selectPuesto.value;
     const puestoNombre = selectPuesto.options[selectPuesto.selectedIndex]?.text;
-    
+
     // Validar
     if (!departamentoId || !puestoId) {
       Swal.fire({
@@ -6186,12 +6161,12 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
       });
       return;
     }
-    
+
     // Verificar si ya existe
-    const yaExiste = puestosUsuarioActual.some(p => 
+    const yaExiste = puestosUsuarioActual.some(p =>
       p.id_puesto == puestoId && p.id_departamento == departamentoId
     );
-    
+
     if (yaExiste) {
       Swal.fire({
         icon: 'info',
@@ -6201,7 +6176,7 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
       });
       return;
     }
-    
+
     // Agregar nuevo puesto
     const nuevoPuesto = {
       id_puesto: puestoId,
@@ -6209,20 +6184,20 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
       nombre_departamento: departamentoNombre,
       id_departamento: departamentoId
     };
-    
+
     puestosUsuarioActual.push(nuevoPuesto);
-    
+
     // Si ahora tiene más de 1 puesto, mostrar panel
     if (puestosUsuarioActual.length > 1) {
       mostrarAlertaMultiplesPuestos(true);
       mostrarContenedorPuestos(true);
     }
-    
+
     // Re-renderizar
     renderizarListaPuestos();
     cancelarAgregarPuesto();
   }
-  
+
   /**
    * Obtener los puestos actuales para guardar
    */
@@ -6261,21 +6236,21 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
     const departamento = document.getElementById('UserRole').value || '';
     const puesto = document.getElementById('UserPlan').value || '';
     const estatus = document.getElementById('FilterTransaction').value || '';
-    
+
     // Generar mensaje dinámico según filtros
     let mensajeFiltros = 'Se descargará un archivo Excel con ';
     let detallesFiltros = [];
-    
+
     if (departamento) detallesFiltros.push(`Departamento: <strong>${departamento}</strong>`);
     if (puesto) detallesFiltros.push(`Puesto: <strong>${puesto}</strong>`);
     if (estatus) detallesFiltros.push(`Estatus: <strong>${estatus}</strong>`);
-    
+
     if (detallesFiltros.length > 0) {
       mensajeFiltros = 'Se descargará un archivo Excel filtrado por:<br><br>' + detallesFiltros.join('<br>');
     } else {
       mensajeFiltros = 'Se descargará un archivo Excel con <strong>TODOS los gestores</strong> del sistema.';
     }
-    
+
     Swal.fire({
       html: `
         <div style="text-align: center;">
@@ -6314,7 +6289,7 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
         form.method = 'GET';
         form.action = '/Reporteria/descargarPlantillaGestores';
         form.style.display = 'none';
-        
+
         // Agregar filtros como inputs hidden
         if (departamento) {
           const inputDep = document.createElement('input');
@@ -6323,7 +6298,7 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
           inputDep.value = departamento;
           form.appendChild(inputDep);
         }
-        
+
         if (puesto) {
           const inputPuesto = document.createElement('input');
           inputPuesto.type = 'hidden';
@@ -6331,7 +6306,7 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
           inputPuesto.value = puesto;
           form.appendChild(inputPuesto);
         }
-        
+
         if (estatus) {
           const inputEstatus = document.createElement('input');
           inputEstatus.type = 'hidden';
@@ -6339,7 +6314,7 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
           inputEstatus.value = estatus;
           form.appendChild(inputEstatus);
         }
-        
+
         document.body.appendChild(form);
         form.submit();
 
@@ -6851,7 +6826,7 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio) {
                 var tipo = this.getAttribute('data-tipo');
                 if (tipo && typeof abrirModalDesglose === 'function') abrirModalDesglose(tipo);
             });
-        }); 
+        });
     });
 
 })(); /* fin KPI panel v3 */
