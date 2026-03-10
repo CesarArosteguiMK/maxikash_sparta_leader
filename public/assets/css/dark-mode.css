@@ -4055,6 +4055,38 @@ body.dark-mode #modalDictamenAmpliada .form-control {
 body.dark-mode #modalDictamenAmpliada .form-control::placeholder {
     color: #64748b !important;
 }
+/* Domicilios de visita (panel + vista ampliada) */
+body.dark-mode #modalRastreoCredito .rastreo-domicilio-block,
+body.dark-mode #modalDictamenAmpliada .rastreo-domicilio-block {
+    background: rgba(15, 23, 42, 0.75) !important;
+    border-color: #334155 !important;
+}
+body.dark-mode #modalRastreoCredito .rastreo-domicilio-block .form-control,
+body.dark-mode #modalRastreoCredito .rastreo-domicilio-block .form-control-sm,
+body.dark-mode #modalDictamenAmpliada .rastreo-domicilio-block .form-control,
+body.dark-mode #modalDictamenAmpliada .rastreo-domicilio-block .form-control-sm {
+    background-color: #0f172a !important;
+    border-color: #334155 !important;
+    color: #e2e8f0 !important;
+}
+body.dark-mode #modalRastreoCredito .rastreo-domicilio-block .form-control::placeholder,
+body.dark-mode #modalRastreoCredito .rastreo-domicilio-block .form-control-sm::placeholder,
+body.dark-mode #modalDictamenAmpliada .rastreo-domicilio-block .form-control::placeholder,
+body.dark-mode #modalDictamenAmpliada .rastreo-domicilio-block .form-control-sm::placeholder {
+    color: #94a3b8 !important;
+}
+body.dark-mode #modalRastreoCredito .rastreo-domicilio-block .rastreo-domicilio-quitar,
+body.dark-mode #modalDictamenAmpliada .rastreo-domicilio-block .rastreo-domicilio-quitar {
+    background: rgba(220, 38, 38, 0.2) !important;
+    border-color: rgba(248, 113, 113, 0.55) !important;
+    color: #fecaca !important;
+}
+body.dark-mode #modalRastreoCredito .rastreo-domicilio-block .rastreo-domicilio-quitar:hover,
+body.dark-mode #modalDictamenAmpliada .rastreo-domicilio-block .rastreo-domicilio-quitar:hover {
+    background: rgba(220, 38, 38, 0.35) !important;
+    border-color: #f87171 !important;
+    color: #fee2e2 !important;
+}
 body.dark-mode #modalDictamenAmpliada .evidencia-slot-add {
     background: rgba(30, 41, 59, 0.95) !important;
     border-color: #475569 !important;

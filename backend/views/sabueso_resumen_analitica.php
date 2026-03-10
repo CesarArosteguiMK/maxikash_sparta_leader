@@ -40,7 +40,7 @@ $esc = function ($s) {
         <div class="analitica-ia-header">
             <?php if ($enModal): ?>
             <h2 class="analitica-ia-title analitica-ia-title--modal">Resumen</h2>
-            <p class="analitica-ia-nota-sin-ia">Análisis por <strong>reglas determinísticas</strong> (sin IA). La confianza, los estados y las acciones se calculan con reglas fijas a partir de ubicación, pagos y gestión de campo. No se usa inteligencia artificial en este resumen.</p>
+            <p class="analitica-ia-nota-sin-ia">Análisis por <strong>reglas determinísticas</strong>. La confianza, los estados y las acciones se calculan con reglas fijas a partir de ubicación, pagos y gestión de campo. No se usa inteligencia artificial en este resumen.</p>
             <?php else: ?>
             <h1 class="analitica-ia-title">Predicción IA – Cómo localizar al acreditado</h1>
             <p class="subtitle">Análisis integral basado en ubicación, pagos y gestión de campo</p>
@@ -286,6 +286,6 @@ $esc = function ($s) {
 
     <div class="analitica-ia-footer-note">
         <p>Referencias técnicas: analitica_espacial, analitica_pagos, analitica_gestiones</p>
-        <p>Última actualización: <?= date('d/m/Y, h:i:s a') ?> | <strong>Análisis por reglas determinísticas (sin IA)</strong></p>
+        <p>Última actualización: <?= date('d/m/Y, h:i:s a') ?> | <strong>Análisis por reglas determinísticas</strong></p>
     </div>
 </div>

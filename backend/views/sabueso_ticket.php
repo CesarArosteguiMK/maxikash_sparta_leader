@@ -28,7 +28,7 @@
         <h5 class="card-title mb-0">
             <i class="fa-solid fa-magnifying-glass me-2"></i>Tickets
         </h5>
-        <button type="button" class="btn btn-primary" onclick="abrirModalLevantarTicket()" title="Crear nuevo ticket">
+        <button type="button" class="btn btn-primary" id="btnAbrirModalLevantarTicket" title="Crear nuevo ticket">
             <i class="fa-solid fa-plus me-1"></i>Levantar ticket
         </button>
     </div>
@@ -159,8 +159,16 @@
                         <div class="d-flex flex-wrap gap-2 dictamen-detalle-miniaturas" id="modalDetalleDictamenMiniaturas"></div>
                     </div>
                     <div class="col-12 col-md-7 p-4">
+                        <div class="alert alert-info py-2 mb-3 d-flex align-items-center gap-2" id="modalDetalleDictamenNota12h" role="note">
+                            <i class="fa-solid fa-clock text-info"></i>
+                            <span>Vas a tener 12 horas para visitar al cliente</span>
+                        </div>
                         <div class="mb-3"><span class="text-muted small">Tipo</span><div id="modalDetalleDictamenTipo" class="fw-semibold"></div></div>
                         <div class="mb-3"><span class="text-muted small">Descripción</span><div id="modalDetalleDictamenDescripcion" class="text-break"></div></div>
+                        <div class="mb-3" id="modalDetalleDictamenDomiciliosWrap" style="display: none;">
+                            <span class="text-muted small">Domicilios de visita</span>
+                            <div id="modalDetalleDictamenDomicilios" class="mt-1 d-flex flex-column gap-2"></div>
+                        </div>
                         <div class="mb-2"><span class="text-muted small">Enviado</span><div id="modalDetalleDictamenEnviado" class="small"></div></div>
                         <div><span class="text-muted small">Visto por gestor</span><div id="modalDetalleDictamenVisto" class="small"></div></div>
                     </div>

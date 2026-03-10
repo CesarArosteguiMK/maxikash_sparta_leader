@@ -382,6 +382,12 @@
     #modalRastreoCredito .rastreo-bitacora-input-wrap { padding: 0.25rem 0; margin-top: auto; flex-shrink: 0; }
     #modalRastreoCredito .rastreo-dictamen-form .form-label { margin-bottom: 0.25rem; }
     #modalRastreoCredito .rastreo-dictamen-form .evidencia-slot { width: 100%; aspect-ratio: 1; max-height: 100px; }
+    .rastreo-domicilios-wrap { display: flex; flex-direction: column; gap: 0.5rem; }
+    .rastreo-domicilios-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.25rem; }
+    .rastreo-domicilio-block { display: grid; grid-template-columns: 1fr auto; gap: 0.35rem; align-items: start; padding: 0.5rem; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0; }
+    .rastreo-domicilio-block .form-control-sm { font-size: 0.8rem; }
+    .rastreo-btn-add-domicilio { width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center; background: #0ea5e9 !important; border-color: #0ea5e9 !important; color: #fff !important; }
+    .rastreo-btn-add-domicilio:hover { background: #0284c7 !important; border-color: #0284c7 !important; color: #fff !important; }
     /* Botones Dictamen en panel (mismos colores que en modal ampliada) */
     #modalRastreoCredito .btn-dictamen-borrador { background: linear-gradient(135deg, #0d9488 0%, #0f766e 100%); border-color: #0d9488; color: #fff; }
     #modalRastreoCredito .btn-dictamen-borrador:hover { background: linear-gradient(135deg, #0f766e 0%, #115e59 100%); border-color: #0f766e; color: #fff; }
@@ -798,6 +804,11 @@
                                     <textarea class="form-control form-control-sm" id="rastreoDictamenDescripcion" rows="3" placeholder="Escriba la descripción..." required aria-required="true" maxlength="1000"></textarea>
                                 </div>
                                 <div class="mb-2">
+                                    <span class="form-label small fw-semibold text-muted mb-0 d-block">Domicilios de visita</span>
+                                    <div id="rastreoDictamenDomiciliosWrap" class="rastreo-domicilios-wrap"></div>
+                                    <div class="mt-1 text-end"><button type="button" class="btn btn-sm rounded-circle p-1 rastreo-btn-add-domicilio" id="btnAddDomicilioPanel" title="Añadir domicilio" aria-label="Añadir domicilio"><i class="fa-solid fa-plus"></i></button></div>
+                                </div>
+                                <div class="mb-2">
                                     <span class="form-label small fw-semibold text-muted d-block mb-1">Evidencia</span>
                                     <div class="evidencia-dinamica-wrap" id="rastreoDictamenEvidenciasWrap">
                                         <div class="evidencia-slot evidencia-slot-add" id="rastreoDictamenEvidenciaAdd" role="button" tabindex="0" title="Añadir foto">
@@ -950,8 +961,13 @@
                         </select>
                     </div>
                     <div class="mb-3">
-                        <label for="rastreoDictamenAmpliadaDescripcion" class="form-label fw-semibold text-muted">Descripción <span class="text-danger">*</span></label>
-                        <textarea class="form-control" id="rastreoDictamenAmpliadaDescripcion" rows="5" placeholder="Escriba la descripción..." required aria-required="true" maxlength="1000"></textarea>
+                        <label for="rastreoDictamenAmpliadaDescripcion" class="form-label fw-semibold text-muted">Comentarios <span class="text-danger">*</span></label>
+                        <textarea class="form-control" id="rastreoDictamenAmpliadaDescripcion" rows="3" placeholder="Escriba sus comentarios para el gestor y no incluya en este apartado ubicaciones..." required aria-required="true" maxlength="1000"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <span class="form-label fw-semibold text-muted mb-0 d-block">Domicilios de visita</span>
+                        <div id="rastreoDictamenAmpliadaDomiciliosWrap" class="rastreo-domicilios-wrap"></div>
+                        <div class="mt-1 text-end"><button type="button" class="btn btn-sm rounded-circle p-1 rastreo-btn-add-domicilio" id="btnAddDomicilioAmpliada" title="Añadir domicilio" aria-label="Añadir domicilio"><i class="fa-solid fa-plus"></i></button></div>
                     </div>
                     <div class="mb-3">
                         <span class="form-label fw-semibold text-muted d-block mb-2">Evidencia</span>
@@ -1033,8 +1049,16 @@
                         <div class="d-flex flex-wrap gap-2 dictamen-detalle-miniaturas" id="modalDetalleDictamenMiniaturas"></div>
                     </div>
                     <div class="col-12 col-md-7 p-4">
+                        <div class="alert alert-info py-2 mb-3 d-flex align-items-center gap-2" id="modalDetalleDictamenNota12h" role="note">
+                            <i class="fa-solid fa-clock text-info"></i>
+                            <span>Vas a tener 12 horas para visitar al cliente</span>
+                        </div>
                         <div class="mb-3"><span class="text-muted small">Tipo</span><div id="modalDetalleDictamenTipo" class="fw-semibold"></div></div>
                         <div class="mb-3"><span class="text-muted small">Descripción</span><div id="modalDetalleDictamenDescripcion" class="text-break"></div></div>
+                        <div class="mb-3" id="modalDetalleDictamenDomiciliosWrap" style="display: none;">
+                            <span class="text-muted small">Domicilios de visita</span>
+                            <div id="modalDetalleDictamenDomicilios" class="mt-1 d-flex flex-column gap-2"></div>
+                        </div>
                         <div class="mb-2"><span class="text-muted small">Enviado</span><div id="modalDetalleDictamenEnviado" class="small"></div></div>
                         <div><span class="text-muted small">Visto por gestor</span><div id="modalDetalleDictamenVisto" class="small"></div></div>
                     </div>
@@ -1240,8 +1264,37 @@
                 if (d) d.style.removeProperty('z-index');
                 var backdrops = document.querySelectorAll('.modal-backdrop');
                 for (var b = 0; b < backdrops.length; b++) backdrops[b].style.removeProperty('z-index');
-                if (scrimEl && scrimEl.parentNode) scrimEl.parentNode.removeChild(scrimEl);
                 $('#modalVerEvidenciaDictamenImg').attr('src', '');
+                setTimeout(function() {
+                    var anyChildOpen = CHILD_MODALS.some(function(id) {
+                        var m = document.getElementById(id);
+                        return m && m.classList.contains('show');
+                    });
+                    var openModals = document.querySelectorAll('.modal.show');
+                    var backdropsNow = document.querySelectorAll('.modal-backdrop');
+                    if (!anyChildOpen) {
+                        if (parentModal) parentModal.classList.remove('modal-below-scrim');
+                        var scrim = document.getElementById('scrim-entre-modal-padre-hijo');
+                        if (scrim) scrim.remove();
+                    } else {
+                        // Si queda un modal hijo abierto (p.ej. Dictamen ampliada), el backdrop debe quedar detrás.
+                        for (var k = 0; k < backdropsNow.length; k++) {
+                            backdropsNow[k].style.setProperty('z-index', '1040', 'important');
+                        }
+                    }
+                    if (openModals.length === 0) {
+                        backdropsNow.forEach(function(b) { b.remove(); });
+                        document.body.classList.remove('modal-open');
+                        document.body.style.overflow = '';
+                    } else if (backdropsNow.length > openModals.length) {
+                        var n = backdropsNow.length - openModals.length;
+                        for (var i = 0; i < n; i++) {
+                            var list = document.querySelectorAll('.modal-backdrop');
+                            if (list.length === 0) break;
+                            list[list.length - 1].remove();
+                        }
+                    }
+                }, 150);
             });
         }
     }
@@ -1280,20 +1333,97 @@
             if ($origen.length && $destino.length) { $destino.html($origen.html()); }
         });
 
+        function crearBloqueDomicilio() {
+            var html = '<div class="rastreo-domicilio-block">' +
+                '<div class="d-flex flex-column gap-1" style="grid-column:1;">' +
+                '<input type="text" class="form-control form-control-sm rastreo-domicilio-desc" placeholder="Descripción del domicilio">' +
+                '<input type="url" class="form-control form-control-sm rastreo-domicilio-link" placeholder="Link Google Maps">' +
+                '</div>' +
+                '<button type="button" class="btn btn-sm btn-outline-danger rastreo-domicilio-quitar" title="Quitar" aria-label="Quitar"><i class="fa-solid fa-times"></i></button>' +
+                '</div>';
+            return $(html);
+        }
+        function sincronizarDomiciliosAmpliadaAPanel() {
+            var $wrapA = $('#rastreoDictamenAmpliadaDomiciliosWrap');
+            var $wrapP = $('#rastreoDictamenDomiciliosWrap');
+            $wrapP.empty();
+            $wrapA.find('.rastreo-domicilio-block').each(function() {
+                var $b = $(this);
+                var $n = crearBloqueDomicilio();
+                $n.find('.rastreo-domicilio-desc').val($b.find('.rastreo-domicilio-desc').val());
+                $n.find('.rastreo-domicilio-link').val($b.find('.rastreo-domicilio-link').val());
+                $wrapP.append($n);
+            });
+        }
+        function sincronizarDomiciliosPanelAAmpliada() {
+            var $wrapP = $('#rastreoDictamenDomiciliosWrap');
+            var $wrapA = $('#rastreoDictamenAmpliadaDomiciliosWrap');
+            $wrapA.empty();
+            $wrapP.find('.rastreo-domicilio-block').each(function() {
+                var $b = $(this);
+                var $n = crearBloqueDomicilio();
+                $n.find('.rastreo-domicilio-desc').val($b.find('.rastreo-domicilio-desc').val());
+                $n.find('.rastreo-domicilio-link').val($b.find('.rastreo-domicilio-link').val());
+                $wrapA.append($n);
+            });
+        }
+        function addDomicilioBlock(target) {
+            var $wrap = target === 'ampliada' ? $('#rastreoDictamenAmpliadaDomiciliosWrap') : $('#rastreoDictamenDomiciliosWrap');
+            var $b = crearBloqueDomicilio();
+            $b.find('.rastreo-domicilio-quitar').on('click', function() { $b.remove(); $(document).trigger('dictamen-evidencia-cambio'); });
+            $wrap.append($b);
+            $(document).trigger('dictamen-evidencia-cambio');
+        }
+        $(document).on('click', '#btnAddDomicilioPanel', function() { if (!$('.rastreo-seccion-dictamen').hasClass('dictamen-solo-lectura')) addDomicilioBlock('panel'); });
+        $(document).on('click', '#btnAddDomicilioAmpliada', function() { if (!$('.rastreo-dictamen-form-ampliada').hasClass('dictamen-solo-lectura')) addDomicilioBlock('ampliada'); });
+        $(document).on('click', '.rastreo-domicilio-quitar', function() { $(this).closest('.rastreo-domicilio-block').remove(); $(document).trigger('dictamen-evidencia-cambio'); });
+
+        window.parsearDomiciliosEnDictamen = function(descripcion) {
+            if (!descripcion || typeof descripcion !== 'string') return { base: '', domicilios: [] };
+            var idx = descripcion.indexOf('Podrás encontrar al usuario en ');
+            if (idx === -1) return { base: descripcion.trim(), domicilios: [] };
+            var base = descripcion.substring(0, idx).replace(/\.\s*$/, '').trim();
+            var domStr = descripcion.substring(idx + 31).trim();
+            var domicilios = [];
+            domStr.split(/\s*;\s*/).forEach(function(bloq) {
+                bloq = bloq.trim();
+                if (!bloq) return;
+                var urlMatch = bloq.match(/\s+(https?:\/\/\S+)$/);
+                var link = urlMatch ? urlMatch[1] : '';
+                var desc = urlMatch ? bloq.substring(0, bloq.length - urlMatch[0].length).trim() : bloq;
+                domicilios.push({ desc: desc, link: link });
+            });
+            return { base: base, domicilios: domicilios };
+        };
+        window.rellenarDomiciliosDictamen = function(descripcion) {
+            var parsed = typeof parsearDomiciliosEnDictamen === 'function' ? parsearDomiciliosEnDictamen(descripcion) : { base: descripcion || '', domicilios: [] };
+            $('#rastreoDictamenDescripcion, #rastreoDictamenAmpliadaDescripcion').val(parsed.base);
+            $('#rastreoDictamenDomiciliosWrap, #rastreoDictamenAmpliadaDomiciliosWrap').empty();
+            (parsed.domicilios || []).forEach(function(dom) {
+                var $b = crearBloqueDomicilio();
+                $b.find('.rastreo-domicilio-desc').val(dom.desc);
+                $b.find('.rastreo-domicilio-link').val(dom.link);
+                $('#rastreoDictamenDomiciliosWrap').append($b);
+            });
+        };
+
         $('#btnDictamenAmpliar').on('click', function() {
             $('#rastreoDictamenAmpliadaCombo').val($('#rastreoDictamenCombo').val() || '');
             $('#rastreoDictamenAmpliadaDescripcion').val($('#rastreoDictamenDescripcion').val() || '');
+            sincronizarDomiciliosPanelAAmpliada();
             $('#modalDictamenAmpliada').modal('show');
         });
         $('#modalDictamenAmpliada').on('shown.bs.modal', function() {
             $('#rastreoDictamenAmpliadaCombo').val($('#rastreoDictamenCombo').val() || '');
             $('#rastreoDictamenAmpliadaDescripcion').val($('#rastreoDictamenDescripcion').val() || '');
+            sincronizarDomiciliosPanelAAmpliada();
             var idTicket = (typeof ticketIdRastreoActual !== 'undefined' && ticketIdRastreoActual) ? ticketIdRastreoActual : (parseInt($('#rastreoIdTicketActual').val() || $('#modalRastreoCredito').attr('data-id-ticket') || '', 10) || null);
             if (idTicket && typeof rellenarEvidenciasDictamen === 'function') rellenarEvidenciasDictamen(idTicket);
         });
         $('#modalDictamenAmpliada').on('hidden.bs.modal', function() {
             $('#rastreoDictamenCombo').val($('#rastreoDictamenAmpliadaCombo').val() || '');
             $('#rastreoDictamenDescripcion').val($('#rastreoDictamenAmpliadaDescripcion').val() || '');
+            sincronizarDomiciliosAmpliadaAPanel();
         });
 
         (function evidenciaDictamenDinamica() {
@@ -1385,6 +1515,11 @@
         }
 
         function guardarDictamenBorradorUI(silent, onCompletado) {
+            if ($('#modalDictamenAmpliada').hasClass('show')) {
+                sincronizarDomiciliosAmpliadaAPanel();
+                $('#rastreoDictamenCombo').val($('#rastreoDictamenAmpliadaCombo').val());
+                $('#rastreoDictamenDescripcion').val($('#rastreoDictamenAmpliadaDescripcion').val());
+            }
             var idTicket = parseInt($('#rastreoIdTicketActual').val() || $('#rastreoIdTicketActual').attr('data-id-ticket') || $('#modalRastreoCredito').attr('data-id-ticket') || '', 10) || (typeof window.ticketIdRastreoActual !== 'undefined' ? window.ticketIdRastreoActual : null);
             if (!idTicket && typeof ticketIdRastreoActual !== 'undefined') idTicket = ticketIdRastreoActual;
             if (!idTicket || isNaN(idTicket)) {
@@ -1397,9 +1532,17 @@
                 return;
             }
             var tipo = $('#rastreoDictamenCombo').val();
-            var desc = ($('#rastreoDictamenDescripcion').val() || '').trim();
+            var descBase = ($('#rastreoDictamenDescripcion').val() || '').trim();
+            var domiciliosParts = [];
+            $('#rastreoDictamenDomiciliosWrap .rastreo-domicilio-block').each(function() {
+                var descD = ($(this).find('.rastreo-domicilio-desc').val() || '').trim();
+                var linkD = ($(this).find('.rastreo-domicilio-link').val() || '').trim();
+                if (descD || linkD) domiciliosParts.push(descD + (linkD ? ' ' + linkD : ''));
+            });
+            var desc = descBase;
+            if (domiciliosParts.length > 0) desc += (descBase ? '. ' : '') + 'Podrás encontrar al usuario en ' + domiciliosParts.join('; ');
             if (!tipo || !desc) {
-                if (!silent && typeof Swal !== 'undefined') Swal.fire({ icon: 'warning', title: 'Faltan datos', text: 'Seleccione tipo y escriba la descripción.' });
+                if (!silent && typeof Swal !== 'undefined') Swal.fire({ icon: 'warning', title: 'Faltan datos', text: 'Seleccione tipo y complete la descripción o al menos un domicilio.' });
                 if (onCompletado) onCompletado('Faltan tipo o descripción.');
                 return;
             }
@@ -1431,9 +1574,10 @@
                     return;
                 }
                 intentos = intentos || 0;
+                var f = archivosPendientes[indice];
                 var fd = new FormData();
                 fd.append('id_ticket', idTicket);
-                fd.append('evidencia', archivosPendientes[indice]);
+                fd.append('evidencia', f);
                 $.ajax({
                     url: urlSubirEvidencia,
                     type: 'POST',
@@ -1442,6 +1586,13 @@
                     contentType: false,
                     success: function(r) {
                         if (r.success) {
+                            $('.evidencia-foto-item').each(function() {
+                                var fl = $(this).data('file');
+                                if (fl && fl.name === f.name && fl.size === f.size) {
+                                    $(this).removeData('file');
+                                    if (r.datos && r.datos.id) $(this).data('id-evidencia', r.datos.id);
+                                }
+                            });
                             subirSiguiente(indice + 1, 0);
                         } else if (intentos < 1) {
                             // Reintento automático (1 vez) ante error del servidor
@@ -1510,9 +1661,20 @@
                 return;
             }
             if (typeof http === 'undefined') return;
+            sincronizarDomiciliosAmpliadaAPanel();
+            $('#rastreoDictamenCombo').val($('#rastreoDictamenAmpliadaCombo').val());
+            $('#rastreoDictamenDescripcion').val($('#rastreoDictamenAmpliadaDescripcion').val());
             var tipo = $('#rastreoDictamenCombo').val();
-            var desc = ($('#rastreoDictamenDescripcion').val() || '').trim();
-            if (!tipo || !desc) { if (typeof Swal !== 'undefined') Swal.fire({ icon: 'warning', title: 'Faltan datos', text: 'Seleccione tipo y escriba la descripción antes de enviar.' }); return; }
+            var descBase = ($('#rastreoDictamenDescripcion').val() || '').trim();
+            var domiciliosParts = [];
+            $('#rastreoDictamenDomiciliosWrap .rastreo-domicilio-block').each(function() {
+                var descD = ($(this).find('.rastreo-domicilio-desc').val() || '').trim();
+                var linkD = ($(this).find('.rastreo-domicilio-link').val() || '').trim();
+                if (descD || linkD) domiciliosParts.push(descD + (linkD ? ' ' + linkD : ''));
+            });
+            var desc = descBase;
+            if (domiciliosParts.length > 0) desc += (descBase ? '. ' : '') + 'Podrás encontrar al usuario en ' + domiciliosParts.join('; ');
+            if (!tipo || !desc) { if (typeof Swal !== 'undefined') Swal.fire({ icon: 'warning', title: 'Faltan datos', text: 'Seleccione tipo y complete la descripción o al menos un domicilio.' }); return; }
 
             // 2️⃣ Cancelar el autoguardado pendiente para evitar dos guardados simultáneos
             if (dictamenAutoguardadoTimer) { clearTimeout(dictamenAutoguardadoTimer); dictamenAutoguardadoTimer = null; }
@@ -1589,6 +1751,7 @@
 
         $('#btnDictamenEnviarGestor').on('click', function() { enviarDictamenGestorUI(); });
         $('#btnDictamenAmpliadaEnviarGestor').on('click', function() {
+            sincronizarDomiciliosAmpliadaAPanel();
             $('#rastreoDictamenCombo').val($('#rastreoDictamenAmpliadaCombo').val());
             $('#rastreoDictamenDescripcion').val($('#rastreoDictamenAmpliadaDescripcion').val());
             enviarDictamenGestorUI();
@@ -1617,6 +1780,8 @@
             $('#modalDetalleDictamen .dictamen-detalle-imagen-principal').html('<img id="modalDetalleDictamenImgPrincipal" src="" alt="Evidencia" class="img-fluid w-100" style="object-fit: contain; max-height: 280px;">');
             $('#modalDetalleDictamenMiniaturas').empty();
             $('#modalDetalleDictamenTipo, #modalDetalleDictamenDescripcion, #modalDetalleDictamenEnviado, #modalDetalleDictamenVisto').text('');
+            $('#modalDetalleDictamenDomiciliosWrap').hide();
+            $('#modalDetalleDictamenDomicilios').empty();
             $('#modalDetalleDictamen').modal('show');
             http.request({
                 endpoint: '/sabueso/getDictamenDetalle',
@@ -1632,7 +1797,27 @@
                     var d = r.datos;
                     var dm = d.dictamen || {};
                     $('#modalDetalleDictamenTipo').text(dm.tipo || '—');
-                    $('#modalDetalleDictamenDescripcion').html(window.linkifyDescripcionDictamen ? window.linkifyDescripcionDictamen(dm.descripcion) : $('<div>').text(dm.descripcion || '—').html());
+                    var descMostrar = (dm.descripcion_base !== undefined ? dm.descripcion_base : dm.descripcion) || '—';
+                    $('#modalDetalleDictamenDescripcion').html(window.linkifyDescripcionDictamen ? window.linkifyDescripcionDictamen(descMostrar) : $('<div>').text(descMostrar).html());
+                    var domicilios = d.domicilios || [];
+                    if (domicilios.length > 0) {
+                        var $domWrap = $('#modalDetalleDictamenDomicilios');
+                        $domWrap.empty();
+                        domicilios.forEach(function(dom) {
+                            var desc = (dom.desc || '').trim();
+                            var link = (dom.link || '').trim();
+                            var $card = $('<div class="d-flex align-items-center gap-2 p-2 rounded border bg-light bg-opacity-50"></div>');
+                            if (desc) $card.append($('<span class="flex-grow-1 text-break"></span>').text(desc));
+                            if (link) {
+                                var safe = link.replace(/"/g, '&quot;');
+                                $card.append($('<a href="' + safe + '" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-primary text-nowrap"><i class="fa-brands fa-google me-1"></i>Ver en Maps</a>'));
+                            }
+                            $domWrap.append($card);
+                        });
+                        $('#modalDetalleDictamenDomiciliosWrap').show();
+                    } else {
+                        $('#modalDetalleDictamenDomiciliosWrap').hide();
+                    }
                     $('#modalDetalleDictamenEnviado').text(dm.fecha_actualizacion ? (new Date(dm.fecha_actualizacion).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })) : '—');
                     var vistoStr = dm.fecha_visto_gestor ? (new Date(dm.fecha_visto_gestor).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })) : '';
                     if (vistoStr && (dm.visto_gestor_nombre || '').trim()) vistoStr = 'Por ' + (dm.visto_gestor_nombre || '').trim() + ' el ' + vistoStr;
@@ -1666,8 +1851,13 @@
                         }
                     });
 
-                    // Crear miniaturas (con apiBase y clic para ver en grande)
-                    evidencias.forEach(function(ev) {
+                    // Crear miniaturas (solo desde índice 1 para no repetir la imagen principal)
+                    var idsVistos = {};
+                    evidencias.forEach(function(ev, idx) {
+                        if (idx === 0) return;
+                        var idEv = ev.id || (ev.url || '') + idx;
+                        if (idsVistos[idEv]) return;
+                        idsVistos[idEv] = true;
                         var url = (apiBase || '') + (ev.url || ('/sabueso/verEvidencia?id=' + (ev.id || '')));
                         if (!url) return;
 

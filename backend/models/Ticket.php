@@ -165,11 +165,11 @@ class Ticket extends Model
         // Intentar crear el ticket con reintentos para evitar condiciones de carrera
         $maxIntentos = 3;
         $intento = 0;
-        
+
         while ($intento < $maxIntentos) {
             try {
                 $db->beginTransaction();
-                
+
                 // Obtener siguiente ID disponible usando MAX (más eficiente) con bloqueo para evitar condiciones de carrera
                 $maxRow = $db->queryOne("SELECT MAX(id_ticket) AS max_id FROM ticket FOR UPDATE");
                 $maxId = $maxRow && isset($maxRow['max_id']) && $maxRow['max_id'] !== null ? (int)$maxRow['max_id'] : 0;
@@ -178,15 +178,15 @@ class Ticket extends Model
                 // Obtener siguiente número de folio usando una consulta SQL optimizada
                 // Extrae el número máximo directamente en SQL sin traer todos los registros
                 $maxFolioRow = $db->queryOne("
-                    SELECT MAX(CAST(SUBSTRING(folio, 5) AS UNSIGNED)) AS max_num 
-                    FROM ticket 
-                    WHERE folio LIKE 'TCK-%' 
+                    SELECT MAX(CAST(SUBSTRING(folio, 5) AS UNSIGNED)) AS max_num
+                    FROM ticket
+                    WHERE folio LIKE 'TCK-%'
                     FOR UPDATE
                 ");
                 $maxNum = $maxFolioRow && isset($maxFolioRow['max_num']) && $maxFolioRow['max_num'] !== null ? (int)$maxFolioRow['max_num'] : 0;
                 $num = $maxNum + 1;
                 $folio = 'TCK-' . str_pad((string)$num, 4, '0', STR_PAD_LEFT);
-                
+
                 // Verificar que el folio no exista (solo una verificación rápida)
                 $folioExiste = $db->queryOne("SELECT 1 FROM ticket WHERE folio = :folio LIMIT 1", ['folio' => $folio]);
                 if ($folioExiste) {
@@ -229,12 +229,12 @@ class Ticket extends Model
 
                 $db->CRUD($query, $params);
                 $db->commit();
-                
+
                 return self::resultado(true, 'Ticket creado correctamente.', ['folio' => $folio, 'id_ticket' => $siguienteId]);
-                
+
             } catch (\Exception $e) {
                 $db->rollback();
-                
+
                 // Si es error de clave duplicada, reintentar
                 $errorMsg = $e->getMessage();
                 if (strpos($errorMsg, 'Duplicate entry') !== false || strpos($errorMsg, '1062') !== false) {
@@ -246,12 +246,12 @@ class Ticket extends Model
                     usleep(rand(10000, 50000)); // 10-50ms
                     continue;
                 }
-                
+
                 // Si es otro tipo de error, retornar inmediatamente
                 return self::resultado(false, 'Error al crear el ticket.', null, $errorMsg);
             }
         }
-        
+
         return self::resultado(false, 'Error al crear el ticket: se agotaron los intentos.', null);
     }
 
@@ -1092,9 +1092,37 @@ class Ticket extends Model
                 );
             }
             $evidencias = $db->queryAll("SELECT id, ruta_archivo, nombre_original, fecha_subida FROM ticket_evidencia WHERE id_ticket = :id_ticket ORDER BY fecha_subida ASC", ['id_ticket' => $id]);
+
+            // Parsear domicilios de visita desde la descripción ("Podrás encontrar al usuario en desc link; desc2 link2")
+            $domicilios = [];
+            $descripcionBase = $dictamen ? ($dictamen['descripcion'] ?? '') : '';
+            if ($dictamen && !empty($dictamen['descripcion'])) {
+                $desc = (string) $dictamen['descripcion'];
+                $prefijo = 'Podrás encontrar al usuario en ';
+                $pos = strpos($desc, $prefijo);
+                if ($pos !== false) {
+                    $descripcionBase = trim(preg_replace('/\.\s*$/', '', substr($desc, 0, $pos)));
+                    $domStr = trim(substr($desc, $pos + strlen($prefijo)));
+                    $bloques = preg_split('/\s*;\s*/', $domStr, -1, PREG_SPLIT_NO_EMPTY);
+                    foreach ($bloques as $bloq) {
+                        $bloq = trim($bloq);
+                        if ($bloq === '') continue;
+                        if (preg_match('/\s+(https?:\/\/\S+)$/u', $bloq, $m)) {
+                            $domicilios[] = ['desc' => trim(substr($bloq, 0, -strlen($m[0]))), 'link' => $m[1]];
+                        } else {
+                            $domicilios[] = ['desc' => $bloq, 'link' => ''];
+                        }
+                    }
+                }
+            }
+            if ($dictamen !== null) {
+                $dictamen['descripcion_base'] = $descripcionBase;
+            }
+
             return self::resultado(true, 'OK', [
                 'dictamen' => $dictamen ?: null,
                 'evidencias' => is_array($evidencias) ? $evidencias : [],
+                'domicilios' => $domicilios,
             ]);
         } catch (\Exception $e) {
             return self::resultado(false, 'Error al obtener detalle.', null, $e->getMessage());
@@ -1244,8 +1272,8 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
         $placeholders = implode(',', $ids); // Son enteros, seguro sin PDO
         $db = new Database();
         $rows = $db->queryAll(
-            "SELECT id_credito, nombre_cliente 
-             FROM `__SPARTA_SECRET_REDACTED__`.tbl_segundometro_semana 
+            "SELECT id_credito, nombre_cliente
+             FROM `__SPARTA_SECRET_REDACTED__`.tbl_segundometro_semana
              WHERE id_credito IN ($placeholders)"
         );
         $mapa = [];
