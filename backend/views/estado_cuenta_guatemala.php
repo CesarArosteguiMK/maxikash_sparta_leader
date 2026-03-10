@@ -847,22 +847,29 @@ $gradienteBanner = strtolower($paisCodigo) === 'gt'
       <div class="card-body py-3">
         <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
           <div class="d-flex align-items-center gap-3">
-            <div class="d-flex align-items-center justify-content-center" style="width: 64px; height: 64px; background: rgba(255,255,255,0.9); border-radius: 12px; box-shadow: 0 4px 14px rgba(0,0,0,0.1); border: 2px solid <?= $colorBanner ?>;">
-              <span class="fi fi-<?= htmlspecialchars($paisCodigo) ?> fis" style="font-size: 2.5rem; line-height: 1;"></span>
-            </div>
+                        <?php if (strtolower($paisCodigo) !== 'gt'): ?>
+                        <div class="d-flex align-items-center justify-content-center" style="width: 64px; height: 64px; background: rgba(255,255,255,0.9); border-radius: 12px; box-shadow: 0 4px 14px rgba(0,0,0,0.1); border: 2px solid <?= $colorBanner ?>;">
+                            <span class="fi fi-<?= htmlspecialchars($paisCodigo) ?> fis" style="font-size: 2.5rem; line-height: 1;"></span>
+                        </div>
+                        <?php endif; ?>
             <div>
               <div class="d-flex align-items-center gap-2 mb-1">
                 <h4 class="mb-0" style="font-weight: 700; color: #2c3e50; font-size: 1.5rem;">Estado de Cuenta</h4>
                 <?php if (strtolower($paisCodigo) === 'gt'): ?>
-                <span class="badge badge-pais-guatemala"><i class="fa-solid fa-flag me-1"></i> GUATEMALA</span>
-                <strong>Recuerda que estamos cobrando en Quetzales!</strong>
+                                <span class="badge badge-pais-guatemala"><i class="fa-solid fa-location-dot me-1"></i> GUATEMALA</span>
                 <?php elseif (strtolower($paisCodigo) === 'mx'): ?>
                 <span class="badge" style="background: linear-gradient(135deg, #006847 0%, #ce1126 100%); color: white; font-weight: 600; padding: 0.5em 1em; border-radius: 8px;"><i class="fa-solid fa-flag me-1"></i> MÉXICO</span>
                 <?php endif; ?>
               </div>
+                            <?php if (strtolower($paisCodigo) === 'gt'): ?>
+                            <p class="mb-0" style="font-size: 0.95rem; font-weight: 700; color: #2c3e50;">
+                                Recuerda que estamos cobrando en Quetzales!
+                            </p>
+                            <?php else: ?>
               <p class="mb-0 text-muted" style="font-size: 0.95rem; font-weight: 500;">
                 <i class="fa-solid fa-location-dot me-1"></i><?= htmlspecialchars($paisNombre) ?>
               </p>
+                            <?php endif; ?>
             </div>
           </div>
           <div>
