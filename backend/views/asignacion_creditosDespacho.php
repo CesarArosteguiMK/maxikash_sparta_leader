@@ -22,15 +22,15 @@
         padding: 0.25rem;
         border-radius: 0.25rem;
     }
-    
+
     #asignacion-info-container [onclick]:hover {
         background-color: rgba(0,0,0,0.03);
     }
-    
+
     #asignacion-toggle-icon {
         transition: transform 0.3s ease;
     }
-    
+
     /* Estilos para stack de créditos */
     #creditos-stack {
         max-height: 520px; /* Altura aproximada para 2 créditos completos */
@@ -38,30 +38,30 @@
         overflow-x: hidden;
         padding-right: 0.25rem;
     }
-    
+
     #creditos-stack::-webkit-scrollbar {
         width: 6px;
     }
-    
+
     #creditos-stack::-webkit-scrollbar-track {
         background: #f1f1f1;
         border-radius: 10px;
     }
-    
+
     #creditos-stack::-webkit-scrollbar-thumb {
         background: #888;
         border-radius: 10px;
     }
-    
+
     #creditos-stack::-webkit-scrollbar-thumb:hover {
         background: #555;
     }
-    
+
     .credit-card-item {
         animation: slideInDown 0.3s ease-out;
         margin-bottom: 1rem;
     }
-    
+
     @keyframes slideInDown {
         from {
             opacity: 0;
@@ -72,18 +72,18 @@
             transform: translateY(0);
         }
     }
-    
+
     .credit-card-item.removing {
         animation: slideOutUp 0.3s ease-out;
     }
-    
+
     @keyframes slideOutUp {
         to {
             opacity: 0;
             transform: translateY(-20px);
         }
     }
-    
+
     /* Botones con gradientes */
     .btn-gradient-success {
         background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
@@ -91,28 +91,28 @@
         color: white;
         transition: all 0.3s ease;
     }
-    
+
     .btn-gradient-success:hover {
         background: linear-gradient(135deg, #218838 0%, #1a9e7a 100%);
         transform: scale(1.05);
         box-shadow: 0 4px 8px rgba(40, 167, 69, 0.3);
         color: white;
     }
-    
+
     .btn-gradient-danger {
         background: linear-gradient(135deg, #dc3545 0%, #fd7e14 100%);
         border: none;
         color: white;
         transition: all 0.3s ease;
     }
-    
+
     .btn-gradient-danger:hover {
         background: linear-gradient(135deg, #c82333 0%, #e8590c 100%);
         transform: scale(1.05);
         box-shadow: 0 4px 8px rgba(220, 53, 69, 0.3);
         color: white;
     }
-    
+
     /* Texto de estado con gradiente */
     .text-gradient-primary {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -442,7 +442,7 @@
                                 <span id="info-nombre">-</span>
                             </div>
                         </li>
-                        
+
                         <li id="info-puesto-container">
                             <i class="fa fa-briefcase fa-lg text-primary"></i>
                             <div class="info-label">
@@ -450,7 +450,7 @@
                                 <span id="info-puesto">-</span>
                             </div>
                         </li>
-                        
+
                         <li id="info-telefono-container">
                             <i class="fa fa-phone fa-lg text-primary"></i>
                             <div class="info-label">
@@ -458,7 +458,7 @@
                                 <span id="info-telefono">-</span>
                             </div>
                         </li>
-                        
+
                         <li id="info-correo-container">
                             <i class="fa fa-envelope fa-lg text-primary"></i>
                             <div class="info-label">
@@ -466,7 +466,7 @@
                                 <span id="info-correo">-</span>
                             </div>
                         </li>
-                        
+
                         <li id="info-direccion-container">
                             <i class="fa fa-map-marker-alt fa-lg text-primary"></i>
                             <div class="info-label">
@@ -474,19 +474,19 @@
                                 <span id="info-direccion">-</span>
                             </div>
                         </li>
-                        
+
                         <li id="info-tipo-container">
                             <i class="fa fa-id-card fa-lg text-primary"></i>
                             <div class="info-label">
                                 <span class="fw-medium">Tipo:</span>
                                 <div class="d-flex align-items-center gap-2">
                                     <span id="info-tipo">-</span>
-                                    <i class="fa fa-pencil-alt text-muted edit-tipo-icon" 
-                                       style="cursor: pointer; font-size: 0.85rem;" 
-                                       onclick="toggleEditTipo()" 
+                                    <i class="fa fa-pencil-alt text-muted edit-tipo-icon"
+                                       style="cursor: pointer; font-size: 0.85rem;"
+                                       onclick="toggleEditTipo()"
                                        title="Editar tipo de persona"></i>
-                                    <select id="select-tipo-persona" class="form-select form-select-sm" 
-                                            style="display: none; width: auto; min-width: 120px;" 
+                                    <select id="select-tipo-persona" class="form-select form-select-sm"
+                                            style="display: none; width: auto; min-width: 120px;"
                                             onchange="actualizarTipoPersona()"
                                             onblur="setTimeout(cancelarEditTipo, 200)">
                                         <option value="">Seleccionar...</option>
@@ -496,7 +496,7 @@
                                 </div>
                             </div>
                         </li>
-                        
+
                         <li id="info-sin-datos-container" style="display: none;">
                             <i class="fa fa-exclamation-circle fa-lg text-muted"></i>
                             <div class="info-label">
@@ -512,13 +512,13 @@
                 <div class="accordion" id="accordionDocumentosPadre">
                     <div class="accordion-item">
                         <h2 class="accordion-header" id="headingDocumentos">
-                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" 
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
                                     data-bs-target="#collapseDocumentos" aria-expanded="false" aria-controls="collapseDocumentos">
                                 <i class="fa-solid fa-file-alt me-2"></i>
                                 Documentos del Despacho
                             </button>
                         </h2>
-                        <div id="collapseDocumentos" class="accordion-collapse collapse" 
+                        <div id="collapseDocumentos" class="accordion-collapse collapse"
                              aria-labelledby="headingDocumentos" data-bs-parent="#accordionDocumentosPadre">
                             <div class="accordion-body p-2">
                                 <div class="accordion" id="accordionDocumentos">
@@ -534,11 +534,11 @@
                 <h5 class="card-title mb-3">
                     <i class="fa-solid fa-comment me-2"></i>Mis comentarios
                 </h5>
-                
+
                 <div class="mb-3">
                     <textarea id="comentarios-despacho" class="form-control" rows="3" placeholder="Notas internas..."></textarea>
                 </div>
-                
+
                 <button class="btn btn-primary w-100" id="btn-guardar-comentarios">
                     <i class="fa-solid fa-save me-1"></i>Guardar Comentarios
                 </button>
@@ -550,9 +550,14 @@
     <div class="col-md-8">
         <div class="card h-100">
             <div class="card-body">
-                <h5 class="card-title mb-4">
-                    <i class="fa-solid fa-magnifying-glass me-2"></i>Buscar y asignar crédito
-                </h5>
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h5 class="card-title mb-0">
+                        <i class="fa-solid fa-magnifying-glass me-2"></i>Buscar y asignar crédito
+                    </h5>
+                    <button class="btn btn-outline-secondary btn-sm" id="btn-refresh-tabla" onclick="refreshTablaCreditos()" title="Actualizar tabla de créditos asignados">
+                        <i class="fa-solid fa-rotate-right me-1"></i>Actualizar tabla
+                    </button>
+                </div>
 
                 <div class="alert alert-info mb-4">
                     <i class="fa-solid fa-info-circle me-2"></i>
@@ -597,7 +602,7 @@
                 <div id="creditos-stack" class="mt-4">
                     <!-- Los créditos se agregarán dinámicamente aquí -->
                 </div>
-                
+
                 <!-- Botón para limpiar lista -->
                 <div id="btn-limpiar-container" class="mt-3" style="display: none;">
                     <button class="btn btn-outline-danger w-100" onclick="limpiarListaCreditos()">
@@ -644,7 +649,7 @@
             <i class="fa-solid fa-file-excel me-1"></i>Exportar Excel
         </button>
     </div>
-    
+
     <div class="card-datatable table-responsive">
         <table class="table border-top" id="tabla-creditos">
             <thead>
@@ -677,7 +682,7 @@ class SearchableSelect {
         this.options = [];
         this.selectedValue = '';
         this.isOpen = false;
-        
+
         this.createWrapper();
         this.attachEvents();
         this.loadOptions();
@@ -687,7 +692,7 @@ class SearchableSelect {
         // Crear wrapper
         this.wrapper = document.createElement('div');
         this.wrapper.className = 'select-search-wrapper';
-        
+
         // Crear display
         this.display = document.createElement('div');
         this.display.className = 'select-search-display';
@@ -695,7 +700,7 @@ class SearchableSelect {
             <span>Seleccione un despacho...</span>
             <i class="fas fa-chevron-down select-search-arrow"></i>
         `;
-        
+
         // Crear dropdown
         this.dropdown = document.createElement('div');
         this.dropdown.className = 'select-search-dropdown';
@@ -703,15 +708,15 @@ class SearchableSelect {
             <input type="text" class="select-search-input" placeholder="Buscar despacho...">
             <div class="select-search-options"></div>
         `;
-        
+
         // Agregar elementos
         this.wrapper.appendChild(this.display);
         this.wrapper.appendChild(this.dropdown);
-        
+
         // Insertar después del select y ocultar el select original
         this.select.parentNode.insertBefore(this.wrapper, this.select.nextSibling);
         this.select.style.display = 'none';
-        
+
         // Referencias
         this.searchInput = this.dropdown.querySelector('.select-search-input');
         this.optionsContainer = this.dropdown.querySelector('.select-search-options');
@@ -725,13 +730,13 @@ class SearchableSelect {
                 value: opt.value,
                 text: opt.textContent
             }));
-        
+
         this.renderOptions(this.options);
     }
 
     renderOptions(filteredOptions) {
         this.optionsContainer.innerHTML = '';
-        
+
         if (filteredOptions.length === 0) {
             const noResults = document.createElement('div');
             noResults.className = 'select-search-option no-results';
@@ -739,21 +744,21 @@ class SearchableSelect {
             this.optionsContainer.appendChild(noResults);
             return;
         }
-        
+
         filteredOptions.forEach(option => {
             const optionDiv = document.createElement('div');
             optionDiv.className = 'select-search-option';
             optionDiv.textContent = option.text;
             optionDiv.dataset.value = option.value;
-            
+
             if (option.value === this.selectedValue) {
                 optionDiv.classList.add('selected');
             }
-            
+
             optionDiv.addEventListener('click', () => {
                 this.selectOption(option);
             });
-            
+
             this.optionsContainer.appendChild(optionDiv);
         });
     }
@@ -762,11 +767,11 @@ class SearchableSelect {
         this.selectedValue = option.value;
         this.select.value = option.value;
         this.display.querySelector('span').textContent = option.text;
-        
+
         // Disparar evento change en el select original
         const event = new Event('change', { bubbles: true });
         this.select.dispatchEvent(event);
-        
+
         this.close();
     }
 
@@ -798,21 +803,21 @@ class SearchableSelect {
                 this.open();
             }
         });
-        
+
         // Input de búsqueda
         this.searchInput.addEventListener('input', (e) => {
             const searchTerm = e.target.value.toLowerCase().trim();
-            const filtered = this.options.filter(option => 
+            const filtered = this.options.filter(option =>
                 option.text.toLowerCase().includes(searchTerm)
             );
             this.renderOptions(filtered);
         });
-        
+
         // Evitar que el click en el dropdown lo cierre
         this.dropdown.addEventListener('click', (e) => {
             e.stopPropagation();
         });
-        
+
         // Cerrar al hacer click fuera
         document.addEventListener('click', () => {
             if (this.isOpen) {
@@ -837,7 +842,7 @@ class SearchableSelect {
 // Cargar despachos al iniciar
 document.addEventListener('DOMContentLoaded', function() {
     cargarDespachos();
-    
+
     // Event Listeners
     document.getElementById('select-despacho').addEventListener('change', function() {
         despachoSeleccionado = this.value;
@@ -846,13 +851,13 @@ document.addEventListener('DOMContentLoaded', function() {
             cargarCreditosAsignados(despachoSeleccionado);
         }
     });
-    
+
     // Buscar crédito al enviar formulario
     document.getElementById('formBusquedaCredito').addEventListener('submit', function(e) {
         e.preventDefault();
         buscarCredito();
     });
-    
+
     // El botón de asignar ahora está en cada crédito del stack
     document.getElementById('btn-guardar-comentarios').addEventListener('click', guardarComentarios);
     document.getElementById('btn-exportar-excel').addEventListener('click', exportarExcel);
@@ -870,7 +875,7 @@ function cargarDespachos() {
             console.log('📊 Datos recibidos:', data);
             const select = document.getElementById('select-despacho');
             select.innerHTML = '<option value="">Seleccione un despacho...</option>';
-            
+
             if (data.success && data.despachos && data.despachos.length > 0) {
                 console.log(`✅ ${data.despachos.length} despachos encontrados`);
                 data.despachos.forEach((despacho, index) => {
@@ -880,7 +885,7 @@ function cargarDespachos() {
                     option.textContent = `${despacho.nombre_completo} - ${despacho.nombre_puesto}`;
                     select.appendChild(option);
                 });
-                
+
                 // Inicializar SearchableSelect después de cargar opciones
                 if (!searchableSelectDespacho) {
                     searchableSelectDespacho = new SearchableSelect(select);
@@ -905,17 +910,17 @@ function cargarDatosDespacho(idPersona) {
             if (data.success) {
                 // Mostrar el contenedor de información
                 document.getElementById('info-despacho-container').style.display = 'block';
-                
+
                 // Función auxiliar para verificar si un valor está vacío
                 const estaVacio = (valor) => {
                     return !valor || valor === '' || valor === 'Sin dirección registrada' || valor === '-' || valor === null;
                 };
-                
+
                 // Función auxiliar para mostrar/ocultar campo
                 const mostrarCampo = (containerId, valor, elementId) => {
                     const container = document.getElementById(containerId);
                     const element = document.getElementById(elementId);
-                    
+
                     if (!estaVacio(valor)) {
                         container.style.display = 'grid';
                         element.textContent = valor;
@@ -925,7 +930,7 @@ function cargarDatosDespacho(idPersona) {
                         return false; // No tiene datos
                     }
                 };
-                
+
                 // Llenar y mostrar/ocultar cada campo
                 mostrarCampo('info-nombre-container', data.datos.nombre_completo, 'info-nombre');
                 mostrarCampo('info-puesto-container', data.datos.puesto, 'info-puesto');
@@ -933,7 +938,7 @@ function cargarDatosDespacho(idPersona) {
                 const tieneCorreo = mostrarCampo('info-correo-container', data.datos.correo, 'info-correo');
                 const tieneDireccion = mostrarCampo('info-direccion-container', data.datos.direccion, 'info-direccion');
                 mostrarCampo('info-tipo-container', data.datos.tipo_persona, 'info-tipo');
-                
+
                 // Si no tiene teléfono, correo ni dirección, mostrar "Sin Datos"
                 const sinDatosContainer = document.getElementById('info-sin-datos-container');
                 if (!tieneTelefono && !tieneCorreo && !tieneDireccion) {
@@ -941,10 +946,10 @@ function cargarDatosDespacho(idPersona) {
                 } else {
                     sinDatosContainer.style.display = 'none';
                 }
-                
+
                 // Cargar comentarios si existen
                 document.getElementById('comentarios-despacho').value = data.comentarios || '';
-                
+
                 // Cargar documentos del despacho
                 cargarDocumentosDespacho(idPersona);
             }
@@ -957,12 +962,12 @@ function cargarDatosDespacho(idPersona) {
 // Función para buscar crédito
 function buscarCredito() {
     const idCredito = document.getElementById('idCredito').value.trim();
-    
+
     if (!idCredito) {
         Swal.fire('Advertencia', 'Ingrese un ID de crédito', 'warning');
         return;
     }
-    
+
     fetch('/despachos/buscarCredito', {
         method: 'POST',
         headers: {
@@ -978,29 +983,27 @@ function buscarCredito() {
         if (data.success && data.credito) {
             // Verificar si el crédito ya está en el stack (comparación flexible)
             const creditoExistente = creditosEncontrados.find(c => String(c.credito.id_credito) === String(data.credito.id_credito));
-            
+
             if (creditoExistente) {
-                // Mover el crédito al inicio del stack
-                // 1. Remover del array
+                // Actualizar con datos frescos del servidor
+                const itemActualizado = { credito: data.credito, asignacion: data.asignacion };
+
+                // 1. Remover del array y re-insertar con datos frescos al inicio
                 creditosEncontrados = creditosEncontrados.filter(item => String(item.credito.id_credito) !== String(data.credito.id_credito));
-                
-                // 2. Agregar al inicio
-                creditosEncontrados.unshift(creditoExistente);
-                
-                // 3. Remover visualmente y volver a agregar al inicio
+                creditosEncontrados.unshift(itemActualizado);
+
+                // 2. Remover visualmente y volver a agregar al inicio con datos actualizados
                 const card = document.getElementById(`credit-${data.credito.id_credito}`);
                 if (card) {
-                    // Animación de resaltado
                     card.style.transition = 'all 0.3s ease';
                     card.style.transform = 'translateX(-10px)';
                     card.style.opacity = '0';
-                    
+
                     setTimeout(() => {
                         card.remove();
-                        // Re-agregar al inicio
-                        agregarCreditoAlStack(creditoExistente.credito, creditoExistente.asignacion);
-                        
-                        // Animación de entrada
+                        // Re-agregar al inicio con datos frescos
+                        agregarCreditoAlStack(data.credito, data.asignacion);
+
                         const newCard = document.getElementById(`credit-${data.credito.id_credito}`);
                         if (newCard) {
                             newCard.style.transform = 'translateX(10px)';
@@ -1013,21 +1016,21 @@ function buscarCredito() {
                         }
                     }, 300);
                 }
-                
+
                 // Limpiar campo de búsqueda
                 document.getElementById('idCredito').value = '';
                 return;
             }
-            
+
             // Agregar al array (crédito nuevo)
             creditosEncontrados.unshift({
                 credito: data.credito,
                 asignacion: data.asignacion
             });
-            
+
             // Agregar visualmente al stack
             agregarCreditoAlStack(data.credito, data.asignacion);
-            
+
             // Limpiar campo de búsqueda
             document.getElementById('idCredito').value = '';
         } else {
@@ -1043,20 +1046,20 @@ function buscarCredito() {
 // Función para agregar crédito al stack visual
 function agregarCreditoAlStack(credito, asignacion) {
     const stack = document.getElementById('creditos-stack');
-    
+
     // Mostrar botón de limpiar lista
     document.getElementById('btn-limpiar-container').style.display = 'block';
     const creditoId = `credit-${credito.id_credito}`;
-    
+
     // Crear card del crédito
     const card = document.createElement('div');
     card.className = 'card border border-primary credit-card-item';
     card.id = creditoId;
-    
+
     const esActivo = asignacion && (asignacion.estatus === '1' || asignacion.estatus === 1);
     const statusText = asignacion ? (esActivo ? 'Crédito asignado actualmente' : 'Crédito tuvo asignación (inactiva)') : '';
     const statusClass = asignacion ? (esActivo ? 'text-gradient-primary' : 'text-muted') : '';
-    
+
     const asignacionHTML = asignacion ? `
         <div class="mt-2">
             <hr class="my-2">
@@ -1095,7 +1098,7 @@ function agregarCreditoAlStack(credito, asignacion) {
             </div>
         </div>
     ` : '';
-    
+
     card.innerHTML = `
         <div class="card-body p-3">
             <div class="d-flex justify-content-between align-items-start">
@@ -1120,7 +1123,7 @@ function agregarCreditoAlStack(credito, asignacion) {
             ${asignacionHTML}
         </div>
     `;
-    
+
     // Insertar al inicio del stack
     stack.insertBefore(card, stack.firstChild);
 }
@@ -1134,7 +1137,7 @@ function descartarCredito(idCredito) {
             card.remove();
             // Remover del array (comparación flexible)
             creditosEncontrados = creditosEncontrados.filter(item => String(item.credito.id_credito) !== String(idCredito));
-            
+
             // Ocultar botón de limpiar si no hay más créditos
             if (creditosEncontrados.length === 0) {
                 document.getElementById('btn-limpiar-container').style.display = 'none';
@@ -1158,14 +1161,14 @@ function limpiarListaCreditos() {
         if (result.isConfirmed) {
             // Vaciar array
             creditosEncontrados = [];
-            
+
             // Limpiar DOM
             const stack = document.getElementById('creditos-stack');
             stack.innerHTML = '';
-            
+
             // Ocultar botón
             document.getElementById('btn-limpiar-container').style.display = 'none';
-            
+
             Swal.fire('Limpiado', 'La lista ha sido vaciada', 'success');
         }
     });
@@ -1175,11 +1178,11 @@ function limpiarListaCreditos() {
 function toggleAsignacionInfo(creditoId) {
     const collapseElement = document.getElementById(`details-${creditoId}`);
     const icon = document.getElementById(`toggle-icon-${creditoId}`);
-    
+
     const bsCollapse = new bootstrap.Collapse(collapseElement, {
         toggle: true
     });
-    
+
     // Cambiar icono
     setTimeout(() => {
         if (collapseElement.classList.contains('show')) {
@@ -1196,7 +1199,7 @@ function asignarCreditoDelStack(idCredito) {
         Swal.fire('Advertencia', 'Seleccione un despacho primero', 'warning');
         return;
     }
-    
+
     // Comparación flexible para manejar string vs number
     const creditoItem = creditosEncontrados.find(item => String(item.credito.id_credito) === String(idCredito));
     if (!creditoItem) {
@@ -1205,7 +1208,7 @@ function asignarCreditoDelStack(idCredito) {
         Swal.fire('Error', 'Crédito no encontrado en la lista', 'error');
         return;
     }
-    
+
     // VALIDACIÓN: Verificar si el crédito ya está asignado activamente
     // Para deshabilitar esta validación, comente las siguientes 7 líneas
     if (creditoItem.asignacion) {
@@ -1216,9 +1219,9 @@ function asignarCreditoDelStack(idCredito) {
         }
     }
     // FIN VALIDACIÓN
-    
+
     const creditoEncontrado = creditoItem.credito;
-    
+
     Swal.fire({
         title: '¿Confirmar asignación?',
         text: `¿Desea asignar el crédito ${creditoEncontrado.id_credito} al despacho seleccionado?`,
@@ -1275,23 +1278,23 @@ function cargarCreditosAsignados(idPersona) {
                         ]
                     });
                 }
-                
+
                 // Formatear datos para DataTable (arrays)
                 const datosFormateados = data.creditos.map(credito => {
                     const esActivo = credito.estado === '1' || credito.estado === 1 || credito.estado === 'Activo';
                     const estadoBadge = esActivo ? 'bg-success' : 'bg-secondary';
                     const estadoTexto = esActivo ? 'Activo' : 'Inactivo';
-                    
+
                     // Switch toggle visual
                     const switchEstatus = `
                         <div class="form-check form-switch d-flex justify-content-center">
-                            <input class="form-check-input switch-credito" type="checkbox" 
-                                   id="switch-${credito.id_credito}" 
+                            <input class="form-check-input switch-credito" type="checkbox"
+                                   id="switch-${credito.id_credito}"
                                    data-credito="${credito.id_credito}"
                                    ${esActivo ? 'checked' : ''}
                                    style="cursor: pointer; width: 2.5rem; height: 1.25rem;">
                         </div>`;
-                    
+
                     return [
                         `<strong>${credito.id_credito}</strong>`,
                         `<span class="badge ${estadoBadge}">${estadoTexto}</span>`,
@@ -1300,10 +1303,10 @@ function cargarCreditosAsignados(idPersona) {
                         switchEstatus
                     ];
                 });
-                
+
                 // Actualizar tabla manteniendo página actual
                 actualizaDatosTabla('#tabla-creditos', datosFormateados, true);
-                
+
                 // Agregar event listeners a los switches después de actualizar la tabla
                 setTimeout(() => {
                     document.querySelectorAll('.switch-credito').forEach(switchElement => {
@@ -1311,10 +1314,10 @@ function cargarCreditosAsignados(idPersona) {
                             const idCredito = this.getAttribute('data-credito');
                             const nuevoEstatus = this.checked ? '1' : '0';
                             const estadoAnterior = !this.checked;
-                            
+
                             // Revertir el switch temporalmente
                             this.checked = estadoAnterior;
-                            
+
                             // Pedir confirmación
                             cambiarEstatusCredito(idCredito, nuevoEstatus, this);
                         });
@@ -1333,7 +1336,7 @@ function cambiarEstatusCredito(idCredito, nuevoEstatus, switchElement) {
     const titulo = nuevoEstatus === '1' ? '¿Activar crédito?' : '¿Desactivar crédito?';
     const texto = `¿Desea ${accion} el crédito ${idCredito}?`;
     const btnTexto = nuevoEstatus === '1' ? 'Sí, activar' : 'Sí, desactivar';
-    
+
     Swal.fire({
         title: titulo,
         text: texto,
@@ -1347,7 +1350,7 @@ function cambiarEstatusCredito(idCredito, nuevoEstatus, switchElement) {
             if (switchElement) {
                 switchElement.checked = nuevoEstatus === '1';
             }
-            
+
             fetch('/despachos/cambiarEstatusCredito', {
                 method: 'POST',
                 headers: {
@@ -1390,9 +1393,9 @@ function guardarComentarios() {
         Swal.fire('Advertencia', 'Seleccione un despacho primero', 'warning');
         return;
     }
-    
+
     const comentarios = document.getElementById('comentarios-despacho').value;
-    
+
     fetch('/despachos/guardarComentarios', {
         method: 'POST',
         headers: {
@@ -1423,7 +1426,7 @@ function exportarExcel() {
         Swal.fire('Advertencia', 'Seleccione un despacho primero', 'warning');
         return;
     }
-    
+
     // Mostrar mensaje de carga
     Swal.fire({
         title: 'Generando reporte...',
@@ -1436,10 +1439,10 @@ function exportarExcel() {
             Swal.showLoading();
         }
     });
-    
+
     // Iniciar descarga
     window.location.href = `/despachos/exportarExcel/${despachoSeleccionado}`;
-    
+
     // Cerrar mensaje después de un tiempo (el archivo se descargará en segundo plano)
     setTimeout(() => {
         Swal.close();
@@ -1451,6 +1454,26 @@ function exportarExcel() {
             showConfirmButton: false
         });
     }, 3000);
+}
+
+// Función para refrescar la tabla de créditos asignados
+function refreshTablaCreditos() {
+    if (!despachoSeleccionado) {
+        Swal.fire('Advertencia', 'Seleccione un despacho primero', 'warning');
+        return;
+    }
+
+    const btn = document.getElementById('btn-refresh-tabla');
+    const icon = btn.querySelector('i');
+    icon.classList.add('fa-spin');
+    btn.disabled = true;
+
+    cargarCreditosAsignados(despachoSeleccionado);
+
+    setTimeout(() => {
+        icon.classList.remove('fa-spin');
+        btn.disabled = false;
+    }, 800);
 }
 
 // Función auxiliar para formatear moneda
@@ -1473,7 +1496,7 @@ async function cargarCatalogoDocumentos() {
     try {
         const response = await fetch('/despachos/obtenerCatalogoDocumentos');
         const data = await response.json();
-        
+
         if (data.success) {
             catalogoDocumentos = data.catalogo;
         } else {
@@ -1494,9 +1517,9 @@ async function cargarDocumentosDespacho(idPersona) {
             },
             body: JSON.stringify({ id_persona: idPersona })
         });
-        
+
         const data = await response.json();
-        
+
         if (data.success) {
             documentosDespacho = data.documentos;
             renderizarAcordeonDocumentos();
@@ -1515,35 +1538,35 @@ async function cargarDocumentosDespacho(idPersona) {
 // Renderizar acordeón de documentos
 function renderizarAcordeonDocumentos() {
     const accordion = document.getElementById('accordionDocumentos');
-    
+
     if (!despachoSeleccionado) {
         accordion.innerHTML = '<p class="text-muted text-center">Seleccione un despacho para ver sus documentos</p>';
         return;
     }
-    
+
     if (catalogoDocumentos.length === 0) {
         accordion.innerHTML = '<p class="text-muted text-center">No hay documentos en el catálogo</p>';
         return;
     }
-    
+
     let html = '';
-    
+
     catalogoDocumentos.forEach((doc, index) => {
         // Buscar si existe el documento subido
-        const documentoSubido = documentosDespacho.find(d => 
+        const documentoSubido = documentosDespacho.find(d =>
             String(d.id_catalogo_documento) === String(doc.id)
         );
-        
+
         const tieneDocumento = !!documentoSubido;
         const estatus = documentoSubido?.estatus || null;
-        
+
         // Verificar si es PDF
         const esPDF = tieneDocumento && documentoSubido.nombre_archivo.toLowerCase().endsWith('.pdf');
-        
+
         // Clase de badge según el estatus
         let badgeClass = 'bg-secondary';
         let badgeText = 'Sin subir';
-        
+
         if (tieneDocumento) {
             switch (estatus) {
                 case 'Vigente':
@@ -1560,11 +1583,11 @@ function renderizarAcordeonDocumentos() {
                     break;
             }
         }
-        
+
         html += `
             <div class="accordion-item">
                 <h2 class="accordion-header" id="heading${index}">
-                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" 
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
                             data-bs-target="#collapse${index}" aria-expanded="false" aria-controls="collapse${index}">
                         <span style="flex: 1; display: flex; align-items: center;">
                             <i class="fa-solid fa-file-pdf me-2"></i>
@@ -1573,11 +1596,11 @@ function renderizarAcordeonDocumentos() {
                         <span class="badge ${badgeClass}">${badgeText}</span>
                     </button>
                 </h2>
-                <div id="collapse${index}" class="accordion-collapse collapse" 
+                <div id="collapse${index}" class="accordion-collapse collapse"
                      aria-labelledby="heading${index}" data-bs-parent="#accordionDocumentos">
                     <div class="accordion-body">
                         ${doc.descripcion ? `<p class="text-muted small mb-3">${doc.descripcion}</p>` : ''}
-                        
+
                         ${tieneDocumento ? `
                             <!-- Documento ya subido -->
                             <div class="alert alert-info mb-3">
@@ -1589,23 +1612,23 @@ function renderizarAcordeonDocumentos() {
                                     Archivo: ${documentoSubido.nombre_archivo}
                                 </small>
                             </div>
-                            
+
                             <div class="d-flex gap-2 justify-content-center">
                                 ${esPDF ? `
-                                    <button class="btn btn-sm btn-success" 
+                                    <button class="btn btn-sm btn-success"
                                             onclick="visualizarDocumento(${documentoSubido.id}, '${documentoSubido.nombre_archivo}')"
                                             title="Ver documento"
                                             style="width: 40px; height: 40px;">
                                         <i class="fa-solid fa-eye"></i>
                                     </button>
                                 ` : ''}
-                                <a href="/despachos/descargarDocumento/${documentoSubido.id}" 
+                                <a href="/despachos/descargarDocumento/${documentoSubido.id}"
                                    class="btn btn-sm btn-primary" download
                                    title="Descargar documento"
                                    style="width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;">
                                     <i class="fa-solid fa-download"></i>
                                 </a>
-                                <button class="btn btn-sm btn-outline-secondary" 
+                                <button class="btn btn-sm btn-outline-secondary"
                                         onclick="reemplazarDocumento(${doc.id})"
                                         title="Reemplazar documento"
                                         style="width: 40px; height: 40px;">
@@ -1617,7 +1640,7 @@ function renderizarAcordeonDocumentos() {
                             <form onsubmit="subirDocumento(event, ${doc.id})" id="form-doc-${doc.id}">
                                 <div class="mb-3">
                                     <label class="form-label">Seleccionar archivo</label>
-                                    <input type="file" class="form-control form-control-sm" 
+                                    <input type="file" class="form-control form-control-sm"
                                            name="archivo" required
                                            accept=".pdf,.jpg,.jpeg,.png,.doc,.docx">
                                     <small class="form-text text-muted">
@@ -1634,24 +1657,24 @@ function renderizarAcordeonDocumentos() {
             </div>
         `;
     });
-    
+
     accordion.innerHTML = html;
 }
 
 // Subir documento
 async function subirDocumento(event, idCatalogoDocumento) {
     event.preventDefault();
-    
+
     if (!despachoSeleccionado) {
         Swal.fire('Error', 'No hay despacho seleccionado', 'error');
         return;
     }
-    
+
     const form = event.target;
     const formData = new FormData(form);
     formData.append('id_persona', despachoSeleccionado);
     formData.append('id_catalogo_documento', idCatalogoDocumento);
-    
+
     try {
         // Mostrar loading
         Swal.fire({
@@ -1661,14 +1684,14 @@ async function subirDocumento(event, idCatalogoDocumento) {
                 Swal.showLoading();
             }
         });
-        
+
         const response = await fetch('/despachos/subirDocumento', {
             method: 'POST',
             body: formData
         });
-        
+
         const data = await response.json();
-        
+
         if (data.success) {
             Swal.fire('Éxito', 'Documento subido correctamente', 'success');
             // Recargar documentos
@@ -1697,7 +1720,7 @@ function reemplazarDocumento(idCatalogoDocumento) {
             const index = catalogoDocumentos.findIndex(d => d.id === idCatalogoDocumento);
             if (index !== -1) {
                 // Remover el documento actual de la lista
-                const docIndex = documentosDespacho.findIndex(d => 
+                const docIndex = documentosDespacho.findIndex(d =>
                     String(d.id_catalogo_documento) === String(idCatalogoDocumento)
                 );
                 if (docIndex !== -1) {
@@ -1721,20 +1744,20 @@ function visualizarDocumento(idDocumento, nombreArchivo) {
     const iframe = document.getElementById('iframeVisualizadorPDF');
     const btnDescargar = document.getElementById('btnDescargarPDFModal');
     const modalLabel = document.getElementById('modalVisualizadorPDFLabel');
-    
+
     // Construir URL para visualizar el documento
     const urlDocumento = `/despachos/descargarDocumento/${idDocumento}`;
-    
+
     // Configurar iframe
     iframe.src = urlDocumento;
-    
+
     // Configurar botón de descarga
     btnDescargar.href = urlDocumento;
     btnDescargar.download = nombreArchivo;
-    
+
     // Actualizar título del modal
     modalLabel.innerHTML = `<i class="fa-solid fa-file-pdf me-2"></i>${nombreArchivo}`;
-    
+
     // Mostrar modal
     const modal = new bootstrap.Modal(document.getElementById('modalVisualizadorPDF'));
     modal.show();
@@ -1749,11 +1772,11 @@ function toggleEditTipo() {
         Swal.fire('Advertencia', 'Seleccione un despacho primero', 'warning');
         return;
     }
-    
+
     const spanTipo = document.getElementById('info-tipo');
     const selectTipo = document.getElementById('select-tipo-persona');
     const iconEdit = document.querySelector('.edit-tipo-icon');
-    
+
     if (selectTipo.style.display === 'none') {
         // Mostrar select, ocultar span e icono
         const valorActual = spanTipo.textContent.trim();
@@ -1769,7 +1792,7 @@ function cancelarEditTipo() {
     const spanTipo = document.getElementById('info-tipo');
     const selectTipo = document.getElementById('select-tipo-persona');
     const iconEdit = document.querySelector('.edit-tipo-icon');
-    
+
     if (selectTipo.style.display !== 'none') {
         selectTipo.style.display = 'none';
         spanTipo.style.display = 'inline';
@@ -1780,7 +1803,7 @@ function cancelarEditTipo() {
 async function actualizarTipoPersona() {
     const selectTipo = document.getElementById('select-tipo-persona');
     const nuevoTipo = selectTipo.value;
-    
+
     if (!nuevoTipo) {
         // Si no seleccionó nada, revertir a modo vista
         const spanTipo = document.getElementById('info-tipo');
@@ -1790,7 +1813,7 @@ async function actualizarTipoPersona() {
         iconEdit.style.display = 'inline';
         return;
     }
-    
+
     try {
         const response = await fetch('/despachos/actualizarTipoPersona', {
             method: 'POST',
@@ -1802,14 +1825,14 @@ async function actualizarTipoPersona() {
                 tipo_persona: nuevoTipo
             })
         });
-        
+
         const data = await response.json();
-        
+
         if (data.success) {
             // Actualizar interfaz
             const spanTipo = document.getElementById('info-tipo');
             const iconEdit = document.querySelector('.edit-tipo-icon');
-            
+
             spanTipo.textContent = nuevoTipo;
             selectTipo.style.display = 'none';
             spanTipo.style.display = 'inline';

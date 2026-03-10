@@ -25,7 +25,7 @@ class Despachos extends Controller
             // Controlador Despachos inicializado
         </script>
         HTML;
-        
+
         self::set("titulo", "Asignación de Créditos - Despachos de Cobranza");
         self::set("script", $script);
         return self::render("asignacion_creditosDespacho");
@@ -39,7 +39,7 @@ class Despachos extends Controller
     {
         try {
             $despachos = $this->model->obtenerDespachos();
-            
+
             if ($despachos) {
                 echo json_encode([
                     'success' => true,
@@ -68,7 +68,7 @@ class Despachos extends Controller
         try {
             $datos = $this->model->obtenerDatosDespacho($idDespacho);
             $metricas = $this->model->obtenerMetricasDespacho($idDespacho);
-            
+
             echo json_encode([
                 'success' => true,
                 'datos' => $datos['datos'] ?? [],
@@ -103,11 +103,11 @@ class Despachos extends Controller
             }
 
             $credito = $this->model->buscarCredito($tipo, $valor);
-            
+
             if ($credito) {
                 // Obtener información de asignación si existe
                 $asignacion = $this->model->obtenerAsignacionCredito($valor);
-                
+
                 echo json_encode([
                     'success' => true,
                     'credito' => $credito,
@@ -157,7 +157,7 @@ class Despachos extends Controller
             }
 
             $resultado = $this->model->asignarCredito($idPersona, $idCredito);
-            
+
             if ($resultado) {
                 echo json_encode([
                     'success' => true,
@@ -197,7 +197,7 @@ class Despachos extends Controller
             }
 
             $resultado = $this->model->cambiarEstatusCredito($idCredito, $nuevoEstatus);
-            
+
             if ($resultado) {
                 $mensaje = $nuevoEstatus === '1' ? 'Crédito activado correctamente' : 'Crédito desactivado correctamente';
                 echo json_encode([
@@ -225,8 +225,9 @@ class Despachos extends Controller
     public function ObtenerCreditosAsignados($idDespacho)
     {
         try {
-            $creditos = $this->model->obtenerCreditosAsignados($idDespacho);
-            
+            // Sin enriquecimiento: la tabla solo necesita datos locales (id, estado, fecha, asignado_por)
+            $creditos = $this->model->obtenerCreditosAsignados($idDespacho, false);
+
             echo json_encode([
                 'success' => true,
                 'creditos' => $creditos
@@ -259,7 +260,7 @@ class Despachos extends Controller
             }
 
             $resultado = $this->model->guardarComentario($idDespacho, $comentario);
-            
+
             if ($resultado) {
                 echo json_encode([
                     'success' => true,
@@ -289,29 +290,29 @@ class Despachos extends Controller
             // Aumentar tiempo de ejecución para reportes grandes
             set_time_limit(300); // 5 minutos
             ini_set('memory_limit', '512M');
-            
+
             $creditos = $this->model->obtenerCreditosAsignados($idDespacho);
             $datosDespacho = $this->model->obtenerDatosDespacho($idDespacho);
-            
+
             // Los datos ya vienen desde la base de datos, no necesitamos llamar a la API
-            
+
             // Generar Excel usando PhpSpreadsheet
             require_once __DIR__ . '/../libs/PhpSpreadsheet/vendor/autoload.php';
-            
+
             $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
             $sheet = $spreadsheet->getActiveSheet();
-            
+
             // Título
             $sheet->setCellValue('A1', 'Créditos Asignados al Despacho');
             $sheet->mergeCells('A1:G1');
             $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(14);
             $sheet->getStyle('A1')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
-            
+
             // Información del despacho
             $nombreDespacho = $datosDespacho['datos']['nombre_completo'] ?? 'N/A';
             $sheet->setCellValue('A2', 'Despacho: ' . $nombreDespacho);
             $sheet->mergeCells('A2:G2');
-            
+
             // Encabezados
             $headers = ['ID Crédito', 'Cliente', 'Saldo', 'Días Mora', 'Estado', 'Fecha Asignación', 'Asignado Por'];
             $col = 'A';
@@ -324,7 +325,7 @@ class Despachos extends Controller
                 $sheet->getStyle($col . '4')->getFont()->getColor()->setARGB('FFFFFFFF');
                 $col++;
             }
-            
+
             // Datos
             $row = 5;
             foreach ($creditos as $credito) {
@@ -332,28 +333,29 @@ class Despachos extends Controller
                 $sheet->setCellValue('B' . $row, $credito['nombre_cliente']);
                 $sheet->setCellValue('C' . $row, '$' . number_format($credito['saldo'], 2));
                 $sheet->setCellValue('D' . $row, $credito['dias_mora']);
-                $sheet->setCellValue('E' . $row, $credito['estado']);
+                $estadoTexto = ($credito['estado'] === '1' || $credito['estado'] === 1) ? 'Activo' : 'Inactivo';
+                $sheet->setCellValue('E' . $row, $estadoTexto);
                 $sheet->setCellValue('F' . $row, $credito['fecha_asignacion']);
                 $sheet->setCellValue('G' . $row, $credito['asignado_por'] ?? 'N/A');
                 $row++;
             }
-            
+
             // Ajustar anchos de columna
             foreach (range('A', 'G') as $col) {
                 $sheet->getColumnDimension($col)->setAutoSize(true);
             }
-            
+
             // Descargar archivo
             $filename = 'Creditos_Despacho_' . date('Y-m-d_His') . '.xlsx';
-            
+
             header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
             header('Content-Disposition: attachment;filename="' . $filename . '"');
             header('Cache-Control: max-age=0');
-            
+
             $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
             $writer->save('php://output');
             exit;
-            
+
         } catch (\Exception $e) {
             echo "Error al exportar: " . $e->getMessage();
         }
@@ -435,7 +437,7 @@ class Despachos extends Controller
             }
 
             $archivo = $_FILES['archivo'];
-            
+
             // Validar MIME real (no confiar en extensión del cliente)
             if (!\Core\SecureUpload::validateMime($archivo['tmp_name'], \Core\SecureUpload::MIME_DESPACHO)) {
                 echo json_encode([
@@ -474,7 +476,7 @@ class Despachos extends Controller
 
             // Guardar en base de datos
             $resultado = $this->model->subirDocumento($idPersona, $idCatalogoDocumento, $nombreArchivo, $rutaRelativa);
-            
+
             if ($resultado) {
                 echo json_encode([
                     'success' => true,
@@ -526,7 +528,7 @@ class Despachos extends Controller
 
             // Detectar tipo de archivo
             $extension = strtolower(pathinfo($documento['nombre_archivo'], PATHINFO_EXTENSION));
-            
+
             // Configurar Content-Type según extensión
             $contentTypes = [
                 'pdf' => 'application/pdf',
@@ -536,13 +538,13 @@ class Despachos extends Controller
                 'doc' => 'application/msword',
                 'docx' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
             ];
-            
+
             $contentType = $contentTypes[$extension] ?? 'application/octet-stream';
-            
+
             // Para PDFs e imágenes, usar inline para permitir visualización
             // Para otros archivos, forzar descarga
             $disposition = in_array($extension, ['pdf', 'jpg', 'jpeg', 'png']) ? 'inline' : 'attachment';
-            
+
             // Enviar archivo
             header('Content-Type: ' . $contentType);
             header('Content-Disposition: ' . $disposition . '; filename="' . $documento['nombre_archivo'] . '"');
@@ -603,6 +605,120 @@ class Despachos extends Controller
                 'success' => false,
                 'message' => 'Error al actualizar tipo de persona: ' . $e->getMessage()
             ]);
+        }
+    }
+
+    /**
+     * Vista: Mi Gestión (créditos asignados al gestor autenticado)
+     */
+    public function MiGestion()
+    {
+        self::set('titulo', 'Mi Gestión - Despachos');
+        return self::render('mi_gestion_despacho');
+    }
+
+    /**
+     * API: Obtener créditos asignados al usuario autenticado
+     */
+    public function ObtenerMisCreditos()
+    {
+        try {
+            // ⚠️ TEST: descomentar junto con el panel de pruebas en la vista
+            // $testId    = isset($_GET['test_id']) ? (int) $_GET['test_id'] : null;
+            // $idPersona = $testId ?: ($_SESSION['usuario_id'] ?? null);
+            $idPersona = $_SESSION['usuario_id'] ?? null;
+
+            if (!$idPersona) {
+                echo json_encode(['success' => false, 'message' => 'Sesión no identificada']);
+                return;
+            }
+
+            $creditos = $this->model->obtenerCreditosAsignados($idPersona);
+
+            echo json_encode([
+                'success' => true,
+                'creditos' => $creditos
+            ]);
+        } catch (\Exception $e) {
+            echo json_encode([
+                'success' => false,
+                'message' => 'Error al obtener créditos: ' . $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
+     * Exportar Excel de Mi Gestión
+     */
+    public function ExportarMiGestion()
+    {
+        try {
+            set_time_limit(300);
+            ini_set('memory_limit', '512M');
+
+            $idPersona = $_SESSION['usuario_id'] ?? null;
+            if (!$idPersona) {
+                echo 'Sesión no identificada';
+                return;
+            }
+
+            $creditos      = $this->model->obtenerCreditosAsignados($idPersona);
+            $datosDespacho = $this->model->obtenerDatosDespacho($idPersona);
+
+            require_once __DIR__ . '/../libs/PhpSpreadsheet/vendor/autoload.php';
+
+            $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+            $sheet       = $spreadsheet->getActiveSheet();
+
+            $sheet->setCellValue('A1', 'Mi Gestión - Créditos Asignados');
+            $sheet->mergeCells('A1:G1');
+            $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(14);
+            $sheet->getStyle('A1')->getAlignment()
+                  ->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+
+            $nombre = $datosDespacho['datos']['nombre_completo'] ?? ($_SESSION['nombre'] ?? 'N/A');
+            $sheet->setCellValue('A2', 'Gestor: ' . $nombre);
+            $sheet->mergeCells('A2:G2');
+
+            $headers = ['ID Crédito', 'Cliente', 'Saldo', 'Días Mora', 'Estado', 'Fecha Asignación', 'Asignado Por'];
+            $col = 'A';
+            foreach ($headers as $header) {
+                $sheet->setCellValue($col . '4', $header);
+                $sheet->getStyle($col . '4')->getFont()->setBold(true);
+                $sheet->getStyle($col . '4')->getFill()
+                      ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
+                      ->getStartColor()->setARGB('FF1e293b');
+                $sheet->getStyle($col . '4')->getFont()->getColor()->setARGB('FFFFFFFF');
+                $col++;
+            }
+
+            $row = 5;
+            foreach ($creditos as $credito) {
+                $sheet->setCellValue('A' . $row, $credito['id_credito']);
+                $sheet->setCellValue('B' . $row, $credito['nombre_cliente']);
+                $sheet->setCellValue('C' . $row, '$' . number_format($credito['saldo'], 2));
+                $sheet->setCellValue('D' . $row, $credito['dias_mora']);
+                $estadoTexto = ($credito['estado'] === '1' || $credito['estado'] === 1) ? 'Activo' : 'Inactivo';
+                $sheet->setCellValue('E' . $row, $estadoTexto);
+                $sheet->setCellValue('F' . $row, $credito['fecha_asignacion']);
+                $sheet->setCellValue('G' . $row, $credito['asignado_por'] ?? 'N/A');
+                $row++;
+            }
+
+            foreach (range('A', 'G') as $c) {
+                $sheet->getColumnDimension($c)->setAutoSize(true);
+            }
+
+            $filename = 'MiGestion_' . date('Y-m-d_His') . '.xlsx';
+            header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+            header('Content-Disposition: attachment;filename="' . $filename . '"');
+            header('Cache-Control: max-age=0');
+
+            $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
+            $writer->save('php://output');
+            exit;
+        } catch (\Exception $e) {
+            echo 'Error al exportar: ' . $e->getMessage();
         }
     }
 }

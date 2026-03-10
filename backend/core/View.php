@@ -230,6 +230,11 @@ function getMenu()
                                     'label' => 'Asignación de Créditos',
                                     'url' => '/Despachos/AsignacionCreditosDespacho',
                                     'modulos' => [20]
+                            ],
+                            [
+                                    'label' => 'Mi Gestión',
+                                    'url' => '/Despachos/MiGestion',
+                                    'modulos' => [20]
                             ]
                     ]
             ],
@@ -766,12 +771,12 @@ html.dark-mode .navbar .text-muted{color:#94a3b8 !important;}
     <!-- Linkify: convierte URLs en texto a enlaces clicables (descripción dictamen Sabueso) -->
     <script>
     window.linkifyDescripcionDictamen = function(text) {
-        if (!text || (String(text).trim() === '')) return '—';
+        if (!text || (String(text).trim() === '')) return '\u2014';
         var esc = String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-        var urlRegex = /(https?:\/\/[^\s<>"'\]]+|maps\.google[^\s<>"'\]]*|goo\.gl\/[^\s<>"'\]]+)/gi;
+        var urlRegex = /(https?:\/\/[^\s<>"'\]]+|\b(?:maps?\.(?:google|app\.goo)\.\S+|goo\.gl\/\S+))/gi;
         return esc.replace(urlRegex, function(url) {
             var href = url.replace(/&amp;/g, '&');
-            return '<a href="' + href.replace(/"/g, '&quot;') + '" target="_blank" rel="noopener noreferrer">' + url + '</a>';
+            return '<a href="' + href.replace(/"/g, '&quot;') + '" target="_blank" rel="noopener noreferrer" class="text-primary text-break">' + url + '</a>';
         });
     };
     </script>
