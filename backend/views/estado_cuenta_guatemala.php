@@ -73,36 +73,6 @@ if (!empty($datosCliente['Ciudad']) || !empty($datosCliente['Calle_Numero'])) {
     ];
 }
 
-$fechaUltimoPagoCompleto = null;
-
-foreach ($tabla as $fila) {
-    $pendiente = safe($fila['pendiente'], 0.0);
-    $aplicados = safe($fila['aplicados'], []);
-
-    if ($pendiente <= 0 && !empty($aplicados)) {
-        $lastPagoDate = null;
-
-        foreach ($aplicados as $a) {
-            if (!empty($a['fechaRegistro'])) {
-                $ts = strtotime($a['fechaRegistro']);
-                if ($ts && (!$lastPagoDate || $ts > strtotime($lastPagoDate))) {
-                    $lastPagoDate = $a['fechaRegistro'];
-                }
-            }
-        }
-
-        if ($lastPagoDate) {
-            if (
-                    !$fechaUltimoPagoCompleto ||
-                    strtotime($lastPagoDate) > strtotime($fechaUltimoPagoCompleto)
-            ) {
-                $fechaUltimoPagoCompleto = $lastPagoDate;
-            }
-        }
-    }
-}
-
-
 /* ----------- CROOP API: Saldos del contrato (Bandera=445) ----------- */
 $saldoGT = [];
 if (!empty($apiSaldos) && is_array($apiSaldos)) {
@@ -128,7 +98,7 @@ $parseMontoGT = function($v) { return (float)preg_replace('/[^0-9.]/', '', $v ??
 $dataEstadoCuenta = [
     'statusCredito'     => $saldoGT['StatusDesc']              ?? '',
     'montoOtorgado'     => $parseMontoGT($saldoGT['ValorCredito']     ?? ''),
-    'cuota'             => $parseMontoGT($saldoGT['PagoPeriodo']       ?? ''),
+    'cuota'             => $parseMontoGT($saldoGT['PagoPeriodo'] ?: ($primeraFila['PagoRecibido'] ?? '')),  // ?: para fallback en 0 también
     'idExterno'         => $saldoGT['IdExterno']               ?? '',
     'fechaInicio'       => $primeraFila['FechaGeneracion']     ?? null,
     'primerVencimiento' => $primeraFila['FechaLimitePago']     ?? null,
@@ -174,6 +144,7 @@ if (empty($tabla) && !empty($amortRows)) {
     $tabla    = [];
     $idxAmort = 0;
     foreach ($amortRows as $amortRow) {
+
         $idxAmort++;
         $periodo    = (int)($amortRow['Periodo'] ?? $idxAmort);
         $hayPago    = trim($amortRow['HayPago'] ?? '');
@@ -244,6 +215,23 @@ if (empty($tabla) && !empty($amortRows)) {
             'raw_cargo'   => $amortRow,
         ];
     }
+
+    // Calcular fecha del último pago completo DESPUÉS de construir $tabla
+    $fechaUltimoPagoCompleto = null;
+    foreach ($tabla as $fila) {
+        $pendiente = safe($fila['pendiente'], 0.0);
+        $aplicados = safe($fila['aplicados'], []);
+        if ($pendiente <= 0 && !empty($aplicados)) {
+            foreach ($aplicados as $a) {
+                if (!empty($a['fechaRegistro'])) {
+                    $ts = strtotime($a['fechaRegistro']);
+                    if ($ts && (!$fechaUltimoPagoCompleto || $ts > strtotime($fechaUltimoPagoCompleto))) {
+                        $fechaUltimoPagoCompleto = $a['fechaRegistro'];
+                    }
+                }
+            }
+        }
+    }
 }
 ?>
 <script>
@@ -257,6 +245,8 @@ console.log('amortizacion (401) primeras 3 filas:', <?= json_encode(array_slice(
 console.log('pagos (404) primeros 3:', <?= json_encode(array_slice($apiPagos ?? [], 0, 3), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) ?>);
 console.log('dataEstadoCuenta:', <?= json_encode($dataEstadoCuenta ?? [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) ?>);
 console.log('dataOtrosDatos:',  <?= json_encode($dataOtrosDatos ?? [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) ?>);
+console.log('fechaUltimoPago:', <?= json_encode($fechaUltimoPagoCompleto ?? null) ?>);
+console.log('tabla[0]:', <?= json_encode($tabla[0] ?? null, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) ?>);
 console.groupEnd();
 </script>
 
@@ -825,7 +815,6 @@ body.dark-mode .cuotas-table .contracargo-label { color: #fb923c !important; fon
 html.dark-mode .cuotas-table .contracargo-valor,
 body.dark-mode .cuotas-table .contracargo-valor { color: #fb923c !important; font-weight: 600; }
 
-.identificador-pais-guatemala { position: fixed; top: 0; left: 0; right: 0; height: 5px; background: linear-gradient(90deg, #4997d0 0%, #4997d0 33.33%, #ffffff 33.33%, #ffffff 66.66%, #4997d0 66.66%, #4997d0 100%); z-index: 9999; box-shadow: 0 2px 6px rgba(73, 151, 208, 0.3); }
 body.identificador-activo { padding-top: 5px; }
 .banner-pais-guatemala { background: linear-gradient(135deg, #e3f2fd 0%, #fff 100%) !important; border-left: 5px solid #4997d0 !important; border-bottom: 2px solid rgba(73, 151, 208, 0.2) !important; }
 .badge-pais-guatemala { background: linear-gradient(135deg, #4997d0 0%, #357abd 100%) !important; color: white !important; font-weight: 600; padding: 0.5em 1em; border-radius: 8px; box-shadow: 0 4px 12px rgba(73, 151, 208, 0.4); font-size: 0.85rem; letter-spacing: 0.5px; }
@@ -847,7 +836,6 @@ $gradienteBanner = strtolower($paisCodigo) === 'gt'
 ?>
 
 <?php if (strtolower($paisCodigo) === 'gt'): ?>
-<div class="identificador-pais-guatemala"></div>
 <script>document.body.classList.add('identificador-activo');</script>
 <?php endif; ?>
 
@@ -859,22 +847,29 @@ $gradienteBanner = strtolower($paisCodigo) === 'gt'
       <div class="card-body py-3">
         <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
           <div class="d-flex align-items-center gap-3">
-            <div class="d-flex align-items-center justify-content-center" style="width: 64px; height: 64px; background: rgba(255,255,255,0.9); border-radius: 12px; box-shadow: 0 4px 14px rgba(0,0,0,0.1); border: 2px solid <?= $colorBanner ?>;">
-              <span class="fi fi-<?= htmlspecialchars($paisCodigo) ?> fis" style="font-size: 2.5rem; line-height: 1;"></span>
-            </div>
+                        <?php if (strtolower($paisCodigo) !== 'gt'): ?>
+                        <div class="d-flex align-items-center justify-content-center" style="width: 64px; height: 64px; background: rgba(255,255,255,0.9); border-radius: 12px; box-shadow: 0 4px 14px rgba(0,0,0,0.1); border: 2px solid <?= $colorBanner ?>;">
+                            <span class="fi fi-<?= htmlspecialchars($paisCodigo) ?> fis" style="font-size: 2.5rem; line-height: 1;"></span>
+                        </div>
+                        <?php endif; ?>
             <div>
               <div class="d-flex align-items-center gap-2 mb-1">
                 <h4 class="mb-0" style="font-weight: 700; color: #2c3e50; font-size: 1.5rem;">Estado de Cuenta</h4>
                 <?php if (strtolower($paisCodigo) === 'gt'): ?>
-                <span class="badge badge-pais-guatemala"><i class="fa-solid fa-flag me-1"></i> GUATEMALA</span>
-                <strong>Recuerda que estamos cobrando en Quetzales!</strong>
+                                <span class="badge badge-pais-guatemala"><i class="fa-solid fa-location-dot me-1"></i> GUATEMALA</span>
                 <?php elseif (strtolower($paisCodigo) === 'mx'): ?>
                 <span class="badge" style="background: linear-gradient(135deg, #006847 0%, #ce1126 100%); color: white; font-weight: 600; padding: 0.5em 1em; border-radius: 8px;"><i class="fa-solid fa-flag me-1"></i> MÉXICO</span>
                 <?php endif; ?>
               </div>
+                            <?php if (strtolower($paisCodigo) === 'gt'): ?>
+                            <p class="mb-0" style="font-size: 0.95rem; font-weight: 700; color: #2c3e50;">
+                                Recuerda que estamos cobrando en Quetzales!
+                            </p>
+                            <?php else: ?>
               <p class="mb-0 text-muted" style="font-size: 0.95rem; font-weight: 500;">
                 <i class="fa-solid fa-location-dot me-1"></i><?= htmlspecialchars($paisNombre) ?>
               </p>
+                            <?php endif; ?>
             </div>
           </div>
           <div>
@@ -1281,7 +1276,7 @@ $gradienteBanner = strtolower($paisCodigo) === 'gt'
                     </div>
                     <div>
                         <h5 class="mb-0"><?= htmlspecialchars($dataEstadoCuenta["idExterno"] ?? '') ?></h5>
-                        <span>Ref. LBTR</span>
+                        <span>Ref. LBTR (ID Externo)</span>
                     </div>
                 </div>
             </div>
