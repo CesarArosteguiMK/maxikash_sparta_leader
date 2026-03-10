@@ -2,18 +2,18 @@
 /**
  * CRONJOB: Insertar créditos mora los martes a las 7:50 AM
  * Ubicación: /cronjobs/insertar_moras_martes.php
- * 
+ *
  * Uso:
  *   - Ejecución manual: php insertar_moras_martes.php
  *   - Modo prueba (sin modificar DB): php insertar_moras_martes.php --dry-run
  *   - Forzar ejecución cualquier día: php insertar_moras_martes.php --force
  *   - Sin enviar a webhook: php insertar_moras_martes.php --no-webhook
- * 
+ *
  * Programación recomendada crontab:
  *   50 7 * * 2 cd /ruta/cronjobs && php insertar_moras_martes.php >> /var/log/morosidad_console.log 2>&1
- * 
+ *
  * CONFIGURACIÓN WEBHOOK GOOGLE CHAT:
- *   
+ *
  *   Para obtener la URL del webhook:
  *   1. En Google Chat, ve al espacio donde quieres las notificaciones
  *   2. Click en el nombre del espacio → Administrar webhooks
@@ -21,14 +21,14 @@
  *   4. Nombre: "Cronjob Morosidad"
  *   5. Click en "Guardar" y copia la URL generada
  *   6. Pégala en config.ini (NUNCA en el código fuente)
- * 
+ *
  * EJECUCIÓN EN MODO DE PRUEBAS (DRY-RUN):
- * 
+ *
  * C:\xampp\php\php.exe insertar_moras_martes.php --dry-run
- * 
- * 
+ *
+ *
  * EJECUCIÓN FORZADA (FORCE):
- * 
+ *
  * C:\xampp\php\php.exe insertar_moras_martes.php
  */
 
@@ -91,7 +91,7 @@ class CronLogger
         $this->verbose = $verbose;
         $this->startTime = microtime(true);
         $this->webhookEnabled = !$noWebhook && !empty($webhookUrl);
-        
+
         // Configurar archivo de log
         $logDir = dirname(__DIR__) . '/cronjobs/logs';
         if (!is_dir($logDir)) {
@@ -104,13 +104,13 @@ class CronLogger
     {
         $timestamp = date('Y-m-d H:i:s');
         $linea = "[$timestamp] [$nivel] $mensaje";
-        
+
         // Escribir a consola siempre
         echo $linea . "\n";
-        
+
         // Escribir a archivo de log
         file_put_contents($this->logFile, $linea . "\n", FILE_APPEND);
-        
+
         // Acumular para webhook (solo mensajes importantes)
         if ($this->webhookEnabled && in_array($nivel, ['SUCCESS', 'WARNING', 'ERROR'])) {
             $this->mensajesPendientes[] = [
@@ -237,7 +237,7 @@ class CronLogger
                 $emoji = $this->getEmoji($msg['nivel']);
                 $texto .= "• $emoji {$msg['mensaje']}\n";
             }
-            
+
             $widgets[] = [
                 'textParagraph' => [
                     'text' => $texto
@@ -270,10 +270,10 @@ class CronLogger
             curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
             curl_setopt($ch, CURLOPT_TIMEOUT, 10);
-            
+
             $response = curl_exec($ch);
             $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-            
+
             curl_close($ch);
 
             if ($httpCode !== 200) {
@@ -326,7 +326,7 @@ class CronMorosidad
         $this->logger = $logger;
         $this->dryRun = $dryRun;
         $this->force = $force;
-        
+
         // Usar la clase DatabaseSegundometro del proyecto
         try {
             $this->db = new \Core\DatabaseSegundometro();
@@ -374,8 +374,8 @@ class CronMorosidad
                     'Insertados' => $resultado['insertados'],
                     'Duplicados omitidos' => $resultado['duplicados'],
                     'Errores' => $resultado['errores'],
-                    'Tasa de procesamiento' => ($resultado['total'] > 0 
-                        ? round((($resultado['insertados'] + $resultado['duplicados']) / $resultado['total']) * 100, 2) 
+                    'Tasa de procesamiento' => ($resultado['total'] > 0
+                        ? round((($resultado['insertados'] + $resultado['duplicados']) / $resultado['total']) * 100, 2)
                         : 0) . '%',
                     'Tiempo de ejecución' => $this->logger->getElapsedTime() . 's'
                 ],
@@ -392,7 +392,7 @@ class CronMorosidad
         } catch (\Exception $e) {
             $this->logger->error("ERROR CRÍTICO: " . $e->getMessage());
             $this->logger->error("Stack trace: " . $e->getTraceAsString());
-            
+
             //  ROLLBACK en caso de error crítico (confirmación de seguridad)
             try {
                 $this->db->rollback();
@@ -401,14 +401,14 @@ class CronMorosidad
                 // Si ya se hizo rollback antes, esto fallará pero es esperado
                 $this->logger->info("ROLLBACK de seguridad: " . $rollbackError->getMessage() . " (ya se ejecutó anteriormente)");
             }
-            
+
             // Enviar error a Google Chat
             $this->logger->enviarWebhookInmediato(
                 "ERROR CRÍTICO en Cronjob",
                 $e->getMessage(),
                 "ERROR"
             );
-            
+
             return false;
         }
     }
@@ -417,7 +417,7 @@ class CronMorosidad
     {
         $diaSemana = date('N'); // 1=Lunes, 2=Martes, etc.
         $nombreDia = date('l');
-        
+
         $this->logger->info("Día actual: $nombreDia (código: $diaSemana)");
 
         if ($diaSemana != 2) {
@@ -440,13 +440,13 @@ class CronMorosidad
         $this->logger->info("PASO 1: Consultando créditos morosos (Dias_mora >= 1)");
 
         $sql = "SELECT * FROM tbl_segundometro_semana WHERE Dias_mora >= 1";
-        
+
         try {
             $creditos = $this->db->queryAll($sql);
             $total = count($creditos);
-            
+
             $this->logger->success("Créditos morosos encontrados: $total");
-            
+
             if ($total > 0) {
                 $this->logger->debug("Primeros 3 registros (muestra):");
                 foreach (array_slice($creditos, 0, 3) as $index => $credito) {
@@ -471,7 +471,7 @@ class CronMorosidad
     private function insertarGastosCobranza($creditos)
     {
         $this->logger->info("PASO 2: Insertando registros en gastos_cobranza (MODO LOTES)");
-        
+
         $total = count($creditos);
         if ($total == 0) {
             $this->logger->warning("No hay créditos morosos para insertar");
@@ -488,12 +488,12 @@ class CronMorosidad
         $errores = 0;
         $duplicados = 0;
         $erroresDetalle = [];
-        
+
         // Generar valor de SEMANA (una sola vez)
         $numeroSemana = date('W');
         $anio = date('Y');
         $semanaTexto = "Semana {$numeroSemana}-{$anio}";
-        
+
         // Calcular periodo_inicio y periodo_fin para toda la semana
         $periodoInicio = date('Y-m-d', strtotime("{$anio}W" . str_pad($numeroSemana, 2, '0', STR_PAD_LEFT) . "1")); // Lunes
         $periodoFin = date('Y-m-d', strtotime("{$anio}W" . str_pad($numeroSemana, 2, '0', STR_PAD_LEFT) . "7")); // Domingo
@@ -506,19 +506,19 @@ class CronMorosidad
         $tamañoLote = 500;
         $lotes = array_chunk($creditos, $tamañoLote);
         $totalLotes = count($lotes);
-        
+
         $this->logger->info("Procesando {$total} registros en {$totalLotes} lotes de {$tamañoLote}");
 
         foreach ($lotes as $numeroLote => $lote) {
             try {
                 // PASO 1: Extraer IDs del lote para verificar duplicados EN BLOQUE
                 $idsLote = array_filter(array_column($lote, 'Id_credito'));
-                
+
                 if (empty($idsLote)) {
                     $this->logger->warning("Lote " . ($numeroLote + 1) . " sin IDs válidos");
                     continue;
                 }
-                
+
                 // PASO 2: Verificar duplicados de TODO el lote en UNA SOLA QUERY
                 // Construir query con marcadores nombrados para DatabaseSegundometro
                 $marcadoresIds = [];
@@ -528,37 +528,37 @@ class CronMorosidad
                     $paramsVerificar["id_$idx"] = $id;
                 }
                 $paramsVerificar['semana'] = $semanaTexto;
-                
+
                 $placeholders = implode(',', $marcadoresIds);
-                $sqlVerificar = "SELECT Id_credito FROM gastos_cobranza 
-                                WHERE Id_credito IN ($placeholders) 
+                $sqlVerificar = "SELECT Id_credito FROM gastos_cobranza
+                                WHERE Id_credito IN ($placeholders)
                                 AND SEMANA = :semana";
-                
+
                 $resultados = $this->db->queryAll($sqlVerificar, $paramsVerificar);
                 $duplicadosEncontrados = array_column($resultados, 'Id_credito');
                 $duplicadosSet = array_flip($duplicadosEncontrados);
-                
+
                 // PASO 3: Construir multi-INSERT (solo registros no duplicados)
                 $valoresInsert = [];
                 $parametrosInsert = [];
-                
+
                 foreach ($lote as $credito) {
                     $idCredito = $credito['Id_credito'] ?? null;
-                    
+
                     if (!$idCredito) {
                         $errores++;
                         continue;
                     }
-                    
+
                     // Si ya existe, contar como duplicado y saltar
                     if (isset($duplicadosSet[$idCredito])) {
                         $duplicados++;
                         continue;
                     }
-                    
+
                     // Agregar placeholder para VALUES (12 campos)
                     $valoresInsert[] = "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-                    
+
                     // Agregar parámetros en el orden correcto
                     array_push($parametrosInsert,
                         $idCredito,
@@ -575,14 +575,14 @@ class CronMorosidad
                         0  // condonado (fijo en 0)
                     );
                 }
-                
+
                 // PASO 4: Ejecutar multi-INSERT si hay datos
                 if (!empty($valoresInsert)) {
                     // Convertir a marcadores nombrados para DatabaseSegundometro
                     $marcadoresNombrados = [];
                     $paramsInsert = [];
                     $contadorParam = 0;
-                    
+
                     foreach ($valoresInsert as $idx => $placeholder) {
                         $marcadores = [];
                         for ($i = 0; $i < 12; $i++) { // 12 campos
@@ -593,30 +593,30 @@ class CronMorosidad
                         $marcadoresNombrados[] = "(" . implode(', ', $marcadores) . ")";
                         $contadorParam++;
                     }
-                    
+
                     $sqlInsert = "INSERT INTO gastos_cobranza (
                         Id_credito, Id_cliente, Nombre_cliente, Saldo_vencido_inicio,
                         SEMANA, periodo_inicio, periodo_fin, parcialidad, monto_valor,
                         Fecha_primer_vencimiento, cuota, condonado
                     ) VALUES " . implode(', ', $marcadoresNombrados);
-                    
+
                     $insertadosLote = $this->db->CRUD($sqlInsert, $paramsInsert);
                     $insertados += $insertadosLote;
                 }
-                
+
                 // Progreso cada lote
                 $progreso = round((($numeroLote + 1) / $totalLotes) * 100, 1);
                 $this->logger->info("Lote " . ($numeroLote + 1) . "/{$totalLotes} completado - Progreso: {$progreso}% ({$insertados} insertados, {$duplicados} duplicados)");
-                
+
                 // Enviar al webhook cada lote
                 $this->logger->enviarProgreso($insertados, $duplicados, $errores, $total);
-                
+
             } catch (\Exception $e) {
                 $errores += count($lote);
                 $errorMsg = "Error en lote " . ($numeroLote + 1) . ": " . $e->getMessage();
                 $this->logger->error($errorMsg);
                 $erroresDetalle[] = $errorMsg;
-                
+
                 if ($errores > 1000) {
                     $this->logger->error("DEMASIADOS ERRORES ($errores). Haciendo ROLLBACK...");
                     $this->db->rollback();
@@ -655,7 +655,7 @@ class CronMorosidad
         $this->logger->info("Insertados exitosamente:   " . $resultado['insertados']);
         $this->logger->info("Duplicados omitidos:       " . $resultado['duplicados']);
         $this->logger->info("Errores de inserción:      " . $resultado['errores']);
-        
+
         if ($resultado['errores'] > 0 && isset($resultado['errores_detalle'])) {
             $this->logger->warning("Primeros 5 errores:");
             foreach (array_slice($resultado['errores_detalle'], 0, 5) as $error) {
@@ -664,11 +664,11 @@ class CronMorosidad
         }
 
         $procesados = $resultado['insertados'] + $resultado['duplicados'];
-        $porcentajeExito = $resultado['total'] > 0 
-            ? round(($procesados / $resultado['total']) * 100, 2) 
+        $porcentajeExito = $resultado['total'] > 0
+            ? round(($procesados / $resultado['total']) * 100, 2)
             : 0;
         $this->logger->info("Tasa de procesamiento:     $porcentajeExito%");
-        
+
         if ($resultado['duplicados'] > 0) {
             $this->logger->success("Control de duplicados funcionó correctamente");
         }
@@ -682,15 +682,15 @@ class CronMorosidad
 try {
     // Inicializar logger con webhook
     $logger = new CronLogger($GOOGLE_CHAT_WEBHOOK, $verbose, $noWebhook);
-    
+
     $logger->separator();
     $logger->info("CRONJOB: INSERCIÓN DE MOROSIDAD");
     $logger->info("Fecha/Hora: " . date('Y-m-d H:i:s'));
-    
+
     if ($dryRun) {
         $logger->warning("MODO DRY-RUN ACTIVADO - No se modificará la base de datos");
     }
-    
+
     if ($force) {
         $logger->warning("MODO FORCE ACTIVADO - Se ejecutará sin importar el día");
     }
@@ -700,7 +700,7 @@ try {
     } else {
         $logger->success("WEBHOOK ACTIVADO - Se enviarán notificaciones a Google Chat");
     }
-    
+
     $logger->separator();
 
     // Ejecutar cronjob
@@ -714,7 +714,7 @@ try {
     if (isset($logger)) {
         $logger->error("ERROR FATAL NO CAPTURADO: " . $e->getMessage());
         $logger->error("Stack trace: " . $e->getTraceAsString());
-        
+
         $logger->enviarWebhookInmediato(
             "ERROR FATAL en Cronjob",
             "Error no capturado: " . $e->getMessage(),
