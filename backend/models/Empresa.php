@@ -38,7 +38,7 @@ class Empresa extends Model
     }
 
 
-
+// ASEGURARSE DE QUE NO ESTE EN UTF-8 WITHOUT BOM, SI NO HAY PROBLEMAS DE CODIFICACION CON LOS ACENTOS, PERO SI LOS HAY, REVISAR CODIFICACION DEL ARCHIVO
 
 
     public static function getConsultaPorNombre($nombre)
