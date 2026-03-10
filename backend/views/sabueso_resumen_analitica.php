@@ -25,6 +25,7 @@ $scoreCliente = isset($scoreCliente) ? (int) $scoreCliente : 0;
 $scoreGestion = isset($scoreGestion) ? (int) $scoreGestion : 0;
 $scorePagos = isset($scorePagos) ? (int) $scorePagos : 0;
 $datosFaltantes = isset($datosFaltantes) && is_array($datosFaltantes) ? $datosFaltantes : [];
+$detallesGestor = isset($detallesGestor) && is_array($detallesGestor) ? $detallesGestor : [];
 $accionesRecomendadas = isset($accionesRecomendadas) && is_array($accionesRecomendadas) ? $accionesRecomendadas : [];
 $mensajesSugeridos = isset($mensajesSugeridos) && is_array($mensajesSugeridos) ? $mensajesSugeridos : [];
 $ultimoPago = isset($ultimoPago) && is_array($ultimoPago) ? $ultimoPago : ['fecha' => null, 'monto' => null];
@@ -138,6 +139,30 @@ $esc = function ($s) {
                     <p><?= $visitasCercanas ?> visitas dentro de 100 m vs <?= $visitasLejanas ?> fuera de rango.</p>
                     <?php endif; ?>
                 </div>
+                <?php if (!empty($detallesGestor)): ?>
+                <div class="analitica-ia-gestor-visitas mt-2">
+                    <p class="small fw-semibold mb-1">Detalle por visita (distancia a la ubicación más cercana):</p>
+                    <ul class="list-unstyled small mb-0">
+                    <?php foreach ($detallesGestor as $det): ?>
+                        <?php
+                        $gestorNombre = $esc($det['gestor_nombre'] ?? '—');
+                        $distM = isset($det['distancia_m']) && is_numeric($det['distancia_m']) ? (float) $det['distancia_m'] : null;
+                        $labelUbic = trim((string) ($det['ubicacion_label'] ?? ''));
+                        $fechaStr = '';
+                        if (!empty($det['timestamp'])) {
+                            $ts = is_numeric($det['timestamp']) ? (int) $det['timestamp'] : strtotime($det['timestamp']);
+                            $fechaStr = $ts ? date('d/m/Y H:i', $ts) : '';
+                        }
+                        $distStr = $distM !== null ? ($distM >= 1000 ? number_format($distM / 1000, 2) . ' km' : round($distM) . ' m') : 'sin GPS';
+                        $cercaDe = $labelUbic !== '' ? ' de ' . $esc($labelUbic) : '';
+                        ?>
+                        <li class="mb-1">
+                            <?= $fechaStr ? $esc($fechaStr) . ' — ' : '' ?><strong><?= $gestorNombre ?></strong>: estuvo a <strong><?= $distStr ?></strong><?= $cercaDe ?>.
+                        </li>
+                    <?php endforeach; ?>
+                    </ul>
+                </div>
+                <?php endif; ?>
                 <?php if ($peorGestor !== null && !empty($peorGestor['nombre'])): ?>
                 <div class="analitica-ia-anomaly-box">
                     <p><span class="icon">Anomalía detectada:</span></p>

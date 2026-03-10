@@ -70,6 +70,7 @@ class GestorComplianceService
                     'timestamp' => $ts,
                     'distancia_m' => null,
                     'ubicacion_id' => null,
+                    'ubicacion_label' => null,
                     'cerca' => false,
                     'sin_gps' => true,
                     'distancias_por_ubicacion' => [],
@@ -82,11 +83,13 @@ class GestorComplianceService
             [$minDist, $ubicacionId] = $this->minimaDistanciaYUbicacion($latG, $lngG, $ubicacionesUsuario);
             $distanciasPorUbicacion = $this->distanciasATodasUbicaciones($latG, $lngG, $ubicacionesUsuario);
             $cerca = $minDist <= $umbral;
+            $ubicacionLabel = $this->obtenerLabelUbicacion($ubicacionId, $ubicacionesUsuario);
             $detalles[] = [
                 'gestor_event_id' => $gestorEventId,
                 'timestamp' => $ts,
                 'distancia_m' => round($minDist, 2),
                 'ubicacion_id' => $ubicacionId,
+                'ubicacion_label' => $ubicacionLabel,
                 'cerca' => $cerca,
                 'distancias_por_ubicacion' => $distanciasPorUbicacion,
             ];
@@ -119,6 +122,7 @@ class GestorComplianceService
                 'timestamp' => $e['timestamp'] ?? $e['fecha'] ?? null,
                 'distancia_m' => null,
                 'ubicacion_id' => null,
+                'ubicacion_label' => null,
                 'cerca' => false,
                 'distancias_por_ubicacion' => [],
             ];
@@ -143,6 +147,20 @@ class GestorComplianceService
             ];
         }
         return $out;
+    }
+
+    private function obtenerLabelUbicacion($ubicacionId, array $ubicaciones): ?string
+    {
+        if ($ubicacionId === null) {
+            return null;
+        }
+        foreach ($ubicaciones as $u) {
+            $id = $u['id'] ?? null;
+            if ($id !== null && (string) $id === (string) $ubicacionId) {
+                return trim((string) ($u['label'] ?? $u['texto'] ?? '')) ?: null;
+            }
+        }
+        return null;
     }
 
     private function minimaDistanciaYUbicacion(float $lat, float $lng, array $ubicaciones): array

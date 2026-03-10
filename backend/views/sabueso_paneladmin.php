@@ -121,6 +121,22 @@
         0%, 100% { opacity: 1; transform: rotate(-45deg) scale(1); }
         50% { opacity: 0.75; transform: rotate(-45deg) scale(1.08); }
     }
+    /* Icono flotante sobre marcadores del mapa (círculo + icono arriba) */
+    .rastreo-icono-flotante { display: flex; align-items: center; justify-content: center; min-width: 24px; height: 20px; padding: 0 3px; border-radius: 8px; border: 1px solid #f59e0b; background: rgba(255,255,255,0.98); box-shadow: 0 2px 6px rgba(71,85,105,0.22); animation: rastreo-icono-flotar 2s ease-in-out infinite; }
+    .rastreo-icono-flotante .rastreo-icono-emoji { font-size: 1rem; line-height: 1; }
+    @keyframes rastreo-icono-flotar {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-3px); }
+    }
+    /* Panel lupa en clusters del mapa (círculo + mini mapa al costado) */
+    .rastreo-lupa-panel { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); z-index: 9999; display: flex; flex-direction: column; align-items: center; gap: 6px; pointer-events: auto; }
+    .rastreo-lupa-cerrar { position: absolute; top: -8px; right: -8px; width: 24px; height: 24px; border-radius: 50%; border: 1px solid #94a3b8; background: #fff; color: #475569; font-size: 1.2rem; line-height: 1; cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,0.15); z-index: 1001; }
+    .rastreo-lupa-cerrar:hover { background: #f1f5f9; color: #0f172a; }
+    .rastreo-lupa-lente { width: 260px; height: 260px; border-radius: 50%; overflow: hidden; border: 3px solid #ea580c; box-shadow: 0 4px 20px rgba(0,0,0,0.25); background: #e2e8f0; }
+    .rastreo-lupa-texto { font-size: 0.75rem; color: #475569; font-weight: 600; background: rgba(255,255,255,0.95); padding: 2px 8px; border-radius: 6px; }
+    .rastreo-btn-lupa-mapa { position: absolute; bottom: 8px; left: 8px; z-index: 11; cursor: zoom-in; font-size: 0.8rem; padding: 4px 10px; border-radius: 8px; background: rgba(255,255,255,0.95); border: 1px solid #cbd5e1; box-shadow: 0 1px 4px rgba(0,0,0,0.15); }
+    .rastreo-btn-lupa-mapa:hover { background: #f1f5f9; border-color: #94a3b8; }
+    .rastreo-lupa-overlay-activo { position: absolute !important; top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important; z-index: 500 !important; cursor: zoom-in !important; pointer-events: auto !important; }
     #modalRastreoCredito .rastreo-geo-item { display: flex; align-items: flex-start; gap: 0.35rem; flex-wrap: wrap; padding: 0.25rem 0; }
     #modalRastreoCredito .rastreo-geo-item[data-indice-geo] { cursor: pointer; border-radius: 6px; transition: background 0.15s ease; }
     #modalRastreoCredito .rastreo-geo-item[data-indice-geo]:hover { background: rgba(0,0,0,0.04); }

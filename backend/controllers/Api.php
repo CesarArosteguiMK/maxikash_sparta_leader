@@ -14,6 +14,7 @@ use Core\Controller;
 use Models\Ubicacion as UbicacionDAO;
 use Models\Gestiones as GestionesDAO;
 use Models\Empresa as EmpresaDAO;
+use Models\OfertaCoordenada;
 use Models\SegundometroDAO;
 
 require_once __DIR__ . '/../services/SpatialAnalyticsService.php';
@@ -221,42 +222,90 @@ class Api extends Controller
     {
         $ubic = UbicacionDAO::getUbicacionesFiltradasPorIdCredito($idCredito);
         $direcciones = $ubic['direcciones_resumen'] ?? [];
-        $ubicacionesUsuario = [];
-        $mapUbicacion = [];
+        $domicilio = [];
+        $todasUbicaciones = [];
+        $dirMegareporte = EmpresaDAO::getConsultaDireccionEstadoCuenta($idCredito);
+        $domicilioCompleto = ($dirMegareporte['success'] ?? false) && !empty($dirMegareporte['datos'][0]['Domicilio_Completo'])
+            ? trim((string) $dirMegareporte['datos'][0]['Domicilio_Completo'])
+            : '';
+        if ($domicilioCompleto !== '') {
+            $geocoding = new GeocodingService();
+            $coordsMegareporte = $geocoding->getDomicilioCoordsForCredito($idCredito, $domicilioCompleto);
+            if (!empty($coordsMegareporte)) {
+                $domicilio = [
+                    'id' => 'megareporte',
+                    'lat' => (float) $coordsMegareporte['lat'],
+                    'lng' => (float) $coordsMegareporte['lng'],
+                    'label' => $coordsMegareporte['label'] ?? 'Domicilio megareporte',
+                ];
+            }
+        }
+        if (empty($domicilio) && !empty($direcciones)) {
+            $primera = $direcciones[0];
+            $domicilio = [
+                'id' => $primera['id'] ?? 'u0',
+                'lat' => (float) ($primera['lat'] ?? $primera['latitud'] ?? 0),
+                'lng' => (float) ($primera['lng'] ?? $primera['longitud'] ?? 0),
+                'label' => $primera['texto'] ?? 'Domicilio',
+            ];
+        }
+        if (!empty($domicilio) && isset($domicilio['lat']) && isset($domicilio['lng'])) {
+            $todasUbicaciones[] = [
+                'id' => $domicilio['id'] ?? 'megareporte',
+                'lat' => (float) $domicilio['lat'],
+                'lng' => (float) $domicilio['lng'],
+                'label' => $domicilio['label'] ?? 'Domicilio megareporte',
+            ];
+        }
         foreach ($direcciones as $i => $d) {
-            $uid = $d['id'] ?? 'u' . $i;
-            $ubicacionesUsuario[] = [
-                'id' => $uid,
+            $orden = $d['orden'] ?? ($i + 1);
+            $texto = trim((string) ($d['texto'] ?? ''));
+            $label = $texto !== '' ? 'Ubicación ' . $orden . ': ' . $texto : 'Ubicación ' . $orden;
+            $todasUbicaciones[] = [
+                'id' => $d['id'] ?? 'u' . $i,
                 'lat' => (float) ($d['lat'] ?? $d['latitud'] ?? 0),
                 'lng' => (float) ($d['lng'] ?? $d['longitud'] ?? 0),
+                'label' => $label,
             ];
-            $mapUbicacion[$uid] = [
-                'label' => $i === 0 ? 'Su casa (más visitada)' : 'Otro lugar frecuente',
-                'es_casa' => $i === 0,
-            ];
+        }
+        $puntosGeo = OfertaCoordenada::getPorIdCredito($idCredito);
+        if (!empty($puntosGeo)) {
+            foreach ($puntosGeo as $i => $g) {
+                $latG = (float) ($g['lat'] ?? $g['latitud'] ?? 0);
+                $lngG = (float) ($g['lng'] ?? $g['longitud'] ?? 0);
+                if ($latG !== 0.0 || $lngG !== 0.0) {
+                    $donde = trim((string) ($g['donde_firma'] ?? ''));
+                    $todasUbicaciones[] = [
+                        'id' => 'geo_' . $i,
+                        'lat' => $latG,
+                        'lng' => $lngG,
+                        'label' => $donde !== '' ? $donde : 'Donde firma ' . ($i + 1),
+                    ];
+                }
+            }
         }
         $eventosGestor = GestionesDAO::getEventosGestorPorCredito($idCredito, $gestorId);
         $compliance = new GestorComplianceService();
-        $out = $compliance->verificarCercaniaGestor($eventosGestor, $ubicacionesUsuario);
+        $out = $compliance->verificarCercaniaGestor($eventosGestor, $todasUbicaciones);
+        $detalles = $out['detalles'];
+        $detalles = array_slice($detalles, 0, 16);
+        $out['detalles'] = array_values($detalles);
         foreach ($out['detalles'] as $i => &$d) {
             if (isset($d['timestamp']) && $d['timestamp'] !== null && is_numeric($d['timestamp'])) {
                 $d['timestamp'] = date('c', (int) $d['timestamp']);
             }
-            $d['gestor_nombre'] = isset($eventosGestor[$i]) ? ($eventosGestor[$i]['usuario_asignado'] ?? '—') : '—';
+            $d['gestor_nombre'] = isset($eventosGestor[$i]) ? trim((string) ($eventosGestor[$i]['usuario_asignado'] ?? '')) : '—';
+            if ($d['gestor_nombre'] === '') {
+                $d['gestor_nombre'] = trim((string) ($eventosGestor[$i]['codigo_gestor'] ?? '')) ?: '—';
+            }
+            if ($d['gestor_nombre'] === '') {
+                $d['gestor_nombre'] = trim((string) ($eventosGestor[$i]['usuario'] ?? '')) ?: '—';
+            }
             $e = $eventosGestor[$i] ?? [];
-            // Misma regla que gestiones_request.php: medio_contactacion_ccc == "0" → Campo, sino → Telefónico (Legacy tiene ccc vacío y se muestra Telefónico)
             $ccc = (string) ($e['medio_contactacion_ccc'] ?? '');
             $d['tipo_contacto'] = ($ccc === '0') ? 'Campo' : 'Telefónico';
-            $uid = $d['ubicacion_id'] ?? null;
-            $d['ubicacion_label'] = $uid !== null && isset($mapUbicacion[$uid]) ? $mapUbicacion[$uid]['label'] : ($uid ?? '—');
-            $d['es_casa'] = $uid !== null && isset($mapUbicacion[$uid]) ? $mapUbicacion[$uid]['es_casa'] : false;
-            $d['distancias_mostrar'] = [];
-            foreach ($d['distancias_por_ubicacion'] ?? [] as $du) {
-                $uidDu = $du['ubicacion_id'] ?? null;
-                $d['distancias_mostrar'][] = [
-                    'label' => $uidDu !== null && isset($mapUbicacion[$uidDu]) ? $mapUbicacion[$uidDu]['label'] : ($uidDu ?? '—'),
-                    'distancia_m' => $du['distancia_m'] ?? null,
-                ];
+            if (trim((string) ($d['ubicacion_label'] ?? '')) === '') {
+                $d['ubicacion_label'] = $d['ubicacion_id'] ?? '—';
             }
         }
         unset($d);

@@ -126,14 +126,16 @@
             html += '</ul>';
         }
         if (data.detalles && data.detalles.length) {
-            html += '<table class="table table-sm table-bordered"><thead><tr><th>Gestor</th><th>Fecha y hora</th><th>Distancia</th><th>Tipo</th></tr></thead><tbody>';
+            html += '<table class="table table-sm table-bordered"><thead><tr><th>Gestor</th><th>Fecha y hora</th><th>Distancia</th><th>Más cerca de</th><th>Tipo</th></tr></thead><tbody>';
             data.detalles.forEach(function (d) {
                 var ts = d.timestamp ? new Date(d.timestamp).toLocaleString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
                 var dist = formatDistancia(d.distancia_m);
+                var masCercaDe = (d.ubicacion_label || '—').trim() || '—';
                 var tipo = (d.tipo_contacto || '—').trim() || '—';
-                html += '<tr><td>' + (d.gestor_nombre || '—') + '</td><td>' + ts + '</td><td>' + dist + '</td><td>' + tipo + '</td></tr>';
+                html += '<tr><td>' + escapeHtml(d.gestor_nombre || '—') + '</td><td>' + ts + '</td><td>' + dist + '</td><td>' + escapeHtml(masCercaDe) + '</td><td>' + escapeHtml(tipo) + '</td></tr>';
             });
             html += '</tbody></table>';
+            html += '<p class="small text-muted mt-2">Se muestran las 16 visitas más recientes con GPS.</p>';
         }
         return html;
     }

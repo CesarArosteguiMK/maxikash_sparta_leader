@@ -94,9 +94,14 @@
                             <button class="accordion-button collapsed" type="button"
                                     data-bs-toggle="collapse"
                                     data-bs-target="#collapse<?= $i ?>">
+                               <?php
+                               $esTelefono = (mb_strtoupper((string)($g['contacto'] ?? '')) === 'TELEFONO');
+                               $emojiGestion = $esTelefono ? '📞' : '🛵';
+                               ?>
                                <span class="badge-app <?= ($g['app'] === 'LEGACY') ? 'legacy' : 'sky-logic' ?>">
                                     <?= $g["app"] ?>
                                 </span>
+                                <span class="me-2" title="<?= $esTelefono ? 'Gestión telefónica' : 'Gestión campo' ?>"><?= $emojiGestion ?></span>
                                 <i class="fa fa-briefcase me-1 ms-1" title="Portafolio" aria-hidden="true"></i>
                                 <?= $g["nombre_cliente"] ?> —
                                 <?= mb_strtoupper($g["contacto"]) ?> —

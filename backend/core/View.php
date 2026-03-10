@@ -698,7 +698,7 @@ html.dark-mode .navbar .text-muted{color:#94a3b8 !important;}
                     <button type="button" class="btn-close btn-close-white position-absolute top-0 end-0 m-3" data-bs-dismiss="modal" aria-label="Cerrar"></button>
                 </div>
                 <div class="modal-body p-0">
-                    <video id="spartanVideoPlayer" class="w-100" controls playsinline src="/assets/img/spartan_video.mp4"></video>
+                    <video id="spartanVideoPlayer" class="w-100" controls playsinline preload="none" data-src="/assets/img/spartan_video.mp4"></video>
                 </div>
             </div>
         </div>
@@ -1076,7 +1076,7 @@ html.dark-mode .navbar .text-muted{color:#94a3b8 !important;}
         logo.addEventListener('click', function(e){
             e.preventDefault();
             clickCount++;
-            if (clickCount === 3) {
+                if (clickCount === 3) {
                 clickCount = 0;
                 if (resetTimer) clearTimeout(resetTimer);
                 if (navTimer) clearTimeout(navTimer);
@@ -1084,7 +1084,11 @@ html.dark-mode .navbar .text-muted{color:#94a3b8 !important;}
                 playSpartanSound();
                 setTimeout(function(){
                     var modal = typeof bootstrap !== 'undefined' && bootstrap.Modal ? new bootstrap.Modal(modalEl) : null;
-                    if (modal) modal.show();
+                    if (modal) {
+                        var dataSrc = videoEl.getAttribute('data-src') || '/assets/img/spartan_video.mp4';
+                        if (!videoEl.src || videoEl.src.indexOf('spartan_video') === -1) videoEl.src = dataSrc;
+                        modal.show();
+                    }
                     videoEl.currentTime = 0;
                     videoEl.play();
                 }, 220);

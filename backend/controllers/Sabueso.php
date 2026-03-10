@@ -114,6 +114,12 @@ SCRIPT;
         var rastreoInfoWindowsGeoAlternasGrande = [];
         var rastreoMarkersPorGestorAlternas = {};
         var rastreoMarkersPorGestorAlternasGrande = {};
+        var rastreoPolylineAlternas = null;
+        var rastreoPolylineAlternasGrande = null;
+        var rastreoPolylinePathRawAlternas = [];
+        var rastreoPolylinePathRawAlternasGrande = [];
+        var rastreoPolylinesPorGestorAlternas = {};
+        var rastreoPolylinesPorGestorAlternasGrande = {};
         var rastreoFiltroGestorActual = '';
         var rastreoFiltroGestoresSeleccionados = [];
         var rastreoColoresPorGestor = {};
@@ -347,7 +353,7 @@ JS;
                     html += \'</div>\';
                 });
                 $(\'#rastreoGestionesContenido\').html(html || \'<span class="text-muted">Sin gestiones para este crédito.</span>\');
-                rastreoGestionesParaMapa = (r.datos || []).filter(function(g) { var lat = parseFloat(g.latitud || g.lat), lng = parseFloat(g.longitud || g.lng); if (isNaN(lat) || isNaN(lng)) return false; var mCampo = (g.medio_contactacion_campo || \'\').toString().trim(); var dCampo = (g.dictamen_campo || \'\').toString().trim(); return mCampo !== \'\' || dCampo !== \'\'; }).slice(0, 7).map(function(g, idx) { return { lat: parseFloat(g.latitud || g.lat), lng: parseFloat(g.longitud || g.lng), nombre: ((g.usuario_asignado || g.usuario || g.codigo_gestor || \'—\') + \'\').trim(), fecha: ((g.fecha_dispositivo || g.fecha_hora || \'\') + \'\').toString().substring(0, 16), numero: idx + 1 }; });
+                rastreoGestionesParaMapa = (r.datos || []).filter(function(g) { var lat = parseFloat(g.latitud || g.lat), lng = parseFloat(g.longitud || g.lng); return !isNaN(lat) && !isNaN(lng); }).slice(0, 16).map(function(g, idx) { var contacto = ((g.contacto || \'\') + \'\').trim().toUpperCase(); var esTelefono = (contacto === \'TELEFONO\'); return { lat: parseFloat(g.latitud || g.lat), lng: parseFloat(g.longitud || g.lng), nombre: ((g.usuario_asignado || g.usuario || g.codigo_gestor || \'—\') + \'\').trim(), fecha: ((g.fecha_dispositivo || g.fecha_hora || \'\') + \'\').toString().substring(0, 16), numero: idx + 1, esCampo: !esTelefono }; });
                 rastreoGestionesCargadas = true;
                 rastreoTotalGestiones = (r.datos || []).length;
                 rastreoConUbicacion = rastreoGestionesParaMapa.length;
@@ -368,6 +374,129 @@ JS;
         function pinGotaIcon(colorHex) {
             var svg = \'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 40"><path fill="\' + colorHex + \'" stroke="#333" stroke-width="1" d="M12 0C5.4 0 0 5.4 0 12c0 9 12 28 12 28s12-19 12-28C24 5.4 18.6 0 12 0z"/><circle cx="12" cy="10" r="4" fill="white"/></svg>\';
             return { url: \'data:image/svg+xml;charset=UTF-8,\' + encodeURIComponent(svg), scaledSize: new google.maps.Size(28, 40), anchor: new google.maps.Point(14, 40) };
+        }
+        function pinCirculoIcon(fillHex, strokeHex) {
+            strokeHex = strokeHex || \'#333\';
+            return { path: google.maps.SymbolPath.CIRCLE, scale: 10, fillColor: fillHex, fillOpacity: 1, strokeColor: strokeHex, strokeWeight: 2 };
+        }
+        function pinCirculoIconWithNumber(colorHex, num) {
+            var n = (num != null && num !== \'\') ? String(num) : \'?\';
+            var safe = n.replace(/&/g, \'&amp;\').replace(/</g, \'&lt;\');
+            var svg = \'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 36 36"><circle cx="18" cy="18" r="14" fill="\' + colorHex + \'" stroke="#9a3412" stroke-width="2"/><text x="18" y="22" text-anchor="middle" fill="white" font-size="12" font-weight="700" font-family="Arial,sans-serif">\' + safe + \'</text></svg>\';
+            return { url: \'data:image/svg+xml;charset=UTF-8,\' + encodeURIComponent(svg), scaledSize: new google.maps.Size(30, 30), anchor: new google.maps.Point(15, 15) };
+        }
+        function iconoFlotanteGestor(esCampo) { return esCampo ? \'fa-motorcycle\' : \'fa-phone\'; }
+        function iconoFlotanteGeo(dondeFirma) {
+            var d = (dondeFirma || \'\').toString().trim().toUpperCase();
+            if (d.indexOf(\'CASA\') !== -1) return \'fa-house\';           /* casa → 🏠 */
+            if (d.indexOf(\'AGENCIA\') !== -1) return \'fa-landmark\';     /* agencia → 🏢 */
+            return \'fa-map-marker-alt\';                                   /* otro domicilio → 🏘️ */
+        }
+        function emojiIconoFlotante(tipo) {
+            if (tipo === \'fa-motorcycle\') return \'🛵\';
+            if (tipo === \'fa-phone\') return \'📞\';
+            if (tipo === \'fa-house\') return \'🏠\';      /* casa (geo) */
+            if (tipo === \'fa-landmark\') return \'🏢\';  /* agencia */
+            if (tipo === \'fa-megareporte\') return \'🏡\';  /* casa megareporte */
+            if (tipo === \'fa-map-marker-alt\') return \'🏘️\';  /* otro domicilio */
+            if (tipo === \'fa-location-dot\') return \'📍\';
+            return \'📍\';
+        }
+        function IconoFlotanteOverlay(position, faClass, colorHex, offsetY) { this.position = position; this.faClass = faClass; this.colorHex = colorHex || \'#333\'; this.offsetY = offsetY != null ? offsetY : -24; this.div_ = null; }
+        function ensureIconoFlotanteOverlayReady() {
+            if (typeof google === \'undefined\' || !google.maps || !google.maps.OverlayView) return;
+            if (IconoFlotanteOverlay.prototype.draw) return;
+            IconoFlotanteOverlay.prototype = new google.maps.OverlayView();
+            IconoFlotanteOverlay.prototype.onAdd = function() {
+                this.div_ = document.createElement(\'div\');
+                this.div_.className = \'rastreo-icono-flotante\';
+                this.div_.innerHTML = \'<span class="rastreo-icono-emoji">\' + emojiIconoFlotante(this.faClass) + \'</span>\';
+                this.div_.style.position = \'absolute\'; this.div_.style.pointerEvents = \'none\'; this.div_.style.whiteSpace = \'nowrap\';
+                var panes = this.getPanes(); if (panes && panes.floatPane) panes.floatPane.appendChild(this.div_);
+            };
+            IconoFlotanteOverlay.prototype.draw = function() {
+                if (!this.div_ || !this.position) return;
+                var proj = this.getProjection(); if (!proj) return;
+                var point = proj.fromLatLngToDivPixel(new google.maps.LatLng(this.position.lat, this.position.lng));
+                if (!point) return;
+                var baseOffset = this.offsetY != null ? this.offsetY : -24;
+                var finalOffset = baseOffset;
+                var offsetX = 0;
+                var slots = [[0,-24],[22,0],[0,18],[-22,0],[18,-18],[-18,-18],[18,18],[-18,18],[28,-12],[-28,-12],[28,12],[-28,12]];
+                if (typeof window !== \'undefined\' && window.rastreoIconoPosiciones && Array.isArray(window.rastreoIconoPosiciones)) {
+                    var selfLat = this.position.lat, selfLng = this.position.lng;
+                    var umbralCluster = 48;
+                    var cluster = [];
+                    for (var i = 0; i < window.rastreoIconoPosiciones.length; i++) {
+                        var o = window.rastreoIconoPosiciones[i];
+                        var op = proj.fromLatLngToDivPixel(new google.maps.LatLng(o.lat, o.lng));
+                        if (!op) continue;
+                        var dx = op.x - point.x, dy = op.y - point.y;
+                        if (Math.abs(dx) < umbralCluster && Math.abs(dy) < umbralCluster) {
+                            cluster.push({ idx: o.idx != null ? o.idx : i, px: op.x, py: op.y, lat: o.lat, lng: o.lng });
+                        }
+                    }
+                    cluster.sort(function(a,b){ return (a.py - b.py) || (a.px - b.px) || (a.idx - b.idx); });
+                    var mySlot = -1;
+                    var myIdx = this._idx;
+                    for (var k = 0; k < cluster.length; k++) {
+                        if (myIdx != null && cluster[k].idx === myIdx) { mySlot = k; break; }
+                        if (myIdx == null && Math.abs(cluster[k].lat - selfLat) < 1e-7 && Math.abs(cluster[k].lng - selfLng) < 1e-7) { mySlot = k; break; }
+                    }
+                    if (mySlot >= 0 && cluster.length > 1) {
+                        var s = slots[Math.min(mySlot, slots.length - 1)];
+                        offsetX = s[0]; finalOffset = s[1];
+                    } else if (cluster.length === 1) {
+                        var pathLatLng = [];
+                        var myMap = this.getMap();
+                        if (myMap === rastreoMapaAlternas && window.rastreoPolylinePathLatLng && Array.isArray(window.rastreoPolylinePathLatLng)) pathLatLng = window.rastreoPolylinePathLatLng;
+                        else if (myMap === rastreoMapaAlternasGrande && window.rastreoPolylinePathLatLngGrande && Array.isArray(window.rastreoPolylinePathLatLngGrande)) pathLatLng = window.rastreoPolylinePathLatLngGrande;
+                        if (pathLatLng.length > 0) {
+                            for (var j = 0; j < pathLatLng.length; j++) {
+                                var pj = pathLatLng[j];
+                                if (Math.abs((pj.lat || pj.latitude) - selfLat) < 1e-7 && Math.abs((pj.lng || pj.longitude) - selfLng) < 1e-7) {
+                                    var nextP = pathLatLng[j + 1], prevP = pathLatLng[j - 1];
+                                    var nextPx = nextP ? proj.fromLatLngToDivPixel(new google.maps.LatLng(nextP.lat || nextP.latitude, nextP.lng || nextP.longitude)) : null;
+                                    var prevPx = prevP ? proj.fromLatLngToDivPixel(new google.maps.LatLng(prevP.lat || prevP.latitude, prevP.lng || prevP.longitude)) : null;
+                                    if ((nextPx && nextPx.y < point.y + 8) || (prevPx && prevPx.y < point.y + 8)) { offsetX = 18; }
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+                this.div_.style.left = (point.x - 10 + offsetX) + \'px\'; this.div_.style.top = (point.y + finalOffset) + \'px\';
+            };
+            IconoFlotanteOverlay.prototype.onRemove = function() { if (this.div_ && this.div_.parentNode) this.div_.parentNode.removeChild(this.div_); this.div_ = null; };
+        }
+        function crearPuntoConIconoFlotante(map, pos, colorHex, faIconClass, title, infoHtml) {
+            ensureIconoFlotanteOverlayReady();
+            var idx = (typeof window !== \'undefined\' && window.rastreoIconoPosiciones && Array.isArray(window.rastreoIconoPosiciones)) ? window.rastreoIconoPosiciones.length : 0;
+            if (typeof window !== \'undefined\' && window.rastreoIconoPosiciones && Array.isArray(window.rastreoIconoPosiciones)) window.rastreoIconoPosiciones.push({ lat: pos.lat, lng: pos.lng, idx: idx });
+            var marker = new google.maps.Marker({ position: pos, map: map, icon: pinCirculoIcon(colorHex), title: title || \'\', zIndex: 1 });
+            var overlay = new IconoFlotanteOverlay(pos, faIconClass, colorHex);
+            overlay._idx = idx;
+            overlay.setMap(map);
+            var infow = null;
+            if (infoHtml) {
+                infow = new google.maps.InfoWindow({ content: infoHtml });
+                marker.addListener(\'click\', function() { infow.open(map, marker); });
+            }
+            return { marker: marker, overlay: overlay, infow: infow };
+        }
+        function crearPuntoGestorConIconoFlotante(map, pos, colorHex, numero, faIconClass, title, infoHtml) {
+            ensureIconoFlotanteOverlayReady();
+            var idx = (typeof window !== \'undefined\' && window.rastreoIconoPosiciones && Array.isArray(window.rastreoIconoPosiciones)) ? window.rastreoIconoPosiciones.length : 0;
+            if (typeof window !== \'undefined\' && window.rastreoIconoPosiciones && Array.isArray(window.rastreoIconoPosiciones)) window.rastreoIconoPosiciones.push({ lat: pos.lat, lng: pos.lng, idx: idx });
+            var marker = new google.maps.Marker({ position: pos, map: map, icon: pinCirculoIconWithNumber(colorHex, numero), title: title || \'\', zIndex: 1 });
+            var overlay = new IconoFlotanteOverlay(pos, faIconClass, colorHex, -30);
+            overlay.setMap(map);
+            var infow = null;
+            if (infoHtml) {
+                infow = new google.maps.InfoWindow({ content: infoHtml });
+                marker.addListener(\'click\', function() { infow.open(map, marker); });
+            }
+            return { marker: marker, overlay: overlay, infow: infow, numero: numero };
         }
         function pinGotaIconWithNumber(colorHex, num) {
             var n = (num != null && num !== \'\') ? String(num) : \'?\';
@@ -413,6 +542,158 @@ JS;
         }
         var rastreoClusterMarkers = [];
         var rastreoPuntosClusterActual = [];
+        var rastreoLupaCircle = null;
+        var rastreoLupaPanel = null;
+        var rastreoLupaMiniMap = null;
+        var rastreoLupaMapListener = null;
+        var rastreoLupaMap = null;
+        function cerrarRastreoLupa() {
+            if (rastreoLupaCircle) { try { rastreoLupaCircle.setMap(null); } catch (e) {} rastreoLupaCircle = null; }
+            if (rastreoLupaPanel && rastreoLupaPanel.parentNode) rastreoLupaPanel.parentNode.removeChild(rastreoLupaPanel);
+            rastreoLupaPanel = null;
+            if (rastreoLupaMiniMap) { try { rastreoLupaMiniMap = null; } catch (e) {} }
+            if (rastreoLupaMapListener && rastreoLupaMap) { try { google.maps.event.removeListener(rastreoLupaMapListener); } catch (e) {} rastreoLupaMapListener = null; rastreoLupaMap = null; }
+        }
+        function mostrarLupaCluster(map, lat, lng, count) {
+            cerrarRastreoLupa();
+            if (!map || !map.getDiv) return;
+            rastreoLupaMap = map;
+            var zoom = typeof map.getZoom === \'function\' ? map.getZoom() : 12;
+            var zoomLupa = Math.min(18, zoom + 3);
+            rastreoLupaCircle = new google.maps.Circle({ center: { lat: lat, lng: lng }, radius: 80, map: map, fillColor: \'#ea580c\', fillOpacity: 0.15, strokeColor: \'#c2410c\', strokeWeight: 2, clickable: false, zIndex: 997 });
+            var mapDiv = map.getDiv();
+            if (!mapDiv) return;
+            var panelParent = mapDiv.parentNode || mapDiv;
+            var panel = document.createElement(\'div\');
+            panel.className = \'rastreo-lupa-panel\';
+            var idCont = \'rastreoLupaMiniMapContenedor_\' + Date.now();
+            panel.innerHTML = \'<button type="button" class="rastreo-lupa-cerrar" aria-label="Cerrar">&times;</button><div class="rastreo-lupa-lente" id="\' + idCont + \'"></div><span class="rastreo-lupa-texto">\' + (count > 0 ? count + \' ubicaciones\' : \'Vista ampliada\') + \' — Clic en mapa para cerrar</span>\';
+            panelParent.appendChild(panel);
+            rastreoLupaPanel = panel;
+            var btnCerrar = panel.querySelector(\'.rastreo-lupa-cerrar\');
+            if (btnCerrar) btnCerrar.addEventListener(\'click\', cerrarRastreoLupa);
+            setTimeout(function() {
+                var cont = document.getElementById(idCont);
+                if (cont) {
+                    rastreoLupaMiniMap = new google.maps.Map(cont, { center: { lat: lat, lng: lng }, zoom: zoomLupa, disableDefaultUI: true, zoomControl: false, gestureHandling: \'none\', mapTypeControl: false });
+                    google.maps.event.addListenerOnce(rastreoLupaMiniMap, \'idle\', function() {
+                        var mini = rastreoLupaMiniMap;
+                        if (!mini) return;
+                        var bounds = mini.getBounds();
+                        function enBounds(la, ln) {
+                            if (!bounds) return true;
+                            var latN = parseFloat(la), lngN = parseFloat(ln);
+                            return !isNaN(latN) && !isNaN(lngN) && bounds.contains({ lat: latN, lng: lngN });
+                        }
+                        (rastreoGestionesParaMapa || []).forEach(function(g) {
+                            var latG = parseFloat(g.lat), lngG = parseFloat(g.lng);
+                            if (isNaN(latG) || isNaN(lngG) || !enBounds(latG, lngG)) return;
+                            var colorG = (rastreoColoresPorGestor && rastreoColoresPorGestor[g.nombre]) || \'#f97316\';
+                            new google.maps.Marker({ position: { lat: latG, lng: lngG }, map: mini, icon: pinCirculoIcon(colorG), zIndex: 2 });
+                        });
+                        (rastreoPuntosGeo || []).forEach(function(p) {
+                            var latP = parseFloat(p.lat), lngP = parseFloat(p.lng);
+                            if (isNaN(latP) || isNaN(lngP) || !enBounds(latP, lngP)) return;
+                            var d = (p.donde_firma || \'\').toString().trim().toUpperCase();
+                            var colorP = (d.indexOf(\'AGENCIA\') !== -1) ? \'#d4a574\' : (d.indexOf(\'CASA\') !== -1) ? \'#ec4899\' : \'#22c55e\';
+                            new google.maps.Marker({ position: { lat: latP, lng: lngP }, map: mini, icon: pinCirculoIcon(colorP), zIndex: 1 });
+                        });
+                        (rastreoDireccionesParaMapa || []).forEach(function(p) {
+                            var latP = parseFloat(p.latitud || p.lat), lngP = parseFloat(p.longitud || p.lng);
+                            if (isNaN(latP) || isNaN(lngP) || !enBounds(latP, lngP)) return;
+                            new google.maps.Marker({ position: { lat: latP, lng: lngP }, map: mini, icon: pinCirculoIcon(\'#2563eb\'), zIndex: 1 });
+                        });
+                        if (rastreoDomicilioMegareporte && rastreoDomicilioMegareporte.lat != null && rastreoDomicilioMegareporte.lng != null) {
+                            var latM = parseFloat(rastreoDomicilioMegareporte.lat), lngM = parseFloat(rastreoDomicilioMegareporte.lng);
+                            if (!isNaN(latM) && !isNaN(lngM) && enBounds(latM, lngM)) {
+                                new google.maps.Marker({ position: { lat: latM, lng: lngM }, map: mini, icon: pinCirculoIcon(\'#000000\'), zIndex: 3 });
+                            }
+                        }
+                    });
+                }
+            }, 80);
+            setTimeout(function() {
+                if (rastreoLupaMap === map) rastreoLupaMapListener = map.addListener(\'click\', function() { cerrarRastreoLupa(); });
+            }, 150);
+        }
+        function activarLupaConClicEnMapa(map) {
+            if (!map || !map.getDiv) return;
+            var mapDiv = map.getDiv();
+            var parent = mapDiv.parentNode || mapDiv;
+            var overlay = document.createElement(\'div\');
+            overlay.className = \'rastreo-lupa-overlay-activo\';
+            overlay.title = \'Clic en el mapa para ampliar aquí\';
+            overlay.style.cssText = \'position:absolute;top:0;left:0;right:0;bottom:0;z-index:500;cursor:zoom-in;pointer-events:auto;\';
+            parent.appendChild(overlay);
+            function quitarYAbrir(ev) {
+                if (!overlay.parentNode) return;
+                overlay.parentNode.removeChild(overlay);
+                mapDiv.style.cursor = \'\';
+                var rect = mapDiv.getBoundingClientRect();
+                var x = (ev.clientX - rect.left);
+                var y = (ev.clientY - rect.top);
+                var bounds = map.getBounds();
+                if (!bounds) { mostrarLupaCluster(map, 19.43, -99.13, 0); return; }
+                var ne = bounds.getNorthEast(), sw = bounds.getSouthWest();
+                var lat = sw.lat() + (ne.lat() - sw.lat()) * (1 - y / rect.height);
+                var lng = sw.lng() + (ne.lng() - sw.lng()) * (x / rect.width);
+                mostrarLupaCluster(map, lat, lng, 0);
+            }
+            overlay.addEventListener(\'click\', quitarYAbrir);
+        }
+        function pathConArcosParaSegmentosCortos(path, umbralGrados, zoom) {
+            umbralGrados = umbralGrados != null ? umbralGrados : 0.09;
+            if (!path || path.length < 2) return path || [];
+            var curveFactor = 1;
+            var angleZoom = 0;
+            if (zoom != null && !isNaN(zoom)) {
+                curveFactor = Math.max(0, Math.min(1, (18 - zoom) / 10));
+                // Inclinacion suave por zoom para evitar cambiar al lado opuesto.
+                angleZoom = (zoom - 13) * (Math.PI / 36);
+            }
+            var out = [path[0]];
+            for (var i = 0; i < path.length - 1; i++) {
+                var a = path[i], b = path[i + 1];
+                var lat1 = parseFloat(a.lat), lng1 = parseFloat(a.lng), lat2 = parseFloat(b.lat), lng2 = parseFloat(b.lng);
+                if (isNaN(lat1) || isNaN(lng1) || isNaN(lat2) || isNaN(lng2)) { out.push(b); continue; }
+                var dx = lng2 - lng1, dy = lat2 - lat1;
+                var len = Math.sqrt(dx * dx + dy * dy);
+                if (len < 1e-10) {
+                    // Si dos puntos son exactamente iguales, dibujamos un micro-desvio
+                    // para que la conexion sea visible en vez de desaparecer.
+                    var dppSame = (zoom != null && !isNaN(zoom)) ? (360 / (256 * Math.pow(2, zoom))) : 0.0007;
+                    var j = Math.max(dppSame * 20, 0.00002);
+                    var dir = (i % 2 === 0) ? 1 : -1;
+                    out.push({ lat: lat1 + (j * dir), lng: lng1 - (j * dir) });
+                    out.push(b);
+                    continue;
+                }
+                if (len >= umbralGrados) { out.push(b); continue; }
+                var dpp = (zoom != null && !isNaN(zoom)) ? (360 / (256 * Math.pow(2, zoom))) : 0.0007;
+                var pxDist = len / Math.max(dpp, 1e-9);
+                // Cuando ya hay separacion visual, la union debe ser recta.
+                if (pxDist >= 18) { out.push(b); continue; }
+                var visFactor = Math.max(0, Math.min(1, (18 - pxDist) / 18));
+                var segCurve = curveFactor * visFactor;
+                if (len < 0.0015) segCurve = Math.max(segCurve, 0.95);
+                else if (len < 0.003) segCurve = Math.max(segCurve, 0.8);
+                if (segCurve < 1e-4) { out.push(b); continue; }
+                var midLat = (lat1 + lat2) / 2, midLng = (lng1 + lng2) / 2;
+                var ux = -dy / len, uy = dx / len;
+                var minVisualOffset = dpp * (len < 0.0015 ? 46 : len < 0.003 ? 36 : 28);
+                var offset = Math.max(len * 1.9, minVisualOffset) * segCurve;
+                var perpLat = ux * offset, perpLng = uy * offset;
+                var cosA = Math.cos(angleZoom), sinA = Math.sin(angleZoom);
+                var cLat = midLat + (perpLat * cosA - perpLng * sinA);
+                var cLng = midLng + (perpLat * sinA + perpLng * cosA);
+                for (var t = 0.06; t < 1; t += 0.06) {
+                    var mt = 1 - t; var mt2 = mt * mt; var t2 = t * t; var two = 2 * mt * t;
+                    out.push({ lat: mt2 * lat1 + two * cLat + t2 * lat2, lng: mt2 * lng1 + two * cLng + t2 * lng2 });
+                }
+                out.push(b);
+            }
+            return out;
+        }
         function groupPointsByArea(puntos, zoom) {
             var factor = 40;
             if (zoom >= 15) factor = 800;
@@ -447,30 +728,9 @@ JS;
         function addClusterLabelsToMap(map, puntos) {
             if (!map || typeof google === \'undefined\' || !google.maps) return;
             rastreoPuntosClusterActual = puntos || [];
-            var zoom = typeof map.getZoom === \'function\' ? map.getZoom() : 10;
             while (rastreoClusterMarkers.length) {
                 var m = rastreoClusterMarkers.pop();
                 if (m && m.setMap) m.setMap(null);
-            }
-            if (zoom >= 16 || zoom <= 10) return;
-            var div = typeof map.getDiv === \'function\' ? map.getDiv() : null;
-            if (div && (div.offsetWidth < 380 || div.offsetHeight < 280)) return;
-            var clusters = groupPointsByArea(puntos, zoom);
-            var offsetEast = 0.003;
-            for (var i = 0; i < clusters.length; i++) {
-                var c = clusters[i];
-                var pos = new google.maps.LatLng(c.lat, c.lng + offsetEast);
-                try {
-                    var marker = new google.maps.Marker({
-                        position: pos,
-                        map: map,
-                        icon: clusterLabelIcon(c.count),
-                        title: c.count + \' ubicaciones en esta área\',
-                        zIndex: 998,
-                        clickable: false
-                    });
-                    rastreoClusterMarkers.push(marker);
-                } catch (e) {}
             }
         }
         function todosPuntosParaCluster(puntosGeo, puntosMaxiApp, puntosGestores) {
@@ -497,18 +757,19 @@ JS;
             if (!googleMapsApiKey || !googleMapsApiKey.length) return;
             if (typeof google === \'undefined\' || !google.maps) { setTimeout(function() { maybeInitMapaAlternas(); }, 500); return; }
             if (rastreoMapaAlternas) { try { if (typeof rastreoMapaAlternas.remove === \'function\') rastreoMapaAlternas.remove(); } catch (e) {} rastreoMapaAlternas = null; }
+            if (rastreoPolylineAlternas) { try { rastreoPolylineAlternas.setMap(null); } catch (e) {} rastreoPolylineAlternas = null; }
+            Object.keys(rastreoPolylinesPorGestorAlternas || {}).forEach(function(k) { var o = rastreoPolylinesPorGestorAlternas[k]; if (o && o.poly && o.poly.setMap) o.poly.setMap(null); });
+            rastreoPolylinesPorGestorAlternas = {};
+            if (typeof window !== \'undefined\') window.rastreoIconoPosiciones = [];
+            rastreoPolylinePathRawAlternas = [];
             rastreoMarkersPorGestorAlternas = {};
             rastreoMapaAlternas = new google.maps.Map(cont, { center: { lat: 19.43, lng: -99.13 }, zoom: 10, mapTypeControl: true, streetViewControl: true, fullscreenControl: true, zoomControl: true });
             var bounds = new google.maps.LatLngBounds();
             var hasPoints = false;
-            var iconAzul = pinGotaIcon(\'#2563eb\');
-            var iconNaranja = pinGotaIcon(\'#fdba74\');
-            var iconRosa = pinGotaRosaIcon();
-            var iconNegro = pinGotaIcon(\'#000000\');
             if (puntosMaxiApp && puntosMaxiApp.length) {
                 var esPuntos = puntosMaxiApp[0] && (puntosMaxiApp[0].latitud !== undefined || puntosMaxiApp[0].lat !== undefined);
                 if (esPuntos) {
-                    puntosMaxiApp.forEach(function(p, i) {
+                    (puntosMaxiApp.length > 16 ? puntosMaxiApp.slice(0, 16) : puntosMaxiApp).forEach(function(p, i) {
                         var lat = parseFloat(p.latitud || p.lat), lon = parseFloat(p.longitud || p.lng);
                         if (isNaN(lat) || isNaN(lon)) return;
                         hasPoints = true;
@@ -517,17 +778,11 @@ JS;
                         var visitas = p.cantidad_registros || 1;
                         var tipoLabel = p.punto_de_interes ? \'Punto de interés\' : \'Menos frecuente\';
                         var infoHtml = \'<strong>Cliente</strong>: \' + (rastreoDatosClienteActual.nombre || \'—\') + \'<br><strong>Crédito</strong>: \' + (rastreoDatosClienteActual.credito || \'—\') + \'<br><strong>Teléfono</strong>: \' + (rastreoDatosClienteActual.telefono || \'—\') + \'<br><strong>Ubicación</strong>: Obteniendo dirección...<br><strong>Visitas</strong>: \' + visitas + \'<br><strong>Tipo</strong>: \' + tipoLabel;
-                        var marker = new google.maps.Marker({ position: pos, map: rastreoMapaAlternas, icon: iconAzul, title: \'Dirección frecuente \' + (i + 1) + \' — \' + visitas + \' visitas\' });
-                        var infow = new google.maps.InfoWindow({ content: infoHtml });
-                        marker.addListener(\'click\', function() { infow.open(rastreoMapaAlternas, marker); });
-                        if (typeof google.maps.Geocoder !== \'undefined\') {
+                        var res = crearPuntoConIconoFlotante(rastreoMapaAlternas, pos, \'#2563eb\', \'fa-location-dot\', \'Dirección frecuente \' + (i + 1) + \' — \' + visitas + \' visitas\', infoHtml);
+                        if (typeof google.maps.Geocoder !== \'undefined\' && res.infow) {
                             var geocoder = new google.maps.Geocoder();
                             geocoder.geocode({ location: pos }, function(results, status) {
-                                if (status === \'OK\' && results[0] && infow) {
-                                    var addr = (results[0].formatted_address || \'\').replace(/</g, \'&lt;\').replace(/>/g, \'&gt;\');
-                                    var html = \'<strong>Cliente</strong>: \' + (rastreoDatosClienteActual.nombre || \'—\') + \'<br><strong>Crédito</strong>: \' + (rastreoDatosClienteActual.credito || \'—\') + \'<br><strong>Teléfono</strong>: \' + (rastreoDatosClienteActual.telefono || \'—\') + \'<br><strong>Ubicación</strong>: \' + addr + \'<br><strong>Visitas</strong>: \' + visitas + \'<br><strong>Tipo</strong>: \' + tipoLabel;
-                                    infow.setContent(html);
-                                }
+                                if (status === \'OK\' && results[0] && res.infow) { var addr = (results[0].formatted_address || \'\').replace(/</g, \'&lt;\').replace(/>/g, \'&gt;\'); res.infow.setContent(\'<strong>Cliente</strong>: \' + (rastreoDatosClienteActual.nombre || \'—\') + \'<br><strong>Crédito</strong>: \' + (rastreoDatosClienteActual.credito || \'—\') + \'<br><strong>Teléfono</strong>: \' + (rastreoDatosClienteActual.telefono || \'—\') + \'<br><strong>Ubicación</strong>: \' + addr + \'<br><strong>Visitas</strong>: \' + visitas + \'<br><strong>Tipo</strong>: \' + tipoLabel); }
                             });
                         }
                     });
@@ -543,15 +798,31 @@ JS;
                     var pos = { lat: lat, lng: lon };
                     bounds.extend(pos);
                     var nombreGestor = (g.nombre || \'—\').trim() || \'—\';
-                    var colorG = rastreoColoresPorGestor[nombreGestor] || rastreoPaletaColoresGestores[0];
+                    var colorG = \'#f97316\';
                     var numGota = g.numero != null ? g.numero : (i + 1);
-                    var iconGestor = pinGotaIconWithNumber(colorG, numGota);
-                    var marker = new google.maps.Marker({ position: pos, map: rastreoMapaAlternas, icon: iconGestor, title: (g.nombre || \'Gestor \') + (g.fecha ? \' — \' + g.fecha : \'\') + \' (#\' + numGota + \')\' });
                     var infoHtml = \'<strong>Gestor</strong>: \' + (g.nombre || \'—\') + \' <strong>#\' + numGota + \'</strong>\' + (g.fecha ? \'<br><strong>Fecha</strong>: \' + g.fecha : \'\');
-                    var infow = new google.maps.InfoWindow({ content: infoHtml });
-                    marker.addListener(\'click\', function() { infow.open(rastreoMapaAlternas, marker); });
+                    var res = crearPuntoGestorConIconoFlotante(rastreoMapaAlternas, pos, colorG, numGota, iconoFlotanteGestor(g.esCampo), (g.nombre || \'Gestor \') + (g.fecha ? \' — \' + g.fecha : \'\') + \' (#\' + numGota + \')\', infoHtml);
                     if (!rastreoMarkersPorGestorAlternas[nombreGestor]) rastreoMarkersPorGestorAlternas[nombreGestor] = [];
-                    rastreoMarkersPorGestorAlternas[nombreGestor].push(marker);
+                    rastreoMarkersPorGestorAlternas[nombreGestor].push({ marker: res.marker, overlay: res.overlay, numero: numGota });
+                });
+                var pathGestores = puntosGestores.slice().sort(function(a, b) { return (a.numero != null ? a.numero : 0) - (b.numero != null ? b.numero : 0); }).map(function(g) { return { lat: g.lat, lng: g.lng }; }).filter(function(p) { return !isNaN(parseFloat(p.lat)) && !isNaN(parseFloat(p.lng)); });
+                rastreoPolylinePathRawAlternas = pathGestores.slice();
+                if (typeof window !== \'undefined\') window.rastreoPolylinePathLatLng = pathGestores.slice();
+                var puntosPorGestor = {};
+                puntosGestores.forEach(function(g) {
+                    var n = (g.nombre || \'—\').trim() || \'—\';
+                    if (!puntosPorGestor[n]) puntosPorGestor[n] = [];
+                    puntosPorGestor[n].push({ lat: g.lat, lng: g.lng, numero: g.numero != null ? g.numero : 999 });
+                });
+                var zoomA = typeof rastreoMapaAlternas.getZoom === \'function\' ? rastreoMapaAlternas.getZoom() : 10;
+                Object.keys(puntosPorGestor).forEach(function(nomG) {
+                    var pts = puntosPorGestor[nomG].sort(function(a,b){ return a.numero - b.numero; }).map(function(p){ return { lat: p.lat, lng: p.lng }; });
+                    if (pts.length >= 2) {
+                        var pathCurv = pathConArcosParaSegmentosCortos(pts, 0.09, zoomA);
+                        var colorPl = rastreoColoresPorGestor[nomG] || \'#c2410c\';
+                        var pl = new google.maps.Polyline({ path: pathCurv, strokeColor: colorPl, strokeOpacity: 0.95, strokeWeight: 4, map: null, zIndex: 5 });
+                        rastreoPolylinesPorGestorAlternas[nomG] = { poly: pl, pathRaw: pts.slice() };
+                    }
                 });
             }
             if (puntosGeo && puntosGeo.length) {
@@ -566,10 +837,8 @@ JS;
                     var q = encodeURIComponent(p.direccion_maps || lat + \',\' + lon);
                     var infoHtml = \'<strong>Donde firma:</strong> \' + (donde || \'—\') + \'<br><strong>Dirección</strong>: \' + (dir || \'—\') + \'<br><strong>Cliente</strong>: \' + (rastreoDatosClienteActual.nombre || \'—\') + \'<br><strong>Crédito</strong>: \' + (rastreoDatosClienteActual.credito || \'—\') + \'<br><a href="https://www.google.com/maps/search/?api=1&query=\' + q + \'" target="_blank" rel="noopener">Abrir en Google Maps</a>\';
                     var d = (p.donde_firma || \'\').toString().trim().toUpperCase();
-                    var iconGeo = (d.indexOf(\'AGENCIA\') !== -1) ? pinGotaCarmelitaIcon() : (d.indexOf(\'CASA\') !== -1) ? iconRosa : pinGotaVerdeIcon();
-                    var marker = new google.maps.Marker({ position: pos, map: rastreoMapaAlternas, icon: iconGeo, title: donde || \'Dirección geo \' + (i+1) });
-                    var infow = new google.maps.InfoWindow({ content: infoHtml });
-                    marker.addListener(\'click\', function() { infow.open(rastreoMapaAlternas, marker); });
+                    var colorGeo = (d.indexOf(\'AGENCIA\') !== -1) ? \'#d4a574\' : (d.indexOf(\'CASA\') !== -1) ? \'#ec4899\' : \'#22c55e\';
+                    crearPuntoConIconoFlotante(rastreoMapaAlternas, pos, colorGeo, iconoFlotanteGeo(p.donde_firma), donde || \'Dirección geo \' + (i+1), infoHtml);
                 });
             }
             if (rastreoDomicilioMegareporte && rastreoDomicilioMegareporte.lat != null && rastreoDomicilioMegareporte.lng != null) {
@@ -580,48 +849,165 @@ JS;
                     var dirMegareporte = (rastreoDomicilioMegareporte.direccion || rastreoDatosClienteActual.direccion || \'—\').replace(/</g, \'&lt;\').replace(/>/g, \'&gt;\');
                     var qMegareporte = encodeURIComponent(dirMegareporte || posMegareporte.lat + \',\' + posMegareporte.lng);
                     var infoHtmlMegareporte = \'<strong>Dirección megareporte</strong><br><strong>Dirección</strong>: \' + dirMegareporte + \'<br><strong>Cliente</strong>: \' + (rastreoDatosClienteActual.nombre || \'—\') + \'<br><strong>Crédito</strong>: \' + (rastreoDatosClienteActual.credito || \'—\') + \'<br><a href="https://www.google.com/maps/search/?api=1&query=\' + qMegareporte + \'" target="_blank" rel="noopener">Abrir en Google Maps</a>\';
-                    var markerMegareporte = new google.maps.Marker({ position: posMegareporte, map: rastreoMapaAlternas, icon: iconNegro, title: \'Dirección megareporte\', zIndex: 10 });
+                    var markerMegareporte = new google.maps.Marker({ position: posMegareporte, map: rastreoMapaAlternas, icon: pinCirculoIcon(\'#000000\'), title: \'Dirección megareporte (casa)\', zIndex: 10 });
                     var infowMegareporte = new google.maps.InfoWindow({ content: infoHtmlMegareporte });
                     markerMegareporte.addListener(\'click\', function() { infowMegareporte.open(rastreoMapaAlternas, markerMegareporte); });
+                    var idxMeg = (typeof window !== \'undefined\' && window.rastreoIconoPosiciones && Array.isArray(window.rastreoIconoPosiciones)) ? window.rastreoIconoPosiciones.length : 0;
+                    if (typeof window !== \'undefined\' && window.rastreoIconoPosiciones && Array.isArray(window.rastreoIconoPosiciones)) window.rastreoIconoPosiciones.push({ lat: posMegareporte.lat, lng: posMegareporte.lng, idx: idxMeg });
+                    ensureIconoFlotanteOverlayReady();
+                    var overlayMegareporte = new IconoFlotanteOverlay(posMegareporte, \'fa-megareporte\', \'#000000\');
+                    overlayMegareporte._idx = idxMeg;
+                    overlayMegareporte.setMap(rastreoMapaAlternas);
                 }
             }
             addClusterLabelsToMap(rastreoMapaAlternas, todosPuntosParaCluster(puntosGeo, puntosMaxiApp, puntosGestores));
             if (rastreoMapaAlternas.addListener) {
                 rastreoMapaAlternas.addListener(\'zoom_changed\', function() { addClusterLabelsToMap(rastreoMapaAlternas, rastreoPuntosClusterActual); });
+                rastreoMapaAlternas.addListener(\'zoom_changed\', function() {
+                    var z = rastreoMapaAlternas.getZoom();
+                    Object.keys(rastreoPolylinesPorGestorAlternas || {}).forEach(function(k) {
+                        var obj = rastreoPolylinesPorGestorAlternas[k];
+                        if (obj && obj.poly && obj.pathRaw && obj.pathRaw.length >= 2) obj.poly.setPath(pathConArcosParaSegmentosCortos(obj.pathRaw, 0.09, z));
+                    });
+                });
                 google.maps.event.addDomListener(window, \'resize\', function() { if (rastreoMapaAlternas) addClusterLabelsToMap(rastreoMapaAlternas, rastreoPuntosClusterActual); });
             }
             if (hasPoints) rastreoMapaAlternas.fitBounds(bounds, 50);
             filtrarMapaPorGestor(rastreoFiltroGestoresSeleccionados.length ? rastreoFiltroGestoresSeleccionados : null);
+            var wrapAlt = cont.parentNode;
+            if (wrapAlt && !document.getElementById(\'rastreoBtnLupaAlternas\')) {
+                var btnLupaAlt = document.createElement(\'button\');
+                btnLupaAlt.type = \'button\'; btnLupaAlt.id = \'rastreoBtnLupaAlternas\';
+                btnLupaAlt.className = \'rastreo-btn-lupa-mapa\'; btnLupaAlt.innerHTML = \'🔍 Lupa\';
+                btnLupaAlt.title = \'Clic aquí y luego en el mapa para ampliar una zona\';
+                btnLupaAlt.addEventListener(\'click\', function() { activarLupaConClicEnMapa(rastreoMapaAlternas); });
+                wrapAlt.appendChild(btnLupaAlt);
+            }
         }
         function filtrarMapaPorGestor(sel) {
             var selected = [];
             if (sel !== null && sel !== undefined) { if (Array.isArray(sel)) selected = sel; else selected = (sel + \'\').trim() ? [ (sel + \'\').trim() ] : []; }
+            selected = (selected || []).map(function(s){ return ((s == null ? \'\' : (s + \'\')).trim()); }).filter(function(s){ return s.length > 0; });
             rastreoFiltroGestoresSeleccionados = selected;
             rastreoFiltroGestorActual = selected.length === 0 ? \'\' : selected.length === 1 ? selected[0] : selected.join(\',\');
             var showAll = selected.length === 0;
-            function iconForGestor(n, isGrande) {
-                if (showAll) return pinGotaIcon(rastreoColoresPorGestor[n] || rastreoPaletaColoresGestores[0]);
-                var idx = selected.indexOf(n);
-                if (idx === -1) return null;
-                var color = rastreoPaletaColoresGestores[idx % rastreoPaletaColoresGestores.length];
-                var base = pinGotaIcon(color);
-                if (isGrande) return { url: base.url, scaledSize: new google.maps.Size(34, 48), anchor: new google.maps.Point(17, 48) };
-                return base;
+            function iconForGestor(n, isGrande, displayNumero) {
+                var color = rastreoColoresPorGestor[n] || rastreoPaletaColoresGestores[0];
+                if (!showAll && selected.indexOf(n) === -1) color = null;
+                if (!color) return null;
+                if (displayNumero != null && displayNumero !== \'\') return pinCirculoIconWithNumber(color, displayNumero);
+                return pinCirculoIcon(color);
             }
+            function computarNuevoNumero() {
+                if (showAll || selected.length === 0) return {};
+                var items = [];
+                selected.forEach(function(n) {
+                    var arr = (rastreoMarkersPorGestorAlternas || {})[n];
+                    if (!arr) return;
+                    arr.forEach(function(it, idx) { items.push({ gestor: n, item: it, numeroOrig: it.numero != null ? it.numero : 999, idx: idx }); });
+                });
+                if (items.length === 0) return {};
+                items.sort(function(a, b) { return a.numeroOrig - b.numeroOrig; });
+                var mapa = {};
+                items.forEach(function(it, i) { mapa[it.gestor + \'_\' + it.idx] = (i + 1); });
+                return mapa;
+            }
+            var nuevoNumeroMap = computarNuevoNumero();
             if (rastreoMapaAlternas && rastreoMarkersPorGestorAlternas) {
                 Object.keys(rastreoMarkersPorGestorAlternas).forEach(function(n) {
                     var arr = rastreoMarkersPorGestorAlternas[n];
                     var visible = showAll || selected.indexOf(n) !== -1;
-                    var icon = iconForGestor(n, false);
-                    (arr || []).forEach(function(marker) { marker.setMap(visible ? rastreoMapaAlternas : null); if (visible && icon) marker.setIcon(icon); });
+                    (arr || []).forEach(function(item, idx) {
+                        var marker = item.marker != null ? item.marker : item;
+                        var overlay = item.overlay;
+                        var displayNum = showAll ? item.numero : (nuevoNumeroMap[n + \'_\' + idx] || item.numero);
+                        var icon = iconForGestor(n, false, displayNum);
+                        marker.setMap(visible ? rastreoMapaAlternas : null);
+                        if (overlay && overlay.setMap) overlay.setMap(visible ? rastreoMapaAlternas : null);
+                        if (visible && icon) marker.setIcon(icon);
+                    });
+                });
+            }
+            if (rastreoMapaAlternas && rastreoMarkersPorGestorAlternas) {
+                Object.keys(rastreoMarkersPorGestorAlternas).forEach(function(n) {
+                    var arr = rastreoMarkersPorGestorAlternas[n] || [];
+                    var ptsRaw = arr.slice().sort(function(a, b) {
+                        var na = (a && a.numero != null) ? a.numero : 999;
+                        var nb = (b && b.numero != null) ? b.numero : 999;
+                        return na - nb;
+                    }).map(function(item) {
+                        var marker = item && item.marker ? item.marker : null;
+                        if (!marker || !marker.getPosition) return null;
+                        var p = marker.getPosition();
+                        return p ? { lat: p.lat(), lng: p.lng() } : null;
+                    }).filter(function(p) { return !!p; });
+                    if (ptsRaw.length < 2) {
+                        if (rastreoPolylinesPorGestorAlternas[n] && rastreoPolylinesPorGestorAlternas[n].poly) rastreoPolylinesPorGestorAlternas[n].poly.setMap(null);
+                        return;
+                    }
+                    if (!rastreoPolylinesPorGestorAlternas[n] || !rastreoPolylinesPorGestorAlternas[n].poly) {
+                        var colorN = rastreoColoresPorGestor[n] || \'#c2410c\';
+                        rastreoPolylinesPorGestorAlternas[n] = { poly: new google.maps.Polyline({ path: [], strokeColor: colorN, strokeOpacity: 0.95, strokeWeight: 4, map: null, zIndex: 5 }), pathRaw: [] };
+                    }
+                    rastreoPolylinesPorGestorAlternas[n].pathRaw = ptsRaw.slice();
+                    var zNow = typeof rastreoMapaAlternas.getZoom === \'function\' ? rastreoMapaAlternas.getZoom() : 10;
+                    rastreoPolylinesPorGestorAlternas[n].poly.setPath(pathConArcosParaSegmentosCortos(ptsRaw, 0.09, zNow));
+                    var mostrar = !showAll && selected.indexOf(n) !== -1;
+                    rastreoPolylinesPorGestorAlternas[n].poly.setMap(mostrar ? rastreoMapaAlternas : null);
+                });
+            }
+            if (rastreoMapaAlternasGrande && rastreoMarkersPorGestorAlternasGrande) {
+                var nuevoNumeroMapG = {};
+                if (!showAll && selected.length > 0) {
+                    var itemsG = [];
+                    selected.forEach(function(n) {
+                        var arr = (rastreoMarkersPorGestorAlternasGrande || {})[n];
+                        if (!arr) return;
+                        arr.forEach(function(it, idx) { itemsG.push({ gestor: n, item: it, numeroOrig: it.numero != null ? it.numero : 999, idx: idx }); });
+                    });
+                    itemsG.sort(function(a, b) { return a.numeroOrig - b.numeroOrig; });
+                    itemsG.forEach(function(it, i) { nuevoNumeroMapG[it.gestor + \'_\' + it.idx] = (i + 1); });
+                }
+                Object.keys(rastreoMarkersPorGestorAlternasGrande).forEach(function(n) {
+                    var arr = rastreoMarkersPorGestorAlternasGrande[n];
+                    var visible = showAll || selected.indexOf(n) !== -1;
+                    (arr || []).forEach(function(item, idx) {
+                        var marker = item.marker != null ? item.marker : item;
+                        var overlay = item.overlay;
+                        var displayNum = showAll ? item.numero : (nuevoNumeroMapG[n + \'_\' + idx] || item.numero);
+                        var icon = iconForGestor(n, true, displayNum);
+                        marker.setMap(visible ? rastreoMapaAlternasGrande : null);
+                        if (overlay && overlay.setMap) overlay.setMap(visible ? rastreoMapaAlternasGrande : null);
+                        if (visible && icon) marker.setIcon(icon);
+                    });
                 });
             }
             if (rastreoMapaAlternasGrande && rastreoMarkersPorGestorAlternasGrande) {
                 Object.keys(rastreoMarkersPorGestorAlternasGrande).forEach(function(n) {
-                    var arr = rastreoMarkersPorGestorAlternasGrande[n];
-                    var visible = showAll || selected.indexOf(n) !== -1;
-                    var icon = iconForGestor(n, true);
-                    (arr || []).forEach(function(marker) { marker.setMap(visible ? rastreoMapaAlternasGrande : null); if (visible && icon) marker.setIcon(icon); });
+                    var arr = rastreoMarkersPorGestorAlternasGrande[n] || [];
+                    var ptsRaw = arr.slice().sort(function(a, b) {
+                        var na = (a && a.numero != null) ? a.numero : 999;
+                        var nb = (b && b.numero != null) ? b.numero : 999;
+                        return na - nb;
+                    }).map(function(item) {
+                        var marker = item && item.marker ? item.marker : null;
+                        if (!marker || !marker.getPosition) return null;
+                        var p = marker.getPosition();
+                        return p ? { lat: p.lat(), lng: p.lng() } : null;
+                    }).filter(function(p) { return !!p; });
+                    if (ptsRaw.length < 2) {
+                        if (rastreoPolylinesPorGestorAlternasGrande[n] && rastreoPolylinesPorGestorAlternasGrande[n].poly) rastreoPolylinesPorGestorAlternasGrande[n].poly.setMap(null);
+                        return;
+                    }
+                    if (!rastreoPolylinesPorGestorAlternasGrande[n] || !rastreoPolylinesPorGestorAlternasGrande[n].poly) {
+                        var colorNG = rastreoColoresPorGestor[n] || \'#c2410c\';
+                        rastreoPolylinesPorGestorAlternasGrande[n] = { poly: new google.maps.Polyline({ path: [], strokeColor: colorNG, strokeOpacity: 0.95, strokeWeight: 4, map: null, zIndex: 5 }), pathRaw: [] };
+                    }
+                    rastreoPolylinesPorGestorAlternasGrande[n].pathRaw = ptsRaw.slice();
+                    var zNowG = typeof rastreoMapaAlternasGrande.getZoom === \'function\' ? rastreoMapaAlternasGrande.getZoom() : 10;
+                    rastreoPolylinesPorGestorAlternasGrande[n].poly.setPath(pathConArcosParaSegmentosCortos(ptsRaw, 0.09, zNowG));
+                    var mostrar = !showAll && selected.indexOf(n) !== -1;
+                    rastreoPolylinesPorGestorAlternasGrande[n].poly.setMap(mostrar ? rastreoMapaAlternasGrande : null);
                 });
             }
         }
@@ -639,19 +1025,19 @@ JS;
             if (!googleMapsApiKey || !googleMapsApiKey.length) return;
             if (typeof google === \'undefined\' || !google.maps) return;
             if (rastreoMapaAlternasGrande) { try { if (typeof rastreoMapaAlternasGrande.remove === \'function\') rastreoMapaAlternasGrande.remove(); } catch (e) {} rastreoMapaAlternasGrande = null; }
+            if (rastreoPolylineAlternasGrande) { try { rastreoPolylineAlternasGrande.setMap(null); } catch (e) {} rastreoPolylineAlternasGrande = null; }
+            Object.keys(rastreoPolylinesPorGestorAlternasGrande || {}).forEach(function(k) { var p = rastreoPolylinesPorGestorAlternasGrande[k]; if (p && p.poly && p.poly.setMap) p.poly.setMap(null); });
+            rastreoPolylinesPorGestorAlternasGrande = {};
+            if (typeof window !== \'undefined\') window.rastreoIconoPosiciones = [];
+            rastreoPolylinePathRawAlternasGrande = [];
             rastreoMapaAlternasGrande = new google.maps.Map(cont, { center: { lat: 19.43, lng: -99.13 }, zoom: 10, mapTypeControl: true, streetViewControl: true, fullscreenControl: true, zoomControl: true });
             var bounds = new google.maps.LatLngBounds();
             var hasPoints = false;
-            var iconAzulGrande = { url: pinGotaIcon(\'#2563eb\').url, scaledSize: new google.maps.Size(34, 48), anchor: new google.maps.Point(17, 48) };
-            var iconNaranjaGrande = { url: pinGotaIcon(\'#fdba74\').url, scaledSize: new google.maps.Size(34, 48), anchor: new google.maps.Point(17, 48) };
-            var iconRosaGrande = { url: pinGotaRosaIcon().url, scaledSize: new google.maps.Size(34, 48), anchor: new google.maps.Point(17, 48) };
-            var iconVerdeGrande = { url: pinGotaVerdeIcon().url, scaledSize: new google.maps.Size(34, 48), anchor: new google.maps.Point(17, 48) };
-            var iconCarmelitaGrande = { url: pinGotaCarmelitaIcon().url, scaledSize: new google.maps.Size(34, 48), anchor: new google.maps.Point(17, 48) };
-            var iconNegroGrande = { url: pinGotaIcon(\'#000000\').url, scaledSize: new google.maps.Size(34, 48), anchor: new google.maps.Point(17, 48) };
+            var iconNegroGrande = pinCirculoIcon(\'#000000\');
             if (puntosMaxiApp && puntosMaxiApp.length) {
                 var esPuntos = puntosMaxiApp[0] && (puntosMaxiApp[0].latitud !== undefined || puntosMaxiApp[0].lat !== undefined);
                 if (esPuntos) {
-                    puntosMaxiApp.forEach(function(p, i) {
+                    (puntosMaxiApp.length > 16 ? puntosMaxiApp.slice(0, 16) : puntosMaxiApp).forEach(function(p, i) {
                         var lat = parseFloat(p.latitud || p.lat), lon = parseFloat(p.longitud || p.lng);
                         if (isNaN(lat) || isNaN(lon)) return;
                         hasPoints = true;
@@ -660,17 +1046,11 @@ JS;
                         var visitas = p.cantidad_registros || 1;
                         var tipoLabel = p.punto_de_interes ? \'Punto de interés\' : \'Menos frecuente\';
                         var infoHtml = \'<strong>Cliente</strong>: \' + (rastreoDatosClienteActual.nombre || \'—\') + \'<br><strong>Crédito</strong>: \' + (rastreoDatosClienteActual.credito || \'—\') + \'<br><strong>Teléfono</strong>: \' + (rastreoDatosClienteActual.telefono || \'—\') + \'<br><strong>Ubicación</strong>: Obteniendo dirección...<br><strong>Visitas</strong>: \' + visitas + \'<br><strong>Tipo</strong>: \' + tipoLabel;
-                        var marker = new google.maps.Marker({ position: pos, map: rastreoMapaAlternasGrande, icon: iconAzulGrande, title: \'Dirección frecuente \' + (i + 1) + \' — \' + visitas + \' visitas\' });
-                        var infow = new google.maps.InfoWindow({ content: infoHtml });
-                        marker.addListener(\'click\', function() { infow.open(rastreoMapaAlternasGrande, marker); });
-                        if (typeof google.maps.Geocoder !== \'undefined\') {
+                        var res = crearPuntoConIconoFlotante(rastreoMapaAlternasGrande, pos, \'#2563eb\', \'fa-location-dot\', \'Dirección frecuente \' + (i + 1) + \' — \' + visitas + \' visitas\', infoHtml);
+                        if (typeof google.maps.Geocoder !== \'undefined\' && res.infow) {
                             var geocoder = new google.maps.Geocoder();
                             geocoder.geocode({ location: pos }, function(results, status) {
-                                if (status === \'OK\' && results[0] && infow) {
-                                    var addr = (results[0].formatted_address || \'\').replace(/</g, \'&lt;\').replace(/>/g, \'&gt;\');
-                                    var html = \'<strong>Cliente</strong>: \' + (rastreoDatosClienteActual.nombre || \'—\') + \'<br><strong>Crédito</strong>: \' + (rastreoDatosClienteActual.credito || \'—\') + \'<br><strong>Teléfono</strong>: \' + (rastreoDatosClienteActual.telefono || \'—\') + \'<br><strong>Ubicación</strong>: \' + addr + \'<br><strong>Visitas</strong>: \' + visitas + \'<br><strong>Tipo</strong>: \' + tipoLabel;
-                                    infow.setContent(html);
-                                }
+                                if (status === \'OK\' && results[0] && res.infow) { var addr = (results[0].formatted_address || \'\').replace(/</g, \'&lt;\').replace(/>/g, \'&gt;\'); res.infow.setContent(\'<strong>Cliente</strong>: \' + (rastreoDatosClienteActual.nombre || \'—\') + \'<br><strong>Crédito</strong>: \' + (rastreoDatosClienteActual.credito || \'—\') + \'<br><strong>Teléfono</strong>: \' + (rastreoDatosClienteActual.telefono || \'—\') + \'<br><strong>Ubicación</strong>: \' + addr + \'<br><strong>Visitas</strong>: \' + visitas + \'<br><strong>Tipo</strong>: \' + tipoLabel); }
                             });
                         }
                     });
@@ -686,15 +1066,31 @@ JS;
                     var pos = { lat: lat, lng: lon };
                     bounds.extend(pos);
                     var nombreGestorG = (g.nombre || \'—\').trim() || \'—\';
-                    var colorG = rastreoColoresPorGestor[nombreGestorG] || rastreoPaletaColoresGestores[0];
+                    var colorG = \'#f97316\';
                     var numGotaG = g.numero != null ? g.numero : (i + 1);
-                    var iconGestorGrande = { url: pinGotaIconWithNumber(colorG, numGotaG).url, scaledSize: new google.maps.Size(34, 48), anchor: new google.maps.Point(17, 48) };
-                    var marker = new google.maps.Marker({ position: pos, map: rastreoMapaAlternasGrande, icon: iconGestorGrande, title: (g.nombre || \'Gestor \') + (g.fecha ? \' — \' + g.fecha : \'\') + \' (#\' + numGotaG + \')\' });
                     var infoHtml = \'<strong>Gestor</strong>: \' + (g.nombre || \'—\') + \' <strong>#\' + numGotaG + \'</strong>\' + (g.fecha ? \'<br><strong>Fecha</strong>: \' + g.fecha : \'\');
-                    var infow = new google.maps.InfoWindow({ content: infoHtml });
-                    marker.addListener(\'click\', function() { infow.open(rastreoMapaAlternasGrande, marker); });
+                    var res = crearPuntoGestorConIconoFlotante(rastreoMapaAlternasGrande, pos, colorG, numGotaG, iconoFlotanteGestor(g.esCampo), (g.nombre || \'Gestor \') + (g.fecha ? \' — \' + g.fecha : \'\') + \' (#\' + numGotaG + \')\', infoHtml);
                     if (!rastreoMarkersPorGestorAlternasGrande[nombreGestorG]) rastreoMarkersPorGestorAlternasGrande[nombreGestorG] = [];
-                    rastreoMarkersPorGestorAlternasGrande[nombreGestorG].push(marker);
+                    rastreoMarkersPorGestorAlternasGrande[nombreGestorG].push({ marker: res.marker, overlay: res.overlay, numero: numGotaG });
+                });
+                var pathGestoresG = puntosGestores.slice().sort(function(a, b) { return (a.numero != null ? a.numero : 0) - (b.numero != null ? b.numero : 0); }).map(function(g) { return { lat: g.lat, lng: g.lng }; }).filter(function(p) { return !isNaN(parseFloat(p.lat)) && !isNaN(parseFloat(p.lng)); });
+                rastreoPolylinePathRawAlternasGrande = pathGestoresG.slice();
+                if (typeof window !== \'undefined\') window.rastreoPolylinePathLatLngGrande = pathGestoresG.slice();
+                var puntosPorGestorG = {};
+                puntosGestores.forEach(function(g) {
+                    var n = (g.nombre || \'—\').trim() || \'—\';
+                    if (!puntosPorGestorG[n]) puntosPorGestorG[n] = [];
+                    puntosPorGestorG[n].push({ lat: g.lat, lng: g.lng, numero: g.numero != null ? g.numero : 999 });
+                });
+                var zoomG = typeof rastreoMapaAlternasGrande.getZoom === \'function\' ? rastreoMapaAlternasGrande.getZoom() : 10;
+                Object.keys(puntosPorGestorG).forEach(function(nomG) {
+                    var pts = puntosPorGestorG[nomG].sort(function(a,b){ return a.numero - b.numero; }).map(function(p){ return { lat: p.lat, lng: p.lng }; });
+                    if (pts.length >= 2) {
+                        var pathCurvG = pathConArcosParaSegmentosCortos(pts, 0.09, zoomG);
+                        var colorPlG = rastreoColoresPorGestor[nomG] || \'#c2410c\';
+                        var plG = new google.maps.Polyline({ path: pathCurvG, strokeColor: colorPlG, strokeOpacity: 0.95, strokeWeight: 4, map: null, zIndex: 5 });
+                        rastreoPolylinesPorGestorAlternasGrande[nomG] = { poly: plG, pathRaw: pts.slice() };
+                    }
                 });
             }
             if (puntosGeo && puntosGeo.length) {
@@ -709,12 +1105,10 @@ JS;
                     var q = encodeURIComponent(p.direccion_maps || lat + \',\' + lon);
                     var infoHtml = \'<strong>Donde firma:</strong> \' + (donde || \'—\') + \'<br><strong>Dirección</strong>: \' + (dir || \'—\') + \'<br><strong>Cliente</strong>: \' + (rastreoDatosClienteActual.nombre || \'—\') + \'<br><strong>Crédito</strong>: \' + (rastreoDatosClienteActual.credito || \'—\') + \'<br><a href="https://www.google.com/maps/search/?api=1&query=\' + q + \'" target="_blank" rel="noopener">Abrir en Google Maps</a>\';
                     var d = (p.donde_firma || \'\').toString().trim().toUpperCase();
-                    var iconGeoG = (d.indexOf(\'AGENCIA\') !== -1) ? iconCarmelitaGrande : (d.indexOf(\'CASA\') !== -1) ? iconRosaGrande : iconVerdeGrande;
-                    var marker = new google.maps.Marker({ position: pos, map: rastreoMapaAlternasGrande, icon: iconGeoG, title: donde || \'Dirección geo \' + (i+1) });
-                    var infow = new google.maps.InfoWindow({ content: infoHtml });
-                    marker.addListener(\'click\', function() { infow.open(rastreoMapaAlternasGrande, marker); });
-                    rastreoMarkersGeoAlternasGrande.push(marker);
-                    rastreoInfoWindowsGeoAlternasGrande.push(infow);
+                    var colorGeo = (d.indexOf(\'AGENCIA\') !== -1) ? \'#d4a574\' : (d.indexOf(\'CASA\') !== -1) ? \'#ec4899\' : \'#22c55e\';
+                    var resGeo = crearPuntoConIconoFlotante(rastreoMapaAlternasGrande, pos, colorGeo, iconoFlotanteGeo(p.donde_firma), donde || \'Dirección geo \' + (i+1), infoHtml);
+                    rastreoMarkersGeoAlternasGrande.push(resGeo.marker);
+                    rastreoInfoWindowsGeoAlternasGrande.push(resGeo.infow);
                 });
             }
             if (rastreoDomicilioMegareporte && rastreoDomicilioMegareporte.lat != null && rastreoDomicilioMegareporte.lng != null) {
@@ -725,14 +1119,27 @@ JS;
                     var dirMegareporteGrande = (rastreoDomicilioMegareporte.direccion || rastreoDatosClienteActual.direccion || \'—\').replace(/</g, \'&lt;\').replace(/>/g, \'&gt;\');
                     var qMegareporteGrande = encodeURIComponent(dirMegareporteGrande || posMegareporteGrande.lat + \',\' + posMegareporteGrande.lng);
                     var infoHtmlMegareporteGrande = \'<strong>Dirección megareporte</strong><br><strong>Dirección</strong>: \' + dirMegareporteGrande + \'<br><strong>Cliente</strong>: \' + (rastreoDatosClienteActual.nombre || \'—\') + \'<br><strong>Crédito</strong>: \' + (rastreoDatosClienteActual.credito || \'—\') + \'<br><a href="https://www.google.com/maps/search/?api=1&query=\' + qMegareporteGrande + \'" target="_blank" rel="noopener">Abrir en Google Maps</a>\';
-                    var markerMegareporteGrande = new google.maps.Marker({ position: posMegareporteGrande, map: rastreoMapaAlternasGrande, icon: iconNegroGrande, title: \'Dirección megareporte\', zIndex: 10 });
+                    var markerMegareporteGrande = new google.maps.Marker({ position: posMegareporteGrande, map: rastreoMapaAlternasGrande, icon: iconNegroGrande, title: \'Dirección megareporte (casa)\', zIndex: 10 });
                     var infowMegareporteGrande = new google.maps.InfoWindow({ content: infoHtmlMegareporteGrande });
                     markerMegareporteGrande.addListener(\'click\', function() { infowMegareporteGrande.open(rastreoMapaAlternasGrande, markerMegareporteGrande); });
+                    var idxMegG = (typeof window !== \'undefined\' && window.rastreoIconoPosiciones && Array.isArray(window.rastreoIconoPosiciones)) ? window.rastreoIconoPosiciones.length : 0;
+                    if (typeof window !== \'undefined\' && window.rastreoIconoPosiciones && Array.isArray(window.rastreoIconoPosiciones)) window.rastreoIconoPosiciones.push({ lat: posMegareporteGrande.lat, lng: posMegareporteGrande.lng, idx: idxMegG });
+                    ensureIconoFlotanteOverlayReady();
+                    var overlayMegareporteGrande = new IconoFlotanteOverlay(posMegareporteGrande, \'fa-megareporte\', \'#000000\');
+                    overlayMegareporteGrande._idx = idxMegG;
+                    overlayMegareporteGrande.setMap(rastreoMapaAlternasGrande);
                 }
             }
             addClusterLabelsToMap(rastreoMapaAlternasGrande, todosPuntosParaCluster(puntosGeo, puntosMaxiApp, puntosGestores));
             if (rastreoMapaAlternasGrande.addListener) {
                 rastreoMapaAlternasGrande.addListener(\'zoom_changed\', function() { addClusterLabelsToMap(rastreoMapaAlternasGrande, rastreoPuntosClusterActual); });
+                rastreoMapaAlternasGrande.addListener(\'zoom_changed\', function() {
+                    var zG = rastreoMapaAlternasGrande.getZoom();
+                    Object.keys(rastreoPolylinesPorGestorAlternasGrande || {}).forEach(function(k) {
+                        var obj = rastreoPolylinesPorGestorAlternasGrande[k];
+                        if (obj && obj.poly && obj.pathRaw && obj.pathRaw.length >= 2) obj.poly.setPath(pathConArcosParaSegmentosCortos(obj.pathRaw, 0.09, zG));
+                    });
+                });
                 google.maps.event.addDomListener(window, \'resize\', function() { if (rastreoMapaAlternasGrande) addClusterLabelsToMap(rastreoMapaAlternasGrande, rastreoPuntosClusterActual); });
             }
             var conU = (typeof rastreoConUbicacion !== \'undefined\' ? rastreoConUbicacion : (puntosGestores && puntosGestores.length) ? puntosGestores.length : 0);
@@ -752,24 +1159,26 @@ JS;
             }
             if (puntosGestores && puntosGestores.length) tiposPresentes.gestores = true;
             var leyendaGrandeHtml = \'\';
-            if (tiposPresentes.casa) leyendaGrandeHtml += \'<span class="d-block rastreo-leyenda-item cursor-pointer" data-tipo-leyenda="casa" style="cursor:pointer;padding:2px 4px;border-radius:4px;" onmouseover="this.style.background=\\\'rgba(236,72,153,0.1)\\\'" onmouseout="this.style.background=\\\'transparent\\\'">Rosa = <span style="color:#ec4899 !important;font-weight:600 !important;">CASA.</span></span>\';
-            if (tiposPresentes.otroDomicilio) leyendaGrandeHtml += \'<span class="d-block rastreo-leyenda-item cursor-pointer" data-tipo-leyenda="otroDomicilio" style="cursor:pointer;padding:2px 4px;border-radius:4px;" onmouseover="this.style.background=\\\'rgba(34,197,94,0.1)\\\'" onmouseout="this.style.background=\\\'transparent\\\'">Verde = <span style="color:#22c55e !important;font-weight:600 !important;">Otro domicilio.</span></span>\';
-            if (tiposPresentes.agencia) leyendaGrandeHtml += \'<span class="d-block rastreo-leyenda-item cursor-pointer" data-tipo-leyenda="agencia" style="cursor:pointer;padding:2px 4px;border-radius:4px;" onmouseover="this.style.background=\\\'rgba(184,134,11,0.1)\\\'" onmouseout="this.style.background=\\\'transparent\\\'">Carmelita = <span style="color:#b8860b !important;font-weight:600 !important;">Agencia.</span></span>\';
-            if (tiposPresentes.maxiApp) leyendaGrandeHtml += \'<span class="d-block rastreo-leyenda-item cursor-pointer" data-tipo-leyenda="maxiApp" style="cursor:pointer;padding:2px 4px;border-radius:4px;" onmouseover="this.style.background=\\\'rgba(37,99,235,0.1)\\\'" onmouseout="this.style.background=\\\'transparent\\\'">Azul = <span style="color:#2563eb !important;font-weight:600 !important;">maxi app.</span></span>\';
-            if (rastreoDomicilioMegareporte && rastreoDomicilioMegareporte.lat != null && rastreoDomicilioMegareporte.lng != null) leyendaGrandeHtml += \'<span class="d-block rastreo-leyenda-item cursor-pointer" data-tipo-leyenda="megareporte" style="cursor:pointer;padding:2px 4px;border-radius:4px;" onmouseover="this.style.background=\\\'rgba(0,0,0,0.1)\\\'" onmouseout="this.style.background=\\\'transparent\\\'">Negro = <span style="color:#000000 !important;font-weight:600 !important;">Dirección megareporte.</span></span>\';
+            if (tiposPresentes.casa) leyendaGrandeHtml += \'<span class="d-block rastreo-leyenda-item cursor-pointer d-flex align-items-center gap-1" data-tipo-leyenda="casa" style="cursor:pointer;padding:2px 4px;border-radius:4px;" onmouseover="this.style.background=\\\'rgba(236,72,153,0.1)\\\'" onmouseout="this.style.background=\\\'transparent\\\'"><span class="rounded-circle d-inline-block" style="width:10px;height:10px;background:#ec4899;flex-shrink:0;"></span> 🏠 = <span style="color:#ec4899 !important;font-weight:600 !important;">CASA.</span></span>\';
+            if (tiposPresentes.otroDomicilio) leyendaGrandeHtml += \'<span class="d-block rastreo-leyenda-item cursor-pointer d-flex align-items-center gap-1" data-tipo-leyenda="otroDomicilio" style="cursor:pointer;padding:2px 4px;border-radius:4px;" onmouseover="this.style.background=\\\'rgba(34,197,94,0.1)\\\'" onmouseout="this.style.background=\\\'transparent\\\'"><span class="rounded-circle d-inline-block" style="width:10px;height:10px;background:#22c55e;flex-shrink:0;"></span> 🏘️ = <span style="color:#22c55e !important;font-weight:600 !important;">Otro domicilio.</span></span>\';
+            if (tiposPresentes.agencia) leyendaGrandeHtml += \'<span class="d-block rastreo-leyenda-item cursor-pointer d-flex align-items-center gap-1" data-tipo-leyenda="agencia" style="cursor:pointer;padding:2px 4px;border-radius:4px;" onmouseover="this.style.background=\\\'rgba(184,134,11,0.1)\\\'" onmouseout="this.style.background=\\\'transparent\\\'"><span class="rounded-circle d-inline-block" style="width:10px;height:10px;background:#b8860b;flex-shrink:0;"></span> 🏢 = <span style="color:#b8860b !important;font-weight:600 !important;">Agencia.</span></span>\';
+            if (tiposPresentes.maxiApp) leyendaGrandeHtml += \'<span class="d-block rastreo-leyenda-item cursor-pointer d-flex align-items-center gap-1" data-tipo-leyenda="maxiApp" style="cursor:pointer;padding:2px 4px;border-radius:4px;" onmouseover="this.style.background=\\\'rgba(37,99,235,0.1)\\\'" onmouseout="this.style.background=\\\'transparent\\\'"><span class="rounded-circle d-inline-block" style="width:10px;height:10px;background:#2563eb;flex-shrink:0;"></span> <span style="color:#2563eb !important;font-weight:600 !important;">maxi app.</span></span>\';
+            if (rastreoDomicilioMegareporte && rastreoDomicilioMegareporte.lat != null && rastreoDomicilioMegareporte.lng != null) leyendaGrandeHtml += \'<span class="d-block rastreo-leyenda-item cursor-pointer d-flex align-items-center gap-1" data-tipo-leyenda="megareporte" style="cursor:pointer;padding:2px 4px;border-radius:4px;" onmouseover="this.style.background=\\\'rgba(0,0,0,0.1)\\\'" onmouseout="this.style.background=\\\'transparent\\\'"><span class="rounded-circle d-inline-block" style="width:10px;height:10px;background:#000000;border:1px solid #333;flex-shrink:0;"></span> 🏡 = <span style="color:#000000 !important;font-weight:600 !important;">Casa megareporte.</span></span>\';
             if (tiposPresentes.gestores) leyendaGrandeHtml += \'<span class="d-block">Gestores = <span style="font-weight:600">cada asesor con su color.</span></span>\';
-            leyendaGrandeHtml += \'<span class="d-block rastreo-leyenda-conteo" style="color:#0f172a !important;font-weight:700 !important;">\' + conU + \' de \' + totG + \' con ubicación.</span>\';
+            leyendaGrandeHtml += \'<span class="d-block rastreo-leyenda-conteo" style="color:#0f172a !important;font-weight:700 !important;">\' + conU + \' de \' + totG + \' con ubicación (máx. 16 gestores en mapa).</span><span class="d-block small text-muted mt-1">Use el botón 🔍 Lupa y luego clic en el mapa para ampliar una zona.</span>\';
             if (puntosGestores && puntosGestores.length) {
                 var seenGG = {}, nombresGG = [];
                 puntosGestores.forEach(function(g) { var n = (g.nombre || \'—\').trim() || \'—\'; if (!seenGG[n]) { seenGG[n] = true; nombresGG.push(n); } });
                 var escOG = function(s) { if (s == null || s === undefined) return \'\'; return (s+\'\').replace(/&/g, \'&amp;\').replace(/</g, \'&lt;\').replace(/>/g, \'&gt;\').replace(/\"/g, \'&quot;\'); };
-                var htmlOG = \'<div class="rastreo-filtro-gestor-overlay" style="position:absolute;top:52px;right:8px;left:auto;z-index:10;background:rgba(255,255,255,0.95);padding:6px 8px;border-radius:8px;box-shadow:0 1px 4px rgba(0,0,0,0.2);pointer-events:auto;"><span class="small text-muted d-block mb-1">Filtrar por asesor (puede elegir varios)</span><div class="d-flex flex-column gap-1"><label class="d-flex align-items-center gap-2 mb-0 cursor-pointer"><input type="checkbox" class="rastreo-filtro-gestor-cb form-check-input" data-gestor=""> <span>Todos</span></label>\';
+                var htmlOG = \'<div class="rastreo-filtro-gestor-overlay" style="position:absolute;top:52px;right:8px;left:auto;z-index:10;background:rgba(255,255,255,0.95);padding:6px 8px;border-radius:8px;box-shadow:0 1px 4px rgba(0,0,0,0.2);pointer-events:auto;"><button type="button" class="btn btn-sm btn-outline-secondary mb-2 rastreo-btn-lupa-mapa" id="rastreoBtnLupaGrande" title="Clic aquí y luego en el mapa para ampliar una zona">🔍 Lupa</button><span class="small text-muted d-block mb-1">Filtrar por asesor (puede elegir varios)</span><div class="d-flex flex-column gap-1"><label class="d-flex align-items-center gap-2 mb-0 cursor-pointer"><input type="checkbox" class="rastreo-filtro-gestor-cb form-check-input" data-gestor=""> <span>Todos</span></label>\';
                 nombresGG.forEach(function(n) { var color = rastreoColoresPorGestor[n] || \'#6b7280\'; htmlOG += \'<label class="d-flex align-items-center gap-2 mb-0 cursor-pointer"><input type="checkbox" class="rastreo-filtro-gestor-cb form-check-input" data-gestor="\' + escOG(n) + \'"> <span class="rounded-circle d-inline-block" style="width:10px;height:10px;background:\' + color + \';flex-shrink:0"></span><span>\' + escOG(n) + \'</span></label>\'; });
                 htmlOG += \'</div><div class="rastreo-leyenda-mapa-grande mt-2 small text-muted" style="max-width:280px;">\' + leyendaGrandeHtml + \'</div></div>\';
                 cont.insertAdjacentHTML(\'beforeend\', htmlOG);
                 (function() {
                     var ov = cont.querySelector(\'.rastreo-filtro-gestor-overlay\');
                     if (!ov) return;
+                    var btnLupaG = ov.querySelector(\'#rastreoBtnLupaGrande\');
+                    if (btnLupaG) btnLupaG.addEventListener(\'click\', function() { activarLupaConClicEnMapa(rastreoMapaAlternasGrande); });
                     var sel = rastreoFiltroGestoresSeleccionados || [];
                     var cbs = ov.querySelectorAll(\'.rastreo-filtro-gestor-cb\');
                     for (var i = 0; i < cbs.length; i++) {
@@ -1377,7 +1786,7 @@ JS;
                                 var badgeRegistros = \'<span class="\' + badgeCls + \' ms-1">\' + registroTexto + \'</span>\';
                                 return \'<div class="rastreo-direccion-item rastreo-direccion-row small" data-indice="\' + (d.orden - 1) + \'" data-lat="\' + d.lat + \'" data-lng="\' + d.lng + \'">\' +
                                     \'<div class="rastreo-col-direccion">\' +
-                                    \'<div class="rastreo-direccion-label fw-semibold">📍 Ubicación \' + d.orden + \':</div>\' +
+                                    \'<div class="rastreo-direccion-label fw-semibold"> Ubicación \' + d.orden + \':</div>\' +
                                     \'<div class="direccion-linea text-muted">\' + tipoLabel + \' — <span class="direccion-value" data-lat="\' + d.lat + \'" data-lng="\' + d.lng + \'">Obteniendo dirección...</span></div>\' +
                                     \'</div>\' +
                                     \'<div class="rastreo-col-registros text-nowrap">\' + badgeRegistros + \'</div>\' +
@@ -2272,7 +2681,7 @@ JS;
 
     /**
      * API: histórico de gestiones por id_credito (Contactación y dictamen, Promesas y comentarios).
-     * Para el panel de rastreo se devuelven las 7 gestiones más recientes (con coordenadas para el mapa).
+     * Para el panel de rastreo se devuelven las 16 gestiones más recientes (con coordenadas para el mapa).
      */
     public function getGestionesCredito()
     {
@@ -2286,7 +2695,7 @@ JS;
         try {
             $gestiones = GestionesDAO::getAllGestiones($idCredito, '');
             $gestiones = is_array($gestiones) ? $gestiones : [];
-            $gestiones = array_slice($gestiones, 0, 7);
+            $gestiones = array_slice($gestiones, 0, 16);
             self::respuestaJSON(['success' => true, 'mensaje' => 'OK', 'datos' => $gestiones]);
         } catch (\Exception $e) {
             self::respuestaJSON(['success' => false, 'mensaje' => 'Error al obtener gestiones.', 'datos' => []]);
@@ -2644,7 +3053,7 @@ JS;
         } else {
             $lineas[] = 'Sin datos de cumplimiento (sin eventos de ubicación del gestor o sin ubicaciones del cliente).';
         }
-        $lineas[] = "\n=== ANALÍTICA PAGOS ===";
+        $lineas[] = "\n=== ANALTICA PAGOS ===";
         $ap = $analiticas['analitica_pagos'] ?? [];
         $lineas[] = 'Total pagos (usados en análisis): ' . ($ap['total_pagos'] ?? 0) . '. Patrón: ' . ($ap['patron_pago'] ?? '—') . '. Intervalo promedio (días): ' . ($ap['intervalo_promedio_dias'] ?? '—') . '. Día más frecuente: ' . ($ap['dia_mas_frecuente'] ?? '—');
         $lineas[] = "\n=== ESTADO DE CUENTA (API) ===";
@@ -2790,7 +3199,7 @@ JS;
             $chat = TicketDAO::getChatPorTicket($idTicket);
             $listaChat = isset($chat['datos']) ? $chat['datos'] : [];
             if (!empty($listaChat)) {
-                $lineas[] = "\n=== BITÁCORA / COMENTARIOS DEL TICKET (" . count($listaChat) . " mensajes) ===";
+                $lineas[] = "\n=== BITCORA / COMENTARIOS DEL TICKET (" . count($listaChat) . " mensajes) ===";
                 foreach ($listaChat as $m) {
                     $fecha = $m['fecha_creacion'] ?? '';
                     $lineas[] = '  ' . ($m['persona_nombre'] ?? '') . ' [' . $fecha . ']: ' . ($m['mensaje'] ?? '');
@@ -3352,14 +3761,50 @@ JS;
         }
         if (!empty($direcciones)) {
             foreach ($direcciones as $i => $d) {
+                $orden = $d['orden'] ?? ($i + 1);
+                $texto = trim((string) ($d['texto'] ?? ''));
+                $label = $texto !== '' ? 'Ubicación ' . $orden . ': ' . $texto : 'Ubicación ' . $orden;
                 $ubicacionesUsuario[] = [
                     'id' => $d['id'] ?? 'u' . $i,
                     'lat' => (float) ($d['lat'] ?? $d['latitud'] ?? 0),
                     'lng' => (float) ($d['lng'] ?? $d['longitud'] ?? 0),
-                    'label' => $d['texto'] ?? ('Ubicación ' . ($i + 1)),
+                    'label' => $label,
                     'visitas_count' => (int) ($d['cantidad_registros'] ?? 0),
                     'ultima_fecha' => $d['ultima_fecha'] ?? null,
                 ];
+            }
+        }
+        $todasUbicaciones = [];
+        if (!empty($domicilio) && isset($domicilio['lat']) && isset($domicilio['lng'])) {
+            $todasUbicaciones[] = [
+                'id' => $domicilio['id'] ?? 'megareporte',
+                'lat' => (float) $domicilio['lat'],
+                'lng' => (float) $domicilio['lng'],
+                'label' => $domicilio['label'] ?? 'Domicilio megareporte',
+            ];
+        }
+        foreach ($ubicacionesUsuario as $u) {
+            $todasUbicaciones[] = [
+                'id' => $u['id'],
+                'lat' => $u['lat'],
+                'lng' => $u['lng'],
+                'label' => $u['label'] ?? ('Ubicación ' . $u['id']),
+            ];
+        }
+        $puntosGeo = OfertaCoordenada::getPorIdCredito($idCredito);
+        if (!empty($puntosGeo)) {
+            foreach ($puntosGeo as $i => $g) {
+                $latG = (float) ($g['lat'] ?? $g['latitud'] ?? 0);
+                $lngG = (float) ($g['lng'] ?? $g['longitud'] ?? 0);
+                if ($latG !== 0.0 || $lngG !== 0.0) {
+                    $donde = trim((string) ($g['donde_firma'] ?? ''));
+                    $todasUbicaciones[] = [
+                        'id' => 'geo_' . $i,
+                        'lat' => $latG,
+                        'lng' => $lngG,
+                        'label' => $donde !== '' ? $donde : 'Donde firma ' . ($i + 1),
+                    ];
+                }
             }
         }
         $eventosGPS = [];
@@ -3407,7 +3852,7 @@ JS;
         $analitica_pagos = $temporal->analizarPagos($pagosParaTemporal);
         $eventosGestor = GestionesDAO::getEventosGestorPorCredito($idCredito);
         $compliance = new GestorComplianceService();
-        $cumplimiento_gestor = $compliance->verificarCercaniaGestor($eventosGestor, $ubicacionesUsuario);
+        $cumplimiento_gestor = $compliance->verificarCercaniaGestor($eventosGestor, $todasUbicaciones);
         return [
             'analitica_espacial' => $analitica_espacial,
             'analitica_pagos' => $analitica_pagos,
@@ -4528,7 +4973,7 @@ JS;
 
         $eventosGestor = GestionesDAO::getEventosGestorPorCredito($idCredito);
         $detalles = $cumplimientoGestor['detalles'] ?? [];
-        // Mismo criterio que API Cumplimiento Gestor: enriquecer por ÍNDICE para que el nombre coincida siempre
+        // Mismo criterio que API Cumplimiento Gestor: enriquecer por NDICE para que el nombre coincida siempre
         foreach ($detalles as $i => &$d) {
             $nombre = '—';
             if (isset($eventosGestor[$i])) {
@@ -4570,14 +5015,19 @@ JS;
                 'lat' => $primero['lat'] ?? null,
                 'lng' => $primero['lng'] ?? null,
             ];
-            // identidad_tipo_punto_interes: desde direcciones_resumen (mismo punto más visitado)
+            // Tipo del punto más visitado: usar su label; si no hay, fallback a direcciones_resumen o genérico
             $ubicResumen = UbicacionDAO::getUbicacionesFiltradasPorIdCredito($idCredito);
             $direccionesResumen = $ubicResumen['direcciones_resumen'] ?? [];
-            if (!empty($direccionesResumen)) {
+            $labelPrimero = trim((string) ($primero['label'] ?? ''));
+            if ($labelPrimero !== '') {
+                $puntoInteres['tipo'] = $labelPrimero;
+            } elseif (!empty($direccionesResumen)) {
                 $primeraDir = $direccionesResumen[0];
                 $puntoInteres['tipo'] = trim((string) ($primeraDir['texto'] ?? '')) !== ''
                     ? (string) $primeraDir['texto']
                     : (!empty($primeraDir['punto_de_interes']) ? 'Punto de interés' : 'Menos frecuente');
+            } else {
+                $puntoInteres['tipo'] = 'Punto de interés';
             }
         }
         // Score espacial continuo: distancia (mejor punto) + factor por cantidad de puntos (0.7 + 0.3 × min(1, n/5)).
@@ -4781,6 +5231,7 @@ JS;
             'id_credito' => $idCredito,
             'analisisEspacial' => $analiticaEspacial,
             'cumplimientoGestor' => $cumplimientoGestor,
+            'detallesGestor' => $detalles,
             'analisisPagos' => $analiticaPagos,
             'domicilioConfirmado' => $domicilioConfirmado,
             'distanciaDomicilio' => $distanciaDomicilio,
@@ -4853,3 +5304,4 @@ JS;
         return $peor;
     }
 }
+
