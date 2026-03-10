@@ -33,15 +33,20 @@
             var now = new Date();
             var ms = fin - now;
             var txt = '-';
+            var txtCorto = '-';
             var expired = ms <= 0;
             if (ms > 0) {
                 var h = Math.floor(ms / 3600000);
                 var m = Math.floor((ms % 3600000) / 60000);
                 txt = 'Tiempo restante: ' + h + 'h ' + m + 'm';
+                txtCorto = h + 'h ' + m + 'm';
             } else {
                 txt = 'Plazo vencido';
+                txtCorto = 'Plazo vencido';
             }
             $(el).attr('title', txt).attr('data-bs-title', txt).toggleClass('text-danger', expired);
+            var $txt = $(el).find('.dictamen-countdown-text');
+            if ($txt.length) $txt.text(txtCorto).toggleClass('text-danger', expired);
         });
     }
 
@@ -55,7 +60,7 @@
         getTickets();
         setInterval(function() {
             if (typeof actualizarCountdownsDictamen === 'function') actualizarCountdownsDictamen('#tablaTickets');
-        }, 10000);
+        }, 1000);
         $('#modalLevantarTicket').on('shown.bs.modal', function() { cargarCatalogosTicket(); });
         $(document).on('click', '#btnAbrirModalLevantarTicket', function() {
             $('#modal_id_tipo_ticket, #modal_id_prioridad, #modal_id_origen_ticket').val('');
@@ -99,10 +104,18 @@
                         var vistoTexto = t.dictamen_fecha_visto ? (new Date(t.dictamen_fecha_visto).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' }) + ' ' + new Date(t.dictamen_fecha_visto).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })) : 'No visto';
                         var iconoOjo = (t.dictamen_fecha_visto && (t.dictamen_fecha_visto + '').trim()) ? 'fa-eye' : 'fa-eye-slash';
                         var tituloOjo = (t.dictamen_fecha_visto && (t.dictamen_fecha_visto + '').trim()) ? ('Dictamen enviado. Visto: ' + vistoTexto) : 'Dictamen enviado. No visto. Clic para ver';
-                        var fEnv = (t.dictamen_fecha_envio || '').trim();
-                        var esNuevo = fEnv && new Date(fEnv) >= new Date('2026-03-09T00:00:00');
-                        var countdownPart = esNuevo && fEnv ? ' <i class="fa-solid fa-clock dictamen-countdown text-info small ms-1" data-fecha-envio="' + fEnv.replace(/"/g, '&quot;') + '" data-bs-toggle="tooltip" title="Calculando..."></i>' : '';
-                        vistoHtml = '<span class="d-inline-flex align-items-center gap-1 justify-content-end btn-dictamen-ojito" role="button" tabindex="0" data-bs-toggle="tooltip" data-bs-title="' + (tituloOjo + '').replace(/"/g, '&quot;') + '" data-id-ticket="' + (t.id_ticket || '') + '"><i class="fa ' + iconoOjo + ' text-info small"></i>' + countdownPart + '</span>';
+                        vistoHtml = '<span class="d-inline-flex align-items-center gap-1 justify-content-end btn-dictamen-ojito" role="button" tabindex="0" data-bs-toggle="tooltip" data-bs-title="' + (tituloOjo + '').replace(/"/g, '&quot;') + '" data-id-ticket="' + (t.id_ticket || '') + '"><i class="fa ' + iconoOjo + ' text-info small"></i></span>';
+                    }
+                    var tiempoVisitarHtml = '\u2014';
+                    var fEnv = (t.dictamen_fecha_envio || '').trim();
+                    var esNuevo = fEnv && new Date(fEnv) >= new Date('2026-03-09T00:00:00');
+                    if ((t.dictamen_estado || '') === 'enviado_al_gestor' && esNuevo && fEnv) {
+                        var envio = new Date(fEnv);
+                        var fin = new Date(envio.getTime() + 12 * 60 * 60 * 1000);
+                        var now = new Date();
+                        var ms = fin - now;
+                        var txtInicial = ms > 0 ? (Math.floor(ms / 3600000) + 'h ' + Math.floor((ms % 3600000) / 60000) + 'm') : 'Plazo vencido';
+                        tiempoVisitarHtml = '<span class="d-inline-flex align-items-center gap-1 dictamen-countdown cursor-pointer" role="button" tabindex="0" data-fecha-envio="' + fEnv.replace(/"/g, '&quot;') + '" data-id-ticket="' + (t.id_ticket || '') + '" data-bs-toggle="tooltip"><i class="fa-solid fa-clock text-info small"></i><span class="dictamen-countdown-text">' + txtInicial + '</span></span>';
                     }
                     var row = {
                         _fecha_creacion: (t.fecha_creacion || ''),
@@ -111,6 +124,7 @@
                         prioridad: prioridadBadge,
                         credito: '<small>#' + (t.id_credito != null ? t.id_credito : '\u2014') + '</small>',
                         fechas: '<div class="small d-flex align-items-center gap-1"><i class="fa fa-calendar-plus-o text-muted" style="width: 1rem;"></i><span>Creación: ' + fechaCreacion + '</span></div><div class="small text-muted d-flex align-items-center gap-1 mt-1"><i class="fa fa-calendar-times-o" style="width: 1rem;"></i><span>Vencimiento: ' + fechaVenc + '</span></div>',
+                        tiempo_visitar: tiempoVisitarHtml,
                         dictamen_visto: vistoHtml,
                         acciones: '',
                         _id_ticket: t.id_ticket,
@@ -164,9 +178,9 @@
         var id = $(this).attr('data-id-ticket') || $(this).data('id-ticket');
         if (id && window.abrirModalDetalleDictamen) window.abrirModalDetalleDictamen(parseInt(id, 10));
     });
-    $(document).on('click', '#tablaTickets .fa-eye, #tablaTickets .fa-eye-slash, #tablaTickets .fa-clock', function(e) {
+    $(document).on('click', '#tablaTickets .fa-eye, #tablaTickets .fa-eye-slash, #tablaTickets .fa-clock, #tablaTickets .dictamen-countdown', function(e) {
         e.stopPropagation();
-        var id = $(this).closest('tr').attr('data-id-ticket') || $(this).closest('tr').data('id-ticket');
+        var id = $(this).closest('tr').attr('data-id-ticket') || $(this).closest('[data-id-ticket]').attr('data-id-ticket') || $(this).closest('tr').data('id-ticket');
         if (id && window.abrirModalDetalleDictamen) window.abrirModalDetalleDictamen(parseInt(id, 10));
     });
     window.abrirModalDetalleDictamen = function(idTicket) {
@@ -213,6 +227,10 @@
                     $('#modalDetalleDictamenDomiciliosWrap').hide();
                 }
                 $('#modalDetalleDictamenEnviado').text(dm.fecha_actualizacion ? (new Date(dm.fecha_actualizacion).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })) : '\u2014');
+                var fechaEnvio = dm.fecha_actualizacion ? new Date(dm.fecha_actualizacion).getTime() : 0;
+                var pasaron12h = fechaEnvio > 0 && (Date.now() - fechaEnvio) > (12 * 60 * 60 * 1000);
+                var $nota12h = $('#modalDetalleDictamenNota12h span');
+                if ($nota12h.length) $nota12h.text(pasaron12h ? 'Ya transcurrieron sus 12 horas para visitar al cliente' : 'Vas a tener 12 horas para visitar al cliente');
                 $('#modalDetalleDictamenVisto').text((function(){
                     var dm2 = d.dictamen || {};
                     if (!dm2.fecha_visto_gestor) return 'No visto';

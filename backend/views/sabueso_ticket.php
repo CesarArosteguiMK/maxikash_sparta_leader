@@ -51,6 +51,7 @@
                     <th>Prioridad</th>
                     <th>Crédito</th>
                     <th>Fechas</th>
+                    <th>Tiempo para visitar</th>
                     <th></th>
                     <th>Acciones</th>
                 </tr>
@@ -175,7 +176,7 @@
                 </div>
             </div>
             <div class="modal-footer py-2">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"><i class="fa-solid fa-times me-1"></i>Cerrar</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
             </div>
         </div>
     </div>

@@ -671,6 +671,7 @@
                     <th>Fechas</th>
                     <th>Quién levantó</th>
                     <th>Asignado a</th>
+                    <th>Tiempo para visitar</th>
                     <th></th>
                     <th>Acciones</th>
                 </tr>
@@ -1065,7 +1066,7 @@
                 </div>
             </div>
             <div class="modal-footer py-2">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"><i class="fa-solid fa-times me-1"></i>Cerrar</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
             </div>
         </div>
     </div>
@@ -1769,7 +1770,7 @@
             });
             $('#tablaTicketsPanel [data-bs-toggle="tooltip"]').tooltip();
         });
-        $(document).on('click', '#tablaTicketsPanel .btn-dictamen-ojito, #tablaTicketsPanel .fa-eye, #tablaTicketsPanel .fa-eye-slash', function(e) {
+        $(document).on('click', '#tablaTicketsPanel .btn-dictamen-ojito, #tablaTicketsPanel .fa-eye, #tablaTicketsPanel .fa-eye-slash, #tablaTicketsPanel .dictamen-countdown', function(e) {
             e.preventDefault();
             e.stopPropagation();
             var id = $(this).closest('[data-id-ticket]').attr('data-id-ticket') || $(this).closest('tr').attr('data-id-ticket');
@@ -1819,6 +1820,10 @@
                         $('#modalDetalleDictamenDomiciliosWrap').hide();
                     }
                     $('#modalDetalleDictamenEnviado').text(dm.fecha_actualizacion ? (new Date(dm.fecha_actualizacion).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })) : '—');
+                    var fechaEnvio = dm.fecha_actualizacion ? new Date(dm.fecha_actualizacion).getTime() : 0;
+                    var pasaron12h = fechaEnvio > 0 && (Date.now() - fechaEnvio) > (12 * 60 * 60 * 1000);
+                    var nota12h = $('#modalDetalleDictamenNota12h span');
+                    if (nota12h.length) nota12h.text(pasaron12h ? 'Ya transcurrieron sus 12 horas para visitar al cliente' : 'Vas a tener 12 horas para visitar al cliente');
                     var vistoStr = dm.fecha_visto_gestor ? (new Date(dm.fecha_visto_gestor).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })) : '';
                     if (vistoStr && (dm.visto_gestor_nombre || '').trim()) vistoStr = 'Por ' + (dm.visto_gestor_nombre || '').trim() + ' el ' + vistoStr;
                     $('#modalDetalleDictamenVisto').text(vistoStr || 'No visto');
@@ -1918,6 +1923,185 @@
         });
     });
 })();
+</script>
+<!-- Modal Dictamen del Sistema -->
+<div class="modal fade" id="modalDictamenSistema" tabindex="-1" aria-labelledby="modalDictamenSistemaLabel" aria-hidden="true">
+<div class="modal-dialog modal-lg modal-dialog-scrollable">
+<div class="modal-content">
+    <div class="modal-header bg-warning bg-opacity-25 py-2">
+        <h6 class="modal-title" id="modalDictamenSistemaLabel"><i class="fa-solid fa-robot me-2"></i>Dictamen del Sistema</h6>
+        <button type="button" class="btn-close btn-close-sm" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+    </div>
+    <div class="modal-body" id="modalDictamenSistemaBody">
+        <div class="text-center py-4"><i class="fa-solid fa-spinner fa-spin fa-2x text-muted"></i></div>
+    </div>
+    <div class="modal-footer py-2">
+        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cerrar</button>
+        <button type="button" class="btn btn-warning btn-sm" id="btnGenerarDictamenSistema" style="display:none;" onclick="ejecutarDictamenSistema()">
+            <i class="fa-solid fa-robot me-1"></i>Generar dictamen del sistema
+        </button>
+    </div>
+</div>
+</div>
+</div>
+<script>
+var dictamenSistemaTicketId = 0;
+
+function abrirDictamenSistema(idTicket) {
+    dictamenSistemaTicketId = idTicket;
+    var body = document.getElementById('modalDictamenSistemaBody');
+    body.innerHTML = '<div class="text-center py-4"><i class="fa-solid fa-spinner fa-spin fa-2x text-muted"></i><p class="mt-2 text-muted">Consultando...</p></div>';
+    document.getElementById('btnGenerarDictamenSistema').style.display = 'none';
+    var modal = new bootstrap.Modal(document.getElementById('modalDictamenSistema'));
+    modal.show();
+
+    http.request({
+        method: 'POST',
+        endpoint: '/sabueso/getDictamenSistema',
+        body: { id_ticket: idTicket },
+        success: function(res) {
+            var ds = (res.datos || {}).dictamen_sistema;
+            if (!ds) {
+                body.innerHTML = '<div class="alert alert-info mb-0"><i class="fa-solid fa-circle-info me-1"></i>No se ha generado aún el dictamen del sistema para este ticket. Haga clic en <strong>Generar dictamen del sistema</strong> para iniciar la verificación automática.</div>';
+                document.getElementById('btnGenerarDictamenSistema').style.display = '';
+                return;
+            }
+            if (ds.resultado === 'pendiente') {
+                body.innerHTML = '<div class="alert alert-info mb-0"><i class="fa-solid fa-circle-info me-1"></i>El dictamen del sistema está pendiente. Haga clic en <strong>Generar</strong> para ejecutar la verificación.</div>';
+                document.getElementById('btnGenerarDictamenSistema').style.display = '';
+                return;
+            }
+            renderDictamenSistemaResultado(ds, body);
+        },
+        error: function() {
+            body.innerHTML = '<div class="alert alert-danger mb-0">Error al consultar el dictamen del sistema.</div>';
+        }
+    });
+}
+
+function ejecutarDictamenSistema() {
+    var body = document.getElementById('modalDictamenSistemaBody');
+    var btn = document.getElementById('btnGenerarDictamenSistema');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-1"></i>Procesando...';
+    body.innerHTML = '<div class="text-center py-4"><i class="fa-solid fa-gear fa-spin fa-2x text-warning"></i><p class="mt-2 text-muted">Analizando gestiones y calculando distancias...</p></div>';
+
+    http.request({
+        method: 'POST',
+        endpoint: '/sabueso/generarDictamenSistema',
+        body: { id_ticket: dictamenSistemaTicketId },
+        success: function(res) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-robot me-1"></i>Generar dictamen del sistema';
+            if (!res.success) {
+                body.innerHTML = '<div class="alert alert-danger mb-0"><i class="fa-solid fa-triangle-exclamation me-1"></i>' + (res.mensaje || 'Error desconocido') + '</div>';
+                btn.style.display = '';
+                return;
+            }
+            btn.style.display = 'none';
+            // Re-fetch to show full data
+            abrirDictamenSistema(dictamenSistemaTicketId);
+        },
+        error: function() {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-robot me-1"></i>Generar dictamen del sistema';
+            body.innerHTML = '<div class="alert alert-danger mb-0">Error de conexión al generar el dictamen.</div>';
+        }
+    });
+}
+
+function renderDictamenSistemaResultado(ds, body) {
+    var d = ds.detalle_parsed || {};
+    var resultadoClase = {
+        'no_visito': 'danger',
+        'visito_campo': 'success',
+        'visito_telefonico': 'warning',
+        'distancia_lejana': 'danger',
+        'sin_coordenadas': 'secondary'
+    };
+    var resultadoTexto = {
+        'no_visito': 'No visitó',
+        'visito_campo': 'Visitó (campo)',
+        'visito_telefonico': 'Gestión telefónica',
+        'distancia_lejana': 'Visitó pero lejos de la dirección',
+        'sin_coordenadas': 'Sin coordenadas para comparar'
+    };
+    var cls = resultadoClase[ds.resultado] || 'secondary';
+    var txt = resultadoTexto[ds.resultado] || ds.resultado;
+
+    var html = '<div class="mb-3">';
+    html += '<span class="badge bg-' + cls + ' fs-6 px-3 py-2"><i class="fa-solid fa-robot me-1"></i>' + txt + '</span>';
+    html += '</div>';
+
+    // Fecha de revisión
+    if (ds.fecha_revision) {
+        html += '<div class="small text-muted mb-2"><i class="fa-solid fa-calendar-check me-1"></i>Revisado el: <strong>' + new Date(ds.fecha_revision).toLocaleDateString('es-MX', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' }) + ' (CDMX)</strong></div>';
+    }
+
+    // Info gestiones
+    html += '<div class="card mb-3"><div class="card-body py-2 px-3">';
+    html += '<div class="row">';
+    html += '<div class="col-6"><span class="text-muted small">Gestiones al enviar dictamen</span><div class="fw-semibold">' + (d.gestiones_antes != null ? d.gestiones_antes : ds.gestiones_al_enviar) + '</div></div>';
+    html += '<div class="col-6"><span class="text-muted small">Gestiones al revisar</span><div class="fw-semibold">' + (d.gestiones_ahora != null ? d.gestiones_ahora : (ds.gestiones_al_revisar != null ? ds.gestiones_al_revisar : '—')) + '</div></div>';
+    html += '</div>';
+    if (d.nuevas_gestiones != null && d.nuevas_gestiones > 0) {
+        html += '<div class="mt-2 small text-info"><i class="fa-solid fa-plus-circle me-1"></i>Gestiones nuevas detectadas: <strong>' + d.nuevas_gestiones + '</strong></div>';
+    }
+    html += '</div></div>';
+
+    // Mensaje
+    if (d.mensaje) {
+        html += '<div class="alert alert-' + cls + ' py-2 small mb-3"><i class="fa-solid fa-circle-info me-1"></i>' + d.mensaje + '</div>';
+    }
+
+    // Gestor
+    if (ds.nombre_gestor) {
+        html += '<div class="small text-muted mb-2"><i class="fa-solid fa-user me-1"></i>Gestor: <strong>' + ds.nombre_gestor + '</strong></div>';
+    }
+
+    // Análisis detallado de nuevas gestiones
+    if (d.analisis && d.analisis.length > 0) {
+        html += '<h6 class="mt-3 mb-2"><i class="fa-solid fa-list-check me-1"></i>Detalle de gestiones nuevas</h6>';
+        for (var i = 0; i < d.analisis.length; i++) {
+            var a = d.analisis[i];
+            var tipoLabel = a.tipo === 'campo' ? '<span class="badge bg-success">Campo</span>' : (a.tipo === 'telefonico' ? '<span class="badge bg-info">Telefónico</span>' : '<span class="badge bg-secondary">' + a.tipo + '</span>');
+            html += '<div class="card mb-2 border-start border-3 border-' + (a.tipo === 'campo' ? 'success' : 'info') + '">';
+            html += '<div class="card-body py-2 px-3 small">';
+            html += '<div class="d-flex justify-content-between align-items-center mb-1">';
+            html += '<span><strong>Gestión #' + a.indice + '</strong> ' + tipoLabel + '</span>';
+            html += '<span class="text-muted">' + (a.fecha || '—') + '</span>';
+            html += '</div>';
+            if (a.usuario) {
+                html += '<div class="text-muted">Usuario: ' + a.usuario + '</div>';
+            }
+            if (a.distancias && a.distancias.length > 0) {
+                for (var j = 0; j < a.distancias.length; j++) {
+                    var dd = a.distancias[j];
+                    var distTxt = dd.distancia_metros < 1000 ? (dd.distancia_metros + ' metros') : ((dd.distancia_metros / 1000).toFixed(2) + ' km');
+                    var distCls = dd.distancia_metros < 100 ? 'text-success fw-bold' : 'text-danger';
+                    html += '<div class="mt-1"><i class="fa-solid fa-location-dot me-1"></i>' + (dd.direccion || 'Dirección del dictamen') + ': <span class="' + distCls + '">' + distTxt + '</span>';
+                    if (dd.distancia_metros < 100) html += ' <i class="fa-solid fa-check-circle text-success"></i>';
+                    html += '</div>';
+                }
+            }
+            if (a.nota) {
+                html += '<div class="text-warning mt-1"><i class="fa-solid fa-triangle-exclamation me-1"></i>' + a.nota + '</div>';
+            }
+            html += '</div></div>';
+        }
+    }
+
+    // Coordenadas del dictamen
+    if (d.coords_dictamen && d.coords_dictamen.length > 0) {
+        html += '<h6 class="mt-3 mb-2"><i class="fa-solid fa-map-pin me-1"></i>Direcciones del dictamen</h6>';
+        for (var k = 0; k < d.coords_dictamen.length; k++) {
+            var cd = d.coords_dictamen[k];
+            html += '<div class="small mb-1"><i class="fa-solid fa-location-dot text-primary me-1"></i>' + (cd.desc || '') + ' <span class="text-muted">(' + cd.lat + ', ' + cd.lng + ')</span></div>';
+        }
+    }
+
+    body.innerHTML = html;
+}
 </script>
 <script>
 (function() {
