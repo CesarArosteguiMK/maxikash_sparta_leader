@@ -24,12 +24,12 @@
  *
  * EJECUCIÓN EN MODO DE PRUEBAS (DRY-RUN):
  *
- * C:\xampp\php\php.exe insertar_moras_martes.php --dry-run
+ * & "C:\xampp\php\php.exe" ".\backend\cronjobs\insertar_moras_martes.php" --dry-run
  *
  *
  * EJECUCIÓN FORZADA (FORCE):
  *
- * C:\xampp\php\php.exe insertar_moras_martes.php
+ * & "C:\xampp\php\php.exe" ".\backend\cronjobs\insertar_moras_martes.php"
  */
 
 // ============================================
