@@ -60,6 +60,8 @@ class SpatialAnalyticsService
                 'distancia_m' => round($dist, 2),
                 'ultima_fecha' => $u['ultima_fecha'] ?? null,
                 'visitas_count' => (int) ($u['visitas_count'] ?? $u['cantidad_registros'] ?? 0),
+                'lat' => $lat,
+                'lng' => $lng,
             ];
         }
         return $out;

@@ -57,7 +57,7 @@ Si falla la LLM, se devuelve fallback mínimo; `evidencia` referencia ids de can
   "claims_no_soportados": []
 }
 ```
-Si falla la LLM: `motor_confidence < 10` → `suspected_test` true.  
+Si falla la LLM: `motor_confidence < 10` → `suspected_test` true.
 `enriquecerConEvidenciasPredictor(datosReales, resultadoMotor, prediccion_conductual, verificacion)` añade a `claims_no_soportados` las evidencias del predictor que no existan en datosReales/resultadoMotor.
 
 ### BehaviorPredictionService::predecirIntencionAcreditado(resultadoMotor, datosReales, historial_temporal)
@@ -83,7 +83,7 @@ Predictor **determinístico** (sin rand()). Predice evento futuro del acreditado
   "evidencias": ["p12", "g34", "u0"]
 }
 ```
-Valores posibles de `evento_probable`: `pago_proximo`, `retraso_pago`, `evasión_contacto`, `visita_domiciliaria_exitosa`, `visita_domiciliaria_fallida`, `cambio_ubicacion_habitual`, `insuficiente_datos`.  
+Valores posibles de `evento_probable`: `pago_proximo`, `retraso_pago`, `evasión_contacto`, `visita_domiciliaria_exitosa`, `visita_domiciliaria_fallida`, `cambio_ubicacion_habitual`, `insuficiente_datos`.
 Si datos insuficientes: `evento_probable: 'insuficiente_datos'`, `confianza_evento < 30`.
 
 ### SpatialAnalyticsService (analítica geoespacial, sin IA)
@@ -94,11 +94,11 @@ Si datos insuficientes: `evento_probable: 'insuficiente_datos'`, `confianza_even
 - `d = R·c` (R = 6 371 000 m)
 
 **Métodos:**
-- `calcularDistanciasCasa(ubicacionesUsuario, domicilio)` → `[ { distancia_m, lat, lng }, ... ]`
+- `calcularDistanciasCasa(ubicacionesUsuario, domicilio)` → `[ { distancia_m, lat, lng, id, label, ultima_fecha, visitas_count }, ... ]`
 - `ultimaUbicacionApp(eventosGPS, domicilio?)` → `{ lat, lng, timestamp, distancia_a_casa_m? }`
 - `aperturasUltimosDias(eventosGPS, dias=5)` → `{ total_aperturas, aperturas_por_ubicacion, ubicaciones_distintas, resumen_por_dia }`
 
-**Ejemplo entrada:** `ubicacionesUsuario` = `[ ['lat'=>19.43,'lng'=>-99.13], ... ]`, `domicilio` = `['lat'=>19.43,'lng'=>-99.13]`.  
+**Ejemplo entrada:** `ubicacionesUsuario` = `[ ['lat'=>19.43,'lng'=>-99.13], ... ]`, `domicilio` = `['lat'=>19.43,'lng'=>-99.13]`.
 **Ejemplo salida:** `distancias_a_casa: [ { distancia_m: 0, lat: 19.43, lng: -99.13 } ]`.
 
 ### TemporalPaymentsService (análisis temporal de pagos, sin IA)
@@ -221,12 +221,12 @@ La IA **solo interpreta** estos resultados (resúmenes, riesgos, recomendaciones
 
 ## Integración en Sabueso.php
 
-1. **analizarIA()**  
-   - Llama a `ejecutarPipelinePrediccion($idCredito, $idTicket)`.  
-   - Responde con `json_legacy` (mismo formato que el modal / Lectura IA).  
+1. **analizarIA()**
+   - Llama a `ejecutarPipelinePrediccion($idCredito, $idTicket)`.
+   - Responde con `json_legacy` (mismo formato que el modal / Lectura IA).
    - Si el pipeline lanza excepción, usa `fallbackAnalizarIA()`.
 
-2. **Flujo:**  
+2. **Flujo:**
    `prepararDatosParaMotor` → `LocationScoringService::calcularProbabilidadLocalizacion` → `ejecutarAnaliticasDeterministicas` (SpatialAnalytics, TemporalPayments, GestorCompliance) → (cache) → `IAInterpretationService::interpretar` → preparar datos reales → `IAVerificationService::verificar` → `BehaviorPredictionService::predecirIntencionAcreditado` → `enriquecerConEvidenciasPredictor` → cache set / audit log → combinar y devolver `predicciones_finales`, `prediccion_conductual`, `analitica_espacial`, `analitica_pagos`, `cumplimiento_gestor`, `confianza_global`, `plan_operativo`, `riesgos`, `trazabilidad` y `json_legacy`.
 
 3. **Resumen Ubicaciones IA:** `buildResultadoResumenUbicacionesLocal` incluye `analitica_espacial`, `analitica_pagos`, `cumplimiento_gestor`; `mergeResumenUbicacionesIALocal` los preserva en el JSON fusionado.
@@ -307,7 +307,7 @@ composer install
 php backend/services/ejemplo_uso_pipeline.php
 ```
 
-Tests: `backend/tests/Unit/Services/` (LocationScoringServiceTest, IAInterpretationServiceTest, IAVerificationServiceTest, PipelineOutputTest, BehaviorPredictionServiceTest, **SpatialAnalyticsServiceTest**, **TemporalPaymentsServiceTest**, **GestorComplianceServiceTest**).  
+Tests: `backend/tests/Unit/Services/` (LocationScoringServiceTest, IAInterpretationServiceTest, IAVerificationServiceTest, PipelineOutputTest, BehaviorPredictionServiceTest, **SpatialAnalyticsServiceTest**, **TemporalPaymentsServiceTest**, **GestorComplianceServiceTest**).
 Audit: `backend/storage/logs/location_audit.log` (hash_input, resultado_motor, prediccion_conductual summary, verif_result, timestamp). Cache: 24h por hash de input; incluye `prediccion_conductual`.
 
 ## Criterios de éxito
