@@ -230,6 +230,11 @@ function getMenu()
                                     'label' => 'Asignación de Créditos',
                                     'url' => '/Despachos/AsignacionCreditosDespacho',
                                     'modulos' => [20]
+                            ],
+                            [
+                                    'label' => 'Mi Gestión',
+                                    'url' => '/Despachos/MiGestion',
+                                    'modulos' => [20]
                             ]
                     ]
             ],

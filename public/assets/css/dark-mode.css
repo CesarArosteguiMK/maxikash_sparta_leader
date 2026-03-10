@@ -1318,6 +1318,15 @@ body.dark-mode .kpi-card:hover {
     background-color: #303030 !important;
 }
 
+/* ========================================== */
+/* FILTRO DE ESTADO (Mi Gestión - Despachos)  */
+/* ========================================== */
+body.dark-mode .filter-bar {
+    background: rgba(30, 41, 59, 0.88) !important;
+    border-color: #334155 !important;
+    color: #f1f5f9 !important;
+}
+
 /* Separador de KPIs */
 body.dark-mode .kpi-separator .line {
     background: linear-gradient(180deg, transparent, rgba(148, 163, 184, 0.4), transparent) !important;
