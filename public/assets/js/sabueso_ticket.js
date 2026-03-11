@@ -63,20 +63,22 @@
         }, 1000);
         $('#modalLevantarTicket').on('shown.bs.modal', function() { cargarCatalogosTicket(); });
         $(document).on('click', '#btnAbrirModalLevantarTicket', function() {
-            $('#modal_id_tipo_ticket, #modal_id_prioridad, #modal_id_origen_ticket').val('');
-            $('#modal_id_credito, #modal_descripcion_inicial').val('');
-            clearFechaVencimiento();
-            setButtonLevantarLoading(false);
-            enviandoTicket = false;
-            var el = document.getElementById('modalLevantarTicket');
-            if (el) {
-                if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
-                    var m = bootstrap.Modal.getOrCreateInstance(el);
-                    if (m) m.show();
-                } else if (typeof $ !== 'undefined' && $.fn.modal) {
-                    $('#modalLevantarTicket').modal('show');
+            intentarAbrirModalLevantarTicket(function() {
+                $('#modal_id_tipo_ticket, #modal_id_prioridad, #modal_id_origen_ticket').val('');
+                $('#modal_id_credito, #modal_descripcion_inicial').val('');
+                clearFechaVencimiento();
+                setButtonLevantarLoading(false);
+                enviandoTicket = false;
+                var el = document.getElementById('modalLevantarTicket');
+                if (el) {
+                    if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+                        var m = bootstrap.Modal.getOrCreateInstance(el);
+                        if (m) m.show();
+                    } else if (typeof $ !== 'undefined' && $.fn.modal) {
+                        $('#modalLevantarTicket').modal('show');
+                    }
                 }
-            }
+            });
         });
     });
 
@@ -424,15 +426,54 @@
     function usarCreditoEnTicket() {
         if (datosCreditoActual && (datosCreditoActual.id_credito || datosCreditoActual.Id_credito)) {
             var idCred = datosCreditoActual.id_credito || datosCreditoActual.Id_credito;
-            $('#modal_id_credito').val(idCred);
-            $('#modalDatosCredito').modal('hide');
-            var el = document.getElementById('modalLevantarTicket');
-            if (el && typeof bootstrap !== 'undefined' && bootstrap.Modal) {
-                bootstrap.Modal.getOrCreateInstance(el).show();
-            } else if (typeof $ !== 'undefined' && $.fn.modal) {
-                $('#modalLevantarTicket').modal('show');
-            }
+            intentarAbrirModalLevantarTicket(function() {
+                $('#modal_id_credito').val(idCred);
+                $('#modalDatosCredito').modal('hide');
+                var el = document.getElementById('modalLevantarTicket');
+                if (el && typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+                    bootstrap.Modal.getOrCreateInstance(el).show();
+                } else if (typeof $ !== 'undefined' && $.fn.modal) {
+                    $('#modalLevantarTicket').modal('show');
+                }
+            });
         }
+    }
+
+    /**
+     * Domingo 12:01 p.m. – Lunes 7:00 a.m. CDMX: no abrir modal; mensaje desde servidor.
+     */
+    function intentarAbrirModalLevantarTicket(abrirModal) {
+        if (typeof http === 'undefined' || typeof http.request !== 'function') {
+            if (typeof abrirModal === 'function') abrirModal();
+            return;
+        }
+        http.request({
+            endpoint: '/sabueso/ticketLevantarPermitido',
+            metodo: 'POST',
+            data: JSON.stringify({}),
+            contentType: 'application/json',
+            processData: false,
+            showLoader: false,
+            onSuccess: function(resp) {
+                if (resp && resp.permitido === false && resp.mensaje) {
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire({
+                            icon: 'info',
+                            title: 'Registro no disponible',
+                            html: '<p class="mb-0 text-start" style="line-height:1.5;">' + String(resp.mensaje).replace(/</g, '&lt;') + '</p>',
+                            confirmButtonText: 'Entendido'
+                        });
+                    } else {
+                        alert(resp.mensaje);
+                    }
+                    return;
+                }
+                if (typeof abrirModal === 'function') abrirModal();
+            },
+            onError: function() {
+                if (typeof abrirModal === 'function') abrirModal();
+            }
+        });
     }
     window.buscarCreditoModal = buscarCreditoModal;
     window.usarCreditoEnTicket = usarCreditoEnTicket;

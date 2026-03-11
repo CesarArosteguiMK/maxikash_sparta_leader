@@ -1391,7 +1391,7 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                 $detalle = json_encode([
                     'gestiones_antes' => $totalAntes,
                     'gestiones_ahora' => $totalAhora,
-                    'mensaje' => 'No se registraron nuevas gestiones después de enviar el dictamen.',
+                    'mensaje' => 'No se registraron nuevas gestiones después de enviar el dictamen. El conteo de gestiones históricas se mantuvo igual al momento del envío.',
                 ], JSON_UNESCAPED_UNICODE);
 
                 $db->CRUD(

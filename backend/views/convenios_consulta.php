@@ -542,14 +542,9 @@ function calcularBadgesOfertas(ofertas, credito) {
 function renderOfertas(ofertas) {
     const cont   = document.getElementById('ofertasContainer');
     const fmt    = v => '$' + parseFloat(v).toLocaleString('es-MX', { minimumFractionDigits: 2 });
-    const badges = calcularBadgesOfertas(ofertas, _credito);
 
     cont.innerHTML = ofertas.map((o, i) => {
         const icono    = OFERTA_ICONOS[o.id_producto] || '📋';
-        const meta     = badges[i];
-        const badgeHtml = meta
-            ? `<span class="badge-tipo ${meta.badge}">${meta.badgeLabel}</span>`
-            : '';
         const primerPago = o.pago_inicial === 'Si' && o.pago_inicial_monto
             ? fmt(o.pago_inicial_monto)
             : 'No requiere primer pago';
@@ -558,9 +553,8 @@ function renderOfertas(ofertas) {
             : `${o.periodo_inicio} a ${o.semanas_max} semanas`;
 
         return `
-        <div class="col-12 col-md-6 col-lg-4">
+        <div class="col-12 col-md-3">
             <div class="oferta-card" id="oferta-card-${i}" onclick="seleccionarOferta(${i})">
-                ${badgeHtml}
                 <div class="icono-oferta">${icono}</div>
                 <div class="titulo-oferta">${o.nombre}</div>
                 <div class="porcentaje">${parseInt(o.porcentaje_descuento)}%</div>

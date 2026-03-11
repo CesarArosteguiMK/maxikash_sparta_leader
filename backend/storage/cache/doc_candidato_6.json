@@ -1,1 +1,0 @@
-{"success":true,"mensaje":"OK","datos":{"documentos":[{"id":46,"id_candidato":6,"tipo_documento":"CURP","nombre_archivo":"CURP.pdf","ruta_archivo":"candidatos\/6\/expediente\/curp.pdf","fecha_carga":"2026-03-03 23:47:43","validado":1,"fecha_validado":"2026-03-05 01:16:07"}],"metricas":{"total_documentos":1,"documentos_requeridos":11,"porcentaje":9,"expediente_completo":false}}}
