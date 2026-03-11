@@ -2359,6 +2359,46 @@ JS;
     }
 
     /**
+     * Ventana cerrada: desde domingo 12:01 p.m. hasta lunes 7:00 a.m. (CDMX) no se puede levantar ticket.
+     * @return string|null null = permitido; string = mensaje para mostrar
+     */
+    private static function mensajeSiVentanaLevantarTicketCerrada(): ?string
+    {
+        try {
+            $tz = new \DateTimeZone('America/Mexico_City');
+            $now = new \DateTime('now', $tz);
+            $dow = (int) $now->format('N'); // 1=lunes … 7=domingo
+            $h = (int) $now->format('G');
+            $i = (int) $now->format('i');
+            $minutes = $h * 60 + $i;
+            // Domingo desde las 12:01 p.m. en adelante
+            if ($dow === 7 && $minutes >= 12 * 60 + 1) {
+                return 'En este momento el registro de tickets no está disponible. Por política operativa, el levantamiento se reanuda el lunes a las 7:00 a.m. (hora CDMX). Agradecemos su comprensión.';
+            }
+            // Lunes antes de las 7:00 a.m.
+            if ($dow === 1 && $minutes < 7 * 60) {
+                return 'En este momento el registro de tickets no está disponible. Podrá levantar nuevos tickets a partir de las 7:00 a.m. de hoy (hora CDMX). Gracias por su paciencia.';
+            }
+        } catch (\Exception $e) {
+            // Si falla zona horaria, no bloquear
+        }
+        return null;
+    }
+
+    /**
+     * API: indica si en este momento se permite levantar ticket (menú Ticket / modal).
+     */
+    public function ticketLevantarPermitido()
+    {
+        $msg = self::mensajeSiVentanaLevantarTicketCerrada();
+        self::respuestaJSON([
+            'success' => true,
+            'permitido' => $msg === null,
+            'mensaje' => $msg ?? ''
+        ]);
+    }
+
+    /**
      * API: catálogos para el modal Levantar ticket.
      */
     public function getCatalogosTicket()
@@ -2382,6 +2422,11 @@ JS;
         $idPersona = (int)($_SESSION['usuario_id'] ?? 0);
         if ($idPersona < 1) {
             self::respuestaJSON(['success' => false, 'mensaje' => 'Sesión inválida.']);
+            return;
+        }
+        $msgVentana = self::mensajeSiVentanaLevantarTicketCerrada();
+        if ($msgVentana !== null) {
+            self::respuestaJSON(['success' => false, 'mensaje' => $msgVentana]);
             return;
         }
         $idCredito = isset($datos['id_credito']) && $datos['id_credito'] !== '' && $datos['id_credito'] !== null
@@ -2431,6 +2476,11 @@ JS;
         if ($claveEsperada === '' || $apiKey !== $claveEsperada) {
             header('HTTP/1.0 401 Unauthorized');
             self::respuestaJSON(['success' => false, 'mensaje' => 'API key inválida o no enviada.']);
+            return;
+        }
+        $msgVentana = self::mensajeSiVentanaLevantarTicketCerrada();
+        if ($msgVentana !== null) {
+            self::respuestaJSON(['success' => false, 'mensaje' => $msgVentana]);
             return;
         }
 

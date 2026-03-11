@@ -48,6 +48,11 @@ backend/API/
 backend/storage/rate_limit/
 !backend/storage/rate_limit/.gitkeep
 
+# ========== Caché (geocode megareporte, etc.) — generada en runtime; evita conflictos add/add en pull ==========
+# Ignorar contenido pero no la carpeta (así .gitkeep sí se trackea; cache/ entero bloquearía el !)
+backend/storage/cache/*
+!backend/storage/cache/.gitkeep
+
 # ========== API Agente Segundómetro (no subir) ==========
 backend/services/segundometro-agent/
 
