@@ -227,6 +227,7 @@ $rutasModulos = [
     'sabueso/ticket' => [18], 'sabueso/paneladmin' => [19], 'sabueso/cerradoEliminado' => [19],
     'sabueso/guardardictamenborrador' => [19], 'sabueso/enviardictamengestor' => [19], 'sabueso/getdictamendetalle' => [18, 19], 'sabueso/marcardictamenvisto' => [18, 19], 'sabueso/getdictamenactualticket' => [19],
     'sabueso/subirevidenciaticket' => [19], 'sabueso/getevidenciasticket' => [19], 'sabueso/eliminarevidenciaticket' => [19], 'sabueso/verevidencia' => [18, 19],
+    'convenios/consulta' => [45], 'convenios/buscarcredito' => [45], 'convenios/getofertascredito' => [45], 'convenios/guardarconvenio' => [45], 'convenios/getconvenioactivo' => [45], 'convenios/descargarpdf' => [45],
     'despachos/asignacioncreditosdespacho' => [20], 'departamentos/consulta' => [10], 'equivalencias/consulta' => [17],
     'segundometro/shell' => [16],
     'onboarding/index' => [44],
