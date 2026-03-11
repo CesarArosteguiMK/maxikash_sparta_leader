@@ -19,7 +19,8 @@ class Ticket extends Model
             "tt.nombre AS tipo_ticket_nombre, et.nombre AS estado_ticket_nombre, pt.nombre AS prioridad_nombre, ot.nombre AS origen_nombre, " .
             "CONCAT(TRIM(IFNULL(p.nombres, '')), ' ', TRIM(IFNULL(p.apellidop, ''))) AS creador_nombre, " .
             "CONCAT(TRIM(IFNULL(pa.nombres, '')), ' ', TRIM(IFNULL(pa.apellidop, ''))) AS asignado_nombre, " .
-            "dm.dictamen_estado, dm.dictamen_fecha_visto, dm.dictamen_fecha_envio " .
+            "dm.dictamen_estado, dm.dictamen_fecha_visto, dm.dictamen_fecha_envio, " .
+            "dsm.ds_resultado, dsm.ds_detalle " .
             "FROM ticket t " .
             "INNER JOIN tipo_ticket tt ON t.id_tipo_ticket = tt.id_tipo_ticket " .
             "INNER JOIN estado_ticket et ON t.id_estado_ticket = et.id_estado_ticket " .
@@ -28,7 +29,8 @@ class Ticket extends Model
             "INNER JOIN persona p ON t.id_persona_creador = p.id " .
             "LEFT JOIN (SELECT at1.id_ticket, at1.id_persona_asignada FROM asignacion_ticket at1 INNER JOIN (SELECT id_ticket, MAX(fecha_asignacion) AS max_fecha FROM asignacion_ticket WHERE (activo = 1 OR activo IS NULL) GROUP BY id_ticket) at2 ON at1.id_ticket = at2.id_ticket AND at1.fecha_asignacion = at2.max_fecha WHERE (at1.activo = 1 OR at1.activo IS NULL)) at ON at.id_ticket = t.id_ticket " .
             "LEFT JOIN persona pa ON at.id_persona_asignada = pa.id " .
-            "LEFT JOIN (SELECT d.id_ticket, d.estado AS dictamen_estado, d.fecha_visto_gestor AS dictamen_fecha_visto, d.fecha_actualizacion AS dictamen_fecha_envio FROM dictamen d INNER JOIN (SELECT id_ticket, MAX(id) AS mid FROM dictamen GROUP BY id_ticket) mx ON d.id_ticket = mx.id_ticket AND d.id = mx.mid) dm ON dm.id_ticket = t.id_ticket ";
+            "LEFT JOIN (SELECT d.id_ticket, d.estado AS dictamen_estado, d.fecha_visto_gestor AS dictamen_fecha_visto, d.fecha_actualizacion AS dictamen_fecha_envio FROM dictamen d INNER JOIN (SELECT id_ticket, MAX(id) AS mid FROM dictamen GROUP BY id_ticket) mx ON d.id_ticket = mx.id_ticket AND d.id = mx.mid) dm ON dm.id_ticket = t.id_ticket " .
+            "LEFT JOIN (SELECT ds1.id_ticket, ds1.resultado AS ds_resultado, ds1.detalle AS ds_detalle FROM dictamen_sistema ds1 INNER JOIN (SELECT id_ticket, MAX(id) AS mid FROM dictamen_sistema GROUP BY id_ticket) dsmx ON ds1.id_ticket = dsmx.id_ticket AND ds1.id = dsmx.mid) dsm ON dsm.id_ticket = t.id_ticket ";
 
         $params = [];
         if ($soloDelUsuario) {
@@ -55,6 +57,39 @@ class Ticket extends Model
             try {
                 $rows = $db->queryAll($baseSelect . $where . $orderBy, $params);
                 $datos = is_array($rows) ? $rows : [];
+                foreach ($datos as &$row) {
+                    $row['prorroga_otorgada'] = false;
+                    $row['prorroga_activa'] = false;
+                    $row['prorroga_fecha_limite'] = null;
+                    $det = !empty($row['ds_detalle']) ? json_decode($row['ds_detalle'], true) : null;
+                    if (is_array($det) && isset($det['prorroga']) && is_array($det['prorroga'])) {
+                        $pr = $det['prorroga'];
+                        $row['prorroga_otorgada'] = !empty($pr['otorgada']);
+                        $row['prorroga_activa'] = !empty($pr['otorgada']) && empty($pr['evaluada']);
+                        $row['prorroga_fecha_limite'] = $pr['fecha_limite'] ?? null;
+                    }
+                    // HTML seguro para columnas DataTable (evita embeber HTML en el JS embebido de Sabueso.php)
+                    $dsRes = trim((string)($row['ds_resultado'] ?? ''));
+                    if ($dsRes === '') {
+                        $row['ds_resultado_html'] = '<span class="text-muted">—</span>';
+                    } else {
+                        $short = mb_strlen($dsRes) > 18 ? mb_substr($dsRes, 0, 16) . '…' : $dsRes;
+                        $row['ds_resultado_html'] = '<small class="text-break" title="' . htmlspecialchars($dsRes, ENT_QUOTES, 'UTF-8') . '">'
+                            . htmlspecialchars($short, ENT_QUOTES, 'UTF-8') . '</small>';
+                    }
+                    if (empty($row['prorroga_otorgada'])) {
+                        $row['prorroga_html'] = '<span class="text-muted">—</span>';
+                    } else {
+                        $activa = !empty($row['prorroga_activa']);
+                        $cls = $activa ? 'bg-warning text-dark' : 'bg-secondary';
+                        $txt = $activa ? 'Activa' : 'Usada';
+                        $tip = !empty($row['prorroga_fecha_limite']) ? 'Límite: ' . $row['prorroga_fecha_limite'] : 'Prórroga';
+                        $row['prorroga_html'] = '<span class="badge ' . htmlspecialchars($cls, ENT_QUOTES, 'UTF-8')
+                            . '" data-bs-toggle="tooltip" data-bs-title="' . htmlspecialchars($tip, ENT_QUOTES, 'UTF-8')
+                            . '">' . htmlspecialchars($txt, ENT_QUOTES, 'UTF-8') . '</span>';
+                    }
+                }
+                unset($row);
                 return self::resultado(true, 'Tickets encontrados.', $datos);
             } catch (\Exception $e) {
                 $lastException = $e;
@@ -1382,31 +1417,44 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                 return self::resultado(false, 'El ticket no tiene crédito asociado.');
             }
 
-            $gestionesAhora = Gestiones::getAllGestiones((string)$idCredito, '');
-            $totalAhora = is_array($gestionesAhora) ? count($gestionesAhora) : 0;
+            $detallePrev = !empty($ds['detalle']) ? json_decode($ds['detalle'], true) : [];
+            if (!is_array($detallePrev)) {
+                $detallePrev = [];
+            }
+            $prorrogaPrev = (isset($detallePrev['prorroga']) && is_array($detallePrev['prorroga'])) ? $detallePrev['prorroga'] : [];
+
+            $esRevisionProrroga = !empty($prorrogaPrev['otorgada']) && empty($prorrogaPrev['evaluada']);
+            $fechaInicioVentana = (string)($ds['fecha_envio_dictamen'] ?? '');
             $totalAntes = (int)($ds['gestiones_al_enviar'] ?? 0);
-
-            // Sin gestiones nuevas → No visitó
-            if ($totalAhora <= $totalAntes) {
-                $detalle = json_encode([
-                    'gestiones_antes' => $totalAntes,
-                    'gestiones_ahora' => $totalAhora,
-                    'mensaje' => 'No se registraron nuevas gestiones después de enviar el dictamen. El conteo de gestiones históricas se mantuvo igual al momento del envío.',
-                ], JSON_UNESCAPED_UNICODE);
-
-                $db->CRUD(
-                    "UPDATE dictamen_sistema SET gestiones_al_revisar = :ga, resultado = 'no_visito', detalle = :d, fecha_revision = :fr WHERE id = :id",
-                    ['ga' => $totalAhora, 'd' => $detalle, 'fr' => $now, 'id' => (int)$ds['id']]
-                );
-
-                return self::resultado(true, 'Dictamen del sistema generado.', [
-                    'resultado' => 'no_visito',
-                    'detalle' => json_decode($detalle, true),
-                ]);
+            if ($esRevisionProrroga) {
+                if (!empty($prorrogaPrev['fecha_otorgada'])) {
+                    $fechaInicioVentana = (string)$prorrogaPrev['fecha_otorgada'];
+                }
+                if (isset($prorrogaPrev['gestiones_al_otorgar'])) {
+                    $totalAntes = (int)$prorrogaPrev['gestiones_al_otorgar'];
+                }
             }
 
-            // Hay gestiones nuevas — analizar
-            $nuevas = array_slice($gestionesAhora, 0, $totalAhora - $totalAntes);
+            $inicioWinDt = new \DateTime($fechaInicioVentana !== '' ? $fechaInicioVentana : $now, $tz);
+            $finWinDt = clone $inicioWinDt;
+            $finWinDt->modify('+12 hours');
+            $fechaInicioWin = $inicioWinDt->format('Y-m-d H:i:s');
+            $fechaFinWin = $finWinDt->format('Y-m-d H:i:s');
+            $nowTs = (new \DateTime($now, $tz))->getTimestamp();
+            if ($nowTs < $finWinDt->getTimestamp()) {
+                $rest = max(0, $finWinDt->getTimestamp() - $nowTs);
+                $h = floor($rest / 3600);
+                $m = floor(($rest % 3600) / 60);
+                $tipo = $esRevisionProrroga ? 'la prórroga' : 'la ventana inicial';
+                return self::resultado(false, 'Aún no vence ' . $tipo . ' de 12 horas. Restante aproximado: ' . $h . 'h ' . $m . 'm.');
+            }
+
+            $pagosEnVentana = self::getPagosEstadoCuentaEnVentana($idCredito, $fechaInicioWin, $fechaFinWin);
+            $hayPagoEnVentana = !empty($pagosEnVentana);
+
+            $gestionesAhora = Gestiones::getAllGestiones((string)$idCredito, '');
+            $totalAhora = is_array($gestionesAhora) ? count($gestionesAhora) : 0;
+            $nuevas = $totalAhora > $totalAntes ? array_slice($gestionesAhora, 0, $totalAhora - $totalAntes) : [];
 
             // Obtener coordenadas del dictamen (direcciones proporcionadas)
             $dictamenRow = $db->queryOne(
@@ -1419,6 +1467,14 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
             $visitoCampo = false;
             $visitoTelefonico = false;
             $sinCoordenadas = true;
+            $coberturaDirecciones = [];
+            foreach ($coordsDictamen as $ix => $cd) {
+                $coberturaDirecciones[$ix] = [
+                    'direccion' => $cd['desc'] ?? ('Dirección ' . ($ix + 1)),
+                    'visitada' => false,
+                    'min_distancia_metros' => null,
+                ];
+            }
 
             foreach ($nuevas as $idx => $g) {
                 $latG = self::toFloat($g['latitud'] ?? null);
@@ -1453,17 +1509,29 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
 
                 if ($tieneCoords && !empty($coordsDictamen)) {
                     $sinCoordenadas = false;
-                    foreach ($coordsDictamen as $cd) {
+                    foreach ($coordsDictamen as $ix => $cd) {
                         $dist = self::haversine($latG, $lngG, $cd['lat'], $cd['lng']);
+                        $distRed = (int)round($dist);
                         $gestionAnalisis['distancias'][] = [
                             'direccion' => $cd['desc'],
                             'lat_dictamen' => $cd['lat'],
                             'lng_dictamen' => $cd['lng'],
-                            'distancia_metros' => round($dist),
+                            'distancia_metros' => $distRed,
                         ];
                         if ($dist < 100) {
-                            if ($esCampo) $visitoCampo = true;
+                            if ($esCampo) {
+                                $visitoCampo = true;
+                                if (isset($coberturaDirecciones[$ix])) {
+                                    $coberturaDirecciones[$ix]['visitada'] = true;
+                                }
+                            }
                             if ($esTelefonico) $visitoTelefonico = true;
+                        }
+                        if (isset($coberturaDirecciones[$ix])) {
+                            $minPrev = $coberturaDirecciones[$ix]['min_distancia_metros'];
+                            if ($minPrev === null || $distRed < $minPrev) {
+                                $coberturaDirecciones[$ix]['min_distancia_metros'] = $distRed;
+                            }
                         }
                     }
                 } elseif (!$tieneCoords) {
@@ -1473,47 +1541,307 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                 $analisis[] = $gestionAnalisis;
             }
 
-            // Determinar resultado final
-            $resultado = 'no_visito';
+            $direccionesTotal = count($coberturaDirecciones);
+            $direccionesVisitadas = 0;
+            foreach ($coberturaDirecciones as $cd) {
+                if (!empty($cd['visitada'])) {
+                    $direccionesVisitadas++;
+                }
+            }
+            $visitoTodasDirecciones = $direccionesTotal > 0 && $direccionesVisitadas === $direccionesTotal;
+            $visitaParcialDirecciones = $direccionesTotal > 0 && $direccionesVisitadas > 0 && !$visitoTodasDirecciones;
+
+            // Determinar resultado base por GPS/gestión
+            $resultadoBase = 'no_visito';
             $mensajeFinal = '';
-            if ($visitoCampo) {
-                $resultado = 'visito_campo';
-                $mensajeFinal = 'El gestor realizó visita de campo dentro del rango de 100 metros de las direcciones del dictamen.';
+            if (count($nuevas) <= 0) {
+                $resultadoBase = 'no_visito';
+                $mensajeFinal = 'No se registraron nuevas gestiones después de la ventana evaluada.';
+            } elseif ($visitoCampo && $visitoTodasDirecciones) {
+                $resultadoBase = 'visito_todas_direcciones';
+                $mensajeFinal = 'El gestor realizó visita de campo y cubrió todas las direcciones del dictamen.';
+            } elseif ($visitoCampo && $visitaParcialDirecciones) {
+                $resultadoBase = 'visita_parcial';
+                $mensajeFinal = 'El gestor realizó visita de campo, pero solo cubrió parcialmente las direcciones del dictamen.';
+            } elseif ($visitoCampo) {
+                $resultadoBase = 'visito_campo';
+                $mensajeFinal = 'El gestor realizó visita de campo dentro del rango permitido.';
             } elseif ($visitoTelefonico) {
-                $resultado = 'visito_telefonico';
-                $mensajeFinal = 'El gestor registró gestión telefónica, pero no se detectó visita de campo. Se encontraron nuevas gestiones con tipo telefónico.';
+                $resultadoBase = 'visito_telefonico';
+                $mensajeFinal = 'El gestor registró gestión telefónica, pero no se detectó visita de campo.';
             } elseif ($sinCoordenadas && empty($coordsDictamen)) {
-                $resultado = 'sin_coordenadas';
+                $resultadoBase = 'sin_coordenadas';
                 $mensajeFinal = 'No fue posible comparar: no se encontraron coordenadas en las direcciones del dictamen.';
             } elseif ($sinCoordenadas) {
-                $resultado = 'sin_coordenadas';
+                $resultadoBase = 'sin_coordenadas';
                 $mensajeFinal = 'Las nuevas gestiones no tienen coordenadas GPS para comparar.';
             } else {
                 $mensajeFinal = 'Se registraron nuevas gestiones pero ninguna estuvo a menos de 100 metros de las direcciones del dictamen.';
-                $resultado = 'distancia_lejana';
+                $resultadoBase = 'distancia_lejana';
             }
 
-            $detalle = json_encode([
+            // Regla negocio:
+            // - Si hay pago dentro de las 12h => cumplido aunque no cubra todas las direcciones.
+            // - Si no hay pago => cumple si cubrió todas las direcciones.
+            $resultadoFinal = $resultadoBase;
+            if ($hayPagoEnVentana) {
+                $resultadoFinal = 'cumplido_pago';
+            } elseif ($visitoTodasDirecciones) {
+                $resultadoFinal = 'cumplido_sin_pago_todas_direcciones';
+            }
+
+            if ($esRevisionProrroga) {
+                $prorrogaPrev['evaluada'] = true;
+                $prorrogaPrev['fecha_revision'] = $now;
+                $prorrogaPrev['resultado_base'] = $resultadoBase;
+                $prorrogaPrev['resultado_final'] = $resultadoFinal;
+                $resultadoFinal = ($resultadoFinal === 'cumplido_pago' || $resultadoFinal === 'cumplido_sin_pago_todas_direcciones')
+                    ? 'cumplio_prorroga'
+                    : 'no_cumplio_prorroga';
+            }
+
+            $cmp = self::cumplimientoMetadatos($resultadoFinal);
+            $detalleBase = [
                 'gestiones_antes'  => $totalAntes,
                 'gestiones_ahora'  => $totalAhora,
                 'nuevas_gestiones' => count($nuevas),
                 'coords_dictamen'  => $coordsDictamen,
                 'analisis'         => $analisis,
                 'mensaje'          => $mensajeFinal,
-            ], JSON_UNESCAPED_UNICODE);
+                'resultado_base'   => $resultadoBase,
+                'ventana_revision' => [
+                    'inicio' => $fechaInicioWin,
+                    'fin' => $fechaFinWin,
+                    'tipo' => $esRevisionProrroga ? 'prorroga_12h' : 'inicial_12h',
+                ],
+                'pago_en_ventana' => $hayPagoEnVentana,
+                'pagos_en_ventana' => $pagosEnVentana,
+                'direcciones_dictamen_total' => $direccionesTotal,
+                'direcciones_visitadas' => $direccionesVisitadas,
+                'visito_todas_direcciones' => $visitoTodasDirecciones,
+                'visita_parcial_direcciones' => $visitaParcialDirecciones,
+                'cobertura_direcciones' => array_values($coberturaDirecciones),
+            ];
+            if (!empty($prorrogaPrev)) {
+                $detalleBase['prorroga'] = $prorrogaPrev;
+            }
+            $detalle = json_encode(array_merge($detalleBase, $cmp), JSON_UNESCAPED_UNICODE);
 
             $db->CRUD(
                 "UPDATE dictamen_sistema SET gestiones_al_revisar = :ga, resultado = :res, detalle = :d, fecha_revision = :fr WHERE id = :id",
-                ['ga' => $totalAhora, 'res' => $resultado, 'd' => $detalle, 'fr' => $now, 'id' => (int)$ds['id']]
+                ['ga' => $totalAhora, 'res' => $resultadoFinal, 'd' => $detalle, 'fr' => $now, 'id' => (int)$ds['id']]
             );
 
             return self::resultado(true, 'Dictamen del sistema generado.', [
-                'resultado' => $resultado,
+                'resultado' => $resultadoFinal,
                 'detalle' => json_decode($detalle, true),
             ]);
         } catch (\Exception $e) {
             return self::resultado(false, 'Error al generar dictamen del sistema.', null, $e->getMessage());
         }
+    }
+
+    /**
+     * Prórroga única de 12 horas para tickets no cumplidos y sin pago dentro de las 12h.
+     */
+    public static function otorgarProrrogaDictamenSistema(int $idTicket, int $idPersonaOtorga = 0, string $nombreOtorga = ''): array
+    {
+        if ($idTicket < 1) {
+            return self::resultado(false, 'ID de ticket inválido.');
+        }
+        try {
+            $db = new Database();
+            $tz = new \DateTimeZone('America/Mexico_City');
+            $nowDt = new \DateTime('now', $tz);
+            $now = $nowDt->format('Y-m-d H:i:s');
+            $limite = (clone $nowDt)->modify('+12 hours')->format('Y-m-d H:i:s');
+
+            $ds = $db->queryOne(
+                "SELECT * FROM dictamen_sistema WHERE id_ticket = :tid ORDER BY id DESC LIMIT 1",
+                ['tid' => $idTicket]
+            );
+            if (!$ds) {
+                return self::resultado(false, 'No existe dictamen del sistema para este ticket.');
+            }
+            if ((string)($ds['resultado'] ?? '') === 'pendiente') {
+                return self::resultado(false, 'Debe generar primero el dictamen del sistema inicial.');
+            }
+
+            $detalle = !empty($ds['detalle']) ? json_decode($ds['detalle'], true) : [];
+            if (!is_array($detalle)) {
+                $detalle = [];
+            }
+            $pr = (isset($detalle['prorroga']) && is_array($detalle['prorroga'])) ? $detalle['prorroga'] : [];
+            if (!empty($pr['otorgada'])) {
+                return self::resultado(false, 'Este ticket ya tiene prórroga otorgada (solo una vez).');
+            }
+            if (!empty($detalle['pago_en_ventana']) || !empty($detalle['visito_todas_direcciones'])) {
+                return self::resultado(false, 'No aplica prórroga: el ticket ya cumple.');
+            }
+
+            $idCredito = (int)($ds['id_credito'] ?? 0);
+            $gestionesAhora = $idCredito > 0 ? Gestiones::getAllGestiones((string)$idCredito, '') : [];
+            $gNow = is_array($gestionesAhora) ? count($gestionesAhora) : 0;
+
+            $detalle['prorroga'] = [
+                'otorgada' => true,
+                'fecha_otorgada' => $now,
+                'fecha_limite' => $limite,
+                'id_persona_otorga' => $idPersonaOtorga > 0 ? $idPersonaOtorga : null,
+                'nombre_otorga' => $nombreOtorga !== '' ? $nombreOtorga : null,
+                'gestiones_al_otorgar' => $gNow,
+                'evaluada' => false,
+                'nota' => 'Prórroga única de 12 horas para completar direcciones pendientes o validar pago.',
+            ];
+            $detalle = array_merge($detalle, self::cumplimientoMetadatos('prorroga_activa'));
+            $detalleJson = json_encode($detalle, JSON_UNESCAPED_UNICODE);
+
+            $db->CRUD(
+                "UPDATE dictamen_sistema SET resultado = 'prorroga_activa', detalle = :d, gestiones_al_enviar = :g, fecha_revision = NULL WHERE id = :id",
+                ['d' => $detalleJson, 'g' => $gNow, 'id' => (int)$ds['id']]
+            );
+
+            return self::resultado(true, 'Prórroga otorgada por 12 horas.', [
+                'resultado' => 'prorroga_activa',
+                'detalle' => $detalle,
+            ]);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al otorgar prórroga.', null, $e->getMessage());
+        }
+    }
+
+    /**
+     * Consulta pagos en estado de cuenta dentro de una ventana (12 h).
+     */
+    private static function getPagosEstadoCuentaEnVentana(int $idCredito, string $inicio, string $fin): array
+    {
+        if ($idCredito < 1 || $inicio === '' || $fin === '') {
+            return [];
+        }
+        try {
+            $tz = new \DateTimeZone('America/Mexico_City');
+            $iniTs = (new \DateTime($inicio, $tz))->getTimestamp();
+            $finTs = (new \DateTime($fin, $tz))->getTimestamp();
+            if ($finTs < $iniTs) {
+                return [];
+            }
+            $estadoCuentaCtrl = new \Controllers\EstadoCuenta();
+            $resEstado = $estadoCuentaCtrl->api___SPARTA_SECRET_REDACTED__($idCredito, date('Y-m-d'));
+            $pagos = $resEstado['data']['datosPagos'] ?? [];
+            if (empty($resEstado['ok']) || !is_array($pagos)) {
+                return [];
+            }
+            $out = [];
+            foreach ($pagos as $p) {
+                $raw = $p['fechaDeposito'] ?? $p['fechaRegistro'] ?? $p['fechaValor'] ?? null;
+                if ($raw === null || $raw === '') {
+                    continue;
+                }
+                $ts = is_numeric($raw) ? (int)$raw : strtotime((string)$raw);
+                if (!$ts) {
+                    continue;
+                }
+                $isDentro = ($ts >= $iniTs && $ts <= $finTs);
+                if (!$isDentro) {
+                    $fechaRaw = date('Y-m-d', $ts);
+                    $fechaIni = date('Y-m-d', $iniTs);
+                    $fechaFin = date('Y-m-d', $finTs);
+                    $isDentro = ($fechaRaw >= $fechaIni && $fechaRaw <= $fechaFin);
+                }
+                if ($isDentro) {
+                    $out[] = [
+                        'fecha' => date('Y-m-d H:i:s', $ts),
+                        'monto' => $p['montoPago'] ?? null,
+                        'referencia' => $p['referencia'] ?? ($p['descripcion'] ?? null),
+                    ];
+                }
+            }
+            return $out;
+        } catch (\Throwable $e) {
+            return [];
+        }
+    }
+
+    /**
+     * Reglas de cumplimiento: % efectividad y medidas preventivas según resultado del dictamen sistema.
+     * Cumplir = visita en campo cerca de direcciones del dictamen; si no hay pago en estado de cuenta
+     * habría que exigir cobertura de todas las direcciones (la verificación de pago se puede integrar después).
+     */
+    public static function cumplimientoMetadatos(?string $resultado): array
+    {
+        $r = $resultado ?? 'pendiente';
+        $map = [
+            'pendiente' => [
+                'pct_efectividad' => null,
+                'cumplimiento_etiqueta' => 'Pendiente',
+                'medidas_preventivas' => 'Esperar 12 h y generar dictamen del sistema. Si hay pago en estado de cuenta alineado con la visita, considerar cumplido además del GPS.',
+            ],
+            'prorroga_activa' => [
+                'pct_efectividad' => null,
+                'cumplimiento_etiqueta' => 'Prórroga activa',
+                'medidas_preventivas' => 'Prórroga otorgada (12 h). Al vencer, generar de nuevo el dictamen del sistema para obtener el resultado final de prórroga.',
+            ],
+            'cumplido_pago' => [
+                'pct_efectividad' => 100,
+                'cumplimiento_etiqueta' => 'Cumplido por pago',
+                'medidas_preventivas' => 'Hay pago en estado de cuenta dentro de las 12h; se considera cumplido aunque no haya cobertura total de direcciones.',
+            ],
+            'cumplido_sin_pago_todas_direcciones' => [
+                'pct_efectividad' => 95,
+                'cumplimiento_etiqueta' => 'Cumplido por cobertura total',
+                'medidas_preventivas' => 'Sin pago dentro de las 12h, pero sí cubrió todas las direcciones del dictamen con visita de campo.',
+            ],
+            'visito_todas_direcciones' => [
+                'pct_efectividad' => 95,
+                'cumplimiento_etiqueta' => 'Visitó todas direcciones',
+                'medidas_preventivas' => 'Validar pago en estado de cuenta. Si no pagó, se mantiene cumplimiento por cobertura total.',
+            ],
+            'visita_parcial' => [
+                'pct_efectividad' => 60,
+                'cumplimiento_etiqueta' => 'Visita parcial',
+                'medidas_preventivas' => 'Solo cubrió parte de direcciones. Si no hay pago dentro de las 12h, evaluar prórroga única.',
+            ],
+            'cumplio_prorroga' => [
+                'pct_efectividad' => 90,
+                'cumplimiento_etiqueta' => 'Cumplió en prórroga',
+                'medidas_preventivas' => 'Resultado final tras prórroga: cumplió por pago dentro de las 12h o por cobertura total.',
+            ],
+            'no_cumplio_prorroga' => [
+                'pct_efectividad' => 20,
+                'cumplimiento_etiqueta' => 'No cumplió prórroga',
+                'medidas_preventivas' => 'Prórroga agotada sin cumplimiento. Escalar seguimiento y cerrar por política operativa.',
+            ],
+            'no_visito' => [
+                'pct_efectividad' => 0,
+                'cumplimiento_etiqueta' => 'No visito', // sin acento: texto único en tablas/modales
+                'medidas_preventivas' => 'Capacitación a gestor; revisar asignación y seguimiento. Verificar en estado de cuenta si hubo pago pese a no registrar gestión nueva.',
+            ],
+            'visito_campo' => [
+                'pct_efectividad' => 100,
+                'cumplimiento_etiqueta' => 'Visita campo OK',
+                'medidas_preventivas' => 'Confirmar en estado de cuenta si hubo pago en fecha coherente. Si pagó → cumplimiento alto. Si no pagó, validar que haya cubierto todas las direcciones del dictamen.',
+            ],
+            'visito_telefonico' => [
+                'pct_efectividad' => 55,
+                'cumplimiento_etiqueta' => 'Solo telefónico',
+                'medidas_preventivas' => 'Refuerzo: priorizar visita física a direcciones del dictamen. Revisar si el crédito pagó; si no, plan de visita a todas las ubicaciones enviadas.',
+            ],
+            'sin_coordenadas' => [
+                'pct_efectividad' => 30,
+                'cumplimiento_etiqueta' => 'Sin GPS',
+                'medidas_preventivas' => 'Exigir coordenadas en dictamen y en gestiones. Revisión manual de estado de cuenta y visitas declaradas.',
+            ],
+            'distancia_lejana' => [
+                'pct_efectividad' => 25,
+                'cumplimiento_etiqueta' => 'Lejos de dirección',
+                'medidas_preventivas' => 'Gestor debe acercarse a menos de 100 m de cada punto del dictamen o justificar. Sin pago: verificar cobertura de todas las direcciones.',
+            ],
+        ];
+        return $map[$r] ?? [
+            'pct_efectividad' => 40,
+            'cumplimiento_etiqueta' => $r,
+            'medidas_preventivas' => 'Revisar detalle JSON del dictamen sistema y estado de cuenta.',
+        ];
     }
 
     /**
@@ -1534,6 +1862,33 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                 return self::resultado(true, 'No hay dictamen del sistema.', ['dictamen_sistema' => null]);
             }
             $ds['detalle_parsed'] = !empty($ds['detalle']) ? json_decode($ds['detalle'], true) : null;
+            // Prórroga vencida: generar automáticamente una vez (sin botón; generarDictamenSistema ya valida ventana)
+            if (($ds['resultado'] ?? '') === 'prorroga_activa' && is_array($ds['detalle_parsed'])) {
+                $pr = $ds['detalle_parsed']['prorroga'] ?? null;
+                $limite = is_array($pr) ? ($pr['fecha_limite'] ?? '') : '';
+                if ($limite !== '') {
+                    try {
+                        $tz = new \DateTimeZone('America/Mexico_City');
+                        $finPr = (new \DateTime($limite, $tz))->getTimestamp();
+                        $nowTs = (new \DateTime('now', $tz))->getTimestamp();
+                        if ($nowTs >= $finPr) {
+                            $gen = self::generarDictamenSistema($idTicket);
+                            if (!empty($gen['success'])) {
+                                $dsNuevo = $db->queryOne(
+                                    "SELECT * FROM dictamen_sistema WHERE id_ticket = :tid ORDER BY id DESC LIMIT 1",
+                                    ['tid' => $idTicket]
+                                );
+                                if ($dsNuevo) {
+                                    $dsNuevo['detalle_parsed'] = !empty($dsNuevo['detalle']) ? json_decode($dsNuevo['detalle'], true) : null;
+                                    $ds = $dsNuevo;
+                                }
+                            }
+                        }
+                    } catch (\Throwable $e) {
+                        // si falla parseo o generar, devolver ds actual
+                    }
+                }
+            }
             return self::resultado(true, 'OK', ['dictamen_sistema' => $ds]);
         } catch (\Exception $e) {
             return self::resultado(false, 'Error al obtener dictamen del sistema.', null, $e->getMessage());
@@ -1609,6 +1964,892 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
         if ($val === null || $val === '') return null;
         $v = (float)trim((string)$val);
         return $v;
+    }
+
+    /**
+     * Estadísticas agregadas de tickets (solo lectura): conteos por periodo, tiempos de revisión Sabueso y de visto por gestor.
+     * Responde preguntas del tipo: cuántos por día/semana/mes/año, quién gestionó/asignó, tiempos hasta dictamen y hasta visto.
+     */
+    /**
+     * @param array $options Opcional: detalle_limit (int) — filas máx. en detalle_timings (default 80; p.ej. 2000 para Excel).
+     */
+    public static function getEstadisticasTickets(array $options = []): array
+    {
+        $db = new Database();
+        $detalleLimit = (int)($options['detalle_limit'] ?? 80);
+        if ($detalleLimit < 1) {
+            $detalleLimit = 80;
+        }
+        if ($detalleLimit > 5000) {
+            $detalleLimit = 5000;
+        }
+        $whereActivo = '(t.activo = 1 OR t.activo IS NULL) AND (t.fecha_eliminacion IS NULL)';
+        $out = [
+            'success' => true,
+            'mensaje' => 'OK',
+            'totales' => ['tickets_activos' => 0, 'con_dictamen_enviado' => 0, 'con_dictamen_visto' => 0],
+            'por_dia' => [],
+            'por_semana' => [],
+            'por_mes' => [],
+            'por_anio' => [],
+            'tiempos_sabueso_segundos' => null,
+            'tiempos_gestor_segundos' => null,
+            'detalle_timings' => [],
+            'por_sabueso' => [],
+            'por_gestor_lectura' => [],
+            'kpis_extra' => [],
+        ];
+
+        try {
+            $row = $db->queryOne("SELECT COUNT(*) AS c FROM ticket t WHERE $whereActivo");
+            $out['totales']['tickets_activos'] = (int)($row['c'] ?? 0);
+        } catch (\Exception $e) {
+            $out['success'] = false;
+            $out['mensaje'] = $e->getMessage();
+            return $out;
+        }
+
+        // Conteos por día (últimos 90 días)
+        try {
+            $rows = $db->queryAll(
+                "SELECT DATE(t.fecha_creacion) AS periodo, COUNT(*) AS n FROM ticket t " .
+                "WHERE $whereActivo AND t.fecha_creacion >= DATE_SUB(CURDATE(), INTERVAL 90 DAY) " .
+                "GROUP BY DATE(t.fecha_creacion) ORDER BY periodo DESC"
+            );
+            $out['por_dia'] = is_array($rows) ? $rows : [];
+        } catch (\Exception $e) {
+            $out['por_dia'] = [];
+        }
+
+        // Por semana (año-semana ISO aproximado)
+        try {
+            $rows = $db->queryAll(
+                "SELECT YEARWEEK(t.fecha_creacion, 1) AS periodo, COUNT(*) AS n FROM ticket t " .
+                "WHERE $whereActivo AND t.fecha_creacion >= DATE_SUB(CURDATE(), INTERVAL 365 DAY) " .
+                "GROUP BY YEARWEEK(t.fecha_creacion, 1) ORDER BY periodo DESC LIMIT 52"
+            );
+            $out['por_semana'] = is_array($rows) ? $rows : [];
+        } catch (\Exception $e) {
+            $out['por_semana'] = [];
+        }
+
+        // Por mes
+        try {
+            $rows = $db->queryAll(
+                "SELECT DATE_FORMAT(t.fecha_creacion, '%Y-%m') AS periodo, COUNT(*) AS n FROM ticket t " .
+                "WHERE $whereActivo GROUP BY DATE_FORMAT(t.fecha_creacion, '%Y-%m') ORDER BY periodo DESC LIMIT 36"
+            );
+            $out['por_mes'] = is_array($rows) ? $rows : [];
+        } catch (\Exception $e) {
+            $out['por_mes'] = [];
+        }
+
+        // Por año
+        try {
+            $rows = $db->queryAll(
+                "SELECT YEAR(t.fecha_creacion) AS periodo, COUNT(*) AS n FROM ticket t " .
+                "WHERE $whereActivo GROUP BY YEAR(t.fecha_creacion) ORDER BY periodo DESC"
+            );
+            $out['por_anio'] = is_array($rows) ? $rows : [];
+        } catch (\Exception $e) {
+            $out['por_anio'] = [];
+        }
+
+        // Dictamen enviado / visto (sobre tickets activos que tienen dictamen)
+        try {
+            $row = $db->queryOne(
+                "SELECT COUNT(DISTINCT d.id_ticket) AS c FROM dictamen d " .
+                "INNER JOIN ticket t ON t.id_ticket = d.id_ticket AND $whereActivo " .
+                "WHERE d.estado = 'enviado_al_gestor'"
+            );
+            $out['totales']['con_dictamen_enviado'] = (int)($row['c'] ?? 0);
+        } catch (\Exception $e) {
+            // ignorar
+        }
+        try {
+            $row = $db->queryOne(
+                "SELECT COUNT(DISTINCT d.id_ticket) AS c FROM dictamen d " .
+                "INNER JOIN ticket t ON t.id_ticket = d.id_ticket AND $whereActivo " .
+                "WHERE d.estado = 'enviado_al_gestor' AND d.fecha_visto_gestor IS NOT NULL"
+            );
+            $out['totales']['con_dictamen_visto'] = (int)($row['c'] ?? 0);
+        } catch (\Exception $e) {
+            // ignorar
+        }
+
+        // Tiempo Sabueso: desde primera asignación en asignacion_ticket hasta fecha_actualizacion del dictamen
+        // enviado al gestor (un solo dictamen por ticket: el de mayor fecha_actualizacion en estado enviado).
+        try {
+            $sqlSabueso = "
+                SELECT AVG(TIMESTAMPDIFF(SECOND, at.min_fa, d.fecha_actualizacion)) AS avg_sec,
+                       MIN(TIMESTAMPDIFF(SECOND, at.min_fa, d.fecha_actualizacion)) AS min_sec,
+                       MAX(TIMESTAMPDIFF(SECOND, at.min_fa, d.fecha_actualizacion)) AS max_sec,
+                       COUNT(*) AS n
+                FROM (
+                    SELECT id_ticket, MIN(fecha_asignacion) AS min_fa
+                    FROM asignacion_ticket
+                    WHERE (activo = 1 OR activo IS NULL)
+                    GROUP BY id_ticket
+                ) at
+                INNER JOIN (
+                    SELECT d1.id_ticket, d1.fecha_actualizacion
+                    FROM dictamen d1
+                    INNER JOIN (
+                        SELECT id_ticket, MAX(fecha_actualizacion) AS mx
+                        FROM dictamen WHERE estado = 'enviado_al_gestor' GROUP BY id_ticket
+                    ) dm ON d1.id_ticket = dm.id_ticket AND d1.fecha_actualizacion = dm.mx AND d1.estado = 'enviado_al_gestor'
+                ) d ON d.id_ticket = at.id_ticket
+                INNER JOIN ticket t ON t.id_ticket = d.id_ticket AND $whereActivo
+                WHERE d.fecha_actualizacion IS NOT NULL AND at.min_fa IS NOT NULL
+                  AND d.fecha_actualizacion >= at.min_fa
+            ";
+            $row = $db->queryOne($sqlSabueso);
+            if ($row && (int)($row['n'] ?? 0) > 0) {
+                $out['tiempos_sabueso_segundos'] = [
+                    'muestras' => (int)$row['n'],
+                    'promedio_seg' => round((float)($row['avg_sec'] ?? 0)),
+                    'min_seg' => (int)($row['min_sec'] ?? 0),
+                    'max_seg' => (int)($row['max_sec'] ?? 0),
+                    'promedio_humano' => self::segundosAHumano((int)round((float)($row['avg_sec'] ?? 0))),
+                ];
+            }
+        } catch (\Exception $e) {
+            $out['tiempos_sabueso_segundos'] = null;
+        }
+
+        // Tiempo gestor: desde envío del dictamen (fecha_actualizacion) hasta fecha_visto_gestor
+        // (cuando el gestor abre el modal). Una fila por ticket con dictamen enviado y ya visto.
+        try {
+            $sqlGestor = "
+                SELECT AVG(TIMESTAMPDIFF(SECOND, d.fecha_actualizacion, d.fecha_visto_gestor)) AS avg_sec,
+                       MIN(TIMESTAMPDIFF(SECOND, d.fecha_actualizacion, d.fecha_visto_gestor)) AS min_sec,
+                       MAX(TIMESTAMPDIFF(SECOND, d.fecha_actualizacion, d.fecha_visto_gestor)) AS max_sec,
+                       COUNT(*) AS n
+                FROM dictamen d
+                INNER JOIN (
+                    SELECT id_ticket, MAX(fecha_actualizacion) AS mx
+                    FROM dictamen
+                    WHERE estado = 'enviado_al_gestor' AND fecha_visto_gestor IS NOT NULL
+                    GROUP BY id_ticket
+                ) dm ON d.id_ticket = dm.id_ticket AND d.fecha_actualizacion = dm.mx AND d.estado = 'enviado_al_gestor'
+                INNER JOIN ticket t ON t.id_ticket = d.id_ticket AND $whereActivo
+                WHERE d.estado = 'enviado_al_gestor'
+                  AND d.fecha_actualizacion IS NOT NULL
+                  AND d.fecha_visto_gestor IS NOT NULL
+                  AND d.fecha_visto_gestor >= d.fecha_actualizacion
+            ";
+            $row = $db->queryOne($sqlGestor);
+            if ($row && (int)($row['n'] ?? 0) > 0) {
+                $out['tiempos_gestor_segundos'] = [
+                    'muestras' => (int)$row['n'],
+                    'promedio_seg' => round((float)($row['avg_sec'] ?? 0)),
+                    'min_seg' => (int)($row['min_sec'] ?? 0),
+                    'max_seg' => (int)($row['max_sec'] ?? 0),
+                    'promedio_humano' => self::segundosAHumano((int)round((float)($row['avg_sec'] ?? 0))),
+                ];
+            }
+        } catch (\Exception $e) {
+            $out['tiempos_gestor_segundos'] = null;
+        }
+
+        // Detalle reciente: folio, creador, asignado, fechas clave (últimos 80 con dictamen enviado)
+        try {
+            $rows = $db->queryAll(
+                "SELECT t.id_ticket, t.folio, t.fecha_creacion, t.fecha_vencimiento, t.id_persona_creador AS creador_id, " .
+                "CONCAT(TRIM(IFNULL(pc.nombres,'')),' ',TRIM(IFNULL(pc.apellidop,''))) AS creador_nombre, " .
+                "CONCAT(TRIM(IFNULL(pa.nombres,'')),' ',TRIM(IFNULL(pa.apellidop,''))) AS asignado_nombre, " .
+                "d.fecha_creacion AS dictamen_fecha_creacion, d.fecha_actualizacion AS dictamen_fecha_envio, " .
+                "d.fecha_visto_gestor AS dictamen_fecha_visto, d.estado AS dictamen_estado, " .
+                "CONCAT(TRIM(IFNULL(paut.nombres,'')),' ',TRIM(IFNULL(paut.apellidop,''))) AS dictamen_autor_nombre " .
+                "FROM ticket t " .
+                "INNER JOIN persona pc ON t.id_persona_creador = pc.id " .
+                "LEFT JOIN (SELECT at1.id_ticket, at1.id_persona_asignada FROM asignacion_ticket at1 " .
+                "INNER JOIN (SELECT id_ticket, MAX(fecha_asignacion) AS mx FROM asignacion_ticket WHERE (activo=1 OR activo IS NULL) GROUP BY id_ticket) at2 " .
+                "ON at1.id_ticket = at2.id_ticket AND at1.fecha_asignacion = at2.mx WHERE (at1.activo=1 OR at1.activo IS NULL)) at ON at.id_ticket = t.id_ticket " .
+                "LEFT JOIN persona pa ON at.id_persona_asignada = pa.id " .
+                "INNER JOIN dictamen d ON d.id_ticket = t.id_ticket AND d.estado = 'enviado_al_gestor' " .
+                "LEFT JOIN persona paut ON d.id_persona = paut.id " .
+                "WHERE $whereActivo " .
+                "ORDER BY d.fecha_actualizacion DESC LIMIT " . $detalleLimit
+            );
+            $lista = is_array($rows) ? $rows : [];
+            // Una fila por ticket: tomar el dictamen más reciente por ticket si hay duplicados
+            $porTicket = [];
+            foreach ($lista as $r) {
+                $tid = (int)($r['id_ticket'] ?? 0);
+                if ($tid < 1 || isset($porTicket[$tid])) {
+                    continue;
+                }
+                $porTicket[$tid] = $r;
+            }
+            $out['detalle_timings'] = array_values($porTicket);
+            // Enriquecer con dictamen_sistema: id gestor, % efectividad, medidas preventivas
+            if (!empty($out['detalle_timings'])) {
+                $idsT = [];
+                foreach ($out['detalle_timings'] as $r) {
+                    $tid = (int)($r['id_ticket'] ?? 0);
+                    if ($tid > 0) {
+                        $idsT[$tid] = true;
+                    }
+                }
+                $idsList = array_keys($idsT);
+                if (!empty($idsList)) {
+                    // Solo enteros (vienen de nuestro propio listado)
+                    $in = implode(',', array_map('intval', $idsList));
+                    $dsRows = $db->queryAll(
+                        "SELECT ds1.id_ticket, ds1.id_gestor, ds1.resultado, ds1.detalle FROM dictamen_sistema ds1 " .
+                        "INNER JOIN (SELECT id_ticket, MAX(id) AS mid FROM dictamen_sistema WHERE id_ticket IN ($in) GROUP BY id_ticket) dsmx " .
+                        "ON ds1.id_ticket = dsmx.id_ticket AND ds1.id = dsmx.mid"
+                    );
+                    $dsPorTicket = [];
+                    if (is_array($dsRows)) {
+                        foreach ($dsRows as $dsr) {
+                            $dsPorTicket[(int)$dsr['id_ticket']] = $dsr;
+                        }
+                    }
+                    foreach ($out['detalle_timings'] as &$r) {
+                        $tid = (int)($r['id_ticket'] ?? 0);
+                        $r['id_gestor_dictamen'] = null;
+                        $r['dictamen_sistema_resultado'] = null;
+                        $r['pct_efectividad'] = null;
+                        $r['medidas_preventivas'] = null;
+                        $r['cumplimiento_etiqueta'] = null;
+                        if ($tid > 0 && isset($dsPorTicket[$tid])) {
+                            $ds = $dsPorTicket[$tid];
+                            $r['id_gestor_dictamen'] = isset($ds['id_gestor']) ? (int)$ds['id_gestor'] : null;
+                            $res = $ds['resultado'] ?? null;
+                            $r['dictamen_sistema_resultado'] = $res;
+                            $detJson = !empty($ds['detalle']) ? json_decode($ds['detalle'], true) : null;
+                            if (is_array($detJson) && isset($detJson['pct_efectividad'])) {
+                                $r['pct_efectividad'] = $detJson['pct_efectividad'];
+                                $r['medidas_preventivas'] = $detJson['medidas_preventivas'] ?? null;
+                                $r['cumplimiento_etiqueta'] = $detJson['cumplimiento_etiqueta'] ?? null;
+                            } else {
+                                $cmp = self::cumplimientoMetadatos($res);
+                                $r['pct_efectividad'] = $cmp['pct_efectividad'];
+                                $r['medidas_preventivas'] = $cmp['medidas_preventivas'];
+                                $r['cumplimiento_etiqueta'] = $cmp['cumplimiento_etiqueta'];
+                            }
+                        }
+                    }
+                    unset($r);
+                }
+            }
+        } catch (\Exception $e) {
+            $out['detalle_timings'] = [];
+        }
+
+        // Panorama global de cumplimiento (dictamen_sistema): conteos por resultado y % promedio
+        $out['cumplimiento_global'] = [
+            'muestra' => count($out['detalle_timings']),
+            'con_evaluacion' => 0,
+            'sin_evaluacion' => 0,
+            'pendiente' => 0,
+            'por_resultado' => [],
+            'pct_promedio' => null,
+            'leyenda' => 'Cumplir = visita en campo según GPS del dictamen; sin pago conviene validar todas las direcciones y estado de cuenta.',
+        ];
+        $pctSum = 0;
+        $pctN = 0;
+        foreach ($out['detalle_timings'] as $r) {
+            $res = $r['dictamen_sistema_resultado'] ?? null;
+            if ($res === null || $res === '') {
+                $out['cumplimiento_global']['sin_evaluacion']++;
+                continue;
+            }
+            $out['cumplimiento_global']['con_evaluacion']++;
+            if ($res === 'pendiente') {
+                $out['cumplimiento_global']['pendiente']++;
+            }
+            if (!isset($out['cumplimiento_global']['por_resultado'][$res])) {
+                $out['cumplimiento_global']['por_resultado'][$res] = 0;
+            }
+            $out['cumplimiento_global']['por_resultado'][$res]++;
+            if (isset($r['pct_efectividad']) && is_numeric($r['pct_efectividad'])) {
+                $pctSum += (int)$r['pct_efectividad'];
+                $pctN++;
+            }
+        }
+        if ($pctN > 0) {
+            $out['cumplimiento_global']['pct_promedio'] = (int)round($pctSum / $pctN);
+        }
+
+        // Por gestor = por quien levantó el ticket (id_persona_creador → creador_nombre), no por asignado Sabueso.
+        // Misma base que detalle reciente (dictamen enviado). Incluye agregados de cumplimiento por gestor.
+        $out['por_gestor'] = [];
+        try {
+            $agg = [];
+            foreach ($out['detalle_timings'] as $r) {
+                $cid = (int)($r['creador_id'] ?? 0);
+                $nom = trim((string)($r['creador_nombre'] ?? ''));
+                if ($nom === '' || $nom === '—') {
+                    $nom = '(Sin dato)';
+                }
+                $key = $cid > 0 ? 'id_' . $cid : 'nom_' . md5($nom);
+                if (!isset($agg[$key])) {
+                    $agg[$key] = [
+                        'id_persona' => $cid,
+                        'nombre' => $nom,
+                        'tickets' => 0,
+                        'vistos' => 0,
+                        'sin_leer' => 0,
+                        'cumplimiento_por_resultado' => [],
+                        'cumplimiento_pct_sum' => 0,
+                        'cumplimiento_pct_n' => 0,
+                        'cumplimiento_sin_evaluar' => 0,
+                    ];
+                }
+                $agg[$key]['tickets']++;
+                $visto = !empty($r['dictamen_fecha_visto']);
+                if ($visto) {
+                    $agg[$key]['vistos']++;
+                } else {
+                    $agg[$key]['sin_leer']++;
+                }
+                // Cumplimiento por gestor (quien levantó)
+                $res = $r['dictamen_sistema_resultado'] ?? null;
+                if ($res === null || $res === '') {
+                    $agg[$key]['cumplimiento_sin_evaluar']++;
+                } else {
+                    if (!isset($agg[$key]['cumplimiento_por_resultado'][$res])) {
+                        $agg[$key]['cumplimiento_por_resultado'][$res] = 0;
+                    }
+                    $agg[$key]['cumplimiento_por_resultado'][$res]++;
+                    if (isset($r['pct_efectividad']) && is_numeric($r['pct_efectividad'])) {
+                        $agg[$key]['cumplimiento_pct_sum'] += (int)$r['pct_efectividad'];
+                        $agg[$key]['cumplimiento_pct_n']++;
+                    }
+                }
+            }
+            foreach ($agg as &$g) {
+                $g['tasa'] = $g['tickets'] > 0 ? (int)round(($g['vistos'] / $g['tickets']) * 100) : 0;
+                $g['tiempo_lectura'] = '—';
+                $g['tiempo_envio'] = '—';
+                $n = (int)($g['cumplimiento_pct_n'] ?? 0);
+                $g['cumplimiento_pct_promedio'] = $n > 0 ? (int)round($g['cumplimiento_pct_sum'] / $n) : null;
+                $g['cumplimiento_evaluados'] = $g['tickets'] - (int)($g['cumplimiento_sin_evaluar'] ?? 0);
+                // Texto resumido para tooltip/UI
+                $partes = [];
+                foreach ($g['cumplimiento_por_resultado'] as $res => $cnt) {
+                    $partes[] = $res . ':' . $cnt;
+                }
+                $g['cumplimiento_resumen_texto'] = $partes ? implode(', ', $partes) : 'sin dictamen sistema aún';
+                unset($g['cumplimiento_pct_sum'], $g['cumplimiento_pct_n']);
+            }
+            unset($g);
+            $listaGestores = array_values($agg);
+            usort($listaGestores, function ($a, $b) {
+                return ($b['tickets'] ?? 0) - ($a['tickets'] ?? 0);
+            });
+            $out['por_gestor'] = $listaGestores;
+        } catch (\Exception $e) {
+            $out['por_gestor'] = [];
+        }
+
+        // Por Sabueso que dictaminó (dictamen.id_persona = quien envió): cuántos dictaminó y tiempo desde
+        // que quedó asignado a esa persona hasta enviar (última asignación a ese id antes de fecha_actualizacion).
+        try {
+            $sqlSab = "
+                SELECT d.id_persona AS id_persona,
+                       CONCAT(TRIM(IFNULL(p.nombres,'')),' ',TRIM(IFNULL(p.apellidop,''))) AS nombre,
+                       COUNT(*) AS dictaminados,
+                       AVG(
+                         CASE WHEN (
+                           SELECT MAX(at2.fecha_asignacion) FROM asignacion_ticket at2
+                           WHERE at2.id_ticket = d.id_ticket AND at2.id_persona_asignada = d.id_persona
+                             AND at2.fecha_asignacion <= d.fecha_actualizacion
+                         ) IS NOT NULL THEN
+                           TIMESTAMPDIFF(SECOND,
+                             (SELECT MAX(at2.fecha_asignacion) FROM asignacion_ticket at2
+                              WHERE at2.id_ticket = d.id_ticket AND at2.id_persona_asignada = d.id_persona
+                                AND at2.fecha_asignacion <= d.fecha_actualizacion),
+                             d.fecha_actualizacion)
+                         ELSE NULL END
+                       ) AS avg_sec_asignado_a_envio,
+                       SUM(CASE WHEN (
+                         SELECT MAX(at2.fecha_asignacion) FROM asignacion_ticket at2
+                         WHERE at2.id_ticket = d.id_ticket AND at2.id_persona_asignada = d.id_persona
+                           AND at2.fecha_asignacion <= d.fecha_actualizacion
+                       ) IS NOT NULL THEN 1 ELSE 0 END) AS n_con_asignacion_previa
+                FROM dictamen d
+                INNER JOIN (
+                    SELECT id_ticket, MAX(fecha_actualizacion) AS mx
+                    FROM dictamen WHERE estado = 'enviado_al_gestor' GROUP BY id_ticket
+                ) dm ON d.id_ticket = dm.id_ticket AND d.fecha_actualizacion = dm.mx AND d.estado = 'enviado_al_gestor'
+                INNER JOIN ticket t ON t.id_ticket = d.id_ticket AND $whereActivo
+                INNER JOIN persona p ON p.id = d.id_persona
+                WHERE d.id_persona IS NOT NULL AND d.id_persona > 0
+                GROUP BY d.id_persona, p.nombres, p.apellidop
+                ORDER BY dictaminados DESC
+            ";
+            $rows = $db->queryAll($sqlSab);
+            $listaSab = [];
+            foreach (is_array($rows) ? $rows : [] as $r) {
+                $avgSec = isset($r['avg_sec_asignado_a_envio']) && $r['avg_sec_asignado_a_envio'] !== null
+                    ? (int)round((float)$r['avg_sec_asignado_a_envio']) : null;
+                $listaSab[] = [
+                    'id_persona' => (int)($r['id_persona'] ?? 0),
+                    'nombre' => trim((string)($r['nombre'] ?? '')),
+                    'dictaminados' => (int)($r['dictaminados'] ?? 0),
+                    'tiempo_asignado_a_envio_humano' => $avgSec !== null ? self::segundosAHumano($avgSec) : '—',
+                    'tiempo_asignado_a_envio_seg' => $avgSec,
+                    'muestras_con_asignacion' => (int)($r['n_con_asignacion_previa'] ?? 0),
+                ];
+            }
+            $out['por_sabueso'] = $listaSab;
+        } catch (\Exception $e) {
+            $out['por_sabueso'] = [];
+        }
+
+        // Tiempo hasta que el ticket queda asignado a esa persona por primera vez (cola): ticket.fecha_creacion -> primera fila asignacion_ticket con id_persona_asignada = X
+        try {
+            $sqlCola = "
+                SELECT at.id_persona_asignada AS id_persona,
+                       CONCAT(TRIM(IFNULL(p.nombres,'')),' ',TRIM(IFNULL(p.apellidop,''))) AS nombre,
+                       COUNT(*) AS n,
+                       AVG(TIMESTAMPDIFF(SECOND, t.fecha_creacion, at.primera_fa)) AS avg_sec
+                FROM (
+                    SELECT id_ticket, id_persona_asignada, MIN(fecha_asignacion) AS primera_fa
+                    FROM asignacion_ticket
+                    WHERE (activo = 1 OR activo IS NULL)
+                    GROUP BY id_ticket, id_persona_asignada
+                ) at
+                INNER JOIN ticket t ON t.id_ticket = at.id_ticket AND $whereActivo
+                INNER JOIN persona p ON p.id = at.id_persona_asignada
+                WHERE at.primera_fa >= t.fecha_creacion
+                GROUP BY at.id_persona_asignada, p.nombres, p.apellidop
+                HAVING n >= 1
+                ORDER BY n DESC
+            ";
+            $rows = $db->queryAll($sqlCola);
+            $mapCola = [];
+            foreach (is_array($rows) ? $rows : [] as $r) {
+                $idp = (int)($r['id_persona'] ?? 0);
+                if ($idp < 1) {
+                    continue;
+                }
+                $avgSec = isset($r['avg_sec']) && $r['avg_sec'] !== null ? (int)round((float)$r['avg_sec']) : null;
+                $mapCola[$idp] = [
+                    'tiempo_hasta_asignarle_humano' => $avgSec !== null ? self::segundosAHumano($avgSec) : '—',
+                    'tiempo_hasta_asignarle_seg' => $avgSec,
+                    'muestras_cola' => (int)($r['n'] ?? 0),
+                ];
+            }
+            foreach ($out['por_sabueso'] as &$s) {
+                $idp = (int)($s['id_persona'] ?? 0);
+                if ($idp > 0 && isset($mapCola[$idp])) {
+                    $s['tiempo_hasta_asignarle_humano'] = $mapCola[$idp]['tiempo_hasta_asignarle_humano'];
+                    $s['tiempo_hasta_asignarle_seg'] = $mapCola[$idp]['tiempo_hasta_asignarle_seg'];
+                    $s['muestras_cola'] = $mapCola[$idp]['muestras_cola'];
+                } else {
+                    $s['tiempo_hasta_asignarle_humano'] = '—';
+                    $s['tiempo_hasta_asignarle_seg'] = null;
+                    $s['muestras_cola'] = 0;
+                }
+            }
+            unset($s);
+        } catch (\Exception $e) {
+            // por_sabueso ya puede existir sin cola
+        }
+
+        // Lectura dictamen por gestor (creador): promedio desde envío hasta fecha_visto_gestor
+        try {
+            $sqlLect = "
+                SELECT t.id_persona_creador AS id_persona,
+                       CONCAT(TRIM(IFNULL(pc.nombres,'')),' ',TRIM(IFNULL(pc.apellidop,''))) AS nombre,
+                       COUNT(*) AS n,
+                       AVG(TIMESTAMPDIFF(SECOND, d.fecha_actualizacion, d.fecha_visto_gestor)) AS avg_sec
+                FROM dictamen d
+                INNER JOIN (
+                    SELECT id_ticket, MAX(fecha_actualizacion) AS mx
+                    FROM dictamen WHERE estado = 'enviado_al_gestor' AND fecha_visto_gestor IS NOT NULL
+                    GROUP BY id_ticket
+                ) dm ON d.id_ticket = dm.id_ticket AND d.fecha_actualizacion = dm.mx AND d.estado = 'enviado_al_gestor'
+                INNER JOIN ticket t ON t.id_ticket = d.id_ticket AND $whereActivo
+                INNER JOIN persona pc ON pc.id = t.id_persona_creador
+                WHERE d.fecha_visto_gestor IS NOT NULL AND d.fecha_visto_gestor >= d.fecha_actualizacion
+                GROUP BY t.id_persona_creador, pc.nombres, pc.apellidop
+                HAVING n > 0
+                ORDER BY n DESC
+            ";
+            $rows = $db->queryAll($sqlLect);
+            $out['por_gestor_lectura'] = [];
+            foreach (is_array($rows) ? $rows : [] as $r) {
+                $avgSec = isset($r['avg_sec']) ? (int)round((float)$r['avg_sec']) : 0;
+                $out['por_gestor_lectura'][] = [
+                    'id_persona' => (int)($r['id_persona'] ?? 0),
+                    'nombre' => trim((string)($r['nombre'] ?? '')),
+                    'muestras' => (int)($r['n'] ?? 0),
+                    'tiempo_lectura_humano' => self::segundosAHumano($avgSec),
+                    'tiempo_lectura_seg' => $avgSec,
+                ];
+            }
+        } catch (\Exception $e) {
+            $out['por_gestor_lectura'] = [];
+        }
+
+        // Rellenar tiempo_lectura en por_gestor desde por_gestor_lectura (mismo id creador)
+        $lecturaPorId = [];
+        foreach ($out['por_gestor_lectura'] as $pl) {
+            $lecturaPorId[(int)($pl['id_persona'] ?? 0)] = $pl['tiempo_lectura_humano'] ?? '—';
+        }
+        foreach ($out['por_gestor'] as &$g) {
+            $cid = (int)($g['id_persona'] ?? 0);
+            if ($cid > 0 && isset($lecturaPorId[$cid])) {
+                $g['tiempo_lectura'] = $lecturaPorId[$cid];
+            }
+        }
+        unset($g);
+
+        // --- KPIs extra (solo si hay datos en BD) ---
+        try {
+            $kpis = [];
+            // Tiempo global desde creación del ticket hasta la primera asignación (cualquier miembro Sabueso)
+            $row = $db->queryOne("
+                SELECT AVG(TIMESTAMPDIFF(SECOND, t.fecha_creacion, fa.primera)) AS avg_sec, COUNT(*) AS n
+                FROM ticket t
+                INNER JOIN (
+                    SELECT id_ticket, MIN(fecha_asignacion) AS primera
+                    FROM asignacion_ticket WHERE (activo = 1 OR activo IS NULL) GROUP BY id_ticket
+                ) fa ON fa.id_ticket = t.id_ticket AND fa.primera >= t.fecha_creacion
+                WHERE $whereActivo
+            ");
+            if ($row && (int)($row['n'] ?? 0) > 0 && $row['avg_sec'] !== null) {
+                $sec = (int)round((float)$row['avg_sec']);
+                $kpis['tiempo_creacion_a_primera_asignacion'] = [
+                    'promedio_humano' => self::segundosAHumano($sec),
+                    'muestras' => (int)$row['n'],
+                ];
+            }
+            // Reasignaciones promedio antes de enviar (filas en asignacion antes de fecha envío)
+            $row = $db->queryOne("
+                SELECT AVG(cnt) AS avg_r FROM (
+                    SELECT d.id_ticket, COUNT(at.id_asignacion) AS cnt
+                    FROM dictamen d
+                    INNER JOIN (
+                        SELECT id_ticket, MAX(fecha_actualizacion) AS mx FROM dictamen
+                        WHERE estado = 'enviado_al_gestor' GROUP BY id_ticket
+                    ) dm ON d.id_ticket = dm.id_ticket AND d.fecha_actualizacion = dm.mx AND d.estado = 'enviado_al_gestor'
+                    INNER JOIN ticket t ON t.id_ticket = d.id_ticket AND $whereActivo
+                    INNER JOIN asignacion_ticket at ON at.id_ticket = d.id_ticket AND at.fecha_asignacion <= d.fecha_actualizacion
+                    GROUP BY d.id_ticket
+                ) x
+            ");
+            if ($row && $row['avg_r'] !== null) {
+                $kpis['reasignaciones_promedio_antes_envio'] = round((float)$row['avg_r'], 1);
+            }
+            // Dictámenes en borrador sin enviar (activos, con asignado actual)
+            $row = $db->queryOne("
+                SELECT COUNT(*) AS c FROM dictamen d
+                INNER JOIN ticket t ON t.id_ticket = d.id_ticket AND $whereActivo
+                WHERE d.estado = 'borrador'
+            ");
+            $kpis['dictamenes_borrador_sin_enviar'] = (int)($row['c'] ?? 0);
+            // % vistos dentro de 12 h desde envío
+            $row = $db->queryOne("
+                SELECT
+                  SUM(CASE WHEN TIMESTAMPDIFF(SECOND, d.fecha_actualizacion, d.fecha_visto_gestor) <= 43200 THEN 1 ELSE 0 END) AS dentro,
+                  COUNT(*) AS total
+                FROM dictamen d
+                INNER JOIN ticket t ON t.id_ticket = d.id_ticket AND $whereActivo
+                WHERE d.estado = 'enviado_al_gestor' AND d.fecha_visto_gestor IS NOT NULL
+                  AND d.fecha_visto_gestor >= d.fecha_actualizacion
+            ");
+            $tot = (int)($row['total'] ?? 0);
+            if ($tot > 0) {
+                $kpis['pct_visto_dentro_12h'] = (int)round(((int)($row['dentro'] ?? 0) / $tot) * 100);
+                $kpis['visto_dentro_12h_muestras'] = $tot;
+            }
+            // Tickets activos: sin ninguna fila en asignacion_ticket, o primera asignación > 24 h tras creación
+            $row = $db->queryOne("
+                SELECT COUNT(*) AS c FROM ticket t
+                WHERE $whereActivo
+                AND (
+                    NOT EXISTS (SELECT 1 FROM asignacion_ticket at WHERE at.id_ticket = t.id_ticket)
+                    OR (
+                        (SELECT MIN(at2.fecha_asignacion) FROM asignacion_ticket at2 WHERE at2.id_ticket = t.id_ticket) >
+                        DATE_ADD(t.fecha_creacion, INTERVAL 24 HOUR)
+                    )
+                )
+            ");
+            $kpis['tickets_cola_lenta_24h'] = (int)($row['c'] ?? 0);
+            $out['kpis_extra'] = $kpis;
+        } catch (\Exception $e) {
+            $out['kpis_extra'] = [];
+        }
+
+        // Por Sabueso: tiempo creación → primera asignación en tickets que él dictaminó (espera hasta que alguien asignó)
+        try {
+            if (!empty($out['por_sabueso'])) {
+                $sqlPrim = "
+                    SELECT d.id_persona AS id_persona,
+                           AVG(TIMESTAMPDIFF(SECOND, t.fecha_creacion, fx.primera)) AS avg_sec,
+                           COUNT(*) AS n
+                    FROM dictamen d
+                    INNER JOIN (
+                        SELECT id_ticket, MAX(fecha_actualizacion) AS mx FROM dictamen
+                        WHERE estado = 'enviado_al_gestor' GROUP BY id_ticket
+                    ) dm ON d.id_ticket = dm.id_ticket AND d.fecha_actualizacion = dm.mx AND d.estado = 'enviado_al_gestor'
+                    INNER JOIN ticket t ON t.id_ticket = d.id_ticket AND $whereActivo
+                    INNER JOIN (
+                        SELECT id_ticket, MIN(fecha_asignacion) AS primera
+                        FROM asignacion_ticket WHERE (activo = 1 OR activo IS NULL) GROUP BY id_ticket
+                    ) fx ON fx.id_ticket = d.id_ticket AND fx.primera >= t.fecha_creacion
+                    WHERE d.id_persona IS NOT NULL AND d.id_persona > 0
+                    GROUP BY d.id_persona
+                ";
+                $rows = $db->queryAll($sqlPrim);
+                $mapPrim = [];
+                foreach (is_array($rows) ? $rows : [] as $r) {
+                    $idp = (int)($r['id_persona'] ?? 0);
+                    if ($idp < 1) {
+                        continue;
+                    }
+                    $sec = isset($r['avg_sec']) && $r['avg_sec'] !== null ? (int)round((float)$r['avg_sec']) : null;
+                    $mapPrim[$idp] = $sec !== null ? self::segundosAHumano($sec) : '—';
+                }
+                foreach ($out['por_sabueso'] as &$s) {
+                    $idp = (int)($s['id_persona'] ?? 0);
+                    $s['creacion_a_primera_asignacion_humano'] = $mapPrim[$idp] ?? '—';
+                }
+                unset($s);
+            }
+        } catch (\Exception $e) {
+            // ignore
+        }
+
+        return $out;
+    }
+
+    /**
+     * Detalle por gestor (creador): tickets que levantó con dictamen enviado; por ticket: envío, visto, tiempo lectura.
+     */
+    /**
+     * Detalle por Sabueso (autor dictamen): tickets que dictaminó (envió) con folio, fechas, visto gestor.
+     */
+    public static function getEstadisticasSabuesoDetalle(int $idPersonaAutor): array
+    {
+        $db = new Database();
+        $whereActivo = '(t.activo = 1 OR t.activo IS NULL) AND (t.fecha_eliminacion IS NULL)';
+        $pid = (int)$idPersonaAutor;
+        if ($pid < 1) {
+            return ['success' => false, 'mensaje' => 'ID inválido', 'nombre' => '', 'filas' => []];
+        }
+        try {
+            $nom = self::getNombrePersona($pid);
+            // Por ticket: dictamen enviado más reciente con este autor; tiempos Sabueso vía subconsultas
+            $rows = $db->queryAll(
+                "SELECT t.id_ticket, t.folio, t.fecha_creacion, " .
+                "CONCAT(TRIM(IFNULL(pc.nombres,'')),' ',TRIM(IFNULL(pc.apellidop,''))) AS creador_nombre, " .
+                "d.fecha_actualizacion AS dictamen_envio, d.fecha_visto_gestor AS dictamen_visto, " .
+                "(SELECT MIN(at0.fecha_asignacion) FROM asignacion_ticket at0 WHERE at0.id_ticket = t.id_ticket) AS primera_asignacion, " .
+                "(SELECT MAX(at1.fecha_asignacion) FROM asignacion_ticket at1 " .
+                " WHERE at1.id_ticket = d.id_ticket AND at1.id_persona_asignada = :pid2 AND at1.fecha_asignacion <= d.fecha_actualizacion) AS asignado_a_autor_antes_envio " .
+                "FROM dictamen d " .
+                "INNER JOIN (SELECT id_ticket, MAX(fecha_actualizacion) AS mx FROM dictamen WHERE estado = 'enviado_al_gestor' GROUP BY id_ticket) dm " .
+                "ON d.id_ticket = dm.id_ticket AND d.fecha_actualizacion = dm.mx AND d.estado = 'enviado_al_gestor' " .
+                "INNER JOIN ticket t ON t.id_ticket = d.id_ticket AND $whereActivo " .
+                "INNER JOIN persona pc ON pc.id = t.id_persona_creador " .
+                "WHERE d.id_persona = :pid " .
+                "ORDER BY d.fecha_actualizacion DESC LIMIT 200",
+                ['pid' => $pid, 'pid2' => $pid]
+            );
+            $filas = [];
+            foreach (is_array($rows) ? $rows : [] as $r) {
+                $visto = !empty($r['dictamen_visto']);
+                $envio = $r['dictamen_envio'] ?? null;
+                $vistoF = $r['dictamen_visto'] ?? null;
+                $secLectura = null;
+                if ($visto && $envio && $vistoF) {
+                    $t1 = strtotime($envio);
+                    $t2 = strtotime($vistoF);
+                    if ($t1 !== false && $t2 !== false && $t2 >= $t1) {
+                        $secLectura = $t2 - $t1;
+                    }
+                }
+                $primAsig = $r['primera_asignacion'] ?? null;
+                $asigAntes = $r['asignado_a_autor_antes_envio'] ?? null;
+                $secAsignadoEnvio = null;
+                if ($asigAntes && $envio) {
+                    $ta = strtotime($asigAntes);
+                    $te = strtotime($envio);
+                    if ($ta !== false && $te !== false && $te >= $ta) {
+                        $secAsignadoEnvio = $te - $ta;
+                    }
+                }
+                $secCola = null;
+                if ($primAsig && !empty($r['fecha_creacion'])) {
+                    $tc = strtotime($r['fecha_creacion']);
+                    $tp = strtotime($primAsig);
+                    if ($tc !== false && $tp !== false && $tp >= $tc) {
+                        $secCola = $tp - $tc;
+                    }
+                }
+                $filas[] = [
+                    'id_ticket' => (int)($r['id_ticket'] ?? 0),
+                    'folio' => $r['folio'] ?? '',
+                    'creador_nombre' => trim((string)($r['creador_nombre'] ?? '')),
+                    'fecha_creacion' => $r['fecha_creacion'] ?? null,
+                    'dictamen_envio' => $envio,
+                    'visto_si_no' => $visto ? 'Sí' : 'No',
+                    'tiempo_lectura_gestor_humano' => ($secLectura !== null) ? self::segundosAHumano((int)$secLectura) : ($visto ? '—' : 'Pendiente'),
+                    'estaba_asignado_a_el' => $asigAntes ? 'Sí' : 'No',
+                    'tiempo_asignado_a_envio_humano' => ($secAsignadoEnvio !== null) ? self::segundosAHumano((int)$secAsignadoEnvio) : '—',
+                    'tiempo_cola_hasta_primera_asignacion_humano' => ($secCola !== null) ? self::segundosAHumano((int)$secCola) : '—',
+                ];
+            }
+            return ['success' => true, 'mensaje' => 'OK', 'nombre' => $nom, 'filas' => $filas];
+        } catch (\Exception $e) {
+            return ['success' => false, 'mensaje' => $e->getMessage(), 'nombre' => '', 'filas' => []];
+        }
+    }
+
+    public static function getEstadisticasGestorDetalle(int $idPersonaCreador): array
+    {
+        $db = new Database();
+        $whereActivo = '(t.activo = 1 OR t.activo IS NULL) AND (t.fecha_eliminacion IS NULL)';
+        $cid = (int)$idPersonaCreador;
+        if ($cid < 1) {
+            return ['success' => false, 'mensaje' => 'ID inválido', 'nombre' => '', 'filas' => []];
+        }
+        try {
+            $nom = self::getNombrePersona($cid);
+            // Un dictamen por ticket: el enviado con visto preferente; si no, el de max fecha_actualizacion
+            $rows = $db->queryAll(
+                "SELECT t.id_ticket, t.folio, t.fecha_creacion, " .
+                "d.fecha_actualizacion AS dictamen_envio, d.fecha_visto_gestor AS dictamen_visto " .
+                "FROM ticket t " .
+                "INNER JOIN dictamen d ON d.id_ticket = t.id_ticket AND d.estado = 'enviado_al_gestor' " .
+                "INNER JOIN (SELECT id_ticket, MAX(fecha_actualizacion) AS mx FROM dictamen WHERE estado = 'enviado_al_gestor' GROUP BY id_ticket) dm " .
+                "ON d.id_ticket = dm.id_ticket AND d.fecha_actualizacion = dm.mx " .
+                "WHERE t.id_persona_creador = :cid AND $whereActivo " .
+                "ORDER BY d.fecha_actualizacion DESC LIMIT 200",
+                ['cid' => $cid]
+            );
+            $filas = [];
+            $listaRows = is_array($rows) ? $rows : [];
+            $idsT = [];
+            foreach ($listaRows as $r) {
+                $tid = (int)($r['id_ticket'] ?? 0);
+                if ($tid > 0) {
+                    $idsT[$tid] = true;
+                }
+            }
+            // Último dictamen_sistema por ticket (mismo criterio que Panel Admin / detalle_timings)
+            $dsPorTicket = [];
+            if (!empty($idsT)) {
+                $in = implode(',', array_map('intval', array_keys($idsT)));
+                $dsRows = $db->queryAll(
+                    "SELECT ds1.id_ticket, ds1.resultado, ds1.detalle FROM dictamen_sistema ds1 " .
+                    "INNER JOIN (SELECT id_ticket, MAX(id) AS mid FROM dictamen_sistema WHERE id_ticket IN ($in) GROUP BY id_ticket) dsmx " .
+                    "ON ds1.id_ticket = dsmx.id_ticket AND ds1.id = dsmx.mid"
+                );
+                if (is_array($dsRows)) {
+                    foreach ($dsRows as $dsr) {
+                        $dsPorTicket[(int)$dsr['id_ticket']] = $dsr;
+                    }
+                }
+            }
+            foreach ($listaRows as $r) {
+                $visto = !empty($r['dictamen_visto']);
+                $envio = $r['dictamen_envio'] ?? null;
+                $vistoF = $r['dictamen_visto'] ?? null;
+                $sec = null;
+                if ($visto && $envio && $vistoF) {
+                    $t1 = strtotime($envio);
+                    $t2 = strtotime($vistoF);
+                    if ($t1 !== false && $t2 !== false && $t2 >= $t1) {
+                        $sec = $t2 - $t1;
+                    }
+                }
+                $tid = (int)($r['id_ticket'] ?? 0);
+                $pct = null;
+                $resDs = null;
+                $etiq = null;
+                $pagoVentanaTxt = null;
+                if ($tid > 0 && isset($dsPorTicket[$tid])) {
+                    $ds = $dsPorTicket[$tid];
+                    $resDs = $ds['resultado'] ?? null;
+                    $detJson = !empty($ds['detalle']) ? json_decode($ds['detalle'], true) : null;
+                    if (is_array($detJson) && array_key_exists('pct_efectividad', $detJson)) {
+                        $pct = $detJson['pct_efectividad'];
+                        $etiq = $detJson['cumplimiento_etiqueta'] ?? null;
+                    } elseif ($resDs !== null) {
+                        $cmp = self::cumplimientoMetadatos($resDs);
+                        $pct = $cmp['pct_efectividad'];
+                        $etiq = $cmp['cumplimiento_etiqueta'];
+                    }
+                    // Texto corto solo para UI (nunca mostrar código tipo no_visito)
+                    if ($etiq !== null && $etiq !== '') {
+                        $etiq = str_replace('No visitó', 'No visito', (string)$etiq);
+                    }
+                    // Columna "Pago": solo Sí / No — hubo pago registrado en estado de cuenta dentro de la ventana 12h evaluada
+                    if ($resDs === 'cumplido_pago') {
+                        $pagoVentanaTxt = 'Sí';
+                    } elseif (is_array($detJson) && array_key_exists('pago_en_ventana', $detJson)) {
+                        $pagoVentanaTxt = !empty($detJson['pago_en_ventana']) ? 'Sí' : 'No';
+                    } elseif ($resDs !== null && $resDs !== '' && $resDs !== 'pendiente' && $resDs !== 'prorroga_activa') {
+                        // Ya hay resultado (ej. no visito) y no consta pago en las 12h → No (obvio: sin pago en ese rango)
+                        $pagoVentanaTxt = 'No';
+                    }
+                }
+                $resultadoMostrar = null;
+                if ($etiq !== null && $etiq !== '') {
+                    $resultadoMostrar = $etiq;
+                } elseif ($resDs !== null && $resDs !== '') {
+                    $cmp = self::cumplimientoMetadatos($resDs);
+                    $resultadoMostrar = $cmp['cumplimiento_etiqueta'] ?? $resDs;
+                }
+                $filas[] = [
+                    'id_ticket' => $tid,
+                    'folio' => $r['folio'] ?? '',
+                    'fecha_creacion' => $r['fecha_creacion'] ?? null,
+                    'dictamen_envio' => $envio,
+                    'visto_si_no' => $visto ? 'Sí' : 'No',
+                    'visto_cuando' => $vistoF,
+                    'tiempo_lectura_humano' => ($sec !== null) ? self::segundosAHumano((int)$sec) : ($visto ? 'Menos de 1 min' : 'Pendiente'),
+                    'dictamen_sistema_resultado' => $resDs,
+                    'pct_efectividad' => $pct,
+                    'cumplimiento_etiqueta' => $etiq,
+                    'resultado_ds_mostrar' => $resultadoMostrar,
+                    'pago_en_ventana_resumen' => $pagoVentanaTxt,
+                ];
+            }
+            return ['success' => true, 'mensaje' => 'OK', 'nombre' => $nom, 'filas' => $filas];
+        } catch (\Exception $e) {
+            return ['success' => false, 'mensaje' => $e->getMessage(), 'nombre' => '', 'filas' => []];
+        }
+    }
+
+    /**
+     * Convierte segundos a texto legible (días, horas, min).
+     */
+    private static function segundosAHumano(int $seg): string
+    {
+        if ($seg < 0) {
+            return '—';
+        }
+        if ($seg === 0) {
+            return 'Menos de 1 min';
+        }
+        if ($seg < 60) {
+            return $seg . ' s';
+        }
+        if ($seg < 3600) {
+            return round($seg / 60) . ' min';
+        }
+        if ($seg < 86400) {
+            return round($seg / 3600, 1) . ' h';
+        }
+        $d = (int)floor($seg / 86400);
+        $h = (int)floor(($seg % 86400) / 3600);
+        if ($d > 0 && $h > 0) {
+            return $d . ' d ' . $h . ' h';
+        }
+        if ($d > 0) {
+            return $d . ' d';
+        }
+        return round($seg / 3600, 1) . ' h';
     }
 
 }

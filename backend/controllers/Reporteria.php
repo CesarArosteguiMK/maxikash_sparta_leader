@@ -5,7 +5,7 @@ namespace Controllers;
 use Core\Controller;
 use Models\Empresa as EmpresasDAO;
 
-class Reporteria extends Controller 
+class Reporteria extends Controller
 {
     public function reporteCapitalHumano()
     {
@@ -14,14 +14,14 @@ class Reporteria extends Controller
         self::set("script", $script);
         self::render("reporte_capital_humano");
     }
-    
+
     // ==== Reporte de Capital Humano ====
     public function getUsuariosCapitalHumano()
 {
     // No activar display_errors en producción; los errores se registran en log del servidor
     // Limpiar cualquier salida previa
     while (ob_get_level()) ob_end_clean();
-    
+
     try {
         $tieneDepartamento = in_array(10, $_SESSION['modulos'] ?? []);
         $resultado = \Models\CapHum::getConsultaGestoresAll($_SESSION['usuario_id'], $tieneDepartamento);
@@ -51,7 +51,7 @@ class Reporteria extends Controller
             'datos' => $datos
         ]);
         exit;
-        
+
     } catch (\Exception $e) {
         error_log('Error en getUsuariosCapitalHumano: ' . $e->getMessage());
         header('Content-Type: application/json; charset=utf-8');
@@ -70,7 +70,7 @@ class Reporteria extends Controller
             $input = json_decode(file_get_contents("php://input"), true);
             $fecha_inicio = $input['fecha_inicio'] ?? null;
             $fecha_fin = $input['fecha_fin'] ?? null;
-            
+
             if ($fecha_inicio && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha_inicio)) {
                 self::respuestaJSON([
                     'success' => false,
@@ -85,9 +85,9 @@ class Reporteria extends Controller
                 ]);
                 return;
             }
-            
+
             $resultado = \Models\CapHum::getConsultaBajas($fecha_inicio, $fecha_fin);
-            
+
             if (!$resultado) {
                 self::respuestaJSON([
                     'success' => false,
@@ -96,7 +96,7 @@ class Reporteria extends Controller
                 ]);
                 return;
             }
-            
+
             if (!isset($resultado['success']) || $resultado['success'] === false) {
                 self::respuestaJSON([
                     'success' => false,
@@ -106,10 +106,10 @@ class Reporteria extends Controller
                 ]);
                 return;
             }
-            
+
             $bajas = $resultado['datos'] ?? [];
             $datos = [];
-            
+
             if (is_array($bajas) && count($bajas) > 0) {
                 $datos = array_map(function($p) {
                     return [
@@ -129,13 +129,13 @@ class Reporteria extends Controller
                     ];
                 }, $bajas);
             }
-            
+
             self::respuestaJSON([
                 'success' => true,
                 'datos' => $datos,
                 'mensaje' => count($datos) > 0 ? 'Bajas encontradas' : 'No se encontraron bajas en el rango seleccionado'
             ]);
-            
+
         } catch (\Exception $e) {
             error_log('Error en getBajasCapitalHumano: ' . $e->getMessage());
             self::respuestaJSON([
@@ -164,17 +164,17 @@ class Reporteria extends Controller
                 'estatus' => $estatus,
                 'multipuesto' => $multipuesto
             ]);
-            
+
             if (!$resultado || !isset($resultado['success']) || !$resultado['success']) {
                 die('Error al obtener las bajas: ' . ($resultado['mensaje'] ?? 'Error desconocido'));
             }
-            
+
             $bajas = $resultado['datos'] ?? [];
-            
+
             if (empty($bajas)) {
                 die('No hay bajas para descargar');
             }
-            
+
             $data = [];
             foreach ($bajas as $baja) {
                 $nombreCompleto = trim(($baja['nombres'] ?? '') . ' ' . ($baja['apellidop'] ?? '') . ' ' . ($baja['apellidom'] ?? ''));
@@ -197,7 +197,7 @@ class Reporteria extends Controller
                     'user_name' => $baja['user_name'] ?? 'N/A'
                 ];
             }
-            
+
             $columnas = [
                 \PHPSpreadsheet::ColumnaExcel('external_id', 'External ID'),
                 \PHPSpreadsheet::ColumnaExcel('numero_empleado', 'NÚMERO DE EMPLEADO'),
@@ -210,7 +210,7 @@ class Reporteria extends Controller
                 \PHPSpreadsheet::ColumnaExcel('descripcion', 'DESCRIPCIÓN'),
                 \PHPSpreadsheet::ColumnaExcel('user_name', 'USUARIO')
             ];
-            
+
             $nombreArchivo = 'Bajas_' . date('Y-m-d');
             \PHPSpreadsheet::DescargaExcel(
                 $nombreArchivo,
@@ -220,7 +220,7 @@ class Reporteria extends Controller
                 $data
             );
             exit;
-            
+
         } catch (\Exception $e) {
             error_log('Error en descargarBajasExcelCapitalHumano: ' . $e->getMessage());
             die('Error al generar el archivo Excel: ' . $e->getMessage());
@@ -240,14 +240,14 @@ public function getFiltrosCapitalHumano()
     // No activar display_errors en producción; los errores se registran en log del servidor
     // Limpiar cualquier salida previa
     while (ob_get_level()) ob_end_clean();
-    
+
     try {
         // 1. Departamentos usando CapHum::getComboDepartamentos()
         $deptos = \Models\CapHum::getComboDepartamentos();
-        
+
         // 2. Puestos (todos) usando CapHum::getConsultaPuestos(null)
         $puestos = \Models\CapHum::getConsultaPuestos(null);
-        
+
         // 3. Motivos de baja únicos
         $motivos = [];
         try {
@@ -263,10 +263,10 @@ public function getFiltrosCapitalHumano()
         } catch (\Exception $e) {
             error_log('Error cargando motivos de baja: ' . $e->getMessage());
         }
-        
+
         // 4. Estatus disponibles para usuarios activos
         $estatusUsuarios = ['Activo', 'Inactivo'];
-        
+
         // ✅ RESPUESTA JSON LIMPIA
         header('Content-Type: application/json; charset=utf-8');
         echo json_encode([
@@ -277,7 +277,7 @@ public function getFiltrosCapitalHumano()
             'estatus_usuarios' => $estatusUsuarios
         ]);
         exit;
-        
+
     } catch (\Exception $e) {
         error_log('Error en getFiltrosCapitalHumano: ' . $e->getMessage());
         header('Content-Type: application/json; charset=utf-8');
@@ -299,7 +299,7 @@ public function getFiltrosCapitalHumano()
         while (ob_get_level()) {
             ob_end_clean();
         }
-        
+
         try {
             // Obtener filtros de GET
             $filtros = [
@@ -308,35 +308,35 @@ public function getFiltrosCapitalHumano()
                 'estatus' => $_GET['estatus'] ?? null,
                 'multipuesto' => $_GET['multipuesto'] ?? null
             ];
-            
+
             // Verificar sesión
             if (!isset($_SESSION['usuario_id'])) {
                 header('Content-Type: text/html; charset=utf-8');
                 die('Sesión no válida. Por favor inicia sesión nuevamente.');
             }
-            
+
             // OPTIMIZACIÓN: Filtros aplicados directamente en SQL (una sola consulta)
             $resultado = \Models\CapHum::getGestoresParaReporte($filtros);
-            
+
             if (!$resultado['success']) {
                 header('Content-Type: text/html; charset=utf-8');
                 die('Error al obtener datos: ' . ($resultado['mensaje'] ?? 'Error desconocido'));
             }
-            
+
             $usuarios = $resultado['datos'] ?? [];
-            
+
             if (empty($usuarios)) {
                 die('No hay usuarios para descargar con los filtros seleccionados');
             }
-            
+
             // Preparar datos para Excel
             $data = [];
             foreach ($usuarios as $u) {
-                $nombreCompleto = trim(($u['nombres'] ?? '') . ' ' . 
-                                     ($u['segundo_nombre'] ?? '') . ' ' . 
-                                     ($u['apellidop'] ?? '') . ' ' . 
+                $nombreCompleto = trim(($u['nombres'] ?? '') . ' ' .
+                                     ($u['segundo_nombre'] ?? '') . ' ' .
+                                     ($u['apellidop'] ?? '') . ' ' .
                                      ($u['apellidom'] ?? ''));
-                
+
                 $data[] = [
                     'numero_empleado' => $u['numero_empleado'] ?? '',
                     'nombre_completo' => $nombreCompleto,
@@ -348,7 +348,7 @@ public function getFiltrosCapitalHumano()
                     'jefe' => $u['nombre_jefe'] ?? 'N/A'
                 ];
             }
-            
+
             // Columnas para Excel
             $columnas = [
                 \PHPSpreadsheet::ColumnaExcel('numero_empleado', 'NÚMERO DE EMPLEADO'),
@@ -360,30 +360,30 @@ public function getFiltrosCapitalHumano()
                 \PHPSpreadsheet::ColumnaExcel('usuario', 'USUARIO'),
                 \PHPSpreadsheet::ColumnaExcel('jefe', 'JEFE INMEDIATO')
             ];
-            
+
             // Nombre del archivo
             $nombreArchivo = "Plantilla_Gestores";
-    
+
     // Agregar departamento si existe
     if (!empty($departamento)) {
         $nombreArchivo .= "_" . str_replace(' ', '_', $departamento);
     }
-    
-    // Agregar puesto si existe  
+
+    // Agregar puesto si existe
     if (!empty($puesto)) {
         $nombreArchivo .= "_" . str_replace(' ', '_', $puesto);
     }
-    
+
     // Agregar estatus si existe
     if (!empty($estatus)) {
         $nombreArchivo .= "_" . $estatus;
     }
-    
+
     // Agregar fecha y hora
     $fecha = date('Y-m-d');
     $hora = date('His');
     $nombreArchivo .= "_{$fecha}_{$hora}";
-            
+
             // Descargar Excel
             \PHPSpreadsheet::DescargaExcel(
                 $nombreArchivo,
@@ -392,9 +392,9 @@ public function getFiltrosCapitalHumano()
                 $columnas,
                 $data
             );
-            
+
             exit;
-            
+
         } catch (\Exception $e) {
             error_log('Error en descargarUsuariosExcelCapitalHumano: ' . $e->getMessage() . ' - ' . $e->getTraceAsString());
             header('Content-Type: text/html; charset=utf-8');
@@ -413,7 +413,7 @@ public function getFiltrosCapitalHumano()
             <script>
             document.getElementById('btn-ultimo-corte').addEventListener('click', function(e) {
             e.preventDefault();
-        
+
             // Mostrar SweetAlert de carga
             Swal.fire({
                 title: 'Consultando Último Corte...',
@@ -423,7 +423,7 @@ public function getFiltrosCapitalHumano()
                 showConfirmButton: false,
                 didOpen: () => Swal.showLoading()
             });
-        
+
             fetch('/Reporteria/getUltimoCorte', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -432,7 +432,7 @@ public function getFiltrosCapitalHumano()
             .then(resp => resp.json())
             .then(data => {
                 Swal.close();
-        
+
                 const nombreColumna = data?.datos?.columna || "";
                 if (!nombreColumna) {
                     Swal.fire({
@@ -442,7 +442,7 @@ public function getFiltrosCapitalHumano()
                     });
                     return;
                 }
-        
+
                 // Confirmación de descarga
                 Swal.fire({
                     html: `<p>El último corte disponible es:</p><strong>${nombreColumna}</strong><br><br>¿Deseas descargarlo?`,
@@ -460,11 +460,11 @@ public function getFiltrosCapitalHumano()
                         showConfirmButton: false,
                         didOpen: () => Swal.showLoading()
                     });
-                            
+
                         // Setear el valor en el input hidden y enviar el form
                         document.getElementById('input-columna').value = nombreColumna;
                         document.getElementById('form-descarga').submit();
-                        
+
                          // Cerrar SweetAlert automáticamente después de 5 segundos por seguridad
                         setTimeout(() => Swal.close(), 90000);
                     }
@@ -479,7 +479,7 @@ public function getFiltrosCapitalHumano()
                 });
             });
         });
-        
+
             </script>
 HTML;
 
@@ -487,14 +487,14 @@ HTML;
         self::set("script", $script);
         self::render("reporteria_call_center");
     }
-    
+
     public function layoutlegacy()
     {
         $script = <<<'HTML'
             <script>
             document.getElementById('btn-ultimo-corte').addEventListener('click', function(e) {
                 e.preventDefault();
-            
+
                 // Mostrar SweetAlert de carga
                 Swal.fire({
                     title: 'Preparando Reporte Legacy...',
@@ -505,12 +505,12 @@ HTML;
                     showConfirmButton: false,
                     didOpen: () => Swal.showLoading()
                 });
-            
+
                 // Simular una pequeña validación o carga de datos
                 // En este caso, vamos directo a la confirmación después de un breve delay
                 setTimeout(() => {
                     Swal.close();
-            
+
                     // Modal de confirmación elegante
                     Swal.fire({
                         html: `
@@ -541,10 +541,10 @@ HTML;
                                 showConfirmButton: false,
                                 didOpen: () => Swal.showLoading()
                             });
-                    
+
                             // Enviar el formulario para descargar
                             document.getElementById('form-descarga').submit();
-                    
+
                             // Cerrar SweetAlert automáticamente después de 2-3 segundos
                             // cuando la descarga ya debería haber comenzado
                             setTimeout(() => {
@@ -561,25 +561,25 @@ HTML;
         self::set("script", $script);
         self::render("layout_legacy");
     }
-    
+
     public function getUltimoCorte()
     {
         self::respuestaJSON(EmpresasDAO::getObtenerUltimoCorte());
     }
-    
+
     public function ProcesarDescargarCorte()
     {
         // Aumentar tiempo de ejecución a 5 minutos
         set_time_limit(300);
-        
+
         // Aumentar memoria si es necesario
         ini_set('memory_limit', '512M');
-        
+
         // Limpiar buffer
         while (ob_get_level()) {
             ob_end_clean();
         }
-        
+
         // Obtener corte por GET
         $corte = $_GET['columna'] ?? null;
         if (!$corte) {
@@ -699,18 +699,18 @@ HTML;
         // Aumentar tiempo de ejecución
         set_time_limit(300);
         ini_set('memory_limit', '512M');
-        
+
         // Limpiar buffer
         while (ob_get_level()) {
             ob_end_clean();
         }
-        
+
         try {
             // Obtener filtros de GET
             $filtroDepartamento = $_GET['departamento'] ?? '';
             $filtroPuesto = $_GET['puesto'] ?? '';
             $filtroEstatus = $_GET['estatus'] ?? '';
-            
+
             // Obtener datos usando el mismo método que getUsuarios
             $tieneDepartamento = in_array(10, $_SESSION['modulos'] ?? []);
             $resultado = \Models\CapHum::getConsultaGestoresAll($_SESSION['usuario_id'], $tieneDepartamento);
@@ -720,16 +720,16 @@ HTML;
             }
 
             $datos = $resultado['datos'];
-            
+
             // Aplicar filtros si existen
             $datosFiltrados = array_filter($datos, function($gestor) use ($filtroDepartamento, $filtroPuesto, $filtroEstatus) {
                 $cumpleDepartamento = empty($filtroDepartamento) || ($gestor['nombre_departamento'] ?? '') === $filtroDepartamento;
                 $cumplePuesto = empty($filtroPuesto) || ($gestor['nombre_puesto'] ?? '') === $filtroPuesto;
                 $cumpleEstatus = empty($filtroEstatus) || ($gestor['estatus'] ?? '') === $filtroEstatus;
-                
+
                 return $cumpleDepartamento && $cumplePuesto && $cumpleEstatus;
             });
-            
+
             // Validar que haya datos después del filtro
             if (empty($datosFiltrados)) {
                 die("No se encontraron datos con los filtros aplicados.");
@@ -769,7 +769,7 @@ HTML;
             // Nombre del archivo con timestamp y filtros aplicados
             $fechaActual = date('Y-m-d_His');
             $nombreArchivo = "Plantilla_Gestores";
-            
+
             // Agregar filtros al nombre del archivo
             if ($filtroDepartamento) {
                 $nombreArchivo .= "_" . str_replace(' ', '_', $filtroDepartamento);
@@ -780,7 +780,7 @@ HTML;
             if ($filtroEstatus) {
                 $nombreArchivo .= "_" . $filtroEstatus;
             }
-            
+
             $nombreArchivo .= "_{$fechaActual}";
 
             // Descargar Excel
@@ -830,7 +830,7 @@ HTML;
         }
 
         $resultado = \Models\Ticket::getListaTickets($usuarioId, true);
-        
+
         if (!$resultado['success'] || empty($resultado['datos'])) {
             http_response_code(404);
             echo json_encode(['error' => 'No hay tickets disponibles']);
@@ -928,7 +928,7 @@ HTML;
         }
 
         $resultado = \Models\Ticket::getListaTickets($usuarioId, false);
-        
+
         if (!$resultado['success'] || empty($resultado['datos'])) {
             http_response_code(404);
             echo json_encode(['error' => 'No hay tickets disponibles']);
@@ -959,7 +959,7 @@ HTML;
         // Obtener nombres de clientes para el reporte
         $idsCredito = array_column($datos, 'id_credito');
         $mapaClientes = \Models\Ticket::getNombresClienteParaReporte($idsCredito);
-        
+
         $datosFormateados = array_map(function($ticket) use ($mapaClientes) {
             // Calcular minutos entre creación y respuesta
             $minutos = '—';
@@ -1028,7 +1028,7 @@ HTML;
 
             // Obtener datos usando el modelo
             $resultado = \Models\Ticket::getListaTicketsCerradosEliminados();
-            
+
             if (!$resultado['success'] || empty($resultado['datos'])) {
                 http_response_code(404);
                 echo json_encode(['error' => 'No hay tickets cerrados/eliminados disponibles']);
@@ -1085,6 +1085,98 @@ HTML;
             exit;
         } catch (\Exception $e) {
             error_log('Error en descargarReporteSabuesos3: ' . $e->getMessage());
+            http_response_code(500);
+            echo json_encode(['error' => 'Error al generar el reporte: ' . $e->getMessage()]);
+            exit;
+        }
+    }
+
+    /**
+     * Excel: detalle reciente (dictamen enviado) — misma base que estadísticas Sabueso.
+     * Hasta 2000 filas para export; la vista en pantalla sigue usando el límite habitual vía API.
+     */
+    public function descargarReporteSabuesosEstadisticasDetalle()
+    {
+        try {
+            while (ob_get_level()) {
+                ob_end_clean();
+            }
+
+            $usuarioId = (int)($_SESSION['usuario_id'] ?? 0);
+            if ($usuarioId < 1) {
+                http_response_code(401);
+                echo json_encode(['error' => 'Sesión no válida']);
+                exit;
+            }
+
+            $datos = \Models\Ticket::getEstadisticasTickets(['detalle_limit' => 2000]);
+            if (empty($datos['success'])) {
+                http_response_code(404);
+                echo json_encode(['error' => $datos['mensaje'] ?? 'No hay datos']);
+                exit;
+            }
+
+            $detalle = $datos['detalle_timings'] ?? [];
+            if (!is_array($detalle)) {
+                $detalle = [];
+            }
+
+            $columnas = [
+                \PHPSpreadsheet::ColumnaExcel('folio', 'FOLIO'),
+                \PHPSpreadsheet::ColumnaExcel('creador_nombre', 'QUIÉN LEVANTÓ'),
+                \PHPSpreadsheet::ColumnaExcel('creador_id', 'ID GESTOR (CREADOR)'),
+                \PHPSpreadsheet::ColumnaExcel('asignado_nombre', 'ASIGNADO A (SABUESO)'),
+                \PHPSpreadsheet::ColumnaExcel('fecha_creacion', 'LEVANTADO'),
+                \PHPSpreadsheet::ColumnaExcel('dictamen_fecha_envio', 'DICTAMEN ENVIADO'),
+                \PHPSpreadsheet::ColumnaExcel('dictamen_fecha_visto', 'VISTO POR GESTOR'),
+                \PHPSpreadsheet::ColumnaExcel('pct_efectividad', '% EFECTIVIDAD'),
+                \PHPSpreadsheet::ColumnaExcel('medidas_preventivas', 'MEDIDAS PREVENTIVAS'),
+                \PHPSpreadsheet::ColumnaExcel('cumplimiento_etiqueta', 'CUMPLIMIENTO ETIQUETA'),
+                \PHPSpreadsheet::ColumnaExcel('dictamen_sistema_resultado', 'RESULTADO DS'),
+            ];
+
+            $fmt = function ($v) {
+                if ($v === null || $v === '') {
+                    return '—';
+                }
+                if (is_numeric($v)) {
+                    return $v;
+                }
+                $t = strtotime((string)$v);
+                if ($t !== false && strlen((string)$v) >= 10) {
+                    return date('Y-m-d H:i', $t);
+                }
+                return (string)$v;
+            };
+
+            $datosFormateados = [];
+            foreach ($detalle as $r) {
+                $pct = $r['pct_efectividad'] ?? null;
+                $datosFormateados[] = [
+                    'folio' => $r['folio'] ?? '—',
+                    'creador_nombre' => trim((string)($r['creador_nombre'] ?? '—')),
+                    'creador_id' => isset($r['creador_id']) ? (int)$r['creador_id'] : '—',
+                    'asignado_nombre' => trim((string)($r['asignado_nombre'] ?? '—')),
+                    'fecha_creacion' => $fmt($r['fecha_creacion'] ?? null),
+                    'dictamen_fecha_envio' => $fmt($r['dictamen_fecha_envio'] ?? null),
+                    'dictamen_fecha_visto' => $fmt($r['dictamen_fecha_visto'] ?? null),
+                    'pct_efectividad' => ($pct !== null && $pct !== '') ? $pct . '%' : '—',
+                    'medidas_preventivas' => trim((string)($r['medidas_preventivas'] ?? '—')),
+                    'cumplimiento_etiqueta' => trim((string)($r['cumplimiento_etiqueta'] ?? '—')),
+                    'dictamen_sistema_resultado' => trim((string)($r['dictamen_sistema_resultado'] ?? '—')),
+                ];
+            }
+
+            \PHPSpreadsheet::DescargaExcel(
+                'Estadisticas_Detalle_Dictamen_' . date('Y-m-d_His'),
+                'Detalle dictamen enviado',
+                'Estadísticas Sabueso',
+                $columnas,
+                $datosFormateados
+            );
+            exit;
+        } catch (\Exception $e) {
+            error_log('Error en descargarReporteSabuesosEstadisticasDetalle: ' . $e->getMessage());
             http_response_code(500);
             echo json_encode(['error' => 'Error al generar el reporte: ' . $e->getMessage()]);
             exit;

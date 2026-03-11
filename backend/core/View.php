@@ -220,6 +220,11 @@ function getMenu()
                                     'label' => 'Cerrado/Eliminado',
                                     'url' => '/sabueso/cerradoEliminado',
                                     'modulos' => [19]
+                            ],
+                            [
+                                    'label' => 'Estadísticas',
+                                    'url' => '/sabueso/estadisticas',
+                                    'modulos' => [47]
                             ]
                     ]
             ],
