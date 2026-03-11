@@ -165,11 +165,11 @@ class Ticket extends Model
         // Intentar crear el ticket con reintentos para evitar condiciones de carrera
         $maxIntentos = 3;
         $intento = 0;
-        
+
         while ($intento < $maxIntentos) {
             try {
                 $db->beginTransaction();
-                
+
                 // Obtener siguiente ID disponible usando MAX (más eficiente) con bloqueo para evitar condiciones de carrera
                 $maxRow = $db->queryOne("SELECT MAX(id_ticket) AS max_id FROM ticket FOR UPDATE");
                 $maxId = $maxRow && isset($maxRow['max_id']) && $maxRow['max_id'] !== null ? (int)$maxRow['max_id'] : 0;
@@ -178,15 +178,15 @@ class Ticket extends Model
                 // Obtener siguiente número de folio usando una consulta SQL optimizada
                 // Extrae el número máximo directamente en SQL sin traer todos los registros
                 $maxFolioRow = $db->queryOne("
-                    SELECT MAX(CAST(SUBSTRING(folio, 5) AS UNSIGNED)) AS max_num 
-                    FROM ticket 
-                    WHERE folio LIKE 'TCK-%' 
+                    SELECT MAX(CAST(SUBSTRING(folio, 5) AS UNSIGNED)) AS max_num
+                    FROM ticket
+                    WHERE folio LIKE 'TCK-%'
                     FOR UPDATE
                 ");
                 $maxNum = $maxFolioRow && isset($maxFolioRow['max_num']) && $maxFolioRow['max_num'] !== null ? (int)$maxFolioRow['max_num'] : 0;
                 $num = $maxNum + 1;
                 $folio = 'TCK-' . str_pad((string)$num, 4, '0', STR_PAD_LEFT);
-                
+
                 // Verificar que el folio no exista (solo una verificación rápida)
                 $folioExiste = $db->queryOne("SELECT 1 FROM ticket WHERE folio = :folio LIMIT 1", ['folio' => $folio]);
                 if ($folioExiste) {
@@ -229,12 +229,12 @@ class Ticket extends Model
 
                 $db->CRUD($query, $params);
                 $db->commit();
-                
+
                 return self::resultado(true, 'Ticket creado correctamente.', ['folio' => $folio, 'id_ticket' => $siguienteId]);
-                
+
             } catch (\Exception $e) {
                 $db->rollback();
-                
+
                 // Si es error de clave duplicada, reintentar
                 $errorMsg = $e->getMessage();
                 if (strpos($errorMsg, 'Duplicate entry') !== false || strpos($errorMsg, '1062') !== false) {
@@ -246,12 +246,12 @@ class Ticket extends Model
                     usleep(rand(10000, 50000)); // 10-50ms
                     continue;
                 }
-                
+
                 // Si es otro tipo de error, retornar inmediatamente
                 return self::resultado(false, 'Error al crear el ticket.', null, $errorMsg);
             }
         }
-        
+
         return self::resultado(false, 'Error al crear el ticket: se agotaron los intentos.', null);
     }
 
@@ -1034,6 +1034,7 @@ class Ticket extends Model
 
     /**
      * Marcar el dictamen del ticket como enviado al gestor (estado = enviado_al_gestor).
+     * También guarda el snapshot de gestiones para dictamen_sistema.
      */
     public static function enviarDictamenGestor($idTicket)
     {
@@ -1058,6 +1059,14 @@ class Ticket extends Model
                 "UPDATE dictamen SET estado = 'enviado_al_gestor', fecha_actualizacion = :fecha_actualizacion WHERE id = :id",
                 ['fecha_actualizacion' => $now, 'id' => (int)$actual['id']]
             );
+
+            // Guardar snapshot de gestiones en dictamen_sistema
+            try {
+                self::guardarSnapshotDictamenSistema($tid, (int)$actual['id'], $now, $db);
+            } catch (\Exception $snapErr) {
+                error_log('dictamen_sistema snapshot error: ' . $snapErr->getMessage());
+            }
+
             return self::resultado(true, 'Dictamen enviado al gestor.');
         } catch (\Exception $e) {
             return self::resultado(false, 'Error al enviar dictamen.', null, $e->getMessage());
@@ -1092,9 +1101,37 @@ class Ticket extends Model
                 );
             }
             $evidencias = $db->queryAll("SELECT id, ruta_archivo, nombre_original, fecha_subida FROM ticket_evidencia WHERE id_ticket = :id_ticket ORDER BY fecha_subida ASC", ['id_ticket' => $id]);
+
+            // Parsear domicilios de visita desde la descripción ("Podrás encontrar al usuario en desc link; desc2 link2")
+            $domicilios = [];
+            $descripcionBase = $dictamen ? ($dictamen['descripcion'] ?? '') : '';
+            if ($dictamen && !empty($dictamen['descripcion'])) {
+                $desc = (string) $dictamen['descripcion'];
+                $prefijo = 'Podrás encontrar al usuario en ';
+                $pos = strpos($desc, $prefijo);
+                if ($pos !== false) {
+                    $descripcionBase = trim(preg_replace('/\.\s*$/', '', substr($desc, 0, $pos)));
+                    $domStr = trim(substr($desc, $pos + strlen($prefijo)));
+                    $bloques = preg_split('/\s*;\s*/', $domStr, -1, PREG_SPLIT_NO_EMPTY);
+                    foreach ($bloques as $bloq) {
+                        $bloq = trim($bloq);
+                        if ($bloq === '') continue;
+                        if (preg_match('/\s+(https?:\/\/\S+)$/u', $bloq, $m)) {
+                            $domicilios[] = ['desc' => trim(substr($bloq, 0, -strlen($m[0]))), 'link' => $m[1]];
+                        } else {
+                            $domicilios[] = ['desc' => $bloq, 'link' => ''];
+                        }
+                    }
+                }
+            }
+            if ($dictamen !== null) {
+                $dictamen['descripcion_base'] = $descripcionBase;
+            }
+
             return self::resultado(true, 'OK', [
                 'dictamen' => $dictamen ?: null,
                 'evidencias' => is_array($evidencias) ? $evidencias : [],
+                'domicilios' => $domicilios,
             ]);
         } catch (\Exception $e) {
             return self::resultado(false, 'Error al obtener detalle.', null, $e->getMessage());
@@ -1244,8 +1281,8 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
         $placeholders = implode(',', $ids); // Son enteros, seguro sin PDO
         $db = new Database();
         $rows = $db->queryAll(
-            "SELECT id_credito, nombre_cliente 
-             FROM `__SPARTA_SECRET_REDACTED__`.tbl_segundometro_semana 
+            "SELECT id_credito, nombre_cliente
+             FROM `__SPARTA_SECRET_REDACTED__`.tbl_segundometro_semana
              WHERE id_credito IN ($placeholders)"
         );
         $mapa = [];
@@ -1258,4 +1295,320 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
         return [];
     }
 }
+
+    // =====================================================================
+    //  DICTAMEN DEL SISTEMA — verificación automática de visita
+    // =====================================================================
+
+    /**
+     * Guarda snapshot de gestiones al momento de enviar el dictamen al gestor.
+     */
+    private static function guardarSnapshotDictamenSistema(int $idTicket, int $idDictamen, string $fechaEnvio, Database $db)
+    {
+        $ticketRow = $db->queryOne("SELECT id_credito FROM ticket WHERE id_ticket = :id LIMIT 1", ['id' => $idTicket]);
+        $idCredito = $ticketRow ? (int)($ticketRow['id_credito'] ?? 0) : 0;
+        if ($idCredito < 1) return;
+
+        $idGestor = self::getCreadorIdPorTicket($idTicket);
+        $nombreGestor = $idGestor > 0 ? self::getNombrePersona($idGestor) : '';
+
+        $gestiones = Gestiones::getAllGestiones((string)$idCredito, '');
+        $totalGestiones = is_array($gestiones) ? count($gestiones) : 0;
+
+        $existe = $db->queryOne(
+            "SELECT id FROM dictamen_sistema WHERE id_dictamen = :idd LIMIT 1",
+            ['idd' => $idDictamen]
+        );
+        if ($existe) {
+            $db->CRUD(
+                "UPDATE dictamen_sistema SET gestiones_al_enviar = :g, fecha_envio_dictamen = :f, resultado = 'pendiente' WHERE id = :id",
+                ['g' => $totalGestiones, 'f' => $fechaEnvio, 'id' => (int)$existe['id']]
+            );
+        } else {
+            $db->CRUD(
+                "INSERT INTO dictamen_sistema (id_ticket, id_dictamen, id_credito, id_gestor, nombre_gestor, gestiones_al_enviar, resultado, fecha_envio_dictamen, fecha_creacion) " .
+                "VALUES (:tid, :did, :cred, :gest, :nom, :g, 'pendiente', :fenv, :fc)",
+                [
+                    'tid'  => $idTicket,
+                    'did'  => $idDictamen,
+                    'cred' => $idCredito,
+                    'gest' => $idGestor > 0 ? $idGestor : null,
+                    'nom'  => $nombreGestor !== '' ? $nombreGestor : null,
+                    'g'    => $totalGestiones,
+                    'fenv' => $fechaEnvio,
+                    'fc'   => $fechaEnvio,
+                ]
+            );
+        }
+    }
+
+    /**
+     * Genera el dictamen del sistema: compara gestiones antes/después y calcula distancias.
+     * Se invoca desde el botón en Panel Admin una vez que pasan las 12 horas.
+     */
+    public static function generarDictamenSistema(int $idTicket): array
+    {
+        if ($idTicket < 1) {
+            return self::resultado(false, 'ID de ticket inválido.');
+        }
+        try {
+            $db = new Database();
+            $tz = new \DateTimeZone('America/Mexico_City');
+            $now = (new \DateTime('now', $tz))->format('Y-m-d H:i:s');
+
+            // Solo tickets creados a partir del 10-mar-2026 (función no aplica a tickets viejos)
+            $ticketRow = $db->queryOne(
+                "SELECT fecha_creacion FROM ticket WHERE id_ticket = :tid AND (activo = 1 OR activo IS NULL) LIMIT 1",
+                ['tid' => $idTicket]
+            );
+            if ($ticketRow && !empty($ticketRow['fecha_creacion'])) {
+                $fc = new \DateTime($ticketRow['fecha_creacion'], $tz);
+                $minimo = new \DateTime('2026-03-10 00:00:00', $tz);
+                if ($fc < $minimo) {
+                    return self::resultado(false, 'El dictamen del sistema solo aplica a tickets creados a partir del 10 de marzo de 2026.');
+                }
+            }
+
+            $ds = $db->queryOne(
+                "SELECT * FROM dictamen_sistema WHERE id_ticket = :tid ORDER BY id DESC LIMIT 1",
+                ['tid' => $idTicket]
+            );
+            if (!$ds) {
+                return self::resultado(false, 'No existe registro de dictamen_sistema para este ticket. Es posible que el dictamen se haya enviado antes de activar esta función.');
+            }
+
+            $idCredito = (int)($ds['id_credito'] ?? 0);
+            if ($idCredito < 1) {
+                return self::resultado(false, 'El ticket no tiene crédito asociado.');
+            }
+
+            $gestionesAhora = Gestiones::getAllGestiones((string)$idCredito, '');
+            $totalAhora = is_array($gestionesAhora) ? count($gestionesAhora) : 0;
+            $totalAntes = (int)($ds['gestiones_al_enviar'] ?? 0);
+
+            // Sin gestiones nuevas → No visitó
+            if ($totalAhora <= $totalAntes) {
+                $detalle = json_encode([
+                    'gestiones_antes' => $totalAntes,
+                    'gestiones_ahora' => $totalAhora,
+                    'mensaje' => 'No se registraron nuevas gestiones después de enviar el dictamen.',
+                ], JSON_UNESCAPED_UNICODE);
+
+                $db->CRUD(
+                    "UPDATE dictamen_sistema SET gestiones_al_revisar = :ga, resultado = 'no_visito', detalle = :d, fecha_revision = :fr WHERE id = :id",
+                    ['ga' => $totalAhora, 'd' => $detalle, 'fr' => $now, 'id' => (int)$ds['id']]
+                );
+
+                return self::resultado(true, 'Dictamen del sistema generado.', [
+                    'resultado' => 'no_visito',
+                    'detalle' => json_decode($detalle, true),
+                ]);
+            }
+
+            // Hay gestiones nuevas — analizar
+            $nuevas = array_slice($gestionesAhora, 0, $totalAhora - $totalAntes);
+
+            // Obtener coordenadas del dictamen (direcciones proporcionadas)
+            $dictamenRow = $db->queryOne(
+                "SELECT descripcion FROM dictamen WHERE id = :id LIMIT 1",
+                ['id' => (int)$ds['id_dictamen']]
+            );
+            $coordsDictamen = self::extraerCoordenadasDictamen($dictamenRow['descripcion'] ?? '');
+
+            $analisis = [];
+            $visitoCampo = false;
+            $visitoTelefonico = false;
+            $sinCoordenadas = true;
+
+            foreach ($nuevas as $idx => $g) {
+                $latG = self::toFloat($g['latitud'] ?? null);
+                $lngG = self::toFloat($g['longitud'] ?? null);
+                $contacto = strtolower(trim((string)($g['contacto'] ?? '')));
+                $esCampo = ($contacto === 'campo' || !empty(trim((string)($g['medio_contactacion_campo'] ?? ''))));
+                $esTelefonico = ($contacto === 'telefono' || $contacto === 'telefono' ||
+                    !empty(trim((string)($g['medio_contactacion_ccc'] ?? ''))) &&
+                    trim((string)($g['medio_contactacion_campo'] ?? '')) === '' &&
+                    trim((string)($g['medio_contactacion_campo'] ?? '')) !== 'domicilio del cliente');
+
+                if ($esCampo && empty(trim((string)($g['medio_contactacion_ccc'] ?? '')))
+                    || (!empty(trim((string)($g['medio_contactacion_campo'] ?? '')))
+                        && trim((string)($g['medio_contactacion_campo'] ?? '')) !== '0')) {
+                    $esTelefonico = false;
+                    $esCampo = true;
+                }
+
+                $tipoGestion = $esCampo ? 'campo' : ($esTelefonico ? 'telefonico' : 'otro');
+
+                $gestionAnalisis = [
+                    'indice' => $idx + 1,
+                    'fecha' => $g['fecha_dispositivo'] ?? $g['fecha_hora'] ?? '',
+                    'tipo' => $tipoGestion,
+                    'lat' => $latG,
+                    'lng' => $lngG,
+                    'usuario' => $g['usuario_asignado'] ?? $g['usuario'] ?? '',
+                    'distancias' => [],
+                ];
+
+                $tieneCoords = ($latG != 0.0 || $lngG != 0.0) && $latG !== null && $lngG !== null;
+
+                if ($tieneCoords && !empty($coordsDictamen)) {
+                    $sinCoordenadas = false;
+                    foreach ($coordsDictamen as $cd) {
+                        $dist = self::haversine($latG, $lngG, $cd['lat'], $cd['lng']);
+                        $gestionAnalisis['distancias'][] = [
+                            'direccion' => $cd['desc'],
+                            'lat_dictamen' => $cd['lat'],
+                            'lng_dictamen' => $cd['lng'],
+                            'distancia_metros' => round($dist),
+                        ];
+                        if ($dist < 100) {
+                            if ($esCampo) $visitoCampo = true;
+                            if ($esTelefonico) $visitoTelefonico = true;
+                        }
+                    }
+                } elseif (!$tieneCoords) {
+                    $gestionAnalisis['nota'] = 'Sin coordenadas GPS en esta gestión.';
+                }
+
+                $analisis[] = $gestionAnalisis;
+            }
+
+            // Determinar resultado final
+            $resultado = 'no_visito';
+            $mensajeFinal = '';
+            if ($visitoCampo) {
+                $resultado = 'visito_campo';
+                $mensajeFinal = 'El gestor realizó visita de campo dentro del rango de 100 metros de las direcciones del dictamen.';
+            } elseif ($visitoTelefonico) {
+                $resultado = 'visito_telefonico';
+                $mensajeFinal = 'El gestor registró gestión telefónica, pero no se detectó visita de campo. Se encontraron nuevas gestiones con tipo telefónico.';
+            } elseif ($sinCoordenadas && empty($coordsDictamen)) {
+                $resultado = 'sin_coordenadas';
+                $mensajeFinal = 'No fue posible comparar: no se encontraron coordenadas en las direcciones del dictamen.';
+            } elseif ($sinCoordenadas) {
+                $resultado = 'sin_coordenadas';
+                $mensajeFinal = 'Las nuevas gestiones no tienen coordenadas GPS para comparar.';
+            } else {
+                $mensajeFinal = 'Se registraron nuevas gestiones pero ninguna estuvo a menos de 100 metros de las direcciones del dictamen.';
+                $resultado = 'distancia_lejana';
+            }
+
+            $detalle = json_encode([
+                'gestiones_antes'  => $totalAntes,
+                'gestiones_ahora'  => $totalAhora,
+                'nuevas_gestiones' => count($nuevas),
+                'coords_dictamen'  => $coordsDictamen,
+                'analisis'         => $analisis,
+                'mensaje'          => $mensajeFinal,
+            ], JSON_UNESCAPED_UNICODE);
+
+            $db->CRUD(
+                "UPDATE dictamen_sistema SET gestiones_al_revisar = :ga, resultado = :res, detalle = :d, fecha_revision = :fr WHERE id = :id",
+                ['ga' => $totalAhora, 'res' => $resultado, 'd' => $detalle, 'fr' => $now, 'id' => (int)$ds['id']]
+            );
+
+            return self::resultado(true, 'Dictamen del sistema generado.', [
+                'resultado' => $resultado,
+                'detalle' => json_decode($detalle, true),
+            ]);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al generar dictamen del sistema.', null, $e->getMessage());
+        }
+    }
+
+    /**
+     * Obtiene el dictamen_sistema existente para un ticket (para mostrar en UI).
+     */
+    public static function getDictamenSistema(int $idTicket): array
+    {
+        if ($idTicket < 1) {
+            return self::resultado(false, 'ID de ticket inválido.');
+        }
+        try {
+            $db = new Database();
+            $ds = $db->queryOne(
+                "SELECT * FROM dictamen_sistema WHERE id_ticket = :tid ORDER BY id DESC LIMIT 1",
+                ['tid' => $idTicket]
+            );
+            if (!$ds) {
+                return self::resultado(true, 'No hay dictamen del sistema.', ['dictamen_sistema' => null]);
+            }
+            $ds['detalle_parsed'] = !empty($ds['detalle']) ? json_decode($ds['detalle'], true) : null;
+            return self::resultado(true, 'OK', ['dictamen_sistema' => $ds]);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al obtener dictamen del sistema.', null, $e->getMessage());
+        }
+    }
+
+    /**
+     * Extrae coordenadas lat/lng de las URLs de Google Maps en la descripción del dictamen.
+     * Formato esperado: "Podrás encontrar al usuario en [desc] https://maps...?q=lat,lng; ..."
+     */
+    private static function extraerCoordenadasDictamen(string $descripcion): array
+    {
+        $coords = [];
+        $prefijo = 'Podrás encontrar al usuario en ';
+        $pos = strpos($descripcion, $prefijo);
+        if ($pos === false) return $coords;
+
+        $domStr = trim(substr($descripcion, $pos + strlen($prefijo)));
+        $bloques = preg_split('/\s*;\s*/', $domStr, -1, PREG_SPLIT_NO_EMPTY);
+
+        foreach ($bloques as $bloq) {
+            $bloq = trim($bloq);
+            if ($bloq === '') continue;
+
+            $desc = $bloq;
+            $lat = null;
+            $lng = null;
+
+            // Extraer URL de Google Maps
+            if (preg_match('/(https?:\/\/\S+)/u', $bloq, $urlMatch)) {
+                $url = $urlMatch[1];
+                $desc = trim(str_replace($url, '', $bloq));
+
+                // Intentar extraer coordenadas de la URL
+                // Patrones comunes: ?q=lat,lng  @lat,lng  /place/lat,lng
+                if (preg_match('/[?&]q=(-?\d+\.?\d*),(-?\d+\.?\d*)/', $url, $m)) {
+                    $lat = (float)$m[1];
+                    $lng = (float)$m[2];
+                } elseif (preg_match('/@(-?\d+\.?\d*),(-?\d+\.?\d*)/', $url, $m)) {
+                    $lat = (float)$m[1];
+                    $lng = (float)$m[2];
+                } elseif (preg_match('/\/place\/(-?\d+\.?\d*),(-?\d+\.?\d*)/', $url, $m)) {
+                    $lat = (float)$m[1];
+                    $lng = (float)$m[2];
+                }
+            }
+
+            if ($lat !== null && $lng !== null && ($lat != 0.0 || $lng != 0.0)) {
+                $coords[] = ['desc' => $desc, 'lat' => $lat, 'lng' => $lng];
+            }
+        }
+
+        return $coords;
+    }
+
+    /**
+     * Distancia entre dos puntos (lat/lng) en metros usando la fórmula de Haversine.
+     */
+    private static function haversine(float $lat1, float $lng1, float $lat2, float $lng2): float
+    {
+        $R = 6371000; // Radio de la Tierra en metros
+        $dLat = deg2rad($lat2 - $lat1);
+        $dLng = deg2rad($lng2 - $lng1);
+        $a = sin($dLat / 2) * sin($dLat / 2) +
+             cos(deg2rad($lat1)) * cos(deg2rad($lat2)) *
+             sin($dLng / 2) * sin($dLng / 2);
+        $c = 2 * atan2(sqrt($a), sqrt(1 - $a));
+        return $R * $c;
+    }
+
+    private static function toFloat($val): ?float
+    {
+        if ($val === null || $val === '') return null;
+        $v = (float)trim((string)$val);
+        return $v;
+    }
+
 }
