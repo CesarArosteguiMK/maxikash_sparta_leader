@@ -235,6 +235,11 @@ function getMenu()
                                     'label' => 'Mi Gestión',
                                     'url' => '/Despachos/MiGestion',
                                     'modulos' => [20]
+                            ],
+                            [
+                                    'label' => 'Convenios',
+                                    'url' => '/convenios/consulta',
+                                    'modulos' => [46]
                             ]
                     ]
             ],
