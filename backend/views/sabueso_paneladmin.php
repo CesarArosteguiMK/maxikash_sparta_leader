@@ -1935,11 +1935,31 @@
     <div class="modal-body" id="modalDictamenSistemaBody">
         <div class="text-center py-4"><i class="fa-solid fa-spinner fa-spin fa-2x text-muted"></i></div>
     </div>
-    <div class="modal-footer py-2">
+    <div class="modal-footer py-2 d-flex flex-wrap align-items-center gap-2">
         <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cerrar</button>
         <button type="button" class="btn btn-warning btn-sm" id="btnGenerarDictamenSistema" style="display:none;" onclick="ejecutarDictamenSistema()">
             <i class="fa-solid fa-robot me-1"></i>Generar dictamen del sistema
         </button>
+        <?php /* Simulaciones ocultas: quitar class d-none del wrap #dictamenSistemaSimWrap para reactivar en el futuro */ ?>
+        <div id="dictamenSistemaSimWrap" class="d-none w-100">
+            <div class="d-flex justify-content-end mb-1">
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-toggle="collapse" data-bs-target="#dictamenSistemaSimCollapse" aria-expanded="false" title="Solo pruebas de pantalla">
+                    <i class="fa-solid fa-flask me-1"></i>Simulaciones
+                </button>
+            </div>
+            <div class="collapse border-top bg-light rounded" id="dictamenSistemaSimCollapse">
+                <div class="p-3 small">
+                    <p class="text-muted mb-2"><strong>Uso interno:</strong> no escribe en BD.</p>
+                    <div class="d-flex flex-wrap gap-1">
+                        <button type="button" class="btn btn-sm btn-outline-danger" onclick="dictamenSistemaSimular('no_visito')">No visitó</button>
+                        <button type="button" class="btn btn-sm btn-outline-success" onclick="dictamenSistemaSimular('visito_campo')">Visitó (campo)</button>
+                        <button type="button" class="btn btn-sm btn-outline-warning" onclick="dictamenSistemaSimular('visito_telefonico')">Telefónico</button>
+                        <button type="button" class="btn btn-sm btn-outline-danger" onclick="dictamenSistemaSimular('distancia_lejana')">Lejos</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="dictamenSistemaSimular('sin_coordenadas')">Sin coordenadas</button>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 </div>
@@ -1956,10 +1976,13 @@ function abrirDictamenSistema(idTicket) {
     modal.show();
 
     http.request({
-        method: 'POST',
         endpoint: '/sabueso/getDictamenSistema',
-        body: { id_ticket: idTicket },
-        success: function(res) {
+        metodo: 'POST',
+        data: JSON.stringify({ id_ticket: idTicket }),
+        contentType: 'application/json',
+        processData: false,
+        showLoader: false,
+        onSuccess: function(res) {
             var ds = (res.datos || {}).dictamen_sistema;
             if (!ds) {
                 body.innerHTML = '<div class="alert alert-info mb-0"><i class="fa-solid fa-circle-info me-1"></i>No se ha generado aún el dictamen del sistema para este ticket. Haga clic en <strong>Generar dictamen del sistema</strong> para iniciar la verificación automática.</div>';
@@ -1973,7 +1996,7 @@ function abrirDictamenSistema(idTicket) {
             }
             renderDictamenSistemaResultado(ds, body);
         },
-        error: function() {
+        onError: function() {
             body.innerHTML = '<div class="alert alert-danger mb-0">Error al consultar el dictamen del sistema.</div>';
         }
     });
@@ -1987,10 +2010,13 @@ function ejecutarDictamenSistema() {
     body.innerHTML = '<div class="text-center py-4"><i class="fa-solid fa-gear fa-spin fa-2x text-warning"></i><p class="mt-2 text-muted">Analizando gestiones y calculando distancias...</p></div>';
 
     http.request({
-        method: 'POST',
         endpoint: '/sabueso/generarDictamenSistema',
-        body: { id_ticket: dictamenSistemaTicketId },
-        success: function(res) {
+        metodo: 'POST',
+        data: JSON.stringify({ id_ticket: dictamenSistemaTicketId }),
+        contentType: 'application/json',
+        processData: false,
+        showLoader: false,
+        onSuccess: function(res) {
             btn.disabled = false;
             btn.innerHTML = '<i class="fa-solid fa-robot me-1"></i>Generar dictamen del sistema';
             if (!res.success) {
@@ -1999,10 +2025,9 @@ function ejecutarDictamenSistema() {
                 return;
             }
             btn.style.display = 'none';
-            // Re-fetch to show full data
             abrirDictamenSistema(dictamenSistemaTicketId);
         },
-        error: function() {
+        onError: function() {
             btn.disabled = false;
             btn.innerHTML = '<i class="fa-solid fa-robot me-1"></i>Generar dictamen del sistema';
             body.innerHTML = '<div class="alert alert-danger mb-0">Error de conexión al generar el dictamen.</div>';
@@ -2010,8 +2035,44 @@ function ejecutarDictamenSistema() {
     });
 }
 
+/** Textos por resultado (profesional, consistente) */
+var DICTAMEN_SISTEMA_COPY = {
+    no_visito: {
+        titulo: 'No visitó',
+        subtitulo: 'Sin gestiones nuevas en el plazo de 12 horas',
+        mensajeDefault: 'No se registraron nuevas gestiones después de enviar el dictamen. El conteo de gestiones históricas se mantuvo igual al momento del envío.'
+    },
+    visito_campo: {
+        titulo: 'Visitó en campo',
+        subtitulo: 'Gestión de campo dentro del rango permitido',
+        mensajeDefault: 'Se detectó al menos una gestión de campo con ubicación a menos de 100 metros de las direcciones indicadas en el dictamen del equipo Sabueso.'
+    },
+    visito_telefonico: {
+        titulo: 'Gestión telefónica',
+        subtitulo: 'Hubo contacto pero no visita de campo acreditable',
+        mensajeDefault: 'Se registraron gestiones nuevas de tipo telefónico. No aplica la validación por proximidad física al domicilio.'
+    },
+    distancia_lejana: {
+        titulo: 'Gestión registrada fuera de rango',
+        subtitulo: 'Ubicación a más de 100 m de la dirección del dictamen',
+        mensajeDefault: 'Hay gestiones nuevas, pero ninguna quedó dentro del umbral de 100 metros respecto a las direcciones proporcionadas.'
+    },
+    sin_coordenadas: {
+        titulo: 'Sin comparación por coordenadas',
+        subtitulo: 'No fue posible contrastar ubicaciones',
+        mensajeDefault: 'Faltan coordenadas en las gestiones nuevas o en las direcciones del dictamen; no se pudo calcular distancia.'
+    }
+};
+
 function renderDictamenSistemaResultado(ds, body) {
     var d = ds.detalle_parsed || {};
+    if (!d.mensaje && ds.detalle && typeof ds.detalle === 'string') {
+        try { d = JSON.parse(ds.detalle) || d; } catch (e) {}
+    }
+    var resultado = ds.resultado || '';
+    var copy = DICTAMEN_SISTEMA_COPY[resultado] || { titulo: resultado, subtitulo: '', mensajeDefault: '' };
+    var mensajeMostrar = (d.mensaje && String(d.mensaje).trim()) ? d.mensaje : copy.mensajeDefault;
+
     var resultadoClase = {
         'no_visito': 'danger',
         'visito_campo': 'success',
@@ -2019,88 +2080,192 @@ function renderDictamenSistemaResultado(ds, body) {
         'distancia_lejana': 'danger',
         'sin_coordenadas': 'secondary'
     };
-    var resultadoTexto = {
-        'no_visito': 'No visitó',
-        'visito_campo': 'Visitó (campo)',
-        'visito_telefonico': 'Gestión telefónica',
-        'distancia_lejana': 'Visitó pero lejos de la dirección',
-        'sin_coordenadas': 'Sin coordenadas para comparar'
-    };
-    var cls = resultadoClase[ds.resultado] || 'secondary';
-    var txt = resultadoTexto[ds.resultado] || ds.resultado;
+    var cls = resultadoClase[resultado] || 'secondary';
 
-    var html = '<div class="mb-3">';
-    html += '<span class="badge bg-' + cls + ' fs-6 px-3 py-2"><i class="fa-solid fa-robot me-1"></i>' + txt + '</span>';
-    html += '</div>';
+    // —— Bloque principal (hero) según resultado ——
+    var html = '';
+    if (resultado === 'no_visito') {
+        html += '<div class="rounded-3 border border-danger border-opacity-25 bg-danger bg-opacity-10 p-4 mb-4 text-center">';
+        html += '<div class="mb-2"><i class="fa-solid fa-user-xmark fa-2x text-danger opacity-75"></i></div>';
+        html += '<h5 class="mb-1 text-danger fw-semibold">' + copy.titulo + '</h5>';
+        html += '<p class="text-muted small mb-3 mb-md-4">' + copy.subtitulo + '</p>';
+        html += '<div class="bg-white rounded-3 shadow-sm border p-3 text-start">';
+        html += '<div class="small text-uppercase text-muted fw-semibold mb-2">Conclusión del sistema</div>';
+        html += '<p class="mb-0 text-body" style="line-height:1.55;">' + escHtml(mensajeMostrar) + '</p>';
+        html += '</div></div>';
+    } else if (resultado === 'visito_campo') {
+        html += '<div class="rounded-3 border border-success border-opacity-25 bg-success bg-opacity-10 p-4 mb-4 text-center">';
+        html += '<div class="mb-2"><i class="fa-solid fa-circle-check fa-2x text-success"></i></div>';
+        html += '<h5 class="mb-1 text-success fw-semibold">' + copy.titulo + '</h5>';
+        html += '<p class="text-muted small mb-3">' + copy.subtitulo + '</p>';
+        html += '<div class="bg-white rounded-3 shadow-sm border p-3 text-start">';
+        html += '<p class="mb-0 small" style="line-height:1.55;">' + escHtml(mensajeMostrar) + '</p>';
+        html += '</div></div>';
+    } else {
+        html += '<div class="rounded-3 border p-3 mb-3 bg-light">';
+        html += '<div class="d-flex align-items-center gap-2 mb-2">';
+        html += '<span class="badge bg-' + cls + ' fs-6 px-3 py-2"><i class="fa-solid fa-robot me-1"></i>' + (copy.titulo || resultado) + '</span>';
+        html += '</div>';
+        if (copy.subtitulo) html += '<p class="text-muted small mb-2 mb-0">' + copy.subtitulo + '</p>';
+        if (mensajeMostrar) {
+            html += '<div class="mt-2 pt-2 border-top small">' + escHtml(mensajeMostrar) + '</div>';
+        }
+        html += '</div>';
+    }
 
     // Fecha de revisión
     if (ds.fecha_revision) {
-        html += '<div class="small text-muted mb-2"><i class="fa-solid fa-calendar-check me-1"></i>Revisado el: <strong>' + new Date(ds.fecha_revision).toLocaleDateString('es-MX', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' }) + ' (CDMX)</strong></div>';
+        html += '<div class="d-flex align-items-center gap-2 small text-muted mb-3">';
+        html += '<i class="fa-solid fa-calendar-check"></i>';
+        html += '<span>Revisión del sistema: <strong>' + new Date(ds.fecha_revision).toLocaleString('es-MX', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' }) + '</strong> (hora CDMX)</span>';
+        html += '</div>';
     }
 
-    // Info gestiones
-    html += '<div class="card mb-3"><div class="card-body py-2 px-3">';
-    html += '<div class="row">';
-    html += '<div class="col-6"><span class="text-muted small">Gestiones al enviar dictamen</span><div class="fw-semibold">' + (d.gestiones_antes != null ? d.gestiones_antes : ds.gestiones_al_enviar) + '</div></div>';
-    html += '<div class="col-6"><span class="text-muted small">Gestiones al revisar</span><div class="fw-semibold">' + (d.gestiones_ahora != null ? d.gestiones_ahora : (ds.gestiones_al_revisar != null ? ds.gestiones_al_revisar : '—')) + '</div></div>';
-    html += '</div>';
+    // Resumen numérico
+    html += '<div class="card border-0 shadow-sm mb-3"><div class="card-body py-3 px-3">';
+    html += '<div class="row g-3 text-center text-md-start">';
+    html += '<div class="col-md-4"><div class="text-muted small">Gestiones al enviar</div><div class="fs-5 fw-semibold">' + (d.gestiones_antes != null ? d.gestiones_antes : ds.gestiones_al_enviar) + '</div></div>';
+    html += '<div class="col-md-4"><div class="text-muted small">Gestiones al revisar</div><div class="fs-5 fw-semibold">' + (d.gestiones_ahora != null ? d.gestiones_ahora : (ds.gestiones_al_revisar != null ? ds.gestiones_al_revisar : '—')) + '</div></div>';
     if (d.nuevas_gestiones != null && d.nuevas_gestiones > 0) {
-        html += '<div class="mt-2 small text-info"><i class="fa-solid fa-plus-circle me-1"></i>Gestiones nuevas detectadas: <strong>' + d.nuevas_gestiones + '</strong></div>';
+        html += '<div class="col-md-4"><div class="text-muted small">Gestiones nuevas</div><div class="fs-5 fw-semibold text-primary">' + d.nuevas_gestiones + '</div></div>';
     }
-    html += '</div></div>';
+    html += '</div></div></div>';
 
-    // Mensaje
-    if (d.mensaje) {
-        html += '<div class="alert alert-' + cls + ' py-2 small mb-3"><i class="fa-solid fa-circle-info me-1"></i>' + d.mensaje + '</div>';
-    }
-
-    // Gestor
     if (ds.nombre_gestor) {
-        html += '<div class="small text-muted mb-2"><i class="fa-solid fa-user me-1"></i>Gestor: <strong>' + ds.nombre_gestor + '</strong></div>';
+        html += '<div class="small text-muted mb-3"><i class="fa-solid fa-user me-1"></i>Gestor evaluado: <strong>' + escHtml(ds.nombre_gestor) + '</strong></div>';
     }
 
-    // Análisis detallado de nuevas gestiones
+    // Análisis detallado
     if (d.analisis && d.analisis.length > 0) {
-        html += '<h6 class="mt-3 mb-2"><i class="fa-solid fa-list-check me-1"></i>Detalle de gestiones nuevas</h6>';
+        html += '<h6 class="fw-semibold mb-2"><i class="fa-solid fa-list-check me-1 text-secondary"></i>Detalle de gestiones nuevas</h6>';
         for (var i = 0; i < d.analisis.length; i++) {
             var a = d.analisis[i];
-            var tipoLabel = a.tipo === 'campo' ? '<span class="badge bg-success">Campo</span>' : (a.tipo === 'telefonico' ? '<span class="badge bg-info">Telefónico</span>' : '<span class="badge bg-secondary">' + a.tipo + '</span>');
-            html += '<div class="card mb-2 border-start border-3 border-' + (a.tipo === 'campo' ? 'success' : 'info') + '">';
+            var tipoLabel = a.tipo === 'campo' ? '<span class="badge bg-success">Campo</span>' : (a.tipo === 'telefonico' ? '<span class="badge bg-info text-dark">Telefónico</span>' : '<span class="badge bg-secondary">' + (a.tipo || '—') + '</span>');
+            html += '<div class="card mb-2 border-start border-4 border-' + (a.tipo === 'campo' ? 'success' : 'info') + '">';
             html += '<div class="card-body py-2 px-3 small">';
-            html += '<div class="d-flex justify-content-between align-items-center mb-1">';
-            html += '<span><strong>Gestión #' + a.indice + '</strong> ' + tipoLabel + '</span>';
-            html += '<span class="text-muted">' + (a.fecha || '—') + '</span>';
+            html += '<div class="d-flex justify-content-between flex-wrap gap-1 mb-1">';
+            html += '<span><strong>Gestión ' + a.indice + '</strong> ' + tipoLabel + '</span>';
+            html += '<span class="text-muted">' + escHtml(a.fecha || '—') + '</span>';
             html += '</div>';
-            if (a.usuario) {
-                html += '<div class="text-muted">Usuario: ' + a.usuario + '</div>';
-            }
+            if (a.usuario) html += '<div class="text-muted">Usuario: ' + escHtml(a.usuario) + '</div>';
             if (a.distancias && a.distancias.length > 0) {
                 for (var j = 0; j < a.distancias.length; j++) {
                     var dd = a.distancias[j];
-                    var distTxt = dd.distancia_metros < 1000 ? (dd.distancia_metros + ' metros') : ((dd.distancia_metros / 1000).toFixed(2) + ' km');
+                    var distTxt = dd.distancia_metros < 1000 ? (dd.distancia_metros + ' m') : ((dd.distancia_metros / 1000).toFixed(2) + ' km');
                     var distCls = dd.distancia_metros < 100 ? 'text-success fw-bold' : 'text-danger';
-                    html += '<div class="mt-1"><i class="fa-solid fa-location-dot me-1"></i>' + (dd.direccion || 'Dirección del dictamen') + ': <span class="' + distCls + '">' + distTxt + '</span>';
-                    if (dd.distancia_metros < 100) html += ' <i class="fa-solid fa-check-circle text-success"></i>';
+                    html += '<div class="mt-1"><i class="fa-solid fa-location-dot me-1"></i>' + escHtml(dd.direccion || 'Dirección del dictamen') + ': <span class="' + distCls + '">' + distTxt + '</span>';
+                    if (dd.distancia_metros < 100) html += ' <i class="fa-solid fa-check text-success"></i>';
                     html += '</div>';
                 }
             }
-            if (a.nota) {
-                html += '<div class="text-warning mt-1"><i class="fa-solid fa-triangle-exclamation me-1"></i>' + a.nota + '</div>';
-            }
+            if (a.nota) html += '<div class="text-warning mt-1"><i class="fa-solid fa-triangle-exclamation me-1"></i>' + escHtml(a.nota) + '</div>';
             html += '</div></div>';
         }
     }
 
-    // Coordenadas del dictamen
     if (d.coords_dictamen && d.coords_dictamen.length > 0) {
-        html += '<h6 class="mt-3 mb-2"><i class="fa-solid fa-map-pin me-1"></i>Direcciones del dictamen</h6>';
+        html += '<h6 class="fw-semibold mt-3 mb-2"><i class="fa-solid fa-map-pin me-1 text-secondary"></i>Referencias del dictamen</h6>';
         for (var k = 0; k < d.coords_dictamen.length; k++) {
             var cd = d.coords_dictamen[k];
-            html += '<div class="small mb-1"><i class="fa-solid fa-location-dot text-primary me-1"></i>' + (cd.desc || '') + ' <span class="text-muted">(' + cd.lat + ', ' + cd.lng + ')</span></div>';
+            html += '<div class="small mb-1"><i class="fa-solid fa-location-dot text-primary me-1"></i>' + escHtml(cd.desc || '') + ' <span class="text-muted">(' + cd.lat + ', ' + cd.lng + ')</span></div>';
         }
     }
 
     body.innerHTML = html;
+}
+
+function escHtml(s) {
+    if (s == null) return '';
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+/**
+ * Simulaciones solo vista: no llaman al servidor ni guardan nada.
+ * UI oculta con #dictamenSistemaSimWrap.d-none; quitar d-none para reactivar.
+ * También se puede llamar desde consola: dictamenSistemaSimular('no_visito')
+ */
+function dictamenSistemaSimular(caso) {
+    var body = document.getElementById('modalDictamenSistemaBody');
+    document.getElementById('btnGenerarDictamenSistema').style.display = 'none';
+    var base = {
+        id_ticket: dictamenSistemaTicketId || 0,
+        nombre_gestor: 'GESTOR DE PRUEBA',
+        fecha_revision: new Date().toISOString().slice(0,19).replace('T',' '),
+        gestiones_al_enviar: 99,
+        gestiones_al_revisar: 99
+    };
+    var mock = {};
+    if (caso === 'no_visito') {
+        mock = Object.assign({}, base, {
+            resultado: 'no_visito',
+            gestiones_al_revisar: 99,
+            detalle_parsed: {
+                gestiones_antes: 99,
+                gestiones_ahora: 99,
+                mensaje: 'No se registraron nuevas gestiones después de enviar el dictamen. El conteo de gestiones históricas se mantuvo igual al momento del envío.'
+            }
+        });
+    } else if (caso === 'visito_campo') {
+        mock = Object.assign({}, base, {
+            resultado: 'visito_campo',
+            gestiones_al_revisar: 101,
+            detalle_parsed: {
+                gestiones_antes: 99,
+                gestiones_ahora: 101,
+                nuevas_gestiones: 2,
+                mensaje: 'El gestor realizó visita de campo dentro del rango de 100 metros de las direcciones del dictamen.',
+                coords_dictamen: [{ desc: 'Domicilio principal', lat: 19.4326, lng: -99.1332 }],
+                analisis: [
+                    { indice: 1, fecha: '2026-03-10 18:00', tipo: 'campo', usuario: 'gestor.demo', distancias: [{ direccion: 'Domicilio principal', distancia_metros: 45, lat_dictamen: 19.4326, lng_dictamen: -99.1332 }] },
+                    { indice: 2, fecha: '2026-03-10 19:00', tipo: 'campo', usuario: 'gestor.demo', distancias: [{ direccion: 'Domicilio principal', distancia_metros: 72 }] }
+                ]
+            }
+        });
+    } else if (caso === 'visito_telefonico') {
+        mock = Object.assign({}, base, {
+            resultado: 'visito_telefonico',
+            gestiones_al_revisar: 100,
+            detalle_parsed: {
+                gestiones_antes: 99,
+                gestiones_ahora: 100,
+                nuevas_gestiones: 1,
+                mensaje: 'Se registró gestión telefónica; no hay evidencia de visita de campo en las nuevas gestiones.',
+                analisis: [
+                    { indice: 1, fecha: '2026-03-10 18:30', tipo: 'telefonico', usuario: 'gestor.demo', nota: 'Contacto por llamada; sin coordenadas de campo.' }
+                ]
+            }
+        });
+    } else if (caso === 'distancia_lejana') {
+        mock = Object.assign({}, base, {
+            resultado: 'distancia_lejana',
+            gestiones_al_revisar: 100,
+            detalle_parsed: {
+                gestiones_antes: 99,
+                gestiones_ahora: 100,
+                nuevas_gestiones: 1,
+                mensaje: 'Hay gestión nueva, pero la ubicación reportada quedó a más de 100 m de la dirección del dictamen.',
+                coords_dictamen: [{ desc: 'Domicilio cliente', lat: 19.4326, lng: -99.1332 }],
+                analisis: [
+                    { indice: 1, fecha: '2026-03-10 18:00', tipo: 'campo', usuario: 'gestor.demo', distancias: [{ direccion: 'Domicilio cliente', distancia_metros: 850 }] }
+                ]
+            }
+        });
+    } else if (caso === 'sin_coordenadas') {
+        mock = Object.assign({}, base, {
+            resultado: 'sin_coordenadas',
+            gestiones_al_revisar: 100,
+            detalle_parsed: {
+                gestiones_antes: 99,
+                gestiones_ahora: 100,
+                nuevas_gestiones: 1,
+                mensaje: 'Las nuevas gestiones no incluyen coordenadas GPS; no fue posible comparar con el dictamen.',
+                analisis: [
+                    { indice: 1, fecha: '2026-03-10 18:00', tipo: 'campo', usuario: 'gestor.demo', nota: 'Sin coordenadas GPS en esta gestión.' }
+                ]
+            }
+        });
+    }
+    renderDictamenSistemaResultado(mock, body);
 }
 </script>
 <script>
