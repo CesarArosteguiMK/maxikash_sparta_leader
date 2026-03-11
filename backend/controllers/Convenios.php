@@ -199,7 +199,7 @@ class Convenios extends Controller
                 </tbody>
             </table>
 
-            <div class="footer">Documento generado el HTML . date('d/m/Y H:i') . HTML — Uso interno. Sujeto a términos del convenio.</div>
+            <div class="footer"> — Uso interno. Sujeto a términos del convenio.</div>
         </body>
         </html>
         HTML;
