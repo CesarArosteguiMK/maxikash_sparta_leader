@@ -157,8 +157,10 @@ class Ticket extends Model
                             ? '<div class="text-center">' . $mainSmall . $pagoLine . '</div>'
                             : $mainSmall;
                     }
+                    // Sin prórroga: cadena vacía (el JS concatena debajo del countdown solo si hay HTML;
+                    // un "—" en span hacía que la condición !== '—' fuera siempre true y salía guión de más).
                     if (empty($row['prorroga_otorgada'])) {
-                        $row['prorroga_html'] = '<span class="text-muted">—</span>';
+                        $row['prorroga_html'] = '';
                     } else {
                         $activa = !empty($row['prorroga_activa']);
                         $cls = $activa ? 'bg-warning text-dark' : 'bg-secondary';

@@ -19,14 +19,14 @@ require_once LIBRERIAS."/PhpSpreadsheet/vendor/autoload.php";
 spl_autoload_register(function($a){
   if(strpos($a,"PhpOffice\\")===0||strpos($a,"ZipStream\\")===0||strpos($a,"Psr\\")===0)return;
   $r=RAIZ."/".str_replace("\\","/",$a).".php";
-  if(!file_exists($r))throw new Exception("Autoload: ".'$r');
-  require_once '$r';
+  if(!file_exists($r))throw new Exception("Autoload: ".$r);
+  require_once $r;
 });
 require_once RAIZ."/config/config.php";
 date_default_timezone_set("America/Mexico_City");
 if(php_sapi_name()==="cli"){
   if(session_status()===PHP_SESSION_NONE)session_start();
-  '."$_SESSION['login']=true;$_SESSION['usuario_id']=1;$_SESSION['modulos']=[18];$_SESSION['persona_id']=1;".'
+  ' . '$_SESSION[\'login\']=true;$_SESSION[\'usuario_id\']=1;$_SESSION[\'modulos\']=[18];$_SESSION[\'persona_id\']=1;' . '
 }
 class SabuesoExtraerScript extends Controllers\Sabueso{
   private '."$scriptCapture".'="";
@@ -48,5 +48,5 @@ class SabuesoExtraerScript extends Controllers\Sabueso{
   }
 }
 '."$x=new SabuesoExtraerScript();$x->ticket();".'
-");
+');
 echo "OK";

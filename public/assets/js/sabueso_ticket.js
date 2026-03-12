@@ -125,7 +125,8 @@
                         var iconBlock = esProrroga ? ('<span class="position-relative d-inline-flex align-items-baseline"><i class="fa-solid fa-clock text-warning small"></i><sup class="dictamen-prorroga-marca" title="Prórroga +12h (2ª ventana)">2</sup></span>') : ('<i class="fa-solid fa-clock text-info small"></i>');
                         tiempoVisitarHtml = '<span class="d-inline-flex align-items-center gap-1 dictamen-countdown cursor-pointer' + clsPr + '" role="button" tabindex="0" data-fecha-envio="' + fEnv.replace(/"/g, '&quot;') + '"' + dataLim + ' data-id-ticket="' + (t.id_ticket || '') + '" data-bs-toggle="tooltip" data-bs-title="' + (esProrroga ? 'Prórroga +12h' : 'Ventana 12h') + '">' + iconBlock + '<span class="dictamen-countdown-text">' + txtInicial + '</span></span>';
                     }
-                    var prHtml = (t.prorroga_html != null && t.prorroga_html !== '' && t.prorroga_html !== '\u2014') ? t.prorroga_html : '';
+                    // Solo concatenar si hubo prórroga (backend envía '' cuando no; evita guión redundante)
+                    var prHtml = (t.prorroga_otorgada && t.prorroga_html) ? t.prorroga_html : '';
                     if (prHtml && tiempoVisitarHtml !== '\u2014') {
                         tiempoVisitarHtml = '<div class="d-flex flex-column align-items-center">' + tiempoVisitarHtml + prHtml + '</div>';
                     } else if (prHtml) {
