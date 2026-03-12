@@ -409,6 +409,94 @@ class Convenios extends Model
         }
     }
 
+    // ─────────────────────────────────────────────
+// CANCELAR CONVENIO
+// ─────────────────────────────────────────────
+
+public static function cancelarConvenio($id_convenio, $usuario)
+{
+    try {
+        $db = new Database();
+
+        // 1. Verificar que exista y esté activo
+        $convenio = $db->queryOne(
+            "SELECT id, id_credito
+             FROM convenio_cliente
+             WHERE id = :id AND estatus = 'activo'
+             LIMIT 1",
+            ['id' => (int) $id_convenio]
+        );
+
+        if (!$convenio) {
+            return self::resultado(false, 'El convenio no existe o no está activo.');
+        }
+
+        // 2. Primera semana pendiente = semana de cancelación
+        $primerPendiente = $db->queryOne(
+            "SELECT numero_semana
+             FROM convenio_cliente_amortizacion
+             WHERE id_convenio_cliente = :id
+               AND estatus_pago = 'pendiente'
+             ORDER BY numero_semana ASC
+             LIMIT 1",
+            ['id' => (int) $id_convenio]
+        );
+
+        if (!$primerPendiente) {
+            return self::resultado(false, 'Este convenio no tiene semanas pendientes.');
+        }
+
+        $semanaCancelacion = (int) $primerPendiente['numero_semana'];
+        $fechaCancelacion  = date('Y-m-d');
+
+        // 3. Actualizar convenio_cliente
+        $ok = $db->CRUD(
+            "UPDATE convenio_cliente SET
+                estatus                  = 'cancelado',
+                fecha_cancelacion        = :fecha_cancelacion,
+                numero_semana_cancelacion = :semana,
+                usuario_cancela          = :usuario,
+                usuario_modifica         = :usuario_modifica,
+                fecha_modifica           = NOW()
+             WHERE id = :id",
+            [
+                'fecha_cancelacion' => $fechaCancelacion,
+                'semana'            => $semanaCancelacion,
+                'usuario'           => $usuario,
+                'usuario_modifica'  => $usuario,
+                'id'                => (int) $id_convenio,
+            ]
+        );
+
+        if (!$ok) {
+            return self::resultado(false, 'No se pudo actualizar el convenio.');
+        }
+
+        // 4. Marcar semanas pendientes desde la cancelación como 'cancelado'
+        $db->CRUD(
+            "UPDATE convenio_cliente_amortizacion SET
+                estatus_pago = 'cancelado'
+             WHERE id_convenio_cliente = :id
+               AND numero_semana >= :semana
+               AND estatus_pago = 'pendiente'",
+            [
+                'id'     => (int) $id_convenio,
+                'semana' => $semanaCancelacion,
+            ]
+        );
+
+        return self::resultado(true, 'Convenio cancelado correctamente.', [
+            'numero_semana_cancelacion' => $semanaCancelacion,
+            'fecha_cancelacion'         => $fechaCancelacion,
+        ]);
+
+    } catch (\Exception $e) {
+        return self::resultado(false, 'Error al cancelar convenio.', null, $e->getMessage());
+    }
+}
+
+
+
     /**
      * Detecta incumplimiento: devuelve true si existió convenio y el último pago
      * vencido tiene más de 30 días sin pagar.
@@ -436,4 +524,43 @@ class Convenios extends Model
             return false;
         }
     }
+
+
+    // ─────────────────────────────────────────────
+// HISTORIAL DE CONVENIOS
+// ─────────────────────────────────────────────
+
+/**
+ * Devuelve todos los convenios de un crédito ordenados por fecha descendente.
+ */
+public static function getHistorialConvenios($id_credito)
+{
+    try {
+        $db = new Database();
+
+        $rows = $db->queryAll(
+            "SELECT
+                cc.id,
+                cc.id_credito,
+                pc.nombre           AS nombre_producto,
+                cc.total_a_pagar,
+                cc.numero_semanas,
+                cc.estatus,
+                cc.fecha_acuerdo,
+                cc.fecha_cancelacion,
+                cc.numero_semana_cancelacion,
+                cc.usuario_alta,
+                cc.usuario_cancela
+             FROM convenio_cliente cc
+             INNER JOIN producto_convenio pc ON pc.id = cc.id_producto_convenio
+             WHERE cc.id_credito = :id
+             ORDER BY cc.fecha_alta DESC",
+            ['id' => (int) $id_credito]
+        );
+
+        return self::resultado(true, 'Historial obtenido.', $rows ?: []);
+    } catch (\Exception $e) {
+        return self::resultado(false, 'Error al obtener historial.', null, $e->getMessage());
+    }
+}
 }
