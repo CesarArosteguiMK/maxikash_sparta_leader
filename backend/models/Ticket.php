@@ -2792,10 +2792,8 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
      * Para cambiar Días/Semanas/… sin recalcular todo.
      *
      * @param bool $runBackfill si false, no hace UPDATE masivo (más rápido al cambiar filtro)
-     * @param bool $incluirCola si false, no ejecuta la query pesada de cola (Espera 1ª asign.);
-     *                         el front puede fusionar con datos ya cargados al cambiar solo Días/Semanas/Meses/Año
      */
-    public static function getEstadisticasPorSabuesoSolo(string $periodoSabueso, bool $runBackfill = false, bool $incluirCola = true): array
+    public static function getEstadisticasPorSabuesoSolo(string $periodoSabueso, bool $runBackfill = false): array
     {
         if (!in_array($periodoSabueso, ['por_dia', 'por_semana', 'por_mes', 'por_anio'], true)) {
             $periodoSabueso = 'por_dia';
@@ -2840,33 +2838,38 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
 
         $listaSab = [];
         try {
-            // Una sola subconsulta correlacionada por fila (antes eran 3 idénticas en AVG/SUM) → menos trabajo del optimizador
             $sqlSab = "
-                SELECT x.id_persona AS id_persona,
+                SELECT d.id_persona AS id_persona,
                        CONCAT(TRIM(IFNULL(p.nombres,'')),' ',TRIM(IFNULL(p.apellidop,''))) AS nombre,
                        COUNT(*) AS dictaminados,
-                       AVG(CASE WHEN x.max_fa IS NOT NULL
-                           THEN TIMESTAMPDIFF(SECOND, x.max_fa, x.fecha_actualizacion) ELSE NULL END
+                       AVG(
+                         CASE WHEN (
+                           SELECT MAX(at2.fecha_asignacion) FROM asignacion_ticket at2
+                           WHERE at2.id_ticket = d.id_ticket AND at2.id_persona_asignada = d.id_persona
+                             AND at2.fecha_asignacion <= d.fecha_actualizacion
+                         ) IS NOT NULL THEN
+                           TIMESTAMPDIFF(SECOND,
+                             (SELECT MAX(at2.fecha_asignacion) FROM asignacion_ticket at2
+                              WHERE at2.id_ticket = d.id_ticket AND at2.id_persona_asignada = d.id_persona
+                                AND at2.fecha_asignacion <= d.fecha_actualizacion),
+                             d.fecha_actualizacion)
+                         ELSE NULL END
                        ) AS avg_sec_asignado_a_envio,
-                       SUM(CASE WHEN x.max_fa IS NOT NULL THEN 1 ELSE 0 END) AS n_con_asignacion_previa
-                FROM (
-                    SELECT d.id_persona, d.fecha_actualizacion,
-                           (SELECT MAX(at2.fecha_asignacion) FROM asignacion_ticket at2
-                            WHERE at2.id_ticket = d.id_ticket AND at2.id_persona_asignada = d.id_persona
-                              AND at2.fecha_asignacion <= d.fecha_actualizacion
-                              AND (at2.activo = 1 OR at2.activo IS NULL)
-                           ) AS max_fa
-                    FROM dictamen d
-                    INNER JOIN (
-                        SELECT id_ticket, MAX(fecha_actualizacion) AS mx
-                        FROM dictamen WHERE estado = 'enviado_al_gestor' GROUP BY id_ticket
-                    ) dm ON d.id_ticket = dm.id_ticket AND d.fecha_actualizacion = dm.mx AND d.estado = 'enviado_al_gestor'
-                    INNER JOIN ticket t ON t.id_ticket = d.id_ticket AND $whereActivo
-                    WHERE d.id_persona IS NOT NULL AND d.id_persona > 0
-                    $wherePorSabuesoFecha
-                ) x
-                INNER JOIN persona p ON p.id = x.id_persona
-                GROUP BY x.id_persona, p.nombres, p.apellidop
+                       SUM(CASE WHEN (
+                         SELECT MAX(at2.fecha_asignacion) FROM asignacion_ticket at2
+                         WHERE at2.id_ticket = d.id_ticket AND at2.id_persona_asignada = d.id_persona
+                           AND at2.fecha_asignacion <= d.fecha_actualizacion
+                       ) IS NOT NULL THEN 1 ELSE 0 END) AS n_con_asignacion_previa
+                FROM dictamen d
+                INNER JOIN (
+                    SELECT id_ticket, MAX(fecha_actualizacion) AS mx
+                    FROM dictamen WHERE estado = 'enviado_al_gestor' GROUP BY id_ticket
+                ) dm ON d.id_ticket = dm.id_ticket AND d.fecha_actualizacion = dm.mx AND d.estado = 'enviado_al_gestor'
+                INNER JOIN ticket t ON t.id_ticket = d.id_ticket AND $whereActivo
+                INNER JOIN persona p ON p.id = d.id_persona
+                WHERE d.id_persona IS NOT NULL AND d.id_persona > 0
+                $wherePorSabuesoFecha
+                GROUP BY d.id_persona, p.nombres, p.apellidop
                 ORDER BY dictaminados DESC
             ";
             $rows = $db->queryAll($sqlSab);
@@ -2884,25 +2887,6 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
             }
         } catch (\Exception $e) {
             $listaSab = [];
-        }
-
-        // Cola: no depende del período (Días/Semanas/…); omitir al cambiar solo filtro acelera 1 query pesada
-        if (!$incluirCola) {
-            foreach ($listaSab as &$s) {
-                if (!isset($s['tiempo_hasta_asignarle_humano'])) {
-                    $s['tiempo_hasta_asignarle_humano'] = null;
-                    $s['tiempo_hasta_asignarle_seg'] = null;
-                    $s['muestras_cola'] = 0;
-                }
-            }
-            unset($s);
-            return [
-                'success' => true,
-                'por_sabueso' => $listaSab,
-                'periodo_sabueso' => $periodoSabueso,
-                'cdmx_referencia' => self::ahoraCdmx(),
-                'cola_omitida' => true,
-            ];
         }
 
         // Cola (misma lógica que getEstadisticasTickets; persona para GROUP BY seguro)
