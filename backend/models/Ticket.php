@@ -124,14 +124,38 @@ class Ticket extends Model
                         $row['prorroga_activa'] = !empty($pr['otorgada']) && empty($pr['evaluada']);
                         $row['prorroga_fecha_limite'] = $pr['fecha_limite'] ?? null;
                     }
-                    // HTML seguro para columnas DataTable (evita embeber HTML en el JS embebido de Sabueso.php)
+                    // HTML seguro para columnas DataTable: mostrar etiqueta legible (evita no_cumplio_prorr…)
                     $dsRes = trim((string)($row['ds_resultado'] ?? ''));
                     if ($dsRes === '') {
                         $row['ds_resultado_html'] = '<span class="text-muted">—</span>';
                     } else {
-                        $short = mb_strlen($dsRes) > 18 ? mb_substr($dsRes, 0, 16) . '…' : $dsRes;
-                        $row['ds_resultado_html'] = '<small class="text-break" title="' . htmlspecialchars($dsRes, ENT_QUOTES, 'UTF-8') . '">'
+                        $etiqMostrar = $dsRes;
+                        if (is_array($det) && !empty($det['cumplimiento_etiqueta'])) {
+                            $etiqMostrar = (string)$det['cumplimiento_etiqueta'];
+                        } else {
+                            $cmp = self::cumplimientoMetadatos($dsRes);
+                            if (!empty($cmp['cumplimiento_etiqueta'])) {
+                                $etiqMostrar = (string)$cmp['cumplimiento_etiqueta'];
+                            }
+                        }
+                        $etiqMostrar = str_replace('No visitó', 'No visito', $etiqMostrar);
+                        $short = mb_strlen($etiqMostrar) > 22 ? mb_substr($etiqMostrar, 0, 20) . '…' : $etiqMostrar;
+                        $mainSmall = '<small class="text-break d-block" title="' . htmlspecialchars($etiqMostrar, ENT_QUOTES, 'UTF-8') . '">'
                             . htmlspecialchars($short, ENT_QUOTES, 'UTF-8') . '</small>';
+                        // Debajo: Pago Sí/No — no_cumplio_prorroga suele ser No; si en detalle consta pago_en_ventana, respetarlo
+                        $pagoLine = '';
+                        if ($dsRes === 'cumplido_pago') {
+                            $pagoLine = '<span class="small text-success fw-semibold d-block mt-1">Pago: Sí</span>';
+                        } elseif (is_array($det) && array_key_exists('pago_en_ventana', $det)) {
+                            $pagoLine = !empty($det['pago_en_ventana'])
+                                ? '<span class="small text-success fw-semibold d-block mt-1">Pago: Sí</span>'
+                                : '<span class="small text-danger fw-semibold d-block mt-1">Pago: No</span>';
+                        } elseif ($dsRes !== 'pendiente' && $dsRes !== 'prorroga_activa' && $dsRes !== '') {
+                            $pagoLine = '<span class="small text-danger fw-semibold d-block mt-1">Pago: No</span>';
+                        }
+                        $row['ds_resultado_html'] = $pagoLine !== ''
+                            ? '<div class="text-center">' . $mainSmall . $pagoLine . '</div>'
+                            : $mainSmall;
                     }
                     if (empty($row['prorroga_otorgada'])) {
                         $row['prorroga_html'] = '<span class="text-muted">—</span>';
@@ -140,9 +164,10 @@ class Ticket extends Model
                         $cls = $activa ? 'bg-warning text-dark' : 'bg-secondary';
                         $txt = $activa ? 'Activa' : 'Usada';
                         $tip = !empty($row['prorroga_fecha_limite']) ? 'Límite: ' . $row['prorroga_fecha_limite'] : 'Prórroga';
-                        $row['prorroga_html'] = '<span class="badge ' . htmlspecialchars($cls, ENT_QUOTES, 'UTF-8')
+                        // Misma celda que tiempo para visitar: badge compacto debajo del countdown (se concatena en JS)
+                        $row['prorroga_html'] = '<div class="mt-1"><span class="badge ' . htmlspecialchars($cls, ENT_QUOTES, 'UTF-8')
                             . '" data-bs-toggle="tooltip" data-bs-title="' . htmlspecialchars($tip, ENT_QUOTES, 'UTF-8')
-                            . '">' . htmlspecialchars($txt, ENT_QUOTES, 'UTF-8') . '</span>';
+                            . '">' . htmlspecialchars($txt, ENT_QUOTES, 'UTF-8') . '</span></div>';
                     }
                 }
                 unset($row);
@@ -2307,6 +2332,9 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                         $r['pct_efectividad'] = null;
                         $r['medidas_preventivas'] = null;
                         $r['cumplimiento_etiqueta'] = null;
+                        $r['pago_en_ventana_si'] = false;
+                        $r['visito_campo_si'] = false;
+                        $r['prorroga_otorgada_si'] = false;
                         if ($tid > 0 && isset($dsPorTicket[$tid])) {
                             $ds = $dsPorTicket[$tid];
                             $r['id_gestor_dictamen'] = isset($ds['id_gestor']) ? (int)$ds['id_gestor'] : null;
@@ -2322,6 +2350,31 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                                 $r['pct_efectividad'] = $cmp['pct_efectividad'];
                                 $r['medidas_preventivas'] = $cmp['medidas_preventivas'];
                                 $r['cumplimiento_etiqueta'] = $cmp['cumplimiento_etiqueta'];
+                            }
+                            // Misma lógica que getEstadisticasGestorDetalle (columna Pago)
+                            if ($res === 'cumplido_pago') {
+                                $r['pago_en_ventana_si'] = true;
+                            } elseif (is_array($detJson) && array_key_exists('pago_en_ventana', $detJson)) {
+                                $r['pago_en_ventana_si'] = !empty($detJson['pago_en_ventana']);
+                            } elseif ($res !== null && $res !== '' && $res !== 'pendiente' && $res !== 'prorroga_activa') {
+                                $r['pago_en_ventana_si'] = false;
+                            }
+                            // Visita de campo: resultados que implican GPS/direcciones visitadas o visita registrada
+                            $visitaResultados = [
+                                'visito_campo', 'visito_todas_direcciones', 'cumplido_sin_pago_todas_direcciones',
+                                'visita_parcial', 'distancia_lejana',
+                            ];
+                            if (is_array($detJson)) {
+                                $dirVis = (int)($detJson['direcciones_visitadas'] ?? 0);
+                                if ($dirVis > 0) {
+                                    $r['visito_campo_si'] = true;
+                                }
+                            }
+                            if (!$r['visito_campo_si'] && $res !== null && in_array($res, $visitaResultados, true)) {
+                                $r['visito_campo_si'] = true;
+                            }
+                            if (is_array($detJson) && isset($detJson['prorroga']) && is_array($detJson['prorroga']) && !empty($detJson['prorroga']['otorgada'])) {
+                                $r['prorroga_otorgada_si'] = true;
                             }
                         }
                     }
@@ -2386,6 +2439,9 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                         'tickets' => 0,
                         'vistos' => 0,
                         'sin_leer' => 0,
+                        'pagaron' => 0,
+                        'visitaron' => 0,
+                        'prorroga_dadas' => 0,
                         'cumplimiento_por_resultado' => [],
                         'cumplimiento_pct_sum' => 0,
                         'cumplimiento_pct_n' => 0,
@@ -2411,6 +2467,15 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                     if (isset($r['pct_efectividad']) && is_numeric($r['pct_efectividad'])) {
                         $agg[$key]['cumplimiento_pct_sum'] += (int)$r['pct_efectividad'];
                         $agg[$key]['cumplimiento_pct_n']++;
+                    }
+                    if (!empty($r['pago_en_ventana_si'])) {
+                        $agg[$key]['pagaron']++;
+                    }
+                    if (!empty($r['visito_campo_si'])) {
+                        $agg[$key]['visitaron']++;
+                    }
+                    if (!empty($r['prorroga_otorgada_si'])) {
+                        $agg[$key]['prorroga_dadas']++;
                     }
                 }
             }
@@ -2785,6 +2850,41 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                         $pagoVentanaTxt = 'No';
                     }
                 }
+                // Visitó (campo): coherente con agregado por_gestor.visitaron
+                $visitoVentanaTxt = null;
+                if ($tid > 0 && isset($dsPorTicket[$tid])) {
+                    $visitaResultados = [
+                        'visito_campo', 'visito_todas_direcciones', 'cumplido_sin_pago_todas_direcciones',
+                        'visita_parcial', 'distancia_lejana',
+                    ];
+                    $dsV = $dsPorTicket[$tid];
+                    $resV = $dsV['resultado'] ?? null;
+                    $detV = !empty($dsV['detalle']) ? json_decode($dsV['detalle'], true) : null;
+                    if (is_array($detV) && (int)($detV['direcciones_visitadas'] ?? 0) > 0) {
+                        $visitoVentanaTxt = 'Sí';
+                    } elseif ($resV !== null && in_array($resV, $visitaResultados, true)) {
+                        $visitoVentanaTxt = 'Sí';
+                    } elseif ($resV === 'no_visito' || $resV === 'visito_telefonico') {
+                        $visitoVentanaTxt = 'No';
+                    } elseif ($resV !== null && $resV !== '' && $resV !== 'pendiente' && $resV !== 'prorroga_activa') {
+                        $visitoVentanaTxt = 'No';
+                    }
+                }
+                // Prórroga otorgada a este ticket (detalle JSON)
+                $prorrogaTxt = null;
+                if ($tid > 0 && isset($dsPorTicket[$tid])) {
+                    $dsPr = $dsPorTicket[$tid];
+                    $detPr = !empty($dsPr['detalle']) ? json_decode($dsPr['detalle'], true) : null;
+                    $resPr = $dsPr['resultado'] ?? null;
+                    if (is_array($detPr) && isset($detPr['prorroga']) && is_array($detPr['prorroga']) && !empty($detPr['prorroga']['otorgada'])) {
+                        $prorrogaTxt = 'Sí';
+                    } elseif ($resPr === 'cumplio_prorroga' || $resPr === 'no_cumplio_prorroga') {
+                        // Resultado final tras prórroga implica que se otorgó en algún momento
+                        $prorrogaTxt = 'Sí';
+                    } elseif ($resPr !== null && $resPr !== '' && $resPr !== 'pendiente') {
+                        $prorrogaTxt = 'No';
+                    }
+                }
                 $resultadoMostrar = null;
                 if ($etiq !== null && $etiq !== '') {
                     $resultadoMostrar = $etiq;
@@ -2805,6 +2905,8 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                     'cumplimiento_etiqueta' => $etiq,
                     'resultado_ds_mostrar' => $resultadoMostrar,
                     'pago_en_ventana_resumen' => $pagoVentanaTxt,
+                    'visito_campo_resumen' => $visitoVentanaTxt,
+                    'prorroga_otorgada_resumen' => $prorrogaTxt,
                 ];
             }
             return ['success' => true, 'mensaje' => 'OK', 'nombre' => $nom, 'filas' => $filas];

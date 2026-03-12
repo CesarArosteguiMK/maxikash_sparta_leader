@@ -835,9 +835,8 @@
                     <th>Fechas</th>
                     <th>Quién levantó</th>
                     <th>Asignado a</th>
-                    <th>Tiempo para visitar</th>
-                    <th title="Resultado actual del dictamen del sistema">Resultado DS</th>
-                    <th title="Prórroga (+12 h): activa o ya usada">Prórroga</th>
+                    <th title="Cuenta regresiva 12h o prórroga +12h; si hay prórroga, el estado sale debajo">Tiempo para visitar</th>
+                    <th title="Resultado del dictamen del sistema; debajo: Pago Sí/No cuando aplica">Resultado DS</th>
                     <th></th>
                     <th>Acciones</th>
                 </tr>
@@ -2405,11 +2404,29 @@ function abrirDictamenSistema(idTicket) {
 function buildDsResultadoHtml(resultado) {
     var s = (resultado == null || resultado === '') ? '' : String(resultado).trim();
     if (!s) return '<span class="text-muted">—</span>';
-    var short = s.length > 18 ? s.substring(0, 16) + '…' : s;
     var esc = function(t) {
         return String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
     };
-    return '<small class="text-break" title="' + esc(s) + '">' + esc(short) + '</small>';
+    // Etiquetas legibles (evita no_cumplio_prorr… en celda)
+    var etiquetas = {
+        'no_cumplio_prorroga': 'No cumplió prórroga',
+        'cumplio_prorroga': 'Cumplió en prórroga',
+        'prorroga_activa': 'Prórroga activa',
+        'no_visito': 'No visito',
+        'cumplido_pago': 'Cumplido por pago',
+        'pendiente': 'pendiente'
+    };
+    var mostrar = etiquetas[s] || s;
+    var short = mostrar.length > 24 ? mostrar.substring(0, 22) + '…' : mostrar;
+    var main = '<small class="text-break d-block" title="' + esc(mostrar) + '">' + esc(short) + '</small>';
+    // Pago Sí/No cuando aplica (alineado con Ticket.php getListaTickets)
+    var pagoLine = '';
+    if (s === 'cumplido_pago') {
+        pagoLine = '<span class="small text-success fw-semibold d-block mt-1">Pago: Sí</span>';
+    } else if (s !== 'pendiente' && s !== 'prorroga_activa' && s !== '') {
+        pagoLine = '<span class="small text-danger fw-semibold d-block mt-1">Pago: No</span>';
+    }
+    return pagoLine ? '<div class="text-center">' + main + pagoLine + '</div>' : main;
 }
 
 /** Actualiza la celda Resultado DS en #tablaTicketsPanel sin recargar toda la página */

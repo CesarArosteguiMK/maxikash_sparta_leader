@@ -88,7 +88,6 @@ var esAdminTicket = false;
                             fechas: '<div class="small d-flex align-items-center gap-1"><i class="fa fa-calendar-plus-o text-muted" style="width: 1rem;"></i><span>Creación: ' + fechaCreacion + '</span></div><div class="small text-muted d-flex align-items-center gap-1 mt-1"><i class="fa fa-calendar-times-o" style="width: 1rem;"></i><span>Vencimiento: ' + fechaVenc + '</span></div>',
                             tiempo_visitar: '\u2014',
                             ds_resultado: (t.ds_resultado_html != null && t.ds_resultado_html !== '') ? t.ds_resultado_html : '<span class="text-muted">\u2014</span>',
-                            prorroga: (t.prorroga_html != null && t.prorroga_html !== '') ? t.prorroga_html : '<span class="text-muted">\u2014</span>',
                             dictamen_visto: vistoHtml,
                             acciones: '',
                             _id_ticket: t.id_ticket,

@@ -89,6 +89,40 @@
         color: #fff !important;
         box-shadow: 0 2px 8px rgba(25, 135, 84, 0.35);
     }
+    /* Pagos y visitas: evitar scroll horizontal (tabla cabe en el 100%) */
+    #wrapTablaGestorPV {
+        overflow-x: hidden !important;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    #tablaPorGestorPV {
+        table-layout: fixed;
+        width: 100%;
+        margin-bottom: 0;
+    }
+    #tablaPorGestorPV thead th,
+    #tablaPorGestorPV tbody td {
+        padding: 0.5rem 0.28rem;
+        font-size: 0.82rem;
+    }
+    #tablaPorGestorPV thead th {
+        white-space: normal;
+        line-height: 1.2;
+        word-break: break-word;
+        font-size: 0.78rem;
+        letter-spacing: 0.01em;
+    }
+    #tablaPorGestorPV thead th .estad-th-tip {
+        font-size: 0.62rem;
+        margin-left: 0.1rem !important;
+        vertical-align: middle;
+    }
+    #tablaPorGestorPV tbody td:first-child .text-truncate {
+        max-width: 100%;
+    }
+    #tablaPorGestorPV tbody td:not(:first-child) {
+        white-space: nowrap;
+    }
     .estad-sabueso-wrap .estad-global-tile {
         border-radius: 0.75rem; padding: 0.9rem 1rem;
         border: 1px solid transparent;
@@ -188,10 +222,10 @@
         vertical-align: middle;
     }
     .estad-modal-th-tip:hover { opacity: 1; }
-    /* Tickets levantados 35% | Por quien levantó 65% (solo lg+) */
+    /* Tickets levantados 40% | Por quien levantó 60% (solo lg+) */
     .estad-sabueso-wrap .estad-row-split-40-60 {
-        --estad-col-left: 35%;
-        --estad-col-right: 65%;
+        --estad-col-left: 40%;
+        --estad-col-right: 60%;
     }
     @media (min-width: 992px) {
         .estad-sabueso-wrap .estad-row-split-40-60 > .estad-col-40 {
@@ -305,7 +339,7 @@
     </div>
 
     <div class="row g-3 mb-3 estad-row-split-40-60">
-        <!-- Tickets levantados: 40% -->
+        <!-- Tickets levantados: 40% ancho (variable --estad-col-left) -->
         <div class="col-12 estad-col-40">
             <div class="card border-0 estad-glass h-100 overflow-hidden">
                 <div class="card-header border-0 d-flex flex-wrap justify-content-between align-items-center gap-2 py-3 bg-transparent">
@@ -323,7 +357,7 @@
                 <div class="estad-period-list" id="estadPeriodList"></div>
             </div>
         </div>
-        <!-- Por quien levantó el ticket: 65% -->
+        <!-- Por quien levantó el ticket: 60% ancho (variable --estad-col-right) -->
         <div class="col-12 estad-col-60">
             <div class="card border-0 estad-glass h-100 overflow-hidden">
                 <div class="card-header border-0 py-3 bg-transparent d-flex flex-wrap justify-content-between align-items-start gap-2">
@@ -390,35 +424,67 @@
                     </div>
                 </div>
                 <div class="card-body pt-0 d-none" id="panelResumenGestor">
-                    <div class="table-responsive rounded-2 border" style="max-height: 320px; border-color: rgba(var(--bs-success-rgb), 0.15) !important;">
-                        <table class="table table-sm table-hover mb-0 align-middle" id="tablaPorGestor">
+                    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
+                        <span class="text-muted small mb-0">Vista de la tabla por gestor:</span>
+                        <div class="estad-pill-group estad-pill-gestor" id="grpVistaGestorTabla" role="group" aria-label="Vista tabla por gestor">
+                            <button type="button" class="btn active" data-vista-gestor="lectura" title="Tiempos de lectura, sin leer y tasa de apertura">Lectura y tasa</button>
+                            <button type="button" class="btn" data-vista-gestor="pagos_visitas" title="Pagos en ventana, visitas de campo y cumplimiento DS">Pagos y visitas</button>
+                        </div>
+                    </div>
+                    <!-- Vista lectura: sin columna Cumplimiento -->
+                    <div class="table-responsive rounded-2 border gestor-tabla-wrap" id="wrapTablaGestorLectura" style="max-height: 320px; border-color: rgba(var(--bs-success-rgb), 0.15) !important;">
+                        <table class="table table-sm table-hover mb-0 align-middle" id="tablaPorGestorLectura">
                             <thead class="small text-uppercase" style="font-size: 0.6rem; background: rgba(var(--bs-success-rgb), 0.07);">
                                 <tr class="text-muted">
                                     <th class="py-2 ps-3">
                                         Levantó
-                                        <i class="fa fa-question-circle estad-th-tip ms-1" data-bs-toggle="tooltip" data-bs-custom-class="estad-tooltip-custom" data-bs-placement="top" title="Gestor que creó el ticket (id_persona_creador). Clic en fila: detalle por ticket."></i>
+                                        <i class="fa fa-question-circle estad-th-tip ms-1" data-bs-toggle="tooltip" data-bs-custom-class="estad-tooltip-custom" data-bs-placement="top" title="Gestor que creó el ticket. Clic en fila: detalle por ticket."></i>
+                                    </th>
+                                    <th class="text-center py-2">Tickets</th>
+                                    <th class="text-center py-2">T. lectura</th>
+                                    <th class="text-center py-2">T.envío</th>
+                                    <th class="text-center py-2">Sin leer</th>
+                                    <th class="text-center py-2 pe-3">Tasa</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbodyPorGestorLectura"></tbody>
+                        </table>
+                    </div>
+                    <!-- Vista pagos/visitas: Cumplimiento aquí -->
+                    <div class="rounded-2 border gestor-tabla-wrap d-none" id="wrapTablaGestorPV" style="max-height: 320px; border-color: rgba(var(--bs-success-rgb), 0.15) !important;">
+                        <table class="table table-sm table-hover mb-0 align-middle" id="tablaPorGestorPV">
+                            <thead class="small text-uppercase" style="background: rgba(var(--bs-success-rgb), 0.07);">
+                                <tr class="text-muted">
+                                    <th class="py-2 ps-3">
+                                        Levantó
+                                        <i class="fa fa-question-circle estad-th-tip ms-1" data-bs-toggle="tooltip" data-bs-custom-class="estad-tooltip-custom" data-bs-placement="top" title="Gestor que creó el ticket. Clic en fila: por ticket pago, visita y cumplimiento."></i>
                                     </th>
                                     <th class="text-center py-2">
                                         Tickets
-                                        <i class="fa fa-question-circle estad-th-tip ms-1" data-bs-toggle="tooltip" data-bs-custom-class="estad-tooltip-custom" data-bs-placement="top" title="Cantidad de tickets con dictamen enviado en el detalle reciente agregado por este gestor."></i>
+                                        <i class="fa fa-question-circle estad-th-tip ms-1" data-bs-toggle="tooltip" data-bs-custom-class="estad-tooltip-custom" title="Total con dictamen enviado en el detalle."></i>
                                     </th>
                                     <th class="text-center py-2">
-                                        T. lectura
-                                        <i class="fa fa-question-circle estad-th-tip ms-1" data-bs-toggle="tooltip" data-bs-custom-class="estad-tooltip-custom" data-bs-placement="top" title="Promedio desde envío hasta que el gestor abrió el dictamen. — = sin ningún visto registrado aún (no se puede promediar)."></i>
+                                        Pagaron
+                                        <i class="fa fa-question-circle estad-th-tip ms-1" data-bs-toggle="tooltip" data-bs-custom-class="estad-tooltip-custom" title="Tickets donde hubo pago en estado de cuenta en la ventana que evalúa el dictamen sistema (Sí en columna Pago del detalle)."></i>
                                     </th>
-                                    <th class="text-center py-2">T.envío <i class="fa fa-question-circle estad-th-tip ms-1" data-bs-toggle="tooltip" data-bs-custom-class="estad-tooltip-custom" title="Siempre — aquí: no se calcula por gestor en esta grilla; use la tarjeta global «Envío prom.» o el detalle por Sabueso."></i></th>
-                                    <th class="text-center py-2">Sin leer <i class="fa fa-question-circle estad-th-tip ms-1" data-bs-toggle="tooltip" data-bs-custom-class="estad-tooltip-custom" title="Cuántos dictámenes ya enviados a este gestor sigue sin abrir. Número entero."></i></th>
-                                    <th class="text-center py-2">Tasa <i class="fa fa-question-circle estad-th-tip ms-1" data-bs-toggle="tooltip" data-bs-custom-class="estad-tooltip-custom" title="% de los suyos que ya abrió. 100% = todos vistos."></i></th>
+                                    <th class="text-center py-2">
+                                        Visitaron
+                                        <i class="fa fa-question-circle estad-th-tip ms-1" data-bs-toggle="tooltip" data-bs-custom-class="estad-tooltip-custom" title="Tickets con visita de campo registrada (GPS/direcciones) según dictamen sistema."></i>
+                                    </th>
+                                    <th class="text-center py-2">
+                                        Prórroga
+                                        <i class="fa fa-question-circle estad-th-tip ms-1" data-bs-toggle="tooltip" data-bs-custom-class="estad-tooltip-custom" title="Tickets a los que se otorgó prórroga (+12 h) al menos una vez según dictamen sistema."></i>
+                                    </th>
                                     <th class="text-center py-2 pe-3">
                                         Cumplimiento
-                                        <i class="fa fa-question-circle estad-th-tip ms-1" data-bs-toggle="tooltip" data-bs-custom-class="estad-tooltip-custom" title="Por ticket levantado por este gestor: resultado del dictamen sistema (visita campo, no visitó, etc.) y % efectividad promedio donde aplica."></i>
+                                        <i class="fa fa-question-circle estad-th-tip ms-1" data-bs-toggle="tooltip" data-bs-custom-class="estad-tooltip-custom" title="% efectividad promedio de los tickets con dictamen sistema evaluado."></i>
                                     </th>
                                 </tr>
                             </thead>
-                            <tbody id="tbodyPorGestor"></tbody>
+                            <tbody id="tbodyPorGestorPV"></tbody>
                         </table>
                     </div>
-                    <p class="text-muted small mb-0 mt-2"><i class="fa fa-search me-1"></i>Clic en una fila: listado de tickets de ese gestor con fecha de envío, si ya vio el dictamen y tiempo de lectura.</p>
+                    <p class="text-muted small mb-0 mt-2" id="leyendaGestorTabla"><i class="fa fa-search me-1"></i>Clic en una fila: en <strong>Pagos y visitas</strong> verá por ticket Pagaron, Visitaron, si tuvo <strong>prórroga</strong>, cumplimiento y % efect.</p>
                 </div>
                 <!-- Sabueso: hermano de panelResumenGestor (no anidado) para que no quede oculto por d-none del padre -->
                 <div class="card-body pt-0 d-none" id="panelResumenSabueso">
