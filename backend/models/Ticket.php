@@ -2118,11 +2118,16 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
             return $out;
         }
 
-        // Conteos por día (últimos 90 días)
+        // Conteos por día: solo semana calendario actual (lunes→domingo CDMX).
+        // Al cambiar de semana, el listado se "reinicia"; el histórico se ve en por_semana.
         try {
+            $monday = self::cdmxNowImmutable()->modify('-' . ((int)self::cdmxNowImmutable()->format('N') - 1) . ' days');
+            $lunesDate = $monday->format('Y-m-d');
+            $domingoDate = $monday->modify('+6 days')->format('Y-m-d');
             $rows = $db->queryAll(
                 "SELECT DATE(t.fecha_creacion) AS periodo, COUNT(*) AS n FROM ticket t " .
-                "WHERE $whereActivo AND t.fecha_creacion >= DATE_SUB(CURDATE(), INTERVAL 90 DAY) " .
+                "WHERE $whereActivo AND DATE(t.fecha_creacion) >= '" . $lunesDate . "' " .
+                "AND DATE(t.fecha_creacion) <= '" . $domingoDate . "' " .
                 "GROUP BY DATE(t.fecha_creacion) ORDER BY periodo DESC"
             );
             $out['por_dia'] = is_array($rows) ? $rows : [];
@@ -2130,30 +2135,53 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
             $out['por_dia'] = [];
         }
 
-        // Por semana (año-semana ISO aproximado)
+        // Por semana: solo semanas con al menos un ticket en el mes actual (CDMX). Cada fila incluye lunes (YYYY-MM-DD) para drill → 7 días.
         try {
+            $y = (int)self::cdmxNowImmutable()->format('Y');
+            $m = (int)self::cdmxNowImmutable()->format('n');
             $rows = $db->queryAll(
                 "SELECT YEARWEEK(t.fecha_creacion, 1) AS periodo, COUNT(*) AS n FROM ticket t " .
-                "WHERE $whereActivo AND t.fecha_creacion >= DATE_SUB(CURDATE(), INTERVAL 365 DAY) " .
-                "GROUP BY YEARWEEK(t.fecha_creacion, 1) ORDER BY periodo DESC LIMIT 52"
+                "WHERE $whereActivo AND YEAR(t.fecha_creacion) = " . $y . " AND MONTH(t.fecha_creacion) = " . $m . " " .
+                "GROUP BY YEARWEEK(t.fecha_creacion, 1) ORDER BY periodo DESC"
             );
-            $out['por_semana'] = is_array($rows) ? $rows : [];
+            $filasSem = [];
+            foreach (is_array($rows) ? $rows : [] as $r) {
+                $yw = (int)($r['periodo'] ?? 0);
+                $n = (int)($r['n'] ?? 0);
+                $lunes = '';
+                if ($yw >= 200001) {
+                    $yy = (int)floor($yw / 100);
+                    $ww = (int)($yw % 100);
+                    if ($ww >= 1 && $ww <= 53) {
+                        try {
+                            $lunes = (new \DateTimeImmutable('now', new \DateTimeZone('America/Mexico_City')))
+                                ->setISODate($yy, $ww)->format('Y-m-d');
+                        } catch (\Exception $e) {
+                            $lunes = '';
+                        }
+                    }
+                }
+                $filasSem[] = ['periodo' => $yw, 'n' => $n, 'lunes' => $lunes];
+            }
+            $out['por_semana'] = $filasSem;
         } catch (\Exception $e) {
             $out['por_semana'] = [];
         }
 
-        // Por mes
+        // Por mes: solo meses del año actual (CDMX); histórico por año vía drill Año → mes
         try {
+            $y = (int)self::cdmxNowImmutable()->format('Y');
             $rows = $db->queryAll(
                 "SELECT DATE_FORMAT(t.fecha_creacion, '%Y-%m') AS periodo, COUNT(*) AS n FROM ticket t " .
-                "WHERE $whereActivo GROUP BY DATE_FORMAT(t.fecha_creacion, '%Y-%m') ORDER BY periodo DESC LIMIT 36"
+                "WHERE $whereActivo AND YEAR(t.fecha_creacion) = " . $y . " " .
+                "GROUP BY DATE_FORMAT(t.fecha_creacion, '%Y-%m') ORDER BY periodo DESC"
             );
             $out['por_mes'] = is_array($rows) ? $rows : [];
         } catch (\Exception $e) {
             $out['por_mes'] = [];
         }
 
-        // Por año
+        // Por año (lista años con conteo; drill abre meses → semanas → 7 días)
         try {
             $rows = $db->queryAll(
                 "SELECT YEAR(t.fecha_creacion) AS periodo, COUNT(*) AS n FROM ticket t " .
@@ -2943,6 +2971,104 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
         $dow = (int)$now->format('N'); // 1 = lunes
         $monday = $now->modify('-' . ($dow - 1) . ' days');
         return $monday->format('Y-m-d') . ' 00:00:00';
+    }
+
+    /**
+     * Drill-down Tickets levantados: Año → meses → semanas del mes → 7 días de la semana (lunes dado).
+     * tipo: meses | semanas | dias
+     */
+    public static function getEstadisticasLevantadosDrill(string $tipo, array $params = []): array
+    {
+        $db = new Database();
+        $whereActivo = '(t.activo = 1 OR t.activo IS NULL) AND (t.fecha_eliminacion IS NULL)';
+        $out = ['success' => true, 'mensaje' => 'OK', 'tipo' => $tipo, 'filas' => []];
+
+        try {
+            if ($tipo === 'meses') {
+                $anio = (int)($params['anio'] ?? 0);
+                if ($anio < 2000 || $anio > 2100) {
+                    $out['success'] = false;
+                    $out['mensaje'] = 'Año inválido';
+                    return $out;
+                }
+                $rows = $db->queryAll(
+                    "SELECT DATE_FORMAT(t.fecha_creacion, '%Y-%m') AS periodo, COUNT(*) AS n FROM ticket t " .
+                    "WHERE $whereActivo AND YEAR(t.fecha_creacion) = " . $anio . " " .
+                    "GROUP BY DATE_FORMAT(t.fecha_creacion, '%Y-%m') ORDER BY periodo DESC"
+                );
+                $out['filas'] = is_array($rows) ? $rows : [];
+                return $out;
+            }
+
+            if ($tipo === 'semanas') {
+                $anio = (int)($params['anio'] ?? 0);
+                $mes = (int)($params['mes'] ?? 0);
+                if ($anio < 2000 || $anio > 2100 || $mes < 1 || $mes > 12) {
+                    $out['success'] = false;
+                    $out['mensaje'] = 'Año o mes inválido';
+                    return $out;
+                }
+                $rows = $db->queryAll(
+                    "SELECT YEARWEEK(t.fecha_creacion, 1) AS periodo, COUNT(*) AS n FROM ticket t " .
+                    "WHERE $whereActivo AND YEAR(t.fecha_creacion) = " . $anio . " AND MONTH(t.fecha_creacion) = " . $mes . " " .
+                    "GROUP BY YEARWEEK(t.fecha_creacion, 1) ORDER BY periodo DESC"
+                );
+                $filas = [];
+                foreach (is_array($rows) ? $rows : [] as $r) {
+                    $yw = (int)($r['periodo'] ?? 0);
+                    $n = (int)($r['n'] ?? 0);
+                    $lunes = '';
+                    if ($yw >= 200001) {
+                        $yy = (int)floor($yw / 100);
+                        $ww = (int)($yw % 100);
+                        if ($ww >= 1 && $ww <= 53) {
+                            try {
+                                $lunes = (new \DateTimeImmutable('now', new \DateTimeZone('America/Mexico_City')))
+                                    ->setISODate($yy, $ww)->format('Y-m-d');
+                            } catch (\Exception $e) {
+                                $lunes = '';
+                            }
+                        }
+                    }
+                    $filas[] = ['periodo' => $yw, 'n' => $n, 'lunes' => $lunes];
+                }
+                $out['filas'] = $filas;
+                return $out;
+            }
+
+            if ($tipo === 'dias') {
+                $lunes = preg_match('/^\d{4}-\d{2}-\d{2}$/', (string)($params['lunes'] ?? '')) ? $params['lunes'] : '';
+                if ($lunes === '') {
+                    $out['success'] = false;
+                    $out['mensaje'] = 'Fecha lunes inválida (use YYYY-MM-DD)';
+                    return $out;
+                }
+                $dt = \DateTimeImmutable::createFromFormat('Y-m-d', $lunes, new \DateTimeZone('America/Mexico_City'));
+                if (!$dt || $dt->format('Y-m-d') !== $lunes) {
+                    $out['success'] = false;
+                    $out['mensaje'] = 'Fecha lunes inválida';
+                    return $out;
+                }
+                $domingo = $dt->modify('+6 days')->format('Y-m-d');
+                $rows = $db->queryAll(
+                    "SELECT DATE(t.fecha_creacion) AS periodo, COUNT(*) AS n FROM ticket t " .
+                    "WHERE $whereActivo AND DATE(t.fecha_creacion) >= '" . $lunes . "' " .
+                    "AND DATE(t.fecha_creacion) <= '" . $domingo . "' " .
+                    "GROUP BY DATE(t.fecha_creacion) ORDER BY periodo DESC"
+                );
+                $out['filas'] = is_array($rows) ? $rows : [];
+                $out['lunes'] = $lunes;
+                $out['domingo'] = $domingo;
+                return $out;
+            }
+
+            $out['success'] = false;
+            $out['mensaje'] = 'tipo debe ser meses, semanas o dias';
+        } catch (\Exception $e) {
+            $out['success'] = false;
+            $out['mensaje'] = $e->getMessage();
+        }
+        return $out;
     }
 
     /**

@@ -2312,13 +2312,70 @@ JS;
             return s;
         }
         var estadisticasDatos = null;
-        var estadisticasFiltroPeriodo = 'por_dia'; // solo Tickets levantados (lista izquierda)
-        var estadisticasFiltroSabueso = 'por_dia'; // solo Por Sabueso dictaminó — no toca la lista de la izquierda
+        var estadisticasFiltroPeriodo = 'por_dia';
+        var estadisticasFiltroSabueso = 'por_dia';
+        var estadisticasDrill = null;
+        var estadisticasDrillFilas = null;
+        function renderPeriodBreadcrumb() {
+            var bc = $('#estadPeriodBreadcrumb');
+            if (!estadisticasDrill) {
+                bc.addClass('d-none').empty();
+                return;
+            }
+            // Drill desde pestaña Año
+            if (estadisticasFiltroPeriodo === 'por_anio') {
+            var parts = [];
+            parts.push('<span class="estad-drill-back text-primary" style="cursor:pointer" data-drill-back="anio"><i class="fa fa-arrow-left me-1"></i>Años</span>');
+            if (estadisticasDrill.nivel === 'meses' && estadisticasDrill.anio) {
+                parts.push(' <span class="text-muted">·</span> <strong>' + estadisticasDrill.anio + '</strong>');
+            }
+            if (estadisticasDrill.nivel === 'semanas' && estadisticasDrill.anio && estadisticasDrill.mes) {
+                parts.push(' <span class="text-muted">·</span> <span class="estad-drill-back text-primary" style="cursor:pointer" data-drill-back="meses" data-anio="' + estadisticasDrill.anio + '">Meses</span>');
+                var mesStr = estadisticasDrill.mes < 10 ? '0' + estadisticasDrill.mes : '' + estadisticasDrill.mes;
+                parts.push(' <span class="text-muted">·</span> <strong>' + estadisticasDrill.anio + '-' + mesStr + '</strong>');
+            }
+            if (estadisticasDrill.nivel === 'dias' && estadisticasDrill.lunes) {
+                parts.push(' <span class="text-muted">·</span> <span class="estad-drill-back text-primary" style="cursor:pointer" data-drill-back="semanas" data-anio="' + (estadisticasDrill.anio||'') + '" data-mes="' + (estadisticasDrill.mes||'') + '">Semanas</span>');
+                parts.push(' <span class="text-muted">·</span> <strong>Semana del ' + estadisticasDrill.lunes + '</strong>');
+            }
+            bc.removeClass('d-none').html(parts.join(''));
+            return;
+            }
+            // Drill desde pestaña Meses: mes → semanas → días
+            if (estadisticasFiltroPeriodo === 'por_mes') {
+                var partsM = [];
+                partsM.push('<span class="estad-drill-back text-primary" style="cursor:pointer" data-drill-back="por_mes_list"><i class="fa fa-arrow-left me-1"></i>Meses</span>');
+                if (estadisticasDrill.nivel === 'semanas' && estadisticasDrill.anio && estadisticasDrill.mes) {
+                    var mesStr2 = estadisticasDrill.mes < 10 ? '0' + estadisticasDrill.mes : '' + estadisticasDrill.mes;
+                    partsM.push(' <span class="text-muted">·</span> <strong>' + estadisticasDrill.anio + '-' + mesStr2 + '</strong> <span class="text-muted small">(elige semana)</span>');
+                }
+                if (estadisticasDrill.nivel === 'dias' && estadisticasDrill.lunes) {
+                    partsM.push(' <span class="text-muted">·</span> <span class="estad-drill-back text-primary" style="cursor:pointer" data-drill-back="semanas_mes" data-anio="' + (estadisticasDrill.anio||'') + '" data-mes="' + (estadisticasDrill.mes||'') + '">Semanas del mes</span>');
+                    partsM.push(' <span class="text-muted">·</span> <strong>Semana del ' + estadisticasDrill.lunes + '</strong>');
+                }
+                bc.removeClass('d-none').html(partsM.join(''));
+                return;
+            }
+            // Drill desde pestaña Semanas: clic en semana → 7 días
+            if (estadisticasFiltroPeriodo === 'por_semana' && estadisticasDrill.nivel === 'dias' && estadisticasDrill.lunes) {
+                bc.removeClass('d-none').html(
+                    '<span class="estad-drill-back text-primary" style="cursor:pointer" data-drill-back="por_semana_list"><i class="fa fa-arrow-left me-1"></i>Semanas del mes</span>' +
+                    ' <span class="text-muted">·</span> <strong>Semana del ' + estadisticasDrill.lunes + '</strong> <span class="text-muted small">(por día)</span>'
+                );
+                return;
+            }
+            bc.addClass('d-none').empty();
+        }
         function renderPeriodList() {
             if (!estadisticasDatos) return;
-            var filas = estadisticasDatos[estadisticasFiltroPeriodo] || [];
             var wrap = $('#estadPeriodList');
             wrap.empty();
+            renderPeriodBreadcrumb();
+            var filas = (estadisticasDrillFilas != null) ? estadisticasDrillFilas : (estadisticasDatos[estadisticasFiltroPeriodo] || []);
+            var keyForLabel = estadisticasFiltroPeriodo;
+            if (estadisticasDrill && estadisticasDrill.nivel === 'meses') keyForLabel = 'por_mes';
+            if (estadisticasDrill && estadisticasDrill.nivel === 'semanas') keyForLabel = 'por_semana';
+            if (estadisticasDrill && estadisticasDrill.nivel === 'dias') keyForLabel = 'por_dia';
             if (!filas.length) {
                 wrap.append('<p class="text-muted small px-2 mb-0">Sin datos para este período.</p>');
                 return;
@@ -2326,12 +2383,26 @@ JS;
             var maxN = 1;
             filas.forEach(function(r) { var v = parseInt(r.n, 10); if (!isNaN(v) && v > maxN) maxN = v; });
             filas.forEach(function(row) {
-                var label = labelPeriodo(estadisticasFiltroPeriodo, row.periodo);
+                var label = labelPeriodo(keyForLabel, row.periodo);
                 var n = parseInt(row.n, 10);
                 if (isNaN(n)) n = 0;
                 var pct = Math.round((n / maxN) * 100);
+                var clickAttr = ' class="estad-period-row"';
+                if (estadisticasFiltroPeriodo === 'por_anio' && !estadisticasDrill) {
+                    clickAttr = ' class="estad-period-row estad-drill-row" style="cursor:pointer" data-drill="meses" data-anio="' + row.periodo + '"';
+                } else if (estadisticasDrill && estadisticasDrill.nivel === 'meses' && /^\d{4}-\d{2}$/.test(String(row.periodo))) {
+                    var pm = String(row.periodo).split('-');
+                    clickAttr = ' class="estad-period-row estad-drill-row" style="cursor:pointer" data-drill="semanas" data-anio="' + pm[0] + '" data-mes="' + parseInt(pm[1], 10) + '"';
+                } else if (estadisticasDrill && estadisticasDrill.nivel === 'semanas' && row.lunes) {
+                    clickAttr = ' class="estad-period-row estad-drill-row" style="cursor:pointer" data-drill="dias" data-lunes="' + row.lunes + '" data-anio="' + (estadisticasDrill.anio || '') + '" data-mes="' + (estadisticasDrill.mes || '') + '"';
+                } else if (estadisticasFiltroPeriodo === 'por_mes' && !estadisticasDrill && /^\d{4}-\d{2}$/.test(String(row.periodo))) {
+                    var pm2 = String(row.periodo).split('-');
+                    clickAttr = ' class="estad-period-row estad-drill-row" style="cursor:pointer" data-drill="semanas_desde_mes" data-anio="' + pm2[0] + '" data-mes="' + parseInt(pm2[1], 10) + '"';
+                } else if (estadisticasFiltroPeriodo === 'por_semana' && row.lunes && (!estadisticasDrill || estadisticasDrill.nivel !== 'dias')) {
+                    clickAttr = ' class="estad-period-row estad-drill-row" style="cursor:pointer" data-drill="dias" data-lunes="' + row.lunes + '"';
+                }
                 wrap.append(
-                    '<div class="estad-period-row">' +
+                    '<div' + clickAttr + '>' +
                     '<span class="estad-period-label text-body">' + attrEsc(label) + '</span>' +
                     '<div class="estad-mini-bar"><div style="width:0%" data-w="' + pct + '"></div></div>' +
                     '<span class="estad-period-val">' + n + '</span></div>'
@@ -2340,6 +2411,30 @@ JS;
             setTimeout(function() {
                 wrap.find('.estad-mini-bar > div').each(function() { var w = $(this).data('w'); if (w != null) $(this).css('width', w + '%'); });
             }, 80);
+        }
+        function cargarDrill(tipo, params, onDone) {
+            http.request({
+                endpoint: '/sabueso/getEstadisticasLevantadosDrill',
+                metodo: 'POST',
+                data: JSON.stringify(Object.assign({ tipo: tipo }, params || {})),
+                contentType: 'application/json',
+                processData: false,
+                showLoader: false,
+                onSuccess: function(r) {
+                    if (r.success && r.filas) {
+                        estadisticasDrillFilas = r.filas;
+                        if (onDone) onDone(r);
+                        renderPeriodList();
+                    } else {
+                        estadisticasDrillFilas = [];
+                        renderPeriodList();
+                    }
+                },
+                onError: function() {
+                    estadisticasDrillFilas = [];
+                    renderPeriodList();
+                }
+            });
         }
         function avatarHue(name) {
             var h = 0;
@@ -2821,12 +2916,76 @@ JS;
                 var id = parseInt($(this).attr('data-id-sabueso'), 10);
                 if (id) abrirDetalleSabueso(id);
             });
-            // Filtro izquierda: solo lista "Tickets levantados" — no recarga todo ni mueve Por Sabueso
+            // Filtro izquierda: solo lista "Tickets levantados"
             $('#grpFiltroPeriodo').on('click', 'button[data-key]', function() {
                 $('#grpFiltroPeriodo button').removeClass('active');
                 $(this).addClass('active');
                 estadisticasFiltroPeriodo = $(this).data('key') || 'por_dia';
+                // Al cambiar de pestaña, salir del drill y volver a la lista nativa
+                estadisticasDrill = null;
+                estadisticasDrillFilas = null;
                 renderPeriodList();
+            });
+            $(document).on('click', '#estadPeriodList .estad-drill-row', function() {
+                var drill = $(this).data('drill');
+                if (drill === 'meses') {
+                    var anio = parseInt($(this).data('anio'), 10);
+                    if (!anio) return;
+                    estadisticasDrill = { nivel: 'meses', anio: anio };
+                    cargarDrill('meses', { anio: anio });
+                } else if (drill === 'semanas') {
+                    var anio = parseInt($(this).data('anio'), 10);
+                    var mes = parseInt($(this).data('mes'), 10);
+                    if (!anio || !mes) return;
+                    estadisticasDrill = { nivel: 'semanas', anio: anio, mes: mes };
+                    cargarDrill('semanas', { anio: anio, mes: mes });
+                } else if (drill === 'dias') {
+                    var lunes = $(this).data('lunes');
+                    if (!lunes) return;
+                    estadisticasDrill = { nivel: 'dias', lunes: lunes, anio: $(this).data('anio') || null, mes: $(this).data('mes') || null };
+                    cargarDrill('dias', { lunes: lunes }, function(r) {
+                        if (r.lunes) estadisticasDrill.lunes = r.lunes;
+                    });
+                } else if (drill === 'semanas_desde_mes') {
+                    var anio = parseInt($(this).data('anio'), 10);
+                    var mes = parseInt($(this).data('mes'), 10);
+                    if (!anio || !mes) return;
+                    estadisticasDrill = { nivel: 'semanas', anio: anio, mes: mes, desde: 'mes' };
+                    cargarDrill('semanas', { anio: anio, mes: mes });
+                }
+            });
+            $(document).on('click', '#estadPeriodBreadcrumb .estad-drill-back', function() {
+                var back = $(this).data('drill-back');
+                if (back === 'anio') {
+                    estadisticasDrill = null;
+                    estadisticasDrillFilas = null;
+                    renderPeriodList();
+                } else if (back === 'meses') {
+                    var anio = parseInt($(this).data('anio'), 10);
+                    if (!anio) return;
+                    estadisticasDrill = { nivel: 'meses', anio: anio };
+                    cargarDrill('meses', { anio: anio });
+                } else if (back === 'semanas') {
+                    var anio = parseInt($(this).data('anio'), 10);
+                    var mes = parseInt($(this).data('mes'), 10);
+                    if (!anio || !mes) return;
+                    estadisticasDrill = { nivel: 'semanas', anio: anio, mes: mes };
+                    cargarDrill('semanas', { anio: anio, mes: mes });
+                } else if (back === 'por_mes_list') {
+                    estadisticasDrill = null;
+                    estadisticasDrillFilas = null;
+                    renderPeriodList();
+                } else if (back === 'por_semana_list') {
+                    estadisticasDrill = null;
+                    estadisticasDrillFilas = null;
+                    renderPeriodList();
+                } else if (back === 'semanas_mes') {
+                    var anio = parseInt($(this).data('anio'), 10);
+                    var mes = parseInt($(this).data('mes'), 10);
+                    if (!anio || !mes) return;
+                    estadisticasDrill = { nivel: 'semanas', anio: anio, mes: mes, desde: 'mes' };
+                    cargarDrill('semanas', { anio: anio, mes: mes });
+                }
             });
             // Filtro Por Sabueso: solo dictámenes por día/semana/mes/año (fecha de envío) — no toca la lista izquierda
             $(document).on('click', '#grpFiltroPeriodoSabueso button[data-key]', function() {
@@ -2938,6 +3097,22 @@ JS;
             'mensaje' => $mensaje,
             'datos' => $datos
         ]);
+    }
+
+    /**
+     * API drill Tickets levantados: meses por año, semanas por mes, 7 días por lunes.
+     * Body: { "tipo": "meses"|"semanas"|"dias", "anio": 2026, "mes": 3, "lunes": "2026-03-09" }
+     */
+    public function getEstadisticasLevantadosDrill()
+    {
+        $raw = file_get_contents('php://input');
+        $body = $raw ? json_decode($raw, true) : [];
+        if (!is_array($body)) {
+            $body = [];
+        }
+        $tipo = (string)($body['tipo'] ?? '');
+        $res = TicketDAO::getEstadisticasLevantadosDrill($tipo, $body);
+        self::respuestaJSON($res);
     }
 
     /**

@@ -345,7 +345,7 @@
                 <div class="card-header border-0 d-flex flex-wrap justify-content-between align-items-center gap-2 py-3 bg-transparent">
                     <div>
                         <div class="fw-semibold"><i class="fa-solid fa-calendar-days me-1 text-primary"></i>Tickets levantados</div>
-                        <div class="text-muted small">Conteo por período seleccionado</div>
+                        <div class="text-muted small">Días = semana actual · Semanas = mes actual · Meses = año actual · Año = elegir mes → semana → 7 días</div>
                     </div>
                     <div class="estad-pill-group" id="grpFiltroPeriodo" role="group">
                         <button type="button" class="btn active" data-key="por_dia">Días</button>
@@ -354,6 +354,7 @@
                         <button type="button" class="btn" data-key="por_anio">Año</button>
                     </div>
                 </div>
+                <div class="px-2 pb-1 small text-muted d-none" id="estadPeriodBreadcrumb"></div>
                 <div class="estad-period-list" id="estadPeriodList"></div>
             </div>
         </div>
