@@ -13,6 +13,102 @@ class Segundometro extends Controller
     }
 
     /**
+     * Integración gradual con segundometro-agent.
+     * Si está habilitado, el Shell usa el agente como backend principal y,
+     * ante error, cae al flujo legado (DAO) para no romper operación.
+     */
+    private function usarAgente()
+    {
+        $enabled = $this->agenteConfigValue('enabled', (CONFIGURACION['segundometro_agent_enabled'] ?? '1'));
+        return in_array((string)$enabled, ['1', 'true', 'TRUE', 'yes', 'on'], true);
+    }
+
+    private function agenteBaseUrl()
+    {
+        $url = trim((string)$this->agenteConfigValue('url', (CONFIGURACION['segundometro_agent_url'] ?? 'http://127.0.0.1:3100')));
+        return rtrim($url, '/');
+    }
+
+    private function agenteApiKey()
+    {
+        return trim((string)$this->agenteConfigValue('key', (CONFIGURACION['segundometro_agent_key'] ?? '')));
+    }
+
+    private function agenteConfigValue($key, $default = '')
+    {
+        static $cfg = null;
+        if ($cfg === null) {
+            $cfg = [];
+            $configFile = __DIR__ . '/../config/config.ini';
+            if (is_file($configFile)) {
+                $parsed = @parse_ini_file($configFile, true);
+                if (is_array($parsed) && isset($parsed['segundometro_agent']) && is_array($parsed['segundometro_agent'])) {
+                    $cfg = $parsed['segundometro_agent'];
+                }
+            }
+        }
+        if (array_key_exists($key, $cfg)) return $cfg[$key];
+        return $default;
+    }
+
+    private function agenteRequest($method, $path, $payload = null)
+    {
+        $url = $this->agenteBaseUrl() . $path;
+        $headers = ['Accept: application/json'];
+        $key = $this->agenteApiKey();
+        if ($key !== '') $headers[] = 'X-Api-Key: ' . $key;
+
+        if (function_exists('curl_init')) {
+            $ch = curl_init($url);
+            curl_setopt($ch, CURLOPT_CUSTOMREQUEST, strtoupper($method));
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 8);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 120);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+            if ($payload !== null) {
+                if (is_array($payload)) {
+                    $json = json_encode($payload);
+                    $headers[] = 'Content-Type: application/json';
+                    curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+                    curl_setopt($ch, CURLOPT_POSTFIELDS, $json);
+                } else {
+                    curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
+                }
+            }
+            $raw = curl_exec($ch);
+            $err = curl_error($ch);
+            $status = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+            if ($raw === false) return ['success' => false, 'status' => 0, 'error' => $err ?: 'Error CURL', 'json' => null, 'raw' => ''];
+            $json = json_decode($raw, true);
+            return ['success' => ($status >= 200 && $status < 300), 'status' => $status, 'error' => $err, 'json' => $json, 'raw' => $raw];
+        }
+
+        $opts = ['http' => ['method' => strtoupper($method), 'timeout' => 120, 'ignore_errors' => true, 'header' => implode("\r\n", $headers)]];
+        if ($payload !== null) {
+            $opts['http']['header'] .= "\r\nContent-Type: application/json";
+            $opts['http']['content'] = is_array($payload) ? json_encode($payload) : (string)$payload;
+        }
+        $ctx = stream_context_create($opts);
+        $raw = @file_get_contents($url, false, $ctx);
+        if ($raw === false) return ['success' => false, 'status' => 0, 'error' => 'No se pudo conectar al agente', 'json' => null, 'raw' => ''];
+        $status = 200;
+        if (isset($http_response_header[0]) && preg_match('/\s(\d{3})\s/', $http_response_header[0], $m)) $status = (int)$m[1];
+        $json = json_decode($raw, true);
+        return ['success' => ($status >= 200 && $status < 300), 'status' => $status, 'error' => '', 'json' => $json, 'raw' => $raw];
+    }
+
+    private function validarModoSoloAgente($operacion = 'operación')
+    {
+        if ($this->usarAgente()) return true;
+        self::respuestaJSON([
+            'success' => false,
+            'mensaje' => 'El flujo legado está deshabilitado. Active [segundometro_agent].enabled=1 para usar ' . $operacion . ' vía API agente.'
+        ]);
+        return false;
+    }
+
+    /**
      * Vista principal del Shell de Segundómetro
      */
     public function shell()
@@ -23,12 +119,17 @@ class Segundometro extends Controller
             let estadoReportesCache = {};
             let archivosActuales = [];
             var segundometroEstadoInterval = null;
+            var segundometroEstadoFastInterval = null;
+            var relojCdmxSyncInterval = null;
+            var relojCdmxTickInterval = null;
+            var relojCdmxOffsetMs = null;
+            var guardandoAutoCopy = false;
 
             // 🎨 RENDERIZAR ARCHIVOS EN LA INTERFAZ (SOLO ARCHIVOS REALES DEL SERVIDOR)
             const renderArchivos = (archivos, estados) => {
                 estados = estados || {};
                 const container = document.getElementById('archivos-container');
-                
+
                 if (!archivos || archivos.length === 0) {
                     container.innerHTML = `
                         <div class="alert alert-info text-center">
@@ -39,7 +140,7 @@ class Segundometro extends Controller
                     `;
                     return;
                 }
-                
+
                 // Agrupar por fecha
                 const archivosPorFecha = {};
                 archivos.forEach(archivo => {
@@ -51,14 +152,14 @@ class Segundometro extends Controller
                     }
                     archivosPorFecha[archivo.fecha].archivos.push(archivo);
                 });
-                
+
                 let html = '';
-                
+
                 // Renderizar por fecha (más reciente primero)
                 Object.keys(archivosPorFecha).sort().reverse().forEach(fecha => {
                     const data = archivosPorFecha[fecha];
                     const archivosDelDia = data.archivos;
-                    
+
                     html += `
                         <div class="card mb-4 shadow-sm">
                             <div class="card-header bg-primary text-white">
@@ -108,15 +209,15 @@ class Segundometro extends Controller
                                                             <a href="/segundometro/descargarArchivo?nombre_archivo=${encodeURIComponent(archivo.nombre)}" class="btn btn-sm btn-primary" title="Descargar reporte">
                                                                 <i class="fa fa-download me-1"></i>Descargar
                                                             </a>
-                                                            <button 
-                                                                class="btn btn-sm btn-success" 
+                                                            <button
+                                                                class="btn btn-sm btn-success"
                                                                 onclick="copiarArchivo('${nombreEscapado}')"
                                                                 title="Copiar archivo con +1 segundo">
                                                                 <i class="fa fa-copy me-1"></i>Copiar +1s
                                                             </button>
                                                             ${esNosotros ? `
-                                                            <button 
-                                                                class="btn btn-sm btn-danger" 
+                                                            <button
+                                                                class="btn btn-sm btn-danger"
                                                                 onclick="eliminarArchivo('${nombreEscapado}')"
                                                                 title="Eliminar archivo (solo nosotros)">
                                                                 <i class="fa fa-trash me-1"></i>Eliminar
@@ -134,10 +235,10 @@ class Segundometro extends Controller
                         </div>
                     `;
                 });
-                
+
                 container.innerHTML = html;
             };
-            
+
             // 📋 COPIAR ARCHIVO: diseño como antes; destino por defecto +1 s; lápiz para editar (ej. +2 s, +20 s, +1 min)
             const escHtml = function(s) { return (s + '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); };
             const copiarArchivo = async (nombreArchivo) => {
@@ -242,7 +343,7 @@ class Segundometro extends Controller
                     Swal.fire({ icon: 'error', title: 'Error al copiar archivo', text: error.message || 'No se pudo copiar en el servidor', confirmButtonText: 'Aceptar' });
                 }
             };
-            
+
             // 🗑️ ELIMINAR ARCHIVO (SOLO NOSOTROS / ROOT)
             const eliminarArchivo = async (nombreArchivo) => {
                 const result = await Swal.fire({
@@ -283,21 +384,23 @@ class Segundometro extends Controller
                             'Front-Request': 'true'
                         }
                     });
-                    
+
                     const contentType = response.headers.get('Content-Type') || '';
                     if (!contentType.includes('application/json')) {
                         throw new Error('El servidor respondió con un formato inesperado. Compruebe que la sesión esté activa.');
                     }
-                    
+
                     const data = await response.json();
-                    
+
                     if (!data.success) {
                         throw new Error(data.mensaje || 'Error al obtener archivos');
                     }
-                    
+
                     archivosActuales = data.datos || [];
                     renderArchivos(archivosActuales, estadoReportesCache);
-                    
+                    // Consulta inmediata de estado BD tras listar para que "ok" aparezca rápido.
+                    actualizarEstadoReportes();
+
                 } catch (error) {
                     if (!silent) {
                         console.error('Error al listar archivos:', error);
@@ -358,6 +461,115 @@ class Segundometro extends Controller
 
             function clearEstadoReportesInterval() {
                 if (segundometroEstadoInterval) { clearInterval(segundometroEstadoInterval); segundometroEstadoInterval = null; }
+                if (segundometroEstadoFastInterval) { clearInterval(segundometroEstadoFastInterval); segundometroEstadoFastInterval = null; }
+            }
+            function formatearCdmxDesdeMs(ms) {
+                var dt = new Date(ms);
+                var p = new Intl.DateTimeFormat('en-CA', {
+                    timeZone: 'America/Mexico_City',
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit',
+                    hour12: false
+                }).formatToParts(dt);
+                var get = function(k){ var o = p.find(function(x){ return x.type === k; }); return o ? o.value : '00'; };
+                return get('year') + '-' + get('month') + '-' + get('day') + ' ' + get('hour') + ':' + get('minute') + ':' + get('second') + ' CDMX';
+            }
+            function pintarRelojCdmx() {
+                var el = document.getElementById('segundometroHoraServidor');
+                if (!el || relojCdmxOffsetMs === null) return;
+                el.textContent = formatearCdmxDesdeMs(Date.now() + relojCdmxOffsetMs);
+            }
+            function sincronizarRelojCdmx() {
+                fetch('/segundometro/horaServidor', { method: 'GET', headers: { 'Front-Request': 'true' } })
+                    .then(function(r){ return r.json(); })
+                    .then(function(d){
+                        if (d && d.success && d.timestamp_ms) {
+                            relojCdmxOffsetMs = Number(d.timestamp_ms) - Date.now();
+                            pintarRelojCdmx();
+                            return;
+                        }
+                        if (d && d.hora_servidor_cdmx) {
+                            var m = String(d.hora_servidor_cdmx).match(/(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2}):(\d{2})/);
+                            if (m) {
+                                var approx = new Date(Date.UTC(parseInt(m[1],10), parseInt(m[2],10)-1, parseInt(m[3],10), parseInt(m[4],10), parseInt(m[5],10), parseInt(m[6],10)));
+                                relojCdmxOffsetMs = approx.getTime() - Date.now();
+                                pintarRelojCdmx();
+                            }
+                        }
+                    })
+                    .catch(function(){});
+            }
+            function iniciarRelojCdmxTiempoReal() {
+                if (relojCdmxTickInterval) clearInterval(relojCdmxTickInterval);
+                if (relojCdmxSyncInterval) clearInterval(relojCdmxSyncInterval);
+                sincronizarRelojCdmx();
+                relojCdmxTickInterval = setInterval(pintarRelojCdmx, 1000);
+                relojCdmxSyncInterval = setInterval(function(){ if (!document.hidden) sincronizarRelojCdmx(); }, 30000);
+            }
+            function actualizarEstadoAgente() {
+                fetch('/segundometro/estadoAgente', { method: 'GET', headers: { 'Front-Request': 'true' } })
+                    .then(function(r){ return r.json(); })
+                    .then(function(data){
+                        var badgeModo = document.getElementById('sgAgenteModo');
+                        var badgeEstado = document.getElementById('sgAgenteEstado');
+                        var txt = document.getElementById('sgAgenteDetalle');
+                        if (!badgeModo || !badgeEstado || !txt) return;
+                        if (!data || !data.success) {
+                            badgeModo.className = 'badge bg-secondary';
+                            badgeModo.textContent = 'Agente: no disponible';
+                            badgeEstado.className = 'badge bg-secondary';
+                            badgeEstado.textContent = 'Estado: desconocido';
+                            txt.textContent = (data && data.mensaje) ? data.mensaje : 'No se pudo consultar el estado de integración.';
+                            return;
+                        }
+                        badgeModo.className = data.usando_agente ? 'badge bg-success' : 'badge bg-warning text-dark';
+                        badgeModo.textContent = data.usando_agente ? 'Agente: activo' : 'Agente: inactivo';
+                        badgeEstado.className = data.agente_online ? 'badge bg-success' : 'badge bg-danger';
+                        badgeEstado.textContent = data.agente_online ? 'Estado: en línea' : 'Estado: fuera de línea';
+                        txt.textContent = data.detalle || 'Sin detalle';
+                    })
+                    .catch(function(){
+                        var badgeModo = document.getElementById('sgAgenteModo');
+                        var badgeEstado = document.getElementById('sgAgenteEstado');
+                        var txt = document.getElementById('sgAgenteDetalle');
+                        if (badgeModo) { badgeModo.className = 'badge bg-secondary'; badgeModo.textContent = 'Agente: no disponible'; }
+                        if (badgeEstado) { badgeEstado.className = 'badge bg-secondary'; badgeEstado.textContent = 'Estado: desconocido'; }
+                        if (txt) txt.textContent = 'Error de red al consultar estado del agente.';
+                    });
+            }
+            function cargarEstadoAutoCopy() {
+                fetch('/segundometro/autoCopyEstado', { method: 'GET', headers: { 'Front-Request': 'true' } })
+                    .then(function(r){ return r.json(); })
+                    .then(function(data){
+                        var chk = document.getElementById('sgAutoCopyEnabled');
+                        if (!chk) return;
+                        if (!data || !data.success) return;
+                        chk.checked = !!data.enabled;
+                    })
+                    .catch(function(){});
+            }
+            async function guardarEstadoAutoCopy() {
+                var chk = document.getElementById('sgAutoCopyEnabled');
+                if (!chk || guardandoAutoCopy) return;
+                guardandoAutoCopy = true;
+                try {
+                    const response = await fetch('/segundometro/autoCopyConfig', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Front-Request': 'true' },
+                        body: JSON.stringify({ enabled: !!chk.checked })
+                    });
+                    const data = await response.json();
+                    if (!data.success) throw new Error(data.mensaje || 'No se pudo guardar auto-copy');
+                    actualizarEstadoAgente();
+                } catch (e) {
+                    Swal.fire('Error', e.message || 'No se pudo guardar auto-copy', 'error');
+                } finally {
+                    guardandoAutoCopy = false;
+                }
             }
             function actualizarEstadoReportes() {
                 if (document.hidden) return;
@@ -371,9 +583,9 @@ class Segundometro extends Controller
                             for (var k in data.estados) estadoReportesCache[k] = data.estados[k];
                             renderArchivos(archivosActuales, estadoReportesCache);
                         }
-                        if (data.hora_servidor_cdmx) {
-                            var el = document.getElementById('segundometroHoraServidor');
-                            if (el) el.textContent = data.hora_servidor_cdmx;
+                        if (data.timestamp_ms) {
+                            relojCdmxOffsetMs = Number(data.timestamp_ms) - Date.now();
+                            pintarRelojCdmx();
                         }
                     })
                     .catch(function(){});
@@ -624,18 +836,57 @@ class Segundometro extends Controller
                 }
             }
 
+            async function probarVerificacionBdAgente() {
+                try {
+                    Swal.fire({
+                        title: 'Probando verificación BD...',
+                        html: 'Consultando último archivo y validando estado en BD.',
+                        allowOutsideClick: false,
+                        didOpen: function() { Swal.showLoading(); }
+                    });
+                    const response = await fetch('/segundometro/probarVerificacionBdAgente', {
+                        method: 'GET',
+                        headers: { 'Front-Request': 'true' }
+                    });
+                    const data = await response.json();
+                    if (!data.success) throw new Error(data.mensaje || 'No fue posible validar');
+                    const estado = data.estado || 'procesando';
+                    const color = estado === 'ok' ? 'success' : (estado === 'error' ? 'error' : 'info');
+                    const icono = estado === 'ok' ? '✅' : (estado === 'error' ? '❌' : '⏳');
+                    Swal.fire({
+                        icon: color,
+                        title: 'Resultado verificación BD',
+                        html: '<div class="text-start">'
+                            + '<p class="mb-1"><strong>Archivo:</strong> <code>' + (data.nombre_archivo || 'N/D') + '</code></p>'
+                            + '<p class="mb-1"><strong>Estado BD:</strong> ' + icono + ' <strong>' + estado + '</strong></p>'
+                            + '<p class="mb-0 text-muted small"><strong>Fuente:</strong> ' + (data.fuente || 'N/D') + '</p>'
+                            + '</div>'
+                    });
+                } catch (e) {
+                    Swal.fire('Error', e.message || 'Error en prueba BD', 'error');
+                }
+            }
+
             document.addEventListener('DOMContentLoaded', function() {
                 actualizarEstadoBotonTruncar();
+                actualizarEstadoAgente();
+                cargarEstadoAutoCopy();
+                iniciarRelojCdmxTiempoReal();
                 listarArchivos(false);
                 programarRefrescos();
-                setTimeout(function(){ actualizarEstadoReportes(); }, 2500);
-                segundometroEstadoInterval = setInterval(function() { if (!document.hidden) actualizarEstadoReportes(); }, 60000);
-                // Hora del servidor (CDMX) para revisar desfase del reloj — se actualiza también con estadoReportes; aquí por si no hay archivos pendientes
-                fetch('/segundometro/horaServidor', { headers: { 'Front-Request': 'true' } }).then(function(r){ return r.json(); }).then(function(d){ if (d.hora_servidor_cdmx) { var el = document.getElementById('segundometroHoraServidor'); if (el) el.textContent = d.hora_servidor_cdmx; } }).catch(function(){});
+                setTimeout(function(){ actualizarEstadoReportes(); }, 800);
+                setInterval(function(){ if (!document.hidden) actualizarEstadoAgente(); }, 30000);
+                // Poll rápido para estados pendientes y poll normal de mantenimiento.
+                segundometroEstadoFastInterval = setInterval(function() { if (!document.hidden) actualizarEstadoReportes(); }, 7000);
+                segundometroEstadoInterval = setInterval(function() { if (!document.hidden) actualizarEstadoReportes(); }, 30000);
                 var btnTruncar = document.getElementById('btnTruncarSegundometro');
                 if (btnTruncar) btnTruncar.addEventListener('click', truncarSegundometro);
                 var btnDiag = document.getElementById('btnDiagnosticoSSH');
                 if (btnDiag) btnDiag.addEventListener('click', ejecutarDiagnosticoSSH);
+                var btnProbarBd = document.getElementById('sgAgenteProbarBd');
+                if (btnProbarBd) btnProbarBd.addEventListener('click', probarVerificacionBdAgente);
+                var chkAutoCopy = document.getElementById('sgAutoCopyEnabled');
+                if (chkAutoCopy) chkAutoCopy.addEventListener('change', guardarEstadoAutoCopy);
                 var linkPrueba = document.getElementById('linkTruncarModoPrueba');
                 if (linkPrueba) {
                     if (esTruncarModoPrueba()) {
@@ -670,8 +921,10 @@ class Segundometro extends Controller
                         listarArchivos(true);
                         programarRefrescos();
                         actualizarEstadoReportes();
+                        sincronizarRelojCdmx();
                         clearEstadoReportesInterval();
-                        segundometroEstadoInterval = setInterval(function() { if (!document.hidden) actualizarEstadoReportes(); }, 60000);
+                        segundometroEstadoFastInterval = setInterval(function() { if (!document.hidden) actualizarEstadoReportes(); }, 7000);
+                        segundometroEstadoInterval = setInterval(function() { if (!document.hidden) actualizarEstadoReportes(); }, 30000);
                     }
                 });
             });
@@ -690,7 +943,12 @@ class Segundometro extends Controller
     public function obtenerMonitorear()
     {
         try {
-            $resultado = SegundometroDAO::obtenerSalidaMonitorearCorto(10);
+            if (!$this->validarModoSoloAgente('monitoreo')) return;
+            $resultado = [
+                'success' => false,
+                'output' => '',
+                'error' => 'Modo solo-agente activo: use el stream /segundometro/streamMonitorear.',
+            ];
             self::respuestaJSON([
                 'success' => $resultado['success'],
                 'output'   => $resultado['output'] ?? '',
@@ -710,18 +968,17 @@ class Segundometro extends Controller
      */
     public function streamMonitorear()
     {
-        @ignore_user_abort(false);
-        set_time_limit(3700);
-        $cmd = SegundometroDAO::getComandoMonitorearParaStream();
-        if ($cmd === null) {
+        if (!$this->usarAgente()) {
             header('Content-Type: text/event-stream');
             header('Cache-Control: no-cache');
             header('Connection: keep-alive');
-            echo "data: " . json_encode(['error' => 'SSH no disponible']) . "\n\n";
+            echo "data: " . json_encode(['error' => 'Flujo legado deshabilitado. Active segundometro_agent.enabled=1.']) . "\n\n";
             if (function_exists('ob_flush')) { @ob_flush(); }
             if (function_exists('flush')) { flush(); }
             exit;
         }
+        @ignore_user_abort(false);
+        set_time_limit(3700);
         header('Content-Type: text/event-stream');
         header('Cache-Control: no-cache');
         header('Connection: keep-alive');
@@ -732,83 +989,65 @@ class Segundometro extends Controller
         @ini_set('output_buffering', 'off');
         @ini_set('zlib.output_compression', false);
         if (function_exists('apache_setenv')) { @apache_setenv('no-gzip', '1'); }
-        // Liberar sesión para que otras peticiones (Eliminar, Copiar +1s) no queden bloqueadas esperando el lock
         if (function_exists('session_write_close')) {
             session_write_close();
         }
-        $descriptorSpec = [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']];
-        $process = @proc_open($cmd, $descriptorSpec, $pipes);
-        if (!is_resource($process)) {
-            echo "data: " . json_encode(['error' => 'No se pudo iniciar el comando']) . "\n\n";
+        $url = $this->agenteBaseUrl() . '/stream/monitorear';
+        $headers = ['Accept: text/event-stream'];
+        $key = $this->agenteApiKey();
+        if ($key !== '') $headers[] = 'X-Api-Key: ' . $key;
+
+        if (function_exists('curl_init')) {
+            $ch = curl_init($url);
+            curl_setopt($ch, CURLOPT_HTTPGET, true);
+            curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 3700);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, false);
+            curl_setopt($ch, CURLOPT_WRITEFUNCTION, function ($ch, $chunk) {
+                echo $chunk;
+                if (function_exists('ob_flush')) { @ob_flush(); }
+                if (function_exists('flush')) { flush(); }
+                return strlen($chunk);
+            });
+            $ok = curl_exec($ch);
+            $err = curl_error($ch);
+            curl_close($ch);
+            if ($ok === false) {
+                echo "data: " . json_encode(['error' => 'Error al conectar stream del agente: ' . ($err ?: 'desconocido')]) . "\n\n";
+                if (function_exists('ob_flush')) { @ob_flush(); }
+                if (function_exists('flush')) { flush(); }
+            }
+            exit;
+        }
+
+        $context = stream_context_create([
+            'http' => [
+                'method' => 'GET',
+                'timeout' => 3700,
+                'header' => implode("\r\n", $headers)
+            ]
+        ]);
+        $fp = @fopen($url, 'r', false, $context);
+        if (!$fp) {
+            echo "data: " . json_encode(['error' => 'No se pudo abrir el stream del agente']) . "\n\n";
             if (function_exists('ob_flush')) { @ob_flush(); }
             if (function_exists('flush')) { flush(); }
             exit;
         }
-        fclose($pipes[0]);
-        stream_set_blocking($pipes[1], false);
-        stream_set_blocking($pipes[2], false);
-        $inicio = time();
-        $timeoutTotal = 3600;
-        $ultimaActividad = time();
-        $iteracion = 0;
-        while (true) {
-            $iteracion++;
-            if ($iteracion % 5 === 0 && connection_aborted()) {
-                @proc_terminate($process, 15);
-                usleep(100000);
-                @proc_terminate($process, 9);
-                @fclose($pipes[1]);
-                @fclose($pipes[2]);
-                @proc_close($process);
-                exit;
-            }
-            if (time() - $ultimaActividad > 5) {
-                echo "data: " . json_encode(['heartbeat' => true, 'ts' => date('H:i:s')]) . "\n\n";
+        while (!feof($fp) && !connection_aborted()) {
+            $chunk = fread($fp, 8192);
+            if ($chunk === false) break;
+            if ($chunk !== '') {
+                echo $chunk;
                 if (function_exists('ob_flush')) { @ob_flush(); }
                 if (function_exists('flush')) { flush(); }
-                $ultimaActividad = time();
-                if (connection_aborted()) {
-                    @proc_terminate($process, 15);
-                    usleep(100000);
-                    @proc_terminate($process, 9);
-                    @fclose($pipes[1]);
-                    @fclose($pipes[2]);
-                    @proc_close($process);
-                    exit;
-                }
+            } else {
+                usleep(120000);
             }
-            $linea = fgets($pipes[1]);
-            if ($linea !== false && $linea !== '') {
-                echo "data: " . json_encode(['out' => $linea]) . "\n\n";
-                if (function_exists('ob_flush')) { @ob_flush(); }
-                if (function_exists('flush')) { flush(); }
-                $ultimaActividad = time();
-            }
-            $errLine = fgets($pipes[2]);
-            if ($errLine !== false && $errLine !== '') {
-                echo "data: " . json_encode(['err' => $errLine]) . "\n\n";
-                if (function_exists('ob_flush')) { @ob_flush(); }
-                if (function_exists('flush')) { flush(); }
-                $ultimaActividad = time();
-            }
-            $estado = proc_get_status($process);
-            if (!$estado['running']) {
-                break;
-            }
-            if (time() - $inicio >= $timeoutTotal) {
-                break;
-            }
-            usleep(100000);
         }
-        @proc_terminate($process, 15);
-        usleep(50000);
-        @proc_terminate($process, 9);
-        @fclose($pipes[1]);
-        @fclose($pipes[2]);
-        @proc_close($process);
-        echo "data: " . json_encode(['done' => true]) . "\n\n";
-        if (function_exists('ob_flush')) { @ob_flush(); }
-        if (function_exists('flush')) { flush(); }
+        fclose($fp);
         exit;
     }
 
@@ -827,21 +1066,21 @@ class Segundometro extends Controller
     public function listarArchivos()
     {
         try {
-            $archivos = SegundometroDAO::obtenerArchivos();
-            $errorLista = SegundometroDAO::getLastListError();
-
-            // Si la lista está vacía por un fallo SSH, devolver error para que la UI lo muestre
-            if (count($archivos) === 0 && $errorLista !== '') {
+            if (!$this->validarModoSoloAgente('listar archivos')) return;
+            $agent = $this->agenteRequest('GET', '/files');
+            if (!$agent['success'] || !is_array($agent['json']) || empty($agent['json']['success'])) {
+                $msg = 'No se pudieron listar archivos vía agente.';
+                if (is_array($agent['json']) && !empty($agent['json']['mensaje'])) $msg .= ' ' . $agent['json']['mensaje'];
+                elseif (!empty($agent['error'])) $msg .= ' ' . $agent['error'];
                 self::respuestaJSON([
                     'success' => false,
-                    'mensaje' => 'No se pudieron listar los archivos: ' . $errorLista
+                    'mensaje' => $msg
                 ]);
                 return;
             }
-
             self::respuestaJSON([
                 'success' => true,
-                'datos' => $archivos
+                'datos' => $agent['json']['datos'] ?? []
             ]);
         } catch (\Exception $e) {
             self::respuestaJSON([
@@ -859,21 +1098,32 @@ class Segundometro extends Controller
         try {
             $nombreArchivo = $_POST['nombre_archivo'] ?? null;
             $nombreDestino = isset($_POST['nombre_destino']) ? trim((string) $_POST['nombre_destino']) : null;
-            
+
             if (!$nombreArchivo) {
                 throw new \Exception('Nombre de archivo no proporcionado');
             }
-            
-            if ($nombreDestino !== '' && preg_match('/^mega_rpt_\d{8}_\d{2}_\d{2}_\d{2}\.csv\.zip$/', $nombreDestino) && $nombreDestino !== $nombreArchivo) {
-                $resultado = SegundometroDAO::copiarAArchivo($nombreArchivo, $nombreDestino);
-            } else {
-                $resultado = SegundometroDAO::copiarConSegundoAdelantado($nombreArchivo);
+            if (!$this->validarModoSoloAgente('copiar archivos')) return;
+            $payload = ['nombre_archivo' => $nombreArchivo];
+            if ($nombreDestino !== null && $nombreDestino !== '') $payload['nombre_destino'] = $nombreDestino;
+            $agent = $this->agenteRequest('POST', '/files/copy', $payload);
+            if (!$agent['success'] || !is_array($agent['json']) || !array_key_exists('success', $agent['json'])) {
+                $msg = 'Error al copiar vía agente.';
+                if (is_array($agent['json']) && !empty($agent['json']['mensaje'])) $msg .= ' ' . $agent['json']['mensaje'];
+                elseif (!empty($agent['error'])) $msg .= ' ' . $agent['error'];
+                self::respuestaJSON(['success' => false, 'mensaje' => $msg]);
+                return;
             }
-            
+            if (empty($agent['json']['success'])) {
+                self::respuestaJSON([
+                    'success' => false,
+                    'mensaje' => $agent['json']['mensaje'] ?? 'Error al copiar archivo en agente'
+                ]);
+                return;
+            }
             self::respuestaJSON([
                 'success' => true,
-                'mensaje' => 'Archivo copiado exitosamente',
-                'datos' => $resultado
+                'mensaje' => $agent['json']['mensaje'] ?? 'Archivo copiado exitosamente',
+                'datos' => $agent['json']['datos'] ?? ['origen' => $nombreArchivo, 'destino' => $nombreDestino]
             ]);
         } catch (\Exception $e) {
             self::respuestaJSON([
@@ -882,7 +1132,7 @@ class Segundometro extends Controller
             ]);
         }
     }
-    
+
     /**
      * Descargar reporte: copia del remoto a temporal y envía al navegador
      */
@@ -894,28 +1144,47 @@ class Segundometro extends Controller
             echo 'Nombre de archivo inválido';
             exit;
         }
-        $rutaLocal = null;
+        if (!$this->usarAgente()) {
+            header('HTTP/1.0 503 Service Unavailable');
+            echo 'Flujo legado deshabilitado. Active segundometro_agent.enabled=1.';
+            exit;
+        }
+        $url = $this->agenteBaseUrl() . '/files/' . rawurlencode($nombreArchivo) . '/download';
+        $headers = [];
+        $key = $this->agenteApiKey();
+        if ($key !== '') $headers[] = 'X-Api-Key: ' . $key;
+
+        if (!function_exists('curl_init')) {
+            header('HTTP/1.0 500 Internal Server Error');
+            echo 'cURL no disponible para descargar desde agente.';
+            exit;
+        }
         try {
-            $rutaLocal = SegundometroDAO::copiarRemotoATemporal($nombreArchivo);
-            if (!is_file($rutaLocal)) {
-                throw new \Exception('No se pudo obtener el archivo');
+            $ch = curl_init($url);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 8);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 240);
+            if (!empty($headers)) curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+            $bin = curl_exec($ch);
+            $status = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $ctype = (string)curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
+            $cerr = curl_error($ch);
+            curl_close($ch);
+            if ($bin === false || $status < 200 || $status >= 300) {
+                throw new \Exception($cerr !== '' ? $cerr : ('HTTP ' . $status . ' al descargar desde agente'));
             }
-            header('Content-Type: application/zip');
+            header('Content-Type: ' . ($ctype !== '' ? $ctype : 'application/zip'));
             header('Content-Disposition: attachment; filename="' . $nombreArchivo . '"');
-            header('Content-Length: ' . filesize($rutaLocal));
-            readfile($rutaLocal);
-            @unlink($rutaLocal);
+            header('Content-Length: ' . strlen($bin));
+            echo $bin;
             exit;
         } catch (\Exception $e) {
-            if ($rutaLocal && is_file($rutaLocal)) {
-                @unlink($rutaLocal);
-            }
             header('HTTP/1.0 500');
-            echo 'Error al descargar: ' . $e->getMessage();
+            echo 'Error al descargar desde agente: ' . $e->getMessage();
             exit;
         }
     }
-    
+
     /**
      * Eliminar archivo en el servidor remoto (solo si owner es root)
      */
@@ -926,8 +1195,20 @@ class Segundometro extends Controller
             if (!$nombreArchivo) {
                 throw new \Exception('Nombre de archivo no proporcionado');
             }
-            SegundometroDAO::eliminarArchivo($nombreArchivo);
-            self::respuestaJSON(['success' => true, 'mensaje' => 'Archivo eliminado correctamente']);
+            if (!$this->validarModoSoloAgente('eliminar archivos')) return;
+            $agent = $this->agenteRequest('DELETE', '/files/' . rawurlencode($nombreArchivo));
+            if (!$agent['success'] || !is_array($agent['json']) || !array_key_exists('success', $agent['json'])) {
+                $msg = 'Error al eliminar vía agente.';
+                if (is_array($agent['json']) && !empty($agent['json']['mensaje'])) $msg .= ' ' . $agent['json']['mensaje'];
+                elseif (!empty($agent['error'])) $msg .= ' ' . $agent['error'];
+                self::respuestaJSON(['success' => false, 'mensaje' => $msg]);
+                return;
+            }
+            if (!empty($agent['json']['success'])) {
+                self::respuestaJSON(['success' => true, 'mensaje' => $agent['json']['mensaje'] ?? 'Archivo eliminado correctamente']);
+                return;
+            }
+            self::respuestaJSON(['success' => false, 'mensaje' => $agent['json']['mensaje'] ?? 'Error al eliminar en agente']);
         } catch (\Exception $e) {
             self::respuestaJSON([
                 'success' => false,
@@ -1002,10 +1283,18 @@ class Segundometro extends Controller
     public function diagnosticoSSH()
     {
         try {
-            $resultados = SegundometroDAO::diagnosticoSSH();
+            if (!$this->validarModoSoloAgente('diagnóstico')) return;
+            $agent = $this->agenteRequest('GET', '/diagnostico');
+            if (!$agent['success'] || !is_array($agent['json']) || empty($agent['json']['success'])) {
+                $msg = 'No se pudo ejecutar diagnóstico vía agente.';
+                if (is_array($agent['json']) && !empty($agent['json']['mensaje'])) $msg .= ' ' . $agent['json']['mensaje'];
+                elseif (!empty($agent['error'])) $msg .= ' ' . $agent['error'];
+                self::respuestaJSON(['success' => false, 'mensaje' => $msg]);
+                return;
+            }
             self::respuestaJSON([
                 'success' => true,
-                'pruebas' => $resultados
+                'pruebas' => $agent['json']['pruebas'] ?? []
             ]);
         } catch (\Exception $e) {
             self::respuestaJSON([
@@ -1016,14 +1305,114 @@ class Segundometro extends Controller
     }
 
     /**
+     * Estado de integración del Shell con segundometro-agent (para UI).
+     */
+    public function estadoAgente()
+    {
+        try {
+            $using = $this->usarAgente();
+            if (!$using) {
+                self::respuestaJSON([
+                    'success' => true,
+                    'usando_agente' => false,
+                    'agente_online' => false,
+                    'detalle' => 'Flujo legado activo (DAO SSH del proyecto).'
+                ]);
+                return;
+            }
+            $health = $this->agenteRequest('GET', '/health');
+            if (!$health['success'] || !is_array($health['json']) || empty($health['json']['success'])) {
+                self::respuestaJSON([
+                    'success' => true,
+                    'usando_agente' => true,
+                    'agente_online' => false,
+                    'detalle' => 'No responde /health del agente (' . ($health['error'] ?: 'sin respuesta') . ').'
+                ]);
+                return;
+            }
+            $auto = $this->agenteRequest('GET', '/auto-copy');
+            $detalle = 'Agente en línea.';
+            if ($auto['success'] && is_array($auto['json']) && !empty($auto['json']['success'])) {
+                $enabled = !empty($auto['json']['enabled']) ? 'activo' : 'inactivo';
+                $next = (isset($auto['json']['proximaEjecucion']['label']) ? $auto['json']['proximaEjecucion']['label'] : '—');
+                $detalle = 'Auto-copy ' . $enabled . ' | Próxima: ' . $next;
+            }
+            self::respuestaJSON([
+                'success' => true,
+                'usando_agente' => true,
+                'agente_online' => true,
+                'detalle' => $detalle
+            ]);
+        } catch (\Exception $e) {
+            self::respuestaJSON([
+                'success' => false,
+                'usando_agente' => $this->usarAgente(),
+                'agente_online' => false,
+                'mensaje' => $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
+     * Prueba rápida de verificación BD sobre el último archivo visible.
+     * Sirve para validar desde UI la lógica base usada por el fallback.
+     */
+    public function probarVerificacionBdAgente()
+    {
+        try {
+            if (!$this->validarModoSoloAgente('probar verificación BD')) return;
+            $nombre = null;
+            $fuente = 'agente';
+            $agent = $this->agenteRequest('GET', '/files');
+            if ($agent['success'] && is_array($agent['json']) && !empty($agent['json']['success'])) {
+                $lista = $agent['json']['datos'] ?? [];
+                if (is_array($lista) && !empty($lista) && !empty($lista[0]['nombre'])) {
+                    $nombre = (string)$lista[0]['nombre'];
+                }
+            }
+            if ($nombre === null) {
+                self::respuestaJSON(['success' => false, 'mensaje' => 'No hay archivos para validar en BD.']);
+                return;
+            }
+            $estado = 'procesando';
+            $estadoReq = $this->agenteRequest('POST', '/reportes/estado', ['nombres' => [$nombre]]);
+            if ($estadoReq['success'] && is_array($estadoReq['json']) && !empty($estadoReq['json']['success']) && isset($estadoReq['json']['estados'][$nombre])) {
+                $estado = $estadoReq['json']['estados'][$nombre];
+            }
+            self::respuestaJSON([
+                'success' => true,
+                'nombre_archivo' => $nombre,
+                'estado' => $estado,
+                'fuente' => $fuente
+            ]);
+        } catch (\Exception $e) {
+            self::respuestaJSON(['success' => false, 'mensaje' => $e->getMessage()]);
+        }
+    }
+
+    /**
      * Hora del servidor en CDMX (para revisar desfase del reloj). GET → { hora_servidor_cdmx: "Y-m-d H:i:s T" }
      */
     public function horaServidor()
     {
-        header('Content-Type: application/json; charset=utf-8');
-        $tz = new \DateTimeZone('America/Mexico_City');
-        $hora = (new \DateTime('now', $tz))->format('Y-m-d H:i:s T');
-        echo json_encode(['success' => true, 'hora_servidor_cdmx' => $hora]);
+        if (!$this->validarModoSoloAgente('consultar hora servidor')) return;
+        $agent = $this->agenteRequest('GET', '/hora-cdmx');
+        if ($agent['success'] && is_array($agent['json']) && !empty($agent['json']['success'])) {
+            self::respuestaJSON([
+                'success' => true,
+                'hora_servidor_cdmx' => $agent['json']['hora_servidor_cdmx'] ?? '',
+                'fuente_hora' => $agent['json']['fuente_hora'] ?? '',
+                'hora_remota' => !empty($agent['json']['hora_remota']),
+                'timestamp_ms' => $agent['json']['timestamp_ms'] ?? null,
+            ]);
+            return;
+        }
+        self::respuestaJSON([
+            'success' => false,
+            'hora_servidor_cdmx' => '',
+            'timestamp_ms' => null,
+            'mensaje' => 'No se pudo consultar hora vía agente.'
+        ]);
     }
 
     /**
@@ -1031,6 +1420,138 @@ class Segundometro extends Controller
      */
     public function estadoReportes()
     {
+        try {
+            if (!$this->validarModoSoloAgente('consultar estado de reportes')) return;
+            $nombres = [];
+            $input = file_get_contents('php://input');
+            if ($input !== '' && $input !== false) {
+                $json = json_decode($input, true);
+                if (isset($json['nombres']) && is_array($json['nombres'])) {
+                    $nombres = $json['nombres'];
+                }
+            }
+            if (empty($nombres) && isset($_POST['nombres']) && is_array($_POST['nombres'])) {
+                $nombres = $_POST['nombres'];
+            }
+            $agent = $this->agenteRequest('POST', '/reportes/estado', ['nombres' => $nombres]);
+            if ($agent['success'] && is_array($agent['json']) && !empty($agent['json']['success'])) {
+                self::respuestaJSON([
+                    'success' => true,
+                    'estados' => $agent['json']['estados'] ?? [],
+                    'hora_servidor_cdmx' => $agent['json']['hora_servidor_cdmx'] ?? '',
+                    'timestamp_ms' => $agent['json']['timestamp_ms'] ?? null,
+                    'fuente' => 'agente',
+                ]);
+                return;
+            }
+            // Fallback: agente no alcanzó PHP estadoReportesAgente (URL/key/red). Consultar BD en el mismo servidor.
+            $estados = SegundometroDAO::obtenerEstadoReportesPorBD($nombres);
+            $tz = new \DateTimeZone('America/Mexico_City');
+            $horaServidorCDMX = (new \DateTime('now', $tz))->format('Y-m-d H:i:s') . ' CDMX';
+            $detalleAgente = '';
+            if (!$agent['success']) {
+                $detalleAgente = 'Agente HTTP/status fallo. ';
+            } elseif (is_array($agent['json']) && !empty($agent['json']['mensaje'])) {
+                $detalleAgente = $agent['json']['mensaje'] . ' ';
+            }
+            self::respuestaJSON([
+                'success' => true,
+                'estados' => $estados,
+                'hora_servidor_cdmx' => $horaServidorCDMX,
+                'timestamp_ms' => null,
+                'fuente' => 'dao_fallback',
+                'mensaje' => $detalleAgente ? trim($detalleAgente) . 'Estados servidos desde BD local.' : null,
+            ]);
+        } catch (\Exception $e) {
+            self::respuestaJSON([
+                'success' => false,
+                'estados' => [],
+                'mensaje' => $e->getMessage()
+            ]);
+        }
+    }
+
+    public function autoCopyEstado()
+    {
+        try {
+            if (!$this->validarModoSoloAgente('consultar auto-copy')) return;
+            $agent = $this->agenteRequest('GET', '/auto-copy');
+            if (!$agent['success'] || !is_array($agent['json']) || empty($agent['json']['success'])) {
+                self::respuestaJSON(['success' => false, 'mensaje' => 'No se pudo consultar auto-copy en agente.']);
+                return;
+            }
+            self::respuestaJSON([
+                'success' => true,
+                'enabled' => !empty($agent['json']['enabled']),
+                'preRunMonitoreo' => !empty($agent['json']['preRunMonitoreo']),
+                'horarios' => $agent['json']['horarios'] ?? [],
+                'proximaEjecucion' => $agent['json']['proximaEjecucion'] ?? null,
+                'ultimaEjecucion' => $agent['json']['ultimaEjecucion'] ?? null,
+            ]);
+        } catch (\Exception $e) {
+            self::respuestaJSON(['success' => false, 'mensaje' => $e->getMessage()]);
+        }
+    }
+
+    public function autoCopyConfig()
+    {
+        try {
+            if (!$this->validarModoSoloAgente('guardar auto-copy')) return;
+            $input = file_get_contents('php://input');
+            $body = [];
+            if ($input !== '' && $input !== false) {
+                $json = json_decode($input, true);
+                if (is_array($json)) $body = $json;
+            }
+            if (isset($_POST['enabled'])) {
+                $body['enabled'] = ($_POST['enabled'] === '1' || $_POST['enabled'] === 1 || $_POST['enabled'] === true || $_POST['enabled'] === 'true');
+            }
+            $payload = [];
+            if (array_key_exists('enabled', $body)) $payload['enabled'] = (bool)$body['enabled'];
+            if (array_key_exists('preRunMonitoreo', $body)) $payload['preRunMonitoreo'] = (bool)$body['preRunMonitoreo'];
+            if (isset($body['horarios']) && is_array($body['horarios'])) $payload['horarios'] = $body['horarios'];
+            $agent = $this->agenteRequest('POST', '/auto-copy', $payload);
+            if (!$agent['success'] || !is_array($agent['json']) || empty($agent['json']['success'])) {
+                self::respuestaJSON(['success' => false, 'mensaje' => 'No se pudo guardar auto-copy en agente.']);
+                return;
+            }
+            self::respuestaJSON([
+                'success' => true,
+                'enabled' => !empty($agent['json']['enabled']),
+                'preRunMonitoreo' => !empty($agent['json']['preRunMonitoreo']),
+                'horarios' => $agent['json']['horarios'] ?? [],
+                'proximaEjecucion' => $agent['json']['proximaEjecucion'] ?? null,
+            ]);
+        } catch (\Exception $e) {
+            self::respuestaJSON(['success' => false, 'mensaje' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * Estado de reportes para el agente (sin sesión web).
+     * Seguridad:
+     * - Si existe segundometro_agent_key en config.ini, requiere header X-Agent-Key válido.
+     * - Si no existe key, solo permite solicitudes locales (127.0.0.1 / ::1).
+     */
+    public function estadoReportesAgente()
+    {
+        $remoteAddr = $_SERVER['REMOTE_ADDR'] ?? '';
+        $esLocal = in_array($remoteAddr, ['127.0.0.1', '::1'], true);
+        $expectedKey = trim((string) (CONFIGURACION['segundometro_agent_key'] ?? ''));
+        $providedKey = trim((string) ($_SERVER['HTTP_X_AGENT_KEY'] ?? ''));
+
+        if ($expectedKey !== '') {
+            if ($providedKey === '' || !hash_equals($expectedKey, $providedKey)) {
+                self::respuestaJSON(['success' => false, 'estados' => [], 'mensaje' => 'No autorizado']);
+                return;
+            }
+        } else {
+            if (!$esLocal) {
+                self::respuestaJSON(['success' => false, 'estados' => [], 'mensaje' => 'No autorizado (solo localhost)']);
+                return;
+            }
+        }
+
         try {
             $nombres = [];
             $input = file_get_contents('php://input');

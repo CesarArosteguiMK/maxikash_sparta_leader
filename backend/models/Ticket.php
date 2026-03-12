@@ -19,8 +19,11 @@ class Ticket extends Model
      * @param int $idUsuario ID de la persona (sesión).
      * @param bool $soloDelUsuario true = solo los que levantó ese usuario (menú Ticket); false = todos (Panel Admin).
      * Siempre incluye creador_nombre para Panel Admin.
+     * @param array $filtros Opcional (solo Panel Admin): asignado (0=todos, -1=sin asignar, id=persona),
+     *        dictamen_enviado (''|si|no), dictamen_visto (''|si|no, solo si enviado),
+     *        ds_estado (''|pendiente|listo|sin_ds|prorroga_activa), prioridad_id (0=todos).
      */
-    public static function getListaTickets($idUsuario, $soloDelUsuario = true)
+    public static function getListaTickets($idUsuario, $soloDelUsuario = true, array $filtros = [])
     {
         $baseSelect = "SELECT DISTINCT t.id_ticket, t.folio, t.id_credito, t.descripcion_inicial, t.fecha_creacion, t.fecha_vencimiento, " .
             "tt.nombre AS tipo_ticket_nombre, et.nombre AS estado_ticket_nombre, pt.nombre AS prioridad_nombre, ot.nombre AS origen_nombre, " .
@@ -56,6 +59,52 @@ class Ticket extends Model
                 $whereCandidates[$i] .= ' AND t.id_persona_creador = :id_persona';
             }
         }
+
+        // Filtros adicionales (Panel Admin): se aplican a todos los candidatos WHERE
+        $extraWhere = [];
+        if (!$soloDelUsuario && !empty($filtros)) {
+            $idAsignado = isset($filtros['asignado']) ? (int)$filtros['asignado'] : 0;
+            if ($idAsignado === -1) {
+                $extraWhere[] = 'at.id_persona_asignada IS NULL';
+            } elseif ($idAsignado > 0) {
+                $extraWhere[] = 'at.id_persona_asignada = :filtro_id_asignado';
+                $params['filtro_id_asignado'] = $idAsignado;
+            }
+            $dictEnviado = isset($filtros['dictamen_enviado']) ? trim((string)$filtros['dictamen_enviado']) : '';
+            if ($dictEnviado === 'si') {
+                $extraWhere[] = "dm.dictamen_estado = 'enviado_al_gestor'";
+            } elseif ($dictEnviado === 'no') {
+                $extraWhere[] = '(dm.dictamen_estado IS NULL OR dm.dictamen_estado <> \'enviado_al_gestor\')';
+            }
+            $dsEstado = isset($filtros['ds_estado']) ? trim((string)$filtros['ds_estado']) : '';
+            if ($dsEstado === 'pendiente') {
+                $extraWhere[] = "dsm.ds_resultado = 'pendiente'";
+            } elseif ($dsEstado === 'listo') {
+                $extraWhere[] = "(dsm.ds_resultado IS NOT NULL AND dsm.ds_resultado <> '' AND dsm.ds_resultado <> 'pendiente')";
+            } elseif ($dsEstado === 'sin_ds') {
+                $extraWhere[] = 'dsm.ds_resultado IS NULL';
+            } elseif ($dsEstado === 'prorroga_activa') {
+                $extraWhere[] = "dsm.ds_resultado = 'prorroga_activa'";
+            }
+            $vistoGestor = isset($filtros['dictamen_visto']) ? trim((string)$filtros['dictamen_visto']) : '';
+            if ($vistoGestor === 'si') {
+                $extraWhere[] = 'dm.dictamen_fecha_visto IS NOT NULL';
+            } elseif ($vistoGestor === 'no') {
+                $extraWhere[] = "dm.dictamen_estado = 'enviado_al_gestor' AND dm.dictamen_fecha_visto IS NULL";
+            }
+            $prioridadId = isset($filtros['prioridad_id']) ? (int)$filtros['prioridad_id'] : 0;
+            if ($prioridadId > 0) {
+                $extraWhere[] = 't.id_prioridad = :filtro_prioridad_id';
+                $params['filtro_prioridad_id'] = $prioridadId;
+            }
+        }
+        if (!empty($extraWhere)) {
+            $fragment = ' AND ' . implode(' AND ', $extraWhere);
+            foreach ($whereCandidates as $i => $w) {
+                $whereCandidates[$i] .= $fragment;
+            }
+        }
+
         $orderBy = " ORDER BY t.fecha_creacion DESC";
 
         $lastException = null;
@@ -2110,32 +2159,35 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
             // ignorar
         }
 
-        // Tiempo Sabueso: desde primera asignación en asignacion_ticket hasta fecha_actualizacion del dictamen
-        // enviado al gestor (un solo dictamen por ticket: el de mayor fecha_actualizacion en estado enviado).
+        // Tiempo Sabueso (semana actual lun→hoy CDMX):
+        // Solo envíos con fecha_actualizacion en la semana. El diff es desde la ÚLTIMA asignación
+        // antes del envío (no desde la primera asignación histórica del ticket, que inflaba a días/semanas).
         try {
             $sqlSabueso = "
-                SELECT AVG(TIMESTAMPDIFF(SECOND, at.min_fa, d.fecha_actualizacion)) AS avg_sec,
-                       MIN(TIMESTAMPDIFF(SECOND, at.min_fa, d.fecha_actualizacion)) AS min_sec,
-                       MAX(TIMESTAMPDIFF(SECOND, at.min_fa, d.fecha_actualizacion)) AS max_sec,
+                SELECT AVG(TIMESTAMPDIFF(SECOND, x.fa_before, x.fa)) AS avg_sec,
+                       MIN(TIMESTAMPDIFF(SECOND, x.fa_before, x.fa)) AS min_sec,
+                       MAX(TIMESTAMPDIFF(SECOND, x.fa_before, x.fa)) AS max_sec,
                        COUNT(*) AS n
                 FROM (
-                    SELECT id_ticket, MIN(fecha_asignacion) AS min_fa
-                    FROM asignacion_ticket
-                    WHERE (activo = 1 OR activo IS NULL)
-                    GROUP BY id_ticket
-                ) at
-                INNER JOIN (
-                    SELECT d1.id_ticket, d1.fecha_actualizacion
-                    FROM dictamen d1
+                    SELECT d.id_ticket, d.fecha_actualizacion AS fa,
+                           (SELECT MAX(at2.fecha_asignacion) FROM asignacion_ticket at2
+                            WHERE at2.id_ticket = d.id_ticket
+                              AND at2.fecha_asignacion <= d.fecha_actualizacion
+                              AND (at2.activo = 1 OR at2.activo IS NULL)
+                           ) AS fa_before
+                    FROM dictamen d
                     INNER JOIN (
                         SELECT id_ticket, MAX(fecha_actualizacion) AS mx
                         FROM dictamen WHERE estado = 'enviado_al_gestor' GROUP BY id_ticket
-                    ) dm ON d1.id_ticket = dm.id_ticket AND d1.fecha_actualizacion = dm.mx AND d1.estado = 'enviado_al_gestor'
-                ) d ON d.id_ticket = at.id_ticket
-                INNER JOIN ticket t ON t.id_ticket = d.id_ticket AND $whereActivo
-                WHERE d.fecha_actualizacion IS NOT NULL AND at.min_fa IS NOT NULL
-                  AND d.fecha_actualizacion >= at.min_fa
-                  AND d.fecha_actualizacion >= $inicioSemanaLunes
+                    ) dm ON d.id_ticket = dm.id_ticket AND d.fecha_actualizacion = dm.mx AND d.estado = 'enviado_al_gestor'
+                    INNER JOIN ticket t ON t.id_ticket = d.id_ticket AND $whereActivo
+                    WHERE d.fecha_actualizacion IS NOT NULL
+                      AND d.fecha_actualizacion >= $inicioSemanaLunes
+                ) x
+                WHERE x.fa_before IS NOT NULL
+                  AND x.fa_before <= x.fa
+                  AND TIMESTAMPDIFF(SECOND, x.fa_before, x.fa) >= 0
+                  AND TIMESTAMPDIFF(SECOND, x.fa_before, x.fa) <= 604800
             ";
             $row = $db->queryOne($sqlSabueso);
             if ($row && (int)($row['n'] ?? 0) > 0) {
@@ -2146,15 +2198,15 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                     'max_seg' => (int)($row['max_sec'] ?? 0),
                     'promedio_humano' => self::segundosAHumano((int)round((float)($row['avg_sec'] ?? 0))),
                     'alcance' => 'semana_actual',
-                    'alcance_texto' => 'Semana actual (desde lunes): promedio solo con envíos ocurridos esta semana; al llegar el próximo lunes el conteo se reinicia.',
+                    'alcance_texto' => 'Semana actual (lun→hoy CDMX): promedio con envíos de esta semana; tiempo desde última asignación antes del envío hasta enviar (máx. 7 días por muestra). Cada lunes se reinicia.',
                 ];
             }
         } catch (\Exception $e) {
             $out['tiempos_sabueso_segundos'] = null;
         }
 
-        // Tiempo gestor: desde envío del dictamen (fecha_actualizacion) hasta fecha_visto_gestor
-        // (cuando el gestor abre el modal). Una fila por ticket con dictamen enviado y ya visto.
+        // Tiempo gestor (semana actual): solo pares envío+visto donde el ENVÍO también es de esta semana.
+        // Así no entran aperturas de dictámenes enviados hace semanas (que inflaban el promedio).
         try {
             $sqlGestor = "
                 SELECT AVG(TIMESTAMPDIFF(SECOND, d.fecha_actualizacion, d.fecha_visto_gestor)) AS avg_sec,
@@ -2173,7 +2225,9 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                   AND d.fecha_actualizacion IS NOT NULL
                   AND d.fecha_visto_gestor IS NOT NULL
                   AND d.fecha_visto_gestor >= d.fecha_actualizacion
+                  AND d.fecha_actualizacion >= $inicioSemanaLunes
                   AND d.fecha_visto_gestor >= $inicioSemanaLunes
+                  AND TIMESTAMPDIFF(SECOND, d.fecha_actualizacion, d.fecha_visto_gestor) <= 604800
             ";
             $row = $db->queryOne($sqlGestor);
             if ($row && (int)($row['n'] ?? 0) > 0) {
@@ -2184,7 +2238,7 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                     'max_seg' => (int)($row['max_sec'] ?? 0),
                     'promedio_humano' => self::segundosAHumano((int)round((float)($row['avg_sec'] ?? 0))),
                     'alcance' => 'semana_actual',
-                    'alcance_texto' => 'Semana actual (desde lunes): promedio solo con aperturas registradas esta semana; cada lunes el acumulado vuelve a empezar.',
+                    'alcance_texto' => 'Semana actual (lun→hoy CDMX): solo envíos de esta semana ya vistos; tiempo desde envío hasta apertura (máx. 7 días por muestra). Cada lunes se reinicia.',
                 ];
             }
         } catch (\Exception $e) {

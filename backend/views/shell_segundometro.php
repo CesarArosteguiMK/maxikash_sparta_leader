@@ -18,9 +18,8 @@
                         <div class="col-md-4 text-end">
                             <small class="text-muted"><i class="fa fa-sync-alt me-1"></i>Actualización al abrir y en ventanas 7:31, 9:31, 11:31, 13:31, 14:31, 16:31, 18:31, 20:31, 23:50 (CDMX)</small>
                             <div class="mt-2 small">
-                                <span class="text-muted"><i class="fa fa-clock me-1"></i>Hora del servidor (CDMX):</span>
+                                <span class="text-muted"><i class="fa fa-clock me-1"></i>Hora real CDMX:</span>
                                 <strong id="segundometroHoraServidor" class="ms-1">—</strong>
-                                <span class="text-muted ms-1" title="Para revisar desfase del reloj del servidor">(revisar desfase)</span>
                             </div>
                         </div>
                     </div>
@@ -68,6 +67,25 @@
             <span class="ms-3 align-middle" id="wrapLinkTruncarPrueba" style="display: none;">
                 <a href="#" id="linkTruncarModoPrueba" class="small text-muted" title="Habilita el botón Truncar para probar (sin restricción de horario). Recarga la página con ?truncar_test=1">Habilitar Truncar para pruebas</a>
             </span>
+        </div>
+    </div>
+
+    <!-- Estado de integración con agente -->
+    <div class="row mb-3">
+        <div class="col-12">
+            <div class="alert alert-light border d-flex flex-wrap align-items-center gap-2 mb-0 py-2">
+                <strong class="me-2"><i class="fa fa-robot text-primary me-1"></i>Integración agente</strong>
+                <span class="badge bg-secondary" id="sgAgenteModo">Agente: verificando...</span>
+                <span class="badge bg-secondary" id="sgAgenteEstado">Estado: verificando...</span>
+                <div class="form-check form-switch ms-2 mb-0">
+                    <input class="form-check-input" type="checkbox" role="switch" id="sgAutoCopyEnabled">
+                    <label class="form-check-label small" for="sgAutoCopyEnabled">Auto-copy</label>
+                </div>
+                <button type="button" class="btn btn-sm btn-outline-primary ms-1" id="sgAgenteProbarBd">
+                    <i class="fa fa-database me-1"></i>Probar verificación BD
+                </button>
+                <span class="small text-muted ms-2" id="sgAgenteDetalle">Consultando estado...</span>
+            </div>
         </div>
     </div>
 
@@ -123,12 +141,12 @@
         font-family: 'Courier New', monospace;
         font-size: 0.9rem;
     }
-    
+
     .table-hover tbody tr:hover {
         background-color: rgba(67, 89, 113, 0.05);
         cursor: pointer;
     }
-    
+
     .avatar-initial {
         display: flex;
         align-items: center;
@@ -136,43 +154,43 @@
         width: 70px;
         height: 70px;
     }
-    
+
     .card {
         transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
     }
-    
+
     .card:hover {
         transform: translateY(-2px);
         box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1) !important;
     }
-    
+
     .btn-success {
         transition: all 0.3s ease;
     }
-    
+
     .btn-success:hover {
         transform: scale(1.05);
         box-shadow: 0 4px 12px rgba(40, 199, 111, 0.4);
     }
-    
+
     code {
         background-color: #f5f5f5;
         padding: 2px 6px;
         border-radius: 3px;
         font-size: 0.9em;
     }
-    
+
     .alert-primary {
         border-left: 4px solid #696cff;
     }
-    
+
     /* Forzar texto blanco en headers de archivos */
     .card-header.bg-primary h5,
     .card-header.bg-primary h5 i,
     .card-header.bg-primary * {
         color: #ffffff !important;
     }
-    
+
     /* Botón Truncar: neon leve deshabilitado, neon más vivo habilitado */
     .btn-truncar-segundometro {
         font-weight: 600;
