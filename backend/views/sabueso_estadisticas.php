@@ -281,7 +281,7 @@
                         <i class="fa fa-hourglass-half" aria-hidden="true"></i>
                     </div>
                     <div class="flex-grow-1 min-w-0">
-                        <div class="text-muted small">Tiempo hasta enviar dictamen (equipo Sabueso)</div>
+                        <div class="text-muted small">Tiempo hasta enviar dictamen (equipo Sabueso) — <span class="fw-semibold text-warning">semana actual</span></div>
                         <div class="estad-time-value text-warning" id="statTiempoSabuesoValor">—</div>
                         <div class="text-muted small mt-1" id="statTiempoSabuesoSub">Desde primera asignación hasta envío al gestor</div>
                     </div>
@@ -295,7 +295,7 @@
                         <i class="fa fa-bolt"></i>
                     </div>
                     <div class="flex-grow-1 min-w-0">
-                        <div class="text-muted small">Tiempo del gestor en abrir el dictamen</div>
+                        <div class="text-muted small">Tiempo del gestor en abrir el dictamen — <span class="fw-semibold text-success">semana actual</span></div>
                         <div class="estad-time-value text-success" id="statTiempoGestorValor">—</div>
                         <div class="text-muted small mt-1" id="statTiempoGestorSub">Desde envío hasta visto por gestor</div>
                     </div>
@@ -335,8 +335,10 @@
                         <button type="button" class="btn" data-tab="gestor">Por gestor (levantó)</button>
                         <button type="button" class="btn" data-tab="sabueso">Por Sabueso (dictaminó)</button>
                     </div>
-                    <!-- Guía en 10 segundos: dónde está cada cosa -->
-                    <div class="w-100 mt-2 p-2 rounded-2 border" style="background: rgba(13,110,253,0.06); border-color: rgba(13,110,253,0.15) !important; font-size: 0.8rem;">
+                </div>
+                <div class="card-body pt-0" id="panelResumenGlobal">
+                    <!-- Guía solo en vista Global -->
+                    <div class="w-100 mb-3 p-2 rounded-2 border" style="background: rgba(13,110,253,0.06); border-color: rgba(13,110,253,0.15) !important; font-size: 0.8rem;">
                         <strong class="text-primary"><i class="fa-solid fa-compass me-1"></i>Cómo leer esto (rápido)</strong>
                         <ul class="mb-0 mt-1 ps-3">
                             <li><strong>Sin leer / Tasa</strong> en <em>tarjetas</em> abajo = vista <strong>Global</strong> (todos los tickets).</li>
@@ -345,8 +347,6 @@
                             <li><strong>Resultado visita / pago</strong> = en el mismo popup, columnas <strong>Resultado DS</strong> y <strong>% efect.</strong> (si sale «Sin dictamen sistema», aún no se ha generado el dictamen automático para ese ticket).</li>
                         </ul>
                     </div>
-                </div>
-                <div class="card-body pt-0" id="panelResumenGlobal">
                     <div class="row g-2">
                         <div class="col-6">
                             <div class="estad-global-tile bg-primary bg-opacity-10">
@@ -422,6 +422,15 @@
                 </div>
                 <!-- Sabueso: hermano de panelResumenGestor (no anidado) para que no quede oculto por d-none del padre -->
                 <div class="card-body pt-0 d-none" id="panelResumenSabueso">
+                    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+                        <span class="text-muted small mb-0">Dictámenes enviados: <strong>hoy</strong> · <strong>semana (lun→hoy)</strong> · <strong>mes</strong> · <strong>año</strong></span>
+                        <div class="estad-pill-group estad-pill-gestor" id="grpFiltroPeriodoSabueso" role="group">
+                            <button type="button" class="btn active" data-key="por_dia">Días</button>
+                            <button type="button" class="btn" data-key="por_semana">Semanas</button>
+                            <button type="button" class="btn" data-key="por_mes">Meses</button>
+                            <button type="button" class="btn" data-key="por_anio">Año</button>
+                        </div>
+                    </div>
                     <div class="table-responsive rounded-2 border" style="max-height: 320px; border-color: rgba(var(--bs-success-rgb), 0.15) !important;">
                         <table class="table table-sm table-hover mb-0 align-middle" id="tablaPorSabueso">
                             <thead class="small text-uppercase" style="font-size: 0.6rem; background: rgba(var(--bs-success-rgb), 0.07);">

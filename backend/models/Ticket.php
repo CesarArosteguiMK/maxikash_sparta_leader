@@ -8,6 +8,13 @@ use Core\Model;
 class Ticket extends Model
 {
     /**
+     * Tiempo Sabueso/tickets: toda fecha/hora que se escribe en BD en este módulo debe ser hora CDMX
+     * (America/Mexico_City), no la del reloj del servidor ni NOW()/CURDATE() en SQL al insertar/actualizar.
+     * Usar self::ahoraCdmx() o self::cdmxNowImmutable() para INSERT/UPDATE; las consultas de solo lectura
+     * que filtren por "hoy" deben usar fechas generadas en PHP (fechaCdmx / inicioSemanaLunesCdmx) si aplica.
+     */
+
+    /**
      * Lista de tickets.
      * @param int $idUsuario ID de la persona (sesión).
      * @param bool $soloDelUsuario true = solo los que levantó ese usuario (menú Ticket); false = todos (Panel Admin).
@@ -194,8 +201,7 @@ class Ticket extends Model
             return self::resultado(false, 'No se encontró el estado "Abierto" en catálogo.', null);
         }
 
-        $tz = new \DateTimeZone('America/Mexico_City');
-        $now = (new \DateTime('now', $tz))->format('Y-m-d H:i:s');
+        $now = self::ahoraCdmx();
 
         // Intentar crear el ticket con reintentos para evitar condiciones de carrera
         $maxIntentos = 3;
@@ -365,7 +371,7 @@ class Ticket extends Model
 
     /**
      * Asigna un ticket a una persona usando la tabla asignacion_ticket.
-     * Desactiva la asignación anterior (activo=0, fecha_liberacion=NOW()) e inserta la nueva.
+     * Desactiva la asignación anterior (activo=0, fecha_liberacion=ahora CDMX) e inserta la nueva.
      */
     public static function asignar($idTicket, $idPersona)
     {
@@ -376,8 +382,7 @@ class Ticket extends Model
         }
         try {
             $db = new Database();
-            $tz = new \DateTimeZone('America/Mexico_City');
-            $now = (new \DateTime('now', $tz))->format('Y-m-d H:i:s');
+            $now = self::ahoraCdmx();
             $db->CRUD(
                 "UPDATE asignacion_ticket SET activo = 0, fecha_liberacion = :ahora WHERE id_ticket = :id_ticket AND (activo = 1 OR activo IS NULL)",
                 ['ahora' => $now, 'id_ticket' => $tid]
@@ -403,8 +408,7 @@ class Ticket extends Model
         }
         try {
             $db = new Database();
-            $tz = new \DateTimeZone('America/Mexico_City');
-            $now = (new \DateTime('now', $tz))->format('Y-m-d H:i:s');
+            $now = self::ahoraCdmx();
             $db->CRUD(
                 "UPDATE asignacion_ticket SET activo = 0, fecha_liberacion = :ahora WHERE id_ticket = :id_ticket AND (activo = 1 OR activo IS NULL)",
                 ['ahora' => $now, 'id_ticket' => $tid]
@@ -487,8 +491,7 @@ class Ticket extends Model
         $tipoAccion = strtolower((string)$tipoAccion) === 'cerrado' ? 'cerrado' : 'eliminado';
         try {
             $db = new Database();
-            $tz = new \DateTimeZone('America/Mexico_City');
-            $now = (new \DateTime('now', $tz))->format('Y-m-d H:i:s');
+            $now = self::ahoraCdmx();
 
             $row = $db->queryOne(
                 "SELECT t.id_ticket, t.id_credito, t.folio, t.id_tipo_ticket, t.id_estado_ticket, t.id_prioridad, t.descripcion_inicial, " .
@@ -562,8 +565,7 @@ class Ticket extends Model
         try {
             self::registrarEnHistorico($id, 'eliminado', $idPersonaElimino);
             $db = new Database();
-            $tz = new \DateTimeZone('America/Mexico_City');
-            $now = (new \DateTime('now', $tz))->format('Y-m-d H:i:s');
+            $now = self::ahoraCdmx();
             $idPersona = $idPersonaElimino !== null ? (int)$idPersonaElimino : null;
             try {
                 $db->CRUD(
@@ -601,8 +603,7 @@ class Ticket extends Model
         try {
             self::registrarEnHistorico($id, 'cerrado', $idPersonaCierra);
             $db = new Database();
-            $tz = new \DateTimeZone('America/Mexico_City');
-            $now = (new \DateTime('now', $tz))->format('Y-m-d H:i:s');
+            $now = self::ahoraCdmx();
             $idPersona = $idPersonaCierra !== null ? (int)$idPersonaCierra : null;
             try {
                 $db->CRUD(
@@ -705,8 +706,7 @@ class Ticket extends Model
                 ['id' => $idTicket]
             );
             $rows = is_array($rows) ? $rows : [];
-            $tz = new \DateTimeZone('America/Mexico_City');
-            $now = (new \DateTime('now', $tz))->getTimestamp();
+            $now = self::cdmxNowImmutable()->getTimestamp();
             $asignadoActual = null;
             $historial = [];
             foreach ($rows as $r) {
@@ -888,8 +888,7 @@ class Ticket extends Model
         }
         try {
             $db = new Database();
-            $tz = new \DateTimeZone('America/Mexico_City');
-            $now = (new \DateTime('now', $tz))->format('Y-m-d H:i:s');
+            $now = self::ahoraCdmx();
             $db->CRUD(
                 "INSERT INTO chat (id_ticket, id_persona, mensaje, fecha_creacion) VALUES (:id_ticket, :id_persona, :mensaje, :fecha_creacion)",
                 ['id_ticket' => $tid, 'id_persona' => $pid, 'mensaje' => $msg, 'fecha_creacion' => $now]
@@ -963,8 +962,7 @@ class Ticket extends Model
         }
         try {
             $db = new Database();
-            $tz = new \DateTimeZone('America/Mexico_City');
-            $now = (new \DateTime('now', $tz))->format('Y-m-d H:i:s');
+            $now = self::ahoraCdmx();
             $db->CRUD(
                 "INSERT INTO dictamen (id_ticket, id_persona, tipo, descripcion, estado, fecha_creacion, fecha_actualizacion) VALUES (:id_ticket, :id_persona, 'otro', :descripcion, 'borrador', :fecha_creacion, :fecha_actualizacion)",
                 ['id_ticket' => $tid, 'id_persona' => $pid, 'descripcion' => $msg, 'fecha_creacion' => $now, 'fecha_actualizacion' => $now]
@@ -1037,14 +1035,21 @@ class Ticket extends Model
         }
         try {
             $db = new Database();
-            $tz = new \DateTimeZone('America/Mexico_City');
-            $now = (new \DateTime('now', $tz))->format('Y-m-d H:i:s');
+            $now = self::ahoraCdmx();
             $actual = $db->queryOne("SELECT id FROM dictamen WHERE id_ticket = :id_ticket AND estado = 'borrador' ORDER BY fecha_creacion DESC LIMIT 1", ['id_ticket' => $tid]);
             if ($actual && !empty($actual['id'])) {
-                $db->CRUD(
-                    "UPDATE dictamen SET tipo = :tipo, descripcion = :descripcion, fecha_actualizacion = :fecha_actualizacion WHERE id = :id",
-                    ['tipo' => $tipo, 'descripcion' => $descripcion, 'fecha_actualizacion' => $now, 'id' => (int)$actual['id']]
-                );
+                // Asegurar id_persona en borrador para que al enviar quede autor (estadísticas Por Sabueso)
+                if ($pid > 0) {
+                    $db->CRUD(
+                        "UPDATE dictamen SET tipo = :tipo, descripcion = :descripcion, fecha_actualizacion = :fecha_actualizacion, id_persona = COALESCE(NULLIF(id_persona,0), :pid) WHERE id = :id",
+                        ['tipo' => $tipo, 'descripcion' => $descripcion, 'fecha_actualizacion' => $now, 'pid' => $pid, 'id' => (int)$actual['id']]
+                    );
+                } else {
+                    $db->CRUD(
+                        "UPDATE dictamen SET tipo = :tipo, descripcion = :descripcion, fecha_actualizacion = :fecha_actualizacion WHERE id = :id",
+                        ['tipo' => $tipo, 'descripcion' => $descripcion, 'fecha_actualizacion' => $now, 'id' => (int)$actual['id']]
+                    );
+                }
                 return self::resultado(true, 'Borrador actualizado.', ['id_dictamen' => (int)$actual['id']]);
             }
             $db->CRUD(
@@ -1071,17 +1076,20 @@ class Ticket extends Model
      * Marcar el dictamen del ticket como enviado al gestor (estado = enviado_al_gestor).
      * También guarda el snapshot de gestiones para dictamen_sistema.
      */
-    public static function enviarDictamenGestor($idTicket)
+    /**
+     * @param int $idPersonaRemitente Quien envía (sesión); si el borrador no tiene id_persona, se guarda aquí para estadísticas Por Sabueso.
+     */
+    public static function enviarDictamenGestor($idTicket, $idPersonaRemitente = 0)
     {
         $tid = (int)$idTicket;
         if ($tid < 1) {
             return self::resultado(false, 'ID de ticket inválido.');
         }
+        $pidRemitente = (int)$idPersonaRemitente;
         try {
             $db = new Database();
-            $tz = new \DateTimeZone('America/Mexico_City');
-            $now = (new \DateTime('now', $tz))->format('Y-m-d H:i:s');
-            $actual = $db->queryOne("SELECT id, tipo, descripcion FROM dictamen WHERE id_ticket = :id_ticket ORDER BY fecha_creacion DESC LIMIT 1", ['id_ticket' => $tid]);
+            $now = self::ahoraCdmx();
+            $actual = $db->queryOne("SELECT id, tipo, descripcion, id_persona FROM dictamen WHERE id_ticket = :id_ticket ORDER BY fecha_creacion DESC LIMIT 1", ['id_ticket' => $tid]);
             if (!$actual || empty($actual['id'])) {
                 return self::resultado(false, 'No hay dictamen para enviar. Guarde un borrador primero.');
             }
@@ -1090,10 +1098,31 @@ class Ticket extends Model
             if ($tipo === '' || $descripcion === '') {
                 return self::resultado(false, 'Debe seleccionar el tipo de dictamen y escribir una descripción antes de enviar al gestor.');
             }
-            $db->CRUD(
-                "UPDATE dictamen SET estado = 'enviado_al_gestor', fecha_actualizacion = :fecha_actualizacion WHERE id = :id",
-                ['fecha_actualizacion' => $now, 'id' => (int)$actual['id']]
-            );
+            // Autor del envío: si el borrador ya tenía id_persona se respeta; si no, el remitente en sesión (evita por_sabueso vacío)
+            $idPersonaRow = (int)($actual['id_persona'] ?? 0);
+            if ($idPersonaRow < 1 && $pidRemitente > 0) {
+                $db->CRUD(
+                    "UPDATE dictamen SET estado = 'enviado_al_gestor', fecha_actualizacion = :fecha_actualizacion, id_persona = :id_persona WHERE id = :id",
+                    ['fecha_actualizacion' => $now, 'id_persona' => $pidRemitente, 'id' => (int)$actual['id']]
+                );
+            } else {
+                $db->CRUD(
+                    "UPDATE dictamen SET estado = 'enviado_al_gestor', fecha_actualizacion = :fecha_actualizacion WHERE id = :id",
+                    ['fecha_actualizacion' => $now, 'id' => (int)$actual['id']]
+                );
+                // Si seguía NULL (borrador antiguo), intentar última asignación antes del envío
+                if ($idPersonaRow < 1) {
+                    $rowAsig = $db->queryOne(
+                        "SELECT id_persona_asignada AS pid FROM asignacion_ticket WHERE id_ticket = :tid AND fecha_asignacion <= :fh " .
+                        "ORDER BY fecha_asignacion DESC LIMIT 1",
+                        ['tid' => $tid, 'fh' => $now]
+                    );
+                    $pidAsig = (int)($rowAsig['pid'] ?? 0);
+                    if ($pidAsig > 0) {
+                        $db->CRUD("UPDATE dictamen SET id_persona = :pid WHERE id = :id AND (id_persona IS NULL OR id_persona = 0)", ['pid' => $pidAsig, 'id' => (int)$actual['id']]);
+                    }
+                }
+            }
 
             // Guardar snapshot de gestiones en dictamen_sistema
             try {
@@ -1174,7 +1203,7 @@ class Ticket extends Model
     }
 
     /**
-     * Marca fecha_visto_gestor = NOW() y id_persona_visto_gestor cuando el gestor abre el modal del dictamen.
+     * Marca fecha_visto_gestor = ahora CDMX e id_persona_visto_gestor cuando el gestor abre el modal del dictamen.
      * @param int $idTicket
      * @param int $idPersona ID de la persona (gestor) que abre el dictamen (sesión).
      */
@@ -1187,8 +1216,7 @@ class Ticket extends Model
         $pid = (int)$idPersona;
         try {
             $db = new Database();
-            $tz = new \DateTimeZone('America/Mexico_City');
-            $now = (new \DateTime('now', $tz))->format('Y-m-d H:i:s');
+            $now = self::ahoraCdmx();
             $ok = false;
             if ($pid > 0) {
                 try {
@@ -1248,8 +1276,7 @@ class Ticket extends Model
         }
         try {
             $db = new Database();
-            $tz = new \DateTimeZone('America/Mexico_City');
-            $now = (new \DateTime('now', $tz))->format('Y-m-d H:i:s');
+            $now = self::ahoraCdmx();
             $db->CRUD(
                 "INSERT INTO ticket_evidencia (id_ticket, id_persona, ruta_archivo, nombre_original, fecha_subida) VALUES (:id_ticket, :id_persona, :ruta_archivo, :nombre_original, :fecha_subida)",
                 ['id_ticket' => $tid, 'id_persona' => $pid, 'ruta_archivo' => $ruta, 'nombre_original' => $nombre, 'fecha_subida' => $now]
@@ -1389,7 +1416,7 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
         try {
             $db = new Database();
             $tz = new \DateTimeZone('America/Mexico_City');
-            $now = (new \DateTime('now', $tz))->format('Y-m-d H:i:s');
+            $now = self::ahoraCdmx();
 
             // Solo tickets creados a partir del 10-mar-2026 (función no aplica a tickets viejos)
             $ticketRow = $db->queryOne(
@@ -1651,8 +1678,7 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
         }
         try {
             $db = new Database();
-            $tz = new \DateTimeZone('America/Mexico_City');
-            $nowDt = new \DateTime('now', $tz);
+            $nowDt = self::cdmxNowImmutable();
             $now = $nowDt->format('Y-m-d H:i:s');
             $limite = (clone $nowDt)->modify('+12 hours')->format('Y-m-d H:i:s');
 
@@ -1983,6 +2009,13 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
         if ($detalleLimit > 5000) {
             $detalleLimit = 5000;
         }
+        // Filtro solo para "Por Sabueso (dictaminó)": ventana por fecha de envío del dictamen (independiente de Tickets levantados)
+        $periodoSabueso = (string)($options['periodo_sabueso'] ?? 'por_dia');
+        if (!in_array($periodoSabueso, ['por_dia', 'por_semana', 'por_mes', 'por_anio'], true)) {
+            $periodoSabueso = 'por_dia';
+        }
+        // Inicio de semana en CDMX (no CURDATE() del servidor)
+        $inicioSemanaLunes = "'" . self::inicioSemanaLunesCdmx() . "'";
         $whereActivo = '(t.activo = 1 OR t.activo IS NULL) AND (t.fecha_eliminacion IS NULL)';
         $out = [
             'success' => true,
@@ -2102,6 +2135,7 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                 INNER JOIN ticket t ON t.id_ticket = d.id_ticket AND $whereActivo
                 WHERE d.fecha_actualizacion IS NOT NULL AND at.min_fa IS NOT NULL
                   AND d.fecha_actualizacion >= at.min_fa
+                  AND d.fecha_actualizacion >= $inicioSemanaLunes
             ";
             $row = $db->queryOne($sqlSabueso);
             if ($row && (int)($row['n'] ?? 0) > 0) {
@@ -2111,6 +2145,8 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                     'min_seg' => (int)($row['min_sec'] ?? 0),
                     'max_seg' => (int)($row['max_sec'] ?? 0),
                     'promedio_humano' => self::segundosAHumano((int)round((float)($row['avg_sec'] ?? 0))),
+                    'alcance' => 'semana_actual',
+                    'alcance_texto' => 'Semana actual (desde lunes): promedio solo con envíos ocurridos esta semana; al llegar el próximo lunes el conteo se reinicia.',
                 ];
             }
         } catch (\Exception $e) {
@@ -2137,6 +2173,7 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                   AND d.fecha_actualizacion IS NOT NULL
                   AND d.fecha_visto_gestor IS NOT NULL
                   AND d.fecha_visto_gestor >= d.fecha_actualizacion
+                  AND d.fecha_visto_gestor >= $inicioSemanaLunes
             ";
             $row = $db->queryOne($sqlGestor);
             if ($row && (int)($row['n'] ?? 0) > 0) {
@@ -2146,6 +2183,8 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                     'min_seg' => (int)($row['min_sec'] ?? 0),
                     'max_seg' => (int)($row['max_sec'] ?? 0),
                     'promedio_humano' => self::segundosAHumano((int)round((float)($row['avg_sec'] ?? 0))),
+                    'alcance' => 'semana_actual',
+                    'alcance_texto' => 'Semana actual (desde lunes): promedio solo con aperturas registradas esta semana; cada lunes el acumulado vuelve a empezar.',
                 ];
             }
         } catch (\Exception $e) {
@@ -2346,111 +2385,10 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
             $out['por_gestor'] = [];
         }
 
-        // Por Sabueso que dictaminó (dictamen.id_persona = quien envió): cuántos dictaminó y tiempo desde
-        // que quedó asignado a esa persona hasta enviar (última asignación a ese id antes de fecha_actualizacion).
-        try {
-            $sqlSab = "
-                SELECT d.id_persona AS id_persona,
-                       CONCAT(TRIM(IFNULL(p.nombres,'')),' ',TRIM(IFNULL(p.apellidop,''))) AS nombre,
-                       COUNT(*) AS dictaminados,
-                       AVG(
-                         CASE WHEN (
-                           SELECT MAX(at2.fecha_asignacion) FROM asignacion_ticket at2
-                           WHERE at2.id_ticket = d.id_ticket AND at2.id_persona_asignada = d.id_persona
-                             AND at2.fecha_asignacion <= d.fecha_actualizacion
-                         ) IS NOT NULL THEN
-                           TIMESTAMPDIFF(SECOND,
-                             (SELECT MAX(at2.fecha_asignacion) FROM asignacion_ticket at2
-                              WHERE at2.id_ticket = d.id_ticket AND at2.id_persona_asignada = d.id_persona
-                                AND at2.fecha_asignacion <= d.fecha_actualizacion),
-                             d.fecha_actualizacion)
-                         ELSE NULL END
-                       ) AS avg_sec_asignado_a_envio,
-                       SUM(CASE WHEN (
-                         SELECT MAX(at2.fecha_asignacion) FROM asignacion_ticket at2
-                         WHERE at2.id_ticket = d.id_ticket AND at2.id_persona_asignada = d.id_persona
-                           AND at2.fecha_asignacion <= d.fecha_actualizacion
-                       ) IS NOT NULL THEN 1 ELSE 0 END) AS n_con_asignacion_previa
-                FROM dictamen d
-                INNER JOIN (
-                    SELECT id_ticket, MAX(fecha_actualizacion) AS mx
-                    FROM dictamen WHERE estado = 'enviado_al_gestor' GROUP BY id_ticket
-                ) dm ON d.id_ticket = dm.id_ticket AND d.fecha_actualizacion = dm.mx AND d.estado = 'enviado_al_gestor'
-                INNER JOIN ticket t ON t.id_ticket = d.id_ticket AND $whereActivo
-                INNER JOIN persona p ON p.id = d.id_persona
-                WHERE d.id_persona IS NOT NULL AND d.id_persona > 0
-                GROUP BY d.id_persona, p.nombres, p.apellidop
-                ORDER BY dictaminados DESC
-            ";
-            $rows = $db->queryAll($sqlSab);
-            $listaSab = [];
-            foreach (is_array($rows) ? $rows : [] as $r) {
-                $avgSec = isset($r['avg_sec_asignado_a_envio']) && $r['avg_sec_asignado_a_envio'] !== null
-                    ? (int)round((float)$r['avg_sec_asignado_a_envio']) : null;
-                $listaSab[] = [
-                    'id_persona' => (int)($r['id_persona'] ?? 0),
-                    'nombre' => trim((string)($r['nombre'] ?? '')),
-                    'dictaminados' => (int)($r['dictaminados'] ?? 0),
-                    'tiempo_asignado_a_envio_humano' => $avgSec !== null ? self::segundosAHumano($avgSec) : '—',
-                    'tiempo_asignado_a_envio_seg' => $avgSec,
-                    'muestras_con_asignacion' => (int)($r['n_con_asignacion_previa'] ?? 0),
-                ];
-            }
-            $out['por_sabueso'] = $listaSab;
-        } catch (\Exception $e) {
-            $out['por_sabueso'] = [];
-        }
-
-        // Tiempo hasta que el ticket queda asignado a esa persona por primera vez (cola): ticket.fecha_creacion -> primera fila asignacion_ticket con id_persona_asignada = X
-        try {
-            $sqlCola = "
-                SELECT at.id_persona_asignada AS id_persona,
-                       CONCAT(TRIM(IFNULL(p.nombres,'')),' ',TRIM(IFNULL(p.apellidop,''))) AS nombre,
-                       COUNT(*) AS n,
-                       AVG(TIMESTAMPDIFF(SECOND, t.fecha_creacion, at.primera_fa)) AS avg_sec
-                FROM (
-                    SELECT id_ticket, id_persona_asignada, MIN(fecha_asignacion) AS primera_fa
-                    FROM asignacion_ticket
-                    WHERE (activo = 1 OR activo IS NULL)
-                    GROUP BY id_ticket, id_persona_asignada
-                ) at
-                INNER JOIN ticket t ON t.id_ticket = at.id_ticket AND $whereActivo
-                INNER JOIN persona p ON p.id = at.id_persona_asignada
-                WHERE at.primera_fa >= t.fecha_creacion
-                GROUP BY at.id_persona_asignada, p.nombres, p.apellidop
-                HAVING n >= 1
-                ORDER BY n DESC
-            ";
-            $rows = $db->queryAll($sqlCola);
-            $mapCola = [];
-            foreach (is_array($rows) ? $rows : [] as $r) {
-                $idp = (int)($r['id_persona'] ?? 0);
-                if ($idp < 1) {
-                    continue;
-                }
-                $avgSec = isset($r['avg_sec']) && $r['avg_sec'] !== null ? (int)round((float)$r['avg_sec']) : null;
-                $mapCola[$idp] = [
-                    'tiempo_hasta_asignarle_humano' => $avgSec !== null ? self::segundosAHumano($avgSec) : '—',
-                    'tiempo_hasta_asignarle_seg' => $avgSec,
-                    'muestras_cola' => (int)($r['n'] ?? 0),
-                ];
-            }
-            foreach ($out['por_sabueso'] as &$s) {
-                $idp = (int)($s['id_persona'] ?? 0);
-                if ($idp > 0 && isset($mapCola[$idp])) {
-                    $s['tiempo_hasta_asignarle_humano'] = $mapCola[$idp]['tiempo_hasta_asignarle_humano'];
-                    $s['tiempo_hasta_asignarle_seg'] = $mapCola[$idp]['tiempo_hasta_asignarle_seg'];
-                    $s['muestras_cola'] = $mapCola[$idp]['muestras_cola'];
-                } else {
-                    $s['tiempo_hasta_asignarle_humano'] = '—';
-                    $s['tiempo_hasta_asignarle_seg'] = null;
-                    $s['muestras_cola'] = 0;
-                }
-            }
-            unset($s);
-        } catch (\Exception $e) {
-            // por_sabueso ya puede existir sin cola
-        }
+        // Por Sabueso: misma lógica centralizada; backfill solo en carga completa (runBackfill true)
+        $soloSab = self::getEstadisticasPorSabuesoSolo($periodoSabueso, true);
+        $out['por_sabueso'] = $soloSab['por_sabueso'] ?? [];
+        $out['cdmx_referencia'] = $soloSab['cdmx_referencia'] ?? null;
 
         // Lectura dictamen por gestor (creador): promedio desde envío hasta fecha_visto_gestor
         try {
@@ -2819,6 +2757,209 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
         } catch (\Exception $e) {
             return ['success' => false, 'mensaje' => $e->getMessage(), 'nombre' => '', 'filas' => []];
         }
+    }
+
+    /**
+     * Hora de referencia en CDMX (no usar CURDATE()/NOW() de MySQL si el servidor está en otra TZ).
+     * Todo lo que sea "hoy", "esta semana", etc. en estadísticas/dictamen debe basarse aquí.
+     */
+    private static function cdmxNowImmutable(): \DateTimeImmutable
+    {
+        return new \DateTimeImmutable('now', new \DateTimeZone('America/Mexico_City'));
+    }
+
+    public static function ahoraCdmx(): string
+    {
+        return self::cdmxNowImmutable()->format('Y-m-d H:i:s');
+    }
+
+    public static function fechaCdmx(): string
+    {
+        return self::cdmxNowImmutable()->format('Y-m-d');
+    }
+
+    /** Lunes 00:00:00 de la semana actual en CDMX (N=1..7) */
+    public static function inicioSemanaLunesCdmx(): string
+    {
+        $now = self::cdmxNowImmutable();
+        $dow = (int)$now->format('N'); // 1 = lunes
+        $monday = $now->modify('-' . ($dow - 1) . ' days');
+        return $monday->format('Y-m-d') . ' 00:00:00';
+    }
+
+    /**
+     * Solo agregado Por Sabueso (dictaminó) + cola — sin el resto de estadísticas.
+     * Para cambiar Días/Semanas/… sin recalcular todo.
+     *
+     * @param bool $runBackfill si false, no hace UPDATE masivo (más rápido al cambiar filtro)
+     * @param bool $incluirCola si false, no ejecuta la query pesada de cola (Espera 1ª asign.);
+     *                         el front puede fusionar con datos ya cargados al cambiar solo Días/Semanas/Meses/Año
+     */
+    public static function getEstadisticasPorSabuesoSolo(string $periodoSabueso, bool $runBackfill = false, bool $incluirCola = true): array
+    {
+        if (!in_array($periodoSabueso, ['por_dia', 'por_semana', 'por_mes', 'por_anio'], true)) {
+            $periodoSabueso = 'por_dia';
+        }
+        $db = new Database();
+        $whereActivo = '(t.activo = 1 OR t.activo IS NULL) AND (t.fecha_eliminacion IS NULL)';
+        $fechaCdmx = self::fechaCdmx();
+        $lunesCdmx = self::inicioSemanaLunesCdmx();
+        $y = self::cdmxNowImmutable()->format('Y');
+        $m = self::cdmxNowImmutable()->format('m');
+        $fecha90 = self::cdmxNowImmutable()->modify('-90 days')->format('Y-m-d');
+
+        $wherePorSabuesoFecha = '';
+        if ($periodoSabueso === 'por_dia') {
+            $wherePorSabuesoFecha = " AND DATE(d.fecha_actualizacion) = '" . $fechaCdmx . "' ";
+        } elseif ($periodoSabueso === 'por_semana') {
+            $wherePorSabuesoFecha = " AND d.fecha_actualizacion >= '" . $lunesCdmx . "' ";
+        } elseif ($periodoSabueso === 'por_mes') {
+            $wherePorSabuesoFecha = " AND YEAR(d.fecha_actualizacion) = " . (int)$y . " AND MONTH(d.fecha_actualizacion) = " . (int)$m . " ";
+        } else {
+            $wherePorSabuesoFecha = ' AND YEAR(d.fecha_actualizacion) = ' . (int)$y . ' ';
+        }
+
+        if ($runBackfill) {
+            try {
+                $db->CRUD(
+                    "UPDATE dictamen d " .
+                    "INNER JOIN ( " .
+                    "  SELECT d2.id AS did, (SELECT at2.id_persona_asignada FROM asignacion_ticket at2 " .
+                    "    WHERE at2.id_ticket = d2.id_ticket AND at2.fecha_asignacion <= d2.fecha_actualizacion " .
+                    "    ORDER BY at2.fecha_asignacion DESC LIMIT 1) AS pid " .
+                    "  FROM dictamen d2 " .
+                    "  WHERE d2.estado = 'enviado_al_gestor' AND (d2.id_persona IS NULL OR d2.id_persona = 0) " .
+                    "  AND d2.fecha_actualizacion >= '" . $fecha90 . "' " .
+                    ") x ON x.did = d.id AND x.pid IS NOT NULL " .
+                    "SET d.id_persona = x.pid"
+                );
+            } catch (\Exception $e) {
+                // ignorar
+            }
+        }
+
+        $listaSab = [];
+        try {
+            // Una sola subconsulta correlacionada por fila (antes eran 3 idénticas en AVG/SUM) → menos trabajo del optimizador
+            $sqlSab = "
+                SELECT x.id_persona AS id_persona,
+                       CONCAT(TRIM(IFNULL(p.nombres,'')),' ',TRIM(IFNULL(p.apellidop,''))) AS nombre,
+                       COUNT(*) AS dictaminados,
+                       AVG(CASE WHEN x.max_fa IS NOT NULL
+                           THEN TIMESTAMPDIFF(SECOND, x.max_fa, x.fecha_actualizacion) ELSE NULL END
+                       ) AS avg_sec_asignado_a_envio,
+                       SUM(CASE WHEN x.max_fa IS NOT NULL THEN 1 ELSE 0 END) AS n_con_asignacion_previa
+                FROM (
+                    SELECT d.id_persona, d.fecha_actualizacion,
+                           (SELECT MAX(at2.fecha_asignacion) FROM asignacion_ticket at2
+                            WHERE at2.id_ticket = d.id_ticket AND at2.id_persona_asignada = d.id_persona
+                              AND at2.fecha_asignacion <= d.fecha_actualizacion
+                              AND (at2.activo = 1 OR at2.activo IS NULL)
+                           ) AS max_fa
+                    FROM dictamen d
+                    INNER JOIN (
+                        SELECT id_ticket, MAX(fecha_actualizacion) AS mx
+                        FROM dictamen WHERE estado = 'enviado_al_gestor' GROUP BY id_ticket
+                    ) dm ON d.id_ticket = dm.id_ticket AND d.fecha_actualizacion = dm.mx AND d.estado = 'enviado_al_gestor'
+                    INNER JOIN ticket t ON t.id_ticket = d.id_ticket AND $whereActivo
+                    WHERE d.id_persona IS NOT NULL AND d.id_persona > 0
+                    $wherePorSabuesoFecha
+                ) x
+                INNER JOIN persona p ON p.id = x.id_persona
+                GROUP BY x.id_persona, p.nombres, p.apellidop
+                ORDER BY dictaminados DESC
+            ";
+            $rows = $db->queryAll($sqlSab);
+            foreach (is_array($rows) ? $rows : [] as $r) {
+                $avgSec = isset($r['avg_sec_asignado_a_envio']) && $r['avg_sec_asignado_a_envio'] !== null
+                    ? (int)round((float)$r['avg_sec_asignado_a_envio']) : null;
+                $listaSab[] = [
+                    'id_persona' => (int)($r['id_persona'] ?? 0),
+                    'nombre' => trim((string)($r['nombre'] ?? '')),
+                    'dictaminados' => (int)($r['dictaminados'] ?? 0),
+                    'tiempo_asignado_a_envio_humano' => $avgSec !== null ? self::segundosAHumano($avgSec) : '—',
+                    'tiempo_asignado_a_envio_seg' => $avgSec,
+                    'muestras_con_asignacion' => (int)($r['n_con_asignacion_previa'] ?? 0),
+                ];
+            }
+        } catch (\Exception $e) {
+            $listaSab = [];
+        }
+
+        // Cola: no depende del período (Días/Semanas/…); omitir al cambiar solo filtro acelera 1 query pesada
+        if (!$incluirCola) {
+            foreach ($listaSab as &$s) {
+                if (!isset($s['tiempo_hasta_asignarle_humano'])) {
+                    $s['tiempo_hasta_asignarle_humano'] = null;
+                    $s['tiempo_hasta_asignarle_seg'] = null;
+                    $s['muestras_cola'] = 0;
+                }
+            }
+            unset($s);
+            return [
+                'success' => true,
+                'por_sabueso' => $listaSab,
+                'periodo_sabueso' => $periodoSabueso,
+                'cdmx_referencia' => self::ahoraCdmx(),
+                'cola_omitida' => true,
+            ];
+        }
+
+        // Cola (misma lógica que getEstadisticasTickets; persona para GROUP BY seguro)
+        try {
+            $sqlCola = "
+                SELECT at.id_persona_asignada AS id_persona,
+                       COUNT(*) AS n,
+                       AVG(TIMESTAMPDIFF(SECOND, t.fecha_creacion, at.primera_fa)) AS avg_sec
+                FROM (
+                    SELECT id_ticket, id_persona_asignada, MIN(fecha_asignacion) AS primera_fa
+                    FROM asignacion_ticket
+                    WHERE (activo = 1 OR activo IS NULL)
+                    GROUP BY id_ticket, id_persona_asignada
+                ) at
+                INNER JOIN ticket t ON t.id_ticket = at.id_ticket AND $whereActivo
+                INNER JOIN persona p ON p.id = at.id_persona_asignada
+                WHERE at.primera_fa >= t.fecha_creacion
+                GROUP BY at.id_persona_asignada, p.nombres, p.apellidop
+                HAVING n >= 1
+            ";
+            $rows = $db->queryAll($sqlCola);
+            $mapCola = [];
+            foreach (is_array($rows) ? $rows : [] as $r) {
+                $idp = (int)($r['id_persona'] ?? 0);
+                if ($idp < 1) {
+                    continue;
+                }
+                $avgSec = isset($r['avg_sec']) && $r['avg_sec'] !== null ? (int)round((float)$r['avg_sec']) : null;
+                $mapCola[$idp] = [
+                    'tiempo_hasta_asignarle_humano' => $avgSec !== null ? self::segundosAHumano($avgSec) : '—',
+                    'tiempo_hasta_asignarle_seg' => $avgSec,
+                    'muestras_cola' => (int)($r['n'] ?? 0),
+                ];
+            }
+            foreach ($listaSab as &$s) {
+                $idp = (int)($s['id_persona'] ?? 0);
+                if ($idp > 0 && isset($mapCola[$idp])) {
+                    $s['tiempo_hasta_asignarle_humano'] = $mapCola[$idp]['tiempo_hasta_asignarle_humano'];
+                    $s['tiempo_hasta_asignarle_seg'] = $mapCola[$idp]['tiempo_hasta_asignarle_seg'];
+                    $s['muestras_cola'] = $mapCola[$idp]['muestras_cola'];
+                } else {
+                    $s['tiempo_hasta_asignarle_humano'] = '—';
+                    $s['tiempo_hasta_asignarle_seg'] = null;
+                    $s['muestras_cola'] = 0;
+                }
+            }
+            unset($s);
+        } catch (\Exception $e) {
+            // sin cola
+        }
+
+        return [
+            'success' => true,
+            'por_sabueso' => $listaSab,
+            'periodo_sabueso' => $periodoSabueso,
+            'cdmx_referencia' => self::ahoraCdmx(),
+        ];
     }
 
     /**

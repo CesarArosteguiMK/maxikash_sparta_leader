@@ -2314,7 +2314,92 @@ JS;
             return s;
         }
         var estadisticasDatos = null;
-        var estadisticasFiltroPeriodo = 'por_dia';
+        var estadisticasFiltroPeriodo = 'por_dia'; // solo Tickets levantados (lista izquierda)
+        var estadisticasFiltroSabueso = 'por_dia'; // solo Por Sabueso dictaminó — no toca la lista de la izquierda
+        var cachePorSabuesoPeriodo = {};
+        var xhrSabuesoPeriodo = null;
+        // Cola (Espera 1ª asign.) estable desde la carga completa — evita mezclar al cambiar rápido de período
+        var colaGlobalPorId = {};
+        var sabuesoPeriodoLoading = false;
+        function copiaListaSabueso(list) {
+            return (list || []).map(function(s) { return Object.assign({}, s); });
+        }
+        function extraerColaPorId(list) {
+            var cola = {};
+            (list || []).forEach(function(s) {
+                var idp = parseInt(s.id_persona, 10);
+                if (!idp) return;
+                cola[idp] = {
+                    tiempo_hasta_asignarle_humano: s.tiempo_hasta_asignarle_humano,
+                    tiempo_hasta_asignarle_seg: s.tiempo_hasta_asignarle_seg,
+                    muestras_cola: s.muestras_cola
+                };
+            });
+            return cola;
+        }
+        function fusionarColaEnSabueso(list, colaPorId) {
+            (list || []).forEach(function(s) {
+                var idp = parseInt(s.id_persona, 10);
+                if (idp && colaPorId[idp]) {
+                    s.tiempo_hasta_asignarle_humano = colaPorId[idp].tiempo_hasta_asignarle_humano;
+                    s.tiempo_hasta_asignarle_seg = colaPorId[idp].tiempo_hasta_asignarle_seg;
+                    s.muestras_cola = colaPorId[idp].muestras_cola;
+                } else if (!s.tiempo_hasta_asignarle_humano && s.tiempo_hasta_asignarle_humano !== '—') {
+                    s.tiempo_hasta_asignarle_humano = '—';
+                }
+            });
+            return list || [];
+        }
+        function cargarPeriodoSabueso(periodoPedido, pintarCache) {
+            var cached = cachePorSabuesoPeriodo[periodoPedido];
+            if (pintarCache && cached) {
+                if (!estadisticasDatos) estadisticasDatos = {};
+                estadisticasDatos.por_sabueso = copiaListaSabueso(cached);
+                renderPorSabueso();
+                initEstadisticasTooltips();
+            } else if (pintarCache) {
+                $('#tbodyPorSabueso').html('<tr><td colspan="4" class="text-muted text-center py-2"><i class="fa fa-spinner fa-spin me-2"></i>Actualizando…</td></tr>');
+            }
+
+            if (xhrSabuesoPeriodo && typeof xhrSabuesoPeriodo.abort === 'function') {
+                try { xhrSabuesoPeriodo.abort(); } catch (e) {}
+            }
+            sabuesoPeriodoLoading = true;
+            $('#grpFiltroPeriodoSabueso button').prop('disabled', true);
+            var colaPorId = (colaGlobalPorId && Object.keys(colaGlobalPorId).length)
+                ? colaGlobalPorId
+                : extraerColaPorId((estadisticasDatos && estadisticasDatos.por_sabueso) || []);
+
+            var xhrLocal = http.request({
+                endpoint: '/sabueso/getEstadisticasPorSabuesoSolo',
+                metodo: 'POST',
+                data: JSON.stringify({ periodo_sabueso: periodoPedido, incluir_cola: false }),
+                contentType: 'application/json',
+                processData: false,
+                showLoader: false,
+                onSuccess: function(r) {
+                    if (!(r && r.success && r.por_sabueso)) return;
+                    var lista = fusionarColaEnSabueso(r.por_sabueso, colaPorId);
+                    cachePorSabuesoPeriodo[periodoPedido] = copiaListaSabueso(lista);
+                    if (periodoPedido !== estadisticasFiltroSabueso) return;
+                    if (!estadisticasDatos) estadisticasDatos = {};
+                    estadisticasDatos.por_sabueso = lista;
+                    renderPorSabueso();
+                    initEstadisticasTooltips();
+                },
+                onError: function(_msg, jqXHR) {
+                    if (jqXHR && (jqXHR.statusText === 'abort' || jqXHR.status === 0)) return;
+                    if (periodoPedido !== estadisticasFiltroSabueso) return;
+                    $('#tbodyPorSabueso').html('<tr><td colspan="4" class="text-danger">Error al cargar. Intente de nuevo.</td></tr>');
+                },
+                onAlways: function() {
+                    if (xhrSabuesoPeriodo !== xhrLocal) return;
+                    sabuesoPeriodoLoading = false;
+                    $('#grpFiltroPeriodoSabueso button').prop('disabled', false);
+                }
+            });
+            xhrSabuesoPeriodo = xhrLocal;
+        }
         function renderPeriodList() {
             if (!estadisticasDatos) return;
             var filas = estadisticasDatos[estadisticasFiltroPeriodo] || [];
@@ -2397,7 +2482,7 @@ JS;
             var tb = $('#tbodyPorSabueso');
             tb.empty();
             if (!list.length) {
-                tb.append('<tr><td colspan="4" class="text-muted">Sin datos: hace falta dictamen enviado con autor (id_persona en dictamen).</td></tr>');
+                tb.append('<tr><td colspan="4" class="text-muted">Sin dictámenes en este período con autor asignado. Si acaba de enviar, vuelva a cargar: el sistema rellena el autor con quien envía o con la última asignación antes del envío.</td></tr>');
                 return;
             }
             list.forEach(function(s) {
@@ -2579,19 +2664,35 @@ JS;
                 }
             });
         }
-        function cargarEstadisticasSabueso() {
-            $('#estadisticasSabuesoContenido').hide();
+        function cargarEstadisticasSabueso(opts) {
+            opts = opts || {};
+            var soloSabueso = !!opts.soloSabueso;
+            if (!soloSabueso) {
+                $('#estadisticasSabuesoContenido').hide();
+            } else {
+                $('#tbodyPorSabueso').html('<tr><td colspan="4" class="text-muted text-center py-3"><i class="fa fa-spinner fa-spin me-2"></i>Actualizando…</td></tr>');
+            }
             http.request({
                 endpoint: '/sabueso/getEstadisticasTickets',
                 metodo: 'POST',
+                data: JSON.stringify({ periodo_sabueso: estadisticasFiltroSabueso || 'por_dia' }),
+                contentType: 'application/json',
+                processData: false,
+                showLoader: !soloSabueso,
                 onSuccess: function(r) {
-                    $('#estadisticasSabuesoContenido').show();
+                    if (!soloSabueso) {
+                        $('#estadisticasSabuesoContenido').show();
+                    }
                     if (!r.success) {
                         $('#estadisticasSabuesoAlert').removeClass('d-none').text(r.mensaje || 'Error al cargar.');
                         return;
                     }
                     $('#estadisticasSabuesoAlert').addClass('d-none');
                     estadisticasDatos = r.datos || {};
+                    cachePorSabuesoPeriodo = {};
+                    var listaIni = (estadisticasDatos && estadisticasDatos.por_sabueso) || [];
+                    cachePorSabuesoPeriodo[estadisticasFiltroSabueso || 'por_dia'] = copiaListaSabueso(listaIni);
+                    colaGlobalPorId = extraerColaPorId(listaIni);
                     var t = estadisticasDatos.totales || {};
                     var activos = parseInt(t.tickets_activos, 10) || 0;
                     var enviados = parseInt(t.con_dictamen_enviado, 10) || 0;
@@ -2611,17 +2712,17 @@ JS;
                     var tg = estadisticasDatos.tiempos_gestor_segundos;
                     if (ts && ts.promedio_humano) {
                         $('#statTiempoSabuesoValor').text(ts.promedio_humano);
-                        $('#statTiempoSabuesoSub').text('Promedio con ' + (ts.muestras || 0) + ' tickets · Desde primera asignación Sabueso hasta envío al gestor');
+                        $('#statTiempoSabuesoSub').text('Semana actual (lun→hoy): ' + (ts.muestras || 0) + ' envíos · Promedio desde 1ª asignación Sabueso hasta envío. Cada lunes se reinicia el acumulado.');
                     } else {
                         $('#statTiempoSabuesoValor').html('<span class="text-muted fs-6 fw-normal">Sin datos</span>');
-                        $('#statTiempoSabuesoSub').text('Desde primera asignación Sabueso hasta envío al gestor');
+                        $('#statTiempoSabuesoSub').text('Semana actual: aún no hay envíos esta semana, o sin asignación previa registrada.');
                     }
                     if (tg && tg.promedio_humano) {
                         $('#statTiempoGestorValor').text(tg.promedio_humano);
-                        $('#statTiempoGestorSub').text('Promedio con ' + (tg.muestras || 0) + ' tickets · Desde envío hasta que el gestor abre el dictamen');
+                        $('#statTiempoGestorSub').text('Semana actual (lun→hoy): ' + (tg.muestras || 0) + ' aperturas · Desde envío hasta que el gestor abre. Cada lunes el conteo vuelve a empezar.');
                     } else {
                         $('#statTiempoGestorValor').html('<span class="text-muted fs-6 fw-normal">Sin datos</span>');
-                        $('#statTiempoGestorSub').text('Desde envío hasta que el gestor abre el dictamen');
+                        $('#statTiempoGestorSub').text('Semana actual: aún no hay aperturas registradas esta semana.');
                     }
                     $('#tileTiempoLectura').text(tg && tg.promedio_humano ? tg.promedio_humano : '—');
                     $('#tileTiempoLecturaSub').text('Muestras: ' + (tg && tg.muestras != null ? tg.muestras : 0) + ' (solo tickets ya vistos)');
@@ -2664,8 +2765,10 @@ JS;
                         $('#kpi12hSub').text('de ' + (k.visto_dentro_12h_muestras || 0) + ' vistos');
                     }
                     $('#kpiCola24h').text(k.tickets_cola_lenta_24h != null ? k.tickets_cola_lenta_24h : '—');
-                    renderPeriodList();
-                    renderPorGestor();
+                    if (!soloSabueso) {
+                        renderPeriodList();
+                        renderPorGestor();
+                    }
                     renderPorSabueso();
                     initEstadisticasTooltips();
                     var det = estadisticasDatos.detalle_timings || [];
@@ -2734,11 +2837,21 @@ JS;
                 var id = parseInt($(this).attr('data-id-sabueso'), 10);
                 if (id) abrirDetalleSabueso(id);
             });
+            // Filtro izquierda: solo lista "Tickets levantados" — no recarga todo ni mueve Por Sabueso
             $('#grpFiltroPeriodo').on('click', 'button[data-key]', function() {
                 $('#grpFiltroPeriodo button').removeClass('active');
                 $(this).addClass('active');
                 estadisticasFiltroPeriodo = $(this).data('key') || 'por_dia';
                 renderPeriodList();
+            });
+            // Filtro Por Sabueso: solo dictámenes por día/semana/mes/año (fecha de envío) — no toca la lista izquierda
+            $(document).on('click', '#grpFiltroPeriodoSabueso button[data-key]', function() {
+                if (sabuesoPeriodoLoading) return;
+                $('#grpFiltroPeriodoSabueso button').removeClass('active');
+                $(this).addClass('active');
+                var periodoPedido = $(this).data('key') || 'por_dia';
+                estadisticasFiltroSabueso = periodoPedido;
+                cargarPeriodoSabueso(periodoPedido, true);
             });
             $('#grpResumenGestor').on('click', 'button[data-tab]', function() {
                 $('#grpResumenGestor button').removeClass('active');
@@ -2750,6 +2863,8 @@ JS;
                     setTimeout(initEstadisticasTooltips, 100);
                 } else if (tab === 'sabueso') {
                     $('#panelResumenSabueso').removeClass('d-none');
+                    $('#grpFiltroPeriodoSabueso button').removeClass('active');
+                    $('#grpFiltroPeriodoSabueso button[data-key="' + (estadisticasFiltroSabueso || 'por_dia') + '"]').addClass('active');
                     setTimeout(initEstadisticasTooltips, 100);
                 } else {
                     $('#panelResumenGlobal').removeClass('d-none');
@@ -2800,7 +2915,17 @@ JS;
      */
     public function getEstadisticasTickets()
     {
-        $datos = TicketDAO::getEstadisticasTickets();
+        $raw = file_get_contents('php://input');
+        $body = $raw ? json_decode($raw, true) : [];
+        if (!is_array($body)) {
+            $body = [];
+        }
+        $periodoSabueso = (string)($body['periodo_sabueso'] ?? '');
+        $opts = [];
+        if ($periodoSabueso !== '') {
+            $opts['periodo_sabueso'] = $periodoSabueso;
+        }
+        $datos = empty($opts) ? TicketDAO::getEstadisticasTickets() : TicketDAO::getEstadisticasTickets($opts);
         $success = !empty($datos['success']);
         $mensaje = $datos['mensaje'] ?? '';
         unset($datos['success'], $datos['mensaje']);
@@ -2809,6 +2934,27 @@ JS;
             'mensaje' => $mensaje,
             'datos' => $datos
         ]);
+    }
+
+    /**
+     * API ligera: solo agregado Por Sabueso (dictaminó) — sin recalcular todo el dashboard.
+     * Usar al cambiar Días/Semanas/Meses/Año en esa tabla.
+     */
+    public function getEstadisticasPorSabuesoSolo()
+    {
+        $raw = file_get_contents('php://input');
+        $body = $raw ? json_decode($raw, true) : [];
+        if (!is_array($body)) {
+            $body = [];
+        }
+        $periodo = (string)($body['periodo_sabueso'] ?? 'por_dia');
+        $incluirCola = true;
+        if (array_key_exists('incluir_cola', $body)) {
+            $incluirCola = filter_var($body['incluir_cola'], FILTER_VALIDATE_BOOLEAN)
+                || $body['incluir_cola'] === 1 || $body['incluir_cola'] === '1';
+        }
+        $res = TicketDAO::getEstadisticasPorSabuesoSolo($periodo, false, $incluirCola);
+        self::respuestaJSON($res);
     }
 
     /**
@@ -5223,7 +5369,8 @@ JS;
             self::respuestaJSON(['success' => false, 'mensaje' => 'ID de ticket requerido.']);
             return;
         }
-        $resultado = TicketDAO::enviarDictamenGestor($idTicket);
+        $idPersona = (int)($_SESSION['persona_id'] ?? $_SESSION['usuario_id'] ?? 0);
+        $resultado = TicketDAO::enviarDictamenGestor($idTicket, $idPersona);
         if ($resultado['success'] ?? false) {
             // Notificación solo al que levantó el ticket (no a todos los de Sabueso/Ticket)
             $idCreador = TicketDAO::getCreadorIdPorTicket($idTicket);

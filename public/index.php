@@ -24,6 +24,11 @@ if (!empty($_SERVER['HTTPS']) && strtolower($_SERVER['HTTPS']) !== 'off') {
 */
 define('RAIZ', dirname(__DIR__) . '/backend');
 
+// Hora de negocio en CDMX: date() y strtotime sin TZ explícita usan esta zona (evita desfase vs CURDATE() del servidor)
+if (function_exists('date_default_timezone_set')) {
+    @date_default_timezone_set('America/Mexico_City');
+}
+
 // Cargar .env si existe — solo variables MAIL_* para no afectar DB ni otras configs
 $envFile = dirname(__DIR__) . '/.env';
 if (is_file($envFile) && is_readable($envFile)) {
@@ -225,7 +230,7 @@ $rutasModulos = [
     'reporteria/resumencallcenter' => [6], 'reporteria/sabuesos' => [18, 19], 'reporteria/descargarReporteSabuesos1' => [18], 'reporteria/descargarReporteSabuesos2' => [19], 'reporteria/descargarReporteSabuesos3' => [19], 'reporteria/descargarReporteSabuesosEstadisticasDetalle' => [47], 'reporteria/layoutlegacy' => [7], 'reporteria/reporteCapitalHumano' => [21],
     'condonaciones/historial' => [15],
     'sabueso/ticket' => [18], 'sabueso/paneladmin' => [19], 'sabueso/cerradoEliminado' => [19],
-    'sabueso/estadisticas' => [47], 'sabueso/getestadisticastickets' => [47],
+    'sabueso/estadisticas' => [47], 'sabueso/getestadisticastickets' => [47], 'sabueso/getestadisticasporsabuesosolo' => [47],
     'sabueso/getestadisticasgestordetalle' => [47], 'sabueso/getestadisticassabuesodetalle' => [47],
     'sabueso/guardardictamenborrador' => [19], 'sabueso/enviardictamengestor' => [19], 'sabueso/getdictamendetalle' => [18, 19], 'sabueso/marcardictamenvisto' => [18, 19], 'sabueso/getdictamenactualticket' => [19],
     'sabueso/subirevidenciaticket' => [19], 'sabueso/getevidenciasticket' => [19], 'sabueso/eliminarevidenciaticket' => [19], 'sabueso/verevidencia' => [18, 19], 'sabueso/otorgarprorrogadictamensistema' => [19],
