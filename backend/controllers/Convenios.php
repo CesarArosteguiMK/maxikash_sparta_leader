@@ -74,7 +74,7 @@ class Convenios extends Controller
             ? (float) $_POST['pago_inicial_monto']
             : null;
 
-        $datos['usuario_alta'] = $_SESSION['nombre'] ?? 'sistema';
+       $datos['usuario_alta'] = $_SESSION['usuario_nombre'] ?? $_SESSION['usuario'] ?? 'sistema';
 
         $r = ConveniosDAO::guardarConvenio($datos);
         self::respuestaJSON($r);
@@ -95,6 +95,24 @@ class Convenios extends Controller
         $r = ConveniosDAO::getConvenioActivo($idCredito);
         self::respuestaJSON($r);
     }
+
+    // ─────────────────────────────────────────────
+// API: CANCELAR CONVENIO
+// ─────────────────────────────────────────────
+
+public function cancelarConvenio()
+{
+    $idConvenio = isset($_POST['id_convenio']) ? (int) $_POST['id_convenio'] : 0;
+
+    if ($idConvenio <= 0) {
+        self::respuestaJSON(self::respuesta(false, 'ID de convenio inválido.'));
+    }
+
+    $usuario = $_SESSION['usuario_nombre'] ?? $_SESSION['usuario'] ?? 'sistema';
+
+    $r = ConveniosDAO::cancelarConvenio($idConvenio, $usuario);
+    self::respuestaJSON($r);
+}
 
     // ─────────────────────────────────────────────
     // PDF: DESCARGAR TABLA DE AMORTIZACIÓN
@@ -138,6 +156,7 @@ class Convenios extends Controller
         $pagoInicial    = $convenio['pago_inicial_monto'] ? '$' . number_format((float) $convenio['pago_inicial_monto'], 2) : 'No aplica';
 
         // Filas de amortización
+
         $filasHtml = '';
         foreach ($amortizacion as $row) {
             $filasHtml .= '
@@ -170,7 +189,7 @@ class Convenios extends Controller
             </style>
         </head>
         <body>
-            <h1>💼 $nombreProducto</h1>
+            <h1> $nombreProducto </h1>
             <h2>Tabla de Amortización — Crédito #$idCredito</h2>
 
             <table class="resumen">
@@ -221,4 +240,20 @@ class Convenios extends Controller
         }
         exit;
     }
+
+    // ─────────────────────────────────────────────
+// API: HISTORIAL DE CONVENIOS
+// ─────────────────────────────────────────────
+
+public function getHistorialConvenios()
+{
+    $idCredito = isset($_POST['id_credito']) ? (int) $_POST['id_credito'] : 0;
+
+    if ($idCredito <= 0) {
+        self::respuestaJSON(self::respuesta(false, 'ID de crédito inválido.'));
+    }
+
+    $r = ConveniosDAO::getHistorialConvenios($idCredito);
+    self::respuestaJSON($r);
+}
 }
