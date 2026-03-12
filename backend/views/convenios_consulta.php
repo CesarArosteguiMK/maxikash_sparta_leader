@@ -33,26 +33,41 @@
     background: linear-gradient(135deg, #f5f0ff 0%, #ede8ff 100%);
     box-shadow: 0 8px 24px rgba(118, 75, 162, 0.25);
 }
-.oferta-card .badge-tipo {
-    position: absolute;
-    top: -10px;
-    right: 16px;
-    font-size: 0.7rem;
-    padding: 0.3em 0.8em;
-    border-radius: 20px;
-    font-weight: 700;
-    letter-spacing: 0.5px;
-}
-.badge-popular  { background: #ef4444; color: #fff; }
-.badge-flexible { background: #3b82f6; color: #fff; }
-.badge-mejor    { background: #8b5cf6; color: #fff; }
-
-.oferta-card .icono-oferta { font-size: 1.8rem; margin-bottom: 0.5rem; }
-.oferta-card .porcentaje   { font-size: 2.5rem; font-weight: 800; color: #764ba2; line-height: 1; }
+.oferta-card .icono-oferta  { font-size: 1.8rem; margin-bottom: 0.5rem; }
+.oferta-card .porcentaje    { font-size: 2.5rem; font-weight: 800; color: #764ba2; line-height: 1; }
 .oferta-card .titulo-oferta { font-size: 1rem; font-weight: 700; color: #1e293b; margin: 0.3rem 0 0.6rem; }
 .oferta-card .desc-oferta   { font-size: 0.82rem; color: #64748b; margin-bottom: 0.8rem; }
 .oferta-card .detalle-item  { font-size: 0.8rem; color: #475569; margin-bottom: 0.25rem; }
 .oferta-card .detalle-item i { color: #22c55e; margin-right: 4px; }
+
+/* ── Cards congeladas (convenio activo) ── */
+.oferta-card.congelada {
+    opacity: 0.35;
+    filter: grayscale(100%);
+    pointer-events: none;
+    cursor: default;
+}
+.oferta-card.seleccionada-final {
+    border-color: #764ba2;
+    background: linear-gradient(135deg, #f5f0ff 0%, #ede8ff 100%);
+    box-shadow: 0 8px 24px rgba(118, 75, 162, 0.25);
+    pointer-events: none;
+}
+.oferta-card .check-confirmado {
+    position: absolute;
+    top: -12px;
+    left: -12px;
+    width: 28px;
+    height: 28px;
+    background: #22c55e;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-size: 0.85rem;
+    box-shadow: 0 2px 8px rgba(34,197,94,0.4);
+}
 
 /* ── Slider de semanas ── */
 .conv-slider-section {
@@ -113,7 +128,6 @@ input[type=range].conv-range::-webkit-slider-thumb {
 }
 .amort-resumen td:first-child { font-weight: 600; color: #64748b; }
 .amort-resumen td:last-child  { font-weight: 700; color: #1e293b; font-size: 1.1rem; }
-/* Light mode: morado oscuro, Dark mode: blanco */
 .tabla-amort thead th {
     background: linear-gradient(135deg, #ede9fe 0%, #c7d2fe 100%);
     color: #5b2d8e;
@@ -163,6 +177,15 @@ body.dark-mode .tabla-amort thead th {
     font-weight: 700;
 }
 
+/* ── Banner convenio activo ── */
+.banner-convenio-activo-light {
+    background: linear-gradient(135deg, #d1fae5 0%, #bbf7d0 100%) !important;
+    border: 1px solid #22c55e !important;
+    border-radius: .75rem !important;
+    color: #166534 !important;
+    font-weight: 500;
+}
+
 /* ══════════════════════════════════════════
    DARK MODE
 ══════════════════════════════════════════ */
@@ -185,6 +208,14 @@ body.dark-mode .oferta-card .desc-oferta   { color: #94a3b8; }
 body.dark-mode .oferta-card .detalle-item  { color: #94a3b8; }
 body.dark-mode .oferta-card .porcentaje    { color: #c084fc; }
 
+body.dark-mode .oferta-card.seleccionada-final {
+    background: linear-gradient(135deg, #2d1b69 0%, #3b1f6e 100%);
+    border-color: #a78bfa;
+}
+body.dark-mode .oferta-card.congelada {
+    border-color: #334155;
+}
+
 body.dark-mode .conv-slider-section {
     background: linear-gradient(135deg, #1e1533 0%, #2a1a4e 100%);
 }
@@ -192,15 +223,13 @@ body.dark-mode .conv-slider-section h5     { color: #c084fc !important; }
 body.dark-mode .semanas-valor              { color: #a78bfa; }
 body.dark-mode .pago-semanal-calculado     { color: #4ade80; }
 body.dark-mode .semanas-labels             { color: #64748b; }
-body.dark-mode input[type=range].conv-range {
-    background: #4c1d95;
-}
+body.dark-mode input[type=range].conv-range { background: #4c1d95; }
 
 body.dark-mode .tabla-amort tbody td {
     border-bottom: 1px solid #334155;
     color: #e2e8f0;
 }
-body.dark-mode .tabla-amort tbody tr:nth-child(even) td { background: #1e1533; }
+body.dark-mode .tabla-amort tbody tr:nth-child(even) td { background: #1e293b; }
 body.dark-mode .amort-resumen td:first-child { color: #94a3b8; }
 body.dark-mode .amort-resumen td:last-child  { color: #f1f5f9; }
 
@@ -210,13 +239,11 @@ body.dark-mode .alerta-incumplimiento {
     color: #fed7aa;
 }
 
-/* Inline color:#5b2d8e en h5 */
 body.dark-mode #convContenido h5[style*="color:#5b2d8e"],
 body.dark-mode #convContenido h5[style*="color: #5b2d8e"] {
     color: #c084fc !important;
 }
 
-/* Cards del resumen amortización */
 body.dark-mode #amortResumenCards .border {
     border-color: #334155 !important;
     background: #1e293b;
@@ -224,7 +251,6 @@ body.dark-mode #amortResumenCards .border {
 }
 body.dark-mode #amortResumenCards .text-muted { color: #64748b !important; }
 
-/* Lista resultados búsqueda */
 body.dark-mode #resultadosBusqueda .list-group-item {
     background: #1e293b;
     border-color: #334155;
@@ -234,6 +260,34 @@ body.dark-mode #resultadosBusqueda .list-group-item:hover {
     background: #2d3748;
     color: #f1f5f9;
 }
+
+body.dark-mode .banner-convenio-activo-light {
+    background: linear-gradient(135deg, #166534 0%, #14532d 100%) !important;
+    border: 1px solid #22c55e !important;
+    color: #bbf7d0 !important;
+}
+
+/* ── Badges historial ── */
+.badge-estatus-activo,
+.badge-estatus-cancelado,
+.badge-estatus-completado,
+.badge-estatus-incumplimiento {
+    display: inline-block;
+    font-size: 0.68rem;
+    padding: 0.25em 0.65em;
+    border-radius: 20px;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+}
+.badge-estatus-activo        { background:#dcfce7; border:1px solid #22c55e; color:#166534; }
+.badge-estatus-cancelado     { background:#fee2e2; border:1px solid #ef4444; color:#991b1b; }
+.badge-estatus-completado    { background:#dbeafe; border:1px solid #3b82f6; color:#1e40af; }
+.badge-estatus-incumplimiento{ background:#fef3c7; border:1px solid #f59e0b; color:#92400e; }
+
+body.dark-mode .badge-estatus-activo        { background:rgba(34,197,94,0.15);  border-color:#22c55e; color:#4ade80; }
+body.dark-mode .badge-estatus-cancelado     { background:rgba(239,68,68,0.15);  border-color:#ef4444; color:#f87171; }
+body.dark-mode .badge-estatus-completado    { background:rgba(59,130,246,0.15); border-color:#3b82f6; color:#60a5fa; }
+body.dark-mode .badge-estatus-incumplimiento{ background:rgba(245,158,11,0.15); border-color:#f59e0b; color:#fbbf24; }
 </style>
 
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
@@ -244,7 +298,7 @@ body.dark-mode #resultadosBusqueda .list-group-item:hover {
     <div class="conv-header-gradient">
         <div class="d-flex align-items-center justify-content-between">
             <div>
-                <h4><i class="fa-solid fa-handshake me-2"></i>Convenios de Liquidación</h4>
+                <h4 style="color:#fff;"><i class="fa-solid fa-handshake me-2"></i>Convenios de Liquidación</h4>
                 <p>Consulta y genera ofertas especiales para créditos en mora</p>
             </div>
             <i class="fa-solid fa-sack-dollar" style="font-size:3rem;opacity:0.3;"></i>
@@ -259,12 +313,13 @@ body.dark-mode #resultadosBusqueda .list-group-item:hover {
                 <input type="number" id="inputBusqueda" class="form-control"
                        placeholder="Ej: 123456"
                        autocomplete="off"
-                       min="1"
-                       oninput="validarInputBusqueda()">
-                <button class="btn btn-primary" id="btnBuscar" onclick="buscarCredito()" disabled>
+                       min="1">
+                <button class="btn btn-primary" id="btnBuscar" onclick="buscarCredito()">
                     <i class="fa-solid fa-magnifying-glass me-1"></i> Buscar
                 </button>
             </div>
+
+
         </div>
     </div>
 
@@ -275,6 +330,13 @@ body.dark-mode #resultadosBusqueda .list-group-item:hover {
         <div id="creditoBanner" class="credito-banner">
             <!-- se llena por JS -->
         </div>
+
+        <!-- Botón historial — va después del creditoBanner -->
+<div class="text-end mb-3" id="btnHistorialWrap" style="display:none;">
+    <button class="btn btn-outline-secondary btn-sm" onclick="abrirHistorial()">
+        <i class="fa-solid fa-clock-rotate-left me-1"></i> Ver historial de convenios
+    </button>
+</div>
 
         <!-- ALERTA INCUMPLIMIENTO -->
         <div id="alertaIncumplimiento" class="alerta-incumplimiento" style="display:none;">
@@ -320,24 +382,22 @@ body.dark-mode #resultadosBusqueda .list-group-item:hover {
 
         <!-- TABLA DE AMORTIZACIÓN -->
         <div id="amortSection" class="conv-amort-section" style="display:none;">
-
-            <!-- Resumen numérico -->
             <div class="card mb-3">
                 <div class="card-body">
                     <h5 id="amortTitulo" class="fw-bold mb-3" style="color:#5b2d8e;"></h5>
                     <div class="row text-center g-2 mb-3" id="amortResumenCards">
                         <!-- llenado por JS -->
                     </div>
-                    <!-- Tabla semanal -->
                     <div class="table-responsive">
                         <table class="tabla-amort table table-borderless">
                             <thead>
                                 <tr>
-                                    <th>Semana</th>
-                                    <th>Fecha de Pago</th>
-                                    <th>Pago Semanal</th>
-                                    <th>Capital</th>
-                                    <th>Saldo Restante</th>
+                                   <th>Semana</th>
+                                   <th>Fecha de Pago Preferencial</th>
+                                   <th>Semanal / Capital</th>
+                                   <th>Saldo Restante</th>
+                                   <th>Pago Realizado</th>
+                                   <th>Estatus</th>
                                 </tr>
                             </thead>
                             <tbody id="tablaAmortBody">
@@ -345,12 +405,18 @@ body.dark-mode #resultadosBusqueda .list-group-item:hover {
                         </table>
                     </div>
                     <div class="d-flex gap-2 mt-3 flex-wrap">
-                        <button class="btn btn-success" onclick="guardarConvenio()">
+                        <button class="btn btn-success" id="btnGuardar" onclick="guardarConvenio()">
                             <i class="fa-solid fa-floppy-disk me-1"></i> Confirmar y Guardar Convenio
                         </button>
-                        <button class="btn btn-outline-secondary" onclick="descargarPdf()">
+                        <button class="btn btn-outline-secondary" id="btnPdf" onclick="descargarPdf()" style="display:none;">
                             <i class="fa-solid fa-file-pdf me-1"></i> Descargar PDF
                         </button>
+
+                        <button class="btn btn-danger btn-sm" id="btnCancelar"
+                            onclick="cancelarConvenio()" style="display:none;">
+                            <i class="fa-solid fa-ban me-1"></i> Cancelar Convenio
+                       </button>
+
                     </div>
                 </div>
             </div>
@@ -359,75 +425,183 @@ body.dark-mode #resultadosBusqueda .list-group-item:hover {
     </div>
 </div>
 
+<!-- MODAL HISTORIAL -->
+<div class="modal fade" id="modalHistorial" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header" style="background:linear-gradient(135deg,#667eea,#764ba2);">
+                <h5 class="modal-title text-white fw-bold">
+                    <i class="fa-solid fa-clock-rotate-left me-2"></i>
+                    Historial de Convenios — <span id="modalHistorialCredito"></span>
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-0">
+
+                <!-- Estado cargando -->
+                <div id="historialLoading" class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status"></div>
+                    <div class="mt-2 text-muted small">Cargando historial...</div>
+                </div>
+
+                <!-- Sin registros -->
+                <div id="historialVacio" class="text-center py-5" style="display:none;">
+                    <i class="fa-solid fa-folder-open fa-2x text-muted mb-2"></i>
+                    <div class="text-muted">Este crédito no tiene convenios registrados.</div>
+                </div>
+
+                <!-- Tabla -->
+                <div id="historialTablaWrap" style="display:none;">
+                    <div class="table-responsive">
+                        <table class="tabla-amort table table-borderless mb-0">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Fecha Acuerdo</th>
+                                    <th>Producto / Oferta</th>
+                                    <th>Total a Pagar</th>
+                                    <th>Semanas</th>
+                                    <th>Estatus</th>
+                                    <th>Autorizado por</th>
+                                    <th>Cancelado por</th>
+                                    <th>Fecha Cancelación</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tablaHistorialBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
+
 // ══════════════════════════════════════════════════════
 //  Estado global
 // ══════════════════════════════════════════════════════
-let _credito        = null;   // datos del crédito seleccionado
-let _ofertas        = [];     // lista de ofertas elegibles
-let _ofertaActiva   = null;   // oferta seleccionada actualmente
-let _semanasActual  = 1;      // semanas elegidas en el slider
+var _credito       = null;
+var _ofertas       = [];
+var _ofertaActiva  = null;
+var _semanasActual = 1;
+// var _pollingInterval = null;
 
 // ══════════════════════════════════════════════════════
 //  BUSCAR CRÉDITO
 // ══════════════════════════════════════════════════════
 function buscarCredito() {
-    const id = document.getElementById('inputBusqueda').value.trim();
-    if (!id || isNaN(id) || parseInt(id) < 1) return;
+    var id = document.getElementById('inputBusqueda').value.trim();
+
+    if (!id || isNaN(id) || parseInt(id) < 1) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'Campo requerido',
+            text: 'Debes ingresar un número de crédito para continuar.',
+            confirmButtonColor: '#764ba2',
+        });
+        return;
+    }
+
     seleccionarCredito(parseInt(id));
 }
 
-function validarInputBusqueda() {
-    const input = document.getElementById('inputBusqueda');
-    const btn   = document.getElementById('btnBuscar');
-    btn.disabled = !(input.value && !isNaN(input.value) && parseInt(input.value) > 0);
-}
-
-document.getElementById('inputBusqueda').addEventListener('keydown', (e) => {
+document.getElementById('inputBusqueda').addEventListener('keydown', function(e) {
     if (e.key === 'Enter') buscarCredito();
 });
 
 // ══════════════════════════════════════════════════════
-//  SELECCIONAR CRÉDITO → cargar ofertas
+//  SELECCIONAR CRÉDITO → ofertas + convenio activo
 // ══════════════════════════════════════════════════════
 function seleccionarCredito(idCredito) {
     document.getElementById('convContenido').style.display = 'none';
+    document.getElementById('btnHistorialWrap').style.display = 'none';
 
-    Swal.fire({ title: 'Cargando ofertas...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+    // Limpiar banner convenio activo si existía de búsqueda anterior
+    var bannerPrevio = document.getElementById('bannerConvenioActivo');
+    if (bannerPrevio) bannerPrevio.remove();
 
+    // detenerPolling();
+
+    Swal.fire({ title: 'Cargando...', allowOutsideClick: false, didOpen: function() { Swal.showLoading(); } });
+
+    // Llamada 1: ofertas
     http.request({
         endpoint: '/convenios/getOfertasCredito',
         method: 'POST',
         data: { id_credito: idCredito },
-        onSuccess: (resp) => {
-            Swal.close();
-            if (!resp.success) {
-                Swal.fire('Sin elegibilidad', resp.mensaje || 'Este crédito no cumple los criterios.', 'info');
+        onSuccess: function(respOfertas) {
+            if (!respOfertas.success) {
+                Swal.close();
+                Swal.fire('Sin elegibilidad', respOfertas.mensaje || 'Este crédito no cumple los criterios.', 'info');
                 return;
             }
 
-            const { credito, ofertas, elegible, razon } = resp.datos;
+            var datos   = respOfertas.datos;
+            var credito = datos.credito;
+            var ofertas = datos.ofertas;
+            var elegible = datos.elegible;
+            var razon   = datos.razon;
+
             _credito = credito;
             _ofertas = ofertas;
 
             if (!elegible) {
+                Swal.close();
                 Swal.fire('Sin ofertas', razon === 'bucket_fuera_de_rango'
                     ? 'Este crédito no tiene mora suficiente (mínimo 22 días).'
                     : 'Este crédito no cumple los criterios para ninguna oferta.', 'info');
                 return;
             }
 
-            renderCreditoBanner(credito);
-            renderOfertas(ofertas);
+            // Llamada 2: convenio activo
+            http.request({
+                endpoint: '/convenios/getConvenioActivo',
+                method: 'POST',
+                data: { id_credito: idCredito },
+                onSuccess: function(respConvenio) {
+                    Swal.close();
 
-            // Resetear slider y amort
-            document.getElementById('sliderSection').style.display = 'none';
-            document.getElementById('amortSection').style.display = 'none';
-            _ofertaActiva = null;
+                    // Resetear botones al estado normal antes de pintar
+                    document.getElementById('btnGuardar').style.display = 'inline-block';
+                    document.getElementById('btnPdf').className = 'btn btn-outline-secondary';
 
-            document.getElementById('convContenido').style.display = 'block';
+                    renderCreditoBanner(credito);
+                    renderOfertas(ofertas);
+
+                    document.getElementById('sliderSection').style.display = 'none';
+                    document.getElementById('amortSection').style.display  = 'none';
+                    document.getElementById('alertaIncumplimiento').style.display = 'none';
+                    _ofertaActiva = null;
+
+                    document.getElementById('convContenido').style.display = 'block';
+                    document.getElementById('btnHistorialWrap').style.display = 'block';
+
+
+                    if (respConvenio.success && respConvenio.datos && respConvenio.datos.estatus === 'activo') {
+                        congelarModulo(respConvenio.datos);
+                    } else {
+                       // iniciarPolling(idCredito);
+                    }
+                },
+                onError: function() {
+                    Swal.close();
+                    document.getElementById('btnGuardar').style.display = 'inline-block';
+                    document.getElementById('btnPdf').className = 'btn btn-outline-secondary';
+                    renderCreditoBanner(credito);
+                    renderOfertas(ofertas);
+                    document.getElementById('sliderSection').style.display = 'none';
+                    document.getElementById('amortSection').style.display  = 'none';
+                    document.getElementById('convContenido').style.display = 'block';
+                   // iniciarPolling(idCredito);
+                }
+            });
         },
-        onError: () => { Swal.close(); Swal.fire('Error', 'Error al cargar ofertas.', 'error'); }
+        onError: function() { Swal.close(); Swal.fire('Error', 'Error al cargar ofertas.', 'error'); }
     });
 }
 
@@ -435,152 +609,203 @@ function seleccionarCredito(idCredito) {
 //  BANNER DEL CRÉDITO
 // ══════════════════════════════════════════════════════
 function renderCreditoBanner(c) {
-    const bucketColor = (b) => {
+    var bucketColor = function(b) {
         if (!b) return 'bg-secondary';
-        if (b.startsWith('e)')) return 'bg-warning text-dark';
-        if (b.startsWith('f)')) return 'bg-orange text-white';
+        if (b.indexOf('e)') === 0) return 'bg-warning text-dark';
+        if (b.indexOf('f)') === 0) return 'bg-orange text-white';
         return 'bg-danger text-white';
     };
 
-    const avance = parseFloat(c.Avance_Pago_Plazo || 0).toFixed(1);
-    const adeudo = parseFloat(c.Adeudo_total || 0);
-    const fmt    = v => '$' + parseFloat(v).toLocaleString('es-MX', { minimumFractionDigits: 2 });
+    var avance = parseFloat(c.Avance_Pago_Plazo || 0).toFixed(1);
+    var adeudo = parseFloat(c.Adeudo_total || 0);
+    var fmt    = function(v) { return '$' + parseFloat(v).toLocaleString('es-MX', { minimumFractionDigits: 2 }); };
 
-    document.getElementById('creditoBanner').innerHTML = `
-        <div class="row g-3">
-            <div class="col-6 col-md-3">
-                <div class="label">Crédito</div>
-                <div class="valor">#${c.Id_credito}</div>
-            </div>
-            <div class="col-6 col-md-3">
-                <div class="label">Cliente</div>
-                <div class="valor" style="font-size:0.9rem;">${c.Nombre_cliente}</div>
-            </div>
-            <div class="col-6 col-md-2">
-                <div class="label">Bucket</div>
-                <span class="bucket-badge ${bucketColor(c.Bucket_Morosidad_Real)}">${c.Bucket_Morosidad_Real}</span>
-            </div>
-            <div class="col-6 col-md-2">
-                <div class="label">Avance pago</div>
-                <div class="valor">${avance}%</div>
-            </div>
-            <div class="col-6 col-md-2">
-                <div class="label">Adeudo total</div>
-                <div class="valor" style="color:#4ade80;">${fmt(adeudo)}</div>
-            </div>
-        </div>
-    `;
+    document.getElementById('creditoBanner').innerHTML =
+        '<div class="row g-3">' +
+            '<div class="col-6 col-md-3"><div class="label">Crédito</div><div class="valor">#' + c.Id_credito + '</div></div>' +
+            '<div class="col-6 col-md-3"><div class="label">Cliente</div><div class="valor" style="font-size:0.9rem;">' + c.Nombre_cliente + '</div></div>' +
+            '<div class="col-6 col-md-2"><div class="label">Bucket</div><span class="bucket-badge ' + bucketColor(c.Bucket_Morosidad_Real) + '">' + c.Bucket_Morosidad_Real + '</span></div>' +
+            '<div class="col-6 col-md-2"><div class="label">Avance pago</div><div class="valor">' + avance + '%</div></div>' +
+            '<div class="col-6 col-md-2"><div class="label">Adeudo total</div><div class="valor" style="color:#4ade80;">' + fmt(adeudo) + '</div></div>' +
+        '</div>';
 }
 
 // ══════════════════════════════════════════════════════
 //  RENDERIZAR CARDS DE OFERTAS
 // ══════════════════════════════════════════════════════
-
-// Iconos fijos por producto
-const OFERTA_ICONOS = { 1: '🎯', 2: '💰', 3: '❄️', 4: '⚡' };
-
-/**
- * Calcula los badges para cada oferta según el perfil real del cliente.
- *
- * Criterios de puntuación:
- *  - Ahorro absoluto (descuento_monto) → beneficio económico directo
- *  - Penalización si es pago único (semanas_max=1) y el cliente tiene avance bajo (<61)
- *  - Penalización fuerte si no hay descuento (Congela tu Deuda)
- *  - Bonus de flexibilidad según semanas_max disponibles
- *
- * Solo la oferta de mayor puntaje recibe "Mejor Oferta".
- * La segunda recibe "Recomendada". Las demás no llevan badge.
- */
-function calcularBadgesOfertas(ofertas, credito) {
-    // Extraer límite inferior del rango de avance (ej. "61-80%" → 61)
-    const avancePago = parseInt((credito.Avance_Pago_Plazo || '0').match(/\d+/) || [0]);
-    const capacidadPagoUnico = avancePago >= 61;
-
-    const puntuados = ofertas.map((o, idx) => {
-        let score = parseFloat(o.descuento_monto); // base: ahorro en pesos
-
-        // Pago único: viable solo con avance alto; si no, penalizar
-        if (parseInt(o.semanas_max) === 1 && !capacidadPagoUnico) {
-            score *= 0.4;
-        }
-
-        // Sin descuento (Congela tu Deuda): beneficio económico mínimo
-        if (parseFloat(o.porcentaje_descuento) === 0) {
-            score *= 0.25;
-        }
-
-        // Bonus por flexibilidad de plazos (más semanas = más accesible)
-        score += parseInt(o.semanas_max) * 3;
-
-        return { idx, score };
-    });
-
-    // Ordenar mayor a menor
-    puntuados.sort((a, b) => b.score - a.score);
-
-    // DEBUG — quitar en producción
-    console.table(puntuados.map(p => ({
-        oferta:  ofertas[p.idx].nombre,
-        score:   p.score.toFixed(2),
-        rank:    puntuados.indexOf(p) + 1,
-    })));
-
-    const badges = {};
-    puntuados.forEach(({ idx }, rank) => {
-        if (rank === 0) {
-            badges[idx] = { badge: 'badge-mejor', badgeLabel: 'Mejor Oferta' };
-        } else if (rank === 1) {
-            badges[idx] = { badge: 'badge-popular', badgeLabel: 'Recomendada' };
-        } else {
-            badges[idx] = null; // sin badge
-        }
-    });
-
-    return badges;
-}
+var OFERTA_ICONOS = { 1: '🎯', 2: '💰', 3: '❄️', 4: '⚡' };
 
 function renderOfertas(ofertas) {
-    const cont   = document.getElementById('ofertasContainer');
-    const fmt    = v => '$' + parseFloat(v).toLocaleString('es-MX', { minimumFractionDigits: 2 });
+    var cont = document.getElementById('ofertasContainer');
+    var fmt  = function(v) { return '$' + parseFloat(v).toLocaleString('es-MX', { minimumFractionDigits: 2 }); };
 
-    cont.innerHTML = ofertas.map((o, i) => {
-        const icono    = OFERTA_ICONOS[o.id_producto] || '📋';
-        const primerPago = o.pago_inicial === 'Si' && o.pago_inicial_monto
+    cont.innerHTML = ofertas.map(function(o, i) {
+        var icono      = OFERTA_ICONOS[o.id_producto] || '📋';
+        var primerPago = (o.pago_inicial === 'Si' && o.pago_inicial_monto)
             ? fmt(o.pago_inicial_monto)
             : 'No requiere primer pago';
-        const plazoLabel = parseInt(o.semanas_max) === 1
+        var plazoLabel = parseInt(o.semanas_max) === 1
             ? '1 semana (pago único)'
-            : `${o.periodo_inicio} a ${o.semanas_max} semanas`;
+            : o.periodo_inicio + ' a ' + o.semanas_max + ' semanas';
 
-        return `
-        <div class="col-12 col-md-3">
-            <div class="oferta-card" id="oferta-card-${i}" onclick="seleccionarOferta(${i})">
-                <div class="icono-oferta">${icono}</div>
-                <div class="titulo-oferta">${o.nombre}</div>
-                <div class="porcentaje">${parseInt(o.porcentaje_descuento)}%</div>
-                <div class="desc-oferta">Ahorro de ${fmt(o.descuento_monto)} sobre ${fmt(o.monto_base)}</div>
-                <div class="detalle-item"><i class="fa-solid fa-check"></i> Total a pagar: <strong>${fmt(o.total_a_pagar)}</strong></div>
-                <div class="detalle-item"><i class="fa-solid fa-check"></i> Primer pago: <strong>${primerPago}</strong></div>
-                <div class="detalle-item"><i class="fa-solid fa-check"></i> Plazos: <strong>${plazoLabel}</strong></div>
-            </div>
-        </div>`;
+        return '<div class="col-12 col-md-3">' +
+            '<div class="oferta-card" id="oferta-card-' + i + '" onclick="seleccionarOferta(' + i + ')">' +
+                '<div class="icono-oferta">' + icono + '</div>' +
+                '<div class="titulo-oferta">' + o.nombre + '</div>' +
+                '<div class="porcentaje">' + parseInt(o.porcentaje_descuento) + '%</div>' +
+                '<div class="desc-oferta">Ahorro de ' + fmt(o.descuento_monto) + ' sobre ' + fmt(o.monto_base) + '</div>' +
+                '<div class="detalle-item"><i class="fa-solid fa-check"></i> Total a pagar: <strong>' + fmt(o.total_a_pagar) + '</strong></div>' +
+                '<div class="detalle-item"><i class="fa-solid fa-check"></i> Primer pago: <strong>' + primerPago + '</strong></div>' +
+                '<div class="detalle-item"><i class="fa-solid fa-check"></i> Plazos: <strong>' + plazoLabel + '</strong></div>' +
+            '</div>' +
+        '</div>';
     }).join('');
 }
+
+// ══════════════════════════════════════════════════════
+//  CONGELAR MÓDULO (convenio activo existente)
+// ══════════════════════════════════════════════════════
+function congelarModulo(convenio) {
+    var fmt = function(v) { return '$' + parseFloat(v).toLocaleString('es-MX', { minimumFractionDigits: 2 }); };
+
+    // Identificar card del convenio activo
+    var idxOferta = -1;
+    for (var i = 0; i < _ofertas.length; i++) {
+        if (_ofertas[i].id_producto === convenio.id_producto_convenio) { idxOferta = i; break; }
+    }
+
+    // Aplicar clases a cards
+    var cards = document.querySelectorAll('.oferta-card');
+    for (var j = 0; j < cards.length; j++) {
+        if (j === idxOferta) {
+            cards[j].classList.add('seleccionada-final');
+            if (!cards[j].querySelector('.check-confirmado')) {
+                var check = document.createElement('div');
+                check.className = 'check-confirmado';
+                check.innerHTML = '<i class="fa-solid fa-check"></i>';
+                cards[j].appendChild(check);
+            }
+        } else {
+            cards[j].classList.add('congelada');
+        }
+    }
+
+    // Slider congelado
+    var slider = document.getElementById('sliderSemanas');
+    slider.disabled = true;
+    slider.value    = convenio.numero_semanas;
+    _semanasActual  = convenio.numero_semanas;
+
+    if (idxOferta >= 0) {
+        _ofertaActiva  = _ofertas[idxOferta];
+        slider.min = _ofertaActiva.periodo_inicio;
+        slider.max = _ofertaActiva.semanas_max;
+        document.getElementById('labelMin').textContent = _ofertaActiva.periodo_inicio + ' sem';
+        document.getElementById('labelMax').textContent = _ofertaActiva.semanas_max + ' sem';
+        document.getElementById('sliderTitulo').textContent = 'Plazo activo: ' + convenio.nombre_producto;
+    }
+
+    document.getElementById('semanasValor').textContent = convenio.numero_semanas;
+    document.getElementById('pagoSemanalCalc').textContent =
+        '$' + parseFloat(convenio.pago_semanal).toLocaleString('es-MX', { minimumFractionDigits: 2 }) + ' / semana';
+    document.getElementById('sliderSection').style.display = 'block';
+
+    // Resumen cards
+    document.getElementById('amortTitulo').textContent = '📋 ' + convenio.nombre_producto;
+    document.getElementById('amortResumenCards').innerHTML =
+        '<div class="col-6 col-md-3"><div class="border rounded p-2"><div class="small text-muted">Deuda Original</div><div class="fw-bold text-primary fs-5">' + fmt(convenio.adeudo_total_original) + '</div></div></div>' +
+        '<div class="col-6 col-md-3"><div class="border rounded p-2"><div class="small text-muted">Descuento (' + parseInt(convenio.porcentaje_descuento) + '%)</div><div class="fw-bold text-danger fs-5">-' + fmt(convenio.descuento_monto) + '</div></div></div>' +
+        '<div class="col-6 col-md-3"><div class="border rounded p-2"><div class="small text-muted">Total a Pagar</div><div class="fw-bold text-success fs-5">' + fmt(convenio.total_a_pagar) + '</div></div></div>' +
+        '<div class="col-6 col-md-3"><div class="border rounded p-2"><div class="small text-muted">Pago Semanal</div><div class="fw-bold text-warning fs-5">' + fmt(convenio.pago_semanal) + '</div></div></div>';
+
+    // Tabla con datos reales del backend
+    var filasHtml = convenio.amortizacion.map(function(fila) {
+
+        var estatusBadge = fila.estatus_pago === 'pagado'
+            ? '<span class="badge bg-success">Pagado</span>'
+            : '<span class="badge bg-warning text-dark">Pendiente</span>';
+        return '<tr>' +
+    '<td>Semana ' + fila.numero_semana + '</td>' +
+    '<td>' + fmtFechaRango(fila.fecha_pago) + '</td>' +
+    '<td>' +
+        '<span style="display:block;font-weight:600;">' + fmt(fila.pago_semanal) + '</span>' +
+        '<span style="display:block;font-size:0.82em;color:#888;">' + fmt(fila.capital) + '</span>' +
+    '</td>' +
+    '<td>' + fmt(fila.saldo_restante) + '</td>' +
+    '<td>' + fmtPagoRealizado(null) + '</td>' +
+    '<td>' + estatusBadge + '</td>' +
+'</tr>';
+    }).join('');
+    document.getElementById('tablaAmortBody').innerHTML = filasHtml;
+    document.getElementById('amortSection').style.display = 'block';
+
+    // Solo PDF visible
+    document.getElementById('btnGuardar').style.display = 'none';
+    document.getElementById('btnPdf').className = 'btn btn-primary';
+    document.getElementById('btnPdf').style.display = 'inline-block';
+
+
+    document.getElementById('btnCancelar').style.display = 'inline-block';
+    window._idConvenioActivo = convenio.id;
+
+    // Banner informativo
+    var fechaAcuerdo   = new Date(convenio.fecha_acuerdo + 'T12:00:00').toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    var fechaUltimoPago = new Date(convenio.fecha_ultimo_pago + 'T12:00:00').toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    var banner = document.getElementById('creditoBanner');
+    banner.insertAdjacentHTML('afterend',
+        '<div id="bannerConvenioActivo" class="alert d-flex align-items-center gap-2 mb-3 banner-convenio-activo-light">' +
+            '<i class="fa-solid fa-lock fa-lg"></i>' +
+            '<div><strong>Convenio activo registrado.</strong> ' +
+            'Acuerdo del ' + fechaAcuerdo + '. ' +
+            'Último pago: ' + fechaUltimoPago + '. ' +
+            'Solo puedes descargar el PDF.</div>' +
+        '</div>'
+    );
+
+    document.getElementById('amortSection').scrollIntoView({ behavior: 'smooth' });
+}
+
+// ══════════════════════════════════════════════════════
+//  POLLING — cada 30s verifica si se generó un convenio
+// ══════════════════════════════════════════════════════
+//function iniciarPolling(idCredito) {
+//    detenerPolling();
+//    _pollingInterval = setInterval(function() {
+//        http.request({
+//            endpoint: '/convenios/getConvenioActivo',
+//            method: 'POST',
+//            data: { id_credito: idCredito },
+//            onSuccess: function(resp) {
+//                if (resp.success && resp.datos && resp.datos.estatus === 'activo') {
+//                    detenerPolling();
+//                    congelarModulo(resp.datos);
+//                }
+//            },
+//            onError: function() {}
+//        });
+//    }, 30000);
+//}
+
+//function detenerPolling() {
+//    if (_pollingInterval) {
+//        clearInterval(_pollingInterval);
+//        _pollingInterval = null;
+//    }
+//}
 
 // ══════════════════════════════════════════════════════
 //  SELECCIONAR OFERTA → mostrar slider
 // ══════════════════════════════════════════════════════
 function seleccionarOferta(idx) {
-    // Quitar selección previa
-    document.querySelectorAll('.oferta-card').forEach(c => c.classList.remove('seleccionada'));
+    document.querySelectorAll('.oferta-card').forEach(function(c) { c.classList.remove('seleccionada'); });
     document.getElementById('oferta-card-' + idx).classList.add('seleccionada');
 
     _ofertaActiva = _ofertas[idx];
 
-    const min = _ofertaActiva.periodo_inicio;
-    const max = _ofertaActiva.semanas_max;
+    var min = _ofertaActiva.periodo_inicio;
+    var max = _ofertaActiva.semanas_max;
 
-    const slider = document.getElementById('sliderSemanas');
+    var slider = document.getElementById('sliderSemanas');
     slider.min   = min;
     slider.max   = max;
     slider.value = min;
@@ -606,78 +831,107 @@ function actualizarSlider(semanas) {
     document.getElementById('semanasValor').textContent = _semanasActual;
 
     if (_ofertaActiva) {
-        const total     = parseFloat(_ofertaActiva.total_a_pagar);
-        const semanal   = total / _semanasActual;
+        var total   = parseFloat(_ofertaActiva.total_a_pagar);
+        var semanal = total / _semanasActual;
         document.getElementById('pagoSemanalCalc').textContent =
             '$' + semanal.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' / semana';
     }
 }
 
 // ══════════════════════════════════════════════════════
-//  VER TABLA DE AMORTIZACIÓN (simulada en frontend)
+//  HELPER — RANGO DE FECHAS
+// ══════════════════════════════════════════════════════
+function fmtFechaRango(fechaISO) {
+    var inicio = new Date(fechaISO + 'T00:00:00');
+    var fin    = new Date(fechaISO + 'T00:00:00');
+    fin.setDate(fin.getDate() + 7);
+
+    var fmt = function(d) {
+        return String(d.getDate()).padStart(2, '0') + '/' +
+               String(d.getMonth() + 1).padStart(2, '0') + '/' +
+               d.getFullYear();
+    };
+
+    return '<span style="display:block;font-weight:600;">' + fmt(inicio) + '</span>' +
+           '<span style="display:block;color:#888;font-size:0.82em;">' + fmt(fin) + '</span>';
+}
+
+function fmtPagoRealizado(pago) {
+    if (!pago) return '<span style="color:#aaa;">—</span>';
+
+    var fmt = function(v) {
+        return '$' + parseFloat(v).toLocaleString('es-MX', { minimumFractionDigits: 2 });
+    };
+    var fmtFecha = function(s) {
+        if (!s) return '';
+        var p = s.split('-');
+        return p[2] + '/' + p[1] + '/' + p[0];
+    };
+
+    var lineas = '';
+
+    if (pago.tipo === 'sobrante') {
+        lineas =
+            '<span style="display:block;font-size:0.78em;color:#f59e0b;">Sobrante: ' + fmt(pago.monto) + '</span>' +
+            '<span style="display:block;font-size:0.78em;">Aplicado: ' + fmt(pago.aplicado) + '</span>' +
+            '<span style="display:block;font-size:0.75em;color:#888;">' + fmtFecha(pago.fecha) + '</span>';
+    } else {
+        lineas =
+            '<span style="display:block;font-weight:600;">' + fmt(pago.monto) + '</span>' +
+            '<span style="display:block;font-size:0.78em;color:#888;">Aplicado: ' + fmt(pago.aplicado) + '</span>' +
+            '<span style="display:block;font-size:0.75em;color:#888;">' + fmtFecha(pago.fecha) + '</span>';
+    }
+
+    return lineas;
+}
+
+// ══════════════════════════════════════════════════════
+//  VER TABLA DE AMORTIZACIÓN (calculada en frontend)
 // ══════════════════════════════════════════════════════
 function verTablaAmortizacion() {
     if (!_ofertaActiva || !_credito) return;
 
-    const o        = _ofertaActiva;
-    const total    = parseFloat(o.total_a_pagar);
-    const semanal  = parseFloat((total / _semanasActual).toFixed(2));
-    const fmt      = v => '$' + parseFloat(v).toLocaleString('es-MX', { minimumFractionDigits: 2 });
+    var o      = _ofertaActiva;
+    var total  = parseFloat(o.total_a_pagar);
+    var semanal = parseFloat((total / _semanasActual).toFixed(2));
+    var fmt    = function(v) { return '$' + parseFloat(v).toLocaleString('es-MX', { minimumFractionDigits: 2 }); };
+    var hoy    = new Date();
 
-    // Fecha de acuerdo = hoy
-    const hoy = new Date();
-    const añadirDias = (fecha, dias) => {
-        const d = new Date(fecha);
+    var añadirDias = function(fecha, dias) {
+        var d = new Date(fecha);
         d.setDate(d.getDate() + dias);
         return d;
     };
-    const fmtFecha = d => d.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    var fmtFecha = function(d) {
+        return d.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    };
 
-    // Resumen
     document.getElementById('amortTitulo').textContent = '📋 ' + o.nombre;
-    document.getElementById('amortResumenCards').innerHTML = `
-        <div class="col-6 col-md-3">
-            <div class="border rounded p-2">
-                <div class="small text-muted">Deuda Original</div>
-                <div class="fw-bold text-primary fs-5">${fmt(o.monto_base)}</div>
-            </div>
-        </div>
-        <div class="col-6 col-md-3">
-            <div class="border rounded p-2">
-                <div class="small text-muted">Descuento (${parseInt(o.porcentaje_descuento)}%)</div>
-                <div class="fw-bold text-danger fs-5">-${fmt(o.descuento_monto)}</div>
-            </div>
-        </div>
-        <div class="col-6 col-md-3">
-            <div class="border rounded p-2">
-                <div class="small text-muted">Total a Pagar</div>
-                <div class="fw-bold text-success fs-5">${fmt(total)}</div>
-            </div>
-        </div>
-        <div class="col-6 col-md-3">
-            <div class="border rounded p-2">
-                <div class="small text-muted">Pago Semanal</div>
-                <div class="fw-bold text-warning fs-5">${fmt(semanal)}</div>
-            </div>
-        </div>
-    `;
+    document.getElementById('amortResumenCards').innerHTML =
+        '<div class="col-6 col-md-3"><div class="border rounded p-2"><div class="small text-muted">Deuda Original</div><div class="fw-bold text-primary fs-5">' + fmt(o.monto_base) + '</div></div></div>' +
+        '<div class="col-6 col-md-3"><div class="border rounded p-2"><div class="small text-muted">Descuento (' + parseInt(o.porcentaje_descuento) + '%)</div><div class="fw-bold text-danger fs-5">-' + fmt(o.descuento_monto) + '</div></div></div>' +
+        '<div class="col-6 col-md-3"><div class="border rounded p-2"><div class="small text-muted">Total a Pagar</div><div class="fw-bold text-success fs-5">' + fmt(total) + '</div></div></div>' +
+        '<div class="col-6 col-md-3"><div class="border rounded p-2"><div class="small text-muted">Pago Semanal</div><div class="fw-bold text-warning fs-5">' + fmt(semanal) + '</div></div></div>';
 
-    // Tabla de amortización
-    let saldo       = total;
-    let filasHtml   = '';
-    for (let s = 1; s <= _semanasActual; s++) {
-        const fechaPago = añadirDias(hoy, (s - 1) * 7 + 8);
-        const capital   = (s < _semanasActual) ? semanal : parseFloat(saldo.toFixed(2));
-        saldo           = parseFloat((saldo - capital).toFixed(2));
+    var saldo     = total;
+    var filasHtml = '';
+    for (var s = 1; s <= _semanasActual; s++) {
+        var fechaPago = añadirDias(hoy, (s - 1) * 7 + 8);
+        var capital   = (s < _semanasActual) ? semanal : parseFloat(saldo.toFixed(2));
+        saldo         = parseFloat((saldo - capital).toFixed(2));
         if (saldo < 0) saldo = 0;
 
-        filasHtml += `<tr>
-            <td>Semana ${s}</td>
-            <td>${fmtFecha(fechaPago)}</td>
-            <td>${fmt(semanal)}</td>
-            <td>${fmt(capital)}</td>
-            <td>${fmt(saldo)}</td>
-        </tr>`;
+        filasHtml += '<tr>' +
+    '<td>Semana ' + s + '</td>' +
+    '<td>' + fmtFechaRango(fechaPago.toISOString().split('T')[0]) + '</td>' +
+    '<td>' +
+        '<span style="display:block;font-weight:600;">' + fmt(semanal) + '</span>' +
+        '<span style="display:block;font-size:0.82em;color:#888;">' + fmt(capital) + '</span>' +
+    '</td>' +
+    '<td>' + fmt(saldo) + '</td>' +
+    '<td>' + fmtPagoRealizado(null) + '</td>' +
+    '<td><span class="badge bg-warning text-dark">Pendiente</span></td>' +
+'</tr>';
     }
     document.getElementById('tablaAmortBody').innerHTML = filasHtml;
 
@@ -693,49 +947,143 @@ function guardarConvenio() {
 
     Swal.fire({
         title: '¿Confirmar convenio?',
-        html: `<strong>${_ofertaActiva.nombre}</strong><br>
-               ${_semanasActual} semanas — $${parseFloat(_ofertaActiva.total_a_pagar / _semanasActual).toFixed(2)} / semana`,
+        html: '<strong>' + _ofertaActiva.nombre + '</strong><br>' +
+              _semanasActual + ' semanas — $' + parseFloat(_ofertaActiva.total_a_pagar / _semanasActual).toFixed(2) + ' / semana',
         icon: 'question',
         showCancelButton: true,
         confirmButtonText: 'Sí, guardar',
         cancelButtonText: 'Cancelar',
         confirmButtonColor: '#764ba2',
-    }).then(result => {
+    }).then(function(result) {
         if (!result.isConfirmed) return;
 
-        const hoy       = new Date().toISOString().split('T')[0];
-        const total     = parseFloat(_ofertaActiva.total_a_pagar);
-        const semanal   = parseFloat((total / _semanasActual).toFixed(2));
+        var hoy     = new Date().toISOString().split('T')[0];
+        var total   = parseFloat(_ofertaActiva.total_a_pagar);
+        var semanal = parseFloat((total / _semanasActual).toFixed(2));
 
         http.request({
             endpoint: '/convenios/guardarConvenio',
             method: 'POST',
             data: {
-                id_credito:                     _credito.Id_credito,
-                id_producto_convenio:           _ofertaActiva.id_producto,
-                id_producto_convenio_detalle:   _ofertaActiva.id_detalle,
-                nombre_cliente:                 _credito.Nombre_cliente,
-                bucket_morosidad_real:          _credito.Bucket_Morosidad_Real,
-                dias_mora:                      _credito.Dias_mora,
-                avance_pago_plazo:              _credito.Avance_Pago_Plazo,
-                adeudo_total_original:          _credito.Adeudo_total,
-                porcentaje_descuento:           _ofertaActiva.porcentaje_descuento,
-                descuento_monto:                _ofertaActiva.descuento_monto,
-                total_a_pagar:                  total,
-                pago_inicial_monto:             _ofertaActiva.pago_inicial_monto || '',
-                numero_semanas:                 _semanasActual,
-                pago_semanal:                   semanal,
-                fecha_acuerdo:                  hoy,
+                id_credito:                   _credito.Id_credito,
+                id_producto_convenio:         _ofertaActiva.id_producto,
+                id_producto_convenio_detalle: _ofertaActiva.id_detalle,
+                nombre_cliente:               _credito.Nombre_cliente,
+                bucket_morosidad_real:        _credito.Bucket_Morosidad_Real,
+                dias_mora:                    _credito.Dias_mora,
+                avance_pago_plazo:            _credito.Avance_Pago_Plazo,
+                adeudo_total_original:        _credito.Adeudo_total,
+                porcentaje_descuento:         _ofertaActiva.porcentaje_descuento,
+                descuento_monto:              _ofertaActiva.descuento_monto,
+                total_a_pagar:                total,
+                pago_inicial_monto:           _ofertaActiva.pago_inicial_monto || '',
+                numero_semanas:               _semanasActual,
+                pago_semanal:                 semanal,
+                fecha_acuerdo:                hoy,
             },
-            onSuccess: (resp) => {
+            onSuccess: function(resp) {
                 if (resp.success) {
-                    Swal.fire('¡Guardado!', 'El convenio fue registrado exitosamente.', 'success');
+                    Swal.fire('¡Guardado!', 'El convenio fue registrado exitosamente.', 'success')
+                    .then(function() {
+                        document.getElementById('btnGuardar').style.display = 'none';
+                        document.getElementById('btnPdf').style.display     = 'inline-block';
+                        document.getElementById('btnCancelar').style.display = 'inline-block';
+                        window._idConvenioActivo = resp.datos.id_convenio;
+                    });
                 } else {
                     Swal.fire('Error', resp.mensaje || 'No se pudo guardar.', 'error');
                 }
             },
-            onError: () => Swal.fire('Error', 'Error de conexión.', 'error')
+            onError: function() { Swal.fire('Error', 'Error de conexión.', 'error'); }
         });
+    });
+}
+
+// ══════════════════════════════════════════════════════
+//  CANCELAR CONVENIO
+// ══════════════════════════════════════════════════════
+function cancelarConvenio() {
+    if (!window._idConvenioActivo) return;
+
+    Swal.fire({
+        title: '¿Cancelar convenio?',
+        html: 'Esta acción <strong>no se puede deshacer</strong>.<br>' +
+              'Las semanas pendientes quedarán marcadas como canceladas.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Sí, cancelar',
+        cancelButtonText: 'No, volver',
+        confirmButtonColor: '#ef4444',
+    }).then(function(result) {
+        if (!result.isConfirmed) return;
+
+        Swal.fire({
+            title: 'Cancelando...',
+            allowOutsideClick: false,
+            didOpen: function() { Swal.showLoading(); }
+        });
+
+        http.request({
+            endpoint: '/convenios/cancelarConvenio',
+            method: 'POST',
+            data: { id_convenio: window._idConvenioActivo },
+            onSuccess: function(resp) {
+                Swal.close();
+                if (!resp.success) {
+                    Swal.fire('Error', resp.mensaje || 'No se pudo cancelar.', 'error');
+                    return;
+                }
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Convenio cancelado',
+                    text: 'El convenio fue cancelado correctamente.',
+                    confirmButtonColor: '#764ba2',
+                }).then(function() {
+                    _repintarTablaCancelada(resp.datos.numero_semana_cancelacion);
+                    document.getElementById('btnCancelar').style.display = 'none';
+
+                    var banner = document.getElementById('bannerConvenioActivo');
+                    if (banner) {
+                        banner.className = 'alerta-incumplimiento';
+                        banner.innerHTML =
+                            '<i class="fa-solid fa-ban me-2"></i>' +
+                            '<strong>Convenio cancelado.</strong> ' +
+                            'Las semanas pendientes quedaron anuladas. ' +
+                            'Es posible generar un nuevo convenio.';
+                    }
+                });
+            },
+            onError: function() {
+                Swal.close();
+                Swal.fire('Error', 'Error de conexión.', 'error');
+            }
+        });
+    });
+}
+
+// ══════════════════════════════════════════════════════
+//  REPINTAR TABLA TRAS CANCELACIÓN
+// ══════════════════════════════════════════════════════
+function _repintarTablaCancelada(semanaCancelacion) {
+    var filas = document.querySelectorAll('#tablaAmortBody tr');
+    filas.forEach(function(fila, idx) {
+        var numSemana    = idx + 1;
+        var celdaEstatus = fila.querySelector('td:last-child');
+
+        if (numSemana === semanaCancelacion) {
+            fila.style.background = 'rgba(245,158,11,0.08)';
+            celdaEstatus.innerHTML =
+                '<span class="badge bg-warning text-dark">' +
+                '<i class="fa-solid fa-ban me-1"></i>Cancelado aquí</span>';
+        } else if (numSemana > semanaCancelacion) {
+            fila.style.opacity         = '0.4';
+            fila.style.textDecoration  = 'line-through';
+            fila.style.color           = '#ef4444';
+            celdaEstatus.style.textDecoration = 'none';
+            celdaEstatus.style.color          = '';
+            celdaEstatus.innerHTML =
+                '<span class="badge bg-danger">No pagado</span>';
+        }
     });
 }
 
@@ -745,12 +1093,12 @@ function guardarConvenio() {
 function descargarPdf() {
     if (!_credito) return;
 
-    const form = document.createElement('form');
+    var form = document.createElement('form');
     form.method = 'POST';
     form.action = '/convenios/descargarPdf';
     form.style.display = 'none';
 
-    const inp = document.createElement('input');
+    var inp = document.createElement('input');
     inp.name  = 'id_credito';
     inp.value = _credito.Id_credito;
     form.appendChild(inp);
@@ -759,4 +1107,83 @@ function descargarPdf() {
     form.submit();
     document.body.removeChild(form);
 }
+
+// ══════════════════════════════════════════════════════
+//  HISTORIAL DE CONVENIOS
+// ══════════════════════════════════════════════════════
+function abrirHistorial() {
+    if (!_credito) return;
+
+    // Mostrar modal con loading
+    document.getElementById('historialLoading').style.display    = 'block';
+    document.getElementById('historialVacio').style.display      = 'none';
+    document.getElementById('historialTablaWrap').style.display  = 'none';
+    document.getElementById('modalHistorialCredito').textContent = 'Crédito #' + _credito.Id_credito;
+
+    var modal = new bootstrap.Modal(document.getElementById('modalHistorial'));
+    modal.show();
+
+    http.request({
+        endpoint: '/convenios/getHistorialConvenios',
+        method: 'POST',
+        data: { id_credito: _credito.Id_credito },
+        onSuccess: function(resp) {
+            document.getElementById('historialLoading').style.display = 'none';
+
+            if (!resp.success || !resp.datos || resp.datos.length === 0) {
+                document.getElementById('historialVacio').style.display = 'block';
+                return;
+            }
+
+            var fmt = function(v) {
+                return '$' + parseFloat(v).toLocaleString('es-MX', { minimumFractionDigits: 2 });
+            };
+            var fmtFecha = function(s) {
+                if (!s) return '—';
+                var p = s.split('-');
+                return p[2] + '/' + p[1] + '/' + p[0];
+            };
+            var badgeEstatus = function(e) {
+                var labels = {
+                    'activo':         'Activo',
+                    'cancelado':      'Cancelado',
+                    'completado':     'Completado',
+                    'incumplimiento': 'Incumplimiento'
+                };
+                return '<span class="badge-estatus-' + e + '">' + (labels[e] || e) + '</span>';
+            };
+
+            var filas = resp.datos.map(function(c, i) {
+                return '<tr>' +
+                    '<td>' + (i + 1) + '</td>' +
+                    '<td>' + fmtFecha(c.fecha_acuerdo) + '</td>' +
+                    '<td>' + c.nombre_producto + '</td>' +
+                    '<td>' + fmt(c.total_a_pagar) + '</td>' +
+                    '<td>' + c.numero_semanas + ' sem</td>' +
+                    '<td>' + badgeEstatus(c.estatus) + '</td>' +
+                    '<td>' + (c.usuario_alta || '—') + '</td>' +
+                    '<td>' + (c.usuario_cancela || '—') + '</td>' +
+                    '<td>' + fmtFecha(c.fecha_cancelacion) + '</td>' +
+                '</tr>';
+            }).join('');
+
+            document.getElementById('tablaHistorialBody').innerHTML   = filas;
+            document.getElementById('historialTablaWrap').style.display = 'block';
+        },
+        onError: function() {
+            document.getElementById('historialLoading').style.display = 'none';
+            document.getElementById('historialVacio').style.display   = 'block';
+        }
+    });
+}
+
+window.abrirHistorial = abrirHistorial;
+
+window.buscarCredito    = buscarCredito;
+window.seleccionarOferta = seleccionarOferta;
+window.descargarPdf     = descargarPdf;
+window.guardarConvenio  = guardarConvenio;
+window.verTablaAmortizacion = verTablaAmortizacion;
+window.actualizarSlider = actualizarSlider;
+window.cancelarConvenio = cancelarConvenio;
 </script>
