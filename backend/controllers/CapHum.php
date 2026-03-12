@@ -1445,7 +1445,8 @@ class CapHum extends Controller
                     27: 'fa fa-chart-line', 29: 'fa fa-chart-line', 30: 'fa fa-chart-line', 31: 'fa fa-chart-line',
                     32: 'fa fa-chart-line', 33: 'fa fa-chart-line', 34: 'fa fa-chart-line', 35: 'fa fa-chart-line',
                     36: 'fa fa-chart-line', 37: 'fa fa-chart-line', 38: 'fa fa-chart-line', 39: 'fa fa-chart-line', 40: 'fa fa-chart-line',
-                    41: 'fa fa-globe', 42: 'fa fa-users', 44: 'fa fa-graduation-cap'
+                    41: 'fa fa-globe', 42: 'fa fa-users', 44: 'fa fa-graduation-cap',
+                    47: 'fa fa-chart-pie'
                 };
 
                 Object.keys(modulosPorPestana).forEach(pestana => {

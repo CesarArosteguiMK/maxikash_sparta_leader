@@ -39,6 +39,7 @@ if (!function_exists('getMenuItemsConfig')) {
             ['url' => '/sabueso/ticket', 'label' => 'Sabueso - Ticket', 'icon' => 'fa-solid fa-dog', 'bg' => 'bg-teal', 'modulos' => [18]],
             ['url' => '/sabueso/paneladmin', 'label' => 'Panel Admin', 'icon' => 'fa-solid fa-dog', 'bg' => 'bg-teal', 'modulos' => [19]],
             ['url' => '/sabueso/cerradoEliminado', 'label' => 'Cerrado/Eliminado', 'icon' => 'fa-solid fa-dog', 'bg' => 'bg-teal', 'modulos' => [19]],
+            ['url' => '/sabueso/estadisticas', 'label' => 'Sabueso - Estadísticas', 'icon' => 'fa-solid fa-chart-column', 'bg' => 'bg-teal', 'modulos' => [47]],
             ['url' => '/Despachos/AsignacionCreditosDespacho', 'label' => 'Despachos', 'icon' => 'fa-solid fa-building-columns', 'bg' => 'bg-yellow', 'modulos' => [20]],
             ['url' => '/Despachos/MiGestion', 'label' => 'Mi Gestión', 'icon' => 'fa-solid fa-chart-gantt', 'bg' => 'bg-yellow', 'modulos' => [20]],
             ['url' => '/convenios/consulta', 'label' => 'Convenios', 'icon' => 'fa-solid fa-handshake', 'bg' => 'bg-purple', 'modulos' => [46]],

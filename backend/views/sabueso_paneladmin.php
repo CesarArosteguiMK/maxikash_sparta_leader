@@ -504,9 +504,43 @@
     #modalVerEvidenciaDictamen .modal-content { border: none; border-radius: 12px; overflow: visible; box-shadow: 0 12px 40px rgba(0,0,0,0.25); }
     #modalVerEvidenciaDictamen #modalVerEvidenciaDictamenImg { transition: opacity 0.2s ease; }
     @keyframes evidenciaVerEntrada { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+    /* Panel Admin: columnas y textos un poco más chicos; botones tipo menú gestión (btn-sm estándar) */
+    #tablaTicketsPanel.table thead th {
+        font-size: 0.78rem;
+        letter-spacing: 0.02em;
+    }
+    #tablaTicketsPanel.table tbody td {
+        font-size: 0.8125rem;
+    }
+    #tablaTicketsPanel.table tbody td .small,
+    #tablaTicketsPanel.table tbody td small {
+        font-size: 0.72rem;
+    }
+    /* Botones acción: mismo tamaño que analítica/gestión (btn-sm) */
+    #tablaTicketsPanel.table tbody td:last-child .btn {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.8125rem;
+        line-height: 1.35;
+    }
     #tablaTicketsPanel th:nth-child(6) { min-width: 10rem; white-space: nowrap; }
-    #tablaTicketsPanel .d-flex.flex-wrap.gap-1 { flex-wrap: wrap; gap: 0.35rem !important; }
+    #tablaTicketsPanel .d-flex.flex-wrap.gap-1 { flex-wrap: wrap; gap: 0.4rem !important; }
     #tablaTicketsPanel .d-flex.flex-wrap.gap-1 .btn { flex-shrink: 0; }
+    #tablaTicketsPanel.table tbody td:last-child .d-flex.flex-column {
+        gap: 0.4rem !important;
+        align-items: center;
+    }
+    /* Prórroga +12h: reloj ámbar + "2" al lado = segunda ventana */
+    #tablaTicketsPanel .dictamen-countdown-prorroga .fa-clock { color: #d97706 !important; }
+    #tablaTicketsPanel .dictamen-prorroga-marca,
+    #tablaTickets .dictamen-prorroga-marca {
+        font-size: 0.6rem;
+        font-weight: 800;
+        color: #b45309;
+        margin-left: 2px;
+        line-height: 1;
+        vertical-align: super;
+    }
+    #tablaTickets .dictamen-countdown-prorroga .fa-clock { color: #d97706 !important; }
     #tablaTicketsPanel tr.fila-dictamen-enviado { border-left: 3px solid #0d6efd; }
     #tablaTicketsPanel .btn-dictamen-ojito { cursor: pointer; }
     @media (max-width: 768px) {
@@ -672,6 +706,8 @@
                     <th>Quién levantó</th>
                     <th>Asignado a</th>
                     <th>Tiempo para visitar</th>
+                    <th title="Resultado actual del dictamen del sistema">Resultado DS</th>
+                    <th title="Prórroga (+12 h): activa o ya usada">Prórroga</th>
                     <th></th>
                     <th>Acciones</th>
                 </tr>
@@ -1142,7 +1178,7 @@
 <script>
 (function() {
     var SCRIM_Z = 1060;
-    var CHILD_MODALS = ['modalAsignarA', 'modalAnaliticaSpatial', 'modalAnaliticaPayments', 'modalAnaliticaCompliance', 'modalLecturaIA', 'modalEvidenciaVerificacion', 'modalPrediccionIA', 'modalMapaGrande', 'modalMapaAlternasGrande', 'modalEvidenciaRastreo', 'modalBitacoraAmpliada', 'modalDictamenAmpliada', 'modalDetalleDictamen'];
+    var CHILD_MODALS = ['modalAsignarA', 'modalAnaliticaSpatial', 'modalAnaliticaPayments', 'modalAnaliticaCompliance', 'modalLecturaIA', 'modalEvidenciaVerificacion', 'modalPrediccionIA', 'modalMapaGrande', 'modalMapaAlternasGrande', 'modalEvidenciaRastreo', 'modalBitacoraAmpliada', 'modalDictamenAmpliada', 'modalDetalleDictamen', 'modalDictamenSistema'];
     var scrimEl = null;
     var parentModal = null;
     function getOrCreateScrim() {
@@ -1249,6 +1285,27 @@
                 el.addEventListener('hidden.bs.modal', onChildModalHidden);
             }
         });
+        // Dictamen sistema: al cerrar, limpiar scrim/backdrop colgado (tras prórroga o refresh)
+        var dictamenSistemaEl = document.getElementById('modalDictamenSistema');
+        if (dictamenSistemaEl) {
+            dictamenSistemaEl.addEventListener('hidden.bs.modal', function() {
+                setTimeout(function() {
+                    var open = document.querySelectorAll('.modal.show');
+                    if (open.length === 0) {
+                        document.querySelectorAll('.modal-backdrop').forEach(function(b) { b.remove(); });
+                        document.body.classList.remove('modal-open');
+                        document.body.style.overflow = '';
+                        document.body.style.paddingRight = '';
+                    } else if (document.querySelectorAll('.modal-backdrop').length > open.length) {
+                        var backs = document.querySelectorAll('.modal-backdrop');
+                        while (backs.length > open.length && backs.length > 0) {
+                            backs[backs.length - 1].remove();
+                            backs = document.querySelectorAll('.modal-backdrop');
+                        }
+                    }
+                }, 200);
+            });
+        }
         var verEvidenciaEl = document.getElementById('modalVerEvidenciaDictamen');
         if (verEvidenciaEl) {
             verEvidenciaEl.addEventListener('shown.bs.modal', function() {
@@ -1940,6 +1997,9 @@
         <button type="button" class="btn btn-warning btn-sm" id="btnGenerarDictamenSistema" style="display:none;" onclick="ejecutarDictamenSistema()">
             <i class="fa-solid fa-robot me-1"></i>Generar dictamen del sistema
         </button>
+        <button type="button" class="btn btn-outline-warning btn-sm" id="btnOtorgarProrrogaDictamenSistema" style="display:none;" onclick="ejecutarOtorgarProrrogaDictamenSistema()">
+            <i class="fa-solid fa-hourglass-half me-1"></i>Otorgar prórroga (+12 h)
+        </button>
         <?php /* Simulaciones ocultas: quitar class d-none del wrap #dictamenSistemaSimWrap para reactivar en el futuro */ ?>
         <div id="dictamenSistemaSimWrap" class="d-none w-100">
             <div class="d-flex justify-content-end mb-1">
@@ -1967,13 +2027,48 @@
 <script>
 var dictamenSistemaTicketId = 0;
 
+function setBotonesDictamenSistema(ds) {
+    var btnGen = document.getElementById('btnGenerarDictamenSistema');
+    var btnPro = document.getElementById('btnOtorgarProrrogaDictamenSistema');
+    if (!btnGen || !btnPro) return;
+    btnGen.style.display = 'none';
+    btnPro.style.display = 'none';
+    if (!ds) {
+        btnGen.style.display = '';
+        return;
+    }
+    var res = (ds.resultado || '').trim();
+    if (res === 'pendiente') {
+        btnGen.style.display = '';
+        return;
+    }
+    // Prórroga activa: no mostrar Generar; el dictamen se evalúa solo al vencer las 12h (getDictamenSistema dispara generar)
+    if (res === 'prorroga_activa') {
+        btnGen.style.display = 'none';
+        btnPro.style.display = 'none';
+        return;
+    }
+    // Prórroga solo en no cumplidos y no pagados (validación final la hace backend)
+    var d = ds.detalle_parsed || {};
+    var noCumplidos = ['no_visito', 'visito_telefonico', 'distancia_lejana', 'visita_parcial', 'sin_coordenadas'];
+    var puedeProrroga = noCumplidos.indexOf(res) !== -1
+        && !d.pago_en_ventana
+        && !(d.prorroga && d.prorroga.otorgada);
+    if (puedeProrroga) btnPro.style.display = '';
+}
+
 function abrirDictamenSistema(idTicket) {
     dictamenSistemaTicketId = idTicket;
+    var elModal = document.getElementById('modalDictamenSistema');
     var body = document.getElementById('modalDictamenSistemaBody');
     body.innerHTML = '<div class="text-center py-4"><i class="fa-solid fa-spinner fa-spin fa-2x text-muted"></i><p class="mt-2 text-muted">Consultando...</p></div>';
     document.getElementById('btnGenerarDictamenSistema').style.display = 'none';
-    var modal = new bootstrap.Modal(document.getElementById('modalDictamenSistema'));
-    modal.show();
+    document.getElementById('btnOtorgarProrrogaDictamenSistema').style.display = 'none';
+    // Una sola instancia: evita backdrops duplicados al refrescar tras prórroga/generar
+    var modal = bootstrap.Modal.getOrCreateInstance(elModal);
+    if (!elModal.classList.contains('show')) {
+        modal.show();
+    }
 
     http.request({
         endpoint: '/sabueso/getDictamenSistema',
@@ -1986,18 +2081,48 @@ function abrirDictamenSistema(idTicket) {
             var ds = (res.datos || {}).dictamen_sistema;
             if (!ds) {
                 body.innerHTML = '<div class="alert alert-info mb-0"><i class="fa-solid fa-circle-info me-1"></i>No se ha generado aún el dictamen del sistema para este ticket. Haga clic en <strong>Generar dictamen del sistema</strong> para iniciar la verificación automática.</div>';
-                document.getElementById('btnGenerarDictamenSistema').style.display = '';
+                setBotonesDictamenSistema(null);
                 return;
             }
             if (ds.resultado === 'pendiente') {
                 body.innerHTML = '<div class="alert alert-info mb-0"><i class="fa-solid fa-circle-info me-1"></i>El dictamen del sistema está pendiente. Haga clic en <strong>Generar</strong> para ejecutar la verificación.</div>';
-                document.getElementById('btnGenerarDictamenSistema').style.display = '';
+                setBotonesDictamenSistema(ds);
                 return;
             }
             renderDictamenSistemaResultado(ds, body);
+            setBotonesDictamenSistema(ds);
         },
         onError: function() {
             body.innerHTML = '<div class="alert alert-danger mb-0">Error al consultar el dictamen del sistema.</div>';
+        }
+    });
+}
+
+function ejecutarOtorgarProrrogaDictamenSistema() {
+    var body = document.getElementById('modalDictamenSistemaBody');
+    var btn = document.getElementById('btnOtorgarProrrogaDictamenSistema');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-1"></i>Procesando...';
+    http.request({
+        endpoint: '/sabueso/otorgarProrrogaDictamenSistema',
+        metodo: 'POST',
+        data: JSON.stringify({ id_ticket: dictamenSistemaTicketId }),
+        contentType: 'application/json',
+        processData: false,
+        showLoader: false,
+        onSuccess: function(res) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-hourglass-half me-1"></i>Otorgar prórroga (+12 h)';
+            if (!res.success) {
+                body.innerHTML = '<div class="alert alert-danger mb-0"><i class="fa-solid fa-triangle-exclamation me-1"></i>' + (res.mensaje || 'No se pudo otorgar la prórroga') + '</div>';
+                return;
+            }
+            abrirDictamenSistema(dictamenSistemaTicketId);
+        },
+        onError: function() {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-hourglass-half me-1"></i>Otorgar prórroga (+12 h)';
+            body.innerHTML = '<div class="alert alert-danger mb-0">Error de conexión al otorgar la prórroga.</div>';
         }
     });
 }
@@ -2061,6 +2186,41 @@ var DICTAMEN_SISTEMA_COPY = {
         titulo: 'Sin comparación por coordenadas',
         subtitulo: 'No fue posible contrastar ubicaciones',
         mensajeDefault: 'Faltan coordenadas en las gestiones nuevas o en las direcciones del dictamen; no se pudo calcular distancia.'
+    },
+    visita_parcial: {
+        titulo: 'Visita parcial',
+        subtitulo: 'Solo cubrió parte de direcciones del dictamen',
+        mensajeDefault: 'Se detectaron visitas de campo en algunas direcciones, pero no en todas.'
+    },
+    visito_todas_direcciones: {
+        titulo: 'Cobertura total',
+        subtitulo: 'Visitó todas las direcciones del dictamen',
+        mensajeDefault: 'Se detectó cobertura completa de direcciones con visita de campo.'
+    },
+    cumplido_pago: {
+        titulo: 'Cumplido por pago',
+        subtitulo: 'Pago dentro de las 12h',
+        mensajeDefault: 'El cliente registró pago en estado de cuenta dentro de las 12h evaluadas; se marca cumplido.'
+    },
+    cumplido_sin_pago_todas_direcciones: {
+        titulo: 'Cumplido sin pago',
+        subtitulo: 'Sin pago, pero con cobertura total de direcciones',
+        mensajeDefault: 'No hubo pago dentro de las 12h, pero el gestor sí cubrió todas las direcciones del dictamen.'
+    },
+    prorroga_activa: {
+        titulo: 'Prórroga activa',
+        subtitulo: 'Se otorgaron 12 horas adicionales',
+        mensajeDefault: 'Mientras esté activa no se puede generar de nuevo a mano. Al vencer el plazo, la evaluación se ejecuta sola al abrir este panel o al cargar la tabla (automático).'
+    },
+    cumplio_prorroga: {
+        titulo: 'Cumplió en prórroga',
+        subtitulo: 'Resultado final tras la prórroga',
+        mensajeDefault: 'Durante la prórroga se logró cumplimiento por pago dentro de las 12h o por cobertura total.'
+    },
+    no_cumplio_prorroga: {
+        titulo: 'No cumplió prórroga',
+        subtitulo: 'Prórroga agotada sin cumplimiento',
+        mensajeDefault: 'Terminó la prórroga y no se acreditó pago dentro de las 12h ni cobertura total de direcciones.'
     }
 };
 
@@ -2078,7 +2238,14 @@ function renderDictamenSistemaResultado(ds, body) {
         'visito_campo': 'success',
         'visito_telefonico': 'warning',
         'distancia_lejana': 'danger',
-        'sin_coordenadas': 'secondary'
+        'sin_coordenadas': 'secondary',
+        'visita_parcial': 'warning',
+        'visito_todas_direcciones': 'success',
+        'cumplido_pago': 'success',
+        'cumplido_sin_pago_todas_direcciones': 'success',
+        'prorroga_activa': 'warning',
+        'cumplio_prorroga': 'success',
+        'no_cumplio_prorroga': 'danger'
     };
     var cls = resultadoClase[resultado] || 'secondary';
 
@@ -2131,8 +2298,31 @@ function renderDictamenSistemaResultado(ds, body) {
     }
     html += '</div></div></div>';
 
+    // Reglas de cumplimiento: pago dentro de las 12h + cobertura de direcciones
+    var pagoWin = !!d.pago_en_ventana;
+    var dirTot = (d.direcciones_dictamen_total != null ? d.direcciones_dictamen_total : '—');
+    var dirVis = (d.direcciones_visitadas != null ? d.direcciones_visitadas : '—');
+    html += '<div class="card border-0 shadow-sm mb-3"><div class="card-body py-3 px-3">';
+    html += '<div class="row g-3">';
+    html += '<div class="col-md-4"><div class="text-muted small">Pago dentro de las 12h</div><div class="fw-semibold ' + (pagoWin ? 'text-success' : 'text-danger') + '">' + (pagoWin ? 'Sí' : 'No') + '</div></div>';
+    html += '<div class="col-md-4"><div class="text-muted small">Direcciones visitadas</div><div class="fw-semibold">' + dirVis + ' / ' + dirTot + '</div></div>';
+    html += '<div class="col-md-4"><div class="text-muted small">Regla aplicada</div><div class="fw-semibold small">' + escHtml((d.cumplimiento_etiqueta || '—')) + '</div></div>';
+    html += '</div>';
+    if (d.ventana_revision && d.ventana_revision.inicio) {
+        html += '<div class="small text-muted mt-2"><i class="fa-regular fa-clock me-1"></i>Ventana evaluada: ' + escHtml(d.ventana_revision.inicio || '—') + ' a ' + escHtml(d.ventana_revision.fin || '—') + ' (' + escHtml(d.ventana_revision.tipo || '12h') + ')</div>';
+    }
+    html += '</div></div>';
+
     if (ds.nombre_gestor) {
         html += '<div class="small text-muted mb-3"><i class="fa-solid fa-user me-1"></i>Gestor evaluado: <strong>' + escHtml(ds.nombre_gestor) + '</strong></div>';
+    }
+
+    if (d.prorroga && d.prorroga.otorgada) {
+        html += '<div class="alert alert-warning small">';
+        html += '<div><strong><i class="fa-solid fa-hourglass-half me-1"></i>Prórroga:</strong> ' + (d.prorroga.evaluada ? 'Evaluada' : 'Activa') + '</div>';
+        html += '<div>Otorgada: ' + escHtml(d.prorroga.fecha_otorgada || '—') + ' · Límite: ' + escHtml(d.prorroga.fecha_limite || '—') + '</div>';
+        if (d.prorroga.nombre_otorga) html += '<div>Autorizó: ' + escHtml(d.prorroga.nombre_otorga) + '</div>';
+        html += '</div>';
     }
 
     // Análisis detallado

@@ -240,7 +240,8 @@ SCRIPT;
             el.innerHTML += html;
         }
 JS;
-        $script .= "\n\n        function actualizarCountdownsDictamen(selector) {\n            var sel = selector || '#tablaTicketsPanel';\n            $(sel + ' .dictamen-countdown[data-fecha-envio]').each(function() {\n                var el = this;\n                var f = $(el).attr('data-fecha-envio');\n                if (!f) return;\n                var envio = new Date(f);\n                var fin = new Date(envio.getTime() + 12 * 60 * 60 * 1000);\n                var now = new Date();\n                var ms = fin - now;\n                var txt = '-';\n                var txtCorto = '-';\n                var expired = ms <= 0;\n                if (ms > 0) {\n                    var h = Math.floor(ms / 3600000);\n                    var m = Math.floor((ms % 3600000) / 60000);\n                    txt = 'Tiempo restante: ' + h + 'h ' + m + 'm';\n                    txtCorto = h + 'h ' + m + 'm';\n                } else {\n                    txt = 'Plazo vencido';\n                    txtCorto = 'Plazo vencido';\n                }\n                $(el).attr('title', txt).attr('data-bs-title', txt).toggleClass('text-danger', expired);\n                var txtEl = $(el).find('.dictamen-countdown-text');\n                if (txtEl.length) txtEl.text(txtCorto).toggleClass('text-danger', expired);\n            });\n        }\n        function attrEsc(s){ if (s==null||s===undefined) return ''; var x=(s+'').split('&').join('&amp;').split('<').join('&lt;'); return x.split('\"').join('&quot;'); }\n        $(document).ready(function() {\n            configuraTabla(\"#tablaTicketsPanel\", {\n                registrosPorPagina: 10,\n                order: [[1, 'desc']],\n                columns: " . $columnsJson['columnsJs'] . "\n            });\n            getTicketsPanelAdmin();\n        });\n\n        function getTicketsPanelAdmin() {\n            http.request({\n                endpoint: \"/sabueso/getTicketsPanelAdmin\",\n                metodo: \"POST\",\n                onSuccess: function(resp) {\n                    var datos = (resp.datos || []).map(function(t) {\n                        var fechaCreacion = t.fecha_creacion ? new Date(t.fecha_creacion).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—';\n                        var fechaVenc = t.fecha_vencimiento ? new Date(t.fecha_vencimiento).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—';\n                        var prioridadNombre = (t.prioridad_nombre || '').toLowerCase();\n                        var prioridadBadge = '<span class=\"badge bg-label-secondary\">' + (t.prioridad_nombre || '—') + '</span>';\n                        if (prioridadNombre.indexOf('alta') !== -1) prioridadBadge = '<span class=\"badge bg-danger text-white\">' + (t.prioridad_nombre || '—') + '</span>';\n                        else if (prioridadNombre.indexOf('medio') !== -1 || prioridadNombre.indexOf('media') !== -1) prioridadBadge = '<span class=\"badge\" style=\"background-color:#fd7e14;color:#fff;\">' + (t.prioridad_nombre || '—') + '</span>';\n                        else if (prioridadNombre.indexOf('bajo') !== -1 || prioridadNombre.indexOf('baja') !== -1) prioridadBadge = '<span class=\"badge\" style=\"background-color:#ffc107;color:#212529;\">' + (t.prioridad_nombre || '—') + '</span>';\n                        else if (prioridadNombre.indexOf('sin prioridad') !== -1) prioridadBadge = '<span class=\"badge bg-secondary\" style=\"background-color:#6c757d!important;color:#fff;\">' + (t.prioridad_nombre || '—') + '</span>';\n                        var estadoBadge = (t.asignado_nombre && (t.asignado_nombre + '').trim()) ? '<span class=\"badge bg-success text-white\">Asignado</span>' : '<span class=\"badge bg-label-secondary\">Abierto</span>';\n                        var vistoHtml = '';\n                        if ((t.dictamen_estado || '') === 'enviado_al_gestor') {\n                            var vistoTexto = t.dictamen_fecha_visto ? (new Date(t.dictamen_fecha_visto).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' }) + ' ' + new Date(t.dictamen_fecha_visto).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })) : 'No visto';\n                            var iconoOjo = (t.dictamen_fecha_visto && (t.dictamen_fecha_visto + '').trim()) ? 'fa-eye' : 'fa-eye-slash';\n                            var tituloOjo = (t.dictamen_fecha_visto && (t.dictamen_fecha_visto + '').trim()) ? ('Visto: ' + vistoTexto) : 'No visto. Clic para ver dictamen';\n                            vistoHtml = '<span class=\"d-inline-flex align-items-center gap-1 justify-content-end btn-dictamen-ojito\" role=\"button\" tabindex=\"0\" data-bs-toggle=\"tooltip\" data-bs-title=\"' + (tituloOjo + '').replace(/\\x22/g, '&quot;') + '\" data-id-ticket=\"' + (t.id_ticket || '') + '\"><i class=\"fa ' + iconoOjo + ' text-info small\"></i></span>';\n                        }\n                        var tiempoVisitarHtml = '—';\n                        var fEnv = (t.dictamen_fecha_envio || '').trim();\n                        var esNuevo = fEnv && new Date(fEnv) >= new Date('2026-03-09T00:00:00');\n                        if ((t.dictamen_estado || '') === 'enviado_al_gestor' && esNuevo && fEnv) {\n                            var envio = new Date(fEnv);\n                            var fin = new Date(envio.getTime() + 12 * 60 * 60 * 1000);\n                            var now = new Date();\n                            var ms = fin - now;\n                            var txtInicial = ms > 0 ? (Math.floor(ms / 3600000) + 'h ' + Math.floor((ms % 3600000) / 60000) + 'm') : 'Plazo vencido';\n                            tiempoVisitarHtml = '<span class=\"d-inline-flex align-items-center gap-1 dictamen-countdown cursor-pointer\" role=\"button\" tabindex=\"0\" data-fecha-envio=\"' + fEnv.replace(/\\x22/g, '&quot;') + '\" data-id-ticket=\"' + (t.id_ticket || '') + '\" data-bs-toggle=\"tooltip\"><i class=\"fa-solid fa-clock text-info small\"></i><span class=\"dictamen-countdown-text\">' + txtInicial + '</span></span>';\n                        }\n                        var row = {\n                            _fecha_creacion: (t.fecha_creacion || ''),\n                            folio_tipo: '<div class=\"fw-semibold\">' + (t.folio || '—') + '</div><div class=\"small text-muted mt-1\">' + (t.tipo_ticket_nombre || '—') + '</div>',\n                            estado: estadoBadge,\n                            prioridad: prioridadBadge,\n                            credito: '<small>#' + (t.id_credito != null ? t.id_credito : '—') + '</small>',\n                            fechas: '<div class=\"small d-flex align-items-center gap-1\"><i class=\"fa fa-calendar-plus-o text-muted\" style=\"width: 1rem;\"></i><span>Creación: ' + fechaCreacion + '</span></div><div class=\"small text-muted d-flex align-items-center gap-1 mt-1\"><i class=\"fa fa-calendar-times-o\" style=\"width: 1rem;\"></i><span>Vencimiento: ' + fechaVenc + '</span></div>',\n                            creador: '<small class=\"d-flex align-items-center gap-1\"><i class=\"fa fa-user\"></i>' + (t.creador_nombre || '—') + '</small>',\n                            asignado: (t.asignado_nombre && t.asignado_nombre.trim()) ? '<small class=\"d-flex align-items-center gap-1\"><i class=\"fa fa-user-check text-success\"></i>' + t.asignado_nombre + '</small>' : '<span class=\"text-muted\">—</span>',\n                            tiempo_visitar: tiempoVisitarHtml,\n                            dictamen_visto: vistoHtml,\n                            acciones: (function(){ var fEnvDS = (t.dictamen_fecha_envio || '').trim(); var ticketDesdeMarzo10 = t.fecha_creacion && (new Date(t.fecha_creacion) >= new Date(2026, 2, 10)); var plazoVencido = false; if (fEnvDS && ticketDesdeMarzo10 && (t.dictamen_estado || '') === 'enviado_al_gestor') { var plazoDS = new Date(fEnvDS).getTime() + 12*60*60*1000; plazoVencido = (Date.now() >= plazoDS); } var btns = '<div class=\"d-flex flex-column gap-1 align-items-stretch\" style=\"min-width:2.5rem;\"><button class=\"btn btn-sm btn-primary btn-rastreo\" onclick=\"abrirRastreo(this)\" data-id-credito=\"' + (t.id_credito != null ? t.id_credito : 0) + '\" data-id-ticket=\"' + (t.id_ticket) + '\" data-asignado=\"' + attrEsc(t.asignado_nombre) + '\" data-creador-nombre=\"' + attrEsc(t.creador_nombre) + '\" data-fecha-creacion=\"' + attrEsc(t.fecha_creacion) + '\" title=\"Iniciar rastreo\"><i class=\"fa-solid fa-magnifying-glass-plus\"></i></button>'; if (plazoVencido) { btns += '<button type=\"button\" class=\"btn btn-sm btn-warning btn-dictamen-sistema\" onclick=\"abrirDictamenSistema(' + t.id_ticket + ')\" title=\"Dictamen del sistema\"><i class=\"fa-solid fa-robot\"></i></button>'; } btns += '<button class=\"btn btn-sm btn-secondary\" onclick=\"cerrarTicketPanel(' + (t.id_ticket) + ')\" title=\"Cerrar ticket\"><i class=\"fa fa-minus\"></i></button><button class=\"btn btn-sm btn-danger\" onclick=\"eliminarTicketPanel(' + (t.id_ticket) + ')\" title=\"Eliminar ticket\"><i class=\"fa fa-trash\"></i></button></div>'; return btns; })(),\n                            _id_ticket: t.id_ticket,\n                            _dictamen_estado: t.dictamen_estado || '',\n                            _dictamen_fecha_visto: t.dictamen_fecha_visto || ''\n                        };\n                        return row;\n                    });\n                    var tabla = $('#tablaTicketsPanel').DataTable();\n                    tabla.clear().rows.add(datos).draw();\n                    tabla.rows().every(function() {\n                        var d = this.data();\n                        if (d._dictamen_estado === 'enviado_al_gestor') {\n                            $(this.node()).addClass('fila-dictamen-enviado').attr('data-id-ticket', d._id_ticket || '');\n                        }\n                    });\n                    if (typeof actualizarCountdownsDictamen === 'function') actualizarCountdownsDictamen('#tablaTicketsPanel');\n                    $('#tablaTicketsPanel [data-bs-toggle=\"tooltip\"]').tooltip();\n                },\n                onError: function() {\n                    var tabla = $('#tablaTicketsPanel').DataTable();\n                    tabla.clear().draw();\n                }\n            });\n        }\n        setInterval(function() { if (typeof actualizarCountdownsDictamen === 'function') actualizarCountdownsDictamen('#tablaTicketsPanel'); }, 1000);\n        function abrirRastreo(btn) {\n            var idCredito = parseInt(btn.getAttribute('data-id-credito')||0, 10);\n            var idTicket = parseInt(btn.getAttribute('data-id-ticket')||0, 10);\n            var asignadoNombre = (btn.getAttribute('data-asignado')||'').trim();\n            var creadorNombre = (btn.getAttribute('data-creador-nombre')||'').trim();\n            var fechaCreacionRaw = (btn.getAttribute('data-fecha-creacion')||'').trim();\n            var fechaCreacionDisplay = fechaCreacionRaw ? (new Date(fechaCreacionRaw).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' }) + ' ' + new Date(fechaCreacionRaw).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })) : '—';\n            ticketIdRastreoActual = idTicket || null;\n            if (!idCredito || isNaN(idCredito)) { Swal.fire({ icon: 'warning', title: 'Rastreo', text: 'No hay ID de crédito para este ticket.' }); return; }\n            http.request({\n                endpoint: \"/sabueso/getDatosCredito\",\n                metodo: \"POST\",\n                data: JSON.stringify({ id_credito: idCredito }),\n                contentType: \"application/json\",\n                processData: false,\n                showLoader: true,\n                onSuccess: function(resp) {\n                    var d = resp.datos || null;\n                    if (!d) { var msg = (resp.mensaje || 'No se encontraron datos para este crédito.'); $('#rastreoTopLeft').html('<div class=\"alert alert-warning mb-0\"><strong>Crédito #' + idCredito + '</strong><br>' + msg + '<br><small>El crédito debe existir en Segundometro u Oferta para ver el rastreo.</small></div>'); $('#rastreoTopRight').html(''); $('#rastreoTickets').html(''); $('#rastreoDireccionesContenido').html(''); idCreditoRastreoActual = idCredito; window.ticketIdRastreoActual = ticketIdRastreoActual; $('#modalRastreoCredito').attr('data-id-ticket', ticketIdRastreoActual || ''); $('#rastreoIdTicketActual').val(ticketIdRastreoActual || '').attr('data-id-ticket', ticketIdRastreoActual || ''); $('#modalRastreoCredito').modal('show'); return; }\n                    var esc = function(s) { var x = (s + '').split('&').join('&amp;').split('<').join('&lt;').split('>').join('&gt;'); return x.split(String.fromCharCode(34)).join('&quot;'); };\n                    var idCred = (d.id_credito || d.Id_credito || '—');\n                    var nombreCompleto = esc(d.Nombre_cliente || d.nombre_completo || '—');\n                    var tel = (d.telefono_referencia1 || d.telefono_referencia2 || '').trim();\n                    var telEsc = tel ? esc(tel) : '—';\n                    var dirMegareporte = (d.Domicilio_Completo && (d.Domicilio_Completo + '').trim()) ? esc(d.Domicilio_Completo) : '—';
+        $script .= "\n\n        function actualizarCountdownsDictamen(selector) {\n            var sel = selector || '#tablaTicketsPanel';\n            $(sel + ' .dictamen-countdown').each(function() {\n                var el = this;\n                var fLim = $(el).attr('data-fecha-limite');\n                var f = $(el).attr('data-fecha-envio');\n                if (!f && !fLim) return;\n                var fin;\n                if (fLim) { fin = new Date(fLim); }\n                else { var envio = new Date(f); fin = new Date(envio.getTime() + 12 * 60 * 60 * 1000); }\n                var now = new Date();\n                var ms = fin - now;\n                var txt = '-';\n                var txtCorto = '-';\n                var expired = ms <= 0;\n                if (ms > 0) {\n                    var h = Math.floor(ms / 3600000);\n                    var m = Math.floor((ms % 3600000) / 60000);\n                    var pref = fLim ? 'Prórroga · ' : '';
+                    txt = pref + 'Tiempo restante: ' + h + 'h ' + m + 'm';\n                    txtCorto = (fLim ? 'P2 ' : '') + h + 'h ' + m + 'm';\n                } else {\n                    txt = fLim ? 'Prórroga vencida' : 'Plazo vencido';\n                    txtCorto = txt;\n                }\n                $(el).attr('title', txt).attr('data-bs-title', txt).toggleClass('text-danger', expired);\n                var txtEl = $(el).find('.dictamen-countdown-text');\n                if (txtEl.length) txtEl.text(txtCorto).toggleClass('text-danger', expired);\n            });\n        }\n        function attrEsc(s){ if (s==null||s===undefined) return ''; var x=(s+'').split('&').join('&amp;').split('<').join('&lt;'); return x.split('\"').join('&quot;'); }\n        $(document).ready(function() {\n            configuraTabla(\"#tablaTicketsPanel\", {\n                registrosPorPagina: 10,\n                order: [[1, 'desc']],\n                columns: " . $columnsJson['columnsJs'] . "\n            });\n            getTicketsPanelAdmin();\n        });\n\n        function getTicketsPanelAdmin() {\n            http.request({\n                endpoint: \"/sabueso/getTicketsPanelAdmin\",\n                metodo: \"POST\",\n                onSuccess: function(resp) {\n                    var datos = (resp.datos || []).map(function(t) {\n                        var fechaCreacion = t.fecha_creacion ? new Date(t.fecha_creacion).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—';\n                        var fechaVenc = t.fecha_vencimiento ? new Date(t.fecha_vencimiento).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—';\n                        var prioridadNombre = (t.prioridad_nombre || '').toLowerCase();\n                        var prioridadBadge = '<span class=\"badge bg-label-secondary\">' + (t.prioridad_nombre || '—') + '</span>';\n                        if (prioridadNombre.indexOf('alta') !== -1) prioridadBadge = '<span class=\"badge bg-danger text-white\">' + (t.prioridad_nombre || '—') + '</span>';\n                        else if (prioridadNombre.indexOf('medio') !== -1 || prioridadNombre.indexOf('media') !== -1) prioridadBadge = '<span class=\"badge\" style=\"background-color:#fd7e14;color:#fff;\">' + (t.prioridad_nombre || '—') + '</span>';\n                        else if (prioridadNombre.indexOf('bajo') !== -1 || prioridadNombre.indexOf('baja') !== -1) prioridadBadge = '<span class=\"badge\" style=\"background-color:#ffc107;color:#212529;\">' + (t.prioridad_nombre || '—') + '</span>';\n                        else if (prioridadNombre.indexOf('sin prioridad') !== -1) prioridadBadge = '<span class=\"badge bg-secondary\" style=\"background-color:#6c757d!important;color:#fff;\">' + (t.prioridad_nombre || '—') + '</span>';\n                        var estadoBadge = (t.asignado_nombre && (t.asignado_nombre + '').trim()) ? '<span class=\"badge bg-success text-white\">Asignado</span>' : '<span class=\"badge bg-label-secondary\">Abierto</span>';\n                        var vistoHtml = '';\n                        if ((t.dictamen_estado || '') === 'enviado_al_gestor') {\n                            var vistoTexto = t.dictamen_fecha_visto ? (new Date(t.dictamen_fecha_visto).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' }) + ' ' + new Date(t.dictamen_fecha_visto).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })) : 'No visto';\n                            var iconoOjo = (t.dictamen_fecha_visto && (t.dictamen_fecha_visto + '').trim()) ? 'fa-eye' : 'fa-eye-slash';\n                            var tituloOjo = (t.dictamen_fecha_visto && (t.dictamen_fecha_visto + '').trim()) ? ('Visto: ' + vistoTexto) : 'No visto. Clic para ver dictamen';\n                            vistoHtml = '<span class=\"d-inline-flex align-items-center gap-1 justify-content-end btn-dictamen-ojito\" role=\"button\" tabindex=\"0\" data-bs-toggle=\"tooltip\" data-bs-title=\"' + (tituloOjo + '').replace(/\\x22/g, '&quot;') + '\" data-id-ticket=\"' + (t.id_ticket || '') + '\"><i class=\"fa ' + iconoOjo + ' text-info small\"></i></span>';\n                        }\n                        var tiempoVisitarHtml = '—';\n                        var fEnv = (t.dictamen_fecha_envio || '').trim();\n                        var esNuevo = fEnv && new Date(fEnv) >= new Date('2026-03-09T00:00:00');\n                        if ((t.dictamen_estado || '') === 'enviado_al_gestor' && esNuevo && fEnv) {\n                            var envio = new Date(fEnv);\n                            var fLim = (t.prorroga_fecha_limite || '').trim();\n                            var esProrroga = t.prorroga_activa && fLim;\n                            var fin = esProrroga ? new Date(fLim) : new Date(envio.getTime() + 12 * 60 * 60 * 1000);\n                            var now = new Date();\n                            var ms = fin - now;\n                            var txtInicial = ms > 0 ? (Math.floor(ms / 3600000) + 'h ' + Math.floor((ms % 3600000) / 60000) + 'm') : 'Plazo vencido';\n                            var clsPr = esProrroga ? ' dictamen-countdown-prorroga' : '';\n                            var dataLim = esProrroga ? (' data-fecha-limite=\"' + fLim.replace(/\"/g, '&quot;') + '\"') : '';\n                            var iconBlock = esProrroga ? ('<span class=\"position-relative d-inline-flex align-items-baseline\"><i class=\"fa-solid fa-clock text-warning small\"></i><sup class=\"dictamen-prorroga-marca\" title=\"Prórroga +12h (2ª ventana)\">2</sup></span>') : ('<i class=\"fa-solid fa-clock text-info small\"></i>');\n                            tiempoVisitarHtml = '<span class=\"d-inline-flex align-items-center gap-1 dictamen-countdown cursor-pointer' + clsPr + '\" role=\"button\" tabindex=\"0\" data-fecha-envio=\"' + fEnv.replace(/\"/g, '&quot;') + '\"' + dataLim + ' data-id-ticket=\"' + (t.id_ticket || '') + '\" data-bs-toggle=\"tooltip\" data-bs-title=\"' + (esProrroga ? 'Prórroga +12h · tiempo hasta límite' : 'Ventana 12h desde envío') + '\">' + iconBlock + '<span class=\"dictamen-countdown-text\">' + txtInicial + '</span></span>';\n                        }\n                        var row = {\n                            _fecha_creacion: (t.fecha_creacion || ''),\n                            folio_tipo: '<div class=\"fw-semibold\">' + (t.folio || '—') + '</div><div class=\"small text-muted mt-1\">' + (t.tipo_ticket_nombre || '—') + '</div>',\n                            estado: estadoBadge,\n                            prioridad: prioridadBadge,\n                            credito: '<small>#' + (t.id_credito != null ? t.id_credito : '—') + '</small>',\n                            fechas: '<div class=\"small d-flex align-items-center gap-1\"><i class=\"fa fa-calendar-plus-o text-muted\" style=\"width: 1rem;\"></i><span>Creación: ' + fechaCreacion + '</span></div><div class=\"small text-muted d-flex align-items-center gap-1 mt-1\"><i class=\"fa fa-calendar-times-o\" style=\"width: 1rem;\"></i><span>Vencimiento: ' + fechaVenc + '</span></div>',\n                            creador: '<small class=\"d-flex align-items-center gap-1\"><i class=\"fa fa-user\"></i>' + (t.creador_nombre || '—') + '</small>',\n                            asignado: (t.asignado_nombre && t.asignado_nombre.trim()) ? '<small class=\"d-flex align-items-center gap-1\"><i class=\"fa fa-user-check text-success\"></i>' + t.asignado_nombre + '</small>' : '<span class=\"text-muted\">—</span>',\n                            tiempo_visitar: tiempoVisitarHtml,\n                            ds_resultado: (t.ds_resultado_html != null && t.ds_resultado_html !== '') ? t.ds_resultado_html : '—',\n                            prorroga: (t.prorroga_html != null && t.prorroga_html !== '') ? t.prorroga_html : '—',\n                            dictamen_visto: vistoHtml,\n                            acciones: (function(){ var fEnvDS = (t.dictamen_fecha_envio || '').trim(); var ticketDesdeMarzo10 = t.fecha_creacion && (new Date(t.fecha_creacion) >= new Date(2026, 2, 10)); var plazoVencido = false; if (fEnvDS && ticketDesdeMarzo10 && (t.dictamen_estado || '') === 'enviado_al_gestor') { var plazoDS = new Date(fEnvDS).getTime() + 12*60*60*1000; plazoVencido = (Date.now() >= plazoDS); } var btns = '<div class=\"d-flex flex-column gap-1 align-items-stretch\" style=\"min-width:2.5rem;\"><button class=\"btn btn-sm btn-primary btn-rastreo\" onclick=\"abrirRastreo(this)\" data-id-credito=\"' + (t.id_credito != null ? t.id_credito : 0) + '\" data-id-ticket=\"' + (t.id_ticket) + '\" data-asignado=\"' + attrEsc(t.asignado_nombre) + '\" data-creador-nombre=\"' + attrEsc(t.creador_nombre) + '\" data-fecha-creacion=\"' + attrEsc(t.fecha_creacion) + '\" title=\"Iniciar rastreo\"><i class=\"fa-solid fa-magnifying-glass-plus\"></i></button>'; if (plazoVencido) { btns += '<button type=\"button\" class=\"btn btn-sm btn-warning btn-dictamen-sistema\" onclick=\"abrirDictamenSistema(' + t.id_ticket + ')\" title=\"Dictamen del sistema\"><i class=\"fa-solid fa-robot\"></i></button>'; } btns += '<button class=\"btn btn-sm btn-secondary\" onclick=\"cerrarTicketPanel(' + (t.id_ticket) + ')\" title=\"Cerrar ticket\"><i class=\"fa fa-minus\"></i></button><button class=\"btn btn-sm btn-danger\" onclick=\"eliminarTicketPanel(' + (t.id_ticket) + ')\" title=\"Eliminar ticket\"><i class=\"fa fa-trash\"></i></button></div>'; return btns; })(),\n                            _id_ticket: t.id_ticket,\n                            _dictamen_estado: t.dictamen_estado || '',\n                            _dictamen_fecha_visto: t.dictamen_fecha_visto || ''\n                        };\n                        return row;\n                    });\n                    var tabla = $('#tablaTicketsPanel').DataTable();\n                    tabla.clear().rows.add(datos).draw();\n                    tabla.rows().every(function() {\n                        var d = this.data();\n                        if (d._dictamen_estado === 'enviado_al_gestor') {\n                            $(this.node()).addClass('fila-dictamen-enviado').attr('data-id-ticket', d._id_ticket || '');\n                        }\n                    });\n                    if (typeof actualizarCountdownsDictamen === 'function') actualizarCountdownsDictamen('#tablaTicketsPanel');\n                    $('#tablaTicketsPanel [data-bs-toggle=\"tooltip\"]').tooltip();\n                },\n                onError: function() {\n                    var tabla = $('#tablaTicketsPanel').DataTable();\n                    tabla.clear().draw();\n                }\n            });\n        }\n        setInterval(function() { if (typeof actualizarCountdownsDictamen === 'function') actualizarCountdownsDictamen('#tablaTicketsPanel'); }, 1000);\n        function abrirRastreo(btn) {\n            var idCredito = parseInt(btn.getAttribute('data-id-credito')||0, 10);\n            var idTicket = parseInt(btn.getAttribute('data-id-ticket')||0, 10);\n            var asignadoNombre = (btn.getAttribute('data-asignado')||'').trim();\n            var creadorNombre = (btn.getAttribute('data-creador-nombre')||'').trim();\n            var fechaCreacionRaw = (btn.getAttribute('data-fecha-creacion')||'').trim();\n            var fechaCreacionDisplay = fechaCreacionRaw ? (new Date(fechaCreacionRaw).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' }) + ' ' + new Date(fechaCreacionRaw).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })) : '—';\n            ticketIdRastreoActual = idTicket || null;\n            if (!idCredito || isNaN(idCredito)) { Swal.fire({ icon: 'warning', title: 'Rastreo', text: 'No hay ID de crédito para este ticket.' }); return; }\n            http.request({\n                endpoint: \"/sabueso/getDatosCredito\",\n                metodo: \"POST\",\n                data: JSON.stringify({ id_credito: idCredito }),\n                contentType: \"application/json\",\n                processData: false,\n                showLoader: true,\n                onSuccess: function(resp) {\n                    var d = resp.datos || null;\n                    if (!d) { var msg = (resp.mensaje || 'No se encontraron datos para este crédito.'); $('#rastreoTopLeft').html('<div class=\"alert alert-warning mb-0\"><strong>Crédito #' + idCredito + '</strong><br>' + msg + '<br><small>El crédito debe existir en Segundometro u Oferta para ver el rastreo.</small></div>'); $('#rastreoTopRight').html(''); $('#rastreoTickets').html(''); $('#rastreoDireccionesContenido').html(''); idCreditoRastreoActual = idCredito; window.ticketIdRastreoActual = ticketIdRastreoActual; $('#modalRastreoCredito').attr('data-id-ticket', ticketIdRastreoActual || ''); $('#rastreoIdTicketActual').val(ticketIdRastreoActual || '').attr('data-id-ticket', ticketIdRastreoActual || ''); $('#modalRastreoCredito').modal('show'); return; }\n                    var esc = function(s) { var x = (s + '').split('&').join('&amp;').split('<').join('&lt;').split('>').join('&gt;'); return x.split(String.fromCharCode(34)).join('&quot;'); };\n                    var idCred = (d.id_credito || d.Id_credito || '—');\n                    var nombreCompleto = esc(d.Nombre_cliente || d.nombre_completo || '—');\n                    var tel = (d.telefono_referencia1 || d.telefono_referencia2 || '').trim();\n                    var telEsc = tel ? esc(tel) : '—';\n                    var dirMegareporte = (d.Domicilio_Completo && (d.Domicilio_Completo + '').trim()) ? esc(d.Domicilio_Completo) : '—';
                     rastreoTicketInfoBase = '<div class=\"rastreo-ticket-info-col\"><span class=\"text-muted small d-block\">Quién levantó el ticket</span><div class=\"fw-medium\">' + (creadorNombre ? esc(creadorNombre) : '—') + '</div><span class=\"text-muted small d-block mt-1\">Cuando se levantó</span><div class=\"fw-medium\">' + fechaCreacionDisplay + '</div><span class=\"text-muted small d-block mt-1\">Asignado a</span><div id=\"rastreoAsignadoBlock\" class=\"fw-medium\"><span class=\"text-muted\">Cargando...</span></div></div>';\n                    var htmlTicketInfo = rastreoTicketInfoBase;\n                    var htmlTopLeft = '<div><span class=\"text-muted small d-block\">ID crédito</span><div class=\"fw-semibold\">' + idCred + '</div></div><div><span class=\"text-muted small d-block\">Nombre completo</span><div class=\"fw-semibold\">' + nombreCompleto + '</div></div><div><span class=\"text-muted small d-block\">Teléfono cliente</span><div class=\"fw-semibold\">' + telEsc + '</div></div><div><span class=\"text-muted small d-block\">Dirección megareporte</span><div class=\"fw-semibold small\">' + dirMegareporte + '</div></div>';\n                    var dirContenido = (d.Domicilio_Completo && (d.Domicilio_Completo + '').trim()) ? esc(d.Domicilio_Completo) : '<span class=\"text-muted\">No hay direcciones registradas</span>';\n                    var tickets = d.tickets || [];\n                    var ticketActual = tickets.filter(function(tk) { return tk.id_ticket == ticketIdRastreoActual; })[0];\n                    var htmlTickets = '';\n                    if (ticketActual) {\n                        var fCreacion = ticketActual.fecha_creacion ? new Date(ticketActual.fecha_creacion).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—';\n                        var fVenc = ticketActual.fecha_vencimiento ? new Date(ticketActual.fecha_vencimiento).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—';\n                        htmlTickets = '<div class=\"small bg-light rounded p-2 mb-2\"><strong>' + esc(ticketActual.folio || '—') + '</strong> · ' + esc(ticketActual.tipo_nombre || '') + ' · ' + esc(ticketActual.estado_nombre || '') + '<br><span class=\"text-muted small\">Descripción:</span> ' + esc(ticketActual.descripcion_inicial || '—') + '<br>Creación: ' + fCreacion + ' · Venc: ' + fVenc + '</div>';\n                    } else { htmlTickets = '<span class=\"text-muted small\">Ticket actual (sin detalle adicional).</span>'; }\n                    $('#rastreoTopLeft').html(htmlTopLeft); if(typeof sabuesoAppendInformacionIngresos==='function')sabuesoAppendInformacionIngresos(document.getElementById('rastreoTopLeft'),d,esc); $('#rastreoTopRight').html(htmlTicketInfo);\n                    loadHistorialAsignacionTicket(ticketIdRastreoActual);\n                    $('#rastreoTickets').html(htmlTickets);\n                    $('#rastreoDireccionesContenido').html('<span class=\"text-muted\">Cargando direcciones...</span>');\n                    rastreoDireccionesParaMapa = [];\n                    $('#btnAsignarRastreo').html('<i class=\"fa-solid fa-user-plus me-1\"></i>Asignar...');\n                    idCreditoRastreoActual = idCredito;\n                    rastreoDatosClienteActual = { nombre: (d.Nombre_cliente || d.nombre_completo || '—'), credito: idCred, telefono: (tel || '—'), direccion: (d.Domicilio_Completo || '—') };\n                    var kA = \"sabueso_ia_\" + idCredito + \"_\" + (idTicket || 0) + \"_analizar\"; var kU = \"sabueso_ia_\" + idCredito + \"_ubicaciones\"; var kG = \"sabueso_ia_\" + idCredito + \"_gestiones\";\n                    try { if (typeof localStorage !== \"undefined\") { rastreoUltimoAnalizarIA = localStorage.getItem(kA) || \"\"; rastreoUltimoResumenUbicaciones = localStorage.getItem(kU) || \"\"; rastreoUltimoResumenGestiones = localStorage.getItem(kG) || \"\"; } else { rastreoUltimoAnalizarIA = \"\"; rastreoUltimoResumenUbicaciones = \"\"; rastreoUltimoResumenGestiones = \"\"; } } catch (e) { rastreoUltimoAnalizarIA = \"\"; rastreoUltimoResumenUbicaciones = \"\"; rastreoUltimoResumenGestiones = \"\"; }\n                    if (rastreoUltimoAnalizarIA) { \$(\"#btnLecturaIAAnalizar\").show(); \$(\"#btnBorrarIAAnalizar\").show(); } else { \$(\"#btnLecturaIAAnalizar\").hide(); \$(\"#btnBorrarIAAnalizar\").hide(); }\n                    if (rastreoUltimoResumenUbicaciones) { \$(\"#btnLecturaIAUbicaciones\").show(); \$(\"#btnBorrarIAUbicaciones\").show(); } else { \$(\"#btnLecturaIAUbicaciones\").hide(); \$(\"#btnBorrarIAUbicaciones\").hide(); }\n                    if (rastreoUltimoResumenGestiones) { \$(\"#btnLecturaIAGestiones\").show(); \$(\"#btnBorrarIAGestiones\").show(); } else { \$(\"#btnLecturaIAGestiones\").hide(); \$(\"#btnBorrarIAGestiones\").hide(); }\n                    window.ticketIdRastreoActual = ticketIdRastreoActual; \$(\"#modalRastreoCredito\").attr(\"data-id-ticket\", ticketIdRastreoActual || \"\"); \$(\"#rastreoIdTicketActual\").val(ticketIdRastreoActual || \"\").attr(\"data-id-ticket\", ticketIdRastreoActual || \"\"); \$(\"#modalRastreoCredito\").modal(\"show\");\n                },\n                onError: function(err) {\n                    var errMsg = (typeof err === 'string' ? err : (err && err.mensaje)) || 'No se pudieron cargar los datos del crédito.';\n                    Swal.fire({ icon: 'error', title: 'Rastreo', text: errMsg });\n                }\n            });\n        }\n        function tooltipHistorialAsignacion(estado, historial) {\n            if (estado === 'primera_asignacion') return 'Es la primera asignación de este ticket.';\n            var lineas = ['Historial de asignación (este ticket)'];\n            (historial || []).forEach(function(h) { lineas.push('• ' + (h.persona || '—') + ': ' + (h.duracion_humana || '—')); });\n            if (estado === 'sin_asignar') lineas.push('Actualmente sin persona asignada a este ticket.');\n            return lineas.join('\\n');\n        }\n        function loadHistorialAsignacionTicket(idTicket) {\n            if (!idTicket) return;\n            http.request({ endpoint: '/sabueso/getHistorialAsignacionTicket', metodo: 'POST', data: JSON.stringify({ id_ticket: idTicket }), contentType: 'application/json', processData: false, onSuccess: function(r) {\n                var asignado = r.asignado_actual || null;\n                var estado = r.estado || 'primera_asignacion';\n                var historial = r.historial || [];\n                var tooltipTxt = tooltipHistorialAsignacion(estado, historial);\n                var tooltipEsc = (tooltipTxt + '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/\"/g, '&quot;');\n                var tooltipAttr = tooltipEsc.replace(/\\n/g, '<br>');\n                var html = asignado ? ('<i class=\"fa-solid fa-user-check text-success me-1\"></i>' + (asignado.replace(/&/g, '&amp;').replace(/</g, '&lt;')) + ' <i class=\"fa-solid fa-circle-info ms-1\" role=\"img\" aria-label=\"Historial\" data-bs-toggle=\"tooltip\" data-bs-html=\"true\" data-bs-title=\"' + tooltipAttr + '\"></i>') : ('<span class=\"text-muted\">Sin asignar</span> <i class=\"fa-solid fa-circle-info ms-1\" role=\"img\" aria-label=\"Historial\" data-bs-toggle=\"tooltip\" data-bs-html=\"true\" data-bs-title=\"' + tooltipAttr + '\"></i>');\n                var bloque = $('#rastreoAsignadoBlock');\n                if (bloque.length) bloque.html(html);\n                if (asignado) { if (!$('#rastreoAsignadoBlock').next('.btn').length) $('#rastreoAsignadoBlock').after('<button type=\"button\" class=\"btn btn-sm btn-outline-danger mt-1\" onclick=\"quitarAsignacionRastreo()\" title=\"Quitar asignación\">Quitar asignación</button>'); } else { $('#rastreoAsignadoBlock').next('.btn').remove(); }\n                $('#btnAsignarRastreo').html(asignado ? '<i class=\"fa-solid fa-user-pen me-1\"></i>Reasignar a...' : '<i class=\"fa-solid fa-user-plus me-1\"></i>Asignar...');\n                if (typeof $().tooltip === 'function') { $('#rastreoAsignadoBlock [data-bs-toggle=\"tooltip\"]').tooltip(); }\n            } });\n        }\n        function mostrarAsignarOpciones() {\n            if (!ticketIdRastreoActual) { Swal.fire({ icon: 'warning', title: 'Asignar', text: 'No hay ticket seleccionado.' }); return; }\n            Swal.fire({ title: 'Asignar ticket', text: '¿A quién desea asignar este ticket?', icon: 'question', showDenyButton: true, showCancelButton: true, confirmButtonText: 'Tomar asignación', denyButtonText: 'Asignar a...', cancelButtonText: 'Cancelar' }).then(function(res) {\n                if (res.isConfirmed) asignarTicketA(miUsuarioId);\n                else if (res.isDenied) abrirModalAsignarA();\n            });\n        }\n        function asignarTicketA(idPersona) {\n            if (!ticketIdRastreoActual || !idPersona) return;\n            http.request({ endpoint: \"/sabueso/asignarTicket\", metodo: \"POST\", data: JSON.stringify({ id_ticket: ticketIdRastreoActual, id_persona: idPersona }), contentType: \"application/json\", processData: false, onSuccess: function(r) {\n                Swal.fire({ icon: 'success', title: 'Asignado', text: r.mensaje || 'Ticket asignado.' });\n                $('#modalRastreoCredito, #modalAsignarA').modal('hide');\n                ticketIdRastreoActual = null;\n                getTicketsPanelAdmin();\n            }, onError: function(e) { Swal.fire({ icon: 'error', title: 'Error', text: (e && e.mensaje) || 'No se pudo asignar.' }); } });\n        }\n        function quitarAsignacionRastreo() {\n            if (!ticketIdRastreoActual) return;\n            if (typeof Swal !== 'undefined') {\n                Swal.fire({ title: '¿Quitar asignación?', text: 'El ticket quedará sin persona asignada.', icon: 'question', showCancelButton: true, confirmButtonColor: '#d33', cancelButtonColor: '#6c757d', confirmButtonText: 'Sí, quitar' }).then(function(res) {\n                    if (!res.isConfirmed) return;\n                    http.request({ endpoint: '/sabueso/quitarAsignacionTicket', metodo: 'POST', data: JSON.stringify({ id_ticket: ticketIdRastreoActual }), contentType: 'application/json', processData: false, onSuccess: function(r) {\n                        if (r.success) { Swal.fire({ icon: 'success', title: 'Listo', text: r.mensaje || 'Asignación quitada.' }); if (ticketIdRastreoActual) loadHistorialAsignacionTicket(ticketIdRastreoActual); getTicketsPanelAdmin(); } else { if (typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: 'Error', text: r.mensaje || 'No se pudo quitar.' }); }\n                    }, onError: function(e) { if (typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: 'Error', text: (e && e.mensaje) || 'No se pudo quitar.' }); } });\n                });\n            } else {\n                http.request({ endpoint: '/sabueso/quitarAsignacionTicket', metodo: 'POST', data: JSON.stringify({ id_ticket: ticketIdRastreoActual }), contentType: 'application/json', processData: false, onSuccess: function(r) { if (r.success) { if (idCreditoRastreoActual) loadHistorialAsignacion(idCreditoRastreoActual); getTicketsPanelAdmin(); } } });\n            }\n        }\n        function abrirModalAsignarA() {\n            http.request({ endpoint: \"/sabueso/getPersonasSabueso\", metodo: \"POST\", onSuccess: function(resp) {\n                var list = resp.datos || [];\n                var html = list.length ? list.map(function(p) { return '<div class=\"d-flex justify-content-between align-items-center py-2 border-bottom\"><span>' + (p.nombre_completo || p.id) + '</span><button type=\"button\" class=\"btn btn-sm btn-primary\" onclick=\"asignarTicketA(' + p.id + ')\">Asignárselo</button></div>'; }).join('') : '<p class=\"text-muted mb-0\">No hay personas en el departamento Sabueso.</p>';\n                $('#modalAsignarABody').html(html);\n                $('#modalRastreoCredito').modal('hide');\n                $('#modalAsignarA').modal('show');\n            }, onError: function() { Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudo cargar la lista.' }); } });\n        }\n        function cerrarTicketPanel(idTicket) {\n            if (!idTicket) return;\n            Swal.fire({ title: '¿Cerrar ticket?', text: 'El ticket se registrará como cerrado y dejará de mostrarse en la lista activa.', icon: 'question', showCancelButton: true, confirmButtonColor: '#fd7e14', cancelButtonColor: '#6c757d', confirmButtonText: 'Sí, cerrar' }).then(function(res) {\n                if (!res.isConfirmed) return;\n                http.request({\n                    endpoint: \"/sabueso/cerrarTicket\",\n                    metodo: \"POST\",\n                    data: JSON.stringify({ id_ticket: idTicket }),\n                    contentType: \"application/json\",\n                    processData: false,\n                    onSuccess: function(resp) {\n                        Swal.fire({ icon: 'success', title: 'Cerrado', text: resp.mensaje || 'Ticket cerrado.' });\n                        getTicketsPanelAdmin();\n                    },\n                    onError: function(err) {\n                        Swal.fire({ icon: 'error', title: 'Error', text: (err && err.mensaje) || 'No se pudo cerrar.' });\n                    }\n                });\n            });\n        }\n        function eliminarTicketPanel(idTicket) {\n            if (!idTicket) return;\n            Swal.fire({ title: '¿Eliminar ticket?', text: 'Esta acción no se puede deshacer.', icon: 'warning', showCancelButton: true, confirmButtonColor: '#d33', cancelButtonColor: '#6c757d', confirmButtonText: 'Sí, eliminar' }).then(function(res) {\n                if (!res.isConfirmed) return;\n                http.request({\n                    endpoint: \"/sabueso/eliminarTicket\",\n                    metodo: \"POST\",\n                    data: JSON.stringify({ id_ticket: idTicket }),\n                    contentType: \"application/json\",\n                    processData: false,\n                    onSuccess: function(resp) {\n                        Swal.fire({ icon: 'success', title: 'Eliminado', text: resp.mensaje || 'Ticket eliminado.' });\n                        getTicketsPanelAdmin();\n                    },\n                    onError: function(err) {\n                        Swal.fire({ icon: 'error', title: 'Error', text: (err && err.mensaje) || 'No se pudo eliminar.' });\n                    }\n                });\n            });\n        }\n";
         $evidenciasScript = 'var miUsuarioId = ' . (int)$usuarioId . '; var miPersonaId = ' . (int)$personaId . '; var miUsuarioNombre = ' . json_encode($usuarioNombre ?? '', JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP) . ';
         var evidenciasRastreoActual = []; var evidenciaModalSlot = null; var evidenciaModalId = null; var evidenciaPreviewObjectUrl = null;
@@ -2125,9 +2126,13 @@ JS;
             $base[] = ['data' => 'creador', 'title' => 'Quién levantó'];
             $base[] = ['data' => 'asignado', 'title' => 'Asignado a'];
             $base[] = ['data' => 'tiempo_visitar', 'title' => 'Tiempo para visitar', 'orderable' => false, 'className' => 'text-center'];
+            $base[] = ['data' => 'ds_resultado', 'title' => 'Resultado DS', 'orderable' => false, 'className' => 'text-center'];
+            $base[] = ['data' => 'prorroga', 'title' => 'Prórroga', 'orderable' => false, 'className' => 'text-center'];
             $base[] = ['data' => 'dictamen_visto', 'title' => '', 'orderable' => false, 'className' => 'text-end'];
         } else {
             $base[] = ['data' => 'tiempo_visitar', 'title' => 'Tiempo para visitar', 'orderable' => false, 'className' => 'text-center'];
+            $base[] = ['data' => 'ds_resultado', 'title' => 'Resultado DS', 'orderable' => false, 'className' => 'text-center'];
+            $base[] = ['data' => 'prorroga', 'title' => 'Prórroga', 'orderable' => false, 'className' => 'text-center'];
             $base[] = ['data' => 'dictamen_visto', 'title' => '', 'orderable' => false, 'className' => 'text-end'];
         }
         $base[] = ['data' => 'acciones', 'title' => 'Acciones', 'orderable' => false];
@@ -2268,6 +2273,569 @@ JS;
         self::set('titulo', 'Cerrado/Eliminado | Sabueso');
         self::set('script', $script);
         self::render('sabueso_cerrado_eliminado');
+    }
+
+    /**
+     * Vista Estadísticas: solo lectura, datos agregados de tickets (tiempos, conteos, fechas).
+     */
+    public function estadisticas()
+    {
+        $script = <<<'SCRIPT'
+        <script>
+        function attrEsc(s){ if (s==null||s===undefined) return ''; var x=(s+'').split('&').join('&amp;').split('<').join('&lt;'); return x.split('"').join('&quot;'); }
+        function fmtFecha(s) {
+            if (!s) return '—';
+            try { return new Date(s).toLocaleString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }); } catch(e) { return attrEsc(s); }
+        }
+        function labelPeriodo(key, periodo) {
+            if (periodo == null) return '—';
+            var s = String(periodo);
+            if (key === 'por_dia') {
+                try {
+                    var d = new Date(s + (s.length <= 10 ? 'T12:00:00' : ''));
+                    return d.toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' });
+                } catch(e) { return s; }
+            }
+            if (key === 'por_semana') {
+                var n = parseInt(s, 10);
+                if (!isNaN(n) && n > 10000) {
+                    var y = Math.floor(n / 100);
+                    var w = n % 100;
+                    return 'Sem ' + w + ' (' + y + ')';
+                }
+                return s;
+            }
+            if (key === 'por_mes' && /^\d{4}-\d{2}$/.test(s)) {
+                try {
+                    var d2 = new Date(s + '-01T12:00:00');
+                    return d2.toLocaleDateString('es-MX', { month: 'short', year: 'numeric' });
+                } catch(e2) { return s; }
+            }
+            return s;
+        }
+        var estadisticasDatos = null;
+        var estadisticasFiltroPeriodo = 'por_dia';
+        function renderPeriodList() {
+            if (!estadisticasDatos) return;
+            var filas = estadisticasDatos[estadisticasFiltroPeriodo] || [];
+            var wrap = $('#estadPeriodList');
+            wrap.empty();
+            if (!filas.length) {
+                wrap.append('<p class="text-muted small px-2 mb-0">Sin datos para este período.</p>');
+                return;
+            }
+            var maxN = 1;
+            filas.forEach(function(r) { var v = parseInt(r.n, 10); if (!isNaN(v) && v > maxN) maxN = v; });
+            filas.forEach(function(row) {
+                var label = labelPeriodo(estadisticasFiltroPeriodo, row.periodo);
+                var n = parseInt(row.n, 10);
+                if (isNaN(n)) n = 0;
+                var pct = Math.round((n / maxN) * 100);
+                wrap.append(
+                    '<div class="estad-period-row">' +
+                    '<span class="estad-period-label text-body">' + attrEsc(label) + '</span>' +
+                    '<div class="estad-mini-bar"><div style="width:0%" data-w="' + pct + '"></div></div>' +
+                    '<span class="estad-period-val">' + n + '</span></div>'
+                );
+            });
+            setTimeout(function() {
+                wrap.find('.estad-mini-bar > div').each(function() { var w = $(this).data('w'); if (w != null) $(this).css('width', w + '%'); });
+            }, 80);
+        }
+        function avatarHue(name) {
+            var h = 0;
+            for (var i = 0; i < (name || '').length; i++) h = ((h << 5) - h) + name.charCodeAt(i);
+            return Math.abs(h) % 360;
+        }
+        function iniciales(nombre) {
+            var p = (nombre || '').trim().split(/\s+/);
+            if (p.length >= 2) return (p[0][0] + p[1][0]).toUpperCase();
+            if (p[0]) return p[0].substring(0, 2).toUpperCase();
+            return '?';
+        }
+        function renderPorGestor() {
+            var list = (estadisticasDatos && estadisticasDatos.por_gestor) || [];
+            var tb = $('#tbodyPorGestor');
+            tb.empty();
+            if (!list.length) {
+                tb.append('<tr><td colspan="7" class="text-muted">Sin datos por quien levantó (tickets con dictamen enviado en el detalle).</td></tr>');
+                return;
+            }
+            list.forEach(function(g, i) {
+                var tasa = g.tasa != null ? g.tasa : 0;
+                var badgeClass = tasa >= 90 ? 'bg-success' : (tasa >= 70 ? 'bg-warning text-dark' : 'bg-danger');
+                var sinLeer = g.sin_leer != null ? g.sin_leer : 0;
+                var sinClass = sinLeer === 0 ? 'text-success' : (sinLeer <= 2 ? 'text-warning' : 'text-danger');
+                var hue = avatarHue(g.nombre);
+                var idp = parseInt(g.id_persona, 10) || 0;
+                var clickAttr = idp ? ' class="estad-gestor-fila" style="cursor:pointer" data-id-gestor="' + idp + '"' : '';
+                var pctC = g.cumplimiento_pct_promedio;
+                var pctCTxt = (pctC !== null && pctC !== undefined) ? pctC + '%' : '—';
+                var resumenC = g.cumplimiento_resumen_texto || '';
+                var tipC = 'Evaluados: ' + (g.cumplimiento_evaluados || 0) + ' | Sin evaluar: ' + (g.cumplimiento_sin_evaluar || 0) + (resumenC ? ' | ' + resumenC : '');
+                var badgeC = (pctC !== null && pctC >= 70) ? 'bg-success' : ((pctC !== null && pctC >= 40) ? 'bg-warning text-dark' : 'bg-secondary');
+                var cumplCell = '<span class="badge rounded-pill ' + badgeC + ' estad-tooltip-custom" data-bs-toggle="tooltip" data-bs-placement="left" title="' + attrEsc(tipC) + '">' + pctCTxt + '</span>';
+                if (pctC === null && (g.cumplimiento_sin_evaluar || 0) === (g.tickets || 0)) {
+                    cumplCell = '<span class="text-muted small">Sin DS</span>';
+                }
+                tb.append(
+                    '<tr' + clickAttr + '><td><div class="d-flex align-items-center gap-2">' +
+                    '<span class="estad-avatar" style="background:hsl(' + hue + ',55%,48%)">' + attrEsc(iniciales(g.nombre)) + '</span>' +
+                    '<div class="d-flex flex-column"><span class="small fw-medium text-truncate" style="max-width:9rem" title="' + attrEsc(g.nombre || '') + '">' + attrEsc(g.nombre || '') + '</span>' +
+                    (idp ? '<small class="text-muted"><i class="fa-solid fa-fingerprint me-1"></i>ID ' + idp + '</small>' : '') + '</div></div></td>' +
+                    '<td class="text-center fw-bold text-primary">' + (g.tickets || 0) + '</td>' +
+                    '<td class="text-center small text-muted">' + attrEsc(g.tiempo_lectura || '—') + '</td>' +
+                    '<td class="text-center small text-muted">' + attrEsc(g.tiempo_envio || '—') + '</td>' +
+                    '<td class="text-center fw-bold ' + sinClass + '">' + sinLeer + '</td>' +
+                    '<td class="text-center"><span class="badge rounded-pill ' + badgeClass + '">' + tasa + '%</span></td>' +
+                    '<td class="text-center">' + cumplCell + '</td></tr>'
+                );
+            });
+        }
+        function renderPorSabueso() {
+            var list = (estadisticasDatos && estadisticasDatos.por_sabueso) || [];
+            var tb = $('#tbodyPorSabueso');
+            tb.empty();
+            if (!list.length) {
+                tb.append('<tr><td colspan="4" class="text-muted">Sin datos: hace falta dictamen enviado con autor (id_persona en dictamen).</td></tr>');
+                return;
+            }
+            list.forEach(function(s) {
+                var idp = parseInt(s.id_persona, 10) || 0;
+                var rowClass = (idp === 797 ? 'table-warning ' : '') + (idp ? 'estad-sabueso-fila' : '');
+                var nombreEsc = attrEsc((s.nombre || '').trim());
+                var badge797 = idp === 797 ? ' <span class="badge bg-secondary">797</span>' : '';
+                var crea1a = s.creacion_a_primera_asignacion_humano || s.tiempo_hasta_asignarle_humano || '—';
+                var clickAttr = idp ? ' data-id-sabueso="' + idp + '" style="cursor:pointer"' : '';
+                var hue = avatarHue(s.nombre || '');
+                tb.append(
+                    '<tr class="' + rowClass.trim() + '"' + clickAttr + '><td><div class="d-flex align-items-center gap-2">' +
+                    '<span class="estad-avatar" style="background:hsl(' + hue + ',50%,45%)">' + attrEsc(iniciales(s.nombre || '')) + '</span>' +
+                    '<span class="small fw-medium text-truncate" style="max-width:10rem" title="' + nombreEsc + '">' + nombreEsc + '</span>' + badge797 + '</div></td>' +
+                    '<td class="text-center fw-bold text-primary">' + (s.dictaminados || 0) + '</td>' +
+                    '<td class="text-center small">' + attrEsc(crea1a) + '</td>' +
+                    '<td class="text-center small">' + attrEsc(s.tiempo_asignado_a_envio_humano || '—') + '</td></tr>'
+                );
+            });
+        }
+        function initEstadisticasTooltips() {
+            if (typeof bootstrap === 'undefined' || !bootstrap.Tooltip) return;
+            document.querySelectorAll('#panelResumenSabueso [data-bs-toggle="tooltip"], #panelResumenGestor [data-bs-toggle="tooltip"]').forEach(function(el) {
+                var ex = bootstrap.Tooltip.getInstance(el);
+                if (ex) ex.dispose();
+                new bootstrap.Tooltip(el);
+            });
+        }
+        function initTooltipsEnSwal() {
+            if (typeof bootstrap === 'undefined' || !bootstrap.Tooltip) return;
+            var root = document.querySelector('.swal2-html-container');
+            if (!root) return;
+            root.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(function(el) {
+                var ex = bootstrap.Tooltip.getInstance(el);
+                if (ex) ex.dispose();
+                new bootstrap.Tooltip(el, { customClass: 'estad-tooltip-custom', container: 'body' });
+            });
+        }
+        function swalCargandoDetalle(titulo) {
+            if (typeof Swal === 'undefined') return;
+            Swal.fire({
+                title: titulo || 'Cargando…',
+                html: '<p class="mb-0 text-muted">Obteniendo detalle, espere un momento.</p>',
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                showConfirmButton: false,
+                didOpen: function() { if (Swal.showLoading) Swal.showLoading(); }
+            });
+        }
+        function abrirDetalleSabueso(idPersona) {
+            if (!idPersona) return;
+            swalCargandoDetalle('Cargando dictámenes…');
+            http.request({
+                endpoint: '/sabueso/getEstadisticasSabuesoDetalle',
+                metodo: 'POST',
+                data: JSON.stringify({ id_persona_autor: idPersona }),
+                contentType: 'application/json',
+                processData: false,
+                showLoader: false,
+                onSuccess: function(r) {
+                    if (typeof Swal !== 'undefined' && Swal.close) Swal.close();
+                    if (!r.success) { if (typeof Swal !== 'undefined') Swal.fire('Aviso', r.mensaje || 'Sin datos', 'info'); return; }
+                    var filas = r.filas || [];
+                    if (!filas.length) { if (typeof Swal !== 'undefined') Swal.fire('Aviso', 'Sin dictámenes enviados con este autor.', 'info'); return; }
+                    function tip(title) { return ' <i class="fa fa-question-circle estad-modal-th-tip text-success" data-bs-toggle="tooltip" data-bs-placement="top" title="' + attrEsc(title) + '"></i>'; }
+                    var html = '<div class="estad-modal-detalle-wrap">' +
+                        '<div class="estad-modal-detalle-leyenda text-start">' +
+                        '<strong>Vista Sabueso.</strong> <em>Asignado→envío</em>: tiempo desde que le quedó asignado el ticket hasta enviar (solo si consta asignación a esta persona antes del envío). ' +
+                        '<em>Cola 1ª asign.</em>: desde creación del ticket hasta la primera asignación en Sabueso.</div>' +
+                        '<div class="estad-modal-detalle-table-wrap table-responsive">' +
+                        '<table class="table table-sm table-bordered text-start">' +
+                        '<thead><tr>' +
+                        '<th>Folio' + tip('Identificador del ticket.') + '</th>' +
+                        '<th>Levantó' + tip('Gestor que creó el ticket (no el Sabueso).') + '</th>' +
+                        '<th>Enviado' + tip('Fecha/hora en que se envió el dictamen al gestor.') + '</th>' +
+                        '<th>¿Asignado?' + tip('Sí si en asignacion_ticket consta que le quedó asignado a este Sabueso antes del envío.') + '</th>' +
+                        '<th>Asignado→envío' + tip('Tiempo desde última asignación a él hasta enviar. — si no estaba asignado a él.') + '</th>' +
+                        '<th>Cola 1ª' + tip('Tiempo desde creación del ticket hasta la primera asignación (cualquier persona).') + '</th>' +
+                        '<th>Gestor vio' + tip('Si el gestor ya abrió el dictamen (fecha_visto_gestor).') + '</th>' +
+                        '<th>T. lectura' + tip('Tiempo del gestor entre envío y apertura. — si no aplica o sin dato.') + '</th>' +
+                        '</tr></thead><tbody>';
+                    filas.forEach(function(f) {
+                        html += '<tr><td class="fw-medium">' + attrEsc(f.folio || '—') + '</td><td>' + attrEsc(f.creador_nombre || '—') + '</td>' +
+                            '<td>' + fmtFecha(f.dictamen_envio) + '</td><td>' + attrEsc(f.estaba_asignado_a_el || '—') + '</td>' +
+                            '<td>' + attrEsc(f.tiempo_asignado_a_envio_humano || '—') + '</td>' +
+                            '<td>' + attrEsc(f.tiempo_cola_hasta_primera_asignacion_humano || '—') + '</td>' +
+                            '<td>' + attrEsc(f.visto_si_no || '—') + '</td><td>' + attrEsc(f.tiempo_lectura_gestor_humano || '—') + '</td></tr>';
+                    });
+                    html += '</tbody></table></div></div>';
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire({
+                            title: 'Sabueso · ' + (r.nombre || ''),
+                            html: html,
+                            width: '940px',
+                            showConfirmButton: true,
+                            confirmButtonText: 'Cerrar',
+                            customClass: { popup: 'estad-detalle-swal', confirmButton: 'btn btn-success px-4' },
+                            didOpen: function() { initTooltipsEnSwal(); }
+                        });
+                    }
+                },
+                onError: function() {
+                    if (typeof Swal !== 'undefined' && Swal.close) Swal.close();
+                    if (typeof Swal !== 'undefined') Swal.fire('Error', 'No se pudo cargar el detalle.', 'error');
+                }
+            });
+        }
+        function abrirDetalleGestor(idPersona, nombre) {
+            if (!idPersona) return;
+            swalCargandoDetalle('Cargando tickets del gestor…');
+            http.request({
+                endpoint: '/sabueso/getEstadisticasGestorDetalle',
+                metodo: 'POST',
+                data: JSON.stringify({ id_persona_creador: idPersona }),
+                contentType: 'application/json',
+                processData: false,
+                showLoader: false,
+                onSuccess: function(r) {
+                    if (typeof Swal !== 'undefined' && Swal.close) Swal.close();
+                    if (!r.success) { if (typeof Swal !== 'undefined') Swal.fire('Aviso', r.mensaje || 'Sin datos', 'info'); return; }
+                    var filas = r.filas || [];
+                    if (!filas.length) { if (typeof Swal !== 'undefined') Swal.fire('Aviso', 'Sin tickets con dictamen enviado para este gestor.', 'info'); return; }
+                    function tipG(title) { return ' <i class="fa fa-question-circle estad-modal-th-tip text-primary" data-bs-toggle="tooltip" data-bs-placement="top" title="' + attrEsc(title) + '"></i>'; }
+                    var html = '<div class="estad-modal-detalle-wrap">' +
+                        '<div class="estad-modal-detalle-leyenda text-start">' +
+                        '<strong>Vista por gestor.</strong> Solo tickets que <strong>esta persona levantó</strong> y ya tienen dictamen enviado.<br>' +
+                        '<strong>¿Abrió?</strong> = ¿Ya abrió el dictamen en pantalla? <strong>T. apertura</strong> = cuánto tardó en abrirlo después del envío (Pendiente = aún no abre).<br>' +
+                        '<strong>Resultado DS / % efect.</strong> = salen cuando existe <em>dictamen del sistema</em> generado para ese ticket. Si dice «Sin DS», hay que generarlo desde Panel Admin (botón dictamen sistema).</div>' +
+                        '<div class="estad-modal-detalle-table-wrap table-responsive">' +
+                        '<table class="table table-sm table-bordered text-start">' +
+                        '<thead><tr>' +
+                        '<th>Folio' + tipG('Identificador del ticket.') + '</th>' +
+                        '<th>Levantado' + tipG('Cuándo se creó el ticket.') + '</th>' +
+                        '<th>Dictamen enviado' + tipG('Cuándo Sabueso envió el dictamen a usted.') + '</th>' +
+                        '<th>¿Abrió?' + tipG('Si ya abrió/vio el dictamen.') + '</th>' +
+                        '<th>Abrió el' + tipG('Fecha/hora en que se registró visto.') + '</th>' +
+                        '<th>T. apertura' + tipG('Tiempo entre envío y apertura. Pendiente si aún no abre.') + '</th>' +
+                        '<th>Resultado DS' + tipG('Solo texto claro (ej. No visito). Sin códigos técnicos.') + '</th>' +
+                        '<th>Pago' + tipG('Sí = hubo pago en estado de cuenta dentro de las 12h que evalúa el dictamen. No = no hubo pago en ese rango (ej. no visitó y sin pago en esas horas).') + '</th>' +
+                        '<th>% efect.' + tipG('% efectividad según reglas de cumplimiento (visita/pago/direcciones).') + '</th>' +
+                        '</tr></thead><tbody>';
+                    filas.forEach(function(f) {
+                        var pctF = f.pct_efectividad;
+                        var pctFTxt = (pctF !== null && pctF !== undefined && pctF !== '') ? pctF + '%' : '<span class="text-muted">Sin DS</span>';
+                        var resMostrar = (f.resultado_ds_mostrar != null && f.resultado_ds_mostrar !== '') ? attrEsc(f.resultado_ds_mostrar) : '<span class="text-muted">Sin dictamen sistema</span>';
+                        var pagoV = f.pago_en_ventana_resumen;
+                        var pagoVTxt;
+                        if (pagoV === 'Sí' || pagoV === 'Si') {
+                            pagoVTxt = '<span class="text-success fw-semibold">Sí</span>';
+                        } else if (pagoV === 'No') {
+                            pagoVTxt = '<span class="text-danger fw-semibold">No</span>';
+                        } else {
+                            pagoVTxt = '<span class="text-muted">—</span>';
+                        }
+                        html += '<tr><td class="fw-medium">' + attrEsc(f.folio || '—') + '</td><td>' + fmtFecha(f.fecha_creacion) + '</td>' +
+                            '<td>' + fmtFecha(f.dictamen_envio) + '</td><td>' + attrEsc(f.visto_si_no || '—') + '</td>' +
+                            '<td>' + (f.visto_cuando ? fmtFecha(f.visto_cuando) : '—') + '</td>' +
+                            '<td>' + attrEsc(f.tiempo_lectura_humano || 'Pendiente') + '</td>' +
+                            '<td><small>' + resMostrar + '</small></td>' +
+                            '<td class="text-center">' + pagoVTxt + '</td>' +
+                            '<td>' + pctFTxt + '</td></tr>';
+                    });
+                    html += '</tbody></table></div></div>';
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire({
+                            title: 'Gestor · ' + (r.nombre || nombre || ''),
+                            html: html,
+                            width: '960px',
+                            showConfirmButton: true,
+                            confirmButtonText: 'Cerrar',
+                            customClass: { popup: 'estad-detalle-swal', confirmButton: 'btn btn-primary px-4' },
+                            didOpen: function() { initTooltipsEnSwal(); }
+                        });
+                    }
+                },
+                onError: function() {
+                    if (typeof Swal !== 'undefined' && Swal.close) Swal.close();
+                    if (typeof Swal !== 'undefined') Swal.fire('Error', 'No se pudo cargar el detalle.', 'error');
+                }
+            });
+        }
+        function cargarEstadisticasSabueso() {
+            $('#estadisticasSabuesoContenido').hide();
+            http.request({
+                endpoint: '/sabueso/getEstadisticasTickets',
+                metodo: 'POST',
+                onSuccess: function(r) {
+                    $('#estadisticasSabuesoContenido').show();
+                    if (!r.success) {
+                        $('#estadisticasSabuesoAlert').removeClass('d-none').text(r.mensaje || 'Error al cargar.');
+                        return;
+                    }
+                    $('#estadisticasSabuesoAlert').addClass('d-none');
+                    estadisticasDatos = r.datos || {};
+                    var t = estadisticasDatos.totales || {};
+                    var activos = parseInt(t.tickets_activos, 10) || 0;
+                    var enviados = parseInt(t.con_dictamen_enviado, 10) || 0;
+                    var vistos = parseInt(t.con_dictamen_visto, 10) || 0;
+                    var maxTop = Math.max(activos, enviados, vistos, 1);
+                    function pct(v) { return Math.round((v / maxTop) * 100); }
+                    $('#statTotalActivos').text(activos);
+                    $('#statDictamenEnviado').text(enviados);
+                    $('#statDictamenVisto').text(vistos);
+                    $('#barActivos').css('width', pct(activos) + '%');
+                    $('#pctActivos').text(pct(activos) + '%');
+                    $('#barEnviado').css('width', pct(enviados) + '%');
+                    $('#pctEnviado').text(pct(enviados) + '%');
+                    $('#barVisto').css('width', pct(vistos) + '%');
+                    $('#pctVisto').text(pct(vistos) + '%');
+                    var ts = estadisticasDatos.tiempos_sabueso_segundos;
+                    var tg = estadisticasDatos.tiempos_gestor_segundos;
+                    if (ts && ts.promedio_humano) {
+                        $('#statTiempoSabuesoValor').text(ts.promedio_humano);
+                        $('#statTiempoSabuesoSub').text('Promedio con ' + (ts.muestras || 0) + ' tickets · Desde primera asignación Sabueso hasta envío al gestor');
+                    } else {
+                        $('#statTiempoSabuesoValor').html('<span class="text-muted fs-6 fw-normal">Sin datos</span>');
+                        $('#statTiempoSabuesoSub').text('Desde primera asignación Sabueso hasta envío al gestor');
+                    }
+                    if (tg && tg.promedio_humano) {
+                        $('#statTiempoGestorValor').text(tg.promedio_humano);
+                        $('#statTiempoGestorSub').text('Promedio con ' + (tg.muestras || 0) + ' tickets · Desde envío hasta que el gestor abre el dictamen');
+                    } else {
+                        $('#statTiempoGestorValor').html('<span class="text-muted fs-6 fw-normal">Sin datos</span>');
+                        $('#statTiempoGestorSub').text('Desde envío hasta que el gestor abre el dictamen');
+                    }
+                    $('#tileTiempoLectura').text(tg && tg.promedio_humano ? tg.promedio_humano : '—');
+                    $('#tileTiempoLecturaSub').text('Muestras: ' + (tg && tg.muestras != null ? tg.muestras : 0) + ' (solo tickets ya vistos)');
+                    $('#tileTiempoEnvio').text(ts && ts.promedio_humano ? ts.promedio_humano : '—');
+                    $('#tileTiempoEnvioSub').text('Muestras: ' + (ts && ts.muestras != null ? ts.muestras : 0) + ' (con asignación previa)');
+                    var sinLeer = Math.max(0, enviados - vistos);
+                    $('#tileSinLeer').text(sinLeer);
+                    if (enviados > 0) {
+                        var tasa = Math.round((vistos / enviados) * 100);
+                        $('#tileTasa').text(tasa + '%');
+                        $('#tileTasaSub').text(vistos + ' de ' + enviados + ' vistos');
+                    } else {
+                        $('#tileTasa').text('—');
+                        $('#tileTasaSub').text('Sin dictámenes enviados');
+                    }
+                    // Panorama cumplimiento global (dictamen_sistema sobre detalle reciente)
+                    var cg = estadisticasDatos.cumplimiento_global || {};
+                    if (cg.pct_promedio != null) {
+                        $('#tileCumplimientoPct').text(cg.pct_promedio);
+                    } else {
+                        $('#tileCumplimientoPct').html('<span class="text-muted">—</span>');
+                    }
+                    $('#tileCumplimientoMuestra').text('Muestra: ' + (cg.muestra || 0) + ' · Con evaluación: ' + (cg.con_evaluacion || 0) + ' · Pendiente/sin DS: ' + (cg.sin_evaluacion || 0));
+                    var pr = cg.por_resultado || {};
+                    var prParts = [];
+                    Object.keys(pr).forEach(function(k) { prParts.push(k + '=' + pr[k]); });
+                    $('#tileCumplimientoPorResultado').text(prParts.length ? prParts.join(' · ') : 'Sin resultados aún');
+                    $('#tileCumplimientoLeyenda').text(cg.leyenda || '');
+                    var k = estadisticasDatos.kpis_extra || {};
+                    if (k.tiempo_creacion_a_primera_asignacion) {
+                        $('#kpiPrimeraAsignacion').text(k.tiempo_creacion_a_primera_asignacion.promedio_humano || '—');
+                        $('#kpiPrimeraAsignacionSub').text('Muestras: ' + (k.tiempo_creacion_a_primera_asignacion.muestras || 0));
+                    }
+                    if (k.reasignaciones_promedio_antes_envio != null) {
+                        $('#kpiReasignaciones').text(k.reasignaciones_promedio_antes_envio);
+                    }
+                    $('#kpiBorradores').text(k.dictamenes_borrador_sin_enviar != null ? k.dictamenes_borrador_sin_enviar : '—');
+                    if (k.pct_visto_dentro_12h != null) {
+                        $('#kpi12h').text(k.pct_visto_dentro_12h + '%');
+                        $('#kpi12hSub').text('de ' + (k.visto_dentro_12h_muestras || 0) + ' vistos');
+                    }
+                    $('#kpiCola24h').text(k.tickets_cola_lenta_24h != null ? k.tickets_cola_lenta_24h : '—');
+                    renderPeriodList();
+                    renderPorGestor();
+                    renderPorSabueso();
+                    initEstadisticasTooltips();
+                    var det = estadisticasDatos.detalle_timings || [];
+                    var tbDet = $('#tablaDetalleTimings tbody');
+                    if ($.fn.DataTable && $.fn.DataTable.isDataTable('#tablaDetalleTimings')) {
+                        try { $('#tablaDetalleTimings').DataTable().destroy(); } catch (e) {}
+                    }
+                    tbDet.empty();
+                    if (!det.length) {
+                        tbDet.append('<tr><td colspan="8" class="text-muted">No hay tickets con dictamen enviado reciente.</td></tr>');
+                    } else {
+                        function truncMed(s, n) {
+                            if (!s) return '—';
+                            s = String(s);
+                            if (s.length <= n) return attrEsc(s);
+                            return attrEsc(s.substring(0, n)) + '…';
+                        }
+                        det.forEach(function(row) {
+                            var pct = row.pct_efectividad;
+                            var pctTxt = (pct === null || pct === undefined || pct === '') ? '—' : (pct + '%');
+                            var med = row.medidas_preventivas || '';
+                            var medEsc = attrEsc(med);
+                            var medCell = med ? '<small class="estad-tooltip-custom" data-bs-toggle="tooltip" data-bs-placement="left" title="' + medEsc + '">' + truncMed(med, 48) + '</small>' : '<small class="text-muted">—</small>';
+                            // ID = quien levantó el ticket (gestor / creador), no el asignado Sabueso
+                            var creadorCell = '<small>' + attrEsc(row.creador_nombre || '—') + '</small>';
+                            var cid = parseInt(row.creador_id, 10) || 0;
+                            if (cid) {
+                                creadorCell += '<br><small class="text-muted d-block mt-1" title="ID persona que creó el ticket (gestor)"><i class="fa-solid fa-fingerprint me-1"></i>ID ' + cid + '</small>';
+                            }
+                            tbDet.append(
+                                '<tr><td>' + attrEsc(row.folio || '—') + '</td>' +
+                                '<td>' + creadorCell + '</td>' +
+                                '<td><small>' + attrEsc(row.asignado_nombre || '—') + '</small></td>' +
+                                '<td><small>' + fmtFecha(row.fecha_creacion) + '</small></td>' +
+                                '<td><small>' + fmtFecha(row.dictamen_fecha_envio) + '</small></td>' +
+                                '<td><small>' + fmtFecha(row.dictamen_fecha_visto) + '</small></td>' +
+                                '<td><small>' + pctTxt + '</small></td>' +
+                                '<td>' + medCell + '</td></tr>'
+                            );
+                        });
+                        initEstadisticasTooltips();
+                        if (typeof configuraTabla === 'function') {
+                            configuraTabla('#tablaDetalleTimings', {
+                                registrosPorPagina: 10,
+                                responsive: false,
+                                order: [[4, 'desc']],
+                                columns: null
+                            });
+                            setTimeout(initEstadisticasTooltips, 200);
+                        }
+                    }
+                },
+                onError: function() {
+                    $('#estadisticasSabuesoContenido').show();
+                    $('#estadisticasSabuesoAlert').removeClass('d-none').text('Error de red o servidor.');
+                }
+            });
+        }
+        $(document).ready(function() {
+            // Delegación: el tbody se reemplaza al renderizar; el clic debe vivir en document
+            $(document).on('click', '#tbodyPorGestor tr[data-id-gestor]', function(e) {
+                var id = parseInt($(this).attr('data-id-gestor'), 10);
+                if (id) abrirDetalleGestor(id, '');
+            });
+            $(document).on('click', '#tbodyPorSabueso tr[data-id-sabueso]', function(e) {
+                var id = parseInt($(this).attr('data-id-sabueso'), 10);
+                if (id) abrirDetalleSabueso(id);
+            });
+            $('#grpFiltroPeriodo').on('click', 'button[data-key]', function() {
+                $('#grpFiltroPeriodo button').removeClass('active');
+                $(this).addClass('active');
+                estadisticasFiltroPeriodo = $(this).data('key') || 'por_dia';
+                renderPeriodList();
+            });
+            $('#grpResumenGestor').on('click', 'button[data-tab]', function() {
+                $('#grpResumenGestor button').removeClass('active');
+                $(this).addClass('active');
+                var tab = $(this).data('tab');
+                $('#panelResumenGlobal, #panelResumenGestor, #panelResumenSabueso').addClass('d-none');
+                if (tab === 'gestor') {
+                    $('#panelResumenGestor').removeClass('d-none');
+                    setTimeout(initEstadisticasTooltips, 100);
+                } else if (tab === 'sabueso') {
+                    $('#panelResumenSabueso').removeClass('d-none');
+                    setTimeout(initEstadisticasTooltips, 100);
+                } else {
+                    $('#panelResumenGlobal').removeClass('d-none');
+                }
+            });
+            $(document).on('click', '.btn-descargar-estad-detalle', function() {
+                if (typeof Swal === 'undefined') return;
+                Swal.fire({
+                    title: 'Descargar Excel',
+                    html: '<p class="text-start small">Se generará un archivo Excel con el detalle reciente (dictamen enviado): folio, quién levantó, asignado, fechas, % efectividad y medidas.</p><p class="text-start small mb-0"><strong>Nota:</strong> la descarga puede incluir hasta 2000 registros.</p>',
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonText: '<i class="fa fa-download me-1"></i>Descargar',
+                    cancelButtonText: 'Cancelar'
+                }).then(function(r) {
+                    if (!r.isConfirmed) return;
+                    Swal.fire({ title: 'Generando…', allowOutsideClick: false, didOpen: function() { Swal.showLoading(); } });
+                    fetch('/Reporteria/descargarReporteSabuesosEstadisticasDetalle', { method: 'POST', headers: { 'Content-Type': 'application/json' } })
+                        .then(function(res) { if (!res.ok) throw new Error('Error en la descarga'); return res.blob(); })
+                        .then(function(blob) {
+                            Swal.close();
+                            var url = window.URL.createObjectURL(blob);
+                            var a = document.createElement('a');
+                            a.href = url;
+                            a.download = 'Estadisticas_Detalle_Dictamen_' + new Date().toISOString().slice(0, 10) + '.xlsx';
+                            document.body.appendChild(a);
+                            a.click();
+                            window.URL.revokeObjectURL(url);
+                            document.body.removeChild(a);
+                            Swal.fire({ icon: 'success', title: 'Listo', timer: 1800, showConfirmButton: false });
+                        })
+                        .catch(function() {
+                            Swal.fire('Error', 'No se pudo generar el Excel.', 'error');
+                        });
+                });
+            });
+            cargarEstadisticasSabueso();
+        });
+        </script>
+        SCRIPT;
+        self::set('titulo', 'Estadísticas | Sabueso');
+        self::set('script', $script);
+        self::render('sabueso_estadisticas');
+    }
+
+    /**
+     * API: estadísticas agregadas de tickets (conteos, series, tiempos Sabueso/gestor).
+     */
+    public function getEstadisticasTickets()
+    {
+        $datos = TicketDAO::getEstadisticasTickets();
+        $success = !empty($datos['success']);
+        $mensaje = $datos['mensaje'] ?? '';
+        unset($datos['success'], $datos['mensaje']);
+        self::respuestaJSON([
+            'success' => $success,
+            'mensaje' => $mensaje,
+            'datos' => $datos
+        ]);
+    }
+
+    /**
+     * API: detalle por gestor (creador) — tickets levantados con dictamen enviado, visto/no, tiempo lectura.
+     */
+    public function getEstadisticasGestorDetalle()
+    {
+        $raw = file_get_contents('php://input');
+        $body = $raw ? json_decode($raw, true) : [];
+        if (!is_array($body)) {
+            $body = [];
+        }
+        $id = (int)($body['id_persona_creador'] ?? $_POST['id_persona_creador'] ?? 0);
+        $res = TicketDAO::getEstadisticasGestorDetalle($id);
+        self::respuestaJSON($res);
+    }
+
+    public function getEstadisticasSabuesoDetalle()
+    {
+        $raw = file_get_contents('php://input');
+        $body = $raw ? json_decode($raw, true) : [];
+        if (!is_array($body)) {
+            $body = [];
+        }
+        $id = (int)($body['id_persona_autor'] ?? $_POST['id_persona_autor'] ?? 0);
+        $res = TicketDAO::getEstadisticasSabuesoDetalle($id);
+        self::respuestaJSON($res);
     }
 
     /**
@@ -4781,6 +5349,33 @@ JS;
             return;
         }
         $resultado = TicketDAO::getDictamenSistema($idTicket);
+        self::respuestaJSON([
+            'success' => $resultado['success'] ?? false,
+            'mensaje' => $resultado['mensaje'] ?? '',
+            'datos'   => $resultado['datos'] ?? null,
+        ]);
+    }
+
+    /**
+     * API: otorgar prórroga única de 12 horas al dictamen del sistema.
+     */
+    public function otorgarProrrogaDictamenSistema()
+    {
+        $modulos = $_SESSION['modulos'] ?? [];
+        if (!is_array($modulos) || !in_array(19, $modulos)) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'No tiene permiso para esta acción.']);
+            return;
+        }
+        $raw = file_get_contents('php://input');
+        $datos = json_decode($raw, true) ?: [];
+        $idTicket = (int)($datos['id_ticket'] ?? 0);
+        if ($idTicket < 1) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'ID de ticket requerido.']);
+            return;
+        }
+        $idPersona = (int)($_SESSION['persona_id'] ?? ($_SESSION['usuario_id'] ?? 0));
+        $nombre = TicketDAO::getNombrePersona($idPersona);
+        $resultado = TicketDAO::otorgarProrrogaDictamenSistema($idTicket, $idPersona, (string)$nombre);
         self::respuestaJSON([
             'success' => $resultado['success'] ?? false,
             'mensaje' => $resultado['mensaje'] ?? '',

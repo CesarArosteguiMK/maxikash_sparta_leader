@@ -24,12 +24,12 @@
 
     function actualizarCountdownsDictamen(selector) {
         var sel = selector || '#tablaTickets, #tablaTicketsPanel';
-        $(sel + ' .dictamen-countdown[data-fecha-envio]').each(function() {
+        $(sel + ' .dictamen-countdown').each(function() {
             var el = this;
+            var fLim = $(el).attr('data-fecha-limite');
             var f = $(el).attr('data-fecha-envio');
-            if (!f) return;
-            var envio = new Date(f);
-            var fin = new Date(envio.getTime() + 12 * 60 * 60 * 1000);
+            if (!f && !fLim) return;
+            var fin = fLim ? new Date(fLim) : new Date(new Date(f).getTime() + 12 * 60 * 60 * 1000);
             var now = new Date();
             var ms = fin - now;
             var txt = '-';
@@ -38,11 +38,12 @@
             if (ms > 0) {
                 var h = Math.floor(ms / 3600000);
                 var m = Math.floor((ms % 3600000) / 60000);
-                txt = 'Tiempo restante: ' + h + 'h ' + m + 'm';
-                txtCorto = h + 'h ' + m + 'm';
+                var pref = fLim ? 'Prórroga · ' : '';
+                txt = pref + 'Tiempo restante: ' + h + 'h ' + m + 'm';
+                txtCorto = (fLim ? 'P2 ' : '') + h + 'h ' + m + 'm';
             } else {
-                txt = 'Plazo vencido';
-                txtCorto = 'Plazo vencido';
+                txt = fLim ? 'Prórroga vencida' : 'Plazo vencido';
+                txtCorto = txt;
             }
             $(el).attr('title', txt).attr('data-bs-title', txt).toggleClass('text-danger', expired);
             var $txt = $(el).find('.dictamen-countdown-text');
@@ -113,11 +114,16 @@
                     var esNuevo = fEnv && new Date(fEnv) >= new Date('2026-03-09T00:00:00');
                     if ((t.dictamen_estado || '') === 'enviado_al_gestor' && esNuevo && fEnv) {
                         var envio = new Date(fEnv);
-                        var fin = new Date(envio.getTime() + 12 * 60 * 60 * 1000);
+                        var fLim = (t.prorroga_fecha_limite || '').trim();
+                        var esProrroga = t.prorroga_activa && fLim;
+                        var fin = esProrroga ? new Date(fLim) : new Date(envio.getTime() + 12 * 60 * 60 * 1000);
                         var now = new Date();
                         var ms = fin - now;
                         var txtInicial = ms > 0 ? (Math.floor(ms / 3600000) + 'h ' + Math.floor((ms % 3600000) / 60000) + 'm') : 'Plazo vencido';
-                        tiempoVisitarHtml = '<span class="d-inline-flex align-items-center gap-1 dictamen-countdown cursor-pointer" role="button" tabindex="0" data-fecha-envio="' + fEnv.replace(/"/g, '&quot;') + '" data-id-ticket="' + (t.id_ticket || '') + '" data-bs-toggle="tooltip"><i class="fa-solid fa-clock text-info small"></i><span class="dictamen-countdown-text">' + txtInicial + '</span></span>';
+                        var clsPr = esProrroga ? ' dictamen-countdown-prorroga' : '';
+                        var dataLim = esProrroga ? (' data-fecha-limite="' + fLim.replace(/"/g, '&quot;') + '"') : '';
+                        var iconBlock = esProrroga ? ('<span class="position-relative d-inline-flex align-items-baseline"><i class="fa-solid fa-clock text-warning small"></i><sup class="dictamen-prorroga-marca" title="Prórroga +12h (2ª ventana)">2</sup></span>') : ('<i class="fa-solid fa-clock text-info small"></i>');
+                        tiempoVisitarHtml = '<span class="d-inline-flex align-items-center gap-1 dictamen-countdown cursor-pointer' + clsPr + '" role="button" tabindex="0" data-fecha-envio="' + fEnv.replace(/"/g, '&quot;') + '"' + dataLim + ' data-id-ticket="' + (t.id_ticket || '') + '" data-bs-toggle="tooltip" data-bs-title="' + (esProrroga ? 'Prórroga +12h' : 'Ventana 12h') + '">' + iconBlock + '<span class="dictamen-countdown-text">' + txtInicial + '</span></span>';
                     }
                     var row = {
                         _fecha_creacion: (t.fecha_creacion || ''),

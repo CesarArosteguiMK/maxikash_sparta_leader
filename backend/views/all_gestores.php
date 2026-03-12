@@ -1913,7 +1913,7 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
                   onclick="descargarPlantillaGestores()"
                   title="Descargar plantilla Excel"
                 >
-                    <i class="bx bx-download icon-sm me-sm-2"></i>
+                    <i class="fa fa-download icon-sm me-sm-2"></i>
                     <span class="d-inline-block">Plantilla</span>
                 </button>
 
@@ -1924,7 +1924,7 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
                   data-bs-toggle="offcanvas"
                   data-bs-target="#offcanvasAddUser"
                 >
-                    <i class="icon-base bx bx-plus icon-sm me-sm-2"></i>
+                    <i class="fa fa-user-plus icon-sm me-sm-2"></i>
                     <span class="d-inline-block">Agregar Usuario</span>
                 </button>
             </div>
