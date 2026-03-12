@@ -178,7 +178,11 @@ $esObtenerPlantillaSolicitudPdf = isset($urlSolicitada[0], $urlSolicitada[1])
     && strtolower($urlSolicitada[0]) === 'caphum'
     && strtolower($urlSolicitada[1]) === 'obtenerplantillasolicitudpdf';
 
-if ((!isset($_SESSION['login']) && !$esCrearTicketWhatsApp && !$esSubirDocCandidato && !$esDescargarDocCandidato && !$esLlenarSolicitudEnLinea && !$esObtenerPlantillaSolicitudPdf) || strtolower($urlSolicitada[0]) === strtolower(LOGIN)) {
+$esEstadoReportesAgente = isset($urlSolicitada[0], $urlSolicitada[1])
+    && strtolower($urlSolicitada[0]) === 'segundometro'
+    && strtolower($urlSolicitada[1]) === 'estadoreportesagente';
+
+if ((!isset($_SESSION['login']) && !$esCrearTicketWhatsApp && !$esSubirDocCandidato && !$esDescargarDocCandidato && !$esLlenarSolicitudEnLinea && !$esObtenerPlantillaSolicitudPdf && !$esEstadoReportesAgente) || strtolower($urlSolicitada[0]) === strtolower(LOGIN)) {
     $login = 'Controllers\\' . LOGIN;
     $login = new $login;
 
@@ -242,7 +246,7 @@ $rutasModulos = [
 $controladoresModulos = ['segundometro' => [16]];
 $path = strtolower(trim($controladorArchivo)) . '/' . strtolower(trim($metodo));
 $modulosRequeridos = $rutasModulos[$path] ?? $controladoresModulos[strtolower(trim($controladorArchivo))] ?? null;
-if ($modulosRequeridos !== null) {
+if (!$esEstadoReportesAgente && $modulosRequeridos !== null) {
     $modulosUsuario = $_SESSION['modulos'] ?? [];
     if (!is_array($modulosUsuario) || !array_intersect($modulosRequeridos, $modulosUsuario)) {
         header('Location: /' . VISTA_DEFECTO);
