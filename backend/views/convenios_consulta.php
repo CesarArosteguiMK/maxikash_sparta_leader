@@ -317,6 +317,13 @@ body.dark-mode .badge-estatus-incumplimiento{ background:rgba(245,158,11,0.15); 
                 <button class="btn btn-primary" id="btnBuscar" onclick="buscarCredito()">
                     <i class="fa-solid fa-magnifying-glass me-1"></i> Buscar
                 </button>
+
+                <button type="button" class="btn btn-outline-warning btn-sm"
+        onclick="abrirModalMigracion()">
+    <i class="fas fa-file-import"></i> Registrar Convenio Existente
+</button>
+
+
             </div>
 
 
@@ -337,6 +344,8 @@ body.dark-mode .badge-estatus-incumplimiento{ background:rgba(245,158,11,0.15); 
         <i class="fa-solid fa-clock-rotate-left me-1"></i> Ver historial de convenios
     </button>
 </div>
+
+
 
         <!-- ALERTA INCUMPLIMIENTO -->
         <div id="alertaIncumplimiento" class="alerta-incumplimiento" style="display:none;">
@@ -398,6 +407,8 @@ body.dark-mode .badge-estatus-incumplimiento{ background:rgba(245,158,11,0.15); 
                                    <th>Saldo Restante</th>
                                    <th>Pago Realizado</th>
                                    <th>Estatus</th>
+                                           <th>Accion</th>
+
                                 </tr>
                             </thead>
                             <tbody id="tablaAmortBody">
@@ -478,6 +489,111 @@ body.dark-mode .badge-estatus-incumplimiento{ background:rgba(245,158,11,0.15); 
             </div>
         </div>
     </div>
+</div>
+
+
+<!-- ════════════════════════════════════════════ -->
+<!-- MODAL MIGRACIÓN DE CONVENIO                  -->
+<!-- ════════════════════════════════════════════ -->
+<div class="modal fade" id="modalMigracion" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+
+      <div class="modal-header">
+        <h5 class="modal-title">
+            <i class="fas fa-file-import me-2"></i>Registrar Convenio Existente
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+
+      <div class="modal-body">
+
+        <!-- Paso 1: buscar crédito -->
+        <div id="migStep1">
+          <label class="form-label fw-bold">ID Crédito</label>
+          <div class="input-group mb-3">
+            <input type="number" id="migIdCredito" class="form-control"
+                   placeholder="Ej. 193141">
+            <button class="btn btn-primary" onclick="migBuscarCredito()">
+                <i class="fas fa-search"></i> Buscar
+            </button>
+          </div>
+          <div id="migInfoCliente" class="alert alert-info d-none"></div>
+        </div>
+
+        <!-- Paso 2: datos del convenio (oculto hasta buscar crédito) -->
+        <div id="migStep2" class="d-none">
+          <hr>
+          <div class="row g-3">
+
+            <div class="col-md-6">
+              <label class="form-label">Producto</label>
+              <select id="migProducto" class="form-select" onchange="migProductoChange()">
+                <option value="">Selecciona...</option>
+              </select>
+            </div>
+
+            <div class="col-md-3">
+              <label class="form-label">% Descuento</label>
+              <div class="input-group">
+                <input type="number" id="migPorcentaje" class="form-control"
+                       min="0" max="100" step="0.01" placeholder="20"
+                       oninput="migCalcular()">
+                <span class="input-group-text">%</span>
+              </div>
+            </div>
+
+            <div class="col-md-3">
+              <label class="form-label">Fecha Inicio</label>
+              <input type="date" id="migFechaInicio" class="form-control"
+                     oninput="migCalcular()">
+            </div>
+
+            <div class="col-md-4">
+              <label class="form-label">Adeudo Base</label>
+              <div class="input-group">
+                <span class="input-group-text">$</span>
+                <input type="number" id="migAdeudo" class="form-control"
+                       step="0.01" placeholder="16284.33" oninput="migCalcular()">
+              </div>
+            </div>
+
+            <div class="col-md-4">
+              <label class="form-label">Pago Semanal</label>
+              <div class="input-group">
+                <span class="input-group-text">$</span>
+                <input type="number" id="migPagoSemanal" class="form-control"
+                       step="0.01" placeholder="3250" oninput="migCalcular()">
+              </div>
+            </div>
+
+            <div class="col-md-4">
+              <label class="form-label">Bucket Morosidad</label>
+              <input type="text" id="migBucket" class="form-control"
+                     placeholder="g) 60 a 89 dias">
+            </div>
+
+          </div>
+
+          <!-- Preview del cálculo -->
+          <div id="migPreview" class="d-none mt-3">
+            <hr>
+            <div class="row text-center g-2" id="migResumenCards"></div>
+          </div>
+
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button class="btn btn-success d-none" id="migBtnGuardar"
+                onclick="migGuardar()">
+            <i class="fas fa-save"></i> Registrar Convenio
+        </button>
+      </div>
+
+    </div>
+  </div>
 </div>
 
 <script>
@@ -626,7 +742,7 @@ function renderCreditoBanner(c) {
             '<div class="col-6 col-md-3"><div class="label">Cliente</div><div class="valor" style="font-size:0.9rem;">' + c.Nombre_cliente + '</div></div>' +
             '<div class="col-6 col-md-2"><div class="label">Bucket</div><span class="bucket-badge ' + bucketColor(c.Bucket_Morosidad_Real) + '">' + c.Bucket_Morosidad_Real + '</span></div>' +
             '<div class="col-6 col-md-2"><div class="label">Avance pago</div><div class="valor">' + avance + '%</div></div>' +
-            '<div class="col-6 col-md-2"><div class="label">Adeudo total</div><div class="valor" style="color:#4ade80;">' + fmt(adeudo) + '</div></div>' +
+            '<div class="col-6 col-md-2"><div class="label">Adeudo total Actual</div><div class="valor" style="color:#4ade80;">' + fmt(adeudo) + '</div></div>' +
         '</div>';
 }
 
@@ -665,6 +781,15 @@ function renderOfertas(ofertas) {
 // ══════════════════════════════════════════════════════
 //  CONGELAR MÓDULO (convenio activo existente)
 // ══════════════════════════════════════════════════════
+
+
+function fmtFecha(fechaISO) {
+    if (!fechaISO) return '—';
+    var p = fechaISO.split('-');
+    return p[2] + '/' + p[1] + '/' + p[0];
+}
+
+
 function congelarModulo(convenio) {
     var fmt = function(v) { return '$' + parseFloat(v).toLocaleString('es-MX', { minimumFractionDigits: 2 }); };
 
@@ -719,25 +844,66 @@ function congelarModulo(convenio) {
         '<div class="col-6 col-md-3"><div class="border rounded p-2"><div class="small text-muted">Pago Semanal</div><div class="fw-bold text-warning fs-5">' + fmt(convenio.pago_semanal) + '</div></div></div>';
 
     // Tabla con datos reales del backend
-    var filasHtml = convenio.amortizacion.map(function(fila) {
+   var filasHtml = convenio.amortizacion.map(function(fila) {
 
-        var estatusBadge = fila.estatus_pago === 'pagado'
-            ? '<span class="badge bg-success">Pagado</span>'
+    var esPagado   = fila.estatus_pago === 'pagado';
+    var esVencido  = fila.estatus_pago === 'vencido';
+    var esPendiente = fila.estatus_pago === 'pendiente';
+
+    var estatusBadge = esPagado
+        ? '<span class="badge bg-success">Pagado</span>'
+        : esVencido
+            ? '<span class="badge bg-danger">Vencido</span>'
             : '<span class="badge bg-warning text-dark">Pendiente</span>';
-        return '<tr>' +
-    '<td>Semana ' + fila.numero_semana + '</td>' +
-    '<td>' + fmtFechaRango(fila.fecha_pago) + '</td>' +
-    '<td>' +
-        '<span style="display:block;font-weight:600;">' + fmt(fila.pago_semanal) + '</span>' +
-        '<span style="display:block;font-size:0.82em;color:#888;">' + fmt(fila.capital) + '</span>' +
-    '</td>' +
-    '<td>' + fmt(fila.saldo_restante) + '</td>' +
-    '<td>' + fmtPagoRealizado(null) + '</td>' +
-    '<td>' + estatusBadge + '</td>' +
-'</tr>';
-    }).join('');
+
+    // Celda de fecha: si está pagado y tiene fecha_pago_real, mostrarla
+    var celdaFecha = esPagado && fila.fecha_pago_real
+        ? '<span style="display:block;font-weight:600;color:#22c55e;">'
+          + fmtFecha(fila.fecha_pago_real) + '</span>'
+          + '<span style="display:block;color:#888;font-size:0.82em;">Pagado</span>'
+        : fmtFechaRango(fila.fecha_pago);
+
+    // Celda de pago realizado
+    var celdaMontoPagado = esPagado && fila.monto_pagado
+        ? '<span style="font-weight:600;color:#22c55e;">$'
+          + parseFloat(fila.monto_pagado).toLocaleString('es-MX', { minimumFractionDigits: 2 })
+          + '</span>'
+        : fmtPagoRealizado(null);
+
+    // Botón de acción
+    var btnAccion = '';
+    if (esPagado) {
+        btnAccion = fila.fecha_pago_real
+            ? '<small class="text-success"><i class="fas fa-check-double"></i> '
+              + fmtFecha(fila.fecha_pago_real) + '</small>'
+            : '<span class="badge bg-success">✓</span>';
+    } else if (esPendiente || esVencido) {
+        btnAccion = '<button class="btn btn-sm btn-success btn-registrar-pago" '
+            + 'data-semana="'   + fila.numero_semana + '" '
+            + 'data-convenio="' + convenio.id        + '" '
+            + 'data-credito="'  + convenio.id_credito + '" '
+            + 'title="Marcar como pagado">'
+            + '<i class="fas fa-check"></i></button>';
+    }
+
+    return '<tr>' +
+        '<td>Semana ' + fila.numero_semana + '</td>' +
+        '<td>' + celdaFecha + '</td>' +
+        '<td>' +
+            '<span style="display:block;font-weight:600;">' + fmt(fila.pago_semanal) + '</span>' +
+            '<span style="display:block;font-size:0.82em;color:#888;">' + fmt(fila.capital) + '</span>' +
+        '</td>' +
+        '<td>' + fmt(fila.saldo_restante) + '</td>' +
+        '<td class="celda-monto-pagado">' + celdaMontoPagado + '</td>' +
+        '<td class="celda-estatus">' + estatusBadge + '</td>' +
+        '<td>' + btnAccion + '</td>' +
+    '</tr>';
+}).join('');
     document.getElementById('tablaAmortBody').innerHTML = filasHtml;
     document.getElementById('amortSection').style.display = 'block';
+
+    bindBotonesPago(convenio.id_credito);
+
 
     // Solo PDF visible
     document.getElementById('btnGuardar').style.display = 'none';
@@ -763,6 +929,98 @@ function congelarModulo(convenio) {
     );
 
     document.getElementById('amortSection').scrollIntoView({ behavior: 'smooth' });
+}
+
+// ════════════════════════════════════════════════
+// REGISTRAR PAGO DE SEMANA
+// ════════════════════════════════════════════════
+function bindBotonesPago(idCredito) {
+    document.querySelectorAll('.btn-registrar-pago').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            var semana   = btn.getAttribute('data-semana');
+            var convenio = btn.getAttribute('data-convenio');
+            var credito  = idCredito || btn.getAttribute('data-credito');
+
+            Swal.fire({
+                title: '¿Registrar pago?',
+                html: 'Se marcará la <b>Semana ' + semana + '</b> como pagada.<br>'
+                    + '<small class="text-muted">La fecha y monto se verificarán con S2Movil.</small>',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonText: 'Sí, registrar',
+                cancelButtonText: 'Cancelar',
+                confirmButtonColor: '#22c55e',
+            }).then(function(result) {
+                if (!result.isConfirmed) return;
+
+                btn.disabled  = true;
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+
+                http.request({
+                    endpoint: '/convenios/registrarPago',
+                    method:   'POST',
+                    data: {
+                        id_convenio:   convenio,
+                        numero_semana: semana,
+                        id_credito:    credito,
+                    },
+                    onSuccess: function(resp) {
+                        if (!resp.success) {
+                            Swal.fire('Error', resp.mensaje || 'No se pudo registrar.', 'error');
+                            btn.disabled  = false;
+                            btn.innerHTML = '<i class="fas fa-check"></i>';
+                            return;
+                        }
+
+                        var datos = resp.datos;
+                        var fila  = btn.closest('tr');
+
+                        // Celda acción → fecha pagada
+                        btn.parentElement.innerHTML =
+                            '<small class="text-success">'
+                            + '<i class="fas fa-check-double"></i> '
+                            + fmtFecha(datos.fecha_pago_real)
+                            + '</small>';
+
+                        // Badge estatus
+                        var celdaEstatus = fila.querySelector('.celda-estatus');
+                        if (celdaEstatus) {
+                            celdaEstatus.innerHTML =
+                                '<span class="badge bg-success">Pagado</span>';
+                        }
+
+                        // Monto pagado
+                        if (datos.monto_pagado) {
+                            var celdaMonto = fila.querySelector('.celda-monto-pagado');
+                            if (celdaMonto) {
+                                celdaMonto.innerHTML =
+                                    '<span style="font-weight:600;color:#22c55e;">$'
+                                    + parseFloat(datos.monto_pagado)
+                                      .toLocaleString('es-MX', { minimumFractionDigits: 2 })
+                                    + '</span>';
+                            }
+                        }
+
+                        Swal.fire({
+                            title: '¡Registrado!',
+                            html: 'Semana ' + semana + ' marcada como pagada.'
+                                + (datos.fecha_pago_real
+                                    ? '<br><small>Fecha: ' + fmtFecha(datos.fecha_pago_real) + '</small>'
+                                    : ''),
+                            icon: 'success',
+                            timer: 2200,
+                            showConfirmButton: false,
+                        });
+                    },
+                    onError: function() {
+                        Swal.fire('Error', 'Error de conexión.', 'error');
+                        btn.disabled  = false;
+                        btn.innerHTML = '<i class="fas fa-check"></i>';
+                    }
+                });
+            });
+        });
+    });
 }
 
 // ══════════════════════════════════════════════════════
@@ -1177,7 +1435,275 @@ function abrirHistorial() {
     });
 }
 
+// ════════════════════════════════════════════════
+// MODAL MIGRACIÓN
+// ════════════════════════════════════════════════
+
+var _migCredito = null;
+var _migDetalle = null;
+
+function abrirModalMigracion() {
+    // Reset
+    _migCredito = null;
+    _migDetalle = null;
+    document.getElementById('migIdCredito').value   = '';
+    document.getElementById('migInfoCliente').classList.add('d-none');
+    document.getElementById('migStep2').classList.add('d-none');
+    document.getElementById('migPreview').classList.add('d-none');
+    document.getElementById('migBtnGuardar').classList.add('d-none');
+
+    var modal = new bootstrap.Modal(document.getElementById('modalMigracion'));
+    modal.show();
+
+    // Cargar productos en el select
+    migCargarProductos();
+}
+
+function migCargarProductos() {
+    http.request({
+        endpoint: '/convenios/getProductosConvenio',
+        method:   'POST',
+        data:     {},
+        onSuccess: function(resp) {
+            console.log('productos resp:', resp);
+            if (!resp.success) return;
+            var sel = document.getElementById('migProducto');
+            sel.innerHTML = '<option value="">Selecciona...</option>';
+            resp.datos.forEach(function(p) {
+                p.detalles.forEach(function(d) {
+                    sel.innerHTML += '<option value="' + d.id + '"'
+                        + ' data-id-producto="' + p.id + '"'
+                        + ' data-porcentaje="'  + d.porcentaje_descuento + '"'
+                        + ' data-variable="'    + d.porcentaje_variable  + '">'
+                        + p.nombre + ' — ' + d.porcentaje_descuento + '%'
+                        + (d.porcentaje_variable ? ' (variable)' : '')
+                        + '</option>';
+                });
+            });
+        },
+        onError: function() {}
+    });
+}
+
+function migBuscarCredito() {
+    var id = document.getElementById('migIdCredito').value.trim();
+    if (!id) return;
+
+    http.request({
+        endpoint: '/convenios/getOfertasCredito',
+        method:   'POST',
+        data:     { id_credito: id },
+        onSuccess: function(resp) {
+            if (!resp.success || !resp.datos || !resp.datos.credito) {
+                Swal.fire('No encontrado', resp.mensaje, 'warning');
+                return;
+            }
+
+            var credito = resp.datos.credito;
+            _migCredito = credito;
+
+            var info = document.getElementById('migInfoCliente');
+            info.classList.remove('d-none');
+            info.innerHTML = '<i class="fas fa-user me-2"></i><strong>'
+                + credito.Nombre_cliente
+                + '</strong> — Crédito ' + credito.Id_credito
+                + '<br><small class="text-muted">Adeudo actual S2Movil: $'
+                + parseFloat(credito.Adeudo_total || 0)
+                  .toLocaleString('es-MX', { minimumFractionDigits: 2 })
+                + '</small>';
+
+            document.getElementById('migAdeudo').value =
+                parseFloat(credito.Adeudo_total || 0).toFixed(2);
+
+            document.getElementById('migBucket').value =
+                credito.Bucket_Morosidad_Real || '';
+
+            document.getElementById('migStep2').classList.remove('d-none');
+        },
+        onError: function() {
+            Swal.fire('Error', 'No se pudo consultar el crédito.', 'error');
+        }
+    });
+}
+
+function migProductoChange() {
+    var sel     = document.getElementById('migProducto');
+    var opt     = sel.options[sel.selectedIndex];
+    var variable = opt.getAttribute('data-variable');
+    var pct      = opt.getAttribute('data-porcentaje');
+
+    var inputPct = document.getElementById('migPorcentaje');
+    inputPct.value    = pct || '';
+    inputPct.readOnly = variable !== '1';
+
+    _migDetalle = {
+        id_detalle:  sel.value,
+        id_producto: opt.getAttribute('data-id-producto'),
+    };
+
+    migCalcular();
+}
+
+function migCalcular() {
+    var adeudo  = parseFloat(document.getElementById('migAdeudo').value)      || 0;
+    var pct     = parseFloat(document.getElementById('migPorcentaje').value)   || 0;
+    var semanal = parseFloat(document.getElementById('migPagoSemanal').value)  || 0;
+    var fecha   = document.getElementById('migFechaInicio').value;
+
+    if (!adeudo || !semanal || !fecha) {
+        document.getElementById('migPreview').classList.add('d-none');
+        document.getElementById('migBtnGuardar').classList.add('d-none');
+        return;
+    }
+
+    var descuento   = Math.round(adeudo * (pct / 100) * 100) / 100;
+    var total       = Math.round((adeudo - descuento) * 100) / 100;
+    var semanasEnt  = Math.floor(total / semanal);
+    var residuo     = Math.round((total - semanasEnt * semanal) * 100) / 100;
+    var semanas     = residuo > 0 ? semanasEnt + 1 : semanasEnt;
+
+    var fmt = function(v) {
+        return '$' + v.toLocaleString('es-MX', { minimumFractionDigits: 2 });
+    };
+
+    document.getElementById('migResumenCards').innerHTML =
+        '<div class="col-6 col-md-3"><div class="border rounded p-2">'
+        + '<div class="small text-muted">Adeudo Base</div>'
+        + '<div class="fw-bold text-primary">' + fmt(adeudo) + '</div></div></div>' +
+        '<div class="col-6 col-md-3"><div class="border rounded p-2">'
+        + '<div class="small text-muted">Descuento (' + pct + '%)</div>'
+        + '<div class="fw-bold text-danger">-' + fmt(descuento) + '</div></div></div>' +
+        '<div class="col-6 col-md-3"><div class="border rounded p-2">'
+        + '<div class="small text-muted">Total a Pagar</div>'
+        + '<div class="fw-bold text-success">' + fmt(total) + '</div></div></div>' +
+        '<div class="col-6 col-md-3"><div class="border rounded p-2">'
+        + '<div class="small text-muted">Semanas</div>'
+        + '<div class="fw-bold text-warning">' + semanas + ' sem</div></div></div>';
+
+    document.getElementById('migPreview').classList.remove('d-none');
+    document.getElementById('migBtnGuardar').classList.remove('d-none');
+}
+
+function migGuardar() {
+    if (!_migCredito || !_migDetalle) {
+        Swal.fire('Error', 'Completa todos los campos.', 'warning');
+        return;
+    }
+
+    var adeudo   = document.getElementById('migAdeudo').value;
+    var pct      = document.getElementById('migPorcentaje').value;
+    var semanal  = document.getElementById('migPagoSemanal').value;
+    var fecha    = document.getElementById('migFechaInicio').value;
+    var bucket   = document.getElementById('migBucket').value;
+
+    if (!adeudo || !pct || !semanal || !fecha) {
+        Swal.fire('Campos incompletos', 'Llena todos los campos requeridos.', 'warning');
+        return;
+    }
+
+    Swal.fire({
+        title: '¿Registrar convenio?',
+        html: 'Se creará el convenio y se marcarán automáticamente<br>'
+            + 'las semanas ya pagadas según S2Movil.',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Sí, registrar',
+        cancelButtonText:  'Cancelar',
+        confirmButtonColor: '#22c55e',
+    }).then(function(result) {
+        if (!result.isConfirmed) return;
+
+        document.getElementById('migBtnGuardar').disabled = true;
+        document.getElementById('migBtnGuardar').innerHTML =
+            '<i class="fas fa-spinner fa-spin"></i> Registrando...';
+
+        http.request({
+            endpoint: '/convenios/migrarConvenio',
+            method:   'POST',
+            data: {
+                id_credito:                   _migCredito.Id_credito,
+    nombre_cliente:               _migCredito.Nombre_cliente,
+    id_producto_convenio:         _migDetalle.id_producto,
+    id_producto_convenio_detalle: _migDetalle.id_detalle,
+    adeudo_base:                  adeudo,
+    porcentaje_descuento:         pct,
+    pago_semanal:                 semanal,
+    fecha_inicio:                 fecha,
+    bucket_morosidad_real:        bucket,
+    dias_mora:                    _migCredito.Dias_mora        || 0,
+    avance_pago_plazo:            _migCredito.Avance_Pago_Plazo || '',
+            },
+            onSuccess: function(resp) {
+                document.getElementById('migBtnGuardar').disabled = false;
+                document.getElementById('migBtnGuardar').innerHTML =
+                    '<i class="fas fa-save"></i> Registrar Convenio';
+
+                if (!resp.success) {
+                    Swal.fire('Error', resp.mensaje, 'error');
+                    return;
+                }
+
+                var d = resp.datos;
+                bootstrap.Modal.getInstance(
+                    document.getElementById('modalMigracion')
+                ).hide();
+
+                Swal.fire({
+                    title: '¡Convenio registrado!',
+                    html: d.semanas_pagadas + ' de ' + d.semanas_total
+                        + ' semanas marcadas como pagadas.<br>'
+                        + '<small class="text-muted">Recarga el crédito para ver el convenio.</small>',
+                    icon: 'success',
+                    confirmButtonText: 'Ver convenio',
+                }).then(function() {
+                    // Recargar el crédito automáticamente
+                    document.getElementById('inputCredito').value =
+                        _migCredito.id_credito;
+                    buscarCredito();
+                });
+            },
+            onError: function() {
+                document.getElementById('migBtnGuardar').disabled = false;
+                document.getElementById('migBtnGuardar').innerHTML =
+                    '<i class="fas fa-save"></i> Registrar Convenio';
+                Swal.fire('Error', 'Error de conexión.', 'error');
+            }
+        });
+    });
+}
+
+function enviarMigrarConvenio() {
+    var form = document.getElementById('formMigrarConvenio');
+    var data = {};
+    Array.from(form.elements).forEach(function(el) {
+        if (el.name) data[el.name] = el.value;
+    });
+
+    Swal.fire({ title: 'Registrando...', allowOutsideClick: false, didOpen: function() { Swal.showLoading(); } });
+    http.request({
+        endpoint: '/convenios/migrarConvenio',
+        method: 'POST',
+        data: data,
+        onSuccess: function(resp) {
+            Swal.close();
+            if (resp.success) {
+                Swal.fire('¡Listo!', 'Convenio migrado correctamente.', 'success');
+                var modal = bootstrap.Modal.getInstance(document.getElementById('modalMigrarConvenio'));
+                if (modal) modal.hide();
+            } else {
+                Swal.fire('Error', resp.mensaje || 'No se pudo migrar el convenio.', 'error');
+            }
+        },
+        onError: function() {
+            Swal.close();
+            Swal.fire('Error', 'Error de conexión.', 'error');
+        }
+    });
+}
+
 window.abrirHistorial = abrirHistorial;
+
+window.abrirModalMigracion = abrirModalMigracion;
 
 window.buscarCredito    = buscarCredito;
 window.seleccionarOferta = seleccionarOferta;
@@ -1187,3 +1713,4 @@ window.verTablaAmortizacion = verTablaAmortizacion;
 window.actualizarSlider = actualizarSlider;
 window.cancelarConvenio = cancelarConvenio;
 </script>
+
