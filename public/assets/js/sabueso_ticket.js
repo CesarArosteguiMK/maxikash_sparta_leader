@@ -618,42 +618,94 @@
             return;
         }
         if (enviandoTicket) return;
-        enviandoTicket = true;
-        Swal.fire({ title: 'Registrando ticket', text: 'Se está registrando el ticket. Espere un momento...', showConfirmButton: false, allowOutsideClick: false, allowEscapeKey: false, didOpen: function() { if (typeof Swal !== 'undefined' && typeof Swal.showLoading === 'function') Swal.showLoading(); } });
-        setButtonLevantarLoading(true);
+
+        function procederACrearTicket() {
+            enviandoTicket = true;
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    title: 'Registrando ticket',
+                    text: 'Se está registrando el ticket. Espere un momento...',
+                    showConfirmButton: false,
+                    allowOutsideClick: false,
+                    allowEscapeKey: false,
+                    didOpen: function() { if (typeof Swal !== 'undefined' && typeof Swal.showLoading === 'function') Swal.showLoading(); }
+                });
+            }
+            setButtonLevantarLoading(true);
+            http.request({
+                endpoint: "/sabueso/crearTicket",
+                metodo: "POST",
+                data: JSON.stringify(payload),
+                contentType: "application/json",
+                processData: false,
+                showLoader: false,
+                onSuccess: function(resp) {
+                    if (!resp.success) {
+                        enviandoTicket = false;
+                        if (typeof Swal !== 'undefined' && Swal.isVisible && Swal.isVisible()) Swal.close();
+                        setButtonLevantarLoading(false);
+                        Swal.fire({ icon: 'error', title: 'Error', text: resp.mensaje || 'No se pudo crear el ticket. Verifique el ID de crédito.' });
+                        return;
+                    }
+                    enviandoTicket = false;
+                    if (typeof Swal !== 'undefined' && Swal.isVisible && Swal.isVisible()) Swal.close();
+                    $('#modalLevantarTicket').modal('hide');
+                    setButtonLevantarLoading(false);
+                    $('#modal_id_tipo_ticket, #modal_id_origen_ticket').val('');
+                    if ($('#modal_id_prioridad').is('select')) $('#modal_id_prioridad').val('');
+                    $('#modal_id_credito, #modal_descripcion_inicial').val('');
+                    clearFechaVencimiento();
+                    getTickets();
+                    setTimeout(function() {
+                        Swal.fire({ icon: 'success', title: 'Ticket creado', text: resp.mensaje || 'Folio: ' + (resp.datos && resp.datos.folio ? resp.datos.folio : '') });
+                    }, 100);
+                },
+                onError: function(err) {
+                    enviandoTicket = false;
+                    if (typeof Swal !== 'undefined' && Swal.isVisible && Swal.isVisible()) Swal.close();
+                    setButtonLevantarLoading(false);
+                    Swal.fire({ icon: 'error', title: 'Error', text: (err && err.mensaje) || 'No se pudo crear el ticket.' });
+                }
+            });
+        }
+
         http.request({
-            endpoint: "/sabueso/crearTicket",
+            endpoint: "/sabueso/verificarCreditoDuplicadoCreador",
             metodo: "POST",
-            data: JSON.stringify(payload),
+            data: JSON.stringify({ id_credito: parseInt(payload.id_credito, 10) }),
             contentType: "application/json",
             processData: false,
             showLoader: false,
             onSuccess: function(resp) {
-                if (!resp.success) {
-                    enviandoTicket = false;
-                    if (typeof Swal !== 'undefined' && Swal.isVisible && Swal.isVisible()) Swal.close();
-                    setButtonLevantarLoading(false);
-                    Swal.fire({ icon: 'error', title: 'Error', text: resp.mensaje || 'No se pudo crear el ticket. Verifique el ID de crédito.' });
-                    return;
+                if (resp.success && resp.ya_tiene) {
+                    var tk = resp.ticket_existente || {};
+                    var idTk = (tk.id_ticket != null) ? String(tk.id_ticket) : '—';
+                    var fechaTkTxt = '—';
+                    if (tk.fecha_creacion) {
+                        try {
+                            fechaTkTxt = new Date(tk.fecha_creacion).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' });
+                        } catch (e) { fechaTkTxt = tk.fecha_creacion; }
+                    }
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Ticket con este crédito',
+                        html: 'Usted ya tiene un ticket registrado con el ID de crédito <strong>' + payload.id_credito + '</strong>.<br>' +
+                            '<span class="text-muted small">Ticket ID: <strong>' + idTk + '</strong> · Fecha de apertura: <strong>' + fechaTkTxt + '</strong></span><br><br>' +
+                            'Por favor verifique que no se trate de la misma petición o la misma gestión antes de continuar.<br><br>¿Desea proceder con el registro de un nuevo ticket?',
+                        showCancelButton: true,
+                        confirmButtonText: 'Sí, proceder',
+                        cancelButtonText: 'No, cancelar',
+                        confirmButtonColor: '#0d6efd',
+                        cancelButtonColor: '#6c757d'
+                    }).then(function(confirmResult) {
+                        if (confirmResult && confirmResult.isConfirmed) procederACrearTicket();
+                    });
+                } else {
+                    procederACrearTicket();
                 }
-                enviandoTicket = false;
-                if (typeof Swal !== 'undefined' && Swal.isVisible && Swal.isVisible()) Swal.close();
-                $('#modalLevantarTicket').modal('hide');
-                setButtonLevantarLoading(false);
-                $('#modal_id_tipo_ticket, #modal_id_origen_ticket').val('');
-                if ($('#modal_id_prioridad').is('select')) $('#modal_id_prioridad').val('');
-                $('#modal_id_credito, #modal_descripcion_inicial').val('');
-                clearFechaVencimiento();
-                getTickets();
-                setTimeout(function() {
-                    Swal.fire({ icon: 'success', title: 'Ticket creado', text: resp.mensaje || 'Folio: ' + (resp.datos && resp.datos.folio ? resp.datos.folio : '') });
-                }, 100);
             },
-            onError: function(err) {
-                enviandoTicket = false;
-                if (typeof Swal !== 'undefined' && Swal.isVisible && Swal.isVisible()) Swal.close();
-                setButtonLevantarLoading(false);
-                Swal.fire({ icon: 'error', title: 'Error', text: (err && err.mensaje) || 'No se pudo crear el ticket.' });
+            onError: function() {
+                procederACrearTicket();
             }
         });
     }

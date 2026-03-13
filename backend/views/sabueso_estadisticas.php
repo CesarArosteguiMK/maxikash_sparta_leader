@@ -117,6 +117,25 @@
         display: inline-flex; align-items: center; justify-content: center;
         font-size: 0.55rem; font-weight: 800; color: #fff; flex-shrink: 0;
     }
+    /* Por gestor: badges Tasa y Cumplimiento más intensos (modo claro y oscuro) */
+    .estad-sabueso-wrap #tablaPorGestorLectura .badge.bg-success,
+    .estad-sabueso-wrap #tablaPorGestorPV .badge.bg-success {
+        background-color: #0d8a3d !important;
+        color: #fff !important;
+    }
+    .estad-sabueso-wrap #tablaPorGestorLectura .badge.bg-warning,
+    .estad-sabueso-wrap #tablaPorGestorPV .badge.bg-warning {
+        background-color: #e5a800 !important;
+        color: #000 !important;
+    }
+    .estad-sabueso-wrap #tablaPorGestorLectura .badge.bg-danger {
+        background-color: #c92a2a !important;
+        color: #fff !important;
+    }
+    .estad-sabueso-wrap #tablaPorGestorPV .badge.bg-secondary {
+        background-color: #495057 !important;
+        color: #fff !important;
+    }
     .estad-sabueso-wrap .estad-pill-gestor .btn.active {
         background-color: var(--bs-success) !important;
         color: #fff !important;
@@ -160,6 +179,19 @@
         border-radius: 0.75rem; padding: 0.9rem 1rem;
         border: 1px solid transparent;
     }
+    /* Iconos de las tarjetas Global con color en modo claro */
+    .estad-sabueso-wrap .estad-global-tile.bg-primary.bg-opacity-10 .fa-eye {
+        color: #0d6efd !important;
+    }
+    .estad-sabueso-wrap .estad-global-tile.bg-success.bg-opacity-10 .fa-paper-plane {
+        color: #198754 !important;
+    }
+    .estad-sabueso-wrap .estad-global-tile.bg-warning.bg-opacity-10 .fa-triangle-exclamation {
+        color: #d97706 !important;
+    }
+    .estad-sabueso-wrap .estad-global-tile[style*="111, 66, 193"] .fa-check {
+        color: #6f42c1 !important;
+    }
     @media (max-width: 767px) {
         .estad-sabueso-wrap .estad-num-big { font-size: 2rem; }
     }
@@ -188,6 +220,7 @@
         border-radius: 1rem;
         overflow: hidden;
         box-shadow: 0 12px 40px rgba(0,0,0,0.15);
+        max-height: 92vh;
     }
     .swal2-popup.estad-detalle-swal .swal2-title {
         margin: 0;
@@ -219,7 +252,7 @@
         color: #495057;
     }
     .estad-modal-detalle-table-wrap {
-        max-height: 380px;
+        max-height: 62vh;
         overflow: auto;
         margin: 0;
     }
@@ -246,6 +279,29 @@
     }
     .estad-modal-detalle-table-wrap tbody tr:hover {
         background: rgba(25,135,84,0.05);
+    }
+    .estad-modal-detalle-pager {
+        border-top: 1px solid var(--bs-border-color, #dee2e6);
+        background: linear-gradient(180deg, rgba(248,249,250,0.95) 0%, rgba(248,249,250,1) 100%);
+        padding: 0.55rem 0.85rem 0.65rem;
+        margin: 0;
+    }
+    .estad-modal-detalle-pager .estad-gestor-perpage {
+        min-width: 86px;
+    }
+    .estad-reporte-semanal-toolbar {
+        border-top: 1px solid var(--bs-border-color, #dee2e6);
+        border-bottom: 1px solid var(--bs-border-color, #dee2e6);
+        background: linear-gradient(180deg, rgba(248,249,250,0.9) 0%, rgba(255,255,255,1) 100%);
+        padding: 0.6rem 0.85rem;
+    }
+    .estad-reporte-semanal-toolbar .form-select {
+        min-width: 260px;
+    }
+    .estad-reporte-semanal-footer {
+        border-top: 1px solid var(--bs-border-color, #dee2e6);
+        background: rgba(248,249,250,0.92);
+        padding: 0.55rem 0.85rem;
     }
     .estad-modal-th-tip {
         cursor: help;
@@ -468,7 +524,7 @@
                 <div class="card-header border-0 d-flex flex-wrap justify-content-between align-items-center gap-2 py-3 bg-transparent">
                     <div>
                         <div class="fw-semibold"><i class="fa-solid fa-calendar-days me-1 text-primary"></i>Tickets levantados</div>
-                        <div class="text-muted small">Días = semana actual · Semanas = mes actual · Meses = año actual · Año = elegir mes → semana → 7 días</div>
+                        <div class="text-muted small">Días = semana actual (lun–dom) · Semanas = mes actual · Meses = año actual · Año = elegir mes → semana → 7 días. El total por día cuenta <strong>tickets creados</strong> en esa fecha (no envíos de dictamen).</div>
                     </div>
                     <div class="estad-pill-group" id="grpFiltroPeriodo" role="group">
                         <button type="button" class="btn active" data-key="por_dia">Días</button>
@@ -543,6 +599,11 @@
                                     <span class="text-muted" id="tileCumplimientoPorResultado" style="font-size:0.7rem">—</span>
                                 </div>
                                 <div class="text-muted mt-1" style="font-size:0.65rem" id="tileCumplimientoLeyenda">—</div>
+                            </div>
+                            <div class="d-flex justify-content-end mt-2">
+                                <button type="button" class="btn btn-sm btn-outline-primary" id="btnReporteSemanalGlobal">
+                                    <i class="fa-solid fa-calendar-week me-1"></i>Reporte semanal
+                                </button>
                             </div>
                         </div>
                     </div>

@@ -41,6 +41,11 @@
     #modalRastreoCredito .rastreo-block-full { grid-column: 1 / -1; }
     #modalRastreoCredito.modal .modal-dialog { max-width: 95vw; width: 95vw; height: 90vh; max-height: 90vh; margin: 2rem auto; }
     /* Liquid Glass: mismo criterio que modal-content-glass + departamentos (blur + rgba). Antes era #F1F5F9 sólido. */
+    /* Modal Consultar por ID crédito: no recortar el botón cerrar */
+    #modalConsultaCreditoPaso1 .modal-dialog,
+    #modalConsultaCreditoPaso1 .modal-content { overflow: visible !important; }
+    #modalConsultaCreditoPaso1 .modal-header { position: relative; }
+
     #modalRastreoCredito .modal-content.modal-content-glass {
         height: 100%;
         display: flex;
@@ -849,8 +854,8 @@
 <!-- Modal consulta solo por ID crédito (sin ticket): paso 1 pide ID; luego reusa vista rastreo sin bitácora/dictamen/asignar -->
 <div class="modal fade" id="modalConsultaCreditoPaso1" tabindex="-1" aria-labelledby="modalConsultaCreditoPaso1Label" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content shadow-lg border-0 overflow-hidden">
-            <div class="modal-header border-0 pb-0" style="background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 100%);">
+        <div class="modal-content shadow-lg border-0">
+            <div class="modal-header border-0 pb-0 rounded-top-3" style="background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 100%);">
                 <div class="w-100 text-center py-3">
                     <div class="rounded-circle bg-white bg-opacity-10 d-inline-flex align-items-center justify-content-center mb-2" style="width: 56px; height: 56px;">
                         <i class="fa-solid fa-magnifying-glass-chart fa-xl text-white"></i>

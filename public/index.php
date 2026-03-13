@@ -228,11 +228,11 @@ $rutasModulos = [
     'caphum/gestion' => [4], 'caphum/candidatos' => [42], 'caphum/getcandidatos' => [42], 'caphum/getcandidato' => [42], 'caphum/guardarcandidato' => [42], 'caphum/actualizarcandidato' => [42], 'caphum/eliminarcandidato' => [42], 'caphum/enviarpostulacioncandidato' => [42], 'caphum/gettokendocumentoscandidato' => [42], 'caphum/getdocumentoscandidatolist' => [42], 'caphum/verificarexpedientecandidato' => [42], 'caphum/verdocumentocandidato' => [42], 'caphum/eliminardocumentocandidato' => [42], 'caphum/validardocumentocandidato' => [42], 'caphum/cerrarprocesocandidato' => [42], 'caphum/continuarprocesocandidato' => [42], 'caphum/pasarcandidatoagestion' => [42], 'caphum/bajas' => [13], 'caphum/organigrama' => [5], 'caphum/niveljerarquicocolaborador' => [5], 'caphum/getpuestospersona' => [5],
     'reporteria/resumencallcenter' => [6], 'reporteria/sabuesos' => [18, 19, 48], 'reporteria/descargarReporteSabuesos1' => [18], 'reporteria/descargarReporteSabuesos2' => [19], 'reporteria/descargarReporteSabuesos3' => [19, 48], 'reporteria/descargarReporteSabuesosEstadisticasDetalle' => [47], 'reporteria/layoutlegacy' => [7], 'reporteria/reporteCapitalHumano' => [21],
     'condonaciones/historial' => [15],
-    'sabueso/ticket' => [18], 'sabueso/paneladmin' => [19],
+    'sabueso/ticket' => [18], 'sabueso/verificarcreditoduplicadocreador' => [18], 'sabueso/paneladmin' => [19],
     // Cerrado/Eliminado Sabueso: módulo propio (modulos_web id 48). Quien solo tenga 19 no entra aquí.
     'sabueso/cerradoeliminado' => [48], 'sabueso/getticketscerradoseliminados' => [48], 'sabueso/getdatosticketcerradoeliminado' => [48],
     'sabueso/estadisticas' => [47], 'sabueso/getestadisticastickets' => [47], 'sabueso/getestadisticasporsabuesosolo' => [47],
-    'sabueso/getestadisticasgestordetalle' => [47], 'sabueso/getestadisticassabuesodetalle' => [47],
+    'sabueso/getestadisticasgestordetalle' => [47], 'sabueso/getestadisticassabuesodetalle' => [47], 'sabueso/getticketsdetallepordia' => [47],
     'sabueso/guardardictamenborrador' => [19], 'sabueso/enviardictamengestor' => [19], 'sabueso/getdictamendetalle' => [18, 19], 'sabueso/marcardictamenvisto' => [18, 19], 'sabueso/getdictamenactualticket' => [19],
     'sabueso/subirevidenciaticket' => [19], 'sabueso/getevidenciasticket' => [19], 'sabueso/eliminarevidenciaticket' => [19], 'sabueso/verevidencia' => [18, 19], 'sabueso/otorgarprorrogadictamensistema' => [19],
     'convenios/consulta' => [45], 'convenios/buscarcredito' => [45], 'convenios/getofertascredito' => [45], 'convenios/guardarconvenio' => [45], 'convenios/getconvenioactivo' => [45], 'convenios/descargarpdf' => [45],

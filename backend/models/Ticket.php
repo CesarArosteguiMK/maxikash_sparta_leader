@@ -472,6 +472,70 @@ class Ticket extends Model
     }
 
     /**
+     * Indica si el usuario (creador) ya tiene al menos un ticket activo con ese id_credito.
+     * Solo se considera duplicado para el mismo gestor que levantó otro ticket con el mismo crédito.
+     *
+     * @param int $idCredito
+     * @param int $idPersonaCreador
+     * @return bool
+     */
+    public static function tieneTicketConCreditoPorCreador($idCredito, $idPersonaCreador)
+    {
+        $id = (int) $idCredito;
+        $idCreador = (int) $idPersonaCreador;
+        if ($id < 1 || $idCreador < 1) {
+            return false;
+        }
+        try {
+            $db = new Database();
+            $row = $db->queryOne(
+                "SELECT 1 FROM ticket WHERE id_credito = :id_credito AND id_persona_creador = :id_creador AND (activo = 1 OR activo IS NULL) LIMIT 1",
+                ['id_credito' => $id, 'id_creador' => $idCreador]
+            );
+            return !empty($row);
+        } catch (\Exception $e) {
+            return false;
+        }
+    }
+
+    /**
+     * Último ticket activo del mismo creador para un crédito.
+     * Se usa para mostrar contexto en la alerta de posible duplicado.
+     *
+     * @param int $idCredito
+     * @param int $idPersonaCreador
+     * @return array|null { id_ticket, folio, fecha_creacion }
+     */
+    public static function getUltimoTicketActivoConCreditoPorCreador($idCredito, $idPersonaCreador): ?array
+    {
+        $id = (int)$idCredito;
+        $idCreador = (int)$idPersonaCreador;
+        if ($id < 1 || $idCreador < 1) {
+            return null;
+        }
+        try {
+            $db = new Database();
+            $row = $db->queryOne(
+                "SELECT id_ticket, folio, fecha_creacion " .
+                "FROM ticket " .
+                "WHERE id_credito = :id_credito AND id_persona_creador = :id_creador AND (activo = 1 OR activo IS NULL) " .
+                "ORDER BY fecha_creacion DESC LIMIT 1",
+                ['id_credito' => $id, 'id_creador' => $idCreador]
+            );
+            if (!$row) {
+                return null;
+            }
+            return [
+                'id_ticket' => isset($row['id_ticket']) ? (int)$row['id_ticket'] : null,
+                'folio' => $row['folio'] ?? null,
+                'fecha_creacion' => $row['fecha_creacion'] ?? null,
+            ];
+        } catch (\Exception $e) {
+            return null;
+        }
+    }
+
+    /**
      * ID del origen de ticket "WhatsApp" (para tickets creados por el bot).
      * @return int 0 si no existe.
      */
@@ -957,6 +1021,23 @@ class Ticket extends Model
             return $row ? (int)$row['id_persona_creador'] : 0;
         } catch (\Exception $e) {
             return 0;
+        }
+    }
+
+    /**
+     * Folio del ticket (ej. TCK-0001) para mensajes de notificación.
+     */
+    public static function getFolioPorTicket(int $idTicket): string
+    {
+        if ($idTicket < 1) {
+            return '';
+        }
+        try {
+            $db = new Database();
+            $row = $db->queryOne("SELECT folio FROM ticket WHERE id_ticket = :id LIMIT 1", ['id' => $idTicket]);
+            return $row && isset($row['folio']) ? trim((string)$row['folio']) : '';
+        } catch (\Exception $e) {
+            return '';
         }
     }
 
@@ -1869,7 +1950,76 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
     }
 
     /**
-     * Consulta pagos en estado de cuenta dentro de una ventana (12 h).
+     * Convierte fecha cruda de pago (API estado de cuenta) a timestamp.
+     */
+    private static function pagoRawATimestamp($raw, \DateTimeZone $tz): ?int
+    {
+        if ($raw === null || $raw === '') {
+            return null;
+        }
+        if (is_numeric($raw)) {
+            $ts = (int)$raw;
+            // Algunas APIs devuelven epoch en milisegundos.
+            if ($ts > 9999999999) {
+                $ts = (int)floor($ts / 1000);
+            }
+            return $ts > 0 ? $ts : null;
+        }
+        $rawStr = trim((string)$raw);
+        try {
+            return (new \DateTime($rawStr, $tz))->getTimestamp();
+        } catch (\Throwable $e) {
+            $ts = strtotime($rawStr);
+            return $ts ? (int)$ts : null;
+        }
+    }
+
+    /**
+     * Obtiene y normaliza pagos de estado de cuenta por crédito (cacheado por request).
+     * Evita repetir llamadas a API externa por cada ventana evaluada.
+     */
+    private static function getPagosEstadoCuentaNormalizados(int $idCredito): array
+    {
+        static $cachePagosCredito = [];
+        if ($idCredito < 1) {
+            return [];
+        }
+        if (array_key_exists($idCredito, $cachePagosCredito)) {
+            return $cachePagosCredito[$idCredito];
+        }
+        try {
+            $estadoCuentaCtrl = new \Controllers\EstadoCuenta();
+            $resEstado = $estadoCuentaCtrl->api___SPARTA_SECRET_REDACTED__($idCredito, self::fechaCdmx());
+            $pagos = $resEstado['data']['datosPagos'] ?? [];
+            if (empty($resEstado['ok']) || !is_array($pagos)) {
+                $cachePagosCredito[$idCredito] = [];
+                return [];
+            }
+            $tz = new \DateTimeZone('America/Mexico_City');
+            $out = [];
+            foreach ($pagos as $p) {
+                $raw = $p['fechaDeposito'] ?? $p['fechaRegistro'] ?? $p['fechaValor'] ?? null;
+                $ts = self::pagoRawATimestamp($raw, $tz);
+                if ($ts === null) {
+                    continue;
+                }
+                $out[] = [
+                    'ts' => $ts,
+                    'fecha' => date('Y-m-d H:i:s', $ts),
+                    'monto' => $p['montoPago'] ?? null,
+                    'referencia' => $p['referencia'] ?? ($p['descripcion'] ?? null),
+                ];
+            }
+            $cachePagosCredito[$idCredito] = $out;
+            return $out;
+        } catch (\Throwable $e) {
+            $cachePagosCredito[$idCredito] = [];
+            return [];
+        }
+    }
+
+    /**
+     * Consulta pagos en estado de cuenta dentro de una ventana.
      */
     private static function getPagosEstadoCuentaEnVentana(int $idCredito, string $inicio, string $fin): array
     {
@@ -1883,20 +2033,14 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
             if ($finTs < $iniTs) {
                 return [];
             }
-            $estadoCuentaCtrl = new \Controllers\EstadoCuenta();
-            $resEstado = $estadoCuentaCtrl->api___SPARTA_SECRET_REDACTED__($idCredito, date('Y-m-d'));
-            $pagos = $resEstado['data']['datosPagos'] ?? [];
-            if (empty($resEstado['ok']) || !is_array($pagos)) {
+            $pagos = self::getPagosEstadoCuentaNormalizados($idCredito);
+            if (empty($pagos)) {
                 return [];
             }
             $out = [];
             foreach ($pagos as $p) {
-                $raw = $p['fechaDeposito'] ?? $p['fechaRegistro'] ?? $p['fechaValor'] ?? null;
-                if ($raw === null || $raw === '') {
-                    continue;
-                }
-                $ts = is_numeric($raw) ? (int)$raw : strtotime((string)$raw);
-                if (!$ts) {
+                $ts = (int)($p['ts'] ?? 0);
+                if ($ts <= 0) {
                     continue;
                 }
                 $isDentro = ($ts >= $iniTs && $ts <= $finTs);
@@ -1908,9 +2052,9 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                 }
                 if ($isDentro) {
                     $out[] = [
-                        'fecha' => date('Y-m-d H:i:s', $ts),
-                        'monto' => $p['montoPago'] ?? null,
-                        'referencia' => $p['referencia'] ?? ($p['descripcion'] ?? null),
+                        'fecha' => $p['fecha'] ?? date('Y-m-d H:i:s', $ts),
+                        'monto' => $p['monto'] ?? null,
+                        'referencia' => $p['referencia'] ?? null,
                     ];
                 }
             }
@@ -2847,35 +2991,82 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
         }
     }
 
-    public static function getEstadisticasGestorDetalle(int $idPersonaCreador): array
+    /**
+     * @param int $idPersonaCreador ID del gestor (creador de tickets).
+     * @param int $page Página (1-based).
+     * @param int $perPage Filas por página (máx 100).
+     * @return array { success, mensaje, nombre, filas, total, page, per_page }
+     */
+    public static function getEstadisticasGestorDetalle(int $idPersonaCreador, int $page = 1, int $perPage = 50, string $vista = 'lectura'): array
     {
         $db = new Database();
         $whereActivo = '(t.activo = 1 OR t.activo IS NULL) AND (t.fecha_eliminacion IS NULL)';
         $cid = (int)$idPersonaCreador;
         if ($cid < 1) {
-            return ['success' => false, 'mensaje' => 'ID inválido', 'nombre' => '', 'filas' => []];
+            return ['success' => false, 'mensaje' => 'ID inválido', 'nombre' => '', 'filas' => [], 'total' => 0, 'page' => 1, 'per_page' => $perPage];
         }
+        $page = max(1, $page);
+        $perPage = max(1, min(100, $perPage));
+        $offset = ($page - 1) * $perPage;
         try {
+            $vista = trim((string)$vista);
+            $esVistaPagosVisitas = ($vista === 'pagos_visitas');
             $nom = self::getNombrePersona($cid);
+            $countRow = $db->queryOne(
+                "SELECT COUNT(*) AS n FROM (" .
+                "SELECT t.id_ticket " .
+                "FROM ticket t " .
+                "INNER JOIN dictamen d ON d.id_ticket = t.id_ticket AND d.estado = 'enviado_al_gestor' " .
+                "INNER JOIN (SELECT id_ticket, MAX(fecha_actualizacion) AS mx FROM dictamen WHERE estado = 'enviado_al_gestor' GROUP BY id_ticket) dm " .
+                "ON d.id_ticket = dm.id_ticket AND d.fecha_actualizacion = dm.mx " .
+                "WHERE t.id_persona_creador = :cid AND $whereActivo" .
+                ") x",
+                ['cid' => $cid]
+            );
+            $total = (int)($countRow['n'] ?? 0);
             // Un dictamen por ticket: el enviado con visto preferente; si no, el de max fecha_actualizacion
             $rows = $db->queryAll(
-                "SELECT t.id_ticket, t.folio, t.fecha_creacion, " .
+                "SELECT t.id_ticket, t.folio, t.id_credito, t.fecha_creacion, " .
                 "d.fecha_actualizacion AS dictamen_envio, d.fecha_visto_gestor AS dictamen_visto " .
                 "FROM ticket t " .
                 "INNER JOIN dictamen d ON d.id_ticket = t.id_ticket AND d.estado = 'enviado_al_gestor' " .
                 "INNER JOIN (SELECT id_ticket, MAX(fecha_actualizacion) AS mx FROM dictamen WHERE estado = 'enviado_al_gestor' GROUP BY id_ticket) dm " .
                 "ON d.id_ticket = dm.id_ticket AND d.fecha_actualizacion = dm.mx " .
                 "WHERE t.id_persona_creador = :cid AND $whereActivo " .
-                "ORDER BY d.fecha_actualizacion DESC LIMIT 200",
+                "ORDER BY d.fecha_actualizacion DESC LIMIT " . (int)$perPage . " OFFSET " . (int)$offset,
                 ['cid' => $cid]
             );
             $filas = [];
             $listaRows = is_array($rows) ? $rows : [];
             $idsT = [];
+            $idsCredito = [];
             foreach ($listaRows as $r) {
                 $tid = (int)($r['id_ticket'] ?? 0);
                 if ($tid > 0) {
                     $idsT[$tid] = true;
+                }
+                $idCr = (int)($r['id_credito'] ?? 0);
+                if ($idCr > 0) {
+                    $idsCredito[$idCr] = true;
+                }
+            }
+            $nombresCliente = [];
+            if (!empty($idsCredito)) {
+                $nombresCliente = self::getNombresClienteParaReporte(array_keys($idsCredito));
+            }
+            // Pagos durante la semana actual (lunes 00:00 CDMX → ahora), por id_credito (API estado de cuenta)
+            // Solo en vista pagos_visitas para evitar latencia innecesaria en "lectura y tasa".
+            $pagosPorCredito = [];
+            if ($esVistaPagosVisitas) {
+                $inicioSemana = self::inicioSemanaLunesCdmx();
+                $finSemana = self::ahoraCdmx();
+                foreach (array_keys($idsCredito) as $idCr) {
+                    $idCr = (int)$idCr;
+                    if ($idCr < 1) {
+                        continue;
+                    }
+                    $pagos = self::getPagosEstadoCuentaEnVentana($idCr, $inicioSemana, $finSemana);
+                    $pagosPorCredito[$idCr] = ['si' => count($pagos) > 0, 'count' => count($pagos)];
                 }
             }
             // Último dictamen_sistema por ticket (mismo criterio que Panel Admin / detalle_timings)
@@ -2958,15 +3149,45 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                 }
                 // Prórroga otorgada a este ticket (detalle JSON)
                 $prorrogaTxt = null;
+                $pagoEnProrrogaTxt = null; // Sí/No si tuvo prórroga; — si no aplica
                 if ($tid > 0 && isset($dsPorTicket[$tid])) {
                     $dsPr = $dsPorTicket[$tid];
                     $detPr = !empty($dsPr['detalle']) ? json_decode($dsPr['detalle'], true) : null;
                     $resPr = $dsPr['resultado'] ?? null;
+                    // Si el DS ya evaluó prórroga, este valor ya representa exactamente esa 2a ventana de 12h.
+                    if (is_array($detPr) && isset($detPr['ventana']['tipo']) && $detPr['ventana']['tipo'] === 'prorroga_12h' && array_key_exists('pago_en_ventana', $detPr)) {
+                        $pagoEnProrrogaTxt = !empty($detPr['pago_en_ventana']) ? 'Sí' : 'No';
+                    }
                     if (is_array($detPr) && isset($detPr['prorroga']) && is_array($detPr['prorroga']) && !empty($detPr['prorroga']['otorgada'])) {
                         $prorrogaTxt = 'Sí';
+                        // ¿Pagó en la ventana de la prórroga? (12 h desde fecha_otorgada hasta fecha_limite)
+                        $pr = $detPr['prorroga'];
+                        $fechaOtorgada = trim((string)($pr['fecha_otorgada'] ?? ''));
+                        $fechaLimite = trim((string)($pr['fecha_limite'] ?? ''));
+                        $idCreditoPr = (int)($r['id_credito'] ?? 0);
+                        if ($esVistaPagosVisitas && $pagoEnProrrogaTxt === null && $fechaOtorgada !== '' && $fechaLimite !== '' && $idCreditoPr > 0) {
+                            $pagosProrroga = self::getPagosEstadoCuentaEnVentana($idCreditoPr, $fechaOtorgada, $fechaLimite);
+                            $pagoEnProrrogaTxt = !empty($pagosProrroga) ? 'Sí' : 'No';
+                        } elseif ($pagoEnProrrogaTxt === null) {
+                            $pagoEnProrrogaTxt = '—';
+                        }
                     } elseif ($resPr === 'cumplio_prorroga' || $resPr === 'no_cumplio_prorroga') {
-                        // Resultado final tras prórroga implica que se otorgó en algún momento
+                        // Resultado final tras prórroga implica que se otorgó en algún momento; puede venir en detalle ya evaluado
                         $prorrogaTxt = 'Sí';
+                        if (is_array($detPr) && isset($detPr['prorroga']) && is_array($detPr['prorroga'])) {
+                            $pr = $detPr['prorroga'];
+                            $fechaOtorgada = trim((string)($pr['fecha_otorgada'] ?? ''));
+                            $fechaLimite = trim((string)($pr['fecha_limite'] ?? ''));
+                            $idCreditoPr = (int)($r['id_credito'] ?? 0);
+                            if ($esVistaPagosVisitas && $pagoEnProrrogaTxt === null && $fechaOtorgada !== '' && $fechaLimite !== '' && $idCreditoPr > 0) {
+                                $pagosProrroga = self::getPagosEstadoCuentaEnVentana($idCreditoPr, $fechaOtorgada, $fechaLimite);
+                                $pagoEnProrrogaTxt = !empty($pagosProrroga) ? 'Sí' : 'No';
+                            } elseif ($pagoEnProrrogaTxt === null) {
+                                $pagoEnProrrogaTxt = '—';
+                            }
+                        } elseif ($pagoEnProrrogaTxt === null) {
+                            $pagoEnProrrogaTxt = '—';
+                        }
                     } elseif ($resPr !== null && $resPr !== '' && $resPr !== 'pendiente') {
                         $prorrogaTxt = 'No';
                     }
@@ -2978,9 +3199,16 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                     $cmp = self::cumplimientoMetadatos($resDs);
                     $resultadoMostrar = $cmp['cumplimiento_etiqueta'] ?? $resDs;
                 }
+                $idCredito = (int)($r['id_credito'] ?? 0);
+                $nombreCliente = ($idCredito > 0 && isset($nombresCliente[$idCredito])) ? $nombresCliente[$idCredito] : '—';
+                $infoPagoSemana = $idCredito > 0 && isset($pagosPorCredito[$idCredito])
+                    ? $pagosPorCredito[$idCredito]
+                    : ['si' => false, 'count' => 0];
                 $filas[] = [
                     'id_ticket' => $tid,
                     'folio' => $r['folio'] ?? '',
+                    'id_credito' => $idCredito > 0 ? $idCredito : null,
+                    'nombre_cliente' => $nombreCliente,
                     'fecha_creacion' => $r['fecha_creacion'] ?? null,
                     'dictamen_envio' => $envio,
                     'visto_si_no' => $visto ? 'Sí' : 'No',
@@ -2993,11 +3221,248 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                     'pago_en_ventana_resumen' => $pagoVentanaTxt,
                     'visito_campo_resumen' => $visitoVentanaTxt,
                     'prorroga_otorgada_resumen' => $prorrogaTxt,
+                    'pago_en_prorroga_resumen' => $pagoEnProrrogaTxt,
+                    'pago_durante_semana_si' => $infoPagoSemana['si'],
+                    'pago_durante_semana_count' => $infoPagoSemana['count'],
                 ];
             }
-            return ['success' => true, 'mensaje' => 'OK', 'nombre' => $nom, 'filas' => $filas];
+            return ['success' => true, 'mensaje' => 'OK', 'nombre' => $nom, 'filas' => $filas, 'total' => $total, 'page' => $page, 'per_page' => $perPage];
         } catch (\Exception $e) {
-            return ['success' => false, 'mensaje' => $e->getMessage(), 'nombre' => '', 'filas' => []];
+            return ['success' => false, 'mensaje' => $e->getMessage(), 'nombre' => '', 'filas' => [], 'total' => 0, 'page' => 1, 'per_page' => $perPage];
+        }
+    }
+
+    /**
+     * Reporte semanal global (por quien levantó): siempre sobre semanas vencidas.
+     * Semana cerrada = lunes 00:00:00 a domingo 23:59:59 (CDMX).
+     */
+    public static function getReporteSemanalGestorGlobal(string $semanaInicio = ''): array
+    {
+        $db = new Database();
+        $whereActivo = '(t.activo = 1 OR t.activo IS NULL) AND (t.fecha_eliminacion IS NULL)';
+        try {
+            $tz = new \DateTimeZone('America/Mexico_City');
+            $now = self::cdmxNowImmutable();
+            $dow = (int)$now->format('N');
+            $mondayCurrent = $now->modify('-' . ($dow - 1) . ' days')->setTime(0, 0, 0);
+            $mondayLastClosed = $mondayCurrent->modify('-7 days');
+
+            $semanaSelDt = $mondayLastClosed;
+            if ($semanaInicio !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $semanaInicio)) {
+                $tmp = \DateTimeImmutable::createFromFormat('Y-m-d H:i:s', $semanaInicio . ' 00:00:00', $tz);
+                if ($tmp instanceof \DateTimeImmutable && $tmp < $mondayCurrent) {
+                    $semanaSelDt = $tmp;
+                }
+            }
+
+            $semanaSelInicio = $semanaSelDt->format('Y-m-d') . ' 00:00:00';
+            $semanaSelFinExcl = $semanaSelDt->modify('+7 days')->format('Y-m-d') . ' 00:00:00';
+            $semanaSelFinIncl = $semanaSelDt->modify('+6 days')->format('Y-m-d') . ' 23:59:59';
+
+            $semanasRows = $db->queryAll(
+                "SELECT DISTINCT DATE_SUB(DATE(d.fecha_actualizacion), INTERVAL WEEKDAY(d.fecha_actualizacion) DAY) AS semana_inicio " .
+                "FROM ticket t " .
+                "INNER JOIN dictamen d ON d.id_ticket = t.id_ticket AND d.estado = 'enviado_al_gestor' " .
+                "INNER JOIN (SELECT id_ticket, MAX(fecha_actualizacion) AS mx FROM dictamen WHERE estado = 'enviado_al_gestor' GROUP BY id_ticket) dm " .
+                "ON d.id_ticket = dm.id_ticket AND d.fecha_actualizacion = dm.mx " .
+                "WHERE $whereActivo AND d.fecha_actualizacion < :mondayCurrent " .
+                "ORDER BY semana_inicio DESC LIMIT 32",
+                ['mondayCurrent' => $mondayCurrent->format('Y-m-d H:i:s')]
+            );
+            $weekStarts = [$mondayLastClosed->format('Y-m-d')];
+            $selKey = $semanaSelDt->format('Y-m-d');
+            if (!in_array($selKey, $weekStarts, true)) {
+                $weekStarts[] = $selKey;
+            }
+            if (is_array($semanasRows)) {
+                foreach ($semanasRows as $wr) {
+                    $w = trim((string)($wr['semana_inicio'] ?? ''));
+                    if ($w !== '' && !in_array($w, $weekStarts, true)) {
+                        $weekStarts[] = $w;
+                    }
+                }
+            }
+            rsort($weekStarts);
+
+            $semanas = [];
+            foreach ($weekStarts as $w) {
+                $ini = \DateTimeImmutable::createFromFormat('Y-m-d H:i:s', $w . ' 00:00:00', $tz);
+                if (!$ini) {
+                    continue;
+                }
+                if ($ini >= $mondayCurrent) {
+                    continue;
+                }
+                $fin = $ini->modify('+6 days');
+                $semanas[] = [
+                    'inicio' => $ini->format('Y-m-d'),
+                    'fin' => $fin->format('Y-m-d'),
+                    'label' => 'Semana ' . $ini->format('d/m') . ' al ' . $fin->format('d/m/Y'),
+                    'selected' => $ini->format('Y-m-d') === $semanaSelDt->format('Y-m-d'),
+                ];
+            }
+
+            $rows = $db->queryAll(
+                "SELECT t.id_ticket, t.folio, t.id_credito, t.id_persona_creador, t.fecha_creacion, " .
+                "d.fecha_actualizacion AS dictamen_envio " .
+                "FROM ticket t " .
+                "INNER JOIN dictamen d ON d.id_ticket = t.id_ticket AND d.estado = 'enviado_al_gestor' " .
+                "INNER JOIN (SELECT id_ticket, MAX(fecha_actualizacion) AS mx FROM dictamen WHERE estado = 'enviado_al_gestor' GROUP BY id_ticket) dm " .
+                "ON d.id_ticket = dm.id_ticket AND d.fecha_actualizacion = dm.mx " .
+                "WHERE $whereActivo AND d.fecha_actualizacion >= :fi AND d.fecha_actualizacion < :ff " .
+                "ORDER BY d.fecha_actualizacion DESC",
+                ['fi' => $semanaSelInicio, 'ff' => $semanaSelFinExcl]
+            );
+            $listaRows = is_array($rows) ? $rows : [];
+
+            $idsT = [];
+            $idsCredito = [];
+            $idsGestor = [];
+            foreach ($listaRows as $r) {
+                $tid = (int)($r['id_ticket'] ?? 0);
+                $cid = (int)($r['id_credito'] ?? 0);
+                $gid = (int)($r['id_persona_creador'] ?? 0);
+                if ($tid > 0) $idsT[$tid] = true;
+                if ($cid > 0) $idsCredito[$cid] = true;
+                if ($gid > 0) $idsGestor[$gid] = true;
+            }
+
+            $nombresCliente = !empty($idsCredito) ? self::getNombresClienteParaReporte(array_keys($idsCredito)) : [];
+            $nombresGestor = [];
+            foreach (array_keys($idsGestor) as $gid) {
+                $gid = (int)$gid;
+                $nombresGestor[$gid] = $gid > 0 ? self::getNombrePersona($gid) : '';
+            }
+
+            $pagosSemanaPorCredito = [];
+            foreach (array_keys($idsCredito) as $cid) {
+                $cid = (int)$cid;
+                if ($cid < 1) {
+                    continue;
+                }
+                $ps = self::getPagosEstadoCuentaEnVentana($cid, $semanaSelInicio, $semanaSelFinIncl);
+                $pagosSemanaPorCredito[$cid] = ['si' => !empty($ps), 'count' => count($ps)];
+            }
+
+            $dsPorTicket = [];
+            if (!empty($idsT)) {
+                $in = implode(',', array_map('intval', array_keys($idsT)));
+                $dsRows = $db->queryAll(
+                    "SELECT ds1.id_ticket, ds1.resultado, ds1.detalle FROM dictamen_sistema ds1 " .
+                    "INNER JOIN (SELECT id_ticket, MAX(id) AS mid FROM dictamen_sistema WHERE id_ticket IN ($in) GROUP BY id_ticket) dsmx " .
+                    "ON ds1.id_ticket = dsmx.id_ticket AND ds1.id = dsmx.mid"
+                );
+                if (is_array($dsRows)) {
+                    foreach ($dsRows as $dsr) {
+                        $dsPorTicket[(int)$dsr['id_ticket']] = $dsr;
+                    }
+                }
+            }
+
+            $filas = [];
+            foreach ($listaRows as $r) {
+                $tid = (int)($r['id_ticket'] ?? 0);
+                $idCredito = (int)($r['id_credito'] ?? 0);
+                $idGestor = (int)($r['id_persona_creador'] ?? 0);
+                $nombreCliente = ($idCredito > 0 && isset($nombresCliente[$idCredito])) ? $nombresCliente[$idCredito] : '—';
+                $nombreGestor = ($idGestor > 0 && isset($nombresGestor[$idGestor])) ? $nombresGestor[$idGestor] : '—';
+                $pagoSemana = $idCredito > 0 && isset($pagosSemanaPorCredito[$idCredito]) ? $pagosSemanaPorCredito[$idCredito] : ['si' => false, 'count' => 0];
+
+                $fueDirecciones = null;
+                $direccionesFue = '—';
+                $pago12h = null;
+                $prorroga = null;
+                $pagoProrroga = null;
+                $tipoContacto = '—'; // Campo | Telefónica | —
+                $detJson = null;
+                if ($tid > 0 && isset($dsPorTicket[$tid])) {
+                    $ds = $dsPorTicket[$tid];
+                    $res = (string)($ds['resultado'] ?? '');
+                    $detJson = !empty($ds['detalle']) ? json_decode($ds['detalle'], true) : null;
+                    if ($res === 'visito_telefonico') {
+                        $tipoContacto = 'Telefónica';
+                    } elseif (in_array($res, ['visito_campo', 'visito_todas_direcciones', 'cumplido_sin_pago_todas_direcciones', 'visita_parcial', 'distancia_lejana'], true)) {
+                        $tipoContacto = 'Campo';
+                    }
+
+                    if ($res === 'cumplido_pago') {
+                        $pago12h = true;
+                    } elseif (is_array($detJson) && array_key_exists('pago_en_ventana', $detJson)) {
+                        $pago12h = !empty($detJson['pago_en_ventana']);
+                    }
+
+                    if (is_array($detJson)) {
+                        $totDir = (int)($detJson['direcciones_dictamen_total'] ?? 0);
+                        $visDir = (int)($detJson['direcciones_visitadas'] ?? 0);
+                        if (array_key_exists('visito_todas_direcciones', $detJson)) {
+                            $fueDirecciones = !empty($detJson['visito_todas_direcciones']);
+                        } elseif ($totDir > 0) {
+                            $fueDirecciones = ($visDir === $totDir);
+                        }
+                        if (!empty($detJson['cobertura_direcciones']) && is_array($detJson['cobertura_direcciones'])) {
+                            $dirs = [];
+                            foreach ($detJson['cobertura_direcciones'] as $cd) {
+                                if (!empty($cd['visitada'])) {
+                                    $dirs[] = trim((string)($cd['direccion'] ?? 'Dirección'));
+                                }
+                            }
+                            $direccionesFue = !empty($dirs) ? implode(' | ', $dirs) : (($visDir > 0 && $totDir > 0) ? ($visDir . ' de ' . $totDir) : '—');
+                        } else {
+                            $direccionesFue = ($visDir > 0 && $totDir > 0) ? ($visDir . ' de ' . $totDir) : '—';
+                        }
+
+                        if (isset($detJson['prorroga']) && is_array($detJson['prorroga']) && !empty($detJson['prorroga']['otorgada'])) {
+                            $prorroga = true;
+                            if (isset($detJson['ventana']['tipo']) && $detJson['ventana']['tipo'] === 'prorroga_12h' && array_key_exists('pago_en_ventana', $detJson)) {
+                                $pagoProrroga = !empty($detJson['pago_en_ventana']);
+                            } else {
+                                $fOt = trim((string)($detJson['prorroga']['fecha_otorgada'] ?? ''));
+                                $fLi = trim((string)($detJson['prorroga']['fecha_limite'] ?? ''));
+                                if ($idCredito > 0 && $fOt !== '' && $fLi !== '') {
+                                    $ppr = self::getPagosEstadoCuentaEnVentana($idCredito, $fOt, $fLi);
+                                    $pagoProrroga = !empty($ppr);
+                                }
+                            }
+                        } elseif ($res === 'cumplio_prorroga' || $res === 'no_cumplio_prorroga') {
+                            $prorroga = true;
+                        }
+                    }
+                }
+
+                // Regla operativa solicitada:
+                // ilocalizable = visitó todas direcciones del dictamen y NO pagó en la semana reportada.
+                $esIlocalizable = ($fueDirecciones === true) && empty($pagoSemana['si']);
+
+                $filas[] = [
+                    'id_ticket' => $tid,
+                    'folio' => (string)($r['folio'] ?? ''),
+                    'id_credito' => $idCredito > 0 ? $idCredito : null,
+                    'nombre_cliente' => $nombreCliente,
+                    'id_gestor' => $idGestor > 0 ? $idGestor : null,
+                    'nombre_gestor' => $nombreGestor,
+                    'tipo_contacto' => $tipoContacto,
+                    'dictamen_envio' => $r['dictamen_envio'] ?? null,
+                    'fue_todas_direcciones' => $fueDirecciones,
+                    'direcciones_fue' => $direccionesFue,
+                    'pago_12h' => $pago12h,
+                    'prorroga_si' => $prorroga,
+                    'pago_prorroga_12h' => $pagoProrroga,
+                    'pago_semana_si' => !empty($pagoSemana['si']),
+                    'pago_semana_count' => (int)($pagoSemana['count'] ?? 0),
+                    'ilocalizable' => $esIlocalizable,
+                ];
+            }
+
+            return [
+                'success' => true,
+                'mensaje' => 'OK',
+                'semana_inicio' => $semanaSelDt->format('Y-m-d'),
+                'semana_fin' => $semanaSelDt->modify('+6 days')->format('Y-m-d'),
+                'semanas' => $semanas,
+                'filas' => $filas,
+            ];
+        } catch (\Exception $e) {
+            return ['success' => false, 'mensaje' => $e->getMessage(), 'semana_inicio' => '', 'semana_fin' => '', 'semanas' => [], 'filas' => []];
         }
     }
 
@@ -3125,6 +3590,97 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
             $out['mensaje'] = $e->getMessage();
         }
         return $out;
+    }
+
+    /**
+     * Detalle de tickets levantados en una fecha (para modal en Estadísticas Sabueso).
+     * Fecha en YYYY-MM-DD (CDMX). Devuelve filas con: folio, id_credito, gestor, hora levantado,
+     * tiempo dictamen enviado, cuando abrieron, tiempo apertura, resultado DS, prórroga, pagaron, cumplimiento.
+     */
+    public static function getTicketsDetallePorDia(string $fecha): array
+    {
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha)) {
+            return ['success' => false, 'mensaje' => 'Fecha inválida (YYYY-MM-DD)', 'filas' => []];
+        }
+        $db = new Database();
+        $whereActivo = '(t.activo = 1 OR t.activo IS NULL) AND (t.fecha_eliminacion IS NULL)';
+        try {
+            $tieneCategoria = false;
+            try {
+                $col = $db->queryOne("SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'ticket' AND COLUMN_NAME = 'categoria_gestion' LIMIT 1");
+                $tieneCategoria = !empty($col);
+            } catch (\Exception $e) {
+            }
+            $andSabueso = $tieneCategoria ? " AND (COALESCE(NULLIF(TRIM(t.categoria_gestion),''), 'sabueso') = 'sabueso')" : '';
+
+            $sql = "SELECT t.id_ticket, t.folio, t.id_credito, t.fecha_creacion, " .
+                "CONCAT(TRIM(IFNULL(p.nombres,'')), ' ', TRIM(IFNULL(p.apellidop,''))) AS creador_nombre, " .
+                "dm.fecha_actualizacion AS dictamen_fecha_envio, dm.fecha_visto_gestor AS dictamen_fecha_visto, " .
+                "dsm.resultado AS ds_resultado, dsm.detalle AS ds_detalle " .
+                "FROM ticket t " .
+                "INNER JOIN persona p ON t.id_persona_creador = p.id " .
+                "LEFT JOIN (SELECT d.id_ticket, d.fecha_actualizacion, d.fecha_visto_gestor FROM dictamen d " .
+                "INNER JOIN (SELECT id_ticket, MAX(id) AS mid FROM dictamen WHERE estado = 'enviado_al_gestor' GROUP BY id_ticket) mx ON d.id_ticket = mx.id_ticket AND d.id = mx.mid) dm ON dm.id_ticket = t.id_ticket " .
+                "LEFT JOIN (SELECT ds1.id_ticket, ds1.resultado, ds1.detalle FROM dictamen_sistema ds1 " .
+                "INNER JOIN (SELECT id_ticket, MAX(id) AS mid FROM dictamen_sistema GROUP BY id_ticket) dsmx ON ds1.id_ticket = dsmx.id_ticket AND ds1.id = dsmx.mid) dsm ON dsm.id_ticket = t.id_ticket " .
+                "WHERE $whereActivo AND DATE(t.fecha_creacion) = :fecha $andSabueso ORDER BY t.fecha_creacion ASC";
+            $rows = $db->queryAll($sql, ['fecha' => $fecha]);
+            $filas = [];
+            foreach (is_array($rows) ? $rows : [] as $r) {
+                $fc = $r['fecha_creacion'] ?? null;
+                $horaLevantado = $fc ? (new \DateTimeImmutable($fc, new \DateTimeZone('America/Mexico_City')))->format('H:i') : '—';
+                $fEnv = $r['dictamen_fecha_envio'] ?? null;
+                $fVisto = $r['dictamen_fecha_visto'] ?? null;
+                $tiempoEnvio = '—';
+                if ($fc && $fEnv) {
+                    $seg = (new \DateTimeImmutable($fEnv))->getTimestamp() - (new \DateTimeImmutable($fc))->getTimestamp();
+                    $tiempoEnvio = $seg >= 0 ? self::segundosAHumano((int)$seg) : '—';
+                }
+                $cuandoAbrieron = $fVisto ? (new \DateTimeImmutable($fVisto, new \DateTimeZone('America/Mexico_City')))->format('H:i') : '—';
+                $tiempoApertura = '—';
+                if ($fEnv && $fVisto) {
+                    $segAp = (new \DateTimeImmutable($fVisto))->getTimestamp() - (new \DateTimeImmutable($fEnv))->getTimestamp();
+                    $tiempoApertura = $segAp >= 0 ? self::segundosAHumano((int)$segAp) : '—';
+                }
+                $det = !empty($r['ds_detalle']) ? json_decode($r['ds_detalle'], true) : null;
+                $prorroga = 'No';
+                $pagaron = '—';
+                $cumplimiento = '—';
+                if (is_array($det)) {
+                    if (isset($det['prorroga']) && is_array($det['prorroga']) && !empty($det['prorroga']['otorgada'])) {
+                        $prorroga = 'Sí';
+                    }
+                    if (array_key_exists('pago_en_ventana', $det)) {
+                        $pagaron = !empty($det['pago_en_ventana']) ? 'Sí' : 'No';
+                    }
+                    if (!empty($det['cumplimiento_etiqueta'])) {
+                        $cumplimiento = (string)$det['cumplimiento_etiqueta'];
+                    }
+                }
+                $resDs = trim((string)($r['ds_resultado'] ?? ''));
+                if ($resDs !== '' && $cumplimiento === '—') {
+                    $cmp = self::cumplimientoMetadatos($resDs);
+                    $cumplimiento = $cmp['cumplimiento_etiqueta'] ?? $resDs;
+                }
+                $filas[] = [
+                    'id_ticket' => (int)($r['id_ticket'] ?? 0),
+                    'folio' => trim((string)($r['folio'] ?? '')),
+                    'id_credito' => (int)($r['id_credito'] ?? 0) ?: null,
+                    'gestor_nombre' => trim((string)($r['creador_nombre'] ?? '')),
+                    'hora_levantado' => $horaLevantado,
+                    'tiempo_dictamen_enviado' => $tiempoEnvio,
+                    'cuando_abrieron' => $cuandoAbrieron,
+                    'tiempo_apertura' => $tiempoApertura,
+                    'resultado_ds' => $resDs !== '' ? $resDs : '—',
+                    'prorroga' => $prorroga,
+                    'pagaron' => $pagaron,
+                    'cumplimiento' => $cumplimiento,
+                ];
+            }
+            return ['success' => true, 'mensaje' => 'OK', 'fecha' => $fecha, 'filas' => $filas];
+        } catch (\Exception $e) {
+            return ['success' => false, 'mensaje' => $e->getMessage(), 'filas' => []];
+        }
     }
 
     /**

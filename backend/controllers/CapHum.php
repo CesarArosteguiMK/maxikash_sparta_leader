@@ -852,6 +852,8 @@ class CapHum extends Controller
                 21: 'fa fa-file-upload',
                 22: 'fa fa-cloud-download',
                 23: 'fa fa-calendar-alt',
+                24: 'fa fa-file-pdf',
+                '24': 'fa fa-file-pdf',
                 43: 'fa fa-key',
                 '43': 'fa fa-key'
             };
