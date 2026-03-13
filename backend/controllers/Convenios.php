@@ -113,6 +113,33 @@ public function cancelarConvenio()
     $r = ConveniosDAO::cancelarConvenio($idConvenio, $usuario);
     self::respuestaJSON($r);
 }
+// ════════════════════════════════════════════════
+// API: MIGRAR CONVENIO EXISTENTE
+// ════════════════════════════════════════════════
+
+public function migrarConvenio()
+{
+    $campos = ['id_credito','nombre_cliente','id_producto_convenio',
+               'id_producto_convenio_detalle','adeudo_base',
+               'porcentaje_descuento','pago_semanal','fecha_inicio'];
+
+    foreach ($campos as $campo) {
+        if (empty($_POST[$campo])) {
+            self::respuestaJSON(self::respuesta(false, "Campo requerido: $campo"));
+            return;
+        }
+    }
+
+    $datos = array_merge($_POST, [
+        'usuario_alta'        => $_SESSION['usuario_nombre'] ?? $_SESSION['usuario'] ?? 'sistema',
+        'bucket_morosidad_real' => $_POST['bucket_morosidad_real'] ?? '',
+        'dias_mora'           => $_POST['dias_mora'] ?? 0,
+        'avance_pago_plazo'   => $_POST['avance_pago_plazo'] ?? '',
+    ]);
+
+    $r = ConveniosDAO::migrarConvenio($datos);
+    self::respuestaJSON($r);
+}
 
     // ─────────────────────────────────────────────
     // PDF: DESCARGAR TABLA DE AMORTIZACIÓN
@@ -256,4 +283,35 @@ public function getHistorialConvenios()
     $r = ConveniosDAO::getHistorialConvenios($idCredito);
     self::respuestaJSON($r);
 }
+
+// ════════════════════════════════════════════════
+// API: REGISTRAR PAGO DE SEMANA
+// ════════════════════════════════════════════════
+
+public function registrarPago()
+{
+    $idConvenio   = isset($_POST['id_convenio'])   ? (int) $_POST['id_convenio']   : 0;
+    $numeroSemana = isset($_POST['numero_semana'])  ? (int) $_POST['numero_semana']  : 0;
+    $idCredito    = isset($_POST['id_credito'])     ? (int) $_POST['id_credito']     : 0;
+
+    if ($idConvenio <= 0 || $numeroSemana <= 0 || $idCredito <= 0) {
+        self::respuestaJSON(self::respuesta(false, 'Parámetros inválidos.'));
+    }
+
+    $usuario = $_SESSION['usuario_nombre'] ?? $_SESSION['usuario'] ?? 'sistema';
+
+    $r = ConveniosDAO::registrarPago($idConvenio, $numeroSemana, $idCredito);
+    self::respuestaJSON($r);
+}
+
+// ════════════════════════════════════════════════
+// API: OBTENER PRODUCTOS DEL CATÁLOGO
+// ════════════════════════════════════════════════
+
+public function getProductosConvenio()
+{
+    $r = ConveniosDAO::getProductosConvenio();
+    self::respuestaJSON($r);
+}
+
 }
