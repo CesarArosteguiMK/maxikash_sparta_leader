@@ -2113,15 +2113,21 @@ JS;
 
     private function getColumnsConfig($esAdmin)
     {
+        // Panel Admin = solo Sabueso: sin columna Gestión. Menú Ticket sí muestra Gestión (varias categorías).
         $base = [
             ['data' => null, 'defaultContent' => '', 'className' => 'control', 'orderable' => false],
             ['data' => '_fecha_creacion', 'title' => '', 'visible' => false, 'orderable' => true],
             ['data' => 'folio_tipo', 'title' => 'Folio / Tipo'],
+        ];
+        if (!$esAdmin) {
+            $base[] = ['data' => 'gestion', 'title' => 'Gestión', 'orderable' => false];
+        }
+        $base = array_merge($base, [
             ['data' => 'estado', 'title' => 'Estado'],
             ['data' => 'prioridad', 'title' => 'Prioridad'],
             ['data' => 'credito', 'title' => 'Crédito'],
             ['data' => 'fechas', 'title' => 'Fechas'],
-        ];
+        ]);
         if ($esAdmin) {
             $base[] = ['data' => 'creador', 'title' => 'Quién levantó'];
             $base[] = ['data' => 'asignado', 'title' => 'Asignado a'];
@@ -2904,6 +2910,24 @@ JS;
             });
         }
         $(document).ready(function() {
+            var estadisticasSabuesoInicializadas = false;
+            function iniciarDashboardSabueso() {
+                if (estadisticasSabuesoInicializadas) {
+                    $('#estadisticasSelectorWrap').hide();
+                    $('#estadisticasSabuesoContenido').show();
+                    return;
+                }
+                estadisticasSabuesoInicializadas = true;
+                $('#estadisticasSelectorWrap').hide();
+                cargarEstadisticasSabueso();
+            }
+            $(document).on('click', '#btnEntrarEstadSabueso', function() {
+                iniciarDashboardSabueso();
+            });
+            $(document).on('click', '#btnEstadisticasVolver', function() {
+                $('#estadisticasSabuesoContenido').hide();
+                $('#estadisticasSelectorWrap').show();
+            });
             // Delegación: el tbody se reemplaza al renderizar; el clic debe vivir en document
             $(document).on('click', '#panelResumenGestor tr.estad-gestor-fila[data-id-gestor]', function() {
                 var id = parseInt($(this).attr('data-id-gestor'), 10);
@@ -3064,7 +3088,7 @@ JS;
                         });
                 });
             });
-            cargarEstadisticasSabueso();
+            if (!document.getElementById('estadisticasSelectorWrap')) iniciarDashboardSabueso();
         });
         </script>
         SCRIPT;
@@ -3282,11 +3306,17 @@ JS;
     }
 
     /**
-     * API: indica si en este momento se permite levantar ticket (menú Ticket / modal).
+     * API: indica si en este momento se permite levantar ticket.
+     * Body opcional: { "categoria": "sabueso" } — la ventana domingo 12:01–lunes 7:00 aplica solo a Sabueso.
      */
     public function ticketLevantarPermitido()
     {
-        $msg = self::mensajeSiVentanaLevantarTicketCerrada();
+        $raw = file_get_contents('php://input');
+        $body = json_decode($raw, true);
+        $categoria = is_array($body) && isset($body['categoria']) ? strtolower(trim((string)$body['categoria'])) : '';
+        // Solo Sabueso (o sin categoría = compatibilidad) usa la restricción horaria
+        $aplicaVentanaSabueso = ($categoria === '' || $categoria === 'sabueso');
+        $msg = $aplicaVentanaSabueso ? self::mensajeSiVentanaLevantarTicketCerrada() : null;
         self::respuestaJSON([
             'success' => true,
             'permitido' => $msg === null,
@@ -3320,10 +3350,14 @@ JS;
             self::respuestaJSON(['success' => false, 'mensaje' => 'Sesión inválida.']);
             return;
         }
-        $msgVentana = self::mensajeSiVentanaLevantarTicketCerrada();
-        if ($msgVentana !== null) {
-            self::respuestaJSON(['success' => false, 'mensaje' => $msgVentana]);
-            return;
+        // Restricción domingo/lunes solo para tickets Sabueso
+        $cat = isset($datos['categoria_gestion']) ? strtolower(trim((string)$datos['categoria_gestion'])) : 'sabueso';
+        if ($cat === '' || $cat === 'sabueso') {
+            $msgVentana = self::mensajeSiVentanaLevantarTicketCerrada();
+            if ($msgVentana !== null) {
+                self::respuestaJSON(['success' => false, 'mensaje' => $msgVentana]);
+                return;
+            }
         }
         $idCredito = isset($datos['id_credito']) && $datos['id_credito'] !== '' && $datos['id_credito'] !== null
             ? (int)$datos['id_credito'] : 0;
@@ -3374,6 +3408,7 @@ JS;
             self::respuestaJSON(['success' => false, 'mensaje' => 'API key inválida o no enviada.']);
             return;
         }
+        // WhatsApp sigue siendo flujo Sabueso: aplica ventana
         $msgVentana = self::mensajeSiVentanaLevantarTicketCerrada();
         if ($msgVentana !== null) {
             self::respuestaJSON(['success' => false, 'mensaje' => $msgVentana]);
@@ -3392,6 +3427,7 @@ JS;
         }
 
         $datos['id_origen_ticket'] = $idOrigenWhatsApp;
+        $datos['categoria_gestion'] = 'sabueso';
         $idCredito = isset($datos['id_credito']) && $datos['id_credito'] !== '' && $datos['id_credito'] !== null
             ? (int)$datos['id_credito'] : 0;
         if ($idCredito < 1) {

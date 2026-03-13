@@ -51,7 +51,7 @@
                             <div class="card-body d-flex justify-content-between flex-wrap-reverse">
                                 <div class="mb-0 w-100 app-academy-sm-60 d-flex flex-column justify-content-between text-center text-sm-start">
                                     <div class="card-title">
-                                        <h5 class="text-primary mb-2">Reporte Panel Admin</h5>
+                                        <h5 class="text-primary mb-2">Reporte Panel Admin Sabueso</h5>
                                         <p class="text-body app-academy-sm-60 app-academy-xl-100">Análisis administrativo con detalles de rastreo, asignación y gestión de tickets.</p>
                                     </div>
                                     <div class="mb-0">
@@ -73,7 +73,7 @@
                             <div class="card-body d-flex justify-content-between flex-wrap-reverse">
                                 <div class="mb-0 w-100 app-academy-sm-60 d-flex flex-column justify-content-between text-center text-sm-start">
                                     <div class="card-title">
-                                        <h5 class="text-primary mb-2">Reporte Cerrado/Eliminado</h5>
+                                        <h5 class="text-primary mb-2">Reporte Cerrado/Eliminado Sabueso</h5>
                                         <p class="text-body app-academy-sm-60 app-academy-xl-100">Historial de tickets cerrados o eliminados con detalles de cierre y personal responsable.</p>
                                     </div>
                                     <div class="mb-0">
@@ -170,7 +170,7 @@
                 cancelButtonColor: '#a1acb8'
             }).then(result => {
                 if (result.isConfirmed) {
-                    descargarReporte('/Reporteria/descargarReporteSabuesos2', 'Panel Admin');
+                    descargarReporte('/Reporteria/descargarReporteSabuesos2', 'Panel-Admin-Sabueso');
                 }
             });
         });
@@ -197,7 +197,7 @@
                 cancelButtonColor: '#a1acb8'
             }).then(result => {
                 if (result.isConfirmed) {
-                    descargarReporte('/Reporteria/descargarReporteSabuesos3', 'Cerrado-Eliminado');
+                    descargarReporte('/Reporteria/descargarReporteSabuesos3', 'Cerrado-Eliminado-Sabueso');
                 }
             });
         });
@@ -232,7 +232,7 @@
                 a.click();
                 window.URL.revokeObjectURL(url);
                 document.body.removeChild(a);
-                
+
                 Swal.fire({
                     icon: 'success',
                     title: 'Descarga completada',

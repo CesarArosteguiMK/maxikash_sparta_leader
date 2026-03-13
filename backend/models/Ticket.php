@@ -25,7 +25,19 @@ class Ticket extends Model
      */
     public static function getListaTickets($idUsuario, $soloDelUsuario = true, array $filtros = [])
     {
+        $db = new Database();
+        $tieneCategoriaGestion = false;
+        try {
+            $col = $db->queryOne("SELECT 1 AS ok FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'ticket' AND COLUMN_NAME = 'categoria_gestion' LIMIT 1");
+            $tieneCategoriaGestion = !empty($col);
+        } catch (\Exception $e) {
+            $tieneCategoriaGestion = false;
+        }
+        $selCategoria = $tieneCategoriaGestion
+            ? "COALESCE(NULLIF(TRIM(t.categoria_gestion),''), 'sabueso') AS categoria_gestion, "
+            : "'sabueso' AS categoria_gestion, ";
         $baseSelect = "SELECT DISTINCT t.id_ticket, t.folio, t.id_credito, t.descripcion_inicial, t.fecha_creacion, t.fecha_vencimiento, " .
+            $selCategoria .
             "tt.nombre AS tipo_ticket_nombre, et.nombre AS estado_ticket_nombre, pt.nombre AS prioridad_nombre, ot.nombre AS origen_nombre, " .
             "CONCAT(TRIM(IFNULL(p.nombres, '')), ' ', TRIM(IFNULL(p.apellidop, ''))) AS creador_nombre, " .
             "CONCAT(TRIM(IFNULL(pa.nombres, '')), ' ', TRIM(IFNULL(pa.apellidop, ''))) AS asignado_nombre, " .
@@ -47,7 +59,6 @@ class Ticket extends Model
             $params['id_persona'] = (int)$idUsuario;
         }
 
-        $db = new Database();
         $whereCandidates = [
             "WHERE (t.activo = 1 OR t.activo IS NULL) AND (t.fecha_eliminacion IS NULL)",
             "WHERE (t.activo = 1 OR t.activo IS NULL)",
@@ -97,6 +108,10 @@ class Ticket extends Model
                 $extraWhere[] = 't.id_prioridad = :filtro_prioridad_id';
                 $params['filtro_prioridad_id'] = $prioridadId;
             }
+        }
+        // Panel Admin Sabueso: solo tickets de gestión Sabueso
+        if (!$soloDelUsuario && $tieneCategoriaGestion) {
+            $extraWhere[] = "(COALESCE(NULLIF(TRIM(t.categoria_gestion),''), 'sabueso') = 'sabueso')";
         }
         if (!empty($extraWhere)) {
             $fragment = ' AND ' . implode(' AND ', $extraWhere);
@@ -244,7 +259,9 @@ class Ticket extends Model
 
     /**
      * Inserta un ticket. Folio TCK-XXXX secuencial, id_ticket = siguiente ID disponible.
-     * Todos los campos son obligatorios: tipo, prioridad, origen, id_credito, descripción, fecha_vencimiento.
+     * Obligatorios: tipo, origen, id_credito, descripción.
+     * Prioridad: siempre Alta (se ignora id_prioridad del cliente).
+     * Fecha vencimiento: siempre 24 h después de fecha_creacion (se ignora fecha_vencimiento del cliente).
      * Usa transacciones y reintentos para evitar condiciones de carrera y IDs duplicados.
      */
     public static function crear($datos, $idPersonaCreador)
@@ -252,23 +269,38 @@ class Ticket extends Model
         $db = new Database();
 
         $idTipo = (int)($datos['id_tipo_ticket'] ?? 0);
-        $idPrioridad = (int)($datos['id_prioridad'] ?? 0);
         $idOrigen = (int)($datos['id_origen_ticket'] ?? 0);
         $idCredito = isset($datos['id_credito']) && $datos['id_credito'] !== '' && $datos['id_credito'] !== null
             ? (int)$datos['id_credito'] : null;
         $descripcion = isset($datos['descripcion_inicial']) ? trim((string)$datos['descripcion_inicial']) : '';
-        $fechaVenc = isset($datos['fecha_vencimiento']) && trim((string)$datos['fecha_vencimiento']) !== ''
-            ? trim((string)$datos['fecha_vencimiento'])
-            : null;
 
-        if ($idTipo < 1 || $idPrioridad < 1 || $idOrigen < 1 || $descripcion === '') {
-            return self::resultado(false, 'Faltan datos obligatorios (tipo, prioridad, origen, descripción).', null);
+        if ($idTipo < 1 || $idOrigen < 1 || $descripcion === '') {
+            return self::resultado(false, 'Faltan datos obligatorios (tipo, origen, descripción).', null);
         }
         if ($idCredito === null || $idCredito < 1) {
             return self::resultado(false, 'El ID de crédito es obligatorio y debe ser mayor a 0.', null);
         }
-        if ($fechaVenc === null || $fechaVenc === '') {
-            return self::resultado(false, 'La fecha de vencimiento es obligatoria.', null);
+
+        // Categoría de gestión: sabueso → Panel Admin Sabueso; otras rutas cuando existan
+        $catRaw = isset($datos['categoria_gestion']) ? trim((string)$datos['categoria_gestion']) : 'sabueso';
+        $catRaw = strtolower(preg_replace('/[^a-z0-9_]/', '', str_replace([' ', '-'], '_', $catRaw)));
+        if ($catRaw === '') {
+            $catRaw = 'sabueso';
+        }
+        $categoriaGestion = $catRaw;
+
+        // Prioridad siempre Alta (no editable desde el formulario)
+        $rowPrioridad = $db->queryOne(
+            "SELECT id_prioridad FROM prioridad_ticket WHERE LOWER(TRIM(nombre)) = 'alta' LIMIT 1"
+        );
+        if (!$rowPrioridad || (int)($rowPrioridad['id_prioridad'] ?? 0) < 1) {
+            $rowPrioridad = $db->queryOne(
+                "SELECT id_prioridad FROM prioridad_ticket WHERE LOWER(TRIM(nombre)) LIKE '%alta%' LIMIT 1"
+            );
+        }
+        $idPrioridad = $rowPrioridad ? (int)$rowPrioridad['id_prioridad'] : 0;
+        if ($idPrioridad < 1) {
+            return self::resultado(false, 'No se encontró la prioridad "Alta" en catálogo.', null);
         }
 
         $rowEstado = $db->queryOne("SELECT id_estado_ticket FROM estado_ticket WHERE LOWER(TRIM(nombre)) = 'abierto' AND (activo = 1 OR activo IS NULL) LIMIT 1");
@@ -278,6 +310,8 @@ class Ticket extends Model
         }
 
         $now = self::ahoraCdmx();
+        // Vencimiento siempre 24 h después de la creación (CDMX)
+        $fechaVenc = self::cdmxNowImmutable()->modify('+24 hours')->format('Y-m-d H:i:s');
 
         // Intentar crear el ticket con reintentos para evitar condiciones de carrera
         $maxIntentos = 3;
@@ -318,18 +352,7 @@ class Ticket extends Model
                     }
                 }
 
-                $query = <<<SQL
-                    INSERT INTO ticket (
-                        id_ticket, folio, id_tipo_ticket, id_estado_ticket, id_prioridad, id_origen_ticket,
-                        id_credito, descripcion_inicial, fecha_creacion, fecha_vencimiento,
-                        id_persona_creador, activo
-                    ) VALUES (
-                        :id_ticket, :folio, :id_tipo_ticket, :id_estado_ticket, :id_prioridad, :id_origen_ticket,
-                        :id_credito, :descripcion_inicial, :fecha_creacion, :fecha_vencimiento,
-                        :id_persona_creador, 1
-                    )
-                SQL;
-
+                // INSERT con categoria_gestion si la columna existe (ejecutar scripts/sql/alter_ticket_categoria_gestion.sql)
                 $params = [
                     'id_ticket'            => $siguienteId,
                     'folio'                => $folio,
@@ -342,9 +365,42 @@ class Ticket extends Model
                     'fecha_creacion'       => $now,
                     'fecha_vencimiento'    => $fechaVenc,
                     'id_persona_creador'   => (int)$idPersonaCreador,
+                    'categoria_gestion'    => $categoriaGestion,
                 ];
-
-                $db->CRUD($query, $params);
+                $queryConCat = <<<SQL
+                    INSERT INTO ticket (
+                        id_ticket, folio, id_tipo_ticket, id_estado_ticket, id_prioridad, id_origen_ticket,
+                        categoria_gestion,
+                        id_credito, descripcion_inicial, fecha_creacion, fecha_vencimiento,
+                        id_persona_creador, activo
+                    ) VALUES (
+                        :id_ticket, :folio, :id_tipo_ticket, :id_estado_ticket, :id_prioridad, :id_origen_ticket,
+                        :categoria_gestion,
+                        :id_credito, :descripcion_inicial, :fecha_creacion, :fecha_vencimiento,
+                        :id_persona_creador, 1
+                    )
+                SQL;
+                $querySinCat = <<<SQL
+                    INSERT INTO ticket (
+                        id_ticket, folio, id_tipo_ticket, id_estado_ticket, id_prioridad, id_origen_ticket,
+                        id_credito, descripcion_inicial, fecha_creacion, fecha_vencimiento,
+                        id_persona_creador, activo
+                    ) VALUES (
+                        :id_ticket, :folio, :id_tipo_ticket, :id_estado_ticket, :id_prioridad, :id_origen_ticket,
+                        :id_credito, :descripcion_inicial, :fecha_creacion, :fecha_vencimiento,
+                        :id_persona_creador, 1
+                    )
+                SQL;
+                try {
+                    $db->CRUD($queryConCat, $params);
+                } catch (\Exception $eIns) {
+                    if (stripos($eIns->getMessage(), 'categoria_gestion') !== false || stripos($eIns->getMessage(), 'Unknown column') !== false) {
+                        unset($params['categoria_gestion']);
+                        $db->CRUD($querySinCat, $params);
+                    } else {
+                        throw $eIns;
+                    }
+                }
                 $db->commit();
 
                 return self::resultado(true, 'Ticket creado correctamente.', ['folio' => $folio, 'id_ticket' => $siguienteId]);

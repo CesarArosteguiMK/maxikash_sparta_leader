@@ -1,4 +1,37 @@
 <style>
+    /* Barra título del dashboard (Estadísticas de Sabueso + Volver) — mismo lenguaje visual que las cards */
+    .estad-sabueso-wrap .estad-titulo-bar {
+        background: rgba(255, 255, 255, 0.55);
+        backdrop-filter: blur(14px);
+        -webkit-backdrop-filter: blur(14px);
+        border: 1px solid rgba(255, 255, 255, 0.7);
+        box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+        border-radius: 1rem;
+        padding: 0.85rem 1.25rem;
+    }
+    .estad-sabueso-wrap .estad-titulo-bar .estad-titulo-texto {
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: var(--bs-body-color, #212529);
+    }
+    .estad-sabueso-wrap .estad-titulo-bar .estad-titulo-icono {
+        color: var(--bs-primary);
+    }
+    [data-bs-theme="dark"] .estad-sabueso-wrap .estad-titulo-bar,
+    .dark-style .estad-sabueso-wrap .estad-titulo-bar {
+        background: rgba(30, 34, 44, 0.65);
+        border-color: rgba(255, 255, 255, 0.08);
+        box-shadow: 0 4px 24px rgba(0, 0, 0, 0.25);
+    }
+
+    /* Iconos con color en el selector de estadísticas (evitar grises) */
+    #estadisticasSelectorWrap .estad-icono-sabueso { color: #0d6efd; }
+    #estadisticasSelectorWrap .estad-icono-sabueso i { color: inherit; }
+    #estadisticasSelectorWrap .estad-icono-otras { color: #0d9488; }
+    #estadisticasSelectorWrap .estad-icono-otras i { color: inherit; }
+    #estadisticasSelectorWrap .estad-icono-tableros { color: #7c3aed; }
+    #estadisticasSelectorWrap .estad-icono-tableros i { color: inherit; }
+
     /* Liquid glass suave: compatible con tema global (sin segundo modo oscuro) */
     .estad-sabueso-wrap .estad-glass {
         background: rgba(255, 255, 255, 0.55);
@@ -241,6 +274,86 @@
     }
 </style>
 
+<div class="card mb-4" id="estadisticasSelectorWrap">
+    <div class="card">
+        <div class="row g-0 align-items-center">
+            <div class="col-12 col-md-8">
+                <div class="card-body">
+                    <h5 class="card-title text-primary mb-3">HOLA, <?= htmlspecialchars($_SESSION['usuario_nombre'] ?? 'Usuario'); ?></h5>
+                    <p class="mb-6">
+                        Consulta los tableros de estadísticas por módulo. Indicadores, tiempos y métricas actualizadas para seguimiento y análisis.
+                    </p>
+                </div>
+            </div>
+            <div class="col-12 col-md-4">
+                <div class="card-body ps-md-2 pe-5 text-end">
+                    <img src="https://demos.themeselection.com/sneat-bootstrap-html-admin-template/assets/img/illustrations/man-with-laptop.png"
+                         class="img-fluid scaleX-n1-rtl"
+                         alt="Estadísticas">
+                </div>
+            </div>
+            <div class="row gy-6 mb-6">
+                <div class="col-lg-4">
+                    <div class="card shadow-none bg-label-primary h-100">
+                        <div class="card-body d-flex justify-content-between flex-wrap-reverse">
+                            <div class="mb-0 w-100 app-academy-sm-60 d-flex flex-column justify-content-between text-center text-sm-start">
+                                <div class="card-title">
+                                    <h5 class="text-primary mb-2">Estadísticas Sabueso</h5>
+                                    <p class="text-body w-sm-80 app-academy-xl-100">Indicadores, tiempos de dictamen, tickets levantados y detalle por gestor y por Sabueso.</p>
+                                </div>
+                                <div class="mb-0">
+                                    <button type="button" class="btn btn-primary" id="btnEntrarEstadSabueso">VER ESTADÍSTICAS SABUESO</button>
+                                </div>
+                            </div>
+                            <div class="w-100 app-academy-sm-40 d-flex justify-content-center justify-content-sm-end h-px-150 mb-4 mb-sm-0">
+                                <div class="rounded-3 d-flex align-items-center justify-content-center h-100 estad-icono-sabueso" style="min-height: 120px; min-width: 100px;">
+                                    <i class="fa-solid fa-magnifying-glass-chart fa-3x scaleX-n1-rtl" aria-hidden="true"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-4">
+                    <div class="card shadow-none bg-label-primary h-100">
+                        <div class="card-body d-flex justify-content-between flex-wrap-reverse">
+                            <div class="mb-0 w-100 app-academy-sm-60 d-flex flex-column justify-content-between text-center text-sm-start">
+                                <div class="card-title">
+                                    <h5 class="text-primary mb-2">Otras estadísticas</h5>
+                                    <p class="text-body app-academy-sm-60 app-academy-xl-100">Módulos de estadísticas adicionales en preparación.</p>
+                                </div>
+                                <div class="mb-0"><button type="button" class="btn btn-sm btn-primary" disabled>PRÓXIMAMENTE</button></div>
+                            </div>
+                            <div class="w-100 app-academy-sm-40 d-flex justify-content-center justify-content-sm-end h-px-150 mb-4 mb-sm-0">
+                                <div class="rounded-3 d-flex align-items-center justify-content-center h-100 estad-icono-otras" style="min-height: 120px; min-width: 100px;">
+                                    <i class="fa-solid fa-chart-line fa-3x scaleX-n1-rtl" aria-hidden="true"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-4">
+                    <div class="card shadow-none bg-label-primary h-100">
+                        <div class="card-body d-flex justify-content-between flex-wrap-reverse">
+                            <div class="mb-0 w-100 app-academy-sm-60 d-flex flex-column justify-content-between text-center text-sm-start">
+                                <div class="card-title">
+                                    <h5 class="text-primary mb-2">Más tableros</h5>
+                                    <p class="text-body app-academy-sm-60 app-academy-xl-100">Nuevos tableros de estadísticas se habilitarán aquí.</p>
+                                </div>
+                                <div class="mb-0"><button type="button" class="btn btn-sm btn-primary" disabled>PRÓXIMAMENTE</button></div>
+                            </div>
+                            <div class="w-100 app-academy-sm-40 d-flex justify-content-center justify-content-sm-end h-px-150 mb-4 mb-sm-0">
+                                <div class="rounded-3 d-flex align-items-center justify-content-center h-100 estad-icono-tableros" style="min-height: 120px; min-width: 100px;">
+                                    <i class="fa-solid fa-chart-column fa-3x scaleX-n1-rtl" aria-hidden="true"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="alert alert-warning d-none mb-3" id="estadisticasSabuesoAlert" role="alert"></div>
 
 <!-- Sin spinner aquí: http.request usa showLoader:false para no duplicar con Swal "Procesando..." -->
@@ -251,6 +364,16 @@
 </div>
 
 <div id="estadisticasSabuesoContenido" class="estad-sabueso-wrap" style="display: none;">
+
+    <div class="estad-titulo-bar mb-3 d-flex flex-wrap align-items-center justify-content-between gap-2">
+        <span class="estad-titulo-texto d-flex align-items-center gap-2">
+            <i class="fa-solid fa-chart-pie estad-titulo-icono" aria-hidden="true"></i>
+            Estadísticas de Sabueso
+        </span>
+        <button type="button" class="btn btn-sm btn-outline-primary" id="btnEstadisticasVolver" title="Ver otras áreas de estadísticas">
+            <i class="fa-solid fa-arrow-left me-1"></i>Volver
+        </button>
+    </div>
 
     <div class="row g-3 mb-3">
         <div class="col-lg-4 col-md-6">

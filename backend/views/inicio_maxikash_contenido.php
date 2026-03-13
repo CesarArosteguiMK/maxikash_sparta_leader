@@ -447,43 +447,7 @@ body.dark-mode .inicio-btn-diagnostico-bd {
     <?php if ($mostrarBotonAnalytics): ?>
     <div id="inicio-panel-analytics" class="inicio-panel-analytics" style="display: none;">
       <div class="sec-hd"><span class="sec-txt">Gráficas, análisis y monitoreo</span><div class="sec-line"></div></div>
-      <p class="inicio-analytics-intro text-muted small mb-3">Vista rápida de indicadores. Abre cada enlace debajo para ver el reporte completo.</p>
-
-      <div class="row g-3">
-          <div class="col-12 col-lg-4">
-            <div class="card h-100">
-              <div class="card-header py-2 d-flex align-items-center justify-content-between">
-                <span class="small fw-semibold">KPI Total</span>
-                <a href="/indicadores/kpiTotal" target="_blank" rel="noopener" class="btn btn-sm btn-outline-primary py-0 px-2" title="Abrir en pantalla completa">Abrir</a>
-              </div>
-              <div class="card-body p-0 overflow-hidden" style="height: 280px;">
-                <iframe src="/indicadores/kpiTotal" title="KPI Total" class="inicio-iframe-monitor" style="width:100%;height:100%;border:none;"></iframe>
-              </div>
-            </div>
-          </div>
-          <div class="col-12 col-lg-4">
-            <div class="card h-100">
-              <div class="card-header py-2 d-flex align-items-center justify-content-between">
-                <span class="small fw-semibold">Gestión 1-7</span>
-                <a href="/indicadores/gestiones1A7" target="_blank" rel="noopener" class="btn btn-sm btn-outline-primary py-0 px-2" title="Abrir en pantalla completa">Abrir</a>
-              </div>
-              <div class="card-body p-0 overflow-hidden" style="height: 280px;">
-                <iframe src="/indicadores/gestiones1A7" title="Gestión 1-7" class="inicio-iframe-monitor" style="width:100%;height:100%;border:none;"></iframe>
-              </div>
-            </div>
-          </div>
-          <div class="col-12 col-lg-4">
-            <div class="card h-100">
-              <div class="card-header py-2 d-flex align-items-center justify-content-between">
-                <span class="small fw-semibold">Eficiencia 1-7</span>
-                <a href="/indicadores/eficiencia1A7" target="_blank" rel="noopener" class="btn btn-sm btn-outline-primary py-0 px-2" title="Abrir en pantalla completa">Abrir</a>
-              </div>
-              <div class="card-body p-0 overflow-hidden" style="height: 280px;">
-                <iframe src="/indicadores/eficiencia1A7" title="Eficiencia 1-7" class="inicio-iframe-monitor" style="width:100%;height:100%;border:none;"></iframe>
-              </div>
-            </div>
-          </div>
-        </div>
+      <p class="inicio-analytics-intro text-muted small mb-3">Gráficas, análisis y monitoreo. Abre cada enlace debajo para ver el reporte completo.</p>
 
       <div class="sec-hd mt-4"><span class="sec-txt">Todos los accesos: reportes, análisis y monitoreo</span><div class="sec-line"></div></div>
       <div class="grid-cards" id="analyticsGrid">
