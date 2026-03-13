@@ -40,13 +40,83 @@
     #modalRastreoCredito .rastreo-col-bitacora-wrap .rastreo-seccion-dictamen { grid-row: 2; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
     #modalRastreoCredito .rastreo-block-full { grid-column: 1 / -1; }
     #modalRastreoCredito.modal .modal-dialog { max-width: 95vw; width: 95vw; height: 90vh; max-height: 90vh; margin: 2rem auto; }
-    /* FONDO GRIS: contenedor padre = gris azulado (Slate 100). Tarjetas blancas resaltan encima. */
-    #modalRastreoCredito .modal-content { height: 100%; display: flex; flex-direction: column; border-radius: 16px; overflow: visible; background-color: #F1F5F9 !important; border: none !important; }
-    #modalRastreoCredito .modal-body { flex: 1; overflow-x: hidden; overflow-y: auto; -webkit-overflow-scrolling: touch; background-color: #F1F5F9 !important; padding: 1rem; -webkit-font-smoothing: antialiased; display: flex; flex-direction: column; min-height: 0; }
+    /* Liquid Glass: mismo criterio que modal-content-glass + departamentos (blur + rgba). Antes era #F1F5F9 sólido. */
+    #modalRastreoCredito .modal-content.modal-content-glass {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        border-radius: 16px;
+        /* visible: la X del header no se recorta; el scroll queda en modal-body */
+        overflow: visible;
+        background: rgba(255, 255, 255, 0.82) !important;
+        backdrop-filter: blur(18px);
+        -webkit-backdrop-filter: blur(18px);
+        border: 1px solid rgba(255, 255, 255, 0.55) !important;
+        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(255, 255, 255, 0.35) inset;
+    }
+    body.dark-mode #modalRastreoCredito .modal-content.modal-content-glass {
+        background: rgba(30, 41, 59, 0.88) !important;
+        border-color: rgba(71, 85, 105, 0.45) !important;
+        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(51, 65, 85, 0.25) inset;
+    }
+    #modalRastreoCredito .modal-body {
+        flex: 1;
+        overflow-x: hidden;
+        overflow-y: auto;
+        border-radius: 0;
+        min-height: 0;
+        -webkit-overflow-scrolling: touch;
+        background: rgba(241, 245, 249, 0.45) !important;
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        padding: 1rem;
+        -webkit-font-smoothing: antialiased;
+        display: flex;
+        flex-direction: column;
+    }
+    body.dark-mode #modalRastreoCredito .modal-body {
+        background: rgba(15, 23, 42, 0.35) !important;
+    }
     #modalRastreoCredito .modal-body .small { line-height: 1.5; letter-spacing: 0.01em; color: #374151; }
-    /* Encabezado y pie BLANCOS para limpieza visual */
-    #modalRastreoCredito .modal-header { background-color: #FFFFFF !important; border-bottom: 1px solid #E5E7EB !important; }
-    #modalRastreoCredito .modal-footer { background-color: #FFFFFF !important; border-top: 1px solid #E5E7EB !important; }
+    /* Encabezado y pie: glass ligero (no blanco opaco) */
+    #modalRastreoCredito .modal-header {
+        background: rgba(255, 255, 255, 0.65) !important;
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border-bottom: 1px solid rgba(0, 0, 0, 0.06) !important;
+        /* Evitar que la X se recorte por border-radius/overflow del modal-content */
+        padding-top: 0.85rem !important;
+        padding-right: 1rem !important;
+        padding-bottom: 0.65rem !important;
+        padding-left: 1rem !important;
+        flex-shrink: 0;
+        border-radius: 16px 16px 0 0;
+    }
+    #modalRastreoCredito .modal-header .btn-close {
+        padding: 0.5rem;
+        margin-left: auto;
+        /* Mantener la X dentro del área redondeada sin tirarla al borde */
+        margin-right: 0;
+        background-size: 0.65em;
+        opacity: 0.9;
+    }
+    #modalRastreoCredito .modal-footer {
+        background: rgba(255, 255, 255, 0.6) !important;
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        border-top: 1px solid rgba(0, 0, 0, 0.06) !important;
+        border-radius: 0 0 16px 16px;
+        flex-shrink: 0;
+    }
+    body.dark-mode #modalRastreoCredito .modal-header {
+        background: rgba(30, 41, 59, 0.75) !important;
+        border-bottom-color: rgba(51, 65, 85, 0.5) !important;
+        border-radius: 16px 16px 0 0;
+    }
+    body.dark-mode #modalRastreoCredito .modal-footer {
+        background: rgba(30, 41, 59, 0.7) !important;
+        border-top-color: rgba(51, 65, 85, 0.5) !important;
+    }
     /* Encabezado en dos columnas: izquierda = datos cliente + ticket; derecha = quién levantó / cuando / asignado */
     #modalRastreoCredito .rastreo-header-grid { display: grid; grid-template-columns: 1fr auto; gap: 1rem; align-items: start; margin-bottom: 1.25rem; padding-bottom: 1rem; border-bottom: 1px solid rgba(0,0,0,0.06); }
     #modalRastreoCredito .rastreo-header-left { display: flex; flex-direction: column; gap: 0.35rem; min-width: 0; }
@@ -56,6 +126,14 @@
     #modalRastreoCredito .rastreo-tickets-cell .fw-semibold.small.text-muted { color: #1e40af !important; font-weight: 600; }
     #modalRastreoCredito .rastreo-tickets-cell .credito-modal-list { color: #1e3a8a; }
     #modalRastreoCredito .rastreo-header-right { display: flex; flex-direction: column; gap: 0.5rem; padding-left: 1rem; border-left: 1px solid rgba(0,0,0,0.08); min-width: 180px; }
+    /* Consulta solo por ID crédito: ocultar ticket, asignación, bitácora y dictamen; grid 2 columnas */
+    #modalRastreoCredito.consulta-sin-ticket .rastreo-tickets-cell,
+    #modalRastreoCredito.consulta-sin-ticket .rastreo-header-right { display: none !important; }
+    #modalRastreoCredito.consulta-sin-ticket .rastreo-header-grid { grid-template-columns: 1fr; border-bottom: none; padding-bottom: 0.5rem; }
+    #modalRastreoCredito.consulta-sin-ticket .rastreo-col-bitacora-wrap { display: none !important; }
+    #modalRastreoCredito.consulta-sin-ticket .rastreo-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+    #modalRastreoCredito.consulta-sin-ticket .modal-title::after { content: ' (solo consulta)'; font-weight: 400; font-size: 0.85em; opacity: 0.85; }
+    #modalRastreoCredito.consulta-sin-ticket #btnAsignarRastreo { display: none !important; }
     #modalRastreoCredito .rastreo-ticket-info-col { display: flex; flex-direction: column; gap: 0.5rem; }
     /* Direcciones (maxi app): cada ubicación es una fila de 3 columnas (dirección | registros | fecha+distancia) */
     #modalRastreoCredito .rastreo-direcciones-lista { margin-bottom: 0.75rem; }
@@ -688,10 +766,62 @@
 </style>
 <div class="card">
     <div class="card-header border-bottom">
-        <h5 class="card-title mb-0">
-            <i class="fa-solid fa-list me-2"></i>Panel Admin – Todos los tickets
+        <h5 class="card-title mb-0 d-flex flex-wrap align-items-center gap-2">
+            <span><i class="fa-solid fa-list me-2"></i>Panel Admin – Todos los tickets</span>
+            <button type="button" class="btn btn-sm btn-outline-primary ms-auto" id="btnAbrirConsultaCredito" title="Consultar datos del crédito sin ticket">
+                <i class="fa-solid fa-id-card me-1"></i>Consultar por ID crédito
+            </button>
             <i class="fa-solid fa-dog ms-2 sabueso-easter-icon" id="sabuesoPanelEaster" aria-hidden="true"></i>
         </h5>
+    </div>
+    <!-- Filtros Panel Admin: se envían en cada getTicketsPanelAdmin (window.panelAdminFiltros) -->
+    <div class="card-body border-bottom py-3 bg-label-secondary bg-opacity-10" id="panelAdminFiltrosWrap">
+        <div class="row g-2 align-items-end">
+            <div class="col-12 col-md-6 col-lg">
+                <label class="form-label small text-muted mb-0" for="filtroAsignado">Asignado a</label>
+                <select class="form-select form-select-sm panel-admin-filtro-select" id="filtroAsignado" title="Filtrar por persona asignada">
+                    <option value="0">Todos</option>
+                    <option value="-1">Sin asignar</option>
+                </select>
+            </div>
+            <div class="col-12 col-md-6 col-lg">
+                <label class="form-label small text-muted mb-0" for="filtroDictamenEnviado">Dictamen enviado al gestor</label>
+                <select class="form-select form-select-sm panel-admin-filtro-select" id="filtroDictamenEnviado">
+                    <option value="">Todos</option>
+                    <option value="si">Sí (enviado)</option>
+                    <option value="no">No (aún no enviado)</option>
+                </select>
+            </div>
+            <div class="col-12 col-md-6 col-lg">
+                <label class="form-label small text-muted mb-0" for="filtroDictamenVisto">Dictamen visto por gestor</label>
+                <select class="form-select form-select-sm panel-admin-filtro-select" id="filtroDictamenVisto" title="Solo aplica si ya fue enviado al gestor">
+                    <option value="">Todos</option>
+                    <option value="no">No visto (enviado, sin abrir)</option>
+                    <option value="si">Ya visto</option>
+                </select>
+            </div>
+            <div class="col-12 col-md-6 col-lg">
+                <label class="form-label small text-muted mb-0" for="filtroDsEstado">Dictamen del sistema (DS)</label>
+                <select class="form-select form-select-sm panel-admin-filtro-select" id="filtroDsEstado" title="Estado de la evaluación automática">
+                    <option value="">Todos</option>
+                    <option value="sin_ds">Sin registro DS (no enviado o sin snapshot)</option>
+                    <option value="pendiente">Pendiente de generar</option>
+                    <option value="listo">Ya evaluado (resultado listo)</option>
+                    <option value="prorroga_activa">Prórroga activa</option>
+                </select>
+            </div>
+            <div class="col-12 col-md-6 col-lg">
+                <label class="form-label small text-muted mb-0" for="filtroPrioridad">Prioridad</label>
+                <select class="form-select form-select-sm panel-admin-filtro-select" id="filtroPrioridad">
+                    <option value="0">Todas</option>
+                </select>
+            </div>
+            <div class="col-12 col-lg-auto d-flex align-items-end">
+                <button type="button" class="btn btn-sm btn-outline-secondary" id="btnLimpiarFiltrosPanel" title="Quitar filtros y mostrar todos">
+                    <i class="fa-solid fa-rotate-left me-1"></i>Limpiar
+                </button>
+            </div>
+        </div>
     </div>
     <div class="card-datatable table-responsive">
         <table id="tablaTicketsPanel" class="dt-responsive table border-top">
@@ -705,9 +835,8 @@
                     <th>Fechas</th>
                     <th>Quién levantó</th>
                     <th>Asignado a</th>
-                    <th>Tiempo para visitar</th>
-                    <th title="Resultado actual del dictamen del sistema">Resultado DS</th>
-                    <th title="Prórroga (+12 h): activa o ya usada">Prórroga</th>
+                    <th title="Cuenta regresiva 12h o prórroga +12h; si hay prórroga, el estado sale debajo">Tiempo para visitar</th>
+                    <th title="Resultado del dictamen del sistema; debajo: Pago Sí/No cuando aplica">Resultado DS</th>
                     <th></th>
                     <th>Acciones</th>
                 </tr>
@@ -717,10 +846,40 @@
     </div>
 </div>
 
+<!-- Modal consulta solo por ID crédito (sin ticket): paso 1 pide ID; luego reusa vista rastreo sin bitácora/dictamen/asignar -->
+<div class="modal fade" id="modalConsultaCreditoPaso1" tabindex="-1" aria-labelledby="modalConsultaCreditoPaso1Label" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content shadow-lg border-0 overflow-hidden">
+            <div class="modal-header border-0 pb-0" style="background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 100%);">
+                <div class="w-100 text-center py-3">
+                    <div class="rounded-circle bg-white bg-opacity-10 d-inline-flex align-items-center justify-content-center mb-2" style="width: 56px; height: 56px;">
+                        <i class="fa-solid fa-magnifying-glass-chart fa-xl text-white"></i>
+                    </div>
+                    <h5 class="modal-title text-white mb-1" id="modalConsultaCreditoPaso1Label">Consulta por ID crédito</h5>
+                    <p class="small text-white-50 mb-0 px-3">Vista de direcciones, mapas y analítica sin levantar ticket. Solo lectura.</p>
+                </div>
+                <button type="button" class="btn-close btn-close-white position-absolute top-0 end-0 m-3" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body pt-4 pb-4 px-4">
+                <label for="inputConsultaIdCredito" class="form-label fw-semibold">ID de crédito</label>
+                <div class="input-group input-group-lg mb-3">
+                    <span class="input-group-text bg-light"><i class="fa-solid fa-hashtag text-muted"></i></span>
+                    <input type="text" class="form-control form-control-lg" id="inputConsultaIdCredito" placeholder="Ej. 799811" inputmode="numeric" autocomplete="off" maxlength="12">
+                    <button type="button" class="btn btn-primary px-4" id="btnConsultaCreditoIr">
+                        <i class="fa-solid fa-arrow-right me-1"></i>Consultar
+                    </button>
+                </div>
+                <div id="consultaCreditoPaso1Error" class="alert alert-danger py-2 small d-none" role="alert"></div>
+                <p class="small text-muted mb-0"><i class="fa-solid fa-circle-info me-1"></i>Se cargarán megareporte, direcciones alternas, mapas y analítica igual que en rastreo, sin bitácora ni dictamen.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Modal Iniciar rastreo: datos de la persona/crédito del ticket (casi pantalla completa) -->
 <div class="modal fade" id="modalRastreoCredito" tabindex="-1" aria-labelledby="modalRastreoCreditoLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content shadow-sm">
+        <div class="modal-content modal-content-glass shadow-sm">
             <div class="modal-header py-2 border-bottom d-flex align-items-center">
                 <h6 class="modal-title text-primary mb-0" id="modalRastreoCreditoLabel">
                     <i class="fa-solid fa-magnifying-glass-plus me-2"></i>Iniciar rastreo – Datos del crédito
@@ -1369,6 +1528,145 @@
     }
     $(document).ready(function() {
         var apiBase = (function(){ var p = window.location.pathname || ''; var i = p.indexOf('/sabueso'); return i !== -1 ? p.substring(0, i) : ''; })();
+
+        // —— Filtros Panel Admin (window.panelAdminFiltros lo consume getTicketsPanelAdmin en Sabueso.php) ——
+        window.panelAdminFiltros = window.panelAdminFiltros || {};
+        function syncPanelAdminFiltrosFromUI() {
+            var asignado = parseInt($('#filtroAsignado').val(), 10);
+            if (isNaN(asignado)) asignado = 0;
+            window.panelAdminFiltros.asignado = asignado;
+            window.panelAdminFiltros.dictamen_enviado = ($('#filtroDictamenEnviado').val() || '').trim();
+            window.panelAdminFiltros.ds_estado = ($('#filtroDsEstado').val() || '').trim();
+            window.panelAdminFiltros.dictamen_visto = ($('#filtroDictamenVisto').val() || '').trim();
+            var pid = parseInt($('#filtroPrioridad').val(), 10);
+            window.panelAdminFiltros.prioridad_id = isNaN(pid) ? 0 : pid;
+        }
+        function aplicarFiltrosPanelAdminAlCambiar() {
+            syncPanelAdminFiltrosFromUI();
+            if (typeof getTicketsPanelAdmin === 'function') getTicketsPanelAdmin();
+        }
+        function limpiarFiltrosPanelAdmin() {
+            $('#filtroAsignado').val('0');
+            $('#filtroDictamenEnviado').val('');
+            $('#filtroDsEstado').val('');
+            $('#filtroDictamenVisto').val('');
+            $('#filtroPrioridad').val('0');
+            window.panelAdminFiltros = {};
+            if (typeof getTicketsPanelAdmin === 'function') getTicketsPanelAdmin();
+        }
+        if ($('#panelAdminFiltrosWrap').length && typeof http !== 'undefined') {
+            http.request({
+                endpoint: '/sabueso/getPersonasSabueso',
+                metodo: 'POST',
+                onSuccess: function(resp) {
+                    var list = resp.datos || [];
+                    var $sel = $('#filtroAsignado');
+                    $sel.find('option:not([value="0"]):not([value="-1"])').remove();
+                    list.forEach(function(p) {
+                        if (p.id) $sel.append($('<option></option>').attr('value', p.id).text(p.nombre_completo || p.id));
+                    });
+                }
+            });
+            http.request({
+                endpoint: '/sabueso/getCatalogosTicket',
+                metodo: 'POST',
+                onSuccess: function(resp) {
+                    var prioridades = (resp.datos && resp.datos.prioridades) ? resp.datos.prioridades : [];
+                    var $sel = $('#filtroPrioridad');
+                    $sel.find('option:not([value="0"])').remove();
+                    prioridades.forEach(function(pr) {
+                        if (pr.id) $sel.append($('<option></option>').attr('value', pr.id).text(pr.nombre || pr.id));
+                    });
+                }
+            });
+            $('#panelAdminFiltrosWrap').on('change', '.panel-admin-filtro-select', aplicarFiltrosPanelAdminAlCambiar);
+            $('#btnLimpiarFiltrosPanel').on('click', limpiarFiltrosPanelAdmin);
+        }
+
+        // —— Consulta por ID crédito (sin ticket): abre mismo modal rastreo con secciones ocultas ——
+        function abrirModalConsultaCreditoPaso1() {
+            $('#consultaCreditoPaso1Error').addClass('d-none').text('');
+            $('#inputConsultaIdCredito').val('');
+            var el = document.getElementById('modalConsultaCreditoPaso1');
+            if (el && typeof bootstrap !== 'undefined' && bootstrap.Modal) bootstrap.Modal.getOrCreateInstance(el).show();
+            else if (typeof $ !== 'undefined') $('#modalConsultaCreditoPaso1').modal('show');
+        }
+        function ejecutarConsultaCreditoIr() {
+            var raw = ($('#inputConsultaIdCredito').val() || '').toString().trim();
+            var id = parseInt(raw, 10);
+            if (!raw || isNaN(id) || id < 1) {
+                $('#consultaCreditoPaso1Error').removeClass('d-none').text('Escriba un ID de crédito numérico válido.');
+                return;
+            }
+            $('#consultaCreditoPaso1Error').addClass('d-none');
+            var paso1 = document.getElementById('modalConsultaCreditoPaso1');
+            if (paso1 && typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+                var m1 = bootstrap.Modal.getInstance(paso1) || bootstrap.Modal.getOrCreateInstance(paso1);
+                if (m1) m1.hide();
+            } else if (typeof $ !== 'undefined') $('#modalConsultaCreditoPaso1').modal('hide');
+
+            var $modalRastreo = $('#modalRastreoCredito');
+            $modalRastreo.addClass('consulta-sin-ticket');
+            window._consultaCreditoSolo = true;
+            window.ticketIdRastreoActual = null;
+            $('#rastreoIdTicketActual').val('').attr('data-id-ticket', '');
+            $modalRastreo.attr('data-id-ticket', '');
+
+            var $ghost = $('<button type="button" class="btn-rastreo d-none" style="display:none"></button>')
+                .attr('data-id-credito', id)
+                .attr('data-id-ticket', '')
+                .attr('data-asignado', '')
+                .attr('data-creador-nombre', '')
+                .attr('data-fecha-creacion', '');
+            $('body').append($ghost);
+            if (typeof abrirRastreo === 'function') {
+                try { abrirRastreo($ghost[0]); } catch (e) { console.warn(e); }
+            } else {
+                http.request({
+                    endpoint: '/sabueso/getDatosCredito',
+                    metodo: 'POST',
+                    data: JSON.stringify({ id_credito: id }),
+                    contentType: 'application/json',
+                    processData: false,
+                    onSuccess: function(resp) {
+                        if (!resp.success || !resp.datos) {
+                            abrirModalConsultaCreditoPaso1();
+                            $('#consultaCreditoPaso1Error').removeClass('d-none').text(resp.mensaje || 'No se encontró el crédito.');
+                            return;
+                        }
+                        var d = resp.datos;
+                        var idCred = d.id_credito || id;
+                        var nombre = (d.Nombre_cliente || d.nombre_completo || '—').toString().replace(/</g, '&lt;');
+                        var tel = (d.telefono_referencia1 || d.telefono_referencia2 || '—').toString().replace(/</g, '&lt;');
+                        var dom = (d.Domicilio_Completo || '—').toString().replace(/</g, '&lt;');
+                        var htmlTop = '<div><span class="text-muted small d-block">ID crédito</span><div class="fw-semibold">' + idCred + '</div></div>' +
+                            '<div><span class="text-muted small d-block">Nombre completo</span><div class="fw-semibold">' + nombre + '</div></div>' +
+                            '<div><span class="text-muted small d-block">Teléfono cliente</span><div class="fw-semibold">' + tel + '</div></div>' +
+                            '<div><span class="text-muted small d-block">Dirección megareporte</span><div class="fw-semibold small">' + dom + '</div></div>';
+                        $('#rastreoTopLeft').html(htmlTop);
+                        window.idCreditoRastreoActual = idCred;
+                        if (typeof $ !== 'undefined' && $.fn.modal) $modalRastreo.modal('show');
+                    },
+                    onError: function() {
+                        abrirModalConsultaCreditoPaso1();
+                        $('#consultaCreditoPaso1Error').removeClass('d-none').text('Error de conexión.');
+                    }
+                });
+            }
+            setTimeout(function() { $ghost.remove(); }, 2000);
+        }
+        $('#btnAbrirConsultaCredito').on('click', abrirModalConsultaCreditoPaso1);
+        $('#btnConsultaCreditoIr').on('click', ejecutarConsultaCreditoIr);
+        $('#inputConsultaIdCredito').on('keydown', function(e) {
+            if (e.key === 'Enter') { e.preventDefault(); ejecutarConsultaCreditoIr(); }
+        });
+        $('#modalRastreoCredito').on('hidden.bs.modal', function() {
+            if (window._consultaCreditoSolo) {
+                $(this).removeClass('consulta-sin-ticket');
+                window._consultaCreditoSolo = false;
+            }
+        });
+
         var urlSubirEvidencia = (apiBase || '') + '/sabueso/subirEvidenciaTicket';
         var evidenciasEliminadas = [];
 
@@ -2087,15 +2385,64 @@ function abrirDictamenSistema(idTicket) {
             if (ds.resultado === 'pendiente') {
                 body.innerHTML = '<div class="alert alert-info mb-0"><i class="fa-solid fa-circle-info me-1"></i>El dictamen del sistema está pendiente. Haga clic en <strong>Generar</strong> para ejecutar la verificación.</div>';
                 setBotonesDictamenSistema(ds);
+                actualizarFilaResultadoDS(idTicket, 'pendiente');
                 return;
             }
             renderDictamenSistemaResultado(ds, body);
             setBotonesDictamenSistema(ds);
+            if (ds.resultado) actualizarFilaResultadoDS(idTicket, ds.resultado);
         },
         onError: function() {
             body.innerHTML = '<div class="alert alert-danger mb-0">Error al consultar el dictamen del sistema.</div>';
         }
     });
+}
+
+/**
+ * Mismo criterio que Ticket.php ds_resultado_html: evita F5 para ver Resultado DS actualizado.
+ */
+function buildDsResultadoHtml(resultado) {
+    var s = (resultado == null || resultado === '') ? '' : String(resultado).trim();
+    if (!s) return '<span class="text-muted">—</span>';
+    var esc = function(t) {
+        return String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    };
+    // Etiquetas legibles (evita no_cumplio_prorr… en celda)
+    var etiquetas = {
+        'no_cumplio_prorroga': 'No cumplió prórroga',
+        'cumplio_prorroga': 'Cumplió en prórroga',
+        'prorroga_activa': 'Prórroga activa',
+        'no_visito': 'No visito',
+        'cumplido_pago': 'Cumplido por pago',
+        'pendiente': 'pendiente'
+    };
+    var mostrar = etiquetas[s] || s;
+    var short = mostrar.length > 24 ? mostrar.substring(0, 22) + '…' : mostrar;
+    var main = '<small class="text-break d-block" title="' + esc(mostrar) + '">' + esc(short) + '</small>';
+    // Pago Sí/No cuando aplica (alineado con Ticket.php getListaTickets)
+    var pagoLine = '';
+    if (s === 'cumplido_pago') {
+        pagoLine = '<span class="small text-success fw-semibold d-block mt-1">Pago: Sí</span>';
+    } else if (s !== 'pendiente' && s !== 'prorroga_activa' && s !== '') {
+        pagoLine = '<span class="small text-danger fw-semibold d-block mt-1">Pago: No</span>';
+    }
+    return pagoLine ? '<div class="text-center">' + main + pagoLine + '</div>' : main;
+}
+
+/** Actualiza la celda Resultado DS en #tablaTicketsPanel sin recargar toda la página */
+function actualizarFilaResultadoDS(idTicket, resultado) {
+    if (!idTicket || typeof $ === 'undefined' || !$.fn.DataTable) return;
+    var tabla = $('#tablaTicketsPanel');
+    if (!tabla.length || !$.fn.DataTable.isDataTable(tabla)) return;
+    var dt = tabla.DataTable();
+    var html = buildDsResultadoHtml(resultado);
+    dt.rows().every(function() {
+        var d = this.data();
+        if (!d || parseInt(d._id_ticket, 10) !== parseInt(idTicket, 10)) return;
+        d.ds_resultado = html;
+        this.data(d);
+    });
+    dt.draw(false);
 }
 
 function ejecutarOtorgarProrrogaDictamenSistema() {
@@ -2118,6 +2465,7 @@ function ejecutarOtorgarProrrogaDictamenSistema() {
                 return;
             }
             abrirDictamenSistema(dictamenSistemaTicketId);
+            if (typeof getTicketsPanelAdmin === 'function') getTicketsPanelAdmin();
         },
         onError: function() {
             btn.disabled = false;
@@ -2149,8 +2497,13 @@ function ejecutarDictamenSistema() {
                 btn.style.display = '';
                 return;
             }
+            var nuevoResultado = (res.datos && res.datos.resultado) ? res.datos.resultado : null;
+            if (nuevoResultado && dictamenSistemaTicketId) {
+                actualizarFilaResultadoDS(dictamenSistemaTicketId, nuevoResultado);
+            }
             btn.style.display = 'none';
             abrirDictamenSistema(dictamenSistemaTicketId);
+            if (typeof getTicketsPanelAdmin === 'function') getTicketsPanelAdmin();
         },
         onError: function() {
             btn.disabled = false;
@@ -2308,6 +2661,33 @@ function renderDictamenSistemaResultado(ds, body) {
     html += '<div class="col-md-4"><div class="text-muted small">Direcciones visitadas</div><div class="fw-semibold">' + dirVis + ' / ' + dirTot + '</div></div>';
     html += '<div class="col-md-4"><div class="text-muted small">Regla aplicada</div><div class="fw-semibold small">' + escHtml((d.cumplimiento_etiqueta || '—')) + '</div></div>';
     html += '</div>';
+
+    // Detalle por domicilio: cuáles visitados y cuáles faltan (cobertura_direcciones del backend)
+    var cob = d.cobertura_direcciones;
+    if (Array.isArray(cob) && cob.length > 0) {
+        var visitadas = [];
+        var faltan = [];
+        for (var ci = 0; ci < cob.length; ci++) {
+            var c = cob[ci];
+            var etiqueta = escHtml(c.direccion || ('Dirección ' + (ci + 1)));
+            var minM = c.min_distancia_metros;
+            var extra = (minM != null && minM !== '') ? ' <span class="text-muted">(más cerca: ' + minM + ' m)</span>' : '';
+            if (c.visitada) {
+                visitadas.push('<li class="mb-1"><i class="fa-solid fa-circle-check text-success me-1"></i>' + etiqueta + extra + '</li>');
+            } else {
+                faltan.push('<li class="mb-1"><i class="fa-solid fa-location-dot text-warning me-1"></i>' + etiqueta + extra + '</li>');
+            }
+        }
+        html += '<div class="row g-2 mt-2 pt-2 border-top">';
+        if (visitadas.length > 0) {
+            html += '<div class="col-md-6"><div class="small text-success fw-semibold mb-1"><i class="fa-solid fa-house-chimney me-1"></i>Visitadas</div><ul class="list-unstyled small mb-0">' + visitadas.join('') + '</ul></div>';
+        }
+        if (faltan.length > 0) {
+            html += '<div class="col-md-6"><div class="small text-warning fw-semibold mb-1"><i class="fa-solid fa-house-circle-exclamation me-1"></i>Falta por visitar</div><ul class="list-unstyled small mb-0">' + faltan.join('') + '</ul></div>';
+        }
+        html += '</div>';
+    }
+
     if (d.ventana_revision && d.ventana_revision.inicio) {
         html += '<div class="small text-muted mt-2"><i class="fa-regular fa-clock me-1"></i>Ventana evaluada: ' + escHtml(d.ventana_revision.inicio || '—') + ' a ' + escHtml(d.ventana_revision.fin || '—') + ' (' + escHtml(d.ventana_revision.tipo || '12h') + ')</div>';
     }

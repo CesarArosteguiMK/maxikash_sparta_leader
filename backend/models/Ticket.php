@@ -19,8 +19,11 @@ class Ticket extends Model
      * @param int $idUsuario ID de la persona (sesión).
      * @param bool $soloDelUsuario true = solo los que levantó ese usuario (menú Ticket); false = todos (Panel Admin).
      * Siempre incluye creador_nombre para Panel Admin.
+     * @param array $filtros Opcional (solo Panel Admin): asignado (0=todos, -1=sin asignar, id=persona),
+     *        dictamen_enviado (''|si|no), dictamen_visto (''|si|no, solo si enviado),
+     *        ds_estado (''|pendiente|listo|sin_ds|prorroga_activa), prioridad_id (0=todos).
      */
-    public static function getListaTickets($idUsuario, $soloDelUsuario = true)
+    public static function getListaTickets($idUsuario, $soloDelUsuario = true, array $filtros = [])
     {
         $baseSelect = "SELECT DISTINCT t.id_ticket, t.folio, t.id_credito, t.descripcion_inicial, t.fecha_creacion, t.fecha_vencimiento, " .
             "tt.nombre AS tipo_ticket_nombre, et.nombre AS estado_ticket_nombre, pt.nombre AS prioridad_nombre, ot.nombre AS origen_nombre, " .
@@ -56,6 +59,52 @@ class Ticket extends Model
                 $whereCandidates[$i] .= ' AND t.id_persona_creador = :id_persona';
             }
         }
+
+        // Filtros adicionales (Panel Admin): se aplican a todos los candidatos WHERE
+        $extraWhere = [];
+        if (!$soloDelUsuario && !empty($filtros)) {
+            $idAsignado = isset($filtros['asignado']) ? (int)$filtros['asignado'] : 0;
+            if ($idAsignado === -1) {
+                $extraWhere[] = 'at.id_persona_asignada IS NULL';
+            } elseif ($idAsignado > 0) {
+                $extraWhere[] = 'at.id_persona_asignada = :filtro_id_asignado';
+                $params['filtro_id_asignado'] = $idAsignado;
+            }
+            $dictEnviado = isset($filtros['dictamen_enviado']) ? trim((string)$filtros['dictamen_enviado']) : '';
+            if ($dictEnviado === 'si') {
+                $extraWhere[] = "dm.dictamen_estado = 'enviado_al_gestor'";
+            } elseif ($dictEnviado === 'no') {
+                $extraWhere[] = '(dm.dictamen_estado IS NULL OR dm.dictamen_estado <> \'enviado_al_gestor\')';
+            }
+            $dsEstado = isset($filtros['ds_estado']) ? trim((string)$filtros['ds_estado']) : '';
+            if ($dsEstado === 'pendiente') {
+                $extraWhere[] = "dsm.ds_resultado = 'pendiente'";
+            } elseif ($dsEstado === 'listo') {
+                $extraWhere[] = "(dsm.ds_resultado IS NOT NULL AND dsm.ds_resultado <> '' AND dsm.ds_resultado <> 'pendiente')";
+            } elseif ($dsEstado === 'sin_ds') {
+                $extraWhere[] = 'dsm.ds_resultado IS NULL';
+            } elseif ($dsEstado === 'prorroga_activa') {
+                $extraWhere[] = "dsm.ds_resultado = 'prorroga_activa'";
+            }
+            $vistoGestor = isset($filtros['dictamen_visto']) ? trim((string)$filtros['dictamen_visto']) : '';
+            if ($vistoGestor === 'si') {
+                $extraWhere[] = 'dm.dictamen_fecha_visto IS NOT NULL';
+            } elseif ($vistoGestor === 'no') {
+                $extraWhere[] = "dm.dictamen_estado = 'enviado_al_gestor' AND dm.dictamen_fecha_visto IS NULL";
+            }
+            $prioridadId = isset($filtros['prioridad_id']) ? (int)$filtros['prioridad_id'] : 0;
+            if ($prioridadId > 0) {
+                $extraWhere[] = 't.id_prioridad = :filtro_prioridad_id';
+                $params['filtro_prioridad_id'] = $prioridadId;
+            }
+        }
+        if (!empty($extraWhere)) {
+            $fragment = ' AND ' . implode(' AND ', $extraWhere);
+            foreach ($whereCandidates as $i => $w) {
+                $whereCandidates[$i] .= $fragment;
+            }
+        }
+
         $orderBy = " ORDER BY t.fecha_creacion DESC";
 
         $lastException = null;
@@ -75,25 +124,52 @@ class Ticket extends Model
                         $row['prorroga_activa'] = !empty($pr['otorgada']) && empty($pr['evaluada']);
                         $row['prorroga_fecha_limite'] = $pr['fecha_limite'] ?? null;
                     }
-                    // HTML seguro para columnas DataTable (evita embeber HTML en el JS embebido de Sabueso.php)
+                    // HTML seguro para columnas DataTable: mostrar etiqueta legible (evita no_cumplio_prorr…)
                     $dsRes = trim((string)($row['ds_resultado'] ?? ''));
                     if ($dsRes === '') {
                         $row['ds_resultado_html'] = '<span class="text-muted">—</span>';
                     } else {
-                        $short = mb_strlen($dsRes) > 18 ? mb_substr($dsRes, 0, 16) . '…' : $dsRes;
-                        $row['ds_resultado_html'] = '<small class="text-break" title="' . htmlspecialchars($dsRes, ENT_QUOTES, 'UTF-8') . '">'
+                        $etiqMostrar = $dsRes;
+                        if (is_array($det) && !empty($det['cumplimiento_etiqueta'])) {
+                            $etiqMostrar = (string)$det['cumplimiento_etiqueta'];
+                        } else {
+                            $cmp = self::cumplimientoMetadatos($dsRes);
+                            if (!empty($cmp['cumplimiento_etiqueta'])) {
+                                $etiqMostrar = (string)$cmp['cumplimiento_etiqueta'];
+                            }
+                        }
+                        $etiqMostrar = str_replace('No visitó', 'No visito', $etiqMostrar);
+                        $short = mb_strlen($etiqMostrar) > 22 ? mb_substr($etiqMostrar, 0, 20) . '…' : $etiqMostrar;
+                        $mainSmall = '<small class="text-break d-block" title="' . htmlspecialchars($etiqMostrar, ENT_QUOTES, 'UTF-8') . '">'
                             . htmlspecialchars($short, ENT_QUOTES, 'UTF-8') . '</small>';
+                        // Debajo: Pago Sí/No — no_cumplio_prorroga suele ser No; si en detalle consta pago_en_ventana, respetarlo
+                        $pagoLine = '';
+                        if ($dsRes === 'cumplido_pago') {
+                            $pagoLine = '<span class="small text-success fw-semibold d-block mt-1">Pago: Sí</span>';
+                        } elseif (is_array($det) && array_key_exists('pago_en_ventana', $det)) {
+                            $pagoLine = !empty($det['pago_en_ventana'])
+                                ? '<span class="small text-success fw-semibold d-block mt-1">Pago: Sí</span>'
+                                : '<span class="small text-danger fw-semibold d-block mt-1">Pago: No</span>';
+                        } elseif ($dsRes !== 'pendiente' && $dsRes !== 'prorroga_activa' && $dsRes !== '') {
+                            $pagoLine = '<span class="small text-danger fw-semibold d-block mt-1">Pago: No</span>';
+                        }
+                        $row['ds_resultado_html'] = $pagoLine !== ''
+                            ? '<div class="text-center">' . $mainSmall . $pagoLine . '</div>'
+                            : $mainSmall;
                     }
+                    // Sin prórroga: cadena vacía (el JS concatena debajo del countdown solo si hay HTML;
+                    // un "—" en span hacía que la condición !== '—' fuera siempre true y salía guión de más).
                     if (empty($row['prorroga_otorgada'])) {
-                        $row['prorroga_html'] = '<span class="text-muted">—</span>';
+                        $row['prorroga_html'] = '';
                     } else {
                         $activa = !empty($row['prorroga_activa']);
                         $cls = $activa ? 'bg-warning text-dark' : 'bg-secondary';
                         $txt = $activa ? 'Activa' : 'Usada';
                         $tip = !empty($row['prorroga_fecha_limite']) ? 'Límite: ' . $row['prorroga_fecha_limite'] : 'Prórroga';
-                        $row['prorroga_html'] = '<span class="badge ' . htmlspecialchars($cls, ENT_QUOTES, 'UTF-8')
+                        // Misma celda que tiempo para visitar: badge compacto debajo del countdown (se concatena en JS)
+                        $row['prorroga_html'] = '<div class="mt-1"><span class="badge ' . htmlspecialchars($cls, ENT_QUOTES, 'UTF-8')
                             . '" data-bs-toggle="tooltip" data-bs-title="' . htmlspecialchars($tip, ENT_QUOTES, 'UTF-8')
-                            . '">' . htmlspecialchars($txt, ENT_QUOTES, 'UTF-8') . '</span>';
+                            . '">' . htmlspecialchars($txt, ENT_QUOTES, 'UTF-8') . '</span></div>';
                     }
                 }
                 unset($row);
@@ -2042,11 +2118,16 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
             return $out;
         }
 
-        // Conteos por día (últimos 90 días)
+        // Conteos por día: solo semana calendario actual (lunes→domingo CDMX).
+        // Al cambiar de semana, el listado se "reinicia"; el histórico se ve en por_semana.
         try {
+            $monday = self::cdmxNowImmutable()->modify('-' . ((int)self::cdmxNowImmutable()->format('N') - 1) . ' days');
+            $lunesDate = $monday->format('Y-m-d');
+            $domingoDate = $monday->modify('+6 days')->format('Y-m-d');
             $rows = $db->queryAll(
                 "SELECT DATE(t.fecha_creacion) AS periodo, COUNT(*) AS n FROM ticket t " .
-                "WHERE $whereActivo AND t.fecha_creacion >= DATE_SUB(CURDATE(), INTERVAL 90 DAY) " .
+                "WHERE $whereActivo AND DATE(t.fecha_creacion) >= '" . $lunesDate . "' " .
+                "AND DATE(t.fecha_creacion) <= '" . $domingoDate . "' " .
                 "GROUP BY DATE(t.fecha_creacion) ORDER BY periodo DESC"
             );
             $out['por_dia'] = is_array($rows) ? $rows : [];
@@ -2054,30 +2135,53 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
             $out['por_dia'] = [];
         }
 
-        // Por semana (año-semana ISO aproximado)
+        // Por semana: solo semanas con al menos un ticket en el mes actual (CDMX). Cada fila incluye lunes (YYYY-MM-DD) para drill → 7 días.
         try {
+            $y = (int)self::cdmxNowImmutable()->format('Y');
+            $m = (int)self::cdmxNowImmutable()->format('n');
             $rows = $db->queryAll(
                 "SELECT YEARWEEK(t.fecha_creacion, 1) AS periodo, COUNT(*) AS n FROM ticket t " .
-                "WHERE $whereActivo AND t.fecha_creacion >= DATE_SUB(CURDATE(), INTERVAL 365 DAY) " .
-                "GROUP BY YEARWEEK(t.fecha_creacion, 1) ORDER BY periodo DESC LIMIT 52"
+                "WHERE $whereActivo AND YEAR(t.fecha_creacion) = " . $y . " AND MONTH(t.fecha_creacion) = " . $m . " " .
+                "GROUP BY YEARWEEK(t.fecha_creacion, 1) ORDER BY periodo DESC"
             );
-            $out['por_semana'] = is_array($rows) ? $rows : [];
+            $filasSem = [];
+            foreach (is_array($rows) ? $rows : [] as $r) {
+                $yw = (int)($r['periodo'] ?? 0);
+                $n = (int)($r['n'] ?? 0);
+                $lunes = '';
+                if ($yw >= 200001) {
+                    $yy = (int)floor($yw / 100);
+                    $ww = (int)($yw % 100);
+                    if ($ww >= 1 && $ww <= 53) {
+                        try {
+                            $lunes = (new \DateTimeImmutable('now', new \DateTimeZone('America/Mexico_City')))
+                                ->setISODate($yy, $ww)->format('Y-m-d');
+                        } catch (\Exception $e) {
+                            $lunes = '';
+                        }
+                    }
+                }
+                $filasSem[] = ['periodo' => $yw, 'n' => $n, 'lunes' => $lunes];
+            }
+            $out['por_semana'] = $filasSem;
         } catch (\Exception $e) {
             $out['por_semana'] = [];
         }
 
-        // Por mes
+        // Por mes: solo meses del año actual (CDMX); histórico por año vía drill Año → mes
         try {
+            $y = (int)self::cdmxNowImmutable()->format('Y');
             $rows = $db->queryAll(
                 "SELECT DATE_FORMAT(t.fecha_creacion, '%Y-%m') AS periodo, COUNT(*) AS n FROM ticket t " .
-                "WHERE $whereActivo GROUP BY DATE_FORMAT(t.fecha_creacion, '%Y-%m') ORDER BY periodo DESC LIMIT 36"
+                "WHERE $whereActivo AND YEAR(t.fecha_creacion) = " . $y . " " .
+                "GROUP BY DATE_FORMAT(t.fecha_creacion, '%Y-%m') ORDER BY periodo DESC"
             );
             $out['por_mes'] = is_array($rows) ? $rows : [];
         } catch (\Exception $e) {
             $out['por_mes'] = [];
         }
 
-        // Por año
+        // Por año (lista años con conteo; drill abre meses → semanas → 7 días)
         try {
             $rows = $db->queryAll(
                 "SELECT YEAR(t.fecha_creacion) AS periodo, COUNT(*) AS n FROM ticket t " .
@@ -2110,32 +2214,35 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
             // ignorar
         }
 
-        // Tiempo Sabueso: desde primera asignación en asignacion_ticket hasta fecha_actualizacion del dictamen
-        // enviado al gestor (un solo dictamen por ticket: el de mayor fecha_actualizacion en estado enviado).
+        // Tiempo Sabueso (semana actual lun→hoy CDMX):
+        // Solo envíos con fecha_actualizacion en la semana. El diff es desde la ÚLTIMA asignación
+        // antes del envío (no desde la primera asignación histórica del ticket, que inflaba a días/semanas).
         try {
             $sqlSabueso = "
-                SELECT AVG(TIMESTAMPDIFF(SECOND, at.min_fa, d.fecha_actualizacion)) AS avg_sec,
-                       MIN(TIMESTAMPDIFF(SECOND, at.min_fa, d.fecha_actualizacion)) AS min_sec,
-                       MAX(TIMESTAMPDIFF(SECOND, at.min_fa, d.fecha_actualizacion)) AS max_sec,
+                SELECT AVG(TIMESTAMPDIFF(SECOND, x.fa_before, x.fa)) AS avg_sec,
+                       MIN(TIMESTAMPDIFF(SECOND, x.fa_before, x.fa)) AS min_sec,
+                       MAX(TIMESTAMPDIFF(SECOND, x.fa_before, x.fa)) AS max_sec,
                        COUNT(*) AS n
                 FROM (
-                    SELECT id_ticket, MIN(fecha_asignacion) AS min_fa
-                    FROM asignacion_ticket
-                    WHERE (activo = 1 OR activo IS NULL)
-                    GROUP BY id_ticket
-                ) at
-                INNER JOIN (
-                    SELECT d1.id_ticket, d1.fecha_actualizacion
-                    FROM dictamen d1
+                    SELECT d.id_ticket, d.fecha_actualizacion AS fa,
+                           (SELECT MAX(at2.fecha_asignacion) FROM asignacion_ticket at2
+                            WHERE at2.id_ticket = d.id_ticket
+                              AND at2.fecha_asignacion <= d.fecha_actualizacion
+                              AND (at2.activo = 1 OR at2.activo IS NULL)
+                           ) AS fa_before
+                    FROM dictamen d
                     INNER JOIN (
                         SELECT id_ticket, MAX(fecha_actualizacion) AS mx
                         FROM dictamen WHERE estado = 'enviado_al_gestor' GROUP BY id_ticket
-                    ) dm ON d1.id_ticket = dm.id_ticket AND d1.fecha_actualizacion = dm.mx AND d1.estado = 'enviado_al_gestor'
-                ) d ON d.id_ticket = at.id_ticket
-                INNER JOIN ticket t ON t.id_ticket = d.id_ticket AND $whereActivo
-                WHERE d.fecha_actualizacion IS NOT NULL AND at.min_fa IS NOT NULL
-                  AND d.fecha_actualizacion >= at.min_fa
-                  AND d.fecha_actualizacion >= $inicioSemanaLunes
+                    ) dm ON d.id_ticket = dm.id_ticket AND d.fecha_actualizacion = dm.mx AND d.estado = 'enviado_al_gestor'
+                    INNER JOIN ticket t ON t.id_ticket = d.id_ticket AND $whereActivo
+                    WHERE d.fecha_actualizacion IS NOT NULL
+                      AND d.fecha_actualizacion >= $inicioSemanaLunes
+                ) x
+                WHERE x.fa_before IS NOT NULL
+                  AND x.fa_before <= x.fa
+                  AND TIMESTAMPDIFF(SECOND, x.fa_before, x.fa) >= 0
+                  AND TIMESTAMPDIFF(SECOND, x.fa_before, x.fa) <= 604800
             ";
             $row = $db->queryOne($sqlSabueso);
             if ($row && (int)($row['n'] ?? 0) > 0) {
@@ -2146,15 +2253,15 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                     'max_seg' => (int)($row['max_sec'] ?? 0),
                     'promedio_humano' => self::segundosAHumano((int)round((float)($row['avg_sec'] ?? 0))),
                     'alcance' => 'semana_actual',
-                    'alcance_texto' => 'Semana actual (desde lunes): promedio solo con envíos ocurridos esta semana; al llegar el próximo lunes el conteo se reinicia.',
+                    'alcance_texto' => 'Semana actual (lun→hoy CDMX): promedio con envíos de esta semana; tiempo desde última asignación antes del envío hasta enviar (máx. 7 días por muestra). Cada lunes se reinicia.',
                 ];
             }
         } catch (\Exception $e) {
             $out['tiempos_sabueso_segundos'] = null;
         }
 
-        // Tiempo gestor: desde envío del dictamen (fecha_actualizacion) hasta fecha_visto_gestor
-        // (cuando el gestor abre el modal). Una fila por ticket con dictamen enviado y ya visto.
+        // Tiempo gestor (semana actual): solo pares envío+visto donde el ENVÍO también es de esta semana.
+        // Así no entran aperturas de dictámenes enviados hace semanas (que inflaban el promedio).
         try {
             $sqlGestor = "
                 SELECT AVG(TIMESTAMPDIFF(SECOND, d.fecha_actualizacion, d.fecha_visto_gestor)) AS avg_sec,
@@ -2173,7 +2280,9 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                   AND d.fecha_actualizacion IS NOT NULL
                   AND d.fecha_visto_gestor IS NOT NULL
                   AND d.fecha_visto_gestor >= d.fecha_actualizacion
+                  AND d.fecha_actualizacion >= $inicioSemanaLunes
                   AND d.fecha_visto_gestor >= $inicioSemanaLunes
+                  AND TIMESTAMPDIFF(SECOND, d.fecha_actualizacion, d.fecha_visto_gestor) <= 604800
             ";
             $row = $db->queryOne($sqlGestor);
             if ($row && (int)($row['n'] ?? 0) > 0) {
@@ -2184,7 +2293,7 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                     'max_seg' => (int)($row['max_sec'] ?? 0),
                     'promedio_humano' => self::segundosAHumano((int)round((float)($row['avg_sec'] ?? 0))),
                     'alcance' => 'semana_actual',
-                    'alcance_texto' => 'Semana actual (desde lunes): promedio solo con aperturas registradas esta semana; cada lunes el acumulado vuelve a empezar.',
+                    'alcance_texto' => 'Semana actual (lun→hoy CDMX): solo envíos de esta semana ya vistos; tiempo desde envío hasta apertura (máx. 7 días por muestra). Cada lunes se reinicia.',
                 ];
             }
         } catch (\Exception $e) {
@@ -2253,6 +2362,9 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                         $r['pct_efectividad'] = null;
                         $r['medidas_preventivas'] = null;
                         $r['cumplimiento_etiqueta'] = null;
+                        $r['pago_en_ventana_si'] = false;
+                        $r['visito_campo_si'] = false;
+                        $r['prorroga_otorgada_si'] = false;
                         if ($tid > 0 && isset($dsPorTicket[$tid])) {
                             $ds = $dsPorTicket[$tid];
                             $r['id_gestor_dictamen'] = isset($ds['id_gestor']) ? (int)$ds['id_gestor'] : null;
@@ -2268,6 +2380,31 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                                 $r['pct_efectividad'] = $cmp['pct_efectividad'];
                                 $r['medidas_preventivas'] = $cmp['medidas_preventivas'];
                                 $r['cumplimiento_etiqueta'] = $cmp['cumplimiento_etiqueta'];
+                            }
+                            // Misma lógica que getEstadisticasGestorDetalle (columna Pago)
+                            if ($res === 'cumplido_pago') {
+                                $r['pago_en_ventana_si'] = true;
+                            } elseif (is_array($detJson) && array_key_exists('pago_en_ventana', $detJson)) {
+                                $r['pago_en_ventana_si'] = !empty($detJson['pago_en_ventana']);
+                            } elseif ($res !== null && $res !== '' && $res !== 'pendiente' && $res !== 'prorroga_activa') {
+                                $r['pago_en_ventana_si'] = false;
+                            }
+                            // Visita de campo: resultados que implican GPS/direcciones visitadas o visita registrada
+                            $visitaResultados = [
+                                'visito_campo', 'visito_todas_direcciones', 'cumplido_sin_pago_todas_direcciones',
+                                'visita_parcial', 'distancia_lejana',
+                            ];
+                            if (is_array($detJson)) {
+                                $dirVis = (int)($detJson['direcciones_visitadas'] ?? 0);
+                                if ($dirVis > 0) {
+                                    $r['visito_campo_si'] = true;
+                                }
+                            }
+                            if (!$r['visito_campo_si'] && $res !== null && in_array($res, $visitaResultados, true)) {
+                                $r['visito_campo_si'] = true;
+                            }
+                            if (is_array($detJson) && isset($detJson['prorroga']) && is_array($detJson['prorroga']) && !empty($detJson['prorroga']['otorgada'])) {
+                                $r['prorroga_otorgada_si'] = true;
                             }
                         }
                     }
@@ -2332,6 +2469,9 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                         'tickets' => 0,
                         'vistos' => 0,
                         'sin_leer' => 0,
+                        'pagaron' => 0,
+                        'visitaron' => 0,
+                        'prorroga_dadas' => 0,
                         'cumplimiento_por_resultado' => [],
                         'cumplimiento_pct_sum' => 0,
                         'cumplimiento_pct_n' => 0,
@@ -2357,6 +2497,15 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                     if (isset($r['pct_efectividad']) && is_numeric($r['pct_efectividad'])) {
                         $agg[$key]['cumplimiento_pct_sum'] += (int)$r['pct_efectividad'];
                         $agg[$key]['cumplimiento_pct_n']++;
+                    }
+                    if (!empty($r['pago_en_ventana_si'])) {
+                        $agg[$key]['pagaron']++;
+                    }
+                    if (!empty($r['visito_campo_si'])) {
+                        $agg[$key]['visitaron']++;
+                    }
+                    if (!empty($r['prorroga_otorgada_si'])) {
+                        $agg[$key]['prorroga_dadas']++;
                     }
                 }
             }
@@ -2731,6 +2880,41 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                         $pagoVentanaTxt = 'No';
                     }
                 }
+                // Visitó (campo): coherente con agregado por_gestor.visitaron
+                $visitoVentanaTxt = null;
+                if ($tid > 0 && isset($dsPorTicket[$tid])) {
+                    $visitaResultados = [
+                        'visito_campo', 'visito_todas_direcciones', 'cumplido_sin_pago_todas_direcciones',
+                        'visita_parcial', 'distancia_lejana',
+                    ];
+                    $dsV = $dsPorTicket[$tid];
+                    $resV = $dsV['resultado'] ?? null;
+                    $detV = !empty($dsV['detalle']) ? json_decode($dsV['detalle'], true) : null;
+                    if (is_array($detV) && (int)($detV['direcciones_visitadas'] ?? 0) > 0) {
+                        $visitoVentanaTxt = 'Sí';
+                    } elseif ($resV !== null && in_array($resV, $visitaResultados, true)) {
+                        $visitoVentanaTxt = 'Sí';
+                    } elseif ($resV === 'no_visito' || $resV === 'visito_telefonico') {
+                        $visitoVentanaTxt = 'No';
+                    } elseif ($resV !== null && $resV !== '' && $resV !== 'pendiente' && $resV !== 'prorroga_activa') {
+                        $visitoVentanaTxt = 'No';
+                    }
+                }
+                // Prórroga otorgada a este ticket (detalle JSON)
+                $prorrogaTxt = null;
+                if ($tid > 0 && isset($dsPorTicket[$tid])) {
+                    $dsPr = $dsPorTicket[$tid];
+                    $detPr = !empty($dsPr['detalle']) ? json_decode($dsPr['detalle'], true) : null;
+                    $resPr = $dsPr['resultado'] ?? null;
+                    if (is_array($detPr) && isset($detPr['prorroga']) && is_array($detPr['prorroga']) && !empty($detPr['prorroga']['otorgada'])) {
+                        $prorrogaTxt = 'Sí';
+                    } elseif ($resPr === 'cumplio_prorroga' || $resPr === 'no_cumplio_prorroga') {
+                        // Resultado final tras prórroga implica que se otorgó en algún momento
+                        $prorrogaTxt = 'Sí';
+                    } elseif ($resPr !== null && $resPr !== '' && $resPr !== 'pendiente') {
+                        $prorrogaTxt = 'No';
+                    }
+                }
                 $resultadoMostrar = null;
                 if ($etiq !== null && $etiq !== '') {
                     $resultadoMostrar = $etiq;
@@ -2751,6 +2935,8 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                     'cumplimiento_etiqueta' => $etiq,
                     'resultado_ds_mostrar' => $resultadoMostrar,
                     'pago_en_ventana_resumen' => $pagoVentanaTxt,
+                    'visito_campo_resumen' => $visitoVentanaTxt,
+                    'prorroga_otorgada_resumen' => $prorrogaTxt,
                 ];
             }
             return ['success' => true, 'mensaje' => 'OK', 'nombre' => $nom, 'filas' => $filas];
@@ -2788,14 +2974,110 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
     }
 
     /**
+     * Drill-down Tickets levantados: Año → meses → semanas del mes → 7 días de la semana (lunes dado).
+     * tipo: meses | semanas | dias
+     */
+    public static function getEstadisticasLevantadosDrill(string $tipo, array $params = []): array
+    {
+        $db = new Database();
+        $whereActivo = '(t.activo = 1 OR t.activo IS NULL) AND (t.fecha_eliminacion IS NULL)';
+        $out = ['success' => true, 'mensaje' => 'OK', 'tipo' => $tipo, 'filas' => []];
+
+        try {
+            if ($tipo === 'meses') {
+                $anio = (int)($params['anio'] ?? 0);
+                if ($anio < 2000 || $anio > 2100) {
+                    $out['success'] = false;
+                    $out['mensaje'] = 'Año inválido';
+                    return $out;
+                }
+                $rows = $db->queryAll(
+                    "SELECT DATE_FORMAT(t.fecha_creacion, '%Y-%m') AS periodo, COUNT(*) AS n FROM ticket t " .
+                    "WHERE $whereActivo AND YEAR(t.fecha_creacion) = " . $anio . " " .
+                    "GROUP BY DATE_FORMAT(t.fecha_creacion, '%Y-%m') ORDER BY periodo DESC"
+                );
+                $out['filas'] = is_array($rows) ? $rows : [];
+                return $out;
+            }
+
+            if ($tipo === 'semanas') {
+                $anio = (int)($params['anio'] ?? 0);
+                $mes = (int)($params['mes'] ?? 0);
+                if ($anio < 2000 || $anio > 2100 || $mes < 1 || $mes > 12) {
+                    $out['success'] = false;
+                    $out['mensaje'] = 'Año o mes inválido';
+                    return $out;
+                }
+                $rows = $db->queryAll(
+                    "SELECT YEARWEEK(t.fecha_creacion, 1) AS periodo, COUNT(*) AS n FROM ticket t " .
+                    "WHERE $whereActivo AND YEAR(t.fecha_creacion) = " . $anio . " AND MONTH(t.fecha_creacion) = " . $mes . " " .
+                    "GROUP BY YEARWEEK(t.fecha_creacion, 1) ORDER BY periodo DESC"
+                );
+                $filas = [];
+                foreach (is_array($rows) ? $rows : [] as $r) {
+                    $yw = (int)($r['periodo'] ?? 0);
+                    $n = (int)($r['n'] ?? 0);
+                    $lunes = '';
+                    if ($yw >= 200001) {
+                        $yy = (int)floor($yw / 100);
+                        $ww = (int)($yw % 100);
+                        if ($ww >= 1 && $ww <= 53) {
+                            try {
+                                $lunes = (new \DateTimeImmutable('now', new \DateTimeZone('America/Mexico_City')))
+                                    ->setISODate($yy, $ww)->format('Y-m-d');
+                            } catch (\Exception $e) {
+                                $lunes = '';
+                            }
+                        }
+                    }
+                    $filas[] = ['periodo' => $yw, 'n' => $n, 'lunes' => $lunes];
+                }
+                $out['filas'] = $filas;
+                return $out;
+            }
+
+            if ($tipo === 'dias') {
+                $lunes = preg_match('/^\d{4}-\d{2}-\d{2}$/', (string)($params['lunes'] ?? '')) ? $params['lunes'] : '';
+                if ($lunes === '') {
+                    $out['success'] = false;
+                    $out['mensaje'] = 'Fecha lunes inválida (use YYYY-MM-DD)';
+                    return $out;
+                }
+                $dt = \DateTimeImmutable::createFromFormat('Y-m-d', $lunes, new \DateTimeZone('America/Mexico_City'));
+                if (!$dt || $dt->format('Y-m-d') !== $lunes) {
+                    $out['success'] = false;
+                    $out['mensaje'] = 'Fecha lunes inválida';
+                    return $out;
+                }
+                $domingo = $dt->modify('+6 days')->format('Y-m-d');
+                $rows = $db->queryAll(
+                    "SELECT DATE(t.fecha_creacion) AS periodo, COUNT(*) AS n FROM ticket t " .
+                    "WHERE $whereActivo AND DATE(t.fecha_creacion) >= '" . $lunes . "' " .
+                    "AND DATE(t.fecha_creacion) <= '" . $domingo . "' " .
+                    "GROUP BY DATE(t.fecha_creacion) ORDER BY periodo DESC"
+                );
+                $out['filas'] = is_array($rows) ? $rows : [];
+                $out['lunes'] = $lunes;
+                $out['domingo'] = $domingo;
+                return $out;
+            }
+
+            $out['success'] = false;
+            $out['mensaje'] = 'tipo debe ser meses, semanas o dias';
+        } catch (\Exception $e) {
+            $out['success'] = false;
+            $out['mensaje'] = $e->getMessage();
+        }
+        return $out;
+    }
+
+    /**
      * Solo agregado Por Sabueso (dictaminó) + cola — sin el resto de estadísticas.
      * Para cambiar Días/Semanas/… sin recalcular todo.
      *
      * @param bool $runBackfill si false, no hace UPDATE masivo (más rápido al cambiar filtro)
-     * @param bool $incluirCola si false, no ejecuta la query pesada de cola (Espera 1ª asign.);
-     *                         el front puede fusionar con datos ya cargados al cambiar solo Días/Semanas/Meses/Año
      */
-    public static function getEstadisticasPorSabuesoSolo(string $periodoSabueso, bool $runBackfill = false, bool $incluirCola = true): array
+    public static function getEstadisticasPorSabuesoSolo(string $periodoSabueso, bool $runBackfill = false): array
     {
         if (!in_array($periodoSabueso, ['por_dia', 'por_semana', 'por_mes', 'por_anio'], true)) {
             $periodoSabueso = 'por_dia';
@@ -2840,33 +3122,38 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
 
         $listaSab = [];
         try {
-            // Una sola subconsulta correlacionada por fila (antes eran 3 idénticas en AVG/SUM) → menos trabajo del optimizador
             $sqlSab = "
-                SELECT x.id_persona AS id_persona,
+                SELECT d.id_persona AS id_persona,
                        CONCAT(TRIM(IFNULL(p.nombres,'')),' ',TRIM(IFNULL(p.apellidop,''))) AS nombre,
                        COUNT(*) AS dictaminados,
-                       AVG(CASE WHEN x.max_fa IS NOT NULL
-                           THEN TIMESTAMPDIFF(SECOND, x.max_fa, x.fecha_actualizacion) ELSE NULL END
+                       AVG(
+                         CASE WHEN (
+                           SELECT MAX(at2.fecha_asignacion) FROM asignacion_ticket at2
+                           WHERE at2.id_ticket = d.id_ticket AND at2.id_persona_asignada = d.id_persona
+                             AND at2.fecha_asignacion <= d.fecha_actualizacion
+                         ) IS NOT NULL THEN
+                           TIMESTAMPDIFF(SECOND,
+                             (SELECT MAX(at2.fecha_asignacion) FROM asignacion_ticket at2
+                              WHERE at2.id_ticket = d.id_ticket AND at2.id_persona_asignada = d.id_persona
+                                AND at2.fecha_asignacion <= d.fecha_actualizacion),
+                             d.fecha_actualizacion)
+                         ELSE NULL END
                        ) AS avg_sec_asignado_a_envio,
-                       SUM(CASE WHEN x.max_fa IS NOT NULL THEN 1 ELSE 0 END) AS n_con_asignacion_previa
-                FROM (
-                    SELECT d.id_persona, d.fecha_actualizacion,
-                           (SELECT MAX(at2.fecha_asignacion) FROM asignacion_ticket at2
-                            WHERE at2.id_ticket = d.id_ticket AND at2.id_persona_asignada = d.id_persona
-                              AND at2.fecha_asignacion <= d.fecha_actualizacion
-                              AND (at2.activo = 1 OR at2.activo IS NULL)
-                           ) AS max_fa
-                    FROM dictamen d
-                    INNER JOIN (
-                        SELECT id_ticket, MAX(fecha_actualizacion) AS mx
-                        FROM dictamen WHERE estado = 'enviado_al_gestor' GROUP BY id_ticket
-                    ) dm ON d.id_ticket = dm.id_ticket AND d.fecha_actualizacion = dm.mx AND d.estado = 'enviado_al_gestor'
-                    INNER JOIN ticket t ON t.id_ticket = d.id_ticket AND $whereActivo
-                    WHERE d.id_persona IS NOT NULL AND d.id_persona > 0
-                    $wherePorSabuesoFecha
-                ) x
-                INNER JOIN persona p ON p.id = x.id_persona
-                GROUP BY x.id_persona, p.nombres, p.apellidop
+                       SUM(CASE WHEN (
+                         SELECT MAX(at2.fecha_asignacion) FROM asignacion_ticket at2
+                         WHERE at2.id_ticket = d.id_ticket AND at2.id_persona_asignada = d.id_persona
+                           AND at2.fecha_asignacion <= d.fecha_actualizacion
+                       ) IS NOT NULL THEN 1 ELSE 0 END) AS n_con_asignacion_previa
+                FROM dictamen d
+                INNER JOIN (
+                    SELECT id_ticket, MAX(fecha_actualizacion) AS mx
+                    FROM dictamen WHERE estado = 'enviado_al_gestor' GROUP BY id_ticket
+                ) dm ON d.id_ticket = dm.id_ticket AND d.fecha_actualizacion = dm.mx AND d.estado = 'enviado_al_gestor'
+                INNER JOIN ticket t ON t.id_ticket = d.id_ticket AND $whereActivo
+                INNER JOIN persona p ON p.id = d.id_persona
+                WHERE d.id_persona IS NOT NULL AND d.id_persona > 0
+                $wherePorSabuesoFecha
+                GROUP BY d.id_persona, p.nombres, p.apellidop
                 ORDER BY dictaminados DESC
             ";
             $rows = $db->queryAll($sqlSab);
@@ -2884,25 +3171,6 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
             }
         } catch (\Exception $e) {
             $listaSab = [];
-        }
-
-        // Cola: no depende del período (Días/Semanas/…); omitir al cambiar solo filtro acelera 1 query pesada
-        if (!$incluirCola) {
-            foreach ($listaSab as &$s) {
-                if (!isset($s['tiempo_hasta_asignarle_humano'])) {
-                    $s['tiempo_hasta_asignarle_humano'] = null;
-                    $s['tiempo_hasta_asignarle_seg'] = null;
-                    $s['muestras_cola'] = 0;
-                }
-            }
-            unset($s);
-            return [
-                'success' => true,
-                'por_sabueso' => $listaSab,
-                'periodo_sabueso' => $periodoSabueso,
-                'cdmx_referencia' => self::ahoraCdmx(),
-                'cola_omitida' => true,
-            ];
         }
 
         // Cola (misma lógica que getEstadisticasTickets; persona para GROUP BY seguro)

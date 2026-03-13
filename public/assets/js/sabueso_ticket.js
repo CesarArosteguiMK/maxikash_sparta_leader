@@ -125,6 +125,13 @@
                         var iconBlock = esProrroga ? ('<span class="position-relative d-inline-flex align-items-baseline"><i class="fa-solid fa-clock text-warning small"></i><sup class="dictamen-prorroga-marca" title="Prórroga +12h (2ª ventana)">2</sup></span>') : ('<i class="fa-solid fa-clock text-info small"></i>');
                         tiempoVisitarHtml = '<span class="d-inline-flex align-items-center gap-1 dictamen-countdown cursor-pointer' + clsPr + '" role="button" tabindex="0" data-fecha-envio="' + fEnv.replace(/"/g, '&quot;') + '"' + dataLim + ' data-id-ticket="' + (t.id_ticket || '') + '" data-bs-toggle="tooltip" data-bs-title="' + (esProrroga ? 'Prórroga +12h' : 'Ventana 12h') + '">' + iconBlock + '<span class="dictamen-countdown-text">' + txtInicial + '</span></span>';
                     }
+                    // Solo concatenar si hubo prórroga (backend envía '' cuando no; evita guión redundante)
+                    var prHtml = (t.prorroga_otorgada && t.prorroga_html) ? t.prorroga_html : '';
+                    if (prHtml && tiempoVisitarHtml !== '\u2014') {
+                        tiempoVisitarHtml = '<div class="d-flex flex-column align-items-center">' + tiempoVisitarHtml + prHtml + '</div>';
+                    } else if (prHtml) {
+                        tiempoVisitarHtml = prHtml;
+                    }
                     var row = {
                         _fecha_creacion: (t.fecha_creacion || ''),
                         folio_tipo: '<div class="fw-semibold">' + (t.folio || '\u2014') + '</div><div class="small text-muted mt-1">' + (t.tipo_ticket_nombre || '\u2014') + '</div>',
@@ -133,9 +140,7 @@
                         credito: '<small>#' + (t.id_credito != null ? t.id_credito : '\u2014') + '</small>',
                         fechas: '<div class="small d-flex align-items-center gap-1"><i class="fa fa-calendar-plus-o text-muted" style="width: 1rem;"></i><span>Creación: ' + fechaCreacion + '</span></div><div class="small text-muted d-flex align-items-center gap-1 mt-1"><i class="fa fa-calendar-times-o" style="width: 1rem;"></i><span>Vencimiento: ' + fechaVenc + '</span></div>',
                         tiempo_visitar: tiempoVisitarHtml,
-                        // Mismas claves que getColumnsConfig(false): Resultado DS y Prórroga (backend envía *_html)
                         ds_resultado: (t.ds_resultado_html != null && t.ds_resultado_html !== '') ? t.ds_resultado_html : '<span class="text-muted">\u2014</span>',
-                        prorroga: (t.prorroga_html != null && t.prorroga_html !== '') ? t.prorroga_html : '<span class="text-muted">\u2014</span>',
                         dictamen_visto: vistoHtml,
                         acciones: '',
                         _id_ticket: t.id_ticket,
