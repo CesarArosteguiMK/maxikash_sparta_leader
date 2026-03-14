@@ -376,38 +376,113 @@ class Convenios extends Model
     /**
      * Devuelve el convenio activo de un crédito (si existe) con su amortización.
      */
-    public static function getConvenioActivo($id_credito)
-    {
-        try {
-            $db = new Database(); // __SPARTA_SECRET_REDACTED__: tablas de convenios
+    // Modificar getConvenioActivo para incluir pdf_adjunto
 
-            $convenio = $db->queryOne(
-                "SELECT cc.*, pc.nombre AS nombre_producto
-                 FROM convenio_cliente cc
-                 INNER JOIN producto_convenio pc ON pc.id = cc.id_producto_convenio
-                 WHERE cc.id_credito = :id AND cc.estatus = 'activo'
-                 ORDER BY cc.fecha_alta DESC
-                 LIMIT 1",
-                ['id' => (int) $id_credito]
-            );
+public static function getConvenioActivo($id_credito)
+{
+    try {
+        $db = new Database();
 
-            if (!$convenio) {
-                return self::resultado(true, 'Sin convenio activo.', null);
+        $convenio = $db->queryOne(
+            "SELECT cc.*, pc.nombre AS nombre_producto
+             FROM convenio_cliente cc
+             INNER JOIN producto_convenio pc ON pc.id = cc.id_producto_convenio
+             WHERE cc.id_credito = :id AND cc.estatus = 'activo'
+             ORDER BY cc.fecha_alta DESC
+             LIMIT 1",
+            ['id' => (int) $id_credito]
+        );
+
+        if (!$convenio) {
+            return self::resultado(true, 'Sin convenio activo.', null);
+        }
+
+        $amortizacion = $db->queryAll(
+            "SELECT * FROM convenio_cliente_amortizacion
+             WHERE id_convenio_cliente = :id
+             ORDER BY numero_semana",
+            ['id' => (int) $convenio['id']]
+        );
+
+        $convenio['amortizacion'] = $amortizacion ?: [];
+
+        if (!empty($convenio['pdf_adjunto'])) {
+            $convenio['pdf_url'] = $convenio['pdf_adjunto'];
+        }
+
+        // ── Enriquecer con pagos reales de S2Movil ──────────────
+        $pagosS2 = self::_getPagosS2Movil((int) $id_credito);
+        $convenio['pagos_s2movil'] = $pagosS2;
+
+        return self::resultado(true, 'Convenio encontrado.', $convenio);
+    } catch (\Exception $e) {
+        return self::resultado(false, 'Error al consultar convenio.', null, $e->getMessage());
+    }
+}
+
+/**
+ * Trae datosPagos de S2Movil indexados por numeroCuotaSemanal.
+ * Cada entrada puede tener múltiples pagos (sobrantes + pagos normales).
+ */
+private static function _getPagosS2Movil($id_credito)
+{
+    try {
+        $url     = 'https://servicios.s2movil.net/s2__SPARTA_SECRET_REDACTED__/estadocuenta';
+        $payload = json_encode([
+            'idCredito'  => $id_credito,
+            'fechaCorte' => date('Y-m-d'),
+        ]);
+
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_POST           => true,
+            CURLOPT_POSTFIELDS     => $payload,
+            CURLOPT_TIMEOUT        => 10,
+            CURLOPT_HTTPHEADER     => [
+                'Content-Type: application/json',
+                'Token: __SPARTA_TOKEN_REDACTED__',
+            ],
+        ]);
+
+        $response = curl_exec($ch);
+        curl_close($ch);
+
+        $data      = json_decode($response, true);
+        $datosPagos = $data['estadoCuenta']['datosPagos'] ?? [];
+
+        if (empty($datosPagos)) return [];
+
+        // Agrupar por numeroCuotaSemanal — puede haber varios pagos por cuota
+        $indexado = [];
+        foreach ($datosPagos as $pago) {
+            $cuota = (int) $pago['numeroCuotaSemanal'];
+            if ($cuota < 1) continue;
+
+            if (!isset($indexado[$cuota])) {
+                $indexado[$cuota] = [];
             }
 
-            $amortizacion = $db->queryAll(
-                "SELECT * FROM convenio_cliente_amortizacion
-                 WHERE id_convenio_cliente = :id
-                 ORDER BY numero_semana",
-                ['id' => (int) $convenio['id']]
-            );
+            $montoPago = (float) ($pago['montoPago'] ?? 0);
+            $capital   = (float) ($pago['capital']   ?? 0);
+            $sobrante  = round($montoPago - $capital, 2);
 
-            $convenio['amortizacion'] = $amortizacion ?: [];
-            return self::resultado(true, 'Convenio encontrado.', $convenio);
-        } catch (\Exception $e) {
-            return self::resultado(false, 'Error al consultar convenio.', null, $e->getMessage());
+            $indexado[$cuota][] = [
+                'idPago'        => $pago['idPago']        ?? null,
+                'fechaValor'    => $pago['fechaValor']    ?? null,
+                'fechaDeposito' => $pago['fechaDeposito'] ?? null,
+                'montoPago'     => $montoPago,
+                'capital'       => $capital,
+                'sobrante'      => $sobrante > 0 ? $sobrante : 0,
+            ];
         }
+
+        return $indexado;
+
+    } catch (\Exception $e) {
+        return [];
     }
+}
 
     // ─────────────────────────────────────────────
 // CANCELAR CONVENIO
@@ -537,7 +612,6 @@ public static function getHistorialConvenios($id_credito)
 {
     try {
         $db = new Database();
-
         $rows = $db->queryAll(
             "SELECT
                 cc.id,
@@ -550,7 +624,8 @@ public static function getHistorialConvenios($id_credito)
                 cc.fecha_cancelacion,
                 cc.numero_semana_cancelacion,
                 cc.usuario_alta,
-                cc.usuario_cancela
+                cc.usuario_cancela,
+                cc.pdf_adjunto
              FROM convenio_cliente cc
              INNER JOIN producto_convenio pc ON pc.id = cc.id_producto_convenio
              WHERE cc.id_credito = :id
@@ -579,7 +654,7 @@ public static function getHistorialConvenios($id_credito)
 public static function registrarPago($id_convenio, $numero_semana, $id_credito)
 {
     try {
-        $db = new Database(); // ← igual que los demás métodos
+        $db = new Database();
 
         // 1. Verificar que la fila existe y está pendiente o vencida
         $fila = $db->queryOne(
@@ -593,29 +668,51 @@ public static function registrarPago($id_convenio, $numero_semana, $id_credito)
         if (!$fila) {
             return self::resultado(false, 'Semana no encontrada en el convenio.');
         }
-
         if ($fila['estatus_pago'] === 'pagado') {
             return self::resultado(false, 'Esta semana ya está registrada como pagada.');
         }
-
         if ($fila['estatus_pago'] === 'cancelado') {
             return self::resultado(false, 'No se puede pagar una semana cancelada.');
         }
 
-        // 2. Consultar S2Movil
-        $estadoCuenta = self::getEstadoCuenta($id_credito);
+        // 2. Buscar en S2Movil un pago con fechaValor en el rango de esta semana
+        $url     = 'https://servicios.s2movil.net/s2__SPARTA_SECRET_REDACTED__/estadocuenta';
+        $payload = json_encode([
+            'idCredito'  => (int) $id_credito,
+            'fechaCorte' => date('Y-m-d'),
+        ]);
 
-        $fechaPago   = date('Y-m-d');
-        $montoPagado = null;
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_POST           => true,
+            CURLOPT_POSTFIELDS     => $payload,
+            CURLOPT_TIMEOUT        => 15,
+            CURLOPT_HTTPHEADER     => [
+                'Content-Type: application/json',
+                'Token: __SPARTA_TOKEN_REDACTED__',
+            ],
+        ]);
+        $response = curl_exec($ch);
+        curl_close($ch);
 
-        if ($estadoCuenta['success'] && isset($estadoCuenta['datos']['pagos_indexados'])) {
-            $pagosIndexados  = $estadoCuenta['datos']['pagos_indexados'];
-            $numCuotaOriginal = self::_buscarCuotaOriginal($id_credito, $fila['fecha_pago']);
+        $data       = json_decode($response, true);
+        $datosPagos = $data['estadoCuenta']['datosPagos'] ?? [];
 
-            if ($numCuotaOriginal && isset($pagosIndexados[$numCuotaOriginal])) {
-                $pagoEncontrado = $pagosIndexados[$numCuotaOriginal];
-                $fechaPago      = $pagoEncontrado['fechaValor'] ?? $fechaPago;
-                $montoPagado    = $pagoEncontrado['monto']      ?? null;
+        // Rango de la semana
+        $fechaInicioSemana = new \DateTime($fila['fecha_pago']);
+        $fechaFinSemana    = (clone $fechaInicioSemana)->modify('+6 days');
+
+        $fechaPagoReal = date('Y-m-d');
+        $montoPagado   = null;
+
+        foreach ($datosPagos as $pago) {
+            if (empty($pago['fechaValor'])) continue;
+            $fechaValor = new \DateTime($pago['fechaValor']);
+            if ($fechaValor >= $fechaInicioSemana && $fechaValor <= $fechaFinSemana) {
+                $fechaPagoReal = $pago['fechaValor'];
+                $montoPagado   = $pago['montoPago'] ?? null;
+                break;
             }
         }
 
@@ -627,18 +724,17 @@ public static function registrarPago($id_convenio, $numero_semana, $id_credito)
                  monto_pagado    = :monto
              WHERE id_convenio_cliente = :id AND numero_semana = :num",
             [
-                'fecha' => $fechaPago,
+                'fecha' => $fechaPagoReal,
                 'monto' => $montoPagado,
                 'id'    => $id_convenio,
                 'num'   => $numero_semana,
             ]
         );
 
-        // 4. Verificar si todas las semanas están pagadas → completar convenio
+        // 4. Verificar si todas las semanas están pagadas
         $conteo = $db->queryOne(
-            "SELECT
-                COUNT(*) as total,
-                SUM(CASE WHEN estatus_pago = 'pagado' THEN 1 ELSE 0 END) as pagadas
+            "SELECT COUNT(*) as total,
+                    SUM(CASE WHEN estatus_pago = 'pagado' THEN 1 ELSE 0 END) as pagadas
              FROM convenio_cliente_amortizacion
              WHERE id_convenio_cliente = :id",
             ['id' => $id_convenio]
@@ -654,7 +750,7 @@ public static function registrarPago($id_convenio, $numero_semana, $id_credito)
         }
 
         return self::resultado(true, 'Pago registrado correctamente.', [
-            'fecha_pago_real' => $fechaPago,
+            'fecha_pago_real' => $fechaPagoReal,
             'monto_pagado'    => $montoPagado,
             'numero_semana'   => $numero_semana,
         ]);
@@ -900,6 +996,7 @@ public static function migrarConvenio($datos)
         $pagoSemanal  = (float) $datos['pago_semanal'];
         $idProducto   = (int)   $datos['id_producto_convenio'];
         $idDetalle    = (int)   $datos['id_producto_convenio_detalle'];
+        $pdfAdjunto   = isset($datos['pdf_adjunto']) ? $datos['pdf_adjunto'] : null;
 
         $descuentoMonto = round($adeudoBase * ($pctDescuento / 100), 2);
         $totalAPagar    = round($adeudoBase - $descuentoMonto, 2);
@@ -908,20 +1005,22 @@ public static function migrarConvenio($datos)
         $semanas        = $residuo > 0 ? $semanasEnteras + 1 : $semanasEnteras;
         $fechaUltimoPago = date('Y-m-d', strtotime($fechaInicio . ' +' . (($semanas - 1) * 7) . ' days'));
 
-        // 3. Insertar convenio
+        // 3. Insertar convenio (ahora con campo pdf_adjunto)
         $ok = $db->CRUD(
             "INSERT INTO convenio_cliente (
                 id_credito, id_producto_convenio, id_producto_convenio_detalle,
                 nombre_cliente, bucket_morosidad_real, dias_mora, avance_pago_plazo,
                 adeudo_total_original, porcentaje_descuento, descuento_monto,
                 total_a_pagar, pago_inicial_monto, numero_semanas, pago_semanal,
-                fecha_acuerdo, fecha_primer_pago, fecha_ultimo_pago, estatus, usuario_alta
+                fecha_acuerdo, fecha_primer_pago, fecha_ultimo_pago, estatus,
+                usuario_alta, pdf_adjunto
             ) VALUES (
                 :id_credito, :id_producto, :id_detalle,
                 :nombre_cliente, :bucket, :dias_mora, :avance_pago,
                 :adeudo_original, :pct_descuento, :descuento_monto,
                 :total_pagar, NULL, :num_semanas, :pago_semanal,
-                :fecha_acuerdo, :fecha_primer_pago, :fecha_ultimo_pago, 'activo', :usuario
+                :fecha_acuerdo, :fecha_primer_pago, :fecha_ultimo_pago, 'activo',
+                :usuario, :pdf_adjunto
             )",
             [
                 'id_credito'       => (int) $datos['id_credito'],
@@ -941,6 +1040,7 @@ public static function migrarConvenio($datos)
                 'fecha_primer_pago'=> $fechaInicio,
                 'fecha_ultimo_pago'=> $fechaUltimoPago,
                 'usuario'          => $datos['usuario_alta'],
+                'pdf_adjunto'      => $pdfAdjunto,
             ]
         );
 
@@ -988,6 +1088,7 @@ public static function migrarConvenio($datos)
             'semanas_pagadas' => $semanasMarcadas,
             'total_a_pagar'   => $totalAPagar,
             'descuento_monto' => $descuentoMonto,
+            'pdf_adjunto'     => $pdfAdjunto,
         ]);
 
     } catch (\Exception $e) {
@@ -1002,12 +1103,7 @@ public static function migrarConvenio($datos)
 private static function _marcarSemanasDesdeS2Movil($idConvenio, $idCredito, $fechaInicio, $semanas, $db)
 {
     try {
-        $ec = self::getEstadoCuenta($idCredito);
-        if (!$ec['success'] || !isset($ec['datos']['pagos_indexados'])) return 0;
-
-        $pagosIndexados = $ec['datos']['pagos_indexados'];
-
-        // Traer datosCargos para mapear fechas → idCargo
+        // Traer estado de cuenta completo
         $url     = 'https://servicios.s2movil.net/s2__SPARTA_SECRET_REDACTED__/estadocuenta';
         $payload = json_encode([
             'idCredito'  => $idCredito,
@@ -1028,54 +1124,59 @@ private static function _marcarSemanasDesdeS2Movil($idConvenio, $idCredito, $fec
         $response = curl_exec($ch);
         curl_close($ch);
 
-        $data   = json_decode($response, true);
-        $cargos = $data['estadoCuenta']['datosCargos'] ?? [];
+        $data      = json_decode($response, true);
+        $datosPagos = $data['estadoCuenta']['datosPagos'] ?? [];
+
+        if (empty($datosPagos)) return 0;
 
         $marcadas = 0;
 
         for ($s = 1; $s <= $semanas; $s++) {
-            $fechaSemana = new \DateTime(
+            // Rango de la semana del convenio
+            $fechaInicioSemana = new \DateTime(
                 date('Y-m-d', strtotime($fechaInicio . ' +' . (($s - 1) * 7) . ' days'))
             );
-            $fechaFin = (clone $fechaSemana)->modify('+7 days');
+            $fechaFinSemana = (clone $fechaInicioSemana)->modify('+6 days');
 
-            // Buscar cuota original en ese rango de fechas
-            $idCuota = null;
-            foreach ($cargos as $cargo) {
-                $fv = new \DateTime($cargo['fechaVencimiento']);
-                if ($fv >= $fechaSemana && $fv <= $fechaFin) {
-                    $idCuota = $cargo['idCargo'];
+            // Buscar en datosPagos si hay un pago con fechaValor dentro de ese rango
+            $pagoEncontrado = null;
+            foreach ($datosPagos as $pago) {
+                if (empty($pago['fechaValor'])) continue;
+
+                $fechaValor = new \DateTime($pago['fechaValor']);
+                if ($fechaValor >= $fechaInicioSemana && $fechaValor <= $fechaFinSemana) {
+                    $pagoEncontrado = $pago;
                     break;
                 }
             }
 
-            // Si no encuentra por rango (crédito ya vencido) usar último cargo
-            if (!$idCuota) {
-                $ultimo  = end($cargos);
-                $idCuota = $ultimo ? $ultimo['idCargo'] : null;
-            }
+            if (!$pagoEncontrado) continue;
 
-            // Verificar si esa cuota ya tiene pago en S2Movil
-            if ($idCuota && isset($pagosIndexados[$idCuota])) {
-                $pago        = $pagosIndexados[$idCuota];
-                $fechaPagoR  = $pago['fechaValor'] ?? date('Y-m-d');
-                $montoPagado = $pago['monto']       ?? null;
+            // Marcar semana como pagada
+            $db->CRUD(
+                "UPDATE convenio_cliente_amortizacion
+                 SET estatus_pago    = 'pagado',
+                     fecha_pago_real = :fecha,
+                     monto_pagado    = :monto
+                 WHERE id_convenio_cliente = :id AND numero_semana = :num",
+                [
+                    'fecha' => $pagoEncontrado['fechaValor'],
+                    'monto' => $pagoEncontrado['montoPago'] ?? null,
+                    'id'    => $idConvenio,
+                    'num'   => $s,
+                ]
+            );
+            $marcadas++;
+        }
 
-                $db->CRUD(
-                    "UPDATE convenio_cliente_amortizacion
-                     SET estatus_pago    = 'pagado',
-                         fecha_pago_real = :fecha,
-                         monto_pagado    = :monto
-                     WHERE id_convenio_cliente = :id AND numero_semana = :num",
-                    [
-                        'fecha' => $fechaPagoR,
-                        'monto' => $montoPagado,
-                        'id'    => $idConvenio,
-                        'num'   => $s,
-                    ]
-                );
-                $marcadas++;
-            }
+        // Si todas las semanas quedaron pagadas → completar convenio
+        if ($marcadas === $semanas) {
+            $db->CRUD(
+                "UPDATE convenio_cliente
+                 SET estatus = 'completado', fecha_modifica = NOW()
+                 WHERE id = :id",
+                ['id' => $idConvenio]
+            );
         }
 
         return $marcadas;
@@ -1085,6 +1186,24 @@ private static function _marcarSemanasDesdeS2Movil($idConvenio, $idCredito, $fec
     }
 }
 
+
+public static function getAmortizacionConvenio($id_convenio)
+{
+    try {
+        $db   = new Database();
+        $rows = $db->queryAll(
+            "SELECT numero_semana, fecha_pago, pago_semanal, capital,
+                    saldo_restante, estatus_pago, fecha_pago_real, monto_pagado
+             FROM convenio_cliente_amortizacion
+             WHERE id_convenio_cliente = :id
+             ORDER BY numero_semana",
+            ['id' => $id_convenio]
+        );
+        return self::resultado(true, 'Amortización obtenida.', $rows ?: []);
+    } catch (\Exception $e) {
+        return self::resultado(false, 'Error al obtener amortización.', null, $e->getMessage());
+    }
+}
 
 
 }

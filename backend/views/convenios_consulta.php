@@ -69,6 +69,96 @@
     box-shadow: 0 2px 8px rgba(34,197,94,0.4);
 }
 
+/* ── Oferta con convenio previo (gris) ── */
+.oferta-card.oferta-historica {
+    opacity: 0.5;
+    filter: grayscale(100%);
+    border-color: #9ca3af !important;
+    cursor: not-allowed;
+    pointer-events: none;
+    position: relative;
+    background: #f3f4f6;
+}
+.oferta-card.oferta-historica::after {
+    content: "Convenio previo";
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: #6b7280;
+    color: white;
+    font-size: 0.65rem;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+body.dark-mode .oferta-card.oferta-historica {
+    opacity: 0.4;
+    background: #1f2937;
+    border-color: #4b5563 !important;
+}
+body.dark-mode .oferta-card.oferta-historica::after {
+    background: #4b5563;
+    color: #e5e7eb;
+}
+
+
+/* ── Badge sobre la card (completado / cancelado) ── */
+.badge-historial-card {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    font-size: 0.65rem;
+    padding: 3px 9px;
+    border-radius: 12px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.12);
+    z-index: 2;
+}
+.badge-completado-card {
+    background: #1e40af;
+    color: #fff;
+}
+.badge-cancelado-card {
+    background: #991b1b;
+    color: #fff;
+}
+
+/* ── Card completada (azul apagado) ── */
+.oferta-card.oferta-completada {
+    opacity: 0.45;
+    filter: grayscale(60%);
+    border-color: #93c5fd !important;
+    background: #eff6ff;
+    pointer-events: none;
+    cursor: not-allowed;
+}
+
+/* ── Card cancelada (rojo apagado) ── */
+.oferta-card.oferta-cancelada {
+    opacity: 0.45;
+    filter: grayscale(60%);
+    border-color: #fca5a5 !important;
+    background: #fff1f1;
+    pointer-events: none;
+    cursor: not-allowed;
+}
+
+/* ── Dark mode ── */
+body.dark-mode .oferta-card.oferta-completada {
+    background: #1e3a5f;
+    border-color: #3b82f6 !important;
+    opacity: 0.4;
+}
+body.dark-mode .oferta-card.oferta-cancelada {
+    background: #3b1010;
+    border-color: #ef4444 !important;
+    opacity: 0.4;
+}
+
+
 /* ── Slider de semanas ── */
 .conv-slider-section {
     background: linear-gradient(135deg, #f8f5ff 0%, #ede8ff 100%);
@@ -288,6 +378,15 @@ body.dark-mode .badge-estatus-activo        { background:rgba(34,197,94,0.15);  
 body.dark-mode .badge-estatus-cancelado     { background:rgba(239,68,68,0.15);  border-color:#ef4444; color:#f87171; }
 body.dark-mode .badge-estatus-completado    { background:rgba(59,130,246,0.15); border-color:#3b82f6; color:#60a5fa; }
 body.dark-mode .badge-estatus-incumplimiento{ background:rgba(245,158,11,0.15); border-color:#f59e0b; color:#fbbf24; }
+
+
+.fila-historial { cursor: pointer; }
+.fila-historial:hover td { background: rgba(118,75,162,0.06); }
+.fila-detalle-amort td { background: #f8f5ff; padding: 0 !important; }
+body.dark-mode .fila-detalle-amort td { background: #1e1a2e; }
+.amort-accordion { padding: 1rem 1.5rem; }
+.amort-accordion .tabla-amort thead th { font-size: .75rem; }
+
 </style>
 
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
@@ -314,12 +413,12 @@ body.dark-mode .badge-estatus-incumplimiento{ background:rgba(245,158,11,0.15); 
                        placeholder="Ej: 123456"
                        autocomplete="off"
                        min="1">
-                <button class="btn btn-primary" id="btnBuscar" onclick="buscarCredito()">
+                <button class="btn btn-primary" id="btnBuscar" onclick="window.buscarCredito()">
                     <i class="fa-solid fa-magnifying-glass me-1"></i> Buscar
                 </button>
 
                 <button type="button" class="btn btn-outline-warning btn-sm"
-        onclick="abrirModalMigracion()">
+        onclick="window.abrirModalMigracion()">
     <i class="fas fa-file-import"></i> Registrar Convenio Existente
 </button>
 
@@ -340,7 +439,7 @@ body.dark-mode .badge-estatus-incumplimiento{ background:rgba(245,158,11,0.15); 
 
         <!-- Botón historial — va después del creditoBanner -->
 <div class="text-end mb-3" id="btnHistorialWrap" style="display:none;">
-    <button class="btn btn-outline-secondary btn-sm" onclick="abrirHistorial()">
+    <button class="btn btn-outline-secondary btn-sm" onclick="window.abrirHistorial()">
         <i class="fa-solid fa-clock-rotate-left me-1"></i> Ver historial de convenios
     </button>
 </div>
@@ -369,7 +468,7 @@ body.dark-mode .badge-estatus-incumplimiento{ background:rgba(245,158,11,0.15); 
                     <p class="text-muted small mb-2">El total a pagar se dividirá entre las semanas elegidas.</p>
                     <input type="range" class="conv-range" id="sliderSemanas"
                            min="1" max="12" value="1"
-                           oninput="actualizarSlider(this.value)">
+                           oninput="window.actualizarSlider(this.value)">
                     <div class="semanas-labels">
                         <span id="labelMin">1 sem</span>
                         <span id="labelMax">12 sem</span>
@@ -383,7 +482,7 @@ body.dark-mode .badge-estatus-incumplimiento{ background:rgba(245,158,11,0.15); 
             </div>
             <div class="text-center mt-3">
                 <button class="btn btn-outline-primary btn-sm" id="btnVerAmort"
-                        onclick="verTablaAmortizacion()" style="display:none;">
+                        onclick="window.verTablaAmortizacion()" style="display:none;">
                     <i class="fa-solid fa-table me-1"></i> Ver Tabla de Amortización
                 </button>
             </div>
@@ -416,15 +515,15 @@ body.dark-mode .badge-estatus-incumplimiento{ background:rgba(245,158,11,0.15); 
                         </table>
                     </div>
                     <div class="d-flex gap-2 mt-3 flex-wrap">
-                        <button class="btn btn-success" id="btnGuardar" onclick="guardarConvenio()">
+                        <button class="btn btn-success" id="btnGuardar" onclick="window.guardarConvenio()">
                             <i class="fa-solid fa-floppy-disk me-1"></i> Confirmar y Guardar Convenio
                         </button>
-                        <button class="btn btn-outline-secondary" id="btnPdf" onclick="descargarPdf()" style="display:none;">
+                        <button class="btn btn-outline-secondary" id="btnPdf" onclick="window.descargarPdf()" style="display:none;">
                             <i class="fa-solid fa-file-pdf me-1"></i> Descargar PDF
                         </button>
 
                         <button class="btn btn-danger btn-sm" id="btnCancelar"
-                            onclick="cancelarConvenio()" style="display:none;">
+                            onclick="window.cancelarConvenio()" style="display:none;">
                             <i class="fa-solid fa-ban me-1"></i> Cancelar Convenio
                        </button>
 
@@ -476,6 +575,7 @@ body.dark-mode .badge-estatus-incumplimiento{ background:rgba(245,158,11,0.15); 
                                     <th>Autorizado por</th>
                                     <th>Cancelado por</th>
                                     <th>Fecha Cancelación</th>
+                                    <th></th>
                                 </tr>
                             </thead>
                             <tbody id="tablaHistorialBody"></tbody>
@@ -514,7 +614,7 @@ body.dark-mode .badge-estatus-incumplimiento{ background:rgba(245,158,11,0.15); 
           <div class="input-group mb-3">
             <input type="number" id="migIdCredito" class="form-control"
                    placeholder="Ej. 193141">
-            <button class="btn btn-primary" onclick="migBuscarCredito()">
+            <button class="btn btn-primary" onclick="window.migBuscarCredito()">
                 <i class="fas fa-search"></i> Buscar
             </button>
           </div>
@@ -528,7 +628,7 @@ body.dark-mode .badge-estatus-incumplimiento{ background:rgba(245,158,11,0.15); 
 
             <div class="col-md-6">
               <label class="form-label">Producto</label>
-              <select id="migProducto" class="form-select" onchange="migProductoChange()">
+              <select id="migProducto" class="form-select" onchange="window.migProductoChange()">
                 <option value="">Selecciona...</option>
               </select>
             </div>
@@ -538,7 +638,7 @@ body.dark-mode .badge-estatus-incumplimiento{ background:rgba(245,158,11,0.15); 
               <div class="input-group">
                 <input type="number" id="migPorcentaje" class="form-control"
                        min="0" max="100" step="0.01" placeholder="20"
-                       oninput="migCalcular()">
+                       oninput="window.migCalcular()">
                 <span class="input-group-text">%</span>
               </div>
             </div>
@@ -546,7 +646,7 @@ body.dark-mode .badge-estatus-incumplimiento{ background:rgba(245,158,11,0.15); 
             <div class="col-md-3">
               <label class="form-label">Fecha Inicio</label>
               <input type="date" id="migFechaInicio" class="form-control"
-                     oninput="migCalcular()">
+                     oninput="window.migCalcular()">
             </div>
 
             <div class="col-md-4">
@@ -554,7 +654,7 @@ body.dark-mode .badge-estatus-incumplimiento{ background:rgba(245,158,11,0.15); 
               <div class="input-group">
                 <span class="input-group-text">$</span>
                 <input type="number" id="migAdeudo" class="form-control"
-                       step="0.01" placeholder="16284.33" oninput="migCalcular()">
+                       step="0.01" placeholder="16284.33" oninput="window.migCalcular()">
               </div>
             </div>
 
@@ -563,7 +663,7 @@ body.dark-mode .badge-estatus-incumplimiento{ background:rgba(245,158,11,0.15); 
               <div class="input-group">
                 <span class="input-group-text">$</span>
                 <input type="number" id="migPagoSemanal" class="form-control"
-                       step="0.01" placeholder="3250" oninput="migCalcular()">
+                       step="0.01" placeholder="3250" oninput="window.migCalcular()">
               </div>
             </div>
 
@@ -575,19 +675,36 @@ body.dark-mode .badge-estatus-incumplimiento{ background:rgba(245,158,11,0.15); 
 
           </div>
 
-          <!-- Preview del cálculo -->
+          <!-- Preview del cálculo y adjuntar PDF -->
           <div id="migPreview" class="d-none mt-3">
             <hr>
             <div class="row text-center g-2" id="migResumenCards"></div>
-          </div>
 
+            <!-- NUEVO: Sección para adjuntar PDF -->
+            <div class="mt-3 p-3 border rounded" style="background: #f8f5ff;">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="flex-grow-1">
+                        <label class="form-label fw-bold mb-1">
+                            <i class="fas fa-paperclip me-1"></i>Adjuntar comprobante (PDF)
+                        </label>
+                        <input type="file" id="migPdfAdjunto"
+                               class="form-control form-control-sm"
+                               accept=".pdf,application/pdf"
+                               onchange="window.validarPdfAdjunto(this)">
+                        <small class="text-muted">Opcional: adjunta el PDF del convenio firmado (máx. 5MB)</small>
+                    </div>
+                    <div id="migPdfPreview" class="text-center" style="min-width: 60px;">
+                        <!-- Icono de PDF si hay archivo seleccionado -->
+                    </div>
+                </div>
+            </div>
+          </div>
         </div>
-      </div>
 
       <div class="modal-footer">
         <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
         <button class="btn btn-success d-none" id="migBtnGuardar"
-                onclick="migGuardar()">
+                onclick="window.migGuardar()">
             <i class="fas fa-save"></i> Registrar Convenio
         </button>
       </div>
@@ -610,7 +727,7 @@ var _semanasActual = 1;
 // ══════════════════════════════════════════════════════
 //  BUSCAR CRÉDITO
 // ══════════════════════════════════════════════════════
-function buscarCredito() {
+window.buscarCredito = function() {
     var id = document.getElementById('inputBusqueda').value.trim();
 
     if (!id || isNaN(id) || parseInt(id) < 1) {
@@ -624,10 +741,10 @@ function buscarCredito() {
     }
 
     seleccionarCredito(parseInt(id));
-}
+};
 
 document.getElementById('inputBusqueda').addEventListener('keydown', function(e) {
-    if (e.key === 'Enter') buscarCredito();
+    if (e.key === 'Enter') window.buscarCredito();
 });
 
 // ══════════════════════════════════════════════════════
@@ -637,11 +754,8 @@ function seleccionarCredito(idCredito) {
     document.getElementById('convContenido').style.display = 'none';
     document.getElementById('btnHistorialWrap').style.display = 'none';
 
-    // Limpiar banner convenio activo si existía de búsqueda anterior
     var bannerPrevio = document.getElementById('bannerConvenioActivo');
     if (bannerPrevio) bannerPrevio.remove();
-
-    // detenerPolling();
 
     Swal.fire({ title: 'Cargando...', allowOutsideClick: false, didOpen: function() { Swal.showLoading(); } });
 
@@ -666,58 +780,80 @@ function seleccionarCredito(idCredito) {
             _credito = credito;
             _ofertas = ofertas;
 
-            if (!elegible) {
-                Swal.close();
-                Swal.fire('Sin ofertas', razon === 'bucket_fuera_de_rango'
-                    ? 'Este crédito no tiene mora suficiente (mínimo 22 días).'
-                    : 'Este crédito no cumple los criterios para ninguna oferta.', 'info');
-                return;
-            }
-
-            // Llamada 2: convenio activo
+            // Llamada 2: historial para saber qué oferta pintar de gris
             http.request({
-                endpoint: '/convenios/getConvenioActivo',
+                endpoint: '/convenios/getHistorialConvenios',
                 method: 'POST',
                 data: { id_credito: idCredito },
-                onSuccess: function(respConvenio) {
-                    Swal.close();
-
-                    // Resetear botones al estado normal antes de pintar
-                    document.getElementById('btnGuardar').style.display = 'inline-block';
-                    document.getElementById('btnPdf').className = 'btn btn-outline-secondary';
-
-                    renderCreditoBanner(credito);
-                    renderOfertas(ofertas);
-
-                    document.getElementById('sliderSection').style.display = 'none';
-                    document.getElementById('amortSection').style.display  = 'none';
-                    document.getElementById('alertaIncumplimiento').style.display = 'none';
-                    _ofertaActiva = null;
-
-                    document.getElementById('convContenido').style.display = 'block';
-                    document.getElementById('btnHistorialWrap').style.display = 'block';
-
-
-                    if (respConvenio.success && respConvenio.datos && respConvenio.datos.estatus === 'activo') {
-                        congelarModulo(respConvenio.datos);
-                    } else {
-                       // iniciarPolling(idCredito);
+                onSuccess: function(respHistorial) {
+                    if (respHistorial.success && respHistorial.datos) {
+                        _credito.historial_convenios = respHistorial.datos;
                     }
+
+                    // Llamada 3: convenio activo
+                    http.request({
+                        endpoint: '/convenios/getConvenioActivo',
+                        method: 'POST',
+                        data: { id_credito: idCredito },
+                        onSuccess: function(respConvenio) {
+                            Swal.close();
+
+                            document.getElementById('btnGuardar').style.display = 'inline-block';
+                            document.getElementById('btnPdf').className = 'btn btn-outline-secondary';
+
+                            renderCreditoBanner(credito);
+                            renderOfertas(ofertas); // Ahora tiene historial
+
+                            document.getElementById('sliderSection').style.display = 'none';
+                            document.getElementById('amortSection').style.display  = 'none';
+                            document.getElementById('alertaIncumplimiento').style.display = 'none';
+                            _ofertaActiva = null;
+
+                            document.getElementById('convContenido').style.display = 'block';
+                            document.getElementById('btnHistorialWrap').style.display = 'block';
+
+                            if (respConvenio.success && respConvenio.datos && respConvenio.datos.estatus === 'activo') {
+                                congelarModulo(respConvenio.datos);
+                            }
+                        },
+                        onError: function() {
+                            Swal.close();
+                            renderCreditoBanner(credito);
+                            renderOfertas(ofertas);
+                            document.getElementById('convContenido').style.display = 'block';
+                        }
+                    });
                 },
                 onError: function() {
-                    Swal.close();
-                    document.getElementById('btnGuardar').style.display = 'inline-block';
-                    document.getElementById('btnPdf').className = 'btn btn-outline-secondary';
-                    renderCreditoBanner(credito);
-                    renderOfertas(ofertas);
-                    document.getElementById('sliderSection').style.display = 'none';
-                    document.getElementById('amortSection').style.display  = 'none';
-                    document.getElementById('convContenido').style.display = 'block';
-                   // iniciarPolling(idCredito);
+                    // Si falla el historial, continuamos sin él
+                    http.request({
+                        endpoint: '/convenios/getConvenioActivo',
+                        method: 'POST',
+                        data: { id_credito: idCredito },
+                        onSuccess: function(respConvenio) {
+                            Swal.close();
+                            renderCreditoBanner(credito);
+                            renderOfertas(ofertas);
+                            document.getElementById('convContenido').style.display = 'block';
+
+                            if (respConvenio.success && respConvenio.datos && respConvenio.datos.estatus === 'activo') {
+                                congelarModulo(respConvenio.datos);
+                            }
+                        },
+                        onError: function() {
+                            Swal.close();
+                            renderCreditoBanner(credito);
+                            renderOfertas(ofertas);
+                            document.getElementById('convContenido').style.display = 'block';
+                        }
+                    });
                 }
             });
         },
-        onError: function() { Swal.close(); Swal.fire('Error', 'Error al cargar ofertas.', 'error'); }
+        onError: function() {
+            Swal.close();
+            Swal.fire('Error', 'Error al cargar ofertas.', 'error');
+        }
     });
 }
 
@@ -755,6 +891,25 @@ function renderOfertas(ofertas) {
     var cont = document.getElementById('ofertasContainer');
     var fmt  = function(v) { return '$' + parseFloat(v).toLocaleString('es-MX', { minimumFractionDigits: 2 }); };
 
+    // Construir mapa de productos usados en historial (no activos)
+    // key: id_producto → estatus del convenio más reciente con ese producto
+    var productosUsados = {};
+
+    if (_credito && _credito.historial_convenios && _credito.historial_convenios.length > 0) {
+        // Ordenar por fecha descendente para quedarnos con el más reciente por producto
+        var historialOrdenado = _credito.historial_convenios
+            .filter(function(c) { return c.estatus !== 'activo'; })
+            .sort(function(a, b) { return new Date(b.fecha_alta) - new Date(a.fecha_alta); });
+
+        historialOrdenado.forEach(function(c) {
+            var idProd = c.id_producto_convenio;
+            // Solo guardar el más reciente por producto (el primero que aparece al ordenar desc)
+            if (!productosUsados[idProd]) {
+                productosUsados[idProd] = c.estatus; // 'completado' | 'cancelado'
+            }
+        });
+    }
+
     cont.innerHTML = ofertas.map(function(o, i) {
         var icono      = OFERTA_ICONOS[o.id_producto] || '📋';
         var primerPago = (o.pago_inicial === 'Si' && o.pago_inicial_monto)
@@ -764,8 +919,31 @@ function renderOfertas(ofertas) {
             ? '1 semana (pago único)'
             : o.periodo_inicio + ' a ' + o.semanas_max + ' semanas';
 
+        // Determinar si este producto tiene historial previo
+        var estatusPrevio = productosUsados[o.id_producto] || null;
+        var claseAdicional = '';
+        var badgeHistorial = '';
+
+        if (estatusPrevio === 'completado') {
+            claseAdicional = 'oferta-completada';
+            badgeHistorial =
+                '<div class="badge-historial-card badge-completado-card">' +
+                    '<i class="fa-solid fa-circle-check me-1"></i>Convenio completado' +
+                '</div>';
+        } else if (estatusPrevio === 'cancelado') {
+            claseAdicional = 'oferta-cancelada';
+            badgeHistorial =
+                '<div class="badge-historial-card badge-cancelado-card">' +
+                    '<i class="fa-solid fa-ban me-1"></i>Convenio cancelado' +
+                '</div>';
+        }
+
+        var clickeable = estatusPrevio ? '' : ' onclick="window.seleccionarOferta(' + i + ')"';
+        var cursor     = estatusPrevio ? 'cursor:not-allowed;' : '';
+
         return '<div class="col-12 col-md-3">' +
-            '<div class="oferta-card" id="oferta-card-' + i + '" onclick="seleccionarOferta(' + i + ')">' +
+            '<div class="oferta-card ' + claseAdicional + '" id="oferta-card-' + i + '"' + clickeable + ' style="' + cursor + '">' +
+                badgeHistorial +
                 '<div class="icono-oferta">' + icono + '</div>' +
                 '<div class="titulo-oferta">' + o.nombre + '</div>' +
                 '<div class="porcentaje">' + parseInt(o.porcentaje_descuento) + '%</div>' +
@@ -776,6 +954,63 @@ function renderOfertas(ofertas) {
             '</div>' +
         '</div>';
     }).join('');
+}
+
+// ══════════════════════════════════════════════════════
+//  RENDERIZAR CELDA DE PAGO REALIZADO (datos S2Movil)
+// ══════════════════════════════════════════════════════
+function renderCeldaPagoS2(pagosS2, numeroSemana) {
+    var pagos = pagosS2 && pagosS2[numeroSemana] ? pagosS2[numeroSemana] : null;
+
+    if (!pagos || pagos.length === 0) {
+        return '<span style="color:#aaa;">—</span>';
+    }
+
+    var fmt = function(v) {
+        return '$' + parseFloat(v).toLocaleString('es-MX', { minimumFractionDigits: 2 });
+    };
+    var fmtF = function(s) {
+        if (!s) return '';
+        var p = s.split('-');
+        return p[2] + '/' + p[1] + '/' + p[0];
+    };
+
+    var html = '';
+
+    pagos.forEach(function(p) {
+        var esSobrante = p.sobrante > 0 && p.capital === 0;
+
+        if (esSobrante) {
+            // Línea de sobrante
+            html +=
+                '<div style="border-left:3px solid #f59e0b;padding-left:6px;margin-bottom:4px;">' +
+                    '<span style="display:block;font-size:0.75rem;color:#92400e;font-weight:600;">' +
+                        '<i class="fas fa-arrow-right-arrow-left" style="font-size:0.65rem;"></i> Sobrante: ' + fmt(p.montoPago) +
+                    '</span>' +
+                    '<span style="display:block;font-size:0.72rem;color:#b45309;">' +
+                        'Aplicado: ' + fmt(p.montoPago) +
+                    '</span>' +
+                    '<span style="display:block;font-size:0.70rem;color:#aaa;">' + fmtF(p.fechaValor) + '</span>' +
+                '</div>';
+        } else {
+            // Línea de pago normal
+            html +=
+                '<div style="border-left:3px solid #22c55e;padding-left:6px;margin-bottom:4px;">' +
+                    '<span style="display:block;font-size:0.75rem;font-weight:700;color:#166534;">' +
+                        '<i class="fas fa-circle-check" style="font-size:0.65rem;"></i> Pago: ' + fmt(p.montoPago) +
+                    '</span>' +
+                    '<span style="display:block;font-size:0.72rem;color:#15803d;">' +
+                        'Aplicado: ' + fmt(p.capital) +
+                    '</span>' +
+                    (p.sobrante > 0
+                        ? '<span style="display:block;font-size:0.70rem;color:#b45309;">Sobrante: ' + fmt(p.sobrante) + '</span>'
+                        : '') +
+                    '<span style="display:block;font-size:0.70rem;color:#aaa;">' + fmtF(p.fechaValor) + '</span>' +
+                '</div>';
+        }
+    });
+
+    return html;
 }
 
 // ══════════════════════════════════════════════════════
@@ -864,11 +1099,8 @@ function congelarModulo(convenio) {
         : fmtFechaRango(fila.fecha_pago);
 
     // Celda de pago realizado
-    var celdaMontoPagado = esPagado && fila.monto_pagado
-        ? '<span style="font-weight:600;color:#22c55e;">$'
-          + parseFloat(fila.monto_pagado).toLocaleString('es-MX', { minimumFractionDigits: 2 })
-          + '</span>'
-        : fmtPagoRealizado(null);
+  var celdaMontoPagado = renderCeldaPagoS2(convenio.pagos_s2movil, fila.numero_semana);
+
 
     // Botón de acción
     var btnAccion = '';
@@ -917,16 +1149,31 @@ function congelarModulo(convenio) {
     // Banner informativo
     var fechaAcuerdo   = new Date(convenio.fecha_acuerdo + 'T12:00:00').toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' });
     var fechaUltimoPago = new Date(convenio.fecha_ultimo_pago + 'T12:00:00').toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' });
-    var banner = document.getElementById('creditoBanner');
-    banner.insertAdjacentHTML('afterend',
-        '<div id="bannerConvenioActivo" class="alert d-flex align-items-center gap-2 mb-3 banner-convenio-activo-light">' +
-            '<i class="fa-solid fa-lock fa-lg"></i>' +
-            '<div><strong>Convenio activo registrado.</strong> ' +
+    var pdfBadge = '';
+if (convenio.pdf_adjunto) {
+    pdfBadge =
+        '&nbsp;<a href="' + convenio.pdf_adjunto + '" target="_blank" ' +
+        'class="text-decoration-none ms-2" ' +
+        'style="display:inline-flex;align-items:center;gap:4px;background:#fff;color:#166534;' +
+        'border:1px solid #22c55e;padding:2px 10px;border-radius:20px;font-size:0.75rem;font-weight:600;" ' +
+        'title="Ver documento adjunto del convenio">' +
+        '<i class="fa-solid fa-file-pdf" style="color:#dc2626;"></i> Ver documento adjunto' +
+        '</a>';
+}
+
+var banner = document.getElementById('creditoBanner');
+banner.insertAdjacentHTML('afterend',
+    '<div id="bannerConvenioActivo" class="alert d-flex align-items-center gap-2 mb-3 banner-convenio-activo-light">' +
+        '<i class="fa-solid fa-lock fa-lg"></i>' +
+        '<div>' +
+            '<strong>Convenio activo registrado.</strong> ' +
             'Acuerdo del ' + fechaAcuerdo + '. ' +
             'Último pago: ' + fechaUltimoPago + '. ' +
-            'Solo puedes descargar el PDF.</div>' +
-        '</div>'
-    );
+            'Solo puedes descargar el PDF.' +
+            pdfBadge +
+        '</div>' +
+    '</div>'
+);
 
     document.getElementById('amortSection').scrollIntoView({ behavior: 'smooth' });
 }
@@ -972,44 +1219,14 @@ function bindBotonesPago(idCredito) {
                             return;
                         }
 
-                        var datos = resp.datos;
-                        var fila  = btn.closest('tr');
-
-                        // Celda acción → fecha pagada
-                        btn.parentElement.innerHTML =
-                            '<small class="text-success">'
-                            + '<i class="fas fa-check-double"></i> '
-                            + fmtFecha(datos.fecha_pago_real)
-                            + '</small>';
-
-                        // Badge estatus
-                        var celdaEstatus = fila.querySelector('.celda-estatus');
-                        if (celdaEstatus) {
-                            celdaEstatus.innerHTML =
-                                '<span class="badge bg-success">Pagado</span>';
-                        }
-
-                        // Monto pagado
-                        if (datos.monto_pagado) {
-                            var celdaMonto = fila.querySelector('.celda-monto-pagado');
-                            if (celdaMonto) {
-                                celdaMonto.innerHTML =
-                                    '<span style="font-weight:600;color:#22c55e;">$'
-                                    + parseFloat(datos.monto_pagado)
-                                      .toLocaleString('es-MX', { minimumFractionDigits: 2 })
-                                    + '</span>';
-                            }
-                        }
-
                         Swal.fire({
                             title: '¡Registrado!',
-                            html: 'Semana ' + semana + ' marcada como pagada.'
-                                + (datos.fecha_pago_real
-                                    ? '<br><small>Fecha: ' + fmtFecha(datos.fecha_pago_real) + '</small>'
-                                    : ''),
+                            html: 'Semana ' + semana + ' marcada como pagada.',
                             icon: 'success',
-                            timer: 2200,
-                            showConfirmButton: false,
+                            timer: 1500,
+                            showConfirmButton: false
+                        }).then(function() {
+                            location.reload(); // AUTO-REFRESH después de pago
                         });
                     },
                     onError: function() {
@@ -1054,7 +1271,7 @@ function bindBotonesPago(idCredito) {
 // ══════════════════════════════════════════════════════
 //  SELECCIONAR OFERTA → mostrar slider
 // ══════════════════════════════════════════════════════
-function seleccionarOferta(idx) {
+window.seleccionarOferta = function(idx) {
     document.querySelectorAll('.oferta-card').forEach(function(c) { c.classList.remove('seleccionada'); });
     document.getElementById('oferta-card-' + idx).classList.add('seleccionada');
 
@@ -1079,12 +1296,12 @@ function seleccionarOferta(idx) {
     document.getElementById('btnVerAmort').style.display   = 'inline-block';
 
     document.getElementById('sliderSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
-}
+};
 
 // ══════════════════════════════════════════════════════
 //  ACTUALIZAR SLIDER
 // ══════════════════════════════════════════════════════
-function actualizarSlider(semanas) {
+window.actualizarSlider = function(semanas) {
     _semanasActual = parseInt(semanas);
     document.getElementById('semanasValor').textContent = _semanasActual;
 
@@ -1094,7 +1311,7 @@ function actualizarSlider(semanas) {
         document.getElementById('pagoSemanalCalc').textContent =
             '$' + semanal.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' / semana';
     }
-}
+};
 
 // ══════════════════════════════════════════════════════
 //  HELPER — RANGO DE FECHAS
@@ -1146,7 +1363,7 @@ function fmtPagoRealizado(pago) {
 // ══════════════════════════════════════════════════════
 //  VER TABLA DE AMORTIZACIÓN (calculada en frontend)
 // ══════════════════════════════════════════════════════
-function verTablaAmortizacion() {
+window.verTablaAmortizacion = function() {
     if (!_ofertaActiva || !_credito) return;
 
     var o      = _ofertaActiva;
@@ -1195,12 +1412,12 @@ function verTablaAmortizacion() {
 
     document.getElementById('amortSection').style.display = 'block';
     document.getElementById('amortSection').scrollIntoView({ behavior: 'smooth' });
-}
+};
 
 // ══════════════════════════════════════════════════════
 //  GUARDAR CONVENIO
 // ══════════════════════════════════════════════════════
-function guardarConvenio() {
+window.guardarConvenio = function() {
     if (!_ofertaActiva || !_credito) return;
 
     Swal.fire({
@@ -1241,26 +1458,30 @@ function guardarConvenio() {
             },
             onSuccess: function(resp) {
                 if (resp.success) {
-                    Swal.fire('¡Guardado!', 'El convenio fue registrado exitosamente.', 'success')
-                    .then(function() {
-                        document.getElementById('btnGuardar').style.display = 'none';
-                        document.getElementById('btnPdf').style.display     = 'inline-block';
-                        document.getElementById('btnCancelar').style.display = 'inline-block';
-                        window._idConvenioActivo = resp.datos.id_convenio;
+                    Swal.fire({
+                        title: '¡Guardado!',
+                        text: 'El convenio fue registrado exitosamente.',
+                        icon: 'success',
+                        timer: 1500,
+                        showConfirmButton: false
+                    }).then(function() {
+                        location.reload(); // AUTO-REFRESH
                     });
                 } else {
                     Swal.fire('Error', resp.mensaje || 'No se pudo guardar.', 'error');
                 }
             },
-            onError: function() { Swal.fire('Error', 'Error de conexión.', 'error'); }
+            onError: function() {
+                Swal.fire('Error', 'Error de conexión.', 'error');
+            }
         });
     });
-}
+};
 
 // ══════════════════════════════════════════════════════
 //  CANCELAR CONVENIO
 // ══════════════════════════════════════════════════════
-function cancelarConvenio() {
+window.cancelarConvenio = function() {
     if (!window._idConvenioActivo) return;
 
     Swal.fire({
@@ -1296,19 +1517,10 @@ function cancelarConvenio() {
                     title: 'Convenio cancelado',
                     text: 'El convenio fue cancelado correctamente.',
                     confirmButtonColor: '#764ba2',
+                    timer: 1500,
+                    showConfirmButton: false
                 }).then(function() {
-                    _repintarTablaCancelada(resp.datos.numero_semana_cancelacion);
-                    document.getElementById('btnCancelar').style.display = 'none';
-
-                    var banner = document.getElementById('bannerConvenioActivo');
-                    if (banner) {
-                        banner.className = 'alerta-incumplimiento';
-                        banner.innerHTML =
-                            '<i class="fa-solid fa-ban me-2"></i>' +
-                            '<strong>Convenio cancelado.</strong> ' +
-                            'Las semanas pendientes quedaron anuladas. ' +
-                            'Es posible generar un nuevo convenio.';
-                    }
+                    location.reload(); // AUTO-REFRESH
                 });
             },
             onError: function() {
@@ -1317,7 +1529,7 @@ function cancelarConvenio() {
             }
         });
     });
-}
+};
 
 // ══════════════════════════════════════════════════════
 //  REPINTAR TABLA TRAS CANCELACIÓN
@@ -1348,7 +1560,7 @@ function _repintarTablaCancelada(semanaCancelacion) {
 // ══════════════════════════════════════════════════════
 //  DESCARGAR PDF
 // ══════════════════════════════════════════════════════
-function descargarPdf() {
+window.descargarPdf = function() {
     if (!_credito) return;
 
     var form = document.createElement('form');
@@ -1364,15 +1576,14 @@ function descargarPdf() {
     document.body.appendChild(form);
     form.submit();
     document.body.removeChild(form);
-}
+};
 
 // ══════════════════════════════════════════════════════
 //  HISTORIAL DE CONVENIOS
 // ══════════════════════════════════════════════════════
-function abrirHistorial() {
+window.abrirHistorial = function() {
     if (!_credito) return;
 
-    // Mostrar modal con loading
     document.getElementById('historialLoading').style.display    = 'block';
     document.getElementById('historialVacio').style.display      = 'none';
     document.getElementById('historialTablaWrap').style.display  = 'none';
@@ -1410,22 +1621,54 @@ function abrirHistorial() {
                 };
                 return '<span class="badge-estatus-' + e + '">' + (labels[e] || e) + '</span>';
             };
+            var badgeEstatusPago = function(e) {
+                var map = {
+                    'pendiente':  ['#6c757d', 'Pendiente'],
+                    'pagado':     ['#22c55e', 'Pagado'],
+                    'vencido':    ['#ef4444', 'Vencido'],
+                    'cancelado':  ['#9ca3af', 'Cancelado'],
+                };
+                var v = map[e] || ['#6c757d', e];
+                return '<span style="background:' + v[0] + ';color:#fff;padding:2px 8px;border-radius:12px;font-size:.72rem;">' + v[1] + '</span>';
+            };
 
-            var filas = resp.datos.map(function(c, i) {
-                return '<tr>' +
-                    '<td>' + (i + 1) + '</td>' +
-                    '<td>' + fmtFecha(c.fecha_acuerdo) + '</td>' +
-                    '<td>' + c.nombre_producto + '</td>' +
-                    '<td>' + fmt(c.total_a_pagar) + '</td>' +
-                    '<td>' + c.numero_semanas + ' sem</td>' +
-                    '<td>' + badgeEstatus(c.estatus) + '</td>' +
-                    '<td>' + (c.usuario_alta || '—') + '</td>' +
-                    '<td>' + (c.usuario_cancela || '—') + '</td>' +
-                    '<td>' + fmtFecha(c.fecha_cancelacion) + '</td>' +
-                '</tr>';
-            }).join('');
+            var filas = '';
+            resp.datos.forEach(function(c, i) {
+                var idConvenio = c.id;
+                filas +=
+                    '<tr class="fila-historial" onclick="toggleAmortizacion(' + idConvenio + ', this)">' +
+                        '<td>' + (i + 1) + '</td>' +
+                        '<td>' + fmtFecha(c.fecha_acuerdo) + '</td>' +
+                        '<td>' + c.nombre_producto + '</td>' +
+                        '<td>' + fmt(c.total_a_pagar) + '</td>' +
+                        '<td>' + c.numero_semanas + ' sem</td>' +
+                        '<td>' + badgeEstatus(c.estatus) + '</td>' +
+                        '<td>' + (c.usuario_alta || '—') + '</td>' +
+                        '<td>' + (c.usuario_cancela || '—') + '</td>' +
+                        '<td>' + fmtFecha(c.fecha_cancelacion) + '</td>' +
+                        '<td class="d-flex align-items-center gap-2">' +
+    (c.pdf_adjunto
+        ? '<a href="' + c.pdf_adjunto + '" target="_blank" ' +
+          'class="btn btn-outline-danger btn-sm py-0 px-2" ' +
+          'title="Ver PDF adjunto" onclick="event.stopPropagation()">' +
+          '<i class="fa-solid fa-file-pdf"></i>' +
+          '</a>'
+        : '') +
+    '<i class="fas fa-chevron-down" id="chevron-' + idConvenio + '"></i>' +
+'</td>' +
+                    '</tr>' +
+                    '<tr class="fila-detalle-amort d-none" id="detalle-' + idConvenio + '">' +
+                        '<td colspan="10">' +
+                            '<div class="amort-accordion" id="amort-content-' + idConvenio + '">' +
+                                '<div class="text-center text-muted py-3">' +
+                                    '<i class="fas fa-spinner fa-spin me-2"></i>Cargando amortización...' +
+                                '</div>' +
+                            '</div>' +
+                        '</td>' +
+                    '</tr>';
+            });
 
-            document.getElementById('tablaHistorialBody').innerHTML   = filas;
+            document.getElementById('tablaHistorialBody').innerHTML    = filas;
             document.getElementById('historialTablaWrap').style.display = 'block';
         },
         onError: function() {
@@ -1433,6 +1676,128 @@ function abrirHistorial() {
             document.getElementById('historialVacio').style.display   = 'block';
         }
     });
+};
+
+// ────────────────────────────────────────────────
+// ACCORDION — toggle amortización por convenio
+// ────────────────────────────────────────────────
+
+var _amortCache = {};
+
+function toggleAmortizacion(idConvenio, fila) {
+    var detalle  = document.getElementById('detalle-' + idConvenio);
+    var chevron  = document.getElementById('chevron-' + idConvenio);
+    var content  = document.getElementById('amort-content-' + idConvenio);
+    var abierto  = !detalle.classList.contains('d-none');
+
+    if (abierto) {
+        detalle.classList.add('d-none');
+        chevron.style.transform = 'rotate(0deg)';
+        return;
+    }
+
+    detalle.classList.remove('d-none');
+    chevron.style.transform = 'rotate(180deg)';
+
+    // Si ya está en caché, no volver a pedir
+    if (_amortCache[idConvenio]) {
+        content.innerHTML = _amortCache[idConvenio];
+        return;
+    }
+
+    // Pedir amortización al backend
+    http.request({
+        endpoint: '/convenios/getAmortizacionConvenio',
+        method:   'POST',
+        data:     { id_convenio: idConvenio },
+        onSuccess: function(resp) {
+            if (!resp.success || !resp.datos) {
+                content.innerHTML = '<p class="text-danger p-3">Error al cargar amortización.</p>';
+                return;
+            }
+
+            var fmt = function(v) {
+                return '$' + parseFloat(v || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 });
+            };
+            var fmtFecha = function(s) {
+                if (!s) return '—';
+                var p = s.split('-');
+                return p[2] + '/' + p[1] + '/' + p[0];
+            };
+            var badgePago = function(e) {
+                var map = {
+                    'pendiente': ['#6c757d', 'Pendiente'],
+                    'pagado':    ['#22c55e', 'Pagado'],
+                    'vencido':   ['#ef4444', 'Vencido'],
+                    'cancelado': ['#9ca3af', 'Cancelado'],
+                };
+                var v = map[e] || ['#6c757d', e];
+                return '<span style="background:' + v[0] + ';color:#fff;padding:2px 8px;border-radius:12px;font-size:.72rem;">' + v[1] + '</span>';
+            };
+
+            var filas = resp.datos.map(function(row) {
+                return '<tr>' +
+                    '<td>Semana ' + row.numero_semana + '</td>' +
+                    '<td>' + fmtFecha(row.fecha_pago) + '</td>' +
+                    '<td>' + fmt(row.pago_semanal) + '</td>' +
+                    '<td>' + fmt(row.capital) + '</td>' +
+                    '<td>' + fmt(row.saldo_restante) + '</td>' +
+                    '<td>' + (row.fecha_pago_real ? fmtFecha(row.fecha_pago_real) : '—') + '</td>' +
+                    '<td>' + (row.monto_pagado ? fmt(row.monto_pagado) : '—') + '</td>' +
+                    '<td>' + badgePago(row.estatus_pago) + '</td>' +
+                '</tr>';
+            }).join('');
+
+            var html =
+                '<div class="d-flex justify-content-between align-items-center mb-2">' +
+                    '<span class="fw-bold text-muted" style="font-size:.85rem;">Tabla de Amortización</span>' +
+                    '<button class="btn btn-outline-primary btn-sm" onclick="descargarPdfConvenio(' + idConvenio + ')">' +
+                        '<i class="fas fa-file-pdf me-1"></i>Descargar tabla de amortización' +
+                    '</button>' +
+                '</div>' +
+                '<div class="table-responsive">' +
+                    '<table class="tabla-amort table table-borderless mb-0" style="font-size:.82rem;">' +
+                        '<thead><tr>' +
+                            '<th>Semana</th><th>Fecha Pago</th><th>Semanal</th>' +
+                            '<th>Capital</th><th>Saldo</th>' +
+                            '<th>Pago Real</th><th>Monto Pagado</th><th>Estatus</th>' +
+                        '</tr></thead>' +
+                        '<tbody>' + filas + '</tbody>' +
+                    '</table>' +
+                '</div>';
+
+            _amortCache[idConvenio] = html;
+            content.innerHTML = html;
+        },
+        onError: function() {
+            content.innerHTML = '<p class="text-danger p-3">Error de conexión.</p>';
+        }
+    });
+}
+
+function descargarPdfConvenio(idConvenio) {
+    // Reutiliza el endpoint existente de PDF
+    // Necesita id_credito — lo tomamos del crédito activo
+    if (!_credito) return;
+
+    var form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '/convenios/descargarPdf';
+    form.style.display = 'none';
+
+    var inp = document.createElement('input');
+    inp.name = 'id_credito';
+    inp.value = _credito.Id_credito;
+    form.appendChild(inp);
+
+    var inpConv = document.createElement('input');
+    inpConv.name = 'id_convenio';
+    inpConv.value = idConvenio;
+    form.appendChild(inpConv);
+
+    document.body.appendChild(form);
+    form.submit();
+    document.body.removeChild(form);
 }
 
 // ════════════════════════════════════════════════
@@ -1442,7 +1807,7 @@ function abrirHistorial() {
 var _migCredito = null;
 var _migDetalle = null;
 
-function abrirModalMigracion() {
+window.abrirModalMigracion = function() {
     // Reset
     _migCredito = null;
     _migDetalle = null;
@@ -1457,7 +1822,7 @@ function abrirModalMigracion() {
 
     // Cargar productos en el select
     migCargarProductos();
-}
+};
 
 function migCargarProductos() {
     http.request({
@@ -1485,9 +1850,22 @@ function migCargarProductos() {
     });
 }
 
-function migBuscarCredito() {
+window.migBuscarCredito = function() {
     var id = document.getElementById('migIdCredito').value.trim();
     if (!id) return;
+
+    // Reset estado visual
+    var info = document.getElementById('migInfoCliente');
+    info.classList.remove('d-none', 'alert-info', 'alert-success', 'alert-danger');
+    info.classList.add('d-none');
+    document.getElementById('migStep2').classList.add('d-none');
+    document.getElementById('migPreview').classList.add('d-none');
+    document.getElementById('migBtnGuardar').classList.add('d-none');
+
+    // Mostrar cargando
+    info.classList.remove('d-none');
+    info.className = 'alert alert-secondary';
+    info.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Consultando crédito...';
 
     http.request({
         endpoint: '/convenios/getOfertasCredito',
@@ -1495,38 +1873,101 @@ function migBuscarCredito() {
         data:     { id_credito: id },
         onSuccess: function(resp) {
             if (!resp.success || !resp.datos || !resp.datos.credito) {
-                Swal.fire('No encontrado', resp.mensaje, 'warning');
+                info.className = 'alert alert-danger';
+                info.innerHTML =
+                    '<i class="fas fa-times-circle me-2"></i>' +
+                    '<strong>Crédito no encontrado.</strong> ' +
+                    (resp.mensaje || 'Verifica el ID e intenta de nuevo.');
                 return;
             }
 
             var credito = resp.datos.credito;
             _migCredito = credito;
 
-            var info = document.getElementById('migInfoCliente');
-            info.classList.remove('d-none');
-            info.innerHTML = '<i class="fas fa-user me-2"></i><strong>'
-                + credito.Nombre_cliente
-                + '</strong> — Crédito ' + credito.Id_credito
-                + '<br><small class="text-muted">Adeudo actual S2Movil: $'
-                + parseFloat(credito.Adeudo_total || 0)
-                  .toLocaleString('es-MX', { minimumFractionDigits: 2 })
-                + '</small>';
+            // Ahora verificar si ya tiene convenio activo
+            http.request({
+                endpoint: '/convenios/getConvenioActivo',
+                method:   'POST',
+                data:     { id_credito: id },
+                onSuccess: function(respConv) {
+                    var tieneActivo = respConv.success && respConv.datos && respConv.datos.estatus === 'activo';
 
-            document.getElementById('migAdeudo').value =
-                parseFloat(credito.Adeudo_total || 0).toFixed(2);
+                    if (tieneActivo) {
+                        var conv = respConv.datos;
+                        var fmt  = function(v) {
+                            return '$' + parseFloat(v).toLocaleString('es-MX', { minimumFractionDigits: 2 });
+                        };
 
-            document.getElementById('migBucket').value =
-                credito.Bucket_Morosidad_Real || '';
+                        info.className = 'alert alert-danger';
+                        info.innerHTML =
+                            '<div class="d-flex align-items-start gap-2">' +
+                                '<i class="fas fa-ban fa-lg mt-1 text-danger"></i>' +
+                                '<div>' +
+                                    '<strong>Este crédito ya tiene un convenio activo.</strong><br>' +
+                                    '<small>' +
+                                        '<span class="me-3"><i class="fas fa-user me-1"></i>' + credito.Nombre_cliente + '</span>' +
+                                        '<span class="me-3"><i class="fas fa-calendar me-1"></i>Acuerdo: ' + conv.fecha_acuerdo + '</span>' +
+                                        '<span><i class="fas fa-dollar-sign me-1"></i>Total: ' + fmt(conv.total_a_pagar) + '</span>' +
+                                    '</small><br>' +
+                                    '<small class="text-muted">Dale su seguimiento correspondiente ingresando el id credito en el buscador principal.</small>' +
+                                '</div>' +
+                            '</div>';
 
-            document.getElementById('migStep2').classList.remove('d-none');
+                        // No mostrar paso 2
+                        document.getElementById('migStep2').classList.add('d-none');
+                        document.getElementById('migBtnGuardar').classList.add('d-none');
+                        return;
+                    }
+
+                    // ✅ Sin convenio activo — mostrar info verde y habilitar paso 2
+                    var adeudo = parseFloat(credito.Adeudo_total || 0)
+                        .toLocaleString('es-MX', { minimumFractionDigits: 2 });
+
+                    info.className = 'alert alert-success';
+                    info.innerHTML =
+                        '<div class="d-flex align-items-start gap-2">' +
+                            '<i class="fas fa-check-circle fa-lg mt-1 text-success"></i>' +
+                            '<div>' +
+                                '<strong>' + credito.Nombre_cliente + '</strong> — Crédito #' + credito.Id_credito + '<br>' +
+                                '<small>' +
+                                    '<span class="me-3"><i class="fas fa-exclamation-circle me-1"></i>Bucket: ' + (credito.Bucket_Morosidad_Real || '—') + '</span>' +
+                                    '<span><i class="fas fa-dollar-sign me-1"></i>Adeudo S2Movil: $' + adeudo + '</span>' +
+                                '</small><br>' +
+                                '<small class="text-success fw-semibold">✓ Cumple condiciones para registrar un convenio.</small>' +
+                            '</div>' +
+                        '</div>';
+
+                    document.getElementById('migAdeudo').value =
+                        parseFloat(credito.Adeudo_total || 0).toFixed(2);
+                    document.getElementById('migBucket').value =
+                        credito.Bucket_Morosidad_Real || '';
+                    document.getElementById('migStep2').classList.remove('d-none');
+                },
+                onError: function() {
+                    // Si falla getConvenioActivo, continuamos igual (no bloqueamos)
+                    info.className = 'alert alert-success';
+                    info.innerHTML =
+                        '<i class="fas fa-check-circle me-2"></i>' +
+                        '<strong>' + credito.Nombre_cliente + '</strong> — Crédito #' + credito.Id_credito;
+
+                    document.getElementById('migAdeudo').value =
+                        parseFloat(credito.Adeudo_total || 0).toFixed(2);
+                    document.getElementById('migBucket').value =
+                        credito.Bucket_Morosidad_Real || '';
+                    document.getElementById('migStep2').classList.remove('d-none');
+                }
+            });
         },
         onError: function() {
-            Swal.fire('Error', 'No se pudo consultar el crédito.', 'error');
+            info.className = 'alert alert-danger';
+            info.innerHTML =
+                '<i class="fas fa-times-circle me-2"></i>' +
+                'Error de conexión. Intenta de nuevo.';
         }
     });
-}
+};
 
-function migProductoChange() {
+window.migProductoChange = function() {
     var sel     = document.getElementById('migProducto');
     var opt     = sel.options[sel.selectedIndex];
     var variable = opt.getAttribute('data-variable');
@@ -1542,13 +1983,45 @@ function migProductoChange() {
     };
 
     migCalcular();
-}
+};
 
-function migCalcular() {
+window.migCalcular = function() {
     var adeudo  = parseFloat(document.getElementById('migAdeudo').value)      || 0;
     var pct     = parseFloat(document.getElementById('migPorcentaje').value)   || 0;
     var semanal = parseFloat(document.getElementById('migPagoSemanal').value)  || 0;
     var fecha   = document.getElementById('migFechaInicio').value;
+
+    // Limpiar error previo
+    var errorExistente = document.getElementById('migErrorSemanal');
+    if (errorExistente) errorExistente.remove();
+
+    var mostrarError = function(campo, mensaje) {
+        document.getElementById('migPreview').classList.add('d-none');
+        document.getElementById('migBtnGuardar').classList.add('d-none');
+
+        var inputCampo = document.getElementById(campo);
+        if (!inputCampo) return;
+
+        // Resaltar campo en rojo
+        inputCampo.classList.add('is-invalid');
+
+        // Insertar mensaje debajo del campo
+        var div = document.createElement('div');
+        div.id = 'migErrorSemanal';
+        div.style.cssText = 'color:#dc2626;font-size:0.78rem;margin-top:4px;display:flex;align-items:center;gap:5px;';
+        div.innerHTML = '<i class="fas fa-triangle-exclamation"></i> ' + mensaje;
+        inputCampo.closest('.col-md-4')
+            ? inputCampo.closest('.col-md-4').appendChild(div)
+            : inputCampo.parentNode.appendChild(div);
+    };
+
+    var limpiarError = function() {
+        document.getElementById('migPagoSemanal').classList.remove('is-invalid');
+        document.getElementById('migAdeudo').classList.remove('is-invalid');
+        document.getElementById('migPorcentaje').classList.remove('is-invalid');
+        var e = document.getElementById('migErrorSemanal');
+        if (e) e.remove();
+    };
 
     if (!adeudo || !semanal || !fecha) {
         document.getElementById('migPreview').classList.add('d-none');
@@ -1556,11 +2029,50 @@ function migCalcular() {
         return;
     }
 
-    var descuento   = Math.round(adeudo * (pct / 100) * 100) / 100;
-    var total       = Math.round((adeudo - descuento) * 100) / 100;
-    var semanasEnt  = Math.floor(total / semanal);
-    var residuo     = Math.round((total - semanasEnt * semanal) * 100) / 100;
-    var semanas     = residuo > 0 ? semanasEnt + 1 : semanasEnt;
+    // ── Validación 1: pago semanal debe ser positivo
+    if (semanal <= 0) {
+        mostrarError('migPagoSemanal', 'El pago semanal debe ser un valor positivo mayor a $0.');
+        return;
+    }
+
+    // ── Validación 2: pago semanal no puede ser mayor al total a pagar
+    var descuento = Math.round(adeudo * (pct / 100) * 100) / 100;
+    var total     = Math.round((adeudo - descuento) * 100) / 100;
+
+    if (semanal > total) {
+        mostrarError('migPagoSemanal',
+            'El pago semanal ($' + semanal.toLocaleString('es-MX', { minimumFractionDigits: 2 }) +
+            ') no puede ser mayor al total a pagar ($' +
+            total.toLocaleString('es-MX', { minimumFractionDigits: 2 }) + ').');
+        return;
+    }
+
+    // ── Validación 3: semanas resultantes deben ser razonables (1-52)
+    var semanasEnt = Math.floor(total / semanal);
+    var residuo    = Math.round((total - semanasEnt * semanal) * 100) / 100;
+    var semanas    = residuo > 0 ? semanasEnt + 1 : semanasEnt;
+
+    if (semanas < 1 || semanas > 52) {
+        mostrarError('migPagoSemanal',
+            'El pago semanal genera ' + semanas + ' semanas, lo cual es inválido. ' +
+            'Ajusta el monto para obtener entre 1 y 52 semanas.');
+        return;
+    }
+
+    // ── Validación 4: adeudo base debe ser positivo
+    if (adeudo <= 0) {
+        mostrarError('migAdeudo', 'El adeudo base debe ser mayor a $0.');
+        return;
+    }
+
+    // ── Validación 5: porcentaje entre 0 y 100
+    if (pct < 0 || pct > 100) {
+        mostrarError('migPorcentaje', 'El porcentaje de descuento debe estar entre 0% y 100%.');
+        return;
+    }
+
+    // Todo válido — limpiar errores y mostrar preview
+    limpiarError();
 
     var fmt = function(v) {
         return '$' + v.toLocaleString('es-MX', { minimumFractionDigits: 2 });
@@ -1582,19 +2094,67 @@ function migCalcular() {
 
     document.getElementById('migPreview').classList.remove('d-none');
     document.getElementById('migBtnGuardar').classList.remove('d-none');
-}
+};
 
-function migGuardar() {
+window.validarPdfAdjunto = function(input) {
+    var preview = document.getElementById('migPdfPreview');
+    if (!input.files || !input.files[0]) {
+        preview.innerHTML = '';
+        return;
+    }
+
+    var file = input.files[0];
+    if (file.type !== 'application/pdf') {
+        Swal.fire('Formato incorrecto', 'Solo se permiten archivos PDF', 'warning');
+        input.value = '';
+        preview.innerHTML = '';
+        return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) { // 5MB
+        Swal.fire('Archivo muy grande', 'El PDF no debe exceder 5MB', 'warning');
+        input.value = '';
+        preview.innerHTML = '';
+        return;
+    }
+
+    preview.innerHTML = '<i class="fas fa-file-pdf" style="font-size:2rem;color:#dc2626;"></i>';
+};
+
+
+
+// Modificar migGuardar para incluir el PDF
+window.migGuardar = function() {
     if (!_migCredito || !_migDetalle) {
         Swal.fire('Error', 'Completa todos los campos.', 'warning');
         return;
     }
+
+    // Guardia numérica antes de enviar al backend
+var _semanal = parseFloat(document.getElementById('migPagoSemanal').value) || 0;
+var _adeudo  = parseFloat(document.getElementById('migAdeudo').value) || 0;
+var _pct     = parseFloat(document.getElementById('migPorcentaje').value) || 0;
+var _total   = Math.round((_adeudo - Math.round(_adeudo * (_pct / 100) * 100) / 100) * 100) / 100;
+var _semanas = _semanal > 0 ? Math.ceil(_total / _semanal) : -1;
+
+if (_semanal <= 0 || _semanas < 1 || _semanas > 52) {
+    Swal.fire({
+        icon: 'warning',
+        title: 'Pago semanal inválido',
+        html: 'El valor <strong>$' + _semanal.toLocaleString('es-MX', { minimumFractionDigits: 2 }) + '</strong> ' +
+              'generaría <strong>' + _semanas + ' semanas</strong>, lo cual no es válido.<br><br>' +
+              '<small class="text-muted">Ingresa un monto semanal positivo que resulte en 1 a 52 semanas.</small>',
+        confirmButtonColor: '#764ba2',
+    });
+    return;
+}
 
     var adeudo   = document.getElementById('migAdeudo').value;
     var pct      = document.getElementById('migPorcentaje').value;
     var semanal  = document.getElementById('migPagoSemanal').value;
     var fecha    = document.getElementById('migFechaInicio').value;
     var bucket   = document.getElementById('migBucket').value;
+    var pdfFile  = document.getElementById('migPdfAdjunto').files[0];
 
     if (!adeudo || !pct || !semanal || !fecha) {
         Swal.fire('Campos incompletos', 'Llena todos los campos requeridos.', 'warning');
@@ -1604,7 +2164,8 @@ function migGuardar() {
     Swal.fire({
         title: '¿Registrar convenio?',
         html: 'Se creará el convenio y se marcarán automáticamente<br>'
-            + 'las semanas ya pagadas según S2Movil.',
+            + 'las semanas ya pagadas según S2Movil.'
+            + (pdfFile ? '<br><br><small class="text-success">📎 Se adjuntará: ' + pdfFile.name + '</small>' : ''),
         icon: 'question',
         showCancelButton: true,
         confirmButtonText: 'Sí, registrar',
@@ -1617,100 +2178,131 @@ function migGuardar() {
         document.getElementById('migBtnGuardar').innerHTML =
             '<i class="fas fa-spinner fa-spin"></i> Registrando...';
 
-        http.request({
-            endpoint: '/convenios/migrarConvenio',
-            method:   'POST',
-            data: {
-                id_credito:                   _migCredito.Id_credito,
-    nombre_cliente:               _migCredito.Nombre_cliente,
-    id_producto_convenio:         _migDetalle.id_producto,
-    id_producto_convenio_detalle: _migDetalle.id_detalle,
-    adeudo_base:                  adeudo,
-    porcentaje_descuento:         pct,
-    pago_semanal:                 semanal,
-    fecha_inicio:                 fecha,
-    bucket_morosidad_real:        bucket,
-    dias_mora:                    _migCredito.Dias_mora        || 0,
-    avance_pago_plazo:            _migCredito.Avance_Pago_Plazo || '',
-            },
-            onSuccess: function(resp) {
-                document.getElementById('migBtnGuardar').disabled = false;
-                document.getElementById('migBtnGuardar').innerHTML =
-                    '<i class="fas fa-save"></i> Registrar Convenio';
+        // Si hay PDF, necesitamos usar FormData
+        if (pdfFile) {
+            var formData = new FormData();
+            formData.append('id_credito', _migCredito.Id_credito);
+            formData.append('nombre_cliente', _migCredito.Nombre_cliente);
+            formData.append('id_producto_convenio', _migDetalle.id_producto);
+            formData.append('id_producto_convenio_detalle', _migDetalle.id_detalle);
+            formData.append('adeudo_base', adeudo);
+            formData.append('porcentaje_descuento', pct);
+            formData.append('pago_semanal', semanal);
+            formData.append('fecha_inicio', fecha);
+            formData.append('bucket_morosidad_real', bucket);
+            formData.append('dias_mora', _migCredito.Dias_mora || 0);
+            formData.append('avance_pago_plazo', _migCredito.Avance_Pago_Plazo || '');
+            formData.append('pdf_adjunto', pdfFile);
 
-                if (!resp.success) {
-                    Swal.fire('Error', resp.mensaje, 'error');
-                    return;
+            // Aquí necesitarías modificar el endpoint para aceptar multipart/form-data
+            // Por ahora, simulamos o dejamos pendiente
+            console.log('PDF a subir:', pdfFile.name);
+
+            // Llamada con FormData (requiere modificar el endpoint)
+            http.request({
+                endpoint: '/convenios/migrarConvenio',
+                method: 'POST',
+                data: formData,
+                contentType: false, // Importante para FormData
+                processData: false, // Importante para FormData
+                onSuccess: function(resp) {
+                    // Mismo manejo que abajo
+                    document.getElementById('migBtnGuardar').disabled = false;
+                    document.getElementById('migBtnGuardar').innerHTML = '<i class="fas fa-save"></i> Registrar Convenio';
+
+                    if (!resp.success) {
+                        Swal.fire('Error', resp.mensaje, 'error');
+                        return;
+                    }
+
+                    var d = resp.datos;
+                    bootstrap.Modal.getInstance(document.getElementById('modalMigracion')).hide();
+
+                    Swal.fire({
+                        title: '¡Convenio registrado!',
+                        html: d.semanas_pagadas + ' de ' + d.semanas_total + ' semanas marcadas como pagadas.<br><small class="text-muted">Recargando...</small>',
+                        icon: 'success',
+                        timer: 2000,
+                        showConfirmButton: false
+                    }).then(function() {
+                        location.reload();
+                    });
+                },
+                onError: function() {
+                    document.getElementById('migBtnGuardar').disabled = false;
+                    document.getElementById('migBtnGuardar').innerHTML = '<i class="fas fa-save"></i> Registrar Convenio';
+                    Swal.fire('Error', 'Error de conexión.', 'error');
                 }
+            });
+        } else {
+            // Continuar con la llamada normal sin PDF
+            http.request({
+                endpoint: '/convenios/migrarConvenio',
+                method:   'POST',
+                data: {
+                    id_credito:                   _migCredito.Id_credito,
+                    nombre_cliente:               _migCredito.Nombre_cliente,
+                    id_producto_convenio:         _migDetalle.id_producto,
+                    id_producto_convenio_detalle: _migDetalle.id_detalle,
+                    adeudo_base:                  adeudo,
+                    porcentaje_descuento:         pct,
+                    pago_semanal:                  semanal,
+                    fecha_inicio:                 fecha,
+                    bucket_morosidad_real:        bucket,
+                    dias_mora:                     _migCredito.Dias_mora        || 0,
+                    avance_pago_plazo:             _migCredito.Avance_Pago_Plazo || '',
+                },
+                onSuccess: function(resp) {
+                    document.getElementById('migBtnGuardar').disabled = false;
+                    document.getElementById('migBtnGuardar').innerHTML =
+                        '<i class="fas fa-save"></i> Registrar Convenio';
 
-                var d = resp.datos;
-                bootstrap.Modal.getInstance(
-                    document.getElementById('modalMigracion')
-                ).hide();
+                    if (!resp.success) {
+                        Swal.fire('Error', resp.mensaje, 'error');
+                        return;
+                    }
 
-                Swal.fire({
-                    title: '¡Convenio registrado!',
-                    html: d.semanas_pagadas + ' de ' + d.semanas_total
-                        + ' semanas marcadas como pagadas.<br>'
-                        + '<small class="text-muted">Recarga el crédito para ver el convenio.</small>',
-                    icon: 'success',
-                    confirmButtonText: 'Ver convenio',
-                }).then(function() {
-                    // Recargar el crédito automáticamente
-                    document.getElementById('inputCredito').value =
-                        _migCredito.id_credito;
-                    buscarCredito();
-                });
-            },
-            onError: function() {
-                document.getElementById('migBtnGuardar').disabled = false;
-                document.getElementById('migBtnGuardar').innerHTML =
-                    '<i class="fas fa-save"></i> Registrar Convenio';
-                Swal.fire('Error', 'Error de conexión.', 'error');
-            }
-        });
-    });
-}
+                    var d = resp.datos;
+                    bootstrap.Modal.getInstance(
+                        document.getElementById('modalMigracion')
+                    ).hide();
 
-function enviarMigrarConvenio() {
-    var form = document.getElementById('formMigrarConvenio');
-    var data = {};
-    Array.from(form.elements).forEach(function(el) {
-        if (el.name) data[el.name] = el.value;
-    });
-
-    Swal.fire({ title: 'Registrando...', allowOutsideClick: false, didOpen: function() { Swal.showLoading(); } });
-    http.request({
-        endpoint: '/convenios/migrarConvenio',
-        method: 'POST',
-        data: data,
-        onSuccess: function(resp) {
-            Swal.close();
-            if (resp.success) {
-                Swal.fire('¡Listo!', 'Convenio migrado correctamente.', 'success');
-                var modal = bootstrap.Modal.getInstance(document.getElementById('modalMigrarConvenio'));
-                if (modal) modal.hide();
-            } else {
-                Swal.fire('Error', resp.mensaje || 'No se pudo migrar el convenio.', 'error');
-            }
-        },
-        onError: function() {
-            Swal.close();
-            Swal.fire('Error', 'Error de conexión.', 'error');
+                    Swal.fire({
+                        title: '¡Convenio registrado!',
+                        html: d.semanas_pagadas + ' de ' + d.semanas_total
+                            + ' semanas marcadas como pagadas.<br>'
+                            + '<small class="text-muted">Recargando...</small>',
+                        icon: 'success',
+                        timer: 2000,
+                        showConfirmButton: false
+                    }).then(function() {
+                        location.reload(); // AUTO-REFRESH
+                    });
+                },
+                onError: function() {
+                    document.getElementById('migBtnGuardar').disabled = false;
+                    document.getElementById('migBtnGuardar').innerHTML =
+                        '<i class="fas fa-save"></i> Registrar Convenio';
+                    Swal.fire('Error', 'Error de conexión.', 'error');
+                }
+            });
         }
     });
-}
+};
 
-window.abrirHistorial = abrirHistorial;
+// Asegurar funciones globales
+window.seleccionarCredito = seleccionarCredito;
+window.renderCreditoBanner = renderCreditoBanner;
+window.renderOfertas = renderOfertas;
+window.congelarModulo = congelarModulo;
+window.fmtFecha = fmtFecha;
+window.fmtFechaRango = fmtFechaRango;
+window.fmtPagoRealizado = fmtPagoRealizado;
+window.bindBotonesPago = bindBotonesPago;
+window.toggleAmortizacion = toggleAmortizacion;
+window.descargarPdfConvenio = descargarPdfConvenio;
+window.migCargarProductos = migCargarProductos;
 
-window.abrirModalMigracion = abrirModalMigracion;
+console.log('✅ Módulo Convenios cargado correctamente');
 
-window.buscarCredito    = buscarCredito;
-window.seleccionarOferta = seleccionarOferta;
-window.descargarPdf     = descargarPdf;
-window.guardarConvenio  = guardarConvenio;
-window.verTablaAmortizacion = verTablaAmortizacion;
-window.actualizarSlider = actualizarSlider;
-window.cancelarConvenio = cancelarConvenio;
 </script>
-

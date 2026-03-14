@@ -117,28 +117,96 @@ public function cancelarConvenio()
 // API: MIGRAR CONVENIO EXISTENTE
 // ════════════════════════════════════════════════
 
+// ════════════════════════════════════════════════
+// API: MIGRAR CONVENIO CON PDF
+// ════════════════════════════════════════════════
+
 public function migrarConvenio()
 {
-    $campos = ['id_credito','nombre_cliente','id_producto_convenio',
-               'id_producto_convenio_detalle','adeudo_base',
-               'porcentaje_descuento','pago_semanal','fecha_inicio'];
+    // Verificar si es multipart/form-data (con PDF)
+    $esMultipart = !empty($_FILES['pdf_adjunto']['name']);
 
-    foreach ($campos as $campo) {
-        if (empty($_POST[$campo])) {
-            self::respuestaJSON(self::respuesta(false, "Campo requerido: $campo"));
-            return;
+    if ($esMultipart) {
+        // Procesar con archivo
+        $campos = ['id_credito','nombre_cliente','id_producto_convenio',
+                   'id_producto_convenio_detalle','adeudo_base',
+                   'porcentaje_descuento','pago_semanal','fecha_inicio'];
+
+        foreach ($campos as $campo) {
+            if (empty($_POST[$campo])) {
+                self::respuestaJSON(self::respuesta(false, "Campo requerido: $campo"));
+                return;
+            }
         }
-    }
 
-    $datos = array_merge($_POST, [
-        'usuario_alta'        => $_SESSION['usuario_nombre'] ?? $_SESSION['usuario'] ?? 'sistema',
-        'bucket_morosidad_real' => $_POST['bucket_morosidad_real'] ?? '',
-        'dias_mora'           => $_POST['dias_mora'] ?? 0,
-        'avance_pago_plazo'   => $_POST['avance_pago_plazo'] ?? '',
-    ]);
+        // Procesar PDF
+        $pdfPath = null;
+        if (!empty($_FILES['pdf_adjunto']['tmp_name'])) {
+            $pdfPath = $this->_guardarPdfAdjunto($_FILES['pdf_adjunto'], $_POST['id_credito']);
+            if (!$pdfPath) {
+                self::respuestaJSON(self::respuesta(false, 'Error al guardar el PDF adjunto.'));
+                return;
+            }
+        }
+
+        $datos = array_merge($_POST, [
+            'usuario_alta'        => $_SESSION['usuario_nombre'] ?? $_SESSION['usuario'] ?? 'sistema',
+            'bucket_morosidad_real' => $_POST['bucket_morosidad_real'] ?? '',
+            'dias_mora'           => $_POST['dias_mora'] ?? 0,
+            'avance_pago_plazo'   => $_POST['avance_pago_plazo'] ?? '',
+            'pdf_adjunto'         => $pdfPath,
+        ]);
+    } else {
+        // Sin PDF (JSON normal)
+        $campos = ['id_credito','nombre_cliente','id_producto_convenio',
+                   'id_producto_convenio_detalle','adeudo_base',
+                   'porcentaje_descuento','pago_semanal','fecha_inicio'];
+
+        foreach ($campos as $campo) {
+            if (empty($_POST[$campo])) {
+                self::respuestaJSON(self::respuesta(false, "Campo requerido: $campo"));
+                return;
+            }
+        }
+
+        $datos = array_merge($_POST, [
+            'usuario_alta'        => $_SESSION['usuario_nombre'] ?? $_SESSION['usuario'] ?? 'sistema',
+            'bucket_morosidad_real' => $_POST['bucket_morosidad_real'] ?? '',
+            'dias_mora'           => $_POST['dias_mora'] ?? 0,
+            'avance_pago_plazo'   => $_POST['avance_pago_plazo'] ?? '',
+        ]);
+    }
 
     $r = ConveniosDAO::migrarConvenio($datos);
     self::respuestaJSON($r);
+}
+
+/**
+ * Guarda PDF adjunto en el servidor
+ */
+private function _guardarPdfAdjunto($archivo, $idCredito)
+{
+    try {
+        $directorio = $_SERVER['DOCUMENT_ROOT'] . '/uploads/convenios/';
+
+        // Crear directorio si no existe
+        if (!file_exists($directorio)) {
+            mkdir($directorio, 0777, true);
+        }
+
+        $extension = pathinfo($archivo['name'], PATHINFO_EXTENSION);
+        $nombreArchivo = 'convenio_' . $idCredito . '_' . date('Ymd_His') . '.' . $extension;
+        $rutaCompleta = $directorio . $nombreArchivo;
+
+        if (move_uploaded_file($archivo['tmp_name'], $rutaCompleta)) {
+            return '/uploads/convenios/' . $nombreArchivo; // Ruta relativa para guardar en BD
+        }
+
+        return null;
+    } catch (\Exception $e) {
+        error_log("Error guardando PDF: " . $e->getMessage());
+        return null;
+    }
 }
 
     // ─────────────────────────────────────────────
@@ -311,6 +379,16 @@ public function registrarPago()
 public function getProductosConvenio()
 {
     $r = ConveniosDAO::getProductosConvenio();
+    self::respuestaJSON($r);
+}
+
+public function getAmortizacionConvenio()
+{
+    if (empty($_POST['id_convenio'])) {
+        self::respuestaJSON(self::respuesta(false, 'id_convenio requerido.'));
+        return;
+    }
+    $r = ConveniosDAO::getAmortizacionConvenio((int) $_POST['id_convenio']);
     self::respuestaJSON($r);
 }
 
