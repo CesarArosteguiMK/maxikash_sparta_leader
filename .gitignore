@@ -57,12 +57,11 @@ backend/storage/rate_limit/
 backend/storage/cache/*
 !backend/storage/cache/.gitkeep
 
-# ========== API Agente Segundómetro — TODA la carpeta; no subir NADA ==========
-# Raíz del agente (Node): código, node_modules, .env, keys, data, logs, etc.
+# ========== API Agente Segundómetro — NO SUBIR DESDE NINGUNA MÁQUINA ==========
+# La carpeta segundometro-agent (Node) no debe ir al repo: ni en tu PC, ni en el servidor, ni en otras.
+# Se despliega a mano (copiar carpeta, .env, keys). No hacer git add de esta ruta.
 backend/services/segundometro-agent/
 backend/services/segundometro-agent/**
-# Por si la carpeta se copia con otro nombre en la misma ruta (opcional, descomenta si aplica):
-# backend/services/segundometro-agente/
 
 # ========== Pruebas OCR (no subir; puedes copiar archivos nuevos, no se subirán) ==========
 pruebas_OCR/

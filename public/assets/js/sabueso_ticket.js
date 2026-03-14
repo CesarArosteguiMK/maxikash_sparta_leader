@@ -3,6 +3,7 @@
  */
 (function() {
     var esAdminTicket = false;
+    var esperandoCatalogosDesdeContinuar = false;
     var apiBase = (function(){ var p = window.location.pathname || ''; var i = p.indexOf('/sabueso'); return i !== -1 ? p.substring(0, i) : ''; })();
     window.abrirEvidenciaDictamenGrande = function(src) {
         if (!src) return;
@@ -63,24 +64,87 @@
             if (typeof actualizarCountdownsDictamen === 'function') actualizarCountdownsDictamen('#tablaTickets');
         }, 1000);
         $('#modalLevantarTicket').on('shown.bs.modal', function() { cargarCatalogosTicket(); });
-        $(document).on('click', '#btnAbrirModalLevantarTicket', function() {
-            intentarAbrirModalLevantarTicket(function() {
-                $('#modal_id_tipo_ticket, #modal_id_prioridad, #modal_id_origen_ticket').val('');
-                $('#modal_id_credito, #modal_descripcion_inicial').val('');
-                clearFechaVencimiento();
-                setButtonLevantarLoading(false);
-                enviandoTicket = false;
-                var el = document.getElementById('modalLevantarTicket');
-                if (el) {
-                    if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
-                        var m = bootstrap.Modal.getOrCreateInstance(el);
-                        if (m) m.show();
-                    } else if (typeof $ !== 'undefined' && $.fn.modal) {
-                        $('#modalLevantarTicket').modal('show');
-                    }
+        // Paso 1: abrir modal de categorías con selección visual
+        var categoriaSeleccionada = 'sabueso';
+        function actualizarEstadoSeleccionCategoria(categoria) {
+            categoriaSeleccionada = categoria || 'sabueso';
+            $('.ticket-categoria-card').removeClass('is-selected');
+            $('.ticket-categoria-card[data-categoria="' + categoriaSeleccionada + '"]').addClass('is-selected');
+            var btnTxt = categoriaSeleccionada === 'sabueso' ? 'Continuar con Sabueso' : 'Continuar';
+            $('#btnContinuarCategoriaTicket').html(btnTxt + ' <i class="fa-solid fa-arrow-right ms-1"></i>');
+        }
+        function abrirModalPickerCategorias() {
+            actualizarEstadoSeleccionCategoria('sabueso');
+            var elPicker = document.getElementById('modalElegirCategoriaTicket');
+            if (elPicker) {
+                if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+                    bootstrap.Modal.getOrCreateInstance(elPicker).show();
+                } else if (typeof $ !== 'undefined' && $.fn.modal) {
+                    $('#modalElegirCategoriaTicket').modal('show');
                 }
-            });
+            } else {
+                abrirModalLevantarTicketSabuesoDirecto();
+            }
+        }
+        $(document).on('click', '#btnAbrirModalLevantarTicket', function() {
+            // Abrir picker sin validar ventana Sabueso (solo aplica al elegir Sabueso)
+            intentarAbrirModalLevantarTicket(function() {
+                abrirModalPickerCategorias();
+            }, false);
         });
+        $(document).on('click', '.ticket-categoria-card[data-disponible="1"]', function() {
+            var cat = ($(this).attr('data-categoria') || '').toString().trim();
+            if (!cat) return;
+            actualizarEstadoSeleccionCategoria(cat);
+        });
+        $(document).on('click', '#btnContinuarCategoriaTicket', function() {
+            if (!categoriaSeleccionada) {
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({ icon: 'info', title: 'Selecciona una opción', text: 'Elige el área para continuar.' });
+                }
+                return;
+            }
+            if (categoriaSeleccionada !== 'sabueso') {
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({ icon: 'info', title: 'Próximamente', text: 'Esta categoría aún no está disponible.' });
+                }
+                return;
+            }
+            var elPicker = document.getElementById('modalElegirCategoriaTicket');
+            if (elPicker && typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+                bootstrap.Modal.getOrCreateInstance(elPicker).hide();
+            } else if (typeof $ !== 'undefined' && $.fn.modal) {
+                $('#modalElegirCategoriaTicket').modal('hide');
+            }
+            // Mostrar "Cargando..." durante todo el proceso (validación + catálogos) hasta que el formulario esté listo
+            esperandoCatalogosDesdeContinuar = true;
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    title: 'Cargando…',
+                    text: 'Preparando formulario de ticket.',
+                    allowOutsideClick: false,
+                    allowEscapeKey: false,
+                    didOpen: function() { if (typeof Swal.showLoading === 'function') Swal.showLoading(); }
+                });
+            }
+            intentarAbrirModalLevantarTicket(function() { abrirModalLevantarTicketSabuesoDirecto(); }, true);
+        });
+        function abrirModalLevantarTicketSabuesoDirecto() {
+            $('#modal_id_tipo_ticket, #modal_id_prioridad, #modal_id_origen_ticket').val('');
+            $('#modal_id_credito, #modal_descripcion_inicial').val('');
+            clearFechaVencimiento();
+            setButtonLevantarLoading(false);
+            enviandoTicket = false;
+            var el = document.getElementById('modalLevantarTicket');
+            if (el) {
+                if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+                    var m = bootstrap.Modal.getOrCreateInstance(el);
+                    if (m) m.show();
+                } else if (typeof $ !== 'undefined' && $.fn.modal) {
+                    $('#modalLevantarTicket').modal('show');
+                }
+            }
+        }
     });
 
     function getTickets() {
@@ -132,9 +196,15 @@
                     } else if (prHtml) {
                         tiempoVisitarHtml = prHtml;
                     }
+                    var cat = (t.categoria_gestion || 'sabueso').toString().toLowerCase();
+                    var gestionLabels = { sabueso: 'Sabueso', beaticos: 'Viáticos', viaticos: 'Viáticos', aplicaciones_de_pago: 'Aplicaciones de pago' };
+                    var gestionTxt = gestionLabels[cat] || cat.replace(/_/g, ' ').replace(/\b\w/g, function(c) { return c.toUpperCase(); });
+                    var gestionBadge = '<span class="badge bg-label-primary">' + gestionTxt + '</span>';
+                    if (cat === 'sabueso') gestionBadge = '<span class="badge bg-primary text-white"><i class="fa-solid fa-dog me-1"></i>Sabueso</span>';
                     var row = {
                         _fecha_creacion: (t.fecha_creacion || ''),
                         folio_tipo: '<div class="fw-semibold">' + (t.folio || '\u2014') + '</div><div class="small text-muted mt-1">' + (t.tipo_ticket_nombre || '\u2014') + '</div>',
+                        gestion: gestionBadge,
                         estado: estadoBadge,
                         prioridad: prioridadBadge,
                         credito: '<small>#' + (t.id_credito != null ? t.id_credito : '\u2014') + '</small>',
@@ -309,7 +379,7 @@
     function configurarFechaVencimiento() {
         setTimeout(function() {
             var oldInput = document.getElementById('modal_fecha_vencimiento');
-            if (!oldInput) return;
+            if (!oldInput || oldInput.getAttribute('type') === 'hidden') return;
             if (fechaVencimientoClickHandler && oldInput) {
                 oldInput.removeEventListener('click', fechaVencimientoClickHandler);
                 fechaVencimientoClickHandler = null;
@@ -443,20 +513,25 @@
             intentarAbrirModalLevantarTicket(function() {
                 $('#modal_id_credito').val(idCred);
                 $('#modalDatosCredito').modal('hide');
+                // Ir directo al formulario Sabueso con el crédito ya rellenado
                 var el = document.getElementById('modalLevantarTicket');
                 if (el && typeof bootstrap !== 'undefined' && bootstrap.Modal) {
                     bootstrap.Modal.getOrCreateInstance(el).show();
                 } else if (typeof $ !== 'undefined' && $.fn.modal) {
                     $('#modalLevantarTicket').modal('show');
                 }
-            });
+            }, true);
         }
     }
 
     /**
      * Domingo 12:01 p.m. – Lunes 7:00 a.m. CDMX: no abrir modal; mensaje desde servidor.
      */
-    function intentarAbrirModalLevantarTicket(abrirModal) {
+    function intentarAbrirModalLevantarTicket(abrirModal, aplicarVentanaSabueso) {
+        if (aplicarVentanaSabueso !== true) {
+            if (typeof abrirModal === 'function') abrirModal();
+            return;
+        }
         if (typeof http === 'undefined' || typeof http.request !== 'function') {
             if (typeof abrirModal === 'function') abrirModal();
             return;
@@ -464,13 +539,15 @@
         http.request({
             endpoint: '/sabueso/ticketLevantarPermitido',
             metodo: 'POST',
-            data: JSON.stringify({}),
+            data: JSON.stringify({ categoria: 'sabueso' }),
             contentType: 'application/json',
             processData: false,
             showLoader: false,
             onSuccess: function(resp) {
                 if (resp && resp.permitido === false && resp.mensaje) {
+                    esperandoCatalogosDesdeContinuar = false;
                     if (typeof Swal !== 'undefined') {
+                        if (typeof Swal.isVisible === 'function' && Swal.isVisible()) Swal.close();
                         Swal.fire({
                             icon: 'info',
                             title: 'Registro no disponible',
@@ -505,73 +582,130 @@
                     return h;
                 }
                 $('#modal_id_tipo_ticket').html(options(tipos));
-                $('#modal_id_prioridad').html(options(prioridades));
+                if ($('#modal_id_prioridad').length && $('#modal_id_prioridad').is('select')) {
+                    $('#modal_id_prioridad').html(options(prioridades));
+                }
                 $('#modal_id_origen_ticket').html(options(origenes));
                 var origenSistema = origenes.filter(function(o) { return (o.nombre || '').toLowerCase().indexOf('sistema') !== -1; })[0];
                 if (origenSistema && origenSistema.id) $('#modal_id_origen_ticket').val(origenSistema.id);
                 else if (origenes.length > 0 && origenes[0].id) $('#modal_id_origen_ticket').val(origenes[0].id);
                 setTimeout(configurarFechaVencimiento, 150);
+                if (esperandoCatalogosDesdeContinuar && typeof Swal !== 'undefined' && typeof Swal.isVisible === 'function' && Swal.isVisible()) Swal.close();
+                esperandoCatalogosDesdeContinuar = false;
+            },
+            onError: function() {
+                if (esperandoCatalogosDesdeContinuar && typeof Swal !== 'undefined' && typeof Swal.isVisible === 'function' && Swal.isVisible()) Swal.close();
+                esperandoCatalogosDesdeContinuar = false;
             }
         });
     }
 
     function enviarLevantarTicket() {
+        // Prioridad siempre Alta y vencimiento +24h en backend; no se envían desde el formulario
         var payload = {
+            categoria_gestion: 'sabueso',
             id_tipo_ticket: $('#modal_id_tipo_ticket').val(),
-            id_prioridad: $('#modal_id_prioridad').val(),
             id_origen_ticket: $('#modal_id_origen_ticket').val(),
             id_credito: ($('#modal_id_credito').val() || '').toString().trim(),
-            descripcion_inicial: ($('#modal_descripcion_inicial').val() || '').toString().trim(),
-            fecha_vencimiento: ($('#modal_fecha_vencimiento').val() || '').toString().trim()
+            descripcion_inicial: ($('#modal_descripcion_inicial').val() || '').toString().trim()
         };
-        if (!payload.id_tipo_ticket || !payload.id_prioridad || !payload.id_origen_ticket || !payload.descripcion_inicial) {
-            Swal.fire({ icon: 'warning', title: 'Faltan datos', text: 'Complete tipo, prioridad, origen y descripción.' });
+        if (!payload.id_tipo_ticket || !payload.id_origen_ticket || !payload.descripcion_inicial) {
+            Swal.fire({ icon: 'warning', title: 'Faltan datos', text: 'Complete tipo, origen y descripción.' });
             return;
         }
         if (!payload.id_credito || isNaN(parseInt(payload.id_credito, 10)) || parseInt(payload.id_credito, 10) < 1) {
             Swal.fire({ icon: 'warning', title: 'ID de crédito obligatorio', text: 'Debe indicar un ID de crédito válido.' });
             return;
         }
-        if (!payload.fecha_vencimiento) {
-            Swal.fire({ icon: 'warning', title: 'Fecha de vencimiento obligatoria', text: 'Debe seleccionar la fecha de vencimiento.' });
-            return;
-        }
         if (enviandoTicket) return;
-        enviandoTicket = true;
-        Swal.fire({ title: 'Registrando ticket', text: 'Se está registrando el ticket. Espere un momento...', showConfirmButton: false, allowOutsideClick: false, allowEscapeKey: false, didOpen: function() { if (typeof Swal !== 'undefined' && typeof Swal.showLoading === 'function') Swal.showLoading(); } });
-        setButtonLevantarLoading(true);
+
+        function procederACrearTicket() {
+            enviandoTicket = true;
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    title: 'Registrando ticket',
+                    text: 'Se está registrando el ticket. Espere un momento...',
+                    showConfirmButton: false,
+                    allowOutsideClick: false,
+                    allowEscapeKey: false,
+                    didOpen: function() { if (typeof Swal !== 'undefined' && typeof Swal.showLoading === 'function') Swal.showLoading(); }
+                });
+            }
+            setButtonLevantarLoading(true);
+            http.request({
+                endpoint: "/sabueso/crearTicket",
+                metodo: "POST",
+                data: JSON.stringify(payload),
+                contentType: "application/json",
+                processData: false,
+                showLoader: false,
+                onSuccess: function(resp) {
+                    if (!resp.success) {
+                        enviandoTicket = false;
+                        if (typeof Swal !== 'undefined' && Swal.isVisible && Swal.isVisible()) Swal.close();
+                        setButtonLevantarLoading(false);
+                        Swal.fire({ icon: 'error', title: 'Error', text: resp.mensaje || 'No se pudo crear el ticket. Verifique el ID de crédito.' });
+                        return;
+                    }
+                    enviandoTicket = false;
+                    if (typeof Swal !== 'undefined' && Swal.isVisible && Swal.isVisible()) Swal.close();
+                    $('#modalLevantarTicket').modal('hide');
+                    setButtonLevantarLoading(false);
+                    $('#modal_id_tipo_ticket, #modal_id_origen_ticket').val('');
+                    if ($('#modal_id_prioridad').is('select')) $('#modal_id_prioridad').val('');
+                    $('#modal_id_credito, #modal_descripcion_inicial').val('');
+                    clearFechaVencimiento();
+                    getTickets();
+                    setTimeout(function() {
+                        Swal.fire({ icon: 'success', title: 'Ticket creado', text: resp.mensaje || 'Folio: ' + (resp.datos && resp.datos.folio ? resp.datos.folio : '') });
+                    }, 100);
+                },
+                onError: function(err) {
+                    enviandoTicket = false;
+                    if (typeof Swal !== 'undefined' && Swal.isVisible && Swal.isVisible()) Swal.close();
+                    setButtonLevantarLoading(false);
+                    Swal.fire({ icon: 'error', title: 'Error', text: (err && err.mensaje) || 'No se pudo crear el ticket.' });
+                }
+            });
+        }
+
         http.request({
-            endpoint: "/sabueso/crearTicket",
+            endpoint: "/sabueso/verificarCreditoDuplicadoCreador",
             metodo: "POST",
-            data: JSON.stringify(payload),
+            data: JSON.stringify({ id_credito: parseInt(payload.id_credito, 10) }),
             contentType: "application/json",
             processData: false,
             showLoader: false,
             onSuccess: function(resp) {
-                if (!resp.success) {
-                    enviandoTicket = false;
-                    if (typeof Swal !== 'undefined' && Swal.isVisible && Swal.isVisible()) Swal.close();
-                    setButtonLevantarLoading(false);
-                    Swal.fire({ icon: 'error', title: 'Error', text: resp.mensaje || 'No se pudo crear el ticket. Verifique el ID de crédito.' });
-                    return;
+                if (resp.success && resp.ya_tiene) {
+                    var tk = resp.ticket_existente || {};
+                    var idTk = (tk.id_ticket != null) ? String(tk.id_ticket) : '—';
+                    var fechaTkTxt = '—';
+                    if (tk.fecha_creacion) {
+                        try {
+                            fechaTkTxt = new Date(tk.fecha_creacion).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' });
+                        } catch (e) { fechaTkTxt = tk.fecha_creacion; }
+                    }
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Ticket con este crédito',
+                        html: 'Usted ya tiene un ticket registrado con el ID de crédito <strong>' + payload.id_credito + '</strong>.<br>' +
+                            '<span class="text-muted small">Ticket ID: <strong>' + idTk + '</strong> · Fecha de apertura: <strong>' + fechaTkTxt + '</strong></span><br><br>' +
+                            'Por favor verifique que no se trate de la misma petición o la misma gestión antes de continuar.<br><br>¿Desea proceder con el registro de un nuevo ticket?',
+                        showCancelButton: true,
+                        confirmButtonText: 'Sí, proceder',
+                        cancelButtonText: 'No, cancelar',
+                        confirmButtonColor: '#0d6efd',
+                        cancelButtonColor: '#6c757d'
+                    }).then(function(confirmResult) {
+                        if (confirmResult && confirmResult.isConfirmed) procederACrearTicket();
+                    });
+                } else {
+                    procederACrearTicket();
                 }
-                enviandoTicket = false;
-                if (typeof Swal !== 'undefined' && Swal.isVisible && Swal.isVisible()) Swal.close();
-                $('#modalLevantarTicket').modal('hide');
-                setButtonLevantarLoading(false);
-                $('#modal_id_tipo_ticket, #modal_id_prioridad, #modal_id_origen_ticket').val('');
-                $('#modal_id_credito, #modal_descripcion_inicial').val('');
-                clearFechaVencimiento();
-                getTickets();
-                setTimeout(function() {
-                    Swal.fire({ icon: 'success', title: 'Ticket creado', text: resp.mensaje || 'Folio: ' + (resp.datos && resp.datos.folio ? resp.datos.folio : '') });
-                }, 100);
             },
-            onError: function(err) {
-                enviandoTicket = false;
-                if (typeof Swal !== 'undefined' && Swal.isVisible && Swal.isVisible()) Swal.close();
-                setButtonLevantarLoading(false);
-                Swal.fire({ icon: 'error', title: 'Error', text: (err && err.mensaje) || 'No se pudo crear el ticket.' });
+            onError: function() {
+                procederACrearTicket();
             }
         });
     }

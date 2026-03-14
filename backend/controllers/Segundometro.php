@@ -206,7 +206,7 @@ class Segundometro extends Controller
                                                     </td>
                                                     <td class="text-center">
                                                         <div class="d-flex flex-wrap gap-2 justify-content-center align-items-center">
-                                                            <a href="/segundometro/descargarArchivo?nombre_archivo=${encodeURIComponent(archivo.nombre)}" class="btn btn-sm btn-primary" title="Descargar reporte">
+                                                            <a href="/segundometro/descargarArchivo?nombre_archivo=${encodeURIComponent(archivo.nombre)}" class="btn btn-sm btn-primary btn-descargar-reporte" title="Descargar reporte" data-descargar-reporte="1" data-nombre="${String(archivo.nombre || '').replace(/"/g, '&quot;')}">
                                                                 <i class="fa fa-download me-1"></i>Descargar
                                                             </a>
                                                             <button
@@ -868,6 +868,62 @@ class Segundometro extends Controller
             }
 
             document.addEventListener('DOMContentLoaded', function() {
+                // Delegado único: aviso de descarga + fetch (funciona en localhost y servidor aunque haya caché)
+                document.addEventListener('click', function descargarReporteClick(e) {
+                    var a = e.target && e.target.closest && e.target.closest('a[data-descargar-reporte]');
+                    if (!a) return;
+                    e.preventDefault();
+                    var url = a.getAttribute('href');
+                    if (!url) return;
+                    var nombre = (a.getAttribute('data-nombre') || 'reporte.zip').replace(/</g, '');
+                    var esc = function (s) { return (s + '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;'); };
+                    var hacerDescarga = function () {
+                        fetch(url, { method: 'GET', credentials: 'same-origin', cache: 'no-store' })
+                            .then(function (r) {
+                                if (!r.ok) return r.text().then(function (t) { throw new Error(t || ('HTTP ' + r.status)); });
+                                return r.blob();
+                            })
+                            .then(function (blob) {
+                                if (typeof Swal !== 'undefined') Swal.close();
+                                var u = URL.createObjectURL(blob);
+                                var link = document.createElement('a');
+                                link.href = u;
+                                link.download = nombre;
+                                document.body.appendChild(link);
+                                link.click();
+                                document.body.removeChild(link);
+                                URL.revokeObjectURL(u);
+                                if (typeof Swal !== 'undefined') {
+                                    Swal.fire({ icon: 'success', title: 'Descarga lista', text: nombre, timer: 2200, showConfirmButton: false });
+                                }
+                            })
+                            .catch(function (err) {
+                                if (typeof Swal !== 'undefined') Swal.close();
+                                if (typeof Swal !== 'undefined') {
+                                    Swal.fire({ icon: 'error', title: 'Error al descargar', html: esc((err && err.message) || String(err)).substring(0, 500), confirmButtonText: 'Cerrar' });
+                                } else {
+                                    alert('Error al descargar: ' + ((err && err.message) || err));
+                                }
+                            });
+                    };
+                    try {
+                        if (typeof Swal !== 'undefined') {
+                            Swal.fire({
+                                title: 'Descargando reporte',
+                                html: '<p class="mb-2">Se está descargando el reporte. Por favor espere; puede tardar según el tamaño del archivo.</p><code class="text-primary bg-light px-1 rounded small">' + esc(nombre) + '</code>',
+                                allowOutsideClick: false,
+                                showConfirmButton: false,
+                                didOpen: function () { if (typeof Swal !== 'undefined') Swal.showLoading(); hacerDescarga(); }
+                            });
+                        } else {
+                            alert('Se está descargando el reporte. Por favor espere; puede tardar según el tamaño del archivo.');
+                            hacerDescarga();
+                        }
+                    } catch (err) {
+                        alert('Se está descargando el reporte. Por favor espere.');
+                        hacerDescarga();
+                    }
+                });
                 actualizarEstadoBotonTruncar();
                 actualizarEstadoAgente();
                 cargarEstadoAutoCopy();

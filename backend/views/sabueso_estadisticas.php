@@ -1,4 +1,37 @@
 <style>
+    /* Barra título del dashboard (Estadísticas de Sabueso + Volver) — mismo lenguaje visual que las cards */
+    .estad-sabueso-wrap .estad-titulo-bar {
+        background: rgba(255, 255, 255, 0.55);
+        backdrop-filter: blur(14px);
+        -webkit-backdrop-filter: blur(14px);
+        border: 1px solid rgba(255, 255, 255, 0.7);
+        box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+        border-radius: 1rem;
+        padding: 0.85rem 1.25rem;
+    }
+    .estad-sabueso-wrap .estad-titulo-bar .estad-titulo-texto {
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: var(--bs-body-color, #212529);
+    }
+    .estad-sabueso-wrap .estad-titulo-bar .estad-titulo-icono {
+        color: var(--bs-primary);
+    }
+    [data-bs-theme="dark"] .estad-sabueso-wrap .estad-titulo-bar,
+    .dark-style .estad-sabueso-wrap .estad-titulo-bar {
+        background: rgba(30, 34, 44, 0.65);
+        border-color: rgba(255, 255, 255, 0.08);
+        box-shadow: 0 4px 24px rgba(0, 0, 0, 0.25);
+    }
+
+    /* Iconos con color en el selector de estadísticas (evitar grises) */
+    #estadisticasSelectorWrap .estad-icono-sabueso { color: #0d6efd; }
+    #estadisticasSelectorWrap .estad-icono-sabueso i { color: inherit; }
+    #estadisticasSelectorWrap .estad-icono-otras { color: #0d9488; }
+    #estadisticasSelectorWrap .estad-icono-otras i { color: inherit; }
+    #estadisticasSelectorWrap .estad-icono-tableros { color: #7c3aed; }
+    #estadisticasSelectorWrap .estad-icono-tableros i { color: inherit; }
+
     /* Liquid glass suave: compatible con tema global (sin segundo modo oscuro) */
     .estad-sabueso-wrap .estad-glass {
         background: rgba(255, 255, 255, 0.55);
@@ -84,6 +117,25 @@
         display: inline-flex; align-items: center; justify-content: center;
         font-size: 0.55rem; font-weight: 800; color: #fff; flex-shrink: 0;
     }
+    /* Por gestor: badges Tasa y Cumplimiento más intensos (modo claro y oscuro) */
+    .estad-sabueso-wrap #tablaPorGestorLectura .badge.bg-success,
+    .estad-sabueso-wrap #tablaPorGestorPV .badge.bg-success {
+        background-color: #0d8a3d !important;
+        color: #fff !important;
+    }
+    .estad-sabueso-wrap #tablaPorGestorLectura .badge.bg-warning,
+    .estad-sabueso-wrap #tablaPorGestorPV .badge.bg-warning {
+        background-color: #e5a800 !important;
+        color: #000 !important;
+    }
+    .estad-sabueso-wrap #tablaPorGestorLectura .badge.bg-danger {
+        background-color: #c92a2a !important;
+        color: #fff !important;
+    }
+    .estad-sabueso-wrap #tablaPorGestorPV .badge.bg-secondary {
+        background-color: #495057 !important;
+        color: #fff !important;
+    }
     .estad-sabueso-wrap .estad-pill-gestor .btn.active {
         background-color: var(--bs-success) !important;
         color: #fff !important;
@@ -127,6 +179,19 @@
         border-radius: 0.75rem; padding: 0.9rem 1rem;
         border: 1px solid transparent;
     }
+    /* Iconos de las tarjetas Global con color en modo claro */
+    .estad-sabueso-wrap .estad-global-tile.bg-primary.bg-opacity-10 .fa-eye {
+        color: #0d6efd !important;
+    }
+    .estad-sabueso-wrap .estad-global-tile.bg-success.bg-opacity-10 .fa-paper-plane {
+        color: #198754 !important;
+    }
+    .estad-sabueso-wrap .estad-global-tile.bg-warning.bg-opacity-10 .fa-triangle-exclamation {
+        color: #d97706 !important;
+    }
+    .estad-sabueso-wrap .estad-global-tile[style*="111, 66, 193"] .fa-check {
+        color: #6f42c1 !important;
+    }
     @media (max-width: 767px) {
         .estad-sabueso-wrap .estad-num-big { font-size: 2rem; }
     }
@@ -155,6 +220,7 @@
         border-radius: 1rem;
         overflow: hidden;
         box-shadow: 0 12px 40px rgba(0,0,0,0.15);
+        max-height: 92vh;
     }
     .swal2-popup.estad-detalle-swal .swal2-title {
         margin: 0;
@@ -186,7 +252,7 @@
         color: #495057;
     }
     .estad-modal-detalle-table-wrap {
-        max-height: 380px;
+        max-height: 62vh;
         overflow: auto;
         margin: 0;
     }
@@ -213,6 +279,29 @@
     }
     .estad-modal-detalle-table-wrap tbody tr:hover {
         background: rgba(25,135,84,0.05);
+    }
+    .estad-modal-detalle-pager {
+        border-top: 1px solid var(--bs-border-color, #dee2e6);
+        background: linear-gradient(180deg, rgba(248,249,250,0.95) 0%, rgba(248,249,250,1) 100%);
+        padding: 0.55rem 0.85rem 0.65rem;
+        margin: 0;
+    }
+    .estad-modal-detalle-pager .estad-gestor-perpage {
+        min-width: 86px;
+    }
+    .estad-reporte-semanal-toolbar {
+        border-top: 1px solid var(--bs-border-color, #dee2e6);
+        border-bottom: 1px solid var(--bs-border-color, #dee2e6);
+        background: linear-gradient(180deg, rgba(248,249,250,0.9) 0%, rgba(255,255,255,1) 100%);
+        padding: 0.6rem 0.85rem;
+    }
+    .estad-reporte-semanal-toolbar .form-select {
+        min-width: 260px;
+    }
+    .estad-reporte-semanal-footer {
+        border-top: 1px solid var(--bs-border-color, #dee2e6);
+        background: rgba(248,249,250,0.92);
+        padding: 0.55rem 0.85rem;
     }
     .estad-modal-th-tip {
         cursor: help;
@@ -241,6 +330,86 @@
     }
 </style>
 
+<div class="card mb-4" id="estadisticasSelectorWrap">
+    <div class="card">
+        <div class="row g-0 align-items-center">
+            <div class="col-12 col-md-8">
+                <div class="card-body">
+                    <h5 class="card-title text-primary mb-3">HOLA, <?= htmlspecialchars($_SESSION['usuario_nombre'] ?? 'Usuario'); ?></h5>
+                    <p class="mb-6">
+                        Consulta los tableros de estadísticas por módulo. Indicadores, tiempos y métricas actualizadas para seguimiento y análisis.
+                    </p>
+                </div>
+            </div>
+            <div class="col-12 col-md-4">
+                <div class="card-body ps-md-2 pe-5 text-end">
+                    <img src="https://demos.themeselection.com/sneat-bootstrap-html-admin-template/assets/img/illustrations/man-with-laptop.png"
+                         class="img-fluid scaleX-n1-rtl"
+                         alt="Estadísticas">
+                </div>
+            </div>
+            <div class="row gy-6 mb-6">
+                <div class="col-lg-4">
+                    <div class="card shadow-none bg-label-primary h-100">
+                        <div class="card-body d-flex justify-content-between flex-wrap-reverse">
+                            <div class="mb-0 w-100 app-academy-sm-60 d-flex flex-column justify-content-between text-center text-sm-start">
+                                <div class="card-title">
+                                    <h5 class="text-primary mb-2">Estadísticas Sabueso</h5>
+                                    <p class="text-body w-sm-80 app-academy-xl-100">Indicadores, tiempos de dictamen, tickets levantados y detalle por gestor y por Sabueso.</p>
+                                </div>
+                                <div class="mb-0">
+                                    <button type="button" class="btn btn-primary" id="btnEntrarEstadSabueso">VER ESTADÍSTICAS SABUESO</button>
+                                </div>
+                            </div>
+                            <div class="w-100 app-academy-sm-40 d-flex justify-content-center justify-content-sm-end h-px-150 mb-4 mb-sm-0">
+                                <div class="rounded-3 d-flex align-items-center justify-content-center h-100 estad-icono-sabueso" style="min-height: 120px; min-width: 100px;">
+                                    <i class="fa-solid fa-magnifying-glass-chart fa-3x scaleX-n1-rtl" aria-hidden="true"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-4">
+                    <div class="card shadow-none bg-label-primary h-100">
+                        <div class="card-body d-flex justify-content-between flex-wrap-reverse">
+                            <div class="mb-0 w-100 app-academy-sm-60 d-flex flex-column justify-content-between text-center text-sm-start">
+                                <div class="card-title">
+                                    <h5 class="text-primary mb-2">Otras estadísticas</h5>
+                                    <p class="text-body app-academy-sm-60 app-academy-xl-100">Módulos de estadísticas adicionales en preparación.</p>
+                                </div>
+                                <div class="mb-0"><button type="button" class="btn btn-sm btn-primary" disabled>PRÓXIMAMENTE</button></div>
+                            </div>
+                            <div class="w-100 app-academy-sm-40 d-flex justify-content-center justify-content-sm-end h-px-150 mb-4 mb-sm-0">
+                                <div class="rounded-3 d-flex align-items-center justify-content-center h-100 estad-icono-otras" style="min-height: 120px; min-width: 100px;">
+                                    <i class="fa-solid fa-chart-line fa-3x scaleX-n1-rtl" aria-hidden="true"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-4">
+                    <div class="card shadow-none bg-label-primary h-100">
+                        <div class="card-body d-flex justify-content-between flex-wrap-reverse">
+                            <div class="mb-0 w-100 app-academy-sm-60 d-flex flex-column justify-content-between text-center text-sm-start">
+                                <div class="card-title">
+                                    <h5 class="text-primary mb-2">Más tableros</h5>
+                                    <p class="text-body app-academy-sm-60 app-academy-xl-100">Nuevos tableros de estadísticas se habilitarán aquí.</p>
+                                </div>
+                                <div class="mb-0"><button type="button" class="btn btn-sm btn-primary" disabled>PRÓXIMAMENTE</button></div>
+                            </div>
+                            <div class="w-100 app-academy-sm-40 d-flex justify-content-center justify-content-sm-end h-px-150 mb-4 mb-sm-0">
+                                <div class="rounded-3 d-flex align-items-center justify-content-center h-100 estad-icono-tableros" style="min-height: 120px; min-width: 100px;">
+                                    <i class="fa-solid fa-chart-column fa-3x scaleX-n1-rtl" aria-hidden="true"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="alert alert-warning d-none mb-3" id="estadisticasSabuesoAlert" role="alert"></div>
 
 <!-- Sin spinner aquí: http.request usa showLoader:false para no duplicar con Swal "Procesando..." -->
@@ -251,6 +420,16 @@
 </div>
 
 <div id="estadisticasSabuesoContenido" class="estad-sabueso-wrap" style="display: none;">
+
+    <div class="estad-titulo-bar mb-3 d-flex flex-wrap align-items-center justify-content-between gap-2">
+        <span class="estad-titulo-texto d-flex align-items-center gap-2">
+            <i class="fa-solid fa-chart-pie estad-titulo-icono" aria-hidden="true"></i>
+            Estadísticas de Sabueso
+        </span>
+        <button type="button" class="btn btn-sm btn-outline-primary" id="btnEstadisticasVolver" title="Ver otras áreas de estadísticas">
+            <i class="fa-solid fa-arrow-left me-1"></i>Volver
+        </button>
+    </div>
 
     <div class="row g-3 mb-3">
         <div class="col-lg-4 col-md-6">
@@ -345,7 +524,7 @@
                 <div class="card-header border-0 d-flex flex-wrap justify-content-between align-items-center gap-2 py-3 bg-transparent">
                     <div>
                         <div class="fw-semibold"><i class="fa-solid fa-calendar-days me-1 text-primary"></i>Tickets levantados</div>
-                        <div class="text-muted small">Días = semana actual · Semanas = mes actual · Meses = año actual · Año = elegir mes → semana → 7 días</div>
+                        <div class="text-muted small">Días = semana actual (lun–dom) · Semanas = mes actual · Meses = año actual · Año = elegir mes → semana → 7 días. El total por día cuenta <strong>tickets creados</strong> en esa fecha (no envíos de dictamen).</div>
                     </div>
                     <div class="estad-pill-group" id="grpFiltroPeriodo" role="group">
                         <button type="button" class="btn active" data-key="por_dia">Días</button>
@@ -420,6 +599,11 @@
                                     <span class="text-muted" id="tileCumplimientoPorResultado" style="font-size:0.7rem">—</span>
                                 </div>
                                 <div class="text-muted mt-1" style="font-size:0.65rem" id="tileCumplimientoLeyenda">—</div>
+                            </div>
+                            <div class="d-flex justify-content-end mt-2">
+                                <button type="button" class="btn btn-sm btn-outline-primary" id="btnReporteSemanalGlobal">
+                                    <i class="fa-solid fa-calendar-week me-1"></i>Reporte semanal
+                                </button>
                             </div>
                         </div>
                     </div>

@@ -11,22 +11,6 @@ if (!function_exists('getMenuItemsConfig')) {
             ['url' => '/estadocuenta/guatemala', 'label' => 'Estados de Cuenta - Guatemala', 'icon' => 'fa-solid fa-flag', 'bg' => 'bg-success', 'modulos' => [1]],
             ['url' => '/estadocuenta/documentacion', 'label' => 'Documentación', 'icon' => 'fa-solid fa-sack-dollar', 'bg' => 'bg-yellow', 'modulos' => [2]],
             ['url' => '/gestiones/seguimiento', 'label' => 'Histórico Gestiones', 'icon' => 'fa-solid fa-screwdriver-wrench', 'bg' => 'bg-green', 'modulos' => [3]],
-            ['url' => '/indicadores/kpiTotal', 'label' => 'KPI Total', 'icon' => 'fa-solid fa-chart-line', 'bg' => 'bg-orange', 'modulos' => [40]],
-            ['url' => '/indicadores/gestiones1A7', 'label' => 'Gestión 1-7', 'icon' => 'fa-solid fa-chart-line', 'bg' => 'bg-orange', 'modulos' => [24]],
-            ['url' => '/indicadores/eficiencia1A7', 'label' => 'Eficiencia 1-7', 'icon' => 'fa-solid fa-chart-line', 'bg' => 'bg-orange', 'modulos' => [25]],
-            ['url' => '/indicadores/gestiones8A21', 'label' => 'Gestión 8-21', 'icon' => 'fa-solid fa-chart-line', 'bg' => 'bg-orange', 'modulos' => [26]],
-            ['url' => '/indicadores/eficiencia8A21', 'label' => 'Eficiencia 8-21', 'icon' => 'fa-solid fa-chart-line', 'bg' => 'bg-orange', 'modulos' => [27]],
-            ['url' => '/indicadores/seguimientoIntensidad', 'label' => 'Intensidad', 'icon' => 'fa-solid fa-chart-line', 'bg' => 'bg-orange', 'modulos' => [29]],
-            ['url' => '/indicadores/detalleClientes', 'label' => 'Detalle Clientes', 'icon' => 'fa-solid fa-chart-line', 'bg' => 'bg-orange', 'modulos' => [30]],
-            ['url' => '/indicadores/detalleEficiencia', 'label' => 'Detalle Eficiencia', 'icon' => 'fa-solid fa-chart-line', 'bg' => 'bg-orange', 'modulos' => [31]],
-            ['url' => '/indicadores/carteraInicioSem', 'label' => 'Cartera Inicial', 'icon' => 'fa-solid fa-chart-line', 'bg' => 'bg-orange', 'modulos' => [32]],
-            ['url' => '/indicadores/seguimientoPromesasPago', 'label' => 'Promesas Pago', 'icon' => 'fa-solid fa-chart-line', 'bg' => 'bg-orange', 'modulos' => [33]],
-            ['url' => '/indicadores/espartanos', 'label' => 'Espartanos', 'icon' => 'fa-solid fa-chart-line', 'bg' => 'bg-orange', 'modulos' => [34]],
-            ['url' => '/indicadores/matrizBuckets', 'label' => 'Matriz Buckets', 'icon' => 'fa-solid fa-chart-line', 'bg' => 'bg-orange', 'modulos' => [35]],
-            ['url' => '/indicadores/matrizBucketsMas1', 'label' => 'Buckets +1', 'icon' => 'fa-solid fa-chart-line', 'bg' => 'bg-orange', 'modulos' => [36]],
-            ['url' => '/indicadores/auditoria', 'label' => 'Auditoría', 'icon' => 'fa-solid fa-chart-line', 'bg' => 'bg-orange', 'modulos' => [37]],
-            ['url' => '/indicadores/auditoria2', 'label' => 'Auditoría 2', 'icon' => 'fa-solid fa-chart-line', 'bg' => 'bg-orange', 'modulos' => [38]],
-            ['url' => '/indicadores/seguimiento', 'label' => 'Seguimiento', 'icon' => 'fa-solid fa-chart-line', 'bg' => 'bg-orange', 'modulos' => [39]],
             ['url' => '/caphum/gestion', 'label' => 'Capital Humano - Gestión', 'icon' => 'fa-solid fa-users', 'bg' => 'bg-purple', 'modulos' => [4]],
             ['url' => '/caphum/candidatos', 'label' => 'Candidatos', 'icon' => 'fa-solid fa-users', 'bg' => 'bg-purple', 'modulos' => [42]],
             ['url' => '/caphum/bajas', 'label' => 'Bajas', 'icon' => 'fa-solid fa-users', 'bg' => 'bg-purple', 'modulos' => [13]],
@@ -59,11 +43,6 @@ if (!function_exists('getAccesosRapidosDesdeModulos')) {
         $items = [];
         foreach (getMenuItemsConfig() as $row) {
             if (!empty($row['modulos']) && !array_intersect($row['modulos'], $modulos)) {
-                continue;
-            }
-            // No mostrar Indicadores en accesos rápidos (son muchos y recargan la página)
-            $path = trim(parse_url($row['url'], PHP_URL_PATH), '/');
-            if (stripos($path, 'indicadores/') === 0) {
                 continue;
             }
             $items[] = ['url' => $row['url'], 'label' => $row['label'], 'icon' => $row['icon'], 'bg' => $row['bg'] ?? 'bg-blue'];

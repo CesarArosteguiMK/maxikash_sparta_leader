@@ -1440,13 +1440,15 @@ class CapHum extends Controller
                     1: 'fa fa-file-invoice-dollar', 2: 'fa fa-folder-open', 3: 'fa fa-screwdriver-wrench',
                     4: 'fa fa-users', 5: 'fa fa-sitemap', 6: 'fa fa-chart-bar', 7: 'fa fa-file-alt',
                     10: 'fa fa-cog', 13: 'fa fa-user-minus', 14: 'fa fa-file-alt', 15: 'fa fa-hand-holding-dollar',
-                    16: 'fa fa-cog', 17: 'fa fa-cog', 18: 'fa fa-dog', 19: 'fa fa-dog', 20: 'fa fa-building-columns',
-                    21: 'fa fa-file-alt', 24: 'fa fa-chart-line', 25: 'fa fa-chart-line', 26: 'fa fa-chart-line',
-                    27: 'fa fa-chart-line', 29: 'fa fa-chart-line', 30: 'fa fa-chart-line', 31: 'fa fa-chart-line',
-                    32: 'fa fa-chart-line', 33: 'fa fa-chart-line', 34: 'fa fa-chart-line', 35: 'fa fa-chart-line',
-                    36: 'fa fa-chart-line', 37: 'fa fa-chart-line', 38: 'fa fa-chart-line', 39: 'fa fa-chart-line', 40: 'fa fa-chart-line',
+                    16: 'fa fa-cog', 17: 'fa fa-cog',
+                    18: 'fa-solid fa-ticket', /* menú Ticket (levantar ticket) — ya no perro */
+                    19: 'fa fa-dog', /* Panel Admin Sabueso */
+                    20: 'fa fa-building-columns',
+                    21: 'fa fa-file-alt',
                     41: 'fa fa-globe', 42: 'fa fa-users', 44: 'fa fa-graduation-cap',
-                    47: 'fa fa-chart-pie'
+                    47: 'fa fa-chart-pie',
+                    /* Cerrado/Eliminado Sabueso: tickets archivados/cerrados */
+                    48: 'fa fa-archive'
                 };
 
                 Object.keys(modulosPorPestana).forEach(pestana => {

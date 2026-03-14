@@ -2113,15 +2113,21 @@ JS;
 
     private function getColumnsConfig($esAdmin)
     {
+        // Panel Admin = solo Sabueso: sin columna Gestión. Menú Ticket sí muestra Gestión (varias categorías).
         $base = [
             ['data' => null, 'defaultContent' => '', 'className' => 'control', 'orderable' => false],
             ['data' => '_fecha_creacion', 'title' => '', 'visible' => false, 'orderable' => true],
             ['data' => 'folio_tipo', 'title' => 'Folio / Tipo'],
+        ];
+        if (!$esAdmin) {
+            $base[] = ['data' => 'gestion', 'title' => 'Gestión', 'orderable' => false];
+        }
+        $base = array_merge($base, [
             ['data' => 'estado', 'title' => 'Estado'],
             ['data' => 'prioridad', 'title' => 'Prioridad'],
             ['data' => 'credito', 'title' => 'Crédito'],
             ['data' => 'fechas', 'title' => 'Fechas'],
-        ];
+        ]);
         if ($esAdmin) {
             $base[] = ['data' => 'creador', 'title' => 'Quién levantó'];
             $base[] = ['data' => 'asignado', 'title' => 'Asignado a'];
@@ -2400,6 +2406,10 @@ JS;
                     clickAttr = ' class="estad-period-row estad-drill-row" style="cursor:pointer" data-drill="semanas_desde_mes" data-anio="' + pm2[0] + '" data-mes="' + parseInt(pm2[1], 10) + '"';
                 } else if (estadisticasFiltroPeriodo === 'por_semana' && row.lunes && (!estadisticasDrill || estadisticasDrill.nivel !== 'dias')) {
                     clickAttr = ' class="estad-period-row estad-drill-row" style="cursor:pointer" data-drill="dias" data-lunes="' + row.lunes + '"';
+                } else if ((estadisticasFiltroPeriodo === 'por_dia' && !estadisticasDrill) || (estadisticasDrill && estadisticasDrill.nivel === 'dias')) {
+                    if (/^\d{4}-\d{2}-\d{2}$/.test(String(row.periodo))) {
+                        clickAttr = ' class="estad-period-row estad-dia-row" style="cursor:pointer" data-periodo="' + attrEsc(row.periodo) + '"';
+                    }
                 }
                 wrap.append(
                     '<div' + clickAttr + '>' +
@@ -2467,7 +2477,7 @@ JS;
                 var idp = parseInt(g.id_persona, 10) || 0;
                 var clickAttr = idp ? ' class="estad-gestor-fila" style="cursor:pointer" data-id-gestor="' + idp + '"' : '';
                 var nombreCell = '<td class="text-start" style="min-width:0"><div class="d-flex align-items-center gap-1">' +
-                    '<span class="estad-avatar flex-shrink-0" style="background:hsl(' + hue + ',55%,48%)">' + attrEsc(iniciales(g.nombre)) + '</span>' +
+                    '<span class="estad-avatar flex-shrink-0" style="background:hsl(' + hue + ',72%,42%)">' + attrEsc(iniciales(g.nombre)) + '</span>' +
                     '<div class="d-flex flex-column flex-grow-1" style="min-width:0"><span class="small fw-medium text-truncate" style="max-width:100%" title="' + attrEsc(g.nombre || '') + '">' + attrEsc(g.nombre || '') + '</span>' +
                     (idp ? '<small class="text-muted"><i class="fa-solid fa-fingerprint me-1"></i>ID ' + idp + '</small>' : '') + '</div></div></td>';
                 // Vista lectura (sin cumplimiento)
@@ -2536,7 +2546,7 @@ JS;
                 var hue = avatarHue(s.nombre || '');
                 tb.append(
                     '<tr class="' + rowClass.trim() + '"' + clickAttr + '><td><div class="d-flex align-items-center gap-2">' +
-                    '<span class="estad-avatar" style="background:hsl(' + hue + ',50%,45%)">' + attrEsc(iniciales(s.nombre || '')) + '</span>' +
+                    '<span class="estad-avatar" style="background:hsl(' + hue + ',72%,42%)">' + attrEsc(iniciales(s.nombre || '')) + '</span>' +
                     '<span class="small fw-medium text-truncate" style="max-width:10rem" title="' + nombreEsc + '">' + nombreEsc + '</span>' + badge797 + '</div></td>' +
                     '<td class="text-center fw-bold text-primary">' + (s.dictaminados || 0) + '</td>' +
                     '<td class="text-center small">' + attrEsc(crea1a) + '</td>' +
@@ -2572,6 +2582,40 @@ JS;
                 showConfirmButton: false,
                 didOpen: function() { if (Swal.showLoading) Swal.showLoading(); }
             });
+        }
+        function swalCargandoDetalleConProgreso(titulo) {
+            if (typeof Swal === 'undefined') return null;
+            var pct = 0;
+            var target = 97;
+            Swal.fire({
+                title: titulo || 'Cargando…',
+                html: '<p class="mb-2 text-muted">Obteniendo detalle, espere un momento.</p>' +
+                    '<div class="progress" style="height:10px;"><div id="estadDetalleProgressBar" class="progress-bar progress-bar-striped progress-bar-animated bg-primary" role="progressbar" style="width:0%"></div></div>' +
+                    '<div class="small mt-2 text-end"><strong id="estadDetalleProgressPct">0%</strong></div>',
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                showConfirmButton: false
+            });
+            var iv = setInterval(function() {
+                if (pct >= target) return;
+                var inc = Math.max(0.3, (target - pct) * 0.04);
+                pct = Math.min(target, pct + inc);
+                var pctInt = Math.floor(pct);
+                var bar = document.getElementById('estadDetalleProgressBar');
+                var pctEl = document.getElementById('estadDetalleProgressPct');
+                if (bar) bar.style.width = pctInt + '%';
+                if (pctEl) pctEl.textContent = pctInt + '%';
+            }, 250);
+            return {
+                stopAndClose: function() {
+                    clearInterval(iv);
+                    var bar = document.getElementById('estadDetalleProgressBar');
+                    var pctEl = document.getElementById('estadDetalleProgressPct');
+                    if (bar) bar.style.width = '100%';
+                    if (pctEl) pctEl.textContent = '100%';
+                    if (typeof Swal !== 'undefined' && Swal.close) Swal.close();
+                }
+            };
         }
         function abrirDetalleSabueso(idPersona) {
             if (!idPersona) return;
@@ -2631,22 +2675,27 @@ JS;
                 }
             });
         }
+        var perPageGestorDetalle = 20;
         function abrirDetalleGestor(idPersona, nombre, vistaTabla) {
             if (!idPersona) return;
             vistaTabla = vistaTabla || 'lectura';
-            swalCargandoDetalle('Cargando tickets del gestor…');
+            var progressHandle = (vistaTabla === 'pagos_visitas') ? swalCargandoDetalleConProgreso('Cargando tickets del gestor…') : null;
+            if (!progressHandle) swalCargandoDetalle('Cargando tickets del gestor…');
             http.request({
                 endpoint: '/sabueso/getEstadisticasGestorDetalle',
                 metodo: 'POST',
-                data: JSON.stringify({ id_persona_creador: idPersona }),
+                data: JSON.stringify({ id_persona_creador: idPersona, page: 1, per_page: perPageGestorDetalle, vista: vistaTabla }),
                 contentType: 'application/json',
                 processData: false,
                 showLoader: false,
                 onSuccess: function(r) {
-                    if (typeof Swal !== 'undefined' && Swal.close) Swal.close();
+                    if (progressHandle && progressHandle.stopAndClose) progressHandle.stopAndClose(); else if (typeof Swal !== 'undefined' && Swal.close) Swal.close();
                     if (!r.success) { if (typeof Swal !== 'undefined') Swal.fire('Aviso', r.mensaje || 'Sin datos', 'info'); return; }
                     var filas = r.filas || [];
-                    if (!filas.length) { if (typeof Swal !== 'undefined') Swal.fire('Aviso', 'Sin tickets con dictamen enviado para este gestor.', 'info'); return; }
+                    var total = (r.total != null && r.total !== '') ? parseInt(r.total, 10) : filas.length;
+                    var page = (r.page != null && r.page !== '') ? parseInt(r.page, 10) : 1;
+                    var perPage = (r.per_page != null && r.per_page !== '') ? parseInt(r.per_page, 10) : perPageGestorDetalle;
+                    if (!filas.length && total === 0) { if (typeof Swal !== 'undefined') Swal.fire('Aviso', 'Sin tickets con dictamen enviado para este gestor.', 'info'); return; }
                     function tipG(title) { return ' <i class="fa fa-question-circle estad-modal-th-tip text-primary" data-bs-toggle="tooltip" data-bs-placement="top" title="' + attrEsc(title) + '"></i>'; }
                     function filaPagoVisitoCumpl(f) {
                         var pctF = f.pct_efectividad;
@@ -2657,40 +2706,75 @@ JS;
                         var visitoV = f.visito_campo_resumen;
                         var visitoVTxt = (visitoV === 'Sí' || visitoV === 'Si') ? '<span class="text-success fw-semibold">Sí</span>' : (visitoV === 'No' ? '<span class="text-danger fw-semibold">No</span>' : '<span class="text-muted">—</span>');
                         var cumplTxt = (f.cumplimiento_etiqueta != null && f.cumplimiento_etiqueta !== '') ? attrEsc(f.cumplimiento_etiqueta) : resMostrar;
-                        return { pctFTxt: pctFTxt, pagoVTxt: pagoVTxt, visitoVTxt: visitoVTxt, cumplTxt: cumplTxt };
+                        var pagoSemanaSi = f.pago_durante_semana_si === true || f.pago_durante_semana_si === '1';
+                        var pagoSemanaCount = (f.pago_durante_semana_count != null && f.pago_durante_semana_count !== '') ? parseInt(f.pago_durante_semana_count, 10) : 0;
+                        var pagoSemanaTxt = pagoSemanaSi ? '<span class="text-success fw-semibold">Sí</span>' : '<span class="text-muted">No</span>';
+                        if (pagoSemanaCount > 0) pagoSemanaTxt += ' <span class="text-muted small">(' + pagoSemanaCount + ')</span>';
+                        var pagoPr = f.pago_en_prorroga_resumen;
+                        var pagoProrrogaTxt = (pagoPr === 'Sí' || pagoPr === 'Si') ? '<span class="text-success fw-semibold">Sí</span>' : (pagoPr === 'No' ? '<span class="text-danger fw-semibold">No</span>' : '<span class="text-muted">—</span>');
+                        return { pctFTxt: pctFTxt, pagoVTxt: pagoVTxt, visitoVTxt: visitoVTxt, cumplTxt: cumplTxt, pagoSemanaTxt: pagoSemanaTxt, pagoProrrogaTxt: pagoProrrogaTxt };
+                    }
+                    function buildPaginationBlock(tot, p, pp) {
+                        var totalPages = Math.ceil(tot / Math.max(1, pp));
+                        var desde = tot === 0 ? 0 : (p - 1) * pp + 1;
+                        var hasta = Math.min(p * pp, tot);
+                        var s20 = pp === 20 ? ' selected' : '';
+                        var s50 = pp === 50 ? ' selected' : '';
+                        var s100 = pp === 100 ? ' selected' : '';
+                        var sel = '<select id="estadGestorPerPage" class="form-select form-select-sm estad-gestor-perpage" style="width:auto;display:inline-block;">' +
+                            '<option value="20"' + s20 + '>20</option><option value="50"' + s50 + '>50</option><option value="100"' + s100 + '>100</option></select>';
+                        var txt = tot === 0 ? '0 resultados' : ('Mostrando ' + desde + '–' + hasta + ' de ' + tot);
+                        var prevDisabled = p <= 1 ? ' disabled' : '';
+                        var nextDisabled = p >= totalPages ? ' disabled' : '';
+                        return '<div id="estadGestorModalPagination" class="estad-modal-detalle-pager d-flex align-items-center justify-content-between flex-wrap gap-2" data-total="' + tot + '" data-page="' + p + '" data-per-page="' + pp + '">' +
+                            '<span class="text-muted small">' + txt + '</span>' +
+                            '<div class="d-flex align-items-center gap-2 flex-wrap">' +
+                            '<label class="text-muted small mb-0 d-flex align-items-center gap-1">Filas por pág. ' + sel + '</label>' +
+                            '<div class="btn-group btn-group-sm">' +
+                            '<button type="button" class="btn btn-outline-secondary estad-gestor-prev"' + prevDisabled + '>Anterior</button>' +
+                            '<button type="button" class="btn btn-outline-secondary estad-gestor-next"' + nextDisabled + '>Siguiente</button>' +
+                            '</div></div></div>';
                     }
                     var html;
-                    var swalWidth = '960px';
+                    var swalWidth = '1180px';
                     if (vistaTabla === 'pagos_visitas') {
-                        html = '<div class="estad-modal-detalle-wrap">' +
+                        html = '<div class="estad-modal-detalle-wrap" id="estadGestorModalWrap" data-id-persona="' + attrEsc(String(idPersona)) + '" data-vista="pagos_visitas">' +
                             '<div class="estad-modal-detalle-leyenda text-start">' +
                             '<strong>Vista Pagos y visitas.</strong> Por ticket: si hubo <strong>pago</strong> en la ventana que evalúa el DS, si hubo <strong>visita de campo</strong>, etiqueta de <strong>cumplimiento</strong> y <strong>% efectividad</strong>. ' +
+                            '<strong>Pago esta semana:</strong> desde el lunes 00:00 (CDMX) hasta ahora, por id_credito (estado de cuenta). ' +
                             'Si sale «Sin DS», generar dictamen del sistema en Panel Admin.</div>' +
                             '<div class="estad-modal-detalle-table-wrap table-responsive">' +
                             '<table class="table table-sm table-bordered text-start">' +
                             '<thead><tr>' +
                             '<th>Folio' + tipG('Ticket.') + '</th>' +
+                            '<th>Persona / ID cr.' + tipG('Nombre e ID de crédito de la persona por la cual se levantó el ticket (no del gestor).') + '</th>' +
                             '<th>Dictamen enviado' + tipG('Referencia temporal del envío al gestor.') + '</th>' +
                             '<th>Pagaron' + tipG('Sí = pago en estado de cuenta en la ventana 12h.') + '</th>' +
                             '<th>Visitaron' + tipG('Sí = visita de campo registrada.') + '</th>' +
                             '<th>Prórroga' + tipG('Sí = a este ticket se le otorgó prórroga (+12 h) o el resultado es tras prórroga (cumplió/no cumplió prórroga).') + '</th>' +
+                            '<th>Si pagó en la prórroga' + tipG('En la segunda ventana de 12 h (desde fecha_otorgada hasta fecha_limite). Solo aplica si hubo prórroga.') + '</th>' +
+                            '<th>Pago esta semana' + tipG('Desde lunes 00:00 CDMX de la semana actual hasta ahora; cantidad entre paréntesis.') + '</th>' +
                             '<th>Cumplimiento' + tipG('Etiqueta del dictamen sistema.') + '</th>' +
                             '<th>% efect.' + tipG('Porcentaje de efectividad.') + '</th>' +
-                            '</tr></thead><tbody>';
+                            '</tr></thead><tbody id="estadGestorModalTbody">';
                         filas.forEach(function(f) {
                             var x = filaPagoVisitoCumpl(f);
                             var prV = f.prorroga_otorgada_resumen;
                             var prTxt = (prV === 'Sí' || prV === 'Si') ? '<span class="text-warning fw-semibold">Sí</span>' : (prV === 'No' ? '<span class="text-muted">No</span>' : '<span class="text-muted">—</span>');
-                            html += '<tr><td class="fw-medium">' + attrEsc(f.folio || '—') + '</td><td>' + fmtFecha(f.dictamen_envio) + '</td>' +
+                            var creditoCell = '<div>' + attrEsc(f.nombre_cliente || '—') + '</div><div class="text-muted small">ID ' + (f.id_credito != null ? f.id_credito : '—') + '</div>';
+                            html += '<tr><td class="fw-medium">' + attrEsc(f.folio || '—') + '</td><td>' + creditoCell + '</td><td>' + fmtFecha(f.dictamen_envio) + '</td>' +
                                 '<td class="text-center">' + x.pagoVTxt + '</td>' +
                                 '<td class="text-center">' + x.visitoVTxt + '</td>' +
                                 '<td class="text-center">' + prTxt + '</td>' +
+                                '<td class="text-center">' + x.pagoProrrogaTxt + '</td>' +
+                                '<td class="text-center">' + x.pagoSemanaTxt + '</td>' +
                                 '<td><small>' + x.cumplTxt + '</small></td>' +
                                 '<td>' + x.pctFTxt + '</td></tr>';
                         });
-                        swalWidth = '820px';
+                        html += '</tbody></table></div>' + buildPaginationBlock(total, page, perPage) + '</div>';
+                        swalWidth = '1280px';
                     } else {
-                        html = '<div class="estad-modal-detalle-wrap">' +
+                        html = '<div class="estad-modal-detalle-wrap" id="estadGestorModalWrap" data-id-persona="' + attrEsc(String(idPersona)) + '" data-vista="lectura">' +
                             '<div class="estad-modal-detalle-leyenda text-start">' +
                             '<strong>Vista Lectura y tasa.</strong> Tickets levantados por este gestor con dictamen enviado.<br>' +
                             '<strong>¿Abrió?</strong> / <strong>T. apertura</strong> = lectura del dictamen tras el envío. ' +
@@ -2699,6 +2783,7 @@ JS;
                             '<table class="table table-sm table-bordered text-start">' +
                             '<thead><tr>' +
                             '<th>Folio' + tipG('Identificador del ticket.') + '</th>' +
+                            '<th>Persona / ID cr.' + tipG('Nombre e ID de crédito de la persona por la cual se levantó el ticket (no del gestor).') + '</th>' +
                             '<th>Levantado' + tipG('Cuándo se creó el ticket.') + '</th>' +
                             '<th>Dictamen enviado' + tipG('Cuándo se envió el dictamen al gestor.') + '</th>' +
                             '<th>¿Abrió?' + tipG('Si ya abrió/vio el dictamen.') + '</th>' +
@@ -2706,20 +2791,21 @@ JS;
                             '<th>T. apertura' + tipG('Tiempo entre envío y apertura.') + '</th>' +
                             '<th>Resultado DS' + tipG('Texto claro del dictamen sistema.') + '</th>' +
                             '<th>% efect.' + tipG('% efectividad según DS.') + '</th>' +
-                            '</tr></thead><tbody>';
+                            '</tr></thead><tbody id="estadGestorModalTbody">';
                         filas.forEach(function(f) {
                             var pctF = f.pct_efectividad;
                             var pctFTxt = (pctF !== null && pctF !== undefined && pctF !== '') ? pctF + '%' : '<span class="text-muted">Sin DS</span>';
                             var resMostrar = (f.resultado_ds_mostrar != null && f.resultado_ds_mostrar !== '') ? attrEsc(f.resultado_ds_mostrar) : '<span class="text-muted">Sin dictamen sistema</span>';
-                            html += '<tr><td class="fw-medium">' + attrEsc(f.folio || '—') + '</td><td>' + fmtFecha(f.fecha_creacion) + '</td>' +
+                            var creditoCellL = '<div>' + attrEsc(f.nombre_cliente || '—') + '</div><div class="text-muted small">ID ' + (f.id_credito != null ? f.id_credito : '—') + '</div>';
+                            html += '<tr><td class="fw-medium">' + attrEsc(f.folio || '—') + '</td><td>' + creditoCellL + '</td><td>' + fmtFecha(f.fecha_creacion) + '</td>' +
                                 '<td>' + fmtFecha(f.dictamen_envio) + '</td><td>' + attrEsc(f.visto_si_no || '—') + '</td>' +
                                 '<td>' + (f.visto_cuando ? fmtFecha(f.visto_cuando) : '—') + '</td>' +
                                 '<td>' + attrEsc(f.tiempo_lectura_humano || 'Pendiente') + '</td>' +
                                 '<td><small>' + resMostrar + '</small></td>' +
                                 '<td>' + pctFTxt + '</td></tr>';
                         });
+                        html += '</tbody></table></div>' + buildPaginationBlock(total, page, perPage) + '</div>';
                     }
-                    html += '</tbody></table></div></div>';
                     if (typeof Swal !== 'undefined') {
                         var tituloModal = (r.nombre || nombre || '');
                         if (vistaTabla === 'pagos_visitas') {
@@ -2734,13 +2820,202 @@ JS;
                             showConfirmButton: true,
                             confirmButtonText: 'Cerrar',
                             customClass: { popup: 'estad-detalle-swal', confirmButton: 'btn btn-primary px-4' },
-                            didOpen: function() { initTooltipsEnSwal(); }
+                            didOpen: function() {
+                                initTooltipsEnSwal();
+                                var wrap = document.getElementById('estadGestorModalWrap');
+                                var pagDiv = document.getElementById('estadGestorModalPagination');
+                                if (!wrap) return;
+                                var idPersona = wrap.getAttribute('data-id-persona');
+                                var vista = wrap.getAttribute('data-vista') || 'lectura';
+                                function loadPage(p, optPerPage) {
+                                    var pp = optPerPage != null ? optPerPage : (parseInt(pagDiv.getAttribute('data-per-page'), 10) || perPageGestorDetalle);
+                                    var sel = document.getElementById('estadGestorPerPage');
+                                    if (sel && optPerPage == null) pp = parseInt(sel.value, 10) || pp;
+                                    http.request({
+                                        endpoint: '/sabueso/getEstadisticasGestorDetalle',
+                                        metodo: 'POST',
+                                        data: JSON.stringify({ id_persona_creador: idPersona, page: p, per_page: pp, vista: vista }),
+                                        contentType: 'application/json',
+                                        processData: false,
+                                        showLoader: false,
+                                        onSuccess: function(res) {
+                                            if (!res.success || !res.filas) return;
+                                            var filas = res.filas;
+                                            var total = parseInt(res.total, 10) || 0;
+                                            var page = parseInt(res.page, 10) || 1;
+                                            var perPage = parseInt(res.per_page, 10) || perPageGestorDetalle;
+                                            var tbody = document.getElementById('estadGestorModalTbody');
+                                            if (tbody) {
+                                                var rowsHtml = '';
+                                                if (vista === 'pagos_visitas') {
+                                                    filas.forEach(function(f) {
+                                                        var x = filaPagoVisitoCumpl(f);
+                                                        var prV = f.prorroga_otorgada_resumen;
+                                                        var prTxt = (prV === 'Sí' || prV === 'Si') ? '<span class="text-warning fw-semibold">Sí</span>' : (prV === 'No' ? '<span class="text-muted">No</span>' : '<span class="text-muted">—</span>');
+                                                        var creditoCell = '<div>' + attrEsc(f.nombre_cliente || '—') + '</div><div class="text-muted small">ID ' + (f.id_credito != null ? f.id_credito : '—') + '</div>';
+                                                        rowsHtml += '<tr><td class="fw-medium">' + attrEsc(f.folio || '—') + '</td><td>' + creditoCell + '</td><td>' + fmtFecha(f.dictamen_envio) + '</td>' +
+                                                            '<td class="text-center">' + x.pagoVTxt + '</td><td class="text-center">' + x.visitoVTxt + '</td>' +
+                                                            '<td class="text-center">' + prTxt + '</td><td class="text-center">' + x.pagoProrrogaTxt + '</td>' +
+                                                            '<td class="text-center">' + x.pagoSemanaTxt + '</td>' +
+                                                            '<td><small>' + x.cumplTxt + '</small></td><td>' + x.pctFTxt + '</td></tr>';
+                                                    });
+                                                } else {
+                                                    filas.forEach(function(f) {
+                                                        var pctFTxt = (f.pct_efectividad != null && f.pct_efectividad !== '') ? f.pct_efectividad + '%' : '<span class="text-muted">Sin DS</span>';
+                                                        var resMostrar = (f.resultado_ds_mostrar != null && f.resultado_ds_mostrar !== '') ? attrEsc(f.resultado_ds_mostrar) : '<span class="text-muted">Sin dictamen sistema</span>';
+                                                        var creditoCellL = '<div>' + attrEsc(f.nombre_cliente || '—') + '</div><div class="text-muted small">ID ' + (f.id_credito != null ? f.id_credito : '—') + '</div>';
+                                                        rowsHtml += '<tr><td class="fw-medium">' + attrEsc(f.folio || '—') + '</td><td>' + creditoCellL + '</td><td>' + fmtFecha(f.fecha_creacion) + '</td>' +
+                                                            '<td>' + fmtFecha(f.dictamen_envio) + '</td><td>' + attrEsc(f.visto_si_no || '—') + '</td>' +
+                                                            '<td>' + (f.visto_cuando ? fmtFecha(f.visto_cuando) : '—') + '</td><td>' + attrEsc(f.tiempo_lectura_humano || 'Pendiente') + '</td>' +
+                                                            '<td><small>' + resMostrar + '</small></td><td>' + pctFTxt + '</td></tr>';
+                                                    });
+                                                }
+                                                tbody.innerHTML = rowsHtml;
+                                            }
+                                            var totalPages = perPage > 0 ? Math.ceil(total / perPage) : 1;
+                                            var desde = (page - 1) * perPage + 1;
+                                            var hasta = Math.min(page * perPage, total);
+                                            pagDiv.setAttribute('data-page', page);
+                                            pagDiv.setAttribute('data-total', total);
+                                            var span = pagDiv.querySelector('span');
+                                            if (span) span.textContent = 'Mostrando ' + desde + '–' + hasta + ' de ' + total;
+                                            pagDiv.setAttribute('data-per-page', perPage);
+                                            var selEl = document.getElementById('estadGestorPerPage');
+                                            if (selEl) selEl.value = String(perPage);
+                                            var btnPrev = pagDiv.querySelector('.estad-gestor-prev');
+                                            var btnNext = pagDiv.querySelector('.estad-gestor-next');
+                                            if (btnPrev) { btnPrev.disabled = page <= 1; btnPrev.onclick = function() { if (page > 1) loadPage(page - 1); }; }
+                                            if (btnNext) { btnNext.disabled = page >= totalPages; btnNext.onclick = function() { if (page < totalPages) loadPage(page + 1); }; }
+                                            initTooltipsEnSwal();
+                                        }
+                                    });
+                                }
+                                if (pagDiv) {
+                                    var btnPrev = pagDiv.querySelector('.estad-gestor-prev');
+                                    var btnNext = pagDiv.querySelector('.estad-gestor-next');
+                                    if (btnPrev) btnPrev.onclick = function() { var p = parseInt(pagDiv.getAttribute('data-page'), 10) || 1; if (p > 1) loadPage(p - 1); };
+                                    if (btnNext) btnNext.onclick = function() { var p = parseInt(pagDiv.getAttribute('data-page'), 10) || 1; var tot = parseInt(pagDiv.getAttribute('data-total'), 10) || 0; var pp = parseInt(pagDiv.getAttribute('data-per-page'), 10) || perPageGestorDetalle; if (p < Math.ceil(tot / pp)) loadPage(p + 1); };
+                                    var perPageSel = document.getElementById('estadGestorPerPage');
+                                    if (perPageSel) perPageSel.onchange = function() { loadPage(1, parseInt(perPageSel.value, 10)); };
+                                }
+                            }
+                        });
+                    }
+                },
+                onError: function() {
+                    if (progressHandle && progressHandle.stopAndClose) progressHandle.stopAndClose(); else if (typeof Swal !== 'undefined' && Swal.close) Swal.close();
+                    if (typeof Swal !== 'undefined') Swal.fire('Error', 'No se pudo cargar el detalle.', 'error');
+                }
+            });
+        }
+        function abrirReporteSemanalGlobal(semanaInicio) {
+            swalCargandoDetalle('Cargando reporte semanal…');
+            http.request({
+                endpoint: '/sabueso/getReporteSemanalGestorGlobal',
+                metodo: 'POST',
+                data: JSON.stringify({ semana_inicio: semanaInicio || '' }),
+                contentType: 'application/json',
+                processData: false,
+                showLoader: false,
+                onSuccess: function(r) {
+                    if (typeof Swal !== 'undefined' && Swal.close) Swal.close();
+                    if (!r || !r.success) { if (typeof Swal !== 'undefined') Swal.fire('Aviso', (r && r.mensaje) || 'Sin datos', 'info'); return; }
+                    var filas = r.filas || [];
+                    var semanas = r.semanas || [];
+                    function boolTxt(v) {
+                        if (v === true || v === 1 || v === '1' || v === 'Sí' || v === 'Si') return '<span class="text-success fw-semibold">Sí</span>';
+                        if (v === false || v === 0 || v === '0' || v === 'No') return '<span class="text-danger fw-semibold">No</span>';
+                        return '<span class="text-muted">—</span>';
+                    }
+                    function pagoSemanaTxt(f) {
+                        var si = f.pago_semana_si === true || f.pago_semana_si === 1 || f.pago_semana_si === '1';
+                        var n = parseInt(f.pago_semana_count, 10) || 0;
+                        var t = si ? '<span class="text-success fw-semibold">Sí</span>' : '<span class="text-muted">No</span>';
+                        if (n > 0) t += ' <span class="text-muted small">(' + n + ')</span>';
+                        return t;
+                    }
+                    function weekOptionsHtml() {
+                        var out = '';
+                        semanas.forEach(function(s) {
+                            var sel = s.selected ? ' selected' : '';
+                            out += '<option value="' + attrEsc(s.inicio || '') + '"' + sel + '>' + attrEsc(s.label || (s.inicio || 'Semana')) + '</option>';
+                        });
+                        return out;
+                    }
+                    function tableRowsHtml() {
+                        if (!filas.length) {
+                            return '<tr><td colspan="11" class="text-center text-muted py-3">Sin tickets en la semana seleccionada.</td></tr>';
+                        }
+                        var out = '';
+                        filas.forEach(function(f) {
+                            var cliente = '<div>' + attrEsc(f.nombre_cliente || '—') + '</div><div class="text-muted small">ID ' + (f.id_credito != null ? f.id_credito : '—') + '</div>';
+                            var gestor = '<div>' + attrEsc(f.nombre_gestor || '—') + '</div><div class="text-muted small">ID ' + (f.id_gestor != null ? f.id_gestor : '—') + '</div>';
+                            var tipoContactoTxt = (f.tipo_contacto === 'Campo') ? '<span class="text-primary fw-semibold">Campo</span>' : ((f.tipo_contacto === 'Telefónica') ? '<span class="text-info fw-semibold">Telefónica</span>' : '<span class="text-muted">—</span>');
+                            out += '<tr>' +
+                                '<td class="fw-medium">' + attrEsc(f.folio || '—') + '</td>' +
+                                '<td>' + cliente + '</td>' +
+                                '<td>' + gestor + '</td>' +
+                                '<td class="text-center">' + tipoContactoTxt + '</td>' +
+                                '<td class="text-center">' + boolTxt(f.fue_todas_direcciones) + '</td>' +
+                                '<td><small>' + attrEsc(f.direcciones_fue || '—') + '</small></td>' +
+                                '<td class="text-center">' + boolTxt(f.pago_12h) + '</td>' +
+                                '<td class="text-center">' + boolTxt(f.prorroga_si) + '</td>' +
+                                '<td class="text-center">' + boolTxt(f.pago_prorroga_12h) + '</td>' +
+                                '<td class="text-center">' + pagoSemanaTxt(f) + '</td>' +
+                                '<td class="text-center">' + boolTxt(f.ilocalizable) + '</td>' +
+                                '</tr>';
+                        });
+                        return out;
+                    }
+                    var html = '<div class="estad-modal-detalle-wrap" id="reporteSemanalGlobalWrap">' +
+                        '<div class="estad-modal-detalle-leyenda text-start"><strong>Reporte semanal (semana vencida).</strong> ' +
+                        'La primera opción es la semana cerrada más reciente. Puede cambiar a semanas anteriores para consultar histórico.</div>' +
+                        '<div class="estad-reporte-semanal-toolbar d-flex align-items-center justify-content-between flex-wrap gap-2">' +
+                        '<div class="text-muted small">Semana analizada: <strong>' + attrEsc((r.semana_inicio || '') + ' → ' + (r.semana_fin || '')) + '</strong></div>' +
+                        '<div class="d-flex align-items-center gap-2"><label class="text-muted small mb-0">Semana</label>' +
+                        '<select id="selSemanaReporteGlobal" class="form-select form-select-sm">' + weekOptionsHtml() + '</select></div>' +
+                        '</div>' +
+                        '<div class="estad-modal-detalle-table-wrap table-responsive">' +
+                        '<table class="table table-sm table-bordered text-start mb-0">' +
+                        '<thead><tr>' +
+                        '<th>Folio</th>' +
+                        '<th>Cliente / ID cr.</th>' +
+                        '<th>Gestor / ID</th>' +
+                        '<th>Campo / Telefónica</th>' +
+                        '<th>Fue a todas direcciones</th>' +
+                        '<th>Direcciones visitadas</th>' +
+                        '<th>Pago 12h</th>' +
+                        '<th>Prórroga</th>' +
+                        '<th>Pago 12h prórroga</th>' +
+                        '<th>Pago semana</th>' +
+                        '<th>Ilocalizable</th>' +
+                        '</tr></thead><tbody id="tbodyReporteSemanalGlobal">' + tableRowsHtml() + '</tbody></table></div>' +
+                        '<div class="estad-reporte-semanal-footer text-muted" style="font-size:0.72rem;">' +
+                        'Regla ilocalizable aplicada: <strong>visitó todas las direcciones del dictamen</strong> y <strong>no pagó en la semana seleccionada</strong> (prórroga no condiciona este indicador).' +
+                        '</div></div>';
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire({
+                            title: 'Reporte semanal · Por quien levantó',
+                            html: html,
+                            width: '1340px',
+                            showConfirmButton: true,
+                            confirmButtonText: 'Cerrar',
+                            customClass: { popup: 'estad-detalle-swal', confirmButton: 'btn btn-primary px-4' },
+                            didOpen: function() {
+                                initTooltipsEnSwal();
+                                var sel = document.getElementById('selSemanaReporteGlobal');
+                                if (sel) {
+                                    sel.onchange = function() {
+                                        abrirReporteSemanalGlobal(sel.value || '');
+                                    };
+                                }
+                            }
                         });
                     }
                 },
                 onError: function() {
                     if (typeof Swal !== 'undefined' && Swal.close) Swal.close();
-                    if (typeof Swal !== 'undefined') Swal.fire('Error', 'No se pudo cargar el detalle.', 'error');
+                    if (typeof Swal !== 'undefined') Swal.fire('Error', 'No se pudo cargar el reporte semanal.', 'error');
                 }
             });
         }
@@ -2788,14 +3063,14 @@ JS;
                     var tg = estadisticasDatos.tiempos_gestor_segundos;
                     if (ts && ts.promedio_humano) {
                         $('#statTiempoSabuesoValor').text(ts.promedio_humano);
-                        $('#statTiempoSabuesoSub').text('Semana actual (lun→hoy): ' + (ts.muestras || 0) + ' envíos · Promedio desde última asignación antes del envío hasta enviar (máx. 7 días por muestra). Cada lunes se reinicia.');
+                        $('#statTiempoSabuesoSub').text('Semana actual (lun→hoy): ' + (ts.muestras || 0) + ' envíos · Promedio desde última asignación antes del envío hasta enviar (máx. 7 días por muestra). Cada lunes se reinicia. Los envíos cuentan por fecha de envío del dictamen (pueden ser de tickets levantados en semanas anteriores).');
                     } else {
                         $('#statTiempoSabuesoValor').html('<span class="text-muted fs-6 fw-normal">Sin datos</span>');
                         $('#statTiempoSabuesoSub').text('Semana actual: aún no hay envíos esta semana, o sin asignación previa registrada.');
                     }
                     if (tg && tg.promedio_humano) {
                         $('#statTiempoGestorValor').text(tg.promedio_humano);
-                        $('#statTiempoGestorSub').text('Semana actual (lun→hoy): ' + (tg.muestras || 0) + ' aperturas · Solo envíos de esta semana; desde envío hasta que el gestor abre (máx. 7 días). Cada lunes se reinicia.');
+                        $('#statTiempoGestorSub').text('Semana actual (lun→hoy): ' + (tg.muestras || 0) + ' aperturas · Solo envíos de esta semana; desde envío hasta que el gestor abre (máx. 7 días). Cada lunes se reinicia. Las aperturas cuentan por fecha de envío y de vista (pueden ser de tickets levantados en semanas anteriores).');
                     } else {
                         $('#statTiempoGestorValor').html('<span class="text-muted fs-6 fw-normal">Sin datos</span>');
                         $('#statTiempoGestorSub').text('Semana actual: aún no hay aperturas registradas esta semana.');
@@ -2904,6 +3179,24 @@ JS;
             });
         }
         $(document).ready(function() {
+            var estadisticasSabuesoInicializadas = false;
+            function iniciarDashboardSabueso() {
+                if (estadisticasSabuesoInicializadas) {
+                    $('#estadisticasSelectorWrap').hide();
+                    $('#estadisticasSabuesoContenido').show();
+                    return;
+                }
+                estadisticasSabuesoInicializadas = true;
+                $('#estadisticasSelectorWrap').hide();
+                cargarEstadisticasSabueso();
+            }
+            $(document).on('click', '#btnEntrarEstadSabueso', function() {
+                iniciarDashboardSabueso();
+            });
+            $(document).on('click', '#btnEstadisticasVolver', function() {
+                $('#estadisticasSabuesoContenido').hide();
+                $('#estadisticasSelectorWrap').show();
+            });
             // Delegación: el tbody se reemplaza al renderizar; el clic debe vivir en document
             $(document).on('click', '#panelResumenGestor tr.estad-gestor-fila[data-id-gestor]', function() {
                 var id = parseInt($(this).attr('data-id-gestor'), 10);
@@ -2911,6 +3204,9 @@ JS;
             });
             $(document).on('click', '#grpVistaGestorTabla button[data-vista-gestor]', function() {
                 aplicarVistaGestorTabla($(this).data('vista-gestor'));
+            });
+            $(document).on('click', '#btnReporteSemanalGlobal', function() {
+                abrirReporteSemanalGlobal('');
             });
             $(document).on('click', '#tbodyPorSabueso tr[data-id-sabueso]', function(e) {
                 var id = parseInt($(this).attr('data-id-sabueso'), 10);
@@ -2953,6 +3249,55 @@ JS;
                     estadisticasDrill = { nivel: 'semanas', anio: anio, mes: mes, desde: 'mes' };
                     cargarDrill('semanas', { anio: anio, mes: mes });
                 }
+            });
+            $(document).on('click', '#estadPeriodList .estad-dia-row', function() {
+                var periodo = $(this).data('periodo');
+                if (!periodo || !/^\d{4}-\d{2}-\d{2}$/.test(periodo)) return;
+                if (typeof swalCargandoDetalle === 'function') swalCargandoDetalle('Cargando tickets del d\u00eda…');
+                http.request({
+                    endpoint: '/sabueso/getTicketsDetallePorDia',
+                    metodo: 'POST',
+                    data: JSON.stringify({ fecha: periodo }),
+                    contentType: 'application/json',
+                    processData: false,
+                    showLoader: false,
+                    onSuccess: function(r) {
+                        if (typeof Swal !== 'undefined' && Swal.isVisible && Swal.isVisible()) Swal.close();
+                        if (!r.success) {
+                            if (typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: 'Error', text: r.mensaje || 'No se pudo cargar el detalle.' });
+                            return;
+                        }
+                        var filas = r.filas || [];
+                        var fechaLabel = periodo;
+                        try { var d = new Date(periodo + 'T12:00:00'); fechaLabel = d.toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }); } catch (e) {}
+                        var html = '<div class="text-muted small mb-2">' + (filas.length ? filas.length + ' ticket(s) levantado(s) el ' + fechaLabel + '.' : 'Ning\u00fan ticket levantado ese d\u00eda.') + '</div>';
+                        if (filas.length > 0) {
+                            html += '<style>.estad-dia-detalle-tabla thead th{position:sticky;top:0;background:#fff;z-index:1;box-shadow:0 1px 0 0 #dee2e6}</style>';
+                            html += '<div class="table-responsive estad-dia-detalle-table-wrap" style="max-height:60vh;overflow-y:auto"><table class="table table-sm table-bordered mb-0 small estad-dia-detalle-tabla"><thead><tr><th>Folio</th><th>ID cr.</th><th>Gestor</th><th>Hora</th><th>T. env\u00edo dict.</th><th>Abrieron</th><th>T. apertura</th><th>Resultado DS</th><th>Pr\u00f3rroga</th><th>Pagaron</th><th>Cumplimiento</th></tr></thead><tbody>';
+                            filas.forEach(function(f) {
+                                html += '<tr><td>' + attrEsc(f.folio) + '</td><td>' + (f.id_credito != null ? f.id_credito : '—') + '</td><td>' + attrEsc(f.gestor_nombre) + '</td><td>' + attrEsc(f.hora_levantado) + '</td><td>' + attrEsc(f.tiempo_dictamen_enviado) + '</td><td>' + attrEsc(f.cuando_abrieron) + '</td><td>' + attrEsc(f.tiempo_apertura) + '</td><td>' + attrEsc(f.resultado_ds) + '</td><td>' + attrEsc(f.prorroga) + '</td><td>' + attrEsc(f.pagaron) + '</td><td>' + attrEsc(f.cumplimiento) + '</td></tr>';
+                            });
+                            html += '</tbody></table></div>';
+                        }
+                        if (typeof Swal !== 'undefined') {
+                            Swal.fire({
+                                title: 'Tickets del d\u00eda',
+                                html: html,
+                                width: '90%',
+                                maxWidth: '960px',
+                                showCloseButton: true,
+                                showConfirmButton: true,
+                                confirmButtonText: 'Cerrar',
+                                customClass: { popup: 'estad-detalle-swal', confirmButton: 'btn btn-primary px-4' },
+                                didOpen: function() { if (typeof initTooltipsEnSwal === 'function') initTooltipsEnSwal(); }
+                            });
+                        }
+                    },
+                    onError: function() {
+                        if (typeof Swal !== 'undefined' && Swal.isVisible && Swal.isVisible()) Swal.close();
+                        if (typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudo cargar el detalle del d\u00eda.' });
+                    }
+                });
             });
             $(document).on('click', '#estadPeriodBreadcrumb .estad-drill-back', function() {
                 var back = $(this).data('drill-back');
@@ -3064,7 +3409,7 @@ JS;
                         });
                 });
             });
-            cargarEstadisticasSabueso();
+            if (!document.getElementById('estadisticasSelectorWrap')) iniciarDashboardSabueso();
         });
         </script>
         SCRIPT;
@@ -3116,6 +3461,26 @@ JS;
     }
 
     /**
+     * API: detalle de tickets levantados en una fecha (para modal en Estadísticas → Tickets levantados → clic en día).
+     * POST/GET: fecha (YYYY-MM-DD). Devuelve { success, mensaje, fecha, filas }.
+     */
+    public function getTicketsDetallePorDia()
+    {
+        $raw = file_get_contents('php://input');
+        $body = $raw ? json_decode($raw, true) : [];
+        if (!is_array($body)) {
+            $body = [];
+        }
+        $fecha = isset($body['fecha']) ? trim((string)$body['fecha']) : (isset($_GET['fecha']) ? trim((string)$_GET['fecha']) : '');
+        if ($fecha === '') {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'Parámetro fecha (YYYY-MM-DD) requerido.', 'filas' => []]);
+            return;
+        }
+        $res = TicketDAO::getTicketsDetallePorDia($fecha);
+        self::respuestaJSON($res);
+    }
+
+    /**
      * API ligera: solo agregado Por Sabueso (dictaminó) — sin recalcular todo el dashboard.
      * Usar al cambiar Días/Semanas/Meses/Año en esa tabla.
      */
@@ -3142,7 +3507,25 @@ JS;
             $body = [];
         }
         $id = (int)($body['id_persona_creador'] ?? $_POST['id_persona_creador'] ?? 0);
-        $res = TicketDAO::getEstadisticasGestorDetalle($id);
+        $page = max(1, (int)($body['page'] ?? $_POST['page'] ?? 1));
+        $perPage = max(1, min(100, (int)($body['per_page'] ?? $_POST['per_page'] ?? 50)));
+        $vista = (string)($body['vista'] ?? $_POST['vista'] ?? 'lectura');
+        $res = TicketDAO::getEstadisticasGestorDetalle($id, $page, $perPage, $vista);
+        self::respuestaJSON($res);
+    }
+
+    /**
+     * API: reporte semanal global (semana vencida y semanas anteriores).
+     */
+    public function getReporteSemanalGestorGlobal()
+    {
+        $raw = file_get_contents('php://input');
+        $body = $raw ? json_decode($raw, true) : [];
+        if (!is_array($body)) {
+            $body = [];
+        }
+        $semanaInicio = trim((string)($body['semana_inicio'] ?? $_POST['semana_inicio'] ?? ''));
+        $res = TicketDAO::getReporteSemanalGestorGlobal($semanaInicio);
         self::respuestaJSON($res);
     }
 
@@ -3282,11 +3665,17 @@ JS;
     }
 
     /**
-     * API: indica si en este momento se permite levantar ticket (menú Ticket / modal).
+     * API: indica si en este momento se permite levantar ticket.
+     * Body opcional: { "categoria": "sabueso" } — la ventana domingo 12:01–lunes 7:00 aplica solo a Sabueso.
      */
     public function ticketLevantarPermitido()
     {
-        $msg = self::mensajeSiVentanaLevantarTicketCerrada();
+        $raw = file_get_contents('php://input');
+        $body = json_decode($raw, true);
+        $categoria = is_array($body) && isset($body['categoria']) ? strtolower(trim((string)$body['categoria'])) : '';
+        // Solo Sabueso (o sin categoría = compatibilidad) usa la restricción horaria
+        $aplicaVentanaSabueso = ($categoria === '' || $categoria === 'sabueso');
+        $msg = $aplicaVentanaSabueso ? self::mensajeSiVentanaLevantarTicketCerrada() : null;
         self::respuestaJSON([
             'success' => true,
             'permitido' => $msg === null,
@@ -3308,6 +3697,36 @@ JS;
     }
 
     /**
+     * API: verifica si el usuario actual ya tiene un ticket activo con ese id_credito.
+     * Solo aplica al mismo gestor (quien levantó); no se considera si otro gestor tiene ticket con ese crédito.
+     * GET o POST: id_credito (int). Respuesta: { success: true, ya_tiene: bool }.
+     */
+    public function verificarCreditoDuplicadoCreador()
+    {
+        $idPersona = (int)($_SESSION['usuario_id'] ?? 0);
+        if ($idPersona < 1) {
+            self::respuestaJSON(['success' => false, 'ya_tiene' => false, 'mensaje' => 'Sesión inválida.']);
+            return;
+        }
+        $idCredito = 0;
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $raw = file_get_contents('php://input');
+            $datos = json_decode($raw, true) ?: [];
+            $idCredito = isset($datos['id_credito']) && $datos['id_credito'] !== '' && $datos['id_credito'] !== null
+                ? (int)$datos['id_credito'] : 0;
+        } else {
+            $idCredito = isset($_GET['id_credito']) ? (int)$_GET['id_credito'] : 0;
+        }
+        if ($idCredito < 1) {
+            self::respuestaJSON(['success' => true, 'ya_tiene' => false, 'ticket_existente' => null]);
+            return;
+        }
+        $yaTiene = TicketDAO::tieneTicketConCreditoPorCreador($idCredito, $idPersona);
+        $ticketExistente = $yaTiene ? TicketDAO::getUltimoTicketActivoConCreditoPorCreador($idCredito, $idPersona) : null;
+        self::respuestaJSON(['success' => true, 'ya_tiene' => $yaTiene, 'ticket_existente' => $ticketExistente]);
+    }
+
+    /**
      * API: crear ticket (id_persona_creador = sesión, fecha_creacion = NOW CDMX).
      * Valida que el ID de crédito exista en Segundometro u Oferta antes de crear.
      */
@@ -3320,10 +3739,14 @@ JS;
             self::respuestaJSON(['success' => false, 'mensaje' => 'Sesión inválida.']);
             return;
         }
-        $msgVentana = self::mensajeSiVentanaLevantarTicketCerrada();
-        if ($msgVentana !== null) {
-            self::respuestaJSON(['success' => false, 'mensaje' => $msgVentana]);
-            return;
+        // Restricción domingo/lunes solo para tickets Sabueso
+        $cat = isset($datos['categoria_gestion']) ? strtolower(trim((string)$datos['categoria_gestion'])) : 'sabueso';
+        if ($cat === '' || $cat === 'sabueso') {
+            $msgVentana = self::mensajeSiVentanaLevantarTicketCerrada();
+            if ($msgVentana !== null) {
+                self::respuestaJSON(['success' => false, 'mensaje' => $msgVentana]);
+                return;
+            }
         }
         $idCredito = isset($datos['id_credito']) && $datos['id_credito'] !== '' && $datos['id_credito'] !== null
             ? (int)$datos['id_credito'] : 0;
@@ -3374,6 +3797,7 @@ JS;
             self::respuestaJSON(['success' => false, 'mensaje' => 'API key inválida o no enviada.']);
             return;
         }
+        // WhatsApp sigue siendo flujo Sabueso: aplica ventana
         $msgVentana = self::mensajeSiVentanaLevantarTicketCerrada();
         if ($msgVentana !== null) {
             self::respuestaJSON(['success' => false, 'mensaje' => $msgVentana]);
@@ -3392,6 +3816,7 @@ JS;
         }
 
         $datos['id_origen_ticket'] = $idOrigenWhatsApp;
+        $datos['categoria_gestion'] = 'sabueso';
         $idCredito = isset($datos['id_credito']) && $datos['id_credito'] !== '' && $datos['id_credito'] !== null
             ? (int)$datos['id_credito'] : 0;
         if ($idCredito < 1) {
@@ -5705,6 +6130,15 @@ JS;
         $idPersona = (int)($_SESSION['persona_id'] ?? ($_SESSION['usuario_id'] ?? 0));
         $nombre = TicketDAO::getNombrePersona($idPersona);
         $resultado = TicketDAO::otorgarProrrogaDictamenSistema($idTicket, $idPersona, (string)$nombre);
+        if ($resultado['success'] ?? false) {
+            $idGestor = TicketDAO::getCreadorIdPorTicket($idTicket);
+            if ($idGestor > 0) {
+                $folio = TicketDAO::getFolioPorTicket($idTicket);
+                $ticketRef = $folio !== '' ? $folio : '#' . $idTicket;
+                $mensaje = 'Se le ha otorgado una prórroga de 12 horas para el ticket (' . $ticketRef . '). Tiene ese plazo para completar las visitas indicadas en el dictamen.';
+                Notificacion::crear($idGestor, 'prorroga_otorgada', $mensaje, $idTicket);
+            }
+        }
         self::respuestaJSON([
             'success' => $resultado['success'] ?? false,
             'mensaje' => $resultado['mensaje'] ?? '',
