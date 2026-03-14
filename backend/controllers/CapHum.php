@@ -1443,6 +1443,7 @@ class CapHum extends Controller
                     16: 'fa fa-cog', 17: 'fa fa-cog',
                     18: 'fa-solid fa-ticket', /* menú Ticket (levantar ticket) — ya no perro */
                     19: 'fa fa-dog', /* Panel Admin Sabueso */
+                    25: 'fa-solid fa-user-xmark', /* Panel Solicitud de baja */
                     20: 'fa fa-building-columns',
                     21: 'fa fa-file-alt',
                     41: 'fa fa-globe', 42: 'fa fa-users', 44: 'fa fa-graduation-cap',

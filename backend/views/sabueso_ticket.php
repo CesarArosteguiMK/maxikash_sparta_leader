@@ -249,10 +249,10 @@
                         </button>
                     </div>
                     <div class="col-md-4 col-6">
-                        <button type="button" class="ticket-categoria-card" data-categoria="solicitud_baja" data-disponible="0" disabled title="Próximamente">
+                        <button type="button" class="ticket-categoria-card" data-categoria="solicitud_baja" data-disponible="1">
+                            <span class="ticket-categoria-check"><i class="fa-solid fa-check"></i></span>
                             <span class="ticket-categoria-icon"><i class="fa-solid fa-user-xmark"></i></span>
                             <span class="ticket-categoria-name">Solicitud de baja</span>
-                            <span class="ticket-categoria-meta">Próximamente</span>
                         </button>
                     </div>
                     <div class="col-md-4 col-6">
@@ -327,6 +327,60 @@
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
                 <button type="button" class="btn btn-primary" id="btnLevantarTicket" onclick="enviarLevantarTicket()">
                     <span id="btnLevantarTicketText"><i class="fa-solid fa-check me-1"></i>Levantar ticket</span>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Solicitud de baja (Levantar ticket > Solicitud de baja) -->
+<div class="modal fade" id="modalSolicitudBaja" tabindex="-1" aria-labelledby="modalSolicitudBajaLabel" aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content modal-content-glass">
+            <div class="modal-header border-bottom">
+                <h5 class="modal-title" id="modalSolicitudBajaLabel">
+                    <i class="fa-solid fa-user-xmark me-2"></i>Solicitud de baja
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted small mb-3">Completa los datos de la solicitud. Puedes adjuntar un documento o imagen como evidencia (PDF o foto).</p>
+                <form id="formSolicitudBaja">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label for="solicitud_baja_motivo" class="form-label">Motivo de la solicitud <span class="text-danger">*</span></label>
+                            <select id="solicitud_baja_motivo" class="form-select" required>
+                                <option value="">Seleccione...</option>
+                                <option value="Renuncia voluntaria">Renuncia voluntaria</option>
+                                <option value="Despido">Despido</option>
+                                <option value="Término de contrato">Término de contrato</option>
+                                <option value="Otro">Otro</option>
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <label for="solicitud_baja_detalle_motivo" class="form-label">Detalle del motivo <span class="text-danger">*</span></label>
+                            <textarea id="solicitud_baja_detalle_motivo" class="form-control" rows="3" placeholder="Explique los hechos o razones que motivan esta solicitud..." required></textarea>
+                        </div>
+                        <div class="col-12">
+                            <label for="solicitud_baja_descripcion" class="form-label">Descripción u observaciones</label>
+                            <textarea id="solicitud_baja_descripcion" class="form-control" rows="2" placeholder="Observaciones adicionales (opcional)"></textarea>
+                        </div>
+                        <div class="col-12">
+                            <label for="solicitud_baja_nombre_colaborador" class="form-label">Colaborador a dar de baja <span class="text-danger">*</span></label>
+                            <input type="text" id="solicitud_baja_nombre_colaborador" class="form-control" placeholder="Nombre completo de la persona" maxlength="255" required>
+                        </div>
+                        <div class="col-12">
+                            <label for="solicitud_baja_adjunto" class="form-label">Adjuntar evidencia (foto o PDF)</label>
+                            <input type="file" id="solicitud_baja_adjunto" class="form-control" accept=".pdf,image/jpeg,image/png,image/gif,image/webp" aria-describedby="solicitud_baja_adjunto_help">
+                            <div id="solicitud_baja_adjunto_help" class="form-text">Opcional. Formatos permitidos: PDF, JPG, PNG, GIF o WebP. Tamaño máximo recomendado: 10 MB.</div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer border-top">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="btnEnviarSolicitudBaja">
+                    <span id="btnEnviarSolicitudBajaText"><i class="fa-solid fa-paper-plane me-1"></i>Enviar solicitud</span>
                 </button>
             </div>
         </div>

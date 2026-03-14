@@ -11,6 +11,7 @@ use Models\Gestiones as GestionesDAO;
 use Models\Ubicacion as UbicacionDAO;
 use Models\OfertaCoordenada;
 use Models\RegistroAsignacion;
+use Models\SolicitudBaja as SolicitudBajaDAO;
 
 // Capas del sistema de predicción: motor, interpretación IA, verificación IA, cache, audit
 require_once __DIR__ . '/../services/LocationScoringService.php';
@@ -2148,8 +2149,111 @@ JS;
     }
 
     /**
-     * Columnas para la vista Cerrado/Eliminado: mismas que Panel Admin + Quién eliminó/cerró, Fecha cierre, Acciones (solo ojo).
+     * Columnas para la vista Panel Solicitud de baja.
      */
+    private function getColumnsConfigPanelSolicitudBaja()
+    {
+        $base = [
+            ['data' => null, 'defaultContent' => '', 'className' => 'control', 'orderable' => false],
+            ['data' => 'fecha_display', 'title' => 'Fecha'],
+            ['data' => 'motivo_baja', 'title' => 'Motivo'],
+            ['data' => 'nombre_colaborador', 'title' => 'Colaborador a dar de baja'],
+            ['data' => 'creador_nombre', 'title' => 'Quién solicitó'],
+            ['data' => 'adjunto_display', 'title' => 'Adjunto', 'orderable' => false],
+            ['data' => 'acciones', 'title' => 'Acciones', 'orderable' => false],
+        ];
+        return [
+            'columnsJs' => json_encode($base, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_QUOT | JSON_HEX_APOS),
+        ];
+    }
+
+    /**
+     * Vista Panel Admin Solicitudes de baja: listado + modal Ver (solo lectura).
+     */
+    public function panelSolicitudBaja()
+    {
+        $columnsJson = $this->getColumnsConfigPanelSolicitudBaja();
+        $script = <<<SCRIPT
+        <script>
+        function attrEsc(s){ if (s==null||s===undefined) return ''; var x=(s+'').split('&').join('&amp;').split('<').join('&lt;'); return x.split('"').join('&quot;'); }
+        $(document).ready(function() {
+            configuraTabla("#tablaSolicitudesBaja", {
+                registrosPorPagina: 10,
+                order: [[1, 'desc']],
+                columns: {$columnsJson['columnsJs']}
+            });
+            getSolicitudesBaja();
+        });
+        function getSolicitudesBaja() {
+            http.request({
+                endpoint: "/sabueso/getSolicitudesBaja",
+                metodo: "POST",
+                onSuccess: function(resp) {
+                    var datos = (resp.datos || []).map(function(s) {
+                        var fecha = s.fecha_creacion ? new Date(s.fecha_creacion).toLocaleString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
+                        var adjunto = (s.ruta_adjunto && s.ruta_adjunto.trim()) ? '<a href="/sabueso/verAdjuntoSolicitudBaja?id=' + (s.id || '') + '" target="_blank" class="btn btn-sm btn-outline-secondary" title="Descargar adjunto"><i class="fa-solid fa-download me-1"></i>Ver</a>' : '<span class="text-muted">—</span>';
+                        return {
+                            fecha_display: '<small>' + attrEsc(fecha) + '</small>',
+                            motivo_baja: '<span class="fw-medium">' + attrEsc(s.motivo_baja || '—') + '</span>',
+                            nombre_colaborador: '<small>' + attrEsc(s.nombre_colaborador || '—') + '</small>',
+                            creador_nombre: '<small>' + attrEsc(s.creador_nombre || '—') + '</small>',
+                            adjunto_display: adjunto,
+                            acciones: '<button type="button" class="btn btn-sm btn-outline-primary btn-ver-solicitud" onclick="abrirModalVerSolicitudBaja(' + (s.id || 0) + ')" title="Ver detalle"><i class="fa fa-eye"></i></button>'
+                        };
+                    });
+                    var tabla = $('#tablaSolicitudesBaja').DataTable();
+                    tabla.clear().rows.add(datos).draw();
+                },
+                onError: function() {
+                    var tabla = $('#tablaSolicitudesBaja').DataTable();
+                    tabla.clear().draw();
+                }
+            });
+        }
+        function abrirModalVerSolicitudBaja(id) {
+            if (!id) return;
+            $('#modalVerSolicitudBaja .modal-body').html('<div class="text-center py-4"><span class="text-muted">Cargando...</span></div>');
+            var \$modal = $('#modalVerSolicitudBaja');
+            if (typeof bootstrap !== 'undefined' && bootstrap.Modal) { bootstrap.Modal.getOrCreateInstance(\$modal[0]).show(); } else { \$modal.modal('show'); }
+            http.request({
+                endpoint: "/sabueso/getSolicitudBajaPorId",
+                metodo: "POST",
+                data: JSON.stringify({ id: id }),
+                contentType: "application/json",
+                processData: false,
+                onSuccess: function(r) {
+                    if (!(r.success && r.datos)) {
+                        $('#modalVerSolicitudBaja .modal-body').html('<div class="alert alert-warning mb-0">' + (r.mensaje || 'No se encontró la solicitud.') + '</div>');
+                        return;
+                    }
+                    var d = r.datos;
+                    var esc = attrEsc;
+                    var fCreacion = d.fecha_creacion ? new Date(d.fecha_creacion).toLocaleString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
+                    var html = '<div class="solicitud-ver-seccion"><h6 class="text-uppercase small fw-bold text-muted mb-2">Fecha de registro</h6><div>' + esc(fCreacion) + '</div></div>';
+                    html += '<div class="solicitud-ver-seccion"><h6 class="text-uppercase small fw-bold text-muted mb-2">Motivo de la solicitud</h6><div class="fw-medium">' + esc(d.motivo_baja || '—') + '</div></div>';
+                    html += '<div class="solicitud-ver-seccion"><h6 class="text-uppercase small fw-bold text-muted mb-2">Detalle del motivo</h6><div class="text-break">' + esc(d.detalle_motivo || '—') + '</div></div>';
+                    if (d.descripcion && d.descripcion.trim()) html += '<div class="solicitud-ver-seccion"><h6 class="text-uppercase small fw-bold text-muted mb-2">Descripción u observaciones</h6><div class="text-break">' + esc(d.descripcion) + '</div></div>';
+                    html += '<div class="solicitud-ver-seccion"><h6 class="text-uppercase small fw-bold text-muted mb-2">Colaborador a dar de baja</h6><div class="fw-semibold">' + esc(d.nombre_colaborador || '—') + '</div></div>';
+                    html += '<div class="solicitud-ver-seccion"><h6 class="text-uppercase small fw-bold text-muted mb-2">Quién solicitó</h6><div>' + esc(d.creador_nombre || '—') + '</div></div>';
+                    if (d.ruta_adjunto && d.ruta_adjunto.trim()) {
+                        html += '<div class="solicitud-ver-seccion"><h6 class="text-uppercase small fw-bold text-muted mb-2">Adjunto</h6><div><a href="/sabueso/verAdjuntoSolicitudBaja?id=' + (d.id || '') + '" target="_blank" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-download me-1"></i>Descargar</a>';
+                        if (d.nombre_archivo_original && d.nombre_archivo_original.trim()) html += ' <span class="text-muted small ms-2">' + esc(d.nombre_archivo_original) + '</span>';
+                        html += '</div></div>';
+                    }
+                    $('#modalVerSolicitudBaja .modal-body').html(html);
+                },
+                onError: function(e) {
+                    $('#modalVerSolicitudBaja .modal-body').html('<div class="alert alert-danger mb-0">' + (e && e.mensaje ? attrEsc(e.mensaje) : 'Error al cargar.') + '</div>');
+                }
+            });
+        }
+        </script>
+        SCRIPT;
+        self::set('titulo', 'Solicitudes de baja | Sabueso');
+        self::set('script', $script);
+        self::render('sabueso_panel_solicitud_baja');
+    }
+
     private function getColumnsConfigCerradoEliminado()
     {
         $base = [
@@ -3778,6 +3882,124 @@ JS;
             'mensaje' => $resultado['mensaje'] ?? '',
             'datos'   => $resultado['datos'] ?? null
         ]);
+    }
+
+    /**
+     * API: guardar solicitud de baja (Levantar ticket > Solicitud de baja).
+     * POST: motivo_baja, detalle_motivo, descripcion (opcional), nombre_colaborador; opcional: adjunto (archivo PDF o imagen).
+     */
+    public function guardarSolicitudBaja()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        $idPersona = (int)($_SESSION['persona_id'] ?? $_SESSION['usuario_id'] ?? 0);
+        if ($idPersona < 1) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'Debe iniciar sesión para enviar la solicitud.']);
+            return;
+        }
+        $motivo = isset($_POST['motivo_baja']) ? trim((string)$_POST['motivo_baja']) : '';
+        $detalle = isset($_POST['detalle_motivo']) ? trim((string)$_POST['detalle_motivo']) : '';
+        $descripcion = isset($_POST['descripcion']) ? trim((string)$_POST['descripcion']) : '';
+        $nombreColaborador = isset($_POST['nombre_colaborador']) ? trim((string)$_POST['nombre_colaborador']) : '';
+        $nombreArchivoOriginal = null;
+        $rutaAdjunto = null;
+        if (!empty($_FILES['adjunto']['tmp_name']) && is_uploaded_file($_FILES['adjunto']['tmp_name'])) {
+            $tmp = $_FILES['adjunto']['tmp_name'];
+            if (!\Core\SecureUpload::validateMime($tmp, \Core\SecureUpload::MIME_PDF_OR_IMAGES)) {
+                self::respuestaJSON(['success' => false, 'mensaje' => 'El adjunto debe ser PDF o imagen (JPG, PNG, GIF, WebP).']);
+                return;
+            }
+            $mime = \Core\SecureUpload::getMimeType($tmp);
+            $ext = $mime ? \Core\SecureUpload::extensionFromMime($mime) : 'bin';
+            $dir = __DIR__ . '/../uploads/solicitud_baja';
+            \Core\SecureUpload::ensureDir($dir);
+            $nombreArchivo = \Core\SecureUpload::generateSafeFilename($ext);
+            $rutaCompleta = $dir . '/' . $nombreArchivo;
+            if (!move_uploaded_file($tmp, $rutaCompleta)) {
+                self::respuestaJSON(['success' => false, 'mensaje' => 'Error al guardar el archivo adjunto.']);
+                return;
+            }
+            $nombreArchivoOriginal = isset($_FILES['adjunto']['name']) ? trim((string)$_FILES['adjunto']['name']) : $nombreArchivo;
+            $rutaAdjunto = 'solicitud_baja/' . $nombreArchivo;
+        }
+        $resultado = SolicitudBajaDAO::guardar([
+            'motivo_baja'             => $motivo,
+            'detalle_motivo'          => $detalle,
+            'descripcion'             => $descripcion,
+            'nombre_colaborador'      => $nombreColaborador,
+            'nombre_archivo_original' => $nombreArchivoOriginal,
+            'ruta_adjunto'            => $rutaAdjunto,
+        ], $idPersona);
+        self::respuestaJSON([
+            'success' => $resultado['success'] ?? false,
+            'mensaje' => $resultado['mensaje'] ?? '',
+            'datos'   => $resultado['datos'] ?? null
+        ]);
+    }
+
+    /**
+     * API: listado de solicitudes de baja (Panel Admin).
+     */
+    public function getSolicitudesBaja()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        $resultado = SolicitudBajaDAO::getLista();
+        $datos = isset($resultado['datos']) ? $resultado['datos'] : [];
+        self::respuestaJSON([
+            'success' => $resultado['success'] ?? false,
+            'mensaje' => $resultado['mensaje'] ?? '',
+            'datos'   => $datos
+        ]);
+    }
+
+    /**
+     * API: una solicitud de baja por ID (modal Ver en Panel Admin).
+     */
+    public function getSolicitudBajaPorId()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        $raw = file_get_contents('php://input');
+        $body = json_decode($raw, true) ?: [];
+        $id = (int)($body['id'] ?? 0);
+        if ($id < 1) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'ID requerido.', 'datos' => null]);
+            return;
+        }
+        $row = SolicitudBajaDAO::getPorId($id);
+        if (!$row) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'Solicitud no encontrada.', 'datos' => null]);
+            return;
+        }
+        self::respuestaJSON(['success' => true, 'mensaje' => '', 'datos' => $row]);
+    }
+
+    /**
+     * Sirve el archivo adjunto de una solicitud de baja (descarga). Respuesta binaria.
+     */
+    public function verAdjuntoSolicitudBaja()
+    {
+        $id = (int)($_GET['id'] ?? 0);
+        if ($id < 1) {
+            http_response_code(400);
+            return;
+        }
+        $row = SolicitudBajaDAO::getPorId($id);
+        if (!$row || empty($row['ruta_adjunto'])) {
+            http_response_code(404);
+            return;
+        }
+        $path = __DIR__ . '/../uploads/' . $row['ruta_adjunto'];
+        if (!is_file($path)) {
+            http_response_code(404);
+            return;
+        }
+        $mime = (new \finfo(FILEINFO_MIME_TYPE))->file($path);
+        $nombreDescarga = !empty($row['nombre_archivo_original']) ? $row['nombre_archivo_original'] : basename($path);
+        header('Content-Type: ' . $mime);
+        header('Content-Length: ' . filesize($path));
+        header('Content-Disposition: inline; filename="' . str_replace('"', '\\"', $nombreDescarga) . '"');
+        header('Cache-Control: private, max-age=86400');
+        readfile($path);
+        exit;
     }
 
     /**
@@ -6082,7 +6304,8 @@ JS;
             self::respuestaJSON(['success' => false, 'mensaje' => 'ID de ticket requerido.']);
             return;
         }
-        $resultado = TicketDAO::generarDictamenSistema($idTicket);
+        $forzarRegeneracion = !empty($datos['revalidar_pago']);
+        $resultado = TicketDAO::generarDictamenSistema($idTicket, $forzarRegeneracion);
         self::respuestaJSON([
             'success' => $resultado['success'] ?? false,
             'mensaje' => $resultado['mensaje'] ?? '',

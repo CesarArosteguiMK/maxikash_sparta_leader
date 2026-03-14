@@ -1002,7 +1002,7 @@
                                 </div>
                                 <div class="mb-2">
                                     <label for="rastreoDictamenDescripcion" class="form-label small fw-semibold text-muted mb-1">Descripción <span class="text-danger">*</span></label>
-                                    <textarea class="form-control form-control-sm" id="rastreoDictamenDescripcion" rows="3" placeholder="Escriba la descripción..." required aria-required="true" maxlength="1000"></textarea>
+                                    <textarea class="form-control form-control-sm" id="rastreoDictamenDescripcion" rows="3" placeholder="Escriba la descripción..." required aria-required="true" maxlength="4000"></textarea>
                                 </div>
                                 <div class="mb-2">
                                     <span class="form-label small fw-semibold text-muted mb-0 d-block">Domicilios de visita</span>
@@ -1163,7 +1163,7 @@
                     </div>
                     <div class="mb-3">
                         <label for="rastreoDictamenAmpliadaDescripcion" class="form-label fw-semibold text-muted">Comentarios <span class="text-danger">*</span></label>
-                        <textarea class="form-control" id="rastreoDictamenAmpliadaDescripcion" rows="3" placeholder="Escriba sus comentarios para el gestor y no incluya en este apartado ubicaciones..." required aria-required="true" maxlength="1000"></textarea>
+                        <textarea class="form-control" id="rastreoDictamenAmpliadaDescripcion" rows="3" placeholder="Escriba sus comentarios para el gestor y no incluya en este apartado ubicaciones..." required aria-required="true" maxlength="4000"></textarea>
                     </div>
                     <div class="mb-3">
                         <span class="form-label fw-semibold text-muted mb-0 d-block">Domicilios de visita</span>
@@ -2300,6 +2300,9 @@
         <button type="button" class="btn btn-warning btn-sm" id="btnGenerarDictamenSistema" style="display:none;" onclick="ejecutarDictamenSistema()">
             <i class="fa-solid fa-robot me-1"></i>Generar dictamen del sistema
         </button>
+        <button type="button" class="btn btn-outline-secondary btn-sm" id="btnRevalidarPagoDictamenSistema" style="display:none;" onclick="ejecutarRevalidarPagoDictamenSistema()" title="Volver a consultar estado de cuenta y actualizar el resultado de pago">
+            <i class="fa-solid fa-rotate me-1"></i>Volver a verificar pago
+        </button>
         <button type="button" class="btn btn-outline-warning btn-sm" id="btnOtorgarProrrogaDictamenSistema" style="display:none;" onclick="ejecutarOtorgarProrrogaDictamenSistema()">
             <i class="fa-solid fa-hourglass-half me-1"></i>Otorgar prórroga (+12 h)
         </button>
@@ -2333,9 +2336,11 @@ var dictamenSistemaTicketId = 0;
 function setBotonesDictamenSistema(ds) {
     var btnGen = document.getElementById('btnGenerarDictamenSistema');
     var btnPro = document.getElementById('btnOtorgarProrrogaDictamenSistema');
+    var btnReval = document.getElementById('btnRevalidarPagoDictamenSistema');
     if (!btnGen || !btnPro) return;
     btnGen.style.display = 'none';
     btnPro.style.display = 'none';
+    if (btnReval) btnReval.style.display = 'none';
     if (!ds) {
         btnGen.style.display = '';
         return;
@@ -2345,19 +2350,20 @@ function setBotonesDictamenSistema(ds) {
         btnGen.style.display = '';
         return;
     }
-    // Prórroga activa: no mostrar Generar; el dictamen se evalúa solo al vencer las 12h (getDictamenSistema dispara generar)
     if (res === 'prorroga_activa') {
         btnGen.style.display = 'none';
         btnPro.style.display = 'none';
         return;
     }
-    // Prórroga solo en no cumplidos y no pagados (validación final la hace backend)
     var d = ds.detalle_parsed || {};
     var noCumplidos = ['no_visito', 'visito_telefonico', 'distancia_lejana', 'visita_parcial', 'sin_coordenadas'];
     var puedeProrroga = noCumplidos.indexOf(res) !== -1
         && !d.pago_en_ventana
         && !(d.prorroga && d.prorroga.otorgada);
     if (puedeProrroga) btnPro.style.display = '';
+    // Mostrar "Volver a verificar pago" cuando el pago quedó en "No se pudo verificar" (API falló al evaluar)
+    var estadoCuentaConsultado = (d.__SPARTA_SECRET_REDACTED___consultado !== false);
+    if (!estadoCuentaConsultado && !d.pago_en_ventana && btnReval) btnReval.style.display = '';
 }
 
 function abrirDictamenSistema(idTicket) {
@@ -2367,6 +2373,8 @@ function abrirDictamenSistema(idTicket) {
     body.innerHTML = '<div class="text-center py-4"><i class="fa-solid fa-spinner fa-spin fa-2x text-muted"></i><p class="mt-2 text-muted">Consultando...</p></div>';
     document.getElementById('btnGenerarDictamenSistema').style.display = 'none';
     document.getElementById('btnOtorgarProrrogaDictamenSistema').style.display = 'none';
+    var btnReval = document.getElementById('btnRevalidarPagoDictamenSistema');
+    if (btnReval) btnReval.style.display = 'none';
     // Una sola instancia: evita backdrops duplicados al refrescar tras prórroga/generar
     var modal = bootstrap.Modal.getOrCreateInstance(elModal);
     if (!elModal.classList.contains('show')) {
@@ -2476,6 +2484,37 @@ function ejecutarOtorgarProrrogaDictamenSistema() {
             btn.disabled = false;
             btn.innerHTML = '<i class="fa-solid fa-hourglass-half me-1"></i>Otorgar prórroga (+12 h)';
             body.innerHTML = '<div class="alert alert-danger mb-0">Error de conexión al otorgar la prórroga.</div>';
+        }
+    });
+}
+
+function ejecutarRevalidarPagoDictamenSistema() {
+    var body = document.getElementById('modalDictamenSistemaBody');
+    var btn = document.getElementById('btnRevalidarPagoDictamenSistema');
+    if (btn) btn.disabled = true;
+    body.innerHTML = '<div class="text-center py-4"><i class="fa-solid fa-rotate fa-spin fa-2x text-secondary"></i><p class="mt-2 text-muted">Verificando estado de cuenta...</p></div>';
+    http.request({
+        endpoint: '/sabueso/generarDictamenSistema',
+        metodo: 'POST',
+        data: JSON.stringify({ id_ticket: dictamenSistemaTicketId, revalidar_pago: true }),
+        contentType: 'application/json',
+        processData: false,
+        showLoader: false,
+        onSuccess: function(res) {
+            if (btn) btn.disabled = false;
+            if (!res.success) {
+                body.innerHTML = '<div class="alert alert-danger mb-0"><i class="fa-solid fa-triangle-exclamation me-1"></i>' + (res.mensaje || 'Error') + '</div>';
+                return;
+            }
+            if (dictamenSistemaTicketId) {
+                actualizarFilaResultadoDS(dictamenSistemaTicketId, (res.datos && res.datos.resultado) ? res.datos.resultado : null);
+            }
+            abrirDictamenSistema(dictamenSistemaTicketId);
+            if (typeof getTicketsPanelAdmin === 'function') getTicketsPanelAdmin();
+        },
+        onError: function() {
+            if (btn) btn.disabled = false;
+            body.innerHTML = '<div class="alert alert-danger mb-0">Error de conexión al verificar.</div>';
         }
     });
 }
@@ -2649,20 +2688,24 @@ function renderDictamenSistemaResultado(ds, body) {
     // Resumen numérico
     html += '<div class="card border-0 shadow-sm mb-3"><div class="card-body py-3 px-3">';
     html += '<div class="row g-3 text-center text-md-start">';
-    html += '<div class="col-md-4"><div class="text-muted small">Gestiones al enviar</div><div class="fs-5 fw-semibold">' + (d.gestiones_antes != null ? d.gestiones_antes : ds.gestiones_al_enviar) + '</div></div>';
-    html += '<div class="col-md-4"><div class="text-muted small">Gestiones al revisar</div><div class="fs-5 fw-semibold">' + (d.gestiones_ahora != null ? d.gestiones_ahora : (ds.gestiones_al_revisar != null ? ds.gestiones_al_revisar : '—')) + '</div></div>';
+    html += '<div class="col-md-4"><div class="text-muted small">Gestiones históricas al enviar</div><div class="fs-5 fw-semibold">' + (d.gestiones_antes != null ? d.gestiones_antes : ds.gestiones_al_enviar) + '</div></div>';
+    html += '<div class="col-md-4"><div class="text-muted small">Gestiones históricas al revisar</div><div class="fs-5 fw-semibold">' + (d.gestiones_ahora != null ? d.gestiones_ahora : (ds.gestiones_al_revisar != null ? ds.gestiones_al_revisar : '—')) + '</div></div>';
     if (d.nuevas_gestiones != null && d.nuevas_gestiones > 0) {
-        html += '<div class="col-md-4"><div class="text-muted small">Gestiones nuevas</div><div class="fs-5 fw-semibold text-primary">' + d.nuevas_gestiones + '</div></div>';
+        html += '<div class="col-md-4"><div class="text-muted small">Gestiones nuevas en la ventana</div><div class="fs-5 fw-semibold text-primary">' + d.nuevas_gestiones + '</div></div>';
     }
     html += '</div></div></div>';
 
     // Reglas de cumplimiento: pago dentro de las 12h + cobertura de direcciones
+    // Si __SPARTA_SECRET_REDACTED___consultado no existe (dictámenes antiguos), se considera consultado → Sí/No
     var pagoWin = !!d.pago_en_ventana;
-    var dirTot = (d.direcciones_dictamen_total != null ? d.direcciones_dictamen_total : '—');
+    var estadoCuentaConsultado = (d.__SPARTA_SECRET_REDACTED___consultado !== false);
+    var pagoWinTxt = pagoWin ? 'Sí' : (estadoCuentaConsultado ? 'No' : 'No se pudo verificar');
+    var pagoWinCls = pagoWin ? 'text-success' : (estadoCuentaConsultado ? 'text-danger' : 'text-warning');
+    var dirTot = (d.direcciones_dictamen_total != null ? d.direcciones_dictamen_total : (d.domicilios_dictamen_total != null ? d.domicilios_dictamen_total : '—'));
     var dirVis = (d.direcciones_visitadas != null ? d.direcciones_visitadas : '—');
     html += '<div class="card border-0 shadow-sm mb-3"><div class="card-body py-3 px-3">';
     html += '<div class="row g-3">';
-    html += '<div class="col-md-4"><div class="text-muted small">Pago dentro de las 12h</div><div class="fw-semibold ' + (pagoWin ? 'text-success' : 'text-danger') + '">' + (pagoWin ? 'Sí' : 'No') + '</div></div>';
+    html += '<div class="col-md-4"><div class="text-muted small">Pago dentro de las 12h</div><div class="fw-semibold ' + pagoWinCls + '" title="' + (estadoCuentaConsultado ? '' : 'Estado de cuenta no disponible al momento de evaluar.') + '">' + escHtml(pagoWinTxt) + '</div></div>';
     html += '<div class="col-md-4"><div class="text-muted small">Direcciones visitadas</div><div class="fw-semibold">' + dirVis + ' / ' + dirTot + '</div></div>';
     html += '<div class="col-md-4"><div class="text-muted small">Regla aplicada</div><div class="fw-semibold small">' + escHtml((d.cumplimiento_etiqueta || '—')) + '</div></div>';
     html += '</div>';
@@ -2676,7 +2719,7 @@ function renderDictamenSistemaResultado(ds, body) {
             var c = cob[ci];
             var etiqueta = escHtml(c.direccion || ('Dirección ' + (ci + 1)));
             var minM = c.min_distancia_metros;
-            var extra = (minM != null && minM !== '') ? ' <span class="text-muted">(más cerca: ' + minM + ' m)</span>' : '';
+            var extra = (minM != null && minM !== '') ? ' <span class="text-muted">(más cerca: ' + minM + ' m)</span>' : ' <span class="text-muted">(sin coordenadas para medir distancia)</span>';
             if (c.visitada) {
                 visitadas.push('<li class="mb-1"><i class="fa-solid fa-circle-check text-success me-1"></i>' + etiqueta + extra + '</li>');
             } else {
@@ -2696,6 +2739,7 @@ function renderDictamenSistemaResultado(ds, body) {
     if (d.ventana_revision && d.ventana_revision.inicio) {
         html += '<div class="small text-muted mt-2"><i class="fa-regular fa-clock me-1"></i>Ventana evaluada: ' + escHtml(d.ventana_revision.inicio || '—') + ' a ' + escHtml(d.ventana_revision.fin || '—') + ' (' + escHtml(d.ventana_revision.tipo || '12h') + ')</div>';
     }
+    html += '<div class="small text-muted mt-1"><i class="fa-solid fa-circle-info me-1"></i>“Gestiones nuevas en la ventana” = registros creados después del envío del dictamen (o después de otorgar prórroga, si aplica).</div>';
     html += '</div></div>';
 
     if (ds.nombre_gestor) {
@@ -2762,6 +2806,8 @@ function escHtml(s) {
 function dictamenSistemaSimular(caso) {
     var body = document.getElementById('modalDictamenSistemaBody');
     document.getElementById('btnGenerarDictamenSistema').style.display = 'none';
+    var br = document.getElementById('btnRevalidarPagoDictamenSistema');
+    if (br) br.style.display = 'none';
     var base = {
         id_ticket: dictamenSistemaTicketId || 0,
         nombre_gestor: 'GESTOR DE PRUEBA',

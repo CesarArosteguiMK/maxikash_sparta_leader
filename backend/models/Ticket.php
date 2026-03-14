@@ -162,9 +162,15 @@ class Ticket extends Model
                         if ($dsRes === 'cumplido_pago') {
                             $pagoLine = '<span class="small text-success fw-semibold d-block mt-1">Pago: Sí</span>';
                         } elseif (is_array($det) && array_key_exists('pago_en_ventana', $det)) {
-                            $pagoLine = !empty($det['pago_en_ventana'])
-                                ? '<span class="small text-success fw-semibold d-block mt-1">Pago: Sí</span>'
-                                : '<span class="small text-danger fw-semibold d-block mt-1">Pago: No</span>';
+                            // Dictámenes antiguos sin __SPARTA_SECRET_REDACTED___consultado se tratan como consultados
+                            $consultado = !array_key_exists('__SPARTA_SECRET_REDACTED___consultado', $det) || !empty($det['__SPARTA_SECRET_REDACTED___consultado']);
+                            if (!empty($det['pago_en_ventana'])) {
+                                $pagoLine = '<span class="small text-success fw-semibold d-block mt-1">Pago: Sí</span>';
+                            } elseif (!$consultado) {
+                                $pagoLine = '<span class="small text-warning fw-semibold d-block mt-1" title="Estado de cuenta no disponible al evaluar">Pago: No se pudo verificar</span>';
+                            } else {
+                                $pagoLine = '<span class="small text-danger fw-semibold d-block mt-1">Pago: No</span>';
+                            }
                         } elseif ($dsRes !== 'pendiente' && $dsRes !== 'prorroga_activa' && $dsRes !== '') {
                             $pagoLine = '<span class="small text-danger fw-semibold d-block mt-1">Pago: No</span>';
                         }
@@ -1166,11 +1172,11 @@ class Ticket extends Model
     {
         $tid = (int)$idTicket;
         $pid = (int)$idPersona;
-        $msg = trim((string)$mensaje);
+        $msg = self::normalizarDescripcionDictamenConMaps((string)$mensaje);
         if ($tid < 1 || $pid < 1 || $msg === '') {
             return self::resultado(false, 'Datos inválidos.', null);
         }
-        if (strlen($msg) > 2000) {
+        if (strlen($msg) > 12000) {
             return self::resultado(false, 'Mensaje demasiado largo.', null);
         }
         try {
@@ -1239,11 +1245,11 @@ class Ticket extends Model
         $tid = (int)$idTicket;
         $pid = (int)$idPersona;
         $tipo = trim((string)$tipo);
-        $descripcion = trim((string)$descripcion);
+        $descripcion = self::normalizarDescripcionDictamenConMaps((string)$descripcion);
         if ($tid < 1 || $pid < 1 || $tipo === '' || $descripcion === '') {
             return self::resultado(false, 'Faltan tipo o descripción.');
         }
-        if (strlen($descripcion) > 2000) {
+        if (strlen($descripcion) > 12000) {
             return self::resultado(false, 'Descripción demasiado larga.');
         }
         try {
@@ -1379,27 +1385,12 @@ class Ticket extends Model
             }
             $evidencias = $db->queryAll("SELECT id, ruta_archivo, nombre_original, fecha_subida FROM ticket_evidencia WHERE id_ticket = :id_ticket ORDER BY fecha_subida ASC", ['id_ticket' => $id]);
 
-            // Parsear domicilios de visita desde la descripción ("Podrás encontrar al usuario en desc link; desc2 link2")
             $domicilios = [];
             $descripcionBase = $dictamen ? ($dictamen['descripcion'] ?? '') : '';
             if ($dictamen && !empty($dictamen['descripcion'])) {
-                $desc = (string) $dictamen['descripcion'];
-                $prefijo = 'Podrás encontrar al usuario en ';
-                $pos = strpos($desc, $prefijo);
-                if ($pos !== false) {
-                    $descripcionBase = trim(preg_replace('/\.\s*$/', '', substr($desc, 0, $pos)));
-                    $domStr = trim(substr($desc, $pos + strlen($prefijo)));
-                    $bloques = preg_split('/\s*;\s*/', $domStr, -1, PREG_SPLIT_NO_EMPTY);
-                    foreach ($bloques as $bloq) {
-                        $bloq = trim($bloq);
-                        if ($bloq === '') continue;
-                        if (preg_match('/\s+(https?:\/\/\S+)$/u', $bloq, $m)) {
-                            $domicilios[] = ['desc' => trim(substr($bloq, 0, -strlen($m[0]))), 'link' => $m[1]];
-                        } else {
-                            $domicilios[] = ['desc' => $bloq, 'link' => ''];
-                        }
-                    }
-                }
+                $parsed = self::parsearDomiciliosDictamen((string)$dictamen['descripcion']);
+                $descripcionBase = $parsed['base'] ?? $descripcionBase;
+                $domicilios = is_array($parsed['domicilios'] ?? null) ? $parsed['domicilios'] : [];
             }
             if ($dictamen !== null) {
                 $dictamen['descripcion_base'] = $descripcionBase;
@@ -1620,8 +1611,11 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
     /**
      * Genera el dictamen del sistema: compara gestiones antes/después y calcula distancias.
      * Se invoca desde el botón en Panel Admin una vez que pasan las 12 horas.
+     *
+     * @param int  $idTicket            ID del ticket.
+     * @param bool $forzarRegeneracion  Si true, omite la validación de ventana de 12 h (p. ej. para recalcular tras reparar direcciones).
      */
-    public static function generarDictamenSistema(int $idTicket): array
+    public static function generarDictamenSistema(int $idTicket, bool $forzarRegeneracion = false): array
     {
         if ($idTicket < 1) {
             return self::resultado(false, 'ID de ticket inválido.');
@@ -1681,7 +1675,8 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
             $fechaInicioWin = $inicioWinDt->format('Y-m-d H:i:s');
             $fechaFinWin = $finWinDt->format('Y-m-d H:i:s');
             $nowTs = (new \DateTime($now, $tz))->getTimestamp();
-            if ($nowTs < $finWinDt->getTimestamp()) {
+            $ventanaVencida = $nowTs >= $finWinDt->getTimestamp();
+            if (!$ventanaVencida) {
                 $rest = max(0, $finWinDt->getTimestamp() - $nowTs);
                 $h = floor($rest / 3600);
                 $m = floor(($rest % 3600) / 60);
@@ -1689,26 +1684,32 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                 return self::resultado(false, 'Aún no vence ' . $tipo . ' de 12 horas. Restante aproximado: ' . $h . 'h ' . $m . 'm.');
             }
 
-            $pagosEnVentana = self::getPagosEstadoCuentaEnVentana($idCredito, $fechaInicioWin, $fechaFinWin);
+            $resPagos = self::getPagosEstadoCuentaEnVentana($idCredito, $fechaInicioWin, $fechaFinWin);
+            $pagosEnVentana = is_array($resPagos['pagos'] ?? null) ? $resPagos['pagos'] : [];
             $hayPagoEnVentana = !empty($pagosEnVentana);
+            $estadoCuentaConsultado = !empty($resPagos['__SPARTA_SECRET_REDACTED___consultado']);
 
             $gestionesAhora = Gestiones::getAllGestiones((string)$idCredito, '');
             $totalAhora = is_array($gestionesAhora) ? count($gestionesAhora) : 0;
             $nuevas = $totalAhora > $totalAntes ? array_slice($gestionesAhora, 0, $totalAhora - $totalAntes) : [];
 
-            // Obtener coordenadas del dictamen (direcciones proporcionadas)
+            // Obtener direcciones y coordenadas del dictamen (direcciones proporcionadas)
             $dictamenRow = $db->queryOne(
                 "SELECT descripcion FROM dictamen WHERE id = :id LIMIT 1",
                 ['id' => (int)$ds['id_dictamen']]
             );
-            $coordsDictamen = self::extraerCoordenadasDictamen($dictamenRow['descripcion'] ?? '');
+            $dictamenDescripcion = (string)($dictamenRow['descripcion'] ?? '');
+            $parsedDomicilios = self::parsearDomiciliosDictamen($dictamenDescripcion);
+            $domiciliosDictamen = is_array($parsedDomicilios['domicilios'] ?? null) ? $parsedDomicilios['domicilios'] : [];
+            $coordsDictamen = self::extraerCoordenadasDictamen($dictamenDescripcion);
 
             $analisis = [];
             $visitoCampo = false;
             $visitoTelefonico = false;
             $sinCoordenadas = true;
             $coberturaDirecciones = [];
-            foreach ($coordsDictamen as $ix => $cd) {
+            $fuenteCobertura = !empty($domiciliosDictamen) ? $domiciliosDictamen : $coordsDictamen;
+            foreach ($fuenteCobertura as $ix => $cd) {
                 $coberturaDirecciones[$ix] = [
                     'direccion' => $cd['desc'] ?? ('Dirección ' . ($ix + 1)),
                     'visitada' => false,
@@ -1721,12 +1722,12 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                 $lngG = self::toFloat($g['longitud'] ?? null);
                 $contacto = strtolower(trim((string)($g['contacto'] ?? '')));
                 $esCampo = ($contacto === 'campo' || !empty(trim((string)($g['medio_contactacion_campo'] ?? ''))));
-                $esTelefonico = ($contacto === 'telefono' || $contacto === 'telefono' ||
+                $esTelefonico = ($contacto === 'telefono' || $contacto === 'telefonico' ||
                     !empty(trim((string)($g['medio_contactacion_ccc'] ?? ''))) &&
                     trim((string)($g['medio_contactacion_campo'] ?? '')) === '' &&
                     trim((string)($g['medio_contactacion_campo'] ?? '')) !== 'domicilio del cliente');
 
-                if ($esCampo && empty(trim((string)($g['medio_contactacion_ccc'] ?? '')))
+                if (($esCampo && empty(trim((string)($g['medio_contactacion_ccc'] ?? ''))))
                     || (!empty(trim((string)($g['medio_contactacion_campo'] ?? '')))
                         && trim((string)($g['medio_contactacion_campo'] ?? '')) !== '0')) {
                     $esTelefonico = false;
@@ -1854,8 +1855,10 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                     'fin' => $fechaFinWin,
                     'tipo' => $esRevisionProrroga ? 'prorroga_12h' : 'inicial_12h',
                 ],
+                '__SPARTA_SECRET_REDACTED___consultado' => $estadoCuentaConsultado,
                 'pago_en_ventana' => $hayPagoEnVentana,
                 'pagos_en_ventana' => $pagosEnVentana,
+                'domicilios_dictamen_total' => count($domiciliosDictamen),
                 'direcciones_dictamen_total' => $direccionesTotal,
                 'direcciones_visitadas' => $direccionesVisitadas,
                 'visito_todas_direcciones' => $visitoTodasDirecciones,
@@ -1977,12 +1980,14 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
     /**
      * Obtiene y normaliza pagos de estado de cuenta por crédito (cacheado por request).
      * Evita repetir llamadas a API externa por cada ventana evaluada.
+     * @return array{consultado: bool, pagos: array}
      */
     private static function getPagosEstadoCuentaNormalizados(int $idCredito): array
     {
         static $cachePagosCredito = [];
+        $vacío = ['consultado' => false, 'pagos' => []];
         if ($idCredito < 1) {
-            return [];
+            return $vacío;
         }
         if (array_key_exists($idCredito, $cachePagosCredito)) {
             return $cachePagosCredito[$idCredito];
@@ -1992,8 +1997,8 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
             $resEstado = $estadoCuentaCtrl->api___SPARTA_SECRET_REDACTED__($idCredito, self::fechaCdmx());
             $pagos = $resEstado['data']['datosPagos'] ?? [];
             if (empty($resEstado['ok']) || !is_array($pagos)) {
-                $cachePagosCredito[$idCredito] = [];
-                return [];
+                $cachePagosCredito[$idCredito] = $vacío;
+                return $vacío;
             }
             $tz = new \DateTimeZone('America/Mexico_City');
             $out = [];
@@ -2010,32 +2015,36 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                     'referencia' => $p['referencia'] ?? ($p['descripcion'] ?? null),
                 ];
             }
-            $cachePagosCredito[$idCredito] = $out;
-            return $out;
+            $cachePagosCredito[$idCredito] = ['consultado' => true, 'pagos' => $out];
+            return $cachePagosCredito[$idCredito];
         } catch (\Throwable $e) {
-            $cachePagosCredito[$idCredito] = [];
-            return [];
+            $cachePagosCredito[$idCredito] = $vacío;
+            return $vacío;
         }
     }
 
     /**
      * Consulta pagos en estado de cuenta dentro de una ventana.
+     * @return array{__SPARTA_SECRET_REDACTED___consultado: bool, pagos: array}
      */
     private static function getPagosEstadoCuentaEnVentana(int $idCredito, string $inicio, string $fin): array
     {
+        $vacío = ['__SPARTA_SECRET_REDACTED___consultado' => false, 'pagos' => []];
         if ($idCredito < 1 || $inicio === '' || $fin === '') {
-            return [];
+            return $vacío;
         }
         try {
             $tz = new \DateTimeZone('America/Mexico_City');
             $iniTs = (new \DateTime($inicio, $tz))->getTimestamp();
             $finTs = (new \DateTime($fin, $tz))->getTimestamp();
             if ($finTs < $iniTs) {
-                return [];
+                return $vacío;
             }
-            $pagos = self::getPagosEstadoCuentaNormalizados($idCredito);
-            if (empty($pagos)) {
-                return [];
+            $res = self::getPagosEstadoCuentaNormalizados($idCredito);
+            $pagos = is_array($res['pagos'] ?? null) ? $res['pagos'] : [];
+            $consultado = !empty($res['consultado']);
+            if (!$consultado) {
+                return ['__SPARTA_SECRET_REDACTED___consultado' => false, 'pagos' => []];
             }
             $out = [];
             foreach ($pagos as $p) {
@@ -2058,9 +2067,9 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                     ];
                 }
             }
-            return $out;
+            return ['__SPARTA_SECRET_REDACTED___consultado' => true, 'pagos' => $out];
         } catch (\Throwable $e) {
-            return [];
+            return $vacío;
         }
     }
 
@@ -2164,6 +2173,40 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                 return self::resultado(true, 'No hay dictamen del sistema.', ['dictamen_sistema' => null]);
             }
             $ds['detalle_parsed'] = !empty($ds['detalle']) ? json_decode($ds['detalle'], true) : null;
+            if (is_array($ds['detalle_parsed'])) {
+                $dirTot = (int)($ds['detalle_parsed']['direcciones_dictamen_total'] ?? 0);
+                $cob = $ds['detalle_parsed']['cobertura_direcciones'] ?? [];
+                $sinCobertura = !is_array($cob) || count($cob) === 0;
+                if ($dirTot === 0 && $sinCobertura) {
+                    $descripcionDictamen = '';
+                    $idDictamen = (int)($ds['id_dictamen'] ?? 0);
+                    if ($idDictamen > 0) {
+                        $dictamenRow = $db->queryOne(
+                            "SELECT descripcion FROM dictamen WHERE id = :id LIMIT 1",
+                            ['id' => $idDictamen]
+                        );
+                        $descripcionDictamen = (string)($dictamenRow['descripcion'] ?? '');
+                    }
+                    if ($descripcionDictamen !== '') {
+                        $parsed = self::parsearDomiciliosDictamen($descripcionDictamen);
+                        $domicilios = is_array($parsed['domicilios'] ?? null) ? $parsed['domicilios'] : [];
+                        if (!empty($domicilios)) {
+                            $cobertura = [];
+                            foreach ($domicilios as $i => $dom) {
+                                $cobertura[] = [
+                                    'direccion' => $dom['desc'] ?? ('Dirección ' . ($i + 1)),
+                                    'visitada' => false,
+                                    'min_distancia_metros' => null,
+                                ];
+                            }
+                            $ds['detalle_parsed']['domicilios_dictamen_total'] = count($domicilios);
+                            $ds['detalle_parsed']['direcciones_dictamen_total'] = count($domicilios);
+                            $ds['detalle_parsed']['direcciones_visitadas'] = (int)($ds['detalle_parsed']['direcciones_visitadas'] ?? 0);
+                            $ds['detalle_parsed']['cobertura_direcciones'] = $cobertura;
+                        }
+                    }
+                }
+            }
             // Prórroga vencida: generar automáticamente una vez (sin botón; generarDictamenSistema ya valida ventana)
             if (($ds['resultado'] ?? '') === 'prorroga_activa' && is_array($ds['detalle_parsed'])) {
                 $pr = $ds['detalle_parsed']['prorroga'] ?? null;
@@ -2198,52 +2241,292 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
     }
 
     /**
-     * Extrae coordenadas lat/lng de las URLs de Google Maps en la descripción del dictamen.
-     * Formato esperado: "Podrás encontrar al usuario en [desc] https://maps...?q=lat,lng; ..."
+     * Parsea la descripción del dictamen y separa texto base + domicilios (desc/link).
+     * Formato esperado: "... Podrás encontrar al usuario en [desc] [url]; [desc2] [url2]"
+     */
+    private static function parsearDomiciliosDictamen(string $descripcion): array
+    {
+        $out = ['base' => trim($descripcion), 'domicilios' => []];
+        $prefijos = ['Podrás encontrar al usuario en ', 'Podras encontrar al usuario en '];
+        $prefijo = null;
+        $pos = false;
+        foreach ($prefijos as $p) {
+            $pp = strpos($descripcion, $p);
+            if ($pp !== false) {
+                $prefijo = $p;
+                $pos = $pp;
+                break;
+            }
+        }
+        if ($prefijo === null || $pos === false) {
+            return $out;
+        }
+
+        $out['base'] = trim(preg_replace('/\.\s*$/', '', substr($descripcion, 0, $pos)));
+        $domStr = trim(substr($descripcion, $pos + strlen($prefijo)));
+        $bloques = preg_split('/\s*;\s*/', $domStr, -1, PREG_SPLIT_NO_EMPTY);
+        foreach ($bloques as $bloq) {
+            $bloq = trim($bloq);
+            if ($bloq === '') {
+                continue;
+            }
+            $desc = $bloq;
+            $link = '';
+            if (preg_match('/\s+(https?:\/\/\S+)$/u', $bloq, $m)) {
+                $link = trim((string)$m[1]);
+                $desc = trim(substr($bloq, 0, -strlen($m[0])));
+            } elseif (preg_match('/(https?:\/\/\S+)/u', $bloq, $m2)) {
+                $link = trim((string)$m2[1]);
+                $desc = trim(str_replace($m2[1], '', $bloq));
+            }
+            $out['domicilios'][] = ['desc' => $desc, 'link' => $link];
+        }
+        return $out;
+    }
+
+    /**
+     * Normaliza la descripción del dictamen:
+     * - expande short links de mapas cuando existan;
+     * - vuelve a construir el bloque de domicilios para almacenar URLs finales.
+     */
+    private static function normalizarDescripcionDictamenConMaps(string $descripcion): string
+    {
+        $descripcion = trim($descripcion);
+        if ($descripcion === '') {
+            return '';
+        }
+
+        $parsed = self::parsearDomiciliosDictamen($descripcion);
+        $domicilios = is_array($parsed['domicilios'] ?? null) ? $parsed['domicilios'] : [];
+        if (empty($domicilios)) {
+            return $descripcion;
+        }
+
+        $bloques = [];
+        foreach ($domicilios as $dom) {
+            $desc = trim((string)($dom['desc'] ?? ''));
+            $link = trim((string)($dom['link'] ?? ''));
+            if ($link !== '') {
+                $link = self::expandirUrlMapaSiEsCorta($link);
+                $link = trim($link);
+            }
+            if ($desc !== '' && $link !== '') {
+                $bloques[] = $desc . ' ' . $link;
+            } elseif ($link !== '') {
+                $bloques[] = $link;
+            } elseif ($desc !== '') {
+                $bloques[] = $desc;
+            }
+        }
+
+        if (empty($bloques)) {
+            return trim((string)($parsed['base'] ?? $descripcion));
+        }
+
+        $base = trim((string)($parsed['base'] ?? ''));
+        $out = $base !== '' ? rtrim($base, ". \t\n\r\0\x0B") . '. ' : '';
+        $out .= 'Podrás encontrar al usuario en ' . implode('; ', $bloques);
+        return trim($out);
+    }
+
+    /**
+     * Repara dictámenes ya guardados que contienen short links (maps.app.goo.gl / goo.gl/maps).
+     * Expande las URLs y actualiza la columna descripcion con el texto normalizado.
+     *
+     * @param bool $dryRun Si true, no escribe en BD; solo cuenta cuántos se actualizarían.
+     * @return array{updated: int, skipped: int, errors: array, total_candidates: int, id_tickets_actualizados: int[]}
+     */
+    public static function repararDictamenesConShortLinks(bool $dryRun = false): array
+    {
+        $result = ['updated' => 0, 'skipped' => 0, 'errors' => [], 'total_candidates' => 0, 'id_tickets_actualizados' => []];
+        try {
+            $db = new Database();
+            $rows = $db->queryAll(
+                "SELECT id, id_ticket, descripcion FROM dictamen WHERE descripcion LIKE '%maps.app.goo.gl%' OR descripcion LIKE '%goo.gl/maps%'"
+            );
+            $result['total_candidates'] = is_array($rows) ? count($rows) : 0;
+            if ($result['total_candidates'] === 0) {
+                return $result;
+            }
+            foreach ($rows as $row) {
+                $id = (int)($row['id'] ?? 0);
+                $idTicket = (int)($row['id_ticket'] ?? 0);
+                $descripcion = (string)($row['descripcion'] ?? '');
+                $normalizada = self::normalizarDescripcionDictamenConMaps($descripcion);
+                if ($normalizada === $descripcion) {
+                    $result['skipped']++;
+                    continue;
+                }
+                if (!$dryRun) {
+                    try {
+                        $db->CRUD(
+                            "UPDATE dictamen SET descripcion = :descripcion WHERE id = :id",
+                            ['descripcion' => $normalizada, 'id' => $id]
+                        );
+                        $result['updated']++;
+                        if ($idTicket > 0) {
+                            $result['id_tickets_actualizados'][] = $idTicket;
+                        }
+                    } catch (\Throwable $e) {
+                        $result['errors'][] = ['id' => $id, 'error' => $e->getMessage()];
+                    }
+                } else {
+                    $result['updated']++;
+                }
+            }
+        } catch (\Throwable $e) {
+            $result['errors'][] = ['id' => null, 'error' => $e->getMessage()];
+        }
+        return $result;
+    }
+
+    /**
+     * Extrae coordenadas lat/lng de las URLs en domicilios del dictamen.
      */
     private static function extraerCoordenadasDictamen(string $descripcion): array
     {
         $coords = [];
-        $prefijo = 'Podrás encontrar al usuario en ';
-        $pos = strpos($descripcion, $prefijo);
-        if ($pos === false) return $coords;
-
-        $domStr = trim(substr($descripcion, $pos + strlen($prefijo)));
-        $bloques = preg_split('/\s*;\s*/', $domStr, -1, PREG_SPLIT_NO_EMPTY);
-
-        foreach ($bloques as $bloq) {
-            $bloq = trim($bloq);
-            if ($bloq === '') continue;
-
-            $desc = $bloq;
+        $parsed = self::parsearDomiciliosDictamen($descripcion);
+        $domicilios = is_array($parsed['domicilios'] ?? null) ? $parsed['domicilios'] : [];
+        foreach ($domicilios as $dom) {
+            $desc = trim((string)($dom['desc'] ?? ''));
+            $url = trim((string)($dom['link'] ?? ''));
+            if ($url === '') {
+                continue;
+            }
+            // Maps short links (maps.app.goo.gl / goo.gl/maps) do not contain lat/lng directly.
+            // Expand redirects first, then parse coordinates from final URL.
+            $expandedUrl = self::expandirUrlMapaSiEsCorta($url);
+            $decoded = self::normalizarUrlParaExtraccion($expandedUrl);
             $lat = null;
             $lng = null;
-
-            // Extraer URL de Google Maps
-            if (preg_match('/(https?:\/\/\S+)/u', $bloq, $urlMatch)) {
-                $url = $urlMatch[1];
-                $desc = trim(str_replace($url, '', $bloq));
-
-                // Intentar extraer coordenadas de la URL
-                // Patrones comunes: ?q=lat,lng  @lat,lng  /place/lat,lng
-                if (preg_match('/[?&]q=(-?\d+\.?\d*),(-?\d+\.?\d*)/', $url, $m)) {
-                    $lat = (float)$m[1];
-                    $lng = (float)$m[2];
-                } elseif (preg_match('/@(-?\d+\.?\d*),(-?\d+\.?\d*)/', $url, $m)) {
-                    $lat = (float)$m[1];
-                    $lng = (float)$m[2];
-                } elseif (preg_match('/\/place\/(-?\d+\.?\d*),(-?\d+\.?\d*)/', $url, $m)) {
-                    $lat = (float)$m[1];
-                    $lng = (float)$m[2];
+            if (preg_match('/[?&](?:q|ll|query|daddr)=(-?\d+\.?\d*),(-?\d+\.?\d*)/i', $decoded, $m)) {
+                $lat = (float)$m[1];
+                $lng = (float)$m[2];
+            } elseif (preg_match('/@(-?\d+\.?\d*),(-?\d+\.?\d*)/i', $decoded, $m2)) {
+                $lat = (float)$m2[1];
+                $lng = (float)$m2[2];
+            } elseif (preg_match('/\/place\/(-?\d+\.?\d*),(-?\d+\.?\d*)/i', $decoded, $m3)) {
+                $lat = (float)$m3[1];
+                $lng = (float)$m3[2];
+            } elseif (preg_match('/(-?\d{1,2}\.\d+),\s*(-?\d{1,3}\.\d+)/', $decoded, $m4)) {
+                // Fallback: cualquier par lat,lng embebido en la URL.
+                $lat = (float)$m4[1];
+                $lng = (float)$m4[2];
+            }
+            if ($lat === null || $lng === null) {
+                continue;
+            }
+            if ($lat < -90 || $lat > 90 || $lng < -180 || $lng > 180) {
+                continue;
+            }
+            if ((float)$lat == 0.0 && (float)$lng == 0.0) {
+                continue;
+            }
+            $coords[] = ['desc' => $desc !== '' ? $desc : 'Dirección', 'lat' => $lat, 'lng' => $lng];
+        }
+        if (empty($coords)) {
+            // Last-resort fallback: parse any coordinates present in full text.
+            $decodedDesc = self::normalizarUrlParaExtraccion($descripcion);
+            if (preg_match('/@(-?\d+\.?\d*),(-?\d+\.?\d*)/i', $decodedDesc, $mAt)) {
+                $lat = (float)$mAt[1];
+                $lng = (float)$mAt[2];
+                if ($lat >= -90 && $lat <= 90 && $lng >= -180 && $lng <= 180 && !($lat == 0.0 && $lng == 0.0)) {
+                    $coords[] = ['desc' => 'Dirección', 'lat' => $lat, 'lng' => $lng];
+                }
+            } elseif (preg_match('/(-?\d{1,2}\.\d+),\s*(-?\d{1,3}\.\d+)/', $decodedDesc, $mPair)) {
+                $lat = (float)$mPair[1];
+                $lng = (float)$mPair[2];
+                if ($lat >= -90 && $lat <= 90 && $lng >= -180 && $lng <= 180 && !($lat == 0.0 && $lng == 0.0)) {
+                    $coords[] = ['desc' => 'Dirección', 'lat' => $lat, 'lng' => $lng];
                 }
             }
+        }
+        return $coords;
+    }
 
-            if ($lat !== null && $lng !== null && ($lat != 0.0 || $lng != 0.0)) {
-                $coords[] = ['desc' => $desc, 'lat' => $lat, 'lng' => $lng];
+    private static function normalizarUrlParaExtraccion(string $url): string
+    {
+        $txt = trim($url);
+        for ($i = 0; $i < 2; $i++) {
+            $decoded = urldecode($txt);
+            if ($decoded === $txt) {
+                break;
+            }
+            $txt = $decoded;
+        }
+        return $txt;
+    }
+
+    private static function expandirUrlMapaSiEsCorta(string $url): string
+    {
+        $url = trim($url);
+        if ($url === '' || !self::esShortLinkMapa($url) || !function_exists('curl_init')) {
+            return $url;
+        }
+
+        // 1) Try HEAD request following redirects.
+        $ch = curl_init($url);
+        if ($ch === false) {
+            return $url;
+        }
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_MAXREDIRS => 8,
+            CURLOPT_CONNECTTIMEOUT => 4,
+            CURLOPT_TIMEOUT => 8,
+            CURLOPT_NOBODY => true,
+            CURLOPT_USERAGENT => 'SpartaLedger/1.0 (DictamenSistema)',
+        ]);
+        curl_exec($ch);
+        $final = (string)curl_getinfo($ch, CURLINFO_EFFECTIVE_URL);
+        $http = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        if ($final !== '' && strcasecmp($final, $url) !== 0) {
+            return $final;
+        }
+
+        // 2) Some shorteners reject HEAD; retry with GET.
+        if ($http === 405 || $http === 0) {
+            $ch2 = curl_init($url);
+            if ($ch2 === false) {
+                return $url;
+            }
+            curl_setopt_array($ch2, [
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_FOLLOWLOCATION => true,
+                CURLOPT_MAXREDIRS => 8,
+                CURLOPT_CONNECTTIMEOUT => 4,
+                CURLOPT_TIMEOUT => 10,
+                CURLOPT_USERAGENT => 'SpartaLedger/1.0 (DictamenSistema)',
+            ]);
+            curl_exec($ch2);
+            $final2 = (string)curl_getinfo($ch2, CURLINFO_EFFECTIVE_URL);
+            curl_close($ch2);
+            if ($final2 !== '' && strcasecmp($final2, $url) !== 0) {
+                return $final2;
             }
         }
 
-        return $coords;
+        return $url;
+    }
+
+    private static function esShortLinkMapa(string $url): bool
+    {
+        $host = strtolower((string)parse_url($url, PHP_URL_HOST));
+        $path = strtolower((string)parse_url($url, PHP_URL_PATH));
+        if (strpos($host, 'www.') === 0) {
+            $host = substr($host, 4);
+        }
+        if ($host === 'maps.app.goo.gl') {
+            return true;
+        }
+        if ($host === 'goo.gl' && strpos($path, '/maps') === 0) {
+            return true;
+        }
+        return false;
     }
 
     /**
@@ -2582,12 +2865,18 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                                 $r['cumplimiento_etiqueta'] = $cmp['cumplimiento_etiqueta'];
                             }
                             // Misma lógica que getEstadisticasGestorDetalle (columna Pago)
+                            $r['__SPARTA_SECRET_REDACTED___consultado'] = array_key_exists('__SPARTA_SECRET_REDACTED___consultado', $detJson) ? !empty($detJson['__SPARTA_SECRET_REDACTED___consultado']) : true;
                             if ($res === 'cumplido_pago') {
                                 $r['pago_en_ventana_si'] = true;
+                                $r['pago_en_ventana_txt'] = 'Sí';
                             } elseif (is_array($detJson) && array_key_exists('pago_en_ventana', $detJson)) {
                                 $r['pago_en_ventana_si'] = !empty($detJson['pago_en_ventana']);
+                                $r['pago_en_ventana_txt'] = $r['pago_en_ventana_si'] ? 'Sí' : ($r['__SPARTA_SECRET_REDACTED___consultado'] ? 'No' : 'No se pudo verificar');
                             } elseif ($res !== null && $res !== '' && $res !== 'pendiente' && $res !== 'prorroga_activa') {
                                 $r['pago_en_ventana_si'] = false;
+                                $r['pago_en_ventana_txt'] = 'No';
+                            } else {
+                                $r['pago_en_ventana_txt'] = null;
                             }
                             // Visita de campo: resultados que implican GPS/direcciones visitadas o visita registrada
                             $visitaResultados = [
@@ -3065,7 +3354,8 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                     if ($idCr < 1) {
                         continue;
                     }
-                    $pagos = self::getPagosEstadoCuentaEnVentana($idCr, $inicioSemana, $finSemana);
+                    $resPagos = self::getPagosEstadoCuentaEnVentana($idCr, $inicioSemana, $finSemana);
+                    $pagos = $resPagos['pagos'] ?? [];
                     $pagosPorCredito[$idCr] = ['si' => count($pagos) > 0, 'count' => count($pagos)];
                 }
             }
@@ -3117,13 +3407,17 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                     if ($etiq !== null && $etiq !== '') {
                         $etiq = str_replace('No visitó', 'No visito', (string)$etiq);
                     }
-                    // Columna "Pago": solo Sí / No — hubo pago registrado en estado de cuenta dentro de la ventana 12h evaluada
+                    // Columna "Pago": Sí / No / No se pudo verificar (si estado de cuenta no se consultó correctamente)
                     if ($resDs === 'cumplido_pago') {
                         $pagoVentanaTxt = 'Sí';
                     } elseif (is_array($detJson) && array_key_exists('pago_en_ventana', $detJson)) {
-                        $pagoVentanaTxt = !empty($detJson['pago_en_ventana']) ? 'Sí' : 'No';
+                        $consultado = !array_key_exists('__SPARTA_SECRET_REDACTED___consultado', $detJson) || !empty($detJson['__SPARTA_SECRET_REDACTED___consultado']);
+                        if (!$consultado && empty($detJson['pago_en_ventana'])) {
+                            $pagoVentanaTxt = 'No se pudo verificar';
+                        } else {
+                            $pagoVentanaTxt = !empty($detJson['pago_en_ventana']) ? 'Sí' : 'No';
+                        }
                     } elseif ($resDs !== null && $resDs !== '' && $resDs !== 'pendiente' && $resDs !== 'prorroga_activa') {
-                        // Ya hay resultado (ej. no visito) y no consta pago en las 12h → No (obvio: sin pago en ese rango)
                         $pagoVentanaTxt = 'No';
                     }
                 }
@@ -3156,7 +3450,12 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                     $resPr = $dsPr['resultado'] ?? null;
                     // Si el DS ya evaluó prórroga, este valor ya representa exactamente esa 2a ventana de 12h.
                     if (is_array($detPr) && isset($detPr['ventana']['tipo']) && $detPr['ventana']['tipo'] === 'prorroga_12h' && array_key_exists('pago_en_ventana', $detPr)) {
-                        $pagoEnProrrogaTxt = !empty($detPr['pago_en_ventana']) ? 'Sí' : 'No';
+                        $consultadoPr = !array_key_exists('__SPARTA_SECRET_REDACTED___consultado', $detPr) || !empty($detPr['__SPARTA_SECRET_REDACTED___consultado']);
+                        if (!$consultadoPr && empty($detPr['pago_en_ventana'])) {
+                            $pagoEnProrrogaTxt = 'No se pudo verificar';
+                        } else {
+                            $pagoEnProrrogaTxt = !empty($detPr['pago_en_ventana']) ? 'Sí' : 'No';
+                        }
                     }
                     if (is_array($detPr) && isset($detPr['prorroga']) && is_array($detPr['prorroga']) && !empty($detPr['prorroga']['otorgada'])) {
                         $prorrogaTxt = 'Sí';
@@ -3166,8 +3465,9 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                         $fechaLimite = trim((string)($pr['fecha_limite'] ?? ''));
                         $idCreditoPr = (int)($r['id_credito'] ?? 0);
                         if ($esVistaPagosVisitas && $pagoEnProrrogaTxt === null && $fechaOtorgada !== '' && $fechaLimite !== '' && $idCreditoPr > 0) {
-                            $pagosProrroga = self::getPagosEstadoCuentaEnVentana($idCreditoPr, $fechaOtorgada, $fechaLimite);
-                            $pagoEnProrrogaTxt = !empty($pagosProrroga) ? 'Sí' : 'No';
+                            $resProrroga = self::getPagosEstadoCuentaEnVentana($idCreditoPr, $fechaOtorgada, $fechaLimite);
+                            $pagosProrroga = $resProrroga['pagos'] ?? [];
+                            $pagoEnProrrogaTxt = !empty($resProrroga['__SPARTA_SECRET_REDACTED___consultado']) ? (!empty($pagosProrroga) ? 'Sí' : 'No') : 'No se pudo verificar';
                         } elseif ($pagoEnProrrogaTxt === null) {
                             $pagoEnProrrogaTxt = '—';
                         }
@@ -3180,8 +3480,9 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                             $fechaLimite = trim((string)($pr['fecha_limite'] ?? ''));
                             $idCreditoPr = (int)($r['id_credito'] ?? 0);
                             if ($esVistaPagosVisitas && $pagoEnProrrogaTxt === null && $fechaOtorgada !== '' && $fechaLimite !== '' && $idCreditoPr > 0) {
-                                $pagosProrroga = self::getPagosEstadoCuentaEnVentana($idCreditoPr, $fechaOtorgada, $fechaLimite);
-                                $pagoEnProrrogaTxt = !empty($pagosProrroga) ? 'Sí' : 'No';
+                                $resProrroga = self::getPagosEstadoCuentaEnVentana($idCreditoPr, $fechaOtorgada, $fechaLimite);
+                                $pagosProrroga = $resProrroga['pagos'] ?? [];
+                                $pagoEnProrrogaTxt = !empty($resProrroga['__SPARTA_SECRET_REDACTED___consultado']) ? (!empty($pagosProrroga) ? 'Sí' : 'No') : 'No se pudo verificar';
                             } elseif ($pagoEnProrrogaTxt === null) {
                                 $pagoEnProrrogaTxt = '—';
                             }
@@ -3340,7 +3641,8 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                 if ($cid < 1) {
                     continue;
                 }
-                $ps = self::getPagosEstadoCuentaEnVentana($cid, $semanaSelInicio, $semanaSelFinIncl);
+                $resPs = self::getPagosEstadoCuentaEnVentana($cid, $semanaSelInicio, $semanaSelFinIncl);
+                $ps = $resPs['pagos'] ?? [];
                 $pagosSemanaPorCredito[$cid] = ['si' => !empty($ps), 'count' => count($ps)];
             }
 
@@ -3419,8 +3721,8 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                                 $fOt = trim((string)($detJson['prorroga']['fecha_otorgada'] ?? ''));
                                 $fLi = trim((string)($detJson['prorroga']['fecha_limite'] ?? ''));
                                 if ($idCredito > 0 && $fOt !== '' && $fLi !== '') {
-                                    $ppr = self::getPagosEstadoCuentaEnVentana($idCredito, $fOt, $fLi);
-                                    $pagoProrroga = !empty($ppr);
+                                    $resPpr = self::getPagosEstadoCuentaEnVentana($idCredito, $fOt, $fLi);
+                                    $pagoProrroga = !empty($resPpr['pagos'] ?? []);
                                 }
                             }
                         } elseif ($res === 'cumplio_prorroga' || $res === 'no_cumplio_prorroga') {
@@ -3651,7 +3953,8 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                         $prorroga = 'Sí';
                     }
                     if (array_key_exists('pago_en_ventana', $det)) {
-                        $pagaron = !empty($det['pago_en_ventana']) ? 'Sí' : 'No';
+                        $consultado = !array_key_exists('__SPARTA_SECRET_REDACTED___consultado', $det) || !empty($det['__SPARTA_SECRET_REDACTED___consultado']);
+                        $pagaron = !empty($det['pago_en_ventana']) ? 'Sí' : ($consultado ? 'No' : 'No se pudo verificar');
                     }
                     if (!empty($det['cumplimiento_etiqueta'])) {
                         $cumplimiento = (string)$det['cumplimiento_etiqueta'];
