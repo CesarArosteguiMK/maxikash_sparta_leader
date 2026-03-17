@@ -768,6 +768,9 @@
         #modalRastreoCredito .gestion-row .gestion-label { min-width: 4rem; }
         .card-header, .card { padding-left: 0.5rem; padding-right: 0.5rem; }
     }
+    body.panel-admin-primer-cargando #tablaTicketsPanel tbody .dataTables_empty { visibility: hidden !important; }
+    body.panel-admin-primer-cargando #tablaTicketsPanel_info,
+    body.panel-admin-primer-cargando #tablaTicketsPanel_paginate { visibility: hidden !important; }
 </style>
 <div class="card">
     <div class="card-header border-bottom">
@@ -828,7 +831,7 @@
             </div>
         </div>
     </div>
-    <div class="card-datatable table-responsive">
+    <div class="card-datatable table-responsive" id="wrapTablaTicketsPanel">
         <table id="tablaTicketsPanel" class="dt-responsive table border-top">
             <thead>
                 <tr>
@@ -1533,6 +1536,16 @@
     }
     $(document).ready(function() {
         var apiBase = (function(){ var p = window.location.pathname || ''; var i = p.indexOf('/sabueso'); return i !== -1 ? p.substring(0, i) : ''; })();
+        // Oculta el estado vacío transitorio hasta que termine el primer request de tickets.
+        (function ocultarEstadoVacioPrimeraCarga() {
+            document.body.classList.add('panel-admin-primer-cargando');
+            $(document).on('ajaxComplete.panelAdminPrimer', function(_e, _xhr, settings) {
+                var url = (settings && settings.url) ? String(settings.url) : '';
+                if (url.indexOf('/sabueso/getTicketsPanelAdmin') === -1) return;
+                document.body.classList.remove('panel-admin-primer-cargando');
+                $(document).off('ajaxComplete.panelAdminPrimer');
+            });
+        })();
 
         // —— Filtros Panel Admin (window.panelAdminFiltros lo consume getTicketsPanelAdmin en Sabueso.php) ——
         window.panelAdminFiltros = window.panelAdminFiltros || {};
@@ -2389,6 +2402,13 @@ function abrirDictamenSistema(idTicket) {
         processData: false,
         showLoader: false,
         onSuccess: function(res) {
+            if (!res.success) {
+                var msg = res.mensaje || 'Error al obtener el dictamen del sistema.';
+                if (res.error) msg += '<br><small class="d-block mt-1">' + String(res.error).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</small>';
+                body.innerHTML = '<div class="alert alert-danger mb-0"><i class="fa-solid fa-triangle-exclamation me-1"></i>' + msg + '</div>';
+                setBotonesDictamenSistema(null);
+                return;
+            }
             var ds = (res.datos || {}).dictamen_sistema;
             if (!ds) {
                 body.innerHTML = '<div class="alert alert-info mb-0"><i class="fa-solid fa-circle-info me-1"></i>No se ha generado aún el dictamen del sistema para este ticket. Haga clic en <strong>Generar dictamen del sistema</strong> para iniciar la verificación automática.</div>';
@@ -2405,8 +2425,9 @@ function abrirDictamenSistema(idTicket) {
             setBotonesDictamenSistema(ds);
             if (ds.resultado) actualizarFilaResultadoDS(idTicket, ds.resultado);
         },
-        onError: function() {
-            body.innerHTML = '<div class="alert alert-danger mb-0">Error al consultar el dictamen del sistema.</div>';
+        onError: function(mensaje) {
+            var detalle = (typeof mensaje === 'string' && mensaje) ? mensaje : '';
+            body.innerHTML = '<div class="alert alert-danger mb-0">Error al consultar el dictamen del sistema.' + (detalle ? '<br><small class="d-block mt-1">' + String(detalle).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</small>' : '') + '</div>';
         }
     });
 }
@@ -2537,7 +2558,9 @@ function ejecutarDictamenSistema() {
             btn.disabled = false;
             btn.innerHTML = '<i class="fa-solid fa-robot me-1"></i>Generar dictamen del sistema';
             if (!res.success) {
-                body.innerHTML = '<div class="alert alert-danger mb-0"><i class="fa-solid fa-triangle-exclamation me-1"></i>' + (res.mensaje || 'Error desconocido') + '</div>';
+                var msg = res.mensaje || 'Error desconocido';
+                if (res.error) msg += '<br><small class="d-block mt-1">' + String(res.error).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</small>';
+                body.innerHTML = '<div class="alert alert-danger mb-0"><i class="fa-solid fa-triangle-exclamation me-1"></i>' + msg + '</div>';
                 btn.style.display = '';
                 return;
             }
@@ -2743,7 +2766,7 @@ function renderDictamenSistemaResultado(ds, body) {
     html += '</div></div>';
 
     if (ds.nombre_gestor) {
-        html += '<div class="small text-muted mb-3"><i class="fa-solid fa-user me-1"></i>Gestor evaluado: <strong>' + escHtml(ds.nombre_gestor) + '</strong></div>';
+        html += '<div class="small text-muted mb-3"><i class="fa-solid fa-user me-1"></i>Ticket levantado por: <strong>' + escHtml(ds.nombre_gestor) + '</strong></div>';
     }
 
     if (d.prorroga && d.prorroga.otorgada) {

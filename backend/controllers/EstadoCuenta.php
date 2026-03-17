@@ -1142,7 +1142,7 @@ JS;
             'datos' => $datos
         ]);
     }
-    function api___SPARTA_SECRET_REDACTED__($idCredito, $fechaCorte) {
+    function api___SPARTA_SECRET_REDACTED__($idCredito, $fechaCorte, $timeoutSegundos = 20) {
 
         $url = "https://servicios.s2movil.net/s2__SPARTA_SECRET_REDACTED__/estadocuenta";
 
@@ -1166,7 +1166,11 @@ JS;
         curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
         curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_TIMEOUT, 20);
+        $timeoutSegundos = (int)$timeoutSegundos;
+        if ($timeoutSegundos < 2) {
+            $timeoutSegundos = 2;
+        }
+        curl_setopt($ch, CURLOPT_TIMEOUT, $timeoutSegundos);
         curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
 
         // --- Ejecutar ---

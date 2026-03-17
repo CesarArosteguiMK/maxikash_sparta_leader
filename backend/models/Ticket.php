@@ -1556,7 +1556,7 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
             $mapa[(int)$row['id_credito']] = $row['nombre_cliente'] ?? '—';
         }
         return $mapa;
-    } catch (\Exception $e) {
+    } catch (\Throwable $e) {
         error_log('getNombresClienteParaReporte error: ' . $e->getMessage());
         return [];
     }
@@ -1880,6 +1880,7 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                 'detalle' => json_decode($detalle, true),
             ]);
         } catch (\Exception $e) {
+            error_log('generarDictamenSistema(id_ticket=' . $idTicket . ') error: ' . $e->getMessage() . ' | ' . $e->getFile() . ':' . $e->getLine());
             return self::resultado(false, 'Error al generar dictamen del sistema.', null, $e->getMessage());
         }
     }
@@ -1978,13 +1979,104 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
     }
 
     /**
+     * Determina si el error de estado de cuenta es de infraestructura (red/servicio),
+     * para cortar llamadas repetidas dentro de la misma petición.
+     */
+    private static function esFallaInfraEstadoCuenta(array $resEstado): bool
+    {
+        $status = (int)($resEstado['status'] ?? 0);
+        if ($status === 0 || $status >= 500) {
+            return true;
+        }
+        $err = mb_strtolower(trim((string)($resEstado['error'] ?? '')), 'UTF-8');
+        if ($err === '') {
+            return false;
+        }
+        $agujas = [
+            'error al conectar',
+            'no hay conexión',
+            'no hay conexion',
+            'timed out',
+            'timeout',
+            'json inválido',
+            'json invalido',
+            'server',
+            'servidor',
+        ];
+        foreach ($agujas as $needle) {
+            if (strpos($err, $needle) !== false) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Cache de estadísticas en disco (carpeta temporal). Sin tabla en BD.
+     */
+    private static function statsCacheDir(): string
+    {
+        $dir = rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'sparta___SPARTA_SECRET_REDACTED___stats_cache';
+        if (!is_dir($dir)) {
+            @mkdir($dir, 0777, true);
+        }
+        return $dir;
+    }
+
+    private static function statsCacheRead(string $key, int $ttlSegundos): ?array
+    {
+        return self::statsCacheReadFile($key, $ttlSegundos);
+    }
+
+    private static function statsCacheReadFile(string $key, int $ttlSegundos): ?array
+    {
+        if ($ttlSegundos <= 0 || $key === '') {
+            return null;
+        }
+        $file = self::statsCacheDir() . DIRECTORY_SEPARATOR . md5($key) . '.json';
+        if (!is_file($file)) {
+            return null;
+        }
+        $mtime = @filemtime($file);
+        if ($mtime === false || (time() - $mtime) > $ttlSegundos) {
+            return null;
+        }
+        $raw = @file_get_contents($file);
+        if (!is_string($raw) || $raw === '') {
+            return null;
+        }
+        $data = json_decode($raw, true);
+        return is_array($data) ? $data : null;
+    }
+
+    /**
+     * @param int $ttlSegundos Tiempo de vida del cache en segundos (por defecto 300).
+     */
+    private static function statsCacheWrite(string $key, array $data, int $ttlSegundos = 300): void
+    {
+        self::statsCacheWriteFile($key, $data);
+    }
+
+    private static function statsCacheWriteFile(string $key, array $data): void
+    {
+        if ($key === '' || empty($data)) {
+            return;
+        }
+        $file = self::statsCacheDir() . DIRECTORY_SEPARATOR . md5($key) . '.json';
+        @file_put_contents($file, json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+    }
+
+    /**
      * Obtiene y normaliza pagos de estado de cuenta por crédito (cacheado por request).
      * Evita repetir llamadas a API externa por cada ventana evaluada.
+     * @param array $opts ['timeout_segundos' => int, 'max_api_calls' => int, 'cache_ttl_segundos' => int]
      * @return array{consultado: bool, pagos: array}
      */
-    private static function getPagosEstadoCuentaNormalizados(int $idCredito): array
+    private static function getPagosEstadoCuentaNormalizados(int $idCredito, array $opts = []): array
     {
         static $cachePagosCredito = [];
+        static $totalApiCalls = 0;
+        static $infraCaida = false;
         $vacío = ['consultado' => false, 'pagos' => []];
         if ($idCredito < 1) {
             return $vacío;
@@ -1992,11 +2084,31 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
         if (array_key_exists($idCredito, $cachePagosCredito)) {
             return $cachePagosCredito[$idCredito];
         }
+        $timeoutSeg = max(2, min(20, (int)($opts['timeout_segundos'] ?? 20)));
+        $maxApiCalls = max(1, (int)($opts['max_api_calls'] ?? 1000000));
+        $cacheTtl = max(0, (int)($opts['cache_ttl_segundos'] ?? 0));
+        $fechaCorte = self::fechaCdmx();
+        if ($cacheTtl > 0) {
+            $cacheKey = '__SPARTA_SECRET_REDACTED___pagos:' . $idCredito . ':' . $fechaCorte;
+            $cached = self::statsCacheRead($cacheKey, $cacheTtl);
+            if (is_array($cached) && array_key_exists('consultado', $cached) && array_key_exists('pagos', $cached)) {
+                $cachePagosCredito[$idCredito] = $cached;
+                return $cached;
+            }
+        }
+        if ($infraCaida || $totalApiCalls >= $maxApiCalls) {
+            $cachePagosCredito[$idCredito] = $vacío;
+            return $vacío;
+        }
         try {
             $estadoCuentaCtrl = new \Controllers\EstadoCuenta();
-            $resEstado = $estadoCuentaCtrl->api___SPARTA_SECRET_REDACTED__($idCredito, self::fechaCdmx());
+            $resEstado = $estadoCuentaCtrl->api___SPARTA_SECRET_REDACTED__($idCredito, $fechaCorte, $timeoutSeg);
+            $totalApiCalls++;
             $pagos = $resEstado['data']['datosPagos'] ?? [];
             if (empty($resEstado['ok']) || !is_array($pagos)) {
+                if (self::esFallaInfraEstadoCuenta(is_array($resEstado) ? $resEstado : [])) {
+                    $infraCaida = true;
+                }
                 $cachePagosCredito[$idCredito] = $vacío;
                 return $vacío;
             }
@@ -2016,6 +2128,9 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                 ];
             }
             $cachePagosCredito[$idCredito] = ['consultado' => true, 'pagos' => $out];
+            if ($cacheTtl > 0) {
+                self::statsCacheWrite($cacheKey, $cachePagosCredito[$idCredito], $cacheTtl);
+            }
             return $cachePagosCredito[$idCredito];
         } catch (\Throwable $e) {
             $cachePagosCredito[$idCredito] = $vacío;
@@ -2027,7 +2142,7 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
      * Consulta pagos en estado de cuenta dentro de una ventana.
      * @return array{__SPARTA_SECRET_REDACTED___consultado: bool, pagos: array}
      */
-    private static function getPagosEstadoCuentaEnVentana(int $idCredito, string $inicio, string $fin): array
+    private static function getPagosEstadoCuentaEnVentana(int $idCredito, string $inicio, string $fin, array $opts = []): array
     {
         $vacío = ['__SPARTA_SECRET_REDACTED___consultado' => false, 'pagos' => []];
         if ($idCredito < 1 || $inicio === '' || $fin === '') {
@@ -2040,7 +2155,7 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
             if ($finTs < $iniTs) {
                 return $vacío;
             }
-            $res = self::getPagosEstadoCuentaNormalizados($idCredito);
+            $res = self::getPagosEstadoCuentaNormalizados($idCredito, $opts);
             $pagos = is_array($res['pagos'] ?? null) ? $res['pagos'] : [];
             $consultado = !empty($res['consultado']);
             if (!$consultado) {
@@ -2236,6 +2351,7 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
             }
             return self::resultado(true, 'OK', ['dictamen_sistema' => $ds]);
         } catch (\Exception $e) {
+            error_log('getDictamenSistema(id_ticket=' . $idTicket . ') error: ' . $e->getMessage() . ' | ' . $e->getFile() . ':' . $e->getLine());
             return self::resultado(false, 'Error al obtener dictamen del sistema.', null, $e->getMessage());
         }
     }
@@ -3300,6 +3416,12 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
         try {
             $vista = trim((string)$vista);
             $esVistaPagosVisitas = ($vista === 'pagos_visitas');
+            $cacheKey = 'estad_gestor_detalle:' . $cid . ':' . $vista . ':' . $page . ':' . $perPage . ':' . self::fechaCdmx();
+            $cacheTtl = $esVistaPagosVisitas ? 300 : 120;
+            $cacheHit = self::statsCacheRead($cacheKey, $cacheTtl);
+            if (is_array($cacheHit) && !empty($cacheHit['success'])) {
+                return $cacheHit;
+            }
             $nom = self::getNombrePersona($cid);
             $countRow = $db->queryOne(
                 "SELECT COUNT(*) AS n FROM (" .
@@ -3354,9 +3476,17 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                     if ($idCr < 1) {
                         continue;
                     }
-                    $resPagos = self::getPagosEstadoCuentaEnVentana($idCr, $inicioSemana, $finSemana);
+                    $resPagos = self::getPagosEstadoCuentaEnVentana($idCr, $inicioSemana, $finSemana, [
+                        'timeout_segundos' => 4,
+                        'max_api_calls' => 30,
+                        'cache_ttl_segundos' => 600,
+                    ]);
                     $pagos = $resPagos['pagos'] ?? [];
-                    $pagosPorCredito[$idCr] = ['si' => count($pagos) > 0, 'count' => count($pagos)];
+                    $pagosPorCredito[$idCr] = [
+                        'si' => count($pagos) > 0,
+                        'count' => count($pagos),
+                        'consultado' => !empty($resPagos['__SPARTA_SECRET_REDACTED___consultado']),
+                    ];
                 }
             }
             // Último dictamen_sistema por ticket (mismo criterio que Panel Admin / detalle_timings)
@@ -3504,7 +3634,7 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                 $nombreCliente = ($idCredito > 0 && isset($nombresCliente[$idCredito])) ? $nombresCliente[$idCredito] : '—';
                 $infoPagoSemana = $idCredito > 0 && isset($pagosPorCredito[$idCredito])
                     ? $pagosPorCredito[$idCredito]
-                    : ['si' => false, 'count' => 0];
+                    : ['si' => false, 'count' => 0, 'consultado' => false];
                 $filas[] = [
                     'id_ticket' => $tid,
                     'folio' => $r['folio'] ?? '',
@@ -3525,10 +3655,14 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                     'pago_en_prorroga_resumen' => $pagoEnProrrogaTxt,
                     'pago_durante_semana_si' => $infoPagoSemana['si'],
                     'pago_durante_semana_count' => $infoPagoSemana['count'],
+                    'pago_durante_semana_consultado' => !empty($infoPagoSemana['consultado']),
                 ];
             }
-            return ['success' => true, 'mensaje' => 'OK', 'nombre' => $nom, 'filas' => $filas, 'total' => $total, 'page' => $page, 'per_page' => $perPage];
-        } catch (\Exception $e) {
+            $payload = ['success' => true, 'mensaje' => 'OK', 'nombre' => $nom, 'filas' => $filas, 'total' => $total, 'page' => $page, 'per_page' => $perPage];
+            self::statsCacheWrite($cacheKey, $payload, $cacheTtl);
+            return $payload;
+        } catch (\Throwable $e) {
+            error_log('getEstadisticasGestorDetalle error: ' . $e->getMessage());
             return ['success' => false, 'mensaje' => $e->getMessage(), 'nombre' => '', 'filas' => [], 'total' => 0, 'page' => 1, 'per_page' => $perPage];
         }
     }
@@ -3559,6 +3693,11 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
             $semanaSelInicio = $semanaSelDt->format('Y-m-d') . ' 00:00:00';
             $semanaSelFinExcl = $semanaSelDt->modify('+7 days')->format('Y-m-d') . ' 00:00:00';
             $semanaSelFinIncl = $semanaSelDt->modify('+6 days')->format('Y-m-d') . ' 23:59:59';
+            $cacheKey = 'reporte_semanal_global:' . $semanaSelDt->format('Y-m-d');
+            $cacheHit = self::statsCacheRead($cacheKey, 300);
+            if (is_array($cacheHit) && !empty($cacheHit['success'])) {
+                return $cacheHit;
+            }
 
             $semanasRows = $db->queryAll(
                 "SELECT DISTINCT DATE_SUB(DATE(d.fecha_actualizacion), INTERVAL WEEKDAY(d.fecha_actualizacion) DAY) AS semana_inicio " .
@@ -3635,15 +3774,24 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                 $nombresGestor[$gid] = $gid > 0 ? self::getNombrePersona($gid) : '';
             }
 
+            $optsReporteSemanal = [
+                'timeout_segundos' => 3,
+                'max_api_calls' => 25,
+                'cache_ttl_segundos' => 600,
+            ];
             $pagosSemanaPorCredito = [];
             foreach (array_keys($idsCredito) as $cid) {
                 $cid = (int)$cid;
                 if ($cid < 1) {
                     continue;
                 }
-                $resPs = self::getPagosEstadoCuentaEnVentana($cid, $semanaSelInicio, $semanaSelFinIncl);
+                $resPs = self::getPagosEstadoCuentaEnVentana($cid, $semanaSelInicio, $semanaSelFinIncl, $optsReporteSemanal);
                 $ps = $resPs['pagos'] ?? [];
-                $pagosSemanaPorCredito[$cid] = ['si' => !empty($ps), 'count' => count($ps)];
+                $pagosSemanaPorCredito[$cid] = [
+                    'si' => !empty($ps),
+                    'count' => count($ps),
+                    'consultado' => !empty($resPs['__SPARTA_SECRET_REDACTED___consultado']),
+                ];
             }
 
             $dsPorTicket = [];
@@ -3668,7 +3816,7 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                 $idGestor = (int)($r['id_persona_creador'] ?? 0);
                 $nombreCliente = ($idCredito > 0 && isset($nombresCliente[$idCredito])) ? $nombresCliente[$idCredito] : '—';
                 $nombreGestor = ($idGestor > 0 && isset($nombresGestor[$idGestor])) ? $nombresGestor[$idGestor] : '—';
-                $pagoSemana = $idCredito > 0 && isset($pagosSemanaPorCredito[$idCredito]) ? $pagosSemanaPorCredito[$idCredito] : ['si' => false, 'count' => 0];
+                $pagoSemana = $idCredito > 0 && isset($pagosSemanaPorCredito[$idCredito]) ? $pagosSemanaPorCredito[$idCredito] : ['si' => false, 'count' => 0, 'consultado' => false];
 
                 $fueDirecciones = null;
                 $direccionesFue = '—';
@@ -3721,7 +3869,7 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                                 $fOt = trim((string)($detJson['prorroga']['fecha_otorgada'] ?? ''));
                                 $fLi = trim((string)($detJson['prorroga']['fecha_limite'] ?? ''));
                                 if ($idCredito > 0 && $fOt !== '' && $fLi !== '') {
-                                    $resPpr = self::getPagosEstadoCuentaEnVentana($idCredito, $fOt, $fLi);
+                                    $resPpr = self::getPagosEstadoCuentaEnVentana($idCredito, $fOt, $fLi, $optsReporteSemanal ?? []);
                                     $pagoProrroga = !empty($resPpr['pagos'] ?? []);
                                 }
                             }
@@ -3733,7 +3881,7 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
 
                 // Regla operativa solicitada:
                 // ilocalizable = visitó todas direcciones del dictamen y NO pagó en la semana reportada.
-                $esIlocalizable = ($fueDirecciones === true) && empty($pagoSemana['si']);
+                $esIlocalizable = ($fueDirecciones === true) && !empty($pagoSemana['consultado']) && empty($pagoSemana['si']);
 
                 $filas[] = [
                     'id_ticket' => $tid,
@@ -3751,11 +3899,12 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                     'pago_prorroga_12h' => $pagoProrroga,
                     'pago_semana_si' => !empty($pagoSemana['si']),
                     'pago_semana_count' => (int)($pagoSemana['count'] ?? 0),
+                    'pago_semana_consultado' => !empty($pagoSemana['consultado']),
                     'ilocalizable' => $esIlocalizable,
                 ];
             }
 
-            return [
+            $payload = [
                 'success' => true,
                 'mensaje' => 'OK',
                 'semana_inicio' => $semanaSelDt->format('Y-m-d'),
@@ -3763,7 +3912,10 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                 'semanas' => $semanas,
                 'filas' => $filas,
             ];
-        } catch (\Exception $e) {
+            self::statsCacheWrite($cacheKey, $payload, 300);
+            return $payload;
+        } catch (\Throwable $e) {
+            error_log('getReporteSemanalGestorGlobal error: ' . $e->getMessage());
             return ['success' => false, 'mensaje' => $e->getMessage(), 'semana_inicio' => '', 'semana_fin' => '', 'semanas' => [], 'filas' => []];
         }
     }
