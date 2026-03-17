@@ -70,7 +70,7 @@
             categoriaSeleccionada = categoria || 'sabueso';
             $('.ticket-categoria-card').removeClass('is-selected');
             $('.ticket-categoria-card[data-categoria="' + categoriaSeleccionada + '"]').addClass('is-selected');
-            var btnTxt = categoriaSeleccionada === 'sabueso' ? 'Continuar con Sabueso' : 'Continuar';
+            var btnTxt = categoriaSeleccionada === 'sabueso' ? 'Continuar con Sabueso' : (categoriaSeleccionada === 'solicitud_baja' ? 'Continuar con Solicitud de baja' : 'Continuar');
             $('#btnContinuarCategoriaTicket').html(btnTxt + ' <i class="fa-solid fa-arrow-right ms-1"></i>');
         }
         function abrirModalPickerCategorias() {
@@ -104,6 +104,16 @@
                 }
                 return;
             }
+            if (categoriaSeleccionada === 'solicitud_baja') {
+                var elPicker = document.getElementById('modalElegirCategoriaTicket');
+                if (elPicker && typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+                    bootstrap.Modal.getOrCreateInstance(elPicker).hide();
+                } else if (typeof $ !== 'undefined' && $.fn.modal) {
+                    $('#modalElegirCategoriaTicket').modal('hide');
+                }
+                abrirModalSolicitudBaja();
+                return;
+            }
             if (categoriaSeleccionada !== 'sabueso') {
                 if (typeof Swal !== 'undefined') {
                     Swal.fire({ icon: 'info', title: 'Próximamente', text: 'Esta categoría aún no está disponible.' });
@@ -128,6 +138,78 @@
                 });
             }
             intentarAbrirModalLevantarTicket(function() { abrirModalLevantarTicketSabuesoDirecto(); }, true);
+        });
+        function abrirModalSolicitudBaja() {
+            $('#solicitud_baja_motivo').val('');
+            $('#solicitud_baja_detalle_motivo, #solicitud_baja_descripcion, #solicitud_baja_nombre_colaborador').val('');
+            $('#solicitud_baja_adjunto').val('');
+            var el = document.getElementById('modalSolicitudBaja');
+            if (el) {
+                if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+                    bootstrap.Modal.getOrCreateInstance(el).show();
+                } else if (typeof $ !== 'undefined' && $.fn.modal) {
+                    $('#modalSolicitudBaja').modal('show');
+                }
+            }
+        }
+        $(document).on('click', '#btnEnviarSolicitudBaja', function() {
+            var motivo = ($('#solicitud_baja_motivo').val() || '').toString().trim();
+            var detalle = ($('#solicitud_baja_detalle_motivo').val() || '').toString().trim();
+            var nombreColab = ($('#solicitud_baja_nombre_colaborador').val() || '').toString().trim();
+            if (!motivo) {
+                if (typeof Swal !== 'undefined') Swal.fire({ icon: 'warning', title: 'Falta dato', text: 'Seleccione el motivo de la solicitud.' });
+                return;
+            }
+            if (!detalle) {
+                if (typeof Swal !== 'undefined') Swal.fire({ icon: 'warning', title: 'Falta dato', text: 'Escriba el detalle del motivo.' });
+                return;
+            }
+            if (!nombreColab) {
+                if (typeof Swal !== 'undefined') Swal.fire({ icon: 'warning', title: 'Falta dato', text: 'Indique el nombre del colaborador a dar de baja.' });
+                return;
+            }
+            var descripcion = ($('#solicitud_baja_descripcion').val() || '').toString().trim();
+            var inputFile = document.getElementById('solicitud_baja_adjunto');
+            var fd = new FormData();
+            fd.append('motivo_baja', motivo);
+            fd.append('detalle_motivo', detalle);
+            fd.append('descripcion', descripcion);
+            fd.append('nombre_colaborador', nombreColab);
+            if (inputFile && inputFile.files && inputFile.files.length > 0) {
+                fd.append('adjunto', inputFile.files[0]);
+            }
+            var $btn = $('#btnEnviarSolicitudBaja');
+            var loadingHtml = $btn.html();
+            $btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-1" role="status"></span>Enviando...');
+            var apiBase = (function(){ var p = window.location.pathname || ''; var i = p.indexOf('/sabueso'); return i !== -1 ? p.substring(0, i) : ''; })();
+            $.ajax({
+                url: (apiBase || '') + '/sabueso/guardarSolicitudBaja',
+                type: 'POST',
+                data: fd,
+                processData: false,
+                contentType: false,
+                success: function(r) {
+                    $btn.prop('disabled', false).html(loadingHtml);
+                    if (r && r.success) {
+                        if (typeof bootstrap !== 'undefined') {
+                            var m = bootstrap.Modal.getInstance(document.getElementById('modalSolicitudBaja'));
+                            if (m) m.hide();
+                        } else $('#modalSolicitudBaja').modal('hide');
+                        if (typeof Swal !== 'undefined') Swal.fire({ icon: 'success', title: 'Solicitud enviada', text: r.mensaje || 'La solicitud de baja se registró correctamente.' });
+                    } else {
+                        if (typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: 'Error', text: (r && r.mensaje) ? r.mensaje : 'No se pudo enviar la solicitud.' });
+                    }
+                },
+                error: function(xhr) {
+                    $btn.prop('disabled', false).html(loadingHtml);
+                    var msg = 'No se pudo enviar la solicitud.';
+                    try {
+                        var j = xhr.responseJSON || (xhr.responseText ? JSON.parse(xhr.responseText) : null);
+                        if (j && j.mensaje) msg = j.mensaje;
+                    } catch (e) {}
+                    if (typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: 'Error', text: msg });
+                }
+            });
         });
         function abrirModalLevantarTicketSabuesoDirecto() {
             $('#modal_id_tipo_ticket, #modal_id_prioridad, #modal_id_origen_ticket').val('');

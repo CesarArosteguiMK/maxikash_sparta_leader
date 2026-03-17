@@ -129,6 +129,11 @@ function getMenu()
                                     'modulos' => [19]
                             ],
                             [
+                                    'label' => 'Panel Solicitud de baja',
+                                    'url' => '/sabueso/panelSolicitudBaja',
+                                    'modulos' => [25]
+                            ],
+                            [
                                     'label' => 'Cerrado/Eliminado Sabueso',
                                     'url' => '/sabueso/cerradoEliminado',
                                     'modulos' => [48]
