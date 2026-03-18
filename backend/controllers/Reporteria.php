@@ -1099,18 +1099,18 @@ HTML;
 
         // ── Paleta de buckets ──────────────────────────────────────
         const BUCKET_META = {
-            'a) Current':      { cls: 'bg-label-success',   icon: 'fa-circle-check',         short: 'Current' },
-            'b) 1 a 7 dias':   { cls: 'bg-label-info',      icon: 'fa-clock',                short: '1-7d'    },
-            'c) 8 a 30 dias':  { cls: 'bg-label-warning',   icon: 'fa-triangle-exclamation', short: '8-30d'   },
-            'd) 31 a 60 dias': { cls: 'bg-label-danger',    icon: 'fa-fire',                 short: '31-60d'  },
-            'e) 61+ dias':     { cls: 'bg-label-secondary', icon: 'fa-skull-crossbones',     short: '61+d'    },
+            'a) Current':      { cls: 'bg-label-success',   icon: 'fa-circle-check',         short: 'Current'  },
+            'b) 1 a 7 dias':   { cls: 'bg-label-info',      icon: 'fa-clock',                short: '1-7d'     },
+            'c) 8 a 30 dias':  { cls: 'bg-label-warning',   icon: 'fa-triangle-exclamation', short: '8-30d'    },
+            'd) 31 a 60 dias': { cls: 'bg-label-danger',    icon: 'fa-fire',                 short: '31-60d'   },
+            'e) 61+ dias':     { cls: 'bg-label-secondary', icon: 'fa-skull-crossbones',     short: '61+d'     },
         };
         const BUCKET_ORDER = Object.keys(BUCKET_META);
 
         function badgeBucket(val, small = false) {
-            const v  = val || '—';
-            const m  = BUCKET_META[v] ?? { cls:'bg-label-secondary', icon:'fa-question', short: v };
-            const sz = small ? 'font-size:.68rem;' : '';
+            const v   = val || '—';
+            const m   = BUCKET_META[v] ?? { cls: 'bg-label-secondary', icon: 'fa-question', short: v };
+            const sz  = small ? 'font-size:.68rem;' : '';
             return `<span class="badge ${m.cls}" style="${sz}">
                         <i class="fa ${m.icon} me-1"></i>${small ? m.short : v}
                     </span>`;
@@ -1121,18 +1121,19 @@ HTML;
             const iN = BUCKET_ORDER.indexOf(nacio);
             const iA = BUCKET_ORDER.indexOf(actual);
             if (iN === iA) return `<span class="text-muted" title="Sin cambio"><i class="fa fa-equals"></i></span>`;
-            if (iA < iN)  return `<span class="text-success" title="Mejoró"><i class="fa fa-arrow-up"></i></span>`;
-            return `<span class="text-danger" title="Empeoró"><i class="fa fa-arrow-down"></i></span>`;
+            if (iA < iN)   return `<span class="text-success" title="Mejoró"><i class="fa fa-arrow-up"></i></span>`;
+            return             `<span class="text-danger"  title="Empeoró"><i class="fa fa-arrow-down"></i></span>`;
         }
 
         const dtLang = {
-            decimal:',', thousands:'.', emptyTable:'Sin registros',
-            info:'Mostrando _START_ a _END_ de _TOTAL_',
-            infoEmpty:'0 registros', infoFiltered:'(de _MAX_)',
-            lengthMenu:'Mostrar _MENU_', loadingRecords:'Cargando...',
-            processing:'Procesando...', search:'',
-            searchPlaceholder:'Buscar...', zeroRecords:'Sin coincidencias',
-            paginate:{ first:'«', last:'»', next:'›', previous:'‹' },
+            decimal: ',', thousands: '.',
+            emptyTable: 'Sin registros',
+            info: 'Mostrando _START_ a _END_ de _TOTAL_',
+            infoEmpty: '0 registros', infoFiltered: '(de _MAX_)',
+            lengthMenu: 'Mostrar _MENU_', loadingRecords: 'Cargando...',
+            processing: 'Procesando...', search: '',
+            searchPlaceholder: 'Buscar...', zeroRecords: 'Sin coincidencias',
+            paginate: { first: '«', last: '»', next: '›', previous: '‹' },
         };
 
         let _data        = [];
@@ -1148,18 +1149,18 @@ HTML;
 
             dtVenc = $('#tablaVencimientos').DataTable({
                 processing: true, responsive: true, pageLength: 25,
-                order: [[0,'asc']], language: dtLang,
+                order: [[0, 'asc']], language: dtLang,
                 columns: [
-                    { data:'general',   width:'200px' },
-                    { data:'jerarquia', width:'220px', orderable: false },
-                    { data:'nacio',     className:'text-center', width:'130px' },
-                    { data:'corte',     className:'text-center', width:'160px' },
+                    { data: 'general',   width: '210px' },
+                    { data: 'jerarquia', width: '230px', orderable: false },
+                    { data: 'nacio',     className: 'text-center', width: '130px' },
+                    { data: 'corte',     className: 'text-center', width: '170px' },
                 ]
             });
         }
 
         // ══════════════════════════════════════════════════════════
-        //  STATS NACIMIENTO + MATRIZ
+        //  STATS — distribución y matriz
         // ══════════════════════════════════════════════════════════
         function calcStats(data) {
             const nacDist = {};
@@ -1174,7 +1175,7 @@ HTML;
             data.forEach(r => {
                 const n = r.bucket_nacio;
                 const c = r.bucket_corte_actual;
-                if (n && c && matriz[n]) {
+                if (n && c && matriz[n] !== undefined) {
                     matriz[n][c] = (matriz[n][c] || 0) + 1;
                 }
             });
@@ -1205,20 +1206,20 @@ HTML;
             });
             document.getElementById('statsNacimiento').innerHTML = htmlNac;
 
-            // Matriz
+            // Matriz movimiento
             let htmlMat = `
             <div class="table-responsive">
             <table class="table table-sm table-bordered align-middle mb-0" style="font-size:.75rem;">
                 <thead class="table-light">
                     <tr>
-                        <th style="min-width:110px;">Nació \\ Corte</th>
+                        <th style="min-width:120px;">Nació \\ Corte</th>
                         ${BUCKET_ORDER.map(b => `<th class="text-center">${BUCKET_META[b]?.short || b}</th>`).join('')}
                     </tr>
                 </thead>
                 <tbody>`;
 
             BUCKET_ORDER.forEach(b => {
-                const total = BUCKET_ORDER.reduce((a,c) => a + (matriz[b][c] || 0), 0);
+                const total = BUCKET_ORDER.reduce((a, c) => a + (matriz[b][c] || 0), 0);
                 if (!total) return;
                 htmlMat += `<tr><td>${badgeBucket(b, true)}</td>`;
                 BUCKET_ORDER.forEach(c => {
@@ -1227,14 +1228,15 @@ HTML;
                     const iC  = BUCKET_ORDER.indexOf(c);
                     let cls   = '';
                     if (v > 0) {
-                        if (iC === iB)  cls = 'table-secondary';
-                        else if (iC < iB) cls = 'table-success';
-                        else              cls = 'table-danger';
+                        if (iC < iB)      cls = 'table-success';
+                        else if (iC > iB) cls = 'table-danger';
+                        else              cls = 'table-secondary';
                     }
                     htmlMat += `<td class="text-center ${cls}">${v || '—'}</td>`;
                 });
                 htmlMat += `</tr>`;
             });
+
             htmlMat += `</tbody></table></div>`;
             document.getElementById('statsMatriz').innerHTML = htmlMat;
 
@@ -1242,7 +1244,7 @@ HTML;
         }
 
         // ══════════════════════════════════════════════════════════
-        //  STATS JERARQUÍA
+        //  STATS JERARQUÍA — ranking de gestión
         // ══════════════════════════════════════════════════════════
         function renderStatsJerarquia(data) {
             const territoriales = {};
@@ -1254,86 +1256,84 @@ HTML;
                 const gest = r.Gestor_Asignado || '(Sin gestor)';
 
                 if (!territoriales[ter])
-                    territoriales[ter] = { total:0, mejoraron:0, empeoraron:0, igual:0, zonales:{} };
+                    territoriales[ter] = { total: 0, mejoraron: 0, empeoraron: 0, igual: 0, zonales: {} };
                 const T = territoriales[ter]; T.total++;
 
                 if (!T.zonales[zon])
-                    T.zonales[zon] = { total:0, mejoraron:0, empeoraron:0, igual:0, jefes:{} };
+                    T.zonales[zon] = { total: 0, mejoraron: 0, empeoraron: 0, igual: 0, jefes: {} };
                 const Z = T.zonales[zon]; Z.total++;
 
                 if (!Z.jefes[jefe])
-                    Z.jefes[jefe] = { total:0, mejoraron:0, empeoraron:0, igual:0, gestores:{} };
+                    Z.jefes[jefe] = { total: 0, mejoraron: 0, empeoraron: 0, igual: 0, gestores: {} };
                 const J = Z.jefes[jefe]; J.total++;
 
                 if (!J.gestores[gest])
-                    J.gestores[gest] = { total:0, mejoraron:0, empeoraron:0, igual:0 };
+                    J.gestores[gest] = { total: 0, mejoraron: 0, empeoraron: 0, igual: 0 };
                 const G = J.gestores[gest]; G.total++;
 
                 const iN = BUCKET_ORDER.indexOf(r.bucket_nacio);
                 const iA = BUCKET_ORDER.indexOf(r.bucket_corte_actual);
                 if (iA >= 0 && iN >= 0) {
-                    if (iA < iN) {
-                        G.mejoraron++; J.mejoraron++; Z.mejoraron++; T.mejoraron++;
-                    } else if (iA > iN) {
-                        G.empeoraron++; J.empeoraron++; Z.empeoraron++; T.empeoraron++;
-                    } else {
-                        G.igual++; J.igual++; Z.igual++; T.igual++;
-                    }
+                    if (iA < iN)       { G.mejoraron++;  J.mejoraron++;  Z.mejoraron++;  T.mejoraron++;  }
+                    else if (iA > iN)  { G.empeoraron++; J.empeoraron++; Z.empeoraron++; T.empeoraron++; }
+                    else               { G.igual++;      J.igual++;      Z.igual++;      T.igual++;      }
                 }
             });
 
+            const pct = (a, b) => b ? Math.round(a / b * 100) : 0;
+
             const terOrdenados = Object.entries(territoriales)
-                .map(([k,v]) => ({ nombre:k, ...v }))
-                .sort((a,b) => (a.mejoraron / Math.max(a.total,1)) - (b.mejoraron / Math.max(b.total,1)));
+                .map(([k, v]) => ({ nombre: k, ...v }))
+                .sort((a, b) => pct(a.mejoraron, a.total) - pct(b.mejoraron, b.total));
 
             let html = '';
+
             terOrdenados.forEach((ter, idx) => {
-                const pctMej = ter.total ? Math.round(ter.mejoraron / ter.total * 100) : 0;
-                const pctEmp = ter.total ? Math.round(ter.empeoraron / ter.total * 100) : 0;
-                const alerta = pctMej < 20 ? 'border-danger' : pctMej < 50 ? 'border-warning' : 'border-success';
-                const icono  = pctMej < 20
-                    ? 'fa-circle-exclamation text-danger'
-                    : pctMej < 50 ? 'fa-triangle-exclamation text-warning' : 'fa-circle-check text-success';
+                const pM      = pct(ter.mejoraron, ter.total);
+                const pE      = pct(ter.empeoraron, ter.total);
+                const alerta  = pM < 20 ? 'border-danger' : pM < 50 ? 'border-warning' : 'border-success';
+                const icono   = pM < 20 ? 'fa-circle-exclamation text-danger'
+                                        : pM < 50 ? 'fa-triangle-exclamation text-warning'
+                                                  : 'fa-circle-check text-success';
 
                 const zonOrdenados = Object.entries(ter.zonales)
-                    .map(([k,v]) => ({ nombre:k, ...v }))
-                    .sort((a,b) => (a.mejoraron / Math.max(a.total,1)) - (b.mejoraron / Math.max(b.total,1)));
+                    .map(([k, v]) => ({ nombre: k, ...v }))
+                    .sort((a, b) => pct(a.mejoraron, a.total) - pct(b.mejoraron, b.total));
 
                 let htmlZon = '';
+
                 zonOrdenados.forEach(zon => {
-                    const pZ = zon.total ? Math.round(zon.mejoraron / zon.total * 100) : 0;
+                    const pZ = pct(zon.mejoraron, zon.total);
 
                     const jefOrdenados = Object.entries(zon.jefes)
-                        .map(([k,v]) => ({ nombre:k, ...v }))
-                        .sort((a,b) => (a.mejoraron / Math.max(a.total,1)) - (b.mejoraron / Math.max(b.total,1)));
+                        .map(([k, v]) => ({ nombre: k, ...v }))
+                        .sort((a, b) => pct(a.mejoraron, a.total) - pct(b.mejoraron, b.total));
 
                     let htmlJef = '';
+
                     jefOrdenados.forEach(jef => {
-                        const pJ = jef.total ? Math.round(jef.mejoraron / jef.total * 100) : 0;
+                        const pJ = pct(jef.mejoraron, jef.total);
 
                         const gestOrdenados = Object.entries(jef.gestores)
-                            .map(([k,v]) => ({ nombre:k, ...v }))
-                            .sort((a,b) => (a.mejoraron / Math.max(a.total,1)) - (b.mejoraron / Math.max(b.total,1)));
+                            .map(([k, v]) => ({ nombre: k, ...v }))
+                            .sort((a, b) => pct(a.mejoraron, a.total) - pct(b.mejoraron, b.total));
 
                         let htmlGest = '';
                         gestOrdenados.forEach(gest => {
-                            const pG = gest.total ? Math.round(gest.mejoraron / gest.total * 100) : 0;
+                            const pG = pct(gest.mejoraron, gest.total);
                             htmlGest += `
                             <tr>
-                                <td style="padding-left:2.5rem;font-size:.74rem;">
+                                <td style="padding-left:2.8rem;font-size:.74rem;">
                                     <i class="fa fa-user text-muted me-1"></i>${gest.nombre}
                                 </td>
                                 <td class="text-center">${gest.total}</td>
                                 <td class="text-center text-success">${gest.mejoraron}</td>
                                 <td class="text-center text-danger">${gest.empeoraron}</td>
-                                <td class="text-center">${gest.igual}</td>
                                 <td class="text-center">
-                                    <div class="d-flex align-items-center gap-1">
-                                        <div class="progress flex-grow-1" style="height:5px;">
-                                            <div class="progress-bar bg-success" style="width:${pG}%"></div>
-                                        </div>
-                                        <span style="font-size:.68rem;min-width:28px;">${pG}%</span>
+                                    <div class="progress d-inline-flex" style="height:5px;width:55px;vertical-align:middle;">
+                                        <div class="progress-bar bg-success" style="width:${pG}%"></div>
                                     </div>
+                                    <span class="ms-1" style="font-size:.68rem;">${pG}%</span>
                                 </td>
                             </tr>`;
                         });
@@ -1346,17 +1346,13 @@ HTML;
                             <td class="text-center fw-semibold">${jef.total}</td>
                             <td class="text-center text-success fw-semibold">${jef.mejoraron}</td>
                             <td class="text-center text-danger fw-semibold">${jef.empeoraron}</td>
-                            <td class="text-center">${jef.igual}</td>
                             <td class="text-center">
-                                <div class="d-flex align-items-center gap-1">
-                                    <div class="progress flex-grow-1" style="height:5px;">
-                                        <div class="progress-bar bg-success" style="width:${pJ}%"></div>
-                                    </div>
-                                    <span style="font-size:.68rem;min-width:28px;">${pJ}%</span>
+                                <div class="progress d-inline-flex" style="height:5px;width:55px;vertical-align:middle;">
+                                    <div class="progress-bar bg-success" style="width:${pJ}%"></div>
                                 </div>
+                                <span class="ms-1" style="font-size:.68rem;">${pJ}%</span>
                             </td>
-                        </tr>
-                        ${htmlGest}`;
+                        </tr>${htmlGest}`;
                     });
 
                     htmlZon += `
@@ -1367,17 +1363,13 @@ HTML;
                         <td class="text-center fw-bold">${zon.total}</td>
                         <td class="text-center text-success fw-bold">${zon.mejoraron}</td>
                         <td class="text-center text-danger fw-bold">${zon.empeoraron}</td>
-                        <td class="text-center">${zon.igual}</td>
                         <td class="text-center">
-                            <div class="d-flex align-items-center gap-1">
-                                <div class="progress flex-grow-1" style="height:6px;">
-                                    <div class="progress-bar bg-success" style="width:${pZ}%"></div>
-                                </div>
-                                <span style="font-size:.68rem;min-width:28px;">${pZ}%</span>
+                            <div class="progress d-inline-flex" style="height:6px;width:55px;vertical-align:middle;">
+                                <div class="progress-bar bg-success" style="width:${pZ}%"></div>
                             </div>
+                            <span class="ms-1" style="font-size:.68rem;">${pZ}%</span>
                         </td>
-                    </tr>
-                    ${htmlJef}`;
+                    </tr>${htmlJef}`;
                 });
 
                 html += `
@@ -1386,18 +1378,18 @@ HTML;
                          style="cursor:pointer;"
                          data-bs-toggle="collapse"
                          data-bs-target="#ter_${idx}">
-                        <div class="d-flex align-items-center gap-2">
-                            <i class="fa fa-globe text-muted"></i>
-                            <strong style="font-size:.85rem;">${ter.nombre}</strong>
-                            <span class="badge bg-label-secondary">${ter.total}</span>
-                            <i class="fa ${icono}"></i>
+                        <div>
+                            <i class="fa fa-globe me-2 text-muted"></i>
+                            <strong>${ter.nombre}</strong>
+                            <span class="badge bg-label-secondary ms-2">${ter.total} créditos</span>
+                            <i class="fa ${icono} ms-2"></i>
                         </div>
                         <div class="d-flex gap-3 align-items-center">
                             <span class="text-success" style="font-size:.78rem;">
-                                <i class="fa fa-arrow-up me-1"></i>${ter.mejoraron} (${pctMej}%)
+                                <i class="fa fa-arrow-up me-1"></i>${ter.mejoraron} mejoraron (${pM}%)
                             </span>
                             <span class="text-danger" style="font-size:.78rem;">
-                                <i class="fa fa-arrow-down me-1"></i>${ter.empeoraron} (${pctEmp}%)
+                                <i class="fa fa-arrow-down me-1"></i>${ter.empeoraron} empeoraron (${pE}%)
                             </span>
                             <i class="fa fa-chevron-down text-muted fa-xs"></i>
                         </div>
@@ -1411,7 +1403,6 @@ HTML;
                                         <th class="text-center">Total</th>
                                         <th class="text-center">Mejoraron</th>
                                         <th class="text-center">Empeoraron</th>
-                                        <th class="text-center">Igual</th>
                                         <th class="text-center">% Gestión</th>
                                     </tr>
                                 </thead>
@@ -1427,18 +1418,8 @@ HTML;
         }
 
         // ══════════════════════════════════════════════════════════
-        //  ACORDEÓN JERARQUÍA en cada fila de la tabla
+        //  ACORDEÓN JERARQUÍA en la tabla
         // ══════════════════════════════════════════════════════════
-        window.toggleJQ = function(id) {
-            const el  = document.getElementById(id);
-            const ico = document.querySelector(`.jq-icon-${id}`);
-            if (!el) return;
-            const open = el.style.display !== 'none';
-            el.style.display = open ? 'none' : 'block';
-            if (ico) ico.className =
-                `fa fa-xs text-muted ms-1 jq-icon-${id} ${open ? 'fa-chevron-right' : 'fa-chevron-down'}`;
-        };
-
         function jerarquiaHtml(r, idx) {
             const ter  = r.Territorial     || null;
             const zon  = r.Zonal           || null;
@@ -1446,19 +1427,19 @@ HTML;
             const gest = r.Gestor_Asignado || '—';
 
             const niveles = [];
-            if (ter)  niveles.push({ icono:'fa-globe',            cls:'text-secondary', label: ter  });
-            if (zon)  niveles.push({ icono:'fa-map-location-dot', cls:'text-info',      label: zon  });
-            if (jefe) niveles.push({ icono:'fa-user-tie',         cls:'text-primary',   label: jefe });
-            niveles.push(          { icono:'fa-user',             cls:'text-muted',     label: gest });
+            if (ter)  niveles.push({ icono: 'fa-globe',            cls: 'text-secondary', label: ter  });
+            if (zon)  niveles.push({ icono: 'fa-map-location-dot', cls: 'text-info',      label: zon  });
+            if (jefe) niveles.push({ icono: 'fa-user-tie',         cls: 'text-primary',   label: jefe });
+            niveles.push(          { icono: 'fa-user',             cls: 'text-muted',     label: gest });
+
+            const id  = `jq_${idx}`;
+            const top = niveles[0];
 
             if (niveles.length === 1) {
                 return `<div style="font-size:.75rem;">
-                            <i class="fa ${niveles[0].icono} ${niveles[0].cls} me-1"></i>${niveles[0].label}
+                            <i class="fa ${top.icono} ${top.cls} me-1"></i>${top.label}
                         </div>`;
             }
-
-            const top = niveles[0];
-            const id  = `jq_${idx}`;
 
             return `
             <div>
@@ -1467,16 +1448,26 @@ HTML;
                      onclick="toggleJQ('${id}')">
                     <i class="fa ${top.icono} ${top.cls}"></i>
                     <span class="fw-semibold">${top.label}</span>
-                    <i class="fa fa-chevron-right fa-xs text-muted ms-1 jq-icon-${id}"></i>
+                    <i id="ico_${id}" class="fa fa-chevron-right fa-xs text-muted ms-1"></i>
                 </div>
-                <div id="${id}" style="display:none;padding-left:.8rem;margin-top:.25rem;border-left:2px solid #e0e0e0;">
+                <div id="${id}" style="display:none;padding-left:.8rem;margin-top:.3rem;
+                                       border-left:2px solid #e0e0e0;">
                     ${niveles.slice(1).map(n => `
-                    <div style="font-size:.72rem;margin-bottom:.12rem;">
-                        <i class="fa ${n.icono} ${n.cls} me-1"></i>${n.label}
-                    </div>`).join('')}
+                        <div style="font-size:.72rem;margin-bottom:.15rem;">
+                            <i class="fa ${n.icono} ${n.cls} me-1"></i>${n.label}
+                        </div>`).join('')}
                 </div>
             </div>`;
         }
+
+        window.toggleJQ = function(id) {
+            const el  = document.getElementById(id);
+            const ico = document.getElementById(`ico_${id}`);
+            if (!el) return;
+            const open        = el.style.display !== 'none';
+            el.style.display  = open ? 'none' : 'block';
+            if (ico) ico.className = `fa fa-xs text-muted ms-1 ${open ? 'fa-chevron-right' : 'fa-chevron-down'}`;
+        };
 
         // ══════════════════════════════════════════════════════════
         //  FILTROS
@@ -1505,8 +1496,8 @@ HTML;
             });
         }
 
-        function aplicarFiltros(data) {
-            const f = {
+        function getFiltros() {
+            return {
                 bucketNacio: document.getElementById('fBucketNacio')?.value || '',
                 bucketCorte: document.getElementById('fBucketCorte')?.value || '',
                 territorial: document.getElementById('fTerritorial')?.value || '',
@@ -1516,23 +1507,26 @@ HTML;
                 busq:       (document.getElementById('fBusq')?.value        || '').toLowerCase(),
                 movimiento:  document.getElementById('fMovimiento')?.value  || '',
             };
+        }
 
+        function aplicarFiltros(data) {
+            const f = getFiltros();
             return data.filter(r => {
                 if (f.bucketNacio && r.bucket_nacio        !== f.bucketNacio) return false;
                 if (f.bucketCorte && r.bucket_corte_actual !== f.bucketCorte) return false;
                 if (f.territorial && r.Territorial         !== f.territorial) return false;
                 if (f.zonal       && r.Zonal               !== f.zonal)       return false;
                 if (f.jefe        && r.Jefe_de_Plaza        !== f.jefe)        return false;
-                if (f.gestor      && r.Gestor_Asignado     !== f.gestor)      return false;
+                if (f.gestor      && r.Gestor_Asignado      !== f.gestor)      return false;
                 if (f.busq) {
-                    const hay = `${r.Nombre_cliente} ${r.Id_credito}`.toLowerCase();
-                    if (!hay.includes(f.busq)) return false;
+                    const h = `${r.Nombre_cliente} ${r.Id_credito}`.toLowerCase();
+                    if (!h.includes(f.busq)) return false;
                 }
                 if (f.movimiento) {
                     const iN = BUCKET_ORDER.indexOf(r.bucket_nacio);
                     const iA = BUCKET_ORDER.indexOf(r.bucket_corte_actual);
-                    if (f.movimiento === 'mejoro'   && !(iA < iN))   return false;
-                    if (f.movimiento === 'empeoró'  && !(iA > iN))   return false;
+                    if (f.movimiento === 'mejoro'   && !(iA < iN))  return false;
+                    if (f.movimiento === 'empeoró'  && !(iA > iN))  return false;
                     if (f.movimiento === 'igual'    && !(iA === iN)) return false;
                 }
                 return true;
@@ -1545,7 +1539,7 @@ HTML;
         async function cargar() {
             document.getElementById('statTotal').textContent = '…';
             try {
-                const r = await fetch('/Reporteria/getVencimientosLunes', { method:'POST' });
+                const r = await fetch('/Reporteria/getVencimientosLunes', { method: 'POST' });
                 const d = await r.json();
                 _data        = d.datos        || [];
                 _corteActual = d.corte_actual || '';
@@ -1554,12 +1548,14 @@ HTML;
                     document.getElementById('lunesFecha').textContent = d.lunes_pasado;
                 if (_corteActual)
                     document.getElementById('corteLabel').textContent =
-                        _corteActual.replace(/^Dias_mora_/, '').replace(/_/g,' ');
+                        _corteActual.replace('Dias_mora_', '').replace(/_/g, ' ');
 
                 poblarFiltros(_data);
                 renderTabla();
                 renderStats(_data);
-            } catch(e) { console.error(e); }
+            } catch(e) {
+                console.error('Error cargando vencimientos:', e);
+            }
         }
 
         // ══════════════════════════════════════════════════════════
@@ -1570,41 +1566,46 @@ HTML;
             document.getElementById('statTotal').textContent = datos.length;
             initDT();
 
-            const fmt = v => '$' + parseFloat(v||0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g,',');
+            const fmt = v => '$' + parseFloat(v || 0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 
-            const rows = datos.map((r, i) => ({
-                general: `
-                    <div class="d-flex align-items-start gap-2">
-                        <i class="fa fa-id-card text-primary mt-1" style="font-size:.9rem;"></i>
-                        <div>
-                            <div class="fw-semibold" style="font-size:.82rem;">${r.Nombre_cliente || '—'}</div>
-                            <div class="text-muted" style="font-size:.7rem;">
-                                <i class="fa fa-hashtag fa-xs me-1"></i>${r.Id_credito || ''}
+            const rows = datos.map((r, i) => {
+                const saldo = parseFloat(r.Saldo_vencido_actualizado || 0);
+                return {
+                    general: `
+                        <div class="d-flex align-items-start gap-2">
+                            <i class="fa fa-id-card text-primary mt-1" style="font-size:.9rem;"></i>
+                            <div>
+                                <div class="fw-semibold" style="font-size:.82rem;">
+                                    ${r.Nombre_cliente || '—'}
+                                </div>
+                                <div class="text-muted" style="font-size:.7rem;">
+                                    <i class="fa fa-hashtag fa-xs me-1"></i>${r.Id_credito || ''}
+                                </div>
                             </div>
+                        </div>`,
+
+                    jerarquia: jerarquiaHtml(r, i),
+
+                    nacio: badgeBucket(r.bucket_nacio),
+
+                    corte: `
+                        <div>${badgeBucket(r.bucket_corte_actual)}</div>
+                        <div class="mt-1 d-flex align-items-center justify-content-center gap-1"
+                             style="font-size:.72rem;">
+                            ${movimientoHtml(r.bucket_nacio, r.bucket_corte_actual)}
+                            <span class="text-muted">mov.</span>
                         </div>
-                    </div>`,
-
-                jerarquia: jerarquiaHtml(r, i),
-
-                nacio: badgeBucket(r.bucket_nacio),
-
-                corte: `
-                    <div>${badgeBucket(r.bucket_corte_actual)}</div>
-                    <div class="mt-1 d-flex align-items-center justify-content-center gap-1"
-                         style="font-size:.72rem;">
-                        ${movimientoHtml(r.bucket_nacio, r.bucket_corte_actual)}
-                        <span class="text-muted">mov.</span>
-                    </div>
-                    <div class="mt-1" style="font-size:.7rem;">
-                        <i class="fa fa-receipt fa-xs text-muted me-1"></i>
-                        <span class="text-danger fw-bold">${r.Cuotas_vencidas || '—'}</span>
-                        <span class="text-muted ms-1">ctas</span>
-                    </div>
-                    <div style="font-size:.7rem;">
-                        <i class="fa fa-dollar-sign fa-xs text-muted me-1"></i>
-                        <span class="text-warning fw-semibold">${fmt(r.Saldo_vencido_actualizado)}</span>
-                    </div>`,
-            }));
+                        <div class="mt-1" style="font-size:.7rem;">
+                            <i class="fa fa-receipt fa-xs text-muted me-1"></i>
+                            <span class="text-danger fw-bold">${r.Cuotas_vencidas || '—'}</span>
+                            <span class="text-muted ms-1">ctas</span>
+                        </div>
+                        <div style="font-size:.7rem;">
+                            <i class="fa fa-dollar-sign fa-xs text-muted me-1"></i>
+                            <span class="text-warning fw-semibold">${fmt(saldo)}</span>
+                        </div>`,
+                };
+            });
 
             dtVenc.clear().rows.add(rows).draw();
         }
@@ -1613,21 +1614,25 @@ HTML;
         //  EXPORTAR CSV
         // ══════════════════════════════════════════════════════════
         document.getElementById('btnExportarCSV').addEventListener('click', () => {
-            const datos = aplicarFiltros(_data);
+            const datos   = aplicarFiltros(_data);
             const headers = [
-                'Id_credito','Nombre_cliente','Bucket_Nacio','Bucket_Corte_Actual',
+                'Id_credito','Nombre_cliente',
+                'Bucket_Nacio','Bucket_Corte_Actual',
                 'Territorial','Zonal','Jefe_Plaza','Gestor_Asignado',
                 'Cuotas_vencidas','Saldo_vencido_actualizado','Dias_mora_corte'
             ];
             const rows = datos.map(r => [
-                r.Id_credito, r.Nombre_cliente, r.bucket_nacio, r.bucket_corte_actual,
+                r.Id_credito, r.Nombre_cliente,
+                r.bucket_nacio, r.bucket_corte_actual,
                 r.Territorial, r.Zonal, r.Jefe_de_Plaza, r.Gestor_Asignado,
                 r.Cuotas_vencidas, r.Saldo_vencido_actualizado, r.dias_mora_corte
             ]);
-            const csv = [headers,...rows].map(r => r.map(v=>`"${v??''}"`).join(',')).join('\n');
-            const a   = document.createElement('a');
-            a.href    = URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
-            a.download = `vencimientos_lunes_${new Date().toISOString().substring(0,10)}.csv`;
+            const csv = [headers, ...rows]
+                .map(r => r.map(v => `"${v ?? ''}"`).join(','))
+                .join('\n');
+            const a       = document.createElement('a');
+            a.href        = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+            a.download    = `vencimientos_lunes_${new Date().toISOString().substring(0, 10)}.csv`;
             a.click();
         });
 
@@ -1636,10 +1641,10 @@ HTML;
         // ══════════════════════════════════════════════════════════
         ['fBucketNacio','fBucketCorte','fTerritorial','fZonal','fJefe','fGestor','fMovimiento']
             .forEach(id => {
-                document.getElementById(id)?.addEventListener('change', () => {
-                    const filtrados = aplicarFiltros(_data);
+                const el = document.getElementById(id);
+                if (el) el.addEventListener('change', () => {
                     renderTabla();
-                    renderStats(filtrados);
+                    renderStats(aplicarFiltros(_data));
                 });
             });
 
@@ -1647,15 +1652,17 @@ HTML;
 
         document.getElementById('btnReset').addEventListener('click', () => {
             ['fBucketNacio','fBucketCorte','fTerritorial','fZonal','fJefe','fGestor','fMovimiento']
-                .forEach(id => { const el = document.getElementById(id); if(el) el.value=''; });
-            document.getElementById('fBusq').value = '';
+                .forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.value = '';
+                });
+            const busq = document.getElementById('fBusq');
+            if (busq) busq.value = '';
             renderTabla();
             renderStats(_data);
         });
 
-        // ══════════════════════════════════════════════════════════
-        //  INICIO
-        // ══════════════════════════════════════════════════════════
+        // ── Inicio ────────────────────────────────────────────────
         cargar();
     });
     </script>
