@@ -633,7 +633,7 @@ class Empresa extends Model
     ";
 
         try {
-            $db   = new Database();
+            $db   = new DatabaseSegundometro();
             $rows = $db->queryAll($sql);
 
             $lunesPasado = !empty($rows)
