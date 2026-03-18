@@ -633,7 +633,7 @@ class Empresa extends Model
     ";
 
         try {
-            $db   = new DatabaseAurora();
+            $db   = new Database();
             $rows = $db->queryAll($sql);
 
             $lunesPasado = !empty($rows)
