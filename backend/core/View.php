@@ -77,7 +77,7 @@ function getMenu()
                                     'modulos' => [6]
                             ],
                             [
-                                'label' => 'Vencimientos Lunes Pasado ',
+                                'label' => 'Vencimientos Lunes',
                                 'url' => '/reporteria/VencimientosLunes',
                                 'modulos' => [49]
                             ],
