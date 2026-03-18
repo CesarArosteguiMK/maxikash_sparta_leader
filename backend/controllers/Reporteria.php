@@ -1094,323 +1094,577 @@ HTML;
     public function VencimientosLunes()
     {
         $script = <<<'HTML'
-        <script>
-            document.addEventListener('DOMContentLoaded', function () {
+    <script>
+    document.addEventListener('DOMContentLoaded', function () {
 
-            // ── Solo 2 buckets relevantes ──────────────────────────────
-            const BUCKET_META = {
-                'a) Current':    { cls:'bg-label-success', icon:'fa-circle-check', short:'Current' },
-                'b) 1 a 7 dias': { cls:'bg-label-warning', icon:'fa-clock',        short:'1-7d'    },
-            };
+        // ── Paleta de buckets ──────────────────────────────────────
+        const BUCKET_META = {
+            'a) Current':      { cls: 'bg-label-success',   icon: 'fa-circle-check',         short: 'Current' },
+            'b) 1 a 7 dias':   { cls: 'bg-label-info',      icon: 'fa-clock',                short: '1-7d'    },
+            'c) 8 a 30 dias':  { cls: 'bg-label-warning',   icon: 'fa-triangle-exclamation', short: '8-30d'   },
+            'd) 31 a 60 dias': { cls: 'bg-label-danger',    icon: 'fa-fire',                 short: '31-60d'  },
+            'e) 61+ dias':     { cls: 'bg-label-secondary', icon: 'fa-skull-crossbones',     short: '61+d'    },
+        };
+        const BUCKET_ORDER = Object.keys(BUCKET_META);
 
-            function badgeBucket(val) {
-                const m = BUCKET_META[val] ?? { cls:'bg-label-secondary', icon:'fa-question', short: val||'—' };
-                return `<span class="badge ${m.cls}"><i class="fa ${m.icon} me-1"></i>${m.short}</span>`;
-            }
+        function badgeBucket(val, small = false) {
+            const v  = val || '—';
+            const m  = BUCKET_META[v] ?? { cls:'bg-label-secondary', icon:'fa-question', short: v };
+            const sz = small ? 'font-size:.68rem;' : '';
+            return `<span class="badge ${m.cls}" style="${sz}">
+                        <i class="fa ${m.icon} me-1"></i>${small ? m.short : v}
+                    </span>`;
+        }
 
-            // ── DataTable lang ─────────────────────────────────────────
-            const dtLang = {
-                emptyTable:'Sin registros', info:'_START_-_END_ de _TOTAL_',
-                infoEmpty:'0', infoFiltered:'(de _MAX_)', lengthMenu:'_MENU_',
-                loadingRecords:'Cargando...', processing:'Procesando...',
-                search:'', searchPlaceholder:'Buscar...', zeroRecords:'Sin coincidencias',
-                paginate:{ first:'«', last:'»', next:'›', previous:'‹' },
-            };
+        function movimientoHtml(nacio, actual) {
+            if (!nacio || !actual) return '<span class="text-muted">—</span>';
+            const iN = BUCKET_ORDER.indexOf(nacio);
+            const iA = BUCKET_ORDER.indexOf(actual);
+            if (iN === iA) return `<span class="text-muted" title="Sin cambio"><i class="fa fa-equals"></i></span>`;
+            if (iA < iN)  return `<span class="text-success" title="Mejoró"><i class="fa fa-arrow-up"></i></span>`;
+            return `<span class="text-danger" title="Empeoró"><i class="fa fa-arrow-down"></i></span>`;
+        }
 
-            let _data        = [];
-            let _filtered    = [];
-            let dtVenc       = null;
-            let _corteActual = '';
+        const dtLang = {
+            decimal:',', thousands:'.', emptyTable:'Sin registros',
+            info:'Mostrando _START_ a _END_ de _TOTAL_',
+            infoEmpty:'0 registros', infoFiltered:'(de _MAX_)',
+            lengthMenu:'Mostrar _MENU_', loadingRecords:'Cargando...',
+            processing:'Procesando...', search:'',
+            searchPlaceholder:'Buscar...', zeroRecords:'Sin coincidencias',
+            paginate:{ first:'«', last:'»', next:'›', previous:'‹' },
+        };
 
-            // ══════════════════════════════════════════════════════════
-            //  DATATABLE — columnas mínimas, sin HTML pesado en rows
-            // ══════════════════════════════════════════════════════════
-            function initDT() {
-                if ($.fn.DataTable.isDataTable('#tablaVencimientos'))
-                    $('#tablaVencimientos').DataTable().destroy();
+        let _data        = [];
+        let dtVenc       = null;
+        let _corteActual = '';
 
-                dtVenc = $('#tablaVencimientos').DataTable({
-                    processing: false,
-                    responsive: false,       // desactivar responsive para ganar velocidad
-                    pageLength: 50,
-                    deferRender: true,        // ← clave: solo renderiza las filas visibles
-                    order: [[0,'asc']],
-                    language: dtLang,
-                    columns: [
-                        { data:'general',  width:'220px', orderable:false },
-                        { data:'jerarquia',width:'200px', orderable:false },
-                        { data:'nacio',    className:'text-center', width:'100px' },
-                        { data:'corte',    className:'text-center', width:'100px' },
-                    ]
-                });
-            }
+        // ══════════════════════════════════════════════════════════
+        //  DATATABLE
+        // ══════════════════════════════════════════════════════════
+        function initDT() {
+            if ($.fn.DataTable.isDataTable('#tablaVencimientos'))
+                $('#tablaVencimientos').DataTable().destroy();
 
-            // ══════════════════════════════════════════════════════════
-            //  JERARQUÍA — acordeón ligero con delegación de eventos
-            // ══════════════════════════════════════════════════════════
-            function jerarquiaHtml(r, i) {
-                const niveles = [];
-                if (r.Territorial)   niveles.push({ ic:'fa-globe',            cl:'text-secondary', v: r.Territorial   });
-                if (r.Zonal)         niveles.push({ ic:'fa-map-location-dot', cl:'text-info',      v: r.Zonal         });
-                if (r.Jefe_de_Plaza) niveles.push({ ic:'fa-user-tie',         cl:'text-primary',   v: r.Jefe_de_Plaza });
-                const gestor = r.Gestor_Asignado || '—';
-                niveles.push(        { ic:'fa-user',             cl:'text-muted',     v: gestor });
+            dtVenc = $('#tablaVencimientos').DataTable({
+                processing: true, responsive: true, pageLength: 25,
+                order: [[0,'asc']], language: dtLang,
+                columns: [
+                    { data:'general',   width:'200px' },
+                    { data:'jerarquia', width:'220px', orderable: false },
+                    { data:'nacio',     className:'text-center', width:'130px' },
+                    { data:'corte',     className:'text-center', width:'160px' },
+                ]
+            });
+        }
 
-                if (niveles.length === 1)
-                    return `<span style="font-size:.73rem;"><i class="fa fa-user text-muted me-1"></i>${gestor}</span>`;
+        // ══════════════════════════════════════════════════════════
+        //  STATS NACIMIENTO + MATRIZ
+        // ══════════════════════════════════════════════════════════
+        function calcStats(data) {
+            const nacDist = {};
+            BUCKET_ORDER.forEach(b => nacDist[b] = 0);
+            data.forEach(r => { if (nacDist[r.bucket_nacio] !== undefined) nacDist[r.bucket_nacio]++; });
 
-                const top = niveles[0];
-                const sub = niveles.slice(1).map(n =>
-                    `<div style="font-size:.7rem;margin:.1rem 0;">
-                        <i class="fa ${n.ic} ${n.cl} me-1"></i>${n.v}
-                     </div>`
-                ).join('');
-
-                return `<div style="font-size:.73rem;">
-                    <span class="jq-toggle" data-jq="${i}" style="cursor:pointer;">
-                        <i class="fa ${top.ic} ${top.cl} me-1"></i>
-                        <span class="fw-semibold">${top.v}</span>
-                        <i class="fa fa-chevron-right fa-xs text-muted ms-1"></i>
-                    </span>
-                    <div class="jq-body" data-jq="${i}"
-                         style="display:none;padding-left:.7rem;border-left:2px solid #ddd;margin-top:.25rem;">
-                        ${sub}
-                    </div>
-                </div>`;
-            }
-
-            // Event delegation — un solo listener para todos los acordeones
-            document.getElementById('tablaVencimientos').addEventListener('click', e => {
-                const btn = e.target.closest('.jq-toggle');
-                if (!btn) return;
-                const id   = btn.dataset.jq;
-                const body = document.querySelector(`.jq-body[data-jq="${id}"]`);
-                const ico  = btn.querySelector('.fa-chevron-right, .fa-chevron-down');
-                if (!body) return;
-                const open = body.style.display !== 'none';
-                body.style.display = open ? 'none' : 'block';
-                if (ico) { ico.classList.toggle('fa-chevron-right', open); ico.classList.toggle('fa-chevron-down', !open); }
+            const matriz = {};
+            BUCKET_ORDER.forEach(b => {
+                matriz[b] = {};
+                BUCKET_ORDER.forEach(c => matriz[b][c] = 0);
+            });
+            data.forEach(r => {
+                const n = r.bucket_nacio;
+                const c = r.bucket_corte_actual;
+                if (n && c && matriz[n]) {
+                    matriz[n][c] = (matriz[n][c] || 0) + 1;
+                }
             });
 
-            // ══════════════════════════════════════════════════════════
-            //  STATS — cálculo en una sola pasada O(n)
-            // ══════════════════════════════════════════════════════════
-            function calcStats(data) {
-                let nacCurrent = 0, nac17 = 0;
-                let pagaron = 0, siguen17 = 0;   // de los que nacieron 1-7
-                const terMap = {};
+            return { nacDist, matriz };
+        }
 
-                for (const r of data) {
-                    const n = r.bucket_nacio;
-                    const c = r.bucket_corte_actual;
+        function renderStats(data) {
+            const { nacDist, matriz } = calcStats(data);
 
-                    if (n === 'a) Current')    nacCurrent++;
-                    if (n === 'b) 1 a 7 dias') nac17++;
-
-                    if (n === 'b) 1 a 7 dias') {
-                        if (c === 'a) Current')    pagaron++;
-                        if (c === 'b) 1 a 7 dias') siguen17++;
-                    }
-
-                    // Jerarquía ligera — solo Territorial
-                    const ter = r.Territorial || '(Sin territorial)';
-                    if (!terMap[ter]) terMap[ter] = { total:0, pagaron:0 };
-                    terMap[ter].total++;
-                    if (n === 'b) 1 a 7 dias' && c === 'a) Current') terMap[ter].pagaron++;
-                }
-
-                return { nacCurrent, nac17, pagaron, siguen17, terMap };
-            }
-
-            function renderStats(data) {
-                const { nacCurrent, nac17, pagaron, siguen17, terMap } = calcStats(data);
-
-                // Cards rápidas
-                document.getElementById('sNacCurrent').textContent = nacCurrent;
-                document.getElementById('sNac17').textContent      = nac17;
-                document.getElementById('sPagaron').textContent    = pagaron;
-                document.getElementById('sSiguen').textContent     = siguen17;
-
-                // Porcentaje conversión
-                const pct = nac17 > 0 ? Math.round(pagaron/nac17*100) : 0;
-                document.getElementById('sConversion').textContent = pct + '%';
-                document.getElementById('sConvBar').style.width    = pct + '%';
-
-                // Ranking territoriales — solo los que tienen 1-7
-                const ters = Object.entries(terMap)
-                    .filter(([,v]) => v.total > 0)
-                    .map(([k,v]) => ({ nombre:k, ...v, pct: v.total ? Math.round(v.pagaron/v.total*100):0 }))
-                    .sort((a,b) => a.pct - b.pct);   // peor primero
-
-                let htmlTer = '';
-                ters.forEach(t => {
-                    const color = t.pct < 20 ? 'bg-danger' : t.pct < 50 ? 'bg-warning' : 'bg-success';
-                    htmlTer += `
-                    <div class="d-flex align-items-center gap-2 mb-1" style="font-size:.75rem;">
-                        <div style="min-width:180px;max-width:180px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;"
-                             title="${t.nombre}">${t.nombre}</div>
-                        <div class="progress flex-grow-1" style="height:8px;">
-                            <div class="progress-bar ${color}" style="width:${t.pct}%"></div>
-                        </div>
-                        <div style="min-width:42px;text-align:right;" class="${t.pct<20?'text-danger':t.pct<50?'text-warning':'text-success'} fw-semibold">
-                            ${t.pct}%
-                        </div>
-                        <div class="text-muted" style="min-width:60px;">${t.pagaron}/${t.total}</div>
-                    </div>`;
-                });
-                document.getElementById('statsJerarquia').innerHTML = htmlTer || '<p class="text-muted mb-0">Sin datos.</p>';
-            }
-
-            // ══════════════════════════════════════════════════════════
-            //  FILTROS
-            // ══════════════════════════════════════════════════════════
-            function poblarFiltros(data) {
-                const campos = {
-                    fBucketNacio: r => r.bucket_nacio,
-                    fBucketCorte: r => r.bucket_corte_actual,
-                    fTerritorial: r => r.Territorial,
-                    fZonal:       r => r.Zonal,
-                    fJefe:        r => r.Jefe_de_Plaza,
-                    fGestor:      r => r.Gestor_Asignado,
-                };
-                Object.entries(campos).forEach(([id, fn]) => {
-                    const sel = document.getElementById(id);
-                    if (!sel) return;
-                    const cur  = sel.value;
-                    const vals = [...new Set(data.map(fn).filter(Boolean))].sort();
-                    sel.innerHTML = '<option value="">Todos</option>';
-                    vals.forEach(v => {
-                        const o = document.createElement('option');
-                        o.value = v; o.textContent = v;
-                        if (v === cur) o.selected = true;
-                        sel.appendChild(o);
-                    });
-                });
-            }
-
-            function aplicarFiltros() {
-                const get = id => (document.getElementById(id)?.value || '').trim();
-                const bucketNacio = get('fBucketNacio');
-                const bucketCorte = get('fBucketCorte');
-                const territorial = get('fTerritorial');
-                const zonal       = get('fZonal');
-                const jefe        = get('fJefe');
-                const gestor      = get('fGestor');
-                const busq        = get('fBusq').toLowerCase();
-
-                return _data.filter(r => {
-                    if (bucketNacio && r.bucket_nacio        !== bucketNacio) return false;
-                    if (bucketCorte && r.bucket_corte_actual !== bucketCorte) return false;
-                    if (territorial && r.Territorial         !== territorial) return false;
-                    if (zonal       && r.Zonal               !== zonal)       return false;
-                    if (jefe        && r.Jefe_de_Plaza        !== jefe)        return false;
-                    if (gestor      && r.Gestor_Asignado      !== gestor)      return false;
-                    if (busq && !`${r.Nombre_cliente} ${r.Id_credito}`.toLowerCase().includes(busq)) return false;
-                    return true;
-                });
-            }
-
-            // ══════════════════════════════════════════════════════════
-            //  RENDER TABLA — HTML mínimo por fila
-            // ══════════════════════════════════════════════════════════
-            function renderTabla() {
-                _filtered = aplicarFiltros();
-                document.getElementById('statTotal').textContent = _filtered.length;
-                initDT();
-
-                const fmt = v => '$' + parseFloat(v||0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g,',');
-
-                const rows = _filtered.map((r, i) => {
-                    const saldo = parseFloat(r.Saldo_vencido_actualizado || 0);
-                    return {
-                        general: `
-                            <div class="fw-semibold" style="font-size:.8rem;">
-                                <i class="fa fa-id-card text-primary me-1" style="font-size:.75rem;"></i>${r.Nombre_cliente || '—'}
+            // Cards nacimiento
+            let htmlNac = '';
+            BUCKET_ORDER.forEach(b => {
+                const m   = BUCKET_META[b] ?? {};
+                const cnt = nacDist[b] || 0;
+                htmlNac += `
+                <div class="col">
+                    <div class="card text-center h-100 border-0 shadow-sm">
+                        <div class="card-body py-2 px-2">
+                            <div class="badge ${m.cls} mb-1" style="font-size:.65rem;">
+                                <i class="fa ${m.icon} me-1"></i>${m.short}
                             </div>
+                            <div class="fw-bold" style="font-size:1.5rem;">${cnt}</div>
+                            <div class="text-muted" style="font-size:.65rem;">nacieron</div>
+                        </div>
+                    </div>
+                </div>`;
+            });
+            document.getElementById('statsNacimiento').innerHTML = htmlNac;
+
+            // Matriz
+            let htmlMat = `
+            <div class="table-responsive">
+            <table class="table table-sm table-bordered align-middle mb-0" style="font-size:.75rem;">
+                <thead class="table-light">
+                    <tr>
+                        <th style="min-width:110px;">Nació \\ Corte</th>
+                        ${BUCKET_ORDER.map(b => `<th class="text-center">${BUCKET_META[b]?.short || b}</th>`).join('')}
+                    </tr>
+                </thead>
+                <tbody>`;
+
+            BUCKET_ORDER.forEach(b => {
+                const total = BUCKET_ORDER.reduce((a,c) => a + (matriz[b][c] || 0), 0);
+                if (!total) return;
+                htmlMat += `<tr><td>${badgeBucket(b, true)}</td>`;
+                BUCKET_ORDER.forEach(c => {
+                    const v   = matriz[b][c] || 0;
+                    const iB  = BUCKET_ORDER.indexOf(b);
+                    const iC  = BUCKET_ORDER.indexOf(c);
+                    let cls   = '';
+                    if (v > 0) {
+                        if (iC === iB)  cls = 'table-secondary';
+                        else if (iC < iB) cls = 'table-success';
+                        else              cls = 'table-danger';
+                    }
+                    htmlMat += `<td class="text-center ${cls}">${v || '—'}</td>`;
+                });
+                htmlMat += `</tr>`;
+            });
+            htmlMat += `</tbody></table></div>`;
+            document.getElementById('statsMatriz').innerHTML = htmlMat;
+
+            renderStatsJerarquia(data);
+        }
+
+        // ══════════════════════════════════════════════════════════
+        //  STATS JERARQUÍA
+        // ══════════════════════════════════════════════════════════
+        function renderStatsJerarquia(data) {
+            const territoriales = {};
+
+            data.forEach(r => {
+                const ter  = r.Territorial     || '(Sin territorial)';
+                const zon  = r.Zonal           || '(Sin zonal)';
+                const jefe = r.Jefe_de_Plaza   || '(Sin jefe)';
+                const gest = r.Gestor_Asignado || '(Sin gestor)';
+
+                if (!territoriales[ter])
+                    territoriales[ter] = { total:0, mejoraron:0, empeoraron:0, igual:0, zonales:{} };
+                const T = territoriales[ter]; T.total++;
+
+                if (!T.zonales[zon])
+                    T.zonales[zon] = { total:0, mejoraron:0, empeoraron:0, igual:0, jefes:{} };
+                const Z = T.zonales[zon]; Z.total++;
+
+                if (!Z.jefes[jefe])
+                    Z.jefes[jefe] = { total:0, mejoraron:0, empeoraron:0, igual:0, gestores:{} };
+                const J = Z.jefes[jefe]; J.total++;
+
+                if (!J.gestores[gest])
+                    J.gestores[gest] = { total:0, mejoraron:0, empeoraron:0, igual:0 };
+                const G = J.gestores[gest]; G.total++;
+
+                const iN = BUCKET_ORDER.indexOf(r.bucket_nacio);
+                const iA = BUCKET_ORDER.indexOf(r.bucket_corte_actual);
+                if (iA >= 0 && iN >= 0) {
+                    if (iA < iN) {
+                        G.mejoraron++; J.mejoraron++; Z.mejoraron++; T.mejoraron++;
+                    } else if (iA > iN) {
+                        G.empeoraron++; J.empeoraron++; Z.empeoraron++; T.empeoraron++;
+                    } else {
+                        G.igual++; J.igual++; Z.igual++; T.igual++;
+                    }
+                }
+            });
+
+            const terOrdenados = Object.entries(territoriales)
+                .map(([k,v]) => ({ nombre:k, ...v }))
+                .sort((a,b) => (a.mejoraron / Math.max(a.total,1)) - (b.mejoraron / Math.max(b.total,1)));
+
+            let html = '';
+            terOrdenados.forEach((ter, idx) => {
+                const pctMej = ter.total ? Math.round(ter.mejoraron / ter.total * 100) : 0;
+                const pctEmp = ter.total ? Math.round(ter.empeoraron / ter.total * 100) : 0;
+                const alerta = pctMej < 20 ? 'border-danger' : pctMej < 50 ? 'border-warning' : 'border-success';
+                const icono  = pctMej < 20
+                    ? 'fa-circle-exclamation text-danger'
+                    : pctMej < 50 ? 'fa-triangle-exclamation text-warning' : 'fa-circle-check text-success';
+
+                const zonOrdenados = Object.entries(ter.zonales)
+                    .map(([k,v]) => ({ nombre:k, ...v }))
+                    .sort((a,b) => (a.mejoraron / Math.max(a.total,1)) - (b.mejoraron / Math.max(b.total,1)));
+
+                let htmlZon = '';
+                zonOrdenados.forEach(zon => {
+                    const pZ = zon.total ? Math.round(zon.mejoraron / zon.total * 100) : 0;
+
+                    const jefOrdenados = Object.entries(zon.jefes)
+                        .map(([k,v]) => ({ nombre:k, ...v }))
+                        .sort((a,b) => (a.mejoraron / Math.max(a.total,1)) - (b.mejoraron / Math.max(b.total,1)));
+
+                    let htmlJef = '';
+                    jefOrdenados.forEach(jef => {
+                        const pJ = jef.total ? Math.round(jef.mejoraron / jef.total * 100) : 0;
+
+                        const gestOrdenados = Object.entries(jef.gestores)
+                            .map(([k,v]) => ({ nombre:k, ...v }))
+                            .sort((a,b) => (a.mejoraron / Math.max(a.total,1)) - (b.mejoraron / Math.max(b.total,1)));
+
+                        let htmlGest = '';
+                        gestOrdenados.forEach(gest => {
+                            const pG = gest.total ? Math.round(gest.mejoraron / gest.total * 100) : 0;
+                            htmlGest += `
+                            <tr>
+                                <td style="padding-left:2.5rem;font-size:.74rem;">
+                                    <i class="fa fa-user text-muted me-1"></i>${gest.nombre}
+                                </td>
+                                <td class="text-center">${gest.total}</td>
+                                <td class="text-center text-success">${gest.mejoraron}</td>
+                                <td class="text-center text-danger">${gest.empeoraron}</td>
+                                <td class="text-center">${gest.igual}</td>
+                                <td class="text-center">
+                                    <div class="d-flex align-items-center gap-1">
+                                        <div class="progress flex-grow-1" style="height:5px;">
+                                            <div class="progress-bar bg-success" style="width:${pG}%"></div>
+                                        </div>
+                                        <span style="font-size:.68rem;min-width:28px;">${pG}%</span>
+                                    </div>
+                                </td>
+                            </tr>`;
+                        });
+
+                        htmlJef += `
+                        <tr class="table-light">
+                            <td style="padding-left:1.8rem;font-size:.77rem;">
+                                <i class="fa fa-user-tie text-primary me-1"></i>${jef.nombre}
+                            </td>
+                            <td class="text-center fw-semibold">${jef.total}</td>
+                            <td class="text-center text-success fw-semibold">${jef.mejoraron}</td>
+                            <td class="text-center text-danger fw-semibold">${jef.empeoraron}</td>
+                            <td class="text-center">${jef.igual}</td>
+                            <td class="text-center">
+                                <div class="d-flex align-items-center gap-1">
+                                    <div class="progress flex-grow-1" style="height:5px;">
+                                        <div class="progress-bar bg-success" style="width:${pJ}%"></div>
+                                    </div>
+                                    <span style="font-size:.68rem;min-width:28px;">${pJ}%</span>
+                                </div>
+                            </td>
+                        </tr>
+                        ${htmlGest}`;
+                    });
+
+                    htmlZon += `
+                    <tr class="table-secondary">
+                        <td style="padding-left:.9rem;font-size:.8rem;">
+                            <i class="fa fa-map-location-dot text-info me-1"></i>${zon.nombre}
+                        </td>
+                        <td class="text-center fw-bold">${zon.total}</td>
+                        <td class="text-center text-success fw-bold">${zon.mejoraron}</td>
+                        <td class="text-center text-danger fw-bold">${zon.empeoraron}</td>
+                        <td class="text-center">${zon.igual}</td>
+                        <td class="text-center">
+                            <div class="d-flex align-items-center gap-1">
+                                <div class="progress flex-grow-1" style="height:6px;">
+                                    <div class="progress-bar bg-success" style="width:${pZ}%"></div>
+                                </div>
+                                <span style="font-size:.68rem;min-width:28px;">${pZ}%</span>
+                            </div>
+                        </td>
+                    </tr>
+                    ${htmlJef}`;
+                });
+
+                html += `
+                <div class="card mb-3 border-start border-3 ${alerta}">
+                    <div class="card-header d-flex align-items-center justify-content-between py-2"
+                         style="cursor:pointer;"
+                         data-bs-toggle="collapse"
+                         data-bs-target="#ter_${idx}">
+                        <div class="d-flex align-items-center gap-2">
+                            <i class="fa fa-globe text-muted"></i>
+                            <strong style="font-size:.85rem;">${ter.nombre}</strong>
+                            <span class="badge bg-label-secondary">${ter.total}</span>
+                            <i class="fa ${icono}"></i>
+                        </div>
+                        <div class="d-flex gap-3 align-items-center">
+                            <span class="text-success" style="font-size:.78rem;">
+                                <i class="fa fa-arrow-up me-1"></i>${ter.mejoraron} (${pctMej}%)
+                            </span>
+                            <span class="text-danger" style="font-size:.78rem;">
+                                <i class="fa fa-arrow-down me-1"></i>${ter.empeoraron} (${pctEmp}%)
+                            </span>
+                            <i class="fa fa-chevron-down text-muted fa-xs"></i>
+                        </div>
+                    </div>
+                    <div class="collapse" id="ter_${idx}">
+                        <div class="card-body p-0">
+                            <table class="table table-sm mb-0 align-middle" style="font-size:.78rem;">
+                                <thead class="table-dark" style="font-size:.7rem;">
+                                    <tr>
+                                        <th>Nivel</th>
+                                        <th class="text-center">Total</th>
+                                        <th class="text-center">Mejoraron</th>
+                                        <th class="text-center">Empeoraron</th>
+                                        <th class="text-center">Igual</th>
+                                        <th class="text-center">% Gestión</th>
+                                    </tr>
+                                </thead>
+                                <tbody>${htmlZon}</tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>`;
+            });
+
+            document.getElementById('statsJerarquia').innerHTML =
+                html || '<p class="text-muted text-center py-3">Sin datos de jerarquía.</p>';
+        }
+
+        // ══════════════════════════════════════════════════════════
+        //  ACORDEÓN JERARQUÍA en cada fila de la tabla
+        // ══════════════════════════════════════════════════════════
+        window.toggleJQ = function(id) {
+            const el  = document.getElementById(id);
+            const ico = document.querySelector(`.jq-icon-${id}`);
+            if (!el) return;
+            const open = el.style.display !== 'none';
+            el.style.display = open ? 'none' : 'block';
+            if (ico) ico.className =
+                `fa fa-xs text-muted ms-1 jq-icon-${id} ${open ? 'fa-chevron-right' : 'fa-chevron-down'}`;
+        };
+
+        function jerarquiaHtml(r, idx) {
+            const ter  = r.Territorial     || null;
+            const zon  = r.Zonal           || null;
+            const jefe = r.Jefe_de_Plaza   || null;
+            const gest = r.Gestor_Asignado || '—';
+
+            const niveles = [];
+            if (ter)  niveles.push({ icono:'fa-globe',            cls:'text-secondary', label: ter  });
+            if (zon)  niveles.push({ icono:'fa-map-location-dot', cls:'text-info',      label: zon  });
+            if (jefe) niveles.push({ icono:'fa-user-tie',         cls:'text-primary',   label: jefe });
+            niveles.push(          { icono:'fa-user',             cls:'text-muted',     label: gest });
+
+            if (niveles.length === 1) {
+                return `<div style="font-size:.75rem;">
+                            <i class="fa ${niveles[0].icono} ${niveles[0].cls} me-1"></i>${niveles[0].label}
+                        </div>`;
+            }
+
+            const top = niveles[0];
+            const id  = `jq_${idx}`;
+
+            return `
+            <div>
+                <div class="d-flex align-items-center gap-1"
+                     style="cursor:pointer;font-size:.75rem;"
+                     onclick="toggleJQ('${id}')">
+                    <i class="fa ${top.icono} ${top.cls}"></i>
+                    <span class="fw-semibold">${top.label}</span>
+                    <i class="fa fa-chevron-right fa-xs text-muted ms-1 jq-icon-${id}"></i>
+                </div>
+                <div id="${id}" style="display:none;padding-left:.8rem;margin-top:.25rem;border-left:2px solid #e0e0e0;">
+                    ${niveles.slice(1).map(n => `
+                    <div style="font-size:.72rem;margin-bottom:.12rem;">
+                        <i class="fa ${n.icono} ${n.cls} me-1"></i>${n.label}
+                    </div>`).join('')}
+                </div>
+            </div>`;
+        }
+
+        // ══════════════════════════════════════════════════════════
+        //  FILTROS
+        // ══════════════════════════════════════════════════════════
+        function poblarFiltros(data) {
+            const campos = {
+                fBucketNacio: r => r.bucket_nacio,
+                fBucketCorte: r => r.bucket_corte_actual,
+                fTerritorial: r => r.Territorial,
+                fZonal:       r => r.Zonal,
+                fJefe:        r => r.Jefe_de_Plaza,
+                fGestor:      r => r.Gestor_Asignado,
+            };
+            Object.entries(campos).forEach(([id, fn]) => {
+                const sel = document.getElementById(id);
+                if (!sel) return;
+                const cur  = sel.value;
+                const vals = [...new Set(data.map(fn).filter(Boolean))].sort();
+                sel.innerHTML = `<option value="">Todos</option>`;
+                vals.forEach(v => {
+                    const o = document.createElement('option');
+                    o.value = v; o.textContent = v;
+                    if (v === cur) o.selected = true;
+                    sel.appendChild(o);
+                });
+            });
+        }
+
+        function aplicarFiltros(data) {
+            const f = {
+                bucketNacio: document.getElementById('fBucketNacio')?.value || '',
+                bucketCorte: document.getElementById('fBucketCorte')?.value || '',
+                territorial: document.getElementById('fTerritorial')?.value || '',
+                zonal:       document.getElementById('fZonal')?.value       || '',
+                jefe:        document.getElementById('fJefe')?.value        || '',
+                gestor:      document.getElementById('fGestor')?.value      || '',
+                busq:       (document.getElementById('fBusq')?.value        || '').toLowerCase(),
+                movimiento:  document.getElementById('fMovimiento')?.value  || '',
+            };
+
+            return data.filter(r => {
+                if (f.bucketNacio && r.bucket_nacio        !== f.bucketNacio) return false;
+                if (f.bucketCorte && r.bucket_corte_actual !== f.bucketCorte) return false;
+                if (f.territorial && r.Territorial         !== f.territorial) return false;
+                if (f.zonal       && r.Zonal               !== f.zonal)       return false;
+                if (f.jefe        && r.Jefe_de_Plaza        !== f.jefe)        return false;
+                if (f.gestor      && r.Gestor_Asignado     !== f.gestor)      return false;
+                if (f.busq) {
+                    const hay = `${r.Nombre_cliente} ${r.Id_credito}`.toLowerCase();
+                    if (!hay.includes(f.busq)) return false;
+                }
+                if (f.movimiento) {
+                    const iN = BUCKET_ORDER.indexOf(r.bucket_nacio);
+                    const iA = BUCKET_ORDER.indexOf(r.bucket_corte_actual);
+                    if (f.movimiento === 'mejoro'   && !(iA < iN))   return false;
+                    if (f.movimiento === 'empeoró'  && !(iA > iN))   return false;
+                    if (f.movimiento === 'igual'    && !(iA === iN)) return false;
+                }
+                return true;
+            });
+        }
+
+        // ══════════════════════════════════════════════════════════
+        //  CARGAR DATOS
+        // ══════════════════════════════════════════════════════════
+        async function cargar() {
+            document.getElementById('statTotal').textContent = '…';
+            try {
+                const r = await fetch('/Reporteria/getVencimientosLunes', { method:'POST' });
+                const d = await r.json();
+                _data        = d.datos        || [];
+                _corteActual = d.corte_actual || '';
+
+                if (d.lunes_pasado)
+                    document.getElementById('lunesFecha').textContent = d.lunes_pasado;
+                if (_corteActual)
+                    document.getElementById('corteLabel').textContent =
+                        _corteActual.replace(/^Dias_mora_/, '').replace(/_/g,' ');
+
+                poblarFiltros(_data);
+                renderTabla();
+                renderStats(_data);
+            } catch(e) { console.error(e); }
+        }
+
+        // ══════════════════════════════════════════════════════════
+        //  RENDER TABLA
+        // ══════════════════════════════════════════════════════════
+        function renderTabla() {
+            const datos = aplicarFiltros(_data);
+            document.getElementById('statTotal').textContent = datos.length;
+            initDT();
+
+            const fmt = v => '$' + parseFloat(v||0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g,',');
+
+            const rows = datos.map((r, i) => ({
+                general: `
+                    <div class="d-flex align-items-start gap-2">
+                        <i class="fa fa-id-card text-primary mt-1" style="font-size:.9rem;"></i>
+                        <div>
+                            <div class="fw-semibold" style="font-size:.82rem;">${r.Nombre_cliente || '—'}</div>
                             <div class="text-muted" style="font-size:.7rem;">
                                 <i class="fa fa-hashtag fa-xs me-1"></i>${r.Id_credito || ''}
                             </div>
-                            <div style="font-size:.7rem;">
-                                <span class="text-danger fw-bold">${r.Cuotas_vencidas || '—'}</span>
-                                <span class="text-muted ms-1">ctas</span>
-                                <span class="text-warning fw-semibold ms-2">${fmt(saldo)}</span>
-                            </div>`,
+                        </div>
+                    </div>`,
 
-                        jerarquia: jerarquiaHtml(r, i),
-                        nacio:     badgeBucket(r.bucket_nacio),
-                        corte:     badgeBucket(r.bucket_corte_actual),
-                    };
-                });
+                jerarquia: jerarquiaHtml(r, i),
 
-                dtVenc.clear().rows.add(rows).draw();
-                renderStats(_filtered);
-            }
+                nacio: badgeBucket(r.bucket_nacio),
 
-            // ══════════════════════════════════════════════════════════
-            //  CARGAR DATOS
-            // ══════════════════════════════════════════════════════════
-            async function cargar() {
-                document.getElementById('statTotal').textContent = '…';
-                try {
-                    const resp = await fetch('/Reporteria/getVencimientosLunes', { method:'POST' });
-                    const d    = await resp.json();
-                    _data        = d.datos        || [];
-                    _corteActual = d.corte_actual || '';
+                corte: `
+                    <div>${badgeBucket(r.bucket_corte_actual)}</div>
+                    <div class="mt-1 d-flex align-items-center justify-content-center gap-1"
+                         style="font-size:.72rem;">
+                        ${movimientoHtml(r.bucket_nacio, r.bucket_corte_actual)}
+                        <span class="text-muted">mov.</span>
+                    </div>
+                    <div class="mt-1" style="font-size:.7rem;">
+                        <i class="fa fa-receipt fa-xs text-muted me-1"></i>
+                        <span class="text-danger fw-bold">${r.Cuotas_vencidas || '—'}</span>
+                        <span class="text-muted ms-1">ctas</span>
+                    </div>
+                    <div style="font-size:.7rem;">
+                        <i class="fa fa-dollar-sign fa-xs text-muted me-1"></i>
+                        <span class="text-warning fw-semibold">${fmt(r.Saldo_vencido_actualizado)}</span>
+                    </div>`,
+            }));
 
-                    if (d.lunes_pasado)
-                        document.getElementById('lunesFecha').textContent = d.lunes_pasado;
-                    if (_corteActual)
-                        document.getElementById('corteLabel').textContent = _corteActual.replace(/_/g,' ');
+            dtVenc.clear().rows.add(rows).draw();
+        }
 
-                    poblarFiltros(_data);
-                    renderTabla();
-                } catch(e) { console.error(e); }
-            }
-
-            // ══════════════════════════════════════════════════════════
-            //  EXPORTAR CSV
-            // ══════════════════════════════════════════════════════════
-            document.getElementById('btnExportarCSV').addEventListener('click', () => {
-                const datos = _filtered.length ? _filtered : _data;
-                const h = ['Id_credito','Nombre_cliente','Cuotas_vencidas','Saldo_vencido',
-                           'Bucket_Nacio','Bucket_Corte','Territorial','Zonal','Jefe','Gestor'];
-                const rows = datos.map(r => [
-                    r.Id_credito, r.Nombre_cliente, r.Cuotas_vencidas, r.Saldo_vencido_actualizado,
-                    r.bucket_nacio, r.bucket_corte_actual,
-                    r.Territorial, r.Zonal, r.Jefe_de_Plaza, r.Gestor_Asignado
-                ]);
-                const csv = [h,...rows].map(r => r.map(v=>`"${v??''}"`).join(',')).join('\n');
-                const a = document.createElement('a');
-                a.href = URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
-                a.download = `vencimientos_${new Date().toISOString().substring(0,10)}.csv`;
-                a.click();
-            });
-
-            // ══════════════════════════════════════════════════════════
-            //  EVENTOS
-            // ══════════════════════════════════════════════════════════
-            ['fBucketNacio','fBucketCorte','fTerritorial','fZonal','fJefe','fGestor']
-                .forEach(id => document.getElementById(id)?.addEventListener('change', renderTabla));
-
-            document.getElementById('fBusq')?.addEventListener('input', renderTabla);
-
-            document.getElementById('btnReset')?.addEventListener('click', () => {
-                ['fBucketNacio','fBucketCorte','fTerritorial','fZonal','fJefe','fGestor']
-                    .forEach(id => { const el = document.getElementById(id); if(el) el.value=''; });
-                document.getElementById('fBusq').value = '';
-                renderTabla();
-            });
-
-            cargar();
+        // ══════════════════════════════════════════════════════════
+        //  EXPORTAR CSV
+        // ══════════════════════════════════════════════════════════
+        document.getElementById('btnExportarCSV').addEventListener('click', () => {
+            const datos = aplicarFiltros(_data);
+            const headers = [
+                'Id_credito','Nombre_cliente','Bucket_Nacio','Bucket_Corte_Actual',
+                'Territorial','Zonal','Jefe_Plaza','Gestor_Asignado',
+                'Cuotas_vencidas','Saldo_vencido_actualizado','Dias_mora_corte'
+            ];
+            const rows = datos.map(r => [
+                r.Id_credito, r.Nombre_cliente, r.bucket_nacio, r.bucket_corte_actual,
+                r.Territorial, r.Zonal, r.Jefe_de_Plaza, r.Gestor_Asignado,
+                r.Cuotas_vencidas, r.Saldo_vencido_actualizado, r.dias_mora_corte
+            ]);
+            const csv = [headers,...rows].map(r => r.map(v=>`"${v??''}"`).join(',')).join('\n');
+            const a   = document.createElement('a');
+            a.href    = URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+            a.download = `vencimientos_lunes_${new Date().toISOString().substring(0,10)}.csv`;
+            a.click();
         });
-        </script>
-        HTML;
+
+        // ══════════════════════════════════════════════════════════
+        //  EVENTOS
+        // ══════════════════════════════════════════════════════════
+        ['fBucketNacio','fBucketCorte','fTerritorial','fZonal','fJefe','fGestor','fMovimiento']
+            .forEach(id => {
+                document.getElementById(id)?.addEventListener('change', () => {
+                    const filtrados = aplicarFiltros(_data);
+                    renderTabla();
+                    renderStats(filtrados);
+                });
+            });
+
+        document.getElementById('fBusq')?.addEventListener('input', renderTabla);
+
+        document.getElementById('btnReset').addEventListener('click', () => {
+            ['fBucketNacio','fBucketCorte','fTerritorial','fZonal','fJefe','fGestor','fMovimiento']
+                .forEach(id => { const el = document.getElementById(id); if(el) el.value=''; });
+            document.getElementById('fBusq').value = '';
+            renderTabla();
+            renderStats(_data);
+        });
+
+        // ══════════════════════════════════════════════════════════
+        //  INICIO
+        // ══════════════════════════════════════════════════════════
+        cargar();
+    });
+    </script>
+    HTML;
 
         self::set("titulo", "Vencimientos — Lunes de Cierre");
         self::set("script", $script);
         self::render("reporte_vencimientos_lunes");
     }
-
     public function getVencimientosLunes()
     {
         try {
