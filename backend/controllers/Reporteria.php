@@ -1297,7 +1297,7 @@ HTML;
     public function getVencimientosLunes()
     {
         try {
-            self::respuestaJSON(ReportesDAO::getVencimientosLunes());
+            self::respuestaJSON(EmpresaDAO::getVencimientosLunes());
         } catch (\Exception $e) {
             self::respuestaJSON(["success" => false, "mensaje" => $e->getMessage()]);
         }
