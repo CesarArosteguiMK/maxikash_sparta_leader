@@ -17,25 +17,16 @@
         </button>
     </div>
 
-    <!-- Stats -->
+    <!-- Stat: solo total de registros -->
     <div class="row g-3 mb-4">
         <div class="col-6 col-md-3">
             <div class="card text-center h-100">
                 <div class="card-body py-3">
-                    <div class="text-muted" style="font-size:.72rem;text-transform:uppercase;letter-spacing:.5px;">
+                    <div class="text-muted"
+                         style="font-size:.72rem;text-transform:uppercase;letter-spacing:.5px;">
                         Total registros
                     </div>
                     <div class="fw-bold text-primary" style="font-size:1.6rem;" id="statTotal">—</div>
-                </div>
-            </div>
-        </div>
-        <div class="col-6 col-md-3">
-            <div class="card text-center h-100">
-                <div class="card-body py-3">
-                    <div class="text-muted" style="font-size:.72rem;text-transform:uppercase;letter-spacing:.5px;">
-                        Saldo vencido total
-                    </div>
-                    <div class="fw-bold text-warning" style="font-size:1.4rem;" id="statSaldo">—</div>
                 </div>
             </div>
         </div>
@@ -57,7 +48,7 @@
                         <option value="">Todos los gestores</option>
                     </select>
                 </div>
-                <div class="col-12 col-md-3 d-flex gap-2">
+                <div class="col-12 col-md-3">
                     <button id="btnReset" class="btn btn-outline-secondary btn-sm w-100">
                         <i class="fa fa-rotate-left me-1"></i> Limpiar
                     </button>
@@ -75,17 +66,9 @@
                        style="width:100%">
                     <thead class="table-light">
                     <tr>
-                        <th>ID Crédito</th>
-                        <th>Cliente</th>
-                        <th class="text-center">Bucket</th>
-                        <th class="text-center">Bucket Real</th>
-                        <th class="text-center">Bucket Final</th>
+                        <th>Crédito / Cliente</th>
                         <th>Gestor</th>
-                        <th>Jefe de Plaza</th>
-                        <th>Zonal</th>
-                        <th>Territorial</th>
-                        <th class="text-center">Cuotas venc.</th>
-                        <th class="text-end">Saldo vencido</th>
+                        <th class="text-center">Bucket · Cuotas · Saldo</th>
                     </tr>
                     </thead>
                     <tbody></tbody>
