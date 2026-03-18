@@ -1318,6 +1318,15 @@ body.dark-mode .kpi-card:hover {
     background-color: #303030 !important;
 }
 
+/* ========================================== */
+/* FILTRO DE ESTADO (Mi Gestión - Despachos)  */
+/* ========================================== */
+body.dark-mode .filter-bar {
+    background: rgba(30, 41, 59, 0.88) !important;
+    border-color: #334155 !important;
+    color: #f1f5f9 !important;
+}
+
 /* Separador de KPIs */
 body.dark-mode .kpi-separator .line {
     background: linear-gradient(180deg, transparent, rgba(148, 163, 184, 0.4), transparent) !important;
@@ -1973,9 +1982,441 @@ body.dark-mode .dashboard-card {
     background: #252525 !important;
 }
 
-/* Asegurar que todos los elementos de texto tengan color adecuado */
-body.dark-mode button:not(.btn-primary):not(.btn-success):not(.btn-danger):not(.btn-warning):not(.btn-info) {
+/* Asegurar que todos los elementos de texto tengan color adecuado (excluir botones outline/colored para conservar sus colores) */
+body.dark-mode button:not(.btn-primary):not(.btn-success):not(.btn-danger):not(.btn-warning):not(.btn-info):not(.btn-secondary):not(.btn-outline-primary):not(.btn-outline-secondary):not(.btn-outline-success):not(.btn-outline-danger):not(.btn-outline-warning):not(.btn-outline-info):not(.btn-light):not(.btn-dark):not(.btn-close):not(.btn-label-primary):not(.btn-label-secondary):not(.btn-label-danger):not(.btn-label-success):not(.btn-label-warning) {
     color: #ffffff !important;
+}
+
+/* Conservar colores de botones outline y secundarios en modo oscuro (igual que modo claro) */
+body.dark-mode .btn-outline-primary {
+    color: #0d6efd !important;
+    border-color: #0d6efd !important;
+}
+body.dark-mode .btn-outline-primary:hover {
+    color: #fff !important;
+    background-color: #0d6efd !important;
+    border-color: #0d6efd !important;
+}
+body.dark-mode .btn-outline-secondary {
+    color: #6c757d !important;
+    border-color: #6c757d !important;
+}
+body.dark-mode .btn-outline-secondary:hover {
+    color: #fff !important;
+    background-color: #6c757d !important;
+    border-color: #6c757d !important;
+}
+body.dark-mode .btn-outline-warning,
+body.dark-mode .btn-warning {
+    color: #000 !important;
+    border-color: #ffc107 !important;
+    background-color: #ffc107 !important;
+}
+body.dark-mode .btn-outline-warning:hover,
+body.dark-mode .btn-warning:hover {
+    background-color: #ffca2c !important;
+    border-color: #ffc720 !important;
+    color: #000 !important;
+}
+body.dark-mode .btn-outline-success {
+    color: #198754 !important;
+    border-color: #198754 !important;
+}
+body.dark-mode .btn-outline-success:hover {
+    color: #fff !important;
+    background-color: #198754 !important;
+    border-color: #198754 !important;
+}
+body.dark-mode .btn-outline-danger {
+    color: #dc3545 !important;
+    border-color: #dc3545 !important;
+}
+body.dark-mode .btn-outline-danger:hover {
+    color: #fff !important;
+    background-color: #dc3545 !important;
+    border-color: #dc3545 !important;
+}
+body.dark-mode .btn-outline-info {
+    color: #0dcaf0 !important;
+    border-color: #0dcaf0 !important;
+}
+body.dark-mode .btn-outline-info:hover {
+    color: #000 !important;
+    background-color: #0dcaf0 !important;
+    border-color: #0dcaf0 !important;
+}
+
+/* Iconos de estadísticas (Sabueso, Otras, Tableros): conservar colores en modo oscuro */
+body.dark-mode .estad-icono-sabueso,
+body.dark-mode #estadisticasSelectorWrap .estad-icono-sabueso {
+    color: #0d6efd !important;
+}
+body.dark-mode .estad-icono-sabueso i,
+body.dark-mode #estadisticasSelectorWrap .estad-icono-sabueso i {
+    color: inherit !important;
+}
+body.dark-mode .estad-icono-otras,
+body.dark-mode #estadisticasSelectorWrap .estad-icono-otras {
+    color: #0d9488 !important;
+}
+body.dark-mode .estad-icono-otras i,
+body.dark-mode #estadisticasSelectorWrap .estad-icono-otras i {
+    color: inherit !important;
+}
+body.dark-mode .estad-icono-tableros,
+body.dark-mode #estadisticasSelectorWrap .estad-icono-tableros {
+    color: #7c3aed !important;
+}
+body.dark-mode .estad-icono-tableros i,
+body.dark-mode #estadisticasSelectorWrap .estad-icono-tableros i {
+    color: inherit !important;
+}
+
+/* ==========================================
+   SABUESO: Modal Levantar ticket adaptado al modo oscuro (tema oscuro)
+   ========================================== */
+body.dark-mode #modalElegirCategoriaTicket .modal-content,
+body.dark-mode #modalLevantarTicket .modal-content {
+    background: rgba(30, 41, 59, 0.98) !important;
+    border: 1px solid #475569 !important;
+    color: #e2e8f0 !important;
+}
+body.dark-mode #modalElegirCategoriaTicket .modal-header,
+body.dark-mode #modalLevantarTicket .modal-header {
+    background: rgba(51, 65, 85, 0.8) !important;
+    border-bottom-color: #475569 !important;
+}
+body.dark-mode #modalElegirCategoriaTicket .modal-title,
+body.dark-mode #modalLevantarTicket .modal-title {
+    color: #f1f5f9 !important;
+}
+body.dark-mode #modalElegirCategoriaTicket .modal-body,
+body.dark-mode #modalLevantarTicket .modal-body {
+    background: transparent !important;
+    color: #e2e8f0 !important;
+}
+body.dark-mode #modalElegirCategoriaTicket .modal-footer,
+body.dark-mode #modalLevantarTicket .modal-footer {
+    background: rgba(51, 65, 85, 0.6) !important;
+    border-top-color: #475569 !important;
+}
+body.dark-mode #modalElegirCategoriaTicket .text-muted,
+body.dark-mode #modalLevantarTicket .text-muted {
+    color: #94a3b8 !important;
+}
+/* Botón cerrar (X) blanco sobre fondo oscuro */
+body.dark-mode #modalElegirCategoriaTicket .btn-close,
+body.dark-mode #modalLevantarTicket .btn-close {
+    filter: invert(1) grayscale(100%) brightness(200%) !important;
+    opacity: 0.9;
+}
+body.dark-mode #modalElegirCategoriaTicket .btn-close:hover,
+body.dark-mode #modalLevantarTicket .btn-close:hover {
+    opacity: 1;
+}
+/* Cards de categoría: fondo oscuro, borde sutil; seleccionada = azul */
+body.dark-mode #modalElegirCategoriaTicket .ticket-categoria-card {
+    background: #334155 !important;
+    border-color: #475569 !important;
+    color: #e2e8f0 !important;
+}
+body.dark-mode #modalElegirCategoriaTicket .ticket-categoria-card[data-disponible="0"] {
+    background: #1e293b !important;
+    opacity: 0.75;
+}
+body.dark-mode #modalElegirCategoriaTicket .ticket-categoria-card .ticket-categoria-icon {
+    background: #475569 !important;
+    border-color: #64748b !important;
+    color: #94a3b8 !important;
+}
+body.dark-mode #modalElegirCategoriaTicket .ticket-categoria-card.is-selected {
+    border-color: #0d6efd !important;
+    box-shadow: 0 0 0 2px rgba(13, 110, 253, 0.35) !important;
+    background: rgba(13, 110, 253, 0.15) !important;
+}
+body.dark-mode #modalElegirCategoriaTicket .ticket-categoria-card.is-selected .ticket-categoria-icon {
+    background: #0d6efd !important;
+    color: #fff !important;
+    border-color: #0d6efd !important;
+}
+body.dark-mode #modalElegirCategoriaTicket .ticket-categoria-card .ticket-categoria-name {
+    color: #e2e8f0 !important;
+}
+body.dark-mode #modalElegirCategoriaTicket .ticket-categoria-card .ticket-categoria-meta {
+    color: #64748b !important;
+}
+body.dark-mode #modalElegirCategoriaTicket .ticket-subtitle {
+    color: #94a3b8 !important;
+}
+/* Formulario Levantar ticket: inputs oscuros */
+body.dark-mode #modalLevantarTicket .form-control,
+body.dark-mode #modalLevantarTicket .form-select {
+    background-color: #334155 !important;
+    border-color: #475569 !important;
+    color: #f1f5f9 !important;
+}
+body.dark-mode #modalLevantarTicket .form-control::placeholder {
+    color: #64748b !important;
+}
+body.dark-mode #modalLevantarTicket label {
+    color: #e2e8f0 !important;
+}
+/* Botones del footer: Cancelar = secundario, Continuar = primary (colores conservados) */
+body.dark-mode #modalElegirCategoriaTicket .modal-footer .btn-secondary,
+body.dark-mode #modalLevantarTicket .modal-footer .btn-secondary {
+    color: #e2e8f0 !important;
+    border-color: #64748b !important;
+    background-color: #475569 !important;
+}
+body.dark-mode #modalElegirCategoriaTicket .modal-footer .btn-secondary:hover,
+body.dark-mode #modalLevantarTicket .modal-footer .btn-secondary:hover {
+    background-color: #64748b !important;
+    border-color: #64748b !important;
+    color: #fff !important;
+}
+body.dark-mode #modalElegirCategoriaTicket .modal-footer .btn-primary,
+body.dark-mode #modalLevantarTicket .modal-footer .btn-primary {
+    background-color: #0d6efd !important;
+    border-color: #0d6efd !important;
+    color: #fff !important;
+}
+body.dark-mode #modalElegirCategoriaTicket .modal-footer .btn-primary:hover,
+body.dark-mode #modalLevantarTicket .modal-footer .btn-primary:hover {
+    background-color: #0b5ed7 !important;
+    border-color: #0a58ca !important;
+    color: #fff !important;
+}
+
+/* ==========================================
+   SABUESO: Barra Estadísticas de Sabueso con color en dark mode
+   ========================================== */
+body.dark-mode .estad-sabueso-wrap .estad-titulo-bar {
+    background: rgba(13, 110, 253, 0.12) !important;
+    border: 1px solid rgba(13, 110, 253, 0.35) !important;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2) !important;
+}
+body.dark-mode .estad-sabueso-wrap .estad-titulo-bar .estad-titulo-texto {
+    color: #e0e0e0 !important;
+}
+body.dark-mode .estad-sabueso-wrap .estad-titulo-bar .estad-titulo-icono {
+    color: #0d6efd !important;
+}
+/* Iconos de las KPI cards (Tickets activos = azul, Con dictamen = verde, Dictamen visto = morado) */
+body.dark-mode .estad-sabueso-wrap .estad-icon-box.bg-primary.bg-opacity-10.text-primary,
+body.dark-mode .estad-sabueso-wrap .estad-icon-box.text-primary {
+    color: #0d6efd !important;
+    background-color: rgba(13, 110, 253, 0.2) !important;
+}
+body.dark-mode .estad-sabueso-wrap .estad-icon-box.bg-success.bg-opacity-10.text-success,
+body.dark-mode .estad-sabueso-wrap .estad-icon-box.text-success {
+    color: #198754 !important;
+    background-color: rgba(25, 135, 84, 0.2) !important;
+}
+body.dark-mode .estad-sabueso-wrap .estad-icon-box[style*="6f42c1"],
+body.dark-mode .estad-sabueso-wrap .estad-kpi-card .estad-icon-box.text-white {
+    color: #fff !important;
+    background-color: rgba(111, 66, 193, 0.5) !important;
+}
+body.dark-mode .estad-sabueso-wrap .estad-num-big.text-body {
+    color: #e0e0e0 !important;
+}
+body.dark-mode .estad-sabueso-wrap .estad-glass {
+    background: rgba(40, 45, 55, 0.7) !important;
+    border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* Tiempo hasta enviar dictamen: icono y valor en naranja/amarillo (como modo claro) */
+body.dark-mode .estad-sabueso-wrap .row.g-3 .col-md-6:first-child .estad-time-icon {
+    background: rgba(245, 158, 11, 0.28) !important;
+    color: #f59e0b !important;
+}
+body.dark-mode .estad-sabueso-wrap .estad-time-value.text-warning {
+    color: #f59e0b !important;
+}
+body.dark-mode .estad-sabueso-wrap .estad-time-value.text-warning,
+body.dark-mode .estad-sabueso-wrap #statTiempoSabuesoValor {
+    color: #f59e0b !important;
+}
+body.dark-mode .estad-sabueso-wrap .fw-semibold.text-warning {
+    color: #f59e0b !important;
+}
+/* Tiempo del gestor en abrir: icono y valor en verde */
+body.dark-mode .estad-sabueso-wrap .row.g-3 .col-md-6:nth-child(2) .estad-time-icon {
+    background: rgba(25, 135, 84, 0.28) !important;
+    color: #198754 !important;
+}
+body.dark-mode .estad-sabueso-wrap .estad-time-value.text-success,
+body.dark-mode .estad-sabueso-wrap #statTiempoGestorValor {
+    color: #198754 !important;
+}
+body.dark-mode .estad-sabueso-wrap .fw-semibold.text-success {
+    color: #198754 !important;
+}
+
+/* Pills Días/Semanas/Meses/Año: activo = azul primario (como modo claro) */
+body.dark-mode .estad-sabueso-wrap .estad-pill-group .btn.active {
+    background-color: #0d6efd !important;
+    color: #fff !important;
+    box-shadow: 0 2px 8px rgba(13, 110, 253, 0.4) !important;
+}
+body.dark-mode .estad-sabueso-wrap .estad-pill-group .btn:not(.active) {
+    color: #94a3b8 !important;
+}
+/* Pills Global / Por gestor / Por Sabueso: activo = verde */
+body.dark-mode .estad-sabueso-wrap .estad-pill-gestor .btn.active {
+    background-color: #198754 !important;
+    color: #fff !important;
+    box-shadow: 0 2px 8px rgba(25, 135, 84, 0.4) !important;
+}
+body.dark-mode .estad-sabueso-wrap .estad-pill-gestor .btn:not(.active) {
+    color: #94a3b8 !important;
+}
+
+/* Bloques Global (Por quien levantó): colores como modo claro */
+body.dark-mode .estad-sabueso-wrap .estad-global-tile.bg-primary.bg-opacity-10 {
+    background: rgba(13, 110, 253, 0.18) !important;
+    border-color: rgba(13, 110, 253, 0.25) !important;
+}
+body.dark-mode .estad-sabueso-wrap .estad-global-tile.bg-primary.bg-opacity-10 .fw-bold.text-primary,
+body.dark-mode .estad-sabueso-wrap #tileTiempoLectura {
+    color: #0d6efd !important;
+}
+body.dark-mode .estad-sabueso-wrap .estad-global-tile.bg-success.bg-opacity-10 {
+    background: rgba(25, 135, 84, 0.18) !important;
+    border-color: rgba(25, 135, 84, 0.25) !important;
+}
+body.dark-mode .estad-sabueso-wrap .estad-global-tile.bg-success.bg-opacity-10 .fw-bold.text-success,
+body.dark-mode .estad-sabueso-wrap #tileTiempoEnvio {
+    color: #198754 !important;
+}
+body.dark-mode .estad-sabueso-wrap .estad-global-tile.bg-warning.bg-opacity-10 {
+    background: rgba(255, 193, 7, 0.2) !important;
+    border-color: rgba(255, 193, 7, 0.3) !important;
+}
+body.dark-mode .estad-sabueso-wrap .estad-global-tile.bg-warning.bg-opacity-10 .fw-bold.text-warning,
+body.dark-mode .estad-sabueso-wrap #tileSinLeer {
+    color: #ffc107 !important;
+}
+body.dark-mode .estad-sabueso-wrap .estad-global-tile.bg-warning.bg-opacity-10 .fa-triangle-exclamation {
+    color: #fd7e14 !important;
+}
+/* Tasa lectura: fondo morado y valor morado (tile con rgba(111, 66, 193) en inline) */
+body.dark-mode .estad-sabueso-wrap .estad-global-tile[style*="111, 66, 193"] {
+    background: rgba(111, 66, 193, 0.2) !important;
+    border-color: rgba(111, 66, 193, 0.3) !important;
+}
+body.dark-mode .estad-sabueso-wrap #tileTasa {
+    color: #7c3aed !important;
+}
+body.dark-mode .estad-sabueso-wrap .estad-global-tile .fa-check {
+    color: #7c3aed !important;
+}
+
+/* Guía "Cómo leer esto" y Panorama cumplimiento: tintes como modo claro */
+body.dark-mode .estad-sabueso-wrap #panelResumenGlobal [style*="rgba(13,110,253,0.06)"],
+body.dark-mode .estad-sabueso-wrap #panelResumenGlobal .rounded-2.border.p-2 {
+    background: rgba(13, 110, 253, 0.1) !important;
+    border-color: rgba(13, 110, 253, 0.25) !important;
+}
+body.dark-mode .estad-sabueso-wrap #panelResumenGlobal .text-primary {
+    color: #0d6efd !important;
+}
+body.dark-mode .estad-sabueso-wrap #panelResumenGlobal [style*="rgba(25, 135, 84, 0.06)"],
+body.dark-mode .estad-sabueso-wrap #panelResumenGlobal .rounded-2.p-2[style*="135, 84"] {
+    background: rgba(25, 135, 84, 0.12) !important;
+    border-color: rgba(25, 135, 84, 0.25) !important;
+}
+
+/* Tickets levantados: barra y número en azul */
+body.dark-mode .estad-sabueso-wrap .estad-period-val {
+    color: #0d6efd !important;
+}
+body.dark-mode .estad-sabueso-wrap .estad-mini-bar > div {
+    background: linear-gradient(90deg, #0d6efd, rgba(13, 110, 253, 0.75)) !important;
+}
+body.dark-mode .estad-sabueso-wrap .estad-period-label {
+    color: #e2e8f0 !important;
+}
+
+/* Por gestor: Tasa y Cumplimiento — badges intensos también en modo oscuro */
+body.dark-mode .estad-sabueso-wrap #tablaPorGestorLectura .badge.bg-success,
+body.dark-mode .estad-sabueso-wrap #tablaPorGestorPV .badge.bg-success {
+    background-color: #16a34a !important;
+    color: #fff !important;
+}
+body.dark-mode .estad-sabueso-wrap #tablaPorGestorLectura .badge.bg-warning,
+body.dark-mode .estad-sabueso-wrap #tablaPorGestorPV .badge.bg-warning {
+    background-color: #f59e0b !important;
+    color: #000 !important;
+}
+body.dark-mode .estad-sabueso-wrap #tablaPorGestorLectura .badge.bg-danger {
+    background-color: #dc2626 !important;
+    color: #fff !important;
+}
+body.dark-mode .estad-sabueso-wrap #tablaPorGestorPV .badge.bg-secondary {
+    background-color: #64748b !important;
+    color: #fff !important;
+}
+
+/* ==========================================
+   SABUESO Panel Admin: Limpiar, Gestiones/pago, Cumplimiento Gestor (colores visibles)
+   ========================================== */
+/* Limpiar: color teal/cyan en modo oscuro */
+body.dark-mode #btnLimpiarFiltrosPanel {
+    color: #0d9488 !important;
+    border-color: #0d9488 !important;
+    background-color: transparent !important;
+}
+body.dark-mode #btnLimpiarFiltrosPanel:hover {
+    color: #fff !important;
+    background-color: #0d9488 !important;
+    border-color: #0d9488 !important;
+}
+body.dark-mode #btnLimpiarFiltrosPanel i {
+    color: inherit !important;
+}
+/* Gestiones/Pagos: verde (pagos/calendario) */
+body.dark-mode #btnAnaliticaPagos {
+    color: #198754 !important;
+    border-color: #198754 !important;
+    background-color: transparent !important;
+}
+body.dark-mode #btnAnaliticaPagos:hover {
+    color: #fff !important;
+    background-color: #198754 !important;
+    border-color: #198754 !important;
+}
+body.dark-mode #btnAnaliticaPagos i {
+    color: inherit !important;
+}
+/* Cumplimiento Gestor: azul */
+body.dark-mode #btnAnaliticaCumplimiento {
+    color: #0d6efd !important;
+    border-color: #0d6efd !important;
+    background-color: transparent !important;
+}
+body.dark-mode #btnAnaliticaCumplimiento:hover {
+    color: #fff !important;
+    background-color: #0d6efd !important;
+    border-color: #0d6efd !important;
+}
+body.dark-mode #btnAnaliticaCumplimiento i {
+    color: inherit !important;
+}
+
+/* Botón Cerrar ticket (columna Acciones en #tablaTicketsPanel): color naranja en modo oscuro */
+body.dark-mode #tablaTicketsPanel td:last-child .btn.btn-secondary {
+    color: #fd7e14 !important;
+    border-color: #fd7e14 !important;
+    background-color: transparent !important;
+}
+body.dark-mode #tablaTicketsPanel td:last-child .btn.btn-secondary:hover {
+    color: #fff !important;
+    background-color: #fd7e14 !important;
+    border-color: #fd7e14 !important;
+}
+body.dark-mode #tablaTicketsPanel td:last-child .btn.btn-secondary i {
+    color: inherit !important;
 }
 
 body.dark-mode option {
@@ -3199,17 +3640,29 @@ body:not(.dark-mode) .d-flex.justify-content-around.flex-wrap.my-6 > div {
    ORGANIGRAMA - DARK MODE
    ========================================== */
 
-/* Botón de limpiar */
+/* Botones label: conservar colores en modo oscuro */
+body.dark-mode .btn-label-primary {
+    color: #0d6efd !important;
+    border-color: #0d6efd !important;
+    background-color: rgba(13, 110, 253, 0.15) !important;
+}
+body.dark-mode .btn-label-primary:hover {
+    color: #fff !important;
+    background-color: #0d6efd !important;
+    border-color: #0d6efd !important;
+}
+
+/* Botón de limpiar: conservar color tipo modo claro (gris visible) */
 body.dark-mode .btn-label-secondary {
-    background-color: rgba(138, 138, 148, 0.15) !important;
-    border-color: #3a3a3a !important;
-    color: #8a8a94 !important;
+    background-color: rgba(108, 117, 125, 0.2) !important;
+    border-color: #6c757d !important;
+    color: #adb5bd !important;
 }
 
 body.dark-mode .btn-label-secondary:hover {
-    background-color: rgba(138, 138, 148, 0.25) !important;
-    border-color: #4a4a54 !important;
-    color: #b8b8c1 !important;
+    background-color: rgba(108, 117, 125, 0.35) !important;
+    border-color: #6c757d !important;
+    color: #dee2e6 !important;
 }
 
 /* Botón Cancelar (btn-label-danger): modo oscuro, sin fondo claro */
@@ -4054,6 +4507,38 @@ body.dark-mode #modalDictamenAmpliada .form-control {
 }
 body.dark-mode #modalDictamenAmpliada .form-control::placeholder {
     color: #64748b !important;
+}
+/* Domicilios de visita (panel + vista ampliada) */
+body.dark-mode #modalRastreoCredito .rastreo-domicilio-block,
+body.dark-mode #modalDictamenAmpliada .rastreo-domicilio-block {
+    background: rgba(15, 23, 42, 0.75) !important;
+    border-color: #334155 !important;
+}
+body.dark-mode #modalRastreoCredito .rastreo-domicilio-block .form-control,
+body.dark-mode #modalRastreoCredito .rastreo-domicilio-block .form-control-sm,
+body.dark-mode #modalDictamenAmpliada .rastreo-domicilio-block .form-control,
+body.dark-mode #modalDictamenAmpliada .rastreo-domicilio-block .form-control-sm {
+    background-color: #0f172a !important;
+    border-color: #334155 !important;
+    color: #e2e8f0 !important;
+}
+body.dark-mode #modalRastreoCredito .rastreo-domicilio-block .form-control::placeholder,
+body.dark-mode #modalRastreoCredito .rastreo-domicilio-block .form-control-sm::placeholder,
+body.dark-mode #modalDictamenAmpliada .rastreo-domicilio-block .form-control::placeholder,
+body.dark-mode #modalDictamenAmpliada .rastreo-domicilio-block .form-control-sm::placeholder {
+    color: #94a3b8 !important;
+}
+body.dark-mode #modalRastreoCredito .rastreo-domicilio-block .rastreo-domicilio-quitar,
+body.dark-mode #modalDictamenAmpliada .rastreo-domicilio-block .rastreo-domicilio-quitar {
+    background: rgba(220, 38, 38, 0.2) !important;
+    border-color: rgba(248, 113, 113, 0.55) !important;
+    color: #fecaca !important;
+}
+body.dark-mode #modalRastreoCredito .rastreo-domicilio-block .rastreo-domicilio-quitar:hover,
+body.dark-mode #modalDictamenAmpliada .rastreo-domicilio-block .rastreo-domicilio-quitar:hover {
+    background: rgba(220, 38, 38, 0.35) !important;
+    border-color: #f87171 !important;
+    color: #fee2e2 !important;
 }
 body.dark-mode #modalDictamenAmpliada .evidencia-slot-add {
     background: rgba(30, 41, 59, 0.95) !important;

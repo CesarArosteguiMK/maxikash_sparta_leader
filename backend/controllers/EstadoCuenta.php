@@ -1142,7 +1142,7 @@ JS;
             'datos' => $datos
         ]);
     }
-    function api___SPARTA_SECRET_REDACTED__($idCredito, $fechaCorte) {
+    function api___SPARTA_SECRET_REDACTED__($idCredito, $fechaCorte, $timeoutSegundos = 20) {
 
         $url = "https://servicios.s2movil.net/s2__SPARTA_SECRET_REDACTED__/estadocuenta";
 
@@ -1166,7 +1166,11 @@ JS;
         curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
         curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_TIMEOUT, 20);
+        $timeoutSegundos = (int)$timeoutSegundos;
+        if ($timeoutSegundos < 2) {
+            $timeoutSegundos = 2;
+        }
+        curl_setopt($ch, CURLOPT_TIMEOUT, $timeoutSegundos);
         curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
 
         // --- Ejecutar ---
@@ -4594,16 +4598,22 @@ public function Guatemala()
             $datosGuat = EmpresasDAO::getGuatemalaEstadoCuenta($idCreditoLista);
 
             if (!empty($datosGuat['datos'])) {
-                // Llamadas a CROOP API (Bandera=445 saldos, Bandera=401 amortización)
+                // Llamadas a CROOP API (Bandera=445 saldos, Bandera=401 amortización, Bandera=404 pagos)
                 $pkeyCredito     = $datosGuat['datos'][0]['pkey_credito'] ?? null;
                 $reqCliente      = json_decode($datosGuat['datos'][0]['request_cliente'] ?? '{}', true) ?? [];
                 $fkEmpresa       = $reqCliente['FK_Empresa'] ?? null;
+                // PKey interna de CROOP almacenada en response_credito (diferente al ID local para Bandera=445/404)
+                $respCredito     = json_decode($datosGuat['datos'][0]['response_credito'] ?? '{}', true) ?? [];
+                $pkeyInterno     = $respCredito['PKey'] ?? $respCredito['Pkey'] ?? $respCredito['pkey'] ?? null;
                 $apiSaldos       = [];
                 $apiAmortizacion = [];
+                $apiPagos        = [];
                 $debugCroop      = [
-                    'idCreditoLista'    => $idCreditoLista,
-                    'pkeyCredito'       => $pkeyCredito,
-                    'fkEmpresa'         => $fkEmpresa,
+                    'idCreditoLista'        => $idCreditoLista,
+                    'pkeyCredito'           => $pkeyCredito,
+                    'pkeyInterno'           => $pkeyInterno,
+                    'response_credito_keys' => array_keys($respCredito),
+                    'fkEmpresa'             => $fkEmpresa,
                     'datosGuat_count'   => count($datosGuat['datos'] ?? []),
                     'referencias_count' => 0,
                     'login_ok'          => false,
@@ -4612,6 +4622,7 @@ public function Guatemala()
                     'saldos_raw'        => null,
                     'amort_count'       => 0,
                     'amort_raw_first'   => null,
+                    'pagos_count'       => 0,
                     'error'             => null,
                 ];
 
@@ -4627,16 +4638,20 @@ public function Guatemala()
                     $debugCroop['login_raw'] = $loginResult['raw'] ?? null;
 
                     if ($croopToken) {
-                        $saldosPath = "clsCredito/Listar?Bandera=445&PKey={$pkeyCredito}";
-                        if ($fkEmpresa) $saldosPath .= "&FK_Empresa={$fkEmpresa}";
+                        // FK_Empresa del session de login (355 para Guatemala)
+                        $fkEmpresaLogin  = $loginResult['fk_empresa'] ?? 355;
+                        // 401 usa el ID local del crédito; 445 y 404 requieren FK_Empresa del session
+                        $pkeyParaSaldos  = $pkeyInterno ?? $pkeyCredito;
 
-                        $apiSaldos = $this->croop_get($saldosPath, $croopToken);
+                        $apiSaldos       = $this->croop_get("clsCredito/Listar?Bandera=445&PKey={$pkeyParaSaldos}&FK_Empresa={$fkEmpresaLogin}", $croopToken);
                         $apiAmortizacion = $this->croop_get("clsCredito/Listar?Bandera=401&PKey={$pkeyCredito}", $croopToken);
+                        $apiPagos        = $this->croop_get("clsCredito/Listar?Bandera=404&PKey={$pkeyParaSaldos}&FK_Empresa={$fkEmpresaLogin}", $croopToken);
 
                         $debugCroop['saldos_count'] = count($apiSaldos);
                         $debugCroop['saldos_raw'] = $apiSaldos[0] ?? null;
                         $debugCroop['amort_count'] = count($apiAmortizacion);
                         $debugCroop['amort_raw_first'] = $apiAmortizacion[0] ?? null;
+                        $debugCroop['pagos_count'] = count($apiPagos);
                     } else {
                         $debugCroop['error'] = 'Login fallido: token null';
                     }
@@ -4650,6 +4665,7 @@ public function Guatemala()
                 self::set("datosGuat", $datosGuat);
                 self::set("apiSaldos", $apiSaldos);
                 self::set("apiAmortizacion", $apiAmortizacion);
+                self::set("apiPagos", $apiPagos);
                 self::set("debugCroop", $debugCroop);
                 return self::render("__SPARTA_SECRET_REDACTED___guatemala");
             }
@@ -4688,19 +4704,19 @@ public function Guatemala()
    ---------------------------------------------------------------- */
 private function croop_login(): array
 {
-    $ch = curl_init("https://apides.croop.mx:8085/api/access/Signin");
+    $ch = curl_init("https://api.croop.mx/api/access/Signin");
     curl_setopt_array($ch, [
         CURLOPT_POST           => true,
         CURLOPT_POSTFIELDS     => json_encode([
-            "Email"     => "admin_mk@mail.com",
-            "Password"  => "\$Max12025\$",
+            "Email"     => "__SPARTA_SECRET_REDACTED__@__SPARTA_SECRET_REDACTED__.mx",
+            "Password"  => "Ruvalcaba227$",
             "IPAddress" => "200.188.109.202",
             "UserAgent" => "Mozilla/5.0",
-            "ServerURL" => "https://croopone.gear.host/login.aspx",
+            "ServerURL" => "https://api.croop.mx/api",
         ]),
         CURLOPT_HTTPHEADER     => [
             "Content-Type: application/json",
-            "AppID: eae76274-0727-e811-9456-22000a244a86",
+            "AppID: 2739CAE2-9353-E811-9457-22000A244A86",
             "Cache-Control: no-cache",
         ],
         CURLOPT_RETURNTRANSFER => true,
@@ -4718,6 +4734,7 @@ private function croop_login(): array
 
     return [
         'token'      => $token,
+        'fk_empresa' => $json['FK_Empresa'] ?? null,
         'http_code'  => $httpCode,
         'curl_error' => $curlError ?: null,
         'raw'        => $response ? substr($response, 0, 300) : null,
@@ -4727,11 +4744,11 @@ private function croop_login(): array
 
 private function croop_get(string $path, string $token): array
 {
-    $url = "https://apides.croop.mx:8085/api/" . ltrim($path, '/');
+    $url = "https://api.croop.mx/api/" . ltrim($path, '/');
     $ch = curl_init($url);
     curl_setopt_array($ch, [
         CURLOPT_HTTPHEADER     => [
-            "AppID: eae76274-0727-e811-9456-22000a244a86",
+            "AppID: 2739CAE2-9353-E811-9457-22000A244A86",
             "Token: {$token}",
         ],
         CURLOPT_RETURNTRANSFER => true,

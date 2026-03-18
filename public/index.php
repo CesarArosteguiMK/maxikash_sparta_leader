@@ -24,6 +24,11 @@ if (!empty($_SERVER['HTTPS']) && strtolower($_SERVER['HTTPS']) !== 'off') {
 */
 define('RAIZ', dirname(__DIR__) . '/backend');
 
+// Hora de negocio en CDMX: date() y strtotime sin TZ explícita usan esta zona (evita desfase vs CURDATE() del servidor)
+if (function_exists('date_default_timezone_set')) {
+    @date_default_timezone_set('America/Mexico_City');
+}
+
 // Cargar .env si existe — solo variables MAIL_* para no afectar DB ni otras configs
 $envFile = dirname(__DIR__) . '/.env';
 if (is_file($envFile) && is_readable($envFile)) {
@@ -173,7 +178,11 @@ $esObtenerPlantillaSolicitudPdf = isset($urlSolicitada[0], $urlSolicitada[1])
     && strtolower($urlSolicitada[0]) === 'caphum'
     && strtolower($urlSolicitada[1]) === 'obtenerplantillasolicitudpdf';
 
-if ((!isset($_SESSION['login']) && !$esCrearTicketWhatsApp && !$esSubirDocCandidato && !$esDescargarDocCandidato && !$esLlenarSolicitudEnLinea && !$esObtenerPlantillaSolicitudPdf) || strtolower($urlSolicitada[0]) === strtolower(LOGIN)) {
+$esEstadoReportesAgente = isset($urlSolicitada[0], $urlSolicitada[1])
+    && strtolower($urlSolicitada[0]) === 'segundometro'
+    && strtolower($urlSolicitada[1]) === 'estadoreportesagente';
+
+if ((!isset($_SESSION['login']) && !$esCrearTicketWhatsApp && !$esSubirDocCandidato && !$esDescargarDocCandidato && !$esLlenarSolicitudEnLinea && !$esObtenerPlantillaSolicitudPdf && !$esEstadoReportesAgente) || strtolower($urlSolicitada[0]) === strtolower(LOGIN)) {
     $login = 'Controllers\\' . LOGIN;
     $login = new $login;
 
@@ -216,17 +225,17 @@ if (!method_exists($controlador, $metodo)) recursoNoDisponible();
 $rutasModulos = [
     'estadocuenta/consulta' => [1], 'estadocuenta/guatemala' => [1], 'estadocuenta/documentacion' => [2], 'estadocuenta/reporteDictamen' => [14],
     'gestiones/seguimiento' => [3],
-    'indicadores/kpiTotal' => [40], 'indicadores/gestiones1A7' => [24], 'indicadores/eficiencia1A7' => [25],
-    'indicadores/gestiones8A21' => [26], 'indicadores/eficiencia8A21' => [27], 'indicadores/seguimientoIntensidad' => [29],
-    'indicadores/detalleClientes' => [30], 'indicadores/detalleEficiencia' => [31], 'indicadores/carteraInicioSem' => [32],
-    'indicadores/seguimientoPromesasPago' => [33], 'indicadores/espartanos' => [34], 'indicadores/matrizBuckets' => [35],
-    'indicadores/matrizBucketsMas1' => [36], 'indicadores/auditoria' => [37], 'indicadores/auditoria2' => [38], 'indicadores/seguimiento' => [39],
     'caphum/gestion' => [4], 'caphum/candidatos' => [42], 'caphum/getcandidatos' => [42], 'caphum/getcandidato' => [42], 'caphum/guardarcandidato' => [42], 'caphum/actualizarcandidato' => [42], 'caphum/eliminarcandidato' => [42], 'caphum/enviarpostulacioncandidato' => [42], 'caphum/gettokendocumentoscandidato' => [42], 'caphum/getdocumentoscandidatolist' => [42], 'caphum/verificarexpedientecandidato' => [42], 'caphum/verdocumentocandidato' => [42], 'caphum/eliminardocumentocandidato' => [42], 'caphum/validardocumentocandidato' => [42], 'caphum/cerrarprocesocandidato' => [42], 'caphum/continuarprocesocandidato' => [42], 'caphum/pasarcandidatoagestion' => [42], 'caphum/bajas' => [13], 'caphum/organigrama' => [5], 'caphum/niveljerarquicocolaborador' => [5], 'caphum/getpuestospersona' => [5],
-    'reporteria/resumencallcenter' => [6], 'reporteria/sabuesos' => [18, 19], 'reporteria/descargarReporteSabuesos1' => [18], 'reporteria/descargarReporteSabuesos2' => [19], 'reporteria/descargarReporteSabuesos3' => [19], 'reporteria/layoutlegacy' => [7], 'reporteria/reporteCapitalHumano' => [21],
+    'reporteria/resumencallcenter' => [6], 'reporteria/sabuesos' => [18, 19, 48], 'reporteria/descargarReporteSabuesos1' => [18], 'reporteria/descargarReporteSabuesos2' => [19], 'reporteria/descargarReporteSabuesos3' => [19, 48], 'reporteria/descargarReporteSabuesosEstadisticasDetalle' => [47], 'reporteria/layoutlegacy' => [7], 'reporteria/reporteCapitalHumano' => [21],
     'condonaciones/historial' => [15],
-    'sabueso/ticket' => [18], 'sabueso/paneladmin' => [19], 'sabueso/cerradoEliminado' => [19],
+    'sabueso/ticket' => [18], 'sabueso/verificarcreditoduplicadocreador' => [18], 'sabueso/guardarsolicitudbaja' => [18], 'sabueso/paneladmin' => [19], 'sabueso/panelsolicitudbaja' => [25], 'sabueso/getsolicitudesbaja' => [25], 'sabueso/getsolicitudbajaporid' => [25], 'sabueso/veradjuntosolicitudbaja' => [25],
+    // Cerrado/Eliminado Sabueso: módulo propio (modulos_web id 48). Quien solo tenga 19 no entra aquí.
+    'sabueso/cerradoeliminado' => [48], 'sabueso/getticketscerradoseliminados' => [48], 'sabueso/getdatosticketcerradoeliminado' => [48],
+    'sabueso/estadisticas' => [47], 'sabueso/getestadisticastickets' => [47], 'sabueso/getestadisticasporsabuesosolo' => [47],
+    'sabueso/getestadisticasgestordetalle' => [47], 'sabueso/getestadisticassabuesodetalle' => [47], 'sabueso/getticketsdetallepordia' => [47],
     'sabueso/guardardictamenborrador' => [19], 'sabueso/enviardictamengestor' => [19], 'sabueso/getdictamendetalle' => [18, 19], 'sabueso/marcardictamenvisto' => [18, 19], 'sabueso/getdictamenactualticket' => [19],
-    'sabueso/subirevidenciaticket' => [19], 'sabueso/getevidenciasticket' => [19], 'sabueso/eliminarevidenciaticket' => [19], 'sabueso/verevidencia' => [18, 19],
+    'sabueso/subirevidenciaticket' => [19], 'sabueso/getevidenciasticket' => [19], 'sabueso/eliminarevidenciaticket' => [19], 'sabueso/verevidencia' => [18, 19], 'sabueso/otorgarprorrogadictamensistema' => [19],
+    'convenios/consulta' => [45], 'convenios/buscarcredito' => [45], 'convenios/getofertascredito' => [45], 'convenios/guardarconvenio' => [45], 'convenios/getconvenioactivo' => [45], 'convenios/descargarpdf' => [45],
     'despachos/asignacioncreditosdespacho' => [20], 'departamentos/consulta' => [10], 'equivalencias/consulta' => [17],
     'segundometro/shell' => [16],
     'onboarding/index' => [44],
@@ -234,7 +243,7 @@ $rutasModulos = [
 $controladoresModulos = ['segundometro' => [16]];
 $path = strtolower(trim($controladorArchivo)) . '/' . strtolower(trim($metodo));
 $modulosRequeridos = $rutasModulos[$path] ?? $controladoresModulos[strtolower(trim($controladorArchivo))] ?? null;
-if ($modulosRequeridos !== null) {
+if (!$esEstadoReportesAgente && $modulosRequeridos !== null) {
     $modulosUsuario = $_SESSION['modulos'] ?? [];
     if (!is_array($modulosUsuario) || !array_intersect($modulosRequeridos, $modulosUsuario)) {
         header('Location: /' . VISTA_DEFECTO);

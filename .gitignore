@@ -41,6 +41,10 @@ backend/cronjobs/logs/
 
 # ========== API Python (backend/API) – no subir nada de la API ==========
 backend/API/
+backend/API.zip
+
+# ========== Zips de agente / APIs (no subir) ==========
+backend/services/segundometro-agent.zip
 
 # (si antes tenías entradas concretas aquí, la carpeta completa las cubre)
 
@@ -48,8 +52,16 @@ backend/API/
 backend/storage/rate_limit/
 !backend/storage/rate_limit/.gitkeep
 
-# ========== API Agente Segundómetro (no subir) ==========
+# ========== Caché (geocode megareporte, etc.) — generada en runtime; evita conflictos add/add en pull ==========
+# Ignorar contenido pero no la carpeta (así .gitkeep sí se trackea; cache/ entero bloquearía el !)
+backend/storage/cache/*
+!backend/storage/cache/.gitkeep
+
+# ========== API Agente Segundómetro — NO SUBIR DESDE NINGUNA MÁQUINA ==========
+# La carpeta segundometro-agent (Node) no debe ir al repo: ni en tu PC, ni en el servidor, ni en otras.
+# Se despliega a mano (copiar carpeta, .env, keys). No hacer git add de esta ruta.
 backend/services/segundometro-agent/
+backend/services/segundometro-agent/**
 
 # ========== Pruebas OCR (no subir; puedes copiar archivos nuevos, no se subirán) ==========
 pruebas_OCR/

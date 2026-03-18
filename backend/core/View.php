@@ -43,94 +43,6 @@ function getMenu()
                     ]
             ],
 
-            /* MÓDULO INDICADORES — deshabilitado temporalmente (comentar para re-activar)
-            'Indicadores' => [
-                    'icono' => 'fa-solid fa-chart-line',
-                    'subItems' => [
-                        [
-                            'label' => 'KPI Total',
-                            'url' => '/indicadores/kpiTotal',
-                            'modulos' => [40]
-                        ],
-                        [
-                            'label' => 'Gestión 1-7',
-                            'url' => '/indicadores/gestiones1A7',
-                            'modulos' => [24]
-                        ],
-                        [
-                            'label' => 'Eficiencia 1-7',
-                            'url' => '/indicadores/eficiencia1A7',
-                            'modulos' => [25]
-                        ],
-                        [
-                            'label' => 'Gestión 8-21',
-                            'url' => '/indicadores/gestiones8A21',
-                            'modulos' => [26]
-                        ],
-                        [
-                            'label' => 'Eficiencia 8-21',
-                            'url' => '/indicadores/eficiencia8A21',
-                            'modulos' => [27]
-                        ],
-                        [
-                            'label' => 'Intensidad',
-                            'url' => '/indicadores/seguimientoIntensidad',
-                            'modulos' => [29]
-                        ],
-                        [
-                            'label' => 'Detalle Clientes',
-                            'url' => '/indicadores/detalleClientes',
-                            'modulos' => [30]
-                        ],
-                        [
-                            'label' => 'Detalle Eficiencia',
-                            'url' => '/indicadores/detalleEficiencia',
-                            'modulos' => [31]
-                        ],
-                        [
-                            'label' => 'Cartera Inicial',
-                            'url' => '/indicadores/carteraInicioSem',
-                            'modulos' => [32]
-                        ],
-                        [
-                            'label' => 'Promesas Pago',
-                            'url' => '/indicadores/seguimientoPromesasPago',
-                            'modulos' => [33]
-                        ],
-                        [
-                            'label' => 'Espartanos',
-                            'url' => '/indicadores/espartanos',
-                            'modulos' => [34]
-                        ],
-                        [
-                            'label' => 'Matriz Buckets',
-                            'url' => '/indicadores/matrizBuckets',
-                            'modulos' => [35]
-                        ],
-                        [
-                            'label' => 'Buckets +1',
-                            'url' => '/indicadores/matrizBucketsMas1',
-                            'modulos' => [36]
-                        ],
-                        [
-                            'label' => 'Auditoría',
-                            'url' => '/indicadores/auditoria',
-                            'modulos' => [37]
-                        ],
-                        [
-                            'label' => 'Auditoría 2',
-                            'url' => '/indicadores/auditoria2',
-                            'modulos' => [38]
-                        ],
-                        [
-                            'label' => 'Seguimiento',
-                            'url' => '/indicadores/seguimiento',
-                            'modulos' => [39]
-                        ]
-                    ]
-            ],
-            */
-
             'Capital Humano' => [
                     'icono' => 'fa-solid fa-users',
                     'subItems' => [
@@ -208,8 +120,8 @@ function getMenu()
                             ]
                     ]
             ],
-            'Sabueso' => [
-                    'icono' => 'fa-solid fa-dog',
+            'Ticket' => [
+                    'icono' => 'fa-solid fa-ticket',
                     'subItems' => [
                             [
                                     'label' => 'Ticket',
@@ -217,14 +129,24 @@ function getMenu()
                                     'modulos' => [18]
                             ],
                             [
-                                    'label' => 'Panel Admin',
+                                    'label' => 'Panel Admin Sabueso',
                                     'url' => '/sabueso/paneladmin',
                                     'modulos' => [19]
                             ],
                             [
-                                    'label' => 'Cerrado/Eliminado',
+                                    'label' => 'Panel Solicitud de baja',
+                                    'url' => '/sabueso/panelSolicitudBaja',
+                                    'modulos' => [25]
+                            ],
+                            [
+                                    'label' => 'Cerrado/Eliminado Sabueso',
                                     'url' => '/sabueso/cerradoEliminado',
-                                    'modulos' => [19]
+                                    'modulos' => [48]
+                            ],
+                            [
+                                    'label' => 'Estadísticas',
+                                    'url' => '/sabueso/estadisticas',
+                                    'modulos' => [47]
                             ]
                     ]
             ],
@@ -235,6 +157,16 @@ function getMenu()
                                     'label' => 'Asignación de Créditos',
                                     'url' => '/Despachos/AsignacionCreditosDespacho',
                                     'modulos' => [20]
+                            ],
+                            [
+                                    'label' => 'Mi Gestión',
+                                    'url' => '/Despachos/MiGestion',
+                                    'modulos' => [20]
+                            ],
+                            [
+                                    'label' => 'Convenios',
+                                    'url' => '/convenios/consulta',
+                                    'modulos' => [46]
                             ]
                     ]
             ],
@@ -698,7 +630,7 @@ html.dark-mode .navbar .text-muted{color:#94a3b8 !important;}
                     <button type="button" class="btn-close btn-close-white position-absolute top-0 end-0 m-3" data-bs-dismiss="modal" aria-label="Cerrar"></button>
                 </div>
                 <div class="modal-body p-0">
-                    <video id="spartanVideoPlayer" class="w-100" controls playsinline src="/assets/img/spartan_video.mp4"></video>
+                    <video id="spartanVideoPlayer" class="w-100" controls playsinline preload="none" data-src="/assets/img/spartan_video.mp4"></video>
                 </div>
             </div>
         </div>
@@ -771,12 +703,12 @@ html.dark-mode .navbar .text-muted{color:#94a3b8 !important;}
     <!-- Linkify: convierte URLs en texto a enlaces clicables (descripción dictamen Sabueso) -->
     <script>
     window.linkifyDescripcionDictamen = function(text) {
-        if (!text || (String(text).trim() === '')) return '—';
+        if (!text || (String(text).trim() === '')) return '\u2014';
         var esc = String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-        var urlRegex = /(https?:\/\/[^\s<>"'\]]+|maps\.google[^\s<>"'\]]*|goo\.gl\/[^\s<>"'\]]+)/gi;
+        var urlRegex = /(https?:\/\/[^\s<>"'\]]+|\b(?:maps?\.(?:google|app\.goo)\.\S+|goo\.gl\/\S+))/gi;
         return esc.replace(urlRegex, function(url) {
             var href = url.replace(/&amp;/g, '&');
-            return '<a href="' + href.replace(/"/g, '&quot;') + '" target="_blank" rel="noopener noreferrer">' + url + '</a>';
+            return '<a href="' + href.replace(/"/g, '&quot;') + '" target="_blank" rel="noopener noreferrer" class="text-primary text-break">' + url + '</a>';
         });
     };
     </script>
@@ -1076,7 +1008,7 @@ html.dark-mode .navbar .text-muted{color:#94a3b8 !important;}
         logo.addEventListener('click', function(e){
             e.preventDefault();
             clickCount++;
-            if (clickCount === 3) {
+                if (clickCount === 3) {
                 clickCount = 0;
                 if (resetTimer) clearTimeout(resetTimer);
                 if (navTimer) clearTimeout(navTimer);
@@ -1084,7 +1016,11 @@ html.dark-mode .navbar .text-muted{color:#94a3b8 !important;}
                 playSpartanSound();
                 setTimeout(function(){
                     var modal = typeof bootstrap !== 'undefined' && bootstrap.Modal ? new bootstrap.Modal(modalEl) : null;
-                    if (modal) modal.show();
+                    if (modal) {
+                        var dataSrc = videoEl.getAttribute('data-src') || '/assets/img/spartan_video.mp4';
+                        if (!videoEl.src || videoEl.src.indexOf('spartan_video') === -1) videoEl.src = dataSrc;
+                        modal.show();
+                    }
                     videoEl.currentTime = 0;
                     videoEl.play();
                 }, 220);

@@ -1091,6 +1091,7 @@ HTML;
         }
     }
 
+<<<<<<< HEAD
     public function VencimientosLunes()
     {
         $script = <<<'HTML'
@@ -1300,6 +1301,97 @@ HTML;
             self::respuestaJSON(ReportesDAO::getVencimientosLunes());
         } catch (\Exception $e) {
             self::respuestaJSON(["success" => false, "mensaje" => $e->getMessage()]);
+=======
+    /**
+     * Excel: detalle reciente (dictamen enviado) — misma base que estadísticas Sabueso.
+     * Hasta 2000 filas para export; la vista en pantalla sigue usando el límite habitual vía API.
+     */
+    public function descargarReporteSabuesosEstadisticasDetalle()
+    {
+        try {
+            while (ob_get_level()) {
+                ob_end_clean();
+            }
+
+            $usuarioId = (int)($_SESSION['usuario_id'] ?? 0);
+            if ($usuarioId < 1) {
+                http_response_code(401);
+                echo json_encode(['error' => 'Sesión no válida']);
+                exit;
+            }
+
+            $datos = \Models\Ticket::getEstadisticasTickets(['detalle_limit' => 2000]);
+            if (empty($datos['success'])) {
+                http_response_code(404);
+                echo json_encode(['error' => $datos['mensaje'] ?? 'No hay datos']);
+                exit;
+            }
+
+            $detalle = $datos['detalle_timings'] ?? [];
+            if (!is_array($detalle)) {
+                $detalle = [];
+            }
+
+            $columnas = [
+                \PHPSpreadsheet::ColumnaExcel('folio', 'FOLIO'),
+                \PHPSpreadsheet::ColumnaExcel('creador_nombre', 'QUIÉN LEVANTÓ'),
+                \PHPSpreadsheet::ColumnaExcel('creador_id', 'ID GESTOR (CREADOR)'),
+                \PHPSpreadsheet::ColumnaExcel('asignado_nombre', 'ASIGNADO A (SABUESO)'),
+                \PHPSpreadsheet::ColumnaExcel('fecha_creacion', 'LEVANTADO'),
+                \PHPSpreadsheet::ColumnaExcel('dictamen_fecha_envio', 'DICTAMEN ENVIADO'),
+                \PHPSpreadsheet::ColumnaExcel('dictamen_fecha_visto', 'VISTO POR GESTOR'),
+                \PHPSpreadsheet::ColumnaExcel('pct_efectividad', '% EFECTIVIDAD'),
+                \PHPSpreadsheet::ColumnaExcel('medidas_preventivas', 'MEDIDAS PREVENTIVAS'),
+                \PHPSpreadsheet::ColumnaExcel('cumplimiento_etiqueta', 'CUMPLIMIENTO ETIQUETA'),
+                \PHPSpreadsheet::ColumnaExcel('dictamen_sistema_resultado', 'RESULTADO DS'),
+            ];
+
+            $fmt = function ($v) {
+                if ($v === null || $v === '') {
+                    return '—';
+                }
+                if (is_numeric($v)) {
+                    return $v;
+                }
+                $t = strtotime((string)$v);
+                if ($t !== false && strlen((string)$v) >= 10) {
+                    return date('Y-m-d H:i', $t);
+                }
+                return (string)$v;
+            };
+
+            $datosFormateados = [];
+            foreach ($detalle as $r) {
+                $pct = $r['pct_efectividad'] ?? null;
+                $datosFormateados[] = [
+                    'folio' => $r['folio'] ?? '—',
+                    'creador_nombre' => trim((string)($r['creador_nombre'] ?? '—')),
+                    'creador_id' => isset($r['creador_id']) ? (int)$r['creador_id'] : '—',
+                    'asignado_nombre' => trim((string)($r['asignado_nombre'] ?? '—')),
+                    'fecha_creacion' => $fmt($r['fecha_creacion'] ?? null),
+                    'dictamen_fecha_envio' => $fmt($r['dictamen_fecha_envio'] ?? null),
+                    'dictamen_fecha_visto' => $fmt($r['dictamen_fecha_visto'] ?? null),
+                    'pct_efectividad' => ($pct !== null && $pct !== '') ? $pct . '%' : '—',
+                    'medidas_preventivas' => trim((string)($r['medidas_preventivas'] ?? '—')),
+                    'cumplimiento_etiqueta' => trim((string)($r['cumplimiento_etiqueta'] ?? '—')),
+                    'dictamen_sistema_resultado' => trim((string)($r['dictamen_sistema_resultado'] ?? '—')),
+                ];
+            }
+
+            \PHPSpreadsheet::DescargaExcel(
+                'Estadisticas_Detalle_Dictamen_' . date('Y-m-d_His'),
+                'Detalle dictamen enviado',
+                'Estadísticas Sabueso',
+                $columnas,
+                $datosFormateados
+            );
+            exit;
+        } catch (\Exception $e) {
+            error_log('Error en descargarReporteSabuesosEstadisticasDetalle: ' . $e->getMessage());
+            http_response_code(500);
+            echo json_encode(['error' => 'Error al generar el reporte: ' . $e->getMessage()]);
+            exit;
+>>>>>>> 31d5d7fe19cb72f4a0f268a18606806a3c6495bb
         }
     }
 

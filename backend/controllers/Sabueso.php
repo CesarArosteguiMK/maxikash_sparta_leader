@@ -11,6 +11,7 @@ use Models\Gestiones as GestionesDAO;
 use Models\Ubicacion as UbicacionDAO;
 use Models\OfertaCoordenada;
 use Models\RegistroAsignacion;
+use Models\SolicitudBaja as SolicitudBajaDAO;
 
 // Capas del sistema de predicción: motor, interpretación IA, verificación IA, cache, audit
 require_once __DIR__ . '/../services/LocationScoringService.php';
@@ -41,19 +42,9 @@ class Sabueso extends Controller
      */
     public function ticket()
     {
-        $usuarioId = (int)($_SESSION['usuario_id'] ?? 0);
         $columnsJson = $this->getColumnsConfig(false);
-
-        $script = <<<SCRIPT
-        <script>
-        var esAdminTicket = false;
-        var apiBase = (function(){ var p = window.location.pathname || ''; var i = p.indexOf('/sabueso'); return i !== -1 ? p.substring(0, i) : ''; })();
-        window.abrirEvidenciaDictamenGrande = function(src) { if (!src) return; var \$m = $('#modalVerEvidenciaDictamenTicket'); var \$img = $('#modalVerEvidenciaDictamenTicketImg'); if (\$m.length && \$img.length) { \$img.attr('src', src); \$m.modal('show'); } };
-        $('#modalDetalleDictamen, #modalVerEvidenciaDictamenTicket').on('hidden.bs.modal', function() {
-            setTimeout(function() { var open = document.querySelectorAll('.modal.show'); if (open.length === 0) { document.querySelectorAll('.modal-backdrop').forEach(function(b) { b.remove(); }); document.body.classList.remove('modal-open'); document.body.style.overflow = ''; document.body.style.paddingRight = ''; } }, 50);
-        });
-SCRIPT;
-        $script .= "\n\n        $(document).ready(function() {\n            configuraTabla(\"#tablaTickets\", {\n                registrosPorPagina: 10,\n                order: [[1, 'desc']],\n                columns: " . $columnsJson['columnsJs'] . "\n            });\n            getTickets();\n            $('#modalLevantarTicket').on('shown.bs.modal', function() { cargarCatalogosTicket(); });\n        });\n\n        function getTickets() {\n            http.request({\n                endpoint: \"/sabueso/getTickets\",\n                metodo: \"POST\",\n                onSuccess: function(resp) {\n                    var datos = (resp.datos || []).map(function(t) {\n                        var fechaCreacion = t.fecha_creacion\n                            ? new Date(t.fecha_creacion).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' })\n                            : '—';\n                    var fechaVenc = t.fecha_vencimiento\n                            ? new Date(t.fecha_vencimiento).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' })\n                            : '—';\n                        var prioridadNombre = (t.prioridad_nombre || '').toLowerCase();\n                        var prioridadBadge = '<span class=\"badge bg-label-secondary\">' + (t.prioridad_nombre || '—') + '</span>';\n                        if (prioridadNombre.indexOf('alta') !== -1) prioridadBadge = '<span class=\"badge bg-danger text-white\">' + (t.prioridad_nombre || '—') + '</span>';\n                        else if (prioridadNombre.indexOf('medio') !== -1 || prioridadNombre.indexOf('media') !== -1) prioridadBadge = '<span class=\"badge\" style=\"background-color:#fd7e14;color:#fff;\">' + (t.prioridad_nombre || '—') + '</span>';\n                        else if (prioridadNombre.indexOf('bajo') !== -1 || prioridadNombre.indexOf('baja') !== -1) prioridadBadge = '<span class=\"badge\" style=\"background-color:#ffc107;color:#212529;\">' + (t.prioridad_nombre || '—') + '</span>';\n                        else if (prioridadNombre.indexOf('sin prioridad') !== -1) prioridadBadge = '<span class=\"badge bg-secondary\" style=\"background-color:#6c757d!important;color:#fff;\">' + (t.prioridad_nombre || '—') + '</span>';\n                        var estadoBadge = (t.asignado_nombre && (t.asignado_nombre + '').trim()) ? '<span class=\"badge bg-success text-white\">Asignado</span>' : '<span class=\"badge bg-label-secondary\">Abierto</span>';\n                        var vistoHtml = '';\n                        if ((t.dictamen_estado || '') === 'enviado_al_gestor') {\n                            var vistoTexto = t.dictamen_fecha_visto ? (new Date(t.dictamen_fecha_visto).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' }) + ' ' + new Date(t.dictamen_fecha_visto).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })) : 'No visto';\n                            var iconoOjo = (t.dictamen_fecha_visto && (t.dictamen_fecha_visto + '').trim()) ? 'fa-eye' : 'fa-eye-slash';\n                            var tituloOjo = (t.dictamen_fecha_visto && (t.dictamen_fecha_visto + '').trim()) ? ('Dictamen enviado. Visto: ' + vistoTexto) : 'Dictamen enviado. No visto. Clic para ver';\n                            vistoHtml = '<span class=\"d-inline-flex align-items-center justify-content-end\" data-bs-toggle=\"tooltip\" data-bs-title=\"' + (tituloOjo + '').replace(/\"/g, '&quot;') + '\"><i class=\"fa ' + iconoOjo + ' text-info\"></i></span>';\n                        }\n                        var row = {\n                            _fecha_creacion: (t.fecha_creacion || ''),\n                            folio_tipo: '<div class=\"fw-semibold\">' + (t.folio || '—') + '</div><div class=\"small text-muted mt-1\">' + (t.tipo_ticket_nombre || '—') + '</div>',\n                            estado: estadoBadge,\n                            prioridad: prioridadBadge,\n                            credito: '<small>#' + (t.id_credito != null ? t.id_credito : '—') + '</small>',\n                            fechas: '<div class=\"small d-flex align-items-center gap-1\"><i class=\"fa fa-calendar-plus-o text-muted\" style=\"width: 1rem;\"></i><span>Creación: ' + fechaCreacion + '</span></div><div class=\"small text-muted d-flex align-items-center gap-1 mt-1\"><i class=\"fa fa-calendar-times-o\" style=\"width: 1rem;\"></i><span>Vencimiento: ' + fechaVenc + '</span></div>',\n                            dictamen_visto: vistoHtml,\n                            acciones: '',\n                            _id_ticket: t.id_ticket,\n                            _dictamen_estado: t.dictamen_estado || '',\n                            _dictamen_fecha_visto: t.dictamen_fecha_visto || ''\n                        };\n                        return row;\n                    });\n                    var tabla = $('#tablaTickets').DataTable();\n                    tabla.clear().rows.add(datos).draw();\n                    tabla.rows().every(function() { var d = this.data(); var node = this.node(); if (!d || !node) return; if (d._dictamen_estado === 'enviado_al_gestor') { $(node).addClass('fila-dictamen-enviado').attr('data-id-ticket', d._id_ticket || ''); if (!d._dictamen_fecha_visto || (d._dictamen_fecha_visto + '').trim() === '') $(node).addClass('fila-dictamen-no-visto'); else $(node).removeClass('fila-dictamen-no-visto'); } else { $(node).removeClass('fila-dictamen-no-visto'); } });\n                    $('#tablaTickets [data-bs-toggle=\"tooltip\"]').tooltip();\n                },\n                onError: function() {\n                    var tabla = $('#tablaTickets').DataTable();\n                    tabla.clear().draw();\n                }\n            });\n        }\n        $('#tablaTickets').on('draw.dt', function() { var tabla; try { tabla = $(this).DataTable(); } catch(e) { return; } tabla.rows().every(function() { var d = this.data(); var node = this.node(); if (!d || !node) return; if (d._dictamen_estado === 'enviado_al_gestor') { $(node).addClass('fila-dictamen-enviado').attr('data-id-ticket', d._id_ticket || ''); if (!d._dictamen_fecha_visto || (d._dictamen_fecha_visto + '').trim() === '') $(node).addClass('fila-dictamen-no-visto'); else $(node).removeClass('fila-dictamen-no-visto'); } else { $(node).removeClass('fila-dictamen-no-visto'); } }); $('#tablaTickets [data-bs-toggle=\"tooltip\"]').tooltip(); });\n        $(document).on('click', '#tablaTickets tbody tr.fila-dictamen-enviado', function(e) { if ($(e.target).closest('button, .btn').length) return; var id = $(this).attr('data-id-ticket') || $(this).data('id-ticket'); if (id && window.abrirModalDetalleDictamen) window.abrirModalDetalleDictamen(parseInt(id, 10)); });\n        $(document).on('click', '#tablaTickets .fa-eye, #tablaTickets .fa-eye-slash', function(e) { e.stopPropagation(); var id = $(this).closest('tr').attr('data-id-ticket') || $(this).closest('tr').data('id-ticket'); if (id && window.abrirModalDetalleDictamen) window.abrirModalDetalleDictamen(parseInt(id, 10)); });\n        window.abrirModalDetalleDictamen = function(idTicket) { if (!idTicket || typeof http === 'undefined') return; $('#modalDetalleDictamen .dictamen-detalle-imagen-principal').html('<img id=\"modalDetalleDictamenImgPrincipal\" src=\"\" alt=\"Evidencia\" class=\"img-fluid w-100\" style=\"object-fit: contain; max-height: 280px;\">'); $('#modalDetalleDictamenMiniaturas').empty(); $('#modalDetalleDictamenTipo, #modalDetalleDictamenDescripcion, #modalDetalleDictamenEnviado, #modalDetalleDictamenVisto').text(''); $('#modalDetalleDictamen').modal('show'); http.request({ endpoint: '/sabueso/getDictamenDetalle', metodo: 'POST', data: JSON.stringify({ id_ticket: idTicket }), contentType: 'application/json', processData: false, onSuccess: function(r) { if (!r.success || !r.datos) { $('#modalDetalleDictamenTipo').text(r.mensaje || 'No se pudo cargar.'); return; } var d = r.datos; var dm = d.dictamen || {}; $('#modalDetalleDictamenTipo').text(dm.tipo || '—'); $('#modalDetalleDictamenDescripcion').html(window.linkifyDescripcionDictamen ? window.linkifyDescripcionDictamen(dm.descripcion) : (dm.descripcion || '—')); $('#modalDetalleDictamenEnviado').text(dm.fecha_actualizacion ? (new Date(dm.fecha_actualizacion).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })) : '—'); $('#modalDetalleDictamenVisto').text((function(){ var dm = d.dictamen || {}; if (!dm.fecha_visto_gestor) return 'No visto'; var f = new Date(dm.fecha_visto_gestor).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }); var quien = (dm.visto_gestor_nombre || '').trim(); return quien ? ('Por ' + quien + ' el ' + f) : f; })()); var evidencias = d.evidencias || []; var base = (typeof apiBase !== 'undefined' ? apiBase : '') || ''; var url0 = ''; if (evidencias.length > 0 && evidencias[0]) { url0 = base + (evidencias[0].url || ('/sabueso/verEvidencia?id=' + (evidencias[0].id || ''))); } if (!evidencias || evidencias.length === 0) { $('#modalDetalleDictamen .dictamen-detalle-imagen-principal').html('<div class=\"d-flex align-items-center justify-content-center h-100 text-muted\" style=\"min-height:200px;\"><i class=\"fa-solid fa-image me-2\"></i>Sin evidencias</div>'); } else { $('#modalDetalleDictamen .dictamen-detalle-imagen-principal').html('<img id=\"modalDetalleDictamenImgPrincipal\" src=\"\" alt=\"Evidencia\" class=\"img-fluid w-100\" style=\"object-fit: contain; max-height: 280px; cursor: pointer;\">'); var \$imgP = $('#modalDetalleDictamenImgPrincipal'); \$imgP.attr('src', url0).on('click', function() { if (url0 && window.abrirEvidenciaDictamenGrande) window.abrirEvidenciaDictamenGrande(url0); }); } var \$min = $('#modalDetalleDictamenMiniaturas'); \$min.empty(); (evidencias || []).forEach(function(ev) { var url = base + (ev.url || ('/sabueso/verEvidencia?id=' + (ev.id || ''))); if (!url) return; var \$thumb = $('<div class=\"rounded overflow-hidden border\" style=\"width: 60px; height: 60px; cursor: pointer;\"><img src=\"' + url.replace(/\"/g, '&quot;') + '\" alt=\"\" class=\"img-fluid w-100 h-100\" style=\"object-fit: cover;\"></div>'); \$thumb.on('click', function() { $('#modalDetalleDictamenImgPrincipal').attr('src', url); if (window.abrirEvidenciaDictamenGrande) window.abrirEvidenciaDictamenGrande(url); }); \$min.append(\$thumb); }); http.request({ endpoint: '/sabueso/marcarDictamenVisto', metodo: 'POST', data: JSON.stringify({ id_ticket: idTicket }), contentType: 'application/json', processData: false, onSuccess: function(mr) { $('#tablaTickets tr[data-id-ticket=\"' + idTicket + '\"]').removeClass('fila-dictamen-no-visto'); if (typeof getTickets === 'function') getTickets(); }, onError: function() {} }); }, onError: function() { $('#modalDetalleDictamenTipo').text('Error al cargar.'); } }); };\n        var fechaVencimientoClickHandler = null;\n        function abrirModalLevantarTicket() {\n            $('#modal_id_tipo_ticket, #modal_id_prioridad, #modal_id_origen_ticket').val('');\n            $('#modal_id_credito, #modal_descripcion_inicial').val('');\n            clearFechaVencimiento();\n            setButtonLevantarLoading(false);\n            enviandoTicket = false;\n            $('#modalLevantarTicket').modal('show');\n        }\n        function configurarFechaVencimiento() {\n            setTimeout(function() {\n                var oldInput = document.getElementById('modal_fecha_vencimiento');\n                if (!oldInput) return;\n                if (fechaVencimientoClickHandler && oldInput) {\n                    oldInput.removeEventListener('click', fechaVencimientoClickHandler);\n                    fechaVencimientoClickHandler = null;\n                }\n                try {\n                    if (oldInput._flatpickr && typeof oldInput._flatpickr.destroy === 'function') oldInput._flatpickr.destroy();\n                    if (typeof flatpickr !== \"undefined\" && typeof flatpickr.getInstance === \"function\") {\n                        var existing = flatpickr.getInstance(oldInput);\n                        if (existing && typeof existing.destroy === 'function') existing.destroy();\n                    }\n                } catch (e) {}\n                var currentValue = oldInput.value || '';\n                var newInput = document.createElement('input');\n                newInput.type = 'text';\n                newInput.id = 'modal_fecha_vencimiento';\n                newInput.className = 'form-control';\n                newInput.placeholder = 'YYYY-MM-DD';\n                newInput.value = currentValue;\n                newInput.setAttribute('autocomplete', 'off');\n                if (oldInput.parentNode) oldInput.parentNode.replaceChild(newInput, oldInput);\n                setTimeout(function() {\n                    var input = document.getElementById('modal_fecha_vencimiento');\n                    if (!input) return;\n                    var manana = new Date(); manana.setDate(manana.getDate() + 1);\n                    var minStr = manana.getFullYear() + '-' + String(manana.getMonth() + 1).padStart(2, '0') + '-' + String(manana.getDate()).padStart(2, '0');\n                    if (typeof flatpickr !== 'undefined') {\n                        try {\n                            var fp = flatpickr(input, { minDate: manana, dateFormat: 'Y-m-d', allowInput: false, clickOpens: true, defaultDate: null, appendTo: document.body, static: false });\n                            if (fp && fp.calendarContainer) { fp.calendarContainer.style.zIndex = '99999'; }\n                            fechaVencimientoClickHandler = function(e) { e.preventDefault(); e.stopPropagation(); setTimeout(function() { if (fp && typeof fp.open === 'function') fp.open(); if (fp && fp.calendarContainer) { fp.calendarContainer.style.zIndex = '99999'; } }, 10); };\n                            input.addEventListener('click', fechaVencimientoClickHandler);\n                        } catch (err) { input.type = 'date'; input.setAttribute('min', minStr); input.value = ''; }\n                    } else { input.type = 'date'; input.setAttribute('min', minStr); input.value = ''; }\n                }, 50);\n            }, 200);\n        }\n        function clearFechaVencimiento() {\n            var input = document.getElementById('modal_fecha_vencimiento');\n            if (!input) return;\n            try { if (input._flatpickr && typeof input._flatpickr.clear === 'function') input._flatpickr.clear(); else input.value = ''; } catch (e) { input.value = ''; }\n        }\n        function setButtonLevantarLoading(loading) {\n            var btn = document.getElementById('btnLevantarTicket');\n            var textEl = document.getElementById('btnLevantarTicketText');\n            if (!btn || !textEl) return;\n            if (loading) {\n                btn.disabled = true;\n                textEl.innerHTML = '<span class=\"spinner-border spinner-border-sm me-1\" role=\"status\" aria-hidden=\"true\"></span>Registrando ticket…';\n            } else {\n                btn.disabled = false;\n                textEl.innerHTML = '<i class=\"fa-solid fa-check me-1\"></i>Levantar ticket';\n            }\n        }\n        var enviandoTicket = false;\n\n        var datosCreditoActual = null;\n        function buscarCreditoModal() {\n            var id = ($('#buscar_id_credito').val() || '').toString().trim();\n            if (!id || isNaN(parseInt(id, 10))) {\n                Swal.fire({ icon: 'warning', title: 'ID de crédito', text: 'Escriba un ID de crédito numérico y pulse Buscar.' });\n                return;\n            }\n            http.request({\n                endpoint: \"/sabueso/getDatosCredito\",\n                metodo: \"POST\",\n                data: JSON.stringify({ id_credito: parseInt(id, 10) }),\n                contentType: \"application/json\",\n                processData: false,\n                showLoader: true,\n                onSuccess: function(resp) {\n                    datosCreditoActual = resp.datos || null;\n                    $('#buscar_id_credito').val('');\n                    if (!resp.success || !datosCreditoActual) {\n                        var msg = resp.mensaje || 'El ID de crédito no existe o es incorrecto. Verifique el número e intente de nuevo.';\n                        setTimeout(function() { Swal.fire({ icon: 'error', title: 'ID de crédito incorrecto', text: msg }); }, 0);\n                        return;\n                    }\n                    var d = datosCreditoActual;\n                    var html = '<div class=\"credito-modal-list\">';\n                    html += '<div class=\"credito-modal-item\"><i class=\"fa-solid fa-user text-primary me-2\"></i><span class=\"text-muted small\">Nombre</span><div class=\"fw-medium\">' + (d.Nombre_cliente || d.nombre_completo || '—') + '</div></div>';\n                    html += '<div class=\"credito-modal-item\"><i class=\"fa-solid fa-hashtag text-primary me-2\"></i><span class=\"text-muted small\">ID de crédito</span><div class=\"fw-medium\">' + (d.id_credito || d.Id_credito || '—') + '</div></div>';\n                    if (d.Id_cliente) html += '<div class=\"credito-modal-item\"><i class=\"fa-solid fa-id-card text-primary me-2\"></i><span class=\"text-muted small\">ID cliente</span><div class=\"fw-medium\">' + d.Id_cliente + '</div></div>';\n                    html += '<div class=\"credito-modal-item\"><i class=\"fa-solid fa-map-marker-alt text-primary me-2\"></i><span class=\"text-muted small\">Dirección</span><div class=\"fw-medium\">' + (d.Domicilio_Completo || '—') + '</div></div>';\n                    var tel = d.telefono_referencia1 || d.telefono_referencia2 || '';\n                    if (tel) html += '<div class=\"credito-modal-item\"><i class=\"fa-solid fa-phone text-primary me-2\"></i><span class=\"text-muted small\">Teléfono</span><div class=\"fw-medium\">' + tel + '</div></div>';\n                    if (d.correo || d.email) html += '<div class=\"credito-modal-item\"><i class=\"fa-solid fa-envelope text-primary me-2\"></i><span class=\"text-muted small\">Correo</span><div class=\"fw-medium\">' + (d.correo || d.email || '—') + '</div></div>';\n                    var tickets = d.tickets || [];\n                    if (tickets.length > 0) {\n                        html += '<div class=\"credito-modal-item mt-3 pt-3 border-top\"><span class=\"text-muted small d-block mb-2\"><i class=\"fa-solid fa-ticket me-1\"></i>Ticket(s) levantado(s)</span>';\n                        tickets.forEach(function(tk) {\n                            var fCreacion = tk.fecha_creacion ? new Date(tk.fecha_creacion).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—';\n                            var fVenc = tk.fecha_vencimiento ? new Date(tk.fecha_vencimiento).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—';\n                            html += '<div class=\"small bg-light rounded p-2 mb-2\"><strong>' + (tk.folio || '—') + '</strong> · ' + (tk.tipo_nombre || '') + ' · ' + (tk.estado_nombre || '') + '<br><span class=\"text-muted small\">Descripción:</span> ' + (tk.descripcion_inicial || '—') + '<br>Creación: ' + fCreacion + ' · Venc: ' + fVenc + '</div>';\n                        });\n                        html += '</div>';\n                    }\n                    html += '</div>';\n                    $('#modalDatosCreditoBody').html(html);\n                    $('#modalDatosCredito').modal('show');\n                },\n                onError: function(err) {\n                    datosCreditoActual = null;\n                    $('#buscar_id_credito').val('');\n                    var errMsg = (typeof err === 'string' ? err : (err && err.mensaje)) || 'El ID de crédito no existe o es incorrecto. Verifique el número e intente de nuevo.';\n                    setTimeout(function() { Swal.fire({ icon: 'error', title: 'ID de crédito incorrecto', text: errMsg }); }, 0);\n                }\n            });\n        }\n        function usarCreditoEnTicket() {\n            if (datosCreditoActual && (datosCreditoActual.id_credito || datosCreditoActual.Id_credito)) {\n                var idCred = datosCreditoActual.id_credito || datosCreditoActual.Id_credito;\n                $('#modal_id_credito').val(idCred);\n                $('#modalDatosCredito').modal('hide');\n                $('#modalLevantarTicket').modal('show');\n            }\n        }\n\n        function cargarCatalogosTicket() {\n            http.request({\n                endpoint: \"/sabueso/getCatalogosTicket\",\n                metodo: \"POST\",\n                onSuccess: function(resp) {\n                    var c = resp.datos || {};\n                    var tipos = c.tipos || [], estados = c.estados || [], prioridades = c.prioridades || [], origenes = c.origenes || [];\n                    function options(arr, key) {\n                        var h = '<option value=\"\">Seleccione...</option>';\n                        arr.forEach(function(o) { h += '<option value=\"' + (o.id) + '\">' + (o.nombre || o.id) + '</option>'; });\n                        return h;\n                    }\n                    $('#modal_id_tipo_ticket').html(options(tipos));\n                    $('#modal_id_prioridad').html(options(prioridades));\n                    $('#modal_id_origen_ticket').html(options(origenes));\n                    var origenSistema = origenes.filter(function(o) { return (o.nombre || '').toLowerCase().indexOf('sistema') !== -1; })[0];\n                    if (origenSistema && origenSistema.id) $('#modal_id_origen_ticket').val(origenSistema.id);\n                    else if (origenes.length > 0 && origenes[0].id) $('#modal_id_origen_ticket').val(origenes[0].id);\n                    setTimeout(configurarFechaVencimiento, 150);\n                }\n            });\n        }\n\n        function enviarLevantarTicket() {\n            var payload = {\n                id_tipo_ticket: $('#modal_id_tipo_ticket').val(),\n                id_prioridad: $('#modal_id_prioridad').val(),\n                id_origen_ticket: $('#modal_id_origen_ticket').val(),\n                id_credito: ($('#modal_id_credito').val() || '').toString().trim(),\n                descripcion_inicial: ($('#modal_descripcion_inicial').val() || '').toString().trim(),\n                fecha_vencimiento: ($('#modal_fecha_vencimiento').val() || '').toString().trim()\n            };\n            if (!payload.id_tipo_ticket || !payload.id_prioridad || !payload.id_origen_ticket || !payload.descripcion_inicial) {\n                Swal.fire({ icon: 'warning', title: 'Faltan datos', text: 'Complete tipo, prioridad, origen y descripción.' });\n                return;\n            }\n            if (!payload.id_credito || isNaN(parseInt(payload.id_credito, 10)) || parseInt(payload.id_credito, 10) < 1) {\n                Swal.fire({ icon: 'warning', title: 'ID de crédito obligatorio', text: 'Debe indicar un ID de crédito válido.' });\n                return;\n            }\n            if (!payload.fecha_vencimiento) {\n                Swal.fire({ icon: 'warning', title: 'Fecha de vencimiento obligatoria', text: 'Debe seleccionar la fecha de vencimiento.' });\n                return;\n            }\n            if (enviandoTicket) return;\n            enviandoTicket = true;\n            Swal.fire({ title: 'Registrando ticket', text: 'Se está registrando el ticket. Espere un momento...', showConfirmButton: false, allowOutsideClick: false, allowEscapeKey: false, didOpen: function() { if (typeof Swal !== 'undefined' && typeof Swal.showLoading === 'function') Swal.showLoading(); } });\n            setButtonLevantarLoading(true);\n            http.request({\n                endpoint: \"/sabueso/crearTicket\",\n                metodo: \"POST\",\n                data: JSON.stringify(payload),\n                contentType: \"application/json\",\n                processData: false,\n                showLoader: false,\n                onSuccess: function(resp) {\n                    if (!resp.success) {\n                        enviandoTicket = false;\n                        if (typeof Swal !== 'undefined' && Swal.isVisible && Swal.isVisible()) Swal.close();\n                        setButtonLevantarLoading(false);\n                        Swal.fire({ icon: 'error', title: 'Error', text: resp.mensaje || 'No se pudo crear el ticket. Verifique el ID de crédito.' });\n                        return;\n                    }\n                    enviandoTicket = false;\n                    if (typeof Swal !== 'undefined' && Swal.isVisible && Swal.isVisible()) Swal.close();\n                    $('#modalLevantarTicket').modal('hide');\n                    setButtonLevantarLoading(false);\n                    $('#modal_id_tipo_ticket, #modal_id_prioridad, #modal_id_origen_ticket').val('');\n                    $('#modal_id_credito, #modal_descripcion_inicial').val('');\n                    clearFechaVencimiento();\n                    getTickets();\n                    setTimeout(function() {\n                        Swal.fire({ icon: 'success', title: 'Ticket creado', text: resp.mensaje || 'Folio: ' + (resp.datos && resp.datos.folio ? resp.datos.folio : '') });\n                    }, 100);\n                },\n                onError: function(err) {\n                    enviandoTicket = false;\n                    if (typeof Swal !== 'undefined' && Swal.isVisible && Swal.isVisible()) Swal.close();\n                    setButtonLevantarLoading(false);\n                    Swal.fire({ icon: 'error', title: 'Error', text: (err && err.mensaje) || 'No se pudo crear el ticket.' });\n                }\n            });\n        }\n\n        function eliminarTicket(idTicket) {\n            if (!idTicket) return;\n            Swal.fire({ title: '¿Eliminar ticket?', text: 'Esta acción no se puede deshacer.', icon: 'warning', showCancelButton: true, confirmButtonColor: '#d33', cancelButtonColor: '#6c757d', confirmButtonText: 'Sí, eliminar' }).then(function(res) {\n                if (!res.isConfirmed) return;\n                http.request({\n                    endpoint: \"/sabueso/eliminarTicket\",\n                    metodo: \"POST\",\n                    data: JSON.stringify({ id_ticket: idTicket }),\n                    contentType: \"application/json\",\n                    processData: false,\n                    onSuccess: function(resp) {\n                        Swal.fire({ icon: 'success', title: 'Eliminado', text: resp.mensaje || 'Ticket eliminado.' });\n                        getTickets();\n                    },\n                    onError: function(err) {\n                        Swal.fire({ icon: 'error', title: 'Error', text: (err && err.mensaje) || 'No se pudo eliminar.' });\n                    }\n                });\n            });\n        }\n        </script>";
+        $script = '<script>window.sabuesoTicketColumns=' . $columnsJson['columnsJs'] . ';</script>' . "\n"
+            . '<script src="/assets/js/sabueso_ticket.js"></script>';
 
         self::set('titulo', 'Ticket | Sabueso');
         self::set('script', $script);
@@ -114,6 +105,12 @@ SCRIPT;
         var rastreoInfoWindowsGeoAlternasGrande = [];
         var rastreoMarkersPorGestorAlternas = {};
         var rastreoMarkersPorGestorAlternasGrande = {};
+        var rastreoPolylineAlternas = null;
+        var rastreoPolylineAlternasGrande = null;
+        var rastreoPolylinePathRawAlternas = [];
+        var rastreoPolylinePathRawAlternasGrande = [];
+        var rastreoPolylinesPorGestorAlternas = {};
+        var rastreoPolylinesPorGestorAlternasGrande = {};
         var rastreoFiltroGestorActual = '';
         var rastreoFiltroGestoresSeleccionados = [];
         var rastreoColoresPorGestor = {};
@@ -244,9 +241,10 @@ SCRIPT;
             el.innerHTML += html;
         }
 JS;
-        $script .= "\n\n        function attrEsc(s){ if (s==null||s===undefined) return ''; var x=(s+'').split('&').join('&amp;').split('<').join('&lt;'); return x.split('\"').join('&quot;'); }\n        $(document).ready(function() {\n            configuraTabla(\"#tablaTicketsPanel\", {\n                registrosPorPagina: 10,\n                order: [[1, 'desc']],\n                columns: " . $columnsJson['columnsJs'] . "\n            });\n            getTicketsPanelAdmin();\n        });\n\n        function getTicketsPanelAdmin() {\n            http.request({\n                endpoint: \"/sabueso/getTicketsPanelAdmin\",\n                metodo: \"POST\",\n                onSuccess: function(resp) {\n                    var datos = (resp.datos || []).map(function(t) {\n                        var fechaCreacion = t.fecha_creacion ? new Date(t.fecha_creacion).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—';\n                        var fechaVenc = t.fecha_vencimiento ? new Date(t.fecha_vencimiento).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—';\n                        var prioridadNombre = (t.prioridad_nombre || '').toLowerCase();\n                        var prioridadBadge = '<span class=\"badge bg-label-secondary\">' + (t.prioridad_nombre || '—') + '</span>';\n                        if (prioridadNombre.indexOf('alta') !== -1) prioridadBadge = '<span class=\"badge bg-danger text-white\">' + (t.prioridad_nombre || '—') + '</span>';\n                        else if (prioridadNombre.indexOf('medio') !== -1 || prioridadNombre.indexOf('media') !== -1) prioridadBadge = '<span class=\"badge\" style=\"background-color:#fd7e14;color:#fff;\">' + (t.prioridad_nombre || '—') + '</span>';\n                        else if (prioridadNombre.indexOf('bajo') !== -1 || prioridadNombre.indexOf('baja') !== -1) prioridadBadge = '<span class=\"badge\" style=\"background-color:#ffc107;color:#212529;\">' + (t.prioridad_nombre || '—') + '</span>';\n                        else if (prioridadNombre.indexOf('sin prioridad') !== -1) prioridadBadge = '<span class=\"badge bg-secondary\" style=\"background-color:#6c757d!important;color:#fff;\">' + (t.prioridad_nombre || '—') + '</span>';\n                        var estadoBadge = (t.asignado_nombre && (t.asignado_nombre + '').trim()) ? '<span class=\"badge bg-success text-white\">Asignado</span>' : '<span class=\"badge bg-label-secondary\">Abierto</span>';\n                        var vistoHtml = '';\n                        if ((t.dictamen_estado || '') === 'enviado_al_gestor') {\n                            var vistoTexto = t.dictamen_fecha_visto ? (new Date(t.dictamen_fecha_visto).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' }) + ' ' + new Date(t.dictamen_fecha_visto).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })) : 'No visto';\n                            var iconoOjo = (t.dictamen_fecha_visto && (t.dictamen_fecha_visto + '').trim()) ? 'fa-eye' : 'fa-eye-slash';\n                            var tituloOjo = (t.dictamen_fecha_visto && (t.dictamen_fecha_visto + '').trim()) ? ('Visto: ' + vistoTexto) : 'No visto. Clic para ver dictamen';\n                            vistoHtml = '<span class=\"d-inline-flex align-items-center justify-content-end btn-dictamen-ojito\" role=\"button\" tabindex=\"0\" data-bs-toggle=\"tooltip\" data-bs-title=\"' + (tituloOjo + '').replace(/\"/g, '&quot;') + '\" data-id-ticket=\"' + (t.id_ticket || '') + '\"><i class=\"fa ' + iconoOjo + ' text-info small\"></i></span>';\n                        }\n                        var row = {\n                            _fecha_creacion: (t.fecha_creacion || ''),\n                            folio_tipo: '<div class=\"fw-semibold\">' + (t.folio || '—') + '</div><div class=\"small text-muted mt-1\">' + (t.tipo_ticket_nombre || '—') + '</div>',\n                            estado: estadoBadge,\n                            prioridad: prioridadBadge,\n                            credito: '<small>#' + (t.id_credito != null ? t.id_credito : '—') + '</small>',\n                            fechas: '<div class=\"small d-flex align-items-center gap-1\"><i class=\"fa fa-calendar-plus-o text-muted\" style=\"width: 1rem;\"></i><span>Creación: ' + fechaCreacion + '</span></div><div class=\"small text-muted d-flex align-items-center gap-1 mt-1\"><i class=\"fa fa-calendar-times-o\" style=\"width: 1rem;\"></i><span>Vencimiento: ' + fechaVenc + '</span></div>',\n                            creador: '<small class=\"d-flex align-items-center gap-1\"><i class=\"fa fa-user\"></i>' + (t.creador_nombre || '—') + '</small>',\n                            asignado: (t.asignado_nombre && t.asignado_nombre.trim()) ? '<small class=\"d-flex align-items-center gap-1\"><i class=\"fa fa-user-check text-success\"></i>' + t.asignado_nombre + '</small>' : '<span class=\"text-muted\">—</span>',\n                            dictamen_visto: vistoHtml,\n                            acciones: '<div class=\"d-flex flex-wrap gap-1 align-items-center\"><button class=\"btn btn-sm btn-primary btn-rastreo\" onclick=\"abrirRastreo(this)\" data-id-credito=\"' + (t.id_credito != null ? t.id_credito : 0) + '\" data-id-ticket=\"' + (t.id_ticket) + '\" data-asignado=\"' + attrEsc(t.asignado_nombre) + '\" data-creador-nombre=\"' + attrEsc(t.creador_nombre) + '\" data-fecha-creacion=\"' + attrEsc(t.fecha_creacion) + '\" title=\"Iniciar rastreo\"><i class=\"fa-solid fa-magnifying-glass-plus\"></i></button><button class=\"btn btn-sm btn-secondary\" onclick=\"cerrarTicketPanel(' + (t.id_ticket) + ')\" title=\"Cerrar ticket\"><i class=\"fa fa-minus\"></i></button><button class=\"btn btn-sm btn-danger\" onclick=\"eliminarTicketPanel(' + (t.id_ticket) + ')\" title=\"Eliminar ticket\"><i class=\"fa fa-trash\"></i></button></div>',\n                            _id_ticket: t.id_ticket,\n                            _dictamen_estado: t.dictamen_estado || '',\n                            _dictamen_fecha_visto: t.dictamen_fecha_visto || ''\n                        };\n                        return row;\n                    });\n                    var tabla = $('#tablaTicketsPanel').DataTable();\n                    tabla.clear().rows.add(datos).draw();\n                    tabla.rows().every(function() {\n                        var d = this.data();\n                        if (d._dictamen_estado === 'enviado_al_gestor') {\n                            $(this.node()).addClass('fila-dictamen-enviado').attr('data-id-ticket', d._id_ticket || '');\n                        }\n                    });\n                    $('#tablaTicketsPanel [data-bs-toggle=\"tooltip\"]').tooltip();\n                },\n                onError: function() {\n                    var tabla = $('#tablaTicketsPanel').DataTable();\n                    tabla.clear().draw();\n                }\n            });\n        }\n        function abrirRastreo(btn) {\n            var idCredito = parseInt(btn.getAttribute('data-id-credito')||0, 10);\n            var idTicket = parseInt(btn.getAttribute('data-id-ticket')||0, 10);\n            var asignadoNombre = (btn.getAttribute('data-asignado')||'').trim();\n            var creadorNombre = (btn.getAttribute('data-creador-nombre')||'').trim();\n            var fechaCreacionRaw = (btn.getAttribute('data-fecha-creacion')||'').trim();\n            var fechaCreacionDisplay = fechaCreacionRaw ? (new Date(fechaCreacionRaw).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' }) + ' ' + new Date(fechaCreacionRaw).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })) : '—';\n            ticketIdRastreoActual = idTicket || null;\n            if (!idCredito || isNaN(idCredito)) { Swal.fire({ icon: 'warning', title: 'Rastreo', text: 'No hay ID de crédito para este ticket.' }); return; }\n            http.request({\n                endpoint: \"/sabueso/getDatosCredito\",\n                metodo: \"POST\",\n                data: JSON.stringify({ id_credito: idCredito }),\n                contentType: \"application/json\",\n                processData: false,\n                showLoader: true,\n                onSuccess: function(resp) {\n                    var d = resp.datos || null;\n                    if (!d) { var msg = (resp.mensaje || 'No se encontraron datos para este crédito.'); $('#rastreoTopLeft').html('<div class=\"alert alert-warning mb-0\"><strong>Crédito #' + idCredito + '</strong><br>' + msg + '<br><small>El crédito debe existir en Segundometro u Oferta para ver el rastreo.</small></div>'); $('#rastreoTopRight').html(''); $('#rastreoTickets').html(''); $('#rastreoDireccionesContenido').html(''); idCreditoRastreoActual = idCredito; window.ticketIdRastreoActual = ticketIdRastreoActual; $('#modalRastreoCredito').attr('data-id-ticket', ticketIdRastreoActual || ''); $('#rastreoIdTicketActual').val(ticketIdRastreoActual || '').attr('data-id-ticket', ticketIdRastreoActual || ''); $('#modalRastreoCredito').modal('show'); return; }\n                    var esc = function(s) { var x = (s + '').split('&').join('&amp;').split('<').join('&lt;').split('>').join('&gt;'); return x.split(String.fromCharCode(34)).join('&quot;'); };\n                    var idCred = (d.id_credito || d.Id_credito || '—');\n                    var nombreCompleto = esc(d.Nombre_cliente || d.nombre_completo || '—');\n                    var tel = (d.telefono_referencia1 || d.telefono_referencia2 || '').trim();\n                    var telEsc = tel ? esc(tel) : '—';\n                    var dirMegareporte = (d.Domicilio_Completo && (d.Domicilio_Completo + '').trim()) ? esc(d.Domicilio_Completo) : '—';
+        $script .= "\n\n        function actualizarCountdownsDictamen(selector) {\n            var sel = selector || '#tablaTicketsPanel';\n            $(sel + ' .dictamen-countdown').each(function() {\n                var el = this;\n                var fLim = $(el).attr('data-fecha-limite');\n                var f = $(el).attr('data-fecha-envio');\n                if (!f && !fLim) return;\n                var fin;\n                if (fLim) { fin = new Date(fLim); }\n                else { var envio = new Date(f); fin = new Date(envio.getTime() + 12 * 60 * 60 * 1000); }\n                var now = new Date();\n                var ms = fin - now;\n                var txt = '-';\n                var txtCorto = '-';\n                var expired = ms <= 0;\n                if (ms > 0) {\n                    var h = Math.floor(ms / 3600000);\n                    var m = Math.floor((ms % 3600000) / 60000);\n                    var pref = fLim ? 'Prórroga · ' : '';
+                    txt = pref + 'Tiempo restante: ' + h + 'h ' + m + 'm';\n                    txtCorto = (fLim ? 'P2 ' : '') + h + 'h ' + m + 'm';\n                } else {\n                    txt = fLim ? 'Prórroga vencida' : 'Plazo vencido';\n                    txtCorto = txt;\n                }\n                $(el).attr('title', txt).attr('data-bs-title', txt).toggleClass('text-danger', expired);\n                var txtEl = $(el).find('.dictamen-countdown-text');\n                if (txtEl.length) txtEl.text(txtCorto).toggleClass('text-danger', expired);\n            });\n        }\n        function attrEsc(s){ if (s==null||s===undefined) return ''; var x=(s+'').split('&').join('&amp;').split('<').join('&lt;'); return x.split('\"').join('&quot;'); }\n        $(document).ready(function() {\n            configuraTabla(\"#tablaTicketsPanel\", {\n                registrosPorPagina: 10,\n                order: [[1, 'desc']],\n                columns: " . $columnsJson['columnsJs'] . "\n            });\n            window.panelAdminPrimeraCarga = true;\n            getTicketsPanelAdmin();\n        });\n\n        function getTicketsPanelAdmin() {\n            var filtrosPayload = (typeof window.panelAdminFiltros === 'object' && window.panelAdminFiltros) ? window.panelAdminFiltros : {};\n            var esPrimeraCarga = (window.panelAdminPrimeraCarga === true);\n            http.request({\n                endpoint: \"/sabueso/getTicketsPanelAdmin\",\n                metodo: \"POST\",\n                data: JSON.stringify({ filtros: filtrosPayload }),\n                contentType: \"application/json\",\n                processData: false,\n                showLoader: esPrimeraCarga,\n                onSuccess: function(resp) {\n                    if (esPrimeraCarga) { window.panelAdminPrimeraCarga = false; $('#wrapTablaTicketsPanel').show(); }\n                    var datos = (resp.datos || []).map(function(t) {\n                        var fechaCreacion = t.fecha_creacion ? new Date(t.fecha_creacion).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—';\n                        var fechaVenc = t.fecha_vencimiento ? new Date(t.fecha_vencimiento).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—';\n                        var prioridadNombre = (t.prioridad_nombre || '').toLowerCase();\n                        var prioridadBadge = '<span class=\"badge bg-label-secondary\">' + (t.prioridad_nombre || '—') + '</span>';\n                        if (prioridadNombre.indexOf('alta') !== -1) prioridadBadge = '<span class=\"badge bg-danger text-white\">' + (t.prioridad_nombre || '—') + '</span>';\n                        else if (prioridadNombre.indexOf('medio') !== -1 || prioridadNombre.indexOf('media') !== -1) prioridadBadge = '<span class=\"badge\" style=\"background-color:#fd7e14;color:#fff;\">' + (t.prioridad_nombre || '—') + '</span>';\n                        else if (prioridadNombre.indexOf('bajo') !== -1 || prioridadNombre.indexOf('baja') !== -1) prioridadBadge = '<span class=\"badge\" style=\"background-color:#ffc107;color:#212529;\">' + (t.prioridad_nombre || '—') + '</span>';\n                        else if (prioridadNombre.indexOf('sin prioridad') !== -1) prioridadBadge = '<span class=\"badge bg-secondary\" style=\"background-color:#6c757d!important;color:#fff;\">' + (t.prioridad_nombre || '—') + '</span>';\n                        var estadoBadge = (t.asignado_nombre && (t.asignado_nombre + '').trim()) ? '<span class=\"badge bg-success text-white\">Asignado</span>' : '<span class=\"badge bg-label-secondary\">Abierto</span>';\n                        var vistoHtml = '';\n                        if ((t.dictamen_estado || '') === 'enviado_al_gestor') {\n                            var vistoTexto = t.dictamen_fecha_visto ? (new Date(t.dictamen_fecha_visto).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' }) + ' ' + new Date(t.dictamen_fecha_visto).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })) : 'No visto';\n                            var iconoOjo = (t.dictamen_fecha_visto && (t.dictamen_fecha_visto + '').trim()) ? 'fa-eye' : 'fa-eye-slash';\n                            var tituloOjo = (t.dictamen_fecha_visto && (t.dictamen_fecha_visto + '').trim()) ? ('Visto: ' + vistoTexto) : 'No visto. Clic para ver dictamen';\n                            vistoHtml = '<span class=\"d-inline-flex align-items-center gap-1 justify-content-end btn-dictamen-ojito\" role=\"button\" tabindex=\"0\" data-bs-toggle=\"tooltip\" data-bs-title=\"' + (tituloOjo + '').replace(/\\x22/g, '&quot;') + '\" data-id-ticket=\"' + (t.id_ticket || '') + '\"><i class=\"fa ' + iconoOjo + ' text-info small\"></i></span>';\n                        }\n                        var tiempoVisitarHtml = '—';\n                        var fEnv = (t.dictamen_fecha_envio || '').trim();\n                        var esNuevo = fEnv && new Date(fEnv) >= new Date('2026-03-09T00:00:00');\n                        if ((t.dictamen_estado || '') === 'enviado_al_gestor' && esNuevo && fEnv) {\n                            var envio = new Date(fEnv);\n                            var fLim = (t.prorroga_fecha_limite || '').trim();\n                            var esProrroga = t.prorroga_activa && fLim;\n                            var fin = esProrroga ? new Date(fLim) : new Date(envio.getTime() + 12 * 60 * 60 * 1000);\n                            var now = new Date();\n                            var ms = fin - now;\n                            var txtInicial = ms > 0 ? (Math.floor(ms / 3600000) + 'h ' + Math.floor((ms % 3600000) / 60000) + 'm') : 'Plazo vencido';\n                            var clsPr = esProrroga ? ' dictamen-countdown-prorroga' : '';\n                            var dataLim = esProrroga ? (' data-fecha-limite=\"' + fLim.replace(/\"/g, '&quot;') + '\"') : '';\n                            var iconBlock = esProrroga ? ('<span class=\"position-relative d-inline-flex align-items-baseline\"><i class=\"fa-solid fa-clock text-warning small\"></i><sup class=\"dictamen-prorroga-marca\" title=\"Prórroga +12h (2ª ventana)\">2</sup></span>') : ('<i class=\"fa-solid fa-clock text-info small\"></i>');\n                            tiempoVisitarHtml = '<span class=\"d-inline-flex align-items-center gap-1 dictamen-countdown cursor-pointer' + clsPr + '\" role=\"button\" tabindex=\"0\" data-fecha-envio=\"' + fEnv.replace(/\"/g, '&quot;') + '\"' + dataLim + ' data-id-ticket=\"' + (t.id_ticket || '') + '\" data-bs-toggle=\"tooltip\" data-bs-title=\"' + (esProrroga ? 'Prórroga +12h · tiempo hasta límite' : 'Ventana 12h desde envío') + '\">' + iconBlock + '<span class=\"dictamen-countdown-text\">' + txtInicial + '</span></span>';\n                        }\n                        var prHtml = (t.prorroga_otorgada && t.prorroga_html) ? t.prorroga_html : '';\n                        if (prHtml && tiempoVisitarHtml !== '—') { tiempoVisitarHtml = '<div class=\"d-flex flex-column align-items-center\">' + tiempoVisitarHtml + prHtml + '</div>'; }\n                        else if (prHtml) { tiempoVisitarHtml = prHtml; }\n                        var row = {\n                            _fecha_creacion: (t.fecha_creacion || ''),\n                            folio_tipo: '<div class=\"fw-semibold\">' + (t.folio || '—') + '</div><div class=\"small text-muted mt-1\">' + (t.tipo_ticket_nombre || '—') + '</div>',\n                            estado: estadoBadge,\n                            prioridad: prioridadBadge,\n                            credito: '<small>#' + (t.id_credito != null ? t.id_credito : '—') + '</small>',\n                            fechas: '<div class=\"small d-flex align-items-center gap-1\"><i class=\"fa fa-calendar-plus-o text-muted\" style=\"width: 1rem;\"></i><span>Creación: ' + fechaCreacion + '</span></div><div class=\"small text-muted d-flex align-items-center gap-1 mt-1\"><i class=\"fa fa-calendar-times-o\" style=\"width: 1rem;\"></i><span>Vencimiento: ' + fechaVenc + '</span></div>',\n                            creador: '<small class=\"d-flex align-items-center gap-1\"><i class=\"fa fa-user\"></i>' + (t.creador_nombre || '—') + '</small>',\n                            asignado: (t.asignado_nombre && t.asignado_nombre.trim()) ? '<small class=\"d-flex align-items-center gap-1\"><i class=\"fa fa-user-check text-success\"></i>' + t.asignado_nombre + '</small>' : '<span class=\"text-muted\">—</span>',\n                            tiempo_visitar: tiempoVisitarHtml,\n                            ds_resultado: (t.ds_resultado_html != null && t.ds_resultado_html !== '') ? t.ds_resultado_html : '—',\n                            dictamen_visto: vistoHtml,\n                            acciones: (function(){ var fEnvDS = (t.dictamen_fecha_envio || '').trim(); var ticketDesdeMarzo10 = t.fecha_creacion && (new Date(t.fecha_creacion) >= new Date(2026, 2, 10)); var plazoVencido = false; if (fEnvDS && ticketDesdeMarzo10 && (t.dictamen_estado || '') === 'enviado_al_gestor') { var plazoDS = new Date(fEnvDS).getTime() + 12*60*60*1000; plazoVencido = (Date.now() >= plazoDS); } var btns = '<div class=\"d-flex flex-column gap-1 align-items-stretch\" style=\"min-width:2.5rem;\"><button class=\"btn btn-sm btn-primary btn-rastreo\" onclick=\"abrirRastreo(this)\" data-id-credito=\"' + (t.id_credito != null ? t.id_credito : 0) + '\" data-id-ticket=\"' + (t.id_ticket) + '\" data-asignado=\"' + attrEsc(t.asignado_nombre) + '\" data-creador-nombre=\"' + attrEsc(t.creador_nombre) + '\" data-fecha-creacion=\"' + attrEsc(t.fecha_creacion) + '\" title=\"Iniciar rastreo\"><i class=\"fa-solid fa-magnifying-glass-plus\"></i></button>'; if (plazoVencido) { btns += '<button type=\"button\" class=\"btn btn-sm btn-warning btn-dictamen-sistema\" onclick=\"abrirDictamenSistema(' + t.id_ticket + ')\" title=\"Dictamen del sistema\"><i class=\"fa-solid fa-robot\"></i></button>'; } btns += '<button class=\"btn btn-sm btn-secondary\" onclick=\"cerrarTicketPanel(' + (t.id_ticket) + ')\" title=\"Cerrar ticket\"><i class=\"fa fa-minus\"></i></button><button class=\"btn btn-sm btn-danger\" onclick=\"eliminarTicketPanel(' + (t.id_ticket) + ')\" title=\"Eliminar ticket\"><i class=\"fa fa-trash\"></i></button></div>'; return btns; })(),\n                            _id_ticket: t.id_ticket,\n                            _dictamen_estado: t.dictamen_estado || '',\n                            _dictamen_fecha_visto: t.dictamen_fecha_visto || ''\n                        };\n                        return row;\n                    });\n                    var tabla = $('#tablaTicketsPanel').DataTable();\n                    var paginaAntes = tabla.page.info().page;\n                    tabla.clear().rows.add(datos);\n                    var np = tabla.page.info().pages;\n                    if (paginaAntes >= np) paginaAntes = Math.max(0, np - 1);\n                    tabla.page(paginaAntes).draw(false);\n                    tabla.rows().every(function() {\n                        var d = this.data();\n                        if (d._dictamen_estado === 'enviado_al_gestor') {\n                            $(this.node()).addClass('fila-dictamen-enviado').attr('data-id-ticket', d._id_ticket || '');\n                        }\n                    });\n                    if (typeof actualizarCountdownsDictamen === 'function') actualizarCountdownsDictamen('#tablaTicketsPanel');\n                    $('#tablaTicketsPanel [data-bs-toggle=\"tooltip\"]').tooltip();\n                },\n                onError: function() {\n                    if (esPrimeraCarga) { window.panelAdminPrimeraCarga = false; $('#wrapTablaTicketsPanel').show(); }\n                    var tabla = $('#tablaTicketsPanel').DataTable();\n                    tabla.clear().draw();\n                }\n            });\n        }\n        setInterval(function() { if (typeof actualizarCountdownsDictamen === 'function') actualizarCountdownsDictamen('#tablaTicketsPanel'); }, 1000);\n        function abrirRastreo(btn) {\n            var idCredito = parseInt(btn.getAttribute('data-id-credito')||0, 10);\n            var idTicket = parseInt(btn.getAttribute('data-id-ticket')||0, 10);\n            var asignadoNombre = (btn.getAttribute('data-asignado')||'').trim();\n            var creadorNombre = (btn.getAttribute('data-creador-nombre')||'').trim();\n            var fechaCreacionRaw = (btn.getAttribute('data-fecha-creacion')||'').trim();\n            var fechaCreacionDisplay = fechaCreacionRaw ? (new Date(fechaCreacionRaw).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' }) + ' ' + new Date(fechaCreacionRaw).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })) : '—';\n            ticketIdRastreoActual = idTicket || null;\n            if (!idCredito || isNaN(idCredito)) { Swal.fire({ icon: 'warning', title: 'Rastreo', text: 'No hay ID de crédito para este ticket.' }); return; }\n            http.request({\n                endpoint: \"/sabueso/getDatosCredito\",\n                metodo: \"POST\",\n                data: JSON.stringify({ id_credito: idCredito }),\n                contentType: \"application/json\",\n                processData: false,\n                showLoader: true,\n                onSuccess: function(resp) {\n                    var d = resp.datos || null;\n                    if (!d) { var msg = (resp.mensaje || 'No se encontraron datos para este crédito.'); $('#rastreoTopLeft').html('<div class=\"alert alert-warning mb-0\"><strong>Crédito #' + idCredito + '</strong><br>' + msg + '<br><small>El crédito debe existir en Segundometro u Oferta para ver el rastreo.</small></div>'); $('#rastreoTopRight').html(''); $('#rastreoTickets').html(''); $('#rastreoDireccionesContenido').html(''); idCreditoRastreoActual = idCredito; window.ticketIdRastreoActual = ticketIdRastreoActual; $('#modalRastreoCredito').attr('data-id-ticket', ticketIdRastreoActual || ''); $('#rastreoIdTicketActual').val(ticketIdRastreoActual || '').attr('data-id-ticket', ticketIdRastreoActual || ''); $('#modalRastreoCredito').modal('show'); return; }\n                    var esc = function(s) { var x = (s + '').split('&').join('&amp;').split('<').join('&lt;').split('>').join('&gt;'); return x.split(String.fromCharCode(34)).join('&quot;'); };\n                    var idCred = (d.id_credito || d.Id_credito || '—');\n                    var nombreCompleto = esc(d.Nombre_cliente || d.nombre_completo || '—');\n                    var tel = (d.telefono_referencia1 || d.telefono_referencia2 || '').trim();\n                    var telEsc = tel ? esc(tel) : '—';\n                    var dirMegareporte = (d.Domicilio_Completo && (d.Domicilio_Completo + '').trim()) ? esc(d.Domicilio_Completo) : '—';
                     rastreoTicketInfoBase = '<div class=\"rastreo-ticket-info-col\"><span class=\"text-muted small d-block\">Quién levantó el ticket</span><div class=\"fw-medium\">' + (creadorNombre ? esc(creadorNombre) : '—') + '</div><span class=\"text-muted small d-block mt-1\">Cuando se levantó</span><div class=\"fw-medium\">' + fechaCreacionDisplay + '</div><span class=\"text-muted small d-block mt-1\">Asignado a</span><div id=\"rastreoAsignadoBlock\" class=\"fw-medium\"><span class=\"text-muted\">Cargando...</span></div></div>';\n                    var htmlTicketInfo = rastreoTicketInfoBase;\n                    var htmlTopLeft = '<div><span class=\"text-muted small d-block\">ID crédito</span><div class=\"fw-semibold\">' + idCred + '</div></div><div><span class=\"text-muted small d-block\">Nombre completo</span><div class=\"fw-semibold\">' + nombreCompleto + '</div></div><div><span class=\"text-muted small d-block\">Teléfono cliente</span><div class=\"fw-semibold\">' + telEsc + '</div></div><div><span class=\"text-muted small d-block\">Dirección megareporte</span><div class=\"fw-semibold small\">' + dirMegareporte + '</div></div>';\n                    var dirContenido = (d.Domicilio_Completo && (d.Domicilio_Completo + '').trim()) ? esc(d.Domicilio_Completo) : '<span class=\"text-muted\">No hay direcciones registradas</span>';\n                    var tickets = d.tickets || [];\n                    var ticketActual = tickets.filter(function(tk) { return tk.id_ticket == ticketIdRastreoActual; })[0];\n                    var htmlTickets = '';\n                    if (ticketActual) {\n                        var fCreacion = ticketActual.fecha_creacion ? new Date(ticketActual.fecha_creacion).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—';\n                        var fVenc = ticketActual.fecha_vencimiento ? new Date(ticketActual.fecha_vencimiento).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—';\n                        htmlTickets = '<div class=\"small bg-light rounded p-2 mb-2\"><strong>' + esc(ticketActual.folio || '—') + '</strong> · ' + esc(ticketActual.tipo_nombre || '') + ' · ' + esc(ticketActual.estado_nombre || '') + '<br><span class=\"text-muted small\">Descripción:</span> ' + esc(ticketActual.descripcion_inicial || '—') + '<br>Creación: ' + fCreacion + ' · Venc: ' + fVenc + '</div>';\n                    } else { htmlTickets = '<span class=\"text-muted small\">Ticket actual (sin detalle adicional).</span>'; }\n                    $('#rastreoTopLeft').html(htmlTopLeft); if(typeof sabuesoAppendInformacionIngresos==='function')sabuesoAppendInformacionIngresos(document.getElementById('rastreoTopLeft'),d,esc); $('#rastreoTopRight').html(htmlTicketInfo);\n                    loadHistorialAsignacionTicket(ticketIdRastreoActual);\n                    $('#rastreoTickets').html(htmlTickets);\n                    $('#rastreoDireccionesContenido').html('<span class=\"text-muted\">Cargando direcciones...</span>');\n                    rastreoDireccionesParaMapa = [];\n                    $('#btnAsignarRastreo').html('<i class=\"fa-solid fa-user-plus me-1\"></i>Asignar...');\n                    idCreditoRastreoActual = idCredito;\n                    rastreoDatosClienteActual = { nombre: (d.Nombre_cliente || d.nombre_completo || '—'), credito: idCred, telefono: (tel || '—'), direccion: (d.Domicilio_Completo || '—') };\n                    var kA = \"sabueso_ia_\" + idCredito + \"_\" + (idTicket || 0) + \"_analizar\"; var kU = \"sabueso_ia_\" + idCredito + \"_ubicaciones\"; var kG = \"sabueso_ia_\" + idCredito + \"_gestiones\";\n                    try { if (typeof localStorage !== \"undefined\") { rastreoUltimoAnalizarIA = localStorage.getItem(kA) || \"\"; rastreoUltimoResumenUbicaciones = localStorage.getItem(kU) || \"\"; rastreoUltimoResumenGestiones = localStorage.getItem(kG) || \"\"; } else { rastreoUltimoAnalizarIA = \"\"; rastreoUltimoResumenUbicaciones = \"\"; rastreoUltimoResumenGestiones = \"\"; } } catch (e) { rastreoUltimoAnalizarIA = \"\"; rastreoUltimoResumenUbicaciones = \"\"; rastreoUltimoResumenGestiones = \"\"; }\n                    if (rastreoUltimoAnalizarIA) { \$(\"#btnLecturaIAAnalizar\").show(); \$(\"#btnBorrarIAAnalizar\").show(); } else { \$(\"#btnLecturaIAAnalizar\").hide(); \$(\"#btnBorrarIAAnalizar\").hide(); }\n                    if (rastreoUltimoResumenUbicaciones) { \$(\"#btnLecturaIAUbicaciones\").show(); \$(\"#btnBorrarIAUbicaciones\").show(); } else { \$(\"#btnLecturaIAUbicaciones\").hide(); \$(\"#btnBorrarIAUbicaciones\").hide(); }\n                    if (rastreoUltimoResumenGestiones) { \$(\"#btnLecturaIAGestiones\").show(); \$(\"#btnBorrarIAGestiones\").show(); } else { \$(\"#btnLecturaIAGestiones\").hide(); \$(\"#btnBorrarIAGestiones\").hide(); }\n                    window.ticketIdRastreoActual = ticketIdRastreoActual; \$(\"#modalRastreoCredito\").attr(\"data-id-ticket\", ticketIdRastreoActual || \"\"); \$(\"#rastreoIdTicketActual\").val(ticketIdRastreoActual || \"\").attr(\"data-id-ticket\", ticketIdRastreoActual || \"\"); \$(\"#modalRastreoCredito\").modal(\"show\");\n                },\n                onError: function(err) {\n                    var errMsg = (typeof err === 'string' ? err : (err && err.mensaje)) || 'No se pudieron cargar los datos del crédito.';\n                    Swal.fire({ icon: 'error', title: 'Rastreo', text: errMsg });\n                }\n            });\n        }\n        function tooltipHistorialAsignacion(estado, historial) {\n            if (estado === 'primera_asignacion') return 'Es la primera asignación de este ticket.';\n            var lineas = ['Historial de asignación (este ticket)'];\n            (historial || []).forEach(function(h) { lineas.push('• ' + (h.persona || '—') + ': ' + (h.duracion_humana || '—')); });\n            if (estado === 'sin_asignar') lineas.push('Actualmente sin persona asignada a este ticket.');\n            return lineas.join('\\n');\n        }\n        function loadHistorialAsignacionTicket(idTicket) {\n            if (!idTicket) return;\n            http.request({ endpoint: '/sabueso/getHistorialAsignacionTicket', metodo: 'POST', data: JSON.stringify({ id_ticket: idTicket }), contentType: 'application/json', processData: false, onSuccess: function(r) {\n                var asignado = r.asignado_actual || null;\n                var estado = r.estado || 'primera_asignacion';\n                var historial = r.historial || [];\n                var tooltipTxt = tooltipHistorialAsignacion(estado, historial);\n                var tooltipEsc = (tooltipTxt + '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/\"/g, '&quot;');\n                var tooltipAttr = tooltipEsc.replace(/\\n/g, '<br>');\n                var html = asignado ? ('<i class=\"fa-solid fa-user-check text-success me-1\"></i>' + (asignado.replace(/&/g, '&amp;').replace(/</g, '&lt;')) + ' <i class=\"fa-solid fa-circle-info ms-1\" role=\"img\" aria-label=\"Historial\" data-bs-toggle=\"tooltip\" data-bs-html=\"true\" data-bs-title=\"' + tooltipAttr + '\"></i>') : ('<span class=\"text-muted\">Sin asignar</span> <i class=\"fa-solid fa-circle-info ms-1\" role=\"img\" aria-label=\"Historial\" data-bs-toggle=\"tooltip\" data-bs-html=\"true\" data-bs-title=\"' + tooltipAttr + '\"></i>');\n                var bloque = $('#rastreoAsignadoBlock');\n                if (bloque.length) bloque.html(html);\n                if (asignado) { if (!$('#rastreoAsignadoBlock').next('.btn').length) $('#rastreoAsignadoBlock').after('<button type=\"button\" class=\"btn btn-sm btn-outline-danger mt-1\" onclick=\"quitarAsignacionRastreo()\" title=\"Quitar asignación\">Quitar asignación</button>'); } else { $('#rastreoAsignadoBlock').next('.btn').remove(); }\n                $('#btnAsignarRastreo').html(asignado ? '<i class=\"fa-solid fa-user-pen me-1\"></i>Reasignar a...' : '<i class=\"fa-solid fa-user-plus me-1\"></i>Asignar...');\n                if (typeof $().tooltip === 'function') { $('#rastreoAsignadoBlock [data-bs-toggle=\"tooltip\"]').tooltip(); }\n            } });\n        }\n        function mostrarAsignarOpciones() {\n            if (!ticketIdRastreoActual) { Swal.fire({ icon: 'warning', title: 'Asignar', text: 'No hay ticket seleccionado.' }); return; }\n            Swal.fire({ title: 'Asignar ticket', text: '¿A quién desea asignar este ticket?', icon: 'question', showDenyButton: true, showCancelButton: true, confirmButtonText: 'Tomar asignación', denyButtonText: 'Asignar a...', cancelButtonText: 'Cancelar' }).then(function(res) {\n                if (res.isConfirmed) asignarTicketA(miUsuarioId);\n                else if (res.isDenied) abrirModalAsignarA();\n            });\n        }\n        function asignarTicketA(idPersona) {\n            if (!ticketIdRastreoActual || !idPersona) return;\n            http.request({ endpoint: \"/sabueso/asignarTicket\", metodo: \"POST\", data: JSON.stringify({ id_ticket: ticketIdRastreoActual, id_persona: idPersona }), contentType: \"application/json\", processData: false, onSuccess: function(r) {\n                Swal.fire({ icon: 'success', title: 'Asignado', text: r.mensaje || 'Ticket asignado.' });\n                $('#modalRastreoCredito, #modalAsignarA').modal('hide');\n                ticketIdRastreoActual = null;\n                getTicketsPanelAdmin();\n            }, onError: function(e) { Swal.fire({ icon: 'error', title: 'Error', text: (e && e.mensaje) || 'No se pudo asignar.' }); } });\n        }\n        function quitarAsignacionRastreo() {\n            if (!ticketIdRastreoActual) return;\n            if (typeof Swal !== 'undefined') {\n                Swal.fire({ title: '¿Quitar asignación?', text: 'El ticket quedará sin persona asignada.', icon: 'question', showCancelButton: true, confirmButtonColor: '#d33', cancelButtonColor: '#6c757d', confirmButtonText: 'Sí, quitar' }).then(function(res) {\n                    if (!res.isConfirmed) return;\n                    http.request({ endpoint: '/sabueso/quitarAsignacionTicket', metodo: 'POST', data: JSON.stringify({ id_ticket: ticketIdRastreoActual }), contentType: 'application/json', processData: false, onSuccess: function(r) {\n                        if (r.success) { Swal.fire({ icon: 'success', title: 'Listo', text: r.mensaje || 'Asignación quitada.' }); if (ticketIdRastreoActual) loadHistorialAsignacionTicket(ticketIdRastreoActual); getTicketsPanelAdmin(); } else { if (typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: 'Error', text: r.mensaje || 'No se pudo quitar.' }); }\n                    }, onError: function(e) { if (typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: 'Error', text: (e && e.mensaje) || 'No se pudo quitar.' }); } });\n                });\n            } else {\n                http.request({ endpoint: '/sabueso/quitarAsignacionTicket', metodo: 'POST', data: JSON.stringify({ id_ticket: ticketIdRastreoActual }), contentType: 'application/json', processData: false, onSuccess: function(r) { if (r.success) { if (idCreditoRastreoActual) loadHistorialAsignacion(idCreditoRastreoActual); getTicketsPanelAdmin(); } } });\n            }\n        }\n        function abrirModalAsignarA() {\n            http.request({ endpoint: \"/sabueso/getPersonasSabueso\", metodo: \"POST\", onSuccess: function(resp) {\n                var list = resp.datos || [];\n                var html = list.length ? list.map(function(p) { return '<div class=\"d-flex justify-content-between align-items-center py-2 border-bottom\"><span>' + (p.nombre_completo || p.id) + '</span><button type=\"button\" class=\"btn btn-sm btn-primary\" onclick=\"asignarTicketA(' + p.id + ')\">Asignárselo</button></div>'; }).join('') : '<p class=\"text-muted mb-0\">No hay personas en el departamento Sabueso.</p>';\n                $('#modalAsignarABody').html(html);\n                $('#modalRastreoCredito').modal('hide');\n                $('#modalAsignarA').modal('show');\n            }, onError: function() { Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudo cargar la lista.' }); } });\n        }\n        function cerrarTicketPanel(idTicket) {\n            if (!idTicket) return;\n            Swal.fire({ title: '¿Cerrar ticket?', text: 'El ticket se registrará como cerrado y dejará de mostrarse en la lista activa.', icon: 'question', showCancelButton: true, confirmButtonColor: '#fd7e14', cancelButtonColor: '#6c757d', confirmButtonText: 'Sí, cerrar' }).then(function(res) {\n                if (!res.isConfirmed) return;\n                http.request({\n                    endpoint: \"/sabueso/cerrarTicket\",\n                    metodo: \"POST\",\n                    data: JSON.stringify({ id_ticket: idTicket }),\n                    contentType: \"application/json\",\n                    processData: false,\n                    onSuccess: function(resp) {\n                        Swal.fire({ icon: 'success', title: 'Cerrado', text: resp.mensaje || 'Ticket cerrado.' });\n                        getTicketsPanelAdmin();\n                    },\n                    onError: function(err) {\n                        Swal.fire({ icon: 'error', title: 'Error', text: (err && err.mensaje) || 'No se pudo cerrar.' });\n                    }\n                });\n            });\n        }\n        function eliminarTicketPanel(idTicket) {\n            if (!idTicket) return;\n            Swal.fire({ title: '¿Eliminar ticket?', text: 'Esta acción no se puede deshacer.', icon: 'warning', showCancelButton: true, confirmButtonColor: '#d33', cancelButtonColor: '#6c757d', confirmButtonText: 'Sí, eliminar' }).then(function(res) {\n                if (!res.isConfirmed) return;\n                http.request({\n                    endpoint: \"/sabueso/eliminarTicket\",\n                    metodo: \"POST\",\n                    data: JSON.stringify({ id_ticket: idTicket }),\n                    contentType: \"application/json\",\n                    processData: false,\n                    onSuccess: function(resp) {\n                        Swal.fire({ icon: 'success', title: 'Eliminado', text: resp.mensaje || 'Ticket eliminado.' });\n                        getTicketsPanelAdmin();\n                    },\n                    onError: function(err) {\n                        Swal.fire({ icon: 'error', title: 'Error', text: (err && err.mensaje) || 'No se pudo eliminar.' });\n                    }\n                });\n            });\n        }\n";
-        $evidenciasScript = 'var miUsuarioId = ' . (int)$usuarioId . '; var miPersonaId = ' . (int)$personaId . '; var miUsuarioNombre = ' . json_encode($usuarioNombre ?? '', JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . ';
+        $evidenciasScript = 'var miUsuarioId = ' . (int)$usuarioId . '; var miPersonaId = ' . (int)$personaId . '; var miUsuarioNombre = ' . json_encode($usuarioNombre ?? '', JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP) . ';
         var evidenciasRastreoActual = []; var evidenciaModalSlot = null; var evidenciaModalId = null; var evidenciaPreviewObjectUrl = null;
         function formatGeminiText(text) {
             if (!text) return \'\';
@@ -281,14 +279,13 @@ JS;
             }
         }
         function cargarDictamenRastreo() {
-            if (!ticketIdRastreoActual) { $(\'#rastreoDictamenContenido\').html(\'<span class="text-muted">Seleccione un ticket.</span>\'); $(\'#rastreoDictamenCombo\').val(\'\'); $(\'#rastreoDictamenDescripcion\').val(\'\'); $(\'#btnDictamenEnviarGestor, #btnDictamenAmpliadaEnviarGestor\').prop(\'disabled\', false).html(\'<i class="fa-solid fa-paper-plane me-1"></i>Enviar al gestor\'); $(\'#rastreoDictamenCombo, #rastreoDictamenDescripcion, #rastreoDictamenEvidenciaAdd, #rastreoDictamenAmpliadaEvidenciaAdd\').prop(\'disabled\', false); $(\'.rastreo-seccion-dictamen\').removeClass(\'dictamen-solo-lectura\'); $(\'.rastreo-dictamen-form-ampliada\').removeClass(\'dictamen-solo-lectura\'); return; }
+            if (!ticketIdRastreoActual) { $(\'#rastreoDictamenContenido\').html(\'<span class="text-muted">Seleccione un ticket.</span>\'); $(\'#rastreoDictamenCombo\').val(\'\'); $(\'#rastreoDictamenDescripcion\').val(\'\'); $(\'#rastreoDictamenDomiciliosWrap, #rastreoDictamenAmpliadaDomiciliosWrap\').empty(); $(\'#btnDictamenEnviarGestor, #btnDictamenAmpliadaEnviarGestor\').prop(\'disabled\', false).html(\'<i class="fa-solid fa-paper-plane me-1"></i>Enviar al gestor\'); $(\'#rastreoDictamenCombo, #rastreoDictamenDescripcion, #rastreoDictamenEvidenciaAdd, #rastreoDictamenAmpliadaEvidenciaAdd\').prop(\'disabled\', false); $(\'.rastreo-seccion-dictamen\').removeClass(\'dictamen-solo-lectura\'); $(\'.rastreo-dictamen-form-ampliada\').removeClass(\'dictamen-solo-lectura\'); return; }
             if (typeof rellenarEvidenciasDictamen === \'function\') rellenarEvidenciasDictamen(ticketIdRastreoActual);
             http.request({ endpoint: "/sabueso/getDictamenActualTicket", metodo: "POST", data: JSON.stringify({ id_ticket: ticketIdRastreoActual }), contentType: "application/json", processData: false, showLoader: false, onSuccess: function(r) {
                 var d = (r.success && r.datos) ? r.datos : null;
                 $(\'#rastreoDictamenCombo\').val(d && d.tipo ? d.tipo : \'\');
-                $(\'#rastreoDictamenDescripcion\').val(d && d.descripcion ? d.descripcion : \'\');
                 $(\'#rastreoDictamenAmpliadaCombo\').val(d && d.tipo ? d.tipo : \'\');
-                $(\'#rastreoDictamenAmpliadaDescripcion\').val(d && d.descripcion ? d.descripcion : \'\');
+                if (typeof rellenarDomiciliosDictamen === \'function\') rellenarDomiciliosDictamen(d && d.descripcion ? d.descripcion : \'\'); else { $(\'#rastreoDictamenDescripcion, #rastreoDictamenAmpliadaDescripcion\').val(d && d.descripcion ? d.descripcion : \'\'); $(\'#rastreoDictamenDomiciliosWrap, #rastreoDictamenAmpliadaDomiciliosWrap\').empty(); }
                 var estado = (d && d.estado) ? d.estado : \'\';
                 if (estado === \'enviado_al_gestor\') {
                     $(\'#rastreoDictamenCombo, #rastreoDictamenDescripcion, #rastreoDictamenAmpliadaCombo, #rastreoDictamenAmpliadaDescripcion, #rastreoDictamenEvidenciaAdd, #rastreoDictamenAmpliadaEvidenciaAdd\').prop(\'disabled\', true);
@@ -296,7 +293,7 @@ JS;
                     $(\'.rastreo-seccion-dictamen\').addClass(\'dictamen-solo-lectura\');
                     $(\'.rastreo-dictamen-form-ampliada\').addClass(\'dictamen-solo-lectura\');
                     var fEnv = (d.fecha_actualizacion ? new Date(d.fecha_actualizacion).toLocaleString(\'es-MX\', { day: \'2-digit\', month: \'2-digit\', year: \'numeric\', hour: \'2-digit\', minute: \'2-digit\' }) : \'—\');
-                    $(\'#rastreoDictamenContenido\').html(\'<div class="small"><strong>Dictamen enviado al gestor</strong><br><span class="text-muted">Tipo: \' + (d.tipo || \'—\') + \'</span><br><span class="text-muted">Descripción: \' + (d.descripcion || \'\').replace(/</g, \'&lt;\').replace(/>/g, \'&gt;\') + \'</span><br><span class="text-muted">Enviado: \' + fEnv + \'</span></div>\');
+                    $(\'#rastreoDictamenContenido\').html(\'<div class="small"><strong>Dictamen enviado al gestor</strong><br><p class="text-info mb-2 d-flex align-items-center gap-1"><i class="fa-solid fa-clock"></i>Vas a tener 12 horas para visitar al cliente.</p><span class="text-muted">Tipo: \' + (d.tipo || \'—\') + \'</span><br><span class="text-muted">Descripción: \' + (d.descripcion || \'\').replace(/</g, \'&lt;\').replace(/>/g, \'&gt;\') + \'</span><br><span class="text-muted">Enviado: \' + fEnv + \'</span></div>\');
                 } else if (d && (d.tipo || d.descripcion)) {
                     $(\'#rastreoDictamenCombo, #rastreoDictamenDescripcion, #rastreoDictamenAmpliadaCombo, #rastreoDictamenAmpliadaDescripcion, #rastreoDictamenEvidenciaAdd, #rastreoDictamenAmpliadaEvidenciaAdd\').prop(\'disabled\', false);
                     $(\'#btnDictamenEnviarGestor, #btnDictamenAmpliadaEnviarGestor\').prop(\'disabled\', false).html(\'<i class="fa-solid fa-paper-plane me-1"></i>Enviar al gestor\');
@@ -347,7 +344,7 @@ JS;
                     html += \'</div>\';
                 });
                 $(\'#rastreoGestionesContenido\').html(html || \'<span class="text-muted">Sin gestiones para este crédito.</span>\');
-                rastreoGestionesParaMapa = (r.datos || []).filter(function(g) { var lat = parseFloat(g.latitud || g.lat), lng = parseFloat(g.longitud || g.lng); if (isNaN(lat) || isNaN(lng)) return false; var mCampo = (g.medio_contactacion_campo || \'\').toString().trim(); var dCampo = (g.dictamen_campo || \'\').toString().trim(); return mCampo !== \'\' || dCampo !== \'\'; }).slice(0, 7).map(function(g, idx) { return { lat: parseFloat(g.latitud || g.lat), lng: parseFloat(g.longitud || g.lng), nombre: ((g.usuario_asignado || g.usuario || g.codigo_gestor || \'—\') + \'\').trim(), fecha: ((g.fecha_dispositivo || g.fecha_hora || \'\') + \'\').toString().substring(0, 16), numero: idx + 1 }; });
+                rastreoGestionesParaMapa = (r.datos || []).filter(function(g) { var lat = parseFloat(g.latitud || g.lat), lng = parseFloat(g.longitud || g.lng); return !isNaN(lat) && !isNaN(lng); }).slice(0, 16).map(function(g, idx) { var contacto = ((g.contacto || \'\') + \'\').trim().toUpperCase(); var esTelefono = (contacto === \'TELEFONO\'); return { lat: parseFloat(g.latitud || g.lat), lng: parseFloat(g.longitud || g.lng), nombre: ((g.usuario_asignado || g.usuario || g.codigo_gestor || \'—\') + \'\').trim(), fecha: ((g.fecha_dispositivo || g.fecha_hora || \'\') + \'\').toString().substring(0, 16), numero: idx + 1, esCampo: !esTelefono }; });
                 rastreoGestionesCargadas = true;
                 rastreoTotalGestiones = (r.datos || []).length;
                 rastreoConUbicacion = rastreoGestionesParaMapa.length;
@@ -368,6 +365,129 @@ JS;
         function pinGotaIcon(colorHex) {
             var svg = \'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 40"><path fill="\' + colorHex + \'" stroke="#333" stroke-width="1" d="M12 0C5.4 0 0 5.4 0 12c0 9 12 28 12 28s12-19 12-28C24 5.4 18.6 0 12 0z"/><circle cx="12" cy="10" r="4" fill="white"/></svg>\';
             return { url: \'data:image/svg+xml;charset=UTF-8,\' + encodeURIComponent(svg), scaledSize: new google.maps.Size(28, 40), anchor: new google.maps.Point(14, 40) };
+        }
+        function pinCirculoIcon(fillHex, strokeHex) {
+            strokeHex = strokeHex || \'#333\';
+            return { path: google.maps.SymbolPath.CIRCLE, scale: 10, fillColor: fillHex, fillOpacity: 1, strokeColor: strokeHex, strokeWeight: 2 };
+        }
+        function pinCirculoIconWithNumber(colorHex, num) {
+            var n = (num != null && num !== \'\') ? String(num) : \'?\';
+            var safe = n.replace(/&/g, \'&amp;\').replace(/</g, \'&lt;\');
+            var svg = \'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 36 36"><circle cx="18" cy="18" r="14" fill="\' + colorHex + \'" stroke="#9a3412" stroke-width="2"/><text x="18" y="22" text-anchor="middle" fill="white" font-size="12" font-weight="700" font-family="Arial,sans-serif">\' + safe + \'</text></svg>\';
+            return { url: \'data:image/svg+xml;charset=UTF-8,\' + encodeURIComponent(svg), scaledSize: new google.maps.Size(30, 30), anchor: new google.maps.Point(15, 15) };
+        }
+        function iconoFlotanteGestor(esCampo) { return esCampo ? \'fa-motorcycle\' : \'fa-phone\'; }
+        function iconoFlotanteGeo(dondeFirma) {
+            var d = (dondeFirma || \'\').toString().trim().toUpperCase();
+            if (d.indexOf(\'CASA\') !== -1) return \'fa-house\';           /* casa → 🏠 */
+            if (d.indexOf(\'AGENCIA\') !== -1) return \'fa-landmark\';     /* agencia → 🏢 */
+            return \'fa-map-marker-alt\';                                   /* otro domicilio → 🏘️ */
+        }
+        function emojiIconoFlotante(tipo) {
+            if (tipo === \'fa-motorcycle\') return \'🛵\';
+            if (tipo === \'fa-phone\') return \'📞\';
+            if (tipo === \'fa-house\') return \'🏠\';      /* casa (geo) */
+            if (tipo === \'fa-landmark\') return \'🏢\';  /* agencia */
+            if (tipo === \'fa-megareporte\') return \'🏡\';  /* casa megareporte */
+            if (tipo === \'fa-map-marker-alt\') return \'🏘️\';  /* otro domicilio */
+            if (tipo === \'fa-location-dot\') return \'📍\';
+            return \'📍\';
+        }
+        function IconoFlotanteOverlay(position, faClass, colorHex, offsetY) { this.position = position; this.faClass = faClass; this.colorHex = colorHex || \'#333\'; this.offsetY = offsetY != null ? offsetY : -24; this.div_ = null; }
+        function ensureIconoFlotanteOverlayReady() {
+            if (typeof google === \'undefined\' || !google.maps || !google.maps.OverlayView) return;
+            if (IconoFlotanteOverlay.prototype.draw) return;
+            IconoFlotanteOverlay.prototype = new google.maps.OverlayView();
+            IconoFlotanteOverlay.prototype.onAdd = function() {
+                this.div_ = document.createElement(\'div\');
+                this.div_.className = \'rastreo-icono-flotante\';
+                this.div_.innerHTML = \'<span class="rastreo-icono-emoji">\' + emojiIconoFlotante(this.faClass) + \'</span>\';
+                this.div_.style.position = \'absolute\'; this.div_.style.pointerEvents = \'none\'; this.div_.style.whiteSpace = \'nowrap\';
+                var panes = this.getPanes(); if (panes && panes.floatPane) panes.floatPane.appendChild(this.div_);
+            };
+            IconoFlotanteOverlay.prototype.draw = function() {
+                if (!this.div_ || !this.position) return;
+                var proj = this.getProjection(); if (!proj) return;
+                var point = proj.fromLatLngToDivPixel(new google.maps.LatLng(this.position.lat, this.position.lng));
+                if (!point) return;
+                var baseOffset = this.offsetY != null ? this.offsetY : -24;
+                var finalOffset = baseOffset;
+                var offsetX = 0;
+                var slots = [[0,-24],[22,0],[0,18],[-22,0],[18,-18],[-18,-18],[18,18],[-18,18],[28,-12],[-28,-12],[28,12],[-28,12]];
+                if (typeof window !== \'undefined\' && window.rastreoIconoPosiciones && Array.isArray(window.rastreoIconoPosiciones)) {
+                    var selfLat = this.position.lat, selfLng = this.position.lng;
+                    var umbralCluster = 48;
+                    var cluster = [];
+                    for (var i = 0; i < window.rastreoIconoPosiciones.length; i++) {
+                        var o = window.rastreoIconoPosiciones[i];
+                        var op = proj.fromLatLngToDivPixel(new google.maps.LatLng(o.lat, o.lng));
+                        if (!op) continue;
+                        var dx = op.x - point.x, dy = op.y - point.y;
+                        if (Math.abs(dx) < umbralCluster && Math.abs(dy) < umbralCluster) {
+                            cluster.push({ idx: o.idx != null ? o.idx : i, px: op.x, py: op.y, lat: o.lat, lng: o.lng });
+                        }
+                    }
+                    cluster.sort(function(a,b){ return (a.py - b.py) || (a.px - b.px) || (a.idx - b.idx); });
+                    var mySlot = -1;
+                    var myIdx = this._idx;
+                    for (var k = 0; k < cluster.length; k++) {
+                        if (myIdx != null && cluster[k].idx === myIdx) { mySlot = k; break; }
+                        if (myIdx == null && Math.abs(cluster[k].lat - selfLat) < 1e-7 && Math.abs(cluster[k].lng - selfLng) < 1e-7) { mySlot = k; break; }
+                    }
+                    if (mySlot >= 0 && cluster.length > 1) {
+                        var s = slots[Math.min(mySlot, slots.length - 1)];
+                        offsetX = s[0]; finalOffset = s[1];
+                    } else if (cluster.length === 1) {
+                        var pathLatLng = [];
+                        var myMap = this.getMap();
+                        if (myMap === rastreoMapaAlternas && window.rastreoPolylinePathLatLng && Array.isArray(window.rastreoPolylinePathLatLng)) pathLatLng = window.rastreoPolylinePathLatLng;
+                        else if (myMap === rastreoMapaAlternasGrande && window.rastreoPolylinePathLatLngGrande && Array.isArray(window.rastreoPolylinePathLatLngGrande)) pathLatLng = window.rastreoPolylinePathLatLngGrande;
+                        if (pathLatLng.length > 0) {
+                            for (var j = 0; j < pathLatLng.length; j++) {
+                                var pj = pathLatLng[j];
+                                if (Math.abs((pj.lat || pj.latitude) - selfLat) < 1e-7 && Math.abs((pj.lng || pj.longitude) - selfLng) < 1e-7) {
+                                    var nextP = pathLatLng[j + 1], prevP = pathLatLng[j - 1];
+                                    var nextPx = nextP ? proj.fromLatLngToDivPixel(new google.maps.LatLng(nextP.lat || nextP.latitude, nextP.lng || nextP.longitude)) : null;
+                                    var prevPx = prevP ? proj.fromLatLngToDivPixel(new google.maps.LatLng(prevP.lat || prevP.latitude, prevP.lng || prevP.longitude)) : null;
+                                    if ((nextPx && nextPx.y < point.y + 8) || (prevPx && prevPx.y < point.y + 8)) { offsetX = 18; }
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+                this.div_.style.left = (point.x - 10 + offsetX) + \'px\'; this.div_.style.top = (point.y + finalOffset) + \'px\';
+            };
+            IconoFlotanteOverlay.prototype.onRemove = function() { if (this.div_ && this.div_.parentNode) this.div_.parentNode.removeChild(this.div_); this.div_ = null; };
+        }
+        function crearPuntoConIconoFlotante(map, pos, colorHex, faIconClass, title, infoHtml) {
+            ensureIconoFlotanteOverlayReady();
+            var idx = (typeof window !== \'undefined\' && window.rastreoIconoPosiciones && Array.isArray(window.rastreoIconoPosiciones)) ? window.rastreoIconoPosiciones.length : 0;
+            if (typeof window !== \'undefined\' && window.rastreoIconoPosiciones && Array.isArray(window.rastreoIconoPosiciones)) window.rastreoIconoPosiciones.push({ lat: pos.lat, lng: pos.lng, idx: idx });
+            var marker = new google.maps.Marker({ position: pos, map: map, icon: pinCirculoIcon(colorHex), title: title || \'\', zIndex: 1 });
+            var overlay = new IconoFlotanteOverlay(pos, faIconClass, colorHex);
+            overlay._idx = idx;
+            overlay.setMap(map);
+            var infow = null;
+            if (infoHtml) {
+                infow = new google.maps.InfoWindow({ content: infoHtml });
+                marker.addListener(\'click\', function() { infow.open(map, marker); });
+            }
+            return { marker: marker, overlay: overlay, infow: infow };
+        }
+        function crearPuntoGestorConIconoFlotante(map, pos, colorHex, numero, faIconClass, title, infoHtml) {
+            ensureIconoFlotanteOverlayReady();
+            var idx = (typeof window !== \'undefined\' && window.rastreoIconoPosiciones && Array.isArray(window.rastreoIconoPosiciones)) ? window.rastreoIconoPosiciones.length : 0;
+            if (typeof window !== \'undefined\' && window.rastreoIconoPosiciones && Array.isArray(window.rastreoIconoPosiciones)) window.rastreoIconoPosiciones.push({ lat: pos.lat, lng: pos.lng, idx: idx });
+            var marker = new google.maps.Marker({ position: pos, map: map, icon: pinCirculoIconWithNumber(colorHex, numero), title: title || \'\', zIndex: 1 });
+            var overlay = new IconoFlotanteOverlay(pos, faIconClass, colorHex, -30);
+            overlay.setMap(map);
+            var infow = null;
+            if (infoHtml) {
+                infow = new google.maps.InfoWindow({ content: infoHtml });
+                marker.addListener(\'click\', function() { infow.open(map, marker); });
+            }
+            return { marker: marker, overlay: overlay, infow: infow, numero: numero };
         }
         function pinGotaIconWithNumber(colorHex, num) {
             var n = (num != null && num !== \'\') ? String(num) : \'?\';
@@ -413,6 +533,158 @@ JS;
         }
         var rastreoClusterMarkers = [];
         var rastreoPuntosClusterActual = [];
+        var rastreoLupaCircle = null;
+        var rastreoLupaPanel = null;
+        var rastreoLupaMiniMap = null;
+        var rastreoLupaMapListener = null;
+        var rastreoLupaMap = null;
+        function cerrarRastreoLupa() {
+            if (rastreoLupaCircle) { try { rastreoLupaCircle.setMap(null); } catch (e) {} rastreoLupaCircle = null; }
+            if (rastreoLupaPanel && rastreoLupaPanel.parentNode) rastreoLupaPanel.parentNode.removeChild(rastreoLupaPanel);
+            rastreoLupaPanel = null;
+            if (rastreoLupaMiniMap) { try { rastreoLupaMiniMap = null; } catch (e) {} }
+            if (rastreoLupaMapListener && rastreoLupaMap) { try { google.maps.event.removeListener(rastreoLupaMapListener); } catch (e) {} rastreoLupaMapListener = null; rastreoLupaMap = null; }
+        }
+        function mostrarLupaCluster(map, lat, lng, count) {
+            cerrarRastreoLupa();
+            if (!map || !map.getDiv) return;
+            rastreoLupaMap = map;
+            var zoom = typeof map.getZoom === \'function\' ? map.getZoom() : 12;
+            var zoomLupa = Math.min(18, zoom + 3);
+            rastreoLupaCircle = new google.maps.Circle({ center: { lat: lat, lng: lng }, radius: 80, map: map, fillColor: \'#ea580c\', fillOpacity: 0.15, strokeColor: \'#c2410c\', strokeWeight: 2, clickable: false, zIndex: 997 });
+            var mapDiv = map.getDiv();
+            if (!mapDiv) return;
+            var panelParent = mapDiv.parentNode || mapDiv;
+            var panel = document.createElement(\'div\');
+            panel.className = \'rastreo-lupa-panel\';
+            var idCont = \'rastreoLupaMiniMapContenedor_\' + Date.now();
+            panel.innerHTML = \'<button type="button" class="rastreo-lupa-cerrar" aria-label="Cerrar">&times;</button><div class="rastreo-lupa-lente" id="\' + idCont + \'"></div><span class="rastreo-lupa-texto">\' + (count > 0 ? count + \' ubicaciones\' : \'Vista ampliada\') + \' — Clic en mapa para cerrar</span>\';
+            panelParent.appendChild(panel);
+            rastreoLupaPanel = panel;
+            var btnCerrar = panel.querySelector(\'.rastreo-lupa-cerrar\');
+            if (btnCerrar) btnCerrar.addEventListener(\'click\', cerrarRastreoLupa);
+            setTimeout(function() {
+                var cont = document.getElementById(idCont);
+                if (cont) {
+                    rastreoLupaMiniMap = new google.maps.Map(cont, { center: { lat: lat, lng: lng }, zoom: zoomLupa, disableDefaultUI: true, zoomControl: false, gestureHandling: \'none\', mapTypeControl: false });
+                    google.maps.event.addListenerOnce(rastreoLupaMiniMap, \'idle\', function() {
+                        var mini = rastreoLupaMiniMap;
+                        if (!mini) return;
+                        var bounds = mini.getBounds();
+                        function enBounds(la, ln) {
+                            if (!bounds) return true;
+                            var latN = parseFloat(la), lngN = parseFloat(ln);
+                            return !isNaN(latN) && !isNaN(lngN) && bounds.contains({ lat: latN, lng: lngN });
+                        }
+                        (rastreoGestionesParaMapa || []).forEach(function(g) {
+                            var latG = parseFloat(g.lat), lngG = parseFloat(g.lng);
+                            if (isNaN(latG) || isNaN(lngG) || !enBounds(latG, lngG)) return;
+                            var colorG = (rastreoColoresPorGestor && rastreoColoresPorGestor[g.nombre]) || \'#f97316\';
+                            new google.maps.Marker({ position: { lat: latG, lng: lngG }, map: mini, icon: pinCirculoIcon(colorG), zIndex: 2 });
+                        });
+                        (rastreoPuntosGeo || []).forEach(function(p) {
+                            var latP = parseFloat(p.lat), lngP = parseFloat(p.lng);
+                            if (isNaN(latP) || isNaN(lngP) || !enBounds(latP, lngP)) return;
+                            var d = (p.donde_firma || \'\').toString().trim().toUpperCase();
+                            var colorP = (d.indexOf(\'AGENCIA\') !== -1) ? \'#d4a574\' : (d.indexOf(\'CASA\') !== -1) ? \'#ec4899\' : \'#22c55e\';
+                            new google.maps.Marker({ position: { lat: latP, lng: lngP }, map: mini, icon: pinCirculoIcon(colorP), zIndex: 1 });
+                        });
+                        (rastreoDireccionesParaMapa || []).forEach(function(p) {
+                            var latP = parseFloat(p.latitud || p.lat), lngP = parseFloat(p.longitud || p.lng);
+                            if (isNaN(latP) || isNaN(lngP) || !enBounds(latP, lngP)) return;
+                            new google.maps.Marker({ position: { lat: latP, lng: lngP }, map: mini, icon: pinCirculoIcon(\'#2563eb\'), zIndex: 1 });
+                        });
+                        if (rastreoDomicilioMegareporte && rastreoDomicilioMegareporte.lat != null && rastreoDomicilioMegareporte.lng != null) {
+                            var latM = parseFloat(rastreoDomicilioMegareporte.lat), lngM = parseFloat(rastreoDomicilioMegareporte.lng);
+                            if (!isNaN(latM) && !isNaN(lngM) && enBounds(latM, lngM)) {
+                                new google.maps.Marker({ position: { lat: latM, lng: lngM }, map: mini, icon: pinCirculoIcon(\'#000000\'), zIndex: 3 });
+                            }
+                        }
+                    });
+                }
+            }, 80);
+            setTimeout(function() {
+                if (rastreoLupaMap === map) rastreoLupaMapListener = map.addListener(\'click\', function() { cerrarRastreoLupa(); });
+            }, 150);
+        }
+        function activarLupaConClicEnMapa(map) {
+            if (!map || !map.getDiv) return;
+            var mapDiv = map.getDiv();
+            var parent = mapDiv.parentNode || mapDiv;
+            var overlay = document.createElement(\'div\');
+            overlay.className = \'rastreo-lupa-overlay-activo\';
+            overlay.title = \'Clic en el mapa para ampliar aquí\';
+            overlay.style.cssText = \'position:absolute;top:0;left:0;right:0;bottom:0;z-index:500;cursor:zoom-in;pointer-events:auto;\';
+            parent.appendChild(overlay);
+            function quitarYAbrir(ev) {
+                if (!overlay.parentNode) return;
+                overlay.parentNode.removeChild(overlay);
+                mapDiv.style.cursor = \'\';
+                var rect = mapDiv.getBoundingClientRect();
+                var x = (ev.clientX - rect.left);
+                var y = (ev.clientY - rect.top);
+                var bounds = map.getBounds();
+                if (!bounds) { mostrarLupaCluster(map, 19.43, -99.13, 0); return; }
+                var ne = bounds.getNorthEast(), sw = bounds.getSouthWest();
+                var lat = sw.lat() + (ne.lat() - sw.lat()) * (1 - y / rect.height);
+                var lng = sw.lng() + (ne.lng() - sw.lng()) * (x / rect.width);
+                mostrarLupaCluster(map, lat, lng, 0);
+            }
+            overlay.addEventListener(\'click\', quitarYAbrir);
+        }
+        function pathConArcosParaSegmentosCortos(path, umbralGrados, zoom) {
+            umbralGrados = umbralGrados != null ? umbralGrados : 0.09;
+            if (!path || path.length < 2) return path || [];
+            var curveFactor = 1;
+            var angleZoom = 0;
+            if (zoom != null && !isNaN(zoom)) {
+                curveFactor = Math.max(0, Math.min(1, (18 - zoom) / 10));
+                // Inclinacion suave por zoom para evitar cambiar al lado opuesto.
+                angleZoom = (zoom - 13) * (Math.PI / 36);
+            }
+            var out = [path[0]];
+            for (var i = 0; i < path.length - 1; i++) {
+                var a = path[i], b = path[i + 1];
+                var lat1 = parseFloat(a.lat), lng1 = parseFloat(a.lng), lat2 = parseFloat(b.lat), lng2 = parseFloat(b.lng);
+                if (isNaN(lat1) || isNaN(lng1) || isNaN(lat2) || isNaN(lng2)) { out.push(b); continue; }
+                var dx = lng2 - lng1, dy = lat2 - lat1;
+                var len = Math.sqrt(dx * dx + dy * dy);
+                if (len < 1e-10) {
+                    // Si dos puntos son exactamente iguales, dibujamos un micro-desvio
+                    // para que la conexion sea visible en vez de desaparecer.
+                    var dppSame = (zoom != null && !isNaN(zoom)) ? (360 / (256 * Math.pow(2, zoom))) : 0.0007;
+                    var j = Math.max(dppSame * 20, 0.00002);
+                    var dir = (i % 2 === 0) ? 1 : -1;
+                    out.push({ lat: lat1 + (j * dir), lng: lng1 - (j * dir) });
+                    out.push(b);
+                    continue;
+                }
+                if (len >= umbralGrados) { out.push(b); continue; }
+                var dpp = (zoom != null && !isNaN(zoom)) ? (360 / (256 * Math.pow(2, zoom))) : 0.0007;
+                var pxDist = len / Math.max(dpp, 1e-9);
+                // Cuando ya hay separacion visual, la union debe ser recta.
+                if (pxDist >= 18) { out.push(b); continue; }
+                var visFactor = Math.max(0, Math.min(1, (18 - pxDist) / 18));
+                var segCurve = curveFactor * visFactor;
+                if (len < 0.0015) segCurve = Math.max(segCurve, 0.95);
+                else if (len < 0.003) segCurve = Math.max(segCurve, 0.8);
+                if (segCurve < 1e-4) { out.push(b); continue; }
+                var midLat = (lat1 + lat2) / 2, midLng = (lng1 + lng2) / 2;
+                var ux = -dy / len, uy = dx / len;
+                var minVisualOffset = dpp * (len < 0.0015 ? 46 : len < 0.003 ? 36 : 28);
+                var offset = Math.max(len * 1.9, minVisualOffset) * segCurve;
+                var perpLat = ux * offset, perpLng = uy * offset;
+                var cosA = Math.cos(angleZoom), sinA = Math.sin(angleZoom);
+                var cLat = midLat + (perpLat * cosA - perpLng * sinA);
+                var cLng = midLng + (perpLat * sinA + perpLng * cosA);
+                for (var t = 0.06; t < 1; t += 0.06) {
+                    var mt = 1 - t; var mt2 = mt * mt; var t2 = t * t; var two = 2 * mt * t;
+                    out.push({ lat: mt2 * lat1 + two * cLat + t2 * lat2, lng: mt2 * lng1 + two * cLng + t2 * lng2 });
+                }
+                out.push(b);
+            }
+            return out;
+        }
         function groupPointsByArea(puntos, zoom) {
             var factor = 40;
             if (zoom >= 15) factor = 800;
@@ -447,30 +719,9 @@ JS;
         function addClusterLabelsToMap(map, puntos) {
             if (!map || typeof google === \'undefined\' || !google.maps) return;
             rastreoPuntosClusterActual = puntos || [];
-            var zoom = typeof map.getZoom === \'function\' ? map.getZoom() : 10;
             while (rastreoClusterMarkers.length) {
                 var m = rastreoClusterMarkers.pop();
                 if (m && m.setMap) m.setMap(null);
-            }
-            if (zoom >= 16 || zoom <= 10) return;
-            var div = typeof map.getDiv === \'function\' ? map.getDiv() : null;
-            if (div && (div.offsetWidth < 380 || div.offsetHeight < 280)) return;
-            var clusters = groupPointsByArea(puntos, zoom);
-            var offsetEast = 0.003;
-            for (var i = 0; i < clusters.length; i++) {
-                var c = clusters[i];
-                var pos = new google.maps.LatLng(c.lat, c.lng + offsetEast);
-                try {
-                    var marker = new google.maps.Marker({
-                        position: pos,
-                        map: map,
-                        icon: clusterLabelIcon(c.count),
-                        title: c.count + \' ubicaciones en esta área\',
-                        zIndex: 998,
-                        clickable: false
-                    });
-                    rastreoClusterMarkers.push(marker);
-                } catch (e) {}
             }
         }
         function todosPuntosParaCluster(puntosGeo, puntosMaxiApp, puntosGestores) {
@@ -497,18 +748,19 @@ JS;
             if (!googleMapsApiKey || !googleMapsApiKey.length) return;
             if (typeof google === \'undefined\' || !google.maps) { setTimeout(function() { maybeInitMapaAlternas(); }, 500); return; }
             if (rastreoMapaAlternas) { try { if (typeof rastreoMapaAlternas.remove === \'function\') rastreoMapaAlternas.remove(); } catch (e) {} rastreoMapaAlternas = null; }
+            if (rastreoPolylineAlternas) { try { rastreoPolylineAlternas.setMap(null); } catch (e) {} rastreoPolylineAlternas = null; }
+            Object.keys(rastreoPolylinesPorGestorAlternas || {}).forEach(function(k) { var o = rastreoPolylinesPorGestorAlternas[k]; if (o && o.poly && o.poly.setMap) o.poly.setMap(null); });
+            rastreoPolylinesPorGestorAlternas = {};
+            if (typeof window !== \'undefined\') window.rastreoIconoPosiciones = [];
+            rastreoPolylinePathRawAlternas = [];
             rastreoMarkersPorGestorAlternas = {};
             rastreoMapaAlternas = new google.maps.Map(cont, { center: { lat: 19.43, lng: -99.13 }, zoom: 10, mapTypeControl: true, streetViewControl: true, fullscreenControl: true, zoomControl: true });
             var bounds = new google.maps.LatLngBounds();
             var hasPoints = false;
-            var iconAzul = pinGotaIcon(\'#2563eb\');
-            var iconNaranja = pinGotaIcon(\'#fdba74\');
-            var iconRosa = pinGotaRosaIcon();
-            var iconNegro = pinGotaIcon(\'#000000\');
             if (puntosMaxiApp && puntosMaxiApp.length) {
                 var esPuntos = puntosMaxiApp[0] && (puntosMaxiApp[0].latitud !== undefined || puntosMaxiApp[0].lat !== undefined);
                 if (esPuntos) {
-                    puntosMaxiApp.forEach(function(p, i) {
+                    (puntosMaxiApp.length > 16 ? puntosMaxiApp.slice(0, 16) : puntosMaxiApp).forEach(function(p, i) {
                         var lat = parseFloat(p.latitud || p.lat), lon = parseFloat(p.longitud || p.lng);
                         if (isNaN(lat) || isNaN(lon)) return;
                         hasPoints = true;
@@ -517,17 +769,11 @@ JS;
                         var visitas = p.cantidad_registros || 1;
                         var tipoLabel = p.punto_de_interes ? \'Punto de interés\' : \'Menos frecuente\';
                         var infoHtml = \'<strong>Cliente</strong>: \' + (rastreoDatosClienteActual.nombre || \'—\') + \'<br><strong>Crédito</strong>: \' + (rastreoDatosClienteActual.credito || \'—\') + \'<br><strong>Teléfono</strong>: \' + (rastreoDatosClienteActual.telefono || \'—\') + \'<br><strong>Ubicación</strong>: Obteniendo dirección...<br><strong>Visitas</strong>: \' + visitas + \'<br><strong>Tipo</strong>: \' + tipoLabel;
-                        var marker = new google.maps.Marker({ position: pos, map: rastreoMapaAlternas, icon: iconAzul, title: \'Dirección frecuente \' + (i + 1) + \' — \' + visitas + \' visitas\' });
-                        var infow = new google.maps.InfoWindow({ content: infoHtml });
-                        marker.addListener(\'click\', function() { infow.open(rastreoMapaAlternas, marker); });
-                        if (typeof google.maps.Geocoder !== \'undefined\') {
+                        var res = crearPuntoConIconoFlotante(rastreoMapaAlternas, pos, \'#2563eb\', \'fa-location-dot\', \'Dirección frecuente \' + (i + 1) + \' — \' + visitas + \' visitas\', infoHtml);
+                        if (typeof google.maps.Geocoder !== \'undefined\' && res.infow) {
                             var geocoder = new google.maps.Geocoder();
                             geocoder.geocode({ location: pos }, function(results, status) {
-                                if (status === \'OK\' && results[0] && infow) {
-                                    var addr = (results[0].formatted_address || \'\').replace(/</g, \'&lt;\').replace(/>/g, \'&gt;\');
-                                    var html = \'<strong>Cliente</strong>: \' + (rastreoDatosClienteActual.nombre || \'—\') + \'<br><strong>Crédito</strong>: \' + (rastreoDatosClienteActual.credito || \'—\') + \'<br><strong>Teléfono</strong>: \' + (rastreoDatosClienteActual.telefono || \'—\') + \'<br><strong>Ubicación</strong>: \' + addr + \'<br><strong>Visitas</strong>: \' + visitas + \'<br><strong>Tipo</strong>: \' + tipoLabel;
-                                    infow.setContent(html);
-                                }
+                                if (status === \'OK\' && results[0] && res.infow) { var addr = (results[0].formatted_address || \'\').replace(/</g, \'&lt;\').replace(/>/g, \'&gt;\'); res.infow.setContent(\'<strong>Cliente</strong>: \' + (rastreoDatosClienteActual.nombre || \'—\') + \'<br><strong>Crédito</strong>: \' + (rastreoDatosClienteActual.credito || \'—\') + \'<br><strong>Teléfono</strong>: \' + (rastreoDatosClienteActual.telefono || \'—\') + \'<br><strong>Ubicación</strong>: \' + addr + \'<br><strong>Visitas</strong>: \' + visitas + \'<br><strong>Tipo</strong>: \' + tipoLabel); }
                             });
                         }
                     });
@@ -543,15 +789,31 @@ JS;
                     var pos = { lat: lat, lng: lon };
                     bounds.extend(pos);
                     var nombreGestor = (g.nombre || \'—\').trim() || \'—\';
-                    var colorG = rastreoColoresPorGestor[nombreGestor] || rastreoPaletaColoresGestores[0];
+                    var colorG = \'#f97316\';
                     var numGota = g.numero != null ? g.numero : (i + 1);
-                    var iconGestor = pinGotaIconWithNumber(colorG, numGota);
-                    var marker = new google.maps.Marker({ position: pos, map: rastreoMapaAlternas, icon: iconGestor, title: (g.nombre || \'Gestor \') + (g.fecha ? \' — \' + g.fecha : \'\') + \' (#\' + numGota + \')\' });
                     var infoHtml = \'<strong>Gestor</strong>: \' + (g.nombre || \'—\') + \' <strong>#\' + numGota + \'</strong>\' + (g.fecha ? \'<br><strong>Fecha</strong>: \' + g.fecha : \'\');
-                    var infow = new google.maps.InfoWindow({ content: infoHtml });
-                    marker.addListener(\'click\', function() { infow.open(rastreoMapaAlternas, marker); });
+                    var res = crearPuntoGestorConIconoFlotante(rastreoMapaAlternas, pos, colorG, numGota, iconoFlotanteGestor(g.esCampo), (g.nombre || \'Gestor \') + (g.fecha ? \' — \' + g.fecha : \'\') + \' (#\' + numGota + \')\', infoHtml);
                     if (!rastreoMarkersPorGestorAlternas[nombreGestor]) rastreoMarkersPorGestorAlternas[nombreGestor] = [];
-                    rastreoMarkersPorGestorAlternas[nombreGestor].push(marker);
+                    rastreoMarkersPorGestorAlternas[nombreGestor].push({ marker: res.marker, overlay: res.overlay, numero: numGota });
+                });
+                var pathGestores = puntosGestores.slice().sort(function(a, b) { return (a.numero != null ? a.numero : 0) - (b.numero != null ? b.numero : 0); }).map(function(g) { return { lat: g.lat, lng: g.lng }; }).filter(function(p) { return !isNaN(parseFloat(p.lat)) && !isNaN(parseFloat(p.lng)); });
+                rastreoPolylinePathRawAlternas = pathGestores.slice();
+                if (typeof window !== \'undefined\') window.rastreoPolylinePathLatLng = pathGestores.slice();
+                var puntosPorGestor = {};
+                puntosGestores.forEach(function(g) {
+                    var n = (g.nombre || \'—\').trim() || \'—\';
+                    if (!puntosPorGestor[n]) puntosPorGestor[n] = [];
+                    puntosPorGestor[n].push({ lat: g.lat, lng: g.lng, numero: g.numero != null ? g.numero : 999 });
+                });
+                var zoomA = typeof rastreoMapaAlternas.getZoom === \'function\' ? rastreoMapaAlternas.getZoom() : 10;
+                Object.keys(puntosPorGestor).forEach(function(nomG) {
+                    var pts = puntosPorGestor[nomG].sort(function(a,b){ return a.numero - b.numero; }).map(function(p){ return { lat: p.lat, lng: p.lng }; });
+                    if (pts.length >= 2) {
+                        var pathCurv = pathConArcosParaSegmentosCortos(pts, 0.09, zoomA);
+                        var colorPl = rastreoColoresPorGestor[nomG] || \'#c2410c\';
+                        var pl = new google.maps.Polyline({ path: pathCurv, strokeColor: colorPl, strokeOpacity: 0.95, strokeWeight: 4, map: null, zIndex: 5 });
+                        rastreoPolylinesPorGestorAlternas[nomG] = { poly: pl, pathRaw: pts.slice() };
+                    }
                 });
             }
             if (puntosGeo && puntosGeo.length) {
@@ -566,10 +828,8 @@ JS;
                     var q = encodeURIComponent(p.direccion_maps || lat + \',\' + lon);
                     var infoHtml = \'<strong>Donde firma:</strong> \' + (donde || \'—\') + \'<br><strong>Dirección</strong>: \' + (dir || \'—\') + \'<br><strong>Cliente</strong>: \' + (rastreoDatosClienteActual.nombre || \'—\') + \'<br><strong>Crédito</strong>: \' + (rastreoDatosClienteActual.credito || \'—\') + \'<br><a href="https://www.google.com/maps/search/?api=1&query=\' + q + \'" target="_blank" rel="noopener">Abrir en Google Maps</a>\';
                     var d = (p.donde_firma || \'\').toString().trim().toUpperCase();
-                    var iconGeo = (d.indexOf(\'AGENCIA\') !== -1) ? pinGotaCarmelitaIcon() : (d.indexOf(\'CASA\') !== -1) ? iconRosa : pinGotaVerdeIcon();
-                    var marker = new google.maps.Marker({ position: pos, map: rastreoMapaAlternas, icon: iconGeo, title: donde || \'Dirección geo \' + (i+1) });
-                    var infow = new google.maps.InfoWindow({ content: infoHtml });
-                    marker.addListener(\'click\', function() { infow.open(rastreoMapaAlternas, marker); });
+                    var colorGeo = (d.indexOf(\'AGENCIA\') !== -1) ? \'#d4a574\' : (d.indexOf(\'CASA\') !== -1) ? \'#ec4899\' : \'#22c55e\';
+                    crearPuntoConIconoFlotante(rastreoMapaAlternas, pos, colorGeo, iconoFlotanteGeo(p.donde_firma), donde || \'Dirección geo \' + (i+1), infoHtml);
                 });
             }
             if (rastreoDomicilioMegareporte && rastreoDomicilioMegareporte.lat != null && rastreoDomicilioMegareporte.lng != null) {
@@ -580,48 +840,165 @@ JS;
                     var dirMegareporte = (rastreoDomicilioMegareporte.direccion || rastreoDatosClienteActual.direccion || \'—\').replace(/</g, \'&lt;\').replace(/>/g, \'&gt;\');
                     var qMegareporte = encodeURIComponent(dirMegareporte || posMegareporte.lat + \',\' + posMegareporte.lng);
                     var infoHtmlMegareporte = \'<strong>Dirección megareporte</strong><br><strong>Dirección</strong>: \' + dirMegareporte + \'<br><strong>Cliente</strong>: \' + (rastreoDatosClienteActual.nombre || \'—\') + \'<br><strong>Crédito</strong>: \' + (rastreoDatosClienteActual.credito || \'—\') + \'<br><a href="https://www.google.com/maps/search/?api=1&query=\' + qMegareporte + \'" target="_blank" rel="noopener">Abrir en Google Maps</a>\';
-                    var markerMegareporte = new google.maps.Marker({ position: posMegareporte, map: rastreoMapaAlternas, icon: iconNegro, title: \'Dirección megareporte\', zIndex: 10 });
+                    var markerMegareporte = new google.maps.Marker({ position: posMegareporte, map: rastreoMapaAlternas, icon: pinCirculoIcon(\'#000000\'), title: \'Dirección megareporte (casa)\', zIndex: 10 });
                     var infowMegareporte = new google.maps.InfoWindow({ content: infoHtmlMegareporte });
                     markerMegareporte.addListener(\'click\', function() { infowMegareporte.open(rastreoMapaAlternas, markerMegareporte); });
+                    var idxMeg = (typeof window !== \'undefined\' && window.rastreoIconoPosiciones && Array.isArray(window.rastreoIconoPosiciones)) ? window.rastreoIconoPosiciones.length : 0;
+                    if (typeof window !== \'undefined\' && window.rastreoIconoPosiciones && Array.isArray(window.rastreoIconoPosiciones)) window.rastreoIconoPosiciones.push({ lat: posMegareporte.lat, lng: posMegareporte.lng, idx: idxMeg });
+                    ensureIconoFlotanteOverlayReady();
+                    var overlayMegareporte = new IconoFlotanteOverlay(posMegareporte, \'fa-megareporte\', \'#000000\');
+                    overlayMegareporte._idx = idxMeg;
+                    overlayMegareporte.setMap(rastreoMapaAlternas);
                 }
             }
             addClusterLabelsToMap(rastreoMapaAlternas, todosPuntosParaCluster(puntosGeo, puntosMaxiApp, puntosGestores));
             if (rastreoMapaAlternas.addListener) {
                 rastreoMapaAlternas.addListener(\'zoom_changed\', function() { addClusterLabelsToMap(rastreoMapaAlternas, rastreoPuntosClusterActual); });
+                rastreoMapaAlternas.addListener(\'zoom_changed\', function() {
+                    var z = rastreoMapaAlternas.getZoom();
+                    Object.keys(rastreoPolylinesPorGestorAlternas || {}).forEach(function(k) {
+                        var obj = rastreoPolylinesPorGestorAlternas[k];
+                        if (obj && obj.poly && obj.pathRaw && obj.pathRaw.length >= 2) obj.poly.setPath(pathConArcosParaSegmentosCortos(obj.pathRaw, 0.09, z));
+                    });
+                });
                 google.maps.event.addDomListener(window, \'resize\', function() { if (rastreoMapaAlternas) addClusterLabelsToMap(rastreoMapaAlternas, rastreoPuntosClusterActual); });
             }
             if (hasPoints) rastreoMapaAlternas.fitBounds(bounds, 50);
             filtrarMapaPorGestor(rastreoFiltroGestoresSeleccionados.length ? rastreoFiltroGestoresSeleccionados : null);
+            var wrapAlt = cont.parentNode;
+            if (wrapAlt && !document.getElementById(\'rastreoBtnLupaAlternas\')) {
+                var btnLupaAlt = document.createElement(\'button\');
+                btnLupaAlt.type = \'button\'; btnLupaAlt.id = \'rastreoBtnLupaAlternas\';
+                btnLupaAlt.className = \'rastreo-btn-lupa-mapa\'; btnLupaAlt.innerHTML = \'🔍 Lupa\';
+                btnLupaAlt.title = \'Clic aquí y luego en el mapa para ampliar una zona\';
+                btnLupaAlt.addEventListener(\'click\', function() { activarLupaConClicEnMapa(rastreoMapaAlternas); });
+                wrapAlt.appendChild(btnLupaAlt);
+            }
         }
         function filtrarMapaPorGestor(sel) {
             var selected = [];
             if (sel !== null && sel !== undefined) { if (Array.isArray(sel)) selected = sel; else selected = (sel + \'\').trim() ? [ (sel + \'\').trim() ] : []; }
+            selected = (selected || []).map(function(s){ return ((s == null ? \'\' : (s + \'\')).trim()); }).filter(function(s){ return s.length > 0; });
             rastreoFiltroGestoresSeleccionados = selected;
             rastreoFiltroGestorActual = selected.length === 0 ? \'\' : selected.length === 1 ? selected[0] : selected.join(\',\');
             var showAll = selected.length === 0;
-            function iconForGestor(n, isGrande) {
-                if (showAll) return pinGotaIcon(rastreoColoresPorGestor[n] || rastreoPaletaColoresGestores[0]);
-                var idx = selected.indexOf(n);
-                if (idx === -1) return null;
-                var color = rastreoPaletaColoresGestores[idx % rastreoPaletaColoresGestores.length];
-                var base = pinGotaIcon(color);
-                if (isGrande) return { url: base.url, scaledSize: new google.maps.Size(34, 48), anchor: new google.maps.Point(17, 48) };
-                return base;
+            function iconForGestor(n, isGrande, displayNumero) {
+                var color = rastreoColoresPorGestor[n] || rastreoPaletaColoresGestores[0];
+                if (!showAll && selected.indexOf(n) === -1) color = null;
+                if (!color) return null;
+                if (displayNumero != null && displayNumero !== \'\') return pinCirculoIconWithNumber(color, displayNumero);
+                return pinCirculoIcon(color);
             }
+            function computarNuevoNumero() {
+                if (showAll || selected.length === 0) return {};
+                var items = [];
+                selected.forEach(function(n) {
+                    var arr = (rastreoMarkersPorGestorAlternas || {})[n];
+                    if (!arr) return;
+                    arr.forEach(function(it, idx) { items.push({ gestor: n, item: it, numeroOrig: it.numero != null ? it.numero : 999, idx: idx }); });
+                });
+                if (items.length === 0) return {};
+                items.sort(function(a, b) { return a.numeroOrig - b.numeroOrig; });
+                var mapa = {};
+                items.forEach(function(it, i) { mapa[it.gestor + \'_\' + it.idx] = (i + 1); });
+                return mapa;
+            }
+            var nuevoNumeroMap = computarNuevoNumero();
             if (rastreoMapaAlternas && rastreoMarkersPorGestorAlternas) {
                 Object.keys(rastreoMarkersPorGestorAlternas).forEach(function(n) {
                     var arr = rastreoMarkersPorGestorAlternas[n];
                     var visible = showAll || selected.indexOf(n) !== -1;
-                    var icon = iconForGestor(n, false);
-                    (arr || []).forEach(function(marker) { marker.setMap(visible ? rastreoMapaAlternas : null); if (visible && icon) marker.setIcon(icon); });
+                    (arr || []).forEach(function(item, idx) {
+                        var marker = item.marker != null ? item.marker : item;
+                        var overlay = item.overlay;
+                        var displayNum = showAll ? item.numero : (nuevoNumeroMap[n + \'_\' + idx] || item.numero);
+                        var icon = iconForGestor(n, false, displayNum);
+                        marker.setMap(visible ? rastreoMapaAlternas : null);
+                        if (overlay && overlay.setMap) overlay.setMap(visible ? rastreoMapaAlternas : null);
+                        if (visible && icon) marker.setIcon(icon);
+                    });
+                });
+            }
+            if (rastreoMapaAlternas && rastreoMarkersPorGestorAlternas) {
+                Object.keys(rastreoMarkersPorGestorAlternas).forEach(function(n) {
+                    var arr = rastreoMarkersPorGestorAlternas[n] || [];
+                    var ptsRaw = arr.slice().sort(function(a, b) {
+                        var na = (a && a.numero != null) ? a.numero : 999;
+                        var nb = (b && b.numero != null) ? b.numero : 999;
+                        return na - nb;
+                    }).map(function(item) {
+                        var marker = item && item.marker ? item.marker : null;
+                        if (!marker || !marker.getPosition) return null;
+                        var p = marker.getPosition();
+                        return p ? { lat: p.lat(), lng: p.lng() } : null;
+                    }).filter(function(p) { return !!p; });
+                    if (ptsRaw.length < 2) {
+                        if (rastreoPolylinesPorGestorAlternas[n] && rastreoPolylinesPorGestorAlternas[n].poly) rastreoPolylinesPorGestorAlternas[n].poly.setMap(null);
+                        return;
+                    }
+                    if (!rastreoPolylinesPorGestorAlternas[n] || !rastreoPolylinesPorGestorAlternas[n].poly) {
+                        var colorN = rastreoColoresPorGestor[n] || \'#c2410c\';
+                        rastreoPolylinesPorGestorAlternas[n] = { poly: new google.maps.Polyline({ path: [], strokeColor: colorN, strokeOpacity: 0.95, strokeWeight: 4, map: null, zIndex: 5 }), pathRaw: [] };
+                    }
+                    rastreoPolylinesPorGestorAlternas[n].pathRaw = ptsRaw.slice();
+                    var zNow = typeof rastreoMapaAlternas.getZoom === \'function\' ? rastreoMapaAlternas.getZoom() : 10;
+                    rastreoPolylinesPorGestorAlternas[n].poly.setPath(pathConArcosParaSegmentosCortos(ptsRaw, 0.09, zNow));
+                    var mostrar = !showAll && selected.indexOf(n) !== -1;
+                    rastreoPolylinesPorGestorAlternas[n].poly.setMap(mostrar ? rastreoMapaAlternas : null);
+                });
+            }
+            if (rastreoMapaAlternasGrande && rastreoMarkersPorGestorAlternasGrande) {
+                var nuevoNumeroMapG = {};
+                if (!showAll && selected.length > 0) {
+                    var itemsG = [];
+                    selected.forEach(function(n) {
+                        var arr = (rastreoMarkersPorGestorAlternasGrande || {})[n];
+                        if (!arr) return;
+                        arr.forEach(function(it, idx) { itemsG.push({ gestor: n, item: it, numeroOrig: it.numero != null ? it.numero : 999, idx: idx }); });
+                    });
+                    itemsG.sort(function(a, b) { return a.numeroOrig - b.numeroOrig; });
+                    itemsG.forEach(function(it, i) { nuevoNumeroMapG[it.gestor + \'_\' + it.idx] = (i + 1); });
+                }
+                Object.keys(rastreoMarkersPorGestorAlternasGrande).forEach(function(n) {
+                    var arr = rastreoMarkersPorGestorAlternasGrande[n];
+                    var visible = showAll || selected.indexOf(n) !== -1;
+                    (arr || []).forEach(function(item, idx) {
+                        var marker = item.marker != null ? item.marker : item;
+                        var overlay = item.overlay;
+                        var displayNum = showAll ? item.numero : (nuevoNumeroMapG[n + \'_\' + idx] || item.numero);
+                        var icon = iconForGestor(n, true, displayNum);
+                        marker.setMap(visible ? rastreoMapaAlternasGrande : null);
+                        if (overlay && overlay.setMap) overlay.setMap(visible ? rastreoMapaAlternasGrande : null);
+                        if (visible && icon) marker.setIcon(icon);
+                    });
                 });
             }
             if (rastreoMapaAlternasGrande && rastreoMarkersPorGestorAlternasGrande) {
                 Object.keys(rastreoMarkersPorGestorAlternasGrande).forEach(function(n) {
-                    var arr = rastreoMarkersPorGestorAlternasGrande[n];
-                    var visible = showAll || selected.indexOf(n) !== -1;
-                    var icon = iconForGestor(n, true);
-                    (arr || []).forEach(function(marker) { marker.setMap(visible ? rastreoMapaAlternasGrande : null); if (visible && icon) marker.setIcon(icon); });
+                    var arr = rastreoMarkersPorGestorAlternasGrande[n] || [];
+                    var ptsRaw = arr.slice().sort(function(a, b) {
+                        var na = (a && a.numero != null) ? a.numero : 999;
+                        var nb = (b && b.numero != null) ? b.numero : 999;
+                        return na - nb;
+                    }).map(function(item) {
+                        var marker = item && item.marker ? item.marker : null;
+                        if (!marker || !marker.getPosition) return null;
+                        var p = marker.getPosition();
+                        return p ? { lat: p.lat(), lng: p.lng() } : null;
+                    }).filter(function(p) { return !!p; });
+                    if (ptsRaw.length < 2) {
+                        if (rastreoPolylinesPorGestorAlternasGrande[n] && rastreoPolylinesPorGestorAlternasGrande[n].poly) rastreoPolylinesPorGestorAlternasGrande[n].poly.setMap(null);
+                        return;
+                    }
+                    if (!rastreoPolylinesPorGestorAlternasGrande[n] || !rastreoPolylinesPorGestorAlternasGrande[n].poly) {
+                        var colorNG = rastreoColoresPorGestor[n] || \'#c2410c\';
+                        rastreoPolylinesPorGestorAlternasGrande[n] = { poly: new google.maps.Polyline({ path: [], strokeColor: colorNG, strokeOpacity: 0.95, strokeWeight: 4, map: null, zIndex: 5 }), pathRaw: [] };
+                    }
+                    rastreoPolylinesPorGestorAlternasGrande[n].pathRaw = ptsRaw.slice();
+                    var zNowG = typeof rastreoMapaAlternasGrande.getZoom === \'function\' ? rastreoMapaAlternasGrande.getZoom() : 10;
+                    rastreoPolylinesPorGestorAlternasGrande[n].poly.setPath(pathConArcosParaSegmentosCortos(ptsRaw, 0.09, zNowG));
+                    var mostrar = !showAll && selected.indexOf(n) !== -1;
+                    rastreoPolylinesPorGestorAlternasGrande[n].poly.setMap(mostrar ? rastreoMapaAlternasGrande : null);
                 });
             }
         }
@@ -639,19 +1016,19 @@ JS;
             if (!googleMapsApiKey || !googleMapsApiKey.length) return;
             if (typeof google === \'undefined\' || !google.maps) return;
             if (rastreoMapaAlternasGrande) { try { if (typeof rastreoMapaAlternasGrande.remove === \'function\') rastreoMapaAlternasGrande.remove(); } catch (e) {} rastreoMapaAlternasGrande = null; }
+            if (rastreoPolylineAlternasGrande) { try { rastreoPolylineAlternasGrande.setMap(null); } catch (e) {} rastreoPolylineAlternasGrande = null; }
+            Object.keys(rastreoPolylinesPorGestorAlternasGrande || {}).forEach(function(k) { var p = rastreoPolylinesPorGestorAlternasGrande[k]; if (p && p.poly && p.poly.setMap) p.poly.setMap(null); });
+            rastreoPolylinesPorGestorAlternasGrande = {};
+            if (typeof window !== \'undefined\') window.rastreoIconoPosiciones = [];
+            rastreoPolylinePathRawAlternasGrande = [];
             rastreoMapaAlternasGrande = new google.maps.Map(cont, { center: { lat: 19.43, lng: -99.13 }, zoom: 10, mapTypeControl: true, streetViewControl: true, fullscreenControl: true, zoomControl: true });
             var bounds = new google.maps.LatLngBounds();
             var hasPoints = false;
-            var iconAzulGrande = { url: pinGotaIcon(\'#2563eb\').url, scaledSize: new google.maps.Size(34, 48), anchor: new google.maps.Point(17, 48) };
-            var iconNaranjaGrande = { url: pinGotaIcon(\'#fdba74\').url, scaledSize: new google.maps.Size(34, 48), anchor: new google.maps.Point(17, 48) };
-            var iconRosaGrande = { url: pinGotaRosaIcon().url, scaledSize: new google.maps.Size(34, 48), anchor: new google.maps.Point(17, 48) };
-            var iconVerdeGrande = { url: pinGotaVerdeIcon().url, scaledSize: new google.maps.Size(34, 48), anchor: new google.maps.Point(17, 48) };
-            var iconCarmelitaGrande = { url: pinGotaCarmelitaIcon().url, scaledSize: new google.maps.Size(34, 48), anchor: new google.maps.Point(17, 48) };
-            var iconNegroGrande = { url: pinGotaIcon(\'#000000\').url, scaledSize: new google.maps.Size(34, 48), anchor: new google.maps.Point(17, 48) };
+            var iconNegroGrande = pinCirculoIcon(\'#000000\');
             if (puntosMaxiApp && puntosMaxiApp.length) {
                 var esPuntos = puntosMaxiApp[0] && (puntosMaxiApp[0].latitud !== undefined || puntosMaxiApp[0].lat !== undefined);
                 if (esPuntos) {
-                    puntosMaxiApp.forEach(function(p, i) {
+                    (puntosMaxiApp.length > 16 ? puntosMaxiApp.slice(0, 16) : puntosMaxiApp).forEach(function(p, i) {
                         var lat = parseFloat(p.latitud || p.lat), lon = parseFloat(p.longitud || p.lng);
                         if (isNaN(lat) || isNaN(lon)) return;
                         hasPoints = true;
@@ -660,17 +1037,11 @@ JS;
                         var visitas = p.cantidad_registros || 1;
                         var tipoLabel = p.punto_de_interes ? \'Punto de interés\' : \'Menos frecuente\';
                         var infoHtml = \'<strong>Cliente</strong>: \' + (rastreoDatosClienteActual.nombre || \'—\') + \'<br><strong>Crédito</strong>: \' + (rastreoDatosClienteActual.credito || \'—\') + \'<br><strong>Teléfono</strong>: \' + (rastreoDatosClienteActual.telefono || \'—\') + \'<br><strong>Ubicación</strong>: Obteniendo dirección...<br><strong>Visitas</strong>: \' + visitas + \'<br><strong>Tipo</strong>: \' + tipoLabel;
-                        var marker = new google.maps.Marker({ position: pos, map: rastreoMapaAlternasGrande, icon: iconAzulGrande, title: \'Dirección frecuente \' + (i + 1) + \' — \' + visitas + \' visitas\' });
-                        var infow = new google.maps.InfoWindow({ content: infoHtml });
-                        marker.addListener(\'click\', function() { infow.open(rastreoMapaAlternasGrande, marker); });
-                        if (typeof google.maps.Geocoder !== \'undefined\') {
+                        var res = crearPuntoConIconoFlotante(rastreoMapaAlternasGrande, pos, \'#2563eb\', \'fa-location-dot\', \'Dirección frecuente \' + (i + 1) + \' — \' + visitas + \' visitas\', infoHtml);
+                        if (typeof google.maps.Geocoder !== \'undefined\' && res.infow) {
                             var geocoder = new google.maps.Geocoder();
                             geocoder.geocode({ location: pos }, function(results, status) {
-                                if (status === \'OK\' && results[0] && infow) {
-                                    var addr = (results[0].formatted_address || \'\').replace(/</g, \'&lt;\').replace(/>/g, \'&gt;\');
-                                    var html = \'<strong>Cliente</strong>: \' + (rastreoDatosClienteActual.nombre || \'—\') + \'<br><strong>Crédito</strong>: \' + (rastreoDatosClienteActual.credito || \'—\') + \'<br><strong>Teléfono</strong>: \' + (rastreoDatosClienteActual.telefono || \'—\') + \'<br><strong>Ubicación</strong>: \' + addr + \'<br><strong>Visitas</strong>: \' + visitas + \'<br><strong>Tipo</strong>: \' + tipoLabel;
-                                    infow.setContent(html);
-                                }
+                                if (status === \'OK\' && results[0] && res.infow) { var addr = (results[0].formatted_address || \'\').replace(/</g, \'&lt;\').replace(/>/g, \'&gt;\'); res.infow.setContent(\'<strong>Cliente</strong>: \' + (rastreoDatosClienteActual.nombre || \'—\') + \'<br><strong>Crédito</strong>: \' + (rastreoDatosClienteActual.credito || \'—\') + \'<br><strong>Teléfono</strong>: \' + (rastreoDatosClienteActual.telefono || \'—\') + \'<br><strong>Ubicación</strong>: \' + addr + \'<br><strong>Visitas</strong>: \' + visitas + \'<br><strong>Tipo</strong>: \' + tipoLabel); }
                             });
                         }
                     });
@@ -686,15 +1057,31 @@ JS;
                     var pos = { lat: lat, lng: lon };
                     bounds.extend(pos);
                     var nombreGestorG = (g.nombre || \'—\').trim() || \'—\';
-                    var colorG = rastreoColoresPorGestor[nombreGestorG] || rastreoPaletaColoresGestores[0];
+                    var colorG = \'#f97316\';
                     var numGotaG = g.numero != null ? g.numero : (i + 1);
-                    var iconGestorGrande = { url: pinGotaIconWithNumber(colorG, numGotaG).url, scaledSize: new google.maps.Size(34, 48), anchor: new google.maps.Point(17, 48) };
-                    var marker = new google.maps.Marker({ position: pos, map: rastreoMapaAlternasGrande, icon: iconGestorGrande, title: (g.nombre || \'Gestor \') + (g.fecha ? \' — \' + g.fecha : \'\') + \' (#\' + numGotaG + \')\' });
                     var infoHtml = \'<strong>Gestor</strong>: \' + (g.nombre || \'—\') + \' <strong>#\' + numGotaG + \'</strong>\' + (g.fecha ? \'<br><strong>Fecha</strong>: \' + g.fecha : \'\');
-                    var infow = new google.maps.InfoWindow({ content: infoHtml });
-                    marker.addListener(\'click\', function() { infow.open(rastreoMapaAlternasGrande, marker); });
+                    var res = crearPuntoGestorConIconoFlotante(rastreoMapaAlternasGrande, pos, colorG, numGotaG, iconoFlotanteGestor(g.esCampo), (g.nombre || \'Gestor \') + (g.fecha ? \' — \' + g.fecha : \'\') + \' (#\' + numGotaG + \')\', infoHtml);
                     if (!rastreoMarkersPorGestorAlternasGrande[nombreGestorG]) rastreoMarkersPorGestorAlternasGrande[nombreGestorG] = [];
-                    rastreoMarkersPorGestorAlternasGrande[nombreGestorG].push(marker);
+                    rastreoMarkersPorGestorAlternasGrande[nombreGestorG].push({ marker: res.marker, overlay: res.overlay, numero: numGotaG });
+                });
+                var pathGestoresG = puntosGestores.slice().sort(function(a, b) { return (a.numero != null ? a.numero : 0) - (b.numero != null ? b.numero : 0); }).map(function(g) { return { lat: g.lat, lng: g.lng }; }).filter(function(p) { return !isNaN(parseFloat(p.lat)) && !isNaN(parseFloat(p.lng)); });
+                rastreoPolylinePathRawAlternasGrande = pathGestoresG.slice();
+                if (typeof window !== \'undefined\') window.rastreoPolylinePathLatLngGrande = pathGestoresG.slice();
+                var puntosPorGestorG = {};
+                puntosGestores.forEach(function(g) {
+                    var n = (g.nombre || \'—\').trim() || \'—\';
+                    if (!puntosPorGestorG[n]) puntosPorGestorG[n] = [];
+                    puntosPorGestorG[n].push({ lat: g.lat, lng: g.lng, numero: g.numero != null ? g.numero : 999 });
+                });
+                var zoomG = typeof rastreoMapaAlternasGrande.getZoom === \'function\' ? rastreoMapaAlternasGrande.getZoom() : 10;
+                Object.keys(puntosPorGestorG).forEach(function(nomG) {
+                    var pts = puntosPorGestorG[nomG].sort(function(a,b){ return a.numero - b.numero; }).map(function(p){ return { lat: p.lat, lng: p.lng }; });
+                    if (pts.length >= 2) {
+                        var pathCurvG = pathConArcosParaSegmentosCortos(pts, 0.09, zoomG);
+                        var colorPlG = rastreoColoresPorGestor[nomG] || \'#c2410c\';
+                        var plG = new google.maps.Polyline({ path: pathCurvG, strokeColor: colorPlG, strokeOpacity: 0.95, strokeWeight: 4, map: null, zIndex: 5 });
+                        rastreoPolylinesPorGestorAlternasGrande[nomG] = { poly: plG, pathRaw: pts.slice() };
+                    }
                 });
             }
             if (puntosGeo && puntosGeo.length) {
@@ -709,12 +1096,10 @@ JS;
                     var q = encodeURIComponent(p.direccion_maps || lat + \',\' + lon);
                     var infoHtml = \'<strong>Donde firma:</strong> \' + (donde || \'—\') + \'<br><strong>Dirección</strong>: \' + (dir || \'—\') + \'<br><strong>Cliente</strong>: \' + (rastreoDatosClienteActual.nombre || \'—\') + \'<br><strong>Crédito</strong>: \' + (rastreoDatosClienteActual.credito || \'—\') + \'<br><a href="https://www.google.com/maps/search/?api=1&query=\' + q + \'" target="_blank" rel="noopener">Abrir en Google Maps</a>\';
                     var d = (p.donde_firma || \'\').toString().trim().toUpperCase();
-                    var iconGeoG = (d.indexOf(\'AGENCIA\') !== -1) ? iconCarmelitaGrande : (d.indexOf(\'CASA\') !== -1) ? iconRosaGrande : iconVerdeGrande;
-                    var marker = new google.maps.Marker({ position: pos, map: rastreoMapaAlternasGrande, icon: iconGeoG, title: donde || \'Dirección geo \' + (i+1) });
-                    var infow = new google.maps.InfoWindow({ content: infoHtml });
-                    marker.addListener(\'click\', function() { infow.open(rastreoMapaAlternasGrande, marker); });
-                    rastreoMarkersGeoAlternasGrande.push(marker);
-                    rastreoInfoWindowsGeoAlternasGrande.push(infow);
+                    var colorGeo = (d.indexOf(\'AGENCIA\') !== -1) ? \'#d4a574\' : (d.indexOf(\'CASA\') !== -1) ? \'#ec4899\' : \'#22c55e\';
+                    var resGeo = crearPuntoConIconoFlotante(rastreoMapaAlternasGrande, pos, colorGeo, iconoFlotanteGeo(p.donde_firma), donde || \'Dirección geo \' + (i+1), infoHtml);
+                    rastreoMarkersGeoAlternasGrande.push(resGeo.marker);
+                    rastreoInfoWindowsGeoAlternasGrande.push(resGeo.infow);
                 });
             }
             if (rastreoDomicilioMegareporte && rastreoDomicilioMegareporte.lat != null && rastreoDomicilioMegareporte.lng != null) {
@@ -725,14 +1110,27 @@ JS;
                     var dirMegareporteGrande = (rastreoDomicilioMegareporte.direccion || rastreoDatosClienteActual.direccion || \'—\').replace(/</g, \'&lt;\').replace(/>/g, \'&gt;\');
                     var qMegareporteGrande = encodeURIComponent(dirMegareporteGrande || posMegareporteGrande.lat + \',\' + posMegareporteGrande.lng);
                     var infoHtmlMegareporteGrande = \'<strong>Dirección megareporte</strong><br><strong>Dirección</strong>: \' + dirMegareporteGrande + \'<br><strong>Cliente</strong>: \' + (rastreoDatosClienteActual.nombre || \'—\') + \'<br><strong>Crédito</strong>: \' + (rastreoDatosClienteActual.credito || \'—\') + \'<br><a href="https://www.google.com/maps/search/?api=1&query=\' + qMegareporteGrande + \'" target="_blank" rel="noopener">Abrir en Google Maps</a>\';
-                    var markerMegareporteGrande = new google.maps.Marker({ position: posMegareporteGrande, map: rastreoMapaAlternasGrande, icon: iconNegroGrande, title: \'Dirección megareporte\', zIndex: 10 });
+                    var markerMegareporteGrande = new google.maps.Marker({ position: posMegareporteGrande, map: rastreoMapaAlternasGrande, icon: iconNegroGrande, title: \'Dirección megareporte (casa)\', zIndex: 10 });
                     var infowMegareporteGrande = new google.maps.InfoWindow({ content: infoHtmlMegareporteGrande });
                     markerMegareporteGrande.addListener(\'click\', function() { infowMegareporteGrande.open(rastreoMapaAlternasGrande, markerMegareporteGrande); });
+                    var idxMegG = (typeof window !== \'undefined\' && window.rastreoIconoPosiciones && Array.isArray(window.rastreoIconoPosiciones)) ? window.rastreoIconoPosiciones.length : 0;
+                    if (typeof window !== \'undefined\' && window.rastreoIconoPosiciones && Array.isArray(window.rastreoIconoPosiciones)) window.rastreoIconoPosiciones.push({ lat: posMegareporteGrande.lat, lng: posMegareporteGrande.lng, idx: idxMegG });
+                    ensureIconoFlotanteOverlayReady();
+                    var overlayMegareporteGrande = new IconoFlotanteOverlay(posMegareporteGrande, \'fa-megareporte\', \'#000000\');
+                    overlayMegareporteGrande._idx = idxMegG;
+                    overlayMegareporteGrande.setMap(rastreoMapaAlternasGrande);
                 }
             }
             addClusterLabelsToMap(rastreoMapaAlternasGrande, todosPuntosParaCluster(puntosGeo, puntosMaxiApp, puntosGestores));
             if (rastreoMapaAlternasGrande.addListener) {
                 rastreoMapaAlternasGrande.addListener(\'zoom_changed\', function() { addClusterLabelsToMap(rastreoMapaAlternasGrande, rastreoPuntosClusterActual); });
+                rastreoMapaAlternasGrande.addListener(\'zoom_changed\', function() {
+                    var zG = rastreoMapaAlternasGrande.getZoom();
+                    Object.keys(rastreoPolylinesPorGestorAlternasGrande || {}).forEach(function(k) {
+                        var obj = rastreoPolylinesPorGestorAlternasGrande[k];
+                        if (obj && obj.poly && obj.pathRaw && obj.pathRaw.length >= 2) obj.poly.setPath(pathConArcosParaSegmentosCortos(obj.pathRaw, 0.09, zG));
+                    });
+                });
                 google.maps.event.addDomListener(window, \'resize\', function() { if (rastreoMapaAlternasGrande) addClusterLabelsToMap(rastreoMapaAlternasGrande, rastreoPuntosClusterActual); });
             }
             var conU = (typeof rastreoConUbicacion !== \'undefined\' ? rastreoConUbicacion : (puntosGestores && puntosGestores.length) ? puntosGestores.length : 0);
@@ -752,24 +1150,26 @@ JS;
             }
             if (puntosGestores && puntosGestores.length) tiposPresentes.gestores = true;
             var leyendaGrandeHtml = \'\';
-            if (tiposPresentes.casa) leyendaGrandeHtml += \'<span class="d-block rastreo-leyenda-item cursor-pointer" data-tipo-leyenda="casa" style="cursor:pointer;padding:2px 4px;border-radius:4px;" onmouseover="this.style.background=\\\'rgba(236,72,153,0.1)\\\'" onmouseout="this.style.background=\\\'transparent\\\'">Rosa = <span style="color:#ec4899 !important;font-weight:600 !important;">CASA.</span></span>\';
-            if (tiposPresentes.otroDomicilio) leyendaGrandeHtml += \'<span class="d-block rastreo-leyenda-item cursor-pointer" data-tipo-leyenda="otroDomicilio" style="cursor:pointer;padding:2px 4px;border-radius:4px;" onmouseover="this.style.background=\\\'rgba(34,197,94,0.1)\\\'" onmouseout="this.style.background=\\\'transparent\\\'">Verde = <span style="color:#22c55e !important;font-weight:600 !important;">Otro domicilio.</span></span>\';
-            if (tiposPresentes.agencia) leyendaGrandeHtml += \'<span class="d-block rastreo-leyenda-item cursor-pointer" data-tipo-leyenda="agencia" style="cursor:pointer;padding:2px 4px;border-radius:4px;" onmouseover="this.style.background=\\\'rgba(184,134,11,0.1)\\\'" onmouseout="this.style.background=\\\'transparent\\\'">Carmelita = <span style="color:#b8860b !important;font-weight:600 !important;">Agencia.</span></span>\';
-            if (tiposPresentes.maxiApp) leyendaGrandeHtml += \'<span class="d-block rastreo-leyenda-item cursor-pointer" data-tipo-leyenda="maxiApp" style="cursor:pointer;padding:2px 4px;border-radius:4px;" onmouseover="this.style.background=\\\'rgba(37,99,235,0.1)\\\'" onmouseout="this.style.background=\\\'transparent\\\'">Azul = <span style="color:#2563eb !important;font-weight:600 !important;">maxi app.</span></span>\';
-            if (rastreoDomicilioMegareporte && rastreoDomicilioMegareporte.lat != null && rastreoDomicilioMegareporte.lng != null) leyendaGrandeHtml += \'<span class="d-block rastreo-leyenda-item cursor-pointer" data-tipo-leyenda="megareporte" style="cursor:pointer;padding:2px 4px;border-radius:4px;" onmouseover="this.style.background=\\\'rgba(0,0,0,0.1)\\\'" onmouseout="this.style.background=\\\'transparent\\\'">Negro = <span style="color:#000000 !important;font-weight:600 !important;">Dirección megareporte.</span></span>\';
+            if (tiposPresentes.casa) leyendaGrandeHtml += \'<span class="d-block rastreo-leyenda-item cursor-pointer d-flex align-items-center gap-1" data-tipo-leyenda="casa" style="cursor:pointer;padding:2px 4px;border-radius:4px;" onmouseover="this.style.background=\\\'rgba(236,72,153,0.1)\\\'" onmouseout="this.style.background=\\\'transparent\\\'"><span class="rounded-circle d-inline-block" style="width:10px;height:10px;background:#ec4899;flex-shrink:0;"></span> 🏠 = <span style="color:#ec4899 !important;font-weight:600 !important;">CASA.</span></span>\';
+            if (tiposPresentes.otroDomicilio) leyendaGrandeHtml += \'<span class="d-block rastreo-leyenda-item cursor-pointer d-flex align-items-center gap-1" data-tipo-leyenda="otroDomicilio" style="cursor:pointer;padding:2px 4px;border-radius:4px;" onmouseover="this.style.background=\\\'rgba(34,197,94,0.1)\\\'" onmouseout="this.style.background=\\\'transparent\\\'"><span class="rounded-circle d-inline-block" style="width:10px;height:10px;background:#22c55e;flex-shrink:0;"></span> 🏘️ = <span style="color:#22c55e !important;font-weight:600 !important;">Otro domicilio.</span></span>\';
+            if (tiposPresentes.agencia) leyendaGrandeHtml += \'<span class="d-block rastreo-leyenda-item cursor-pointer d-flex align-items-center gap-1" data-tipo-leyenda="agencia" style="cursor:pointer;padding:2px 4px;border-radius:4px;" onmouseover="this.style.background=\\\'rgba(184,134,11,0.1)\\\'" onmouseout="this.style.background=\\\'transparent\\\'"><span class="rounded-circle d-inline-block" style="width:10px;height:10px;background:#b8860b;flex-shrink:0;"></span> 🏢 = <span style="color:#b8860b !important;font-weight:600 !important;">Agencia.</span></span>\';
+            if (tiposPresentes.maxiApp) leyendaGrandeHtml += \'<span class="d-block rastreo-leyenda-item cursor-pointer d-flex align-items-center gap-1" data-tipo-leyenda="maxiApp" style="cursor:pointer;padding:2px 4px;border-radius:4px;" onmouseover="this.style.background=\\\'rgba(37,99,235,0.1)\\\'" onmouseout="this.style.background=\\\'transparent\\\'"><span class="rounded-circle d-inline-block" style="width:10px;height:10px;background:#2563eb;flex-shrink:0;"></span> <span style="color:#2563eb !important;font-weight:600 !important;">maxi app.</span></span>\';
+            if (rastreoDomicilioMegareporte && rastreoDomicilioMegareporte.lat != null && rastreoDomicilioMegareporte.lng != null) leyendaGrandeHtml += \'<span class="d-block rastreo-leyenda-item cursor-pointer d-flex align-items-center gap-1" data-tipo-leyenda="megareporte" style="cursor:pointer;padding:2px 4px;border-radius:4px;" onmouseover="this.style.background=\\\'rgba(0,0,0,0.1)\\\'" onmouseout="this.style.background=\\\'transparent\\\'"><span class="rounded-circle d-inline-block" style="width:10px;height:10px;background:#000000;border:1px solid #333;flex-shrink:0;"></span> 🏡 = <span style="color:#000000 !important;font-weight:600 !important;">Casa megareporte.</span></span>\';
             if (tiposPresentes.gestores) leyendaGrandeHtml += \'<span class="d-block">Gestores = <span style="font-weight:600">cada asesor con su color.</span></span>\';
-            leyendaGrandeHtml += \'<span class="d-block rastreo-leyenda-conteo" style="color:#0f172a !important;font-weight:700 !important;">\' + conU + \' de \' + totG + \' con ubicación.</span>\';
+            leyendaGrandeHtml += \'<span class="d-block rastreo-leyenda-conteo" style="color:#0f172a !important;font-weight:700 !important;">\' + conU + \' de \' + totG + \' con ubicación (máx. 16 gestores en mapa).</span><span class="d-block small text-muted mt-1">Use el botón 🔍 Lupa y luego clic en el mapa para ampliar una zona.</span>\';
             if (puntosGestores && puntosGestores.length) {
                 var seenGG = {}, nombresGG = [];
                 puntosGestores.forEach(function(g) { var n = (g.nombre || \'—\').trim() || \'—\'; if (!seenGG[n]) { seenGG[n] = true; nombresGG.push(n); } });
                 var escOG = function(s) { if (s == null || s === undefined) return \'\'; return (s+\'\').replace(/&/g, \'&amp;\').replace(/</g, \'&lt;\').replace(/>/g, \'&gt;\').replace(/\"/g, \'&quot;\'); };
-                var htmlOG = \'<div class="rastreo-filtro-gestor-overlay" style="position:absolute;top:52px;right:8px;left:auto;z-index:10;background:rgba(255,255,255,0.95);padding:6px 8px;border-radius:8px;box-shadow:0 1px 4px rgba(0,0,0,0.2);pointer-events:auto;"><span class="small text-muted d-block mb-1">Filtrar por asesor (puede elegir varios)</span><div class="d-flex flex-column gap-1"><label class="d-flex align-items-center gap-2 mb-0 cursor-pointer"><input type="checkbox" class="rastreo-filtro-gestor-cb form-check-input" data-gestor=""> <span>Todos</span></label>\';
+                var htmlOG = \'<div class="rastreo-filtro-gestor-overlay" style="position:absolute;top:52px;right:8px;left:auto;z-index:10;background:rgba(255,255,255,0.95);padding:6px 8px;border-radius:8px;box-shadow:0 1px 4px rgba(0,0,0,0.2);pointer-events:auto;"><button type="button" class="btn btn-sm btn-outline-secondary mb-2 rastreo-btn-lupa-mapa" id="rastreoBtnLupaGrande" title="Clic aquí y luego en el mapa para ampliar una zona">🔍 Lupa</button><span class="small text-muted d-block mb-1">Filtrar por asesor (puede elegir varios)</span><div class="d-flex flex-column gap-1"><label class="d-flex align-items-center gap-2 mb-0 cursor-pointer"><input type="checkbox" class="rastreo-filtro-gestor-cb form-check-input" data-gestor=""> <span>Todos</span></label>\';
                 nombresGG.forEach(function(n) { var color = rastreoColoresPorGestor[n] || \'#6b7280\'; htmlOG += \'<label class="d-flex align-items-center gap-2 mb-0 cursor-pointer"><input type="checkbox" class="rastreo-filtro-gestor-cb form-check-input" data-gestor="\' + escOG(n) + \'"> <span class="rounded-circle d-inline-block" style="width:10px;height:10px;background:\' + color + \';flex-shrink:0"></span><span>\' + escOG(n) + \'</span></label>\'; });
                 htmlOG += \'</div><div class="rastreo-leyenda-mapa-grande mt-2 small text-muted" style="max-width:280px;">\' + leyendaGrandeHtml + \'</div></div>\';
                 cont.insertAdjacentHTML(\'beforeend\', htmlOG);
                 (function() {
                     var ov = cont.querySelector(\'.rastreo-filtro-gestor-overlay\');
                     if (!ov) return;
+                    var btnLupaG = ov.querySelector(\'#rastreoBtnLupaGrande\');
+                    if (btnLupaG) btnLupaG.addEventListener(\'click\', function() { activarLupaConClicEnMapa(rastreoMapaAlternasGrande); });
                     var sel = rastreoFiltroGestoresSeleccionados || [];
                     var cbs = ov.querySelectorAll(\'.rastreo-filtro-gestor-cb\');
                     for (var i = 0; i < cbs.length; i++) {
@@ -1377,7 +1777,7 @@ JS;
                                 var badgeRegistros = \'<span class="\' + badgeCls + \' ms-1">\' + registroTexto + \'</span>\';
                                 return \'<div class="rastreo-direccion-item rastreo-direccion-row small" data-indice="\' + (d.orden - 1) + \'" data-lat="\' + d.lat + \'" data-lng="\' + d.lng + \'">\' +
                                     \'<div class="rastreo-col-direccion">\' +
-                                    \'<div class="rastreo-direccion-label fw-semibold">📍 Ubicación \' + d.orden + \':</div>\' +
+                                    \'<div class="rastreo-direccion-label fw-semibold"> Ubicación \' + d.orden + \':</div>\' +
                                     \'<div class="direccion-linea text-muted">\' + tipoLabel + \' — <span class="direccion-value" data-lat="\' + d.lat + \'" data-lng="\' + d.lng + \'">Obteniendo dirección...</span></div>\' +
                                     \'</div>\' +
                                     \'<div class="rastreo-col-registros text-nowrap">\' + badgeRegistros + \'</div>\' +
@@ -1714,33 +2114,146 @@ JS;
 
     private function getColumnsConfig($esAdmin)
     {
+        // Panel Admin = solo Sabueso: sin columna Gestión. Menú Ticket sí muestra Gestión (varias categorías).
         $base = [
             ['data' => null, 'defaultContent' => '', 'className' => 'control', 'orderable' => false],
             ['data' => '_fecha_creacion', 'title' => '', 'visible' => false, 'orderable' => true],
             ['data' => 'folio_tipo', 'title' => 'Folio / Tipo'],
+        ];
+        if (!$esAdmin) {
+            $base[] = ['data' => 'gestion', 'title' => 'Gestión', 'orderable' => false];
+        }
+        $base = array_merge($base, [
             ['data' => 'estado', 'title' => 'Estado'],
             ['data' => 'prioridad', 'title' => 'Prioridad'],
             ['data' => 'credito', 'title' => 'Crédito'],
             ['data' => 'fechas', 'title' => 'Fechas'],
-        ];
+        ]);
         if ($esAdmin) {
             $base[] = ['data' => 'creador', 'title' => 'Quién levantó'];
             $base[] = ['data' => 'asignado', 'title' => 'Asignado a'];
+            $base[] = ['data' => 'tiempo_visitar', 'title' => 'Tiempo para visitar / Prórroga', 'orderable' => false, 'className' => 'text-center'];
+            $base[] = ['data' => 'ds_resultado', 'title' => 'Resultado DS', 'orderable' => false, 'className' => 'text-center'];
             $base[] = ['data' => 'dictamen_visto', 'title' => '', 'orderable' => false, 'className' => 'text-end'];
         } else {
+            $base[] = ['data' => 'tiempo_visitar', 'title' => 'Tiempo para visitar / Prórroga', 'orderable' => false, 'className' => 'text-center'];
+            $base[] = ['data' => 'ds_resultado', 'title' => 'Resultado DS', 'orderable' => false, 'className' => 'text-center'];
             $base[] = ['data' => 'dictamen_visto', 'title' => '', 'orderable' => false, 'className' => 'text-end'];
         }
         $base[] = ['data' => 'acciones', 'title' => 'Acciones', 'orderable' => false];
 
         return [
             'esAdminJs'  => $esAdmin ? 'true' : 'false',
-            'columnsJs'  => json_encode($base, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_QUOT | JSON_HEX_APOS),
+            'columnsJs'  => json_encode($base, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_QUOT | JSON_HEX_APOS | JSON_HEX_TAG | JSON_HEX_AMP),
         ];
     }
 
     /**
-     * Columnas para la vista Cerrado/Eliminado: mismas que Panel Admin + Quién eliminó/cerró, Fecha cierre, Acciones (solo ojo).
+     * Columnas para la vista Panel Solicitud de baja.
      */
+    private function getColumnsConfigPanelSolicitudBaja()
+    {
+        $base = [
+            ['data' => null, 'defaultContent' => '', 'className' => 'control', 'orderable' => false],
+            ['data' => 'fecha_display', 'title' => 'Fecha'],
+            ['data' => 'motivo_baja', 'title' => 'Motivo'],
+            ['data' => 'nombre_colaborador', 'title' => 'Colaborador a dar de baja'],
+            ['data' => 'creador_nombre', 'title' => 'Quién solicitó'],
+            ['data' => 'adjunto_display', 'title' => 'Adjunto', 'orderable' => false],
+            ['data' => 'acciones', 'title' => 'Acciones', 'orderable' => false],
+        ];
+        return [
+            'columnsJs' => json_encode($base, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_QUOT | JSON_HEX_APOS),
+        ];
+    }
+
+    /**
+     * Vista Panel Admin Solicitudes de baja: listado + modal Ver (solo lectura).
+     */
+    public function panelSolicitudBaja()
+    {
+        $columnsJson = $this->getColumnsConfigPanelSolicitudBaja();
+        $script = <<<SCRIPT
+        <script>
+        function attrEsc(s){ if (s==null||s===undefined) return ''; var x=(s+'').split('&').join('&amp;').split('<').join('&lt;'); return x.split('"').join('&quot;'); }
+        $(document).ready(function() {
+            configuraTabla("#tablaSolicitudesBaja", {
+                registrosPorPagina: 10,
+                order: [[1, 'desc']],
+                columns: {$columnsJson['columnsJs']}
+            });
+            getSolicitudesBaja();
+        });
+        function getSolicitudesBaja() {
+            http.request({
+                endpoint: "/sabueso/getSolicitudesBaja",
+                metodo: "POST",
+                onSuccess: function(resp) {
+                    var datos = (resp.datos || []).map(function(s) {
+                        var fecha = s.fecha_creacion ? new Date(s.fecha_creacion).toLocaleString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
+                        var adjunto = (s.ruta_adjunto && s.ruta_adjunto.trim()) ? '<a href="/sabueso/verAdjuntoSolicitudBaja?id=' + (s.id || '') + '" target="_blank" class="btn btn-sm btn-outline-secondary" title="Descargar adjunto"><i class="fa-solid fa-download me-1"></i>Ver</a>' : '<span class="text-muted">—</span>';
+                        return {
+                            fecha_display: '<small>' + attrEsc(fecha) + '</small>',
+                            motivo_baja: '<span class="fw-medium">' + attrEsc(s.motivo_baja || '—') + '</span>',
+                            nombre_colaborador: '<small>' + attrEsc(s.nombre_colaborador || '—') + '</small>',
+                            creador_nombre: '<small>' + attrEsc(s.creador_nombre || '—') + '</small>',
+                            adjunto_display: adjunto,
+                            acciones: '<button type="button" class="btn btn-sm btn-outline-primary btn-ver-solicitud" onclick="abrirModalVerSolicitudBaja(' + (s.id || 0) + ')" title="Ver detalle"><i class="fa fa-eye"></i></button>'
+                        };
+                    });
+                    var tabla = $('#tablaSolicitudesBaja').DataTable();
+                    tabla.clear().rows.add(datos).draw();
+                },
+                onError: function() {
+                    var tabla = $('#tablaSolicitudesBaja').DataTable();
+                    tabla.clear().draw();
+                }
+            });
+        }
+        function abrirModalVerSolicitudBaja(id) {
+            if (!id) return;
+            $('#modalVerSolicitudBaja .modal-body').html('<div class="text-center py-4"><span class="text-muted">Cargando...</span></div>');
+            var \$modal = $('#modalVerSolicitudBaja');
+            if (typeof bootstrap !== 'undefined' && bootstrap.Modal) { bootstrap.Modal.getOrCreateInstance(\$modal[0]).show(); } else { \$modal.modal('show'); }
+            http.request({
+                endpoint: "/sabueso/getSolicitudBajaPorId",
+                metodo: "POST",
+                data: JSON.stringify({ id: id }),
+                contentType: "application/json",
+                processData: false,
+                onSuccess: function(r) {
+                    if (!(r.success && r.datos)) {
+                        $('#modalVerSolicitudBaja .modal-body').html('<div class="alert alert-warning mb-0">' + (r.mensaje || 'No se encontró la solicitud.') + '</div>');
+                        return;
+                    }
+                    var d = r.datos;
+                    var esc = attrEsc;
+                    var fCreacion = d.fecha_creacion ? new Date(d.fecha_creacion).toLocaleString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
+                    var html = '<div class="solicitud-ver-seccion"><h6 class="text-uppercase small fw-bold text-muted mb-2">Fecha de registro</h6><div>' + esc(fCreacion) + '</div></div>';
+                    html += '<div class="solicitud-ver-seccion"><h6 class="text-uppercase small fw-bold text-muted mb-2">Motivo de la solicitud</h6><div class="fw-medium">' + esc(d.motivo_baja || '—') + '</div></div>';
+                    html += '<div class="solicitud-ver-seccion"><h6 class="text-uppercase small fw-bold text-muted mb-2">Detalle del motivo</h6><div class="text-break">' + esc(d.detalle_motivo || '—') + '</div></div>';
+                    if (d.descripcion && d.descripcion.trim()) html += '<div class="solicitud-ver-seccion"><h6 class="text-uppercase small fw-bold text-muted mb-2">Descripción u observaciones</h6><div class="text-break">' + esc(d.descripcion) + '</div></div>';
+                    html += '<div class="solicitud-ver-seccion"><h6 class="text-uppercase small fw-bold text-muted mb-2">Colaborador a dar de baja</h6><div class="fw-semibold">' + esc(d.nombre_colaborador || '—') + '</div></div>';
+                    html += '<div class="solicitud-ver-seccion"><h6 class="text-uppercase small fw-bold text-muted mb-2">Quién solicitó</h6><div>' + esc(d.creador_nombre || '—') + '</div></div>';
+                    if (d.ruta_adjunto && d.ruta_adjunto.trim()) {
+                        html += '<div class="solicitud-ver-seccion"><h6 class="text-uppercase small fw-bold text-muted mb-2">Adjunto</h6><div><a href="/sabueso/verAdjuntoSolicitudBaja?id=' + (d.id || '') + '" target="_blank" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-download me-1"></i>Descargar</a>';
+                        if (d.nombre_archivo_original && d.nombre_archivo_original.trim()) html += ' <span class="text-muted small ms-2">' + esc(d.nombre_archivo_original) + '</span>';
+                        html += '</div></div>';
+                    }
+                    $('#modalVerSolicitudBaja .modal-body').html(html);
+                },
+                onError: function(e) {
+                    $('#modalVerSolicitudBaja .modal-body').html('<div class="alert alert-danger mb-0">' + (e && e.mensaje ? attrEsc(e.mensaje) : 'Error al cargar.') + '</div>');
+                }
+            });
+        }
+        </script>
+        SCRIPT;
+        self::set('titulo', 'Solicitudes de baja | Sabueso');
+        self::set('script', $script);
+        self::render('sabueso_panel_solicitud_baja');
+    }
+
     private function getColumnsConfigCerradoEliminado()
     {
         $base = [
@@ -1871,6 +2384,1270 @@ JS;
     }
 
     /**
+     * Vista Estadísticas: solo lectura, datos agregados de tickets (tiempos, conteos, fechas).
+     */
+    public function estadisticas()
+    {
+        $script = <<<'SCRIPT'
+        <script>
+        function attrEsc(s){ if (s==null||s===undefined) return ''; var x=(s+'').split('&').join('&amp;').split('<').join('&lt;'); return x.split('"').join('&quot;'); }
+        function fmtFecha(s) {
+            if (!s) return '—';
+            try { return new Date(s).toLocaleString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }); } catch(e) { return attrEsc(s); }
+        }
+        function labelPeriodo(key, periodo) {
+            if (periodo == null) return '—';
+            var s = String(periodo);
+            if (key === 'por_dia') {
+                try {
+                    var d = new Date(s + (s.length <= 10 ? 'T12:00:00' : ''));
+                    return d.toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' });
+                } catch(e) { return s; }
+            }
+            if (key === 'por_semana') {
+                var n = parseInt(s, 10);
+                if (!isNaN(n) && n > 10000) {
+                    var y = Math.floor(n / 100);
+                    var w = n % 100;
+                    return 'Sem ' + w + ' (' + y + ')';
+                }
+                return s;
+            }
+            if (key === 'por_mes' && /^\d{4}-\d{2}$/.test(s)) {
+                try {
+                    var d2 = new Date(s + '-01T12:00:00');
+                    return d2.toLocaleDateString('es-MX', { month: 'short', year: 'numeric' });
+                } catch(e2) { return s; }
+            }
+            return s;
+        }
+        var estadisticasDatos = null;
+        var estadisticasFiltroPeriodo = 'por_dia';
+        var estadisticasFiltroSabueso = 'por_dia';
+        var estadisticasDrill = null;
+        var estadisticasDrillFilas = null;
+        function renderPeriodBreadcrumb() {
+            var bc = $('#estadPeriodBreadcrumb');
+            if (!estadisticasDrill) {
+                bc.addClass('d-none').empty();
+                return;
+            }
+            // Drill desde pestaña Año
+            if (estadisticasFiltroPeriodo === 'por_anio') {
+            var parts = [];
+            parts.push('<span class="estad-drill-back text-primary" style="cursor:pointer" data-drill-back="anio"><i class="fa fa-arrow-left me-1"></i>Años</span>');
+            if (estadisticasDrill.nivel === 'meses' && estadisticasDrill.anio) {
+                parts.push(' <span class="text-muted">·</span> <strong>' + estadisticasDrill.anio + '</strong>');
+            }
+            if (estadisticasDrill.nivel === 'semanas' && estadisticasDrill.anio && estadisticasDrill.mes) {
+                parts.push(' <span class="text-muted">·</span> <span class="estad-drill-back text-primary" style="cursor:pointer" data-drill-back="meses" data-anio="' + estadisticasDrill.anio + '">Meses</span>');
+                var mesStr = estadisticasDrill.mes < 10 ? '0' + estadisticasDrill.mes : '' + estadisticasDrill.mes;
+                parts.push(' <span class="text-muted">·</span> <strong>' + estadisticasDrill.anio + '-' + mesStr + '</strong>');
+            }
+            if (estadisticasDrill.nivel === 'dias' && estadisticasDrill.lunes) {
+                parts.push(' <span class="text-muted">·</span> <span class="estad-drill-back text-primary" style="cursor:pointer" data-drill-back="semanas" data-anio="' + (estadisticasDrill.anio||'') + '" data-mes="' + (estadisticasDrill.mes||'') + '">Semanas</span>');
+                parts.push(' <span class="text-muted">·</span> <strong>Semana del ' + estadisticasDrill.lunes + '</strong>');
+            }
+            bc.removeClass('d-none').html(parts.join(''));
+            return;
+            }
+            // Drill desde pestaña Meses: mes → semanas → días
+            if (estadisticasFiltroPeriodo === 'por_mes') {
+                var partsM = [];
+                partsM.push('<span class="estad-drill-back text-primary" style="cursor:pointer" data-drill-back="por_mes_list"><i class="fa fa-arrow-left me-1"></i>Meses</span>');
+                if (estadisticasDrill.nivel === 'semanas' && estadisticasDrill.anio && estadisticasDrill.mes) {
+                    var mesStr2 = estadisticasDrill.mes < 10 ? '0' + estadisticasDrill.mes : '' + estadisticasDrill.mes;
+                    partsM.push(' <span class="text-muted">·</span> <strong>' + estadisticasDrill.anio + '-' + mesStr2 + '</strong> <span class="text-muted small">(elige semana)</span>');
+                }
+                if (estadisticasDrill.nivel === 'dias' && estadisticasDrill.lunes) {
+                    partsM.push(' <span class="text-muted">·</span> <span class="estad-drill-back text-primary" style="cursor:pointer" data-drill-back="semanas_mes" data-anio="' + (estadisticasDrill.anio||'') + '" data-mes="' + (estadisticasDrill.mes||'') + '">Semanas del mes</span>');
+                    partsM.push(' <span class="text-muted">·</span> <strong>Semana del ' + estadisticasDrill.lunes + '</strong>');
+                }
+                bc.removeClass('d-none').html(partsM.join(''));
+                return;
+            }
+            // Drill desde pestaña Semanas: clic en semana → 7 días
+            if (estadisticasFiltroPeriodo === 'por_semana' && estadisticasDrill.nivel === 'dias' && estadisticasDrill.lunes) {
+                bc.removeClass('d-none').html(
+                    '<span class="estad-drill-back text-primary" style="cursor:pointer" data-drill-back="por_semana_list"><i class="fa fa-arrow-left me-1"></i>Semanas del mes</span>' +
+                    ' <span class="text-muted">·</span> <strong>Semana del ' + estadisticasDrill.lunes + '</strong> <span class="text-muted small">(por día)</span>'
+                );
+                return;
+            }
+            bc.addClass('d-none').empty();
+        }
+        function renderPeriodList() {
+            if (!estadisticasDatos) return;
+            var wrap = $('#estadPeriodList');
+            wrap.empty();
+            renderPeriodBreadcrumb();
+            var filas = (estadisticasDrillFilas != null) ? estadisticasDrillFilas : (estadisticasDatos[estadisticasFiltroPeriodo] || []);
+            var keyForLabel = estadisticasFiltroPeriodo;
+            if (estadisticasDrill && estadisticasDrill.nivel === 'meses') keyForLabel = 'por_mes';
+            if (estadisticasDrill && estadisticasDrill.nivel === 'semanas') keyForLabel = 'por_semana';
+            if (estadisticasDrill && estadisticasDrill.nivel === 'dias') keyForLabel = 'por_dia';
+            if (!filas.length) {
+                wrap.append('<p class="text-muted small px-2 mb-0">Sin datos para este período.</p>');
+                return;
+            }
+            var maxN = 1;
+            filas.forEach(function(r) { var v = parseInt(r.n, 10); if (!isNaN(v) && v > maxN) maxN = v; });
+            filas.forEach(function(row) {
+                var label = labelPeriodo(keyForLabel, row.periodo);
+                var n = parseInt(row.n, 10);
+                if (isNaN(n)) n = 0;
+                var pct = Math.round((n / maxN) * 100);
+                var clickAttr = ' class="estad-period-row"';
+                if (estadisticasFiltroPeriodo === 'por_anio' && !estadisticasDrill) {
+                    clickAttr = ' class="estad-period-row estad-drill-row" style="cursor:pointer" data-drill="meses" data-anio="' + row.periodo + '"';
+                } else if (estadisticasDrill && estadisticasDrill.nivel === 'meses' && /^\d{4}-\d{2}$/.test(String(row.periodo))) {
+                    var pm = String(row.periodo).split('-');
+                    clickAttr = ' class="estad-period-row estad-drill-row" style="cursor:pointer" data-drill="semanas" data-anio="' + pm[0] + '" data-mes="' + parseInt(pm[1], 10) + '"';
+                } else if (estadisticasDrill && estadisticasDrill.nivel === 'semanas' && row.lunes) {
+                    clickAttr = ' class="estad-period-row estad-drill-row" style="cursor:pointer" data-drill="dias" data-lunes="' + row.lunes + '" data-anio="' + (estadisticasDrill.anio || '') + '" data-mes="' + (estadisticasDrill.mes || '') + '"';
+                } else if (estadisticasFiltroPeriodo === 'por_mes' && !estadisticasDrill && /^\d{4}-\d{2}$/.test(String(row.periodo))) {
+                    var pm2 = String(row.periodo).split('-');
+                    clickAttr = ' class="estad-period-row estad-drill-row" style="cursor:pointer" data-drill="semanas_desde_mes" data-anio="' + pm2[0] + '" data-mes="' + parseInt(pm2[1], 10) + '"';
+                } else if (estadisticasFiltroPeriodo === 'por_semana' && row.lunes && (!estadisticasDrill || estadisticasDrill.nivel !== 'dias')) {
+                    clickAttr = ' class="estad-period-row estad-drill-row" style="cursor:pointer" data-drill="dias" data-lunes="' + row.lunes + '"';
+                } else if ((estadisticasFiltroPeriodo === 'por_dia' && !estadisticasDrill) || (estadisticasDrill && estadisticasDrill.nivel === 'dias')) {
+                    if (/^\d{4}-\d{2}-\d{2}$/.test(String(row.periodo))) {
+                        clickAttr = ' class="estad-period-row estad-dia-row" style="cursor:pointer" data-periodo="' + attrEsc(row.periodo) + '"';
+                    }
+                }
+                wrap.append(
+                    '<div' + clickAttr + '>' +
+                    '<span class="estad-period-label text-body">' + attrEsc(label) + '</span>' +
+                    '<div class="estad-mini-bar"><div style="width:0%" data-w="' + pct + '"></div></div>' +
+                    '<span class="estad-period-val">' + n + '</span></div>'
+                );
+            });
+            setTimeout(function() {
+                wrap.find('.estad-mini-bar > div').each(function() { var w = $(this).data('w'); if (w != null) $(this).css('width', w + '%'); });
+            }, 80);
+        }
+        function cargarDrill(tipo, params, onDone) {
+            http.request({
+                endpoint: '/sabueso/getEstadisticasLevantadosDrill',
+                metodo: 'POST',
+                data: JSON.stringify(Object.assign({ tipo: tipo }, params || {})),
+                contentType: 'application/json',
+                processData: false,
+                showLoader: false,
+                onSuccess: function(r) {
+                    if (r.success && r.filas) {
+                        estadisticasDrillFilas = r.filas;
+                        if (onDone) onDone(r);
+                        renderPeriodList();
+                    } else {
+                        estadisticasDrillFilas = [];
+                        renderPeriodList();
+                    }
+                },
+                onError: function() {
+                    estadisticasDrillFilas = [];
+                    renderPeriodList();
+                }
+            });
+        }
+        function avatarHue(name) {
+            var h = 0;
+            for (var i = 0; i < (name || '').length; i++) h = ((h << 5) - h) + name.charCodeAt(i);
+            return Math.abs(h) % 360;
+        }
+        function iniciales(nombre) {
+            var p = (nombre || '').trim().split(/\s+/);
+            if (p.length >= 2) return (p[0][0] + p[1][0]).toUpperCase();
+            if (p[0]) return p[0].substring(0, 2).toUpperCase();
+            return '?';
+        }
+        function renderPorGestor() {
+            var list = (estadisticasDatos && estadisticasDatos.por_gestor) || [];
+            var tbL = $('#tbodyPorGestorLectura');
+            var tbPV = $('#tbodyPorGestorPV');
+            tbL.empty();
+            tbPV.empty();
+            if (!list.length) {
+                tbL.append('<tr><td colspan="6" class="text-muted">Sin datos por quien levantó (tickets con dictamen enviado en el detalle).</td></tr>');
+                tbPV.append('<tr><td colspan="6" class="text-muted">Sin datos.</td></tr>');
+                return;
+            }
+            list.forEach(function(g) {
+                var tasa = g.tasa != null ? g.tasa : 0;
+                var badgeClass = tasa >= 90 ? 'bg-success' : (tasa >= 70 ? 'bg-warning text-dark' : 'bg-danger');
+                var sinLeer = g.sin_leer != null ? g.sin_leer : 0;
+                var sinClass = sinLeer === 0 ? 'text-success' : (sinLeer <= 2 ? 'text-warning' : 'text-danger');
+                var hue = avatarHue(g.nombre);
+                var idp = parseInt(g.id_persona, 10) || 0;
+                var clickAttr = idp ? ' class="estad-gestor-fila" style="cursor:pointer" data-id-gestor="' + idp + '"' : '';
+                var nombreCell = '<td class="text-start" style="min-width:0"><div class="d-flex align-items-center gap-1">' +
+                    '<span class="estad-avatar flex-shrink-0" style="background:hsl(' + hue + ',72%,42%)">' + attrEsc(iniciales(g.nombre)) + '</span>' +
+                    '<div class="d-flex flex-column flex-grow-1" style="min-width:0"><span class="small fw-medium text-truncate" style="max-width:100%" title="' + attrEsc(g.nombre || '') + '">' + attrEsc(g.nombre || '') + '</span>' +
+                    (idp ? '<small class="text-muted"><i class="fa-solid fa-fingerprint me-1"></i>ID ' + idp + '</small>' : '') + '</div></div></td>';
+                // Vista lectura (sin cumplimiento)
+                tbL.append(
+                    '<tr' + clickAttr + '>' + nombreCell +
+                    '<td class="text-center fw-bold text-primary">' + (g.tickets || 0) + '</td>' +
+                    '<td class="text-center small text-muted">' + attrEsc(g.tiempo_lectura || '—') + '</td>' +
+                    '<td class="text-center small text-muted">' + attrEsc(g.tiempo_envio || '—') + '</td>' +
+                    '<td class="text-center fw-bold ' + sinClass + '">' + sinLeer + '</td>' +
+                    '<td class="text-center"><span class="badge rounded-pill ' + badgeClass + '">' + tasa + '%</span></td></tr>'
+                );
+                // Vista pagos/visitas + cumplimiento
+                var pctC = g.cumplimiento_pct_promedio;
+                var pctCTxt = (pctC !== null && pctC !== undefined) ? pctC + '%' : '—';
+                var resumenC = g.cumplimiento_resumen_texto || '';
+                var tipC = 'Evaluados: ' + (g.cumplimiento_evaluados || 0) + ' | Sin evaluar: ' + (g.cumplimiento_sin_evaluar || 0) + (resumenC ? ' | ' + resumenC : '');
+                var badgeC = (pctC !== null && pctC >= 70) ? 'bg-success' : ((pctC !== null && pctC >= 40) ? 'bg-warning text-dark' : 'bg-secondary');
+                var cumplCell = '<span class="badge rounded-pill ' + badgeC + ' estad-tooltip-custom" data-bs-toggle="tooltip" data-bs-placement="left" title="' + attrEsc(tipC) + '">' + pctCTxt + '</span>';
+                if (pctC === null && (g.cumplimiento_sin_evaluar || 0) === (g.tickets || 0)) {
+                    cumplCell = '<span class="text-muted small">Sin DS</span>';
+                }
+                var pagaron = parseInt(g.pagaron, 10) || 0;
+                var visitaron = parseInt(g.visitaron, 10) || 0;
+                var prorrogaN = parseInt(g.prorroga_dadas, 10) || 0;
+                var ticketsN = parseInt(g.tickets, 10) || 0;
+                tbPV.append(
+                    '<tr' + clickAttr + '>' + nombreCell +
+                    '<td class="text-center fw-bold text-primary">' + ticketsN + '</td>' +
+                    '<td class="text-center fw-semibold text-success">' + pagaron + '</td>' +
+                    '<td class="text-center fw-semibold" style="color:#0d6efd;">' + visitaron + '</td>' +
+                    '<td class="text-center fw-semibold" style="color:#d97706;">' + prorrogaN + '</td>' +
+                    '<td class="text-center">' + cumplCell + '</td></tr>'
+                );
+            });
+        }
+        var vistaGestorTablaActual = 'lectura';
+        function aplicarVistaGestorTabla(key) {
+            var k = key || 'lectura';
+            vistaGestorTablaActual = k;
+            $('#grpVistaGestorTabla .btn').removeClass('active');
+            $('#grpVistaGestorTabla .btn[data-vista-gestor="' + k + '"]').addClass('active');
+            if (k === 'pagos_visitas') {
+                $('#wrapTablaGestorLectura').addClass('d-none');
+                $('#wrapTablaGestorPV').removeClass('d-none');
+            } else {
+                $('#wrapTablaGestorPV').addClass('d-none');
+                $('#wrapTablaGestorLectura').removeClass('d-none');
+            }
+            initEstadisticasTooltips();
+        }
+        function renderPorSabueso() {
+            var list = (estadisticasDatos && estadisticasDatos.por_sabueso) || [];
+            var tb = $('#tbodyPorSabueso');
+            tb.empty();
+            if (!list.length) {
+                tb.append('<tr><td colspan="4" class="text-muted">Sin dictámenes en este período con autor asignado. Si acaba de enviar, vuelva a cargar: el sistema rellena el autor con quien envía o con la última asignación antes del envío.</td></tr>');
+                return;
+            }
+            list.forEach(function(s) {
+                var idp = parseInt(s.id_persona, 10) || 0;
+                var rowClass = (idp === 797 ? 'table-warning ' : '') + (idp ? 'estad-sabueso-fila' : '');
+                var nombreEsc = attrEsc((s.nombre || '').trim());
+                var badge797 = idp === 797 ? ' <span class="badge bg-secondary">797</span>' : '';
+                var crea1a = s.creacion_a_primera_asignacion_humano || s.tiempo_hasta_asignarle_humano || '—';
+                var clickAttr = idp ? ' data-id-sabueso="' + idp + '" style="cursor:pointer"' : '';
+                var hue = avatarHue(s.nombre || '');
+                tb.append(
+                    '<tr class="' + rowClass.trim() + '"' + clickAttr + '><td><div class="d-flex align-items-center gap-2">' +
+                    '<span class="estad-avatar" style="background:hsl(' + hue + ',72%,42%)">' + attrEsc(iniciales(s.nombre || '')) + '</span>' +
+                    '<span class="small fw-medium text-truncate" style="max-width:10rem" title="' + nombreEsc + '">' + nombreEsc + '</span>' + badge797 + '</div></td>' +
+                    '<td class="text-center fw-bold text-primary">' + (s.dictaminados || 0) + '</td>' +
+                    '<td class="text-center small">' + attrEsc(crea1a) + '</td>' +
+                    '<td class="text-center small">' + attrEsc(s.tiempo_asignado_a_envio_humano || '—') + '</td></tr>'
+                );
+            });
+        }
+        function initEstadisticasTooltips() {
+            if (typeof bootstrap === 'undefined' || !bootstrap.Tooltip) return;
+            document.querySelectorAll('#panelResumenSabueso [data-bs-toggle="tooltip"], #panelResumenGestor [data-bs-toggle="tooltip"]').forEach(function(el) {
+                var ex = bootstrap.Tooltip.getInstance(el);
+                if (ex) ex.dispose();
+                new bootstrap.Tooltip(el);
+            });
+        }
+        function initTooltipsEnSwal() {
+            if (typeof bootstrap === 'undefined' || !bootstrap.Tooltip) return;
+            var root = document.querySelector('.swal2-html-container');
+            if (!root) return;
+            root.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(function(el) {
+                var ex = bootstrap.Tooltip.getInstance(el);
+                if (ex) ex.dispose();
+                new bootstrap.Tooltip(el, { customClass: 'estad-tooltip-custom', container: 'body' });
+            });
+        }
+        function swalCargandoDetalle(titulo) {
+            if (typeof Swal === 'undefined') return;
+            Swal.fire({
+                title: titulo || 'Cargando…',
+                html: '<p class="mb-0 text-muted">Obteniendo detalle, espere un momento.</p>',
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                showConfirmButton: false,
+                didOpen: function() { if (Swal.showLoading) Swal.showLoading(); }
+            });
+        }
+        function swalCargandoDetalleConProgreso(titulo) {
+            if (typeof Swal === 'undefined') return null;
+            var pct = 0;
+            var target = 97;
+            Swal.fire({
+                title: titulo || 'Cargando…',
+                html: '<p class="mb-2 text-muted">Obteniendo detalle, espere un momento.</p>' +
+                    '<div class="progress" style="height:10px;"><div id="estadDetalleProgressBar" class="progress-bar progress-bar-striped progress-bar-animated bg-primary" role="progressbar" style="width:0%"></div></div>' +
+                    '<div class="small mt-2 text-end"><strong id="estadDetalleProgressPct">0%</strong></div>',
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                showConfirmButton: false
+            });
+            var iv = setInterval(function() {
+                if (pct >= target) return;
+                var inc = Math.max(0.3, (target - pct) * 0.04);
+                pct = Math.min(target, pct + inc);
+                var pctInt = Math.floor(pct);
+                var bar = document.getElementById('estadDetalleProgressBar');
+                var pctEl = document.getElementById('estadDetalleProgressPct');
+                if (bar) bar.style.width = pctInt + '%';
+                if (pctEl) pctEl.textContent = pctInt + '%';
+            }, 250);
+            return {
+                stopAndClose: function() {
+                    clearInterval(iv);
+                    var bar = document.getElementById('estadDetalleProgressBar');
+                    var pctEl = document.getElementById('estadDetalleProgressPct');
+                    if (bar) bar.style.width = '100%';
+                    if (pctEl) pctEl.textContent = '100%';
+                    if (typeof Swal !== 'undefined' && Swal.close) Swal.close();
+                }
+            };
+        }
+        function abrirDetalleSabueso(idPersona) {
+            if (!idPersona) return;
+            swalCargandoDetalle('Cargando dictámenes…');
+            http.request({
+                endpoint: '/sabueso/getEstadisticasSabuesoDetalle',
+                metodo: 'POST',
+                data: JSON.stringify({ id_persona_autor: idPersona }),
+                contentType: 'application/json',
+                processData: false,
+                showLoader: false,
+                onSuccess: function(r) {
+                    if (typeof Swal !== 'undefined' && Swal.close) Swal.close();
+                    if (!r.success) { if (typeof Swal !== 'undefined') Swal.fire('Aviso', r.mensaje || 'Sin datos', 'info'); return; }
+                    var filas = r.filas || [];
+                    if (!filas.length) { if (typeof Swal !== 'undefined') Swal.fire('Aviso', 'Sin dictámenes enviados con este autor.', 'info'); return; }
+                    function tip(title) { return ' <i class="fa fa-question-circle estad-modal-th-tip text-success" data-bs-toggle="tooltip" data-bs-placement="top" title="' + attrEsc(title) + '"></i>'; }
+                    var html = '<div class="estad-modal-detalle-wrap">' +
+                        '<div class="estad-modal-detalle-leyenda text-start">' +
+                        '<strong>Vista Sabueso.</strong> <em>Asignado→envío</em>: tiempo desde que le quedó asignado el ticket hasta enviar (solo si consta asignación a esta persona antes del envío). ' +
+                        '<em>Cola 1ª asign.</em>: desde creación del ticket hasta la primera asignación en Sabueso.</div>' +
+                        '<div class="estad-modal-detalle-table-wrap table-responsive">' +
+                        '<table class="table table-sm table-bordered text-start">' +
+                        '<thead><tr>' +
+                        '<th>Folio' + tip('Identificador del ticket.') + '</th>' +
+                        '<th>Levantó' + tip('Gestor que creó el ticket (no el Sabueso).') + '</th>' +
+                        '<th>Enviado' + tip('Fecha/hora en que se envió el dictamen al gestor.') + '</th>' +
+                        '<th>¿Asignado?' + tip('Sí si en asignacion_ticket consta que le quedó asignado a este Sabueso antes del envío.') + '</th>' +
+                        '<th>Asignado→envío' + tip('Tiempo desde última asignación a él hasta enviar. — si no estaba asignado a él.') + '</th>' +
+                        '<th>Cola 1ª' + tip('Tiempo desde creación del ticket hasta la primera asignación (cualquier persona).') + '</th>' +
+                        '<th>Gestor vio' + tip('Si el gestor ya abrió el dictamen (fecha_visto_gestor).') + '</th>' +
+                        '<th>T. lectura' + tip('Tiempo del gestor entre envío y apertura. — si no aplica o sin dato.') + '</th>' +
+                        '</tr></thead><tbody>';
+                    filas.forEach(function(f) {
+                        html += '<tr><td class="fw-medium">' + attrEsc(f.folio || '—') + '</td><td>' + attrEsc(f.creador_nombre || '—') + '</td>' +
+                            '<td>' + fmtFecha(f.dictamen_envio) + '</td><td>' + attrEsc(f.estaba_asignado_a_el || '—') + '</td>' +
+                            '<td>' + attrEsc(f.tiempo_asignado_a_envio_humano || '—') + '</td>' +
+                            '<td>' + attrEsc(f.tiempo_cola_hasta_primera_asignacion_humano || '—') + '</td>' +
+                            '<td>' + attrEsc(f.visto_si_no || '—') + '</td><td>' + attrEsc(f.tiempo_lectura_gestor_humano || '—') + '</td></tr>';
+                    });
+                    html += '</tbody></table></div></div>';
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire({
+                            title: 'Sabueso · ' + (r.nombre || ''),
+                            html: html,
+                            width: '940px',
+                            showConfirmButton: true,
+                            confirmButtonText: 'Cerrar',
+                            customClass: { popup: 'estad-detalle-swal', confirmButton: 'btn btn-success px-4' },
+                            didOpen: function() { initTooltipsEnSwal(); }
+                        });
+                    }
+                },
+                onError: function() {
+                    if (typeof Swal !== 'undefined' && Swal.close) Swal.close();
+                    if (typeof Swal !== 'undefined') Swal.fire('Error', 'No se pudo cargar el detalle.', 'error');
+                }
+            });
+        }
+        var perPageGestorDetalle = 20;
+        function abrirDetalleGestor(idPersona, nombre, vistaTabla) {
+            if (!idPersona) return;
+            vistaTabla = vistaTabla || 'lectura';
+            var progressHandle = (vistaTabla === 'pagos_visitas') ? swalCargandoDetalleConProgreso('Cargando tickets del gestor…') : null;
+            if (!progressHandle) swalCargandoDetalle('Cargando tickets del gestor…');
+            http.request({
+                endpoint: '/sabueso/getEstadisticasGestorDetalle',
+                metodo: 'POST',
+                data: JSON.stringify({ id_persona_creador: idPersona, page: 1, per_page: perPageGestorDetalle, vista: vistaTabla }),
+                contentType: 'application/json',
+                processData: false,
+                showLoader: false,
+                onSuccess: function(r) {
+                    if (progressHandle && progressHandle.stopAndClose) progressHandle.stopAndClose(); else if (typeof Swal !== 'undefined' && Swal.close) Swal.close();
+                    if (!r.success) { if (typeof Swal !== 'undefined') Swal.fire('Aviso', r.mensaje || 'Sin datos', 'info'); return; }
+                    var filas = r.filas || [];
+                    var total = (r.total != null && r.total !== '') ? parseInt(r.total, 10) : filas.length;
+                    var page = (r.page != null && r.page !== '') ? parseInt(r.page, 10) : 1;
+                    var perPage = (r.per_page != null && r.per_page !== '') ? parseInt(r.per_page, 10) : perPageGestorDetalle;
+                    if (!filas.length && total === 0) { if (typeof Swal !== 'undefined') Swal.fire('Aviso', 'Sin tickets con dictamen enviado para este gestor.', 'info'); return; }
+                    function tipG(title) { return ' <i class="fa fa-question-circle estad-modal-th-tip text-primary" data-bs-toggle="tooltip" data-bs-placement="top" title="' + attrEsc(title) + '"></i>'; }
+                    function filaPagoVisitoCumpl(f) {
+                        var pctF = f.pct_efectividad;
+                        var pctFTxt = (pctF !== null && pctF !== undefined && pctF !== '') ? pctF + '%' : '<span class="text-muted">Sin DS</span>';
+                        var resMostrar = (f.resultado_ds_mostrar != null && f.resultado_ds_mostrar !== '') ? attrEsc(f.resultado_ds_mostrar) : '<span class="text-muted">Sin dictamen sistema</span>';
+                        var pagoV = f.pago_en_ventana_resumen;
+                        var pagoVTxt = (pagoV === 'Sí' || pagoV === 'Si') ? '<span class="text-success fw-semibold">Sí</span>' : (pagoV === 'No' ? '<span class="text-danger fw-semibold">No</span>' : '<span class="text-muted">—</span>');
+                        var visitoV = f.visito_campo_resumen;
+                        var visitoVTxt = (visitoV === 'Sí' || visitoV === 'Si') ? '<span class="text-success fw-semibold">Sí</span>' : (visitoV === 'No' ? '<span class="text-danger fw-semibold">No</span>' : '<span class="text-muted">—</span>');
+                        var cumplTxt = (f.cumplimiento_etiqueta != null && f.cumplimiento_etiqueta !== '') ? attrEsc(f.cumplimiento_etiqueta) : resMostrar;
+                        var pagoSemanaSi = f.pago_durante_semana_si === true || f.pago_durante_semana_si === '1';
+                        var pagoSemanaCount = (f.pago_durante_semana_count != null && f.pago_durante_semana_count !== '') ? parseInt(f.pago_durante_semana_count, 10) : 0;
+                        var pagoSemanaTxt = pagoSemanaSi ? '<span class="text-success fw-semibold">Sí</span>' : '<span class="text-muted">No</span>';
+                        if (pagoSemanaCount > 0) pagoSemanaTxt += ' <span class="text-muted small">(' + pagoSemanaCount + ')</span>';
+                        var pagoPr = f.pago_en_prorroga_resumen;
+                        var pagoProrrogaTxt = (pagoPr === 'Sí' || pagoPr === 'Si') ? '<span class="text-success fw-semibold">Sí</span>' : (pagoPr === 'No' ? '<span class="text-danger fw-semibold">No</span>' : '<span class="text-muted">—</span>');
+                        return { pctFTxt: pctFTxt, pagoVTxt: pagoVTxt, visitoVTxt: visitoVTxt, cumplTxt: cumplTxt, pagoSemanaTxt: pagoSemanaTxt, pagoProrrogaTxt: pagoProrrogaTxt };
+                    }
+                    function buildPaginationBlock(tot, p, pp) {
+                        var totalPages = Math.ceil(tot / Math.max(1, pp));
+                        var desde = tot === 0 ? 0 : (p - 1) * pp + 1;
+                        var hasta = Math.min(p * pp, tot);
+                        var s20 = pp === 20 ? ' selected' : '';
+                        var s50 = pp === 50 ? ' selected' : '';
+                        var s100 = pp === 100 ? ' selected' : '';
+                        var sel = '<select id="estadGestorPerPage" class="form-select form-select-sm estad-gestor-perpage" style="width:auto;display:inline-block;">' +
+                            '<option value="20"' + s20 + '>20</option><option value="50"' + s50 + '>50</option><option value="100"' + s100 + '>100</option></select>';
+                        var txt = tot === 0 ? '0 resultados' : ('Mostrando ' + desde + '–' + hasta + ' de ' + tot);
+                        var prevDisabled = p <= 1 ? ' disabled' : '';
+                        var nextDisabled = p >= totalPages ? ' disabled' : '';
+                        return '<div id="estadGestorModalPagination" class="estad-modal-detalle-pager d-flex align-items-center justify-content-between flex-wrap gap-2" data-total="' + tot + '" data-page="' + p + '" data-per-page="' + pp + '">' +
+                            '<span class="text-muted small">' + txt + '</span>' +
+                            '<div class="d-flex align-items-center gap-2 flex-wrap">' +
+                            '<label class="text-muted small mb-0 d-flex align-items-center gap-1">Filas por pág. ' + sel + '</label>' +
+                            '<div class="btn-group btn-group-sm">' +
+                            '<button type="button" class="btn btn-outline-secondary estad-gestor-prev"' + prevDisabled + '>Anterior</button>' +
+                            '<button type="button" class="btn btn-outline-secondary estad-gestor-next"' + nextDisabled + '>Siguiente</button>' +
+                            '</div></div></div>';
+                    }
+                    var html;
+                    var swalWidth = '1180px';
+                    if (vistaTabla === 'pagos_visitas') {
+                        html = '<div class="estad-modal-detalle-wrap" id="estadGestorModalWrap" data-id-persona="' + attrEsc(String(idPersona)) + '" data-vista="pagos_visitas">' +
+                            '<div class="estad-modal-detalle-leyenda text-start">' +
+                            '<strong>Vista Pagos y visitas.</strong> Por ticket: si hubo <strong>pago</strong> en la ventana que evalúa el DS, si hubo <strong>visita de campo</strong>, etiqueta de <strong>cumplimiento</strong> y <strong>% efectividad</strong>. ' +
+                            '<strong>Pago esta semana:</strong> desde el lunes 00:00 (CDMX) hasta ahora, por id_credito (estado de cuenta). ' +
+                            'Si sale «Sin DS», generar dictamen del sistema en Panel Admin.</div>' +
+                            '<div class="estad-modal-detalle-table-wrap table-responsive">' +
+                            '<table class="table table-sm table-bordered text-start">' +
+                            '<thead><tr>' +
+                            '<th>Folio' + tipG('Ticket.') + '</th>' +
+                            '<th>Persona / ID cr.' + tipG('Nombre e ID de crédito de la persona por la cual se levantó el ticket (no del gestor).') + '</th>' +
+                            '<th>Dictamen enviado' + tipG('Referencia temporal del envío al gestor.') + '</th>' +
+                            '<th>Pagaron' + tipG('Sí = pago en estado de cuenta en la ventana 12h.') + '</th>' +
+                            '<th>Visitaron' + tipG('Sí = visita de campo registrada.') + '</th>' +
+                            '<th>Prórroga' + tipG('Sí = a este ticket se le otorgó prórroga (+12 h) o el resultado es tras prórroga (cumplió/no cumplió prórroga).') + '</th>' +
+                            '<th>Si pagó en la prórroga' + tipG('En la segunda ventana de 12 h (desde fecha_otorgada hasta fecha_limite). Solo aplica si hubo prórroga.') + '</th>' +
+                            '<th>Pago esta semana' + tipG('Desde lunes 00:00 CDMX de la semana actual hasta ahora; cantidad entre paréntesis.') + '</th>' +
+                            '<th>Cumplimiento' + tipG('Etiqueta del dictamen sistema.') + '</th>' +
+                            '<th>% efect.' + tipG('Porcentaje de efectividad.') + '</th>' +
+                            '</tr></thead><tbody id="estadGestorModalTbody">';
+                        filas.forEach(function(f) {
+                            var x = filaPagoVisitoCumpl(f);
+                            var prV = f.prorroga_otorgada_resumen;
+                            var prTxt = (prV === 'Sí' || prV === 'Si') ? '<span class="text-warning fw-semibold">Sí</span>' : (prV === 'No' ? '<span class="text-muted">No</span>' : '<span class="text-muted">—</span>');
+                            var creditoCell = '<div>' + attrEsc(f.nombre_cliente || '—') + '</div><div class="text-muted small">ID ' + (f.id_credito != null ? f.id_credito : '—') + '</div>';
+                            html += '<tr><td class="fw-medium">' + attrEsc(f.folio || '—') + '</td><td>' + creditoCell + '</td><td>' + fmtFecha(f.dictamen_envio) + '</td>' +
+                                '<td class="text-center">' + x.pagoVTxt + '</td>' +
+                                '<td class="text-center">' + x.visitoVTxt + '</td>' +
+                                '<td class="text-center">' + prTxt + '</td>' +
+                                '<td class="text-center">' + x.pagoProrrogaTxt + '</td>' +
+                                '<td class="text-center">' + x.pagoSemanaTxt + '</td>' +
+                                '<td><small>' + x.cumplTxt + '</small></td>' +
+                                '<td>' + x.pctFTxt + '</td></tr>';
+                        });
+                        html += '</tbody></table></div>' + buildPaginationBlock(total, page, perPage) + '</div>';
+                        swalWidth = '1280px';
+                    } else {
+                        html = '<div class="estad-modal-detalle-wrap" id="estadGestorModalWrap" data-id-persona="' + attrEsc(String(idPersona)) + '" data-vista="lectura">' +
+                            '<div class="estad-modal-detalle-leyenda text-start">' +
+                            '<strong>Vista Lectura y tasa.</strong> Tickets levantados por este gestor con dictamen enviado.<br>' +
+                            '<strong>¿Abrió?</strong> / <strong>T. apertura</strong> = lectura del dictamen tras el envío. ' +
+                            '<strong>Resultado DS</strong> y <strong>% efect.</strong> cuando ya existe dictamen del sistema.</div>' +
+                            '<div class="estad-modal-detalle-table-wrap table-responsive">' +
+                            '<table class="table table-sm table-bordered text-start">' +
+                            '<thead><tr>' +
+                            '<th>Folio' + tipG('Identificador del ticket.') + '</th>' +
+                            '<th>Persona / ID cr.' + tipG('Nombre e ID de crédito de la persona por la cual se levantó el ticket (no del gestor).') + '</th>' +
+                            '<th>Levantado' + tipG('Cuándo se creó el ticket.') + '</th>' +
+                            '<th>Dictamen enviado' + tipG('Cuándo se envió el dictamen al gestor.') + '</th>' +
+                            '<th>¿Abrió?' + tipG('Si ya abrió/vio el dictamen.') + '</th>' +
+                            '<th>Abrió el' + tipG('Fecha/hora visto.') + '</th>' +
+                            '<th>T. apertura' + tipG('Tiempo entre envío y apertura.') + '</th>' +
+                            '<th>Resultado DS' + tipG('Texto claro del dictamen sistema.') + '</th>' +
+                            '<th>% efect.' + tipG('% efectividad según DS.') + '</th>' +
+                            '</tr></thead><tbody id="estadGestorModalTbody">';
+                        filas.forEach(function(f) {
+                            var pctF = f.pct_efectividad;
+                            var pctFTxt = (pctF !== null && pctF !== undefined && pctF !== '') ? pctF + '%' : '<span class="text-muted">Sin DS</span>';
+                            var resMostrar = (f.resultado_ds_mostrar != null && f.resultado_ds_mostrar !== '') ? attrEsc(f.resultado_ds_mostrar) : '<span class="text-muted">Sin dictamen sistema</span>';
+                            var creditoCellL = '<div>' + attrEsc(f.nombre_cliente || '—') + '</div><div class="text-muted small">ID ' + (f.id_credito != null ? f.id_credito : '—') + '</div>';
+                            html += '<tr><td class="fw-medium">' + attrEsc(f.folio || '—') + '</td><td>' + creditoCellL + '</td><td>' + fmtFecha(f.fecha_creacion) + '</td>' +
+                                '<td>' + fmtFecha(f.dictamen_envio) + '</td><td>' + attrEsc(f.visto_si_no || '—') + '</td>' +
+                                '<td>' + (f.visto_cuando ? fmtFecha(f.visto_cuando) : '—') + '</td>' +
+                                '<td>' + attrEsc(f.tiempo_lectura_humano || 'Pendiente') + '</td>' +
+                                '<td><small>' + resMostrar + '</small></td>' +
+                                '<td>' + pctFTxt + '</td></tr>';
+                        });
+                        html += '</tbody></table></div>' + buildPaginationBlock(total, page, perPage) + '</div>';
+                    }
+                    if (typeof Swal !== 'undefined') {
+                        var tituloModal = (r.nombre || nombre || '');
+                        if (vistaTabla === 'pagos_visitas') {
+                            tituloModal = 'Pagos y visitas · ' + tituloModal;
+                        } else {
+                            tituloModal = 'Lectura y tasa · ' + tituloModal;
+                        }
+                        Swal.fire({
+                            title: tituloModal,
+                            html: html,
+                            width: swalWidth,
+                            showConfirmButton: true,
+                            confirmButtonText: 'Cerrar',
+                            customClass: { popup: 'estad-detalle-swal', confirmButton: 'btn btn-primary px-4' },
+                            didOpen: function() {
+                                initTooltipsEnSwal();
+                                var wrap = document.getElementById('estadGestorModalWrap');
+                                var pagDiv = document.getElementById('estadGestorModalPagination');
+                                if (!wrap) return;
+                                var idPersona = wrap.getAttribute('data-id-persona');
+                                var vista = wrap.getAttribute('data-vista') || 'lectura';
+                                function loadPage(p, optPerPage) {
+                                    var pp = optPerPage != null ? optPerPage : (parseInt(pagDiv.getAttribute('data-per-page'), 10) || perPageGestorDetalle);
+                                    var sel = document.getElementById('estadGestorPerPage');
+                                    if (sel && optPerPage == null) pp = parseInt(sel.value, 10) || pp;
+                                    http.request({
+                                        endpoint: '/sabueso/getEstadisticasGestorDetalle',
+                                        metodo: 'POST',
+                                        data: JSON.stringify({ id_persona_creador: idPersona, page: p, per_page: pp, vista: vista }),
+                                        contentType: 'application/json',
+                                        processData: false,
+                                        showLoader: false,
+                                        onSuccess: function(res) {
+                                            if (!res.success || !res.filas) return;
+                                            var filas = res.filas;
+                                            var total = parseInt(res.total, 10) || 0;
+                                            var page = parseInt(res.page, 10) || 1;
+                                            var perPage = parseInt(res.per_page, 10) || perPageGestorDetalle;
+                                            var tbody = document.getElementById('estadGestorModalTbody');
+                                            if (tbody) {
+                                                var rowsHtml = '';
+                                                if (vista === 'pagos_visitas') {
+                                                    filas.forEach(function(f) {
+                                                        var x = filaPagoVisitoCumpl(f);
+                                                        var prV = f.prorroga_otorgada_resumen;
+                                                        var prTxt = (prV === 'Sí' || prV === 'Si') ? '<span class="text-warning fw-semibold">Sí</span>' : (prV === 'No' ? '<span class="text-muted">No</span>' : '<span class="text-muted">—</span>');
+                                                        var creditoCell = '<div>' + attrEsc(f.nombre_cliente || '—') + '</div><div class="text-muted small">ID ' + (f.id_credito != null ? f.id_credito : '—') + '</div>';
+                                                        rowsHtml += '<tr><td class="fw-medium">' + attrEsc(f.folio || '—') + '</td><td>' + creditoCell + '</td><td>' + fmtFecha(f.dictamen_envio) + '</td>' +
+                                                            '<td class="text-center">' + x.pagoVTxt + '</td><td class="text-center">' + x.visitoVTxt + '</td>' +
+                                                            '<td class="text-center">' + prTxt + '</td><td class="text-center">' + x.pagoProrrogaTxt + '</td>' +
+                                                            '<td class="text-center">' + x.pagoSemanaTxt + '</td>' +
+                                                            '<td><small>' + x.cumplTxt + '</small></td><td>' + x.pctFTxt + '</td></tr>';
+                                                    });
+                                                } else {
+                                                    filas.forEach(function(f) {
+                                                        var pctFTxt = (f.pct_efectividad != null && f.pct_efectividad !== '') ? f.pct_efectividad + '%' : '<span class="text-muted">Sin DS</span>';
+                                                        var resMostrar = (f.resultado_ds_mostrar != null && f.resultado_ds_mostrar !== '') ? attrEsc(f.resultado_ds_mostrar) : '<span class="text-muted">Sin dictamen sistema</span>';
+                                                        var creditoCellL = '<div>' + attrEsc(f.nombre_cliente || '—') + '</div><div class="text-muted small">ID ' + (f.id_credito != null ? f.id_credito : '—') + '</div>';
+                                                        rowsHtml += '<tr><td class="fw-medium">' + attrEsc(f.folio || '—') + '</td><td>' + creditoCellL + '</td><td>' + fmtFecha(f.fecha_creacion) + '</td>' +
+                                                            '<td>' + fmtFecha(f.dictamen_envio) + '</td><td>' + attrEsc(f.visto_si_no || '—') + '</td>' +
+                                                            '<td>' + (f.visto_cuando ? fmtFecha(f.visto_cuando) : '—') + '</td><td>' + attrEsc(f.tiempo_lectura_humano || 'Pendiente') + '</td>' +
+                                                            '<td><small>' + resMostrar + '</small></td><td>' + pctFTxt + '</td></tr>';
+                                                    });
+                                                }
+                                                tbody.innerHTML = rowsHtml;
+                                            }
+                                            var totalPages = perPage > 0 ? Math.ceil(total / perPage) : 1;
+                                            var desde = (page - 1) * perPage + 1;
+                                            var hasta = Math.min(page * perPage, total);
+                                            pagDiv.setAttribute('data-page', page);
+                                            pagDiv.setAttribute('data-total', total);
+                                            var span = pagDiv.querySelector('span');
+                                            if (span) span.textContent = 'Mostrando ' + desde + '–' + hasta + ' de ' + total;
+                                            pagDiv.setAttribute('data-per-page', perPage);
+                                            var selEl = document.getElementById('estadGestorPerPage');
+                                            if (selEl) selEl.value = String(perPage);
+                                            var btnPrev = pagDiv.querySelector('.estad-gestor-prev');
+                                            var btnNext = pagDiv.querySelector('.estad-gestor-next');
+                                            if (btnPrev) { btnPrev.disabled = page <= 1; btnPrev.onclick = function() { if (page > 1) loadPage(page - 1); }; }
+                                            if (btnNext) { btnNext.disabled = page >= totalPages; btnNext.onclick = function() { if (page < totalPages) loadPage(page + 1); }; }
+                                            initTooltipsEnSwal();
+                                        }
+                                    });
+                                }
+                                if (pagDiv) {
+                                    var btnPrev = pagDiv.querySelector('.estad-gestor-prev');
+                                    var btnNext = pagDiv.querySelector('.estad-gestor-next');
+                                    if (btnPrev) btnPrev.onclick = function() { var p = parseInt(pagDiv.getAttribute('data-page'), 10) || 1; if (p > 1) loadPage(p - 1); };
+                                    if (btnNext) btnNext.onclick = function() { var p = parseInt(pagDiv.getAttribute('data-page'), 10) || 1; var tot = parseInt(pagDiv.getAttribute('data-total'), 10) || 0; var pp = parseInt(pagDiv.getAttribute('data-per-page'), 10) || perPageGestorDetalle; if (p < Math.ceil(tot / pp)) loadPage(p + 1); };
+                                    var perPageSel = document.getElementById('estadGestorPerPage');
+                                    if (perPageSel) perPageSel.onchange = function() { loadPage(1, parseInt(perPageSel.value, 10)); };
+                                }
+                            }
+                        });
+                    }
+                },
+                onError: function() {
+                    if (progressHandle && progressHandle.stopAndClose) progressHandle.stopAndClose(); else if (typeof Swal !== 'undefined' && Swal.close) Swal.close();
+                    if (typeof Swal !== 'undefined') Swal.fire('Error', 'No se pudo cargar el detalle.', 'error');
+                }
+            });
+        }
+        function abrirReporteSemanalGlobal(semanaInicio) {
+            swalCargandoDetalle('Cargando reporte semanal…');
+            http.request({
+                endpoint: '/sabueso/getReporteSemanalGestorGlobal',
+                metodo: 'POST',
+                data: JSON.stringify({ semana_inicio: semanaInicio || '' }),
+                contentType: 'application/json',
+                processData: false,
+                showLoader: false,
+                timeout: 90000,
+                onSuccess: function(r) {
+                    if (typeof Swal !== 'undefined' && Swal.close) Swal.close();
+                    if (!r || !r.success) { if (typeof Swal !== 'undefined') Swal.fire('Aviso', (r && r.mensaje) || 'Sin datos', 'info'); return; }
+                    var filas = r.filas || [];
+                    var semanas = r.semanas || [];
+                    function boolTxt(v) {
+                        if (v === true || v === 1 || v === '1' || v === 'Sí' || v === 'Si') return '<span class="text-success fw-semibold">Sí</span>';
+                        if (v === false || v === 0 || v === '0' || v === 'No') return '<span class="text-danger fw-semibold">No</span>';
+                        return '<span class="text-muted">—</span>';
+                    }
+                    function pagoSemanaTxt(f) {
+                        var si = f.pago_semana_si === true || f.pago_semana_si === 1 || f.pago_semana_si === '1';
+                        var consultado = f.pago_semana_consultado === true || f.pago_semana_consultado === 1 || f.pago_semana_consultado === '1';
+                        var n = parseInt(f.pago_semana_count, 10) || 0;
+                        var t = si ? '<span class="text-success fw-semibold">Sí</span>' : (consultado ? '<span class="text-muted">No</span>' : '<span class="text-warning" title="Límite de consultas o servicio no disponible">No se pudo verificar</span>');
+                        if (n > 0) t += ' <span class="text-muted small">(' + n + ')</span>';
+                        return t;
+                    }
+                    function weekOptionsHtml() {
+                        var out = '';
+                        semanas.forEach(function(s) {
+                            var sel = s.selected ? ' selected' : '';
+                            out += '<option value="' + attrEsc(s.inicio || '') + '"' + sel + '>' + attrEsc(s.label || (s.inicio || 'Semana')) + '</option>';
+                        });
+                        return out;
+                    }
+                    function tableRowsHtml() {
+                        if (!filas.length) {
+                            return '<tr><td colspan="11" class="text-center text-muted py-3">Sin tickets en la semana seleccionada.</td></tr>';
+                        }
+                        var out = '';
+                        filas.forEach(function(f) {
+                            var cliente = '<div>' + attrEsc(f.nombre_cliente || '—') + '</div><div class="text-muted small">ID ' + (f.id_credito != null ? f.id_credito : '—') + '</div>';
+                            var gestor = '<div>' + attrEsc(f.nombre_gestor || '—') + '</div><div class="text-muted small">ID ' + (f.id_gestor != null ? f.id_gestor : '—') + '</div>';
+                            var tipoContactoTxt = (f.tipo_contacto === 'Campo') ? '<span class="text-primary fw-semibold">Campo</span>' : ((f.tipo_contacto === 'Telefónica') ? '<span class="text-info fw-semibold">Telefónica</span>' : '<span class="text-muted">—</span>');
+                            out += '<tr>' +
+                                '<td class="fw-medium">' + attrEsc(f.folio || '—') + '</td>' +
+                                '<td>' + cliente + '</td>' +
+                                '<td>' + gestor + '</td>' +
+                                '<td class="text-center">' + tipoContactoTxt + '</td>' +
+                                '<td class="text-center">' + boolTxt(f.fue_todas_direcciones) + '</td>' +
+                                '<td><small>' + attrEsc(f.direcciones_fue || '—') + '</small></td>' +
+                                '<td class="text-center">' + boolTxt(f.pago_12h) + '</td>' +
+                                '<td class="text-center">' + boolTxt(f.prorroga_si) + '</td>' +
+                                '<td class="text-center">' + boolTxt(f.pago_prorroga_12h) + '</td>' +
+                                '<td class="text-center">' + pagoSemanaTxt(f) + '</td>' +
+                                '<td class="text-center">' + boolTxt(f.ilocalizable) + '</td>' +
+                                '</tr>';
+                        });
+                        return out;
+                    }
+                    var html = '<div class="estad-modal-detalle-wrap" id="reporteSemanalGlobalWrap">' +
+                        '<div class="estad-modal-detalle-leyenda text-start"><strong>Reporte semanal (semana vencida).</strong> ' +
+                        'La primera opción es la semana cerrada más reciente. Puede cambiar a semanas anteriores para consultar histórico.</div>' +
+                        '<div class="estad-reporte-semanal-toolbar d-flex align-items-center justify-content-between flex-wrap gap-2">' +
+                        '<div class="text-muted small">Semana analizada: <strong>' + attrEsc((r.semana_inicio || '') + ' → ' + (r.semana_fin || '')) + '</strong></div>' +
+                        '<div class="d-flex align-items-center gap-2"><label class="text-muted small mb-0">Semana</label>' +
+                        '<select id="selSemanaReporteGlobal" class="form-select form-select-sm">' + weekOptionsHtml() + '</select></div>' +
+                        '</div>' +
+                        '<div class="estad-modal-detalle-table-wrap table-responsive">' +
+                        '<table class="table table-sm table-bordered text-start mb-0">' +
+                        '<thead><tr>' +
+                        '<th>Folio</th>' +
+                        '<th>Cliente / ID cr.</th>' +
+                        '<th>Gestor / ID</th>' +
+                        '<th>Campo / Telefónica</th>' +
+                        '<th>Fue a todas direcciones</th>' +
+                        '<th>Direcciones visitadas</th>' +
+                        '<th>Pago 12h</th>' +
+                        '<th>Prórroga</th>' +
+                        '<th>Pago 12h prórroga</th>' +
+                        '<th>Pago semana</th>' +
+                        '<th>Ilocalizable</th>' +
+                        '</tr></thead><tbody id="tbodyReporteSemanalGlobal">' + tableRowsHtml() + '</tbody></table></div>' +
+                        '<div class="estad-reporte-semanal-footer text-muted" style="font-size:0.72rem;">' +
+                        'Regla ilocalizable aplicada: <strong>visitó todas las direcciones del dictamen</strong> y <strong>no pagó en la semana seleccionada</strong> (prórroga no condiciona este indicador).' +
+                        '</div></div>';
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire({
+                            title: 'Reporte semanal · Por quien levantó',
+                            html: html,
+                            width: '1340px',
+                            showConfirmButton: true,
+                            confirmButtonText: 'Cerrar',
+                            customClass: { popup: 'estad-detalle-swal', confirmButton: 'btn btn-primary px-4' },
+                            didOpen: function() {
+                                initTooltipsEnSwal();
+                                var sel = document.getElementById('selSemanaReporteGlobal');
+                                if (sel) {
+                                    sel.onchange = function() {
+                                        abrirReporteSemanalGlobal(sel.value || '');
+                                    };
+                                }
+                            }
+                        });
+                    }
+                },
+                onError: function() {
+                    if (typeof Swal !== 'undefined' && Swal.close) Swal.close();
+                    if (typeof Swal !== 'undefined') Swal.fire('Error', 'No se pudo cargar el reporte semanal.', 'error');
+                }
+            });
+        }
+        function cargarEstadisticasSabueso(opts) {
+            opts = opts || {};
+            var soloSabueso = !!opts.soloSabueso;
+            if (!soloSabueso) {
+                $('#estadisticasSabuesoContenido').hide();
+            } else {
+                $('#tbodyPorSabueso').html('<tr><td colspan="4" class="text-muted text-center py-3"><i class="fa fa-spinner fa-spin me-2"></i>Actualizando…</td></tr>');
+            }
+            http.request({
+                endpoint: '/sabueso/getEstadisticasTickets',
+                metodo: 'POST',
+                data: JSON.stringify({ periodo_sabueso: estadisticasFiltroSabueso || 'por_dia' }),
+                contentType: 'application/json',
+                processData: false,
+                showLoader: !soloSabueso,
+                onSuccess: function(r) {
+                    if (!soloSabueso) {
+                        $('#estadisticasSabuesoContenido').show();
+                    }
+                    if (!r.success) {
+                        $('#estadisticasSabuesoAlert').removeClass('d-none').text(r.mensaje || 'Error al cargar.');
+                        return;
+                    }
+                    $('#estadisticasSabuesoAlert').addClass('d-none');
+                    estadisticasDatos = r.datos || {};
+                    var t = estadisticasDatos.totales || {};
+                    var activos = parseInt(t.tickets_activos, 10) || 0;
+                    var enviados = parseInt(t.con_dictamen_enviado, 10) || 0;
+                    var vistos = parseInt(t.con_dictamen_visto, 10) || 0;
+                    var maxTop = Math.max(activos, enviados, vistos, 1);
+                    function pct(v) { return Math.round((v / maxTop) * 100); }
+                    $('#statTotalActivos').text(activos);
+                    $('#statDictamenEnviado').text(enviados);
+                    $('#statDictamenVisto').text(vistos);
+                    $('#barActivos').css('width', pct(activos) + '%');
+                    $('#pctActivos').text(pct(activos) + '%');
+                    $('#barEnviado').css('width', pct(enviados) + '%');
+                    $('#pctEnviado').text(pct(enviados) + '%');
+                    $('#barVisto').css('width', pct(vistos) + '%');
+                    $('#pctVisto').text(pct(vistos) + '%');
+                    var ts = estadisticasDatos.tiempos_sabueso_segundos;
+                    var tg = estadisticasDatos.tiempos_gestor_segundos;
+                    if (ts && ts.promedio_humano) {
+                        $('#statTiempoSabuesoValor').text(ts.promedio_humano);
+                        $('#statTiempoSabuesoSub').text('Semana actual (lun→hoy): ' + (ts.muestras || 0) + ' envíos · Promedio desde última asignación antes del envío hasta enviar (máx. 7 días por muestra). Cada lunes se reinicia. Los envíos cuentan por fecha de envío del dictamen (pueden ser de tickets levantados en semanas anteriores).');
+                    } else {
+                        $('#statTiempoSabuesoValor').html('<span class="text-muted fs-6 fw-normal">Sin datos</span>');
+                        $('#statTiempoSabuesoSub').text('Semana actual: aún no hay envíos esta semana, o sin asignación previa registrada.');
+                    }
+                    if (tg && tg.promedio_humano) {
+                        $('#statTiempoGestorValor').text(tg.promedio_humano);
+                        $('#statTiempoGestorSub').text('Semana actual (lun→hoy): ' + (tg.muestras || 0) + ' aperturas · Solo envíos de esta semana; desde envío hasta que el gestor abre (máx. 7 días). Cada lunes se reinicia. Las aperturas cuentan por fecha de envío y de vista (pueden ser de tickets levantados en semanas anteriores).');
+                    } else {
+                        $('#statTiempoGestorValor').html('<span class="text-muted fs-6 fw-normal">Sin datos</span>');
+                        $('#statTiempoGestorSub').text('Semana actual: aún no hay aperturas registradas esta semana.');
+                    }
+                    $('#tileTiempoLectura').text(tg && tg.promedio_humano ? tg.promedio_humano : '—');
+                    $('#tileTiempoLecturaSub').text('Muestras: ' + (tg && tg.muestras != null ? tg.muestras : 0) + ' (solo tickets ya vistos)');
+                    $('#tileTiempoEnvio').text(ts && ts.promedio_humano ? ts.promedio_humano : '—');
+                    $('#tileTiempoEnvioSub').text('Muestras: ' + (ts && ts.muestras != null ? ts.muestras : 0) + ' (con asignación previa)');
+                    var sinLeer = Math.max(0, enviados - vistos);
+                    $('#tileSinLeer').text(sinLeer);
+                    if (enviados > 0) {
+                        var tasa = Math.round((vistos / enviados) * 100);
+                        $('#tileTasa').text(tasa + '%');
+                        $('#tileTasaSub').text(vistos + ' de ' + enviados + ' vistos');
+                    } else {
+                        $('#tileTasa').text('—');
+                        $('#tileTasaSub').text('Sin dictámenes enviados');
+                    }
+                    // Panorama cumplimiento global (dictamen_sistema sobre detalle reciente)
+                    var cg = estadisticasDatos.cumplimiento_global || {};
+                    if (cg.pct_promedio != null) {
+                        $('#tileCumplimientoPct').text(cg.pct_promedio);
+                    } else {
+                        $('#tileCumplimientoPct').html('<span class="text-muted">—</span>');
+                    }
+                    $('#tileCumplimientoMuestra').text('Muestra: ' + (cg.muestra || 0) + ' · Con evaluación: ' + (cg.con_evaluacion || 0) + ' · Pendiente/sin DS: ' + (cg.sin_evaluacion || 0));
+                    var pr = cg.por_resultado || {};
+                    var prParts = [];
+                    Object.keys(pr).forEach(function(k) { prParts.push(k + '=' + pr[k]); });
+                    $('#tileCumplimientoPorResultado').text(prParts.length ? prParts.join(' · ') : 'Sin resultados aún');
+                    $('#tileCumplimientoLeyenda').text(cg.leyenda || '');
+                    var k = estadisticasDatos.kpis_extra || {};
+                    if (k.tiempo_creacion_a_primera_asignacion) {
+                        $('#kpiPrimeraAsignacion').text(k.tiempo_creacion_a_primera_asignacion.promedio_humano || '—');
+                        $('#kpiPrimeraAsignacionSub').text('Muestras: ' + (k.tiempo_creacion_a_primera_asignacion.muestras || 0));
+                    }
+                    if (k.reasignaciones_promedio_antes_envio != null) {
+                        $('#kpiReasignaciones').text(k.reasignaciones_promedio_antes_envio);
+                    }
+                    $('#kpiBorradores').text(k.dictamenes_borrador_sin_enviar != null ? k.dictamenes_borrador_sin_enviar : '—');
+                    if (k.pct_visto_dentro_12h != null) {
+                        $('#kpi12h').text(k.pct_visto_dentro_12h + '%');
+                        $('#kpi12hSub').text('de ' + (k.visto_dentro_12h_muestras || 0) + ' vistos');
+                    }
+                    $('#kpiCola24h').text(k.tickets_cola_lenta_24h != null ? k.tickets_cola_lenta_24h : '—');
+                    if (!soloSabueso) {
+                        renderPeriodList();
+                        renderPorGestor();
+                    }
+                    renderPorSabueso();
+                    initEstadisticasTooltips();
+                    var det = estadisticasDatos.detalle_timings || [];
+                    var tbDet = $('#tablaDetalleTimings tbody');
+                    if ($.fn.DataTable && $.fn.DataTable.isDataTable('#tablaDetalleTimings')) {
+                        try { $('#tablaDetalleTimings').DataTable().destroy(); } catch (e) {}
+                    }
+                    tbDet.empty();
+                    if (!det.length) {
+                        tbDet.append('<tr><td colspan="8" class="text-muted">No hay tickets con dictamen enviado reciente.</td></tr>');
+                    } else {
+                        function truncMed(s, n) {
+                            if (!s) return '—';
+                            s = String(s);
+                            if (s.length <= n) return attrEsc(s);
+                            return attrEsc(s.substring(0, n)) + '…';
+                        }
+                        det.forEach(function(row) {
+                            var pct = row.pct_efectividad;
+                            var pctTxt = (pct === null || pct === undefined || pct === '') ? '—' : (pct + '%');
+                            var med = row.medidas_preventivas || '';
+                            var medEsc = attrEsc(med);
+                            var medCell = med ? '<small class="estad-tooltip-custom" data-bs-toggle="tooltip" data-bs-placement="left" title="' + medEsc + '">' + truncMed(med, 48) + '</small>' : '<small class="text-muted">—</small>';
+                            // ID = quien levantó el ticket (gestor / creador), no el asignado Sabueso
+                            var creadorCell = '<small>' + attrEsc(row.creador_nombre || '—') + '</small>';
+                            var cid = parseInt(row.creador_id, 10) || 0;
+                            if (cid) {
+                                creadorCell += '<br><small class="text-muted d-block mt-1" title="ID persona que creó el ticket (gestor)"><i class="fa-solid fa-fingerprint me-1"></i>ID ' + cid + '</small>';
+                            }
+                            tbDet.append(
+                                '<tr><td>' + attrEsc(row.folio || '—') + '</td>' +
+                                '<td>' + creadorCell + '</td>' +
+                                '<td><small>' + attrEsc(row.asignado_nombre || '—') + '</small></td>' +
+                                '<td><small>' + fmtFecha(row.fecha_creacion) + '</small></td>' +
+                                '<td><small>' + fmtFecha(row.dictamen_fecha_envio) + '</small></td>' +
+                                '<td><small>' + fmtFecha(row.dictamen_fecha_visto) + '</small></td>' +
+                                '<td><small>' + pctTxt + '</small></td>' +
+                                '<td>' + medCell + '</td></tr>'
+                            );
+                        });
+                        initEstadisticasTooltips();
+                        if (typeof configuraTabla === 'function') {
+                            configuraTabla('#tablaDetalleTimings', {
+                                registrosPorPagina: 10,
+                                responsive: false,
+                                order: [[4, 'desc']],
+                                columns: null
+                            });
+                            setTimeout(initEstadisticasTooltips, 200);
+                        }
+                    }
+                },
+                onError: function() {
+                    $('#estadisticasSabuesoContenido').show();
+                    $('#estadisticasSabuesoAlert').removeClass('d-none').text('Error de red o servidor.');
+                }
+            });
+        }
+        $(document).ready(function() {
+            var estadisticasSabuesoInicializadas = false;
+            function iniciarDashboardSabueso() {
+                if (estadisticasSabuesoInicializadas) {
+                    $('#estadisticasSelectorWrap').hide();
+                    $('#estadisticasSabuesoContenido').show();
+                    return;
+                }
+                estadisticasSabuesoInicializadas = true;
+                $('#estadisticasSelectorWrap').hide();
+                cargarEstadisticasSabueso();
+            }
+            $(document).on('click', '#btnEntrarEstadSabueso', function() {
+                iniciarDashboardSabueso();
+            });
+            $(document).on('click', '#btnEstadisticasVolver', function() {
+                $('#estadisticasSabuesoContenido').hide();
+                $('#estadisticasSelectorWrap').show();
+            });
+            // Delegación: el tbody se reemplaza al renderizar; el clic debe vivir en document
+            $(document).on('click', '#panelResumenGestor tr.estad-gestor-fila[data-id-gestor]', function() {
+                var id = parseInt($(this).attr('data-id-gestor'), 10);
+                if (id) abrirDetalleGestor(id, '', vistaGestorTablaActual || 'lectura');
+            });
+            $(document).on('click', '#grpVistaGestorTabla button[data-vista-gestor]', function() {
+                aplicarVistaGestorTabla($(this).data('vista-gestor'));
+            });
+            $(document).on('click', '#btnReporteSemanalGlobal', function() {
+                abrirReporteSemanalGlobal('');
+            });
+            $(document).on('click', '#tbodyPorSabueso tr[data-id-sabueso]', function(e) {
+                var id = parseInt($(this).attr('data-id-sabueso'), 10);
+                if (id) abrirDetalleSabueso(id);
+            });
+            // Filtro izquierda: solo lista "Tickets levantados"
+            $('#grpFiltroPeriodo').on('click', 'button[data-key]', function() {
+                $('#grpFiltroPeriodo button').removeClass('active');
+                $(this).addClass('active');
+                estadisticasFiltroPeriodo = $(this).data('key') || 'por_dia';
+                // Al cambiar de pestaña, salir del drill y volver a la lista nativa
+                estadisticasDrill = null;
+                estadisticasDrillFilas = null;
+                renderPeriodList();
+            });
+            $(document).on('click', '#estadPeriodList .estad-drill-row', function() {
+                var drill = $(this).data('drill');
+                if (drill === 'meses') {
+                    var anio = parseInt($(this).data('anio'), 10);
+                    if (!anio) return;
+                    estadisticasDrill = { nivel: 'meses', anio: anio };
+                    cargarDrill('meses', { anio: anio });
+                } else if (drill === 'semanas') {
+                    var anio = parseInt($(this).data('anio'), 10);
+                    var mes = parseInt($(this).data('mes'), 10);
+                    if (!anio || !mes) return;
+                    estadisticasDrill = { nivel: 'semanas', anio: anio, mes: mes };
+                    cargarDrill('semanas', { anio: anio, mes: mes });
+                } else if (drill === 'dias') {
+                    var lunes = $(this).data('lunes');
+                    if (!lunes) return;
+                    estadisticasDrill = { nivel: 'dias', lunes: lunes, anio: $(this).data('anio') || null, mes: $(this).data('mes') || null };
+                    cargarDrill('dias', { lunes: lunes }, function(r) {
+                        if (r.lunes) estadisticasDrill.lunes = r.lunes;
+                    });
+                } else if (drill === 'semanas_desde_mes') {
+                    var anio = parseInt($(this).data('anio'), 10);
+                    var mes = parseInt($(this).data('mes'), 10);
+                    if (!anio || !mes) return;
+                    estadisticasDrill = { nivel: 'semanas', anio: anio, mes: mes, desde: 'mes' };
+                    cargarDrill('semanas', { anio: anio, mes: mes });
+                }
+            });
+            $(document).on('click', '#estadPeriodList .estad-dia-row', function() {
+                var periodo = $(this).data('periodo');
+                if (!periodo || !/^\d{4}-\d{2}-\d{2}$/.test(periodo)) return;
+                if (typeof swalCargandoDetalle === 'function') swalCargandoDetalle('Cargando tickets del d\u00eda…');
+                http.request({
+                    endpoint: '/sabueso/getTicketsDetallePorDia',
+                    metodo: 'POST',
+                    data: JSON.stringify({ fecha: periodo }),
+                    contentType: 'application/json',
+                    processData: false,
+                    showLoader: false,
+                    onSuccess: function(r) {
+                        if (typeof Swal !== 'undefined' && Swal.isVisible && Swal.isVisible()) Swal.close();
+                        if (!r.success) {
+                            if (typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: 'Error', text: r.mensaje || 'No se pudo cargar el detalle.' });
+                            return;
+                        }
+                        var filas = r.filas || [];
+                        var fechaLabel = periodo;
+                        try { var d = new Date(periodo + 'T12:00:00'); fechaLabel = d.toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }); } catch (e) {}
+                        var html = '<div class="text-muted small mb-2">' + (filas.length ? filas.length + ' ticket(s) levantado(s) el ' + fechaLabel + '.' : 'Ning\u00fan ticket levantado ese d\u00eda.') + '</div>';
+                        if (filas.length > 0) {
+                            html += '<style>.estad-dia-detalle-tabla thead th{position:sticky;top:0;background:#fff;z-index:1;box-shadow:0 1px 0 0 #dee2e6}</style>';
+                            html += '<div class="table-responsive estad-dia-detalle-table-wrap" style="max-height:60vh;overflow-y:auto"><table class="table table-sm table-bordered mb-0 small estad-dia-detalle-tabla"><thead><tr><th>Folio</th><th>ID cr.</th><th>Gestor</th><th>Hora</th><th>T. env\u00edo dict.</th><th>Abrieron</th><th>T. apertura</th><th>Resultado DS</th><th>Pr\u00f3rroga</th><th>Pagaron</th><th>Cumplimiento</th></tr></thead><tbody>';
+                            filas.forEach(function(f) {
+                                html += '<tr><td>' + attrEsc(f.folio) + '</td><td>' + (f.id_credito != null ? f.id_credito : '—') + '</td><td>' + attrEsc(f.gestor_nombre) + '</td><td>' + attrEsc(f.hora_levantado) + '</td><td>' + attrEsc(f.tiempo_dictamen_enviado) + '</td><td>' + attrEsc(f.cuando_abrieron) + '</td><td>' + attrEsc(f.tiempo_apertura) + '</td><td>' + attrEsc(f.resultado_ds) + '</td><td>' + attrEsc(f.prorroga) + '</td><td>' + attrEsc(f.pagaron) + '</td><td>' + attrEsc(f.cumplimiento) + '</td></tr>';
+                            });
+                            html += '</tbody></table></div>';
+                        }
+                        if (typeof Swal !== 'undefined') {
+                            Swal.fire({
+                                title: 'Tickets del d\u00eda',
+                                html: html,
+                                width: '90%',
+                                maxWidth: '960px',
+                                showCloseButton: true,
+                                showConfirmButton: true,
+                                confirmButtonText: 'Cerrar',
+                                customClass: { popup: 'estad-detalle-swal', confirmButton: 'btn btn-primary px-4' },
+                                didOpen: function() { if (typeof initTooltipsEnSwal === 'function') initTooltipsEnSwal(); }
+                            });
+                        }
+                    },
+                    onError: function() {
+                        if (typeof Swal !== 'undefined' && Swal.isVisible && Swal.isVisible()) Swal.close();
+                        if (typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudo cargar el detalle del d\u00eda.' });
+                    }
+                });
+            });
+            $(document).on('click', '#estadPeriodBreadcrumb .estad-drill-back', function() {
+                var back = $(this).data('drill-back');
+                if (back === 'anio') {
+                    estadisticasDrill = null;
+                    estadisticasDrillFilas = null;
+                    renderPeriodList();
+                } else if (back === 'meses') {
+                    var anio = parseInt($(this).data('anio'), 10);
+                    if (!anio) return;
+                    estadisticasDrill = { nivel: 'meses', anio: anio };
+                    cargarDrill('meses', { anio: anio });
+                } else if (back === 'semanas') {
+                    var anio = parseInt($(this).data('anio'), 10);
+                    var mes = parseInt($(this).data('mes'), 10);
+                    if (!anio || !mes) return;
+                    estadisticasDrill = { nivel: 'semanas', anio: anio, mes: mes };
+                    cargarDrill('semanas', { anio: anio, mes: mes });
+                } else if (back === 'por_mes_list') {
+                    estadisticasDrill = null;
+                    estadisticasDrillFilas = null;
+                    renderPeriodList();
+                } else if (back === 'por_semana_list') {
+                    estadisticasDrill = null;
+                    estadisticasDrillFilas = null;
+                    renderPeriodList();
+                } else if (back === 'semanas_mes') {
+                    var anio = parseInt($(this).data('anio'), 10);
+                    var mes = parseInt($(this).data('mes'), 10);
+                    if (!anio || !mes) return;
+                    estadisticasDrill = { nivel: 'semanas', anio: anio, mes: mes, desde: 'mes' };
+                    cargarDrill('semanas', { anio: anio, mes: mes });
+                }
+            });
+            // Filtro Por Sabueso: solo dictámenes por día/semana/mes/año (fecha de envío) — no toca la lista izquierda
+            $(document).on('click', '#grpFiltroPeriodoSabueso button[data-key]', function() {
+                $('#grpFiltroPeriodoSabueso button').removeClass('active');
+                $(this).addClass('active');
+                estadisticasFiltroSabueso = $(this).data('key') || 'por_dia';
+                $('#tbodyPorSabueso').html('<tr><td colspan="4" class="text-muted text-center py-2"><i class="fa fa-spinner fa-spin me-2"></i>Actualizando…</td></tr>');
+                http.request({
+                    endpoint: '/sabueso/getEstadisticasPorSabuesoSolo',
+                    metodo: 'POST',
+                    data: JSON.stringify({ periodo_sabueso: estadisticasFiltroSabueso }),
+                    contentType: 'application/json',
+                    processData: false,
+                    showLoader: false,
+                    onSuccess: function(r) {
+                        if (r.success && r.por_sabueso) {
+                            if (!estadisticasDatos) estadisticasDatos = {};
+                            estadisticasDatos.por_sabueso = r.por_sabueso;
+                            renderPorSabueso();
+                            initEstadisticasTooltips();
+                        } else {
+                            renderPorSabueso();
+                        }
+                    },
+                    onError: function() {
+                        $('#tbodyPorSabueso').html('<tr><td colspan="4" class="text-danger">Error al cargar. Intente de nuevo.</td></tr>');
+                    }
+                });
+            });
+            $('#grpResumenGestor').on('click', 'button[data-tab]', function() {
+                $('#grpResumenGestor button').removeClass('active');
+                $(this).addClass('active');
+                var tab = $(this).data('tab');
+                $('#panelResumenGlobal, #panelResumenGestor, #panelResumenSabueso').addClass('d-none');
+                if (tab === 'gestor') {
+                    $('#panelResumenGestor').removeClass('d-none');
+                    aplicarVistaGestorTabla('lectura');
+                    setTimeout(initEstadisticasTooltips, 100);
+                } else if (tab === 'sabueso') {
+                    $('#panelResumenSabueso').removeClass('d-none');
+                    $('#grpFiltroPeriodoSabueso button').removeClass('active');
+                    $('#grpFiltroPeriodoSabueso button[data-key="' + (estadisticasFiltroSabueso || 'por_dia') + '"]').addClass('active');
+                    setTimeout(initEstadisticasTooltips, 100);
+                } else {
+                    $('#panelResumenGlobal').removeClass('d-none');
+                }
+            });
+            $(document).on('click', '.btn-descargar-estad-detalle', function() {
+                if (typeof Swal === 'undefined') return;
+                Swal.fire({
+                    title: 'Descargar Excel',
+                    html: '<p class="text-start small">Se generará un archivo Excel con el detalle reciente (dictamen enviado): folio, quién levantó, asignado, fechas, % efectividad y medidas.</p><p class="text-start small mb-0"><strong>Nota:</strong> la descarga puede incluir hasta 2000 registros.</p>',
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonText: '<i class="fa fa-download me-1"></i>Descargar',
+                    cancelButtonText: 'Cancelar'
+                }).then(function(r) {
+                    if (!r.isConfirmed) return;
+                    Swal.fire({ title: 'Generando…', allowOutsideClick: false, didOpen: function() { Swal.showLoading(); } });
+                    fetch('/Reporteria/descargarReporteSabuesosEstadisticasDetalle', { method: 'POST', headers: { 'Content-Type': 'application/json' } })
+                        .then(function(res) { if (!res.ok) throw new Error('Error en la descarga'); return res.blob(); })
+                        .then(function(blob) {
+                            Swal.close();
+                            var url = window.URL.createObjectURL(blob);
+                            var a = document.createElement('a');
+                            a.href = url;
+                            a.download = 'Estadisticas_Detalle_Dictamen_' + new Date().toISOString().slice(0, 10) + '.xlsx';
+                            document.body.appendChild(a);
+                            a.click();
+                            window.URL.revokeObjectURL(url);
+                            document.body.removeChild(a);
+                            Swal.fire({ icon: 'success', title: 'Listo', timer: 1800, showConfirmButton: false });
+                        })
+                        .catch(function() {
+                            Swal.fire('Error', 'No se pudo generar el Excel.', 'error');
+                        });
+                });
+            });
+            if (!document.getElementById('estadisticasSelectorWrap')) iniciarDashboardSabueso();
+        });
+        </script>
+        SCRIPT;
+        self::set('titulo', 'Estadísticas | Sabueso');
+        self::set('script', $script);
+        self::render('sabueso_estadisticas');
+    }
+
+    /**
+     * API: estadísticas agregadas de tickets (conteos, series, tiempos Sabueso/gestor).
+     */
+    public function getEstadisticasTickets()
+    {
+        $raw = file_get_contents('php://input');
+        $body = $raw ? json_decode($raw, true) : [];
+        if (!is_array($body)) {
+            $body = [];
+        }
+        $periodoSabueso = (string)($body['periodo_sabueso'] ?? '');
+        $opts = [];
+        if ($periodoSabueso !== '') {
+            $opts['periodo_sabueso'] = $periodoSabueso;
+        }
+        $datos = empty($opts) ? TicketDAO::getEstadisticasTickets() : TicketDAO::getEstadisticasTickets($opts);
+        $success = !empty($datos['success']);
+        $mensaje = $datos['mensaje'] ?? '';
+        unset($datos['success'], $datos['mensaje']);
+        self::respuestaJSON([
+            'success' => $success,
+            'mensaje' => $mensaje,
+            'datos' => $datos
+        ]);
+    }
+
+    /**
+     * API drill Tickets levantados: meses por año, semanas por mes, 7 días por lunes.
+     * Body: { "tipo": "meses"|"semanas"|"dias", "anio": 2026, "mes": 3, "lunes": "2026-03-09" }
+     */
+    public function getEstadisticasLevantadosDrill()
+    {
+        $raw = file_get_contents('php://input');
+        $body = $raw ? json_decode($raw, true) : [];
+        if (!is_array($body)) {
+            $body = [];
+        }
+        $tipo = (string)($body['tipo'] ?? '');
+        $res = TicketDAO::getEstadisticasLevantadosDrill($tipo, $body);
+        self::respuestaJSON($res);
+    }
+
+    /**
+     * API: detalle de tickets levantados en una fecha (para modal en Estadísticas → Tickets levantados → clic en día).
+     * POST/GET: fecha (YYYY-MM-DD). Devuelve { success, mensaje, fecha, filas }.
+     */
+    public function getTicketsDetallePorDia()
+    {
+        $raw = file_get_contents('php://input');
+        $body = $raw ? json_decode($raw, true) : [];
+        if (!is_array($body)) {
+            $body = [];
+        }
+        $fecha = isset($body['fecha']) ? trim((string)$body['fecha']) : (isset($_GET['fecha']) ? trim((string)$_GET['fecha']) : '');
+        if ($fecha === '') {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'Parámetro fecha (YYYY-MM-DD) requerido.', 'filas' => []]);
+            return;
+        }
+        $res = TicketDAO::getTicketsDetallePorDia($fecha);
+        self::respuestaJSON($res);
+    }
+
+    /**
+     * API ligera: solo agregado Por Sabueso (dictaminó) — sin recalcular todo el dashboard.
+     * Usar al cambiar Días/Semanas/Meses/Año en esa tabla.
+     */
+    public function getEstadisticasPorSabuesoSolo()
+    {
+        $raw = file_get_contents('php://input');
+        $body = $raw ? json_decode($raw, true) : [];
+        if (!is_array($body)) {
+            $body = [];
+        }
+        $periodo = (string)($body['periodo_sabueso'] ?? 'por_dia');
+        $res = TicketDAO::getEstadisticasPorSabuesoSolo($periodo, false);
+        self::respuestaJSON($res);
+    }
+
+    /**
+     * API: detalle por gestor (creador) — tickets levantados con dictamen enviado, visto/no, tiempo lectura.
+     */
+    public function getEstadisticasGestorDetalle()
+    {
+        $raw = file_get_contents('php://input');
+        $body = $raw ? json_decode($raw, true) : [];
+        if (!is_array($body)) {
+            $body = [];
+        }
+        $id = (int)($body['id_persona_creador'] ?? $_POST['id_persona_creador'] ?? 0);
+        $page = max(1, (int)($body['page'] ?? $_POST['page'] ?? 1));
+        $perPage = max(1, min(100, (int)($body['per_page'] ?? $_POST['per_page'] ?? 50)));
+        $vista = (string)($body['vista'] ?? $_POST['vista'] ?? 'lectura');
+        $res = TicketDAO::getEstadisticasGestorDetalle($id, $page, $perPage, $vista);
+        self::respuestaJSON($res);
+    }
+
+    /**
+     * API: reporte semanal global (semana vencida y semanas anteriores).
+     */
+    public function getReporteSemanalGestorGlobal()
+    {
+        $raw = file_get_contents('php://input');
+        $body = $raw ? json_decode($raw, true) : [];
+        if (!is_array($body)) {
+            $body = [];
+        }
+        $semanaInicio = trim((string)($body['semana_inicio'] ?? $_POST['semana_inicio'] ?? ''));
+        $res = TicketDAO::getReporteSemanalGestorGlobal($semanaInicio);
+        self::respuestaJSON($res);
+    }
+
+    public function getEstadisticasSabuesoDetalle()
+    {
+        $raw = file_get_contents('php://input');
+        $body = $raw ? json_decode($raw, true) : [];
+        if (!is_array($body)) {
+            $body = [];
+        }
+        $id = (int)($body['id_persona_autor'] ?? $_POST['id_persona_autor'] ?? 0);
+        $res = TicketDAO::getEstadisticasSabuesoDetalle($id);
+        self::respuestaJSON($res);
+    }
+
+    /**
      * API: lista de tickets del usuario actual (solo los que él levantó).
      */
     public function getTickets()
@@ -1891,7 +3668,15 @@ JS;
     public function getTicketsPanelAdmin()
     {
         $usuarioId = (int)($_SESSION['usuario_id'] ?? 0);
-        $resultado = TicketDAO::getListaTickets($usuarioId, false);
+        $filtros = [];
+        $raw = file_get_contents('php://input');
+        if ($raw !== '' && $raw !== false) {
+            $body = json_decode($raw, true);
+            if (is_array($body) && isset($body['filtros']) && is_array($body['filtros'])) {
+                $filtros = $body['filtros'];
+            }
+        }
+        $resultado = TicketDAO::getListaTickets($usuarioId, false, $filtros);
         $datos = isset($resultado['datos']) ? $resultado['datos'] : [];
         self::respuestaJSON([
             'success' => $resultado['success'] ?? false,
@@ -1959,6 +3744,52 @@ JS;
     }
 
     /**
+     * Ventana cerrada: desde domingo 12:01 p.m. hasta lunes 7:00 a.m. (CDMX) no se puede levantar ticket.
+     * @return string|null null = permitido; string = mensaje para mostrar
+     */
+    private static function mensajeSiVentanaLevantarTicketCerrada(): ?string
+    {
+        try {
+            $tz = new \DateTimeZone('America/Mexico_City');
+            $now = new \DateTime('now', $tz);
+            $dow = (int) $now->format('N'); // 1=lunes … 7=domingo
+            $h = (int) $now->format('G');
+            $i = (int) $now->format('i');
+            $minutes = $h * 60 + $i;
+            // Domingo desde las 12:01 p.m. en adelante
+            if ($dow === 7 && $minutes >= 12 * 60 + 1) {
+                return 'En este momento el registro de tickets no está disponible. Por política operativa, el levantamiento se reanuda el lunes a las 7:00 a.m. (hora CDMX). Agradecemos su comprensión.';
+            }
+            // Lunes antes de las 7:00 a.m.
+            if ($dow === 1 && $minutes < 7 * 60) {
+                return 'En este momento el registro de tickets no está disponible. Podrá levantar nuevos tickets a partir de las 7:00 a.m. de hoy (hora CDMX). Gracias por su paciencia.';
+            }
+        } catch (\Exception $e) {
+            // Si falla zona horaria, no bloquear
+        }
+        return null;
+    }
+
+    /**
+     * API: indica si en este momento se permite levantar ticket.
+     * Body opcional: { "categoria": "sabueso" } — la ventana domingo 12:01–lunes 7:00 aplica solo a Sabueso.
+     */
+    public function ticketLevantarPermitido()
+    {
+        $raw = file_get_contents('php://input');
+        $body = json_decode($raw, true);
+        $categoria = is_array($body) && isset($body['categoria']) ? strtolower(trim((string)$body['categoria'])) : '';
+        // Solo Sabueso (o sin categoría = compatibilidad) usa la restricción horaria
+        $aplicaVentanaSabueso = ($categoria === '' || $categoria === 'sabueso');
+        $msg = $aplicaVentanaSabueso ? self::mensajeSiVentanaLevantarTicketCerrada() : null;
+        self::respuestaJSON([
+            'success' => true,
+            'permitido' => $msg === null,
+            'mensaje' => $msg ?? ''
+        ]);
+    }
+
+    /**
      * API: catálogos para el modal Levantar ticket.
      */
     public function getCatalogosTicket()
@@ -1969,6 +3800,36 @@ JS;
             'mensaje'  => $resultado['mensaje'] ?? '',
             'datos'    => $resultado['datos'] ?? (object)[]
         ]);
+    }
+
+    /**
+     * API: verifica si el usuario actual ya tiene un ticket activo con ese id_credito.
+     * Solo aplica al mismo gestor (quien levantó); no se considera si otro gestor tiene ticket con ese crédito.
+     * GET o POST: id_credito (int). Respuesta: { success: true, ya_tiene: bool }.
+     */
+    public function verificarCreditoDuplicadoCreador()
+    {
+        $idPersona = (int)($_SESSION['usuario_id'] ?? 0);
+        if ($idPersona < 1) {
+            self::respuestaJSON(['success' => false, 'ya_tiene' => false, 'mensaje' => 'Sesión inválida.']);
+            return;
+        }
+        $idCredito = 0;
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $raw = file_get_contents('php://input');
+            $datos = json_decode($raw, true) ?: [];
+            $idCredito = isset($datos['id_credito']) && $datos['id_credito'] !== '' && $datos['id_credito'] !== null
+                ? (int)$datos['id_credito'] : 0;
+        } else {
+            $idCredito = isset($_GET['id_credito']) ? (int)$_GET['id_credito'] : 0;
+        }
+        if ($idCredito < 1) {
+            self::respuestaJSON(['success' => true, 'ya_tiene' => false, 'ticket_existente' => null]);
+            return;
+        }
+        $yaTiene = TicketDAO::tieneTicketConCreditoPorCreador($idCredito, $idPersona);
+        $ticketExistente = $yaTiene ? TicketDAO::getUltimoTicketActivoConCreditoPorCreador($idCredito, $idPersona) : null;
+        self::respuestaJSON(['success' => true, 'ya_tiene' => $yaTiene, 'ticket_existente' => $ticketExistente]);
     }
 
     /**
@@ -1983,6 +3844,15 @@ JS;
         if ($idPersona < 1) {
             self::respuestaJSON(['success' => false, 'mensaje' => 'Sesión inválida.']);
             return;
+        }
+        // Restricción domingo/lunes solo para tickets Sabueso
+        $cat = isset($datos['categoria_gestion']) ? strtolower(trim((string)$datos['categoria_gestion'])) : 'sabueso';
+        if ($cat === '' || $cat === 'sabueso') {
+            $msgVentana = self::mensajeSiVentanaLevantarTicketCerrada();
+            if ($msgVentana !== null) {
+                self::respuestaJSON(['success' => false, 'mensaje' => $msgVentana]);
+                return;
+            }
         }
         $idCredito = isset($datos['id_credito']) && $datos['id_credito'] !== '' && $datos['id_credito'] !== null
             ? (int)$datos['id_credito'] : 0;
@@ -2017,6 +3887,124 @@ JS;
     }
 
     /**
+     * API: guardar solicitud de baja (Levantar ticket > Solicitud de baja).
+     * POST: motivo_baja, detalle_motivo, descripcion (opcional), nombre_colaborador; opcional: adjunto (archivo PDF o imagen).
+     */
+    public function guardarSolicitudBaja()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        $idPersona = (int)($_SESSION['persona_id'] ?? $_SESSION['usuario_id'] ?? 0);
+        if ($idPersona < 1) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'Debe iniciar sesión para enviar la solicitud.']);
+            return;
+        }
+        $motivo = isset($_POST['motivo_baja']) ? trim((string)$_POST['motivo_baja']) : '';
+        $detalle = isset($_POST['detalle_motivo']) ? trim((string)$_POST['detalle_motivo']) : '';
+        $descripcion = isset($_POST['descripcion']) ? trim((string)$_POST['descripcion']) : '';
+        $nombreColaborador = isset($_POST['nombre_colaborador']) ? trim((string)$_POST['nombre_colaborador']) : '';
+        $nombreArchivoOriginal = null;
+        $rutaAdjunto = null;
+        if (!empty($_FILES['adjunto']['tmp_name']) && is_uploaded_file($_FILES['adjunto']['tmp_name'])) {
+            $tmp = $_FILES['adjunto']['tmp_name'];
+            if (!\Core\SecureUpload::validateMime($tmp, \Core\SecureUpload::MIME_PDF_OR_IMAGES)) {
+                self::respuestaJSON(['success' => false, 'mensaje' => 'El adjunto debe ser PDF o imagen (JPG, PNG, GIF, WebP).']);
+                return;
+            }
+            $mime = \Core\SecureUpload::getMimeType($tmp);
+            $ext = $mime ? \Core\SecureUpload::extensionFromMime($mime) : 'bin';
+            $dir = __DIR__ . '/../uploads/solicitud_baja';
+            \Core\SecureUpload::ensureDir($dir);
+            $nombreArchivo = \Core\SecureUpload::generateSafeFilename($ext);
+            $rutaCompleta = $dir . '/' . $nombreArchivo;
+            if (!move_uploaded_file($tmp, $rutaCompleta)) {
+                self::respuestaJSON(['success' => false, 'mensaje' => 'Error al guardar el archivo adjunto.']);
+                return;
+            }
+            $nombreArchivoOriginal = isset($_FILES['adjunto']['name']) ? trim((string)$_FILES['adjunto']['name']) : $nombreArchivo;
+            $rutaAdjunto = 'solicitud_baja/' . $nombreArchivo;
+        }
+        $resultado = SolicitudBajaDAO::guardar([
+            'motivo_baja'             => $motivo,
+            'detalle_motivo'          => $detalle,
+            'descripcion'             => $descripcion,
+            'nombre_colaborador'      => $nombreColaborador,
+            'nombre_archivo_original' => $nombreArchivoOriginal,
+            'ruta_adjunto'            => $rutaAdjunto,
+        ], $idPersona);
+        self::respuestaJSON([
+            'success' => $resultado['success'] ?? false,
+            'mensaje' => $resultado['mensaje'] ?? '',
+            'datos'   => $resultado['datos'] ?? null
+        ]);
+    }
+
+    /**
+     * API: listado de solicitudes de baja (Panel Admin).
+     */
+    public function getSolicitudesBaja()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        $resultado = SolicitudBajaDAO::getLista();
+        $datos = isset($resultado['datos']) ? $resultado['datos'] : [];
+        self::respuestaJSON([
+            'success' => $resultado['success'] ?? false,
+            'mensaje' => $resultado['mensaje'] ?? '',
+            'datos'   => $datos
+        ]);
+    }
+
+    /**
+     * API: una solicitud de baja por ID (modal Ver en Panel Admin).
+     */
+    public function getSolicitudBajaPorId()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        $raw = file_get_contents('php://input');
+        $body = json_decode($raw, true) ?: [];
+        $id = (int)($body['id'] ?? 0);
+        if ($id < 1) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'ID requerido.', 'datos' => null]);
+            return;
+        }
+        $row = SolicitudBajaDAO::getPorId($id);
+        if (!$row) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'Solicitud no encontrada.', 'datos' => null]);
+            return;
+        }
+        self::respuestaJSON(['success' => true, 'mensaje' => '', 'datos' => $row]);
+    }
+
+    /**
+     * Sirve el archivo adjunto de una solicitud de baja (descarga). Respuesta binaria.
+     */
+    public function verAdjuntoSolicitudBaja()
+    {
+        $id = (int)($_GET['id'] ?? 0);
+        if ($id < 1) {
+            http_response_code(400);
+            return;
+        }
+        $row = SolicitudBajaDAO::getPorId($id);
+        if (!$row || empty($row['ruta_adjunto'])) {
+            http_response_code(404);
+            return;
+        }
+        $path = __DIR__ . '/../uploads/' . $row['ruta_adjunto'];
+        if (!is_file($path)) {
+            http_response_code(404);
+            return;
+        }
+        $mime = (new \finfo(FILEINFO_MIME_TYPE))->file($path);
+        $nombreDescarga = !empty($row['nombre_archivo_original']) ? $row['nombre_archivo_original'] : basename($path);
+        header('Content-Type: ' . $mime);
+        header('Content-Length: ' . filesize($path));
+        header('Content-Disposition: inline; filename="' . str_replace('"', '\\"', $nombreDescarga) . '"');
+        header('Cache-Control: private, max-age=86400');
+        readfile($path);
+        exit;
+    }
+
+    /**
      * API: crear ticket desde bot de WhatsApp (sin sesión; requiere API key).
      * Origen = WhatsApp, id_persona_creador = Bot WhatsApp.
      * Cabecera: X-API-Key: <TICKET_WHATSAPP_API_KEY> o body: { "api_key": "...", ... }
@@ -2033,6 +4021,12 @@ JS;
             self::respuestaJSON(['success' => false, 'mensaje' => 'API key inválida o no enviada.']);
             return;
         }
+        // WhatsApp sigue siendo flujo Sabueso: aplica ventana
+        $msgVentana = self::mensajeSiVentanaLevantarTicketCerrada();
+        if ($msgVentana !== null) {
+            self::respuestaJSON(['success' => false, 'mensaje' => $msgVentana]);
+            return;
+        }
 
         $idOrigenWhatsApp = TicketDAO::getIdOrigenWhatsApp();
         $idPersonaBot = TicketDAO::getIdPersonaBotWhatsApp();
@@ -2046,6 +4040,7 @@ JS;
         }
 
         $datos['id_origen_ticket'] = $idOrigenWhatsApp;
+        $datos['categoria_gestion'] = 'sabueso';
         $idCredito = isset($datos['id_credito']) && $datos['id_credito'] !== '' && $datos['id_credito'] !== null
             ? (int)$datos['id_credito'] : 0;
         if ($idCredito < 1) {
@@ -2272,7 +4267,7 @@ JS;
 
     /**
      * API: histórico de gestiones por id_credito (Contactación y dictamen, Promesas y comentarios).
-     * Para el panel de rastreo se devuelven las 7 gestiones más recientes (con coordenadas para el mapa).
+     * Para el panel de rastreo se devuelven las 16 gestiones más recientes (con coordenadas para el mapa).
      */
     public function getGestionesCredito()
     {
@@ -2286,7 +4281,7 @@ JS;
         try {
             $gestiones = GestionesDAO::getAllGestiones($idCredito, '');
             $gestiones = is_array($gestiones) ? $gestiones : [];
-            $gestiones = array_slice($gestiones, 0, 7);
+            $gestiones = array_slice($gestiones, 0, 16);
             self::respuestaJSON(['success' => true, 'mensaje' => 'OK', 'datos' => $gestiones]);
         } catch (\Exception $e) {
             self::respuestaJSON(['success' => false, 'mensaje' => 'Error al obtener gestiones.', 'datos' => []]);
@@ -2644,7 +4639,7 @@ JS;
         } else {
             $lineas[] = 'Sin datos de cumplimiento (sin eventos de ubicación del gestor o sin ubicaciones del cliente).';
         }
-        $lineas[] = "\n=== ANALÍTICA PAGOS ===";
+        $lineas[] = "\n=== ANALTICA PAGOS ===";
         $ap = $analiticas['analitica_pagos'] ?? [];
         $lineas[] = 'Total pagos (usados en análisis): ' . ($ap['total_pagos'] ?? 0) . '. Patrón: ' . ($ap['patron_pago'] ?? '—') . '. Intervalo promedio (días): ' . ($ap['intervalo_promedio_dias'] ?? '—') . '. Día más frecuente: ' . ($ap['dia_mas_frecuente'] ?? '—');
         $lineas[] = "\n=== ESTADO DE CUENTA (API) ===";
@@ -2790,7 +4785,7 @@ JS;
             $chat = TicketDAO::getChatPorTicket($idTicket);
             $listaChat = isset($chat['datos']) ? $chat['datos'] : [];
             if (!empty($listaChat)) {
-                $lineas[] = "\n=== BITÁCORA / COMENTARIOS DEL TICKET (" . count($listaChat) . " mensajes) ===";
+                $lineas[] = "\n=== BITCORA / COMENTARIOS DEL TICKET (" . count($listaChat) . " mensajes) ===";
                 foreach ($listaChat as $m) {
                     $fecha = $m['fecha_creacion'] ?? '';
                     $lineas[] = '  ' . ($m['persona_nombre'] ?? '') . ' [' . $fecha . ']: ' . ($m['mensaje'] ?? '');
@@ -3352,14 +5347,50 @@ JS;
         }
         if (!empty($direcciones)) {
             foreach ($direcciones as $i => $d) {
+                $orden = $d['orden'] ?? ($i + 1);
+                $texto = trim((string) ($d['texto'] ?? ''));
+                $label = $texto !== '' ? 'Ubicación ' . $orden . ': ' . $texto : 'Ubicación ' . $orden;
                 $ubicacionesUsuario[] = [
                     'id' => $d['id'] ?? 'u' . $i,
                     'lat' => (float) ($d['lat'] ?? $d['latitud'] ?? 0),
                     'lng' => (float) ($d['lng'] ?? $d['longitud'] ?? 0),
-                    'label' => $d['texto'] ?? ('Ubicación ' . ($i + 1)),
+                    'label' => $label,
                     'visitas_count' => (int) ($d['cantidad_registros'] ?? 0),
                     'ultima_fecha' => $d['ultima_fecha'] ?? null,
                 ];
+            }
+        }
+        $todasUbicaciones = [];
+        if (!empty($domicilio) && isset($domicilio['lat']) && isset($domicilio['lng'])) {
+            $todasUbicaciones[] = [
+                'id' => $domicilio['id'] ?? 'megareporte',
+                'lat' => (float) $domicilio['lat'],
+                'lng' => (float) $domicilio['lng'],
+                'label' => $domicilio['label'] ?? 'Domicilio megareporte',
+            ];
+        }
+        foreach ($ubicacionesUsuario as $u) {
+            $todasUbicaciones[] = [
+                'id' => $u['id'],
+                'lat' => $u['lat'],
+                'lng' => $u['lng'],
+                'label' => $u['label'] ?? ('Ubicación ' . $u['id']),
+            ];
+        }
+        $puntosGeo = OfertaCoordenada::getPorIdCredito($idCredito);
+        if (!empty($puntosGeo)) {
+            foreach ($puntosGeo as $i => $g) {
+                $latG = (float) ($g['lat'] ?? $g['latitud'] ?? 0);
+                $lngG = (float) ($g['lng'] ?? $g['longitud'] ?? 0);
+                if ($latG !== 0.0 || $lngG !== 0.0) {
+                    $donde = trim((string) ($g['donde_firma'] ?? ''));
+                    $todasUbicaciones[] = [
+                        'id' => 'geo_' . $i,
+                        'lat' => $latG,
+                        'lng' => $lngG,
+                        'label' => $donde !== '' ? $donde : 'Donde firma ' . ($i + 1),
+                    ];
+                }
             }
         }
         $eventosGPS = [];
@@ -3407,7 +5438,7 @@ JS;
         $analitica_pagos = $temporal->analizarPagos($pagosParaTemporal);
         $eventosGestor = GestionesDAO::getEventosGestorPorCredito($idCredito);
         $compliance = new GestorComplianceService();
-        $cumplimiento_gestor = $compliance->verificarCercaniaGestor($eventosGestor, $ubicacionesUsuario);
+        $cumplimiento_gestor = $compliance->verificarCercaniaGestor($eventosGestor, $todasUbicaciones);
         return [
             'analitica_espacial' => $analitica_espacial,
             'analitica_pagos' => $analitica_pagos,
@@ -4169,7 +6200,8 @@ JS;
             self::respuestaJSON(['success' => false, 'mensaje' => 'ID de ticket requerido.']);
             return;
         }
-        $resultado = TicketDAO::enviarDictamenGestor($idTicket);
+        $idPersona = (int)($_SESSION['persona_id'] ?? $_SESSION['usuario_id'] ?? 0);
+        $resultado = TicketDAO::enviarDictamenGestor($idTicket, $idPersona);
         if ($resultado['success'] ?? false) {
             // Notificación solo al que levantó el ticket (no a todos los de Sabueso/Ticket)
             $idCreador = TicketDAO::getCreadorIdPorTicket($idTicket);
@@ -4230,7 +6262,7 @@ JS;
                 $ids[] = $autorDictamen;
             }
             if (!empty($ids)) {
-                Notificacion::crearParaPersonas($ids, 'dictamen_revisado', 'Dictamen revisado por ' . $nombreRevisor, $idTicket);
+            Notificacion::crearParaPersonas($ids, 'dictamen_revisado', 'Dictamen revisado por ' . $nombreRevisor, $idTicket);
             }
         }
         self::respuestaJSON(['success' => $resultado['success'] ?? false, 'mensaje' => $resultado['mensaje'] ?? '']);
@@ -4253,6 +6285,97 @@ JS;
             'success' => $resultado['success'] ?? false,
             'mensaje' => $resultado['mensaje'] ?? '',
             'datos' => $resultado['datos'] ?? null
+        ]);
+    }
+
+    /**
+     * API: generar dictamen del sistema (verificación automática post-12h).
+     * Solo usuarios con acceso a Panel Admin (módulo 19).
+     */
+    public function generarDictamenSistema()
+    {
+        $modulos = $_SESSION['modulos'] ?? [];
+        if (!is_array($modulos) || !in_array(19, $modulos)) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'No tiene permiso para esta acción.']);
+            return;
+        }
+        $raw = file_get_contents('php://input');
+        $datos = json_decode($raw, true) ?: [];
+        $idTicket = (int)($datos['id_ticket'] ?? 0);
+        if ($idTicket < 1) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'ID de ticket requerido.']);
+            return;
+        }
+        $forzarRegeneracion = !empty($datos['revalidar_pago']);
+        $resultado = TicketDAO::generarDictamenSistema($idTicket, $forzarRegeneracion);
+        $payload = [
+            'success' => $resultado['success'] ?? false,
+            'mensaje' => $resultado['mensaje'] ?? '',
+            'datos'   => $resultado['datos'] ?? null,
+        ];
+        if (isset($resultado['error'])) {
+            $payload['error'] = $resultado['error'];
+        }
+        self::respuestaJSON($payload);
+    }
+
+    /**
+     * API: obtener dictamen del sistema existente.
+     */
+    public function getDictamenSistema()
+    {
+        $raw = file_get_contents('php://input');
+        $datos = json_decode($raw, true) ?: [];
+        $idTicket = (int)($datos['id_ticket'] ?? 0);
+        if ($idTicket < 1) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'ID de ticket requerido.']);
+            return;
+        }
+        $resultado = TicketDAO::getDictamenSistema($idTicket);
+        $payload = [
+            'success' => $resultado['success'] ?? false,
+            'mensaje' => $resultado['mensaje'] ?? '',
+            'datos'   => $resultado['datos'] ?? null,
+        ];
+        if (isset($resultado['error'])) {
+            $payload['error'] = $resultado['error'];
+        }
+        self::respuestaJSON($payload);
+    }
+
+    /**
+     * API: otorgar prórroga única de 12 horas al dictamen del sistema.
+     */
+    public function otorgarProrrogaDictamenSistema()
+    {
+        $modulos = $_SESSION['modulos'] ?? [];
+        if (!is_array($modulos) || !in_array(19, $modulos)) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'No tiene permiso para esta acción.']);
+            return;
+        }
+        $raw = file_get_contents('php://input');
+        $datos = json_decode($raw, true) ?: [];
+        $idTicket = (int)($datos['id_ticket'] ?? 0);
+        if ($idTicket < 1) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'ID de ticket requerido.']);
+            return;
+        }
+        $idPersona = (int)($_SESSION['persona_id'] ?? ($_SESSION['usuario_id'] ?? 0));
+        $nombre = TicketDAO::getNombrePersona($idPersona);
+        $resultado = TicketDAO::otorgarProrrogaDictamenSistema($idTicket, $idPersona, (string)$nombre);
+        if ($resultado['success'] ?? false) {
+            $idGestor = TicketDAO::getCreadorIdPorTicket($idTicket);
+            if ($idGestor > 0) {
+                $folio = TicketDAO::getFolioPorTicket($idTicket);
+                $ticketRef = $folio !== '' ? $folio : '#' . $idTicket;
+                $mensaje = 'Se le ha otorgado una prórroga de 12 horas para el ticket (' . $ticketRef . '). Tiene ese plazo para completar las visitas indicadas en el dictamen.';
+                Notificacion::crear($idGestor, 'prorroga_otorgada', $mensaje, $idTicket);
+            }
+        }
+        self::respuestaJSON([
+            'success' => $resultado['success'] ?? false,
+            'mensaje' => $resultado['mensaje'] ?? '',
+            'datos'   => $resultado['datos'] ?? null,
         ]);
     }
 
@@ -4528,7 +6651,7 @@ JS;
 
         $eventosGestor = GestionesDAO::getEventosGestorPorCredito($idCredito);
         $detalles = $cumplimientoGestor['detalles'] ?? [];
-        // Mismo criterio que API Cumplimiento Gestor: enriquecer por ÍNDICE para que el nombre coincida siempre
+        // Mismo criterio que API Cumplimiento Gestor: enriquecer por NDICE para que el nombre coincida siempre
         foreach ($detalles as $i => &$d) {
             $nombre = '—';
             if (isset($eventosGestor[$i])) {
@@ -4570,14 +6693,19 @@ JS;
                 'lat' => $primero['lat'] ?? null,
                 'lng' => $primero['lng'] ?? null,
             ];
-            // identidad_tipo_punto_interes: desde direcciones_resumen (mismo punto más visitado)
+            // Tipo del punto más visitado: usar su label; si no hay, fallback a direcciones_resumen o genérico
             $ubicResumen = UbicacionDAO::getUbicacionesFiltradasPorIdCredito($idCredito);
             $direccionesResumen = $ubicResumen['direcciones_resumen'] ?? [];
-            if (!empty($direccionesResumen)) {
+            $labelPrimero = trim((string) ($primero['label'] ?? ''));
+            if ($labelPrimero !== '') {
+                $puntoInteres['tipo'] = $labelPrimero;
+            } elseif (!empty($direccionesResumen)) {
                 $primeraDir = $direccionesResumen[0];
                 $puntoInteres['tipo'] = trim((string) ($primeraDir['texto'] ?? '')) !== ''
                     ? (string) $primeraDir['texto']
                     : (!empty($primeraDir['punto_de_interes']) ? 'Punto de interés' : 'Menos frecuente');
+            } else {
+                $puntoInteres['tipo'] = 'Punto de interés';
             }
         }
         // Score espacial continuo: distancia (mejor punto) + factor por cantidad de puntos (0.7 + 0.3 × min(1, n/5)).
@@ -4781,6 +6909,7 @@ JS;
             'id_credito' => $idCredito,
             'analisisEspacial' => $analiticaEspacial,
             'cumplimientoGestor' => $cumplimientoGestor,
+            'detallesGestor' => $detalles,
             'analisisPagos' => $analiticaPagos,
             'domicilioConfirmado' => $domicilioConfirmado,
             'distanciaDomicilio' => $distanciaDomicilio,
@@ -4853,3 +6982,4 @@ JS;
         return $peor;
     }
 }
+

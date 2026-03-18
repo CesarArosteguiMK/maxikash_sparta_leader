@@ -40,13 +40,88 @@
     #modalRastreoCredito .rastreo-col-bitacora-wrap .rastreo-seccion-dictamen { grid-row: 2; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
     #modalRastreoCredito .rastreo-block-full { grid-column: 1 / -1; }
     #modalRastreoCredito.modal .modal-dialog { max-width: 95vw; width: 95vw; height: 90vh; max-height: 90vh; margin: 2rem auto; }
-    /* FONDO GRIS: contenedor padre = gris azulado (Slate 100). Tarjetas blancas resaltan encima. */
-    #modalRastreoCredito .modal-content { height: 100%; display: flex; flex-direction: column; border-radius: 16px; overflow: visible; background-color: #F1F5F9 !important; border: none !important; }
-    #modalRastreoCredito .modal-body { flex: 1; overflow-x: hidden; overflow-y: auto; -webkit-overflow-scrolling: touch; background-color: #F1F5F9 !important; padding: 1rem; -webkit-font-smoothing: antialiased; display: flex; flex-direction: column; min-height: 0; }
+    /* Liquid Glass: mismo criterio que modal-content-glass + departamentos (blur + rgba). Antes era #F1F5F9 sólido. */
+    /* Modal Consultar por ID crédito: no recortar el botón cerrar */
+    #modalConsultaCreditoPaso1 .modal-dialog,
+    #modalConsultaCreditoPaso1 .modal-content { overflow: visible !important; }
+    #modalConsultaCreditoPaso1 .modal-header { position: relative; }
+
+    #modalRastreoCredito .modal-content.modal-content-glass {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        border-radius: 16px;
+        /* visible: la X del header no se recorta; el scroll queda en modal-body */
+        overflow: visible;
+        background: rgba(255, 255, 255, 0.82) !important;
+        backdrop-filter: blur(18px);
+        -webkit-backdrop-filter: blur(18px);
+        border: 1px solid rgba(255, 255, 255, 0.55) !important;
+        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(255, 255, 255, 0.35) inset;
+    }
+    body.dark-mode #modalRastreoCredito .modal-content.modal-content-glass {
+        background: rgba(30, 41, 59, 0.88) !important;
+        border-color: rgba(71, 85, 105, 0.45) !important;
+        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(51, 65, 85, 0.25) inset;
+    }
+    #modalRastreoCredito .modal-body {
+        flex: 1;
+        overflow-x: hidden;
+        overflow-y: auto;
+        border-radius: 0;
+        min-height: 0;
+        -webkit-overflow-scrolling: touch;
+        background: rgba(241, 245, 249, 0.45) !important;
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        padding: 1rem;
+        -webkit-font-smoothing: antialiased;
+        display: flex;
+        flex-direction: column;
+    }
+    body.dark-mode #modalRastreoCredito .modal-body {
+        background: rgba(15, 23, 42, 0.35) !important;
+    }
     #modalRastreoCredito .modal-body .small { line-height: 1.5; letter-spacing: 0.01em; color: #374151; }
-    /* Encabezado y pie BLANCOS para limpieza visual */
-    #modalRastreoCredito .modal-header { background-color: #FFFFFF !important; border-bottom: 1px solid #E5E7EB !important; }
-    #modalRastreoCredito .modal-footer { background-color: #FFFFFF !important; border-top: 1px solid #E5E7EB !important; }
+    /* Encabezado y pie: glass ligero (no blanco opaco) */
+    #modalRastreoCredito .modal-header {
+        background: rgba(255, 255, 255, 0.65) !important;
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border-bottom: 1px solid rgba(0, 0, 0, 0.06) !important;
+        /* Evitar que la X se recorte por border-radius/overflow del modal-content */
+        padding-top: 0.85rem !important;
+        padding-right: 1rem !important;
+        padding-bottom: 0.65rem !important;
+        padding-left: 1rem !important;
+        flex-shrink: 0;
+        border-radius: 16px 16px 0 0;
+    }
+    #modalRastreoCredito .modal-header .btn-close {
+        padding: 0.5rem;
+        margin-left: auto;
+        /* Mantener la X dentro del área redondeada sin tirarla al borde */
+        margin-right: 0;
+        background-size: 0.65em;
+        opacity: 0.9;
+    }
+    #modalRastreoCredito .modal-footer {
+        background: rgba(255, 255, 255, 0.6) !important;
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        border-top: 1px solid rgba(0, 0, 0, 0.06) !important;
+        border-radius: 0 0 16px 16px;
+        flex-shrink: 0;
+    }
+    body.dark-mode #modalRastreoCredito .modal-header {
+        background: rgba(30, 41, 59, 0.75) !important;
+        border-bottom-color: rgba(51, 65, 85, 0.5) !important;
+        border-radius: 16px 16px 0 0;
+    }
+    body.dark-mode #modalRastreoCredito .modal-footer {
+        background: rgba(30, 41, 59, 0.7) !important;
+        border-top-color: rgba(51, 65, 85, 0.5) !important;
+    }
     /* Encabezado en dos columnas: izquierda = datos cliente + ticket; derecha = quién levantó / cuando / asignado */
     #modalRastreoCredito .rastreo-header-grid { display: grid; grid-template-columns: 1fr auto; gap: 1rem; align-items: start; margin-bottom: 1.25rem; padding-bottom: 1rem; border-bottom: 1px solid rgba(0,0,0,0.06); }
     #modalRastreoCredito .rastreo-header-left { display: flex; flex-direction: column; gap: 0.35rem; min-width: 0; }
@@ -56,6 +131,14 @@
     #modalRastreoCredito .rastreo-tickets-cell .fw-semibold.small.text-muted { color: #1e40af !important; font-weight: 600; }
     #modalRastreoCredito .rastreo-tickets-cell .credito-modal-list { color: #1e3a8a; }
     #modalRastreoCredito .rastreo-header-right { display: flex; flex-direction: column; gap: 0.5rem; padding-left: 1rem; border-left: 1px solid rgba(0,0,0,0.08); min-width: 180px; }
+    /* Consulta solo por ID crédito: ocultar ticket, asignación, bitácora y dictamen; grid 2 columnas */
+    #modalRastreoCredito.consulta-sin-ticket .rastreo-tickets-cell,
+    #modalRastreoCredito.consulta-sin-ticket .rastreo-header-right { display: none !important; }
+    #modalRastreoCredito.consulta-sin-ticket .rastreo-header-grid { grid-template-columns: 1fr; border-bottom: none; padding-bottom: 0.5rem; }
+    #modalRastreoCredito.consulta-sin-ticket .rastreo-col-bitacora-wrap { display: none !important; }
+    #modalRastreoCredito.consulta-sin-ticket .rastreo-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+    #modalRastreoCredito.consulta-sin-ticket .modal-title::after { content: ' (solo consulta)'; font-weight: 400; font-size: 0.85em; opacity: 0.85; }
+    #modalRastreoCredito.consulta-sin-ticket #btnAsignarRastreo { display: none !important; }
     #modalRastreoCredito .rastreo-ticket-info-col { display: flex; flex-direction: column; gap: 0.5rem; }
     /* Direcciones (maxi app): cada ubicación es una fila de 3 columnas (dirección | registros | fecha+distancia) */
     #modalRastreoCredito .rastreo-direcciones-lista { margin-bottom: 0.75rem; }
@@ -121,6 +204,22 @@
         0%, 100% { opacity: 1; transform: rotate(-45deg) scale(1); }
         50% { opacity: 0.75; transform: rotate(-45deg) scale(1.08); }
     }
+    /* Icono flotante sobre marcadores del mapa (círculo + icono arriba) */
+    .rastreo-icono-flotante { display: flex; align-items: center; justify-content: center; min-width: 24px; height: 20px; padding: 0 3px; border-radius: 8px; border: 1px solid #f59e0b; background: rgba(255,255,255,0.98); box-shadow: 0 2px 6px rgba(71,85,105,0.22); animation: rastreo-icono-flotar 2s ease-in-out infinite; }
+    .rastreo-icono-flotante .rastreo-icono-emoji { font-size: 1rem; line-height: 1; }
+    @keyframes rastreo-icono-flotar {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-3px); }
+    }
+    /* Panel lupa en clusters del mapa (círculo + mini mapa al costado) */
+    .rastreo-lupa-panel { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); z-index: 9999; display: flex; flex-direction: column; align-items: center; gap: 6px; pointer-events: auto; }
+    .rastreo-lupa-cerrar { position: absolute; top: -8px; right: -8px; width: 24px; height: 24px; border-radius: 50%; border: 1px solid #94a3b8; background: #fff; color: #475569; font-size: 1.2rem; line-height: 1; cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,0.15); z-index: 1001; }
+    .rastreo-lupa-cerrar:hover { background: #f1f5f9; color: #0f172a; }
+    .rastreo-lupa-lente { width: 260px; height: 260px; border-radius: 50%; overflow: hidden; border: 3px solid #ea580c; box-shadow: 0 4px 20px rgba(0,0,0,0.25); background: #e2e8f0; }
+    .rastreo-lupa-texto { font-size: 0.75rem; color: #475569; font-weight: 600; background: rgba(255,255,255,0.95); padding: 2px 8px; border-radius: 6px; }
+    .rastreo-btn-lupa-mapa { position: absolute; bottom: 8px; left: 8px; z-index: 11; cursor: zoom-in; font-size: 0.8rem; padding: 4px 10px; border-radius: 8px; background: rgba(255,255,255,0.95); border: 1px solid #cbd5e1; box-shadow: 0 1px 4px rgba(0,0,0,0.15); }
+    .rastreo-btn-lupa-mapa:hover { background: #f1f5f9; border-color: #94a3b8; }
+    .rastreo-lupa-overlay-activo { position: absolute !important; top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important; z-index: 500 !important; cursor: zoom-in !important; pointer-events: auto !important; }
     #modalRastreoCredito .rastreo-geo-item { display: flex; align-items: flex-start; gap: 0.35rem; flex-wrap: wrap; padding: 0.25rem 0; }
     #modalRastreoCredito .rastreo-geo-item[data-indice-geo] { cursor: pointer; border-radius: 6px; transition: background 0.15s ease; }
     #modalRastreoCredito .rastreo-geo-item[data-indice-geo]:hover { background: rgba(0,0,0,0.04); }
@@ -366,6 +465,12 @@
     #modalRastreoCredito .rastreo-bitacora-input-wrap { padding: 0.25rem 0; margin-top: auto; flex-shrink: 0; }
     #modalRastreoCredito .rastreo-dictamen-form .form-label { margin-bottom: 0.25rem; }
     #modalRastreoCredito .rastreo-dictamen-form .evidencia-slot { width: 100%; aspect-ratio: 1; max-height: 100px; }
+    .rastreo-domicilios-wrap { display: flex; flex-direction: column; gap: 0.5rem; }
+    .rastreo-domicilios-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.25rem; }
+    .rastreo-domicilio-block { display: grid; grid-template-columns: 1fr auto; gap: 0.35rem; align-items: start; padding: 0.5rem; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0; }
+    .rastreo-domicilio-block .form-control-sm { font-size: 0.8rem; }
+    .rastreo-btn-add-domicilio { width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center; background: #0ea5e9 !important; border-color: #0ea5e9 !important; color: #fff !important; }
+    .rastreo-btn-add-domicilio:hover { background: #0284c7 !important; border-color: #0284c7 !important; color: #fff !important; }
     /* Botones Dictamen en panel (mismos colores que en modal ampliada) */
     #modalRastreoCredito .btn-dictamen-borrador { background: linear-gradient(135deg, #0d9488 0%, #0f766e 100%); border-color: #0d9488; color: #fff; }
     #modalRastreoCredito .btn-dictamen-borrador:hover { background: linear-gradient(135deg, #0f766e 0%, #115e59 100%); border-color: #0f766e; color: #fff; }
@@ -482,9 +587,43 @@
     #modalVerEvidenciaDictamen .modal-content { border: none; border-radius: 12px; overflow: visible; box-shadow: 0 12px 40px rgba(0,0,0,0.25); }
     #modalVerEvidenciaDictamen #modalVerEvidenciaDictamenImg { transition: opacity 0.2s ease; }
     @keyframes evidenciaVerEntrada { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+    /* Panel Admin: columnas y textos un poco más chicos; botones tipo menú gestión (btn-sm estándar) */
+    #tablaTicketsPanel.table thead th {
+        font-size: 0.78rem;
+        letter-spacing: 0.02em;
+    }
+    #tablaTicketsPanel.table tbody td {
+        font-size: 0.8125rem;
+    }
+    #tablaTicketsPanel.table tbody td .small,
+    #tablaTicketsPanel.table tbody td small {
+        font-size: 0.72rem;
+    }
+    /* Botones acción: mismo tamaño que analítica/gestión (btn-sm) */
+    #tablaTicketsPanel.table tbody td:last-child .btn {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.8125rem;
+        line-height: 1.35;
+    }
     #tablaTicketsPanel th:nth-child(6) { min-width: 10rem; white-space: nowrap; }
-    #tablaTicketsPanel .d-flex.flex-wrap.gap-1 { flex-wrap: wrap; gap: 0.35rem !important; }
+    #tablaTicketsPanel .d-flex.flex-wrap.gap-1 { flex-wrap: wrap; gap: 0.4rem !important; }
     #tablaTicketsPanel .d-flex.flex-wrap.gap-1 .btn { flex-shrink: 0; }
+    #tablaTicketsPanel.table tbody td:last-child .d-flex.flex-column {
+        gap: 0.4rem !important;
+        align-items: center;
+    }
+    /* Prórroga +12h: reloj ámbar + "2" al lado = segunda ventana */
+    #tablaTicketsPanel .dictamen-countdown-prorroga .fa-clock { color: #d97706 !important; }
+    #tablaTicketsPanel .dictamen-prorroga-marca,
+    #tablaTickets .dictamen-prorroga-marca {
+        font-size: 0.6rem;
+        font-weight: 800;
+        color: #b45309;
+        margin-left: 2px;
+        line-height: 1;
+        vertical-align: super;
+    }
+    #tablaTickets .dictamen-countdown-prorroga .fa-clock { color: #d97706 !important; }
     #tablaTicketsPanel tr.fila-dictamen-enviado { border-left: 3px solid #0d6efd; }
     #tablaTicketsPanel .btn-dictamen-ojito { cursor: pointer; }
     @media (max-width: 768px) {
@@ -629,15 +768,70 @@
         #modalRastreoCredito .gestion-row .gestion-label { min-width: 4rem; }
         .card-header, .card { padding-left: 0.5rem; padding-right: 0.5rem; }
     }
+    body.panel-admin-primer-cargando #tablaTicketsPanel tbody .dataTables_empty { visibility: hidden !important; }
+    body.panel-admin-primer-cargando #tablaTicketsPanel_info,
+    body.panel-admin-primer-cargando #tablaTicketsPanel_paginate { visibility: hidden !important; }
 </style>
 <div class="card">
     <div class="card-header border-bottom">
-        <h5 class="card-title mb-0">
-            <i class="fa-solid fa-list me-2"></i>Panel Admin – Todos los tickets
+        <h5 class="card-title mb-0 d-flex flex-wrap align-items-center gap-2">
+            <span><i class="fa-solid fa-list me-2"></i>Panel Admin – Todos los tickets</span>
+            <button type="button" class="btn btn-sm btn-outline-primary ms-auto" id="btnAbrirConsultaCredito" title="Consultar datos del crédito sin ticket">
+                <i class="fa-solid fa-id-card me-1"></i>Consultar por ID crédito
+            </button>
             <i class="fa-solid fa-dog ms-2 sabueso-easter-icon" id="sabuesoPanelEaster" aria-hidden="true"></i>
         </h5>
     </div>
-    <div class="card-datatable table-responsive">
+    <!-- Filtros Panel Admin: se envían en cada getTicketsPanelAdmin (window.panelAdminFiltros) -->
+    <div class="card-body border-bottom py-3 bg-label-secondary bg-opacity-10" id="panelAdminFiltrosWrap">
+        <div class="row g-2 align-items-end">
+            <div class="col-12 col-md-6 col-lg">
+                <label class="form-label small text-muted mb-0" for="filtroAsignado">Asignado a</label>
+                <select class="form-select form-select-sm panel-admin-filtro-select" id="filtroAsignado" title="Filtrar por persona asignada">
+                    <option value="0">Todos</option>
+                    <option value="-1">Sin asignar</option>
+                </select>
+            </div>
+            <div class="col-12 col-md-6 col-lg">
+                <label class="form-label small text-muted mb-0" for="filtroDictamenEnviado">Dictamen enviado al gestor</label>
+                <select class="form-select form-select-sm panel-admin-filtro-select" id="filtroDictamenEnviado">
+                    <option value="">Todos</option>
+                    <option value="si">Sí (enviado)</option>
+                    <option value="no">No (aún no enviado)</option>
+                </select>
+            </div>
+            <div class="col-12 col-md-6 col-lg">
+                <label class="form-label small text-muted mb-0" for="filtroDictamenVisto">Dictamen visto por gestor</label>
+                <select class="form-select form-select-sm panel-admin-filtro-select" id="filtroDictamenVisto" title="Solo aplica si ya fue enviado al gestor">
+                    <option value="">Todos</option>
+                    <option value="no">No visto (enviado, sin abrir)</option>
+                    <option value="si">Ya visto</option>
+                </select>
+            </div>
+            <div class="col-12 col-md-6 col-lg">
+                <label class="form-label small text-muted mb-0" for="filtroDsEstado">Dictamen del sistema (DS)</label>
+                <select class="form-select form-select-sm panel-admin-filtro-select" id="filtroDsEstado" title="Estado de la evaluación automática">
+                    <option value="">Todos</option>
+                    <option value="sin_ds">Sin registro DS (no enviado o sin snapshot)</option>
+                    <option value="pendiente">Pendiente de generar</option>
+                    <option value="listo">Ya evaluado (resultado listo)</option>
+                    <option value="prorroga_activa">Prórroga activa</option>
+                </select>
+            </div>
+            <div class="col-12 col-md-6 col-lg">
+                <label class="form-label small text-muted mb-0" for="filtroPrioridad">Prioridad</label>
+                <select class="form-select form-select-sm panel-admin-filtro-select" id="filtroPrioridad">
+                    <option value="0">Todas</option>
+                </select>
+            </div>
+            <div class="col-12 col-lg-auto d-flex align-items-end">
+                <button type="button" class="btn btn-sm btn-outline-secondary" id="btnLimpiarFiltrosPanel" title="Quitar filtros y mostrar todos">
+                    <i class="fa-solid fa-rotate-left me-1"></i>Limpiar
+                </button>
+            </div>
+        </div>
+    </div>
+    <div class="card-datatable table-responsive" id="wrapTablaTicketsPanel">
         <table id="tablaTicketsPanel" class="dt-responsive table border-top">
             <thead>
                 <tr>
@@ -649,6 +843,8 @@
                     <th>Fechas</th>
                     <th>Quién levantó</th>
                     <th>Asignado a</th>
+                    <th title="Cuenta regresiva 12h o prórroga +12h; si hay prórroga, el estado sale debajo">Tiempo para visitar</th>
+                    <th title="Resultado del dictamen del sistema; debajo: Pago Sí/No cuando aplica">Resultado DS</th>
                     <th></th>
                     <th>Acciones</th>
                 </tr>
@@ -658,10 +854,40 @@
     </div>
 </div>
 
+<!-- Modal consulta solo por ID crédito (sin ticket): paso 1 pide ID; luego reusa vista rastreo sin bitácora/dictamen/asignar -->
+<div class="modal fade" id="modalConsultaCreditoPaso1" tabindex="-1" aria-labelledby="modalConsultaCreditoPaso1Label" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content shadow-lg border-0">
+            <div class="modal-header border-0 pb-0 rounded-top-3" style="background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 100%);">
+                <div class="w-100 text-center py-3">
+                    <div class="rounded-circle bg-white bg-opacity-10 d-inline-flex align-items-center justify-content-center mb-2" style="width: 56px; height: 56px;">
+                        <i class="fa-solid fa-magnifying-glass-chart fa-xl text-white"></i>
+                    </div>
+                    <h5 class="modal-title text-white mb-1" id="modalConsultaCreditoPaso1Label">Consulta por ID crédito</h5>
+                    <p class="small text-white-50 mb-0 px-3">Vista de direcciones, mapas y analítica sin levantar ticket. Solo lectura.</p>
+                </div>
+                <button type="button" class="btn-close btn-close-white position-absolute top-0 end-0 m-3" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body pt-4 pb-4 px-4">
+                <label for="inputConsultaIdCredito" class="form-label fw-semibold">ID de crédito</label>
+                <div class="input-group input-group-lg mb-3">
+                    <span class="input-group-text bg-light"><i class="fa-solid fa-hashtag text-muted"></i></span>
+                    <input type="text" class="form-control form-control-lg" id="inputConsultaIdCredito" placeholder="Ej. 799811" inputmode="numeric" autocomplete="off" maxlength="12">
+                    <button type="button" class="btn btn-primary px-4" id="btnConsultaCreditoIr">
+                        <i class="fa-solid fa-arrow-right me-1"></i>Consultar
+                    </button>
+                </div>
+                <div id="consultaCreditoPaso1Error" class="alert alert-danger py-2 small d-none" role="alert"></div>
+                <p class="small text-muted mb-0"><i class="fa-solid fa-circle-info me-1"></i>Se cargarán megareporte, direcciones alternas, mapas y analítica igual que en rastreo, sin bitácora ni dictamen.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Modal Iniciar rastreo: datos de la persona/crédito del ticket (casi pantalla completa) -->
 <div class="modal fade" id="modalRastreoCredito" tabindex="-1" aria-labelledby="modalRastreoCreditoLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content shadow-sm">
+        <div class="modal-content modal-content-glass shadow-sm">
             <div class="modal-header py-2 border-bottom d-flex align-items-center">
                 <h6 class="modal-title text-primary mb-0" id="modalRastreoCreditoLabel">
                     <i class="fa-solid fa-magnifying-glass-plus me-2"></i>Iniciar rastreo – Datos del crédito
@@ -779,7 +1005,12 @@
                                 </div>
                                 <div class="mb-2">
                                     <label for="rastreoDictamenDescripcion" class="form-label small fw-semibold text-muted mb-1">Descripción <span class="text-danger">*</span></label>
-                                    <textarea class="form-control form-control-sm" id="rastreoDictamenDescripcion" rows="3" placeholder="Escriba la descripción..." required aria-required="true" maxlength="1000"></textarea>
+                                    <textarea class="form-control form-control-sm" id="rastreoDictamenDescripcion" rows="3" placeholder="Escriba la descripción..." required aria-required="true" maxlength="4000"></textarea>
+                                </div>
+                                <div class="mb-2">
+                                    <span class="form-label small fw-semibold text-muted mb-0 d-block">Domicilios de visita</span>
+                                    <div id="rastreoDictamenDomiciliosWrap" class="rastreo-domicilios-wrap"></div>
+                                    <div class="mt-1 text-end"><button type="button" class="btn btn-sm rounded-circle p-1 rastreo-btn-add-domicilio" id="btnAddDomicilioPanel" title="Añadir domicilio" aria-label="Añadir domicilio"><i class="fa-solid fa-plus"></i></button></div>
                                 </div>
                                 <div class="mb-2">
                                     <span class="form-label small fw-semibold text-muted d-block mb-1">Evidencia</span>
@@ -934,8 +1165,13 @@
                         </select>
                     </div>
                     <div class="mb-3">
-                        <label for="rastreoDictamenAmpliadaDescripcion" class="form-label fw-semibold text-muted">Descripción <span class="text-danger">*</span></label>
-                        <textarea class="form-control" id="rastreoDictamenAmpliadaDescripcion" rows="5" placeholder="Escriba la descripción..." required aria-required="true" maxlength="1000"></textarea>
+                        <label for="rastreoDictamenAmpliadaDescripcion" class="form-label fw-semibold text-muted">Comentarios <span class="text-danger">*</span></label>
+                        <textarea class="form-control" id="rastreoDictamenAmpliadaDescripcion" rows="3" placeholder="Escriba sus comentarios para el gestor y no incluya en este apartado ubicaciones..." required aria-required="true" maxlength="4000"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <span class="form-label fw-semibold text-muted mb-0 d-block">Domicilios de visita</span>
+                        <div id="rastreoDictamenAmpliadaDomiciliosWrap" class="rastreo-domicilios-wrap"></div>
+                        <div class="mt-1 text-end"><button type="button" class="btn btn-sm rounded-circle p-1 rastreo-btn-add-domicilio" id="btnAddDomicilioAmpliada" title="Añadir domicilio" aria-label="Añadir domicilio"><i class="fa-solid fa-plus"></i></button></div>
                     </div>
                     <div class="mb-3">
                         <span class="form-label fw-semibold text-muted d-block mb-2">Evidencia</span>
@@ -1017,15 +1253,23 @@
                         <div class="d-flex flex-wrap gap-2 dictamen-detalle-miniaturas" id="modalDetalleDictamenMiniaturas"></div>
                     </div>
                     <div class="col-12 col-md-7 p-4">
+                        <div class="alert alert-info py-2 mb-3 d-flex align-items-center gap-2" id="modalDetalleDictamenNota12h" role="note">
+                            <i class="fa-solid fa-clock text-info"></i>
+                            <span>Vas a tener 12 horas para visitar al cliente</span>
+                        </div>
                         <div class="mb-3"><span class="text-muted small">Tipo</span><div id="modalDetalleDictamenTipo" class="fw-semibold"></div></div>
                         <div class="mb-3"><span class="text-muted small">Descripción</span><div id="modalDetalleDictamenDescripcion" class="text-break"></div></div>
+                        <div class="mb-3" id="modalDetalleDictamenDomiciliosWrap" style="display: none;">
+                            <span class="text-muted small">Domicilios de visita</span>
+                            <div id="modalDetalleDictamenDomicilios" class="mt-1 d-flex flex-column gap-2"></div>
+                        </div>
                         <div class="mb-2"><span class="text-muted small">Enviado</span><div id="modalDetalleDictamenEnviado" class="small"></div></div>
                         <div><span class="text-muted small">Visto por gestor</span><div id="modalDetalleDictamenVisto" class="small"></div></div>
                     </div>
                 </div>
             </div>
             <div class="modal-footer py-2">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"><i class="fa-solid fa-times me-1"></i>Cerrar</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
             </div>
         </div>
     </div>
@@ -1101,7 +1345,7 @@
 <script>
 (function() {
     var SCRIM_Z = 1060;
-    var CHILD_MODALS = ['modalAsignarA', 'modalAnaliticaSpatial', 'modalAnaliticaPayments', 'modalAnaliticaCompliance', 'modalLecturaIA', 'modalEvidenciaVerificacion', 'modalPrediccionIA', 'modalMapaGrande', 'modalMapaAlternasGrande', 'modalEvidenciaRastreo', 'modalBitacoraAmpliada', 'modalDictamenAmpliada', 'modalDetalleDictamen'];
+    var CHILD_MODALS = ['modalAsignarA', 'modalAnaliticaSpatial', 'modalAnaliticaPayments', 'modalAnaliticaCompliance', 'modalLecturaIA', 'modalEvidenciaVerificacion', 'modalPrediccionIA', 'modalMapaGrande', 'modalMapaAlternasGrande', 'modalEvidenciaRastreo', 'modalBitacoraAmpliada', 'modalDictamenAmpliada', 'modalDetalleDictamen', 'modalDictamenSistema'];
     var scrimEl = null;
     var parentModal = null;
     function getOrCreateScrim() {
@@ -1208,6 +1452,27 @@
                 el.addEventListener('hidden.bs.modal', onChildModalHidden);
             }
         });
+        // Dictamen sistema: al cerrar, limpiar scrim/backdrop colgado (tras prórroga o refresh)
+        var dictamenSistemaEl = document.getElementById('modalDictamenSistema');
+        if (dictamenSistemaEl) {
+            dictamenSistemaEl.addEventListener('hidden.bs.modal', function() {
+                setTimeout(function() {
+                    var open = document.querySelectorAll('.modal.show');
+                    if (open.length === 0) {
+                        document.querySelectorAll('.modal-backdrop').forEach(function(b) { b.remove(); });
+                        document.body.classList.remove('modal-open');
+                        document.body.style.overflow = '';
+                        document.body.style.paddingRight = '';
+                    } else if (document.querySelectorAll('.modal-backdrop').length > open.length) {
+                        var backs = document.querySelectorAll('.modal-backdrop');
+                        while (backs.length > open.length && backs.length > 0) {
+                            backs[backs.length - 1].remove();
+                            backs = document.querySelectorAll('.modal-backdrop');
+                        }
+                    }
+                }, 200);
+            });
+        }
         var verEvidenciaEl = document.getElementById('modalVerEvidenciaDictamen');
         if (verEvidenciaEl) {
             verEvidenciaEl.addEventListener('shown.bs.modal', function() {
@@ -1224,8 +1489,37 @@
                 if (d) d.style.removeProperty('z-index');
                 var backdrops = document.querySelectorAll('.modal-backdrop');
                 for (var b = 0; b < backdrops.length; b++) backdrops[b].style.removeProperty('z-index');
-                if (scrimEl && scrimEl.parentNode) scrimEl.parentNode.removeChild(scrimEl);
                 $('#modalVerEvidenciaDictamenImg').attr('src', '');
+                setTimeout(function() {
+                    var anyChildOpen = CHILD_MODALS.some(function(id) {
+                        var m = document.getElementById(id);
+                        return m && m.classList.contains('show');
+                    });
+                    var openModals = document.querySelectorAll('.modal.show');
+                    var backdropsNow = document.querySelectorAll('.modal-backdrop');
+                    if (!anyChildOpen) {
+                        if (parentModal) parentModal.classList.remove('modal-below-scrim');
+                        var scrim = document.getElementById('scrim-entre-modal-padre-hijo');
+                        if (scrim) scrim.remove();
+                    } else {
+                        // Si queda un modal hijo abierto (p.ej. Dictamen ampliada), el backdrop debe quedar detrás.
+                        for (var k = 0; k < backdropsNow.length; k++) {
+                            backdropsNow[k].style.setProperty('z-index', '1040', 'important');
+                        }
+                    }
+                    if (openModals.length === 0) {
+                        backdropsNow.forEach(function(b) { b.remove(); });
+                        document.body.classList.remove('modal-open');
+                        document.body.style.overflow = '';
+                    } else if (backdropsNow.length > openModals.length) {
+                        var n = backdropsNow.length - openModals.length;
+                        for (var i = 0; i < n; i++) {
+                            var list = document.querySelectorAll('.modal-backdrop');
+                            if (list.length === 0) break;
+                            list[list.length - 1].remove();
+                        }
+                    }
+                }, 150);
             });
         }
     }
@@ -1242,6 +1536,155 @@
     }
     $(document).ready(function() {
         var apiBase = (function(){ var p = window.location.pathname || ''; var i = p.indexOf('/sabueso'); return i !== -1 ? p.substring(0, i) : ''; })();
+        // Oculta el estado vacío transitorio hasta que termine el primer request de tickets.
+        (function ocultarEstadoVacioPrimeraCarga() {
+            document.body.classList.add('panel-admin-primer-cargando');
+            $(document).on('ajaxComplete.panelAdminPrimer', function(_e, _xhr, settings) {
+                var url = (settings && settings.url) ? String(settings.url) : '';
+                if (url.indexOf('/sabueso/getTicketsPanelAdmin') === -1) return;
+                document.body.classList.remove('panel-admin-primer-cargando');
+                $(document).off('ajaxComplete.panelAdminPrimer');
+            });
+        })();
+
+        // —— Filtros Panel Admin (window.panelAdminFiltros lo consume getTicketsPanelAdmin en Sabueso.php) ——
+        window.panelAdminFiltros = window.panelAdminFiltros || {};
+        function syncPanelAdminFiltrosFromUI() {
+            var asignado = parseInt($('#filtroAsignado').val(), 10);
+            if (isNaN(asignado)) asignado = 0;
+            window.panelAdminFiltros.asignado = asignado;
+            window.panelAdminFiltros.dictamen_enviado = ($('#filtroDictamenEnviado').val() || '').trim();
+            window.panelAdminFiltros.ds_estado = ($('#filtroDsEstado').val() || '').trim();
+            window.panelAdminFiltros.dictamen_visto = ($('#filtroDictamenVisto').val() || '').trim();
+            var pid = parseInt($('#filtroPrioridad').val(), 10);
+            window.panelAdminFiltros.prioridad_id = isNaN(pid) ? 0 : pid;
+        }
+        function aplicarFiltrosPanelAdminAlCambiar() {
+            syncPanelAdminFiltrosFromUI();
+            if (typeof getTicketsPanelAdmin === 'function') getTicketsPanelAdmin();
+        }
+        function limpiarFiltrosPanelAdmin() {
+            $('#filtroAsignado').val('0');
+            $('#filtroDictamenEnviado').val('');
+            $('#filtroDsEstado').val('');
+            $('#filtroDictamenVisto').val('');
+            $('#filtroPrioridad').val('0');
+            window.panelAdminFiltros = {};
+            if (typeof getTicketsPanelAdmin === 'function') getTicketsPanelAdmin();
+        }
+        if ($('#panelAdminFiltrosWrap').length && typeof http !== 'undefined') {
+            http.request({
+                endpoint: '/sabueso/getPersonasSabueso',
+                metodo: 'POST',
+                onSuccess: function(resp) {
+                    var list = resp.datos || [];
+                    var $sel = $('#filtroAsignado');
+                    $sel.find('option:not([value="0"]):not([value="-1"])').remove();
+                    list.forEach(function(p) {
+                        if (p.id) $sel.append($('<option></option>').attr('value', p.id).text(p.nombre_completo || p.id));
+                    });
+                }
+            });
+            http.request({
+                endpoint: '/sabueso/getCatalogosTicket',
+                metodo: 'POST',
+                onSuccess: function(resp) {
+                    var prioridades = (resp.datos && resp.datos.prioridades) ? resp.datos.prioridades : [];
+                    var $sel = $('#filtroPrioridad');
+                    $sel.find('option:not([value="0"])').remove();
+                    prioridades.forEach(function(pr) {
+                        if (pr.id) $sel.append($('<option></option>').attr('value', pr.id).text(pr.nombre || pr.id));
+                    });
+                }
+            });
+            $('#panelAdminFiltrosWrap').on('change', '.panel-admin-filtro-select', aplicarFiltrosPanelAdminAlCambiar);
+            $('#btnLimpiarFiltrosPanel').on('click', limpiarFiltrosPanelAdmin);
+        }
+
+        // —— Consulta por ID crédito (sin ticket): abre mismo modal rastreo con secciones ocultas ——
+        function abrirModalConsultaCreditoPaso1() {
+            $('#consultaCreditoPaso1Error').addClass('d-none').text('');
+            $('#inputConsultaIdCredito').val('');
+            var el = document.getElementById('modalConsultaCreditoPaso1');
+            if (el && typeof bootstrap !== 'undefined' && bootstrap.Modal) bootstrap.Modal.getOrCreateInstance(el).show();
+            else if (typeof $ !== 'undefined') $('#modalConsultaCreditoPaso1').modal('show');
+        }
+        function ejecutarConsultaCreditoIr() {
+            var raw = ($('#inputConsultaIdCredito').val() || '').toString().trim();
+            var id = parseInt(raw, 10);
+            if (!raw || isNaN(id) || id < 1) {
+                $('#consultaCreditoPaso1Error').removeClass('d-none').text('Escriba un ID de crédito numérico válido.');
+                return;
+            }
+            $('#consultaCreditoPaso1Error').addClass('d-none');
+            var paso1 = document.getElementById('modalConsultaCreditoPaso1');
+            if (paso1 && typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+                var m1 = bootstrap.Modal.getInstance(paso1) || bootstrap.Modal.getOrCreateInstance(paso1);
+                if (m1) m1.hide();
+            } else if (typeof $ !== 'undefined') $('#modalConsultaCreditoPaso1').modal('hide');
+
+            var $modalRastreo = $('#modalRastreoCredito');
+            $modalRastreo.addClass('consulta-sin-ticket');
+            window._consultaCreditoSolo = true;
+            window.ticketIdRastreoActual = null;
+            $('#rastreoIdTicketActual').val('').attr('data-id-ticket', '');
+            $modalRastreo.attr('data-id-ticket', '');
+
+            var $ghost = $('<button type="button" class="btn-rastreo d-none" style="display:none"></button>')
+                .attr('data-id-credito', id)
+                .attr('data-id-ticket', '')
+                .attr('data-asignado', '')
+                .attr('data-creador-nombre', '')
+                .attr('data-fecha-creacion', '');
+            $('body').append($ghost);
+            if (typeof abrirRastreo === 'function') {
+                try { abrirRastreo($ghost[0]); } catch (e) { console.warn(e); }
+            } else {
+                http.request({
+                    endpoint: '/sabueso/getDatosCredito',
+                    metodo: 'POST',
+                    data: JSON.stringify({ id_credito: id }),
+                    contentType: 'application/json',
+                    processData: false,
+                    onSuccess: function(resp) {
+                        if (!resp.success || !resp.datos) {
+                            abrirModalConsultaCreditoPaso1();
+                            $('#consultaCreditoPaso1Error').removeClass('d-none').text(resp.mensaje || 'No se encontró el crédito.');
+                            return;
+                        }
+                        var d = resp.datos;
+                        var idCred = d.id_credito || id;
+                        var nombre = (d.Nombre_cliente || d.nombre_completo || '—').toString().replace(/</g, '&lt;');
+                        var tel = (d.telefono_referencia1 || d.telefono_referencia2 || '—').toString().replace(/</g, '&lt;');
+                        var dom = (d.Domicilio_Completo || '—').toString().replace(/</g, '&lt;');
+                        var htmlTop = '<div><span class="text-muted small d-block">ID crédito</span><div class="fw-semibold">' + idCred + '</div></div>' +
+                            '<div><span class="text-muted small d-block">Nombre completo</span><div class="fw-semibold">' + nombre + '</div></div>' +
+                            '<div><span class="text-muted small d-block">Teléfono cliente</span><div class="fw-semibold">' + tel + '</div></div>' +
+                            '<div><span class="text-muted small d-block">Dirección megareporte</span><div class="fw-semibold small">' + dom + '</div></div>';
+                        $('#rastreoTopLeft').html(htmlTop);
+                        window.idCreditoRastreoActual = idCred;
+                        if (typeof $ !== 'undefined' && $.fn.modal) $modalRastreo.modal('show');
+                    },
+                    onError: function() {
+                        abrirModalConsultaCreditoPaso1();
+                        $('#consultaCreditoPaso1Error').removeClass('d-none').text('Error de conexión.');
+                    }
+                });
+            }
+            setTimeout(function() { $ghost.remove(); }, 2000);
+        }
+        $('#btnAbrirConsultaCredito').on('click', abrirModalConsultaCreditoPaso1);
+        $('#btnConsultaCreditoIr').on('click', ejecutarConsultaCreditoIr);
+        $('#inputConsultaIdCredito').on('keydown', function(e) {
+            if (e.key === 'Enter') { e.preventDefault(); ejecutarConsultaCreditoIr(); }
+        });
+        $('#modalRastreoCredito').on('hidden.bs.modal', function() {
+            if (window._consultaCreditoSolo) {
+                $(this).removeClass('consulta-sin-ticket');
+                window._consultaCreditoSolo = false;
+            }
+        });
+
         var urlSubirEvidencia = (apiBase || '') + '/sabueso/subirEvidenciaTicket';
         var evidenciasEliminadas = [];
 
@@ -1264,20 +1707,97 @@
             if ($origen.length && $destino.length) { $destino.html($origen.html()); }
         });
 
+        function crearBloqueDomicilio() {
+            var html = '<div class="rastreo-domicilio-block">' +
+                '<div class="d-flex flex-column gap-1" style="grid-column:1;">' +
+                '<input type="text" class="form-control form-control-sm rastreo-domicilio-desc" placeholder="Descripción del domicilio">' +
+                '<input type="url" class="form-control form-control-sm rastreo-domicilio-link" placeholder="Link Google Maps">' +
+                '</div>' +
+                '<button type="button" class="btn btn-sm btn-outline-danger rastreo-domicilio-quitar" title="Quitar" aria-label="Quitar"><i class="fa-solid fa-times"></i></button>' +
+                '</div>';
+            return $(html);
+        }
+        function sincronizarDomiciliosAmpliadaAPanel() {
+            var $wrapA = $('#rastreoDictamenAmpliadaDomiciliosWrap');
+            var $wrapP = $('#rastreoDictamenDomiciliosWrap');
+            $wrapP.empty();
+            $wrapA.find('.rastreo-domicilio-block').each(function() {
+                var $b = $(this);
+                var $n = crearBloqueDomicilio();
+                $n.find('.rastreo-domicilio-desc').val($b.find('.rastreo-domicilio-desc').val());
+                $n.find('.rastreo-domicilio-link').val($b.find('.rastreo-domicilio-link').val());
+                $wrapP.append($n);
+            });
+        }
+        function sincronizarDomiciliosPanelAAmpliada() {
+            var $wrapP = $('#rastreoDictamenDomiciliosWrap');
+            var $wrapA = $('#rastreoDictamenAmpliadaDomiciliosWrap');
+            $wrapA.empty();
+            $wrapP.find('.rastreo-domicilio-block').each(function() {
+                var $b = $(this);
+                var $n = crearBloqueDomicilio();
+                $n.find('.rastreo-domicilio-desc').val($b.find('.rastreo-domicilio-desc').val());
+                $n.find('.rastreo-domicilio-link').val($b.find('.rastreo-domicilio-link').val());
+                $wrapA.append($n);
+            });
+        }
+        function addDomicilioBlock(target) {
+            var $wrap = target === 'ampliada' ? $('#rastreoDictamenAmpliadaDomiciliosWrap') : $('#rastreoDictamenDomiciliosWrap');
+            var $b = crearBloqueDomicilio();
+            $b.find('.rastreo-domicilio-quitar').on('click', function() { $b.remove(); $(document).trigger('dictamen-evidencia-cambio'); });
+            $wrap.append($b);
+            $(document).trigger('dictamen-evidencia-cambio');
+        }
+        $(document).on('click', '#btnAddDomicilioPanel', function() { if (!$('.rastreo-seccion-dictamen').hasClass('dictamen-solo-lectura')) addDomicilioBlock('panel'); });
+        $(document).on('click', '#btnAddDomicilioAmpliada', function() { if (!$('.rastreo-dictamen-form-ampliada').hasClass('dictamen-solo-lectura')) addDomicilioBlock('ampliada'); });
+        $(document).on('click', '.rastreo-domicilio-quitar', function() { $(this).closest('.rastreo-domicilio-block').remove(); $(document).trigger('dictamen-evidencia-cambio'); });
+
+        window.parsearDomiciliosEnDictamen = function(descripcion) {
+            if (!descripcion || typeof descripcion !== 'string') return { base: '', domicilios: [] };
+            var idx = descripcion.indexOf('Podrás encontrar al usuario en ');
+            if (idx === -1) return { base: descripcion.trim(), domicilios: [] };
+            var base = descripcion.substring(0, idx).replace(/\.\s*$/, '').trim();
+            var domStr = descripcion.substring(idx + 31).trim();
+            var domicilios = [];
+            domStr.split(/\s*;\s*/).forEach(function(bloq) {
+                bloq = bloq.trim();
+                if (!bloq) return;
+                var urlMatch = bloq.match(/\s+(https?:\/\/\S+)$/);
+                var link = urlMatch ? urlMatch[1] : '';
+                var desc = urlMatch ? bloq.substring(0, bloq.length - urlMatch[0].length).trim() : bloq;
+                domicilios.push({ desc: desc, link: link });
+            });
+            return { base: base, domicilios: domicilios };
+        };
+        window.rellenarDomiciliosDictamen = function(descripcion) {
+            var parsed = typeof parsearDomiciliosEnDictamen === 'function' ? parsearDomiciliosEnDictamen(descripcion) : { base: descripcion || '', domicilios: [] };
+            $('#rastreoDictamenDescripcion, #rastreoDictamenAmpliadaDescripcion').val(parsed.base);
+            $('#rastreoDictamenDomiciliosWrap, #rastreoDictamenAmpliadaDomiciliosWrap').empty();
+            (parsed.domicilios || []).forEach(function(dom) {
+                var $b = crearBloqueDomicilio();
+                $b.find('.rastreo-domicilio-desc').val(dom.desc);
+                $b.find('.rastreo-domicilio-link').val(dom.link);
+                $('#rastreoDictamenDomiciliosWrap').append($b);
+            });
+        };
+
         $('#btnDictamenAmpliar').on('click', function() {
             $('#rastreoDictamenAmpliadaCombo').val($('#rastreoDictamenCombo').val() || '');
             $('#rastreoDictamenAmpliadaDescripcion').val($('#rastreoDictamenDescripcion').val() || '');
+            sincronizarDomiciliosPanelAAmpliada();
             $('#modalDictamenAmpliada').modal('show');
         });
         $('#modalDictamenAmpliada').on('shown.bs.modal', function() {
             $('#rastreoDictamenAmpliadaCombo').val($('#rastreoDictamenCombo').val() || '');
             $('#rastreoDictamenAmpliadaDescripcion').val($('#rastreoDictamenDescripcion').val() || '');
+            sincronizarDomiciliosPanelAAmpliada();
             var idTicket = (typeof ticketIdRastreoActual !== 'undefined' && ticketIdRastreoActual) ? ticketIdRastreoActual : (parseInt($('#rastreoIdTicketActual').val() || $('#modalRastreoCredito').attr('data-id-ticket') || '', 10) || null);
             if (idTicket && typeof rellenarEvidenciasDictamen === 'function') rellenarEvidenciasDictamen(idTicket);
         });
         $('#modalDictamenAmpliada').on('hidden.bs.modal', function() {
             $('#rastreoDictamenCombo').val($('#rastreoDictamenAmpliadaCombo').val() || '');
             $('#rastreoDictamenDescripcion').val($('#rastreoDictamenAmpliadaDescripcion').val() || '');
+            sincronizarDomiciliosAmpliadaAPanel();
         });
 
         (function evidenciaDictamenDinamica() {
@@ -1369,6 +1889,11 @@
         }
 
         function guardarDictamenBorradorUI(silent, onCompletado) {
+            if ($('#modalDictamenAmpliada').hasClass('show')) {
+                sincronizarDomiciliosAmpliadaAPanel();
+                $('#rastreoDictamenCombo').val($('#rastreoDictamenAmpliadaCombo').val());
+                $('#rastreoDictamenDescripcion').val($('#rastreoDictamenAmpliadaDescripcion').val());
+            }
             var idTicket = parseInt($('#rastreoIdTicketActual').val() || $('#rastreoIdTicketActual').attr('data-id-ticket') || $('#modalRastreoCredito').attr('data-id-ticket') || '', 10) || (typeof window.ticketIdRastreoActual !== 'undefined' ? window.ticketIdRastreoActual : null);
             if (!idTicket && typeof ticketIdRastreoActual !== 'undefined') idTicket = ticketIdRastreoActual;
             if (!idTicket || isNaN(idTicket)) {
@@ -1381,9 +1906,17 @@
                 return;
             }
             var tipo = $('#rastreoDictamenCombo').val();
-            var desc = ($('#rastreoDictamenDescripcion').val() || '').trim();
+            var descBase = ($('#rastreoDictamenDescripcion').val() || '').trim();
+            var domiciliosParts = [];
+            $('#rastreoDictamenDomiciliosWrap .rastreo-domicilio-block').each(function() {
+                var descD = ($(this).find('.rastreo-domicilio-desc').val() || '').trim();
+                var linkD = ($(this).find('.rastreo-domicilio-link').val() || '').trim();
+                if (descD || linkD) domiciliosParts.push(descD + (linkD ? ' ' + linkD : ''));
+            });
+            var desc = descBase;
+            if (domiciliosParts.length > 0) desc += (descBase ? '. ' : '') + 'Podrás encontrar al usuario en ' + domiciliosParts.join('; ');
             if (!tipo || !desc) {
-                if (!silent && typeof Swal !== 'undefined') Swal.fire({ icon: 'warning', title: 'Faltan datos', text: 'Seleccione tipo y escriba la descripción.' });
+                if (!silent && typeof Swal !== 'undefined') Swal.fire({ icon: 'warning', title: 'Faltan datos', text: 'Seleccione tipo y complete la descripción o al menos un domicilio.' });
                 if (onCompletado) onCompletado('Faltan tipo o descripción.');
                 return;
             }
@@ -1415,9 +1948,10 @@
                     return;
                 }
                 intentos = intentos || 0;
+                var f = archivosPendientes[indice];
                 var fd = new FormData();
                 fd.append('id_ticket', idTicket);
-                fd.append('evidencia', archivosPendientes[indice]);
+                fd.append('evidencia', f);
                 $.ajax({
                     url: urlSubirEvidencia,
                     type: 'POST',
@@ -1426,6 +1960,13 @@
                     contentType: false,
                     success: function(r) {
                         if (r.success) {
+                            $('.evidencia-foto-item').each(function() {
+                                var fl = $(this).data('file');
+                                if (fl && fl.name === f.name && fl.size === f.size) {
+                                    $(this).removeData('file');
+                                    if (r.datos && r.datos.id) $(this).data('id-evidencia', r.datos.id);
+                                }
+                            });
                             subirSiguiente(indice + 1, 0);
                         } else if (intentos < 1) {
                             // Reintento automático (1 vez) ante error del servidor
@@ -1494,9 +2035,20 @@
                 return;
             }
             if (typeof http === 'undefined') return;
+            sincronizarDomiciliosAmpliadaAPanel();
+            $('#rastreoDictamenCombo').val($('#rastreoDictamenAmpliadaCombo').val());
+            $('#rastreoDictamenDescripcion').val($('#rastreoDictamenAmpliadaDescripcion').val());
             var tipo = $('#rastreoDictamenCombo').val();
-            var desc = ($('#rastreoDictamenDescripcion').val() || '').trim();
-            if (!tipo || !desc) { if (typeof Swal !== 'undefined') Swal.fire({ icon: 'warning', title: 'Faltan datos', text: 'Seleccione tipo y escriba la descripción antes de enviar.' }); return; }
+            var descBase = ($('#rastreoDictamenDescripcion').val() || '').trim();
+            var domiciliosParts = [];
+            $('#rastreoDictamenDomiciliosWrap .rastreo-domicilio-block').each(function() {
+                var descD = ($(this).find('.rastreo-domicilio-desc').val() || '').trim();
+                var linkD = ($(this).find('.rastreo-domicilio-link').val() || '').trim();
+                if (descD || linkD) domiciliosParts.push(descD + (linkD ? ' ' + linkD : ''));
+            });
+            var desc = descBase;
+            if (domiciliosParts.length > 0) desc += (descBase ? '. ' : '') + 'Podrás encontrar al usuario en ' + domiciliosParts.join('; ');
+            if (!tipo || !desc) { if (typeof Swal !== 'undefined') Swal.fire({ icon: 'warning', title: 'Faltan datos', text: 'Seleccione tipo y complete la descripción o al menos un domicilio.' }); return; }
 
             // 2️⃣ Cancelar el autoguardado pendiente para evitar dos guardados simultáneos
             if (dictamenAutoguardadoTimer) { clearTimeout(dictamenAutoguardadoTimer); dictamenAutoguardadoTimer = null; }
@@ -1573,6 +2125,7 @@
 
         $('#btnDictamenEnviarGestor').on('click', function() { enviarDictamenGestorUI(); });
         $('#btnDictamenAmpliadaEnviarGestor').on('click', function() {
+            sincronizarDomiciliosAmpliadaAPanel();
             $('#rastreoDictamenCombo').val($('#rastreoDictamenAmpliadaCombo').val());
             $('#rastreoDictamenDescripcion').val($('#rastreoDictamenAmpliadaDescripcion').val());
             enviarDictamenGestorUI();
@@ -1590,7 +2143,7 @@
             });
             $('#tablaTicketsPanel [data-bs-toggle="tooltip"]').tooltip();
         });
-        $(document).on('click', '#tablaTicketsPanel .btn-dictamen-ojito, #tablaTicketsPanel .fa-eye, #tablaTicketsPanel .fa-eye-slash', function(e) {
+        $(document).on('click', '#tablaTicketsPanel .btn-dictamen-ojito, #tablaTicketsPanel .fa-eye, #tablaTicketsPanel .fa-eye-slash, #tablaTicketsPanel .dictamen-countdown', function(e) {
             e.preventDefault();
             e.stopPropagation();
             var id = $(this).closest('[data-id-ticket]').attr('data-id-ticket') || $(this).closest('tr').attr('data-id-ticket');
@@ -1601,6 +2154,8 @@
             $('#modalDetalleDictamen .dictamen-detalle-imagen-principal').html('<img id="modalDetalleDictamenImgPrincipal" src="" alt="Evidencia" class="img-fluid w-100" style="object-fit: contain; max-height: 280px;">');
             $('#modalDetalleDictamenMiniaturas').empty();
             $('#modalDetalleDictamenTipo, #modalDetalleDictamenDescripcion, #modalDetalleDictamenEnviado, #modalDetalleDictamenVisto').text('');
+            $('#modalDetalleDictamenDomiciliosWrap').hide();
+            $('#modalDetalleDictamenDomicilios').empty();
             $('#modalDetalleDictamen').modal('show');
             http.request({
                 endpoint: '/sabueso/getDictamenDetalle',
@@ -1616,8 +2171,32 @@
                     var d = r.datos;
                     var dm = d.dictamen || {};
                     $('#modalDetalleDictamenTipo').text(dm.tipo || '—');
-                    $('#modalDetalleDictamenDescripcion').html(window.linkifyDescripcionDictamen ? window.linkifyDescripcionDictamen(dm.descripcion) : $('<div>').text(dm.descripcion || '—').html());
+                    var descMostrar = (dm.descripcion_base !== undefined ? dm.descripcion_base : dm.descripcion) || '—';
+                    $('#modalDetalleDictamenDescripcion').html(window.linkifyDescripcionDictamen ? window.linkifyDescripcionDictamen(descMostrar) : $('<div>').text(descMostrar).html());
+                    var domicilios = d.domicilios || [];
+                    if (domicilios.length > 0) {
+                        var $domWrap = $('#modalDetalleDictamenDomicilios');
+                        $domWrap.empty();
+                        domicilios.forEach(function(dom) {
+                            var desc = (dom.desc || '').trim();
+                            var link = (dom.link || '').trim();
+                            var $card = $('<div class="d-flex align-items-center gap-2 p-2 rounded border bg-light bg-opacity-50"></div>');
+                            if (desc) $card.append($('<span class="flex-grow-1 text-break"></span>').text(desc));
+                            if (link) {
+                                var safe = link.replace(/"/g, '&quot;');
+                                $card.append($('<a href="' + safe + '" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-primary text-nowrap"><i class="fa-brands fa-google me-1"></i>Ver en Maps</a>'));
+                            }
+                            $domWrap.append($card);
+                        });
+                        $('#modalDetalleDictamenDomiciliosWrap').show();
+                    } else {
+                        $('#modalDetalleDictamenDomiciliosWrap').hide();
+                    }
                     $('#modalDetalleDictamenEnviado').text(dm.fecha_actualizacion ? (new Date(dm.fecha_actualizacion).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })) : '—');
+                    var fechaEnvio = dm.fecha_actualizacion ? new Date(dm.fecha_actualizacion).getTime() : 0;
+                    var pasaron12h = fechaEnvio > 0 && (Date.now() - fechaEnvio) > (12 * 60 * 60 * 1000);
+                    var nota12h = $('#modalDetalleDictamenNota12h span');
+                    if (nota12h.length) nota12h.text(pasaron12h ? 'Ya transcurrieron sus 12 horas para visitar al cliente' : 'Vas a tener 12 horas para visitar al cliente');
                     var vistoStr = dm.fecha_visto_gestor ? (new Date(dm.fecha_visto_gestor).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })) : '';
                     if (vistoStr && (dm.visto_gestor_nombre || '').trim()) vistoStr = 'Por ' + (dm.visto_gestor_nombre || '').trim() + ' el ' + vistoStr;
                     $('#modalDetalleDictamenVisto').text(vistoStr || 'No visto');
@@ -1650,8 +2229,13 @@
                         }
                     });
 
-                    // Crear miniaturas (con apiBase y clic para ver en grande)
-                    evidencias.forEach(function(ev) {
+                    // Crear miniaturas (solo desde índice 1 para no repetir la imagen principal)
+                    var idsVistos = {};
+                    evidencias.forEach(function(ev, idx) {
+                        if (idx === 0) return;
+                        var idEv = ev.id || (ev.url || '') + idx;
+                        if (idsVistos[idEv]) return;
+                        idsVistos[idEv] = true;
                         var url = (apiBase || '') + (ev.url || ('/sabueso/verEvidencia?id=' + (ev.id || '')));
                         if (!url) return;
 
@@ -1712,6 +2296,621 @@
         });
     });
 })();
+</script>
+<!-- Modal Dictamen del Sistema -->
+<div class="modal fade" id="modalDictamenSistema" tabindex="-1" aria-labelledby="modalDictamenSistemaLabel" aria-hidden="true">
+<div class="modal-dialog modal-lg modal-dialog-scrollable">
+<div class="modal-content">
+    <div class="modal-header bg-warning bg-opacity-25 py-2">
+        <h6 class="modal-title" id="modalDictamenSistemaLabel"><i class="fa-solid fa-robot me-2"></i>Dictamen del Sistema</h6>
+        <button type="button" class="btn-close btn-close-sm" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+    </div>
+    <div class="modal-body" id="modalDictamenSistemaBody">
+        <div class="text-center py-4"><i class="fa-solid fa-spinner fa-spin fa-2x text-muted"></i></div>
+    </div>
+    <div class="modal-footer py-2 d-flex flex-wrap align-items-center gap-2">
+        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cerrar</button>
+        <button type="button" class="btn btn-warning btn-sm" id="btnGenerarDictamenSistema" style="display:none;" onclick="ejecutarDictamenSistema()">
+            <i class="fa-solid fa-robot me-1"></i>Generar dictamen del sistema
+        </button>
+        <button type="button" class="btn btn-outline-secondary btn-sm" id="btnRevalidarPagoDictamenSistema" style="display:none;" onclick="ejecutarRevalidarPagoDictamenSistema()" title="Volver a consultar estado de cuenta y actualizar el resultado de pago">
+            <i class="fa-solid fa-rotate me-1"></i>Volver a verificar pago
+        </button>
+        <button type="button" class="btn btn-outline-warning btn-sm" id="btnOtorgarProrrogaDictamenSistema" style="display:none;" onclick="ejecutarOtorgarProrrogaDictamenSistema()">
+            <i class="fa-solid fa-hourglass-half me-1"></i>Otorgar prórroga (+12 h)
+        </button>
+        <?php /* Simulaciones ocultas: quitar class d-none del wrap #dictamenSistemaSimWrap para reactivar en el futuro */ ?>
+        <div id="dictamenSistemaSimWrap" class="d-none w-100">
+            <div class="d-flex justify-content-end mb-1">
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-toggle="collapse" data-bs-target="#dictamenSistemaSimCollapse" aria-expanded="false" title="Solo pruebas de pantalla">
+                    <i class="fa-solid fa-flask me-1"></i>Simulaciones
+                </button>
+            </div>
+            <div class="collapse border-top bg-light rounded" id="dictamenSistemaSimCollapse">
+                <div class="p-3 small">
+                    <p class="text-muted mb-2"><strong>Uso interno:</strong> no escribe en BD.</p>
+                    <div class="d-flex flex-wrap gap-1">
+                        <button type="button" class="btn btn-sm btn-outline-danger" onclick="dictamenSistemaSimular('no_visito')">No visitó</button>
+                        <button type="button" class="btn btn-sm btn-outline-success" onclick="dictamenSistemaSimular('visito_campo')">Visitó (campo)</button>
+                        <button type="button" class="btn btn-sm btn-outline-warning" onclick="dictamenSistemaSimular('visito_telefonico')">Telefónico</button>
+                        <button type="button" class="btn btn-sm btn-outline-danger" onclick="dictamenSistemaSimular('distancia_lejana')">Lejos</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="dictamenSistemaSimular('sin_coordenadas')">Sin coordenadas</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+</div>
+</div>
+<script>
+var dictamenSistemaTicketId = 0;
+
+function setBotonesDictamenSistema(ds) {
+    var btnGen = document.getElementById('btnGenerarDictamenSistema');
+    var btnPro = document.getElementById('btnOtorgarProrrogaDictamenSistema');
+    var btnReval = document.getElementById('btnRevalidarPagoDictamenSistema');
+    if (!btnGen || !btnPro) return;
+    btnGen.style.display = 'none';
+    btnPro.style.display = 'none';
+    if (btnReval) btnReval.style.display = 'none';
+    if (!ds) {
+        btnGen.style.display = '';
+        return;
+    }
+    var res = (ds.resultado || '').trim();
+    if (res === 'pendiente') {
+        btnGen.style.display = '';
+        return;
+    }
+    if (res === 'prorroga_activa') {
+        btnGen.style.display = 'none';
+        btnPro.style.display = 'none';
+        return;
+    }
+    var d = ds.detalle_parsed || {};
+    var noCumplidos = ['no_visito', 'visito_telefonico', 'distancia_lejana', 'visita_parcial', 'sin_coordenadas'];
+    var puedeProrroga = noCumplidos.indexOf(res) !== -1
+        && !d.pago_en_ventana
+        && !(d.prorroga && d.prorroga.otorgada);
+    if (puedeProrroga) btnPro.style.display = '';
+    // Mostrar "Volver a verificar pago" cuando el pago quedó en "No se pudo verificar" (API falló al evaluar)
+    var estadoCuentaConsultado = (d.__SPARTA_SECRET_REDACTED___consultado !== false);
+    if (!estadoCuentaConsultado && !d.pago_en_ventana && btnReval) btnReval.style.display = '';
+}
+
+function abrirDictamenSistema(idTicket) {
+    dictamenSistemaTicketId = idTicket;
+    var elModal = document.getElementById('modalDictamenSistema');
+    var body = document.getElementById('modalDictamenSistemaBody');
+    body.innerHTML = '<div class="text-center py-4"><i class="fa-solid fa-spinner fa-spin fa-2x text-muted"></i><p class="mt-2 text-muted">Consultando...</p></div>';
+    document.getElementById('btnGenerarDictamenSistema').style.display = 'none';
+    document.getElementById('btnOtorgarProrrogaDictamenSistema').style.display = 'none';
+    var btnReval = document.getElementById('btnRevalidarPagoDictamenSistema');
+    if (btnReval) btnReval.style.display = 'none';
+    // Una sola instancia: evita backdrops duplicados al refrescar tras prórroga/generar
+    var modal = bootstrap.Modal.getOrCreateInstance(elModal);
+    if (!elModal.classList.contains('show')) {
+        modal.show();
+    }
+
+    http.request({
+        endpoint: '/sabueso/getDictamenSistema',
+        metodo: 'POST',
+        data: JSON.stringify({ id_ticket: idTicket }),
+        contentType: 'application/json',
+        processData: false,
+        showLoader: false,
+        onSuccess: function(res) {
+            if (!res.success) {
+                var msg = res.mensaje || 'Error al obtener el dictamen del sistema.';
+                if (res.error) msg += '<br><small class="d-block mt-1">' + String(res.error).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</small>';
+                body.innerHTML = '<div class="alert alert-danger mb-0"><i class="fa-solid fa-triangle-exclamation me-1"></i>' + msg + '</div>';
+                setBotonesDictamenSistema(null);
+                return;
+            }
+            var ds = (res.datos || {}).dictamen_sistema;
+            if (!ds) {
+                body.innerHTML = '<div class="alert alert-info mb-0"><i class="fa-solid fa-circle-info me-1"></i>No se ha generado aún el dictamen del sistema para este ticket. Haga clic en <strong>Generar dictamen del sistema</strong> para iniciar la verificación automática.</div>';
+                setBotonesDictamenSistema(null);
+                return;
+            }
+            if (ds.resultado === 'pendiente') {
+                body.innerHTML = '<div class="alert alert-info mb-0"><i class="fa-solid fa-circle-info me-1"></i>El dictamen del sistema está pendiente. Haga clic en <strong>Generar</strong> para ejecutar la verificación.</div>';
+                setBotonesDictamenSistema(ds);
+                actualizarFilaResultadoDS(idTicket, 'pendiente');
+                return;
+            }
+            renderDictamenSistemaResultado(ds, body);
+            setBotonesDictamenSistema(ds);
+            if (ds.resultado) actualizarFilaResultadoDS(idTicket, ds.resultado);
+        },
+        onError: function(mensaje) {
+            var detalle = (typeof mensaje === 'string' && mensaje) ? mensaje : '';
+            body.innerHTML = '<div class="alert alert-danger mb-0">Error al consultar el dictamen del sistema.' + (detalle ? '<br><small class="d-block mt-1">' + String(detalle).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</small>' : '') + '</div>';
+        }
+    });
+}
+
+/**
+ * Mismo criterio que Ticket.php ds_resultado_html: evita F5 para ver Resultado DS actualizado.
+ */
+function buildDsResultadoHtml(resultado) {
+    var s = (resultado == null || resultado === '') ? '' : String(resultado).trim();
+    if (!s) return '<span class="text-muted">—</span>';
+    var esc = function(t) {
+        return String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    };
+    // Etiquetas legibles (evita no_cumplio_prorr… en celda)
+    var etiquetas = {
+        'no_cumplio_prorroga': 'No cumplió prórroga',
+        'cumplio_prorroga': 'Cumplió en prórroga',
+        'prorroga_activa': 'Prórroga activa',
+        'no_visito': 'No visito',
+        'cumplido_pago': 'Cumplido por pago',
+        'pendiente': 'pendiente'
+    };
+    var mostrar = etiquetas[s] || s;
+    var short = mostrar.length > 24 ? mostrar.substring(0, 22) + '…' : mostrar;
+    var main = '<small class="text-break d-block" title="' + esc(mostrar) + '">' + esc(short) + '</small>';
+    // Pago Sí/No cuando aplica (alineado con Ticket.php getListaTickets)
+    var pagoLine = '';
+    if (s === 'cumplido_pago') {
+        pagoLine = '<span class="small text-success fw-semibold d-block mt-1">Pago: Sí</span>';
+    } else if (s !== 'pendiente' && s !== 'prorroga_activa' && s !== '') {
+        pagoLine = '<span class="small text-danger fw-semibold d-block mt-1">Pago: No</span>';
+    }
+    return pagoLine ? '<div class="text-center">' + main + pagoLine + '</div>' : main;
+}
+
+/** Actualiza la celda Resultado DS en #tablaTicketsPanel sin recargar toda la página */
+function actualizarFilaResultadoDS(idTicket, resultado) {
+    if (!idTicket || typeof $ === 'undefined' || !$.fn.DataTable) return;
+    var tabla = $('#tablaTicketsPanel');
+    if (!tabla.length || !$.fn.DataTable.isDataTable(tabla)) return;
+    var dt = tabla.DataTable();
+    var html = buildDsResultadoHtml(resultado);
+    dt.rows().every(function() {
+        var d = this.data();
+        if (!d || parseInt(d._id_ticket, 10) !== parseInt(idTicket, 10)) return;
+        d.ds_resultado = html;
+        this.data(d);
+    });
+    dt.draw(false);
+}
+
+function ejecutarOtorgarProrrogaDictamenSistema() {
+    var body = document.getElementById('modalDictamenSistemaBody');
+    var btn = document.getElementById('btnOtorgarProrrogaDictamenSistema');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-1"></i>Procesando...';
+    http.request({
+        endpoint: '/sabueso/otorgarProrrogaDictamenSistema',
+        metodo: 'POST',
+        data: JSON.stringify({ id_ticket: dictamenSistemaTicketId }),
+        contentType: 'application/json',
+        processData: false,
+        showLoader: false,
+        onSuccess: function(res) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-hourglass-half me-1"></i>Otorgar prórroga (+12 h)';
+            if (!res.success) {
+                body.innerHTML = '<div class="alert alert-danger mb-0"><i class="fa-solid fa-triangle-exclamation me-1"></i>' + (res.mensaje || 'No se pudo otorgar la prórroga') + '</div>';
+                return;
+            }
+            abrirDictamenSistema(dictamenSistemaTicketId);
+            if (typeof getTicketsPanelAdmin === 'function') getTicketsPanelAdmin();
+        },
+        onError: function() {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-hourglass-half me-1"></i>Otorgar prórroga (+12 h)';
+            body.innerHTML = '<div class="alert alert-danger mb-0">Error de conexión al otorgar la prórroga.</div>';
+        }
+    });
+}
+
+function ejecutarRevalidarPagoDictamenSistema() {
+    var body = document.getElementById('modalDictamenSistemaBody');
+    var btn = document.getElementById('btnRevalidarPagoDictamenSistema');
+    if (btn) btn.disabled = true;
+    body.innerHTML = '<div class="text-center py-4"><i class="fa-solid fa-rotate fa-spin fa-2x text-secondary"></i><p class="mt-2 text-muted">Verificando estado de cuenta...</p></div>';
+    http.request({
+        endpoint: '/sabueso/generarDictamenSistema',
+        metodo: 'POST',
+        data: JSON.stringify({ id_ticket: dictamenSistemaTicketId, revalidar_pago: true }),
+        contentType: 'application/json',
+        processData: false,
+        showLoader: false,
+        onSuccess: function(res) {
+            if (btn) btn.disabled = false;
+            if (!res.success) {
+                body.innerHTML = '<div class="alert alert-danger mb-0"><i class="fa-solid fa-triangle-exclamation me-1"></i>' + (res.mensaje || 'Error') + '</div>';
+                return;
+            }
+            if (dictamenSistemaTicketId) {
+                actualizarFilaResultadoDS(dictamenSistemaTicketId, (res.datos && res.datos.resultado) ? res.datos.resultado : null);
+            }
+            abrirDictamenSistema(dictamenSistemaTicketId);
+            if (typeof getTicketsPanelAdmin === 'function') getTicketsPanelAdmin();
+        },
+        onError: function() {
+            if (btn) btn.disabled = false;
+            body.innerHTML = '<div class="alert alert-danger mb-0">Error de conexión al verificar.</div>';
+        }
+    });
+}
+
+function ejecutarDictamenSistema() {
+    var body = document.getElementById('modalDictamenSistemaBody');
+    var btn = document.getElementById('btnGenerarDictamenSistema');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-1"></i>Procesando...';
+    body.innerHTML = '<div class="text-center py-4"><i class="fa-solid fa-gear fa-spin fa-2x text-warning"></i><p class="mt-2 text-muted">Analizando gestiones y calculando distancias...</p></div>';
+
+    http.request({
+        endpoint: '/sabueso/generarDictamenSistema',
+        metodo: 'POST',
+        data: JSON.stringify({ id_ticket: dictamenSistemaTicketId }),
+        contentType: 'application/json',
+        processData: false,
+        showLoader: false,
+        onSuccess: function(res) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-robot me-1"></i>Generar dictamen del sistema';
+            if (!res.success) {
+                var msg = res.mensaje || 'Error desconocido';
+                if (res.error) msg += '<br><small class="d-block mt-1">' + String(res.error).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</small>';
+                body.innerHTML = '<div class="alert alert-danger mb-0"><i class="fa-solid fa-triangle-exclamation me-1"></i>' + msg + '</div>';
+                btn.style.display = '';
+                return;
+            }
+            var nuevoResultado = (res.datos && res.datos.resultado) ? res.datos.resultado : null;
+            if (nuevoResultado && dictamenSistemaTicketId) {
+                actualizarFilaResultadoDS(dictamenSistemaTicketId, nuevoResultado);
+            }
+            btn.style.display = 'none';
+            abrirDictamenSistema(dictamenSistemaTicketId);
+            if (typeof getTicketsPanelAdmin === 'function') getTicketsPanelAdmin();
+        },
+        onError: function() {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-robot me-1"></i>Generar dictamen del sistema';
+            body.innerHTML = '<div class="alert alert-danger mb-0">Error de conexión al generar el dictamen.</div>';
+        }
+    });
+}
+
+/** Textos por resultado (profesional, consistente) */
+var DICTAMEN_SISTEMA_COPY = {
+    no_visito: {
+        titulo: 'No visitó',
+        subtitulo: 'Sin gestiones nuevas en el plazo de 12 horas',
+        mensajeDefault: 'No se registraron nuevas gestiones después de enviar el dictamen. El conteo de gestiones históricas se mantuvo igual al momento del envío.'
+    },
+    visito_campo: {
+        titulo: 'Visitó en campo',
+        subtitulo: 'Gestión de campo dentro del rango permitido',
+        mensajeDefault: 'Se detectó al menos una gestión de campo con ubicación a menos de 100 metros de las direcciones indicadas en el dictamen del equipo Sabueso.'
+    },
+    visito_telefonico: {
+        titulo: 'Gestión telefónica',
+        subtitulo: 'Hubo contacto pero no visita de campo acreditable',
+        mensajeDefault: 'Se registraron gestiones nuevas de tipo telefónico. No aplica la validación por proximidad física al domicilio.'
+    },
+    distancia_lejana: {
+        titulo: 'Gestión registrada fuera de rango',
+        subtitulo: 'Ubicación a más de 100 m de la dirección del dictamen',
+        mensajeDefault: 'Hay gestiones nuevas, pero ninguna quedó dentro del umbral de 100 metros respecto a las direcciones proporcionadas.'
+    },
+    sin_coordenadas: {
+        titulo: 'Sin comparación por coordenadas',
+        subtitulo: 'No fue posible contrastar ubicaciones',
+        mensajeDefault: 'Faltan coordenadas en las gestiones nuevas o en las direcciones del dictamen; no se pudo calcular distancia.'
+    },
+    visita_parcial: {
+        titulo: 'Visita parcial',
+        subtitulo: 'Solo cubrió parte de direcciones del dictamen',
+        mensajeDefault: 'Se detectaron visitas de campo en algunas direcciones, pero no en todas.'
+    },
+    visito_todas_direcciones: {
+        titulo: 'Cobertura total',
+        subtitulo: 'Visitó todas las direcciones del dictamen',
+        mensajeDefault: 'Se detectó cobertura completa de direcciones con visita de campo.'
+    },
+    cumplido_pago: {
+        titulo: 'Cumplido por pago',
+        subtitulo: 'Pago dentro de las 12h',
+        mensajeDefault: 'El cliente registró pago en estado de cuenta dentro de las 12h evaluadas; se marca cumplido.'
+    },
+    cumplido_sin_pago_todas_direcciones: {
+        titulo: 'Cumplido sin pago',
+        subtitulo: 'Sin pago, pero con cobertura total de direcciones',
+        mensajeDefault: 'No hubo pago dentro de las 12h, pero el gestor sí cubrió todas las direcciones del dictamen.'
+    },
+    prorroga_activa: {
+        titulo: 'Prórroga activa',
+        subtitulo: 'Se otorgaron 12 horas adicionales',
+        mensajeDefault: 'Mientras esté activa no se puede generar de nuevo a mano. Al vencer el plazo, la evaluación se ejecuta sola al abrir este panel o al cargar la tabla (automático).'
+    },
+    cumplio_prorroga: {
+        titulo: 'Cumplió en prórroga',
+        subtitulo: 'Resultado final tras la prórroga',
+        mensajeDefault: 'Durante la prórroga se logró cumplimiento por pago dentro de las 12h o por cobertura total.'
+    },
+    no_cumplio_prorroga: {
+        titulo: 'No cumplió prórroga',
+        subtitulo: 'Prórroga agotada sin cumplimiento',
+        mensajeDefault: 'Terminó la prórroga y no se acreditó pago dentro de las 12h ni cobertura total de direcciones.'
+    }
+};
+
+function renderDictamenSistemaResultado(ds, body) {
+    var d = ds.detalle_parsed || {};
+    if (!d.mensaje && ds.detalle && typeof ds.detalle === 'string') {
+        try { d = JSON.parse(ds.detalle) || d; } catch (e) {}
+    }
+    var resultado = ds.resultado || '';
+    var copy = DICTAMEN_SISTEMA_COPY[resultado] || { titulo: resultado, subtitulo: '', mensajeDefault: '' };
+    var mensajeMostrar = (d.mensaje && String(d.mensaje).trim()) ? d.mensaje : copy.mensajeDefault;
+
+    var resultadoClase = {
+        'no_visito': 'danger',
+        'visito_campo': 'success',
+        'visito_telefonico': 'warning',
+        'distancia_lejana': 'danger',
+        'sin_coordenadas': 'secondary',
+        'visita_parcial': 'warning',
+        'visito_todas_direcciones': 'success',
+        'cumplido_pago': 'success',
+        'cumplido_sin_pago_todas_direcciones': 'success',
+        'prorroga_activa': 'warning',
+        'cumplio_prorroga': 'success',
+        'no_cumplio_prorroga': 'danger'
+    };
+    var cls = resultadoClase[resultado] || 'secondary';
+
+    // —— Bloque principal (hero) según resultado ——
+    var html = '';
+    if (resultado === 'no_visito') {
+        html += '<div class="rounded-3 border border-danger border-opacity-25 bg-danger bg-opacity-10 p-4 mb-4 text-center">';
+        html += '<div class="mb-2"><i class="fa-solid fa-user-xmark fa-2x text-danger opacity-75"></i></div>';
+        html += '<h5 class="mb-1 text-danger fw-semibold">' + copy.titulo + '</h5>';
+        html += '<p class="text-muted small mb-3 mb-md-4">' + copy.subtitulo + '</p>';
+        html += '<div class="bg-white rounded-3 shadow-sm border p-3 text-start">';
+        html += '<div class="small text-uppercase text-muted fw-semibold mb-2">Conclusión del sistema</div>';
+        html += '<p class="mb-0 text-body" style="line-height:1.55;">' + escHtml(mensajeMostrar) + '</p>';
+        html += '</div></div>';
+    } else if (resultado === 'visito_campo') {
+        html += '<div class="rounded-3 border border-success border-opacity-25 bg-success bg-opacity-10 p-4 mb-4 text-center">';
+        html += '<div class="mb-2"><i class="fa-solid fa-circle-check fa-2x text-success"></i></div>';
+        html += '<h5 class="mb-1 text-success fw-semibold">' + copy.titulo + '</h5>';
+        html += '<p class="text-muted small mb-3">' + copy.subtitulo + '</p>';
+        html += '<div class="bg-white rounded-3 shadow-sm border p-3 text-start">';
+        html += '<p class="mb-0 small" style="line-height:1.55;">' + escHtml(mensajeMostrar) + '</p>';
+        html += '</div></div>';
+    } else {
+        html += '<div class="rounded-3 border p-3 mb-3 bg-light">';
+        html += '<div class="d-flex align-items-center gap-2 mb-2">';
+        html += '<span class="badge bg-' + cls + ' fs-6 px-3 py-2"><i class="fa-solid fa-robot me-1"></i>' + (copy.titulo || resultado) + '</span>';
+        html += '</div>';
+        if (copy.subtitulo) html += '<p class="text-muted small mb-2 mb-0">' + copy.subtitulo + '</p>';
+        if (mensajeMostrar) {
+            html += '<div class="mt-2 pt-2 border-top small">' + escHtml(mensajeMostrar) + '</div>';
+        }
+        html += '</div>';
+    }
+
+    // Fecha de revisión
+    if (ds.fecha_revision) {
+        html += '<div class="d-flex align-items-center gap-2 small text-muted mb-3">';
+        html += '<i class="fa-solid fa-calendar-check"></i>';
+        html += '<span>Revisión del sistema: <strong>' + new Date(ds.fecha_revision).toLocaleString('es-MX', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' }) + '</strong> (hora CDMX)</span>';
+        html += '</div>';
+    }
+
+    // Resumen numérico
+    html += '<div class="card border-0 shadow-sm mb-3"><div class="card-body py-3 px-3">';
+    html += '<div class="row g-3 text-center text-md-start">';
+    html += '<div class="col-md-4"><div class="text-muted small">Gestiones históricas al enviar</div><div class="fs-5 fw-semibold">' + (d.gestiones_antes != null ? d.gestiones_antes : ds.gestiones_al_enviar) + '</div></div>';
+    html += '<div class="col-md-4"><div class="text-muted small">Gestiones históricas al revisar</div><div class="fs-5 fw-semibold">' + (d.gestiones_ahora != null ? d.gestiones_ahora : (ds.gestiones_al_revisar != null ? ds.gestiones_al_revisar : '—')) + '</div></div>';
+    if (d.nuevas_gestiones != null && d.nuevas_gestiones > 0) {
+        html += '<div class="col-md-4"><div class="text-muted small">Gestiones nuevas en la ventana</div><div class="fs-5 fw-semibold text-primary">' + d.nuevas_gestiones + '</div></div>';
+    }
+    html += '</div></div></div>';
+
+    // Reglas de cumplimiento: pago dentro de las 12h + cobertura de direcciones
+    // Si __SPARTA_SECRET_REDACTED___consultado no existe (dictámenes antiguos), se considera consultado → Sí/No
+    var pagoWin = !!d.pago_en_ventana;
+    var estadoCuentaConsultado = (d.__SPARTA_SECRET_REDACTED___consultado !== false);
+    var pagoWinTxt = pagoWin ? 'Sí' : (estadoCuentaConsultado ? 'No' : 'No se pudo verificar');
+    var pagoWinCls = pagoWin ? 'text-success' : (estadoCuentaConsultado ? 'text-danger' : 'text-warning');
+    var dirTot = (d.direcciones_dictamen_total != null ? d.direcciones_dictamen_total : (d.domicilios_dictamen_total != null ? d.domicilios_dictamen_total : '—'));
+    var dirVis = (d.direcciones_visitadas != null ? d.direcciones_visitadas : '—');
+    html += '<div class="card border-0 shadow-sm mb-3"><div class="card-body py-3 px-3">';
+    html += '<div class="row g-3">';
+    html += '<div class="col-md-4"><div class="text-muted small">Pago dentro de las 12h</div><div class="fw-semibold ' + pagoWinCls + '" title="' + (estadoCuentaConsultado ? '' : 'Estado de cuenta no disponible al momento de evaluar.') + '">' + escHtml(pagoWinTxt) + '</div></div>';
+    html += '<div class="col-md-4"><div class="text-muted small">Direcciones visitadas</div><div class="fw-semibold">' + dirVis + ' / ' + dirTot + '</div></div>';
+    html += '<div class="col-md-4"><div class="text-muted small">Regla aplicada</div><div class="fw-semibold small">' + escHtml((d.cumplimiento_etiqueta || '—')) + '</div></div>';
+    html += '</div>';
+
+    // Detalle por domicilio: cuáles visitados y cuáles faltan (cobertura_direcciones del backend)
+    var cob = d.cobertura_direcciones;
+    if (Array.isArray(cob) && cob.length > 0) {
+        var visitadas = [];
+        var faltan = [];
+        for (var ci = 0; ci < cob.length; ci++) {
+            var c = cob[ci];
+            var etiqueta = escHtml(c.direccion || ('Dirección ' + (ci + 1)));
+            var minM = c.min_distancia_metros;
+            var extra = (minM != null && minM !== '') ? ' <span class="text-muted">(más cerca: ' + minM + ' m)</span>' : ' <span class="text-muted">(sin coordenadas para medir distancia)</span>';
+            if (c.visitada) {
+                visitadas.push('<li class="mb-1"><i class="fa-solid fa-circle-check text-success me-1"></i>' + etiqueta + extra + '</li>');
+            } else {
+                faltan.push('<li class="mb-1"><i class="fa-solid fa-location-dot text-warning me-1"></i>' + etiqueta + extra + '</li>');
+            }
+        }
+        html += '<div class="row g-2 mt-2 pt-2 border-top">';
+        if (visitadas.length > 0) {
+            html += '<div class="col-md-6"><div class="small text-success fw-semibold mb-1"><i class="fa-solid fa-house-chimney me-1"></i>Visitadas</div><ul class="list-unstyled small mb-0">' + visitadas.join('') + '</ul></div>';
+        }
+        if (faltan.length > 0) {
+            html += '<div class="col-md-6"><div class="small text-warning fw-semibold mb-1"><i class="fa-solid fa-house-circle-exclamation me-1"></i>Falta por visitar</div><ul class="list-unstyled small mb-0">' + faltan.join('') + '</ul></div>';
+        }
+        html += '</div>';
+    }
+
+    if (d.ventana_revision && d.ventana_revision.inicio) {
+        html += '<div class="small text-muted mt-2"><i class="fa-regular fa-clock me-1"></i>Ventana evaluada: ' + escHtml(d.ventana_revision.inicio || '—') + ' a ' + escHtml(d.ventana_revision.fin || '—') + ' (' + escHtml(d.ventana_revision.tipo || '12h') + ')</div>';
+    }
+    html += '<div class="small text-muted mt-1"><i class="fa-solid fa-circle-info me-1"></i>“Gestiones nuevas en la ventana” = registros creados después del envío del dictamen (o después de otorgar prórroga, si aplica).</div>';
+    html += '</div></div>';
+
+    if (ds.nombre_gestor) {
+        html += '<div class="small text-muted mb-3"><i class="fa-solid fa-user me-1"></i>Ticket levantado por: <strong>' + escHtml(ds.nombre_gestor) + '</strong></div>';
+    }
+
+    if (d.prorroga && d.prorroga.otorgada) {
+        html += '<div class="alert alert-warning small">';
+        html += '<div><strong><i class="fa-solid fa-hourglass-half me-1"></i>Prórroga:</strong> ' + (d.prorroga.evaluada ? 'Evaluada' : 'Activa') + '</div>';
+        html += '<div>Otorgada: ' + escHtml(d.prorroga.fecha_otorgada || '—') + ' · Límite: ' + escHtml(d.prorroga.fecha_limite || '—') + '</div>';
+        if (d.prorroga.nombre_otorga) html += '<div>Autorizó: ' + escHtml(d.prorroga.nombre_otorga) + '</div>';
+        html += '</div>';
+    }
+
+    // Análisis detallado
+    if (d.analisis && d.analisis.length > 0) {
+        html += '<h6 class="fw-semibold mb-2"><i class="fa-solid fa-list-check me-1 text-secondary"></i>Detalle de gestiones nuevas</h6>';
+        for (var i = 0; i < d.analisis.length; i++) {
+            var a = d.analisis[i];
+            var tipoLabel = a.tipo === 'campo' ? '<span class="badge bg-success">Campo</span>' : (a.tipo === 'telefonico' ? '<span class="badge bg-info text-dark">Telefónico</span>' : '<span class="badge bg-secondary">' + (a.tipo || '—') + '</span>');
+            html += '<div class="card mb-2 border-start border-4 border-' + (a.tipo === 'campo' ? 'success' : 'info') + '">';
+            html += '<div class="card-body py-2 px-3 small">';
+            html += '<div class="d-flex justify-content-between flex-wrap gap-1 mb-1">';
+            html += '<span><strong>Gestión ' + a.indice + '</strong> ' + tipoLabel + '</span>';
+            html += '<span class="text-muted">' + escHtml(a.fecha || '—') + '</span>';
+            html += '</div>';
+            if (a.usuario) html += '<div class="text-muted">Usuario: ' + escHtml(a.usuario) + '</div>';
+            if (a.distancias && a.distancias.length > 0) {
+                for (var j = 0; j < a.distancias.length; j++) {
+                    var dd = a.distancias[j];
+                    var distTxt = dd.distancia_metros < 1000 ? (dd.distancia_metros + ' m') : ((dd.distancia_metros / 1000).toFixed(2) + ' km');
+                    var distCls = dd.distancia_metros < 100 ? 'text-success fw-bold' : 'text-danger';
+                    html += '<div class="mt-1"><i class="fa-solid fa-location-dot me-1"></i>' + escHtml(dd.direccion || 'Dirección del dictamen') + ': <span class="' + distCls + '">' + distTxt + '</span>';
+                    if (dd.distancia_metros < 100) html += ' <i class="fa-solid fa-check text-success"></i>';
+                    html += '</div>';
+                }
+            }
+            if (a.nota) html += '<div class="text-warning mt-1"><i class="fa-solid fa-triangle-exclamation me-1"></i>' + escHtml(a.nota) + '</div>';
+            html += '</div></div>';
+        }
+    }
+
+    if (d.coords_dictamen && d.coords_dictamen.length > 0) {
+        html += '<h6 class="fw-semibold mt-3 mb-2"><i class="fa-solid fa-map-pin me-1 text-secondary"></i>Referencias del dictamen</h6>';
+        for (var k = 0; k < d.coords_dictamen.length; k++) {
+            var cd = d.coords_dictamen[k];
+            html += '<div class="small mb-1"><i class="fa-solid fa-location-dot text-primary me-1"></i>' + escHtml(cd.desc || '') + ' <span class="text-muted">(' + cd.lat + ', ' + cd.lng + ')</span></div>';
+        }
+    }
+
+    body.innerHTML = html;
+}
+
+function escHtml(s) {
+    if (s == null) return '';
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+/**
+ * Simulaciones solo vista: no llaman al servidor ni guardan nada.
+ * UI oculta con #dictamenSistemaSimWrap.d-none; quitar d-none para reactivar.
+ * También se puede llamar desde consola: dictamenSistemaSimular('no_visito')
+ */
+function dictamenSistemaSimular(caso) {
+    var body = document.getElementById('modalDictamenSistemaBody');
+    document.getElementById('btnGenerarDictamenSistema').style.display = 'none';
+    var br = document.getElementById('btnRevalidarPagoDictamenSistema');
+    if (br) br.style.display = 'none';
+    var base = {
+        id_ticket: dictamenSistemaTicketId || 0,
+        nombre_gestor: 'GESTOR DE PRUEBA',
+        fecha_revision: new Date().toISOString().slice(0,19).replace('T',' '),
+        gestiones_al_enviar: 99,
+        gestiones_al_revisar: 99
+    };
+    var mock = {};
+    if (caso === 'no_visito') {
+        mock = Object.assign({}, base, {
+            resultado: 'no_visito',
+            gestiones_al_revisar: 99,
+            detalle_parsed: {
+                gestiones_antes: 99,
+                gestiones_ahora: 99,
+                mensaje: 'No se registraron nuevas gestiones después de enviar el dictamen. El conteo de gestiones históricas se mantuvo igual al momento del envío.'
+            }
+        });
+    } else if (caso === 'visito_campo') {
+        mock = Object.assign({}, base, {
+            resultado: 'visito_campo',
+            gestiones_al_revisar: 101,
+            detalle_parsed: {
+                gestiones_antes: 99,
+                gestiones_ahora: 101,
+                nuevas_gestiones: 2,
+                mensaje: 'El gestor realizó visita de campo dentro del rango de 100 metros de las direcciones del dictamen.',
+                coords_dictamen: [{ desc: 'Domicilio principal', lat: 19.4326, lng: -99.1332 }],
+                analisis: [
+                    { indice: 1, fecha: '2026-03-10 18:00', tipo: 'campo', usuario: 'gestor.demo', distancias: [{ direccion: 'Domicilio principal', distancia_metros: 45, lat_dictamen: 19.4326, lng_dictamen: -99.1332 }] },
+                    { indice: 2, fecha: '2026-03-10 19:00', tipo: 'campo', usuario: 'gestor.demo', distancias: [{ direccion: 'Domicilio principal', distancia_metros: 72 }] }
+                ]
+            }
+        });
+    } else if (caso === 'visito_telefonico') {
+        mock = Object.assign({}, base, {
+            resultado: 'visito_telefonico',
+            gestiones_al_revisar: 100,
+            detalle_parsed: {
+                gestiones_antes: 99,
+                gestiones_ahora: 100,
+                nuevas_gestiones: 1,
+                mensaje: 'Se registró gestión telefónica; no hay evidencia de visita de campo en las nuevas gestiones.',
+                analisis: [
+                    { indice: 1, fecha: '2026-03-10 18:30', tipo: 'telefonico', usuario: 'gestor.demo', nota: 'Contacto por llamada; sin coordenadas de campo.' }
+                ]
+            }
+        });
+    } else if (caso === 'distancia_lejana') {
+        mock = Object.assign({}, base, {
+            resultado: 'distancia_lejana',
+            gestiones_al_revisar: 100,
+            detalle_parsed: {
+                gestiones_antes: 99,
+                gestiones_ahora: 100,
+                nuevas_gestiones: 1,
+                mensaje: 'Hay gestión nueva, pero la ubicación reportada quedó a más de 100 m de la dirección del dictamen.',
+                coords_dictamen: [{ desc: 'Domicilio cliente', lat: 19.4326, lng: -99.1332 }],
+                analisis: [
+                    { indice: 1, fecha: '2026-03-10 18:00', tipo: 'campo', usuario: 'gestor.demo', distancias: [{ direccion: 'Domicilio cliente', distancia_metros: 850 }] }
+                ]
+            }
+        });
+    } else if (caso === 'sin_coordenadas') {
+        mock = Object.assign({}, base, {
+            resultado: 'sin_coordenadas',
+            gestiones_al_revisar: 100,
+            detalle_parsed: {
+                gestiones_antes: 99,
+                gestiones_ahora: 100,
+                nuevas_gestiones: 1,
+                mensaje: 'Las nuevas gestiones no incluyen coordenadas GPS; no fue posible comparar con el dictamen.',
+                analisis: [
+                    { indice: 1, fecha: '2026-03-10 18:00', tipo: 'campo', usuario: 'gestor.demo', nota: 'Sin coordenadas GPS en esta gestión.' }
+                ]
+            }
+        });
+    }
+    renderDictamenSistemaResultado(mock, body);
+}
 </script>
 <script>
 (function() {

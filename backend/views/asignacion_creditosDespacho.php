@@ -22,15 +22,15 @@
         padding: 0.25rem;
         border-radius: 0.25rem;
     }
-    
+
     #asignacion-info-container [onclick]:hover {
         background-color: rgba(0,0,0,0.03);
     }
-    
+
     #asignacion-toggle-icon {
         transition: transform 0.3s ease;
     }
-    
+
     /* Estilos para stack de créditos */
     #creditos-stack {
         max-height: 520px; /* Altura aproximada para 2 créditos completos */
@@ -38,30 +38,30 @@
         overflow-x: hidden;
         padding-right: 0.25rem;
     }
-    
+
     #creditos-stack::-webkit-scrollbar {
         width: 6px;
     }
-    
+
     #creditos-stack::-webkit-scrollbar-track {
         background: #f1f1f1;
         border-radius: 10px;
     }
-    
+
     #creditos-stack::-webkit-scrollbar-thumb {
         background: #888;
         border-radius: 10px;
     }
-    
+
     #creditos-stack::-webkit-scrollbar-thumb:hover {
         background: #555;
     }
-    
+
     .credit-card-item {
         animation: slideInDown 0.3s ease-out;
         margin-bottom: 1rem;
     }
-    
+
     @keyframes slideInDown {
         from {
             opacity: 0;
@@ -72,18 +72,18 @@
             transform: translateY(0);
         }
     }
-    
+
     .credit-card-item.removing {
         animation: slideOutUp 0.3s ease-out;
     }
-    
+
     @keyframes slideOutUp {
         to {
             opacity: 0;
             transform: translateY(-20px);
         }
     }
-    
+
     /* Botones con gradientes */
     .btn-gradient-success {
         background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
@@ -91,28 +91,28 @@
         color: white;
         transition: all 0.3s ease;
     }
-    
+
     .btn-gradient-success:hover {
         background: linear-gradient(135deg, #218838 0%, #1a9e7a 100%);
         transform: scale(1.05);
         box-shadow: 0 4px 8px rgba(40, 167, 69, 0.3);
         color: white;
     }
-    
+
     .btn-gradient-danger {
         background: linear-gradient(135deg, #dc3545 0%, #fd7e14 100%);
         border: none;
         color: white;
         transition: all 0.3s ease;
     }
-    
+
     .btn-gradient-danger:hover {
         background: linear-gradient(135deg, #c82333 0%, #e8590c 100%);
         transform: scale(1.05);
         box-shadow: 0 4px 8px rgba(220, 53, 69, 0.3);
         color: white;
     }
-    
+
     /* Texto de estado con gradiente */
     .text-gradient-primary {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -442,7 +442,7 @@
                                 <span id="info-nombre">-</span>
                             </div>
                         </li>
-                        
+
                         <li id="info-puesto-container">
                             <i class="fa fa-briefcase fa-lg text-primary"></i>
                             <div class="info-label">
@@ -450,7 +450,7 @@
                                 <span id="info-puesto">-</span>
                             </div>
                         </li>
-                        
+
                         <li id="info-telefono-container">
                             <i class="fa fa-phone fa-lg text-primary"></i>
                             <div class="info-label">
@@ -458,7 +458,7 @@
                                 <span id="info-telefono">-</span>
                             </div>
                         </li>
-                        
+
                         <li id="info-correo-container">
                             <i class="fa fa-envelope fa-lg text-primary"></i>
                             <div class="info-label">
@@ -466,7 +466,7 @@
                                 <span id="info-correo">-</span>
                             </div>
                         </li>
-                        
+
                         <li id="info-direccion-container">
                             <i class="fa fa-map-marker-alt fa-lg text-primary"></i>
                             <div class="info-label">
@@ -474,19 +474,19 @@
                                 <span id="info-direccion">-</span>
                             </div>
                         </li>
-                        
+
                         <li id="info-tipo-container">
                             <i class="fa fa-id-card fa-lg text-primary"></i>
                             <div class="info-label">
                                 <span class="fw-medium">Tipo:</span>
                                 <div class="d-flex align-items-center gap-2">
                                     <span id="info-tipo">-</span>
-                                    <i class="fa fa-pencil-alt text-muted edit-tipo-icon" 
-                                       style="cursor: pointer; font-size: 0.85rem;" 
-                                       onclick="toggleEditTipo()" 
+                                    <i class="fa fa-pencil-alt text-muted edit-tipo-icon"
+                                       style="cursor: pointer; font-size: 0.85rem;"
+                                       onclick="toggleEditTipo()"
                                        title="Editar tipo de persona"></i>
-                                    <select id="select-tipo-persona" class="form-select form-select-sm" 
-                                            style="display: none; width: auto; min-width: 120px;" 
+                                    <select id="select-tipo-persona" class="form-select form-select-sm"
+                                            style="display: none; width: auto; min-width: 120px;"
                                             onchange="actualizarTipoPersona()"
                                             onblur="setTimeout(cancelarEditTipo, 200)">
                                         <option value="">Seleccionar...</option>
@@ -496,7 +496,7 @@
                                 </div>
                             </div>
                         </li>
-                        
+
                         <li id="info-sin-datos-container" style="display: none;">
                             <i class="fa fa-exclamation-circle fa-lg text-muted"></i>
                             <div class="info-label">
@@ -512,13 +512,13 @@
                 <div class="accordion" id="accordionDocumentosPadre">
                     <div class="accordion-item">
                         <h2 class="accordion-header" id="headingDocumentos">
-                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" 
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
                                     data-bs-target="#collapseDocumentos" aria-expanded="false" aria-controls="collapseDocumentos">
                                 <i class="fa-solid fa-file-alt me-2"></i>
                                 Documentos del Despacho
                             </button>
                         </h2>
-                        <div id="collapseDocumentos" class="accordion-collapse collapse" 
+                        <div id="collapseDocumentos" class="accordion-collapse collapse"
                              aria-labelledby="headingDocumentos" data-bs-parent="#accordionDocumentosPadre">
                             <div class="accordion-body p-2">
                                 <div class="accordion" id="accordionDocumentos">
@@ -534,11 +534,11 @@
                 <h5 class="card-title mb-3">
                     <i class="fa-solid fa-comment me-2"></i>Mis comentarios
                 </h5>
-                
+
                 <div class="mb-3">
                     <textarea id="comentarios-despacho" class="form-control" rows="3" placeholder="Notas internas..."></textarea>
                 </div>
-                
+
                 <button class="btn btn-primary w-100" id="btn-guardar-comentarios">
                     <i class="fa-solid fa-save me-1"></i>Guardar Comentarios
                 </button>
@@ -550,9 +550,14 @@
     <div class="col-md-8">
         <div class="card h-100">
             <div class="card-body">
-                <h5 class="card-title mb-4">
-                    <i class="fa-solid fa-magnifying-glass me-2"></i>Buscar y asignar crédito
-                </h5>
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h5 class="card-title mb-0">
+                        <i class="fa-solid fa-magnifying-glass me-2"></i>Buscar y asignar crédito
+                    </h5>
+                    <button class="btn btn-outline-secondary btn-sm" id="btn-refresh-tabla" onclick="refreshTablaCreditos()" title="Actualizar tabla de créditos asignados">
+                        <i class="fa-solid fa-rotate-right me-1"></i>Actualizar tabla
+                    </button>
+                </div>
 
                 <div class="alert alert-info mb-4">
                     <i class="fa-solid fa-info-circle me-2"></i>
@@ -597,7 +602,7 @@
                 <div id="creditos-stack" class="mt-4">
                     <!-- Los créditos se agregarán dinámicamente aquí -->
                 </div>
-                
+
                 <!-- Botón para limpiar lista -->
                 <div id="btn-limpiar-container" class="mt-3" style="display: none;">
                     <button class="btn btn-outline-danger w-100" onclick="limpiarListaCreditos()">
@@ -634,6 +639,268 @@
     </div>
 </div>
 
+<!-- ============================================================ -->
+<!-- MODAL: Historial de Gestores y Convenios                    -->
+<!-- Agregar justo antes del cierre del body, junto a los otros  -->
+<!-- modales del archivo asignacion_creditosDespacho.php         -->
+<!-- ============================================================ -->
+
+<div class="modal fade" id="modalHistorialGestores" tabindex="-1"
+     aria-labelledby="modalHistorialGestoresLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content" style="border: none; border-radius: 0.5rem; overflow: hidden;">
+
+            <!-- HEADER -->
+            <div class="modal-header" style="background: #696cff; padding: 1.25rem 1.5rem; border: none;">
+                <div class="d-flex align-items-center gap-2">
+                    <div style="width:36px; height:36px; border-radius:8px; background:rgba(255,255,255,0.2);
+                                display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                        <i class="fa-solid fa-users" style="color:white; font-size:14px;"></i>
+                    </div>
+                    <div>
+                        <div style="color:white; font-weight:500; font-size:15px; line-height:1.2;">
+                            Historial de Gestores y Convenios
+                        </div>
+                        <div style="color:rgba(0, 0, 0, 0.04); font-size:12px;" id="hgc-credito-label">
+                            Crédito #—
+                        </div>
+                    </div>
+                </div>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                        aria-label="Cerrar"></button>
+            </div>
+
+            <!-- TABS NAV -->
+            <div style="border-bottom:1px solid #e0e0e0; background:#f8f7ff; padding: 0 1.5rem;">
+                <ul class="nav" id="hgcTabs" role="tablist" style="gap:0; margin:0; flex-wrap:nowrap;">
+
+                    <li class="nav-item" role="presentation">
+                        <button class="hgc-tab-btn active" id="hgc-tab-datos"
+                                data-panel="hgc-panel-datos"
+                                style="padding:0.875rem 1.25rem; border:none; background:transparent;
+                                       cursor:pointer; font-size:13px; font-weight:500; color:#696cff;
+                                       border-bottom:2px solid #696cff; display:flex; align-items:center; gap:6px;">
+                            <i class="fa-solid fa-table-cells-large" style="font-size:12px;"></i>
+                            Datos Generales
+                        </button>
+                    </li>
+
+                    <li class="nav-item" role="presentation">
+                        <button class="hgc-tab-btn" id="hgc-tab-historial"
+                                data-panel="hgc-panel-historial"
+                                style="padding:0.875rem 1.25rem; border:none; background:transparent;
+                                       cursor:pointer; font-size:13px; font-weight:500; color:#697a8d;
+                                       border-bottom:2px solid transparent; display:flex; align-items:center; gap:6px;">
+                            <i class="fa-solid fa-clock-rotate-left" style="font-size:12px;"></i>
+                            Historial de Gestores
+                            <span id="hgc-badge-historial"
+                                  style="background:#696cff; color:white; font-size:10px;
+                                         padding:2px 7px; border-radius:10px; font-weight:500;">0</span>
+                        </button>
+                    </li>
+
+                    <li class="nav-item" role="presentation">
+                        <button class="hgc-tab-btn" id="hgc-tab-convenios"
+                                data-panel="hgc-panel-convenios"
+                                style="padding:0.875rem 1.25rem; border:none; background:transparent;
+                                       cursor:pointer; font-size:13px; font-weight:500; color:#697a8d;
+                                       border-bottom:2px solid transparent; display:flex; align-items:center; gap:6px;">
+                            <i class="fa-solid fa-file-contract" style="font-size:12px;"></i>
+                            Convenios
+                            <span id="hgc-badge-convenios"
+                                  style="background:#28a745; color:white; font-size:10px;
+                                         padding:2px 7px; border-radius:10px; font-weight:500;">0</span>
+                        </button>
+                    </li>
+
+                </ul>
+            </div>
+
+            <!-- BODY -->
+            <div class="modal-body" style="padding:1.5rem; min-height:420px;">
+
+                <!-- Spinner de carga global -->
+                <div id="hgc-spinner" class="text-center py-5" style="display:none;">
+                    <div class="spinner-border text-primary" role="status"></div>
+                    <div class="mt-2 text-muted small">Cargando información...</div>
+                </div>
+
+                <!-- -------------------------------------------------- -->
+                <!-- PANEL 1: Datos Generales                            -->
+                <!-- -------------------------------------------------- -->
+                <div id="hgc-panel-datos">
+
+                    <!-- Métricas rápidas -->
+                    <div class="row g-3 mb-4">
+                        <div class="col-4">
+                            <div class="text-center p-3 rounded-2" style="background:#fff3f3; border:0.5px solid #ffc5c5;">
+                                <div class="text-muted mb-1" style="font-size:11px; text-transform:uppercase; letter-spacing:.5px;">
+                                    Saldo vencido
+                                </div>
+                                <div style="font-size:20px; font-weight:500; color:#dc3545;" id="hgc-saldo">—</div>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="text-center p-3 rounded-2" style="background:#fff8f0; border:0.5px solid #ffd8a8;">
+                                <div class="text-muted mb-1" style="font-size:11px; text-transform:uppercase; letter-spacing:.5px;">
+                                    Días de mora
+                                </div>
+                                <div style="font-size:20px; font-weight:500; color:#fd7e14;" id="hgc-mora">—</div>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="text-center p-3 rounded-2" style="background:#f0f0ff; border:0.5px solid #c5c6ff;">
+                                <div class="text-muted mb-1" style="font-size:11px; text-transform:uppercase; letter-spacing:.5px;">
+                                    Gestores asignados
+                                </div>
+                                <div style="font-size:20px; font-weight:500; color:#696cff;" id="hgc-total-gestores">—</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Card cliente -->
+                    <div class="card mb-3" style="border:0.5px solid #e0e0e0;">
+                        <div class="card-body p-3">
+                            <div class="text-uppercase text-muted mb-3"
+                                 style="font-size:11px; letter-spacing:.5px; font-weight:500;">
+                                Datos del cliente
+                            </div>
+
+                            <!-- Cabecera cliente -->
+                            <div class="d-flex align-items-center gap-3 pb-3 mb-3"
+                                 style="border-bottom:0.5px solid #f0f0f0;">
+                                <div id="hgc-avatar"
+                                     style="width:44px; height:44px; border-radius:50%; background:#e8e8ff;
+                                            display:flex; align-items:center; justify-content:center;
+                                            font-weight:500; font-size:13px; color:#696cff; flex-shrink:0;">
+                                    —
+                                </div>
+                                <div class="flex-grow-1">
+                                    <div style="font-weight:500; font-size:15px;" id="hgc-nombre-cliente">—</div>
+                                    <div class="text-muted" style="font-size:12px;" id="hgc-curp">—</div>
+                                </div>
+                                <span id="hgc-estatus-badge" class="badge bg-success">Activo</span>
+                            </div>
+
+                            <!-- Grid de datos -->
+                            <div class="row g-3" style="font-size:13px;">
+                                <div class="col-6 col-md-3">
+                                    <div class="text-muted">Teléfono</div>
+                                    <div class="fw-medium mt-1" id="hgc-telefono">—</div>
+                                </div>
+                                <div class="col-6 col-md-3">
+                                    <div class="text-muted">Sucursal</div>
+                                    <div class="fw-medium mt-1" id="hgc-sucursal">—</div>
+                                </div>
+                                <div class="col-6 col-md-3">
+                                    <div class="text-muted">Fecha desembolso</div>
+                                    <div class="fw-medium mt-1" id="hgc-fecha-desembolso">—</div>
+                                </div>
+                                <div class="col-6 col-md-3">
+                                    <div class="text-muted">ID Crédito</div>
+                                    <div class="fw-medium mt-1" id="hgc-id-credito-detalle">—</div>
+                                </div>
+                                <div class="col-12">
+                                    <div class="text-muted">Dirección</div>
+                                    <div class="fw-medium mt-1" id="hgc-direccion">—</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Card gestor actual -->
+                    <div class="card" style="border:0.5px solid #c5c6ff; background:#f0f0ff;" id="hgc-gestor-actual-card">
+                        <div class="card-body p-3">
+                            <div class="text-uppercase mb-2"
+                                 style="font-size:11px; letter-spacing:.5px; font-weight:500; color:#696cff;">
+                                <i class="fa-solid fa-user-check me-1"></i> Gestor actual
+                            </div>
+                            <div class="d-flex align-items-center gap-3">
+                                <div id="hgc-gestor-avatar"
+                                     style="width:38px; height:38px; border-radius:50%; background:#696cff;
+                                            display:flex; align-items:center; justify-content:center;
+                                            font-size:12px; font-weight:500; color:white; flex-shrink:0;">
+                                    —
+                                </div>
+                                <div class="flex-grow-1">
+                                    <div style="font-weight:500; font-size:14px;" id="hgc-gestor-nombre">—</div>
+                                    <div class="text-muted" style="font-size:12px;" id="hgc-gestor-info">—</div>
+                                </div>
+                                <span class="badge bg-primary">Activo</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Sin gestor activo -->
+                    <div class="alert alert-warning mt-3" id="hgc-sin-gestor" style="display:none;">
+                        <i class="fa-solid fa-circle-exclamation me-2"></i>
+                        Este crédito no tiene gestor activo actualmente.
+                    </div>
+
+                </div><!-- /panel-datos -->
+
+                <!-- -------------------------------------------------- -->
+                <!-- PANEL 2: Historial de Gestores                      -->
+                <!-- -------------------------------------------------- -->
+                <div id="hgc-panel-historial" style="display:none;">
+
+                    <p class="text-muted mb-3" style="font-size:12px;">
+                        Todos los gestores que han tenido asignado este crédito, del más reciente al más antiguo.
+                    </p>
+
+                    <!-- Timeline -->
+                    <div id="hgc-timeline" style="position:relative;">
+                        <!-- Línea vertical decorativa -->
+                        <div style="position:absolute; left:16px; top:24px; bottom:8px; width:2px;
+                                    background:#e0e0e0; z-index:0;"></div>
+                        <!-- Los items se generan dinámicamente -->
+                    </div>
+
+                    <!-- Estado vacío -->
+                    <div id="hgc-historial-vacio" class="text-center py-5 text-muted" style="display:none;">
+                        <i class="fa-solid fa-clock-rotate-left fa-2x mb-2 d-block opacity-25"></i>
+                        Sin historial de gestores para este crédito
+                    </div>
+
+                </div><!-- /panel-historial -->
+
+                <!-- -------------------------------------------------- -->
+                <!-- PANEL 3: Convenios                                  -->
+                <!-- -------------------------------------------------- -->
+                <div id="hgc-panel-convenios" style="display:none;">
+
+                    <p class="text-muted mb-3" style="font-size:12px;">
+                        Acuerdos de pago registrados para este crédito.
+                    </p>
+
+                    <div id="hgc-convenios-lista">
+                        <!-- Los convenios se generan dinámicamente -->
+                    </div>
+
+                    <!-- Estado vacío -->
+                    <div id="hgc-convenios-vacio" class="text-center py-5 text-muted" style="display:none;">
+                        <i class="fa-solid fa-file-contract fa-2x mb-2 d-block opacity-25"></i>
+                        Sin convenios registrados para este crédito
+                    </div>
+
+                </div><!-- /panel-convenios -->
+
+            </div><!-- /modal-body -->
+
+            <!-- FOOTER -->
+            <div class="modal-footer" style="background:#f8f7ff; border-top:0.5px solid #e0e0e0; padding:.875rem 1.5rem;">
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">
+                    <i class="fa-solid fa-times me-1"></i>Cerrar
+                </button>
+                <button type="button" class="btn btn-primary btn-sm" id="hgc-btn-exportar" style="display:none;">
+                    <i class="fa-solid fa-download me-1"></i>Exportar
+                </button>
+            </div>
+
+        </div><!-- /modal-content -->
+    </div><!-- /modal-dialog -->
+</div><!-- /modal -->
+
 <!-- TABLA DE CRÉDITOS ASIGNADOS -->
 <div class="card">
     <div class="card-header d-flex justify-content-between align-items-center">
@@ -644,7 +911,7 @@
             <i class="fa-solid fa-file-excel me-1"></i>Exportar Excel
         </button>
     </div>
-    
+
     <div class="card-datatable table-responsive">
         <table class="table border-top" id="tabla-creditos">
             <thead>
@@ -677,7 +944,7 @@ class SearchableSelect {
         this.options = [];
         this.selectedValue = '';
         this.isOpen = false;
-        
+
         this.createWrapper();
         this.attachEvents();
         this.loadOptions();
@@ -687,7 +954,7 @@ class SearchableSelect {
         // Crear wrapper
         this.wrapper = document.createElement('div');
         this.wrapper.className = 'select-search-wrapper';
-        
+
         // Crear display
         this.display = document.createElement('div');
         this.display.className = 'select-search-display';
@@ -695,7 +962,7 @@ class SearchableSelect {
             <span>Seleccione un despacho...</span>
             <i class="fas fa-chevron-down select-search-arrow"></i>
         `;
-        
+
         // Crear dropdown
         this.dropdown = document.createElement('div');
         this.dropdown.className = 'select-search-dropdown';
@@ -703,15 +970,15 @@ class SearchableSelect {
             <input type="text" class="select-search-input" placeholder="Buscar despacho...">
             <div class="select-search-options"></div>
         `;
-        
+
         // Agregar elementos
         this.wrapper.appendChild(this.display);
         this.wrapper.appendChild(this.dropdown);
-        
+
         // Insertar después del select y ocultar el select original
         this.select.parentNode.insertBefore(this.wrapper, this.select.nextSibling);
         this.select.style.display = 'none';
-        
+
         // Referencias
         this.searchInput = this.dropdown.querySelector('.select-search-input');
         this.optionsContainer = this.dropdown.querySelector('.select-search-options');
@@ -725,13 +992,13 @@ class SearchableSelect {
                 value: opt.value,
                 text: opt.textContent
             }));
-        
+
         this.renderOptions(this.options);
     }
 
     renderOptions(filteredOptions) {
         this.optionsContainer.innerHTML = '';
-        
+
         if (filteredOptions.length === 0) {
             const noResults = document.createElement('div');
             noResults.className = 'select-search-option no-results';
@@ -739,21 +1006,21 @@ class SearchableSelect {
             this.optionsContainer.appendChild(noResults);
             return;
         }
-        
+
         filteredOptions.forEach(option => {
             const optionDiv = document.createElement('div');
             optionDiv.className = 'select-search-option';
             optionDiv.textContent = option.text;
             optionDiv.dataset.value = option.value;
-            
+
             if (option.value === this.selectedValue) {
                 optionDiv.classList.add('selected');
             }
-            
+
             optionDiv.addEventListener('click', () => {
                 this.selectOption(option);
             });
-            
+
             this.optionsContainer.appendChild(optionDiv);
         });
     }
@@ -762,11 +1029,11 @@ class SearchableSelect {
         this.selectedValue = option.value;
         this.select.value = option.value;
         this.display.querySelector('span').textContent = option.text;
-        
+
         // Disparar evento change en el select original
         const event = new Event('change', { bubbles: true });
         this.select.dispatchEvent(event);
-        
+
         this.close();
     }
 
@@ -798,21 +1065,21 @@ class SearchableSelect {
                 this.open();
             }
         });
-        
+
         // Input de búsqueda
         this.searchInput.addEventListener('input', (e) => {
             const searchTerm = e.target.value.toLowerCase().trim();
-            const filtered = this.options.filter(option => 
+            const filtered = this.options.filter(option =>
                 option.text.toLowerCase().includes(searchTerm)
             );
             this.renderOptions(filtered);
         });
-        
+
         // Evitar que el click en el dropdown lo cierre
         this.dropdown.addEventListener('click', (e) => {
             e.stopPropagation();
         });
-        
+
         // Cerrar al hacer click fuera
         document.addEventListener('click', () => {
             if (this.isOpen) {
@@ -837,7 +1104,7 @@ class SearchableSelect {
 // Cargar despachos al iniciar
 document.addEventListener('DOMContentLoaded', function() {
     cargarDespachos();
-    
+
     // Event Listeners
     document.getElementById('select-despacho').addEventListener('change', function() {
         despachoSeleccionado = this.value;
@@ -846,13 +1113,13 @@ document.addEventListener('DOMContentLoaded', function() {
             cargarCreditosAsignados(despachoSeleccionado);
         }
     });
-    
+
     // Buscar crédito al enviar formulario
     document.getElementById('formBusquedaCredito').addEventListener('submit', function(e) {
         e.preventDefault();
         buscarCredito();
     });
-    
+
     // El botón de asignar ahora está en cada crédito del stack
     document.getElementById('btn-guardar-comentarios').addEventListener('click', guardarComentarios);
     document.getElementById('btn-exportar-excel').addEventListener('click', exportarExcel);
@@ -870,7 +1137,7 @@ function cargarDespachos() {
             console.log('📊 Datos recibidos:', data);
             const select = document.getElementById('select-despacho');
             select.innerHTML = '<option value="">Seleccione un despacho...</option>';
-            
+
             if (data.success && data.despachos && data.despachos.length > 0) {
                 console.log(`✅ ${data.despachos.length} despachos encontrados`);
                 data.despachos.forEach((despacho, index) => {
@@ -880,7 +1147,7 @@ function cargarDespachos() {
                     option.textContent = `${despacho.nombre_completo} - ${despacho.nombre_puesto}`;
                     select.appendChild(option);
                 });
-                
+
                 // Inicializar SearchableSelect después de cargar opciones
                 if (!searchableSelectDespacho) {
                     searchableSelectDespacho = new SearchableSelect(select);
@@ -905,17 +1172,17 @@ function cargarDatosDespacho(idPersona) {
             if (data.success) {
                 // Mostrar el contenedor de información
                 document.getElementById('info-despacho-container').style.display = 'block';
-                
+
                 // Función auxiliar para verificar si un valor está vacío
                 const estaVacio = (valor) => {
                     return !valor || valor === '' || valor === 'Sin dirección registrada' || valor === '-' || valor === null;
                 };
-                
+
                 // Función auxiliar para mostrar/ocultar campo
                 const mostrarCampo = (containerId, valor, elementId) => {
                     const container = document.getElementById(containerId);
                     const element = document.getElementById(elementId);
-                    
+
                     if (!estaVacio(valor)) {
                         container.style.display = 'grid';
                         element.textContent = valor;
@@ -925,7 +1192,7 @@ function cargarDatosDespacho(idPersona) {
                         return false; // No tiene datos
                     }
                 };
-                
+
                 // Llenar y mostrar/ocultar cada campo
                 mostrarCampo('info-nombre-container', data.datos.nombre_completo, 'info-nombre');
                 mostrarCampo('info-puesto-container', data.datos.puesto, 'info-puesto');
@@ -933,7 +1200,7 @@ function cargarDatosDespacho(idPersona) {
                 const tieneCorreo = mostrarCampo('info-correo-container', data.datos.correo, 'info-correo');
                 const tieneDireccion = mostrarCampo('info-direccion-container', data.datos.direccion, 'info-direccion');
                 mostrarCampo('info-tipo-container', data.datos.tipo_persona, 'info-tipo');
-                
+
                 // Si no tiene teléfono, correo ni dirección, mostrar "Sin Datos"
                 const sinDatosContainer = document.getElementById('info-sin-datos-container');
                 if (!tieneTelefono && !tieneCorreo && !tieneDireccion) {
@@ -941,10 +1208,10 @@ function cargarDatosDespacho(idPersona) {
                 } else {
                     sinDatosContainer.style.display = 'none';
                 }
-                
+
                 // Cargar comentarios si existen
                 document.getElementById('comentarios-despacho').value = data.comentarios || '';
-                
+
                 // Cargar documentos del despacho
                 cargarDocumentosDespacho(idPersona);
             }
@@ -957,12 +1224,12 @@ function cargarDatosDespacho(idPersona) {
 // Función para buscar crédito
 function buscarCredito() {
     const idCredito = document.getElementById('idCredito').value.trim();
-    
+
     if (!idCredito) {
         Swal.fire('Advertencia', 'Ingrese un ID de crédito', 'warning');
         return;
     }
-    
+
     fetch('/despachos/buscarCredito', {
         method: 'POST',
         headers: {
@@ -978,29 +1245,27 @@ function buscarCredito() {
         if (data.success && data.credito) {
             // Verificar si el crédito ya está en el stack (comparación flexible)
             const creditoExistente = creditosEncontrados.find(c => String(c.credito.id_credito) === String(data.credito.id_credito));
-            
+
             if (creditoExistente) {
-                // Mover el crédito al inicio del stack
-                // 1. Remover del array
+                // Actualizar con datos frescos del servidor
+                const itemActualizado = { credito: data.credito, asignacion: data.asignacion };
+
+                // 1. Remover del array y re-insertar con datos frescos al inicio
                 creditosEncontrados = creditosEncontrados.filter(item => String(item.credito.id_credito) !== String(data.credito.id_credito));
-                
-                // 2. Agregar al inicio
-                creditosEncontrados.unshift(creditoExistente);
-                
-                // 3. Remover visualmente y volver a agregar al inicio
+                creditosEncontrados.unshift(itemActualizado);
+
+                // 2. Remover visualmente y volver a agregar al inicio con datos actualizados
                 const card = document.getElementById(`credit-${data.credito.id_credito}`);
                 if (card) {
-                    // Animación de resaltado
                     card.style.transition = 'all 0.3s ease';
                     card.style.transform = 'translateX(-10px)';
                     card.style.opacity = '0';
-                    
+
                     setTimeout(() => {
                         card.remove();
-                        // Re-agregar al inicio
-                        agregarCreditoAlStack(creditoExistente.credito, creditoExistente.asignacion);
-                        
-                        // Animación de entrada
+                        // Re-agregar al inicio con datos frescos
+                        agregarCreditoAlStack(data.credito, data.asignacion);
+
                         const newCard = document.getElementById(`credit-${data.credito.id_credito}`);
                         if (newCard) {
                             newCard.style.transform = 'translateX(10px)';
@@ -1013,21 +1278,21 @@ function buscarCredito() {
                         }
                     }, 300);
                 }
-                
+
                 // Limpiar campo de búsqueda
                 document.getElementById('idCredito').value = '';
                 return;
             }
-            
+
             // Agregar al array (crédito nuevo)
             creditosEncontrados.unshift({
                 credito: data.credito,
                 asignacion: data.asignacion
             });
-            
+
             // Agregar visualmente al stack
             agregarCreditoAlStack(data.credito, data.asignacion);
-            
+
             // Limpiar campo de búsqueda
             document.getElementById('idCredito').value = '';
         } else {
@@ -1043,20 +1308,20 @@ function buscarCredito() {
 // Función para agregar crédito al stack visual
 function agregarCreditoAlStack(credito, asignacion) {
     const stack = document.getElementById('creditos-stack');
-    
+
     // Mostrar botón de limpiar lista
     document.getElementById('btn-limpiar-container').style.display = 'block';
     const creditoId = `credit-${credito.id_credito}`;
-    
+
     // Crear card del crédito
     const card = document.createElement('div');
     card.className = 'card border border-primary credit-card-item';
     card.id = creditoId;
-    
+
     const esActivo = asignacion && (asignacion.estatus === '1' || asignacion.estatus === 1);
     const statusText = asignacion ? (esActivo ? 'Crédito asignado actualmente' : 'Crédito tuvo asignación (inactiva)') : '';
     const statusClass = asignacion ? (esActivo ? 'text-gradient-primary' : 'text-muted') : '';
-    
+
     const asignacionHTML = asignacion ? `
         <div class="mt-2">
             <hr class="my-2">
@@ -1095,7 +1360,7 @@ function agregarCreditoAlStack(credito, asignacion) {
             </div>
         </div>
     ` : '';
-    
+
     card.innerHTML = `
         <div class="card-body p-3">
             <div class="d-flex justify-content-between align-items-start">
@@ -1120,7 +1385,7 @@ function agregarCreditoAlStack(credito, asignacion) {
             ${asignacionHTML}
         </div>
     `;
-    
+
     // Insertar al inicio del stack
     stack.insertBefore(card, stack.firstChild);
 }
@@ -1134,7 +1399,7 @@ function descartarCredito(idCredito) {
             card.remove();
             // Remover del array (comparación flexible)
             creditosEncontrados = creditosEncontrados.filter(item => String(item.credito.id_credito) !== String(idCredito));
-            
+
             // Ocultar botón de limpiar si no hay más créditos
             if (creditosEncontrados.length === 0) {
                 document.getElementById('btn-limpiar-container').style.display = 'none';
@@ -1158,14 +1423,14 @@ function limpiarListaCreditos() {
         if (result.isConfirmed) {
             // Vaciar array
             creditosEncontrados = [];
-            
+
             // Limpiar DOM
             const stack = document.getElementById('creditos-stack');
             stack.innerHTML = '';
-            
+
             // Ocultar botón
             document.getElementById('btn-limpiar-container').style.display = 'none';
-            
+
             Swal.fire('Limpiado', 'La lista ha sido vaciada', 'success');
         }
     });
@@ -1175,11 +1440,11 @@ function limpiarListaCreditos() {
 function toggleAsignacionInfo(creditoId) {
     const collapseElement = document.getElementById(`details-${creditoId}`);
     const icon = document.getElementById(`toggle-icon-${creditoId}`);
-    
+
     const bsCollapse = new bootstrap.Collapse(collapseElement, {
         toggle: true
     });
-    
+
     // Cambiar icono
     setTimeout(() => {
         if (collapseElement.classList.contains('show')) {
@@ -1196,7 +1461,7 @@ function asignarCreditoDelStack(idCredito) {
         Swal.fire('Advertencia', 'Seleccione un despacho primero', 'warning');
         return;
     }
-    
+
     // Comparación flexible para manejar string vs number
     const creditoItem = creditosEncontrados.find(item => String(item.credito.id_credito) === String(idCredito));
     if (!creditoItem) {
@@ -1205,7 +1470,7 @@ function asignarCreditoDelStack(idCredito) {
         Swal.fire('Error', 'Crédito no encontrado en la lista', 'error');
         return;
     }
-    
+
     // VALIDACIÓN: Verificar si el crédito ya está asignado activamente
     // Para deshabilitar esta validación, comente las siguientes 7 líneas
     if (creditoItem.asignacion) {
@@ -1216,9 +1481,9 @@ function asignarCreditoDelStack(idCredito) {
         }
     }
     // FIN VALIDACIÓN
-    
+
     const creditoEncontrado = creditoItem.credito;
-    
+
     Swal.fire({
         title: '¿Confirmar asignación?',
         text: `¿Desea asignar el crédito ${creditoEncontrado.id_credito} al despacho seleccionado?`,
@@ -1275,23 +1540,26 @@ function cargarCreditosAsignados(idPersona) {
                         ]
                     });
                 }
-                
+
                 // Formatear datos para DataTable (arrays)
                 const datosFormateados = data.creditos.map(credito => {
                     const esActivo = credito.estado === '1' || credito.estado === 1 || credito.estado === 'Activo';
                     const estadoBadge = esActivo ? 'bg-success' : 'bg-secondary';
                     const estadoTexto = esActivo ? 'Activo' : 'Inactivo';
-                    
+
                     // Switch toggle visual
                     const switchEstatus = `
-                        <div class="form-check form-switch d-flex justify-content-center">
-                            <input class="form-check-input switch-credito" type="checkbox" 
-                                   id="switch-${credito.id_credito}" 
+                        <div class="form-check form-switch d-flex justify-content-center align-items-center" style="gap:0.5rem;">
+                            <input class="form-check-input switch-credito" type="checkbox"
+                                   id="switch-${credito.id_credito}"
                                    data-credito="${credito.id_credito}"
                                    ${esActivo ? 'checked' : ''}
                                    style="cursor: pointer; width: 2.5rem; height: 1.25rem;">
+                            <button class="btn btn-outline-primary btn-sm btn-seguimiento" title="Seguimiento" data-credito="${credito.id_credito}">
+                                <i class="fa-solid fa-arrow-right"></i>
+                            </button>
                         </div>`;
-                    
+
                     return [
                         `<strong>${credito.id_credito}</strong>`,
                         `<span class="badge ${estadoBadge}">${estadoTexto}</span>`,
@@ -1300,24 +1568,31 @@ function cargarCreditosAsignados(idPersona) {
                         switchEstatus
                     ];
                 });
-                
+
                 // Actualizar tabla manteniendo página actual
                 actualizaDatosTabla('#tabla-creditos', datosFormateados, true);
-                
-                // Agregar event listeners a los switches después de actualizar la tabla
+
+                // Agregar event listeners a los switches y botones después de actualizar la tabla
                 setTimeout(() => {
                     document.querySelectorAll('.switch-credito').forEach(switchElement => {
                         switchElement.addEventListener('change', function(e) {
                             const idCredito = this.getAttribute('data-credito');
                             const nuevoEstatus = this.checked ? '1' : '0';
                             const estadoAnterior = !this.checked;
-                            
+
                             // Revertir el switch temporalmente
                             this.checked = estadoAnterior;
-                            
+
                             // Pedir confirmación
                             cambiarEstatusCredito(idCredito, nuevoEstatus, this);
                         });
+                    });
+                    // Botón seguimiento
+                    document.querySelectorAll('.btn-seguimiento').forEach(btn => {
+                        btn.addEventListener('click', function(e) {
+    const idCredito = this.getAttribute('data-credito');
+    abrirModalHistorial(idCredito); // ← esto
+});
                     });
                 }, 100);
             }
@@ -1333,7 +1608,7 @@ function cambiarEstatusCredito(idCredito, nuevoEstatus, switchElement) {
     const titulo = nuevoEstatus === '1' ? '¿Activar crédito?' : '¿Desactivar crédito?';
     const texto = `¿Desea ${accion} el crédito ${idCredito}?`;
     const btnTexto = nuevoEstatus === '1' ? 'Sí, activar' : 'Sí, desactivar';
-    
+
     Swal.fire({
         title: titulo,
         text: texto,
@@ -1347,7 +1622,7 @@ function cambiarEstatusCredito(idCredito, nuevoEstatus, switchElement) {
             if (switchElement) {
                 switchElement.checked = nuevoEstatus === '1';
             }
-            
+
             fetch('/despachos/cambiarEstatusCredito', {
                 method: 'POST',
                 headers: {
@@ -1390,9 +1665,9 @@ function guardarComentarios() {
         Swal.fire('Advertencia', 'Seleccione un despacho primero', 'warning');
         return;
     }
-    
+
     const comentarios = document.getElementById('comentarios-despacho').value;
-    
+
     fetch('/despachos/guardarComentarios', {
         method: 'POST',
         headers: {
@@ -1423,7 +1698,7 @@ function exportarExcel() {
         Swal.fire('Advertencia', 'Seleccione un despacho primero', 'warning');
         return;
     }
-    
+
     // Mostrar mensaje de carga
     Swal.fire({
         title: 'Generando reporte...',
@@ -1436,10 +1711,10 @@ function exportarExcel() {
             Swal.showLoading();
         }
     });
-    
+
     // Iniciar descarga
     window.location.href = `/despachos/exportarExcel/${despachoSeleccionado}`;
-    
+
     // Cerrar mensaje después de un tiempo (el archivo se descargará en segundo plano)
     setTimeout(() => {
         Swal.close();
@@ -1451,6 +1726,26 @@ function exportarExcel() {
             showConfirmButton: false
         });
     }, 3000);
+}
+
+// Función para refrescar la tabla de créditos asignados
+function refreshTablaCreditos() {
+    if (!despachoSeleccionado) {
+        Swal.fire('Advertencia', 'Seleccione un despacho primero', 'warning');
+        return;
+    }
+
+    const btn = document.getElementById('btn-refresh-tabla');
+    const icon = btn.querySelector('i');
+    icon.classList.add('fa-spin');
+    btn.disabled = true;
+
+    cargarCreditosAsignados(despachoSeleccionado);
+
+    setTimeout(() => {
+        icon.classList.remove('fa-spin');
+        btn.disabled = false;
+    }, 800);
 }
 
 // Función auxiliar para formatear moneda
@@ -1473,7 +1768,7 @@ async function cargarCatalogoDocumentos() {
     try {
         const response = await fetch('/despachos/obtenerCatalogoDocumentos');
         const data = await response.json();
-        
+
         if (data.success) {
             catalogoDocumentos = data.catalogo;
         } else {
@@ -1494,9 +1789,9 @@ async function cargarDocumentosDespacho(idPersona) {
             },
             body: JSON.stringify({ id_persona: idPersona })
         });
-        
+
         const data = await response.json();
-        
+
         if (data.success) {
             documentosDespacho = data.documentos;
             renderizarAcordeonDocumentos();
@@ -1515,35 +1810,35 @@ async function cargarDocumentosDespacho(idPersona) {
 // Renderizar acordeón de documentos
 function renderizarAcordeonDocumentos() {
     const accordion = document.getElementById('accordionDocumentos');
-    
+
     if (!despachoSeleccionado) {
         accordion.innerHTML = '<p class="text-muted text-center">Seleccione un despacho para ver sus documentos</p>';
         return;
     }
-    
+
     if (catalogoDocumentos.length === 0) {
         accordion.innerHTML = '<p class="text-muted text-center">No hay documentos en el catálogo</p>';
         return;
     }
-    
+
     let html = '';
-    
+
     catalogoDocumentos.forEach((doc, index) => {
         // Buscar si existe el documento subido
-        const documentoSubido = documentosDespacho.find(d => 
+        const documentoSubido = documentosDespacho.find(d =>
             String(d.id_catalogo_documento) === String(doc.id)
         );
-        
+
         const tieneDocumento = !!documentoSubido;
         const estatus = documentoSubido?.estatus || null;
-        
+
         // Verificar si es PDF
         const esPDF = tieneDocumento && documentoSubido.nombre_archivo.toLowerCase().endsWith('.pdf');
-        
+
         // Clase de badge según el estatus
         let badgeClass = 'bg-secondary';
         let badgeText = 'Sin subir';
-        
+
         if (tieneDocumento) {
             switch (estatus) {
                 case 'Vigente':
@@ -1560,11 +1855,11 @@ function renderizarAcordeonDocumentos() {
                     break;
             }
         }
-        
+
         html += `
             <div class="accordion-item">
                 <h2 class="accordion-header" id="heading${index}">
-                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" 
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
                             data-bs-target="#collapse${index}" aria-expanded="false" aria-controls="collapse${index}">
                         <span style="flex: 1; display: flex; align-items: center;">
                             <i class="fa-solid fa-file-pdf me-2"></i>
@@ -1573,11 +1868,11 @@ function renderizarAcordeonDocumentos() {
                         <span class="badge ${badgeClass}">${badgeText}</span>
                     </button>
                 </h2>
-                <div id="collapse${index}" class="accordion-collapse collapse" 
+                <div id="collapse${index}" class="accordion-collapse collapse"
                      aria-labelledby="heading${index}" data-bs-parent="#accordionDocumentos">
                     <div class="accordion-body">
                         ${doc.descripcion ? `<p class="text-muted small mb-3">${doc.descripcion}</p>` : ''}
-                        
+
                         ${tieneDocumento ? `
                             <!-- Documento ya subido -->
                             <div class="alert alert-info mb-3">
@@ -1589,23 +1884,23 @@ function renderizarAcordeonDocumentos() {
                                     Archivo: ${documentoSubido.nombre_archivo}
                                 </small>
                             </div>
-                            
+
                             <div class="d-flex gap-2 justify-content-center">
                                 ${esPDF ? `
-                                    <button class="btn btn-sm btn-success" 
+                                    <button class="btn btn-sm btn-success"
                                             onclick="visualizarDocumento(${documentoSubido.id}, '${documentoSubido.nombre_archivo}')"
                                             title="Ver documento"
                                             style="width: 40px; height: 40px;">
                                         <i class="fa-solid fa-eye"></i>
                                     </button>
                                 ` : ''}
-                                <a href="/despachos/descargarDocumento/${documentoSubido.id}" 
+                                <a href="/despachos/descargarDocumento/${documentoSubido.id}"
                                    class="btn btn-sm btn-primary" download
                                    title="Descargar documento"
                                    style="width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;">
                                     <i class="fa-solid fa-download"></i>
                                 </a>
-                                <button class="btn btn-sm btn-outline-secondary" 
+                                <button class="btn btn-sm btn-outline-secondary"
                                         onclick="reemplazarDocumento(${doc.id})"
                                         title="Reemplazar documento"
                                         style="width: 40px; height: 40px;">
@@ -1617,7 +1912,7 @@ function renderizarAcordeonDocumentos() {
                             <form onsubmit="subirDocumento(event, ${doc.id})" id="form-doc-${doc.id}">
                                 <div class="mb-3">
                                     <label class="form-label">Seleccionar archivo</label>
-                                    <input type="file" class="form-control form-control-sm" 
+                                    <input type="file" class="form-control form-control-sm"
                                            name="archivo" required
                                            accept=".pdf,.jpg,.jpeg,.png,.doc,.docx">
                                     <small class="form-text text-muted">
@@ -1634,24 +1929,24 @@ function renderizarAcordeonDocumentos() {
             </div>
         `;
     });
-    
+
     accordion.innerHTML = html;
 }
 
 // Subir documento
 async function subirDocumento(event, idCatalogoDocumento) {
     event.preventDefault();
-    
+
     if (!despachoSeleccionado) {
         Swal.fire('Error', 'No hay despacho seleccionado', 'error');
         return;
     }
-    
+
     const form = event.target;
     const formData = new FormData(form);
     formData.append('id_persona', despachoSeleccionado);
     formData.append('id_catalogo_documento', idCatalogoDocumento);
-    
+
     try {
         // Mostrar loading
         Swal.fire({
@@ -1661,14 +1956,14 @@ async function subirDocumento(event, idCatalogoDocumento) {
                 Swal.showLoading();
             }
         });
-        
+
         const response = await fetch('/despachos/subirDocumento', {
             method: 'POST',
             body: formData
         });
-        
+
         const data = await response.json();
-        
+
         if (data.success) {
             Swal.fire('Éxito', 'Documento subido correctamente', 'success');
             // Recargar documentos
@@ -1697,7 +1992,7 @@ function reemplazarDocumento(idCatalogoDocumento) {
             const index = catalogoDocumentos.findIndex(d => d.id === idCatalogoDocumento);
             if (index !== -1) {
                 // Remover el documento actual de la lista
-                const docIndex = documentosDespacho.findIndex(d => 
+                const docIndex = documentosDespacho.findIndex(d =>
                     String(d.id_catalogo_documento) === String(idCatalogoDocumento)
                 );
                 if (docIndex !== -1) {
@@ -1721,20 +2016,20 @@ function visualizarDocumento(idDocumento, nombreArchivo) {
     const iframe = document.getElementById('iframeVisualizadorPDF');
     const btnDescargar = document.getElementById('btnDescargarPDFModal');
     const modalLabel = document.getElementById('modalVisualizadorPDFLabel');
-    
+
     // Construir URL para visualizar el documento
     const urlDocumento = `/despachos/descargarDocumento/${idDocumento}`;
-    
+
     // Configurar iframe
     iframe.src = urlDocumento;
-    
+
     // Configurar botón de descarga
     btnDescargar.href = urlDocumento;
     btnDescargar.download = nombreArchivo;
-    
+
     // Actualizar título del modal
     modalLabel.innerHTML = `<i class="fa-solid fa-file-pdf me-2"></i>${nombreArchivo}`;
-    
+
     // Mostrar modal
     const modal = new bootstrap.Modal(document.getElementById('modalVisualizadorPDF'));
     modal.show();
@@ -1749,11 +2044,11 @@ function toggleEditTipo() {
         Swal.fire('Advertencia', 'Seleccione un despacho primero', 'warning');
         return;
     }
-    
+
     const spanTipo = document.getElementById('info-tipo');
     const selectTipo = document.getElementById('select-tipo-persona');
     const iconEdit = document.querySelector('.edit-tipo-icon');
-    
+
     if (selectTipo.style.display === 'none') {
         // Mostrar select, ocultar span e icono
         const valorActual = spanTipo.textContent.trim();
@@ -1769,7 +2064,7 @@ function cancelarEditTipo() {
     const spanTipo = document.getElementById('info-tipo');
     const selectTipo = document.getElementById('select-tipo-persona');
     const iconEdit = document.querySelector('.edit-tipo-icon');
-    
+
     if (selectTipo.style.display !== 'none') {
         selectTipo.style.display = 'none';
         spanTipo.style.display = 'inline';
@@ -1780,7 +2075,7 @@ function cancelarEditTipo() {
 async function actualizarTipoPersona() {
     const selectTipo = document.getElementById('select-tipo-persona');
     const nuevoTipo = selectTipo.value;
-    
+
     if (!nuevoTipo) {
         // Si no seleccionó nada, revertir a modo vista
         const spanTipo = document.getElementById('info-tipo');
@@ -1790,7 +2085,7 @@ async function actualizarTipoPersona() {
         iconEdit.style.display = 'inline';
         return;
     }
-    
+
     try {
         const response = await fetch('/despachos/actualizarTipoPersona', {
             method: 'POST',
@@ -1802,14 +2097,14 @@ async function actualizarTipoPersona() {
                 tipo_persona: nuevoTipo
             })
         });
-        
+
         const data = await response.json();
-        
+
         if (data.success) {
             // Actualizar interfaz
             const spanTipo = document.getElementById('info-tipo');
             const iconEdit = document.querySelector('.edit-tipo-icon');
-            
+
             spanTipo.textContent = nuevoTipo;
             selectTipo.style.display = 'none';
             spanTipo.style.display = 'inline';
@@ -1835,6 +2130,344 @@ async function actualizarTipoPersona() {
     }
 }
 
+// ============================================================================
+// MODAL HISTORIAL DE GESTORES
+// ============================================================================
+
+
+function hgcSwitchTab(panelId) {
+    const panels  = ['hgc-panel-datos', 'hgc-panel-historial', 'hgc-panel-convenios'];
+    const tabBtns = document.querySelectorAll('.hgc-tab-btn');
+
+    // Ocultar todos los paneles
+    panels.forEach(p => {
+        const el = document.getElementById(p);
+        if (el) el.style.display = 'none';
+    });
+
+    // Mostrar el panel solicitado
+    const target = document.getElementById(panelId);
+    if (target) target.style.display = 'block';
+
+    // Actualizar estilos de tabs
+    tabBtns.forEach(btn => {
+        const isActive = btn.dataset.panel === panelId;
+        btn.style.color        = isActive ? '#696cff' : '#697a8d';
+        btn.style.borderBottom = isActive ? '2px solid #696cff' : '2px solid transparent';
+        btn.classList.toggle('active', isActive);
+    });
+}
+
+/**
+ * Genera las iniciales de un nombre completo
+ */
+function hgcInitiales(nombre) {
+    if (!nombre || nombre === '—') return '?';
+    const partes = nombre.trim().split(' ').filter(Boolean);
+    if (partes.length === 1) return partes[0][0].toUpperCase();
+    return (partes[0][0] + partes[partes.length - 1][0]).toUpperCase();
+}
+
+/**
+ * Muestra / oculta el spinner global del modal
+ */
+function hgcSetLoading(visible) {
+    const spinner  = document.getElementById('hgc-spinner');
+    const paneDatos = document.getElementById('hgc-panel-datos');
+    if (spinner)   spinner.style.display   = visible ? 'block' : 'none';
+    if (paneDatos) paneDatos.style.display = visible ? 'none'  : 'block';
+}
+
+// ── Apertura del modal ───────────────────────────────────────
+
+/**
+ * Abre el modal y carga toda la información del crédito
+ * @param {string|number} idCredito
+ */
+async function abrirModalHistorial(idCredito) {
+    // Resetear tabs al primero
+    hgcSwitchTab('hgc-panel-datos');
+
+    // Limpiar campos antes de cargar
+    hgcLimpiarModal();
+
+    // Mostrar spinner
+    hgcSetLoading(true);
+
+    // Abrir modal Bootstrap
+    const modalEl = document.getElementById('modalHistorialGestores');
+    let modal = bootstrap.Modal.getInstance(modalEl);
+    if (!modal) modal = new bootstrap.Modal(modalEl);
+    modal.show();
+
+    // Actualizar label del header
+    document.getElementById('hgc-credito-label').textContent = `Crédito #${idCredito}`;
+
+    try {
+        // Llamadas paralelas: datos del crédito + historial completo de asignaciones
+        const [resCreditoProm, resHistorialProm] = await Promise.allSettled([
+            fetch('/despachos/buscarCredito', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ tipo: 'id_credito', valor: idCredito })
+            }).then(r => r.json()),
+
+            fetch('/despachos/obtenerHistorialGestores', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id_credito: idCredito })
+            }).then(r => r.json())
+        ]);
+
+        const dataCredito   = resCreditoProm.status   === 'fulfilled' ? resCreditoProm.value   : null;
+        const dataHistorial = resHistorialProm.status === 'fulfilled' ? resHistorialProm.value : null;
+
+        // Poblar datos generales
+        if (dataCredito && dataCredito.success) {
+            hgcPoblarDatosGenerales(dataCredito.credito, dataCredito.asignacion);
+        }
+
+        // Poblar historial de gestores
+        if (dataHistorial && dataHistorial.success) {
+            hgcPoblarHistorial(dataHistorial.historial);
+        } else {
+            hgcPoblarHistorial([]);
+        }
+
+        // Convenios — cuando tengas el endpoint listo, descomentar:
+        // const resConvenios = await fetch('/despachos/obtenerConveniosCredito', { ... });
+        // hgcPoblarConvenios(resConvenios.convenios);
+
+        // Por ahora convenios vacíos
+        hgcPoblarConvenios([]);
+
+    } catch (error) {
+        console.error('Error al cargar datos del modal:', error);
+        Swal.fire('Error', 'No se pudo cargar la información del crédito', 'error');
+    } finally {
+        hgcSetLoading(false);
+    }
+}
+
+// ── Población de paneles ─────────────────────────────────────
+
+/**
+ * Poblar Panel 1: Datos Generales
+ */
+function hgcPoblarDatosGenerales(credito, asignacion) {
+    if (!credito) return;
+
+    // Métricas
+    document.getElementById('hgc-saldo').textContent =
+        new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' })
+            .format(credito.saldo_actual || 0);
+
+    document.getElementById('hgc-mora').textContent  = credito.dias_mora || 0;
+    document.getElementById('hgc-id-credito-detalle').textContent = `#${credito.id_credito}`;
+
+    // Iniciales del cliente
+    const iniciales = hgcInitiales(credito.nombre_cliente);
+    document.getElementById('hgc-avatar').textContent          = iniciales;
+    document.getElementById('hgc-nombre-cliente').textContent  = credito.nombre_cliente  || '—';
+    document.getElementById('hgc-curp').textContent            = credito.curp            || '—';
+    document.getElementById('hgc-telefono').textContent        = credito.telefono        || '—';
+    document.getElementById('hgc-sucursal').textContent        = credito.sucursal        || '—';
+    document.getElementById('hgc-fecha-desembolso').textContent= credito.fecha_desembolso|| '—';
+    document.getElementById('hgc-direccion').textContent       = credito.direccion       || '—';
+
+    // Gestor actual
+    const cardGestor  = document.getElementById('hgc-gestor-actual-card');
+    const sinGestor   = document.getElementById('hgc-sin-gestor');
+    const esActivo    = asignacion && (asignacion.estatus === '1' || asignacion.estatus === 1);
+
+    if (asignacion && esActivo) {
+        cardGestor.style.display = 'block';
+        sinGestor.style.display  = 'none';
+
+        const inicGestor = hgcInitiales(asignacion.nombre_despacho);
+        document.getElementById('hgc-gestor-avatar').textContent = inicGestor;
+        document.getElementById('hgc-gestor-nombre').textContent = asignacion.nombre_despacho || '—';
+        document.getElementById('hgc-gestor-info').textContent   =
+            `${asignacion.puesto_despacho || 'Gestor'} · Desde ${asignacion.fecha_asignacion || '—'}`;
+    } else {
+        cardGestor.style.display = 'none';
+        sinGestor.style.display  = 'block';
+    }
+}
+
+/**
+ * Poblar Panel 2: Historial de Gestores (timeline)
+ */
+function hgcPoblarHistorial(historial) {
+    const timeline = document.getElementById('hgc-timeline');
+    const vacio    = document.getElementById('hgc-historial-vacio');
+    const badge    = document.getElementById('hgc-badge-historial');
+
+    badge.textContent = historial.length;
+
+    // Actualizar métrica de gestores en panel 1
+    document.getElementById('hgc-total-gestores').textContent = historial.length;
+
+    if (!historial.length) {
+        timeline.innerHTML    = '';
+        vacio.style.display   = 'block';
+        return;
+    }
+
+    vacio.style.display = 'none';
+
+    timeline.innerHTML = historial.map((item, idx) => {
+        const esActual   = item.estatus === '1' || item.estatus === 1;
+        const iniciales  = hgcInitiales(item.nombre_despacho);
+        const badgeHtml  = esActual
+            ? `<span style="background:#696cff; color:white; font-size:10px; padding:2px 8px; border-radius:10px; white-space:nowrap;">Actual</span>`
+            : `<span style="background:#f0f0f0; color:#697a8d; font-size:10px; padding:2px 8px; border-radius:10px; white-space:nowrap; border:0.5px solid #e0e0e0;">Inactivo</span>`;
+
+        const avatarStyle = esActual
+            ? 'background:#696cff; color:white;'
+            : 'background:#f0f0f0; border:0.5px solid #e0e0e0; color:#697a8d;';
+
+        const cardBorder = esActual ? 'border:0.5px solid #c5c6ff;' : 'border:0.5px solid #e0e0e0;';
+
+        const fechaFin = item.fecha_baja
+            ? `<span>Hasta: <strong style="color:#566a7f;">${item.fecha_baja}</strong></span>`
+            : '';
+
+        return `
+        <div style="display:flex; gap:14px; margin-bottom:1.25rem; position:relative; z-index:1;">
+            <div style="width:34px; height:34px; border-radius:50%; ${avatarStyle}
+                        display:flex; align-items:center; justify-content:center;
+                        font-size:11px; font-weight:500; flex-shrink:0;">
+                ${iniciales}
+            </div>
+            <div style="background:#fff; ${cardBorder} border-radius:0.375rem;
+                        padding:0.875rem 1rem; flex:1;">
+                <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                    <div>
+                        <div style="font-weight:500; font-size:14px;">${item.nombre_despacho || '—'}</div>
+                        <div style="font-size:12px; color:#697a8d;">${item.puesto_despacho || '—'}</div>
+                    </div>
+                    ${badgeHtml}
+                </div>
+                <div style="margin-top:8px; display:flex; flex-wrap:wrap; gap:12px; font-size:12px; color:#697a8d;">
+                    <span>Desde: <strong style="color:#566a7f;">${item.fecha_asignacion || '—'}</strong></span>
+                    ${fechaFin}
+                    <span>Por: <strong style="color:#566a7f;">${item.asignado_por || 'Sistema'}</strong></span>
+                </div>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+/**
+ * Poblar Panel 3: Convenios
+ * (placeholder hasta que lleguen las tablas de convenios)
+ */
+function hgcPoblarConvenios(convenios) {
+    const lista = document.getElementById('hgc-convenios-lista');
+    const vacio = document.getElementById('hgc-convenios-vacio');
+    const badge = document.getElementById('hgc-badge-convenios');
+
+    badge.textContent = convenios.length;
+
+    if (!convenios.length) {
+        lista.innerHTML       = '';
+        vacio.style.display   = 'block';
+        return;
+    }
+
+    vacio.style.display = 'none';
+
+    lista.innerHTML = convenios.map((conv, idx) => {
+        const pagados    = conv.pagos_realizados  || 0;
+        const total      = conv.total_parcialidades || 1;
+        const porcentaje = Math.round((pagados / total) * 100);
+
+        const badgeEstatus = conv.estatus === 'Vigente'
+            ? `<span style="background:#e8f5e9; color:#2e7d32; font-size:11px; padding:3px 10px; border-radius:20px; font-weight:500;">Vigente</span>`
+            : `<span style="background:#fff3e0; color:#e65100; font-size:11px; padding:3px 10px; border-radius:20px; font-weight:500;">${conv.estatus}</span>`;
+
+        return `
+        <div class="card mb-3" style="border:0.5px solid #e0e0e0;">
+            <div class="card-body p-3">
+                <div class="d-flex justify-content-between align-items-start mb-3">
+                    <div>
+                        <div style="font-weight:500; font-size:14px;">Convenio #${String(idx+1).padStart(3,'0')}</div>
+                        <div style="font-size:12px; color:#697a8d;">
+                            Registrado el ${conv.fecha_registro || '—'} por ${conv.registrado_por || 'Sistema'}
+                        </div>
+                    </div>
+                    ${badgeEstatus}
+                </div>
+
+                <div class="row g-2 mb-3 p-2 rounded-2" style="background:#f8f9fa; font-size:12px;">
+                    <div class="col-4">
+                        <div style="color:#697a8d;">Monto total</div>
+                        <div style="font-weight:500; margin-top:2px;">
+                            ${new Intl.NumberFormat('es-MX',{style:'currency',currency:'MXN'}).format(conv.monto_total||0)}
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <div style="color:#697a8d;">Parcialidades</div>
+                        <div style="font-weight:500; margin-top:2px;">${conv.total_parcialidades || 0} pagos</div>
+                    </div>
+                    <div class="col-4">
+                        <div style="color:#697a8d;">Pago mensual</div>
+                        <div style="font-weight:500; margin-top:2px;">
+                            ${new Intl.NumberFormat('es-MX',{style:'currency',currency:'MXN'}).format(conv.monto_parcialidad||0)}
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="d-flex justify-content-between mb-1" style="font-size:12px;">
+                        <span style="color:#697a8d;">Avance de pagos</span>
+                        <span style="font-weight:500;">${pagados} de ${total} pagados</span>
+                    </div>
+                    <div style="height:6px; background:#f0f0f0; border-radius:3px; overflow:hidden;">
+                        <div style="height:100%; width:${porcentaje}%; background:#696cff; border-radius:3px;
+                                    transition:width .4s ease;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+// ── Limpiar modal ────────────────────────────────────────────
+
+function hgcLimpiarModal() {
+    const campos = [
+        'hgc-saldo','hgc-mora','hgc-total-gestores',
+        'hgc-avatar','hgc-nombre-cliente','hgc-curp',
+        'hgc-telefono','hgc-sucursal','hgc-fecha-desembolso',
+        'hgc-id-credito-detalle','hgc-direccion',
+        'hgc-gestor-avatar','hgc-gestor-nombre','hgc-gestor-info'
+    ];
+    campos.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = '—';
+    });
+    document.getElementById('hgc-badge-historial').textContent = '0';
+    document.getElementById('hgc-badge-convenios').textContent = '0';
+    document.getElementById('hgc-timeline').innerHTML          = '';
+    document.getElementById('hgc-convenios-lista').innerHTML   = '';
+    document.getElementById('hgc-gestor-actual-card').style.display = 'none';
+    document.getElementById('hgc-sin-gestor').style.display         = 'none';
+    document.getElementById('hgc-historial-vacio').style.display    = 'none';
+    document.getElementById('hgc-convenios-vacio').style.display    = 'none';
+}
+
+// ── Inicializar event listeners de tabs ──────────────────────
+
+document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('.hgc-tab-btn').forEach(btn => {
+        btn.addEventListener('click', function () {
+            hgcSwitchTab(this.dataset.panel);
+        });
+    });
+});
+
 // ===========================================
 // AUTO-COLAPSAR SUB-ACORDEONES
 // ===========================================
@@ -1859,6 +2492,8 @@ if (collapseDocumentos) {
         }
     });
 }
+
+
 
 </script>
 
