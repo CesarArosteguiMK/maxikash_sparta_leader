@@ -387,6 +387,53 @@ body.dark-mode .fila-detalle-amort td { background: #1e1a2e; }
 .amort-accordion { padding: 1rem 1.5rem; }
 .amort-accordion .tabla-amort thead th { font-size: .75rem; }
 
+
+/* ── Barra de progreso convenio ── */
+.conv-progress-wrap {
+    margin-top: 1rem;
+    padding: 1rem 1.25rem;
+    background: #f8f5ff;
+    border-radius: .75rem;
+    border: 1px solid #e9d5ff;
+}
+body.dark-mode .conv-progress-wrap {
+    background: #1e1533;
+    border-color: #4c1d95;
+}
+.conv-progress-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: .78rem;
+    font-weight: 600;
+    margin-bottom: .4rem;
+    color: #5b2d8e;
+}
+body.dark-mode .conv-progress-label { color: #c084fc; }
+.conv-progress-bar-bg {
+    width: 100%;
+    height: 14px;
+    background: #e9d5ff;
+    border-radius: 99px;
+    overflow: hidden;
+}
+body.dark-mode .conv-progress-bar-bg { background: #3b1f6e; }
+.conv-progress-bar-fill {
+    height: 100%;
+    border-radius: 99px;
+    background: linear-gradient(90deg, #764ba2, #667eea);
+    transition: width .6s ease;
+}
+.conv-progress-info {
+    display: flex;
+    justify-content: space-between;
+    font-size: .75rem;
+    margin-top: .4rem;
+    color: #64748b;
+}
+body.dark-mode .conv-progress-info { color: #94a3b8; }
+.conv-progress-info .pagado  { color: #22c55e; font-weight: 700; }
+.conv-progress-info .restante { color: #f59e0b; font-weight: 700; }
+
 </style>
 
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
@@ -405,9 +452,10 @@ body.dark-mode .fila-detalle-amort td { background: #1e1a2e; }
     </div>
 
     <!-- BUSCADOR -->
-    <div class="card mb-3">
-        <div class="card-body">
-            <label class="form-label fw-semibold">Buscar crédito por ID</label>
+   <div class="card mb-3">
+    <div class="card-body">
+        <label class="form-label fw-semibold">Buscar crédito por ID</label>
+        <div class="d-flex gap-3">
             <div class="input-group">
                 <input type="number" id="inputBusqueda" class="form-control"
                        placeholder="Ej: 123456"
@@ -416,18 +464,14 @@ body.dark-mode .fila-detalle-amort td { background: #1e1a2e; }
                 <button class="btn btn-primary" id="btnBuscar" onclick="window.buscarCredito()">
                     <i class="fa-solid fa-magnifying-glass me-1"></i> Buscar
                 </button>
-
-                <button type="button" class="btn btn-outline-warning btn-sm"
-        onclick="window.abrirModalMigracion()">
-    <i class="fas fa-file-import"></i> Registrar Convenio Existente
-</button>
-
-
             </div>
-
-
+            <button type="button" class="btn btn-outline-warning"
+                    onclick="window.abrirModalMigracion()">
+                <i class="fas fa-file-import"></i> Registrar Convenio Existente
+            </button>
         </div>
     </div>
+</div>
 
     <!-- CONTENIDO DINÁMICO -->
     <div id="convContenido" style="display:none;">
@@ -502,7 +546,7 @@ body.dark-mode .fila-detalle-amort td { background: #1e1a2e; }
                                 <tr>
                                    <th>Semana</th>
                                    <th>Fecha de Pago Preferencial</th>
-                                   <th>Semanal / Capital</th>
+                                   <th id="thSemanalCapital">Semanal / Capital</th>
                                    <th>Saldo Restante</th>
                                    <th>Pago Realizado</th>
                                    <th>Estatus</th>
@@ -722,6 +766,7 @@ var _credito       = null;
 var _ofertas       = [];
 var _ofertaActiva  = null;
 var _semanasActual = 1;
+var _rayoModo = null; // 'unico' | 'quincenas' | 'semanal'
 // var _pollingInterval = null;
 
 // ══════════════════════════════════════════════════════
@@ -802,7 +847,8 @@ function seleccionarCredito(idCredito) {
                             document.getElementById('btnPdf').className = 'btn btn-outline-secondary';
 
                             renderCreditoBanner(credito);
-                            renderOfertas(ofertas); // Ahora tiene historial
+                            var bloqueados = datos.productos_bloqueados || [];
+                            renderOfertas(ofertas, bloqueados);
 
                             document.getElementById('sliderSection').style.display = 'none';
                             document.getElementById('amortSection').style.display  = 'none';
@@ -820,6 +866,8 @@ function seleccionarCredito(idCredito) {
                             Swal.close();
                             renderCreditoBanner(credito);
                             renderOfertas(ofertas);
+                            var bloqueados = datos.productos_bloqueados || [];
+                            renderOfertas(ofertas, bloqueados);
                             document.getElementById('convContenido').style.display = 'block';
                         }
                     });
@@ -833,7 +881,8 @@ function seleccionarCredito(idCredito) {
                         onSuccess: function(respConvenio) {
                             Swal.close();
                             renderCreditoBanner(credito);
-                            renderOfertas(ofertas);
+                            var bloqueados = datos.productos_bloqueados || [];
+                            renderOfertas(ofertas, bloqueados);
                             document.getElementById('convContenido').style.display = 'block';
 
                             if (respConvenio.success && respConvenio.datos && respConvenio.datos.estatus === 'activo') {
@@ -843,7 +892,8 @@ function seleccionarCredito(idCredito) {
                         onError: function() {
                             Swal.close();
                             renderCreditoBanner(credito);
-                            renderOfertas(ofertas);
+                            var bloqueados = datos.productos_bloqueados || [];
+                            renderOfertas(ofertas, bloqueados);
                             document.getElementById('convContenido').style.display = 'block';
                         }
                     });
@@ -887,30 +937,40 @@ function renderCreditoBanner(c) {
 // ══════════════════════════════════════════════════════
 var OFERTA_ICONOS = { 1: '🎯', 2: '💰', 3: '❄️', 4: '⚡' };
 
-function renderOfertas(ofertas) {
+function renderOfertas(ofertas, productosBloqueados) {
     var cont = document.getElementById('ofertasContainer');
     var fmt  = function(v) { return '$' + parseFloat(v).toLocaleString('es-MX', { minimumFractionDigits: 2 }); };
 
-    // Construir mapa de productos usados en historial (no activos)
-    // key: id_producto → estatus del convenio más reciente con ese producto
-    var productosUsados = {};
+    // Construir mapa id_producto → nombre desde historial y ofertas actuales
+    var _historialProductos = {};
+    ofertas.forEach(function(o) {
+        _historialProductos[o.id_producto] = o.nombre;
+    });
+    if (_credito && _credito.historial_convenios) {
+        _credito.historial_convenios.forEach(function(c) {
+            if (c.id_producto_convenio && c.nombre_producto) {
+                _historialProductos[c.id_producto_convenio] = c.nombre_producto;
+            }
+        });
+    }
 
+    // Construir mapa de productos usados en historial (cancelados/completados normales)
+    var productosUsados = {};
     if (_credito && _credito.historial_convenios && _credito.historial_convenios.length > 0) {
-        // Ordenar por fecha descendente para quedarnos con el más reciente por producto
         var historialOrdenado = _credito.historial_convenios
             .filter(function(c) { return c.estatus !== 'activo'; })
             .sort(function(a, b) { return new Date(b.fecha_alta) - new Date(a.fecha_alta); });
 
         historialOrdenado.forEach(function(c) {
             var idProd = c.id_producto_convenio;
-            // Solo guardar el más reciente por producto (el primero que aparece al ordenar desc)
             if (!productosUsados[idProd]) {
-                productosUsados[idProd] = c.estatus; // 'completado' | 'cancelado'
+                productosUsados[idProd] = c.estatus;
             }
         });
     }
 
-    cont.innerHTML = ofertas.map(function(o, i) {
+    // Cards de ofertas disponibles
+    var htmlOfertas = ofertas.map(function(o, i) {
         var icono      = OFERTA_ICONOS[o.id_producto] || '📋';
         var primerPago = (o.pago_inicial === 'Si' && o.pago_inicial_monto)
             ? fmt(o.pago_inicial_monto)
@@ -919,8 +979,7 @@ function renderOfertas(ofertas) {
             ? '1 semana (pago único)'
             : o.periodo_inicio + ' a ' + o.semanas_max + ' semanas';
 
-        // Determinar si este producto tiene historial previo
-        var estatusPrevio = productosUsados[o.id_producto] || null;
+        var estatusPrevio  = productosUsados[o.id_producto] || null;
         var claseAdicional = '';
         var badgeHistorial = '';
 
@@ -954,6 +1013,32 @@ function renderOfertas(ofertas) {
             '</div>' +
         '</div>';
     }).join('');
+
+    // Cards bloqueadas permanentemente por incumplimiento
+    var htmlBloqueados = '';
+    if (productosBloqueados && productosBloqueados.length > 0) {
+        productosBloqueados.forEach(function(idProd) {
+            var nombre = _historialProductos[idProd] || 'Producto';
+            var icono  = OFERTA_ICONOS[idProd] || '🚫';
+            htmlBloqueados +=
+                '<div class="col-12 col-md-3">' +
+                    '<div class="oferta-card" style="border-color:#ef4444;background:#fff1f1;opacity:0.65;cursor:not-allowed;pointer-events:none;position:relative;">' +
+                        '<div style="position:absolute;top:10px;right:10px;background:#ef4444;color:#fff;' +
+                             'font-size:0.65rem;padding:3px 9px;border-radius:12px;font-weight:700;">' +
+                            '<i class="fas fa-ban me-1"></i>Bloqueado permanente' +
+                        '</div>' +
+                        '<div class="icono-oferta">' + icono + '</div>' +
+                        '<div class="titulo-oferta" style="color:#991b1b;">' + nombre + '</div>' +
+                        '<div class="desc-oferta" style="color:#dc2626;font-size:0.8rem;margin-top:.5rem;">' +
+                            '<i class="fas fa-triangle-exclamation me-1"></i>' +
+                            'Convenio cancelado por incumplimiento.<br>No disponible permanentemente.' +
+                        '</div>' +
+                    '</div>' +
+                '</div>';
+        });
+    }
+
+    cont.innerHTML = htmlOfertas + htmlBloqueados;
 }
 
 // ══════════════════════════════════════════════════════
@@ -1026,6 +1111,10 @@ function fmtFecha(fechaISO) {
 
 
 function congelarModulo(convenio) {
+
+   var progressPrevio = document.getElementById('convProgressWrap');
+   if (progressPrevio) progressPrevio.remove();
+
     var fmt = function(v) { return '$' + parseFloat(v).toLocaleString('es-MX', { minimumFractionDigits: 2 }); };
 
     // Identificar card del convenio activo
@@ -1072,11 +1161,45 @@ function congelarModulo(convenio) {
 
     // Resumen cards
     document.getElementById('amortTitulo').textContent = '📋 ' + convenio.nombre_producto;
-    document.getElementById('amortResumenCards').innerHTML =
-        '<div class="col-6 col-md-3"><div class="border rounded p-2"><div class="small text-muted">Deuda Original</div><div class="fw-bold text-primary fs-5">' + fmt(convenio.adeudo_total_original) + '</div></div></div>' +
-        '<div class="col-6 col-md-3"><div class="border rounded p-2"><div class="small text-muted">Descuento (' + parseInt(convenio.porcentaje_descuento) + '%)</div><div class="fw-bold text-danger fs-5">-' + fmt(convenio.descuento_monto) + '</div></div></div>' +
-        '<div class="col-6 col-md-3"><div class="border rounded p-2"><div class="small text-muted">Total a Pagar</div><div class="fw-bold text-success fs-5">' + fmt(convenio.total_a_pagar) + '</div></div></div>' +
-        '<div class="col-6 col-md-3"><div class="border rounded p-2"><div class="small text-muted">Pago Semanal</div><div class="fw-bold text-warning fs-5">' + fmt(convenio.pago_semanal) + '</div></div></div>';
+document.getElementById('amortResumenCards').innerHTML =
+    '<div class="col-6 col-md-3"><div class="border rounded p-2"><div class="small text-muted">Deuda Original</div><div class="fw-bold text-primary fs-5">' + fmt(convenio.adeudo_total_original) + '</div></div></div>' +
+    '<div class="col-6 col-md-3"><div class="border rounded p-2"><div class="small text-muted">Descuento (' + parseInt(convenio.porcentaje_descuento) + '%)</div><div class="fw-bold text-danger fs-5">-' + fmt(convenio.descuento_monto) + '</div></div></div>' +
+    '<div class="col-6 col-md-3"><div class="border rounded p-2"><div class="small text-muted">Total a Pagar</div><div class="fw-bold text-success fs-5">' + fmt(convenio.total_a_pagar) + '</div></div></div>' +
+    '<div class="col-6 col-md-3"><div class="border rounded p-2"><div class="small text-muted">Pago Semanal</div><div class="fw-bold text-warning fs-5">' + fmt(convenio.pago_semanal) + '</div></div></div>';
+
+// ── Barra de progreso ──────────────────────────
+var totalPagar  = parseFloat(convenio.total_a_pagar);
+var amort       = convenio.amortizacion || [];
+var montoPagado = 0;
+
+amort.forEach(function(fila) {
+    if (fila.estatus_pago === 'pagado') {
+        montoPagado += parseFloat(fila.capital || 0);
+    }
+});
+
+montoPagado      = Math.min(montoPagado, totalPagar);
+var montoRestante = Math.max(totalPagar - montoPagado, 0);
+var pct           = totalPagar > 0 ? Math.round((montoPagado / totalPagar) * 100) : 0;
+
+document.getElementById('amortResumenCards').insertAdjacentHTML('afterend',
+    '<div class="conv-progress-wrap" id="convProgressWrap">' +
+        '<div class="conv-progress-label">' +
+            '<span><i class="fas fa-chart-line me-1"></i>Progreso del convenio</span>' +
+            '<span>' + pct + '% completado</span>' +
+        '</div>' +
+        '<div class="conv-progress-bar-bg">' +
+            '<div class="conv-progress-bar-fill" style="width:' + pct + '%"></div>' +
+        '</div>' +
+        '<div class="conv-progress-info">' +
+            '<span>Inicio: <strong>' + fmt(totalPagar) + '</strong></span>' +
+            '<span class="pagado">✓ Pagado: ' + fmt(montoPagado) + '</span>' +
+            '<span class="restante">⏳ Restante: ' + fmt(montoRestante) + '</span>' +
+            '<span>Meta: <strong>$0.00</strong></span>' +
+        '</div>' +
+    '</div>'
+);
+
 
     // Tabla con datos reales del backend
    var filasHtml = convenio.amortizacion.map(function(fila) {
@@ -1098,8 +1221,17 @@ function congelarModulo(convenio) {
           + '<span style="display:block;color:#888;font-size:0.82em;">Pagado</span>'
         : fmtFechaRango(fila.fecha_pago);
 
-    // Celda de pago realizado
-  var celdaMontoPagado = renderCeldaPagoS2(convenio.pagos_s2movil, fila.numero_semana);
+
+  // Celda de pago realizado — solo datos de BD, no S2Movil
+var celdaMontoPagado = '';
+if (esPagado) {
+    celdaMontoPagado = '<span style="color:#22c55e;font-weight:600;">' + fmt(fila.pago_semanal) + '</span>'
+        + (fila.fecha_pago_real
+            ? '<br><small style="color:#888;">' + fmtFecha(fila.fecha_pago_real) + '</small>'
+            : '');
+} else {
+    celdaMontoPagado = '<span style="color:#ccc;">—</span>';
+}
 
 
     // Botón de acción
@@ -1109,14 +1241,9 @@ function congelarModulo(convenio) {
             ? '<small class="text-success"><i class="fas fa-check-double"></i> '
               + fmtFecha(fila.fecha_pago_real) + '</small>'
             : '<span class="badge bg-success">✓</span>';
-    } else if (esPendiente || esVencido) {
-        btnAccion = '<button class="btn btn-sm btn-success btn-registrar-pago" '
-            + 'data-semana="'   + fila.numero_semana + '" '
-            + 'data-convenio="' + convenio.id        + '" '
-            + 'data-credito="'  + convenio.id_credito + '" '
-            + 'title="Marcar como pagado">'
-            + '<i class="fas fa-check"></i></button>';
-    }
+         } else if (esPendiente || esVencido) {
+    btnAccion = '<span style="color:#ccc;">—</span>';
+           }
 
     return '<tr>' +
         '<td>Semana ' + fila.numero_semana + '</td>' +
@@ -1277,23 +1404,52 @@ window.seleccionarOferta = function(idx) {
 
     _ofertaActiva = _ofertas[idx];
 
-    var min = _ofertaActiva.periodo_inicio;
-    var max = _ofertaActiva.semanas_max;
+    var esLiquidacionRayo = _ofertaActiva.id_producto === 4;
 
     var slider = document.getElementById('sliderSemanas');
-    slider.min   = min;
-    slider.max   = max;
-    slider.value = min;
 
-    document.getElementById('labelMin').textContent = min + ' sem';
-    document.getElementById('labelMax').textContent = max + ' sem';
+    if (esLiquidacionRayo) {
+    _rayoModo = 'unico'; // default
+    slider.style.display = 'none';
+    document.querySelector('.semanas-labels').style.display = 'none';
+
+    var btnsExistentes = document.getElementById('rayoBtns');
+    if (btnsExistentes) btnsExistentes.remove();
+
+    slider.insertAdjacentHTML('afterend',
+        '<div id="rayoBtns" class="d-flex gap-2 justify-content-center mt-2">' +
+            '<button class="btn btn-primary rayo-btn" onclick="window.seleccionarRayo(1, event)">⚡ 1 Pago único</button>' +
+            '<button class="btn btn-outline-primary rayo-btn" onclick="window.seleccionarRayo(2, event)">📅 2 Quincenas</button>' +
+            '<button class="btn btn-outline-primary rayo-btn" onclick="window.seleccionarRayo(4, event)">📆 4 Semanas</button>' +
+        '</div>'
+    );
+
+    _semanasActual = 1;
+    document.getElementById('semanasValor').textContent = '1 pago único';
+    var total = parseFloat(_ofertaActiva.total_a_pagar);
+    document.getElementById('pagoSemanalCalc').textContent =
+        '$' + total.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' / pago';
+} else {
+    slider.style.display = 'block';
+    document.querySelector('.semanas-labels').style.display = 'flex';
+    var btnsRayo = document.getElementById('rayoBtns');
+    if (btnsRayo) btnsRayo.remove();
+    _rayoModo = null;
+
+    slider.min   = _ofertaActiva.periodo_inicio;
+    slider.max   = _ofertaActiva.semanas_max;
+    slider.step  = 1;
+    slider.value = _ofertaActiva.periodo_inicio;
+    document.getElementById('labelMin').textContent = _ofertaActiva.periodo_inicio + ' sem';
+    document.getElementById('labelMax').textContent = _ofertaActiva.semanas_max + ' sem';
+
+}
     document.getElementById('sliderTitulo').textContent = 'Plazo para: ' + _ofertaActiva.nombre;
-
-    actualizarSlider(min);
+    actualizarSlider(slider.value);
 
     document.getElementById('sliderSection').style.display = 'block';
     document.getElementById('amortSection').style.display  = 'none';
-    document.getElementById('btnVerAmort').style.display   = 'inline-block';
+    document.getElementById('btnVerAmort').style.display   = 'none'; // ya no se usa
 
     document.getElementById('sliderSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
 };
@@ -1303,14 +1459,53 @@ window.seleccionarOferta = function(idx) {
 // ══════════════════════════════════════════════════════
 window.actualizarSlider = function(semanas) {
     _semanasActual = parseInt(semanas);
-    document.getElementById('semanasValor').textContent = _semanasActual;
+
+    var esLiquidacionRayo = _ofertaActiva && _ofertaActiva.id_producto === 4;
+
+    if (esLiquidacionRayo) {
+        document.getElementById('semanasValor').textContent = _semanasActual === 1
+            ? '1 pago único'
+            : '2 quincenas';
+    } else {
+        document.getElementById('semanasValor').textContent = _semanasActual;
+    }
 
     if (_ofertaActiva) {
         var total   = parseFloat(_ofertaActiva.total_a_pagar);
-        var semanal = total / _semanasActual;
+        var divisor = esLiquidacionRayo && _semanasActual === 4 ? 2 : _semanasActual;
+        var semanal = total / divisor;
         document.getElementById('pagoSemanalCalc').textContent =
-            '$' + semanal.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' / semana';
+            '$' + semanal.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) +
+            (esLiquidacionRayo && _semanasActual === 4 ? ' / quincena' : ' / semana');
     }
+
+    verTablaAmortizacion();
+};
+
+
+window.seleccionarRayo = function(opcion, ev) {
+    document.querySelectorAll('.rayo-btn').forEach(function(b) {
+        b.classList.remove('btn-primary');
+        b.classList.add('btn-outline-primary');
+    });
+    ev.target.classList.remove('btn-outline-primary');
+    ev.target.classList.add('btn-primary');
+
+    _semanasActual = opcion;
+    var modos = { 1: 'unico', 2: 'quincenas', 4: 'semanal' };
+    _rayoModo = modos[opcion];
+
+    var labels = { 1: '1 pago único', 2: '2 quincenas', 4: '4 semanas' };
+    document.getElementById('semanasValor').textContent = labels[opcion];
+
+    var total   = parseFloat(_ofertaActiva.total_a_pagar);
+    var divisor = opcion === 2 ? 2 : opcion;
+    var monto   = total / divisor;
+    document.getElementById('pagoSemanalCalc').textContent =
+        '$' + monto.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) +
+        (opcion === 2 ? ' / quincena' : opcion === 1 ? ' / pago' : ' / semana');
+
+    verTablaAmortizacion();
 };
 
 // ══════════════════════════════════════════════════════
@@ -1329,6 +1524,40 @@ function fmtFechaRango(fechaISO) {
 
     return '<span style="display:block;font-weight:600;">' + fmt(inicio) + '</span>' +
            '<span style="display:block;color:#888;font-size:0.82em;">' + fmt(fin) + '</span>';
+}
+
+function calcularFechasQuincenales(fechaAcuerdoISO) {
+    var hoy    = new Date(fechaAcuerdoISO + 'T00:00:00');
+    var dia    = hoy.getDate();
+    var mes    = hoy.getMonth();
+    var anio   = hoy.getFullYear();
+
+    var ultimoDiaMes = function(m, a) {
+        return new Date(a, m + 1, 0).getDate();
+    };
+
+    var f1, f2;
+
+    if (dia < 15) {
+        // Primer pago el 15 del mismo mes
+        f1 = new Date(anio, mes, 15);
+        f2 = new Date(anio, mes, ultimoDiaMes(mes, anio));
+    } else {
+        // Primer pago el último día del mes actual
+        f1 = new Date(anio, mes, ultimoDiaMes(mes, anio));
+        // Segundo pago el 15 del mes siguiente
+        var mesSig  = mes + 1 > 11 ? 0 : mes + 1;
+        var anioSig = mes + 1 > 11 ? anio + 1 : anio;
+        f2 = new Date(anioSig, mesSig, 15);
+    }
+
+    var fmt = function(d) {
+        return d.getFullYear() + '-' +
+               String(d.getMonth() + 1).padStart(2, '0') + '-' +
+               String(d.getDate()).padStart(2, '0');
+    };
+
+    return [fmt(f1), fmt(f2)];
 }
 
 function fmtPagoRealizado(pago) {
@@ -1366,50 +1595,133 @@ function fmtPagoRealizado(pago) {
 window.verTablaAmortizacion = function() {
     if (!_ofertaActiva || !_credito) return;
 
-    var o      = _ofertaActiva;
-    var total  = parseFloat(o.total_a_pagar);
-    var semanal = parseFloat((total / _semanasActual).toFixed(2));
-    var fmt    = function(v) { return '$' + parseFloat(v).toLocaleString('es-MX', { minimumFractionDigits: 2 }); };
-    var hoy    = new Date();
+    var o   = _ofertaActiva;
+    var total = parseFloat(o.total_a_pagar);
+    var fmt = function(v) { return '$' + parseFloat(v).toLocaleString('es-MX', { minimumFractionDigits: 2 }); };
+    var hoy = new Date().toISOString().split('T')[0];
 
-    var añadirDias = function(fecha, dias) {
-        var d = new Date(fecha);
-        d.setDate(d.getDate() + dias);
-        return d;
-    };
-    var fmtFecha = function(d) {
-        return d.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' });
-    };
+    // ← PRIMERO declarar esto
+    var esLiquidacionRayo = o.id_producto === 4;
+
+    // ← DESPUÉS usarlo
+    var labelPago = (esLiquidacionRayo && _rayoModo === 'quincenas') ? 'Por Quincena' : 'Pago Semanal';
+    var montoPago = (esLiquidacionRayo && _rayoModo === 'quincenas')
+        ? parseFloat((total / 2).toFixed(2))
+        : parseFloat((total / _semanasActual).toFixed(2));
+
+    document.getElementById('thSemanalCapital').textContent =
+        (esLiquidacionRayo && _rayoModo === 'quincenas') ? 'Monto Quincena' : 'Semanal / Capital';
 
     document.getElementById('amortTitulo').textContent = '📋 ' + o.nombre;
     document.getElementById('amortResumenCards').innerHTML =
-        '<div class="col-6 col-md-3"><div class="border rounded p-2"><div class="small text-muted">Deuda Original</div><div class="fw-bold text-primary fs-5">' + fmt(o.monto_base) + '</div></div></div>' +
-        '<div class="col-6 col-md-3"><div class="border rounded p-2"><div class="small text-muted">Descuento (' + parseInt(o.porcentaje_descuento) + '%)</div><div class="fw-bold text-danger fs-5">-' + fmt(o.descuento_monto) + '</div></div></div>' +
-        '<div class="col-6 col-md-3"><div class="border rounded p-2"><div class="small text-muted">Total a Pagar</div><div class="fw-bold text-success fs-5">' + fmt(total) + '</div></div></div>' +
-        '<div class="col-6 col-md-3"><div class="border rounded p-2"><div class="small text-muted">Pago Semanal</div><div class="fw-bold text-warning fs-5">' + fmt(semanal) + '</div></div></div>';
+    '<div class="col-6 col-md-3"><div class="border rounded p-2"><div class="small text-muted">Deuda Original</div><div class="fw-bold text-primary fs-5">' + fmt(o.monto_base) + '</div></div></div>' +
+    '<div class="col-6 col-md-3"><div class="border rounded p-2"><div class="small text-muted">Descuento (' + parseInt(o.porcentaje_descuento) + '%)</div><div class="fw-bold text-danger fs-5">-' + fmt(o.descuento_monto) + '</div></div></div>' +
+    '<div class="col-6 col-md-3"><div class="border rounded p-2"><div class="small text-muted">Total a Pagar</div><div class="fw-bold text-success fs-5">' + fmt(total) + '</div></div></div>' +
+    '<div class="col-6 col-md-3"><div class="border rounded p-2"><div class="small text-muted">' + labelPago + '</div><div class="fw-bold text-warning fs-5">' + fmt(montoPago) + '</div></div></div>';
 
-    var saldo     = total;
     var filasHtml = '';
-    for (var s = 1; s <= _semanasActual; s++) {
+
+    if (esLiquidacionRayo && _rayoModo === 'unico') {
+        // ── Pago único ──────────────────────────────
+        filasHtml =
+            '<tr>' +
+                '<td><strong>Pago único</strong></td>' +
+                '<td>' + fmtFechaRango(hoy) + '</td>' +
+                '<td><span style="font-weight:600;">' + fmt(total) + '</span></td>' +
+                '<td>' + fmt(total) + '</td>' +
+                '<td>' + fmt(0) + '</td>' +
+                '<td>' + fmtPagoRealizado(null) + '</td>' +
+                '<td><span class="badge bg-warning text-dark">Pendiente</span></td>' +
+            '</tr>';
+
+    } else if (esLiquidacionRayo && _rayoModo === 'quincenas') {
+        // ── 2 quincenas ─────────────────────────────
+        var fechas  = calcularFechasQuincenales(hoy);
+        var mitad1  = parseFloat((total / 2).toFixed(2));
+        var mitad2  = parseFloat((total - mitad1).toFixed(2)); // absorbe el centavo si hay
+
+        filasHtml +=
+            '<tr>' +
+                '<td><strong>Quincena 1</strong></td>' +
+                '<td><span style="font-weight:600;">' + fmtFecha(fechas[0]) + '</span></td>' +
+                '<td><span style="font-weight:600;">' + fmt(mitad1) + '</span></td>' +
+                '<td>' + fmt(mitad1) + '</td>' +
+                '<td>' + fmt(mitad2) + '</td>' +
+                '<td>' + fmtPagoRealizado(null) + '</td>' +
+                '<td><span class="badge bg-warning text-dark">Pendiente</span></td>' +
+            '</tr>' +
+            '<tr>' +
+                '<td><strong>Quincena 2</strong></td>' +
+                '<td><span style="font-weight:600;">' + fmtFecha(fechas[1]) + '</span></td>' +
+                '<td><span style="font-weight:600;">' + fmt(mitad2) + '</span></td>' +
+                '<td>' + fmt(mitad2) + '</td>' +
+                '<td>' + fmt(0) + '</td>' +
+                '<td>' + fmtPagoRealizado(null) + '</td>' +
+                '<td><span class="badge bg-warning text-dark">Pendiente</span></td>' +
+            '</tr>';
+
+    } else if (esLiquidacionRayo && _rayoModo === 'semanal') {
+    // ── 4 semanas semanales ──────────────────────
+    var añadirDias = function(fecha, dias) {
+        var d = new Date(fecha + 'T00:00:00');
+        d.setDate(d.getDate() + dias);
+        return d.toISOString().split('T')[0];
+    };
+
+    var saldo   = total;
+    var semanal = parseFloat((total / 4).toFixed(2));
+
+    for (var s = 1; s <= 4; s++) {
         var fechaPago = añadirDias(hoy, (s - 1) * 7 + 8);
-        var capital   = (s < _semanasActual) ? semanal : parseFloat(saldo.toFixed(2));
+        var capital   = (s < 4) ? semanal : parseFloat(saldo.toFixed(2));
         saldo         = parseFloat((saldo - capital).toFixed(2));
         if (saldo < 0) saldo = 0;
 
-        filasHtml += '<tr>' +
-    '<td>Semana ' + s + '</td>' +
-    '<td>' + fmtFechaRango(fechaPago.toISOString().split('T')[0]) + '</td>' +
-    '<td>' +
-        '<span style="display:block;font-weight:600;">' + fmt(semanal) + '</span>' +
-        '<span style="display:block;font-size:0.82em;color:#888;">' + fmt(capital) + '</span>' +
-    '</td>' +
-    '<td>' + fmt(saldo) + '</td>' +
-    '<td>' + fmtPagoRealizado(null) + '</td>' +
-    '<td><span class="badge bg-warning text-dark">Pendiente</span></td>' +
-'</tr>';
+        filasHtml +=
+            '<tr>' +
+                '<td><strong>Semana ' + s + '</strong></td>' +
+                '<td>' + fmtFechaRango(fechaPago) + '</td>' +
+                '<td><span style="font-weight:600;">' + fmt(semanal) + '</span></td>' +
+                '<td>' + fmt(capital) + '</td>' +
+                '<td>' + fmt(saldo) + '</td>' +
+                '<td>' + fmtPagoRealizado(null) + '</td>' +
+                '<td><span class="badge bg-warning text-dark">Pendiente</span></td>' +
+            '</tr>';
     }
-    document.getElementById('tablaAmortBody').innerHTML = filasHtml;
 
+    } else {
+        // ── Resto de productos — semanas normales ────
+        var añadirDias = function(fecha, dias) {
+            var d = new Date(fecha + 'T00:00:00');
+            d.setDate(d.getDate() + dias);
+            return d.toISOString().split('T')[0];
+        };
+
+        var saldo = total;
+        var semanal = parseFloat((total / _semanasActual).toFixed(2));
+
+        for (var s = 1; s <= _semanasActual; s++) {
+            var fechaPago = añadirDias(hoy, (s - 1) * 7 + 8);
+            var capital   = (s < _semanasActual) ? semanal : parseFloat(saldo.toFixed(2));
+            saldo         = parseFloat((saldo - capital).toFixed(2));
+            if (saldo < 0) saldo = 0;
+
+            filasHtml +=
+                '<tr>' +
+                    '<td>Semana ' + s + '</td>' +
+                    '<td>' + fmtFechaRango(fechaPago) + '</td>' +
+                    '<td>' +
+                        '<span style="display:block;font-weight:600;">' + fmt(semanal) + '</span>' +
+                        '<span style="display:block;font-size:0.82em;color:#888;">' + fmt(capital) + '</span>' +
+                    '</td>' +
+                    '<td>' + fmt(saldo) + '</td>' +
+                    '<td>' + fmtPagoRealizado(null) + '</td>' +
+                    '<td><span class="badge bg-warning text-dark">Pendiente</span></td>' +
+                '</tr>';
+        }
+    }
+
+    document.getElementById('tablaAmortBody').innerHTML = filasHtml;
     document.getElementById('amortSection').style.display = 'block';
     document.getElementById('amortSection').scrollIntoView({ behavior: 'smooth' });
 };
@@ -1420,10 +1732,17 @@ window.verTablaAmortizacion = function() {
 window.guardarConvenio = function() {
     if (!_ofertaActiva || !_credito) return;
 
+    // Calcular ANTES del Swal
+    var hoy     = new Date().toISOString().split('T')[0];
+    var total   = parseFloat(_ofertaActiva.total_a_pagar);
+    var semanal = parseFloat((total / _semanasActual).toFixed(2));
+
     Swal.fire({
         title: '¿Confirmar convenio?',
-        html: '<strong>' + _ofertaActiva.nombre + '</strong><br>' +
-              _semanasActual + ' semanas — $' + parseFloat(_ofertaActiva.total_a_pagar / _semanasActual).toFixed(2) + ' / semana',
+        html: '<strong>' + _ofertaActiva.nombre + '</strong> — ' +
+              _semanasActual + ' semanas — $' + semanal.toLocaleString('es-MX', { minimumFractionDigits: 2 }) + ' / semana<br><br>' +
+              '<span class="text-muted" style="font-size:.9rem;">Cliente: <strong>' + _credito.Nombre_cliente + '</strong></span><br>' +
+              '<span class="text-muted" style="font-size:.9rem;">Total a pagar: <strong>$' + total.toLocaleString('es-MX', { minimumFractionDigits: 2 }) + '</strong></span>',
         icon: 'question',
         showCancelButton: true,
         confirmButtonText: 'Sí, guardar',
@@ -1431,10 +1750,6 @@ window.guardarConvenio = function() {
         confirmButtonColor: '#764ba2',
     }).then(function(result) {
         if (!result.isConfirmed) return;
-
-        var hoy     = new Date().toISOString().split('T')[0];
-        var total   = parseFloat(_ofertaActiva.total_a_pagar);
-        var semanal = parseFloat((total / _semanasActual).toFixed(2));
 
         http.request({
             endpoint: '/convenios/guardarConvenio',
@@ -2298,7 +2613,6 @@ window.congelarModulo = congelarModulo;
 window.fmtFecha = fmtFecha;
 window.fmtFechaRango = fmtFechaRango;
 window.fmtPagoRealizado = fmtPagoRealizado;
-window.bindBotonesPago = bindBotonesPago;
 window.toggleAmortizacion = toggleAmortizacion;
 window.descargarPdfConvenio = descargarPdfConvenio;
 window.migCargarProductos = migCargarProductos;
