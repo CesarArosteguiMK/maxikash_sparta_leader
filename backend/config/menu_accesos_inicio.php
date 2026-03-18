@@ -21,10 +21,9 @@ if (!function_exists('getMenuItemsConfig')) {
             ['url' => '/reporteria/reporteCapitalHumano', 'label' => 'Reporte CH', 'icon' => 'fa-solid fa-file', 'bg' => 'bg-orange', 'modulos' => [21]],
             ['url' => '/condonaciones/historial', 'label' => 'Historial Condonaciones', 'icon' => 'fa-solid fa-hand-holding-dollar', 'bg' => 'bg-red', 'modulos' => [15]],
             ['url' => '/sabueso/ticket', 'label' => 'Sabueso - Ticket', 'icon' => 'fa-solid fa-dog', 'bg' => 'bg-teal', 'modulos' => [18]],
-            ['url' => '/sabueso/paneladmin', 'label' => 'Panel Admin', 'icon' => 'fa-solid fa-dog', 'bg' => 'bg-teal', 'modulos' => [19]],
-            ['url' => '/sabueso/panelSolicitudBaja', 'label' => 'Panel Solicitud de baja', 'icon' => 'fa-solid fa-user-xmark', 'bg' => 'bg-teal', 'modulos' => [25]],
+            ['url' => '/sabueso/panelAdminInicio', 'label' => 'Panel Admin', 'icon' => 'fa-solid fa-table-cells', 'bg' => 'bg-teal', 'modulos' => [19, 25]],
             ['url' => '/sabueso/cerradoEliminado', 'label' => 'Cerrado/Eliminado', 'icon' => 'fa-solid fa-dog', 'bg' => 'bg-teal', 'modulos' => [48]],
-            ['url' => '/sabueso/estadisticas', 'label' => 'Sabueso - Estadísticas', 'icon' => 'fa-solid fa-chart-column', 'bg' => 'bg-teal', 'modulos' => [47]],
+            ['url' => '/sabueso/estadisticas', 'label' => 'Estadísticas', 'icon' => 'fa-solid fa-chart-column', 'bg' => 'bg-teal', 'modulos' => [47]],
             ['url' => '/Despachos/AsignacionCreditosDespacho', 'label' => 'Despachos', 'icon' => 'fa-solid fa-building-columns', 'bg' => 'bg-yellow', 'modulos' => [20]],
             ['url' => '/Despachos/MiGestion', 'label' => 'Mi Gestión', 'icon' => 'fa-solid fa-chart-gantt', 'bg' => 'bg-yellow', 'modulos' => [20]],
             ['url' => '/convenios/consulta', 'label' => 'Convenios', 'icon' => 'fa-solid fa-handshake', 'bg' => 'bg-purple', 'modulos' => [46]],
@@ -32,6 +31,7 @@ if (!function_exists('getMenuItemsConfig')) {
             ['url' => '/onboarding/index', 'label' => 'Curso Onboarding', 'icon' => 'fa-solid fa-graduation-cap', 'bg' => 'bg-blue', 'modulos' => [44]],
             ['url' => '/departamentos/consulta/', 'label' => 'Departamentos', 'icon' => 'fa-solid fa-cog', 'bg' => 'bg-blue', 'modulos' => [10]],
             ['url' => '/equivalencias/consulta', 'label' => 'Equivalencia puestos', 'icon' => 'fa-solid fa-cog', 'bg' => 'bg-blue', 'modulos' => [17]],
+            ['url' => '/configticketpuesto/consulta', 'label' => 'Asignación por puestos', 'icon' => 'fa-solid fa-ticket', 'bg' => 'bg-blue', 'modulos' => [26]],
             ['url' => '/segundometro/shell', 'label' => 'Shell Segundómetro', 'icon' => 'fa-solid fa-cog', 'bg' => 'bg-blue', 'modulos' => [16]],
         ];
     }

@@ -36,6 +36,11 @@
         padding: .25rem 0;
     }
 
+    /* SweetAlert por encima del modal de permisos (asignar/quitar módulo o puesto) */
+    .swal2-container.swal-sobre-modal-perfil {
+        z-index: 100000 !important;
+    }
+
     /* Estilos para el Modal de Permisos */
     #modalEditPerfil .modal-content {
         border-radius: 1rem;

@@ -79,6 +79,11 @@ class Login extends Model
                 $ids[] = (int) $id;
             }
         }
-        return array_values(array_unique($ids));
+        $ids = array_values(array_unique($ids));
+        if ((in_array(19, $ids, true) || in_array(25, $ids, true)) && !in_array(27, $ids, true)) {
+            $ids[] = 27;
+            $ids = array_values(array_unique($ids));
+        }
+        return $ids;
     }
 }

@@ -349,13 +349,14 @@ class CapHum extends Model
                 $existe = $db->queryOne($queryExiste);
 
                 if (!$existe) {
-                    // 2️⃣ Insertar si no existe
-                    $queryInsert = <<<SQL
-                    INSERT INTO asigna_modulo_web (usuario_id, modulo_web_id)
-                    VALUES ($idPersona, $moduloId)
-                SQL;
-
-                    $db->queryOne($queryInsert);
+                    $moduloId = (int) $moduloId;
+                    $db->CRUD(
+                        "INSERT INTO asigna_modulo_web (usuario_id, modulo_web_id) VALUES (:uid, :mid)",
+                        ['uid' => $idPersona, 'mid' => $moduloId]
+                    );
+                    if ($moduloId === 27) {
+                        $db->CRUD("DELETE FROM asigna_modulo_web WHERE usuario_id = :uid AND modulo_web_id IN (19, 25)", ['uid' => $idPersona]);
+                    }
                 }
 
                 return self::resultado(
@@ -365,14 +366,18 @@ class CapHum extends Model
 
             } else {
 
-                // 3️⃣ Eliminar asignación
-                $queryDelete = <<<SQL
-                DELETE FROM asigna_modulo_web
-                WHERE usuario_id = $idPersona
-                  AND modulo_web_id = $moduloId
-            SQL;
-
-                $db->queryOne($queryDelete);
+                // 3️⃣ Eliminar asignación (Panel Admin = 27: quitar también 19 y 25 para unificar)
+                $moduloId = (int) $moduloId;
+                $db->CRUD(
+                    "DELETE FROM asigna_modulo_web WHERE usuario_id = :uid AND modulo_web_id = :mid",
+                    ['uid' => $idPersona, 'mid' => $moduloId]
+                );
+                if ($moduloId === 27) {
+                    $db->CRUD(
+                        "DELETE FROM asigna_modulo_web WHERE usuario_id = :uid AND modulo_web_id IN (19, 25)",
+                        ['uid' => $idPersona]
+                    );
+                }
 
                 return self::resultado(
                     true,
@@ -727,7 +732,7 @@ class CapHum extends Model
             SELECT
                 $idPersona AS usuario_id,
                 m.id AS modulo_id,
-                m.nombre AS modulo_nombre,
+                CASE WHEN m.id = 27 THEN 'Panel Admin' ELSE m.nombre END AS modulo_nombre,
                 m.pestana,
                 m.descripcion,
                 m.activo,
@@ -741,9 +746,10 @@ class CapHum extends Model
                 END AS asignado_flag
             FROM modulos_web m
             LEFT JOIN asigna_modulo_web a
-                ON m.id = a.modulo_web_id
-                AND a.usuario_id = $idPersona
+                ON a.usuario_id = $idPersona
+                AND (a.modulo_web_id = m.id OR (m.id = 27 AND a.modulo_web_id IN (19, 25)))
             WHERE m.activo = 1
+              AND m.id NOT IN (19, 25)
             ORDER BY m.id;
         SQL;
 

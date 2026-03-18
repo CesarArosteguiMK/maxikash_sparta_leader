@@ -73,9 +73,7 @@ class Inicio extends Controller
     public function diagnosticoConexiones()
     {
         if ((int)($_SESSION['usuario_id'] ?? 0) !== 1) {
-            http_response_code(403);
-            header('Content-Type: text/html; charset=utf-8');
-            echo '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Acceso denegado</title></head><body><h1>403 Acceso denegado</h1><p>Esta herramienta solo está disponible para el administrador.</p></body></html>';
+            header('Location: /inicio');
             exit;
         }
         header('Content-Type: text/html; charset=utf-8');
@@ -450,31 +448,29 @@ class Inicio extends Controller
     public function diagnosticoSegundometro()
     {
         if ((int)($_SESSION['usuario_id'] ?? 0) !== 1) {
-            http_response_code(403);
-            header('Content-Type: text/html; charset=utf-8');
-            echo '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Acceso denegado</title></head><body><h1>403 Acceso denegado</h1><p>Esta herramienta solo está disponible para el administrador.</p></body></html>';
+            header('Location: /inicio');
             exit;
         }
         $scriptPath = __DIR__ . '/../scripts/diagnostico_segundometro.php';
-        
+
         if (!file_exists($scriptPath)) {
             http_response_code(500);
             header('Content-Type: text/html; charset=utf-8');
             echo '<h1>Error</h1><p>Script de diagnóstico no encontrado</p>';
             exit;
         }
-        
+
         // Ejecutar script y capturar salida
         ob_start();
         include $scriptPath;
         $output = ob_get_clean();
-        
+
         // Si ya es HTML completo, mostrarlo directamente
         if (strpos($output, '<!DOCTYPE') !== false || strpos($output, '<html>') !== false) {
             echo $output;
             exit;
         }
-        
+
         // Si no, es texto plano - no hacer htmlspecialchars en los emojis
         header('Content-Type: text/html; charset=utf-8');
         ?>
@@ -609,7 +605,7 @@ class Inicio extends Controller
                     const toggleConfirm = document.getElementById('toggleConfirm');
                     const newPass = document.getElementById('newPass');
                     const confirmPass = document.getElementById('confirmPass');
-            
+
                     toggleNew.addEventListener('click', () => {
                         newPass.type = newPass.type === 'password' ? 'text' : 'password';
                     });
@@ -629,17 +625,17 @@ class Inicio extends Controller
                         Swal.showValidationMessage('La contraseña debe tener al menos 8 caracteres');
                         return false;
                     }
-                    
+
                     if (newPass.length > 15) {
                         Swal.showValidationMessage('La contraseña no puede tener más de 20 caracteres');
                         return false;
                     }
-                    
+
                     if (newPass !== confirmPass) {
                         Swal.showValidationMessage('Las contraseñas no coinciden');
                         return false;
                     }
-                    
+
                     if (newPass.toUpperCase() === usuarioSesion.toUpperCase()) {
                         Swal.showValidationMessage('La contraseña no puede ser igual al usuario');
                         return false;
@@ -649,7 +645,7 @@ class Inicio extends Controller
                         Swal.showValidationMessage('La contraseña no puede ser solo números');
                         return false;
                     }
-                    
+
                     return { newPass: newPass };
                 }
             }).then((result) => {

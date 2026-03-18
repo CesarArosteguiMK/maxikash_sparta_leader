@@ -329,7 +329,9 @@
         }
     }
 </style>
-
+<?php
+$seccionesEstadisticas = isset($seccionesEstadisticas) && is_array($seccionesEstadisticas) ? $seccionesEstadisticas : ['sabueso' => true];
+?>
 <div class="card mb-4" id="estadisticasSelectorWrap">
     <div class="card">
         <div class="row g-0 align-items-center">
@@ -349,6 +351,7 @@
                 </div>
             </div>
             <div class="row gy-6 mb-6">
+                <?php if (!empty($seccionesEstadisticas['sabueso'])): ?>
                 <div class="col-lg-4">
                     <div class="card shadow-none bg-label-primary h-100">
                         <div class="card-body d-flex justify-content-between flex-wrap-reverse">
@@ -369,6 +372,7 @@
                         </div>
                     </div>
                 </div>
+                <?php endif; ?>
                 <div class="col-lg-4">
                     <div class="card shadow-none bg-label-primary h-100">
                         <div class="card-body d-flex justify-content-between flex-wrap-reverse">

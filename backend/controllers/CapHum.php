@@ -779,11 +779,11 @@ class CapHum extends Controller
                     if (!data.success) {
                         // Revertimos el checkbox si falla
                         checkbox.checked = !checkbox.checked;
-                        Swal.fire("Error", data.mensaje || "No se pudo actualizar", "error");
+                        Swal.fire({ icon: 'error', title: 'Error', text: data.mensaje || 'No se pudo actualizar', customClass: { container: 'swal-sobre-modal-perfil' } });
                         return;
                     }
 
-                    // ALERTA SEGÚN ACCIÓN - igual que módulos
+                    // ALERTA SEGÚN ACCIÓN - igual que módulos (z-index para verse sobre el modal)
                     Swal.fire({
                         icon: 'success',
                         title: checkbox.checked
@@ -793,13 +793,14 @@ class CapHum extends Controller
                             ? 'El puesto fue asignado correctamente'
                             : 'El puesto fue deseleccionado correctamente',
                         timer: 1600,
-                        showConfirmButton: false
+                        showConfirmButton: false,
+                        customClass: { container: 'swal-sobre-modal-perfil' }
                     });
                 })
                 .catch(err => {
                     console.error(err);
                     checkbox.checked = !checkbox.checked;
-                    Swal.fire("Error", "No se pudo actualizar el puesto", "error");
+                    Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudo actualizar el puesto', customClass: { container: 'swal-sobre-modal-perfil' } });
                 });
             }
 
@@ -1204,11 +1205,11 @@ class CapHum extends Controller
                     if (!data.success) {
                         // Revertimos el checkbox si falla
                         checkbox.checked = !checkbox.checked;
-                        Swal.fire("Error", data.mensaje || "No se pudo actualizar", "error");
+                        Swal.fire({ icon: 'error', title: 'Error', text: data.mensaje || 'No se pudo actualizar', customClass: { container: 'swal-sobre-modal-perfil' } });
                         return;
                     }
 
-                    // ALERTA SEGÚN ACCIÓN - igual que módulos
+                    // ALERTA SEGÚN ACCIÓN - igual que módulos (z-index para verse sobre el modal)
                     Swal.fire({
                         icon: 'success',
                         title: checkbox.checked
@@ -1218,13 +1219,14 @@ class CapHum extends Controller
                             ? 'El puesto fue asignado correctamente'
                             : 'El puesto fue deseleccionado correctamente',
                         timer: 1600,
-                        showConfirmButton: false
+                        showConfirmButton: false,
+                        customClass: { container: 'swal-sobre-modal-perfil' }
                     });
                 })
                 .catch(err => {
                     console.error(err);
                     checkbox.checked = !checkbox.checked;
-                    Swal.fire("Error", "No se pudo actualizar el puesto", "error");
+                    Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudo actualizar el puesto', customClass: { container: 'swal-sobre-modal-perfil' } });
                 });
             }
 
@@ -1441,9 +1443,11 @@ class CapHum extends Controller
                     4: 'fa fa-users', 5: 'fa fa-sitemap', 6: 'fa fa-chart-bar', 7: 'fa fa-file-alt',
                     10: 'fa fa-cog', 13: 'fa fa-user-minus', 14: 'fa fa-file-alt', 15: 'fa fa-hand-holding-dollar',
                     16: 'fa fa-cog', 17: 'fa fa-cog',
-                    18: 'fa-solid fa-ticket', /* menú Ticket (levantar ticket) — ya no perro */
-                    19: 'fa fa-dog', /* Panel Admin Sabueso */
-                    25: 'fa-solid fa-user-xmark', /* Panel Solicitud de baja */
+                    26: 'fa fa-list-check', /* Asignación por puestos */
+                    18: 'fa-solid fa-ticket', /* menú Ticket (levantar ticket) */
+                    19: 'fa fa-table-cells', /* ya no se muestra; unificado en 27 Panel Admin */
+                    25: 'fa fa-table-cells', /* ya no se muestra; unificado en 27 Panel Admin */
+                    27: 'fa fa-table-cells', /* Panel Admin (acceso real por Asignación por puestos → Panel por usuario) */
                     20: 'fa fa-building-columns',
                     21: 'fa fa-file-alt',
                     41: 'fa fa-globe', 42: 'fa fa-users', 44: 'fa fa-graduation-cap',
@@ -2022,12 +2026,11 @@ class CapHum extends Controller
                     if (!data.success) {
                         // Revertimos el checkbox si falla
                         checkbox.checked = !checkbox.checked;
-
-                        Swal.fire("Error", data.mensaje || "No se pudo actualizar", "error");
+                        Swal.fire({ icon: 'error', title: 'Error', text: data.mensaje || 'No se pudo actualizar', customClass: { container: 'swal-sobre-modal-perfil' } });
                         return;
                     }
 
-                    // ALERTA SEGÚN ACCIÓN
+                    // ALERTA SEGÚN ACCIÓN (z-index para verse sobre el modal de permisos)
                     Swal.fire({
                         icon: 'success',
                         title: checkbox.checked
@@ -2037,16 +2040,14 @@ class CapHum extends Controller
                             ? 'El módulo fue asignado correctamente'
                             : 'El módulo fue desasignado correctamente',
                         timer: 1600,
-                        showConfirmButton: false
+                        showConfirmButton: false,
+                        customClass: { container: 'swal-sobre-modal-perfil' }
                     });
                 })
                 .catch(err => {
                     console.error(err);
-
-                    // Revertimos el checkbox si hay error
                     checkbox.checked = !checkbox.checked;
-
-                    Swal.fire("Error", "Error de comunicación con el servidor", "error");
+                    Swal.fire({ icon: 'error', title: 'Error', text: 'Error de comunicación con el servidor', customClass: { container: 'swal-sobre-modal-perfil' } });
                 });
             }
 
@@ -10025,8 +10026,7 @@ public function getMunicipios()
 
             // Validar que el nombre del archivo no contenga rutas relativas (seguridad)
             if (strpos($nombreArchivo, '..') !== false || strpos($nombreArchivo, '/') !== false) {
-                http_response_code(403);
-                echo 'Nombre de archivo inválido';
+                header('Location: /inicio');
                 exit;
             }
 
@@ -10200,8 +10200,7 @@ public function getMunicipios()
             }
 
             if (strpos($nombreArchivo, '..') !== false || strpos($nombreArchivo, '/') !== false) {
-                http_response_code(403);
-                echo 'Nombre de archivo inválido';
+                header('Location: /inicio');
                 exit;
             }
 

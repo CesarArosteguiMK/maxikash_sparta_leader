@@ -129,14 +129,9 @@ function getMenu()
                                     'modulos' => [18]
                             ],
                             [
-                                    'label' => 'Panel Admin Sabueso',
-                                    'url' => '/sabueso/paneladmin',
-                                    'modulos' => [19]
-                            ],
-                            [
-                                    'label' => 'Panel Solicitud de baja',
-                                    'url' => '/sabueso/panelSolicitudBaja',
-                                    'modulos' => [25]
+                                    'label' => 'Panel Admin',
+                                    'url' => '/sabueso/panelAdminInicio',
+                                    'modulos' => [19, 25, 27]
                             ],
                             [
                                     'label' => 'Cerrado/Eliminado Sabueso',
@@ -197,6 +192,11 @@ function getMenu()
                                     'label' => 'Equivalencia puestos',
                                     'url' => '/equivalencias/consulta',
                                     'modulos' => [17]
+                            ],
+                            [
+                                    'label' => 'Asignación por puestos',
+                                    'url' => '/configticketpuesto/consulta',
+                                    'modulos' => [26]
                             ],
                             [
                                     'label' => 'Shell Segundómetro',
