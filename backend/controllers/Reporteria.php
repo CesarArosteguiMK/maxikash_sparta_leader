@@ -1185,7 +1185,7 @@ HTML;
                 async function cargar() {
                     document.getElementById('statTotal').textContent = '…';
                     try {
-                        const r = await fetch('/Reportes/getVencimientosLunes', { method: 'POST' });
+                        const r = await fetch('/Reporteria/getVencimientosLunes', { method: 'POST' });
                         const d = await r.json();
                         _data = d.datos || [];
 
