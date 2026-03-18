@@ -639,6 +639,268 @@
     </div>
 </div>
 
+<!-- ============================================================ -->
+<!-- MODAL: Historial de Gestores y Convenios                    -->
+<!-- Agregar justo antes del cierre del body, junto a los otros  -->
+<!-- modales del archivo asignacion_creditosDespacho.php         -->
+<!-- ============================================================ -->
+
+<div class="modal fade" id="modalHistorialGestores" tabindex="-1"
+     aria-labelledby="modalHistorialGestoresLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content" style="border: none; border-radius: 0.5rem; overflow: hidden;">
+
+            <!-- HEADER -->
+            <div class="modal-header" style="background: #696cff; padding: 1.25rem 1.5rem; border: none;">
+                <div class="d-flex align-items-center gap-2">
+                    <div style="width:36px; height:36px; border-radius:8px; background:rgba(255,255,255,0.2);
+                                display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                        <i class="fa-solid fa-users" style="color:white; font-size:14px;"></i>
+                    </div>
+                    <div>
+                        <div style="color:white; font-weight:500; font-size:15px; line-height:1.2;">
+                            Historial de Gestores y Convenios
+                        </div>
+                        <div style="color:rgba(0, 0, 0, 0.04); font-size:12px;" id="hgc-credito-label">
+                            Crédito #—
+                        </div>
+                    </div>
+                </div>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                        aria-label="Cerrar"></button>
+            </div>
+
+            <!-- TABS NAV -->
+            <div style="border-bottom:1px solid #e0e0e0; background:#f8f7ff; padding: 0 1.5rem;">
+                <ul class="nav" id="hgcTabs" role="tablist" style="gap:0; margin:0; flex-wrap:nowrap;">
+
+                    <li class="nav-item" role="presentation">
+                        <button class="hgc-tab-btn active" id="hgc-tab-datos"
+                                data-panel="hgc-panel-datos"
+                                style="padding:0.875rem 1.25rem; border:none; background:transparent;
+                                       cursor:pointer; font-size:13px; font-weight:500; color:#696cff;
+                                       border-bottom:2px solid #696cff; display:flex; align-items:center; gap:6px;">
+                            <i class="fa-solid fa-table-cells-large" style="font-size:12px;"></i>
+                            Datos Generales
+                        </button>
+                    </li>
+
+                    <li class="nav-item" role="presentation">
+                        <button class="hgc-tab-btn" id="hgc-tab-historial"
+                                data-panel="hgc-panel-historial"
+                                style="padding:0.875rem 1.25rem; border:none; background:transparent;
+                                       cursor:pointer; font-size:13px; font-weight:500; color:#697a8d;
+                                       border-bottom:2px solid transparent; display:flex; align-items:center; gap:6px;">
+                            <i class="fa-solid fa-clock-rotate-left" style="font-size:12px;"></i>
+                            Historial de Gestores
+                            <span id="hgc-badge-historial"
+                                  style="background:#696cff; color:white; font-size:10px;
+                                         padding:2px 7px; border-radius:10px; font-weight:500;">0</span>
+                        </button>
+                    </li>
+
+                    <li class="nav-item" role="presentation">
+                        <button class="hgc-tab-btn" id="hgc-tab-convenios"
+                                data-panel="hgc-panel-convenios"
+                                style="padding:0.875rem 1.25rem; border:none; background:transparent;
+                                       cursor:pointer; font-size:13px; font-weight:500; color:#697a8d;
+                                       border-bottom:2px solid transparent; display:flex; align-items:center; gap:6px;">
+                            <i class="fa-solid fa-file-contract" style="font-size:12px;"></i>
+                            Convenios
+                            <span id="hgc-badge-convenios"
+                                  style="background:#28a745; color:white; font-size:10px;
+                                         padding:2px 7px; border-radius:10px; font-weight:500;">0</span>
+                        </button>
+                    </li>
+
+                </ul>
+            </div>
+
+            <!-- BODY -->
+            <div class="modal-body" style="padding:1.5rem; min-height:420px;">
+
+                <!-- Spinner de carga global -->
+                <div id="hgc-spinner" class="text-center py-5" style="display:none;">
+                    <div class="spinner-border text-primary" role="status"></div>
+                    <div class="mt-2 text-muted small">Cargando información...</div>
+                </div>
+
+                <!-- -------------------------------------------------- -->
+                <!-- PANEL 1: Datos Generales                            -->
+                <!-- -------------------------------------------------- -->
+                <div id="hgc-panel-datos">
+
+                    <!-- Métricas rápidas -->
+                    <div class="row g-3 mb-4">
+                        <div class="col-4">
+                            <div class="text-center p-3 rounded-2" style="background:#fff3f3; border:0.5px solid #ffc5c5;">
+                                <div class="text-muted mb-1" style="font-size:11px; text-transform:uppercase; letter-spacing:.5px;">
+                                    Saldo vencido
+                                </div>
+                                <div style="font-size:20px; font-weight:500; color:#dc3545;" id="hgc-saldo">—</div>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="text-center p-3 rounded-2" style="background:#fff8f0; border:0.5px solid #ffd8a8;">
+                                <div class="text-muted mb-1" style="font-size:11px; text-transform:uppercase; letter-spacing:.5px;">
+                                    Días de mora
+                                </div>
+                                <div style="font-size:20px; font-weight:500; color:#fd7e14;" id="hgc-mora">—</div>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="text-center p-3 rounded-2" style="background:#f0f0ff; border:0.5px solid #c5c6ff;">
+                                <div class="text-muted mb-1" style="font-size:11px; text-transform:uppercase; letter-spacing:.5px;">
+                                    Gestores asignados
+                                </div>
+                                <div style="font-size:20px; font-weight:500; color:#696cff;" id="hgc-total-gestores">—</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Card cliente -->
+                    <div class="card mb-3" style="border:0.5px solid #e0e0e0;">
+                        <div class="card-body p-3">
+                            <div class="text-uppercase text-muted mb-3"
+                                 style="font-size:11px; letter-spacing:.5px; font-weight:500;">
+                                Datos del cliente
+                            </div>
+
+                            <!-- Cabecera cliente -->
+                            <div class="d-flex align-items-center gap-3 pb-3 mb-3"
+                                 style="border-bottom:0.5px solid #f0f0f0;">
+                                <div id="hgc-avatar"
+                                     style="width:44px; height:44px; border-radius:50%; background:#e8e8ff;
+                                            display:flex; align-items:center; justify-content:center;
+                                            font-weight:500; font-size:13px; color:#696cff; flex-shrink:0;">
+                                    —
+                                </div>
+                                <div class="flex-grow-1">
+                                    <div style="font-weight:500; font-size:15px;" id="hgc-nombre-cliente">—</div>
+                                    <div class="text-muted" style="font-size:12px;" id="hgc-curp">—</div>
+                                </div>
+                                <span id="hgc-estatus-badge" class="badge bg-success">Activo</span>
+                            </div>
+
+                            <!-- Grid de datos -->
+                            <div class="row g-3" style="font-size:13px;">
+                                <div class="col-6 col-md-3">
+                                    <div class="text-muted">Teléfono</div>
+                                    <div class="fw-medium mt-1" id="hgc-telefono">—</div>
+                                </div>
+                                <div class="col-6 col-md-3">
+                                    <div class="text-muted">Sucursal</div>
+                                    <div class="fw-medium mt-1" id="hgc-sucursal">—</div>
+                                </div>
+                                <div class="col-6 col-md-3">
+                                    <div class="text-muted">Fecha desembolso</div>
+                                    <div class="fw-medium mt-1" id="hgc-fecha-desembolso">—</div>
+                                </div>
+                                <div class="col-6 col-md-3">
+                                    <div class="text-muted">ID Crédito</div>
+                                    <div class="fw-medium mt-1" id="hgc-id-credito-detalle">—</div>
+                                </div>
+                                <div class="col-12">
+                                    <div class="text-muted">Dirección</div>
+                                    <div class="fw-medium mt-1" id="hgc-direccion">—</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Card gestor actual -->
+                    <div class="card" style="border:0.5px solid #c5c6ff; background:#f0f0ff;" id="hgc-gestor-actual-card">
+                        <div class="card-body p-3">
+                            <div class="text-uppercase mb-2"
+                                 style="font-size:11px; letter-spacing:.5px; font-weight:500; color:#696cff;">
+                                <i class="fa-solid fa-user-check me-1"></i> Gestor actual
+                            </div>
+                            <div class="d-flex align-items-center gap-3">
+                                <div id="hgc-gestor-avatar"
+                                     style="width:38px; height:38px; border-radius:50%; background:#696cff;
+                                            display:flex; align-items:center; justify-content:center;
+                                            font-size:12px; font-weight:500; color:white; flex-shrink:0;">
+                                    —
+                                </div>
+                                <div class="flex-grow-1">
+                                    <div style="font-weight:500; font-size:14px;" id="hgc-gestor-nombre">—</div>
+                                    <div class="text-muted" style="font-size:12px;" id="hgc-gestor-info">—</div>
+                                </div>
+                                <span class="badge bg-primary">Activo</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Sin gestor activo -->
+                    <div class="alert alert-warning mt-3" id="hgc-sin-gestor" style="display:none;">
+                        <i class="fa-solid fa-circle-exclamation me-2"></i>
+                        Este crédito no tiene gestor activo actualmente.
+                    </div>
+
+                </div><!-- /panel-datos -->
+
+                <!-- -------------------------------------------------- -->
+                <!-- PANEL 2: Historial de Gestores                      -->
+                <!-- -------------------------------------------------- -->
+                <div id="hgc-panel-historial" style="display:none;">
+
+                    <p class="text-muted mb-3" style="font-size:12px;">
+                        Todos los gestores que han tenido asignado este crédito, del más reciente al más antiguo.
+                    </p>
+
+                    <!-- Timeline -->
+                    <div id="hgc-timeline" style="position:relative;">
+                        <!-- Línea vertical decorativa -->
+                        <div style="position:absolute; left:16px; top:24px; bottom:8px; width:2px;
+                                    background:#e0e0e0; z-index:0;"></div>
+                        <!-- Los items se generan dinámicamente -->
+                    </div>
+
+                    <!-- Estado vacío -->
+                    <div id="hgc-historial-vacio" class="text-center py-5 text-muted" style="display:none;">
+                        <i class="fa-solid fa-clock-rotate-left fa-2x mb-2 d-block opacity-25"></i>
+                        Sin historial de gestores para este crédito
+                    </div>
+
+                </div><!-- /panel-historial -->
+
+                <!-- -------------------------------------------------- -->
+                <!-- PANEL 3: Convenios                                  -->
+                <!-- -------------------------------------------------- -->
+                <div id="hgc-panel-convenios" style="display:none;">
+
+                    <p class="text-muted mb-3" style="font-size:12px;">
+                        Acuerdos de pago registrados para este crédito.
+                    </p>
+
+                    <div id="hgc-convenios-lista">
+                        <!-- Los convenios se generan dinámicamente -->
+                    </div>
+
+                    <!-- Estado vacío -->
+                    <div id="hgc-convenios-vacio" class="text-center py-5 text-muted" style="display:none;">
+                        <i class="fa-solid fa-file-contract fa-2x mb-2 d-block opacity-25"></i>
+                        Sin convenios registrados para este crédito
+                    </div>
+
+                </div><!-- /panel-convenios -->
+
+            </div><!-- /modal-body -->
+
+            <!-- FOOTER -->
+            <div class="modal-footer" style="background:#f8f7ff; border-top:0.5px solid #e0e0e0; padding:.875rem 1.5rem;">
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">
+                    <i class="fa-solid fa-times me-1"></i>Cerrar
+                </button>
+                <button type="button" class="btn btn-primary btn-sm" id="hgc-btn-exportar" style="display:none;">
+                    <i class="fa-solid fa-download me-1"></i>Exportar
+                </button>
+            </div>
+
+        </div><!-- /modal-content -->
+    </div><!-- /modal-dialog -->
+</div><!-- /modal -->
+
 <!-- TABLA DE CRÉDITOS ASIGNADOS -->
 <div class="card">
     <div class="card-header d-flex justify-content-between align-items-center">
@@ -1287,12 +1549,15 @@ function cargarCreditosAsignados(idPersona) {
 
                     // Switch toggle visual
                     const switchEstatus = `
-                        <div class="form-check form-switch d-flex justify-content-center">
+                        <div class="form-check form-switch d-flex justify-content-center align-items-center" style="gap:0.5rem;">
                             <input class="form-check-input switch-credito" type="checkbox"
                                    id="switch-${credito.id_credito}"
                                    data-credito="${credito.id_credito}"
                                    ${esActivo ? 'checked' : ''}
                                    style="cursor: pointer; width: 2.5rem; height: 1.25rem;">
+                            <button class="btn btn-outline-primary btn-sm btn-seguimiento" title="Seguimiento" data-credito="${credito.id_credito}">
+                                <i class="fa-solid fa-arrow-right"></i>
+                            </button>
                         </div>`;
 
                     return [
@@ -1307,7 +1572,7 @@ function cargarCreditosAsignados(idPersona) {
                 // Actualizar tabla manteniendo página actual
                 actualizaDatosTabla('#tabla-creditos', datosFormateados, true);
 
-                // Agregar event listeners a los switches después de actualizar la tabla
+                // Agregar event listeners a los switches y botones después de actualizar la tabla
                 setTimeout(() => {
                     document.querySelectorAll('.switch-credito').forEach(switchElement => {
                         switchElement.addEventListener('change', function(e) {
@@ -1321,6 +1586,13 @@ function cargarCreditosAsignados(idPersona) {
                             // Pedir confirmación
                             cambiarEstatusCredito(idCredito, nuevoEstatus, this);
                         });
+                    });
+                    // Botón seguimiento
+                    document.querySelectorAll('.btn-seguimiento').forEach(btn => {
+                        btn.addEventListener('click', function(e) {
+    const idCredito = this.getAttribute('data-credito');
+    abrirModalHistorial(idCredito); // ← esto
+});
                     });
                 }, 100);
             }
@@ -1858,6 +2130,344 @@ async function actualizarTipoPersona() {
     }
 }
 
+// ============================================================================
+// MODAL HISTORIAL DE GESTORES
+// ============================================================================
+
+
+function hgcSwitchTab(panelId) {
+    const panels  = ['hgc-panel-datos', 'hgc-panel-historial', 'hgc-panel-convenios'];
+    const tabBtns = document.querySelectorAll('.hgc-tab-btn');
+
+    // Ocultar todos los paneles
+    panels.forEach(p => {
+        const el = document.getElementById(p);
+        if (el) el.style.display = 'none';
+    });
+
+    // Mostrar el panel solicitado
+    const target = document.getElementById(panelId);
+    if (target) target.style.display = 'block';
+
+    // Actualizar estilos de tabs
+    tabBtns.forEach(btn => {
+        const isActive = btn.dataset.panel === panelId;
+        btn.style.color        = isActive ? '#696cff' : '#697a8d';
+        btn.style.borderBottom = isActive ? '2px solid #696cff' : '2px solid transparent';
+        btn.classList.toggle('active', isActive);
+    });
+}
+
+/**
+ * Genera las iniciales de un nombre completo
+ */
+function hgcInitiales(nombre) {
+    if (!nombre || nombre === '—') return '?';
+    const partes = nombre.trim().split(' ').filter(Boolean);
+    if (partes.length === 1) return partes[0][0].toUpperCase();
+    return (partes[0][0] + partes[partes.length - 1][0]).toUpperCase();
+}
+
+/**
+ * Muestra / oculta el spinner global del modal
+ */
+function hgcSetLoading(visible) {
+    const spinner  = document.getElementById('hgc-spinner');
+    const paneDatos = document.getElementById('hgc-panel-datos');
+    if (spinner)   spinner.style.display   = visible ? 'block' : 'none';
+    if (paneDatos) paneDatos.style.display = visible ? 'none'  : 'block';
+}
+
+// ── Apertura del modal ───────────────────────────────────────
+
+/**
+ * Abre el modal y carga toda la información del crédito
+ * @param {string|number} idCredito
+ */
+async function abrirModalHistorial(idCredito) {
+    // Resetear tabs al primero
+    hgcSwitchTab('hgc-panel-datos');
+
+    // Limpiar campos antes de cargar
+    hgcLimpiarModal();
+
+    // Mostrar spinner
+    hgcSetLoading(true);
+
+    // Abrir modal Bootstrap
+    const modalEl = document.getElementById('modalHistorialGestores');
+    let modal = bootstrap.Modal.getInstance(modalEl);
+    if (!modal) modal = new bootstrap.Modal(modalEl);
+    modal.show();
+
+    // Actualizar label del header
+    document.getElementById('hgc-credito-label').textContent = `Crédito #${idCredito}`;
+
+    try {
+        // Llamadas paralelas: datos del crédito + historial completo de asignaciones
+        const [resCreditoProm, resHistorialProm] = await Promise.allSettled([
+            fetch('/despachos/buscarCredito', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ tipo: 'id_credito', valor: idCredito })
+            }).then(r => r.json()),
+
+            fetch('/despachos/obtenerHistorialGestores', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id_credito: idCredito })
+            }).then(r => r.json())
+        ]);
+
+        const dataCredito   = resCreditoProm.status   === 'fulfilled' ? resCreditoProm.value   : null;
+        const dataHistorial = resHistorialProm.status === 'fulfilled' ? resHistorialProm.value : null;
+
+        // Poblar datos generales
+        if (dataCredito && dataCredito.success) {
+            hgcPoblarDatosGenerales(dataCredito.credito, dataCredito.asignacion);
+        }
+
+        // Poblar historial de gestores
+        if (dataHistorial && dataHistorial.success) {
+            hgcPoblarHistorial(dataHistorial.historial);
+        } else {
+            hgcPoblarHistorial([]);
+        }
+
+        // Convenios — cuando tengas el endpoint listo, descomentar:
+        // const resConvenios = await fetch('/despachos/obtenerConveniosCredito', { ... });
+        // hgcPoblarConvenios(resConvenios.convenios);
+
+        // Por ahora convenios vacíos
+        hgcPoblarConvenios([]);
+
+    } catch (error) {
+        console.error('Error al cargar datos del modal:', error);
+        Swal.fire('Error', 'No se pudo cargar la información del crédito', 'error');
+    } finally {
+        hgcSetLoading(false);
+    }
+}
+
+// ── Población de paneles ─────────────────────────────────────
+
+/**
+ * Poblar Panel 1: Datos Generales
+ */
+function hgcPoblarDatosGenerales(credito, asignacion) {
+    if (!credito) return;
+
+    // Métricas
+    document.getElementById('hgc-saldo').textContent =
+        new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' })
+            .format(credito.saldo_actual || 0);
+
+    document.getElementById('hgc-mora').textContent  = credito.dias_mora || 0;
+    document.getElementById('hgc-id-credito-detalle').textContent = `#${credito.id_credito}`;
+
+    // Iniciales del cliente
+    const iniciales = hgcInitiales(credito.nombre_cliente);
+    document.getElementById('hgc-avatar').textContent          = iniciales;
+    document.getElementById('hgc-nombre-cliente').textContent  = credito.nombre_cliente  || '—';
+    document.getElementById('hgc-curp').textContent            = credito.curp            || '—';
+    document.getElementById('hgc-telefono').textContent        = credito.telefono        || '—';
+    document.getElementById('hgc-sucursal').textContent        = credito.sucursal        || '—';
+    document.getElementById('hgc-fecha-desembolso').textContent= credito.fecha_desembolso|| '—';
+    document.getElementById('hgc-direccion').textContent       = credito.direccion       || '—';
+
+    // Gestor actual
+    const cardGestor  = document.getElementById('hgc-gestor-actual-card');
+    const sinGestor   = document.getElementById('hgc-sin-gestor');
+    const esActivo    = asignacion && (asignacion.estatus === '1' || asignacion.estatus === 1);
+
+    if (asignacion && esActivo) {
+        cardGestor.style.display = 'block';
+        sinGestor.style.display  = 'none';
+
+        const inicGestor = hgcInitiales(asignacion.nombre_despacho);
+        document.getElementById('hgc-gestor-avatar').textContent = inicGestor;
+        document.getElementById('hgc-gestor-nombre').textContent = asignacion.nombre_despacho || '—';
+        document.getElementById('hgc-gestor-info').textContent   =
+            `${asignacion.puesto_despacho || 'Gestor'} · Desde ${asignacion.fecha_asignacion || '—'}`;
+    } else {
+        cardGestor.style.display = 'none';
+        sinGestor.style.display  = 'block';
+    }
+}
+
+/**
+ * Poblar Panel 2: Historial de Gestores (timeline)
+ */
+function hgcPoblarHistorial(historial) {
+    const timeline = document.getElementById('hgc-timeline');
+    const vacio    = document.getElementById('hgc-historial-vacio');
+    const badge    = document.getElementById('hgc-badge-historial');
+
+    badge.textContent = historial.length;
+
+    // Actualizar métrica de gestores en panel 1
+    document.getElementById('hgc-total-gestores').textContent = historial.length;
+
+    if (!historial.length) {
+        timeline.innerHTML    = '';
+        vacio.style.display   = 'block';
+        return;
+    }
+
+    vacio.style.display = 'none';
+
+    timeline.innerHTML = historial.map((item, idx) => {
+        const esActual   = item.estatus === '1' || item.estatus === 1;
+        const iniciales  = hgcInitiales(item.nombre_despacho);
+        const badgeHtml  = esActual
+            ? `<span style="background:#696cff; color:white; font-size:10px; padding:2px 8px; border-radius:10px; white-space:nowrap;">Actual</span>`
+            : `<span style="background:#f0f0f0; color:#697a8d; font-size:10px; padding:2px 8px; border-radius:10px; white-space:nowrap; border:0.5px solid #e0e0e0;">Inactivo</span>`;
+
+        const avatarStyle = esActual
+            ? 'background:#696cff; color:white;'
+            : 'background:#f0f0f0; border:0.5px solid #e0e0e0; color:#697a8d;';
+
+        const cardBorder = esActual ? 'border:0.5px solid #c5c6ff;' : 'border:0.5px solid #e0e0e0;';
+
+        const fechaFin = item.fecha_baja
+            ? `<span>Hasta: <strong style="color:#566a7f;">${item.fecha_baja}</strong></span>`
+            : '';
+
+        return `
+        <div style="display:flex; gap:14px; margin-bottom:1.25rem; position:relative; z-index:1;">
+            <div style="width:34px; height:34px; border-radius:50%; ${avatarStyle}
+                        display:flex; align-items:center; justify-content:center;
+                        font-size:11px; font-weight:500; flex-shrink:0;">
+                ${iniciales}
+            </div>
+            <div style="background:#fff; ${cardBorder} border-radius:0.375rem;
+                        padding:0.875rem 1rem; flex:1;">
+                <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                    <div>
+                        <div style="font-weight:500; font-size:14px;">${item.nombre_despacho || '—'}</div>
+                        <div style="font-size:12px; color:#697a8d;">${item.puesto_despacho || '—'}</div>
+                    </div>
+                    ${badgeHtml}
+                </div>
+                <div style="margin-top:8px; display:flex; flex-wrap:wrap; gap:12px; font-size:12px; color:#697a8d;">
+                    <span>Desde: <strong style="color:#566a7f;">${item.fecha_asignacion || '—'}</strong></span>
+                    ${fechaFin}
+                    <span>Por: <strong style="color:#566a7f;">${item.asignado_por || 'Sistema'}</strong></span>
+                </div>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+/**
+ * Poblar Panel 3: Convenios
+ * (placeholder hasta que lleguen las tablas de convenios)
+ */
+function hgcPoblarConvenios(convenios) {
+    const lista = document.getElementById('hgc-convenios-lista');
+    const vacio = document.getElementById('hgc-convenios-vacio');
+    const badge = document.getElementById('hgc-badge-convenios');
+
+    badge.textContent = convenios.length;
+
+    if (!convenios.length) {
+        lista.innerHTML       = '';
+        vacio.style.display   = 'block';
+        return;
+    }
+
+    vacio.style.display = 'none';
+
+    lista.innerHTML = convenios.map((conv, idx) => {
+        const pagados    = conv.pagos_realizados  || 0;
+        const total      = conv.total_parcialidades || 1;
+        const porcentaje = Math.round((pagados / total) * 100);
+
+        const badgeEstatus = conv.estatus === 'Vigente'
+            ? `<span style="background:#e8f5e9; color:#2e7d32; font-size:11px; padding:3px 10px; border-radius:20px; font-weight:500;">Vigente</span>`
+            : `<span style="background:#fff3e0; color:#e65100; font-size:11px; padding:3px 10px; border-radius:20px; font-weight:500;">${conv.estatus}</span>`;
+
+        return `
+        <div class="card mb-3" style="border:0.5px solid #e0e0e0;">
+            <div class="card-body p-3">
+                <div class="d-flex justify-content-between align-items-start mb-3">
+                    <div>
+                        <div style="font-weight:500; font-size:14px;">Convenio #${String(idx+1).padStart(3,'0')}</div>
+                        <div style="font-size:12px; color:#697a8d;">
+                            Registrado el ${conv.fecha_registro || '—'} por ${conv.registrado_por || 'Sistema'}
+                        </div>
+                    </div>
+                    ${badgeEstatus}
+                </div>
+
+                <div class="row g-2 mb-3 p-2 rounded-2" style="background:#f8f9fa; font-size:12px;">
+                    <div class="col-4">
+                        <div style="color:#697a8d;">Monto total</div>
+                        <div style="font-weight:500; margin-top:2px;">
+                            ${new Intl.NumberFormat('es-MX',{style:'currency',currency:'MXN'}).format(conv.monto_total||0)}
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <div style="color:#697a8d;">Parcialidades</div>
+                        <div style="font-weight:500; margin-top:2px;">${conv.total_parcialidades || 0} pagos</div>
+                    </div>
+                    <div class="col-4">
+                        <div style="color:#697a8d;">Pago mensual</div>
+                        <div style="font-weight:500; margin-top:2px;">
+                            ${new Intl.NumberFormat('es-MX',{style:'currency',currency:'MXN'}).format(conv.monto_parcialidad||0)}
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="d-flex justify-content-between mb-1" style="font-size:12px;">
+                        <span style="color:#697a8d;">Avance de pagos</span>
+                        <span style="font-weight:500;">${pagados} de ${total} pagados</span>
+                    </div>
+                    <div style="height:6px; background:#f0f0f0; border-radius:3px; overflow:hidden;">
+                        <div style="height:100%; width:${porcentaje}%; background:#696cff; border-radius:3px;
+                                    transition:width .4s ease;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+// ── Limpiar modal ────────────────────────────────────────────
+
+function hgcLimpiarModal() {
+    const campos = [
+        'hgc-saldo','hgc-mora','hgc-total-gestores',
+        'hgc-avatar','hgc-nombre-cliente','hgc-curp',
+        'hgc-telefono','hgc-sucursal','hgc-fecha-desembolso',
+        'hgc-id-credito-detalle','hgc-direccion',
+        'hgc-gestor-avatar','hgc-gestor-nombre','hgc-gestor-info'
+    ];
+    campos.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = '—';
+    });
+    document.getElementById('hgc-badge-historial').textContent = '0';
+    document.getElementById('hgc-badge-convenios').textContent = '0';
+    document.getElementById('hgc-timeline').innerHTML          = '';
+    document.getElementById('hgc-convenios-lista').innerHTML   = '';
+    document.getElementById('hgc-gestor-actual-card').style.display = 'none';
+    document.getElementById('hgc-sin-gestor').style.display         = 'none';
+    document.getElementById('hgc-historial-vacio').style.display    = 'none';
+    document.getElementById('hgc-convenios-vacio').style.display    = 'none';
+}
+
+// ── Inicializar event listeners de tabs ──────────────────────
+
+document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('.hgc-tab-btn').forEach(btn => {
+        btn.addEventListener('click', function () {
+            hgcSwitchTab(this.dataset.panel);
+        });
+    });
+});
+
 // ===========================================
 // AUTO-COLAPSAR SUB-ACORDEONES
 // ===========================================
@@ -1882,6 +2492,8 @@ if (collapseDocumentos) {
         }
     });
 }
+
+
 
 </script>
 
