@@ -1091,6 +1091,217 @@ HTML;
         }
     }
 
+    public function VencimientosLunes()
+    {
+        $script = <<<'HTML'
+        <script>
+        document.addEventListener('DOMContentLoaded', function () {
+
+            const dtLang = {
+                decimal:',', thousands:'.',
+                emptyTable:'Sin registros',
+                info:'Mostrando _START_ a _END_ de _TOTAL_ registros',
+                infoEmpty:'0 registros',
+                infoFiltered:'(de _MAX_ totales)',
+                lengthMenu:'Mostrar _MENU_',
+                loadingRecords:'Cargando...', processing:'Procesando...',
+                search:'', searchPlaceholder:'Buscar en tabla...',
+                zeroRecords:'Sin coincidencias',
+                paginate: { first:'Primero', last:'Último', next:'Siguiente', previous:'Anterior' },
+                aria: {
+                    sortAscending:  ': ordenar ascendente',
+                    sortDescending: ': ordenar descendente'
+                }
+            };
+
+            let _data  = [];
+            let dtVenc = null;
+
+            const BUCKET_BADGE = {
+                'Al corriente': 'bg-label-success',
+                'M1':  'bg-label-info',
+                'M2':  'bg-label-warning',
+                'M3':  'bg-label-danger',
+                'M4+': 'bg-label-danger',
+            };
+
+            function badgeBucket(val) {
+                const v = val || '—';
+                const cls = BUCKET_BADGE[v] ?? 'bg-label-secondary';
+                return `<span class="badge ${cls}">${v}</span>`;
+            }
+
+            /* ── DataTable ── */
+            function initDT() {
+                if ($.fn.DataTable.isDataTable('#tablaVencimientos')) {
+                    $('#tablaVencimientos').DataTable().destroy();
+                }
+                dtVenc = $('#tablaVencimientos').DataTable({
+                    processing: true, responsive: true, pageLength: 25,
+                    order: [[0, 'asc']],
+                    language: dtLang,
+                    columns: [
+                        { data:'id_credito',   width:'110px' },
+                        { data:'nombre',       width:'180px' },
+                        { data:'bucket',       className:'text-center', width:'120px' },
+                        { data:'bucket_real',  className:'text-center', width:'120px' },
+                        { data:'bucket_final', className:'text-center', width:'120px' },
+                        { data:'gestor',       width:'140px' },
+                        { data:'jefe_plaza',   width:'140px' },
+                        { data:'zonal',        width:'110px' },
+                        { data:'territorial',  width:'120px' },
+                        { data:'cuotas_venc',  className:'text-center', width:'90px' },
+                        { data:'saldo',        className:'text-end',    width:'120px' },
+                    ]
+                });
+            }
+
+            /* ── Stats ── */
+            function actualizarStats(data) {
+                document.getElementById('statTotal').textContent = data.length;
+                const totalSaldo = data.reduce((a, r) => a + parseFloat(r._saldo_raw || 0), 0);
+                document.getElementById('statSaldo').textContent =
+                    '$' + totalSaldo.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+            }
+
+            /* ── Poblar filtros dinámicos ── */
+            function poblarFiltros(data) {
+                const selBucket  = document.getElementById('fBucket');
+                const selGestor  = document.getElementById('fGestor');
+
+                const buckets  = [...new Set(data.map(r => r.Bucket_Morosidad_Final || '').filter(Boolean))].sort();
+                const gestores = [...new Set(data.map(r => r.Gestor_Asignado || '').filter(Boolean))].sort();
+
+                /* Limpiar y repoblar conservando la selección actual */
+                const curBucket = selBucket.value;
+                const curGestor = selGestor.value;
+
+                selBucket.innerHTML = '<option value="">Todos los buckets</option>';
+                buckets.forEach(b => {
+                    const o = document.createElement('option');
+                    o.value = b; o.textContent = b;
+                    if (b === curBucket) o.selected = true;
+                    selBucket.appendChild(o);
+                });
+
+                selGestor.innerHTML = '<option value="">Todos los gestores</option>';
+                gestores.forEach(g => {
+                    const o = document.createElement('option');
+                    o.value = g; o.textContent = g;
+                    if (g === curGestor) o.selected = true;
+                    selGestor.appendChild(o);
+                });
+            }
+
+            /* ── Cargar datos desde API ── */
+            async function cargar() {
+                ['statTotal', 'statSaldo']
+                    .forEach(id => document.getElementById(id).textContent = '…');
+                try {
+                    const r = await fetch('/Reporteria/getVencimientosLunes', { method: 'POST' });
+                    const d = await r.json();
+                    _data = d.datos || [];
+
+                    if (d.lunes_pasado) {
+                        document.getElementById('lunesFecha').textContent = d.lunes_pasado;
+                    }
+
+                    poblarFiltros(_data);
+                    renderTabla();
+                } catch(e) { console.error(e); }
+            }
+
+            /* ── Render + filtros cliente ── */
+            function renderTabla() {
+                const fBucket = document.getElementById('fBucket').value;
+                const fGestor = document.getElementById('fGestor').value;
+
+                let datos = _data;
+                if (fBucket) datos = datos.filter(r => (r.Bucket_Morosidad_Final || '') === fBucket);
+                if (fGestor) datos = datos.filter(r => (r.Gestor_Asignado       || '') === fGestor);
+
+                actualizarStats(datos);
+                initDT();
+
+                const rows = datos.map(r => {
+                    const saldo = parseFloat(r.Saldo_vencido_actualizado || 0);
+                    return {
+                        _saldo_raw:   saldo,
+                        id_credito:   `<span class="badge bg-label-secondary">${r.Id_credito || '—'}</span>`,
+                        nombre:       `<span class="fw-semibold" style="font-size:.82rem;">${r.Nombre_cliente || '—'}</span>`,
+                        bucket:       badgeBucket(r.Bucket_Morosidad),
+                        bucket_real:  badgeBucket(r.Bucket_Morosidad_Real),
+                        bucket_final: badgeBucket(r.Bucket_Morosidad_Final),
+                        gestor:       `<span style="font-size:.75rem;" class="text-muted">${r.Gestor_Asignado || '—'}</span>`,
+                        jefe_plaza:   `<span style="font-size:.75rem;" class="text-muted">${r.Jefe_de_Plaza   || '—'}</span>`,
+                        zonal:        `<span style="font-size:.75rem;" class="text-muted">${r.Zonal           || '—'}</span>`,
+                        territorial:  `<span style="font-size:.75rem;" class="text-muted">${r.Territorial     || '—'}</span>`,
+                        cuotas_venc:  `<span class="fw-bold text-danger">${r.Cuotas_vencidas || '—'}</span>`,
+                        saldo:        `<span class="fw-semibold text-warning" style="font-size:.82rem;">
+                                          $${saldo.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                                       </span>`,
+                    };
+                });
+
+                dtVenc.clear().rows.add(rows).draw();
+            }
+
+            /* ── Exportar CSV ── */
+            document.getElementById('btnExportarCSV').addEventListener('click', () => {
+                const fBucket = document.getElementById('fBucket').value;
+                const fGestor = document.getElementById('fGestor').value;
+                let datos = _data;
+                if (fBucket) datos = datos.filter(r => (r.Bucket_Morosidad_Final || '') === fBucket);
+                if (fGestor) datos = datos.filter(r => (r.Gestor_Asignado        || '') === fGestor);
+
+                const headers = [
+                    'Id_credito','Nombre_cliente',
+                    'Bucket_Morosidad','Bucket_Morosidad_Real','Bucket_Morosidad_Final',
+                    'Gestor_Asignado','Jefe_de_Plaza','Zonal','Territorial',
+                    'Cuotas_vencidas','Saldo_vencido_actualizado'
+                ];
+                const rows = datos.map(r => [
+                    r.Id_credito, r.Nombre_cliente,
+                    r.Bucket_Morosidad, r.Bucket_Morosidad_Real, r.Bucket_Morosidad_Final,
+                    r.Gestor_Asignado, r.Jefe_de_Plaza, r.Zonal, r.Territorial,
+                    r.Cuotas_vencidas, r.Saldo_vencido_actualizado
+                ]);
+                const csv = [headers, ...rows].map(r => r.map(v => `"${v ?? ''}"`).join(',')).join('\n');
+                const a   = document.createElement('a');
+                a.href    = URL.createObjectURL(new Blob([csv], { type:'text/csv' }));
+                a.download = `vencimientos_lunes_${new Date().toISOString().substring(0,10)}.csv`;
+                a.click();
+            });
+
+            /* ── Eventos filtros ── */
+            document.getElementById('fBucket').addEventListener('change', renderTabla);
+            document.getElementById('fGestor').addEventListener('change', renderTabla);
+
+            document.getElementById('btnReset').addEventListener('click', () => {
+                document.getElementById('fBucket').value = '';
+                document.getElementById('fGestor').value = '';
+                renderTabla();
+            });
+
+            /* ── Inicio ── */
+            cargar();
+        });
+        </script>
+        HTML;
+
+        self::set("titulo", "Vencimientos — Lunes de Cierre");
+        self::set("script", $script);
+        self::render("reporte_vencimientos_lunes");
+    }
+
+    public function getVencimientosLunes()
+    {
+        try {
+            self::respuestaJSON(ReportesDAO::getVencimientosLunes());
+        } catch (\Exception $e) {
+            self::respuestaJSON(["success" => false, "mensaje" => $e->getMessage()]);
+        }
+    }
     /**
      * Excel: detalle reciente (dictamen enviado) — misma base que estadísticas Sabueso.
      * Hasta 2000 filas para export; la vista en pantalla sigue usando el límite habitual vía API.

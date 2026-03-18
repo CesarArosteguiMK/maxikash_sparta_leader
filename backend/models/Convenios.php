@@ -94,147 +94,164 @@ class Convenios extends Model
      * según bucket, avance_pago y reglas de cada producto.
      */
     public static function getOfertasElegibles($id_credito)
-    {
-        try {
-            $dbSeg = new DatabaseSegundometro(); // __SPARTA_SECRET_REDACTED__ (créditos)
-            $db    = new Database();             // __SPARTA_SECRET_REDACTED__   (productos/convenios)
+{
+    try {
+        $dbSeg = new DatabaseSegundometro();
+        $db    = new Database();
 
-            // 1. Datos del crédito
-            $credito = $dbSeg->queryOne(
-                "SELECT
-                    Id_credito,
-                    Nombre_cliente,
-                    Bucket_Morosidad_Real,
-                    Dias_mora,
-                    Avance_Pago_Plazo,
-                    Saldo_total_capital,
-                    Saldo_para_liquidar_hoy AS Adeudo_total,
-                    Rango_Monto
-                 FROM tbl_segundometro_semana
-                 WHERE Id_credito = :id
-                 LIMIT 1",
-                ['id' => (int) $id_credito]
-            );
+        // 1. Datos del crédito
+        $credito = $dbSeg->queryOne(
+            "SELECT
+                Id_credito,
+                Nombre_cliente,
+                Bucket_Morosidad_Real,
+                Dias_mora,
+                Avance_Pago_Plazo,
+                Saldo_total_capital,
+                Saldo_para_liquidar_hoy AS Adeudo_total,
+                Rango_Monto
+             FROM tbl_segundometro_semana
+             WHERE Id_credito = :id
+             LIMIT 1",
+            ['id' => (int) $id_credito]
+        );
 
-            if (!$credito) {
-                return self::resultado(false, 'Crédito no encontrado.');
-            }
-
-            $bucket          = $credito['Bucket_Morosidad_Real'] ?? '';
-            // Avance_Pago_Plazo está almacenado como rango string (ej. "61-80%");
-            // se extrae el límite inferior para comparar numéricamente.
-            $avancePagoStr   = $credito['Avance_Pago_Plazo'] ?? '';
-            $avancePago      = 0;
-            if (preg_match('/^(\d+)/', $avancePagoStr, $m)) {
-                $avancePago = (int) $m[1];
-            }
-            $adeudoTotal     = (float) ($credito['Adeudo_total'] ?? 0);
-            $saldoCapital    = (float) ($credito['Saldo_total_capital'] ?? 0);
-
-            // El crédito debe estar en bucket e→i (mora >22 días)
-            if (!in_array($bucket, self::$BUCKETS_ELEGIBLES)) {
-                return self::resultado(true, 'El crédito no cumple los criterios de bucket.', [
-                    'credito'       => $credito,
-                    'ofertas'       => [],
-                    'elegible'      => false,
-                    'razon'         => 'bucket_fuera_de_rango'
-                ]);
-            }
-
-            // 2. Obtener todos los productos activos (__SPARTA_SECRET_REDACTED__)
-            $productos = $db->queryAll(
-                "SELECT
-                    pc.id,
-                    pc.nombre,
-                    pcd.id                      AS id_detalle,
-                    pcd.porcentaje_descuento,
-                    pcd.base_calculo,
-                    pcd.pago_inicial,
-                    pcd.porcentaje_pago_inicial,
-                    pcd.pago_inicial_momento,
-                    pcd.periodo_inicio,
-                    pcd.periodo_fin,
-                    pcd.buckets_aplicables,
-                    pcd.avance_pago_minimo
-                 FROM producto_convenio pc
-                 INNER JOIN producto_convenio_detalle pcd
-                        ON pcd.id_producto_convenio = pc.id
-                 WHERE pc.activo = 1
-                 ORDER BY pc.id"
-            );
-
-            if (!$productos) {
-                return self::resultado(false, 'No hay productos configurados.');
-            }
-
-            // 3. Filtrar productos elegibles para este crédito
-            $ofertas = [];
-            foreach ($productos as $prod) {
-                $bucketsProducto = array_map('trim', explode(',', $prod['buckets_aplicables']));
-
-                // Validar bucket del crédito contra los del producto
-                if (!in_array($bucket, $bucketsProducto)) {
-                    continue;
-                }
-
-                // Validar avance de pago mínimo si aplica
-                if ($prod['avance_pago_minimo'] !== null && $avancePago < (float) $prod['avance_pago_minimo']) {
-                    continue;
-                }
-
-                // Calcular montos según base de cálculo
-                $baseCalculo     = $prod['base_calculo'];
-                $montoBase       = ($baseCalculo === 'saldo_total_capital') ? $saldoCapital : $adeudoTotal;
-                $pct             = (float) $prod['porcentaje_descuento'];
-                $descuentoMonto  = round($montoBase * ($pct / 100), 2);
-                $totalAPagar     = round($montoBase - $descuentoMonto, 2);
-
-                // Pago inicial
-                $pagoInicialMonto = null;
-                if ($prod['pago_inicial'] === 'Si' && $prod['porcentaje_pago_inicial']) {
-                    $pctInicial = (float) $prod['porcentaje_pago_inicial'];
-                    if ($prod['pago_inicial_momento'] === 'antes') {
-                        // 10% sobre montoBase antes del descuento
-                        $pagoInicialMonto = round($montoBase * ($pctInicial / 100), 2);
-                        $totalAPagar      = round($totalAPagar - $pagoInicialMonto, 2);
-                    } else {
-                        // 10% sobre total_a_pagar después del descuento
-                        $pagoInicialMonto = round($totalAPagar * ($pctInicial / 100), 2);
-                        $totalAPagar      = round($totalAPagar - $pagoInicialMonto, 2);
-                    }
-                }
-
-                // Plazo máximo según monto (__SPARTA_SECRET_REDACTED__)
-                $semanasMax = self::calcularPlazoMaximo($db, $prod['id'], $adeudoTotal, $prod['periodo_fin']);
-
-                $ofertas[] = [
-                    'id_producto'           => $prod['id'],
-                    'id_detalle'            => $prod['id_detalle'],
-                    'nombre'                => $prod['nombre'],
-                    'porcentaje_descuento'  => $pct,
-                    'base_calculo'          => $baseCalculo,
-                    'monto_base'            => $montoBase,
-                    'descuento_monto'       => $descuentoMonto,
-                    'total_a_pagar'         => $totalAPagar,
-                    'pago_inicial'          => $prod['pago_inicial'],
-                    'pago_inicial_monto'    => $pagoInicialMonto,
-                    'pago_inicial_momento'  => $prod['pago_inicial_momento'],
-                    'periodo_inicio'        => (int) $prod['periodo_inicio'],
-                    'periodo_fin_producto'  => (int) $prod['periodo_fin'],
-                    'semanas_max'           => $semanasMax,
-                    'buckets_aplicables'    => $bucketsProducto,
-                ];
-            }
-
-            return self::resultado(true, 'Ofertas calculadas.', [
-                'credito'   => $credito,
-                'ofertas'   => $ofertas,
-                'elegible'  => count($ofertas) > 0,
-            ]);
-        } catch (\Exception $e) {
-            return self::resultado(false, 'Error al calcular ofertas.', null, $e->getMessage());
+        if (!$credito) {
+            return self::resultado(false, 'Crédito no encontrado.');
         }
+
+        $bucket        = $credito['Bucket_Morosidad_Real'] ?? '';
+        $avancePagoStr = $credito['Avance_Pago_Plazo'] ?? '';
+        $avancePago    = 0;
+        if (preg_match('/^(\d+)/', $avancePagoStr, $m)) {
+            $avancePago = (int) $m[1];
+        }
+        $adeudoTotal = (float) ($credito['Adeudo_total']       ?? 0);
+        $saldoCapital = (float) ($credito['Saldo_total_capital'] ?? 0);
+
+        // Bucket e→i requerido
+        if (!in_array($bucket, self::$BUCKETS_ELEGIBLES)) {
+            return self::resultado(true, 'El crédito no cumple los criterios de bucket.', [
+                'credito'              => $credito,
+                'ofertas'              => [],
+                'elegible'             => false,
+                'razon'                => 'bucket_fuera_de_rango',
+                'productos_bloqueados' => [],
+            ]);
+        }
+
+        // 2. Productos bloqueados permanentemente por incumplimiento
+        $bloqueadosRows = $db->queryAll(
+            "SELECT DISTINCT id_producto_convenio
+             FROM convenio_cliente
+             WHERE id_credito = :id
+               AND estatus = 'cancelado'
+               AND usuario_cancela = 'sistema_auto'",
+            ['id' => (int) $id_credito]
+        );
+        $productosBloqueados = $bloqueadosRows
+            ? array_column($bloqueadosRows, 'id_producto_convenio')
+            : [];
+
+        // 3. Productos activos del catálogo
+        $productos = $db->queryAll(
+            "SELECT
+                pc.id,
+                pc.nombre,
+                pcd.id                    AS id_detalle,
+                pcd.porcentaje_descuento,
+                pcd.base_calculo,
+                pcd.pago_inicial,
+                pcd.porcentaje_pago_inicial,
+                pcd.pago_inicial_momento,
+                pcd.periodo_inicio,
+                pcd.periodo_fin,
+                pcd.buckets_aplicables,
+                pcd.avance_pago_minimo
+             FROM producto_convenio pc
+             INNER JOIN producto_convenio_detalle pcd
+                    ON pcd.id_producto_convenio = pc.id
+             WHERE pc.activo = 1
+             ORDER BY pc.id"
+        );
+
+        if (!$productos) {
+            return self::resultado(false, 'No hay productos configurados.');
+        }
+
+        // 4. Filtrar ofertas elegibles
+        $ofertas = [];
+        foreach ($productos as $prod) {
+
+            // Bloqueo permanente por incumplimiento
+            if (in_array($prod['id'], $productosBloqueados)) {
+                continue;
+            }
+
+            $bucketsProducto = array_map('trim', explode(',', $prod['buckets_aplicables']));
+
+            // Validar bucket
+            if (!in_array($bucket, $bucketsProducto)) {
+                continue;
+            }
+
+            // Validar avance de pago mínimo
+            if ($prod['avance_pago_minimo'] !== null && $avancePago < (float) $prod['avance_pago_minimo']) {
+                continue;
+            }
+
+            // Calcular montos
+            $baseCalculo    = $prod['base_calculo'];
+            $montoBase      = ($baseCalculo === 'saldo_total_capital') ? $saldoCapital : $adeudoTotal;
+            $pct            = (float) $prod['porcentaje_descuento'];
+            $descuentoMonto = round($montoBase * ($pct / 100), 2);
+            $totalAPagar    = round($montoBase - $descuentoMonto, 2);
+
+            // Pago inicial
+            $pagoInicialMonto = null;
+            if ($prod['pago_inicial'] === 'Si' && $prod['porcentaje_pago_inicial']) {
+                $pctInicial = (float) $prod['porcentaje_pago_inicial'];
+                if ($prod['pago_inicial_momento'] === 'antes') {
+                    $pagoInicialMonto = round($montoBase * ($pctInicial / 100), 2);
+                    $totalAPagar      = round($totalAPagar - $pagoInicialMonto, 2);
+                } else {
+                    $pagoInicialMonto = round($totalAPagar * ($pctInicial / 100), 2);
+                    $totalAPagar      = round($totalAPagar - $pagoInicialMonto, 2);
+                }
+            }
+
+            $semanasMax = self::calcularPlazoMaximo($db, $prod['id'], $adeudoTotal, $prod['periodo_fin']);
+
+            $ofertas[] = [
+                'id_producto'          => $prod['id'],
+                'id_detalle'           => $prod['id_detalle'],
+                'nombre'               => $prod['nombre'],
+                'porcentaje_descuento' => $pct,
+                'base_calculo'         => $baseCalculo,
+                'monto_base'           => $montoBase,
+                'descuento_monto'      => $descuentoMonto,
+                'total_a_pagar'        => $totalAPagar,
+                'pago_inicial'         => $prod['pago_inicial'],
+                'pago_inicial_monto'   => $pagoInicialMonto,
+                'pago_inicial_momento' => $prod['pago_inicial_momento'],
+                'periodo_inicio'       => (int) $prod['periodo_inicio'],
+                'periodo_fin_producto' => (int) $prod['periodo_fin'],
+                'semanas_max'          => $semanasMax,
+                'buckets_aplicables'   => $bucketsProducto,
+            ];
+        }
+
+        return self::resultado(true, 'Ofertas calculadas.', [
+            'credito'              => $credito,
+            'ofertas'              => $ofertas,
+            'elegible'             => count($ofertas) > 0,
+            'productos_bloqueados' => $productosBloqueados,
+        ]);
+
+    } catch (\Exception $e) {
+        return self::resultado(false, 'Error al calcular ofertas.', null, $e->getMessage());
     }
+}
 
     /**
      * Obtiene el máximo de semanas para un producto según el monto del adeudo_total.
@@ -396,6 +413,54 @@ public static function getConvenioActivo($id_credito)
         if (!$convenio) {
             return self::resultado(true, 'Sin convenio activo.', null);
         }
+
+
+        // ── Auto-cancelación por incumplimiento (3 días corridos) ──
+$hoy          = new \DateTime();
+$primerVencida = $db->queryOne(
+    "SELECT id, numero_semana, fecha_pago
+     FROM convenio_cliente_amortizacion
+     WHERE id_convenio_cliente = :id
+       AND estatus_pago = 'pendiente'
+     ORDER BY numero_semana ASC
+     LIMIT 1",
+    ['id' => (int) $convenio['id']]
+);
+
+if ($primerVencida) {
+    $fechaPago   = new \DateTime($primerVencida['fecha_pago']);
+    $diasVencido = (int) $hoy->diff($fechaPago)->days;
+    $yaVencio    = $hoy > $fechaPago;
+
+    if ($yaVencio && $diasVencido > 3) {
+        // Cancelar automáticamente
+        $db->CRUD(
+            "UPDATE convenio_cliente SET
+                estatus                   = 'cancelado',
+                fecha_cancelacion         = :fecha,
+                numero_semana_cancelacion = :semana,
+                usuario_cancela           = 'sistema_auto',
+                fecha_modifica            = NOW()
+             WHERE id = :id",
+            [
+                'fecha'  => $hoy->format('Y-m-d'),
+                'semana' => $primerVencida['numero_semana'],
+                'id'     => (int) $convenio['id'],
+            ]
+        );
+
+        $db->CRUD(
+            "UPDATE convenio_cliente_amortizacion SET
+                estatus_pago = 'cancelado'
+             WHERE id_convenio_cliente = :id
+               AND estatus_pago = 'pendiente'",
+            ['id' => (int) $convenio['id']]
+        );
+
+        // Retornar null — ya no hay convenio activo
+        return self::resultado(true, 'Convenio cancelado por incumplimiento.', null);
+    }
+}
 
         $amortizacion = $db->queryAll(
             "SELECT * FROM convenio_cliente_amortizacion
@@ -613,25 +678,27 @@ public static function getHistorialConvenios($id_credito)
     try {
         $db = new Database();
         $rows = $db->queryAll(
-            "SELECT
-                cc.id,
-                cc.id_credito,
-                pc.nombre           AS nombre_producto,
-                cc.total_a_pagar,
-                cc.numero_semanas,
-                cc.estatus,
-                cc.fecha_acuerdo,
-                cc.fecha_cancelacion,
-                cc.numero_semana_cancelacion,
-                cc.usuario_alta,
-                cc.usuario_cancela,
-                cc.pdf_adjunto
-             FROM convenio_cliente cc
-             INNER JOIN producto_convenio pc ON pc.id = cc.id_producto_convenio
-             WHERE cc.id_credito = :id
-             ORDER BY cc.fecha_alta DESC",
-            ['id' => (int) $id_credito]
-        );
+    "SELECT
+        cc.id,
+        cc.id_credito,
+        cc.id_producto_convenio,        -- ← agregar esto
+        pc.nombre           AS nombre_producto,
+        cc.total_a_pagar,
+        cc.numero_semanas,
+        cc.estatus,
+        cc.fecha_acuerdo,
+        cc.fecha_cancelacion,
+        cc.numero_semana_cancelacion,
+        cc.usuario_alta,
+        cc.usuario_cancela,
+        cc.pdf_adjunto,
+        cc.usuario_cancela = 'sistema_auto' AS cancelado_por_incumplimiento  -- ← agregar esto
+     FROM convenio_cliente cc
+     INNER JOIN producto_convenio pc ON pc.id = cc.id_producto_convenio
+     WHERE cc.id_credito = :id
+     ORDER BY cc.fecha_alta DESC",
+    ['id' => (int) $id_credito]
+);
 
         return self::resultado(true, 'Historial obtenido.', $rows ?: []);
     } catch (\Exception $e) {

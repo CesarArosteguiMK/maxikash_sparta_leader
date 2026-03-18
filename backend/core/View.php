@@ -32,7 +32,7 @@ function getMenu()
                             ]
                     ]
             ],
-            'Gestiones Campo' => [
+            'Gestiones' => [
                     'icono' => 'fa-solid fa-screwdriver-wrench',
                     'subItems' => [
                             [
@@ -75,6 +75,11 @@ function getMenu()
                                     'label' => 'Resumen Call Center',
                                     'url' => '/reporteria/resumencallcenter',
                                     'modulos' => [6]
+                            ],
+                            [
+                                'label' => 'Vencimientos Lunes',
+                                'url' => '/reporteria/VencimientosLunes',
+                                'modulos' => [49]
                             ],
                             [
                                     'label' => 'Sabuesos',
