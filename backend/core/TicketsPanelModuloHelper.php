@@ -1,0 +1,113 @@
+<?php
+
+namespace Core;
+
+use Models\ConfigPanelUsuario as ConfigPanelUsuarioDAO;
+
+/**
+ * Paneles admin de tickets por módulo (cada uno con URL y script propios, sin Sabueso).
+ */
+class TicketsPanelModuloHelper
+{
+    /** categoria_gestion => [ titulo, badge tabla, icono FA (sin fa-solid), color icono, formularios ] */
+    public const MODULOS = [
+        'validaciones' => [
+            'titulo' => 'Validaciones',
+            'badge' => 'Validaciones',
+            'icon' => 'fa-clipboard-check',
+            'icon_color' => 'text-success',
+            'formularios' => true,
+            'url' => '/validaciones/paneladmin',
+        ],
+        'viaticos' => [
+            'titulo' => 'Viáticos',
+            'badge' => 'Viáticos',
+            'icon' => 'fa-receipt',
+            'icon_color' => 'text-primary',
+            'formularios' => false,
+            'url' => '/viaticos/paneladmin',
+        ],
+        'aplicaciones_de_pago' => [
+            'titulo' => 'Aplicaciones de pago',
+            'badge' => 'Aplicaciones de pago',
+            'icon' => 'fa-credit-card',
+            'icon_color' => 'text-info',
+            'formularios' => false,
+            'url' => '/aplicacionespago/paneladmin',
+        ],
+        'plantilla' => [
+            'titulo' => 'Plantilla',
+            'badge' => 'Plantilla',
+            'icon' => 'fa-file-lines',
+            'icon_color' => 'text-secondary',
+            'formularios' => false,
+            'url' => '/plantilla/paneladmin',
+        ],
+        'atencion_cliente' => [
+            'titulo' => 'Atención al cliente',
+            'badge' => 'Atención al cliente',
+            'icon' => 'fa-headset',
+            'icon_color' => 'text-primary',
+            'formularios' => false,
+            'url' => '/atencioncliente/paneladmin',
+        ],
+        'credito_problematico' => [
+            'titulo' => 'Crédito problemático',
+            'badge' => 'Crédito problemático',
+            'icon' => 'fa-triangle-exclamation',
+            'icon_color' => 'text-warning',
+            'formularios' => false,
+            'url' => '/creditoproblematico/paneladmin',
+        ],
+        'aclaracion_credito' => [
+            'titulo' => 'Aclaración de crédito',
+            'badge' => 'Aclaración de crédito',
+            'icon' => 'fa-circle-question',
+            'icon_color' => 'text-info',
+            'formularios' => false,
+            'url' => '/aclaracioncredito/paneladmin',
+        ],
+    ];
+
+    public static function getRedirectUrlForCategoria(string $categoria): ?string
+    {
+        $c = strtolower(preg_replace('/[^a-z0-9_]/', '', $categoria));
+
+        return isset(self::MODULOS[$c]) ? self::MODULOS[$c]['url'] : null;
+    }
+
+    public static function renderModuloPanel(Controller $ctrl, string $categoria): void
+    {
+        $c = strtolower(preg_replace('/[^a-z0-9_]/', '', $categoria));
+        if (!isset(self::MODULOS[$c])) {
+            header('Location: /sabueso/panelAdminInicio', true, 302);
+            exit;
+        }
+        $m = self::MODULOS[$c];
+        $personaId = (int) ($_SESSION['persona_id'] ?? $_SESSION['usuario_id'] ?? 0);
+        $panelesVis = ConfigPanelUsuarioDAO::getPanelesVisiblesParaPersona($personaId, []);
+        $columnsJson = PanelAdminTicketTable::getColumnsConfig(true, $c);
+        $titulos = PanelAdminTicketTable::getTitulosColumnasPanelAdminPorCategoria($c);
+        $titulosJs = json_encode($titulos, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
+        $moduloJs = json_encode([
+            'categoria' => $c,
+            'labelBadge' => $m['badge'],
+            'formularios' => !empty($m['formularios']),
+        ], JSON_UNESCAPED_UNICODE);
+
+        $ctrl->set('panel_admin_mostrar_volver', count($panelesVis) > 1);
+        $ctrl->set('panel_admin_url_inicio', '/sabueso/panelAdminInicio');
+        $ctrl->set('tickets_panel_categoria', $c);
+        $ctrl->set('tickets_panel_titulo', $m['titulo']);
+        $ctrl->set('tickets_panel_icono', $m['icon']);
+        $ctrl->set('tickets_panel_icono_color', $m['icon_color'] ?? 'text-primary');
+        $ctrl->set('tickets_panel_formularios', !empty($m['formularios']));
+        $ctrl->set('titulo', 'Panel ' . $m['titulo']);
+        $ctrl->set(
+            'script',
+            '<script>window.TICKETS_MODULO_CONFIG=' . $moduloJs . ';window.TICKETS_MODULO_COLUMNS=' . $columnsJson['columnsJs'] . ';window.TICKETS_MODULO_TITULOS=' . $titulosJs . ';</script>'
+            . '<script src="/assets/js/paneladmin_tickets_modulo.js"></script>'
+        );
+        $ctrl->render('tickets_panel_modulo');
+    }
+}

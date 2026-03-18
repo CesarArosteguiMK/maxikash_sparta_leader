@@ -1,3 +1,8 @@
+<?php
+$categoriasDisp = isset($categoriasDisponiblesPorPuesto) && is_array($categoriasDisponiblesPorPuesto) ? $categoriasDisponiblesPorPuesto : ['sabueso', 'solicitud_baja'];
+$en = function($cat) use ($categoriasDisp) { return in_array($cat, $categoriasDisp, true); };
+$funcionesTicket = isset($funcionesTicket) && is_array($funcionesTicket) ? $funcionesTicket : [];
+?>
 <style>
     /* Modal elegir categoría: diseño tipo cards (selección + continuar) */
     .modal-elegir-categoria .modal-content {
@@ -198,75 +203,26 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
             <div class="modal-body">
-                <div class="row g-3">
+                <div class="row g-3" id="modalCategoriasTicketLista">
+                    <?php
+                    foreach ($funcionesTicket as $clave => $info):
+                        if (!$en($clave)) continue;
+                        $label = isset($info['label']) ? $info['label'] : $clave;
+                        $icon = isset($info['icon']) ? $info['icon'] : 'fa-solid fa-circle';
+                    ?>
                     <div class="col-md-4 col-6">
-                        <button type="button" class="ticket-categoria-card is-selected" data-categoria="sabueso" data-disponible="1">
+                        <button type="button" class="ticket-categoria-card" data-categoria="<?php echo htmlspecialchars($clave); ?>" data-disponible="1">
                             <span class="ticket-categoria-check"><i class="fa-solid fa-check"></i></span>
-                            <span class="ticket-categoria-icon"><i class="fa-solid fa-dog"></i></span>
-                            <span class="ticket-categoria-name">Sabueso</span>
+                            <span class="ticket-categoria-icon"><i class="<?php echo htmlspecialchars($icon); ?>"></i></span>
+                            <span class="ticket-categoria-name"><?php echo htmlspecialchars($label); ?></span>
                         </button>
                     </div>
-                    <div class="col-md-4 col-6">
-                        <button type="button" class="ticket-categoria-card" data-categoria="viaticos" data-disponible="0" disabled title="Próximamente">
-                            <span class="ticket-categoria-icon"><i class="fa-solid fa-money-bill-1"></i></span>
-                            <span class="ticket-categoria-name">Viáticos</span>
-                            <span class="ticket-categoria-meta">Próximamente</span>
-                        </button>
-                    </div>
-                    <div class="col-md-4 col-6">
-                        <button type="button" class="ticket-categoria-card" data-categoria="aplicaciones_de_pago" data-disponible="0" disabled title="Próximamente">
-                            <span class="ticket-categoria-icon"><i class="fa-solid fa-credit-card"></i></span>
-                            <span class="ticket-categoria-name">Aplicaciones de pago</span>
-                            <span class="ticket-categoria-meta">Próximamente</span>
-                        </button>
-                    </div>
-                    <div class="col-md-4 col-6">
-                        <button type="button" class="ticket-categoria-card" data-categoria="validaciones" data-disponible="0" disabled title="Próximamente">
-                            <span class="ticket-categoria-icon"><i class="fa-solid fa-square-check"></i></span>
-                            <span class="ticket-categoria-name">Validaciones</span>
-                            <span class="ticket-categoria-meta">Próximamente</span>
-                        </button>
-                    </div>
-                    <div class="col-md-4 col-6">
-                        <button type="button" class="ticket-categoria-card" data-categoria="plantilla" data-disponible="0" disabled title="Próximamente">
-                            <span class="ticket-categoria-icon"><i class="fa-solid fa-file-lines"></i></span>
-                            <span class="ticket-categoria-name">Plantilla</span>
-                            <span class="ticket-categoria-meta">Próximamente</span>
-                        </button>
-                    </div>
-                    <div class="col-md-4 col-6">
-                        <button type="button" class="ticket-categoria-card" data-categoria="atencion_cliente" data-disponible="0" disabled title="Próximamente">
-                            <span class="ticket-categoria-icon"><i class="fa-regular fa-message"></i></span>
-                            <span class="ticket-categoria-name">Atención al cliente</span>
-                            <span class="ticket-categoria-meta">Próximamente</span>
-                        </button>
-                    </div>
-                    <div class="col-md-4 col-6">
-                        <button type="button" class="ticket-categoria-card" data-categoria="credito_problematico" data-disponible="0" disabled title="Próximamente">
-                            <span class="ticket-categoria-icon"><i class="fa-solid fa-triangle-exclamation"></i></span>
-                            <span class="ticket-categoria-name">Crédito problemático</span>
-                            <span class="ticket-categoria-meta">Próximamente</span>
-                        </button>
-                    </div>
-                    <div class="col-md-4 col-6">
-                        <button type="button" class="ticket-categoria-card" data-categoria="solicitud_baja" data-disponible="1">
-                            <span class="ticket-categoria-check"><i class="fa-solid fa-check"></i></span>
-                            <span class="ticket-categoria-icon"><i class="fa-solid fa-user-xmark"></i></span>
-                            <span class="ticket-categoria-name">Solicitud de baja</span>
-                        </button>
-                    </div>
-                    <div class="col-md-4 col-6">
-                        <button type="button" class="ticket-categoria-card" data-categoria="aclaracion_credito" data-disponible="0" disabled title="Próximamente">
-                            <span class="ticket-categoria-icon"><i class="fa-solid fa-dollar-sign"></i></span>
-                            <span class="ticket-categoria-name">Aclaración de crédito</span>
-                            <span class="ticket-categoria-meta">Próximamente</span>
-                        </button>
-                    </div>
+                    <?php endforeach; ?>
                 </div>
             </div>
             <div class="modal-footer border-top">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-primary" id="btnContinuarCategoriaTicket">Continuar con Sabueso <i class="fa-solid fa-arrow-right ms-1"></i></button>
+                <button type="button" class="btn btn-primary" id="btnContinuarCategoriaTicket">Continuar <i class="fa-solid fa-arrow-right ms-1"></i></button>
             </div>
         </div>
     </div>
@@ -370,9 +326,16 @@
                             <input type="text" id="solicitud_baja_nombre_colaborador" class="form-control" placeholder="Nombre completo de la persona" maxlength="255" required>
                         </div>
                         <div class="col-12">
-                            <label for="solicitud_baja_adjunto" class="form-label">Adjuntar evidencia (foto o PDF)</label>
-                            <input type="file" id="solicitud_baja_adjunto" class="form-control" accept=".pdf,image/jpeg,image/png,image/gif,image/webp" aria-describedby="solicitud_baja_adjunto_help">
-                            <div id="solicitud_baja_adjunto_help" class="form-text">Opcional. Formatos permitidos: PDF, JPG, PNG, GIF o WebP. Tamaño máximo recomendado: 10 MB.</div>
+                            <label class="form-label">Adjuntar evidencia (foto o PDF)</label>
+                            <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
+                                <input type="file" id="solicitud_baja_adjunto" class="d-none" accept=".pdf,image/jpeg,image/png,image/gif,image/webp" multiple>
+                                <button type="button" class="btn btn-outline-primary" id="btnSolicitudBajaElegirArchivos">
+                                    <i class="fa fa-paperclip me-2"></i>Elegir archivos
+                                </button>
+                                <span id="solicitud_baja_count_archivos" class="text-muted small">No se ha seleccionado ningún archivo</span>
+                            </div>
+                            <small class="text-muted d-block">Puedes subir múltiples archivos PDF o imágenes.</small>
+                            <div id="solicitud_baja_lista_archivos" class="mt-2" style="display: none;"></div>
                         </div>
                     </div>
                 </form>
@@ -382,6 +345,296 @@
                 <button type="button" class="btn btn-primary" id="btnEnviarSolicitudBaja">
                     <span id="btnEnviarSolicitudBajaText"><i class="fa-solid fa-paper-plane me-1"></i>Enviar solicitud</span>
                 </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Plantilla (Levantar ticket > Plantilla) -->
+<div class="modal fade" id="modalTicketPlantilla" tabindex="-1" aria-labelledby="modalTicketPlantillaLabel" aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content modal-content-glass">
+            <div class="modal-header border-bottom">
+                <h5 class="modal-title" id="modalTicketPlantillaLabel"><i class="fa-solid fa-file-lines me-2"></i>Ticket Plantilla</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted small mb-3">Solicite una plantilla o documento. Opcionalmente adjunte un archivo de referencia.</p>
+                <div class="row g-3">
+                    <div class="col-12">
+                        <label for="ticket_plantilla_tipo" class="form-label">Tipo de plantilla <span class="text-danger">*</span></label>
+                        <select id="ticket_plantilla_tipo" class="form-select" required>
+                            <option value="">Seleccione...</option>
+                            <option value="Solicitud de formato">Solicitud de formato</option>
+                            <option value="Documento plantilla">Documento plantilla</option>
+                            <option value="Otro">Otro</option>
+                        </select>
+                    </div>
+                    <div class="col-12">
+                        <label for="ticket_plantilla_descripcion" class="form-label">Descripción <span class="text-danger">*</span></label>
+                        <textarea id="ticket_plantilla_descripcion" class="form-control" rows="4" placeholder="Describa qué plantilla necesita..." required></textarea>
+                    </div>
+                    <div class="col-12">
+                        <label for="ticket_plantilla_adjunto" class="form-label">Adjuntar (opcional)</label>
+                        <input type="file" id="ticket_plantilla_adjunto" class="form-control" accept=".pdf,image/jpeg,image/png,image/gif,image/webp">
+                        <div class="form-text">PDF o imagen. Máx. recomendado: 10 MB.</div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer border-top">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="btnEnviarTicketPlantilla"><i class="fa-solid fa-paper-plane me-1"></i>Enviar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Atención al cliente (Levantar ticket > Atención al cliente) -->
+<div class="modal fade" id="modalTicketAtencionCliente" tabindex="-1" aria-labelledby="modalTicketAtencionClienteLabel" aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content modal-content-glass">
+            <div class="modal-header border-bottom">
+                <h5 class="modal-title" id="modalTicketAtencionClienteLabel"><i class="fa-regular fa-message me-2"></i>Ticket Atención al cliente</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted small mb-3">Registre una queja, consulta o solicitud de seguimiento. Indique prioridad y datos de contacto si aplica.</p>
+                <div class="row g-3">
+                    <div class="col-12">
+                        <label for="ticket_atencion_asunto" class="form-label">Asunto <span class="text-danger">*</span></label>
+                        <input type="text" id="ticket_atencion_asunto" class="form-control" placeholder="Resumen del tema" maxlength="255" required>
+                    </div>
+                    <div class="col-12">
+                        <label for="ticket_atencion_descripcion" class="form-label">Descripción <span class="text-danger">*</span></label>
+                        <textarea id="ticket_atencion_descripcion" class="form-control" rows="4" placeholder="Describa la situación o consulta..." required></textarea>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="ticket_atencion_prioridad" class="form-label">Prioridad</label>
+                        <select id="ticket_atencion_prioridad" class="form-select">
+                            <option value="alta">Alta</option>
+                            <option value="media" selected>Media</option>
+                            <option value="baja">Baja</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="ticket_atencion_telefono" class="form-label">Teléfono de contacto</label>
+                        <input type="text" id="ticket_atencion_telefono" class="form-control" placeholder="Opcional" maxlength="50">
+                    </div>
+                    <div class="col-12">
+                        <label for="ticket_atencion_email" class="form-label">Correo de contacto</label>
+                        <input type="email" id="ticket_atencion_email" class="form-control" placeholder="Opcional" maxlength="100">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer border-top">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="btnEnviarTicketAtencionCliente"><i class="fa-solid fa-paper-plane me-1"></i>Enviar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Validaciones (Levantar ticket > Validación de domicilio) -->
+<div class="modal fade" id="modalTicketValidacion" tabindex="-1" aria-labelledby="modalTicketValidacionLabel" aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content modal-content-glass">
+            <div class="modal-header border-bottom">
+                <h5 class="modal-title" id="modalTicketValidacionLabel"><i class="fa-solid fa-clipboard-check me-2"></i>Ticket Validación de domicilio</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <div class="ticket-validacion-form rounded-3 p-3 mb-0" style="background-color: #fff; border: 1px solid #d1d5db; border-top: 5px solid #4f46e5; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.07);">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label for="ticket_validacion_descripcion" class="form-label fw-semibold"><i class="fa-solid fa-align-left text-primary me-1"></i>Descripción <span class="text-danger">*</span></label>
+                            <textarea id="ticket_validacion_descripcion" class="form-control" rows="4" placeholder="Describa qué debe validarse (domicilio, dirección, etc.)..." required></textarea>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold"><i class="fa-solid fa-paperclip text-primary me-1"></i>Archivos <span class="text-muted fw-normal">(PDF o imágenes, varios)</span></label>
+                            <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                                <input type="file" id="ticket_validacion_adjunto" class="d-none" accept=".pdf,image/jpeg,image/png,image/gif,image/webp" multiple>
+                                <button type="button" class="btn btn-outline-primary btn-sm rounded-pill" id="ticket_validacion_btn_archivos"><i class="fa-solid fa-paperclip me-1"></i>Elegir archivos</button>
+                                <span class="text-muted small" id="ticket_validacion_count_archivos">Ningún archivo seleccionado</span>
+                            </div>
+                            <div class="form-text mb-2">Puedes subir múltiples archivos PDF o imagen. Máx. recomendado: 10 MB c/u.</div>
+                            <div id="ticket_validacion_lista_archivos" class="d-none"></div>
+                        </div>
+                        <div class="col-12">
+                            <label for="ticket_validacion_nota" class="form-label fw-semibold"><i class="fa-solid fa-sticky-note text-primary me-1"></i>Nota</label>
+                            <textarea id="ticket_validacion_nota" class="form-control" rows="2" placeholder="Observaciones o comentarios adicionales..."></textarea>
+                        </div>
+                        <div class="col-12">
+                            <label for="ticket_validacion_url" class="form-label fw-semibold"><i class="fa-solid fa-link text-primary me-1"></i>Link <span class="text-muted fw-normal">(URL de dirección)</span></label>
+                            <input type="url" id="ticket_validacion_url" class="form-control" placeholder="https://...">
+                            <div class="form-text">Se guardará la URL completa sin recortar.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer border-top">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="btnEnviarTicketValidacion"><i class="fa-solid fa-paper-plane me-1"></i>Enviar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Viáticos (Levantar ticket > Viáticos) -->
+<div class="modal fade" id="modalTicketViaticos" tabindex="-1" aria-labelledby="modalTicketViaticosLabel" aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content modal-content-glass">
+            <div class="modal-header border-bottom">
+                <h5 class="modal-title" id="modalTicketViaticosLabel"><i class="fa-solid fa-money-bill-1 me-2"></i>Ticket Viáticos</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted small mb-3">Solicite viáticos o comprobación de gastos. Opcionalmente adjunte comprobante.</p>
+                <div class="row g-3">
+                    <div class="col-12">
+                        <label for="ticket_viaticos_tipo" class="form-label">Tipo de viático <span class="text-danger">*</span></label>
+                        <select id="ticket_viaticos_tipo" class="form-select" required>
+                            <option value="">Seleccione...</option>
+                            <option value="Solicitud de viáticos">Solicitud de viáticos</option>
+                            <option value="Comprobación de gastos">Comprobación de gastos</option>
+                            <option value="Reembolso">Reembolso</option>
+                            <option value="Otro">Otro</option>
+                        </select>
+                    </div>
+                    <div class="col-12">
+                        <label for="ticket_viaticos_descripcion" class="form-label">Descripción <span class="text-danger">*</span></label>
+                        <textarea id="ticket_viaticos_descripcion" class="form-control" rows="4" placeholder="Describa el motivo y monto si aplica..." required></textarea>
+                    </div>
+                    <div class="col-12">
+                        <label for="ticket_viaticos_adjunto" class="form-label">Adjuntar (opcional)</label>
+                        <input type="file" id="ticket_viaticos_adjunto" class="form-control" accept=".pdf,image/jpeg,image/png,image/gif,image/webp">
+                        <div class="form-text">PDF o imagen. Máx. recomendado: 10 MB.</div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer border-top">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="btnEnviarTicketViaticos"><i class="fa-solid fa-paper-plane me-1"></i>Enviar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Aplicaciones de pago (Levantar ticket > Aplicaciones de pago) -->
+<div class="modal fade" id="modalTicketAplicacionesPago" tabindex="-1" aria-labelledby="modalTicketAplicacionesPagoLabel" aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content modal-content-glass">
+            <div class="modal-header border-bottom">
+                <h5 class="modal-title" id="modalTicketAplicacionesPagoLabel"><i class="fa-solid fa-credit-card me-2"></i>Ticket Aplicaciones de pago</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted small mb-3">Solicite aplicación de pago, aclaración de aplicación o seguimiento. Opcionalmente adjunte comprobante.</p>
+                <div class="row g-3">
+                    <div class="col-12">
+                        <label for="ticket_aplicaciones_tipo" class="form-label">Tipo de solicitud <span class="text-danger">*</span></label>
+                        <select id="ticket_aplicaciones_tipo" class="form-select" required>
+                            <option value="">Seleccione...</option>
+                            <option value="Aplicación de pago">Aplicación de pago</option>
+                            <option value="Aclaración de aplicación">Aclaración de aplicación</option>
+                            <option value="Seguimiento de pago">Seguimiento de pago</option>
+                            <option value="Otro">Otro</option>
+                        </select>
+                    </div>
+                    <div class="col-12">
+                        <label for="ticket_aplicaciones_descripcion" class="form-label">Descripción <span class="text-danger">*</span></label>
+                        <textarea id="ticket_aplicaciones_descripcion" class="form-control" rows="4" placeholder="Describa la solicitud (crédito, monto, fecha si aplica)..." required></textarea>
+                    </div>
+                    <div class="col-12">
+                        <label for="ticket_aplicaciones_adjunto" class="form-label">Adjuntar (opcional)</label>
+                        <input type="file" id="ticket_aplicaciones_adjunto" class="form-control" accept=".pdf,image/jpeg,image/png,image/gif,image/webp">
+                        <div class="form-text">PDF o imagen. Máx. recomendado: 10 MB.</div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer border-top">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="btnEnviarTicketAplicacionesPago"><i class="fa-solid fa-paper-plane me-1"></i>Enviar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Crédito problemático (Levantar ticket > Crédito problemático) -->
+<div class="modal fade" id="modalTicketCreditoProblematico" tabindex="-1" aria-labelledby="modalTicketCreditoProblematicoLabel" aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content modal-content-glass">
+            <div class="modal-header border-bottom">
+                <h5 class="modal-title" id="modalTicketCreditoProblematicoLabel"><i class="fa-solid fa-triangle-exclamation me-2"></i>Ticket Crédito problemático</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted small mb-3">Reporte o solicitud de seguimiento para créditos en situación problemática. Opcionalmente adjunte evidencia.</p>
+                <div class="row g-3">
+                    <div class="col-12">
+                        <label for="ticket_credito_problematico_tipo" class="form-label">Tipo de solicitud <span class="text-danger">*</span></label>
+                        <select id="ticket_credito_problematico_tipo" class="form-select" required>
+                            <option value="">Seleccione...</option>
+                            <option value="Recuperación">Recuperación</option>
+                            <option value="Seguimiento especial">Seguimiento especial</option>
+                            <option value="Reporte de situación">Reporte de situación</option>
+                            <option value="Otro">Otro</option>
+                        </select>
+                    </div>
+                    <div class="col-12">
+                        <label for="ticket_credito_problematico_descripcion" class="form-label">Descripción <span class="text-danger">*</span></label>
+                        <textarea id="ticket_credito_problematico_descripcion" class="form-control" rows="4" placeholder="Describa el crédito y la situación..." required></textarea>
+                    </div>
+                    <div class="col-12">
+                        <label for="ticket_credito_problematico_adjunto" class="form-label">Adjuntar (opcional)</label>
+                        <input type="file" id="ticket_credito_problematico_adjunto" class="form-control" accept=".pdf,image/jpeg,image/png,image/gif,image/webp">
+                        <div class="form-text">PDF o imagen. Máx. recomendado: 10 MB.</div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer border-top">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="btnEnviarTicketCreditoProblematico"><i class="fa-solid fa-paper-plane me-1"></i>Enviar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Aclaración de crédito (Levantar ticket > Aclaración de crédito) -->
+<div class="modal fade" id="modalTicketAclaracionCredito" tabindex="-1" aria-labelledby="modalTicketAclaracionCreditoLabel" aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content modal-content-glass">
+            <div class="modal-header border-bottom">
+                <h5 class="modal-title" id="modalTicketAclaracionCreditoLabel"><i class="fa-solid fa-dollar-sign me-2"></i>Ticket Aclaración de crédito</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted small mb-3">Solicite aclaración de saldo, pagos, cargos o información del crédito. Opcionalmente adjunte comprobante.</p>
+                <div class="row g-3">
+                    <div class="col-12">
+                        <label for="ticket_aclaracion_tipo" class="form-label">Tipo de aclaración <span class="text-danger">*</span></label>
+                        <select id="ticket_aclaracion_tipo" class="form-select" required>
+                            <option value="">Seleccione...</option>
+                            <option value="Saldo">Saldo</option>
+                            <option value="Pagos">Pagos</option>
+                            <option value="Cargos">Cargos</option>
+                            <option value="Información general">Información general</option>
+                            <option value="Otro">Otro</option>
+                        </select>
+                    </div>
+                    <div class="col-12">
+                        <label for="ticket_aclaracion_descripcion" class="form-label">Descripción <span class="text-danger">*</span></label>
+                        <textarea id="ticket_aclaracion_descripcion" class="form-control" rows="4" placeholder="Describa qué requiere aclarar (crédito, fechas, montos)..." required></textarea>
+                    </div>
+                    <div class="col-12">
+                        <label for="ticket_aclaracion_adjunto" class="form-label">Adjuntar (opcional)</label>
+                        <input type="file" id="ticket_aclaracion_adjunto" class="form-control" accept=".pdf,image/jpeg,image/png,image/gif,image/webp">
+                        <div class="form-text">PDF o imagen. Máx. recomendado: 10 MB.</div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer border-top">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="btnEnviarTicketAclaracionCredito"><i class="fa-solid fa-paper-plane me-1"></i>Enviar</button>
             </div>
         </div>
     </div>

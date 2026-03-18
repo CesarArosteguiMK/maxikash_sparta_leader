@@ -12,6 +12,16 @@ use Models\Ubicacion as UbicacionDAO;
 use Models\OfertaCoordenada;
 use Models\RegistroAsignacion;
 use Models\SolicitudBaja as SolicitudBajaDAO;
+use Models\TicketPlantilla as TicketPlantillaDAO;
+use Models\TicketAtencionCliente as TicketAtencionClienteDAO;
+use Models\TicketValidacion as TicketValidacionDAO;
+use Models\TicketViaticos as TicketViaticosDAO;
+use Models\TicketAplicacionesPago as TicketAplicacionesPagoDAO;
+use Models\TicketCreditoProblematico as TicketCreditoProblematicoDAO;
+use Models\TicketAclaracionCredito as TicketAclaracionCreditoDAO;
+use Models\ConfigTicketPuesto as ConfigTicketPuestoDAO;
+use Models\ConfigEstadisticasPuesto as ConfigEstadisticasPuestoDAO;
+use Models\ConfigPanelUsuario as ConfigPanelUsuarioDAO;
 
 // Capas del sistema de predicción: motor, interpretación IA, verificación IA, cache, audit
 require_once __DIR__ . '/../services/LocationScoringService.php';
@@ -42,13 +52,29 @@ class Sabueso extends Controller
      */
     public function ticket()
     {
+        $personaId = (int)($_SESSION['persona_id'] ?? $_SESSION['usuario_id'] ?? 0);
+        $idPuesto = (int)($_SESSION['id_puesto'] ?? 0);
+        // Usar todos los puestos de la persona: si tiene varios, unir las funciones de cada uno.
+        $categoriasDisponibles = ConfigTicketPuestoDAO::getFuncionesPorPersona($personaId);
+        if (empty($categoriasDisponibles) && $idPuesto > 0) {
+            $categoriasDisponibles = ConfigTicketPuestoDAO::getFuncionesPorPuesto($idPuesto);
+        }
+        if (empty($categoriasDisponibles) && $idPuesto > 0) {
+            $categoriasDisponibles = [];
+        }
+        if (empty($categoriasDisponibles) && $personaId <= 0 && $idPuesto <= 0) {
+            $categoriasDisponibles = ['sabueso', 'solicitud_baja'];
+        }
         $columnsJson = $this->getColumnsConfig(false);
         $script = '<script>window.sabuesoTicketColumns=' . $columnsJson['columnsJs'] . ';</script>' . "\n"
+            . '<script>window.categoriasDisponiblesPorPuesto=' . json_encode($categoriasDisponibles) . ';</script>' . "\n"
             . '<script src="/assets/js/sabueso_ticket.js"></script>';
 
         self::set('titulo', 'Ticket | Sabueso');
         self::set('script', $script);
         self::set('esAdminTicket', false);
+        self::set('categoriasDisponiblesPorPuesto', $categoriasDisponibles);
+        self::set('funcionesTicket', ConfigTicketPuestoDAO::FUNCIONES);
         self::render('sabueso_ticket');
     }
 
@@ -61,15 +87,30 @@ class Sabueso extends Controller
         $personaId = (int)($_SESSION['persona_id'] ?? $usuarioId);
         $usuarioNombre = $usuarioId ? TicketDAO::getNombrePersona($usuarioId) : '';
         $modulos = $_SESSION['modulos'] ?? [];
-        $puedeUsarAnalizarIA = is_array($modulos) && in_array(19, $modulos);
+        $puedeUsarAnalizarIA = is_array($modulos) && (in_array(19, $modulos) || in_array(27, $modulos));
         self::set('miUsuarioId', $usuarioId);
         self::set('miUsuarioNombre', $usuarioNombre);
         self::set('miPersonaId', $personaId);
         self::set('puedeUsarAnalizarIA', $puedeUsarAnalizarIA);
-        $columnsJson = $this->getColumnsConfig(true);
+        $catPanelGet = isset($_GET['categoria']) ? strtolower(preg_replace('/[^a-z0-9_]/', '', (string)$_GET['categoria'])) : '';
+        if ($catPanelGet !== '') {
+            $urlModPanel = \Core\TicketsPanelModuloHelper::getRedirectUrlForCategoria($catPanelGet);
+            if ($urlModPanel !== null) {
+                header('Location: ' . $urlModPanel, true, 302);
+                exit;
+            }
+        }
+        $columnsJson = $this->getColumnsConfig(true, $catPanelGet);
+        $catsTitulos = ['', 'sabueso', 'validaciones', 'viaticos', 'aplicaciones_de_pago', 'plantilla', 'atencion_cliente', 'credito_problematico', 'aclaracion_credito'];
+        $mapTitulosPanel = [];
+        foreach ($catsTitulos as $ck) {
+            $mapTitulosPanel[$ck === '' ? '_mixto' : $ck] = \Core\PanelAdminTicketTable::getTitulosColumnasPanelAdminPorCategoria($ck);
+        }
+        $panelAdminTitulosPorCatJs = json_encode($mapTitulosPanel, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
         $googleMapsKeyJs = json_encode(defined('GOOGLE_MAPS_API_KEY') && (string)GOOGLE_MAPS_API_KEY !== '' ? (string)GOOGLE_MAPS_API_KEY : '', JSON_UNESCAPED_SLASHES);
         $script = <<<SCRIPT
         <script>
+        window.panelAdminTitulosPorCat = {$panelAdminTitulosPorCatJs};
         var esAdminTicket = true;
         var ticketIdRastreoActual = null;
         var idCreditoRastreoActual = null;
@@ -242,8 +283,8 @@ SCRIPT;
         }
 JS;
         $script .= "\n\n        function actualizarCountdownsDictamen(selector) {\n            var sel = selector || '#tablaTicketsPanel';\n            $(sel + ' .dictamen-countdown').each(function() {\n                var el = this;\n                var fLim = $(el).attr('data-fecha-limite');\n                var f = $(el).attr('data-fecha-envio');\n                if (!f && !fLim) return;\n                var fin;\n                if (fLim) { fin = new Date(fLim); }\n                else { var envio = new Date(f); fin = new Date(envio.getTime() + 12 * 60 * 60 * 1000); }\n                var now = new Date();\n                var ms = fin - now;\n                var txt = '-';\n                var txtCorto = '-';\n                var expired = ms <= 0;\n                if (ms > 0) {\n                    var h = Math.floor(ms / 3600000);\n                    var m = Math.floor((ms % 3600000) / 60000);\n                    var pref = fLim ? 'Prórroga · ' : '';
-                    txt = pref + 'Tiempo restante: ' + h + 'h ' + m + 'm';\n                    txtCorto = (fLim ? 'P2 ' : '') + h + 'h ' + m + 'm';\n                } else {\n                    txt = fLim ? 'Prórroga vencida' : 'Plazo vencido';\n                    txtCorto = txt;\n                }\n                $(el).attr('title', txt).attr('data-bs-title', txt).toggleClass('text-danger', expired);\n                var txtEl = $(el).find('.dictamen-countdown-text');\n                if (txtEl.length) txtEl.text(txtCorto).toggleClass('text-danger', expired);\n            });\n        }\n        function attrEsc(s){ if (s==null||s===undefined) return ''; var x=(s+'').split('&').join('&amp;').split('<').join('&lt;'); return x.split('\"').join('&quot;'); }\n        $(document).ready(function() {\n            configuraTabla(\"#tablaTicketsPanel\", {\n                registrosPorPagina: 10,\n                order: [[1, 'desc']],\n                columns: " . $columnsJson['columnsJs'] . "\n            });\n            window.panelAdminPrimeraCarga = true;\n            getTicketsPanelAdmin();\n        });\n\n        function getTicketsPanelAdmin() {\n            var filtrosPayload = (typeof window.panelAdminFiltros === 'object' && window.panelAdminFiltros) ? window.panelAdminFiltros : {};\n            var esPrimeraCarga = (window.panelAdminPrimeraCarga === true);\n            http.request({\n                endpoint: \"/sabueso/getTicketsPanelAdmin\",\n                metodo: \"POST\",\n                data: JSON.stringify({ filtros: filtrosPayload }),\n                contentType: \"application/json\",\n                processData: false,\n                showLoader: esPrimeraCarga,\n                onSuccess: function(resp) {\n                    if (esPrimeraCarga) { window.panelAdminPrimeraCarga = false; $('#wrapTablaTicketsPanel').show(); }\n                    var datos = (resp.datos || []).map(function(t) {\n                        var fechaCreacion = t.fecha_creacion ? new Date(t.fecha_creacion).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—';\n                        var fechaVenc = t.fecha_vencimiento ? new Date(t.fecha_vencimiento).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—';\n                        var prioridadNombre = (t.prioridad_nombre || '').toLowerCase();\n                        var prioridadBadge = '<span class=\"badge bg-label-secondary\">' + (t.prioridad_nombre || '—') + '</span>';\n                        if (prioridadNombre.indexOf('alta') !== -1) prioridadBadge = '<span class=\"badge bg-danger text-white\">' + (t.prioridad_nombre || '—') + '</span>';\n                        else if (prioridadNombre.indexOf('medio') !== -1 || prioridadNombre.indexOf('media') !== -1) prioridadBadge = '<span class=\"badge\" style=\"background-color:#fd7e14;color:#fff;\">' + (t.prioridad_nombre || '—') + '</span>';\n                        else if (prioridadNombre.indexOf('bajo') !== -1 || prioridadNombre.indexOf('baja') !== -1) prioridadBadge = '<span class=\"badge\" style=\"background-color:#ffc107;color:#212529;\">' + (t.prioridad_nombre || '—') + '</span>';\n                        else if (prioridadNombre.indexOf('sin prioridad') !== -1) prioridadBadge = '<span class=\"badge bg-secondary\" style=\"background-color:#6c757d!important;color:#fff;\">' + (t.prioridad_nombre || '—') + '</span>';\n                        var estadoBadge = (t.asignado_nombre && (t.asignado_nombre + '').trim()) ? '<span class=\"badge bg-success text-white\">Asignado</span>' : '<span class=\"badge bg-label-secondary\">Abierto</span>';\n                        var vistoHtml = '';\n                        if ((t.dictamen_estado || '') === 'enviado_al_gestor') {\n                            var vistoTexto = t.dictamen_fecha_visto ? (new Date(t.dictamen_fecha_visto).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' }) + ' ' + new Date(t.dictamen_fecha_visto).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })) : 'No visto';\n                            var iconoOjo = (t.dictamen_fecha_visto && (t.dictamen_fecha_visto + '').trim()) ? 'fa-eye' : 'fa-eye-slash';\n                            var tituloOjo = (t.dictamen_fecha_visto && (t.dictamen_fecha_visto + '').trim()) ? ('Visto: ' + vistoTexto) : 'No visto. Clic para ver dictamen';\n                            vistoHtml = '<span class=\"d-inline-flex align-items-center gap-1 justify-content-end btn-dictamen-ojito\" role=\"button\" tabindex=\"0\" data-bs-toggle=\"tooltip\" data-bs-title=\"' + (tituloOjo + '').replace(/\\x22/g, '&quot;') + '\" data-id-ticket=\"' + (t.id_ticket || '') + '\"><i class=\"fa ' + iconoOjo + ' text-info small\"></i></span>';\n                        }\n                        var tiempoVisitarHtml = '—';\n                        var fEnv = (t.dictamen_fecha_envio || '').trim();\n                        var esNuevo = fEnv && new Date(fEnv) >= new Date('2026-03-09T00:00:00');\n                        if ((t.dictamen_estado || '') === 'enviado_al_gestor' && esNuevo && fEnv) {\n                            var envio = new Date(fEnv);\n                            var fLim = (t.prorroga_fecha_limite || '').trim();\n                            var esProrroga = t.prorroga_activa && fLim;\n                            var fin = esProrroga ? new Date(fLim) : new Date(envio.getTime() + 12 * 60 * 60 * 1000);\n                            var now = new Date();\n                            var ms = fin - now;\n                            var txtInicial = ms > 0 ? (Math.floor(ms / 3600000) + 'h ' + Math.floor((ms % 3600000) / 60000) + 'm') : 'Plazo vencido';\n                            var clsPr = esProrroga ? ' dictamen-countdown-prorroga' : '';\n                            var dataLim = esProrroga ? (' data-fecha-limite=\"' + fLim.replace(/\"/g, '&quot;') + '\"') : '';\n                            var iconBlock = esProrroga ? ('<span class=\"position-relative d-inline-flex align-items-baseline\"><i class=\"fa-solid fa-clock text-warning small\"></i><sup class=\"dictamen-prorroga-marca\" title=\"Prórroga +12h (2ª ventana)\">2</sup></span>') : ('<i class=\"fa-solid fa-clock text-info small\"></i>');\n                            tiempoVisitarHtml = '<span class=\"d-inline-flex align-items-center gap-1 dictamen-countdown cursor-pointer' + clsPr + '\" role=\"button\" tabindex=\"0\" data-fecha-envio=\"' + fEnv.replace(/\"/g, '&quot;') + '\"' + dataLim + ' data-id-ticket=\"' + (t.id_ticket || '') + '\" data-bs-toggle=\"tooltip\" data-bs-title=\"' + (esProrroga ? 'Prórroga +12h · tiempo hasta límite' : 'Ventana 12h desde envío') + '\">' + iconBlock + '<span class=\"dictamen-countdown-text\">' + txtInicial + '</span></span>';\n                        }\n                        var prHtml = (t.prorroga_otorgada && t.prorroga_html) ? t.prorroga_html : '';\n                        if (prHtml && tiempoVisitarHtml !== '—') { tiempoVisitarHtml = '<div class=\"d-flex flex-column align-items-center\">' + tiempoVisitarHtml + prHtml + '</div>'; }\n                        else if (prHtml) { tiempoVisitarHtml = prHtml; }\n                        var row = {\n                            _fecha_creacion: (t.fecha_creacion || ''),\n                            folio_tipo: '<div class=\"fw-semibold\">' + (t.folio || '—') + '</div><div class=\"small text-muted mt-1\">' + (t.tipo_ticket_nombre || '—') + '</div>',\n                            estado: estadoBadge,\n                            prioridad: prioridadBadge,\n                            credito: '<small>#' + (t.id_credito != null ? t.id_credito : '—') + '</small>',\n                            fechas: '<div class=\"small d-flex align-items-center gap-1\"><i class=\"fa fa-calendar-plus-o text-muted\" style=\"width: 1rem;\"></i><span>Creación: ' + fechaCreacion + '</span></div><div class=\"small text-muted d-flex align-items-center gap-1 mt-1\"><i class=\"fa fa-calendar-times-o\" style=\"width: 1rem;\"></i><span>Vencimiento: ' + fechaVenc + '</span></div>',\n                            creador: '<small class=\"d-flex align-items-center gap-1\"><i class=\"fa fa-user\"></i>' + (t.creador_nombre || '—') + '</small>',\n                            asignado: (t.asignado_nombre && t.asignado_nombre.trim()) ? '<small class=\"d-flex align-items-center gap-1\"><i class=\"fa fa-user-check text-success\"></i>' + t.asignado_nombre + '</small>' : '<span class=\"text-muted\">—</span>',\n                            tiempo_visitar: tiempoVisitarHtml,\n                            ds_resultado: (t.ds_resultado_html != null && t.ds_resultado_html !== '') ? t.ds_resultado_html : '—',\n                            dictamen_visto: vistoHtml,\n                            acciones: (function(){ var fEnvDS = (t.dictamen_fecha_envio || '').trim(); var ticketDesdeMarzo10 = t.fecha_creacion && (new Date(t.fecha_creacion) >= new Date(2026, 2, 10)); var plazoVencido = false; if (fEnvDS && ticketDesdeMarzo10 && (t.dictamen_estado || '') === 'enviado_al_gestor') { var plazoDS = new Date(fEnvDS).getTime() + 12*60*60*1000; plazoVencido = (Date.now() >= plazoDS); } var btns = '<div class=\"d-flex flex-column gap-1 align-items-stretch\" style=\"min-width:2.5rem;\"><button class=\"btn btn-sm btn-primary btn-rastreo\" onclick=\"abrirRastreo(this)\" data-id-credito=\"' + (t.id_credito != null ? t.id_credito : 0) + '\" data-id-ticket=\"' + (t.id_ticket) + '\" data-asignado=\"' + attrEsc(t.asignado_nombre) + '\" data-creador-nombre=\"' + attrEsc(t.creador_nombre) + '\" data-fecha-creacion=\"' + attrEsc(t.fecha_creacion) + '\" title=\"Iniciar rastreo\"><i class=\"fa-solid fa-magnifying-glass-plus\"></i></button>'; if (plazoVencido) { btns += '<button type=\"button\" class=\"btn btn-sm btn-warning btn-dictamen-sistema\" onclick=\"abrirDictamenSistema(' + t.id_ticket + ')\" title=\"Dictamen del sistema\"><i class=\"fa-solid fa-robot\"></i></button>'; } btns += '<button class=\"btn btn-sm btn-secondary\" onclick=\"cerrarTicketPanel(' + (t.id_ticket) + ')\" title=\"Cerrar ticket\"><i class=\"fa fa-minus\"></i></button><button class=\"btn btn-sm btn-danger\" onclick=\"eliminarTicketPanel(' + (t.id_ticket) + ')\" title=\"Eliminar ticket\"><i class=\"fa fa-trash\"></i></button></div>'; return btns; })(),\n                            _id_ticket: t.id_ticket,\n                            _dictamen_estado: t.dictamen_estado || '',\n                            _dictamen_fecha_visto: t.dictamen_fecha_visto || ''\n                        };\n                        return row;\n                    });\n                    var tabla = $('#tablaTicketsPanel').DataTable();\n                    var paginaAntes = tabla.page.info().page;\n                    tabla.clear().rows.add(datos);\n                    var np = tabla.page.info().pages;\n                    if (paginaAntes >= np) paginaAntes = Math.max(0, np - 1);\n                    tabla.page(paginaAntes).draw(false);\n                    tabla.rows().every(function() {\n                        var d = this.data();\n                        if (d._dictamen_estado === 'enviado_al_gestor') {\n                            $(this.node()).addClass('fila-dictamen-enviado').attr('data-id-ticket', d._id_ticket || '');\n                        }\n                    });\n                    if (typeof actualizarCountdownsDictamen === 'function') actualizarCountdownsDictamen('#tablaTicketsPanel');\n                    $('#tablaTicketsPanel [data-bs-toggle=\"tooltip\"]').tooltip();\n                },\n                onError: function() {\n                    if (esPrimeraCarga) { window.panelAdminPrimeraCarga = false; $('#wrapTablaTicketsPanel').show(); }\n                    var tabla = $('#tablaTicketsPanel').DataTable();\n                    tabla.clear().draw();\n                }\n            });\n        }\n        setInterval(function() { if (typeof actualizarCountdownsDictamen === 'function') actualizarCountdownsDictamen('#tablaTicketsPanel'); }, 1000);\n        function abrirRastreo(btn) {\n            var idCredito = parseInt(btn.getAttribute('data-id-credito')||0, 10);\n            var idTicket = parseInt(btn.getAttribute('data-id-ticket')||0, 10);\n            var asignadoNombre = (btn.getAttribute('data-asignado')||'').trim();\n            var creadorNombre = (btn.getAttribute('data-creador-nombre')||'').trim();\n            var fechaCreacionRaw = (btn.getAttribute('data-fecha-creacion')||'').trim();\n            var fechaCreacionDisplay = fechaCreacionRaw ? (new Date(fechaCreacionRaw).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' }) + ' ' + new Date(fechaCreacionRaw).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })) : '—';\n            ticketIdRastreoActual = idTicket || null;\n            if (!idCredito || isNaN(idCredito)) { Swal.fire({ icon: 'warning', title: 'Rastreo', text: 'No hay ID de crédito para este ticket.' }); return; }\n            http.request({\n                endpoint: \"/sabueso/getDatosCredito\",\n                metodo: \"POST\",\n                data: JSON.stringify({ id_credito: idCredito }),\n                contentType: \"application/json\",\n                processData: false,\n                showLoader: true,\n                onSuccess: function(resp) {\n                    var d = resp.datos || null;\n                    if (!d) { var msg = (resp.mensaje || 'No se encontraron datos para este crédito.'); $('#rastreoTopLeft').html('<div class=\"alert alert-warning mb-0\"><strong>Crédito #' + idCredito + '</strong><br>' + msg + '<br><small>El crédito debe existir en Segundometro u Oferta para ver el rastreo.</small></div>'); $('#rastreoTopRight').html(''); $('#rastreoTickets').html(''); $('#rastreoDireccionesContenido').html(''); idCreditoRastreoActual = idCredito; window.ticketIdRastreoActual = ticketIdRastreoActual; $('#modalRastreoCredito').attr('data-id-ticket', ticketIdRastreoActual || ''); $('#rastreoIdTicketActual').val(ticketIdRastreoActual || '').attr('data-id-ticket', ticketIdRastreoActual || ''); $('#modalRastreoCredito').modal('show'); return; }\n                    var esc = function(s) { var x = (s + '').split('&').join('&amp;').split('<').join('&lt;').split('>').join('&gt;'); return x.split(String.fromCharCode(34)).join('&quot;'); };\n                    var idCred = (d.id_credito || d.Id_credito || '—');\n                    var nombreCompleto = esc(d.Nombre_cliente || d.nombre_completo || '—');\n                    var tel = (d.telefono_referencia1 || d.telefono_referencia2 || '').trim();\n                    var telEsc = tel ? esc(tel) : '—';\n                    var dirMegareporte = (d.Domicilio_Completo && (d.Domicilio_Completo + '').trim()) ? esc(d.Domicilio_Completo) : '—';
-                    rastreoTicketInfoBase = '<div class=\"rastreo-ticket-info-col\"><span class=\"text-muted small d-block\">Quién levantó el ticket</span><div class=\"fw-medium\">' + (creadorNombre ? esc(creadorNombre) : '—') + '</div><span class=\"text-muted small d-block mt-1\">Cuando se levantó</span><div class=\"fw-medium\">' + fechaCreacionDisplay + '</div><span class=\"text-muted small d-block mt-1\">Asignado a</span><div id=\"rastreoAsignadoBlock\" class=\"fw-medium\"><span class=\"text-muted\">Cargando...</span></div></div>';\n                    var htmlTicketInfo = rastreoTicketInfoBase;\n                    var htmlTopLeft = '<div><span class=\"text-muted small d-block\">ID crédito</span><div class=\"fw-semibold\">' + idCred + '</div></div><div><span class=\"text-muted small d-block\">Nombre completo</span><div class=\"fw-semibold\">' + nombreCompleto + '</div></div><div><span class=\"text-muted small d-block\">Teléfono cliente</span><div class=\"fw-semibold\">' + telEsc + '</div></div><div><span class=\"text-muted small d-block\">Dirección megareporte</span><div class=\"fw-semibold small\">' + dirMegareporte + '</div></div>';\n                    var dirContenido = (d.Domicilio_Completo && (d.Domicilio_Completo + '').trim()) ? esc(d.Domicilio_Completo) : '<span class=\"text-muted\">No hay direcciones registradas</span>';\n                    var tickets = d.tickets || [];\n                    var ticketActual = tickets.filter(function(tk) { return tk.id_ticket == ticketIdRastreoActual; })[0];\n                    var htmlTickets = '';\n                    if (ticketActual) {\n                        var fCreacion = ticketActual.fecha_creacion ? new Date(ticketActual.fecha_creacion).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—';\n                        var fVenc = ticketActual.fecha_vencimiento ? new Date(ticketActual.fecha_vencimiento).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—';\n                        htmlTickets = '<div class=\"small bg-light rounded p-2 mb-2\"><strong>' + esc(ticketActual.folio || '—') + '</strong> · ' + esc(ticketActual.tipo_nombre || '') + ' · ' + esc(ticketActual.estado_nombre || '') + '<br><span class=\"text-muted small\">Descripción:</span> ' + esc(ticketActual.descripcion_inicial || '—') + '<br>Creación: ' + fCreacion + ' · Venc: ' + fVenc + '</div>';\n                    } else { htmlTickets = '<span class=\"text-muted small\">Ticket actual (sin detalle adicional).</span>'; }\n                    $('#rastreoTopLeft').html(htmlTopLeft); if(typeof sabuesoAppendInformacionIngresos==='function')sabuesoAppendInformacionIngresos(document.getElementById('rastreoTopLeft'),d,esc); $('#rastreoTopRight').html(htmlTicketInfo);\n                    loadHistorialAsignacionTicket(ticketIdRastreoActual);\n                    $('#rastreoTickets').html(htmlTickets);\n                    $('#rastreoDireccionesContenido').html('<span class=\"text-muted\">Cargando direcciones...</span>');\n                    rastreoDireccionesParaMapa = [];\n                    $('#btnAsignarRastreo').html('<i class=\"fa-solid fa-user-plus me-1\"></i>Asignar...');\n                    idCreditoRastreoActual = idCredito;\n                    rastreoDatosClienteActual = { nombre: (d.Nombre_cliente || d.nombre_completo || '—'), credito: idCred, telefono: (tel || '—'), direccion: (d.Domicilio_Completo || '—') };\n                    var kA = \"sabueso_ia_\" + idCredito + \"_\" + (idTicket || 0) + \"_analizar\"; var kU = \"sabueso_ia_\" + idCredito + \"_ubicaciones\"; var kG = \"sabueso_ia_\" + idCredito + \"_gestiones\";\n                    try { if (typeof localStorage !== \"undefined\") { rastreoUltimoAnalizarIA = localStorage.getItem(kA) || \"\"; rastreoUltimoResumenUbicaciones = localStorage.getItem(kU) || \"\"; rastreoUltimoResumenGestiones = localStorage.getItem(kG) || \"\"; } else { rastreoUltimoAnalizarIA = \"\"; rastreoUltimoResumenUbicaciones = \"\"; rastreoUltimoResumenGestiones = \"\"; } } catch (e) { rastreoUltimoAnalizarIA = \"\"; rastreoUltimoResumenUbicaciones = \"\"; rastreoUltimoResumenGestiones = \"\"; }\n                    if (rastreoUltimoAnalizarIA) { \$(\"#btnLecturaIAAnalizar\").show(); \$(\"#btnBorrarIAAnalizar\").show(); } else { \$(\"#btnLecturaIAAnalizar\").hide(); \$(\"#btnBorrarIAAnalizar\").hide(); }\n                    if (rastreoUltimoResumenUbicaciones) { \$(\"#btnLecturaIAUbicaciones\").show(); \$(\"#btnBorrarIAUbicaciones\").show(); } else { \$(\"#btnLecturaIAUbicaciones\").hide(); \$(\"#btnBorrarIAUbicaciones\").hide(); }\n                    if (rastreoUltimoResumenGestiones) { \$(\"#btnLecturaIAGestiones\").show(); \$(\"#btnBorrarIAGestiones\").show(); } else { \$(\"#btnLecturaIAGestiones\").hide(); \$(\"#btnBorrarIAGestiones\").hide(); }\n                    window.ticketIdRastreoActual = ticketIdRastreoActual; \$(\"#modalRastreoCredito\").attr(\"data-id-ticket\", ticketIdRastreoActual || \"\"); \$(\"#rastreoIdTicketActual\").val(ticketIdRastreoActual || \"\").attr(\"data-id-ticket\", ticketIdRastreoActual || \"\"); \$(\"#modalRastreoCredito\").modal(\"show\");\n                },\n                onError: function(err) {\n                    var errMsg = (typeof err === 'string' ? err : (err && err.mensaje)) || 'No se pudieron cargar los datos del crédito.';\n                    Swal.fire({ icon: 'error', title: 'Rastreo', text: errMsg });\n                }\n            });\n        }\n        function tooltipHistorialAsignacion(estado, historial) {\n            if (estado === 'primera_asignacion') return 'Es la primera asignación de este ticket.';\n            var lineas = ['Historial de asignación (este ticket)'];\n            (historial || []).forEach(function(h) { lineas.push('• ' + (h.persona || '—') + ': ' + (h.duracion_humana || '—')); });\n            if (estado === 'sin_asignar') lineas.push('Actualmente sin persona asignada a este ticket.');\n            return lineas.join('\\n');\n        }\n        function loadHistorialAsignacionTicket(idTicket) {\n            if (!idTicket) return;\n            http.request({ endpoint: '/sabueso/getHistorialAsignacionTicket', metodo: 'POST', data: JSON.stringify({ id_ticket: idTicket }), contentType: 'application/json', processData: false, onSuccess: function(r) {\n                var asignado = r.asignado_actual || null;\n                var estado = r.estado || 'primera_asignacion';\n                var historial = r.historial || [];\n                var tooltipTxt = tooltipHistorialAsignacion(estado, historial);\n                var tooltipEsc = (tooltipTxt + '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/\"/g, '&quot;');\n                var tooltipAttr = tooltipEsc.replace(/\\n/g, '<br>');\n                var html = asignado ? ('<i class=\"fa-solid fa-user-check text-success me-1\"></i>' + (asignado.replace(/&/g, '&amp;').replace(/</g, '&lt;')) + ' <i class=\"fa-solid fa-circle-info ms-1\" role=\"img\" aria-label=\"Historial\" data-bs-toggle=\"tooltip\" data-bs-html=\"true\" data-bs-title=\"' + tooltipAttr + '\"></i>') : ('<span class=\"text-muted\">Sin asignar</span> <i class=\"fa-solid fa-circle-info ms-1\" role=\"img\" aria-label=\"Historial\" data-bs-toggle=\"tooltip\" data-bs-html=\"true\" data-bs-title=\"' + tooltipAttr + '\"></i>');\n                var bloque = $('#rastreoAsignadoBlock');\n                if (bloque.length) bloque.html(html);\n                if (asignado) { if (!$('#rastreoAsignadoBlock').next('.btn').length) $('#rastreoAsignadoBlock').after('<button type=\"button\" class=\"btn btn-sm btn-outline-danger mt-1\" onclick=\"quitarAsignacionRastreo()\" title=\"Quitar asignación\">Quitar asignación</button>'); } else { $('#rastreoAsignadoBlock').next('.btn').remove(); }\n                $('#btnAsignarRastreo').html(asignado ? '<i class=\"fa-solid fa-user-pen me-1\"></i>Reasignar a...' : '<i class=\"fa-solid fa-user-plus me-1\"></i>Asignar...');\n                if (typeof $().tooltip === 'function') { $('#rastreoAsignadoBlock [data-bs-toggle=\"tooltip\"]').tooltip(); }\n            } });\n        }\n        function mostrarAsignarOpciones() {\n            if (!ticketIdRastreoActual) { Swal.fire({ icon: 'warning', title: 'Asignar', text: 'No hay ticket seleccionado.' }); return; }\n            Swal.fire({ title: 'Asignar ticket', text: '¿A quién desea asignar este ticket?', icon: 'question', showDenyButton: true, showCancelButton: true, confirmButtonText: 'Tomar asignación', denyButtonText: 'Asignar a...', cancelButtonText: 'Cancelar' }).then(function(res) {\n                if (res.isConfirmed) asignarTicketA(miUsuarioId);\n                else if (res.isDenied) abrirModalAsignarA();\n            });\n        }\n        function asignarTicketA(idPersona) {\n            if (!ticketIdRastreoActual || !idPersona) return;\n            http.request({ endpoint: \"/sabueso/asignarTicket\", metodo: \"POST\", data: JSON.stringify({ id_ticket: ticketIdRastreoActual, id_persona: idPersona }), contentType: \"application/json\", processData: false, onSuccess: function(r) {\n                Swal.fire({ icon: 'success', title: 'Asignado', text: r.mensaje || 'Ticket asignado.' });\n                $('#modalRastreoCredito, #modalAsignarA').modal('hide');\n                ticketIdRastreoActual = null;\n                getTicketsPanelAdmin();\n            }, onError: function(e) { Swal.fire({ icon: 'error', title: 'Error', text: (e && e.mensaje) || 'No se pudo asignar.' }); } });\n        }\n        function quitarAsignacionRastreo() {\n            if (!ticketIdRastreoActual) return;\n            if (typeof Swal !== 'undefined') {\n                Swal.fire({ title: '¿Quitar asignación?', text: 'El ticket quedará sin persona asignada.', icon: 'question', showCancelButton: true, confirmButtonColor: '#d33', cancelButtonColor: '#6c757d', confirmButtonText: 'Sí, quitar' }).then(function(res) {\n                    if (!res.isConfirmed) return;\n                    http.request({ endpoint: '/sabueso/quitarAsignacionTicket', metodo: 'POST', data: JSON.stringify({ id_ticket: ticketIdRastreoActual }), contentType: 'application/json', processData: false, onSuccess: function(r) {\n                        if (r.success) { Swal.fire({ icon: 'success', title: 'Listo', text: r.mensaje || 'Asignación quitada.' }); if (ticketIdRastreoActual) loadHistorialAsignacionTicket(ticketIdRastreoActual); getTicketsPanelAdmin(); } else { if (typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: 'Error', text: r.mensaje || 'No se pudo quitar.' }); }\n                    }, onError: function(e) { if (typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: 'Error', text: (e && e.mensaje) || 'No se pudo quitar.' }); } });\n                });\n            } else {\n                http.request({ endpoint: '/sabueso/quitarAsignacionTicket', metodo: 'POST', data: JSON.stringify({ id_ticket: ticketIdRastreoActual }), contentType: 'application/json', processData: false, onSuccess: function(r) { if (r.success) { if (idCreditoRastreoActual) loadHistorialAsignacion(idCreditoRastreoActual); getTicketsPanelAdmin(); } } });\n            }\n        }\n        function abrirModalAsignarA() {\n            http.request({ endpoint: \"/sabueso/getPersonasSabueso\", metodo: \"POST\", onSuccess: function(resp) {\n                var list = resp.datos || [];\n                var html = list.length ? list.map(function(p) { return '<div class=\"d-flex justify-content-between align-items-center py-2 border-bottom\"><span>' + (p.nombre_completo || p.id) + '</span><button type=\"button\" class=\"btn btn-sm btn-primary\" onclick=\"asignarTicketA(' + p.id + ')\">Asignárselo</button></div>'; }).join('') : '<p class=\"text-muted mb-0\">No hay personas en el departamento Sabueso.</p>';\n                $('#modalAsignarABody').html(html);\n                $('#modalRastreoCredito').modal('hide');\n                $('#modalAsignarA').modal('show');\n            }, onError: function() { Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudo cargar la lista.' }); } });\n        }\n        function cerrarTicketPanel(idTicket) {\n            if (!idTicket) return;\n            Swal.fire({ title: '¿Cerrar ticket?', text: 'El ticket se registrará como cerrado y dejará de mostrarse en la lista activa.', icon: 'question', showCancelButton: true, confirmButtonColor: '#fd7e14', cancelButtonColor: '#6c757d', confirmButtonText: 'Sí, cerrar' }).then(function(res) {\n                if (!res.isConfirmed) return;\n                http.request({\n                    endpoint: \"/sabueso/cerrarTicket\",\n                    metodo: \"POST\",\n                    data: JSON.stringify({ id_ticket: idTicket }),\n                    contentType: \"application/json\",\n                    processData: false,\n                    onSuccess: function(resp) {\n                        Swal.fire({ icon: 'success', title: 'Cerrado', text: resp.mensaje || 'Ticket cerrado.' });\n                        getTicketsPanelAdmin();\n                    },\n                    onError: function(err) {\n                        Swal.fire({ icon: 'error', title: 'Error', text: (err && err.mensaje) || 'No se pudo cerrar.' });\n                    }\n                });\n            });\n        }\n        function eliminarTicketPanel(idTicket) {\n            if (!idTicket) return;\n            Swal.fire({ title: '¿Eliminar ticket?', text: 'Esta acción no se puede deshacer.', icon: 'warning', showCancelButton: true, confirmButtonColor: '#d33', cancelButtonColor: '#6c757d', confirmButtonText: 'Sí, eliminar' }).then(function(res) {\n                if (!res.isConfirmed) return;\n                http.request({\n                    endpoint: \"/sabueso/eliminarTicket\",\n                    metodo: \"POST\",\n                    data: JSON.stringify({ id_ticket: idTicket }),\n                    contentType: \"application/json\",\n                    processData: false,\n                    onSuccess: function(resp) {\n                        Swal.fire({ icon: 'success', title: 'Eliminado', text: resp.mensaje || 'Ticket eliminado.' });\n                        getTicketsPanelAdmin();\n                    },\n                    onError: function(err) {\n                        Swal.fire({ icon: 'error', title: 'Error', text: (err && err.mensaje) || 'No se pudo eliminar.' });\n                    }\n                });\n            });\n        }\n";
+                    txt = pref + 'Tiempo restante: ' + h + 'h ' + m + 'm';\n                    txtCorto = (fLim ? 'P2 ' : '') + h + 'h ' + m + 'm';\n                } else {\n                    txt = fLim ? 'Prórroga vencida' : 'Plazo vencido';\n                    txtCorto = txt;\n                }\n                $(el).attr('title', txt).attr('data-bs-title', txt).toggleClass('text-danger', expired);\n                var txtEl = $(el).find('.dictamen-countdown-text');\n                if (txtEl.length) txtEl.text(txtCorto).toggleClass('text-danger', expired);\n            });\n        }\n        function attrEsc(s){ if (s==null||s===undefined) return ''; var x=(s+'').split('&').join('&amp;').split('<').join('&lt;'); return x.split('\"').join('&quot;'); }\n        function panelAdminAplicarTitulosColumnas(dt, cat) {\n            if (!dt || !dt.columns) return;\n            var M = window.panelAdminTitulosPorCat || {};\n            var k = (cat && String(cat).trim()) ? String(cat).toLowerCase().trim() : '_mixto';\n            if (!M[k]) { k = '_mixto'; }\n            var T = M[k];\n            if (!T) return;\n            function sc(i, t) { try { var h = dt.column(i).header(); if (h && h.length) h[0].innerHTML = t; } catch (e) {} }\n            sc(2, T.folio); sc(3, T.estado); sc(4, T.prioridad); sc(5, T.ref); sc(6, T.fechas);\n            sc(7, T.creador); sc(8, T.asignado); sc(9, T.tiempo); sc(10, T.ds);\n        }\n        function panelAdminIconoPorCategoria(c) {\n            c = (c || '').toLowerCase();\n            var m = { sabueso: 'fa-dog', plantilla: 'fa-file-lines', atencion_cliente: 'fa-headset', validaciones: 'fa-clipboard-check', viaticos: 'fa-receipt', aplicaciones_de_pago: 'fa-credit-card', credito_problematico: 'fa-triangle-exclamation', aclaracion_credito: 'fa-circle-question' };\n            return (c && m[c]) ? m[c] : 'fa-list';\n        }\n        $(document).ready(function() {\n            configuraTabla(\"#tablaTicketsPanel\", {\n                registrosPorPagina: 10,\n                order: [[1, 'desc']],\n                columns: " . $columnsJson['columnsJs'] . "\n            });\n            var urlCat = (function(){ var p = new URLSearchParams(window.location.search); return (p.get('categoria') || '').toLowerCase().trim(); })();\n            try { var dtPa = $('#tablaTicketsPanel').DataTable(); panelAdminAplicarTitulosColumnas(dtPa, urlCat); } catch (ePa) {}\n            if (urlCat && $('#filtroCategoria').length) { $('#filtroCategoria').val(urlCat); window.panelAdminFiltros = window.panelAdminFiltros || {}; window.panelAdminFiltros.categoria_gestion = urlCat; }\n            var catLabelsPanel = { sabueso: 'Sabueso', plantilla: 'Plantilla', atencion_cliente: 'Atención al cliente', validaciones: 'Validaciones', viaticos: 'Viáticos', aplicaciones_de_pago: 'Aplicaciones de pago', credito_problematico: 'Crédito problemático', aclaracion_credito: 'Aclaración de crédito' };\n            if (urlCat && $('#panelAdminTitulo').length) { var lbl = catLabelsPanel[urlCat] || urlCat; $('#panelAdminTitulo').html('<i class=\"fa-solid ' + panelAdminIconoPorCategoria(urlCat) + ' me-2\"></i>Panel Admin – ' + lbl); }\n            var categoriasSimplesInit = ['viaticos','aplicaciones_de_pago','credito_problematico','aclaracion_credito','plantilla','atencion_cliente','validaciones'];\n            var esSimpleInit = categoriasSimplesInit.indexOf(urlCat) !== -1;\n            if ($('#btnAbrirConsultaCredito').length) $('#btnAbrirConsultaCredito').toggle(!esSimpleInit);\n            if ($('#sabuesoPanelEaster').length) $('#sabuesoPanelEaster').toggle(!esSimpleInit);\n            if ($('#panelAdminFiltrosWrap').length) $('#panelAdminFiltrosWrap').toggle(!esSimpleInit);\n            window.panelAdminPrimeraCarga = true;\n            getTicketsPanelAdmin();\n        });\n\n        function getTicketsPanelAdmin() {\n            var filtrosPayload = (typeof window.panelAdminFiltros === 'object' && window.panelAdminFiltros) ? window.panelAdminFiltros : {};\n            var esPrimeraCarga = (window.panelAdminPrimeraCarga === true);\n            if (esPrimeraCarga && typeof showWait === 'function') showWait();\n            http.request({\n                endpoint: \"/sabueso/getTicketsPanelAdmin\",\n                metodo: \"POST\",\n                data: JSON.stringify({ filtros: filtrosPayload }),\n                contentType: \"application/json\",\n                processData: false,\n                showLoader: false,\n                onSuccess: function(resp) {\n                    if (esPrimeraCarga) { window.panelAdminPrimeraCarga = false; }\n                    var datos = (resp.datos || []).map(function(t) {\n                        var fechaCreacion = t.fecha_creacion ? new Date(t.fecha_creacion).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—';\n                        var fechaVenc = t.fecha_vencimiento ? new Date(t.fecha_vencimiento).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—';\n                        var prioridadNombre = (t.prioridad_nombre || '').toLowerCase();\n                        var prioridadBadge = '<span class=\"badge bg-label-secondary\">' + (t.prioridad_nombre || '—') + '</span>';\n                        if (prioridadNombre.indexOf('alta') !== -1) prioridadBadge = '<span class=\"badge bg-danger text-white\">' + (t.prioridad_nombre || '—') + '</span>';\n                        else if (prioridadNombre.indexOf('medio') !== -1 || prioridadNombre.indexOf('media') !== -1) prioridadBadge = '<span class=\"badge\" style=\"background-color:#fd7e14;color:#fff;\">' + (t.prioridad_nombre || '—') + '</span>';\n                        else if (prioridadNombre.indexOf('bajo') !== -1 || prioridadNombre.indexOf('baja') !== -1) prioridadBadge = '<span class=\"badge\" style=\"background-color:#ffc107;color:#212529;\">' + (t.prioridad_nombre || '—') + '</span>';\n                        else if (prioridadNombre.indexOf('sin prioridad') !== -1) prioridadBadge = '<span class=\"badge bg-secondary\" style=\"background-color:#6c757d!important;color:#fff;\">' + (t.prioridad_nombre || '—') + '</span>';\n                        var estadoBadge = (t.asignado_nombre && (t.asignado_nombre + '').trim()) ? '<span class=\"badge bg-success text-white\">Asignado</span>' : '<span class=\"badge bg-label-secondary\">Abierto</span>';\n                        var vistoHtml = '';\n                        if ((t.dictamen_estado || '') === 'enviado_al_gestor') {\n                            var vistoTexto = t.dictamen_fecha_visto ? (new Date(t.dictamen_fecha_visto).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' }) + ' ' + new Date(t.dictamen_fecha_visto).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })) : 'No visto';\n                            var iconoOjo = (t.dictamen_fecha_visto && (t.dictamen_fecha_visto + '').trim()) ? 'fa-eye' : 'fa-eye-slash';\n                            var tituloOjo = (t.dictamen_fecha_visto && (t.dictamen_fecha_visto + '').trim()) ? ('Visto: ' + vistoTexto) : 'No visto. Clic para ver dictamen';\n                            vistoHtml = '<span class=\"d-inline-flex align-items-center gap-1 justify-content-end btn-dictamen-ojito\" role=\"button\" tabindex=\"0\" data-bs-toggle=\"tooltip\" data-bs-title=\"' + (tituloOjo + '').replace(/\\x22/g, '&quot;') + '\" data-id-ticket=\"' + (t.id_ticket || '') + '\"><i class=\"fa ' + iconoOjo + ' text-info small\"></i></span>';\n                        }\n                        var tiempoVisitarHtml = '—';\n                        var fEnv = (t.dictamen_fecha_envio || '').trim();\n                        var esNuevo = fEnv && new Date(fEnv) >= new Date('2026-03-09T00:00:00');\n                        if ((t.dictamen_estado || '') === 'enviado_al_gestor' && esNuevo && fEnv) {\n                            var envio = new Date(fEnv);\n                            var fLim = (t.prorroga_fecha_limite || '').trim();\n                            var esProrroga = t.prorroga_activa && fLim;\n                            var fin = esProrroga ? new Date(fLim) : new Date(envio.getTime() + 12 * 60 * 60 * 1000);\n                            var now = new Date();\n                            var ms = fin - now;\n                            var txtInicial = ms > 0 ? (Math.floor(ms / 3600000) + 'h ' + Math.floor((ms % 3600000) / 60000) + 'm') : 'Plazo vencido';\n                            var clsPr = esProrroga ? ' dictamen-countdown-prorroga' : '';\n                            var dataLim = esProrroga ? (' data-fecha-limite=\"' + fLim.replace(/\"/g, '&quot;') + '\"') : '';\n                            var iconBlock = esProrroga ? ('<span class=\"position-relative d-inline-flex align-items-baseline\"><i class=\"fa-solid fa-clock text-warning small\"></i><sup class=\"dictamen-prorroga-marca\" title=\"Prórroga +12h (2ª ventana)\">2</sup></span>') : ('<i class=\"fa-solid fa-clock text-info small\"></i>');\n                            tiempoVisitarHtml = '<span class=\"d-inline-flex align-items-center gap-1 dictamen-countdown cursor-pointer' + clsPr + '\" role=\"button\" tabindex=\"0\" data-fecha-envio=\"' + fEnv.replace(/\"/g, '&quot;') + '\"' + dataLim + ' data-id-ticket=\"' + (t.id_ticket || '') + '\" data-bs-toggle=\"tooltip\" data-bs-title=\"' + (esProrroga ? 'Prórroga +12h · tiempo hasta límite' : 'Ventana 12h desde envío') + '\">' + iconBlock + '<span class=\"dictamen-countdown-text\">' + txtInicial + '</span></span>';\n                        }\n                        var prHtml = (t.prorroga_otorgada && t.prorroga_html) ? t.prorroga_html : '';\n                        if (prHtml && tiempoVisitarHtml !== '—') { tiempoVisitarHtml = '<div class=\"d-flex flex-column align-items-center\">' + tiempoVisitarHtml + prHtml + '</div>'; }\n                        else if (prHtml) { tiempoVisitarHtml = prHtml; }\n                        var catLabels = { sabueso: 'Sabueso', plantilla: 'Plantilla', atencion_cliente: 'Atención al cliente', validaciones: 'Validaciones', viaticos: 'Viáticos', aplicaciones_de_pago: 'Aplicaciones de pago', credito_problematico: 'Crédito problemático', aclaracion_credito: 'Aclaración de crédito' };\n                        var catKeyPa = (t.categoria_gestion || 'sabueso').toString().toLowerCase().trim();\n                        var catIcoPa = panelAdminIconoPorCategoria(catKeyPa);\n                        var catLabel = catLabels[catKeyPa] || (t.categoria_gestion || '—');\n                        var folioTipoHtml = '<div class=\"fw-semibold\">' + (t.folio || '—') + '</div><div class=\"small text-muted mt-1\">' + (t.tipo_ticket_nombre || '—') + '</div><div class=\"mt-1 d-flex align-items-center gap-2 flex-wrap\"><i class=\"fa-solid ' + catIcoPa + ' text-primary\" style=\"font-size:1.1rem\" title=\"' + (catLabel + '').replace(/\"/g, '&quot;') + '\"></i><span class=\"badge bg-label-primary small\">' + (catLabel + '').replace(/&/g, '&amp;').replace(/</g, '&lt;') + '</span></div>';\n                        var creditoVal = (t.id_credito != null && t.id_credito > 0) ? ('#' + t.id_credito) : (t.asunto || t.tipo_categoria || '—');\n                        var creditoHtml = '<small>' + (creditoVal + '').replace(/&/g, '&amp;').replace(/</g, '&lt;') + '</small>';\n                        var row = {\n                            _fecha_creacion: (t.fecha_creacion || ''),\n                            folio_tipo: folioTipoHtml,\n                            estado: estadoBadge,\n                            prioridad: prioridadBadge,\n                            credito: creditoHtml,\n                            fechas: '<div class=\"small d-flex align-items-center gap-1\"><i class=\"fa fa-calendar-plus-o text-muted\" style=\"width: 1rem;\"></i><span>Creación: ' + fechaCreacion + '</span></div><div class=\"small text-muted d-flex align-items-center gap-1 mt-1\"><i class=\"fa fa-calendar-times-o\" style=\"width: 1rem;\"></i><span>Vencimiento: ' + fechaVenc + '</span></div>',\n                            creador: '<small class=\"d-flex align-items-center gap-1\"><i class=\"fa fa-user\"></i>' + (t.creador_nombre || '—') + '</small>',\n                            asignado: (t.asignado_nombre && t.asignado_nombre.trim()) ? '<small class=\"d-flex align-items-center gap-1\"><i class=\"fa fa-user-check text-success\"></i>' + t.asignado_nombre + '</small>' : '<span class=\"text-muted\">—</span>',\n                            tiempo_visitar: tiempoVisitarHtml,\n                            ds_resultado: (t.ds_resultado_html != null && t.ds_resultado_html !== '') ? t.ds_resultado_html : '—',\n                            dictamen_visto: vistoHtml,\n                            acciones: (function(){ var tieneCredito = (t.id_credito != null && t.id_credito > 0); var fEnvDS = (t.dictamen_fecha_envio || '').trim(); var ticketDesdeMarzo10 = t.fecha_creacion && (new Date(t.fecha_creacion) >= new Date(2026, 2, 10)); var plazoVencido = false; if (fEnvDS && ticketDesdeMarzo10 && (t.dictamen_estado || '') === 'enviado_al_gestor') { var plazoDS = new Date(fEnvDS).getTime() + 12*60*60*1000; plazoVencido = (Date.now() >= plazoDS); } var btns = '<div class=\"d-flex flex-column gap-1 align-items-stretch\" style=\"min-width:2.5rem;\">'; if (tieneCredito) { btns += '<button class=\"btn btn-sm btn-primary btn-rastreo\" onclick=\"abrirRastreo(this)\" data-id-credito=\"' + t.id_credito + '\" data-id-ticket=\"' + (t.id_ticket) + '\" data-asignado=\"' + attrEsc(t.asignado_nombre) + '\" data-creador-nombre=\"' + attrEsc(t.creador_nombre) + '\" data-fecha-creacion=\"' + attrEsc(t.fecha_creacion) + '\" data-categoria-gestion=\"' + attrEsc((t.categoria_gestion || 'sabueso')) + '\" title=\"Iniciar rastreo\"><i class=\"fa-solid fa-magnifying-glass-plus\"></i></button>'; if (plazoVencido) { btns += '<button type=\"button\" class=\"btn btn-sm btn-warning btn-dictamen-sistema\" onclick=\"abrirDictamenSistema(' + t.id_ticket + ')\" title=\"Dictamen del sistema\"><i class=\"fa-solid fa-robot\"></i></button>'; } } btns += '<button class=\"btn btn-sm btn-secondary\" onclick=\"cerrarTicketPanel(' + (t.id_ticket) + ')\" title=\"Cerrar ticket\"><i class=\"fa fa-minus\"></i></button><button class=\"btn btn-sm btn-danger\" onclick=\"eliminarTicketPanel(' + (t.id_ticket) + ')\" title=\"Eliminar ticket\"><i class=\"fa fa-trash\"></i></button></div>'; return btns; })(),\n                            _id_ticket: t.id_ticket,\n                            _dictamen_estado: t.dictamen_estado || '',\n                            _dictamen_fecha_visto: t.dictamen_fecha_visto || ''\n                        };\n                        return row;\n                    });\n                    var tabla = $('#tablaTicketsPanel').DataTable();\n                    var paginaAntes = tabla.page.info().page;\n                    tabla.clear().rows.add(datos);\n                    var np = tabla.page.info().pages;\n                    if (paginaAntes >= np) paginaAntes = Math.max(0, np - 1);\n                    if (esPrimeraCarga) {\n                        tabla.one('draw.dt.panelAdminPrimera', function() {\n                            window.panelAdminPrimeraCarga = false;\n                            $('#wrapTablaTicketsPanel').show();\n                            document.body.classList.remove('panel-admin-primer-cargando');\n                            Swal.close();\n                        });\n                    }\n                    tabla.page(paginaAntes).draw(false);\n                    tabla.rows().every(function() {\n                        var d = this.data();\n                        if (d._dictamen_estado === 'enviado_al_gestor') {\n                            $(this.node()).addClass('fila-dictamen-enviado').attr('data-id-ticket', d._id_ticket || '');\n                        }\n                    });\n                    var cat = (filtrosPayload.categoria_gestion || '').toLowerCase();\n                    var catLabelsPanel2 = { sabueso: 'Sabueso', plantilla: 'Plantilla', atencion_cliente: 'Atención al cliente', validaciones: 'Validaciones', viaticos: 'Viáticos', aplicaciones_de_pago: 'Aplicaciones de pago', credito_problematico: 'Crédito problemático', aclaracion_credito: 'Aclaración de crédito' };\n                    var catLabelTitulo = cat ? (catLabelsPanel2[cat] || cat) : 'Todos los tickets';\n                    if ($('#panelAdminTitulo').length) $('#panelAdminTitulo').html('<i class=\"fa-solid ' + panelAdminIconoPorCategoria(cat) + ' me-2\"></i>Panel Admin – ' + catLabelTitulo);\n                    var categoriasSimples = ['viaticos','aplicaciones_de_pago','credito_problematico','aclaracion_credito','plantilla','atencion_cliente','validaciones'];\n                    var esPanelSimple = categoriasSimples.indexOf(cat) !== -1;\n                    tabla.columns([9,10,11]).visible(!esPanelSimple);\n                    panelAdminAplicarTitulosColumnas(tabla, cat);\n                    if ($('#btnAbrirConsultaCredito').length) $('#btnAbrirConsultaCredito').toggle(!esPanelSimple);\n                    if ($('#sabuesoPanelEaster').length) $('#sabuesoPanelEaster').toggle(!esPanelSimple);\n                    if ($('#panelAdminFiltrosWrap').length) $('#panelAdminFiltrosWrap').toggle(!esPanelSimple);\n                    if (typeof actualizarCountdownsDictamen === 'function') actualizarCountdownsDictamen('#tablaTicketsPanel');\n                    $('#tablaTicketsPanel [data-bs-toggle=\"tooltip\"]').tooltip();\n                                    },\n                onError: function() {\n                    if (esPrimeraCarga) { window.panelAdminPrimeraCarga = false; $('#wrapTablaTicketsPanel').show(); document.body.classList.remove('panel-admin-primer-cargando'); Swal.close(); }\n                    var tabla = $('#tablaTicketsPanel').DataTable();\n                    tabla.clear().draw();\n                }\n            });\n        }\n        setInterval(function() { if (typeof actualizarCountdownsDictamen === 'function') actualizarCountdownsDictamen('#tablaTicketsPanel'); }, 1000);\n        function abrirRastreo(btn) {\n            var idCredito = parseInt(btn.getAttribute('data-id-credito')||0, 10);\n            var idTicket = parseInt(btn.getAttribute('data-id-ticket')||0, 10);\n            var asignadoNombre = (btn.getAttribute('data-asignado')||'').trim();\n            var creadorNombre = (btn.getAttribute('data-creador-nombre')||'').trim();\n            var fechaCreacionRaw = (btn.getAttribute('data-fecha-creacion')||'').trim();\n            var fechaCreacionDisplay = fechaCreacionRaw ? (new Date(fechaCreacionRaw).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' }) + ' ' + new Date(fechaCreacionRaw).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })) : '—';\n            ticketIdRastreoActual = idTicket || null;\n            if (!idCredito || isNaN(idCredito)) { Swal.fire({ icon: 'warning', title: 'Rastreo', text: 'No hay ID de crédito para este ticket.' }); return; }\n            http.request({\n                endpoint: \"/sabueso/getDatosCredito\",\n                metodo: \"POST\",\n                data: JSON.stringify({ id_credito: idCredito }),\n                contentType: \"application/json\",\n                processData: false,\n                showLoader: true,\n                onSuccess: function(resp) {\n                    var d = resp.datos || null;\n                    if (!d) { var msg = (resp.mensaje || 'No se encontraron datos para este crédito.'); $('#rastreoTopLeft').html('<div class=\"alert alert-warning mb-0\"><strong>Crédito #' + idCredito + '</strong><br>' + msg + '<br><small>El crédito debe existir en Segundometro u Oferta para ver el rastreo.</small></div>'); $('#rastreoTopRight').html(''); $('#rastreoTickets').html(''); $('#rastreoDireccionesContenido').html(''); idCreditoRastreoActual = idCredito; window.ticketIdRastreoActual = ticketIdRastreoActual; $('#modalRastreoCredito').attr('data-id-ticket', ticketIdRastreoActual || ''); $('#rastreoIdTicketActual').val(ticketIdRastreoActual || '').attr('data-id-ticket', ticketIdRastreoActual || ''); $('#modalRastreoCredito').modal('show'); return; }\n                    var esc = function(s) { var x = (s + '').split('&').join('&amp;').split('<').join('&lt;').split('>').join('&gt;'); return x.split(String.fromCharCode(34)).join('&quot;'); };\n                    var idCred = (d.id_credito || d.Id_credito || '—');\n                    var nombreCompleto = esc(d.Nombre_cliente || d.nombre_completo || '—');\n                    var tel = (d.telefono_referencia1 || d.telefono_referencia2 || '').trim();\n                    var telEsc = tel ? esc(tel) : '—';\n                    var dirMegareporte = (d.Domicilio_Completo && (d.Domicilio_Completo + '').trim()) ? esc(d.Domicilio_Completo) : '—';
+                    rastreoTicketInfoBase = '<div class=\"rastreo-ticket-info-col\"><span class=\"text-muted small d-block\">Quién levantó el ticket</span><div class=\"fw-medium\">' + (creadorNombre ? esc(creadorNombre) : '—') + '</div><span class=\"text-muted small d-block mt-1\">Cuando se levantó</span><div class=\"fw-medium\">' + fechaCreacionDisplay + '</div><span class=\"text-muted small d-block mt-1\">Asignado a</span><div id=\"rastreoAsignadoBlock\" class=\"fw-medium\"><span class=\"text-muted\">Cargando...</span></div></div>';\n                    var htmlTicketInfo = rastreoTicketInfoBase;\n                    var htmlTopLeft = '<div><span class=\"text-muted small d-block\">ID crédito</span><div class=\"fw-semibold\">' + idCred + '</div></div><div><span class=\"text-muted small d-block\">Nombre completo</span><div class=\"fw-semibold\">' + nombreCompleto + '</div></div><div><span class=\"text-muted small d-block\">Teléfono cliente</span><div class=\"fw-semibold\">' + telEsc + '</div></div><div><span class=\"text-muted small d-block\">Dirección megareporte</span><div class=\"fw-semibold small\">' + dirMegareporte + '</div></div>';\n                    var dirContenido = (d.Domicilio_Completo && (d.Domicilio_Completo + '').trim()) ? esc(d.Domicilio_Completo) : '<span class=\"text-muted\">No hay direcciones registradas</span>';\n                    var tickets = d.tickets || [];\n                    var ticketActual = tickets.filter(function(tk) { return tk.id_ticket == ticketIdRastreoActual; })[0];\n                    var htmlTickets = '';\n                    if (ticketActual) {\n                        var fCreacion = ticketActual.fecha_creacion ? new Date(ticketActual.fecha_creacion).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—';\n                        var fVenc = ticketActual.fecha_vencimiento ? new Date(ticketActual.fecha_vencimiento).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—';\n                        var _cg = ((ticketActual.categoria_gestion || btn.getAttribute('data-categoria-gestion') || 'sabueso') + '').toLowerCase().trim();\n                        var _cgl = { sabueso: 'Sabueso', plantilla: 'Plantilla', atencion_cliente: 'Atención al cliente', validaciones: 'Validaciones', viaticos: 'Viáticos', aplicaciones_de_pago: 'Aplicaciones de pago', credito_problematico: 'Crédito problemático', aclaracion_credito: 'Aclaración de crédito' };\n                        var _cgn = _cgl[_cg] || _cg.replace(/_/g, ' ');\n                        var _cgi = panelAdminIconoPorCategoria(_cg);\n                        htmlTickets = '<div class=\"small bg-light rounded p-2 mb-2\"><strong>' + esc(ticketActual.folio || '—') + '</strong> · ' + esc(ticketActual.tipo_nombre || '') + ' · ' + esc(ticketActual.estado_nombre || '') + '<br><span class=\"text-muted small\">Descripción:</span> ' + esc(ticketActual.descripcion_inicial || '—') + '<br>Creación: ' + fCreacion + ' · Venc: ' + fVenc + '</div><div class=\"d-flex align-items-center gap-2 mt-2 px-1\"><i class=\"fa-solid ' + _cgi + ' text-primary\" style=\"font-size:1.15rem\"></i><span class=\"badge bg-label-primary small\">' + esc(_cgn) + '</span></div>';\n                    } else { var _cg2 = ((btn.getAttribute('data-categoria-gestion') || 'sabueso') + '').toLowerCase().trim();\n                        var _cgl2 = { sabueso: 'Sabueso', plantilla: 'Plantilla', atencion_cliente: 'Atención al cliente', validaciones: 'Validaciones', viaticos: 'Viáticos', aplicaciones_de_pago: 'Aplicaciones de pago', credito_problematico: 'Crédito problemático', aclaracion_credito: 'Aclaración de crédito' };\n                        var _cgn2 = _cgl2[_cg2] || _cg2.replace(/_/g, ' ');\n                        var _cgi2 = panelAdminIconoPorCategoria(_cg2);\n                        htmlTickets = '<div class=\"d-flex align-items-center gap-2 mb-2\"><i class=\"fa-solid ' + _cgi2 + ' text-primary\"></i><span class=\"badge bg-label-primary small\">' + esc(_cgn2) + '</span></div><span class=\"text-muted small\">Ticket actual (sin detalle adicional).</span>'; }\n                    $('#rastreoTopLeft').html(htmlTopLeft); if(typeof sabuesoAppendInformacionIngresos==='function')sabuesoAppendInformacionIngresos(document.getElementById('rastreoTopLeft'),d,esc); $('#rastreoTopRight').html(htmlTicketInfo);\n                    loadHistorialAsignacionTicket(ticketIdRastreoActual);\n                    $('#rastreoTickets').html(htmlTickets);\n                    $('#rastreoDireccionesContenido').html('<span class=\"text-muted\">Cargando direcciones...</span>');\n                    rastreoDireccionesParaMapa = [];\n                    $('#btnAsignarRastreo').html('<i class=\"fa-solid fa-user-plus me-1\"></i>Asignar...');\n                    idCreditoRastreoActual = idCredito;\n                    rastreoDatosClienteActual = { nombre: (d.Nombre_cliente || d.nombre_completo || '—'), credito: idCred, telefono: (tel || '—'), direccion: (d.Domicilio_Completo || '—') };\n                    var kA = \"sabueso_ia_\" + idCredito + \"_\" + (idTicket || 0) + \"_analizar\"; var kU = \"sabueso_ia_\" + idCredito + \"_ubicaciones\"; var kG = \"sabueso_ia_\" + idCredito + \"_gestiones\";\n                    try { if (typeof localStorage !== \"undefined\") { rastreoUltimoAnalizarIA = localStorage.getItem(kA) || \"\"; rastreoUltimoResumenUbicaciones = localStorage.getItem(kU) || \"\"; rastreoUltimoResumenGestiones = localStorage.getItem(kG) || \"\"; } else { rastreoUltimoAnalizarIA = \"\"; rastreoUltimoResumenUbicaciones = \"\"; rastreoUltimoResumenGestiones = \"\"; } } catch (e) { rastreoUltimoAnalizarIA = \"\"; rastreoUltimoResumenUbicaciones = \"\"; rastreoUltimoResumenGestiones = \"\"; }\n                    if (rastreoUltimoAnalizarIA) { \$(\"#btnLecturaIAAnalizar\").show(); \$(\"#btnBorrarIAAnalizar\").show(); } else { \$(\"#btnLecturaIAAnalizar\").hide(); \$(\"#btnBorrarIAAnalizar\").hide(); }\n                    if (rastreoUltimoResumenUbicaciones) { \$(\"#btnLecturaIAUbicaciones\").show(); \$(\"#btnBorrarIAUbicaciones\").show(); } else { \$(\"#btnLecturaIAUbicaciones\").hide(); \$(\"#btnBorrarIAUbicaciones\").hide(); }\n                    if (rastreoUltimoResumenGestiones) { \$(\"#btnLecturaIAGestiones\").show(); \$(\"#btnBorrarIAGestiones\").show(); } else { \$(\"#btnLecturaIAGestiones\").hide(); \$(\"#btnBorrarIAGestiones\").hide(); }\n                    window.ticketIdRastreoActual = ticketIdRastreoActual; \$(\"#modalRastreoCredito\").attr(\"data-id-ticket\", ticketIdRastreoActual || \"\"); \$(\"#rastreoIdTicketActual\").val(ticketIdRastreoActual || \"\").attr(\"data-id-ticket\", ticketIdRastreoActual || \"\"); \$(\"#modalRastreoCredito\").modal(\"show\");\n                },\n                onError: function(err) {\n                    var errMsg = (typeof err === 'string' ? err : (err && err.mensaje)) || 'No se pudieron cargar los datos del crédito.';\n                    Swal.fire({ icon: 'error', title: 'Rastreo', text: errMsg });\n                }\n            });\n        }\n        function tooltipHistorialAsignacion(estado, historial) {\n            if (estado === 'primera_asignacion') return 'Es la primera asignación de este ticket.';\n            var lineas = ['Historial de asignación (este ticket)'];\n            (historial || []).forEach(function(h) { lineas.push('• ' + (h.persona || '—') + ': ' + (h.duracion_humana || '—')); });\n            if (estado === 'sin_asignar') lineas.push('Actualmente sin persona asignada a este ticket.');\n            return lineas.join('\\n');\n        }\n        function loadHistorialAsignacionTicket(idTicket) {\n            if (!idTicket) return;\n            http.request({ endpoint: '/sabueso/getHistorialAsignacionTicket', metodo: 'POST', data: JSON.stringify({ id_ticket: idTicket }), contentType: 'application/json', processData: false, onSuccess: function(r) {\n                var asignado = r.asignado_actual || null;\n                var estado = r.estado || 'primera_asignacion';\n                var historial = r.historial || [];\n                var tooltipTxt = tooltipHistorialAsignacion(estado, historial);\n                var tooltipEsc = (tooltipTxt + '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/\"/g, '&quot;');\n                var tooltipAttr = tooltipEsc.replace(/\\n/g, '<br>');\n                var html = asignado ? ('<i class=\"fa-solid fa-user-check text-success me-1\"></i>' + (asignado.replace(/&/g, '&amp;').replace(/</g, '&lt;')) + ' <i class=\"fa-solid fa-circle-info ms-1\" role=\"img\" aria-label=\"Historial\" data-bs-toggle=\"tooltip\" data-bs-html=\"true\" data-bs-title=\"' + tooltipAttr + '\"></i>') : ('<span class=\"text-muted\">Sin asignar</span> <i class=\"fa-solid fa-circle-info ms-1\" role=\"img\" aria-label=\"Historial\" data-bs-toggle=\"tooltip\" data-bs-html=\"true\" data-bs-title=\"' + tooltipAttr + '\"></i>');\n                var bloque = $('#rastreoAsignadoBlock');\n                if (bloque.length) bloque.html(html);\n                if (asignado) { if (!$('#rastreoAsignadoBlock').next('.btn').length) $('#rastreoAsignadoBlock').after('<button type=\"button\" class=\"btn btn-sm btn-outline-danger mt-1\" onclick=\"quitarAsignacionRastreo()\" title=\"Quitar asignación\">Quitar asignación</button>'); } else { $('#rastreoAsignadoBlock').next('.btn').remove(); }\n                $('#btnAsignarRastreo').html(asignado ? '<i class=\"fa-solid fa-user-pen me-1\"></i>Reasignar a...' : '<i class=\"fa-solid fa-user-plus me-1\"></i>Asignar...');\n                if (typeof $().tooltip === 'function') { $('#rastreoAsignadoBlock [data-bs-toggle=\"tooltip\"]').tooltip(); }\n            } });\n        }\n        function mostrarAsignarOpciones() {\n            if (!ticketIdRastreoActual) { Swal.fire({ icon: 'warning', title: 'Asignar', text: 'No hay ticket seleccionado.' }); return; }\n            Swal.fire({ title: 'Asignar ticket', text: '¿A quién desea asignar este ticket?', icon: 'question', showDenyButton: true, showCancelButton: true, confirmButtonText: 'Tomar asignación', denyButtonText: 'Asignar a...', cancelButtonText: 'Cancelar' }).then(function(res) {\n                if (res.isConfirmed) asignarTicketA(miUsuarioId);\n                else if (res.isDenied) abrirModalAsignarA();\n            });\n        }\n        function asignarTicketA(idPersona) {\n            if (!ticketIdRastreoActual || !idPersona) return;\n            http.request({ endpoint: \"/sabueso/asignarTicket\", metodo: \"POST\", data: JSON.stringify({ id_ticket: ticketIdRastreoActual, id_persona: idPersona }), contentType: \"application/json\", processData: false, onSuccess: function(r) {\n                Swal.fire({ icon: 'success', title: 'Asignado', text: r.mensaje || 'Ticket asignado.' });\n                $('#modalRastreoCredito, #modalAsignarA').modal('hide');\n                ticketIdRastreoActual = null;\n                getTicketsPanelAdmin();\n            }, onError: function(e) { Swal.fire({ icon: 'error', title: 'Error', text: (e && e.mensaje) || 'No se pudo asignar.' }); } });\n        }\n        function quitarAsignacionRastreo() {\n            if (!ticketIdRastreoActual) return;\n            if (typeof Swal !== 'undefined') {\n                Swal.fire({ title: '¿Quitar asignación?', text: 'El ticket quedará sin persona asignada.', icon: 'question', showCancelButton: true, confirmButtonColor: '#d33', cancelButtonColor: '#6c757d', confirmButtonText: 'Sí, quitar' }).then(function(res) {\n                    if (!res.isConfirmed) return;\n                    http.request({ endpoint: '/sabueso/quitarAsignacionTicket', metodo: 'POST', data: JSON.stringify({ id_ticket: ticketIdRastreoActual }), contentType: 'application/json', processData: false, onSuccess: function(r) {\n                        if (r.success) { Swal.fire({ icon: 'success', title: 'Listo', text: r.mensaje || 'Asignación quitada.' }); if (ticketIdRastreoActual) loadHistorialAsignacionTicket(ticketIdRastreoActual); getTicketsPanelAdmin(); } else { if (typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: 'Error', text: r.mensaje || 'No se pudo quitar.' }); }\n                    }, onError: function(e) { if (typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: 'Error', text: (e && e.mensaje) || 'No se pudo quitar.' }); } });\n                });\n            } else {\n                http.request({ endpoint: '/sabueso/quitarAsignacionTicket', metodo: 'POST', data: JSON.stringify({ id_ticket: ticketIdRastreoActual }), contentType: 'application/json', processData: false, onSuccess: function(r) { if (r.success) { if (idCreditoRastreoActual) loadHistorialAsignacion(idCreditoRastreoActual); getTicketsPanelAdmin(); } } });\n            }\n        }\n        function abrirModalAsignarA() {\n            http.request({ endpoint: \"/sabueso/getPersonasSabueso\", metodo: \"POST\", onSuccess: function(resp) {\n                var list = resp.datos || [];\n                var html = list.length ? list.map(function(p) { return '<div class=\"d-flex justify-content-between align-items-center py-2 border-bottom\"><span>' + (p.nombre_completo || p.id) + '</span><button type=\"button\" class=\"btn btn-sm btn-primary\" onclick=\"asignarTicketA(' + p.id + ')\">Asignárselo</button></div>'; }).join('') : '<p class=\"text-muted mb-0\">No hay personas en el departamento Sabueso.</p>';\n                $('#modalAsignarABody').html(html);\n                $('#modalRastreoCredito').modal('hide');\n                $('#modalAsignarA').modal('show');\n            }, onError: function() { Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudo cargar la lista.' }); } });\n        }\n        function cerrarTicketPanel(idTicket) {\n            if (!idTicket) return;\n            Swal.fire({ title: '¿Cerrar ticket?', text: 'El ticket se registrará como cerrado y dejará de mostrarse en la lista activa.', icon: 'question', showCancelButton: true, confirmButtonColor: '#fd7e14', cancelButtonColor: '#6c757d', confirmButtonText: 'Sí, cerrar' }).then(function(res) {\n                if (!res.isConfirmed) return;\n                http.request({\n                    endpoint: \"/sabueso/cerrarTicket\",\n                    metodo: \"POST\",\n                    data: JSON.stringify({ id_ticket: idTicket }),\n                    contentType: \"application/json\",\n                    processData: false,\n                    onSuccess: function(resp) {\n                        Swal.fire({ icon: 'success', title: 'Cerrado', text: resp.mensaje || 'Ticket cerrado.' });\n                        getTicketsPanelAdmin();\n                    },\n                    onError: function(err) {\n                        Swal.fire({ icon: 'error', title: 'Error', text: (err && err.mensaje) || 'No se pudo cerrar.' });\n                    }\n                });\n            });\n        }\n        function eliminarTicketPanel(idTicket) {\n            if (!idTicket) return;\n            Swal.fire({ title: '¿Eliminar ticket?', text: 'Esta acción no se puede deshacer.', icon: 'warning', showCancelButton: true, confirmButtonColor: '#d33', cancelButtonColor: '#6c757d', confirmButtonText: 'Sí, eliminar' }).then(function(res) {\n                if (!res.isConfirmed) return;\n                http.request({\n                    endpoint: \"/sabueso/eliminarTicket\",\n                    metodo: \"POST\",\n                    data: JSON.stringify({ id_ticket: idTicket }),\n                    contentType: \"application/json\",\n                    processData: false,\n                    onSuccess: function(resp) {\n                        Swal.fire({ icon: 'success', title: 'Eliminado', text: resp.mensaje || 'Ticket eliminado.' });\n                        getTicketsPanelAdmin();\n                    },\n                    onError: function(err) {\n                        Swal.fire({ icon: 'error', title: 'Error', text: (err && err.mensaje) || 'No se pudo eliminar.' });\n                    }\n                });\n            });\n        }\n";
         $evidenciasScript = 'var miUsuarioId = ' . (int)$usuarioId . '; var miPersonaId = ' . (int)$personaId . '; var miUsuarioNombre = ' . json_encode($usuarioNombre ?? '', JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP) . ';
         var evidenciasRastreoActual = []; var evidenciaModalSlot = null; var evidenciaModalId = null; var evidenciaPreviewObjectUrl = null;
         function formatGeminiText(text) {
@@ -2107,45 +2148,33 @@ JS;
         if ($pos !== false) {
             $script = substr($script, 0, $pos) . "\n\n        " . $evidenciasScript . $end;
         }
+        $panelesVis = ConfigPanelUsuarioDAO::getPanelesVisiblesParaPersona($personaId, []);
+        self::set('panel_admin_mostrar_volver', count($panelesVis) > 1);
+        self::set('panel_admin_url_inicio', '/sabueso/panelAdminInicio');
+        // Estado inicial según ?categoria= para evitar flash de interfaz Sabueso en otros módulos
+        $catLabelsPanel = ['sabueso' => 'Sabueso', 'plantilla' => 'Plantilla', 'atencion_cliente' => 'Atención al cliente', 'validaciones' => 'Validaciones', 'viaticos' => 'Viáticos', 'aplicaciones_de_pago' => 'Aplicaciones de pago', 'credito_problematico' => 'Crédito problemático', 'aclaracion_credito' => 'Aclaración de crédito'];
+        $catIconosPanel = ['sabueso' => 'fa-dog', 'plantilla' => 'fa-file-lines', 'atencion_cliente' => 'fa-headset', 'validaciones' => 'fa-clipboard-check', 'viaticos' => 'fa-receipt', 'aplicaciones_de_pago' => 'fa-credit-card', 'credito_problematico' => 'fa-triangle-exclamation', 'aclaracion_credito' => 'fa-circle-question'];
+        $categoriasSimples = ['viaticos', 'aplicaciones_de_pago', 'credito_problematico', 'aclaracion_credito', 'plantilla', 'atencion_cliente', 'validaciones'];
+        $panel_admin_es_simple = $catPanelGet !== '' && in_array($catPanelGet, $categoriasSimples);
+        $panel_admin_titulo_label = ($catPanelGet !== '' && isset($catLabelsPanel[$catPanelGet])) ? $catLabelsPanel[$catPanelGet] : 'Todos los tickets';
+        $panel_admin_icono = ($catPanelGet !== '' && isset($catIconosPanel[$catPanelGet])) ? $catIconosPanel[$catPanelGet] : 'fa-list';
+        self::set('panel_admin_categoria_inicial', $catPanelGet);
+        self::set('panel_admin_es_simple', $panel_admin_es_simple);
+        self::set('panel_admin_titulo_label', $panel_admin_titulo_label);
+        self::set('panel_admin_icono', $panel_admin_icono);
+        $urlsModPanel = [];
+        foreach (\Core\TicketsPanelModuloHelper::MODULOS as $k => $m) {
+            $urlsModPanel[$k] = $m['url'];
+        }
+        self::set('panel_admin_modulo_urls_json', json_encode($urlsModPanel, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT));
         self::set('titulo', 'Panel Admin | Sabueso');
         self::set('script', $script);
         self::render('sabueso_paneladmin');
     }
 
-    private function getColumnsConfig($esAdmin)
+    private function getColumnsConfig($esAdmin, string $categoriaPanel = '')
     {
-        // Panel Admin = solo Sabueso: sin columna Gestión. Menú Ticket sí muestra Gestión (varias categorías).
-        $base = [
-            ['data' => null, 'defaultContent' => '', 'className' => 'control', 'orderable' => false],
-            ['data' => '_fecha_creacion', 'title' => '', 'visible' => false, 'orderable' => true],
-            ['data' => 'folio_tipo', 'title' => 'Folio / Tipo'],
-        ];
-        if (!$esAdmin) {
-            $base[] = ['data' => 'gestion', 'title' => 'Gestión', 'orderable' => false];
-        }
-        $base = array_merge($base, [
-            ['data' => 'estado', 'title' => 'Estado'],
-            ['data' => 'prioridad', 'title' => 'Prioridad'],
-            ['data' => 'credito', 'title' => 'Crédito'],
-            ['data' => 'fechas', 'title' => 'Fechas'],
-        ]);
-        if ($esAdmin) {
-            $base[] = ['data' => 'creador', 'title' => 'Quién levantó'];
-            $base[] = ['data' => 'asignado', 'title' => 'Asignado a'];
-            $base[] = ['data' => 'tiempo_visitar', 'title' => 'Tiempo para visitar / Prórroga', 'orderable' => false, 'className' => 'text-center'];
-            $base[] = ['data' => 'ds_resultado', 'title' => 'Resultado DS', 'orderable' => false, 'className' => 'text-center'];
-            $base[] = ['data' => 'dictamen_visto', 'title' => '', 'orderable' => false, 'className' => 'text-end'];
-        } else {
-            $base[] = ['data' => 'tiempo_visitar', 'title' => 'Tiempo para visitar / Prórroga', 'orderable' => false, 'className' => 'text-center'];
-            $base[] = ['data' => 'ds_resultado', 'title' => 'Resultado DS', 'orderable' => false, 'className' => 'text-center'];
-            $base[] = ['data' => 'dictamen_visto', 'title' => '', 'orderable' => false, 'className' => 'text-end'];
-        }
-        $base[] = ['data' => 'acciones', 'title' => 'Acciones', 'orderable' => false];
-
-        return [
-            'esAdminJs'  => $esAdmin ? 'true' : 'false',
-            'columnsJs'  => json_encode($base, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_QUOT | JSON_HEX_APOS | JSON_HEX_TAG | JSON_HEX_AMP),
-        ];
+        return \Core\PanelAdminTicketTable::getColumnsConfig((bool)$esAdmin, $categoriaPanel);
     }
 
     /**
@@ -2191,7 +2220,9 @@ JS;
                 onSuccess: function(resp) {
                     var datos = (resp.datos || []).map(function(s) {
                         var fecha = s.fecha_creacion ? new Date(s.fecha_creacion).toLocaleString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
-                        var adjunto = (s.ruta_adjunto && s.ruta_adjunto.trim()) ? '<a href="/sabueso/verAdjuntoSolicitudBaja?id=' + (s.id || '') + '" target="_blank" class="btn btn-sm btn-outline-secondary" title="Descargar adjunto"><i class="fa-solid fa-download me-1"></i>Ver</a>' : '<span class="text-muted">—</span>';
+                        var nExtra = parseInt(s.num_adjuntos_extra, 10) || 0;
+                        var totalAdj = (s.ruta_adjunto && s.ruta_adjunto.trim() ? 1 : 0) + nExtra;
+                        var adjunto = totalAdj > 0 ? '<a href="/sabueso/verAdjuntoSolicitudBaja?id=' + (s.id || '') + '" target="_blank" class="btn btn-sm btn-outline-secondary" title="Descargar adjunto"><i class="fa-solid fa-download me-1"></i>Ver' + (totalAdj > 1 ? ' (' + totalAdj + ')' : '') + '</a>' : '<span class="text-muted">—</span>';
                         return {
                             fecha_display: '<small>' + attrEsc(fecha) + '</small>',
                             motivo_baja: '<span class="fw-medium">' + attrEsc(s.motivo_baja || '—') + '</span>',
@@ -2235,9 +2266,18 @@ JS;
                     if (d.descripcion && d.descripcion.trim()) html += '<div class="solicitud-ver-seccion"><h6 class="text-uppercase small fw-bold text-muted mb-2">Descripción u observaciones</h6><div class="text-break">' + esc(d.descripcion) + '</div></div>';
                     html += '<div class="solicitud-ver-seccion"><h6 class="text-uppercase small fw-bold text-muted mb-2">Colaborador a dar de baja</h6><div class="fw-semibold">' + esc(d.nombre_colaborador || '—') + '</div></div>';
                     html += '<div class="solicitud-ver-seccion"><h6 class="text-uppercase small fw-bold text-muted mb-2">Quién solicitó</h6><div>' + esc(d.creador_nombre || '—') + '</div></div>';
-                    if (d.ruta_adjunto && d.ruta_adjunto.trim()) {
-                        html += '<div class="solicitud-ver-seccion"><h6 class="text-uppercase small fw-bold text-muted mb-2">Adjunto</h6><div><a href="/sabueso/verAdjuntoSolicitudBaja?id=' + (d.id || '') + '" target="_blank" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-download me-1"></i>Descargar</a>';
-                        if (d.nombre_archivo_original && d.nombre_archivo_original.trim()) html += ' <span class="text-muted small ms-2">' + esc(d.nombre_archivo_original) + '</span>';
+                    if ((d.ruta_adjunto && d.ruta_adjunto.trim()) || (d.adjuntos_adicionales && d.adjuntos_adicionales.length > 0)) {
+                        html += '<div class="solicitud-ver-seccion"><h6 class="text-uppercase small fw-bold text-muted mb-2">Adjuntos</h6><div class="d-flex flex-wrap gap-2 align-items-center">';
+                        if (d.ruta_adjunto && d.ruta_adjunto.trim()) {
+                            html += '<a href="/sabueso/verAdjuntoSolicitudBaja?id=' + (d.id || '') + '" target="_blank" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-download me-1"></i>Descargar 1</a>';
+                            if (d.nombre_archivo_original && d.nombre_archivo_original.trim()) html += ' <span class="text-muted small">' + esc(d.nombre_archivo_original) + '</span>';
+                        }
+                        var extras = d.adjuntos_adicionales || [];
+                        for (var i = 0; i < extras.length; i++) {
+                            var num = i + 2;
+                            html += ' <a href="/sabueso/verAdjuntoSolicitudBaja?id=' + (d.id || '') + '&num=' + num + '" target="_blank" class="btn btn-sm btn-outline-secondary"><i class="fa-solid fa-download me-1"></i>Descargar ' + num + '</a>';
+                            if (extras[i].nombre_original) html += ' <span class="text-muted small">' + esc(extras[i].nombre_original) + '</span>';
+                        }
                         html += '</div></div>';
                     }
                     $('#modalVerSolicitudBaja .modal-body').html(html);
@@ -2384,10 +2424,49 @@ JS;
     }
 
     /**
-     * Vista Estadísticas: solo lectura, datos agregados de tickets (tiempos, conteos, fechas).
+     * Vista Panel Admin (inicio): si tiene un solo panel, redirige directo; si tiene varios, muestra tarjetas para elegir.
+     */
+    public function panelAdminInicio()
+    {
+        $id_persona = (int) ($_SESSION['usuario_id'] ?? $_SESSION['persona_id'] ?? 0);
+        $panelesVisibles = ConfigPanelUsuarioDAO::getPanelesVisiblesParaPersona($id_persona, []);
+        self::set('titulo', 'Panel Admin');
+        if (empty($panelesVisibles)) {
+            self::render('panel_admin_sin_asignacion');
+            return;
+        }
+        if (count($panelesVisibles) === 1) {
+            $info = reset($panelesVisibles);
+            $url = $info['url'] ?? '';
+            if ($url !== '') {
+                header('Location: ' . $url);
+                exit;
+            }
+        }
+        self::set('panelesVisibles', $panelesVisibles);
+        self::render('panel_admin_inicio');
+    }
+
+    /**
+     * Vista Estadísticas: cada usuario ve solo las tarjetas para las que tiene permiso:
+     * por módulo (47 = Sabueso) o por asignación en config_estadisticas_puesto (puesto del usuario).
      */
     public function estadisticas()
     {
+        $id_persona = (int) ($_SESSION['usuario_id'] ?? $_SESSION['persona_id'] ?? 0);
+        $tiposPorPuesto = $id_persona > 0 ? ConfigEstadisticasPuestoDAO::getTiposPorPersona($id_persona) : [];
+        $seccionesEstadisticas = [
+            'sabueso' => in_array('sabueso', $tiposPorPuesto),
+        ];
+        if (empty($seccionesEstadisticas['sabueso'])) {
+            self::set('titulo', 'Estadísticas');
+            self::render('estadisticas_sin_asignacion');
+            return;
+        }
+        self::set('seccionesEstadisticas', $seccionesEstadisticas);
+        $activas = array_keys(array_filter($seccionesEstadisticas));
+        $entrarDirectoEstadistica = (count($activas) === 1) ? $activas[0] : null;
+
         $script = <<<'SCRIPT'
         <script>
         function attrEsc(s){ if (s==null||s===undefined) return ''; var x=(s+'').split('&').join('&amp;').split('<').join('&lt;'); return x.split('"').join('&quot;'); }
@@ -3515,12 +3594,13 @@ JS;
                         });
                 });
             });
-            if (!document.getElementById('estadisticasSelectorWrap')) iniciarDashboardSabueso();
+            if (window.entrarDirectoEstadistica || !document.getElementById('estadisticasSelectorWrap')) iniciarDashboardSabueso();
         });
         </script>
         SCRIPT;
+        $scriptPre = '<script>window.entrarDirectoEstadistica = ' . json_encode($entrarDirectoEstadistica) . ';</script>' . "\n";
         self::set('titulo', 'Estadísticas | Sabueso');
-        self::set('script', $script);
+        self::set('script', $scriptPre . $script);
         self::render('sabueso_estadisticas');
     }
 
@@ -3888,7 +3968,7 @@ JS;
 
     /**
      * API: guardar solicitud de baja (Levantar ticket > Solicitud de baja).
-     * POST: motivo_baja, detalle_motivo, descripcion (opcional), nombre_colaborador; opcional: adjunto (archivo PDF o imagen).
+     * POST: motivo_baja, detalle_motivo, descripcion (opcional), nombre_colaborador; opcional: adjunto[] (múltiples PDF o imágenes).
      */
     public function guardarSolicitudBaja()
     {
@@ -3902,26 +3982,44 @@ JS;
         $detalle = isset($_POST['detalle_motivo']) ? trim((string)$_POST['detalle_motivo']) : '';
         $descripcion = isset($_POST['descripcion']) ? trim((string)$_POST['descripcion']) : '';
         $nombreColaborador = isset($_POST['nombre_colaborador']) ? trim((string)$_POST['nombre_colaborador']) : '';
-        $nombreArchivoOriginal = null;
-        $rutaAdjunto = null;
-        if (!empty($_FILES['adjunto']['tmp_name']) && is_uploaded_file($_FILES['adjunto']['tmp_name'])) {
-            $tmp = $_FILES['adjunto']['tmp_name'];
-            if (!\Core\SecureUpload::validateMime($tmp, \Core\SecureUpload::MIME_PDF_OR_IMAGES)) {
-                self::respuestaJSON(['success' => false, 'mensaje' => 'El adjunto debe ser PDF o imagen (JPG, PNG, GIF, WebP).']);
-                return;
+        $archivosGuardados = [];
+        if (!empty($_FILES['adjunto'])) {
+            $tmpNames = $_FILES['adjunto']['tmp_name'];
+            $names = $_FILES['adjunto']['name'] ?? [];
+            $isMulti = is_array($tmpNames);
+            if (!$isMulti) {
+                $tmpNames = [$tmpNames];
+                $names = [isset($_FILES['adjunto']['name']) ? $_FILES['adjunto']['name'] : ''];
             }
-            $mime = \Core\SecureUpload::getMimeType($tmp);
-            $ext = $mime ? \Core\SecureUpload::extensionFromMime($mime) : 'bin';
             $dir = __DIR__ . '/../uploads/solicitud_baja';
             \Core\SecureUpload::ensureDir($dir);
-            $nombreArchivo = \Core\SecureUpload::generateSafeFilename($ext);
-            $rutaCompleta = $dir . '/' . $nombreArchivo;
-            if (!move_uploaded_file($tmp, $rutaCompleta)) {
-                self::respuestaJSON(['success' => false, 'mensaje' => 'Error al guardar el archivo adjunto.']);
-                return;
+            foreach (array_keys($tmpNames) as $i) {
+                $tmp = $tmpNames[$i] ?? null;
+                if (empty($tmp) || !is_uploaded_file($tmp)) {
+                    continue;
+                }
+                if (!\Core\SecureUpload::validateMime($tmp, \Core\SecureUpload::MIME_PDF_OR_IMAGES)) {
+                    self::respuestaJSON(['success' => false, 'mensaje' => 'El adjunto debe ser PDF o imagen (JPG, PNG, GIF, WebP).']);
+                    return;
+                }
+                $mime = \Core\SecureUpload::getMimeType($tmp);
+                $ext = $mime ? \Core\SecureUpload::extensionFromMime($mime) : 'bin';
+                $nombreArchivo = \Core\SecureUpload::generateSafeFilename($ext);
+                $rutaCompleta = $dir . '/' . $nombreArchivo;
+                if (!move_uploaded_file($tmp, $rutaCompleta)) {
+                    self::respuestaJSON(['success' => false, 'mensaje' => 'Error al guardar el archivo adjunto.']);
+                    return;
+                }
+                $nombreOriginal = isset($names[$i]) ? trim((string)$names[$i]) : $nombreArchivo;
+                $archivosGuardados[] = ['nombre_original' => $nombreOriginal, 'ruta' => 'solicitud_baja/' . $nombreArchivo];
             }
-            $nombreArchivoOriginal = isset($_FILES['adjunto']['name']) ? trim((string)$_FILES['adjunto']['name']) : $nombreArchivo;
-            $rutaAdjunto = 'solicitud_baja/' . $nombreArchivo;
+        }
+        $nombreArchivoOriginal = null;
+        $rutaAdjunto = null;
+        if (!empty($archivosGuardados)) {
+            $primero = $archivosGuardados[0];
+            $nombreArchivoOriginal = $primero['nombre_original'];
+            $rutaAdjunto = $primero['ruta'];
         }
         $resultado = SolicitudBajaDAO::guardar([
             'motivo_baja'             => $motivo,
@@ -3931,11 +4029,287 @@ JS;
             'nombre_archivo_original' => $nombreArchivoOriginal,
             'ruta_adjunto'            => $rutaAdjunto,
         ], $idPersona);
+        if (($resultado['success'] ?? false) && !empty($resultado['datos']['id']) && count($archivosGuardados) > 1) {
+            $idSolicitud = (int)$resultado['datos']['id'];
+            $orden = 1;
+            foreach (array_slice($archivosGuardados, 1) as $a) {
+                SolicitudBajaDAO::guardarAdjunto($idSolicitud, $a['nombre_original'], $a['ruta'], $orden++);
+            }
+        }
         self::respuestaJSON([
             'success' => $resultado['success'] ?? false,
             'mensaje' => $resultado['mensaje'] ?? '',
             'datos'   => $resultado['datos'] ?? null
         ]);
+    }
+
+    /**
+     * Guarda adjunto en sabueso_evidencias y registra en ticket_evidencia para un ticket simple.
+     */
+    private function guardarAdjuntoTicketSimple($idTicket, $idPersona)
+    {
+        if (empty($_FILES['adjunto']['tmp_name']) || !is_uploaded_file($_FILES['adjunto']['tmp_name'])) {
+            return;
+        }
+        $tmp = $_FILES['adjunto']['tmp_name'];
+        if (!\Core\SecureUpload::validateMime($tmp, \Core\SecureUpload::MIME_PDF_OR_IMAGES)) {
+            return;
+        }
+        $mime = \Core\SecureUpload::getMimeType($tmp);
+        $ext = $mime ? \Core\SecureUpload::extensionFromMime($mime) : 'bin';
+        $dir = __DIR__ . '/../uploads/sabueso_evidencias';
+        \Core\SecureUpload::ensureDir($dir);
+        $nombreArchivo = 't' . $idTicket . '_' . \Core\SecureUpload::generateSafeFilename($ext);
+        if (!move_uploaded_file($tmp, $dir . '/' . $nombreArchivo)) {
+            return;
+        }
+        $rutaRelativa = 'sabueso_evidencias/' . $nombreArchivo;
+        $nombreOriginal = isset($_FILES['adjunto']['name']) ? trim((string)$_FILES['adjunto']['name']) : $nombreArchivo;
+        TicketDAO::guardarEvidencia($idTicket, $idPersona, $rutaRelativa, $nombreOriginal);
+    }
+
+    /**
+     * Varios adjuntos (adjunto[] en FormData) o un solo adjunto (mismo campo que solicitud de baja).
+     */
+    private function guardarAdjuntosMultiplesTicketSimple(int $idTicket, int $idPersona): void
+    {
+        if (empty($_FILES['adjunto']['tmp_name'])) {
+            return;
+        }
+        $tmps = $_FILES['adjunto']['tmp_name'];
+        $names = $_FILES['adjunto']['name'] ?? [];
+        if (!is_array($tmps)) {
+            $tmps = [$tmps];
+            $names = [is_string($names) ? $names : ''];
+        }
+        $dir = __DIR__ . '/../uploads/sabueso_evidencias';
+        \Core\SecureUpload::ensureDir($dir);
+        foreach ($tmps as $i => $tmp) {
+            if (empty($tmp) || !is_uploaded_file($tmp)) {
+                continue;
+            }
+            if (!\Core\SecureUpload::validateMime($tmp, \Core\SecureUpload::MIME_PDF_OR_IMAGES)) {
+                continue;
+            }
+            $mime = \Core\SecureUpload::getMimeType($tmp);
+            $ext = $mime ? \Core\SecureUpload::extensionFromMime($mime) : 'bin';
+            $nombreArchivo = 't' . $idTicket . '_' . \Core\SecureUpload::generateSafeFilename($ext);
+            if (!move_uploaded_file($tmp, $dir . '/' . $nombreArchivo)) {
+                continue;
+            }
+            $rutaRelativa = 'sabueso_evidencias/' . $nombreArchivo;
+            $nombreOriginal = isset($names[$i]) ? trim((string) $names[$i]) : $nombreArchivo;
+            TicketDAO::guardarEvidencia($idTicket, $idPersona, $rutaRelativa, $nombreOriginal);
+        }
+    }
+
+    /**
+     * API: guardar ticket Plantilla (Levantar ticket > Plantilla). Se guarda en tabla ticket con categoria_gestion.
+     * POST: tipo_plantilla, descripcion; opcional: adjunto (PDF o imagen).
+     */
+    public function guardarTicketPlantilla()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        $idPersona = (int)($_SESSION['persona_id'] ?? $_SESSION['usuario_id'] ?? 0);
+        if ($idPersona < 1) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'Debe iniciar sesión.']);
+            return;
+        }
+        $tipo = isset($_POST['tipo_plantilla']) ? trim((string)$_POST['tipo_plantilla']) : '';
+        $descripcion = isset($_POST['descripcion']) ? trim((string)$_POST['descripcion']) : '';
+        if ($tipo === '' || $descripcion === '') {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'El tipo de plantilla y la descripción son obligatorios.']);
+            return;
+        }
+        $resultado = TicketDAO::crearTicketSimple([
+            'categoria_gestion'   => 'plantilla',
+            'tipo_categoria'      => $tipo,
+            'descripcion_inicial' => $descripcion,
+        ], $idPersona);
+        if (($resultado['success'] ?? false) && !empty($resultado['datos']['id_ticket'])) {
+            $this->guardarAdjuntoTicketSimple((int)$resultado['datos']['id_ticket'], $idPersona);
+        }
+        self::respuestaJSON(['success' => $resultado['success'] ?? false, 'mensaje' => $resultado['mensaje'] ?? '', 'datos' => $resultado['datos'] ?? null]);
+    }
+
+    /**
+     * API: guardar ticket Atención al cliente. Se guarda en tabla ticket con categoria_gestion.
+     * POST: asunto, descripcion, prioridad (alta|media|baja), contacto_telefono (opcional), contacto_email (opcional).
+     */
+    public function guardarTicketAtencionCliente()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        $idPersona = (int)($_SESSION['persona_id'] ?? $_SESSION['usuario_id'] ?? 0);
+        if ($idPersona < 1) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'Debe iniciar sesión.']);
+            return;
+        }
+        $asunto = isset($_POST['asunto']) ? trim((string)$_POST['asunto']) : '';
+        $descripcion = isset($_POST['descripcion']) ? trim((string)$_POST['descripcion']) : '';
+        if ($asunto === '' || $descripcion === '') {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'El asunto y la descripción son obligatorios.']);
+            return;
+        }
+        $prioridad = isset($_POST['prioridad']) ? trim((string)$_POST['prioridad']) : 'media';
+        $tel = isset($_POST['contacto_telefono']) ? trim((string)$_POST['contacto_telefono']) : '';
+        $email = isset($_POST['contacto_email']) ? trim((string)$_POST['contacto_email']) : '';
+        $resultado = TicketDAO::crearTicketSimple([
+            'categoria_gestion'     => 'atencion_cliente',
+            'asunto'                => $asunto,
+            'prioridad_categoria'   => $prioridad,
+            'contacto_telefono'     => $tel !== '' ? $tel : null,
+            'contacto_email'        => $email !== '' ? $email : null,
+            'descripcion_inicial'   => $descripcion,
+        ], $idPersona);
+        self::respuestaJSON(['success' => $resultado['success'] ?? false, 'mensaje' => $resultado['mensaje'] ?? '', 'datos' => $resultado['datos'] ?? null]);
+    }
+
+    /**
+     * API: guardar ticket Validación de domicilio. Se guarda en tabla ticket con categoria_gestion.
+     * POST: descripcion (obligatorio); opcional: adjunto (PDF o imagen), nota, url_direccion (se guarda completa).
+     */
+    public function guardarTicketValidacion()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        $idPersona = (int)($_SESSION['persona_id'] ?? $_SESSION['usuario_id'] ?? 0);
+        if ($idPersona < 1) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'Debe iniciar sesión.']);
+            return;
+        }
+        $descripcion = isset($_POST['descripcion']) ? trim((string)$_POST['descripcion']) : '';
+        if ($descripcion === '') {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'La descripción es obligatoria.']);
+            return;
+        }
+        $nota = isset($_POST['nota']) ? trim((string)$_POST['nota']) : null;
+        $urlDireccion = isset($_POST['url_direccion']) ? trim((string)$_POST['url_direccion']) : null;
+        $resultado = TicketDAO::crearTicketSimple([
+            'categoria_gestion'   => 'validaciones',
+            'tipo_categoria'      => 'Validación de domicilio',
+            'descripcion_inicial' => $descripcion,
+            'nota'                => $nota !== '' ? $nota : null,
+            'url_direccion'       => $urlDireccion !== '' ? $urlDireccion : null,
+        ], $idPersona);
+        if (($resultado['success'] ?? false) && !empty($resultado['datos']['id_ticket'])) {
+            $this->guardarAdjuntosMultiplesTicketSimple((int) $resultado['datos']['id_ticket'], $idPersona);
+        }
+        self::respuestaJSON(['success' => $resultado['success'] ?? false, 'mensaje' => $resultado['mensaje'] ?? '', 'datos' => $resultado['datos'] ?? null]);
+    }
+
+    /**
+     * API: guardar ticket Viáticos. Se guarda en tabla ticket con categoria_gestion.
+     * POST: tipo_viatico, descripcion; opcional: adjunto.
+     */
+    public function guardarTicketViaticos()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        $idPersona = (int)($_SESSION['persona_id'] ?? $_SESSION['usuario_id'] ?? 0);
+        if ($idPersona < 1) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'Debe iniciar sesión.']);
+            return;
+        }
+        $tipo = isset($_POST['tipo_viatico']) ? trim((string)$_POST['tipo_viatico']) : '';
+        $descripcion = isset($_POST['descripcion']) ? trim((string)$_POST['descripcion']) : '';
+        if ($tipo === '' || $descripcion === '') {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'El tipo de viático y la descripción son obligatorios.']);
+            return;
+        }
+        $resultado = TicketDAO::crearTicketSimple([
+            'categoria_gestion'   => 'viaticos',
+            'tipo_categoria'      => $tipo,
+            'descripcion_inicial' => $descripcion,
+        ], $idPersona);
+        if (($resultado['success'] ?? false) && !empty($resultado['datos']['id_ticket'])) {
+            $this->guardarAdjuntoTicketSimple((int)$resultado['datos']['id_ticket'], $idPersona);
+        }
+        self::respuestaJSON(['success' => $resultado['success'] ?? false, 'mensaje' => $resultado['mensaje'] ?? '', 'datos' => $resultado['datos'] ?? null]);
+    }
+
+    /**
+     * API: guardar ticket Aplicaciones de pago. Se guarda en tabla ticket con categoria_gestion.
+     * POST: tipo_solicitud, descripcion; opcional: adjunto.
+     */
+    public function guardarTicketAplicacionesPago()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        $idPersona = (int)($_SESSION['persona_id'] ?? $_SESSION['usuario_id'] ?? 0);
+        if ($idPersona < 1) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'Debe iniciar sesión.']);
+            return;
+        }
+        $tipo = isset($_POST['tipo_solicitud']) ? trim((string)$_POST['tipo_solicitud']) : '';
+        $descripcion = isset($_POST['descripcion']) ? trim((string)$_POST['descripcion']) : '';
+        if ($tipo === '' || $descripcion === '') {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'El tipo de solicitud y la descripción son obligatorios.']);
+            return;
+        }
+        $resultado = TicketDAO::crearTicketSimple([
+            'categoria_gestion'   => 'aplicaciones_de_pago',
+            'tipo_categoria'      => $tipo,
+            'descripcion_inicial' => $descripcion,
+        ], $idPersona);
+        if (($resultado['success'] ?? false) && !empty($resultado['datos']['id_ticket'])) {
+            $this->guardarAdjuntoTicketSimple((int)$resultado['datos']['id_ticket'], $idPersona);
+        }
+        self::respuestaJSON(['success' => $resultado['success'] ?? false, 'mensaje' => $resultado['mensaje'] ?? '', 'datos' => $resultado['datos'] ?? null]);
+    }
+
+    /**
+     * API: guardar ticket Crédito problemático. Se guarda en tabla ticket con categoria_gestion.
+     * POST: tipo_solicitud, descripcion; opcional: adjunto.
+     */
+    public function guardarTicketCreditoProblematico()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        $idPersona = (int)($_SESSION['persona_id'] ?? $_SESSION['usuario_id'] ?? 0);
+        if ($idPersona < 1) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'Debe iniciar sesión.']);
+            return;
+        }
+        $tipo = isset($_POST['tipo_solicitud']) ? trim((string)$_POST['tipo_solicitud']) : '';
+        $descripcion = isset($_POST['descripcion']) ? trim((string)$_POST['descripcion']) : '';
+        if ($tipo === '' || $descripcion === '') {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'El tipo de solicitud y la descripción son obligatorios.']);
+            return;
+        }
+        $resultado = TicketDAO::crearTicketSimple([
+            'categoria_gestion'   => 'credito_problematico',
+            'tipo_categoria'      => $tipo,
+            'descripcion_inicial' => $descripcion,
+        ], $idPersona);
+        if (($resultado['success'] ?? false) && !empty($resultado['datos']['id_ticket'])) {
+            $this->guardarAdjuntoTicketSimple((int)$resultado['datos']['id_ticket'], $idPersona);
+        }
+        self::respuestaJSON(['success' => $resultado['success'] ?? false, 'mensaje' => $resultado['mensaje'] ?? '', 'datos' => $resultado['datos'] ?? null]);
+    }
+
+    /**
+     * API: guardar ticket Aclaración de crédito. Se guarda en tabla ticket con categoria_gestion.
+     * POST: tipo_aclaracion, descripcion; opcional: adjunto.
+     */
+    public function guardarTicketAclaracionCredito()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        $idPersona = (int)($_SESSION['persona_id'] ?? $_SESSION['usuario_id'] ?? 0);
+        if ($idPersona < 1) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'Debe iniciar sesión.']);
+            return;
+        }
+        $tipo = isset($_POST['tipo_aclaracion']) ? trim((string)$_POST['tipo_aclaracion']) : '';
+        $descripcion = isset($_POST['descripcion']) ? trim((string)$_POST['descripcion']) : '';
+        if ($tipo === '' || $descripcion === '') {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'El tipo de aclaración y la descripción son obligatorios.']);
+            return;
+        }
+        $resultado = TicketDAO::crearTicketSimple([
+            'categoria_gestion'   => 'aclaracion_credito',
+            'tipo_categoria'      => $tipo,
+            'descripcion_inicial' => $descripcion,
+        ], $idPersona);
+        if (($resultado['success'] ?? false) && !empty($resultado['datos']['id_ticket'])) {
+            $this->guardarAdjuntoTicketSimple((int)$resultado['datos']['id_ticket'], $idPersona);
+        }
+        self::respuestaJSON(['success' => $resultado['success'] ?? false, 'mensaje' => $resultado['mensaje'] ?? '', 'datos' => $resultado['datos'] ?? null]);
     }
 
     /**
@@ -3971,11 +4345,13 @@ JS;
             self::respuestaJSON(['success' => false, 'mensaje' => 'Solicitud no encontrada.', 'datos' => null]);
             return;
         }
+        $row['adjuntos_adicionales'] = SolicitudBajaDAO::getAdjuntosAdicionales($id);
         self::respuestaJSON(['success' => true, 'mensaje' => '', 'datos' => $row]);
     }
 
     /**
      * Sirve el archivo adjunto de una solicitud de baja (descarga). Respuesta binaria.
+     * GET: id (obligatorio), num (opcional): 1 = primer adjunto (tabla solicitud_baja), 2+ = adjuntos en solicitud_baja_adjunto.
      */
     public function verAdjuntoSolicitudBaja()
     {
@@ -3984,18 +4360,33 @@ JS;
             http_response_code(400);
             return;
         }
-        $row = SolicitudBajaDAO::getPorId($id);
-        if (!$row || empty($row['ruta_adjunto'])) {
+        $num = (int)($_GET['num'] ?? 1);
+        $rutaArchivo = null;
+        $nombreDescarga = null;
+        if ($num <= 1) {
+            $row = SolicitudBajaDAO::getPorId($id);
+            if ($row && !empty($row['ruta_adjunto'])) {
+                $rutaArchivo = $row['ruta_adjunto'];
+                $nombreDescarga = !empty($row['nombre_archivo_original']) ? $row['nombre_archivo_original'] : basename($rutaArchivo);
+            }
+        } else {
+            $adjuntos = SolicitudBajaDAO::getAdjuntosAdicionales($id);
+            $idx = $num - 2;
+            if (isset($adjuntos[$idx])) {
+                $rutaArchivo = $adjuntos[$idx]['ruta_archivo'];
+                $nombreDescarga = !empty($adjuntos[$idx]['nombre_original']) ? $adjuntos[$idx]['nombre_original'] : basename($rutaArchivo);
+            }
+        }
+        if ($rutaArchivo === null) {
             http_response_code(404);
             return;
         }
-        $path = __DIR__ . '/../uploads/' . $row['ruta_adjunto'];
+        $path = __DIR__ . '/../uploads/' . $rutaArchivo;
         if (!is_file($path)) {
             http_response_code(404);
             return;
         }
         $mime = (new \finfo(FILEINFO_MIME_TYPE))->file($path);
-        $nombreDescarga = !empty($row['nombre_archivo_original']) ? $row['nombre_archivo_original'] : basename($path);
         header('Content-Type: ' . $mime);
         header('Content-Length: ' . filesize($path));
         header('Content-Disposition: inline; filename="' . str_replace('"', '\\"', $nombreDescarga) . '"');
@@ -4531,7 +4922,7 @@ JS;
         @set_time_limit(90);
         try {
             $modulos = $_SESSION['modulos'] ?? [];
-            if (!is_array($modulos) || !in_array(19, $modulos)) {
+            if (!is_array($modulos) || (!in_array(19, $modulos) && !in_array(27, $modulos))) {
                 self::respuestaJSON(['success' => false, 'mensaje' => 'No tiene permiso para usar Analizar con IA.', 'texto' => '']);
                 return;
             }
@@ -5756,7 +6147,7 @@ JS;
         @set_time_limit(90);
         try {
             $modulos = $_SESSION['modulos'] ?? [];
-            if (!is_array($modulos) || !in_array(19, $modulos)) {
+            if (!is_array($modulos) || (!in_array(19, $modulos) && !in_array(27, $modulos))) {
                 self::respuestaJSON(['success' => false, 'mensaje' => 'No tiene permiso para usar Resumir ubicaciones con IA.', 'texto' => '', 'json' => null]);
                 return;
             }
@@ -5971,7 +6362,7 @@ JS;
     public function resumirGestionesIA()
     {
         $modulos = $_SESSION['modulos'] ?? [];
-        if (!is_array($modulos) || !in_array(19, $modulos)) {
+        if (!is_array($modulos) || (!in_array(19, $modulos) && !in_array(27, $modulos))) {
             self::respuestaJSON(['success' => false, 'mensaje' => 'No tiene permiso para usar Resumen con IA.', 'texto' => '']);
             return;
         }
@@ -6295,7 +6686,7 @@ JS;
     public function generarDictamenSistema()
     {
         $modulos = $_SESSION['modulos'] ?? [];
-        if (!is_array($modulos) || !in_array(19, $modulos)) {
+        if (!is_array($modulos) || (!in_array(19, $modulos) && !in_array(27, $modulos))) {
             self::respuestaJSON(['success' => false, 'mensaje' => 'No tiene permiso para esta acción.']);
             return;
         }
@@ -6349,7 +6740,7 @@ JS;
     public function otorgarProrrogaDictamenSistema()
     {
         $modulos = $_SESSION['modulos'] ?? [];
-        if (!is_array($modulos) || !in_array(19, $modulos)) {
+        if (!is_array($modulos) || (!in_array(19, $modulos) && !in_array(27, $modulos))) {
             self::respuestaJSON(['success' => false, 'mensaje' => 'No tiene permiso para esta acción.']);
             return;
         }
@@ -6408,7 +6799,7 @@ JS;
     public function getEvidenciaVerificacion()
     {
         $modulos = $_SESSION['modulos'] ?? [];
-        if (!is_array($modulos) || !in_array(19, $modulos)) {
+        if (!is_array($modulos) || (!in_array(19, $modulos) && !in_array(27, $modulos))) {
             self::respuestaJSON(['success' => false, 'mensaje' => 'No tiene permiso para ver datos verificados.', 'datos' => null]);
             return;
         }

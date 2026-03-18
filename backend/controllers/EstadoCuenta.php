@@ -3374,9 +3374,7 @@ public function descargar()
         $idUsuario = (int) ($_SESSION['usuario_id'] ?? 0);
         $modulos = $idUsuario ? LoginDAO::getModulosUsuario($idUsuario) : [];
         if (!in_array(24, $modulos)) {
-            http_response_code(403);
-            header('Content-Type: application/json; charset=utf-8');
-            echo json_encode(['success' => false, 'mensaje' => 'No tiene permiso para descargar el PDF FAD_DOC.']);
+            header('Location: /inicio');
             exit;
         }
         $info = $this->getPdfPathForFAD_DOC($id);

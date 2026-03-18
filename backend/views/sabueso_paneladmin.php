@@ -768,23 +768,76 @@
         #modalRastreoCredito .gestion-row .gestion-label { min-width: 4rem; }
         .card-header, .card { padding-left: 0.5rem; padding-right: 0.5rem; }
     }
-    body.panel-admin-primer-cargando #tablaTicketsPanel tbody .dataTables_empty { visibility: hidden !important; }
+    body.panel-admin-primer-cargando #wrapTablaTicketsPanel {
+        position: relative;
+        min-height: 240px;
+    }
+    body.panel-admin-primer-cargando #tablaTicketsPanel {
+        visibility: hidden !important;
+    }
+    body.panel-admin-primer-cargando #wrapTablaTicketsPanel::before {
+        content: "Cargando datos de la tabla...";
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.95rem;
+        color: #6b7280;
+        background: linear-gradient(180deg, rgba(255,255,255,0.92), rgba(255,255,255,0.96));
+        border-top: 1px solid #eef0f2;
+        z-index: 2;
+    }
     body.panel-admin-primer-cargando #tablaTicketsPanel_info,
     body.panel-admin-primer-cargando #tablaTicketsPanel_paginate { visibility: hidden !important; }
 </style>
+<?php
+$panel_admin_es_simple = !empty($panel_admin_es_simple);
+$panel_admin_titulo_label = isset($panel_admin_titulo_label) ? $panel_admin_titulo_label : 'Todos los tickets';
+$panel_admin_icono = isset($panel_admin_icono) ? $panel_admin_icono : 'fa-list';
+?>
 <div class="card">
     <div class="card-header border-bottom">
-        <h5 class="card-title mb-0 d-flex flex-wrap align-items-center gap-2">
-            <span><i class="fa-solid fa-list me-2"></i>Panel Admin – Todos los tickets</span>
-            <button type="button" class="btn btn-sm btn-outline-primary ms-auto" id="btnAbrirConsultaCredito" title="Consultar datos del crédito sin ticket">
-                <i class="fa-solid fa-id-card me-1"></i>Consultar por ID crédito
-            </button>
-            <i class="fa-solid fa-dog ms-2 sabueso-easter-icon" id="sabuesoPanelEaster" aria-hidden="true"></i>
+        <h5 class="card-title mb-0 d-flex flex-wrap align-items-center gap-2 w-100">
+            <span id="panelAdminTitulo" class="me-auto flex-grow-1 min-w-0"><i class="fa-solid <?= htmlspecialchars($panel_admin_icono, ENT_QUOTES, 'UTF-8'); ?> me-2"></i>Panel Admin – <?= htmlspecialchars($panel_admin_titulo_label, ENT_QUOTES, 'UTF-8'); ?></span>
+            <div class="d-flex align-items-center gap-2 flex-shrink-0 ms-sm-auto">
+                <?php if (!empty($panel_admin_mostrar_volver) && !empty($panel_admin_url_inicio)): ?>
+                <a href="<?= htmlspecialchars($panel_admin_url_inicio, ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-sm btn-outline-secondary" id="btnPanelAdminVolver" title="Volver a la selección de paneles">
+                    <i class="fa-solid fa-arrow-left me-1"></i>Volver
+                </a>
+                <?php endif; ?>
+                <?php if ($panel_admin_es_simple): ?>
+                <button type="button" class="btn btn-sm btn-outline-primary d-none" id="btnAbrirConsultaCredito" title="Consultar datos del crédito sin ticket">
+                    <i class="fa-solid fa-id-card me-1"></i>Consultar por ID crédito
+                </button>
+                <i class="fa-solid fa-dog sabueso-easter-icon d-none" id="sabuesoPanelEaster" aria-hidden="true"></i>
+                <?php else: ?>
+                <button type="button" class="btn btn-sm btn-outline-primary" id="btnAbrirConsultaCredito" title="Consultar datos del crédito sin ticket">
+                    <i class="fa-solid fa-id-card me-1"></i>Consultar por ID crédito
+                </button>
+                <i class="fa-solid fa-dog sabueso-easter-icon" id="sabuesoPanelEaster" aria-hidden="true"></i>
+                <?php endif; ?>
+            </div>
         </h5>
     </div>
-    <!-- Filtros Panel Admin: se envían en cada getTicketsPanelAdmin (window.panelAdminFiltros) -->
-    <div class="card-body border-bottom py-3 bg-label-secondary bg-opacity-10" id="panelAdminFiltrosWrap">
+    <!-- Filtros Panel Admin: solo visibles cuando la categoría es Sabueso o Todos (no módulos simples) -->
+    <div class="card-body border-bottom py-3 bg-label-secondary bg-opacity-10 <?= $panel_admin_es_simple ? 'd-none' : ''; ?>" id="panelAdminFiltrosWrap">
         <div class="row g-2 align-items-end">
+            <div class="col-12 col-md-6 col-lg">
+                <label class="form-label small text-muted mb-0" for="filtroCategoria">Categoría / Módulo</label>
+                <?php $filtro_cat_selected = isset($panel_admin_categoria_inicial) ? $panel_admin_categoria_inicial : ''; ?>
+                <select class="form-select form-select-sm panel-admin-filtro-select" id="filtroCategoria" title="Filtrar por categoría de ticket">
+                    <option value=""<?= $filtro_cat_selected === '' ? ' selected' : ''; ?>>Todos</option>
+                    <option value="sabueso"<?= $filtro_cat_selected === 'sabueso' ? ' selected' : ''; ?>>Sabueso (rastreo)</option>
+                    <option value="plantilla"<?= $filtro_cat_selected === 'plantilla' ? ' selected' : ''; ?>>Plantilla</option>
+                    <option value="atencion_cliente"<?= $filtro_cat_selected === 'atencion_cliente' ? ' selected' : ''; ?>>Atención al cliente</option>
+                    <option value="validaciones"<?= $filtro_cat_selected === 'validaciones' ? ' selected' : ''; ?>>Validaciones</option>
+                    <option value="viaticos"<?= $filtro_cat_selected === 'viaticos' ? ' selected' : ''; ?>>Viáticos</option>
+                    <option value="aplicaciones_de_pago"<?= $filtro_cat_selected === 'aplicaciones_de_pago' ? ' selected' : ''; ?>>Aplicaciones de pago</option>
+                    <option value="credito_problematico"<?= $filtro_cat_selected === 'credito_problematico' ? ' selected' : ''; ?>>Crédito problemático</option>
+                    <option value="aclaracion_credito"<?= $filtro_cat_selected === 'aclaracion_credito' ? ' selected' : ''; ?>>Aclaración de crédito</option>
+                </select>
+            </div>
             <div class="col-12 col-md-6 col-lg">
                 <label class="form-label small text-muted mb-0" for="filtroAsignado">Asignado a</label>
                 <select class="form-select form-select-sm panel-admin-filtro-select" id="filtroAsignado" title="Filtrar por persona asignada">
@@ -818,12 +871,6 @@
                     <option value="prorroga_activa">Prórroga activa</option>
                 </select>
             </div>
-            <div class="col-12 col-md-6 col-lg">
-                <label class="form-label small text-muted mb-0" for="filtroPrioridad">Prioridad</label>
-                <select class="form-select form-select-sm panel-admin-filtro-select" id="filtroPrioridad">
-                    <option value="0">Todas</option>
-                </select>
-            </div>
             <div class="col-12 col-lg-auto d-flex align-items-end">
                 <button type="button" class="btn btn-sm btn-outline-secondary" id="btnLimpiarFiltrosPanel" title="Quitar filtros y mostrar todos">
                     <i class="fa-solid fa-rotate-left me-1"></i>Limpiar
@@ -836,10 +883,11 @@
             <thead>
                 <tr>
                     <th></th>
+                    <th></th>
                     <th>Folio / Tipo</th>
                     <th>Estado</th>
                     <th>Prioridad</th>
-                    <th>Crédito</th>
+                    <th>Referencia</th>
                     <th>Fechas</th>
                     <th>Quién levantó</th>
                     <th>Asignado a</th>
@@ -1342,6 +1390,7 @@
 </div>
 <!-- Scrim entre modales: se inyecta por JS cuando se abre un modal hijo sobre el de rastreo -->
 <script src="/assets/js/analytics-modals.js"></script>
+<script>window.PANEL_ADMIN_MODULO_URLS=<?= isset($panel_admin_modulo_urls_json) && $panel_admin_modulo_urls_json !== '' ? $panel_admin_modulo_urls_json : '{}'; ?>;</script>
 <script>
 (function() {
     var SCRIM_Z = 1060;
@@ -1536,39 +1585,32 @@
     }
     $(document).ready(function() {
         var apiBase = (function(){ var p = window.location.pathname || ''; var i = p.indexOf('/sabueso'); return i !== -1 ? p.substring(0, i) : ''; })();
-        // Oculta el estado vacío transitorio hasta que termine el primer request de tickets.
+        // Oculta el estado vacío y el loader hasta que la tabla termine de dibujar (clase y Swal se quitan en onSuccess/onError de getTicketsPanelAdmin).
         (function ocultarEstadoVacioPrimeraCarga() {
             document.body.classList.add('panel-admin-primer-cargando');
-            $(document).on('ajaxComplete.panelAdminPrimer', function(_e, _xhr, settings) {
-                var url = (settings && settings.url) ? String(settings.url) : '';
-                if (url.indexOf('/sabueso/getTicketsPanelAdmin') === -1) return;
-                document.body.classList.remove('panel-admin-primer-cargando');
-                $(document).off('ajaxComplete.panelAdminPrimer');
-            });
         })();
 
         // —— Filtros Panel Admin (window.panelAdminFiltros lo consume getTicketsPanelAdmin en Sabueso.php) ——
         window.panelAdminFiltros = window.panelAdminFiltros || {};
         function syncPanelAdminFiltrosFromUI() {
+            window.panelAdminFiltros.categoria_gestion = ($('#filtroCategoria').val() || '').trim();
             var asignado = parseInt($('#filtroAsignado').val(), 10);
             if (isNaN(asignado)) asignado = 0;
             window.panelAdminFiltros.asignado = asignado;
             window.panelAdminFiltros.dictamen_enviado = ($('#filtroDictamenEnviado').val() || '').trim();
             window.panelAdminFiltros.ds_estado = ($('#filtroDsEstado').val() || '').trim();
             window.panelAdminFiltros.dictamen_visto = ($('#filtroDictamenVisto').val() || '').trim();
-            var pid = parseInt($('#filtroPrioridad').val(), 10);
-            window.panelAdminFiltros.prioridad_id = isNaN(pid) ? 0 : pid;
         }
         function aplicarFiltrosPanelAdminAlCambiar() {
             syncPanelAdminFiltrosFromUI();
             if (typeof getTicketsPanelAdmin === 'function') getTicketsPanelAdmin();
         }
         function limpiarFiltrosPanelAdmin() {
+            $('#filtroCategoria').val('');
             $('#filtroAsignado').val('0');
             $('#filtroDictamenEnviado').val('');
             $('#filtroDsEstado').val('');
             $('#filtroDictamenVisto').val('');
-            $('#filtroPrioridad').val('0');
             window.panelAdminFiltros = {};
             if (typeof getTicketsPanelAdmin === 'function') getTicketsPanelAdmin();
         }
@@ -1585,19 +1627,22 @@
                     });
                 }
             });
-            http.request({
-                endpoint: '/sabueso/getCatalogosTicket',
-                metodo: 'POST',
-                onSuccess: function(resp) {
-                    var prioridades = (resp.datos && resp.datos.prioridades) ? resp.datos.prioridades : [];
-                    var $sel = $('#filtroPrioridad');
-                    $sel.find('option:not([value="0"])').remove();
-                    prioridades.forEach(function(pr) {
-                        if (pr.id) $sel.append($('<option></option>').attr('value', pr.id).text(pr.nombre || pr.id));
-                    });
+            $('#panelAdminFiltrosWrap').on('change', '.panel-admin-filtro-select', function () {
+                if (this.id === 'filtroCategoria') {
+                    var v = ($('#filtroCategoria').val() || '').trim();
+                    var urls = window.PANEL_ADMIN_MODULO_URLS || {};
+                    if (v && v !== 'sabueso' && urls[v]) {
+                        var base = (function () {
+                            var p = window.location.pathname || '';
+                            var i = p.toLowerCase().indexOf('/sabueso');
+                            return i !== -1 ? p.substring(0, i) : '';
+                        })();
+                        window.location.href = base + urls[v];
+                        return;
+                    }
                 }
+                aplicarFiltrosPanelAdminAlCambiar();
             });
-            $('#panelAdminFiltrosWrap').on('change', '.panel-admin-filtro-select', aplicarFiltrosPanelAdminAlCambiar);
             $('#btnLimpiarFiltrosPanel').on('click', limpiarFiltrosPanelAdmin);
         }
 
