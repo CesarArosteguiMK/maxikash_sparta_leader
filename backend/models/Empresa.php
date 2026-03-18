@@ -598,7 +598,69 @@ class Empresa extends Model
         }
     }
 
+// ══════════════════════════════════════════════════════════════
+//  Créditos con Fecha_primer_vencimiento = Lunes de cierre
+//  de la semana anterior  (semana: Martes → Lunes)
+// ══════════════════════════════════════════════════════════════
+    public static function getVencimientosLunes(): array
+    {
+        $sql = "
+        SELECT
+            t.Id_credito,
+            t.Nombre_cliente,
+            t.Bucket_Morosidad,
+            t.Bucket_Morosidad_Real,
+            t.Bucket_Morosidad_Final,
+            t.Gestor_Asignado,
+            t.Jefe_de_Plaza,
+            t.Zonal,
+            t.Territorial,
+            t.Cuotas_vencidas,
+            t.Saldo_vencido_actualizado,
+            t.Fecha_primer_vencimiento,
+            DATE_FORMAT(
+                DATE_SUB(CURDATE(),
+                    INTERVAL IF((DAYOFWEEK(CURDATE())+5)%7 = 0, 7, (DAYOFWEEK(CURDATE())+5)%7) DAY
+                ), '%Y-%m-%d'
+            ) AS lunes_calculado
+        FROM tbl_segundometro_semana t
+        WHERE
+            STR_TO_DATE(t.Fecha_primer_vencimiento, '%Y-%m-%d') =
+            DATE_SUB(CURDATE(),
+                INTERVAL IF((DAYOFWEEK(CURDATE())+5)%7 = 0, 7, (DAYOFWEEK(CURDATE())+5)%7) DAY
+            )
+        ORDER BY t.Zonal, t.Territorial, t.Jefe_de_Plaza, t.Gestor_Asignado, t.Nombre_cliente
+    ";
 
+        try {
+            $db   = new DatabaseAurora();
+            $rows = $db->queryAll($sql);
+
+            $lunesPasado = !empty($rows)
+                ? $rows[0]['lunes_calculado']
+                : $db->queryOne("
+                SELECT DATE_FORMAT(
+                    DATE_SUB(CURDATE(),
+                        INTERVAL IF((DAYOFWEEK(CURDATE())+5)%7 = 0, 7, (DAYOFWEEK(CURDATE())+5)%7) DAY
+                    ), '%Y-%m-%d'
+                ) AS lunes_calculado
+              ")['lunes_calculado'] ?? null;
+
+            /* Limpiar columna auxiliar de cada fila */
+            foreach ($rows as &$row) {
+                unset($row['lunes_calculado']);
+            }
+
+            return [
+                'success'      => true,
+                'mensaje'      => 'Registros obtenidos.',
+                'lunes_pasado' => $lunesPasado,
+                'datos'        => $rows,
+            ];
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al procesar la solicitud.', null, $e->getMessage());
+        }
+    }
 
 
 
