@@ -72,9 +72,9 @@
             (t.folio || '—') +
             '</div><div class="small text-muted mt-1">' +
             (t.tipo_ticket_nombre || '—') +
-            '</div><div class="mt-1 d-flex align-items-center gap-2 flex-wrap"><i class="fa-solid ' +
+            '</div><div class="mt-1 d-inline-flex align-items-center gap-1 flex-nowrap"><i class="fa-solid ' +
             icCat +
-            ' text-primary" style="font-size:1.1rem"></i><span class="badge bg-label-primary small">' +
+            ' text-primary" style="font-size:0.78rem;line-height:1;flex-shrink:0;margin-top:1px" aria-hidden="true"></i><span class="badge bg-label-primary small mb-0">' +
             catLabel +
             '</span></div>';
         var creditoVal =

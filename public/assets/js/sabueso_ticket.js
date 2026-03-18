@@ -613,7 +613,7 @@
                     var gestionTxt = gestionLabels[cat] || cat.replace(/_/g, ' ').replace(/\b\w/g, function(ch) { return ch.toUpperCase(); });
                     var icoG = { sabueso: 'fa-dog', plantilla: 'fa-file-lines', atencion_cliente: 'fa-headset', validaciones: 'fa-clipboard-check', viaticos: 'fa-receipt', aplicaciones_de_pago: 'fa-credit-card', credito_problematico: 'fa-triangle-exclamation', aclaracion_credito: 'fa-circle-question' };
                     var ic = icoG[cat] || 'fa-list';
-                    var gestionBadge = '<span class="d-inline-flex align-items-center gap-2 flex-wrap"><i class="fa-solid ' + ic + ' text-primary" style="font-size:1.1rem" title="' + (gestionTxt + '').replace(/"/g, '&quot;') + '"></i><span class="badge bg-label-primary">' + gestionTxt + '</span></span>';
+                    var gestionBadge = '<span class="d-inline-flex align-items-center gap-1 flex-nowrap text-nowrap"><i class="fa-solid ' + ic + ' text-primary" style="font-size:0.78rem;line-height:1;flex-shrink:0;margin-top:1px" aria-hidden="true"></i><span class="badge bg-label-primary small mb-0">' + gestionTxt + '</span></span>';
                     var row = {
                         _fecha_creacion: (t.fecha_creacion || ''),
                         folio_tipo: '<div class="fw-semibold">' + (t.folio || '\u2014') + '</div><div class="small text-muted mt-1">' + (t.tipo_ticket_nombre || '\u2014') + '</div>',
