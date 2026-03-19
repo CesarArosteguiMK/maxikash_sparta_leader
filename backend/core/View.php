@@ -16,6 +16,75 @@ function getMenu()
         return '';
     }
 
+    $personaIdSesion = (int) ($_SESSION['persona_id'] ?? $_SESSION['usuario_id'] ?? 0);
+    $mostrarMenuValidacionesAuto = false;
+    $urlMenuValidacionesAuto = '/validaciones/gestor';
+    if ($personaIdSesion > 0 && array_intersect([18, 19], $_SESSION['modulos'])) {
+        try {
+            $dbMenu = new \Core\Database();
+            $rolRow = $dbMenu->queryOne(
+                "SELECT MAX(CASE WHEN pu.es_jefe = 1 THEN 1 ELSE 0 END) AS es_jefe
+                 FROM asigna_puesto ap
+                 INNER JOIN puesto pu ON pu.id = ap.id_puesto
+                 WHERE ap.id_persona = :id_persona
+                   AND (ap.activo = 1 OR ap.activo IS NULL)",
+                ['id_persona' => $personaIdSesion]
+            );
+            $esJefe = (int)($rolRow['es_jefe'] ?? 0) === 1;
+
+            // Regla solicitada: si el usuario tiene ticket(s) de validaciones asignados, mostrar menú.
+            $asigRow = $dbMenu->queryOne(
+                "SELECT COUNT(1) AS total
+                 FROM asignacion_ticket at
+                 INNER JOIN ticket t ON t.id_ticket = at.id_ticket
+                 WHERE at.id_persona_asignada = :id_persona
+                   AND (at.activo = 1 OR at.fecha_liberacion IS NULL)
+                   AND (t.activo = 1 OR t.activo IS NULL)
+                   AND LOWER(COALESCE(NULLIF(TRIM(t.categoria_gestion),''), 'sabueso')) = 'validaciones'",
+                ['id_persona' => $personaIdSesion]
+            );
+            $tieneAsignacionValidaciones = (int)($asigRow['total'] ?? 0) > 0;
+
+            if ($tieneAsignacionValidaciones) {
+                $mostrarMenuValidacionesAuto = true;
+                $urlMenuValidacionesAuto = $esJefe ? '/validaciones/territorial' : '/validaciones/gestor';
+            }
+        } catch (\Throwable $e) {
+            // Si falla la consulta, no bloquear render del menú.
+            $mostrarMenuValidacionesAuto = false;
+        }
+    }
+
+    $ticketSubItems = [
+        [
+            'label' => 'Ticket',
+            'url' => '/sabueso/ticket',
+            'modulos' => [18]
+        ],
+    ];
+    if ($mostrarMenuValidacionesAuto) {
+        $ticketSubItems[] = [
+            'label' => 'Validaciones',
+            'url' => $urlMenuValidacionesAuto,
+            'modulos' => [18, 19]
+        ];
+    }
+    $ticketSubItems[] = [
+        'label' => 'Panel Admin',
+        'url' => '/sabueso/panelAdminInicio',
+        'modulos' => [19, 25, 27]
+    ];
+    $ticketSubItems[] = [
+        'label' => 'Cerrado/Eliminado Sabueso',
+        'url' => '/sabueso/cerradoEliminado',
+        'modulos' => [48]
+    ];
+    $ticketSubItems[] = [
+        'label' => 'Estadísticas',
+        'url' => '/sabueso/estadisticas',
+        'modulos' => [47]
+    ];
+
     $menuItems = [
             'Créditos' => [
                     'icono' => 'fa-solid fa-sack-dollar',
@@ -122,28 +191,7 @@ function getMenu()
             ],
             'Ticket' => [
                     'icono' => 'fa-solid fa-ticket',
-                    'subItems' => [
-                            [
-                                    'label' => 'Ticket',
-                                    'url' => '/sabueso/ticket',
-                                    'modulos' => [18]
-                            ],
-                            [
-                                    'label' => 'Panel Admin',
-                                    'url' => '/sabueso/panelAdminInicio',
-                                    'modulos' => [19, 25, 27]
-                            ],
-                            [
-                                    'label' => 'Cerrado/Eliminado Sabueso',
-                                    'url' => '/sabueso/cerradoEliminado',
-                                    'modulos' => [48]
-                            ],
-                            [
-                                    'label' => 'Estadísticas',
-                                    'url' => '/sabueso/estadisticas',
-                                    'modulos' => [47]
-                            ]
-                    ]
+                    'subItems' => $ticketSubItems
             ],
             'Despachos' => [
                     'icono' => 'fa-solid fa-building-columns',

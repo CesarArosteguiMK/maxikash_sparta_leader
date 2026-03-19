@@ -1,5 +1,6 @@
 <div class="container-xxl flex-grow-1 container-p-y">
 
+
     <!-- ── Header ── -->
     <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
         <div>
@@ -15,9 +16,16 @@
                 <code id="corteLabel" class="text-info">—</code>
             </p>
         </div>
-        <button id="btnExportarCSV" class="btn btn-outline-success btn-sm">
-            <i class="fa fa-file-csv me-1"></i> Exportar CSV
-        </button>
+        <?php if ((int)($_SESSION['usuario_id'] ?? 0) === 1): ?>
+            <div class="d-flex align-items-center gap-2">
+                <button id="btnEnviarCorreo" class="btn btn-outline-primary btn-sm">
+                    <i class="fa fa-envelope me-1"></i> Enviar correo
+                </button>
+                <button id="btnExportarCSV" class="btn btn-outline-success btn-sm">
+                    <i class="fa fa-file-csv me-1"></i> Exportar CSV
+                </button>
+            </div>
+        <?php endif; ?>
     </div>
 
     <!-- ── Stat total ── -->
@@ -51,14 +59,14 @@
             </div>
         </div>
         <div class="col-12 col-md-6">
-            <div class="card h-100 mb-0">
-                <div class="card-header py-2">
-                    <span class="fw-semibold" style="font-size:.82rem;">
-                        <i class="fa fa-chart-pie text-primary me-1"></i>
+            <div class="h-100" style="background:#f0f3f7;border:1px solid #d8dfe7;border-radius:.5rem;overflow:hidden;">
+                <div style="background:#e9edf2;padding:.5rem .75rem;border-bottom:0;">
+                    <span class="fw-semibold" style="font-size:.82rem;color:#000 !important;">
+                        <i class="fa fa-chart-pie me-1" style="color:#000 !important;"></i>
                         Distribución de corte
                     </span>
                 </div>
-                <div class="card-body py-2">
+                <div style="background:#f0f3f7;padding:.5rem;">
                     <div class="row row-cols-2 g-2" id="statsCorte">
                     </div>
                 </div>

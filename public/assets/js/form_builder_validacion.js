@@ -1,6 +1,7 @@
 (function () {
     var idFormulario = parseInt(window.FORM_BUILDER_FORMULARIO_ID, 10) || 0;
     if (idFormulario < 1) return;
+    var isReadOnly = !!window.FORM_BUILDER_READONLY;
 
     var FIELD_TYPES = [
         { value: 'abierta', label: 'Abierta', icon: 'fa-solid fa-pen-to-square', color: '#26344e', bg: '#dcdfe3' },
@@ -105,6 +106,7 @@
     }
 
     function saveFormData() {
+        if (isReadOnly) return Promise.resolve();
         var title = document.getElementById('formBuilderTitle').value.trim();
         var desc = document.getElementById('formBuilderDesc').value.trim();
         state.title = title;
@@ -168,6 +170,7 @@
     }
 
     function addQuestion() {
+        if (isReadOnly) return;
         var q = newQ();
         q.orden = state.questions.length;
         state.questions.push(q);
@@ -179,6 +182,7 @@
     }
 
     function saveQuestion(q) {
+        if (isReadOnly) return Promise.resolve({ success: true });
         var tipo = backendType(q.type);
         var payload = {
             id_formulario: idFormulario,
@@ -224,6 +228,7 @@
     }
 
     function guardarTodo() {
+        if (isReadOnly) return;
         var submitBtn = document.getElementById('formBuilderBtnSubmit');
         var prevHtml = submitBtn ? submitBtn.innerHTML : '';
         if (submitBtn) {
@@ -250,12 +255,14 @@
     }
 
     function toggleIncluir(q) {
+        if (isReadOnly) return;
         q.incluir = !q.incluir;
         render();
         updatePreview();
     }
 
     function deleteQuestion(q) {
+        if (isReadOnly) return;
         if (typeof Swal !== 'undefined') {
             Swal.fire({
                 title: '¿Eliminar pregunta?',
@@ -271,6 +278,7 @@
     }
 
     function doDelete(q) {
+        if (isReadOnly) return;
         var idx = state.questions.map(function (x) { return x.id; }).indexOf(q.id);
         if (idx < 0) return;
         if (q.backendId) {
@@ -296,6 +304,7 @@
     }
 
     function moveQuestion(index, delta) {
+        if (isReadOnly) return;
         var to = index + delta;
         if (to < 0 || to >= state.questions.length) return;
         var arr = state.questions.slice();
@@ -362,6 +371,7 @@
                 btn.style.cssText = 'border:2px solid ' + (sel ? ft.color : '#e5e7eb') + ';background:' + (sel ? ft.bg : '#f9fafb') + ';color:' + (sel ? ft.color : '#6b7280') + ';font-weight:' + (sel ? '800' : '600') + ';';
                 btn.innerHTML = '<i class="' + ft.icon + '" style="margin-right:4px"></i>' + ft.label;
                 btn.addEventListener('click', function () {
+                    if (isReadOnly) return;
                     q.type = ft.value;
                     var lblInput = expand.querySelector('.fb-label');
                     if (lblInput) lblInput.placeholder = getLabelPlaceholder(ft.value);
@@ -374,13 +384,14 @@
             var labelInput = expand.querySelector('.fb-label');
             if (labelInput) {
                 labelInput.addEventListener('input', function () {
+                    if (isReadOnly) return;
                     q.label = this.value;
                     card.querySelector('span[style*="flex:1"]').textContent = q.label || 'Sin etiqueta...';
                 });
             }
 
             var ph = expand.querySelector('.fb-placeholder');
-            if (ph) ph.addEventListener('input', function () { q.placeholder = this.value; });
+            if (ph) ph.addEventListener('input', function () { if (isReadOnly) return; q.placeholder = this.value; });
 
             if (needsOpts) {
                 var optsCont = expand.querySelector('#fbOpts_' + sid);
@@ -398,14 +409,16 @@
                             '<input type="text" class="form-builder-input fb-opt-input" style="flex:1;margin-bottom:0" placeholder="' + esc(placeHolder) + '" value="' + esc(displayVal) + '">' +
                             (q.options.length > 1 ? '<button type="button" class="form-builder-ibtn danger" data-rmopt="' + i + '">✕</button>' : '');
                         var inp = row.querySelector('.fb-opt-input');
-                        inp.addEventListener('input', function () { q.options[i] = this.value.trim() || placeHolder; });
+                        inp.addEventListener('input', function () { if (isReadOnly) return; q.options[i] = this.value.trim() || placeHolder; });
                         inp.addEventListener('blur', function () {
+                            if (isReadOnly) return;
                             var v = this.value.trim();
                             if (!v) { this.value = ''; q.options[i] = placeHolder; }
                             else q.options[i] = v;
                         });
                         var rm = row.querySelector('[data-rmopt]');
                         if (rm) rm.addEventListener('click', function () {
+                            if (isReadOnly) return;
                             q.options.splice(parseInt(rm.getAttribute('data-rmopt'), 10), 1);
                             renderOpts();
                         });
@@ -415,6 +428,7 @@
                 renderOpts();
                 var addOpt = expand.querySelector('#fbAddOpt_' + sid);
                 if (addOpt) addOpt.addEventListener('click', function () {
+                    if (isReadOnly) return;
                     q.options = q.options || [];
                     q.options.push('Opción ' + (q.options.length + 1));
                     renderOpts();
@@ -429,6 +443,7 @@
                     btn.style.cssText = 'padding:5px 14px;border-radius:6px;cursor:pointer;border:1.5px solid ' + (q.escalaMax === n ? '#d97706' : '#e5e7eb') + ';background:' + (q.escalaMax === n ? '#fef3c7' : '#f9fafb') + ';color:' + (q.escalaMax === n ? '#92400e' : '#6b7280') + ';font-size:12px;font-weight:600';
                     btn.textContent = '1–' + n;
                     btn.addEventListener('click', function () {
+                        if (isReadOnly) return;
                         q.escalaMax = n;
                         render();
                         updatePreview();
@@ -440,6 +455,7 @@
             var reqTog = expand.querySelector('#fbReq_' + sid);
             if (reqTog) {
                 reqTog.addEventListener('click', function () {
+                    if (isReadOnly) return;
                     q.required = !q.required;
                     reqTog.classList.toggle('on', q.required);
                     var lbl = card.querySelector('span[style*="flex:1"]');
@@ -449,7 +465,7 @@
             }
             var inclTog = expand.querySelector('#fbIncl_' + sid);
             if (inclTog) {
-                inclTog.addEventListener('click', function () { toggleIncluir(q); });
+                inclTog.addEventListener('click', function () { if (isReadOnly) return; toggleIncluir(q); });
                 inclTog.classList.toggle('on', q.incluir);
             }
             card.appendChild(expand);
@@ -462,11 +478,12 @@
         card.querySelectorAll('[data-move]').forEach(function (btn) {
             btn.addEventListener('click', function (e) {
                 e.stopPropagation();
+                if (isReadOnly) return;
                 moveQuestion(index, parseInt(btn.getAttribute('data-move'), 10));
             });
         });
         var delBtn = card.querySelector('[data-del]');
-        if (delBtn) delBtn.addEventListener('click', function (e) { e.stopPropagation(); deleteQuestion(q); });
+        if (delBtn) delBtn.addEventListener('click', function (e) { e.stopPropagation(); if (isReadOnly) return; deleteQuestion(q); });
         var toggleExpandBtn = card.querySelector('[data-toggle-expand]');
         if (toggleExpandBtn) {
             toggleExpandBtn.addEventListener('click', function (e) {
@@ -479,6 +496,7 @@
         var handle = card.querySelector('.form-builder-drag-handle');
         if (handle) {
             handle.addEventListener('dragstart', function (e) {
+                if (isReadOnly) return;
                 e.stopPropagation();
                 e.dataTransfer.setData('application/x-form-builder-qindex', String(index));
                 e.dataTransfer.effectAllowed = 'move';
@@ -492,6 +510,7 @@
             });
         }
         card.addEventListener('dragover', function (e) {
+            if (isReadOnly) return;
             e.preventDefault();
             e.dataTransfer.dropEffect = 'move';
             var fromIdx = e.dataTransfer.getData('application/x-form-builder-qindex');
@@ -502,6 +521,7 @@
             if (!card.contains(e.relatedTarget)) card.classList.remove('form-builder-drag-over');
         });
         card.addEventListener('drop', function (e) {
+            if (isReadOnly) return;
             e.preventDefault();
             card.classList.remove('form-builder-drag-over');
             var fromIdx = parseInt(e.dataTransfer.getData('application/x-form-builder-qindex'), 10);
@@ -659,17 +679,20 @@
 
     var formDataSaveTimer;
     function scheduleSaveFormData() {
+        if (isReadOnly) return;
         clearTimeout(formDataSaveTimer);
         formDataSaveTimer = setTimeout(function () {
             saveFormData();
         }, 600);
     }
     document.getElementById('formBuilderTitle').addEventListener('input', function () {
+        if (isReadOnly) return;
         state.title = this.value;
         updatePreview();
         scheduleSaveFormData();
     });
     document.getElementById('formBuilderDesc').addEventListener('input', function () {
+        if (isReadOnly) return;
         state.desc = this.value;
         updatePreview();
         scheduleSaveFormData();
@@ -681,6 +704,22 @@
         btn.addEventListener('click', function () { setTab(btn.getAttribute('data-tab')); });
     });
     document.getElementById('formBuilderBtnSubmit').addEventListener('click', guardarTodo);
+
+    if (isReadOnly) {
+        var titleInput = document.getElementById('formBuilderTitle');
+        var descInput = document.getElementById('formBuilderDesc');
+        var btnNew = document.getElementById('formBuilderBtnNew');
+        var btnSubmit = document.getElementById('formBuilderBtnSubmit');
+        var editorTab = document.querySelector('.form-builder-tab[data-tab="editor"]');
+        var previewTab = document.querySelector('.form-builder-tab[data-tab="preview"]');
+        if (titleInput) titleInput.disabled = true;
+        if (descInput) descInput.disabled = true;
+        if (btnNew) btnNew.style.display = 'none';
+        if (btnSubmit) btnSubmit.style.display = 'none';
+        if (editorTab) editorTab.style.display = 'none';
+        if (previewTab) previewTab.classList.add('active');
+        setTab('preview');
+    }
 
     var backLink = document.querySelector('.form-builder-back');
     if (backLink) {

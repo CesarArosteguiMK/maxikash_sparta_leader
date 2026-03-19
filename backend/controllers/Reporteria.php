@@ -1191,6 +1191,8 @@ HTML;
 
             function renderStats(data) {
                 const { nacDist, matriz } = calcStats(data);
+                const totalRegs = data.length || 0;
+                const pctOf = (n) => (totalRegs ? Math.round((Number(n) / totalRegs) * 100) : 0);
 
                 /* Cards nacimiento */
                 let htmlNac = '';
@@ -1205,7 +1207,7 @@ HTML;
                                 <div class="badge ${m.cls} mb-1" style="font-size:.65rem;">
                                     <i class="fa ${m.icon} me-1"></i>${m.short}
                                 </div>
-                                <div class="fw-bold" style="font-size:1.5rem;">${cnt}</div>
+                                <div class="fw-bold" style="font-size:1.5rem;">${cnt}<span class="text-muted fw-semibold" style="font-size:1.05rem;margin-left:6px;">(${pctOf(cnt)}%)</span></div>
                                 <div class="text-muted" style="font-size:.65rem;">nacieron</div>
                             </div>
                         </div>
@@ -1213,7 +1215,7 @@ HTML;
                 });
                 document.getElementById('statsNacimiento').innerHTML = htmlNac;
 
-                /* Distribución de corte: Current + Recuperados | Pendientes */
+                /* Distribución de corte: Current | Pendientes primeros pagos */
                 const totalCurrentNac = nacDist['a) Current'] || 0;
                 const recuperados1a7  = (matriz['b) 1 a 7 dias'] && matriz['b) 1 a 7 dias']['a) Current']) ? matriz['b) 1 a 7 dias']['a) Current'] : 0;
                 const currentMasRecuperados = totalCurrentNac + recuperados1a7;
@@ -1222,25 +1224,21 @@ HTML;
                 let htmlCorte = '';
                 htmlCorte += `
                 <div class="col">
-                    <div class="card text-center h-100 border-0 shadow-sm">
-                        <div class="card-body py-2 px-2">
+                    <div style="background:#f0f3f7;border-radius:.375rem;padding:.6rem .5rem;text-align:center;height:100%;">
                             <div class="badge bg-label-success mb-1" style="font-size:.65rem;">
-                                <i class="fa fa-circle-check me-1"></i>Current + Recuperados
+                                <i class="fa fa-circle-check me-1"></i>Current
                             </div>
-                            <div class="fw-bold" style="font-size:1.5rem;">${currentMasRecuperados}</div>
-                            <div class="text-muted" style="font-size:.65rem;">al corte</div>
-                        </div>
+                            <div class="fw-bold" style="font-size:1.5rem;">${currentMasRecuperados}<span class="fw-semibold" style="font-size:1.05rem;margin-left:6px;color:#6c757d;">(${pctOf(currentMasRecuperados)}%)</span></div>
+                            <div style="font-size:.65rem;color:#6c757d;">al corte</div>
                     </div>
                 </div>
                 <div class="col">
-                    <div class="card text-center h-100 border-0 shadow-sm">
-                        <div class="card-body py-2 px-2">
-                            <div class="badge bg-label-warning mb-1" style="font-size:.65rem;">
-                                <i class="fa fa-clock me-1"></i>Pendientes
+                    <div style="background:#f0f3f7;border-radius:.375rem;padding:.6rem .5rem;text-align:center;height:100%;">
+                            <div class="badge bg-label-warning mb-1" style="font-size:.58rem;white-space:normal;line-height:1.25;max-width:100%;">
+                                <i class="fa fa-clock me-1"></i>Pendientes primeros pagos
                             </div>
-                            <div class="fw-bold" style="font-size:1.5rem;">${pendientes}</div>
-                            <div class="text-muted" style="font-size:.65rem;">de recuperación</div>
-                        </div>
+                            <div class="fw-bold" style="font-size:1.5rem;">${pendientes}<span class="fw-semibold" style="font-size:1.05rem;margin-left:6px;color:#6c757d;">(${pctOf(pendientes)}%)</span></div>
+                            <div style="font-size:.65rem;color:#6c757d;">de recuperación</div>
                     </div>
                 </div>`;
                 document.getElementById('statsCorte').innerHTML = htmlCorte;
@@ -1743,6 +1741,18 @@ HTML;
             /* ── Cargar ── */
             async function cargar() {
                 document.getElementById('statTotal').textContent = '…';
+                if (typeof showWait === 'function') {
+                    showWait();
+                } else {
+                    Swal.fire({
+                        title: 'Procesando su petición',
+                        text: 'Espere un momento...',
+                        imageUrl: '/assets/img/wait.svg',
+                        allowOutsideClick: false,
+                        allowEscapeKey: false,
+                        showConfirmButton: false
+                    });
+                }
                 try {
                     const r = await fetch('/Reporteria/getVencimientosLunes', { method:'POST' });
                     const d = await r.json();
@@ -1760,6 +1770,8 @@ HTML;
                     renderStats(_data);
                 } catch(e) {
                     console.error(e);
+                } finally {
+                    Swal.close();
                 }
             }
 
@@ -1796,8 +1808,57 @@ HTML;
                 dtVenc.clear().rows.add(rows).draw();
             }
 
+            function buildCorreoPayload() {
+                const datos = aplicarFiltros(_data);
+                const { nacDist, matriz } = calcStats(datos);
+                const totalCurrentNac = nacDist['a) Current'] || 0;
+                const total1a7Nac = nacDist['b) 1 a 7 dias'] || 0;
+                const recuperados1a7 = (matriz['b) 1 a 7 dias'] && matriz['b) 1 a 7 dias']['a) Current']) ? matriz['b) 1 a 7 dias']['a) Current'] : 0;
+                const pendientes1a7 = Math.max(0, total1a7Nac - recuperados1a7);
+                const totalGlobal = totalCurrentNac + total1a7Nac;
+                const pctCurrent = totalGlobal ? Math.round(totalCurrentNac / totalGlobal * 100) : 0;
+                const pct17 = 100 - pctCurrent;
+                const pctRecuperados = total1a7Nac ? Math.round(recuperados1a7 / total1a7Nac * 100) : 0;
+
+                return {
+                    total_registros: datos.length,
+                    primer_vencimiento: document.getElementById('lunesFecha')?.textContent?.trim() || '',
+                    corte_actual: document.getElementById('corteLabel')?.textContent?.trim() || '',
+                    generado_en: new Date().toISOString(),
+                    global: {
+                        total: totalGlobal,
+                        current: totalCurrentNac,
+                        uno_a_siete: total1a7Nac,
+                        pct_current: pctCurrent,
+                        pct_uno_a_siete: pct17,
+                    },
+                    nacimiento: {
+                        current: totalCurrentNac,
+                        uno_a_siete: total1a7Nac,
+                    },
+                    corte: {
+                        current_mas_recuperados: totalCurrentNac + recuperados1a7,
+                        pendientes: pendientes1a7,
+                    },
+                    matriz: {
+                        current: {
+                            total: totalCurrentNac,
+                            siguen_current: totalCurrentNac,
+                            efectividad: totalCurrentNac > 0 ? 100 : 0,
+                        },
+                        uno_a_siete: {
+                            total: total1a7Nac,
+                            recuperados: recuperados1a7,
+                            siguen_uno_a_siete: pendientes1a7,
+                            efectividad: pctRecuperados,
+                        },
+                    },
+                    nota: 'Datos calculados con los filtros actualmente aplicados en pantalla.',
+                };
+            }
+
             /* ── Exportar CSV ── */
-            document.getElementById('btnExportarCSV').addEventListener('click', () => {
+            document.getElementById('btnExportarCSV')?.addEventListener('click', () => {
                 const datos = aplicarFiltros(_data);
                 const headers = [
                     'Id_credito','Nombre_cliente','Bucket_Nacio','Bucket_Corte_Actual',
@@ -1815,6 +1876,129 @@ HTML;
                 a.href    = URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
                 a.download = `vencimientos_lunes_${new Date().toISOString().substring(0,10)}.csv`;
                 a.click();
+            });
+
+            /* ── Enviar correo ── */
+            document.getElementById('btnEnviarCorreo')?.addEventListener('click', async () => {
+                const btn = document.getElementById('btnEnviarCorreo');
+                const defaultAsunto = 'Primeros pagos — Lunes de Cierre';
+                let destinatariosRaw = '';
+                let asunto = defaultAsunto;
+                const parseEmails = (raw) => (raw || '')
+                    .split(/[,\s;]+/)
+                    .map(v => v.trim().toLowerCase())
+                    .filter(Boolean);
+                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+                if (typeof Swal !== 'undefined') {
+                    const res = await Swal.fire({
+                        title: 'Enviar reporte por correo',
+                        html: `
+                            <div class="text-start">
+                                <label class="form-label mb-1">Destinatarios</label>
+                                <input id="swal-emails" class="swal2-input" placeholder="correo1@dominio.com, correo2@dominio.com" style="width:100%;margin:.2rem 0 .8rem 0;">
+                                <div id="swal-emails-preview" class="small text-muted" style="min-height:20px;margin:-.2rem 0 .8rem 0;"></div>
+                                <label class="form-label mb-1">Asunto</label>
+                                <input id="swal-asunto" class="swal2-input" value="${defaultAsunto}" style="width:100%;margin:.2rem 0 0 0;">
+                            </div>`,
+                        confirmButtonText: 'Enviar',
+                        showCancelButton: true,
+                        cancelButtonText: 'Cancelar',
+                        focusConfirm: false,
+                        didOpen: () => {
+                            const input = document.getElementById('swal-emails');
+                            const preview = document.getElementById('swal-emails-preview');
+                            const refreshPreview = () => {
+                                const emails = [...new Set(parseEmails(input?.value || ''))];
+                                if (!preview) return;
+                                if (!emails.length) {
+                                    preview.textContent = 'Sin correos detectados.';
+                                    return;
+                                }
+                                const invalidos = emails.filter(e => !emailRegex.test(e));
+                                if (invalidos.length) {
+                                    preview.innerHTML = `<span class="text-danger">Correos inválidos: ${invalidos.join(', ')}</span>`;
+                                    return;
+                                }
+                                preview.innerHTML = `<span class="text-success">${emails.length} correo(s):</span> ${emails.join(', ')}`;
+                            };
+                            refreshPreview();
+                            input?.addEventListener('input', refreshPreview);
+                        },
+                        preConfirm: () => {
+                            const emails = document.getElementById('swal-emails')?.value?.trim() || '';
+                            const asuntoVal = document.getElementById('swal-asunto')?.value?.trim() || defaultAsunto;
+                            if (!emails) {
+                                Swal.showValidationMessage('Escribe al menos un destinatario.');
+                                return false;
+                            }
+                            const lista = [...new Set(parseEmails(emails))];
+                            const invalidos = lista.filter(e => !emailRegex.test(e));
+                            if (!lista.length) {
+                                Swal.showValidationMessage('Escribe al menos un destinatario válido.');
+                                return false;
+                            }
+                            if (invalidos.length) {
+                                Swal.showValidationMessage(`Corrige correos inválidos: ${invalidos.join(', ')}`);
+                                return false;
+                            }
+                            return { emails: lista.join(','), asunto: asuntoVal };
+                        }
+                    });
+                    if (!res.isConfirmed || !res.value) return;
+                    destinatariosRaw = res.value.emails;
+                    asunto = res.value.asunto;
+                } else {
+                    destinatariosRaw = window.prompt('Destinatarios (separados por coma):', '') || '';
+                    if (!destinatariosRaw.trim()) return;
+                    asunto = window.prompt('Asunto:', defaultAsunto) || defaultAsunto;
+                }
+
+                const destinatarios = [...new Set(parseEmails(destinatariosRaw))];
+
+                if (!destinatarios.length) {
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire({ icon: 'warning', title: 'Sin destinatarios', text: 'Agrega al menos un correo válido.' });
+                    }
+                    return;
+                }
+
+                const payload = {
+                    destinatarios,
+                    asunto,
+                    reporte: buildCorreoPayload(),
+                };
+
+                try {
+                    if (btn) {
+                        btn.disabled = true;
+                        btn.innerHTML = '<i class="fa fa-spinner fa-spin me-1"></i> Enviando...';
+                    }
+
+                    const resp = await fetch('/Reporteria/enviarCorreoVencimientosLunes', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload),
+                    });
+                    const out = await resp.json();
+
+                    if (out?.success) {
+                        if (typeof Swal !== 'undefined') {
+                            Swal.fire({ icon: 'success', title: 'Correo enviado', text: out.mensaje || 'Reporte enviado correctamente.' });
+                        }
+                    } else {
+                        throw new Error(out?.mensaje || 'No se pudo enviar el correo.');
+                    }
+                } catch (err) {
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire({ icon: 'error', title: 'Error', text: err?.message || 'Error al enviar correo.' });
+                    }
+                } finally {
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.innerHTML = '<i class="fa fa-envelope me-1"></i> Enviar correo';
+                    }
+                }
             });
 
             /* ── Eventos ── */
@@ -1863,6 +2047,389 @@ HTML;
         } catch (\Exception $e) {
             self::respuestaJSON(["success" => false, "mensaje" => $e->getMessage()]);
         }
+    }
+
+    public function enviarCorreoVencimientosLunes()
+    {
+        try {
+            if ((int)($_SESSION['usuario_id'] ?? 0) !== 1) {
+                self::respuestaJSON(self::respuesta(false, 'No autorizado para enviar este correo.'));
+            }
+
+            $input = json_decode(file_get_contents('php://input'), true) ?: [];
+            $destinatarios = $input['destinatarios'] ?? [];
+            $asunto = trim((string)($input['asunto'] ?? 'Primeros pagos — Lunes de Cierre'));
+            $reporte = is_array($input['reporte'] ?? null) ? $input['reporte'] : [];
+
+            if (!is_array($destinatarios) || empty($destinatarios)) {
+                self::respuestaJSON(self::respuesta(false, 'Debes indicar al menos un destinatario.'));
+            }
+
+            $destinatariosLimpios = [];
+            foreach ($destinatarios as $email) {
+                $email = strtolower(trim((string)$email));
+                if ($email === '') {
+                    continue;
+                }
+                if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                    self::respuestaJSON(self::respuesta(false, "Correo inválido: {$email}"));
+                }
+                $destinatariosLimpios[] = $email;
+            }
+            $destinatariosLimpios = array_values(array_unique($destinatariosLimpios));
+
+            if (empty($destinatariosLimpios)) {
+                self::respuestaJSON(self::respuesta(false, 'No hay destinatarios válidos para enviar.'));
+            }
+
+            $html = $this->buildCorreoVencimientosLunesHtml($reporte);
+            $resultadoEnvio = $this->enviarCorreoHtmlVencimientos($destinatariosLimpios, $asunto, $html);
+
+            if (!$resultadoEnvio['success']) {
+                self::respuestaJSON(self::respuesta(false, $resultadoEnvio['mensaje'] ?? 'No se pudo enviar el correo.'));
+            }
+
+            self::respuestaJSON(self::respuesta(true, 'Correo enviado correctamente.', [
+                'destinatarios' => $destinatariosLimpios
+            ]));
+        } catch (\Throwable $e) {
+            error_log('Reporteria::enviarCorreoVencimientosLunes -> ' . $e->getMessage());
+            self::respuestaJSON(self::respuesta(false, 'Error al enviar correo: ' . $e->getMessage()));
+        }
+    }
+
+    private function enviarCorreoHtmlVencimientos(array $destinatarios, string $asunto, string $html): array
+    {
+        try {
+            $autoload = RAIZ . '/libs/PHPMailer/vendor/autoload.php';
+            if (!is_file($autoload)) {
+                return self::respuesta(false, 'No se encontró PHPMailer en el proyecto.');
+            }
+            require_once $autoload;
+
+            $configPath = RAIZ . '/config/config.ini';
+            $ini = is_file($configPath) ? parse_ini_file($configPath, true) : [];
+            $mail = $ini['mail'] ?? [];
+
+            $smtpHost = trim((string)($mail['smtp_host'] ?? ''));
+            $smtpPort = (int)($mail['smtp_port'] ?? 587);
+            $smtpSecure = strtolower(trim((string)($mail['smtp_secure'] ?? 'tls')));
+            $smtpUser = trim((string)($mail['smtp_user'] ?? ''));
+            $smtpPass = trim((string)($mail['smtp_pass'] ?? ''));
+            $from = trim((string)($mail['mail_from'] ?? $smtpUser));
+            $fromName = trim((string)($mail['mail_from_name'] ?? 'Sparta Ledger'));
+
+            if ($smtpHost === '' || $smtpUser === '' || $smtpPass === '') {
+                return self::respuesta(false, 'Falta configuración SMTP en backend/config/config.ini sección [mail].');
+            }
+
+            $mailer = new \PHPMailer\PHPMailer\PHPMailer(true);
+            $mailer->isSMTP();
+            $mailer->Host = $smtpHost;
+            $mailer->Port = $smtpPort;
+            $mailer->SMTPAuth = true;
+            $mailer->Username = $smtpUser;
+            $mailer->Password = $smtpPass;
+            if ($smtpSecure === 'ssl') {
+                $mailer->SMTPSecure = \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_SMTPS;
+            } else {
+                $mailer->SMTPSecure = \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
+            }
+            $mailer->CharSet = 'UTF-8';
+            $mailer->isHTML(true);
+            $mailer->setFrom($from !== '' ? $from : $smtpUser, $fromName !== '' ? $fromName : 'Sparta Ledger');
+            $mailer->Sender = ($from !== '' ? $from : $smtpUser);
+            $mailer->addReplyTo(($from !== '' ? $from : $smtpUser), $fromName !== '' ? $fromName : 'Sparta Ledger');
+            $mailer->Subject = $asunto;
+            $mailer->Body = $html;
+            $mailer->AltBody = strip_tags($html);
+
+            foreach ($destinatarios as $email) {
+                $mailer->addAddress($email);
+            }
+            $mailer->send();
+
+            return self::respuesta(true, 'OK');
+        } catch (\Throwable $e) {
+            error_log('Reporteria::enviarCorreoHtmlVencimientos -> ' . $e->getMessage());
+            return self::respuesta(false, 'No se pudo enviar el correo: ' . $e->getMessage());
+        }
+    }
+
+    private function buildCorreoVencimientosLunesHtml(array $r): string
+    {
+        $num = function ($v): string {
+            return number_format((float)$v, 0, '.', ',');
+        };
+        $esc = function ($v): string {
+            return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8');
+        };
+
+        $primerVencimiento = $esc($r['primer_vencimiento'] ?? '—');
+        $corteActual = $esc($r['corte_actual'] ?? '—');
+        $generadoEn = isset($r['generado_en']) ? date('Y-m-d', strtotime((string)$r['generado_en'])) : date('Y-m-d');
+
+        $total = (float)($r['total_registros'] ?? 0);
+        $nacCurrent = (float)($r['nacimiento']['current'] ?? 0);
+        $nac17 = (float)($r['nacimiento']['uno_a_siete'] ?? 0);
+
+        $corteRecuperados = (float)($r['corte']['current_mas_recuperados'] ?? 0);
+        $cortePendientes = (float)($r['corte']['pendientes'] ?? 0);
+
+        $globTotal = (float)($r['global']['total'] ?? 0);
+        $globCurrent = (float)($r['global']['current'] ?? 0);
+        $glob17 = (float)($r['global']['uno_a_siete'] ?? 0);
+        $pctCurrent = (float)($r['global']['pct_current'] ?? 0);
+        $pct17 = (float)($r['global']['pct_uno_a_siete'] ?? 0);
+
+        $mCurrentTotal = (float)($r['matriz']['current']['total'] ?? 0);
+        $mCurrentSiguen = (float)($r['matriz']['current']['siguen_current'] ?? 0);
+
+        $m17Total = (float)($r['matriz']['uno_a_siete']['total'] ?? 0);
+        $m17Recuperados = (float)($r['matriz']['uno_a_siete']['recuperados'] ?? 0);
+        $m17Siguen = (float)($r['matriz']['uno_a_siete']['siguen_uno_a_siete'] ?? 0);
+        $m17Efectividad = (float)($r['matriz']['uno_a_siete']['efectividad'] ?? 0);
+
+        $nota = $esc($r['nota'] ?? 'Generado automáticamente');
+
+        $den = $total > 0 ? (float)$total : 1;
+        $pctNacCurrent   = (int) round($nacCurrent       / $den * 100);
+        $pctNac17        = (int) round($nac17            / $den * 100);
+        $pctCorteCurrent = (int) round($corteRecuperados / $den * 100);
+        $pctCortePend    = (int) round($cortePendientes  / $den * 100);
+
+        return <<<HTML
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Primeros Pagos — Lunes de Cierre</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Sora:wght@400;600;700&display=swap');
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #f0f4f8; font-family: 'Sora', sans-serif; color: #1e293b; padding: 32px 16px; }
+    .wrapper { max-width: 640px; margin: 0 auto; background: #ffffff; border-radius: 16px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 8px 32px rgba(0,0,0,.08); }
+    .header { background: linear-gradient(135deg, #1e40af 0%, #1d4ed8 60%, #2563eb 100%); padding: 32px 32px 24px; border-bottom: 1px solid #bfdbfe; position: relative; overflow: hidden; }
+    .header::before { content: ''; position: absolute; top: -40px; right: -40px; width: 220px; height: 220px; border-radius: 50%; background: radial-gradient(circle, rgba(255,255,255,.12) 0%, transparent 70%); }
+    .header-eyebrow { font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: #bfdbfe; margin-bottom: 8px; }
+    .header h1 { font-size: 22px; font-weight: 700; color: #fff; line-height: 1.3; margin-bottom: 12px; }
+    .header-meta { display: flex; flex-wrap: wrap; gap: 28px; font-size: 12px; color: #bfdbfe; align-items: center; }
+    .header-meta-item { display: inline-flex; align-items: center; gap: 10px; }
+    .header-meta-sep { color: rgba(255,255,255,.7); margin: 0 2px; font-size: 13px; }
+    .header-meta span strong { color: #ffffff; }
+    .header-meta code { background: rgba(255,255,255,.18); color: #e0f2fe; border-radius: 4px; padding: 2px 7px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; }
+    .body { padding: 28px 32px 32px; background: #ffffff; }
+    .stat-banner { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 10px; padding: 14px 20px; display: flex; align-items: center; gap: 16px; margin-bottom: 24px; }
+    .stat-banner .big-num { font-family: 'IBM Plex Mono', monospace; font-size: 40px; font-weight: 600; color: #1d4ed8; line-height: 1; }
+    .stat-banner .label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #64748b; }
+    .section-title { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 1.5px; color: #1d4ed8; margin-bottom: 12px; display: flex; align-items: center; gap: 6px; }
+    .section-title::after { content: ''; flex: 1; height: 1px; background: #e2e8f0; }
+    .mini-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 16px; text-align: center; }
+    .mini-card .badge { display: inline-block; border-radius: 20px; padding: 3px 10px; font-size: 10px; font-weight: 600; letter-spacing: .5px; margin-bottom: 10px; }
+    .badge-green { background: #dcfce7; color: #16a34a; }
+    .badge-info { background: #e0f2fe; color: #0284c7; }
+    .badge-yellow { background: #fef9c3; color: #b45309; }
+    .mini-card .num { font-family: 'IBM Plex Mono', monospace; font-size: 28px; font-weight: 600; color: #0f172a; line-height: 1; margin-bottom: 4px; }
+    .mini-card .num-pct { font-size: 17px; font-weight: 600; color: #64748b; margin-left: 6px; }
+    .block-card-corte-mail { background: #f0f3f7; border: 1px solid #d8dfe7; }
+    .mini-card .sub { font-size: 10px; color: #94a3b8; text-transform: uppercase; letter-spacing: .5px; }
+    .block-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; margin-bottom: 20px; }
+    .block-card-corte { background: #eef1f4; border: 1px solid #cbd5e1; }
+    .block-card-corte .block-card-title { color: #64748b; }
+    .block-card-title { font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 16px; display: flex; align-items: center; gap: 6px; }
+    .matrix-row { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px 16px; margin-bottom: 10px; }
+    .matrix-row:last-child { margin-bottom: 0; }
+    .matrix-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; flex-wrap: wrap; gap: 8px; }
+    .matrix-badge { display: inline-flex; align-items: center; gap: 5px; border-radius: 20px; padding: 4px 12px; font-size: 11px; font-weight: 600; }
+    .mrow-yellow { background: #fef9c3; color: #b45309; }
+    .mrow-green { background: #dcfce7; color: #16a34a; }
+    .mrow-info { background: #e0f2fe; color: #0284c7; }
+    .matrix-num { font-family: 'IBM Plex Mono', monospace; font-size: 22px; font-weight: 600; color: #0f172a; }
+    .matrix-cols { display: table; width: 100%; border-collapse: separate; border-spacing: 8px; margin: -8px; }
+    .matrix-col { display: table-cell; vertical-align: top; width: 33.33%; }
+    .matrix-lbl { font-size: 10px; color: #94a3b8; text-transform: uppercase; letter-spacing: .4px; margin-bottom: 3px; }
+    .matrix-val { font-size: 13px; font-weight: 600; color: #475569; }
+    .matrix-val-green { font-size: 13px; font-weight: 600; color: #16a34a; }
+    .pct-row { display: flex; align-items: center; gap: 22px; margin-bottom: 10px; flex-wrap: wrap; }
+    .pct { font-family: 'IBM Plex Mono', monospace; font-size: 14px; font-weight: 600; }
+    .pct-note { font-size: 10px; color: #94a3b8; margin-left: 6px; margin-right: 10px; }
+    .bar-track { height: 5px; background: #e2e8f0; border-radius: 4px; overflow: hidden; display: flex; }
+    .bar-fill { height: 5px; border-radius: 4px; }
+    .footer { background: #f1f5f9; border-top: 1px solid #e2e8f0; padding: 16px 32px; text-align: center; font-size: 10px; color: #94a3b8; font-family: 'IBM Plex Mono', monospace; letter-spacing: .5px; }
+  </style>
+</head>
+<body>
+<div class="wrapper">
+  <div class="header">
+    <div class="header-eyebrow">Reporte de cartera</div>
+    <h1>📅 Primeros Pagos — Lunes de Cierre</h1>
+    <div class="header-meta">
+      <span class="header-meta-item">Primer vencimiento: <strong>{$primerVencimiento}</strong></span>
+      <span class="header-meta-sep">|</span>
+      <span class="header-meta-item">Corte actual: <code>{$corteActual}</code></span>
+    </div>
+  </div>
+
+  <div class="body">
+    <div class="stat-banner">
+      <div class="big-num">{$num($total)}</div>
+      <div>
+        <div style="font-size:15px;font-weight:600;color:#0f172a;margin-bottom:2px;">Registros totales</div>
+        <div class="label">Cartera activa en el corte</div>
+      </div>
+    </div>
+
+    <div class="block-card">
+      <div class="block-card-title">🥚 Distribución de nacimiento</div>
+      <table style="width:100%;border-collapse:separate;border-spacing:10px;margin:-10px;">
+        <tr>
+          <td style="width:50%;vertical-align:top;">
+            <div class="mini-card">
+              <div class="badge badge-green">✔ Current</div>
+              <div class="num">{$num($nacCurrent)}<span class="num-pct">({$pctNacCurrent}%)</span></div>
+              <div class="sub">nacieron</div>
+            </div>
+          </td>
+          <td style="width:50%;vertical-align:top;">
+            <div class="mini-card">
+              <div class="badge badge-info">🕐 1-7d</div>
+              <div class="num">{$num($nac17)}<span class="num-pct">({$pctNac17}%)</span></div>
+              <div class="sub">nacieron</div>
+            </div>
+          </td>
+        </tr>
+      </table>
+    </div>
+
+    <div class="block-card" style="background:#f0f3f7;border:1px solid #d8dfe7;">
+      <div class="block-card-title" style="color:#475569;">📊 Distribución de corte</div>
+      <table style="width:100%;border-collapse:separate;border-spacing:10px;margin:-10px;">
+        <tr>
+          <td style="width:50%;vertical-align:top;">
+            <div class="mini-card" style="background:#f0f3f7;border:1px solid #d8dfe7;">
+              <div class="badge badge-green">✔ Current</div>
+              <div class="num">{$num($corteRecuperados)}<span class="num-pct">({$pctCorteCurrent}%)</span></div>
+              <div class="sub">al corte</div>
+            </div>
+          </td>
+          <td style="width:50%;vertical-align:top;">
+            <div class="mini-card" style="background:#f0f3f7;border:1px solid #d8dfe7;">
+              <div class="badge badge-yellow" style="white-space:normal;line-height:1.25;font-size:9px;">⏳ Pendientes primeros pagos</div>
+              <div class="num">{$num($cortePendientes)}<span class="num-pct">({$pctCortePend}%)</span></div>
+              <div class="sub">de recuperación</div>
+            </div>
+          </td>
+        </tr>
+      </table>
+    </div>
+
+    <div class="section-title">Matriz nacimiento → corte</div>
+
+    <div class="matrix-row">
+      <div class="matrix-top">
+        <span class="matrix-badge mrow-yellow">🌐 Global</span>
+        <span class="matrix-num">{$num($globTotal)}</span>
+      </div>
+      <table class="matrix-cols">
+        <tr>
+          <td class="matrix-col">
+            <div class="matrix-lbl">Toda la cartera</div>
+            <div class="matrix-val">{$num($globTotal)} créditos</div>
+          </td>
+          <td class="matrix-col">
+            <div class="matrix-lbl">Resumen cartera</div>
+            <div class="matrix-val">{$num($globCurrent)} current · {$num($glob17)} 1-7d</div>
+          </td>
+          <td class="matrix-col">
+            <div class="pct-row">
+              <span style="display:inline-flex;align-items:center;">
+                <span class="pct" style="color:#16a34a;">{$num($pctCurrent)}%</span>
+                <span class="pct-note">current</span>
+              </span>
+              <span style="display:inline-flex;align-items:center;">
+                <span class="pct" style="color:#0284c7;">{$num($pct17)}%</span>
+                <span class="pct-note">1-7d</span>
+              </span>
+            </div>
+            <div class="bar-track">
+              <div class="bar-fill" style="width:{$pctCurrent}%;background:#28a745;"></div>
+              <div class="bar-fill" style="width:{$pct17}%;background:#03c3ec;"></div>
+            </div>
+          </td>
+        </tr>
+      </table>
+    </div>
+
+    <div class="matrix-row">
+      <div class="matrix-top">
+        <span class="matrix-badge mrow-green">✔ a) Current</span>
+        <span class="matrix-num">{$num($mCurrentTotal)}</span>
+      </div>
+      <table class="matrix-cols">
+        <tr>
+          <td class="matrix-col">
+            <div class="matrix-lbl">Ya eran current</div>
+            <div class="matrix-val">— no aplica</div>
+          </td>
+          <td class="matrix-col">
+            <div class="matrix-lbl">Siguen current</div>
+            <div class="matrix-val">{$num($mCurrentSiguen)} créditos</div>
+          </td>
+          <td class="matrix-col">
+            <div class="pct-row">
+              <span style="display:inline-flex;align-items:center;">
+                <span class="pct" style="color:#16a34a;">100%</span>
+                <span class="pct-note">sin mora al corte</span>
+              </span>
+            </div>
+            <div class="bar-track">
+              <div class="bar-fill" style="width:100%;background:#28a745;"></div>
+            </div>
+          </td>
+        </tr>
+      </table>
+    </div>
+
+    <div class="matrix-row">
+      <div class="matrix-top">
+        <span class="matrix-badge mrow-info">🕐 b) 1 a 7 días</span>
+        <span class="matrix-num">{$num($m17Total)}</span>
+      </div>
+      <table class="matrix-cols">
+        <tr>
+          <td class="matrix-col">
+            <div class="matrix-lbl">Bajaron a mejor bucket</div>
+            <div class="matrix-val-green">↑ {$num($m17Recuperados)} créditos</div>
+          </td>
+          <td class="matrix-col">
+            <div class="matrix-lbl">Siguen en 1-7d</div>
+            <div class="matrix-val">{$num($m17Siguen)} créditos</div>
+          </td>
+          <td class="matrix-col">
+            <div class="pct-row">
+              <span style="display:inline-flex;align-items:center;">
+                <span class="pct" style="color:#16a34a;">{$num($m17Efectividad)}%</span>
+                <span class="pct-note">recuperados</span>
+              </span>
+            </div>
+            <div class="bar-track">
+              <div class="bar-fill" style="width:{$m17Efectividad}%;background:#28a745;"></div>
+            </div>
+            <div style="font-size:10px;color:#94a3b8;margin-top:4px;">{$num($m17Siguen)} pendientes de gestión</div>
+          </td>
+        </tr>
+      </table>
+    </div>
+  </div>
+
+  <div class="footer">
+    {$nota} · Sistema de Cobranza · {$esc($generadoEn)}
+  </div>
+</div>
+</body>
+</html>
+HTML;
     }
     /**
      * Excel: detalle reciente (dictamen enviado) — misma base que estadísticas Sabueso.

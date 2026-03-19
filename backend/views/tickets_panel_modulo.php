@@ -2,6 +2,7 @@
 $c = isset($tickets_panel_categoria) ? preg_replace('/[^a-z0-9_]/', '', (string) $tickets_panel_categoria) : '';
 $t = \Core\PanelAdminTicketTable::getTitulosColumnasPanelAdminPorCategoria($c);
 $titulo = isset($tickets_panel_titulo) ? htmlspecialchars($tickets_panel_titulo, ENT_QUOTES, 'UTF-8') : 'Tickets';
+$tituloPrefijo = isset($tickets_panel_titulo_prefijo) ? htmlspecialchars($tickets_panel_titulo_prefijo, ENT_QUOTES, 'UTF-8') : 'Panel Admin – ';
 $icono = isset($tickets_panel_icono) ? htmlspecialchars($tickets_panel_icono, ENT_QUOTES, 'UTF-8') : 'fa-list';
 $iconoColor = isset($tickets_panel_icono_color) ? htmlspecialchars($tickets_panel_icono_color, ENT_QUOTES, 'UTF-8') : 'text-primary';
 $mostrarFormularios = !empty($tickets_panel_formularios);
@@ -86,7 +87,7 @@ $mostrarFormularios = !empty($tickets_panel_formularios);
 <div class="card">
     <div class="card-header border-bottom">
         <h5 class="card-title mb-0 d-flex flex-wrap align-items-center gap-2 w-100">
-            <span class="me-auto flex-grow-1 min-w-0"><i class="fa-solid <?= $icono; ?> me-2 <?= $iconoColor; ?>"></i>Panel Admin – <?= $titulo; ?></span>
+            <span class="me-auto flex-grow-1 min-w-0"><i class="fa-solid <?= $icono; ?> me-2 <?= $iconoColor; ?>"></i><?= $tituloPrefijo . $titulo; ?></span>
             <?php if ($mostrarFormularios): ?>
             <span id="panelFormularioPrecargadoWrap" class="d-none align-items-center gap-1 small text-muted flex-shrink-0">
                 <i class="fa-solid fa-clipboard-check text-success"></i> Formulario precargado: <strong id="panelFormularioPrecargadoNombre" class="text-body">—</strong>
