@@ -4,6 +4,7 @@ $nombreFormulario = isset($nombreFormulario) ? htmlspecialchars($nombreFormulari
 $descripcionFormulario = isset($descripcionFormulario) ? htmlspecialchars($descripcionFormulario, ENT_QUOTES, 'UTF-8') : '';
 $formBuilderEmbed = !empty($formBuilderEmbed);
 $formBuilderJsVer = isset($formBuilderJsVer) ? (int) $formBuilderJsVer : 0;
+$formBuilderReadOnly = !empty($formBuilderReadOnly);
 ?>
 <style>
 /* Form Builder: variables del sistema (core.css) */
@@ -169,6 +170,7 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; }
 window.FORM_BUILDER_FORMULARIO_ID = <?= $idFormulario; ?>;
 window.FORM_BUILDER_TITULO = <?= json_encode(htmlspecialchars_decode($nombreFormulario, ENT_QUOTES), JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
 window.FORM_BUILDER_DESCRIPCION = <?= json_encode(htmlspecialchars_decode($descripcionFormulario, ENT_QUOTES), JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
+window.FORM_BUILDER_READONLY = <?= $formBuilderReadOnly ? 'true' : 'false'; ?>;
 </script>
 <script src="/assets/js/form_builder_validacion.js?v=<?= $formBuilderJsVer ?: time(); ?>"></script>
 <?php endif; ?>

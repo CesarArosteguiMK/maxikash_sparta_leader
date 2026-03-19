@@ -114,6 +114,7 @@ class TicketsPanelModuloHelper
             exit;
         }
         $m = self::MODULOS[$c];
+        $modo = isset($extraModuloConfig['modo']) ? strtolower(trim((string)$extraModuloConfig['modo'])) : '';
         $personaId = (int) ($_SESSION['persona_id'] ?? $_SESSION['usuario_id'] ?? 0);
         $claveRequerida = self::CATEGORIA_CLAVE_PANEL[$c] ?? '';
         $panelesUsuario = ConfigPanelUsuarioDAO::getPanelesPorPersona($personaId);
@@ -125,10 +126,19 @@ class TicketsPanelModuloHelper
         $columnsJson = PanelAdminTicketTable::getColumnsConfig(true, $c);
         $titulos = PanelAdminTicketTable::getTitulosColumnasPanelAdminPorCategoria($c);
         $titulosJs = json_encode($titulos, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
+        $mostrarFormularios = !empty($m['formularios']);
+        $tituloPanel = $m['titulo'];
+        $prefijoTitulo = 'Panel Admin – ';
+        if ($c === 'validaciones' && in_array($modo, ['territorial', 'gestor'], true)) {
+            $mostrarFormularios = false;
+            $tituloPanel = $modo === 'territorial' ? 'Validaciones/Territorial' : 'Validaciones/Gestor';
+            $prefijoTitulo = '';
+        }
+
         $moduloConfig = [
             'categoria' => $c,
             'labelBadge' => $m['badge'],
-            'formularios' => !empty($m['formularios']),
+            'formularios' => $mostrarFormularios,
         ];
         if (!empty($extraModuloConfig)) {
             // Permite agregar flags como modo ('gestor'/'territorial') y valores como campoCapo.
@@ -139,11 +149,12 @@ class TicketsPanelModuloHelper
         $ctrl->set('panel_admin_mostrar_volver', count($panelesVis) > 1);
         $ctrl->set('panel_admin_url_inicio', '/sabueso/panelAdminInicio');
         $ctrl->set('tickets_panel_categoria', $c);
-        $ctrl->set('tickets_panel_titulo', $m['titulo']);
+        $ctrl->set('tickets_panel_titulo', $tituloPanel);
+        $ctrl->set('tickets_panel_titulo_prefijo', $prefijoTitulo);
         $ctrl->set('tickets_panel_icono', $m['icon']);
         $ctrl->set('tickets_panel_icono_color', $m['icon_color'] ?? 'text-primary');
-        $ctrl->set('tickets_panel_formularios', !empty($m['formularios']));
-        $ctrl->set('titulo', 'Panel ' . $m['titulo']);
+        $ctrl->set('tickets_panel_formularios', $mostrarFormularios);
+        $ctrl->set('titulo', $tituloPanel);
         $panelJsVer = @filemtime(dirname(RAIZ) . '/public/assets/js/paneladmin_tickets_modulo.js') ?: time();
         $ctrl->set(
             'script',

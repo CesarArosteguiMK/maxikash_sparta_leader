@@ -1,5 +1,6 @@
 <div class="container-xxl flex-grow-1 container-p-y">
 
+
     <!-- ── Header ── -->
     <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
         <div>
@@ -15,9 +16,31 @@
                 <code id="corteLabel" class="text-info">—</code>
             </p>
         </div>
-        <button id="btnExportarCSV" class="btn btn-outline-success btn-sm">
-            <i class="fa fa-file-csv me-1"></i> Exportar CSV
-        </button>
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+            <?php if ((int)($_SESSION['usuario_id'] ?? 0) === 1): ?>
+                <div class="d-flex align-items-center gap-1"
+                     title="Guardado en el servidor mientras esté en ejecución. Solo envío automático por cron; no afecta “Enviar correo” manual.">
+                    <div class="form-check form-switch m-0">
+                        <input class="form-check-input" type="checkbox" role="switch"
+                               id="switchAutoEnvioPrimerosPagos">
+                        <label class="form-check-label text-nowrap user-select-none" for="switchAutoEnvioPrimerosPagos"
+                               style="font-size:.72rem;">Auto horario</label>
+                    </div>
+                </div>
+                <span id="estadoEnvioAuto" class="badge bg-label-secondary" title="Estado de envío automático">
+                    <i class="fa fa-clock me-1"></i> Auto correo: pendiente
+                </span>
+                <button id="btnEnviarCorreo" class="btn btn-outline-primary btn-sm">
+                    <i class="fa fa-envelope me-1"></i> Enviar correo
+                </button>
+                <button id="btnExportarCSV" class="btn btn-outline-success btn-sm">
+                    <i class="fa fa-file-csv me-1"></i> Exportar CSV
+                </button>
+            <?php endif; ?>
+            <a href="/reporteria/PrimerosPagos" class="btn btn-outline-secondary btn-sm">
+                <i class="fa fa-arrow-left me-1"></i>Volver
+            </a>
+        </div>
     </div>
 
     <!-- ── Stat total ── -->
@@ -51,14 +74,18 @@
             </div>
         </div>
         <div class="col-12 col-md-6">
-            <div class="card h-100 mb-0">
-                <div class="card-header py-2">
-                    <span class="fw-semibold" style="font-size:.82rem;">
-                        <i class="fa fa-chart-pie text-primary me-1"></i>
-                        Distribución de corte
+            <div class="h-100" style="background:#f0f3f7;border:1px solid #d8dfe7;border-radius:.5rem;overflow:hidden;">
+                <div style="background:#e9edf2;padding:.5rem .75rem;border-bottom:0;">
+                    <span class="fw-semibold d-inline-flex flex-wrap align-items-center gap-1" style="font-size:.78rem;line-height:1.35;">
+                        <i class="fa fa-chart-pie flex-shrink-0" style="color:#000 !important;"></i>
+                        <span style="color:#000 !important;">Distribución de corte:</span>
+                        <span id="distribCorteFecha" class="fw-semibold" style="color:#6b7785;">—</span>
+                        <span class="text-muted">·</span>
+                        <span class="text-body">Corte actual:</span>
+                        <code id="distribCorteCorteLbl" class="text-info mb-0" style="font-size:.78rem;">—</code>
                     </span>
                 </div>
-                <div class="card-body py-2">
+                <div style="background:#f0f3f7;padding:.5rem;">
                     <div class="row row-cols-2 g-2" id="statsCorte">
                     </div>
                 </div>

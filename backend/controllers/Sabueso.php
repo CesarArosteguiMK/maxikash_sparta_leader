@@ -288,7 +288,7 @@ SCRIPT;
         }
 JS;
         $script .= "\n\n        function actualizarCountdownsDictamen(selector) {\n            var sel = selector || '#tablaTicketsPanel';\n            $(sel + ' .dictamen-countdown').each(function() {\n                var el = this;\n                var fLim = $(el).attr('data-fecha-limite');\n                var f = $(el).attr('data-fecha-envio');\n                if (!f && !fLim) return;\n                var fin;\n                if (fLim) { fin = new Date(fLim); }\n                else { var envio = new Date(f); fin = new Date(envio.getTime() + 12 * 60 * 60 * 1000); }\n                var now = new Date();\n                var ms = fin - now;\n                var txt = '-';\n                var txtCorto = '-';\n                var expired = ms <= 0;\n                if (ms > 0) {\n                    var h = Math.floor(ms / 3600000);\n                    var m = Math.floor((ms % 3600000) / 60000);\n                    var pref = fLim ? 'Prórroga · ' : '';
-                    txt = pref + 'Tiempo restante: ' + h + 'h ' + m + 'm';\n                    txtCorto = (fLim ? 'P2 ' : '') + h + 'h ' + m + 'm';\n                } else {\n                    txt = fLim ? 'Prórroga vencida' : 'Plazo vencido';\n                    txtCorto = txt;\n                }\n                $(el).attr('title', txt).attr('data-bs-title', txt).toggleClass('text-danger', expired);\n                var txtEl = $(el).find('.dictamen-countdown-text');\n                if (txtEl.length) txtEl.text(txtCorto).toggleClass('text-danger', expired);\n            });\n        }\n        function attrEsc(s){ if (s==null||s===undefined) return ''; var x=(s+'').split('&').join('&amp;').split('<').join('&lt;'); return x.split('\"').join('&quot;'); }\n        function panelAdminAplicarTitulosColumnas(dt, cat) {\n            if (!dt || !dt.columns) return;\n            var M = window.panelAdminTitulosPorCat || {};\n            var k = (cat && String(cat).trim()) ? String(cat).toLowerCase().trim() : '_mixto';\n            if (!M[k]) { k = '_mixto'; }\n            var T = M[k];\n            if (!T) return;\n            function sc(i, t) { try { var h = dt.column(i).header(); if (h && h.length) h[0].innerHTML = t; } catch (e) {} }\n            sc(2, T.folio); sc(3, T.estado); sc(4, T.prioridad); sc(5, T.ref); sc(6, T.fechas);\n            sc(7, T.creador); sc(8, T.asignado); sc(9, T.tiempo); sc(10, T.ds);\n        }\n        function panelAdminIconoPorCategoria(c) {\n            c = (c || '').toLowerCase();\n            var m = { sabueso: 'fa-dog', plantilla: 'fa-file-lines', atencion_cliente: 'fa-headset', validaciones: 'fa-clipboard-check', viaticos: 'fa-receipt', aplicaciones_de_pago: 'fa-credit-card', credito_problematico: 'fa-triangle-exclamation', aclaracion_credito: 'fa-circle-question' };\n            return (c && m[c]) ? m[c] : 'fa-list';\n        }\n        $(document).ready(function() {\n            configuraTabla(\"#tablaTicketsPanel\", {\n                registrosPorPagina: 10,\n                order: [[1, 'desc']],\n                columns: " . $columnsJson['columnsJs'] . "\n            });\n            var urlCat = (function(){ var p = new URLSearchParams(window.location.search); return (p.get('categoria') || '').toLowerCase().trim(); })();\n            try { var dtPa = $('#tablaTicketsPanel').DataTable(); panelAdminAplicarTitulosColumnas(dtPa, urlCat); } catch (ePa) {}\n            if (urlCat && $('#filtroCategoria').length) { $('#filtroCategoria').val(urlCat); window.panelAdminFiltros = window.panelAdminFiltros || {}; window.panelAdminFiltros.categoria_gestion = urlCat; }\n            var catLabelsPanel = { sabueso: 'Sabueso', plantilla: 'Plantilla', atencion_cliente: 'Atención al cliente', validaciones: 'Validaciones', viaticos: 'Viáticos', aplicaciones_de_pago: 'Aplicaciones de pago', credito_problematico: 'Crédito problemático', aclaracion_credito: 'Aclaración de crédito' };\n            if (urlCat && $('#panelAdminTitulo').length) { var lbl = catLabelsPanel[urlCat] || urlCat; $('#panelAdminTitulo').html('<i class=\"fa-solid ' + panelAdminIconoPorCategoria(urlCat) + ' me-2\"></i>Panel Admin – ' + lbl); }\n            var categoriasSimplesInit = ['viaticos','aplicaciones_de_pago','credito_problematico','aclaracion_credito','plantilla','atencion_cliente','validaciones'];\n            var esSimpleInit = categoriasSimplesInit.indexOf(urlCat) !== -1;\n            if ($('#btnAbrirConsultaCredito').length) $('#btnAbrirConsultaCredito').toggle(!esSimpleInit);\n            if ($('#sabuesoPanelEaster').length) $('#sabuesoPanelEaster').toggle(!esSimpleInit);\n            if ($('#panelAdminFiltrosWrap').length) $('#panelAdminFiltrosWrap').toggle(!esSimpleInit);\n            window.panelAdminPrimeraCarga = true;\n            getTicketsPanelAdmin();\n        });\n\n        function getTicketsPanelAdmin() {\n            var filtrosPayload = (typeof window.panelAdminFiltros === 'object' && window.panelAdminFiltros) ? window.panelAdminFiltros : {};\n            var esPrimeraCarga = (window.panelAdminPrimeraCarga === true);\n            if (esPrimeraCarga && typeof showWait === 'function') showWait();\n            http.request({\n                endpoint: \"/sabueso/getTicketsPanelAdmin\",\n                metodo: \"POST\",\n                data: JSON.stringify({ filtros: filtrosPayload }),\n                contentType: \"application/json\",\n                processData: false,\n                showLoader: false,\n                onSuccess: function(resp) {\n                    if (esPrimeraCarga) { window.panelAdminPrimeraCarga = false; }\n                    var datos = (resp.datos || []).map(function(t) {\n                        var fechaCreacion = t.fecha_creacion ? new Date(t.fecha_creacion).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—';\n                        var fechaVenc = t.fecha_vencimiento ? new Date(t.fecha_vencimiento).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—';\n                        var prioridadNombre = (t.prioridad_nombre || '').toLowerCase();\n                        var prioridadBadge = '<span class=\"badge bg-label-secondary\">' + (t.prioridad_nombre || '—') + '</span>';\n                        if (prioridadNombre.indexOf('alta') !== -1) prioridadBadge = '<span class=\"badge bg-danger text-white\">' + (t.prioridad_nombre || '—') + '</span>';\n                        else if (prioridadNombre.indexOf('medio') !== -1 || prioridadNombre.indexOf('media') !== -1) prioridadBadge = '<span class=\"badge\" style=\"background-color:#fd7e14;color:#fff;\">' + (t.prioridad_nombre || '—') + '</span>';\n                        else if (prioridadNombre.indexOf('bajo') !== -1 || prioridadNombre.indexOf('baja') !== -1) prioridadBadge = '<span class=\"badge\" style=\"background-color:#ffc107;color:#212529;\">' + (t.prioridad_nombre || '—') + '</span>';\n                        else if (prioridadNombre.indexOf('sin prioridad') !== -1) prioridadBadge = '<span class=\"badge bg-secondary\" style=\"background-color:#6c757d!important;color:#fff;\">' + (t.prioridad_nombre || '—') + '</span>';\n                        var estadoBadge = (t.asignado_nombre && (t.asignado_nombre + '').trim()) ? '<span class=\"badge bg-success text-white\">Asignado</span>' : '<span class=\"badge bg-label-secondary\">Abierto</span>';\n                        var vistoHtml = '';\n                        if ((t.dictamen_estado || '') === 'enviado_al_gestor') {\n                            var vistoTexto = t.dictamen_fecha_visto ? (new Date(t.dictamen_fecha_visto).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' }) + ' ' + new Date(t.dictamen_fecha_visto).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })) : 'No visto';\n                            var iconoOjo = (t.dictamen_fecha_visto && (t.dictamen_fecha_visto + '').trim()) ? 'fa-eye' : 'fa-eye-slash';\n                            var tituloOjo = (t.dictamen_fecha_visto && (t.dictamen_fecha_visto + '').trim()) ? ('Visto: ' + vistoTexto) : 'No visto. Clic para ver dictamen';\n                            vistoHtml = '<span class=\"d-inline-flex align-items-center gap-1 justify-content-end btn-dictamen-ojito\" role=\"button\" tabindex=\"0\" data-bs-toggle=\"tooltip\" data-bs-title=\"' + (tituloOjo + '').replace(/\\x22/g, '&quot;') + '\" data-id-ticket=\"' + (t.id_ticket || '') + '\"><i class=\"fa ' + iconoOjo + ' text-info small\"></i></span>';\n                        }\n                        var tiempoVisitarHtml = '—';\n                        var fEnv = (t.dictamen_fecha_envio || '').trim();\n                        var esNuevo = fEnv && new Date(fEnv) >= new Date('2026-03-09T00:00:00');\n                        if ((t.dictamen_estado || '') === 'enviado_al_gestor' && esNuevo && fEnv) {\n                            var envio = new Date(fEnv);\n                            var fLim = (t.prorroga_fecha_limite || '').trim();\n                            var esProrroga = t.prorroga_activa && fLim;\n                            var fin = esProrroga ? new Date(fLim) : new Date(envio.getTime() + 12 * 60 * 60 * 1000);\n                            var now = new Date();\n                            var ms = fin - now;\n                            var txtInicial = ms > 0 ? (Math.floor(ms / 3600000) + 'h ' + Math.floor((ms % 3600000) / 60000) + 'm') : 'Plazo vencido';\n                            var clsPr = esProrroga ? ' dictamen-countdown-prorroga' : '';\n                            var dataLim = esProrroga ? (' data-fecha-limite=\"' + fLim.replace(/\"/g, '&quot;') + '\"') : '';\n                            var iconBlock = esProrroga ? ('<span class=\"position-relative d-inline-flex align-items-baseline\"><i class=\"fa-solid fa-clock text-warning small\"></i><sup class=\"dictamen-prorroga-marca\" title=\"Prórroga +12h (2ª ventana)\">2</sup></span>') : ('<i class=\"fa-solid fa-clock text-info small\"></i>');\n                            tiempoVisitarHtml = '<span class=\"d-inline-flex align-items-center gap-1 dictamen-countdown cursor-pointer' + clsPr + '\" role=\"button\" tabindex=\"0\" data-fecha-envio=\"' + fEnv.replace(/\"/g, '&quot;') + '\"' + dataLim + ' data-id-ticket=\"' + (t.id_ticket || '') + '\" data-bs-toggle=\"tooltip\" data-bs-title=\"' + (esProrroga ? 'Prórroga +12h · tiempo hasta límite' : 'Ventana 12h desde envío') + '\">' + iconBlock + '<span class=\"dictamen-countdown-text\">' + txtInicial + '</span></span>';\n                        }\n                        var prHtml = (t.prorroga_otorgada && t.prorroga_html) ? t.prorroga_html : '';\n                        if (prHtml && tiempoVisitarHtml !== '—') { tiempoVisitarHtml = '<div class=\"d-flex flex-column align-items-center\">' + tiempoVisitarHtml + prHtml + '</div>'; }\n                        else if (prHtml) { tiempoVisitarHtml = prHtml; }\n                        var catLabels = { sabueso: 'Sabueso', plantilla: 'Plantilla', atencion_cliente: 'Atención al cliente', validaciones: 'Validaciones', viaticos: 'Viáticos', aplicaciones_de_pago: 'Aplicaciones de pago', credito_problematico: 'Crédito problemático', aclaracion_credito: 'Aclaración de crédito' };\n                        var catKeyPa = (t.categoria_gestion || 'sabueso').toString().toLowerCase().trim();\n                        var catIcoPa = panelAdminIconoPorCategoria(catKeyPa);\n                        var catLabel = catLabels[catKeyPa] || (t.categoria_gestion || '—');\n                        var folioTipoHtml = '<div class=\"fw-semibold\">' + (t.folio || '—') + '</div><div class=\"small text-muted mt-1\">' + (t.tipo_ticket_nombre || '—') + '</div><div class=\"mt-1\"><span class=\"badge bg-label-primary small d-inline-flex align-items-center gap-1\" title=\"' + (catLabel + '').replace(/\"/g, '&quot;') + '\"><i class=\"fa-solid ' + catIcoPa + '\" style=\"font-size:0.7rem;line-height:1\"></i>' + (catLabel + '').replace(/&/g, '&amp;').replace(/</g, '&lt;') + '</span></div>';\n                        var creditoVal = (t.id_credito != null && t.id_credito > 0) ? ('#' + t.id_credito) : (t.asunto || t.tipo_categoria || '—');\n                        var creditoHtml = '<small>' + (creditoVal + '').replace(/&/g, '&amp;').replace(/</g, '&lt;') + '</small>';\n                        var row = {\n                            _fecha_creacion: (t.fecha_creacion || ''),\n                            folio_tipo: folioTipoHtml,\n                            estado: estadoBadge,\n                            prioridad: prioridadBadge,\n                            credito: creditoHtml,\n                            fechas: '<div class=\"small d-flex align-items-center gap-1\"><i class=\"fa fa-calendar-plus-o text-muted\" style=\"width: 1rem;\"></i><span>Creación: ' + fechaCreacion + '</span></div><div class=\"small text-muted d-flex align-items-center gap-1 mt-1\"><i class=\"fa fa-calendar-times-o\" style=\"width: 1rem;\"></i><span>Vencimiento: ' + fechaVenc + '</span></div>',\n                            creador: '<small class=\"d-flex align-items-center gap-1\"><i class=\"fa fa-user\"></i>' + (t.creador_nombre || '—') + '</small>',\n                            asignado: (t.asignado_nombre && t.asignado_nombre.trim()) ? '<small class=\"d-flex align-items-center gap-1\"><i class=\"fa fa-user-check text-success\"></i>' + t.asignado_nombre + '</small>' : '<span class=\"text-muted\">—</span>',\n                            tiempo_visitar: tiempoVisitarHtml,\n                            ds_resultado: (t.ds_resultado_html != null && t.ds_resultado_html !== '') ? t.ds_resultado_html : '—',\n                            dictamen_visto: vistoHtml,\n                            acciones: (function(){ var tieneCredito = (t.id_credito != null && t.id_credito > 0); var fEnvDS = (t.dictamen_fecha_envio || '').trim(); var ticketDesdeMarzo10 = t.fecha_creacion && (new Date(t.fecha_creacion) >= new Date(2026, 2, 10)); var plazoVencido = false; if (fEnvDS && ticketDesdeMarzo10 && (t.dictamen_estado || '') === 'enviado_al_gestor') { var plazoDS = new Date(fEnvDS).getTime() + 12*60*60*1000; plazoVencido = (Date.now() >= plazoDS); } var btns = '<div class=\"d-flex flex-column gap-1 align-items-stretch\" style=\"min-width:2.5rem;\">'; if (tieneCredito) { btns += '<button class=\"btn btn-sm btn-primary btn-rastreo\" onclick=\"abrirRastreo(this)\" data-id-credito=\"' + t.id_credito + '\" data-id-ticket=\"' + (t.id_ticket) + '\" data-asignado=\"' + attrEsc(t.asignado_nombre) + '\" data-creador-nombre=\"' + attrEsc(t.creador_nombre) + '\" data-fecha-creacion=\"' + attrEsc(t.fecha_creacion) + '\" data-categoria-gestion=\"' + attrEsc((t.categoria_gestion || 'sabueso')) + '\" title=\"Iniciar rastreo\"><i class=\"fa-solid fa-magnifying-glass-plus\"></i></button>'; if (plazoVencido) { btns += '<button type=\"button\" class=\"btn btn-sm btn-warning btn-dictamen-sistema\" onclick=\"abrirDictamenSistema(' + t.id_ticket + ')\" title=\"Dictamen del sistema\"><i class=\"fa-solid fa-robot\"></i></button>'; } } btns += '<button class=\"btn btn-sm btn-secondary\" onclick=\"cerrarTicketPanel(' + (t.id_ticket) + ')\" title=\"Cerrar ticket\"><i class=\"fa fa-minus\"></i></button><button class=\"btn btn-sm btn-danger\" onclick=\"eliminarTicketPanel(' + (t.id_ticket) + ')\" title=\"Eliminar ticket\"><i class=\"fa fa-trash\"></i></button></div>'; return btns; })(),\n                            _id_ticket: t.id_ticket,\n                            _dictamen_estado: t.dictamen_estado || '',\n                            _dictamen_fecha_visto: t.dictamen_fecha_visto || ''\n                        };\n                        return row;\n                    });\n                    var tabla = $('#tablaTicketsPanel').DataTable();\n                    var paginaAntes = tabla.page.info().page;\n                    tabla.clear().rows.add(datos);\n                    var np = tabla.page.info().pages;\n                    if (paginaAntes >= np) paginaAntes = Math.max(0, np - 1);\n                    if (esPrimeraCarga) {\n                        tabla.one('draw.dt.panelAdminPrimera', function() {\n                            window.panelAdminPrimeraCarga = false;\n                            $('#wrapTablaTicketsPanel').show();\n                            document.body.classList.remove('panel-admin-primer-cargando');\n                            Swal.close();\n                        });\n                    }\n                    tabla.page(paginaAntes).draw(false);\n                    tabla.rows().every(function() {\n                        var d = this.data();\n                        if (d._dictamen_estado === 'enviado_al_gestor') {\n                            $(this.node()).addClass('fila-dictamen-enviado').attr('data-id-ticket', d._id_ticket || '');\n                        }\n                    });\n                    var cat = (filtrosPayload.categoria_gestion || '').toLowerCase();\n                    var catLabelsPanel2 = { sabueso: 'Sabueso', plantilla: 'Plantilla', atencion_cliente: 'Atención al cliente', validaciones: 'Validaciones', viaticos: 'Viáticos', aplicaciones_de_pago: 'Aplicaciones de pago', credito_problematico: 'Crédito problemático', aclaracion_credito: 'Aclaración de crédito' };\n                    var catLabelTitulo = cat ? (catLabelsPanel2[cat] || cat) : 'Todos los tickets';\n                    if ($('#panelAdminTitulo').length) $('#panelAdminTitulo').html('<i class=\"fa-solid ' + panelAdminIconoPorCategoria(cat) + ' me-2\"></i>Panel Admin – ' + catLabelTitulo);\n                    var categoriasSimples = ['viaticos','aplicaciones_de_pago','credito_problematico','aclaracion_credito','plantilla','atencion_cliente','validaciones'];\n                    var esPanelSimple = categoriasSimples.indexOf(cat) !== -1;\n                    tabla.columns([9,10,11]).visible(!esPanelSimple);\n                    panelAdminAplicarTitulosColumnas(tabla, cat);\n                    if ($('#btnAbrirConsultaCredito').length) $('#btnAbrirConsultaCredito').toggle(!esPanelSimple);\n                    if ($('#sabuesoPanelEaster').length) $('#sabuesoPanelEaster').toggle(!esPanelSimple);\n                    if ($('#panelAdminFiltrosWrap').length) $('#panelAdminFiltrosWrap').toggle(!esPanelSimple);\n                    if (typeof actualizarCountdownsDictamen === 'function') actualizarCountdownsDictamen('#tablaTicketsPanel');\n                    $('#tablaTicketsPanel [data-bs-toggle=\"tooltip\"]').tooltip();\n                                    },\n                onError: function() {\n                    if (esPrimeraCarga) { window.panelAdminPrimeraCarga = false; $('#wrapTablaTicketsPanel').show(); document.body.classList.remove('panel-admin-primer-cargando'); Swal.close(); }\n                    var tabla = $('#tablaTicketsPanel').DataTable();\n                    tabla.clear().draw();\n                }\n            });\n        }\n        setInterval(function() { if (typeof actualizarCountdownsDictamen === 'function') actualizarCountdownsDictamen('#tablaTicketsPanel'); }, 1000);\n        function abrirRastreo(btn) {\n            var idCredito = parseInt(btn.getAttribute('data-id-credito')||0, 10);\n            var idTicket = parseInt(btn.getAttribute('data-id-ticket')||0, 10);\n            var asignadoNombre = (btn.getAttribute('data-asignado')||'').trim();\n            var creadorNombre = (btn.getAttribute('data-creador-nombre')||'').trim();\n            var fechaCreacionRaw = (btn.getAttribute('data-fecha-creacion')||'').trim();\n            var fechaCreacionDisplay = fechaCreacionRaw ? (new Date(fechaCreacionRaw).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' }) + ' ' + new Date(fechaCreacionRaw).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })) : '—';\n            ticketIdRastreoActual = idTicket || null;\n            if (!idCredito || isNaN(idCredito)) { Swal.fire({ icon: 'warning', title: 'Rastreo', text: 'No hay ID de crédito para este ticket.' }); return; }\n            http.request({\n                endpoint: \"/sabueso/getDatosCredito\",\n                metodo: \"POST\",\n                data: JSON.stringify({ id_credito: idCredito }),\n                contentType: \"application/json\",\n                processData: false,\n                showLoader: true,\n                onSuccess: function(resp) {\n                    var d = resp.datos || null;\n                    if (!d) { var msg = (resp.mensaje || 'No se encontraron datos para este crédito.'); $('#rastreoTopLeft').html('<div class=\"alert alert-warning mb-0\"><strong>Crédito #' + idCredito + '</strong><br>' + msg + '<br><small>El crédito debe existir en Segundometro u Oferta para ver el rastreo.</small></div>'); $('#rastreoTopRight').html(''); $('#rastreoTickets').html(''); $('#rastreoDireccionesContenido').html(''); idCreditoRastreoActual = idCredito; window.ticketIdRastreoActual = ticketIdRastreoActual; $('#modalRastreoCredito').attr('data-id-ticket', ticketIdRastreoActual || ''); $('#rastreoIdTicketActual').val(ticketIdRastreoActual || '').attr('data-id-ticket', ticketIdRastreoActual || ''); $('#modalRastreoCredito').modal('show'); return; }\n                    var esc = function(s) { var x = (s + '').split('&').join('&amp;').split('<').join('&lt;').split('>').join('&gt;'); return x.split(String.fromCharCode(34)).join('&quot;'); };\n                    var idCred = (d.id_credito || d.Id_credito || '—');\n                    var nombreCompleto = esc(d.Nombre_cliente || d.nombre_completo || '—');\n                    var tel = (d.telefono_referencia1 || d.telefono_referencia2 || '').trim();\n                    var telEsc = tel ? esc(tel) : '—';\n                    var dirMegareporte = (d.Domicilio_Completo && (d.Domicilio_Completo + '').trim()) ? esc(d.Domicilio_Completo) : '—';
+                    txt = pref + 'Tiempo restante: ' + h + 'h ' + m + 'm';\n                    txtCorto = (fLim ? 'P2 ' : '') + h + 'h ' + m + 'm';\n                } else {\n                    txt = fLim ? 'Prórroga vencida' : 'Plazo vencido';\n                    txtCorto = txt;\n                }\n                $(el).attr('title', txt).attr('data-bs-title', txt).toggleClass('text-danger', expired);\n                var txtEl = $(el).find('.dictamen-countdown-text');\n                if (txtEl.length) txtEl.text(txtCorto).toggleClass('text-danger', expired);\n            });\n        }\n        function attrEsc(s){ if (s==null||s===undefined) return ''; var x=(s+'').split('&').join('&amp;').split('<').join('&lt;'); return x.split('\"').join('&quot;'); }\n        function panelAdminAplicarTitulosColumnas(dt, cat) {\n            if (!dt || !dt.columns) return;\n            var M = window.panelAdminTitulosPorCat || {};\n            var k = (cat && String(cat).trim()) ? String(cat).toLowerCase().trim() : '_mixto';\n            if (!M[k]) { k = '_mixto'; }\n            var T = M[k];\n            if (!T) return;\n            function sc(i, t) { try { var h = dt.column(i).header(); if (h && h.length) h[0].innerHTML = t; } catch (e) {} }\n            sc(2, T.folio); sc(3, T.estado); sc(4, T.prioridad); sc(5, T.ref); sc(6, T.fechas);\n            sc(7, T.creador); sc(8, T.asignado); sc(9, T.tiempo); sc(10, T.ds);\n        }\n        function panelAdminIconoPorCategoria(c) {\n            c = (c || '').toLowerCase();\n            var m = { sabueso: 'fa-dog', plantilla: 'fa-file-lines', atencion_cliente: 'fa-headset', validaciones: 'fa-clipboard-check', viaticos: 'fa-receipt', aplicaciones_de_pago: 'fa-credit-card', credito_problematico: 'fa-triangle-exclamation', aclaracion_credito: 'fa-circle-question' };\n            return (c && m[c]) ? m[c] : 'fa-list';\n        }\n        $(document).ready(function() {\n            configuraTabla(\"#tablaTicketsPanel\", {\n                registrosPorPagina: 10,\n                order: [[1, 'desc']],\n                columns: " . $columnsJson['columnsJs'] . "\n            });\n            var urlCat = (function(){ var p = new URLSearchParams(window.location.search); return (p.get('categoria') || '').toLowerCase().trim(); })();\n            try { var dtPa = $('#tablaTicketsPanel').DataTable(); panelAdminAplicarTitulosColumnas(dtPa, urlCat); } catch (ePa) {}\n            if (urlCat && $('#filtroCategoria').length) { $('#filtroCategoria').val(urlCat); window.panelAdminFiltros = window.panelAdminFiltros || {}; window.panelAdminFiltros.categoria_gestion = urlCat; }\n            var catLabelsPanel = { sabueso: 'Sabueso', plantilla: 'Plantilla', atencion_cliente: 'Atención al cliente', validaciones: 'Validaciones', viaticos: 'Viáticos', aplicaciones_de_pago: 'Aplicaciones de pago', credito_problematico: 'Crédito problemático', aclaracion_credito: 'Aclaración de crédito' };\n            if (urlCat && $('#panelAdminTitulo').length) { var lbl = catLabelsPanel[urlCat] || urlCat; $('#panelAdminTitulo').html('<i class=\"fa-solid ' + panelAdminIconoPorCategoria(urlCat) + ' me-2\"></i>Panel Admin – ' + lbl); }\n            var categoriasSimplesInit = ['viaticos','aplicaciones_de_pago','credito_problematico','aclaracion_credito','plantilla','atencion_cliente','validaciones'];\n            var esSimpleInit = categoriasSimplesInit.indexOf(urlCat) !== -1;\n            if ($('#btnAbrirConsultaCredito').length) $('#btnAbrirConsultaCredito').toggle(!esSimpleInit);\n            if ($('#sabuesoPanelEaster').length) $('#sabuesoPanelEaster').toggle(!esSimpleInit);\n            if ($('#panelAdminFiltrosWrap').length) $('#panelAdminFiltrosWrap').toggle(!esSimpleInit);\n            window.panelAdminPrimeraCarga = true;\n            getTicketsPanelAdmin();\n        });\n\n        function getTicketsPanelAdmin() {\n            var filtrosPayload = (typeof window.panelAdminFiltros === 'object' && window.panelAdminFiltros) ? window.panelAdminFiltros : {};\n            var esPrimeraCarga = (window.panelAdminPrimeraCarga === true);\n            if (esPrimeraCarga && typeof showWait === 'function') showWait();\n            http.request({\n                endpoint: \"/sabueso/getTicketsPanelAdmin\",\n                metodo: \"POST\",\n                data: JSON.stringify({ filtros: filtrosPayload }),\n                contentType: \"application/json\",\n                processData: false,\n                showLoader: false,\n                onSuccess: function(resp) {\n                    if (esPrimeraCarga) { window.panelAdminPrimeraCarga = false; }\n                    var datos = (resp.datos || []).map(function(t) {\n                        var fechaCreacion = t.fecha_creacion ? new Date(t.fecha_creacion).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—';\n                        var fechaVenc = t.fecha_vencimiento ? new Date(t.fecha_vencimiento).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—';\n                        var prioridadNombre = (t.prioridad_nombre || '').toLowerCase();\n                        var prioridadBadge = '<span class=\"badge bg-label-secondary\">' + (t.prioridad_nombre || '—') + '</span>';\n                        if (prioridadNombre.indexOf('alta') !== -1) prioridadBadge = '<span class=\"badge bg-danger text-white\">' + (t.prioridad_nombre || '—') + '</span>';\n                        else if (prioridadNombre.indexOf('medio') !== -1 || prioridadNombre.indexOf('media') !== -1) prioridadBadge = '<span class=\"badge\" style=\"background-color:#fd7e14;color:#fff;\">' + (t.prioridad_nombre || '—') + '</span>';\n                        else if (prioridadNombre.indexOf('bajo') !== -1 || prioridadNombre.indexOf('baja') !== -1) prioridadBadge = '<span class=\"badge\" style=\"background-color:#ffc107;color:#212529;\">' + (t.prioridad_nombre || '—') + '</span>';\n                        else if (prioridadNombre.indexOf('sin prioridad') !== -1) prioridadBadge = '<span class=\"badge bg-secondary\" style=\"background-color:#6c757d!important;color:#fff;\">' + (t.prioridad_nombre || '—') + '</span>';\n                        var estadoBadge = (t.asignado_nombre && (t.asignado_nombre + '').trim()) ? '<span class=\"badge bg-success text-white\">Asignado</span>' : '<span class=\"badge bg-label-secondary\">Abierto</span>';\n                        var vistoHtml = '';\n                        if ((t.dictamen_estado || '') === 'enviado_al_gestor') {\n                            var vistoTexto = t.dictamen_fecha_visto ? (new Date(t.dictamen_fecha_visto).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' }) + ' ' + new Date(t.dictamen_fecha_visto).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })) : 'No visto';\n                            var iconoOjo = (t.dictamen_fecha_visto && (t.dictamen_fecha_visto + '').trim()) ? 'fa-eye' : 'fa-eye-slash';\n                            var tituloOjo = (t.dictamen_fecha_visto && (t.dictamen_fecha_visto + '').trim()) ? ('Visto: ' + vistoTexto) : 'No visto. Clic para ver dictamen';\n                            vistoHtml = '<span class=\"d-inline-flex align-items-center gap-1 justify-content-end btn-dictamen-ojito\" role=\"button\" tabindex=\"0\" data-bs-toggle=\"tooltip\" data-bs-title=\"' + (tituloOjo + '').replace(/\\x22/g, '&quot;') + '\" data-id-ticket=\"' + (t.id_ticket || '') + '\"><i class=\"fa ' + iconoOjo + ' text-info small\"></i></span>';\n                        }\n                        var tiempoVisitarHtml = '—';\n                        var fEnv = (t.dictamen_fecha_envio || '').trim();\n                        var esNuevo = fEnv && new Date(fEnv) >= new Date('2026-03-09T00:00:00');\n                        if ((t.dictamen_estado || '') === 'enviado_al_gestor' && esNuevo && fEnv) {\n                            var envio = new Date(fEnv);\n                            var fLim = (t.prorroga_fecha_limite || '').trim();\n                            var esProrroga = t.prorroga_activa && fLim;\n                            var fin = esProrroga ? new Date(fLim) : new Date(envio.getTime() + 12 * 60 * 60 * 1000);\n                            var now = new Date();\n                            var ms = fin - now;\n                            var txtInicial = ms > 0 ? (Math.floor(ms / 3600000) + 'h ' + Math.floor((ms % 3600000) / 60000) + 'm') : 'Plazo vencido';\n                            var clsPr = esProrroga ? ' dictamen-countdown-prorroga' : '';\n                            var dataLim = esProrroga ? (' data-fecha-limite=\"' + fLim.replace(/\"/g, '&quot;') + '\"') : '';\n                            var iconBlock = esProrroga ? ('<span class=\"position-relative d-inline-flex align-items-baseline\"><i class=\"fa-solid fa-clock text-warning small\"></i><sup class=\"dictamen-prorroga-marca\" title=\"Prórroga +12h (2ª ventana)\">2</sup></span>') : ('<i class=\"fa-solid fa-clock text-info small\"></i>');\n                            tiempoVisitarHtml = '<span class=\"d-inline-flex align-items-center gap-1 dictamen-countdown cursor-pointer' + clsPr + '\" role=\"button\" tabindex=\"0\" data-fecha-envio=\"' + fEnv.replace(/\"/g, '&quot;') + '\"' + dataLim + ' data-id-ticket=\"' + (t.id_ticket || '') + '\" data-bs-toggle=\"tooltip\" data-bs-title=\"' + (esProrroga ? 'Prórroga +12h · tiempo hasta límite' : 'Ventana 12h desde envío') + '\">' + iconBlock + '<span class=\"dictamen-countdown-text\">' + txtInicial + '</span></span>';\n                        }\n                        var prHtml = (t.prorroga_otorgada && t.prorroga_html) ? t.prorroga_html : '';\n                        if (prHtml && tiempoVisitarHtml !== '—') { tiempoVisitarHtml = '<div class=\"d-flex flex-column align-items-center\">' + tiempoVisitarHtml + prHtml + '</div>'; }\n                        else if (prHtml) { tiempoVisitarHtml = prHtml; }\n                        var catLabels = { sabueso: 'Sabueso', plantilla: 'Plantilla', atencion_cliente: 'Atención al cliente', validaciones: 'Validaciones', viaticos: 'Viáticos', aplicaciones_de_pago: 'Aplicaciones de pago', credito_problematico: 'Crédito problemático', aclaracion_credito: 'Aclaración de crédito' };\n                        var catKeyPa = (t.categoria_gestion || 'sabueso').toString().toLowerCase().trim();\n                        var catIcoPa = panelAdminIconoPorCategoria(catKeyPa);\n                        var catLabel = catLabels[catKeyPa] || (t.categoria_gestion || '—');\n                        var folioTipoHtml = '<div class=\"fw-semibold\">' + (t.folio || '—') + '</div><div class=\"small text-muted mt-1\">' + (t.tipo_ticket_nombre || '—') + '</div><div class=\"mt-1\"><span class=\"badge bg-label-primary small d-inline-flex align-items-center gap-1\" title=\"' + (catLabel + '').replace(/\"/g, '&quot;') + '\"><i class=\"fa-solid ' + catIcoPa + '\" style=\"font-size:0.7rem;line-height:1\"></i>' + (catLabel + '').replace(/&/g, '&amp;').replace(/</g, '&lt;') + '</span></div>';\n                        var creditoVal = (t.id_credito != null && t.id_credito > 0) ? ('#' + t.id_credito) : (t.asunto || t.tipo_categoria || '—');\n                        var creditoHtml = '<small>' + (creditoVal + '').replace(/&/g, '&amp;').replace(/</g, '&lt;') + '</small>';\n                        var row = {\n                            _fecha_creacion: (t.fecha_creacion || ''),\n                            folio_tipo: folioTipoHtml,\n                            estado: estadoBadge,\n                            prioridad: prioridadBadge,\n                            credito: creditoHtml,\n                            fechas: '<div class=\"small d-flex align-items-center gap-1\"><i class=\"fa fa-calendar-plus-o text-muted\" style=\"width: 1rem;\"></i><span>Creación: ' + fechaCreacion + '</span></div><div class=\"small text-muted d-flex align-items-center gap-1 mt-1\"><i class=\"fa fa-calendar-times-o\" style=\"width: 1rem;\"></i><span>Vencimiento: ' + fechaVenc + '</span></div>',\n                            creador: '<small class=\"d-flex align-items-center gap-1\"><i class=\"fa fa-user\"></i>' + (t.creador_nombre || '—') + '</small>',\n                            asignado: (t.asignado_nombre && t.asignado_nombre.trim()) ? '<small class=\"d-flex align-items-center gap-1\"><i class=\"fa fa-user-check text-success\"></i>' + t.asignado_nombre + '</small>' : '<span class=\"text-muted\">—</span>',\n                            tiempo_visitar: tiempoVisitarHtml,\n                            ds_resultado: (t.ds_resultado_html != null && t.ds_resultado_html !== '') ? t.ds_resultado_html : '—',\n                            dictamen_visto: vistoHtml,\n                            acciones: (function(){ var tieneCredito = (t.id_credito != null && t.id_credito > 0); var fEnvDS = (t.dictamen_fecha_envio || '').trim(); var ticketDesdeMarzo10 = t.fecha_creacion && (new Date(t.fecha_creacion) >= new Date(2026, 2, 10)); var plazoVencido = false; if (fEnvDS && ticketDesdeMarzo10 && (t.dictamen_estado || '') === 'enviado_al_gestor') { var plazoDS = new Date(fEnvDS).getTime() + 12*60*60*1000; plazoVencido = (Date.now() >= plazoDS); } var btns = '<div class=\"d-flex flex-column gap-1 align-items-stretch\" style=\"min-width:2.5rem;\">'; if (tieneCredito) { btns += '<button class=\"btn btn-sm btn-primary btn-rastreo\" onclick=\"abrirRastreo(this)\" data-id-credito=\"' + t.id_credito + '\" data-id-ticket=\"' + (t.id_ticket) + '\" data-asignado=\"' + attrEsc(t.asignado_nombre) + '\" data-creador-nombre=\"' + attrEsc(t.creador_nombre) + '\" data-fecha-creacion=\"' + attrEsc(t.fecha_creacion) + '\" data-categoria-gestion=\"' + attrEsc((t.categoria_gestion || 'sabueso')) + '\" title=\"Iniciar rastreo\"><i class=\"fa-solid fa-magnifying-glass-plus\"></i></button>'; if (plazoVencido) { btns += '<button type=\"button\" class=\"btn btn-sm btn-warning btn-dictamen-sistema\" onclick=\"abrirDictamenSistema(' + t.id_ticket + ')\" title=\"Dictamen del sistema\"><i class=\"fa-solid fa-robot\"></i></button>'; } } btns += '<button class=\"btn btn-sm btn-secondary\" onclick=\"cerrarTicketPanel(' + (t.id_ticket) + ')\" title=\"Cerrar ticket\"><i class=\"fa fa-minus\"></i></button><button class=\"btn btn-sm btn-danger\" onclick=\"eliminarTicketPanel(' + (t.id_ticket) + ')\" title=\"Eliminar ticket\"><i class=\"fa fa-trash\"></i></button></div>'; return btns; })(),\n                            _id_ticket: t.id_ticket,\n                            _dictamen_estado: t.dictamen_estado || '',\n                            _dictamen_fecha_visto: t.dictamen_fecha_visto || ''\n                        };\n                        return row;\n                    });\n                    var tabla = $('#tablaTicketsPanel').DataTable();\n                    var paginaAntes = tabla.page.info().page;\n                    tabla.clear().rows.add(datos);\n                    var np = tabla.page.info().pages;\n                    if (paginaAntes >= np) paginaAntes = Math.max(0, np - 1);\n                    var cat = (filtrosPayload.categoria_gestion || '').toLowerCase();\n                    var catLabelsPanel2 = { sabueso: 'Sabueso', plantilla: 'Plantilla', atencion_cliente: 'Atención al cliente', validaciones: 'Validaciones', viaticos: 'Viáticos', aplicaciones_de_pago: 'Aplicaciones de pago', credito_problematico: 'Crédito problemático', aclaracion_credito: 'Aclaración de crédito' };\n                    var catLabelTitulo = cat ? (catLabelsPanel2[cat] || cat) : 'Todos los tickets';\n                    if ($('#panelAdminTitulo').length) $('#panelAdminTitulo').html('<i class=\"fa-solid ' + panelAdminIconoPorCategoria(cat) + ' me-2\"></i>Panel Admin – ' + catLabelTitulo);\n                    var categoriasSimples = ['viaticos','aplicaciones_de_pago','credito_problematico','aclaracion_credito','plantilla','atencion_cliente','validaciones'];\n                    var esPanelSimple = categoriasSimples.indexOf(cat) !== -1;\n                    tabla.columns([9,10,11]).visible(!esPanelSimple, false);\n                    panelAdminAplicarTitulosColumnas(tabla, cat);\n                    if ($('#btnAbrirConsultaCredito').length) $('#btnAbrirConsultaCredito').toggle(!esPanelSimple);\n                    if ($('#sabuesoPanelEaster').length) $('#sabuesoPanelEaster').toggle(!esPanelSimple);\n                    if ($('#panelAdminFiltrosWrap').length) $('#panelAdminFiltrosWrap').toggle(!esPanelSimple);\n                    if (esPrimeraCarga) {\n                        tabla.one('draw.dt.panelAdminPrimera', function() {\n                            window.panelAdminPrimeraCarga = false;\n                            $('#wrapTablaTicketsPanel').show();\n                            document.body.classList.remove('panel-admin-primer-cargando');\n                            Swal.close();\n                        });\n                    }\n                    tabla.page(paginaAntes).draw(false);\n                    tabla.rows().every(function() {\n                        var d = this.data();\n                        if (d._dictamen_estado === 'enviado_al_gestor') {\n                            $(this.node()).addClass('fila-dictamen-enviado').attr('data-id-ticket', d._id_ticket || '');\n                        }\n                    });\n                    if (typeof actualizarCountdownsDictamen === 'function') actualizarCountdownsDictamen('#tablaTicketsPanel');\n                    $('#tablaTicketsPanel [data-bs-toggle=\"tooltip\"]').tooltip();\n                                    },\n                onError: function() {\n                    if (esPrimeraCarga) { window.panelAdminPrimeraCarga = false; $('#wrapTablaTicketsPanel').show(); document.body.classList.remove('panel-admin-primer-cargando'); Swal.close(); }\n                    var tabla = $('#tablaTicketsPanel').DataTable();\n                    tabla.clear().draw();\n                }\n            });\n        }\n        setInterval(function() { if (typeof actualizarCountdownsDictamen === 'function') actualizarCountdownsDictamen('#tablaTicketsPanel'); }, 1000);\n        function abrirRastreo(btn) {\n            var idCredito = parseInt(btn.getAttribute('data-id-credito')||0, 10);\n            var idTicket = parseInt(btn.getAttribute('data-id-ticket')||0, 10);\n            var asignadoNombre = (btn.getAttribute('data-asignado')||'').trim();\n            var creadorNombre = (btn.getAttribute('data-creador-nombre')||'').trim();\n            var fechaCreacionRaw = (btn.getAttribute('data-fecha-creacion')||'').trim();\n            var fechaCreacionDisplay = fechaCreacionRaw ? (new Date(fechaCreacionRaw).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' }) + ' ' + new Date(fechaCreacionRaw).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })) : '—';\n            ticketIdRastreoActual = idTicket || null;\n            if (!idCredito || isNaN(idCredito)) { Swal.fire({ icon: 'warning', title: 'Rastreo', text: 'No hay ID de crédito para este ticket.' }); return; }\n            http.request({\n                endpoint: \"/sabueso/getDatosCredito\",\n                metodo: \"POST\",\n                data: JSON.stringify({ id_credito: idCredito }),\n                contentType: \"application/json\",\n                processData: false,\n                showLoader: true,\n                onSuccess: function(resp) {\n                    var d = resp.datos || null;\n                    if (!d) { var msg = (resp.mensaje || 'No se encontraron datos para este crédito.'); $('#rastreoTopLeft').html('<div class=\"alert alert-warning mb-0\"><strong>Crédito #' + idCredito + '</strong><br>' + msg + '<br><small>El crédito debe existir en Segundometro u Oferta para ver el rastreo.</small></div>'); $('#rastreoTopRight').html(''); $('#rastreoTickets').html(''); $('#rastreoDireccionesContenido').html(''); idCreditoRastreoActual = idCredito; window.ticketIdRastreoActual = ticketIdRastreoActual; $('#modalRastreoCredito').attr('data-id-ticket', ticketIdRastreoActual || ''); $('#rastreoIdTicketActual').val(ticketIdRastreoActual || '').attr('data-id-ticket', ticketIdRastreoActual || ''); $('#modalRastreoCredito').modal('show'); return; }\n                    var esc = function(s) { var x = (s + '').split('&').join('&amp;').split('<').join('&lt;').split('>').join('&gt;'); return x.split(String.fromCharCode(34)).join('&quot;'); };\n                    var idCred = (d.id_credito || d.Id_credito || '—');\n                    var nombreCompleto = esc(d.Nombre_cliente || d.nombre_completo || '—');\n                    var tel = (d.telefono_referencia1 || d.telefono_referencia2 || '').trim();\n                    var telEsc = tel ? esc(tel) : '—';\n                    var dirMegareporte = (d.Domicilio_Completo && (d.Domicilio_Completo + '').trim()) ? esc(d.Domicilio_Completo) : '—';
                     rastreoTicketInfoBase = '<div class=\"rastreo-ticket-info-col\"><span class=\"text-muted small d-block\">Quién levantó el ticket</span><div class=\"fw-medium\">' + (creadorNombre ? esc(creadorNombre) : '—') + '</div><span class=\"text-muted small d-block mt-1\">Cuando se levantó</span><div class=\"fw-medium\">' + fechaCreacionDisplay + '</div><span class=\"text-muted small d-block mt-1\">Asignado a</span><div id=\"rastreoAsignadoBlock\" class=\"fw-medium\"><span class=\"text-muted\">Cargando...</span></div></div>';\n                    var htmlTicketInfo = rastreoTicketInfoBase;\n                    var htmlTopLeft = '<div><span class=\"text-muted small d-block\">ID crédito</span><div class=\"fw-semibold\">' + idCred + '</div></div><div><span class=\"text-muted small d-block\">Nombre completo</span><div class=\"fw-semibold\">' + nombreCompleto + '</div></div><div><span class=\"text-muted small d-block\">Teléfono cliente</span><div class=\"fw-semibold\">' + telEsc + '</div></div><div><span class=\"text-muted small d-block\">Dirección megareporte</span><div class=\"fw-semibold small\">' + dirMegareporte + '</div></div>';\n                    var dirContenido = (d.Domicilio_Completo && (d.Domicilio_Completo + '').trim()) ? esc(d.Domicilio_Completo) : '<span class=\"text-muted\">No hay direcciones registradas</span>';\n                    var tickets = d.tickets || [];\n                    var ticketActual = tickets.filter(function(tk) { return tk.id_ticket == ticketIdRastreoActual; })[0];\n                    var htmlTickets = '';\n                    if (ticketActual) {\n                        var fCreacion = ticketActual.fecha_creacion ? new Date(ticketActual.fecha_creacion).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—';\n                        var fVenc = ticketActual.fecha_vencimiento ? new Date(ticketActual.fecha_vencimiento).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—';\n                        var _cg = ((ticketActual.categoria_gestion || btn.getAttribute('data-categoria-gestion') || 'sabueso') + '').toLowerCase().trim();\n                        var _cgl = { sabueso: 'Sabueso', plantilla: 'Plantilla', atencion_cliente: 'Atención al cliente', validaciones: 'Validaciones', viaticos: 'Viáticos', aplicaciones_de_pago: 'Aplicaciones de pago', credito_problematico: 'Crédito problemático', aclaracion_credito: 'Aclaración de crédito' };\n                        var _cgn = _cgl[_cg] || _cg.replace(/_/g, ' ');\n                        var _cgi = panelAdminIconoPorCategoria(_cg);\n                        htmlTickets = '<div class=\"small bg-light rounded p-2 mb-2\"><strong>' + esc(ticketActual.folio || '—') + '</strong> · ' + esc(ticketActual.tipo_nombre || '') + ' · ' + esc(ticketActual.estado_nombre || '') + '<br><span class=\"text-muted small\">Descripción:</span> ' + esc(ticketActual.descripcion_inicial || '—') + '<br>Creación: ' + fCreacion + ' · Venc: ' + fVenc + '</div><div class=\"mt-2 px-1\"><span class=\"badge bg-label-primary small d-inline-flex align-items-center gap-1\"><i class=\"fa-solid ' + _cgi + '\" style=\"font-size:0.7rem;line-height:1\"></i>' + esc(_cgn) + '</span></div>';\n                    } else { var _cg2 = ((btn.getAttribute('data-categoria-gestion') || 'sabueso') + '').toLowerCase().trim();\n                        var _cgl2 = { sabueso: 'Sabueso', plantilla: 'Plantilla', atencion_cliente: 'Atención al cliente', validaciones: 'Validaciones', viaticos: 'Viáticos', aplicaciones_de_pago: 'Aplicaciones de pago', credito_problematico: 'Crédito problemático', aclaracion_credito: 'Aclaración de crédito' };\n                        var _cgn2 = _cgl2[_cg2] || _cg2.replace(/_/g, ' ');\n                        var _cgi2 = panelAdminIconoPorCategoria(_cg2);\n                        htmlTickets = '<div class=\"mb-2\"><span class=\"badge bg-label-primary small d-inline-flex align-items-center gap-1\"><i class=\"fa-solid ' + _cgi2 + '\" style=\"font-size:0.7rem;line-height:1\"></i>' + esc(_cgn2) + '</span></div><span class=\"text-muted small\">Ticket actual (sin detalle adicional).</span>'; }\n                    $('#rastreoTopLeft').html(htmlTopLeft); if(typeof sabuesoAppendInformacionIngresos==='function')sabuesoAppendInformacionIngresos(document.getElementById('rastreoTopLeft'),d,esc); $('#rastreoTopRight').html(htmlTicketInfo);\n                    loadHistorialAsignacionTicket(ticketIdRastreoActual);\n                    $('#rastreoTickets').html(htmlTickets);\n                    $('#rastreoDireccionesContenido').html('<span class=\"text-muted\">Cargando direcciones...</span>');\n                    rastreoDireccionesParaMapa = [];\n                    $('#btnAsignarRastreo').html('<i class=\"fa-solid fa-user-plus me-1\"></i>Asignar...');\n                    idCreditoRastreoActual = idCredito;\n                    rastreoDatosClienteActual = { nombre: (d.Nombre_cliente || d.nombre_completo || '—'), credito: idCred, telefono: (tel || '—'), direccion: (d.Domicilio_Completo || '—') };\n                    var kA = \"sabueso_ia_\" + idCredito + \"_\" + (idTicket || 0) + \"_analizar\"; var kU = \"sabueso_ia_\" + idCredito + \"_ubicaciones\"; var kG = \"sabueso_ia_\" + idCredito + \"_gestiones\";\n                    try { if (typeof localStorage !== \"undefined\") { rastreoUltimoAnalizarIA = localStorage.getItem(kA) || \"\"; rastreoUltimoResumenUbicaciones = localStorage.getItem(kU) || \"\"; rastreoUltimoResumenGestiones = localStorage.getItem(kG) || \"\"; } else { rastreoUltimoAnalizarIA = \"\"; rastreoUltimoResumenUbicaciones = \"\"; rastreoUltimoResumenGestiones = \"\"; } } catch (e) { rastreoUltimoAnalizarIA = \"\"; rastreoUltimoResumenUbicaciones = \"\"; rastreoUltimoResumenGestiones = \"\"; }\n                    if (rastreoUltimoAnalizarIA) { \$(\"#btnLecturaIAAnalizar\").show(); \$(\"#btnBorrarIAAnalizar\").show(); } else { \$(\"#btnLecturaIAAnalizar\").hide(); \$(\"#btnBorrarIAAnalizar\").hide(); }\n                    if (rastreoUltimoResumenUbicaciones) { \$(\"#btnLecturaIAUbicaciones\").show(); \$(\"#btnBorrarIAUbicaciones\").show(); } else { \$(\"#btnLecturaIAUbicaciones\").hide(); \$(\"#btnBorrarIAUbicaciones\").hide(); }\n                    if (rastreoUltimoResumenGestiones) { \$(\"#btnLecturaIAGestiones\").show(); \$(\"#btnBorrarIAGestiones\").show(); } else { \$(\"#btnLecturaIAGestiones\").hide(); \$(\"#btnBorrarIAGestiones\").hide(); }\n                    window.ticketIdRastreoActual = ticketIdRastreoActual; \$(\"#modalRastreoCredito\").attr(\"data-id-ticket\", ticketIdRastreoActual || \"\"); \$(\"#rastreoIdTicketActual\").val(ticketIdRastreoActual || \"\").attr(\"data-id-ticket\", ticketIdRastreoActual || \"\"); \$(\"#modalRastreoCredito\").modal(\"show\");\n                },\n                onError: function(err) {\n                    var errMsg = (typeof err === 'string' ? err : (err && err.mensaje)) || 'No se pudieron cargar los datos del crédito.';\n                    Swal.fire({ icon: 'error', title: 'Rastreo', text: errMsg });\n                }\n            });\n        }\n        function tooltipHistorialAsignacion(estado, historial) {\n            if (estado === 'primera_asignacion') return 'Es la primera asignación de este ticket.';\n            var lineas = ['Historial de asignación (este ticket)'];\n            (historial || []).forEach(function(h) { lineas.push('• ' + (h.persona || '—') + ': ' + (h.duracion_humana || '—')); });\n            if (estado === 'sin_asignar') lineas.push('Actualmente sin persona asignada a este ticket.');\n            return lineas.join('\\n');\n        }\n        function loadHistorialAsignacionTicket(idTicket) {\n            if (!idTicket) return;\n            http.request({ endpoint: '/sabueso/getHistorialAsignacionTicket', metodo: 'POST', data: JSON.stringify({ id_ticket: idTicket }), contentType: 'application/json', processData: false, onSuccess: function(r) {\n                var asignado = r.asignado_actual || null;\n                var estado = r.estado || 'primera_asignacion';\n                var historial = r.historial || [];\n                var tooltipTxt = tooltipHistorialAsignacion(estado, historial);\n                var tooltipEsc = (tooltipTxt + '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/\"/g, '&quot;');\n                var tooltipAttr = tooltipEsc.replace(/\\n/g, '<br>');\n                var html = asignado ? ('<i class=\"fa-solid fa-user-check text-success me-1\"></i>' + (asignado.replace(/&/g, '&amp;').replace(/</g, '&lt;')) + ' <i class=\"fa-solid fa-circle-info ms-1\" role=\"img\" aria-label=\"Historial\" data-bs-toggle=\"tooltip\" data-bs-html=\"true\" data-bs-title=\"' + tooltipAttr + '\"></i>') : ('<span class=\"text-muted\">Sin asignar</span> <i class=\"fa-solid fa-circle-info ms-1\" role=\"img\" aria-label=\"Historial\" data-bs-toggle=\"tooltip\" data-bs-html=\"true\" data-bs-title=\"' + tooltipAttr + '\"></i>');\n                var bloque = $('#rastreoAsignadoBlock');\n                if (bloque.length) bloque.html(html);\n                if (asignado) { if (!$('#rastreoAsignadoBlock').next('.btn').length) $('#rastreoAsignadoBlock').after('<button type=\"button\" class=\"btn btn-sm btn-outline-danger mt-1\" onclick=\"quitarAsignacionRastreo()\" title=\"Quitar asignación\">Quitar asignación</button>'); } else { $('#rastreoAsignadoBlock').next('.btn').remove(); }\n                $('#btnAsignarRastreo').html(asignado ? '<i class=\"fa-solid fa-user-pen me-1\"></i>Reasignar a...' : '<i class=\"fa-solid fa-user-plus me-1\"></i>Asignar...');\n                if (typeof $().tooltip === 'function') { $('#rastreoAsignadoBlock [data-bs-toggle=\"tooltip\"]').tooltip(); }\n            } });\n        }\n        function mostrarAsignarOpciones() {\n            if (!ticketIdRastreoActual) { Swal.fire({ icon: 'warning', title: 'Asignar', text: 'No hay ticket seleccionado.' }); return; }\n            Swal.fire({ title: 'Asignar ticket', text: '¿A quién desea asignar este ticket?', icon: 'question', showDenyButton: true, showCancelButton: true, confirmButtonText: 'Tomar asignación', denyButtonText: 'Asignar a...', cancelButtonText: 'Cancelar' }).then(function(res) {\n                if (res.isConfirmed) asignarTicketA(miUsuarioId);\n                else if (res.isDenied) abrirModalAsignarA();\n            });\n        }\n        function asignarTicketA(idPersona) {\n            if (!ticketIdRastreoActual || !idPersona) return;\n            http.request({ endpoint: \"/sabueso/asignarTicket\", metodo: \"POST\", data: JSON.stringify({ id_ticket: ticketIdRastreoActual, id_persona: idPersona }), contentType: \"application/json\", processData: false, onSuccess: function(r) {\n                Swal.fire({ icon: 'success', title: 'Asignado', text: r.mensaje || 'Ticket asignado.' });\n                $('#modalRastreoCredito, #modalAsignarA').modal('hide');\n                ticketIdRastreoActual = null;\n                getTicketsPanelAdmin();\n            }, onError: function(e) { Swal.fire({ icon: 'error', title: 'Error', text: (e && e.mensaje) || 'No se pudo asignar.' }); } });\n        }\n        function quitarAsignacionRastreo() {\n            if (!ticketIdRastreoActual) return;\n            if (typeof Swal !== 'undefined') {\n                Swal.fire({ title: '¿Quitar asignación?', text: 'El ticket quedará sin persona asignada.', icon: 'question', showCancelButton: true, confirmButtonColor: '#d33', cancelButtonColor: '#6c757d', confirmButtonText: 'Sí, quitar' }).then(function(res) {\n                    if (!res.isConfirmed) return;\n                    http.request({ endpoint: '/sabueso/quitarAsignacionTicket', metodo: 'POST', data: JSON.stringify({ id_ticket: ticketIdRastreoActual }), contentType: 'application/json', processData: false, onSuccess: function(r) {\n                        if (r.success) { Swal.fire({ icon: 'success', title: 'Listo', text: r.mensaje || 'Asignación quitada.' }); if (ticketIdRastreoActual) loadHistorialAsignacionTicket(ticketIdRastreoActual); getTicketsPanelAdmin(); } else { if (typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: 'Error', text: r.mensaje || 'No se pudo quitar.' }); }\n                    }, onError: function(e) { if (typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: 'Error', text: (e && e.mensaje) || 'No se pudo quitar.' }); } });\n                });\n            } else {\n                http.request({ endpoint: '/sabueso/quitarAsignacionTicket', metodo: 'POST', data: JSON.stringify({ id_ticket: ticketIdRastreoActual }), contentType: 'application/json', processData: false, onSuccess: function(r) { if (r.success) { if (idCreditoRastreoActual) loadHistorialAsignacion(idCreditoRastreoActual); getTicketsPanelAdmin(); } } });\n            }\n        }\n        function abrirModalAsignarA() {\n            http.request({ endpoint: \"/sabueso/getPersonasSabueso\", metodo: \"POST\", onSuccess: function(resp) {\n                var list = resp.datos || [];\n                var html = list.length ? list.map(function(p) { return '<div class=\"d-flex justify-content-between align-items-center py-2 border-bottom\"><span>' + (p.nombre_completo || p.id) + '</span><button type=\"button\" class=\"btn btn-sm btn-primary\" onclick=\"asignarTicketA(' + p.id + ')\">Asignárselo</button></div>'; }).join('') : '<p class=\"text-muted mb-0\">No hay personas en el departamento Sabueso.</p>';\n                $('#modalAsignarABody').html(html);\n                $('#modalRastreoCredito').modal('hide');\n                $('#modalAsignarA').modal('show');\n            }, onError: function() { Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudo cargar la lista.' }); } });\n        }\n        function cerrarTicketPanel(idTicket) {\n            if (!idTicket) return;\n            Swal.fire({ title: '¿Cerrar ticket?', text: 'El ticket se registrará como cerrado y dejará de mostrarse en la lista activa.', icon: 'question', showCancelButton: true, confirmButtonColor: '#fd7e14', cancelButtonColor: '#6c757d', confirmButtonText: 'Sí, cerrar' }).then(function(res) {\n                if (!res.isConfirmed) return;\n                http.request({\n                    endpoint: \"/sabueso/cerrarTicket\",\n                    metodo: \"POST\",\n                    data: JSON.stringify({ id_ticket: idTicket }),\n                    contentType: \"application/json\",\n                    processData: false,\n                    onSuccess: function(resp) {\n                        Swal.fire({ icon: 'success', title: 'Cerrado', text: resp.mensaje || 'Ticket cerrado.' });\n                        getTicketsPanelAdmin();\n                    },\n                    onError: function(err) {\n                        Swal.fire({ icon: 'error', title: 'Error', text: (err && err.mensaje) || 'No se pudo cerrar.' });\n                    }\n                });\n            });\n        }\n        function eliminarTicketPanel(idTicket) {\n            if (!idTicket) return;\n            Swal.fire({ title: '¿Eliminar ticket?', text: 'Esta acción no se puede deshacer.', icon: 'warning', showCancelButton: true, confirmButtonColor: '#d33', cancelButtonColor: '#6c757d', confirmButtonText: 'Sí, eliminar' }).then(function(res) {\n                if (!res.isConfirmed) return;\n                http.request({\n                    endpoint: \"/sabueso/eliminarTicket\",\n                    metodo: \"POST\",\n                    data: JSON.stringify({ id_ticket: idTicket }),\n                    contentType: \"application/json\",\n                    processData: false,\n                    onSuccess: function(resp) {\n                        Swal.fire({ icon: 'success', title: 'Eliminado', text: resp.mensaje || 'Ticket eliminado.' });\n                        getTicketsPanelAdmin();\n                    },\n                    onError: function(err) {\n                        Swal.fire({ icon: 'error', title: 'Error', text: (err && err.mensaje) || 'No se pudo eliminar.' });\n                    }\n                });\n            });\n        }\n";
         $evidenciasScript = 'var miUsuarioId = ' . (int)$usuarioId . '; var miPersonaId = ' . (int)$personaId . '; var miUsuarioNombre = ' . json_encode($usuarioNombre ?? '', JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP) . ';
         var evidenciasRastreoActual = []; var evidenciaModalSlot = null; var evidenciaModalId = null; var evidenciaPreviewObjectUrl = null;
@@ -2766,6 +2766,78 @@ JS;
                 new bootstrap.Tooltip(el, { customClass: 'estad-tooltip-custom', container: 'body' });
             });
         }
+        function initTooltipsReporteSemanalModal() {
+            if (typeof bootstrap === 'undefined' || !bootstrap.Tooltip) return;
+            var root = document.getElementById('modalReporteSemanalGlobalBody');
+            if (!root) return;
+            root.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(function(el) {
+                var ex = bootstrap.Tooltip.getInstance(el);
+                if (ex) ex.dispose();
+                new bootstrap.Tooltip(el, { customClass: 'estad-tooltip-custom', container: 'body' });
+            });
+        }
+        function destroyReporteSemanalModalCharts() {
+            var list = window._reporteSemanalChartInstances || [];
+            list.forEach(function(ch) { try { ch.destroy(); } catch (e) {} });
+            window._reporteSemanalChartInstances = [];
+        }
+        function abrirZoomChartReporteSemanalFromCanvas(canvasEl, titulo) {
+            if (!canvasEl || typeof Chart === 'undefined') return;
+            var sourceChart = Chart.getChart(canvasEl);
+            if (!sourceChart) return;
+            var modalEl = document.getElementById('modalReporteSemanalChartZoom');
+            var zoomCanvas = document.getElementById('canvasReporteSemanalChartZoom');
+            var titleEl = document.getElementById('modalReporteSemanalChartZoomLabel');
+            if (!modalEl || !zoomCanvas) return;
+            if (window._reporteSemanalZoomChartInstance) {
+                try { window._reporteSemanalZoomChartInstance.destroy(); } catch (e) {}
+                window._reporteSemanalZoomChartInstance = null;
+            }
+            if (titleEl) titleEl.textContent = titulo || 'Gráfica';
+            var dataCopy;
+            var optsCopy;
+            try {
+                dataCopy = JSON.parse(JSON.stringify(sourceChart.data));
+            } catch (e0) { return; }
+            try {
+                optsCopy = JSON.parse(JSON.stringify(sourceChart.options, function(k, v) { return typeof v === 'function' ? undefined : v; }));
+            } catch (e1) {
+                optsCopy = { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: true, position: 'bottom' } } };
+            }
+            optsCopy.responsive = true;
+            optsCopy.maintainAspectRatio = false;
+            var cfg = { type: sourceChart.config.type, data: dataCopy, options: optsCopy };
+            if (typeof bootstrap === 'undefined' || !bootstrap.Modal) return;
+            var modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+            modal.show();
+            modalEl.addEventListener('shown.bs.modal', function onZoomShown() {
+                modalEl.removeEventListener('shown.bs.modal', onZoomShown);
+                requestAnimationFrame(function() {
+                    requestAnimationFrame(function() {
+                        try {
+                            window._reporteSemanalZoomChartInstance = new Chart(zoomCanvas, cfg);
+                        } catch (e2) { console.error(e2); }
+                    });
+                });
+            }, { once: true });
+        }
+        function bindReporteSemanalChartCardsClick(wrap) {
+            if (!wrap) return;
+            wrap.querySelectorAll('.estad-rs-chart-card').forEach(function(card) {
+                card.addEventListener('keydown', function(ev) {
+                    if (ev.key === 'Enter' || ev.key === ' ') {
+                        ev.preventDefault();
+                        card.click();
+                    }
+                });
+                card.addEventListener('click', function() {
+                    var cv = card.querySelector('canvas');
+                    var cap = card.querySelector('.estad-rs-chart-caption');
+                    var tit = cap ? (cap.textContent || '').trim() : 'Gráfica';
+                    if (cv) abrirZoomChartReporteSemanalFromCanvas(cv, tit);
+                });
+            });
+        }
         function swalCargandoDetalle(titulo) {
             if (typeof Swal === 'undefined') return;
             Swal.fire({
@@ -2858,7 +2930,7 @@ JS;
                             width: '940px',
                             showConfirmButton: true,
                             confirmButtonText: 'Cerrar',
-                            customClass: { popup: 'estad-detalle-swal', confirmButton: 'btn btn-success px-4' },
+                            customClass: { container: 'estad-detalle-swal-container', popup: 'estad-detalle-swal', confirmButton: 'btn btn-success px-4' },
                             didOpen: function() { initTooltipsEnSwal(); }
                         });
                     }
@@ -3013,7 +3085,7 @@ JS;
                             width: swalWidth,
                             showConfirmButton: true,
                             confirmButtonText: 'Cerrar',
-                            customClass: { popup: 'estad-detalle-swal', confirmButton: 'btn btn-primary px-4' },
+                            customClass: { container: 'estad-detalle-swal-container', popup: 'estad-detalle-swal', confirmButton: 'btn btn-primary px-4' },
                             didOpen: function() {
                                 initTooltipsEnSwal();
                                 var wrap = document.getElementById('estadGestorModalWrap');
@@ -3103,7 +3175,20 @@ JS;
             });
         }
         function abrirReporteSemanalGlobal(semanaInicio) {
-            swalCargandoDetalle('Cargando reporte semanal…');
+            var modalEl = document.getElementById('modalReporteSemanalGlobal');
+            var bodyEl = document.getElementById('modalReporteSemanalGlobalBody');
+            if (!modalEl || !bodyEl) {
+                if (typeof Swal !== 'undefined') Swal.fire('Error', 'No se encontró el modal de reporte en la página.', 'error');
+                return;
+            }
+            if (typeof Swal !== 'undefined' && Swal.close) Swal.close();
+            bodyEl.className = 'p-0 estad-rs-body-loading';
+            bodyEl.innerHTML = '<div class="estad-rs-loading-inner text-center text-muted"><i class="fa-solid fa-spinner fa-spin fa-3x mb-3 d-block opacity-75"></i><span>Cargando reporte semanal…</span></div>';
+            if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+                bootstrap.Modal.getOrCreateInstance(modalEl).show();
+            } else if (typeof $ !== 'undefined' && $(modalEl).modal) {
+                $(modalEl).modal('show');
+            }
             http.request({
                 endpoint: '/sabueso/getReporteSemanalGestorGlobal',
                 metodo: 'POST',
@@ -3114,9 +3199,16 @@ JS;
                 timeout: 90000,
                 onSuccess: function(r) {
                     if (typeof Swal !== 'undefined' && Swal.close) Swal.close();
-                    if (!r || !r.success) { if (typeof Swal !== 'undefined') Swal.fire('Aviso', (r && r.mensaje) || 'Sin datos', 'info'); return; }
+                    var bodyEl2 = document.getElementById('modalReporteSemanalGlobalBody');
+                    if (!bodyEl2) return;
+                    bodyEl2.classList.remove('estad-rs-body-loading');
+                    if (!r || !r.success) {
+                        bodyEl2.innerHTML = '<div class="alert alert-warning m-3 mb-0"><i class="fa-solid fa-circle-info me-1"></i>' + attrEsc((r && r.mensaje) || 'Sin datos') + '</div>';
+                        return;
+                    }
                     var filas = r.filas || [];
                     var semanas = r.semanas || [];
+                    var res = r.resumen || {};
                     function boolTxt(v) {
                         if (v === true || v === 1 || v === '1' || v === 'Sí' || v === 'Si') return '<span class="text-success fw-semibold">Sí</span>';
                         if (v === false || v === 0 || v === '0' || v === 'No') return '<span class="text-danger fw-semibold">No</span>';
@@ -3129,6 +3221,30 @@ JS;
                         var t = si ? '<span class="text-success fw-semibold">Sí</span>' : (consultado ? '<span class="text-muted">No</span>' : '<span class="text-warning" title="Límite de consultas o servicio no disponible">No se pudo verificar</span>');
                         if (n > 0) t += ' <span class="text-muted small">(' + n + ')</span>';
                         return t;
+                    }
+                    function resumenKpisHtml() {
+                        function n(k) {
+                            var v = parseInt(res[k], 10);
+                            return isNaN(v) ? 0 : v;
+                        }
+                        var items = [
+                            { k: 'total_tickets', label: 'Tickets en la semana', cls: 'bg-secondary' },
+                            { k: 'ilocalizable', label: 'Ilocalizable', cls: 'bg-danger', tip: 'Visitó todas las direcciones y no pagó en la semana (EC consultado).' },
+                            { k: 'localizable', label: 'Localizable', cls: 'bg-success', tip: 'No califica como ilocalizable y estado de cuenta consultado.' },
+                            { k: 'pago_12h', label: 'Pago en 12h', cls: 'bg-primary', tip: 'Cumplieron pago en ventana inicial (dictamen sistema).' },
+                            { k: 'todas_direcciones', label: 'Todas las direcciones', cls: 'bg-info', tip: 'Visitaron todas las direcciones del dictamen.' },
+                            { k: 'prorroga', label: 'Con prórroga', cls: 'bg-warning', tip: 'Se otorgó prórroga (+12h) al menos una vez.' },
+                            { k: 'pago_semana', label: 'Pago en la semana', cls: 'bg-success', tip: 'Hubo pago en estado de cuenta dentro de la semana analizada.' }
+                        ];
+                        var parts = '';
+                        items.forEach(function(it) {
+                            var val = n(it.k);
+                            var tip = it.tip ? ' title="' + attrEsc(it.tip) + '"' : '';
+                            parts += '<span class="badge ' + it.cls + ' bg-opacity-25 text-dark border me-1 mb-1"' + tip + ' style="font-size:0.75rem;font-weight:600;">' +
+                                attrEsc(it.label) + ': <span class="text-body">' + val + '</span></span>';
+                        });
+                        return '<div class="estad-reporte-semanal-resumen d-flex flex-wrap align-items-center gap-1 py-2 px-1 mb-2 rounded-2 border" style="background:rgba(0,0,0,0.03);font-size:0.8rem;">' +
+                            '<span class="text-muted small me-2 w-100 w-md-auto"><i class="fa-solid fa-chart-simple me-1"></i>Resumen semana</span>' + parts + '</div>';
                     }
                     function weekOptionsHtml() {
                         var out = '';
@@ -3168,9 +3284,16 @@ JS;
                         'La primera opción es la semana cerrada más reciente. Puede cambiar a semanas anteriores para consultar histórico.</div>' +
                         '<div class="estad-reporte-semanal-toolbar d-flex align-items-center justify-content-between flex-wrap gap-2">' +
                         '<div class="text-muted small">Semana analizada: <strong>' + attrEsc((r.semana_inicio || '') + ' → ' + (r.semana_fin || '')) + '</strong></div>' +
+                        '<div class="d-flex align-items-center flex-wrap gap-2">' +
+                        '<div class="btn-group btn-group-sm" role="group" aria-label="Vista reporte">' +
+                        '<button type="button" class="btn btn-outline-secondary active" id="btnReporteSemanalVistaTabla"><i class="fa-solid fa-table me-1"></i>Tabla</button>' +
+                        '<button type="button" class="btn btn-outline-secondary" id="btnReporteSemanalVistaGraficas"><i class="fa-solid fa-chart-pie me-1"></i>Gráficas</button>' +
+                        '</div>' +
                         '<div class="d-flex align-items-center gap-2"><label class="text-muted small mb-0">Semana</label>' +
                         '<select id="selSemanaReporteGlobal" class="form-select form-select-sm">' + weekOptionsHtml() + '</select></div>' +
-                        '</div>' +
+                        '</div></div>' +
+                        '<div id="reporteSemanalBlockTabla">' +
+                        resumenKpisHtml() +
                         '<div class="estad-modal-detalle-table-wrap table-responsive">' +
                         '<table class="table table-sm table-bordered text-start mb-0">' +
                         '<thead><tr>' +
@@ -3188,30 +3311,236 @@ JS;
                         '</tr></thead><tbody id="tbodyReporteSemanalGlobal">' + tableRowsHtml() + '</tbody></table></div>' +
                         '<div class="estad-reporte-semanal-footer text-muted" style="font-size:0.72rem;">' +
                         'Regla ilocalizable aplicada: <strong>visitó todas las direcciones del dictamen</strong> y <strong>no pagó en la semana seleccionada</strong> (prórroga no condiciona este indicador).' +
+                        '</div></div>' +
+                        '<div id="reporteSemanalBlockGraficas" class="d-none">' +
+                        '<p class="text-muted small mb-2"><i class="fa-solid fa-chart-column me-1"></i>Mismos datos del resumen y del detalle, en distintos tipos de gráfico.</p>' +
+                        '<div id="reporteSemanalGraficasWrap"></div>' +
                         '</div></div>';
-                    if (typeof Swal !== 'undefined') {
-                        Swal.fire({
-                            title: 'Reporte semanal · Por quien levantó',
-                            html: html,
-                            width: '1340px',
-                            showConfirmButton: true,
-                            confirmButtonText: 'Cerrar',
-                            customClass: { popup: 'estad-detalle-swal', confirmButton: 'btn btn-primary px-4' },
-                            didOpen: function() {
-                                initTooltipsEnSwal();
-                                var sel = document.getElementById('selSemanaReporteGlobal');
-                                if (sel) {
-                                    sel.onchange = function() {
-                                        abrirReporteSemanalGlobal(sel.value || '');
-                                    };
-                                }
-                            }
-                        });
+                    bodyEl2.className = 'p-0';
+                    bodyEl2.innerHTML = html;
+                    initTooltipsReporteSemanalModal();
+                    var sel = document.getElementById('selSemanaReporteGlobal');
+                    if (sel) {
+                        sel.onchange = function() {
+                            abrirReporteSemanalGlobal(sel.value || '');
+                        };
                     }
+                    function ensureChartJs(cb) {
+                                    if (typeof Chart !== 'undefined') { cb(); return; }
+                                    var ex = document.getElementById('scriptChartJsUmd');
+                                    if (ex) { ex.addEventListener('load', cb); return; }
+                                    var s = document.createElement('script');
+                                    s.id = 'scriptChartJsUmd';
+                                    s.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js';
+                                    s.onload = cb;
+                                    document.head.appendChild(s);
+                                }
+                                function pintarGraficasReporteSemanal() {
+                                    destroyReporteSemanalModalCharts();
+                                    var wrap = document.getElementById('reporteSemanalGraficasWrap');
+                                    if (!wrap || typeof Chart === 'undefined') return;
+                                    var total = parseInt(res.total_tickets, 10) || 0;
+                                    var labelsKpi = ['Ilocalizable', 'Localizable', 'Pago 12h', 'Todas direcc.', 'Prórroga', 'Pago semana'];
+                                    var dataKpi = [
+                                        parseInt(res.ilocalizable, 10) || 0,
+                                        parseInt(res.localizable, 10) || 0,
+                                        parseInt(res.pago_12h, 10) || 0,
+                                        parseInt(res.todas_direcciones, 10) || 0,
+                                        parseInt(res.prorroga, 10) || 0,
+                                        parseInt(res.pago_semana, 10) || 0
+                                    ];
+                                    var colorsKpi = ['#dc3545', '#198754', '#0d6efd', '#0dcaf0', '#ffc107', '#20c997'];
+                                    var maxKpi = Math.max.apply(null, dataKpi.concat([0]));
+                                    var yTopKpi = Math.max(5, Math.ceil(maxKpi * 1.12));
+                                    var scaleYCounts = {
+                                        beginAtZero: true,
+                                        min: 0,
+                                        suggestedMax: yTopKpi,
+                                        ticks: { stepSize: 1, precision: 0, maxTicksLimit: 14 }
+                                    };
+                                    var tc = { Campo: 0, Telefónica: 0, Otros: 0 };
+                                    filas.forEach(function(f) {
+                                        if (f.tipo_contacto === 'Campo') tc.Campo++;
+                                        else if (f.tipo_contacto === 'Telefónica') tc.Telefónica++;
+                                        else tc.Otros++;
+                                    });
+                                    var byG = {};
+                                    filas.forEach(function(f) {
+                                        var kk = (f.nombre_gestor || '—').trim() || '—';
+                                        byG[kk] = (byG[kk] || 0) + 1;
+                                    });
+                                    var arrG = Object.keys(byG).map(function(k) { return { k: k, v: byG[k] }; }).sort(function(a, b) { return b.v - a.v; }).slice(0, 15);
+                                    var maxGestor = arrG.length ? Math.max.apply(null, arrG.map(function(x) { return x.v; })) : 0;
+                                    var xTopGest = Math.max(5, Math.ceil(maxGestor * 1.12));
+                                    function rsCard(titleUi, canvasId, caption, tall) {
+                                        return '<div class="col-lg-6 col-12">' +
+                                            '<div class="estad-rs-chart-card' + (tall ? ' estad-rs-chart-tall' : '') + '" role="button" tabindex="0" title="Clic para ampliar">' +
+                                            '<div class="estad-rs-chart-card-head"><span>' + titleUi + '</span><i class="fa-solid fa-expand text-muted small" aria-hidden="true"></i></div>' +
+                                            '<div class="estad-rs-chart-canvas-wrap"><canvas id="' + canvasId + '"></canvas></div>' +
+                                            '<div class="estad-rs-chart-caption">' + caption + '</div></div></div>';
+                                    }
+                                    var gestoresHtml = (arrG.length === 0)
+                                        ? '<div class="col-12"><div class="alert alert-light border mb-0 small">Sin datos de gestor para graficar.</div></div>'
+                                        : '<div class="col-12">' +
+                                            '<div class="estad-rs-chart-card estad-rs-chart-tall" role="button" tabindex="0" title="Clic para ampliar">' +
+                                            '<div class="estad-rs-chart-card-head"><span>Por gestor (top 15)</span><i class="fa-solid fa-expand text-muted small" aria-hidden="true"></i></div>' +
+                                            '<div class="estad-rs-chart-canvas-wrap"><canvas id="chartRSGestores"></canvas></div>' +
+                                            '<div class="estad-rs-chart-caption">Tickets por gestor que levantó el ticket</div></div></div>';
+                                    wrap.innerHTML = '<div class="row g-3 px-2 pb-2">' +
+                                        '<div class="col-12"><div class="alert alert-light border py-2 mb-0 small">Total tickets en la semana: <strong>' + total + '</strong></div></div>' +
+                                        rsCard('Indicadores clave', 'chartRSBar', 'Barras — cantidades por categoría', false) +
+                                        rsCard('Proporción', 'chartRSDoughnut', 'Donut — mismos indicadores', false) +
+                                        rsCard('Perfil', 'chartRSRadar', 'Radar — forma del resumen', false) +
+                                        rsCard('Polar', 'chartRSPolar', 'Área polar', false) +
+                                        rsCard('Tipo de contacto', 'chartRSTipoPie', 'Campo / Telefónica / Sin dato', false) +
+                                        rsCard('Tendencia', 'chartRSLine', 'Línea — mismas categorías', false) +
+                                        gestoresHtml +
+                                        '</div>';
+                                    window._reporteSemanalChartInstances = [];
+                                    var legBottom = { position: 'bottom', labels: { boxWidth: 10, font: { size: 9 }, padding: 4 } };
+                                    var c1 = document.getElementById('chartRSBar');
+                                    if (c1) {
+                                        window._reporteSemanalChartInstances.push(new Chart(c1, {
+                                            type: 'bar',
+                                            data: { labels: labelsKpi, datasets: [{ label: 'Cantidad', data: dataKpi, backgroundColor: colorsKpi, borderWidth: 1, borderColor: 'rgba(0,0,0,0.06)' }] },
+                                            options: {
+                                                responsive: true,
+                                                maintainAspectRatio: false,
+                                                layout: { padding: { top: 4, right: 8, bottom: 4, left: 4 } },
+                                                plugins: { legend: { display: false } },
+                                                scales: {
+                                                    x: { ticks: { maxRotation: 40, minRotation: 0, autoSkip: false, font: { size: 9 } }, grid: { display: false } },
+                                                    y: scaleYCounts
+                                                }
+                                            }
+                                        }));
+                                    }
+                                    var c2 = document.getElementById('chartRSDoughnut');
+                                    if (c2) {
+                                        window._reporteSemanalChartInstances.push(new Chart(c2, {
+                                            type: 'doughnut',
+                                            data: { labels: labelsKpi, datasets: [{ data: dataKpi, backgroundColor: colorsKpi, borderWidth: 1, borderColor: '#fff' }] },
+                                            options: { responsive: true, maintainAspectRatio: false, cutout: '42%', plugins: { legend: legBottom } }
+                                        }));
+                                    }
+                                    var c3 = document.getElementById('chartRSRadar');
+                                    if (c3) {
+                                        window._reporteSemanalChartInstances.push(new Chart(c3, {
+                                            type: 'radar',
+                                            data: {
+                                                labels: labelsKpi,
+                                                datasets: [{ label: 'Semana', data: dataKpi, fill: true, backgroundColor: 'rgba(13, 110, 253, 0.2)', borderColor: '#0d6efd', pointBackgroundColor: '#0d6efd', borderWidth: 1 }]
+                                            },
+                                            options: {
+                                                responsive: true,
+                                                maintainAspectRatio: false,
+                                                layout: { padding: 10 },
+                                                plugins: { legend: { display: false } },
+                                                scales: { r: { beginAtZero: true, min: 0, suggestedMax: yTopKpi, ticks: { stepSize: 1, precision: 0, showLabelBackdrop: false } } }
+                                            }
+                                        }));
+                                    }
+                                    var c4 = document.getElementById('chartRSPolar');
+                                    if (c4) {
+                                        window._reporteSemanalChartInstances.push(new Chart(c4, {
+                                            type: 'polarArea',
+                                            data: { labels: labelsKpi, datasets: [{ data: dataKpi, backgroundColor: colorsKpi.map(function(c) { return c + 'cc'; }), borderWidth: 1 }] },
+                                            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: legBottom }, scales: { r: { beginAtZero: true, suggestedMax: yTopKpi, ticks: { stepSize: 1 } } } }
+                                        }));
+                                    }
+                                    var c5 = document.getElementById('chartRSTipoPie');
+                                    if (c5) {
+                                        window._reporteSemanalChartInstances.push(new Chart(c5, {
+                                            type: 'pie',
+                                            data: { labels: ['Campo', 'Telefónica', 'Sin dato'], datasets: [{ data: [tc.Campo, tc.Telefónica, tc.Otros], backgroundColor: ['#0d6efd', '#0dcaf0', '#adb5bd'], borderWidth: 1, borderColor: '#fff' }] },
+                                            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: legBottom } }
+                                        }));
+                                    }
+                                    var c6 = document.getElementById('chartRSLine');
+                                    if (c6) {
+                                        window._reporteSemanalChartInstances.push(new Chart(c6, {
+                                            type: 'line',
+                                            data: { labels: labelsKpi, datasets: [{ label: 'Cantidad', data: dataKpi, fill: false, tension: 0.3, borderWidth: 2, borderColor: '#6f42c1', backgroundColor: '#6f42c1', pointRadius: 5, pointHoverRadius: 7 }] },
+                                            options: {
+                                                responsive: true,
+                                                maintainAspectRatio: false,
+                                                plugins: { legend: { display: false } },
+                                                scales: {
+                                                    x: { ticks: { maxRotation: 35, font: { size: 9 } }, grid: { display: false } },
+                                                    y: scaleYCounts
+                                                }
+                                            }
+                                        }));
+                                    }
+                                    var c7 = document.getElementById('chartRSGestores');
+                                    if (c7 && arrG.length > 0) {
+                                        window._reporteSemanalChartInstances.push(new Chart(c7, {
+                                            type: 'bar',
+                                            data: {
+                                                labels: arrG.map(function(x) { var s = x.k; return s.length > 28 ? s.slice(0, 26) + '…' : s; }),
+                                                datasets: [{ label: 'Tickets', data: arrG.map(function(x) { return x.v; }), backgroundColor: 'rgba(111, 66, 193, 0.78)', borderWidth: 1, borderColor: 'rgba(0,0,0,0.06)' }]
+                                            },
+                                            options: {
+                                                indexAxis: 'y',
+                                                responsive: true,
+                                                maintainAspectRatio: false,
+                                                layout: { padding: { left: 4, right: 12, top: 4, bottom: 4 } },
+                                                plugins: { legend: { display: false }, tooltip: { intersect: false } },
+                                                scales: {
+                                                    x: { beginAtZero: true, min: 0, suggestedMax: xTopGest, ticks: { stepSize: 1, precision: 0 }, title: { display: true, text: 'Tickets', font: { size: 10 } } },
+                                                    y: { ticks: { font: { size: 9 }, autoSkip: false } }
+                                                }
+                                            }
+                                        }));
+                                    }
+                                    bindReporteSemanalChartCardsClick(wrap);
+                                    setTimeout(function() {
+                                        (window._reporteSemanalChartInstances || []).forEach(function(ch) { try { ch.resize(); } catch (e) {} });
+                                    }, 150);
+                                }
+                                var btnTabla = document.getElementById('btnReporteSemanalVistaTabla');
+                                var btnGraf = document.getElementById('btnReporteSemanalVistaGraficas');
+                                var blockTabla = document.getElementById('reporteSemanalBlockTabla');
+                                var blockGraf = document.getElementById('reporteSemanalBlockGraficas');
+                                function vistaTabla() {
+                                    if (blockTabla) blockTabla.classList.remove('d-none');
+                                    if (blockGraf) blockGraf.classList.add('d-none');
+                                    if (btnTabla) { btnTabla.classList.add('active'); }
+                                    if (btnGraf) { btnGraf.classList.remove('active'); }
+                                    var list = window._reporteSemanalChartInstances || [];
+                                    list.forEach(function(ch) { try { ch.destroy(); } catch (e) {} });
+                                    window._reporteSemanalChartInstances = [];
+                                    var wrap = document.getElementById('reporteSemanalGraficasWrap');
+                                    if (wrap) wrap.innerHTML = '';
+                                }
+                                function vistaGraficas() {
+                                    if (blockTabla) blockTabla.classList.add('d-none');
+                                    if (blockGraf) blockGraf.classList.remove('d-none');
+                                    if (btnTabla) { btnTabla.classList.remove('active'); }
+                                    if (btnGraf) { btnGraf.classList.add('active'); }
+                                    ensureChartJs(function() {
+                                        pintarGraficasReporteSemanal();
+                                    });
+                                }
+                    if (btnTabla) btnTabla.onclick = vistaTabla;
+                    if (btnGraf) btnGraf.onclick = vistaGraficas;
                 },
                 onError: function() {
                     if (typeof Swal !== 'undefined' && Swal.close) Swal.close();
-                    if (typeof Swal !== 'undefined') Swal.fire('Error', 'No se pudo cargar el reporte semanal.', 'error');
+                    var bodyErr = document.getElementById('modalReporteSemanalGlobalBody');
+                    var modalErr = document.getElementById('modalReporteSemanalGlobal');
+                    if (bodyErr && modalErr) {
+                        bodyErr.classList.remove('estad-rs-body-loading');
+                        bodyErr.className = 'p-0';
+                        bodyErr.innerHTML = '<div class="alert alert-danger m-3 mb-0">No se pudo cargar el reporte semanal.</div>';
+                        if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+                            bootstrap.Modal.getOrCreateInstance(modalErr).show();
+                        } else if (typeof $ !== 'undefined' && $(modalErr).modal) {
+                            $(modalErr).modal('show');
+                        }
+                    } else if (typeof Swal !== 'undefined') {
+                        Swal.fire('Error', 'No se pudo cargar el reporte semanal.', 'error');
+                    }
                 }
             });
         }
@@ -3409,6 +3738,23 @@ JS;
             $(document).on('click', '#btnReporteSemanalGlobal', function() {
                 abrirReporteSemanalGlobal('');
             });
+            var modalRepSemanal = document.getElementById('modalReporteSemanalGlobal');
+            if (modalRepSemanal) {
+                modalRepSemanal.addEventListener('hidden.bs.modal', function() {
+                    destroyReporteSemanalModalCharts();
+                    var bRep = document.getElementById('modalReporteSemanalGlobalBody');
+                    if (bRep) bRep.innerHTML = '';
+                });
+            }
+            var modalZoomRS = document.getElementById('modalReporteSemanalChartZoom');
+            if (modalZoomRS) {
+                modalZoomRS.addEventListener('hidden.bs.modal', function() {
+                    if (window._reporteSemanalZoomChartInstance) {
+                        try { window._reporteSemanalZoomChartInstance.destroy(); } catch (e) {}
+                        window._reporteSemanalZoomChartInstance = null;
+                    }
+                });
+            }
             $(document).on('click', '#tbodyPorSabueso tr[data-id-sabueso]', function(e) {
                 var id = parseInt($(this).attr('data-id-sabueso'), 10);
                 if (id) abrirDetalleSabueso(id);
@@ -3489,7 +3835,7 @@ JS;
                                 showCloseButton: true,
                                 showConfirmButton: true,
                                 confirmButtonText: 'Cerrar',
-                                customClass: { popup: 'estad-detalle-swal', confirmButton: 'btn btn-primary px-4' },
+                                customClass: { container: 'estad-detalle-swal-container', popup: 'estad-detalle-swal', confirmButton: 'btn btn-primary px-4' },
                                 didOpen: function() { if (typeof initTooltipsEnSwal === 'function') initTooltipsEnSwal(); }
                             });
                         }

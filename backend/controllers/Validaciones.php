@@ -17,6 +17,25 @@ class Validaciones extends Controller
 {
     public function paneladmin()
     {
+        $modulos = $_SESSION['modulos'] ?? [];
+        if (!is_array($modulos)) $modulos = [];
+
+        // Blindaje extra: solo admin (módulo 19) se queda en Panel Admin.
+        if (!in_array(19, $modulos, true)) {
+            $personaId = $this->obtenerPersonaIdSesion();
+            if ($personaId > 0 && in_array(18, $modulos, true)) {
+                $capoInfo = $this->getCapoInfoForTerritorial($personaId);
+                if (!empty($capoInfo['departamento_id'])) {
+                    header('Location: /validaciones/territorial', true, 302);
+                    exit;
+                }
+                header('Location: /validaciones/gestor', true, 302);
+                exit;
+            }
+            header('Location: /sabueso/panelAdminInicio', true, 302);
+            exit;
+        }
+
         TicketsPanelModuloHelper::renderModuloPanel($this, 'validaciones');
     }
 
@@ -372,6 +391,7 @@ class Validaciones extends Controller
     {
         $idFormulario = (int) $id;
         $esModal = isset($_GET['modal']) && (int) $_GET['modal'] === 1;
+        $esReadOnly = isset($_GET['readonly']) && (int) $_GET['readonly'] === 1;
         if ($idFormulario < 1) {
             header('Location: /validaciones/paneladmin');
             exit;
@@ -391,6 +411,7 @@ class Validaciones extends Controller
         $this->set('idFormulario', $idFormulario);
         $this->set('nombreFormulario', $nombre);
         $this->set('descripcionFormulario', $descripcion);
+        $this->set('formBuilderReadOnly', $esReadOnly);
         $this->set('mostrarFormularios', true);
         $this->set('titulo', 'Form Builder: ' . $nombre);
         $builderJsVer = @filemtime(dirname(RAIZ) . '/public/assets/js/form_builder_validacion.js') ?: time();

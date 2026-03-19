@@ -4022,7 +4022,22 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
     public static function getReporteSemanalGestorGlobal(string $semanaInicio = ''): array
     {
         $db = new Database();
-        $whereActivo = '(t.activo = 1 OR t.activo IS NULL) AND (t.fecha_eliminacion IS NULL)';
+        /**
+         * Cerrar ticket pone activo=0 y fecha_eliminacion (igual que eliminar en ticket).
+         * Para el reporte semanal histórico deben seguir contando los cerrados.
+         * Excluimos solo tickets cuyo ÚLTIMO registro en ticket_historico sea tipo_accion = 'eliminado'.
+         */
+        $whereReporteTicket = "NOT EXISTS (
+            SELECT 1
+            FROM ticket_historico he
+            WHERE he.id_ticket = t.id_ticket
+              AND he.tipo_accion = 'eliminado'
+              AND he.fecha_eliminacion = (
+                  SELECT MAX(hx.fecha_eliminacion)
+                  FROM ticket_historico hx
+                  WHERE hx.id_ticket = t.id_ticket
+              )
+        )";
         try {
             $tz = new \DateTimeZone('America/Mexico_City');
             $now = self::cdmxNowImmutable();
@@ -4041,7 +4056,7 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
             $semanaSelInicio = $semanaSelDt->format('Y-m-d') . ' 00:00:00';
             $semanaSelFinExcl = $semanaSelDt->modify('+7 days')->format('Y-m-d') . ' 00:00:00';
             $semanaSelFinIncl = $semanaSelDt->modify('+6 days')->format('Y-m-d') . ' 23:59:59';
-            $cacheKey = 'reporte_semanal_global:' . $semanaSelDt->format('Y-m-d');
+            $cacheKey = 'reporte_semanal_global:v2:' . $semanaSelDt->format('Y-m-d');
             $cacheHit = self::statsCacheRead($cacheKey, 300);
             if (is_array($cacheHit) && !empty($cacheHit['success'])) {
                 return $cacheHit;
@@ -4053,7 +4068,7 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                 "INNER JOIN dictamen d ON d.id_ticket = t.id_ticket AND d.estado = 'enviado_al_gestor' " .
                 "INNER JOIN (SELECT id_ticket, MAX(fecha_actualizacion) AS mx FROM dictamen WHERE estado = 'enviado_al_gestor' GROUP BY id_ticket) dm " .
                 "ON d.id_ticket = dm.id_ticket AND d.fecha_actualizacion = dm.mx " .
-                "WHERE $whereActivo AND d.fecha_actualizacion < :mondayCurrent " .
+                "WHERE $whereReporteTicket AND d.fecha_actualizacion < :mondayCurrent " .
                 "ORDER BY semana_inicio DESC LIMIT 32",
                 ['mondayCurrent' => $mondayCurrent->format('Y-m-d H:i:s')]
             );
@@ -4097,7 +4112,7 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                 "INNER JOIN dictamen d ON d.id_ticket = t.id_ticket AND d.estado = 'enviado_al_gestor' " .
                 "INNER JOIN (SELECT id_ticket, MAX(fecha_actualizacion) AS mx FROM dictamen WHERE estado = 'enviado_al_gestor' GROUP BY id_ticket) dm " .
                 "ON d.id_ticket = dm.id_ticket AND d.fecha_actualizacion = dm.mx " .
-                "WHERE $whereActivo AND d.fecha_actualizacion >= :fi AND d.fecha_actualizacion < :ff " .
+                "WHERE $whereReporteTicket AND d.fecha_actualizacion >= :fi AND d.fecha_actualizacion < :ff " .
                 "ORDER BY d.fecha_actualizacion DESC",
                 ['fi' => $semanaSelInicio, 'ff' => $semanaSelFinExcl]
             );
@@ -4252,19 +4267,58 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                 ];
             }
 
+            $resumen = [
+                'total_tickets' => count($filas),
+                'ilocalizable' => 0,
+                'localizable' => 0,
+                'pago_12h' => 0,
+                'todas_direcciones' => 0,
+                'prorroga' => 0,
+                'pago_semana' => 0,
+            ];
+            foreach ($filas as $f) {
+                if (!empty($f['ilocalizable'])) {
+                    $resumen['ilocalizable']++;
+                }
+                if (!empty($f['pago_semana_consultado']) && empty($f['ilocalizable'])) {
+                    $resumen['localizable']++;
+                }
+                if ($f['pago_12h'] === true) {
+                    $resumen['pago_12h']++;
+                }
+                if ($f['fue_todas_direcciones'] === true) {
+                    $resumen['todas_direcciones']++;
+                }
+                if ($f['prorroga_si'] === true) {
+                    $resumen['prorroga']++;
+                }
+                if (!empty($f['pago_semana_si'])) {
+                    $resumen['pago_semana']++;
+                }
+            }
+
             $payload = [
                 'success' => true,
                 'mensaje' => 'OK',
                 'semana_inicio' => $semanaSelDt->format('Y-m-d'),
                 'semana_fin' => $semanaSelDt->modify('+6 days')->format('Y-m-d'),
                 'semanas' => $semanas,
+                'resumen' => $resumen,
                 'filas' => $filas,
             ];
             self::statsCacheWrite($cacheKey, $payload, 300);
             return $payload;
         } catch (\Throwable $e) {
             error_log('getReporteSemanalGestorGlobal error: ' . $e->getMessage());
-            return ['success' => false, 'mensaje' => $e->getMessage(), 'semana_inicio' => '', 'semana_fin' => '', 'semanas' => [], 'filas' => []];
+            return [
+                'success' => false,
+                'mensaje' => $e->getMessage(),
+                'semana_inicio' => '',
+                'semana_fin' => '',
+                'semanas' => [],
+                'resumen' => [],
+                'filas' => [],
+            ];
         }
     }
 
