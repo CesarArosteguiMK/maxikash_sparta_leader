@@ -401,7 +401,7 @@
                     },
                     onError: function () {
                         $sel.append('<option value="" disabled>Error al cargar lista</option>');
-                        $hint.removeClass('d-none').text('No se pudo cargar la lista de líderes. Revise permisos (Sabueso) o recargue la página (Ctrl+F5).');
+                        $hint.removeClass('d-none').text('No se pudo cargar la lista de líderes. Recargue la página (Ctrl+F5).');
                     }
                 });
             }

@@ -903,171 +903,53 @@ class Ticket extends Model
         }
     }
 
-    /**
-     * Indica si el nombre del puesto alude al segmento de morosidad 1–7 (gestiones / cartera).
-     */
-    public static function esPuestoSabuesoSegmento1a7($nombrePuesto)
+    /** Segmento 1–7 por nombre de departamento. */
+    private static function esDepartamentoCampo1a7($nombreDepartamento)
     {
-        $n = mb_strtolower(trim((string)$nombrePuesto));
-        if ($n === '') {
-            return false;
-        }
-        return (bool) preg_match(
-            '/1\s*[-–]\s*7|1\s+a\s+7|1\s+al\s+7|b\)\s*1|uno\s+a\s+siete|primera\s+semana|1a7|1\s*\/\s*7/i',
-            $n
-        );
+        $n = mb_strtolower(trim((string)$nombreDepartamento));
+        return $n !== '' && (bool) preg_match('/campo.*1\s*[-–]?\s*7|1\s*[-–]?\s*7.*campo|1\s+a\s+7/i', $n);
+    }
+
+    /** Segmento 8–21 por nombre de departamento. */
+    private static function esDepartamentoCampo8a21($nombreDepartamento)
+    {
+        $n = mb_strtolower(trim((string)$nombreDepartamento));
+        return $n !== '' && (bool) preg_match('/campo.*8\s*[-–]?\s*21|8\s*[-–]?\s*21.*campo|8\s+a\s+21/i', $n);
     }
 
     /**
-     * Indica si el nombre del puesto alude al segmento 8–21 (incluye 8–14 y 15–21).
+     * Busca el id del departamento "Campo 1-7" o "Campo 8-21" por nombre en tabla departamento.
      */
-    public static function esPuestoSabuesoSegmento8a21($nombrePuesto)
+    private static function getDepartamentoCampoPorSegmento($campo)
     {
-        $n = mb_strtolower(trim((string)$nombrePuesto));
-        if ($n === '') {
-            return false;
-        }
-        return (bool) preg_match(
-            '/8\s*[-–]\s*21|8\s+a\s+21|8\s+al\s+21|8\s*[-–]\s*14|15\s*[-–]\s*21|8\s+a\s+14|15\s+a\s+21|c\)\s*8|d\)\s*15|segunda\s+semana|8a21|8a14|15a21/i',
-            $n
-        );
-    }
-
-    /**
-     * Personas por IDs (activas) con puesto en Sabueso si aplica.
-     *
-     * @param int[] $ids
-     * @return array<int, array{id:int,nombre_completo:string,nombre_puesto:string}>
-     */
-    private static function personasTicketSabuesoPorIds(array $ids, $idDepartamento = 5)
-    {
-        $ids = array_values(array_unique(array_filter(array_map('intval', $ids))));
-        if (empty($ids)) {
-            return [];
-        }
-        $idDepartamento = (int)$idDepartamento;
-        $ph = implode(',', array_fill(0, count($ids), '?'));
         try {
             $db = new Database();
-            $rows = $db->queryAll(
-                "SELECT p.id, " .
-                "CONCAT(TRIM(IFNULL(p.nombres,'')), ' ', TRIM(IFNULL(p.apellidop,''))) AS nombre_completo, " .
-                "COALESCE((SELECT pu2.nombre FROM asigna_puesto ap2 " .
-                "INNER JOIN puesto pu2 ON pu2.id = ap2.id_puesto AND pu2.departamento_id = ? " .
-                "WHERE ap2.id_persona = p.id AND (ap2.activo = 1 OR ap2.activo IS NULL) LIMIT 1), '') AS nombre_puesto " .
-                "FROM persona p " .
-                "WHERE p.id IN ($ph) AND (p.estatus = 'Activo' OR p.estatus IS NULL) AND p.estatus != 'Baja' " .
-                "ORDER BY nombre_completo",
-                array_merge([$idDepartamento], $ids)
-            );
+            $rows = $db->queryAll("SELECT id, nombre FROM departamento ORDER BY nombre");
             if (!is_array($rows)) {
-                return [];
+                return 0;
             }
-            $out = [];
-            foreach ($rows as $row) {
-                $out[] = [
-                    'id' => (int)($row['id'] ?? 0),
-                    'nombre_completo' => trim((string)($row['nombre_completo'] ?? '')),
-                    'nombre_puesto' => trim((string)($row['nombre_puesto'] ?? '')),
-                ];
-            }
-            return $out;
-        } catch (\Exception $e) {
-            return [];
-        }
-    }
-
-    /**
-     * Personas con puesto en Sabueso entre los id_puesto indicados (titulares de esos cargos).
-     *
-     * @param int[] $idPuestos
-     * @return array<int, array{id:int,nombre_completo:string,nombre_puesto:string}>
-     */
-    private static function personasTicketSabuesoPorPuestos(array $idPuestos, $idDepartamento = 5)
-    {
-        $idPuestos = array_values(array_unique(array_filter(array_map('intval', $idPuestos))));
-        if (empty($idPuestos)) {
-            return [];
-        }
-        $idDepartamento = (int)$idDepartamento;
-        $ph = implode(',', array_fill(0, count($idPuestos), '?'));
-        try {
-            $db = new Database();
-            $params = array_merge([$idDepartamento], $idPuestos);
-            $rows = $db->queryAll(
-                "SELECT DISTINCT p.id, " .
-                "CONCAT(TRIM(IFNULL(p.nombres,'')), ' ', TRIM(IFNULL(p.apellidop,''))) AS nombre_completo, " .
-                "pu.nombre AS nombre_puesto " .
-                "FROM persona p " .
-                "INNER JOIN asigna_puesto ap ON ap.id_persona = p.id AND (ap.activo = 1 OR ap.activo IS NULL) " .
-                "INNER JOIN puesto pu ON pu.id = ap.id_puesto AND pu.departamento_id = ? " .
-                "WHERE pu.id IN ($ph) AND (p.estatus = 'Activo' OR p.estatus IS NULL) AND p.estatus != 'Baja' " .
-                "ORDER BY nombre_completo",
-                $params
-            );
-            if (!is_array($rows)) {
-                return [];
-            }
-            $out = [];
-            $seen = [];
-            foreach ($rows as $row) {
-                $id = (int)($row['id'] ?? 0);
-                if ($id < 1 || isset($seen[$id])) {
+            foreach ($rows as $r) {
+                $id = (int) ($r['id'] ?? 0);
+                $nombre = (string) ($r['nombre'] ?? '');
+                if ($id < 1 || $nombre === '') {
                     continue;
                 }
-                $seen[$id] = true;
-                $out[] = [
-                    'id' => $id,
-                    'nombre_completo' => trim((string)($row['nombre_completo'] ?? '')),
-                    'nombre_puesto' => trim((string)($row['nombre_puesto'] ?? '')),
-                ];
-            }
-            return $out;
-        } catch (\Exception $e) {
-            return [];
-        }
-    }
-
-    /**
-     * IDs de puesto es_jefe en Sabueso cuyo nombre encaja con el segmento (tabla puesto).
-     */
-    private static function idsPuestoSabuesoSegmentoPorNombre($campo, $idDepartamento = 5)
-    {
-        $idDepartamento = (int)$idDepartamento;
-        try {
-            $db = new Database();
-            $rows = $db->queryAll(
-                "SELECT id, nombre FROM puesto " .
-                "WHERE departamento_id = :dep AND (activo IS NULL OR activo = 1) AND es_jefe = 1",
-                ['dep' => $idDepartamento]
-            );
-            if (!is_array($rows)) {
-                return [];
-            }
-            $ids = [];
-            foreach ($rows as $r) {
-                $nom = (string)($r['nombre'] ?? '');
-                if ($campo === '1_7') {
-                    if (self::esPuestoSabuesoSegmento1a7($nom)) {
-                        $ids[] = (int)($r['id'] ?? 0);
-                    }
-                } else {
-                    if (self::esPuestoSabuesoSegmento8a21($nom)) {
-                        $ids[] = (int)($r['id'] ?? 0);
-                    }
+                if ($campo === '1_7' && self::esDepartamentoCampo1a7($nombre)) {
+                    return $id;
+                }
+                if ($campo === '8_21' && self::esDepartamentoCampo8a21($nombre)) {
+                    return $id;
                 }
             }
-            return array_values(array_filter(array_unique($ids)));
         } catch (\Exception $e) {
-            return [];
+            return 0;
         }
+        return 0;
     }
 
     /**
-     * Líderes elegibles por segmento Campo 1–7 / 8–21 (organigrama / máximo rango por segmento).
-     * 1) backend/config/sabueso_ticket_asignacion_campo.php (personas_* o puestos_jefe_*)
-     * 2) Puestos es_jefe en Sabueso cuyo nombre indica el segmento + personas que los ocupan
-     * 3) Jefes (getConsultaJefe) cuyo nombre de puesto indica el segmento (estricto, sin “todos”)
+     * Personas de máximo rango por segmento (misma lógica de Organigrama).
+     * Toma el departamento "Campo 1-7" o "Campo 8-21" y llama al mismo DAO del organigrama.
      *
      * @param string $campo '1_7' | '8_21'
      */
@@ -1075,69 +957,35 @@ class Ticket extends Model
     {
         $campo = strtolower(trim((string)$campo));
         if ($campo !== '1_7' && $campo !== '8_21') {
-            return self::resultado(false, 'Campo inválido.', []);
+            return self::resultado(false, 'Segmento inválido.', []);
         }
-        $cfgFile = dirname(__DIR__) . '/config/sabueso_ticket_asignacion_campo.php';
-        $cfg = (is_readable($cfgFile) ? include $cfgFile : []);
-        if (!is_array($cfg)) {
-            $cfg = [];
+        $idDepartamento = self::getDepartamentoCampoPorSegmento($campo);
+        if ($idDepartamento < 1) {
+            $txt = $campo === '1_7' ? 'Campo 1-7' : 'Campo 8-21';
+            return self::resultado(true, 'No se encontró el departamento "' . $txt . '" en Organigrama.', []);
         }
-        $dep = (int)($cfg['id_departamento_sabueso'] ?? 5);
-        if ($dep < 1) {
-            $dep = 5;
-        }
-        $personasKey = $campo === '1_7' ? 'personas_campo_1_7' : 'personas_campo_8_21';
-        $puestosKey = $campo === '1_7' ? 'puestos_jefe_campo_1_7' : 'puestos_jefe_campo_8_21';
 
-        $idsPersonasCfg = isset($cfg[$personasKey]) && is_array($cfg[$personasKey]) ? $cfg[$personasKey] : [];
-        $idsPuestosCfg = isset($cfg[$puestosKey]) && is_array($cfg[$puestosKey]) ? $cfg[$puestosKey] : [];
-
+        $res = CapHum::getPersonasOrganigrama($idDepartamento, 0);
+        $datos = is_array($res['datos'] ?? null) ? $res['datos'] : [];
         $out = [];
-        if (!empty($idsPersonasCfg)) {
-            $out = self::personasTicketSabuesoPorIds($idsPersonasCfg, $dep);
-        }
-        if (empty($out) && !empty($idsPuestosCfg)) {
-            $out = self::personasTicketSabuesoPorPuestos($idsPuestosCfg, $dep);
-        }
-        if (empty($out)) {
-            $idPuestosPatron = self::idsPuestoSabuesoSegmentoPorNombre($campo, $dep);
-            if (!empty($idPuestosPatron)) {
-                $out = self::personasTicketSabuesoPorPuestos($idPuestosPatron, $dep);
+        $seen = [];
+        foreach ($datos as $row) {
+            $id = (int) ($row['id'] ?? 0);
+            if ($id < 1 || isset($seen[$id])) {
+                continue;
             }
+            $seen[$id] = true;
+            $out[] = [
+                'id' => $id,
+                'nombre_completo' => trim((string) ($row['nombre'] ?? $row['nombre_completo'] ?? '')),
+                'nombre_puesto' => '',
+            ];
         }
-        if (empty($out)) {
-            $res = CapHum::getConsultaJefe($dep);
-            if (!empty($res['success']) && is_array($res['datos'])) {
-                $seen = [];
-                foreach ($res['datos'] as $row) {
-                    $id = (int)($row['id'] ?? 0);
-                    if ($id < 1 || isset($seen[$id])) {
-                        continue;
-                    }
-                    $nomPuesto = (string)($row['nombre_puesto'] ?? '');
-                    $ok = ($campo === '1_7')
-                        ? self::esPuestoSabuesoSegmento1a7($nomPuesto)
-                        : self::esPuestoSabuesoSegmento8a21($nomPuesto);
-                    if (!$ok) {
-                        continue;
-                    }
-                    $seen[$id] = true;
-                    $out[] = [
-                        'id' => $id,
-                        'nombre_completo' => trim((string)($row['nombre_completo'] ?? '')),
-                        'nombre_puesto' => $nomPuesto,
-                    ];
-                }
-            }
-        }
-
         usort($out, function ($a, $b) {
             return strcasecmp($a['nombre_completo'], $b['nombre_completo']);
         });
 
-        $msgVacío = 'No hay líderes para este segmento. En backend/config/sabueso_ticket_asignacion_campo.php ' .
-            'defina puestos_jefe_campo_1_7 o puestos_jefe_campo_8_21 (id de puesto Sabueso), o personas_campo_*.';
-        return self::resultado(true, empty($out) ? $msgVacío : 'OK', $out);
+        return self::resultado(true, empty($out) ? 'No hay personas de máximo rango para este segmento.' : 'OK', $out);
     }
 
     /**

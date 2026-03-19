@@ -72,6 +72,21 @@
         </div>
     </div>
 
+    <!-- ── Seguimiento por jerarquía ── -->
+    <div class="card mb-3">
+        <div class="card-header py-2">
+            <span class="fw-semibold" style="font-size:.82rem;">
+                <i class="fa fa-ranking-star text-danger me-1"></i>
+                Seguimiento por jerarquía
+                <span class="text-muted fw-normal" style="font-size:.72rem;">
+                    — peor seguimiento primero
+                </span>
+            </span>
+        </div>
+        <div class="card-body" id="statsJerarquia">
+        </div>
+    </div>
+
     <!-- ── Filtros ── -->
     <div class="card mb-3">
         <div class="card-header py-2 d-flex align-items-center justify-content-between">
@@ -143,21 +158,6 @@
                     <tbody></tbody>
                 </table>
             </div>
-        </div>
-    </div>
-
-    <!-- ── Seguimiento por jerarquía ── -->
-    <div class="card mb-4">
-        <div class="card-header py-2">
-            <span class="fw-semibold" style="font-size:.82rem;">
-                <i class="fa fa-ranking-star text-danger me-1"></i>
-                Seguimiento por jerarquía
-                <span class="text-muted fw-normal" style="font-size:.72rem;">
-                    — peor seguimiento primero
-                </span>
-            </span>
-        </div>
-        <div class="card-body" id="statsJerarquia">
         </div>
     </div>
 

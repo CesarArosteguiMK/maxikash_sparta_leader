@@ -1789,22 +1789,7 @@ HTML;
 
                         nacio: badgeBucket(r.bucket_nacio),
 
-                        corte: `
-                            <div>${badgeBucket(r.bucket_corte_actual)}</div>
-                            <div class="mt-1 d-flex align-items-center justify-content-center gap-1"
-                                 style="font-size:.72rem;">
-                                ${movimientoHtml(r.bucket_nacio, r.bucket_corte_actual)}
-                                <span class="text-muted">mov.</span>
-                            </div>
-                            <div class="mt-1" style="font-size:.7rem;">
-                                <i class="fa fa-receipt fa-xs text-muted me-1"></i>
-                                <span class="text-danger fw-bold">${r.Cuotas_vencidas || '—'}</span>
-                                <span class="text-muted ms-1">ctas</span>
-                            </div>
-                            <div style="font-size:.7rem;">
-                                <i class="fa fa-dollar-sign fa-xs text-muted me-1"></i>
-                                <span class="text-warning fw-semibold">${fmt(saldo)}</span>
-                            </div>`,
+                        corte: `<div>${badgeBucket(r.bucket_corte_actual)}</div>`,
                     };
                 });
 
