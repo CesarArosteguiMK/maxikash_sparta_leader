@@ -790,12 +790,19 @@ JS;
                     // ── PASO 5b: Pool desde pagos_list (remaining − aplicadoAnterior); si el pago tiene contracargo parcial, entra al pool solo el sobrante (remaining − contracargo) ──
                     $pool = [];
                     foreach ($plById as $idP => $pl) {
-                        $remaining = round((float)($pl['montoPagoOriginal'] ?? 0) - (float)($pl['_extOrig'] ?? $pl['extemporaneos'] ?? 0), 2);
+                        $extOrig = round((float)($pl['_extOrig'] ?? $pl['extemporaneos'] ?? 0), 2);
+                        $remaining = round((float)($pl['montoPagoOriginal'] ?? 0) - $extOrig, 2);
                         $usedBefore = round($aplicadoAnterior[$idP] ?? 0, 2);
                         $contracargoTotal = isset($montoContracargoPorPago[$idP]) ? round($montoContracargoPorPago[$idP], 2) : 0;
                         if (isset($idPagosCC[$idP])) {
-                            // Pago con contracargo: solo el sobrante (lo que no fue revertido) entra al pool
-                            $available = round($remaining - $usedBefore - $contracargoTotal, 2);
+                            // Pago con contracargo: neto al crédito = monto − ext − contracargo.
+                            // Si extemporáneos y contracargo vienen con el mismo monto, suele ser la misma salida
+                            // contada dos veces (reversa del excedente); el neto ya está en (monto − ext).
+                            $ccDeduccion = $contracargoTotal;
+                            if ($contracargoTotal > 0.009 && $extOrig > 0.009 && abs($extOrig - $contracargoTotal) < 0.02) {
+                                $ccDeduccion = 0.0;
+                            }
+                            $available = round($remaining - $usedBefore - $ccDeduccion, 2);
                             if ($available <= 0.009) continue;
                             $hasAffectedCuota = true;
                         } else {

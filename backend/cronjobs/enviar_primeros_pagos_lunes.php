@@ -9,7 +9,11 @@
  *   C:\xampp\php\php.exe C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\cronjobs\enviar_primeros_pagos_lunes.php --force
  *
  * Recomendado en Programador de tareas (Windows):
- *   Crear 9 tareas diarias, una por horario, ejecutando este archivo.
+ *   Una tarea cada 1–5 minutos ejecutando este archivo (misma instancia para todos los horarios).
+ *
+ * Ventana por slot: desde HH:MM del slot hasta justo antes del siguiente slot (CDMX).
+ * Así, si la tarea corre tarde (ej. 17:03), aún puede enviarse el correo del slot 16:40
+ * si ese día no se había registrado éxito para 16:40.
  */
 
 date_default_timezone_set('America/Mexico_City');
@@ -96,6 +100,7 @@ $destinatarios = [
     'guillermo.garcia@__SPARTA_SECRET_REDACTED__.mx',
     '__SPARTA_SECRET_REDACTED__@__SPARTA_SECRET_REDACTED__.mx',
     'josealberto.hernandez@__SPARTA_SECRET_REDACTED__.mx',
+    'lrgonzalez033@gmail.com', // verificación / monitoreo
 ];
 
 $asunto = 'Primeros pagos — Lunes de Cierre';
@@ -114,32 +119,25 @@ try {
         }
     }
 
-    // Resolver slot objetivo:
-    // - exacto si coincide HH:MM
-    // - o tolerancia hasta 4 minutos después (para tareas cada 5 minutos desfasadas)
+    // Slot activo: el último horario programado cuya ventana [slot, siguiente_slot) contiene $ahora.
+    // Comparación HH:MM en 24h como string es segura entre slots del mismo día.
+    // Ej.: a las 17:03 sigue vigente el slot 16:40 hasta las 18:40 (no solo 4 min después).
     $slotObjetivo = null;
     if ($force) {
         $slotObjetivo = $ahora;
     } else {
-        if (in_array($ahora, $horariosPermitidos, true)) {
-            $slotObjetivo = $ahora;
-        } else {
-            $ahoraTs = strtotime($hoy . ' ' . $ahora . ':00');
-            $candidatos = [];
-            foreach ($horariosPermitidos as $h) {
-                $slotTs = strtotime($hoy . ' ' . $h . ':00');
-                if ($slotTs <= $ahoraTs) {
-                    $candidatos[$h] = $ahoraTs - $slotTs;
-                }
+        $n = count($horariosPermitidos);
+        for ($i = 0; $i < $n; $i++) {
+            $slot = $horariosPermitidos[$i];
+            $siguiente = ($i + 1 < $n) ? $horariosPermitidos[$i + 1] : '24:00';
+            if (strcmp($ahora, $slot) < 0) {
+                continue;
             }
-            if (!empty($candidatos)) {
-                asort($candidatos); // menor diferencia primero
-                $nearest = array_key_first($candidatos);
-                $diff = $candidatos[$nearest];
-                if ($diff >= 0 && $diff <= 240) { // 4 minutos
-                    $slotObjetivo = $nearest;
-                }
+            if (strcmp($ahora, $siguiente) >= 0) {
+                continue;
             }
+            $slotObjetivo = $slot;
+            break;
         }
     }
 

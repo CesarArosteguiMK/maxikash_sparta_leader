@@ -218,17 +218,33 @@
     .estad-sabueso-wrap #tablaPorSabueso tbody tr.estad-sabueso-fila:hover {
         background: rgba(var(--bs-success-rgb), 0.06);
     }
-    /* Modal detalle (Swal) más limpio */
+    /*
+     * Modal detalle (Swal): evitar recorte superior.
+     * Por defecto Swal centra en vertical; modales anchos/altos quedan mitad fuera arriba.
+     * Contenedor alineado arriba + scroll; el cuerpo del modal hace scroll interno.
+     */
+    .swal2-container.estad-detalle-swal-container {
+        align-items: flex-start !important;
+        justify-content: center;
+        padding: max(0.5rem, env(safe-area-inset-top, 0px)) 0.5rem 1.25rem !important;
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch;
+        box-sizing: border-box;
+    }
     .swal2-popup.estad-detalle-swal {
         padding: 0;
         border-radius: 1rem;
         overflow: hidden;
         box-shadow: 0 12px 40px rgba(0,0,0,0.15);
-        max-height: 92vh;
+        margin-top: 0 !important;
+        max-height: calc(100vh - max(1rem, env(safe-area-inset-top, 0px)) - 1.25rem) !important;
+        display: flex !important;
+        flex-direction: column !important;
     }
     .swal2-popup.estad-detalle-swal .swal2-title {
         margin: 0;
         padding: 1rem 1.25rem;
+        flex-shrink: 0;
         background: linear-gradient(135deg, rgba(13,110,253,0.08) 0%, rgba(25,135,84,0.06) 100%);
         border-bottom: 1px solid rgba(0,0,0,0.08);
         font-size: 1.05rem;
@@ -239,10 +255,16 @@
         margin: 0;
         padding: 0;
         text-align: left;
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow-x: hidden !important;
+        overflow-y: auto !important;
+        max-height: none !important;
     }
     .swal2-popup.estad-detalle-swal .swal2-actions {
         margin: 0;
         padding: 0.75rem 1.25rem 1rem;
+        flex-shrink: 0;
         background: var(--bs-tertiary-bg, #f8f9fa);
         border-top: 1px solid var(--bs-border-color, #dee2e6);
     }
@@ -256,7 +278,8 @@
         color: #495057;
     }
     .estad-modal-detalle-table-wrap {
-        max-height: 62vh;
+        /* Caben título Swal + leyenda + toolbar + footer sin desbordar el viewport */
+        max-height: min(58vh, calc(100vh - 280px));
         overflow: auto;
         margin: 0;
     }
@@ -315,6 +338,129 @@
         vertical-align: middle;
     }
     .estad-modal-th-tip:hover { opacity: 1; }
+    /* Reporte semanal: modal Bootstrap (sustituye Swal en este flujo) */
+    #modalReporteSemanalGlobal .modal-dialog {
+        max-width: min(1480px, 99vw);
+        width: 100%;
+        margin: 0.65rem auto;
+        /* Altura estable: evita que el scroll “salte” al pasar de carga → datos */
+        max-height: calc(100dvh - 1.25rem);
+        overflow: visible;
+    }
+    #modalReporteSemanalGlobal .modal-content.estad-reporte-semanal-modal-content {
+        border-radius: 1rem;
+        /* visible: evita que la X del header se recorte con el borde redondeado */
+        overflow: visible;
+        box-shadow: 0 12px 40px rgba(0,0,0,0.15);
+        max-height: calc(100dvh - 1.25rem);
+        display: flex;
+        flex-direction: column;
+    }
+    #modalReporteSemanalGlobal .estad-reporte-semanal-modal-content .modal-header {
+        flex-shrink: 0;
+        position: relative;
+        background: linear-gradient(135deg, rgba(13,110,253,0.08) 0%, rgba(25,135,84,0.06) 100%);
+        border-bottom: 1px solid rgba(0,0,0,0.08);
+        border-radius: 1rem 1rem 0 0;
+        padding-top: 0.85rem !important;
+        padding-right: 1rem !important;
+        padding-bottom: 0.65rem !important;
+        padding-left: 1rem !important;
+    }
+    #modalReporteSemanalGlobal .estad-reporte-semanal-modal-content .modal-header .btn-close {
+        padding: 0.5rem;
+        margin: -0.2rem -0.15rem -0.2rem auto;
+        flex-shrink: 0;
+        background-size: 0.7em;
+        opacity: 0.92;
+    }
+    #modalReporteSemanalGlobal .estad-reporte-semanal-modal-content .modal-title {
+        font-size: 1.05rem;
+        font-weight: 700;
+        color: #0f5132;
+    }
+    [data-bs-theme="dark"] #modalReporteSemanalGlobal .estad-reporte-semanal-modal-content .modal-title,
+    .dark-style #modalReporteSemanalGlobal .estad-reporte-semanal-modal-content .modal-title {
+        color: var(--bs-heading-color, #e2e8f0);
+    }
+    #modalReporteSemanalGlobal #modalReporteSemanalGlobalBody {
+        flex: 1 1 auto;
+        min-height: min(62vh, 520px);
+        max-height: calc(100dvh - 7.5rem);
+        overflow-x: hidden;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        border-radius: 0 0 1rem 1rem;
+    }
+    /* Estado “solo cargando”: mismo min-height que con datos → sin estiramiento brusco */
+    #modalReporteSemanalGlobal #modalReporteSemanalGlobalBody.estad-rs-body-loading {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: min(62vh, 520px);
+    }
+    #modalReporteSemanalGlobal .estad-rs-loading-inner {
+        padding: 3rem 1.5rem;
+    }
+    #modalReporteSemanalGlobal .estad-modal-detalle-table-wrap {
+        max-height: min(58vh, calc(100dvh - 18rem));
+    }
+    /* Tarjetas de gráfica: alto fijo para Chart.js (evita escalas raras / canvas aplastado) */
+    #modalReporteSemanalGlobal .estad-rs-chart-card {
+        border: 1px solid var(--bs-border-color, #dee2e6);
+        border-radius: 0.65rem;
+        background: rgba(var(--bs-body-color-rgb, 33, 37, 41), 0.03);
+        overflow: hidden;
+        cursor: pointer;
+        transition: box-shadow 0.15s ease, border-color 0.15s ease;
+    }
+    #modalReporteSemanalGlobal .estad-rs-chart-card:hover {
+        border-color: rgba(13, 110, 253, 0.45);
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+    }
+    #modalReporteSemanalGlobal .estad-rs-chart-card:focus {
+        outline: 2px solid rgba(13, 110, 253, 0.5);
+        outline-offset: 2px;
+    }
+    #modalReporteSemanalGlobal .estad-rs-chart-card-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0.35rem 0.6rem;
+        font-size: 0.72rem;
+        font-weight: 600;
+        color: var(--bs-secondary-color);
+        border-bottom: 1px solid var(--bs-border-color-translucent, rgba(0,0,0,0.08));
+        background: rgba(255, 255, 255, 0.6);
+    }
+    [data-bs-theme="dark"] #modalReporteSemanalGlobal .estad-rs-chart-card-head,
+    .dark-style #modalReporteSemanalGlobal .estad-rs-chart-card-head {
+        background: rgba(0, 0, 0, 0.2);
+    }
+    #modalReporteSemanalGlobal .estad-rs-chart-canvas-wrap {
+        position: relative;
+        width: 100%;
+        height: 300px;
+    }
+    #modalReporteSemanalGlobal .estad-rs-chart-card.estad-rs-chart-tall .estad-rs-chart-canvas-wrap {
+        height: 340px;
+    }
+    #modalReporteSemanalGlobal .estad-rs-chart-caption {
+        font-size: 0.7rem;
+        text-align: center;
+        color: var(--bs-secondary-color);
+        padding: 0.35rem 0.5rem 0.5rem;
+    }
+    /* Modal ampliar gráfica */
+    #modalReporteSemanalChartZoom .modal-dialog {
+        max-width: min(1100px, 96vw);
+    }
+    #modalReporteSemanalChartZoom .estad-rs-zoom-canvas-wrap {
+        position: relative;
+        width: 100%;
+        height: min(72vh, 640px);
+        min-height: 360px;
+    }
     /* Tickets levantados 40% | Por quien levantó 60% (solo lg+) */
     .estad-sabueso-wrap .estad-row-split-40-60 {
         --estad-col-left: 40%;
@@ -820,4 +966,37 @@ $seccionesEstadisticas = isset($seccionesEstadisticas) && is_array($seccionesEst
         </div>
     </div>
 
+</div>
+
+<!-- Reporte semanal: modal Bootstrap (contenido lo inyecta abrirReporteSemanalGlobal en Sabueso.php) -->
+<div class="modal fade" id="modalReporteSemanalGlobal" tabindex="-1" aria-labelledby="modalReporteSemanalGlobalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
+        <div class="modal-content estad-reporte-semanal-modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title mb-0" id="modalReporteSemanalGlobalLabel">
+                    <i class="fa-solid fa-calendar-week me-2 text-primary"></i>Reporte semanal · Por quien levantó
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body p-0" id="modalReporteSemanalGlobalBody"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Ampliar una gráfica del reporte semanal (clic en tarjeta) -->
+<div class="modal fade" id="modalReporteSemanalChartZoom" tabindex="-1" aria-labelledby="modalReporteSemanalChartZoomLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <h5 class="modal-title fs-6 mb-0" id="modalReporteSemanalChartZoomLabel">Gráfica</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body pt-2 pb-3">
+                <p class="text-muted small mb-2"><i class="fa-solid fa-expand me-1"></i>Vista ampliada. Cierre con la X o haciendo clic fuera.</p>
+                <div class="estad-rs-zoom-canvas-wrap border rounded bg-body-secondary bg-opacity-10">
+                    <canvas id="canvasReporteSemanalChartZoom"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
