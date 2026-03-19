@@ -483,77 +483,123 @@ class Empresa extends Model
     // ══════════════════════════════════════════════════════════════
     private const CORTE_ACTUAL_CACHE_TTL = 300;
 
+
     public static function getCorteActual(): ?string
     {
-        $cacheDir = defined('RAIZ') ? (RAIZ . '/storage/cache') : (__DIR__ . '/../storage/cache');
+        // ── 1. Caché en archivo ────────────────────────────────────────────
+        $cacheDir  = defined('RAIZ') ? (RAIZ . '/storage/cache') : (__DIR__ . '/../storage/cache');
         $cacheFile = $cacheDir . '/corte_actual_vencimientos_lunes.json';
+
         if (is_file($cacheFile)) {
             $raw = @file_get_contents($cacheFile);
             if ($raw !== false) {
                 $data = @json_decode($raw, true);
-                if (is_array($data) && isset($data['expires'], $data['col']) && $data['expires'] > time()) {
+                if (is_array($data) && isset($data['expires'], $data['col'])
+                    && $data['expires'] > time()) {
                     return $data['col'] ?: null;
                 }
             }
         }
 
+        // ── 2. Detectar columna por fecha/hora — CERO queries a la DB ─────
+        $diasNombre = ['Domingo','Lunes','Martes','Miercoles','Jueves','Viernes','Sabado'];
+        $hoy        = $diasNombre[(int)date('w')];
+        $horaActual = (int)date('H') * 100 + (int)date('i'); // 1430 = 14:30
+
         $ordenDias = [
-            'Lunes'     => 1, 'Martes'   => 2, 'Miercoles' => 3,
-            'Jueves'    => 4, 'Viernes'  => 5, 'Sabado'    => 6,
+            'Lunes'     => 1, 'Martes'    => 2, 'Miercoles' => 3,
+            'Jueves'    => 4, 'Viernes'   => 5, 'Sabado'    => 6,
             'Domingo'   => 7,
         ];
 
-        try {
-            $db   = new DatabaseSegundometro();
-            $cols = $db->queryAll("
-                SELECT COLUMN_NAME
-                FROM information_schema.COLUMNS
-                WHERE TABLE_SCHEMA = '__SPARTA_SECRET_REDACTED__'
-                  AND TABLE_NAME   = 'tbl_segundometro_semana'
-                  AND COLUMN_NAME LIKE 'Dias_mora_%'
-            ");
+        // Todos los cortes posibles, de mayor peso a menor (más reciente primero)
+        $cortes = [
+            ['dia' => 'Domingo',   'hhmm' => 2350, 'col' => 'Dias_mora_Domingo_23_50'],
+            ['dia' => 'Domingo',   'hhmm' => 2030, 'col' => 'Dias_mora_Domingo_20_30'],
+            ['dia' => 'Domingo',   'hhmm' => 1830, 'col' => 'Dias_mora_Domingo_18_30'],
+            ['dia' => 'Domingo',   'hhmm' => 1630, 'col' => 'Dias_mora_Domingo_16_30'],
+            ['dia' => 'Domingo',   'hhmm' => 1430, 'col' => 'Dias_mora_Domingo_14_30'],
+            ['dia' => 'Domingo',   'hhmm' => 1330, 'col' => 'Dias_mora_Domingo_13_30'],
+            ['dia' => 'Domingo',   'hhmm' => 1130, 'col' => 'Dias_mora_Domingo_11_30'],
+            ['dia' => 'Domingo',   'hhmm' =>  930, 'col' => 'Dias_mora_Domingo_09_30'],
+            ['dia' => 'Domingo',   'hhmm' =>  730, 'col' => 'Dias_mora_Domingo_07_30'],
+            ['dia' => 'Sabado',    'hhmm' => 2350, 'col' => 'Dias_mora_Sabado_23_50'],
+            ['dia' => 'Sabado',    'hhmm' => 2030, 'col' => 'Dias_mora_Sabado_20_30'],
+            ['dia' => 'Sabado',    'hhmm' => 1830, 'col' => 'Dias_mora_Sabado_18_30'],
+            ['dia' => 'Sabado',    'hhmm' => 1630, 'col' => 'Dias_mora_Sabado_16_30'],
+            ['dia' => 'Sabado',    'hhmm' => 1430, 'col' => 'Dias_mora_Sabado_14_30'],
+            ['dia' => 'Sabado',    'hhmm' => 1330, 'col' => 'Dias_mora_Sabado_13_30'],
+            ['dia' => 'Sabado',    'hhmm' => 1130, 'col' => 'Dias_mora_Sabado_11_30'],
+            ['dia' => 'Sabado',    'hhmm' =>  930, 'col' => 'Dias_mora_Sabado_09_30'],
+            ['dia' => 'Sabado',    'hhmm' =>  730, 'col' => 'Dias_mora_Sabado_07_30'],
+            ['dia' => 'Viernes',   'hhmm' => 2350, 'col' => 'Dias_mora_Viernes_23_50'],
+            ['dia' => 'Viernes',   'hhmm' => 2030, 'col' => 'Dias_mora_Viernes_20_30'],
+            ['dia' => 'Viernes',   'hhmm' => 1830, 'col' => 'Dias_mora_Viernes_18_30'],
+            ['dia' => 'Viernes',   'hhmm' => 1630, 'col' => 'Dias_mora_Viernes_16_30'],
+            ['dia' => 'Viernes',   'hhmm' => 1430, 'col' => 'Dias_mora_Viernes_14_30'],
+            ['dia' => 'Viernes',   'hhmm' => 1330, 'col' => 'Dias_mora_Viernes_13_30'],
+            ['dia' => 'Viernes',   'hhmm' => 1130, 'col' => 'Dias_mora_Viernes_11_30'],
+            ['dia' => 'Viernes',   'hhmm' =>  930, 'col' => 'Dias_mora_Viernes_09_30'],
+            ['dia' => 'Viernes',   'hhmm' =>  730, 'col' => 'Dias_mora_Viernes_07_30'],
+            ['dia' => 'Jueves',    'hhmm' => 2350, 'col' => 'Dias_mora_Jueves_23_50'],
+            ['dia' => 'Jueves',    'hhmm' => 2030, 'col' => 'Dias_mora_Jueves_20_30'],
+            ['dia' => 'Jueves',    'hhmm' => 1830, 'col' => 'Dias_mora_Jueves_18_30'],
+            ['dia' => 'Jueves',    'hhmm' => 1630, 'col' => 'Dias_mora_Jueves_16_30'],
+            ['dia' => 'Jueves',    'hhmm' => 1430, 'col' => 'Dias_mora_Jueves_14_30'],
+            ['dia' => 'Jueves',    'hhmm' => 1330, 'col' => 'Dias_mora_Jueves_13_30'],
+            ['dia' => 'Jueves',    'hhmm' => 1130, 'col' => 'Dias_mora_Jueves_11_30'],
+            ['dia' => 'Jueves',    'hhmm' =>  930, 'col' => 'Dias_mora_Jueves_09_30'],
+            ['dia' => 'Jueves',    'hhmm' =>  730, 'col' => 'Dias_mora_Jueves_07_30'],
+            ['dia' => 'Miercoles', 'hhmm' => 2350, 'col' => 'Dias_mora_Miercoles_23_50'],
+            ['dia' => 'Miercoles', 'hhmm' => 2030, 'col' => 'Dias_mora_Miercoles_20_30'],
+            ['dia' => 'Miercoles', 'hhmm' => 1830, 'col' => 'Dias_mora_Miercoles_18_30'],
+            ['dia' => 'Miercoles', 'hhmm' => 1630, 'col' => 'Dias_mora_Miercoles_16_30'],
+            ['dia' => 'Miercoles', 'hhmm' => 1430, 'col' => 'Dias_mora_Miercoles_14_30'],
+            ['dia' => 'Miercoles', 'hhmm' => 1330, 'col' => 'Dias_mora_Miercoles_13_30'],
+            ['dia' => 'Miercoles', 'hhmm' => 1130, 'col' => 'Dias_mora_Miercoles_11_30'],
+            ['dia' => 'Miercoles', 'hhmm' =>  930, 'col' => 'Dias_mora_Miercoles_09_30'],
+            ['dia' => 'Miercoles', 'hhmm' =>  730, 'col' => 'Dias_mora_Miercoles_07_30'],
+            ['dia' => 'Martes',    'hhmm' => 2350, 'col' => 'Dias_mora_Martes_23_50'],
+            ['dia' => 'Martes',    'hhmm' => 2030, 'col' => 'Dias_mora_Martes_20_30'],
+            ['dia' => 'Martes',    'hhmm' => 1830, 'col' => 'Dias_mora_Martes_18_30'],
+            ['dia' => 'Martes',    'hhmm' => 1630, 'col' => 'Dias_mora_Martes_16_30'],
+            ['dia' => 'Martes',    'hhmm' => 1430, 'col' => 'Dias_mora_Martes_14_30'],
+            ['dia' => 'Martes',    'hhmm' => 1330, 'col' => 'Dias_mora_Martes_13_30'],
+            ['dia' => 'Martes',    'hhmm' => 1130, 'col' => 'Dias_mora_Martes_11_30'],
+            ['dia' => 'Martes',    'hhmm' =>  930, 'col' => 'Dias_mora_Martes_09_30'],
+            ['dia' => 'Martes',    'hhmm' =>  730, 'col' => 'Dias_mora_Martes_07_30'],
+            ['dia' => 'Lunes',     'hhmm' => 2350, 'col' => 'Dias_mora_Lunes_23_50'],
+            ['dia' => 'Lunes',     'hhmm' => 2030, 'col' => 'Dias_mora_Lunes_20_30'],
+            ['dia' => 'Lunes',     'hhmm' => 1830, 'col' => 'Dias_mora_Lunes_18_30'],
+            ['dia' => 'Lunes',     'hhmm' => 1630, 'col' => 'Dias_mora_Lunes_16_30'],
+            ['dia' => 'Lunes',     'hhmm' => 1430, 'col' => 'Dias_mora_Lunes_14_30'],
+            ['dia' => 'Lunes',     'hhmm' => 1330, 'col' => 'Dias_mora_Lunes_13_30'],
+            ['dia' => 'Lunes',     'hhmm' => 1130, 'col' => 'Dias_mora_Lunes_11_30'],
+            ['dia' => 'Lunes',     'hhmm' =>  930, 'col' => 'Dias_mora_Lunes_09_30'],
+            ['dia' => 'Lunes',     'hhmm' =>  730, 'col' => 'Dias_mora_Lunes_07_30'],
+        ];
 
-            $cortes = [];
-            foreach ($cols as $row) {
-                $col = $row['COLUMN_NAME'];
-                if (!preg_match(
-                    '/^Dias_mora_(Lunes|Martes|Miercoles|Jueves|Viernes|Sabado|Domingo)_(\d{2})_(\d{2})$/',
-                    $col, $m
-                )) continue;
+        // Peso del momento actual
+        $pesoActual = ($ordenDias[$hoy] * 10000) + $horaActual;
 
-                $peso     = ($ordenDias[$m[1]] * 10000) + ((int)$m[2] * 100) + (int)$m[3];
-                $cortes[] = ['columna' => $col, 'peso' => $peso];
+        $result = null;
+        foreach ($cortes as $c) {
+            $pesoCandidato = ($ordenDias[$c['dia']] * 10000) + $c['hhmm'];
+            if ($pesoCandidato <= $pesoActual) {
+                $result = $c['col'];
+                break; // El primero que sea <= al momento actual es el más reciente
             }
-
-            usort($cortes, fn($a, $b) => $b['peso'] <=> $a['peso']);
-
-            $result = null;
-            foreach ($cortes as $c) {
-                $col = $c['columna'];
-                if ($db->queryOne("
-                    SELECT 1
-                    FROM tbl_segundometro_semana
-                    WHERE `$col` IS NOT NULL
-                      AND TRIM(`$col`) <> ''
-                    LIMIT 1
-                ")) {
-                    $result = $col;
-                    break;
-                }
-            }
-
-            if (is_dir($cacheDir) || @mkdir($cacheDir, 0755, true)) {
-                @file_put_contents($cacheFile, json_encode([
-                    'expires' => time() + self::CORTE_ACTUAL_CACHE_TTL,
-                    'col'     => $result,
-                ], JSON_UNESCAPED_UNICODE));
-            }
-
-            return $result;
-
-        } catch (\Exception $e) {
-            return null;
         }
+
+        // ── 3. Guardar caché ───────────────────────────────────────────────
+        if (is_dir($cacheDir) || @mkdir($cacheDir, 0755, true)) {
+            @file_put_contents($cacheFile, json_encode([
+                'expires' => time() + self::CORTE_ACTUAL_CACHE_TTL,
+                'col'     => $result,
+            ], JSON_UNESCAPED_UNICODE));
+        }
+
+        return $result;
     }
 
     // ══════════════════════════════════════════════════════════════
