@@ -5,7 +5,7 @@
         <div>
             <h4 class="mb-0">
                 <i class="fa fa-calendar-week text-primary me-2"></i>
-                Vencimientos — Lunes de Cierre
+                Primeros pagos — Lunes de Cierre
             </h4>
             <p class="text-muted mb-0" style="font-size:.8rem;">
                 Primer vencimiento:
@@ -34,16 +34,34 @@
         </div>
     </div>
 
-    <!-- ── Distribución nacimiento ── -->
-    <div class="card mb-3">
-        <div class="card-header py-2">
-            <span class="fw-semibold" style="font-size:.82rem;">
-                <i class="fa fa-egg text-primary me-1"></i>
-                Distribución de nacimiento
-            </span>
+    <!-- ── Distribución nacimiento (50%) + Distribución de corte (50%) ── -->
+    <div class="row g-3 mb-3">
+        <div class="col-12 col-md-6">
+            <div class="card h-100 mb-0">
+                <div class="card-header py-2">
+                    <span class="fw-semibold" style="font-size:.82rem;">
+                        <i class="fa fa-egg text-primary me-1"></i>
+                        Distribución de nacimiento
+                    </span>
+                </div>
+                <div class="card-body py-2">
+                    <div class="row row-cols-2 g-2" id="statsNacimiento">
+                    </div>
+                </div>
+            </div>
         </div>
-        <div class="card-body py-2">
-            <div class="row row-cols-2 row-cols-md-5 g-2" id="statsNacimiento">
+        <div class="col-12 col-md-6">
+            <div class="card h-100 mb-0">
+                <div class="card-header py-2">
+                    <span class="fw-semibold" style="font-size:.82rem;">
+                        <i class="fa fa-chart-pie text-primary me-1"></i>
+                        Distribución de corte
+                    </span>
+                </div>
+                <div class="card-body py-2">
+                    <div class="row row-cols-2 g-2" id="statsCorte">
+                    </div>
+                </div>
             </div>
         </div>
     </div>

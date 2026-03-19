@@ -466,7 +466,6 @@ $funcionesTicket = isset($funcionesTicket) && is_array($funcionesTicket) ? $func
                         <div class="col-12">
                             <label for="ticket_validacion_url" class="form-label fw-semibold"><i class="fa-solid fa-link text-primary me-1"></i>Link <span class="text-muted fw-normal">(URL de dirección)</span></label>
                             <input type="url" id="ticket_validacion_url" class="form-control" placeholder="https://...">
-                            <div class="form-text">Se guardará la URL completa sin recortar.</div>
                         </div>
                     </div>
                 </div>

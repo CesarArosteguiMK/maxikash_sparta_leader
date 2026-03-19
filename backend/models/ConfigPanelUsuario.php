@@ -74,8 +74,9 @@ class ConfigPanelUsuario extends Model
     ];
 
     /**
-     * Paneles que la persona puede ver: solo por asignación en config_panel_usuario (Asignación por puestos).
-     * No se usa módulo; hay que asignar al usuario en la pestaña "Panel por usuario".
+     * Paneles que la persona puede ver: solo por filas en config_panel_usuario (pestaña Panel por usuario).
+     * Cada panel es independiente: asignar solo «Panel Sabueso» NO otorga Validaciones, Viáticos, etc.;
+     * hay que marcar cada módulo que deba ver.
      * Devuelve [ clave => ['label','icon','url'], ... ]
      */
     public static function getPanelesVisiblesParaPersona($id_persona, array $modulos = [])
@@ -86,12 +87,8 @@ class ConfigPanelUsuario extends Model
             $panelesUsuario = self::getPanelesPorPersona($id_persona);
         }
         $out = [];
-        $tienePanelSabueso = in_array('sabueso_paneladmin', $panelesUsuario, true);
-        $clavesSubpanelTicket = ['sabueso_panel_validaciones', 'sabueso_panel_plantilla', 'sabueso_panel_atencioncliente', 'sabueso_panel_viaticos', 'sabueso_panel_aplicacionespago', 'sabueso_panel_creditoproblematico', 'sabueso_panel_aclaracioncredito'];
         foreach (self::PANELES as $clave => $info) {
             if (in_array($clave, $panelesUsuario, true)) {
-                $out[$clave] = $info;
-            } elseif ($tienePanelSabueso && in_array($clave, $clavesSubpanelTicket, true)) {
                 $out[$clave] = $info;
             }
         }

@@ -479,9 +479,24 @@ class Empresa extends Model
     // ══════════════════════════════════════════════════════════════
     //  Detectar el corte más reciente con datos reales
     //  (Martes → Lunes, misma lógica que getObtenerUltimoCorte)
+    //  Cache 5 min para evitar information_schema + múltiples probes por request.
     // ══════════════════════════════════════════════════════════════
+    private const CORTE_ACTUAL_CACHE_TTL = 300;
+
     public static function getCorteActual(): ?string
     {
+        $cacheDir = defined('RAIZ') ? (RAIZ . '/storage/cache') : (__DIR__ . '/../storage/cache');
+        $cacheFile = $cacheDir . '/corte_actual_vencimientos_lunes.json';
+        if (is_file($cacheFile)) {
+            $raw = @file_get_contents($cacheFile);
+            if ($raw !== false) {
+                $data = @json_decode($raw, true);
+                if (is_array($data) && isset($data['expires'], $data['col']) && $data['expires'] > time()) {
+                    return $data['col'] ?: null;
+                }
+            }
+        }
+
         $ordenDias = [
             'Lunes'     => 1, 'Martes'   => 2, 'Miercoles' => 3,
             'Jueves'    => 4, 'Viernes'  => 5, 'Sabado'    => 6,
@@ -512,6 +527,7 @@ class Empresa extends Model
 
             usort($cortes, fn($a, $b) => $b['peso'] <=> $a['peso']);
 
+            $result = null;
             foreach ($cortes as $c) {
                 $col = $c['columna'];
                 if ($db->queryOne("
@@ -521,11 +537,19 @@ class Empresa extends Model
                       AND TRIM(`$col`) <> ''
                     LIMIT 1
                 ")) {
-                    return $col;
+                    $result = $col;
+                    break;
                 }
             }
 
-            return null;
+            if (is_dir($cacheDir) || @mkdir($cacheDir, 0755, true)) {
+                @file_put_contents($cacheFile, json_encode([
+                    'expires' => time() + self::CORTE_ACTUAL_CACHE_TTL,
+                    'col'     => $result,
+                ], JSON_UNESCAPED_UNICODE));
+            }
+
+            return $result;
 
         } catch (\Exception $e) {
             return null;
@@ -550,6 +574,11 @@ class Empresa extends Model
             ];
         }
 
+        // Lunes de cierre (misma lógica que en SQL: días desde el último lunes)
+        $dow   = (int)date('w');
+        $dias  = ($dow + 6) % 7;
+        $lunes = date('Y-m-d', strtotime("-$dias days"));
+
         // Bucket calculado desde días mora del corte actual
         $bucketCorteSQL = "
             CASE
@@ -562,6 +591,7 @@ class Empresa extends Model
             END
         ";
 
+        // WHERE con igualdad directa a :lunes para permitir uso de índice en Fecha_primer_vencimiento
         $sql = "
             SELECT
                 t.Id_credito,
@@ -575,18 +605,9 @@ class Empresa extends Model
                 t.Saldo_vencido_actualizado,
                 t.Fecha_primer_vencimiento,
                 `$corteCol`                      AS dias_mora_corte,
-                ($bucketCorteSQL)                AS bucket_corte_actual,
-                DATE_FORMAT(
-                    DATE_SUB(CURDATE(),
-                        INTERVAL IF((DAYOFWEEK(CURDATE())+5)%7=0, 7, (DAYOFWEEK(CURDATE())+5)%7) DAY
-                    ), '%Y-%m-%d'
-                ) AS lunes_calculado
+                ($bucketCorteSQL)                AS bucket_corte_actual
             FROM tbl_segundometro_semana t
-            WHERE
-                STR_TO_DATE(t.Fecha_primer_vencimiento, '%Y-%m-%d') =
-                DATE_SUB(CURDATE(),
-                    INTERVAL IF((DAYOFWEEK(CURDATE())+5)%7=0, 7, (DAYOFWEEK(CURDATE())+5)%7) DAY
-                )
+            WHERE t.Fecha_primer_vencimiento = :lunes
             ORDER BY
                 t.Territorial,
                 t.Zonal,
@@ -597,22 +618,9 @@ class Empresa extends Model
 
         try {
             $db   = new DatabaseSegundometro();
-            $rows = $db->queryAll($sql);
+            $rows = $db->queryAll($sql, ['lunes' => $lunes]);
 
-            $lunesPasado = !empty($rows)
-                ? $rows[0]['lunes_calculado']
-                : ($db->queryOne("
-                    SELECT DATE_FORMAT(
-                        DATE_SUB(CURDATE(),
-                            INTERVAL IF((DAYOFWEEK(CURDATE())+5)%7=0, 7, (DAYOFWEEK(CURDATE())+5)%7) DAY
-                        ), '%Y-%m-%d'
-                    ) AS lunes_calculado
-                  ")['lunes_calculado'] ?? null);
-
-            foreach ($rows as &$row) {
-                unset($row['lunes_calculado']);
-            }
-            unset($row);
+            $lunesPasado = $lunes;
 
             return [
                 'success'      => true,

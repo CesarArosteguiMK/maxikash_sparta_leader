@@ -14,6 +14,53 @@
         return x.split('"').join('&quot;');
     }
 
+    function countdown24h(fechaVencStr) {
+        if (!fechaVencStr) return { text: '—', colorClass: 'text-muted', blink: false };
+        var fin = new Date(fechaVencStr).getTime();
+        var now = Date.now();
+        var rest = Math.floor((fin - now) / 1000);
+        var blink = false;
+        var colorClass = 'text-success';
+        var text;
+        if (rest <= 0) {
+            text = 'Vencido';
+            colorClass = 'text-danger fw-bold';
+            blink = true;
+        } else {
+            var h = Math.floor(rest / 3600);
+            var m = Math.floor((rest % 3600) / 60);
+            var s = rest % 60;
+            var ss = (s < 10 ? '0' : '') + s;
+            if (h > 0) text = h + 'h ' + (m < 10 ? '0' : '') + m + 'm ' + ss + 's';
+            else if (m > 0) text = m + 'm ' + ss + 's';
+            else text = s + 's';
+            if (rest <= 30 * 60) {
+                colorClass = 'text-danger fw-bold';
+                blink = true;
+            } else if (rest <= 60 * 60) colorClass = 'text-danger fw-bold';
+            else if (rest <= 6 * 60 * 60) colorClass = 'text-warning fw-semibold';
+            else if (rest <= 12 * 60 * 60) colorClass = 'text-warning';
+            else colorClass = 'text-success';
+        }
+        return { text: text, colorClass: colorClass, blink: blink };
+    }
+
+    function renderCountdownCell(fechaVencStr) {
+        var c = countdown24h(fechaVencStr);
+        var blink = c.blink ? ' tm-countdown-blink' : '';
+        return '<span class="d-inline-flex align-items-center gap-1"><i class="fa-regular fa-clock me-1" style="font-size:0.85em;opacity:0.85"></i><span class="tm-countdown' + blink + ' ' + c.colorClass + '" data-tm-venc="' + attrEsc(fechaVencStr || '') + '">' + attrEsc(c.text) + '</span></span>';
+    }
+
+    function actualizarCountdownsTabla() {
+        $(SEL_TABLA + ' .tm-countdown[data-tm-venc]').each(function () {
+            var venc = $(this).attr('data-tm-venc');
+            if (!venc) return;
+            var c = countdown24h(venc);
+            $(this).text(c.text).removeClass('text-success text-warning text-danger text-muted fw-bold fw-semibold tm-countdown-blink').addClass(c.colorClass);
+            if (c.blink) $(this).addClass('tm-countdown-blink');
+        });
+    }
+
     function aplicarTitulosColumnas(dt, T) {
         if (!dt || !T) return;
         function sc(i, t) {
@@ -36,11 +83,12 @@
     function mapRow(t) {
         var CAT = (cfg().categoria || '').trim();
         var catLabel = (cfg().labelBadge || CAT || '—').replace(/</g, '&lt;');
+        var optsFechaHora = { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' };
         var fechaCreacion = t.fecha_creacion
-            ? new Date(t.fecha_creacion).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' })
+            ? new Date(t.fecha_creacion).toLocaleString('es-MX', optsFechaHora)
             : '—';
         var fechaVenc = t.fecha_vencimiento
-            ? new Date(t.fecha_vencimiento).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' })
+            ? new Date(t.fecha_vencimiento).toLocaleString('es-MX', optsFechaHora)
             : '—';
         var prioridadNombre = (t.prioridad_nombre || '').toLowerCase();
         var prioridadBadge = '<span class="badge bg-label-secondary">' + (t.prioridad_nombre || '—') + '</span>';
@@ -53,7 +101,7 @@
             prioridadBadge = '<span class="badge bg-secondary" style="background-color:#6c757d!important;color:#fff;">' + (t.prioridad_nombre || '—') + '</span>';
         var estadoBadge =
             t.asignado_nombre && (t.asignado_nombre + '').trim()
-                ? '<span class="badge bg-success text-white">Asignado</span>'
+                ? '<span class="badge bg-label-success">Asignado</span>'
                 : '<span class="badge bg-label-secondary">Abierto</span>';
         var catK = ((t.categoria_gestion || CAT || 'sabueso') + '').toLowerCase().trim();
         var icoM = {
@@ -72,22 +120,29 @@
             (t.folio || '—') +
             '</div><div class="small text-muted mt-1">' +
             (t.tipo_ticket_nombre || '—') +
-            '</div><div class="mt-1 d-inline-flex align-items-center gap-1 flex-nowrap"><i class="fa-solid ' +
+            '</div><div class="mt-1"><span class="badge bg-label-primary small d-inline-flex align-items-center gap-1"><i class="fa-solid ' +
             icCat +
-            ' text-primary" style="font-size:0.78rem;line-height:1;flex-shrink:0;margin-top:1px" aria-hidden="true"></i><span class="badge bg-label-primary small mb-0">' +
+            '" style="font-size:0.7rem;line-height:1" aria-hidden="true"></i>' +
             catLabel +
             '</span></div>';
         var creditoVal =
             t.id_credito != null && t.id_credito > 0 ? '#' + t.id_credito : t.asunto || t.tipo_categoria || '—';
         var creditoHtml = '<small>' + String(creditoVal).replace(/&/g, '&amp;').replace(/</g, '&lt;') + '</small>';
+        var soloCerrar = (CAT === 'validaciones');
         var acciones =
             '<div class="d-flex flex-column gap-1 align-items-stretch" style="min-width:2.5rem;">' +
+            '<button type="button" class="btn btn-sm btn-outline-primary" data-tm-ver="' +
+            t.id_ticket +
+            '" title="Ver detalle"><i class="fa fa-ticket"></i></button>' +
             '<button type="button" class="btn btn-sm btn-secondary" data-tm-cerrar="' +
             t.id_ticket +
             '" title="Cerrar ticket"><i class="fa fa-minus"></i></button>' +
-            '<button type="button" class="btn btn-sm btn-danger" data-tm-eliminar="' +
-            t.id_ticket +
-            '" title="Eliminar ticket"><i class="fa fa-trash"></i></button></div>';
+            (soloCerrar
+                ? ''
+                : '<button type="button" class="btn btn-sm btn-danger" data-tm-eliminar="' +
+                    t.id_ticket +
+                    '" title="Eliminar ticket"><i class="fa fa-trash"></i></button>') +
+            '</div>';
         return {
             _fecha_creacion: t.fecha_creacion || '',
             folio_tipo: folioTipoHtml,
@@ -105,7 +160,7 @@
                 t.asignado_nombre && t.asignado_nombre.trim()
                     ? '<small class="d-flex align-items-center gap-1"><i class="fa fa-user-check text-success"></i>' + t.asignado_nombre + '</small>'
                     : '<span class="text-muted">—</span>',
-            tiempo_visitar: '—',
+            tiempo_visitar: renderCountdownCell(t.fecha_vencimiento),
             ds_resultado: t.ds_resultado_html != null && t.ds_resultado_html !== '' ? t.ds_resultado_html : '—',
             dictamen_visto: '',
             acciones: acciones,
@@ -127,6 +182,10 @@
             showLoader: false,
             onSuccess: function (resp) {
                 if (esPrimera) window._ticketsModuloPanelPrimeraCarga = false;
+                window._ticketsModuloCache = {};
+                (resp.datos || []).forEach(function (t) {
+                    if (t && t.id_ticket) window._ticketsModuloCache[t.id_ticket] = t;
+                });
                 var datos = (resp.datos || []).map(mapRow);
                 var tabla = $(SEL_TABLA).DataTable();
                 var pagAntes = tabla.page.info().page;
@@ -142,8 +201,12 @@
                 }
                 tabla.page(pagAntes).draw(false);
                 aplicarTitulosColumnas(tabla, window.TICKETS_MODULO_TITULOS);
-                tabla.columns([9, 10, 11]).visible(false);
+                tabla.columns([10, 11]).visible(false);
                 $(SEL_TABLA + ' [data-bs-toggle="tooltip"]').tooltip();
+                actualizarCountdownsTabla();
+                if (!window._tmCountdownInterval) {
+                    window._tmCountdownInterval = setInterval(actualizarCountdownsTabla, 1000);
+                }
             },
             onError: function () {
                 window._ticketsModuloPanelPrimeraCarga = false;
@@ -230,12 +293,248 @@
             dt = $(SEL_TABLA).DataTable();
         } catch (e) {}
         if (dt && window.TICKETS_MODULO_TITULOS) aplicarTitulosColumnas(dt, window.TICKETS_MODULO_TITULOS);
-        if (dt) dt.columns([9, 10, 11]).visible(false);
+        if (dt) dt.columns([10, 11]).visible(false);
         $(document).on('click', SEL_TABLA + ' [data-tm-cerrar]', function () {
             cerrarTicket(parseInt($(this).attr('data-tm-cerrar'), 10));
         });
         $(document).on('click', SEL_TABLA + ' [data-tm-eliminar]', function () {
             eliminarTicket(parseInt($(this).attr('data-tm-eliminar'), 10));
+        });
+        $(document).on('click', SEL_TABLA + ' [data-tm-ver]', function () {
+            var id = parseInt($(this).attr('data-tm-ver'), 10);
+            if (isNaN(id) || id < 1) return;
+            var cache = window._ticketsModuloCache;
+            var t = cache && cache[id];
+            if (!t) return;
+            var fechaCreacion = t.fecha_creacion
+                ? new Date(t.fecha_creacion).toLocaleString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                : '—';
+            var fechaVenc = t.fecha_vencimiento
+                ? new Date(t.fecha_vencimiento).toLocaleString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                : '—';
+            $('#resumenTicketDe').text((t.creador_nombre || '').trim() || '—');
+            $('#resumenTicketFecha').text(fechaCreacion);
+            $('#resumenTicketVence').text(fechaVenc);
+            $('#resumenTicketFolio').text(t.folio || '—');
+            var estadoTxt = (t.estado_ticket_nombre || '—').trim() || '—';
+            $('#resumenTicketEstado').text(estadoTxt);
+            $('#resumenTicketEstadoPill').text((estadoTxt !== '—' ? '\u25CF ' : '') + estadoTxt);
+            var prioridadTxt = (t.prioridad_nombre || '—').trim() || '—';
+            $('#resumenTicketPrioridad').text(prioridadTxt);
+            $('#resumenTicketPrioridadPill').text((prioridadTxt !== '—' ? '\u25CF ' : '') + prioridadTxt);
+            $('#resumenTicketPrioridadSide').text((prioridadTxt !== '—' ? '\u25CF ' : '') + prioridadTxt);
+            var refVal = t.id_credito != null && t.id_credito > 0 ? 'Crédito #' + t.id_credito : (t.asunto || t.tipo_categoria || '—');
+            $('#resumenTicketRef').text(refVal);
+            $('#resumenTicketRefSide').text(refVal);
+            $('#resumenTicketCreado').text(fechaCreacion);
+            $('#resumenTicketAsunto').text((t.asunto || t.tipo_categoria || '—').trim() || '—');
+            $('#resumenTicketDescripcion').text((t.descripcion_inicial || '').trim() || '—');
+            var notaTexto = (t.nota || '').trim();
+            var urlDir = (t.url_direccion || '').trim();
+            $('#resumenTicketLinkWrap').empty();
+            if (notaTexto || urlDir) {
+                $('#resumenTicketExtraWrap').removeClass('d-none');
+                if (notaTexto) {
+                    $('#resumenTicketNota').text(notaTexto).removeClass('d-none');
+                } else {
+                    $('#resumenTicketNota').empty().addClass('d-none');
+                }
+                if (urlDir) {
+                    var esMaps = /google\.com\/maps|maps\.google/i.test(urlDir);
+                    var labelLink = esMaps ? 'Ver en mapa' : 'Abrir enlace';
+                    var iconLink = esMaps ? 'fa-map-location-dot' : 'fa-external-link';
+                    var linkHtml = '<a href="' + attrEsc(urlDir) + '" target="_blank" rel="noopener" class="rt-btn-mapa"><i class="fa-solid ' + iconLink + '"></i> ' + labelLink + '</a>';
+                    $('#resumenTicketLinkWrap').html(linkHtml);
+                }
+            } else {
+                $('#resumenTicketExtraWrap').addClass('d-none');
+            }
+            if (t.ds_resultado && String(t.ds_resultado).trim()) {
+                $('#resumenTicketDs').html(t.ds_resultado_html || attrEsc(t.ds_resultado));
+                $('#resumenTicketDsWrap').removeClass('d-none');
+            } else {
+                $('#resumenTicketDsWrap').addClass('d-none');
+            }
+            var idTicket = t.id_ticket;
+            var idPersonaActual = t.id_persona_asignada != null && t.id_persona_asignada > 0 ? parseInt(t.id_persona_asignada, 10) : 0;
+            var $sel = $('#resumenTicketAsignarSelect');
+            $sel.off('change.resumenTicket').empty().append('<option value="">Sin asignar</option>');
+            $sel.data('resumen-id-ticket', idTicket);
+            function campoAsignarActual() {
+                var v = $('input[name="tmAsignarCampo"]:checked').val();
+                return v === '8_21' ? '8_21' : '1_7';
+            }
+            function cargarSelectAsignacionJefes() {
+                var campo = campoAsignarActual();
+                var $hint = $('#resumenTicketAsignarHint');
+                $hint.addClass('d-none').text('');
+                $sel.empty().append('<option value="">Sin asignar</option>');
+                if (typeof http === 'undefined') return;
+                http.request({
+                    endpoint: '/sabueso/getPersonasSabuesoJefesPorCampo',
+                    metodo: 'POST',
+                    data: JSON.stringify({ campo: campo }),
+                    contentType: 'application/json',
+                    processData: false,
+                    showLoader: false,
+                    onSuccess: function (resp) {
+                        var list = resp.datos || [];
+                        if (!list.length && resp.mensaje) {
+                            $hint.removeClass('d-none').text(resp.mensaje);
+                        }
+                        list.forEach(function (p) {
+                            var sub = (p.nombre_puesto || '').trim();
+                            var txt = attrEsc((p.nombre_completo || p.nombre || '').trim() || '');
+                            if (sub) txt += ' — ' + attrEsc(sub);
+                            $sel.append('<option value="' + (p.id || '') + '">' + txt + '</option>');
+                        });
+                        if (idPersonaActual > 0) {
+                            if ($sel.find('option[value="' + idPersonaActual + '"]').length) {
+                                $sel.val(String(idPersonaActual));
+                            } else {
+                                $sel.append('<option value="' + idPersonaActual + '">' + attrEsc((t.asignado_nombre || 'Asignado actual').trim() || ('ID ' + idPersonaActual)) + ' (actual)</option>');
+                                $sel.val(String(idPersonaActual));
+                            }
+                        } else {
+                            $sel.val('');
+                        }
+                    },
+                    onError: function () {
+                        $sel.append('<option value="" disabled>Error al cargar lista</option>');
+                        $hint.removeClass('d-none').text('No se pudo cargar la lista de líderes. Revise permisos (Sabueso) o recargue la página (Ctrl+F5).');
+                    }
+                });
+            }
+            $('input[name="tmAsignarCampo"]').off('change.tmAsignarCampo').on('change.tmAsignarCampo', function () {
+                cargarSelectAsignacionJefes();
+            });
+            function onAsignarChange() {
+                var tid = $sel.data('resumen-id-ticket');
+                var pid = $sel.val();
+                if (!tid || typeof http === 'undefined') return;
+                if (pid === '' || pid === null) {
+                    http.request({
+                        endpoint: '/sabueso/quitarAsignacionTicket',
+                        metodo: 'POST',
+                        data: JSON.stringify({ id_ticket: tid }),
+                        contentType: 'application/json',
+                        processData: false,
+                        onSuccess: function (r) {
+                            if (r.success) {
+                                if (window._ticketsModuloCache && window._ticketsModuloCache[tid]) {
+                                    window._ticketsModuloCache[tid].asignado_nombre = '';
+                                    window._ticketsModuloCache[tid].id_persona_asignada = null;
+                                }
+                                if (typeof Swal !== 'undefined') Swal.fire({ icon: 'success', title: 'Asignación quitada', timer: 1500, showConfirmButton: false });
+                                if (typeof getTicketsModuloPanel === 'function') getTicketsModuloPanel();
+                            } else {
+                                if (typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: r.mensaje || 'Error' });
+                            }
+                        },
+                        onError: function (e) {
+                            if (typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: (e && e.mensaje) || 'Error' });
+                        }
+                    });
+                } else {
+                    var idP = parseInt(pid, 10);
+                    if (isNaN(idP) || idP < 1) return;
+                    http.request({
+                        endpoint: '/sabueso/asignarTicket',
+                        metodo: 'POST',
+                        data: JSON.stringify({ id_ticket: tid, id_persona: idP }),
+                        contentType: 'application/json',
+                        processData: false,
+                        onSuccess: function (r) {
+                            if (r.success) {
+                                var nom = $sel.find('option:selected').text();
+                                if (window._ticketsModuloCache && window._ticketsModuloCache[tid]) {
+                                    window._ticketsModuloCache[tid].asignado_nombre = nom;
+                                    window._ticketsModuloCache[tid].id_persona_asignada = idP;
+                                }
+                                if (typeof Swal !== 'undefined') Swal.fire({ icon: 'success', title: 'Asignado', timer: 1500, showConfirmButton: false });
+                                if (typeof getTicketsModuloPanel === 'function') getTicketsModuloPanel();
+                            } else {
+                                if (typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: r.mensaje || 'Error' });
+                            }
+                        },
+                        onError: function (e) {
+                            if (typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: (e && e.mensaje) || 'Error' });
+                        }
+                    });
+                }
+            }
+            $sel.on('change.resumenTicket', onAsignarChange);
+            var vencStr = t.fecha_vencimiento || '';
+            $('#modalResumenTicket').data('venc', vencStr);
+            var c0 = countdown24h(vencStr);
+            var $countdownEl = $('#resumenTicketCountdown');
+            $countdownEl.text(c0.text).removeClass('text-success text-warning text-danger text-muted fw-bold fw-semibold tm-countdown-blink').addClass(c0.colorClass);
+            if (c0.blink) $countdownEl.addClass('tm-countdown-blink');
+            if (window._tmModalCountdownInterval) {
+                clearInterval(window._tmModalCountdownInterval);
+                window._tmModalCountdownInterval = null;
+            }
+            var modalEl = document.getElementById('modalResumenTicket');
+            if (modalEl && typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+                var modalInstance = bootstrap.Modal.getOrCreateInstance(modalEl);
+                $(modalEl).off('shown.bs.modal hidden.bs.modal').on('shown.bs.modal', function () {
+                    window._tmModalCountdownInterval = setInterval(function () {
+                        var v = $('#modalResumenTicket').data('venc');
+                        if (!v) return;
+                        var c = countdown24h(v);
+                        $('#resumenTicketCountdown').text(c.text).removeClass('text-success text-warning text-danger text-muted fw-bold fw-semibold tm-countdown-blink').addClass(c.colorClass);
+                        if (c.blink) $('#resumenTicketCountdown').addClass('tm-countdown-blink');
+                    }, 1000);
+                }).on('hidden.bs.modal', function () {
+                    if (window._tmModalCountdownInterval) {
+                        clearInterval(window._tmModalCountdownInterval);
+                        window._tmModalCountdownInterval = null;
+                    }
+                });
+                modalInstance.show();
+            }
+            if (cfg().formularios) {
+                $('#resumenTicketFormularioWrap').removeClass('d-none');
+                var $formSel = $('#resumenTicketFormularioSelect');
+                var $formPrecargadoNombre = $('#resumenTicketFormularioPrecargadoNombre');
+                $formSel.off('change.resumenForm').empty().append('<option value="">— Ninguno —</option>');
+                var storedForm = typeof localStorage !== 'undefined' ? (localStorage.getItem('tm_formulario_' + idTicket) || localStorage.getItem('tm_formulario_precargado')) : null;
+                function actualizarPrecargadoLabel() {
+                    var opt = $formSel.find('option:selected');
+                    var nombre = opt.length ? opt.text() : '—';
+                    $formPrecargadoNombre.text(nombre || '—');
+                }
+                if (typeof http !== 'undefined') {
+                    http.request({
+                        endpoint: '/validaciones/getFormularios',
+                        metodo: 'GET',
+                        showLoader: false,
+                        onSuccess: function (resp) {
+                            var list = Array.isArray(resp.datos) ? resp.datos : [];
+                            var activos = list.filter(function (f) { return f.activo === 1 || f.activo === true; });
+                            activos.forEach(function (f) {
+                                $formSel.append('<option value="' + (f.id || '') + '">' + attrEsc((f.nombre || '').trim() || 'Sin nombre') + '</option>');
+                            });
+                            if (storedForm) {
+                                $formSel.val(storedForm);
+                            } else if (activos.length > 0) {
+                                var primerId = activos[0].id;
+                                $formSel.val(String(primerId));
+                                if (typeof localStorage !== 'undefined') localStorage.setItem('tm_formulario_' + idTicket, String(primerId));
+                            }
+                            actualizarPrecargadoLabel();
+                        }
+                    });
+                }
+                $formSel.on('change.resumenForm', function () {
+                    var val = $(this).val();
+                    if (typeof localStorage !== 'undefined') localStorage.setItem('tm_formulario_' + idTicket, val || '');
+                    actualizarPrecargadoLabel();
+                });
+            } else {
+                $('#resumenTicketFormularioWrap').addClass('d-none');
+            }
+            cargarSelectAsignacionJefes();
         });
         window.getTicketsModuloPanel();
     }
@@ -245,6 +544,9 @@
 
     if (cfg().formularios) {
         (function formulariosValidacion() {
+            var idFormulario = typeof window.FP_ID_FORMULARIO !== 'undefined' ? parseInt(window.FP_ID_FORMULARIO, 10) : 0;
+            if (isNaN(idFormulario)) idFormulario = 0;
+
             function wait$() {
                 if (typeof window.$ === 'undefined') {
                     setTimeout(wait$, 50);
@@ -262,8 +564,27 @@
                             if (callback) callback([]);
                             return;
                         }
+                        var url = '/validaciones/getPreguntasFormulario';
+                        if (idFormulario > 0) url += '?id_formulario=' + idFormulario;
                         http.request({
-                            endpoint: '/validaciones/getPreguntasFormulario',
+                            endpoint: url,
+                            metodo: 'GET',
+                            onSuccess: function (resp) {
+                                var datos = Array.isArray(resp.datos) ? resp.datos : [];
+                                if (callback) callback(datos);
+                            },
+                            onError: function () {
+                                if (callback) callback([]);
+                            }
+                        });
+                    }
+                    function fpCargarFormularios(callback) {
+                        if (typeof http === 'undefined') {
+                            if (callback) callback([]);
+                            return;
+                        }
+                        http.request({
+                            endpoint: '/validaciones/getFormularios',
                             metodo: 'GET',
                             onSuccess: function (resp) {
                                 var datos = Array.isArray(resp.datos) ? resp.datos : [];
@@ -282,7 +603,88 @@
                             .replace(/>/g, '&gt;')
                             .replace(/"/g, '&quot;');
                     }
-                    // Scrim encima del modal padre cuando se abre Tipo de pregunta o Editar pregunta
+                    var PRECARGADO_KEY = 'tm_formulario_precargado';
+                    var PRECARGADO_NOMBRE_KEY = 'tm_formulario_precargado_nombre';
+                    function actualizarPrecargadoEnPantalla() {
+                        var nombre = typeof localStorage !== 'undefined' ? localStorage.getItem(PRECARGADO_NOMBRE_KEY) : null;
+                        var txt = (nombre && nombre.trim()) ? nombre.trim() : 'Ninguno';
+                        $('#panelFormularioPrecargadoNombre').text(txt);
+                        $('#panelFormularioPrecargadoWrap').removeClass('d-none').addClass('d-flex');
+                        $('#formularioPrecargadoActualNombre').text(txt);
+                    }
+                    function establecerPrecargado(id, nombre) {
+                        if (typeof localStorage === 'undefined') return;
+                        localStorage.setItem(PRECARGADO_KEY, String(id || ''));
+                        localStorage.setItem(PRECARGADO_NOMBRE_KEY, (nombre || '').trim() || '');
+                        actualizarPrecargadoEnPantalla();
+                    }
+                    function fpRefrescarListaFormularios(datos) {
+                        if (datos === undefined) {
+                            fpCargarFormularios(fpRefrescarListaFormularios);
+                            return;
+                        }
+                        var $ul = $('#listaFormulariosValidacion');
+                        if (!$ul.length) return;
+                        if (!datos.length) {
+                            $ul.html('<li class="list-group-item small text-muted fst-italic py-3 text-center">(Sin formularios aún)</li>');
+                            $('#formValidacionSinFormularios').show();
+                            actualizarPrecargadoEnPantalla();
+                            return;
+                        }
+                        $('#formValidacionSinFormularios').hide();
+                        $ul.empty();
+                        var precargadoId = typeof localStorage !== 'undefined' ? localStorage.getItem(PRECARGADO_KEY) : null;
+                        var activos = datos.filter(function (f) { return f.activo === 1 || f.activo === true; });
+                        if (!precargadoId && activos.length > 0) {
+                            establecerPrecargado(activos[0].id, (activos[0].nombre || '').trim());
+                        } else {
+                            actualizarPrecargadoEnPantalla();
+                        }
+                        precargadoId = typeof localStorage !== 'undefined' ? localStorage.getItem(PRECARGADO_KEY) : null;
+                        datos.forEach(function (f) {
+                            var activo = f.activo === 1 || f.activo === true;
+                            var badge = activo ? '<span class="badge bg-label-success">Activo</span>' : '<span class="badge bg-secondary">Inactivo</span>';
+                            var nombre = fpEsc((f.nombre || '').trim() || 'Sin nombre');
+                            var nombreRaw = (f.nombre || '').trim() || 'Sin nombre';
+                            var esPrecargado = String(f.id || '') === String(precargadoId || '');
+                            var btnPrecargado = (activo && !esPrecargado)
+                                ? '<button type="button" class="btn btn-sm btn-label-success fp-form-usar-precargado" data-id="' + (f.id || '') + '" data-nombre="' + fpEsc(nombreRaw) + '" title="Usar como formulario precargado"><i class="fa-solid fa-star"></i></button>'
+                                : '';
+                            $ul.append(
+                                '<li class="list-group-item d-flex align-items-center gap-2 fp-form-item-formulario" data-id="' + (f.id || '') + '">' +
+                                '<div class="flex-grow-1 min-w-0"><span class="me-2">' + badge + '</span><span class="small">' + nombre + '</span>' + (esPrecargado ? ' <span class="badge bg-label-success ms-1">Precargado</span>' : '') + '</div>' +
+                                (btnPrecargado ? btnPrecargado + ' ' : '') +
+                                '<button type="button" class="btn btn-sm btn-outline-warning fp-form-toggle-formulario" data-id="' + (f.id || '') + '" title="' + (activo ? 'Inhabilitar' : 'Habilitar') + '"><i class="fa-solid fa-toggle-' + (activo ? 'on' : 'off') + '"></i></button>' +
+                                '<button type="button" class="btn btn-sm btn-outline-danger fp-form-eliminar-formulario" data-id="' + (f.id || '') + '" title="Eliminar"><i class="fa-solid fa-trash"></i></button>' +
+                                '</li>'
+                            );
+                        });
+                        $(document).off('click', '.fp-form-usar-precargado').on('click', '.fp-form-usar-precargado', function (e) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            var id = $(this).attr('data-id');
+                            var nombre = $(this).attr('data-nombre') || '';
+                            establecerPrecargado(id, nombre);
+                            fpCargarFormularios(fpRefrescarListaFormularios);
+                        });
+                    }
+                    fpCargarFormularios(function (datos) {
+                        var activos = (datos || []).filter(function (f) { return f.activo === 1 || f.activo === true; });
+                        var precargadoId = typeof localStorage !== 'undefined' ? localStorage.getItem(PRECARGADO_KEY) : null;
+                        if (!precargadoId && activos.length > 0) {
+                            establecerPrecargado(activos[0].id, (activos[0].nombre || '').trim());
+                        } else {
+                            actualizarPrecargadoEnPantalla();
+                        }
+                    });
+                    function fpEsc(s) {
+                        if (s == null) return '';
+                        return String(s)
+                            .replace(/&/g, '&amp;')
+                            .replace(/</g, '&lt;')
+                            .replace(/>/g, '&gt;')
+                            .replace(/"/g, '&quot;');
+                    }
                     var parentFormEl = document.getElementById('modalFormulariosValidacion');
                     var scrimFormEl = document.getElementById('scrimFormulariosModulo');
                     var fpChildModalIds = ['modalTipoPreguntaValidacion', 'modalEditarPreguntaValidacion'];
@@ -336,9 +738,10 @@
                             fpCargarDesdeServidor(fpRefrescarListaPrincipal);
                             return;
                         }
+                        var $pre = $('#listaPreguntasPredefinidasValidacion');
+                        if (!$pre.length) return;
                         var predefinidas = datos.filter(function (p) { return p.es_predefinida === 1 || p.es_predefinida === true; });
                         var personalizadas = datos.filter(function (p) { return p.es_predefinida === 0 || p.es_predefinida === false; });
-                        var $pre = $('#listaPreguntasPredefinidasValidacion');
                         if (!predefinidas.length)
                             $pre.html('<li class="list-group-item small text-muted fst-italic py-3 text-center">(Sin preguntas predefinidas aún)</li>');
                         else {
@@ -347,7 +750,7 @@
                                 var checked = p.activa === 1 || p.activa === true ? ' checked' : '';
                                 var sub = fpRenderSub(p);
                                 $pre.append(
-                                    '<li class="list-group-item d-flex align-items-start gap-2">' +
+                                    '<li class="list-group-item d-flex align-items-start gap-2 fp-form-item-validacion" data-id="' + (p.id || '') + '">' +
                                     '<input type="checkbox" class="form-check-input mt-1 fp-toggle-activa" data-id="' + (p.id || '') + '"' + checked + ' title="Incluir en cuestionario">' +
                                     '<div class="min-w-0 flex-grow-1"><span class="badge bg-label-success me-1">' + fpEsc(TIPO_LABEL[p.tipo] || p.tipo) + '</span><span class="small">' +
                                     fpEsc((p.texto || '').substring(0, 200)) + ((p.texto || '').length > 200 ? '…' : '') + '</span>' + sub + '</div></li>'
@@ -364,7 +767,7 @@
                                 var checked = p.activa === 1 || p.activa === true ? ' checked' : '';
                                 var sub = fpRenderSub(p);
                                 $ul.append(
-                                    '<li class="list-group-item d-flex justify-content-between align-items-start gap-2">' +
+                                    '<li class="list-group-item d-flex justify-content-between align-items-start gap-2 fp-form-item-validacion" data-id="' + (p.id || '') + '">' +
                                     '<div class="d-flex align-items-start gap-2 min-w-0 flex-grow-1">' +
                                     '<input type="checkbox" class="form-check-input mt-1 fp-toggle-activa" data-id="' + (p.id || '') + '"' + checked + ' title="Incluir en cuestionario">' +
                                     '<div class="min-w-0"><span class="badge bg-label-success me-1">' + fpEsc(TIPO_LABEL[p.tipo] || p.tipo) + '</span><span class="small">' +
@@ -448,11 +851,149 @@
                         if (m) m.show();
                     });
                     $('#btnPanelAdminFormulariosValidacion').on('click', function () {
-                        fpCargarDesdeServidor(function (datos) {
-                            fpRefrescarListaPrincipal(datos);
+                        fpCargarFormularios(function (datos) {
+                            fpRefrescarListaFormularios(datos);
                         });
                         var m = fpModal('modalFormulariosValidacion');
                         if (m) m.show();
+                    });
+                    $('#btnFormularioValidacionCrear').on('click', function () {
+                        $('#formValidacionCrearInline').show();
+                        $('#formValidacionNombreNuevo').val('').focus();
+                    });
+                    $('#btnFormularioValidacionCrearCancel').on('click', function () {
+                        $('#formValidacionCrearInline').hide();
+                        $('#formValidacionNombreNuevo').val('');
+                    });
+                    $('#formValidacionNombreNuevo').on('keydown', function (e) {
+                        if (e.key === 'Enter') {
+                            e.preventDefault();
+                            $('#btnFormularioValidacionCrearConfirm').click();
+                        }
+                        if (e.key === 'Escape') {
+                            $('#btnFormularioValidacionCrearCancel').click();
+                        }
+                    });
+                    $('#btnFormularioValidacionCrearConfirm').on('click', function () {
+                        var nombre = ($('#formValidacionNombreNuevo').val() || '').trim();
+                        if (!nombre) {
+                            if (typeof Swal !== 'undefined') Swal.fire({ icon: 'warning', title: 'Escriba el nombre del formulario' });
+                            return;
+                        }
+                        $('#formValidacionCrearInline').hide();
+                        $('#formValidacionNombreNuevo').val('');
+                        fpCrearFormulario(nombre);
+                    });
+                    function fpAbrirFormBuilderEnModal(id) {
+                        var modalLista = document.getElementById('modalFormulariosValidacion');
+                        var modalBuilder = document.getElementById('modalFormBuilderValidacion');
+                        var iframe = document.getElementById('iframeFormBuilderValidacion');
+                        if (modalLista && typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+                            var inst = bootstrap.Modal.getInstance(modalLista);
+                            if (inst) inst.hide();
+                        }
+                        if (iframe) iframe.src = '/validaciones/formulario/' + id + '?modal=1&t=' + Date.now();
+                        if (modalBuilder && typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+                            bootstrap.Modal.getOrCreateInstance(modalBuilder).show();
+                        }
+                    }
+                    function fpCerrarFormBuilderModal() {
+                        var modalBuilder = document.getElementById('modalFormBuilderValidacion');
+                        var iframe = document.getElementById('iframeFormBuilderValidacion');
+                        if (iframe) iframe.src = 'about:blank';
+                        if (modalBuilder && typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+                            var inst = bootstrap.Modal.getInstance(modalBuilder);
+                            if (inst) inst.hide();
+                        }
+                        fpCargarFormularios(fpRefrescarListaFormularios);
+                    }
+                    window.addEventListener('message', function (e) {
+                        if (e.data === 'formBuilderClose') fpCerrarFormBuilderModal();
+                    });
+                    var modalBuilderEl = document.getElementById('modalFormBuilderValidacion');
+                    if (modalBuilderEl) {
+                        modalBuilderEl.addEventListener('hidden.bs.modal', function () {
+                            var iframe = document.getElementById('iframeFormBuilderValidacion');
+                            if (iframe) iframe.src = 'about:blank';
+                            fpCargarFormularios(fpRefrescarListaFormularios);
+                        });
+                    }
+                    function fpCrearFormulario(nombre) {
+                        if (!nombre || typeof http === 'undefined') return;
+                        http.request({
+                            endpoint: '/validaciones/guardarFormulario',
+                            metodo: 'POST',
+                            data: JSON.stringify({ nombre: nombre }),
+                            contentType: 'application/json',
+                            processData: false,
+                            onSuccess: function (resp) {
+                                if (resp.success && resp.datos && resp.datos.id) {
+                                    if (typeof Swal !== 'undefined') Swal.fire({ icon: 'success', title: 'Creado', timer: 1500, showConfirmButton: false });
+                                    fpAbrirFormBuilderEnModal(resp.datos.id);
+                                } else {
+                                    if (typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: resp.mensaje || 'Error' });
+                                }
+                            },
+                            onError: function (e) {
+                                if (typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: (e && e.mensaje) || 'Error al crear.' });
+                            }
+                        });
+                    }
+                    $(document).on('click', '.fp-form-item-formulario', function (e) {
+                        if ($(e.target).closest('.fp-form-toggle-formulario, .fp-form-eliminar-formulario').length) return;
+                        var id = parseInt($(this).attr('data-id'), 10);
+                        if (!isNaN(id) && id > 0) fpAbrirFormBuilderEnModal(id);
+                    });
+                    $(document).on('click', '.fp-form-toggle-formulario', function (e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        var id = parseInt($(this).attr('data-id'), 10);
+                        if (isNaN(id) || id < 1 || typeof http === 'undefined') return;
+                        var $row = $(this).closest('.fp-form-item-formulario');
+                        var activo = $row.find('.badge.bg-label-success').length ? 0 : 1;
+                        http.request({
+                            endpoint: '/validaciones/toggleFormulario',
+                            metodo: 'POST',
+                            data: JSON.stringify({ id: id, activo: activo }),
+                            contentType: 'application/json',
+                            processData: false,
+                            onSuccess: function () {
+                                fpCargarFormularios(fpRefrescarListaFormularios);
+                                if (typeof Swal !== 'undefined') Swal.fire({ icon: 'success', title: activo ? 'Habilitado' : 'Inhabilitado', timer: 1200, showConfirmButton: false });
+                            },
+                            onError: function (e) {
+                                if (typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: (e && e.mensaje) || 'Error' });
+                            }
+                        });
+                    });
+                    $(document).on('click', '.fp-form-eliminar-formulario', function (e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        var id = parseInt($(this).attr('data-id'), 10);
+                        if (isNaN(id) || id < 1 || typeof http === 'undefined') return;
+                        var doElim = function () {
+                            http.request({
+                                endpoint: '/validaciones/eliminarFormulario',
+                                metodo: 'POST',
+                                data: JSON.stringify({ id: id }),
+                                contentType: 'application/json',
+                                processData: false,
+                                onSuccess: function () {
+                                    if (typeof Swal !== 'undefined') Swal.fire({ icon: 'success', title: 'Eliminado' });
+                                    fpCargarFormularios(fpRefrescarListaFormularios);
+                                },
+                                onError: function (err) {
+                                    if (typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: (err && err.mensaje) || 'Error' });
+                                }
+                            });
+                        };
+                        if (typeof Swal !== 'undefined') {
+                            Swal.fire({ title: '¿Eliminar formulario?', text: 'Las preguntas quedarán sin asignar.', icon: 'warning', showCancelButton: true, confirmButtonText: 'Sí, eliminar' }).then(function (r) {
+                                if (r.isConfirmed) doElim();
+                            });
+                        } else {
+                            if (confirm('¿Eliminar este formulario?')) doElim();
+                        }
                     });
                     $(document).on('change', '.fp-toggle-activa', function () {
                         var id = parseInt($(this).attr('data-id'), 10);
@@ -500,6 +1041,16 @@
                             if (confirm('¿Eliminar esta pregunta personalizada?')) doEliminar();
                         }
                     });
+
+                    // Click en el item (para navegación futura del "formulario").
+                    // Por ahora solo llama una función opcional si existe.
+                    $(document).on('click', '.fp-form-item-validacion', function (e) {
+                        var $t = $(e.target);
+                        if ($t.is('input,button,a') || $t.closest('button,input,a').length) return;
+                        var id = parseInt($(this).attr('data-id'), 10);
+                        if (isNaN(id) || id < 1) return;
+                        if (typeof window.fpIrAFormularioValidacion === 'function') window.fpIrAFormularioValidacion(id);
+                    });
                     function fpCerrarEditorVolverTipo() {
                         var mEd = fpModal('modalEditarPreguntaValidacion');
                         if (mEd) mEd.hide();
@@ -509,11 +1060,15 @@
                         }, 350);
                     }
                     $('#fpBtnCancelarEditor, #fpBtnCerrarEditorX').on('click', fpCerrarEditorVolverTipo);
+                    if (idFormulario > 0 && $('#listaPreguntasPredefinidasValidacion').length) {
+                        fpCargarDesdeServidor(fpRefrescarListaPrincipal);
+                    }
                     $('#fpBtnGuardarPregunta').on('click', function () {
                         var tipo = ($('#fpTipoActual').val() || '').trim();
                         var $err = $('#fpEditorError');
                         $err.addClass('d-none').text('');
                         var obj = { tipo: tipo, texto: '', es_predefinida: 0 };
+                        if (idFormulario > 0) obj.id_formulario = idFormulario;
                         if (tipo === 'abierta') {
                             obj.texto = ($('#fpTextoAbierta').val() || '').trim();
                             if (!obj.texto) {

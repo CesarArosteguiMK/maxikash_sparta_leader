@@ -23,18 +23,78 @@ $mostrarFormularios = !empty($tickets_panel_formularios);
     }
     body.panel-tickets-modulo-cargando #tablaTicketsModulo_info,
     body.panel-tickets-modulo-cargando #tablaTicketsModulo_paginate { visibility: hidden !important; }
+    @keyframes tm-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+    .tm-countdown-blink { animation: tm-blink 1s ease-in-out infinite; }
     /* Scrim entre modal Formularios (padre) y modales hijo (Tipo de pregunta / Editar): encima del padre */
     #modalFormulariosValidacion.modal-formularios-below-scrim { z-index: 1045 !important; }
+    /* Mismo estilo “label” que el resto del tema (verde suave, no chillón) */
+    #modalFormulariosValidacion #btnFormularioValidacionCrear {
+        font-weight: 600;
+    }
+    #modalFormulariosValidacion #btnFormularioValidacionCrear.btn-label-success:hover {
+        box-shadow: 0 2px 8px rgba(var(--bs-success-rgb), 0.25);
+    }
     #scrimFormulariosModulo { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1060; pointer-events: auto; display: none; }
     #modalTipoPreguntaValidacion.modal.show, #modalEditarPreguntaValidacion.modal.show { z-index: 1100 !important; }
+    /* Form Builder en modal grande (no fullscreen) */
+    #modalFormBuilderValidacion .modal-dialog {
+        width: min(96vw, 1650px);
+        max-width: min(96vw, 1650px);
+        height: 90vh;
+        margin: 2.5vh auto;
+    }
+    #modalFormBuilderValidacion .modal-content {
+        height: 100%;
+        border-radius: 0.75rem;
+        overflow: visible;
+        box-shadow: 0 20px 50px rgba(0,0,0,0.15);
+        background: rgba(255, 255, 255, 0.94) !important;
+        backdrop-filter: blur(14px);
+        -webkit-backdrop-filter: blur(14px);
+        border: 1px solid rgba(0, 0, 0, 0.06);
+    }
+    #modalFormBuilderValidacion .modal-header {
+        border-radius: 0.75rem 0.75rem 0 0;
+        overflow: visible;
+    }
+    #modalFormBuilderValidacion .modal-body {
+        height: calc(90vh - 56px);
+        min-height: 320px;
+        overflow: hidden;
+        border-radius: 0 0 0.75rem 0.75rem;
+        display: flex;
+        flex-direction: column;
+    }
+    #modalFormBuilderValidacion .modal-body #iframeFormBuilderValidacion {
+        flex: 1 1 0;
+        min-height: 0;
+        width: 100%;
+        border: none;
+    }
+    @media (max-width: 992px) {
+        #modalFormBuilderValidacion .modal-dialog {
+            width: 98vw;
+            max-width: 98vw;
+            height: 94vh;
+            margin: 1.5vh auto;
+        }
+        #modalFormBuilderValidacion .modal-body {
+            height: calc(94vh - 56px);
+        }
+    }
 </style>
 <div class="card">
     <div class="card-header border-bottom">
         <h5 class="card-title mb-0 d-flex flex-wrap align-items-center gap-2 w-100">
             <span class="me-auto flex-grow-1 min-w-0"><i class="fa-solid <?= $icono; ?> me-2 <?= $iconoColor; ?>"></i>Panel Admin – <?= $titulo; ?></span>
+            <?php if ($mostrarFormularios): ?>
+            <span id="panelFormularioPrecargadoWrap" class="d-none align-items-center gap-1 small text-muted flex-shrink-0">
+                <i class="fa-solid fa-clipboard-check text-success"></i> Formulario precargado: <strong id="panelFormularioPrecargadoNombre" class="text-body">—</strong>
+            </span>
+            <?php endif; ?>
             <div class="d-flex align-items-center gap-2 flex-shrink-0 ms-sm-auto">
                 <?php if ($mostrarFormularios): ?>
-                <button type="button" class="btn btn-sm btn-outline-success" id="btnPanelAdminFormulariosValidacion" title="Formularios">
+                <button type="button" class="btn btn-sm btn-label-success" id="btnPanelAdminFormulariosValidacion" title="Formularios">
                     <i class="fa-solid fa-clipboard-list me-1"></i>Formularios
                 </button>
                 <?php endif; ?>
@@ -70,8 +130,131 @@ $mostrarFormularios = !empty($tickets_panel_formularios);
     </div>
 </div>
 
+<!-- Modal: Resumen del ticket (estilo detalle) -->
+<style>
+#modalResumenTicket .rt-header { background: #26344e; padding: 12px 20px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+#modalResumenTicket .rt-folio-pill { display: inline-flex; flex-direction: column; padding: 6px 14px; border-radius: 999px; border: 1px solid rgba(255,255,255,.35); background: rgba(255,255,255,.08); }
+#modalResumenTicket .rt-folio-pill .rt-folio-lbl { font-size: 0.65rem; font-weight: 700; letter-spacing: .08em; color: #94b4d4; }
+#modalResumenTicket .rt-folio-pill .rt-folio-num { font-size: 0.95rem; font-weight: 800; color: #fff; }
+#modalResumenTicket .rt-badges { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+#modalResumenTicket .rt-badge { font-size: 0.75rem; font-weight: 700; padding: 5px 10px; border-radius: 8px; color: #fff; }
+#modalResumenTicket .rt-badge-estado { background: #166534; }
+#modalResumenTicket .rt-badge-prioridad { background: #fd7e14; }
+#modalResumenTicket .rt-meta-bar { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0; background: #f1f5f9; padding: 12px 16px; border-bottom: 1px solid #e2e8f0; font-size: 0.8rem; }
+#modalResumenTicket .rt-meta-cell { padding: 0 12px; border-right: 1px solid #e2e8f0; }
+#modalResumenTicket .rt-meta-cell:last-child { border-right: none; }
+@media (max-width: 768px) {
+#modalResumenTicket .rt-meta-bar { grid-template-columns: 1fr 1fr; }
+#modalResumenTicket .rt-meta-cell { border-right: none; border-bottom: 1px solid #e2e8f0; padding-bottom: 6px; margin-bottom: 6px; }
+#modalResumenTicket .rt-body { flex-direction: column; }
+#modalResumenTicket .rt-sidebar { max-width: none; }
+}
+#modalResumenTicket .rt-meta-lbl { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: #64748b; margin-bottom: 2px; }
+#modalResumenTicket .rt-meta-val { font-weight: 600; color: #1e293b; }
+#modalResumenTicket .rt-meta-val.rt-vence { color: #dc2626; }
+#modalResumenTicket .rt-body { display: flex; gap: 20px; padding: 20px; }
+#modalResumenTicket .rt-main { flex: 1; min-width: 0; }
+#modalResumenTicket .rt-block { margin-bottom: 16px; }
+#modalResumenTicket .rt-block-lbl { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: #64748b; margin-bottom: 6px; display: flex; align-items: center; gap: 8px; }
+#modalResumenTicket .rt-block-lbl i { color: #26344e; font-size: 0.85rem; }
+#modalResumenTicket .rt-block-box { background: #f8fafc; border: 1px solid #e2e8f0; border-left: 3px solid #26344e; border-radius: 8px; padding: 10px 14px; font-size: 0.875rem; color: #334155; }
+#modalResumenTicket .rt-block-box.rt-pre { white-space: pre-wrap; }
+#modalResumenTicket .rt-btn-mapa { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 8px; background: #e0f2fe; border: 1px solid #7dd3fc; color: #26344e; font-size: 0.8rem; font-weight: 700; text-decoration: none; margin-top: 8px; }
+#modalResumenTicket .rt-btn-mapa:hover { background: #bae6fd; color: #26344e; }
+#modalResumenTicket .rt-sidebar { width: 100%; max-width: 260px; flex-shrink: 0; }
+#modalResumenTicket .rt-sidebar .rt-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px 14px; margin-bottom: 12px; }
+#modalResumenTicket .rt-sidebar .rt-card-lbl { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: #64748b; margin-bottom: 6px; }
+#modalResumenTicket .rt-sidebar .form-select { font-size: 0.8rem; border-color: #cbd5e1; }
+#modalResumenTicket .rt-footer { display: flex; align-items: center; justify-content: space-between; padding: 10px 20px; border-top: 1px solid #e2e8f0; background: #f8fafc; font-size: 0.8rem; }
+#modalResumenTicket .rt-footer .rt-created { color: #64748b; display: flex; align-items: center; gap: 6px; }
+#modalResumenTicket .rt-footer .btn { background: #26344e; border-color: #26344e; color: #fff; font-weight: 600; }
+</style>
+<div class="modal fade" id="modalResumenTicket" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow-lg rounded-3 overflow-hidden">
+            <div class="rt-header">
+                <div class="rt-folio-pill">
+                    <span class="rt-folio-lbl">Folio</span>
+                    <span class="rt-folio-num" id="resumenTicketFolio">—</span>
+                </div>
+                <div class="rt-badges">
+                    <span class="rt-badge rt-badge-estado" id="resumenTicketEstadoPill">—</span>
+                    <span class="rt-badge rt-badge-prioridad" id="resumenTicketPrioridadPill">—</span>
+                    <button type="button" class="btn btn-sm btn-light text-dark ms-1" style="width: 32px; height: 32px; padding: 0; border-radius: 8px;" data-bs-dismiss="modal" aria-label="Cerrar"><i class="fa-solid fa-times"></i></button>
+                </div>
+            </div>
+            <div class="rt-meta-bar">
+                <div class="rt-meta-cell"><div class="rt-meta-lbl">De</div><div class="rt-meta-val" id="resumenTicketDe">—</div></div>
+                <div class="rt-meta-cell"><div class="rt-meta-lbl">Fecha</div><div class="rt-meta-val" id="resumenTicketFecha">—</div></div>
+                <div class="rt-meta-cell"><div class="rt-meta-lbl">Vence</div><div class="rt-meta-val rt-vence" id="resumenTicketVence">—</div></div>
+                <div class="rt-meta-cell"><div class="rt-meta-lbl">Estado</div><div class="rt-meta-val" id="resumenTicketEstado">—</div></div>
+                <div class="rt-meta-cell"><div class="rt-meta-lbl">Referencia</div><div class="rt-meta-val" id="resumenTicketRef">—</div></div>
+            </div>
+            <div class="rt-body">
+                <div class="rt-main">
+                    <div class="rt-block">
+                        <div class="rt-block-lbl"><i class="fa-solid fa-clipboard"></i> Asunto</div>
+                        <div class="rt-block-box" id="resumenTicketAsunto">—</div>
+                    </div>
+                    <div class="rt-block">
+                        <div class="rt-block-lbl"><i class="fa-solid fa-file-lines"></i> Descripción inicial</div>
+                        <div class="rt-block-box rt-pre" id="resumenTicketDescripcion">—</div>
+                    </div>
+                    <div id="resumenTicketExtraWrap" class="rt-block d-none">
+                        <div class="rt-block-lbl"><i class="fa-solid fa-link"></i> Nota / Enlace</div>
+                        <div class="rt-block-box" id="resumenTicketNota"></div>
+                        <div id="resumenTicketLinkWrap"></div>
+                    </div>
+                    <div id="resumenTicketDsWrap" class="rt-block d-none">
+                        <div class="rt-block-lbl"><i class="fa-solid fa-circle-check"></i> Resultado DS</div>
+                        <div class="rt-block-box" id="resumenTicketDs"></div>
+                    </div>
+                </div>
+                <div class="rt-sidebar">
+                    <div class="rt-block mb-3">
+                        <div class="rt-card-lbl mb-2">Asignar a</div>
+                        <div class="small text-muted mb-1">Segmento (como organigrama / máximo rango)</div>
+                        <div class="btn-group btn-group-sm w-100 mb-2" role="group" aria-label="Segmento morosidad">
+                            <input type="radio" class="btn-check" name="tmAsignarCampo" id="tmAsignarCampo17" value="1_7" autocomplete="off" checked>
+                            <label class="btn btn-outline-secondary" for="tmAsignarCampo17">Campo 1–7</label>
+                            <input type="radio" class="btn-check" name="tmAsignarCampo" id="tmAsignarCampo821" value="8_21" autocomplete="off">
+                            <label class="btn btn-outline-secondary" for="tmAsignarCampo821">Campo 8–21</label>
+                        </div>
+                        <select id="resumenTicketAsignarSelect" class="form-select form-select-sm">
+                            <option value="">Sin asignar</option>
+                        </select>
+                        <p id="resumenTicketAsignarHint" class="small text-warning mb-0 mt-1 d-none"></p>
+                    </div>
+                    <div class="rt-card">
+                        <div class="rt-card-lbl">Tiempo restante (24h)</div>
+                        <span id="resumenTicketCountdown" class="fw-semibold">—</span>
+                    </div>
+                    <div class="rt-card">
+                        <div class="rt-card-lbl">Prioridad</div>
+                        <span class="rt-badge rt-badge-prioridad" id="resumenTicketPrioridadSide">—</span>
+                    </div>
+                    <div class="rt-card">
+                        <div class="rt-card-lbl">Referencia</div>
+                        <div class="rt-meta-val" id="resumenTicketRefSide">—</div>
+                    </div>
+                    <div id="resumenTicketFormularioWrap" class="rt-card d-none">
+                        <div class="rt-card-lbl">Formulario precargado</div>
+                        <select id="resumenTicketFormularioSelect" class="form-select form-select-sm mt-1">
+                            <option value="">— Ninguno —</option>
+                        </select>
+                        <p id="resumenTicketFormularioPrecargado" class="small text-muted mb-0 mt-2"><span class="fw-semibold">Precargado:</span> <span id="resumenTicketFormularioPrecargadoNombre">—</span></p>
+                    </div>
+                </div>
+            </div>
+            <div class="rt-footer">
+                <span class="rt-created"><i class="fa-regular fa-clock"></i> Creado: <span id="resumenTicketCreado">—</span></span>
+                <button type="button" class="btn btn-sm" data-bs-dismiss="modal"><i class="fa-solid fa-times me-1"></i>Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <?php if ($mostrarFormularios): ?>
-<div id="scrimFormulariosModulo" aria-hidden="true" data-role="scrim-formularios-hijo"></div>
 <div class="modal fade modal-formularios-parent" id="modalFormulariosValidacion" tabindex="-1" aria-hidden="true" data-bs-backdrop="true">
     <div class="modal-dialog modal-dialog-scrollable modal-lg">
         <div class="modal-content border-0 shadow">
@@ -80,23 +263,43 @@ $mostrarFormularios = !empty($tickets_panel_formularios);
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
             <div class="modal-body pt-3">
-                <p class="small text-muted mb-3">Defina el cuestionario de validaciones. Marque o desmarque las preguntas que quiera incluir (predefinidas y personalizadas).</p>
-                <div class="rounded-3 border bg-label-success bg-opacity-10 p-3 mb-3">
-                    <h6 class="small text-uppercase text-muted mb-2"><i class="fa-solid fa-bookmark me-1"></i>Preguntas predefinidas</h6>
-                    <p class="small text-muted mb-2">Incluir en cuestionario: marque la casilla.</p>
-                    <ul class="list-group list-group-flush rounded-2 border" id="listaPreguntasPredefinidasValidacion">
-                        <li class="list-group-item small text-muted fst-italic py-3 text-center">(Cargando…)</li>
-                    </ul>
+                <p class="small text-muted mb-3">Elija un formulario para agregar o editar preguntas. Puede crear uno nuevo, inhabilitar o eliminar.</p>
+                <div class="alert alert-light border mb-3 py-2 px-3 small d-flex align-items-center gap-2">
+                    <i class="fa-solid fa-star text-warning"></i>
+                    <span>Formulario precargado actual: <strong id="formularioPrecargadoActualNombre">—</strong></span>
                 </div>
-                <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
-                    <h6 class="small text-uppercase text-muted mb-0"><i class="fa-solid fa-plus-circle me-1"></i>Preguntas personalizadas</h6>
-                    <button type="button" class="btn btn-sm btn-success" id="btnFormValidacionNuevasPreguntas"><i class="fa-solid fa-circle-plus me-1"></i>Nueva pregunta</button>
+                <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+                    <span class="text-muted small">Lista de formularios</span>
+                    <button type="button" class="btn btn-sm btn-label-success" id="btnFormularioValidacionCrear"><i class="fa-solid fa-plus me-1"></i>Crear nuevo</button>
                 </div>
-                <p class="small text-muted mb-2">Marque para incluir en el cuestionario; desmarque si no aplica a todos los clientes.</p>
-                <ul class="list-group" id="listaPreguntasNuevasValidacion"></ul>
-                <p class="small text-muted mt-2 mb-0" id="formValidacionSinNuevas" style="display:none;">Aún no hay preguntas personalizadas.</p>
+                <div id="formValidacionCrearInline" class="mb-3 p-3 rounded-2 border bg-light" style="display: none;">
+                    <label class="form-label small fw-medium mb-2">Nombre del nuevo formulario</label>
+                    <div class="d-flex gap-2 flex-wrap">
+                        <input type="text" class="form-control form-control-sm" id="formValidacionNombreNuevo" placeholder="Ej: Cuestionario de Validación" maxlength="200" style="max-width: 280px;">
+                        <button type="button" class="btn btn-sm btn-primary" id="btnFormularioValidacionCrearConfirm"><i class="fa-solid fa-check me-1"></i>Crear</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" id="btnFormularioValidacionCrearCancel">Cancelar</button>
+                    </div>
+                </div>
+                <ul class="list-group list-group-flush rounded-2 border" id="listaFormulariosValidacion">
+                    <li class="list-group-item small text-muted fst-italic py-3 text-center">(Cargando…)</li>
+                </ul>
+                <p class="small text-muted mt-2 mb-0" id="formValidacionSinFormularios" style="display:none;">Aún no hay formularios. Cree uno con «Crear nuevo».</p>
             </div>
             <div class="modal-footer border-top-0 pt-0"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button></div>
+        </div>
+    </div>
+</div>
+<!-- Modal Form Builder (editor de preguntas en iframe) -->
+<div class="modal fade" id="modalFormBuilderValidacion" tabindex="-1" aria-hidden="true" data-bs-backdrop="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0">
+            <div class="modal-header py-2 border-bottom" style="background: linear-gradient(135deg, #14532d 0%, #166534 100%);">
+                <h5 class="modal-title text-white"><i class="fa-solid fa-pen-to-square me-2"></i>Form Builder – Editar formulario</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body p-0 overflow-hidden">
+                <iframe id="iframeFormBuilderValidacion" src="about:blank" title="Form Builder"></iframe>
+            </div>
         </div>
     </div>
 </div>
@@ -141,13 +344,13 @@ $mostrarFormularios = !empty($tickets_panel_formularios);
                     <textarea id="fpTextoCerrada" class="form-control mb-3" rows="3"></textarea>
                     <label class="form-label small text-muted">Opciones (marque la correcta)</label>
                     <div id="fpListaOpcionesCerrada" class="d-flex flex-column gap-2"></div>
-                    <button type="button" class="btn btn-sm btn-outline-success mt-2" id="fpAgregarOpcionCerrada"><i class="fa-solid fa-plus me-1"></i>Opción</button>
+                    <button type="button" class="btn btn-sm btn-label-success mt-2" id="fpAgregarOpcionCerrada"><i class="fa-solid fa-plus me-1"></i>Opción</button>
                 </div>
                 <div id="fpWrapMultiple" class="fp-editor-section d-none">
                     <label class="form-label fw-medium" for="fpTextoMultiple">Pregunta</label>
                     <textarea id="fpTextoMultiple" class="form-control mb-3" rows="3"></textarea>
                     <div id="fpListaOpcionesMultiple" class="d-flex flex-column gap-2"></div>
-                    <button type="button" class="btn btn-sm btn-outline-success mt-2" id="fpAgregarOpcionMultiple"><i class="fa-solid fa-plus me-1"></i>Opción</button>
+                    <button type="button" class="btn btn-sm btn-label-success mt-2" id="fpAgregarOpcionMultiple"><i class="fa-solid fa-plus me-1"></i>Opción</button>
                 </div>
                 <div id="fpWrapSiNo" class="fp-editor-section d-none">
                     <label class="form-label fw-medium" for="fpTextoSiNo">Pregunta Sí/No</label>
@@ -176,7 +379,7 @@ $mostrarFormularios = !empty($tickets_panel_formularios);
             </div>
             <div class="modal-footer border-top">
                 <button type="button" class="btn btn-outline-secondary" id="fpBtnCancelarEditor">Cancelar</button>
-                <button type="button" class="btn btn-success" id="fpBtnGuardarPregunta"><i class="fa-solid fa-floppy-disk me-1"></i>Guardar</button>
+                <button type="button" class="btn btn-label-success" id="fpBtnGuardarPregunta"><i class="fa-solid fa-floppy-disk me-1"></i>Guardar</button>
             </div>
         </div>
     </div>

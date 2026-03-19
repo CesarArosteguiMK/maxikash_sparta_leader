@@ -29,6 +29,7 @@ class PanelAdminTicketTable
                 'prioridad' => 'Urgencia',
                 'ref' => 'Nota / enlace',
                 'fechas' => 'Alta y vencimiento',
+                'tiempo' => 'Tiempo para validar',
             ],
             'viaticos' => [
                 'folio' => 'Folio / Viático',

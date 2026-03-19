@@ -57,6 +57,10 @@
         width: 2.5rem; height: 2.5rem; border-radius: 0.6rem;
         display: flex; align-items: center; justify-content: center; font-size: 1.1rem;
     }
+    .estad-sabueso-wrap .estad-icon-cerrados {
+        background: rgba(234, 179, 8, 0.22);
+        color: #b45309;
+    }
     .estad-sabueso-wrap .estad-num-big {
         font-size: 2.5rem; font-weight: 800; line-height: 1.1; letter-spacing: -0.03em;
     }
@@ -430,14 +434,16 @@ $seccionesEstadisticas = isset($seccionesEstadisticas) && is_array($seccionesEst
             <i class="fa-solid fa-chart-pie estad-titulo-icono" aria-hidden="true"></i>
             Estadísticas de Sabueso
         </span>
+        <?php if (!empty($estadisticasMostrarBotonVolver)): ?>
         <button type="button" class="btn btn-sm btn-outline-primary" id="btnEstadisticasVolver" title="Ver otras áreas de estadísticas">
             <i class="fa-solid fa-arrow-left me-1"></i>Volver
         </button>
+        <?php endif; ?>
     </div>
 
     <div class="row g-3 mb-3">
-        <div class="col-lg-4 col-md-6">
-            <div class="card h-100 border-0 estad-glass estad-kpi-card">
+        <div class="col-xl-3 col-lg-6 col-md-6">
+            <div class="card h-100 border-0 estad-glass estad-kpi-card" title="Tickets en flujo: no cerrados ni eliminados (mismo criterio que al cerrar o borrar un ticket).">
                 <div class="card-body position-relative pt-4 pb-3">
                     <div class="position-absolute top-0 end-0 mt-3 me-3 estad-icon-box bg-primary bg-opacity-10 text-primary">
                         <i class="fa-solid fa-ticket"></i>
@@ -453,8 +459,8 @@ $seccionesEstadisticas = isset($seccionesEstadisticas) && is_array($seccionesEst
                 </div>
             </div>
         </div>
-        <div class="col-lg-4 col-md-6">
-            <div class="card h-100 border-0 estad-glass estad-kpi-card">
+        <div class="col-xl-3 col-lg-6 col-md-6">
+            <div class="card h-100 border-0 estad-glass estad-kpi-card" title="De los tickets en flujo, cuántos tienen dictamen enviado al gestor.">
                 <div class="card-body position-relative pt-4 pb-3">
                     <div class="position-absolute top-0 end-0 mt-3 me-3 estad-icon-box bg-success bg-opacity-10 text-success">
                         <i class="fa-solid fa-paper-plane"></i>
@@ -470,8 +476,8 @@ $seccionesEstadisticas = isset($seccionesEstadisticas) && is_array($seccionesEst
                 </div>
             </div>
         </div>
-        <div class="col-lg-4 col-md-12">
-            <div class="card h-100 border-0 estad-glass estad-kpi-card">
+        <div class="col-xl-3 col-lg-6 col-md-6">
+            <div class="card h-100 border-0 estad-glass estad-kpi-card" title="De los tickets en flujo con dictamen enviado, cuántos el gestor ya abrió.">
                 <div class="card-body position-relative pt-4 pb-3">
                     <div class="position-absolute top-0 end-0 mt-3 me-3 estad-icon-box text-white" style="background: rgba(111, 66, 193, 0.35);">
                         <i class="fa-solid fa-eye"></i>
@@ -483,6 +489,23 @@ $seccionesEstadisticas = isset($seccionesEstadisticas) && is_array($seccionesEst
                             <div class="progress-bar rounded-pill" id="barVisto" style="width: 0%; background-color: #6f42c1;"></div>
                         </div>
                         <span class="small fw-bold text-nowrap" id="pctVisto" style="color: #6f42c1;">0%</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-lg-6 col-md-6">
+            <div class="card h-100 border-0 estad-glass estad-kpi-card">
+                <div class="card-body position-relative pt-4 pb-3">
+                    <div class="position-absolute top-0 end-0 mt-3 me-3 estad-icon-box estad-icon-cerrados" aria-hidden="true">
+                        <i class="fa-solid fa-clipboard-check"></i>
+                    </div>
+                    <div class="text-muted small mb-1">Tickets cerrados</div>
+                    <div class="estad-num-big text-body" id="statTicketsCerrados">0</div>
+                    <div class="d-flex align-items-center gap-2 mt-3">
+                        <div class="progress flex-grow-1 rounded-pill" style="height: 6px;">
+                            <div class="progress-bar bg-warning rounded-pill" id="barCerrados" style="width: 0%"></div>
+                        </div>
+                        <span class="small fw-bold text-warning text-nowrap" id="pctCerrados">0%</span>
                     </div>
                 </div>
             </div>

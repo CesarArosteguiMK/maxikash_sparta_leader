@@ -1091,6 +1091,16 @@ HTML;
         }
     }
 
+    /**
+     * Landing de Primeros pagos: elige semana actual (Visualizar → VencimientosLunes) o siguiente (Próximamente).
+     */
+    public function PrimerosPagos()
+    {
+        self::set("titulo", "Primeros pagos");
+        self::set("script", "");
+        self::render("reporte_primeros_pagos_inicio");
+    }
+
     public function VencimientosLunes()
     {
         $script = <<<'HTML'
@@ -1203,6 +1213,38 @@ HTML;
                 });
                 document.getElementById('statsNacimiento').innerHTML = htmlNac;
 
+                /* Distribución de corte: Current + Recuperados | Pendientes */
+                const totalCurrentNac = nacDist['a) Current'] || 0;
+                const recuperados1a7  = (matriz['b) 1 a 7 dias'] && matriz['b) 1 a 7 dias']['a) Current']) ? matriz['b) 1 a 7 dias']['a) Current'] : 0;
+                const currentMasRecuperados = totalCurrentNac + recuperados1a7;
+                const total1a7Nac    = nacDist['b) 1 a 7 dias'] || 0;
+                const pendientes     = total1a7Nac - recuperados1a7;
+                let htmlCorte = '';
+                htmlCorte += `
+                <div class="col">
+                    <div class="card text-center h-100 border-0 shadow-sm">
+                        <div class="card-body py-2 px-2">
+                            <div class="badge bg-label-success mb-1" style="font-size:.65rem;">
+                                <i class="fa fa-circle-check me-1"></i>Current + Recuperados
+                            </div>
+                            <div class="fw-bold" style="font-size:1.5rem;">${currentMasRecuperados}</div>
+                            <div class="text-muted" style="font-size:.65rem;">al corte</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col">
+                    <div class="card text-center h-100 border-0 shadow-sm">
+                        <div class="card-body py-2 px-2">
+                            <div class="badge bg-label-warning mb-1" style="font-size:.65rem;">
+                                <i class="fa fa-clock me-1"></i>Pendientes
+                            </div>
+                            <div class="fw-bold" style="font-size:1.5rem;">${pendientes}</div>
+                            <div class="text-muted" style="font-size:.65rem;">de recuperación</div>
+                        </div>
+                    </div>
+                </div>`;
+                document.getElementById('statsCorte').innerHTML = htmlCorte;
+
                 /* Matriz de efectividad */
                 let htmlMat = `
                 <style>
@@ -1245,6 +1287,48 @@ HTML;
                     <span>Sin cambio</span>
                     <span>Efectividad</span>
                 </div>`;
+
+                /* Fila Global (cartera completa, naranja) */
+                const totalCurrent = nacDist['a) Current'] || 0;
+                const total17     = nacDist['b) 1 a 7 dias'] || 0;
+                const totalGlobal = totalCurrent + total17;
+                if (totalGlobal > 0) {
+                    const pctCurrent = Math.round(totalCurrent / totalGlobal * 100);
+                    const pct17      = 100 - pctCurrent;
+                    const badgeGlobal = '<span class="badge bg-label-warning"><i class="fa fa-globe me-1"></i>Global</span>';
+                    const colRecuperoGlobal = `
+                        <div class="mef-cell">
+                            <span class="mef-lbl">Toda la cartera</span>
+                            <span class="mef-val-gray">${totalGlobal} créditos</span>
+                        </div>`;
+                    const colIgualGlobal = `
+                        <div class="mef-cell">
+                            <span class="mef-lbl">Resumen cartera</span>
+                            <span class="mef-val-gray">${totalCurrent} current · ${total17} 1-7d</span>
+                        </div>`;
+                    const colEfectGlobal = `
+                        <div>
+                            <div class="d-flex align-items-center gap-2 mb-1 flex-wrap">
+                                <span class="mef-pct text-success">${pctCurrent}%</span>
+                                <span class="mef-note">current</span>
+                                <span class="mef-note">·</span>
+                                <span class="mef-pct text-info">${pct17}%</span>
+                                <span class="mef-note">1-7d</span>
+                            </div>
+                            <div class="mef-bar-track" style="display:flex;">
+                                <div class="mef-bar-fill" style="flex:0 0 ${pctCurrent}%;background:var(--bs-success,#28a745);"></div>
+                                <div class="mef-bar-fill" style="flex:0 0 ${pct17}%;background:var(--bs-info,#03c3ec);"></div>
+                            </div>
+                        </div>`;
+                    htmlMat += `
+                    <div class="mef-row">
+                        <div>${badgeGlobal}</div>
+                        <div class="mef-num">${totalGlobal}</div>
+                        ${colRecuperoGlobal}
+                        ${colIgualGlobal}
+                        ${colEfectGlobal}
+                    </div>`;
+                }
 
                 BUCKET_MATRIZ.forEach(b => {
                     const total = BUCKET_ORDER.reduce((a, c) => a + (matriz[b][c] || 0), 0);
@@ -1576,10 +1660,32 @@ HTML;
             };
 
             /* ── Filtros ── */
+            function actualizarOpcionesBucketCorte(data, nacioValue) {
+                const sel = document.getElementById('fBucketCorte');
+                if (!sel) return;
+                const cur = sel.value;
+                if (nacioValue === 'a) Current') {
+                    sel.innerHTML = '<option value="a) Current">a) Current</option>';
+                    sel.value = 'a) Current';
+                } else if (nacioValue === 'b) 1 a 7 dias') {
+                    sel.innerHTML = '<option value="">Todos</option><option value="a) Current">a) Current</option><option value="b) 1 a 7 dias">b) 1 a 7 dias</option>';
+                    if (cur === 'a) Current' || cur === 'b) 1 a 7 dias') sel.value = cur;
+                    else sel.value = '';
+                } else {
+                    const vals = [...new Set(data.map(r => r.bucket_corte_actual).filter(Boolean))].sort();
+                    sel.innerHTML = '<option value="">Todos</option>';
+                    vals.forEach(v => {
+                        const o = document.createElement('option');
+                        o.value = v; o.textContent = v;
+                        if (v === cur) o.selected = true;
+                        sel.appendChild(o);
+                    });
+                }
+            }
+
             function poblarFiltros(data) {
                 const campos = {
                     fBucketNacio: r => r.bucket_nacio,
-                    fBucketCorte: r => r.bucket_corte_actual,
                     fTerritorial: r => r.Territorial,
                     fZonal:       r => r.Zonal,
                     fJefe:        r => r.Jefe_de_Plaza,
@@ -1598,6 +1704,7 @@ HTML;
                         sel.appendChild(o);
                     });
                 });
+                actualizarOpcionesBucketCorte(data, document.getElementById('fBucketNacio')?.value || '');
             }
 
             function aplicarFiltros(data) {
@@ -1651,7 +1758,9 @@ HTML;
                     poblarFiltros(_data);
                     renderTabla();
                     renderStats(_data);
-                } catch(e) { console.error(e); }
+                } catch(e) {
+                    console.error(e);
+                }
             }
 
             /* ── Render tabla ── */
@@ -1724,7 +1833,15 @@ HTML;
             });
 
             /* ── Eventos ── */
-            ['fBucketNacio','fBucketCorte','fTerritorial','fZonal','fJefe','fGestor','fMovimiento']
+            const elBucketNacio = document.getElementById('fBucketNacio');
+            if (elBucketNacio) {
+                elBucketNacio.addEventListener('change', function() {
+                    actualizarOpcionesBucketCorte(_data, this.value || '');
+                    renderTabla();
+                    renderStats(aplicarFiltros(_data));
+                });
+            }
+            ['fBucketCorte','fTerritorial','fZonal','fJefe','fGestor','fMovimiento']
                 .forEach(id => {
                     const el = document.getElementById(id);
                     if (el) el.addEventListener('change', () => {
@@ -1740,6 +1857,7 @@ HTML;
                 ['fBucketNacio','fBucketCorte','fTerritorial','fZonal','fJefe','fGestor','fMovimiento']
                     .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
                 document.getElementById('fBusq').value = '';
+                actualizarOpcionesBucketCorte(_data, '');
                 renderTabla();
                 renderStats(_data);
             });
@@ -1749,7 +1867,7 @@ HTML;
         </script>
     HTML;
 
-        self::set("titulo", "Vencimientos — Lunes de Cierre");
+        self::set("titulo", "Primeros pagos — Lunes de Cierre");
         self::set("script", $script);
         self::render("reporte_vencimientos_lunes");
     }
