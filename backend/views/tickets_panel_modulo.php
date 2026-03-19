@@ -165,6 +165,42 @@ $mostrarFormularios = !empty($tickets_panel_formularios);
 #modalResumenTicket .rt-sidebar .rt-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px 14px; margin-bottom: 12px; }
 #modalResumenTicket .rt-sidebar .rt-card-lbl { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: #64748b; margin-bottom: 6px; }
 #modalResumenTicket .rt-sidebar .form-select { font-size: 0.8rem; border-color: #cbd5e1; }
+/* Select con búsqueda (mismo patrón que organigrama) — Asignar a */
+#modalResumenTicket .select-search-wrapper { position: relative; width: 100%; max-width: 100%; }
+#modalResumenTicket .select-search-wrapper .form-select { display: none !important; }
+#modalResumenTicket .select-search-display {
+    position: relative; width: 100%;
+    padding: 0.25rem 2rem 0.25rem 0.5rem;
+    font-size: 0.875rem; font-weight: 400; line-height: 1.5;
+    color: #697a8d; background-color: #fff;
+    border: 1px solid #d9dee3; border-radius: 0.375rem;
+    cursor: pointer; transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+#modalResumenTicket .select-search-display:hover { border-color: #b0b7c3; }
+#modalResumenTicket .select-search-display::after {
+    content: '▼'; position: absolute; right: 0.5rem; top: 50%; transform: translateY(-50%);
+    font-size: 0.65rem; color: #697a8d; pointer-events: none;
+}
+#modalResumenTicket .select-search-dropdown {
+    position: absolute; top: 100%; left: 0; right: 0; z-index: 2000; display: none;
+    margin-top: 0.25rem; background: #fff; border: 1px solid #d9dee3; border-radius: 0.375rem;
+    box-shadow: 0 0.25rem 0.5rem rgba(0,0,0,0.1); max-height: 300px; overflow: hidden;
+}
+#modalResumenTicket .select-search-dropdown.show { display: block; }
+#modalResumenTicket .select-search-input {
+    width: 100%; padding: 0.5rem 0.75rem; border: none; border-bottom: 1px solid #d9dee3;
+    font-size: 0.875rem; outline: none;
+}
+#modalResumenTicket .select-search-input:focus { border-bottom-color: #696cff; }
+#modalResumenTicket .select-search-options { max-height: 220px; overflow-y: auto; }
+#modalResumenTicket .select-search-option {
+    padding: 0.45rem 0.65rem; cursor: pointer; transition: background-color 0.15s ease;
+    font-size: 0.8125rem;
+}
+#modalResumenTicket .select-search-option:hover { background-color: #f5f5f9; }
+#modalResumenTicket .select-search-option.selected { background-color: #696cff; color: #fff; }
+#modalResumenTicket .select-search-option.no-results { padding: 1rem; text-align: center; color: #999; cursor: default; font-size: 0.8rem; }
+#modalResumenTicket .select-search-option.no-results:hover { background-color: transparent; }
 #modalResumenTicket .rt-footer { display: flex; align-items: center; justify-content: space-between; padding: 10px 20px; border-top: 1px solid #e2e8f0; background: #f8fafc; font-size: 0.8rem; }
 #modalResumenTicket .rt-footer .rt-created { color: #64748b; display: flex; align-items: center; gap: 6px; }
 #modalResumenTicket .rt-footer .btn { background: #26344e; border-color: #26344e; color: #fff; font-weight: 600; }
@@ -211,19 +247,24 @@ $mostrarFormularios = !empty($tickets_panel_formularios);
                     </div>
                 </div>
                 <div class="rt-sidebar">
-                    <div class="rt-block mb-3">
+                    <div class="rt-block mb-3" id="resumenTicketAsignarBlock">
                         <div class="rt-card-lbl mb-2">Asignar a</div>
-                        <div class="small text-muted mb-1">Segmento (como organigrama / máximo rango)</div>
+                        <div class="small text-muted mb-1 d-none" id="resumenTicketAsignadoACapoLabel">Asignado a: —</div>
+                        <div class="small text-muted mb-1" id="resumenTicketCampoLabel">Segmento (máximo rango, como organigrama)</div>
                         <div class="btn-group btn-group-sm w-100 mb-2" role="group" aria-label="Segmento morosidad">
                             <input type="radio" class="btn-check" name="tmAsignarCampo" id="tmAsignarCampo17" value="1_7" autocomplete="off" checked>
                             <label class="btn btn-outline-secondary" for="tmAsignarCampo17">Campo 1–7</label>
                             <input type="radio" class="btn-check" name="tmAsignarCampo" id="tmAsignarCampo821" value="8_21" autocomplete="off">
                             <label class="btn btn-outline-secondary" for="tmAsignarCampo821">Campo 8–21</label>
                         </div>
-                        <select id="resumenTicketAsignarSelect" class="form-select form-select-sm">
-                            <option value="">Sin asignar</option>
+                        <select id="resumenTicketAsignarSelect" class="form-select form-select-sm" aria-label="Asignar ticket">
+                            <option value="">Selecciona una persona</option>
                         </select>
                         <p id="resumenTicketAsignarHint" class="small text-warning mb-0 mt-1 d-none"></p>
+                        <div id="resumenTicketMotivoWrap" class="mt-2 d-none">
+                            <div class="small text-muted mb-1" style="font-weight:600;">Motivo del cambio</div>
+                            <textarea id="resumenTicketAsignarMotivo" class="form-control form-control-sm" rows="3" placeholder="Explica el motivo del cambio (obligatorio)"></textarea>
+                        </div>
                     </div>
                     <div class="rt-card">
                         <div class="rt-card-lbl">Tiempo restante (24h)</div>

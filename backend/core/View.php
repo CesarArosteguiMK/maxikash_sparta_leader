@@ -79,7 +79,7 @@ function getMenu()
                             [
                                 'label' => 'Primeros pagos',
                                 'url' => '/reporteria/PrimerosPagos',
-                                'modulos' => [49]
+                                    'modulos' => [49]
                             ],
                             [
                                     'label' => 'Sabuesos',

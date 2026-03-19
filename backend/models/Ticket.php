@@ -98,6 +98,27 @@ class Ticket extends Model
         // Filtros adicionales (Panel Admin): se aplican a todos los candidatos WHERE
         $extraWhere = [];
         if (!$soloDelUsuario && !empty($filtros)) {
+            // Filtro por lista de asignados (ej. Territorial: todos los gestores permitidos)
+            if (isset($filtros['asignado_ids']) && is_array($filtros['asignado_ids'])) {
+                $idAsignados = array_values(array_filter(array_map(function ($v) {
+                    return (int)$v;
+                }, $filtros['asignado_ids']), function ($id) {
+                    return $id > 0;
+                }));
+
+                if (empty($idAsignados)) {
+                    // Sin ids => no hay resultados
+                    $extraWhere[] = '1=0';
+                } else {
+                    $placeholders = [];
+                    foreach ($idAsignados as $i => $id) {
+                        $key = 'filtro_id_asignado_in_' . $i;
+                        $placeholders[] = ':' . $key;
+                        $params[$key] = (int)$id;
+                    }
+                    $extraWhere[] = 'at.id_persona_asignada IN (' . implode(',', $placeholders) . ')';
+                }
+            }
             $idAsignado = isset($filtros['asignado']) ? (int)$filtros['asignado'] : 0;
             if ($idAsignado === -1) {
                 $extraWhere[] = 'at.id_persona_asignada IS NULL';
@@ -819,7 +840,9 @@ class Ticket extends Model
                 "INSERT INTO asignacion_ticket (id_ticket, id_persona_asignada, fecha_asignacion, activo) VALUES (:id_ticket, :id_persona, :fecha_asignacion, 1)",
                 ['id_ticket' => $tid, 'id_persona' => $pid, 'fecha_asignacion' => $now]
             );
-            return self::resultado(true, 'Ticket asignado correctamente.');
+            $lastId = $db->queryOne("SELECT LAST_INSERT_ID() AS id");
+            $idAsignacion = $lastId && isset($lastId['id']) ? (int)$lastId['id'] : null;
+            return self::resultado(true, 'Ticket asignado correctamente.', ['id_asignacion' => $idAsignacion]);
         } catch (\Exception $e) {
             return self::resultado(false, 'Error al asignar el ticket.', null, $e->getMessage());
         }

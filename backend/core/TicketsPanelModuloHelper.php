@@ -106,7 +106,7 @@ class TicketsPanelModuloHelper
         return isset(self::MODULOS[$c]) ? self::MODULOS[$c]['url'] : null;
     }
 
-    public static function renderModuloPanel(Controller $ctrl, string $categoria): void
+    public static function renderModuloPanel(Controller $ctrl, string $categoria, array $extraModuloConfig = []): void
     {
         $c = strtolower(preg_replace('/[^a-z0-9_]/', '', $categoria));
         if (!isset(self::MODULOS[$c])) {
@@ -125,11 +125,16 @@ class TicketsPanelModuloHelper
         $columnsJson = PanelAdminTicketTable::getColumnsConfig(true, $c);
         $titulos = PanelAdminTicketTable::getTitulosColumnasPanelAdminPorCategoria($c);
         $titulosJs = json_encode($titulos, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
-        $moduloJs = json_encode([
+        $moduloConfig = [
             'categoria' => $c,
             'labelBadge' => $m['badge'],
             'formularios' => !empty($m['formularios']),
-        ], JSON_UNESCAPED_UNICODE);
+        ];
+        if (!empty($extraModuloConfig)) {
+            // Permite agregar flags como modo ('gestor'/'territorial') y valores como campoCapo.
+            $moduloConfig = array_merge($moduloConfig, $extraModuloConfig);
+        }
+        $moduloJs = json_encode($moduloConfig, JSON_UNESCAPED_UNICODE);
 
         $ctrl->set('panel_admin_mostrar_volver', count($panelesVis) > 1);
         $ctrl->set('panel_admin_url_inicio', '/sabueso/panelAdminInicio');

@@ -45,6 +45,145 @@
         return { text: text, colorClass: colorClass, blink: blink };
     }
 
+    /**
+     * Select con búsqueda (mismo comportamiento que organigrama.php — SearchableSelect).
+     * Incluye opción con value "" (p. ej. "Selecciona una persona") para quitar asignación.
+     */
+    var _tmAsignarSearchableInst = null;
+    function TmSearchableSelect(selectElement) {
+        this.select = selectElement;
+        this.options = [];
+        this.selectedValue = '';
+        this.isOpen = false;
+        this.init();
+    }
+    TmSearchableSelect.prototype.init = function () {
+        this.wrapper = document.createElement('div');
+        this.wrapper.className = 'select-search-wrapper';
+        this.select.parentNode.insertBefore(this.wrapper, this.select);
+        this.wrapper.appendChild(this.select);
+        this.display = document.createElement('div');
+        this.display.className = 'select-search-display';
+        this.display.setAttribute('role', 'button');
+        this.display.setAttribute('tabindex', '0');
+        var opt0 = this.select.options[this.select.selectedIndex];
+        this.display.textContent = opt0 ? opt0.text : 'Selecciona una persona';
+        this.selectedValue = this.select.value;
+        this.wrapper.appendChild(this.display);
+        this.dropdown = document.createElement('div');
+        this.dropdown.className = 'select-search-dropdown';
+        this.wrapper.appendChild(this.dropdown);
+        this.searchInput = document.createElement('input');
+        this.searchInput.type = 'text';
+        this.searchInput.className = 'select-search-input';
+        this.searchInput.placeholder = 'Buscar...';
+        this.searchInput.setAttribute('autocomplete', 'off');
+        this.dropdown.appendChild(this.searchInput);
+        this.optionsContainer = document.createElement('div');
+        this.optionsContainer.className = 'select-search-options';
+        this.dropdown.appendChild(this.optionsContainer);
+        this.loadOptions();
+        this.attachEvents();
+    };
+    TmSearchableSelect.prototype.loadOptions = function () {
+        this.options = [];
+        Array.from(this.select.options).forEach(function (option) {
+            this.options.push({ value: option.value, text: option.text });
+        }, this);
+        this.renderOptions(this.options);
+    };
+    TmSearchableSelect.prototype.renderOptions = function (filteredOptions) {
+        this.optionsContainer.innerHTML = '';
+        if (filteredOptions.length === 0) {
+            var noResults = document.createElement('div');
+            noResults.className = 'select-search-option no-results';
+            noResults.textContent = 'No se encontraron resultados';
+            this.optionsContainer.appendChild(noResults);
+            return;
+        }
+        var self = this;
+        filteredOptions.forEach(function (option) {
+            var optionDiv = document.createElement('div');
+            optionDiv.className = 'select-search-option';
+            optionDiv.textContent = option.text;
+            optionDiv.dataset.value = option.value;
+            if (String(option.value) === String(self.selectedValue)) optionDiv.classList.add('selected');
+            optionDiv.addEventListener('click', function () { self.selectOption(option); });
+            self.optionsContainer.appendChild(optionDiv);
+        });
+    };
+    TmSearchableSelect.prototype.selectOption = function (option) {
+        this.selectedValue = option.value;
+        this.select.value = option.value;
+        this.display.textContent = option.text;
+        this.select.dispatchEvent(new Event('change', { bubbles: true }));
+        this.close();
+    };
+    TmSearchableSelect.prototype.open = function () {
+        if (this.select.disabled) return;
+        this.isOpen = true;
+        this.dropdown.classList.add('show');
+        this.searchInput.value = '';
+        this.searchInput.focus();
+        this.loadOptions();
+    };
+    TmSearchableSelect.prototype.close = function () {
+        this.isOpen = false;
+        this.dropdown.classList.remove('show');
+        this.searchInput.value = '';
+    };
+    TmSearchableSelect.prototype.attachEvents = function () {
+        var self = this;
+        function toggle(e) {
+            e.stopPropagation();
+            if (self.isOpen) self.close(); else self.open();
+        }
+        this.display.addEventListener('click', toggle);
+        this.display.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                toggle(e);
+            }
+        });
+        this.searchInput.addEventListener('input', function (e) {
+            var searchTerm = e.target.value.toLowerCase().trim();
+            var filtered = self.options.filter(function (o) {
+                return (o.text + '').toLowerCase().includes(searchTerm);
+            });
+            self.renderOptions(filtered);
+        });
+        this.dropdown.addEventListener('click', function (e) { e.stopPropagation(); });
+        document.addEventListener('click', function () {
+            if (self.isOpen) self.close();
+        });
+        var observer = new MutationObserver(function () {
+            self.loadOptions();
+            var selectedOption = self.select.options[self.select.selectedIndex];
+            if (selectedOption) {
+                self.display.textContent = selectedOption.text;
+                self.selectedValue = selectedOption.value;
+            }
+        });
+        observer.observe(this.select, { childList: true, subtree: true });
+    };
+    TmSearchableSelect.prototype.refresh = function () {
+        this.loadOptions();
+        var selectedOption = this.select.options[this.select.selectedIndex];
+        if (selectedOption) {
+            this.display.textContent = selectedOption.text;
+            this.selectedValue = selectedOption.value;
+        } else {
+            this.display.textContent = 'Selecciona una persona';
+            this.selectedValue = '';
+        }
+    };
+    function ensureTmAsignarSearchableSelect() {
+        var el = document.getElementById('resumenTicketAsignarSelect');
+        if (!el || el.getAttribute('data-tm-searchable') === '1') return;
+        el.setAttribute('data-tm-searchable', '1');
+        _tmAsignarSearchableInst = new TmSearchableSelect(el);
+    }
+
     function renderCountdownCell(fechaVencStr) {
         var c = countdown24h(fechaVencStr);
         var blink = c.blink ? ' tm-countdown-blink' : '';
@@ -128,15 +267,20 @@
         var creditoVal =
             t.id_credito != null && t.id_credito > 0 ? '#' + t.id_credito : t.asunto || t.tipo_categoria || '—';
         var creditoHtml = '<small>' + String(creditoVal).replace(/&/g, '&amp;').replace(/</g, '&lt;') + '</small>';
+        var modo = (cfg().modo || '').toString().trim();
         var soloCerrar = (CAT === 'validaciones');
+        var puedeCerrar = !(modo === 'gestor' || modo === 'territorial');
+        var btnCerrar = puedeCerrar
+            ? '<button type="button" class="btn btn-sm btn-secondary" data-tm-cerrar="' +
+                t.id_ticket +
+                '" title="Cerrar ticket"><i class="fa fa-minus"></i></button>'
+            : '';
         var acciones =
             '<div class="d-flex flex-column gap-1 align-items-stretch" style="min-width:2.5rem;">' +
             '<button type="button" class="btn btn-sm btn-outline-primary" data-tm-ver="' +
             t.id_ticket +
             '" title="Ver detalle"><i class="fa fa-ticket"></i></button>' +
-            '<button type="button" class="btn btn-sm btn-secondary" data-tm-cerrar="' +
-            t.id_ticket +
-            '" title="Cerrar ticket"><i class="fa fa-minus"></i></button>' +
+            btnCerrar +
             (soloCerrar
                 ? ''
                 : '<button type="button" class="btn btn-sm btn-danger" data-tm-eliminar="' +
@@ -174,7 +318,12 @@
         var esPrimera = window._ticketsModuloPanelPrimeraCarga === true;
         if (esPrimera && typeof showWait === 'function') showWait();
         http.request({
-            endpoint: '/sabueso/getTicketsPanelAdmin',
+            endpoint:
+                (cfg().modo || '').trim() === 'gestor'
+                    ? '/validaciones/getTicketsGestor'
+                    : (cfg().modo || '').trim() === 'territorial'
+                        ? '/validaciones/getTicketsTerritorial'
+                        : '/sabueso/getTicketsPanelAdmin',
             metodo: 'POST',
             data: JSON.stringify({ filtros: { categoria_gestion: CAT } }),
             contentType: 'application/json',
@@ -358,22 +507,60 @@
             var idTicket = t.id_ticket;
             var idPersonaActual = t.id_persona_asignada != null && t.id_persona_asignada > 0 ? parseInt(t.id_persona_asignada, 10) : 0;
             var $sel = $('#resumenTicketAsignarSelect');
-            $sel.off('change.resumenTicket').empty().append('<option value="">Sin asignar</option>');
+            $sel.off('change.resumenTicket').empty().append('<option value="">Selecciona una persona</option>');
             $sel.data('resumen-id-ticket', idTicket);
+            var modo = (cfg().modo || '').trim();
+            var esTerritorial = modo === 'territorial';
+            var esGestor = modo === 'gestor';
+            var labelCampo = function (campo) {
+                if (String(campo) === '8_21') return 'Campo 8–21';
+                return 'Campo 1–7';
+            };
+
+            // UI según modo
+            var $asignarBlock = $('#resumenTicketAsignarBlock');
+            if (esGestor) $asignarBlock.addClass('d-none');
+            else $asignarBlock.removeClass('d-none');
+
+            if (esTerritorial) {
+                $('#resumenTicketAsignadoACapoLabel')
+                    .removeClass('d-none')
+                    .text('Asignado a: ' + (cfg().nombreCapo || '—'));
+                $('#resumenTicketCampoLabel')
+                    .text(labelCampo(cfg().campoCapo || '1_7'))
+                    .removeClass('d-none');
+                $('#resumenTicketMotivoWrap').removeClass('d-none');
+                // En territorial ya no se elige segmento por radio; es fijo por el capo actual
+                $('#resumenTicketAsignarBlock .btn-group[role="group"]').addClass('d-none');
+                $('#resumenTicketAsignarMotivo').val('');
+                // Cambiar texto del placeholder
+                $sel.empty().append('<option value="">Selecciona un gestor</option>');
+            } else {
+                $('#resumenTicketAsignadoACapoLabel').addClass('d-none');
+                $('#resumenTicketMotivoWrap').addClass('d-none');
+                $('#resumenTicketAsignarBlock .btn-group[role="group"]').removeClass('d-none');
+            }
+
             function campoAsignarActual() {
+                if (esTerritorial) return (cfg().campoCapo === '8_21' ? '8_21' : '1_7');
                 var v = $('input[name="tmAsignarCampo"]:checked').val();
                 return v === '8_21' ? '8_21' : '1_7';
             }
+
+            var pidAnterior = idPersonaActual > 0 ? String(idPersonaActual) : '';
             function cargarSelectAsignacionJefes() {
+                ensureTmAsignarSearchableSelect();
                 var campo = campoAsignarActual();
                 var $hint = $('#resumenTicketAsignarHint');
                 $hint.addClass('d-none').text('');
-                $sel.empty().append('<option value="">Sin asignar</option>');
+                $sel.empty().append('<option value="">' + (esTerritorial ? 'Selecciona un gestor' : 'Selecciona una persona') + '</option>');
                 if (typeof http === 'undefined') return;
+                var endpoint = esTerritorial ? '/validaciones/getGestoresPorCampo' : '/sabueso/getPersonasSabuesoJefesPorCampo';
+                var payload = esTerritorial ? {} : { campo: campo };
                 http.request({
-                    endpoint: '/sabueso/getPersonasSabuesoJefesPorCampo',
+                    endpoint: endpoint,
                     metodo: 'POST',
-                    data: JSON.stringify({ campo: campo }),
+                    data: JSON.stringify(payload),
                     contentType: 'application/json',
                     processData: false,
                     showLoader: false,
@@ -398,21 +585,74 @@
                         } else {
                             $sel.val('');
                         }
+                        pidAnterior = $sel.val() ? String($sel.val()) : '';
+                        if (_tmAsignarSearchableInst && typeof _tmAsignarSearchableInst.refresh === 'function') {
+                            _tmAsignarSearchableInst.refresh();
+                        }
                     },
                     onError: function () {
                         $sel.append('<option value="" disabled>Error al cargar lista</option>');
-                        $hint.removeClass('d-none').text('No se pudo cargar la lista de líderes. Recargue la página (Ctrl+F5).');
+                        $hint.removeClass('d-none').text(esTerritorial ? 'No se pudo cargar la lista de gestores.' : 'No se pudo cargar la lista de líderes.');
                     }
                 });
             }
-            $('input[name="tmAsignarCampo"]').off('change.tmAsignarCampo').on('change.tmAsignarCampo', function () {
-                cargarSelectAsignacionJefes();
-            });
+            $('input[name="tmAsignarCampo"]').off('change.tmAsignarCampo');
+            if (!esTerritorial) {
+                $('input[name="tmAsignarCampo"]').on('change.tmAsignarCampo', function () {
+                    cargarSelectAsignacionJefes();
+                });
+            }
             function onAsignarChange() {
                 var tid = $sel.data('resumen-id-ticket');
                 var pid = $sel.val();
                 if (!tid || typeof http === 'undefined') return;
-                if (pid === '' || pid === null) {
+                if (esTerritorial) {
+                    var pidStr = pid != null ? String(pid) : '';
+                    if (!pidStr) {
+                        if (typeof Swal !== 'undefined') Swal.fire({ icon: 'warning', title: 'Seleccione un gestor.' });
+                        $sel.val(pidAnterior);
+                        if (_tmAsignarSearchableInst && typeof _tmAsignarSearchableInst.refresh === 'function') _tmAsignarSearchableInst.refresh();
+                        return;
+                    }
+                    var idP = parseInt(pidStr, 10);
+                    if (isNaN(idP) || idP < 1) return;
+                    var motivo = ($('#resumenTicketAsignarMotivo').val() || '').trim();
+                    if (!motivo) {
+                        if (typeof Swal !== 'undefined') Swal.fire({ icon: 'warning', title: 'Debe escribir el motivo del cambio.' });
+                        $sel.val(pidAnterior);
+                        if (_tmAsignarSearchableInst && typeof _tmAsignarSearchableInst.refresh === 'function') _tmAsignarSearchableInst.refresh();
+                        return;
+                    }
+
+                    http.request({
+                        endpoint: '/validaciones/reasignarGestorTicketTerritorial',
+                        metodo: 'POST',
+                        data: JSON.stringify({
+                            id_ticket: tid,
+                            id_persona: idP,
+                            motivo: motivo
+                        }),
+                        contentType: 'application/json',
+                        processData: false,
+                        onSuccess: function (r) {
+                            if (r && r.success) {
+                                var nom = $sel.find('option:selected').text();
+                                if (window._ticketsModuloCache && window._ticketsModuloCache[tid]) {
+                                    window._ticketsModuloCache[tid].asignado_nombre = nom;
+                                    window._ticketsModuloCache[tid].id_persona_asignada = idP;
+                                }
+                                pidAnterior = String(idP);
+                                if (typeof Swal !== 'undefined') Swal.fire({ icon: 'success', title: 'Reasignado', timer: 1500, showConfirmButton: false });
+                                if (typeof getTicketsModuloPanel === 'function') getTicketsModuloPanel();
+                            } else {
+                                if (typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: (r && r.mensaje) ? r.mensaje : 'Error' });
+                            }
+                        },
+                        onError: function (e) {
+                            if (typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: (e && e.mensaje) || 'Error' });
+                        }
+                    });
+                } else if (pid === '' || pid === null) {
                     http.request({
                         endpoint: '/sabueso/quitarAsignacionTicket',
                         metodo: 'POST',
@@ -497,6 +737,11 @@
                 $('#resumenTicketFormularioWrap').removeClass('d-none');
                 var $formSel = $('#resumenTicketFormularioSelect');
                 var $formPrecargadoNombre = $('#resumenTicketFormularioPrecargadoNombre');
+                var modoFormReadOnly = (esGestor || esTerritorial);
+                if (modoFormReadOnly) {
+                    // En Gestor/Territorial no se permite cambiar el formulario (solo vista).
+                    $formSel.prop('disabled', true).addClass('d-none');
+                }
                 $formSel.off('change.resumenForm').empty().append('<option value="">— Ninguno —</option>');
                 var storedForm = typeof localStorage !== 'undefined' ? (localStorage.getItem('tm_formulario_' + idTicket) || localStorage.getItem('tm_formulario_precargado')) : null;
                 function actualizarPrecargadoLabel() {
@@ -526,15 +771,17 @@
                         }
                     });
                 }
-                $formSel.on('change.resumenForm', function () {
-                    var val = $(this).val();
-                    if (typeof localStorage !== 'undefined') localStorage.setItem('tm_formulario_' + idTicket, val || '');
-                    actualizarPrecargadoLabel();
-                });
+                if (!modoFormReadOnly) {
+                    $formSel.on('change.resumenForm', function () {
+                        var val = $(this).val();
+                        if (typeof localStorage !== 'undefined') localStorage.setItem('tm_formulario_' + idTicket, val || '');
+                        actualizarPrecargadoLabel();
+                    });
+                }
             } else {
                 $('#resumenTicketFormularioWrap').addClass('d-none');
             }
-            cargarSelectAsignacionJefes();
+            if (!esGestor) cargarSelectAsignacionJefes();
         });
         window.getTicketsModuloPanel();
     }
@@ -892,7 +1139,12 @@
                             var inst = bootstrap.Modal.getInstance(modalLista);
                             if (inst) inst.hide();
                         }
-                        if (iframe) iframe.src = '/validaciones/formulario/' + id + '?modal=1&t=' + Date.now();
+                        if (iframe) {
+                            var modo = (cfg().modo || '').trim();
+                            var readOnly = modo === 'gestor' || modo === 'territorial';
+                            var extra = readOnly ? '&readonly=1' : '';
+                            iframe.src = '/validaciones/formulario/' + id + '?modal=1&t=' + Date.now() + extra;
+                        }
                         if (modalBuilder && typeof bootstrap !== 'undefined' && bootstrap.Modal) {
                             bootstrap.Modal.getOrCreateInstance(modalBuilder).show();
                         }
