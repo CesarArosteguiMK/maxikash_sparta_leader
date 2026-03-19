@@ -26,7 +26,7 @@
                     </div>
                 </div>
 
-                <!-- Imagen -->
+                <!-- Ilustración Sneat (man-with-laptop): misma que Resumen Call Center. Si falla la red, coloca el PNG en public/assets/img/illustrations/man-with-laptop.png -->
                 <div class="col-12 col-md-4">
                     <div class="card-body ps-md-2 pe-5 text-end">
                         <img src="https://demos.themeselection.com/sneat-bootstrap-html-admin-template/assets/img/illustrations/man-with-laptop.png"
