@@ -5,6 +5,8 @@ namespace Controllers;
 use Core\Controller;
 use Models\Empresa as EmpresasDAO;
 
+require_once dirname(__DIR__) . '/cronjobs/PrimerosPagosAutoSwitch.php';
+
 class Reporteria extends Controller
 {
     public function reporteCapitalHumano()
@@ -1189,6 +1191,17 @@ HTML;
                 return { nacDist, matriz };
             }
 
+            /** Misma fecha / corte que el encabezado (#lunesFecha, #corteLabel); colores alineados con el título. */
+            function actualizarTituloDistribCorte() {
+                const elFe = document.getElementById('distribCorteFecha');
+                const elCo = document.getElementById('distribCorteCorteLbl');
+                if (!elFe && !elCo) return;
+                const fe = (document.getElementById('lunesFecha')?.textContent || '').trim() || '—';
+                const co = (document.getElementById('corteLabel')?.textContent || '').trim() || '—';
+                if (elFe) elFe.textContent = fe;
+                if (elCo) elCo.textContent = co;
+            }
+
             function renderStats(data) {
                 const { nacDist, matriz } = calcStats(data);
                 const totalRegs = data.length || 0;
@@ -1242,6 +1255,7 @@ HTML;
                     </div>
                 </div>`;
                 document.getElementById('statsCorte').innerHTML = htmlCorte;
+                actualizarTituloDistribCorte();
 
                 /* Matriz de efectividad */
                 let htmlMat = `
@@ -1768,10 +1782,53 @@ HTML;
                     poblarFiltros(_data);
                     renderTabla();
                     renderStats(_data);
+                    await cargarEstadoEnvioAutomatico();
                 } catch(e) {
                     console.error(e);
                 } finally {
                     Swal.close();
+                }
+            }
+
+            async function cargarEstadoEnvioAutomatico() {
+                const badge = document.getElementById('estadoEnvioAuto');
+                const swAuto = document.getElementById('switchAutoEnvioPrimerosPagos');
+                if (!badge) return;
+                try {
+                    const r = await fetch('/Reporteria/getEstadoEnvioVencimientosLunesProgramado', { method:'POST' });
+                    const d = await r.json();
+                    if (!d?.success) {
+                        badge.className = 'badge bg-label-danger';
+                        badge.innerHTML = '<i class="fa fa-circle-xmark me-1"></i> Auto correo: sin estado';
+                        badge.title = d?.mensaje || 'No se pudo consultar estado de cron.';
+                        return;
+                    }
+                    const en = d.datos?.auto_envio_enabled === true;
+                    if (swAuto) swAuto.checked = en;
+                    const st = d.datos?.estado || 'pendiente';
+                    const detalle = d.datos?.detalle || '';
+                    if (st === 'apagado') {
+                        badge.className = 'badge bg-label-secondary';
+                        badge.innerHTML = '<i class="fa fa-power-off me-1"></i> Auto correo: desactivado';
+                    } else if (st === 'ok') {
+                        badge.className = 'badge bg-label-success';
+                        badge.innerHTML = '<i class="fa fa-circle-check me-1"></i> Auto correo: OK';
+                    } else if (st === 'error') {
+                        badge.className = 'badge bg-label-danger';
+                        badge.innerHTML = '<i class="fa fa-circle-xmark me-1"></i> Auto correo: error';
+                    } else {
+                        badge.className = 'badge bg-label-warning';
+                        badge.innerHTML = '<i class="fa fa-clock me-1"></i> Auto correo: pendiente';
+                    }
+                    let title = detalle || 'Estado de envío automático.';
+                    if (d.datos?.auto_envio_updated_at) {
+                        title += ' · Interruptor: ' + d.datos.auto_envio_updated_at;
+                    }
+                    badge.title = title;
+                } catch (e) {
+                    badge.className = 'badge bg-label-danger';
+                    badge.innerHTML = '<i class="fa fa-circle-xmark me-1"></i> Auto correo: sin estado';
+                    badge.title = 'Error al consultar estado.';
                 }
             }
 
@@ -1876,6 +1933,32 @@ HTML;
                 a.href    = URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
                 a.download = `vencimientos_lunes_${new Date().toISOString().substring(0,10)}.csv`;
                 a.click();
+            });
+
+            /* ── Interruptor envío automático (servidor; no depende de sesión al releer) ── */
+            document.getElementById('switchAutoEnvioPrimerosPagos')?.addEventListener('change', async function () {
+                const el = this;
+                const previous = !el.checked;
+                const fd = new FormData();
+                fd.append('enabled', el.checked ? '1' : '0');
+                try {
+                    const r = await fetch('/Reporteria/setSwitchPrimerosPagosAutoEnvio', { method: 'POST', body: fd });
+                    const d = await r.json();
+                    if (!d?.success) {
+                        el.checked = previous;
+                        if (typeof Swal !== 'undefined') {
+                            Swal.fire({ icon: 'error', title: 'No se guardó', text: d?.mensaje || '' });
+                        }
+                        return;
+                    }
+                    await cargarEstadoEnvioAutomatico();
+                } catch (e) {
+                    el.checked = previous;
+                    console.error(e);
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire({ icon: 'error', title: 'Error de red', text: 'No se pudo guardar el interruptor.' });
+                    }
+                }
             });
 
             /* ── Enviar correo ── */
@@ -2047,6 +2130,239 @@ HTML;
         } catch (\Exception $e) {
             self::respuestaJSON(["success" => false, "mensaje" => $e->getMessage()]);
         }
+    }
+
+    public function getEstadoEnvioVencimientosLunesProgramado()
+    {
+        try {
+            if ((int)($_SESSION['usuario_id'] ?? 0) !== 1) {
+                self::respuestaJSON(self::respuesta(false, 'No autorizado.'));
+            }
+
+            date_default_timezone_set('America/Mexico_City');
+            $stSwitch = \PrimerosPagosAutoSwitch::getState();
+            $baseMeta = [
+                'auto_envio_enabled' => $stSwitch['enabled'],
+                'auto_envio_updated_at' => $stSwitch['updated_at'],
+            ];
+
+            if (!$stSwitch['enabled']) {
+                self::respuestaJSON(self::respuesta(true, 'Envío automático desactivado', array_merge($baseMeta, [
+                    'estado' => 'apagado',
+                    'detalle' => 'El interruptor está apagado. El cron no enviará correos hasta activarlo (estado guardado en el servidor).',
+                ])));
+            }
+
+            $horarios = ['07:40','09:40','11:40','13:40','14:40','16:40','18:40','20:40','23:50'];
+            $hoy = date('Y-m-d');
+            $ahora = date('H:i');
+            $transcurridos = array_values(array_filter($horarios, function ($h) use ($ahora) {
+                return strcmp($h, $ahora) <= 0;
+            }));
+
+            $estadoFile = RAIZ . '/cronjobs/logs/primeros_pagos_estado.json';
+            if (!is_file($estadoFile)) {
+                self::respuestaJSON(self::respuesta(true, 'Sin estado aún', array_merge($baseMeta, [
+                    'estado' => 'pendiente',
+                    'detalle' => 'Aún no hay estado registrado del cron para hoy.'
+                ])));
+            }
+
+            $raw = @file_get_contents($estadoFile);
+            $json = is_string($raw) ? json_decode($raw, true) : null;
+            if (!is_array($json) || ($json['date'] ?? '') !== $hoy) {
+                self::respuestaJSON(self::respuesta(true, 'Estado del día no disponible', array_merge($baseMeta, [
+                    'estado' => 'pendiente',
+                    'detalle' => 'No hay estado registrado para hoy.'
+                ])));
+            }
+
+            $slots = is_array($json['slots'] ?? null) ? $json['slots'] : [];
+            if (empty($transcurridos)) {
+                self::respuestaJSON(self::respuesta(true, 'Aún sin horarios vencidos', array_merge($baseMeta, [
+                    'estado' => 'pendiente',
+                    'detalle' => 'Aún no hay horarios programados transcurridos hoy.'
+                ])));
+            }
+
+            $faltantes = [];
+            $errores = [];
+            foreach ($transcurridos as $slot) {
+                if (!isset($slots[$slot])) {
+                    $faltantes[] = $slot;
+                    continue;
+                }
+                if (($slots[$slot]['status'] ?? '') !== 'success') {
+                    $errores[] = $slot;
+                }
+            }
+
+            if (empty($faltantes) && empty($errores)) {
+                $ultimo = end($transcurridos);
+                self::respuestaJSON(self::respuesta(true, 'OK', array_merge($baseMeta, [
+                    'estado' => 'ok',
+                    'detalle' => "Todos los envíos automáticos transcurridos van OK. Último horario validado: {$ultimo}."
+                ])));
+            }
+
+            $detalle = '';
+            if (!empty($faltantes)) {
+                $detalle .= 'Sin registro en: ' . implode(', ', $faltantes) . '. ';
+            }
+            if (!empty($errores)) {
+                $detalle .= 'Con error en: ' . implode(', ', $errores) . '.';
+            }
+            self::respuestaJSON(self::respuesta(true, 'Con incidencias', array_merge($baseMeta, [
+                'estado' => 'error',
+                'detalle' => trim($detalle)
+            ])));
+        } catch (\Throwable $e) {
+            self::respuestaJSON(self::respuesta(false, 'Error al consultar estado: ' . $e->getMessage()));
+        }
+    }
+
+    /**
+     * Activa/desactiva el envío automático por cron (solo usuario_id 1).
+     * El estado se guarda en disco en el servidor, no en sesión.
+     */
+    public function setSwitchPrimerosPagosAutoEnvio()
+    {
+        try {
+            if ((int)($_SESSION['usuario_id'] ?? 0) !== 1) {
+                self::respuestaJSON(self::respuesta(false, 'No autorizado.'));
+            }
+
+            $raw = $_POST['enabled'] ?? null;
+            if ($raw === null || $raw === '') {
+                self::respuestaJSON(self::respuesta(false, 'Falta el parámetro enabled (0 o 1).'));
+            }
+            $sv = strtolower(trim((string)$raw));
+            if ($sv !== '0' && $sv !== '1') {
+                self::respuestaJSON(self::respuesta(false, 'enabled debe ser 0 o 1.'));
+            }
+            $enabled = ($sv === '1');
+
+            $saved = \PrimerosPagosAutoSwitch::setEnabled($enabled);
+            self::respuestaJSON(self::respuesta(true, $enabled ? 'Envío automático activado.' : 'Envío automático desactivado.', [
+                'auto_envio_enabled' => $saved['enabled'],
+                'auto_envio_updated_at' => $saved['updated_at'],
+            ]));
+        } catch (\Throwable $e) {
+            self::respuestaJSON(self::respuesta(false, 'Error al guardar interruptor: ' . $e->getMessage()));
+        }
+    }
+
+    /**
+     * Uso por cron: genera datos frescos y envía correo a una lista.
+     */
+    public function enviarCorreoVencimientosLunesProgramado(array $destinatarios, string $asunto = 'Primeros pagos — Lunes de Cierre'): array
+    {
+        try {
+            $destinatariosLimpios = [];
+            foreach ($destinatarios as $email) {
+                $email = strtolower(trim((string)$email));
+                if ($email === '') {
+                    continue;
+                }
+                if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                    return self::respuesta(false, "Correo inválido en cron: {$email}");
+                }
+                $destinatariosLimpios[] = $email;
+            }
+            $destinatariosLimpios = array_values(array_unique($destinatariosLimpios));
+            if (empty($destinatariosLimpios)) {
+                return self::respuesta(false, 'Cron sin destinatarios válidos.');
+            }
+
+            $raw = EmpresasDAO::getVencimientosLunes();
+            if (empty($raw['success'])) {
+                return self::respuesta(false, $raw['mensaje'] ?? 'No se pudieron obtener datos del reporte.');
+            }
+
+            $rows = is_array($raw['datos'] ?? null) ? $raw['datos'] : [];
+            $payload = $this->buildPayloadVencimientosLunes($rows, (string)($raw['lunes_pasado'] ?? ''), (string)($raw['corte_actual'] ?? ''));
+            $html = $this->buildCorreoVencimientosLunesHtml($payload);
+            $envio = $this->enviarCorreoHtmlVencimientos($destinatariosLimpios, $asunto, $html);
+            if (empty($envio['success'])) {
+                return self::respuesta(false, $envio['mensaje'] ?? 'No se pudo enviar el correo programado.');
+            }
+
+            return self::respuesta(true, 'Correo programado enviado.', [
+                'destinatarios' => $destinatariosLimpios,
+                'total_registros' => $payload['total_registros'] ?? 0,
+            ]);
+        } catch (\Throwable $e) {
+            error_log('Reporteria::enviarCorreoVencimientosLunesProgramado -> ' . $e->getMessage());
+            return self::respuesta(false, 'Error en envío programado: ' . $e->getMessage());
+        }
+    }
+
+    private function buildPayloadVencimientosLunes(array $rows, string $lunesPasado, string $corteActual): array
+    {
+        $bucketNacio = [
+            'a) Current' => 0,
+            'b) 1 a 7 dias' => 0,
+        ];
+
+        $matriz = [
+            'b) 1 a 7 dias' => ['a) Current' => 0],
+        ];
+
+        foreach ($rows as $r) {
+            $n = (string)($r['bucket_nacio'] ?? '');
+            $c = (string)($r['bucket_corte_actual'] ?? '');
+            if (array_key_exists($n, $bucketNacio)) {
+                $bucketNacio[$n]++;
+            }
+            if ($n === 'b) 1 a 7 dias' && $c === 'a) Current') {
+                $matriz['b) 1 a 7 dias']['a) Current']++;
+            }
+        }
+
+        $totalCurrentNac = (int)$bucketNacio['a) Current'];
+        $total1a7Nac = (int)$bucketNacio['b) 1 a 7 dias'];
+        $recuperados1a7 = (int)$matriz['b) 1 a 7 dias']['a) Current'];
+        $pendientes1a7 = max(0, $total1a7Nac - $recuperados1a7);
+        $totalGlobal = $totalCurrentNac + $total1a7Nac;
+        $pctCurrent = $totalGlobal > 0 ? (int)round($totalCurrentNac / $totalGlobal * 100) : 0;
+        $pct17 = $totalGlobal > 0 ? 100 - $pctCurrent : 0;
+        $pctRecuperados = $total1a7Nac > 0 ? (int)round($recuperados1a7 / $total1a7Nac * 100) : 0;
+
+        return [
+            'total_registros' => count($rows),
+            'primer_vencimiento' => $lunesPasado !== '' ? $lunesPasado : date('Y-m-d'),
+            'corte_actual' => str_replace('_', ' ', $corteActual),
+            'generado_en' => date('c'),
+            'global' => [
+                'total' => $totalGlobal,
+                'current' => $totalCurrentNac,
+                'uno_a_siete' => $total1a7Nac,
+                'pct_current' => $pctCurrent,
+                'pct_uno_a_siete' => $pct17,
+            ],
+            'nacimiento' => [
+                'current' => $totalCurrentNac,
+                'uno_a_siete' => $total1a7Nac,
+            ],
+            'corte' => [
+                'current_mas_recuperados' => $totalCurrentNac + $recuperados1a7,
+                'pendientes' => $pendientes1a7,
+            ],
+            'matriz' => [
+                'current' => [
+                    'total' => $totalCurrentNac,
+                    'siguen_current' => $totalCurrentNac,
+                    'efectividad' => $totalCurrentNac > 0 ? 100 : 0,
+                ],
+                'uno_a_siete' => [
+                    'total' => $total1a7Nac,
+                    'recuperados' => $recuperados1a7,
+                    'siguen_uno_a_siete' => $pendientes1a7,
+                    'efectividad' => $pctRecuperados,
+                ],
+            ],
+            'nota' => 'Datos generados automáticamente para envío programado.',
+        ];
     }
 
     public function enviarCorreoVencimientosLunes()
@@ -2237,7 +2553,7 @@ HTML;
     .block-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; margin-bottom: 20px; }
     .block-card-corte { background: #eef1f4; border: 1px solid #cbd5e1; }
     .block-card-corte .block-card-title { color: #64748b; }
-    .block-card-title { font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 16px; display: flex; align-items: center; gap: 6px; }
+    .block-card-title { font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 16px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
     .matrix-row { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px 16px; margin-bottom: 10px; }
     .matrix-row:last-child { margin-bottom: 0; }
     .matrix-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; flex-wrap: wrap; gap: 8px; }
@@ -2303,7 +2619,7 @@ HTML;
     </div>
 
     <div class="block-card" style="background:#f0f3f7;border:1px solid #d8dfe7;">
-      <div class="block-card-title" style="color:#475569;">📊 Distribución de corte</div>
+      <div class="block-card-title" style="line-height:1.45;"><span style="color:#000000;">📊 Distribución de corte:</span> <span style="color:#6b7785;font-weight:600;">{$primerVencimiento}</span><span style="color:#94a3b8;margin:0 6px;">·</span><span style="color:#475569;">Corte actual:</span> <code style="background:rgba(3,195,236,.12);color:#0b7285;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;">{$corteActual}</code></div>
       <table style="width:100%;border-collapse:separate;border-spacing:10px;margin:-10px;">
         <tr>
           <td style="width:50%;vertical-align:top;">
@@ -2324,103 +2640,6 @@ HTML;
       </table>
     </div>
 
-    <div class="section-title">Matriz nacimiento → corte</div>
-
-    <div class="matrix-row">
-      <div class="matrix-top">
-        <span class="matrix-badge mrow-yellow">🌐 Global</span>
-        <span class="matrix-num">{$num($globTotal)}</span>
-      </div>
-      <table class="matrix-cols">
-        <tr>
-          <td class="matrix-col">
-            <div class="matrix-lbl">Toda la cartera</div>
-            <div class="matrix-val">{$num($globTotal)} créditos</div>
-          </td>
-          <td class="matrix-col">
-            <div class="matrix-lbl">Resumen cartera</div>
-            <div class="matrix-val">{$num($globCurrent)} current · {$num($glob17)} 1-7d</div>
-          </td>
-          <td class="matrix-col">
-            <div class="pct-row">
-              <span style="display:inline-flex;align-items:center;">
-                <span class="pct" style="color:#16a34a;">{$num($pctCurrent)}%</span>
-                <span class="pct-note">current</span>
-              </span>
-              <span style="display:inline-flex;align-items:center;">
-                <span class="pct" style="color:#0284c7;">{$num($pct17)}%</span>
-                <span class="pct-note">1-7d</span>
-              </span>
-            </div>
-            <div class="bar-track">
-              <div class="bar-fill" style="width:{$pctCurrent}%;background:#28a745;"></div>
-              <div class="bar-fill" style="width:{$pct17}%;background:#03c3ec;"></div>
-            </div>
-          </td>
-        </tr>
-      </table>
-    </div>
-
-    <div class="matrix-row">
-      <div class="matrix-top">
-        <span class="matrix-badge mrow-green">✔ a) Current</span>
-        <span class="matrix-num">{$num($mCurrentTotal)}</span>
-      </div>
-      <table class="matrix-cols">
-        <tr>
-          <td class="matrix-col">
-            <div class="matrix-lbl">Ya eran current</div>
-            <div class="matrix-val">— no aplica</div>
-          </td>
-          <td class="matrix-col">
-            <div class="matrix-lbl">Siguen current</div>
-            <div class="matrix-val">{$num($mCurrentSiguen)} créditos</div>
-          </td>
-          <td class="matrix-col">
-            <div class="pct-row">
-              <span style="display:inline-flex;align-items:center;">
-                <span class="pct" style="color:#16a34a;">100%</span>
-                <span class="pct-note">sin mora al corte</span>
-              </span>
-            </div>
-            <div class="bar-track">
-              <div class="bar-fill" style="width:100%;background:#28a745;"></div>
-            </div>
-          </td>
-        </tr>
-      </table>
-    </div>
-
-    <div class="matrix-row">
-      <div class="matrix-top">
-        <span class="matrix-badge mrow-info">🕐 b) 1 a 7 días</span>
-        <span class="matrix-num">{$num($m17Total)}</span>
-      </div>
-      <table class="matrix-cols">
-        <tr>
-          <td class="matrix-col">
-            <div class="matrix-lbl">Bajaron a mejor bucket</div>
-            <div class="matrix-val-green">↑ {$num($m17Recuperados)} créditos</div>
-          </td>
-          <td class="matrix-col">
-            <div class="matrix-lbl">Siguen en 1-7d</div>
-            <div class="matrix-val">{$num($m17Siguen)} créditos</div>
-          </td>
-          <td class="matrix-col">
-            <div class="pct-row">
-              <span style="display:inline-flex;align-items:center;">
-                <span class="pct" style="color:#16a34a;">{$num($m17Efectividad)}%</span>
-                <span class="pct-note">recuperados</span>
-              </span>
-            </div>
-            <div class="bar-track">
-              <div class="bar-fill" style="width:{$m17Efectividad}%;background:#28a745;"></div>
-            </div>
-            <div style="font-size:10px;color:#94a3b8;margin-top:4px;">{$num($m17Siguen)} pendientes de gestión</div>
-          </td>
-        </tr>
-      </table>
-    </div>
   </div>
 
   <div class="footer">
