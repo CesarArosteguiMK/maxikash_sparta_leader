@@ -16,20 +16,26 @@ class FormularioValidacionPregunta extends Model
 
     /**
      * Lista predefinidas + personalizadas para armar el cuestionario.
-     * Incluye solo activa=1, ordenadas por es_predefinida DESC, orden ASC.
+     * Si $idFormulario es distinto de null, solo incluye preguntas de ese formulario.
      */
-    public static function listarParaFormulario(int $idPersona): array
+    public static function listarParaFormulario(int $idPersona, ?int $idFormulario = null): array
     {
         try {
             $db = new Database();
+            $params = ['id_persona' => $idPersona];
+            $andForm = '';
+            if ($idFormulario !== null && $idFormulario > 0) {
+                $andForm = ' AND (id_formulario = :id_formulario OR (es_predefinida = 1 AND id_formulario IS NULL)) ';
+                $params['id_formulario'] = $idFormulario;
+            }
             $r = $db->queryAll("
                 SELECT id, tipo, texto, opciones, indice_correcto, indices_correctos,
                        escala_min, escala_max, num_min, num_max, es_predefinida, activa, orden
                 FROM formulario_validacion_pregunta
                 WHERE activa = 1
-                  AND (es_predefinida = 1 OR id_persona_creador = :id_persona)
+                  AND (es_predefinida = 1 OR id_persona_creador = :id_persona) $andForm
                 ORDER BY es_predefinida DESC, orden ASC, id ASC
-            ", ['id_persona' => $idPersona]);
+            ", $params);
             return is_array($r) ? self::decodeJsonFields($r) : [];
         } catch (\Exception $e) {
             return [];
@@ -38,19 +44,25 @@ class FormularioValidacionPregunta extends Model
 
     /**
      * Lista todas las preguntas para la pantalla Formularios (predefinidas + personalizadas del usuario).
-     * Incluye activa para poder marcar/desmarcar.
+     * Si $idFormulario es distinto de null, solo devuelve preguntas de ese formulario (id_formulario = X o NULL para predefinidas globales).
      */
-    public static function listarParaPanel(int $idPersona): array
+    public static function listarParaPanel(int $idPersona, ?int $idFormulario = null): array
     {
         try {
             $db = new Database();
+            $params = ['id_persona' => $idPersona];
+            $andForm = '';
+            if ($idFormulario !== null && $idFormulario > 0) {
+                $andForm = ' AND (id_formulario = :id_formulario OR (es_predefinida = 1 AND id_formulario IS NULL)) ';
+                $params['id_formulario'] = $idFormulario;
+            }
             $r = $db->queryAll("
                 SELECT id, tipo, texto, opciones, indice_correcto, indices_correctos,
-                       escala_min, escala_max, num_min, num_max, es_predefinida, activa, orden, id_persona_creador, fecha_creacion
+                       escala_min, escala_max, num_min, num_max, es_predefinida, activa, orden, id_persona_creador, fecha_creacion, id_formulario
                 FROM formulario_validacion_pregunta
-                WHERE es_predefinida = 1 OR id_persona_creador = :id_persona
+                WHERE (es_predefinida = 1 OR id_persona_creador = :id_persona) $andForm
                 ORDER BY es_predefinida DESC, orden ASC, id ASC
-            ", ['id_persona' => $idPersona]);
+            ", $params);
             return is_array($r) ? self::decodeJsonFields($r) : [];
         } catch (\Exception $e) {
             return [];
@@ -127,11 +139,13 @@ class FormularioValidacionPregunta extends Model
             $orden = (int) ($datos['orden'] ?? 0);
             $activa = isset($datos['activa']) ? (int) $datos['activa'] : 1;
             $idCreador = $esPredefinida ? null : $idPersona;
+            $idFormulario = isset($datos['id_formulario']) && (int) $datos['id_formulario'] > 0 ? (int) $datos['id_formulario'] : null;
 
             $db->CRUD("
-                INSERT INTO formulario_validacion_pregunta (tipo, texto, opciones, indice_correcto, indices_correctos, escala_min, escala_max, num_min, num_max, es_predefinida, activa, orden, id_persona_creador)
-                VALUES (:tipo, :texto, :opciones, :indice_correcto, :indices_correctos, :escala_min, :escala_max, :num_min, :num_max, :es_predefinida, :activa, :orden, :id_persona_creador)
+                INSERT INTO formulario_validacion_pregunta (id_formulario, tipo, texto, opciones, indice_correcto, indices_correctos, escala_min, escala_max, num_min, num_max, es_predefinida, activa, orden, id_persona_creador)
+                VALUES (:id_formulario, :tipo, :texto, :opciones, :indice_correcto, :indices_correctos, :escala_min, :escala_max, :num_min, :num_max, :es_predefinida, :activa, :orden, :id_persona_creador)
             ", [
+                'id_formulario' => $idFormulario,
                 'tipo' => $tipo,
                 'texto' => $texto,
                 'opciones' => $opciones,

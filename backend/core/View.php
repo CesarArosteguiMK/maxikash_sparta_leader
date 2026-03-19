@@ -77,8 +77,8 @@ function getMenu()
                                     'modulos' => [6]
                             ],
                             [
-                                'label' => 'Vencimientos Lunes',
-                                'url' => '/reporteria/VencimientosLunes',
+                                'label' => 'Primeros pagos',
+                                'url' => '/reporteria/PrimerosPagos',
                                 'modulos' => [49]
                             ],
                             [

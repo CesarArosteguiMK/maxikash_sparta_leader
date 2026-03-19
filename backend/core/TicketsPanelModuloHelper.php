@@ -69,6 +69,36 @@ class TicketsPanelModuloHelper
         ],
     ];
 
+    /** categoria_gestion en ticket => clave en config_panel_usuario */
+    public const CATEGORIA_CLAVE_PANEL = [
+        'validaciones' => 'sabueso_panel_validaciones',
+        'viaticos' => 'sabueso_panel_viaticos',
+        'aplicaciones_de_pago' => 'sabueso_panel_aplicacionespago',
+        'plantilla' => 'sabueso_panel_plantilla',
+        'atencion_cliente' => 'sabueso_panel_atencioncliente',
+        'credito_problematico' => 'sabueso_panel_creditoproblematico',
+        'aclaracion_credito' => 'sabueso_panel_aclaracioncredito',
+    ];
+
+    /**
+     * null = puede consultar cualquier categoría (tiene Panel Sabueso principal).
+     * array = solo esas categorías (paneles por módulo asignados explícitamente).
+     */
+    public static function getCategoriasPermitidasTicketsApi(array $panelesUsuario): ?array
+    {
+        if (in_array('sabueso_paneladmin', $panelesUsuario, true)) {
+            return null;
+        }
+        $cats = [];
+        foreach (self::CATEGORIA_CLAVE_PANEL as $cat => $clave) {
+            if (in_array($clave, $panelesUsuario, true)) {
+                $cats[] = $cat;
+            }
+        }
+
+        return array_values(array_unique($cats));
+    }
+
     public static function getRedirectUrlForCategoria(string $categoria): ?string
     {
         $c = strtolower(preg_replace('/[^a-z0-9_]/', '', $categoria));
@@ -85,6 +115,12 @@ class TicketsPanelModuloHelper
         }
         $m = self::MODULOS[$c];
         $personaId = (int) ($_SESSION['persona_id'] ?? $_SESSION['usuario_id'] ?? 0);
+        $claveRequerida = self::CATEGORIA_CLAVE_PANEL[$c] ?? '';
+        $panelesUsuario = ConfigPanelUsuarioDAO::getPanelesPorPersona($personaId);
+        if ($claveRequerida === '' || !in_array($claveRequerida, $panelesUsuario, true)) {
+            header('Location: /sabueso/panelAdminInicio', true, 302);
+            exit;
+        }
         $panelesVis = ConfigPanelUsuarioDAO::getPanelesVisiblesParaPersona($personaId, []);
         $columnsJson = PanelAdminTicketTable::getColumnsConfig(true, $c);
         $titulos = PanelAdminTicketTable::getTitulosColumnasPanelAdminPorCategoria($c);
@@ -103,10 +139,11 @@ class TicketsPanelModuloHelper
         $ctrl->set('tickets_panel_icono_color', $m['icon_color'] ?? 'text-primary');
         $ctrl->set('tickets_panel_formularios', !empty($m['formularios']));
         $ctrl->set('titulo', 'Panel ' . $m['titulo']);
+        $panelJsVer = @filemtime(dirname(RAIZ) . '/public/assets/js/paneladmin_tickets_modulo.js') ?: time();
         $ctrl->set(
             'script',
             '<script>window.TICKETS_MODULO_CONFIG=' . $moduloJs . ';window.TICKETS_MODULO_COLUMNS=' . $columnsJson['columnsJs'] . ';window.TICKETS_MODULO_TITULOS=' . $titulosJs . ';</script>'
-            . '<script src="/assets/js/paneladmin_tickets_modulo.js"></script>'
+            . '<script src="/assets/js/paneladmin_tickets_modulo.js?v=' . $panelJsVer . '"></script>'
         );
         $ctrl->render('tickets_panel_modulo');
     }
