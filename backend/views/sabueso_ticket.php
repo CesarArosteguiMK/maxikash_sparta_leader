@@ -175,13 +175,15 @@ $funcionesTicket = isset($funcionesTicket) && is_array($funcionesTicket) ? $func
             <thead>
                 <tr>
                     <th></th>
+                    <th class="d-none">Fecha orden</th>
                     <th>Folio / Tipo</th>
                     <th>Gestión</th>
                     <th>Estado</th>
                     <th>Prioridad</th>
                     <th>Crédito</th>
                     <th>Fechas</th>
-                    <th>Tiempo para visitar</th>
+                    <th>Tiempo para visitar / Prórroga</th>
+                    <th>Resultado DS</th>
                     <th></th>
                     <th>Acciones</th>
                 </tr>

@@ -12,7 +12,7 @@ class Reporteria extends Controller
     public function reporteCapitalHumano()
     {
         $script = "";
-        self::set("titulo", "Reporte CH");
+        self::set("titulo", "Capital Humano");
         self::set("script", $script);
         self::render("reporte_capital_humano");
     }
@@ -803,14 +803,30 @@ HTML;
     }
 
     /**
-     * Vista: Reportes del módulo Sabuesos (Tickets, Panel Admin, Cerrado/Eliminado)
+     * Vista: Reportes de tickets (descargas Excel).
      */
     public function sabuesos()
     {
         $script = "";
-        self::set("titulo", "Reportes - Sabuesos");
+        self::set("titulo", "Reportes");
         self::set("script", $script);
         self::render("reporteria_sabuesos");
+    }
+
+    /**
+     * Consulta por ID crédito bajo Reportería (URL limpia; misma vista que el panel Sabueso en modo solo lectura).
+     */
+    public function consultaIdCredito()
+    {
+        (new Sabueso())->paneladmin(true);
+    }
+
+    /**
+     * Alias histórico: misma acción que consultaIdCredito.
+     */
+    public function consultaCreditoRastreo()
+    {
+        $this->consultaIdCredito();
     }
 
     /**
@@ -1251,7 +1267,7 @@ HTML;
                                 <i class="fa fa-clock me-1"></i>Pendientes primeros pagos
                             </div>
                             <div class="fw-bold" style="font-size:1.5rem;">${pendientes}<span class="fw-semibold" style="font-size:1.05rem;margin-left:6px;color:#6c757d;">(${pctOf(pendientes)}%)</span></div>
-                            <div style="font-size:.65rem;color:#6c757d;">de recuperación</div>
+                            <div style="font-size:.65rem;color:#6c757d;">por recuperar</div>
                     </div>
                 </div>`;
                 document.getElementById('statsCorte').innerHTML = htmlCorte;
@@ -1792,6 +1808,7 @@ HTML;
 
             async function cargarEstadoEnvioAutomatico() {
                 const badge = document.getElementById('estadoEnvioAuto');
+                const badgeAgente = document.getElementById('estadoAgenteCorreos');
                 const swAuto = document.getElementById('switchAutoEnvioPrimerosPagos');
                 if (!badge) return;
                 try {
@@ -1801,6 +1818,11 @@ HTML;
                         badge.className = 'badge bg-label-danger';
                         badge.innerHTML = '<i class="fa fa-circle-xmark me-1"></i> Auto correo: sin estado';
                         badge.title = d?.mensaje || 'No se pudo consultar estado de cron.';
+                        if (badgeAgente) {
+                            badgeAgente.className = 'badge bg-label-secondary';
+                            badgeAgente.innerHTML = '<i class="fa fa-robot me-1"></i> Agente: —';
+                            badgeAgente.title = '';
+                        }
                         return;
                     }
                     const en = d.datos?.auto_envio_enabled === true;
@@ -1815,7 +1837,10 @@ HTML;
                         badge.innerHTML = '<i class="fa fa-circle-check me-1"></i> Auto correo: OK';
                     } else if (st === 'error') {
                         badge.className = 'badge bg-label-danger';
-                        badge.innerHTML = '<i class="fa fa-circle-xmark me-1"></i> Auto correo: error';
+                        badge.innerHTML = '<i class="fa fa-circle-xmark me-1"></i> Auto correo: error de envío';
+                    } else if (st === 'incompleto') {
+                        badge.className = 'badge bg-label-warning';
+                        badge.innerHTML = '<i class="fa fa-calendar-day me-1"></i> Auto correo: faltan ventanas';
                     } else {
                         badge.className = 'badge bg-label-warning';
                         badge.innerHTML = '<i class="fa fa-clock me-1"></i> Auto correo: pendiente';
@@ -1825,10 +1850,33 @@ HTML;
                         title += ' · Interruptor: ' + d.datos.auto_envio_updated_at;
                     }
                     badge.title = title;
+
+                    if (badgeAgente) {
+                        const agOn = d.datos?.agente_correos_online;
+                        const agDet = d.datos?.agente_correos_detalle || '';
+                        if (agOn === null || agOn === undefined) {
+                            badgeAgente.className = 'badge bg-label-secondary';
+                            badgeAgente.innerHTML = '<i class="fa fa-robot me-1"></i> Agente: no consultado';
+                            badgeAgente.title = agDet || 'Sonda desactivada en config o sin datos.';
+                        } else if (agOn === true) {
+                            badgeAgente.className = 'badge bg-label-success';
+                            badgeAgente.innerHTML = '<i class="fa fa-robot me-1"></i> Agente: en línea';
+                            badgeAgente.title = agDet;
+                        } else {
+                            badgeAgente.className = 'badge bg-label-danger';
+                            badgeAgente.innerHTML = '<i class="fa fa-robot me-1"></i> Agente: fuera de línea';
+                            badgeAgente.title = agDet;
+                        }
+                    }
                 } catch (e) {
                     badge.className = 'badge bg-label-danger';
                     badge.innerHTML = '<i class="fa fa-circle-xmark me-1"></i> Auto correo: sin estado';
                     badge.title = 'Error al consultar estado.';
+                    const badgeAgente = document.getElementById('estadoAgenteCorreos');
+                    if (badgeAgente) {
+                        badgeAgente.className = 'badge bg-label-secondary';
+                        badgeAgente.innerHTML = '<i class="fa fa-robot me-1"></i> Agente: —';
+                    }
                 }
             }
 
@@ -2132,6 +2180,98 @@ HTML;
         }
     }
 
+    /**
+     * Config [correos_primeros_pagos_agent] para sondar el proceso Node (HTTP).
+     */
+    private function correosPrimerosPagosAgenteConfig(): array
+    {
+        static $cfg = null;
+        if ($cfg !== null) {
+            return $cfg;
+        }
+        $cfg = ['enabled' => '1', 'url' => 'http://127.0.0.1:3110'];
+        $configFile = __DIR__ . '/../config/config.ini';
+        if (is_file($configFile)) {
+            $parsed = @parse_ini_file($configFile, true);
+            if (is_array($parsed) && isset($parsed['correos_primeros_pagos_agent']) && is_array($parsed['correos_primeros_pagos_agent'])) {
+                $cfg = array_merge($cfg, $parsed['correos_primeros_pagos_agent']);
+            }
+        }
+        return $cfg;
+    }
+
+    /**
+     * @return array{online: ?bool, detail: string, json: ?array}
+     */
+    private function probeCorreosPrimerosPagosAgent(): array
+    {
+        $c = $this->correosPrimerosPagosAgenteConfig();
+        $enabled = in_array((string)($c['enabled'] ?? '1'), ['1', 'true', 'TRUE', 'yes', 'on'], true);
+        if (!$enabled) {
+            return ['online' => null, 'detail' => 'Sonda del agente desactivada en config.ini.', 'json' => null];
+        }
+        $url = rtrim(trim((string)($c['url'] ?? 'http://127.0.0.1:3110')), '/');
+        $target = $url . '/';
+        if (function_exists('curl_init')) {
+            $ch = curl_init($target);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 2);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 3);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, ['Accept: application/json']);
+            $raw = curl_exec($ch);
+            $err = curl_error($ch);
+            $code = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+            if ($raw === false) {
+                return ['online' => false, 'detail' => 'Sin conexión al agente en ' . $url . ' (' . ($err ?: 'timeout') . ').', 'json' => null];
+            }
+            if ($code < 200 || $code >= 300) {
+                return ['online' => false, 'detail' => 'Agente respondió HTTP ' . $code . '.', 'json' => null];
+            }
+            $j = json_decode($raw, true);
+            if (!is_array($j)) {
+                return ['online' => false, 'detail' => 'Respuesta no JSON del agente.', 'json' => null];
+            }
+            $ok = !empty($j['ok']);
+            $interval = isset($j['intervalMs']) ? (int)$j['intervalMs'] : 0;
+            $sec = $interval > 0 ? (int)round($interval / 1000) : 600;
+            $partFreq = ($sec >= 60 && $sec % 60 === 0)
+                ? ('cada ~' . (int)($sec / 60) . ' min')
+                : ('cada ~' . $sec . ' s');
+            $detail = $ok
+                ? 'Agente Node activo (' . $partFreq . ' ejecuta el cron PHP). Horarios de envío: CDMX (no la hora del servidor).'
+                : 'Agente respondió sin ok.';
+            return ['online' => $ok, 'detail' => $detail, 'json' => $j];
+        }
+        $ctx = stream_context_create(['http' => ['timeout' => 3, 'ignore_errors' => true]]);
+        $raw = @file_get_contents($target, false, $ctx);
+        if ($raw === false) {
+            return ['online' => false, 'detail' => 'No se pudo conectar al agente.', 'json' => null];
+        }
+        $j = json_decode($raw, true);
+        if (is_array($j) && !empty($j['ok'])) {
+            return ['online' => true, 'detail' => 'Agente Node activo.', 'json' => $j];
+        }
+        return ['online' => false, 'detail' => 'Respuesta inválida.', 'json' => null];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function buildCorreosAgenteMetaForEstado(): array
+    {
+        $p = $this->probeCorreosPrimerosPagosAgent();
+        $out = [
+            'agente_correos_online' => $p['online'],
+            'agente_correos_detalle' => $p['detail'],
+        ];
+        if (is_array($p['json'])) {
+            $out['agente_correos_interval_ms'] = $p['json']['intervalMs'] ?? null;
+            $out['agente_correos_pid'] = $p['json']['pid'] ?? null;
+        }
+        return $out;
+    }
+
     public function getEstadoEnvioVencimientosLunesProgramado()
     {
         try {
@@ -2141,10 +2281,10 @@ HTML;
 
             date_default_timezone_set('America/Mexico_City');
             $stSwitch = \PrimerosPagosAutoSwitch::getState();
-            $baseMeta = [
+            $baseMeta = array_merge([
                 'auto_envio_enabled' => $stSwitch['enabled'],
                 'auto_envio_updated_at' => $stSwitch['updated_at'],
-            ];
+            ], $this->buildCorreosAgenteMetaForEstado());
 
             if (!$stSwitch['enabled']) {
                 self::respuestaJSON(self::respuesta(true, 'Envío automático desactivado', array_merge($baseMeta, [
@@ -2208,13 +2348,19 @@ HTML;
 
             $detalle = '';
             if (!empty($faltantes)) {
-                $detalle .= 'Sin registro en: ' . implode(', ', $faltantes) . '. ';
+                $detalle .= 'Sin registro automático en ventanas: ' . implode(', ', $faltantes) . '. ';
             }
             if (!empty($errores)) {
-                $detalle .= 'Con error en: ' . implode(', ', $errores) . '.';
+                $detalle .= 'Cron marcó fallo en: ' . implode(', ', $errores) . '.';
+            }
+            $detalle = trim($detalle);
+            // Rojo solo si hubo intentos automáticos no exitosos; faltantes = cron no corrió o solo manual/--force.
+            $estado = !empty($errores) ? 'error' : 'incompleto';
+            if ($estado === 'incompleto') {
+                $detalle .= ' No indica fallo de correo si solo usaste envío manual o --force: esas ejecuciones no llenan el slot fijo (07:40, 09:40…).';
             }
             self::respuestaJSON(self::respuesta(true, 'Con incidencias', array_merge($baseMeta, [
-                'estado' => 'error',
+                'estado' => $estado,
                 'detalle' => trim($detalle)
             ])));
         } catch (\Throwable $e) {
@@ -2517,136 +2663,149 @@ HTML;
 
         return <<<HTML
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" xmlns="http://www.w3.org/1999/xhtml">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
   <title>Primeros Pagos — Lunes de Cierre</title>
-  <style>
-    @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Sora:wght@400;600;700&display=swap');
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { background: #f0f4f8; font-family: 'Sora', sans-serif; color: #1e293b; padding: 32px 16px; }
-    .wrapper { max-width: 640px; margin: 0 auto; background: #ffffff; border-radius: 16px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 8px 32px rgba(0,0,0,.08); }
-    .header { background: linear-gradient(135deg, #1e40af 0%, #1d4ed8 60%, #2563eb 100%); padding: 32px 32px 24px; border-bottom: 1px solid #bfdbfe; position: relative; overflow: hidden; }
-    .header::before { content: ''; position: absolute; top: -40px; right: -40px; width: 220px; height: 220px; border-radius: 50%; background: radial-gradient(circle, rgba(255,255,255,.12) 0%, transparent 70%); }
-    .header-eyebrow { font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: #bfdbfe; margin-bottom: 8px; }
-    .header h1 { font-size: 22px; font-weight: 700; color: #fff; line-height: 1.3; margin-bottom: 12px; }
-    .header-meta { display: flex; flex-wrap: wrap; gap: 28px; font-size: 12px; color: #bfdbfe; align-items: center; }
-    .header-meta-item { display: inline-flex; align-items: center; gap: 10px; }
-    .header-meta-sep { color: rgba(255,255,255,.7); margin: 0 2px; font-size: 13px; }
-    .header-meta span strong { color: #ffffff; }
-    .header-meta code { background: rgba(255,255,255,.18); color: #e0f2fe; border-radius: 4px; padding: 2px 7px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; }
-    .body { padding: 28px 32px 32px; background: #ffffff; }
-    .stat-banner { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 10px; padding: 14px 20px; display: flex; align-items: center; gap: 16px; margin-bottom: 24px; }
-    .stat-banner .big-num { font-family: 'IBM Plex Mono', monospace; font-size: 40px; font-weight: 600; color: #1d4ed8; line-height: 1; }
-    .stat-banner .label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #64748b; }
-    .section-title { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 1.5px; color: #1d4ed8; margin-bottom: 12px; display: flex; align-items: center; gap: 6px; }
-    .section-title::after { content: ''; flex: 1; height: 1px; background: #e2e8f0; }
-    .mini-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 16px; text-align: center; }
-    .mini-card .badge { display: inline-block; border-radius: 20px; padding: 3px 10px; font-size: 10px; font-weight: 600; letter-spacing: .5px; margin-bottom: 10px; }
+  <style type="text/css">
+    body { margin: 0 !important; padding: 0 !important; -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
+    table { border-collapse: collapse; mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
+    .email-outer { width: 100%; background: #f0f4f8; }
+    .email-shell { max-width: 640px; width: 100%; background: #ffffff; border-radius: 16px; border: 1px solid #e2e8f0; overflow: hidden; }
+    .mono { font-family: Consolas, 'Courier New', monospace; }
+    .header { background: #1d4ed8; padding: 28px 24px 20px; border-bottom: 1px solid #bfdbfe; }
+    .header-eyebrow { font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: #bfdbfe; margin-bottom: 8px; }
+    .header h1 { font-size: 20px; font-weight: 700; color: #fff; line-height: 1.35; margin: 0 0 12px 0; }
+    .body { padding: 24px 20px 28px; background: #ffffff; }
+    .stat-banner { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 10px; margin-bottom: 20px; }
+    .big-num { font-size: 36px; font-weight: 600; color: #1d4ed8; line-height: 1; }
+    .label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #64748b; }
+    .block-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+    .block-card-title { font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 12px; }
+    .mini-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px; text-align: center; }
+    .badge { display: inline-block; border-radius: 20px; padding: 3px 10px; font-size: 10px; font-weight: 600; margin-bottom: 8px; }
     .badge-green { background: #dcfce7; color: #16a34a; }
     .badge-info { background: #e0f2fe; color: #0284c7; }
     .badge-yellow { background: #fef9c3; color: #b45309; }
-    .mini-card .num { font-family: 'IBM Plex Mono', monospace; font-size: 28px; font-weight: 600; color: #0f172a; line-height: 1; margin-bottom: 4px; }
-    .mini-card .num-pct { font-size: 17px; font-weight: 600; color: #64748b; margin-left: 6px; }
-    .block-card-corte-mail { background: #f0f3f7; border: 1px solid #d8dfe7; }
-    .mini-card .sub { font-size: 10px; color: #94a3b8; text-transform: uppercase; letter-spacing: .5px; }
-    .block-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; margin-bottom: 20px; }
-    .block-card-corte { background: #eef1f4; border: 1px solid #cbd5e1; }
-    .block-card-corte .block-card-title { color: #64748b; }
-    .block-card-title { font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 16px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-    .matrix-row { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px 16px; margin-bottom: 10px; }
-    .matrix-row:last-child { margin-bottom: 0; }
-    .matrix-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; flex-wrap: wrap; gap: 8px; }
-    .matrix-badge { display: inline-flex; align-items: center; gap: 5px; border-radius: 20px; padding: 4px 12px; font-size: 11px; font-weight: 600; }
-    .mrow-yellow { background: #fef9c3; color: #b45309; }
-    .mrow-green { background: #dcfce7; color: #16a34a; }
-    .mrow-info { background: #e0f2fe; color: #0284c7; }
-    .matrix-num { font-family: 'IBM Plex Mono', monospace; font-size: 22px; font-weight: 600; color: #0f172a; }
-    .matrix-cols { display: table; width: 100%; border-collapse: separate; border-spacing: 8px; margin: -8px; }
-    .matrix-col { display: table-cell; vertical-align: top; width: 33.33%; }
-    .matrix-lbl { font-size: 10px; color: #94a3b8; text-transform: uppercase; letter-spacing: .4px; margin-bottom: 3px; }
-    .matrix-val { font-size: 13px; font-weight: 600; color: #475569; }
-    .matrix-val-green { font-size: 13px; font-weight: 600; color: #16a34a; }
-    .pct-row { display: flex; align-items: center; gap: 22px; margin-bottom: 10px; flex-wrap: wrap; }
-    .pct { font-family: 'IBM Plex Mono', monospace; font-size: 14px; font-weight: 600; }
-    .pct-note { font-size: 10px; color: #94a3b8; margin-left: 6px; margin-right: 10px; }
-    .bar-track { height: 5px; background: #e2e8f0; border-radius: 4px; overflow: hidden; display: flex; }
-    .bar-fill { height: 5px; border-radius: 4px; }
-    .footer { background: #f1f5f9; border-top: 1px solid #e2e8f0; padding: 16px 32px; text-align: center; font-size: 10px; color: #94a3b8; font-family: 'IBM Plex Mono', monospace; letter-spacing: .5px; }
+    .num { font-size: 24px; font-weight: 600; color: #0f172a; line-height: 1.2; margin-bottom: 4px; }
+    .num-pct { font-size: 16px; font-weight: 600; color: #64748b; margin-left: 4px; }
+    .sub { font-size: 10px; color: #94a3b8; text-transform: uppercase; letter-spacing: .5px; }
+    .footer { background: #f1f5f9; border-top: 1px solid #e2e8f0; padding: 14px 16px; text-align: center; font-size: 10px; color: #94a3b8; }
+    @media only screen and (max-width: 600px) {
+      .email-shell { width: 100% !important; max-width: 100% !important; border-radius: 0 !important; }
+      .header { padding: 20px 14px 16px !important; }
+      .header h1 { font-size: 17px !important; }
+      .body { padding: 16px 12px 20px !important; }
+      .big-num { font-size: 30px !important; }
+      .num { font-size: 20px !important; }
+      .num-pct { font-size: 14px !important; }
+      .email-stack td.stack-col { display: block !important; width: 100% !important; max-width: 100% !important; padding-left: 0 !important; padding-right: 0 !important; padding-bottom: 12px !important; }
+      .email-stack td.stack-col:last-child { padding-bottom: 0 !important; }
+      .stat-inner td { display: block !important; width: 100% !important; text-align: center !important; padding: 10px 12px !important; }
+      .footer { padding: 12px 10px !important; font-size: 9px !important; }
+    }
   </style>
 </head>
-<body>
-<div class="wrapper">
-  <div class="header">
-    <div class="header-eyebrow">Reporte de cartera</div>
-    <h1>📅 Primeros Pagos — Lunes de Cierre</h1>
-    <div class="header-meta">
-      <span class="header-meta-item">Primer vencimiento: <strong>{$primerVencimiento}</strong></span>
-      <span class="header-meta-sep">|</span>
-      <span class="header-meta-item">Corte actual: <code>{$corteActual}</code></span>
-    </div>
-  </div>
+<body style="margin:0;padding:0;background:#f0f4f8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;color:#1e293b;">
+  <table role="presentation" class="email-outer" width="100%" cellpadding="0" cellspacing="0" style="background:#f0f4f8;">
+    <tr>
+      <td align="center" style="padding:12px 8px;">
+        <table role="presentation" class="email-shell" width="100%" cellpadding="0" cellspacing="0" style="max-width:640px;width:100%;background:#ffffff;border-radius:16px;border:1px solid #e2e8f0;">
+          <tr>
+            <td class="header">
+              <div class="header-eyebrow">Reporte de cartera</div>
+              <h1>📅 Primeros Pagos — Lunes de Cierre</h1>
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:12px;color:#bfdbfe;line-height:1.5;">
+                <tr>
+                  <td style="padding:0 0 6px 0;">Primer vencimiento: <strong style="color:#ffffff;">{$primerVencimiento}</strong></td>
+                </tr>
+                <tr>
+                  <td style="padding:0;">Corte actual: <code class="mono" style="background:rgba(255,255,255,.2);color:#e0f2fe;border-radius:4px;padding:3px 8px;font-size:11px;">{$corteActual}</code></td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td class="body">
+              <table role="presentation" class="stat-banner" width="100%" cellpadding="0" cellspacing="0" style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;margin-bottom:20px;">
+                <tr class="stat-inner">
+                  <td class="mono" style="padding:14px 16px;vertical-align:middle;text-align:center;width:38%;" width="38%">
+                    <div class="big-num">{$num($total)}</div>
+                  </td>
+                  <td style="padding:14px 16px;vertical-align:middle;text-align:left;">
+                    <div style="font-size:15px;font-weight:600;color:#0f172a;margin-bottom:2px;">Registros totales</div>
+                    <div class="label">Cartera activa en el corte</div>
+                  </td>
+                </tr>
+              </table>
 
-  <div class="body">
-    <div class="stat-banner">
-      <div class="big-num">{$num($total)}</div>
-      <div>
-        <div style="font-size:15px;font-weight:600;color:#0f172a;margin-bottom:2px;">Registros totales</div>
-        <div class="label">Cartera activa en el corte</div>
-      </div>
-    </div>
+              <div class="block-card">
+                <div class="block-card-title">🥚 Distribución de nacimiento</div>
+                <table role="presentation" class="email-stack" width="100%" cellpadding="0" cellspacing="0" style="width:100%;border-collapse:separate;border-spacing:0;">
+                  <tr>
+                    <td class="stack-col" width="50%" style="width:50%;vertical-align:top;padding:0 6px 0 0;">
+                      <div class="mini-card">
+                        <div class="badge badge-green">✔ Current</div>
+                        <div class="num mono">{$num($nacCurrent)}<span class="num-pct">({$pctNacCurrent}%)</span></div>
+                        <div class="sub">nacieron</div>
+                      </div>
+                    </td>
+                    <td class="stack-col" width="50%" style="width:50%;vertical-align:top;padding:0 0 0 6px;">
+                      <div class="mini-card">
+                        <div class="badge badge-info">🕐 1-7d</div>
+                        <div class="num mono">{$num($nac17)}<span class="num-pct">({$pctNac17}%)</span></div>
+                        <div class="sub">nacieron</div>
+                      </div>
+                    </td>
+                  </tr>
+                </table>
+              </div>
 
-    <div class="block-card">
-      <div class="block-card-title">🥚 Distribución de nacimiento</div>
-      <table style="width:100%;border-collapse:separate;border-spacing:10px;margin:-10px;">
-        <tr>
-          <td style="width:50%;vertical-align:top;">
-            <div class="mini-card">
-              <div class="badge badge-green">✔ Current</div>
-              <div class="num">{$num($nacCurrent)}<span class="num-pct">({$pctNacCurrent}%)</span></div>
-              <div class="sub">nacieron</div>
-            </div>
-          </td>
-          <td style="width:50%;vertical-align:top;">
-            <div class="mini-card">
-              <div class="badge badge-info">🕐 1-7d</div>
-              <div class="num">{$num($nac17)}<span class="num-pct">({$pctNac17}%)</span></div>
-              <div class="sub">nacieron</div>
-            </div>
-          </td>
-        </tr>
-      </table>
-    </div>
-
-    <div class="block-card" style="background:#f0f3f7;border:1px solid #d8dfe7;">
-      <div class="block-card-title" style="line-height:1.45;"><span style="color:#000000;">📊 Distribución de corte:</span> <span style="color:#6b7785;font-weight:600;">{$primerVencimiento}</span><span style="color:#94a3b8;margin:0 6px;">·</span><span style="color:#475569;">Corte actual:</span> <code style="background:rgba(3,195,236,.12);color:#0b7285;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;">{$corteActual}</code></div>
-      <table style="width:100%;border-collapse:separate;border-spacing:10px;margin:-10px;">
-        <tr>
-          <td style="width:50%;vertical-align:top;">
-            <div class="mini-card" style="background:#f0f3f7;border:1px solid #d8dfe7;">
-              <div class="badge badge-green">✔ Current</div>
-              <div class="num">{$num($corteRecuperados)}<span class="num-pct">({$pctCorteCurrent}%)</span></div>
-              <div class="sub">al corte</div>
-            </div>
-          </td>
-          <td style="width:50%;vertical-align:top;">
-            <div class="mini-card" style="background:#f0f3f7;border:1px solid #d8dfe7;">
-              <div class="badge badge-yellow" style="white-space:normal;line-height:1.25;font-size:9px;">⏳ Pendientes primeros pagos</div>
-              <div class="num">{$num($cortePendientes)}<span class="num-pct">({$pctCortePend}%)</span></div>
-              <div class="sub">de recuperación</div>
-            </div>
-          </td>
-        </tr>
-      </table>
-    </div>
-
-  </div>
-
-  <div class="footer">
-    {$nota} · Sistema de Cobranza · {$esc($generadoEn)}
-  </div>
-</div>
+              <div class="block-card" style="background:#f0f3f7;border:1px solid #d8dfe7;">
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:14px;">
+                  <tr>
+                    <td style="font-size:12px;font-weight:600;color:#000000;padding:0 0 6px 0;">📊 Distribución de corte</td>
+                  </tr>
+                  <tr>
+                    <td style="font-size:11px;line-height:1.55;color:#64748b;padding:0;">
+                      <span style="color:#6b7785;font-weight:600;">{$primerVencimiento}</span><br />
+                      <span style="color:#475569;">Corte actual:</span>
+                      <code class="mono" style="display:inline-block;max-width:100%;word-break:break-word;background:rgba(3,195,236,.12);color:#0b7285;padding:4px 8px;border-radius:4px;font-size:11px;font-weight:600;margin-top:4px;">{$corteActual}</code>
+                    </td>
+                  </tr>
+                </table>
+                <table role="presentation" class="email-stack" width="100%" cellpadding="0" cellspacing="0" style="width:100%;border-collapse:separate;border-spacing:0;">
+                  <tr>
+                    <td class="stack-col" width="50%" style="width:50%;vertical-align:top;padding:0 6px 0 0;">
+                      <div class="mini-card" style="background:#f0f3f7;border:1px solid #d8dfe7;">
+                        <div class="badge badge-green">✔ Current</div>
+                        <div class="num mono">{$num($corteRecuperados)}<span class="num-pct">({$pctCorteCurrent}%)</span></div>
+                        <div class="sub">al corte</div>
+                      </div>
+                    </td>
+                    <td class="stack-col" width="50%" style="width:50%;vertical-align:top;padding:0 0 0 6px;">
+                      <div class="mini-card" style="background:#f0f3f7;border:1px solid #d8dfe7;">
+                        <div class="badge badge-yellow" style="line-height:1.3;font-size:9px;">⏳ Pendientes primeros pagos</div>
+                        <div class="num mono">{$num($cortePendientes)}<span class="num-pct">({$pctCortePend}%)</span></div>
+                        <div class="sub">por recuperar</div>
+                      </div>
+                    </td>
+                  </tr>
+                </table>
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td class="footer mono">
+              {$nota} · Sistema de Cobranza · {$esc($generadoEn)}
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
 </body>
 </html>
 HTML;

@@ -6,6 +6,7 @@ $tituloPrefijo = isset($tickets_panel_titulo_prefijo) ? htmlspecialchars($ticket
 $icono = isset($tickets_panel_icono) ? htmlspecialchars($tickets_panel_icono, ENT_QUOTES, 'UTF-8') : 'fa-list';
 $iconoColor = isset($tickets_panel_icono_color) ? htmlspecialchars($tickets_panel_icono_color, ENT_QUOTES, 'UTF-8') : 'text-primary';
 $mostrarFormularios = !empty($tickets_panel_formularios);
+$mostrarModalFormBuilderLectura = !empty($tickets_panel_modal_form_builder_lectura);
 ?>
 <style>
     #tablaTicketsModulo.table thead th { font-size: 0.78rem; letter-spacing: 0.02em; }
@@ -205,6 +206,62 @@ $mostrarFormularios = !empty($tickets_panel_formularios);
 #modalResumenTicket .rt-footer { display: flex; align-items: center; justify-content: space-between; padding: 10px 20px; border-top: 1px solid #e2e8f0; background: #f8fafc; font-size: 0.8rem; }
 #modalResumenTicket .rt-footer .rt-created { color: #64748b; display: flex; align-items: center; gap: 6px; }
 #modalResumenTicket .rt-footer .btn { background: #26344e; border-color: #26344e; color: #fff; font-weight: 600; }
+#modalResumenTicket #resumenTicketEvidenciasGrid .rt-ev-thumb {
+    display: block; border-radius: 0.5rem; overflow: hidden; border: 1px solid #e2e8f0;
+    background: #f8fafc; transition: box-shadow 0.15s ease;
+}
+#modalResumenTicket #resumenTicketEvidenciasGrid .rt-ev-thumb:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+#modalResumenTicket #resumenTicketEvidenciasGrid .rt-ev-thumb img { width: 100%; height: 128px; object-fit: cover; display: block; }
+#modalResumenTicket #resumenTicketEvidenciasGrid .rt-ev-thumb-btn { cursor: pointer; text-align: left; }
+#modalResumenTicket #resumenTicketEvidenciasGrid .rt-ev-thumb-btn:focus { outline: 2px solid #696cff; outline-offset: 2px; }
+/* Lightbox adjuntos (encima del modal resumen ticket) */
+#tmAdjuntoLightbox {
+    position: fixed; inset: 0; z-index: 1090; display: none; align-items: center; justify-content: center;
+    padding: 3rem 3.5rem 4rem; box-sizing: border-box;
+}
+#tmAdjuntoLightbox.tm-adjunto-lightbox-open { display: flex; }
+#tmAdjuntoLightbox .tm-adjunto-lb-backdrop {
+    position: absolute; inset: 0; background: rgba(15, 23, 42, 0.94); cursor: pointer;
+}
+#tmAdjuntoLightbox .tm-adjunto-lb-stage {
+    position: relative; z-index: 2; max-width: 96vw; max-height: 88vh; display: flex; flex-direction: column; align-items: center; gap: 0.75rem;
+}
+#tmAdjuntoLightbox .tm-adjunto-lb-img-wrap {
+    max-width: 92vw; max-height: calc(88vh - 3rem); display: flex; align-items: center; justify-content: center;
+}
+#tmAdjuntoLightbox .tm-adjunto-lb-img-wrap img {
+    max-width: 92vw; max-height: calc(88vh - 3.5rem); width: auto; height: auto; object-fit: contain;
+    border-radius: 0.35rem; box-shadow: 0 12px 40px rgba(0,0,0,0.45);
+}
+/* PDF: visor nativo del navegador dentro del mismo overlay (no nueva pestaña) */
+#tmAdjuntoLightbox .tm-adjunto-lb-pdf-wrap {
+    width: min(92vw, 1200px); height: calc(88vh - 3.5rem); max-height: calc(88vh - 3.5rem);
+    background: #fff; border-radius: 0.35rem; overflow: hidden; box-shadow: 0 12px 40px rgba(0,0,0,0.45);
+}
+#tmAdjuntoLightbox .tm-adjunto-lb-pdf-wrap iframe {
+    width: 100%; height: 100%; border: 0; display: block;
+}
+#tmAdjuntoLightbox .tm-adjunto-lb-caption {
+    color: #e2e8f0; font-size: 0.85rem; text-align: center; max-width: 90vw; word-break: break-word;
+}
+#tmAdjuntoLightbox .tm-adjunto-lb-close {
+    position: absolute; top: 0.75rem; right: 0.75rem; z-index: 3; width: 44px; height: 44px; border: none; border-radius: 50%;
+    background: rgba(255,255,255,0.12); color: #fff; font-size: 1.5rem; line-height: 1; cursor: pointer;
+}
+#tmAdjuntoLightbox .tm-adjunto-lb-close:hover { background: rgba(255,255,255,0.22); }
+#tmAdjuntoLightbox .tm-adjunto-lb-nav {
+    position: absolute; top: 50%; transform: translateY(-50%); z-index: 3; width: 48px; height: 48px; border: none; border-radius: 50%;
+    background: rgba(255,255,255,0.15); color: #fff; font-size: 1.25rem; cursor: pointer; display: flex; align-items: center; justify-content: center;
+}
+#tmAdjuntoLightbox .tm-adjunto-lb-nav:hover { background: rgba(255,255,255,0.28); }
+#tmAdjuntoLightbox .tm-adjunto-lb-nav:disabled { opacity: 0.25; cursor: not-allowed; }
+#tmAdjuntoLightbox .tm-adjunto-lb-prev { left: 0.5rem; }
+#tmAdjuntoLightbox .tm-adjunto-lb-next { right: 0.5rem; }
+@media (max-width: 576px) {
+    #tmAdjuntoLightbox { padding: 2.5rem 0.25rem 3.5rem; }
+    #tmAdjuntoLightbox .tm-adjunto-lb-prev { left: 0.15rem; }
+    #tmAdjuntoLightbox .tm-adjunto-lb-next { right: 0.15rem; }
+}
 </style>
 <div class="modal fade" id="modalResumenTicket" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
@@ -242,6 +299,11 @@ $mostrarFormularios = !empty($tickets_panel_formularios);
                         <div class="rt-block-box" id="resumenTicketNota"></div>
                         <div id="resumenTicketLinkWrap"></div>
                     </div>
+                    <div id="resumenTicketEvidenciasWrap" class="rt-block d-none">
+                        <div class="rt-block-lbl"><i class="fa-solid fa-camera"></i> Fotos y adjuntos al ticket</div>
+                        <p class="small text-muted mb-2 mb-md-0">Archivos cargados al levantar la solicitud.</p>
+                        <div id="resumenTicketEvidenciasGrid" class="row g-2"></div>
+                    </div>
                     <div id="resumenTicketDsWrap" class="rt-block d-none">
                         <div class="rt-block-lbl"><i class="fa-solid fa-circle-check"></i> Resultado DS</div>
                         <div class="rt-block-box" id="resumenTicketDs"></div>
@@ -251,7 +313,7 @@ $mostrarFormularios = !empty($tickets_panel_formularios);
                     <div class="rt-block mb-3" id="resumenTicketAsignarBlock">
                         <div class="rt-card-lbl mb-2">Asignar a</div>
                         <div class="small text-muted mb-1 d-none" id="resumenTicketAsignadoACapoLabel">Asignado a: —</div>
-                        <div class="small text-muted mb-1" id="resumenTicketCampoLabel">Segmento (máximo rango, como organigrama)</div>
+                        <div class="small text-muted mb-1" id="resumenTicketCampoLabel">Segmento (máximo rango)</div>
                         <div class="btn-group btn-group-sm w-100 mb-2" role="group" aria-label="Segmento morosidad">
                             <input type="radio" class="btn-check" name="tmAsignarCampo" id="tmAsignarCampo17" value="1_7" autocomplete="off" checked>
                             <label class="btn btn-outline-secondary" for="tmAsignarCampo17">Campo 1–7</label>
@@ -264,7 +326,8 @@ $mostrarFormularios = !empty($tickets_panel_formularios);
                         <p id="resumenTicketAsignarHint" class="small text-warning mb-0 mt-1 d-none"></p>
                         <div id="resumenTicketMotivoWrap" class="mt-2 d-none">
                             <div class="small text-muted mb-1" style="font-weight:600;">Motivo del cambio</div>
-                            <textarea id="resumenTicketAsignarMotivo" class="form-control form-control-sm" rows="3" placeholder="Explica el motivo del cambio (obligatorio)"></textarea>
+                            <textarea id="resumenTicketAsignarMotivo" class="form-control form-control-sm" rows="3" placeholder="Obligatorio solo al reasignar a otro gestor"></textarea>
+                            <button type="button" id="resumenTicketTerritorialBtnReasignar" class="btn btn-sm btn-primary w-100 mt-2 d-none">Aplicar reasignación</button>
                         </div>
                     </div>
                     <div class="rt-card">
@@ -286,12 +349,38 @@ $mostrarFormularios = !empty($tickets_panel_formularios);
                         </select>
                         <p id="resumenTicketFormularioPrecargado" class="small text-muted mb-0 mt-2"><span class="fw-semibold">Precargado:</span> <span id="resumenTicketFormularioPrecargadoNombre">—</span></p>
                     </div>
+                    <div id="resumenTicketVerFormularioTerritorialWrap" class="rt-card d-none">
+                        <div class="rt-card-lbl">Formulario de validación</div>
+                        <button type="button" id="resumenTicketBtnVerFormularioTerritorial" class="btn btn-sm btn-outline-secondary w-100">
+                            <i class="fa-solid fa-clipboard-list me-1"></i>Ver formulario y preguntas
+                        </button>
+                        <p class="small text-muted mb-0 mt-2">Solo consulta.</p>
+                    </div>
                 </div>
             </div>
             <div class="rt-footer">
                 <span class="rt-created"><i class="fa-regular fa-clock"></i> Creado: <span id="resumenTicketCreado">—</span></span>
                 <button type="button" class="btn btn-sm" data-bs-dismiss="modal"><i class="fa-solid fa-times me-1"></i>Cerrar</button>
             </div>
+        </div>
+    </div>
+</div>
+
+<div id="tmAdjuntoLightbox" class="tm-adjunto-lightbox-root" aria-hidden="true" aria-modal="true" role="dialog">
+    <div class="tm-adjunto-lb-backdrop" data-tm-lb-close="1" aria-label="Cerrar"></div>
+    <button type="button" class="tm-adjunto-lb-close" data-tm-lb-close="1" aria-label="Cerrar"><i class="fa-solid fa-times"></i></button>
+    <button type="button" class="tm-adjunto-lb-nav tm-adjunto-lb-prev" id="tmAdjuntoLightboxPrev" aria-label="Foto anterior"><i class="fa-solid fa-chevron-left"></i></button>
+    <button type="button" class="tm-adjunto-lb-nav tm-adjunto-lb-next" id="tmAdjuntoLightboxNext" aria-label="Foto siguiente"><i class="fa-solid fa-chevron-right"></i></button>
+    <div class="tm-adjunto-lb-stage">
+        <div class="tm-adjunto-lb-img-wrap">
+            <img id="tmAdjuntoLightboxImg" src="" alt="">
+        </div>
+        <div class="tm-adjunto-lb-pdf-wrap d-none">
+            <iframe id="tmAdjuntoLightboxPdf" title="Vista previa PDF" src="about:blank"></iframe>
+        </div>
+        <div class="tm-adjunto-lb-caption">
+            <span id="tmAdjuntoLightboxNombre"></span>
+            <span id="tmAdjuntoLightboxCounter" class="ms-1 opacity-75"></span>
         </div>
     </div>
 </div>
@@ -331,20 +420,24 @@ $mostrarFormularios = !empty($tickets_panel_formularios);
         </div>
     </div>
 </div>
-<!-- Modal Form Builder (editor de preguntas en iframe) -->
+<?php endif; ?>
+<?php if ($mostrarFormularios || $mostrarModalFormBuilderLectura): ?>
+<!-- Modal Form Builder (iframe; en territorial solo lectura desde resumen de ticket) -->
 <div class="modal fade" id="modalFormBuilderValidacion" tabindex="-1" aria-hidden="true" data-bs-backdrop="true">
-    <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
         <div class="modal-content border-0">
             <div class="modal-header py-2 border-bottom" style="background: linear-gradient(135deg, #14532d 0%, #166534 100%);">
-                <h5 class="modal-title text-white"><i class="fa-solid fa-pen-to-square me-2"></i>Form Builder – Editar formulario</h5>
+                <h5 class="modal-title text-white" id="modalFormBuilderValidacionTitulo"><i class="fa-solid fa-pen-to-square me-2"></i>Formulario de validación</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
             <div class="modal-body p-0 overflow-hidden">
-                <iframe id="iframeFormBuilderValidacion" src="about:blank" title="Form Builder"></iframe>
+                <iframe id="iframeFormBuilderValidacion" src="about:blank" title="Formulario de validación" style="width:100%;min-height:70vh;border:0;display:block;"></iframe>
             </div>
         </div>
     </div>
 </div>
+<?php endif; ?>
+<?php if ($mostrarFormularios): ?>
 <div class="modal fade" id="modalTipoPreguntaValidacion" tabindex="-1" data-bs-backdrop="false" data-bs-keyboard="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow">

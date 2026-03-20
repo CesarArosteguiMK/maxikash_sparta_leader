@@ -8,16 +8,23 @@
  * (16:40 = 4:40 p. m., 18:40 = 6:40 p. m., 20:40 = 8:40 p. m., 23:50 = 11:50 p. m.)
  *
  * Uso manual:
- *   C:\xampp\php\php.exe C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\cronjobs\enviar_primeros_pagos_lunes.php --force
+ *   C:\xampp\php\php.exe ...\enviar_primeros_pagos_lunes.php --force
+ *   C:\xampp\php\php.exe ...\enviar_primeros_pagos_lunes.php --dry-run
+ *     (solo muestra qué haría un run real: slot CDMX, destinatarios, interruptor; no envía correo)
  *
  * Recomendado en Programador de tareas (Windows):
  *   Una tarea cada 1–5 minutos ejecutando este archivo (misma instancia para todos los horarios).
+ *
+ * Alternativa (sin Programador de tareas): bucle PHP + scripts en esta carpeta:
+ *   loop_enviar_primeros_pagos_lunes.php, iniciar-loop-correos-primeros-pagos.bat,
+ *   iniciar-loop-correos-primeros-pagos-oculto.vbs, cerrar-loop-correos-primeros-pagos.bat
  *
  * Ventana por slot: desde HH:MM del slot hasta justo antes del siguiente slot (CDMX).
  * Así, si la tarea corre tarde (ej. 17:03), aún puede enviarse el correo del slot 16:40
  * si ese día no se había registrado éxito para 16:40.
  */
 
+/** Todos los horarios de slots (07:40, 09:40, …) y date('H:i') son CDMX, no la hora del SO del servidor. */
 date_default_timezone_set('America/Mexico_City');
 
 $projectRoot = dirname(__DIR__);
@@ -72,10 +79,11 @@ spl_autoload_register(function ($archivo) {
 require_once RAIZ . '/config/config.php';
 require_once __DIR__ . '/PrimerosPagosAutoSwitch.php';
 
-$args = getopt('', ['force']);
+$args = getopt('', ['force', 'dry-run']);
 $force = isset($args['force']);
+$dryRun = isset($args['dry-run']);
 
-if (!$force && !PrimerosPagosAutoSwitch::isEnabled()) {
+if (!$dryRun && !$force && !PrimerosPagosAutoSwitch::isEnabled()) {
     echo "[INFO] Envío automático desactivado (interruptor en servidor).\n";
     exit(0);
 }
@@ -102,6 +110,7 @@ $destinatarios = [
     'guillermo.garcia@__SPARTA_SECRET_REDACTED__.mx',
     '__SPARTA_SECRET_REDACTED__@__SPARTA_SECRET_REDACTED__.mx',
     'josealberto.hernandez@__SPARTA_SECRET_REDACTED__.mx',
+    'josue.aldrete@__SPARTA_SECRET_REDACTED__.mx',
     'lrgonzalez033@gmail.com', // verificación / monitoreo
 ];
 
@@ -143,22 +152,55 @@ try {
         }
     }
 
-    if (!$force && $slotObjetivo === null) {
+    if (!$dryRun && !$force && $slotObjetivo === null) {
         echo "[INFO] Hora {$ahora} fuera de ventana programada (sin slot aplicable).\n";
         exit(0);
     }
 
-    if (!$force && isset($estado['slots'][$slotObjetivo]) && ($estado['slots'][$slotObjetivo]['status'] ?? '') === 'success') {
+    if (!$dryRun && !$force && isset($estado['slots'][$slotObjetivo]) && ($estado['slots'][$slotObjetivo]['status'] ?? '') === 'success') {
         echo "[INFO] Slot {$slotObjetivo} ya enviado previamente hoy.\n";
         exit(0);
     }
 
-    if (!$force && is_file($stateFile)) {
+    if (!$dryRun && !$force && is_file($stateFile)) {
         $ultima = trim((string)@file_get_contents($stateFile));
         if ($ultima === $slotObjetivo) {
             echo "[INFO] Ya se envió en esta ventana CDMX ({$slotObjetivo}).\n";
             exit(0);
         }
+    }
+
+    if ($dryRun) {
+        $swOn = PrimerosPagosAutoSwitch::isEnabled();
+        echo "[DRY-RUN] No se envía ningún correo (solo simulación).\n";
+        echo "  Zona horaria del cron: America/Mexico_City · Fecha " . date('Y-m-d') . " · Hora {$ahora}\n";
+        echo "  Interruptor Auto horario: " . ($swOn ? 'ACTIVADO' : 'APAGADO') . "\n";
+        echo "  Modo --force: " . ($force ? 'sí (slot simulado = hora actual)' : 'no') . "\n";
+        echo "  Slot objetivo: " . ($slotObjetivo ?? '(ninguno)') . "\n";
+        echo "  Asunto: {$asunto}\n";
+        echo "  Destinatarios (" . count($destinatarios) . "):\n";
+        foreach ($destinatarios as $em) {
+            echo "    - {$em}\n";
+        }
+        $accion = '  → Con un run real ahora: ';
+        if (!$swOn) {
+            $accion .= 'no enviaría (interruptor apagado; el script sale al inicio).';
+        } elseif ($slotObjetivo === null && !$force) {
+            $accion .= 'no enviaría (fuera de ventana de horarios programados).';
+        } elseif (!$force && isset($estado['slots'][$slotObjetivo]) && ($estado['slots'][$slotObjetivo]['status'] ?? '') === 'success') {
+            $accion .= 'no reenviaría (este slot ya figura como enviado hoy).';
+        } elseif (!$force && is_file($stateFile)) {
+            $ult = trim((string)@file_get_contents($stateFile));
+            if ($ult === $slotObjetivo) {
+                $accion .= 'no reenviaría (archivo de ventana ya marcado para este slot).';
+            } else {
+                $accion .= 'SÍ intentaría enviar el correo a la lista de arriba.';
+            }
+        } else {
+            $accion .= 'SÍ intentaría enviar el correo a la lista de arriba.';
+        }
+        echo $accion . "\n";
+        exit(0);
     }
 
     $reporteria = new \Controllers\Reporteria();

@@ -24,7 +24,12 @@ $formBuilderReadOnly = !empty($formBuilderReadOnly);
 .form-builder-badge { background: #fff2d6; border: 1px solid rgba(255,171,0,.3); border-radius: 6px; padding: 4px 10px; font-size: 12px; font-weight: 600; color: var(--fb-warning-text); }
 
 .form-builder-split { flex: 1 1 0; display: grid; grid-template-columns: minmax(0, 48fr) minmax(0, 52fr); overflow: hidden; min-height: 0; }
-.form-builder-wrap:not(.form-builder-embed) .form-builder-split { flex: 1 1 auto; min-height: calc(100vh - 54px); max-height: calc(100vh - 54px); }
+.form-builder-wrap:not(.form-builder-embed):not(.form-builder-readonly) .form-builder-split { flex: 1 1 auto; min-height: calc(100vh - 54px); max-height: calc(100vh - 54px); }
+/* Solo lectura (gestor/territorial en iframe): sin barra superior (volver, Form Builder, pestañas, contador). */
+.form-builder-wrap.form-builder-readonly .form-builder-top { display: none !important; }
+.form-builder-wrap.form-builder-readonly.form-builder-embed .form-builder-split { flex: 1 1 0; min-height: 0; max-height: none; height: 100%; }
+.form-builder-wrap.form-builder-readonly:not(.form-builder-embed) .form-builder-split { flex: 1 1 auto; min-height: 100vh; max-height: 100vh; }
+.form-builder-wrap.form-builder-readonly .form-builder-preview-sub { display: none !important; }
 
 .form-builder-editor-panel { min-width: 0; min-height: 0; overflow-y: auto; padding: 14px 16px; border-right: 1px solid rgba(0,0,0,.06); background: #f8fafc; }
 .form-builder-editor-panel.hide { display: none !important; }
@@ -89,7 +94,7 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; }
 <?php endif; ?>
 </style>
 
-<div class="form-builder-wrap<?= $formBuilderEmbed ? ' form-builder-embed' : ''; ?>" id="formBuilderApp">
+<div class="form-builder-wrap<?= $formBuilderEmbed ? ' form-builder-embed' : ''; ?><?= $formBuilderReadOnly ? ' form-builder-readonly' : ''; ?>" id="formBuilderApp">
   <div class="form-builder-top">
     <a href="/validaciones/paneladmin" class="form-builder-back btn btn-sm btn-outline-secondary" title="Volver"><i class="fa-solid fa-arrow-left"></i></a>
     <div class="form-builder-logo"><i class="fa-solid fa-clipboard-list"></i> Form Builder</div>

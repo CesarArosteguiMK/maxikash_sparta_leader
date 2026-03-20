@@ -9,6 +9,7 @@ use Models\CapHum as CapHumDAO;
 use Models\Ticket as TicketDAO;
 use Models\FormularioValidacionPregunta as PreguntaDAO;
 use Models\FormularioValidacion as FormularioDAO;
+use Models\ConfigPanelUsuario as ConfigPanelUsuarioDAO;
 
 /**
  * Panel administración de tickets de Validaciones (URL y script propios).
@@ -23,6 +24,11 @@ class Validaciones extends Controller
         // Blindaje extra: solo admin (módulo 19) se queda en Panel Admin.
         if (!in_array(19, $modulos, true)) {
             $personaId = $this->obtenerPersonaIdSesion();
+            // Tiene panel validaciones en config pero no módulo 19: no enviar a territorial (allí se redirige otra vez a paneladmin).
+            if ($personaId > 0 && $this->personaTienePanelAdminValidaciones($personaId)) {
+                header('Location: /sabueso/panelAdminInicio', true, 302);
+                exit;
+            }
             if ($personaId > 0 && in_array(18, $modulos, true)) {
                 $capoInfo = $this->getCapoInfoForTerritorial($personaId);
                 if (!empty($capoInfo['departamento_id'])) {
@@ -44,6 +50,11 @@ class Validaciones extends Controller
      */
     public function gestor()
     {
+        $personaId = $this->obtenerPersonaIdSesion();
+        if ($this->personaTienePanelAdminValidaciones($personaId)) {
+            header('Location: /validaciones/paneladmin', true, 302);
+            exit;
+        }
         TicketsPanelModuloHelper::renderModuloPanel($this, 'validaciones', [
             'modo' => 'gestor',
         ]);
@@ -55,6 +66,10 @@ class Validaciones extends Controller
     public function territorial()
     {
         $personaId = $this->obtenerPersonaIdSesion();
+        if ($this->personaTienePanelAdminValidaciones($personaId)) {
+            header('Location: /validaciones/paneladmin', true, 302);
+            exit;
+        }
         $capoInfo = $this->getCapoInfoForTerritorial($personaId);
 
         TicketsPanelModuloHelper::renderModuloPanel($this, 'validaciones', [
@@ -73,6 +88,10 @@ class Validaciones extends Controller
         $personaId = $this->obtenerPersonaIdSesion();
         if ($personaId < 1) {
             echo json_encode(['success' => false, 'mensaje' => 'Sesión inválida.', 'datos' => []]);
+            return;
+        }
+        if ($this->personaTienePanelAdminValidaciones($personaId)) {
+            echo json_encode(['success' => false, 'mensaje' => 'Use el panel administrador de validaciones.', 'datos' => []]);
             return;
         }
         $resultado = TicketDAO::getListaTickets($personaId, false, [
@@ -97,6 +116,10 @@ class Validaciones extends Controller
             echo json_encode(['success' => false, 'mensaje' => 'Sesión inválida.', 'datos' => []]);
             return;
         }
+        if ($this->personaTienePanelAdminValidaciones($personaId)) {
+            echo json_encode(['success' => false, 'mensaje' => 'Use el panel administrador de validaciones.', 'datos' => []]);
+            return;
+        }
 
         $capoInfo = $this->getCapoInfoForTerritorial($personaId);
         if (empty($capoInfo['departamento_id'])) {
@@ -105,10 +128,8 @@ class Validaciones extends Controller
         }
 
         $gestoresIds = $this->getGestoresSubordinadosIds($personaId, (int)$capoInfo['departamento_id']);
-        if (empty($gestoresIds)) {
-            echo json_encode(['success' => true, 'mensaje' => 'Sin gestores subordinados.', 'datos' => []]);
-            return;
-        }
+        // Incluir al capo: tickets asignados al propio jefe territorial. Unir subordinados del organigrama (cualquier puesto en el depto).
+        $gestoresIds = array_values(array_unique(array_merge([(int)$personaId], $gestoresIds)));
 
         $resultado = TicketDAO::getListaTickets($personaId, false, [
             'asignado_ids' => $gestoresIds,
@@ -133,13 +154,18 @@ class Validaciones extends Controller
             echo json_encode(['success' => false, 'mensaje' => 'Sesión inválida.', 'datos' => []]);
             return;
         }
+        if ($this->personaTienePanelAdminValidaciones($personaId)) {
+            echo json_encode(['success' => false, 'mensaje' => 'Use el panel administrador de validaciones.', 'datos' => []]);
+            return;
+        }
         $capoInfo = $this->getCapoInfoForTerritorial($personaId);
         if (empty($capoInfo['departamento_id'])) {
             echo json_encode(['success' => true, 'mensaje' => 'Sin departamento/puesto de capo.', 'datos' => []]);
             return;
         }
 
-        $gestores = $this->getGestoresSubordinados($personaId, (int)$capoInfo['departamento_id']);
+        // Lista del modal: solo gestores operativos (es_jefe=0), no jefes territoriales ni coordinadores con bandera de jefe.
+        $gestores = $this->getGestoresSubordinados($personaId, (int)$capoInfo['departamento_id'], true);
         echo json_encode(['success' => true, 'mensaje' => 'OK', 'datos' => $gestores]);
     }
 
@@ -152,6 +178,10 @@ class Validaciones extends Controller
         $personaId = $this->obtenerPersonaIdSesion();
         if ($personaId < 1) {
             echo json_encode(['success' => false, 'mensaje' => 'Sesión inválida.']);
+            return;
+        }
+        if ($this->personaTienePanelAdminValidaciones($personaId)) {
+            echo json_encode(['success' => false, 'mensaje' => 'Use el panel administrador de validaciones.']);
             return;
         }
 
@@ -244,6 +274,17 @@ class Validaciones extends Controller
         return (int)($_SESSION['persona_id'] ?? $_SESSION['usuario_id'] ?? 0);
     }
 
+    /** Panel admin de validaciones (config_panel_usuario): no debe usar vistas gestor/territorial ni sus APIs. */
+    private function personaTienePanelAdminValidaciones(int $personaId): bool
+    {
+        if ($personaId < 1) {
+            return false;
+        }
+        $paneles = ConfigPanelUsuarioDAO::getPanelesPorPersona($personaId);
+
+        return in_array('sabueso_panel_validaciones', $paneles, true);
+    }
+
     /**
      * Obtiene información básica del capo territorial autenticado:
      * - nombre
@@ -324,13 +365,16 @@ class Validaciones extends Controller
 
     private function getGestoresSubordinadosIds(int $capoId, int $departamentoId): array
     {
-        $gestores = $this->getGestoresSubordinados($capoId, $departamentoId);
+        $gestores = $this->getGestoresSubordinados($capoId, $departamentoId, false);
         return array_values(array_unique(array_map(function ($g) {
             return (int)($g['id'] ?? 0);
         }, $gestores)));
     }
 
-    private function getGestoresSubordinados(int $capoId, int $departamentoId): array
+    /**
+     * @param bool $soloGestoresSinJefatura true = solo puestos con es_jefe=0 (listado para reasignar en modal territorial).
+     */
+    private function getGestoresSubordinados(int $capoId, int $departamentoId, bool $soloGestoresSinJefatura = false): array
     {
         if ($capoId < 1 || $departamentoId < 1) return [];
         // 1) Obtener jerarquía (subordinados) para ese capo y departamento.
@@ -345,7 +389,7 @@ class Validaciones extends Controller
         $subIds = $this->extractSubordinateIdsFromOrganigramaJson($organigramaJson, $capoId);
         if (empty($subIds)) return [];
 
-        // 2) Filtrar solo personas que sean gestores (es_jefe=0) en ese departamento.
+        // 2) Personas del organigrama con puesto activo en ese departamento (gestores o jefes de equipo; antes solo es_jefe=0 y ocultaba asignaciones reales).
         try {
             $db = new Database();
             $params = ['dep' => $departamentoId];
@@ -356,6 +400,7 @@ class Validaciones extends Controller
                 $params[$key] = (int)$id;
             }
 
+            $sqlGestor = $soloGestoresSinJefatura ? ' AND pu.es_jefe = 0' : '';
             $rows = $db->queryAll(
                 "SELECT DISTINCT p.id,
                         CONCAT_WS(' ', p.nombres, p.apellidop, p.apellidom) AS nombre_completo
@@ -363,9 +408,8 @@ class Validaciones extends Controller
                  INNER JOIN asigna_puesto ap ON ap.id_persona = p.id AND (ap.activo = 1 OR ap.activo IS NULL)
                  INNER JOIN puesto pu ON pu.id = ap.id_puesto
                  WHERE p.estatus != 'Baja'
-                   AND pu.es_jefe = 0
                    AND pu.departamento_id = :dep
-                   AND p.id IN (" . implode(',', $placeholders) . ")
+                   AND p.id IN (" . implode(',', $placeholders) . ")" . $sqlGestor . "
                  ORDER BY nombre_completo ASC",
                 $params
             );

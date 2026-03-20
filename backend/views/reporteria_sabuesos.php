@@ -8,7 +8,7 @@
                     <div class="card-body">
                         <h5 class="card-title text-primary mb-3">HOLA, <?= $_SESSION['usuario_nombre']; ?> </h5>
                         <p class="mb-6">
-                            Accede a los reportes esenciales del módulo Sabuesos. Visualiza datos sobre tickets, análisis administrativo y gestión de casos cerrados. ¡Información estratégica al alcance de un clic!
+                            Accede a reportes de tickets, panel administrativo y casos cerrados o eliminados. Información operativa en un solo lugar.
                         </p>
 
                     </div>
@@ -51,8 +51,8 @@
                             <div class="card-body d-flex justify-content-between flex-wrap-reverse">
                                 <div class="mb-0 w-100 app-academy-sm-60 d-flex flex-column justify-content-between text-center text-sm-start">
                                     <div class="card-title">
-                                        <h5 class="text-primary mb-2">Reporte Panel Admin Sabueso</h5>
-                                        <p class="text-body app-academy-sm-60 app-academy-xl-100">Análisis administrativo con detalles de rastreo, asignación y gestión de tickets.</p>
+                                        <h5 class="text-primary mb-2">Reporte panel administrativo</h5>
+                                        <p class="text-body app-academy-sm-60 app-academy-xl-100">Análisis administrativo: rastreo, asignación y gestión de tickets.</p>
                                     </div>
                                     <div class="mb-0">
                                         <button type="button" class="btn btn-primary btn-descargar-admin" title="Descargar reporte en Excel">
@@ -170,7 +170,7 @@
                 cancelButtonColor: '#a1acb8'
             }).then(result => {
                 if (result.isConfirmed) {
-                    descargarReporte('/Reporteria/descargarReporteSabuesos2', 'Panel-Admin-Sabueso');
+                    descargarReporte('/Reporteria/descargarReporteSabuesos2', 'Panel-Admin');
                 }
             });
         });
@@ -197,7 +197,7 @@
                 cancelButtonColor: '#a1acb8'
             }).then(result => {
                 if (result.isConfirmed) {
-                    descargarReporte('/Reporteria/descargarReporteSabuesos3', 'Cerrado-Eliminado-Sabueso');
+                    descargarReporte('/Reporteria/descargarReporteSabuesos3', 'Cerrado-Eliminado');
                 }
             });
         });
@@ -227,7 +227,7 @@
                 const url = window.URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = `Reporte_Sabuesos_${nombreReporte}_${new Date().toISOString().slice(0, 10)}.xlsx`;
+                a.download = `Reporte_tickets_${nombreReporte}_${new Date().toISOString().slice(0, 10)}.xlsx`;
                 document.body.appendChild(a);
                 a.click();
                 window.URL.revokeObjectURL(url);

@@ -8,6 +8,22 @@ Para instalarla en el servidor hay que **copiarla a mano** (USB, ZIP, SCP). Dent
 
 Copia esa carpeta desde la máquina de desarrollo donde ya funciona el agente; el README viaja con la carpeta.
 
+### Guía rápida de uso (día a día)
+
+En la carpeta del agente (la que se copia a mano) está **`USO.md`**: pasos cuando ya está todo instalado (arranque con `.vbs` o `.bat`, cuándo reinstalar dependencias, cómo detener).
+
+### Scripts en `segundometro-agent/` (Windows)
+
+| Archivo | Uso |
+|--------|-----|
+| `instalar-agente.bat` | **Solo cuando haga falta:** primera vez, o si cambió `package.json` / dependencias. Ejecuta `npm install`. |
+| `iniciar-agente.bat` | Arranca Node **sin ventana** del proceso del agente (sigue pudiendo verse brevemente la consola del `.bat` hasta el mensaje de confirmación). |
+| `iniciar-agente.ps1` | Lo llama el `.bat`; no hace falta ejecutarlo a mano. |
+| `iniciar-agente-oculto.vbs` | Lanza `iniciar-agente.bat` **sin mostrar la consola** (útil si molesta la ventana negra al doble clic). |
+| `cerrar-agente.ps1` | Detiene el proceso que escucha en el **puerto 3100** (no mata otros `node.exe`). Lo invocan `cerrar-agente.bat` y el `.vbs`. |
+| `cerrar-agente.bat` | Cierra el agente y **muestra** en consola si había algo escuchando en 3100 o no. |
+| `cerrar-agente-oculto.vbs` | Cierra el agente **sin ventana** (parar el agente). |
+
 ---
 
 ## `SEGUNDOMETRO_ESTADO_BD_URL` (evitar error HTML / no JSON)

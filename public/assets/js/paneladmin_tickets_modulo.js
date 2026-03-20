@@ -14,6 +14,251 @@
         return x.split('"').join('&quot;');
     }
 
+    function tmApiBase() {
+        var p = window.location.pathname || '';
+        var i = p.indexOf('/sabueso');
+        if (i !== -1) {
+            return p.substring(0, i);
+        }
+        i = p.indexOf('/validaciones');
+        if (i !== -1) {
+            return p.substring(0, i);
+        }
+        return '';
+    }
+
+    /** Abre el iframe del form builder en solo lectura (p. ej. jefe territorial desde resumen de ticket). */
+    window.tmAbrirFormularioValidacionLectura = function (idFormulario) {
+        var id = parseInt(idFormulario, 10);
+        if (isNaN(id) || id < 1) {
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    icon: 'info',
+                    title: 'Sin formulario',
+                    text: 'No hay formulario asociado a este ticket. Un administrador de validaciones puede precargar uno desde su panel.'
+                });
+            }
+            return;
+        }
+        var iframe = document.getElementById('iframeFormBuilderValidacion');
+        var modalEl = document.getElementById('modalFormBuilderValidacion');
+        var tituloEl = document.getElementById('modalFormBuilderValidacionTitulo');
+        if (!iframe || !modalEl || typeof bootstrap === 'undefined' || !bootstrap.Modal) {
+            if (typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: 'No se puede abrir el visor de formulario.' });
+            return;
+        }
+        if (tituloEl) {
+            tituloEl.innerHTML =
+                '<i class="fa-solid fa-eye me-2"></i>Ver formulario y preguntas <span class="fs-6 fw-normal opacity-75">(solo lectura)</span>';
+        }
+        iframe.src = '/validaciones/formulario/' + id + '?modal=1&readonly=1&t=' + Date.now();
+        bootstrap.Modal.getOrCreateInstance(modalEl).show();
+    };
+
+    var tmAdjuntoLightboxItems = [];
+    var tmAdjuntoLightboxIndex = 0;
+    /** true cuando el overlay muestra PDF en iframe (visor del navegador, misma pestaña / mismo documento). */
+    var tmAdjuntoLightboxPdfMode = false;
+
+    function tmAdjuntoLightboxShow(idx) {
+        if (!tmAdjuntoLightboxItems.length) {
+            return;
+        }
+        tmAdjuntoLightboxPdfMode = false;
+        $('#tmAdjuntoLightboxPdf').attr('src', 'about:blank');
+        $('#tmAdjuntoLightbox .tm-adjunto-lb-pdf-wrap').addClass('d-none');
+        $('#tmAdjuntoLightbox .tm-adjunto-lb-img-wrap').removeClass('d-none');
+        var n = tmAdjuntoLightboxItems.length;
+        var i = parseInt(idx, 10);
+        if (isNaN(i) || i < 0 || i >= n) {
+            return;
+        }
+        tmAdjuntoLightboxIndex = i;
+        var it = tmAdjuntoLightboxItems[tmAdjuntoLightboxIndex];
+        $('#tmAdjuntoLightboxImg').attr('src', it.url).attr('alt', it.nom || '');
+        $('#tmAdjuntoLightboxNombre').text(it.nom || '');
+        $('#tmAdjuntoLightboxCounter').text(n > 1 ? '(' + (tmAdjuntoLightboxIndex + 1) + ' / ' + n + ')' : '');
+        var solo = n <= 1;
+        $('#tmAdjuntoLightboxPrev').prop('disabled', solo).toggleClass('d-none', solo);
+        $('#tmAdjuntoLightboxNext').prop('disabled', solo).toggleClass('d-none', solo);
+        $('#tmAdjuntoLightbox').addClass('tm-adjunto-lightbox-open').attr('aria-hidden', 'false');
+        document.body.style.overflow = 'hidden';
+        $(document).on('keydown.tmAdjuntoLb', tmAdjuntoLightboxOnKey);
+    }
+
+    function tmAdjuntoLightboxHide() {
+        $('#tmAdjuntoLightbox').removeClass('tm-adjunto-lightbox-open').attr('aria-hidden', 'true');
+        $('#tmAdjuntoLightboxImg').attr('src', '');
+        $('#tmAdjuntoLightboxPdf').attr('src', 'about:blank');
+        tmAdjuntoLightboxPdfMode = false;
+        $('#tmAdjuntoLightbox .tm-adjunto-lb-pdf-wrap').addClass('d-none');
+        $('#tmAdjuntoLightbox .tm-adjunto-lb-img-wrap').removeClass('d-none');
+        document.body.style.overflow = '';
+        $(document).off('keydown.tmAdjuntoLb');
+    }
+
+    /** PDF de adjuntos al ticket: iframe con visor nativo, sin abrir pestaña nueva. */
+    function tmAdjuntoPdfOpenInPlace(url, nom) {
+        if (!url) return;
+        tmAdjuntoLightboxPdfMode = true;
+        $('#tmAdjuntoLightboxImg').attr('src', '');
+        $('#tmAdjuntoLightbox .tm-adjunto-lb-img-wrap').addClass('d-none');
+        $('#tmAdjuntoLightbox .tm-adjunto-lb-pdf-wrap').removeClass('d-none');
+        $('#tmAdjuntoLightboxPdf').attr('src', url);
+        $('#tmAdjuntoLightboxNombre').text((nom || '').trim() || 'PDF');
+        $('#tmAdjuntoLightboxCounter').text('');
+        $('#tmAdjuntoLightboxPrev').addClass('d-none').prop('disabled', true);
+        $('#tmAdjuntoLightboxNext').addClass('d-none').prop('disabled', true);
+        $('#tmAdjuntoLightbox').addClass('tm-adjunto-lightbox-open').attr('aria-hidden', 'false');
+        document.body.style.overflow = 'hidden';
+        $(document).off('keydown.tmAdjuntoLb').on('keydown.tmAdjuntoLb', tmAdjuntoLightboxOnKey);
+    }
+
+    function tmAdjuntoLightboxStep(delta) {
+        var n = tmAdjuntoLightboxItems.length;
+        if (n <= 1) {
+            return;
+        }
+        tmAdjuntoLightboxIndex = (tmAdjuntoLightboxIndex + delta + n) % n;
+        tmAdjuntoLightboxShow(tmAdjuntoLightboxIndex);
+    }
+
+    function tmAdjuntoLightboxOnKey(e) {
+        if (e.key === 'Escape') {
+            tmAdjuntoLightboxHide();
+        } else if (tmAdjuntoLightboxPdfMode) {
+            return;
+        } else if (e.key === 'ArrowLeft') {
+            tmAdjuntoLightboxStep(-1);
+        } else if (e.key === 'ArrowRight') {
+            tmAdjuntoLightboxStep(1);
+        }
+    }
+
+    function tmAdjuntoLightboxEnsureBound() {
+        var $root = $('#tmAdjuntoLightbox');
+        if ($root.length && $root.parent().length && $root.parent()[0] !== document.body) {
+            $root.appendTo('body');
+        }
+        if (window._tmAdjuntoLightboxBound) {
+            return;
+        }
+        window._tmAdjuntoLightboxBound = true;
+        $(document).on('click', '#resumenTicketEvidenciasGrid .rt-ev-thumb-btn', function () {
+            var i = parseInt($(this).attr('data-tm-lb'), 10);
+            if (!isNaN(i)) {
+                tmAdjuntoLightboxShow(i);
+            }
+        });
+        $(document).on('click', '#resumenTicketEvidenciasGrid [data-tm-adj-pdf-url]', function (e) {
+            e.preventDefault();
+            var u = $(this).attr('data-tm-adj-pdf-url');
+            if (!u) return;
+            var nom = ($(this).attr('title') || $(this).text() || '').replace(/\s+/g, ' ').trim();
+            tmAdjuntoPdfOpenInPlace(u, nom);
+        });
+        $(document).on('click', '#tmAdjuntoLightbox [data-tm-lb-close]', function (e) {
+            e.preventDefault();
+            tmAdjuntoLightboxHide();
+        });
+        $('#tmAdjuntoLightboxPrev').on('click', function () {
+            tmAdjuntoLightboxStep(-1);
+        });
+        $('#tmAdjuntoLightboxNext').on('click', function () {
+            tmAdjuntoLightboxStep(1);
+        });
+    }
+
+    /** Carga evidencias (ticket_evidencia) y pinta miniaturas / enlaces en el modal Ver ticket. */
+    function renderResumenTicketEvidencias(idTicket) {
+        tmAdjuntoLightboxHide();
+        tmAdjuntoLightboxItems = [];
+        var $wrap = $('#resumenTicketEvidenciasWrap');
+        var $grid = $('#resumenTicketEvidenciasGrid');
+        $grid.empty();
+        $wrap.addClass('d-none');
+        tmAdjuntoLightboxEnsureBound();
+        var tid = parseInt(idTicket, 10);
+        if (isNaN(tid) || tid < 1 || typeof http === 'undefined') {
+            return;
+        }
+        function nombreArchivo(ev) {
+            return ((ev.nombre_original || '').trim() || 'Adjunto').replace(/</g, '');
+        }
+        function esImagen(ev) {
+            var n = (nombreArchivo(ev) + ' ' + (ev.ruta_archivo || '')).toLowerCase();
+            return /\.(jpe?g|png|gif|webp|bmp)$/i.test(n);
+        }
+        function esPdfEv(ev) {
+            return /\.pdf$/i.test((ev.nombre_original || '') + (ev.ruta_archivo || ''));
+        }
+        var base = tmApiBase();
+        http.request({
+            endpoint: '/sabueso/getEvidenciasTicket',
+            metodo: 'POST',
+            data: JSON.stringify({ id_ticket: tid, tipo_origen: 'adjunto_ticket' }),
+            contentType: 'application/json',
+            processData: false,
+            showLoader: false,
+            onSuccess: function (r) {
+                var list = (r && r.datos) || [];
+                if (!list.length) {
+                    return;
+                }
+                $wrap.removeClass('d-none');
+                list.forEach(function (ev) {
+                    var pathUrl = ev.url || '/sabueso/verEvidencia?id=' + (ev.id || '');
+                    var url = base + pathUrl;
+                    var href = attrEsc(url);
+                    var nom = attrEsc(nombreArchivo(ev));
+                    var nomPlain = nombreArchivo(ev);
+                    if (esImagen(ev)) {
+                        var idx = tmAdjuntoLightboxItems.length;
+                        tmAdjuntoLightboxItems.push({ url: url, nom: nomPlain });
+                        $grid.append(
+                            '<div class="col-6 col-md-4">' +
+                                '<button type="button" class="rt-ev-thumb rt-ev-thumb-btn w-100 p-0 border-0 bg-transparent" data-tm-lb="' +
+                                idx +
+                                '" title="Ver en grande">' +
+                                '<img src="' +
+                                href +
+                                '" alt="' +
+                                attrEsc(nomPlain) +
+                                '" loading="lazy">' +
+                                '</button>' +
+                                '<div class="small text-muted text-truncate mt-1" title="' +
+                                nom +
+                                '">' +
+                                nom +
+                                '</div></div>'
+                        );
+                    } else if (esPdfEv(ev)) {
+                        $grid.append(
+                            '<div class="col-12 col-sm-6">' +
+                                '<button type="button" class="btn btn-sm btn-outline-secondary w-100 text-start text-truncate" data-tm-adj-pdf-url="' +
+                                attrEsc(url) +
+                                '" title="Ver PDF">' +
+                                '<i class="fa-solid fa-file-pdf text-danger me-2"></i>' +
+                                nom +
+                                '</button></div>'
+                        );
+                    } else {
+                        $grid.append(
+                            '<div class="col-12 col-sm-6">' +
+                                '<a href="' +
+                                href +
+                                '" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-secondary w-100 text-start text-truncate">' +
+                                '<i class="fa-solid fa-paperclip me-2"></i>' +
+                                nom +
+                                '</a></div>'
+                        );
+                    }
+                });
+            },
+            onError: function () {}
+        });
+    }
+
     function countdown24h(fechaVencStr) {
         if (!fechaVencStr) return { text: '—', colorClass: 'text-muted', blink: false };
         var fin = new Date(fechaVencStr).getTime();
@@ -116,6 +361,10 @@
         this.selectedValue = option.value;
         this.select.value = option.value;
         this.display.textContent = option.text;
+        // jQuery escucha el change del <select>; en algunos navegadores solo el evento nativo no dispara los handlers.
+        if (typeof window.$ !== 'undefined' && this.select) {
+            $(this.select).trigger('change');
+        }
         this.select.dispatchEvent(new Event('change', { bubbles: true }));
         this.close();
     };
@@ -184,6 +433,30 @@
         _tmAsignarSearchableInst = new TmSearchableSelect(el);
     }
 
+    /** Bloquea selector de jefe y segmento (modo no territorial): una vez asignado no se puede volver a elegir. */
+    function tmSetAsignacionResumenBloqueada(bloquear) {
+        var $sel = $('#resumenTicketAsignarSelect');
+        $sel.prop('disabled', !!bloquear);
+        $('input[name="tmAsignarCampo"]').prop('disabled', !!bloquear);
+        var el = document.getElementById('resumenTicketAsignarSelect');
+        var w = el ? el.closest('.select-search-wrapper') : null;
+        if (w) {
+            w.classList.toggle('tm-asign-select-locked', !!bloquear);
+        }
+        var disp = w ? w.querySelector('.select-search-display') : null;
+        if (disp) {
+            disp.style.pointerEvents = bloquear ? 'none' : '';
+            disp.style.opacity = bloquear ? '0.92' : '';
+            disp.setAttribute('aria-disabled', bloquear ? 'true' : 'false');
+        }
+        if (_tmAsignarSearchableInst && bloquear && typeof _tmAsignarSearchableInst.close === 'function') {
+            _tmAsignarSearchableInst.close();
+        }
+        if (_tmAsignarSearchableInst && typeof _tmAsignarSearchableInst.refresh === 'function') {
+            _tmAsignarSearchableInst.refresh();
+        }
+    }
+
     function renderCountdownCell(fechaVencStr) {
         var c = countdown24h(fechaVencStr);
         var blink = c.blink ? ' tm-countdown-blink' : '';
@@ -217,6 +490,15 @@
         sc(8, T.asignado);
         sc(9, T.tiempo);
         sc(10, T.ds);
+    }
+
+    /** Oculta columnas que no aplican al módulo (p. ej. Validaciones: sin crédito Sabueso, tiempo visita, DS). */
+    function aplicarVisibilidadColumnasModulo(dt) {
+        if (!dt) return;
+        var ocultar = (cfg().columnas_ocultas && cfg().columnas_ocultas.length) ? cfg().columnas_ocultas : [10, 11];
+        try {
+            dt.columns(ocultar).visible(false);
+        } catch (e) {}
     }
 
     function mapRow(t) {
@@ -264,6 +546,23 @@
             '" style="font-size:0.7rem;line-height:1" aria-hidden="true"></i>' +
             catLabel +
             '</span></div>';
+        if (CAT === 'validaciones') {
+            var notaV = (t.nota || '').trim();
+            var urlV = (t.url_direccion || '').trim();
+            if (notaV) {
+                var notaCorta = notaV.length > 140 ? notaV.substring(0, 140) + '…' : notaV;
+                folioTipoHtml +=
+                    '<div class="small text-muted mt-2 text-break" title="Nota"><i class="fa-solid fa-note-sticky me-1 opacity-75"></i>' +
+                    String(notaCorta).replace(/&/g, '&amp;').replace(/</g, '&lt;') +
+                    '</div>';
+            }
+            if (urlV) {
+                folioTipoHtml +=
+                    '<div class="small mt-1"><a href="' +
+                    attrEsc(urlV) +
+                    '" target="_blank" rel="noopener" class="link-primary text-break"><i class="fa-solid fa-link me-1"></i>Abrir enlace</a></div>';
+            }
+        }
         var creditoVal =
             t.id_credito != null && t.id_credito > 0 ? '#' + t.id_credito : t.asunto || t.tipo_categoria || '—';
         var creditoHtml = '<small>' + String(creditoVal).replace(/&/g, '&amp;').replace(/</g, '&lt;') + '</small>';
@@ -350,7 +649,7 @@
                 }
                 tabla.page(pagAntes).draw(false);
                 aplicarTitulosColumnas(tabla, window.TICKETS_MODULO_TITULOS);
-                tabla.columns([10, 11]).visible(false);
+                aplicarVisibilidadColumnasModulo(tabla);
                 $(SEL_TABLA + ' [data-bs-toggle="tooltip"]').tooltip();
                 actualizarCountdownsTabla();
                 if (!window._tmCountdownInterval) {
@@ -442,12 +741,78 @@
             dt = $(SEL_TABLA).DataTable();
         } catch (e) {}
         if (dt && window.TICKETS_MODULO_TITULOS) aplicarTitulosColumnas(dt, window.TICKETS_MODULO_TITULOS);
-        if (dt) dt.columns([10, 11]).visible(false);
+        if (dt) aplicarVisibilidadColumnasModulo(dt);
         $(document).on('click', SEL_TABLA + ' [data-tm-cerrar]', function () {
             cerrarTicket(parseInt($(this).attr('data-tm-cerrar'), 10));
         });
         $(document).on('click', SEL_TABLA + ' [data-tm-eliminar]', function () {
             eliminarTicket(parseInt($(this).attr('data-tm-eliminar'), 10));
+        });
+        $(document).on('click', '#resumenTicketBtnVerFormularioTerritorial', function () {
+            var tid = $('#resumenTicketAsignarSelect').data('resumen-id-ticket');
+            if (!tid) return;
+            var stored =
+                typeof localStorage !== 'undefined' ? localStorage.getItem('tm_formulario_' + tid) || localStorage.getItem('tm_formulario_precargado') : null;
+            window.tmAbrirFormularioValidacionLectura(stored);
+        });
+        $(document).on('click', '#resumenTicketTerritorialBtnReasignar', function () {
+            var $sel = $('#resumenTicketAsignarSelect');
+            var tid = $sel.data('resumen-id-ticket');
+            var pidStr = $sel.val();
+            if (!tid || typeof http === 'undefined') return;
+            if (!pidStr) {
+                if (typeof Swal !== 'undefined') Swal.fire({ icon: 'warning', title: 'Seleccione un gestor.' });
+                return;
+            }
+            var idP = parseInt(pidStr, 10);
+            if (isNaN(idP) || idP < 1) return;
+            var motivo = ($('#resumenTicketAsignarMotivo').val() || '').trim();
+            if (!motivo) {
+                if (typeof Swal !== 'undefined') Swal.fire({ icon: 'warning', title: 'Escriba el motivo del cambio.' });
+                return;
+            }
+            http.request({
+                endpoint: '/validaciones/reasignarGestorTicketTerritorial',
+                metodo: 'POST',
+                data: JSON.stringify({
+                    id_ticket: tid,
+                    id_persona: idP,
+                    motivo: motivo
+                }),
+                contentType: 'application/json',
+                processData: false,
+                onSuccess: function (r) {
+                    if (r && r.success) {
+                        var nom = ($sel.find('option:selected').text() || '').replace(/\s+/g, ' ').trim();
+                        if (window._ticketsModuloCache && window._ticketsModuloCache[tid]) {
+                            window._ticketsModuloCache[tid].asignado_nombre = nom;
+                            window._ticketsModuloCache[tid].id_persona_asignada = idP;
+                        }
+                        $('#resumenTicketAsignadoACapoLabel').text('Asignado a: ' + (nom || '—'));
+                        window._tmResumenTerritorialAsignadoId = idP;
+                        $('#resumenTicketAsignarMotivo').val('');
+                        $('#resumenTicketMotivoWrap').addClass('d-none');
+                        $('#resumenTicketTerritorialBtnReasignar').addClass('d-none');
+                        if (typeof window._tmCargarSelectResumenAsignacion === 'function') {
+                            window._tmCargarSelectResumenAsignacion();
+                        }
+                        if (typeof Swal !== 'undefined') {
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Asignación guardada',
+                                text: (r && r.mensaje) ? r.mensaje : 'El ticket quedó asignado al gestor seleccionado.',
+                                confirmButtonText: 'Listo'
+                            });
+                        }
+                        if (typeof getTicketsModuloPanel === 'function') getTicketsModuloPanel();
+                    } else {
+                        if (typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: (r && r.mensaje) ? r.mensaje : 'Error' });
+                    }
+                },
+                onError: function (e) {
+                    if (typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: (e && e.mensaje) || 'Error' });
+                }
+            });
         });
         $(document).on('click', SEL_TABLA + ' [data-tm-ver]', function () {
             var id = parseInt($(this).attr('data-tm-ver'), 10);
@@ -505,10 +870,13 @@
                 $('#resumenTicketDsWrap').addClass('d-none');
             }
             var idTicket = t.id_ticket;
+            renderResumenTicketEvidencias(idTicket);
             var idPersonaActual = t.id_persona_asignada != null && t.id_persona_asignada > 0 ? parseInt(t.id_persona_asignada, 10) : 0;
+            window._tmResumenTerritorialAsignadoId = idPersonaActual > 0 ? idPersonaActual : 0;
             var $sel = $('#resumenTicketAsignarSelect');
             $sel.off('change.resumenTicket').empty().append('<option value="">Selecciona una persona</option>');
             $sel.data('resumen-id-ticket', idTicket);
+            $('#modalResumenTicket').removeData('tmTerritorialAvisoPendiente');
             var modo = (cfg().modo || '').trim();
             var esTerritorial = modo === 'territorial';
             var esGestor = modo === 'gestor';
@@ -522,22 +890,32 @@
             if (esGestor) $asignarBlock.addClass('d-none');
             else $asignarBlock.removeClass('d-none');
 
+            if (esGestor || esTerritorial) {
+                tmSetAsignacionResumenBloqueada(false);
+            } else if (idPersonaActual > 0) {
+                tmSetAsignacionResumenBloqueada(true);
+            } else {
+                tmSetAsignacionResumenBloqueada(false);
+            }
+
             if (esTerritorial) {
                 $('#resumenTicketAsignadoACapoLabel')
                     .removeClass('d-none')
-                    .text('Asignado a: ' + (cfg().nombreCapo || '—'));
+                    .text('Asignado a: ' + ((t.asignado_nombre || '').trim() || '—'));
                 $('#resumenTicketCampoLabel')
                     .text(labelCampo(cfg().campoCapo || '1_7'))
                     .removeClass('d-none');
-                $('#resumenTicketMotivoWrap').removeClass('d-none');
-                // En territorial ya no se elige segmento por radio; es fijo por el capo actual
-                $('#resumenTicketAsignarBlock .btn-group[role="group"]').addClass('d-none');
+                $('#resumenTicketMotivoWrap').addClass('d-none');
+                $('#resumenTicketTerritorialBtnReasignar').addClass('d-none');
                 $('#resumenTicketAsignarMotivo').val('');
-                // Cambiar texto del placeholder
-                $sel.empty().append('<option value="">Selecciona un gestor</option>');
+                $('#resumenTicketVerFormularioTerritorialWrap').toggleClass('d-none', !cfg().verFormularioTerritorialResumen);
+                $('#resumenTicketAsignarBlock .btn-group[role="group"]').addClass('d-none');
+                $sel.empty().append('<option value="">Selecciona un gestor para reasignar</option>');
             } else {
                 $('#resumenTicketAsignadoACapoLabel').addClass('d-none');
                 $('#resumenTicketMotivoWrap').addClass('d-none');
+                $('#resumenTicketTerritorialBtnReasignar').addClass('d-none');
+                $('#resumenTicketVerFormularioTerritorialWrap').addClass('d-none');
                 $('#resumenTicketAsignarBlock .btn-group[role="group"]').removeClass('d-none');
             }
 
@@ -547,7 +925,7 @@
                 return v === '8_21' ? '8_21' : '1_7';
             }
 
-            var pidAnterior = idPersonaActual > 0 ? String(idPersonaActual) : '';
+            var pidAnterior = esTerritorial ? '' : idPersonaActual > 0 ? String(idPersonaActual) : '';
             function cargarSelectAsignacionJefes() {
                 ensureTmAsignarSearchableSelect();
                 var campo = campoAsignarActual();
@@ -570,24 +948,42 @@
                             $hint.removeClass('d-none').text(resp.mensaje);
                         }
                         list.forEach(function (p) {
+                            var gid = parseInt(p.id, 10);
+                            var excluirAsignado =
+                                esTerritorial &&
+                                typeof window._tmResumenTerritorialAsignadoId === 'number' &&
+                                window._tmResumenTerritorialAsignadoId > 0
+                                    ? window._tmResumenTerritorialAsignadoId
+                                    : idPersonaActual;
+                            if (esTerritorial && excluirAsignado > 0 && !isNaN(gid) && gid === excluirAsignado) {
+                                return;
+                            }
                             var sub = (p.nombre_puesto || '').trim();
                             var txt = attrEsc((p.nombre_completo || p.nombre || '').trim() || '');
                             if (sub) txt += ' — ' + attrEsc(sub);
                             $sel.append('<option value="' + (p.id || '') + '">' + txt + '</option>');
                         });
-                        if (idPersonaActual > 0) {
+                        if (esTerritorial) {
+                            $sel.val('');
+                            pidAnterior = '';
+                        } else if (idPersonaActual > 0) {
                             if ($sel.find('option[value="' + idPersonaActual + '"]').length) {
                                 $sel.val(String(idPersonaActual));
                             } else {
                                 $sel.append('<option value="' + idPersonaActual + '">' + attrEsc((t.asignado_nombre || 'Asignado actual').trim() || ('ID ' + idPersonaActual)) + ' (actual)</option>');
                                 $sel.val(String(idPersonaActual));
                             }
+                            pidAnterior = $sel.val() ? String($sel.val()) : '';
                         } else {
                             $sel.val('');
+                            pidAnterior = '';
                         }
-                        pidAnterior = $sel.val() ? String($sel.val()) : '';
                         if (_tmAsignarSearchableInst && typeof _tmAsignarSearchableInst.refresh === 'function') {
                             _tmAsignarSearchableInst.refresh();
+                        }
+                        if (!esTerritorial && !esGestor) {
+                            if (idPersonaActual > 0) tmSetAsignacionResumenBloqueada(true);
+                            else tmSetAsignacionResumenBloqueada(false);
                         }
                     },
                     onError: function () {
@@ -596,6 +992,7 @@
                     }
                 });
             }
+            window._tmCargarSelectResumenAsignacion = cargarSelectAsignacionJefes;
             $('input[name="tmAsignarCampo"]').off('change.tmAsignarCampo');
             if (!esTerritorial) {
                 $('input[name="tmAsignarCampo"]').on('change.tmAsignarCampo', function () {
@@ -609,49 +1006,24 @@
                 if (esTerritorial) {
                     var pidStr = pid != null ? String(pid) : '';
                     if (!pidStr) {
-                        if (typeof Swal !== 'undefined') Swal.fire({ icon: 'warning', title: 'Seleccione un gestor.' });
-                        $sel.val(pidAnterior);
-                        if (_tmAsignarSearchableInst && typeof _tmAsignarSearchableInst.refresh === 'function') _tmAsignarSearchableInst.refresh();
+                        $('#resumenTicketMotivoWrap').addClass('d-none');
+                        $('#resumenTicketTerritorialBtnReasignar').addClass('d-none');
+                        $('#resumenTicketAsignarMotivo').val('');
                         return;
                     }
-                    var idP = parseInt(pidStr, 10);
-                    if (isNaN(idP) || idP < 1) return;
-                    var motivo = ($('#resumenTicketAsignarMotivo').val() || '').trim();
-                    if (!motivo) {
-                        if (typeof Swal !== 'undefined') Swal.fire({ icon: 'warning', title: 'Debe escribir el motivo del cambio.' });
-                        $sel.val(pidAnterior);
-                        if (_tmAsignarSearchableInst && typeof _tmAsignarSearchableInst.refresh === 'function') _tmAsignarSearchableInst.refresh();
-                        return;
+                    $('#resumenTicketMotivoWrap').removeClass('d-none');
+                    $('#resumenTicketTerritorialBtnReasignar').removeClass('d-none');
+                    var $modalRt = $('#modalResumenTicket');
+                    if (typeof Swal !== 'undefined' && !$modalRt.data('tmTerritorialAvisoPendiente')) {
+                        $modalRt.data('tmTerritorialAvisoPendiente', 1);
+                        Swal.fire({
+                            icon: 'info',
+                            title: 'Asignación pendiente de confirmar',
+                            html: 'Escriba el <strong>motivo del cambio</strong> y pulse <strong>Aplicar reasignación</strong> para guardar la asignación en el sistema.',
+                            confirmButtonText: 'Entendido'
+                        });
                     }
-
-                    http.request({
-                        endpoint: '/validaciones/reasignarGestorTicketTerritorial',
-                        metodo: 'POST',
-                        data: JSON.stringify({
-                            id_ticket: tid,
-                            id_persona: idP,
-                            motivo: motivo
-                        }),
-                        contentType: 'application/json',
-                        processData: false,
-                        onSuccess: function (r) {
-                            if (r && r.success) {
-                                var nom = $sel.find('option:selected').text();
-                                if (window._ticketsModuloCache && window._ticketsModuloCache[tid]) {
-                                    window._ticketsModuloCache[tid].asignado_nombre = nom;
-                                    window._ticketsModuloCache[tid].id_persona_asignada = idP;
-                                }
-                                pidAnterior = String(idP);
-                                if (typeof Swal !== 'undefined') Swal.fire({ icon: 'success', title: 'Reasignado', timer: 1500, showConfirmButton: false });
-                                if (typeof getTicketsModuloPanel === 'function') getTicketsModuloPanel();
-                            } else {
-                                if (typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: (r && r.mensaje) ? r.mensaje : 'Error' });
-                            }
-                        },
-                        onError: function (e) {
-                            if (typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: (e && e.mensaje) || 'Error' });
-                        }
-                    });
+                    return;
                 } else if (pid === '' || pid === null) {
                     http.request({
                         endpoint: '/sabueso/quitarAsignacionTicket',
@@ -665,7 +1037,15 @@
                                     window._ticketsModuloCache[tid].asignado_nombre = '';
                                     window._ticketsModuloCache[tid].id_persona_asignada = null;
                                 }
-                                if (typeof Swal !== 'undefined') Swal.fire({ icon: 'success', title: 'Asignación quitada', timer: 1500, showConfirmButton: false });
+                                tmSetAsignacionResumenBloqueada(false);
+                                if (typeof Swal !== 'undefined') {
+                                    Swal.fire({
+                                        icon: 'success',
+                                        title: 'Asignación quitada',
+                                        text: 'El ticket quedó sin persona asignada.',
+                                        confirmButtonText: 'Listo'
+                                    });
+                                }
                                 if (typeof getTicketsModuloPanel === 'function') getTicketsModuloPanel();
                             } else {
                                 if (typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: r.mensaje || 'Error' });
@@ -691,7 +1071,15 @@
                                     window._ticketsModuloCache[tid].asignado_nombre = nom;
                                     window._ticketsModuloCache[tid].id_persona_asignada = idP;
                                 }
-                                if (typeof Swal !== 'undefined') Swal.fire({ icon: 'success', title: 'Asignado', timer: 1500, showConfirmButton: false });
+                                tmSetAsignacionResumenBloqueada(true);
+                                if (typeof Swal !== 'undefined') {
+                                    Swal.fire({
+                                        icon: 'success',
+                                        title: 'Asignación guardada',
+                                        text: (r && r.mensaje) ? r.mensaje : 'El ticket quedó asignado a la persona seleccionada.',
+                                        confirmButtonText: 'Listo'
+                                    });
+                                }
                                 if (typeof getTicketsModuloPanel === 'function') getTicketsModuloPanel();
                             } else {
                                 if (typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: r.mensaje || 'Error' });
@@ -1135,6 +1523,7 @@
                         var modalLista = document.getElementById('modalFormulariosValidacion');
                         var modalBuilder = document.getElementById('modalFormBuilderValidacion');
                         var iframe = document.getElementById('iframeFormBuilderValidacion');
+                        var tituloEl = document.getElementById('modalFormBuilderValidacionTitulo');
                         if (modalLista && typeof bootstrap !== 'undefined' && bootstrap.Modal) {
                             var inst = bootstrap.Modal.getInstance(modalLista);
                             if (inst) inst.hide();
@@ -1143,6 +1532,11 @@
                             var modo = (cfg().modo || '').trim();
                             var readOnly = modo === 'gestor' || modo === 'territorial';
                             var extra = readOnly ? '&readonly=1' : '';
+                            if (tituloEl) {
+                                tituloEl.innerHTML = readOnly
+                                    ? '<i class="fa-solid fa-eye me-2"></i>Ver formulario <span class="fs-6 fw-normal opacity-75">(solo lectura)</span>'
+                                    : '<i class="fa-solid fa-pen-to-square me-2"></i>Form Builder – Editar formulario';
+                            }
                             iframe.src = '/validaciones/formulario/' + id + '?modal=1&t=' + Date.now() + extra;
                         }
                         if (modalBuilder && typeof bootstrap !== 'undefined' && bootstrap.Modal) {

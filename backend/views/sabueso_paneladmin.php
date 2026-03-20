@@ -139,6 +139,9 @@
     #modalRastreoCredito.consulta-sin-ticket .rastreo-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
     #modalRastreoCredito.consulta-sin-ticket .modal-title::after { content: ' (solo consulta)'; font-weight: 400; font-size: 0.85em; opacity: 0.85; }
     #modalRastreoCredito.consulta-sin-ticket #btnAsignarRastreo { display: none !important; }
+    /* Vista Reportería: solo consulta por ID — sin sufijo ni botón asignar en pie */
+    #modalRastreoCredito.consulta-reporteria-solo .modal-title::after { content: none !important; }
+    #modalRastreoCredito.consulta-reporteria-solo #btnAsignarRastreo { display: none !important; }
     #modalRastreoCredito .rastreo-ticket-info-col { display: flex; flex-direction: column; gap: 0.5rem; }
     /* Direcciones (maxi app): cada ubicación es una fila de 3 columnas (dirección | registros | fecha+distancia) */
     #modalRastreoCredito .rastreo-direcciones-lista { margin-bottom: 0.75rem; }
@@ -793,9 +796,24 @@
 </style>
 <?php
 $panel_admin_es_simple = !empty($panel_admin_es_simple);
+$panel_admin_solo_consulta_credito = !empty($panel_admin_solo_consulta_credito);
 $panel_admin_titulo_label = isset($panel_admin_titulo_label) ? $panel_admin_titulo_label : 'Todos los tickets';
 $panel_admin_icono = isset($panel_admin_icono) ? $panel_admin_icono : 'fa-list';
 ?>
+<?php if ($panel_admin_solo_consulta_credito): ?>
+<div class="card">
+    <div class="card-header border-bottom">
+        <h5 class="card-title mb-0 d-flex flex-wrap align-items-center gap-2 w-100">
+            <span class="me-auto flex-grow-1 min-w-0"><i class="fa-solid fa-magnifying-glass-chart me-2 text-primary"></i>Consulta por ID crédito</span>
+            <div class="d-flex align-items-center gap-2 flex-shrink-0 ms-sm-auto">
+                <button type="button" class="btn btn-sm btn-primary" id="btnAbrirConsultaCredito" title="Consultar por número de crédito">
+                    <i class="fa-solid fa-id-card me-1"></i>Consultar por ID crédito
+                </button>
+            </div>
+        </h5>
+    </div>
+</div>
+<?php else: ?>
 <div class="card">
     <div class="card-header border-bottom">
         <h5 class="card-title mb-0 d-flex flex-wrap align-items-center gap-2 w-100">
@@ -823,21 +841,6 @@ $panel_admin_icono = isset($panel_admin_icono) ? $panel_admin_icono : 'fa-list';
     <!-- Filtros Panel Admin: solo visibles cuando la categoría es Sabueso o Todos (no módulos simples) -->
     <div class="card-body border-bottom py-3 bg-label-secondary bg-opacity-10 <?= $panel_admin_es_simple ? 'd-none' : ''; ?>" id="panelAdminFiltrosWrap">
         <div class="row g-2 align-items-end">
-            <div class="col-12 col-md-6 col-lg">
-                <label class="form-label small text-muted mb-0" for="filtroCategoria">Categoría / Módulo</label>
-                <?php $filtro_cat_selected = isset($panel_admin_categoria_inicial) ? $panel_admin_categoria_inicial : ''; ?>
-                <select class="form-select form-select-sm panel-admin-filtro-select" id="filtroCategoria" title="Filtrar por categoría de ticket">
-                    <option value=""<?= $filtro_cat_selected === '' ? ' selected' : ''; ?>>Todos</option>
-                    <option value="sabueso"<?= $filtro_cat_selected === 'sabueso' ? ' selected' : ''; ?>>Sabueso (rastreo)</option>
-                    <option value="plantilla"<?= $filtro_cat_selected === 'plantilla' ? ' selected' : ''; ?>>Plantilla</option>
-                    <option value="atencion_cliente"<?= $filtro_cat_selected === 'atencion_cliente' ? ' selected' : ''; ?>>Atención al cliente</option>
-                    <option value="validaciones"<?= $filtro_cat_selected === 'validaciones' ? ' selected' : ''; ?>>Validaciones</option>
-                    <option value="viaticos"<?= $filtro_cat_selected === 'viaticos' ? ' selected' : ''; ?>>Viáticos</option>
-                    <option value="aplicaciones_de_pago"<?= $filtro_cat_selected === 'aplicaciones_de_pago' ? ' selected' : ''; ?>>Aplicaciones de pago</option>
-                    <option value="credito_problematico"<?= $filtro_cat_selected === 'credito_problematico' ? ' selected' : ''; ?>>Crédito problemático</option>
-                    <option value="aclaracion_credito"<?= $filtro_cat_selected === 'aclaracion_credito' ? ' selected' : ''; ?>>Aclaración de crédito</option>
-                </select>
-            </div>
             <div class="col-12 col-md-6 col-lg">
                 <label class="form-label small text-muted mb-0" for="filtroAsignado">Asignado a</label>
                 <select class="form-select form-select-sm panel-admin-filtro-select" id="filtroAsignado" title="Filtrar por persona asignada">
@@ -901,6 +904,7 @@ $panel_admin_icono = isset($panel_admin_icono) ? $panel_admin_icono : 'fa-list';
         </table>
     </div>
 </div>
+<?php endif; ?>
 
 <!-- Modal consulta solo por ID crédito (sin ticket): paso 1 pide ID; luego reusa vista rastreo sin bitácora/dictamen/asignar -->
 <div class="modal fade" id="modalConsultaCreditoPaso1" tabindex="-1" aria-labelledby="modalConsultaCreditoPaso1Label" aria-hidden="true">
@@ -912,7 +916,9 @@ $panel_admin_icono = isset($panel_admin_icono) ? $panel_admin_icono : 'fa-list';
                         <i class="fa-solid fa-magnifying-glass-chart fa-xl text-white"></i>
                     </div>
                     <h5 class="modal-title text-white mb-1" id="modalConsultaCreditoPaso1Label">Consulta por ID crédito</h5>
+                    <?php if (!$panel_admin_solo_consulta_credito): ?>
                     <p class="small text-white-50 mb-0 px-3">Vista de direcciones, mapas y analítica sin levantar ticket. Solo lectura.</p>
+                    <?php endif; ?>
                 </div>
                 <button type="button" class="btn-close btn-close-white position-absolute top-0 end-0 m-3" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
@@ -926,19 +932,25 @@ $panel_admin_icono = isset($panel_admin_icono) ? $panel_admin_icono : 'fa-list';
                     </button>
                 </div>
                 <div id="consultaCreditoPaso1Error" class="alert alert-danger py-2 small d-none" role="alert"></div>
+                <?php if (!$panel_admin_solo_consulta_credito): ?>
                 <p class="small text-muted mb-0"><i class="fa-solid fa-circle-info me-1"></i>Se cargarán megareporte, direcciones alternas, mapas y analítica igual que en rastreo, sin bitácora ni dictamen.</p>
+                <?php endif; ?>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Modal Iniciar rastreo: datos de la persona/crédito del ticket (casi pantalla completa) -->
-<div class="modal fade" id="modalRastreoCredito" tabindex="-1" aria-labelledby="modalRastreoCreditoLabel" aria-hidden="true">
+<!-- Modal datos del crédito (desde ticket = rastreo; desde Reportería = solo consulta por ID) -->
+<div class="modal fade<?= $panel_admin_solo_consulta_credito ? ' consulta-sin-ticket consulta-reporteria-solo' : '' ?>" id="modalRastreoCredito" tabindex="-1" aria-labelledby="modalRastreoCreditoLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content modal-content-glass shadow-sm">
             <div class="modal-header py-2 border-bottom d-flex align-items-center">
                 <h6 class="modal-title text-primary mb-0" id="modalRastreoCreditoLabel">
+                    <?php if ($panel_admin_solo_consulta_credito): ?>
+                    <i class="fa-solid fa-magnifying-glass-chart me-2"></i>Consulta de crédito
+                    <?php else: ?>
                     <i class="fa-solid fa-magnifying-glass-plus me-2"></i>Iniciar rastreo – Datos del crédito
+                    <?php endif; ?>
                 </h6>
                 <button type="button" class="btn-close btn-close-sm ms-auto" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
@@ -1085,9 +1097,11 @@ $panel_admin_icono = isset($panel_admin_icono) ? $panel_admin_icono : 'fa-list';
                 </div>
             </div>
             <div class="modal-footer py-2 border-top d-flex flex-wrap gap-2 justify-content-end align-items-center">
+                <?php if (!$panel_admin_solo_consulta_credito): ?>
                 <button type="button" class="btn btn-sm btn-outline-primary" id="btnAsignarRastreo" onclick="mostrarAsignarOpciones()" title="Asignar este ticket">
                     <i class="fa-solid fa-user-plus me-1"></i>Asignar...
                 </button>
+                <?php endif; ?>
                 <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cerrar</button>
             </div>
         </div>
@@ -1586,14 +1600,16 @@ $panel_admin_icono = isset($panel_admin_icono) ? $panel_admin_icono : 'fa-list';
     $(document).ready(function() {
         var apiBase = (function(){ var p = window.location.pathname || ''; var i = p.indexOf('/sabueso'); return i !== -1 ? p.substring(0, i) : ''; })();
         // Oculta el estado vacío y el loader hasta que la tabla termine de dibujar (clase y Swal se quitan en onSuccess/onError de getTicketsPanelAdmin).
+        if (!window.PANEL_ADMIN_SOLO_CONSULTA_CREDITO) {
         (function ocultarEstadoVacioPrimeraCarga() {
             document.body.classList.add('panel-admin-primer-cargando');
         })();
+        }
 
         // —— Filtros Panel Admin (window.panelAdminFiltros lo consume getTicketsPanelAdmin en Sabueso.php) ——
         window.panelAdminFiltros = window.panelAdminFiltros || {};
         function syncPanelAdminFiltrosFromUI() {
-            window.panelAdminFiltros.categoria_gestion = ($('#filtroCategoria').val() || '').trim();
+            window.panelAdminFiltros.categoria_gestion = 'sabueso';
             var asignado = parseInt($('#filtroAsignado').val(), 10);
             if (isNaN(asignado)) asignado = 0;
             window.panelAdminFiltros.asignado = asignado;
@@ -1606,12 +1622,11 @@ $panel_admin_icono = isset($panel_admin_icono) ? $panel_admin_icono : 'fa-list';
             if (typeof getTicketsPanelAdmin === 'function') getTicketsPanelAdmin();
         }
         function limpiarFiltrosPanelAdmin() {
-            $('#filtroCategoria').val('');
             $('#filtroAsignado').val('0');
             $('#filtroDictamenEnviado').val('');
             $('#filtroDsEstado').val('');
             $('#filtroDictamenVisto').val('');
-            window.panelAdminFiltros = {};
+            window.panelAdminFiltros = { categoria_gestion: 'sabueso' };
             if (typeof getTicketsPanelAdmin === 'function') getTicketsPanelAdmin();
         }
         if ($('#panelAdminFiltrosWrap').length && typeof http !== 'undefined') {
@@ -1628,19 +1643,6 @@ $panel_admin_icono = isset($panel_admin_icono) ? $panel_admin_icono : 'fa-list';
                 }
             });
             $('#panelAdminFiltrosWrap').on('change', '.panel-admin-filtro-select', function () {
-                if (this.id === 'filtroCategoria') {
-                    var v = ($('#filtroCategoria').val() || '').trim();
-                    var urls = window.PANEL_ADMIN_MODULO_URLS || {};
-                    if (v && v !== 'sabueso' && urls[v]) {
-                        var base = (function () {
-                            var p = window.location.pathname || '';
-                            var i = p.toLowerCase().indexOf('/sabueso');
-                            return i !== -1 ? p.substring(0, i) : '';
-                        })();
-                        window.location.href = base + urls[v];
-                        return;
-                    }
-                }
                 aplicarFiltrosPanelAdminAlCambiar();
             });
             $('#btnLimpiarFiltrosPanel').on('click', limpiarFiltrosPanelAdmin);
@@ -1897,7 +1899,7 @@ $panel_admin_icono = isset($panel_admin_icono) ? $panel_admin_icono : 'fa-list';
             http.request({
                 endpoint: '/sabueso/getEvidenciasTicket',
                 metodo: 'POST',
-                data: JSON.stringify({ id_ticket: idTicket }),
+                data: JSON.stringify({ id_ticket: idTicket, tipo_origen: 'dictamen_sabueso' }),
                 contentType: 'application/json',
                 processData: false,
                 showLoader: false,
