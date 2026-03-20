@@ -543,8 +543,12 @@ JS;
                 ];
             }
 
-            // Notas de cargo por fecha: solo desde datosNotasCargos, EXCLUYENDO gasto cobranza/extemporáneos (esos vienen en datosPagos y se muestran aparte)
+            // Notas de cargo por fecha: desde datosNotasCargos.
+            // extemporáneos en datosPagos puede incluir gasto cobranza + contracargo; aquí se separa por concepto:
+            // - GASTO(S) DE COBRANZA → solo acumulamos por fecha (para no descontar dos veces el CC del pool).
+            // - CONTRACARGO / REEMBOLSO → flujo de emparejamiento con pagos por fechaMovimiento/fechaVencimiento.
             $notasCargoPorFecha = [];
+            $gastoCobranzaPorFecha = [];
             $esReembolsoPorFecha = [];
             $hayNotasCargos = false;
             $listaNotasCargos = $estadoCuenta['datosNotasCargos'] ?? [];
@@ -552,29 +556,45 @@ JS;
                 foreach ($listaNotasCargos as $nota) {
                     $concepto = (string) ($nota['concepto'] ?? '');
                     $conceptoUpper = mb_strtoupper($concepto);
-                    // No sumar gasto cobranza ni extemporáneos: ya se muestran como "Gasto cobranza" desde datosPagos
-                    if (strpos($conceptoUpper, 'GASTO') !== false && strpos($conceptoUpper, 'COBRANZA') !== false) {
-                        continue;
-                    }
                     if (strpos($conceptoUpper, 'EXTEMPORANEO') !== false || strpos($conceptoUpper, 'EXTEMPORÁNEO') !== false) {
                         continue;
                     }
                     $fechaNota = $nota['fechaMovimiento'] ?? $nota['fechaVencimiento'] ?? null;
-                    if ($fechaNota !== null && $fechaNota !== '') {
-                        $fechaNorm = date('Y-m-d', strtotime($fechaNota));
-                        if (!isset($notasCargoPorFecha[$fechaNorm])) {
-                            $notasCargoPorFecha[$fechaNorm] = 0.0;
+                    if ($fechaNota === null || $fechaNota === '') {
+                        continue;
+                    }
+                    $fechaNorm = date('Y-m-d', strtotime($fechaNota));
+                    $montoNota = $this->safe_float($nota['monto'] ?? 0, 0);
+
+                    $esGastoCobranza = strpos($conceptoUpper, 'GASTO') !== false && strpos($conceptoUpper, 'COBRANZA') !== false;
+                    if ($esGastoCobranza) {
+                        if (!isset($gastoCobranzaPorFecha[$fechaNorm])) {
+                            $gastoCobranzaPorFecha[$fechaNorm] = 0.0;
                         }
-                        $notasCargoPorFecha[$fechaNorm] += $this->safe_float($nota['monto'] ?? 0, 0);
-                        if (strpos($conceptoUpper, 'REEMBOLSO') !== false) {
-                            $esReembolsoPorFecha[$fechaNorm] = true;
-                        }
+                        $gastoCobranzaPorFecha[$fechaNorm] += $montoNota;
+                        continue;
+                    }
+
+                    $esContracargo = strpos($conceptoUpper, 'CONTRACARGO') !== false;
+                    $esReembolso = strpos($conceptoUpper, 'REEMBOLSO') !== false;
+                    if (!$esContracargo && !$esReembolso) {
+                        continue;
+                    }
+
+                    if (!isset($notasCargoPorFecha[$fechaNorm])) {
+                        $notasCargoPorFecha[$fechaNorm] = 0.0;
+                    }
+                    $notasCargoPorFecha[$fechaNorm] += $montoNota;
+                    if ($esReembolso) {
+                        $esReembolsoPorFecha[$fechaNorm] = true;
                     }
                 }
                 foreach (array_keys($notasCargoPorFecha) as $k) {
                     $notasCargoPorFecha[$k] = round($notasCargoPorFecha[$k], 2);
                 }
-                // Solo hay "notas de cargo" si quedó algo después de excluir gasto cobranza
+                foreach (array_keys($gastoCobranzaPorFecha) as $k) {
+                    $gastoCobranzaPorFecha[$k] = round($gastoCobranzaPorFecha[$k], 2);
+                }
                 $hayNotasCargos = array_sum($notasCargoPorFecha) > 0;
             }
             // ═══════════════════════════════════════════════════════════════════════════════
@@ -795,12 +815,21 @@ JS;
                         $usedBefore = round($aplicadoAnterior[$idP] ?? 0, 2);
                         $contracargoTotal = isset($montoContracargoPorPago[$idP]) ? round($montoContracargoPorPago[$idP], 2) : 0;
                         if (isset($idPagosCC[$idP])) {
-                            // Pago con contracargo: neto al crédito = monto − ext − contracargo.
-                            // Si extemporáneos y contracargo vienen con el mismo monto, suele ser la misma salida
-                            // contada dos veces (reversa del excedente); el neto ya está en (monto − ext).
-                            $ccDeduccion = $contracargoTotal;
-                            if ($contracargoTotal > 0.009 && $extOrig > 0.009 && abs($extOrig - $contracargoTotal) < 0.02) {
-                                $ccDeduccion = 0.0;
+                            // extemporáneos puede incluir gasto cobranza y contracargo. (monto − extOrig) ya refleja ambos si el API es coherente.
+                            // contracargoTotal viene de notas "POR CONTRACARGO". No restar otra vez lo que ya está dentro de extOrig:
+                            // se estima la parte de gasto con notas "GASTO(S) DE COBRANZA" en la misma fecha que el depósito.
+                            $ccDeduccion = 0.0;
+                            if ($contracargoTotal > 0.009) {
+                                $fr = $pl['fechaRegistro'] ?? null;
+                                $fechaPagoNorm = ($fr !== null && $fr !== '' && strtotime((string) $fr) !== false)
+                                    ? date('Y-m-d', strtotime((string) $fr))
+                                    : '';
+                                $gastoEnNotas = ($fechaPagoNorm !== '')
+                                    ? round((float) ($gastoCobranzaPorFecha[$fechaPagoNorm] ?? 0), 2)
+                                    : 0.0;
+                                $extAtribGasto = min($extOrig, $gastoEnNotas);
+                                $ccYaEnExt = min($contracargoTotal, max(0.0, round($extOrig - $extAtribGasto, 2)));
+                                $ccDeduccion = max(0.0, round($contracargoTotal - $ccYaEnExt, 2));
                             }
                             $available = round($remaining - $usedBefore - $ccDeduccion, 2);
                             if ($available <= 0.009) continue;
@@ -986,6 +1015,7 @@ JS;
             }
 
             self::set("notasCargoPorFecha", $notasCargoPorFecha);
+            self::set("gastoCobranzaPorFecha", $gastoCobranzaPorFecha ?? []);
             self::set("esReembolsoPorFecha", $esReembolsoPorFecha ?? []);
             self::set("hayNotasCargos", $hayNotasCargos);
 
@@ -998,6 +1028,7 @@ JS;
                 self::set("errorGestiones", "No se encontraron resultados");
                 self::set("tabla", $tabla);
                 self::set("notasCargoPorFecha", []);
+                self::set("gastoCobranzaPorFecha", []);
                 self::set("esReembolsoPorFecha", []);
                 self::set("hayNotasCargos", false);
                 return self::render("__SPARTA_SECRET_REDACTED___request");
@@ -1008,6 +1039,7 @@ JS;
                 self::set("errorGestiones", "No se encontraron resultados");
                 self::set("tabla", $tabla);
                 self::set("notasCargoPorFecha", []);
+                self::set("gastoCobranzaPorFecha", []);
                 self::set("esReembolsoPorFecha", []);
                 self::set("hayNotasCargos", false);
 

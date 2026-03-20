@@ -3218,9 +3218,20 @@ JS;
                         var si = f.pago_semana_si === true || f.pago_semana_si === 1 || f.pago_semana_si === '1';
                         var consultado = f.pago_semana_consultado === true || f.pago_semana_consultado === 1 || f.pago_semana_consultado === '1';
                         var n = parseInt(f.pago_semana_count, 10) || 0;
-                        var t = si ? '<span class="text-success fw-semibold">Sí</span>' : (consultado ? '<span class="text-muted">No</span>' : '<span class="text-warning" title="Límite de consultas o servicio no disponible">No se pudo verificar</span>');
+                        var t = si ? '<span class="text-success fw-semibold">Sí</span>' : (consultado ? '<span class="text-muted">No</span>' : '<span class="text-warning" title="Límite de consultas en el reporte masivo o servicio no disponible. Use el botón para consultar este crédito.">No se pudo verificar</span>');
                         if (n > 0) t += ' <span class="text-muted small">(' + n + ')</span>';
                         return t;
+                    }
+                    function pagoSemanaCellHtml(f) {
+                        var txt = pagoSemanaTxt(f);
+                        var consultado = f.pago_semana_consultado === true || f.pago_semana_consultado === 1 || f.pago_semana_consultado === '1';
+                        var idT = parseInt(f.id_ticket, 10) || 0;
+                        var idCr = f.id_credito != null ? parseInt(f.id_credito, 10) : 0;
+                        var btn = '';
+                        if (!consultado && idT > 0 && idCr > 0 && (r.semana_inicio || '')) {
+                            btn = '<button type="button" class="btn btn-outline-secondary btn-sm py-0 px-1 ms-1 reporte-rs-reconsultar-ec" title="Consultar estado de cuenta (este crédito)" data-id-ticket="' + idT + '"><i class="fa-solid fa-rotate"></i></button>';
+                        }
+                        return '<div class="d-inline-flex align-items-center flex-wrap justify-content-center gap-0">' + txt + btn + '</div>';
                     }
                     function resumenKpisHtml() {
                         function n(k) {
@@ -3228,20 +3239,20 @@ JS;
                             return isNaN(v) ? 0 : v;
                         }
                         var items = [
-                            { k: 'total_tickets', label: 'Tickets en la semana', cls: 'bg-secondary' },
-                            { k: 'ilocalizable', label: 'Ilocalizable', cls: 'bg-danger', tip: 'Visitó todas las direcciones y no pagó en la semana (EC consultado).' },
-                            { k: 'localizable', label: 'Localizable', cls: 'bg-success', tip: 'No califica como ilocalizable y estado de cuenta consultado.' },
-                            { k: 'pago_12h', label: 'Pago en 12h', cls: 'bg-primary', tip: 'Cumplieron pago en ventana inicial (dictamen sistema).' },
-                            { k: 'todas_direcciones', label: 'Todas las direcciones', cls: 'bg-info', tip: 'Visitaron todas las direcciones del dictamen.' },
-                            { k: 'prorroga', label: 'Con prórroga', cls: 'bg-warning', tip: 'Se otorgó prórroga (+12h) al menos una vez.' },
-                            { k: 'pago_semana', label: 'Pago en la semana', cls: 'bg-success', tip: 'Hubo pago en estado de cuenta dentro de la semana analizada.' }
+                            { k: 'total_tickets', label: 'Tickets en la semana', cls: 'bg-secondary', idVal: 'rsKpiValTotal' },
+                            { k: 'ilocalizable', label: 'Ilocalizable', cls: 'bg-danger', tip: 'Visitó todas las direcciones y no pagó en la semana (EC consultado).', idVal: 'rsKpiValIlocalizable' },
+                            { k: 'localizable', label: 'Localizable', cls: 'bg-success', tip: 'No califica como ilocalizable y estado de cuenta consultado.', idVal: 'rsKpiValLocalizable' },
+                            { k: 'pago_12h', label: 'Pago en 12h', cls: 'bg-primary', tip: 'Cumplieron pago en ventana inicial (dictamen sistema).', idVal: 'rsKpiValPago12h' },
+                            { k: 'todas_direcciones', label: 'Todas las direcciones', cls: 'bg-info', tip: 'Visitaron todas las direcciones del dictamen.', idVal: 'rsKpiValTodasDir' },
+                            { k: 'prorroga', label: 'Con prórroga', cls: 'bg-warning', tip: 'Se otorgó prórroga (+12h) al menos una vez.', idVal: 'rsKpiValProrroga' },
+                            { k: 'pago_semana', label: 'Pago en la semana', cls: 'bg-success', tip: 'Hubo pago en estado de cuenta dentro de la semana analizada.', idVal: 'rsKpiValPagoSemana' }
                         ];
                         var parts = '';
                         items.forEach(function(it) {
                             var val = n(it.k);
                             var tip = it.tip ? ' title="' + attrEsc(it.tip) + '"' : '';
                             parts += '<span class="badge ' + it.cls + ' bg-opacity-25 text-dark border me-1 mb-1"' + tip + ' style="font-size:0.75rem;font-weight:600;">' +
-                                attrEsc(it.label) + ': <span class="text-body">' + val + '</span></span>';
+                                attrEsc(it.label) + ': <span class="text-body" id="' + attrEsc(it.idVal) + '">' + val + '</span></span>';
                         });
                         return '<div class="estad-reporte-semanal-resumen d-flex flex-wrap align-items-center gap-1 py-2 px-1 mb-2 rounded-2 border" style="background:rgba(0,0,0,0.03);font-size:0.8rem;">' +
                             '<span class="text-muted small me-2 w-100 w-md-auto"><i class="fa-solid fa-chart-simple me-1"></i>Resumen semana</span>' + parts + '</div>';
@@ -3260,10 +3271,14 @@ JS;
                         }
                         var out = '';
                         filas.forEach(function(f) {
+                            var idT = parseInt(f.id_ticket, 10) || 0;
+                            var consultadoPs = f.pago_semana_consultado === true || f.pago_semana_consultado === 1 || f.pago_semana_consultado === '1';
+                            var siPs = f.pago_semana_si === true || f.pago_semana_si === 1 || f.pago_semana_si === '1';
+                            var il = f.ilocalizable === true || f.ilocalizable === 1 || f.ilocalizable === '1';
                             var cliente = '<div>' + attrEsc(f.nombre_cliente || '—') + '</div><div class="text-muted small">ID ' + (f.id_credito != null ? f.id_credito : '—') + '</div>';
                             var gestor = '<div>' + attrEsc(f.nombre_gestor || '—') + '</div><div class="text-muted small">ID ' + (f.id_gestor != null ? f.id_gestor : '—') + '</div>';
                             var tipoContactoTxt = (f.tipo_contacto === 'Campo') ? '<span class="text-primary fw-semibold">Campo</span>' : ((f.tipo_contacto === 'Telefónica') ? '<span class="text-info fw-semibold">Telefónica</span>' : '<span class="text-muted">—</span>');
-                            out += '<tr>' +
+                            out += '<tr data-id-ticket="' + idT + '" data-pago-consultado="' + (consultadoPs ? '1' : '0') + '" data-pago-si="' + (siPs ? '1' : '0') + '" data-ilocalizable="' + (il ? '1' : '0') + '">' +
                                 '<td class="fw-medium">' + attrEsc(f.folio || '—') + '</td>' +
                                 '<td>' + cliente + '</td>' +
                                 '<td>' + gestor + '</td>' +
@@ -3273,8 +3288,8 @@ JS;
                                 '<td class="text-center">' + boolTxt(f.pago_12h) + '</td>' +
                                 '<td class="text-center">' + boolTxt(f.prorroga_si) + '</td>' +
                                 '<td class="text-center">' + boolTxt(f.pago_prorroga_12h) + '</td>' +
-                                '<td class="text-center">' + pagoSemanaTxt(f) + '</td>' +
-                                '<td class="text-center">' + boolTxt(f.ilocalizable) + '</td>' +
+                                '<td class="text-center td-reporte-pago-semana">' + pagoSemanaCellHtml(f) + '</td>' +
+                                '<td class="text-center td-reporte-ilocalizable">' + boolTxt(f.ilocalizable) + '</td>' +
                                 '</tr>';
                         });
                         return out;
@@ -3319,6 +3334,86 @@ JS;
                     bodyEl2.className = 'p-0';
                     bodyEl2.innerHTML = html;
                     initTooltipsReporteSemanalModal();
+                    function reporteRsRowKpiContrib(tr) {
+                        var c = tr.getAttribute('data-pago-consultado') === '1';
+                        var i = tr.getAttribute('data-ilocalizable') === '1';
+                        var p = tr.getAttribute('data-pago-si') === '1';
+                        return {
+                            localizable: (c && !i) ? 1 : 0,
+                            ilocalizable: (c && i) ? 1 : 0,
+                            pago_semana: p ? 1 : 0
+                        };
+                    }
+                    function reporteRsBumpKpi(mapKey, delta) {
+                        if (!delta) return;
+                        var idMap = { localizable: 'rsKpiValLocalizable', ilocalizable: 'rsKpiValIlocalizable', pago_semana: 'rsKpiValPagoSemana' };
+                        var id = idMap[mapKey];
+                        if (!id) return;
+                        var el = document.getElementById(id);
+                        if (!el) return;
+                        var cur = parseInt(el.textContent, 10) || 0;
+                        el.textContent = String(Math.max(0, cur + delta));
+                    }
+                    var tbodyRs = document.getElementById('tbodyReporteSemanalGlobal');
+                    if (tbodyRs && typeof http !== 'undefined' && http.request) {
+                        tbodyRs.addEventListener('click', function(ev) {
+                            var btn = ev.target.closest('.reporte-rs-reconsultar-ec');
+                            if (!btn || btn.disabled) return;
+                            var idTicket = parseInt(btn.getAttribute('data-id-ticket'), 10) || 0;
+                            if (!idTicket) return;
+                            var tr = btn.closest('tr');
+                            if (!tr) return;
+                            var oldContrib = reporteRsRowKpiContrib(tr);
+                            btn.disabled = true;
+                            var prevHtml = btn.innerHTML;
+                            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+                            http.request({
+                                endpoint: '/sabueso/reconsultarPagoSemanaReporteSemanal',
+                                metodo: 'POST',
+                                data: JSON.stringify({ id_ticket: idTicket, semana_inicio: r.semana_inicio || '' }),
+                                contentType: 'application/json',
+                                processData: false,
+                                showLoader: false,
+                                timeout: 90000,
+                                onSuccess: function(rr) {
+                                    btn.innerHTML = prevHtml;
+                                    btn.disabled = false;
+                                    if (!rr || !rr.success) {
+                                        if (typeof Swal !== 'undefined') Swal.fire('Reconsulta', (rr && rr.mensaje) ? rr.mensaje : 'No se pudo consultar.', 'warning');
+                                        return;
+                                    }
+                                    tr.setAttribute('data-pago-consultado', rr.pago_semana_consultado ? '1' : '0');
+                                    tr.setAttribute('data-pago-si', rr.pago_semana_si ? '1' : '0');
+                                    tr.setAttribute('data-ilocalizable', rr.ilocalizable ? '1' : '0');
+                                    var fSynth = {
+                                        id_ticket: rr.id_ticket,
+                                        id_credito: rr.id_credito,
+                                        pago_semana_si: rr.pago_semana_si,
+                                        pago_semana_count: rr.pago_semana_count,
+                                        pago_semana_consultado: rr.pago_semana_consultado,
+                                        ilocalizable: rr.ilocalizable
+                                    };
+                                    var tdP = tr.querySelector('.td-reporte-pago-semana');
+                                    var tdI = tr.querySelector('.td-reporte-ilocalizable');
+                                    if (tdP) tdP.innerHTML = pagoSemanaCellHtml(fSynth);
+                                    if (tdI) tdI.innerHTML = boolTxt(rr.ilocalizable);
+                                    var newContrib = {
+                                        localizable: (rr.pago_semana_consultado && !rr.ilocalizable) ? 1 : 0,
+                                        ilocalizable: (rr.pago_semana_consultado && rr.ilocalizable) ? 1 : 0,
+                                        pago_semana: rr.pago_semana_si ? 1 : 0
+                                    };
+                                    reporteRsBumpKpi('localizable', newContrib.localizable - oldContrib.localizable);
+                                    reporteRsBumpKpi('ilocalizable', newContrib.ilocalizable - oldContrib.ilocalizable);
+                                    reporteRsBumpKpi('pago_semana', newContrib.pago_semana - oldContrib.pago_semana);
+                                },
+                                onError: function() {
+                                    btn.innerHTML = prevHtml;
+                                    btn.disabled = false;
+                                    if (typeof Swal !== 'undefined') Swal.fire('Error', 'No se pudo contactar el servicio de estado de cuenta.', 'error');
+                                }
+                            });
+                        });
+                    }
                     var sel = document.getElementById('selSemanaReporteGlobal');
                     if (sel) {
                         sel.onchange = function() {
@@ -4074,6 +4169,22 @@ JS;
         }
         $semanaInicio = trim((string)($body['semana_inicio'] ?? $_POST['semana_inicio'] ?? ''));
         $res = TicketDAO::getReporteSemanalGestorGlobal($semanaInicio);
+        self::respuestaJSON($res);
+    }
+
+    /**
+     * API: reconsulta EC para un ticket del reporte semanal (un crédito; tickets cerrados incluidos).
+     */
+    public function reconsultarPagoSemanaReporteSemanal()
+    {
+        $raw = file_get_contents('php://input');
+        $body = $raw ? json_decode($raw, true) : [];
+        if (!is_array($body)) {
+            $body = [];
+        }
+        $idTicket = (int)($body['id_ticket'] ?? $_POST['id_ticket'] ?? 0);
+        $semanaInicio = trim((string)($body['semana_inicio'] ?? $_POST['semana_inicio'] ?? ''));
+        $res = TicketDAO::reconsultarPagoSemanaReporteSemanal($idTicket, $semanaInicio);
         self::respuestaJSON($res);
     }
 

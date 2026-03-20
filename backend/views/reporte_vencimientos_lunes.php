@@ -19,7 +19,7 @@
         <div class="d-flex align-items-center gap-2 flex-wrap">
             <?php if ((int)($_SESSION['usuario_id'] ?? 0) === 1): ?>
                 <div class="d-flex align-items-center gap-1"
-                     title="Guardado en el servidor mientras esté en ejecución. Solo envío automático por cron; no afecta “Enviar correo” manual.">
+                     title="Guardado en el servidor. Solo envío automático por cron (CDMX: 07:40, 09:40, 11:40, 13:40, 14:40, 16:40, 18:40, 20:40, 23:50 en 24 h). No afecta “Enviar correo” manual.">
                     <div class="form-check form-switch m-0">
                         <input class="form-check-input" type="checkbox" role="switch"
                                id="switchAutoEnvioPrimerosPagos">
@@ -27,7 +27,7 @@
                                style="font-size:.72rem;">Auto horario</label>
                     </div>
                 </div>
-                <span id="estadoEnvioAuto" class="badge bg-label-secondary" title="Estado de envío automático">
+                <span id="estadoEnvioAuto" class="badge bg-label-secondary" title="Estado del envío automático (CDMX, horario 24 h: 07:40, 09:40, 11:40, 13:40, 14:40, 16:40, 18:40, 20:40, 23:50).">
                     <i class="fa fa-clock me-1"></i> Auto correo: pendiente
                 </span>
                 <button id="btnEnviarCorreo" class="btn btn-outline-primary btn-sm">
