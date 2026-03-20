@@ -2,8 +2,10 @@
 /**
  * CRONJOB: Envío automático de "Primeros pagos — Lunes de Cierre"
  *
- * Horarios objetivo (America/Mexico_City):
- * 07:40, 09:40, 11:40, 13:40, 14:40, 16:40, 18:40, 20:40, 23:50
+ * Horarios objetivo (America/Mexico_City), siempre en formato 24 h:
+ *   Mañana: 07:40, 09:40, 11:40
+ *   Tarde/noche: 13:40, 14:40, 16:40, 18:40, 20:40, 23:50
+ * (16:40 = 4:40 p. m., 18:40 = 6:40 p. m., 20:40 = 8:40 p. m., 23:50 = 11:50 p. m.)
  *
  * Uso manual:
  *   C:\xampp\php\php.exe C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\cronjobs\enviar_primeros_pagos_lunes.php --force

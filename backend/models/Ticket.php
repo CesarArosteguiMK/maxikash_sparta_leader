@@ -2400,6 +2400,18 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
         @file_put_contents($file, json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
     }
 
+    /** Invalida un archivo de caché de estadísticas (p. ej. tras reconsultar EC en reporte semanal). */
+    private static function statsCacheDelete(string $key): void
+    {
+        if ($key === '') {
+            return;
+        }
+        $file = self::statsCacheDir() . DIRECTORY_SEPARATOR . md5($key) . '.json';
+        if (is_file($file)) {
+            @unlink($file);
+        }
+    }
+
     /**
      * Obtiene y normaliza pagos de estado de cuenta por crédito (cacheado por request).
      * Evita repetir llamadas a API externa por cada ventana evaluada.
@@ -4319,6 +4331,121 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                 'resumen' => [],
                 'filas' => [],
             ];
+        }
+    }
+
+    /**
+     * Reconsulta estado de cuenta para un solo crédito/ticket en el contexto del reporte semanal
+     * (evita el límite global max_api_calls del reporte masivo). Válido aunque el ticket esté cerrado.
+     */
+    public static function reconsultarPagoSemanaReporteSemanal(int $idTicket, string $semanaInicio = ''): array
+    {
+        $db = new Database();
+        $whereReporteTicket = "NOT EXISTS (
+            SELECT 1
+            FROM ticket_historico he
+            WHERE he.id_ticket = t.id_ticket
+              AND he.tipo_accion = 'eliminado'
+              AND he.fecha_eliminacion = (
+                  SELECT MAX(hx.fecha_eliminacion)
+                  FROM ticket_historico hx
+                  WHERE hx.id_ticket = t.id_ticket
+              )
+        )";
+        if ($idTicket < 1) {
+            return ['success' => false, 'mensaje' => 'id_ticket inválido'];
+        }
+        try {
+            $tz = new \DateTimeZone('America/Mexico_City');
+            $now = self::cdmxNowImmutable();
+            $dow = (int)$now->format('N');
+            $mondayCurrent = $now->modify('-' . ($dow - 1) . ' days')->setTime(0, 0, 0);
+            $mondayLastClosed = $mondayCurrent->modify('-7 days');
+
+            $semanaSelDt = $mondayLastClosed;
+            if ($semanaInicio !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $semanaInicio)) {
+                $tmp = \DateTimeImmutable::createFromFormat('Y-m-d H:i:s', $semanaInicio . ' 00:00:00', $tz);
+                if ($tmp instanceof \DateTimeImmutable && $tmp < $mondayCurrent) {
+                    $semanaSelDt = $tmp;
+                }
+            }
+
+            $semanaSelInicio = $semanaSelDt->format('Y-m-d') . ' 00:00:00';
+            $semanaSelFinExcl = $semanaSelDt->modify('+7 days')->format('Y-m-d') . ' 00:00:00';
+            $semanaSelFinIncl = $semanaSelDt->modify('+6 days')->format('Y-m-d') . ' 23:59:59';
+
+            $row = $db->queryOne(
+                "SELECT t.id_ticket, t.id_credito " .
+                "FROM ticket t " .
+                "INNER JOIN dictamen d ON d.id_ticket = t.id_ticket AND d.estado = 'enviado_al_gestor' " .
+                "INNER JOIN (SELECT id_ticket, MAX(fecha_actualizacion) AS mx FROM dictamen WHERE estado = 'enviado_al_gestor' GROUP BY id_ticket) dm " .
+                "ON d.id_ticket = dm.id_ticket AND d.fecha_actualizacion = dm.mx " .
+                "WHERE t.id_ticket = :tid AND $whereReporteTicket " .
+                "AND d.fecha_actualizacion >= :fi AND d.fecha_actualizacion < :ff",
+                ['tid' => $idTicket, 'fi' => $semanaSelInicio, 'ff' => $semanaSelFinExcl]
+            );
+            if (!is_array($row) || empty($row['id_ticket'])) {
+                return [
+                    'success' => false,
+                    'mensaje' => 'El ticket no aparece en el reporte de esa semana (dictamen al gestor fuera del rango o ticket eliminado).',
+                ];
+            }
+            $idCredito = (int)($row['id_credito'] ?? 0);
+            if ($idCredito < 1) {
+                return ['success' => false, 'mensaje' => 'El ticket no tiene crédito asociado.'];
+            }
+
+            $optsUnCredito = [
+                'timeout_segundos' => 15,
+                'max_api_calls' => 50,
+                'cache_ttl_segundos' => 0,
+            ];
+            $resPs = self::getPagosEstadoCuentaEnVentana($idCredito, $semanaSelInicio, $semanaSelFinIncl, $optsUnCredito);
+            $pagoSemana = [
+                'si' => !empty($resPs['pagos'] ?? []),
+                'count' => is_array($resPs['pagos'] ?? null) ? count($resPs['pagos']) : 0,
+                'consultado' => !empty($resPs['__SPARTA_SECRET_REDACTED___consultado']),
+            ];
+
+            $fueDirecciones = null;
+            $dsRow = $db->queryOne(
+                "SELECT ds1.resultado, ds1.detalle FROM dictamen_sistema ds1 " .
+                "INNER JOIN (SELECT id_ticket, MAX(id) AS mid FROM dictamen_sistema WHERE id_ticket = :tid GROUP BY id_ticket) dsmx " .
+                "ON ds1.id_ticket = dsmx.id_ticket AND ds1.id = dsmx.mid",
+                ['tid' => $idTicket]
+            );
+            if (is_array($dsRow) && $dsRow !== []) {
+                $detJson = !empty($dsRow['detalle']) ? json_decode((string)$dsRow['detalle'], true) : null;
+                if (is_array($detJson)) {
+                    $totDir = (int)($detJson['direcciones_dictamen_total'] ?? 0);
+                    $visDir = (int)($detJson['direcciones_visitadas'] ?? 0);
+                    if (array_key_exists('visito_todas_direcciones', $detJson)) {
+                        $fueDirecciones = !empty($detJson['visito_todas_direcciones']);
+                    } elseif ($totDir > 0) {
+                        $fueDirecciones = ($visDir === $totDir);
+                    }
+                }
+            }
+
+            $esIlocalizable = ($fueDirecciones === true) && !empty($pagoSemana['consultado']) && empty($pagoSemana['si']);
+
+            $cacheKeyReporte = 'reporte_semanal_global:v2:' . $semanaSelDt->format('Y-m-d');
+            self::statsCacheDelete($cacheKeyReporte);
+
+            return [
+                'success' => true,
+                'mensaje' => 'OK',
+                'id_ticket' => $idTicket,
+                'id_credito' => $idCredito,
+                'semana_inicio' => $semanaSelDt->format('Y-m-d'),
+                'pago_semana_si' => !empty($pagoSemana['si']),
+                'pago_semana_count' => (int)$pagoSemana['count'],
+                'pago_semana_consultado' => !empty($pagoSemana['consultado']),
+                'ilocalizable' => $esIlocalizable,
+            ];
+        } catch (\Throwable $e) {
+            error_log('reconsultarPagoSemanaReporteSemanal error: ' . $e->getMessage());
+            return ['success' => false, 'mensaje' => $e->getMessage()];
         }
     }
 
