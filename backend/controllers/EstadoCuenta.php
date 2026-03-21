@@ -4523,11 +4523,8 @@ public function descargarReporteDictamen()
 
     public function reporteDictamen()
     {
-        $script = "";
-
-        self::set("titulo", "Dictamen de Llamadas | " );
-        self::set("script", $script);
-        return self::render("dictamen_llamadas");
+        header('Location: /reporteria/callcenter', true, 302);
+        exit;
     }
 
     public function confirmarCondonacionGastos()

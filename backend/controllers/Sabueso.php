@@ -90,7 +90,7 @@ class Sabueso extends Controller
         $usuarioId = (int)($_SESSION['usuario_id'] ?? 0);
         $personaId = (int)($_SESSION['persona_id'] ?? $usuarioId);
         $panelesUsuario = ConfigPanelUsuarioDAO::getPanelesPorPersona($personaId);
-        /** Acceso desde Reportería: solo consulta por ID crédito (módulos 18 o 19), sin requerir panel sabueso_paneladmin. */
+        /** Acceso desde Reportería: Never paid (módulo 29, permiso especial) o legado 18/19; sin requerir panel sabueso_paneladmin. */
         $soloConsultaCredito = ($forzarSoloConsultaCredito === true)
             || (isset($_GET['solo_consulta_credito']) && (string)$_GET['solo_consulta_credito'] === '1');
         // URL canónica bajo Reportería (evita /sabueso/paneladmin?solo_consulta_credito=1 en la barra de direcciones).
@@ -100,7 +100,7 @@ class Sabueso extends Controller
         }
         if ($soloConsultaCredito) {
             $mods = array_map('intval', (array)($_SESSION['modulos'] ?? []));
-            if (!array_intersect([18, 19], $mods)) {
+            if (!array_intersect([18, 19, 29], $mods)) {
                 header('Location: /Inicio', true, 302);
                 exit;
             }
@@ -2202,7 +2202,7 @@ JS;
         }
         self::set('panel_admin_modulo_urls_json', json_encode($urlsModPanel, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT));
         self::set('panel_admin_solo_consulta_credito', $soloConsultaCredito);
-        self::set('titulo', $soloConsultaCredito ? 'Consulta por ID crédito' : 'Panel Admin | Sabueso');
+        self::set('titulo', $soloConsultaCredito ? 'Never paid' : 'Panel Admin | Sabueso');
         self::set('script', $script);
         self::render('sabueso_paneladmin');
     }
@@ -2431,24 +2431,182 @@ JS;
                     var credito = d.credito || {};
                     var ticket = d.ticket || {};
                     var esc = attrEsc;
-                    var htmlCredito = '<div class="row g-2 mb-3"><div class="col-md-6"><span class="text-muted small d-block">ID crédito</span><div class="fw-semibold">' + (credito.id_credito || '—') + '</div></div>';
-                    htmlCredito += '<div class="col-md-6"><span class="text-muted small d-block">Nombre cliente</span><div class="fw-semibold">' + esc(credito.Nombre_cliente || credito.nombre_completo || '—') + '</div></div>';
-                    htmlCredito += '<div class="col-md-6"><span class="text-muted small d-block">Teléfono</span><div class="fw-semibold">' + esc(credito.telefono_referencia1 || credito.telefono_referencia2 || '—') + '</div></div>';
-                    htmlCredito += '<div class="col-md-12"><span class="text-muted small d-block">Dirección</span><div class="fw-semibold small">' + esc(credito.Domicilio_Completo || '—') + '</div></div></div>';
-                    var fCreacion = ticket.fecha_creacion ? new Date(ticket.fecha_creacion).toLocaleString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
-                    var fVenc = ticket.fecha_vencimiento ? new Date(ticket.fecha_vencimiento).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—';
-                    var fElim = ticket.fecha_eliminacion ? new Date(ticket.fecha_eliminacion).toLocaleString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
-                    var htmlTicket = '<div class="border rounded p-3 mb-3"><div class="fw-semibold mb-2">' + esc(ticket.folio || '—') + ' · ' + esc(ticket.tipo_ticket_nombre || '') + '</div>';
-                    htmlTicket += '<div class="small"><span class="text-muted">Descripción:</span> ' + esc(ticket.descripcion_inicial || '—') + '</div>';
-                    htmlTicket += '<div class="small mt-2">Creación: ' + fCreacion + ' · Venc: ' + fVenc + '</div>';
-                    htmlTicket += '<div class="small mt-1">Quién levantó: ' + esc(ticket.creador_nombre || '—') + '</div>';
-                    htmlTicket += '<div class="small">Asignado (último): ' + (ticket.asignado_nombre ? esc(ticket.asignado_nombre) : '—') + '</div>';
-                    htmlTicket += '<div class="small text-danger mt-1">Cerrado/eliminado: ' + fElim + ' por ' + esc(ticket.quien_elimino_nombre || '—') + '</div></div>';
+                    var fmtF = function(s, conHora) {
+                        if (!s) return '—';
+                        try {
+                            var dt = new Date(s);
+                            if (isNaN(dt.getTime())) return s;
+                            var opts = { day: '2-digit', month: '2-digit', year: 'numeric' };
+                            if (conHora) { opts.hour = '2-digit'; opts.minute = '2-digit'; }
+                            return dt.toLocaleString('es-MX', opts);
+                        } catch(e) { return s; }
+                    };
+
+                    /* --- Datos del crédito --- */
+                    var htmlCredito = '<div class="row g-2 mb-3">';
+                    htmlCredito += '<div class="col-md-4"><span class="text-muted small d-block">ID crédito</span><div class="fw-semibold">' + (credito.id_credito || '—') + '</div></div>';
+                    htmlCredito += '<div class="col-md-8"><span class="text-muted small d-block">Nombre cliente</span><div class="fw-semibold">' + esc(credito.Nombre_cliente || credito.nombre_completo || '—') + '</div></div>';
+                    htmlCredito += '<div class="col-md-4"><span class="text-muted small d-block">Teléfono 1</span><div class="fw-semibold">' + esc(credito.telefono_referencia1 || '—') + '</div></div>';
+                    htmlCredito += '<div class="col-md-4"><span class="text-muted small d-block">Teléfono 2</span><div class="fw-semibold">' + esc(credito.telefono_referencia2 || '—') + '</div></div>';
+                    htmlCredito += '<div class="col-md-4"><span class="text-muted small d-block">Celular</span><div class="fw-semibold">' + esc(credito.Celular || credito.celular || '—') + '</div></div>';
+                    htmlCredito += '<div class="col-md-12"><span class="text-muted small d-block">Dirección</span><div class="fw-semibold small">' + esc(credito.Domicilio_Completo || '—') + '</div></div>';
+                    htmlCredito += '</div>';
+
+                    /* --- Ticket --- */
+                    var htmlTicket = '<div class="border rounded p-3 mb-3">';
+                    htmlTicket += '<div class="fw-semibold mb-2"><i class="fa-solid fa-ticket me-1"></i>' + esc(ticket.folio || '—') + ' · ' + esc(ticket.tipo_ticket_nombre || '') + '</div>';
+                    htmlTicket += '<div class="row g-2">';
+                    htmlTicket += '<div class="col-md-6 small"><span class="text-muted">Estado:</span> ' + esc(ticket.estado_ticket_nombre || '—') + '</div>';
+                    htmlTicket += '<div class="col-md-6 small"><span class="text-muted">Prioridad:</span> ' + esc(ticket.prioridad_nombre || '—') + '</div>';
+                    htmlTicket += '</div>';
+                    htmlTicket += '<div class="small mt-2"><span class="text-muted">Descripción inicial:</span><br>' + esc(ticket.descripcion_inicial || '—') + '</div>';
+                    htmlTicket += '<div class="row g-2 mt-2">';
+                    htmlTicket += '<div class="col-md-4 small"><span class="text-muted">Creación:</span> ' + fmtF(ticket.fecha_creacion, true) + '</div>';
+                    htmlTicket += '<div class="col-md-4 small"><span class="text-muted">Vencimiento:</span> ' + fmtF(ticket.fecha_vencimiento, false) + '</div>';
+                    htmlTicket += '<div class="col-md-4 small"><span class="text-muted">Acción:</span> <span class="badge bg-label-' + (ticket.tipo_accion === 'eliminado' ? 'danger' : 'warning') + '">' + esc(ticket.tipo_accion || '—') + '</span></div>';
+                    htmlTicket += '</div>';
+                    htmlTicket += '<div class="small mt-2"><span class="text-muted">Quién levantó:</span> ' + esc(ticket.creador_nombre || '—') + '</div>';
+                    htmlTicket += '<div class="small"><span class="text-muted">Asignado (último):</span> ' + esc(ticket.asignado_nombre || '—') + '</div>';
+                    htmlTicket += '<div class="small text-danger mt-1"><i class="fa-solid fa-ban me-1"></i>Cerrado/eliminado: ' + fmtF(ticket.fecha_eliminacion, true) + ' por ' + esc(ticket.quien_elimino_nombre || '—') + '</div>';
+                    htmlTicket += '</div>';
+
+                    /* --- Dictamen (enviado al gestor) --- */
+                    var dictamen = d.dictamen;
+                    var domicilios = d.domicilios || [];
+                    var htmlDictamen = '';
+                    if (dictamen) {
+                        htmlDictamen += '<div class="border rounded p-3 mb-3">';
+                        htmlDictamen += '<div class="row g-2">';
+                        htmlDictamen += '<div class="col-md-6 small"><span class="text-muted">Tipo:</span> ' + esc(dictamen.tipo || '—') + '</div>';
+                        htmlDictamen += '<div class="col-md-6 small"><span class="text-muted">Estado:</span> <span class="badge bg-label-info">' + esc(dictamen.estado || '—') + '</span></div>';
+                        htmlDictamen += '<div class="col-md-6 small"><span class="text-muted">Fecha envío:</span> ' + fmtF(dictamen.fecha_actualizacion, true) + '</div>';
+                        htmlDictamen += '<div class="col-md-6 small"><span class="text-muted">Visto por gestor:</span> ' + (dictamen.fecha_visto_gestor ? fmtF(dictamen.fecha_visto_gestor, true) + (dictamen.visto_gestor_nombre ? ' (' + esc(dictamen.visto_gestor_nombre) + ')' : '') : '<span class="text-warning">No visto</span>') + '</div>';
+                        htmlDictamen += '</div>';
+                        var descBase = dictamen.descripcion_base || dictamen.descripcion || '';
+                        if (descBase) {
+                            htmlDictamen += '<div class="small mt-2"><span class="text-muted">Descripción:</span><br><span style="white-space:pre-line">' + esc(descBase) + '</span></div>';
+                        }
+                        if (domicilios.length) {
+                            htmlDictamen += '<div class="mt-2"><span class="text-muted small fw-bold">Lugares del dictamen (' + domicilios.length + '):</span>';
+                            htmlDictamen += '<ul class="list-group list-group-flush mt-1">';
+                            for (var di = 0; di < domicilios.length; di++) {
+                                var dom = domicilios[di];
+                                var dirText = dom.descripcion || dom.direccion || ('Dirección ' + (di + 1));
+                                var link = dom.url || dom.link || '';
+                                htmlDictamen += '<li class="list-group-item py-1 px-2 small">';
+                                htmlDictamen += '<i class="fa-solid fa-location-dot text-primary me-1"></i>';
+                                if (link) {
+                                    htmlDictamen += '<a href="' + esc(link) + '" target="_blank" rel="noopener">' + esc(dirText) + '</a>';
+                                } else {
+                                    htmlDictamen += esc(dirText);
+                                }
+                                htmlDictamen += '</li>';
+                            }
+                            htmlDictamen += '</ul></div>';
+                        }
+                        htmlDictamen += '</div>';
+                    } else {
+                        htmlDictamen = '<span class="text-muted small">Sin dictamen enviado al gestor.</span>';
+                    }
+
+                    /* --- Dictamen del sistema (resultado IA) --- */
+                    var ds = d.dictamen_sistema;
+                    var htmlDS = '';
+                    if (ds) {
+                        var badgeColor = 'secondary';
+                        var res = ds.resultado || '';
+                        if (res.indexOf('cumplido') !== -1 || res === 'visito_campo') badgeColor = 'success';
+                        else if (res === 'no_visito' || res === 'no_cumplio_prorroga') badgeColor = 'danger';
+                        else if (res.indexOf('parcial') !== -1 || res === 'visito_telefonico' || res === 'distancia_lejana') badgeColor = 'warning';
+                        else if (res === 'prorroga_activa') badgeColor = 'info';
+                        htmlDS += '<div class="border rounded p-3 mb-3">';
+                        htmlDS += '<div class="row g-2">';
+                        htmlDS += '<div class="col-md-6 small"><span class="text-muted">Resultado:</span> <span class="badge bg-' + badgeColor + '">' + esc(ds.cumplimiento_etiqueta || ds.resultado || '—') + '</span></div>';
+                        htmlDS += '<div class="col-md-3 small"><span class="text-muted">Efectividad:</span> ' + (ds.pct_efectividad !== null ? ds.pct_efectividad + '%' : '—') + '</div>';
+                        htmlDS += '<div class="col-md-3 small"><span class="text-muted">Fecha:</span> ' + fmtF(ds.fecha_creacion, true) + '</div>';
+                        htmlDS += '</div>';
+                        htmlDS += '<div class="row g-2 mt-1">';
+                        htmlDS += '<div class="col-md-4 small"><span class="text-muted">Direcciones visitadas:</span> ' + (ds.direcciones_visitadas || 0) + ' de ' + (ds.direcciones_dictamen_total || 0) + (ds.visito_todas_direcciones ? ' <i class="fa-solid fa-check text-success"></i>' : '') + '</div>';
+                        htmlDS += '<div class="col-md-4 small"><span class="text-muted">Pago en ventana:</span> ' + (ds.pago_en_ventana ? '<span class="text-success fw-bold">Sí</span>' : '<span class="text-danger">No</span>') + '</div>';
+                        if (ds.tipo_contacto) {
+                            htmlDS += '<div class="col-md-4 small"><span class="text-muted">Tipo contacto:</span> ' + esc(ds.tipo_contacto) + '</div>';
+                        }
+                        htmlDS += '</div>';
+                        if (ds.prorroga) {
+                            htmlDS += '<div class="small mt-1"><span class="text-muted">Prórroga:</span> ' + (ds.prorroga.otorgada ? '<span class="badge bg-info">Otorgada</span>' : 'No') + (ds.prorroga.fecha_limite ? ' · Límite: ' + esc(ds.prorroga.fecha_limite) : '') + '</div>';
+                        }
+                        if (ds.cobertura_direcciones && ds.cobertura_direcciones.length) {
+                            htmlDS += '<div class="mt-2"><span class="text-muted small fw-bold">Cobertura de direcciones:</span>';
+                            htmlDS += '<ul class="list-group list-group-flush mt-1">';
+                            for (var ci = 0; ci < ds.cobertura_direcciones.length; ci++) {
+                                var cd = ds.cobertura_direcciones[ci];
+                                var vis = cd.visitada;
+                                htmlDS += '<li class="list-group-item py-1 px-2 small">';
+                                htmlDS += vis ? '<i class="fa-solid fa-circle-check text-success me-1"></i>' : '<i class="fa-solid fa-circle-xmark text-danger me-1"></i>';
+                                htmlDS += esc(cd.direccion || ('Dirección ' + (ci + 1)));
+                                if (cd.distancia_m !== undefined && cd.distancia_m !== null) {
+                                    htmlDS += ' <span class="text-muted">(' + cd.distancia_m + ' m)</span>';
+                                }
+                                htmlDS += '</li>';
+                            }
+                            htmlDS += '</ul></div>';
+                        }
+                        if (ds.medidas_preventivas) {
+                            htmlDS += '<div class="small mt-2 fst-italic text-muted"><i class="fa-solid fa-info-circle me-1"></i>' + esc(ds.medidas_preventivas) + '</div>';
+                        }
+                        htmlDS += '</div>';
+                    } else {
+                        htmlDS = '<span class="text-muted small">Sin dictamen del sistema generado.</span>';
+                    }
+
+                    /* --- Evidencias --- */
+                    var evidencias = d.evidencias || [];
+                    var htmlEvidencias = '';
+                    if (evidencias.length) {
+                        htmlEvidencias += '<div class="row g-2">';
+                        for (var ei = 0; ei < evidencias.length; ei++) {
+                            var ev = evidencias[ei];
+                            var nombre = ev.nombre_original || 'Archivo';
+                            var ruta = ev.ruta_archivo || '';
+                            var esImg = /\.(jpg|jpeg|png|gif|webp)$/i.test(nombre);
+                            htmlEvidencias += '<div class="col-md-4 col-6">';
+                            if (esImg && ruta) {
+                                htmlEvidencias += '<a href="/' + esc(ruta) + '" target="_blank"><img src="/' + esc(ruta) + '" class="img-fluid rounded border" style="max-height:120px;object-fit:cover" alt="' + esc(nombre) + '"></a>';
+                            } else if (ruta) {
+                                htmlEvidencias += '<a href="/' + esc(ruta) + '" target="_blank" class="btn btn-sm btn-outline-secondary w-100"><i class="fa-solid fa-file me-1"></i>' + esc(nombre) + '</a>';
+                            } else {
+                                htmlEvidencias += '<span class="small text-muted">' + esc(nombre) + '</span>';
+                            }
+                            htmlEvidencias += '<div class="small text-muted">' + fmtF(ev.fecha_subida, true) + '</div>';
+                            htmlEvidencias += '</div>';
+                        }
+                        htmlEvidencias += '</div>';
+                    } else {
+                        htmlEvidencias = '<span class="text-muted small">Sin evidencias adjuntas.</span>';
+                    }
+
+                    /* --- Historial de asignación --- */
                     var historial = d.historial_asignacion || [];
-                    var htmlHistorial = historial.length ? '<ul class="list-unstyled small mb-0">' + historial.map(function(h){ return '<li>' + esc(h.persona || '—') + ': ' + (h.duracion_humana || '—') + '</li>'; }).join('') + '</ul>' : '<span class="text-muted small">Sin historial de asignación.</span>';
-                    var html = '<div class="cerrado-ver-seccion"><h6 class="text-uppercase small fw-bold text-muted mb-2">Datos del crédito</h6>' + htmlCredito + '</div>';
-                    html += '<div class="cerrado-ver-seccion"><h6 class="text-uppercase small fw-bold text-muted mb-2">Ticket</h6>' + htmlTicket + '</div>';
-                    html += '<div class="cerrado-ver-seccion"><h6 class="text-uppercase small fw-bold text-muted mb-2">Historial de asignación</h6>' + htmlHistorial + '</div>';
+                    var htmlHistorial = '';
+                    if (historial.length) {
+                        htmlHistorial += '<div class="table-responsive"><table class="table table-sm table-bordered mb-0 small"><thead><tr><th>Persona</th><th>Desde</th><th>Hasta</th><th>Duración</th></tr></thead><tbody>';
+                        for (var hi = 0; hi < historial.length; hi++) {
+                            var h = historial[hi];
+                            htmlHistorial += '<tr><td>' + esc(h.persona || '—') + '</td><td>' + esc(h.desde || '—') + '</td><td>' + esc(h.hasta || '—') + '</td><td>' + esc(h.duracion_humana || '—') + '</td></tr>';
+                        }
+                        htmlHistorial += '</tbody></table></div>';
+                    } else {
+                        htmlHistorial = '<span class="text-muted small">Sin historial de asignación.</span>';
+                    }
+
+                    /* --- Ensamblar modal --- */
+                    var html = '';
+                    html += '<div class="cerrado-ver-seccion"><h6 class="text-uppercase small fw-bold text-muted mb-2"><i class="fa-solid fa-user me-1"></i>Datos del crédito</h6>' + htmlCredito + '</div>';
+                    html += '<div class="cerrado-ver-seccion"><h6 class="text-uppercase small fw-bold text-muted mb-2"><i class="fa-solid fa-ticket me-1"></i>Ticket</h6>' + htmlTicket + '</div>';
+                    html += '<div class="cerrado-ver-seccion"><h6 class="text-uppercase small fw-bold text-muted mb-2"><i class="fa-solid fa-file-lines me-1"></i>Dictamen enviado al gestor</h6>' + htmlDictamen + '</div>';
+                    html += '<div class="cerrado-ver-seccion"><h6 class="text-uppercase small fw-bold text-muted mb-2"><i class="fa-solid fa-robot me-1"></i>Dictamen del sistema</h6>' + htmlDS + '</div>';
+                    html += '<div class="cerrado-ver-seccion"><h6 class="text-uppercase small fw-bold text-muted mb-2"><i class="fa-solid fa-image me-1"></i>Evidencias (' + evidencias.length + ')</h6>' + htmlEvidencias + '</div>';
+                    html += '<div class="cerrado-ver-seccion"><h6 class="text-uppercase small fw-bold text-muted mb-2"><i class="fa-solid fa-clock-rotate-left me-1"></i>Historial de asignación</h6>' + htmlHistorial + '</div>';
                     $('#modalVerCerradoEliminado .modal-body').html(html);
                 },
                 onError: function(e) {
@@ -3226,7 +3384,7 @@ JS;
                 contentType: 'application/json',
                 processData: false,
                 showLoader: false,
-                timeout: 90000,
+                timeout: 900000,
                 onSuccess: function(r) {
                     if (typeof Swal !== 'undefined' && Swal.close) Swal.close();
                     var bodyEl2 = document.getElementById('modalReporteSemanalGlobalBody');
@@ -4304,7 +4462,8 @@ JS;
     }
 
     /**
-     * API: datos completos de un ticket cerrado/eliminado para el modal Ver (crédito, ticket, historial asignación, quien eliminó).
+     * API: datos completos de un ticket cerrado/eliminado para el modal Ver
+     * (crédito, ticket, historial asignación, dictamen, dictamen sistema, evidencias, quien eliminó).
      */
     public function getDatosTicketCerradoEliminado()
     {
@@ -4334,8 +4493,57 @@ JS;
                 $credito['Domicilio_Completo'] = $credito['Domicilio_Completo'] ?? 'No disponible';
             }
         }
-        $historial = $idCredito > 0 ? RegistroAsignacion::getHistorialPorCredito($idCredito) : [];
-        $historial = isset($historial['historial']) ? $historial['historial'] : [];
+        $historialTicket = TicketDAO::getHistorialAsignacionPorTicket($idTicket);
+        $historial = $historialTicket['historial'] ?? [];
+
+        $dictamenInfo = TicketDAO::getDictamenDetallePorTicket($idTicket);
+        $dictamen = null;
+        $domicilios = [];
+        $evidencias = [];
+        if (!empty($dictamenInfo['success']) && !empty($dictamenInfo['datos'])) {
+            $dictamen = $dictamenInfo['datos']['dictamen'] ?? null;
+            $domicilios = $dictamenInfo['datos']['domicilios'] ?? [];
+            $evidencias = $dictamenInfo['datos']['evidencias'] ?? [];
+        }
+
+        $dictamenSistema = null;
+        try {
+            $db = new \Core\Database();
+            $dsRow = $db->queryOne(
+                "SELECT ds1.resultado, ds1.detalle, ds1.fecha_creacion FROM dictamen_sistema ds1 " .
+                "INNER JOIN (SELECT id_ticket, MAX(id) AS mid FROM dictamen_sistema WHERE id_ticket = :tid GROUP BY id_ticket) dsmx " .
+                "ON ds1.id_ticket = dsmx.id_ticket AND ds1.id = dsmx.mid",
+                ['tid' => $idTicket]
+            );
+            if (is_array($dsRow) && $dsRow !== []) {
+                $detJson = !empty($dsRow['detalle']) ? json_decode((string)$dsRow['detalle'], true) : null;
+                $cumpl = TicketDAO::cumplimientoMetadatos($dsRow['resultado'] ?? null);
+                $dictamenSistema = [
+                    'resultado' => $dsRow['resultado'] ?? null,
+                    'fecha_creacion' => $dsRow['fecha_creacion'] ?? null,
+                    'cumplimiento_etiqueta' => $cumpl['cumplimiento_etiqueta'] ?? null,
+                    'pct_efectividad' => $cumpl['pct_efectividad'] ?? null,
+                    'medidas_preventivas' => $cumpl['medidas_preventivas'] ?? null,
+                ];
+                if (is_array($detJson)) {
+                    $dictamenSistema['direcciones_dictamen_total'] = (int)($detJson['direcciones_dictamen_total'] ?? 0);
+                    $dictamenSistema['direcciones_visitadas'] = (int)($detJson['direcciones_visitadas'] ?? 0);
+                    $dictamenSistema['visito_todas_direcciones'] = !empty($detJson['visito_todas_direcciones']);
+                    $dictamenSistema['pago_en_ventana'] = !empty($detJson['pago_en_ventana']);
+                    $dictamenSistema['tipo_contacto'] = $detJson['tipo_contacto'] ?? null;
+                    $cobertura = $detJson['cobertura_direcciones'] ?? null;
+                    if (is_array($cobertura)) {
+                        $dictamenSistema['cobertura_direcciones'] = $cobertura;
+                    }
+                    if (isset($detJson['prorroga']) && is_array($detJson['prorroga'])) {
+                        $dictamenSistema['prorroga'] = $detJson['prorroga'];
+                    }
+                }
+            }
+        } catch (\Throwable $e) {
+            // dictamen_sistema opcional
+        }
+
         self::respuestaJSON([
             'success' => true,
             'mensaje' => 'OK',
@@ -4343,6 +4551,10 @@ JS;
                 'credito' => $credito,
                 'ticket' => $ticket,
                 'historial_asignacion' => $historial,
+                'dictamen' => $dictamen,
+                'domicilios' => $domicilios,
+                'evidencias' => $evidencias,
+                'dictamen_sistema' => $dictamenSistema,
             ]
         ]);
     }

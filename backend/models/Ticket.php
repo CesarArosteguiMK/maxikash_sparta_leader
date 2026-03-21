@@ -883,6 +883,59 @@ class Ticket extends Model
     }
 
     /**
+     * id_persona de la asignación activa del ticket (activo = 1), o 0 si no hay.
+     */
+    public static function getIdPersonaAsignadaActivaPorTicket(int $idTicket): int
+    {
+        $tid = (int) $idTicket;
+        if ($tid < 1) {
+            return 0;
+        }
+        try {
+            $db = new Database();
+            $row = $db->queryOne(
+                'SELECT id_persona_asignada FROM asignacion_ticket WHERE id_ticket = :id AND (activo = 1 OR activo IS NULL) ORDER BY fecha_asignacion DESC LIMIT 1',
+                ['id' => $tid]
+            );
+
+            return $row && isset($row['id_persona_asignada']) ? (int) $row['id_persona_asignada'] : 0;
+        } catch (\Exception $e) {
+            return 0;
+        }
+    }
+
+    /**
+     * Asignación activa del gestor a un ticket de categoría validaciones.
+     */
+    public static function personaTieneAsignacionActivaTicketValidaciones(int $personaId, int $idTicket): bool
+    {
+        $pid = (int) $personaId;
+        $tid = (int) $idTicket;
+        if ($pid < 1 || $tid < 1) {
+            return false;
+        }
+        try {
+            $db = new Database();
+            $row = $db->queryOne(
+                "SELECT 1 AS ok
+                 FROM asignacion_ticket at
+                 INNER JOIN ticket t ON t.id_ticket = at.id_ticket
+                 WHERE at.id_ticket = :id_ticket
+                   AND at.id_persona_asignada = :id_persona
+                   AND (at.activo = 1 OR at.activo IS NULL)
+                   AND (t.activo = 1 OR t.activo IS NULL)
+                   AND LOWER(COALESCE(NULLIF(TRIM(t.categoria_gestion),''), 'sabueso')) = 'validaciones'
+                 LIMIT 1",
+                ['id_ticket' => $tid, 'id_persona' => $pid]
+            );
+
+            return !empty($row);
+        } catch (\Exception $e) {
+            return false;
+        }
+    }
+
+    /**
      * id_credito del ticket (para registrar historial de asignación por crédito).
      */
     public static function getIdCreditoPorTicket(int $idTicket): ?int
@@ -2488,6 +2541,145 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
         if (is_file($file)) {
             @unlink($file);
         }
+    }
+
+    /**
+     * Directorio persistente del reporte semanal global (JSON por semana). No usa BD.
+     */
+    private static function reporteSemanalGlobalArchivoDir(): string
+    {
+        $dir = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'reporte_semanal_global';
+        if (!is_dir($dir)) {
+            @mkdir($dir, 0775, true);
+        }
+        return $dir;
+    }
+
+    private static function reporteSemanalGlobalArchivoPath(string $semanaInicioYmd): string
+    {
+        $safe = preg_match('/^\d{4}-\d{2}-\d{2}$/', $semanaInicioYmd) ? $semanaInicioYmd : 'invalido';
+        return self::reporteSemanalGlobalArchivoDir() . DIRECTORY_SEPARATOR . 'reporte_semanal_global_v2_' . $safe . '.json';
+    }
+
+    /**
+     * Lee snapshot del reporte semanal desde disco (rápido; evita timeouts por muchas llamadas a API).
+     */
+    private static function reporteSemanalGlobalArchivoLeer(string $semanaInicioYmd): ?array
+    {
+        $path = self::reporteSemanalGlobalArchivoPath($semanaInicioYmd);
+        if (!is_file($path)) {
+            return null;
+        }
+        $raw = @file_get_contents($path);
+        if (!is_string($raw) || $raw === '') {
+            return null;
+        }
+        $data = json_decode($raw, true);
+        if (!is_array($data) || empty($data['success'])) {
+            return null;
+        }
+        unset($data['_archivo_meta']);
+        return $data;
+    }
+
+    private static function reporteSemanalGlobalArchivoEscribir(string $semanaInicioYmd, array $payload): void
+    {
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $semanaInicioYmd)) {
+            return;
+        }
+        $path = self::reporteSemanalGlobalArchivoPath($semanaInicioYmd);
+        $payload['_archivo_meta'] = [
+            'version' => 2,
+            'generado_en' => self::ahoraCdmx(),
+            'semana_inicio' => $semanaInicioYmd,
+        ];
+        @file_put_contents(
+            $path,
+            json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            LOCK_EX
+        );
+    }
+
+    /**
+     * Recalcula resumen KPIs a partir de filas (tras actualizar una fila desde reconsulta EC).
+     */
+    private static function reporteSemanalGlobalRecalcularResumen(array $filas): array
+    {
+        $resumen = [
+            'total_tickets' => count($filas),
+            'ilocalizable' => 0,
+            'localizable' => 0,
+            'pago_12h' => 0,
+            'todas_direcciones' => 0,
+            'prorroga' => 0,
+            'pago_semana' => 0,
+        ];
+        foreach ($filas as $f) {
+            if (!empty($f['ilocalizable'])) {
+                $resumen['ilocalizable']++;
+            }
+            if (!empty($f['pago_semana_consultado']) && empty($f['ilocalizable'])) {
+                $resumen['localizable']++;
+            }
+            if (($f['pago_12h'] ?? null) === true) {
+                $resumen['pago_12h']++;
+            }
+            if (($f['fue_todas_direcciones'] ?? null) === true) {
+                $resumen['todas_direcciones']++;
+            }
+            if (($f['prorroga_si'] ?? null) === true) {
+                $resumen['prorroga']++;
+            }
+            if (!empty($f['pago_semana_si'])) {
+                $resumen['pago_semana']++;
+            }
+        }
+        return $resumen;
+    }
+
+    /**
+     * Tras reconsultar un crédito, actualiza el JSON de la semana si existe (sin regenerar todo).
+     */
+    private static function reporteSemanalGlobalArchivoMergeReconsulta(
+        string $semanaInicioYmd,
+        int $idTicket,
+        bool $pagoSemanaSi,
+        int $pagoSemanaCount,
+        bool $pagoSemanaConsultado,
+        bool $ilocalizable
+    ): void {
+        if ($idTicket < 1 || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $semanaInicioYmd)) {
+            return;
+        }
+        $path = self::reporteSemanalGlobalArchivoPath($semanaInicioYmd);
+        if (!is_file($path)) {
+            return;
+        }
+        $raw = @file_get_contents($path);
+        if (!is_string($raw) || $raw === '') {
+            return;
+        }
+        $data = json_decode($raw, true);
+        if (!is_array($data) || empty($data['filas']) || !is_array($data['filas'])) {
+            return;
+        }
+        $updated = false;
+        foreach ($data['filas'] as $i => $f) {
+            if ((int)($f['id_ticket'] ?? 0) === $idTicket) {
+                $data['filas'][$i]['pago_semana_si'] = $pagoSemanaSi;
+                $data['filas'][$i]['pago_semana_count'] = $pagoSemanaCount;
+                $data['filas'][$i]['pago_semana_consultado'] = $pagoSemanaConsultado;
+                $data['filas'][$i]['ilocalizable'] = $ilocalizable;
+                $updated = true;
+                break;
+            }
+        }
+        if (!$updated) {
+            return;
+        }
+        $data['resumen'] = self::reporteSemanalGlobalRecalcularResumen($data['filas']);
+        unset($data['_archivo_meta']);
+        self::reporteSemanalGlobalArchivoEscribir($semanaInicioYmd, $data);
     }
 
     /**
@@ -4152,6 +4344,17 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                 return $cacheHit;
             }
 
+            $archivoHit = self::reporteSemanalGlobalArchivoLeer($semanaSelDt->format('Y-m-d'));
+            if (is_array($archivoHit) && !empty($archivoHit['success'])) {
+                self::statsCacheWrite($cacheKey, $archivoHit, 300);
+                return $archivoHit;
+            }
+
+            @set_time_limit(600);
+            if (function_exists('ini_set')) {
+                @ini_set('max_execution_time', '600');
+            }
+
             $semanasRows = $db->queryAll(
                 "SELECT DISTINCT DATE_SUB(DATE(d.fecha_actualizacion), INTERVAL WEEKDAY(d.fecha_actualizacion) DAY) AS semana_inicio " .
                 "FROM ticket t " .
@@ -4228,9 +4431,9 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
             }
 
             $optsReporteSemanal = [
-                'timeout_segundos' => 3,
-                'max_api_calls' => 25,
-                'cache_ttl_segundos' => 600,
+                'timeout_segundos' => 10,
+                'max_api_calls' => 1000,
+                'cache_ttl_segundos' => 604800,
             ];
             $pagosSemanaPorCredito = [];
             foreach (array_keys($idsCredito) as $cid) {
@@ -4396,6 +4599,7 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                 'resumen' => $resumen,
                 'filas' => $filas,
             ];
+            self::reporteSemanalGlobalArchivoEscribir($semanaSelDt->format('Y-m-d'), $payload);
             self::statsCacheWrite($cacheKey, $payload, 300);
             return $payload;
         } catch (\Throwable $e) {
@@ -4473,10 +4677,13 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                 return ['success' => false, 'mensaje' => 'El ticket no tiene crédito asociado.'];
             }
 
+            $cacheKeyEC = '__SPARTA_SECRET_REDACTED___pagos:' . $idCredito . ':' . self::fechaCdmx();
+            self::statsCacheDelete($cacheKeyEC);
+
             $optsUnCredito = [
                 'timeout_segundos' => 15,
                 'max_api_calls' => 50,
-                'cache_ttl_segundos' => 0,
+                'cache_ttl_segundos' => 604800,
             ];
             $resPs = self::getPagosEstadoCuentaEnVentana($idCredito, $semanaSelInicio, $semanaSelFinIncl, $optsUnCredito);
             $pagoSemana = [
@@ -4509,6 +4716,15 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
 
             $cacheKeyReporte = 'reporte_semanal_global:v2:' . $semanaSelDt->format('Y-m-d');
             self::statsCacheDelete($cacheKeyReporte);
+
+            self::reporteSemanalGlobalArchivoMergeReconsulta(
+                $semanaSelDt->format('Y-m-d'),
+                $idTicket,
+                !empty($pagoSemana['si']),
+                (int)$pagoSemana['count'],
+                !empty($pagoSemana['consultado']),
+                $esIlocalizable
+            );
 
             return [
                 'success' => true,

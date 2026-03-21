@@ -171,9 +171,9 @@ function getMenu()
                     'icono' => 'fa-solid fa-file',
                     'subItems' => [
                             [
-                                    'label' => 'Resumen Call Center',
-                                    'url' => '/reporteria/resumencallcenter',
-                                    'modulos' => [6]
+                                    'label' => 'Call Center',
+                                    'url' => '/reporteria/callcenter',
+                                    'modulos' => [6, 14, 15]
                             ],
                             [
                                 'label' => 'Primeros pagos',
@@ -181,47 +181,27 @@ function getMenu()
                                     'modulos' => [49]
                             ],
                             [
-                                    'label' => 'Reportes de tickets',
+                                    'label' => 'Sabuesos',
                                     'url' => '/reporteria/sabuesos',
                                     'modulos' => [18, 19]
                             ],
                             [
-                                    'label' => 'Consulta por ID crédito',
+                                    'label' => 'Never paid',
                                     'url' => '/reporteria/consultaIdCredito',
-                                    'modulos' => [18, 19]
+                                    'modulos' => [29]
                             ],
                             [
                                     'label' => 'Layout Legacy',
                                     'url' => '/reporteria/layoutlegacy',
                                     'modulos' => [7]
                             ],
-
-
-
-
                             [
-                                    'label' => 'Dictamen de Llamadas',
-                                    'url' => '/estadocuenta/reporteDictamen',
-                                    'modulos' => [14]
-                            ],
-
-                                   [
-                                        'label' => 'Capital Humano',
-                                        'url' => '/reporteria/reporteCapitalHumano',
-                                        'modulos' => [21]
-                           ]
-
-
-                    ]
-            ],
-            'Condonaciones' => [
-                    'icono' => 'fa-solid fa-hand-holding-dollar',
-                    'subItems' => [
-                            [
-                                    'label' => 'Historial Condonaciones',
-                                    'url' => '/condonaciones/historial',
-                                    'modulos' => [15]
+                                    'label' => 'Capital Humano',
+                                    'url' => '/reporteria/reporteCapitalHumano',
+                                    'modulos' => [21]
                             ]
+
+
                     ]
             ],
             'Ticket' => [

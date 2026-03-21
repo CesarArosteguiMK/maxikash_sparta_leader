@@ -24,13 +24,13 @@ class Condonaciones extends Controller
                 renderCondonaciones(resp.datos);
               } else {
                 console.warn('No se encontraron condonaciones');
-                document.getElementById('listaCondonaciones').innerHTML = 
+                document.getElementById('listaCondonaciones').innerHTML =
                   '<div class="text-center py-5"><p class="text-muted">No hay condonaciones registradas</p></div>';
               }
             },
             onError: (err) => {
               console.error('Error al cargar condonaciones:', err);
-              document.getElementById('listaCondonaciones').innerHTML = 
+              document.getElementById('listaCondonaciones').innerHTML =
                 '<div class="text-center py-5"><p class="text-danger">Error al cargar datos</p></div>';
             }
           });
@@ -46,7 +46,7 @@ class Condonaciones extends Controller
 
           let html = '<div class="row g-3">';
           datos.forEach(item => {
-            const badge = item.estado === 'aprobada' 
+            const badge = item.estado === 'aprobada'
               ? '<span class="badge bg-success">Aprobada</span>'
               : item.estado === 'rechazada'
               ? '<span class="badge bg-danger">Rechazada</span>'
@@ -54,7 +54,7 @@ class Condonaciones extends Controller
 
             html += `
               <div class="col-md-6 col-lg-4">
-                <div class="card h-100 shadow-sm hover-shadow cursor-pointer" 
+                <div class="card h-100 shadow-sm hover-shadow cursor-pointer"
                      onclick="seleccionarCondonacion(${item.id})">
                   <div class="card-body">
                     <div class="d-flex justify-content-between align-items-start mb-3">
@@ -100,7 +100,7 @@ class Condonaciones extends Controller
         /* ---------- RENDERIZAR DETALLE ---------- */
         function renderDetalleCondonacion(datos) {
           const container = document.getElementById('detalleCondonacion');
-          
+
           const badgeEstado = datos.estado === 'aprobada'
             ? '<span class="badge bg-label-success">Aprobada</span>'
             : datos.estado === 'rechazada'
@@ -153,7 +153,7 @@ class Condonaciones extends Controller
 
         /* ---------- CAMBIAR ESTADO ---------- */
         function cambiarEstadoCondonacion(id, nuevoEstado) {
-          const mensaje = nuevoEstado === 'aprobada' 
+          const mensaje = nuevoEstado === 'aprobada'
             ? '¿Está seguro de aprobar esta condonación?'
             : '¿Está seguro de rechazar esta condonación?';
 
@@ -162,9 +162,9 @@ class Condonaciones extends Controller
           http.request({
             endpoint: "/condonaciones/cambiarEstado",
             method: "POST",
-            data: { 
-              id_condonacion: id, 
-              estado: nuevoEstado 
+            data: {
+              id_condonacion: id,
+              estado: nuevoEstado
             },
             onSuccess: (resp) => {
               if (resp.success) {
@@ -267,7 +267,7 @@ class Condonaciones extends Controller
                 <!-- Se llena dinámicamente -->
               </div>
             </div>
-            
+
             <!-- Panel Derecho: Detalle de Condonación -->
             <div class="col-lg-4">
               <div id="detalleCondonacion">
@@ -288,12 +288,12 @@ class Condonaciones extends Controller
     }
 
     /**
-     * Vista: Historial de Condonaciones
-     * Muestra el listado completo de condonaciones en formato tabla
+     * Historial integrado en Reportería → Call Center (URL canónica).
      */
     public function historial()
     {
-        self::render('historial_condonaciones');
+        header('Location: /reporteria/callcenter?seccion=condonaciones', true, 302);
+        exit;
     }
 
     /* ========== MÉTODOS API ========== */

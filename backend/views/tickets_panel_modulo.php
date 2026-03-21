@@ -311,7 +311,7 @@ $mostrarModalFormBuilderLectura = !empty($tickets_panel_modal_form_builder_lectu
                 </div>
                 <div class="rt-sidebar">
                     <div class="rt-block mb-3" id="resumenTicketAsignarBlock">
-                        <div class="rt-card-lbl mb-2">Asignar a</div>
+                        <div class="rt-card-lbl mb-2" id="resumenTicketAsignarTitulo">Asignar a</div>
                         <div class="small text-muted mb-1 d-none" id="resumenTicketAsignadoACapoLabel">Asignado a: —</div>
                         <div class="small text-muted mb-1" id="resumenTicketCampoLabel">Segmento (máximo rango)</div>
                         <div class="btn-group btn-group-sm w-100 mb-2" role="group" aria-label="Segmento morosidad">
@@ -325,9 +325,9 @@ $mostrarModalFormBuilderLectura = !empty($tickets_panel_modal_form_builder_lectu
                         </select>
                         <p id="resumenTicketAsignarHint" class="small text-warning mb-0 mt-1 d-none"></p>
                         <div id="resumenTicketMotivoWrap" class="mt-2 d-none">
-                            <div class="small text-muted mb-1" style="font-weight:600;">Motivo del cambio</div>
-                            <textarea id="resumenTicketAsignarMotivo" class="form-control form-control-sm" rows="3" placeholder="Obligatorio solo al reasignar a otro gestor"></textarea>
-                            <button type="button" id="resumenTicketTerritorialBtnReasignar" class="btn btn-sm btn-primary w-100 mt-2 d-none">Aplicar reasignación</button>
+                            <div id="resumenTicketMotivoLabel" class="small text-muted mb-1" style="font-weight:600;">Motivo del cambio</div>
+                            <textarea id="resumenTicketAsignarMotivo" class="form-control form-control-sm" rows="3" placeholder="Obligatorio al cambiar de gestor"></textarea>
+                            <button type="button" id="resumenTicketTerritorialBtnReasignar" class="btn btn-sm btn-primary w-100 mt-2 d-none">Asignar gestor</button>
                         </div>
                     </div>
                     <div class="rt-card">

@@ -38,7 +38,7 @@
 
 <!-- Modal Ver ticket cerrado/eliminado (solo lectura) -->
 <div class="modal fade" id="modalVerCerradoEliminado" tabindex="-1" aria-labelledby="modalVerCerradoEliminadoLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+    <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
         <div class="modal-content">
             <div class="modal-header border-bottom">
                 <h5 class="modal-title" id="modalVerCerradoEliminadoLabel">

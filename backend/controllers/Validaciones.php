@@ -170,7 +170,9 @@ class Validaciones extends Controller
     }
 
     /**
-     * AJAX: reasignar un gestor por el jefe territorial, guardando motivo.
+     * AJAX: asignar o reasignar gestor de campo por el jefe territorial.
+     * Primera asignación (sin gestor de campo previo o solo figuraba el capo): motivo opcional.
+     * Cambio de un gestor subordinado a otro: motivo obligatorio; se guarda en tabla asignacion_ticket_motivo.
      */
     public function reasignarGestorTicketTerritorial()
     {
@@ -195,10 +197,6 @@ class Validaciones extends Controller
             echo json_encode(['success' => false, 'mensaje' => 'ID de ticket y gestor requeridos.']);
             return;
         }
-        if ($motivo === '') {
-            echo json_encode(['success' => false, 'mensaje' => 'Debe escribir un motivo del cambio.']);
-            return;
-        }
 
         $capoInfo = $this->getCapoInfoForTerritorial($personaId);
         if (empty($capoInfo['departamento_id'])) {
@@ -210,6 +208,13 @@ class Validaciones extends Controller
         $gestoresIds = $this->getGestoresSubordinadosIds($personaId, (int)$capoInfo['departamento_id']);
         if (!in_array($idPersonaGestor, $gestoresIds, true)) {
             echo json_encode(['success' => false, 'mensaje' => 'El gestor seleccionado no está permitido para su territorio.']);
+            return;
+        }
+
+        $idAsignadoActivo = TicketDAO::getIdPersonaAsignadaActivaPorTicket($idTicket);
+        $esPrimeraAsignacionGestor = ($idAsignadoActivo < 1) || ($idAsignadoActivo === $personaId);
+        if (!$esPrimeraAsignacionGestor && $motivo === '') {
+            echo json_encode(['success' => false, 'mensaje' => 'En una reasignación debe escribir el motivo del cambio.']);
             return;
         }
 
@@ -240,33 +245,36 @@ class Validaciones extends Controller
             return;
         }
         $idAsignacion = (int)($resultadoAsig['datos']['id_asignacion'] ?? 0);
-        if ($idAsignacion < 1) {
-            echo json_encode(['success' => false, 'mensaje' => 'Error: no se pudo obtener el id de la reasignación para guardar el motivo.']);
+        if ($motivo !== '' && $idAsignacion < 1) {
+            echo json_encode(['success' => false, 'mensaje' => 'Error: no se pudo obtener el id de la asignación para guardar el motivo.']);
             return;
         }
 
-        // Guardar motivo para la reasignación.
-        try {
-            $db = new Database();
-            $campo = $capoInfo['campo'] ?: null;
-            $db->CRUD(
-                "INSERT INTO asignacion_ticket_motivo (id_asignacion_ticket, id_persona_capo, id_persona_gestor, campo, motivo, fecha_creacion)
-                 VALUES (:id_asig, :id_capo, :id_gestor, :campo, :motivo, :fecha)",
-                [
-                    'id_asig' => $idAsignacion,
-                    'id_capo' => $personaId,
-                    'id_gestor' => $idPersonaGestor,
-                    'campo' => $campo,
-                    'motivo' => mb_substr($motivo, 0, 5000),
-                    'fecha' => date('Y-m-d H:i:s'),
-                ]
-            );
-        } catch (\Exception $e) {
-            echo json_encode(['success' => false, 'mensaje' => 'Error al guardar el motivo.']);
-            return;
+        // Motivo: tabla asignacion_ticket_motivo (script create_tabla_asignacion_ticket_motivo.php). Solo si hay texto.
+        if ($motivo !== '') {
+            try {
+                $db = new Database();
+                $campo = $capoInfo['campo'] ?: null;
+                $db->CRUD(
+                    "INSERT INTO asignacion_ticket_motivo (id_asignacion_ticket, id_persona_capo, id_persona_gestor, campo, motivo, fecha_creacion)
+                     VALUES (:id_asig, :id_capo, :id_gestor, :campo, :motivo, :fecha)",
+                    [
+                        'id_asig' => $idAsignacion,
+                        'id_capo' => $personaId,
+                        'id_gestor' => $idPersonaGestor,
+                        'campo' => $campo,
+                        'motivo' => mb_substr($motivo, 0, 5000),
+                        'fecha' => date('Y-m-d H:i:s'),
+                    ]
+                );
+            } catch (\Exception $e) {
+                echo json_encode(['success' => false, 'mensaje' => 'Error al guardar el motivo.']);
+                return;
+            }
         }
 
-        echo json_encode(['success' => true, 'mensaje' => 'Gestor reasignado correctamente.']);
+        $msgOk = $esPrimeraAsignacionGestor ? 'Gestor asignado correctamente.' : 'Gestor reasignado correctamente.';
+        echo json_encode(['success' => true, 'mensaje' => $msgOk]);
     }
 
     private function obtenerPersonaIdSesion(): int

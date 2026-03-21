@@ -804,7 +804,7 @@ $panel_admin_icono = isset($panel_admin_icono) ? $panel_admin_icono : 'fa-list';
 <div class="card">
     <div class="card-header border-bottom">
         <h5 class="card-title mb-0 d-flex flex-wrap align-items-center gap-2 w-100">
-            <span class="me-auto flex-grow-1 min-w-0"><i class="fa-solid fa-magnifying-glass-chart me-2 text-primary"></i>Consulta por ID crédito</span>
+            <span class="me-auto flex-grow-1 min-w-0"><i class="fa-solid fa-magnifying-glass-chart me-2 text-primary"></i>Never paid</span>
             <div class="d-flex align-items-center gap-2 flex-shrink-0 ms-sm-auto">
                 <button type="button" class="btn btn-sm btn-primary" id="btnAbrirConsultaCredito" title="Consultar por número de crédito">
                     <i class="fa-solid fa-id-card me-1"></i>Consultar por ID crédito
@@ -915,7 +915,7 @@ $panel_admin_icono = isset($panel_admin_icono) ? $panel_admin_icono : 'fa-list';
                     <div class="rounded-circle bg-white bg-opacity-10 d-inline-flex align-items-center justify-content-center mb-2" style="width: 56px; height: 56px;">
                         <i class="fa-solid fa-magnifying-glass-chart fa-xl text-white"></i>
                     </div>
-                    <h5 class="modal-title text-white mb-1" id="modalConsultaCreditoPaso1Label">Consulta por ID crédito</h5>
+                    <h5 class="modal-title text-white mb-1" id="modalConsultaCreditoPaso1Label">Never paid</h5>
                     <?php if (!$panel_admin_solo_consulta_credito): ?>
                     <p class="small text-white-50 mb-0 px-3">Vista de direcciones, mapas y analítica sin levantar ticket. Solo lectura.</p>
                     <?php endif; ?>
@@ -1648,7 +1648,7 @@ $panel_admin_icono = isset($panel_admin_icono) ? $panel_admin_icono : 'fa-list';
             $('#btnLimpiarFiltrosPanel').on('click', limpiarFiltrosPanelAdmin);
         }
 
-        // —— Consulta por ID crédito (sin ticket): abre mismo modal rastreo con secciones ocultas ——
+        // —— Never paid / consulta por ID crédito (sin ticket): modal rastreo con secciones ocultas ——
         function abrirModalConsultaCreditoPaso1() {
             $('#consultaCreditoPaso1Error').addClass('d-none').text('');
             $('#inputConsultaIdCredito').val('');
