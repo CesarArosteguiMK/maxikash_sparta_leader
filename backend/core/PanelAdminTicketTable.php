@@ -65,6 +65,21 @@ class PanelAdminTicketTable
         return array_merge($base, $porModulo[$c] ?? []);
     }
 
+    /**
+     * Índices de columna DataTables (0-based) a ocultar en panel por módulo.
+     * Debe coincidir con getColumnsConfig(true): 0 control, 1 fecha oculta, 2 folio, 3 estado, 4 prioridad,
+     * 5 ref/crédito, 6 fechas, 7 creador, 8 asignado, 9 tiempo visita, 10 DS, 11 dictamen/visto, 12 acciones.
+     */
+    public static function getIndicesColumnasOcultasModulo(string $categoria): array
+    {
+        $c = strtolower(preg_replace('/[^a-z0-9_]/', '', $categoria));
+        if ($c === 'validaciones') {
+            return [5, 9, 10, 11];
+        }
+
+        return [10, 11];
+    }
+
     public static function getColumnsConfig(bool $esAdmin, string $categoriaPanel = ''): array
     {
         $T = $esAdmin ? self::getTitulosColumnasPanelAdminPorCategoria($categoriaPanel) : null;

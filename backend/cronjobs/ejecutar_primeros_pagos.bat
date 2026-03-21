@@ -4,6 +4,8 @@ REM ============================================================================
 REM Lanzador para Programador de tareas u otro software de automatizacion.
 REM Un .php no se ejecuta solo en Windows: este .bat invoca php.exe con el script.
 REM Programar ESTE archivo cada 1 a 5 minutos (recomendado).
+REM Para evitar parpadeos de ventana CMD: use ejecutar_primeros_pagos_oculto.vbs
+REM (Programa wscript.exe, argumentos //B //Nologo "ruta\ejecutar_primeros_pagos_oculto.vbs").
 REM ============================================================================
 
 cd /d "%~dp0"

@@ -7,6 +7,12 @@ use Core\Model;
 
 class Ticket extends Model
 {
+    /** Fotos/adjuntos al crear el ticket (validaciones, viáticos, plantilla, etc.). */
+    public const TIPO_ORIGEN_ADJUNTO_TICKET = 'adjunto_ticket';
+
+    /** Evidencias subidas desde el panel Sabueso (dictamen / rastreo). */
+    public const TIPO_ORIGEN_DICTAMEN_SABUESO = 'dictamen_sabueso';
+
     /**
      * Tiempo Sabueso/tickets: toda fecha/hora que se escribe en BD en este módulo debe ser hora CDMX
      * (America/Mexico_City), no la del reloj del servidor ni NOW()/CURDATE() en SQL al insertar/actualizar.
@@ -840,8 +846,14 @@ class Ticket extends Model
                 "INSERT INTO asignacion_ticket (id_ticket, id_persona_asignada, fecha_asignacion, activo) VALUES (:id_ticket, :id_persona, :fecha_asignacion, 1)",
                 ['id_ticket' => $tid, 'id_persona' => $pid, 'fecha_asignacion' => $now]
             );
-            $lastId = $db->queryOne("SELECT LAST_INSERT_ID() AS id");
-            $idAsignacion = $lastId && isset($lastId['id']) ? (int)$lastId['id'] : null;
+            $idAsignacion = $db->lastInsertId();
+            if ($idAsignacion < 1) {
+                $rowId = $db->queryOne(
+                    "SELECT id_asignacion FROM asignacion_ticket WHERE id_ticket = :id_ticket AND id_persona_asignada = :id_persona AND (activo = 1 OR activo IS NULL) ORDER BY fecha_asignacion DESC, id_asignacion DESC LIMIT 1",
+                    ['id_ticket' => $tid, 'id_persona' => $pid]
+                );
+                $idAsignacion = $rowId && isset($rowId['id_asignacion']) ? (int) $rowId['id_asignacion'] : 0;
+            }
             return self::resultado(true, 'Ticket asignado correctamente.', ['id_asignacion' => $idAsignacion]);
         } catch (\Exception $e) {
             return self::resultado(false, 'Error al asignar el ticket.', null, $e->getMessage());
@@ -1717,7 +1729,10 @@ class Ticket extends Model
                     ['id_ticket' => $id]
                 );
             }
-            $evidencias = $db->queryAll("SELECT id, ruta_archivo, nombre_original, fecha_subida FROM ticket_evidencia WHERE id_ticket = :id_ticket ORDER BY fecha_subida ASC", ['id_ticket' => $id]);
+            $evRes = self::getEvidenciasPorTicket($id, self::TIPO_ORIGEN_DICTAMEN_SABUESO);
+            $evidencias = ($evRes['success'] ?? false) && isset($evRes['datos']) && is_array($evRes['datos'])
+                ? $evRes['datos']
+                : [];
 
             $domicilios = [];
             $descripcionBase = $dictamen ? ($dictamen['descripcion'] ?? '') : '';
@@ -1780,9 +1795,11 @@ class Ticket extends Model
     }
 
     /**
-     * Lista de evidencias (imágenes) por ticket.
+     * Lista de evidencias por ticket.
+     *
+     * @param string|null $filtroTipoOrigen null = todas; {@see TIPO_ORIGEN_ADJUNTO_TICKET} o {@see TIPO_ORIGEN_DICTAMEN_SABUESO}
      */
-    public static function getEvidenciasPorTicket($idTicket)
+    public static function getEvidenciasPorTicket($idTicket, $filtroTipoOrigen = null)
     {
         $id = (int)$idTicket;
         if ($id < 1) {
@@ -1790,36 +1807,97 @@ class Ticket extends Model
         }
         try {
             $db = new Database();
-            $rows = $db->queryAll(
-                "SELECT id, id_ticket, id_persona, ruta_archivo, nombre_original, fecha_subida FROM ticket_evidencia WHERE id_ticket = :id_ticket ORDER BY fecha_subida ASC",
-                ['id_ticket' => $id]
-            );
+            $tieneTipo = self::ticketEvidenciaTieneColumnaTipoOrigen($db);
+            $sel = 'SELECT id, id_ticket, id_persona, ruta_archivo, nombre_original, fecha_subida';
+            if ($tieneTipo) {
+                $sel .= ', tipo_origen';
+            }
+            $sql = $sel . ' FROM ticket_evidencia WHERE id_ticket = :id_ticket';
+            $params = ['id_ticket' => $id];
+            if ($filtroTipoOrigen !== null && $filtroTipoOrigen !== '') {
+                if ($tieneTipo) {
+                    $sql .= ' AND (
+                        CASE
+                            WHEN tipo_origen IS NOT NULL AND TRIM(tipo_origen) <> \'\' THEN TRIM(tipo_origen)
+                            WHEN SUBSTRING_INDEX(ruta_archivo, \'/\', -1) LIKE \'ev_%\' THEN \'dictamen_sabueso\'
+                            ELSE \'adjunto_ticket\'
+                        END = :ftipo
+                    )';
+                    $params['ftipo'] = $filtroTipoOrigen;
+                } else {
+                    if ($filtroTipoOrigen === self::TIPO_ORIGEN_DICTAMEN_SABUESO) {
+                        $sql .= " AND SUBSTRING_INDEX(ruta_archivo, '/', -1) LIKE 'ev_%'";
+                    } elseif ($filtroTipoOrigen === self::TIPO_ORIGEN_ADJUNTO_TICKET) {
+                        $sql .= " AND SUBSTRING_INDEX(ruta_archivo, '/', -1) NOT LIKE 'ev_%'";
+                    }
+                }
+            }
+            $sql .= ' ORDER BY fecha_subida ASC';
+            $rows = $db->queryAll($sql, $params);
             return self::resultado(true, 'OK', is_array($rows) ? $rows : []);
         } catch (\Exception $e) {
             return self::resultado(false, 'Error al obtener evidencias.', null, $e->getMessage());
         }
     }
 
+    private static function ticketEvidenciaTieneColumnaTipoOrigen(Database $db): bool
+    {
+        static $cache = null;
+        if ($cache !== null) {
+            return $cache;
+        }
+        try {
+            $c = $db->queryOne(
+                "SELECT 1 AS ok FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'ticket_evidencia' AND COLUMN_NAME = 'tipo_origen' LIMIT 1"
+            );
+            $cache = !empty($c);
+        } catch (\Exception $e) {
+            $cache = false;
+        }
+
+        return $cache;
+    }
+
     /**
      * Guardar registro de evidencia (ruta ya guardada en disco).
+     *
+     * @param string $tipoOrigen {@see TIPO_ORIGEN_ADJUNTO_TICKET} | {@see TIPO_ORIGEN_DICTAMEN_SABUESO}
      */
-    public static function guardarEvidencia($idTicket, $idPersona, $rutaArchivo, $nombreOriginal)
+    public static function guardarEvidencia($idTicket, $idPersona, $rutaArchivo, $nombreOriginal, $tipoOrigen = self::TIPO_ORIGEN_ADJUNTO_TICKET)
     {
         $tid = (int)$idTicket;
         $pid = (int)$idPersona;
         $ruta = trim((string)$rutaArchivo);
         $nombre = trim((string)$nombreOriginal) ?: 'imagen';
+        $origen = trim((string)$tipoOrigen);
+        if ($origen !== self::TIPO_ORIGEN_DICTAMEN_SABUESO) {
+            $origen = self::TIPO_ORIGEN_ADJUNTO_TICKET;
+        }
         if ($tid < 1 || $pid < 1 || $ruta === '') {
             return self::resultado(false, 'Datos inválidos.', null);
         }
         try {
             $db = new Database();
             $now = self::ahoraCdmx();
-            $db->CRUD(
-                "INSERT INTO ticket_evidencia (id_ticket, id_persona, ruta_archivo, nombre_original, fecha_subida) VALUES (:id_ticket, :id_persona, :ruta_archivo, :nombre_original, :fecha_subida)",
-                ['id_ticket' => $tid, 'id_persona' => $pid, 'ruta_archivo' => $ruta, 'nombre_original' => $nombre, 'fecha_subida' => $now]
-            );
-            $lastId = $db->queryOne("SELECT LAST_INSERT_ID() AS id");
+            if (self::ticketEvidenciaTieneColumnaTipoOrigen($db)) {
+                $db->CRUD(
+                    'INSERT INTO ticket_evidencia (id_ticket, id_persona, ruta_archivo, nombre_original, tipo_origen, fecha_subida) VALUES (:id_ticket, :id_persona, :ruta_archivo, :nombre_original, :tipo_origen, :fecha_subida)',
+                    [
+                        'id_ticket' => $tid,
+                        'id_persona' => $pid,
+                        'ruta_archivo' => $ruta,
+                        'nombre_original' => $nombre,
+                        'tipo_origen' => $origen,
+                        'fecha_subida' => $now,
+                    ]
+                );
+            } else {
+                $db->CRUD(
+                    "INSERT INTO ticket_evidencia (id_ticket, id_persona, ruta_archivo, nombre_original, fecha_subida) VALUES (:id_ticket, :id_persona, :ruta_archivo, :nombre_original, :fecha_subida)",
+                    ['id_ticket' => $tid, 'id_persona' => $pid, 'ruta_archivo' => $ruta, 'nombre_original' => $nombre, 'fecha_subida' => $now]
+                );
+            }
+            $lastId = $db->queryOne('SELECT LAST_INSERT_ID() AS id');
             return self::resultado(true, 'Evidencia guardada.', ['id' => $lastId['id'] ?? null]);
         } catch (\Exception $e) {
             return self::resultado(false, 'Error al guardar evidencia.', null, $e->getMessage());

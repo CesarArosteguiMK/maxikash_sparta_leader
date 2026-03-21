@@ -4,6 +4,8 @@
 SERVIDOR = "localhost"
 PUERTO = 3306
 ESQUEMA = "nombre_esquema"
+; Opcional: base donde están ticket / ticket_evidencia (scripts de migración). Si no se define, se usa __SPARTA_SECRET_REDACTED__.
+; ESQUEMA_TICKETS = "__SPARTA_SECRET_REDACTED__"
 USUARIO = "usuario"
 PASSWORD = "contraseña"
 
@@ -18,3 +20,8 @@ ssh_use_plink = 0
 ssh_command = /usr/bin/ssh
 ssh_key = /ruta/a/clave_privada
 ; ssh_command_plink, ssh_key_plink, ssh_hostkey, ssh_pscp = según entorno
+
+; Sonda HTTP del agente Node de correos (Primeros pagos — Lunes). La UI usa esto para el badge "Agente: en línea".
+[correos_primeros_pagos_agent]
+enabled = 1
+url = "http://127.0.0.1:3110"

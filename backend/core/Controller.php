@@ -10,7 +10,9 @@ class Controller
     {
         include_once LIBRERIAS . '/mpdf/mpdf.php';
         include_once LIBRERIAS . '/PhpSpreadsheet/PhpSpreadsheet.php';
-        include_once LIBRERIAS . '/PhpSpreadsheet/Mensajero.php';
+        if (is_file(LIBRERIAS . '/PHPMailer/Mensajero.php')) {
+            include_once LIBRERIAS . '/PHPMailer/Mensajero.php';
+        }
     }
 
     public static function respuesta($exito, $mensaje = null, $datos = null, $error = null)

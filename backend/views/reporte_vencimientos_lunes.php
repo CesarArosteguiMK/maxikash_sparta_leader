@@ -16,26 +16,37 @@
                 <code id="corteLabel" class="text-info">—</code>
             </p>
         </div>
-        <div class="d-flex align-items-center gap-2 flex-wrap">
+        <div class="d-flex align-items-center justify-content-end gap-2 flex-wrap">
             <?php if ((int)($_SESSION['usuario_id'] ?? 0) === 1): ?>
-                <div class="d-flex align-items-center gap-1"
-                     title="Guardado en el servidor. Solo envío automático por cron (CDMX: 07:40, 09:40, 11:40, 13:40, 14:40, 16:40, 18:40, 20:40, 23:50 en 24 h). No afecta “Enviar correo” manual.">
-                    <div class="form-check form-switch m-0">
-                        <input class="form-check-input" type="checkbox" role="switch"
-                               id="switchAutoEnvioPrimerosPagos">
-                        <label class="form-check-label text-nowrap user-select-none" for="switchAutoEnvioPrimerosPagos"
-                               style="font-size:.72rem;">Auto horario</label>
+                <div class="d-flex align-items-center gap-2 flex-wrap">
+                    <div class="d-flex align-items-center gap-1"
+                         title="Guardado en el servidor. Solo envío automático por cron (CDMX: 07:40, 09:40, 11:40, 13:40, 14:40, 16:40, 18:40, 20:40, 23:50 en 24 h). Requiere agente Node o bucle PHP en esta máquina. No afecta “Enviar correo” manual.">
+                        <div class="form-check form-switch m-0">
+                            <input class="form-check-input" type="checkbox" role="switch"
+                                   id="switchAutoEnvioPrimerosPagos">
+                            <label class="form-check-label text-nowrap user-select-none" for="switchAutoEnvioPrimerosPagos"
+                                   style="font-size:.72rem;">Auto horario</label>
+                        </div>
+                    </div>
+                    <div class="d-flex flex-column align-items-end gap-1" style="min-width:0;">
+                        <span id="estadoEnvioAuto" class="badge bg-label-secondary text-wrap text-start" style="max-width:min(100vw - 4rem, 320px);"
+                              title="Estado del envío automático (CDMX, horario 24 h: 07:40, 09:40, 11:40, 13:40, 14:40, 16:40, 18:40, 20:40, 23:50).">
+                            <i class="fa fa-clock me-1"></i> Auto correo: pendiente
+                        </span>
+                        <span id="estadoAgenteCorreos" class="badge bg-label-secondary text-wrap text-start" style="max-width:min(100vw - 4rem, 320px);"
+                              title="Agente Node que ejecuta el cron de correos (puerto 3110 por defecto).">
+                            <i class="fa fa-robot me-1"></i> Agente: …
+                        </span>
+                    </div>
+                    <div class="d-flex align-items-center gap-1 flex-wrap">
+                        <button id="btnEnviarCorreo" class="btn btn-outline-primary btn-sm">
+                            <i class="fa fa-envelope me-1"></i> Enviar correo
+                        </button>
+                        <button id="btnExportarCSV" class="btn btn-outline-success btn-sm">
+                            <i class="fa fa-file-csv me-1"></i> Exportar CSV
+                        </button>
                     </div>
                 </div>
-                <span id="estadoEnvioAuto" class="badge bg-label-secondary" title="Estado del envío automático (CDMX, horario 24 h: 07:40, 09:40, 11:40, 13:40, 14:40, 16:40, 18:40, 20:40, 23:50).">
-                    <i class="fa fa-clock me-1"></i> Auto correo: pendiente
-                </span>
-                <button id="btnEnviarCorreo" class="btn btn-outline-primary btn-sm">
-                    <i class="fa fa-envelope me-1"></i> Enviar correo
-                </button>
-                <button id="btnExportarCSV" class="btn btn-outline-success btn-sm">
-                    <i class="fa fa-file-csv me-1"></i> Exportar CSV
-                </button>
             <?php endif; ?>
             <a href="/reporteria/PrimerosPagos" class="btn btn-outline-secondary btn-sm">
                 <i class="fa fa-arrow-left me-1"></i>Volver

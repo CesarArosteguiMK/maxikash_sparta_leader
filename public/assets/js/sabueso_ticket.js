@@ -564,7 +564,25 @@
             endpoint: "/sabueso/getTickets",
             metodo: "POST",
             onSuccess: function(resp) {
-                var datos = (resp.datos || []).map(function(t) {
+                var TEXTO_NO_APLICA = '<span class="text-muted">No aplica</span>';
+                function escHtmlMenu(s) {
+                    if (s == null || s === undefined) return '';
+                    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+                }
+                var raw = resp.datos || [];
+                var catSet = {};
+                raw.forEach(function(x) {
+                    var ck = (x.categoria_gestion || 'sabueso').toString().toLowerCase();
+                    catSet[ck] = true;
+                });
+                var catsUnicas = Object.keys(catSet);
+                var listadoMixto = catsUnicas.length > 1;
+                /** Columnas DataTables menú Ticket (getColumnsConfig false): 8 tiempo, 9 DS, 10 dictamen/visto */
+                var mostrarColsSabueso = raw.length === 0 || listadoMixto || (catsUnicas.length === 1 && catsUnicas[0] === 'sabueso');
+                var datos = raw.map(function(t) {
+                    var cat = (t.categoria_gestion || 'sabueso').toString().toLowerCase();
+                    var esSabueso = cat === 'sabueso';
+                    var mostrarNoAplicaSabuesoCols = !esSabueso && listadoMixto;
                     var fechaCreacion = t.fecha_creacion
                         ? new Date(t.fecha_creacion).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' })
                         : '\u2014';
@@ -579,13 +597,18 @@
                     else if (prioridadNombre.indexOf('sin prioridad') !== -1) prioridadBadge = '<span class="badge bg-secondary" style="background-color:#6c757d!important;color:#fff;">' + (t.prioridad_nombre || '\u2014') + '</span>';
                     var estadoBadge = (t.asignado_nombre && (t.asignado_nombre + '').trim()) ? '<span class="badge bg-success text-white">Asignado</span>' : '<span class="badge bg-label-secondary">Abierto</span>';
                     var vistoHtml = '';
-                    if ((t.dictamen_estado || '') === 'enviado_al_gestor') {
+                    if (esSabueso && (t.dictamen_estado || '') === 'enviado_al_gestor') {
                         var vistoTexto = t.dictamen_fecha_visto ? (new Date(t.dictamen_fecha_visto).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' }) + ' ' + new Date(t.dictamen_fecha_visto).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })) : 'No visto';
                         var iconoOjo = (t.dictamen_fecha_visto && (t.dictamen_fecha_visto + '').trim()) ? 'fa-eye' : 'fa-eye-slash';
                         var tituloOjo = (t.dictamen_fecha_visto && (t.dictamen_fecha_visto + '').trim()) ? ('Dictamen enviado. Visto: ' + vistoTexto) : 'Dictamen enviado. No visto. Clic para ver';
                         vistoHtml = '<span class="d-inline-flex align-items-center gap-1 justify-content-end btn-dictamen-ojito" role="button" tabindex="0" data-bs-toggle="tooltip" data-bs-title="' + (tituloOjo + '').replace(/"/g, '&quot;') + '" data-id-ticket="' + (t.id_ticket || '') + '"><i class="fa ' + iconoOjo + ' text-info small"></i></span>';
+                    } else if (!esSabueso && mostrarNoAplicaSabuesoCols) {
+                        vistoHtml = TEXTO_NO_APLICA;
                     }
                     var tiempoVisitarHtml = '\u2014';
+                    if (!esSabueso) {
+                        tiempoVisitarHtml = mostrarNoAplicaSabuesoCols ? TEXTO_NO_APLICA : '';
+                    } else {
                     var fEnv = (t.dictamen_fecha_envio || '').trim();
                     var esNuevo = fEnv && new Date(fEnv) >= new Date('2026-03-09T00:00:00');
                     if ((t.dictamen_estado || '') === 'enviado_al_gestor' && esNuevo && fEnv) {
@@ -608,7 +631,30 @@
                     } else if (prHtml) {
                         tiempoVisitarHtml = prHtml;
                     }
-                    var cat = (t.categoria_gestion || 'sabueso').toString().toLowerCase();
+                    }
+                    var creditoHtml;
+                    if (esSabueso) {
+                        creditoHtml = '<small>#' + (t.id_credito != null ? t.id_credito : '\u2014') + '</small>';
+                    } else {
+                        var idCredNum = t.id_credito != null ? parseInt(t.id_credito, 10) : 0;
+                        if (idCredNum > 0) {
+                            creditoHtml = '<small>#' + idCredNum + '</small>';
+                        } else {
+                            var refTxt = ((t.asunto || '') + '').trim() || ((t.tipo_categoria || '') + '').trim() || ((t.nota || '') + '').trim();
+                            if (refTxt) {
+                                var refCorta = refTxt.length > 80 ? refTxt.substring(0, 77) + '\u2026' : refTxt;
+                                creditoHtml = '<small class="text-break" title="' + escHtmlMenu(refTxt) + '">' + escHtmlMenu(refCorta) + '</small>';
+                            } else {
+                                creditoHtml = TEXTO_NO_APLICA;
+                            }
+                        }
+                    }
+                    var dsHtml;
+                    if (esSabueso) {
+                        dsHtml = (t.ds_resultado_html != null && t.ds_resultado_html !== '') ? t.ds_resultado_html : '<span class="text-muted">\u2014</span>';
+                    } else {
+                        dsHtml = mostrarNoAplicaSabuesoCols ? TEXTO_NO_APLICA : '';
+                    }
                     var gestionLabels = { sabueso: 'Sabueso', plantilla: 'Plantilla', atencion_cliente: 'Atención al cliente', validaciones: 'Validaciones', viaticos: 'Viáticos', beaticos: 'Viáticos', aplicaciones_de_pago: 'Aplicaciones de pago', credito_problematico: 'Crédito problemático', aclaracion_credito: 'Aclaración de crédito' };
                     var gestionTxt = gestionLabels[cat] || cat.replace(/_/g, ' ').replace(/\b\w/g, function(ch) { return ch.toUpperCase(); });
                     var icoG = { sabueso: 'fa-dog', plantilla: 'fa-file-lines', atencion_cliente: 'fa-headset', validaciones: 'fa-clipboard-check', viaticos: 'fa-receipt', aplicaciones_de_pago: 'fa-credit-card', credito_problematico: 'fa-triangle-exclamation', aclaracion_credito: 'fa-circle-question' };
@@ -620,30 +666,36 @@
                         gestion: gestionBadge,
                         estado: estadoBadge,
                         prioridad: prioridadBadge,
-                        credito: '<small>#' + (t.id_credito != null ? t.id_credito : '\u2014') + '</small>',
+                        credito: creditoHtml,
                         fechas: '<div class="small d-flex align-items-center gap-1"><i class="fa fa-calendar-plus-o text-muted" style="width: 1rem;"></i><span>Creación: ' + fechaCreacion + '</span></div><div class="small text-muted d-flex align-items-center gap-1 mt-1"><i class="fa fa-calendar-times-o" style="width: 1rem;"></i><span>Vencimiento: ' + fechaVenc + '</span></div>',
                         tiempo_visitar: tiempoVisitarHtml,
-                        ds_resultado: (t.ds_resultado_html != null && t.ds_resultado_html !== '') ? t.ds_resultado_html : '<span class="text-muted">\u2014</span>',
+                        ds_resultado: dsHtml,
                         dictamen_visto: vistoHtml,
                         acciones: '',
                         _id_ticket: t.id_ticket,
-                        _dictamen_estado: t.dictamen_estado || '',
-                        _dictamen_fecha_visto: t.dictamen_fecha_visto || ''
+                        _categoria_gestion: cat,
+                        _dictamen_estado: esSabueso ? (t.dictamen_estado || '') : '',
+                        _dictamen_fecha_visto: esSabueso ? (t.dictamen_fecha_visto || '') : ''
                     };
                     return row;
                 });
                 var tabla = $('#tablaTickets').DataTable();
                 tabla.clear().rows.add(datos).draw();
+                try {
+                    tabla.columns([8, 9, 10]).visible(mostrarColsSabueso);
+                    tabla.columns.adjust();
+                } catch (eCol) {}
                 tabla.rows().every(function() {
                     var d = this.data();
                     var node = this.node();
                     if (!d || !node) return;
-                    if (d._dictamen_estado === 'enviado_al_gestor') {
+                    var catRow = (d._categoria_gestion || 'sabueso').toString().toLowerCase();
+                    if (catRow === 'sabueso' && d._dictamen_estado === 'enviado_al_gestor') {
                         $(node).addClass('fila-dictamen-enviado').attr('data-id-ticket', d._id_ticket || '');
                         if (!d._dictamen_fecha_visto || (d._dictamen_fecha_visto + '').trim() === '') $(node).addClass('fila-dictamen-no-visto');
                         else $(node).removeClass('fila-dictamen-no-visto');
                     } else {
-                        $(node).removeClass('fila-dictamen-no-visto');
+                        $(node).removeClass('fila-dictamen-enviado fila-dictamen-no-visto').removeAttr('data-id-ticket');
                     }
                 });
                 if (typeof actualizarCountdownsDictamen === 'function') actualizarCountdownsDictamen('#tablaTickets');
@@ -652,6 +704,10 @@
             onError: function() {
                 var tabla = $('#tablaTickets').DataTable();
                 tabla.clear().draw();
+                try {
+                    tabla.columns([8, 9, 10]).visible(true);
+                    tabla.columns.adjust();
+                } catch (eCol) {}
             }
         });
     }
@@ -662,12 +718,13 @@
             var d = this.data();
             var node = this.node();
             if (!d || !node) return;
-            if (d._dictamen_estado === 'enviado_al_gestor') {
+            var catRow = (d._categoria_gestion || 'sabueso').toString().toLowerCase();
+            if (catRow === 'sabueso' && d._dictamen_estado === 'enviado_al_gestor') {
                 $(node).addClass('fila-dictamen-enviado').attr('data-id-ticket', d._id_ticket || '');
                 if (!d._dictamen_fecha_visto || (d._dictamen_fecha_visto + '').trim() === '') $(node).addClass('fila-dictamen-no-visto');
                 else $(node).removeClass('fila-dictamen-no-visto');
             } else {
-                $(node).removeClass('fila-dictamen-no-visto');
+                $(node).removeClass('fila-dictamen-enviado fila-dictamen-no-visto').removeAttr('data-id-ticket');
             }
         });
         $('#tablaTickets [data-bs-toggle="tooltip"]').tooltip();

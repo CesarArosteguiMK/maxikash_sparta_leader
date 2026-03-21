@@ -19,20 +19,46 @@ function getMenu()
     $personaIdSesion = (int) ($_SESSION['persona_id'] ?? $_SESSION['usuario_id'] ?? 0);
     $mostrarMenuValidacionesAuto = false;
     $urlMenuValidacionesAuto = '/validaciones/gestor';
+    $panelesMenuUsuario = ($personaIdSesion > 0) ? \Models\ConfigPanelUsuario::getPanelesPorPersona($personaIdSesion) : [];
+    $tienePanelAdminValidaciones = in_array('sabueso_panel_validaciones', $panelesMenuUsuario, true);
+
     if ($personaIdSesion > 0 && array_intersect([18, 19], $_SESSION['modulos'])) {
         try {
             $dbMenu = new \Core\Database();
-            $rolRow = $dbMenu->queryOne(
-                "SELECT MAX(CASE WHEN pu.es_jefe = 1 THEN 1 ELSE 0 END) AS es_jefe
+            // Mismo criterio que Validaciones::getCapoInfoForTerritorial: jefe con depto y segmento en nombre (1_7 / 8_21).
+            $rowCapo = $dbMenu->queryOne(
+                "SELECT pp.nombre AS puesto_nombre, pp.departamento_id AS departamento_id
                  FROM asigna_puesto ap
-                 INNER JOIN puesto pu ON pu.id = ap.id_puesto
+                 INNER JOIN puesto pp ON pp.id = ap.id_puesto
                  WHERE ap.id_persona = :id_persona
-                   AND (ap.activo = 1 OR ap.activo IS NULL)",
+                   AND pp.es_jefe = 1
+                   AND (ap.activo = 1 OR ap.activo IS NULL)
+                 ORDER BY pp.departamento_id ASC, pp.nivel ASC
+                 LIMIT 1",
                 ['id_persona' => $personaIdSesion]
             );
-            $esJefe = (int)($rolRow['es_jefe'] ?? 0) === 1;
+            $puestoNombreMenu = $rowCapo && isset($rowCapo['puesto_nombre'])
+                ? strtolower(trim((string)$rowCapo['puesto_nombre']))
+                : '';
+            $campoTerritorialMenu = '';
+            if ($puestoNombreMenu !== '') {
+                if (strpos($puestoNombreMenu, '1_7') !== false) {
+                    $campoTerritorialMenu = '1_7';
+                } elseif (strpos($puestoNombreMenu, '8_21') !== false) {
+                    $campoTerritorialMenu = '8_21';
+                }
+                if ($campoTerritorialMenu === '') {
+                    if (preg_match('/1\s*[-_ ]?\s*7/', $puestoNombreMenu)) {
+                        $campoTerritorialMenu = '1_7';
+                    } elseif (preg_match('/8\s*[-_ ]?\s*21/', $puestoNombreMenu)) {
+                        $campoTerritorialMenu = '8_21';
+                    }
+                }
+            }
+            $capoDepartamentoId = $rowCapo && isset($rowCapo['departamento_id']) ? (int)$rowCapo['departamento_id'] : 0;
+            $esCapoValidacionesTerritorial = $capoDepartamentoId > 0 && $campoTerritorialMenu !== '';
 
-            // Regla solicitada: si el usuario tiene ticket(s) de validaciones asignados, mostrar menú.
+            // Gestor: ticket(s) de validaciones asignados a la persona.
             $asigRow = $dbMenu->queryOne(
                 "SELECT COUNT(1) AS total
                  FROM asignacion_ticket at
@@ -45,9 +71,13 @@ function getMenu()
             );
             $tieneAsignacionValidaciones = (int)($asigRow['total'] ?? 0) > 0;
 
-            if ($tieneAsignacionValidaciones) {
+            // Quien tiene panel admin de validaciones usa /validaciones/paneladmin: no mostrar ítem "Validaciones" (gestor/territorial).
+            if (!$tienePanelAdminValidaciones && $esCapoValidacionesTerritorial) {
                 $mostrarMenuValidacionesAuto = true;
-                $urlMenuValidacionesAuto = $esJefe ? '/validaciones/territorial' : '/validaciones/gestor';
+                $urlMenuValidacionesAuto = '/validaciones/territorial';
+            } elseif (!$tienePanelAdminValidaciones && $tieneAsignacionValidaciones) {
+                $mostrarMenuValidacionesAuto = true;
+                $urlMenuValidacionesAuto = '/validaciones/gestor';
             }
         } catch (\Throwable $e) {
             // Si falla la consulta, no bloquear render del menú.
@@ -151,8 +181,13 @@ function getMenu()
                                     'modulos' => [49]
                             ],
                             [
-                                    'label' => 'Sabuesos',
+                                    'label' => 'Reportes de tickets',
                                     'url' => '/reporteria/sabuesos',
+                                    'modulos' => [18, 19]
+                            ],
+                            [
+                                    'label' => 'Consulta por ID crédito',
+                                    'url' => '/reporteria/consultaIdCredito',
                                     'modulos' => [18, 19]
                             ],
                             [
@@ -171,7 +206,7 @@ function getMenu()
                             ],
 
                                    [
-                                        'label' => 'Reporte CH',
+                                        'label' => 'Capital Humano',
                                         'url' => '/reporteria/reporteCapitalHumano',
                                         'modulos' => [21]
                            ]

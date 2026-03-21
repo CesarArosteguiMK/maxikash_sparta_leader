@@ -118,7 +118,10 @@ class TicketsPanelModuloHelper
         $personaId = (int) ($_SESSION['persona_id'] ?? $_SESSION['usuario_id'] ?? 0);
         $claveRequerida = self::CATEGORIA_CLAVE_PANEL[$c] ?? '';
         $panelesUsuario = ConfigPanelUsuarioDAO::getPanelesPorPersona($personaId);
-        if ($claveRequerida === '' || !in_array($claveRequerida, $panelesUsuario, true)) {
+        // Panel admin por módulo (p. ej. sabueso_panel_validaciones) no aplica a Validaciones/Gestor ni Validaciones/Territorial:
+        // esos accesos van por módulos de ruta (18/19) y rol operativo, no por el mismo permiso que el panel administrador.
+        $omitirClavePanelAdmin = ($c === 'validaciones' && in_array($modo, ['territorial', 'gestor'], true));
+        if (!$omitirClavePanelAdmin && ($claveRequerida === '' || !in_array($claveRequerida, $panelesUsuario, true))) {
             header('Location: /sabueso/panelAdminInicio', true, 302);
             exit;
         }
@@ -139,13 +142,19 @@ class TicketsPanelModuloHelper
             'categoria' => $c,
             'labelBadge' => $m['badge'],
             'formularios' => $mostrarFormularios,
+            'columnas_ocultas' => PanelAdminTicketTable::getIndicesColumnasOcultasModulo($c),
         ];
         if (!empty($extraModuloConfig)) {
             // Permite agregar flags como modo ('gestor'/'territorial') y valores como campoCapo.
             $moduloConfig = array_merge($moduloConfig, $extraModuloConfig);
         }
+        $incluirModalFormBuilderLectura = ($c === 'validaciones' && $modo === 'territorial');
+        if ($incluirModalFormBuilderLectura) {
+            $moduloConfig['verFormularioTerritorialResumen'] = true;
+        }
         $moduloJs = json_encode($moduloConfig, JSON_UNESCAPED_UNICODE);
 
+        $ctrl->set('tickets_panel_modal_form_builder_lectura', $incluirModalFormBuilderLectura);
         $ctrl->set('panel_admin_mostrar_volver', count($panelesVis) > 1);
         $ctrl->set('panel_admin_url_inicio', '/sabueso/panelAdminInicio');
         $ctrl->set('tickets_panel_categoria', $c);
