@@ -552,6 +552,19 @@ JS;
             $esReembolsoPorFecha = [];
             $hayNotasCargos = false;
             $listaNotasCargos = $estadoCuenta['datosNotasCargos'] ?? [];
+
+            // ← Agregar aquí:
+$resultadoCruce = $this->procesarGastosCobranza(
+    $listaNotasCargos,
+    $idConsultado
+);
+
+error_log('NOTAS CARGOS RAW: ' . json_encode($listaNotasCargos));
+error_log('CRUCE RESULTADO: ' . json_encode($resultadoCruce));
+
+// Pasar a la vista:
+self::set("resultadoCruce", $resultadoCruce);
+
             if (is_array($listaNotasCargos) && count($listaNotasCargos) > 0) {
                 foreach ($listaNotasCargos as $nota) {
                     $concepto = (string) ($nota['concepto'] ?? '');
@@ -4799,4 +4812,137 @@ private function croop_get(string $path, string $token): array
     return is_array($json) ? $json : ['__debug_raw' => substr($response, 0, 300), '__http_code' => $httpCode];
 }
 
+private function procesarGastosCobranza(array $notasCargos, $idCredito): array
+{
+    // Fecha de inicio del módulo
+    $fechaInicio = '2026-01-28';
+
+    // 1️⃣ Filtrar solo NOTA DE CARGO GASTOS DE COBRANZA >= 28 enero
+    $notasFiltradas = array_filter($notasCargos, function($nota) use ($fechaInicio) {
+        return
+            ($nota['concepto'] ?? '') === 'NOTA DE DE CARGO GASTOS DE COBRANZA' &&
+            ($nota['fechaMovimiento'] ?? '') >= $fechaInicio;
+    });
+
+    if (empty($notasFiltradas)) {
+        return [
+            'gastos_procesados' => [],
+            'saldo_favor'       => 0.0
+        ];
+    }
+
+    // 2️⃣ Total de notas disponibles
+    $totalNotas = array_sum(array_column($notasFiltradas, 'monto'));
+    $montoDisponible = round($totalNotas, 2);
+
+    // 2b️⃣ Descontar lo que ya fue cubierto en ejecuciones anteriores
+    $resultadoTodos = EstadoCuentaDAO::getGastosTodosConEstatus($idCredito);
+    if ($resultadoTodos['success'] && !empty($resultadoTodos['datos'])) {
+        foreach ($resultadoTodos['datos'] as $g) {
+            if ((int)($g['estatus_pago'] ?? 0) === 2) {
+                $montoDisponible = round($montoDisponible - (float)$g['monto_valor'], 2);
+            }
+        }
+        $montoDisponible = max(0, $montoDisponible);
+    }
+
+    // Si ya no queda monto disponible, no hay nada que procesar
+    if ($montoDisponible <= 0) {
+        return [
+            'gastos_procesados' => [],
+            'saldo_favor'       => 0.0
+        ];
+    }
+
+    // 3️⃣ Obtener gastos PENDIENTES de BD
+    $resultadoGastos = EstadoCuentaDAO::getGastosCobranza($idCredito);
+
+    if (!$resultadoGastos['success'] || empty($resultadoGastos['datos'])) {
+        return [
+            'gastos_procesados' => [],
+            'saldo_favor'       => 0.0
+        ];
+    }
+
+    // 4️⃣ Solo los que están PENDIENTES (estatus_pago = 0)
+    $gastosPendientes = array_filter($resultadoGastos['datos'], function($g) {
+        return (int)($g['estatus_pago'] ?? 0) === 0;
+    });
+
+    if (empty($gastosPendientes)) {
+        return [
+            'gastos_procesados' => [],
+            'saldo_favor'       => 0.0
+        ];
+    }
+
+    $gastosProcessados = [];
+
+    // 5️⃣ Cruce: aplicar monto disponible cuota por cuota
+    foreach ($gastosPendientes as $gasto) {
+
+        if ($montoDisponible <= 0) {
+            break;
+        }
+
+        $montoGasto = round((float)$gasto['monto'], 2);
+
+        if ($montoDisponible >= $montoGasto) {
+            // ✅ Cubre completo → PAGADO
+            $montoDisponible = round($montoDisponible - $montoGasto, 2);
+
+            $gastosProcessados[] = [
+                'id_gasto'    => $gasto['id_gasto'],
+                'monto'       => $montoGasto,
+                'aplicado'    => $montoGasto,
+                'estatus'     => 2,
+                'estatus_txt' => 'PAGADO'
+            ];
+
+            EstadoCuentaDAO::actualizarEstatusPagoGasto($gasto['id_gasto'], 2);
+
+        } else {
+            // 🔶 Cubre parcialmente → PAGO PARCIAL
+            $gastosProcessados[] = [
+                'id_gasto'    => $gasto['id_gasto'],
+                'monto'       => $montoGasto,
+                'aplicado'    => $montoDisponible,
+                'estatus'     => 1,
+                'estatus_txt' => 'PAGO PARCIAL'
+            ];
+
+            EstadoCuentaDAO::actualizarEstatusPagoGasto($gasto['id_gasto'], 1);
+
+            $montoDisponible = 0;
+        }
+    }
+
+    return [
+        'gastos_procesados' => $gastosProcessados,
+        'saldo_favor'       => round($montoDisponible, 2)
+    ];
 }
+
+public function getHistorialGastosCobranza()
+{
+    $input = json_decode(file_get_contents("php://input"), true);
+    $idCredito = $input['idCredito'] ?? null;
+
+    error_log('HISTORIAL REQUEST idCredito: ' . $idCredito);
+
+    if (empty($idCredito)) {
+        self::respuestaJSON([
+            'success' => false,
+            'mensaje' => 'Id de crédito requerido'
+        ]);
+        return;
+    }
+
+    $resultado = EstadoCuentaDAO::getHistorialGastosCobranza($idCredito);
+
+    error_log('HISTORIAL RESULTADO: ' . json_encode($resultado));
+
+    self::respuestaJSON($resultado);
+}
+
+            }
