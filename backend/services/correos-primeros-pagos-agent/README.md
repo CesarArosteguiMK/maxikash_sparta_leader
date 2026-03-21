@@ -46,3 +46,16 @@ No uses a la vez en la **misma** PC: este agente **y** el bucle PHP (`loop_envia
 ## Otras máquinas
 
 Copiá la carpeta (`npm install` allí), `.env` con rutas correctas y la misma sección en `config.ini` si el puerto o host cambian.
+
+## Repositorio Git y servidor (producción)
+
+Esta carpeta **`backend/services/correos-primeros-pagos-agent/`** está **incluida en el repositorio** del proyecto (no está ignorada en el `.gitignore` raíz, a diferencia de `segundometro-agent`).
+
+Tras un **`git pull`** en el servidor:
+
+1. Entrá a la carpeta del agente.
+2. Ejecutá **`instalar-agente.bat`** (Windows) o en consola: **`npm ci`** (recomendado en servidor) o **`npm install`**.
+3. Configurá **`.env`** (no se sube a Git; copiá desde **`.env.example`** si hace falta).
+4. Arrancá con **`iniciar-agente-oculto.vbs`** o **`iniciar-agente.bat`**.
+
+El **`.gitignore` local** de esta carpeta solo excluye `node_modules/`, `.env` y `correos_agent.pid` — es lo normal para Node.
