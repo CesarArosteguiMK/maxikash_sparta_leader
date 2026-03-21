@@ -148,6 +148,10 @@ class TicketsPanelModuloHelper
             // Permite agregar flags como modo ('gestor'/'territorial') y valores como campoCapo.
             $moduloConfig = array_merge($moduloConfig, $extraModuloConfig);
         }
+        // Jefe territorial (sesión): el JS distingue gestor de campo vs. el propio capo en asignacion_ticket.
+        if ($c === 'validaciones' && ($moduloConfig['modo'] ?? '') === 'territorial') {
+            $moduloConfig['personaIdSesion'] = (int) $personaId;
+        }
         $incluirModalFormBuilderLectura = ($c === 'validaciones' && $modo === 'territorial');
         if ($incluirModalFormBuilderLectura) {
             $moduloConfig['verFormularioTerritorialResumen'] = true;

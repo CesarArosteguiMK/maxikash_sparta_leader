@@ -268,7 +268,7 @@
         .kpi-number {
             font-size: 1.15rem;
         }
-        
+
         .kpi-label {
             font-size: 0.52rem;
         }
@@ -287,7 +287,7 @@
         .kpi-number {
             font-size: 1rem;
         }
-        
+
         .kpi-label {
             font-size: 0.5rem;
         }
@@ -301,16 +301,16 @@
         .filter-container {
             padding: 1rem;
         }
-        
+
         .filter-container .row {
             gap: 0.5rem;
         }
     }
 </style>
 
+<?php if (empty($omitir_cabecera_call_center)): ?>
 <div class="content-wrapper">
     <div class="container-xxl flex-grow-1 container-p-y">
-        
         <!-- Header -->
         <div class="d-flex justify-content-between align-items-center mb-4">
             <div>
@@ -320,6 +320,9 @@
                 <p class="text-muted mb-0">Consulta y gestión de condonaciones de cobranza</p>
             </div>
         </div>
+<?php else: ?>
+<div class="container-fluid px-0 pt-1">
+<?php endif; ?>
 
         <!-- KPIs / Métricas -->
         <div class="row m-4 mb-3">
@@ -377,8 +380,8 @@
             <div class="row g-3">
                 <div class="col-md-3">
                     <label class="form-label">Buscar</label>
-                    <input type="text" class="form-control" id="buscarTexto" 
-                           placeholder="ID, Cliente, Usuario..." 
+                    <input type="text" class="form-control" id="buscarTexto"
+                           placeholder="ID, Cliente, Usuario..."
                            onkeyup="aplicarFiltros()">
                 </div>
                 <div class="col-md-3">
@@ -425,8 +428,12 @@
             </div>
         </div>
 
+<?php if (empty($omitir_cabecera_call_center)): ?>
     </div>
 </div>
+<?php else: ?>
+</div>
+<?php endif; ?>
 
 <!-- Modal Detalle Condonación -->
 <div class="modal fade" id="modalDetalleCondonacion" tabindex="-1">
@@ -474,7 +481,7 @@ function cargarCondonaciones() {
 /* ========== RENDERIZAR TABLA ========== */
 function renderCondonaciones(datos) {
     const tbody = document.getElementById('bodyCondonaciones');
-    
+
     if (!datos || datos.length === 0) {
         mostrarTablaVacia();
         return;
@@ -497,7 +504,7 @@ function renderCondonaciones(datos) {
                     <span class="badge bg-info">${item.total_detalles || 0} gastos</span>
                 </td>
                 <td data-label="Acciones">
-                    <button class="btn btn-sm btn-outline-primary" 
+                    <button class="btn btn-sm btn-outline-primary"
                             onclick="verDetalleCondonacion(${item.id_condonacion})">
                         <i class="bx bx-show"></i> Ver
                     </button>
@@ -505,7 +512,7 @@ function renderCondonaciones(datos) {
             </tr>
         `;
     });
-    
+
     tbody.innerHTML = html;
 }
 
@@ -532,7 +539,7 @@ function verDetalleCondonacion(id) {
 /* ========== RENDERIZAR DETALLE EN MODAL ========== */
 function renderDetalleModal(datos) {
     const container = document.getElementById('contenidoDetalleCondonacion');
-    
+
     let detallesHtml = '';
     if (datos.detalles && datos.detalles.length > 0) {
         detallesHtml = `
@@ -549,7 +556,7 @@ function renderDetalleModal(datos) {
                     </thead>
                     <tbody>
         `;
-        
+
         datos.detalles.forEach(det => {
             detallesHtml += `
                 <tr>
@@ -560,7 +567,7 @@ function renderDetalleModal(datos) {
                 </tr>
             `;
         });
-        
+
         detallesHtml += `
                     </tbody>
                 </table>
@@ -641,16 +648,16 @@ function cargarEstadisticas() {
         onSuccess: (resp) => {
             if (resp.success && resp.datos) {
                 document.getElementById('statTotal').textContent = resp.datos.total || 0;
-                document.getElementById('statMontoTotal').textContent = 
+                document.getElementById('statMontoTotal').textContent =
                     '$' + parseFloat(resp.datos.monto_total || 0).toFixed(2);
-                document.getElementById('statPromedio').textContent = 
+                document.getElementById('statPromedio').textContent =
                     '$' + parseFloat(resp.datos.monto_promedio || 0).toFixed(2);
-                
+
                 // Calcular mes actual
                 const mesActual = condonacionesData.filter(c => {
                     const fecha = new Date(c.fecha_solicitud);
                     const hoy = new Date();
-                    return fecha.getMonth() === hoy.getMonth() && 
+                    return fecha.getMonth() === hoy.getMonth() &&
                            fecha.getFullYear() === hoy.getFullYear();
                 }).length;
                 document.getElementById('statMesActual').textContent = mesActual;
@@ -665,31 +672,31 @@ function aplicarFiltros() {
     const fechaDesde = document.getElementById('fechaDesde').value;
     const fechaHasta = document.getElementById('fechaHasta').value;
     const ordenar = document.getElementById('ordenar').value;
-    
+
     let datosFiltrados = [...condonacionesData];
-    
+
     // Filtro de búsqueda
     if (buscar) {
-        datosFiltrados = datosFiltrados.filter(item => 
+        datosFiltrados = datosFiltrados.filter(item =>
             (item.id_condonacion && item.id_condonacion.toString().includes(buscar)) ||
             (item.nombre_colaborador && item.nombre_colaborador.toLowerCase().includes(buscar)) ||
             (item.nombre_usuario && item.nombre_usuario.toLowerCase().includes(buscar)) ||
             (item.usuario && item.usuario.toLowerCase().includes(buscar))
         );
     }
-    
+
     // Filtro de fechas
     if (fechaDesde) {
-        datosFiltrados = datosFiltrados.filter(item => 
+        datosFiltrados = datosFiltrados.filter(item =>
             new Date(item.fecha_solicitud) >= new Date(fechaDesde)
         );
     }
     if (fechaHasta) {
-        datosFiltrados = datosFiltrados.filter(item => 
+        datosFiltrados = datosFiltrados.filter(item =>
             new Date(item.fecha_solicitud) <= new Date(fechaHasta)
         );
     }
-    
+
     // Ordenar
     datosFiltrados.sort((a, b) => {
         switch(ordenar) {
@@ -705,7 +712,7 @@ function aplicarFiltros() {
                 return 0;
         }
     });
-    
+
     renderCondonaciones(datosFiltrados);
 }
 
@@ -713,9 +720,9 @@ function aplicarFiltros() {
 function formatearFecha(fecha) {
     if (!fecha) return 'N/A';
     const f = new Date(fecha);
-    return f.toLocaleDateString('es-MX', { 
-        year: 'numeric', 
-        month: 'short', 
+    return f.toLocaleDateString('es-MX', {
+        year: 'numeric',
+        month: 'short',
         day: 'numeric',
         hour: '2-digit',
         minute: '2-digit'
@@ -768,9 +775,9 @@ function showToast(mensaje, tipo = 'info') {
         animation: fadeIn 0.3s ease;
     `;
     toast.textContent = mensaje;
-    
+
     document.body.appendChild(toast);
-    
+
     setTimeout(() => {
         toast.style.opacity = '0';
         toast.style.transition = 'opacity 0.3s';

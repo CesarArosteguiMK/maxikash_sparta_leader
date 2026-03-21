@@ -766,8 +766,10 @@
             }
             var idP = parseInt(pidStr, 10);
             if (isNaN(idP) || idP < 1) return;
+            var esPrimeraAsignacionGestor =
+                !(typeof window._tmResumenTerritorialAsignadoId === 'number' && window._tmResumenTerritorialAsignadoId > 0);
             var motivo = ($('#resumenTicketAsignarMotivo').val() || '').trim();
-            if (!motivo) {
+            if (!esPrimeraAsignacionGestor && !motivo) {
                 if (typeof Swal !== 'undefined') Swal.fire({ icon: 'warning', title: 'Escriba el motivo del cambio.' });
                 return;
             }
@@ -788,7 +790,7 @@
                             window._ticketsModuloCache[tid].asignado_nombre = nom;
                             window._ticketsModuloCache[tid].id_persona_asignada = idP;
                         }
-                        $('#resumenTicketAsignadoACapoLabel').text('Asignado a: ' + (nom || '—'));
+                        $('#resumenTicketAsignadoACapoLabel').text('Gestor de campo: ' + (nom || '—'));
                         window._tmResumenTerritorialAsignadoId = idP;
                         $('#resumenTicketAsignarMotivo').val('');
                         $('#resumenTicketMotivoWrap').addClass('d-none');
@@ -871,15 +873,20 @@
             }
             var idTicket = t.id_ticket;
             renderResumenTicketEvidencias(idTicket);
-            var idPersonaActual = t.id_persona_asignada != null && t.id_persona_asignada > 0 ? parseInt(t.id_persona_asignada, 10) : 0;
-            window._tmResumenTerritorialAsignadoId = idPersonaActual > 0 ? idPersonaActual : 0;
-            var $sel = $('#resumenTicketAsignarSelect');
-            $sel.off('change.resumenTicket').empty().append('<option value="">Selecciona una persona</option>');
-            $sel.data('resumen-id-ticket', idTicket);
-            $('#modalResumenTicket').removeData('tmTerritorialAvisoPendiente');
             var modo = (cfg().modo || '').trim();
             var esTerritorial = modo === 'territorial';
             var esGestor = modo === 'gestor';
+            var idPersonaActual = t.id_persona_asignada != null && t.id_persona_asignada > 0 ? parseInt(t.id_persona_asignada, 10) : 0;
+            /** Territorial: jefe en sesión elige un gestor subordinado. Si en BD el asignado es el propio jefe, aún no hay gestor de campo. */
+            var capoIdSesion = esTerritorial ? parseInt(cfg().personaIdSesion, 10) || 0 : 0;
+            var idGestorCampoTerritorial = 0;
+            if (esTerritorial && idPersonaActual > 0 && (!capoIdSesion || idPersonaActual !== capoIdSesion)) {
+                idGestorCampoTerritorial = idPersonaActual;
+            }
+            window._tmResumenTerritorialAsignadoId = esTerritorial ? idGestorCampoTerritorial : 0;
+            var $sel = $('#resumenTicketAsignarSelect');
+            $sel.off('change.resumenTicket').empty().append('<option value="">Selecciona una persona</option>');
+            $sel.data('resumen-id-ticket', idTicket);
             var labelCampo = function (campo) {
                 if (String(campo) === '8_21') return 'Campo 8–21';
                 return 'Campo 1–7';
@@ -899,9 +906,12 @@
             }
 
             if (esTerritorial) {
-                $('#resumenTicketAsignadoACapoLabel')
-                    .removeClass('d-none')
-                    .text('Asignado a: ' + ((t.asignado_nombre || '').trim() || '—'));
+                $('#resumenTicketAsignarTitulo').text('Gestor asignado al ticket');
+                var txtGestorCampo = '—';
+                if (idGestorCampoTerritorial > 0) {
+                    txtGestorCampo = ((t.asignado_nombre || '').trim() || '—');
+                }
+                $('#resumenTicketAsignadoACapoLabel').removeClass('d-none').text('Gestor de campo: ' + txtGestorCampo);
                 $('#resumenTicketCampoLabel')
                     .text(labelCampo(cfg().campoCapo || '1_7'))
                     .removeClass('d-none');
@@ -910,8 +920,9 @@
                 $('#resumenTicketAsignarMotivo').val('');
                 $('#resumenTicketVerFormularioTerritorialWrap').toggleClass('d-none', !cfg().verFormularioTerritorialResumen);
                 $('#resumenTicketAsignarBlock .btn-group[role="group"]').addClass('d-none');
-                $sel.empty().append('<option value="">Selecciona un gestor para reasignar</option>');
+                $sel.empty().append('<option value="">Selecciona un gestor</option>');
             } else {
+                $('#resumenTicketAsignarTitulo').text('Asignar a');
                 $('#resumenTicketAsignadoACapoLabel').addClass('d-none');
                 $('#resumenTicketMotivoWrap').addClass('d-none');
                 $('#resumenTicketTerritorialBtnReasignar').addClass('d-none');
@@ -925,13 +936,20 @@
                 return v === '8_21' ? '8_21' : '1_7';
             }
 
-            var pidAnterior = esTerritorial ? '' : idPersonaActual > 0 ? String(idPersonaActual) : '';
+            var pidAnterior =
+                esTerritorial && idGestorCampoTerritorial > 0
+                    ? String(idGestorCampoTerritorial)
+                    : !esTerritorial && idPersonaActual > 0
+                      ? String(idPersonaActual)
+                      : '';
             function cargarSelectAsignacionJefes() {
                 ensureTmAsignarSearchableSelect();
                 var campo = campoAsignarActual();
                 var $hint = $('#resumenTicketAsignarHint');
                 $hint.addClass('d-none').text('');
-                $sel.empty().append('<option value="">' + (esTerritorial ? 'Selecciona un gestor' : 'Selecciona una persona') + '</option>');
+                $sel.empty().append(
+                    '<option value="">' + (esTerritorial ? 'Selecciona un gestor' : 'Selecciona una persona') + '</option>'
+                );
                 if (typeof http === 'undefined') return;
                 var endpoint = esTerritorial ? '/validaciones/getGestoresPorCampo' : '/sabueso/getPersonasSabuesoJefesPorCampo';
                 var payload = esTerritorial ? {} : { campo: campo };
@@ -949,23 +967,38 @@
                         }
                         list.forEach(function (p) {
                             var gid = parseInt(p.id, 10);
-                            var excluirAsignado =
-                                esTerritorial &&
-                                typeof window._tmResumenTerritorialAsignadoId === 'number' &&
-                                window._tmResumenTerritorialAsignadoId > 0
-                                    ? window._tmResumenTerritorialAsignadoId
-                                    : idPersonaActual;
-                            if (esTerritorial && excluirAsignado > 0 && !isNaN(gid) && gid === excluirAsignado) {
-                                return;
-                            }
                             var sub = (p.nombre_puesto || '').trim();
                             var txt = attrEsc((p.nombre_completo || p.nombre || '').trim() || '');
                             if (sub) txt += ' — ' + attrEsc(sub);
                             $sel.append('<option value="' + (p.id || '') + '">' + txt + '</option>');
                         });
                         if (esTerritorial) {
-                            $sel.val('');
-                            pidAnterior = '';
+                            var tidSel = $sel.data('resumen-id-ticket');
+                            var rowCache = tidSel && window._ticketsModuloCache ? window._ticketsModuloCache[tidSel] : null;
+                            var idAsigTerr =
+                                typeof window._tmResumenTerritorialAsignadoId === 'number' &&
+                                window._tmResumenTerritorialAsignadoId > 0
+                                    ? window._tmResumenTerritorialAsignadoId
+                                    : idGestorCampoTerritorial;
+                            var nomAsigTerr = (rowCache && rowCache.asignado_nombre ? String(rowCache.asignado_nombre) : (t.asignado_nombre || '')).trim();
+                            if (idAsigTerr > 0) {
+                                if ($sel.find('option[value="' + idAsigTerr + '"]').length) {
+                                    $sel.val(String(idAsigTerr));
+                                } else {
+                                    $sel.append(
+                                        '<option value="' +
+                                            idAsigTerr +
+                                            '">' +
+                                            attrEsc(nomAsigTerr || 'ID ' + idAsigTerr) +
+                                            ' (actual)</option>'
+                                    );
+                                    $sel.val(String(idAsigTerr));
+                                }
+                                pidAnterior = String(idAsigTerr);
+                            } else {
+                                $sel.val('');
+                                pidAnterior = '';
+                            }
                         } else if (idPersonaActual > 0) {
                             if ($sel.find('option[value="' + idPersonaActual + '"]').length) {
                                 $sel.val(String(idPersonaActual));
@@ -1009,20 +1042,31 @@
                         $('#resumenTicketMotivoWrap').addClass('d-none');
                         $('#resumenTicketTerritorialBtnReasignar').addClass('d-none');
                         $('#resumenTicketAsignarMotivo').val('');
+                        $('#resumenTicketMotivoLabel').removeClass('d-none');
+                        $('#resumenTicketAsignarMotivo').removeClass('d-none');
                         return;
                     }
+                    var idElegido = parseInt(pidStr, 10);
+                    var asignadoActual =
+                        typeof window._tmResumenTerritorialAsignadoId === 'number' && window._tmResumenTerritorialAsignadoId > 0
+                            ? window._tmResumenTerritorialAsignadoId
+                            : 0;
+                    if (asignadoActual > 0 && !isNaN(idElegido) && idElegido === asignadoActual) {
+                        $('#resumenTicketMotivoWrap').addClass('d-none');
+                        $('#resumenTicketTerritorialBtnReasignar').addClass('d-none');
+                        $('#resumenTicketAsignarMotivo').val('');
+                        $('#resumenTicketMotivoLabel').removeClass('d-none');
+                        $('#resumenTicketAsignarMotivo').removeClass('d-none');
+                        return;
+                    }
+                    var esPrimeraAsignacionGestor = !(asignadoActual > 0);
+                    $('#resumenTicketMotivoLabel').toggleClass('d-none', esPrimeraAsignacionGestor);
+                    $('#resumenTicketAsignarMotivo').toggleClass('d-none', esPrimeraAsignacionGestor).val('');
+                    $('#resumenTicketTerritorialBtnReasignar').text(
+                        esPrimeraAsignacionGestor ? 'Asignar gestor' : 'Aplicar reasignación'
+                    );
                     $('#resumenTicketMotivoWrap').removeClass('d-none');
                     $('#resumenTicketTerritorialBtnReasignar').removeClass('d-none');
-                    var $modalRt = $('#modalResumenTicket');
-                    if (typeof Swal !== 'undefined' && !$modalRt.data('tmTerritorialAvisoPendiente')) {
-                        $modalRt.data('tmTerritorialAvisoPendiente', 1);
-                        Swal.fire({
-                            icon: 'info',
-                            title: 'Asignación pendiente de confirmar',
-                            html: 'Escriba el <strong>motivo del cambio</strong> y pulse <strong>Aplicar reasignación</strong> para guardar la asignación en el sistema.',
-                            confirmButtonText: 'Entendido'
-                        });
-                    }
                     return;
                 } else if (pid === '' || pid === null) {
                     http.request({

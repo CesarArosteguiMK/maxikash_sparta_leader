@@ -57,6 +57,10 @@ backend/storage/rate_limit/
 backend/storage/cache/*
 !backend/storage/cache/.gitkeep
 
+# ========== Reporte semanal Sabueso (snapshot JSON; sin BD; regenerable al abrir sin archivo) ==========
+backend/storage/reporte_semanal_global/*.json
+!backend/storage/reporte_semanal_global/.gitkeep
+
 # ========== API Agente Segundómetro — NO SUBIR DESDE NINGUNA MÁQUINA ==========
 # La carpeta segundometro-agent (Node) no debe ir al repo: ni en tu PC, ni en el servidor, ni en otras.
 # Se despliega a mano (copiar carpeta, .env, keys). No hacer git add de esta ruta.

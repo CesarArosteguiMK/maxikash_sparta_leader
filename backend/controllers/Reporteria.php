@@ -409,85 +409,27 @@ public function getFiltrosCapitalHumano()
         }
     }
 
+    /**
+     * Call Center: dictamen de llamadas + historial condonaciones.
+     * URL canónica: /reporteria/callcenter
+     */
+    public function callcenter()
+    {
+        self::set('titulo', 'Call Center');
+        self::set('script', '');
+        self::render('call_center');
+    }
+
+    /**
+     * Alias antiguo → redirige a callcenter (conserva query string, ej. ?seccion=condonaciones).
+     */
     public function resumencallcenter()
     {
-        $script = <<<'HTML'
-            <script>
-            document.getElementById('btn-ultimo-corte').addEventListener('click', function(e) {
-            e.preventDefault();
-
-            // Mostrar SweetAlert de carga
-            Swal.fire({
-                title: 'Consultando Último Corte...',
-                text: 'Por favor espera',
-                icon: 'info',
-                allowOutsideClick: false,
-                showConfirmButton: false,
-                didOpen: () => Swal.showLoading()
-            });
-
-            fetch('/Reporteria/getUltimoCorte', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'ultimo_corte' })
-            })
-            .then(resp => resp.json())
-            .then(data => {
-                Swal.close();
-
-                const nombreColumna = data?.datos?.columna || "";
-                if (!nombreColumna) {
-                    Swal.fire({
-                        title: 'Sin cortes disponibles',
-                        text: 'No se encontró ningún corte cargado.',
-                        icon: 'warning'
-                    });
-                    return;
-                }
-
-                // Confirmación de descarga
-                Swal.fire({
-                    html: `<p>El último corte disponible es:</p><strong>${nombreColumna}</strong><br><br>¿Deseas descargarlo?`,
-                    icon: 'info',
-                    showCancelButton: true,
-                    confirmButtonText: 'Sí, descargar',
-                    cancelButtonText: 'No'
-                }).then(result => {
-                    if (result.isConfirmed) {
-                        Swal.fire({
-                        title: 'Generando archivo...',
-                        text: `Por favor espera mientras se descarga el Excel ${nombreColumna}`,
-                        icon: 'info',
-                        allowOutsideClick: false,
-                        showConfirmButton: false,
-                        didOpen: () => Swal.showLoading()
-                    });
-
-                        // Setear el valor en el input hidden y enviar el form
-                        document.getElementById('input-columna').value = nombreColumna;
-                        document.getElementById('form-descarga').submit();
-
-                         // Cerrar SweetAlert automáticamente después de 5 segundos por seguridad
-                        setTimeout(() => Swal.close(), 90000);
-                    }
-                });
-            })
-            .catch(err => {
-                console.error(err);
-                Swal.fire({
-                    title: 'Error',
-                    text: 'No se pudo comunicar con el servidor.',
-                    icon: 'error'
-                });
-            });
-        });
-
-            </script>
-HTML;
-
-        self::set("titulo", "Resumen Call Center");
-        self::set("script", $script);
-        self::render("reporteria_call_center");
+        $q = isset($_SERVER['QUERY_STRING']) && (string)$_SERVER['QUERY_STRING'] !== ''
+            ? '?' . $_SERVER['QUERY_STRING']
+            : '';
+        header('Location: /reporteria/callcenter' . $q, true, 302);
+        exit;
     }
 
     public function layoutlegacy()
@@ -803,18 +745,18 @@ HTML;
     }
 
     /**
-     * Vista: Reportes de tickets (descargas Excel).
+     * Vista: Reportes del módulo Sabuesos (Tickets, Panel Admin, Cerrado/Eliminado)
      */
     public function sabuesos()
     {
         $script = "";
-        self::set("titulo", "Reportes");
+        self::set("titulo", "Reportes - Sabuesos");
         self::set("script", $script);
         self::render("reporteria_sabuesos");
     }
 
     /**
-     * Consulta por ID crédito bajo Reportería (URL limpia; misma vista que el panel Sabueso en modo solo lectura).
+     * Never paid (antes «Consulta por ID crédito»): permiso especial módulo 29; misma vista que panel Sabueso solo consulta crédito.
      */
     public function consultaIdCredito()
     {
