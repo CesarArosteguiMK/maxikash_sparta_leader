@@ -348,13 +348,24 @@ JS;
             }
         }
         function cargarDictamenRastreo() {
-            if (!ticketIdRastreoActual) { $(\'#rastreoDictamenContenido\').html(\'<span class="text-muted">Seleccione un ticket.</span>\'); $(\'#rastreoDictamenCombo\').val(\'\'); $(\'#rastreoDictamenDescripcion\').val(\'\'); $(\'#rastreoDictamenDomiciliosWrap, #rastreoDictamenAmpliadaDomiciliosWrap\').empty(); $(\'#btnDictamenEnviarGestor, #btnDictamenAmpliadaEnviarGestor\').prop(\'disabled\', false).html(\'<i class="fa-solid fa-paper-plane me-1"></i>Enviar al gestor\'); $(\'#rastreoDictamenCombo, #rastreoDictamenDescripcion, #rastreoDictamenEvidenciaAdd, #rastreoDictamenAmpliadaEvidenciaAdd\').prop(\'disabled\', false); $(\'.rastreo-seccion-dictamen\').removeClass(\'dictamen-solo-lectura\'); $(\'.rastreo-dictamen-form-ampliada\').removeClass(\'dictamen-solo-lectura\'); return; }
+            if (!ticketIdRastreoActual) { $(\'#rastreoDictamenContenido\').html(\'<span class="text-muted">Seleccione un ticket.</span>\'); $(\'#rastreoDictamenCombo\').val(\'\'); $(\'#rastreoDictamenAmpliadaCombo\').val(\'\'); $(\'#rastreoDictamenDescripcion\').val(\'\'); $(\'#rastreoDictamenDomiciliosWrap, #rastreoDictamenAmpliadaDomiciliosWrap\').empty(); $(\'#btnDictamenEnviarGestor, #btnDictamenAmpliadaEnviarGestor\').prop(\'disabled\', false).html(\'<i class="fa-solid fa-paper-plane me-1"></i>Enviar al gestor\'); $(\'#rastreoDictamenCombo, #rastreoDictamenDescripcion, #rastreoDictamenEvidenciaAdd, #rastreoDictamenAmpliadaEvidenciaAdd\').prop(\'disabled\', false); $(\'.rastreo-seccion-dictamen\').removeClass(\'dictamen-solo-lectura\'); $(\'.rastreo-dictamen-form-ampliada\').removeClass(\'dictamen-solo-lectura\'); if (typeof actualizarDictamenCamposPorTipo === \'function\') actualizarDictamenCamposPorTipo(); return; }
             if (typeof rellenarEvidenciasDictamen === \'function\') rellenarEvidenciasDictamen(ticketIdRastreoActual);
             http.request({ endpoint: "/sabueso/getDictamenActualTicket", metodo: "POST", data: JSON.stringify({ id_ticket: ticketIdRastreoActual }), contentType: "application/json", processData: false, showLoader: false, onSuccess: function(r) {
                 var d = (r.success && r.datos) ? r.datos : null;
-                $(\'#rastreoDictamenCombo\').val(d && d.tipo ? d.tipo : \'\');
-                $(\'#rastreoDictamenAmpliadaCombo\').val(d && d.tipo ? d.tipo : \'\');
+                var dtTipo = (d && d.tipo) ? d.tipo : \'\';
+                var tiposNuevos = { ilocalizable: 1, localizable: 1, dual_zonificacion: 1, falta_intensidad_gestion: 1 };
+                if (dtTipo && !tiposNuevos[dtTipo]) {
+                    [\'#rastreoDictamenCombo\', \'#rastreoDictamenAmpliadaCombo\'].forEach(function(sel) {
+                        var $el = $(sel);
+                        if (!$el.find(\'option\').filter(function() { return this.value === dtTipo; }).length) {
+                            $el.append($(\'<option/>\').attr(\'value\', dtTipo).text(\'(Anterior) \' + dtTipo));
+                        }
+                    });
+                }
+                $(\'#rastreoDictamenCombo\').val(dtTipo);
+                $(\'#rastreoDictamenAmpliadaCombo\').val(dtTipo);
                 if (typeof rellenarDomiciliosDictamen === \'function\') rellenarDomiciliosDictamen(d && d.descripcion ? d.descripcion : \'\'); else { $(\'#rastreoDictamenDescripcion, #rastreoDictamenAmpliadaDescripcion\').val(d && d.descripcion ? d.descripcion : \'\'); $(\'#rastreoDictamenDomiciliosWrap, #rastreoDictamenAmpliadaDomiciliosWrap\').empty(); }
+                if (typeof actualizarDictamenCamposPorTipo === \'function\') actualizarDictamenCamposPorTipo();
                 var estado = (d && d.estado) ? d.estado : \'\';
                 if (estado === \'enviado_al_gestor\') {
                     $(\'#rastreoDictamenCombo, #rastreoDictamenDescripcion, #rastreoDictamenAmpliadaCombo, #rastreoDictamenAmpliadaDescripcion, #rastreoDictamenEvidenciaAdd, #rastreoDictamenAmpliadaEvidenciaAdd\').prop(\'disabled\', true);
@@ -362,14 +373,14 @@ JS;
                     $(\'.rastreo-seccion-dictamen\').addClass(\'dictamen-solo-lectura\');
                     $(\'.rastreo-dictamen-form-ampliada\').addClass(\'dictamen-solo-lectura\');
                     var fEnv = (d.fecha_actualizacion ? new Date(d.fecha_actualizacion).toLocaleString(\'es-MX\', { day: \'2-digit\', month: \'2-digit\', year: \'numeric\', hour: \'2-digit\', minute: \'2-digit\' }) : \'—\');
-                    $(\'#rastreoDictamenContenido\').html(\'<div class="small"><strong>Dictamen enviado al gestor</strong><br><p class="text-info mb-2 d-flex align-items-center gap-1"><i class="fa-solid fa-clock"></i>Vas a tener 12 horas para visitar al cliente.</p><span class="text-muted">Tipo: \' + (d.tipo || \'—\') + \'</span><br><span class="text-muted">Descripción: \' + (d.descripcion || \'\').replace(/</g, \'&lt;\').replace(/>/g, \'&gt;\') + \'</span><br><span class="text-muted">Enviado: \' + fEnv + \'</span></div>\');
+                    $(\'#rastreoDictamenContenido\').html(\'<div class="small"><strong>Dictamen enviado al gestor</strong><br><p class="text-info mb-2 d-flex align-items-center gap-1"><i class="fa-solid fa-clock"></i>Vas a tener 12 horas para visitar al cliente.</p><span class="text-muted">Tipo: \' + (typeof etiquetaTipoDictamenSabueso === \'function\' ? etiquetaTipoDictamenSabueso(d.tipo) : (d.tipo || \'—\')) + \'</span><br><span class="text-muted">Descripción: \' + (function(){ var raw = (d.descripcion || \'\').replace(/</g, \'&lt;\').replace(/>/g, \'&gt;\'); if (!raw.trim() && typeof esTipoDictamenIlocalizable === \'function\' && esTipoDictamenIlocalizable(d.tipo)) return \'— (sin comentarios; ILOCALIZABLE)\'; return raw || \'—\'; })() + \'</span><br><span class="text-muted">Enviado: \' + fEnv + \'</span></div>\');
                 } else if (d && (d.tipo || d.descripcion)) {
                     $(\'#rastreoDictamenCombo, #rastreoDictamenDescripcion, #rastreoDictamenAmpliadaCombo, #rastreoDictamenAmpliadaDescripcion, #rastreoDictamenEvidenciaAdd, #rastreoDictamenAmpliadaEvidenciaAdd\').prop(\'disabled\', false);
                     $(\'#btnDictamenEnviarGestor, #btnDictamenAmpliadaEnviarGestor\').prop(\'disabled\', false).html(\'<i class="fa-solid fa-paper-plane me-1"></i>Enviar al gestor\');
                     $(\'.rastreo-seccion-dictamen\').removeClass(\'dictamen-solo-lectura\');
                     $(\'.rastreo-dictamen-form-ampliada\').removeClass(\'dictamen-solo-lectura\');
                     var fAct = (d.fecha_actualizacion ? new Date(d.fecha_actualizacion).toLocaleString(\'es-MX\', { day: \'2-digit\', month: \'2-digit\', hour: \'2-digit\', minute: \'2-digit\' }) : \'—\');
-                    $(\'#rastreoDictamenContenido\').html(\'<div class="small text-success"><strong>Borrador guardado</strong> \' + fAct + \'<br><span class="text-muted">Tipo: \' + (d.tipo || \'—\') + \'</span><br><span class="text-muted">Descripción: \' + (d.descripcion || \'\').replace(/</g, \'&lt;\').replace(/>/g, \'&gt;\') + \'</span></div>\');
+                    $(\'#rastreoDictamenContenido\').html(\'<div class="small text-success"><strong>Borrador guardado</strong> \' + fAct + \'<br><span class="text-muted">Tipo: \' + (typeof etiquetaTipoDictamenSabueso === \'function\' ? etiquetaTipoDictamenSabueso(d.tipo) : (d.tipo || \'—\')) + \'</span><br><span class="text-muted">Descripción: \' + (function(){ var raw = (d.descripcion || \'\').replace(/</g, \'&lt;\').replace(/>/g, \'&gt;\'); if (!raw.trim() && typeof esTipoDictamenIlocalizable === \'function\' && esTipoDictamenIlocalizable(d.tipo)) return \'— (sin comentarios; ILOCALIZABLE)\'; return raw || \'—\'; })() + \'</span></div>\');
                 } else {
                     $(\'#rastreoDictamenCombo, #rastreoDictamenDescripcion, #rastreoDictamenAmpliadaCombo, #rastreoDictamenAmpliadaDescripcion, #rastreoDictamenEvidenciaAdd, #rastreoDictamenAmpliadaEvidenciaAdd\').prop(\'disabled\', false);
                     $(\'#btnDictamenEnviarGestor, #btnDictamenAmpliadaEnviarGestor\').prop(\'disabled\', false).html(\'<i class="fa-solid fa-paper-plane me-1"></i>Enviar al gestor\');
@@ -3428,7 +3439,7 @@ JS;
                         }
                         var items = [
                             { k: 'total_tickets', label: 'Tickets en la semana', cls: 'bg-secondary', idVal: 'rsKpiValTotal' },
-                            { k: 'ilocalizable', label: 'Ilocalizable', cls: 'bg-danger', tip: 'Visitó todas las direcciones y no pagó en la semana (EC consultado).', idVal: 'rsKpiValIlocalizable' },
+                            { k: 'ilocalizable', label: 'Ilocalizable', cls: 'bg-danger', tip: 'Incluye: (1) dictamen Sabueso tipo ILOCALIZABLE o DS dictamen_ilocalizable; (2) visitó todas las direcciones y no pagó en la semana (EC consultado).', idVal: 'rsKpiValIlocalizable' },
                             { k: 'localizable', label: 'Localizable', cls: 'bg-success', tip: 'No califica como ilocalizable y estado de cuenta consultado.', idVal: 'rsKpiValLocalizable' },
                             { k: 'pago_12h', label: 'Pago en 12h', cls: 'bg-primary', tip: 'Cumplieron pago en ventana inicial (dictamen sistema).', idVal: 'rsKpiValPago12h' },
                             { k: 'todas_direcciones', label: 'Todas las direcciones', cls: 'bg-info', tip: 'Visitaron todas las direcciones del dictamen.', idVal: 'rsKpiValTodasDir' },
@@ -3513,7 +3524,7 @@ JS;
                         '<th>Ilocalizable</th>' +
                         '</tr></thead><tbody id="tbodyReporteSemanalGlobal">' + tableRowsHtml() + '</tbody></table></div>' +
                         '<div class="estad-reporte-semanal-footer text-muted" style="font-size:0.72rem;">' +
-                        'Regla ilocalizable aplicada: <strong>visitó todas las direcciones del dictamen</strong> y <strong>no pagó en la semana seleccionada</strong> (prórroga no condiciona este indicador).' +
+                        'Ilocalizable = <strong>Sí</strong> si el dictamen al gestor es tipo ILOCALIZABLE, o el dictamen del sistema es <code>dictamen_ilocalizable</code>, o bien: visitó todas las direcciones y no pagó en la semana (EC consultado). Prórroga no condiciona la regla operativa de direcciones+pago.' +
                         '</div></div>' +
                         '<div id="reporteSemanalBlockGraficas" class="d-none">' +
                         '<p class="text-muted small mb-2"><i class="fa-solid fa-chart-column me-1"></i>Mismos datos del resumen y del detalle, en distintos tipos de gráfico.</p>' +
@@ -3528,7 +3539,7 @@ JS;
                         var p = tr.getAttribute('data-pago-si') === '1';
                         return {
                             localizable: (c && !i) ? 1 : 0,
-                            ilocalizable: (c && i) ? 1 : 0,
+                            ilocalizable: i ? 1 : 0,
                             pago_semana: p ? 1 : 0
                         };
                     }
@@ -3587,7 +3598,7 @@ JS;
                                     if (tdI) tdI.innerHTML = boolTxt(rr.ilocalizable);
                                     var newContrib = {
                                         localizable: (rr.pago_semana_consultado && !rr.ilocalizable) ? 1 : 0,
-                                        ilocalizable: (rr.pago_semana_consultado && rr.ilocalizable) ? 1 : 0,
+                                        ilocalizable: rr.ilocalizable ? 1 : 0,
                                         pago_semana: rr.pago_semana_si ? 1 : 0
                                     };
                                     reporteRsBumpKpi('localizable', newContrib.localizable - oldContrib.localizable);
@@ -3857,21 +3868,27 @@ JS;
                     var enviados = parseInt(t.con_dictamen_enviado, 10) || 0;
                     var vistos = parseInt(t.con_dictamen_visto, 10) || 0;
                     var cerrados = parseInt(t.tickets_cerrados, 10) || 0;
-                    var maxTop = Math.max(activos, enviados, vistos, cerrados, 1);
-                    function pct(v) { return Math.round((v / maxTop) * 100); }
+                    // Base = tickets activos (100%). El resto de barras del flujo se calculan sobre ese universo.
+                    var pctEnv = activos > 0 ? Math.round((enviados / activos) * 100) : 0;
+                    var pctVis = activos > 0 ? Math.round((vistos / activos) * 100) : 0;
                     $('#statTotalActivos').text(activos);
                     $('#statDictamenEnviado').text(enviados);
                     $('#statDictamenVisto').text(vistos);
                     $('#statTicketsCerrados').text(cerrados);
-                    $('#barActivos').css('width', pct(activos) + '%');
-                    $('#pctActivos').text(pct(activos) + '%');
-                    $('#barEnviado').css('width', pct(enviados) + '%');
-                    $('#pctEnviado').text(pct(enviados) + '%');
-                    $('#barVisto').css('width', pct(vistos) + '%');
-                    $('#pctVisto').text(pct(vistos) + '%');
-                    $('#barCerrados').css('width', pct(cerrados) + '%');
-                    var pctCerrVsFlujo = (activos + cerrados) > 0 ? Math.round((cerrados / (activos + cerrados)) * 100) : 0;
-                    $('#pctCerrados').text(pctCerrVsFlujo + '%');
+                    if (activos > 0) {
+                        $('#barActivos').css('width', '100%');
+                        $('#pctActivos').text('100%');
+                    } else {
+                        $('#barActivos').css('width', '0%');
+                        $('#pctActivos').text('0%');
+                    }
+                    $('#barEnviado').css('width', pctEnv + '%');
+                    $('#pctEnviado').text(pctEnv + '%');
+                    $('#barVisto').css('width', pctVis + '%');
+                    $('#pctVisto').text(pctVis + '%');
+                    // Cerrados: la barra y el % son siempre 100% (referencia visual); el valor real es el número mostrado arriba.
+                    $('#barCerrados').css('width', '100%');
+                    $('#pctCerrados').text('100%');
                     var ts = estadisticasDatos.tiempos_sabueso_segundos;
                     var tg = estadisticasDatos.tiempos_gestor_segundos;
                     if (ts && ts.promedio_humano) {
@@ -5433,7 +5450,8 @@ JS;
             self::respuestaJSON(['success' => false, 'mensaje' => 'ID de ticket y persona requeridos.']);
             return;
         }
-        $resultado = TicketDAO::asignar($idTicket, $idPersona);
+        $quienAsigna = (int)($_SESSION['persona_id'] ?? $_SESSION['usuario_id'] ?? 0);
+        $resultado = TicketDAO::asignar($idTicket, $idPersona, $quienAsigna > 0 ? $quienAsigna : null);
         if ($resultado['success'] ?? false) {
             $idCredito = TicketDAO::getIdCreditoPorTicket($idTicket);
             if ($idCredito !== null) {
@@ -7321,7 +7339,8 @@ JS;
             self::respuestaJSON(['success' => false, 'mensaje' => 'Falta el ID del ticket. Cierre y abra de nuevo el rastreo.']);
             return;
         }
-        if ($tipo === '' || $descripcion === '') {
+        $esIloc = \Models\Ticket::esTipoDictamenIlocalizable($tipo);
+        if ($tipo === '' || (!$esIloc && $descripcion === '')) {
             self::respuestaJSON(['success' => false, 'mensaje' => 'Faltan tipo o descripción.']);
             return;
         }

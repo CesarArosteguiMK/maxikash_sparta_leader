@@ -2,6 +2,8 @@
 /**
  * Crea tabla para guardar el "motivo" en cada reasignación de gestor.
  *
+ * Base: __SPARTA_SECRET_REDACTED__ por defecto (no [database] ESQUEMA). Ver bootstrap_db_tickets.php.
+ *
  * Ejecutar una vez:
  *   php backend/scripts/create_tabla_asignacion_ticket_motivo.php
  */
@@ -9,34 +11,19 @@
 date_default_timezone_set('America/Mexico_City');
 
 $raiz = dirname(__DIR__);
-$configFile = $raiz . '/config/config.ini';
-if (!is_file($configFile)) {
-    fwrite(STDERR, "Error: No se encontró config.ini\n");
+require_once __DIR__ . '/bootstrap_db_tickets.php';
+
+try {
+    $esquema = sparta_bootstrap_db_tickets(isset($argv) ? $argv : []);
+} catch (Throwable $e) {
+    fwrite(STDERR, $e->getMessage() . "\n");
     exit(1);
 }
-
-$config = @parse_ini_file($configFile, true);
-if (empty($config['database'])) {
-    fwrite(STDERR, "Error: No existe sección [database] en config.ini\n");
-    exit(1);
-}
-
-$dbConfig = $config['database'];
-putenv('DB_SERVIDOR=' . trim($dbConfig['SERVIDOR'] ?? ''));
-putenv('DB_HOST=' . trim($dbConfig['SERVIDOR'] ?? ''));
-putenv('DB_PUERTO=' . trim($dbConfig['PUERTO'] ?? '3306'));
-
-// En este proyecto, la mayoría de tablas usan el esquema/DB "__SPARTA_SECRET_REDACTED__".
-putenv('DB_ESQUEMA=' . trim($dbConfig['ESQUEMA'] ?? '__SPARTA_SECRET_REDACTED__'));
-putenv('DB_NAME=' . trim($dbConfig['ESQUEMA'] ?? '__SPARTA_SECRET_REDACTED__'));
-putenv('DB_USUARIO=' . trim($dbConfig['USUARIO'] ?? ''));
-putenv('DB_USER=' . trim($dbConfig['USUARIO'] ?? ''));
-putenv('DB_PASSWORD=' . trim($dbConfig['PASSWORD'] ?? ''));
-putenv('DB_PASS=' . trim($dbConfig['PASSWORD'] ?? ''));
 
 require_once $raiz . '/core/Database.php';
 
 $db = new \Core\Database();
+echo "Tabla asignacion_ticket_motivo → base de datos: {$esquema}\n";
 
 $sql1 = "CREATE TABLE IF NOT EXISTS asignacion_ticket_motivo (
     id_motivo INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -59,7 +46,3 @@ try {
     fwrite(STDERR, "Error al crear tabla asignacion_ticket_motivo: " . $e->getMessage() . "\n");
     exit(1);
 }
-
-echo "Listo.\n";
-exit(0);
-

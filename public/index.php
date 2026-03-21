@@ -255,8 +255,43 @@ $modulosRequeridos = $rutasModulos[$path] ?? $controladoresModulos[strtolower(tr
 if (!$esEstadoReportesAgente && $modulosRequeridos !== null) {
     $modulosUsuario = $_SESSION['modulos'] ?? [];
     if (!is_array($modulosUsuario) || !array_intersect($modulosRequeridos, $modulosUsuario)) {
-        header('Location: /' . VISTA_DEFECTO);
-        exit;
+        $permitirValidacionesOperativa = false;
+        $personaIdRuta = (int) ($_SESSION['persona_id'] ?? $_SESSION['usuario_id'] ?? 0);
+        if ($personaIdRuta > 0) {
+            $entradaValOp = \Core\TicketsPanelModuloHelper::resolverEntradaValidacionesOperativa($personaIdRuta);
+            if ($entradaValOp !== null) {
+                $tipoValOp = $entradaValOp['tipo'] ?? '';
+                $rutasValOpComunes = [
+                    'validaciones/formulario',
+                    'validaciones/getformularios',
+                    'validaciones/getpreguntasformulario',
+                    'sabueso/getevidenciasticket',
+                    'sabueso/verevidencia',
+                ];
+                $rutasValOpGestor = array_merge($rutasValOpComunes, [
+                    'validaciones/gestor',
+                    'validaciones/getticketsgestor',
+                    'sabueso/asignarticket',
+                    'sabueso/quitarasignacionticket',
+                    'sabueso/getpersonassabuesojefesporcampo',
+                ]);
+                $rutasValOpTerritorial = array_merge($rutasValOpComunes, [
+                    'validaciones/territorial',
+                    'validaciones/getticketsterritorial',
+                    'validaciones/getgestoresporcampo',
+                    'validaciones/reasignargestorticketterritorial',
+                    'sabueso/asignarticket',
+                    'sabueso/quitarasignacionticket',
+                    'sabueso/getpersonassabuesojefesporcampo',
+                ]);
+                $setValOp = $tipoValOp === 'territorial' ? $rutasValOpTerritorial : ($tipoValOp === 'gestor' ? $rutasValOpGestor : []);
+                $permitirValidacionesOperativa = in_array($path, $setValOp, true);
+            }
+        }
+        if (!$permitirValidacionesOperativa) {
+            header('Location: /' . VISTA_DEFECTO);
+            exit;
+        }
     }
 }
 

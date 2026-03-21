@@ -3,9 +3,11 @@
 [database]
 SERVIDOR = "localhost"
 PUERTO = 3306
+; Conexión general de la app (puede ser reportes u otra BD).
 ESQUEMA = "nombre_esquema"
-; Opcional: base donde están ticket / ticket_evidencia (scripts de migración). Si no se define, se usa __SPARTA_SECRET_REDACTED__.
-; ESQUEMA_TICKETS = "__SPARTA_SECRET_REDACTED__"
+; OBLIGATORIO para tickets si ESQUEMA no es __SPARTA_SECRET_REDACTED__: ticket, asignacion_ticket, ticket_evidencia, etc. viven aquí.
+; Los scripts en backend/scripts que tocan tickets usan ESQUEMA_TICKETS o, por defecto, __SPARTA_SECRET_REDACTED__ — no usan ESQUEMA.
+ESQUEMA_TICKETS = "__SPARTA_SECRET_REDACTED__"
 USUARIO = "usuario"
 PASSWORD = "contraseña"
 

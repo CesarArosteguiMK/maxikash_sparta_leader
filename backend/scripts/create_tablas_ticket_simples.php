@@ -10,30 +10,19 @@
 date_default_timezone_set('America/Mexico_City');
 
 $raiz = dirname(__DIR__);
-$configFile = $raiz . '/config/config.ini';
-if (!is_file($configFile)) {
-    fwrite(STDERR, "Error: No se encontró config.ini\n");
+require_once __DIR__ . '/bootstrap_db_tickets.php';
+
+try {
+    $esquemaTickets = sparta_bootstrap_db_tickets(isset($argv) ? $argv : []);
+} catch (Throwable $e) {
+    fwrite(STDERR, $e->getMessage() . "\n");
     exit(1);
 }
-$config = @parse_ini_file($configFile, true);
-if (empty($config['database'])) {
-    fwrite(STDERR, "Error: No existe sección [database] en config.ini\n");
-    exit(1);
-}
-$dbConfig = $config['database'];
-putenv('DB_SERVIDOR=' . trim($dbConfig['SERVIDOR'] ?? ''));
-putenv('DB_HOST=' . trim($dbConfig['SERVIDOR'] ?? ''));
-putenv('DB_PUERTO=' . trim($dbConfig['PUERTO'] ?? '3306'));
-putenv('DB_ESQUEMA=' . trim($dbConfig['ESQUEMA'] ?? '__SPARTA_SECRET_REDACTED__'));
-putenv('DB_NAME=' . trim($dbConfig['ESQUEMA'] ?? '__SPARTA_SECRET_REDACTED__'));
-putenv('DB_USUARIO=' . trim($dbConfig['USUARIO'] ?? ''));
-putenv('DB_USER=' . trim($dbConfig['USUARIO'] ?? ''));
-putenv('DB_PASSWORD=' . trim($dbConfig['PASSWORD'] ?? ''));
-putenv('DB_PASS=' . trim($dbConfig['PASSWORD'] ?? ''));
 
 require_once $raiz . '/core/Database.php';
 
 $db = new \Core\Database();
+echo "Tablas ticket_* → base de datos: {$esquemaTickets}\n";
 
 $tablas = [
     'ticket_plantilla' => "CREATE TABLE IF NOT EXISTS ticket_plantilla (

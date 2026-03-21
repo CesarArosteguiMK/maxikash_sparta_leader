@@ -751,6 +751,11 @@
         $(document).on('click', '#resumenTicketBtnVerFormularioTerritorial', function () {
             var tid = $('#resumenTicketAsignarSelect').data('resumen-id-ticket');
             if (!tid) return;
+            var fidBtn = $(this).attr('data-tm-formulario-id');
+            if (fidBtn != null && fidBtn !== '' && parseInt(fidBtn, 10) > 0) {
+                window.tmAbrirFormularioValidacionLectura(String(fidBtn));
+                return;
+            }
             var stored =
                 typeof localStorage !== 'undefined' ? localStorage.getItem('tm_formulario_' + tid) || localStorage.getItem('tm_formulario_precargado') : null;
             window.tmAbrirFormularioValidacionLectura(stored);
@@ -828,7 +833,13 @@
             var fechaVenc = t.fecha_vencimiento
                 ? new Date(t.fecha_vencimiento).toLocaleString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
                 : '—';
+            $('#resumenTicketBtnVerFormularioTerritorial').removeAttr('data-tm-formulario-id');
             $('#resumenTicketDe').text((t.creador_nombre || '').trim() || '—');
+            var asignPor =
+                t.asignado_por_nombre != null && String(t.asignado_por_nombre).trim() !== ''
+                    ? String(t.asignado_por_nombre).trim()
+                    : '—';
+            $('#resumenTicketAsignadoPor').text(asignPor);
             $('#resumenTicketFecha').text(fechaCreacion);
             $('#resumenTicketVence').text(fechaVenc);
             $('#resumenTicketFolio').text(t.folio || '—');
@@ -926,7 +937,11 @@
                 $('#resumenTicketAsignadoACapoLabel').addClass('d-none');
                 $('#resumenTicketMotivoWrap').addClass('d-none');
                 $('#resumenTicketTerritorialBtnReasignar').addClass('d-none');
-                $('#resumenTicketVerFormularioTerritorialWrap').addClass('d-none');
+                if (esGestor) {
+                    $('#resumenTicketVerFormularioTerritorialWrap').toggleClass('d-none', !cfg().verFormularioTerritorialResumen);
+                } else {
+                    $('#resumenTicketVerFormularioTerritorialWrap').addClass('d-none');
+                }
                 $('#resumenTicketAsignarBlock .btn-group[role="group"]').removeClass('d-none');
             }
 
@@ -1164,6 +1179,38 @@
                     }
                 });
                 modalInstance.show();
+            }
+            if (cfg().verFormularioTerritorialResumen && typeof http !== 'undefined') {
+                var tidFormResolver = idTicket;
+                var storedFormT =
+                    typeof localStorage !== 'undefined'
+                        ? localStorage.getItem('tm_formulario_' + tidFormResolver) || localStorage.getItem('tm_formulario_precargado')
+                        : null;
+                http.request({
+                    endpoint: '/validaciones/getFormularios',
+                    metodo: 'GET',
+                    showLoader: false,
+                    onSuccess: function (resp) {
+                        var list = Array.isArray(resp.datos) ? resp.datos : [];
+                        var activos = list.filter(function (f) {
+                            return f.activo === 1 || f.activo === true;
+                        });
+                        var idRes = 0;
+                        if (
+                            storedFormT &&
+                            activos.some(function (f) {
+                                return String(f.id) === String(storedFormT);
+                            })
+                        ) {
+                            idRes = parseInt(storedFormT, 10);
+                        } else if (activos.length > 0) {
+                            idRes = parseInt(activos[0].id, 10);
+                        }
+                        if (!isNaN(idRes) && idRes > 0) {
+                            $('#resumenTicketBtnVerFormularioTerritorial').attr('data-tm-formulario-id', String(idRes));
+                        }
+                    }
+                });
             }
             if (cfg().formularios) {
                 $('#resumenTicketFormularioWrap').removeClass('d-none');

@@ -13,6 +13,31 @@ class Inicio extends Controller
         $this->validarActualizacionPassword();
         require_once dirname(__DIR__) . '/config/menu_accesos_inicio.php';
         $accesosRapidos = getAccesosRapidosDesdeModulos();
+        $personaIdInicio = (int) ($_SESSION['persona_id'] ?? $_SESSION['usuario_id'] ?? 0);
+        $resValOpInicio = $personaIdInicio > 0
+            ? \Core\TicketsPanelModuloHelper::resolverEntradaValidacionesOperativa($personaIdInicio)
+            : null;
+        if ($resValOpInicio !== null) {
+            $urlValOp = $resValOpInicio['url'] ?? '/validaciones/gestor';
+            $norm = function ($u) {
+                return rtrim(strtolower((string) $u), '/');
+            };
+            $duplicado = false;
+            foreach ($accesosRapidos as $a) {
+                if (isset($a['url']) && $norm($a['url']) === $norm($urlValOp)) {
+                    $duplicado = true;
+                    break;
+                }
+            }
+            if (!$duplicado) {
+                $accesosRapidos[] = [
+                    'url' => $urlValOp,
+                    'label' => 'Validaciones',
+                    'icon' => 'fa-solid fa-clipboard-check',
+                    'bg' => 'bg-success',
+                ];
+            }
+        }
         $this->set('accesosRapidos', $accesosRapidos);
         // Botones de diagnóstico (Segundómetro y BD alternas): solo usuario id 1 y si config lo permite
         $configInicio = (is_file($cfg = dirname(__DIR__) . '/config/config.ini') && is_array($c = @parse_ini_file($cfg, true))) ? ($c['inicio'] ?? []) : [];

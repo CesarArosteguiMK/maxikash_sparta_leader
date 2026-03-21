@@ -5,6 +5,15 @@
     var esAdminTicket = false;
     var esperandoCatalogosDesdeContinuar = false;
     var apiBase = (function(){ var p = window.location.pathname || ''; var i = p.indexOf('/sabueso'); return i !== -1 ? p.substring(0, i) : ''; })();
+    window.etiquetaTipoDictamenSabueso = window.etiquetaTipoDictamenSabueso || function(tipo) {
+        var t = (tipo || '').toString().toLowerCase().trim();
+        var m = { ilocalizable: 'ILOCALIZABLE', localizable: 'LOCALIZABLE', dual_zonificacion: 'DUAL || ZONIFICACIÓN', falta_intensidad_gestion: 'FALTA INTENSIDAD DE GESTION',
+            localizado: 'Localizado', no_localizado: 'No localizado', promesa_pago: 'Promesa de pago', otro: 'Otro' };
+        return m[t] || (tipo && String(tipo).trim() ? String(tipo).trim() : '—');
+    };
+    window.esTipoDictamenIlocalizable = window.esTipoDictamenIlocalizable || function(tipo) {
+        return (tipo || '').toString().toLowerCase().trim() === 'ilocalizable';
+    };
     window.abrirEvidenciaDictamenGrande = function(src) {
         if (!src) return;
         var $m = $('#modalVerEvidenciaDictamenTicket');
@@ -760,8 +769,9 @@
                 }
                 var d = r.datos;
                 var dm = d.dictamen || {};
-                $('#modalDetalleDictamenTipo').text(dm.tipo || '\u2014');
-                var descMostrar = (dm.descripcion_base !== undefined ? dm.descripcion_base : dm.descripcion) || '\u2014';
+                $('#modalDetalleDictamenTipo').text(typeof window.etiquetaTipoDictamenSabueso === 'function' ? window.etiquetaTipoDictamenSabueso(dm.tipo) : (dm.tipo || '\u2014'));
+                var descRaw = (dm.descripcion_base !== undefined ? dm.descripcion_base : dm.descripcion) || '';
+                var descMostrar = (String(descRaw).trim() !== '') ? descRaw : ((typeof window.esTipoDictamenIlocalizable === 'function' && window.esTipoDictamenIlocalizable(dm.tipo)) ? '\u2014 (sin comentarios; dictamen ILOCALIZABLE)' : '\u2014');
                 $('#modalDetalleDictamenDescripcion').html(window.linkifyDescripcionDictamen ? window.linkifyDescripcionDictamen(descMostrar) : descMostrar);
                 var domicilios = d.domicilios || [];
                 if (domicilios.length > 0) {

@@ -17,40 +17,14 @@
 date_default_timezone_set('America/Mexico_City');
 
 $raiz = dirname(__DIR__);
-$configFile = $raiz . '/config/config.ini';
-if (!is_file($configFile)) {
-    fwrite(STDERR, "Error: No se encontró config.ini\n");
+require_once __DIR__ . '/bootstrap_db_tickets.php';
+
+try {
+    $esquema = sparta_bootstrap_db_tickets(isset($argv) ? $argv : []);
+} catch (Throwable $e) {
+    fwrite(STDERR, $e->getMessage() . "\n");
     exit(1);
 }
-$config = @parse_ini_file($configFile, true);
-if (empty($config['database'])) {
-    fwrite(STDERR, "Error: No existe sección [database] en config.ini\n");
-    exit(1);
-}
-$dbConfig = $config['database'];
-
-$esquemaPorDefecto = '__SPARTA_SECRET_REDACTED__';
-$esquemaIni = trim($dbConfig['ESQUEMA_TICKETS'] ?? '');
-$esquemaEnv = trim((string) getenv('TICKET_DB_ESQUEMA'));
-$esquemaArg = isset($argv[1]) ? trim((string) $argv[1]) : '';
-if ($esquemaArg !== '') {
-    $esquema = $esquemaArg;
-} elseif ($esquemaEnv !== '') {
-    $esquema = $esquemaEnv;
-} elseif ($esquemaIni !== '') {
-    $esquema = $esquemaIni;
-} else {
-    $esquema = $esquemaPorDefecto;
-}
-
-putenv('DB_SERVIDOR=' . trim($dbConfig['SERVIDOR'] ?? ''));
-$puerto = trim($dbConfig['PUERTO'] ?? '');
-if ($puerto !== '') {
-    putenv('DB_PUERTO=' . $puerto);
-}
-putenv('DB_ESQUEMA=' . $esquema);
-putenv('DB_USUARIO=' . trim($dbConfig['USUARIO'] ?? ''));
-putenv('DB_PASSWORD=' . trim($dbConfig['PASSWORD'] ?? ''));
 
 require_once $raiz . '/core/Database.php';
 

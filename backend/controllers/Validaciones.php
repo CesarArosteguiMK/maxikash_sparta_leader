@@ -239,7 +239,7 @@ class Validaciones extends Controller
         }
 
         // Reasignación (guarda tiempos en asignacion_ticket).
-        $resultadoAsig = TicketDAO::asignar($idTicket, $idPersonaGestor);
+        $resultadoAsig = TicketDAO::asignar($idTicket, $idPersonaGestor, $personaId);
         if (!($resultadoAsig['success'] ?? false)) {
             echo json_encode(['success' => false, 'mensaje' => $resultadoAsig['mensaje'] ?? 'Error al reasignar.']);
             return;
