@@ -1057,22 +1057,22 @@ $panel_admin_icono = isset($panel_admin_icono) ? $panel_admin_icono : 'fa-list';
                                     <label for="rastreoDictamenCombo" class="form-label small fw-semibold text-muted mb-1">Tipo de dictamen <span class="text-danger">*</span></label>
                                     <select class="form-select form-select-sm" id="rastreoDictamenCombo" required aria-required="true">
                                         <option value="">Seleccione...</option>
-                                        <option value="localizado">Localizado</option>
-                                        <option value="no_localizado">No localizado</option>
-                                        <option value="promesa_pago">Promesa de pago</option>
-                                        <option value="otro">Otro</option>
+                                        <option value="ilocalizable">ILOCALIZABLE</option>
+                                        <option value="localizable">LOCALIZABLE</option>
+                                        <option value="dual_zonificacion">DUAL || ZONIFICACIÓN</option>
+                                        <option value="falta_intensidad_gestion">FALTA INTENSIDAD DE GESTION</option>
                                     </select>
                                 </div>
-                                <div class="mb-2">
+                                <div class="mb-2" id="rastreoDictamenBloqueComentarios">
                                     <label for="rastreoDictamenDescripcion" class="form-label small fw-semibold text-muted mb-1">Descripción <span class="text-danger">*</span></label>
                                     <textarea class="form-control form-control-sm" id="rastreoDictamenDescripcion" rows="3" placeholder="Escriba la descripción..." required aria-required="true" maxlength="4000"></textarea>
                                 </div>
-                                <div class="mb-2">
+                                <div class="mb-2" id="rastreoDictamenBloqueDomicilios">
                                     <span class="form-label small fw-semibold text-muted mb-0 d-block">Domicilios de visita</span>
                                     <div id="rastreoDictamenDomiciliosWrap" class="rastreo-domicilios-wrap"></div>
                                     <div class="mt-1 text-end"><button type="button" class="btn btn-sm rounded-circle p-1 rastreo-btn-add-domicilio" id="btnAddDomicilioPanel" title="Añadir domicilio" aria-label="Añadir domicilio"><i class="fa-solid fa-plus"></i></button></div>
                                 </div>
-                                <div class="mb-2">
+                                <div class="mb-2" id="rastreoDictamenBloqueEvidencia">
                                     <span class="form-label small fw-semibold text-muted d-block mb-1">Evidencia</span>
                                     <div class="evidencia-dinamica-wrap" id="rastreoDictamenEvidenciasWrap">
                                         <div class="evidencia-slot evidencia-slot-add" id="rastreoDictamenEvidenciaAdd" role="button" tabindex="0" title="Añadir foto">
@@ -1220,22 +1220,22 @@ $panel_admin_icono = isset($panel_admin_icono) ? $panel_admin_icono : 'fa-list';
                         <label for="rastreoDictamenAmpliadaCombo" class="form-label fw-semibold text-muted">Tipo de dictamen <span class="text-danger">*</span></label>
                         <select class="form-select" id="rastreoDictamenAmpliadaCombo" required aria-required="true">
                             <option value="">Seleccione...</option>
-                            <option value="localizado">Localizado</option>
-                            <option value="no_localizado">No localizado</option>
-                            <option value="promesa_pago">Promesa de pago</option>
-                            <option value="otro">Otro</option>
+                            <option value="ilocalizable">ILOCALIZABLE</option>
+                            <option value="localizable">LOCALIZABLE</option>
+                            <option value="dual_zonificacion">DUAL || ZONIFICACIÓN</option>
+                            <option value="falta_intensidad_gestion">FALTA INTENSIDAD DE GESTION</option>
                         </select>
                     </div>
-                    <div class="mb-3">
+                    <div class="mb-3" id="rastreoDictamenAmpliadaBloqueComentarios">
                         <label for="rastreoDictamenAmpliadaDescripcion" class="form-label fw-semibold text-muted">Comentarios <span class="text-danger">*</span></label>
                         <textarea class="form-control" id="rastreoDictamenAmpliadaDescripcion" rows="3" placeholder="Escriba sus comentarios para el gestor y no incluya en este apartado ubicaciones..." required aria-required="true" maxlength="4000"></textarea>
                     </div>
-                    <div class="mb-3">
+                    <div class="mb-3" id="rastreoDictamenAmpliadaBloqueDomicilios">
                         <span class="form-label fw-semibold text-muted mb-0 d-block">Domicilios de visita</span>
                         <div id="rastreoDictamenAmpliadaDomiciliosWrap" class="rastreo-domicilios-wrap"></div>
                         <div class="mt-1 text-end"><button type="button" class="btn btn-sm rounded-circle p-1 rastreo-btn-add-domicilio" id="btnAddDomicilioAmpliada" title="Añadir domicilio" aria-label="Añadir domicilio"><i class="fa-solid fa-plus"></i></button></div>
                     </div>
-                    <div class="mb-3">
+                    <div class="mb-3" id="rastreoDictamenAmpliadaBloqueEvidencia">
                         <span class="form-label fw-semibold text-muted d-block mb-2">Evidencia</span>
                         <div class="evidencia-dinamica-wrap" id="rastreoDictamenAmpliadaEvidenciasWrap">
                             <div class="evidencia-slot evidencia-slot-add" id="rastreoDictamenAmpliadaEvidenciaAdd" role="button" tabindex="0" title="Añadir foto">
@@ -1405,6 +1405,29 @@ $panel_admin_icono = isset($panel_admin_icono) ? $panel_admin_icono : 'fa-list';
 <!-- Scrim entre modales: se inyecta por JS cuando se abre un modal hijo sobre el de rastreo -->
 <script src="/assets/js/analytics-modals.js"></script>
 <script>window.PANEL_ADMIN_MODULO_URLS=<?= isset($panel_admin_modulo_urls_json) && $panel_admin_modulo_urls_json !== '' ? $panel_admin_modulo_urls_json : '{}'; ?>;</script>
+<script>
+window.etiquetaTipoDictamenSabueso = function(tipo) {
+    var t = (tipo || '').toString().toLowerCase().trim();
+    var m = { ilocalizable: 'ILOCALIZABLE', localizable: 'LOCALIZABLE', dual_zonificacion: 'DUAL || ZONIFICACIÓN', falta_intensidad_gestion: 'FALTA INTENSIDAD DE GESTION',
+        localizado: 'Localizado', no_localizado: 'No localizado', promesa_pago: 'Promesa de pago', otro: 'Otro' };
+    return m[t] || (tipo && String(tipo).trim() ? String(tipo).trim() : '—');
+};
+window.esTipoDictamenIlocalizable = function(tipo) {
+    return (tipo || '').toString().toLowerCase().trim() === 'ilocalizable';
+};
+window.actualizarDictamenCamposPorTipo = function() {
+    var v = ($('#rastreoDictamenCombo').val() || '').toString();
+    var esIloc = typeof window.esTipoDictamenIlocalizable === 'function' && window.esTipoDictamenIlocalizable(v);
+    var sel = '#rastreoDictamenBloqueComentarios, #rastreoDictamenBloqueDomicilios, #rastreoDictamenBloqueEvidencia, #rastreoDictamenAmpliadaBloqueComentarios, #rastreoDictamenAmpliadaBloqueDomicilios, #rastreoDictamenAmpliadaBloqueEvidencia';
+    if (esIloc) {
+        $(sel).addClass('d-none');
+        $('#rastreoDictamenDescripcion, #rastreoDictamenAmpliadaDescripcion').prop('required', false).removeAttr('required');
+    } else {
+        $(sel).removeClass('d-none');
+        $('#rastreoDictamenDescripcion, #rastreoDictamenAmpliadaDescripcion').prop('required', true).attr('aria-required', 'true');
+    }
+};
+</script>
 <script>
 (function() {
     var SCRIM_Z = 1060;
@@ -1838,6 +1861,7 @@ $panel_admin_icono = isset($panel_admin_icono) ? $panel_admin_icono : 'fa-list';
             $('#rastreoDictamenAmpliadaCombo').val($('#rastreoDictamenCombo').val() || '');
             $('#rastreoDictamenAmpliadaDescripcion').val($('#rastreoDictamenDescripcion').val() || '');
             sincronizarDomiciliosPanelAAmpliada();
+            if (typeof window.actualizarDictamenCamposPorTipo === 'function') window.actualizarDictamenCamposPorTipo();
             var idTicket = (typeof ticketIdRastreoActual !== 'undefined' && ticketIdRastreoActual) ? ticketIdRastreoActual : (parseInt($('#rastreoIdTicketActual').val() || $('#modalRastreoCredito').attr('data-id-ticket') || '', 10) || null);
             if (idTicket && typeof rellenarEvidenciasDictamen === 'function') rellenarEvidenciasDictamen(idTicket);
         });
@@ -1953,6 +1977,7 @@ $panel_admin_icono = isset($panel_admin_icono) ? $panel_admin_icono : 'fa-list';
                 return;
             }
             var tipo = $('#rastreoDictamenCombo').val();
+            var esIloc = typeof window.esTipoDictamenIlocalizable === 'function' && window.esTipoDictamenIlocalizable(tipo);
             var descBase = ($('#rastreoDictamenDescripcion').val() || '').trim();
             var domiciliosParts = [];
             $('#rastreoDictamenDomiciliosWrap .rastreo-domicilio-block').each(function() {
@@ -1960,17 +1985,22 @@ $panel_admin_icono = isset($panel_admin_icono) ? $panel_admin_icono : 'fa-list';
                 var linkD = ($(this).find('.rastreo-domicilio-link').val() || '').trim();
                 if (descD || linkD) domiciliosParts.push(descD + (linkD ? ' ' + linkD : ''));
             });
-            var desc = descBase;
-            if (domiciliosParts.length > 0) desc += (descBase ? '. ' : '') + 'Podrás encontrar al usuario en ' + domiciliosParts.join('; ');
-            if (!tipo || !desc) {
-                if (!silent && typeof Swal !== 'undefined') Swal.fire({ icon: 'warning', title: 'Faltan datos', text: 'Seleccione tipo y complete la descripción o al menos un domicilio.' });
+            var desc = '';
+            if (!esIloc) {
+                desc = descBase;
+                if (domiciliosParts.length > 0) desc += (descBase ? '. ' : '') + 'Podrás encontrar al usuario en ' + domiciliosParts.join('; ');
+            }
+            if (!tipo || (!esIloc && !desc)) {
+                if (!silent && typeof Swal !== 'undefined') Swal.fire({ icon: 'warning', title: 'Faltan datos', text: esIloc ? 'Seleccione el tipo de dictamen.' : 'Seleccione tipo y complete la descripción o al menos un domicilio.' });
                 if (onCompletado) onCompletado('Faltan tipo o descripción.');
                 return;
             }
             var archivosPendientes = [];
             var vistos = {};
+            if (!esIloc) {
             $('#rastreoDictamenEvidenciasFotos .evidencia-foto-item').each(function() { var f = $(this).data('file'); if (f) { var k = f.name + '_' + f.size; if (!vistos[k]) { vistos[k] = true; archivosPendientes.push(f); } } });
             $('#rastreoDictamenAmpliadaEvidenciasFotos .evidencia-foto-item').each(function() { var f = $(this).data('file'); if (f) { var k = f.name + '_' + f.size; if (!vistos[k]) { vistos[k] = true; archivosPendientes.push(f); } } });
+            }
             var eliminadasPendientes = evidenciasEliminadas.slice();
             evidenciasEliminadas = [];
             function eliminarSiguiente(idx) {
@@ -2086,6 +2116,7 @@ $panel_admin_icono = isset($panel_admin_icono) ? $panel_admin_icono : 'fa-list';
             $('#rastreoDictamenCombo').val($('#rastreoDictamenAmpliadaCombo').val());
             $('#rastreoDictamenDescripcion').val($('#rastreoDictamenAmpliadaDescripcion').val());
             var tipo = $('#rastreoDictamenCombo').val();
+            var esIlocEnviar = typeof window.esTipoDictamenIlocalizable === 'function' && window.esTipoDictamenIlocalizable(tipo);
             var descBase = ($('#rastreoDictamenDescripcion').val() || '').trim();
             var domiciliosParts = [];
             $('#rastreoDictamenDomiciliosWrap .rastreo-domicilio-block').each(function() {
@@ -2093,9 +2124,12 @@ $panel_admin_icono = isset($panel_admin_icono) ? $panel_admin_icono : 'fa-list';
                 var linkD = ($(this).find('.rastreo-domicilio-link').val() || '').trim();
                 if (descD || linkD) domiciliosParts.push(descD + (linkD ? ' ' + linkD : ''));
             });
-            var desc = descBase;
-            if (domiciliosParts.length > 0) desc += (descBase ? '. ' : '') + 'Podrás encontrar al usuario en ' + domiciliosParts.join('; ');
-            if (!tipo || !desc) { if (typeof Swal !== 'undefined') Swal.fire({ icon: 'warning', title: 'Faltan datos', text: 'Seleccione tipo y complete la descripción o al menos un domicilio.' }); return; }
+            var desc = '';
+            if (!esIlocEnviar) {
+                desc = descBase;
+                if (domiciliosParts.length > 0) desc += (descBase ? '. ' : '') + 'Podrás encontrar al usuario en ' + domiciliosParts.join('; ');
+            }
+            if (!tipo || (!esIlocEnviar && !desc)) { if (typeof Swal !== 'undefined') Swal.fire({ icon: 'warning', title: 'Faltan datos', text: esIlocEnviar ? 'Seleccione el tipo de dictamen.' : 'Seleccione tipo y complete la descripción o al menos un domicilio.' }); return; }
 
             // 2️⃣ Cancelar el autoguardado pendiente para evitar dos guardados simultáneos
             if (dictamenAutoguardadoTimer) { clearTimeout(dictamenAutoguardadoTimer); dictamenAutoguardadoTimer = null; }
@@ -2154,6 +2188,12 @@ $panel_admin_icono = isset($panel_admin_icono) ? $panel_admin_icono : 'fa-list';
         $('#rastreoDictamenCombo, #rastreoDictamenAmpliadaCombo').on('change', function() {
             if ($(this).attr('id') === 'rastreoDictamenAmpliadaCombo') $('#rastreoDictamenCombo').val($(this).val());
             else $('#rastreoDictamenAmpliadaCombo').val($(this).val());
+            var nv = ($('#rastreoDictamenCombo').val() || '').toString();
+            if (typeof window.esTipoDictamenIlocalizable === 'function' && window.esTipoDictamenIlocalizable(nv)) {
+                $('#rastreoDictamenDescripcion, #rastreoDictamenAmpliadaDescripcion').val('');
+                $('#rastreoDictamenDomiciliosWrap, #rastreoDictamenAmpliadaDomiciliosWrap').empty();
+            }
+            if (typeof window.actualizarDictamenCamposPorTipo === 'function') window.actualizarDictamenCamposPorTipo();
             programarAutoguardadoDictamen();
         });
         $('#rastreoDictamenDescripcion, #rastreoDictamenAmpliadaDescripcion').on('input', function() {
@@ -2217,8 +2257,9 @@ $panel_admin_icono = isset($panel_admin_icono) ? $panel_admin_icono : 'fa-list';
                     }
                     var d = r.datos;
                     var dm = d.dictamen || {};
-                    $('#modalDetalleDictamenTipo').text(dm.tipo || '—');
-                    var descMostrar = (dm.descripcion_base !== undefined ? dm.descripcion_base : dm.descripcion) || '—';
+                    $('#modalDetalleDictamenTipo').text(typeof window.etiquetaTipoDictamenSabueso === 'function' ? window.etiquetaTipoDictamenSabueso(dm.tipo) : (dm.tipo || '—'));
+                    var descRaw = (dm.descripcion_base !== undefined ? dm.descripcion_base : dm.descripcion) || '';
+                    var descMostrar = (descRaw + '').trim() ? descRaw : ((typeof window.esTipoDictamenIlocalizable === 'function' && window.esTipoDictamenIlocalizable(dm.tipo)) ? '— (sin comentarios; dictamen ILOCALIZABLE)' : '—');
                     $('#modalDetalleDictamenDescripcion').html(window.linkifyDescripcionDictamen ? window.linkifyDescripcionDictamen(descMostrar) : $('<div>').text(descMostrar).html());
                     var domicilios = d.domicilios || [];
                     if (domicilios.length > 0) {
@@ -2415,6 +2456,12 @@ function setBotonesDictamenSistema(ds) {
         btnPro.style.display = 'none';
         return;
     }
+    if (res === 'dictamen_ilocalizable') {
+        btnGen.style.display = 'none';
+        btnPro.style.display = 'none';
+        if (btnReval) btnReval.style.display = 'none';
+        return;
+    }
     var d = ds.detalle_parsed || {};
     var noCumplidos = ['no_visito', 'visito_telefonico', 'distancia_lejana', 'visita_parcial', 'sin_coordenadas'];
     var puedeProrroga = noCumplidos.indexOf(res) !== -1
@@ -2495,7 +2542,8 @@ function buildDsResultadoHtml(resultado) {
         'prorroga_activa': 'Prórroga activa',
         'no_visito': 'No visito',
         'cumplido_pago': 'Cumplido por pago',
-        'pendiente': 'pendiente'
+        'pendiente': 'pendiente',
+        'dictamen_ilocalizable': 'ILOCALIZABLE (N/A auto.)'
     };
     var mostrar = etiquetas[s] || s;
     var short = mostrar.length > 24 ? mostrar.substring(0, 22) + '…' : mostrar;
@@ -2504,6 +2552,8 @@ function buildDsResultadoHtml(resultado) {
     var pagoLine = '';
     if (s === 'cumplido_pago') {
         pagoLine = '<span class="small text-success fw-semibold d-block mt-1">Pago: Sí</span>';
+    } else if (s === 'dictamen_ilocalizable') {
+        pagoLine = '<span class="small text-muted fw-semibold d-block mt-1" title="No aplica evaluación automática de pago">Pago: —</span>';
     } else if (s !== 'pendiente' && s !== 'prorroga_activa' && s !== '') {
         pagoLine = '<span class="small text-danger fw-semibold d-block mt-1">Pago: No</span>';
     }
@@ -2688,6 +2738,11 @@ var DICTAMEN_SISTEMA_COPY = {
         titulo: 'No cumplió prórroga',
         subtitulo: 'Prórroga agotada sin cumplimiento',
         mensajeDefault: 'Terminó la prórroga y no se acreditó pago dentro de las 12h ni cobertura total de direcciones.'
+    },
+    dictamen_ilocalizable: {
+        titulo: 'ILOCALIZABLE (dictamen Sabueso)',
+        subtitulo: 'No aplica evaluación automática por visita ni por pago',
+        mensajeDefault: 'El Sabueso clasificó el caso como ILOCALIZABLE: no se evalúa al gestor por GPS ni por estado de cuenta en ventana.'
     }
 };
 
@@ -2697,10 +2752,12 @@ function renderDictamenSistemaResultado(ds, body) {
         try { d = JSON.parse(ds.detalle) || d; } catch (e) {}
     }
     var resultado = ds.resultado || '';
+    var ilocalizableDs = resultado === 'dictamen_ilocalizable' || !!d.evaluacion_visitas_pago_no_aplica;
     var copy = DICTAMEN_SISTEMA_COPY[resultado] || { titulo: resultado, subtitulo: '', mensajeDefault: '' };
     var mensajeMostrar = (d.mensaje && String(d.mensaje).trim()) ? d.mensaje : copy.mensajeDefault;
 
     var resultadoClase = {
+        'dictamen_ilocalizable': 'info',
         'no_visito': 'danger',
         'visito_campo': 'success',
         'visito_telefonico': 'warning',
@@ -2718,7 +2775,19 @@ function renderDictamenSistemaResultado(ds, body) {
 
     // —— Bloque principal (hero) según resultado ——
     var html = '';
-    if (resultado === 'no_visito') {
+    if (ilocalizableDs) {
+        html += '<div class="rounded-3 border border-info border-opacity-50 bg-info bg-opacity-10 p-4 mb-4 text-center">';
+        html += '<div class="mb-2"><i class="fa-solid fa-ban fa-2x text-info opacity-75" title="Sin evaluación automática"></i></div>';
+        html += '<h5 class="mb-1 text-info fw-semibold">' + escHtml(copy.titulo || 'ILOCALIZABLE') + '</h5>';
+        if (d.dictamen_sabueso_etiqueta) {
+            html += '<p class="mb-1"><span class="badge bg-info text-dark">' + escHtml(d.dictamen_sabueso_etiqueta) + '</span></p>';
+        }
+        html += '<p class="text-muted small mb-3 mb-md-4">' + escHtml(copy.subtitulo || '') + '</p>';
+        html += '<div class="bg-white rounded-3 shadow-sm border p-3 text-start">';
+        html += '<div class="small text-uppercase text-muted fw-semibold mb-2">Conclusión del sistema</div>';
+        html += '<p class="mb-0 text-body" style="line-height:1.55;">' + escHtml(mensajeMostrar) + '</p>';
+        html += '</div></div>';
+    } else if (resultado === 'no_visito') {
         html += '<div class="rounded-3 border border-danger border-opacity-25 bg-danger bg-opacity-10 p-4 mb-4 text-center">';
         html += '<div class="mb-2"><i class="fa-solid fa-user-xmark fa-2x text-danger opacity-75"></i></div>';
         html += '<h5 class="mb-1 text-danger fw-semibold">' + copy.titulo + '</h5>';
@@ -2767,22 +2836,30 @@ function renderDictamenSistemaResultado(ds, body) {
 
     // Reglas de cumplimiento: pago dentro de las 12h + cobertura de direcciones
     // Si __SPARTA_SECRET_REDACTED___consultado no existe (dictámenes antiguos), se considera consultado → Sí/No
-    var pagoWin = !!d.pago_en_ventana;
-    var estadoCuentaConsultado = (d.__SPARTA_SECRET_REDACTED___consultado !== false);
-    var pagoWinTxt = pagoWin ? 'Sí' : (estadoCuentaConsultado ? 'No' : 'No se pudo verificar');
-    var pagoWinCls = pagoWin ? 'text-success' : (estadoCuentaConsultado ? 'text-danger' : 'text-warning');
+    var pagoWinTxt, pagoWinCls, estadoCuentaConsultado;
+    if (ilocalizableDs) {
+        pagoWinTxt = '—';
+        pagoWinCls = 'text-muted';
+        estadoCuentaConsultado = true;
+    } else {
+        var pagoWin = !!d.pago_en_ventana;
+        estadoCuentaConsultado = (d.__SPARTA_SECRET_REDACTED___consultado !== false);
+        pagoWinTxt = pagoWin ? 'Sí' : (estadoCuentaConsultado ? 'No' : 'No se pudo verificar');
+        pagoWinCls = pagoWin ? 'text-success' : (estadoCuentaConsultado ? 'text-danger' : 'text-warning');
+    }
     var dirTot = (d.direcciones_dictamen_total != null ? d.direcciones_dictamen_total : (d.domicilios_dictamen_total != null ? d.domicilios_dictamen_total : '—'));
     var dirVis = (d.direcciones_visitadas != null ? d.direcciones_visitadas : '—');
+    var dirLine = ilocalizableDs ? '—' : (dirVis + ' / ' + dirTot);
     html += '<div class="card border-0 shadow-sm mb-3"><div class="card-body py-3 px-3">';
     html += '<div class="row g-3">';
-    html += '<div class="col-md-4"><div class="text-muted small">Pago dentro de las 12h</div><div class="fw-semibold ' + pagoWinCls + '" title="' + (estadoCuentaConsultado ? '' : 'Estado de cuenta no disponible al momento de evaluar.') + '">' + escHtml(pagoWinTxt) + '</div></div>';
-    html += '<div class="col-md-4"><div class="text-muted small">Direcciones visitadas</div><div class="fw-semibold">' + dirVis + ' / ' + dirTot + '</div></div>';
+    html += '<div class="col-md-4"><div class="text-muted small">Pago dentro de las 12h</div><div class="fw-semibold ' + pagoWinCls + '" title="' + (ilocalizableDs ? 'No aplica evaluación automática' : (estadoCuentaConsultado ? '' : 'Estado de cuenta no disponible al momento de evaluar.')) + '">' + escHtml(pagoWinTxt) + '</div></div>';
+    html += '<div class="col-md-4"><div class="text-muted small">Direcciones visitadas</div><div class="fw-semibold">' + escHtml(dirLine) + '</div></div>';
     html += '<div class="col-md-4"><div class="text-muted small">Regla aplicada</div><div class="fw-semibold small">' + escHtml((d.cumplimiento_etiqueta || '—')) + '</div></div>';
     html += '</div>';
 
     // Detalle por domicilio: cuáles visitados y cuáles faltan (cobertura_direcciones del backend)
     var cob = d.cobertura_direcciones;
-    if (Array.isArray(cob) && cob.length > 0) {
+    if (!ilocalizableDs && Array.isArray(cob) && cob.length > 0) {
         var visitadas = [];
         var faltan = [];
         for (var ci = 0; ci < cob.length; ci++) {
@@ -2809,14 +2886,16 @@ function renderDictamenSistemaResultado(ds, body) {
     if (d.ventana_revision && d.ventana_revision.inicio) {
         html += '<div class="small text-muted mt-2"><i class="fa-regular fa-clock me-1"></i>Ventana evaluada: ' + escHtml(d.ventana_revision.inicio || '—') + ' a ' + escHtml(d.ventana_revision.fin || '—') + ' (' + escHtml(d.ventana_revision.tipo || '12h') + ')</div>';
     }
-    html += '<div class="small text-muted mt-1"><i class="fa-solid fa-circle-info me-1"></i>“Gestiones nuevas en la ventana” = registros creados después del envío del dictamen (o después de otorgar prórroga, si aplica).</div>';
+    html += '<div class="small text-muted mt-1"><i class="fa-solid fa-circle-info me-1"></i>' + (ilocalizableDs
+        ? 'En ILOCALIZABLE no se usa la comparación GPS ni el estado de cuenta para calificar al gestor.'
+        : '“Gestiones nuevas en la ventana” = registros creados después del envío del dictamen (o después de otorgar prórroga, si aplica).') + '</div>';
     html += '</div></div>';
 
     if (ds.nombre_gestor) {
         html += '<div class="small text-muted mb-3"><i class="fa-solid fa-user me-1"></i>Ticket levantado por: <strong>' + escHtml(ds.nombre_gestor) + '</strong></div>';
     }
 
-    if (d.prorroga && d.prorroga.otorgada) {
+    if (!ilocalizableDs && d.prorroga && d.prorroga.otorgada) {
         html += '<div class="alert alert-warning small">';
         html += '<div><strong><i class="fa-solid fa-hourglass-half me-1"></i>Prórroga:</strong> ' + (d.prorroga.evaluada ? 'Evaluada' : 'Activa') + '</div>';
         html += '<div>Otorgada: ' + escHtml(d.prorroga.fecha_otorgada || '—') + ' · Límite: ' + escHtml(d.prorroga.fecha_limite || '—') + '</div>';
@@ -2825,7 +2904,7 @@ function renderDictamenSistemaResultado(ds, body) {
     }
 
     // Análisis detallado
-    if (d.analisis && d.analisis.length > 0) {
+    if (!ilocalizableDs && d.analisis && d.analisis.length > 0) {
         html += '<h6 class="fw-semibold mb-2"><i class="fa-solid fa-list-check me-1 text-secondary"></i>Detalle de gestiones nuevas</h6>';
         for (var i = 0; i < d.analisis.length; i++) {
             var a = d.analisis[i];
@@ -2852,7 +2931,7 @@ function renderDictamenSistemaResultado(ds, body) {
         }
     }
 
-    if (d.coords_dictamen && d.coords_dictamen.length > 0) {
+    if (!ilocalizableDs && d.coords_dictamen && d.coords_dictamen.length > 0) {
         html += '<h6 class="fw-semibold mt-3 mb-2"><i class="fa-solid fa-map-pin me-1 text-secondary"></i>Referencias del dictamen</h6>';
         for (var k = 0; k < d.coords_dictamen.length; k++) {
             var cd = d.coords_dictamen[k];

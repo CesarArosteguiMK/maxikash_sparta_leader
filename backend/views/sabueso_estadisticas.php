@@ -640,7 +640,7 @@ $seccionesEstadisticas = isset($seccionesEstadisticas) && is_array($seccionesEst
             </div>
         </div>
         <div class="col-xl-3 col-lg-6 col-md-6">
-            <div class="card h-100 border-0 estad-glass estad-kpi-card">
+            <div class="card h-100 border-0 estad-glass estad-kpi-card" title="Cantidad histórica de tickets cerrados. La barra muestra 100% como referencia visual (no es un % sobre activos).">
                 <div class="card-body position-relative pt-4 pb-3">
                     <div class="position-absolute top-0 end-0 mt-3 me-3 estad-icon-box estad-icon-cerrados" aria-hidden="true">
                         <i class="fa-solid fa-clipboard-check"></i>

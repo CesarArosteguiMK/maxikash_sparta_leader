@@ -9,25 +9,19 @@
 date_default_timezone_set('America/Mexico_City');
 
 $raiz = dirname(__DIR__);
-$configFile = $raiz . '/config/config.ini';
-if (!is_file($configFile)) {
-    fwrite(STDERR, "Error: No se encontró config.ini\n");
+require_once __DIR__ . '/bootstrap_db_tickets.php';
+
+try {
+    $esquema = sparta_bootstrap_db_tickets(isset($argv) ? $argv : []);
+} catch (Throwable $e) {
+    fwrite(STDERR, $e->getMessage() . "\n");
     exit(1);
 }
-$config = @parse_ini_file($configFile, true);
-if (empty($config['database'])) {
-    fwrite(STDERR, "Error: No existe sección [database] en config.ini\n");
-    exit(1);
-}
-$dbConfig = $config['database'];
-putenv('DB_SERVIDOR=' . trim($dbConfig['SERVIDOR'] ?? ''));
-putenv('DB_ESQUEMA=' . trim($dbConfig['ESQUEMA'] ?? '__SPARTA_SECRET_REDACTED__'));
-putenv('DB_USUARIO=' . trim($dbConfig['USUARIO'] ?? ''));
-putenv('DB_PASSWORD=' . trim($dbConfig['PASSWORD'] ?? ''));
 
 require_once $raiz . '/core/Database.php';
 
 $db = new \Core\Database();
+echo "ALTER ticket → base de datos: {$esquema}\n";
 
 // Permitir NULL en id_credito (tickets por categoría plantilla, viáticos, etc. no llevan crédito).
 // Si su columna es INT (no UNSIGNED), use: MODIFY COLUMN id_credito INT NULL DEFAULT NULL

@@ -142,7 +142,7 @@ $mostrarModalFormBuilderLectura = !empty($tickets_panel_modal_form_builder_lectu
 #modalResumenTicket .rt-badge { font-size: 0.75rem; font-weight: 700; padding: 5px 10px; border-radius: 8px; color: #fff; }
 #modalResumenTicket .rt-badge-estado { background: #166534; }
 #modalResumenTicket .rt-badge-prioridad { background: #fd7e14; }
-#modalResumenTicket .rt-meta-bar { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0; background: #f1f5f9; padding: 12px 16px; border-bottom: 1px solid #e2e8f0; font-size: 0.8rem; }
+#modalResumenTicket .rt-meta-bar { display: grid; grid-template-columns: repeat(6, 1fr); gap: 0; background: #f1f5f9; padding: 12px 16px; border-bottom: 1px solid #e2e8f0; font-size: 0.8rem; }
 #modalResumenTicket .rt-meta-cell { padding: 0 12px; border-right: 1px solid #e2e8f0; }
 #modalResumenTicket .rt-meta-cell:last-child { border-right: none; }
 @media (max-width: 768px) {
@@ -279,6 +279,7 @@ $mostrarModalFormBuilderLectura = !empty($tickets_panel_modal_form_builder_lectu
             </div>
             <div class="rt-meta-bar">
                 <div class="rt-meta-cell"><div class="rt-meta-lbl">De</div><div class="rt-meta-val" id="resumenTicketDe">—</div></div>
+                <div class="rt-meta-cell"><div class="rt-meta-lbl">Asignado por</div><div class="rt-meta-val" id="resumenTicketAsignadoPor">—</div></div>
                 <div class="rt-meta-cell"><div class="rt-meta-lbl">Fecha</div><div class="rt-meta-val" id="resumenTicketFecha">—</div></div>
                 <div class="rt-meta-cell"><div class="rt-meta-lbl">Vence</div><div class="rt-meta-val rt-vence" id="resumenTicketVence">—</div></div>
                 <div class="rt-meta-cell"><div class="rt-meta-lbl">Estado</div><div class="rt-meta-val" id="resumenTicketEstado">—</div></div>

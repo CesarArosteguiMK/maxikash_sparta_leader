@@ -67,5 +67,9 @@ backend/storage/reporte_semanal_global/*.json
 backend/services/segundometro-agent/
 backend/services/segundometro-agent/**
 
+# ========== Agente correos primeros pagos — SÍ VA AL REPOSITORIO ==========
+# backend/services/correos-primeros-pagos-agent/ está versionado (package.json, index.js, .bat, etc.).
+# En el servidor: git pull + npm ci o instalar-agente.bat. node_modules/ y .env siguen en .gitignore de esa carpeta.
+
 # ========== Pruebas OCR (no subir; puedes copiar archivos nuevos, no se subirán) ==========
 pruebas_OCR/

@@ -64,6 +64,37 @@ class Ticket extends Model
             }
         }
         $selColsNotaUrl = $tieneNotaUrl ? "t.nota, t.url_direccion, " : "";
+        $tieneColQuienAsigno = false;
+        try {
+            $colQ = $db->queryOne("SELECT 1 AS ok FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'asignacion_ticket' AND COLUMN_NAME = 'id_persona_quien_asigno' LIMIT 1");
+            $tieneColQuienAsigno = !empty($colQ);
+        } catch (\Exception $e) {
+            $tieneColQuienAsigno = false;
+        }
+        $tieneTablaMotivo = false;
+        try {
+            $tabM = $db->queryOne("SELECT 1 AS ok FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'asignacion_ticket_motivo' LIMIT 1");
+            $tieneTablaMotivo = !empty($tabM);
+        } catch (\Exception $e) {
+            $tieneTablaMotivo = false;
+        }
+        $atSubSel = 'at1.id_ticket, at1.id_persona_asignada, at1.id_asignacion';
+        if ($tieneColQuienAsigno) {
+            $atSubSel .= ', at1.id_persona_quien_asigno';
+        }
+        $atJoinSub = 'LEFT JOIN (SELECT ' . $atSubSel . ' FROM asignacion_ticket at1 INNER JOIN (SELECT id_ticket, MAX(fecha_asignacion) AS max_fecha FROM asignacion_ticket WHERE (activo = 1 OR activo IS NULL) GROUP BY id_ticket) at2 ON at1.id_ticket = at2.id_ticket AND at1.fecha_asignacion = at2.max_fecha WHERE (at1.activo = 1 OR at1.activo IS NULL)) at ON at.id_ticket = t.id_ticket ';
+        $joinPa = 'LEFT JOIN persona pa ON at.id_persona_asignada = pa.id ';
+        $joinPqj = $tieneColQuienAsigno ? 'LEFT JOIN persona pqj ON pqj.id = at.id_persona_quien_asigno ' : '';
+        $motivoSub = '(SELECT TRIM(CONCAT(TRIM(IFNULL(pcap.nombres, \'\')), \' \', TRIM(IFNULL(pcap.apellidop, \'\')))) FROM asignacion_ticket_motivo mm INNER JOIN persona pcap ON pcap.id = mm.id_persona_capo WHERE mm.id_asignacion_ticket = at.id_asignacion ORDER BY mm.id_motivo DESC LIMIT 1)';
+        if ($tieneColQuienAsigno) {
+            $selAsignadoPor = 'COALESCE(NULLIF(TRIM(CONCAT(TRIM(IFNULL(pqj.nombres, \'\')), \' \', TRIM(IFNULL(pqj.apellidop, \'\')))), \'\'), '
+                . ($tieneTablaMotivo ? $motivoSub : 'NULL')
+                . ') AS asignado_por_nombre, ';
+        } elseif ($tieneTablaMotivo) {
+            $selAsignadoPor = $motivoSub . ' AS asignado_por_nombre, ';
+        } else {
+            $selAsignadoPor = "'' AS asignado_por_nombre, ";
+        }
         $baseSelect = "SELECT DISTINCT t.id_ticket, t.folio, t.id_credito, t.descripcion_inicial, t.fecha_creacion, t.fecha_vencimiento, " .
             $selCategoria .
             $selColsCategoria .
@@ -71,6 +102,7 @@ class Ticket extends Model
             "tt.nombre AS tipo_ticket_nombre, et.nombre AS estado_ticket_nombre, pt.nombre AS prioridad_nombre, ot.nombre AS origen_nombre, " .
             "CONCAT(TRIM(IFNULL(p.nombres, '')), ' ', TRIM(IFNULL(p.apellidop, ''))) AS creador_nombre, " .
             "at.id_persona_asignada, CONCAT(TRIM(IFNULL(pa.nombres, '')), ' ', TRIM(IFNULL(pa.apellidop, ''))) AS asignado_nombre, " .
+            $selAsignadoPor .
             "dm.dictamen_estado, dm.dictamen_fecha_visto, dm.dictamen_fecha_envio, " .
             "dsm.ds_resultado, dsm.ds_detalle " .
             "FROM ticket t " .
@@ -79,8 +111,9 @@ class Ticket extends Model
             "INNER JOIN prioridad_ticket pt ON t.id_prioridad = pt.id_prioridad " .
             "INNER JOIN origen_ticket ot ON t.id_origen_ticket = ot.id_origen_ticket " .
             "INNER JOIN persona p ON t.id_persona_creador = p.id " .
-            "LEFT JOIN (SELECT at1.id_ticket, at1.id_persona_asignada FROM asignacion_ticket at1 INNER JOIN (SELECT id_ticket, MAX(fecha_asignacion) AS max_fecha FROM asignacion_ticket WHERE (activo = 1 OR activo IS NULL) GROUP BY id_ticket) at2 ON at1.id_ticket = at2.id_ticket AND at1.fecha_asignacion = at2.max_fecha WHERE (at1.activo = 1 OR at1.activo IS NULL)) at ON at.id_ticket = t.id_ticket " .
-            "LEFT JOIN persona pa ON at.id_persona_asignada = pa.id " .
+            $atJoinSub .
+            $joinPa .
+            $joinPqj .
             "LEFT JOIN (SELECT d.id_ticket, d.estado AS dictamen_estado, d.fecha_visto_gestor AS dictamen_fecha_visto, d.fecha_actualizacion AS dictamen_fecha_envio FROM dictamen d INNER JOIN (SELECT id_ticket, MAX(id) AS mid FROM dictamen GROUP BY id_ticket) mx ON d.id_ticket = mx.id_ticket AND d.id = mx.mid) dm ON dm.id_ticket = t.id_ticket " .
             "LEFT JOIN (SELECT ds1.id_ticket, ds1.resultado AS ds_resultado, ds1.detalle AS ds_detalle FROM dictamen_sistema ds1 INNER JOIN (SELECT id_ticket, MAX(id) AS mid FROM dictamen_sistema GROUP BY id_ticket) dsmx ON ds1.id_ticket = dsmx.id_ticket AND ds1.id = dsmx.mid) dsm ON dsm.id_ticket = t.id_ticket ";
 
@@ -217,6 +250,8 @@ class Ticket extends Model
                         $pagoLine = '';
                         if ($dsRes === 'cumplido_pago') {
                             $pagoLine = '<span class="small text-success fw-semibold d-block mt-1">Pago: Sí</span>';
+                        } elseif ($dsRes === 'dictamen_ilocalizable') {
+                            $pagoLine = '<span class="small text-muted fw-semibold d-block mt-1" title="No aplica evaluación automática de pago">Pago: —</span>';
                         } elseif (is_array($det) && array_key_exists('pago_en_ventana', $det)) {
                             // Dictámenes antiguos sin __SPARTA_SECRET_REDACTED___consultado se tratan como consultados
                             $consultado = !array_key_exists('__SPARTA_SECRET_REDACTED___consultado', $det) || !empty($det['__SPARTA_SECRET_REDACTED___consultado']);
@@ -825,16 +860,39 @@ class Ticket extends Model
     }
 
     /**
+     * Si existe la columna id_persona_quien_asigno en asignacion_ticket (script de migración).
+     */
+    private static function asignacionTicketTieneColumnaQuienAsigno(): bool
+    {
+        static $cache = null;
+        if ($cache !== null) {
+            return $cache;
+        }
+        try {
+            $db = new Database();
+            $col = $db->queryOne("SELECT 1 AS ok FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'asignacion_ticket' AND COLUMN_NAME = 'id_persona_quien_asigno' LIMIT 1");
+            $cache = !empty($col);
+        } catch (\Exception $e) {
+            $cache = false;
+        }
+
+        return $cache;
+    }
+
+    /**
      * Asigna un ticket a una persona usando la tabla asignacion_ticket.
      * Desactiva la asignación anterior (activo=0, fecha_liberacion=ahora CDMX) e inserta la nueva.
+     *
+     * @param int|null $idPersonaQuienAsigno persona que ejecuta la asignación (p. ej. jefe territorial); opcional
      */
-    public static function asignar($idTicket, $idPersona)
+    public static function asignar($idTicket, $idPersona, $idPersonaQuienAsigno = null)
     {
         $tid = (int)$idTicket;
         $pid = (int)$idPersona;
         if ($tid < 1 || $pid < 1) {
             return self::resultado(false, 'ID de ticket o persona inválido.', null);
         }
+        $quien = $idPersonaQuienAsigno !== null ? (int)$idPersonaQuienAsigno : 0;
         try {
             $db = new Database();
             $now = self::ahoraCdmx();
@@ -842,10 +900,17 @@ class Ticket extends Model
                 "UPDATE asignacion_ticket SET activo = 0, fecha_liberacion = :ahora WHERE id_ticket = :id_ticket AND (activo = 1 OR activo IS NULL)",
                 ['ahora' => $now, 'id_ticket' => $tid]
             );
-            $db->CRUD(
-                "INSERT INTO asignacion_ticket (id_ticket, id_persona_asignada, fecha_asignacion, activo) VALUES (:id_ticket, :id_persona, :fecha_asignacion, 1)",
-                ['id_ticket' => $tid, 'id_persona' => $pid, 'fecha_asignacion' => $now]
-            );
+            if (self::asignacionTicketTieneColumnaQuienAsigno() && $quien > 0) {
+                $db->CRUD(
+                    "INSERT INTO asignacion_ticket (id_ticket, id_persona_asignada, id_persona_quien_asigno, fecha_asignacion, activo) VALUES (:id_ticket, :id_persona, :quien, :fecha_asignacion, 1)",
+                    ['id_ticket' => $tid, 'id_persona' => $pid, 'quien' => $quien, 'fecha_asignacion' => $now]
+                );
+            } else {
+                $db->CRUD(
+                    "INSERT INTO asignacion_ticket (id_ticket, id_persona_asignada, fecha_asignacion, activo) VALUES (:id_ticket, :id_persona, :fecha_asignacion, 1)",
+                    ['id_ticket' => $tid, 'id_persona' => $pid, 'fecha_asignacion' => $now]
+                );
+            }
             $idAsignacion = $db->lastInsertId();
             if ($idAsignacion < 1) {
                 $rowId = $db->queryOne(
@@ -1637,7 +1702,38 @@ class Ticket extends Model
     }
 
     /**
-     * Guardar dictamen como borrador (insert o update). tipo y descripcion obligatorios.
+     * Tipos de dictamen permitidos (catálogo actual + valores legado en BD).
+     */
+    public static function tiposDictamenPermitidos(): array
+    {
+        return ['ilocalizable', 'localizable', 'dual_zonificacion', 'falta_intensidad_gestion', 'localizado', 'no_localizado', 'promesa_pago', 'otro'];
+    }
+
+    /** Dictamen tipo ILOCALIZABLE: no requiere comentarios ni evidencia. */
+    public static function esTipoDictamenIlocalizable(string $tipo): bool
+    {
+        return strtolower(trim($tipo)) === 'ilocalizable';
+    }
+
+    /** Etiqueta legible para tipo de dictamen (modal gestor, PDFs, etc.). */
+    public static function etiquetaTipoDictamen(string $tipo): string
+    {
+        $t = strtolower(trim($tipo));
+        $map = [
+            'ilocalizable' => 'ILOCALIZABLE',
+            'localizable' => 'LOCALIZABLE',
+            'dual_zonificacion' => 'DUAL || ZONIFICACIÓN',
+            'falta_intensidad_gestion' => 'FALTA INTENSIDAD DE GESTION',
+            'localizado' => 'Localizado',
+            'no_localizado' => 'No localizado',
+            'promesa_pago' => 'Promesa de pago',
+            'otro' => 'Otro',
+        ];
+        return $map[$t] ?? ($tipo !== '' ? $tipo : '—');
+    }
+
+    /**
+     * Guardar dictamen como borrador (insert o update). tipo obligatorio; descripción obligatoria salvo ILOCALIZABLE.
      */
     public static function guardarDictamenBorrador($idTicket, $idPersona, $tipo, $descripcion)
     {
@@ -1645,7 +1741,13 @@ class Ticket extends Model
         $pid = (int)$idPersona;
         $tipo = trim((string)$tipo);
         $descripcion = self::normalizarDescripcionDictamenConMaps((string)$descripcion);
-        if ($tid < 1 || $pid < 1 || $tipo === '' || $descripcion === '') {
+        if ($tid < 1 || $pid < 1 || $tipo === '') {
+            return self::resultado(false, 'Faltan datos del dictamen (tipo).');
+        }
+        if (!in_array(strtolower((string)$tipo), self::tiposDictamenPermitidos(), true)) {
+            return self::resultado(false, 'Tipo de dictamen no válido.');
+        }
+        if (!self::esTipoDictamenIlocalizable($tipo) && $descripcion === '') {
             return self::resultado(false, 'Faltan tipo o descripción.');
         }
         if (strlen($descripcion) > 12000) {
@@ -1713,8 +1815,11 @@ class Ticket extends Model
             }
             $tipo = trim((string)($actual['tipo'] ?? ''));
             $descripcion = trim((string)($actual['descripcion'] ?? ''));
-            if ($tipo === '' || $descripcion === '') {
-                return self::resultado(false, 'Debe seleccionar el tipo de dictamen y escribir una descripción antes de enviar al gestor.');
+            if ($tipo === '') {
+                return self::resultado(false, 'Debe seleccionar el tipo de dictamen antes de enviar al gestor.');
+            }
+            if (!self::esTipoDictamenIlocalizable($tipo) && $descripcion === '') {
+                return self::resultado(false, 'Debe escribir una descripción o comentarios antes de enviar al gestor (salvo tipo ILOCALIZABLE).');
             }
             // Autor del envío: si el borrador ya tenía id_persona se respeta; si no, el remitente en sesión (evita por_sabueso vacío)
             $idPersonaRow = (int)($actual['id_persona'] ?? 0);
@@ -2149,6 +2254,56 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                 return self::resultado(false, 'Aún no vence ' . $tipo . ' de 12 horas. Restante aproximado: ' . $h . 'h ' . $m . 'm.');
             }
 
+            $idDictamenSab = (int)($ds['id_dictamen'] ?? 0);
+            $dictamenRowSab = $idDictamenSab > 0
+                ? $db->queryOne(
+                    "SELECT descripcion, tipo FROM dictamen WHERE id = :id LIMIT 1",
+                    ['id' => $idDictamenSab]
+                )
+                : null;
+            $tipoDictamenSab = strtolower(trim((string)($dictamenRowSab['tipo'] ?? '')));
+            if (self::esTipoDictamenIlocalizable($tipoDictamenSab)) {
+                $gestionesAhoraIl = Gestiones::getAllGestiones((string)$idCredito, '');
+                $totalAhoraIl = is_array($gestionesAhoraIl) ? count($gestionesAhoraIl) : 0;
+                $nuevasIl = $totalAhoraIl > $totalAntes ? ($totalAhoraIl - $totalAntes) : 0;
+                $etiqTipo = self::etiquetaTipoDictamen($tipoDictamenSab);
+                $cmp = self::cumplimientoMetadatos('dictamen_ilocalizable');
+                $detalleIl = [
+                    'gestiones_antes' => $totalAntes,
+                    'gestiones_ahora' => $totalAhoraIl,
+                    'nuevas_gestiones' => $nuevasIl,
+                    'mensaje' => 'El dictamen del Sabueso es ILOCALIZABLE: no aplica evaluación automática por visita en campo ni por pago en ventana; no se penaliza al gestor por esos criterios.',
+                    'evaluacion_visitas_pago_no_aplica' => true,
+                    'dictamen_sabueso_tipo' => $tipoDictamenSab,
+                    'dictamen_sabueso_etiqueta' => $etiqTipo,
+                    'ventana_revision' => [
+                        'inicio' => $fechaInicioWin,
+                        'fin' => $fechaFinWin,
+                        'tipo' => $esRevisionProrroga ? 'prorroga_12h' : 'inicial_12h',
+                    ],
+                    '__SPARTA_SECRET_REDACTED___consultado' => true,
+                    'pago_en_ventana' => false,
+                    'pago_evaluacion_no_aplica' => true,
+                ];
+                if ($esRevisionProrroga && !empty($prorrogaPrev)) {
+                    $prorrogaPrev['evaluada'] = true;
+                    $prorrogaPrev['fecha_revision'] = $now;
+                    $prorrogaPrev['resultado_final'] = 'dictamen_ilocalizable';
+                    $detalleIl['prorroga'] = $prorrogaPrev;
+                }
+                $detalleIl = array_merge($detalleIl, $cmp);
+                $detalleJson = json_encode($detalleIl, JSON_UNESCAPED_UNICODE);
+                $db->CRUD(
+                    "UPDATE dictamen_sistema SET gestiones_al_revisar = :ga, resultado = :res, detalle = :d, fecha_revision = :fr WHERE id = :id",
+                    ['ga' => $totalAhoraIl, 'res' => 'dictamen_ilocalizable', 'd' => $detalleJson, 'fr' => $now, 'id' => (int)$ds['id']]
+                );
+
+                return self::resultado(true, 'Dictamen del sistema generado (ILOCALIZABLE: sin evaluación GPS/pago).', [
+                    'resultado' => 'dictamen_ilocalizable',
+                    'detalle' => json_decode($detalleJson, true),
+                ]);
+            }
+
             $resPagos = self::getPagosEstadoCuentaEnVentana($idCredito, $fechaInicioWin, $fechaFinWin);
             $pagosEnVentana = is_array($resPagos['pagos'] ?? null) ? $resPagos['pagos'] : [];
             $hayPagoEnVentana = !empty($pagosEnVentana);
@@ -2159,11 +2314,7 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
             $nuevas = $totalAhora > $totalAntes ? array_slice($gestionesAhora, 0, $totalAhora - $totalAntes) : [];
 
             // Obtener direcciones y coordenadas del dictamen (direcciones proporcionadas)
-            $dictamenRow = $db->queryOne(
-                "SELECT descripcion FROM dictamen WHERE id = :id LIMIT 1",
-                ['id' => (int)$ds['id_dictamen']]
-            );
-            $dictamenDescripcion = (string)($dictamenRow['descripcion'] ?? '');
+            $dictamenDescripcion = (string)($dictamenRowSab['descripcion'] ?? '');
             $parsedDomicilios = self::parsearDomiciliosDictamen($dictamenDescripcion);
             $domiciliosDictamen = is_array($parsedDomicilios['domicilios'] ?? null) ? $parsedDomicilios['domicilios'] : [];
             $coordsDictamen = self::extraerCoordenadasDictamen($dictamenDescripcion);
@@ -2375,6 +2526,18 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                 return self::resultado(false, 'Debe generar primero el dictamen del sistema inicial.');
             }
 
+            $idDictamenPr = (int)($ds['id_dictamen'] ?? 0);
+            if ($idDictamenPr > 0) {
+                $rowTipo = $db->queryOne(
+                    "SELECT tipo FROM dictamen WHERE id = :id LIMIT 1",
+                    ['id' => $idDictamenPr]
+                );
+                $tipoPr = strtolower(trim((string)($rowTipo['tipo'] ?? '')));
+                if (self::esTipoDictamenIlocalizable($tipoPr)) {
+                    return self::resultado(false, 'No aplica prórroga: el dictamen del Sabueso es ILOCALIZABLE (no se evalúa por visita/pago automático).');
+                }
+            }
+
             $detalle = !empty($ds['detalle']) ? json_decode($ds['detalle'], true) : [];
             if (!is_array($detalle)) {
                 $detalle = [];
@@ -2558,7 +2721,7 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
     private static function reporteSemanalGlobalArchivoPath(string $semanaInicioYmd): string
     {
         $safe = preg_match('/^\d{4}-\d{2}-\d{2}$/', $semanaInicioYmd) ? $semanaInicioYmd : 'invalido';
-        return self::reporteSemanalGlobalArchivoDir() . DIRECTORY_SEPARATOR . 'reporte_semanal_global_v2_' . $safe . '.json';
+        return self::reporteSemanalGlobalArchivoDir() . DIRECTORY_SEPARATOR . 'reporte_semanal_global_v3_' . $safe . '.json';
     }
 
     /**
@@ -2589,7 +2752,7 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
         }
         $path = self::reporteSemanalGlobalArchivoPath($semanaInicioYmd);
         $payload['_archivo_meta'] = [
-            'version' => 2,
+            'version' => 3,
             'generado_en' => self::ahoraCdmx(),
             'semana_inicio' => $semanaInicioYmd,
         ];
@@ -2813,6 +2976,11 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
     {
         $r = $resultado ?? 'pendiente';
         $map = [
+            'dictamen_ilocalizable' => [
+                'pct_efectividad' => null,
+                'cumplimiento_etiqueta' => 'N/A — ILOCALIZABLE',
+                'medidas_preventivas' => 'El Sabueso clasificó el caso como ILOCALIZABLE: no corresponde evaluar al gestor por visita en campo ni por pago en ventana. Las reglas automáticas de GPS y estado de cuenta no aplican.',
+            ],
             'pendiente' => [
                 'pct_efectividad' => null,
                 'cumplimiento_etiqueta' => 'Pendiente',
@@ -3308,6 +3476,8 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
         // Inicio de semana en CDMX (no CURDATE() del servidor)
         $inicioSemanaLunes = "'" . self::inicioSemanaLunesCdmx() . "'";
         $whereActivo = '(t.activo = 1 OR t.activo IS NULL) AND (t.fecha_eliminacion IS NULL)';
+        $andSabueso = self::andTicketSoloSabuesoSql($db);
+        $whereActivo .= $andSabueso;
         $out = [
             'success' => true,
             'mensaje' => 'OK',
@@ -3340,7 +3510,9 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
         }
         try {
             $row = $db->queryOne(
-                "SELECT COUNT(DISTINCT id_ticket) AS c FROM ticket_historico WHERE tipo_accion = 'cerrado'"
+                "SELECT COUNT(DISTINCT th.id_ticket) AS c FROM ticket_historico th " .
+                "INNER JOIN ticket t ON t.id_ticket = th.id_ticket " .
+                "WHERE th.tipo_accion = 'cerrado'" . $andSabueso
             );
             $out['totales']['tickets_cerrados'] = (int)($row['c'] ?? 0);
         } catch (\Exception $e) {
@@ -3953,6 +4125,7 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
     {
         $db = new Database();
         $whereActivo = '(t.activo = 1 OR t.activo IS NULL) AND (t.fecha_eliminacion IS NULL)';
+        $whereActivo .= self::andTicketSoloSabuesoSql($db);
         $pid = (int)$idPersonaAutor;
         if ($pid < 1) {
             return ['success' => false, 'mensaje' => 'ID inválido', 'nombre' => '', 'filas' => []];
@@ -4036,6 +4209,7 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
     {
         $db = new Database();
         $whereActivo = '(t.activo = 1 OR t.activo IS NULL) AND (t.fecha_eliminacion IS NULL)';
+        $whereActivo .= self::andTicketSoloSabuesoSql($db);
         $cid = (int)$idPersonaCreador;
         if ($cid < 1) {
             return ['success' => false, 'mensaje' => 'ID inválido', 'nombre' => '', 'filas' => [], 'total' => 0, 'page' => 1, 'per_page' => $perPage];
@@ -4338,7 +4512,7 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
             $semanaSelInicio = $semanaSelDt->format('Y-m-d') . ' 00:00:00';
             $semanaSelFinExcl = $semanaSelDt->modify('+7 days')->format('Y-m-d') . ' 00:00:00';
             $semanaSelFinIncl = $semanaSelDt->modify('+6 days')->format('Y-m-d') . ' 23:59:59';
-            $cacheKey = 'reporte_semanal_global:v2:' . $semanaSelDt->format('Y-m-d');
+            $cacheKey = 'reporte_semanal_global:v3:' . $semanaSelDt->format('Y-m-d');
             $cacheHit = self::statsCacheRead($cacheKey, 300);
             if (is_array($cacheHit) && !empty($cacheHit['success'])) {
                 return $cacheHit;
@@ -4400,7 +4574,7 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
 
             $rows = $db->queryAll(
                 "SELECT t.id_ticket, t.folio, t.id_credito, t.id_persona_creador, t.fecha_creacion, " .
-                "d.fecha_actualizacion AS dictamen_envio " .
+                "d.fecha_actualizacion AS dictamen_envio, d.tipo AS dictamen_tipo_sabueso " .
                 "FROM ticket t " .
                 "INNER JOIN dictamen d ON d.id_ticket = t.id_ticket AND d.estado = 'enviado_al_gestor' " .
                 "INNER JOIN (SELECT id_ticket, MAX(fecha_actualizacion) AS mx FROM dictamen WHERE estado = 'enviado_al_gestor' GROUP BY id_ticket) dm " .
@@ -4481,9 +4655,10 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                 $pagoProrroga = null;
                 $tipoContacto = '—'; // Campo | Telefónica | —
                 $detJson = null;
+                $res = '';
                 if ($tid > 0 && isset($dsPorTicket[$tid])) {
                     $ds = $dsPorTicket[$tid];
-                    $res = (string)($ds['resultado'] ?? '');
+                    $res = trim((string)($ds['resultado'] ?? ''));
                     $detJson = !empty($ds['detalle']) ? json_decode($ds['detalle'], true) : null;
                     if ($res === 'visito_telefonico') {
                         $tipoContacto = 'Telefónica';
@@ -4535,9 +4710,13 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                     }
                 }
 
-                // Regla operativa solicitada:
-                // ilocalizable = visitó todas direcciones del dictamen y NO pagó en la semana reportada.
-                $esIlocalizable = ($fueDirecciones === true) && !empty($pagoSemana['consultado']) && empty($pagoSemana['si']);
+                // Ilocalizable en reporte semanal:
+                // (a) dictamen al gestor tipo Sabueso ILOCALIZABLE, o DS resultado dictamen_ilocalizable;
+                // (b) regla operativa: visitó todas las direcciones y NO pagó en la semana (EC consultado).
+                $esIlocalizableOperativo = ($fueDirecciones === true) && !empty($pagoSemana['consultado']) && empty($pagoSemana['si']);
+                $esIlocalizablePorDictamen = self::esTipoDictamenIlocalizable((string)($r['dictamen_tipo_sabueso'] ?? ''));
+                $esIlocalizablePorDs = ($res === 'dictamen_ilocalizable');
+                $esIlocalizable = $esIlocalizableOperativo || $esIlocalizablePorDictamen || $esIlocalizablePorDs;
 
                 $filas[] = [
                     'id_ticket' => $tid,
@@ -4657,7 +4836,7 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
             $semanaSelFinIncl = $semanaSelDt->modify('+6 days')->format('Y-m-d') . ' 23:59:59';
 
             $row = $db->queryOne(
-                "SELECT t.id_ticket, t.id_credito " .
+                "SELECT t.id_ticket, t.id_credito, d.tipo AS dictamen_tipo_sabueso " .
                 "FROM ticket t " .
                 "INNER JOIN dictamen d ON d.id_ticket = t.id_ticket AND d.estado = 'enviado_al_gestor' " .
                 "INNER JOIN (SELECT id_ticket, MAX(fecha_actualizacion) AS mx FROM dictamen WHERE estado = 'enviado_al_gestor' GROUP BY id_ticket) dm " .
@@ -4693,6 +4872,7 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
             ];
 
             $fueDirecciones = null;
+            $resDs = '';
             $dsRow = $db->queryOne(
                 "SELECT ds1.resultado, ds1.detalle FROM dictamen_sistema ds1 " .
                 "INNER JOIN (SELECT id_ticket, MAX(id) AS mid FROM dictamen_sistema WHERE id_ticket = :tid GROUP BY id_ticket) dsmx " .
@@ -4700,6 +4880,7 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                 ['tid' => $idTicket]
             );
             if (is_array($dsRow) && $dsRow !== []) {
+                $resDs = trim((string)($dsRow['resultado'] ?? ''));
                 $detJson = !empty($dsRow['detalle']) ? json_decode((string)$dsRow['detalle'], true) : null;
                 if (is_array($detJson)) {
                     $totDir = (int)($detJson['direcciones_dictamen_total'] ?? 0);
@@ -4712,9 +4893,12 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                 }
             }
 
-            $esIlocalizable = ($fueDirecciones === true) && !empty($pagoSemana['consultado']) && empty($pagoSemana['si']);
+            $esIlocalizableOperativo = ($fueDirecciones === true) && !empty($pagoSemana['consultado']) && empty($pagoSemana['si']);
+            $esIlocalizablePorDictamen = self::esTipoDictamenIlocalizable((string)($row['dictamen_tipo_sabueso'] ?? ''));
+            $esIlocalizablePorDs = ($resDs === 'dictamen_ilocalizable');
+            $esIlocalizable = $esIlocalizableOperativo || $esIlocalizablePorDictamen || $esIlocalizablePorDs;
 
-            $cacheKeyReporte = 'reporte_semanal_global:v2:' . $semanaSelDt->format('Y-m-d');
+            $cacheKeyReporte = 'reporte_semanal_global:v3:' . $semanaSelDt->format('Y-m-d');
             self::statsCacheDelete($cacheKeyReporte);
 
             self::reporteSemanalGlobalArchivoMergeReconsulta(
@@ -4779,6 +4963,7 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
     {
         $db = new Database();
         $whereActivo = '(t.activo = 1 OR t.activo IS NULL) AND (t.fecha_eliminacion IS NULL)';
+        $whereActivo .= self::andTicketSoloSabuesoSql($db);
         $out = ['success' => true, 'mensaje' => 'OK', 'tipo' => $tipo, 'filas' => []];
 
         try {
@@ -4881,15 +5066,8 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
         }
         $db = new Database();
         $whereActivo = '(t.activo = 1 OR t.activo IS NULL) AND (t.fecha_eliminacion IS NULL)';
+        $andSabueso = self::andTicketSoloSabuesoSql($db);
         try {
-            $tieneCategoria = false;
-            try {
-                $col = $db->queryOne("SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'ticket' AND COLUMN_NAME = 'categoria_gestion' LIMIT 1");
-                $tieneCategoria = !empty($col);
-            } catch (\Exception $e) {
-            }
-            $andSabueso = $tieneCategoria ? " AND (COALESCE(NULLIF(TRIM(t.categoria_gestion),''), 'sabueso') = 'sabueso')" : '';
-
             $sql = "SELECT t.id_ticket, t.folio, t.id_credito, t.fecha_creacion, " .
                 "CONCAT(TRIM(IFNULL(p.nombres,'')), ' ', TRIM(IFNULL(p.apellidop,''))) AS creador_nombre, " .
                 "dm.fecha_actualizacion AS dictamen_fecha_envio, dm.fecha_visto_gestor AS dictamen_fecha_visto, " .
@@ -4927,7 +5105,9 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                     if (isset($det['prorroga']) && is_array($det['prorroga']) && !empty($det['prorroga']['otorgada'])) {
                         $prorroga = 'Sí';
                     }
-                    if (array_key_exists('pago_en_ventana', $det)) {
+                    if (!empty($det['evaluacion_visitas_pago_no_aplica']) || !empty($det['pago_evaluacion_no_aplica'])) {
+                        $pagaron = '—';
+                    } elseif (array_key_exists('pago_en_ventana', $det)) {
                         $consultado = !array_key_exists('__SPARTA_SECRET_REDACTED___consultado', $det) || !empty($det['__SPARTA_SECRET_REDACTED___consultado']);
                         $pagaron = !empty($det['pago_en_ventana']) ? 'Sí' : ($consultado ? 'No' : 'No se pudo verificar');
                     }
@@ -4974,6 +5154,7 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
         }
         $db = new Database();
         $whereActivo = '(t.activo = 1 OR t.activo IS NULL) AND (t.fecha_eliminacion IS NULL)';
+        $whereActivo .= self::andTicketSoloSabuesoSql($db);
         $fechaCdmx = self::fechaCdmx();
         $lunesCdmx = self::inicioSemanaLunesCdmx();
         $y = self::cdmxNowImmutable()->format('Y');
@@ -5118,6 +5299,30 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
             'periodo_sabueso' => $periodoSabueso,
             'cdmx_referencia' => self::ahoraCdmx(),
         ];
+    }
+
+    /**
+     * Fragmento SQL AND … para contar solo tickets del módulo Sabueso (categoria_gestion vacío o 'sabueso').
+     * Cadena vacía si no existe la columna (BD sin migración).
+     */
+    private static function andTicketSoloSabuesoSql(Database $db): string
+    {
+        static $tieneColumna = null;
+        if ($tieneColumna === null) {
+            $tieneColumna = false;
+            try {
+                $col = $db->queryOne(
+                    "SELECT 1 AS ok FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() " .
+                    "AND TABLE_NAME = 'ticket' AND COLUMN_NAME = 'categoria_gestion' LIMIT 1"
+                );
+                $tieneColumna = !empty($col);
+            } catch (\Exception $e) {
+                $tieneColumna = false;
+            }
+        }
+        return $tieneColumna
+            ? " AND (COALESCE(NULLIF(TRIM(t.categoria_gestion),''), 'sabueso') = 'sabueso')"
+            : '';
     }
 
     /**

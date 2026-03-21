@@ -3,6 +3,7 @@
 namespace Core;
 
 use Models\ConfigPanelUsuario as ConfigPanelUsuarioDAO;
+use Core\Database;
 
 /**
  * Paneles admin de tickets por módulo (cada uno con URL y script propios, sin Sabueso).
@@ -152,7 +153,7 @@ class TicketsPanelModuloHelper
         if ($c === 'validaciones' && ($moduloConfig['modo'] ?? '') === 'territorial') {
             $moduloConfig['personaIdSesion'] = (int) $personaId;
         }
-        $incluirModalFormBuilderLectura = ($c === 'validaciones' && $modo === 'territorial');
+        $incluirModalFormBuilderLectura = ($c === 'validaciones' && in_array($modo, ['territorial', 'gestor'], true));
         if ($incluirModalFormBuilderLectura) {
             $moduloConfig['verFormularioTerritorialResumen'] = true;
         }
@@ -175,5 +176,78 @@ class TicketsPanelModuloHelper
             . '<script src="/assets/js/paneladmin_tickets_modulo.js?v=' . $panelJsVer . '"></script>'
         );
         $ctrl->render('tickets_panel_modulo');
+    }
+
+    /**
+     * Entrada automática al menú Validaciones (gestor o jefe territorial) sin depender de módulos 18/19.
+     * null si no aplica o si usa panel admin de validaciones (config_panel_usuario).
+     *
+     * @return array{tipo: string, url: string}|null tipo = 'gestor'|'territorial'
+     */
+    public static function resolverEntradaValidacionesOperativa(int $personaId): ?array
+    {
+        if ($personaId < 1) {
+            return null;
+        }
+        $panelesMenuUsuario = ConfigPanelUsuarioDAO::getPanelesPorPersona($personaId);
+        if (in_array('sabueso_panel_validaciones', $panelesMenuUsuario, true)) {
+            return null;
+        }
+        try {
+            $dbMenu = new Database();
+            $rowCapo = $dbMenu->queryOne(
+                "SELECT pp.nombre AS puesto_nombre, pp.departamento_id AS departamento_id
+                 FROM asigna_puesto ap
+                 INNER JOIN puesto pp ON pp.id = ap.id_puesto
+                 WHERE ap.id_persona = :id_persona
+                   AND pp.es_jefe = 1
+                   AND (ap.activo = 1 OR ap.activo IS NULL)
+                 ORDER BY pp.departamento_id ASC, pp.nivel ASC
+                 LIMIT 1",
+                ['id_persona' => $personaId]
+            );
+            $puestoNombreMenu = $rowCapo && isset($rowCapo['puesto_nombre'])
+                ? strtolower(trim((string)$rowCapo['puesto_nombre']))
+                : '';
+            $campoTerritorialMenu = '';
+            if ($puestoNombreMenu !== '') {
+                if (strpos($puestoNombreMenu, '1_7') !== false) {
+                    $campoTerritorialMenu = '1_7';
+                } elseif (strpos($puestoNombreMenu, '8_21') !== false) {
+                    $campoTerritorialMenu = '8_21';
+                }
+                if ($campoTerritorialMenu === '') {
+                    if (preg_match('/1\s*[-_ ]?\s*7/', $puestoNombreMenu)) {
+                        $campoTerritorialMenu = '1_7';
+                    } elseif (preg_match('/8\s*[-_ ]?\s*21/', $puestoNombreMenu)) {
+                        $campoTerritorialMenu = '8_21';
+                    }
+                }
+            }
+            $capoDepartamentoId = $rowCapo && isset($rowCapo['departamento_id']) ? (int)$rowCapo['departamento_id'] : 0;
+            $esCapoValidacionesTerritorial = $capoDepartamentoId > 0 && $campoTerritorialMenu !== '';
+
+            if ($esCapoValidacionesTerritorial) {
+                return ['tipo' => 'territorial', 'url' => '/validaciones/territorial'];
+            }
+
+            $asigRow = $dbMenu->queryOne(
+                "SELECT COUNT(1) AS total
+                 FROM asignacion_ticket at
+                 INNER JOIN ticket t ON t.id_ticket = at.id_ticket
+                 WHERE at.id_persona_asignada = :id_persona
+                   AND (at.activo = 1 OR at.fecha_liberacion IS NULL)
+                   AND (t.activo = 1 OR t.activo IS NULL)
+                   AND LOWER(COALESCE(NULLIF(TRIM(t.categoria_gestion),''), 'sabueso')) = 'validaciones'",
+                ['id_persona' => $personaId]
+            );
+            if ((int)($asigRow['total'] ?? 0) > 0) {
+                return ['tipo' => 'gestor', 'url' => '/validaciones/gestor'];
+            }
+        } catch (\Throwable $e) {
+            return null;
+        }
+
+        return null;
     }
 }
